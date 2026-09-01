@@ -227,7 +227,69 @@ func TestRunHedgedStreaming_SlowStartHedgesAndBackupWins(t *testing.T) {
 	if hh.ctxs[0].Err() == nil {
 		t.Error("losing candidate A's context should be cancelled after B wins")
 	}
+	// A was launched and abandoned in flight: the trail says so, ahead of the
+	// winner's record, so the per-provider failover counter and the log both
+	// see the fan-out.
+	got := logData.attempts
+	if len(got) != 2 {
+		t.Fatalf("attempts = %+v, want the superseded A and the winner B", got)
+	}
+	if got[0].Attempt != 0 || got[0].Provider != "prov-A" || got[0].ErrorKind != string(KindHedgeSuperseded) || !got[0].Hedged || got[0].Status != 0 || got[0].Breaker != "" {
+		t.Errorf("superseded record = %+v", got[0])
+	}
+	if got[1].Attempt != 1 || got[1].Provider != "prov-B" || got[1].Status != 200 {
+		t.Errorf("winner record = %+v", got[1])
+	}
+	if provs := logData.failoverProviders(); len(provs) != 1 || provs[0] != "prov-B" {
+		t.Errorf("failoverProviders = %v, want the hedge to B only (A was the first attempt)", provs)
+	}
 }
+
+// settleHedgeLaunches on the race's exit: a result already queued is recorded
+// from its own verdict (a real loser keeps its status and breaker charge; a
+// queued runner-up win is abandoned), a launch with no result is abandoned
+// with the exit's kind, the winner and unlaunched candidates are left alone,
+// and the in-flight count comes back reduced by what was drained.
+func TestSettleHedgeLaunches(t *testing.T) {
+	cands := hedgeCandidates("w", "queued-loser", "queued-win", "in-flight", "never-launched")
+	launchedAt := []time.Time{time.Now(), time.Now(), time.Now(), time.Now(), {}}
+	settled := []bool{true, false, false, false, false}
+	results := make(chan hedgeResult, 5)
+	results <- hedgeResult{idx: 1, status: 503, reqErr: reqError{Kind: KindProviderError, Provider: "queued-loser", Detail: "HTTP 503"}, breaker: breakerCharge}
+	closed := &closeRecorder{}
+	results <- hedgeResult{idx: 2, won: true, status: 200, resp: &http.Response{Body: closed}}
+	logData := &requestLogData{}
+
+	left := settleHedgeLaunches(logData, results, cands, launchedAt, settled, 3, 0, KindHedgeSuperseded, "superseded by the winner while in flight")
+	if left != 1 {
+		t.Errorf("in flight after settling = %d, want 1 (only the launch with no result)", left)
+	}
+	if !closed.closed {
+		t.Error("the queued runner-up's body was not closed")
+	}
+	got := logData.attempts
+	if len(got) != 3 {
+		t.Fatalf("attempts = %+v, want the queued loser, the queued win and the in-flight launch", got)
+	}
+	if got[0].Attempt != 1 || got[0].Status != 503 || got[0].ErrorKind != string(KindProviderError) || got[0].Breaker != breakerCharge {
+		t.Errorf("queued loser = %+v, want its own verdict, not a superseded stub", got[0])
+	}
+	if got[1].Attempt != 2 || got[1].Status != 0 || got[1].ErrorKind != string(KindHedgeSuperseded) {
+		t.Errorf("queued runner-up win = %+v, want abandoned", got[1])
+	}
+	if got[2].Attempt != 3 || got[2].ErrorKind != string(KindHedgeSuperseded) || got[2].Provider != "in-flight" {
+		t.Errorf("in-flight launch = %+v, want abandoned", got[2])
+	}
+	if !settled[1] || !settled[2] || settled[3] {
+		t.Errorf("settled = %v, want the two drained marked and the in-flight one not", settled)
+	}
+}
+
+// closeRecorder is an io.ReadCloser that remembers being closed.
+type closeRecorder struct{ closed bool }
+
+func (c *closeRecorder) Read([]byte) (int, error) { return 0, io.EOF }
+func (c *closeRecorder) Close() error             { c.closed = true; return nil }
 
 // TestRunHedgedStreaming_FailedAttemptLaunchesNextEagerly: a stalling A frees its
 // slot, so B is launched immediately (before the hedge tick) and wins.
@@ -328,7 +390,7 @@ func TestRunHedgedStreaming_OverallDeadline(t *testing.T) {
 		{delay: 50 * time.Millisecond, ignoreCtx: true},
 		{delay: 50 * time.Millisecond, ignoreCtx: true},
 	})
-	st, _ := newHedgeState(10 * time.Second)
+	st, logData := newHedgeState(10 * time.Second)
 	st.overallDeadline = time.Now().Add(-time.Second) // already past
 	w := runHedge(context.Background(), h, hh, st, hedgeCandidates("prov-A", "prov-B"))
 
@@ -337,6 +399,20 @@ func TestRunHedgedStreaming_OverallDeadline(t *testing.T) {
 	}
 	if st.lastReqErr.Kind != KindFailoverTimeout {
 		t.Errorf("terminal cause should be failover_timeout, got %s", st.lastReqErr.Kind)
+	}
+	// A was launched and still running at the deadline: the trail names it
+	// with the deadline as its cause. B was never launched and is absent.
+	var a *attemptRecord
+	for i := range logData.attempts {
+		if logData.attempts[i].Provider == "prov-A" {
+			a = &logData.attempts[i]
+		}
+		if logData.attempts[i].Provider == "prov-B" {
+			t.Errorf("unlaunched B in the trail: %+v", logData.attempts[i])
+		}
+	}
+	if a == nil || a.ErrorKind != string(KindFailoverTimeout) || a.Status != 0 || !a.Hedged {
+		t.Errorf("abandoned A = %+v, want a failover_timeout record with no status", a)
 	}
 }
 

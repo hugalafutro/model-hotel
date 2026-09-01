@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "gecrediteerd",
 			"attemptBreakerAlive": "actief",
 			"attemptBreakerSkipped": "overgeslagen",
-			"attemptBreakerDisabled": "uitgeschakeld"
+			"attemptBreakerDisabled": "uitgeschakeld",
+			"attemptSuperseded": "achterhaald"
 		},
 		"statusBadge": {
 			"streaming": "Streamen",

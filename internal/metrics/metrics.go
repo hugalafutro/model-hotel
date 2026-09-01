@@ -45,8 +45,23 @@ var (
 
 	failoverAttemptsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_failover_attempts_total",
-		Help: "Total failover attempts beyond the first try, by model (or hotel group).",
-	}, []string{"model"})
+		Help: "Failover attempts beyond the first try, by model (or hotel group) and the provider the attempt went to, hedged launches included. The fan-out to fallback entries per provider, not only per group.",
+	}, []string{"model", "provider"})
+
+	upstreamRateLimitTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "modelhotel_upstream_rate_limit_total",
+		Help: "Upstream 429 responses to proxied requests by provider, model and class (probes and quota polls issue their own requests and are not counted here). saturated = slots or a per-minute budget busy, retry in seconds (the circuit is not charged); exhausted = the window or balance is spent (the circuit opens and pins); unknown = the classifier could not tell, or rate-limit failover is off (treated as an ordinary failure). model is the provider-side model id.",
+	}, []string{"provider", "model", "class"})
+
+	circuitBreakerOpensTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "modelhotel_circuit_breaker_opens_total",
+		Help: "Circuit-breaker open transitions by provider, model and cause, the breaker's own verdict phrase (\"upstream status 429 (exhausted)\", \"upstream status 503\", \"upstream request failed\"; a saturated 429 never opens a circuit). Pairs with modelhotel_circuit_breaker_state, which cannot show an open and a close inside one scrape interval.",
+	}, []string{"provider", "model", "cause"})
+
+	failoverExhaustedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "modelhotel_failover_exhausted_total",
+		Help: "Requests to a failover group that no entry served, by group and reason. no_available_provider = the group resolved to zero candidates (every entry disabled, missing or skipped by the breaker); all_busy = the last candidate answered a saturated 429 or was at its in-flight limit; all_failed = it failed some other way, or the failover deadline passed.",
+	}, []string{"group", "reason"})
 
 	responsesRerouteTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_responses_reroute_total",
@@ -66,6 +81,9 @@ func init() {
 		ttftSeconds,
 		tokensTotal,
 		failoverAttemptsTotal,
+		upstreamRateLimitTotal,
+		circuitBreakerOpensTotal,
+		failoverExhaustedTotal,
 		responsesRerouteTotal,
 		retirementProbesTotal,
 		collectors.NewGoCollector(),
@@ -86,7 +104,9 @@ type Observation struct {
 	PromptTokens     int
 	CompletionTokens int
 	ReasoningTokens  int
-	FailoverAttempt  int // 0-based index of the attempt that ended the request
+	// FailoverProviders names the provider of every attempt after the first
+	// (hedged launches included), in attempt order: one failover attempt each.
+	FailoverProviders []string
 }
 
 // Record updates the request-outcome metrics from one completed request.
@@ -108,11 +128,33 @@ func Record(o Observation) {
 	if o.ReasoningTokens > 0 {
 		tokensTotal.WithLabelValues(provider, model, "reasoning").Add(float64(o.ReasoningTokens))
 	}
-	// FailoverAttempt is the 0-based index of the terminal attempt; any value
-	// above zero means the request failed over at least once.
-	if o.FailoverAttempt > 0 {
-		failoverAttemptsTotal.WithLabelValues(model).Add(float64(o.FailoverAttempt))
+	for _, p := range o.FailoverProviders {
+		failoverAttemptsTotal.WithLabelValues(model, labelOrUnknown(p)).Inc()
 	}
+}
+
+// RecordUpstreamRateLimit counts one upstream 429 by the class the classifier
+// assigned it ("saturated", "exhausted", "unknown"). The caller owns that
+// vocabulary, as with RecordRetirementProbe: the class type lives in the proxy.
+// This is the counter that shows a provider's slot ceiling as a flat line of
+// saturated, where the request counter shows only 429s.
+func RecordUpstreamRateLimit(provider, model, class string) {
+	upstreamRateLimitTotal.WithLabelValues(labelOrUnknown(provider), labelOrUnknown(model), class).Inc()
+}
+
+// RecordBreakerOpen counts one circuit opening, with the cause the breaker
+// stamped on it. Cardinality is provider x model x cause, and cause is a small
+// closed vocabulary: "upstream status <code>" with an optional qualifier, the
+// transport failure, the exhausted-body verdict.
+func RecordBreakerOpen(provider, model, cause string) {
+	circuitBreakerOpensTotal.WithLabelValues(labelOrUnknown(provider), labelOrUnknown(model), labelOrUnknown(cause)).Inc()
+}
+
+// RecordFailoverExhausted counts one request a failover group could not serve,
+// by group (the display model, without the hotel/ prefix) and reason
+// ("no_available_provider", "all_busy", "all_failed").
+func RecordFailoverExhausted(group, reason string) {
+	failoverExhaustedTotal.WithLabelValues(labelOrUnknown(group), reason).Inc()
 }
 
 // RecordResponsesReroute counts one attempt routed to /v1/responses. mode is

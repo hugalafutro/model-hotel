@@ -2856,7 +2856,8 @@
 			"attemptBreakerSuccess": "признато",
 			"attemptBreakerAlive": "активан",
 			"attemptBreakerSkipped": "прескочено",
-			"attemptBreakerDisabled": "искључено"
+			"attemptBreakerDisabled": "искључено",
+			"attemptSuperseded": "престигнут"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",

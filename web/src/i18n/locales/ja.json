@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "加点",
 			"attemptBreakerAlive": "稼働中",
 			"attemptBreakerSkipped": "スキップ",
-			"attemptBreakerDisabled": "無効"
+			"attemptBreakerDisabled": "無効",
+			"attemptSuperseded": "追い越し"
 		},
 		"statusBadge": {
 			"streaming": "ストリーミング",

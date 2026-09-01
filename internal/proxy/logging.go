@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 	"time"
 	"unicode/utf8"
 
@@ -366,25 +367,18 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	if isTerminalLogState(logEntry.state) {
 		// Single Prometheus recording seam: every terminal request passes
 		// through here exactly once with its provider/model/status/tokens.
-		// Validation failures carry the raw, client-supplied model string, which
-		// is unbounded — collapse it to a constant label so a client sending
-		// bogus model names can't explode Prometheus series cardinality.
-		metricModel := logEntry.modelID
-		if logEntry.errorKind == KindValidation {
-			metricModel = "unresolved"
-		}
 		metrics.Record(metrics.Observation{
-			Provider:         logEntry.providerName,
-			Model:            metricModel,
-			StatusCode:       logEntry.statusCode,
-			ErrorKind:        string(logEntry.errorKind),
-			DurationSeconds:  logEntry.durationMs / 1000.0,
-			TTFTSeconds:      logEntry.ttftMs / 1000.0,
-			Streaming:        logEntry.streaming,
-			PromptTokens:     logEntry.tokensPrompt,
-			CompletionTokens: logEntry.tokensCompletion,
-			ReasoningTokens:  logEntry.tokensCompletionReasoning,
-			FailoverAttempt:  logEntry.failoverAttempt,
+			Provider:          logEntry.providerName,
+			Model:             metricModelLabel(logEntry.modelID, logEntry.errorKind),
+			StatusCode:        logEntry.statusCode,
+			ErrorKind:         string(logEntry.errorKind),
+			DurationSeconds:   logEntry.durationMs / 1000.0,
+			TTFTSeconds:       logEntry.ttftMs / 1000.0,
+			Streaming:         logEntry.streaming,
+			PromptTokens:      logEntry.tokensPrompt,
+			CompletionTokens:  logEntry.tokensCompletion,
+			ReasoningTokens:   logEntry.tokensCompletionReasoning,
+			FailoverProviders: logEntry.failoverProviders(),
 		})
 
 		severity := "success"
@@ -417,4 +411,19 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			},
 		})
 	}
+}
+
+// metricModelLabel is the model label the request-outcome metrics carry: the
+// name the client asked for, with two bounds on it. A validation failure
+// collapses to "unresolved" (the raw string is unbounded), and a hotel/ group
+// is lower-cased after the prefix the way the group lookup lower-cases it, so
+// a client's spelling of the group cannot mint one series per casing.
+func metricModelLabel(modelID string, kind ErrorKind) string {
+	if kind == KindValidation {
+		return "unresolved"
+	}
+	if group, ok := strings.CutPrefix(modelID, "hotel/"); ok {
+		return "hotel/" + strings.ToLower(group)
+	}
+	return modelID
 }

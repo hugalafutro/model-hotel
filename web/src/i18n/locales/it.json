@@ -2856,7 +2856,8 @@
 			"attemptBreakerSuccess": "accreditato",
 			"attemptBreakerAlive": "attivo",
 			"attemptBreakerSkipped": "saltato",
-			"attemptBreakerDisabled": "disattivato"
+			"attemptBreakerDisabled": "disattivato",
+			"attemptSuperseded": "superato"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

@@ -62,6 +62,7 @@ func TestRecordEmitsMetrics(t *testing.T) {
 	// model alone, so a shared id would accumulate across runs even under a
 	// fresh provider.
 	mdl := uniqueLabel("llama-3")
+	fallback := uniqueLabel("test-prov-fallback")
 	Record(Observation{
 		Provider:         prov,
 		Model:            mdl,
@@ -72,7 +73,9 @@ func TestRecordEmitsMetrics(t *testing.T) {
 		PromptTokens:     10,
 		CompletionTokens: 20,
 		ReasoningTokens:  5,
-		FailoverAttempt:  1,
+		// Two attempts after the first: a hedge to the fallback that lost, and
+		// the fallback again, which served. One increment each, per provider.
+		FailoverProviders: []string{fallback, fallback},
 	})
 
 	out := scrape(t)
@@ -83,10 +86,44 @@ func TestRecordEmitsMetrics(t *testing.T) {
 		fmt.Sprintf(`modelhotel_tokens_total{kind="completion",model=%q,provider=%q} 20`, mdl, prov),
 		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt",model=%q,provider=%q} 10`, mdl, prov),
 		fmt.Sprintf(`modelhotel_tokens_total{kind="reasoning",model=%q,provider=%q} 5`, mdl, prov),
-		fmt.Sprintf(`modelhotel_failover_attempts_total{model=%q} 1`, mdl),
+		fmt.Sprintf(`modelhotel_failover_attempts_total{model=%q,provider=%q} 2`, mdl, fallback),
 		`go_goroutines`, // Go runtime collector is registered
 	}
 	for _, w := range wantSubstrings {
+		if !strings.Contains(out, w) {
+			t.Errorf("scrape output missing %q", w)
+		}
+	}
+	if strings.Contains(out, fmt.Sprintf(`modelhotel_failover_attempts_total{model=%q,provider=%q}`, mdl, prov)) {
+		t.Errorf("the first attempt's provider was counted as a failover attempt")
+	}
+}
+
+// The failover observability counters: one increment per event, labels as the
+// design names them, and an empty label collapsed to "unknown" rather than an
+// empty series.
+func TestRecordFailoverObservabilityCounters(t *testing.T) {
+	prov := uniqueLabel("test-prov-obs")
+	mdl := uniqueLabel("glm-5.3")
+	group := uniqueLabel("group")
+
+	RecordUpstreamRateLimit(prov, mdl, "saturated")
+	RecordUpstreamRateLimit(prov, mdl, "saturated")
+	RecordUpstreamRateLimit(prov, mdl, "exhausted")
+	RecordBreakerOpen(prov, mdl, "upstream status 429 (saturated)")
+	RecordBreakerOpen(prov, mdl, "")
+	RecordFailoverExhausted(group, "all_busy")
+	RecordFailoverExhausted(group, "no_available_provider")
+
+	out := scrape(t)
+	for _, w := range []string{
+		fmt.Sprintf(`modelhotel_upstream_rate_limit_total{class="saturated",model=%q,provider=%q} 2`, mdl, prov),
+		fmt.Sprintf(`modelhotel_upstream_rate_limit_total{class="exhausted",model=%q,provider=%q} 1`, mdl, prov),
+		fmt.Sprintf(`modelhotel_circuit_breaker_opens_total{cause="upstream status 429 (saturated)",model=%q,provider=%q} 1`, mdl, prov),
+		fmt.Sprintf(`modelhotel_circuit_breaker_opens_total{cause="unknown",model=%q,provider=%q} 1`, mdl, prov),
+		fmt.Sprintf(`modelhotel_failover_exhausted_total{group=%q,reason="all_busy"} 1`, group),
+		fmt.Sprintf(`modelhotel_failover_exhausted_total{group=%q,reason="no_available_provider"} 1`, group),
+	} {
 		if !strings.Contains(out, w) {
 			t.Errorf("scrape output missing %q", w)
 		}

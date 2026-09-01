@@ -82,6 +82,18 @@ describe("RequestLogDetail attempt trail", () => {
 							ttft_ms: 1561,
 							breaker: "success",
 						},
+						{
+							// A hedged launch abandoned when Ollama won: no status,
+							// and not a failure.
+							attempt: 2,
+							provider_id: "prov-3",
+							provider: "Kimi",
+							model: "glm-5.3",
+							error_kind: "hedge_superseded",
+							detail: "superseded by the winner while in flight",
+							duration_ms: 1602,
+							hedged: true,
+						},
 					],
 				}}
 				onClose={onClose}
@@ -89,7 +101,13 @@ describe("RequestLogDetail attempt trail", () => {
 		);
 		const trail = screen.getByTestId("attempt-trail");
 		const rows = within(trail).getAllByTestId("attempt-trail-row");
-		expect(rows).toHaveLength(3);
+		expect(rows).toHaveLength(4);
+		expect(rows[3]).toHaveTextContent("Kimi");
+		expect(
+			within(rows[3]).getByTestId("attempt-superseded"),
+		).toBeInTheDocument();
+		// Not painted as a failure: no red "no response" badge on that row.
+		expect(rows[3].querySelector(".ui-badge-red")).toBeNull();
 		expect(rows[0]).toHaveTextContent("Z.ai");
 		expect(rows[0]).toHaveTextContent("circuit breaker open");
 		// A skipped candidate has no attempt number and no status.

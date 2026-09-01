@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "已记入",
 			"attemptBreakerAlive": "在线",
 			"attemptBreakerSkipped": "已跳过",
-			"attemptBreakerDisabled": "已禁用"
+			"attemptBreakerDisabled": "已禁用",
+			"attemptSuperseded": "已被取代"
 		},
 		"statusBadge": {
 			"streaming": "流式传输",

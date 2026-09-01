@@ -2856,7 +2856,8 @@
 			"attemptBreakerSuccess": "creditat",
 			"attemptBreakerAlive": "activ",
 			"attemptBreakerSkipped": "sărit",
-			"attemptBreakerDisabled": "dezactivat"
+			"attemptBreakerDisabled": "dezactivat",
+			"attemptSuperseded": "depășit"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

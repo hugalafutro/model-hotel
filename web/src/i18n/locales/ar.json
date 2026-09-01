@@ -3039,7 +3039,8 @@
 			"attemptBreakerSuccess": "مُعتمد",
 			"attemptBreakerAlive": "حي",
 			"attemptBreakerSkipped": "متخطّى",
-			"attemptBreakerDisabled": "معطّل"
+			"attemptBreakerDisabled": "معطّل",
+			"attemptSuperseded": "تم تجاوزه"
 		},
 		"statusBadge": {
 			"streaming": "البث",

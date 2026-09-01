@@ -2856,7 +2856,8 @@
 			"attemptBreakerSuccess": "creditado",
 			"attemptBreakerAlive": "ativo",
 			"attemptBreakerSkipped": "ignorado",
-			"attemptBreakerDisabled": "desativado"
+			"attemptBreakerDisabled": "desativado",
+			"attemptSuperseded": "superado"
 		},
 		"statusBadge": {
 			"streaming": "Transmitindo",

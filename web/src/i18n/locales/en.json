@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "credited",
 			"attemptBreakerAlive": "alive",
 			"attemptBreakerSkipped": "skipped",
-			"attemptBreakerDisabled": "disabled"
+			"attemptBreakerDisabled": "disabled",
+			"attemptSuperseded": "superseded"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

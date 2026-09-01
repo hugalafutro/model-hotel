@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"sort"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -219,6 +220,25 @@ func hedgeLoserRecord(res hedgeResult, candidate modelCandidate, launchedAt time
 	}
 }
 
+// hedgeAbandonedRecord is the trail entry for a hedged attempt still in flight
+// when the race ended: launched, cancelled, never resolved. kind and detail say
+// why the race ended (another candidate won, the failover deadline, the client
+// left). Nothing is known about what it would have answered, so it carries no
+// status, and its breaker verdict, if the cancelled goroutine records one, is
+// not the trail's to claim. The duration is launch to abandonment.
+func hedgeAbandonedRecord(idx int, candidate modelCandidate, launchedAt time.Time, kind ErrorKind, detail string) attemptRecord {
+	return attemptRecord{
+		Attempt:    idx,
+		ProviderID: candidate.provider.ID.String(),
+		Provider:   candidate.provider.Name,
+		Model:      candidateModelID(candidate),
+		ErrorKind:  string(kind),
+		Detail:     detail,
+		DurationMs: float64(time.Since(launchedAt).Microseconds()) / 1000.0,
+		Hedged:     true,
+	}
+}
+
 // appendBreakerSkip records a candidate the circuit breaker refused before any
 // request was made, so the trail can say "Z.ai: skipped (circuit open)" ahead
 // of the providers that were actually tried.
@@ -244,9 +264,28 @@ func (l *requestLogData) attemptsJSON() []byte {
 	if l == nil || len(l.attempts) == 0 {
 		return nil
 	}
+	// Skips first, then by attempt index: a hedged race appends its losers in
+	// arrival order and the winner last, so attempt 0 can follow attempt 1.
+	// Stable, so the saturation retry keeps its place behind the attempt it
+	// repeats. The column is documented as being in order; this is where.
+	sort.SliceStable(l.attempts, func(i, j int) bool { return l.attempts[i].Attempt < l.attempts[j].Attempt })
 	b, err := json.Marshal(l.attempts)
 	if err != nil {
 		return nil
 	}
 	return b
+}
+
+// failoverProviders names the provider of every attempt after the first, in
+// trail order, for the per-provider failover counter. Hedged launches count:
+// they are the fan-out to a fallback entry the counter exists to show. Breaker
+// skips (attempt -1) were never attempts and do not.
+func (l *requestLogData) failoverProviders() []string {
+	var out []string
+	for _, a := range l.attempts {
+		if a.Attempt >= 1 {
+			out = append(out, a.Provider)
+		}
+	}
+	return out
 }
