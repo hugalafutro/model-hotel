@@ -2856,7 +2856,8 @@
 			"attemptBreakerSuccess": "זוכה",
 			"attemptBreakerAlive": "פעיל",
 			"attemptBreakerSkipped": "דולג",
-			"attemptBreakerDisabled": "מושבת"
+			"attemptBreakerDisabled": "מושבת",
+			"attemptSuperseded": "נדחק"
 		},
 		"statusBadge": {
 			"streaming": "סטרימינג",

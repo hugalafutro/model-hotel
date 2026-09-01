@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "πιστώθηκε",
 			"attemptBreakerAlive": "ενεργός",
 			"attemptBreakerSkipped": "παραλείφθηκε",
-			"attemptBreakerDisabled": "απενεργοποιημένο"
+			"attemptBreakerDisabled": "απενεργοποιημένο",
+			"attemptSuperseded": "ξεπεράστηκε"
 		},
 		"statusBadge": {
 			"streaming": "Ροή",

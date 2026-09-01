@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "được ghi nhận",
 			"attemptBreakerAlive": "hoạt động",
 			"attemptBreakerSkipped": "bỏ qua",
-			"attemptBreakerDisabled": "đã tắt"
+			"attemptBreakerDisabled": "đã tắt",
+			"attemptSuperseded": "bị vượt"
 		},
 		"statusBadge": {
 			"streaming": "Phát trực tuyến",

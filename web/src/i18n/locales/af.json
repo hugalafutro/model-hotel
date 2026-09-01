@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "gekrediteer",
 			"attemptBreakerAlive": "lewend",
 			"attemptBreakerSkipped": "oorgeslaan",
-			"attemptBreakerDisabled": "gedeaktiveer"
+			"attemptBreakerDisabled": "gedeaktiveer",
+			"attemptSuperseded": "vervang"
 		},
 		"statusBadge": {
 			"streaming": "Stroom",

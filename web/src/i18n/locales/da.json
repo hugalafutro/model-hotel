@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "krediteret",
 			"attemptBreakerAlive": "i live",
 			"attemptBreakerSkipped": "sprunget over",
-			"attemptBreakerDisabled": "deaktiveret"
+			"attemptBreakerDisabled": "deaktiveret",
+			"attemptSuperseded": "overhalet"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

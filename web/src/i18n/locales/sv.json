@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "krediterad",
 			"attemptBreakerAlive": "vid liv",
 			"attemptBreakerSkipped": "överhoppad",
-			"attemptBreakerDisabled": "inaktiverad"
+			"attemptBreakerDisabled": "inaktiverad",
+			"attemptSuperseded": "omsprungen"
 		},
 		"statusBadge": {
 			"streaming": "Strömning",

@@ -58,7 +58,8 @@ func TestMetrics_FailoverExhaustedByReason(t *testing.T) {
 	env := newTestProxyHandler(t)
 	defer env.Upstream.Close()
 	h := env.Handler
-	group := "g-" + strconv.FormatInt(time.Now().UnixNano(), 36)
+	// Mixed case on purpose: the label is lower-cased like the group lookup.
+	group := "G-" + strings.ToUpper(strconv.FormatInt(time.Now().UnixNano(), 36))
 
 	newState := func(last reqError) (*requestState, *http.Request) {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader("{}"))
@@ -68,7 +69,7 @@ func TestMetrics_FailoverExhaustedByReason(t *testing.T) {
 		return st, req
 	}
 	series := func(reason string) string {
-		return `modelhotel_failover_exhausted_total{group="` + group + `",reason="` + reason + `"}`
+		return `modelhotel_failover_exhausted_total{group="` + strings.ToLower(group) + `",reason="` + reason + `"}`
 	}
 
 	st, _ := newState(rateLimitReqErr(rateLimitVerdict{class: rateLimitSaturated, retryAfter: time.Second}, 1, "busy"))
@@ -85,7 +86,7 @@ func TestMetrics_FailoverExhaustedByReason(t *testing.T) {
 	}
 
 	st, req := newState(reqError{})
-	h.failNoAvailableProvider(httptest.NewRecorder(), req, st, group, resolveTimings{}, resolveCacheHits{}, breakerSkipSummary{skips: 1, earliestRetry: time.Now().Add(time.Minute)})
+	h.failNoAvailableProvider(httptest.NewRecorder(), req, st, strings.ToLower(group), resolveTimings{}, resolveCacheHits{}, breakerSkipSummary{skips: 1, earliestRetry: time.Now().Add(time.Minute)})
 	if got := metricValue(t, series("no_available_provider")); got != 1 {
 		t.Errorf("no_available_provider = %v, want 1", got)
 	}
@@ -96,6 +97,26 @@ func TestMetrics_FailoverExhaustedByReason(t *testing.T) {
 	h.failAllExhausted(httptest.NewRecorder(), st, 1)
 	if got := metricValue(t, series("all_failed")); got != 1 {
 		t.Errorf("all_failed after a single-provider failure = %v, want still 1", got)
+	}
+}
+
+// The model label the outcome metrics carry: a validation failure collapses
+// to unresolved, a hotel/ group is lower-cased after the prefix like the
+// lookup, a direct provider/model name is left as the catalog spelt it.
+func TestMetricModelLabel(t *testing.T) {
+	for in, want := range map[string]string{
+		"hotel/GLM-5.3": "hotel/glm-5.3",
+		"hotel/glm-5.3": "hotel/glm-5.3",
+		"Z.ai/GLM-5.3":  "Z.ai/GLM-5.3",
+		"llama-3.2-1b":  "llama-3.2-1b",
+		"HOTEL/glm-5.3": "HOTEL/glm-5.3", // not the prefix the router matches
+	} {
+		if got := metricModelLabel(in, ""); got != want {
+			t.Errorf("metricModelLabel(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if got := metricModelLabel("hotel/whatever the client typed", KindValidation); got != "unresolved" {
+		t.Errorf("validation failure label = %q, want unresolved", got)
 	}
 }
 

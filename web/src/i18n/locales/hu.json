@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "jóváírva",
 			"attemptBreakerAlive": "él",
 			"attemptBreakerSkipped": "kihagyva",
-			"attemptBreakerDisabled": "letiltva"
+			"attemptBreakerDisabled": "letiltva",
+			"attemptSuperseded": "megelőzve"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

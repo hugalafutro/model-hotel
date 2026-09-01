@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "alacaklandırıldı",
 			"attemptBreakerAlive": "canlı",
 			"attemptBreakerSkipped": "atlandı",
-			"attemptBreakerDisabled": "devre dışı"
+			"attemptBreakerDisabled": "devre dışı",
+			"attemptSuperseded": "geçildi"
 		},
 		"statusBadge": {
 			"streaming": "Akış",

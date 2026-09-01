@@ -55,6 +55,16 @@ export function AttemptTrail({ attempts }: { attempts: AttemptRecord[] }) {
 							<span className="ui-badge ui-badge-amber text-xs">
 								{t("components.requestLogDetail.attemptSkipped")}
 							</span>
+						) : a.error_kind === "hedge_superseded" ? (
+							// Abandoned by the gateway because another candidate won:
+							// not a failure, the client was served. Neutral, like the
+							// rest of the UI treats an interruption.
+							<span
+								className="ui-badge ui-badge-neutral text-xs"
+								data-testid="attempt-superseded"
+							>
+								{t("components.requestLogDetail.attemptSuperseded")}
+							</span>
 						) : a.status ? (
 							<StatusBadge code={a.status} state="completed" errorMessage="" />
 						) : (

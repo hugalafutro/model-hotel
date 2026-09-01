@@ -196,6 +196,11 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			settled[res.idx] = true
 			if res.won {
 				cancelExcept(res.idx, true)
+				// Attempts still in flight were launched and lost, not skipped:
+				// each gets a superseded record, so the trail and the per-provider
+				// failover counter show the whole fan-out, which is exactly the
+				// part of a hedge that cost the most.
+				inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, res.idx, KindHedgeSuperseded, "superseded by the winner while in flight")
 				// A runner-up that also produced a first token sent a live
 				// *http.Response we will never stream; drain the still-outstanding
 				// attempts in the background and close their bodies so the
@@ -204,15 +209,6 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				// winner's first byte to the client.
 				if inFlight > 0 {
 					go drainHedgeResults(results, inFlight)
-				}
-				// Attempts still in flight were launched and lost, not skipped:
-				// each gets a superseded record, so the trail and the per-provider
-				// failover counter show the whole fan-out, which is exactly the
-				// part of a hedge that cost the most.
-				for i := range candidates {
-					if i != res.idx && !launchedAt[i].IsZero() && !settled[i] {
-						st.logData.appendAttemptRecord(hedgeAbandonedRecord(i, candidates[i], launchedAt[i]))
-					}
 				}
 				// The winner's trail record opens here and is closed by the
 				// stream's terminal write, like a sequential attempt's.
@@ -261,12 +257,16 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		case <-deadlineTimer.C:
 			debuglog.Warn("proxy: overall request deadline exceeded during hedged streaming", "model", st.logData.modelID, "launched", launched, "deadline", st.overallDeadline)
 			st.setReqErr(reqError{Kind: KindFailoverTimeout, Attempt: launched - 1, Provider: st.logData.providerName, Underlying: st.lastReqErr.Underlying})
+			// The launches still running at the deadline are the most expensive
+			// part of a hedge that timed out: the trail names them.
+			inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, -1, KindFailoverTimeout, "still in flight at the failover deadline")
 			if inFlight > 0 {
 				go drainHedgeResults(results, inFlight)
 			}
 			h.failAllExhausted(w, st, launched)
 			return
 		case <-r.Context().Done():
+			inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, -1, KindClientDisconnect, "client disconnected while in flight")
 			if inFlight > 0 {
 				go drainHedgeResults(results, inFlight)
 			}
@@ -470,6 +470,48 @@ func commitHedgeWin(ctx context.Context, res hedgeResult, resp *http.Response, p
 	res.preReadBuf = preReadBuf
 	res.trueTtftMs = trueTtftMs
 	return res
+}
+
+// settleHedgeLaunches closes out the launches a hedged race is leaving behind
+// when it exits, so the trail names every attempt that was made and the
+// per-provider failover counter reads the whole fan-out. Two kinds of leftover:
+//
+//   - A result already queued in results resolved before the exit, whichever
+//     the select happened to read first, so it is recorded from its own
+//     verdict (a real loser with its status, error and breaker charge). A
+//     queued win is a runner-up whose response will never be streamed; it is
+//     abandoned like the rest.
+//   - A launch with no result yet is abandoned: recorded as kind/detail with
+//     no status, because nothing is known about what it would have answered.
+//
+// except is the winner's index (never abandoned), or -1 on an exit with no
+// winner. Bodies of drained results are closed here. Returns the launches
+// still in flight, for the background drain to wait on. Runs on the
+// orchestrator goroutine, which is the only writer of logData.
+func settleHedgeLaunches(logData *requestLogData, results <-chan hedgeResult, candidates []modelCandidate, launchedAt []time.Time, settled []bool, inFlight, except int, kind ErrorKind, detail string) int {
+	for drained := false; !drained; {
+		select {
+		case res := <-results:
+			inFlight--
+			settled[res.idx] = true
+			if res.resp != nil {
+				_ = res.resp.Body.Close()
+			}
+			if res.won {
+				logData.appendAttemptRecord(hedgeAbandonedRecord(res.idx, candidates[res.idx], launchedAt[res.idx], kind, detail))
+			} else {
+				logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx]))
+			}
+		default:
+			drained = true
+		}
+	}
+	for i := range candidates {
+		if i != except && !launchedAt[i].IsZero() && !settled[i] {
+			logData.appendAttemptRecord(hedgeAbandonedRecord(i, candidates[i], launchedAt[i], kind, detail))
+		}
+	}
+	return inFlight
 }
 
 // drainHedgeResults consumes n still-outstanding hedge results and closes any body

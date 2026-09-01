@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "gutgeschrieben",
 			"attemptBreakerAlive": "erreichbar",
 			"attemptBreakerSkipped": "übersprungen",
-			"attemptBreakerDisabled": "deaktiviert"
+			"attemptBreakerDisabled": "deaktiviert",
+			"attemptSuperseded": "überholt"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

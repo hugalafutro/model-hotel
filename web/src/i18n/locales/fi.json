@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "hyvitetty",
 			"attemptBreakerAlive": "elossa",
 			"attemptBreakerSkipped": "ohitettu",
-			"attemptBreakerDisabled": "pois käytöstä"
+			"attemptBreakerDisabled": "pois käytöstä",
+			"attemptSuperseded": "ohitettu"
 		},
 		"statusBadge": {
 			"streaming": "Suoratoistaminen",

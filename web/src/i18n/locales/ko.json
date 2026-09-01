@@ -2795,7 +2795,8 @@
 			"attemptBreakerSuccess": "인정됨",
 			"attemptBreakerAlive": "정상",
 			"attemptBreakerSkipped": "건너뜀",
-			"attemptBreakerDisabled": "비활성화됨"
+			"attemptBreakerDisabled": "비활성화됨",
+			"attemptSuperseded": "추월됨"
 		},
 		"statusBadge": {
 			"streaming": "스트리밍",
