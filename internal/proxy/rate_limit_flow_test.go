@@ -369,7 +369,7 @@ func TestRecordBreakerOutcome_ClassifiedRateLimits(t *testing.T) {
 		if got := cb.GetState(provID, cand.model.ModelID); got != failover.StateClosed {
 			t.Errorf("state = %v, want closed", got)
 		}
-		statuses := cb.Status()
+		statuses := cb.StatusDetail()
 		if len(statuses) != 1 || len(statuses[0].Circuits) != 1 || statuses[0].Circuits[0].LastCause != "upstream status 429 (saturated)" {
 			t.Errorf("status = %+v, want the saturated verdict remembered on the circuit", statuses)
 		}

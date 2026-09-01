@@ -789,7 +789,7 @@ if state == "open" {
     }
 }
 msg := breakerEventMessage(providerName, state, model, providerOpen, c.lastCause)
-if state == "open" && backedOff {
+if state == "open" && backedOff && cooldown == c.cooldownBackoff {
     msg += backoffSuffix(cooldown, c.failedProbes)
 }
 events.Publish(events.Event{
@@ -801,7 +801,7 @@ events.Publish(events.Event{
 })
 ```
 
-The message names the model, because the event is about one model circuit: `Provider zai circuit breaker: open for model glm-4.6`. When that transition also flips the provider-wide verdict, the message says so as well - `... for model glm-4.6 (provider skipped)` - since that is the moment the remaining models leave rotation. Without the model in the sentence, a toast or an Apprise alert about one sidelined model reads as a whole provider going down.
+The message names the model, because the event is about one model circuit, and the cause after it: `Provider zai circuit breaker: open for model glm-4.6: upstream status 503`. When that transition also flips the provider-wide verdict, the message says so as well - `... for model glm-4.6 (provider skipped): upstream status 503` - since that is the moment the remaining models leave rotation. Without the model in the sentence, a toast or an Apprise alert about one sidelined model reads as a whole provider going down.
 
 A separate `quota.schema_drift` event fires when a provider changes the *shape* of its quota response (the set of key paths, not the values). It carries the added and removed paths and is alert-only: it never opens a circuit, never pins a cooldown, and never affects routing. See [Alerting](Alerting) and the [API Reference](API-Reference) for its metadata.
 

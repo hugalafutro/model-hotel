@@ -30,8 +30,10 @@ const (
 // chargeToOpen drives one model circuit to Open with real failures.
 func chargeToOpen(t *testing.T, cb *CircuitBreaker, id uuid.UUID, model string) {
 	t.Helper()
+	// A real cause, as every production charge carries one: the message
+	// assertions below must see the sentence production emits.
 	for i := 0; i < cb.effectiveThreshold(); i++ {
-		cb.RecordFailure(id, "test-provider", model, Cause{})
+		cb.RecordFailure(id, "test-provider", model, UpstreamStatus(503, ""))
 	}
 	if got := cb.GetState(id, model); got != StateOpen {
 		t.Fatalf("setup: model %q state %v, want open", model, got)
@@ -444,7 +446,7 @@ func TestModelCircuits_EventMessageNamesTheModelAndTheVerdict(t *testing.T) {
 
 	chargeToOpen(t, cb, id, modelA)
 	ev := waitForOpenEvent(t, sub, id)
-	want := "Provider test-provider circuit breaker: open for model " + modelA
+	want := "Provider test-provider circuit breaker: open for model " + modelA + ": upstream status 503"
 	if ev.Message != want {
 		t.Errorf("first open event message = %q, want %q", ev.Message, want)
 	}
@@ -454,7 +456,7 @@ func TestModelCircuits_EventMessageNamesTheModelAndTheVerdict(t *testing.T) {
 	// model out of rotation.
 	chargeToOpen(t, cb, id, modelB)
 	ev = waitForOpenEvent(t, sub, id)
-	want = "Provider test-provider circuit breaker: open for model " + modelB + " (provider skipped)"
+	want = "Provider test-provider circuit breaker: open for model " + modelB + " (provider skipped): upstream status 503"
 	if ev.Message != want {
 		t.Errorf("second open event message = %q, want %q", ev.Message, want)
 	}

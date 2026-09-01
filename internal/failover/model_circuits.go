@@ -54,7 +54,8 @@ type circuit struct {
 	cooldownBackoff time.Duration
 	// lastCharged is when a failure or success last landed on this circuit. It
 	// orders eviction, so the circuits that are dropped when a provider exceeds
-	// the cap are the ones nothing has routed to in the longest time.
+	// the cap are the ones nothing has routed to in the longest time. A
+	// saturated 429 is neither and leaves it alone (see RecordSaturated).
 	lastCharged time.Time
 	// lastSuccess is when a success last landed on this circuit. It backs the
 	// 429 behavioural fallback (LastSuccessWithin): a rate limit from a model

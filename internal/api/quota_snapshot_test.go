@@ -473,7 +473,8 @@ type pinReleaseRecorder struct {
 	allCalls int
 }
 
-func (p *pinReleaseRecorder) Status() []failover.ProviderStatus { return nil }
+func (p *pinReleaseRecorder) Status() []failover.ProviderStatus       { return nil }
+func (p *pinReleaseRecorder) StatusDetail() []failover.ProviderStatus { return nil }
 
 func (p *pinReleaseRecorder) Reset(uuid.UUID) failover.State {
 	panic("the quota refresh must never reset a circuit")

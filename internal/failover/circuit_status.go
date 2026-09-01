@@ -5,11 +5,11 @@ import (
 	"slices"
 	"strings"
 	"time"
-
-	"github.com/google/uuid"
-
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
+
+// The circuit's last verdict: the Cause a caller hands the breaker, the stamp
+// that remembers it on the circuit, and the per-circuit status rows the detail
+// endpoint builds from it.
 
 // Cause is why a circuit is being charged or credited: a short operator-facing
 // reason and the upstream HTTP status behind it, 0 when no response was seen (a
@@ -46,7 +46,6 @@ const (
 	causeSuccess          = "success"
 	causeSaturated        = "saturated"
 	causeExhausted        = "exhausted"
-	causeUnrecognised429  = "unrecognised"
 	causeAlive            = "alive"
 	causePinRetargeted    = "quota pin retargeted (advisor)"
 	causePinReleasedQuota = "quota pin released (provider no longer exhausted)"
@@ -58,23 +57,6 @@ func (c *circuit) note(now time.Time, cause Cause) {
 	c.lastCause = cause.Reason
 	c.lastStatus = cause.Status
 	c.lastAt = now
-}
-
-// RecordSaturated remembers a 429 the classifier read as load rather than a
-// spent window. It is deliberately NOT a charge and not a credit: a provider at
-// its concurrency ceiling is alive, and benching it benches the slots that are
-// all busy serving (see recordRateLimitOutcome in the proxy). What it does is
-// leave the verdict on the circuit, so a status row can say "busy" about a
-// provider whose circuit is closed but whose last three answers were 429s,
-// which on 2026-08-31 was the whole story and was visible nowhere.
-func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, providerName, model string) {
-	cb.mu.Lock()
-	defer cb.mu.Unlock()
-
-	c := cb.getOrCreate(providerID.String(), model)
-	c.lastCharged = time.Now()
-	c.note(c.lastCharged, UpstreamStatus(429, causeSaturated))
-	debuglog.Debug("circuit-breaker: saturated 429 noted, circuit not charged", "provider", providerName, "provider_id", providerID, "model", model)
 }
 
 // CircuitStatus is one (provider, resolved upstream model) circuit as the

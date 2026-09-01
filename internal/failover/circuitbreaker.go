@@ -85,9 +85,9 @@ type ProviderStatus struct {
 	// longer blocking anything.
 	OpenModels []string `json:"open_models,omitempty"`
 	// Circuits lists every circuit the row above is built from, sorted by
-	// model, each with its own state, cooldown and last verdict. Additive: the
-	// row and OpenModels stay what the dashboard keys on, and an older member
-	// in a mixed-version fleet simply omits this.
+	// model, each with its own state, cooldown and last verdict. Filled only by
+	// StatusDetail. Additive: the row and OpenModels stay what the dashboard
+	// keys on, and an older member in a mixed-version fleet simply omits this.
 	Circuits []CircuitStatus `json:"circuits,omitempty"`
 }
 
@@ -344,6 +344,24 @@ func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, mo
 	}
 }
 
+// RecordSaturated remembers a 429 the classifier read as load rather than a
+// spent window. It is deliberately NOT a charge and not a credit: a provider at
+// its concurrency ceiling is alive, and benching it benches the slots that are
+// all busy serving (see recordRateLimitOutcome in the proxy). What it does is
+// leave the verdict on the circuit, so a status row can say "busy" about a
+// provider whose circuit is closed but whose last three answers were 429s,
+// which on 2026-08-31 was the whole story and was visible nowhere.
+//
+// It does not touch lastCharged: nothing landed, so the circuit ranks for
+// eviction exactly as it did, and a circuit that exists only because of this
+// stamp ranks first, behind every circuit a charge or credit ever reached.
+func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, model string) {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	cb.getOrCreate(providerID.String(), model).note(time.Now(), UpstreamStatus(429, causeSaturated))
+}
+
 // BlockedUntil reports when the breaker next lets a request at this
 // (provider, model) pair through, and whether every circuit blocking it is
 // quota-pinned. It answers for the same rule IsOpen enforces: the model's own
@@ -543,8 +561,22 @@ func (cb *CircuitBreaker) recordSuccess(providerID uuid.UUID, providerName, mode
 }
 
 // Status returns the current status of all tracked providers, one row per
-// provider built from its most degraded model circuit.
+// provider built from its most degraded model circuit, without the per-circuit
+// list. This is what the Prometheus scrape and the aggregate status poll read,
+// and both look only at the row.
 func (cb *CircuitBreaker) Status() []ProviderStatus {
+	return cb.status(false)
+}
+
+// StatusDetail is Status with Circuits filled in on every row: one entry per
+// circuit, sorted by model, with its own state, wait and last verdict. Only
+// the detail endpoint asks for it, because building the list allocates per
+// circuit under the lock the request path takes.
+func (cb *CircuitBreaker) StatusDetail() []ProviderStatus {
+	return cb.status(true)
+}
+
+func (cb *CircuitBreaker) status(detail bool) []ProviderStatus {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
@@ -580,7 +612,9 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 			FailedProbes: c.failedProbes,
 			ProviderOpen: providerOpen,
 			OpenModels:   openModels,
-			Circuits:     cb.circuitStatuses(models, r),
+		}
+		if detail {
+			s.Circuits = cb.circuitStatuses(models, r)
 		}
 		if state == StateOpen && !c.openedAt.IsZero() {
 			s.OpenedAt = c.openedAt.Format(time.RFC3339)

@@ -448,7 +448,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
 		if st.circuitBreakerEnabled && r.Context().Err() == nil {
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "response completed without delivering content"})
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "upstream body read failed"})
 		}
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", readErr))

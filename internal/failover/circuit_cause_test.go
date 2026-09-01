@@ -81,7 +81,7 @@ func TestRecordSaturated_RemembersWithoutCharging(t *testing.T) {
 	cb.RecordFailure(id, "p", "m", UpstreamStatus(503, ""))
 	cb.RecordFailure(id, "p", "m", UpstreamStatus(503, ""))
 
-	cb.RecordSaturated(id, "p", "m")
+	cb.RecordSaturated(id, "m")
 
 	cause, status, _ := lastVerdict(t, cb, id, "m")
 	if cause != "upstream status 429 (saturated)" || status != 429 {
@@ -98,9 +98,17 @@ func TestRecordSaturated_RemembersWithoutCharging(t *testing.T) {
 	}
 	// And a fresh pair gets a circuit, so the verdict has somewhere to live.
 	other := uuid.New()
-	cb.RecordSaturated(other, "p", "m")
+	cb.RecordSaturated(other, "m")
 	if cause, _, _ := lastVerdict(t, cb, other, "m"); cause != "upstream status 429 (saturated)" {
 		t.Errorf("untracked pair after RecordSaturated: cause=%q", cause)
+	}
+	// Nothing landed, so nothing moves the eviction clock: a circuit that
+	// exists only for this stamp ranks first for eviction.
+	cb.mu.RLock()
+	stamped := cb.circuits[other.String()]["m"].lastCharged
+	cb.mu.RUnlock()
+	if !stamped.IsZero() {
+		t.Errorf("lastCharged = %v after a saturated stamp, want untouched", stamped)
 	}
 }
 
@@ -149,7 +157,7 @@ func TestStatus_CircuitsMatchOpenModels(t *testing.T) {
 	cb.RecordFailure(id, "p", "a-closed", UpstreamStatus(502, ""))
 	cb.RecordSuccess(id, "p", "c-served")
 
-	s := onlyStatus(t, cb)
+	s := onlyDetail(t, cb)
 	if len(s.Circuits) != 3 {
 		t.Fatalf("circuits = %+v, want 3", s.Circuits)
 	}
@@ -190,7 +198,7 @@ func TestStatus_CircuitsMatchOpenModels(t *testing.T) {
 	// A circuit owed a probe keeps its opened_at and its verdict, so the row
 	// can still say how long it was dark and why.
 	backdateOpenModel(t, cb, id, "b-open", 2*time.Minute)
-	s = onlyStatus(t, cb)
+	s = onlyDetail(t, cb)
 	for _, c := range s.Circuits {
 		if c.Model != "b-open" {
 			continue
@@ -270,5 +278,28 @@ func TestOpenEventAndLogCarryTheCause(t *testing.T) {
 		case <-deadline:
 			t.Fatal("no circuit_breaker.closed event")
 		}
+	}
+}
+
+func onlyDetail(t *testing.T, cb *CircuitBreaker) ProviderStatus {
+	t.Helper()
+	statuses := cb.StatusDetail()
+	if len(statuses) != 1 {
+		t.Fatalf("got %d detail statuses, want 1", len(statuses))
+	}
+	return statuses[0]
+}
+
+// The row alone never carries the list: Status is what the scrape and the
+// aggregate poll read, and neither looks past the row.
+func TestStatus_OmitsCircuitsWithoutDetail(t *testing.T) {
+	cb := newTestCB(1, time.Minute)
+	id := uuid.New()
+	cb.RecordFailure(id, "p", "m", UpstreamStatus(503, ""))
+	if s := onlyStatus(t, cb); s.Circuits != nil {
+		t.Errorf("Status() carried circuits: %+v", s.Circuits)
+	}
+	if s := onlyDetail(t, cb); len(s.Circuits) != 1 {
+		t.Errorf("StatusDetail() circuits = %+v, want one", s.Circuits)
 	}
 }

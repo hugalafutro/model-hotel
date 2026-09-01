@@ -120,7 +120,7 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 		// credited; it only remembers the verdict, so the status page can say
 		// "busy" about a closed circuit whose last answers were all 429s.
 		debuglog.Info("proxy: 429 classified saturated, circuit breaker not charged", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", rl.retryAfter, "model", candidateModelID(candidate))
-		h.circuitBreaker.RecordSaturated(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+		h.circuitBreaker.RecordSaturated(candidate.provider.ID, candidateModelID(candidate))
 	case rateLimitExhausted:
 		if !h.settingsRepo.GetBool(ctx, "circuit_breaker_open_on_exhaustion", true) {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", http.StatusTooManyRequests, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
@@ -148,7 +148,13 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 // body read that died, a body the gateway could not decode, an upstream that
 // sent a success shape behind a failure status. The old code had already
 // credited every one of those before the read was even attempted.
-func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate, logData *requestLogData, r *http.Request) {
+//
+// status is the status the UPSTREAM answered, handed in by the caller rather
+// than read back off logData: a failure handler may have replaced
+// logData.statusCode with the 502 this gateway answers the client, and a
+// translation failure never wrote it at all, and neither is what the
+// provider said.
+func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate, logData *requestLogData, status int, r *http.Request) {
 	if !st.circuitBreakerEnabled {
 		return
 	}
@@ -171,14 +177,14 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 		if !providerAtFault(logData.errorKind) {
 			return
 		}
-		h.chargeBreaker(st, candidate, logData.statusCode, "response failed after headers")
+		h.chargeBreaker(st, candidate, status, "response failed after headers")
 		return
 	}
 	// A completed answer is credited even if the caller has since gone: the body
 	// was read, the provider answered, and withholding the credit leaves older
 	// failures on the clock to open a healthy circuit later.
 	if logData.emptyCompletion {
-		h.chargeBreaker(st, candidate, logData.statusCode, "response completed without delivering content")
+		h.chargeBreaker(st, candidate, status, "response completed without delivering content")
 		return
 	}
 	h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
@@ -210,14 +216,17 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, stat
 // any translation was attempted, and each adapter's own comment already called
 // this a provider fault. Mutation testing then showed two of the three copies
 // had no test behind them.
-func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, err error, attempt int, r *http.Request) candidateOutcome {
+//
+// status is the 2xx the upstream answered before its body failed translation;
+// logData has not been stamped with it at this point.
+func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, status int, err error, attempt int, r *http.Request) candidateOutcome {
 	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter, "error", err, "model", logData.modelID, "provider", logData.providerName)
 	// Both translators read the body with an unbounded ReadAll under the
 	// attempt's context, so an interrupted request arrives here as a translation
 	// failure — a caller hanging up or this gateway's own request_timeout, and
 	// neither is the provider's doing.
 	if _, aborted := cancelKind(r.Context(), err); !aborted && translationIsProviderFault(err) {
-		h.chargeBreaker(st, candidate, logData.statusCode, "upstream body could not be translated")
+		h.chargeBreaker(st, candidate, status, "upstream body could not be translated")
 	}
 	st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 	logData.failoverAttempt = attempt

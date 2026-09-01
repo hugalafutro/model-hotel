@@ -731,6 +731,10 @@ func (m *mockCircuitBreaker) Status() []failover.ProviderStatus {
 	return m.statuses
 }
 
+func (m *mockCircuitBreaker) StatusDetail() []failover.ProviderStatus {
+	return m.statuses
+}
+
 func (m *mockCircuitBreaker) Reset(providerID uuid.UUID) failover.State {
 	id := providerID.String()
 	for i, s := range m.statuses {
