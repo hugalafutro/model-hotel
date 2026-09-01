@@ -371,6 +371,10 @@ Automatic sync is **off by default**: it trades the per-change diff review for
 convenience. Leave it off to approve every fleet-wide change by hand, or turn it
 on once you trust the primary as the source of truth.
 
+### Resetting circuit breakers fleet-wide
+
+Each member keeps its own circuit breaker: it is local runtime health, computed from that member's own upstream traffic, and nothing syncs it. When an upstream incident trips the same group's circuits on every member, clearing them meant one reset per member. The Members page's **Reset circuit breakers** button does the round for you: it lists the primary's failover groups (`GET /api/fleet/failover-groups?primary_id=...`), you pick one, and Front Desk asks every member with a stored token to clear the circuits behind that group's entries (`POST /api/fleet/circuit-breaker/reset` with `{"group_id": "..."}`, relayed to each member's `POST /api/failover-groups/{id}/circuit-breaker/reset`). The response names each member with what it cleared and recovered, and a member that could not be reached is reported rather than hidden; a `fleet.circuit_breaker_reset` event records the action. Sending an empty `group_id` clears every circuit on every member; like the member-side reset-all that is deliberately API only, with no button. The button asks for confirmation: it is a mutation across the fleet.
+
 ### Upgrade the whole fleet before expecting config sync to run
 
 Config sync carries a schema version in every envelope, and a member applies an

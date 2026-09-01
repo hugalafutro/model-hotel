@@ -7,6 +7,7 @@ import type { FailoverGroup } from "../../api/types";
 import { FuseOutline } from "../../components/FuseOutline";
 import { Toggle } from "../../components/Toggle";
 import { naReasonKey } from "../../utils/failoverEntry";
+import type { EntryCircuitView } from "./entryCircuit";
 
 export interface SortableEntryProps {
 	entry: FailoverGroup["entries"][0];
@@ -45,7 +46,20 @@ export interface SortableEntryProps {
 	// config, so a managed member must still be able to clear its own.
 	onResetCircuit?: (providerId: string, providerName: string) => void;
 	resetPending?: boolean;
+	// The entry's own circuit as the chip and tooltip read it (entryCircuitView):
+	// live / busy / open / probe / pinned, with the last cause when the member
+	// reports circuits[]. Optional so older callers and tests render as before.
+	circuitView?: EntryCircuitView;
 }
+
+// The chip's badge class per state.
+const CHIP_CLASS: Record<EntryCircuitView["chip"], string> = {
+	live: "ui-badge-neutral",
+	busy: "ui-badge-warning",
+	open: "ui-badge-danger",
+	probe: "ui-badge-warning",
+	pinned: "ui-badge-purple",
+};
 
 // A quota pin can run for hours or days, and a CSS animation over that span is
 // visually frozen: the operator sees a motionless fuse and reads it as broken.
@@ -68,8 +82,21 @@ export function SortableEntry({
 	cbStatus,
 	onResetCircuit,
 	resetPending,
+	circuitView,
 }: SortableEntryProps) {
 	const { t } = useTranslation();
+	// The cause line the tooltip appends when the member reports the circuit's
+	// last verdict: what the breaker saw, the upstream status behind it and
+	// when. Absent on an older member, where only the row is known.
+	const causeLine = circuitView?.lastCause
+		? t("failoverGroups.entry.circuitCause", {
+				cause: circuitView.lastCause,
+				status: circuitView.lastStatus ?? "-",
+				when: circuitView.lastAt
+					? new Date(circuitView.lastAt).toLocaleString()
+					: "-",
+			})
+		: undefined;
 	const draggable = groupEnabled && !locked;
 	const {
 		attributes,
@@ -210,7 +237,7 @@ export function SortableEntry({
 	);
 
 	const fuseColor = cooldownOver ? "#fde68a" : showFuse ? "#fca5a5" : undefined;
-	const fuseTitle = !showFuse
+	const baseTitle = !showFuse
 		? undefined
 		: cooldownOver
 			? t("failoverGroups.entry.circuitBreakerReadyToProbe")
@@ -227,6 +254,14 @@ export function SortableEntry({
 								resetTime: new Date(cbStatus.next_retry_at).toLocaleString(),
 							})
 						: t("failoverGroups.entry.circuitBreakerOpen");
+	// A busy entry has no fuse (its circuit is closed) but still explains itself.
+	const chipTitle =
+		circuitView?.chip === "busy"
+			? t("failoverGroups.entry.chipBusyTip")
+			: undefined;
+	const fuseTitle = [baseTitle ?? chipTitle, causeLine]
+		.filter(Boolean)
+		.join("\n");
 
 	return (
 		<div
@@ -279,6 +314,16 @@ export function SortableEntry({
 						title={naReasonText}
 					>
 						{t("failoverGroups.entry.naBadge")}
+					</span>
+				)}
+				{circuitView && entry.enabled && !effectivelyDisabled && (
+					<span
+						className={`ui-badge ${CHIP_CLASS[circuitView.chip]} shrink-0 text-[10px] leading-[1.6] px-1.5 cursor-help`}
+						data-testid="failover-entry-chip"
+						data-chip={circuitView.chip}
+						title={fuseTitle || undefined}
+					>
+						{t(`failoverGroups.entry.chip.${circuitView.chip}`)}
 					</span>
 				)}
 			</div>

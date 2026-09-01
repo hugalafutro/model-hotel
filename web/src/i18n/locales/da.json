@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Kopiér",
 			"active": "aktiv",
-			"tokens": "tokens"
+			"tokens": "tokens",
+			"entriesLive": "{{live}} af {{total}} poster aktive",
+			"allEntriesDark": "alle poster mørke",
+			"allEntriesDarkRetry": "alle poster mørke, tidligste forsøg {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Deaktivér udbyder",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "Slet denne gruppe?",
 			"deleteNaConfirmMessage": "Hvis du fjerner de utilgængelige medlemmer, vil der være færre end 2 medlemmer, der kan rutes, så hele gruppen slettes.",
 			"deleteNaConfirmLabel": "Slet gruppe",
-			"circuitBreakerProviderOpen": "Hele udbyderen springes over - afbryder åben for: {{models}}"
+			"circuitBreakerProviderOpen": "Hele udbyderen springes over - afbryder åben for: {{models}}",
+			"chip": {
+				"live": "aktiv",
+				"busy": "optaget",
+				"open": "åben",
+				"probe": "test forestår",
+				"pinned": "fastlåst"
+			},
+			"chipBusyTip": "Denne udbyder svarede med en optaget-429 inden for det sidste minut; dens afbryder er lukket, og anmodninger sendes stadig hertil og løber over til næste post, når den er fuld.",
+			"circuitCause": "Seneste dom: {{cause}} (upstream-status {{status}}) kl. {{when}}"
 		}
 	},
 	"virtualKeys": {

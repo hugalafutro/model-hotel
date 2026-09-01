@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Másolás",
 			"active": "aktív",
-			"tokens": "token"
+			"tokens": "token",
+			"entriesLive": "{{live}} / {{total}} bejegyzés él",
+			"allEntriesDark": "minden bejegyzés sötét",
+			"allEntriesDarkRetry": "minden bejegyzés sötét, legkorábbi újrapróba {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Szolgáltató letiltása",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "Törli ezt a csoportot?",
 			"deleteNaConfirmMessage": "A nem elérhető tagok eltávolításával 2-nél kevesebb irányítható tag maradna, ezért a teljes csoport törlődik.",
 			"deleteNaConfirmLabel": "Csoport törlése",
-			"circuitBreakerProviderOpen": "A teljes szolgáltató kihagyva - a megszakító nyitva ezekre: {{models}}"
+			"circuitBreakerProviderOpen": "A teljes szolgáltató kihagyva - a megszakító nyitva ezekre: {{models}}",
+			"chip": {
+				"live": "élő",
+				"busy": "foglalt",
+				"open": "nyitott",
+				"probe": "próba esedékes",
+				"pinned": "rögzített"
+			},
+			"chipBusyTip": "Ez a szolgáltató az elmúlt percben foglalt 429-cel válaszolt; a megszakítója zárt, a kérések továbbra is ide irányulnak, és ha megtelt, a következő bejegyzésre folynak át.",
+			"circuitCause": "Utolsó ítélet: {{cause}} (upstream állapot {{status}}) ekkor: {{when}}"
 		}
 	},
 	"virtualKeys": {

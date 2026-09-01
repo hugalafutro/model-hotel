@@ -22,7 +22,11 @@ import type {
 import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatTokens } from "../../utils/format";
-import { entryCircuitStatus } from "./entryCircuit";
+import {
+	entryCircuitStatus,
+	entryCircuitView,
+	groupCircuitSummary,
+} from "./entryCircuit";
 import { SortableEntry } from "./SortableEntry";
 
 // Derive a stable key from entries so the card resets local state
@@ -92,6 +96,22 @@ export function FailoverGroupCard({
 		(e) => e.enabled && e.model_enabled && e.provider_enabled,
 	).length;
 	const totalCount = localEntries.length;
+
+	// The breaker's view of each routable entry, for the chips and the header:
+	// "2 of 3 entries live", or "all entries dark" with the earliest retry.
+	const circuitViews = useMemo(
+		() =>
+			localEntries
+				.filter((e) => e.enabled && e.model_enabled && e.provider_enabled)
+				.map((e) =>
+					entryCircuitView(cbProviderMap.get(e.provider_id), e.model_id),
+				),
+		[localEntries, cbProviderMap],
+	);
+	const summary = useMemo(
+		() => groupCircuitSummary(circuitViews),
+		[circuitViews],
+	);
 
 	const sensors = useSensors(
 		useSensor(PointerSensor),
@@ -233,6 +253,10 @@ export function FailoverGroupCard({
 									cbProviderMap.get(entry.provider_id),
 									entry.model_id,
 								)}
+								circuitView={entryCircuitView(
+									cbProviderMap.get(entry.provider_id),
+									entry.model_id,
+								)}
 								onResetCircuit={onResetCircuit}
 								resetPending={resetPendingProviderId === entry.provider_id}
 							/>
@@ -245,6 +269,33 @@ export function FailoverGroupCard({
 				<span>
 					{enabledCount}/{totalCount} {t("failoverGroups.card.active")} •{" "}
 					{formatTokens(group.total_tokens)} {t("common.tokens")}
+					{group.group_enabled && summary.total > 0 && (
+						<>
+							{" "}
+							•{" "}
+							{summary.allDark ? (
+								<span
+									className="text-red-400 font-medium"
+									data-testid="failover-card-all-dark"
+								>
+									{summary.earliestRetryAt
+										? t("failoverGroups.card.allEntriesDarkRetry", {
+												when: new Date(
+													summary.earliestRetryAt,
+												).toLocaleTimeString(),
+											})
+										: t("failoverGroups.card.allEntriesDark")}
+								</span>
+							) : (
+								<span data-testid="failover-card-live-count">
+									{t("failoverGroups.card.entriesLive", {
+										live: summary.live,
+										total: summary.total,
+									})}
+								</span>
+							)}
+						</>
+					)}
 				</span>
 				<div className="flex items-center gap-1">
 					{!group.auto_created && onEdit && !managed && (

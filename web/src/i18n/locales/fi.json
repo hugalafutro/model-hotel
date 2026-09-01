@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Kopioi",
 			"active": "aktiivinen",
-			"tokens": "tokenia"
+			"tokens": "tokenia",
+			"entriesLive": "{{live}}/{{total}} kohtaa aktiivisia",
+			"allEntriesDark": "kaikki kohdat pimeinä",
+			"allEntriesDarkRetry": "kaikki kohdat pimeinä, aikaisin uusinta {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Poista tarjoaja käytöstä",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "Poistetaanko tämä ryhmä?",
 			"deleteNaConfirmMessage": "Ei-saatavilla olevien jäsenten poistaminen jättäisi alle 2 reititettävää jäsentä, joten koko ryhmä poistetaan.",
 			"deleteNaConfirmLabel": "Poista ryhmä",
-			"circuitBreakerProviderOpen": "Koko palveluntarjoaja ohitetaan - katkaisija auki malleille: {{models}}"
+			"circuitBreakerProviderOpen": "Koko palveluntarjoaja ohitetaan - katkaisija auki malleille: {{models}}",
+			"chip": {
+				"live": "aktiivinen",
+				"busy": "varattu",
+				"open": "auki",
+				"probe": "koetus tulossa",
+				"pinned": "kiinnitetty"
+			},
+			"chipBusyTip": "Tämä palveluntarjoaja vastasi varattu-429:llä viimeisen minuutin aikana; sen virrankatkaisin on kiinni ja pyynnöt reititetään yhä tänne, seuraavaan kohtaan kun se on täynnä.",
+			"circuitCause": "Viimeisin päätös: {{cause}} (upstream-tila {{status}}) klo {{when}}"
 		}
 	},
 	"virtualKeys": {

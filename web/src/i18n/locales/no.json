@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Kopier",
 			"active": "aktiv",
-			"tokens": "tokener"
+			"tokens": "tokener",
+			"entriesLive": "{{live}} av {{total}} oppføringer aktive",
+			"allEntriesDark": "alle oppføringer mørke",
+			"allEntriesDarkRetry": "alle oppføringer mørke, tidligste forsøk {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Deaktiver leverandør",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "Slette denne gruppen?",
 			"deleteNaConfirmMessage": "Hvis du fjerner de utilgjengelige medlemmene, blir det færre enn 2 rutbare medlemmer igjen, så hele gruppen slettes.",
 			"deleteNaConfirmLabel": "Slett gruppe",
-			"circuitBreakerProviderOpen": "Hele leverandøren hoppes over - kretsbryter åpen for: {{models}}"
+			"circuitBreakerProviderOpen": "Hele leverandøren hoppes over - kretsbryter åpen for: {{models}}",
+			"chip": {
+				"live": "aktiv",
+				"busy": "opptatt",
+				"open": "åpen",
+				"probe": "probe venter",
+				"pinned": "festet"
+			},
+			"chipBusyTip": "Denne leverandøren svarte med en opptatt-429 det siste minuttet; sikringen er lukket og forespørsler rutes fortsatt hit, og renner over til neste oppføring når den er full.",
+			"circuitCause": "Siste dom: {{cause}} (oppstrømsstatus {{status}}) kl. {{when}}"
 		}
 	},
 	"virtualKeys": {

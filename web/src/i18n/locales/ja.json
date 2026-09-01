@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "コピー",
 			"active": "アクティブ",
-			"tokens": "トークン"
+			"tokens": "トークン",
+			"entriesLive": "{{total}}件中{{live}}件が稼働中",
+			"allEntriesDark": "すべてのエントリがダウン",
+			"allEntriesDarkRetry": "すべてのエントリがダウン、最も早い再試行は{{when}}"
 		},
 		"entry": {
 			"disableProvider": "プロバイダを無効にする",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "このグループを削除しますか？",
 			"deleteNaConfirmMessage": "利用できないメンバーを削除すると、ルーティング可能なメンバーが2未満になるため、グループ全体が削除されます。",
 			"deleteNaConfirmLabel": "グループを削除",
-			"circuitBreakerProviderOpen": "プロバイダー全体をスキップ中 - サーキットブレーカーのオープン対象: {{models}}"
+			"circuitBreakerProviderOpen": "プロバイダー全体をスキップ中 - サーキットブレーカーのオープン対象: {{models}}",
+			"chip": {
+				"live": "稼働中",
+				"busy": "混雑",
+				"open": "オープン",
+				"probe": "プローブ待ち",
+				"pinned": "固定"
+			},
+			"chipBusyTip": "このプロバイダーは直近1分以内に混雑を示す429を返しました。ブレーカーは閉じたままで、リクエストは引き続きここへルーティングされ、満杯のときは次のエントリへ流れます。",
+			"circuitCause": "最新の判定: {{cause}}（上流ステータス {{status}}）{{when}}"
 		}
 	},
 	"virtualKeys": {

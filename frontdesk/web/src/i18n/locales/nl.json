@@ -160,7 +160,17 @@
 			"traefik_config_stale": "Traefik haalt de routing-configuratie niet meer op"
 		},
 		"colVerifiedTip": "Auto-sync vergelijkt elke paar seconden de configuratie-hash van deze member met die van de primaire. Een recente tijd hier betekent dat de member op dit moment exact de configuratie van de primaire heeft.",
-		"colLastSyncTip": "Wanneer Front Desk voor het laatst configuratie naar deze member heeft geschreven (een wijziging of een reparatie). Dit is geen versheid van de configuratie: een member krijgt alleen een stempel als die een schrijfactie nodig had, dus gesynchroniseerde members kunnen hier verschillende tijden tonen."
+		"colLastSyncTip": "Wanneer Front Desk voor het laatst configuratie naar deze member heeft geschreven (een wijziging of een reparatie). Dit is geen versheid van de configuratie: een member krijgt alleen een stempel als die een schrijfactie nodig had, dus gesynchroniseerde members kunnen hier verschillende tijden tonen.",
+		"resetCircuits": "Stroomonderbrekers resetten",
+		"resetCircuitsTip": "De stroomonderbrekers van één failovergroep op alle leden wissen en haar opzijgezette providers vlootbreed weer in rotatie nemen",
+		"resetCircuitsTitle": "Stroomonderbrekers van een groep op alle leden resetten?",
+		"resetCircuitsBody": "Elk lid met een opgeslagen token wist de stroomonderbrekers achter de items van de gekozen groep. Opzijgezette providers keren direct terug in de rotatie; een provider die nog kapot is, slaat vanzelf weer af.",
+		"resetCircuitsConfirm": "Resetten op alle leden",
+		"resetCircuitsDone": "Stroomonderbrekers gereset op {{members}} leden: {{cleared}} circuits gewist, {{recovered}} hersteld",
+		"resetCircuitsPartial": "Stroomonderbrekers gereset, maar {{failed}} van {{members}} leden waren niet bereikbaar",
+		"resetCircuitsGroupLabel": "Failovergroep",
+		"resetCircuitsGroupPlaceholder": "Kies een groep",
+		"resetCircuitsNoGroups": "De primary meldt geen failovergroepen"
 	},
 	"traffic": {
 		"title": "Verkeer",

@@ -3196,7 +3196,10 @@
 		"card": {
 			"copy": "نسخ",
 			"active": "نشط",
-			"tokens": "الرموز"
+			"tokens": "الرموز",
+			"entriesLive": "{{live}} من {{total}} إدخالات نشطة",
+			"allEntriesDark": "كل الإدخالات معطّلة",
+			"allEntriesDarkRetry": "كل الإدخالات معطّلة، أقرب إعادة محاولة {{when}}"
 		},
 		"entry": {
 			"disableProvider": "تعطيل المزود",
@@ -3219,7 +3222,16 @@
 			"deleteNaConfirmTitle": "حذف هذه المجموعة؟",
 			"deleteNaConfirmMessage": "إزالة الأعضاء غير المتاحين ستترك أقل من عضوين قابلين للتوجيه، لذلك سيتم حذف المجموعة بأكملها.",
 			"deleteNaConfirmLabel": "حذف المجموعة",
-			"circuitBreakerProviderOpen": "تم تخطي المزود بالكامل - قاطع الدائرة مفتوح لـ: {{models}}"
+			"circuitBreakerProviderOpen": "تم تخطي المزود بالكامل - قاطع الدائرة مفتوح لـ: {{models}}",
+			"chip": {
+				"live": "نشط",
+				"busy": "مشغول",
+				"open": "مفتوح",
+				"probe": "فحص مستحق",
+				"pinned": "مثبّت"
+			},
+			"chipBusyTip": "أجاب هذا المزوّد بـ 429 مشغول خلال الدقيقة الأخيرة؛ قاطع الدائرة مغلق وما زالت الطلبات توجَّه إليه، وتنتقل إلى الإدخال التالي عند امتلائه.",
+			"circuitCause": "آخر حكم: {{cause}} (حالة المنبع {{status}}) في {{when}}"
 		},
 		"countLabel_zero": "مجموعات التحويل التلقائي",
 		"countLabel_one": "مجموعة تحويل تلقائي",

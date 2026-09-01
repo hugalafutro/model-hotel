@@ -303,3 +303,77 @@ func TestStatus_OmitsCircuitsWithoutDetail(t *testing.T) {
 		t.Errorf("StatusDetail() circuits = %+v, want one", s.Circuits)
 	}
 }
+
+// ResetModel clears exactly one circuit: the sibling keeps its charges, an
+// untracked pair is a no-op that says so, the provider entry disappears with
+// its last circuit, and every manual reset logs one line per circuit with the
+// cause vocabulary the rest of the breaker uses.
+func TestResetModel_ClearsOneCircuitAndLogsEach(t *testing.T) {
+	capt := captureLogs(t)
+	cb := newTestCB(2, time.Minute)
+	id := uuid.New()
+	cb.RecordFailure(id, "p", "dark", UpstreamStatus(503, ""))
+	cb.RecordFailure(id, "p", "dark", UpstreamStatus(503, ""))
+	cb.RecordFailure(id, "p", "charged", UpstreamStatus(502, "")) // one charge, still closed
+
+	if prev, existed := cb.ResetModel(id, "missing"); prev != StateClosed || existed {
+		t.Errorf("untracked pair = (%v, %v), want (closed, false)", prev, existed)
+	}
+	prev, existed := cb.ResetModel(id, "dark")
+	if prev != StateOpen || !existed {
+		t.Fatalf("reset of the open circuit = (%v, %v), want (open, true)", prev, existed)
+	}
+	if cb.GetState(id, "dark") != StateClosed {
+		t.Error("the reset circuit still reports open")
+	}
+	if !hasCircuit(t, cb, id, "charged") {
+		t.Error("the sibling circuit was cleared by a scoped reset")
+	}
+	if prev, existed := cb.ResetModel(id, "charged"); prev != StateClosed || !existed {
+		t.Errorf("reset of a closed tracked circuit = (%v, %v), want (closed, true)", prev, existed)
+	}
+	if countCircuits(t, cb, id) != 0 {
+		t.Error("provider entry survived its last circuit")
+	}
+
+	lines := manualResetLines(capt, id.String())
+	if len(lines) != 2 {
+		t.Fatalf("manual reset lines = %d, want one per circuit that existed", len(lines))
+	}
+	for _, l := range lines {
+		if l["cause"] != "manual reset" {
+			t.Errorf("reset line cause = %v", l["cause"])
+		}
+	}
+
+	// Reset (whole provider) and ResetAll log per circuit too.
+	cb.RecordFailure(id, "p", "a", UpstreamStatus(503, ""))
+	cb.RecordFailure(id, "p", "b", UpstreamStatus(503, ""))
+	cb.Reset(id)
+	other := uuid.New()
+	cb.RecordFailure(other, "q", "c", UpstreamStatus(503, ""))
+	cb.ResetAll()
+	total := len(manualResetLines(capt, ""))
+	if total != 5 {
+		t.Errorf("manual reset lines overall = %d, want 5 (2 + 2 + 1)", total)
+	}
+}
+
+// manualResetLines returns the attrs of every "manual reset" line captured,
+// optionally only those for one provider id. The reset lines carry the id as
+// the map's string key, which forProvider's uuid.UUID match cannot see.
+func manualResetLines(capt *logCaptureHandler, providerID string) []map[string]any {
+	capt.mu.Lock()
+	defer capt.mu.Unlock()
+	var out []map[string]any
+	for _, r := range capt.records {
+		if r.msg != "circuit-breaker: manual reset" {
+			continue
+		}
+		if providerID != "" && r.attrs["provider_id"] != providerID {
+			continue
+		}
+		out = append(out, r.attrs)
+	}
+	return out
+}

@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Sao chép",
 			"active": "đang hoạt động",
-			"tokens": "token"
+			"tokens": "token",
+			"entriesLive": "{{live}} trên {{total}} mục hoạt động",
+			"allEntriesDark": "tất cả các mục đều tối",
+			"allEntriesDarkRetry": "tất cả các mục đều tối, lần thử sớm nhất {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Tắt nhà cung cấp",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "Xóa nhóm này?",
 			"deleteNaConfirmMessage": "Việc xóa các thành viên không khả dụng sẽ còn lại ít hơn 2 thành viên có thể định tuyến, vì vậy toàn bộ nhóm sẽ bị xóa.",
 			"deleteNaConfirmLabel": "Xóa nhóm",
-			"circuitBreakerProviderOpen": "Bỏ qua toàn bộ nhà cung cấp - mạch ngắt đang mở cho: {{models}}"
+			"circuitBreakerProviderOpen": "Bỏ qua toàn bộ nhà cung cấp - mạch ngắt đang mở cho: {{models}}",
+			"chip": {
+				"live": "hoạt động",
+				"busy": "bận",
+				"open": "mở",
+				"probe": "chờ thăm dò",
+				"pinned": "ghim"
+			},
+			"chipBusyTip": "Nhà cung cấp này đã trả về 429 bận trong phút vừa qua; cầu dao của nó đang đóng và yêu cầu vẫn được định tuyến tới đây, tràn sang mục tiếp theo khi đầy.",
+			"circuitCause": "Phán quyết gần nhất: {{cause}} (trạng thái upstream {{status}}) lúc {{when}}"
 		}
 	},
 	"virtualKeys": {

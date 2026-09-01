@@ -576,7 +576,8 @@ On error:
 | `/api/failover-groups/sync` | POST | Re-sync all groups with current discovery data |
 | `/api/failover-groups/candidates` | GET | List candidate models available for failover groups |
 | `/api/failover-groups/circuit-breaker-status` | GET | Current circuit breaker state per provider (cached briefly; `?detail=1` adds per-circuit detail) |
-| `/api/failover-groups/circuit-breaker/{provider_id}/reset` | POST | Force one provider's circuit back into rotation |
+| `/api/failover-groups/circuit-breaker/{provider_id}/reset` | POST | Force one provider's circuits back into rotation; `?model=<upstream id>` scopes it to one circuit |
+| `/api/failover-groups/{id}/circuit-breaker/reset` | POST | Force every circuit behind one failover group's entries back into rotation, on this member |
 | `/api/failover-groups/circuit-breaker/reset` | POST | Force every tracked circuit back into rotation (API only, no UI control) |
 | `/api/failover-groups/by-model/{model_uuid}` | GET | Find which failover group a model belongs to |
 | `/api/failover-groups/{id}` | GET | Get group details with priority order |
@@ -736,9 +737,36 @@ Clears one provider's circuit, returning it to rotation immediately instead of w
 
 Resetting an untracked or already-closed provider is a successful no-op (`previous_state: "closed"`, `reset: false`), not an error: the breaker only tracks providers it has routed, so "no circuit" and "closed circuit" are the same healthy state. The reset clears state, failure count and any quota pin together; if the provider is still broken the circuit reopens after `circuit_breaker_threshold` failures.
 
+`?model=<resolved upstream model id>` scopes the reset to that one circuit and leaves the provider's other circuits, and the charges they have legitimately accrued, alone; the response then carries `"model"`. Without it every circuit of the provider is cleared, as before. Either way the breaker logs one `circuit-breaker: manual reset` line per circuit cleared, with `cause=manual reset`, `previous_state` and the model, so a fleet-wide clean-up reads in the app log as N circuits with N causes.
+
 This endpoint backs the circular-arrow button ("Reset circuit breaker") beside each open or half-open member on the Failover page.
 
 **Response (400):** invalid provider UUID. **Response (503):** the circuit breaker is not available.
+
+#### POST `/api/failover-groups/{id}/circuit-breaker/reset`
+
+Clears every circuit behind one failover group's entries on this member, the operation the 2026-08-31 reset loop performed by hand across four providers. Only the group's (provider, resolved model) pairs are touched: a provider's circuits for models outside the group keep their state.
+
+**Response:**
+```json
+{
+  "group_id": "uuid",
+  "display_model": "glm53",
+  "entries": 3,
+  "cleared": 2,
+  "recovered": 1
+}
+```
+
+| Field | Type | Meaning |
+|-------|------|---------|
+| `entries` | int | The group's entries that resolved to a model |
+| `cleared` | int | Circuits that existed and were discarded, healthy ones included |
+| `recovered` | int | Those that were sidelining their entry (open or half-open) |
+
+Like the other resets it is outside the managed-write guard: a circuit is local runtime health, not synced config. Front Desk fans this out to every member (`POST /api/fleet/circuit-breaker/reset`, see [High Availability](High-Availability)).
+
+**Response (404):** unknown group. **Response (503):** the circuit breaker is not available.
 
 #### POST `/api/failover-groups/circuit-breaker/reset`
 

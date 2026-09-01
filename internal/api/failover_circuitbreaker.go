@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -26,6 +27,10 @@ type CircuitBreakerResetter interface {
 	// Reset clears one provider's circuit and returns the state it was in
 	// beforehand (closed for an untracked provider, which is a no-op).
 	Reset(providerID uuid.UUID) failover.State
+	// ResetModel clears the one (provider, resolved upstream model) circuit,
+	// leaving the provider's other circuits alone, and reports the state it was
+	// in and whether it existed at all.
+	ResetModel(providerID uuid.UUID, model string) (failover.State, bool)
 	// ResetAll clears every circuit, returning how many were discarded and how
 	// many of those were actually sidelining a provider.
 	ResetAll() (cleared, recovered int)
@@ -228,6 +233,20 @@ type CircuitBreakerResetResponse struct {
 	ProviderID    string `json:"provider_id"`
 	PreviousState string `json:"previous_state"`
 	Reset         bool   `json:"reset"`
+	// Model is the resolved upstream model id when the reset was scoped to one
+	// circuit (?model=); empty when the whole provider was cleared.
+	Model string `json:"model,omitempty"`
+}
+
+// CircuitBreakerGroupResetResponse reports a reset of every circuit behind a
+// failover group's entries on this member. Cleared counts the circuits that
+// existed, Recovered those that were sidelining their entry; both are circuits.
+type CircuitBreakerGroupResetResponse struct {
+	GroupID      string `json:"group_id"`
+	DisplayModel string `json:"display_model"`
+	Entries      int    `json:"entries"`
+	Cleared      int    `json:"cleared"`
+	Recovered    int    `json:"recovered"`
 }
 
 // CircuitBreakerResetAllResponse reports the outcome of a bulk reset: Cleared
@@ -265,16 +284,72 @@ func (h *FailoverHandler) ResetCircuitBreaker(w http.ResponseWriter, r *http.Req
 		return
 	}
 
-	previous := h.cb.Reset(providerID)
+	// ?model=<resolved upstream id> scopes the reset to that one circuit; without
+	// it every circuit of the provider is cleared, as before. The breaker logs
+	// one "manual reset" line per circuit either way.
+	model := r.URL.Query().Get("model")
+	var previous failover.State
+	if model != "" {
+		previous, _ = h.cb.ResetModel(providerID, model)
+	} else {
+		previous = h.cb.Reset(providerID)
+	}
 	h.invalidateCBStatusCache()
-
-	debuglog.Info("circuit-breaker: manual reset", "provider_id", providerID, "previous_state", previous.String())
 
 	writeJSON(w, CircuitBreakerResetResponse{
 		ProviderID:    providerID.String(),
 		PreviousState: previous.String(),
 		Reset:         previous != failover.StateClosed,
+		Model:         model,
 	})
+}
+
+// ResetGroupCircuitBreakers clears every circuit behind a failover group's
+// entries on this member, the operation the 2026-08-31 reset loop performed by
+// hand across four providers. Only the group's (provider, model) pairs are
+// touched: a provider's circuits for models outside the group keep their
+// state. Like the other resets it is deliberately outside the managed-write
+// guard: a circuit is local runtime health, not synced config.
+func (h *FailoverHandler) ResetGroupCircuitBreakers(w http.ResponseWriter, r *http.Request) {
+	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
+	if !ok {
+		return
+	}
+	if h.cb == nil {
+		respondError(w, "circuit breaker is not available", nil, http.StatusServiceUnavailable)
+		return
+	}
+	g, err := h.failoverRepo.GetByID(r.Context(), id)
+	if err != nil {
+		respondLookupError(w, err, pgx.ErrNoRows, "failover group not found", "failed to load failover group")
+		return
+	}
+	models, err := h.modelRepo.GetByIDs(r.Context(), g.PriorityOrder)
+	if err != nil {
+		respondError(w, "failed to load the group's models", err, http.StatusInternalServerError)
+		return
+	}
+
+	resp := CircuitBreakerGroupResetResponse{GroupID: g.ID.String(), DisplayModel: g.DisplayModel}
+	for _, mid := range g.PriorityOrder {
+		m, ok := models[mid]
+		if !ok {
+			continue
+		}
+		resp.Entries++
+		prev, existed := h.cb.ResetModel(m.ProviderID, m.ModelID)
+		if !existed {
+			continue
+		}
+		resp.Cleared++
+		if prev != failover.StateClosed {
+			resp.Recovered++
+		}
+	}
+	h.invalidateCBStatusCache()
+
+	debuglog.Info("circuit-breaker: manual reset of a group's circuits", "group_id", g.ID, "display_model", g.DisplayModel, "entries", resp.Entries, "cleared", resp.Cleared, "recovered", resp.Recovered)
+	writeJSON(w, resp)
 }
 
 // ResetAllCircuitBreakers clears every tracked circuit at once, for recovering
@@ -288,7 +363,7 @@ func (h *FailoverHandler) ResetAllCircuitBreakers(w http.ResponseWriter, _ *http
 	cleared, recovered := h.cb.ResetAll()
 	h.invalidateCBStatusCache()
 
-	debuglog.Info("circuit-breaker: manual reset of all circuits", "cleared", cleared, "recovered", recovered)
+	debuglog.Info("circuit-breaker: manual reset of all circuits", "cause", "manual reset", "cleared", cleared, "recovered", recovered)
 
 	writeJSON(w, CircuitBreakerResetAllResponse{Cleared: cleared, Recovered: recovered})
 }

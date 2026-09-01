@@ -613,6 +613,8 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 				r.Put("/fleet/autosync", s.putAutoSync)
 				r.Post("/config/sync", s.configSync)
 				r.Post("/fleet/version-check", s.fleetVersionCheck)
+				r.Post("/fleet/circuit-breaker/reset", s.fleetCircuitReset)
+				r.Get("/fleet/failover-groups", s.fleetFailoverGroups)
 				r.Post("/alert/selection", s.putAlertSelection)
 			})
 

@@ -3010,7 +3010,10 @@
 		"card": {
 			"copy": "Copiază",
 			"active": "activ",
-			"tokens": "jetoane"
+			"tokens": "jetoane",
+			"entriesLive": "{{live}} din {{total}} intrări active",
+			"allEntriesDark": "toate intrările întunecate",
+			"allEntriesDarkRetry": "toate intrările întunecate, prima reîncercare {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Dezactivare furnizor",
@@ -3033,7 +3036,16 @@
 			"deleteNaConfirmTitle": "Ștergeți acest grup?",
 			"deleteNaConfirmMessage": "Eliminarea membrilor indisponibili ar lăsa mai puțin de 2 membri rutabili, așa că întregul grup va fi șters.",
 			"deleteNaConfirmLabel": "Șterge grupul",
-			"circuitBreakerProviderOpen": "Întregul furnizor este ocolit - întrerupător deschis pentru: {{models}}"
+			"circuitBreakerProviderOpen": "Întregul furnizor este ocolit - întrerupător deschis pentru: {{models}}",
+			"chip": {
+				"live": "activ",
+				"busy": "ocupat",
+				"open": "deschis",
+				"probe": "sondă scadentă",
+				"pinned": "fixat"
+			},
+			"chipBusyTip": "Acest furnizor a răspuns cu un 429 de ocupat în ultimul minut; întrerupătorul său este închis și cererile sunt în continuare rutate aici, revărsându-se către intrarea următoare când este plin.",
+			"circuitCause": "Ultimul verdict: {{cause}} (stare upstream {{status}}) la {{when}}"
 		}
 	},
 	"virtualKeys": {

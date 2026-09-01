@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Kopiëren",
 			"active": "Actief",
-			"tokens": "tokens"
+			"tokens": "tokens",
+			"entriesLive": "{{live}} van {{total}} items actief",
+			"allEntriesDark": "alle items donker",
+			"allEntriesDarkRetry": "alle items donker, vroegste nieuwe poging {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Provider uitschakelen",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "Deze groep verwijderen?",
 			"deleteNaConfirmMessage": "Als u de niet-beschikbare leden verwijdert, blijven er minder dan 2 routeerbare leden over, dus de hele groep wordt verwijderd.",
 			"deleteNaConfirmLabel": "Groep verwijderen",
-			"circuitBreakerProviderOpen": "Hele provider overgeslagen - circuitonderbreker open voor: {{models}}"
+			"circuitBreakerProviderOpen": "Hele provider overgeslagen - circuitonderbreker open voor: {{models}}",
+			"chip": {
+				"live": "actief",
+				"busy": "bezet",
+				"open": "open",
+				"probe": "probe verwacht",
+				"pinned": "vastgezet"
+			},
+			"chipBusyTip": "Deze provider antwoordde in de afgelopen minuut met een bezet-429; de stroomonderbreker is gesloten en verzoeken worden nog steeds hierheen gerouteerd, met overloop naar het volgende item als hij vol is.",
+			"circuitCause": "Laatste oordeel: {{cause}} (upstream-status {{status}}) om {{when}}"
 		}
 	},
 	"virtualKeys": {

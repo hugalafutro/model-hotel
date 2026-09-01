@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Kopieren",
 			"active": "aktiv",
-			"tokens": "token"
+			"tokens": "token",
+			"entriesLive": "{{live}} von {{total}} Einträgen aktiv",
+			"allEntriesDark": "alle Einträge dunkel",
+			"allEntriesDarkRetry": "alle Einträge dunkel, frühester Neuversuch {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Anbieter deaktivieren",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "Diese Gruppe löschen?",
 			"deleteNaConfirmMessage": "Durch das Entfernen der nicht verfügbaren Mitglieder blieben weniger als 2 routingfähige Mitglieder übrig, daher wird die gesamte Gruppe gelöscht.",
 			"deleteNaConfirmLabel": "Gruppe löschen",
-			"circuitBreakerProviderOpen": "Gesamter Anbieter übersprungen - Schutzschalter offen für: {{models}}"
+			"circuitBreakerProviderOpen": "Gesamter Anbieter übersprungen - Schutzschalter offen für: {{models}}",
+			"chip": {
+				"live": "aktiv",
+				"busy": "ausgelastet",
+				"open": "offen",
+				"probe": "Probe fällig",
+				"pinned": "gepinnt"
+			},
+			"chipBusyTip": "Dieser Anbieter hat in der letzten Minute mit einem 429 (ausgelastet) geantwortet; sein Schutzschalter ist geschlossen, Anfragen gehen weiterhin hierhin und weichen auf den nächsten Eintrag aus, wenn er voll ist.",
+			"circuitCause": "Letztes Urteil: {{cause}} (Upstream-Status {{status}}) um {{when}}"
 		}
 	},
 	"virtualKeys": {

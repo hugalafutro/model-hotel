@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vitest";
 import type { CircuitBreakerProviderStatus } from "../../../api/types";
-import { entryCircuitStatus } from "../entryCircuit";
+import {
+	entryCircuitStatus,
+	entryCircuitView,
+	groupCircuitSummary,
+} from "../entryCircuit";
 
 function row(
 	over: Partial<CircuitBreakerProviderStatus>,
@@ -75,5 +79,171 @@ describe("entryCircuitStatus", () => {
 		// never reads as "down", so it stays on every entry.
 		const status = row({ state: "half-open", provider_open: false });
 		expect(entryCircuitStatus(status, "gpt-4o-mini")).toBe(status);
+	});
+});
+
+// The per-entry view behind the chips and the group header: the entry's own
+// circuit when the member reports circuits[], the row's open_models on an
+// older member, busy only inside the window, and the header's live count and
+// earliest retry.
+describe("entryCircuitView", () => {
+	const now = Date.parse("2026-08-31T14:48:00Z");
+	const row = (
+		over: Partial<CircuitBreakerProviderStatus>,
+	): CircuitBreakerProviderStatus => ({
+		provider_id: "p1",
+		state: "closed",
+		consecutive_fails: 0,
+		provider_open: false,
+		...over,
+	});
+
+	it("is live with no row, and on a closed circuit whose last verdict was a success", () => {
+		expect(entryCircuitView(undefined, "m", now).chip).toBe("live");
+		const v = entryCircuitView(
+			row({
+				circuits: [
+					{
+						model: "m",
+						state: "closed",
+						consecutive_fails: 0,
+						last_cause: "success",
+						last_at: "2026-08-31T14:47:50Z",
+					},
+				],
+			}),
+			"m",
+			now,
+		);
+		expect(v.chip).toBe("live");
+		expect(v.lastCause).toBe("success");
+	});
+
+	it("is busy only for a saturated verdict inside the window", () => {
+		const saturated = (at: string) =>
+			row({
+				circuits: [
+					{
+						model: "m",
+						state: "closed",
+						consecutive_fails: 0,
+						last_cause: "upstream status 429 (saturated)",
+						last_status: 429,
+						last_at: at,
+					},
+				],
+			});
+		expect(
+			entryCircuitView(saturated("2026-08-31T14:47:30Z"), "m", now).chip,
+		).toBe("busy");
+		expect(
+			entryCircuitView(saturated("2026-08-31T14:40:00Z"), "m", now).chip,
+		).toBe("live");
+	});
+
+	it("reads open, pinned and probe off the entry's own circuit, not its sibling's", () => {
+		const r = row({
+			state: "open",
+			open_models: ["dark"],
+			circuits: [
+				{
+					model: "dark",
+					state: "open",
+					consecutive_fails: 5,
+					quota_pinned: true,
+					pin_source: "advisor",
+					next_retry_at: "2026-08-31T18:41:00Z",
+					last_cause: "upstream status 429 (exhausted)",
+					last_status: 429,
+				},
+				{ model: "probing", state: "half-open", consecutive_fails: 5 },
+				{ model: "fine", state: "closed", consecutive_fails: 0 },
+			],
+		});
+		const dark = entryCircuitView(r, "dark", now);
+		expect(dark.chip).toBe("pinned");
+		expect(dark.nextRetryAt).toBe("2026-08-31T18:41:00Z");
+		expect(entryCircuitView(r, "probing", now).chip).toBe("probe");
+		expect(entryCircuitView(r, "fine", now).chip).toBe("live");
+		const unpinned = row({
+			state: "open",
+			circuits: [
+				{
+					model: "dark",
+					state: "open",
+					consecutive_fails: 5,
+					next_retry_at: "2026-08-31T14:49:00Z",
+				},
+			],
+		});
+		expect(entryCircuitView(unpinned, "dark", now).chip).toBe("open");
+	});
+
+	it("turns every entry of a skipped provider away, pinned when a pin holds it", () => {
+		const r = row({
+			state: "open",
+			provider_open: true,
+			quota_pinned: true,
+			next_retry_at: "2026-08-31T18:41:00Z",
+			open_models: ["a", "b"],
+			circuits: [
+				{ model: "a", state: "open", consecutive_fails: 5 },
+				{ model: "c", state: "closed", consecutive_fails: 0 },
+			],
+		});
+		expect(entryCircuitView(r, "c", now).chip).toBe("pinned");
+		expect(entryCircuitView(r, "c", now).nextRetryAt).toBe(
+			"2026-08-31T18:41:00Z",
+		);
+	});
+
+	it("falls back to open_models on a member that reports no circuits", () => {
+		const r = row({
+			state: "open",
+			open_models: ["dark"],
+			next_retry_at: "2026-08-31T14:49:00Z",
+		});
+		expect(entryCircuitView(r, "dark", now).chip).toBe("open");
+		expect(entryCircuitView(r, "dark", now).nextRetryAt).toBe(
+			"2026-08-31T14:49:00Z",
+		);
+		expect(entryCircuitView(r, "fine", now).chip).toBe("live");
+		expect(entryCircuitView(row({ state: "half-open" }), "any", now).chip).toBe(
+			"probe",
+		);
+	});
+});
+
+describe("groupCircuitSummary", () => {
+	it("counts live, busy and probing entries as live and names the earliest retry when all are dark", () => {
+		expect(
+			groupCircuitSummary([
+				{ chip: "live" },
+				{ chip: "busy" },
+				{ chip: "open", nextRetryAt: "2026-08-31T15:00:00Z" },
+			]),
+		).toEqual({
+			live: 2,
+			total: 3,
+			allDark: false,
+			earliestRetryAt: "2026-08-31T15:00:00Z",
+		});
+		expect(
+			groupCircuitSummary([
+				{ chip: "open", nextRetryAt: "2026-08-31T16:00:00Z" },
+				{ chip: "pinned", nextRetryAt: "2026-08-31T15:00:00Z" },
+			]),
+		).toEqual({
+			live: 0,
+			total: 2,
+			allDark: true,
+			earliestRetryAt: "2026-08-31T15:00:00Z",
+		});
+		expect(groupCircuitSummary([])).toEqual({
+			live: 0,
+			total: 0,
+			allDark: false,
+			earliestRetryAt: undefined,
+		});
 	});
 });

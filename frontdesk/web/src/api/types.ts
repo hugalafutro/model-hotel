@@ -283,6 +283,35 @@ export interface FleetVersionSkewMember {
 	commit: string; // "" when unknown, or the member predates app_commit
 }
 
+// One member's outcome of a fleet-wide circuit-breaker reset
+// (POST /api/fleet/circuit-breaker/reset). cleared/recovered are the member's
+// own counts, in circuits; error is set when it could not be reached or
+// answered anything but 200.
+export interface FleetCircuitResetMember {
+	member_id: string;
+	name: string;
+	ok: boolean;
+	cleared: number;
+	recovered: number;
+	error?: string;
+}
+// One of the primary's failover groups as the reset picker lists it
+// (GET /api/fleet/failover-groups).
+export interface FleetFailoverGroup {
+	id: string;
+	display_model: string;
+	display_name?: string | null;
+	entries: number;
+	group_enabled: boolean;
+}
+export interface FleetCircuitReset {
+	group_id?: string;
+	members: FleetCircuitResetMember[];
+	cleared: number;
+	recovered: number;
+	failed: number;
+}
+
 export interface FleetVersionCheck {
 	primary_id: string;
 	primary_version: string;

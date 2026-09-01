@@ -160,7 +160,17 @@
 			"traefik_config_stale": "Traefik przestał pobierać konfigurację routingu"
 		},
 		"colVerifiedTip": "Auto-synchronizacja co kilka sekund porównuje hash konfiguracji tego członka z hashem głównego. Niedawny czas oznacza, że członek w tej chwili ma dokładnie tę samą konfigurację co główny.",
-		"colLastSyncTip": "Kiedy Front Desk ostatnio zapisał konfigurację na tym członku (zmiana konfiguracji lub naprawa). To nie jest świeżość konfiguracji: członek dostaje znacznik tylko wtedy, gdy potrzebował zapisu, więc zsynchronizowani członkowie mogą tu pokazywać różne czasy."
+		"colLastSyncTip": "Kiedy Front Desk ostatnio zapisał konfigurację na tym członku (zmiana konfiguracji lub naprawa). To nie jest świeżość konfiguracji: członek dostaje znacznik tylko wtedy, gdy potrzebował zapisu, więc zsynchronizowani członkowie mogą tu pokazywać różne czasy.",
+		"resetCircuits": "Zresetuj bezpieczniki",
+		"resetCircuitsTip": "Wyczyść bezpieczniki jednej grupy failover na wszystkich członkach, przywracając jej odstawionych dostawców do rotacji w całej flocie",
+		"resetCircuitsTitle": "Zresetować bezpieczniki grupy na wszystkich członkach?",
+		"resetCircuitsBody": "Każdy członek z zapisanym tokenem wyczyści bezpieczniki pozycji wybranej grupy. Odstawieni dostawcy natychmiast wracają do rotacji; dostawca nadal zepsuty sam ponownie się wyłączy.",
+		"resetCircuitsConfirm": "Zresetuj na wszystkich członkach",
+		"resetCircuitsDone": "Bezpieczniki zresetowane na {{members}} członkach: {{cleared}} obwodów wyczyszczono, {{recovered}} przywrócono",
+		"resetCircuitsPartial": "Bezpieczniki zresetowane, ale {{failed}} z {{members}} członków było nieosiągalnych",
+		"resetCircuitsGroupLabel": "Grupa failover",
+		"resetCircuitsGroupPlaceholder": "Wybierz grupę",
+		"resetCircuitsNoGroups": "Główny członek nie zgłasza żadnych grup failover"
 	},
 	"traffic": {
 		"title": "Ruch",

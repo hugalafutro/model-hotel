@@ -3074,7 +3074,10 @@
 		"card": {
 			"copy": "Kopiuj",
 			"active": "aktywna",
-			"tokens": "tokeny"
+			"tokens": "tokeny",
+			"entriesLive": "{{live}} z {{total}} pozycji aktywnych",
+			"allEntriesDark": "wszystkie pozycje ciemne",
+			"allEntriesDarkRetry": "wszystkie pozycje ciemne, najbliższa próba {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Wyłącz dostawcę",
@@ -3097,7 +3100,16 @@
 			"deleteNaConfirmTitle": "Usunąć tę grupę?",
 			"deleteNaConfirmMessage": "Usunięcie niedostępnych członków pozostawiłoby mniej niż 2 członków możliwych do routowania, więc cała grupa zostanie usunięta.",
 			"deleteNaConfirmLabel": "Usuń grupę",
-			"circuitBreakerProviderOpen": "Cały dostawca pominięty - wyłącznik otwarty dla: {{models}}"
+			"circuitBreakerProviderOpen": "Cały dostawca pominięty - wyłącznik otwarty dla: {{models}}",
+			"chip": {
+				"live": "aktywny",
+				"busy": "zajęty",
+				"open": "otwarty",
+				"probe": "sonda należna",
+				"pinned": "przypięty"
+			},
+			"chipBusyTip": "Ten dostawca odpowiedział zajętym 429 w ciągu ostatniej minuty; jego bezpiecznik jest zamknięty, a żądania nadal tu trafiają i przelewają się do następnej pozycji, gdy jest pełny.",
+			"circuitCause": "Ostatni werdykt: {{cause}} (status upstream {{status}}) o {{when}}"
 		}
 	},
 	"virtualKeys": {

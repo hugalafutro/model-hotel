@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Kopieer",
 			"active": "aktief",
-			"tokens": "tokens"
+			"tokens": "tokens",
+			"entriesLive": "{{live}} van {{total}} inskrywings aktief",
+			"allEntriesDark": "alle inskrywings donker",
+			"allEntriesDarkRetry": "alle inskrywings donker, vroegste herprobeer {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Skakel verskaffer uit",
@@ -2969,7 +2972,16 @@
 			"deleteNaConfirmTitle": "Skrap hierdie groep?",
 			"deleteNaConfirmMessage": "Om die onbeskikbare lede te verwyder, sal minder as 2 roeteerbare lede oorlaat, dus die hele groep sal geskrap word.",
 			"deleteNaConfirmLabel": "Skrap groep",
-			"circuitBreakerProviderOpen": "Hele verskaffer oorgeslaan - kringbreker oop vir: {{models}}"
+			"circuitBreakerProviderOpen": "Hele verskaffer oorgeslaan - kringbreker oop vir: {{models}}",
+			"chip": {
+				"live": "aktief",
+				"busy": "besig",
+				"open": "oop",
+				"probe": "toets verskuldig",
+				"pinned": "vasgepen"
+			},
+			"chipBusyTip": "Hierdie verskaffer het die afgelope minuut 'n besige 429 geantwoord; sy stroombreker is toe en versoeke word steeds hierheen gestuur, en vloei oor na die volgende inskrywing wanneer dit vol is.",
+			"circuitCause": "Laaste uitspraak: {{cause}} (stroomop-status {{status}}) om {{when}}"
 		}
 	},
 	"virtualKeys": {

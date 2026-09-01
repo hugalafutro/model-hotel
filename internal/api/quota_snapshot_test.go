@@ -480,6 +480,9 @@ func (p *pinReleaseRecorder) Reset(uuid.UUID) failover.State {
 	panic("the quota refresh must never reset a circuit")
 }
 
+func (p *pinReleaseRecorder) ResetModel(uuid.UUID, string) (failover.State, bool) {
+	return failover.StateClosed, false
+}
 func (p *pinReleaseRecorder) ResetAll() (int, int) {
 	panic("the quota refresh must never reset a circuit")
 }

@@ -2946,7 +2946,10 @@
 		"card": {
 			"copy": "Copy",
 			"active": "active",
-			"tokens": "tokens"
+			"tokens": "tokens",
+			"entriesLive": "{{live}} of {{total}} entries live",
+			"allEntriesDark": "all entries dark",
+			"allEntriesDarkRetry": "all entries dark, earliest retry {{when}}"
 		},
 		"entry": {
 			"disableProvider": "Disable provider",
@@ -2969,7 +2972,16 @@
 			"deleteNaHelp": "Remove the unavailable members from this group.",
 			"deleteNaConfirmTitle": "Delete this group?",
 			"deleteNaConfirmMessage": "Removing the unavailable members would leave fewer than 2 routable members, so the whole group will be deleted.",
-			"deleteNaConfirmLabel": "Delete group"
+			"deleteNaConfirmLabel": "Delete group",
+			"chip": {
+				"live": "live",
+				"busy": "busy",
+				"open": "open",
+				"probe": "probe due",
+				"pinned": "pinned"
+			},
+			"chipBusyTip": "This provider answered a busy 429 in the last minute; its circuit is closed and requests still route here, spilling to the next entry when it is full.",
+			"circuitCause": "Last verdict: {{cause}} (upstream status {{status}}) at {{when}}"
 		}
 	},
 	"virtualKeys": {

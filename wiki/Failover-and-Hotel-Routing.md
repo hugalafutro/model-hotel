@@ -628,6 +628,8 @@ Every circuit remembers its last verdict: the reason it was last charged, credit
 
 The request log kept only the terminal attempt, so on 2026-08-31 every Neuralwatt 429 that was attempt 0 of a request another provider then served left no trace. A request log row that reached a candidate now carries `attempts`: one element per failover attempt, in order, with the provider, the resolved model, the upstream status it reached, its error kind, up to 160 characters of the sanitized and credential-masked upstream error, the rate-limit phrase it matched, its duration and TTFT, whether it was a hedged probe, and what it did to the circuit (`breaker`: `charge`, `noop`, `success`, `alive`, `skipped`, `disabled`). Candidates the breaker refused at resolve time lead the trail as `attempt: -1, breaker: skipped`, so the operator also sees who was never asked and why. The request detail dialog renders it as a chain; `GET /api/logs?attempt_provider_id=<id>&attempt_status=429` lists every request in which that provider answered 429, whoever served it in the end (see the [API reference](API-Reference#get-apilogs)). The trail is also what keeps the 429 phrase table honest: a phrase that has matched no attempt in 90 days is named in a daily app-log report.
 
+On the Failover page each entry now carries a chip read from its own circuit: **live**, **busy** (the circuit is closed but its last verdict was a saturated 429 inside the last minute, so requests still route here and spill to the next entry when it is full), **open**, **probe due**, or **pinned** (held by a quota pin). The chip's tooltip names the last cause, the upstream status behind it and when it landed, and the card's footer says `2 of 3 entries live`, or `all entries dark` in red with the earliest retry. A member from before `circuits[]` falls back to the row and `open_models`, so a mixed-version fleet renders every entry either way.
+
 `GET /api/failover-groups/circuit-breaker-status?detail=1` lists every circuit behind a provider row under `circuits[]`, sorted by model, each with its own `state`, `consecutive_fails`, `opened_at` / `cooldown_ms` / `next_retry_at` (while the wait is enforced), `quota_pinned` / `pin_source` / `backed_off` / `failed_probes` (the overrides governing that circuit), and `last_cause` / `last_status` / `last_at`. The open entries in `circuits[]` are exactly `open_models`, which stays what the dashboard keys on; a member from before this field simply omits it. The `circuit_breaker.open` event and the `model state=...→open` log line carry the same `cause` and `status`, and the event's message names the cause, so an outbound alert reads `Provider Neuralwatt circuit breaker: open for model glm-5.3: upstream status 429 (saturated)` rather than only `open`.
 
 ### Failover Integration
@@ -823,6 +825,22 @@ curl -X POST http://localhost:8080/api/failover-groups/circuit-breaker/$PROVIDER
 ```
 
 This is also the circular-arrow button ("Reset circuit breaker") beside each open or half-open member on the Failover page, so the common case needs no curl at all.
+
+**One circuit only** (the provider's other models keep their charges):
+
+```bash
+curl -X POST "http://localhost:8080/api/failover-groups/circuit-breaker/$PROVIDER_ID/reset?model=glm-5.3" \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+**Every circuit behind one failover group, on this member:**
+
+```bash
+curl -X POST http://localhost:8080/api/failover-groups/$GROUP_ID/circuit-breaker/reset \
+  -H "Authorization: Bearer $ADMIN_TOKEN"
+```
+
+Across a fleet each member keeps its own breaker, so Front Desk offers the same group reset fanned out to every member: the **Reset circuit breakers** button on its Members page picks a group and asks each member with a stored token, reporting who cleared what and who could not be reached (`POST /api/fleet/circuit-breaker/reset` with `{"group_id": ...}`). Every manual reset, however scoped, logs one `circuit-breaker: manual reset` line per circuit with `cause=manual reset`.
 
 **Every provider at once:**
 

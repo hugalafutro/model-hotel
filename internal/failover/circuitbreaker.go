@@ -659,13 +659,53 @@ func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
 	defer cb.mu.Unlock()
 
 	r := cb.cooldowns()
-	c := cb.dominant(cb.circuits[providerID.String()], r)
+	models := cb.circuits[providerID.String()]
+	c := cb.dominant(models, r)
 	if c == nil {
 		return StateClosed
 	}
 	prev := cb.logicalStateWith(c, r)
+	for model, mc := range models {
+		logManualReset(providerID.String(), model, cb.logicalStateWith(mc, r))
+	}
 	delete(cb.circuits, providerID.String())
 	return prev
+}
+
+// ResetModel clears ONE circuit, the (provider, resolved upstream model) pair,
+// and leaves the provider's other circuits as they are. It returns the logical
+// state the circuit was in and whether a circuit existed at all, so a caller
+// can report "recovered", "was already closed" and "nothing tracked" apart. An
+// untracked pair is a harmless no-op, like Reset on an untracked provider.
+//
+// This is the lever the 2026-08-31 reset loop lacked: Reset clears every model
+// of the provider, which also forgets the charges its healthy siblings have
+// legitimately accrued.
+func (cb *CircuitBreaker) ResetModel(providerID uuid.UUID, model string) (prev State, existed bool) {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	models := cb.circuits[providerID.String()]
+	c, ok := models[model]
+	if !ok {
+		return StateClosed, false
+	}
+	r := cb.cooldowns()
+	prev = cb.logicalStateWith(c, r)
+	logManualReset(providerID.String(), model, prev)
+	delete(models, model)
+	if len(models) == 0 {
+		delete(cb.circuits, providerID.String())
+	}
+	return prev, true
+}
+
+// logManualReset is the one line every manual reset writes per circuit, with
+// the same cause vocabulary the open line and the status API use, so a
+// fleet-wide reset reads in the app log as N circuits with N causes rather than
+// one summary a search for a model cannot find.
+func logManualReset(providerID, model string, prev State) {
+	debuglog.Info("circuit-breaker: manual reset", "provider_id", providerID, "cause", "manual reset", "previous_state", prev.String(), "model", model)
 }
 
 // ResetAll clears all circuit breaker state. It returns how many model circuits
@@ -686,12 +726,14 @@ func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
 	// take a DB round trip per circuit on a deployment that never overrode it.
 	r := cb.cooldowns()
 
-	for _, models := range cb.circuits {
+	for id, models := range cb.circuits {
 		cleared += len(models)
-		for _, c := range models {
-			if cb.logicalStateWith(c, r) != StateClosed {
+		for model, c := range models {
+			prev := cb.logicalStateWith(c, r)
+			if prev != StateClosed {
 				recovered++
 			}
+			logManualReset(id, model, prev)
 		}
 	}
 	cb.circuits = make(map[string]modelCircuits)

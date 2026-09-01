@@ -160,7 +160,17 @@
 			"traefik_config_stale": "Traefik has stopped fetching the routing config"
 		},
 		"colVerifiedTip": "Auto-sync compares this member's config hash with the primary's every few seconds. A recent time here means the member is holding the primary's exact config right now.",
-		"colLastSyncTip": "When Front Desk last wrote config to this member (a config change or a repair). This is not config freshness: a member is only stamped when it needed a write, so members in sync can show different times here."
+		"colLastSyncTip": "When Front Desk last wrote config to this member (a config change or a repair). This is not config freshness: a member is only stamped when it needed a write, so members in sync can show different times here.",
+		"resetCircuits": "Reset circuit breakers",
+		"resetCircuitsTip": "Clear one failover group's circuit breakers on every member, returning its sidelined providers to rotation fleet-wide",
+		"resetCircuitsTitle": "Reset a group's circuit breakers on all members?",
+		"resetCircuitsBody": "Every member with a stored token will clear the circuit breakers behind the chosen group's entries. Providers the breakers were sidelining return to rotation immediately; a provider that is still broken will trip again on its own.",
+		"resetCircuitsConfirm": "Reset on all members",
+		"resetCircuitsDone": "Circuit breakers reset on {{members}} members: {{cleared}} circuits cleared, {{recovered}} recovered",
+		"resetCircuitsPartial": "Circuit breakers reset, but {{failed}} of {{members}} members could not be reached",
+		"resetCircuitsGroupLabel": "Failover group",
+		"resetCircuitsGroupPlaceholder": "Choose a group",
+		"resetCircuitsNoGroups": "The primary reports no failover groups"
 	},
 	"traffic": {
 		"title": "Traffic",
