@@ -2783,7 +2783,19 @@
 			"expandForBreakdown": "Αναπτύξτε για την ανάλυση ανά βήμα",
 			"performance": "Επιδόσεις",
 			"clientIp": "IP πελάτη",
-			"copyClientIp": "Αντιγραφή IP πελάτη"
+			"copyClientIp": "Αντιγραφή IP πελάτη",
+			"attemptTrail": "Ίχνος προσπαθειών",
+			"attemptTrailHint": "Κάθε πάροχος στον οποίο δρομολογήθηκε αυτό το αίτημα, με τη σειρά, και τι απάντησε ο καθένας. Οι παραλειφθείσες καταχωρίσεις απορρίφθηκαν από τον διακόπτη κυκλώματος πριν σταλεί οποιοδήποτε αίτημα.",
+			"attemptSkipped": "παραλείφθηκε",
+			"attemptHedged": "αντισταθμισμένο",
+			"attemptNoStatus": "καμία απόκριση",
+			"attemptBreaker": "διακόπτης: {{verdict}}",
+			"attemptBreakerCharge": "χρεώθηκε",
+			"attemptBreakerNoop": "ανέπαφο",
+			"attemptBreakerSuccess": "πιστώθηκε",
+			"attemptBreakerAlive": "ενεργός",
+			"attemptBreakerSkipped": "παραλείφθηκε",
+			"attemptBreakerDisabled": "απενεργοποιημένο"
 		},
 		"statusBadge": {
 			"streaming": "Ροή",

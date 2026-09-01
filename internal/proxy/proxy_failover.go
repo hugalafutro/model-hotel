@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
-	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -40,45 +39,6 @@ import (
 // error message and well below the multi-megabyte bodies the image endpoints can
 // answer with.
 const failoverErrorClassifyCap = 16 << 10
-
-// failAllExhausted handles phase E: every candidate failed (or the overall
-// deadline was hit). It logs the exhaustion, records a 502 failure row, and
-// writes the failover-vs-single-provider error response. numCandidates is the
-// resolved candidate count (for the failRequest attempt index).
-func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
-	last := st.lastReqErr
-	status := last.terminalStatus()
-	logMsg := last.terminalLogMessage(st.isFailover, numCandidates)
-	clientMsg := last.terminalClientMessage(st.reqModel, st.isFailover)
-	if st.isFailover {
-		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
-	} else {
-		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "request_timeout", st.failoverTimeout)
-	}
-	// Honest status for an all-busy exhaustion: every provider is alive and at
-	// capacity, and OpenAI SDKs back off and retry on a 429 where a 502 is a
-	// coin toss. The Retry-After is the last provider's own ask (or the class
-	// default), so the client's backoff lines up with the slot actually
-	// freeing. Behind failover_exhaustion_status_429 for any client that has
-	// learnt to read the 502.
-	if last.Kind == KindProviderSaturated && h.settingsRepo.GetBool(context.Background(), "failover_exhaustion_status_429", true) {
-		status = http.StatusTooManyRequests
-		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.rateLimit.retryAfter)))
-	}
-	st.logData.providerID = uuid.Nil
-	h.failRequest(st.logData, status, last.Kind, logMsg, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
-	writeOpenAIError(w, clientMsg, status)
-}
-
-// retryAfterSeconds renders a wait as the whole seconds a Retry-After header
-// carries: rounded up so a positive wait never becomes 0 ("retry now"), with
-// the saturated class default standing in for an absent one.
-func retryAfterSeconds(d time.Duration) int {
-	if d <= 0 {
-		d = defaultSaturatedRetryAfter
-	}
-	return int((d + time.Second - 1) / time.Second)
-}
 
 // attemptCandidate runs one failover attempt against a single candidate (phase
 // D3–D11): build and send the upstream request, handle the 400 auto-retry,
@@ -151,6 +111,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			if res.cont {
 				st.attemptSlot.settle(false)
 				st.setReqErr(res.lastReqErr)
+				logData.closeAttemptRecord(0, res.lastReqErr.Kind, res.lastReqErr.Underlying, "", 0)
 				return outcomeFailover
 			}
 		}
@@ -201,6 +162,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
 		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "rate_limit_class", rl.class.String())
 		logData.failoverAttempt = attempt
+		logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, drainedMsg, rl.phrase, 0)
 		return outcomeFailover
 	}
 
@@ -276,9 +238,13 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	//     consecutively and the model is never nominated.
 	//
 	// producedOutput is where that line is drawn.
+	// The breaker verdict is deferred to the handler's terminal write, so the
+	// attempt trail's record carries it (see requestLogData.judgeAnswer);
+	// judgeAnswerNow is the fallback for a handler exit that wrote nothing.
+	h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode, r)
 	if st.anthropicNativeAttempt {
 		outcome := h.handleNativeNonStreaming(w, r.WithContext(failoverCtx), st, resp, attempt, responseHeaderMs)
-		h.recordAnswerOutcome(st, candidate, logData, resp.StatusCode, r)
+		judgeAnswerNow(logData)
 		if producedOutput(logData) {
 			h.noteModelServed(candidate.model, logData.endpointType)
 		}
@@ -290,7 +256,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// bare client request made this gateway's own request_timeout look like the
 	// provider dying.
 	h.handleNonStreamingResponse(w, r.WithContext(failoverCtx), logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
-	h.recordAnswerOutcome(st, candidate, logData, resp.StatusCode, r)
+	judgeAnswerNow(logData)
 	if producedOutput(logData) {
 		h.noteModelServed(candidate.model, logData.endpointType)
 	}
@@ -417,11 +383,13 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			elapsed := time.Since(st.startTime)
 			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			if recordFailure && st.circuitBreakerEnabled {
+				logData.noteBreaker(breakerCharge)
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "TTFT probe failed"})
 			}
 			st.setReqErr(re)
 			logData.failoverAttempt = attempt
 			logData.responseHeaderMs = responseHeaderMs
+			logData.closeAttemptRecord(resp.StatusCode, re.Kind, re.Underlying, "", 0)
 			// "kind", not "provider_stalled": a probe can now fail because the
 			// provider reported its own error rather than because it went
 			// silent, and calling that a stall sends the operator hunting the
@@ -470,6 +438,9 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	logData.providerID = candidate.provider.ID
 	logData.providerName = candidate.provider.Name
 	logData.masker = newCredentialMasker(candidate.apiKey)
+	// The attempt trail's record for this candidate opens here, before
+	// admission: a busy skip is an attempt the operator wants to see too.
+	logData.openAttemptRecord(attempt, candidate, false, time.Now(), st.circuitBreakerEnabled)
 	// The 429 verdict is per attempt: reset it here so a terminal path can
 	// never read a stale class off an earlier candidate's rate limit.
 	st.rateLimit = rateLimitVerdict{}
@@ -482,6 +453,8 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	if !h.admitCandidate(st, candidate) {
 		st.setReqErr(reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Detail: "at in-flight limit"})
 		logData.failoverAttempt = attempt
+		logData.noteBreaker(breakerNoop)
+		logData.closeAttemptRecord(0, KindProviderSaturated, "at in-flight limit", "", 0)
 		return nil, "", "", true, false
 	}
 	if attempt == 0 {
@@ -496,12 +469,15 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	if err != nil {
 		st.attemptSlot.settle(false)
 		st.setReqErr(reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
+		logData.closeAttemptRecord(0, KindInternal, errString(err), "", 0)
 		return nil, providerType, targetURL, false, false
 	}
 
 	resp, upstreamOK := h.doUpstream(failoverCtx, proxyReq, st, candidate, attempt, dialMs)
 	if !upstreamOK {
 		st.attemptSlot.settle(false)
+		// doUpstream set st.lastReqErr; no response was seen, so no status.
+		logData.closeAttemptRecord(0, st.lastReqErr.Kind, st.lastReqErr.Underlying, "", 0)
 		return nil, providerType, targetURL, false, false
 	}
 	// The held slot is NOT handed to the body here: the caller does that via
@@ -783,6 +759,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		if !isContextErr {
 			if st.circuitBreakerEnabled {
 				// No status: the request never completed, so there is none.
+				st.logData.noteBreaker(breakerCharge)
 				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Reason: "upstream request failed"})
 			}
 		}

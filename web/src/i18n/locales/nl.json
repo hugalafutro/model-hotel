@@ -2783,7 +2783,19 @@
 			"expandForBreakdown": "Vouw uit voor de uitsplitsing per stap",
 			"performance": "Prestaties",
 			"clientIp": "Client-IP",
-			"copyClientIp": "Client-IP kopiëren"
+			"copyClientIp": "Client-IP kopiëren",
+			"attemptTrail": "Pogingenspoor",
+			"attemptTrailHint": "Elke provider waarnaar dit verzoek is gerouteerd, op volgorde, met wat elk antwoordde. Overgeslagen items zijn door de stroomonderbreker geweigerd voordat er een verzoek werd gedaan.",
+			"attemptSkipped": "overgeslagen",
+			"attemptHedged": "gehedged",
+			"attemptNoStatus": "geen antwoord",
+			"attemptBreaker": "stroomonderbreker: {{verdict}}",
+			"attemptBreakerCharge": "belast",
+			"attemptBreakerNoop": "onaangeroerd",
+			"attemptBreakerSuccess": "gecrediteerd",
+			"attemptBreakerAlive": "actief",
+			"attemptBreakerSkipped": "overgeslagen",
+			"attemptBreakerDisabled": "uitgeschakeld"
 		},
 		"statusBadge": {
 			"streaming": "Streamen",

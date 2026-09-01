@@ -876,6 +876,8 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `endpoint_type` | string | - | Filter by endpoint family: `chat`, `embeddings`, `image`, `tts`, `stt` (unknown values are ignored) |
 | `from` | RFC3339 | - | Start timestamp |
 | `to` | RFC3339 | - | End timestamp |
+| `attempt_provider_id` | UUID | - | Select requests whose per-attempt trail names this provider on ANY attempt, whoever served the request in the end ("every request in which Neuralwatt answered") |
+| `attempt_status` | integer | - | Select requests with an attempt that reached this upstream status. Combined with `attempt_provider_id`, both must hold on the same attempt ("every request in which Neuralwatt returned 429") |
 | `sort_by` | string | `time` | Sort column: `time`, `model`, `provider`, `status`, `tokens`, `tps`, `ttft`, `duration`, `overhead`, `key` |
 | `sort_dir` | string | `desc` | Sort direction: `asc` or `desc` |
 
@@ -915,10 +917,14 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
       "virtual_key_id": "uuid",
       "error_message": "",
       "error_kind": "",
-      "failover_attempt": 0,
+      "failover_attempt": 1,
       "state": "completed",
       "endpoint_type": "chat",
-      "created_at": "2024-01-01T00:00:00Z"
+      "created_at": "2024-01-01T00:00:00Z",
+      "attempts": [
+        {"attempt": 0, "provider_id": "uuid", "provider": "Neuralwatt", "model": "glm-5.3", "status": 429, "error_kind": "provider_saturated", "detail": "concurrent_budget_exceeded", "phrase": "concurrent_budget_exceeded", "duration_ms": 412, "breaker": "noop"},
+        {"attempt": 1, "provider_id": "uuid", "provider": "OpenAI", "model": "gpt-4o", "status": 200, "duration_ms": 8299, "ttft_ms": 123.4, "breaker": "success"}
+      ]
     }
   ],
   "total": 1000,
@@ -926,6 +932,8 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
   "per_page": 20
 }
 ```
+
+`attempts` is the per-attempt trail: one element per failover attempt, in order, hedged probes and in-flight busy skips included. `attempt` is the loop's index (the same numbering as `failover_attempt`); `-1` marks a candidate the circuit breaker refused before any request was made (`breaker: "skipped"`). `status` is the upstream status the attempt reached (omitted when no response was seen), `detail` at most 160 characters of the sanitized, credential-masked upstream error (never request content), `phrase` the rate-limit phrase-table entry a 429 matched, and `breaker` what the attempt did to the circuit: `charge`, `noop`, `success`, `alive`, `skipped` or `disabled`. The field is omitted for rows without a trail (rows from before it existed, rows an older member wrote, requests that never reached a candidate). The terminal attempt's values also stay in the flat columns, so nothing that reads them changes. See [Failover: the per-attempt trail](Failover-and-Hotel-Routing#the-per-attempt-trail).
 
 ![Request Logs Page](screenshots/logs.png)
 

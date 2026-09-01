@@ -45,6 +45,32 @@ export interface LogEntry {
 	created_at: string;
 	resolved_model_id: string;
 	endpoint_type: string;
+	/** Per-attempt trail: one element per failover attempt, hedged probes and
+	 * breaker skips included, in order. Absent for rows without one (legacy
+	 * rows, rows an older member wrote, requests that never reached a
+	 * candidate). The terminal attempt's values also live in the flat columns. */
+	attempts?: AttemptRecord[];
+}
+export interface AttemptRecord {
+	/** The loop's index (same numbering as failover_attempt); -1 marks a
+	 * candidate the circuit breaker refused before any request was made. */
+	attempt: number;
+	provider_id: string;
+	provider: string;
+	model: string;
+	/** Upstream HTTP status the attempt reached; absent when none was seen. */
+	status?: number;
+	error_kind?: string;
+	/** At most 160 characters of the sanitized, credential-masked upstream error. */
+	detail?: string;
+	/** The rate-limit phrase-table entry a 429 matched, when one did. */
+	phrase?: string;
+	duration_ms: number;
+	ttft_ms?: number;
+	hedged?: boolean;
+	/** What the attempt did to the circuit: charge, noop, success, alive,
+	 * skipped, disabled; absent when the breaker was never consulted. */
+	breaker?: string;
 }
 export interface AppLogEntry {
 	id?: string;

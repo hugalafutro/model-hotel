@@ -78,6 +78,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 			st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
 			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "rate_limit_class", rl.class.String())
 			logData.failoverAttempt = attempt
+			logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, drainedMsg, rl.phrase, 0)
 			return outcomeFailover
 		}
 		// A saturated 429 on the LAST candidate: wait the seconds the provider
@@ -94,6 +95,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		// not RecordSuccess: nothing was served, so the 429 behavioural
 		// fallback must not count it as a recent serve.
 		if !isFailoverEligible && st.circuitBreakerEnabled {
+			logData.noteBreaker(breakerAlive)
 			h.circuitBreaker.RecordAlive(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), resp.StatusCode)
 		}
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)

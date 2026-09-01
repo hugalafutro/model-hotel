@@ -2905,7 +2905,19 @@
 			"expandForBreakdown": "Розгорніть для покрокового розподілу",
 			"performance": "Продуктивність",
 			"clientIp": "IP клієнта",
-			"copyClientIp": "Копіювати IP клієнта"
+			"copyClientIp": "Копіювати IP клієнта",
+			"attemptTrail": "Слід спроб",
+			"attemptTrailHint": "Кожен провайдер, на який було спрямовано цей запит, по порядку, з відповіддю кожного. Пропущені записи запобіжник відхилив до надсилання будь-якого запиту.",
+			"attemptSkipped": "пропущено",
+			"attemptHedged": "хеджовано",
+			"attemptNoStatus": "немає відповіді",
+			"attemptBreaker": "запобіжник: {{verdict}}",
+			"attemptBreakerCharge": "зараховано",
+			"attemptBreakerNoop": "не змінено",
+			"attemptBreakerSuccess": "зараховано в плюс",
+			"attemptBreakerAlive": "живий",
+			"attemptBreakerSkipped": "пропущено",
+			"attemptBreakerDisabled": "вимкнено"
 		},
 		"statusBadge": {
 			"streaming": "Трансляція",

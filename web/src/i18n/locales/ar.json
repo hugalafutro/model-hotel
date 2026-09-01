@@ -3027,7 +3027,19 @@
 			"expandForBreakdown": "وسّع لعرض التفصيل لكل خطوة",
 			"performance": "الأداء",
 			"clientIp": "IP العميل",
-			"copyClientIp": "نسخ IP العميل"
+			"copyClientIp": "نسخ IP العميل",
+			"attemptTrail": "مسار المحاولات",
+			"attemptTrailHint": "كل مزوّد وُجّه إليه هذا الطلب، بالترتيب، مع ما أجاب به كل واحد. الإدخالات المتخطّاة رفضها قاطع الدائرة قبل إرسال أي طلب.",
+			"attemptSkipped": "متخطّى",
+			"attemptHedged": "محوّط",
+			"attemptNoStatus": "لا استجابة",
+			"attemptBreaker": "قاطع الدائرة: {{verdict}}",
+			"attemptBreakerCharge": "محتسب",
+			"attemptBreakerNoop": "لم يُمسّ",
+			"attemptBreakerSuccess": "مُعتمد",
+			"attemptBreakerAlive": "حي",
+			"attemptBreakerSkipped": "متخطّى",
+			"attemptBreakerDisabled": "معطّل"
 		},
 		"statusBadge": {
 			"streaming": "البث",

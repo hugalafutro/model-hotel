@@ -277,6 +277,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// The request was interrupted; nothing here is the provider's doing.
 	case answered:
 		if st.circuitBreakerEnabled {
+			logData.noteBreaker(breakerSuccess)
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 	case bodilessSuccessStatus(resp.StatusCode):
@@ -295,6 +296,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	case !servedSuccessStatus(resp.StatusCode):
 		// A definitive non-2xx: the provider is plainly alive and answered.
 		if st.circuitBreakerEnabled {
+			logData.noteBreaker(breakerSuccess)
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 	default:
@@ -448,6 +450,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
 		if st.circuitBreakerEnabled && r.Context().Err() == nil {
+			logData.noteBreaker(breakerCharge)
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "upstream body read failed"})
 		}
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
@@ -458,6 +461,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	// Not for a bodiless success: see the buffered twin above for why crediting
 	// an empty 204 erases the chat path's charges on the same model.
 	if st.circuitBreakerEnabled && !bodilessSuccessStatus(resp.StatusCode) {
+		logData.noteBreaker(breakerSuccess)
 		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 	}
 	// The streamed commit point, matching the buffered one: a first byte out of

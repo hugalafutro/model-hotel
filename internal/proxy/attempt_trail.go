@@ -1,0 +1,216 @@
+package proxy
+
+import (
+	"encoding/json"
+	"strings"
+	"time"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
+)
+
+// The per-attempt trail (request_logs.attempts): one element per failover
+// attempt, written once at terminal time. It exists because request_logs kept
+// only the TERMINAL attempt, so on 2026-08-31 every Neuralwatt 429 that was
+// attempt 0 of a request another provider then served left no trace at all.
+//
+// Lifecycle: every attempt path opens a record when it commits to a candidate
+// (beginAttempt, the hedged launch, the breaker skip at resolve time) and
+// closes it when the attempt's fate is known. Non-terminal fates (failover,
+// busy skip, the saturation wait) close explicitly at the site that decides
+// them; the terminal attempt is closed by updateRequestLog from the flat
+// columns, so every terminal path in the package gets it for free.
+
+// attemptRecord is one element of the trail. Field names are the JSON the
+// logs API returns and the dashboard renders.
+type attemptRecord struct {
+	// Attempt is the loop's index, the same numbering as failover_attempt.
+	// -1 marks a candidate the circuit breaker refused before any request was
+	// made (Breaker "skipped"): it was considered, never attempted.
+	Attempt    int    `json:"attempt"`
+	ProviderID string `json:"provider_id"`
+	Provider   string `json:"provider"`
+	Model      string `json:"model"`
+	// Status is the upstream HTTP status the attempt reached (after the
+	// MiniMax envelope remap); 0 when no response was seen.
+	Status    int    `json:"status,omitempty"`
+	ErrorKind string `json:"error_kind,omitempty"`
+	// Detail is at most maxAttemptDetailRunes of the sanitized, credential-
+	// masked upstream error: the provider's error code or first sentence,
+	// never request content (see attemptDetail).
+	Detail string `json:"detail,omitempty"`
+	// Phrase is the rate-limit phrase-table entry a 429 matched, when one did.
+	// It is what the phrase staleness report counts: a phrase absent from
+	// every trail for 90 days has stopped earning its place in the table.
+	Phrase     string  `json:"phrase,omitempty"`
+	DurationMs float64 `json:"duration_ms"`
+	TTFTMs     float64 `json:"ttft_ms,omitempty"`
+	Hedged     bool    `json:"hedged,omitempty"`
+	// Breaker says what the attempt did to the circuit: charge, noop, success,
+	// alive (a non-failover status credited the circuit without serving),
+	// skipped (refused before a request), disabled. Empty when the attempt
+	// ended before the breaker was consulted (a client that hung up).
+	Breaker string `json:"breaker,omitempty"`
+}
+
+// The Breaker verdicts an attempt can record.
+const (
+	breakerCharge   = "charge"
+	breakerNoop     = "noop"
+	breakerSuccess  = "success"
+	breakerAlive    = "alive"
+	breakerSkipped  = "skipped"
+	breakerDisabled = "disabled"
+)
+
+// maxAttemptDetailRunes bounds attemptRecord.Detail. A provider's error code
+// or first sentence fits; a provider quoting the prompt back does not, which
+// with the credential masker is the second of the two fences the design asks
+// for.
+const maxAttemptDetailRunes = 160
+
+// attemptDetail reduces an upstream error text to what the trail may carry:
+// credential-masked, whitespace-collapsed and capped at maxAttemptDetailRunes
+// on a rune boundary. The input is expected to be already sanitized
+// (util.SanitizeLogBody or errString); masking here is the fence for a path
+// that forgot.
+func attemptDetail(masker credentialMasker, s string) string {
+	if s == "" {
+		return ""
+	}
+	s = string(masker.mask([]byte(s)))
+	s = strings.Join(strings.Fields(s), " ")
+	if utf8.RuneCountInString(s) <= maxAttemptDetailRunes {
+		return s
+	}
+	return string([]rune(s)[:maxAttemptDetailRunes]) + "…"
+}
+
+// openAttemptRecord starts the record for an attempt that is committing to a
+// candidate. startedAt is when the attempt began (a hedged probe's launch
+// instant, not when its result arrived). cbEnabled false records the breaker
+// as disabled up front, because no verdict site will run to say otherwise.
+//
+// Every method here tolerates a nil receiver: unit tests drive attempt paths
+// with a bare requestState, and a trail nobody will read is not worth a panic.
+func (l *requestLogData) openAttemptRecord(attempt int, candidate modelCandidate, hedged bool, startedAt time.Time, cbEnabled bool) {
+	if l == nil {
+		return
+	}
+	l.openAttempt = &attemptRecord{
+		Attempt:    attempt,
+		ProviderID: candidate.provider.ID.String(),
+		Provider:   candidate.provider.Name,
+		Model:      candidateModelID(candidate),
+		Hedged:     hedged,
+	}
+	l.attemptStarted = startedAt
+	l.attemptBreaker = ""
+	if !cbEnabled {
+		l.attemptBreaker = breakerDisabled
+	}
+}
+
+// noteBreaker records what the breaker was just told about the attempt in
+// flight. Called beside every Record* call on the request path; the hedged
+// probe reads it back off its private log snapshot into hedgeResult.breaker.
+func (l *requestLogData) noteBreaker(verdict string) {
+	if l == nil {
+		return
+	}
+	l.attemptBreaker = verdict
+}
+
+// closeAttemptRecord finishes the open record with the attempt's fate and
+// appends it to the trail. A no-op when nothing is open, so a terminal path
+// that follows an explicit close (all providers exhausted after the last
+// failover) cannot append the same attempt twice.
+func (l *requestLogData) closeAttemptRecord(status int, kind ErrorKind, detail, phrase string, ttftMs float64) {
+	if l == nil || l.openAttempt == nil {
+		return
+	}
+	rec := l.openAttempt
+	l.openAttempt = nil
+	rec.Status = status
+	rec.ErrorKind = string(kind)
+	rec.Detail = attemptDetail(l.masker, detail)
+	rec.Phrase = phrase
+	rec.TTFTMs = ttftMs
+	rec.Breaker = l.attemptBreaker
+	if !l.attemptStarted.IsZero() {
+		rec.DurationMs = float64(time.Since(l.attemptStarted).Microseconds()) / 1000.0
+	}
+	l.attempts = append(l.attempts, *rec)
+}
+
+// appendAttemptRecord adds a record whose fate is already known in full: a
+// hedged loser reported by the orchestrator, or a candidate the breaker
+// refused at resolve time.
+func (l *requestLogData) appendAttemptRecord(rec attemptRecord) {
+	if l == nil {
+		return
+	}
+	l.attempts = append(l.attempts, rec)
+}
+
+// hedgeLoserRecord is the trail record for a hedged probe that did not win:
+// its fate is known in full when the orchestrator receives the result. The
+// detail is the probe's own error text (already masked by the probe's
+// classifier or errString) or, for a 429, the classifier's body excerpt;
+// masked again here with the loser's own credential, since the shared log
+// entry's masker belongs to whichever candidate last ran the sequential path.
+func hedgeLoserRecord(res hedgeResult, candidate modelCandidate, launchedAt time.Time) attemptRecord {
+	detail := res.reqErr.Underlying
+	if detail == "" {
+		detail = res.reqErr.Detail
+	}
+	if res.rateLimit.detail != "" {
+		detail = res.rateLimit.detail
+	}
+	return attemptRecord{
+		Attempt:    res.idx,
+		ProviderID: candidate.provider.ID.String(),
+		Provider:   candidate.provider.Name,
+		Model:      candidateModelID(candidate),
+		Status:     res.status,
+		ErrorKind:  string(res.reqErr.Kind),
+		Detail:     attemptDetail(newCredentialMasker(candidate.apiKey), detail),
+		Phrase:     res.rateLimit.phrase,
+		DurationMs: float64(time.Since(launchedAt).Microseconds()) / 1000.0,
+		TTFTMs:     res.trueTtftMs,
+		Hedged:     true,
+		Breaker:    res.breaker,
+	}
+}
+
+// appendBreakerSkip records a candidate the circuit breaker refused before any
+// request was made, so the trail can say "Z.ai: skipped (circuit open)" ahead
+// of the providers that were actually tried.
+func (l *requestLogData) appendBreakerSkip(providerID uuid.UUID, providerName, model string) {
+	if l == nil {
+		return
+	}
+	l.attempts = append(l.attempts, attemptRecord{
+		Attempt:    -1,
+		ProviderID: providerID.String(),
+		Provider:   providerName,
+		Model:      model,
+		Detail:     "circuit breaker open",
+		Breaker:    breakerSkipped,
+	})
+}
+
+// attemptsJSON renders the trail for the request_logs.attempts column: nil (a
+// SQL NULL) when the request never committed to a candidate, so a validation
+// failure or an unknown model leaves the column exactly as an older binary
+// would.
+func (l *requestLogData) attemptsJSON() []byte {
+	if l == nil || len(l.attempts) == 0 {
+		return nil
+	}
+	b, err := json.Marshal(l.attempts)
+	if err != nil {
+		return nil
+	}
+	return b
+}

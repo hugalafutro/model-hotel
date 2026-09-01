@@ -49,6 +49,15 @@ type breakerSkipSummary struct {
 	skips         int
 	earliestRetry time.Time
 	allPinned     bool
+	// skipped names the pairs, in priority order, so the request's attempt
+	// trail can list them ahead of the candidates that were actually tried.
+	skipped []skippedCandidate
+}
+
+type skippedCandidate struct {
+	providerID   uuid.UUID
+	providerName string
+	model        string
 }
 
 func (s *breakerSkipSummary) note(retryAt time.Time, pinned, ok bool) {
@@ -293,6 +302,7 @@ func (h *Handler) buildFailoverCandidates(fg *failover.FailoverGroup, models map
 			// retry becomes worth making, and with whether it is waiting out
 			// spent quota windows or mere cooldowns.
 			skips.note(h.circuitBreaker.BlockedUntil(prov.ID, m.ModelID))
+			skips.skipped = append(skips.skipped, skippedCandidate{providerID: prov.ID, providerName: prov.Name, model: m.ModelID})
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
 		}

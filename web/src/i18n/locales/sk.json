@@ -2905,7 +2905,19 @@
 			"expandForBreakdown": "Rozbaľte pre podrobné rozdelenie podľa krokov",
 			"performance": "Výkon",
 			"clientIp": "IP klienta",
-			"copyClientIp": "Kopírovať IP klienta"
+			"copyClientIp": "Kopírovať IP klienta",
+			"attemptTrail": "Stopa pokusov",
+			"attemptTrailHint": "Každý poskytovateľ, na ktorého bola táto požiadavka smerovaná, v poradí, s tým, čo ktorý odpovedal. Preskočené položky odmietol istič skôr, než bola odoslaná akákoľvek požiadavka.",
+			"attemptSkipped": "preskočené",
+			"attemptHedged": "zaistené",
+			"attemptNoStatus": "bez odpovede",
+			"attemptBreaker": "istič: {{verdict}}",
+			"attemptBreakerCharge": "zaťažené",
+			"attemptBreakerNoop": "nedotknuté",
+			"attemptBreakerSuccess": "pripísané",
+			"attemptBreakerAlive": "živý",
+			"attemptBreakerSkipped": "preskočené",
+			"attemptBreakerDisabled": "vypnuté"
 		},
 		"statusBadge": {
 			"streaming": "Streamovanie",

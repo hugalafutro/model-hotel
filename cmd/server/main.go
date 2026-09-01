@@ -406,6 +406,7 @@ func main() {
 		return runDiscovery(discDeps, source)
 	})
 	go staleLogCleanupLoop(ctx, database.Pool(), settingsRepo, serverStartTime)
+	go proxy.PhraseStalenessLoop(ctx, database.Pool())
 	go logRetentionLoop(ctx, database.Pool(), settingsRepo)
 	go quotaPollLoop(ctx, settingsRepo, apiHandler.PollQuotasOnce, apiHandler.DisableQuotaAdvice, time.Minute)
 	go scheduledDisableLoop(ctx, providerRepo, failoverRepo, time.Minute)

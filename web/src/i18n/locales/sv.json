@@ -2783,7 +2783,19 @@
 			"expandForBreakdown": "Expandera för uppdelningen per steg",
 			"performance": "Prestanda",
 			"clientIp": "Klient-IP",
-			"copyClientIp": "Kopiera klient-IP"
+			"copyClientIp": "Kopiera klient-IP",
+			"attemptTrail": "Försöksspår",
+			"attemptTrailHint": "Varje leverantör som denna begäran dirigerades till, i ordning, med vad var och en svarade. Överhoppade poster avvisades av kretsbrytaren innan någon begäran gjordes.",
+			"attemptSkipped": "överhoppad",
+			"attemptHedged": "hedgad",
+			"attemptNoStatus": "inget svar",
+			"attemptBreaker": "kretsbrytare: {{verdict}}",
+			"attemptBreakerCharge": "belastad",
+			"attemptBreakerNoop": "orörd",
+			"attemptBreakerSuccess": "krediterad",
+			"attemptBreakerAlive": "vid liv",
+			"attemptBreakerSkipped": "överhoppad",
+			"attemptBreakerDisabled": "inaktiverad"
 		},
 		"statusBadge": {
 			"streaming": "Strömning",

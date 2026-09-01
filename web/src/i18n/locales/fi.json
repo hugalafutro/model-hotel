@@ -2783,7 +2783,19 @@
 			"expandForBreakdown": "Laajenna nähdäksesi vaihekohtaisen erittelyn",
 			"performance": "Suorituskyky",
 			"clientIp": "Asiakkaan IP",
-			"copyClientIp": "Kopioi asiakkaan IP"
+			"copyClientIp": "Kopioi asiakkaan IP",
+			"attemptTrail": "Yritysjälki",
+			"attemptTrailHint": "Jokainen palveluntarjoaja, jolle tämä pyyntö reititettiin, järjestyksessä, sekä kunkin vastaus. Ohitetut kohdat virrankatkaisin hylkäsi ennen kuin yhtään pyyntöä lähetettiin.",
+			"attemptSkipped": "ohitettu",
+			"attemptHedged": "suojattu",
+			"attemptNoStatus": "ei vastausta",
+			"attemptBreaker": "virrankatkaisin: {{verdict}}",
+			"attemptBreakerCharge": "veloitettu",
+			"attemptBreakerNoop": "koskematon",
+			"attemptBreakerSuccess": "hyvitetty",
+			"attemptBreakerAlive": "elossa",
+			"attemptBreakerSkipped": "ohitettu",
+			"attemptBreakerDisabled": "pois käytöstä"
 		},
 		"statusBadge": {
 			"streaming": "Suoratoistaminen",

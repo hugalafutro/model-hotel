@@ -2844,7 +2844,19 @@
 			"expandForBreakdown": "Desplega per veure el desglossament per passos",
 			"performance": "Rendiment",
 			"clientIp": "IP del client",
-			"copyClientIp": "Copia la IP del client"
+			"copyClientIp": "Copia la IP del client",
+			"attemptTrail": "Rastre d'intents",
+			"attemptTrailHint": "Cada proveïdor al qual s'ha encaminat aquesta sol·licitud, en ordre, amb el que ha respost cadascun. Les entrades omeses les va rebutjar el disjuntor abans de fer cap sol·licitud.",
+			"attemptSkipped": "omès",
+			"attemptHedged": "cobert",
+			"attemptNoStatus": "sense resposta",
+			"attemptBreaker": "disjuntor: {{verdict}}",
+			"attemptBreakerCharge": "carregat",
+			"attemptBreakerNoop": "intacte",
+			"attemptBreakerSuccess": "acreditat",
+			"attemptBreakerAlive": "actiu",
+			"attemptBreakerSkipped": "omès",
+			"attemptBreakerDisabled": "desactivat"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

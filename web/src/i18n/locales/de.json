@@ -2783,7 +2783,19 @@
 			"expandForBreakdown": "Für die Aufschlüsselung pro Schritt ausklappen",
 			"performance": "Leistung",
 			"clientIp": "Client-IP",
-			"copyClientIp": "Client-IP kopieren"
+			"copyClientIp": "Client-IP kopieren",
+			"attemptTrail": "Versuchsverlauf",
+			"attemptTrailHint": "Jeder Anbieter, an den diese Anfrage geleitet wurde, in Reihenfolge, mit der jeweiligen Antwort. Übersprungene Einträge hat der Schutzschalter abgelehnt, bevor eine Anfrage gestellt wurde.",
+			"attemptSkipped": "übersprungen",
+			"attemptHedged": "abgesichert",
+			"attemptNoStatus": "keine Antwort",
+			"attemptBreaker": "Schutzschalter: {{verdict}}",
+			"attemptBreakerCharge": "belastet",
+			"attemptBreakerNoop": "unberührt",
+			"attemptBreakerSuccess": "gutgeschrieben",
+			"attemptBreakerAlive": "erreichbar",
+			"attemptBreakerSkipped": "übersprungen",
+			"attemptBreakerDisabled": "deaktiviert"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

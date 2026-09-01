@@ -16,7 +16,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// logEntrySelectColumns is the shared 37-column request_logs projection plus the
+// logEntrySelectColumns is the shared 38-column request_logs projection plus the
 // FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
 // offset list (ListLogs) prefixes it with the windowed total count. Its column
 // order matches logEntryScanDests exactly.
@@ -48,7 +48,8 @@ const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
             COALESCE(rl.resolved_model_id, ''),
             COALESCE(rl.endpoint_type, 'chat'),
             COALESCE(rl.error_kind, ''),
-            COALESCE(rl.client_ip, '')
+            COALESCE(rl.client_ip, ''),
+            rl.attempts
         FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
         LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
         WHERE 1=1
@@ -63,7 +64,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.virtualKeyID, p.clientIP, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.virtualKeyID, p.clientIP, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID, p.attemptProviderID, p.attemptStatus)
 	if p.cursorStr != "" {
 		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, p.cursor, p.direction, p.sortDir)
 	}
@@ -88,7 +89,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
 	query := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
 	args := []any{}
-	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.virtualKeyID, p.clientIP, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID)
+	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.virtualKeyID, p.clientIP, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID, p.attemptProviderID, p.attemptStatus)
 	var total int
 	_ = h.dbPool.Pool().QueryRow(ctx, query, args...).Scan(&total)
 	return total
@@ -132,7 +133,7 @@ func paginateCursor[T any](entries []T, direction string, limit int, hasCursor b
 	return entries, hasAfter, hasBefore
 }
 
-// logEntryScanDests returns the ordered Scan() targets for the shared 37-column
+// logEntryScanDests returns the ordered Scan() targets for the shared 38-column
 // request_logs projection (logEntrySelectColumns). The cursor list scans these
 // directly; the offset list (ListLogs) prepends its windowed total count.
 func logEntryScanDests(entry *LogEntry) []any {
@@ -155,10 +156,11 @@ func logEntryScanDests(entry *LogEntry) []any {
 		&entry.EndpointType,
 		&entry.ErrorKind,
 		&entry.ClientIP,
+		&entry.Attempts,
 	}
 }
 
-// scanLogEntry scans one request_logs row (the 37-column projection shared by
+// scanLogEntry scans one request_logs row (the 38-column projection shared by
 // ListLogsCursor and ListLogs) into a LogEntry.
 func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 	var entry LogEntry
@@ -173,7 +175,7 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 // count copy lacked the `statusCode >= 0` guard the data copy has; both now use
 // the guard, so an invalid negative status_code is uniformly ignored — a
 // behaviour-neutral fix since status codes are always >= 0).
-func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID string) (string, []any, int) {
+func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID, attemptProviderID, attemptStatus string) (string, []any, int) {
 	// Owner scope first: for non-admins this is mandatory row-level security,
 	// for admins an optional dashboard filter. The two branches cover the two
 	// disjoint row shapes. A KEYED row resolves through the key's CURRENT owner,
@@ -249,6 +251,37 @@ func appendLogFilters(query string, args []any, argIndex int, modelID, providerI
 			argIndex++
 		}
 	}
+	return appendAttemptFilter(query, args, argIndex, attemptProviderID, attemptStatus)
+}
+
+// appendAttemptFilter adds the per-attempt trail filter: "every request in
+// which THIS provider answered THIS status, whoever served it in the end". One
+// containment predicate carrying both keys, so the two must hold on the same
+// element rather than on two different attempts; jsonb_path_ops on the
+// attempts index serves it. Either key alone is allowed. An unparseable
+// provider id or status is ignored, matching the other lenient filters.
+func appendAttemptFilter(query string, args []any, argIndex int, attemptProviderID, attemptStatus string) (string, []any, int) {
+	element := map[string]any{}
+	if attemptProviderID != "" {
+		if id, err := uuid.Parse(attemptProviderID); err == nil {
+			element["provider_id"] = id.String()
+		}
+	}
+	if attemptStatus != "" {
+		if status, err := strconv.Atoi(attemptStatus); err == nil && status > 0 {
+			element["status"] = status
+		}
+	}
+	if len(element) == 0 {
+		return query, args, argIndex
+	}
+	needle, err := json.Marshal([]map[string]any{element})
+	if err != nil {
+		return query, args, argIndex
+	}
+	query += " AND rl.attempts @> $" + util.IntToStr(argIndex) + "::jsonb"
+	args = append(args, string(needle))
+	argIndex++
 	return query, args, argIndex
 }
 
@@ -300,6 +333,10 @@ type logListParams struct {
 	fromDate     string
 	toDate       string
 	endpointType string
+	// attemptProviderID / attemptStatus filter on the per-attempt trail
+	// rather than the terminal columns (see appendAttemptFilter).
+	attemptProviderID string
+	attemptStatus     string
 }
 
 // parseLogListParams reads and validates the pagination/filter query params. On
@@ -319,6 +356,9 @@ func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, 
 		fromDate:     r.URL.Query().Get("from"),
 		toDate:       r.URL.Query().Get("to"),
 		endpointType: r.URL.Query().Get("endpoint_type"),
+
+		attemptProviderID: r.URL.Query().Get("attempt_provider_id"),
+		attemptStatus:     r.URL.Query().Get("attempt_status"),
 	}
 	if p.limit < 1 {
 		p.limit = 1

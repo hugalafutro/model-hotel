@@ -2844,7 +2844,19 @@
 			"expandForBreakdown": "Прошири за рашчлањавање по корацима",
 			"performance": "Перформансе",
 			"clientIp": "IP клијента",
-			"copyClientIp": "Копирај IP клијента"
+			"copyClientIp": "Копирај IP клијента",
+			"attemptTrail": "Траг покушаја",
+			"attemptTrailHint": "Сваки провајдер ка коме је овај захтев усмерен, по реду, са одговором сваког од њих. Прескочене ставке је прекидач одбио пре него што је иједан захтев послат.",
+			"attemptSkipped": "прескочено",
+			"attemptHedged": "хеџовано",
+			"attemptNoStatus": "нема одговора",
+			"attemptBreaker": "прекидач: {{verdict}}",
+			"attemptBreakerCharge": "наплаћено",
+			"attemptBreakerNoop": "нетакнуто",
+			"attemptBreakerSuccess": "признато",
+			"attemptBreakerAlive": "активан",
+			"attemptBreakerSkipped": "прескочено",
+			"attemptBreakerDisabled": "искључено"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",

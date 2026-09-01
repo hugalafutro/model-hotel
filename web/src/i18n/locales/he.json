@@ -2844,7 +2844,19 @@
 			"expandForBreakdown": "הרחב לפירוט לפי שלבים",
 			"performance": "ביצועים",
 			"clientIp": "IP של הלקוח",
-			"copyClientIp": "העתק את ה-IP של הלקוח"
+			"copyClientIp": "העתק את ה-IP של הלקוח",
+			"attemptTrail": "נתיב ניסיונות",
+			"attemptTrailHint": "כל ספק שאליו נותבה הבקשה, לפי הסדר, עם התשובה של כל אחד. רשומות שדולגו נדחו על ידי מפסק הזרם לפני שנשלחה בקשה כלשהי.",
+			"attemptSkipped": "דולג",
+			"attemptHedged": "מגודר",
+			"attemptNoStatus": "אין תגובה",
+			"attemptBreaker": "מפסק: {{verdict}}",
+			"attemptBreakerCharge": "חויב",
+			"attemptBreakerNoop": "לא נגעו",
+			"attemptBreakerSuccess": "זוכה",
+			"attemptBreakerAlive": "פעיל",
+			"attemptBreakerSkipped": "דולג",
+			"attemptBreakerDisabled": "מושבת"
 		},
 		"statusBadge": {
 			"streaming": "סטרימינג",
