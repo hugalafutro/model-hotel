@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	neturl "net/url"
 	"slices"
 	"strings"
 
@@ -32,7 +33,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	// x-goog-api-key header (which vertex-express already uses) would remove
 	// the class rather than mask it, and is worth doing separately, where the
 	// change can be exercised against the live API.
-	url := fmt.Sprintf("%s/models?key=%s", nativeBaseURL, apiKey)
+	url := fmt.Sprintf("%s/models?key=%s", nativeBaseURL, neturl.QueryEscape(apiKey))
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
 	if err != nil {
@@ -56,7 +57,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(bodyBytes), 2000)))
+		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
 		return nil, fmt.Errorf("google: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

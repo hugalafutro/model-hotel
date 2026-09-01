@@ -179,3 +179,98 @@ func TestSanitizeLogBody_LeavesModelIdsIntact(t *testing.T) {
 		}
 	}
 }
+
+func TestMaskCredentials_EveryEntryIsRedacted(t *testing.T) {
+	body := `refused: bearer "gateway-secret-alpha-1234" and param "gateway-secret-beta-5678"; tiny "ab"`
+	got := MaskCredentials([]string{"gateway-secret-alpha-1234", "ab", "gateway-secret-beta-5678", ""}, body)
+	if strings.Contains(got, "gateway-secret-alpha-1234") || strings.Contains(got, "gateway-secret-beta-5678") {
+		t.Errorf("a listed secret survived: %s", got)
+	}
+	if strings.Count(got, "[redacted]") != 2 {
+		t.Errorf("want exactly the two real secrets redacted (the short and empty entries must be skipped), got %s", got)
+	}
+	if !strings.Contains(got, `tiny "ab"`) {
+		t.Errorf("an entry below CredentialMinLen must not be rewritten: %s", got)
+	}
+}
+
+func TestMaskCredentials_NoSecretsStillRunsTheShapeLayer(t *testing.T) {
+	got := MaskCredentials(nil, "Incorrect API key provided: sk-abcdefghijklmnop1234")
+	if strings.Contains(got, "sk-abcdefghijklmnop1234") {
+		t.Errorf("shape layer must run even with no exact secrets: %s", got)
+	}
+}
+
+// A key that straddles the truncation boundary must still be redacted whole.
+// Truncating first leaves its head behind, which the shape pass cannot see for
+// a custom-format key; this is the order SanitizeLogBody itself documents.
+func TestMaskCredentialsBounded_KeyAcrossTheCutIsRedactedWhole(t *testing.T) {
+	const key = "selfhosted-gateway-secret-abcdefghij"
+	pad := strings.Repeat("x", 190) // the key starts 10 runes before a 200-rune cut
+	got := MaskCredentialsBounded([]string{key}, pad+key+" trailing", 200)
+	if strings.Contains(got, key[:12]) {
+		t.Errorf("a prefix of the key survived the cut: %s", got)
+	}
+	if !strings.Contains(got, "[redacted]") {
+		t.Errorf("want the key redacted, got %s", got)
+	}
+	if len(got) > 200+len("[redacted]")+3 {
+		t.Errorf("result must still be bounded near maxLen, got %d runes", len(got))
+	}
+}
+
+// Masking shrinks the text, so many earlier copies of the key can pull a copy
+// that the window cut in half down below maxLen, where the final truncation
+// no longer removes its head. Found by the second review round with this
+// exact shape: maxLen 2000, a 51-byte key echoed 100 times, then a straddle.
+func TestMaskCredentialsBounded_ShrinkCannotDragACutHeadIntoView(t *testing.T) {
+	key := strings.Repeat("qwertyuiop", 5) + "Z" // 51 bytes, no digit: shapeless
+	body := strings.Repeat(key+" ", 100)
+	// Place one more copy so that it straddles the maxLen+scrubMargin window.
+	const maxLen = 2000
+	gap := maxLen + 4096 - len(body) - 20
+	if gap < 0 {
+		t.Fatalf("test geometry: body already past the window (%d)", len(body))
+	}
+	body += strings.Repeat("-", gap) + key + " tail"
+	got := MaskCredentialsBounded([]string{key}, body, maxLen)
+	for k := len(key) - 1; k >= CredentialMinLen; k-- {
+		if strings.Contains(got, key[:k]) {
+			t.Fatalf("a %d-byte head of the key survived: ...%s", k, got[max(0, len(got)-80):])
+		}
+	}
+}
+
+func TestMaskCredentialBounded_IsTheSingleSecretForm(t *testing.T) {
+	got := MaskCredentialBounded("selfhosted-gateway-secret", "refused selfhosted-gateway-secret now", 100)
+	if got != "refused [redacted] now" {
+		t.Errorf("got %q", got)
+	}
+}
+
+// The tail strip must take the longest head across every listed secret. The
+// third review round broke the per-secret version with two secrets where the
+// first's prefix is a suffix of the second's cut head.
+func TestMaskCredentialsBounded_TailStripTakesTheLongestHeadAcrossSecrets(t *testing.T) {
+	a := "12345678abcdefghij"
+	b := "wxyzZZZZ12345678QQQQRRRRSS"
+	got := MaskCredentialsBounded([]string{a, b}, "oops wxyzZZZZ12345678", 100)
+	if got != "oops [redacted]" {
+		t.Errorf("got %q, want the whole head of the second secret stripped", got)
+	}
+}
+
+// A stripped head of eight or nine bytes is replaced by a ten-byte marker,
+// which would push the text past maxLen; the function stays bounded and marks
+// the cut.
+func TestMaskCredentialsBounded_StripStaysWithinMaxLen(t *testing.T) {
+	secret := "abcdefghijklmnop"
+	body := strings.Repeat("x", 192) + secret[:8] // 200 bytes, ends in an 8-byte head
+	got := MaskCredentialsBounded([]string{secret}, body, 200)
+	if strings.Contains(got, secret[:8]) {
+		t.Errorf("head survived: %q", got)
+	}
+	if n := len(strings.TrimSuffix(got, "…")); n > 200 {
+		t.Errorf("result is %d bytes, over maxLen 200", n)
+	}
+}

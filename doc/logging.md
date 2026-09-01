@@ -64,6 +64,15 @@ through the attempt's credential masker. A provider quoting the prompt back
 cannot fit; a key cannot survive. The no-content rule of section 6 applies to it
 unchanged.
 
+Provider discovery and quota polling scrub the same way. The shared HTTP helpers in
+`internal/provider/discovery.go` never receive the key as a value, so they read it back off the
+request they are sending (the credential headers, and the credential-bearing query parameters one
+family authenticates with) and mask it exactly, then by shape, then bound the text, in that order so a
+key straddling the cut is still redacted whole. This covers upstream error bodies, retryable-status
+bodies and transport errors that quote the URL, in what is logged, returned to the dashboard, and
+stored as a provider's quota failure. The vendor-specific paths that talk to an upstream directly run
+`util.MaskCredential` over its answer for the same reason.
+
 `phrase` is what the daily phrase-staleness report reads
 (`internal/proxy/phrase_staleness.go`): a rate-limit phrase-table entry that has
 matched no attempt in 90 days, and was added more than 90 days ago, is named in a

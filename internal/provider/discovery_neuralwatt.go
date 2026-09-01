@@ -47,7 +47,7 @@ func (d *DiscoveryService) GetNeuralWattQuota(ctx context.Context, provider *Pro
 		if authErr := quotaAuthError("neuralwatt", apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return nil, authErr
 		}
-		debuglog.Error("discovery: neuralwatt quota non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.SanitizeLogBody(string(body), 2000))
+		debuglog.Error("discovery: neuralwatt quota non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
 		return nil, fmt.Errorf("neuralwatt: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

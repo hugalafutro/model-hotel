@@ -96,8 +96,86 @@ func MaskKeyShapedTokens(body []byte) []byte {
 // they are talking to an upstream, and this is the function to run over
 // anything that upstream says back.
 func MaskCredential(secret, body string) string {
-	if len(secret) >= CredentialMinLen && strings.Contains(body, secret) {
-		body = strings.ReplaceAll(body, secret, "[redacted]")
+	return MaskCredentials([]string{secret}, body)
+}
+
+// MaskCredentials is MaskCredential for a caller that holds more than one
+// candidate secret, or none it can name: the exact pass runs for every entry,
+// then the shape layer runs once. It exists for the shared discovery helpers,
+// which never receive the key as a value, only inside the headers and URL of
+// the request they are about to send, and so mask with everything that request
+// carries (each bearer, each query value) rather than with one named key.
+// Entries shorter than CredentialMinLen are skipped for the reason given there.
+func MaskCredentials(secrets []string, body string) string {
+	return string(MaskKeyShapedTokens([]byte(maskExact(secrets, body))))
+}
+
+// MaskCredentialsBounded is MaskCredentials followed by SanitizeLogBody, in the
+// one order that is safe: the exact pass runs BEFORE the truncation, over the
+// same maxLen+scrubMargin window SanitizeLogBody scans. Running it after (over
+// text already cut at maxLen) leaves the head of a key that straddles the cut,
+// and a custom-format key gets nothing from the shape pass behind it either.
+// This is the same rule SanitizeLogBody documents for its own shape pass; a
+// caller that has a body to bound and secrets to name uses this, not the two
+// in sequence.
+func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
+	if len(body) > maxLen+scrubMargin {
+		body = body[:maxLen+scrubMargin]
 	}
-	return string(MaskKeyShapedTokens([]byte(body)))
+	out := SanitizeLogBody(maskExact(secrets, body), maxLen)
+	// The window cut above can leave the head of a secret at its very end, and
+	// masking SHRINKS the text ("[redacted]" is shorter than a key), so enough
+	// earlier occurrences pull that cut head down below maxLen where the final
+	// truncation no longer removes it. Nothing before this point can know how
+	// far the text moved, so the tail is checked last: a proper prefix of any
+	// listed secret, of credential length, is redacted too. Only the tail can
+	// hold one, since a whole occurrence anywhere was already replaced.
+	suffix := ""
+	if strings.HasSuffix(out, "…") {
+		out, suffix = strings.TrimSuffix(out, "…"), "…"
+	}
+	// The longest matching head across ALL secrets, stripped once. Taking the
+	// first secret that matches and stopping would let a second secret's head
+	// survive whenever an earlier secret's prefix is a suffix of it.
+	longest := 0
+	for _, secret := range secrets {
+		if len(secret) < CredentialMinLen {
+			continue
+		}
+		for k := min(len(secret)-1, len(out)); k > longest && k >= CredentialMinLen; k-- {
+			if strings.HasSuffix(out, secret[:k]) {
+				longest = k
+				break
+			}
+		}
+	}
+	if longest > 0 {
+		out = out[:len(out)-longest] + "[redacted]"
+		// "[redacted]" is ten bytes, so a head of eight or nine grew the text
+		// past the bound this function promises. Cut back and say so.
+		if len(out) > maxLen {
+			out, suffix = out[:maxLen], "…"
+		}
+	}
+	return out + suffix
+}
+
+// MaskCredentialBounded is MaskCredentialsBounded for a caller that holds one
+// key. It is the form every vendor path that logs or returns an upstream body
+// uses; MaskCredential over an already-sanitized body is the inverted order
+// and must not be written.
+func MaskCredentialBounded(secret, body string, maxLen int) string {
+	return MaskCredentialsBounded([]string{secret}, body, maxLen)
+}
+
+// maskExact replaces every listed secret of credential length. It runs the
+// list in order, so a caller that lists a superset ("Bearer X") before its
+// subset ("X") has the whole token consumed first.
+func maskExact(secrets []string, body string) string {
+	for _, secret := range secrets {
+		if len(secret) >= CredentialMinLen && strings.Contains(body, secret) {
+			body = strings.ReplaceAll(body, secret, "[redacted]")
+		}
+	}
+	return body
 }
