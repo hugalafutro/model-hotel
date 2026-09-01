@@ -51,6 +51,12 @@ func TestCheckProbeRedirect(t *testing.T) {
 func TestProbeClientGuards(t *testing.T) {
 	c := newProbeClient(2 * time.Second)
 
+	// The pool gives up an idle connection before the member listener does
+	// (httpx.IdleTimeout, 180s); left at zero it would hold one forever.
+	if tr, ok := c.Transport.(*http.Transport); !ok || tr.IdleConnTimeout != 90*time.Second {
+		t.Fatalf("probe transport idle timeout = %v, want 90s", c.Transport)
+	}
+
 	// Dial to a cloud-metadata IP is blocked before connecting.
 	if _, err := c.Get("http://169.254.169.254/"); err == nil {
 		t.Error("expected a dial to the metadata IP to be blocked")

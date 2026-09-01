@@ -14,12 +14,16 @@ import (
 // ReadHeaderTimeout bounds the request line and headers. IdleTimeout bounds a
 // keep-alive connection between requests; when it is unset net/http falls back
 // to ReadTimeout, and with that unset too it waits for the next request
-// forever. The server side of an idle race must be the longer one, or a client
-// that reuses a pooled connection at the last moment writes a request into a
-// connection the gateway has just closed. 180s sits above every pool that
-// holds a connection to these listeners: Traefik's default 90s upstream idle,
-// Go's default 90s transport, and the gateway's own 120s outbound pool (one
-// Model Hotel is a valid provider for another).
+// forever. The server side of an idle race should be the longer one, or a
+// client that reuses a pooled connection at the last moment writes a request
+// into a connection the gateway has just closed. 180s sits above the pools
+// under this project's control: Traefik's default 90s upstream idle, Go's
+// default 90s transport (Front Desk's member clients pool at that value), and
+// the gateway's own 120s outbound pool (one Model Hotel is a valid provider
+// for another). Bellhop's OkHttp pool keeps a connection for five minutes and
+// is left above it on purpose: OkHttp checks a pooled socket's health before
+// reuse and retries a connection failure, and a listener idle timeout has to
+// stay bounded rather than chase every client's pool.
 //
 // There is deliberately no ReadTimeout and no WriteTimeout. A streaming chat
 // completion or an /api/events stream runs for minutes to hours, and
@@ -45,8 +49,9 @@ const (
 // The length that earns time is the declared Content-Length clamped to the
 // largest body the listener accepts (NewServer's maxBody), and a body that
 // declares no length at all (Transfer-Encoding: chunked, which any Go client
-// streaming a file or pipe, a browser fetch with a stream body, and curl -T
-// all send) is budgeted as that largest body. A chunked 25 MiB transcription
+// streaming a file or pipe, a browser fetch with a stream body, and curl
+// uploading from a pipe with -T - all send) is budgeted as that largest body.
+// A chunked 25 MiB transcription
 // upload therefore gets the same time as one that declared its size, while a
 // declared or undeclared length past what the listener would accept anyway
 // earns nothing beyond it.
@@ -74,8 +79,13 @@ func BodyReadBudget(length int64) time.Duration {
 
 // bodyBudgetFor returns the budget function for a listener that accepts at
 // most maxBody bytes of body: a declared length is clamped to maxBody and an
-// undeclared one (ContentLength -1) is taken as maxBody.
+// undeclared one (ContentLength -1) is taken as maxBody. A maxBody of zero or
+// less would hand every undeclared body the bare base, so it is floored at the
+// control-plane JSON ceiling, the smallest body any listener here accepts.
 func bodyBudgetFor(maxBody int64) func(contentLength int64) time.Duration {
+	if maxBody <= 0 {
+		maxBody = MaxJSONBody
+	}
 	return func(contentLength int64) time.Duration {
 		if contentLength < 0 || contentLength > maxBody {
 			contentLength = maxBody
@@ -130,7 +140,9 @@ func (h *bodyDeadline) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 // NewServer builds the http.Server both binaries listen on, with the posture
 // described above. maxBody is the largest request body the listener's routes
 // accept (the gateway's MAX_REQUEST_SIZE, Front Desk's JSON ceiling); it sizes
-// the body budget for a request that declares no length or more than that.
+// the body budget for a request that declares no length or more than that,
+// which also means raising the gateway's ceiling raises the longest hold a
+// hostile connection can buy (430s at the 50 MiB default, 830s at 100 MiB).
 func NewServer(addr string, handler http.Handler, maxBody int64) *http.Server {
 	return &http.Server{
 		Addr:              addr,

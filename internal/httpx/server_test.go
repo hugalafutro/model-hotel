@@ -74,6 +74,11 @@ func TestBodyBudgetForListener(t *testing.T) {
 	if got := bodyBudgetFor(100 << 20)(1 << 40); got >= bodyReadCap {
 		t.Fatalf("a hostile length on a 100 MiB listener budgets %v, want below the cap", got)
 	}
+	// A listener built with no ceiling still budgets an undeclared body as a
+	// JSON body, never as the bare base.
+	if got, want := bodyBudgetFor(0)(-1), BodyReadBudget(MaxJSONBody); got != want {
+		t.Fatalf("chunked budget with no ceiling = %v, want the JSON ceiling's %v", got, want)
+	}
 }
 
 // teapot is a comparable handler so the posture test can prove NewServer
@@ -88,8 +93,10 @@ func TestNewServerPosture(t *testing.T) {
 	if srv.Addr != ":0" {
 		t.Fatalf("Addr = %q", srv.Addr)
 	}
-	if srv.ReadHeaderTimeout != ReadHeaderTimeout || srv.IdleTimeout != IdleTimeout {
-		t.Fatalf("timeouts = header %v idle %v", srv.ReadHeaderTimeout, srv.IdleTimeout)
+	// Literals, not the constants that set them: a constant zeroed by mistake
+	// would otherwise agree with the field it zeroed.
+	if srv.ReadHeaderTimeout != 10*time.Second || srv.IdleTimeout != 180*time.Second {
+		t.Fatalf("timeouts = header %v idle %v, want 10s and 180s", srv.ReadHeaderTimeout, srv.IdleTimeout)
 	}
 	// Streams run for hours: neither whole-request timeout may ever be set.
 	if srv.ReadTimeout != 0 || srv.WriteTimeout != 0 {
@@ -108,6 +115,11 @@ func TestNewServerPosture(t *testing.T) {
 	}
 	if got, want := bd.budget(-1), BodyReadBudget(50<<20); got != want {
 		t.Fatalf("chunked budget = %v, want the 50 MiB ceiling's %v", got, want)
+	}
+	// And a declared length inside the ceiling earns its own time, not the
+	// ceiling's: the clamp must be a clamp, not a constant.
+	if got, want := bd.budget(1<<20), BodyReadBudget(1<<20); got != want {
+		t.Fatalf("1 MiB budget = %v, want %v", got, want)
 	}
 	rec := httptest.NewRecorder()
 	srv.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{}")))
