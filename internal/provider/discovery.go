@@ -71,6 +71,47 @@ func (d *DiscoveryService) SetRetryBaseDelay(dur time.Duration) {
 // maxDiscoveryRetries bounds attempts for a single discovery HTTP call.
 const maxDiscoveryRetries = 3
 
+// requestSecrets collects every credential a discovery request carries, so
+// text the upstream sends back (or a transport error that quotes the URL) can
+// be scrubbed of it exactly, before the shape layer. The helpers below never
+// receive the key as a value: the caller has already folded it into the
+// Authorization header, an API-key header, or the query string (one family
+// authenticates by ?key=). Reading it back off the request is what lets the
+// shared path cover every family, including the custom and self-hosted
+// gateways whose key format no prefix regex anticipates, and the vendor paths
+// that each fixed this for themselves left this shared one uncovered (Strix
+// vuln-0005, 2026-09-01, the fourth site of the #836 class).
+//
+// Both the raw header value and its bearer-stripped form are listed, since an
+// upstream may quote either. Short values fall out inside MaskCredentials.
+func requestSecrets(req *http.Request) []string {
+	if req == nil {
+		return nil
+	}
+	var secrets []string
+	for _, name := range []string{"Authorization", "X-Api-Key", "Api-Key"} {
+		for _, v := range req.Header.Values(name) {
+			secrets = append(secrets, v)
+			if stripped := strings.TrimSpace(strings.TrimPrefix(v, "Bearer ")); stripped != v {
+				secrets = append(secrets, stripped)
+			}
+		}
+	}
+	if req.URL != nil {
+		for _, vs := range req.URL.Query() {
+			secrets = append(secrets, vs...)
+		}
+	}
+	return secrets
+}
+
+// maskRequestSecrets scrubs text of everything req carried, then of anything
+// key-shaped. Used for every upstream body or transport error the shared
+// helpers turn into an error or a log line.
+func maskRequestSecrets(req *http.Request, text string, maxLen int) string {
+	return util.MaskCredentials(requestSecrets(req), util.SanitizeLogBody(text, maxLen))
+}
+
 // doDiscoveryRequest executes a discovery HTTP request with retries for
 // transient network errors (DNS flaps, timeouts, connection resets) and
 // retryable HTTP statuses (429, 5xx), so one network hiccup cannot turn into
@@ -99,21 +140,22 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
 			if isTransientNetworkError(err) {
-				lastErr = err
 				// A transport error quotes the request URL, and one provider
-				// family authenticates by query parameter, so this is scrubbed
-				// like any other upstream text. No decrypted key in scope here:
-				// the shape layer is the whole control at this site.
+				// family authenticates by query parameter, so the key IS in
+				// scope here: it is in the request that just failed. Masked
+				// exactly off that request, then by shape, before it reaches
+				// the log or the caller.
+				lastErr = maskedRequestError(req, err)
 				debuglog.Info("discovery: transient fetch error, will retry",
-					"host", req.URL.Host, "attempt", attempt+1, "error", util.SanitizeLogBody(err.Error(), 500))
+					"host", req.URL.Host, "attempt", attempt+1, "error", lastErr.Error())
 				continue
 			}
-			return nil, err
+			return nil, maskedRequestError(req, err)
 		}
 		if isRetryableStatus(resp.StatusCode) {
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
-			lastErr = fmt.Errorf("retryable HTTP status %d: %s", resp.StatusCode, util.SanitizeLogBody(string(body), 200))
+			lastErr = fmt.Errorf("retryable HTTP status %d: %s", resp.StatusCode, maskRequestSecrets(req, string(body), 200))
 			debuglog.Info("discovery: retryable fetch status, will retry",
 				"host", req.URL.Host, "status", resp.StatusCode, "attempt", attempt+1)
 			continue
@@ -121,6 +163,22 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 		return resp, nil
 	}
 	return nil, fmt.Errorf("discovery fetch failed after %d attempts: %w", maxDiscoveryRetries, lastErr)
+}
+
+// maskedRequestError returns err with everything req carried scrubbed out of
+// its text. When nothing needed scrubbing the original error is returned as
+// is, so a caller's errors.Is / errors.As on a transport error (a cancelled
+// context, a timeout) keeps working; only an error that would have leaked is
+// flattened to its masked text.
+func maskedRequestError(req *http.Request, err error) error {
+	if err == nil {
+		return nil
+	}
+	masked := maskRequestSecrets(req, err.Error(), 500)
+	if masked == err.Error() {
+		return err
+	}
+	return errors.New(masked)
 }
 
 // doDiscoveryRequestPrebuilt retries a prebuilt body-less request (GETs).
@@ -136,6 +194,9 @@ func (d *DiscoveryService) doDiscoveryRequestPrebuilt(ctx context.Context, req *
 // Transient network errors and 429/5xx are retried via doDiscoveryRequest.
 func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, headers http.Header) ([]byte, error) {
 	//nolint:gocritic // url variable shadows import but context makes it clear
+	// The last request built is kept for the scrub below: the credential is in
+	// its headers or URL, and this function never sees it any other way.
+	var last *http.Request
 	resp, err := d.doDiscoveryRequest(ctx, func() (*http.Request, error) {
 		req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
 		if err != nil {
@@ -146,6 +207,7 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, hea
 				req.Header.Add(k, v)
 			}
 		}
+		last = req
 		return req, nil
 	})
 	if err != nil {
@@ -159,7 +221,7 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, hea
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, util.SanitizeLogBody(string(bodyBytes), 2000))
+		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, maskRequestSecrets(last, string(bodyBytes), 2000))
 	}
 
 	return bodyBytes, nil

@@ -96,8 +96,21 @@ func MaskKeyShapedTokens(body []byte) []byte {
 // they are talking to an upstream, and this is the function to run over
 // anything that upstream says back.
 func MaskCredential(secret, body string) string {
-	if len(secret) >= CredentialMinLen && strings.Contains(body, secret) {
-		body = strings.ReplaceAll(body, secret, "[redacted]")
+	return MaskCredentials([]string{secret}, body)
+}
+
+// MaskCredentials is MaskCredential for a caller that holds more than one
+// candidate secret, or none it can name: the exact pass runs for every entry,
+// then the shape layer runs once. It exists for the shared discovery helpers,
+// which never receive the key as a value, only inside the headers and URL of
+// the request they are about to send, and so mask with everything that request
+// carries (each bearer, each query value) rather than with one named key.
+// Entries shorter than CredentialMinLen are skipped for the reason given there.
+func MaskCredentials(secrets []string, body string) string {
+	for _, secret := range secrets {
+		if len(secret) >= CredentialMinLen && strings.Contains(body, secret) {
+			body = strings.ReplaceAll(body, secret, "[redacted]")
+		}
 	}
 	return string(MaskKeyShapedTokens([]byte(body)))
 }

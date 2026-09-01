@@ -179,3 +179,24 @@ func TestSanitizeLogBody_LeavesModelIdsIntact(t *testing.T) {
 		}
 	}
 }
+
+func TestMaskCredentials_EveryEntryIsRedacted(t *testing.T) {
+	body := `refused: bearer "gateway-secret-alpha-1234" and param "gateway-secret-beta-5678"; tiny "ab"`
+	got := MaskCredentials([]string{"gateway-secret-alpha-1234", "ab", "gateway-secret-beta-5678", ""}, body)
+	if strings.Contains(got, "gateway-secret-alpha-1234") || strings.Contains(got, "gateway-secret-beta-5678") {
+		t.Errorf("a listed secret survived: %s", got)
+	}
+	if strings.Count(got, "[redacted]") != 2 {
+		t.Errorf("want exactly the two real secrets redacted (the short and empty entries must be skipped), got %s", got)
+	}
+	if !strings.Contains(got, `tiny "ab"`) {
+		t.Errorf("an entry below CredentialMinLen must not be rewritten: %s", got)
+	}
+}
+
+func TestMaskCredentials_NoSecretsStillRunsTheShapeLayer(t *testing.T) {
+	got := MaskCredentials(nil, "Incorrect API key provided: sk-abcdefghijklmnop1234")
+	if strings.Contains(got, "sk-abcdefghijklmnop1234") {
+		t.Errorf("shape layer must run even with no exact secrets: %s", got)
+	}
+}
