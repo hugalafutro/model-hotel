@@ -493,7 +493,7 @@ func TestOpenCountsByCause(t *testing.T) {
 	cb.RecordFailure(id, name, "m", UpstreamStatus(503, ""))
 	time.Sleep(20 * time.Millisecond)
 	cb.IsOpen(id, name, "m") // half-open
-	cb.RecordRateLimited(id, name, "m", UpstreamStatus(429, "saturated"))
+	cb.RecordExhausted(id, name, "m", 0)
 
 	req := httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
 	rec := httptest.NewRecorder()
@@ -502,7 +502,7 @@ func TestOpenCountsByCause(t *testing.T) {
 	out := string(body)
 	for _, want := range []string{
 		fmt.Sprintf(`modelhotel_circuit_breaker_opens_total{cause="upstream status 503",model="m",provider=%q} 1`, name),
-		fmt.Sprintf(`modelhotel_circuit_breaker_opens_total{cause="upstream status 429 (saturated)",model="m",provider=%q} 1`, name),
+		fmt.Sprintf(`modelhotel_circuit_breaker_opens_total{cause=%q,model="m",provider=%q} 1`, UpstreamStatus(429, causeExhausted).Reason, name),
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("scrape missing %q", want)

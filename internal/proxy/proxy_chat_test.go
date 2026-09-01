@@ -403,12 +403,30 @@ func TestChatCompletions_FailoverAllProvidersExhausted(t *testing.T) {
 	rCtx = context.WithValue(rCtx, VirtualKeyHashKey, vkHash)
 	req = req.WithContext(rCtx)
 
+	attemptsSeries := func(prov string) string {
+		return `modelhotel_failover_attempts_total{model="hotel/` + modelName + `",provider="` + prov + `"}`
+	}
+	exhaustedSeries := `modelhotel_failover_exhausted_total{group="` + modelName + `",reason="all_failed"}`
+	attemptsBefore, exhaustedBefore := metricValue(t, attemptsSeries(prov2.Name)), metricValue(t, exhaustedSeries)
+
 	w := httptest.NewRecorder()
 	handler.ChatCompletions(w, req)
 
 	// Both providers fail with 5xx → all providers exhausted → 502
 	if w.Code != http.StatusBadGateway {
 		t.Errorf("expected 502 for all providers exhausted, got %d", w.Code)
+	}
+	// The failover counters, wired at the terminal seam: the second attempt
+	// is one failover attempt to the second provider, the first attempt none,
+	// and the request is one all_failed exhaustion of the group.
+	if got := metricValue(t, attemptsSeries(prov2.Name)) - attemptsBefore; got != 1 {
+		t.Errorf("failover attempts to the second provider = %v, want 1", got)
+	}
+	if got := metricValue(t, attemptsSeries(prov1.Name)); got != 0 {
+		t.Errorf("failover attempts to the first provider = %v, want none", got)
+	}
+	if got := metricValue(t, exhaustedSeries) - exhaustedBefore; got != 1 {
+		t.Errorf("all_failed exhaustions = %v, want 1", got)
 	}
 }
 

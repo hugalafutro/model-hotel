@@ -219,6 +219,24 @@ func hedgeLoserRecord(res hedgeResult, candidate modelCandidate, launchedAt time
 	}
 }
 
+// hedgeAbandonedRecord is the trail entry for a hedged attempt still in flight
+// when another candidate won: launched, cancelled, never resolved. Nothing is
+// known about what it would have answered, so it carries no status, and its
+// breaker verdict, if the cancelled goroutine records one, is not the trail's
+// to claim. The duration is launch to abandonment.
+func hedgeAbandonedRecord(idx int, candidate modelCandidate, launchedAt time.Time) attemptRecord {
+	return attemptRecord{
+		Attempt:    idx,
+		ProviderID: candidate.provider.ID.String(),
+		Provider:   candidate.provider.Name,
+		Model:      candidateModelID(candidate),
+		ErrorKind:  string(KindHedgeSuperseded),
+		Detail:     "superseded by the winner while in flight",
+		DurationMs: float64(time.Since(launchedAt).Microseconds()) / 1000.0,
+		Hedged:     true,
+	}
+}
+
 // appendBreakerSkip records a candidate the circuit breaker refused before any
 // request was made, so the trail can say "Z.ai: skipped (circuit open)" ahead
 // of the providers that were actually tried.

@@ -227,6 +227,22 @@ func TestRunHedgedStreaming_SlowStartHedgesAndBackupWins(t *testing.T) {
 	if hh.ctxs[0].Err() == nil {
 		t.Error("losing candidate A's context should be cancelled after B wins")
 	}
+	// A was launched and abandoned in flight: the trail says so, ahead of the
+	// winner's record, so the per-provider failover counter and the log both
+	// see the fan-out.
+	got := logData.attempts
+	if len(got) != 2 {
+		t.Fatalf("attempts = %+v, want the superseded A and the winner B", got)
+	}
+	if got[0].Attempt != 0 || got[0].Provider != "prov-A" || got[0].ErrorKind != string(KindHedgeSuperseded) || !got[0].Hedged || got[0].Status != 0 || got[0].Breaker != "" {
+		t.Errorf("superseded record = %+v", got[0])
+	}
+	if got[1].Attempt != 1 || got[1].Provider != "prov-B" || got[1].Status != 200 {
+		t.Errorf("winner record = %+v", got[1])
+	}
+	if provs := logData.failoverProviders(); len(provs) != 1 || provs[0] != "prov-B" {
+		t.Errorf("failoverProviders = %v, want the hedge to B only (A was the first attempt)", provs)
+	}
 }
 
 // TestRunHedgedStreaming_FailedAttemptLaunchesNextEagerly: a stalling A frees its

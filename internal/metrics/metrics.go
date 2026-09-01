@@ -50,17 +50,17 @@ var (
 
 	upstreamRateLimitTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_upstream_rate_limit_total",
-		Help: "Upstream 429 responses by provider, model and class. saturated = slots or a per-minute budget busy, retry in seconds (the circuit is not charged); exhausted = the window or balance is spent (the circuit opens and pins); unknown = the classifier could not tell, or rate-limit failover is off (treated as an ordinary failure). model is the provider-side model id.",
+		Help: "Upstream 429 responses to proxied requests by provider, model and class (probes and quota polls issue their own requests and are not counted here). saturated = slots or a per-minute budget busy, retry in seconds (the circuit is not charged); exhausted = the window or balance is spent (the circuit opens and pins); unknown = the classifier could not tell, or rate-limit failover is off (treated as an ordinary failure). model is the provider-side model id.",
 	}, []string{"provider", "model", "class"})
 
 	circuitBreakerOpensTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_circuit_breaker_opens_total",
-		Help: "Circuit-breaker open transitions by provider, model and cause, the breaker's own verdict phrase (\"upstream status 429 (saturated)\", \"upstream request failed\"). Pairs with modelhotel_circuit_breaker_state, which cannot show an open and a close inside one scrape interval.",
+		Help: "Circuit-breaker open transitions by provider, model and cause, the breaker's own verdict phrase (\"upstream status 429 (exhausted)\", \"upstream status 503\", \"upstream request failed\"; a saturated 429 never opens a circuit). Pairs with modelhotel_circuit_breaker_state, which cannot show an open and a close inside one scrape interval.",
 	}, []string{"provider", "model", "cause"})
 
 	failoverExhaustedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_failover_exhausted_total",
-		Help: "Requests to a failover group that no entry served, by group and reason. no_available_provider = the group resolved to zero candidates (every entry disabled, missing or skipped by the breaker); all_busy = every candidate answered a saturated 429 or was at its in-flight limit; all_failed = the last candidate failed some other way, or the failover deadline passed.",
+		Help: "Requests to a failover group that no entry served, by group and reason. no_available_provider = the group resolved to zero candidates (every entry disabled, missing or skipped by the breaker); all_busy = the last candidate answered a saturated 429 or was at its in-flight limit; all_failed = it failed some other way, or the failover deadline passed.",
 	}, []string{"group", "reason"})
 
 	responsesRerouteTotal = prometheus.NewCounterVec(prometheus.CounterOpts{

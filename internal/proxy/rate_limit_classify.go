@@ -508,7 +508,7 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 	// to count them by class. An ineligible one (failover on 429 off) has the
 	// zero verdict, which reads as unknown: nothing classified it.
 	if resp.StatusCode == http.StatusTooManyRequests {
-		metrics.RecordUpstreamRateLimit(candidate.provider.Name, candidate.model.ModelID, rl.class.String())
+		metrics.RecordUpstreamRateLimit(candidate.provider.Name, candidateModelID(candidate), rl.class.String())
 	}
 	// The saturated 429 teaches the in-flight learner: the pool is provably
 	// smaller than the load that included this request, so the allowance is

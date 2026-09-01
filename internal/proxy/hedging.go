@@ -95,6 +95,10 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 	// Marks an attempt the orchestrator itself abandoned, so the cancellation it
 	// causes is not misread as the client hanging up.
 	superseded := make([]*atomic.Bool, len(candidates))
+	// Which launched attempts have delivered a result: the ones that have not
+	// when a winner arrives were abandoned in flight, and the trail records
+	// them as such rather than forgetting they were launched.
+	settled := make([]bool, len(candidates))
 	launched := 0
 	inFlight := 0
 
@@ -189,6 +193,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		select {
 		case res := <-results:
 			inFlight--
+			settled[res.idx] = true
 			if res.won {
 				cancelExcept(res.idx, true)
 				// A runner-up that also produced a first token sent a live
@@ -199,6 +204,15 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				// winner's first byte to the client.
 				if inFlight > 0 {
 					go drainHedgeResults(results, inFlight)
+				}
+				// Attempts still in flight were launched and lost, not skipped:
+				// each gets a superseded record, so the trail and the per-provider
+				// failover counter show the whole fan-out, which is exactly the
+				// part of a hedge that cost the most.
+				for i := range candidates {
+					if i != res.idx && !launchedAt[i].IsZero() && !settled[i] {
+						st.logData.appendAttemptRecord(hedgeAbandonedRecord(i, candidates[i], launchedAt[i]))
+					}
 				}
 				// The winner's trail record opens here and is closed by the
 				// stream's terminal write, like a sequential attempt's.
