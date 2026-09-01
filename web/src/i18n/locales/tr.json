@@ -1663,7 +1663,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Sağlayıcı atlanmadan önceki model sayısı",
-			"spanModels.description": "Devre kesicinin sağlayıcının tamamını atlaması için kaç modelin devresinin açık olması gerektiği. 1 olduğunda, başarısız olan tek bir model o sağlayıcının arkasındaki tüm modelleri devre dışı bırakır."
+			"spanModels.description": "Devre kesicinin sağlayıcının tamamını atlaması için kaç modelin devresinin açık olması gerektiği. 1 olduğunda, başarısız olan tek bir model o sağlayıcının arkasındaki tüm modelleri devre dışı bırakır.",
+			"rateLimitGroup": "Hız sınırı (429) işleme",
+			"classify429": "Meşgul ile tükenmişi ayırt et",
+			"classify429Description": "Her 429 yanıtını okuyarak kısa süreliğine kapasite sınırındaki bir sağlayıcıyı (saniyeler içinde yeniden dene, devre kesiciye yazılmaz) kotası veya bakiyesi tükenmiş bir sağlayıcıdan (devreyi hemen aç ve pencereyi bekle) ayırt eder. Kapatıldığında eski davranış geçerlidir: her 429 sıradan bir hata sayılır.",
+			"saturationMaxWait": "Doygunluk bekleme sınırı",
+			"saturationMaxWait.description": "Bu değere eşit veya daha kısa bir Retry-After meşgul demektir; daha uzunu tükenmiş pencere olarak işlenir. Ayrıca proxy'nin son meşgul sağlayıcıyı bir kez yeniden denemeden önce ne kadar bekleyeceğini sınırlar.",
+			"recentSuccessWindow": "Yakın başarı penceresi",
+			"recentSuccessWindow.description": "Bu kadar yakın zamanda başarıyla yanıt vermiş bir modelden gelen tanınmayan 429, tükenme değil meşguliyet sayılır: tükenmiş bir pencere bir dakikada geri gelmez.",
+			"openOnExhaustion": "Kota tükenince devreyi aç",
+			"openOnExhaustionDescription": "Bir 429 kota veya bakiyenin tükendiğini bildirdiğinde, hata eşiğini beklemeden o tek yanıtla modelin devresi açılır.",
+			"exhaustion429": "Meşgul gruplara 429 ile yanıt ver",
+			"exhaustion429Description": "Bir gruptaki tüm sağlayıcılar meşgulken veya kotalarını beklerken istemciye 502 yerine Retry-After içeren 429 döner; böylece istemci kendi kendine bekleyip yeniden dener."
 		},
 		"logging": {
 			"title": "Günlük kaydı",

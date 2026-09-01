@@ -1663,7 +1663,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modellen voordat provider wordt overgeslagen",
-			"spanModels.description": "Hoeveel modellen van een provider een open circuitonderbreker moeten hebben voordat de hele provider wordt overgeslagen. Bij 1 zet één falend model alle modellen achter die provider stil."
+			"spanModels.description": "Hoeveel modellen van een provider een open circuitonderbreker moeten hebben voordat de hele provider wordt overgeslagen. Bij 1 zet één falend model alle modellen achter die provider stil.",
+			"rateLimitGroup": "Afhandeling van limieten (429)",
+			"classify429": "Bezet van opgebruikt onderscheiden",
+			"classify429Description": "Leest elke 429-reactie om een provider die kort op capaciteit zit (na enkele seconden opnieuw proberen, geen belasting van de circuit breaker) te onderscheiden van een provider waarvan het quotum of saldo op is (circuit meteen openen en het venster afwachten). Uitgeschakeld geldt het oude gedrag: elke 429 telt als een gewone fout.",
+			"saturationMaxWait": "Wachtlimiet bij verzadiging",
+			"saturationMaxWait.description": "Een Retry-After tot en met deze waarde geldt als bezet; alles daarboven wordt behandeld als een opgebruikt venster. Begrenst ook hoelang de proxy wacht voordat hij de laatste bezette provider één keer opnieuw probeert.",
+			"recentSuccessWindow": "Venster voor recent succes",
+			"recentSuccessWindow.description": "Een niet-herkende 429 van een model dat zo recent nog succesvol antwoordde, geldt als bezet in plaats van opgebruikt: een opgebruikt venster komt niet binnen een minuut terug.",
+			"openOnExhaustion": "Circuit openen bij opgebruikt quotum",
+			"openOnExhaustionDescription": "Wanneer een 429 meldt dat het quotum of saldo op is, wordt het circuit van het model na die ene reactie geopend in plaats van te wachten op de foutdrempel.",
+			"exhaustion429": "Bezette groepen met 429 beantwoorden",
+			"exhaustion429Description": "Wanneer alle providers in een groep bezet zijn of op hun quotum wachten, krijgt de client 429 met Retry-After in plaats van 502, zodat hij zelf wacht en opnieuw probeert."
 		},
 		"logging": {
 			"title": "Logboekregistratie",

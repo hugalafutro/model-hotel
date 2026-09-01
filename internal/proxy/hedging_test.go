@@ -29,11 +29,12 @@ import (
 
 // fakeProbeSpec scripts one candidate's behavior in a hedged race.
 type fakeProbeSpec struct {
-	delay     time.Duration // time before the probe resolves
-	won       bool          // true = streamable first token
-	reqErr    reqError      // failover cause when !won
-	ignoreCtx bool          // when true, the probe does not return early on ctx cancel
-	body      string        // SSE body the winner streams; empty = newStreamableResp
+	delay     time.Duration    // time before the probe resolves
+	won       bool             // true = streamable first token
+	reqErr    reqError         // failover cause when !won
+	rateLimit rateLimitVerdict // the loser's 429 verdict, when it drew one
+	ignoreCtx bool             // when true, the probe does not return early on ctx cancel
+	body      string           // SSE body the winner streams; empty = newStreamableResp
 }
 
 // hedgeHarness records how runHedgedStreaming drove the probes and hands back a
@@ -78,7 +79,7 @@ func (hh *hedgeHarness) probe(ctx context.Context, _ *requestState, candidate mo
 			trueTtftMs: 1,
 		}
 	}
-	return hedgeResult{idx: attempt, reqErr: spec.reqErr}
+	return hedgeResult{idx: attempt, reqErr: spec.reqErr, rateLimit: spec.rateLimit}
 }
 
 func (hh *hedgeHarness) probedOrder() []int {

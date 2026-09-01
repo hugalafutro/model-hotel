@@ -1757,7 +1757,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Počet modelů před vynecháním poskytovatele",
-			"spanModels.description": "Kolik modelů poskytovatele musí mít otevřený jistič, než jistič vynechá celého poskytovatele. Při hodnotě 1 jediný selhávající model odstaví všechny modely daného poskytovatele."
+			"spanModels.description": "Kolik modelů poskytovatele musí mít otevřený jistič, než jistič vynechá celého poskytovatele. Při hodnotě 1 jediný selhávající model odstaví všechny modely daného poskytovatele.",
+			"rateLimitGroup": "Zpracování limitů (429)",
+			"classify429": "Rozlišit vytížené od vyčerpaného",
+			"classify429Description": "Čte každou odpověď 429 a rozlišuje poskytovatele, který je krátkodobě na hranici kapacity (opakovat za pár sekund, bez zatížení jističe), od poskytovatele s vyčerpaným limitem či kreditem (okamžitě rozpojit obvod a vyčkat na obnovení). Po vypnutí platí staré chování: každá 429 se počítá jako běžná chyba.",
+			"saturationMaxWait": "Limit čekání při vytížení",
+			"saturationMaxWait.description": "Retry-After do této hodnoty znamená vytížení; delší hodnota se bere jako vyčerpané okno. Zároveň omezuje, jak dlouho proxy čeká, než naposledy vytíženého poskytovatele jednou zkusí znovu.",
+			"recentSuccessWindow": "Okno nedávného úspěchu",
+			"recentSuccessWindow.description": "Nerozpoznaná 429 od modelu, který takto nedávno úspěšně odpovídal, se bere jako vytížení, ne vyčerpání: vyčerpané okno se za minutu nevrátí.",
+			"openOnExhaustion": "Rozpojit obvod při vyčerpané kvótě",
+			"openOnExhaustionDescription": "Když 429 hlásí vyčerpaný limit nebo kredit, obvod modelu se rozpojí po této jediné odpovědi, místo čekání na práh selhání.",
+			"exhaustion429": "Odpovídat vytíženým skupinám stavem 429",
+			"exhaustion429Description": "Když jsou všichni poskytovatelé ve skupině vytížení nebo čekají na obnovení kvóty, klient dostane 429 s Retry-After místo 502, takže sám počká a zkusí to znovu."
 		},
 		"logging": {
 			"title": "Logování",

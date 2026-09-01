@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -53,9 +54,29 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	} else {
 		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "request_timeout", st.failoverTimeout)
 	}
+	// Honest status for an all-busy exhaustion: every provider is alive and at
+	// capacity, and OpenAI SDKs back off and retry on a 429 where a 502 is a
+	// coin toss. The Retry-After is the last provider's own ask (or the class
+	// default), so the client's backoff lines up with the slot actually
+	// freeing. Behind failover_exhaustion_status_429 for any client that has
+	// learnt to read the 502.
+	if last.Kind == KindProviderSaturated && h.settingsRepo.GetBool(context.Background(), "failover_exhaustion_status_429", true) {
+		status = http.StatusTooManyRequests
+		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.rateLimit.retryAfter)))
+	}
 	st.logData.providerID = uuid.Nil
 	h.failRequest(st.logData, status, last.Kind, logMsg, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 	writeOpenAIError(w, clientMsg, status)
+}
+
+// retryAfterSeconds renders a wait as the whole seconds a Retry-After header
+// carries: rounded up so a positive wait never becomes 0 ("retry now"), with
+// the saturated class default standing in for an absent one.
+func retryAfterSeconds(d time.Duration) int {
+	if d <= 0 {
+		d = defaultSaturatedRetryAfter
+	}
+	return int((d + time.Second - 1) / time.Second)
 }
 
 // attemptCandidate runs one failover attempt against a single candidate (phase
@@ -141,7 +162,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	hasMoreCandidates := attempt < totalCandidates-1
 	isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
 
-	h.recordBreakerOutcome(st, candidate, resp.StatusCode, isFailoverEligible)
+	rl := h.judge429AndRecordBreaker(r.Context(), st, candidate, resp, isFailoverEligible)
 
 	shouldFailoverNow := isFailoverEligible && hasMoreCandidates
 	debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)
@@ -170,10 +191,16 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if kind == KindProviderModelGone {
 			h.noteModelGone(candidate, logData.endpointType)
 		}
-		st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Detail: fmt.Sprintf("HTTP %d", resp.StatusCode)})
-		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
+		st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
+		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "rate_limit_class", rl.class.String())
 		logData.failoverAttempt = attempt
 		return outcomeFailover
+	}
+
+	// A saturated 429 on the LAST candidate: the provider asked for a wait of
+	// seconds, so give it that instead of a terminal error. Once per request.
+	if isFailoverEligible && !hasMoreCandidates && rl.class == rateLimitSaturated && !st.saturationRetried {
+		return h.deferSaturatedRetry(st, candidate, resp, attempt)
 	}
 
 	// The 2xx RANGE, not a bare 200. A relay or aggregator may answer a chat
@@ -433,6 +460,9 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	logData.providerID = candidate.provider.ID
 	logData.providerName = candidate.provider.Name
 	logData.masker = newCredentialMasker(candidate.apiKey)
+	// The 429 verdict is per attempt: reset it here so a terminal path can
+	// never read a stale class off an earlier candidate's rate limit.
+	st.rateLimit = rateLimitVerdict{}
 	if st.isFailover {
 		logData.resolvedModelID = candidate.model.ModelID
 	}

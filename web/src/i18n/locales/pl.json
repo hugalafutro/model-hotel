@@ -1757,7 +1757,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Liczba modeli przed pominięciem dostawcy",
-			"spanModels.description": "Ile modeli dostawcy musi mieć otwarty wyłącznik, zanim pominięty zostanie cały dostawca. Przy 1 jeden awaryjny model odstawia wszystkie modele tego dostawcy."
+			"spanModels.description": "Ile modeli dostawcy musi mieć otwarty wyłącznik, zanim pominięty zostanie cały dostawca. Przy 1 jeden awaryjny model odstawia wszystkie modele tego dostawcy.",
+			"rateLimitGroup": "Obsługa limitów (429)",
+			"classify429": "Odróżnij zajęte od wyczerpanego",
+			"classify429Description": "Odczytuje każdą odpowiedź 429, aby odróżnić dostawcę chwilowo na granicy przepustowości (ponowić za kilka sekund, bez obciążania bezpiecznika) od dostawcy z wyczerpanym limitem lub saldem (natychmiast otworzyć obwód i odczekać okno). Po wyłączeniu obowiązuje dawne zachowanie: każda 429 liczy się jak zwykły błąd.",
+			"saturationMaxWait": "Limit oczekiwania przy nasyceniu",
+			"saturationMaxWait.description": "Retry-After nie większy niż ta wartość oznacza nasycenie; dłuższy traktowany jest jak wyczerpane okno. Ogranicza też, jak długo proxy czeka, zanim raz ponowi próbę u ostatniego nasyconego dostawcy.",
+			"recentSuccessWindow": "Okno niedawnego sukcesu",
+			"recentSuccessWindow.description": "Nierozpoznana 429 od modelu, który tak niedawno odpowiadał poprawnie, traktowana jest jako nasycenie, a nie wyczerpanie: wyczerpane okno nie wraca w minutę.",
+			"openOnExhaustion": "Otwórz obwód przy wyczerpanym limicie",
+			"openOnExhaustionDescription": "Gdy 429 informuje o wyczerpanym limicie lub saldzie, obwód modelu otwiera się po tej jednej odpowiedzi, zamiast czekać na próg błędów.",
+			"exhaustion429": "Odpowiadaj 429 nasyconym grupom",
+			"exhaustion429Description": "Gdy wszyscy dostawcy w grupie są nasyceni lub czekają na limit, klient otrzymuje 429 z Retry-After zamiast 502, dzięki czemu sam odczeka i ponowi próbę."
 		},
 		"logging": {
 			"title": "Rejestrowanie",

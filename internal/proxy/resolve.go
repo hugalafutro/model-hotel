@@ -40,17 +40,48 @@ func (t resolveTimings) proxyOverheadMs(parseMs float64) float64 {
 	return parseMs + t.failoverLookupMs + t.modelLookupMs + t.providerLookupMs + t.keyDecryptMs + t.dialMs + t.settingsReadMs
 }
 
-func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, resolveCacheHits, error) {
+// breakerSkipSummary aggregates the candidates the circuit breaker refused up
+// front while a group was resolving, so an empty candidate list can answer
+// with when a retry becomes worth making instead of a bare 502. allPinned
+// starts true and survives only if EVERY skip was quota-pinned: then the whole
+// group is waiting out spent windows and the honest kind is exhaustion.
+type breakerSkipSummary struct {
+	skips         int
+	earliestRetry time.Time
+	allPinned     bool
+}
+
+func (s *breakerSkipSummary) note(retryAt time.Time, pinned, ok bool) {
+	if s.skips == 0 {
+		s.allPinned = true
+	}
+	s.skips++
+	if !ok {
+		// The breaker skipped the pair but cannot date it (a race with a
+		// reset, an elapsed cooldown): treat as retriable now, unpinned.
+		s.allPinned = false
+		return
+	}
+	if s.earliestRetry.IsZero() || retryAt.Before(s.earliestRetry) {
+		s.earliestRetry = retryAt
+	}
+	if !pinned {
+		s.allPinned = false
+	}
+}
+
+func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([]modelCandidate, resolveTimings, resolveCacheHits, breakerSkipSummary, error) {
 	debuglog.Debug("resolve: resolving hotel model", "model", displayModel)
 	var t resolveTimings
 	var ch resolveCacheHits
+	var skips breakerSkipSummary
 
 	// A — failover-group lookup + validation. Stamp ch.Failover / failoverLookupMs
 	// only after success so the early-error ledger leaves them zero.
 	failoverLookupStart := time.Now()
 	fg, failoverHit, err := h.lookupFailoverGroup(ctx, displayModel)
 	if err != nil {
-		return nil, t, ch, err
+		return nil, t, ch, skips, err
 	}
 	ch.Failover = &failoverHit
 	t.failoverLookupMs = float64(time.Since(failoverLookupStart).Microseconds()) / 1000.0
@@ -62,7 +93,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	ch.Model = batchCacheHit(enabledModelIDs, model.IsCachedByUUID)
 	models, err := h.modelRepo.GetByIDs(ctx, enabledModelIDs)
 	if err != nil {
-		return nil, t, ch, err
+		return nil, t, ch, skips, err
 	}
 	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 
@@ -76,7 +107,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	ch.Provider = batchCacheHit(providerIDs, provider.IsCachedByID)
 	providers, err := h.providerRepo.GetByIDs(ctx, providerIDs)
 	if err != nil {
-		return nil, t, ch, err
+		return nil, t, ch, skips, err
 	}
 
 	// D — read circuit_breaker_enabled once before the loop to avoid
@@ -100,7 +131,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	// E — candidate-build loop (no window math inside; it only returns the
 	// running key-decrypt total the caller subtracts).
 	debuglog.Debug("resolve: building candidates from failover group", "model", displayModel, "priority_order_count", len(fg.PriorityOrder))
-	candidates, keyDecryptTotal, decryptFailures, keyHit := h.buildFailoverCandidates(fg, models, providers, cbEnabled)
+	candidates, keyDecryptTotal, decryptFailures, keyHit := h.buildFailoverCandidates(fg, models, providers, cbEnabled, &skips)
 
 	// F — finalize timings + terminal error.
 	// Only record key cache hit if there were keys to decrypt.
@@ -110,10 +141,10 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	t.providerLookupMs = max(0, float64(time.Since(providerLookupStart).Microseconds())/1000.0-keyDecryptTotal-settingsReadInWindow)
 	t.keyDecryptMs = keyDecryptTotal
 	if len(candidates) == 0 && decryptFailures > 0 {
-		return nil, t, ch, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
+		return nil, t, ch, skips, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
 	}
-	debuglog.Debug("resolve: hotel model resolved", "model", displayModel, "candidates", len(candidates), "decrypt_failures", decryptFailures)
-	return candidates, t, ch, nil
+	debuglog.Debug("resolve: hotel model resolved", "model", displayModel, "candidates", len(candidates), "decrypt_failures", decryptFailures, "breaker_skips", skips.skips)
+	return candidates, t, ch, skips, nil
 }
 
 // lookupFailoverGroup performs phase A: the failover cache probe, the repo
@@ -217,7 +248,7 @@ func (h *Handler) readCircuitBreakerFlag(ctx context.Context) (enabled, hit bool
 // the running total so the caller subtracts it from providerLookupMs; it does
 // no window math itself.
 func (h *Handler) buildFailoverCandidates(fg *failover.FailoverGroup, models map[uuid.UUID]*model.Model,
-	providers map[uuid.UUID]*provider.Provider, cbEnabled bool,
+	providers map[uuid.UUID]*provider.Provider, cbEnabled bool, skips *breakerSkipSummary,
 ) (candidates []modelCandidate, keyDecryptTotal float64, decryptFailures int, keyHit bool) {
 	candidates = make([]modelCandidate, 0, len(fg.PriorityOrder))
 	keyHit = true
@@ -258,6 +289,10 @@ func (h *Handler) buildFailoverCandidates(fg *failover.FailoverGroup, models map
 		// is the resolved upstream one, which is what the charge sites record
 		// against, so what failed here is what is skipped here.
 		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID, prov.Name, m.ModelID) {
+			// The skip is dated so an all-skipped group can answer with when a
+			// retry becomes worth making, and with whether it is waiting out
+			// spent quota windows or mere cooldowns.
+			skips.note(h.circuitBreaker.BlockedUntil(prov.ID, m.ModelID))
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
 		}

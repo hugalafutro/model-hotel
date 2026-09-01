@@ -394,9 +394,14 @@ func TestChatCompletions_MiniMaxBusinessErrorFailsOver(t *testing.T) {
 		t.Errorf("content = %v, want 'served by backup'", content)
 	}
 
-	// The remapped 429 must have recorded a breaker failure against the minimax
-	// candidate (failover_on_rate_limit defaults true).
-	if f, ok := cbConsecutiveFails(cb, provider1.ID); !ok || f != 1 {
-		t.Errorf("minimax candidate: expected consecutiveFails=1, got %d (seen=%v)", f, ok)
+	// The remapped 1008 is an EXHAUSTED 429 (insufficient balance): one
+	// response opens the minimax candidate's circuit outright instead of
+	// spending four more requests confirming a spent balance
+	// (failover_on_rate_limit defaults true, so it was failover-eligible).
+	if f, ok := cbConsecutiveFails(cb, provider1.ID); !ok || f == 0 {
+		t.Errorf("minimax candidate: expected an exhaustion charge, got fails=%d (seen=%v)", f, ok)
+	}
+	if got := cb.GetState(provider1.ID, "shared-model"); got != failover.StateOpen {
+		t.Errorf("minimax candidate circuit = %v, want open on one exhausted balance error", got)
 	}
 }

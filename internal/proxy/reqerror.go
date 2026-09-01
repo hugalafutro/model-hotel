@@ -35,6 +35,16 @@ const (
 	// refused the payload — normally a gateway bug (wrong dialect for the
 	// upstream route), not a provider fault.
 	KindProviderBadRequest ErrorKind = "provider_bad_request"
+	// KindProviderSaturated means the provider is alive and refusing on
+	// capacity (concurrency slots, RPM, TPM). Retry in seconds. Distinct from
+	// KindProviderQuotaExhausted, where retrying cannot succeed until a window
+	// resets, and from KindProviderNotEntitled, where a person has to pay.
+	KindProviderSaturated ErrorKind = "provider_saturated"
+	// KindProviderQuotaExhausted means a usage window is spent (a session,
+	// daily or weekly cap; a 5h coding-plan window). Retry after the window
+	// resets. The difference from KindProviderNotEntitled is who fixes it:
+	// time, versus a person topping up or changing plan.
+	KindProviderQuotaExhausted ErrorKind = "provider_quota_exhausted"
 	// KindProviderTimeout means the TTFT probe or stall watchdog fired — the
 	// provider accepted the connection but did not produce output in time.
 	KindProviderTimeout ErrorKind = "provider_timeout"
@@ -180,6 +190,10 @@ func (e reqError) render() string {
 		return e.withUnderlying(fmt.Sprintf("%s no longer serves this model (attempt %d)", e.providerLabel(), n))
 	case KindProviderNotEntitled:
 		return e.withUnderlying(fmt.Sprintf("%s rejected the request for billing or plan reasons on attempt %d", e.providerLabel(), n))
+	case KindProviderSaturated:
+		return e.withUnderlying(fmt.Sprintf("%s is busy (rate limited at capacity) on attempt %d", e.providerLabel(), n))
+	case KindProviderQuotaExhausted:
+		return e.withUnderlying(fmt.Sprintf("%s has spent its usage quota on attempt %d", e.providerLabel(), n))
 	case KindProviderBadRequest:
 		return e.withUnderlying(fmt.Sprintf("%s rejected the request payload on attempt %d", e.providerLabel(), n))
 	case KindHedgeSuperseded:
@@ -220,6 +234,14 @@ func (e reqError) terminalLogMessage(isFailover bool, numCandidates int) string 
 	switch e.Kind {
 	case KindClientDisconnect, KindFailoverTimeout, KindRetryTimeout, KindHedgeSuperseded:
 		return last
+	case KindProviderSaturated:
+		// Busy, not broken: every provider is alive and at capacity, and "all
+		// providers failed" would send the operator hunting an outage that is
+		// not happening.
+		if isFailover && numCandidates > 1 {
+			return fmt.Sprintf("all %d providers busy; last error: %s", numCandidates, last)
+		}
+		return last
 	default:
 		if isFailover && numCandidates > 1 {
 			return fmt.Sprintf("all %d providers failed; last error: %s", numCandidates, last)
@@ -241,6 +263,13 @@ func (e reqError) terminalClientMessage(reqModel string, isFailover bool) string
 		// Not reachable today (a superseded attempt is always replaced by the
 		// winner) but it must never render as "all providers failed".
 		return fmt.Sprintf("request superseded for model %s", reqModel)
+	case KindProviderSaturated:
+		// Alive and at capacity: telling the caller everything "failed" makes
+		// an immediate retry look pointless when it is exactly what will work.
+		if isFailover {
+			return fmt.Sprintf("all providers busy for model %s, retry shortly", reqModel)
+		}
+		return fmt.Sprintf("provider busy for model %s, retry shortly", reqModel)
 	default:
 		if isFailover {
 			return fmt.Sprintf("all providers failed for model %s", reqModel)

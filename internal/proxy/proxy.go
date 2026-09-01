@@ -133,14 +133,72 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 
 		// One failover attempt. The attempt fn owns its request contexts
 		// (cancelled via defer after body consumption) and reports whether to
-		// try the next candidate, that the response was served, or that a
-		// terminal error was written.
-		if attemptOne(w, r, st, candidate, attempt, len(candidates)) != outcomeFailover {
+		// try the next candidate, that the response was served, that a
+		// terminal error was written, or that the last candidate is merely
+		// saturated and worth one short wait.
+		switch attemptOne(w, r, st, candidate, attempt, len(candidates)) {
+		case outcomeFailover:
+			continue
+		case outcomeRetrySaturated:
+			if h.retrySaturatedCandidate(w, r, st, candidate, len(candidates), attemptOne) {
+				return
+			}
+		default:
 			return
 		}
+		break
 	}
 
 	h.failAllExhausted(w, st, len(candidates))
+}
+
+// retrySaturatedCandidate is the one extra attempt a saturated last candidate
+// earns: wait the provider's Retry-After (capped at
+// rate_limit_saturation_max_wait and at the remaining overall deadline), then
+// send the same candidate again. One retry, never a loop — the attempt fn
+// consults st.saturationRetried and cannot return outcomeRetrySaturated twice.
+// The retry is an ordinary failover attempt: its index is one past the
+// candidate list, so the request log shows it as a further failover_attempt.
+// Reports true when the request was answered (served or terminal), false when
+// the loop should fall through to the exhaustion path.
+func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, numCandidates int, attemptOne attemptFn) bool {
+	wait := st.rateLimit.retryAfter
+	if wait <= 0 {
+		wait = defaultSaturatedRetryAfter
+	}
+	if maxWait := h.settingsRepo.GetDuration(r.Context(), "rate_limit_saturation_max_wait", defaultSaturationMaxWait); wait > maxWait {
+		wait = maxWait
+	}
+	// Never wait past the overall deadline: a slot that frees after the
+	// request's own budget is spent frees for someone else.
+	if remaining := time.Until(st.overallDeadline); wait >= remaining {
+		debuglog.Info("proxy: no time budget left for saturation retry", "model", st.logData.modelID, "retry_after", wait, "remaining", remaining)
+		return false
+	}
+	debuglog.Info("proxy: waiting out provider saturation before final retry", "model", st.logData.modelID, "provider", candidate.provider.Name, "wait", wait)
+	select {
+	case <-time.After(wait):
+	case <-r.Context().Done():
+		// The client left during the wait. This is the terminal outcome, and
+		// it is a client disconnect, not a provider fault: falling through to
+		// the exhaustion path would log a 429 "all providers busy" for a
+		// request the caller abandoned — the same 499 rule the ordinary
+		// failover backoff applies on a disconnect.
+		debuglog.Info("proxy: client disconnected during saturation wait", "model", st.logData.modelID, "provider", candidate.provider.Name)
+		st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: numCandidates - 1, Provider: candidate.provider.Name, Underlying: st.lastReqErr.Underlying})
+		h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+		writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
+		return true
+	}
+	switch attemptOne(w, r, st, candidate, numCandidates, numCandidates+1) {
+	case outcomeFailover, outcomeRetrySaturated:
+		// outcomeRetrySaturated cannot recur (saturationRetried is set), and a
+		// failed retry falls through to the exhaustion path like any other
+		// last-candidate failure.
+		return false
+	default:
+		return true
+	}
 }
 
 // upstreamFrameError reports that the provider's first SSE data frame carried an

@@ -572,8 +572,15 @@ func TestAttemptPassthroughCandidate_AMiniMaxRefusalInsideA200KeepsTheStreak(t *
 	w := httptest.NewRecorder()
 	r := httptest.NewRequest("POST", "/v1/embeddings", http.NoBody)
 
-	if got := h.attemptPassthroughCandidate(w, r, st, cand, 0, 1); got != outcomeFatal {
-		t.Fatalf("outcome = %v, want a terminal error for a remapped 429", got)
+	// The remapped 1002 reads as a SATURATED 429 ("rate limit exceeded") on the
+	// last candidate, which earns the one wait-and-retry rather than a terminal
+	// error; once that retry is spent the next one is terminal. The streak
+	// survives both: a refusal inside a 200 is never the model answering.
+	if got := h.attemptPassthroughCandidate(w, r, st, cand, 0, 1); got != outcomeRetrySaturated {
+		t.Fatalf("outcome = %v, want the saturation retry for a remapped saturated 429", got)
+	}
+	if got := h.attemptPassthroughCandidate(httptest.NewRecorder(), r, st, cand, 1, 1); got != outcomeFatal {
+		t.Fatalf("second outcome = %v, want a terminal error once the one retry is spent", got)
 	}
 	if n := streak.count(); n != 1 {
 		t.Fatalf("streak = %d, want the strike kept: a refusal inside a 200 is not the model answering", n)

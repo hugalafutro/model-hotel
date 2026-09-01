@@ -126,7 +126,7 @@ func TestRecordBreakerOutcome(t *testing.T) {
 			provID := uuid.New()
 			cand := modelCandidate{provider: &provider.Provider{ID: provID, Name: "p"}}
 
-			h.recordBreakerOutcome(st, cand, tc.statusCode, tc.eligible)
+			h.recordBreakerOutcome(context.Background(), st, cand, tc.statusCode, tc.eligible, rateLimitVerdict{})
 
 			fails, seen := cbConsecutiveFails(cb, provID)
 			switch tc.want {
@@ -177,7 +177,7 @@ func TestRecordBreakerOutcome_TheCreditLandsOnTheChargedModel(t *testing.T) {
 			}
 
 			cb.RecordFailure(provID, "p", cand.model.ModelID)
-			h.recordBreakerOutcome(st, cand, tc.status, tc.eligible)
+			h.recordBreakerOutcome(context.Background(), st, cand, tc.status, tc.eligible, rateLimitVerdict{})
 			cb.RecordFailure(provID, "p", cand.model.ModelID)
 
 			if got := cb.GetState(provID, cand.model.ModelID); got == failover.StateOpen {

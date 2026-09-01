@@ -23,6 +23,8 @@ of the message kept only as a fallback for legacy NULL rows.
 |---|---|---|
 | `client_disconnect` | caller hung up before we responded | **499** (client closed request) |
 | `provider_error` | upstream non-2xx or transport failure | 502 |
+| `provider_saturated` | provider alive but at capacity (concurrency/RPM/TPM 429); retry in seconds | **429** + `Retry-After` (502 when `failover_exhaustion_status_429` is off) |
+| `provider_quota_exhausted` | a usage window is spent (session/daily/weekly cap); retry after it resets. Fixed by time, unlike `provider_not_entitled` which a person fixes | **429** + `Retry-After` on the all-pinned up-front skip; 502 otherwise |
 | `provider_timeout` | TTFT probe / stall watchdog fired | 502 |
 | `failover_timeout` | overall failover deadline expired | **504** |
 | `retry_timeout` | param-strip retry deadline expired | **504** |

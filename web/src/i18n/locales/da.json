@@ -1663,7 +1663,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modeller før udbyder springes over",
-			"spanModels.description": "Hvor mange af en udbyders modeller der skal have en åben afbryder, før hele udbyderen springes over. Ved 1 sætter én fejlende model alle modeller bag den udbyder ud af drift."
+			"spanModels.description": "Hvor mange af en udbyders modeller der skal have en åben afbryder, før hele udbyderen springes over. Ved 1 sætter én fejlende model alle modeller bag den udbyder ud af drift.",
+			"rateLimitGroup": "Håndtering af hastighedsgrænser (429)",
+			"classify429": "Skeln optaget fra opbrugt",
+			"classify429Description": "Læser hvert 429-svar for at skelne en udbyder, der kortvarigt er på kapacitetsgrænsen (prøv igen om få sekunder, ingen belastning af afbryderen), fra en hvis kvote eller saldo er opbrugt (åbn kredsløbet med det samme og vent vinduet ud). Slået fra gælder den gamle adfærd: hvert 429 tæller som en almindelig fejl.",
+			"saturationMaxWait": "Ventegrænse ved mætning",
+			"saturationMaxWait.description": "Et Retry-After på eller under denne værdi betyder optaget; længere behandles som et opbrugt vindue. Begrænser også, hvor længe proxyen venter, før den prøver den sidste optagede udbyder én gang til.",
+			"recentSuccessWindow": "Vindue for nylig succes",
+			"recentSuccessWindow.description": "Et ukendt 429 fra en model, der har svaret korrekt for så nylig, behandles som optaget frem for opbrugt: et opbrugt vindue kommer ikke tilbage på et minut.",
+			"openOnExhaustion": "Åbn kredsløb ved opbrugt kvote",
+			"openOnExhaustionDescription": "Når et 429 melder, at kvoten eller saldoen er opbrugt, åbnes modellens kredsløb efter det ene svar i stedet for at vente på fejltærsklen.",
+			"exhaustion429": "Svar optagede grupper med 429",
+			"exhaustion429Description": "Når alle udbydere i en gruppe er optagede eller venter på deres kvote, får klienten 429 med Retry-After i stedet for 502, så den selv venter og prøver igen."
 		},
 		"logging": {
 			"title": "Logning",

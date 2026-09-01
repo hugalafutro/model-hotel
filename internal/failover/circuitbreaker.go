@@ -58,6 +58,13 @@ type ProviderStatus struct {
 	CooldownMs       int64  `json:"cooldown_ms,omitempty"`
 	NextRetryAt      string `json:"next_retry_at,omitempty"`
 	QuotaPinned      bool   `json:"quota_pinned,omitempty"`
+	// PinSource says where the dominant circuit's quota pin came from:
+	// "advisor" (a measured quota reading) or "response" (inferred from the
+	// exhausted 429 itself). Empty when that circuit carries no pin. It rides
+	// beside QuotaPinned so an operator can tell a measured pin from an
+	// inferred one; like BackedOff/FailedProbes it describes the dominant
+	// circuit, whose CooldownMs/NextRetryAt it explains.
+	PinSource string `json:"pin_source,omitempty"`
 	// BackedOff is true when the cooldown governing the circuit is the probe
 	// backoff rather than circuit_breaker_cooldown: CooldownMs and NextRetryAt
 	// are then the doubled value. FailedProbes is the count behind it, the
@@ -253,6 +260,20 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 //     for every probe that has failed since the circuit last closed.
 //   - Open: no-op.
 func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName, model string) {
+	cb.recordFailure(providerID, providerName, model, false)
+}
+
+// RecordRateLimited is RecordFailure for an UNCLASSIFIED 429: it charges
+// identically, and additionally feeds the rate-limit-open streak so a circuit
+// that only ever opens on 429s escalates to exhausted handling without any
+// provider phrase saying so (see circuit.note429Open). The classified cases
+// never come here: a saturated 429 is a breaker no-op at the call site, and an
+// exhausted one goes through RecordExhausted.
+func (cb *CircuitBreaker) RecordRateLimited(providerID uuid.UUID, providerName, model string) {
+	cb.recordFailure(providerID, providerName, model, true)
+}
+
+func (cb *CircuitBreaker) recordFailure(providerID uuid.UUID, providerName, model string, by429 bool) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -263,7 +284,7 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName, mode
 	case StateClosed:
 		c.consecutiveFails++
 		if c.consecutiveFails >= cb.effectiveThreshold() {
-			cb.openCircuit("circuit-breaker: model state=closed→open", providerID, providerName, model, c)
+			cb.openCircuit("circuit-breaker: model state=closed→open", providerID, providerName, model, c, by429, 0)
 		}
 	case StateHalfOpen:
 		c.consecutiveFails = cb.effectiveThreshold()
@@ -271,10 +292,100 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName, mode
 		// breaker already had reason to doubt. Counted before the open so the
 		// cooldown stamped there is the one this failure has earned.
 		c.failedProbes++
-		cb.openCircuit("circuit-breaker: model state=half-open→open (probe failed)", providerID, providerName, model, c)
+		cb.openCircuit("circuit-breaker: model state=half-open→open (probe failed)", providerID, providerName, model, c, by429, 0)
 	case StateOpen:
 		// Already open — no-op.
 	}
+}
+
+// RecordExhausted records a 429 whose body says the window or balance behind
+// this model is SPENT. One such response opens the circuit outright — the
+// charge jumps to the threshold the way a failed half-open probe does —
+// because the second request an ordinary charge would wait for exists only to
+// confirm what the body already said, and on a saturated sibling it is also
+// the request that tips that one over.
+//
+// pinHint is the cooldown the response itself suggests (a dated Retry-After,
+// or the matched phrase's per-marker default); zero means none. It reaches the
+// cooldown through the same clamps an advisor pin gets, and a real advisor
+// reading always beats it — see applyQuotaPin.
+func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, model string, pinHint time.Duration) {
+	cb.mu.Lock()
+	defer cb.mu.Unlock()
+
+	c := cb.getOrCreate(providerID.String(), model)
+	c.lastCharged = time.Now()
+
+	switch c.state {
+	case StateClosed:
+		c.consecutiveFails = cb.effectiveThreshold()
+		cb.openCircuit("circuit-breaker: model state=closed→open (exhausted)", providerID, providerName, model, c, true, pinHint)
+	case StateHalfOpen:
+		c.consecutiveFails = cb.effectiveThreshold()
+		c.failedProbes++
+		cb.openCircuit("circuit-breaker: model state=half-open→open (probe drew exhaustion)", providerID, providerName, model, c, true, pinHint)
+	case StateOpen:
+		// Already open — no-op. The quota poller's ApplyQuotaPins retargets an
+		// open circuit when a fresh reading lands; a second exhausted body is
+		// not fresher evidence than the one that opened it.
+	}
+}
+
+// BlockedUntil reports when the breaker next lets a request at this
+// (provider, model) pair through, and whether every circuit blocking it is
+// quota-pinned. It answers for the same rule IsOpen enforces: the model's own
+// blocking circuit when it has one, else the provider-wide verdict's blocking
+// set (whose earliest expiry is when the verdict can lapse). ok is false when
+// nothing is blocking the pair — the caller should not have skipped it.
+//
+// It backs the honest all-skipped response: "no available provider" with a
+// Retry-After naming the earliest of these instants, and an exhausted kind
+// only when every blocking circuit is pinned (spent windows), else saturated.
+func (cb *CircuitBreaker) BlockedUntil(providerID uuid.UUID, model string) (retryAt time.Time, pinned, ok bool) {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+
+	models := cb.circuits[providerID.String()]
+	if len(models) == 0 {
+		return time.Time{}, false, false
+	}
+	r := cb.cooldowns()
+	if c := models[model]; c != nil && cb.blocking(c, r) {
+		return c.openedAt.Add(cb.effectiveCooldownForWith(c, r)), cb.quotaPinnedForWith(c, r), true
+	}
+	open, blocked, _ := cb.providerReport(models, r)
+	if !open || len(blocked) == 0 {
+		return time.Time{}, false, false
+	}
+	pinned = true
+	for _, m := range blocked {
+		c := models[m]
+		at := c.openedAt.Add(cb.effectiveCooldownForWith(c, r))
+		if retryAt.IsZero() || at.Before(retryAt) {
+			retryAt = at
+		}
+		if !cb.quotaPinnedForWith(c, r) {
+			pinned = false
+		}
+	}
+	return retryAt, pinned, true
+}
+
+// LastSuccessWithin reports whether this (provider, model) circuit served a
+// success inside the window. It backs the 429 behavioural fallback: a rate
+// limit from a model that answered moments ago is load, not a spent window,
+// because a spent window does not come back in a minute. An untracked pair has
+// no recorded success and reports false, so an unfamiliar provider never gets
+// the gentler treatment on a guess.
+func (cb *CircuitBreaker) LastSuccessWithin(providerID uuid.UUID, model string, window time.Duration) bool {
+	cb.mu.RLock()
+	defer cb.mu.RUnlock()
+
+	c, ok := cb.circuits[providerID.String()][model]
+	if !ok || c.lastSuccess.IsZero() {
+		return false
+	}
+	return time.Since(c.lastSuccess) <= window
 }
 
 // openCircuit moves one model circuit to Open, stamps the probe backoff and
@@ -288,15 +399,21 @@ func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName, mode
 // credentials, and the model id goes last because it is the one attribute a
 // request can influence.
 //
+// by429 feeds the rate-limit-open streak (note429Open) BEFORE the backoff is
+// stamped, so the escalation's lifted ceiling applies to the open that earned
+// it. exhaustHint is the response-derived pin suggestion for an exhausted 429,
+// zero everywhere else.
+//
 // Must be called with cb.mu held.
-func (cb *CircuitBreaker) openCircuit(msg string, providerID uuid.UUID, providerName, model string, c *circuit) {
+func (cb *CircuitBreaker) openCircuit(msg string, providerID uuid.UUID, providerName, model string, c *circuit, by429 bool, exhaustHint time.Duration) {
 	now := time.Now()
 	c.state = StateOpen
 	c.openedAt = now
+	c.note429Open(now, by429)
 	// Backoff first: the pin is floored at the cooldown in force, and that is
 	// the backoff once one is stamped.
 	cb.applyBackoff(c)
-	cb.applyQuotaPin(providerID, c)
+	cb.applyQuotaPin(providerID, c, exhaustHint)
 	// One walk for the log line and the event, so the two cannot disagree.
 	r := cb.cooldowns()
 	debuglog.Warn(msg, "provider", providerName, "provider_id", providerID, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownForWith(c, r).Milliseconds(), "quota_pinned", cb.quotaPinnedForWith(c, r), "backed_off", cb.backedOffForWith(c, r), "failed_probes", c.failedProbes, "model", model)
@@ -364,11 +481,28 @@ func (cb *CircuitBreaker) reportUnstable(providerID uuid.UUID, providerName, mod
 //   - Half-open: increments the probe counter. Closes the circuit if
 //     enough probes succeed.
 func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName, model string) {
+	cb.recordSuccess(providerID, providerName, model, true)
+}
+
+// RecordAlive is RecordSuccess for a response that proves the provider ALIVE
+// without having served anything: a non-failover-eligible non-2xx (a plain
+// 400, a 422). It credits the circuit identically but does not stamp
+// lastSuccess, because the 429 behavioural fallback reads that stamp as "this
+// model SERVED moments ago, so the window cannot be spent" — and a client's
+// own malformed payloads must not keep classifying a spent window as busy.
+func (cb *CircuitBreaker) RecordAlive(providerID uuid.UUID, providerName, model string) {
+	cb.recordSuccess(providerID, providerName, model, false)
+}
+
+func (cb *CircuitBreaker) recordSuccess(providerID uuid.UUID, providerName, model string, served bool) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
 	c := cb.getOrCreate(providerID.String(), model)
 	c.lastCharged = time.Now()
+	if served {
+		c.lastSuccess = c.lastCharged
+	}
 
 	switch c.state {
 	case StateClosed:
@@ -380,10 +514,13 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName, mode
 			c.consecutiveFails = 0
 			c.halfOpenProbes = 0
 			c.cooldownOverride = 0
+			c.pinSource = ""
 			// A probe that succeeded is the evidence the backoff was waiting for:
 			// the next open is a fresh incident and starts from the base again.
+			// The 429-open streak clears with it — HTTP just proved recovery.
 			c.failedProbes = 0
 			c.cooldownBackoff = 0
+			c.clear429Escalation()
 			debuglog.Info("circuit-breaker: model state=half-open→closed (probe succeeded)", "provider", providerName, "provider_id", providerID, "model", model)
 			cb.publishEvent(providerID, providerName, "closed", model, c, cb.cooldowns())
 		}
@@ -409,6 +546,9 @@ func (cb *CircuitBreaker) publishEvent(providerID uuid.UUID, providerName, state
 		"provider":    providerName,
 		"model":       model,
 		"state":       state,
+		// pin_source tells a measured pin ("advisor") from one inferred out of
+		// the exhausted response itself ("response"); empty when no pin governs.
+		"pin_source": cb.pinSourceForWith(c, r),
 		// provider_open is the derived verdict as it stands after this
 		// transition. The event names one model, and at the default span of 2 the
 		// first model to open leaves the provider serving everything else, so
@@ -566,6 +706,7 @@ func (cb *CircuitBreaker) Status() []ProviderStatus {
 			State:            state.String(),
 			ConsecutiveFails: c.consecutiveFails,
 			QuotaPinned:      quotaPinned,
+			PinSource:        cb.pinSourceForWith(c, r),
 			// Both from the dominant circuit, like CooldownMs and NextRetryAt: they
 			// explain those two numbers, so they must come from the same circuit.
 			BackedOff:    cb.backedOffForWith(c, r),

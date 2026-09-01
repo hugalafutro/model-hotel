@@ -266,15 +266,15 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		isFailover = true
 		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", st.reqModel)
 		displayModel := strings.ToLower(strings.TrimPrefix(st.reqModel, "hotel/"))
-		candidates, timings, cacheHits, err = h.resolveHotelModel(r.Context(), displayModel)
+		var skips breakerSkipSummary
+		candidates, timings, cacheHits, skips, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
 			h.failRequest(st.logData, 404, KindValidation, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return nil, false
 		}
 		if len(candidates) == 0 {
-			h.failRequest(st.logData, 502, KindProviderError, "no available provider for hotel/"+displayModel, 0, st.startTime, st.parseMs, timings, cacheHits, 0)
-			writeOpenAIError(w, "no available provider for hotel/"+displayModel, http.StatusBadGateway)
+			h.failNoAvailableProvider(w, r, st, displayModel, timings, cacheHits, skips)
 			return nil, false
 		}
 	case strings.Contains(st.reqModel, "/") && !strings.HasPrefix(st.reqModel, "hotel/"):

@@ -143,59 +143,64 @@ var allowedSettings = map[string]struct {
 	min      float64
 	max      float64
 }{
-	"rate_limit_enabled":                {typeName: "string"}, // bool as string
-	"rate_limit_ip_enabled":             {typeName: "string"}, // bool as string
-	"rate_limit_ip_rps":                 {typeName: "float", min: 0, max: 10000},
-	"rate_limit_ip_burst":               {typeName: "int", min: 1, max: 10000},
-	"rate_limit_max_wait_ms":            {typeName: "int", min: 0, max: 10000},
-	"rate_limit_rps":                    {typeName: "float", min: 0, max: 10000},
-	"rate_limit_burst":                  {typeName: "int", min: 1, max: 10000},
-	"rate_limit_tpm":                    {typeName: "int", min: 0, max: 100000000}, // global per-key tokens/min default; 0 = no cap
-	"request_timeout":                   {typeName: "string"},                      // duration (e.g. "1m0s")
-	"failover_on_rate_limit":            {typeName: "string"},                      // bool as string
-	"circuit_breaker_enabled":           {typeName: "string"},                      // bool as string
-	"circuit_breaker_threshold":         {typeName: "int", min: 1, max: 100},
-	"circuit_breaker_span_models":       {typeName: "int", min: 1, max: 100},                        // open model circuits it takes to indict the provider itself; 1 restores the per-provider verdict
-	"circuit_breaker_cooldown":          {typeName: "string"},                                       // duration (e.g. "1m0s")
-	"circuit_breaker_quota_pin_enabled": {typeName: "string"},                                       // bool as string
-	"circuit_breaker_quota_pin_max":     {typeName: "string"},                                       // duration (e.g. "24h0m0s")
-	"circuit_breaker_backoff_enabled":   {typeName: "string"},                                       // bool as string; double the cooldown per failed half-open probe
-	"circuit_breaker_backoff_max":       {typeName: "string"},                                       // duration ceiling for that backoff (e.g. "1h0m0s")
-	"discovery_interval":                {typeName: "string"},                                       // predefined option
-	"discovery_on_startup":              {typeName: "string"},                                       // bool as string
-	"discovery_on_provider_create":      {typeName: "string"},                                       // bool as string
-	"discovery_claim_alert_days":        {typeName: "int", min: 1, max: float64(MaxClaimAlertDays)}, // unaddressed-claim alert age; ceiling derived from ClaimWindow
-	"model_prune_days":                  {typeName: "int", min: 0, max: float64(MaxModelPruneDays)}, // days a model stays unlisted before its row is deleted; 0 = never
-	"log_retention":                     {typeName: "string"},                                       // predefined option
-	"stale_request_timeout":             {typeName: "string"},                                       // predefined option
-	"key_cache_ttl":                     {typeName: "string"},                                       // duration (e.g. "10m0s")
-	"ttft_timeout":                      {typeName: "string"},                                       // duration (e.g. "1m0s", "0s" = disabled)
-	"stream_stall_timeout":              {typeName: "string"},                                       // duration (e.g. "30s", "0s" = disabled)
-	"hedging_enabled":                   {typeName: "string"},                                       // bool as string
-	"hedge_delay":                       {typeName: "string"},                                       // duration (e.g. "4s") before racing a backup provider
-	"backup_enabled":                    {typeName: "string"},                                       // bool as string
-	"backup_interval":                   {typeName: "string"},                                       // duration (e.g. "24h")
-	"backup_son_retention":              {typeName: "int", min: 1, max: 365},
-	"backup_father_retention":           {typeName: "int", min: 0, max: 52},
-	"backup_grandfather_retention":      {typeName: "int", min: 0, max: 120},
-	"alert_enabled":                     {typeName: "string"},                // bool as string
-	"alert_apprise_api_url":             {typeName: "url"},                   // base URL of the apprise-api container (SSRF-validated)
-	"alert_apprise_targets":             {typeName: "string"},                // secret: encrypted at rest, masked on read
-	"alert_events":                      {typeName: "string"},                // CSV of enabled event Types (the picker)
-	"session_idle_timeout_minutes":      {typeName: "int", min: 0, max: 240}, // dashboard auto-logout window in minutes; 0 = disabled
-	"pwned_password_check_enabled":      {typeName: "string"},                // bool as string; breached-password screening runtime toggle
-	"oidc_enabled":                      {typeName: "string"},                // bool as string
-	"oidc_issuer_url":                   {typeName: "url"},                   // OIDC discovery base URL (SSRF-validated)
-	"oidc_client_id":                    {typeName: "string"},                // OAuth client id
-	"oidc_client_secret":                {typeName: "string"},                // secret: encrypted at rest, masked on read
-	"oidc_allowed_emails":               {typeName: "string"},                // comma/newline-separated allowlist
-	"oidc_public_base_url":              {typeName: "url_public"},            // app's external origin for the redirect URI
-	"github_sso_enabled":                {typeName: "string"},                // bool as string
-	"github_client_id":                  {typeName: "string"},                // GitHub OAuth App client id
-	"github_client_secret":              {typeName: "string"},                // secret: encrypted at rest, masked on read
-	"github_allowed_emails":             {typeName: "string"},                // comma/newline-separated allowlist (verified emails)
-	"github_public_base_url":            {typeName: "url_public"},            // app's external origin for the callback URI
-	"quota_refresh_interval_min":        {typeName: "int", min: 0, max: 30},  // provider quota poll interval in minutes; 0 = disabled
+	"rate_limit_enabled":                 {typeName: "string"}, // bool as string
+	"rate_limit_ip_enabled":              {typeName: "string"}, // bool as string
+	"rate_limit_ip_rps":                  {typeName: "float", min: 0, max: 10000},
+	"rate_limit_ip_burst":                {typeName: "int", min: 1, max: 10000},
+	"rate_limit_max_wait_ms":             {typeName: "int", min: 0, max: 10000},
+	"rate_limit_rps":                     {typeName: "float", min: 0, max: 10000},
+	"rate_limit_burst":                   {typeName: "int", min: 1, max: 10000},
+	"rate_limit_tpm":                     {typeName: "int", min: 0, max: 100000000}, // global per-key tokens/min default; 0 = no cap
+	"request_timeout":                    {typeName: "string"},                      // duration (e.g. "1m0s")
+	"failover_on_rate_limit":             {typeName: "string"},                      // bool as string
+	"failover_exhaustion_status_429":     {typeName: "string"},                      // bool as string; all-busy/all-pinned exhaustion answers 429 + Retry-After instead of 502
+	"rate_limit_classify_enabled":        {typeName: "string"},                      // bool as string; master switch for 429 saturation-vs-exhaustion classification
+	"rate_limit_saturation_max_wait":     {typeName: "string"},                      // duration; Retry-After at or below this is saturation, and it caps the saturation wait
+	"rate_limit_recent_success_window":   {typeName: "string"},                      // duration; an unknown 429 after a 2xx this recent classifies saturated
+	"circuit_breaker_enabled":            {typeName: "string"},                      // bool as string
+	"circuit_breaker_open_on_exhaustion": {typeName: "string"},                      // bool as string; one exhausted 429 opens the model circuit outright
+	"circuit_breaker_threshold":          {typeName: "int", min: 1, max: 100},
+	"circuit_breaker_span_models":        {typeName: "int", min: 1, max: 100},                        // open model circuits it takes to indict the provider itself; 1 restores the per-provider verdict
+	"circuit_breaker_cooldown":           {typeName: "string"},                                       // duration (e.g. "1m0s")
+	"circuit_breaker_quota_pin_enabled":  {typeName: "string"},                                       // bool as string
+	"circuit_breaker_quota_pin_max":      {typeName: "string"},                                       // duration (e.g. "24h0m0s")
+	"circuit_breaker_backoff_enabled":    {typeName: "string"},                                       // bool as string; double the cooldown per failed half-open probe
+	"circuit_breaker_backoff_max":        {typeName: "string"},                                       // duration ceiling for that backoff (e.g. "1h0m0s")
+	"discovery_interval":                 {typeName: "string"},                                       // predefined option
+	"discovery_on_startup":               {typeName: "string"},                                       // bool as string
+	"discovery_on_provider_create":       {typeName: "string"},                                       // bool as string
+	"discovery_claim_alert_days":         {typeName: "int", min: 1, max: float64(MaxClaimAlertDays)}, // unaddressed-claim alert age; ceiling derived from ClaimWindow
+	"model_prune_days":                   {typeName: "int", min: 0, max: float64(MaxModelPruneDays)}, // days a model stays unlisted before its row is deleted; 0 = never
+	"log_retention":                      {typeName: "string"},                                       // predefined option
+	"stale_request_timeout":              {typeName: "string"},                                       // predefined option
+	"key_cache_ttl":                      {typeName: "string"},                                       // duration (e.g. "10m0s")
+	"ttft_timeout":                       {typeName: "string"},                                       // duration (e.g. "1m0s", "0s" = disabled)
+	"stream_stall_timeout":               {typeName: "string"},                                       // duration (e.g. "30s", "0s" = disabled)
+	"hedging_enabled":                    {typeName: "string"},                                       // bool as string
+	"hedge_delay":                        {typeName: "string"},                                       // duration (e.g. "4s") before racing a backup provider
+	"backup_enabled":                     {typeName: "string"},                                       // bool as string
+	"backup_interval":                    {typeName: "string"},                                       // duration (e.g. "24h")
+	"backup_son_retention":               {typeName: "int", min: 1, max: 365},
+	"backup_father_retention":            {typeName: "int", min: 0, max: 52},
+	"backup_grandfather_retention":       {typeName: "int", min: 0, max: 120},
+	"alert_enabled":                      {typeName: "string"},                // bool as string
+	"alert_apprise_api_url":              {typeName: "url"},                   // base URL of the apprise-api container (SSRF-validated)
+	"alert_apprise_targets":              {typeName: "string"},                // secret: encrypted at rest, masked on read
+	"alert_events":                       {typeName: "string"},                // CSV of enabled event Types (the picker)
+	"session_idle_timeout_minutes":       {typeName: "int", min: 0, max: 240}, // dashboard auto-logout window in minutes; 0 = disabled
+	"pwned_password_check_enabled":       {typeName: "string"},                // bool as string; breached-password screening runtime toggle
+	"oidc_enabled":                       {typeName: "string"},                // bool as string
+	"oidc_issuer_url":                    {typeName: "url"},                   // OIDC discovery base URL (SSRF-validated)
+	"oidc_client_id":                     {typeName: "string"},                // OAuth client id
+	"oidc_client_secret":                 {typeName: "string"},                // secret: encrypted at rest, masked on read
+	"oidc_allowed_emails":                {typeName: "string"},                // comma/newline-separated allowlist
+	"oidc_public_base_url":               {typeName: "url_public"},            // app's external origin for the redirect URI
+	"github_sso_enabled":                 {typeName: "string"},                // bool as string
+	"github_client_id":                   {typeName: "string"},                // GitHub OAuth App client id
+	"github_client_secret":               {typeName: "string"},                // secret: encrypted at rest, masked on read
+	"github_allowed_emails":              {typeName: "string"},                // comma/newline-separated allowlist (verified emails)
+	"github_public_base_url":             {typeName: "url_public"},            // app's external origin for the callback URI
+	"quota_refresh_interval_min":         {typeName: "int", min: 0, max: 30},  // provider quota poll interval in minutes; 0 = disabled
 }
 
 const maxSettingValueLen = 500

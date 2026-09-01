@@ -1710,7 +1710,18 @@
 			"failoverGroup": "Failover",
 			"hedgingGroup": "Hedging",
 			"spanModels": "Modelos antes de ignorar o provedor",
-			"spanModels.description": "Quantos modelos de um provedor precisam estar com o disjuntor aberto antes que o provedor inteiro seja ignorado. Com 1, um único modelo com falha tira de rota todos os modelos daquele provedor."
+			"spanModels.description": "Quantos modelos de um provedor precisam estar com o disjuntor aberto antes que o provedor inteiro seja ignorado. Com 1, um único modelo com falha tira de rota todos os modelos daquele provedor.",
+			"rateLimitGroup": "Tratamento de limites de taxa (429)",
+			"classify429": "Distinguir ocupado de esgotado",
+			"classify429Description": "Lê cada resposta 429 para distinguir um fornecedor brevemente no limite de capacidade (repetir em segundos, sem penalizar o disjuntor) de um cuja quota ou saldo está esgotado (abrir o circuito de imediato e aguardar a janela). Desativado, aplica-se o comportamento antigo: cada 429 conta como uma falha comum.",
+			"saturationMaxWait": "Limite de espera por saturação",
+			"saturationMaxWait.description": "Um Retry-After igual ou inferior a este valor significa saturação; acima disso é tratado como janela esgotada. Também limita quanto tempo o proxy espera antes de repetir uma vez o último fornecedor saturado.",
+			"recentSuccessWindow": "Janela de sucesso recente",
+			"recentSuccessWindow.description": "Uma 429 não reconhecida de um modelo que respondeu com sucesso há tão pouco tempo é tratada como saturação e não como esgotamento: uma janela esgotada não volta num minuto.",
+			"openOnExhaustion": "Abrir circuito com quota esgotada",
+			"openOnExhaustionDescription": "Quando uma 429 indica quota ou saldo esgotado, o circuito do modelo abre com essa única resposta em vez de esperar pelo limiar de falhas.",
+			"exhaustion429": "Responder 429 a grupos saturados",
+			"exhaustion429Description": "Quando todos os fornecedores de um grupo estão saturados ou à espera da quota, o cliente recebe 429 com Retry-After em vez de 502, para aguardar e repetir por conta própria."
 		},
 		"logging": {
 			"title": "Registro",
