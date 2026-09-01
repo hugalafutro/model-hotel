@@ -3109,7 +3109,8 @@
 				"pinned": "przypięty"
 			},
 			"chipBusyTip": "Ten dostawca odpowiedział zajętym 429 w ciągu ostatniej minuty; jego bezpiecznik jest zamknięty, a żądania nadal tu trafiają i przelewają się do następnej pozycji, gdy jest pełny.",
-			"circuitCause": "Ostatni werdykt: {{cause}} (status upstream {{status}}) o {{when}}"
+			"circuitCause": "Ostatni werdykt: {{cause}} (status upstream {{status}}) o {{when}}",
+			"circuitCauseNoStatus": "Ostatni werdykt: {{cause}} o {{when}}"
 		}
 	},
 	"virtualKeys": {

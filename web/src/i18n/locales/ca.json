@@ -3045,7 +3045,8 @@
 				"pinned": "fixat"
 			},
 			"chipBusyTip": "Aquest proveïdor ha respost un 429 d'ocupat en l'últim minut; el seu disjuntor està tancat i les sol·licituds encara s'hi encaminen, passant a l'entrada següent quan és ple.",
-			"circuitCause": "Últim veredicte: {{cause}} (estat amunt {{status}}) a les {{when}}"
+			"circuitCause": "Últim veredicte: {{cause}} (estat amunt {{status}}) a les {{when}}",
+			"circuitCauseNoStatus": "Últim veredicte: {{cause}} a les {{when}}"
 		}
 	},
 	"virtualKeys": {

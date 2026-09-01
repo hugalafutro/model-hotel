@@ -48,10 +48,12 @@ type memberCircuitResetResult struct {
 	Recovered int `json:"recovered"`
 }
 
-// fleetCircuitReset fans a circuit-breaker reset out to every member that has
-// a stored token, in sequence (a handful of members, one small POST each), and
-// reports per member. A member that fails does not stop the others: the
-// operator wants the fleet cleared, and the response says who was not.
+// fleetCircuitReset fans a circuit-breaker reset out to every member, in
+// sequence (a handful of members, one small POST each), and reports per member.
+// A member that fails does not stop the others: the operator wants the fleet
+// cleared, and the response says who was not. A member without a stored token
+// is one of those: it is exactly the member that stays dark after the round,
+// so it is listed as failed with the reason rather than left out of the count.
 func (s *Server) fleetCircuitReset(w http.ResponseWriter, r *http.Request) {
 	var req fleetCircuitResetRequest
 	if !decodeJSON(w, r, &req) {
@@ -72,9 +74,6 @@ func (s *Server) fleetCircuitReset(w http.ResponseWriter, r *http.Request) {
 
 	resp := fleetCircuitResetResponse{GroupID: req.GroupID, Members: make([]fleetCircuitResetMember, 0, len(members))}
 	for _, m := range members {
-		if !m.HasToken {
-			continue
-		}
 		res := s.resetMemberCircuits(ctx, m, req.GroupID)
 		resp.Members = append(resp.Members, res)
 		if !res.OK {
@@ -110,6 +109,10 @@ func (s *Server) fleetCircuitReset(w http.ResponseWriter, r *http.Request) {
 // its own response; any transport error or non-200 is reported, never hidden.
 func (s *Server) resetMemberCircuits(ctx context.Context, m *Member, groupID string) fleetCircuitResetMember {
 	res := fleetCircuitResetMember{MemberID: m.ID, Name: m.Name}
+	if !m.HasToken {
+		res.Error = "no stored admin token"
+		return res
+	}
 	token, ok, err := s.store.MemberToken(ctx, m.ID)
 	if err != nil || !ok {
 		res.Error = "no stored admin token"

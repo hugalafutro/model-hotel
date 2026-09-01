@@ -2981,7 +2981,8 @@
 				"pinned": "已固定"
 			},
 			"chipBusyTip": "该提供商在最近一分钟内返回了繁忙 429；其断路器处于闭合状态，请求仍会路由到这里，满载时溢出到下一个条目。",
-			"circuitCause": "最近判定：{{cause}}（上游状态 {{status}}）于 {{when}}"
+			"circuitCause": "最近判定：{{cause}}（上游状态 {{status}}）于 {{when}}",
+			"circuitCauseNoStatus": "最近判定：{{cause}}于 {{when}}"
 		}
 	},
 	"virtualKeys": {

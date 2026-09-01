@@ -2981,7 +2981,8 @@
 				"pinned": "festet"
 			},
 			"chipBusyTip": "Denne leverandøren svarte med en opptatt-429 det siste minuttet; sikringen er lukket og forespørsler rutes fortsatt hit, og renner over til neste oppføring når den er full.",
-			"circuitCause": "Siste dom: {{cause}} (oppstrømsstatus {{status}}) kl. {{when}}"
+			"circuitCause": "Siste dom: {{cause}} (oppstrømsstatus {{status}}) kl. {{when}}",
+			"circuitCauseNoStatus": "Siste dom: {{cause}} kl. {{when}}"
 		}
 	},
 	"virtualKeys": {

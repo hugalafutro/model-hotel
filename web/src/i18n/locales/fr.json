@@ -3045,7 +3045,8 @@
 				"pinned": "épinglé"
 			},
 			"chipBusyTip": "Ce fournisseur a répondu un 429 de saturation dans la dernière minute ; son disjoncteur est fermé et les requêtes y sont toujours routées, débordant vers l'entrée suivante quand il est plein.",
-			"circuitCause": "Dernier verdict : {{cause}} (statut amont {{status}}) à {{when}}"
+			"circuitCause": "Dernier verdict : {{cause}} (statut amont {{status}}) à {{when}}",
+			"circuitCauseNoStatus": "Dernier verdict : {{cause}} à {{when}}"
 		}
 	},
 	"virtualKeys": {

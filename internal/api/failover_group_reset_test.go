@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // ?model= scopes a provider reset to one circuit: the handler passes the model
@@ -104,10 +105,37 @@ func TestResetGroupCircuitBreakers(t *testing.T) {
 	}
 
 	// An unknown group is a 404, not a reset of nothing.
-	req, w := newChiRequest(http.MethodPost, "/failover-groups/"+uuid.New().String()+"/circuit-breaker/reset", http.NoBody)
-	req = setChiURLParam(req, "id", uuid.New().String())
+	unknown := uuid.New().String()
+	req, w := newChiRequest(http.MethodPost, "/failover-groups/"+unknown+"/circuit-breaker/reset", http.NoBody)
+	req = setChiURLParam(req, "id", unknown)
 	h.ResetGroupCircuitBreakers(w, req)
 	if w.Code != http.StatusNotFound {
 		t.Errorf("unknown group = %d, want 404", w.Code)
+	}
+	// A malformed id is a 400.
+	req, w = newChiRequest(http.MethodPost, "/failover-groups/nope/circuit-breaker/reset", http.NoBody)
+	req = setChiURLParam(req, "id", "nope")
+	h.ResetGroupCircuitBreakers(w, req)
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("malformed id = %d, want 400", w.Code)
+	}
+
+	// An entry whose model has since vanished is skipped, not counted.
+	second := models[g.PriorityOrder[1]]
+	if _, err := apiTestDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", second.ID); err != nil {
+		t.Fatalf("delete model: %v", err)
+	}
+	model.InvalidateModelCache()
+	if resp := call(); resp.Entries != 1 {
+		t.Errorf("entries after a model vanished = %d, want 1", resp.Entries)
+	}
+
+	// No breaker wired: a 503, like the other resets.
+	h.cb = nil
+	req, w = newChiRequest(http.MethodPost, "/failover-groups/"+groupID.String()+"/circuit-breaker/reset", http.NoBody)
+	req = setChiURLParam(req, "id", groupID.String())
+	h.ResetGroupCircuitBreakers(w, req)
+	if w.Code != http.StatusServiceUnavailable {
+		t.Errorf("no breaker = %d, want 503", w.Code)
 	}
 }

@@ -2981,7 +2981,8 @@
 				"pinned": "vasgepen"
 			},
 			"chipBusyTip": "Hierdie verskaffer het die afgelope minuut 'n besige 429 geantwoord; sy stroombreker is toe en versoeke word steeds hierheen gestuur, en vloei oor na die volgende inskrywing wanneer dit vol is.",
-			"circuitCause": "Laaste uitspraak: {{cause}} (stroomop-status {{status}}) om {{when}}"
+			"circuitCause": "Laaste uitspraak: {{cause}} (stroomop-status {{status}}) om {{when}}",
+			"circuitCauseNoStatus": "Laaste uitspraak: {{cause}} om {{when}}"
 		}
 	},
 	"virtualKeys": {

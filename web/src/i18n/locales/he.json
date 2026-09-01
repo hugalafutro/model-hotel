@@ -3045,7 +3045,8 @@
 				"pinned": "מוצמד"
 			},
 			"chipBusyTip": "ספק זה השיב 429 עמוס בדקה האחרונה; מפסק הזרם שלו סגור והבקשות עדיין מנותבות לכאן, וגולשות לרשומה הבאה כשהוא מלא.",
-			"circuitCause": "פסק דין אחרון: {{cause}} (מצב upstream {{status}}) ב-{{when}}"
+			"circuitCause": "פסק דין אחרון: {{cause}} (מצב upstream {{status}}) ב-{{when}}",
+			"circuitCauseNoStatus": "פסק דין אחרון: {{cause}} ב-{{when}}"
 		}
 	},
 	"virtualKeys": {

@@ -1,12 +1,15 @@
 package failover
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
 
@@ -376,4 +379,51 @@ func manualResetLines(capt *logCaptureHandler, providerID string) []map[string]a
 		out = append(out, r.attrs)
 	}
 	return out
+}
+
+// breakerReadingHandler reads the breaker while handling a record, standing in
+// for the app-log handler that can block on its store for seconds per line.
+type breakerReadingHandler struct {
+	*logCaptureHandler
+	cb *CircuitBreaker
+	id uuid.UUID
+}
+
+func (h *breakerReadingHandler) Handle(ctx context.Context, r slog.Record) error {
+	if r.Message == "circuit-breaker: manual reset" {
+		// Takes cb.mu: deadlocks if the reset that logged still holds it.
+		h.cb.GetState(h.id, "unrelated")
+	}
+	return h.logCaptureHandler.Handle(ctx, r)
+}
+
+// Every manual reset logs with the breaker's lock released. cb.mu is the lock
+// each request's IsOpen takes, and the app-log sink can stall for seconds per
+// line when its store is backed up: a fleet-wide reset that logged N circuits
+// under the lock would stall the request path for N of those stalls.
+func TestManualResetsLogWithTheLockReleased(t *testing.T) {
+	capt := captureLogs(t)
+	cb := newTestCB(2, time.Minute)
+	id := uuid.New()
+	debuglog.SetHandler(&breakerReadingHandler{logCaptureHandler: capt, cb: cb, id: id})
+	for _, m := range []string{"a", "b", "c"} {
+		cb.RecordFailure(id, "p", m, UpstreamStatus(503, ""))
+	}
+
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		cb.ResetModel(id, "a")
+		cb.Reset(id)
+		cb.RecordFailure(id, "p", "d", UpstreamStatus(503, ""))
+		cb.ResetAll()
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("a manual reset logged while holding the breaker's lock")
+	}
+	if n := len(manualResetLines(capt, id.String())); n != 4 {
+		t.Errorf("manual reset lines = %d, want 4 (1 scoped + 2 provider + 1 all)", n)
+	}
 }

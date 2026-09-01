@@ -2981,7 +2981,8 @@
 				"pinned": "sabitlenmiş"
 			},
 			"chipBusyTip": "Bu sağlayıcı son bir dakikada meşgul 429 yanıtı verdi; devre kesicisi kapalı ve istekler hâlâ buraya yönlendiriliyor, dolduğunda bir sonraki girdiye taşıyor.",
-			"circuitCause": "Son karar: {{cause}} (yukarı akış durumu {{status}}) {{when}}"
+			"circuitCause": "Son karar: {{cause}} (yukarı akış durumu {{status}}) {{when}}",
+			"circuitCauseNoStatus": "Son karar: {{cause}} {{when}}"
 		}
 	},
 	"virtualKeys": {

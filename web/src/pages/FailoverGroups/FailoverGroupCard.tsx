@@ -23,6 +23,7 @@ import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatTokens } from "../../utils/format";
 import {
+	type EntryCircuitView,
 	entryCircuitStatus,
 	entryCircuitView,
 	groupCircuitSummary,
@@ -89,27 +90,27 @@ export function FailoverGroupCard({
 		setLocalEntries(group.entries);
 	}
 
-	// Count only entries the router will actually use: the entry toggle must
-	// be on AND the underlying model and provider must be enabled (matches
-	// SortableEntry's effective-state display).
-	const enabledCount = localEntries.filter(
-		(e) => e.enabled && e.model_enabled && e.provider_enabled,
-	).length;
-	const totalCount = localEntries.length;
-
-	// The breaker's view of each routable entry, for the chips and the header:
-	// "2 of 3 entries live", or "all entries dark" with the earliest retry.
-	const circuitViews = useMemo(
-		() =>
-			localEntries
-				.filter((e) => e.enabled && e.model_enabled && e.provider_enabled)
-				.map((e) =>
+	// The breaker's view of each entry the router will actually use: the entry
+	// toggle on AND the underlying model and provider enabled (matches
+	// SortableEntry's effective-state display). One map feeds the count, each
+	// entry's chip and the header ("2 of 3 entries live", or "all entries dark"
+	// with the earliest retry), so the three cannot drift apart.
+	const circuitViews = useMemo(() => {
+		const views = new Map<string, EntryCircuitView>();
+		for (const e of localEntries) {
+			if (e.enabled && e.model_enabled && e.provider_enabled) {
+				views.set(
+					e.model_uuid,
 					entryCircuitView(cbProviderMap.get(e.provider_id), e.model_id),
-				),
-		[localEntries, cbProviderMap],
-	);
+				);
+			}
+		}
+		return views;
+	}, [localEntries, cbProviderMap]);
+	const enabledCount = circuitViews.size;
+	const totalCount = localEntries.length;
 	const summary = useMemo(
-		() => groupCircuitSummary(circuitViews),
+		() => groupCircuitSummary([...circuitViews.values()]),
 		[circuitViews],
 	);
 
@@ -253,10 +254,11 @@ export function FailoverGroupCard({
 									cbProviderMap.get(entry.provider_id),
 									entry.model_id,
 								)}
-								circuitView={entryCircuitView(
-									cbProviderMap.get(entry.provider_id),
-									entry.model_id,
-								)}
+								circuitView={
+									group.group_enabled
+										? circuitViews.get(entry.model_uuid)
+										: undefined
+								}
 								onResetCircuit={onResetCircuit}
 								resetPending={resetPendingProviderId === entry.provider_id}
 							/>

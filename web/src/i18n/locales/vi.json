@@ -2981,7 +2981,8 @@
 				"pinned": "ghim"
 			},
 			"chipBusyTip": "Nhà cung cấp này đã trả về 429 bận trong phút vừa qua; cầu dao của nó đang đóng và yêu cầu vẫn được định tuyến tới đây, tràn sang mục tiếp theo khi đầy.",
-			"circuitCause": "Phán quyết gần nhất: {{cause}} (trạng thái upstream {{status}}) lúc {{when}}"
+			"circuitCause": "Phán quyết gần nhất: {{cause}} (trạng thái upstream {{status}}) lúc {{when}}",
+			"circuitCauseNoStatus": "Phán quyết gần nhất: {{cause}} lúc {{when}}"
 		}
 	},
 	"virtualKeys": {

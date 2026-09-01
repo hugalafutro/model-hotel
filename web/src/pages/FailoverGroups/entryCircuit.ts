@@ -109,22 +109,28 @@ export function entryCircuitView(
 		return base;
 	}
 
-	// Older member: only the row and open_models are known.
-	if (row.state === "half-open") return { ...base, chip: "probe" };
-	if (row.state === "open" && row.open_models?.includes(modelId)) {
-		return {
-			...base,
-			chip: row.quota_pinned ? "pinned" : "open",
-			nextRetryAt: row.next_retry_at,
-		};
+	// Older member: only the row and open_models are known. A current member
+	// that reports circuits[] without one for this model has simply never
+	// routed it, and a sibling model's probe or outage says nothing about it.
+	if (!row.circuits) {
+		if (row.state === "half-open") return { ...base, chip: "probe" };
+		if (row.state === "open" && row.open_models?.includes(modelId)) {
+			return {
+				...base,
+				chip: row.quota_pinned ? "pinned" : "open",
+				nextRetryAt: row.next_retry_at,
+			};
+		}
 	}
 	return base;
 }
 
 /**
- * The group header's summary: how many entries are live (or merely busy, which
- * still serves) out of those enabled, and, when none are, the earliest instant
- * one of them is eligible to probe again.
+ * The group header's summary: how many entries are live out of those enabled,
+ * and, when none are, the earliest instant one of them is eligible to probe
+ * again. Busy counts as live (it still serves), and so does an entry owed a
+ * probe: it gets exactly one request, which overstates it, but a group whose
+ * every entry is recovering is not dark, and "all entries dark" is the alarm.
  */
 export function groupCircuitSummary(views: EntryCircuitView[]): {
 	live: number;

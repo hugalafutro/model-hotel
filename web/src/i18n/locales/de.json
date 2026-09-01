@@ -2981,7 +2981,8 @@
 				"pinned": "gepinnt"
 			},
 			"chipBusyTip": "Dieser Anbieter hat in der letzten Minute mit einem 429 (ausgelastet) geantwortet; sein Schutzschalter ist geschlossen, Anfragen gehen weiterhin hierhin und weichen auf den nächsten Eintrag aus, wenn er voll ist.",
-			"circuitCause": "Letztes Urteil: {{cause}} (Upstream-Status {{status}}) um {{when}}"
+			"circuitCause": "Letztes Urteil: {{cause}} (Upstream-Status {{status}}) um {{when}}",
+			"circuitCauseNoStatus": "Letztes Urteil: {{cause}} um {{when}}"
 		}
 	},
 	"virtualKeys": {

@@ -2981,7 +2981,8 @@
 				"pinned": "vastgezet"
 			},
 			"chipBusyTip": "Deze provider antwoordde in de afgelopen minuut met een bezet-429; de stroomonderbreker is gesloten en verzoeken worden nog steeds hierheen gerouteerd, met overloop naar het volgende item als hij vol is.",
-			"circuitCause": "Laatste oordeel: {{cause}} (upstream-status {{status}}) om {{when}}"
+			"circuitCause": "Laatste oordeel: {{cause}} (upstream-status {{status}}) om {{when}}",
+			"circuitCauseNoStatus": "Laatste oordeel: {{cause}} om {{when}}"
 		}
 	},
 	"virtualKeys": {

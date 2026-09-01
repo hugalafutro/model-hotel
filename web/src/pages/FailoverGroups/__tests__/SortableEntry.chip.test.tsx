@@ -36,6 +36,31 @@ describe("SortableEntry circuit chip", () => {
 			"upstream status 429 (saturated)",
 		);
 		expect(chip.getAttribute("title")).toContain("429");
+		// The cause rides on the chip; the row's own title is the fuse's, and a
+		// busy entry has no fuse.
+		expect(chip.closest(".failover-entry")?.getAttribute("title")).toBeNull();
+	});
+
+	it("paints an open chip with the error badge and drops the status clause when there is none", () => {
+		renderWithProviders(
+			<SortableEntry
+				entry={entry}
+				groupEnabled
+				onToggle={vi.fn()}
+				circuitView={{
+					chip: "open",
+					lastCause: "quota pin retargeted (advisor)",
+					lastAt: "2026-08-31T14:47:30Z",
+				}}
+			/>,
+		);
+		const chip = screen.getByTestId("failover-entry-chip");
+		expect(chip).toHaveAttribute("data-chip", "open");
+		expect(chip).toHaveClass("ui-badge-error");
+		expect(chip.getAttribute("title")).toContain(
+			"quota pin retargeted (advisor)",
+		);
+		expect(chip.getAttribute("title")).not.toContain("-)");
 	});
 
 	it("renders no chip without a view, or on a disabled entry", () => {

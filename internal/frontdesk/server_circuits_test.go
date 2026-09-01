@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"sync/atomic"
 	"testing"
 )
@@ -46,10 +47,27 @@ func TestFleetCircuitReset(t *testing.T) {
 	a := fake("atoken", 3, 2, false)
 	b := fake("btoken", 1, 0, false)
 	c := fake("ctoken", 0, 0, true)
+	garbled := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("not json"))
+	}))
+	t.Cleanup(garbled.Close)
 	_, _ = store.CreateMember(t.Context(), "a", a.URL, "atoken")
 	_, _ = store.CreateMember(t.Context(), "b", b.URL, "btoken")
 	cm, _ := store.CreateMember(t.Context(), "c", c.URL, "ctoken")
-	_, _ = store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "")
+	tl, err := store.CreateMember(t.Context(), "tokenless", "http://127.0.0.1:9", "")
+	if err != nil {
+		t.Fatalf("create tokenless member: %v", err)
+	}
+	// A distinct dead address from the tokenless member's: the store refuses
+	// a duplicate URL, and a member that was never created has no ID to check.
+	um, err := store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:2", "utoken")
+	if err != nil {
+		t.Fatalf("create unreachable member: %v", err)
+	}
+	gm, err := store.CreateMember(t.Context(), "garbled", garbled.URL, "gtoken")
+	if err != nil {
+		t.Fatalf("create garbled member: %v", err)
+	}
 
 	rec := do(t, srv, http.MethodPost, "/api/fleet/circuit-breaker/reset", `{"group_id":"11111111-2222-3333-4444-555555555555"}`, true)
 	if rec.Code != http.StatusOK {
@@ -59,16 +77,20 @@ func TestFleetCircuitReset(t *testing.T) {
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
-	if len(resp.Members) != 3 {
-		t.Fatalf("members = %+v, want the three with tokens", resp.Members)
+	if len(resp.Members) != 6 {
+		t.Fatalf("members = %+v, want all six, the tokenless one included", resp.Members)
 	}
-	if resp.Cleared != 4 || resp.Recovered != 2 || resp.Failed != 1 {
-		t.Errorf("totals = cleared %d recovered %d failed %d, want 4/2/1", resp.Cleared, resp.Recovered, resp.Failed)
+	if resp.Cleared != 4 || resp.Recovered != 2 || resp.Failed != 4 {
+		t.Errorf("totals = cleared %d recovered %d failed %d, want 4/2/4", resp.Cleared, resp.Recovered, resp.Failed)
+	}
+	wantErr := map[string]string{
+		cm.ID: "member answered 500", um.ID: "could not reach this member",
+		gm.ID: "member answered with an unreadable body", tl.ID: "no stored admin token",
 	}
 	for _, m := range resp.Members {
-		if m.MemberID == cm.ID {
-			if m.OK || m.Error != "member answered 500" {
-				t.Errorf("failing member = %+v", m)
+		if want, failing := wantErr[m.MemberID]; failing {
+			if m.OK || m.Error != want {
+				t.Errorf("failing member %s = %+v, want error %q", m.Name, m, want)
 			}
 		} else if !m.OK || m.Error != "" {
 			t.Errorf("member %s = %+v, want ok", m.Name, m)
@@ -85,6 +107,16 @@ func TestFleetCircuitReset(t *testing.T) {
 	}
 	if allHits.Load() != 3 {
 		t.Errorf("all path hit %d times, want 3", allHits.Load())
+	}
+
+	// A body that is not JSON is refused before any member is asked.
+	if rec := do(t, srv, http.MethodPost, "/api/fleet/circuit-breaker/reset", `{bad`, true); rec.Code != http.StatusBadRequest {
+		t.Errorf("malformed body = %d, want 400", rec.Code)
+	}
+	// A member whose row claims a token the store cannot produce is reported
+	// the same way as one that never had it.
+	if res := srv.resetMemberCircuits(t.Context(), &Member{ID: "no-such-member", Name: "ghost", HasToken: true}, ""); res.OK || res.Error != "no stored admin token" {
+		t.Errorf("tokenless member = %+v", res)
 	}
 
 	// A malformed group id is refused before any member is asked.
@@ -133,5 +165,32 @@ func TestFleetFailoverGroups(t *testing.T) {
 	dead, _ := store.CreateMember(t.Context(), "dead", "http://127.0.0.1:9", "dtoken")
 	if rec := do(t, srv, http.MethodGet, "/api/fleet/failover-groups?primary_id="+dead.ID, "", true); rec.Code != http.StatusBadGateway {
 		t.Errorf("unreachable primary = %d, want 502", rec.Code)
+	}
+	if rec := do(t, srv, http.MethodGet, "/api/fleet/failover-groups?primary_id=no-such-member", "", true); rec.Code == http.StatusOK {
+		t.Errorf("unknown primary answered 200")
+	}
+	// Primaries that answer, but not with a group list. Two servers, because
+	// the store refuses a second member on the same URL.
+	erroring := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	t.Cleanup(erroring.Close)
+	garbling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte("not json"))
+	}))
+	t.Cleanup(garbling.Close)
+	b500, err := store.CreateMember(t.Context(), "b500", erroring.URL, "b500")
+	if err != nil {
+		t.Fatalf("create erroring primary: %v", err)
+	}
+	if rec := do(t, srv, http.MethodGet, "/api/fleet/failover-groups?primary_id="+b500.ID, "", true); rec.Code != http.StatusBadGateway {
+		t.Errorf("primary answering 500 = %d, want 502", rec.Code)
+	}
+	bgarb, err := store.CreateMember(t.Context(), "bgarb", garbling.URL, "garble")
+	if err != nil {
+		t.Fatalf("create garbling primary: %v", err)
+	}
+	if rec := do(t, srv, http.MethodGet, "/api/fleet/failover-groups?primary_id="+bgarb.ID, "", true); rec.Code != http.StatusBadGateway || !strings.Contains(rec.Body.String(), "unreadable") {
+		t.Errorf("primary answering garbage = %d (%s), want 502 unreadable", rec.Code, rec.Body.String())
 	}
 }

@@ -212,6 +212,17 @@ describe("entryCircuitView", () => {
 			"probe",
 		);
 	});
+
+	it("does not paint an entry from a sibling model's circuit when circuits[] is reported", () => {
+		// The row says half-open, but that is another model of the provider;
+		// this entry has never been routed and has no circuit of its own.
+		const r = row({
+			state: "half-open",
+			circuits: [{ model: "other", state: "half-open", consecutive_fails: 5 }],
+		});
+		expect(entryCircuitView(r, "mine", now).chip).toBe("live");
+		expect(entryCircuitView(r, "other", now).chip).toBe("probe");
+	});
 });
 
 describe("groupCircuitSummary", () => {

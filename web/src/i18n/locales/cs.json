@@ -3109,7 +3109,8 @@
 				"pinned": "připnutý"
 			},
 			"chipBusyTip": "Tento poskytovatel odpověděl v poslední minutě zaneprázdněným 429; jeho jistič je sepnutý a požadavky sem stále směřují, při zaplnění přetečou na další položku.",
-			"circuitCause": "Poslední verdikt: {{cause}} (stav upstreamu {{status}}) v {{when}}"
+			"circuitCause": "Poslední verdikt: {{cause}} (stav upstreamu {{status}}) v {{when}}",
+			"circuitCauseNoStatus": "Poslední verdikt: {{cause}} v {{when}}"
 		}
 	},
 	"virtualKeys": {

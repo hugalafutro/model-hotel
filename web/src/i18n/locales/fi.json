@@ -2981,7 +2981,8 @@
 				"pinned": "kiinnitetty"
 			},
 			"chipBusyTip": "Tämä palveluntarjoaja vastasi varattu-429:llä viimeisen minuutin aikana; sen virrankatkaisin on kiinni ja pyynnöt reititetään yhä tänne, seuraavaan kohtaan kun se on täynnä.",
-			"circuitCause": "Viimeisin päätös: {{cause}} (upstream-tila {{status}}) klo {{when}}"
+			"circuitCause": "Viimeisin päätös: {{cause}} (upstream-tila {{status}}) klo {{when}}",
+			"circuitCauseNoStatus": "Viimeisin päätös: {{cause}} klo {{when}}"
 		}
 	},
 	"virtualKeys": {

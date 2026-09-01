@@ -3045,7 +3045,8 @@
 				"pinned": "fixat"
 			},
 			"chipBusyTip": "Acest furnizor a răspuns cu un 429 de ocupat în ultimul minut; întrerupătorul său este închis și cererile sunt în continuare rutate aici, revărsându-se către intrarea următoare când este plin.",
-			"circuitCause": "Ultimul verdict: {{cause}} (stare upstream {{status}}) la {{when}}"
+			"circuitCause": "Ultimul verdict: {{cause}} (stare upstream {{status}}) la {{when}}",
+			"circuitCauseNoStatus": "Ultimul verdict: {{cause}} la {{when}}"
 		}
 	},
 	"virtualKeys": {

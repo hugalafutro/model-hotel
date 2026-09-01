@@ -2981,7 +2981,8 @@
 				"pinned": "fastlåst"
 			},
 			"chipBusyTip": "Denne udbyder svarede med en optaget-429 inden for det sidste minut; dens afbryder er lukket, og anmodninger sendes stadig hertil og løber over til næste post, når den er fuld.",
-			"circuitCause": "Seneste dom: {{cause}} (upstream-status {{status}}) kl. {{when}}"
+			"circuitCause": "Seneste dom: {{cause}} (upstream-status {{status}}) kl. {{when}}",
+			"circuitCauseNoStatus": "Seneste dom: {{cause}} kl. {{when}}"
 		}
 	},
 	"virtualKeys": {

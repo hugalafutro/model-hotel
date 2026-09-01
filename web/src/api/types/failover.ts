@@ -127,6 +127,8 @@ export interface CircuitBreakerResetResult {
 	provider_id: string;
 	previous_state: "closed" | "open" | "half-open";
 	reset: boolean;
+	// The upstream model id when the reset was scoped with ?model=.
+	model?: string;
 }
 export interface DeletedGroupInfo {
 	display_model: string;

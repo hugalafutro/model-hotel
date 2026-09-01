@@ -2981,7 +2981,8 @@
 				"pinned": "rögzített"
 			},
 			"chipBusyTip": "Ez a szolgáltató az elmúlt percben foglalt 429-cel válaszolt; a megszakítója zárt, a kérések továbbra is ide irányulnak, és ha megtelt, a következő bejegyzésre folynak át.",
-			"circuitCause": "Utolsó ítélet: {{cause}} (upstream állapot {{status}}) ekkor: {{when}}"
+			"circuitCause": "Utolsó ítélet: {{cause}} (upstream állapot {{status}}) ekkor: {{when}}",
+			"circuitCauseNoStatus": "Utolsó ítélet: {{cause}} ekkor: {{when}}"
 		}
 	},
 	"virtualKeys": {

@@ -2981,7 +2981,8 @@
 				"pinned": "fäst"
 			},
 			"chipBusyTip": "Den här leverantören svarade med en upptagen-429 under den senaste minuten; dess kretsbrytare är stängd och begäranden dirigeras fortfarande hit, och rinner över till nästa post när den är full.",
-			"circuitCause": "Senaste utslag: {{cause}} (uppströmsstatus {{status}}) kl. {{when}}"
+			"circuitCause": "Senaste utslag: {{cause}} (uppströmsstatus {{status}}) kl. {{when}}",
+			"circuitCauseNoStatus": "Senaste utslag: {{cause}} kl. {{when}}"
 		}
 	},
 	"virtualKeys": {

@@ -116,6 +116,29 @@ describe("MembersPage fleet circuit reset", () => {
 		);
 	});
 
+	it("is absent when the primary has no stored token, whoever else has one", async () => {
+		server.use(
+			http.get("/api/members", () =>
+				HttpResponse.json([
+					member("m1", "primary", false),
+					member("m2", "second", true),
+				]),
+			),
+			http.get("/api/fleet/autosync", () =>
+				HttpResponse.json({ enabled: false, primary_id: "m1" }),
+			),
+		);
+		render(
+			<ToastProvider>
+				<MembersPage />
+			</ToastProvider>,
+		);
+		await screen.findByText("second");
+		expect(
+			screen.queryByTestId("fleet-reset-circuits"),
+		).not.toBeInTheDocument();
+	});
+
 	it("is absent without a designated primary", async () => {
 		server.use(
 			http.get("/api/members", () =>

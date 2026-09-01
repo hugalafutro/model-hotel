@@ -2981,7 +2981,8 @@
 				"pinned": "고정"
 			},
 			"chipBusyTip": "이 공급자는 최근 1분 내에 혼잡 429로 응답했습니다. 서킷 브레이커는 닫혀 있고 요청은 계속 여기로 라우팅되며, 가득 차면 다음 항목으로 넘어갑니다.",
-			"circuitCause": "최근 판정: {{cause}} (업스트림 상태 {{status}}) {{when}}"
+			"circuitCause": "최근 판정: {{cause}} (업스트림 상태 {{status}}) {{when}}",
+			"circuitCauseNoStatus": "최근 판정: {{cause}} {{when}}"
 		}
 	},
 	"virtualKeys": {

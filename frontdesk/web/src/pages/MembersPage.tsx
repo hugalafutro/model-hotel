@@ -226,7 +226,7 @@ export function MembersPage() {
 						{t(`members.fleetState.${autoSync.fleet_state}`)}
 					</span>
 				)}
-				{primaryId && members.some((m) => m.has_token) && (
+				{primaryId && members.find((m) => m.id === primaryId)?.has_token && (
 					<FleetCircuitReset primaryId={primaryId} />
 				)}
 			</div>

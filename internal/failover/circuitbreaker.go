@@ -655,6 +655,12 @@ func (cb *CircuitBreaker) GetState(providerID uuid.UUID, model string) State {
 // once it has been routed, and until then it is implicitly healthy. Resetting
 // one is therefore harmless and idempotent, not an error.
 func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
+	prev, resets := cb.resetProvider(providerID)
+	logManualResets(resets)
+	return prev
+}
+
+func (cb *CircuitBreaker) resetProvider(providerID uuid.UUID) (State, []manualReset) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -662,14 +668,15 @@ func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
 	models := cb.circuits[providerID.String()]
 	c := cb.dominant(models, r)
 	if c == nil {
-		return StateClosed
+		return StateClosed, nil
 	}
 	prev := cb.logicalStateWith(c, r)
+	resets := make([]manualReset, 0, len(models))
 	for model, mc := range models {
-		logManualReset(providerID.String(), model, cb.logicalStateWith(mc, r))
+		resets = append(resets, manualReset{providerID.String(), model, cb.logicalStateWith(mc, r)})
 	}
 	delete(cb.circuits, providerID.String())
-	return prev
+	return prev, resets
 }
 
 // ResetModel clears ONE circuit, the (provider, resolved upstream model) pair,
@@ -682,6 +689,14 @@ func (cb *CircuitBreaker) Reset(providerID uuid.UUID) State {
 // of the provider, which also forgets the charges its healthy siblings have
 // legitimately accrued.
 func (cb *CircuitBreaker) ResetModel(providerID uuid.UUID, model string) (prev State, existed bool) {
+	prev, existed = cb.resetModel(providerID, model)
+	if existed {
+		logManualResets([]manualReset{{providerID.String(), model, prev}})
+	}
+	return prev, existed
+}
+
+func (cb *CircuitBreaker) resetModel(providerID uuid.UUID, model string) (State, bool) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -690,9 +705,7 @@ func (cb *CircuitBreaker) ResetModel(providerID uuid.UUID, model string) (prev S
 	if !ok {
 		return StateClosed, false
 	}
-	r := cb.cooldowns()
-	prev = cb.logicalStateWith(c, r)
-	logManualReset(providerID.String(), model, prev)
+	prev := cb.logicalStateWith(c, cb.cooldowns())
 	delete(models, model)
 	if len(models) == 0 {
 		delete(cb.circuits, providerID.String())
@@ -700,12 +713,22 @@ func (cb *CircuitBreaker) ResetModel(providerID uuid.UUID, model string) (prev S
 	return prev, true
 }
 
-// logManualReset is the one line every manual reset writes per circuit, with
-// the same cause vocabulary the open line and the status API use, so a
+// manualReset is one circuit a manual reset cleared, remembered under the lock
+// and logged after it: the app-log handler can block on a backed-up log store
+// for seconds per line, and cb.mu is the lock every request's IsOpen takes.
+type manualReset struct {
+	providerID, model string
+	prev              State
+}
+
+// logManualResets writes the one line every manual reset produces per circuit,
+// with the same cause vocabulary the open line and the status API use, so a
 // fleet-wide reset reads in the app log as N circuits with N causes rather than
-// one summary a search for a model cannot find.
-func logManualReset(providerID, model string, prev State) {
-	debuglog.Info("circuit-breaker: manual reset", "provider_id", providerID, "cause", "manual reset", "previous_state", prev.String(), "model", model)
+// one summary a search for a model cannot find. Called with the lock released.
+func logManualResets(resets []manualReset) {
+	for _, r := range resets {
+		debuglog.Info("circuit-breaker: manual reset", "provider_id", r.providerID, "cause", "manual reset", "previous_state", r.prev.String(), "model", r.model)
+	}
 }
 
 // ResetAll clears all circuit breaker state. It returns how many model circuits
@@ -718,6 +741,12 @@ func logManualReset(providerID, model string, prev State) {
 // have all been charged is five things the lever just threw away. The API hands
 // these numbers to the operator verbatim.
 func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
+	cleared, recovered, resets := cb.resetAll()
+	logManualResets(resets)
+	return cleared, recovered
+}
+
+func (cb *CircuitBreaker) resetAll() (cleared, recovered int, resets []manualReset) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
 
@@ -733,9 +762,9 @@ func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
 			if prev != StateClosed {
 				recovered++
 			}
-			logManualReset(id, model, prev)
+			resets = append(resets, manualReset{id, model, prev})
 		}
 	}
 	cb.circuits = make(map[string]modelCircuits)
-	return cleared, recovered
+	return cleared, recovered, resets
 }

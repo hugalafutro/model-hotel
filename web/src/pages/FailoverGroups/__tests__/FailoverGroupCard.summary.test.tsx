@@ -93,4 +93,24 @@ describe("FailoverGroupCard circuit summary", () => {
 			screen.queryByTestId("failover-card-live-count"),
 		).not.toBeInTheDocument();
 	});
+
+	it("shows neither chips nor a summary on a disabled group", () => {
+		const cb = new Map<string, CircuitBreakerProviderStatus>([
+			["zai", openRow("zai", "glm-5.3")],
+		]);
+		renderWithProviders(
+			<FailoverGroupCard
+				{...baseProps}
+				group={{ ...group, group_enabled: false }}
+				cbProviderMap={cb}
+			/>,
+		);
+		expect(screen.queryByTestId("failover-entry-chip")).not.toBeInTheDocument();
+		expect(
+			screen.queryByTestId("failover-card-live-count"),
+		).not.toBeInTheDocument();
+		expect(
+			screen.queryByTestId("failover-card-all-dark"),
+		).not.toBeInTheDocument();
+	});
 });

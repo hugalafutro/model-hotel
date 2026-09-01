@@ -2981,7 +2981,8 @@
 				"pinned": "pinned"
 			},
 			"chipBusyTip": "This provider answered a busy 429 in the last minute; its circuit is closed and requests still route here, spilling to the next entry when it is full.",
-			"circuitCause": "Last verdict: {{cause}} (upstream status {{status}}) at {{when}}"
+			"circuitCause": "Last verdict: {{cause}} (upstream status {{status}}) at {{when}}",
+			"circuitCauseNoStatus": "Last verdict: {{cause}} at {{when}}"
 		}
 	},
 	"virtualKeys": {

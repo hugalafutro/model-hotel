@@ -3045,7 +3045,8 @@
 				"pinned": "bloccato"
 			},
 			"chipBusyTip": "Questo provider ha risposto con un 429 di occupato nell'ultimo minuto; il suo interruttore è chiuso e le richieste continuano a essere instradate qui, passando alla voce successiva quando è pieno.",
-			"circuitCause": "Ultimo verdetto: {{cause}} (stato upstream {{status}}) alle {{when}}"
+			"circuitCause": "Ultimo verdetto: {{cause}} (stato upstream {{status}}) alle {{when}}",
+			"circuitCauseNoStatus": "Ultimo verdetto: {{cause}} alle {{when}}"
 		}
 	},
 	"virtualKeys": {

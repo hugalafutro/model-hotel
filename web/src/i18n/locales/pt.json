@@ -3045,7 +3045,8 @@
 				"pinned": "fixado"
 			},
 			"chipBusyTip": "Este provedor respondeu com um 429 de ocupado no último minuto; o disjuntor está fechado e as solicitações continuam sendo roteadas para cá, transbordando para a próxima entrada quando está cheio.",
-			"circuitCause": "Último veredito: {{cause}} (status upstream {{status}}) às {{when}}"
+			"circuitCause": "Último veredito: {{cause}} (status upstream {{status}}) às {{when}}",
+			"circuitCauseNoStatus": "Último veredito: {{cause}} às {{when}}"
 		}
 	},
 	"virtualKeys": {

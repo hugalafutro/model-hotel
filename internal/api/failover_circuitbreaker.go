@@ -286,7 +286,9 @@ func (h *FailoverHandler) ResetCircuitBreaker(w http.ResponseWriter, r *http.Req
 
 	// ?model=<resolved upstream id> scopes the reset to that one circuit; without
 	// it every circuit of the provider is cleared, as before. The breaker logs
-	// one "manual reset" line per circuit either way.
+	// one "manual reset" line per circuit either way; the summary line below is
+	// the operator's action itself, written even when there was nothing to
+	// clear, so an audit of who reset what never depends on a circuit existing.
 	model := r.URL.Query().Get("model")
 	var previous failover.State
 	if model != "" {
@@ -295,6 +297,7 @@ func (h *FailoverHandler) ResetCircuitBreaker(w http.ResponseWriter, r *http.Req
 		previous = h.cb.Reset(providerID)
 	}
 	h.invalidateCBStatusCache()
+	debuglog.Info("circuit-breaker: manual reset of a provider's circuits", "provider_id", providerID, "model", model, "cause", "manual reset", "previous_state", previous.String(), "reset", previous != failover.StateClosed)
 
 	writeJSON(w, CircuitBreakerResetResponse{
 		ProviderID:    providerID.String(),

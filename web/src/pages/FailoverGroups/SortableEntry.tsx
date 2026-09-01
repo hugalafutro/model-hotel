@@ -56,7 +56,7 @@ export interface SortableEntryProps {
 const CHIP_CLASS: Record<EntryCircuitView["chip"], string> = {
 	live: "ui-badge-neutral",
 	busy: "ui-badge-warning",
-	open: "ui-badge-danger",
+	open: "ui-badge-error",
 	probe: "ui-badge-warning",
 	pinned: "ui-badge-purple",
 };
@@ -88,15 +88,23 @@ export function SortableEntry({
 	// The cause line the tooltip appends when the member reports the circuit's
 	// last verdict: what the breaker saw, the upstream status behind it and
 	// when. Absent on an older member, where only the row is known.
-	const causeLine = circuitView?.lastCause
-		? t("failoverGroups.entry.circuitCause", {
-				cause: circuitView.lastCause,
-				status: circuitView.lastStatus ?? "-",
-				when: circuitView.lastAt
-					? new Date(circuitView.lastAt).toLocaleString()
-					: "-",
-			})
-		: undefined;
+	// Some verdicts carry no upstream status (a pin retarget, a transport
+	// failure), and those read without the status clause.
+	const causeWhen = circuitView?.lastAt
+		? new Date(circuitView.lastAt).toLocaleString()
+		: "-";
+	const causeLine = !circuitView?.lastCause
+		? undefined
+		: circuitView.lastStatus
+			? t("failoverGroups.entry.circuitCause", {
+					cause: circuitView.lastCause,
+					status: circuitView.lastStatus,
+					when: causeWhen,
+				})
+			: t("failoverGroups.entry.circuitCauseNoStatus", {
+					cause: circuitView.lastCause,
+					when: causeWhen,
+				});
 	const draggable = groupEnabled && !locked;
 	const {
 		attributes,
@@ -254,7 +262,11 @@ export function SortableEntry({
 								resetTime: new Date(cbStatus.next_retry_at).toLocaleString(),
 							})
 						: t("failoverGroups.entry.circuitBreakerOpen");
-	// A busy entry has no fuse (its circuit is closed) but still explains itself.
+	// The chip's tooltip: the fuse text (or, for a busy entry, which has no fuse
+	// because its circuit is closed, why it is busy) plus the cause line. The
+	// row keeps only the fuse text: its inner text div carries its own title,
+	// so a row title is reachable only from the strip beside it, while the chip
+	// is the surface an operator actually hovers.
 	const chipTitle =
 		circuitView?.chip === "busy"
 			? t("failoverGroups.entry.chipBusyTip")
@@ -272,7 +284,7 @@ export function SortableEntry({
 					? "bg-gray-700"
 					: "failover-entry-disabled"
 			}`}
-			{...(fuseTitle ? { title: fuseTitle } : {})}
+			{...(baseTitle ? { title: baseTitle } : {})}
 		>
 			{showFuse && fuseColor && animateFuse && (
 				<FuseOutline
