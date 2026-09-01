@@ -227,6 +227,41 @@ func TestUpdateProviderRequest_JSONEmpty(t *testing.T) {
 	}
 }
 
+// TestOptionalInt_JSON pins the three states max_in_flight can arrive in on an
+// update: absent (Set=false, keep the stored ceiling), an explicit null
+// (Set=true, clear it) and a value. A non-integer is a decode error, never a
+// silent zero.
+func TestOptionalInt_JSON(t *testing.T) {
+	var absent UpdateProviderRequest
+	if err := json.Unmarshal([]byte(`{"enabled":true}`), &absent); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if absent.MaxInFlight.Set {
+		t.Error("absent max_in_flight reported as Set")
+	}
+
+	var cleared UpdateProviderRequest
+	if err := json.Unmarshal([]byte(`{"max_in_flight":null}`), &cleared); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !cleared.MaxInFlight.Set || cleared.MaxInFlight.Value != nil {
+		t.Errorf("null max_in_flight = %+v, want Set with a nil Value", cleared.MaxInFlight)
+	}
+
+	var valued UpdateProviderRequest
+	if err := json.Unmarshal([]byte(`{"max_in_flight":4}`), &valued); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !valued.MaxInFlight.Set || valued.MaxInFlight.Value == nil || *valued.MaxInFlight.Value != 4 {
+		t.Errorf("max_in_flight 4 = %+v, want Set with Value 4", valued.MaxInFlight)
+	}
+
+	var bad UpdateProviderRequest
+	if err := json.Unmarshal([]byte(`{"max_in_flight":"four"}`), &bad); err == nil {
+		t.Error("a string max_in_flight decoded without error")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // ProviderResponse JSON
 // ---------------------------------------------------------------------------

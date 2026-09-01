@@ -927,5 +927,14 @@ describe("EditProviderModal", () => {
 				expect(captured.payload).toEqual({ autodiscovery_enabled: false });
 			});
 		});
+
+		it("counts an edited ceiling as an unsaved change on close", async () => {
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			await user.type(ceilingInput(), "2");
+			await user.click(screen.getByRole("button", { name: "Cancel" }));
+			expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
+		});
 	});
 });

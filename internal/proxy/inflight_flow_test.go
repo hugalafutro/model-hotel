@@ -90,6 +90,121 @@ func TestInflight_PassthroughAttemptSettlesSlot(t *testing.T) {
 	}
 }
 
+// A pass-through candidate at its provider's window is skipped without a
+// request, carrying the saturated verdict the loop's all-busy arm waits on.
+func TestInflight_PassthroughBusyCandidateIsSkipped(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	var hits atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		hits.Add(1)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"object":"list","data":[]}`)
+	}))
+	defer srv.Close()
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	one := 1
+	m := &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small", InputModalities: `["text"]`, OutputModalities: `["embedding"]`}
+	cand := goneCandidateAt(m, "P", "http://p.example")
+	cand.provider.MaxInFlight = &one
+	if !h.inflight.tryAcquire(cand.provider.ID, 1) {
+		t.Fatal("setup: slot not acquired")
+	}
+	defer h.inflight.release(cand.provider.ID, true, 0, 0)
+
+	st := &requestState{
+		startTime: time.Now(), reqModel: "text-embedding-3-small",
+		endpointPath:    "/embeddings",
+		bodyBytes:       []byte(`{"model":"text-embedding-3-small","input":"hi"}`),
+		failoverTimeout: 30 * time.Second,
+		inflightEnabled: true,
+		logData:         &requestLogData{modelID: "text-embedding-3-small", endpointType: endpointTypeEmbeddings},
+	}
+	out := h.attemptPassthroughCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, 0, 1)
+	if out != outcomeBusy {
+		t.Fatalf("outcome = %v, want busy", out)
+	}
+	if hits.Load() != 0 {
+		t.Error("a busy skip reached the upstream")
+	}
+	if !st.rateLimit.classified || st.rateLimit.class != rateLimitSaturated {
+		t.Errorf("verdict = %+v, want a classified saturated skip", st.rateLimit)
+	}
+}
+
+// The hedged probe's early exits keep the window honest: a full window loses
+// the race slot without a request, and an attempt that never gets a response
+// (unbuildable request, unreachable upstream) returns the slot it was handed.
+func TestProbeStreamingCandidate_SlotOnEarlyExits(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	t.Run("full window reports busy without a request", func(t *testing.T) {
+		var hits atomic.Int32
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			hits.Add(1)
+			w.WriteHeader(http.StatusOK)
+		}))
+		defer srv.Close()
+
+		one := 1
+		st, cand := probeStateForServer(srv.URL)
+		st.inflightEnabled = true
+		cand.provider.MaxInFlight = &one
+		if !h.inflight.tryAcquire(cand.provider.ID, 1) {
+			t.Fatal("setup: slot not acquired")
+		}
+		defer h.inflight.release(cand.provider.ID, true, 0, 0)
+
+		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, time.Second, time.Second)
+		if res.won || !res.busy {
+			t.Fatalf("result won=%v busy=%v, want a busy loss", res.won, res.busy)
+		}
+		if res.reqErr.Kind != KindProviderSaturated {
+			t.Errorf("reqErr.Kind = %s, want %s", res.reqErr.Kind, KindProviderSaturated)
+		}
+		if !res.rateLimit.classified || res.rateLimit.class != rateLimitSaturated {
+			t.Errorf("verdict = %+v, want the saturated skip the orchestrator waits on", res.rateLimit)
+		}
+		if hits.Load() != 0 {
+			t.Error("a busy probe reached the upstream")
+		}
+	})
+
+	t.Run("an unreachable upstream settles the slot", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) }))
+		url := srv.URL
+		srv.Close()
+
+		st, cand := probeStateForServer(url)
+		st.inflightEnabled = true
+		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, time.Second, time.Second)
+		if res.won {
+			t.Fatal("a refused connection must not win")
+		}
+		if _, inflight, tracked := inflightCountFor(h, cand.provider.ID); !tracked || inflight != 0 {
+			t.Errorf("inflight after a refused connection = %d (tracked=%v), want 0", inflight, tracked)
+		}
+	})
+
+	t.Run("a request that cannot be built settles the slot", func(t *testing.T) {
+		st, cand := probeStateForServer("http://bad host.test")
+		st.inflightEnabled = true
+		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, time.Second, time.Second)
+		if res.won {
+			t.Fatal("an unbuildable request must not win")
+		}
+		if res.reqErr.Kind != KindInternal {
+			t.Errorf("reqErr.Kind = %s, want %s", res.reqErr.Kind, KindInternal)
+		}
+		if _, inflight, tracked := inflightCountFor(h, cand.provider.ID); !tracked || inflight != 0 {
+			t.Errorf("inflight after a build failure = %d (tracked=%v), want 0", inflight, tracked)
+		}
+	})
+}
+
 // The operator's max_in_flight is a hard admission gate: with the only slot
 // held, a request waits for it rather than failing, and a slot that never
 // frees inside the bounded wait answers the honest saturated 429.

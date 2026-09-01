@@ -1591,5 +1591,39 @@ describe("CircuitBreakerSettings", () => {
 				expect(captured.payload).toEqual({ inflight_forget_after: "5m" });
 			});
 		});
+
+		it("resets each adaptive concurrency setting through its own reset button", async () => {
+			const resetSpy = vi.spyOn(api.settings, "reset");
+			resetSpy.mockResolvedValue({});
+			server.use(...mockSettings({ body: {} }));
+			const user = userEvent.setup();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
+			);
+			const row = await screen.findByTestId("inflight-limiter-row");
+			await user.click(
+				within(row).getByRole("button", {
+					name: /reset this setting to default/i,
+				}),
+			);
+			await waitFor(() =>
+				expect(resetSpy).toHaveBeenLastCalledWith(["inflight_limiter_enabled"]),
+			);
+			// The two sliders' reset buttons are the last two in the hedging
+			// column: the group renders below every other control there.
+			const column = await screen.findByTestId("hedging-column");
+			const resets = within(column).getAllByRole("button", {
+				name: /reset this setting to default/i,
+			});
+			await user.click(resets[resets.length - 2]);
+			await waitFor(() =>
+				expect(resetSpy).toHaveBeenLastCalledWith(["inflight_grow_after"]),
+			);
+			await user.click(resets[resets.length - 1]);
+			await waitFor(() =>
+				expect(resetSpy).toHaveBeenLastCalledWith(["inflight_forget_after"]),
+			);
+			resetSpy.mockRestore();
+		});
 	});
 });

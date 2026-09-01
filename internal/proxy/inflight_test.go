@@ -2,8 +2,10 @@ package proxy
 
 import (
 	"context"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -224,6 +226,58 @@ func TestInflightLimiter_NilIsInert(t *testing.T) {
 	if !l.waitForSlot(context.Background(), time.Now(), func() bool { return false }) {
 		t.Error("a nil limiter made a caller wait")
 	}
+	// An attempt that held no slot (limiter disabled) settles nothing.
+	var slot *attemptSlot
+	slot.settle(true)
+}
+
+// Only a literal "0" in one of the OpenAI-style remaining headers is a spent
+// budget; anything else, malformed or generous, is no signal.
+func TestRemainingBudgetZero(t *testing.T) {
+	for _, key := range []string{"X-RateLimit-Remaining-Requests", "X-RateLimit-Remaining-Tokens", "X-RateLimit-Remaining"} {
+		hdr := http.Header{}
+		hdr.Set(key, "0")
+		if !remainingBudgetZero(hdr) {
+			t.Errorf("%s: 0 not read as a spent budget", key)
+		}
+	}
+	for _, val := range []string{"", "1", "00", "0.0", "-0", "zero"} {
+		hdr := http.Header{}
+		hdr.Set("X-RateLimit-Remaining-Requests", val)
+		if remainingBudgetZero(hdr) {
+			t.Errorf("remaining %q read as a spent budget", val)
+		}
+	}
+}
+
+// A remaining=0 header on an otherwise fine response caps the window at the
+// load in flight without waiting for the 429 it foretells, and the body still
+// carries the slot so it settles on the last byte.
+func TestFinishAttemptAdmission_RemainingZeroCapsTheWindow(t *testing.T) {
+	h := &Handler{inflight: newInflightLimiter()}
+	cand := modelCandidateForBreaker(uuid.New())
+	if !h.inflight.tryAcquire(cand.provider.ID, 0) {
+		t.Fatal("setup: slot not acquired")
+	}
+	settled := false
+	st := &requestState{attemptSlot: &attemptSlot{fire: func(bool) { settled = true }}}
+	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{}, Body: io.NopCloser(strings.NewReader("ok"))}
+	resp.Header.Set("X-RateLimit-Remaining-Requests", "0")
+
+	h.finishAttemptAdmission(st, cand, resp)
+
+	if got := h.inflight.windowFor(t, cand.provider.ID).limit; got != 1 {
+		t.Errorf("limit after remaining=0 with one in flight = %d, want 1", got)
+	}
+	if _, ok := resp.Body.(*inflightRelease); !ok {
+		t.Fatalf("body is %T, want the slot-releasing wrapper", resp.Body)
+	}
+	if _, err := io.ReadAll(resp.Body); err != nil {
+		t.Fatalf("read: %v", err)
+	}
+	if !settled {
+		t.Error("the slot did not settle on the body's last byte")
+	}
 }
 
 // Four concurrent clients against a 3-slot pool: the learned allowance lands
@@ -344,6 +398,127 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		h.runFailoverLoop(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
 		if !served {
 			t.Error("the freed slot was never used: the all-busy walk answered an error while capacity existed")
+		}
+	})
+
+	// holdAll takes both providers' only slots and returns them at cleanup.
+	holdAll := func(t *testing.T) {
+		t.Helper()
+		for _, c := range cands {
+			if !h.inflight.tryAcquire(c.provider.ID, 1) {
+				t.Fatal("setup: slot not acquired")
+			}
+		}
+		t.Cleanup(func() {
+			for _, c := range cands {
+				h.inflight.release(c.provider.ID, true, 0, 0)
+			}
+		})
+	}
+	busyUnlessRoom := func(c modelCandidate) candidateOutcome {
+		if !h.inflight.canAdmit(c.provider.ID, 1) {
+			return outcomeBusy
+		}
+		return outcomeServed
+	}
+
+	t.Run("a client that leaves mid-wait gets a 499, not an all-busy error", func(t *testing.T) {
+		st := newState()
+		holdAll(t)
+		ctx, cancel := context.WithCancel(context.Background())
+		go func() {
+			time.Sleep(30 * time.Millisecond)
+			cancel()
+		}()
+		fn := func(_ http.ResponseWriter, _ *http.Request, _ *requestState, c modelCandidate, _, _ int) candidateOutcome {
+			return busyUnlessRoom(c)
+		}
+		w := httptest.NewRecorder()
+		h.runFailoverLoop(w, httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx), st, cands, fn)
+		if w.Code != statusClientClosedRequest {
+			t.Errorf("status = %d, want 499 for a client that hung up while every provider was full; body: %s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("losing the acquisition race keeps waiting inside the same window", func(t *testing.T) {
+		st := newState()
+		holdAll(t)
+		var afterFree []candidateOutcome
+		fn := func(_ http.ResponseWriter, _ *http.Request, _ *requestState, c modelCandidate, _, _ int) candidateOutcome {
+			if !h.inflight.canAdmit(c.provider.ID, 1) {
+				return outcomeBusy
+			}
+			// First retry after the slot freed: a concurrent request took it
+			// (simulated by answering busy while the slot is still free), the
+			// second finds it and serves.
+			if len(afterFree) == 0 {
+				afterFree = append(afterFree, outcomeBusy)
+				return outcomeBusy
+			}
+			afterFree = append(afterFree, outcomeServed)
+			return outcomeServed
+		}
+		go func() {
+			time.Sleep(30 * time.Millisecond)
+			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+		}()
+		h.runFailoverLoop(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
+		if len(afterFree) != 2 || afterFree[1] != outcomeServed {
+			t.Errorf("outcomes after the slot freed = %v, want a lost race followed by a serve", afterFree)
+		}
+	})
+
+	t.Run("a freed slot that answers a real failure ends the walk on that verdict", func(t *testing.T) {
+		st := newState()
+		holdAll(t)
+		retried := false
+		fn := func(_ http.ResponseWriter, _ *http.Request, _ *requestState, c modelCandidate, _, _ int) candidateOutcome {
+			if !h.inflight.canAdmit(c.provider.ID, 1) {
+				return outcomeBusy
+			}
+			retried = true
+			return outcomeFailover
+		}
+		go func() {
+			time.Sleep(30 * time.Millisecond)
+			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+		}()
+		w := httptest.NewRecorder()
+		h.runFailoverLoop(w, httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
+		if !retried {
+			t.Fatal("the freed slot was never tried")
+		}
+		if w.Code != http.StatusBadGateway {
+			t.Errorf("status = %d, want the exhaustion 502 for a freed slot that failed; body: %s", w.Code, w.Body.String())
+		}
+	})
+
+	t.Run("a wait that keeps losing the race ends at the deadline", func(t *testing.T) {
+		st := newState()
+		st.overallDeadline = time.Now().Add(60 * time.Millisecond)
+		holdAll(t)
+		lost := 0
+		fn := func(_ http.ResponseWriter, _ *http.Request, _ *requestState, c modelCandidate, _, _ int) candidateOutcome {
+			if h.inflight.canAdmit(c.provider.ID, 1) {
+				lost++
+			}
+			return outcomeBusy
+		}
+		go func() {
+			time.Sleep(10 * time.Millisecond)
+			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+		}()
+		start := time.Now()
+		w := httptest.NewRecorder()
+		h.runFailoverLoop(w, httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
+		if lost == 0 {
+			t.Fatal("the freed slot was never retried")
+		}
+		if elapsed := time.Since(start); elapsed > 2*time.Second {
+			t.Errorf("walk took %v: a lost race must stop at the deadline, not spin", elapsed)
+		}
+		if w.Code == http.StatusOK {
+			t.Error("a walk that never served answered 200")
 		}
 	})
 }
