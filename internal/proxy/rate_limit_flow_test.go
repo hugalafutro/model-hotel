@@ -430,6 +430,67 @@ func TestRecordBreakerOutcome_ClassifiedRateLimits(t *testing.T) {
 	})
 }
 
+// A 402 is the provider stating the account cannot pay, which is the same
+// claim an entitled 429 ("insufficient balance") makes — but it arrived as an
+// ordinary charge, so a payment-blocked provider served its threshold of
+// failures, opened on the plain cooldown, and half-opened back to live every
+// cooldown against an account that could not answer. Observed on prod
+// 2026-09-01: NeuralWatt answered 402 for an hour while its circuit flapped.
+func TestRecordBreakerOutcome_PaymentRequired(t *testing.T) {
+	env := newTestProxyHandler(t)
+	defer env.Upstream.Close()
+	h := env.Handler
+	ctx := context.Background()
+
+	t.Run("opens at once and pins", func(t *testing.T) {
+		cb := failover.NewCircuitBreaker(nil)
+		h.circuitBreaker = cb
+		st := &requestState{circuitBreakerEnabled: true}
+		provID := uuid.New()
+		cand := modelCandidateForBreaker(provID)
+
+		h.recordBreakerOutcome(ctx, st, cand, 402, true, rateLimitVerdict{})
+
+		if got := cb.GetState(provID, cand.model.ModelID); got != failover.StateOpen {
+			t.Errorf("state = %v, want open on one payment-required charge", got)
+		}
+		statuses := cb.StatusDetail()
+		if len(statuses) != 1 || len(statuses[0].Circuits) != 1 {
+			t.Fatalf("status = %+v, want one tracked circuit", statuses)
+		}
+		c := statuses[0].Circuits[0]
+		if !c.QuotaPinned {
+			t.Error("a payment-required refusal must pin: retrying cannot succeed until someone pays")
+		}
+		// The pin must actually outlast the ordinary cooldown, or it is a pin
+		// in name only and the circuit half-opens on the usual schedule.
+		if c.CooldownMs <= cb.Cooldown.Milliseconds() {
+			t.Errorf("cooldown_ms = %d, want longer than the ordinary cooldown %d", c.CooldownMs, cb.Cooldown.Milliseconds())
+		}
+	})
+
+	t.Run("open_on_exhaustion off demotes to an ordinary charge", func(t *testing.T) {
+		if err := h.settingsRepo.Set(ctx, "circuit_breaker_open_on_exhaustion", "false"); err != nil {
+			t.Fatalf("failed to disable: %v", err)
+		}
+		defer func() { _ = h.settingsRepo.Set(ctx, "circuit_breaker_open_on_exhaustion", "true") }()
+		cb := failover.NewCircuitBreaker(nil)
+		h.circuitBreaker = cb
+		st := &requestState{circuitBreakerEnabled: true}
+		provID := uuid.New()
+		cand := modelCandidateForBreaker(provID)
+
+		h.recordBreakerOutcome(ctx, st, cand, 402, true, rateLimitVerdict{})
+
+		if fails, seen := cbConsecutiveFails(cb, provID); !seen || fails != 1 {
+			t.Errorf("fails = %d (seen=%v), want the single ordinary charge", fails, seen)
+		}
+		if got := cb.GetState(provID, cand.model.ModelID); got != failover.StateClosed {
+			t.Errorf("state = %v, want closed at the default threshold", got)
+		}
+	})
+}
+
 func modelCandidateForBreaker(provID uuid.UUID) modelCandidate {
 	return modelCandidate{
 		model:    &model.Model{ModelID: "rl-model"},

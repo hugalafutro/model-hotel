@@ -311,6 +311,75 @@ func TestAssess_Neuralwatt_OneCentIsNotSpent(t *testing.T) {
 	}
 }
 
+// TestAssess_Neuralwatt_SpentButUndatableResetIsNoOpinion covers the account
+// that is spent and cannot say when it recovers. Reporting "not exhausted"
+// there was affirmative evidence of health for an account answering nothing
+// but 402: buildQuotaAdvice puts a healthy provider in `recovered`, and
+// ReleaseQuotaPins clears the 429-open escalation of every circuit it owns on
+// each pass. OK=false is the honest answer — the provider then lands in
+// neither advice nor recovered, so nothing is pinned and nothing is cleared.
+func TestAssess_Neuralwatt_SpentButUndatableResetIsNoOpinion(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		periodEnd  any
+		wantReason string
+	}{
+		{"absent", nil, "no current_period_end at all"},
+		{"empty", "", "an empty current_period_end"},
+		{"malformed", "not-a-timestamp", "an unparseable current_period_end"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			sub := map[string]any{"status": "active", "kwh_remaining": 0, "in_overage": true}
+			if tc.periodEnd != nil {
+				sub["current_period_end"] = tc.periodEnd
+			}
+			payload, err := json.Marshal(map[string]any{
+				"balance":      map[string]any{"credits_remaining_usd": 0.0035},
+				"subscription": sub,
+			})
+			if err != nil {
+				t.Fatalf("marshal: %v", err)
+			}
+
+			got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+			if got.OK {
+				t.Errorf("a spent account with %s must report no opinion (OK=false), got OK=true Exhausted=%v", tc.wantReason, got.Exhausted)
+			}
+			if got.Exhausted {
+				t.Error("no opinion must not also claim exhaustion: there is no reset to pin to")
+			}
+		})
+	}
+}
+
+// TestAssess_Neuralwatt_InOverageIsEnergySpent: in_overage is NeuralWatt saying
+// the included energy is gone, which is the same claim kwh_remaining <= 0 makes
+// numerically. Reading the flag as well as the number means a frozen or
+// residual kwh_remaining cannot short-circuit the conjunction and strand the
+// credits floor unreachable.
+func TestAssess_Neuralwatt_InOverageIsEnergySpent(t *testing.T) {
+	periodEnd := time.Now().Add(20 * 24 * time.Hour).Truncate(time.Second)
+	payload, err := json.Marshal(map[string]any{
+		"balance": map[string]any{"credits_remaining_usd": 0.0035},
+		// A residue rather than a clean zero: the numeric test alone would
+		// short-circuit here and never reach the credits floor.
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 0.0001, "in_overage": true, "current_period_end": periodEnd.Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if !got.ResetsAt.Equal(periodEnd.UTC()) {
+		t.Errorf("got ResetsAt=%v, want period end %v", got.ResetsAt, periodEnd.UTC())
+	}
+}
+
 func TestAssess_Neuralwatt_CreditsRemainingIsNotExhausted(t *testing.T) {
 	// Included energy spent but credits cover overage: the provider keeps
 	// serving, so pinning here would sideline a working provider.

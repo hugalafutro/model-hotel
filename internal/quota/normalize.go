@@ -164,8 +164,15 @@ type neuralwattQuotaPayload struct {
 		CreditsRemainingUSD *float64 `json:"credits_remaining_usd"`
 	} `json:"balance"`
 	Subscription struct {
-		KwhRemaining     *float64 `json:"kwh_remaining"`
-		CurrentPeriodEnd string   `json:"current_period_end"`
+		KwhRemaining *float64 `json:"kwh_remaining"`
+		// InOverage is NeuralWatt stating the included energy is gone, the same
+		// claim KwhRemaining <= 0 makes numerically. A bare bool rather than a
+		// pointer because the snapshot path stores a re-marshal of the provider
+		// struct, where the field is a bare bool too: absent upstream arrives
+		// here as false, which is the safe direction — it can only ever add
+		// exhaustion when NeuralWatt affirmatively says so.
+		InOverage        bool   `json:"in_overage"`
+		CurrentPeriodEnd string `json:"current_period_end"`
 	} `json:"subscription"`
 }
 
@@ -203,12 +210,30 @@ func assessNeuralwatt(payload json.RawMessage) Assessment {
 	if err := json.Unmarshal(payload, &res); err != nil {
 		return Assessment{}
 	}
+	// Either signal settles the energy side: the number when NeuralWatt reports
+	// one, and the flag it sets on entering overage. Reading both means a
+	// kwh_remaining that freezes at a residue instead of a clean zero — the same
+	// shape the credits balance has — cannot short-circuit the conjunction and
+	// leave the credits floor unreachable.
+	energySpent := (res.Subscription.KwhRemaining != nil && *res.Subscription.KwhRemaining <= 0) ||
+		res.Subscription.InOverage
+	creditsSpent := res.Balance.CreditsRemainingUSD != nil &&
+		*res.Balance.CreditsRemainingUSD < creditsSpentFloorUSD
+
 	var e earliestReset
-	if res.Subscription.KwhRemaining != nil && *res.Subscription.KwhRemaining <= 0 &&
-		res.Balance.CreditsRemainingUSD != nil && *res.Balance.CreditsRemainingUSD < creditsSpentFloorUSD {
-		if t, ok := parseResetString(res.Subscription.CurrentPeriodEnd); ok {
-			e.add(t)
+	if energySpent && creditsSpent {
+		t, ok := parseResetString(res.Subscription.CurrentPeriodEnd)
+		if !ok {
+			// Spent, but the payload does not say when it recovers. Falling
+			// through to e.result here would report "not exhausted", and
+			// buildQuotaAdvice reads that as affirmative health: the provider
+			// joins `recovered`, and ReleaseQuotaPins then clears the 429-open
+			// escalation of every circuit it owns on every poll pass — for an
+			// account answering nothing but 402. OK=false is the honest answer;
+			// it lands the provider in neither advice nor recovered.
+			return Assessment{}
 		}
+		e.add(t)
 	}
 	return e.result(time.Now())
 }

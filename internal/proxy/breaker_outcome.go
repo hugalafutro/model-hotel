@@ -61,6 +61,17 @@ func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, ca
 			h.recordRateLimitOutcome(ctx, st, candidate, rl)
 			return
 		}
+		// A 402 is the provider stating the account cannot pay. That is the same
+		// claim an entitled 429 ("insufficient balance") makes, and it gets the
+		// same treatment: retrying cannot succeed until someone pays, so the
+		// circuit opens on this one response and takes the until-paid pin rather
+		// than serving out a threshold of failures and then half-opening back to
+		// live every cooldown. Routed before breakerRecordAction, which maps 402
+		// to an ordinary failure.
+		if statusCode == http.StatusPaymentRequired {
+			h.recordPaymentRequiredOutcome(ctx, st, candidate)
+			return
+		}
 		// Determine breaker action from status code.
 		// See breakerRecordAction for the full status→action mapping.
 		switch breakerRecordAction(statusCode) {
@@ -139,6 +150,32 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 		// Not reached: the caller only routes classified verdicts here. Listed
 		// so the switch stays exhaustive over rateLimitClass.
 	}
+}
+
+// recordPaymentRequiredOutcome is the 402 arm of recordBreakerOutcome, and the
+// status-code sibling of the entitled half of recordRateLimitOutcome: both are
+// the provider saying a person has to pay before anything works again.
+//
+// It shares that arm's setting deliberately. circuit_breaker_open_on_exhaustion
+// is the operator's answer to "may one refusal open a circuit"; a 402 is the
+// same question with a different number on it, so switching the setting off
+// restores the ordinary charge here too rather than leaving one exhaustion path
+// still opening at once.
+//
+// The pin is the response-derived kind, which by design never trips the
+// provider-wide arm: one model's 402 darkens that model, and the provider
+// follows only when enough models corroborate through SpanModels. That matters
+// because a plan can cover some models and not others, exactly as it can for
+// the 429 case.
+func (h *Handler) recordPaymentRequiredOutcome(ctx context.Context, st *requestState, candidate modelCandidate) {
+	st.logData.noteBreaker(breakerCharge)
+	if !h.settingsRepo.GetBool(ctx, "circuit_breaker_open_on_exhaustion", true) {
+		debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", http.StatusPaymentRequired, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+		h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(http.StatusPaymentRequired, "payment required, not opened by setting"))
+		return
+	}
+	debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 402 (payment required)", "status", http.StatusPaymentRequired, "pin_hint_ms", pinHintUntilPaid.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+	h.circuitBreaker.RecordExhausted(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), pinHintUntilPaid)
 }
 
 // recordAnswerOutcome records the circuit-breaker verdict for a finished
