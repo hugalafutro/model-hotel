@@ -151,10 +151,13 @@ func (l *inflightLimiter) release(providerID uuid.UUID, clean bool, growAfter in
 }
 
 // cut shrinks the provider's allowance after a SATURATED 429: the pool is
-// provably smaller than what is in flight right now. The request that drew the
-// 429 is still counted, so limit = max(1, inflight-1) targets exactly the load
-// that fit. retryAfter, when the provider sent one, pushes lastCut into the
-// future so the forget clock starts after the wait the provider asked for.
+// provably smaller than the load that included the refused request. The CALLER
+// settles the drawing request's own slot before cutting (see
+// recordRateLimitOutcome), so w.inflight here is exactly the load that fit -
+// the spec's "inflight - 1" with the subtraction made deterministic instead of
+// racing the body reader that may already have released the drawer. retryAfter,
+// when the provider sent one, pushes lastCut into the future so the forget
+// clock starts after the wait the provider asked for.
 func (l *inflightLimiter) cut(providerID uuid.UUID, retryAfter time.Duration) {
 	if l == nil {
 		return
@@ -162,7 +165,7 @@ func (l *inflightLimiter) cut(providerID uuid.UUID, retryAfter time.Duration) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 	w := l.window(providerID)
-	newLimit := max(1, w.inflight-1)
+	newLimit := max(1, w.inflight)
 	if w.limit == 0 || newLimit < w.limit {
 		w.limit = newLimit
 	}
@@ -205,12 +208,16 @@ func (l *inflightLimiter) waitForSlot(ctx context.Context, deadline time.Time, a
 	timer := time.NewTimer(time.Until(deadline))
 	defer timer.Stop()
 	for {
-		if admit() {
-			return true
-		}
+		// The channel is snapshotted BEFORE the admission check: a release
+		// landing between the two closes THIS channel, so the select below
+		// fires immediately instead of subscribing to the replacement and
+		// sleeping through a wakeup that already happened.
 		l.mu.Lock()
 		notify := l.notify
 		l.mu.Unlock()
+		if admit() {
+			return true
+		}
 		select {
 		case <-notify:
 		case <-timer.C:
@@ -247,40 +254,62 @@ func (l *inflightLimiter) snapshot() []metrics.InflightState {
 	return out
 }
 
-// inflightRelease wraps an upstream body so the provider's slot is returned
-// when the response has actually been consumed — the window counts requests
+// attemptSlot is one attempt's held admission, settled exactly once whatever
+// the attempt's fate: the wrapper below fires it when the response body is
+// consumed or closed, the failure exits fire it directly, and the saturated
+// 429 handler fires it BEFORE the cut so the cut's arithmetic never races the
+// body reader (see cut). The sync.Once is what makes all of those safe to
+// overlap.
+type attemptSlot struct {
+	once sync.Once
+	fire func(clean bool)
+}
+
+// settle releases the slot. clean says the attempt completed as a consumed
+// success; only the first settle counts, so a later duplicate (a drain closing
+// a body whose EOF already fired, a forced settle before a cut) is a no-op.
+func (s *attemptSlot) settle(clean bool) {
+	if s == nil {
+		return
+	}
+	s.once.Do(func() { s.fire(clean) })
+}
+
+// inflightRelease wraps an upstream body so the attempt's slot settles when
+// the response has actually been consumed - the window counts requests
 // "between send and last byte", and releasing at header time would let the
-// gateway hold more streams open than the learned allowance. Exactly once, on
-// EOF or Close, whichever comes first: every attempt path closes the body on
-// every exit (client disconnect and hedge loss included), so a leaked count —
-// a slow self-inflicted saturation — would need a leaked body, which the
-// bodyclose lint already forbids.
+// gateway hold more streams open than the learned allowance. On EOF or Close,
+// whichever comes first: every attempt path closes the body on every exit
+// (client disconnect and hedge loss included), so a leaked count - a slow
+// self-inflicted saturation - would need a leaked body, which the bodyclose
+// lint already forbids.
 type inflightRelease struct {
 	io.ReadCloser
-	once    sync.Once
-	release func()
+	slot  *attemptSlot
+	clean bool
 }
 
 func (b *inflightRelease) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if err == io.EOF {
-		b.once.Do(b.release)
+		b.slot.settle(b.clean)
 	}
 	return n, err
 }
 
 func (b *inflightRelease) Close() error {
 	err := b.ReadCloser.Close()
-	b.once.Do(b.release)
+	b.slot.settle(b.clean)
 	return err
 }
 
 // admitCandidate is the admission gate an attempt passes before anything is
-// built or sent: true admits (a slot is now held and MUST be released), false
-// means the provider's window is full and the candidate should be skipped the
-// way a breaker-open one is. Disabled (or nil-limiter) always admits and holds
-// nothing.
+// built or sent: true admits (a slot is now held on st.attemptSlot and every
+// exit MUST settle it), false means the provider's window is full and the
+// candidate should be skipped the way a breaker-open one is. Disabled (or
+// nil-limiter) always admits and holds nothing.
 func (h *Handler) admitCandidate(st *requestState, candidate modelCandidate) bool {
+	st.attemptSlot = nil
 	if !st.inflightEnabled {
 		return true
 	}
@@ -291,33 +320,34 @@ func (h *Handler) admitCandidate(st *requestState, candidate modelCandidate) boo
 		debuglog.Info("proxy: skipping candidate: provider at in-flight limit", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
 		return false
 	}
+	pid := candidate.provider.ID
+	limiter := h.inflight
+	settings := h.settingsRepo
+	st.attemptSlot = &attemptSlot{fire: func(clean bool) {
+		// Settings are read at settle time (a stream can end minutes after
+		// admission) on a background context: the values are cached, and a
+		// client's cancelled context must not turn a real read into defaults.
+		ctx := context.Background()
+		limiter.release(pid, clean,
+			settings.GetInt(ctx, "inflight_grow_after", defaultInflightGrowAfter),
+			settings.GetDuration(ctx, "inflight_forget_after", defaultInflightForgetAfter))
+	}}
 	return true
 }
 
-// finishAttemptAdmission settles the slot admitCandidate acquired, once the
-// attempt's fate at header time is known. A nil resp (the request never got an
-// answer) releases immediately as unclean; a response hands the slot to the
-// body wrapper so it is returned on the last byte, and reads the provider's
-// remaining-budget headers as a cut hint on the way.
-func (h *Handler) finishAttemptAdmission(ctx context.Context, st *requestState, candidate modelCandidate, resp *http.Response) {
-	if !st.inflightEnabled {
-		return
-	}
-	pid := candidate.provider.ID
-	growAfter := h.settingsRepo.GetInt(ctx, "inflight_grow_after", defaultInflightGrowAfter)
-	forgetAfter := h.settingsRepo.GetDuration(ctx, "inflight_forget_after", defaultInflightForgetAfter)
-	if resp == nil {
-		h.inflight.release(pid, false, growAfter, forgetAfter)
+// finishAttemptAdmission hands the held slot to the response body once the
+// attempt's effective status is known. It must run AFTER any status remap
+// (MiniMax's 200-envelope rewrite): the clean flag decides whether the
+// completion grows the window, and a business error dressed as a 200 must not.
+// It also reads the provider's remaining-budget headers as a cut hint.
+func (h *Handler) finishAttemptAdmission(st *requestState, candidate modelCandidate, resp *http.Response) {
+	if st.attemptSlot == nil {
 		return
 	}
 	if remainingBudgetZero(resp.Header) {
-		h.inflight.hintFull(pid)
+		h.inflight.hintFull(candidate.provider.ID)
 	}
-	clean := servedSuccessStatus(resp.StatusCode)
-	limiter := h.inflight
-	resp.Body = &inflightRelease{ReadCloser: resp.Body, release: func() {
-		limiter.release(pid, clean, growAfter, forgetAfter)
-	}}
+	resp.Body = &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, clean: servedSuccessStatus(resp.StatusCode)}
 }
 
 // remainingBudgetZero reports whether the provider's OpenAI-style rate-limit

@@ -148,6 +148,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 				st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
 			}
 			if res.cont {
+				st.attemptSlot.settle(false)
 				st.setReqErr(res.lastReqErr)
 				return outcomeFailover
 			}
@@ -157,8 +158,10 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// MiniMax reports business errors (rate limit, exhausted plan balance,
 	// auth failures) inside an HTTP 200 envelope; remap them to an effective
 	// status so the breaker/failover/error paths below — all keyed on status
-	// codes — see the failure.
+	// codes — see the failure. The in-flight slot rides the body only from
+	// here, with the remapped status deciding the clean flag.
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
+	h.finishAttemptAdmission(st, candidate, resp)
 
 	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
@@ -490,19 +493,19 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 
 	proxyReq, providerType, targetURL, err := h.buildCandidateRequest(failoverCtx, st, candidate)
 	if err != nil {
-		h.finishAttemptAdmission(failoverCtx, st, candidate, nil)
+		st.attemptSlot.settle(false)
 		st.setReqErr(reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 		return nil, providerType, targetURL, false, false
 	}
 
 	resp, upstreamOK := h.doUpstream(failoverCtx, proxyReq, st, candidate, attempt, dialMs)
 	if !upstreamOK {
-		h.finishAttemptAdmission(failoverCtx, st, candidate, nil)
+		st.attemptSlot.settle(false)
 		return nil, providerType, targetURL, false, false
 	}
-	// Hand the held slot to the body, so it frees on the response's last byte
-	// (or its close) on every downstream path.
-	h.finishAttemptAdmission(failoverCtx, st, candidate, resp)
+	// The held slot is NOT handed to the body here: the caller does that via
+	// finishAttemptAdmission after the MiniMax status remap, so a business
+	// error dressed as a 200 never counts as a clean completion.
 	return resp, providerType, targetURL, false, true
 }
 

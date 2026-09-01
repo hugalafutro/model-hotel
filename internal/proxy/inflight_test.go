@@ -35,23 +35,26 @@ func TestInflightLimiter_CutTargetsTheLoadThatFit(t *testing.T) {
 		}
 	}
 	// The 4th request drew a saturated 429 while all four were in flight: the
-	// pool provably takes 3.
+	// pool provably takes 3. The live path settles the drawer's own slot
+	// before cutting (recordRateLimitOutcome), so cut sees the load that fit.
+	l.release(id, false, 0, 0)
 	l.cut(id, 0)
 
 	if got := l.windowFor(t, id).limit; got != 3 {
-		t.Errorf("limit after cut at 4 in flight = %d, want 3 (inflight-1)", got)
+		t.Errorf("limit after cut with 3 survivors in flight = %d, want 3", got)
 	}
 	if l.tryAcquire(id, 0) {
-		t.Error("a 5th acquisition was admitted over a limit of 3 with 4 still in flight")
+		t.Error("a 4th acquisition was admitted over a limit of 3 with 3 still in flight")
 	}
 	// Never below one: a provider that answered at all has at least a slot.
 	l2 := newInflightLimiter()
 	if !l2.tryAcquire(id, 0) {
 		t.Fatal("first acquisition refused")
 	}
+	l2.release(id, false, 0, 0)
 	l2.cut(id, 0)
 	if got := l2.windowFor(t, id).limit; got != 1 {
-		t.Errorf("limit after cut at 1 in flight = %d, want the floor of 1", got)
+		t.Errorf("limit after cut with nothing left in flight = %d, want the floor of 1", got)
 	}
 }
 
@@ -122,7 +125,9 @@ func TestInflightLimiter_HintFullCapsWithoutA429(t *testing.T) {
 	if got := l.windowFor(t, id).limit; got != 2 {
 		t.Fatalf("limit after remaining=0 at 2 in flight = %d, want 2", got)
 	}
-	// A hint never widens an existing, tighter cap.
+	// A hint never widens an existing, tighter cap: settle one drawer and cut
+	// to a limit of 1, then hint again with the other still in flight.
+	l.release(id, false, 0, 0)
 	l.cut(id, 0) // limit 1
 	l.hintFull(id)
 	if got := l.windowFor(t, id).limit; got != 1 {
@@ -238,12 +243,12 @@ func TestInflightLimiter_ConvergesOnAThreeSlotPool(t *testing.T) {
 				admitted++
 			}
 		}
-		// The pool serves poolSize; every admission past it is a 429. The cut
-		// happens while the overflowing load is still in flight, exactly as
-		// the live path does it.
+		// The pool serves poolSize; every admission past it is a 429. The
+		// drawer's slot settles before the cut, exactly as the live path
+		// orders it (recordRateLimitOutcome).
 		for i := poolSize; i < admitted; i++ {
-			l.cut(id, 0)
 			l.release(id, false, growAfter, time.Hour)
+			l.cut(id, 0)
 		}
 		for i := 0; i < min(admitted, poolSize); i++ {
 			l.release(id, true, growAfter, time.Hour)
@@ -277,9 +282,17 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 			logData:         logData,
 		}
 	}
-	cands := []modelCandidate{modelCandidateForBreaker(uuid.New()), modelCandidateForBreaker(uuid.New())}
+	// Both providers carry a hard ceiling of 1, so the admission the test
+	// exercises is the same one retryAfterSlotFrees derives via providerCeiling.
+	one := 1
+	mkCand := func() modelCandidate {
+		c := modelCandidateForBreaker(uuid.New())
+		c.provider.MaxInFlight = &one
+		return c
+	}
+	cands := []modelCandidate{mkCand(), mkCand()}
 
-	t.Run("a busy entry spills to the next in priority", func(t *testing.T) {
+	t.Run("a busy entry spills to the next in priority, paying no backoff", func(t *testing.T) {
 		st := newState()
 		var tried []int
 		fn := func(_ http.ResponseWriter, _ *http.Request, _ *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
@@ -289,9 +302,15 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 			}
 			return outcomeServed
 		}
+		start := time.Now()
 		h.runFailoverLoop(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
 		if len(tried) != 2 {
 			t.Fatalf("attempts = %v, want the busy skip and the serve", tried)
+		}
+		// A busy skip contacted nothing, so the walk must not serve it the
+		// exponential failover backoff (~100ms+) meant for failing providers.
+		if elapsed := time.Since(start); elapsed > 50*time.Millisecond {
+			t.Errorf("walk took %v: a busy skip is paying the failover backoff", elapsed)
 		}
 	})
 

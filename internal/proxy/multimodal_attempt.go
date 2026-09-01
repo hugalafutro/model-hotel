@@ -46,6 +46,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	// did not, and the 2xx branch below now clears the model's gone-strike
 	// streak, so a refusal wrapped in a 200 was recorded as the model answering.
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
+	h.finishAttemptAdmission(st, candidate, resp)
 
 	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 	hasMoreCandidates := attempt < totalCandidates-1

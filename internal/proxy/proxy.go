@@ -85,6 +85,11 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 	// request was made, so when everything else is spent too they are worth
 	// waiting for — a slot freeing on any of them is the request's way through.
 	var busyCandidates []modelCandidate
+	// contacted counts candidates a request was actually sent to: the
+	// exponential backoff protects providers that answered with failures, and
+	// a busy skip contacted nothing, so it must neither pay a backoff nor
+	// escalate the next one.
+	contacted := 0
 	for attempt, candidate := range candidates {
 		// Overall deadline check: stop failover if the total time budget
 		// across all candidates has been exceeded. This prevents N candidates
@@ -98,9 +103,9 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 
 		// Exponential backoff between failover attempts: 0ms, ~100ms, ~200ms, ~400ms...
 		// Capped at 2s, with ±50ms jitter to avoid thundering herd.
-		// First attempt (attempt=0) has no delay.
-		if attempt > 0 {
-			backoff := failoverBackoff(100*time.Millisecond, 2*time.Second, attempt)
+		// No delay before the first contact, and none after a busy skip.
+		if contacted > 0 {
+			backoff := failoverBackoff(100*time.Millisecond, 2*time.Second, contacted)
 			debuglog.Info("proxy: failover backoff", "backoff", backoff, "attempt", attempt+1)
 			select {
 			case <-time.After(backoff):
@@ -142,6 +147,7 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 		// saturated and worth one short wait.
 		switch attemptOne(w, r, st, candidate, attempt, len(candidates)) {
 		case outcomeFailover:
+			contacted++
 			continue
 		case outcomeBusy:
 			busyCandidates = append(busyCandidates, candidate)

@@ -285,3 +285,97 @@ func replayRequest(t *testing.T, env *replayEnv) *httptest.ResponseRecorder {
 	env.h.ChatCompletions(w, req.WithContext(ctx))
 	return w
 }
+
+// A MiniMax business error dressed as a 200 must not count as a clean
+// completion: the slot rides the body only after the status remap, so the
+// remapped saturated 429 cuts the window instead of growing it.
+func TestInflight_MiniMaxEnvelopeIsNotACleanCompletion(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"base_resp":{"status_code":1002,"status_msg":"rate limit exceeded"}}`)
+	}))
+	defer srv.Close()
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	m := &model.Model{ID: uuid.New(), ModelID: "MiniMax-Text-01", InputModalities: `["text"]`, OutputModalities: `["embedding"]`}
+	cand := goneCandidateAt(m, "MiniMax", "http://api.minimax.io/v1")
+	st := &requestState{
+		startTime: time.Now(), reqModel: "MiniMax-Text-01",
+		endpointPath:    "/embeddings",
+		bodyBytes:       []byte(`{"model":"MiniMax-Text-01","input":"hi"}`),
+		failoverTimeout: 30 * time.Second,
+		inflightEnabled: true,
+		logData:         &requestLogData{modelID: "MiniMax-Text-01", endpointType: endpointTypeEmbeddings},
+	}
+	_ = h.attemptPassthroughCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, 0, 1)
+
+	limit, inflight, tracked := inflightCountFor(h, cand.provider.ID)
+	if !tracked || inflight != 0 {
+		t.Fatalf("inflight = %d (tracked=%v), want 0", inflight, tracked)
+	}
+	if limit != 1 {
+		t.Errorf("limit = %d, want the cut to 1: a refusal inside a 200 grew the window instead", limit)
+	}
+}
+
+// A hedged race whose every candidate sits at its in-flight window must wait
+// for the first freed slot and serve there, exactly as the sequential loop
+// does: turning hedging on must never make a merely-busy group fail faster.
+func TestRunHedgedStreaming_AllBusyWaitsForASlot(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n")
+	}))
+	t.Cleanup(srv.Close)
+	h.upstreamTransport = dialToTestServer(t, srv)
+
+	one := 1
+	mkCand := func(name string) modelCandidate {
+		return modelCandidate{
+			model:    &model.Model{ID: uuid.New(), ModelID: "m-" + name},
+			provider: &provider.Provider{ID: uuid.New(), Name: name, BaseURL: "http://" + name + ".upstream.test", MaxInFlight: &one},
+		}
+	}
+	cands := []modelCandidate{mkCand("a"), mkCand("b")}
+	for _, c := range cands {
+		if !h.inflight.tryAcquire(c.provider.ID, 1) {
+			t.Fatal("setup: slot not acquired")
+		}
+	}
+	t.Cleanup(func() {
+		for _, c := range cands {
+			h.inflight.release(c.provider.ID, true, 0, 0)
+		}
+	})
+
+	// Every probe reports busy, as the real probe does at a full window.
+	hh := newHedgeHarness([]fakeProbeSpec{
+		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 0, Provider: "a", Detail: "at in-flight limit"}, busy: true},
+		{reqErr: reqError{Kind: KindProviderSaturated, Attempt: 1, Provider: "b", Detail: "at in-flight limit"}, busy: true},
+	})
+	st, _ := newHedgeState(5 * time.Millisecond)
+	st.inflightEnabled = true
+	st.bodyBytes = []byte(`{"model":"test-model","messages":[{"role":"user","content":"hi"}],"stream":true}`)
+
+	// Candidate b's slot frees while the orchestrator would otherwise be
+	// writing the all-busy error.
+	go func() {
+		time.Sleep(30 * time.Millisecond)
+		h.inflight.release(cands[1].provider.ID, true, 0, 0)
+	}()
+
+	w := runHedge(context.Background(), h, hh, st, cands)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want the freed slot to serve the stream; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "data:") {
+		t.Errorf("body %q is not the served stream", w.Body.String())
+	}
+}

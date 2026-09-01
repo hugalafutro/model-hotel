@@ -299,8 +299,12 @@ type requestState struct {
 	saturationRetried bool
 
 	// inflightEnabled mirrors inflight_limiter_enabled for the request, read
-	// once by loadFailoverConfig like the breaker flag beside it.
+	// once by loadFailoverConfig like the breaker flag beside it. attemptSlot
+	// is the current attempt's held admission (nil when none): set by
+	// admitCandidate, settled exactly once by whichever of the body wrapper,
+	// a failure exit, or the saturated-429 handler gets there first.
 	inflightEnabled bool
+	attemptSlot     *attemptSlot
 }
 
 // setReqErr records the structured cause of the most recent failed attempt and
