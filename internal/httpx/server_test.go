@@ -147,10 +147,16 @@ const slowBudget = 200 * time.Millisecond
 
 // startListener serves h under the body deadline with slowBudget on a real
 // TCP listener; the deadline goes through the connection, so a recorder
-// cannot exercise it.
-func startListener(t *testing.T, h http.Handler) *httptest.Server {
+// cannot exercise it. The length ServeHTTP hands the budget is recorded in
+// seen, so a test can check the declared Content-Length is what earns time.
+func startListener(t *testing.T, h http.Handler, seen *atomic.Int64) *httptest.Server {
 	t.Helper()
-	ts := httptest.NewUnstartedServer(&bodyDeadline{next: h, budget: func(int64) time.Duration { return slowBudget }})
+	ts := httptest.NewUnstartedServer(&bodyDeadline{next: h, budget: func(cl int64) time.Duration {
+		if seen != nil {
+			seen.Store(cl)
+		}
+		return slowBudget
+	}})
 	ts.Start()
 	t.Cleanup(ts.Close)
 	return ts
@@ -174,6 +180,7 @@ func dial(t *testing.T, ts *httptest.Server, raw string) net.Conn {
 func TestBodyReadDeadlineCutsATrickledBody(t *testing.T) {
 	t.Parallel()
 	var readErr atomic.Pointer[error]
+	var seen atomic.Int64
 	ts := startListener(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_, err := io.ReadAll(r.Body)
 		readErr.Store(&err)
@@ -182,7 +189,7 @@ func TestBodyReadDeadlineCutsATrickledBody(t *testing.T) {
 			return
 		}
 		w.WriteHeader(http.StatusOK)
-	}))
+	}), &seen)
 
 	// Headers complete, two of a declared hundred body bytes, then silence.
 	conn := dial(t, ts, "POST / HTTP/1.1\r\nHost: t\r\nContent-Length: 100\r\n\r\nab")
@@ -195,6 +202,10 @@ func TestBodyReadDeadlineCutsATrickledBody(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusRequestTimeout {
 		t.Fatalf("status = %d, want 408 from the handler's failed read", resp.StatusCode)
+	}
+	// The declared length, not a constant, is what the budget was asked for.
+	if got := seen.Load(); got != 100 {
+		t.Fatalf("budget asked for length %d, want the declared 100", got)
 	}
 	// Anything under the 5s socket cap proves the release; the lower bound
 	// proves it was the budget and not an immediate rejection.
@@ -227,7 +238,7 @@ func TestBodyReadDeadlineCutsATrickledBody(t *testing.T) {
 // connection would surface there as a cancelled context.
 func TestBodyReadDeadlineSparesABodilessRequest(t *testing.T) {
 	t.Parallel()
-	ts := startListener(t, http.HandlerFunc(outliveBudget))
+	ts := startListener(t, http.HandlerFunc(outliveBudget), nil)
 	resp, err := http.Get(ts.URL)
 	if err != nil {
 		t.Fatalf("get: %v", err)
@@ -246,7 +257,7 @@ func TestBodyReadDeadlineSparesAStreamAfterItsBody(t *testing.T) {
 			return
 		}
 		outliveBudget(w, r)
-	}))
+	}), nil)
 	resp, err := http.Post(ts.URL, "application/json", strings.NewReader(`{"stream":true}`))
 	if err != nil {
 		t.Fatalf("post: %v", err)
@@ -262,7 +273,7 @@ func TestBodyReadDeadlineBoundsAnUnreadBody(t *testing.T) {
 	ts := startListener(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		// Reject before reading, the shape of an auth failure on a POST.
 		w.WriteHeader(http.StatusUnauthorized)
-	}))
+	}), nil)
 	conn := dial(t, ts, "POST / HTTP/1.1\r\nHost: t\r\nContent-Length: 100\r\n\r\nab")
 	_ = conn.SetReadDeadline(time.Now().Add(5 * time.Second))
 	start := time.Now()
