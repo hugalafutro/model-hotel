@@ -170,7 +170,19 @@
 		"resetCircuitsPartial": "Ističe resetované, ale u {{failed}} z {{members}} členov reset neprebehol",
 		"resetCircuitsGroupLabel": "Failover skupina",
 		"resetCircuitsGroupPlaceholder": "Zvoľte skupinu",
-		"resetCircuitsNoGroups": "Primárny člen nehlási žiadne failover skupiny"
+		"resetCircuitsNoGroups": "Primárny člen nehlási žiadne failover skupiny",
+		"colCircuits": "Ističe",
+		"colCircuitsTip": "Ističe, ktoré tento člen drží rozopnuté alebo im dlhuje sondu, čítané z jeho stavového API pri každom dopyte; prejdením zobrazíte poskytovateľa, model, príčinu a ďalší pokus",
+		"circuitsNone": "žiadny rozopnutý",
+		"circuitsUnknown": "neprečítané",
+		"circuitStateOpen": "rozopnutý",
+		"circuitStateHalfOpen": "čaká na sondu",
+		"circuitStatePinned": "pripnutý",
+		"circuitRetry": "ďalší pokus {{when}}",
+		"circuitsOpen_one": "{{count}} rozopnutý",
+		"circuitsOpen_few": "{{count}} rozopnuté",
+		"circuitsOpen_many": "{{count}} rozopnutých",
+		"circuitsOpen_other": "{{count}} rozopnutých"
 	},
 	"traffic": {
 		"title": "Prevádzka",

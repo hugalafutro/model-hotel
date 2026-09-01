@@ -170,7 +170,18 @@
 		"resetCircuitsPartial": "Disjoncteurs réinitialisés, mais {{failed}} membres sur {{members}} ne l'ont pas été",
 		"resetCircuitsGroupLabel": "Groupe de bascule",
 		"resetCircuitsGroupPlaceholder": "Choisir un groupe",
-		"resetCircuitsNoGroups": "Le membre principal ne signale aucun groupe de bascule"
+		"resetCircuitsNoGroups": "Le membre principal ne signale aucun groupe de bascule",
+		"colCircuits": "Disjoncteurs",
+		"colCircuitsTip": "Disjoncteurs que ce membre garde ouverts ou auxquels il doit une sonde, lus depuis son API d'état à chaque interrogation ; survolez pour le fournisseur, le modèle, la cause et le prochain essai",
+		"circuitsNone": "aucun ouvert",
+		"circuitsUnknown": "non lu",
+		"circuitStateOpen": "ouvert",
+		"circuitStateHalfOpen": "sonde due",
+		"circuitStatePinned": "épinglé",
+		"circuitRetry": "prochain essai {{when}}",
+		"circuitsOpen_one": "{{count}} ouvert",
+		"circuitsOpen_many": "{{count}} ouverts",
+		"circuitsOpen_other": "{{count}} ouverts"
 	},
 	"traffic": {
 		"title": "Trafic",

@@ -170,7 +170,19 @@
 		"resetCircuitsPartial": "Предохранители сброшены, но у {{failed}} из {{members}} участников сброс не выполнен",
 		"resetCircuitsGroupLabel": "Группа отказоустойчивости",
 		"resetCircuitsGroupPlaceholder": "Выберите группу",
-		"resetCircuitsNoGroups": "Основной участник не сообщает ни об одной группе"
+		"resetCircuitsNoGroups": "Основной участник не сообщает ни об одной группе",
+		"colCircuits": "Предохранители",
+		"colCircuitsTip": "Предохранители, которые этот участник держит открытыми или которым должен пробу, читаются из его API состояния при каждом опросе; наведите курсор, чтобы увидеть провайдера, модель, причину и следующую попытку",
+		"circuitsNone": "открытых нет",
+		"circuitsUnknown": "не прочитано",
+		"circuitStateOpen": "открыт",
+		"circuitStateHalfOpen": "ожидает пробы",
+		"circuitStatePinned": "закреплён",
+		"circuitRetry": "повтор {{when}}",
+		"circuitsOpen_one": "{{count}} открыт",
+		"circuitsOpen_few": "{{count}} открыто",
+		"circuitsOpen_many": "{{count}} открыто",
+		"circuitsOpen_other": "{{count}} открыто"
 	},
 	"traffic": {
 		"title": "Трафик",

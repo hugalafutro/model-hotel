@@ -170,7 +170,19 @@
 		"resetCircuitsPartial": "Bezpieczniki zresetowane, ale u {{failed}} z {{members}} członków reset się nie odbył",
 		"resetCircuitsGroupLabel": "Grupa failover",
 		"resetCircuitsGroupPlaceholder": "Wybierz grupę",
-		"resetCircuitsNoGroups": "Główny członek nie zgłasza żadnych grup failover"
+		"resetCircuitsNoGroups": "Główny członek nie zgłasza żadnych grup failover",
+		"colCircuits": "Bezpieczniki",
+		"colCircuitsTip": "Bezpieczniki, które ten członek trzyma otwarte lub którym jest winien sondę, odczytywane z jego API stanu przy każdym odpytaniu; najedź, aby zobaczyć dostawcę, model, przyczynę i następną próbę",
+		"circuitsNone": "żaden otwarty",
+		"circuitsUnknown": "nieodczytane",
+		"circuitStateOpen": "otwarty",
+		"circuitStateHalfOpen": "sonda należna",
+		"circuitStatePinned": "przypięty",
+		"circuitRetry": "następna próba {{when}}",
+		"circuitsOpen_one": "{{count}} otwarty",
+		"circuitsOpen_few": "{{count}} otwarte",
+		"circuitsOpen_many": "{{count}} otwartych",
+		"circuitsOpen_other": "{{count}} otwartych"
 	},
 	"traffic": {
 		"title": "Ruch",

@@ -170,7 +170,17 @@
 		"resetCircuitsPartial": "Stroomonderbrekers gereset, maar bij {{failed}} van {{members}} leden niet",
 		"resetCircuitsGroupLabel": "Failovergroep",
 		"resetCircuitsGroupPlaceholder": "Kies een groep",
-		"resetCircuitsNoGroups": "De primary meldt geen failovergroepen"
+		"resetCircuitsNoGroups": "De primary meldt geen failovergroepen",
+		"colCircuits": "Onderbrekers",
+		"colCircuitsTip": "Stroomonderbrekers die dit lid open houdt of waarvoor het een probe verschuldigd is, bij elke peiling gelezen uit zijn status-API; hover voor provider, model, oorzaak en volgende poging",
+		"circuitsNone": "geen open",
+		"circuitsUnknown": "niet gelezen",
+		"circuitStateOpen": "open",
+		"circuitStateHalfOpen": "probe verwacht",
+		"circuitStatePinned": "vastgezet",
+		"circuitRetry": "volgende poging {{when}}",
+		"circuitsOpen_one": "{{count}} open",
+		"circuitsOpen_other": "{{count}} open"
 	},
 	"traffic": {
 		"title": "Verkeer",

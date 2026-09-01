@@ -170,7 +170,17 @@
 		"resetCircuitsPartial": "ブレーカーをリセットしましたが、{{members}}件中{{failed}}件のメンバーはリセットされませんでした",
 		"resetCircuitsGroupLabel": "フェイルオーバーグループ",
 		"resetCircuitsGroupPlaceholder": "グループを選択",
-		"resetCircuitsNoGroups": "プライマリはフェイルオーバーグループを報告していません"
+		"resetCircuitsNoGroups": "プライマリはフェイルオーバーグループを報告していません",
+		"colCircuits": "ブレーカー",
+		"colCircuitsTip": "このメンバーがオープンに保持している、またはプローブ待ちのブレーカー。ポーリングごとにステータスAPIから読み取ります。ホバーでプロバイダー、モデル、原因、次回再試行を表示",
+		"circuitsNone": "オープンなし",
+		"circuitsUnknown": "未読み取り",
+		"circuitStateOpen": "オープン",
+		"circuitStateHalfOpen": "プローブ待ち",
+		"circuitStatePinned": "固定",
+		"circuitRetry": "再試行 {{when}}",
+		"circuitsOpen_one": "{{count}} 件オープン",
+		"circuitsOpen_other": "{{count}} 件オープン"
 	},
 	"traffic": {
 		"title": "トラフィック",

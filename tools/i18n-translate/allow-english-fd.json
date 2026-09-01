@@ -2,70 +2,24 @@
 	"app.title": [
 		"*"
 	],
-	"login.title": [
-		"*"
+	"common.no": [
+		"es"
 	],
-	"members.colFrontdesk": [
-		"*"
+	"events.colMessage": [
+		"fr"
 	],
-	"members.colTraefik": [
-		"*"
+	"events.colSource": [
+		"fr"
 	],
-	"members.latencyMs": [
-		"*"
-	],
-	"members.namePlaceholder": [
-		"*"
-	],
-	"members.urlPlaceholder": [
-		"*"
-	],
-	"members.verifiedWhen": [
-		"*"
-	],
-	"settings.memberResultOk": [
-		"*"
-	],
-	"traffic.reqPerMin": [
-		"*"
-	],
-	"settings.memberResultFailed": [
-		"cs",
-		"de",
-		"es",
-		"ja",
-		"nl",
-		"pl",
-		"ru",
-		"sk"
-	],
-	"settings.passkeys.section": [
-		"es",
-		"fr",
-		"ja",
+	"events.filterMember": [
 		"nl"
 	],
-	"settings.passkeys.unnamed": [
-		"cs",
-		"es",
+	"events.filterType": [
 		"fr",
-		"ja",
-		"nl",
-		"pl",
-		"ru",
-		"sk",
-		"zh"
+		"nl"
 	],
-	"settings.passkeys.transportBle": [
-		"cs",
-		"de",
-		"es",
-		"fr",
-		"ja",
-		"nl",
-		"pl",
-		"ru",
-		"sk"
+	"events.sevError": [
+		"es"
 	],
 	"events.sevInfo": [
 		"cs",
@@ -75,126 +29,148 @@
 		"nl",
 		"sk"
 	],
-	"settings.wizard.badgeOffline": [
-		"cs",
-		"de",
-		"nl",
-		"pl",
-		"sk"
-	],
-	"settings.wizard.offline": [
-		"cs",
-		"de",
-		"nl",
-		"pl",
-		"sk"
-	],
-	"members.colName": [
-		"de"
-	],
-	"members.colVersion": [
-		"de",
-		"fr"
-	],
-	"events.colMessage": [
-		"fr"
-	],
-	"events.colSource": [
-		"fr"
-	],
-	"events.filterType": [
-		"fr",
-		"nl"
-	],
-	"settings.alerts.title": [
-		"de",
-		"nl"
-	],
-	"settings.observability.title": [
-		"de",
-		"nl"
-	],
-	"tabs.traffic": [
-		"de"
-	],
-	"traffic.title": [
-		"de"
-	],
-	"settings.totp.secret": [
-		"de",
-		"fr",
-		"nl",
-		"pl",
-		"sk"
-	],
-	"settings.oidc.clientIdLabel": [
-		"ru",
-		"pl",
-		"ja",
-		"cs",
-		"sk"
-	],
-	"settings.oidc.clientSecretLabel": [
-		"ru",
-		"pl",
-		"ja",
-		"cs",
-		"sk"
-	],
-	"settings.oidc.title": [
-		"nl"
-	],
-	"common.no": [
-		"es"
-	],
-	"events.sevError": [
-		"es"
-	],
-	"events.filterMember": [
-		"nl"
-	],
-	"members.title": [
-		"nl"
-	],
-	"tabs.members": [
-		"nl"
-	],
 	"footer.wiki": [
 		"zh",
 		"ja",
 		"cs",
 		"sk"
 	],
-	"settings.alerts.apiUrlLabel": [
-		"zh",
-		"ja",
-		"sk"
-	],
-	"settings.oidc.issuerLabel": [
-		"ja",
-		"cs"
-	],
-	"settings.primaryTag": [
-		"ja"
-	],
-	"settings.oidc.redirectUriLabel": [
-		"cs"
-	],
-	"settings.wizard.confirmTokenLabel": [
-		"cs",
-		"sk"
+	"login.title": [
+		"*"
 	],
 	"login.tokenLabel": [
 		"sk"
+	],
+	"members.circuitStateOpen": [
+		"nl"
+	],
+	"members.circuitsOpen_one": [
+		"nl"
+	],
+	"members.circuitsOpen_other": [
+		"nl"
+	],
+	"members.colFrontdesk": [
+		"*"
+	],
+	"members.colName": [
+		"de"
+	],
+	"members.colTraefik": [
+		"*"
+	],
+	"members.colVersion": [
+		"de",
+		"fr"
 	],
 	"members.confirmTokenLabel": [
 		"cs",
 		"sk"
 	],
-	"settings.devices.role": [
-		"cs"
+	"members.latencyMs": [
+		"*"
+	],
+	"members.namePlaceholder": [
+		"*"
+	],
+	"members.title": [
+		"nl"
+	],
+	"members.urlPlaceholder": [
+		"*"
+	],
+	"members.verifiedWhen": [
+		"*"
+	],
+	"quota.modal.no": [
+		"es"
+	],
+	"quota.modal.plan": [
+		"es",
+		"pl"
+	],
+	"quota.modal.provider": [
+		"nl"
+	],
+	"quota.modal.status": [
+		"de",
+		"nl",
+		"pl"
+	],
+	"quota.title": [
+		"fr"
+	],
+	"settings.alerts.apiUrlLabel": [
+		"zh",
+		"ja",
+		"sk"
+	],
+	"settings.alerts.destinationsTitle": [
+		"fr"
+	],
+	"settings.alerts.kind.bellhop": [
+		"*"
+	],
+	"settings.alerts.kind.discord": [
+		"*"
+	],
+	"settings.alerts.kind.ntfy": [
+		"*"
+	],
+	"settings.alerts.kind.other": [
+		"ja",
+		"sk",
+		"zh"
+	],
+	"settings.alerts.kind.telegram": [
+		"*"
+	],
+	"settings.alerts.ntfyServerPlaceholder": [
+		"*"
+	],
+	"settings.alerts.ntfyTopicPlaceholder": [
+		"ja",
+		"zh"
+	],
+	"settings.alerts.title": [
+		"de",
+		"nl"
+	],
+	"settings.alerts.wizard.apiUrlLabel": [
+		"ja",
+		"sk",
+		"zh"
+	],
+	"settings.alerts.wizard.field.port": [
+		"cs",
+		"de",
+		"fr",
+		"pl",
+		"sk"
+	],
+	"settings.alerts.wizard.field.url": [
+		"ja",
+		"sk",
+		"zh"
+	],
+	"settings.alerts.wizard.field.webhook": [
+		"ja",
+		"zh"
+	],
+	"settings.alerts.wizard.step1Title": [
+		"*"
+	],
+	"settings.alerts.wizard.step3Title": [
+		"de",
+		"nl"
+	],
+	"settings.alerts.wizard.step5Title": [
+		"fr"
 	],
 	"settings.devices.colRole": [
+		"cs"
+	],
+	"settings.devices.role": [
 		"cs"
 	],
 	"settings.devices.roleMonitor": [
@@ -210,80 +186,113 @@
 		"nl",
 		"pl"
 	],
-	"settings.alerts.ntfyTopicPlaceholder": [
-		"ja",
-		"zh"
-	],
-	"quota.title": [
-		"fr"
-	],
-	"quota.modal.status": [
-		"de",
-		"nl",
-		"pl"
-	],
-	"quota.modal.plan": [
-		"es",
-		"pl"
-	],
-	"quota.modal.no": [
-		"es"
-	],
-	"quota.modal.provider": [
-		"nl"
-	],
-	"settings.alerts.kind.ntfy": [
-		"*"
-	],
-	"settings.alerts.kind.bellhop": [
-		"*"
-	],
-	"settings.alerts.kind.telegram": [
-		"*"
-	],
-	"settings.alerts.kind.discord": [
-		"*"
-	],
-	"settings.alerts.wizard.step1Title": [
-		"*"
-	],
-	"settings.alerts.ntfyServerPlaceholder": [
-		"*"
-	],
-	"settings.alerts.kind.other": [
-		"ja",
-		"sk",
-		"zh"
-	],
-	"settings.alerts.wizard.field.url": [
-		"ja",
-		"sk",
-		"zh"
-	],
-	"settings.alerts.wizard.apiUrlLabel": [
-		"ja",
-		"sk",
-		"zh"
-	],
-	"settings.alerts.wizard.field.webhook": [
-		"ja",
-		"zh"
-	],
-	"settings.alerts.wizard.field.port": [
+	"settings.memberResultFailed": [
 		"cs",
 		"de",
+		"es",
+		"ja",
+		"nl",
+		"pl",
+		"ru",
+		"sk"
+	],
+	"settings.memberResultOk": [
+		"*"
+	],
+	"settings.observability.title": [
+		"de",
+		"nl"
+	],
+	"settings.oidc.clientIdLabel": [
+		"ru",
+		"pl",
+		"ja",
+		"cs",
+		"sk"
+	],
+	"settings.oidc.clientSecretLabel": [
+		"ru",
+		"pl",
+		"ja",
+		"cs",
+		"sk"
+	],
+	"settings.oidc.issuerLabel": [
+		"ja",
+		"cs"
+	],
+	"settings.oidc.redirectUriLabel": [
+		"cs"
+	],
+	"settings.oidc.title": [
+		"nl"
+	],
+	"settings.passkeys.section": [
+		"es",
 		"fr",
+		"ja",
+		"nl"
+	],
+	"settings.passkeys.transportBle": [
+		"cs",
+		"de",
+		"es",
+		"fr",
+		"ja",
+		"nl",
+		"pl",
+		"ru",
+		"sk"
+	],
+	"settings.passkeys.unnamed": [
+		"cs",
+		"es",
+		"fr",
+		"ja",
+		"nl",
+		"pl",
+		"ru",
+		"sk",
+		"zh"
+	],
+	"settings.primaryTag": [
+		"ja"
+	],
+	"settings.totp.secret": [
+		"de",
+		"fr",
+		"nl",
 		"pl",
 		"sk"
 	],
-	"settings.alerts.wizard.step3Title": [
+	"settings.wizard.badgeOffline": [
+		"cs",
 		"de",
+		"nl",
+		"pl",
+		"sk"
+	],
+	"settings.wizard.confirmTokenLabel": [
+		"cs",
+		"sk"
+	],
+	"settings.wizard.offline": [
+		"cs",
+		"de",
+		"nl",
+		"pl",
+		"sk"
+	],
+	"tabs.members": [
 		"nl"
 	],
-	"settings.alerts.destinationsTitle": [
-		"fr"
+	"tabs.traffic": [
+		"de"
 	],
-	"settings.alerts.wizard.step5Title": [
-		"fr"
+	"traffic.reqPerMin": [
+		"*"
+	],
+	"traffic.title": [
+		"de"
 	]
 }
