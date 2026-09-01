@@ -228,10 +228,11 @@ func TestAssess_ZaiCoding_NonsensePercentageFallsBackToRemaining(t *testing.T) {
 
 // NeuralWatt is a balance model, not a window model: exhausting the included
 // monthly energy does not make it refuse requests — it keeps serving in
-// overage, debiting the credit balance. Only when BOTH the included energy and
-// the credits are affirmatively spent do requests actually start failing, and
-// the only scheduled recovery is the billing period end. The tests below pin
-// that two-sided rule.
+// overage, debiting the credit balance. Only when BOTH the included energy is
+// gone and the credit balance has fallen below creditsSpentFloorUSD do requests
+// actually start failing, and the only scheduled recovery is the billing period
+// end. The tests below pin that two-sided rule and the floor on its credit
+// side.
 func TestAssess_Neuralwatt_EnergyAndCreditsSpentPinsToPeriodEnd(t *testing.T) {
 	periodEnd := time.Now().Add(20 * 24 * time.Hour).Truncate(time.Second)
 	payload, err := json.Marshal(map[string]any{
@@ -279,9 +280,18 @@ func TestAssess_Neuralwatt_SubCentResidueIsSpent(t *testing.T) {
 	}
 }
 
-// TestAssess_Neuralwatt_OneCentIsNotSpent holds the other side of the floor: a
-// balance that can still buy a request must not be read as spent, or the
-// residue rule would sideline a provider that is still serving.
+// TestAssess_Neuralwatt_OneCentIsNotSpent holds the other side of the floor, so
+// the residue rule cannot grow into "any small balance is spent". It pins the
+// comparison as strict (<), not <=.
+//
+// It deliberately asserts the exact literal rather than a "safely above"
+// value, and that literal is the only balance whose verdict is decided by
+// float representation: 0.01 parses to the same float64 as the constant, but a
+// balance NeuralWatt derived by subtraction may not — 10-9.99 lands just under
+// the floor and reads as spent, 25-24.99 just over it and does not. That is a
+// cent's worth of arbitrariness at one exact point, which is why the floor is
+// documented as approximate rather than as a guarantee about any single
+// balance.
 func TestAssess_Neuralwatt_OneCentIsNotSpent(t *testing.T) {
 	payload, err := json.Marshal(map[string]any{
 		"balance":      map[string]any{"credits_remaining_usd": 0.01},
