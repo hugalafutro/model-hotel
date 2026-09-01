@@ -181,7 +181,7 @@ func (h *Handler) issueParamRetry(
 	rebuilt := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
 	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
 	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
-	retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, dialMs)
+	retryCtx, retryDial := withDialTiming(retryCtx)
 	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 	if retryErr != nil {
 		rc()
@@ -196,6 +196,7 @@ func (h *Handler) issueParamRetry(
 	retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
 	//nolint:bodyclose // retryResp.Body is returned to the caller, which consumes and closes it
 	retryResp, retryErr := retryClient.Do(retryReq)
+	*dialMs += retryDial.take()
 	if retryErr != nil {
 		rc() // no body to consume on retry error
 		debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
