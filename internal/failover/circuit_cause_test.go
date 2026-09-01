@@ -393,6 +393,9 @@ type breakerReadingHandler struct {
 func (h *breakerReadingHandler) Handle(ctx context.Context, r slog.Record) error {
 	if strings.HasPrefix(r.Message, "circuit-breaker:") {
 		// Takes cb.mu: deadlocks if the section that logged still holds it.
+		// Only log lines are guarded: the bus publish is non-blocking and never
+		// calls back into the breaker, so publishing under the lock would cost
+		// time, not liveness, and this guard would not see it.
 		h.cb.GetState(h.id, "unrelated")
 	}
 	return h.logCaptureHandler.Handle(ctx, r)
@@ -409,16 +412,32 @@ func TestBreakerLogsWithTheLockReleased(t *testing.T) {
 	id := uuid.New()
 	debuglog.SetHandler(&breakerReadingHandler{logCaptureHandler: capt, cb: cb, id: id})
 
+	fail := func(model string) { cb.RecordFailure(id, "p", model, UpstreamStatus(503, "")) }
+	probeDue := func(model string) {
+		time.Sleep(50 * time.Millisecond) // well past the 5ms cooldown
+		cb.IsOpen(id, "p", model)
+	}
 	done := make(chan struct{})
 	go func() {
 		defer close(done)
-		// closed→open, open→half-open, half-open→closed on the request path.
-		cb.RecordFailure(id, "p", "a", UpstreamStatus(503, ""))
-		cb.RecordFailure(id, "p", "a", UpstreamStatus(503, ""))
-		time.Sleep(20 * time.Millisecond)
-		cb.IsOpen(id, "p", "a")
+		// The request path: closed→open, open→half-open, half-open→closed,
+		// then a probe that fails, which is also the third open inside the
+		// window and so the "keeps reopening" report.
+		fail("a")
+		fail("a")
+		probeDue("a")
 		cb.RecordSuccess(id, "p", "a")
-		// An exhausted open with a response pin, released by the poller's paths.
+		fail("a")
+		fail("a")
+		probeDue("a")
+		fail("a")
+		// A probe that draws an exhausted body.
+		fail("e")
+		fail("e")
+		probeDue("e")
+		cb.RecordExhausted(id, "p", "e", time.Hour)
+		// An exhausted open with a response pin, retargeted and released by the
+		// poller's paths, then one released by switching the poller off.
 		cb.RecordExhausted(id, "p", "b", time.Hour)
 		cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)})
 		cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
@@ -427,12 +446,12 @@ func TestBreakerLogsWithTheLockReleased(t *testing.T) {
 		// The manual resets: one circuit, the provider, everything.
 		cb.ResetModel(id, "a")
 		cb.Reset(id)
-		cb.RecordFailure(id, "p", "d", UpstreamStatus(503, ""))
+		fail("d")
 		cb.ResetAll()
 	}()
 	select {
 	case <-done:
-	case <-time.After(5 * time.Second):
+	case <-time.After(10 * time.Second):
 		t.Fatal("the breaker logged while holding its lock")
 	}
 
@@ -440,16 +459,21 @@ func TestBreakerLogsWithTheLockReleased(t *testing.T) {
 		"circuit-breaker: model state=closed→open",
 		"circuit-breaker: model state=open→half-open (cooldown elapsed)",
 		"circuit-breaker: model state=half-open→closed (probe succeeded)",
+		"circuit-breaker: model state=half-open→open (probe failed)",
+		"circuit-breaker: model keeps reopening its circuit",
+		"circuit-breaker: model state=half-open→open (probe drew exhaustion)",
 		"circuit-breaker: model state=closed→open (exhausted)",
+		"circuit-breaker: quota pin retargeted (fresh exhaustion reading)",
 		"circuit-breaker: " + causePinReleasedQuota,
 		"circuit-breaker: " + causePinReleasedOff,
 	}
 	for _, msg := range want {
 		if !capt.has(msg) {
-			t.Errorf("no %q line: the sequence did not drive that transition", msg)
+			t.Errorf("no %q line: the sequence did not drive that emission site", msg)
 		}
 	}
-	if n := len(manualResetLines(capt, id.String())); n != 4 {
-		t.Errorf("manual reset lines = %d, want 4 (1 scoped + 2 provider + 1 all)", n)
+	// 1 scoped (a) + 3 provider (b, c, e) + 1 all (d).
+	if n := len(manualResetLines(capt, id.String())); n != 5 {
+		t.Errorf("manual reset lines = %d, want 5 (1 scoped + 3 provider + 1 all)", n)
 	}
 }

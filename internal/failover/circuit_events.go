@@ -93,12 +93,17 @@ func (cb *CircuitBreaker) publishEvent(after *afterUnlock, providerID uuid.UUID,
 	if state == "open" && backedOff && cooldown == c.cooldownBackoff {
 		msg += backoffSuffix(cooldown, c.failedProbes)
 	}
+	// Stamped here, under the lock, rather than by Publish: two goroutines
+	// transitioning the same circuit publish once each has unlocked, in
+	// whichever order they resume, and a consumer ordering by timestamp must
+	// still see the transitions in the order they happened.
 	ev := events.Event{
-		Type:     "circuit_breaker." + state,
-		Severity: cb.severityForState(state),
-		Source:   "failover",
-		Message:  msg,
-		Metadata: meta,
+		Type:      "circuit_breaker." + state,
+		Severity:  cb.severityForState(state),
+		Source:    "failover",
+		Message:   msg,
+		Metadata:  meta,
+		Timestamp: time.Now(),
 	}
 	after.add(func() { events.Publish(ev) })
 }

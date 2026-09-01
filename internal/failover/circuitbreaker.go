@@ -206,7 +206,9 @@ func (cb *CircuitBreaker) notifyOpen(providerID uuid.UUID) {
 // per line on a backed-up store, and cb.mu is the lock every request's IsOpen
 // takes, so nothing may write a line while holding it. Every value a line or
 // event carries is computed under the lock; only the write waits. Used as
-// `defer func() { cb.mu.Unlock(); after.run() }()`.
+// `defer func() { cb.mu.Unlock(); after.run() }()`. Emission order across
+// goroutines is no longer transition order: two sections can unlock and then
+// resume in either order, so events carry the timestamp taken under the lock.
 type afterUnlock []func()
 
 func (a *afterUnlock) add(f func()) { *a = append(*a, f) }
@@ -481,7 +483,9 @@ func (cb *CircuitBreaker) openCircuit(after *afterUnlock, msg string, providerID
 		opens := c.opens
 		after.add(func() { cb.reportUnstable(providerID, providerName, model, opens) })
 	}
-	cb.notifyOpen(providerID)
+	// After the line and the event, as before: the callback is the quota
+	// refresh, whose retarget line must not precede the open it retargets.
+	after.add(func() { cb.notifyOpen(providerID) })
 }
 
 // reportUnstable says once that a model has opened its circuit repeatedly inside

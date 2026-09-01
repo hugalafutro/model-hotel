@@ -37,9 +37,10 @@ export function FleetCircuitReset({ primaryId }: { primaryId: string }) {
 		try {
 			const res = await api.fleetCircuitReset(groupId);
 			if (res.failed > 0) {
+				// "Not reset" covers the skipped members too; the body said why.
 				toast(
 					t("members.resetCircuitsPartial", {
-						failed: res.failed,
+						failed: res.failed + res.skipped,
 						members: res.members.length,
 					}),
 					"error",

@@ -31,7 +31,17 @@ export function entryCircuitStatus(
 	if (row.provider_open) return row;
 	if (row.circuits) {
 		const own = row.circuits.find((c) => c.model === modelId);
-		return own && own.state !== "closed" ? row : undefined;
+		if (!own || own.state === "closed") return undefined;
+		// The fuse reads state, the pin and backoff flags and the retry instant
+		// off the row it is given. The row's are the provider's most degraded
+		// circuit's, which may be a sibling's; this entry's fuse burns on its own.
+		return {
+			...row,
+			state: own.state,
+			quota_pinned: Boolean(own.quota_pinned),
+			backed_off: Boolean(own.backed_off),
+			next_retry_at: own.next_retry_at,
+		};
 	}
 	if (row.state === "half-open") return row;
 	return row.open_models?.includes(modelId) ? row : undefined;

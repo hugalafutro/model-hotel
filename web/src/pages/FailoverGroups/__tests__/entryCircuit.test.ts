@@ -85,22 +85,40 @@ describe("entryCircuitStatus", () => {
 	});
 
 	it("follows the entry's own circuit when the member reports circuits[]", () => {
-		// The row is the dominant circuit's: half-open here because "gpt-4" is
-		// owed a probe. The sibling has no circuit and so no fuse, the probing
-		// one keeps its fuse, and an open sibling circuit fuses on its own.
+		// The row is the dominant circuit's: open and quota-pinned for a day
+		// because of "gpt-4o". The sibling with no circuit has no fuse, the
+		// closed one neither, the probing one fuses as half-open with none of
+		// the pinned sibling's facts, and the pinned one fuses with its own.
 		const status = row({
-			state: "half-open",
+			state: "open",
 			provider_open: false,
+			quota_pinned: true,
+			next_retry_at: "2026-09-02T14:00:00Z",
 			circuits: [
 				{ model: "gpt-4", state: "half-open", consecutive_fails: 5 },
-				{ model: "gpt-4o", state: "open", consecutive_fails: 5 },
+				{
+					model: "gpt-4o",
+					state: "open",
+					consecutive_fails: 5,
+					quota_pinned: true,
+					next_retry_at: "2026-09-02T14:00:00Z",
+				},
 				{ model: "fine", state: "closed", consecutive_fails: 0 },
 			],
 		});
 		expect(entryCircuitStatus(status, "gpt-4o-mini")).toBeUndefined();
 		expect(entryCircuitStatus(status, "fine")).toBeUndefined();
-		expect(entryCircuitStatus(status, "gpt-4")).toBe(status);
-		expect(entryCircuitStatus(status, "gpt-4o")).toBe(status);
+		expect(entryCircuitStatus(status, "gpt-4")).toMatchObject({
+			state: "half-open",
+			quota_pinned: false,
+			backed_off: false,
+			next_retry_at: undefined,
+		});
+		expect(entryCircuitStatus(status, "gpt-4o")).toMatchObject({
+			state: "open",
+			quota_pinned: true,
+			next_retry_at: "2026-09-02T14:00:00Z",
+		});
 	});
 });
 
