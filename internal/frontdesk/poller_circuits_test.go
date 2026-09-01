@@ -40,6 +40,9 @@ func TestPollCircuitsOnce(t *testing.T) {
 	p.now = func() time.Time { return fixed }
 	withTok, _ := store.CreateMember(ctx, "wt", srv.URL, "tok")
 	noTok, _ := store.CreateMember(ctx, "nt", "http://127.0.0.1:9", "")
+	// A tokened member nobody answers for: no ledger, and no event, since it
+	// never had one to lose.
+	dead, _ := store.CreateMember(ctx, "dead", "http://127.0.0.1:2", "tok")
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
 	statusEvents := func() int {
@@ -73,6 +76,9 @@ func TestPollCircuitsOnce(t *testing.T) {
 	}
 	if snap[noTok.ID].Circuits != nil {
 		t.Errorf("tokenless member has a ledger: %+v", snap[noTok.ID].Circuits)
+	}
+	if snap[dead.ID].Circuits != nil {
+		t.Errorf("unreachable member has a ledger: %+v", snap[dead.ID].Circuits)
 	}
 	if n := statusEvents(); n != 1 {
 		t.Errorf("status events after the first read = %d, want 1", n)
@@ -118,5 +124,8 @@ func TestFetchMemberCircuits_OlderMember(t *testing.T) {
 	defer garbled.Close()
 	if _, err := p.fetchMemberCircuits(context.Background(), garbled.URL, "tok"); err == nil {
 		t.Error("a garbled body was accepted")
+	}
+	if _, err := p.fetchMemberCircuits(context.Background(), "http://bad host\x7f", "tok"); err == nil {
+		t.Error("an unbuildable member URL was accepted")
 	}
 }
