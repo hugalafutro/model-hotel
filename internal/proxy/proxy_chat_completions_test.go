@@ -89,9 +89,13 @@ func TestChatCompletions_ContextCancelDuringStream(t *testing.T) {
 	// Wait for completion
 	<-done
 
-	// Should get a response (may be partial or error)
-	if w.Code != http.StatusOK && w.Code != http.StatusRequestTimeout {
-		t.Errorf("expected 200 or 408, got %d", w.Code)
+	// Should get a response (may be partial or error). Which one depends on
+	// where the cancel lands: after the first byte the 200 stands (the stream
+	// simply ends), and before it the proxy answers the hangup with the 499 it
+	// reserves for a client that left (reqerror.go). Under the race detector on
+	// a loaded runner the 50ms above is not always enough for a first byte.
+	if w.Code != http.StatusOK && w.Code != http.StatusRequestTimeout && w.Code != statusClientClosedRequest {
+		t.Errorf("expected 200, 408 or 499, got %d", w.Code)
 	}
 }
 
