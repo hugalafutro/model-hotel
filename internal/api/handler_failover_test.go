@@ -725,6 +725,9 @@ func TestDeleteFailoverGroup_NonExistent(t *testing.T) {
 // reads instead of trusting a call counter.
 type mockCircuitBreaker struct {
 	statuses []failover.ProviderStatus
+	// detailCalls counts StatusDetail reads, so a test can pin that the
+	// aggregate poll never pays for the per-circuit list.
+	detailCalls int
 }
 
 func (m *mockCircuitBreaker) Status() []failover.ProviderStatus {
@@ -732,6 +735,7 @@ func (m *mockCircuitBreaker) Status() []failover.ProviderStatus {
 }
 
 func (m *mockCircuitBreaker) StatusDetail() []failover.ProviderStatus {
+	m.detailCalls++
 	return m.statuses
 }
 
@@ -840,6 +844,11 @@ func TestCircuitBreakerStatus_WithDetail(t *testing.T) {
 		}
 		if _, exists := resp["providers"]; exists {
 			t.Error("expected no providers field without ?detail=1")
+		}
+		// The aggregate poll reads only the counts, so it must take the lean
+		// Status and never build the per-circuit list.
+		if mockCB.detailCalls != 0 {
+			t.Errorf("StatusDetail called %d times without ?detail=1, want 0", mockCB.detailCalls)
 		}
 	})
 

@@ -355,6 +355,9 @@ func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, mo
 // It does not touch lastCharged: nothing landed, so the circuit ranks for
 // eviction exactly as it did, and a circuit that exists only because of this
 // stamp ranks first, behind every circuit a charge or credit ever reached.
+// That is also what keeps the creation here harmless at the cap: a burst of
+// saturated 429s across many untracked models evicts its own zero-stamped
+// entries first, never a circuit a charge ever reached.
 func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, model string) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
