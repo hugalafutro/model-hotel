@@ -2924,8 +2924,9 @@
 		},
 		"capNote": {
 			"label": "ei käyttö-APIa · raja täynnä {{time}}",
-			"tip": "Tällä palveluntarjoajalla ei ole käyttö-APIa; viimeisin rajaviesti: \"{{phrase}}\" klo {{when}} ({{status}} mallilla {{model}})",
-			"tipNoPhrase": "Tällä palveluntarjoajalla ei ole käyttö-APIa; viimeisin loppuun kulunut {{status}} klo {{when}} mallilla {{model}}"
+			"tip": "Tällä palveluntarjoajalla ei ole käyttö-APIa; viimeisin rajaviesti: \"{{phrase}}\" klo {{when}} (429 mallilla {{model}})",
+			"tipNoPhrase": "Tällä palveluntarjoajalla ei ole käyttö-APIa; viimeisin loppuun kulunut 429 klo {{when}} mallilla {{model}}",
+			"labelEntitled": "ei käyttö-APIa · saldo loppu {{time}}"
 		}
 	},
 	"failoverGroups": {

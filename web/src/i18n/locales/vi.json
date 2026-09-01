@@ -2924,8 +2924,9 @@
 		},
 		"capNote": {
 			"label": "không có API mức dùng · chạm giới hạn {{time}}",
-			"tip": "Nhà cung cấp này không có API mức dùng; thông báo giới hạn gần nhất: \"{{phrase}}\" lúc {{when}} (từ một {{status}} trên {{model}})",
-			"tipNoPhrase": "Nhà cung cấp này không có API mức dùng; lần cạn kiệt ({{status}}) gần nhất lúc {{when}} trên {{model}}"
+			"tip": "Nhà cung cấp này không có API mức dùng; thông báo giới hạn gần nhất: \"{{phrase}}\" lúc {{when}} (từ một 429 trên {{model}})",
+			"tipNoPhrase": "Nhà cung cấp này không có API mức dùng; lần cạn kiệt (429) gần nhất lúc {{when}} trên {{model}}",
+			"labelEntitled": "không có API mức dùng · hết số dư {{time}}"
 		}
 	},
 	"failoverGroups": {

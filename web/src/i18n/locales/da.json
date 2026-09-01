@@ -2924,8 +2924,9 @@
 		},
 		"capNote": {
 			"label": "ingen forbrugs-API · loft nået {{time}}",
-			"tip": "Ingen forbrugs-API for denne udbyder; seneste loftbesked: \"{{phrase}}\" kl. {{when}} (fra en {{status}} på {{model}})",
-			"tipNoPhrase": "Ingen forbrugs-API for denne udbyder; seneste opbrugt {{status}} kl. {{when}} på {{model}}"
+			"tip": "Ingen forbrugs-API for denne udbyder; seneste loftbesked: \"{{phrase}}\" kl. {{when}} (fra en 429 på {{model}})",
+			"tipNoPhrase": "Ingen forbrugs-API for denne udbyder; seneste opbrugt 429 kl. {{when}} på {{model}}",
+			"labelEntitled": "ingen forbrugs-API · saldo opbrugt {{time}}"
 		}
 	},
 	"failoverGroups": {

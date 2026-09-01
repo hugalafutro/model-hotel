@@ -2986,8 +2986,9 @@
 		},
 		"capNote": {
 			"label": "nessuna API di utilizzo · limite raggiunto {{time}}",
-			"tip": "Nessuna API di utilizzo per questo provider; ultimo messaggio di limite: \"{{phrase}}\" alle {{when}} (da un {{status}} su {{model}})",
-			"tipNoPhrase": "Nessuna API di utilizzo per questo provider; ultimo {{status}} per esaurimento alle {{when}} su {{model}}"
+			"tip": "Nessuna API di utilizzo per questo provider; ultimo messaggio di limite: \"{{phrase}}\" alle {{when}} (da un 429 su {{model}})",
+			"tipNoPhrase": "Nessuna API di utilizzo per questo provider; ultimo 429 per esaurimento alle {{when}} su {{model}}",
+			"labelEntitled": "nessuna API di utilizzo · saldo esaurito {{time}}"
 		}
 	},
 	"failoverGroups": {

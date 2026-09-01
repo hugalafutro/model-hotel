@@ -2986,8 +2986,9 @@
 		},
 		"capNote": {
 			"label": "fără API de utilizare · plafon atins {{time}}",
-			"tip": "Fără API de utilizare pentru acest furnizor; ultimul mesaj de plafon: \"{{phrase}}\" la {{when}} (dintr-un {{status}} pe {{model}})",
-			"tipNoPhrase": "Fără API de utilizare pentru acest furnizor; ultimul {{status}} de epuizare la {{when}} pe {{model}}"
+			"tip": "Fără API de utilizare pentru acest furnizor; ultimul mesaj de plafon: \"{{phrase}}\" la {{when}} (dintr-un 429 pe {{model}})",
+			"tipNoPhrase": "Fără API de utilizare pentru acest furnizor; ultimul 429 de epuizare la {{when}} pe {{model}}",
+			"labelEntitled": "fără API de utilizare · sold epuizat {{time}}"
 		}
 	},
 	"failoverGroups": {

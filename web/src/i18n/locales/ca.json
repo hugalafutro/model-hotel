@@ -2986,8 +2986,9 @@
 		},
 		"capNote": {
 			"label": "sense API d'ús · límit assolit {{time}}",
-			"tip": "Sense API d'ús per a aquest proveïdor; darrer missatge de límit: \"{{phrase}}\" a les {{when}} (d'un {{status}} a {{model}})",
-			"tipNoPhrase": "Sense API d'ús per a aquest proveïdor; darrer {{status}} d'esgotament a les {{when}} a {{model}}"
+			"tip": "Sense API d'ús per a aquest proveïdor; darrer missatge de límit: \"{{phrase}}\" a les {{when}} (d'un 429 a {{model}})",
+			"tipNoPhrase": "Sense API d'ús per a aquest proveïdor; darrer 429 d'esgotament a les {{when}} a {{model}}",
+			"labelEntitled": "sense API d'ús · saldo esgotat {{time}}"
 		}
 	},
 	"failoverGroups": {

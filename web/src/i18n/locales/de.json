@@ -2924,8 +2924,9 @@
 		},
 		"capNote": {
 			"label": "keine Nutzungs-API · Limit erreicht {{time}}",
-			"tip": "Keine Nutzungs-API für diesen Anbieter; letzte Limit-Meldung: \"{{phrase}}\" um {{when}} (aus einem {{status}} auf {{model}})",
-			"tipNoPhrase": "Keine Nutzungs-API für diesen Anbieter; letzter erschöpfter {{status}} um {{when}} auf {{model}}"
+			"tip": "Keine Nutzungs-API für diesen Anbieter; letzte Limit-Meldung: \"{{phrase}}\" um {{when}} (aus einem 429 auf {{model}})",
+			"tipNoPhrase": "Keine Nutzungs-API für diesen Anbieter; letzter erschöpfter 429 um {{when}} auf {{model}}",
+			"labelEntitled": "keine Nutzungs-API · Guthaben aufgebraucht {{time}}"
 		}
 	},
 	"failoverGroups": {

@@ -2924,8 +2924,9 @@
 		},
 		"capNote": {
 			"label": "no usage API · cap hit {{time}}",
-			"tip": "No usage API for this provider; last cap message: \"{{phrase}}\" at {{when}} (from a {{status}} on {{model}})",
-			"tipNoPhrase": "No usage API for this provider; last exhausted {{status}} at {{when}} on {{model}}"
+			"tip": "No usage API for this provider; last cap message: \"{{phrase}}\" at {{when}} (from a 429 on {{model}})",
+			"tipNoPhrase": "No usage API for this provider; last exhausted 429 at {{when}} on {{model}}",
+			"labelEntitled": "no usage API · balance spent {{time}}"
 		}
 	},
 	"failoverGroups": {

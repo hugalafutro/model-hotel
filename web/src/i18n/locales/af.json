@@ -2924,8 +2924,9 @@
 		},
 		"capNote": {
 			"label": "geen gebruik-API · limiet bereik {{time}}",
-			"tip": "Geen gebruik-API vir hierdie verskaffer; laaste limietboodskap: \"{{phrase}}\" om {{when}} (van 'n {{status}} op {{model}})",
-			"tipNoPhrase": "Geen gebruik-API vir hierdie verskaffer; laaste uitgeputte {{status}} om {{when}} op {{model}}"
+			"tip": "Geen gebruik-API vir hierdie verskaffer; laaste limietboodskap: \"{{phrase}}\" om {{when}} (van 'n 429 op {{model}})",
+			"tipNoPhrase": "Geen gebruik-API vir hierdie verskaffer; laaste uitgeputte 429 om {{when}} op {{model}}",
+			"labelEntitled": "geen gebruik-API · saldo opgebruik {{time}}"
 		}
 	},
 	"failoverGroups": {

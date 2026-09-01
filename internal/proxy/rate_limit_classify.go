@@ -506,15 +506,23 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 		rl = h.classify429Attempt(ctx, st, candidate, resp)
 	}
 	// Every 429 lands here, on all three serve paths, so this is the one place
-	// to count them by class. An ineligible one (failover on 429 off) has the
-	// zero verdict, which reads as unknown: nothing classified it.
+	// to count them by class and to keep the cap ledger. Both see a 429 that
+	// failover may not act on too (failover_on_rate_limit off): that is a
+	// routing choice, and it must not blind the badge that exists for the
+	// providers nothing else reports on. Such a 429 is classified by a read
+	// that leaves the request untouched, so what the client gets is exactly
+	// what it got before.
 	if resp.StatusCode == http.StatusTooManyRequests {
-		metrics.RecordUpstreamRateLimit(candidate.provider.Name, candidateModelID(candidate), rl.class.String())
-	}
-	// An exhausted body is the one quota reading a provider with no usage API
-	// ever gives; the ledger keeps the latest per provider for its badge.
-	if rl.class == rateLimitExhausted {
-		h.CapLedger().Note(candidate.provider.ID, provider.CapNote{Phrase: rl.phrase, Model: candidateModelID(candidate), Status: resp.StatusCode, At: time.Now()})
+		seen := rl
+		if !isFailoverEligible {
+			seen = h.peekRateLimitVerdict(ctx, resp)
+		}
+		metrics.RecordUpstreamRateLimit(candidate.provider.Name, candidateModelID(candidate), seen.class.String())
+		// An exhausted body is the one quota reading a provider with no usage
+		// API ever gives; the ledger keeps the latest per provider for its badge.
+		if seen.class == rateLimitExhausted {
+			h.CapLedger().Note(candidate.provider.ID, provider.CapNote{Phrase: seen.phrase, Model: candidateModelID(candidate), Entitled: seen.entitled, At: time.Now()})
+		}
 	}
 	// The saturated 429 teaches the in-flight learner: the pool is provably
 	// smaller than the load that included this request, so the allowance is
@@ -531,6 +539,24 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 	}
 	h.recordBreakerOutcome(ctx, st, candidate, resp.StatusCode, isFailoverEligible, rl)
 	return rl
+}
+
+// peekRateLimitVerdict classifies a 429 that failover may not act on, for the
+// 429 counter and the cap ledger only. It rebuffers what it read for whoever
+// forwards the body and writes nothing onto the request state, so the
+// response and its log row are exactly what they were. No behavioural
+// fallback: that reads the breaker, and a verdict nothing acts on does not
+// earn the lookup. rate_limit_classify_enabled off classifies nothing, as
+// everywhere.
+func (h *Handler) peekRateLimitVerdict(ctx context.Context, resp *http.Response) rateLimitVerdict {
+	if !h.settingsRepo.GetBool(ctx, "rate_limit_classify_enabled", true) {
+		return rateLimitVerdict{}
+	}
+	head, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+	rest := resp.Body
+	resp.Body = rebufferedBody{Reader: io.MultiReader(bytes.NewReader(head), rest), Closer: rest}
+	maxWait := h.settingsRepo.GetDuration(ctx, "rate_limit_saturation_max_wait", defaultSaturationMaxWait)
+	return classifyRateLimit(resp.StatusCode, resp.Header, util.SanitizeLogBody(string(head), 10000), maxWait)
 }
 
 // deferSaturatedRetry closes out an attempt whose LAST candidate answered a

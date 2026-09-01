@@ -23,10 +23,11 @@ export interface Provider {
 }
 export interface CapNote {
 	/** The phrase-table entry the classifier matched; absent when the headers
-	 *  or the behavioural fallback decided. Never the response body. */
+	 *  decided. Never the response body. */
 	phrase?: string;
 	model: string;
-	status: number;
+	/** A spent balance or plan (a person fixes it) rather than a window. */
+	entitled?: boolean;
 	at: string;
 }
 export interface CreateProviderRequest {

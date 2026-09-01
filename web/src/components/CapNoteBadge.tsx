@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { CapNote } from "../api/types";
+import { formatTime, formatTimestamp } from "../utils/format";
 
 // What the gateway cannot know, made explicit. A provider with no usage API
 // (a plain OpenAI-compatible endpoint, or Ollama Cloud, whose account API says
@@ -10,28 +11,25 @@ import type { CapNote } from "../api/types";
 // cap has been hit since, without guessing which window.
 export function CapNoteBadge({ note }: { note: CapNote }) {
 	const { t } = useTranslation();
-	const at = new Date(note.at);
-	const when = Number.isNaN(at.getTime()) ? note.at : at.toLocaleString();
-	const time = Number.isNaN(at.getTime()) ? note.at : at.toLocaleTimeString();
+	const valid = !Number.isNaN(new Date(note.at).getTime());
+	const when = valid ? formatTimestamp(note.at) : note.at;
+	const time = valid ? formatTime(note.at) : note.at;
 	const tip = note.phrase
 		? t("components.capNote.tip", {
 				phrase: note.phrase,
 				when,
 				model: note.model,
-				status: note.status,
 			})
-		: t("components.capNote.tipNoPhrase", {
-				when,
-				model: note.model,
-				status: note.status,
-			});
+		: t("components.capNote.tipNoPhrase", { when, model: note.model });
 	return (
 		<span
 			className="px-2 py-1.5 text-xs font-medium ui-badge ui-badge-warning cursor-help"
 			data-testid="cap-note-badge"
 			title={tip}
 		>
-			{t("components.capNote.label", { time })}
+			{note.entitled
+				? t("components.capNote.labelEntitled", { time })
+				: t("components.capNote.label", { time })}
 		</span>
 	);
 }

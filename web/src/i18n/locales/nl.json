@@ -2924,8 +2924,9 @@
 		},
 		"capNote": {
 			"label": "geen gebruiks-API · limiet bereikt {{time}}",
-			"tip": "Geen gebruiks-API voor deze provider; laatste limietmelding: \"{{phrase}}\" om {{when}} (uit een {{status}} op {{model}})",
-			"tipNoPhrase": "Geen gebruiks-API voor deze provider; laatste uitgeputte {{status}} om {{when}} op {{model}}"
+			"tip": "Geen gebruiks-API voor deze provider; laatste limietmelding: \"{{phrase}}\" om {{when}} (uit een 429 op {{model}})",
+			"tipNoPhrase": "Geen gebruiks-API voor deze provider; laatste uitgeputte 429 om {{when}} op {{model}}",
+			"labelEntitled": "geen gebruiks-API · saldo op {{time}}"
 		}
 	},
 	"failoverGroups": {

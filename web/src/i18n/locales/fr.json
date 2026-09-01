@@ -2986,8 +2986,9 @@
 		},
 		"capNote": {
 			"label": "pas d'API d'usage · plafond atteint {{time}}",
-			"tip": "Pas d'API d'usage pour ce fournisseur ; dernier message de plafond : \"{{phrase}}\" à {{when}} (d'un {{status}} sur {{model}})",
-			"tipNoPhrase": "Pas d'API d'usage pour ce fournisseur ; dernier {{status}} d'épuisement à {{when}} sur {{model}}"
+			"tip": "Pas d'API d'usage pour ce fournisseur ; dernier message de plafond : \"{{phrase}}\" à {{when}} (d'un 429 sur {{model}})",
+			"tipNoPhrase": "Pas d'API d'usage pour ce fournisseur ; dernier 429 d'épuisement à {{when}} sur {{model}}",
+			"labelEntitled": "pas d'API d'usage · solde épuisé {{time}}"
 		}
 	},
 	"failoverGroups": {

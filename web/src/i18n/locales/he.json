@@ -2986,8 +2986,9 @@
 		},
 		"capNote": {
 			"label": "אין API שימוש · המכסה נוצלה {{time}}",
-			"tip": "אין API שימוש לספק זה; הודעת המכסה האחרונה: \"{{phrase}}\" ב-{{when}} (מ-{{status}} על {{model}})",
-			"tipNoPhrase": "אין API שימוש לספק זה; מיצוי {{status}} אחרון ב-{{when}} על {{model}}"
+			"tip": "אין API שימוש לספק זה; הודעת המכסה האחרונה: \"{{phrase}}\" ב-{{when}} (מ-429 על {{model}})",
+			"tipNoPhrase": "אין API שימוש לספק זה; מיצוי 429 אחרון ב-{{when}} על {{model}}",
+			"labelEntitled": "אין API שימוש · היתרה אזלה {{time}}"
 		}
 	},
 	"failoverGroups": {

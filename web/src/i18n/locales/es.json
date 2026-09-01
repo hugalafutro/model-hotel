@@ -2986,8 +2986,9 @@
 		},
 		"capNote": {
 			"label": "sin API de uso · límite alcanzado {{time}}",
-			"tip": "Sin API de uso para este proveedor; último mensaje de límite: \"{{phrase}}\" a las {{when}} (de un {{status}} en {{model}})",
-			"tipNoPhrase": "Sin API de uso para este proveedor; último {{status}} por agotamiento a las {{when}} en {{model}}"
+			"tip": "Sin API de uso para este proveedor; último mensaje de límite: \"{{phrase}}\" a las {{when}} (de un 429 en {{model}})",
+			"tipNoPhrase": "Sin API de uso para este proveedor; último 429 por agotamiento a las {{when}} en {{model}}",
+			"labelEntitled": "sin API de uso · saldo agotado {{time}}"
 		}
 	},
 	"failoverGroups": {

@@ -56,7 +56,7 @@ func TestProviders_LastCapOverlay(t *testing.T) {
 
 	ledger := provider.NewCapLedger()
 	at := time.Date(2026, 8, 31, 14, 51, 0, 0, time.UTC)
-	ledger.Note(uuid.MustParse(capped), provider.CapNote{Phrase: "session usage limit", Model: "gpt-oss:120b", Status: 429, At: at})
+	ledger.Note(uuid.MustParse(capped), provider.CapNote{Phrase: "session usage limit", Model: "gpt-oss:120b", At: at})
 	h.SetCapLedger(ledger)
 
 	var list []struct {
@@ -81,7 +81,7 @@ func TestProviders_LastCapOverlay(t *testing.T) {
 	var one struct {
 		LastCap *provider.CapNote `json:"last_cap"`
 	}
-	if err := json.Unmarshal(get("/providers/"+capped), &one); err != nil || one.LastCap == nil || one.LastCap.Status != 429 {
+	if err := json.Unmarshal(get("/providers/"+capped), &one); err != nil || one.LastCap == nil || one.LastCap.Model != "gpt-oss:120b" {
 		t.Errorf("detail last_cap = %+v (%v)", one.LastCap, err)
 	}
 }

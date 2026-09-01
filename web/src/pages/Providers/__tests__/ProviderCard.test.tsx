@@ -80,7 +80,6 @@ describe("ProviderCard", () => {
 		const lastCap = {
 			phrase: "session usage limit",
 			model: "gpt-oss:120b",
-			status: 429,
 			at: "2026-08-31T14:51:00Z",
 		};
 
@@ -90,6 +89,22 @@ describe("ProviderCard", () => {
 					<ProviderCard
 						{...defaultProps}
 						provider={{ ...mockProvider, last_cap: lastCap }}
+					/>
+				</AllProviders>,
+			);
+			expect(screen.getByTestId("cap-note-badge")).toBeInTheDocument();
+		});
+
+		it("shows it beside Ollama Cloud's plan badge, whose account API never says the usage", () => {
+			render(
+				<AllProviders>
+					<ProviderCard
+						{...defaultProps}
+						provider={{
+							...mockProvider,
+							base_url: "https://ollama.com",
+							last_cap: lastCap,
+						}}
 					/>
 				</AllProviders>,
 			);

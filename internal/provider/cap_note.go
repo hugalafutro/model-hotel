@@ -1,7 +1,6 @@
 package provider
 
 import (
-	"maps"
 	"sync"
 	"time"
 
@@ -17,13 +16,14 @@ import (
 
 // CapNote is the last exhausted 429 a provider answered: the phrase the
 // classifier matched (the phrase-table key, never the body), the model that
-// drew it, the status and when. Phrase is empty when the headers or the
-// behavioural fallback decided the class rather than a phrase.
+// drew it, and when. Phrase is empty when the headers decided the class
+// rather than a phrase. Entitled marks an exhaustion a person fixes (a spent
+// balance, a plan) rather than a window that rolls over.
 type CapNote struct {
-	Phrase string    `json:"phrase,omitempty"`
-	Model  string    `json:"model"`
-	Status int       `json:"status"`
-	At     time.Time `json:"at"`
+	Phrase   string    `json:"phrase,omitempty"`
+	Model    string    `json:"model"`
+	Entitled bool      `json:"entitled,omitempty"`
+	At       time.Time `json:"at"`
 }
 
 // CapLedger holds one CapNote per provider, in memory: a restart forgets them,
@@ -58,16 +58,4 @@ func (l *CapLedger) Get(providerID uuid.UUID) (CapNote, bool) {
 	defer l.mu.RUnlock()
 	n, ok := l.notes[providerID]
 	return n, ok
-}
-
-// All returns a copy of the ledger.
-func (l *CapLedger) All() map[uuid.UUID]CapNote {
-	if l == nil {
-		return nil
-	}
-	l.mu.RLock()
-	defer l.mu.RUnlock()
-	out := make(map[uuid.UUID]CapNote, len(l.notes))
-	maps.Copy(out, l.notes)
-	return out
 }
