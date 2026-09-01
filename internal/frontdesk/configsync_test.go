@@ -99,6 +99,7 @@ func TestConfigSyncApplies(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -140,6 +141,67 @@ func TestConfigSyncApplies(t *testing.T) {
 	}
 }
 
+// Choosing which member's config the whole fleet copies is an admin-token
+// confirmed decision: putAutoSync refuses to repoint a configured primary
+// without one ("confirm the admin token to change or clear the configured
+// primary"). A manual sync reaches the identical outcome — every other member,
+// the designated primary included, is overwritten with the chosen member's
+// config — so it must not accept a source the operator never designated.
+//
+// Without this, an operator-tier paired device (a tier below the admin token,
+// and one that can disable auto-sync on its own) could roll the whole fleet
+// back to a stale member's config and leave it there.
+func TestConfigSyncRefusesUndesignatedSource(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	other := newStubConfigMember(t, "otoken")
+	replica := newStubConfigMember(t, "rtoken")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	om, _ := store.CreateMember(t.Context(), "other", other.srv.URL, "otoken")
+	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
+
+	t.Run("no primary designated", func(t *testing.T) {
+		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+		if rec.Code != http.StatusConflict {
+			t.Fatalf("sync with no designation = %d (%s), want 409", rec.Code, rec.Body.String())
+		}
+		if other.gotImport || replica.gotImport {
+			t.Error("nothing may be pushed before a primary is designated")
+		}
+	})
+
+	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
+		t.Fatalf("designate: %v", err)
+	}
+
+	t.Run("source other than the designated primary", func(t *testing.T) {
+		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+om.ID+`"}`, true)
+		if rec.Code != http.StatusForbidden {
+			t.Fatalf("sync from a non-designated member = %d (%s), want 403", rec.Code, rec.Body.String())
+		}
+		// The decisive assertion: no member was written to. A 403 that still
+		// pushed would be no protection at all.
+		if replica.gotImport || primary.gotImport {
+			t.Error("a refused sync must push nothing")
+		}
+		if other.gotImport {
+			t.Error("the rogue source must not be read from either")
+		}
+	})
+
+	t.Run("the designated primary still syncs", func(t *testing.T) {
+		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("sync from the designated primary = %d (%s), want 200", rec.Code, rec.Body.String())
+		}
+		if !replica.gotImport {
+			t.Error("the sanctioned path must still push to the replica")
+		}
+	})
+}
+
 // TestConfigSyncAttributesInitiator proves a manual sync stamps who ran it on
 // both the member's sync-reason marker (surfaced in the Members table / member
 // detail) and the audit event's metadata, so the log can tell an admin-driven
@@ -151,6 +213,7 @@ func TestConfigSyncAttributesInitiator(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -218,6 +281,7 @@ func TestConfigSyncImportUsesLongerDeadlineThanProbe(t *testing.T) {
 	replica.importDelay = 200 * time.Millisecond
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -242,6 +306,7 @@ func TestConfigSyncReportsFailure(t *testing.T) {
 	replica.importBody = `{"schema_version_ok":true,"master_key_ok":false}`
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -284,6 +349,7 @@ func TestConfigSyncTakesNoPreSyncBackup(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -317,6 +383,7 @@ func TestConfigSyncConvergedMemberNotImported(t *testing.T) {
 	converged.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	cm, _ := store.CreateMember(t.Context(), "converged", converged.srv.URL, "ctoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -378,6 +445,7 @@ func TestConfigSyncPrimaryExportNon200(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true); rec.Code != http.StatusBadGateway {
 		t.Fatalf("sync non-200 export = %d, want 502", rec.Code)
 	}
@@ -391,6 +459,7 @@ func TestConfigSyncReplicaBadJSON(t *testing.T) {
 	bad := newStubConfigMember(t, "btoken")
 	bad.importBody = "not json"
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	store.CreateMember(t.Context(), "bad-json", bad.srv.URL, "btoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -413,6 +482,7 @@ func TestConfigSyncPrimaryExportFails(t *testing.T) {
 	// The primary cannot serve its export.
 	primary.srv.Close()
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 
 	// Sync surfaces a bad-gateway when the primary export fails.
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
@@ -434,6 +504,7 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	badSchema.importCode = http.StatusUnprocessableEntity
 	badSchema.importBody = `{"schema_version_ok":false,"master_key_ok":false}`
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	nm, _ := store.CreateMember(t.Context(), "not-applied", notApplied.srv.URL, "ntoken")
 	bm, _ := store.CreateMember(t.Context(), "bad-schema", badSchema.srv.URL, "stoken")
 	um, _ := store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
@@ -571,6 +642,7 @@ func TestConfigSyncSurvivesClientDisconnect(t *testing.T) {
 	t.Cleanup(primary.Close)
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -619,6 +691,7 @@ func TestAutoSyncStatusReportsLastSyncAt(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -665,6 +738,7 @@ func TestConfigSyncHoldsVersionSkew(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	setMemberVersion(srv, pm.ID, "v1.0.0")
 	setMemberVersion(srv, rm.ID, "v0.9.0")

@@ -206,6 +206,49 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The source must be the primary the operator designated. Picking which
+	// member's config the fleet copies is an admin-token confirmed decision
+	// (putAutoSync -> SetAutoSyncGuarded, "confirm the admin token to change or
+	// clear the configured primary"), and a manual sync reaches the identical
+	// outcome by another door: every other member, the designated primary
+	// included, is overwritten with the chosen member's config. Taking the id
+	// from the request body let the operator tier — which can also disable
+	// auto-sync unaided, so the rollback sticks — roll the whole fleet back to a
+	// stale member's config.
+	//
+	// No shipped client loses anything: the web wizard designates through the
+	// guarded endpoint and awaits it before calling this, Bellhop sends the
+	// designated id, and the auto-sync loop reads the designation directly
+	// rather than coming through this handler. "Repair the fleet from member X"
+	// is still available, as the two steps it always was: repoint (admin token),
+	// then sync.
+	// Asked before the designation read below, because that read hits a store
+	// Shutdown has already closed and would answer a generic internal error
+	// where the operator needs to be told to run the sync again after the
+	// restart. StartBackground still backstops the race.
+	if s.shuttingDown() {
+		http.Error(w, "front desk is shutting down; run the sync again once it is back", http.StatusServiceUnavailable)
+		return
+	}
+	cfg, err := s.store.GetAutoSync(r.Context())
+	if err != nil {
+		writeError(w, err)
+		return
+	}
+	switch {
+	case cfg.PrimaryID == "":
+		// A precondition, not a permission problem: there is nothing to copy
+		// from until somebody says which member is authoritative.
+		http.Error(w, "designate a fleet primary before syncing", http.StatusConflict)
+		return
+	case req.PrimaryID != cfg.PrimaryID:
+		// Same status and shape as the repoint refusal this is closing the door
+		// on, so a caller that already handles that one handles this too.
+		debuglog.Warn("frontdesk: refused config sync from an undesignated source", "requested", req.PrimaryID, "designated", cfg.PrimaryID)
+		http.Error(w, "the sync source must be the designated fleet primary; change the primary first (admin token required)", http.StatusForbidden)
+		return
+	}
+
 	var run configSyncRun
 	done := make(chan struct{})
 	if !s.StartBackground(s.detachedContext(r), func(ctx context.Context) {
