@@ -14,10 +14,12 @@ import (
 // ReadHeaderTimeout bounds the request line and headers. IdleTimeout bounds a
 // keep-alive connection between requests; when it is unset net/http falls back
 // to ReadTimeout, and with that unset too it waits for the next request
-// forever. 120s sits above Traefik's default 90s upstream idle so the proxy in
-// front of the gateway drops an idle connection first: the other way round
-// races a request the proxy has just started writing into a connection the
-// gateway has just closed.
+// forever. The server side of an idle race must be the longer one, or a client
+// that reuses a pooled connection at the last moment writes a request into a
+// connection the gateway has just closed. 180s sits above every pool that
+// holds a connection to these listeners: Traefik's default 90s upstream idle,
+// Go's default 90s transport, and the gateway's own 120s outbound pool (one
+// Model Hotel is a valid provider for another).
 //
 // There is deliberately no ReadTimeout and no WriteTimeout. A streaming chat
 // completion or an /api/events stream runs for minutes to hours, and
@@ -26,46 +28,66 @@ import (
 // small JSON body without extending every request to the upload's budget.
 const (
 	ReadHeaderTimeout = 10 * time.Second
-	IdleTimeout       = 120 * time.Second
+	IdleTimeout       = 180 * time.Second
 )
 
 // Body read budget. A request with a body must deliver all of it within
-// bodyReadBase plus one second per bodyReadFloor bytes of its declared
-// Content-Length, capped at bodyReadCap.
+// bodyReadBase plus one second per bodyReadFloor bytes of its length, capped
+// at bodyReadCap.
 //
 // The base covers every control-plane JSON body (1 MiB ceiling) and a plain
 // chat request with room to spare. The floor is a deliberately poor uplink
 // (128 KiB/s, about 1 Mbit/s): a 20 MiB vision request earns 160s on top of
 // the base, and the largest legitimate body, the 100 MiB backup restore, earns
-// 800s. The cap holds a hostile Content-Length to a bounded cost: whatever
-// length is declared, the connection is released after fifteen minutes. A
-// chunked body declares no length and gets the base alone; every client this
-// gateway serves (OpenAI SDKs, browsers, curl -d) sends a Content-Length.
+// 800s. The cap is the last line against a hostile Content-Length: whatever
+// is declared, the connection is released after fifteen minutes.
+//
+// The length that earns time is the declared Content-Length clamped to the
+// largest body the listener accepts (NewServer's maxBody), and a body that
+// declares no length at all (Transfer-Encoding: chunked, which any Go client
+// streaming a file or pipe, a browser fetch with a stream body, and curl -T
+// all send) is budgeted as that largest body. A chunked 25 MiB transcription
+// upload therefore gets the same time as one that declared its size, while a
+// declared or undeclared length past what the listener would accept anyway
+// earns nothing beyond it.
 const (
 	bodyReadBase  = 30 * time.Second
 	bodyReadFloor = int64(128 << 10)
 	bodyReadCap   = 15 * time.Minute
 )
 
-// BodyReadBudget is the time a request declaring contentLength bytes of body
-// gets to deliver all of it. A missing (-1) or empty length gets the base.
-func BodyReadBudget(contentLength int64) time.Duration {
-	if contentLength <= 0 {
+// BodyReadBudget is the time a body of length bytes gets to arrive. An
+// empty length gets the base; the clamping of a declared length and the
+// treatment of an undeclared one happen in bodyBudgetFor.
+func BodyReadBudget(length int64) time.Duration {
+	if length <= 0 {
 		return bodyReadBase
 	}
-	// Whole seconds via integer division, so a Content-Length near MaxInt64
-	// cannot overflow a Duration multiplication before the cap applies.
-	secs := contentLength / bodyReadFloor
+	// Whole seconds via integer division, so a length near MaxInt64 cannot
+	// overflow a Duration multiplication before the cap applies.
+	secs := length / bodyReadFloor
 	if secs >= int64((bodyReadCap-bodyReadBase)/time.Second) {
 		return bodyReadCap
 	}
 	return bodyReadBase + time.Duration(secs)*time.Second
 }
 
-// BodyReadDeadline bounds the time a request gets to deliver its body. It
-// belongs directly under the http.Server, outside every other wrapper: the
-// deadline goes through http.ResponseController, which needs a path down to
-// net/http's own ResponseWriter.
+// bodyBudgetFor returns the budget function for a listener that accepts at
+// most maxBody bytes of body: a declared length is clamped to maxBody and an
+// undeclared one (ContentLength -1) is taken as maxBody.
+func bodyBudgetFor(maxBody int64) func(contentLength int64) time.Duration {
+	return func(contentLength int64) time.Duration {
+		if contentLength < 0 || contentLength > maxBody {
+			contentLength = maxBody
+		}
+		return BodyReadBudget(contentLength)
+	}
+}
+
+// bodyDeadline bounds the time a request gets to deliver its body. It sits
+// directly under the http.Server, outside every other wrapper: the deadline
+// goes through http.ResponseController, which needs a path down to net/http's
+// own ResponseWriter.
 //
 // Only a request that carries a body gets a deadline. For a bodiless request
 // net/http has already started its background read (the one that turns a
@@ -73,37 +95,46 @@ func BodyReadBudget(contentLength int64) time.Duration {
 // one on the connection now would cancel every /api/events stream and every
 // long GET at the deadline instead. For a request with a body that read is
 // deferred until the body reaches EOF, and net/http clears the connection's
-// read deadline at that moment (connReader.startBackgroundRead), so a stream
-// that begins after its body was read runs unbounded exactly as before. The
-// deadline therefore covers the body and nothing else.
+// read deadline when it starts it (connReader.startBackgroundRead), so a
+// stream that begins after its body was read runs unbounded. The one path
+// that skips the clear is a pipelined connection whose next request's first
+// byte already arrived (hasByte), and there nothing reads the connection
+// during the stream, so the stream is untouched and only keep-alive reuse is
+// lost. The deadline therefore covers the body and nothing else.
+//
+// The budget starts when the handler chain is entered, not at the first body
+// byte, so the time routing and auth take before the handler reads counts
+// against it; today that is milliseconds. The same holds for a client that
+// sends Expect: 100-continue and waits for the handler's first read.
 //
 // A body the handler stops reading before EOF keeps the deadline, which then
 // bounds net/http's post-handler drain of the remainder as well: a client that
 // declares a body, gets rejected before it is read (a 401 or a 404) and then
 // trickles the rest no longer holds the connection open through that drain.
-func BodyReadDeadline(next http.Handler) http.Handler {
-	return bodyReadDeadline(next, BodyReadBudget)
+type bodyDeadline struct {
+	next   http.Handler
+	budget func(contentLength int64) time.Duration
 }
 
-func bodyReadDeadline(next http.Handler, budget func(contentLength int64) time.Duration) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Body != nil && r.Body != http.NoBody {
-			// The error is dropped on purpose: a writer that cannot take a
-			// deadline (a recorder in a test, a wrapper without Unwrap) keeps
-			// the unbounded read it had, and there is nothing to fail the
-			// request over.
-			_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(budget(r.ContentLength)))
-		}
-		next.ServeHTTP(w, r)
-	})
+func (h *bodyDeadline) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.Body != nil && r.Body != http.NoBody {
+		// The error is dropped on purpose: a writer that cannot take a
+		// deadline (a recorder in a test, a wrapper without Unwrap) keeps the
+		// unbounded read it had, and there is nothing to fail the request
+		// over.
+		_ = http.NewResponseController(w).SetReadDeadline(time.Now().Add(h.budget(r.ContentLength)))
+	}
+	h.next.ServeHTTP(w, r)
 }
 
 // NewServer builds the http.Server both binaries listen on, with the posture
-// described above and handler wrapped in BodyReadDeadline.
-func NewServer(addr string, handler http.Handler) *http.Server {
+// described above. maxBody is the largest request body the listener's routes
+// accept (the gateway's MAX_REQUEST_SIZE, Front Desk's JSON ceiling); it sizes
+// the body budget for a request that declares no length or more than that.
+func NewServer(addr string, handler http.Handler, maxBody int64) *http.Server {
 	return &http.Server{
 		Addr:              addr,
-		Handler:           BodyReadDeadline(handler),
+		Handler:           &bodyDeadline{next: handler, budget: bodyBudgetFor(maxBody)},
 		ReadHeaderTimeout: ReadHeaderTimeout,
 		IdleTimeout:       IdleTimeout,
 	}

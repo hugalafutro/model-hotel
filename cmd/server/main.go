@@ -415,7 +415,7 @@ func main() {
 
 	// Listener posture (header/idle timeouts, per-request body deadline) is
 	// decided once in httpx.NewServer, shared with Front Desk.
-	server := httpx.NewServer(cfg.Port, r)
+	server := httpx.NewServer(cfg.Port, r, cfg.MaxRequestSize)
 
 	go func() {
 		// Startup banner (direct stdout: slog escapes \n, making ASCII art

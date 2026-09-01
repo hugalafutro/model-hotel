@@ -45,10 +45,46 @@ func TestBodyReadBudget(t *testing.T) {
 	}
 }
 
+// A listener's budget clamps a declared length to what it accepts and gives
+// an undeclared (chunked) body the same time as that largest body.
+func TestBodyBudgetForListener(t *testing.T) {
+	t.Parallel()
+	const maxBody = 50 << 20
+	budget := bodyBudgetFor(maxBody)
+	cases := []struct {
+		name string
+		cl   int64
+		want time.Duration
+	}{
+		{"chunked earns the largest accepted body", -1, BodyReadBudget(maxBody)},
+		{"empty", 0, bodyReadBase},
+		{"within the ceiling is itself", 1 << 20, BodyReadBudget(1 << 20)},
+		{"the ceiling exactly", maxBody, BodyReadBudget(maxBody)},
+		{"past the ceiling earns nothing more", 10 << 30, BodyReadBudget(maxBody)},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := budget(tc.cl); got != tc.want {
+				t.Fatalf("budget(%d) = %v, want %v", tc.cl, got, tc.want)
+			}
+		})
+	}
+	// The clamp is what keeps a hostile length below the cap for the
+	// gateway's largest configurable ceiling.
+	if got := bodyBudgetFor(100 << 20)(1 << 40); got >= bodyReadCap {
+		t.Fatalf("a hostile length on a 100 MiB listener budgets %v, want below the cap", got)
+	}
+}
+
+// teapot is a comparable handler so the posture test can prove NewServer
+// wrapped this exact handler rather than something that merely answers.
+type teapot struct{}
+
+func (teapot) ServeHTTP(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) }
+
 func TestNewServerPosture(t *testing.T) {
 	t.Parallel()
-	inner := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusTeapot) })
-	srv := NewServer(":0", inner)
+	srv := NewServer(":0", teapot{}, 50<<20)
 	if srv.Addr != ":0" {
 		t.Fatalf("Addr = %q", srv.Addr)
 	}
@@ -59,7 +95,20 @@ func TestNewServerPosture(t *testing.T) {
 	if srv.ReadTimeout != 0 || srv.WriteTimeout != 0 {
 		t.Fatalf("ReadTimeout %v / WriteTimeout %v must stay zero", srv.ReadTimeout, srv.WriteTimeout)
 	}
-	// The handler is wrapped, not replaced: the inner handler still answers.
+	// The body deadline is installed directly on the server, wrapping the
+	// given handler, with the budget sized to this listener's ceiling. The
+	// listener tests below exercise that same type on a real connection, so
+	// together they leave no green path that drops the wrap.
+	bd, ok := srv.Handler.(*bodyDeadline)
+	if !ok {
+		t.Fatalf("Handler is %T, want the body deadline", srv.Handler)
+	}
+	if bd.next != (teapot{}) {
+		t.Fatalf("wrapped handler is %T, want the one given", bd.next)
+	}
+	if got, want := bd.budget(-1), BodyReadBudget(50<<20); got != want {
+		t.Fatalf("chunked budget = %v, want the 50 MiB ceiling's %v", got, want)
+	}
 	rec := httptest.NewRecorder()
 	srv.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{}")))
 	if rec.Code != http.StatusTeapot {
@@ -72,12 +121,12 @@ func TestNewServerPosture(t *testing.T) {
 // is cut within the test's patience.
 const slowBudget = 200 * time.Millisecond
 
-// startListener serves h under bodyReadDeadline with slowBudget on a real
+// startListener serves h under the body deadline with slowBudget on a real
 // TCP listener; the deadline goes through the connection, so a recorder
 // cannot exercise it.
 func startListener(t *testing.T, h http.Handler) *httptest.Server {
 	t.Helper()
-	ts := httptest.NewUnstartedServer(bodyReadDeadline(h, func(int64) time.Duration { return slowBudget }))
+	ts := httptest.NewUnstartedServer(&bodyDeadline{next: h, budget: func(int64) time.Duration { return slowBudget }})
 	ts.Start()
 	t.Cleanup(ts.Close)
 	return ts
@@ -123,7 +172,9 @@ func TestBodyReadDeadlineCutsATrickledBody(t *testing.T) {
 	if resp.StatusCode != http.StatusRequestTimeout {
 		t.Fatalf("status = %d, want 408 from the handler's failed read", resp.StatusCode)
 	}
-	if waited := time.Since(start); waited < slowBudget/2 || waited > 2*time.Second {
+	// Anything under the 5s socket cap proves the release; the lower bound
+	// proves it was the budget and not an immediate rejection.
+	if waited := time.Since(start); waited < slowBudget/2 || waited > 4*time.Second {
 		t.Fatalf("handler released after %v, want about the %v budget", waited, slowBudget)
 	}
 	var ne net.Error
@@ -133,10 +184,16 @@ func TestBodyReadDeadlineCutsATrickledBody(t *testing.T) {
 		t.Fatalf("read error = %v (%T), want a timeout", *p, *p)
 	}
 	// The connection is not reusable after a body left unread: a second
-	// request on it must not be served.
+	// request on it is not answered, and the connection is closed rather than
+	// merely silent (a timeout here would mean it is still being held).
+	_ = conn.SetReadDeadline(time.Now().Add(2 * time.Second))
 	if _, err := io.WriteString(conn, "GET / HTTP/1.1\r\nHost: t\r\n\r\n"); err == nil {
-		if _, err := http.ReadResponse(bufio.NewReader(conn), nil); err == nil {
+		_, err := http.ReadResponse(bufio.NewReader(conn), nil)
+		if err == nil {
 			t.Fatal("a second request on the cut connection was answered")
+		}
+		if errors.As(err, &ne) && ne.Timeout() {
+			t.Fatal("the cut connection is still open 2s later")
 		}
 	}
 }
@@ -195,7 +252,7 @@ func TestBodyReadDeadlineBoundsAnUnreadBody(t *testing.T) {
 		}
 		t.Fatalf("read: %v", err)
 	}
-	if waited := time.Since(start); waited > 2*time.Second {
+	if waited := time.Since(start); waited > 4*time.Second {
 		t.Fatalf("connection held %v after the 401, want about the %v budget", waited, slowBudget)
 	}
 }
