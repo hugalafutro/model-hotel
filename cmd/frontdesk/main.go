@@ -29,6 +29,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/frontdesk"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/otelexport"
 	"github.com/hugalafutro/model-hotel/internal/ratelimit"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -190,11 +191,9 @@ func main() {
 	srv.StartBackground(ctx, srv.RunBackupWatch)
 	srv.StartBackground(ctx, srv.RunAlerts)
 
-	httpServer := &http.Server{
-		Addr:              port,
-		Handler:           srv,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	// Listener posture (header/idle timeouts, per-request body deadline) is
+	// decided once in httpx.NewServer, shared with the gateway.
+	httpServer := httpx.NewServer(port, srv)
 
 	go func() {
 		debuglog.Info("frontdesk: listening", "addr", port, "public_origin", publicOrigin)

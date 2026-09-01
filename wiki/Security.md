@@ -324,6 +324,16 @@ Control-plane JSON routes (the dashboard API, the auth ceremonies, and every Fro
 
 Exceeded limits return HTTP 413 (Payload Too Large). A body that is malformed, truncated, or carries anything after its one JSON value returns HTTP 400.
 
+## Slow-Client Protection
+
+A size ceiling bounds how much a client may send, not how long it may take to send it, so both listeners (the gateway and Front Desk) also bound the time a connection can be held without doing work. The posture is decided once, in `internal/httpx.NewServer`, and is the same for both binaries:
+
+- **Headers**: a request must deliver its request line and headers within 10 seconds (`ReadHeaderTimeout`).
+- **Body**: a request that carries a body gets a per-request read deadline of 30 seconds plus one second per 128 KiB of its declared `Content-Length`, capped at 15 minutes. A control-plane JSON body or an ordinary chat request has to arrive within the 30 seconds; a 20 MB vision request earns 190 seconds and the 100 MB backup restore 830 seconds, so an honest upload on a poor uplink still fits, while a client that declares a huge length and trickles bytes is released after the cap at the latest. The deadline covers the body only: the moment the body has been read, a streaming completion or an `/api/events` stream runs as long as it needs to, and a request without a body never gets a deadline at all. A body the handler rejects before reading (a 401 on a `POST`, say) keeps its deadline, so the client cannot hold the connection open through the server's drain of the remainder either.
+- **Idle keep-alive**: a connection that has finished one request must start the next within 120 seconds (`IdleTimeout`), which sits above Traefik's default 90-second upstream idle so the proxy in front of the gateway is the one to close an idle connection.
+
+There is deliberately no whole-request `ReadTimeout` or `WriteTimeout` on either listener: streaming responses run for minutes to hours, and a write timeout would cut them off.
+
 ---
 
 ## CORS (Cross-Origin Resource Sharing)
