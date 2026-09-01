@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -235,7 +236,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// request_timeout both surface here as a failed read, and neither is the
 		// provider's doing. cancelKind is the package's classifier for that.
 		if _, aborted := cancelKind(r.Context(), err); !aborted {
-			h.chargeBreaker(st, candidate, "upstream body read failed")
+			h.chargeBreaker(st, candidate, resp.StatusCode, "upstream body read failed")
 		}
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", err))
@@ -297,7 +298,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 	default:
-		h.chargeBreaker(st, candidate, "response completed without delivering content")
+		h.chargeBreaker(st, candidate, resp.StatusCode, "response completed without delivering content")
 	}
 	// Oversized is judged on the bytes read, before masking can shrink a
 	// cap+1 read under the cap and drop the streamed remainder.
@@ -447,7 +448,7 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
 		if st.circuitBreakerEnabled && r.Context().Err() == nil {
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "response completed without delivering content"})
 		}
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", readErr))

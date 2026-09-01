@@ -94,7 +94,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		// not RecordSuccess: nothing was served, so the 429 behavioural
 		// fallback must not count it as a recent serve.
 		if !isFailoverEligible && st.circuitBreakerEnabled {
-			h.circuitBreaker.RecordAlive(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+			h.circuitBreaker.RecordAlive(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), resp.StatusCode)
 		}
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}

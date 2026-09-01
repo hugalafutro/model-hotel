@@ -913,6 +913,11 @@ func TestCircuitBreakerStatus_DetailCarriesProviderOpenAndOpenModels(t *testing.
 				ConsecutiveFails: 5,
 				ProviderOpen:     true,
 				OpenModels:       []string{"model-a", "model-b"},
+				Circuits: []failover.CircuitStatus{
+					{Model: "model-a", State: "open", ConsecutiveFails: 5, LastCause: "upstream status 429 (saturated)", LastStatus: 429, LastAt: "2026-08-31T14:48:37Z"},
+					{Model: "model-b", State: "open", ConsecutiveFails: 5, LastCause: "upstream status 503", LastStatus: 503},
+					{Model: "model-c", State: "closed", LastCause: "success"},
+				},
 			},
 			{
 				ProviderID:       uuid.New().String(),
@@ -952,6 +957,20 @@ func TestCircuitBreakerStatus_DetailCarriesProviderOpenAndOpenModels(t *testing.
 	if got := decodeOpenModels(t, indicted); !slices.Equal(got, []string{"model-a", "model-b"}) {
 		t.Errorf("open_models = %v, want both models the verdict rests on", got)
 	}
+	// The circuits behind the row ride along verbatim, verdict included: this
+	// is the list that says WHY each model is dark.
+	circuits, _ := indicted["circuits"].([]any)
+	if len(circuits) != 3 {
+		t.Fatalf("circuits = %v, want the three circuits the row is built from", indicted["circuits"])
+	}
+	first, _ := circuits[0].(map[string]any)
+	if first["model"] != "model-a" || first["last_cause"] != "upstream status 429 (saturated)" || first["last_status"] != float64(429) || first["last_at"] != "2026-08-31T14:48:37Z" {
+		t.Errorf("circuits[0] = %v", first)
+	}
+	third, _ := circuits[2].(map[string]any)
+	if _, present := third["last_status"]; present {
+		t.Errorf("circuits[2] = %v: a verdict with no status must omit last_status, not send 0", third)
+	}
 
 	single, _ := providers[1].(map[string]any)
 	raw, present := single["provider_open"]
@@ -963,6 +982,9 @@ func TestCircuitBreakerStatus_DetailCarriesProviderOpenAndOpenModels(t *testing.
 	}
 	if got := decodeOpenModels(t, single); !slices.Equal(got, []string{"model-a"}) {
 		t.Errorf("open_models = %v, want the single open model", got)
+	}
+	if _, present := single["circuits"]; present {
+		t.Errorf("circuits present on a row that reported none: an older member's row must decode the same way")
 	}
 }
 

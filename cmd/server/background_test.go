@@ -693,7 +693,7 @@ func TestQuotaPollLoop_DisabledSpanReleasesQuotaPins(t *testing.T) {
 	cb.Cooldown = time.Minute
 	cb.SetQuotaAdvisor(quotaPinAdvisor{at: time.Now().Add(6 * time.Hour)})
 	providerID := uuid.New()
-	cb.RecordFailure(providerID, "pinned-provider", "")
+	cb.RecordFailure(providerID, "pinned-provider", "", failover.Cause{})
 	if !quotaPinnedFor(cb, providerID) {
 		t.Fatal("setup: a 6h deadline against a 1m cooldown must pin the circuit")
 	}
@@ -756,7 +756,7 @@ func TestQuotaPollLoop_DisabledSpanReleasesQuotaPins(t *testing.T) {
 	// below is unambiguously the second span's doing.
 	time.Sleep(50 * time.Millisecond)
 	cb.Reset(providerID)
-	cb.RecordFailure(providerID, "pinned-provider", "")
+	cb.RecordFailure(providerID, "pinned-provider", "", failover.Cause{})
 	if !quotaPinnedFor(cb, providerID) {
 		t.Fatal("setup: the circuit must carry a pin again before the second disable")
 	}

@@ -28,7 +28,7 @@ func failProbe(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
 	if cb.IsOpen(id, "test-provider", "") {
 		t.Fatal("setup: the circuit is still dark, no probe to fail")
 	}
-	cb.RecordFailure(id, "test-provider", "")
+	cb.RecordFailure(id, "test-provider", "", Cause{})
 	if got := cb.GetState(id, ""); got != StateOpen {
 		t.Fatalf("setup: after a failed probe got state %v, want open", got)
 	}
@@ -163,7 +163,7 @@ func TestCircuitBreaker_AProbeThatSucceedsResetsTheBackoff(t *testing.T) {
 	}
 
 	// The next open is a fresh incident and starts from the base again.
-	cb.RecordFailure(id, "test-provider", "")
+	cb.RecordFailure(id, "test-provider", "", Cause{})
 	if s := onlyStatus(t, cb); s.CooldownMs != backoffTestBase.Milliseconds() || s.BackedOff || s.FailedProbes != 0 {
 		t.Errorf("after recovery and a new open: cooldown %dms backed_off=%v failed_probes=%d, want base/false/0",
 			s.CooldownMs, s.BackedOff, s.FailedProbes)
@@ -341,14 +341,14 @@ func TestCircuitBreaker_SwitchReadsDoNotScaleWithBackedOffCircuits(t *testing.T)
 		id := uuid.New()
 		for i := range circuits {
 			model := fmt.Sprintf("model-%02d", i)
-			cb.RecordFailure(id, "test-provider", model)
+			cb.RecordFailure(id, "test-provider", model, Cause{})
 			cb.mu.Lock()
 			cb.circuits[id.String()][model].openedAt = time.Now().Add(-24 * time.Hour)
 			cb.mu.Unlock()
 			if cb.IsOpen(id, "test-provider", model) {
 				t.Fatalf("setup: %s still dark past its cooldown", model)
 			}
-			cb.RecordFailure(id, "test-provider", model)
+			cb.RecordFailure(id, "test-provider", model, Cause{})
 		}
 		settings.reset()
 		s := onlyStatus(t, cb)
@@ -402,7 +402,7 @@ func TestCircuitBreaker_BackoffSuffixOnlyWhenTheBackoffGoverns(t *testing.T) {
 
 	cb := newTestCB(1, backoffTestBase)
 	id := uuid.New()
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 	waitForOpenEvent(t, sub, id)
 	cb.mu.Lock()
 	cb.circuits[id.String()][modelA].openedAt = time.Now().Add(-24 * time.Hour)
@@ -411,7 +411,7 @@ func TestCircuitBreaker_BackoffSuffixOnlyWhenTheBackoffGoverns(t *testing.T) {
 		t.Fatal("setup: no probe handed out past the cooldown")
 	}
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(10 * time.Hour), ok: true})
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 
 	ev := waitForOpenEvent(t, sub, id)
 	pinned, _ := ev.Metadata["quota_pinned"].(bool)
@@ -458,7 +458,7 @@ func TestCircuitBreaker_OpenEventCarriesModelIDAndTheBackoff(t *testing.T) {
 
 	cb := newTestCB(1, backoffTestBase)
 	id := uuid.New()
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 
 	ev := waitForOpenEvent(t, sub, id)
 	if got, _ := ev.Metadata["model_id"].(string); got != modelA {
@@ -486,7 +486,7 @@ func TestCircuitBreaker_OpenEventCarriesModelIDAndTheBackoff(t *testing.T) {
 	if cb.IsOpen(id, "test-provider", modelA) {
 		t.Fatal("setup: no probe handed out past the cooldown")
 	}
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 
 	ev = waitForOpenEvent(t, sub, id)
 	if got, _ := ev.Metadata["backed_off"].(bool); !got {
@@ -539,7 +539,7 @@ func TestCircuitBreaker_OpenEventDropsModelIDOnceTheProviderIsSkipped(t *testing
 	cb := newTestCB(1, backoffTestBase)
 	cb.SpanModels = 1 // the first open indicts the provider
 	id := uuid.New()
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 
 	ev := waitForOpenEvent(t, sub, id)
 	if open, _ := ev.Metadata["provider_open"].(bool); !open {
@@ -563,11 +563,11 @@ func TestCircuitBreaker_ClosedEventCarriesModelID(t *testing.T) {
 	cb := newTestCB(1, 0)
 	cb.SpanModels = 1
 	id := uuid.New()
-	cb.RecordFailure(id, "test-provider", modelB) // the sibling holds the verdict
+	cb.RecordFailure(id, "test-provider", modelB, Cause{}) // the sibling holds the verdict
 	cb.mu.Lock()
 	cb.circuits[id.String()][modelB].openedAt = time.Now().Add(time.Hour) // still dark for an hour
 	cb.mu.Unlock()
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 	cb.mu.Lock()
 	cb.circuits[id.String()][modelA].state = StateHalfOpen // owed its probe
 	cb.mu.Unlock()

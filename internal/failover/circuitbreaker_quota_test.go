@@ -306,7 +306,7 @@ func TestQuotaPin_RepinsAfterFailedProbe(t *testing.T) {
 
 	// Probe fails and quota now reports a long window: half-open to open re-pins.
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(4 * time.Hour), ok: true})
-	cb.RecordFailure(id, "test-provider", "")
+	cb.RecordFailure(id, "test-provider", "", Cause{})
 
 	if !cb.Status()[0].QuotaPinned {
 		t.Error("half-open to open must apply the pin")
@@ -669,7 +669,7 @@ func TestApplyQuotaPins_RetargetsOpenCircuit(t *testing.T) {
 	cb := newTestCB(1, 3*time.Hour)
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", "") // opens unpinned: no advice existed yet
+	cb.RecordFailure(id, "test-provider", "", Cause{}) // opens unpinned: no advice existed yet
 	if got := overrideFor(t, cb, id); got != 0 {
 		t.Fatalf("setup: got override %v, want an unpinned circuit", got)
 	}
@@ -712,15 +712,15 @@ func TestApplyQuotaPins_LeavesNonOpenCircuitsAlone(t *testing.T) {
 		{
 			name: "closed",
 			setup: func(_ *testing.T, cb *CircuitBreaker, id uuid.UUID) {
-				cb.RecordFailure(id, "test-provider", "") // one short of the threshold
+				cb.RecordFailure(id, "test-provider", "", Cause{}) // one short of the threshold
 			},
 			why: "a closed circuit is serving traffic and has no cooldown to retarget",
 		},
 		{
 			name: "half-open probe out",
 			setup: func(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
-				cb.RecordFailure(id, "test-provider", "")
-				cb.RecordFailure(id, "test-provider", "") // opens
+				cb.RecordFailure(id, "test-provider", "", Cause{})
+				cb.RecordFailure(id, "test-provider", "", Cause{}) // opens
 				backdateOpen(t, cb, id, time.Second)
 				cb.IsOpen(id, "test-provider", "") // cooldown elapsed: hands out a probe
 			},
@@ -729,9 +729,9 @@ func TestApplyQuotaPins_LeavesNonOpenCircuitsAlone(t *testing.T) {
 		{
 			name: "cooldown elapsed",
 			setup: func(t *testing.T, cb *CircuitBreaker, id uuid.UUID) {
-				cb.RecordFailure(id, "test-provider", "")
-				cb.RecordFailure(id, "test-provider", "") // opens
-				backdateOpen(t, cb, id, time.Second)      // probe due, reads as half-open
+				cb.RecordFailure(id, "test-provider", "", Cause{})
+				cb.RecordFailure(id, "test-provider", "", Cause{}) // opens
+				backdateOpen(t, cb, id, time.Second)               // probe due, reads as half-open
 			},
 			why: "the cooldown already elapsed, so the circuit is due a probe",
 		},
@@ -763,7 +763,7 @@ func TestApplyQuotaPins_NeverShortensExistingPin(t *testing.T) {
 	id := uuid.New()
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
 
-	cb.RecordFailure(id, "test-provider", "") // opens pinned to ~6h
+	cb.RecordFailure(id, "test-provider", "", Cause{}) // opens pinned to ~6h
 	before := overrideFor(t, cb, id)
 	if before == 0 {
 		t.Fatal("setup: expected the open transition to pin the circuit")
@@ -786,7 +786,7 @@ func TestApplyQuotaPins_SkipsWhenPinDisabled(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 60 * time.Second, pinEnabled: &disabled})
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", "")
+	cb.RecordFailure(id, "test-provider", "", Cause{})
 
 	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}); got != 0 {
 		t.Errorf("got %d circuits retargeted, want 0 while quota pinning is disabled", got)
@@ -806,7 +806,7 @@ func TestApplyQuotaPins_CeilingCapsRunawayDeadline(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 60 * time.Second, pinMax: time.Hour})
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", "")
+	cb.RecordFailure(id, "test-provider", "", Cause{})
 
 	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(500 * 24 * time.Hour)}); got != 1 {
 		t.Fatalf("got %d circuits retargeted, want 1", got)

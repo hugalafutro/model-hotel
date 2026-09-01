@@ -151,18 +151,18 @@ func TestRecordRateLimited_ThirdOpenLiftsBackoffCeiling(t *testing.T) {
 	id := uuid.New()
 
 	// Open 1 (closed → open): streak 1, no probes failed yet.
-	cb.RecordRateLimited(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
 	// Open 2 (failed probe): streak 2, backoff 2m — the ordinary ceiling.
 	backdateOpenModel(t, cb, id, "m", 2*time.Minute)
 	cb.IsOpen(id, "p", "m") // transitions to half-open
-	cb.RecordRateLimited(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
 	if got := exhaustedCircuit(t, cb, id, "m").cooldownBackoff; got != 2*time.Minute {
 		t.Fatalf("backoff after second 429 open = %v, want the ordinary ceiling of 2m", got)
 	}
 	// Open 3: streak 3 = escalated, and the doubling may pass the old ceiling.
 	backdateOpenModel(t, cb, id, "m", 3*time.Minute)
 	cb.IsOpen(id, "p", "m")
-	cb.RecordRateLimited(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
 
 	if got := exhaustedCircuit(t, cb, id, "m").cooldownBackoff; got != 4*time.Minute {
 		t.Errorf("backoff after third 429 open = %v, want 4m (1m doubled twice, past the 2m backoff_max, under the 5h pin ceiling)", got)
@@ -173,14 +173,14 @@ func TestRecordRateLimited_NonRateLimitOpenResetsEscalation(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, backoffMax: 2 * time.Minute, pinMax: 5 * time.Hour})
 	id := uuid.New()
 
-	cb.RecordRateLimited(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
 	backdateOpenModel(t, cb, id, "m", 2*time.Minute)
 	cb.IsOpen(id, "p", "m")
 	// A 5xx-caused open in between: different failure, streak resets.
-	cb.RecordFailure(id, "p", "m")
+	cb.RecordFailure(id, "p", "m", Cause{})
 	backdateOpenModel(t, cb, id, "m", 3*time.Minute)
 	cb.IsOpen(id, "p", "m")
-	cb.RecordRateLimited(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
 
 	c := exhaustedCircuit(t, cb, id, "m")
 	if c.opens429Streak != 1 {
@@ -194,7 +194,7 @@ func TestRecordRateLimited_NonRateLimitOpenResetsEscalation(t *testing.T) {
 func TestRecordSuccess_ClosingProbeClearsEscalation(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute})
 	id := uuid.New()
-	cb.RecordRateLimited(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
 	backdateOpenModel(t, cb, id, "m", 2*time.Minute)
 	cb.IsOpen(id, "p", "m")
 
@@ -225,14 +225,14 @@ func TestLastSuccessWithin(t *testing.T) {
 		t.Error("a success 61s ago is inside a 60s window")
 	}
 	// A failure does not refresh the success stamp.
-	cb.RecordFailure(id, "p", "m")
+	cb.RecordFailure(id, "p", "m", Cause{})
 	if cb.LastSuccessWithin(id, "m", time.Minute) {
 		t.Error("RecordFailure refreshed the success stamp")
 	}
 	// Neither does an alive-but-served-nothing credit (a plain 400): a client's
 	// own malformed payloads must not keep the fallback reading a spent window
 	// as busy.
-	cb.RecordAlive(id, "p", "m")
+	cb.RecordAlive(id, "p", "m", 400)
 	if cb.LastSuccessWithin(id, "m", time.Minute) {
 		t.Error("RecordAlive stamped a serve the provider never made")
 	}
@@ -250,7 +250,7 @@ func TestBlockedUntil(t *testing.T) {
 	}
 
 	// The model's own blocking circuit: retry at openedAt+cooldown, unpinned.
-	cb.RecordFailure(id, "p", "m")
+	cb.RecordFailure(id, "p", "m", Cause{})
 	retryAt, pinned, ok := cb.BlockedUntil(id, "m")
 	if !ok || pinned {
 		t.Fatalf("own blocking circuit: ok=%v pinned=%v, want blocked and unpinned", ok, pinned)

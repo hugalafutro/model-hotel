@@ -18,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
@@ -416,7 +417,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			elapsed := time.Since(st.startTime)
 			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			if recordFailure && st.circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "TTFT probe failed"})
 			}
 			st.setReqErr(re)
 			logData.failoverAttempt = attempt
@@ -781,7 +782,8 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		// retry never counts against the provider.
 		if !isContextErr {
 			if st.circuitBreakerEnabled {
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+				// No status: the request never completed, so there is none.
+				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Reason: "upstream request failed"})
 			}
 		}
 		return nil, false

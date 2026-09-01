@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -329,7 +330,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// say and which is otherwise invisible above Debug.
 	if verdict := judgeStreamForBreaker(st, logData, errMsg, opts.circuitBreakerOn); verdict.failureReason != "" {
 		debuglog.Warn("proxy: recording circuit breaker failure", "reason", verdict.failureReason, "provider", opts.providerName, "provider_id", opts.providerID, "attempt", opts.attempt, "chunks", st.chunkCount, "error_chunks", st.errorChunkCount, "duration_ms", totalDuration, "model", opts.model)
-		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName, opts.model)
+		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName, opts.model, failover.Cause{Status: statusCode, Reason: verdict.failureReason})
 	} else if verdict.success {
 		h.circuitBreaker.RecordSuccess(opts.providerID, opts.providerName, opts.model)
 	}

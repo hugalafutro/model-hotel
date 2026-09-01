@@ -41,7 +41,7 @@ func TestCircuitBreaker_IsOpen_ClosedStateViaWriteLock(t *testing.T) {
 	pid := uuid.New()
 
 	// Open the circuit
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 
 	// Transition to half-open via cooldown
 	cb.Cooldown = 1 * time.Millisecond
@@ -66,7 +66,7 @@ func TestCircuitBreaker_IsOpen_HalfOpenViaWriteLock(t *testing.T) {
 	pid := uuid.New()
 
 	// Open the circuit
-	cb.RecordFailure(pid, "test-provider", "")
+	cb.RecordFailure(pid, "test-provider", "", Cause{})
 	time.Sleep(10 * time.Millisecond)
 
 	// Trigger transition to HalfOpen

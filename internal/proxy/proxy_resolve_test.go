@@ -250,7 +250,7 @@ func TestResolveHotelModel_CircuitBreakerOpen_Integration(t *testing.T) {
 	// modelName is the resolved upstream model id, which is the key the skip in
 	// buildFailoverCandidates reads.
 	for range 5 {
-		handler.circuitBreaker.RecordFailure(providerID, "test-provider", modelName)
+		handler.circuitBreaker.RecordFailure(providerID, "test-provider", modelName, failover.Cause{})
 	}
 
 	body := `{"model": "hotel/` + modelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`

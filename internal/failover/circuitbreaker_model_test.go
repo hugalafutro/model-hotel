@@ -31,7 +31,7 @@ const (
 func chargeToOpen(t *testing.T, cb *CircuitBreaker, id uuid.UUID, model string) {
 	t.Helper()
 	for i := 0; i < cb.effectiveThreshold(); i++ {
-		cb.RecordFailure(id, "test-provider", model)
+		cb.RecordFailure(id, "test-provider", model, Cause{})
 	}
 	if got := cb.GetState(id, model); got != StateOpen {
 		t.Fatalf("setup: model %q state %v, want open", model, got)
@@ -119,10 +119,10 @@ func TestModelCircuits_SuccessOnOneModelKeepsTheOtherStreak(t *testing.T) {
 	cb := newTestCB(3, time.Hour)
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", modelA)
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 	cb.RecordSuccess(id, "test-provider", modelB)
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 
 	if got := cb.GetState(id, modelA); got != StateOpen {
 		t.Errorf("model A took 3 failures at threshold 3, state %v, want open", got)
@@ -136,9 +136,9 @@ func TestModelCircuits_FailureOnOneModelKeepsTheOtherStreak(t *testing.T) {
 	cb := newTestCB(3, time.Hour)
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", modelA)
-	cb.RecordFailure(id, "test-provider", modelB)
-	cb.RecordFailure(id, "test-provider", modelB)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
+	cb.RecordFailure(id, "test-provider", modelB, Cause{})
+	cb.RecordFailure(id, "test-provider", modelB, Cause{})
 
 	if got := cb.GetState(id, modelA); got != StateClosed {
 		t.Errorf("model A took 1 of 3 failures, state %v, want closed", got)
@@ -146,7 +146,7 @@ func TestModelCircuits_FailureOnOneModelKeepsTheOtherStreak(t *testing.T) {
 	if got := cb.GetState(id, modelB); got != StateClosed {
 		t.Errorf("model B took 2 of 3 failures, state %v, want closed", got)
 	}
-	cb.RecordFailure(id, "test-provider", modelB)
+	cb.RecordFailure(id, "test-provider", modelB, Cause{})
 	if got := cb.GetState(id, modelB); got != StateOpen {
 		t.Errorf("model B took 3 of 3 failures, state %v, want open", got)
 	}
@@ -172,7 +172,7 @@ func TestModelCircuits_HalfOpenProbeIsPerModel(t *testing.T) {
 		t.Fatalf("model A state %v, want half-open", got)
 	}
 
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 	if got := cb.GetState(id, modelA); got != StateOpen {
 		t.Errorf("model A probe failed, state %v, want open", got)
 	}
@@ -251,7 +251,7 @@ func TestModelCircuits_EvictionNeverDropsAnOpenCircuit(t *testing.T) {
 	// closed and therefore evictable, while model A stays open and must not be.
 	const churn = maxModelCircuitsPerProvider + 50
 	for i := 0; i < churn; i++ {
-		cb.RecordFailure(id, "test-provider", fmt.Sprintf("churn-%03d", i))
+		cb.RecordFailure(id, "test-provider", fmt.Sprintf("churn-%03d", i), Cause{})
 	}
 
 	if got := cb.GetState(id, modelA); got != StateOpen {
@@ -273,14 +273,14 @@ func TestModelCircuits_EvictionDropsTheLeastRecentlyChargedCircuit(t *testing.T)
 
 	// Fill the provider to the cap with closed circuits, one failure each.
 	for i := 0; i < maxModelCircuitsPerProvider; i++ {
-		cb.RecordFailure(id, "test-provider", fmt.Sprintf("m%03d", i))
+		cb.RecordFailure(id, "test-provider", fmt.Sprintf("m%03d", i), Cause{})
 	}
 	// Re-charge the oldest one, which makes the second-oldest the least recently
 	// charged. Ordering by charge time and ordering by creation now disagree,
 	// which is the whole point of the assertion below.
-	cb.RecordFailure(id, "test-provider", "m000")
+	cb.RecordFailure(id, "test-provider", "m000", Cause{})
 
-	cb.RecordFailure(id, "test-provider", "newcomer")
+	cb.RecordFailure(id, "test-provider", "newcomer", Cause{})
 
 	if !hasCircuit(t, cb, id, "m000") {
 		t.Error("m000 was charged most recently of the filled set, want it kept")
@@ -303,12 +303,12 @@ func TestModelCircuits_EvictionDropsTheEmptyModelIDLikeAnyOther(t *testing.T) {
 	cb := newTestCB(5, time.Hour)
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", "") // charged first, so the oldest
+	cb.RecordFailure(id, "test-provider", "", Cause{}) // charged first, so the oldest
 	for i := 1; i < maxModelCircuitsPerProvider; i++ {
-		cb.RecordFailure(id, "test-provider", fmt.Sprintf("m%03d", i))
+		cb.RecordFailure(id, "test-provider", fmt.Sprintf("m%03d", i), Cause{})
 	}
 
-	cb.RecordFailure(id, "test-provider", "newcomer")
+	cb.RecordFailure(id, "test-provider", "newcomer", Cause{})
 
 	if hasCircuit(t, cb, id, "") {
 		t.Error("the empty model id was the least recently charged circuit, want it evicted")
@@ -324,7 +324,7 @@ func TestModelCircuits_EvictionKeepsGrowingWhenEveryCircuitIsOpen(t *testing.T) 
 
 	const models = maxModelCircuitsPerProvider + 3
 	for i := 0; i < models; i++ {
-		cb.RecordFailure(id, "test-provider", fmt.Sprintf("open-%03d", i))
+		cb.RecordFailure(id, "test-provider", fmt.Sprintf("open-%03d", i), Cause{})
 	}
 
 	if got := countCircuits(t, cb, id); got != models {
@@ -336,7 +336,7 @@ func TestModelCircuits_StatusReportsTheMostDegradedCircuit(t *testing.T) {
 	cb := newTestCB(2, time.Hour)
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", modelB) // one failure, stays closed
+	cb.RecordFailure(id, "test-provider", modelB, Cause{}) // one failure, stays closed
 	chargeToOpen(t, cb, id, modelA)
 
 	s := onlyStatus(t, cb)
@@ -371,9 +371,9 @@ func TestModelCircuits_StatusReportsTheWorstStreakAmongClosedCircuits(t *testing
 	cb := newTestCB(5, time.Hour)
 	id := uuid.New()
 
-	cb.RecordFailure(id, "test-provider", modelA)
+	cb.RecordFailure(id, "test-provider", modelA, Cause{})
 	for i := 0; i < 3; i++ {
-		cb.RecordFailure(id, "test-provider", modelB)
+		cb.RecordFailure(id, "test-provider", modelB, Cause{})
 	}
 
 	s := onlyStatus(t, cb)
@@ -466,6 +466,7 @@ func TestBreakerEventMessage(t *testing.T) {
 		state        string
 		model        string
 		providerOpen bool
+		cause        string
 		want         string
 	}{
 		{
@@ -479,8 +480,13 @@ func TestBreakerEventMessage(t *testing.T) {
 			want: "Provider zai circuit breaker: open for model glm-4.6 (provider skipped)",
 		},
 		{
+			name:  "an open names its cause, after the verdict",
+			state: "open", model: "glm-4.6", providerOpen: true, cause: "upstream status 429 (saturated)",
+			want: "Provider zai circuit breaker: open for model glm-4.6 (provider skipped): upstream status 429 (saturated)",
+		},
+		{
 			name:  "a recovery names the model that recovered and nothing else",
-			state: "closed", model: "glm-4.6", providerOpen: true,
+			state: "closed", model: "glm-4.6", providerOpen: true, cause: "success",
 			want: "Provider zai circuit breaker: closed for model glm-4.6",
 		},
 		{
@@ -491,7 +497,7 @@ func TestBreakerEventMessage(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := breakerEventMessage("zai", tc.state, tc.model, tc.providerOpen)
+			got := breakerEventMessage("zai", tc.state, tc.model, tc.providerOpen, tc.cause)
 			if got != tc.want {
 				t.Errorf("breakerEventMessage() = %q, want %q", got, tc.want)
 			}
@@ -689,7 +695,7 @@ func TestModelCircuits_ResetAllCountsCircuitsNotProviders(t *testing.T) {
 
 	chargeToOpen(t, cb, busy, modelA)
 	chargeToOpen(t, cb, busy, modelB)
-	cb.RecordFailure(other, "test-provider", modelA) // tracked, below threshold, closed
+	cb.RecordFailure(other, "test-provider", modelA, Cause{}) // tracked, below threshold, closed
 
 	cleared, recovered := cb.ResetAll()
 	if cleared != 3 {

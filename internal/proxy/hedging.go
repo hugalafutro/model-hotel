@@ -11,6 +11,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -403,7 +404,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		if recordFailure && st.circuitBreakerEnabled {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", re.Underlying)
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "hedged TTFT probe failed"})
 		}
 		res.reqErr = re
 		return res

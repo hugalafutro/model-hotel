@@ -107,11 +107,11 @@ func TestRecordAnswerOutcome_AnAnswerClearsTheFailureCount(t *testing.T) {
 		model:    &model.Model{ID: uuid.New(), ModelID: "answering-model"},
 		provider: &provider.Provider{ID: providerID, Name: "p"},
 	}
-	h.circuitBreaker.RecordFailure(providerID, "p", candidate.model.ModelID)
+	h.circuitBreaker.RecordFailure(providerID, "p", candidate.model.ModelID, failover.Cause{})
 
 	h.recordAnswerOutcome(st, candidate, &requestLogData{state: "completed", emptyCompletion: false, providerID: providerID, providerName: "p"}, nil)
 
-	h.circuitBreaker.RecordFailure(providerID, "p", candidate.model.ModelID)
+	h.circuitBreaker.RecordFailure(providerID, "p", candidate.model.ModelID, failover.Cause{})
 	if h.circuitBreaker.GetState(providerID, candidate.model.ModelID) == failover.StateOpen {
 		t.Error("an answered completion recorded no success on the model it answered for, so an old failure was still on the clock")
 	}
@@ -162,7 +162,7 @@ func TestChargeBreaker_UntranslatableBodyIsCharged(t *testing.T) {
 	st := &requestState{circuitBreakerEnabled: true}
 	candidate := modelCandidate{provider: &provider.Provider{ID: providerID, Name: "p"}}
 
-	h.chargeBreaker(st, candidate, "upstream body could not be translated")
+	h.chargeBreaker(st, candidate, 200, "upstream body could not be translated")
 
 	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("a body the gateway could not translate must be charged to the provider")
@@ -743,7 +743,7 @@ func TestServeBufferedJSONPassthrough_AnEmptyBodilessSuccessIsANoOp(t *testing.T
 	withBreakerThreshold(t, h, "2")
 
 	providerID := uuid.New()
-	h.circuitBreaker.RecordFailure(providerID, "p", "")
+	h.circuitBreaker.RecordFailure(providerID, "p", "", failover.Cause{})
 	st := passthroughState(providerID)
 	candidate := modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
@@ -755,7 +755,7 @@ func TestServeBufferedJSONPassthrough_AnEmptyBodilessSuccessIsANoOp(t *testing.T
 
 	// The earlier failure must still be on the clock: at threshold 2 a second
 	// one opens the circuit, which it cannot do if the 204 credited a success.
-	h.circuitBreaker.RecordFailure(providerID, "p", "")
+	h.circuitBreaker.RecordFailure(providerID, "p", "", failover.Cause{})
 	if h.circuitBreaker.GetState(providerID, "") != failover.StateOpen {
 		t.Error("an empty 204 credited a success and erased the failure before it")
 	}
@@ -1047,12 +1047,12 @@ func TestPassthrough_TheCreditLandsOnTheModelItServed(t *testing.T) {
 				model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
 				provider: &provider.Provider{ID: providerID, Name: "p"},
 			}
-			h.circuitBreaker.RecordFailure(providerID, "p", cand.model.ModelID)
+			h.circuitBreaker.RecordFailure(providerID, "p", cand.model.ModelID, failover.Cause{})
 
 			st := passthroughState(providerID)
 			tc.serve(h, st, cand, tc.resp())
 
-			h.circuitBreaker.RecordFailure(providerID, "p", cand.model.ModelID)
+			h.circuitBreaker.RecordFailure(providerID, "p", cand.model.ModelID, failover.Cause{})
 			if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got == failover.StateOpen {
 				t.Error("the pass-through credit missed the model it served: an earlier failure was still on the clock")
 			}
@@ -1110,7 +1110,7 @@ func TestAttemptPassthroughCandidate_ADefiniteErrorCreditsTheModelItAsked(t *tes
 
 	m := &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"}
 	cand := goneCandidateAt(m, "Relay", "http://relay.example.com")
-	h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name, m.ModelID)
+	h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name, m.ModelID, failover.Cause{})
 
 	st := &requestState{
 		startTime: time.Now(), reqModel: m.ModelID,
@@ -1128,7 +1128,7 @@ func TestAttemptPassthroughCandidate_ADefiniteErrorCreditsTheModelItAsked(t *tes
 	h.insertRequestLogAsync(st.logData)
 	h.attemptPassthroughCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, 0, 1)
 
-	h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name, m.ModelID)
+	h.circuitBreaker.RecordFailure(cand.provider.ID, cand.provider.Name, m.ModelID, failover.Cause{})
 	if got := h.circuitBreaker.GetState(cand.provider.ID, m.ModelID); got == failover.StateOpen {
 		t.Error("the 400 credited a circuit other than the model it asked for: an earlier failure was still on the clock")
 	}

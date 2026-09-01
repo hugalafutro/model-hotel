@@ -65,6 +65,15 @@ type circuit struct {
 	// itself). Empty when no pin is stamped. Observability only; the pin's
 	// mechanics do not read it.
 	pinSource string
+	// lastCause, lastStatus and lastAt are the circuit's most recent verdict:
+	// why it was last charged, credited, pinned or released, the upstream
+	// status behind that (0 when none was seen) and when it landed. Like
+	// pinSource they are observability only; nothing in the breaker's mechanics
+	// reads them. They are what lets a status row, an event and an alert say
+	// WHY a circuit is open rather than only that it is (see Cause).
+	lastCause  string
+	lastStatus int
+	lastAt     time.Time
 	// opens429Streak counts consecutive rate-limit-caused opens inside the
 	// window that began at open429WindowStart. Any open with another cause, or
 	// the window running out, resets it. From the third such open the circuit

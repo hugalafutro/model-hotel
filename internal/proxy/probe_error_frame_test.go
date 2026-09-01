@@ -1224,7 +1224,7 @@ func TestDispatchStreaming_TheStreamCreditLandsOnTheServedModel(t *testing.T) {
 		provider: &provider.Provider{ID: providerID, Name: "streaming-provider"},
 		apiKey:   "sk-test",
 	}
-	h.circuitBreaker.RecordFailure(providerID, cand.provider.Name, cand.model.ModelID)
+	h.circuitBreaker.RecordFailure(providerID, cand.provider.Name, cand.model.ModelID, failover.Cause{})
 
 	logData := streamingLog()
 	logData.providerName = cand.provider.Name
@@ -1246,7 +1246,7 @@ func TestDispatchStreaming_TheStreamCreditLandsOnTheServedModel(t *testing.T) {
 		t.Fatalf("outcome = %v, want served", got)
 	}
 
-	h.circuitBreaker.RecordFailure(providerID, cand.provider.Name, cand.model.ModelID)
+	h.circuitBreaker.RecordFailure(providerID, cand.provider.Name, cand.model.ModelID, failover.Cause{})
 	if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got == failover.StateOpen {
 		t.Errorf("circuit = %s, want closed: the completed stream credited a circuit other than the model it served", got)
 	}

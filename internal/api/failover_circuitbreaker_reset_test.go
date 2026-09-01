@@ -38,7 +38,7 @@ func newTestHandlerWithBreaker(t *testing.T) (*Handler, chi.Router, *failover.Ci
 func openCircuit(t *testing.T, cb *failover.CircuitBreaker, providerID uuid.UUID) {
 	t.Helper()
 	for i := 0; i < cb.Threshold; i++ {
-		cb.RecordFailure(providerID, "test-provider", "")
+		cb.RecordFailure(providerID, "test-provider", "", failover.Cause{})
 	}
 	if !cb.IsOpen(providerID, "test-provider", "") {
 		t.Fatalf("setup: circuit for %s should be open after %d failures", providerID, cb.Threshold)
@@ -131,8 +131,8 @@ func TestResetCircuitBreaker_ClosedCircuitReportsNoChange(t *testing.T) {
 	_, r, cb := newTestHandlerWithBreaker(t)
 
 	tracked := uuid.New()
-	cb.RecordFailure(tracked, "test-provider", "") // one failure: circuit exists, still closed
-	untracked := uuid.New()                        // never routed, so no circuit at all
+	cb.RecordFailure(tracked, "test-provider", "", failover.Cause{}) // one failure: circuit exists, still closed
+	untracked := uuid.New()                                          // never routed, so no circuit at all
 
 	for name, providerID := range map[string]uuid.UUID{"tracked but closed": tracked, "never tracked": untracked} {
 		t.Run(name, func(t *testing.T) {
@@ -239,7 +239,7 @@ func TestResetAllCircuitBreakers_ClearsEveryCircuit(t *testing.T) {
 	openA, openB, healthy := uuid.New(), uuid.New(), uuid.New()
 	openCircuit(t, cb, openA)
 	openCircuit(t, cb, openB)
-	cb.RecordFailure(healthy, "test-provider", "") // tracked, below threshold, still closed
+	cb.RecordFailure(healthy, "test-provider", "", failover.Cause{}) // tracked, below threshold, still closed
 
 	code, body := doAdminRequest(r, http.MethodPost, "/failover-groups/circuit-breaker/reset")
 	if code != http.StatusOK {

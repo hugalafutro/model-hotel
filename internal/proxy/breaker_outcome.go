@@ -6,6 +6,7 @@ import (
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -74,10 +75,10 @@ func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, ca
 				// toward the 429-only escalation. Only while classification
 				// is on — its master switch must restore today's behaviour
 				// bit for bit, escalation included.
-				h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+				h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(statusCode, "unrecognised"))
 				return
 			}
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(statusCode, ""))
 		case breakerActionNoOp:
 			// Model-specific client error (404/499): provider is alive
 			// but rejecting this request. No-op for the breaker — neither
@@ -105,7 +106,7 @@ func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, ca
 	// (same credit) but served nothing, and the 429 behavioural fallback must
 	// not read it as a recent serve.
 	if !servedSuccessStatus(statusCode) {
-		h.circuitBreaker.RecordAlive(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+		h.circuitBreaker.RecordAlive(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), statusCode)
 	}
 }
 
@@ -115,12 +116,15 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 	switch rl.class {
 	case rateLimitSaturated:
 		// Info, not warn: the provider is healthy and at capacity, which is a
-		// routing fact, not an incident.
-		debuglog.Info("proxy: 429 classified saturated, circuit breaker untouched", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", rl.retryAfter, "model", candidateModelID(candidate))
+		// routing fact, not an incident. The circuit is neither charged nor
+		// credited; it only remembers the verdict, so the status page can say
+		// "busy" about a closed circuit whose last answers were all 429s.
+		debuglog.Info("proxy: 429 classified saturated, circuit breaker not charged", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", rl.retryAfter, "model", candidateModelID(candidate))
+		h.circuitBreaker.RecordSaturated(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 	case rateLimitExhausted:
 		if !h.settingsRepo.GetBool(ctx, "circuit_breaker_open_on_exhaustion", true) {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", http.StatusTooManyRequests, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-			h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+			h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(http.StatusTooManyRequests, "exhausted, not opened by setting"))
 			return
 		}
 		debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 429 (exhausted)", "status", http.StatusTooManyRequests, "pin_hint_ms", rl.pinHint.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
@@ -167,14 +171,14 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 		if !providerAtFault(logData.errorKind) {
 			return
 		}
-		h.chargeBreaker(st, candidate, "response failed after headers")
+		h.chargeBreaker(st, candidate, logData.statusCode, "response failed after headers")
 		return
 	}
 	// A completed answer is credited even if the caller has since gone: the body
 	// was read, the provider answered, and withholding the credit leaves older
 	// failures on the clock to open a healthy circuit later.
 	if logData.emptyCompletion {
-		h.chargeBreaker(st, candidate, "response completed without delivering content")
+		h.chargeBreaker(st, candidate, logData.statusCode, "response completed without delivering content")
 		return
 	}
 	h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
@@ -186,13 +190,15 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 // "recording circuit breaker failure" warn was added to close.
 //
 // The charge lands on the candidate's resolved upstream model, the same key the
-// success sites and the routing skip use.
-func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, reason string) {
+// success sites and the routing skip use. status is the upstream status the
+// attempt had reached (a 200 whose body then failed is still a 200), 0 when
+// none; it rides with the reason onto the circuit as its last verdict.
+func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, status int, reason string) {
 	if !st.circuitBreakerEnabled {
 		return
 	}
-	debuglog.Warn("proxy: recording circuit breaker failure", "reason", reason, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-	h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+	debuglog.Warn("proxy: recording circuit breaker failure", "reason", reason, "status", status, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+	h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: status, Reason: reason})
 }
 
 // rejectUntranslatableBody is the single outcome all three egress adapters have
@@ -211,7 +217,7 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// failure — a caller hanging up or this gateway's own request_timeout, and
 	// neither is the provider's doing.
 	if _, aborted := cancelKind(r.Context(), err); !aborted && translationIsProviderFault(err) {
-		h.chargeBreaker(st, candidate, "upstream body could not be translated")
+		h.chargeBreaker(st, candidate, logData.statusCode, "upstream body could not be translated")
 	}
 	st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 	logData.failoverAttempt = attempt
