@@ -29,6 +29,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/proxy"
@@ -412,11 +413,9 @@ func main() {
 	go quotaPollLoop(ctx, settingsRepo, apiHandler.PollQuotasOnce, apiHandler.DisableQuotaAdvice, time.Minute)
 	go scheduledDisableLoop(ctx, providerRepo, failoverRepo, time.Minute)
 
-	server := &http.Server{
-		Addr:              cfg.Port,
-		Handler:           r,
-		ReadHeaderTimeout: 10 * time.Second,
-	}
+	// Listener posture (header/idle timeouts, per-request body deadline) is
+	// decided once in httpx.NewServer, shared with Front Desk.
+	server := httpx.NewServer(cfg.Port, r, cfg.MaxRequestSize)
 
 	go func() {
 		// Startup banner (direct stdout: slog escapes \n, making ASCII art

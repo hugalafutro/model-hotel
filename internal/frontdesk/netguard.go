@@ -40,8 +40,16 @@ func newProbeClient(timeout time.Duration) *http.Client {
 		},
 	}
 	return &http.Client{
-		Timeout:       timeout,
-		Transport:     &http.Transport{DialContext: dialer.DialContext},
+		Timeout: timeout,
+		Transport: &http.Transport{
+			DialContext: dialer.DialContext,
+			// Matches http.DefaultTransport. Left at zero an idle connection is
+			// pooled indefinitely, so a sync or backup hours after the previous
+			// one reuses a long-dead connection and pays a wasted round trip to
+			// discover it; and the member listener closes an idle connection at
+			// 180s (httpx.IdleTimeout), so the pool has to give up first.
+			IdleConnTimeout: 90 * time.Second,
+		},
 		CheckRedirect: checkProbeRedirect,
 	}
 }

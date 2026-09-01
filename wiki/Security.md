@@ -324,6 +324,16 @@ Control-plane JSON routes (the dashboard API, the auth ceremonies, and every Fro
 
 Exceeded limits return HTTP 413 (Payload Too Large). A body that is malformed, truncated, or carries anything after its one JSON value returns HTTP 400.
 
+## Slow-Client Protection
+
+A size ceiling bounds how much a client may send, not how long it may take to send it, so both listeners (the gateway and Front Desk) also bound the time a connection can be held without doing work. The posture is decided once, in `internal/httpx.NewServer`, and is the same for both binaries:
+
+- **Headers**: a request must deliver its request line and headers within 10 seconds (`ReadHeaderTimeout`).
+- **Body**: a request that carries a body gets a per-request read deadline of 30 seconds plus one second per 128 KiB of its length, capped at 15 minutes. The length that earns time is the declared `Content-Length` clamped to the largest body the listener accepts (`MAX_REQUEST_SIZE` on the gateway, the 1 MB JSON ceiling on Front Desk); a body that declares no length (`Transfer-Encoding: chunked`, which a Go client streaming a file, a browser `fetch` with a stream body, or `curl -T -` uploading from a pipe sends) is budgeted as that largest body. A control-plane JSON body or an ordinary chat request has to arrive within the 30 seconds; a 20 MB vision request earns 190 seconds and the 100 MB backup restore 830 seconds, so an honest upload on a poor uplink still fits, while a client that declares a huge length and trickles bytes earns nothing past the listener's ceiling and is released after the cap at the latest. That ceiling is `MAX_REQUEST_SIZE` on the gateway, so raising it for larger uploads also lengthens the longest hold a hostile connection can buy: 430 seconds at the 50 MB default, 830 seconds at the 100 MB maximum. The clock starts when the request enters the handler chain, so the milliseconds routing and auth take count against it. The deadline covers the body only: the moment the body has been read, a streaming completion or an `/api/events` stream runs as long as it needs to, and a request without a body never gets a deadline at all. A body the handler rejects before reading (a 401 on a `POST`, say) keeps its deadline, so the client cannot hold the connection open through the server's drain of the remainder either.
+- **Idle keep-alive**: a connection that has finished one request must start the next within 180 seconds (`IdleTimeout`). The server side of an idle race should be the longer one, so this sits above the pools under the project's control: Traefik's default 90-second upstream idle, Front Desk's member clients (90 seconds), and the gateway's own 120-second outbound pool when one Model Hotel is a provider for another. Bellhop's OkHttp pool keeps a connection for five minutes and is deliberately left above it: OkHttp checks a pooled socket before reuse and retries a connection failure, and the listener's idle bound has to stay bounded rather than chase every client's pool.
+
+There is deliberately no whole-request `ReadTimeout` or `WriteTimeout` on either listener: streaming responses run for minutes to hours, and a write timeout would cut them off.
+
 ---
 
 ## CORS (Cross-Origin Resource Sharing)
