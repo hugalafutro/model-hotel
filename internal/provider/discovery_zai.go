@@ -177,7 +177,7 @@ func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Prov
 		if authErr := quotaAuthError("zai-coding", apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return nil, authErr
 		}
-		debuglog.Error("discovery: zai-coding quota fetch non-200 status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
+		debuglog.Error("discovery: zai-coding quota fetch non-200 status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
 		return nil, fmt.Errorf("zai-coding: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

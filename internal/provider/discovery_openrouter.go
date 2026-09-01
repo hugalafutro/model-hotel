@@ -176,7 +176,7 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 		if authErr := quotaAuthError("openrouter", apiKey, provider, creditsResp.StatusCode, body); authErr != nil {
 			return nil, authErr
 		}
-		debuglog.Error("discovery: openrouter credits non-200 status", "status", creditsResp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
+		debuglog.Error("discovery: openrouter credits non-200 status", "status", creditsResp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
 		return nil, fmt.Errorf("openrouter: unexpected status code %d from credits endpoint for provider %s", creditsResp.StatusCode, provider.Name)
 	}
 
@@ -205,7 +205,7 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 		if authErr := quotaAuthError("openrouter", apiKey, provider, keyResp.StatusCode, body); authErr != nil {
 			return nil, authErr
 		}
-		debuglog.Error("discovery: openrouter key info non-200 status", "status", keyResp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
+		debuglog.Error("discovery: openrouter key info non-200 status", "status", keyResp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
 		return nil, fmt.Errorf("openrouter: unexpected status code %d from key endpoint for provider %s", keyResp.StatusCode, provider.Name)
 	}
 

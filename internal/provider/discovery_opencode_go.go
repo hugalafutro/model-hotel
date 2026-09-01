@@ -49,7 +49,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: opencode-go unexpected status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(bodyBytes), 2000)))
+		debuglog.Error("discovery: opencode-go unexpected status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
 		return nil, fmt.Errorf("opencode-go: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

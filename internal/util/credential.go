@@ -122,7 +122,38 @@ func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
 	if len(body) > maxLen+scrubMargin {
 		body = body[:maxLen+scrubMargin]
 	}
-	return SanitizeLogBody(maskExact(secrets, body), maxLen)
+	out := SanitizeLogBody(maskExact(secrets, body), maxLen)
+	// The window cut above can leave the head of a secret at its very end, and
+	// masking SHRINKS the text ("[redacted]" is shorter than a key), so enough
+	// earlier occurrences pull that cut head down below maxLen where the final
+	// truncation no longer removes it. Nothing before this point can know how
+	// far the text moved, so the tail is checked last: a proper prefix of any
+	// listed secret, of credential length, is redacted too. Only the tail can
+	// hold one, since a whole occurrence anywhere was already replaced.
+	suffix := ""
+	if strings.HasSuffix(out, "…") {
+		out, suffix = strings.TrimSuffix(out, "…"), "…"
+	}
+	for _, secret := range secrets {
+		if len(secret) < CredentialMinLen {
+			continue
+		}
+		for k := min(len(secret)-1, len(out)); k >= CredentialMinLen; k-- {
+			if strings.HasSuffix(out, secret[:k]) {
+				out = out[:len(out)-k] + "[redacted]"
+				break
+			}
+		}
+	}
+	return out + suffix
+}
+
+// MaskCredentialBounded is MaskCredentialsBounded for a caller that holds one
+// key. It is the form every vendor path that logs or returns an upstream body
+// uses; MaskCredential over an already-sanitized body is the inverted order
+// and must not be written.
+func MaskCredentialBounded(secret, body string, maxLen int) string {
+	return MaskCredentialsBounded([]string{secret}, body, maxLen)
 }
 
 // maskExact replaces every listed secret of credential length. It runs the

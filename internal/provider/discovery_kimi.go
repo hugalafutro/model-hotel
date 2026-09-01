@@ -141,7 +141,7 @@ func (d *DiscoveryService) GetKimiCodeQuota(ctx context.Context, provider *Provi
 		if authErr := quotaAuthError("kimi-code", apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return nil, authErr
 		}
-		debuglog.Error("discovery: kimi-code quota fetch non-200 status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(body), 2000)))
+		debuglog.Error("discovery: kimi-code quota fetch non-200 status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
 		return nil, fmt.Errorf("kimi-code: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

@@ -87,7 +87,10 @@ func (d *DiscoveryService) vertexCountTokensProbe(ctx context.Context, baseURL, 
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		return 0, err
+		// Off the shared helpers, so scrubbed here: the key is header-only
+		// today, but a transport error quotes the URL and this is the one
+		// probe whose URL a future change could carry it in.
+		return 0, maskedRequestError(req, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, resp.Body)

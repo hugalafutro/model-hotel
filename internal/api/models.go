@@ -497,7 +497,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 		// string is returned to the dashboard AND persisted to
 		// request_logs.error_message. The key was decrypted for the probe just
 		// above, so the exact match covers shapes the regex cannot.
-		errMsg := util.MaskCredential(apiKey, util.SanitizeLogBody(fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody)), 10000))
+		errMsg := util.MaskCredentialBounded(apiKey, fmt.Sprintf("HTTP %d: %s", resp.StatusCode, string(respBody)), 10000)
 		h.logTestModelHTTPError(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, errMsg, clientip.From(r))
 		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
 		return

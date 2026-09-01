@@ -78,8 +78,8 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 		}
 
 		if resp.StatusCode != http.StatusOK {
-			debuglog.Error("discovery: cohere non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(bodyBytes), 2000)))
-			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, util.MaskCredential(apiKey, util.SanitizeLogBody(string(bodyBytes), 2000)))
+			debuglog.Error("discovery: cohere non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
+			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
 		}
 
 		var cohereResp CohereModelsResponse

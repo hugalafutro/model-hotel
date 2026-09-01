@@ -118,7 +118,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 		return nil, &httpError{StatusCode: resp.StatusCode}
 	}
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: xai language-models non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(bodyBytes), 2000)))
+		debuglog.Error("discovery: xai language-models non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
 		return nil, fmt.Errorf("xAI: unexpected status %d for provider %s", resp.StatusCode, provider.Name)
 	}
 
@@ -279,7 +279,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 		return nil, &httpError{StatusCode: resp.StatusCode}
 	}
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: xai minimal models non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredential(apiKey, util.SanitizeLogBody(string(bodyBytes), 2000)))
+		debuglog.Error("discovery: xai minimal models non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
 		return nil, fmt.Errorf("xAI: unexpected status %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

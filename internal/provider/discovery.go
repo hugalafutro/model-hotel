@@ -115,7 +115,15 @@ func secretsOf(h http.Header, u *url.URL) []string {
 	if u == nil {
 		return secrets
 	}
-	for _, seg := range strings.Split(u.RawQuery, "&") {
+	return append(secrets, querySecrets(u.RawQuery)...)
+}
+
+// querySecrets is the query half of secretsOf, over a raw query string, so a
+// URL that failed to parse (and whose error therefore prints it whole) can
+// still be scrubbed from the text after its '?'.
+func querySecrets(rawQuery string) []string {
+	var secrets []string
+	for _, seg := range strings.Split(rawQuery, "&") {
 		name, raw, ok := strings.Cut(seg, "=")
 		if !ok || !credentialQueryParams[strings.ToLower(name)] {
 			continue
@@ -123,6 +131,16 @@ func secretsOf(h http.Header, u *url.URL) []string {
 		secrets = append(secrets, seg, raw)
 		if dec, err := url.QueryUnescape(raw); err == nil && dec != raw {
 			secrets = append(secrets, dec, url.QueryEscape(dec))
+		}
+		// A key pasted with a stray newline or space is what makes the URL
+		// unparseable in the first place, and the parse error renders that
+		// byte escaped (%q prints "\n"), so the exact match on the raw value
+		// misses the visible key body. The trimmed value is what shows.
+		if trimmed := strings.TrimSpace(raw); trimmed != raw {
+			secrets = append(secrets, trimmed)
+			if dec, err := url.QueryUnescape(trimmed); err == nil && dec != trimmed {
+				secrets = append(secrets, dec)
+			}
 		}
 	}
 	return secrets
@@ -254,11 +272,13 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 		// here with last == nil, and its error quotes the URL. Scrub from the
 		// inputs this function was handed instead of from a request.
 		if last == nil {
-			if u, perr := url.Parse(rawURL); perr == nil {
-				err = &maskedError{text: util.MaskCredentialsBounded(secretsOf(headers, u), err.Error(), 500), cause: err}
-			} else {
-				err = &maskedError{text: util.MaskCredentialsBounded(secretsOf(headers, nil), err.Error(), 500), cause: err}
+			// url.Parse fails for the same reason NewRequest did, and the error
+			// prints the raw URL whole, so the query is split off by hand.
+			secrets := secretsOf(headers, nil)
+			if _, q, ok := strings.Cut(rawURL, "?"); ok {
+				secrets = append(secrets, querySecrets(q)...)
 			}
+			err = &maskedError{text: util.MaskCredentialsBounded(secrets, err.Error(), 500), cause: err}
 		}
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}

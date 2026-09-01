@@ -156,10 +156,12 @@ func assertNoKey(t *testing.T, err error) {
 // the exact pass exists for. The retryable branch bounds at 200, so a JSON
 // error body that quotes the key late is the realistic case.
 func TestFetchURL_RetryableBodyKeyAcrossTheCutIsRedactedWhole(t *testing.T) {
-	// 150 + the 22-byte JSON prefix + the 23-byte phrase puts the key's first
-	// byte at 195 and its last past 200: it straddles the retryable branch's
-	// cut instead of falling wholly before or after it.
-	pad := strings.Repeat("x", 150)
+	// 140 + the 22-byte JSON prefix + the 23-byte phrase puts the key's first
+	// byte at 185 and its last past 200: fifteen bytes of it sit before the
+	// retryable branch's cut, which the inverted order leaves behind (the
+	// second review found the first version of this test placed only six
+	// there, fewer than it asserted on, so it passed on the old code).
+	pad := strings.Repeat("x", 140)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusServiceUnavailable)
 		_, _ = w.Write([]byte(`{"error":{"message":"` + pad + ` auth failed for token ` + leakedKey + `"}}`))
@@ -177,8 +179,21 @@ func TestFetchURL_RetryableBodyKeyAcrossTheCutIsRedactedWhole(t *testing.T) {
 	if err == nil {
 		t.Fatal("expected an error")
 	}
-	if strings.Contains(err.Error(), leakedKey[:10]) {
+	if strings.Contains(err.Error(), leakedKey[:5]) {
 		t.Errorf("a prefix of the key survived the cut: %s", err.Error())
+	}
+}
+
+// A URL that fails to parse never becomes a request, and the parse error
+// prints the raw URL whole. The fallback must still scrub the query.
+func TestFetchURL_UnparseableURLDoesNotCarryQueryKey(t *testing.T) {
+	svc := &DiscoveryService{httpClient: &http.Client{Timeout: 2 * time.Second}}
+	_, err := svc.fetchURL(context.Background(), http.MethodGet, "http://example.invalid/v1beta/models?key="+leakedKey+"\n", http.Header{})
+	if err == nil {
+		t.Fatal("expected a parse error")
+	}
+	if strings.Contains(err.Error(), leakedKey) {
+		t.Errorf("the query key survived the unparseable-URL fallback: %s", err.Error())
 	}
 }
 
@@ -323,10 +338,12 @@ func TestRequestSecrets_CoversEveryCredentialHeader(t *testing.T) {
 	}
 }
 
-// The five quota readers that talk to a fixed vendor host log a non-200 body
-// at Error. They were shape-only too; a sweep for the pattern found them after
-// the vendor listing sites above. Same stub, same custom-format key, the same
-// captured log.
+// The four quota readers that talk to a fixed vendor host log a non-200 body
+// at Error (five sites: OpenRouter has a second, for its key-info call, which
+// this stub never reaches because the credits call fails first; it takes the
+// same one-line fix). They were shape-only too; a sweep for the pattern found
+// them after the vendor listing sites above. Same stub, same custom-format
+// key, the same captured log.
 func TestQuotaNon200Logs_DoNotCarryTheKey(t *testing.T) {
 	const masterKey = "test-master-key-for-testing-only-32bytes!"
 	kp, err := auth.Encrypt(leakedKey, masterKey)

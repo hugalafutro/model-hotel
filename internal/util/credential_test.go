@@ -218,3 +218,32 @@ func TestMaskCredentialsBounded_KeyAcrossTheCutIsRedactedWhole(t *testing.T) {
 		t.Errorf("result must still be bounded near maxLen, got %d runes", len(got))
 	}
 }
+
+// Masking shrinks the text, so many earlier copies of the key can pull a copy
+// that the window cut in half down below maxLen, where the final truncation
+// no longer removes its head. Found by the second review round with this
+// exact shape: maxLen 2000, a 51-byte key echoed 100 times, then a straddle.
+func TestMaskCredentialsBounded_ShrinkCannotDragACutHeadIntoView(t *testing.T) {
+	key := strings.Repeat("qwertyuiop", 5) + "Z" // 51 bytes, no digit: shapeless
+	body := strings.Repeat(key+" ", 100)
+	// Place one more copy so that it straddles the maxLen+scrubMargin window.
+	const maxLen = 2000
+	gap := maxLen + 4096 - len(body) - 20
+	if gap < 0 {
+		t.Fatalf("test geometry: body already past the window (%d)", len(body))
+	}
+	body += strings.Repeat("-", gap) + key + " tail"
+	got := MaskCredentialsBounded([]string{key}, body, maxLen)
+	for k := len(key) - 1; k >= CredentialMinLen; k-- {
+		if strings.Contains(got, key[:k]) {
+			t.Fatalf("a %d-byte head of the key survived: ...%s", k, got[max(0, len(got)-80):])
+		}
+	}
+}
+
+func TestMaskCredentialBounded_IsTheSingleSecretForm(t *testing.T) {
+	got := MaskCredentialBounded("selfhosted-gateway-secret", "refused selfhosted-gateway-secret now", 100)
+	if got != "refused [redacted] now" {
+		t.Errorf("got %q", got)
+	}
+}
