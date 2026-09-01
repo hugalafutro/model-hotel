@@ -200,3 +200,21 @@ func TestMaskCredentials_NoSecretsStillRunsTheShapeLayer(t *testing.T) {
 		t.Errorf("shape layer must run even with no exact secrets: %s", got)
 	}
 }
+
+// A key that straddles the truncation boundary must still be redacted whole.
+// Truncating first leaves its head behind, which the shape pass cannot see for
+// a custom-format key; this is the order SanitizeLogBody itself documents.
+func TestMaskCredentialsBounded_KeyAcrossTheCutIsRedactedWhole(t *testing.T) {
+	const key = "selfhosted-gateway-secret-abcdefghij"
+	pad := strings.Repeat("x", 190) // the key starts 10 runes before a 200-rune cut
+	got := MaskCredentialsBounded([]string{key}, pad+key+" trailing", 200)
+	if strings.Contains(got, key[:12]) {
+		t.Errorf("a prefix of the key survived the cut: %s", got)
+	}
+	if !strings.Contains(got, "[redacted]") {
+		t.Errorf("want the key redacted, got %s", got)
+	}
+	if len(got) > 200+len("[redacted]")+3 {
+		t.Errorf("result must still be bounded near maxLen, got %d runes", len(got))
+	}
+}

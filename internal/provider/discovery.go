@@ -71,45 +71,77 @@ func (d *DiscoveryService) SetRetryBaseDelay(dur time.Duration) {
 // maxDiscoveryRetries bounds attempts for a single discovery HTTP call.
 const maxDiscoveryRetries = 3
 
-// requestSecrets collects every credential a discovery request carries, so
-// text the upstream sends back (or a transport error that quotes the URL) can
-// be scrubbed of it exactly, before the shape layer. The helpers below never
-// receive the key as a value: the caller has already folded it into the
-// Authorization header, an API-key header, or the query string (one family
-// authenticates by ?key=). Reading it back off the request is what lets the
-// shared path cover every family, including the custom and self-hosted
-// gateways whose key format no prefix regex anticipates, and the vendor paths
-// that each fixed this for themselves left this shared one uncovered (Strix
-// vuln-0005, 2026-09-01, the fourth site of the #836 class).
+// credentialHeaders are the request headers a discovery family folds its key
+// into. secretsOf reads the key back off these, so the shared helpers can
+// scrub what an upstream says back without ever being handed the key as a
+// value. A family that authenticates through another header must add it here
+// AND to TestRequestSecrets_CoversEveryCredentialHeader.
+var credentialHeaders = []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key"}
+
+// credentialQueryParams are the query parameter names a key may travel in
+// (one family authenticates by ?key=). Only these are treated as secrets: a
+// sweep of every query value would redact Azure's ?api-version=... out of the
+// one diagnostic an operator needs when a version is refused.
+var credentialQueryParams = map[string]bool{
+	"key": true, "api_key": true, "apikey": true, "api-key": true,
+	"token": true, "access_token": true, "secret": true, "password": true,
+}
+
+// secretsOf collects every credential the given headers and URL carry, so text
+// the upstream sends back (or a transport error that quotes the URL) can be
+// scrubbed of it exactly, before the shape layer. The helpers below never
+// receive the key as a value: the caller has already folded it into a header
+// or the query string. Reading it back is what lets the shared path cover
+// every family, including the custom and self-hosted gateways whose key
+// format no prefix regex anticipates; the vendor paths that each fixed this
+// for themselves had left this shared one uncovered (Strix vuln-0005,
+// 2026-09-01, the fourth site of the #836 class).
 //
-// Both the raw header value and its bearer-stripped form are listed, since an
-// upstream may quote either. Short values fall out inside MaskCredentials.
-func requestSecrets(req *http.Request) []string {
-	if req == nil {
-		return nil
-	}
+// A header value is listed raw and, for a bearer, stripped, since an upstream
+// may quote either. A query value is listed decoded, percent-escaped, and as
+// its raw "name=value" segment, because a url.Error quotes the URL exactly as
+// it was sent while Query() hands back the decoded form. Short values fall
+// out inside the mask.
+func secretsOf(h http.Header, u *url.URL) []string {
 	var secrets []string
-	for _, name := range []string{"Authorization", "X-Api-Key", "Api-Key"} {
-		for _, v := range req.Header.Values(name) {
+	for _, name := range credentialHeaders {
+		for _, v := range h.Values(name) {
 			secrets = append(secrets, v)
-			if stripped := strings.TrimSpace(strings.TrimPrefix(v, "Bearer ")); stripped != v {
-				secrets = append(secrets, stripped)
+			if f := strings.Fields(v); len(f) == 2 && strings.EqualFold(f[0], "bearer") {
+				secrets = append(secrets, f[1])
 			}
 		}
 	}
-	if req.URL != nil {
-		for _, vs := range req.URL.Query() {
-			secrets = append(secrets, vs...)
+	if u == nil {
+		return secrets
+	}
+	for _, seg := range strings.Split(u.RawQuery, "&") {
+		name, raw, ok := strings.Cut(seg, "=")
+		if !ok || !credentialQueryParams[strings.ToLower(name)] {
+			continue
+		}
+		secrets = append(secrets, seg, raw)
+		if dec, err := url.QueryUnescape(raw); err == nil && dec != raw {
+			secrets = append(secrets, dec, url.QueryEscape(dec))
 		}
 	}
 	return secrets
 }
 
+// requestSecrets is secretsOf for a built request.
+func requestSecrets(req *http.Request) []string {
+	if req == nil {
+		return nil
+	}
+	return secretsOf(req.Header, req.URL)
+}
+
 // maskRequestSecrets scrubs text of everything req carried, then of anything
-// key-shaped. Used for every upstream body or transport error the shared
-// helpers turn into an error or a log line.
+// key-shaped, then bounds it: in that order, so a key straddling the cut is
+// still redacted whole. Used for every upstream body or transport error the
+// shared helpers turn into an error or a log line.
 func maskRequestSecrets(req *http.Request, text string, maxLen int) string {
-	return util.MaskCredentials(requestSecrets(req), util.SanitizeLogBody(text, maxLen))
+	return util.MaskCredentialsBounded(requestSecrets(req), text, maxLen)
 }
 
 // doDiscoveryRequest executes a discovery HTTP request with retries for
@@ -165,20 +197,28 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 	return nil, fmt.Errorf("discovery fetch failed after %d attempts: %w", maxDiscoveryRetries, lastErr)
 }
 
-// maskedRequestError returns err with everything req carried scrubbed out of
-// its text. When nothing needed scrubbing the original error is returned as
-// is, so a caller's errors.Is / errors.As on a transport error (a cancelled
-// context, a timeout) keeps working; only an error that would have leaked is
-// flattened to its masked text.
+// maskedError is a transport error whose text has been scrubbed of what the
+// request carried, with the original still reachable through Unwrap. So
+// errors.Is on a cancelled context or a deadline, and errors.As on a net.Error,
+// keep working for every caller, while nothing that prints the error (%v, %s,
+// slog, a stored column) can reach the unscrubbed text: those all go through
+// Error(). The masked text is computed once, at construction.
+type maskedError struct {
+	text  string
+	cause error
+}
+
+func (e *maskedError) Error() string { return e.text }
+func (e *maskedError) Unwrap() error { return e.cause }
+
+// maskedRequestError wraps err so its text is scrubbed of everything req
+// carried (a url.Error quotes the request URL, and one family authenticates
+// by query parameter) and of anything key-shaped, bounded to 500 runes.
 func maskedRequestError(req *http.Request, err error) error {
 	if err == nil {
 		return nil
 	}
-	masked := maskRequestSecrets(req, err.Error(), 500)
-	if masked == err.Error() {
-		return err
-	}
-	return errors.New(masked)
+	return &maskedError{text: maskRequestSecrets(req, err.Error(), 500), cause: err}
 }
 
 // doDiscoveryRequestPrebuilt retries a prebuilt body-less request (GETs).
@@ -192,13 +232,12 @@ func (d *DiscoveryService) doDiscoveryRequestPrebuilt(ctx context.Context, req *
 // response body, and checks for a 200 OK status. Returns the response body
 // bytes on success. The caller is responsible for unmarshaling the result.
 // Transient network errors and 429/5xx are retried via doDiscoveryRequest.
-func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, headers http.Header) ([]byte, error) {
-	//nolint:gocritic // url variable shadows import but context makes it clear
+func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, headers http.Header) ([]byte, error) {
 	// The last request built is kept for the scrub below: the credential is in
 	// its headers or URL, and this function never sees it any other way.
 	var last *http.Request
 	resp, err := d.doDiscoveryRequest(ctx, func() (*http.Request, error) {
-		req, err := http.NewRequestWithContext(ctx, method, url, http.NoBody)
+		req, err := http.NewRequestWithContext(ctx, method, rawURL, http.NoBody)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create request: %w", err)
 		}
@@ -211,6 +250,16 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, url string, hea
 		return req, nil
 	})
 	if err != nil {
+		// A request that never got built (a URL that fails to parse) reaches
+		// here with last == nil, and its error quotes the URL. Scrub from the
+		// inputs this function was handed instead of from a request.
+		if last == nil {
+			if u, perr := url.Parse(rawURL); perr == nil {
+				err = &maskedError{text: util.MaskCredentialsBounded(secretsOf(headers, u), err.Error(), 500), cause: err}
+			} else {
+				err = &maskedError{text: util.MaskCredentialsBounded(secretsOf(headers, nil), err.Error(), 500), cause: err}
+			}
+		}
 		return nil, fmt.Errorf("http request failed: %w", err)
 	}
 	defer func() { _ = resp.Body.Close() }()
@@ -596,20 +645,23 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
+			// Same scrub as doDiscoveryRequest, for the same reason, and with a
+			// worse sink: this error is persisted as the provider's quota
+			// failure and rendered on the dashboard, not only logged.
 			if isTransientNetworkError(err) {
-				lastErr = err
+				lastErr = maskedRequestError(req, err)
 				continue
 			}
 			if opened := circuit.recordFailure(); opened {
 				debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "threshold", quotaBreakerThreshold)
 			}
-			return nil, err
+			return nil, maskedRequestError(req, err)
 		}
 		// Retry on 429 (rate-limited) and 5xx (server error) responses.
 		if isRetryableStatus(resp.StatusCode) {
 			body, _ := io.ReadAll(resp.Body)
 			_ = resp.Body.Close()
-			lastErr = fmt.Errorf("retryable HTTP %d: %s", resp.StatusCode, util.SanitizeLogBody(string(body), 200))
+			lastErr = fmt.Errorf("retryable HTTP %d: %s", resp.StatusCode, maskRequestSecrets(req, string(body), 200))
 			debuglog.Info("discovery: retryable HTTP status for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "status", resp.StatusCode, "attempt", attempt+1)
 			continue
 		}

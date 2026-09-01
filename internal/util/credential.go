@@ -107,10 +107,32 @@ func MaskCredential(secret, body string) string {
 // carries (each bearer, each query value) rather than with one named key.
 // Entries shorter than CredentialMinLen are skipped for the reason given there.
 func MaskCredentials(secrets []string, body string) string {
+	return string(MaskKeyShapedTokens([]byte(maskExact(secrets, body))))
+}
+
+// MaskCredentialsBounded is MaskCredentials followed by SanitizeLogBody, in the
+// one order that is safe: the exact pass runs BEFORE the truncation, over the
+// same maxLen+scrubMargin window SanitizeLogBody scans. Running it after (over
+// text already cut at maxLen) leaves the head of a key that straddles the cut,
+// and a custom-format key gets nothing from the shape pass behind it either.
+// This is the same rule SanitizeLogBody documents for its own shape pass; a
+// caller that has a body to bound and secrets to name uses this, not the two
+// in sequence.
+func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
+	if len(body) > maxLen+scrubMargin {
+		body = body[:maxLen+scrubMargin]
+	}
+	return SanitizeLogBody(maskExact(secrets, body), maxLen)
+}
+
+// maskExact replaces every listed secret of credential length. It runs the
+// list in order, so a caller that lists a superset ("Bearer X") before its
+// subset ("X") has the whole token consumed first.
+func maskExact(secrets []string, body string) string {
 	for _, secret := range secrets {
 		if len(secret) >= CredentialMinLen && strings.Contains(body, secret) {
 			body = strings.ReplaceAll(body, secret, "[redacted]")
 		}
 	}
-	return string(MaskKeyShapedTokens([]byte(body)))
+	return body
 }
