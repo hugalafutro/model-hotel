@@ -494,6 +494,20 @@ func TestPollVersionsOnceClearsVersionOnFailedFetch(t *testing.T) {
 	if b := p.memberBuildOf(m.ID); b.Version != "" || b.Commit != "" {
 		t.Errorf("build after the token was removed = %+v, want zero", b)
 	}
+
+	// A token the store holds but cannot decrypt is no token either.
+	if err := store.SetMemberToken(ctx, m.ID, "tok"); err != nil {
+		t.Fatalf("restore token: %v", err)
+	}
+	p.PollVersionsOnce(ctx)
+	if b := p.memberBuildOf(m.ID); b.Version != "v1.2.3" {
+		t.Fatalf("setup: build did not come back: %+v", b)
+	}
+	corruptMemberToken(t, store, m.ID)
+	p.PollVersionsOnce(ctx)
+	if b := p.memberBuildOf(m.ID); b.Version != "" || b.Commit != "" {
+		t.Errorf("build with an unreadable token = %+v, want zero", b)
+	}
 }
 
 func TestMemberBuildOf(t *testing.T) {

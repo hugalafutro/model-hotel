@@ -51,6 +51,15 @@ func TestPollCircuitsOnce(t *testing.T) {
 	goneURL := gone.URL
 	gone.Close()
 	dead, _ := store.CreateMember(ctx, "dead", goneURL, "tok")
+	// A member whose status response is past the size bound: no ledger, and
+	// the one failure the poll reports above Debug.
+	huge := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"providers":[{"provider_id":"p","circuits":[{"model":"`))
+		_, _ = w.Write(bytes.Repeat([]byte("x"), maxCircuitStatusBytes))
+		_, _ = w.Write([]byte(`","state":"open"}]}]}`))
+	}))
+	defer huge.Close()
+	oversize, _ := store.CreateMember(ctx, "oversize", huge.URL, "tok")
 	ch := bus.Subscribe()
 	defer bus.Unsubscribe(ch)
 	statusEvents := func() int {
@@ -87,6 +96,9 @@ func TestPollCircuitsOnce(t *testing.T) {
 	}
 	if snap[dead.ID].Circuits != nil {
 		t.Errorf("unreachable member has a ledger: %+v", snap[dead.ID].Circuits)
+	}
+	if snap[oversize.ID].Circuits != nil {
+		t.Errorf("oversize member has a ledger: %+v", snap[oversize.ID].Circuits)
 	}
 	if n := statusEvents(); n != 1 {
 		t.Errorf("status events after the first read = %d, want 1", n)
@@ -128,6 +140,35 @@ func TestPollCircuitsOnce(t *testing.T) {
 	}
 	if n := statusEvents(); n != 1 {
 		t.Errorf("status events after the token was removed = %d, want 1", n)
+	}
+
+	// A token the store holds but cannot decrypt (a master key rotated
+	// underneath it) is the same as no token: the ledger goes, once.
+	if err := store.SetMemberToken(ctx, withTok.ID, "tok"); err != nil {
+		t.Fatalf("restore token: %v", err)
+	}
+	p.PollCircuitsOnce(ctx)
+	if p.Snapshot()[withTok.ID].Circuits == nil {
+		t.Fatal("setup: the ledger did not come back")
+	}
+	statusEvents()
+	corruptMemberToken(t, store, withTok.ID)
+	p.PollCircuitsOnce(ctx)
+	if p.Snapshot()[withTok.ID].Circuits != nil {
+		t.Error("a member whose token cannot be read kept its ledger")
+	}
+	if n := statusEvents(); n != 1 {
+		t.Errorf("status events after the token became unreadable = %d, want 1", n)
+	}
+}
+
+// corruptMemberToken overwrites a member's stored token with bytes that are
+// not a ciphertext, so HasToken stays true while MemberToken fails.
+func corruptMemberToken(t *testing.T, store *Store, id string) {
+	t.Helper()
+	junk := []byte("not a ciphertext")
+	if _, err := store.db.ExecContext(context.Background(), `UPDATE members SET token_cipher = ?, token_nonce = ?, token_salt = ? WHERE id = ?`, junk, junk, junk, id); err != nil {
+		t.Fatalf("corrupt token: %v", err)
 	}
 }
 
