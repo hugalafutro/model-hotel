@@ -41,6 +41,7 @@ func TestConfigSyncInFlightAtShutdownNeverStampsAClosedStore(t *testing.T) {
 	if _, err := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken"); err != nil {
 		t.Fatalf("create replica: %v", err)
 	}
+	enableAutoSync(t, store, pm.ID)
 	alignFleetVersions(t, srv, store, "dev")
 
 	syncDone := make(chan *httptest.ResponseRecorder, 1)
@@ -100,6 +101,7 @@ func TestConfigSyncCutShortReportsThePartialRun(t *testing.T) {
 			t.Fatalf("create replica: %v", err)
 		}
 	}
+	enableAutoSync(t, store, pm.ID)
 	alignFleetVersions(t, srv, store, "dev")
 
 	syncDone := make(chan *httptest.ResponseRecorder, 1)

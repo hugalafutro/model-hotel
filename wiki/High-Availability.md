@@ -610,7 +610,9 @@ API client) to Front Desk without ever sharing the `FRONTDESK_TOKEN`:
 
 1. Choose a role and click **Pair device**. **Monitor** tokens are read-only
    (members, health, traffic, events, alerts, SSE); **Operator** tokens add
-   drain/activate, config sync, and the auto-sync toggle. Neither role can add
+   drain/activate, config sync, and the auto-sync toggle. A config sync only
+   ever copies from the designated primary: to copy from a different member,
+   repoint the primary first, which takes the admin token. Neither role can add
    or remove members, change settings, or manage pairing; those stay with the
    admin login.
 2. Front Desk shows a QR code and the same payload as a copyable pairing

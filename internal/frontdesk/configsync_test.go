@@ -29,6 +29,10 @@ type stubConfigMember struct {
 	gotImport   bool
 	gotDryRun   bool
 	gotBackup   bool
+	// gotExport records a read of this member's config. A test that claims a
+	// member was "not read from" must assert this, not gotImport, which only
+	// says it was not written to.
+	gotExport bool
 	// importHeld, when set, holds a real (non dry-run) import open: entry is
 	// announced on importEntered and the answer waits for importGate, so a test can
 	// park a sync mid-import and act while it is in flight. A caller that hangs up
@@ -64,6 +68,7 @@ func newStubConfigMember(t *testing.T, token string) *stubConfigMember {
 		}
 		switch {
 		case r.Method == http.MethodGet && r.URL.Path == "/api/config/export":
+			sm.gotExport = true
 			_, _ = w.Write([]byte(sm.exportBody))
 		case r.Method == http.MethodPost && r.URL.Path == "/api/config/import":
 			sm.gotImport = true
@@ -99,6 +104,7 @@ func TestConfigSyncApplies(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -140,6 +146,134 @@ func TestConfigSyncApplies(t *testing.T) {
 	}
 }
 
+// Choosing which member's config the whole fleet copies is an admin-token
+// confirmed decision: putAutoSync refuses to repoint a configured primary
+// without one ("confirm the admin token to change or clear the configured
+// primary"). A manual sync reaches the identical outcome — every other member,
+// the designated primary included, is overwritten with the chosen member's
+// config — so it must not accept a source the operator never designated.
+//
+// Without this, an operator-tier paired device (a tier below the admin token,
+// and one that can disable auto-sync on its own) could roll the whole fleet
+// back to a stale member's config and leave it there.
+func TestConfigSyncRefusesUndesignatedSource(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	other := newStubConfigMember(t, "otoken")
+	replica := newStubConfigMember(t, "rtoken")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	om, _ := store.CreateMember(t.Context(), "other", other.srv.URL, "otoken")
+	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	alignFleetVersions(t, srv, store, "dev")
+
+	t.Run("empty primary_id is a 400, not a designation refusal", func(t *testing.T) {
+		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{}`, true)
+		if rec.Code != http.StatusBadRequest || errCode(t, rec) != "primary_required" {
+			t.Fatalf("sync with no primary_id = %d code=%q (%s), want 400 primary_required", rec.Code, errCode(t, rec), rec.Body.String())
+		}
+	})
+
+	t.Run("no primary designated", func(t *testing.T) {
+		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+		if rec.Code != http.StatusConflict || errCode(t, rec) != primaryNotDesignatedCode {
+			t.Fatalf("sync with no designation = %d code=%q (%s), want 409 %s", rec.Code, errCode(t, rec), rec.Body.String(), primaryNotDesignatedCode)
+		}
+		if primary.gotExport || other.gotExport {
+			t.Error("nothing may be read before a primary is designated")
+		}
+		if other.gotImport || replica.gotImport {
+			t.Error("nothing may be pushed before a primary is designated")
+		}
+	})
+
+	enableAutoSync(t, store, pm.ID)
+
+	t.Run("source other than the designated primary", func(t *testing.T) {
+		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+om.ID+`"}`, true)
+		if rec.Code != http.StatusConflict || errCode(t, rec) != syncSourceNotPrimaryCode {
+			t.Fatalf("sync from a non-designated member = %d code=%q (%s), want 409 %s", rec.Code, errCode(t, rec), rec.Body.String(), syncSourceNotPrimaryCode)
+		}
+		// The decisive assertions: the rogue source was neither read from nor
+		// did anything get written anywhere. A refusal that had already fetched
+		// the export, or that still pushed, would be no protection at all.
+		if other.gotExport {
+			t.Error("the rogue source's config was read")
+		}
+		if replica.gotImport || primary.gotImport || other.gotImport {
+			t.Error("a refused sync must push nothing")
+		}
+	})
+
+	t.Run("the designated primary still syncs", func(t *testing.T) {
+		rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("sync from the designated primary = %d (%s), want 200", rec.Code, rec.Body.String())
+		}
+		if !primary.gotExport || !replica.gotImport {
+			t.Errorf("sanctioned path: exported=%v replica imported=%v, want both", primary.gotExport, replica.gotImport)
+		}
+	})
+}
+
+// errCode reads the machine code off a coded error body; "" for a bare one.
+func errCode(t *testing.T, rec *httptest.ResponseRecorder) string {
+	t.Helper()
+	var body struct {
+		Code string `json:"code"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &body)
+	return body.Code
+}
+
+// TestConfigSyncStopsWhenPrimaryRepointedMidRun: the guard is a property of the
+// whole run, not of admission. A run can last minutes, and an admin repointing
+// the primary in the meantime (admin token confirmed) has made a decision the
+// operator-tier run in flight must not undo. The run reads the designation with
+// the generation it was admitted under and stops the moment either moves:
+// members not yet reached are left alone, the run reports itself repointed
+// rather than complete, and the fleet's sync marker is not stamped.
+func TestConfigSyncStopsWhenPrimaryRepointedMidRun(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	first := newStubConfigMember(t, "r1token")
+	second := newStubConfigMember(t, "r2token")
+	entered, releaseImport := first.holdRealImport()
+	defer releaseImport()
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	_, _ = store.CreateMember(t.Context(), "first", first.srv.URL, "r1token")
+	sm, _ := store.CreateMember(t.Context(), "second", second.srv.URL, "r2token")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	syncDone := make(chan *httptest.ResponseRecorder, 1)
+	go func() {
+		syncDone <- do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
+	}()
+	<-entered // the run is parked inside the first replica's real import
+
+	// The admin repoints to the second member while the run is in flight: the
+	// store write bumps the generation, and the rearm broadcast is what
+	// putAutoSync fires right after it.
+	if err := store.SetAutoSync(t.Context(), true, sm.ID); err != nil {
+		t.Fatalf("repoint: %v", err)
+	}
+	srv.signalRearm()
+	releaseImport()
+
+	rec := <-syncDone
+	if rec.Code != http.StatusConflict || errCode(t, rec) != primaryRepointedCode {
+		t.Fatalf("sync = %d code=%q (%s), want 409 %s", rec.Code, errCode(t, rec), rec.Body.String(), primaryRepointedCode)
+	}
+	if second.gotImport {
+		t.Error("a member not yet reached was pushed to after the repoint")
+	}
+	if !strings.Contains(rec.Body.String(), "1 member(s) were not attempted") {
+		t.Errorf("answer must say how much of the fleet the stopped run never reached, got %s", rec.Body.String())
+	}
+}
+
 // TestConfigSyncAttributesInitiator proves a manual sync stamps who ran it on
 // both the member's sync-reason marker (surfaced in the Members table / member
 // detail) and the audit event's metadata, so the log can tell an admin-driven
@@ -151,6 +285,7 @@ func TestConfigSyncAttributesInitiator(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -218,6 +353,7 @@ func TestConfigSyncImportUsesLongerDeadlineThanProbe(t *testing.T) {
 	replica.importDelay = 200 * time.Millisecond
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -242,6 +378,7 @@ func TestConfigSyncReportsFailure(t *testing.T) {
 	replica.importBody = `{"schema_version_ok":true,"master_key_ok":false}`
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -284,6 +421,7 @@ func TestConfigSyncTakesNoPreSyncBackup(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -317,6 +455,7 @@ func TestConfigSyncConvergedMemberNotImported(t *testing.T) {
 	converged.importBody = `{"schema_version_ok":true,"master_key_ok":true,"applied":true,"diff":{}}`
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	cm, _ := store.CreateMember(t.Context(), "converged", converged.srv.URL, "ctoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -357,10 +496,14 @@ func TestConfigSyncConvergedMemberNotImported(t *testing.T) {
 }
 
 func TestConfigSyncUnknownPrimary(t *testing.T) {
-	srv, _ := newTestServer(t)
+	srv, store := newTestServer(t)
+	// Designated but gone (removed after designation, say): the guard passes and
+	// the run must fail on the member lookup, not on the guard. Designating it
+	// is what keeps this test on the branch it is named for.
 	const missing = "00000000-0000-0000-0000-000000000000"
-	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+missing+`"}`, true); rec.Code < 400 {
-		t.Fatalf("sync unknown primary should error, got %d", rec.Code)
+	enableAutoSync(t, store, missing)
+	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+missing+`"}`, true); rec.Code != http.StatusNotFound {
+		t.Fatalf("sync from an unknown designated primary = %d (%s), want 404", rec.Code, rec.Body.String())
 	}
 }
 
@@ -378,6 +521,7 @@ func TestConfigSyncPrimaryExportNon200(t *testing.T) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	if rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true); rec.Code != http.StatusBadGateway {
 		t.Fatalf("sync non-200 export = %d, want 502", rec.Code)
 	}
@@ -391,6 +535,7 @@ func TestConfigSyncReplicaBadJSON(t *testing.T) {
 	bad := newStubConfigMember(t, "btoken")
 	bad.importBody = "not json"
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	store.CreateMember(t.Context(), "bad-json", bad.srv.URL, "btoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -413,6 +558,7 @@ func TestConfigSyncPrimaryExportFails(t *testing.T) {
 	// The primary cannot serve its export.
 	primary.srv.Close()
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 
 	// Sync surfaces a bad-gateway when the primary export fails.
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)
@@ -434,6 +580,7 @@ func TestConfigSyncApplyVariants(t *testing.T) {
 	badSchema.importCode = http.StatusUnprocessableEntity
 	badSchema.importBody = `{"schema_version_ok":false,"master_key_ok":false}`
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	nm, _ := store.CreateMember(t.Context(), "not-applied", notApplied.srv.URL, "ntoken")
 	bm, _ := store.CreateMember(t.Context(), "bad-schema", badSchema.srv.URL, "stoken")
 	um, _ := store.CreateMember(t.Context(), "unreachable", "http://127.0.0.1:1", "utoken")
@@ -571,6 +718,7 @@ func TestConfigSyncSurvivesClientDisconnect(t *testing.T) {
 	t.Cleanup(primary.Close)
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -619,6 +767,7 @@ func TestAutoSyncStatusReportsLastSyncAt(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	_, _ = store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -665,6 +814,7 @@ func TestConfigSyncHoldsVersionSkew(t *testing.T) {
 	replica := newStubConfigMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	enableAutoSync(t, store, pm.ID)
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	setMemberVersion(srv, pm.ID, "v1.0.0")
 	setMemberVersion(srv, rm.ID, "v0.9.0")
