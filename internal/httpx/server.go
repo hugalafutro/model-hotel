@@ -51,10 +51,9 @@ const (
 // declares no length at all (Transfer-Encoding: chunked, which any Go client
 // streaming a file or pipe, a browser fetch with a stream body, and curl
 // uploading from a pipe with -T - all send) is budgeted as that largest body.
-// A chunked 25 MiB transcription
-// upload therefore gets the same time as one that declared its size, while a
-// declared or undeclared length past what the listener would accept anyway
-// earns nothing beyond it.
+// A chunked 25 MiB transcription upload therefore gets the same time as one
+// that declared its size, while a declared or undeclared length past what the
+// listener would accept anyway earns nothing beyond it.
 const (
 	bodyReadBase  = 30 * time.Second
 	bodyReadFloor = int64(128 << 10)
@@ -81,7 +80,7 @@ func BodyReadBudget(length int64) time.Duration {
 // most maxBody bytes of body: a declared length is clamped to maxBody and an
 // undeclared one (ContentLength -1) is taken as maxBody. A maxBody of zero or
 // less would hand every undeclared body the bare base, so it is floored at the
-// control-plane JSON ceiling, the smallest body any listener here accepts.
+// control-plane JSON ceiling, the lower of the two listeners' ceilings.
 func bodyBudgetFor(maxBody int64) func(contentLength int64) time.Duration {
 	if maxBody <= 0 {
 		maxBody = MaxJSONBody

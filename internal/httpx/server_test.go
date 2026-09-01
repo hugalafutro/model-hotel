@@ -15,6 +15,13 @@ import (
 
 func TestBodyReadBudget(t *testing.T) {
 	t.Parallel()
+	// Literals first: the table below is written in terms of these constants,
+	// so a constant moved by mistake (a zero base puts every POST's deadline
+	// in the past and fails its first read) would otherwise agree with every
+	// row that used it.
+	if bodyReadBase != 30*time.Second || bodyReadFloor != 128<<10 || bodyReadCap != 15*time.Minute {
+		t.Fatalf("budget constants moved: base %v floor %d cap %v, want 30s, 128 KiB, 15m", bodyReadBase, bodyReadFloor, bodyReadCap)
+	}
 	cases := []struct {
 		name string
 		cl   int64
@@ -120,6 +127,11 @@ func TestNewServerPosture(t *testing.T) {
 	// ceiling's: the clamp must be a clamp, not a constant.
 	if got, want := bd.budget(1<<20), BodyReadBudget(1<<20); got != want {
 		t.Fatalf("1 MiB budget = %v, want %v", got, want)
+	}
+	// And a length past the ceiling earns the ceiling's time, not its own:
+	// the upper clamp is what keeps a hostile length off the cap.
+	if got, want := bd.budget(1<<40), BodyReadBudget(50<<20); got != want {
+		t.Fatalf("1 TiB budget = %v, want the 50 MiB ceiling's %v", got, want)
 	}
 	rec := httptest.NewRecorder()
 	srv.Handler.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/", strings.NewReader("{}")))
