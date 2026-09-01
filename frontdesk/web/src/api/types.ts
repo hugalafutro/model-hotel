@@ -76,14 +76,18 @@ export interface MemberStatus {
 
 export interface MemberCircuits {
 	checked_at: string;
+	// The first few dozen of the non-closed circuits; total counts them all.
 	open: OpenCircuit[];
+	total: number;
 }
 
 export interface OpenCircuit {
 	provider_id: string;
 	provider?: string;
 	model: string;
-	state: "open" | "half-open";
+	// "open" or "half-open" from a current member; any other non-closed state
+	// a future breaker reports is shown as it comes.
+	state: string;
 	cause?: string;
 	status?: number;
 	next_retry_at?: string;

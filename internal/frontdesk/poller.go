@@ -196,7 +196,9 @@ func (p *Poller) Run(ctx context.Context) {
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollHealthOnce},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.PollTraefikOnce},
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollVersionsOnce},
-		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollCircuitsOnce},
+		// Three health polls apart: the member caches this status for 5s, so
+		// the health cadence would recompute it on every read (poller_circuits.go).
+		{func(s Settings) time.Duration { return 3 * secs(s.HealthPollSecs, 5) }, p.PollCircuitsOnce},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkConfigStaleness},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkAutoSyncStale},
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollAnnounceOnce},

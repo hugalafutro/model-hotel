@@ -479,6 +479,21 @@ func TestPollVersionsOnceClearsVersionOnFailedFetch(t *testing.T) {
 	if b := p.memberBuildOf(m.ID); b.Version != "" || b.Commit != "" {
 		t.Errorf("build after a failed fetch = %+v, want zero (fail closed)", b)
 	}
+
+	// A member whose token is removed loses its build the same way: nothing
+	// can read it any more, so nothing may vouch for it.
+	fail.Store(false)
+	p.PollVersionsOnce(ctx)
+	if b := p.memberBuildOf(m.ID); b.Version != "v1.2.3" {
+		t.Fatalf("setup: build did not come back: %+v", b)
+	}
+	if err := store.SetMemberToken(ctx, m.ID, ""); err != nil {
+		t.Fatalf("remove token: %v", err)
+	}
+	p.PollVersionsOnce(ctx)
+	if b := p.memberBuildOf(m.ID); b.Version != "" || b.Commit != "" {
+		t.Errorf("build after the token was removed = %+v, want zero", b)
+	}
 }
 
 func TestMemberBuildOf(t *testing.T) {

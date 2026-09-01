@@ -180,7 +180,8 @@
 		"circuitStatePinned": "已固定",
 		"circuitRetry": "重试 {{when}}",
 		"circuitsOpen_one": "{{count}} 个断开",
-		"circuitsOpen_other": "{{count}} 个断开"
+		"circuitsOpen_other": "{{count}} 个断开",
+		"circuitsShowing": "显示 {{total}} 个中的 {{shown}} 个"
 	},
 	"traffic": {
 		"title": "流量",

@@ -182,7 +182,8 @@
 		"circuitsOpen_one": "{{count}} otwarty",
 		"circuitsOpen_few": "{{count}} otwarte",
 		"circuitsOpen_many": "{{count}} otwartych",
-		"circuitsOpen_other": "{{count}} otwartych"
+		"circuitsOpen_other": "{{count}} otwartych",
+		"circuitsShowing": "pokazano {{shown}} z {{total}}"
 	},
 	"traffic": {
 		"title": "Ruch",

@@ -55,6 +55,7 @@ describe("MembersPage circuits column", () => {
 				HttpResponse.json([
 					member("m1", "dark", true, {
 						checked_at: "2026-08-31T14:47:00Z",
+						total: 2,
 						open: [
 							{
 								provider_id: "p-zai",
@@ -80,6 +81,7 @@ describe("MembersPage circuits column", () => {
 					member("m2", "fine", true, {
 						checked_at: "2026-08-31T14:47:00Z",
 						open: [],
+						total: 0,
 					}),
 					member("m3", "unread", true),
 					member("m4", "tokenless", false),

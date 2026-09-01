@@ -21,10 +21,20 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 	}
 	for _, m := range members {
 		if !m.HasToken {
+			// A member whose token was removed loses its build with it: the
+			// config-sync gates read an empty version as "cannot confirm", and
+			// a version kept from before the removal would vouch for a build
+			// nothing can read any more.
+			if p.clearBuild(m.ID) {
+				p.publishMemberStatus(m.ID)
+			}
 			continue
 		}
 		token, ok, err := p.store.MemberToken(ctx, m.ID)
 		if err != nil || !ok {
+			if p.clearBuild(m.ID) {
+				p.publishMemberStatus(m.ID)
+			}
 			continue
 		}
 		build, err := p.fetchMemberBuild(ctx, m.URL, token)
@@ -36,14 +46,7 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 			// mid-upgrade, which is exactly the window the gate exists for. The
 			// commit is cleared with the version: a commit kept beside a blank
 			// version would outlive the read that vouched for it.
-			p.mu.Lock()
-			cur := p.statuses[m.ID]
-			hadVersion := cur.Version != ""
-			cur.Version = ""
-			cur.Commit = ""
-			p.statuses[m.ID] = cur
-			p.mu.Unlock()
-			if hadVersion {
+			if p.clearBuild(m.ID) {
 				p.publishMemberStatus(m.ID)
 			}
 			continue
@@ -74,6 +77,21 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 			})
 		}
 	}
+}
+
+// clearBuild drops a member's version and commit together and reports whether
+// there was a version to drop, so the caller refreshes the UI only on a
+// change. The commit is cleared with the version: kept on its own it would
+// outlive the read that vouched for it.
+func (p *Poller) clearBuild(memberID string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	cur := p.statuses[memberID]
+	had := cur.Version != ""
+	cur.Version = ""
+	cur.Commit = ""
+	p.statuses[memberID] = cur
+	return had
 }
 
 // noteVersionFetchFailure tracks consecutive version-fetch failures for a member

@@ -182,7 +182,8 @@
 		"circuitsOpen_one": "{{count}} rozopnutý",
 		"circuitsOpen_few": "{{count}} rozopnuté",
 		"circuitsOpen_many": "{{count}} rozopnutých",
-		"circuitsOpen_other": "{{count}} rozopnutých"
+		"circuitsOpen_other": "{{count}} rozopnutých",
+		"circuitsShowing": "zobrazených {{shown}} z {{total}}"
 	},
 	"traffic": {
 		"title": "Prevádzka",

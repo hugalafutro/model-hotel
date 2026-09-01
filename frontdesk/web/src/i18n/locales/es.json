@@ -181,7 +181,8 @@
 		"circuitRetry": "reintento {{when}}",
 		"circuitsOpen_one": "{{count}} abierto",
 		"circuitsOpen_many": "{{count}} abiertos",
-		"circuitsOpen_other": "{{count}} abiertos"
+		"circuitsOpen_other": "{{count}} abiertos",
+		"circuitsShowing": "mostrando {{shown}} de {{total}}"
 	},
 	"traffic": {
 		"title": "Tráfico",

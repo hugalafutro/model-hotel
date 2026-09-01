@@ -182,7 +182,8 @@
 		"circuitsOpen_one": "{{count}} открыт",
 		"circuitsOpen_few": "{{count}} открыто",
 		"circuitsOpen_many": "{{count}} открыто",
-		"circuitsOpen_other": "{{count}} открыто"
+		"circuitsOpen_other": "{{count}} открыто",
+		"circuitsShowing": "показано {{shown}} из {{total}}"
 	},
 	"traffic": {
 		"title": "Трафик",

@@ -180,7 +180,8 @@
 		"circuitStatePinned": "pinned",
 		"circuitRetry": "retry {{when}}",
 		"circuitsOpen_one": "{{count}} open",
-		"circuitsOpen_other": "{{count}} open"
+		"circuitsOpen_other": "{{count}} open",
+		"circuitsShowing": "showing {{shown}} of {{total}}"
 	},
 	"traffic": {
 		"title": "Traffic",

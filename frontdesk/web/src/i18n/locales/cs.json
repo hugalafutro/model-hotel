@@ -182,7 +182,8 @@
 		"circuitsOpen_one": "{{count}} rozepnutý",
 		"circuitsOpen_few": "{{count}} rozepnuté",
 		"circuitsOpen_many": "{{count}} rozepnutých",
-		"circuitsOpen_other": "{{count}} rozepnutých"
+		"circuitsOpen_other": "{{count}} rozepnutých",
+		"circuitsShowing": "zobrazeno {{shown}} z {{total}}"
 	},
 	"traffic": {
 		"title": "Provoz",

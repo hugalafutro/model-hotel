@@ -180,7 +180,8 @@
 		"circuitStatePinned": "固定",
 		"circuitRetry": "再試行 {{when}}",
 		"circuitsOpen_one": "{{count}} 件オープン",
-		"circuitsOpen_other": "{{count}} 件オープン"
+		"circuitsOpen_other": "{{count}} 件オープン",
+		"circuitsShowing": "{{total}}件中{{shown}}件を表示"
 	},
 	"traffic": {
 		"title": "トラフィック",

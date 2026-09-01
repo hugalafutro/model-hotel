@@ -180,7 +180,8 @@
 		"circuitStatePinned": "vastgezet",
 		"circuitRetry": "volgende poging {{when}}",
 		"circuitsOpen_one": "{{count}} open",
-		"circuitsOpen_other": "{{count}} open"
+		"circuitsOpen_other": "{{count}} open",
+		"circuitsShowing": "{{shown}} van {{total}} getoond"
 	},
 	"traffic": {
 		"title": "Verkeer",
