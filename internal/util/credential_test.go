@@ -247,3 +247,30 @@ func TestMaskCredentialBounded_IsTheSingleSecretForm(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 }
+
+// The tail strip must take the longest head across every listed secret. The
+// third review round broke the per-secret version with two secrets where the
+// first's prefix is a suffix of the second's cut head.
+func TestMaskCredentialsBounded_TailStripTakesTheLongestHeadAcrossSecrets(t *testing.T) {
+	a := "12345678abcdefghij"
+	b := "wxyzZZZZ12345678QQQQRRRRSS"
+	got := MaskCredentialsBounded([]string{a, b}, "oops wxyzZZZZ12345678", 100)
+	if got != "oops [redacted]" {
+		t.Errorf("got %q, want the whole head of the second secret stripped", got)
+	}
+}
+
+// A stripped head of eight or nine bytes is replaced by a ten-byte marker,
+// which would push the text past maxLen; the function stays bounded and marks
+// the cut.
+func TestMaskCredentialsBounded_StripStaysWithinMaxLen(t *testing.T) {
+	secret := "abcdefghijklmnop"
+	body := strings.Repeat("x", 192) + secret[:8] // 200 bytes, ends in an 8-byte head
+	got := MaskCredentialsBounded([]string{secret}, body, 200)
+	if strings.Contains(got, secret[:8]) {
+		t.Errorf("head survived: %q", got)
+	}
+	if n := len(strings.TrimSuffix(got, "…")); n > 200 {
+		t.Errorf("result is %d bytes, over maxLen 200", n)
+	}
+}

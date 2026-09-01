@@ -156,8 +156,8 @@ func assertNoKey(t *testing.T, err error) {
 // the exact pass exists for. The retryable branch bounds at 200, so a JSON
 // error body that quotes the key late is the realistic case.
 func TestFetchURL_RetryableBodyKeyAcrossTheCutIsRedactedWhole(t *testing.T) {
-	// 140 + the 22-byte JSON prefix + the 23-byte phrase puts the key's first
-	// byte at 185 and its last past 200: fifteen bytes of it sit before the
+	// 140 + the 21-byte JSON prefix + the 23-byte phrase puts the key's first
+	// byte at 184 and its last past 200: sixteen bytes of it sit before the
 	// retryable branch's cut, which the inverted order leaves behind (the
 	// second review found the first version of this test placed only six
 	// there, fewer than it asserted on, so it passed on the old code).
@@ -187,13 +187,25 @@ func TestFetchURL_RetryableBodyKeyAcrossTheCutIsRedactedWhole(t *testing.T) {
 // A URL that fails to parse never becomes a request, and the parse error
 // prints the raw URL whole. The fallback must still scrub the query.
 func TestFetchURL_UnparseableURLDoesNotCarryQueryKey(t *testing.T) {
-	svc := &DiscoveryService{httpClient: &http.Client{Timeout: 2 * time.Second}}
-	_, err := svc.fetchURL(context.Background(), http.MethodGet, "http://example.invalid/v1beta/models?key="+leakedKey+"\n", http.Header{})
-	if err == nil {
-		t.Fatal("expected a parse error")
-	}
-	if strings.Contains(err.Error(), leakedKey) {
-		t.Errorf("the query key survived the unparseable-URL fallback: %s", err.Error())
+	// Three ways a pasted key breaks the URL: a trailing newline, a trailing
+	// DEL (which no whitespace trim touches), and a wrap in the middle of the
+	// key (the realistic one for a long key). The visible text is the %q
+	// rendering, so the assertion is on the readable halves, not the raw key.
+	for name, key := range map[string]string{
+		"trailing newline": leakedKey + "\n",
+		"trailing DEL":     leakedKey + "\x7f",
+		"wrapped":          leakedKey[:12] + "\n" + leakedKey[12:],
+	} {
+		t.Run(name, func(t *testing.T) {
+			svc := &DiscoveryService{httpClient: &http.Client{Timeout: 2 * time.Second}}
+			_, err := svc.fetchURL(context.Background(), http.MethodGet, "http://example.invalid/v1beta/models?key="+key, http.Header{})
+			if err == nil {
+				t.Fatal("expected a parse error")
+			}
+			if strings.Contains(err.Error(), leakedKey[:12]) || strings.Contains(err.Error(), leakedKey[12:]) {
+				t.Errorf("a readable part of the key survived the unparseable-URL fallback: %s", err.Error())
+			}
+		})
 	}
 }
 

@@ -134,15 +134,27 @@ func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
 	if strings.HasSuffix(out, "…") {
 		out, suffix = strings.TrimSuffix(out, "…"), "…"
 	}
+	// The longest matching head across ALL secrets, stripped once. Taking the
+	// first secret that matches and stopping would let a second secret's head
+	// survive whenever an earlier secret's prefix is a suffix of it.
+	longest := 0
 	for _, secret := range secrets {
 		if len(secret) < CredentialMinLen {
 			continue
 		}
-		for k := min(len(secret)-1, len(out)); k >= CredentialMinLen; k-- {
+		for k := min(len(secret)-1, len(out)); k > longest && k >= CredentialMinLen; k-- {
 			if strings.HasSuffix(out, secret[:k]) {
-				out = out[:len(out)-k] + "[redacted]"
+				longest = k
 				break
 			}
+		}
+	}
+	if longest > 0 {
+		out = out[:len(out)-longest] + "[redacted]"
+		// "[redacted]" is ten bytes, so a head of eight or nine grew the text
+		// past the bound this function promises. Cut back and say so.
+		if len(out) > maxLen {
+			out, suffix = out[:maxLen], "…"
 		}
 	}
 	return out + suffix

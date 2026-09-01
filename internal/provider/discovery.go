@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -132,14 +133,16 @@ func querySecrets(rawQuery string) []string {
 		if dec, err := url.QueryUnescape(raw); err == nil && dec != raw {
 			secrets = append(secrets, dec, url.QueryEscape(dec))
 		}
-		// A key pasted with a stray newline or space is what makes the URL
-		// unparseable in the first place, and the parse error renders that
-		// byte escaped (%q prints "\n"), so the exact match on the raw value
-		// misses the visible key body. The trimmed value is what shows.
-		if trimmed := strings.TrimSpace(raw); trimmed != raw {
-			secrets = append(secrets, trimmed)
-			if dec, err := url.QueryUnescape(trimmed); err == nil && dec != trimmed {
-				secrets = append(secrets, dec)
+		// A key pasted with a stray control byte (a newline at the end, a
+		// wrap in the middle, a DEL) is what makes a URL unparseable in the
+		// first place, and url.Error renders the URL with %q, so that byte
+		// shows escaped and the exact match on the raw value misses the
+		// visible text. The %q rendering IS the visible text: list it. It
+		// covers any control byte anywhere in the value, which trimming the
+		// ends did not.
+		for _, v := range []string{seg, raw} {
+			if q := strconv.Quote(v); q[1:len(q)-1] != v {
+				secrets = append(secrets, q[1:len(q)-1])
 			}
 		}
 	}
