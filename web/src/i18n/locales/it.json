@@ -2844,7 +2844,19 @@
 			"expandForBreakdown": "Espandi per il dettaglio per passaggio",
 			"performance": "Prestazioni",
 			"clientIp": "IP del client",
-			"copyClientIp": "Copia IP del client"
+			"copyClientIp": "Copia IP del client",
+			"attemptTrail": "Traccia dei tentativi",
+			"attemptTrailHint": "Ogni provider a cui questa richiesta è stata instradata, in ordine, con la risposta di ciascuno. Le voci saltate sono state rifiutate dall'interruttore prima di qualsiasi richiesta.",
+			"attemptSkipped": "saltato",
+			"attemptHedged": "coperto",
+			"attemptNoStatus": "nessuna risposta",
+			"attemptBreaker": "interruttore: {{verdict}}",
+			"attemptBreakerCharge": "addebitato",
+			"attemptBreakerNoop": "intatto",
+			"attemptBreakerSuccess": "accreditato",
+			"attemptBreakerAlive": "attivo",
+			"attemptBreakerSkipped": "saltato",
+			"attemptBreakerDisabled": "disattivato"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

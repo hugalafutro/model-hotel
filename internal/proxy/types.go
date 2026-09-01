@@ -181,6 +181,29 @@ type requestLogData struct {
 	resolvedModelID string
 	endpointType    string         // endpoint family: chat, embeddings, rerank, image, tts, stt
 	insertWg        sync.WaitGroup // signals when the async INSERT has completed
+	// The per-attempt trail (see attempt_trail.go): attempts holds the closed
+	// records in order, openAttempt the one in flight, attemptStarted when it
+	// began and attemptBreaker what the breaker was told about it. Persisted
+	// as request_logs.attempts by the terminal write.
+	attempts       []attemptRecord
+	openAttempt    *attemptRecord
+	attemptStarted time.Time
+	attemptBreaker string
+	// attemptStatus is the UPSTREAM status the attempt in flight reached
+	// (after the MiniMax remap), stamped as soon as it is known. The terminal
+	// close reads it in preference to statusCode, which by then is the
+	// client-facing status: 0 for a stream that died after its headers, the
+	// gateway's own 502 for a native-Anthropic body that failed to read.
+	// attemptPhrase is the rate-limit phrase a 429 on this attempt matched.
+	attemptStatus int
+	attemptPhrase string
+	// judgeAnswer is the deferred breaker verdict for a non-streaming attempt
+	// (recordAnswerOutcome bound to its candidate). The handler that decodes
+	// the answer also writes the terminal row, and the verdict must land before
+	// that write for the trail's terminal record to carry it, so
+	// updateRequestLog runs it first; the attempt path runs it afterwards only
+	// if no terminal write did. Exactly one of the two fires.
+	judgeAnswer func()
 }
 
 type modelCandidate struct {

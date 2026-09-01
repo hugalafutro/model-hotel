@@ -48,6 +48,12 @@ type hedgeResult struct {
 	// request was made, so an all-busy race is worth waiting out (see the
 	// orchestrator's exhaustion branch) instead of failing in milliseconds.
 	busy bool
+	// status and breaker feed the attempt trail: the upstream status the probe
+	// reached (after the MiniMax remap, 0 when none) and what the breaker was
+	// told about it, read off the probe's private log snapshot because the
+	// orchestrator's real logData never sees a loser.
+	status  int
+	breaker string
 }
 
 // minHedgeDelay floors the configured hedge delay. The dashboard already clamps to
@@ -83,6 +89,9 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 	// leaks on a send to an unread channel.
 	results := make(chan hedgeResult, len(candidates))
 	cancels := make([]context.CancelFunc, len(candidates))
+	// When each probe was launched: the attempt trail's duration for a loser
+	// runs from its launch to its result, and the winner's from its launch.
+	launchedAt := make([]time.Time, len(candidates))
 	// Marks an attempt the orchestrator itself abandoned, so the cancellation it
 	// causes is not misread as the client hanging up.
 	superseded := make([]*atomic.Bool, len(candidates))
@@ -100,6 +109,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		ctx = context.WithValue(ctx, ctxkeys.HedgeSupersededKey, sup)
 		ctx, timeoutCancel := context.WithTimeout(ctx, st.failoverTimeout)
 		cancels[idx] = func() { timeoutCancel(); cancel() }
+		launchedAt[idx] = time.Now()
 		launched++
 		inFlight++
 		// Snapshot requestState here in the single-threaded orchestrator, NOT
@@ -190,10 +200,15 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				if inFlight > 0 {
 					go drainHedgeResults(results, inFlight)
 				}
+				// The winner's trail record opens here and is closed by the
+				// stream's terminal write, like a sequential attempt's.
+				st.logData.openAttemptRecord(res.idx, candidates[res.idx], true, launchedAt[res.idx], st.circuitBreakerEnabled)
+				st.logData.noteAttemptStatus(res.status)
 				h.serveHedgeWinner(w, r, st, candidates[res.idx], res, stallTimeout)
 				return
 			}
 			st.setReqErr(res.reqErr)
+			st.logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx]))
 			// Carry the loser's 429 verdict onto the shared state beside its
 			// reqError, so a terminal all-busy exhaustion answers with the
 			// provider's own Retry-After rather than the class default.
@@ -260,8 +275,14 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 // close. If the attempt's context was already cancelled (this candidate lost the
 // race) the body is closed here and the result is downgraded to a non-win, so a
 // runner-up never hands back a live connection.
-func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState, candidate modelCandidate, attempt int, ttftTimeout, stallTimeout time.Duration) hedgeResult {
-	res := hedgeResult{idx: attempt}
+func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState, candidate modelCandidate, attempt int, ttftTimeout, stallTimeout time.Duration) (res hedgeResult) {
+	res = hedgeResult{idx: attempt}
+	// Whatever exit below, the breaker verdict the probe noted on its private
+	// snapshot rides back to the orchestrator for the attempt trail.
+	defer func() { res.breaker = st.logData.attemptBreaker }()
+	if !st.circuitBreakerEnabled {
+		st.logData.attemptBreaker = breakerDisabled
+	}
 
 	// The same admission gate beginAttempt passes: a provider at its learned
 	// in-flight window loses this race slot without a request being made.
@@ -269,6 +290,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		res.reqErr = reqError{Kind: KindProviderSaturated, Attempt: attempt, Provider: candidate.provider.Name, Detail: "at in-flight limit"}
 		res.rateLimit = st.rateLimit
 		res.busy = true
+		st.logData.noteBreaker(breakerNoop)
 		return res
 	}
 
@@ -306,6 +328,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	// settles it.
 	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
 	h.finishAttemptAdmission(st, candidate, resp)
+	res.status = resp.StatusCode
 
 	isFailoverEligible := h.shouldFailover(ctx, resp.StatusCode)
 	rl := h.judge429AndRecordBreaker(ctx, st, candidate, resp, isFailoverEligible)
@@ -404,6 +427,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		if recordFailure && st.circuitBreakerEnabled {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", re.Underlying)
+			st.logData.noteBreaker(breakerCharge)
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "hedged TTFT probe failed"})
 		}
 		res.reqErr = re

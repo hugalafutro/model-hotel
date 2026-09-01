@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"time"
 	"unicode/utf8"
@@ -193,6 +194,13 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 		errKind = string(logEntry.errorKind)
 	}
 
+	// NULL when the request never committed to a candidate, so the column reads
+	// the same as a row an older binary wrote.
+	var attempts any
+	if b := logEntry.attemptsJSON(); b != nil {
+		attempts = json.RawMessage(b)
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -224,7 +232,8 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 			failover_attempt = $19,
 			state = $20,
 			resolved_model_id = $26,
-			error_kind = $28
+			error_kind = $28,
+			attempts = $29
 		WHERE id = $1`,
 		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
 		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.failoverLookupMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
@@ -232,7 +241,7 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
 		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
 		logEntry.dialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning, logEntry.ttftMs,
-		logEntry.resolvedModelID, logEntry.cacheHits, errKind,
+		logEntry.resolvedModelID, logEntry.cacheHits, errKind, attempts,
 	)
 	if err != nil {
 		return 0, err
@@ -263,6 +272,21 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// Note: if insertRequestLogAsync was called but the async INSERT failed,
 	// the ID will still be set (assigned synchronously), and the UPDATE will
 	// simply affect 0 rows (logged as a warning below).
+	// The terminal write closes the attempt in flight from the flat columns, so
+	// every terminal path in the package gets a trail record without knowing
+	// the trail exists. The deferred answer verdict runs first: it is what says
+	// whether this attempt charged or credited the circuit, and a verdict that
+	// landed after the write would be missing from the record for good. Both
+	// happen before the id and pool checks, so a handler with no row to write
+	// (a unit test) still reaches the breaker and builds the same trail.
+	if isTerminalLogState(logEntry.state) {
+		if judge := logEntry.judgeAnswer; judge != nil {
+			logEntry.judgeAnswer = nil
+			judge()
+		}
+		logEntry.closeTerminalAttempt()
+	}
+
 	if logEntry.id == "" {
 		debuglog.Warn("proxy: skipping updateRequestLog — log entry has no ID")
 		return

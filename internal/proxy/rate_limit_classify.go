@@ -64,6 +64,13 @@ type rateLimitVerdict struct {
 	// bit.
 	classified bool
 	class      rateLimitClass
+	// phrase is the phrase-table entry that decided the class, "" when the
+	// headers or the behavioural fallback did. It rides into the attempt trail
+	// so the staleness report can see which phrases still earn their keep.
+	phrase string
+	// detail is the sanitized body the classifier read, kept for the attempt
+	// trail (which caps and masks it); never forwarded anywhere else.
+	detail string
 	// retryAfter is how long the provider asked us to wait: the parsed header
 	// when present, else the class default (saturated: 2s; exhausted: 0, the
 	// breaker's cooldown governs). Capped at rate_limit_saturation_max_wait for
@@ -188,6 +195,13 @@ var (
 	miniMaxWindowCode  = regexp.MustCompile(`"status_code"\s*:\s*"?1039\b`)
 )
 
+// The names the two MiniMax code matches report as their phrase in the attempt
+// trail, so the staleness report can count them beside the table's entries.
+const (
+	miniMaxBalancePhrase = "minimax status_code 1008"
+	miniMaxWindowPhrase  = "minimax status_code 1039"
+)
+
 // entitledRateLimitPhrases is the entitled slice of the table, consumed by
 // classifyUpstreamError for provider_not_entitled. Derived, never written out
 // twice; TestRateLimitPhrases_EntitledSubsetOfExhausted pins the relationship.
@@ -223,20 +237,28 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 		if !strings.Contains(b, p.phrase) || (p.also != "" && !strings.Contains(b, p.also)) {
 			continue
 		}
+		var v rateLimitVerdict
 		switch p.class {
 		case rateLimitExhausted:
-			return exhaustedVerdict(hdr, maxWait, p.pinHint, p.entitled)
+			v = exhaustedVerdict(hdr, maxWait, p.pinHint, p.entitled)
 		case rateLimitSaturated:
-			return saturatedVerdict(hdr, maxWait)
+			v = saturatedVerdict(hdr, maxWait)
 		case rateLimitUnknown:
 			// Not a class the table carries; listed so the switch is exhaustive.
+			continue
 		}
+		v.phrase = p.phrase
+		return v
 	}
 	if miniMaxBalanceCode.MatchString(b) {
-		return exhaustedVerdict(hdr, maxWait, pinHintUntilPaid, true)
+		v := exhaustedVerdict(hdr, maxWait, pinHintUntilPaid, true)
+		v.phrase = miniMaxBalancePhrase
+		return v
 	}
 	if miniMaxWindowCode.MatchString(b) {
-		return exhaustedVerdict(hdr, maxWait, pinHintWindow, false)
+		v := exhaustedVerdict(hdr, maxWait, pinHintWindow, false)
+		v.phrase = miniMaxWindowPhrase
+		return v
 	}
 
 	// No phrase matched: let the headers speak. A Retry-After at or under the
@@ -387,7 +409,9 @@ func (h *Handler) classify429Attempt(ctx context.Context, st *requestState, cand
 		}
 	}
 	v.classified = true
+	v.detail = body
 	st.rateLimit = v
+	st.logData.noteAttemptPhrase(v.phrase)
 	return v
 }
 
@@ -506,6 +530,8 @@ func (h *Handler) deferSaturatedRetry(st *requestState, candidate modelCandidate
 	st.saturationRetried = true
 	st.setReqErr(rateLimitReqErr(st.rateLimit, attempt, candidate.provider.Name))
 	st.logData.failoverAttempt = attempt
+	// The attempt ended here; the retry is its own attempt with its own record.
+	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, st.rateLimit.detail, st.rateLimit.phrase, 0)
 	debuglog.Info("proxy: last candidate saturated, waiting to retry it once", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", st.rateLimit.retryAfter, "attempt", attempt+1)
 	return outcomeRetrySaturated
 }

@@ -323,17 +323,21 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	} else {
 		logData.state = "completed"
 	}
-	h.updateRequestLog(logData)
 
-	// deriveStreamError already warns about the stall or the error itself; the
-	// line below records that the breaker was CHARGED for it, which those do not
-	// say and which is otherwise invisible above Debug.
+	// The breaker verdict comes BEFORE the terminal write: the write closes the
+	// attempt's trail record, and that record carries what the breaker was
+	// told. deriveStreamError already warns about the stall or the error
+	// itself; the line below records that the breaker was CHARGED for it,
+	// which those do not say and which is otherwise invisible above Debug.
 	if verdict := judgeStreamForBreaker(st, logData, errMsg, opts.circuitBreakerOn); verdict.failureReason != "" {
 		debuglog.Warn("proxy: recording circuit breaker failure", "reason", verdict.failureReason, "provider", opts.providerName, "provider_id", opts.providerID, "attempt", opts.attempt, "chunks", st.chunkCount, "error_chunks", st.errorChunkCount, "duration_ms", totalDuration, "model", opts.model)
+		logData.noteBreaker(breakerCharge)
 		h.circuitBreaker.RecordFailure(opts.providerID, opts.providerName, opts.model, failover.Cause{Status: statusCode, Reason: verdict.failureReason})
 	} else if verdict.success {
+		logData.noteBreaker(breakerSuccess)
 		h.circuitBreaker.RecordSuccess(opts.providerID, opts.providerName, opts.model)
 	}
+	h.updateRequestLog(logData)
 
 	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", st.chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "error_chunks", st.errorChunkCount, "has_error", errMsg != "")
 	if errMsg != "" {

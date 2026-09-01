@@ -2783,7 +2783,19 @@
 			"copyErrorMessage": "Copy error message",
 			"expandForBreakdown": "Expand for the per-step breakdown",
 			"clientIp": "Client IP",
-			"copyClientIp": "Copy client IP"
+			"copyClientIp": "Copy client IP",
+			"attemptTrail": "Attempt trail",
+			"attemptTrailHint": "Every provider this request was routed to, in order, with what each one answered. Skipped entries were refused by the circuit breaker before any request was made.",
+			"attemptSkipped": "skipped",
+			"attemptHedged": "hedged",
+			"attemptNoStatus": "no response",
+			"attemptBreaker": "breaker: {{verdict}}",
+			"attemptBreakerCharge": "charged",
+			"attemptBreakerNoop": "untouched",
+			"attemptBreakerSuccess": "credited",
+			"attemptBreakerAlive": "alive",
+			"attemptBreakerSkipped": "skipped",
+			"attemptBreakerDisabled": "disabled"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

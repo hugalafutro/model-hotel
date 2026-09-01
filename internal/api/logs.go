@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"time"
@@ -59,6 +60,11 @@ type LogEntry struct {
 	CreatedAt                 time.Time  `json:"created_at"`
 	ResolvedModelID           string     `json:"resolved_model_id"`
 	EndpointType              string     `json:"endpoint_type"`
+	// Attempts is the per-attempt trail (request_logs.attempts, migration
+	// 078): one element per failover attempt, hedged probes and skips
+	// included, forwarded verbatim. Omitted for rows without one (legacy rows,
+	// rows an older member wrote, requests that never reached a candidate).
+	Attempts json.RawMessage `json:"attempts,omitempty"`
 }
 
 // LogsResponse is the paginated response for request logs.
@@ -134,7 +140,8 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 			COALESCE(rl.resolved_model_id, ''),
 			COALESCE(rl.endpoint_type, 'chat'),
 			COALESCE(rl.error_kind, ''),
-			COALESCE(rl.client_ip, '')
+			COALESCE(rl.client_ip, ''),
+			rl.attempts
 		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
 		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
 		WHERE rl.id = $1`+ownerPredicate,
@@ -158,6 +165,7 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 		&entry.EndpointType,
 		&entry.ErrorKind,
 		&entry.ClientIP,
+		&entry.Attempts,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -351,6 +359,8 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	fromDate := r.URL.Query().Get("from")
 	toDate := r.URL.Query().Get("to")
 	endpointType := r.URL.Query().Get("endpoint_type")
+	attemptProviderID := r.URL.Query().Get("attempt_provider_id")
+	attemptStatus := r.URL.Query().Get("attempt_status")
 	sortBy, sd := logsSortDef(r.URL.Query().Get("sort_by"))
 	sortDir := r.URL.Query().Get("sort_dir")
 	if sortDir != "asc" && sortDir != "desc" {
@@ -369,7 +379,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID, attemptProviderID, attemptStatus)
 
 	orderClause := " ORDER BY "
 	if sd.tierExpr != "" {

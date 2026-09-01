@@ -273,6 +273,12 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return nil, false
 		}
+		// The candidates the breaker refused lead the attempt trail: an
+		// operator reading "Neuralwatt 429 → Ollama 200" also wants to know
+		// that Z.ai was never asked, and why.
+		for _, s := range skips.skipped {
+			st.logData.appendBreakerSkip(s.providerID, s.providerName, s.model)
+		}
 		if len(candidates) == 0 {
 			h.failNoAvailableProvider(w, r, st, displayModel, timings, cacheHits, skips)
 			return nil, false

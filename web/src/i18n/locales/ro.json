@@ -2844,7 +2844,19 @@
 			"expandForBreakdown": "Extinde pentru defalcarea pe pași",
 			"performance": "Performanță",
 			"clientIp": "IP-ul clientului",
-			"copyClientIp": "Copiază IP-ul clientului"
+			"copyClientIp": "Copiază IP-ul clientului",
+			"attemptTrail": "Urma încercărilor",
+			"attemptTrailHint": "Fiecare furnizor către care a fost rutată această cerere, în ordine, cu răspunsul fiecăruia. Intrările sărite au fost refuzate de întrerupător înainte de a se face vreo cerere.",
+			"attemptSkipped": "sărit",
+			"attemptHedged": "acoperit",
+			"attemptNoStatus": "fără răspuns",
+			"attemptBreaker": "întrerupător: {{verdict}}",
+			"attemptBreakerCharge": "încărcat",
+			"attemptBreakerNoop": "neatins",
+			"attemptBreakerSuccess": "creditat",
+			"attemptBreakerAlive": "activ",
+			"attemptBreakerSkipped": "sărit",
+			"attemptBreakerDisabled": "dezactivat"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

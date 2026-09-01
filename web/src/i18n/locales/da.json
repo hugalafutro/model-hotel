@@ -2783,7 +2783,19 @@
 			"expandForBreakdown": "Udvid for at se opdelingen pr. trin",
 			"performance": "Ydeevne",
 			"clientIp": "Klient-IP",
-			"copyClientIp": "Kopiér klient-IP"
+			"copyClientIp": "Kopiér klient-IP",
+			"attemptTrail": "Forsøgsspor",
+			"attemptTrailHint": "Hver udbyder, denne anmodning blev sendt til, i rækkefølge, med hvad hver især svarede. Oversprungne poster blev afvist af afbryderen, før nogen anmodning blev sendt.",
+			"attemptSkipped": "sprunget over",
+			"attemptHedged": "hedget",
+			"attemptNoStatus": "intet svar",
+			"attemptBreaker": "afbryder: {{verdict}}",
+			"attemptBreakerCharge": "belastet",
+			"attemptBreakerNoop": "urørt",
+			"attemptBreakerSuccess": "krediteret",
+			"attemptBreakerAlive": "i live",
+			"attemptBreakerSkipped": "sprunget over",
+			"attemptBreakerDisabled": "deaktiveret"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

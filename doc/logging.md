@@ -45,6 +45,32 @@ Rules:
   don't replace.
 - Attempt numbers are **1-based** in every human-facing string.
 
+### The per-attempt trail (`request_logs.attempts`)
+
+The flat columns describe the TERMINAL attempt only. `attempts` (JSONB, nullable,
+migration 078) keeps one element per failover attempt, hedged probes, in-flight
+busy skips and the saturation retry included, written once at terminal time by
+`updateRequestLog` from the records the attempt paths open and close
+(`internal/proxy/attempt_trail.go`). Each element carries `attempt` (the loop
+index; `-1` for a candidate the breaker refused before any request),
+`provider_id`, `provider`, `model`, `status` (upstream, after the MiniMax remap;
+omitted when none), `error_kind`, `detail`, `phrase`, `duration_ms`, `ttft_ms`,
+`hedged` and `breaker` (`charge`, `noop`, `success`, `alive`, `skipped`,
+`disabled`: what the attempt did to the circuit).
+
+`detail` is the one field that carries provider text, and it is fenced twice: at
+most 160 runes of the already-sanitized body (`util.SanitizeLogBody`), passed
+through the attempt's credential masker. A provider quoting the prompt back
+cannot fit; a key cannot survive. The no-content rule of section 6 applies to it
+unchanged.
+
+`phrase` is what the daily phrase-staleness report reads
+(`internal/proxy/phrase_staleness.go`): a rate-limit phrase-table entry that has
+matched no attempt in 90 days, and was added more than 90 days ago, is named in a
+`rate-limit phrases: entries unmatched inside the horizon` Warn line so a
+provider that rewrote its error text is noticed inside a season rather than at
+the next incident.
+
 ## 2. User-facing error messages
 
 Applies to every `writeOpenAIError` (client response) and `failRequest`

@@ -2844,7 +2844,19 @@
 			"expandForBreakdown": "Expanda para ver o detalhamento por etapa",
 			"performance": "Desempenho",
 			"clientIp": "IP do cliente",
-			"copyClientIp": "Copiar IP do cliente"
+			"copyClientIp": "Copiar IP do cliente",
+			"attemptTrail": "Rastro de tentativas",
+			"attemptTrailHint": "Cada provedor para o qual esta solicitação foi roteada, em ordem, com o que cada um respondeu. As entradas ignoradas foram recusadas pelo disjuntor antes de qualquer solicitação ser feita.",
+			"attemptSkipped": "ignorado",
+			"attemptHedged": "coberto",
+			"attemptNoStatus": "sem resposta",
+			"attemptBreaker": "disjuntor: {{verdict}}",
+			"attemptBreakerCharge": "debitado",
+			"attemptBreakerNoop": "intacto",
+			"attemptBreakerSuccess": "creditado",
+			"attemptBreakerAlive": "ativo",
+			"attemptBreakerSkipped": "ignorado",
+			"attemptBreakerDisabled": "desativado"
 		},
 		"statusBadge": {
 			"streaming": "Transmitindo",

@@ -69,6 +69,7 @@ func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, ca
 			// upstream status, so without this line a breaker opening on
 			// repeated 5xx has no recorded cause anywhere.
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", statusCode, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+			st.logData.noteBreaker(breakerCharge)
 			if statusCode == http.StatusTooManyRequests && rl.classified {
 				// Unclassifiable rate limit: charged exactly as before, and
 				// the breaker additionally counts the open (if one results)
@@ -86,12 +87,14 @@ func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, ca
 			// failure history (resetting consecutiveFails in Closed state)
 			// and could prematurely close a half-open circuit based on a
 			// model-specific error that says nothing about provider health.
+			st.logData.noteBreaker(breakerNoop)
 		case breakerActionSuccess:
 			// Not reached for failover-eligible codes: shouldFailover only
 			// returns true for {5xx,429,401,403,402,404,499}, which map to
 			// failure or no-op above. Retained so the switch stays exhaustive
 			// over breakerAction — if the shouldFailover/breakerRecordAction
 			// mappings ever diverge, a success is recorded rather than dropped.
+			st.logData.noteBreaker(breakerSuccess)
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 		return
@@ -106,6 +109,7 @@ func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, ca
 	// (same credit) but served nothing, and the 429 behavioural fallback must
 	// not read it as a recent serve.
 	if !servedSuccessStatus(statusCode) {
+		st.logData.noteBreaker(breakerAlive)
 		h.circuitBreaker.RecordAlive(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), statusCode)
 	}
 }
@@ -120,8 +124,10 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 		// credited; it only remembers the verdict, so the status page can say
 		// "busy" about a closed circuit whose last answers were all 429s.
 		debuglog.Info("proxy: 429 classified saturated, circuit breaker not charged", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", rl.retryAfter, "model", candidateModelID(candidate))
+		st.logData.noteBreaker(breakerNoop)
 		h.circuitBreaker.RecordSaturated(candidate.provider.ID, candidateModelID(candidate))
 	case rateLimitExhausted:
+		st.logData.noteBreaker(breakerCharge)
 		if !h.settingsRepo.GetBool(ctx, "circuit_breaker_open_on_exhaustion", true) {
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", http.StatusTooManyRequests, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
 			h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(http.StatusTooManyRequests, "exhausted, not opened by setting"))
@@ -154,7 +160,7 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 // logData.statusCode with the 502 this gateway answers the client, and a
 // translation failure never wrote it at all, and neither is what the
 // provider said.
-func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate, logData *requestLogData, status int, r *http.Request) {
+func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate, logData *requestLogData, status int) {
 	if !st.circuitBreakerEnabled {
 		return
 	}
@@ -187,7 +193,22 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 		h.chargeBreaker(st, candidate, status, "response completed without delivering content")
 		return
 	}
+	logData.noteBreaker(breakerSuccess)
 	h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+}
+
+// deferAnswerJudgement binds recordAnswerOutcome to the attempt so the
+// terminal write can run it first (see requestLogData.judgeAnswer), and
+// judgeAnswerNow runs it afterwards only if no terminal write did.
+func (h *Handler) deferAnswerJudgement(st *requestState, candidate modelCandidate, logData *requestLogData, status int) {
+	logData.judgeAnswer = func() { h.recordAnswerOutcome(st, candidate, logData, status) }
+}
+
+func judgeAnswerNow(logData *requestLogData) {
+	if judge := logData.judgeAnswer; judge != nil {
+		logData.judgeAnswer = nil
+		judge()
+	}
 }
 
 // chargeBreaker records one breaker failure with its cause in the log. The
@@ -204,6 +225,7 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, stat
 		return
 	}
 	debuglog.Warn("proxy: recording circuit breaker failure", "reason", reason, "status", status, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+	st.logData.noteBreaker(breakerCharge)
 	h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: status, Reason: reason})
 }
 
@@ -230,6 +252,7 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	}
 	st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 	logData.failoverAttempt = attempt
+	logData.closeAttemptRecord(status, KindProviderError, errString(err), "", 0)
 	return outcomeFailover
 }
 

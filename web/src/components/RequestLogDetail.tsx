@@ -18,6 +18,7 @@ import {
 } from "@/lib/icons";
 import type { LogEntry } from "../api/types";
 import { formatMs } from "../pages/Logs/utils";
+import { AttemptTrail } from "./AttemptTrail";
 import { CopyablePill } from "./CopyablePill";
 import { DetailSectionHeader } from "./DetailSectionHeader";
 import { InfoHint } from "./InfoHint";
@@ -447,6 +448,10 @@ export function RequestLogDetail({
 						</div>
 					</div>
 				</div>
+			)}
+
+			{requestLog.attempts && requestLog.attempts.length > 0 && (
+				<AttemptTrail attempts={requestLog.attempts} />
 			)}
 
 			{/* Error Message */}

@@ -2905,7 +2905,19 @@
 			"expandForBreakdown": "Разверните для пошаговой разбивки",
 			"performance": "Производительность",
 			"clientIp": "IP клиента",
-			"copyClientIp": "Копировать IP клиента"
+			"copyClientIp": "Копировать IP клиента",
+			"attemptTrail": "След попыток",
+			"attemptTrailHint": "Каждый провайдер, на который был направлен этот запрос, по порядку, с ответом каждого. Пропущенные записи были отклонены предохранителем до отправки какого-либо запроса.",
+			"attemptSkipped": "пропущено",
+			"attemptHedged": "хеджировано",
+			"attemptNoStatus": "нет ответа",
+			"attemptBreaker": "предохранитель: {{verdict}}",
+			"attemptBreakerCharge": "засчитано",
+			"attemptBreakerNoop": "не тронуто",
+			"attemptBreakerSuccess": "зачтено",
+			"attemptBreakerAlive": "жив",
+			"attemptBreakerSkipped": "пропущено",
+			"attemptBreakerDisabled": "отключено"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",
