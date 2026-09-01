@@ -2983,6 +2983,12 @@
 			"tooltip": "Fes clic per alternar entre paginació i desplaçament infinit.",
 			"switchToScroll": "Canvia al mode de desplaçament",
 			"switchToPagination": "Canvia al mode de pàgina"
+		},
+		"capNote": {
+			"label": "sense API d'ús · límit assolit {{time}}",
+			"tip": "Sense API d'ús per a aquest proveïdor; darrer missatge de límit: \"{{phrase}}\" a les {{when}} (d'un 429 a {{model}})",
+			"tipNoPhrase": "Sense API d'ús per a aquest proveïdor; darrer 429 d'esgotament a les {{when}} a {{model}}",
+			"labelEntitled": "sense API d'ús · saldo esgotat {{time}}"
 		}
 	},
 	"failoverGroups": {

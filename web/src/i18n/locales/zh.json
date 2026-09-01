@@ -2921,6 +2921,12 @@
 			"tooltip": "点击以在分页和无限滚动之间切换。",
 			"switchToScroll": "切换到滚动模式",
 			"switchToPagination": "切换到分页模式"
+		},
+		"capNote": {
+			"label": "无用量 API · 已触顶 {{time}}",
+			"tip": "此提供商没有用量 API；最近的上限消息：\"{{phrase}}\"，于 {{when}}（来自 {{model}} 上的 429）",
+			"tipNoPhrase": "此提供商没有用量 API；最近一次耗尽（429）于 {{when}}，模型 {{model}}",
+			"labelEntitled": "无用量 API · 余额耗尽 {{time}}"
 		}
 	},
 	"failoverGroups": {

@@ -2921,6 +2921,12 @@
 			"tooltip": "Vaihda sivutuksen ja loputtoman vierityksen välillä napsauttamalla.",
 			"switchToScroll": "Vaihda vieritystilaan",
 			"switchToPagination": "Vaihda sivutustilaan"
+		},
+		"capNote": {
+			"label": "ei käyttö-APIa · raja täynnä {{time}}",
+			"tip": "Tällä palveluntarjoajalla ei ole käyttö-APIa; viimeisin rajaviesti: \"{{phrase}}\" klo {{when}} (429 mallilla {{model}})",
+			"tipNoPhrase": "Tällä palveluntarjoajalla ei ole käyttö-APIa; viimeisin loppuun kulunut 429 klo {{when}} mallilla {{model}}",
+			"labelEntitled": "ei käyttö-APIa · saldo loppu {{time}}"
 		}
 	},
 	"failoverGroups": {

@@ -2921,6 +2921,12 @@
 			"tooltip": "Klicka för att växla mellan sidnumrering och oändlig rullning.",
 			"switchToScroll": "Växla till rullningsläge",
 			"switchToPagination": "Växla till sidnumreringsläge"
+		},
+		"capNote": {
+			"label": "inget förbruknings-API · tak nått {{time}}",
+			"tip": "Inget förbruknings-API för den här leverantören; senaste takmeddelande: \"{{phrase}}\" kl. {{when}} (från en 429 på {{model}})",
+			"tipNoPhrase": "Inget förbruknings-API för den här leverantören; senaste förbrukade 429 kl. {{when}} på {{model}}",
+			"labelEntitled": "inget förbruknings-API · saldot slut {{time}}"
 		}
 	},
 	"failoverGroups": {

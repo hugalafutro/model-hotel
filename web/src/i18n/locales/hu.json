@@ -2921,6 +2921,12 @@
 			"tooltip": "Kattints az oldalszámozás és a végtelen görgetés közötti váltáshoz.",
 			"switchToScroll": "Válts át görgetési módra",
 			"switchToPagination": "Válts át oldalszámozási módra"
+		},
+		"capNote": {
+			"label": "nincs használati API · limit elérve {{time}}",
+			"tip": "Ehhez a szolgáltatóhoz nincs használati API; utolsó limitüzenet: \"{{phrase}}\" ekkor: {{when}} (429 a(z) {{model}} modellen)",
+			"tipNoPhrase": "Ehhez a szolgáltatóhoz nincs használati API; utolsó kimerülés (429) ekkor: {{when}} a(z) {{model}} modellen",
+			"labelEntitled": "nincs használati API · egyenleg elfogyott {{time}}"
 		}
 	},
 	"failoverGroups": {

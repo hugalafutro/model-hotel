@@ -2921,6 +2921,12 @@
 			"tooltip": "クリックでページネーションと無限スクロールを切り替えます。",
 			"switchToScroll": "スクロールモードに切り替える",
 			"switchToPagination": "ページネーションモードに切り替える"
+		},
+		"capNote": {
+			"label": "使用量APIなし · 上限到達 {{time}}",
+			"tip": "このプロバイダーには使用量APIがありません。最後の上限メッセージ:「{{phrase}}」{{when}}（{{model}} の 429 より）",
+			"tipNoPhrase": "このプロバイダーには使用量APIがありません。最後の枯渇 429: {{when}}（{{model}}）",
+			"labelEntitled": "使用量APIなし · 残高切れ {{time}}"
 		}
 	},
 	"failoverGroups": {

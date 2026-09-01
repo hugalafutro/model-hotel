@@ -195,12 +195,14 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 			inFlight--
 			settled[res.idx] = true
 			if res.won {
-				cancelExcept(res.idx, true)
 				// Attempts still in flight were launched and lost, not skipped:
 				// each gets a superseded record, so the trail and the per-provider
 				// failover counter show the whole fan-out, which is exactly the
-				// part of a hedge that cost the most.
+				// part of a hedge that cost the most. Settled BEFORE the cancel:
+				// a cancelled probe answers at once, and a result provoked by our
+				// own cancel must not be mistaken for one the provider gave.
 				inFlight = settleHedgeLaunches(st.logData, results, candidates, launchedAt, settled, inFlight, res.idx, KindHedgeSuperseded, "superseded by the winner while in flight")
+				cancelExcept(res.idx, true)
 				// A runner-up that also produced a first token sent a live
 				// *http.Response we will never stream; drain the still-outstanding
 				// attempts in the background and close their bodies so the

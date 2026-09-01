@@ -16,6 +16,19 @@ export interface Provider {
 	updated_at: string;
 	model_count: number;
 	total_tokens: number;
+	/** The last exhausted 429 this provider answered since the gateway started:
+	 *  the only quota reading a provider with no usage API ever gives. Absent
+	 *  when there has been none. */
+	last_cap?: CapNote;
+}
+export interface CapNote {
+	/** The phrase-table entry the classifier matched; absent when the headers
+	 *  decided. Never the response body. */
+	phrase?: string;
+	model: string;
+	/** A spent balance or plan (a person fixes it) rather than a window. */
+	entitled?: boolean;
+	at: string;
 }
 export interface CreateProviderRequest {
 	name: string;

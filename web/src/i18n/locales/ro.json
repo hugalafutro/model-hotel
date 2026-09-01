@@ -2983,6 +2983,12 @@
 			"tooltip": "Faceți clic pentru a comuta între paginare și derulare infinită.",
 			"switchToScroll": "Comutați la modul derulare",
 			"switchToPagination": "Comutați la modul paginare"
+		},
+		"capNote": {
+			"label": "fără API de utilizare · plafon atins {{time}}",
+			"tip": "Fără API de utilizare pentru acest furnizor; ultimul mesaj de plafon: \"{{phrase}}\" la {{when}} (dintr-un 429 pe {{model}})",
+			"tipNoPhrase": "Fără API de utilizare pentru acest furnizor; ultimul 429 de epuizare la {{when}} pe {{model}}",
+			"labelEntitled": "fără API de utilizare · sold epuizat {{time}}"
 		}
 	},
 	"failoverGroups": {

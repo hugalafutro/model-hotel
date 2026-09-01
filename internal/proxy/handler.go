@@ -38,6 +38,11 @@ type Handler struct {
 	tpmLimiter     *ratelimit.TPMLimiter
 	ipLimiter      *ratelimit.IPLimiter
 	circuitBreaker *failover.CircuitBreaker
+	// capLedger remembers each provider's last exhausted 429 for the quota
+	// badge of a provider with no usage API (provider.CapLedger). Created on
+	// first use, so a Handler built as a literal has one too.
+	capLedger     *provider.CapLedger
+	capLedgerOnce sync.Once
 	// inflight is the adaptive per-provider concurrency learner (see
 	// inflight.go). Nil (tests building Handler{} directly) admits everything
 	// and learns nothing. NewHandler registers its scrape-time gauges; the
@@ -373,4 +378,11 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 // CircuitBreaker returns the circuit breaker instance for read-only status access.
 func (h *Handler) CircuitBreaker() *failover.CircuitBreaker {
 	return h.circuitBreaker
+}
+
+// CapLedger is the per-provider last-exhausted-429 ledger: written by the
+// 429 judgement, overlaid onto the provider list by the admin API.
+func (h *Handler) CapLedger() *provider.CapLedger {
+	h.capLedgerOnce.Do(func() { h.capLedger = provider.NewCapLedger() })
+	return h.capLedger
 }

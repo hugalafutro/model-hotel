@@ -2983,6 +2983,12 @@
 			"tooltip": "Clique para alternar entre paginação e rolagem infinita.",
 			"switchToScroll": "Alternar para o modo de rolagem",
 			"switchToPagination": "Alternar para modo de paginação"
+		},
+		"capNote": {
+			"label": "sem API de uso · limite atingido {{time}}",
+			"tip": "Sem API de uso para este provedor; última mensagem de limite: \"{{phrase}}\" às {{when}} (de um 429 em {{model}})",
+			"tipNoPhrase": "Sem API de uso para este provedor; último 429 por esgotamento às {{when}} em {{model}}",
+			"labelEntitled": "sem API de uso · saldo esgotado {{time}}"
 		}
 	},
 	"failoverGroups": {

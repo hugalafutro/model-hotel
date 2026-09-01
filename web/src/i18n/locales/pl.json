@@ -3045,6 +3045,12 @@
 			"tooltip": "Kliknij, aby przełączyć między paginacją a nieskończonym przewijaniem.",
 			"switchToScroll": "Przełącz na tryb przewijania",
 			"switchToPagination": "Przełącz na tryb paginacji"
+		},
+		"capNote": {
+			"label": "brak API użycia · limit osiągnięty {{time}}",
+			"tip": "Brak API użycia dla tego dostawcy; ostatni komunikat o limicie: \"{{phrase}}\" o {{when}} (z 429 na {{model}})",
+			"tipNoPhrase": "Brak API użycia dla tego dostawcy; ostatnie wyczerpanie (429) o {{when}} na {{model}}",
+			"labelEntitled": "brak API użycia · saldo wyczerpane {{time}}"
 		}
 	},
 	"failoverGroups": {

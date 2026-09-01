@@ -76,6 +76,77 @@ describe("ProviderCard", () => {
 		vi.clearAllMocks();
 	});
 
+	describe("cap note", () => {
+		const lastCap = {
+			phrase: "session usage limit",
+			model: "gpt-oss:120b",
+			at: "2026-08-31T14:51:00Z",
+		};
+
+		it("shows the last cap message on a provider with no usage API", () => {
+			render(
+				<AllProviders>
+					<ProviderCard
+						{...defaultProps}
+						provider={{ ...mockProvider, last_cap: lastCap }}
+					/>
+				</AllProviders>,
+			);
+			expect(screen.getByTestId("cap-note-badge")).toBeInTheDocument();
+		});
+
+		it("shows it beside Ollama Cloud's plan badge, whose account API never says the usage", () => {
+			render(
+				<AllProviders>
+					<ProviderCard
+						{...defaultProps}
+						provider={{
+							...mockProvider,
+							base_url: "https://ollama.com",
+							last_cap: lastCap,
+						}}
+					/>
+				</AllProviders>,
+			);
+			expect(screen.getByTestId("cap-note-badge")).toBeInTheDocument();
+		});
+
+		it("leaves it to the usage badge on a provider that has one", () => {
+			render(
+				<AllProviders>
+					<ProviderCard
+						{...defaultProps}
+						provider={{
+							...mockProvider,
+							base_url: "https://nano-gpt.com/api/v1",
+							last_cap: lastCap,
+						}}
+					/>
+				</AllProviders>,
+			);
+			expect(screen.queryByTestId("cap-note-badge")).not.toBeInTheDocument();
+		});
+
+		it("shows nothing without a cap message, or on a disabled provider", () => {
+			const { unmount } = render(
+				<AllProviders>
+					<ProviderCard {...defaultProps} />
+				</AllProviders>,
+			);
+			expect(screen.queryByTestId("cap-note-badge")).not.toBeInTheDocument();
+			unmount();
+			render(
+				<AllProviders>
+					<ProviderCard
+						{...defaultProps}
+						provider={{ ...mockProvider, enabled: false, last_cap: lastCap }}
+					/>
+				</AllProviders>,
+			);
+			expect(screen.queryByTestId("cap-note-badge")).not.toBeInTheDocument();
+		});
+	});
+
 	describe("rendering provider info", () => {
 		it("renders provider name", () => {
 			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });

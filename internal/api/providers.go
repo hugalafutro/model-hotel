@@ -200,6 +200,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		responses[i] = provider.ToResponse(p)
 		responses[i].ModelCount = modelCounts[p.ID.String()]
 		responses[i].TotalTokens = tokenCounts[p.ID.String()]
+		responses[i].LastCap = h.lastCapFor(p.ID)
 	}
 
 	writeJSON(w, responses)
@@ -223,6 +224,7 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	response := provider.ToResponse(p)
+	response.LastCap = h.lastCapFor(p.ID)
 
 	var modelCount int
 	if err := h.dbPool.Pool().QueryRow(r.Context(), "SELECT COUNT(*) FROM models WHERE provider_id = $1", p.ID).Scan(&modelCount); err == nil {
@@ -518,4 +520,14 @@ func isForeignKeyViolation(err error) bool {
 		return pgErr.Code == "23503"
 	}
 	return false
+}
+
+// lastCapFor is the provider's last exhausted 429 from the proxy's ledger, nil
+// when there is none or no ledger is wired.
+func (h *Handler) lastCapFor(id uuid.UUID) *provider.CapNote {
+	n, ok := h.capLedger.Get(id)
+	if !ok {
+		return nil
+	}
+	return &n
 }

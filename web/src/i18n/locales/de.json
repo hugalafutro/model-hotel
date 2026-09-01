@@ -2921,6 +2921,12 @@
 			"tooltip": "Klicken, um zwischen Seitenmodus und endlosem Scrollen zu wechseln.",
 			"switchToScroll": "Zum Scroll-Modus wechseln",
 			"switchToPagination": "Zum Seitenmodus wechseln"
+		},
+		"capNote": {
+			"label": "keine Nutzungs-API · Limit erreicht {{time}}",
+			"tip": "Keine Nutzungs-API für diesen Anbieter; letzte Limit-Meldung: \"{{phrase}}\" um {{when}} (aus einem 429 auf {{model}})",
+			"tipNoPhrase": "Keine Nutzungs-API für diesen Anbieter; letzter erschöpfter 429 um {{when}} auf {{model}}",
+			"labelEntitled": "keine Nutzungs-API · Guthaben aufgebraucht {{time}}"
 		}
 	},
 	"failoverGroups": {

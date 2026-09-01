@@ -167,6 +167,7 @@ type Handler struct {
 	// tests build as bare structs.
 	newDiscovery   func() *provider.DiscoveryService
 	circuitBreaker CircuitBreakerControl
+	capLedger      *provider.CapLedger
 	audit          *audit.Recorder   // nil until SetAudit (audit trail of admin actions)
 	totpStatus     TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
 	totpEnabled    atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
@@ -310,6 +311,12 @@ func (h *Handler) SetDockerStatsCollector(fn dockerStatsCollector) {
 // one breaker, so status and the operator reset lever come from the same object.
 func (h *Handler) SetCircuitBreaker(cb CircuitBreakerControl) {
 	h.circuitBreaker = cb
+}
+
+// SetCapLedger wires the proxy's per-provider last-exhausted-429 ledger, which
+// the provider list overlays as last_cap. Leaving it unset omits the field.
+func (h *Handler) SetCapLedger(l *provider.CapLedger) {
+	h.capLedger = l
 }
 
 // SetQuotaAdvisor wires the in-memory quota advisor that RefreshQuotaAdvice

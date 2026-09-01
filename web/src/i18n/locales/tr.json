@@ -2921,6 +2921,12 @@
 			"tooltip": "Sayfa numaralandırma ile sonsuz kaydırma arasında geçiş yapmak için tıklayın.",
 			"switchToScroll": "Kaydırma moduna geç",
 			"switchToPagination": "Sayfa numaralandırma moduna geç"
+		},
+		"capNote": {
+			"label": "kullanım API'si yok · sınıra ulaşıldı {{time}}",
+			"tip": "Bu sağlayıcının kullanım API'si yok; son sınır mesajı: \"{{phrase}}\" {{when}} ({{model}} üzerinde bir 429 kaynaklı)",
+			"tipNoPhrase": "Bu sağlayıcının kullanım API'si yok; son tükenme (429) {{when}}, {{model}} üzerinde",
+			"labelEntitled": "kullanım API'si yok · bakiye tükendi {{time}}"
 		}
 	},
 	"failoverGroups": {
