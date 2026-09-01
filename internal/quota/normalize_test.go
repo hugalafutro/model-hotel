@@ -252,6 +252,55 @@ func TestAssess_Neuralwatt_EnergyAndCreditsSpentPinsToPeriodEnd(t *testing.T) {
 	}
 }
 
+// TestAssess_Neuralwatt_SubCentResidueIsSpent pins the real reading taken from
+// prod on 2026-09-01 at the moment NeuralWatt began answering 402
+// payment_required: kwh_remaining 0 and credits_remaining_usd 0.0035. The
+// account was affirmatively blocked ("a usage or billing limit was previously
+// reached") while a third of a cent still sat in the balance, so an exact
+// <= 0 test never fires in practice and the provider stayed unpinned and
+// live in its failover group.
+func TestAssess_Neuralwatt_SubCentResidueIsSpent(t *testing.T) {
+	periodEnd := time.Now().Add(26 * 24 * time.Hour).Truncate(time.Second)
+	payload, err := json.Marshal(map[string]any{
+		"balance":      map[string]any{"credits_remaining_usd": 0.0035},
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 0, "in_overage": true, "current_period_end": periodEnd.Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if !got.ResetsAt.Equal(periodEnd.UTC()) {
+		t.Errorf("got ResetsAt=%v, want period end %v", got.ResetsAt, periodEnd.UTC())
+	}
+}
+
+// TestAssess_Neuralwatt_OneCentIsNotSpent holds the other side of the floor: a
+// balance that can still buy a request must not be read as spent, or the
+// residue rule would sideline a provider that is still serving.
+func TestAssess_Neuralwatt_OneCentIsNotSpent(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"balance":      map[string]any{"credits_remaining_usd": 0.01},
+		"subscription": map[string]any{"status": "active", "kwh_remaining": 0, "current_period_end": time.Now().Add(time.Hour).Format(time.RFC3339)},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("neuralwatt", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Error("a full cent of credit must not read as spent")
+	}
+}
+
 func TestAssess_Neuralwatt_CreditsRemainingIsNotExhausted(t *testing.T) {
 	// Included energy spent but credits cover overage: the provider keeps
 	// serving, so pinning here would sideline a working provider.

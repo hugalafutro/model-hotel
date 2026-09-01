@@ -169,6 +169,22 @@ type neuralwattQuotaPayload struct {
 	} `json:"subscription"`
 }
 
+// creditsSpentFloorUSD is the balance at or below which NeuralWatt credits
+// count as spent. It is not zero because NeuralWatt does not wait for zero:
+// observed on prod 2026-09-01, the account began answering 402
+// payment_required ("Subscription access is currently blocked because a usage
+// or billing limit was previously reached") with credits_remaining_usd still
+// at 0.0035, and it stayed there — the residue never drains, so an exact
+// <= 0 test never becomes true and the provider is never pinned.
+//
+// A cent is roughly one request's worth of credit at the rate that run
+// actually burned ($9.1061 over 1007 requests, ~$0.009 each), so the floor
+// forfeits at most a request or two of genuine headroom. That is the whole
+// cost of being wrong in this direction; being wrong in the other leaves a
+// provider that answers nothing but 402 sitting live in its failover group,
+// which is the state this rule exists to end.
+const creditsSpentFloorUSD = 0.01
+
 // assessNeuralwatt handles NeuralWatt's balance model, which differs from the
 // window models above: spending the included monthly energy does not make the
 // provider refuse requests — it keeps serving in overage, debiting the credit
@@ -185,7 +201,7 @@ func assessNeuralwatt(payload json.RawMessage) Assessment {
 	}
 	var e earliestReset
 	if res.Subscription.KwhRemaining != nil && *res.Subscription.KwhRemaining <= 0 &&
-		res.Balance.CreditsRemainingUSD != nil && *res.Balance.CreditsRemainingUSD <= 0 {
+		res.Balance.CreditsRemainingUSD != nil && *res.Balance.CreditsRemainingUSD < creditsSpentFloorUSD {
 		if t, ok := parseResetString(res.Subscription.CurrentPeriodEnd); ok {
 			e.add(t)
 		}
