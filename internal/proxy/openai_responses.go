@@ -125,7 +125,7 @@ func (h *Handler) retryWithResponses(
 
 	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
 	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
-	retryCtx = context.WithValue(retryCtx, ctxkeys.DialMsKey, dialMs)
+	retryCtx, retryDial := withDialTiming(retryCtx)
 	res.streamCancelOrigin = "retry_timeout"
 	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 	if retryErr != nil {
@@ -143,6 +143,7 @@ func (h *Handler) retryWithResponses(
 	}
 	//nolint:bodyclose // retry resp.Body is consumed by the caller's dispatch
 	retryResp, retryErr := (&http.Client{Transport: h.upstreamTransport, CheckRedirect: checkRedirect}).Do(retryReq)
+	*dialMs += retryDial.take()
 	if retryErr != nil {
 		rc()
 		debuglog.Warn("proxy: responses api retry failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)

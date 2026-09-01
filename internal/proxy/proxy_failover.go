@@ -674,10 +674,11 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	// per request. A fresh Transport spawns persistent readLoop/writeLoop
 	// goroutines per connection that only die after IdleConnTimeout, so
 	// creating one per request causes unbounded goroutine growth.
-	// Inject per-request dial timing pointer so SafeDialer writes
-	// DNS resolution time into this request's own variable, avoiding
-	// cross-request race conditions on a shared atomic.
-	dialCtx := context.WithValue(ctx, ctxkeys.DialMsKey, dialMs)
+	// Hand the request its own dial-timing slot for SafeDialer to write DNS
+	// and TCP time into. A slot rather than the caller's *dialMs, because the
+	// transport's dial goroutine can outlive Do (see dialTiming); the time is
+	// swapped out into *dialMs once Do has returned.
+	dialCtx, dialTimer := withDialTiming(ctx)
 
 	var checkRedirect func(req *http.Request, via []*http.Request) error
 	if h.safeDialer != nil {
@@ -719,6 +720,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		}
 		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
 		resp, err = upstreamClient.Do(tryReq)
+		*dialMs += dialTimer.take()
 		st.timings.dialMs += *dialMs
 		*dialMs = 0
 		if err == nil || try == maxTransientRetries || !isRetryableUpstreamError(err, wroteRequest.Load()) {

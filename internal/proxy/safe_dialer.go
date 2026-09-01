@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -90,25 +89,18 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 	if s.hosts[strings.ToLower(host)] {
 		dialStart := time.Now()
 		conn, err := s.d.DialContext(ctx, network, addr)
-		if v := ctx.Value(ctxkeys.DialMsKey); v != nil {
-			if p, ok := v.(*float64); ok {
-				*p = float64(time.Since(dialStart).Microseconds()) / 1000.0
-			}
-		}
+		recordDialMs(ctx, dialStart)
 		return conn, err
 	}
 
 	// Resolve the host to IP addresses (timed).
 	dnsStart := time.Now()
 	ips, err := s.resolver.LookupIPAddr(ctx, host)
-	// Write per-request dial timing if the caller provided a pointer.
-	// This captures DNS resolution only when the dial fails before TCP;
-	// successful dials overwrite this with the full DNS+TCP time below.
-	if v := ctx.Value(ctxkeys.DialMsKey); v != nil {
-		if p, ok := v.(*float64); ok {
-			*p = float64(time.Since(dnsStart).Microseconds()) / 1000.0
-		}
-	}
+	// Record the per-request dial timing if the caller provided a slot (see
+	// dialTiming for why it is not a plain pointer). This captures DNS
+	// resolution only when the dial fails before TCP; successful dials
+	// overwrite it with the full DNS+TCP time below.
+	recordDialMs(ctx, dnsStart)
 	if err != nil {
 		// Resolution failure: return the DNS error directly rather than
 		// falling through to an unchecked dial. A host that can't be
@@ -149,12 +141,8 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 			continue
 		}
 		debuglog.Debug("proxy: SafeDialer connected", "host", host, "ip", ip.IP, "total_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
-		// Overwrite the timing with full DNS+TCP duration.
-		if v := ctx.Value(ctxkeys.DialMsKey); v != nil {
-			if p, ok := v.(*float64); ok {
-				*p = float64(time.Since(dnsStart).Microseconds()) / 1000.0
-			}
-		}
+		// Overwrite the timing with the full DNS+TCP duration.
+		recordDialMs(ctx, dnsStart)
 		return conn, nil
 	}
 
