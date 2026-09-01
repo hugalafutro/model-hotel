@@ -65,6 +65,16 @@ func TestClassifyRateLimit(t *testing.T) {
 			wantEntitl: true,
 		},
 		{
+			// Verbatim from prod, 2026-09-01 16:42 UTC, glm-5.3 on the Coding Plan:
+			// a weekly/monthly cap with a dated reset. Time fixes it (not
+			// entitled), and the pin is the weekly one.
+			name:      "Z.ai coding plan code 1310 weekly/monthly limit exhausted",
+			status:    429,
+			body:      `{"error":{"code":"1310","message":"Weekly/Monthly Limit Exhausted. Your limit will reset at 2026-09-03 18:01:05"}}`,
+			wantClass: rateLimitExhausted,
+			wantPin:   pinHintWeekly,
+		},
+		{
 			name:       "OpenAI insufficient_quota",
 			status:     429,
 			body:       `{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota"}}`,
