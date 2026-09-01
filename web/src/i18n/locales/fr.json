@@ -2983,6 +2983,11 @@
 			"tooltip": "Cliquez pour basculer entre la pagination et le défilement infini.",
 			"switchToScroll": "Passer en mode défilement",
 			"switchToPagination": "Passer en mode pagination"
+		},
+		"capNote": {
+			"label": "pas d'API d'usage · plafond atteint {{time}}",
+			"tip": "Pas d'API d'usage pour ce fournisseur ; dernier message de plafond : \"{{phrase}}\" à {{when}} (d'un {{status}} sur {{model}})",
+			"tipNoPhrase": "Pas d'API d'usage pour ce fournisseur ; dernier {{status}} d'épuisement à {{when}} sur {{model}}"
 		}
 	},
 	"failoverGroups": {

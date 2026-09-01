@@ -2983,6 +2983,11 @@
 			"tooltip": "Clicca per passare dalla paginazione allo scorrimento infinito e viceversa.",
 			"switchToScroll": "Passa alla modalità di scorrimento",
 			"switchToPagination": "Passa alla modalità di paginazione"
+		},
+		"capNote": {
+			"label": "nessuna API di utilizzo · limite raggiunto {{time}}",
+			"tip": "Nessuna API di utilizzo per questo provider; ultimo messaggio di limite: \"{{phrase}}\" alle {{when}} (da un {{status}} su {{model}})",
+			"tipNoPhrase": "Nessuna API di utilizzo per questo provider; ultimo {{status}} per esaurimento alle {{when}} su {{model}}"
 		}
 	},
 	"failoverGroups": {

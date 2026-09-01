@@ -1,10 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { CalendarDays } from "@/lib/icons";
 import type { Provider } from "../../api/types";
+import { CapNoteBadge } from "../../components/CapNoteBadge";
 import { CopyablePill } from "../../components/CopyablePill";
 import { QuotaBadges } from "../../components/QuotaBadge";
 import { Spinner } from "../../components/Spinner";
-import type { useQuotaData } from "../../hooks/useQuotaData";
+import {
+	detectQuotaProviderType,
+	type useQuotaData,
+} from "../../hooks/useQuotaData";
 import { formatDate, formatTimestamp, formatTokens } from "../../utils/format";
 
 interface ProviderCardProps {
@@ -150,6 +154,9 @@ export function ProviderCard({
 								}}
 								onNeuralwattClick={() => onSetModalNeuralwatt()}
 							/>
+							{provider.last_cap && capNoteApplies(provider.base_url) && (
+								<CapNoteBadge note={provider.last_cap} />
+							)}
 						</span>
 					)}
 				</div>
@@ -237,4 +244,13 @@ export function ProviderCard({
 			</div>
 		</div>
 	);
+}
+
+// capNoteApplies says whether the provider's quota badge is the one place a
+// cap message can appear: a provider with no usage API at all, or Ollama
+// Cloud, whose account API names the plan and never the usage. A provider
+// with a usage badge shows its real reading instead.
+function capNoteApplies(baseUrl: string): boolean {
+	const type = detectQuotaProviderType(baseUrl);
+	return type === null || type === "ollama-cloud";
 }

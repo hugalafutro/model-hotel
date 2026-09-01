@@ -2921,6 +2921,11 @@
 			"tooltip": "Klikk for å bytte mellom paginering og uendelig rulling.",
 			"switchToScroll": "Bytt til rullemodus",
 			"switchToPagination": "Bytt til paginasjonsmodus"
+		},
+		"capNote": {
+			"label": "ingen bruks-API · tak nådd {{time}}",
+			"tip": "Ingen bruks-API for denne leverandøren; siste takmelding: \"{{phrase}}\" kl. {{when}} (fra en {{status}} på {{model}})",
+			"tipNoPhrase": "Ingen bruks-API for denne leverandøren; siste oppbrukte {{status}} kl. {{when}} på {{model}}"
 		}
 	},
 	"failoverGroups": {

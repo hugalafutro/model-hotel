@@ -3045,6 +3045,11 @@
 			"tooltip": "Kliknutím prepnete medzi stránkovaním a nekonečným posúvaním.",
 			"switchToScroll": "Prejsť do režimu posúvania",
 			"switchToPagination": "Prejsť do režimu stránkovania"
+		},
+		"capNote": {
+			"label": "bez API využitia · limit dosiahnutý {{time}}",
+			"tip": "Tento poskytovateľ nemá API využitia; posledná správa o limite: \"{{phrase}}\" o {{when}} (z {{status}} na {{model}})",
+			"tipNoPhrase": "Tento poskytovateľ nemá API využitia; posledné vyčerpanie ({{status}}) o {{when}} na {{model}}"
 		}
 	},
 	"failoverGroups": {

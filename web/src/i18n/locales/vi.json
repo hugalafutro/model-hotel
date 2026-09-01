@@ -2921,6 +2921,11 @@
 			"tooltip": "Nhấp để chuyển đổi giữa phân trang và cuộn vô hạn.",
 			"switchToScroll": "Chuyển sang chế độ cuộn",
 			"switchToPagination": "Chuyển sang chế độ phân trang"
+		},
+		"capNote": {
+			"label": "không có API mức dùng · chạm giới hạn {{time}}",
+			"tip": "Nhà cung cấp này không có API mức dùng; thông báo giới hạn gần nhất: \"{{phrase}}\" lúc {{when}} (từ một {{status}} trên {{model}})",
+			"tipNoPhrase": "Nhà cung cấp này không có API mức dùng; lần cạn kiệt ({{status}}) gần nhất lúc {{when}} trên {{model}}"
 		}
 	},
 	"failoverGroups": {

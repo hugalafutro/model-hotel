@@ -2983,6 +2983,11 @@
 			"tooltip": "Haz clic para alternar entre paginación y desplazamiento infinito.",
 			"switchToScroll": "Cambiar al modo de desplazamiento",
 			"switchToPagination": "Cambiar al modo de paginación"
+		},
+		"capNote": {
+			"label": "sin API de uso · límite alcanzado {{time}}",
+			"tip": "Sin API de uso para este proveedor; último mensaje de límite: \"{{phrase}}\" a las {{when}} (de un {{status}} en {{model}})",
+			"tipNoPhrase": "Sin API de uso para este proveedor; último {{status}} por agotamiento a las {{when}} en {{model}}"
 		}
 	},
 	"failoverGroups": {

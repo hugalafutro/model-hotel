@@ -129,6 +129,11 @@ type ProviderResponse struct {
 	UpdatedAt            time.Time  `json:"updated_at"`
 	ModelCount           int        `json:"model_count"`
 	TotalTokens          int        `json:"total_tokens"`
+	// LastCap is the last exhausted 429 this provider answered since the
+	// process started (see CapLedger), overlaid by the API from the proxy's
+	// ledger. It is what the quota badge shows for a provider with no usage
+	// API. Absent when there has been none.
+	LastCap *CapNote `json:"last_cap,omitempty"`
 }
 
 // Repository manages provider CRUD operations.

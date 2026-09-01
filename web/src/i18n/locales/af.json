@@ -2921,6 +2921,11 @@
 			"tooltip": "Klik om tussen bladsyverdeling en oneindige blaai te wissel.",
 			"switchToScroll": "Skakel na blaaimodus",
 			"switchToPagination": "Skakel oor na bladsyverdelingsmodus"
+		},
+		"capNote": {
+			"label": "geen gebruik-API · limiet bereik {{time}}",
+			"tip": "Geen gebruik-API vir hierdie verskaffer; laaste limietboodskap: \"{{phrase}}\" om {{when}} (van 'n {{status}} op {{model}})",
+			"tipNoPhrase": "Geen gebruik-API vir hierdie verskaffer; laaste uitgeputte {{status}} om {{when}} op {{model}}"
 		}
 	},
 	"failoverGroups": {

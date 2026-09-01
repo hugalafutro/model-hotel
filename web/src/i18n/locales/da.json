@@ -2921,6 +2921,11 @@
 			"tooltip": "Klik for at skifte mellem paginering og uendelig rulning.",
 			"switchToScroll": "Skift til rulletilstand",
 			"switchToPagination": "Skift til pagineringstilstand"
+		},
+		"capNote": {
+			"label": "ingen forbrugs-API · loft nået {{time}}",
+			"tip": "Ingen forbrugs-API for denne udbyder; seneste loftbesked: \"{{phrase}}\" kl. {{when}} (fra en {{status}} på {{model}})",
+			"tipNoPhrase": "Ingen forbrugs-API for denne udbyder; seneste opbrugt {{status}} kl. {{when}} på {{model}}"
 		}
 	},
 	"failoverGroups": {

@@ -13,6 +13,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -509,6 +510,11 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 	// zero verdict, which reads as unknown: nothing classified it.
 	if resp.StatusCode == http.StatusTooManyRequests {
 		metrics.RecordUpstreamRateLimit(candidate.provider.Name, candidateModelID(candidate), rl.class.String())
+	}
+	// An exhausted body is the one quota reading a provider with no usage API
+	// ever gives; the ledger keeps the latest per provider for its badge.
+	if rl.class == rateLimitExhausted {
+		h.CapLedger().Note(candidate.provider.ID, provider.CapNote{Phrase: rl.phrase, Model: candidateModelID(candidate), Status: resp.StatusCode, At: time.Now()})
 	}
 	// The saturated 429 teaches the in-flight learner: the pool is provably
 	// smaller than the load that included this request, so the allowance is

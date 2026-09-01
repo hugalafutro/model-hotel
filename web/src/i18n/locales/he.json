@@ -2983,6 +2983,11 @@
 			"tooltip": "לחץ כדי לעבור בין חלוקה לעמודים לגלילה אינסופית.",
 			"switchToScroll": "עבור למצב גלילה",
 			"switchToPagination": "עבור למצב חלוקה לעמודים"
+		},
+		"capNote": {
+			"label": "אין API שימוש · המכסה נוצלה {{time}}",
+			"tip": "אין API שימוש לספק זה; הודעת המכסה האחרונה: \"{{phrase}}\" ב-{{when}} (מ-{{status}} על {{model}})",
+			"tipNoPhrase": "אין API שימוש לספק זה; מיצוי {{status}} אחרון ב-{{when}} על {{model}}"
 		}
 	},
 	"failoverGroups": {

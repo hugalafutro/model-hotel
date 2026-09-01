@@ -2921,6 +2921,11 @@
 			"tooltip": "Klik om te wisselen tussen paginering en oneindig scrollen.",
 			"switchToScroll": "Overschakelen naar scrollmodus",
 			"switchToPagination": "Schakel naar pagineringsmodus"
+		},
+		"capNote": {
+			"label": "geen gebruiks-API · limiet bereikt {{time}}",
+			"tip": "Geen gebruiks-API voor deze provider; laatste limietmelding: \"{{phrase}}\" om {{when}} (uit een {{status}} op {{model}})",
+			"tipNoPhrase": "Geen gebruiks-API voor deze provider; laatste uitgeputte {{status}} om {{when}} op {{model}}"
 		}
 	},
 	"failoverGroups": {
