@@ -1722,7 +1722,7 @@
 			"recentSuccessWindow": "Janela de sucesso recente",
 			"recentSuccessWindow.description": "Uma 429 não reconhecida de um modelo que respondeu com sucesso há tão pouco tempo é tratada como saturação e não como esgotamento: uma janela esgotada não volta num minuto.",
 			"openOnExhaustion": "Abrir circuito com quota esgotada",
-			"openOnExhaustionDescription": "Quando uma 429 indica quota ou saldo esgotado, o circuito do modelo abre com essa única resposta em vez de esperar pelo limiar de falhas.",
+			"openOnExhaustionDescription": "Quando um provedor indica quota ou saldo esgotado (uma 429 sobre uma janela esgotada, ou uma 402 que exige pagamento), o circuito do modelo abre com essa única resposta em vez de esperar pelo limiar de falhas.",
 			"exhaustion429": "Responder 429 a grupos saturados",
 			"exhaustion429Description": "Quando todos os fornecedores de um grupo estão saturados ou à espera da quota, o cliente recebe 429 com Retry-After em vez de 502, para aguardar e repetir por conta própria.",
 			"inflightGroup": "Concorrência adaptativa",

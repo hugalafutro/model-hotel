@@ -462,10 +462,21 @@ func TestRecordBreakerOutcome_PaymentRequired(t *testing.T) {
 		if !c.QuotaPinned {
 			t.Error("a payment-required refusal must pin: retrying cannot succeed until someone pays")
 		}
-		// The pin must actually outlast the ordinary cooldown, or it is a pin
-		// in name only and the circuit half-opens on the usual schedule.
-		if c.CooldownMs <= cb.Cooldown.Milliseconds() {
-			t.Errorf("cooldown_ms = %d, want longer than the ordinary cooldown %d", c.CooldownMs, cb.Cooldown.Milliseconds())
+		// The recorded cause must name the status the provider actually sent.
+		// Asserting only the state and the pin let a hardcoded 429 through: on
+		// the dev stack a real 402 read back as "upstream status 429
+		// (exhausted)" in the circuit ledger and the opens_total metric.
+		if c.LastCause != "upstream status 402 (exhausted)" || c.LastStatus != 402 {
+			t.Errorf("cause=%q status=%d, want the 402 the provider sent", c.LastCause, c.LastStatus)
+		}
+		// pinHintUntilPaid means "as long as allowed", so the stamped pin must
+		// land at the ceiling, not merely above the ordinary cooldown — a
+		// 61-second pin would clear that weaker bar and still half-open in a
+		// minute. The ceiling is quotaPinMax's 24h default (settings is nil
+		// here); jitter adds up to 5% on top.
+		const pinCeilingMs = int64(24 * 60 * 60 * 1000)
+		if c.CooldownMs < pinCeilingMs || c.CooldownMs > pinCeilingMs*11/10 {
+			t.Errorf("cooldown_ms = %d, want the until-paid pin at the 24h ceiling (+jitter)", c.CooldownMs)
 		}
 	})
 

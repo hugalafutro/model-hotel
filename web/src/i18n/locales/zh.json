@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "近期成功窗口",
 			"recentSuccessWindow.description": "来自近期内成功响应过的模型的无法识别的 429 视为繁忙而非耗尽:耗尽的窗口不会在一分钟内恢复。",
 			"openOnExhaustion": "配额耗尽时断开电路",
-			"openOnExhaustionDescription": "当 429 表明配额或余额已耗尽时,凭这一次响应即断开该模型的电路,而不等待失败阈值。",
+			"openOnExhaustionDescription": "当提供商表明配额或余额已耗尽时（表示窗口已用尽的 429，或要求付款的 402），凭这一次响应即断开该模型的电路，而不等待失败阈值。",
 			"exhaustion429": "以 429 回应繁忙的组",
 			"exhaustion429Description": "当组内所有提供商都繁忙或在等待配额时,向客户端返回带 Retry-After 的 429 而非 502,让客户端自行退避并重试。",
 			"inflightGroup": "自适应并发",

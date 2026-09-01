@@ -205,6 +205,15 @@ const creditsSpentFloorUSD = 0.01
 // breaker's 24h pin ceiling re-pins toward it on each open, and an
 // off-schedule recovery — a top-up, a plan change — lifts the pin on the next
 // poll via the recovered path in buildQuotaAdvice).
+//
+// That recovery path needs a datable reset to work: an account reporting no
+// usable current_period_end assesses OK=false below, which reaches neither
+// advice nor recovered, so nothing releases its pin early and it runs the full
+// ceiling. That is the intended trade. The alternative — reporting a spent
+// account healthy because it did not say when it recovers — puts it in
+// recovered, where ReleaseQuotaPins drops the pin and clears the 429-open
+// escalation of every circuit it owns, on every poll pass, for an account
+// answering nothing but 402.
 func assessNeuralwatt(payload json.RawMessage) Assessment {
 	var res neuralwattQuotaPayload
 	if err := json.Unmarshal(payload, &res); err != nil {

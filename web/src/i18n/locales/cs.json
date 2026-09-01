@@ -1769,7 +1769,7 @@
 			"recentSuccessWindow": "Okno nedávného úspěchu",
 			"recentSuccessWindow.description": "Nerozpoznaná 429 od modelu, který takto nedávno úspěšně odpovídal, se bere jako vytížení, ne vyčerpání: vyčerpané okno se za minutu nevrátí.",
 			"openOnExhaustion": "Rozpojit obvod při vyčerpané kvótě",
-			"openOnExhaustionDescription": "Když 429 hlásí vyčerpaný limit nebo kredit, obvod modelu se rozpojí po této jediné odpovědi, místo čekání na práh selhání.",
+			"openOnExhaustionDescription": "Když poskytovatel hlásí vyčerpaný limit nebo kredit (429 o vyčerpaném okně, nebo 402 vyžadující platbu), obvod modelu se rozpojí po této jediné odpovědi, místo čekání na práh selhání.",
 			"exhaustion429": "Odpovídat vytíženým skupinám stavem 429",
 			"exhaustion429Description": "Když jsou všichni poskytovatelé ve skupině vytížení nebo čekají na obnovení kvóty, klient dostane 429 s Retry-After místo 502, takže sám počká a zkusí to znovu.",
 			"inflightGroup": "Adaptivní souběžnost",

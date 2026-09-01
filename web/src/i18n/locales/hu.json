@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Friss siker ablaka",
 			"recentSuccessWindow.description": "Az ilyen frissen még sikeresen válaszoló modelltől érkező felismerhetetlen 429 foglaltságnak számít, nem kimerülésnek: a kimerült ablak nem tér vissza egy perc alatt.",
 			"openOnExhaustion": "Kör nyitása kimerült kvótánál",
-			"openOnExhaustionDescription": "Ha egy 429 kimerült kvótát vagy egyenleget jelez, a modell köre ez után az egyetlen válasz után nyílik, nem várva a hibaküszöbre.",
+			"openOnExhaustionDescription": "Ha egy szolgáltató kimerült kvótát vagy egyenleget jelez (egy 429 kimerült ablakról, vagy egy fizetést kérő 402), a modell köre ez után az egyetlen válasz után nyílik, nem várva a hibaküszöbre.",
 			"exhaustion429": "Foglalt csoportoknak 429-es válasz",
 			"exhaustion429Description": "Ha a csoport minden szolgáltatója foglalt vagy a kvótájára vár, a kliens 502 helyett Retry-After fejlécű 429-et kap, így magától vár és újrapróbálkozik.",
 			"inflightGroup": "Adaptív párhuzamosság",

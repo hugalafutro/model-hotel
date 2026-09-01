@@ -1722,7 +1722,7 @@
 			"recentSuccessWindow": "Fenêtre de succès récent",
 			"recentSuccessWindow.description": "Une 429 non reconnue venant d'un modèle qui a répondu avec succès aussi récemment est traitée comme saturation plutôt qu'épuisement : une fenêtre épuisée ne revient pas en une minute.",
 			"openOnExhaustion": "Ouvrir le circuit sur quota épuisé",
-			"openOnExhaustionDescription": "Quand une 429 indique un quota ou un solde épuisé, le circuit du modèle s'ouvre dès cette unique réponse au lieu d'attendre le seuil d'échecs.",
+			"openOnExhaustionDescription": "Quand un fournisseur indique un quota ou un solde épuisé (une 429 signalant une fenêtre épuisée, ou une 402 exigeant un paiement), le circuit du modèle s'ouvre dès cette unique réponse au lieu d'attendre le seuil d'échecs.",
 			"exhaustion429": "Répondre 429 aux groupes saturés",
 			"exhaustion429Description": "Quand tous les fournisseurs d'un groupe sont saturés ou attendent leur quota, le client reçoit 429 avec Retry-After au lieu de 502, afin qu'il patiente et réessaie de lui-même.",
 			"inflightGroup": "Concurrence adaptative",

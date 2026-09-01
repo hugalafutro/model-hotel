@@ -145,7 +145,7 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 			return
 		}
 		debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 429 (exhausted)", "status", http.StatusTooManyRequests, "pin_hint_ms", rl.pinHint.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-		h.circuitBreaker.RecordExhausted(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), rl.pinHint)
+		h.circuitBreaker.RecordExhausted(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), http.StatusTooManyRequests, rl.pinHint)
 	case rateLimitUnknown:
 		// Not reached: the caller only routes classified verdicts here. Listed
 		// so the switch stays exhaustive over rateLimitClass.
@@ -162,11 +162,16 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 // restores the ordinary charge here too rather than leaving one exhaustion path
 // still opening at once.
 //
-// The pin is the response-derived kind, which by design never trips the
-// provider-wide arm: one model's 402 darkens that model, and the provider
-// follows only when enough models corroborate through SpanModels. That matters
-// because a plan can cover some models and not others, exactly as it can for
-// the 429 case.
+// What this does NOT do is confine the damage to one model. The charge lands on
+// the model that drew the refusal, but SpanModels defaults to 2, so the second
+// model to take a 402 darkens the whole provider — and if the quota advisor
+// already holds an exhaustion reading for it, applyQuotaPin prefers the advisor
+// source and the provider-wide arm can trip on the first one. That is the right
+// default for a billing block, which is account-wide by nature; it is the wrong
+// one for a provider that returns 402 per-request (OpenRouter answers 402 when
+// a single request's max cost exceeds the balance), where two large requests
+// can bench models that would have served. The operator's lever for that is
+// circuit_breaker_open_on_exhaustion.
 func (h *Handler) recordPaymentRequiredOutcome(ctx context.Context, st *requestState, candidate modelCandidate) {
 	st.logData.noteBreaker(breakerCharge)
 	if !h.settingsRepo.GetBool(ctx, "circuit_breaker_open_on_exhaustion", true) {
@@ -175,7 +180,7 @@ func (h *Handler) recordPaymentRequiredOutcome(ctx context.Context, st *requestS
 		return
 	}
 	debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 402 (payment required)", "status", http.StatusPaymentRequired, "pin_hint_ms", pinHintUntilPaid.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-	h.circuitBreaker.RecordExhausted(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), pinHintUntilPaid)
+	h.circuitBreaker.RecordExhausted(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), http.StatusPaymentRequired, pinHintUntilPaid)
 }
 
 // recordAnswerOutcome records the circuit-breaker verdict for a finished

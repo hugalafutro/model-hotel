@@ -74,9 +74,20 @@ func TestCircuitRemembersItsLastVerdict(t *testing.T) {
 		t.Errorf("after a connection failure: cause=%q status=%d, want no status", cause, status)
 	}
 
-	cb.RecordExhausted(id, "p", "m2", 0)
+	cb.RecordExhausted(id, "p", "m2", 429, 0)
 	if cause, status, _ := lastVerdict(t, cb, id, "m2"); cause != "upstream status 429 (exhausted)" || status != 429 {
 		t.Errorf("after an exhausted 429: cause=%q status=%d", cause, status)
+	}
+
+	// Exhaustion is a claim, not a number: a 402 payment_required makes it too
+	// and takes the same pin. The status stamped must be the one the provider
+	// actually sent — a hardcoded 429 here put a status the upstream never
+	// returned into the cause, the breaker-open log line, the Front Desk
+	// circuits ledger and the opens_total metric. Caught on the dev stack,
+	// where a real 402 read back as "upstream status 429 (exhausted)".
+	cb.RecordExhausted(id, "p", "m3", 402, 0)
+	if cause, status, _ := lastVerdict(t, cb, id, "m3"); cause != "upstream status 402 (exhausted)" || status != 402 {
+		t.Errorf("after a payment-required 402: cause=%q status=%d, want the 402 the provider sent", cause, status)
 	}
 }
 
@@ -439,13 +450,13 @@ func TestBreakerLogsWithTheLockReleased(t *testing.T) {
 		fail("e")
 		fail("e")
 		probeDue("e")
-		cb.RecordExhausted(id, "p", "e", time.Hour)
+		cb.RecordExhausted(id, "p", "e", 429, time.Hour)
 		// An exhausted open with a response pin, retargeted and released by the
 		// poller's paths, then one released by switching the poller off.
-		cb.RecordExhausted(id, "p", "b", time.Hour)
+		cb.RecordExhausted(id, "p", "b", 429, time.Hour)
 		cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)})
 		cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
-		cb.RecordExhausted(id, "p", "c", time.Hour)
+		cb.RecordExhausted(id, "p", "c", 429, time.Hour)
 		cb.ReleaseAllQuotaPins()
 		// The manual resets: one circuit, the provider, everything.
 		cb.ResetModel(id, "a")
@@ -493,7 +504,7 @@ func TestOpenCountsByCause(t *testing.T) {
 	cb.RecordFailure(id, name, "m", UpstreamStatus(503, ""))
 	time.Sleep(20 * time.Millisecond)
 	cb.IsOpen(id, name, "m") // half-open
-	cb.RecordExhausted(id, name, "m", 0)
+	cb.RecordExhausted(id, name, "m", 429, 0)
 
 	req := httptest.NewRequest(http.MethodGet, "/metrics", http.NoBody)
 	rec := httptest.NewRecorder()

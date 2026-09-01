@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Tuoreen onnistumisen ikkuna",
 			"recentSuccessWindow.description": "Tunnistamaton 429 mallilta, joka vastasi onnistuneesti näin äskettäin, tulkitaan ruuhkaksi eikä ehtymiseksi: ehtynyt ikkuna ei palaudu minuutissa.",
 			"openOnExhaustion": "Avaa piiri kiintiön ehtyessä",
-			"openOnExhaustionDescription": "Kun 429 kertoo kiintiön tai saldon ehtyneen, mallin piiri avataan tuosta yhdestä vastauksesta odottamatta virhekynnystä.",
+			"openOnExhaustionDescription": "Kun palveluntarjoaja kertoo kiintiönsä tai saldonsa ehtyneen (429 ehtyneestä ikkunasta tai maksua vaativa 402), mallin piiri avataan tuosta yhdestä vastauksesta odottamatta virhekynnystä.",
 			"exhaustion429": "Vastaa ruuhkaisille ryhmille 429:llä",
 			"exhaustion429Description": "Kun ryhmän kaikki palveluntarjoajat ovat ruuhkassa tai odottavat kiintiötään, asiakas saa 502:n sijaan 429:n ja Retry-After-otsakkeen, jolloin se odottaa ja yrittää itse uudelleen.",
 			"inflightGroup": "Mukautuva rinnakkaisuus",

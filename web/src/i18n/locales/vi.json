@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Cửa sổ thành công gần đây",
 			"recentSuccessWindow.description": "Một 429 không nhận diện được từ mô hình vừa phản hồi thành công gần đây như vậy được coi là bận thay vì cạn kiệt: cửa sổ đã cạn không quay lại trong một phút.",
 			"openOnExhaustion": "Mở mạch khi hạn mức cạn",
-			"openOnExhaustionDescription": "Khi 429 báo hạn mức hoặc số dư đã cạn, mạch của mô hình được mở ngay sau phản hồi duy nhất đó thay vì chờ ngưỡng lỗi.",
+			"openOnExhaustionDescription": "Khi nhà cung cấp báo hạn mức hoặc số dư đã cạn (một mã 429 về cửa sổ đã cạn, hoặc một mã 402 yêu cầu thanh toán), mạch của mô hình được mở ngay sau phản hồi duy nhất đó thay vì chờ ngưỡng lỗi.",
 			"exhaustion429": "Trả lời 429 cho nhóm bận",
 			"exhaustion429Description": "Khi mọi nhà cung cấp trong nhóm đều bận hoặc đang chờ hạn mức, máy khách nhận 429 kèm Retry-After thay vì 502, để tự chờ và thử lại.",
 			"inflightGroup": "Đồng thời thích ứng",

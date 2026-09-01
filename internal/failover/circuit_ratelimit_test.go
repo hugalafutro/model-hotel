@@ -31,7 +31,7 @@ func TestRecordExhausted_OpensOnOneCharge(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 5, cooldown: time.Minute})
 	id := uuid.New()
 
-	cb.RecordExhausted(id, "p", "m", 0)
+	cb.RecordExhausted(id, "p", "m", 429, 0)
 
 	if got := cb.GetState(id, "m"); got != StateOpen {
 		t.Fatalf("state after one exhausted 429 = %v, want open", got)
@@ -41,12 +41,33 @@ func TestRecordExhausted_OpensOnOneCharge(t *testing.T) {
 	}
 }
 
+// The rate-limit-open streak is documented as 429-only, and escalating it
+// raises the probe-backoff ceiling into a BACKOFF — which no quota lever
+// clears, since ReleaseQuotaPins and circuit_breaker_quota_pin_enabled=false
+// both only ever clear a pin. A 402 is an exhaustion but not a rate limit, so
+// counting it would strand a provider at the ceiling with no operator lever
+// short of a manual reset.
+func TestRecordExhausted_Only429FeedsTheOpenStreak(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 5, cooldown: time.Minute})
+	id := uuid.New()
+
+	cb.RecordExhausted(id, "p", "rate-limited", 429, 0)
+	if got := exhaustedCircuit(t, cb, id, "rate-limited").opens429Streak; got != 1 {
+		t.Errorf("streak after an exhausted 429 = %d, want 1", got)
+	}
+
+	cb.RecordExhausted(id, "p", "unpaid", 402, 0)
+	if got := exhaustedCircuit(t, cb, id, "unpaid").opens429Streak; got != 0 {
+		t.Errorf("streak after a payment-required 402 = %d, want 0: it is not a rate limit", got)
+	}
+}
+
 func TestRecordExhausted_HintPinStampedWithJitterBounds(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour})
 	id := uuid.New()
 
 	hint := 30 * time.Minute
-	cb.RecordExhausted(id, "p", "m", hint)
+	cb.RecordExhausted(id, "p", "m", 429, hint)
 
 	got := overrideForModel(t, cb, id, "m")
 	if got < hint || got > hint+hint/20 {
@@ -66,7 +87,7 @@ func TestRecordExhausted_HintClampedToPinCeiling(t *testing.T) {
 	id := uuid.New()
 
 	// The "until somebody pays" sentinel: far above any ceiling on purpose.
-	cb.RecordExhausted(id, "p", "m", 90*24*time.Hour)
+	cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
 
 	got := overrideForModel(t, cb, id, "m")
 	ceiling := time.Hour
@@ -79,7 +100,7 @@ func TestRecordExhausted_HintBelowCooldownIgnored(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Hour})
 	id := uuid.New()
 
-	cb.RecordExhausted(id, "p", "m", 30*time.Minute)
+	cb.RecordExhausted(id, "p", "m", 429, 30*time.Minute)
 
 	if got := overrideForModel(t, cb, id, "m"); got != 0 {
 		t.Errorf("override = %v, want 0: a pin must never make the breaker more aggressive than its cooldown", got)
@@ -95,7 +116,7 @@ func TestRecordExhausted_AdvisorBeatsHint(t *testing.T) {
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(advisorReset), ok: true})
 	id := uuid.New()
 
-	cb.RecordExhausted(id, "p", "m", 30*time.Minute)
+	cb.RecordExhausted(id, "p", "m", 429, 30*time.Minute)
 
 	got := overrideForModel(t, cb, id, "m")
 	// The advisor's window, not the 30m hint: allow the jitter and the
@@ -111,7 +132,7 @@ func TestRecordExhausted_AdvisorBeatsHint(t *testing.T) {
 func TestRecordExhausted_ReleaseQuotaPinsLiftsHintPin(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour})
 	id := uuid.New()
-	cb.RecordExhausted(id, "p", "m", 30*time.Minute)
+	cb.RecordExhausted(id, "p", "m", 429, 30*time.Minute)
 	if overrideForModel(t, cb, id, "m") == 0 {
 		t.Fatal("setup: no hint pin stamped")
 	}
@@ -129,13 +150,13 @@ func TestRecordExhausted_ReleaseQuotaPinsLiftsHintPin(t *testing.T) {
 func TestRecordExhausted_HalfOpenProbeCountsAsFailedProbe(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute})
 	id := uuid.New()
-	cb.RecordExhausted(id, "p", "m", 0)
+	cb.RecordExhausted(id, "p", "m", 429, 0)
 	backdateOpenModel(t, cb, id, "m", 2*time.Minute)
 	if cb.IsOpen(id, "p", "m") {
 		t.Fatal("setup: circuit should be owed a probe after its cooldown")
 	}
 
-	cb.RecordExhausted(id, "p", "m", 0)
+	cb.RecordExhausted(id, "p", "m", 429, 0)
 
 	c := exhaustedCircuit(t, cb, id, "m")
 	if c.state != StateOpen || c.failedProbes != 1 {
@@ -262,7 +283,7 @@ func TestBlockedUntil(t *testing.T) {
 	// A sibling model of an indicted provider: blocked by the verdict, and the
 	// retry instant is the earliest among the blocking circuits. Pinning every
 	// blocking circuit makes the verdict an exhaustion.
-	cb.RecordExhausted(id, "p", "m2", 30*time.Minute)
+	cb.RecordExhausted(id, "p", "m2", 429, 30*time.Minute)
 	if _, _, ok := cb.BlockedUntil(id, "other-model"); !ok {
 		t.Fatal("provider indicted at span 2, but a sibling model reports unblocked")
 	}

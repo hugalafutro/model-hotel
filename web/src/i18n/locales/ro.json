@@ -1722,7 +1722,7 @@
 			"recentSuccessWindow": "Fereastra succesului recent",
 			"recentSuccessWindow.description": "Un 429 nerecunoscut de la un model care a răspuns cu succes atât de recent este tratat ca ocupat, nu ca epuizat: o fereastră epuizată nu revine într-un minut.",
 			"openOnExhaustion": "Deschide circuitul la cotă epuizată",
-			"openOnExhaustionDescription": "Când un 429 anunță cotă sau sold epuizat, circuitul modelului se deschide după acel singur răspuns, fără a aștepta pragul de eșecuri.",
+			"openOnExhaustionDescription": "Când un furnizor anunță cotă sau sold epuizat (un 429 despre o fereastră epuizată sau un 402 care cere plată), circuitul modelului se deschide după acel singur răspuns, fără a aștepta pragul de eșecuri.",
 			"exhaustion429": "Răspunde grupurilor ocupate cu 429",
 			"exhaustion429Description": "Când toți furnizorii unui grup sunt ocupați sau își așteaptă cota, clientul primește 429 cu Retry-After în loc de 502, ca să aștepte și să reîncerce singur.",
 			"inflightGroup": "Concurență adaptivă",

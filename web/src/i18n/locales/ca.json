@@ -1722,7 +1722,7 @@
 			"recentSuccessWindow": "Finestra d'èxit recent",
 			"recentSuccessWindow.description": "Una 429 no reconeguda d'un model que ha respost amb èxit fa tan poc es tracta com a ocupat i no com a esgotat: una finestra esgotada no torna en un minut.",
 			"openOnExhaustion": "Obre el circuit amb quota esgotada",
-			"openOnExhaustionDescription": "Quan una 429 indica quota o saldo esgotat, el circuit del model s'obre amb aquesta única resposta en lloc d'esperar el llindar de fallades.",
+			"openOnExhaustionDescription": "Quan un proveïdor indica que la seva quota o saldo està esgotat (una 429 sobre una finestra esgotada, o una 402 que requereix pagament), el circuit del model s'obre amb aquesta única resposta en lloc d'esperar el llindar de fallades.",
 			"exhaustion429": "Respondre 429 als grups ocupats",
 			"exhaustion429Description": "Quan tots els proveïdors d'un grup estan ocupats o esperen la quota, el client rep 429 amb Retry-After en lloc de 502, perquè esperi i reintenti pel seu compte.",
 			"inflightGroup": "Concurrència adaptativa",

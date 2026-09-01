@@ -1675,7 +1675,7 @@
 			"recentSuccessWindow": "Fenster für jüngste Erfolge",
 			"recentSuccessWindow.description": "Eine unbekannte 429 von einem Modell, das so kürzlich erfolgreich geantwortet hat, gilt als ausgelastet statt aufgebraucht: ein aufgebrauchtes Zeitfenster kommt nicht binnen einer Minute zurück.",
 			"openOnExhaustion": "Schaltkreis bei aufgebrauchtem Kontingent öffnen",
-			"openOnExhaustionDescription": "Meldet eine 429, dass Kontingent oder Guthaben aufgebraucht ist, wird der Schaltkreis des Modells nach dieser einen Antwort geöffnet, statt auf die Fehlerschwelle zu warten.",
+			"openOnExhaustionDescription": "Meldet ein Anbieter, dass sein Kontingent oder Guthaben aufgebraucht ist (eine 429 zu einem verbrauchten Fenster oder eine 402 mit Zahlungsaufforderung), wird der Schaltkreis des Modells nach dieser einen Antwort geöffnet, statt auf die Fehlerschwelle zu warten.",
 			"exhaustion429": "Ausgelastete Gruppen mit 429 beantworten",
 			"exhaustion429Description": "Sind alle Anbieter einer Gruppe ausgelastet oder warten auf ihr Kontingent, erhält der Client 429 mit Retry-After statt 502, damit er selbstständig wartet und erneut anfragt.",
 			"inflightGroup": "Adaptive Parallelität",

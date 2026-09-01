@@ -1769,7 +1769,7 @@
 			"recentSuccessWindow": "Okno niedawnego sukcesu",
 			"recentSuccessWindow.description": "Nierozpoznana 429 od modelu, który tak niedawno odpowiadał poprawnie, traktowana jest jako nasycenie, a nie wyczerpanie: wyczerpane okno nie wraca w minutę.",
 			"openOnExhaustion": "Otwórz obwód przy wyczerpanym limicie",
-			"openOnExhaustionDescription": "Gdy 429 informuje o wyczerpanym limicie lub saldzie, obwód modelu otwiera się po tej jednej odpowiedzi, zamiast czekać na próg błędów.",
+			"openOnExhaustionDescription": "Gdy dostawca informuje o wyczerpanym limicie lub saldzie (429 o wyczerpanym oknie albo 402 wymagające płatności), obwód modelu otwiera się po tej jednej odpowiedzi, zamiast czekać na próg błędów.",
 			"exhaustion429": "Odpowiadaj 429 nasyconym grupom",
 			"exhaustion429Description": "Gdy wszyscy dostawcy w grupie są nasyceni lub czekają na limit, klient otrzymuje 429 z Retry-After zamiast 502, dzięki czemu sam odczeka i ponowi próbę.",
 			"inflightGroup": "Adaptacyjna równoległość",
