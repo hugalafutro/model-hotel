@@ -23,9 +23,11 @@ func TestDiscoverGoogleAIStudio(t *testing.T) {
 			return
 		}
 
-		// Check key parameter
-		key := r.URL.Query().Get("key")
-		if key != "test-api-key" {
+		if r.URL.Query().Has("key") {
+			http.Error(w, "key must not travel in the URL", http.StatusBadRequest)
+			return
+		}
+		if r.Header.Get("x-goog-api-key") != "test-api-key" {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}

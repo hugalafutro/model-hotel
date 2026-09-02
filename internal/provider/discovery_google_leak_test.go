@@ -2,25 +2,23 @@ package provider
 
 import (
 	"context"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-// Google discovery authenticates by query parameter, so the credential is in
-// the request URL. Go's *url.Error renders the whole URL in Error() — it
-// redacts userinfo passwords, nothing else — so any transport failure (DNS,
-// TLS, timeout, a SafeDialer refusal) produced an error string carrying the
-// key, and that string reached the app log, the discovery HTTP response and
-// the discovery.provider_failed SSE event.
+// Go's *url.Error renders the whole request URL in Error(), redacting only
+// userinfo passwords. Pins the class end to end: the key travels in a header,
+// and the shared retry path masks whatever the transport error quotes.
 //
-// A real Google key is AIza-prefixed, which the shape layer catches on its
-// own; this uses a shapeless key so the assertion pins the exact-match layer
-// at the call site rather than the shared scrub.
-func TestDiscoverGoogle_TransportErrorDoesNotCarryTheKeyFromTheURL(t *testing.T) {
+// A shapeless key, so the shape layer cannot hide a regression.
+func TestDiscoverGoogle_TransportErrorDoesNotCarryTheKey(t *testing.T) {
 	const key = "selfhosted-gateway-secret"
 
 	// A closed listener: the request is guaranteed to fail at the transport
@@ -35,25 +33,28 @@ func TestDiscoverGoogle_TransportErrorDoesNotCarryTheKeyFromTheURL(t *testing.T)
 		t.Fatal("expected a transport error against a closed listener")
 	}
 	if strings.Contains(err.Error(), key) {
-		t.Errorf("the API key survived from the URL into the error: %q", err.Error())
-	}
-	if !strings.Contains(err.Error(), "[redacted]") {
-		t.Errorf("the URL-borne credential was not scrubbed at all: %q", err.Error())
+		t.Errorf("the API key reached the error text: %q", err.Error())
 	}
 }
 
-// The same body-echo shape as the other providers, on the non-200 path.
+// The non-200 path logs the upstream body; the echoed key must be redacted in
+// that log line.
 func TestDiscoverGoogle_ErrorBodyDoesNotCarryTheKey(t *testing.T) {
-	const key = "selfhosted-gateway-secret"
+	var logged strings.Builder
+	prev := slog.Default()
+	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	defer slog.SetDefault(prev)
+
 	srv := httptest.NewServer(echoKeyHandler(http.StatusUnauthorized))
 	defer srv.Close()
 
 	svc := &DiscoveryService{httpClient: srv.Client()}
-	_, err := svc.discoverGoogleAIStudio(context.Background(), &Provider{ID: uuid.New(), Name: "google-leak", BaseURL: srv.URL}, key)
+	_, err := svc.discoverGoogleAIStudio(context.Background(), &Provider{ID: uuid.New(), Name: "google-leak", BaseURL: srv.URL}, leakedKey)
 	if err == nil {
 		t.Fatal("expected an error from the 401")
 	}
-	if strings.Contains(err.Error(), key) {
+	if strings.Contains(err.Error(), leakedKey) {
 		t.Errorf("the API key survived into the error: %q", err.Error())
 	}
+	assertScrubbed(t, logged.String())
 }

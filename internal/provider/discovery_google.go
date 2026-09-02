@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	neturl "net/url"
 	"slices"
 	"strings"
 
@@ -20,32 +19,24 @@ import (
 func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
-	// Determine the native API base URL from the proxy base URL.
-	// The proxy uses /v1beta/openai/ but discovery uses /v1beta/models?key=KEY
+	// The proxy uses /v1beta/openai/; discovery uses the native /v1beta/models.
 	nativeBaseURL := GoogleNativeBaseURL(baseURL)
 
-	// Use ?key= auth for native API.
-	//
-	// The credential is therefore IN THE URL, and a transport failure returns a
-	// *url.Error whose Error() quotes the whole URL back: Go redacts only
-	// userinfo passwords, not query parameters. The transport error below is
-	// scrubbed for exactly that reason; moving to the x-goog-api-key
-	// header would remove the class instead of masking it.
-	url := fmt.Sprintf("%s/models?key=%s", nativeBaseURL, neturl.QueryEscape(apiKey))
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
+	// The key goes in the x-goog-api-key header, never the URL: a transport
+	// failure quotes the whole URL back through *url.Error, and Go redacts only
+	// userinfo passwords, not query parameters.
+	req, err := http.NewRequestWithContext(ctx, "GET", nativeBaseURL+"/models", http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("google: failed to create request for provider %s: %w", provider.Name, err)
 	}
-	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("x-goog-api-key", apiKey)
 
 	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
-		scrubbed := util.MaskCredential(apiKey, err.Error())
-		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", scrubbed)
-		// %s, not %w: the wrapped error's own text is the leak, and nothing
-		// unwraps a transport failure from here.
-		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, scrubbed)
+		// err is already masked by the shared retry path. %s, not %w: callers
+		// must not unwrap to the raw transport error.
+		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err.Error())
+		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, err.Error())
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -55,7 +46,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
+		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", maskRequestSecrets(req, string(bodyBytes), 2000))
 		return nil, fmt.Errorf("google: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 
