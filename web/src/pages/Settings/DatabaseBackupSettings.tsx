@@ -61,7 +61,7 @@ export function DatabaseBackupSettings({
 		queryFn: () => api.backups.list(),
 	});
 
-	const { data: settings } = useQuery({
+	const { data: settings, isPending: settingsPending } = useQuery({
 		queryKey: ["settings"],
 		queryFn: () => api.settings.get(),
 	});
@@ -75,6 +75,9 @@ export function DatabaseBackupSettings({
 	// (create, delete, prune, restore) re-classified an unchanged list. It
 	// re-runs when the classification can differ: the set of backups on disk
 	// or the retention the classifier applies changes, both carried in the key.
+	// It waits for the settings so a late settings answer does not cost a
+	// second read (isPending, not undefined, so a settings error still lets
+	// the buckets load).
 	const backupNames = useMemo(
 		() => (backups ?? []).map((b) => b.filename).sort(),
 		[backups],
@@ -88,7 +91,7 @@ export function DatabaseBackupSettings({
 			settings?.backup_grandfather_retention,
 		],
 		queryFn: () => api.backups.prunePreview(),
-		enabled: backupNames.length > 0,
+		enabled: backupNames.length > 0 && !settingsPending,
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 

@@ -155,10 +155,10 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 				entityID = entityParam(rctx)
 			}
 		}
-		// Two kinds of non-GET call are not admin actions and are skipped: the
-		// fleet heartbeat, a machine-to-machine liveness ping, and a read-only
-		// POST that answers a question without changing anything (see
-		// isAuditExempt for both).
+		// Two kinds of non-GET call are not admin actions and are skipped:
+		// machine-to-machine fleet traffic (the liveness ping, the quota
+		// relay) and a read-only POST that answers a question without
+		// changing anything (see isAuditExempt for both).
 		if isAuditExempt(route) {
 			return
 		}
@@ -221,8 +221,11 @@ func entityParam(rctx *chi.Context) string {
 // trail. Two kinds qualify, both matched on the router's route pattern so a
 // literal path check cannot be fooled by trailing slashes or query strings:
 //
-//   - the fleet liveness ping, a machine-to-machine POST Front Desk sends every
-//     member every few seconds, which carries no entity and no state change;
+//   - machine-to-machine fleet traffic: the liveness ping Front Desk POSTs to
+//     every member every few seconds, and the quota snapshots it relays from
+//     the primary to every other member each minute (196 of the last 200 rows
+//     on every non-primary member of a live fleet). Neither carries an entity
+//     or an operator's choice;
 //   - read-only POSTs, endpoints that answer a question without changing
 //     anything and are POST only because their input is a body. The backup
 //     prune preview classifies the backups on disk and writes nothing; the
@@ -235,7 +238,7 @@ func entityParam(rctx *chi.Context) string {
 // stamps) or when a successful call leaves the system as it found it.
 func isAuditExempt(route string) bool {
 	switch route {
-	case "/api/fleet/announce", "/api/backups/prune-preview":
+	case "/api/fleet/announce", "/api/config/quota-snapshots", "/api/backups/prune-preview":
 		return true
 	}
 	return false
