@@ -7,7 +7,6 @@ import (
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
-	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -79,8 +78,7 @@ func (h *Handler) retryLearnableMessages400(
 	failoverCancel() // 400 body fully consumed, original context no longer needed
 
 	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
-	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
-	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
+	retryCtx, rc := retryContext(r, st)
 	retryCtx, retryDial := withDialTiming(retryCtx)
 	res.streamCancelOrigin = "retry_timeout"
 

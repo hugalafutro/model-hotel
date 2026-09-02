@@ -160,6 +160,12 @@ func (h *Handler) retryWithResponses(
 	if readErr != nil || !h.learnResponsesRequirement(st, candidate, providerType, body) {
 		return res, false
 	}
+	if !st.retryBudgetLeft() {
+		// Learned for the next request; this one carries the refusal on
+		// as it came (the body is restored), the way an unlearnable one
+		// does, rather than a reroute that would time out on issue.
+		return res, true
+	}
 	failoverCancel() // 400 body fully consumed, original context no longer needed
 
 	targetURL := responsesTargetURL(candidate, providerType)
