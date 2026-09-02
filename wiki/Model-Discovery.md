@@ -699,10 +699,10 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 
 | Field | Logic |
 |-------|-------|
-| Vision | Name contains `gemini-2`, `gemini-3`, or `gemma` (excluding embedding/tts/live) |
-| Tool calling | Not embedding/imagen/veo/lyria/aqa/tts/live |
+| Vision | Name contains `gemini-2`, `gemini-3`, or `gemma` (excluding embedding/live and a `tts` name segment) |
+| Tool calling | Not embedding/imagen/veo/lyria/aqa/live, nor a `tts` name segment |
 | Structured output | Same as tool calling |
-| Modality | Derived from the input/output lists by the shared classifier: `chat` when text is an output, `image-gen`, `tts` (text in, audio out), `embedding` |
+| Modality | Derived from the input/output lists by the shared classifier: `chat` whenever text is an output (Gemini image models included, since they emit text beside the image), `tts` for text in and audio out, `embedding` for an embedding output |
 | Input modalities | Vision → `["text","image"]`; live/native-audio → `["text","image","audio","video"]`; TTS (`tts` name segment) and embedding → `["text"]` |
 | Output modalities | Default `["text"]`; image gen → `["text","image"]`; live/native-audio → `["text","audio"]`; TTS → `["audio"]`; embedding → `["embedding"]` |
 

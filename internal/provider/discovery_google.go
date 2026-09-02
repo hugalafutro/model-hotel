@@ -165,14 +165,14 @@ func isRelevantGoogleModel(gm GoogleModel) bool {
 }
 
 func isGoogleToolCallingModel(modelID string) bool {
-	excluded := []string{"embedding", "imagen", "veo", "lyria", "aqa", "tts", "live"}
+	excluded := []string{"embedding", "imagen", "veo", "lyria", "aqa", "live"}
 	lower := strings.ToLower(modelID)
 	for _, ex := range excluded {
 		if strings.Contains(lower, ex) {
 			return false
 		}
 	}
-	return true
+	return !isGoogleTTSModel(modelID)
 }
 
 func isGoogleStructuredOutputModel(modelID string) bool {
@@ -181,11 +181,14 @@ func isGoogleStructuredOutputModel(modelID string) bool {
 
 func isGoogleVisionModel(modelID string) bool {
 	lower := strings.ToLower(modelID)
-	excluded := []string{"embedding", "tts", "live"}
+	excluded := []string{"embedding", "live"}
 	for _, ex := range excluded {
 		if strings.Contains(lower, ex) {
 			return false
 		}
+	}
+	if isGoogleTTSModel(modelID) {
+		return false
 	}
 	return strings.Contains(lower, "gemini-2") || strings.Contains(lower, "gemini-3") || strings.Contains(lower, "gemma")
 }
