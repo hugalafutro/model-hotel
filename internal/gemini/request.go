@@ -61,9 +61,14 @@ type oaiExtraContent struct {
 	} `json:"google,omitempty"`
 }
 
-// thoughtSignature reads the signature out of a possibly absent carrier.
-func (e *oaiExtraContent) thoughtSignature() string {
-	if e == nil || e.Google == nil {
+// thoughtSignatureIn reads the signature out of a raw extra_content member:
+// nothing for an absent, null, foreign or malformed one, never an error.
+func thoughtSignatureIn(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var e oaiExtraContent
+	if json.Unmarshal(raw, &e) != nil || e.Google == nil {
 		return ""
 	}
 	return e.Google.ThoughtSignature
@@ -95,7 +100,10 @@ type oaiToolCall struct {
 	// ExtraContent is where the signature travels on the OpenAI side, the
 	// shape Google's own compatibility layer uses and the chat path keeps
 	// verbatim (see proxy jsonextras): extra_content.google.thought_signature.
-	ExtraContent *oaiExtraContent `json:"extra_content,omitempty"`
+	// Raw, read leniently: an ingress decoder must not fail a conversation
+	// on every retry over a member of a shape it did not expect, the rule
+	// util.ToolArguments below states for the arguments.
+	ExtraContent json.RawMessage `json:"extra_content"`
 	Function     struct {
 		Name string `json:"name"`
 		// util.ToolArguments, not a plain string: the spec says a JSON string and
@@ -284,7 +292,7 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 				args := util.ToolArgumentsObject(tc.Function.Arguments)
 				parts = append(parts, genPart{
 					FunctionCall:     &genFunctionCall{Name: tc.Function.Name, Args: args},
-					ThoughtSignature: tc.ExtraContent.thoughtSignature(),
+					ThoughtSignature: thoughtSignatureIn(tc.ExtraContent),
 				})
 			}
 			if len(parts) > 0 {

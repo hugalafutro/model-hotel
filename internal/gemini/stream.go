@@ -148,7 +148,7 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 				Index:        t.toolCalls,
 				ID:           fmt.Sprintf("call_%s_%d", t.id, t.toolCalls),
 				Type:         "function",
-				ExtraContent: extraContentFor(p.ThoughtSignature),
+				ExtraContent: extraContentFor(p.signature()),
 			}
 			tc.Function.Name = p.FunctionCall.Name
 			tc.Function.Arguments = args

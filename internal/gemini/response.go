@@ -42,8 +42,13 @@ type genRespPart struct {
 	Thought      bool             `json:"thought"`
 	FunctionCall *genRespFuncCall `json:"functionCall"`
 	// ThoughtSignature signs a functionCall part; the follow-up turn must
-	// carry it back, so it goes out on the tool call as extra_content.
-	ThoughtSignature string `json:"thoughtSignature"`
+	// carry it back, so it goes out on the tool call as extra_content. Only
+	// a function call's signature is carried: Gemini 3 may sign a text or
+	// thought part too, but omitting those is not validated, and the OpenAI
+	// wire shape has no carrier on a message. Google spells the field both
+	// ways across its own documents, so both are read.
+	ThoughtSignature      string `json:"thoughtSignature"`
+	ThoughtSignatureSnake string `json:"thought_signature"`
 	// InlineData carries a generated image (an image model answering a
 	// request whose response modalities named IMAGE): base64 bytes and
 	// their mime type.
@@ -110,6 +115,14 @@ func imageOut(blob *genRespBlob) (oaiImageOut, bool) {
 		return oaiImageOut{}, false
 	}
 	return oaiImageOut{Type: "image_url", ImageURL: oaiImageURLOut{URL: "data:" + blob.MimeType + ";base64," + blob.Data}}, true
+}
+
+// signature is the part's thought signature under either spelling.
+func (p genRespPart) signature() string {
+	if p.ThoughtSignature != "" {
+		return p.ThoughtSignature
+	}
+	return p.ThoughtSignatureSnake
 }
 
 type oaiToolCallOut struct {
@@ -214,7 +227,7 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 			tc := oaiToolCallOut{
 				ID:           fmt.Sprintf("call_%s_%d", id, len(toolCalls)),
 				Type:         "function",
-				ExtraContent: extraContentFor(p.ThoughtSignature),
+				ExtraContent: extraContentFor(p.signature()),
 			}
 			tc.Function.Name = p.FunctionCall.Name
 			tc.Function.Arguments = args

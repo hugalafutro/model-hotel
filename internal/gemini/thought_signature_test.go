@@ -82,4 +82,28 @@ func TestTranslateRequest_ThoughtSignatureBackOnTheCall(t *testing.T) {
 	if strings.Contains(string(out), "thoughtSignature") {
 		t.Fatalf("an unsigned call sent a thoughtSignature: %s", out)
 	}
+	// A carrier of an unexpected shape is ignored, never a failed request:
+	// each retry replays the same transcript.
+	for _, odd := range []string{`"sig"`, `["a"]`, `{"google":"sig"}`, `{"google":{"thought_signature":123}}`, `null`, `{}`} {
+		body := strings.Replace(plain, `"type":"function",`, `"type":"function","extra_content":`+odd+`,`, 1)
+		out, _, _, err := TranslateRequest([]byte(body))
+		if err != nil {
+			t.Fatalf("extra_content %s failed the request: %v", odd, err)
+		}
+		if strings.Contains(string(out), "thoughtSignature") {
+			t.Fatalf("extra_content %s produced a signature: %s", odd, out)
+		}
+	}
+}
+
+// Google spells the native field both ways across its documents; both read.
+func TestToolCall_SnakeCaseSignatureIsRead(t *testing.T) {
+	snake := strings.Replace(signedCall, `"thoughtSignature"`, `"thought_signature"`, 1)
+	out, err := BuildChatCompletion([]byte(snake), "chatcmpl-4", "gemini-3.1-pro", 1)
+	if err != nil {
+		t.Fatalf("build: %v", err)
+	}
+	if !strings.Contains(string(out), `"thought_signature":"sig-abc"`) {
+		t.Fatalf("snake_case signature dropped: %s", out)
+	}
 }
