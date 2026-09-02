@@ -94,6 +94,13 @@ func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
 		}
 		provider.WarmProviderCache(enabledProviders)
 	}
+	// Every provider key, enabled or not, joins the credential mask's held
+	// set; a disabled provider is the one a relay is most likely to quote.
+	// Off the startup path: a cold key is one Argon2 derivation each.
+	go func() {
+		held, failed := provider.HoldKeys(context.Background(), deps.providerRepo, deps.cfg.MasterKey)
+		debuglog.Info("cache: provider keys held for the credential mask", "held", held, "failed", failed)
+	}()
 
 	enabledModels, err := deps.modelRepo.ListEnabled(ctx)
 	if err != nil {

@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 var (
@@ -107,10 +106,6 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 		debuglog.Warn("keycache: decryption failed, possible wrong master key", "error", err)
 		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
-
-	// Held for the credential mask's exact layer, as decryptWithKey does for
-	// the uncached path; the cache's own expiry does not release it.
-	util.HoldSecret(string(plaintext))
 
 	ttl := getKeyCacheTTL()
 	keyCacheMu.Lock()

@@ -38,14 +38,23 @@ func TestHeldSecrets_ExactPassMasksEveryHeldSecret(t *testing.T) {
 	}
 }
 
-// Longest first: a held secret that is a prefix of another must not leave
-// the longer one's tail behind.
+// Longest first: a secret that is a prefix of another must not leave the
+// longer one's tail behind, whichever side of the union each came from.
 func TestHeldSecrets_LongestFirst(t *testing.T) {
 	HoldSecret("prefix-secret-value")
 	HoldSecret("prefix-secret-value-with-a-longer-tail")
 	got := MaskCredentials(nil, "saw prefix-secret-value-with-a-longer-tail here")
 	if got != "saw [redacted] here" {
 		t.Fatalf("got %q", got)
+	}
+	// The caller names the short one; the held set has the long one.
+	if got := MaskCredential("prefix-secret-value", "saw prefix-secret-value-with-a-longer-tail here"); got != "saw [redacted] here" {
+		t.Fatalf("caller prefix left the held tail: %q", got)
+	}
+	// The caller names the long one; the held set has the short one.
+	HoldSecret("held-short-prefix")
+	if got := MaskCredential("held-short-prefix-and-its-longer-form", "saw held-short-prefix-and-its-longer-form here"); got != "saw [redacted] here" {
+		t.Fatalf("held prefix left the caller's tail: %q", got)
 	}
 	list := HeldSecrets()
 	for i := 1; i < len(list); i++ {

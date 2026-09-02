@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"sort"
 	"strconv"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -172,22 +173,24 @@ const credentialMinLen = util.CredentialMinLen
 // every key shape, including custom or self-hosted gateways whose format the
 // prefix regex can never anticipate, but not a JSON-escaped rendering of a
 // key (an encoder turning "&" into "\u0026" or "/" into "\/" defeats it;
-// real keys rarely carry such bytes). It masks the attempted candidate's key
-// and every other secret this process has decrypted (util.HeldSecrets): a
-// relay in front of the operator's other vendor accounts echoes the rejection
-// it received upstream, and that rejection quotes the key of a different
-// provider row, which the single-key masker this used to be had no way to
-// know. maskKeyShapedTokens runs after it as the third layer, behind the
-// status-class gate, for credentials a relay quotes that are not ours at all.
-// Build one per candidate with newCredentialMasker and pass it to every
-// client-facing emit of provider error text: the buffered paths in
-// forwardUpstreamError and the in-stream error frames on the translated
-// (handleDataChunk), native Anthropic (emitRawData) and pass-through
-// (sseErrorMaskWriter) streaming paths. The zero value masks the held set and
-// by shape. The exact layer alone (maskExact) also runs on every other
-// provider body a client receives; the request log's error message gets both
-// layers, since it is error text readable by non-admin users with the logs
-// grant. Content bodies never meet the regex.
+// real keys rarely carry such bytes). Over error text (mask) it replaces the
+// attempted candidate's key and every provider key the gateway holds
+// (util.HeldSecrets): a relay in front of the operator's other vendor
+// accounts echoes the rejection it received upstream, and that rejection
+// quotes the key of a different provider row, which the single-key masker
+// this used to be had no way to know. maskKeyShapedTokens runs after it as
+// the third layer, behind the status-class gate, for credentials a relay
+// quotes that are not ours at all. Build one per candidate with
+// newCredentialMasker and pass it to every client-facing emit of provider
+// error text: the buffered paths in forwardUpstreamError and the in-stream
+// error frames on the translated (handleDataChunk), native Anthropic
+// (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths. The
+// zero value masks the held set and by shape. The exact layer alone
+// (maskExact) runs on every other provider body a client receives, and there
+// it keeps to the candidate's own key (see util's held_secrets.go for why);
+// the request log's error message gets both layers, since it is error text
+// readable by non-admin users with the logs grant. Content bodies never meet
+// the regex.
 type credentialMasker struct {
 	secret []byte
 }
@@ -199,74 +202,70 @@ func newCredentialMasker(apiKey string) credentialMasker {
 	return credentialMasker{secret: []byte(apiKey)}
 }
 
-// mask returns body with every occurrence of the exact credential, then any
-// key-shaped token, replaced by "[redacted]". The exact pass runs first so the
-// regex cannot split the key and leave a recognisable remainder. For error
-// frames and bodies only: the regex layer can match prose.
+// mask returns body with every occurrence of the candidate's key and of every
+// held provider key, then any key-shaped token, replaced by "[redacted]". The
+// exact passes run first so the regex cannot split a key and leave a
+// recognisable remainder. For error frames and bodies only: the regex layer
+// can match prose, and the held set is for error text (held_secrets.go).
 func (m credentialMasker) mask(body []byte) []byte {
-	return maskKeyShapedTokens(m.maskExact(body))
+	return maskKeyShapedTokens(m.maskAll(body))
 }
 
-// secrets is every exact value the masker replaces: the candidate's key
-// first, then the held set, longest first, so a key that is a prefix of
-// another is masked whole. Read at call time, so a key decrypted after the
-// masker was built is masked too.
-func (m credentialMasker) secrets() [][]byte {
+// maskAll replaces the candidate's key and every held provider key as one
+// union ordered by length alone, longest first: a key that is a prefix of
+// another is never masked first, which would leave the longer one's tail
+// behind, whichever side of the union each came from. The held set is read
+// at call time, so a key registered after the masker was built is masked too.
+func (m credentialMasker) maskAll(body []byte) []byte {
 	held := util.HeldSecrets()
-	out := make([][]byte, 0, 1+len(held))
+	secrets := make([]string, 0, 1+len(held))
 	if len(m.secret) > 0 {
-		out = append(out, m.secret)
+		secrets = append(secrets, string(m.secret))
 	}
-	for _, s := range held {
-		if !bytes.Equal(m.secret, []byte(s)) {
-			out = append(out, []byte(s))
-		}
-	}
-	return out
-}
-
-// maskExact replaces only exact credentials. It cannot false-positive, so it
-// is safe on every provider body bound for a client (content chunks, success
-// bodies) and on the request log, where it closes the read a VK-owning
-// dashboard user has on their own failed requests.
-func (m credentialMasker) maskExact(body []byte) []byte {
-	for _, secret := range m.secrets() {
-		if bytes.Contains(body, secret) {
-			body = bytes.ReplaceAll(body, secret, []byte("[redacted]"))
+	secrets = append(secrets, held...)
+	sort.SliceStable(secrets, func(i, j int) bool { return len(secrets[i]) > len(secrets[j]) })
+	for _, secret := range secrets {
+		if bytes.Contains(body, []byte(secret)) {
+			body = bytes.ReplaceAll(body, []byte(secret), []byte("[redacted]"))
 		}
 	}
 	return body
 }
 
+// maskExact replaces only the candidate's exact credential. It cannot
+// false-positive, so it is safe on every provider body bound for a client
+// (content chunks, success bodies) and on the request log, where it closes
+// the read a VK-owning dashboard user has on their own failed requests.
+func (m credentialMasker) maskExact(body []byte) []byte {
+	if len(m.secret) > 0 && bytes.Contains(body, m.secret) {
+		return bytes.ReplaceAll(body, m.secret, []byte("[redacted]"))
+	}
+	return body
+}
+
 // exactMaskWriter applies credentialMasker.maskExact to a byte stream whose
-// writes may split a key: it holds back the last len(longest key)-1 bytes of
-// each write until the next one arrives, so a key straddling two writes is
-// still seen whole. Flush releases the held tail at end of stream. Used on
-// the two raw forwarding paths (an oversized pass-through JSON remainder and
-// an oversized SSE event) where per-chunk masking has boundaries. The set of
-// keys is fixed when the writer is built, so the hold-back is one number for
-// the stream's whole life.
+// writes may split the key: it holds back the last len(key)-1 bytes of each
+// write until the next one arrives, so a key straddling two writes is still
+// seen whole. Flush releases the held tail at end of stream. Used on the two
+// raw forwarding paths (an oversized pass-through JSON remainder and an
+// oversized SSE event) where per-chunk masking has boundaries. Content paths,
+// so the candidate's key alone, like maskExact itself.
 type exactMaskWriter struct {
 	w    io.Writer
 	cred credentialMasker
-	hold int
 	tail []byte
 }
 
 func newExactMaskWriter(w io.Writer, cred credentialMasker) *exactMaskWriter {
-	hold := 0
-	for _, s := range cred.secrets() {
-		hold = max(hold, len(s)-1)
-	}
-	return &exactMaskWriter{w: w, cred: cred, hold: hold}
+	return &exactMaskWriter{w: w, cred: cred}
 }
 
 func (e *exactMaskWriter) Write(p []byte) (int, error) {
-	if e.hold == 0 {
+	if len(e.cred.secret) == 0 {
 		return e.w.Write(p)
 	}
 	buf := e.cred.maskExact(slices.Concat(e.tail, p))
-	keep := min(e.hold, len(buf))
+	keep := min(len(e.cred.secret)-1, len(buf))
 	out := buf[:len(buf)-keep]
 	e.tail = append([]byte(nil), buf[len(buf)-keep:]...)
 	if len(out) > 0 {

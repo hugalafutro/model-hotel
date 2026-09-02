@@ -18,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // CreateProvider creates a new provider.
@@ -142,6 +143,10 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	if len(p.EncryptedKey) > 0 {
 		go auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
 	}
+	// The plaintext is in hand: hold it for the credential mask now rather
+	// than after the warm above lands, so a relay quoting this key is masked
+	// from the first request.
+	util.HoldSecret(req.APIKey)
 
 	response := provider.ToResponse(p)
 	writeJSONCreated(w, response)
@@ -434,6 +439,8 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		encryptedKey = enc.Ciphertext
 		keyNonce = enc.Nonce
 		keySalt = enc.Salt
+		// Held for the credential mask as on create; the old key stays held.
+		util.HoldSecret(*req.APIKey)
 	}
 
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)

@@ -391,6 +391,14 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 		h.settings.NotifyDeleted(k)
 	}
 
+	// Every imported key joins the credential mask's held set, whatever its
+	// row's enabled state; the sample decrypt above proved the master key,
+	// this proves each row and registers it. Inline: an import is an admin
+	// action and the table is small, and the seed must be in place before
+	// the discovery below sends the first request.
+	held, failed := provider.HoldKeys(ctx, provider.NewRepository(h.db.Pool()), h.masterKey)
+	debuglog.Info("configsync: provider keys held for the credential mask", "held", held, "failed", failed)
+
 	// Populate this member's models so custom failover groups can resolve. The
 	// "discover on provider creation" default is a dashboard action this raw
 	// import bypasses, and scheduled discovery may be off, so without this a

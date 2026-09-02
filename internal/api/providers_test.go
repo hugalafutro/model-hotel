@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
@@ -55,6 +57,10 @@ func TestCreateProvider_Success(t *testing.T) {
 
 	if w.Code != http.StatusCreated {
 		t.Errorf("expected status %d, got %d", http.StatusCreated, w.Code)
+	}
+	// The key is held for the credential mask from the moment it is created.
+	if !slices.Contains(util.HeldSecrets(), "sk-test-key") {
+		t.Error("created provider's key not held for the credential mask")
 	}
 
 	var resp provider.ProviderResponse

@@ -11,8 +11,6 @@ import (
 	"io"
 
 	"golang.org/x/crypto/argon2"
-
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 const (
@@ -99,10 +97,6 @@ func decryptWithKey(ciphertext, nonce, key []byte) (string, error) {
 		return "", fmt.Errorf("failed to decrypt: %w", err)
 	}
 
-	// Every secret this process decrypts is held for the credential mask's
-	// exact layer (util.HoldSecret), so a body quoting any of them is scrubbed
-	// whichever provider's response it arrives in.
-	util.HoldSecret(string(plaintext))
 	return string(plaintext), nil
 }
 
