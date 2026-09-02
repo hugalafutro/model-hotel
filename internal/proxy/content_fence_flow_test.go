@@ -116,6 +116,10 @@ func TestContentFence_StreamErrorFrameAndLogLines(t *testing.T) {
 			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
+		// A real token first, so the error frame arrives after the TTFT
+		// probe has committed and is handled by the stream state (errLogAttr,
+		// the SSE error chunk line), not by the probe's classifier.
+		_, _ = io.WriteString(w, "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")
 		_, _ = io.WriteString(w, "data: {\"error\":{\"message\":\"cannot continue: "+text+"\",\"type\":\"server_error\"}}\n\n")
 	}))
 	defer upstream.Close()
@@ -145,19 +149,21 @@ func TestContentFence_StreamErrorFrameAndLogLines(t *testing.T) {
 	if !strings.Contains(errMsg, "[content]") {
 		t.Fatalf("the stream's error frame was not stored fenced: %q", errMsg)
 	}
-	sawFrame := false
+	sawChunkLine := false
 	for _, rec := range logs.all() {
 		for k, v := range rec.attrs {
 			if strings.Contains(v, "CANARY") {
 				t.Fatalf("app log %q attr %s carries the prompt: %q", rec.msg, k, v)
 			}
-			if strings.Contains(v, "cannot continue: [content]") {
-				sawFrame = true
-			}
+		}
+		// The SSE error chunk line is the stream state's own (errLogAttr):
+		// seeing it fenced is what proves the stream wiring, not the probe's.
+		if strings.Contains(rec.msg, "SSE error chunk") && strings.Contains(rec.attrs["error_message"], "cannot continue: [content]") {
+			sawChunkLine = true
 		}
 	}
-	if !sawFrame {
-		t.Fatal("no app-log line carried the fenced error frame; the stream log attribute is not being exercised")
+	if !sawChunkLine {
+		t.Fatal("the SSE error chunk line did not carry the fenced frame; the stream state's fence is not wired")
 	}
 }
 

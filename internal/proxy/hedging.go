@@ -143,7 +143,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// noteStreamOutcome, which judges a finished stream from fields the probe
 		// never fills in (upstreamKind, the content flag). serveHedgeWinner
 		// re-binds logData to the real st.logData before judging the model.
-		snap.logData = &requestLogData{modelID: st.logData.modelID, providerName: candidates[idx].provider.Name, endpointType: st.logData.endpointType}
+		snap.logData = hedgeProbeLog(st.logData, candidates[idx])
 		go func() {
 			results <- probeOne(ctx, &snap, candidates[idx], idx, ttftTimeout, stallTimeout)
 		}()
@@ -603,4 +603,12 @@ func (h *Handler) failHedgeDisconnect(w http.ResponseWriter, st *requestState, l
 	st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: launched - 1, Provider: st.logData.providerName, Underlying: st.lastReqErr.Underlying})
 	h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, launched-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 	writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
+}
+
+// hedgeProbeLog is the throwaway log entry a hedged probe runs against: the
+// identity fields its log lines name, and the content fence, because the
+// probe's failure line renders the provider's error frame and that frame may
+// quote the prompt. Sharing the fence is safe: its parse is Once-guarded.
+func hedgeProbeLog(real *requestLogData, candidate modelCandidate) *requestLogData {
+	return &requestLogData{modelID: real.modelID, providerName: candidate.provider.Name, endpointType: real.endpointType, content: real.content}
 }

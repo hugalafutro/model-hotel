@@ -54,10 +54,12 @@ const (
 	// quoted sentence fragment would slip through.
 	contentEchoWindow = 16
 	// contentIndexCap bounds the runes of request content the fence indexes
-	// per request, across all forms, so a tool-heavy body cannot make one
-	// failure cost seconds. The walk visits the content-bearing members first
-	// (contentFirstKeys) and every map in sorted key order, so what the cap
-	// leaves out is deterministic and is the tail of the request.
+	// per request, per form (each of the four forms below has its own
+	// budget, so the form the trail's detail needs is never starved by the
+	// raw one), so a tool-heavy body cannot make one failure cost seconds.
+	// The walk visits the content-bearing members first (contentFirstKeys)
+	// and every map in sorted key order, so what the cap leaves out is
+	// deterministic and is the tail of the request.
 	contentIndexCap = 1 << 20
 	// contentBlobProbe is how many runes into a long string the walk looks
 	// before deciding it is an encoded payload rather than text.
@@ -68,15 +70,18 @@ const (
 
 // contentFirstKeys are the members that carry the prompt, visited before any
 // other member of the same object so the index budget covers them first.
-var contentFirstKeys = []string{"messages", "input", "prompt", "system", "instructions", "contents", "text", "content"}
+var contentFirstKeys = []string{"messages", "input", "prompt", "query", "documents", "system", "instructions", "contents", "text", "content"}
 
 // contentRoutingKeys are members whose string value is routing metadata, not
 // content: a model name is 16 runes on its own and appears verbatim in the
 // gateway's own messages ("no available provider for hotel/x"), which the
 // fence would otherwise blank. Only a string directly under one of these keys
-// is skipped; an object under them is walked.
+// is skipped; an object under them is walked. Identifiers the client chose
+// (the OpenAI "user" field, a message's "name") are not here: an e-mail
+// address in one is the client's data, and nothing the gateway says repeats
+// it.
 var contentRoutingKeys = map[string]bool{
-	"model": true, "role": true, "type": true, "name": true, "id": true, "user": true,
+	"model": true, "role": true, "type": true, "id": true,
 	"format": true, "voice": true, "size": true, "quality": true, "style": true,
 	"tool_choice": true, "encoding_format": true, "reasoning_effort": true, "response_format": true,
 }
@@ -112,41 +117,49 @@ func (f *contentFence) strings() [][]rune {
 	return f.strs
 }
 
-func (f *contentFence) parse() {
-	budget := contentIndexCap
-	add := func(s string) {
-		if budget <= 0 || utf8.RuneCountInString(s) < contentEchoWindow {
-			return
-		}
-		r := []rune(s)
-		if len(r) > budget {
-			r = r[:budget]
-		}
-		budget -= len(r)
-		f.strs = append(f.strs, r)
+// The forms a stored fragment can carry a string in: as written (a plain-text
+// body); whitespace-collapsed (the trail's detail of one); JSON-escaped
+// (error_message stores a JSON body as sent); and collapsed after escaping
+// (the trail's detail of a JSON body). Each has its own index budget.
+var contentForms = []func(string) string{
+	func(s string) string { return s },
+	collapseSpace,
+	escapeJSON,
+	func(s string) string { return collapseSpace(escapeJSON(s)) },
+}
+
+func collapseSpace(s string) string { return strings.Join(strings.Fields(s), " ") }
+
+func escapeJSON(s string) string {
+	esc, err := json.Marshal(s)
+	if err != nil {
+		return s
 	}
-	// The forms a stored fragment can carry a string in: as written; collapsed
-	// (the trail's detail); escaped (error_message stores the JSON body as
-	// sent); and collapsed after escaping (the trail's detail of that body),
-	// which differs from escaping the collapsed string around every newline.
-	collapse := func(s string) string { return strings.Join(strings.Fields(s), " ") }
-	escape := func(s string) string {
-		esc, err := json.Marshal(s)
-		if err != nil {
-			return s
-		}
-		return string(esc[1 : len(esc)-1])
+	return string(esc[1 : len(esc)-1])
+}
+
+func (f *contentFence) parse() {
+	budgets := make([]int, len(contentForms))
+	for i := range budgets {
+		budgets[i] = contentIndexCap
 	}
 	forms := func(s string) {
 		if isEncodedPayload(s) {
 			return
 		}
 		seen := map[string]bool{}
-		for _, form := range []string{s, collapse(s), escape(s), collapse(escape(s)), escape(collapse(s))} {
-			if !seen[form] {
-				seen[form] = true
-				add(form)
+		for i, form := range contentForms {
+			text := form(s)
+			if seen[text] || budgets[i] <= 0 || utf8.RuneCountInString(text) < contentEchoWindow {
+				continue
 			}
+			seen[text] = true
+			r := []rune(text)
+			if len(r) > budgets[i] {
+				r = r[:budgets[i]]
+			}
+			budgets[i] -= len(r)
+			f.strs = append(f.strs, r)
 		}
 	}
 	for _, s := range f.extra {
@@ -204,7 +217,10 @@ func orderedKeys(m map[string]any) []string {
 // text: a data: URL, or a long run whose first contentBlobProbe runes are all
 // from the base64 / URL-safe alphabet (base64 audio, an image without the
 // data: prefix). Prose in any script fails that test at its first space or
-// punctuation mark, CJK included, so it is indexed.
+// punctuation mark, CJK included, so it is indexed. Two edges are accepted:
+// base64 wrapped with newlines is judged text and spends index budget, and a
+// long run that happens to be all letters (a nucleotide sequence) is judged
+// a blob and not indexed.
 func isEncodedPayload(s string) bool {
 	if strings.HasPrefix(s, "data:") {
 		return true

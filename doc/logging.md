@@ -77,8 +77,11 @@ probe failure on both the sequential and the hedged path, and the exhaustion
 line, whose rendered message carries the last provider's text. Each string is
 indexed as written, whitespace-collapsed (the trail's detail is collapsed) and
 JSON-escaped (error_message stores the body as sent). An echo shorter than the
-window is not caught, a string under a routing key (`model`, `role`, `name`, ...)
-is not content, and encoded payloads (data: URLs, base64) are not indexed.
+window is not caught, a string under a routing key (`model`, `role`, `type`, ...)
+is not content (the client's own identifiers, `user` and a message `name`, are),
+and encoded payloads (data: URLs, unwrapped base64) are not indexed; each form
+has its own index budget of 1 MiB of runes, walked content-bearing members
+first, so what a very large request leaves unindexed is its tail.
 
 Provider discovery and quota polling scrub the same way. The shared HTTP helpers in
 `internal/provider/discovery.go` never receive the key as a value, so they read it back off the

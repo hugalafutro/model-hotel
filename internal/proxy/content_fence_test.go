@@ -4,6 +4,8 @@ import (
 	"strings"
 	"testing"
 	"unicode/utf8"
+
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 const canary = "SUPERSECRET-PROMPT-XYZQ the crown jewels passphrase is hunter2-canary"
@@ -188,8 +190,8 @@ func TestContentFence_IndexBudget(t *testing.T) {
 	for _, s := range f.strings() {
 		total += len(s)
 	}
-	if total > 2*contentIndexCap {
-		t.Fatalf("indexed %d runes, want at most the cap in each form", total)
+	if total > len(contentForms)*contentIndexCap {
+		t.Fatalf("indexed %d runes, want at most the cap in each of %d forms", total, len(contentForms))
 	}
 	if got := f.maskOne("echo " + canary); got != "echo[content]" {
 		t.Fatalf("content inside the budget was not fenced: %q", got)
@@ -285,9 +287,18 @@ func TestContentFence_DenseTextIsContent(t *testing.T) {
 		}
 	}
 	// The probe is in runes: a CJK string past 4096 bytes but under the
-	// probe in runes is plainly text and must not be judged as a blob.
+	// probe in runes is plainly text and must not be judged as a blob, and
+	// neither is one past the probe in runes: the rule is the alphabet, not
+	// the absence of whitespace.
 	if isEncodedPayload(strings.Repeat("日本語の文章", 300)) {
 		t.Fatal("1800 runes of CJK judged a blob")
+	}
+	long := strings.Repeat("我们公司的机密并购计划是收购北京晨光科技。", 300) // 6,000 runes, no whitespace
+	if isEncodedPayload(long) {
+		t.Fatal("6000 runes of CJK judged a blob")
+	}
+	if got := newContentFence(chatBody(long)).maskOne("无法处理：" + long[:120]); strings.Contains(got, "晨光科技") {
+		t.Fatalf("a long CJK prompt was not fenced: %q", got)
 	}
 	if !isEncodedPayload(strings.Repeat("QUJDREVGR0hJSktMTU5PUA", 400)) {
 		t.Fatal("base64 not judged a blob")
@@ -300,11 +311,62 @@ func TestContentFence_DenseTextIsContent(t *testing.T) {
 func TestContentFence_DeterministicOverTheBudget(t *testing.T) {
 	t.Parallel()
 	filler := strings.Repeat("tool description filler words that spend the whole budget ", contentIndexCap/58+1)
-	body := []byte(`{"tools":[{"type":"function","function":{"name":"t","description":` + jsonString(filler) + `}}],"model":"p/m","messages":[{"role":"user","content":` + jsonString(canary) + `}]}`)
+	// "context" sorts before "messages", so only the content-first ranking
+	// keeps the prompt inside the budget; a rerank's "documents" would starve
+	// its "query" the same way.
+	body := []byte(`{"context":` + jsonString(filler) + `,"tools":[{"type":"function","function":{"name":"t","description":` + jsonString(filler) + `}}],"model":"p/m","messages":[{"role":"user","content":` + jsonString(canary) + `}]}`)
 	for i := 0; i < 20; i++ {
 		if got := newContentFence(body).maskOne("echo " + canary); strings.Contains(got, "SUPERSECRET") {
 			t.Fatalf("run %d: messages lost to the budget: %q", i, got)
 		}
+	}
+	rerank := []byte(`{"model":"p/m","documents":[` + jsonString(filler) + `],"query":` + jsonString(canary) + `}`)
+	if got := newContentFence(rerank).maskOne("cannot rerank: " + canary); strings.Contains(got, "SUPERSECRET") {
+		t.Fatalf("a rerank query was starved by its documents: %q", got)
+	}
+}
+
+// Each form has its own budget: a single string past the cap is still
+// indexed in the collapsed form the trail's detail needs, not only as
+// written.
+func TestContentFence_PerFormBudget(t *testing.T) {
+	t.Parallel()
+	huge := "SECRET  double  spaced  dossier  header  line  here\n" + strings.Repeat("filler text to pass the cap ", contentIndexCap/28+1)
+	f := newContentFence(chatBody(huge))
+	if n := len(f.strings()); n < 3 {
+		t.Fatalf("indexed %d forms of a string past the cap, want the raw, collapsed and escaped ones at least", n)
+	}
+	raw := `{"error":{"message":"cannot process: SECRET  double  spaced  dossier  header  line  here"}}`
+	if got := f.maskOne(attemptDetail(credentialMasker{}, raw)); strings.Contains(got, "dossier") {
+		t.Fatalf("the collapsed form was starved: %q", got)
+	}
+}
+
+// The client's own identifiers are content: an e-mail in the OpenAI user
+// field or a message name quoted back by a provider is fenced.
+func TestContentFence_IdentifiersAreContent(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{"model":"p/m","user":"alice.mcgregor@acquisitions-corp.example","messages":[{"role":"user","name":"participant-long-name-value","content":"hello there friend"}]}`)
+	f := newContentFence(body)
+	if got := f.maskOne("user alice.mcgregor@acquisitions-corp.example is not permitted"); strings.Contains(got, "mcgregor") {
+		t.Fatalf("user field survived: %q", got)
+	}
+	if got := f.maskOne("name participant-long-name-value rejected"); strings.Contains(got, "long-name") {
+		t.Fatalf("message name survived: %q", got)
+	}
+}
+
+// A hedged probe runs against a throwaway log entry; it must carry the
+// fence, or the probe's failure line logs the provider's frame unfenced.
+func TestContentFence_HedgeProbeLogCarriesTheFence(t *testing.T) {
+	t.Parallel()
+	real := &requestLogData{modelID: "hotel/g", endpointType: "chat", content: newContentFence(chatBody(canary))}
+	snap := hedgeProbeLog(real, modelCandidate{provider: &provider.Provider{Name: "p"}})
+	if snap.content != real.content || snap.modelID != "hotel/g" || snap.providerName != "p" || snap.endpointType != "chat" {
+		t.Fatalf("snapshot = %+v", snap)
+	}
+	if got := snap.content.maskOne("cannot process: " + canary); strings.Contains(got, "SUPERSECRET") {
+		t.Fatalf("snapshot fence inert: %q", got)
 	}
 }
 
@@ -318,7 +380,6 @@ func TestContentFence_RoutingFieldsAreNotContent(t *testing.T) {
 		"no available provider for hotel/claude-sonnet-4-5-long; earliest retry in 30s",
 		"invalid model format: hotel/claude-sonnet-4-5-long",
 		"role user-with-a-long-role not accepted",
-		"unknown participant-name-here",
 		"tool_choice auto-with-long-value rejected",
 	} {
 		if got := f.maskOne(keep); got != keep {
