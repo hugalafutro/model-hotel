@@ -33,9 +33,11 @@ func TestRegister_AfterAuthMiddlewaresSeeOnlyAuthenticatedRequests(t *testing.T)
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ran++
 			_, sawKey = r.Context().Value(virtualKeyNameKey).(string)
-			// Consume the body the way the real peek does.
+			// Consume the body the way the real peek does, then answer here:
+			// the ordering is the subject, not the handler behind it (the
+			// unit handler has no database to serve a request with).
 			_, _ = io.ReadAll(r.Body)
-			next.ServeHTTP(w, r)
+			w.WriteHeader(http.StatusNoContent)
 		})
 	}
 	r := chi.NewRouter()

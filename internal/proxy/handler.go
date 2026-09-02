@@ -250,7 +250,6 @@ func (h *Handler) Close() {
 	}
 }
 
-// Register sets up the proxy routes on the given mux.
 // Register mounts the OpenAI-compatible surface. afterAuth are the caller's
 // middlewares that must see only authenticated requests: the server's
 // body-peeking timeout middleware buffers the whole request body (up to
@@ -258,6 +257,9 @@ func (h *Handler) Close() {
 // ahead of the key check let an unauthenticated client make the gateway hold
 // that allocation for the duration of its upload. They run after the key is
 // verified and before the per-key limiters, which read nothing from the body.
+// The gateway itself then reads nothing of an unauthenticated body; net/http
+// still discards up to 256 KiB of it after the 401, under the body read
+// deadline, so that is the bound on how long such a connection is held.
 func (h *Handler) Register(r chi.Router, afterAuth ...func(http.Handler) http.Handler) {
 	r.Use(h.ipLimiter.Middleware)
 	r.Use(h.ProxyKeyMiddleware)
@@ -314,6 +316,11 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 	r.Post("/completions", h.ChatCompletions)
 }
 
+// keyLookupTimeout bounds the virtual-key lookup: a primary-key read that is
+// not back in ten seconds is a database that is not answering, and the
+// request is refused as an internal error rather than parked.
+const keyLookupTimeout = 10 * time.Second
+
 // ProxyKeyMiddleware validates the virtual API key in the request header.
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -321,7 +328,10 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		// body before it sends a keep-alive response, so without this a
 		// client trickling a body with no valid key was told 401 only when
 		// the body deadline cut the drain; a caller with no key has no
-		// keep-alive worth keeping.
+		// keep-alive worth keeping. The IP limiter's 429 ahead of this check
+		// deliberately does not close: it also fronts the dashboard routes,
+		// where a throttled client is legitimate and retries on the same
+		// connection.
 		refuse := func(msg string) {
 			w.Header().Set("Connection", "close")
 			writeOpenAIError(w, msg, http.StatusUnauthorized)
@@ -336,7 +346,12 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		}
 
 		keyHash := virtualkey.Hash(token)
-		vk, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
+		// Bounded on its own: the timeout middleware used to wrap this lookup
+		// and now runs behind it, so a wedged database must not park every
+		// request here until the client gives up.
+		lookupCtx, lookupCancel := context.WithTimeout(r.Context(), keyLookupTimeout)
+		vk, err := h.virtualKeyRepo.FindByKeyHash(lookupCtx, keyHash)
+		lookupCancel()
 		if err != nil {
 			if errors.Is(err, virtualkey.ErrNotFound) {
 				debuglog.Warn("auth: key not found", "remote_addr", clientip.From(r))

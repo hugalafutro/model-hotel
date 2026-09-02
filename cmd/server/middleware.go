@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 
 	"github.com/hugalafutro/model-hotel/internal/clientip"
@@ -277,4 +278,16 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 			}
 		})
 	}
+}
+
+// mountProxyRoutes mounts the OpenAI-compatible surface with the body-peeking
+// timeout middleware placed by Register behind the virtual-key check, not
+// ahead of it as a plain r.Use would. The peek buffers the whole body (up to
+// MAX_REQUEST_SIZE) and used to run first, so an unauthenticated client made
+// the gateway hold that allocation for the length of its upload before being
+// told 401. Now the gateway never buffers an unauthenticated body; net/http
+// still discards up to 256 KiB of it after the refusal, bounded by the body
+// read deadline, so the connection itself is held no longer than that.
+func mountProxyRoutes(r chi.Router, register func(chi.Router, ...func(http.Handler) http.Handler)) {
+	register(r, streamingAwareTimeout(5*time.Minute))
 }
