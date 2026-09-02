@@ -643,8 +643,8 @@ func TestDiscoverGoogleAIStudio_AudioModel(t *testing.T) {
 			response := GoogleModelsResponse{
 				Models: []GoogleModel{
 					{
-						Name:                       "models/gemini-2.0-flash-tts",
-						DisplayName:                "Gemini 2.0 Flash TTS",
+						Name:                       "models/gemini-2.5-flash-native-audio-preview",
+						DisplayName:                "Gemini 2.5 Flash Native Audio",
 						Description:                "Audio model",
 						InputTokenLimit:            1000000,
 						OutputTokenLimit:           8192,
@@ -678,10 +678,52 @@ func TestDiscoverGoogleAIStudio_AudioModel(t *testing.T) {
 		t.Fatalf("Expected 1 model, got %d", len(models))
 	}
 	if !strings.Contains(models[0].InputModalities, "audio") {
-		t.Errorf("Expected audio in InputModalities for TTS model, got %s", models[0].InputModalities)
+		t.Errorf("Expected audio in InputModalities for a native-audio model, got %s", models[0].InputModalities)
 	}
 	if !strings.Contains(models[0].OutputModalities, "audio") {
-		t.Errorf("Expected audio in OutputModalities for TTS model, got %s", models[0].OutputModalities)
+		t.Errorf("Expected audio in OutputModalities for a native-audio model, got %s", models[0].OutputModalities)
+	}
+}
+
+// A text-to-speech model discovered over HTTP is text in and audio out only,
+// with no vision or audio-input capability, so it derives the tts class.
+func TestDiscoverGoogleAIStudio_TTSModel(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/v1beta/models" {
+			response := GoogleModelsResponse{
+				Models: []GoogleModel{{
+					Name:                       "models/gemini-2.5-flash-preview-tts",
+					DisplayName:                "Gemini 2.5 Flash Preview TTS",
+					InputTokenLimit:            8192,
+					OutputTokenLimit:           16384,
+					SupportedGenerationMethods: []string{"generateContent"},
+				}},
+			}
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(response)
+			return
+		}
+		http.NotFound(w, r)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1beta/openai"}
+	models, err := service.discoverGoogleAIStudio(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("Expected 1 model, got %d", len(models))
+	}
+	m := models[0]
+	if m.InputModalities != `["text"]` || m.OutputModalities != `["audio"]` {
+		t.Errorf("modalities = %s -> %s, want [\"text\"] -> [\"audio\"]", m.InputModalities, m.OutputModalities)
+	}
+	if strings.Contains(m.Capabilities, `"vision":true`) || strings.Contains(m.Capabilities, `"audio_input":true`) {
+		t.Errorf("a TTS model advertises input it cannot take: %s", m.Capabilities)
 	}
 }
 
