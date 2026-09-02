@@ -275,7 +275,9 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	switch {
 	case r.Context().Err() != nil:
 		// The request was interrupted; nothing here is the provider's doing.
-	case answered:
+	case answered || !servedSuccessStatus(resp.StatusCode):
+		// The provider answered: with content, or with a definitive non-2xx,
+		// which says it is plainly alive.
 		if st.circuitBreakerEnabled {
 			logData.noteBreaker(breakerSuccess)
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
@@ -292,12 +294,12 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// have each chat charge erased by the next embeddings call, and the
 		// circuit would never open. Same argument as the 404 no-op in
 		// breakerRecordAction: recording a success erases real failure history.
-	case !servedSuccessStatus(resp.StatusCode):
-		// A definitive non-2xx: the provider is plainly alive and answered.
-		if st.circuitBreakerEnabled {
-			logData.noteBreaker(breakerSuccess)
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
-		}
+		//
+		// A no-op here and a CHARGE on the chat path (handleNonStreamingResponse)
+		// is deliberate, not drift: an embeddings or image family has no rule
+		// that a success must carry a body, so a 204 proves nothing, while a
+		// chat completion that answers 204 has by definition produced no
+		// completion.
 	default:
 		h.chargeBreaker(st, candidate, resp.StatusCode, "response completed without delivering content")
 	}
@@ -616,7 +618,7 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 	// fraction is still a count, and one unreadable member must not cost the
 	// request every count beside it. Metering a served request as zero is quota
 	// the caller never spends.
-	if err := util.DecodeCounts(envelope.Usage, &usage); err != nil && shapeError(envelope.Usage, err) == nil {
+	if err := util.DecodeCounts(envelope.Usage, &usage); err != nil && util.ShapeError(envelope.Usage, err) == nil {
 		return 0, 0
 	}
 	// The fallback stops at the first member the provider SENT, readable or not.

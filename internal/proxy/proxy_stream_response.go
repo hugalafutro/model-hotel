@@ -361,7 +361,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	// as it arrived.
 	raw := []byte(payload)
 	decodeErr := json.Unmarshal(raw, &chunk)
-	typeErr := shapeError(raw, decodeErr)
+	typeErr := util.ShapeError(raw, decodeErr)
 	untypeable := typeErr != nil
 	jsonValid := decodeErr == nil || untypeable
 	if jsonValid {
@@ -388,7 +388,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// normalization rebuilds the delta from it, not from payload; a stale
 		// chunk would hand the transform the original text to re-emit.
 		masked := st.masker.maskExact([]byte(payload))
-		// util.ErrorMemberCarries, not the member's mere presence. The regex runs
+		// util.ValueCarries, not the member's mere presence. The regex runs
 		// over the WHOLE frame and can match prose, so on a frame that is not
 		// really an error it would rewrite the model's answer. "error":null
 		// alongside a delta is an ordinary per-frame shape for several relays,
@@ -397,7 +397,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// AIza… or a Bearer header mid-stream. That is worse than missing the
 		// third masking layer on a frame whose error member is empty, where the
 		// credential could only be in content the regex must not touch anyway.
-		if util.ErrorMemberCarries(chunk.Error) {
+		if util.ValueCarries(chunk.Error) {
 			// An error frame is error text: every held provider key and the
 			// shape layer, not only the candidate's key the content pass
 			// applied above (a relay's rejection quotes another row's key).

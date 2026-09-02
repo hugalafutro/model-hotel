@@ -59,7 +59,7 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 		var anthErr struct {
 			Error json.RawMessage `json:"error"`
 		}
-		if json.Unmarshal([]byte(payload), &anthErr) == nil && util.ErrorMemberCarries(anthErr.Error) {
+		if json.Unmarshal([]byte(payload), &anthErr) == nil && util.ValueCarries(anthErr.Error) {
 			msg := util.ErrorMemberMessage(anthErr.Error)
 			st.lastErrMsg = msg
 			anthropicErrorCounted = true
@@ -160,7 +160,7 @@ type streamChunk struct {
 	// here (Ollama's bare string, a list, a number), and a typed field fails the
 	// WHOLE chunk unmarshal, so the frame is dropped as corrupt bytes instead of
 	// forwarded. What the member means is
-	// util.ErrorMemberCarries/ErrorMemberMessage's answer, shared with the probe
+	// util.ValueCarries/ErrorMemberMessage's answer, shared with the probe
 	// so the two readings cannot drift.
 	Error json.RawMessage `json:"error"`
 }
@@ -285,7 +285,7 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		}
 		st.lastContent = currentContent
 	}
-	if !anthropicErrorCounted && util.ErrorMemberCarries(chunk.Error) {
+	if !anthropicErrorCounted && util.ValueCarries(chunk.Error) {
 		// Counted only when P1-C did not already handle this as an Anthropic
 		// error event, which shares the same data line.
 		msg := util.ErrorMemberMessage(chunk.Error)

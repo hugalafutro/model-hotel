@@ -5,8 +5,9 @@ import (
 	"strings"
 )
 
-// ErrorMemberCarries reports whether the "error" member of a provider payload
-// leaves a client something to read.
+// ValueCarries reports whether a JSON value leaves a reader anything at all.
+// Its first job is the "error" member of a provider payload: does it leave a
+// client something to read.
 //
 // The test is emptiness, not shape. What a provider puts inside its error is
 // not a gateway's to judge, so any populated value counts: an object with
@@ -33,21 +34,14 @@ import (
 // forwarder, and the native Anthropic passthrough. They read the same bytes, so
 // a second opinion is only ever a way for them to disagree, and the disagreement
 // costs a hedged race to a provider whose failure is then never recorded.
-func ErrorMemberCarries(raw json.RawMessage) bool {
-	return ValueCarries(raw)
-}
-
-// ValueCarries is the emptiness rule above, without the error-member framing:
-// does this JSON value leave a reader anything at all?
 //
-// The streaming path asks it of a delta's members too. A reasoning marker a
-// relay stamps on every non-reasoning frame ("reasoning":"" or
+// The streaming path asks the same question of a delta's members. A reasoning
+// marker a relay stamps on every non-reasoning frame ("reasoning":"" or
 // "reasoning_details":[]) is present without carrying anything, and a rule that
 // read presence dropped the answer beside it on every frame; and a member that
-// carries nothing is not output, so it must not be metered as delivery.
-//
-// Same rule, deliberately: a second reading of "is there anything here" is only
-// ever a way for two callers to disagree.
+// carries nothing is not output, so it must not be metered as delivery. One
+// rule, deliberately: a second reading of "is there anything here" is only ever
+// a way for two callers to disagree.
 func ValueCarries(raw json.RawMessage) bool {
 	if len(raw) == 0 {
 		return false

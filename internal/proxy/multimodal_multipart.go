@@ -128,17 +128,18 @@ func newMultipartBodyBuilder(parts []multipartPart) func(string) ([]byte, string
 	}
 }
 
-// multipartPromptFields are the form fields that carry prompt TEXT on the
-// multipart endpoints. "prompt" is the only one: an image edit's prompt is the
-// same string /v1/images/generations sends as JSON, and a transcription's
-// prompt is the context hint the model conditions on.
+// multipartPromptField is the one form field that carries prompt TEXT on the
+// multipart endpoints: an image edit's prompt is the same string
+// /v1/images/generations sends as JSON, and a transcription's prompt is the
+// context hint the model conditions on.
 //
-// An allowlist rather than a denylist, because everything else on these forms is
-// configuration (language, temperature, response_format, size, n, voice,
-// timestamp_granularities) and charging for it would bill the caller for their
-// own options. A denylist gets that wrong by default every time a provider adds
-// a parameter, which is the wrong direction for a billing decision to fail in.
-var multipartPromptFields = map[string]bool{"prompt": true}
+// Named rather than matched by exclusion, because everything else on these
+// forms is configuration (language, temperature, response_format, size, n,
+// voice, timestamp_granularities) and charging for it would bill the caller for
+// their own options. A denylist gets that wrong by default every time a
+// provider adds a parameter, which is the wrong direction for a billing
+// decision to fail in.
+const multipartPromptField = "prompt"
 
 // multipartTextFields returns the text a multipart request carries in its
 // non-file fields, for the content fence: the prompt of an image request and
@@ -165,7 +166,7 @@ func multipartTextFields(parts []multipartPart) []string {
 func multipartPromptTextBytes(parts []multipartPart) int {
 	n := 0
 	for _, p := range parts {
-		if p.fileName != "" || !multipartPromptFields[p.fieldName] {
+		if p.fileName != "" || p.fieldName != multipartPromptField {
 			continue
 		}
 		n += len(p.data)

@@ -300,7 +300,7 @@ func (e *emptyStreamError) Error() string {
 // is an error envelope instead of a token, and ok == false for every ordinary
 // frame.
 //
-// Whether the frame is an error is util.ErrorMemberCarries' decision alone (a
+// Whether the frame is an error is util.ValueCarries' decision alone (a
 // populated error member of any shape, including Ollama's bare string; not
 // null/{}/""/[]/false/0, which leave a caller nothing to read). Deciding it a
 // second time here is how the two drift, and either direction is a bug: a miss
@@ -315,7 +315,7 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 		return "", false
 	}
 	raw := envelope["error"]
-	if !util.ErrorMemberCarries(raw) {
+	if !util.ValueCarries(raw) {
 		return "", false
 	}
 	// A bare string, a list, a number, or an object without a "message": render

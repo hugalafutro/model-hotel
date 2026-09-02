@@ -1,67 +1,79 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
-// TestSnapshotFreshness_FutureStampIsNeverFresh is the bug these guards exist
-// for. time.Since and Sub return a NEGATIVE duration for a future timestamp,
-// which satisfies every "< interval" test and fails every "> maxAge" test, so a
-// single future-dated snapshot made a provider permanently fresh: its upstream
-// poll was skipped forever and its stale quota kept counting as evidence.
-//
-// The same mistake was found and fixed once already in the fleet rate-limit
-// divisor. These cases pin the repair at the two remaining sites.
-func TestSnapshotFreshness_FutureStampIsNeverFresh(t *testing.T) {
-	now := time.Now()
+// TestPollQuotasOnce_FutureFleetStampDoesNotSuppress pins the negative-age guard
+// at the fleet-skip site. A fleet snapshot dated in the future has a NEGATIVE age,
+// which a raw comparison reads as fresher than any interval, so the member's own
+// poll would be skipped for as long as the stamp stood. The repository clamps a
+// future stamp on write, so the row is aged past the clamp directly, the way a
+// restored backup or a row predating the clamp would arrive.
+func TestPollQuotasOnce_FutureFleetStampDoesNotSuppress(t *testing.T) {
+	h := newTestHandler(t)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-fleet-future", "https://api.nano-gpt.com/v1", true)
 
-	for _, tc := range []struct {
-		name       string
-		fetchedAt  time.Time
-		wantFresh  bool
-		wantWithin bool
-	}{
-		{"just fetched", now, true, true},
-		{"comfortably recent", now.Add(-1 * time.Minute), true, true},
-		{"older than the window", now.Add(-30 * time.Minute), false, false},
-		{"one second in the future", now.Add(1 * time.Second), false, false},
-		{"far in the future", now.Add(48 * time.Hour), false, false},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := snapshotFresherThan(now, tc.fetchedAt, 5*time.Minute); got != tc.wantFresh {
-				t.Errorf("snapshotFresherThan = %v, want %v", got, tc.wantFresh)
-			}
-			if got := snapshotWithinAge(now, tc.fetchedAt, 5*time.Minute); got != tc.wantWithin {
-				t.Errorf("snapshotWithinAge = %v, want %v", got, tc.wantWithin)
-			}
-		})
+	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{
+		ProviderID: id, Kind: "usage", Payload: json.RawMessage(`{"used":1}`), HTTPStatus: 200, Source: "fleet",
+	}); err != nil {
+		t.Fatalf("seed fleet snapshot: %v", err)
+	}
+	if _, err := h.dbPool.Pool().Exec(context.Background(),
+		`UPDATE provider_quota_snapshots SET fetched_at = $1 WHERE provider_id = $2`, time.Now().Add(48*time.Hour), id); err != nil {
+		t.Fatalf("age the row into the future: %v", err)
+	}
+
+	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(2) }
+
+	h.PollQuotasOnce(context.Background())
+
+	snap, _ := h.quotaRepo.Get(context.Background(), id, "usage")
+	if snap == nil || snap.Source != "poll" {
+		t.Fatalf("a future-dated fleet snapshot must not suppress the self-poll, got %+v", snap)
 	}
 }
 
-// TestSnapshotFreshness_BoundariesUnchanged keeps the guards from quietly
-// shifting the windows they replaced: the dedup check was strictly-less-than and
-// the evidence check kept a snapshot at exactly maxAge.
-func TestSnapshotFreshness_BoundariesUnchanged(t *testing.T) {
+// TestBuildQuotaAdvice_FutureStampIsNotEvidence pins the same guard at the
+// advice site: a future stamp fails every "> maxAge" test and would count as
+// evidence forever.
+func TestBuildQuotaAdvice_FutureStampIsNotEvidence(t *testing.T) {
 	now := time.Now()
-	const window = 5 * time.Minute
-	atWindow := now.Add(-window)
-
-	if snapshotFresherThan(now, atWindow, window) {
-		t.Error("snapshotFresherThan at exactly the window = true, want false (was <, not <=)")
+	payload, err := json.Marshal(map[string]any{
+		"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "nextResetTime": now.Add(time.Hour).UnixMilli()},
+		}},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
 	}
-	if !snapshotWithinAge(now, atWindow, window) {
-		t.Error("snapshotWithinAge at exactly maxAge = false, want true (was >, so equal was kept)")
+	id := uuid.New()
+
+	got, _ := buildQuotaAdvice(
+		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(48 * time.Hour)}},
+		map[uuid.UUID]string{id: "zai-coding"},
+		15*time.Minute,
+		now,
+	)
+
+	if _, ok := got[id]; ok {
+		t.Error("a future-dated snapshot must not count as evidence; the negative-age guard is missing at this site")
 	}
 }
 
-// TestDriftEligible_FutureStampIsNotEligible pins the guard at its call site
-// rather than only on the helper. driftEligible was the third site with this
-// bug and was missed by the first pass at the fix, so a helper-only test would
-// have gone on passing while the site itself stayed broken.
+// TestDriftEligible_FutureStampIsNotEligible pins the negative-age guard at its
+// call site: time.Sub returns a NEGATIVE duration for a future timestamp, which
+// fails every "> maxAge" test, so a single future-dated snapshot would count as
+// evidence forever. A snapshot at exactly maxAge is kept, as it always was.
 func TestDriftEligible_FutureStampIsNotEligible(t *testing.T) {
 	now := time.Now()
 	const maxAge = 15 * time.Minute
@@ -83,5 +95,11 @@ func TestDriftEligible_FutureStampIsNotEligible(t *testing.T) {
 	future.FetchedAt = now.Add(48 * time.Hour)
 	if driftEligible(future, maxAge, now) {
 		t.Error("a future-dated snapshot is drift-eligible forever; the negative-age guard is missing at this site")
+	}
+
+	atMaxAge := ok
+	atMaxAge.FetchedAt = now.Add(-maxAge)
+	if !driftEligible(atMaxAge, maxAge, now) {
+		t.Error("a snapshot at exactly maxAge should still be eligible (the bound is <=, not <)")
 	}
 }
