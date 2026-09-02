@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
@@ -1292,5 +1293,54 @@ func TestGetByIDs_PartialCacheInvalidation(t *testing.T) {
 	// p2 should now be cached after the DB fetch
 	if !IsCachedByID(p2.ID) {
 		t.Error("p2 should be cached after GetByIDs fetched it from DB")
+	}
+}
+
+// A mask written with the old two-character tail, or none at all, is rewritten
+// from the decrypted key at startup; a mask already in the current shape is
+// left alone and not counted.
+func TestBackfillMaskedKeys(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	const masterKey = "test-master-key-for-backfill"
+	create := func(name, key string) *Provider {
+		t.Helper()
+		enc, err := auth.Encrypt(key, masterKey)
+		if err != nil {
+			t.Fatalf("encrypt: %v", err)
+		}
+		p, err := repo.Create(ctx, CreateProviderRequest{Name: name, BaseURL: "https://api.example.com/v1", APIKey: key, ProviderType: "openai"}, enc.Ciphertext, enc.Nonce, enc.Salt)
+		if err != nil {
+			t.Fatalf("create %s: %v", name, err)
+		}
+		return p
+	}
+	legacy := create("backfill-legacy-"+uuid.NewString()[:8], "sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxx-hQAA")
+	blank := create("backfill-blank-"+uuid.NewString()[:8], "sk-proj-abc123def456ghi789")
+	current := create("backfill-current-"+uuid.NewString()[:8], "sk-abcdefghijklmnop1234567890")
+	for id, mask := range map[uuid.UUID]any{legacy.ID: "sk...AA", blank.ID: nil} {
+		if _, err := testDB.Pool().Exec(ctx, `UPDATE providers SET masked_key = $1 WHERE id = $2`, mask, id); err != nil {
+			t.Fatalf("seed mask: %v", err)
+		}
+	}
+
+	n, err := repo.BackfillMaskedKeys(ctx, masterKey)
+	if err != nil {
+		t.Fatalf("backfill: %v", err)
+	}
+	if n < 2 {
+		t.Errorf("backfilled %d rows, want at least the two seeded ones", n)
+	}
+	for id, want := range map[uuid.UUID]string{legacy.ID: "sk...hQAA", blank.ID: "sk...i789", current.ID: "sk...7890"} {
+		var got string
+		if err := testDB.Pool().QueryRow(ctx, `SELECT COALESCE(masked_key, '') FROM providers WHERE id = $1`, id).Scan(&got); err != nil {
+			t.Fatalf("read mask: %v", err)
+		}
+		if got != want {
+			t.Errorf("mask after backfill = %q, want %q", got, want)
+		}
+	}
+	if n, err := repo.BackfillMaskedKeys(ctx, masterKey); err != nil || n != 0 {
+		t.Errorf("second pass rewrote %d rows (err %v), want none", n, err)
 	}
 }

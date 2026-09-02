@@ -110,6 +110,13 @@ func main() {
 	} else if backfilled > 0 {
 		debuglog.Info("startup: provider types backfilled", "count", backfilled)
 	}
+	// Masks written with the older two-character tail are rewritten with the
+	// current shape, so a rotated key is visibly different on the card.
+	if backfilled, err := providerRepo.BackfillMaskedKeys(ctx, cfg.MasterKey); err != nil {
+		debuglog.Error("startup: provider mask backfill failed", "error", err)
+	} else if backfilled > 0 {
+		debuglog.Info("startup: provider key masks backfilled", "count", backfilled)
+	}
 	modelRepo := model.NewRepository(database.Pool())
 	virtualKeyRepo := virtualkey.NewRepository(database.Pool())
 	settingsRepo := settings.NewRepository(database.Pool())
