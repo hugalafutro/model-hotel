@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/binary"
 	"encoding/json"
@@ -11,11 +12,14 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -185,4 +189,159 @@ func TestServeStreamedPassthrough_AdapterUsageWins(t *testing.T) {
 	if got := singleAddTokens(t, vkRepo); got != 261 {
 		t.Errorf("charged %d tokens, want the answer's 11 + 250 rather than the 100-token estimate", got)
 	}
+}
+
+// In a group mixing a Gemini TTS model with one that produces mp3, the
+// Gemini candidate is skipped without a request, no backoff is paid for it,
+// and the other model serves the request as asked.
+func TestAudioSpeech_MixedGroupFailsOverToAModelThatProducesTheFormat(t *testing.T) {
+	gem := &speechUpstream{answer: speechAudioAnswer([]byte{0, 0})}
+	envGemini := newMultimodalEnvTyped(t, gem, `["audio"]`, "google", "/v1beta/openai")
+	var mp3Calls atomic.Int32
+	mp3Upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		mp3Calls.Add(1)
+		w.Header().Set("Content-Type", "audio/mpeg")
+		_, _ = w.Write([]byte("ID3mp3"))
+	}))
+	t.Cleanup(mp3Upstream.Close)
+	_, _, mp3ModelUUID, _ := createMultimodalProvider(t, mp3Upstream.URL)
+	groupName := envGemini.modelName
+	if _, err := failover.NewRepository(testDB.Pool()).UpsertWithConfig(context.Background(), groupName,
+		[]uuid.UUID{envGemini.modelUUID, mp3ModelUUID},
+		map[string]bool{envGemini.modelUUID.String(): true, mp3ModelUUID.String(): true},
+		nil, nil, nil, nil); err != nil {
+		t.Fatalf("failover group: %v", err)
+	}
+	body := fmt.Sprintf(`{"model":"hotel/%s","input":"hi","voice":"alloy","response_format":"mp3"}`, groupName)
+	w := httptest.NewRecorder()
+	started := time.Now()
+	envGemini.handler.AudioSpeech(w, envGemini.request("/v1/audio/speech", "application/json", strings.NewReader(body)))
+	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "audio/mpeg" {
+		t.Fatalf("status %d type %q (body %s), want the mp3 model's answer", w.Code, w.Header().Get("Content-Type"), w.Body.String())
+	}
+	gem.mu.Lock()
+	gemCalls := len(gem.paths)
+	gem.mu.Unlock()
+	if gemCalls != 0 || mp3Calls.Load() != 1 {
+		t.Errorf("gemini saw %d requests, mp3 model %d; want 0 and 1", gemCalls, mp3Calls.Load())
+	}
+	if took := time.Since(started); took > 90*time.Millisecond {
+		t.Errorf("request took %v: a skip that contacted nothing must not pay the failover backoff", took)
+	}
+}
+
+// A request the translation cannot read (no input) on a Gemini-only route
+// is the client's 400, not a 502 from a build that never reached the wire.
+func TestAudioSpeech_GeminiBlankInputIsTheClients400(t *testing.T) {
+	up := &speechUpstream{answer: speechAudioAnswer([]byte{0, 0})}
+	env := newMultimodalEnvTyped(t, up, `["audio"]`, "google", "/v1beta/openai")
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"   ","voice":"alloy"}`, env.providerName, env.modelName)
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, env.request("/v1/audio/speech", "application/json", strings.NewReader(body)))
+	if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), "no input") {
+		t.Fatalf("status %d body %s, want a 400 naming the missing input", w.Code, w.Body.String())
+	}
+	up.mu.Lock()
+	defer up.mu.Unlock()
+	if len(up.paths) != 0 {
+		t.Errorf("upstream saw %v, want nothing", up.paths)
+	}
+}
+
+// Vertex AI express speaks the native dialect on the publisher route under
+// its own base; the request carries the key the way that route wants it.
+func TestBuildGeminiSpeechRequest_VertexExpress(t *testing.T) {
+	h := &Handler{}
+	st := &requestState{endpointPath: speechEndpointPath, bodyBytes: []byte(`{"model":"m","input":"hi","voice":"Puck","response_format":"pcm"}`)}
+	cand := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "gemini-2.5-flash-preview-tts", OutputModalities: `["audio"]`},
+		provider: &provider.Provider{ID: uuid.New(), Name: "Vertex", BaseURL: "https://aiplatform.googleapis.com/v1"},
+		apiKey:   "vertex-key",
+	}
+	if !isGeminiSpeechAttempt(st, "vertex-express", cand.model.OutputModalities) {
+		t.Fatal("a vertex-express TTS model must take the native route")
+	}
+	req, _, url, err := h.buildGeminiSpeechRequest(context.Background(), st, cand, "vertex-express")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasSuffix(url, "/v1/publishers/google/models/gemini-2.5-flash-preview-tts:generateContent") {
+		t.Errorf("url = %q", url)
+	}
+	if req.Header.Get("x-goog-api-key") != "vertex-key" || st.speechFormat != gemini.SpeechFormatPCM {
+		t.Errorf("auth %q format %q", req.Header.Get("x-goog-api-key"), st.speechFormat)
+	}
+	body, _ := io.ReadAll(req.Body)
+	if !strings.Contains(string(body), `"voiceName":"Puck"`) {
+		t.Errorf("a Gemini voice name must pass through: %s", body)
+	}
+}
+
+// A Google model whose discovered output modalities name no audio is not a
+// TTS model and keeps the pass-through; one without modalities is served.
+func TestIsGeminiSpeechAttempt_ModalityGuard(t *testing.T) {
+	st := &requestState{endpointPath: speechEndpointPath}
+	for mods, want := range map[string]bool{`["audio"]`: true, `["text","audio"]`: true, ``: true, `[]`: true, `["text"]`: false, `["text","image"]`: false} {
+		if got := isGeminiSpeechAttempt(st, "google", mods); got != want {
+			t.Errorf("modalities %q: %v, want %v", mods, got, want)
+		}
+	}
+	if isGeminiSpeechAttempt(&requestState{}, "google", `["audio"]`) || isGeminiSpeechAttempt(st, "openai", `["audio"]`) {
+		t.Error("only a speech request to a Google-native type qualifies")
+	}
+}
+
+// The adapter's refusals are not the provider's fault for the breaker: an
+// answer without audio is the model answering, and the body cap is the
+// gateway's own.
+func TestTranslationIsProviderFault_SpeechSentinels(t *testing.T) {
+	if translationIsProviderFault(fmt.Errorf("%w: text reply", gemini.ErrSpeechNoAudio)) {
+		t.Error("an answer without audio must not charge the breaker")
+	}
+	if translationIsProviderFault(errSpeechBodyOversized) {
+		t.Error("the gateway's own body cap must not charge the breaker")
+	}
+	if !translationIsProviderFault(fmt.Errorf("gemini: invalid speech response: not JSON")) {
+		t.Error("a body that is not a generateContent object is the provider's fault")
+	}
+}
+
+// A generateContent answer past the cap is refused without holding it: the
+// attempt fails over and the provider is not charged for the gateway's limit.
+func TestServeGeminiSpeechResponse_OversizedBody(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	logData := &requestLogData{id: uuid.New().String(), modelID: "tts", endpointType: endpointTypeTTS, virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "streaming"}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "h", speechFormat: gemini.SpeechFormatWAV}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(20 * time.Millisecond)
+	huge := io.MultiReader(strings.NewReader(`{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"audio/L16","data":"`), &repeatReader{b: 'A', n: speechBodyCap + 1024}, strings.NewReader(`"}}]}}]}`))
+	resp := &http.Response{StatusCode: http.StatusOK, Header: http.Header{"Content-Type": {"application/json"}}, Body: io.NopCloser(huge)}
+	cand := modelCandidate{model: &model.Model{ID: uuid.New(), ModelID: "tts"}, provider: &provider.Provider{ID: uuid.New(), Name: "p"}}
+	w := httptest.NewRecorder()
+	out := h.serveGeminiSpeechResponse(w, httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody), st, cand, resp, 0, 1)
+	if out != outcomeFailover || w.Code != http.StatusOK || w.Body.Len() != 0 {
+		t.Fatalf("outcome %v, wrote %d/%d bytes; want failover with nothing written", out, w.Code, w.Body.Len())
+	}
+	if st.lastReqErr.Kind != KindProviderError || !strings.Contains(st.lastReqErr.Underlying, "exceeds") {
+		t.Errorf("recorded %+v, want the cap named", st.lastReqErr)
+	}
+}
+
+// repeatReader yields n copies of one byte without holding them.
+type repeatReader struct {
+	b byte
+	n int
+}
+
+func (r *repeatReader) Read(p []byte) (int, error) {
+	if r.n <= 0 {
+		return 0, io.EOF
+	}
+	n := min(len(p), r.n)
+	for i := range n {
+		p[i] = r.b
+	}
+	r.n -= n
+	return n, nil
 }

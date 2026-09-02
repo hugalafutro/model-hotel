@@ -107,6 +107,18 @@ func TestBuildSpeechResponse_WAV(t *testing.T) {
 	if got := binary.LittleEndian.Uint32(audio[4:8]); int(got) != 36+len(pcm) {
 		t.Errorf("riff size = %d, want %d", got, 36+len(pcm))
 	}
+	if got := binary.LittleEndian.Uint32(audio[16:20]); got != 16 {
+		t.Errorf("fmt chunk size = %d, want 16", got)
+	}
+	if got := binary.LittleEndian.Uint16(audio[20:22]); got != 1 {
+		t.Errorf("audio format = %d, want 1 (PCM)", got)
+	}
+	if got := binary.LittleEndian.Uint32(audio[28:32]); got != 48000 {
+		t.Errorf("byte rate = %d, want 24000 * 2", got)
+	}
+	if got := binary.LittleEndian.Uint16(audio[32:34]); got != 2 {
+		t.Errorf("block align = %d, want 2", got)
+	}
 	if !bytes.Equal(audio[44:], pcm) {
 		t.Error("pcm payload not carried")
 	}
@@ -142,6 +154,7 @@ func TestBuildSpeechResponse_NoAudio(t *testing.T) {
 		"blocked":     `{"promptFeedback":{"blockReason":"SAFETY"}}`,
 		"image blob":  `{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"AAAA"}}]}}]}`,
 		"finish said": `{"candidates":[{"content":{"parts":[]},"finishReason":"MAX_TOKENS"}]}`,
+		"empty data":  `{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"audio/L16","data":""}}]}}]}`,
 	} {
 		_, _, _, err := BuildSpeechResponse([]byte(body), SpeechFormatWAV)
 		if !errors.Is(err, ErrSpeechNoAudio) {

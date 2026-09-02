@@ -195,7 +195,7 @@ curl -X POST http://localhost:8081/v1/audio/speech \
 
 Usage is metered from the token counts the answer reports.
 
-The response is the provider's raw binary audio (Content-Type passed through, e.g. `audio/mpeg`), streamed with no buffering. `stream_format: "sse"` responses stream through as SSE.
+Except for the Gemini TTS models described above, the response is the provider's raw binary audio (Content-Type passed through, e.g. `audio/mpeg`), streamed with no buffering, and `stream_format: "sse"` responses stream through as SSE.
 
 #### POST `/v1/audio/transcriptions` and `/v1/audio/translations`
 

@@ -552,7 +552,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	if st.anthropicNativeAttempt {
 		return h.buildNativeAnthropicRequest(ctx, st, candidate, providerType)
 	}
-	if isGeminiSpeechAttempt(st, providerType) { // Gemini TTS via generateContent, see gemini_speech.go
+	if isGeminiSpeechAttempt(st, providerType, candidate.model.OutputModalities) { // Gemini TTS via generateContent, see gemini_speech.go
 		return h.buildGeminiSpeechRequest(ctx, st, candidate, providerType)
 	}
 

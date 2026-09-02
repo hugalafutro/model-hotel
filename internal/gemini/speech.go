@@ -164,7 +164,7 @@ func BuildSpeechResponse(body []byte, format string) (audio []byte, contentType 
 	}
 	for _, c := range resp.Candidates {
 		for _, p := range c.Content.Parts {
-			if p.InlineData == nil || !strings.HasPrefix(p.InlineData.MimeType, "audio/") {
+			if p.InlineData == nil || p.InlineData.Data == "" || !strings.HasPrefix(p.InlineData.MimeType, "audio/") {
 				continue
 			}
 			pcm, err := base64.StdEncoding.DecodeString(p.InlineData.Data)

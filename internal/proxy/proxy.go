@@ -152,6 +152,9 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 		case outcomeBusy:
 			busyCandidates = append(busyCandidates, candidate)
 			continue
+		case outcomeSkipped:
+			// Contacted nothing, so no backoff; nothing to come back to.
+			continue
 		case outcomeRetrySaturated:
 			if h.retrySaturatedCandidate(w, r, st, candidate, len(candidates), attemptOne) {
 				return
@@ -207,7 +210,7 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 			// Lost the acquisition race to a concurrent request; keep waiting
 			// inside the same bounded window.
 			attempt++
-		case outcomeFailover, outcomeRetrySaturated:
+		case outcomeFailover, outcomeRetrySaturated, outcomeSkipped:
 			// The freed slot answered with a real failure; that verdict stands
 			// and the exhaustion path renders it.
 			return false
@@ -263,7 +266,7 @@ func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request
 		return h.failWaitDisconnect(w, st, numCandidates-1, candidate.provider.Name)
 	}
 	switch attemptOne(w, r, st, candidate, numCandidates, numCandidates+1) {
-	case outcomeFailover, outcomeRetrySaturated:
+	case outcomeFailover, outcomeRetrySaturated, outcomeSkipped:
 		// outcomeRetrySaturated cannot recur (saturationRetried is set), and a
 		// failed retry falls through to the exhaustion path like any other
 		// last-candidate failure.

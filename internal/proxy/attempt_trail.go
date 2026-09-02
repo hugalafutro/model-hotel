@@ -243,6 +243,12 @@ func hedgeAbandonedRecord(idx int, candidate modelCandidate, launchedAt time.Tim
 // request was made, so the trail can say "Z.ai: skipped (circuit open)" ahead
 // of the providers that were actually tried.
 func (l *requestLogData) appendBreakerSkip(providerID uuid.UUID, providerName, model string) {
+	l.appendSkip(providerID, providerName, model, "circuit breaker open")
+}
+
+// appendSkip records a candidate refused before any request was made, with
+// the reason, so the trail names it ahead of the providers actually tried.
+func (l *requestLogData) appendSkip(providerID uuid.UUID, providerName, model, detail string) {
 	if l == nil {
 		return
 	}
@@ -251,7 +257,7 @@ func (l *requestLogData) appendBreakerSkip(providerID uuid.UUID, providerName, m
 		ProviderID: providerID.String(),
 		Provider:   providerName,
 		Model:      model,
-		Detail:     "circuit breaker open",
+		Detail:     detail,
 		Breaker:    breakerSkipped,
 	})
 }

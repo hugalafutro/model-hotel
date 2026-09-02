@@ -399,6 +399,11 @@ const (
 	// candidate is. The loop moves on, remembers the candidate, and when every
 	// live entry ends busy it waits for the first slot to free on any of them.
 	outcomeBusy
+	// outcomeSkipped: the candidate cannot serve this request as asked (a
+	// Gemini TTS candidate and a response format it does not produce), so
+	// the attempt was skipped WITHOUT a request. The loop moves on; unlike
+	// a busy skip nothing frees up later, so it is not retried.
+	outcomeSkipped
 )
 
 // streamOptions consolidates the parameters for handleStreamingResponse into

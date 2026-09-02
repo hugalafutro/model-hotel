@@ -8,7 +8,6 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -36,11 +35,14 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	// is skipped before any request is built, so a group holding a model
 	// that can produce it serves the request; the pre-flight in
 	// servePassthroughPipeline answers the client when no candidate can.
-	if reason := speechFormatRefusal(st, provider.TypeOf(candidate.provider)); reason != "" {
-		st.setReqErr(reqError{Kind: KindProviderBadRequest, Attempt: attempt, Provider: candidate.provider.Name, Detail: reason})
+	// Nothing was contacted, so the skip is recorded on the trail like a
+	// breaker skip and pays no failover backoff.
+	if reason := speechRequestRefusal(st, candidate); reason != "" {
+		st.setReqErr(reqError{Kind: KindProviderBadRequest, Attempt: attempt, Provider: candidate.provider.Name, Underlying: reason})
 		logData.failoverAttempt = attempt
+		logData.appendSkip(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), reason)
 		debuglog.Info("proxy: speech candidate skipped", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "reason", reason)
-		return outcomeFailover
+		return outcomeSkipped
 	}
 
 	resp, providerType, _, busyAttempt, ok := h.beginAttempt(failoverCtx, st, candidate, attempt, totalCandidates, &dialMs)

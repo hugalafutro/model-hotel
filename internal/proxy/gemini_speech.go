@@ -3,11 +3,12 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"strconv"
+	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
@@ -34,38 +35,46 @@ const speechBodyCap = 32 << 20
 
 // isGeminiSpeechAttempt reports a speech request landing on a provider whose
 // TTS models are served by Google's native route: Google AI Studio and
-// Vertex AI express, the two that hold Gemini TTS models.
-func isGeminiSpeechAttempt(st *requestState, providerType string) bool {
-	return st.endpointPath == speechEndpointPath && (providerType == "google" || providerType == "vertex-express")
+// Vertex AI express, the two that hold Gemini TTS models. A model whose
+// discovered output modalities name no audio is not one of them and keeps
+// the pass-through (which Google answers with its 404); a model discovery
+// left without modalities is given the benefit of the doubt.
+func isGeminiSpeechAttempt(st *requestState, providerType, outputModalities string) bool {
+	if st.endpointPath != speechEndpointPath || (providerType != "google" && providerType != "vertex-express") {
+		return false
+	}
+	declared := declaredModalities(outputModalities)
+	return len(declared) == 0 || slices.Contains(declared, "audio")
 }
 
-// speechFormatRefusal is the reason a Gemini speech attempt cannot serve the
-// request as asked, or empty: the compressed response formats need an
-// encoder the gateway does not carry. Checked before the attempt is made,
-// so a group mixing a Gemini TTS model with one that does produce mp3 lets
-// the request fail over to the one that can; on the last candidate, the
-// refusal is the client's 400.
-func speechFormatRefusal(st *requestState, providerType string) string {
-	if !isGeminiSpeechAttempt(st, providerType) {
+// speechRequestRefusal is the reason a Gemini speech attempt cannot serve
+// the request as asked, or empty: a response format the model does not
+// produce (the compressed ones need an encoder the gateway does not carry),
+// or a request the translation cannot read (no input). Checked before the
+// attempt is made, so a group mixing a Gemini TTS model with one that does
+// produce mp3 lets the request fail over to the one that can; when no
+// candidate can, the refusal is the client's 400.
+func speechRequestRefusal(st *requestState, candidate modelCandidate) string {
+	if !isGeminiSpeechAttempt(st, provider.TypeOf(candidate.provider), candidate.model.OutputModalities) {
 		return ""
 	}
-	if _, _, _, err := gemini.TranslateSpeechRequest(st.bodyBytes); errors.Is(err, gemini.ErrSpeechFormat) {
-		return err.Error()
+	if _, _, _, err := gemini.TranslateSpeechRequest(st.bodyBytes); err != nil {
+		return strings.TrimPrefix(err.Error(), "gemini: ")
 	}
 	return ""
 }
 
 // refuseSpeechRequest answers a speech request no candidate can serve as
 // asked with the client's 400 before any attempt is made: every candidate is
-// a Gemini TTS model and the response_format is one none of them can
-// produce. Reports whether the request was answered.
+// a Gemini TTS model and each refuses the request. Reports whether the
+// request was answered.
 func (h *Handler) refuseSpeechRequest(w http.ResponseWriter, st *requestState, candidates []modelCandidate) bool {
 	if st.endpointPath != speechEndpointPath || len(candidates) == 0 {
 		return false
 	}
 	reason := ""
 	for _, c := range candidates {
-		reason = speechFormatRefusal(st, provider.TypeOf(c.provider))
+		reason = speechRequestRefusal(st, c)
 		if reason == "" {
 			return false
 		}
@@ -132,9 +141,9 @@ func (h *Handler) serveGeminiSpeechResponse(w http.ResponseWriter, r *http.Reque
 	return outcomeServed
 }
 
-// errSpeechBodyOversized reports a generateContent answer past speechBodyCap.
-// It counts as the provider's fault for the breaker, like any body the
-// adapter could not read whole.
+// errSpeechBodyOversized reports a generateContent answer past speechBodyCap:
+// this gateway's own limit, never a provider fault for the breaker, as the
+// chat adapter's errEgressBodyOversized is not.
 var errSpeechBodyOversized = fmt.Errorf("gemini speech response exceeds %d bytes", speechBodyCap)
 
 // passthroughUsage is the usage a translating adapter read off a provider's
