@@ -317,9 +317,14 @@ func TestAttemptTrail_HedgedRace(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
+	// The loser must resolve before the winner, or the orchestrator cancels
+	// it and records it as superseded rather than failed. The winner launches
+	// one hedge delay after the loser, so equal probe delays left the order to
+	// the scheduler and the race detector on a loaded runner flipped it; the
+	// winner is given a margin no scheduler hiccup closes.
 	hh := newHedgeHarness([]fakeProbeSpec{
-		{delay: 5 * time.Millisecond, reqErr: reqError{Kind: KindProviderError, Attempt: 0, Provider: "a", Detail: "HTTP 503"}},
-		{delay: 5 * time.Millisecond, won: true},
+		{delay: time.Millisecond, reqErr: reqError{Kind: KindProviderError, Attempt: 0, Provider: "a", Detail: "HTTP 503"}},
+		{delay: 50 * time.Millisecond, won: true},
 	})
 	st, logData := newHedgeState(time.Millisecond)
 	logData.id = uuid.New().String()
