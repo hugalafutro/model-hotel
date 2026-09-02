@@ -138,6 +138,12 @@ func TestIsGoogleStructuredOutputModel(t *testing.T) {
 		{"live excluded", "gemini-live", false},
 		{"case insensitive", "Text-Embedding-004", false},
 		{"regular model", "gemma-2b", true},
+		// Image-output models answer JSON mode with a 400 whatever the docs say
+		// (google-gemini/cookbook#1028).
+		{"2.5 image model excluded", "gemini-2.5-flash-image", false},
+		{"3.x image model excluded", "gemini-3.1-flash-lite-image", false},
+		{"3 pro image model excluded", "gemini-3-pro-image", false},
+		{"nano banana excluded", "nano-banana-pro-preview", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
