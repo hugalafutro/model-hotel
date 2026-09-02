@@ -110,6 +110,14 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		debuglog.Warn("configsync: refused import with a malformed password hash", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
+	case errors.Is(err, errInvalidSyncedProvider):
+		// A provider in the envelope carries a value the interactive API
+		// rejects (a max_in_flight the runtime would read as "no ceiling"). A
+		// legitimate primary never exports one, so refuse the whole envelope
+		// with a 400 rather than store it and ship it on to every member.
+		debuglog.Warn("configsync: refused import with an invalid provider", "error", err)
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
 	case errors.Is(err, errInvalidSyncedRateLimit):
 		// A virtual key or user in the envelope carries a rate limit the
 		// interactive API rejects: a negative TPM would import as "no cap" and a

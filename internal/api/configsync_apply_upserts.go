@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -66,8 +67,44 @@ func providerTypeForImport(p ExportProvider) string {
 	return provider.LegacyTypeFromURL(p.BaseURL)
 }
 
+// validateSyncedProvider applies to an imported provider the checks the
+// interactive admin API applies on create and update, so a compromised
+// primary cannot write through this path what the dashboard would reject.
+// The URL's shape is checked separately (validateURL below); this is the
+// rest: the in-flight ceiling, through the same rule the admin API uses
+// (the load-bearing one: a value below one is read as no ceiling at all),
+// the name's length and printability, and the disable date's format. A
+// disable date in the past is accepted: it was valid when the primary set
+// it, and the member's own sweep fires it immediately, which is what the
+// operator asked for. The URL's length is not bounded here: the admin API's
+// bound is cosmetic, a row past it is harmless, and refusing whole envelopes
+// over one would be a one-way door for a fleet. The name bound carries the
+// same door for a legacy row written before this check, and earns it: an
+// unprintable or ten-thousand-character name reaches logs, the dashboard
+// and hotel/ model strings, which a long URL never does. The name is
+// validated as sent and stored as sent (the admin API stores it trimmed):
+// storing a trimmed copy would diverge from the primary's hash and re-sync
+// forever, and trimming changes nothing the check cares about.
+func validateSyncedProvider(p ExportProvider) error {
+	if err := provider.ValidateMaxInFlight(p.MaxInFlight); err != nil {
+		return fmt.Errorf("%w: provider %q: %w", errInvalidSyncedProvider, p.Name, err)
+	}
+	if _, err := validateNameString("name", p.Name, 1, 100); err != nil {
+		return fmt.Errorf("%w: provider %q: %w", errInvalidSyncedProvider, p.Name, err)
+	}
+	if p.ScheduledDisableOn != nil {
+		if _, err := time.Parse("2006-01-02", *p.ScheduledDisableOn); err != nil {
+			return fmt.Errorf("%w: provider %q: scheduled_disable_on must be a YYYY-MM-DD date", errInvalidSyncedProvider, p.Name)
+		}
+	}
+	return nil
+}
+
 func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider, validateURL func(string) error) error {
 	for _, p := range providers {
+		if err := validateSyncedProvider(p); err != nil {
+			return err
+		}
 		// Defense in depth on the import path: a compromised primary must not be
 		// able to write a provider base_url that the interactive admin API would
 		// reject. validateURL is the same guard CreateProvider/UpdateProvider use
@@ -78,7 +115,9 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 		// out of the database entirely. Nil validateURL disables the check (tests).
 		if validateURL != nil {
 			if err := validateURL(p.BaseURL); err != nil {
-				return fmt.Errorf("provider %q has an invalid base_url: %w", p.Name, err)
+				// The same refusal class as the bounds above: the envelope
+				// carries what the admin API would reject, so a 400, not a 500.
+				return fmt.Errorf("%w: provider %q has an invalid base_url: %w", errInvalidSyncedProvider, p.Name, err)
 			}
 		}
 		_, err := tx.Exec(ctx, `
