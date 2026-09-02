@@ -67,17 +67,17 @@ export function DatabaseBackupSettings({
 	});
 
 	// GFS bucket per backup, so each row can carry a Grandfather/Father/Son tag.
-	// Sourced from the prune-preview classifier (it groups every backup by age
-	// against the configured retention), so the labels track the same rotation
-	// the sliders above configure.
-	// Its own key, outside the "backups" prefix: the preview is a POST the
-	// server treats as a read, and re-running it on every backups invalidation
-	// (create, delete, prune, restore) re-classified an unchanged list. It
-	// re-runs when the classification can differ: the set of backups on disk
-	// or the retention the classifier applies changes, both carried in the key.
-	// It waits for the settings so a late settings answer does not cost a
-	// second read (isPending, not undefined, so a settings error still lets
-	// the buckets load).
+	// Sourced from the prune-preview classifier, which groups every backup by age
+	// against the configured retention, so the labels track the same rotation the
+	// sliders above configure.
+	//
+	// Its own key, outside the "backups" prefix: the preview is a POST the server
+	// treats as a read, and running it on every backups invalidation (create,
+	// delete, prune, restore) would re-classify an unchanged list. The key
+	// carries what can change the classification: the set of backups on disk and
+	// the retention the classifier applies. It waits for the settings so a late
+	// settings answer does not cost a second read (isPending, not undefined, so
+	// a settings error still lets the buckets load).
 	const backupNames = useMemo(
 		() => (backups ?? []).map((b) => b.filename).sort(),
 		[backups],
@@ -211,10 +211,10 @@ export function DatabaseBackupSettings({
 		trackCopied: false,
 	});
 
-	// Puts the backup's signature sidecar on the clipboard for the restore
-	// form. The download hands over the dump alone, and without shell access to
-	// the backup directory this is the only way an operator can get the value
-	// that lets a restore be verified rather than taken on trust.
+	// Puts the backup's signature sidecar on the clipboard for the restore form.
+	// The download hands over the dump alone, so without shell access to the
+	// backup directory this is the only way to get the value a verified restore
+	// needs.
 	const copySignature = async (filename: string) => {
 		try {
 			const { signature } = await api.backups.signature(filename);

@@ -8,21 +8,18 @@ import (
 // Held secrets: every provider key the gateway holds, kept for the exact
 // layer of the credential mask over error text and log lines.
 //
-// The exact layer used to know one secret at a time, the key of the provider
-// whose response was being masked. That is the wrong scope for the threat it
-// exists for. A relay or aggregator in front of the operator's other vendor
-// accounts echoes the rejection it received upstream, and that rejection can
-// quote the key of a different provider row, in a custom format the shape
-// layer cannot recognise; the masker then had exactly the one credential it
-// did not need. The gateway holds every one of those keys, so the exact layer
-// over error text masks all of them: the set is seeded from the provider
-// table at startup and after every import (provider.HoldKeys), the create and
-// update handlers add the plaintext they have in hand, and every exact pass
-// over error or log text unions the secrets its caller names with this set.
+// A relay or aggregator in front of the operator's other vendor accounts
+// echoes the rejection it received upstream, and that rejection can quote the
+// key of a different provider row, in a custom format the shape layer cannot
+// recognise. The gateway holds every one of those keys, so the exact layer
+// over error text masks all of them: the set is seeded from the provider table
+// at startup and after every import (provider.HoldKeys), the create and update
+// handlers add the plaintext they hold, and every exact pass over error or log
+// text unions the secrets its caller names with this set.
 //
-// Only error and log text. The exact pass a client's content goes through
-// (a streamed answer, a success body) keeps to the attempted provider's own
-// key: no provider quotes another provider's key inside an answer, and a
+// Only error and log text. The exact pass a client's content goes through (a
+// streamed answer, a success body) keeps to the attempted provider's own key:
+// no provider quotes another provider's key inside an answer, and a
 // placeholder key an operator typed for a keyless local server ("not-needed")
 // is a plain word that must not be rewritten out of every answer the gateway
 // serves. The length floor here is the only filter, for the same reason: a
@@ -30,10 +27,9 @@ import (
 //
 // Registration is by value and never expires within a process: a rotated key
 // stays held until the next restart, after which the set is seeded from the
-// table again and the old key is gone with the row that held it. The set is
-// bounded by the number of distinct keys, a
-// few dozen on a large deployment, and a pass costs one substring search per
-// held key over an error body that is already bounded.
+// table again. The set is bounded by the number of distinct keys (a few dozen
+// on a large deployment), and a pass costs one substring search per held key
+// over an already bounded error body.
 
 var (
 	heldMu   sync.RWMutex

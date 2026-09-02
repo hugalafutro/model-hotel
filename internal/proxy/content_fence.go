@@ -9,44 +9,38 @@ import (
 	"unicode/utf8"
 )
 
-// The content fence: the request log stores fragments of upstream error text
+// The content fence. The request log stores fragments of upstream error text
 // (request_logs.error_message, and attempts[].detail in the per-attempt
-// trail), sanitized for credentials and UUIDs and bounded in length. None of
-// that stops a provider that quotes the prompt back in its error message
-// ("rate limit exceeded while processing: <the user's text>") from putting
-// request content into a column the logs API returns and the dashboard
-// renders, which breaks the one invariant the request log makes: request and
-// prompt content is never logged.
+// trail), sanitized for credentials and UUIDs and bounded in length. That does
+// not stop a provider quoting the prompt back in its error message ("rate
+// limit exceeded while processing: <the user's text>") from putting request
+// content into a column the logs API returns, which would break the invariant
+// that request and prompt content is never logged.
 //
-// The fence closes that exactly rather than heuristically. The gateway holds
-// the request body, so an echo of its content is, by definition, a substring
-// of a string the client sent. Every stored fragment is checked against the
-// request's content strings, and any run of contentEchoWindow or more runes
-// that both share is replaced by "[content]". The provider's own words (its
-// error code, its phrase, a reset timestamp) do not come from the request, so
-// they survive; only what the client wrote is removed. That keeps the
-// fragments useful for the work they exist for (reading an unrecognised 429
-// body to extend the phrase table) while making the invariant true by
-// construction.
+// The gateway holds the request body, so an echo of its content is by
+// definition a substring of a string the client sent. Every stored fragment is
+// checked against the request's content strings, and any run of
+// contentEchoWindow or more runes that both share is replaced by "[content]".
+// The provider's own words (its error code, its phrase, a reset timestamp) do
+// not come from the request, so they survive and the fragments stay useful for
+// reading an unrecognised 429 body.
 //
 // Each content string is indexed in the forms a stored fragment can carry it:
 // as written; whitespace-collapsed, because attemptDetail collapses the
-// trail's detail and a prompt with indented code or double spaces would
-// otherwise stop matching at every run of spaces; and the JSON-escaped
-// rendering of both, because error_message stores the provider's body as sent
-// and an echo inside a JSON string member carries \" and \n where the request
-// had a quote and a newline.
+// trail's detail and a prompt with indented code would otherwise stop matching
+// at every run of spaces; and the JSON-escaped rendering of both, because
+// error_message stores the provider's body as sent and an echo inside a JSON
+// string member carries \" and \n where the request had a quote and a newline.
 //
-// Limits, all deliberate: an echo shorter than the window is not caught (a
-// twelve-character secret quoted alone survives; the length cap on every
-// fragment bounds what that can be), a provider that re-cases or otherwise
-// rewrites the text breaks the match at each change (the runs either side
-// still fall), and encoded payloads are not indexed, since a fragment of an
-// image is not a disclosure and indexing megabytes of it would cost seconds
-// per failure. Content is content: a prompt that quotes a provider's error
-// text back at the gateway ("why do I get 'Rate limit exceeded for ...'") is
-// fenced when the provider says the same words, and that is the invariant
-// holding, not a false positive.
+// Accepted limits: an echo shorter than the window is not caught (the length
+// cap on every fragment bounds what that can be), a provider that re-cases or
+// otherwise rewrites the text breaks the match at each change (the runs either
+// side still fall), and encoded payloads are not indexed, since a fragment of
+// an image is not a disclosure and indexing megabytes of it would cost seconds
+// per failure. A prompt that quotes a provider's error text back at the
+// gateway ("why do I get 'Rate limit exceeded for ...'") is fenced when the
+// provider says the same words: that is the invariant holding, not a false
+// positive.
 
 const (
 	// contentEchoWindow is the shortest shared run (in runes) the fence
@@ -61,10 +55,9 @@ const (
 	// request whose forms all differ, about four million windows hashed and
 	// sorted once (windowSet, about 110ms) and then a few microseconds per
 	// fenced text, with the window set retained for the failure's lifetime.
-	// The walk
-	// visits the content-bearing members first (contentFirstKeys) and every
-	// map in sorted key order, so what the cap leaves out is deterministic
-	// and is the tail of the request.
+	// The walk visits the content-bearing members first (contentFirstKeys)
+	// and every map in sorted key order, so what the cap leaves out is
+	// deterministic and is the tail of the request.
 	contentIndexCap = 1 << 20
 	// contentBlobProbe is how many runes into a long string the walk looks
 	// before deciding it is an encoded payload rather than text.
@@ -98,8 +91,8 @@ var contentRoutingKeys = map[string]bool{
 // never parses its body a second time. Nil is a request with no content to
 // fence (nothing parsed, or a multipart upload with no text fields), and
 // every method tolerates it. The parse is guarded by a Once: the fence is
-// shared between the log entry and the stream state, and though every caller
-// today runs on the serving goroutine, nothing should depend on that.
+// shared between the log entry and the stream state, so nothing may depend on
+// both callers running on the serving goroutine.
 type contentFence struct {
 	body  []byte
 	extra []string
@@ -108,10 +101,9 @@ type contentFence struct {
 	// windows is the sorted, deduplicated hash of every content window,
 	// built once on the first mask (windowSet) and reused by every later
 	// one: the streaming error attribute fences once per SSE error frame,
-	// and walking the content again for each was the cost that scaled with
-	// the prompt rather than with the frame. Once built, the content strings
-	// themselves are released; nothing on the request path reads them
-	// again.
+	// and walking the content again for each costs with the prompt rather
+	// than with the frame. Once built, the content strings themselves are
+	// released; nothing on the request path reads them again.
 	winOnce sync.Once
 	windows []uint64
 }
@@ -125,10 +117,9 @@ func newContentFence(body []byte, extra ...string) *contentFence {
 	return &contentFence{body: body, extra: extra}
 }
 
-// strings returns the request's content strings in every indexed form. It is
-// for windowSet and for tests, and only before the first mask: windowSet
-// releases the strings once the set is built, and reading them from another
-// goroutine while it does is a race. Nothing on the request path calls it.
+// strings returns the request's content strings in every indexed form. Valid
+// only before the first mask: windowSet releases the strings once the set is
+// built, and reading them from another goroutine while it does is a race.
 func (f *contentFence) strings() [][]rune {
 	f.once.Do(f.parse)
 	return f.strs
@@ -265,13 +256,10 @@ func isBase64Rune(r rune) bool {
 
 // windowHash is an FNV-1a over the runes of one window, computed per
 // position without building a string. A hit is taken on the 64-bit hash
-// alone. Two distinct windows collide with probability 2^-64, so a lookup
-// against a set of N windows is wrong with probability N/2^64 (2^-42 at the
-// four-million-window ceiling), and a false hit costs a masked run of
-// provider text (sixteen runes, or more where it bridges two real masks),
-// never a leak: a genuine echo has the same hash by construction, so no
-// echo is ever missed. That is not worth keeping every content window in
-// memory for a rune-by-rune check.
+// alone: a lookup against a set of N windows is wrong with probability
+// N/2^64 (2^-42 at the four-million-window ceiling), and a false hit costs a
+// masked run of provider text, never a leak, since a genuine echo has the
+// same hash by construction and no echo is ever missed.
 func windowHash(r []rune) uint64 {
 	h := uint64(14695981039346656037)
 	for _, c := range r {
@@ -284,14 +272,10 @@ func windowHash(r []rune) uint64 {
 // windowSet returns the sorted, deduplicated hashes of every window of the
 // request's content, built once. Eight bytes per window: a 10 KB prompt is
 // 80 KB, and the largest request the index budget admits is about 32 MB,
-// held only for the failure's lifetime. That is about twice what the old
-// design retained (the content strings themselves, 16 MB at the ceiling,
-// which are released once the set exists), bought for a walk that no longer
-// scales with the prompt; a hash table would build faster still but retain
-// about twice as much again, and retained bytes are what several large
-// failures at once add up. The sort is a radix sort: a comparison sort of
-// four million hashes cost more than the walk it replaced, so a single-frame
-// failure would have paid for the memo without using it.
+// held only for the failure's lifetime. A hash table would build faster but
+// retain about twice as much, and retained bytes are what several large
+// failures at once add up to. The sort is a radix sort: a comparison sort of
+// four million hashes costs more than a single-frame failure saves by memoing.
 func (f *contentFence) windowSet() []uint64 {
 	f.winOnce.Do(func() {
 		strs := f.strings()
@@ -328,9 +312,8 @@ func compactCopy(sorted []uint64) []uint64 {
 // radixSort sorts hashes in place with an LSD radix sort, eight passes of
 // eight bits, which is linear in the count where a comparison sort of the
 // same four million values is not: on the largest request the index admits
-// the sort is about 100ms, the hashing about 15ms, and the old per-call
-// walk this replaces was about 70ms, so the first fence of such a request
-// costs somewhat more than before and every later one costs microseconds.
+// the sort is about 100ms and the hashing about 15ms, so the first fence of
+// such a request carries the cost and every later one costs microseconds.
 // Measured against the standard sort it is already ahead from about a
 // thousand values (a one-kilobyte prompt), so there is no small-input
 // fallback. The scratch buffer is transient.

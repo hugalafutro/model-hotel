@@ -20,8 +20,7 @@ import (
 // chat.completion.chunk SSE stream the rest of the pipeline (and the client)
 // speaks. It is single-goroutine: the StreamAdapter drives it from one read
 // loop. Events are dispatched on the JSON "type" field, so SSE "event:" lines
-// can be ignored; unknown event types are dropped silently (OpenAI adds new
-// ones over time, plan §13).
+// can be ignored; unknown event types are dropped silently.
 type StreamTranslator struct {
 	id      string
 	model   string

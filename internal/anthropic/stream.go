@@ -16,10 +16,9 @@ import (
 //	message_delta   // stop_reason + cumulative output usage
 //	message_stop
 //
-// It is a stateful state machine keyed on the active content block (blockKind),
-// not a text-vs-tool binary, so a thinking-block case is an additive change
-// later (plan Gap 5 design constraint). It is single-goroutine: the proxy drives
-// it from one streaming loop, exactly where the OpenAI chunks are parsed today.
+// It is a state machine keyed on the active content block (blockKind), not a
+// text-vs-tool binary. It is single-goroutine: the proxy drives it from one
+// streaming loop.
 type StreamTranslator struct {
 	messageID string
 	model     string
@@ -40,10 +39,10 @@ type StreamTranslator struct {
 	finishReason     string // last OpenAI finish_reason observed
 	finished         bool   // Finish() already emitted
 
-	// lateSignatures counts thought signatures that arrived on a fragment
+	// lateSignatures counts thought signatures that arrive on a fragment
 	// after the one that opened the call's block, where the id (their only
-	// carrier) was already fixed; the proxy logs the count at the end of the
-	// stream, since the loss surfaces a turn later as Gemini's refusal.
+	// carrier) is already fixed. The loss surfaces a turn later as Gemini's
+	// refusal, so the proxy logs the count at the end of the stream.
 	lateSignatures int
 }
 
@@ -81,7 +80,7 @@ func writeEvent(buf *bytes.Buffer, eventType string, payload any) error {
 // ensureStarted lazily emits message_start (and a ping, mirroring the real API)
 // the first time any content is processed. input_tokens is reported as 0:
 // OpenAI streaming does not reveal the prompt count until the terminal usage
-// chunk, and the locked decision is best-effort usage with no upstream mutation.
+// chunk.
 func (t *StreamTranslator) ensureStarted(buf *bytes.Buffer) error {
 	if t.started {
 		return nil
@@ -208,10 +207,9 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 	}
 
 	// Tool-call deltas. This assumes OpenAI streams each tool call's fragments
-	// contiguously (it does: the spec streams one call to completion before the
-	// next, keyed by Index). Truly interleaved fragments across two open tool
-	// blocks would emit input_json_delta against a closed Anthropic block; no
-	// known upstream does this, so we rely on the sequential guarantee.
+	// contiguously, as the spec does: one call runs to completion before the
+	// next, keyed by Index. Truly interleaved fragments across two open tool
+	// blocks would emit input_json_delta against a closed Anthropic block.
 	for _, tc := range choice.Delta.ToolCalls {
 		if err := t.ensureStarted(&buf); err != nil {
 			return nil, err

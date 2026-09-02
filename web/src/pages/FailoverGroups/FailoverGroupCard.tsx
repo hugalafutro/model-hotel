@@ -30,9 +30,9 @@ import {
 } from "./entryCircuit";
 import { SortableEntry } from "./SortableEntry";
 
-// Derive a stable key from entries so the card resets local state
-// when the server data changes (after mutation/refetch).
-// Includes enabled state so toggles are detected, not just UUID order.
+// A stable key over the entries, so the card resets its local state when the
+// server data changes. Includes the enabled flag, so a toggle is detected and
+// not just a change of UUID order.
 function entriesKey(entries: FailoverGroup["entries"]): string {
 	return entries.map((e) => `${e.model_uuid}:${e.enabled}`).join(",");
 }
@@ -60,15 +60,14 @@ export function FailoverGroupCard({
 	onDelete: () => void;
 	onEdit?: () => void;
 	// When true this group's config is managed by the fleet primary. Every write
-	// here (edit, delete, reorder/priority_order, the group on/off flag, and the
-	// per-entry enabled flags) is synced config that the next config sync
-	// overwrites, so all of them are hidden or locked. These are not local
-	// runtime overrides; selection/bulk affordances are gated upstream too.
+	// here (edit, delete, reorder/priority_order, the group on/off flag and the
+	// per-entry enabled flags) is synced config the next config sync overwrites,
+	// so all of them are hidden or locked.
 	managed?: boolean;
 	cbProviderMap: Map<string, CircuitBreakerProviderStatus>;
 	// Passed straight to the entries. Unlike every other write on this card it
 	// survives `managed`: clearing a circuit is local runtime recovery, not a
-	// config edit the primary would overwrite.
+	// config edit the primary overwrites.
 	onResetCircuit?: (providerId: string, providerName: string) => void;
 	resetPendingProviderId?: string;
 }) {
@@ -76,14 +75,13 @@ export function FailoverGroupCard({
 	const { toast } = useToast();
 	const { copy } = useCopyToClipboard({ trackCopied: false });
 
-	// Optimistic local state: reorders immediately on dragEnd so the DOM
-	// order matches the visual drag position. key-based reset ensures
-	// local state re-syncs when the server data changes after mutation.
+	// Optimistic local state: reorders on dragEnd so the DOM order matches the
+	// visual drag position.
 	const [localEntries, setLocalEntries] = useState(group.entries);
 	const key = useMemo(() => entriesKey(group.entries), [group.entries]);
 
-	// When server data changes, reset local state. Using key as a dep
-	// avoids the lint error from setState-in-effect while still syncing.
+	// Resets the local state when the server data changes. Comparing the key
+	// during render avoids the setState-in-effect lint error while still syncing.
 	const [prevKey, setPrevKey] = useState(key);
 	if (prevKey !== key) {
 		setPrevKey(key);
@@ -91,12 +89,10 @@ export function FailoverGroupCard({
 	}
 
 	// The breaker's view of each entry the router will actually use: the entry
-	// toggle on AND the underlying model and provider enabled (matches
-	// SortableEntry's effective-state display). One map feeds the count, each
-	// entry's chip and the header ("2 of 3 entries live", or "all entries dark"
-	// with the earliest retry), so the three cannot drift apart. The parent
-	// rebuilds cbProviderMap on every poll, which is also what keeps the busy
-	// window current: memoise that map upstream and this needs its own tick.
+	// toggle on AND the underlying model and provider enabled. One map feeds the
+	// count, each entry's chip and the header, so the three cannot drift apart.
+	// The parent rebuilds cbProviderMap on every poll, which is what keeps the
+	// busy window current: memoise that map upstream and this needs its own tick.
 	const circuitViews = useMemo(() => {
 		const views = new Map<string, EntryCircuitView>();
 		for (const e of localEntries) {

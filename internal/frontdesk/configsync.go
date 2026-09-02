@@ -16,14 +16,14 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// This file implements the Front Desk side of HA fleet config sync. It
-// orchestrates the member-side /api/config/export + /api/config/import endpoints
-// (see internal/api/configsync.go): pull the chosen primary's config, then push
-// it to every other member so the fleet converges to one configuration.
+// The Front Desk side of HA fleet config sync: it drives the member-side
+// /api/config/export and /api/config/import endpoints, pulling the chosen
+// primary's config and pushing it to every other member so the fleet converges
+// on one configuration.
 //
-// Config replace can remove providers/keys on a replica, so it is a deliberate,
-// primary-driven, double-confirmed action. No key material is ever returned to
-// the browser or logged; only names and counts.
+// A config replace can remove providers and keys on a replica, so it is a
+// deliberate, primary-driven, double-confirmed action. No key material reaches
+// the browser or the logs; only names and counts.
 
 const (
 	memberConfigExportPath = "/api/config/export"
@@ -31,16 +31,15 @@ const (
 
 	// fleetSourceGenHeader carries the monotonic source generation (auto_sync_gen)
 	// on a real import so the member's commit fence can refuse an out-of-order
-	// stale push. It must match internal/api.fleetSourceGenHeader. An older member
-	// ignores it, so sending it is always safe.
+	// stale push. It must match internal/api.fleetSourceGenHeader; a member that
+	// does not know the header ignores it.
 	fleetSourceGenHeader = "X-Fleet-Source-Gen"
 )
 
-// manualSyncReason is stamped on a member's last-config-sync marker (and the
-// audit event) when an operator drives the sync (vs the automatic loop). It
-// names who triggered it — a paired device or the dashboard — so the Members
-// table and event log attribute the run instead of the old anonymous "from the
-// wizard" phrasing, which read wrongly for a phone-initiated sync.
+// manualSyncReason is stamped on a member's last-config-sync marker and audit
+// event when an operator drives the sync rather than the automatic loop. It
+// names who triggered it, a paired device or the dashboard, so the Members
+// table and event log attribute the run.
 func manualSyncReason(actor string) string {
 	return "manual sync by " + actor
 }
@@ -64,19 +63,18 @@ type syncResultItem struct {
 	// it holds no such model, as provider/model_id. Rides alongside a successful
 	// result for the same reason as Partial.
 	UnappliedModels []string `json:"unapplied_models,omitempty"`
-	// TimedOut marks a push whose deadline expired before the member answered. The
-	// member may well have committed the config and just taken longer than
-	// memberSyncTimeout to say so, which is what a long member-side discovery looks
-	// like from here. Not on the wire: it only tells the auto-sync loop the member
-	// did receive the config, so the re-push is rate-limited.
+	// TimedOut marks a push whose deadline expired before the member answered.
+	// The member may have committed the config and simply taken longer than
+	// memberSyncTimeout to say so, which is what a long member-side discovery
+	// looks like from here. Not on the wire: it only tells the auto-sync loop the
+	// member did receive the config, so the re-push is rate-limited.
 	TimedOut bool `json:"-"`
 	// Unconfirmed marks a push whose answer was lost in either of the two ways a
 	// still-running import looks like a failure from here: the deadline expired
-	// (TimedOut), or a 5xx came back that can stand in front of a live import (a
-	// gateway timeout, or another 5xx after the call ran long enough for a proxy
-	// deadline to have cut it; see lostAnswer5xx). The import may have landed, so
-	// the auto-sync loop rate-limits the re-push the same way it does a timeout
-	// instead of restarting the member's import every tick. Not on the wire.
+	// (TimedOut), or a 5xx came back that can stand in front of a live import
+	// (lostAnswer5xx). The import may have landed, so the auto-sync loop
+	// rate-limits the re-push instead of restarting the member's import every
+	// tick. Not on the wire.
 	Unconfirmed bool `json:"-"`
 }
 
@@ -91,24 +89,22 @@ type memberImportResult struct {
 	// push). It is a benign, expected outcome, not a sync failure.
 	Stale bool `json:"stale,omitempty"`
 	// Incomplete is true when the member committed the config but could not
-	// materialise all of it. Absent on a member running older code, which
+	// materialise all of it. Absent on a member too old to report it, which
 	// decodes to false and reads as complete.
 	Incomplete bool `json:"incomplete,omitempty"`
 	// Unapplied names the custom failover groups the member did not build.
 	Unapplied []string `json:"unapplied,omitempty"`
 	// Partial names the custom failover groups the member built with fewer entries
 	// than the primary sent, because it holds fewer of their models. Travels with
-	// Incomplete = false: the member applied everything it was asked to. Divergence
-	// is decided by the hash; this only makes the alert specific.
+	// Incomplete = false: the member applied everything it was asked to.
 	Partial []string `json:"partial,omitempty"`
 	// UnappliedModels names per-model disables the member could not apply because
 	// it holds no such model. Same disposition as Partial: reported, not a failure.
 	UnappliedModels []string `json:"unapplied_models,omitempty"`
 	// ModelStateFailed is true when the member's per-model disable reconcile failed
-	// outright, so it is still routing to models the primary switched off. It is the
-	// other thing Incomplete can mean; without it an unbuilt failover group and a
-	// failed reconcile are indistinguishable, since only the former has names.
-	// Absent on a member running older code, which reads as false.
+	// outright, so it is still routing to models the primary switched off. It is
+	// the other fault Incomplete can mean, and the one with no names to report.
+	// Absent on a member too old to report it, which reads as false.
 	ModelStateFailed bool             `json:"model_state_failed,omitempty"`
 	Diff             memberConfigDiff `json:"diff"`
 }
@@ -127,7 +123,7 @@ type memberConfigDiff struct {
 	Users          memberEntityDiff `json:"users"`
 }
 
-// added/updated/removed total the diff across all entity kinds.
+// counts totals the diff across all entity kinds.
 func (d memberConfigDiff) counts() (added, updated, removed int) {
 	for _, e := range []memberEntityDiff{d.Providers, d.VirtualKeys, d.Settings, d.FailoverGroups, d.Users} {
 		added += len(e.Added)
@@ -141,25 +137,19 @@ func (d memberConfigDiff) counts() (added, updated, removed int) {
 // and reports whether the caller should proceed to applyMemberConfig. It returns
 // (item, proceed):
 //
-//   - proceed=true (item nil): either the member is reachable, syncable, and
-//     changing; or it is unreachable / version- or MASTER_KEY-blocked. In both
-//     cases the caller runs applyMemberConfig, which performs the authoritative
-//     import and reports the real outcome. A blocked or unreachable member cannot
-//     be destructively written (its import is refused), so letting it fall through
-//     costs nothing and yields a precise error.
+//   - proceed=true (item nil): the member is reachable, syncable and changing, or
+//     it is unreachable / version- or MASTER_KEY-blocked. Either way the caller
+//     runs applyMemberConfig, whose import is authoritative and reports the real
+//     cause; a blocked or unreachable member cannot be written destructively.
 //   - proceed=false (item set): the member is already converged, reported OK with
 //     no import. The caller skips applyMemberConfig and records item as-is.
 //
 // A member the dry run reports as converged is skipped rather than handed a no-op
-// import, which would run member-side model discovery for no reason. That skip is
-// rare: computeDiff keys on presence, so every entity the member and the primary
-// share counts as updated and a real fleet's diff is almost never empty. The
-// auto-syncer therefore leans on incompleteRetryInterval, not on this branch.
+// import, which would run member-side model discovery for no reason.
 //
-// Front Desk takes no snapshot before overwriting a member; members back themselves
-// up on their own schedule. The trade is deliberate: a bad config propagation cannot
-// be rolled back from a snapshot Front Desk just took, and in exchange no member
-// accumulates a pg_dump per sync run.
+// Front Desk takes no snapshot before overwriting a member; members back
+// themselves up on their own schedule, so a bad propagation cannot be rolled
+// back from here.
 func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string, export []byte) (*syncResultItem, bool) {
 	preview, status, err := s.pushMemberImport(ctx, m, token, export, true, 0) // dry-run: gen unused (no fence header)
 	if err != nil || status != http.StatusOK || !preview.SchemaVersionOK || !preview.MasterKeyOK {
@@ -184,8 +174,7 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 	for _, r := range results {
 		// An incomplete member counts as a config write: it committed the config and
 		// only failed to materialise part of it. Excluding it would freeze the fleet
-		// marker, which the staleness watchdog reads, for as long as one member
-		// stayed diverged.
+		// marker the staleness watchdog reads while one member stays diverged.
 		if r.OK || r.Incomplete {
 			changed = true
 			break
@@ -204,11 +193,11 @@ func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, result
 // marker with reason (shown in the Members table), so both the wizard and the
 // auto-sync loop record why and when a member last converged.
 //
-// emitSuccessEvent separates the two callers' notion of success. The wizard sets it
-// true: an operator drove this sync, so it wants one event per member and the
+// emitSuccessEvent separates the two callers' notion of success. The wizard sets
+// it true: an operator drove this sync, so it wants one event per member and the
 // heartbeat moves with the write. The auto-syncer sets it false: it emits one
-// roll-up rather than toasting per member, and takes its heartbeat from its own hash
-// comparison. Failure events fire either way.
+// roll-up and takes its heartbeat from its own hash comparison. Failure events
+// fire either way.
 func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string, export []byte, reason string, emitSuccessEvent bool, sourceGen int64, pushedHash string) syncResultItem {
 	res := syncResultItem{MemberID: m.ID, Name: m.Name}
 	// How long the push ran separates a 5xx that cut a live import from one the
@@ -216,17 +205,16 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	pushStart := time.Now()
 	out, status, err := s.pushMemberImport(ctx, m, token, export, false, sourceGen)
 	// Carried on the success path too: neither a group built short nor a disable
-	// the member has no model for is a failure to apply, so neither reaches the
-	// incomplete arm below, and the auto-sync loop needs the names for its
-	// divergence alert.
+	// the member has no model for is a failure to apply, and the auto-sync loop
+	// needs the names for its divergence alert.
 	res.Partial = out.Partial
 	res.UnappliedModels = out.UnappliedModels
 	switch {
 	case err != nil && status == 0 && isTimeout(err):
-		// The deadline expired with the member still working, so unlike a refusal or an
-		// unreachable host this push may have landed. Its own outcome, so the loop
-		// rate-limits the re-push instead of re-importing every tick and restarting the
-		// member-side discovery.
+		// The deadline expired with the member still working, so unlike a refusal
+		// or an unreachable host this push may have landed. Its own outcome, so the
+		// loop rate-limits the re-push instead of re-importing every tick and
+		// restarting the member-side discovery.
 		res.Error = "this member did not answer in time"
 		res.TimedOut = true
 		res.Unconfirmed = true
@@ -236,10 +224,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	case err != nil && status == 0:
 		res.Error = "could not reach this member"
 	case err != nil:
-		// The member answered, just with a status we cannot apply: surface it so a
-		// wrong stored token or a member-side error is not mislabeled "offline",
-		// and with the member's own reason when it gave one, so a refused
-		// envelope names the field here rather than only in the member's log.
+		// The member answered, with a status we cannot apply: surface it so a wrong
+		// stored token or a member-side error is not mislabeled "offline", and
+		// carry the member's own reason when it gave one.
 		res.Error = fmt.Sprintf("this member rejected the request (HTTP %d)", status)
 		var refusal *memberRefusal
 		if errors.As(err, &refusal) && refusal.reason != "" {
@@ -249,50 +236,49 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 			// This 5xx is not proof the import failed: a reverse proxy between Front
 			// Desk and the member answers 502/504 when the import outlives its own
 			// read timeout, with the member still applying behind it. The hash
-			// binding covers the other slow 5xx source, the member's own import
-			// erroring before commit: nothing landed there, so it can only converge
-			// on this exact hash through an operator restoring precisely this config.
+			// binding covers the other slow 5xx source, an import that errored
+			// before commit: nothing landed there, so the member can only reach this
+			// exact hash if an operator restores precisely this config.
 			res.Error = fmt.Sprintf("this member's answer was lost (HTTP %d); it may still be applying", status)
 			res.Unconfirmed = true
 			s.markUnconfirmedPush(m.ID, pushedHash)
 		}
 	case !out.SchemaVersionOK:
 		// Schema is checked before MASTER_KEY: a 422 short-circuits before the
-		// canary, leaving master_key_ok an unevaluated false (see previewMemberConfig).
+		// decrypt canary, leaving master_key_ok an unevaluated false.
 		res.Error = "version mismatch with the primary"
 	case !out.MasterKeyOK:
 		res.Error = "MASTER_KEY does not match the primary"
 	case out.Stale:
 		// The member's commit fence refused this push because a newer source
-		// generation already applied. This is the expected, benign outcome of a
-		// rearm/repoint landing mid-flight: the superseding pass is authoritative,
-		// so do not stamp last-sync, do not count it as converged, and do not emit a
-		// failure event. res.OK stays false (with no Error) so the caller leaves the
-		// member for the newer pass; a soft note documents the disposition.
+		// generation already applied, the benign outcome of a rearm or repoint
+		// landing mid-flight. The superseding pass is authoritative, so this one
+		// does not stamp last-sync, does not count as converged, and emits no
+		// failure event; res.OK stays false so the caller leaves the member to the
+		// newer pass.
 		res.Error = "superseded by a newer sync"
 		debuglog.Debug("frontdesk: config sync superseded by a newer generation", "member", m.Name, "source_gen", sourceGen)
-		// Counted under its own label: a fence supersede is benign, and folding it
-		// into "err" would make routine rearms look like sync failures on a graph.
+		// Its own label: a fence supersede is benign, and folding it into "err"
+		// would make routine rearms look like sync failures on a graph.
 		recordConfigSync("superseded")
 		return res
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
 	case out.Incomplete:
-		// The member committed the config but could not build part of it, so this push
-		// did not apply it: res.OK stays false, keeping the metric and the wizard's
-		// per-member result honest. The auto-sync loop does not depend on that, since
-		// the hash comparison decides convergence; what this report adds is the names
-		// below, which make the alert specific.
+		// The member committed the config but could not build part of it, so this
+		// push did not apply it and res.OK stays false. The auto-sync loop decides
+		// convergence from the hash instead; what this arm adds is the names that
+		// make its alert specific.
 		res.Error = incompleteMessage(out.Unapplied, out.ModelStateFailed)
 		res.Incomplete = true
 		res.Unapplied = out.Unapplied
 		recordConfigSync("incomplete")
 		// The member did commit this config, so its last-sync marker advances even
-		// though res.OK stays false. Otherwise a member that can never build one group
-		// shows "Last Config Sync" frozen at its last clean apply, and the staleness
-		// watchdog raises config.autosync_stale on top of the divergence alert already
-		// naming the real problem. A write failure is logged and dropped: the member is
-		// reported diverged either way.
+		// though res.OK stays false. Otherwise a member that can never build one
+		// group shows "Last Config Sync" frozen at its last clean apply, and the
+		// staleness watchdog raises config.autosync_stale on top of the divergence
+		// alert already naming the real problem. A write failure is logged and
+		// dropped: the member is reported diverged either way.
 		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
 			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
 		} else {
@@ -327,19 +313,15 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		recordConfigSync("ok")
 		if emitSuccessEvent {
 			// The wizard's path: an operator drove this sync, so a completed write is
-			// what they asked to be told about.
-			//
-			// The auto-sync loop passes false and deliberately gets no stamp here. A
-			// successful write proves the member took the config, not that it ended up
-			// holding it. A member that can never converge commits every re-push, so
-			// stamping here would refresh "verified in sync" every
-			// incompleteRetryInterval beside the amber badge saying it does not match.
+			// what they asked to be told about. The auto-sync loop passes false and
+			// takes no stamp here: a successful write proves the member took the
+			// config, not that it ended up holding it.
 			s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 			s.emit(ctx, Event{
 				Type: "config.synced", Severity: "info", Source: "frontdesk",
 				Message: fmt.Sprintf("Config synced to %s", m.Name), MemberID: m.ID,
-				// reason carries who/why (e.g. "manual sync by Pixel (operator)" or
-				// "did not hold the primary's config"), so the event log attributes the run.
+				// reason carries who and why (e.g. "manual sync by Pixel (operator)"
+				// or "did not hold the primary's config") for the event log.
 				Metadata: map[string]any{"reason": reason},
 			})
 		}
@@ -347,14 +329,11 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		recordConfigSync("err")
 		debuglog.Warn("frontdesk: config sync failed", "member", m.Name, "error", res.Error)
 		// An unconfirmed push (timed out, or 5xx'd in a way that can stand in front
-		// of a live import) is published at info, not warning. The type stays the
-		// same, because it is still the outcome of a push that did not converge the
-		// member and belongs in the same log, but alert dispatch derives its
-		// notification severity from the live event, and paging an operator at
-		// warning for a condition this very message describes as probably fine is
-		// noise. The caller agrees with the message: it stamps the push as received
-		// and rate-limits the re-push on exactly that reading. A member that is
-		// genuinely refusing, or unreachable, or mismatched, still warns.
+		// of a live import) is published at info, not warning: alert dispatch takes
+		// its notification severity from the live event, and paging an operator for
+		// a condition this message calls probably fine is noise. The type stays the
+		// same, since the push still did not converge the member. A genuine
+		// refusal, an unreachable member, or a mismatch still warns.
 		severity := "warning"
 		if res.Unconfirmed {
 			severity = "info"
@@ -363,10 +342,10 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 			Type: "config.sync_failed", Severity: severity, Source: "frontdesk",
 			Message: syncFailureMessage(m.Name, res.Error, res.TimedOut), MemberID: m.ID,
 			// error carries the specific cause the message renders; timed_out and
-			// unconfirmed are always present so a consumer reads one shape rather than
-			// testing for the keys. unconfirmed is what separates a lost answer, which
-			// is rate-limited and may prove itself landed on a later verification pass,
-			// from a genuine rejection.
+			// unconfirmed are always present so a consumer reads one shape rather
+			// than testing for the keys. unconfirmed separates a lost answer, which
+			// is rate-limited and may prove itself landed on a later verification
+			// pass, from a genuine rejection.
 			Metadata: map[string]any{"reason": reason, "error": res.Error, "timed_out": res.TimedOut, "unconfirmed": res.Unconfirmed},
 		})
 	}
@@ -375,12 +354,11 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 
 // incompleteMessage renders what a member committed but could not materialise.
 //
-// Incomplete covers two faults, and they send the operator to different places: a
-// custom failover group that would not build (those models serve 404 for
+// Incomplete covers two faults, and they send the operator to different places:
+// a custom failover group that would not build (those models serve 404 for
 // hotel/<group>), and a per-model disable reconcile that failed (the member is
-// still routing to models the primary switched off). Only the first has names to
-// report, so naming groups whenever there were none reported the wrong fault for
-// the second.
+// still routing to models the primary switched off). Only the first has names,
+// so each fault gets its own clause.
 func incompleteMessage(unapplied []string, modelStateFailed bool) string {
 	var clauses []string
 	if len(unapplied) > 0 {
@@ -391,23 +369,21 @@ func incompleteMessage(unapplied []string, modelStateFailed bool) string {
 		clauses = append(clauses, "this member could not apply the primary's per-model settings")
 	}
 	if len(clauses) == 0 {
-		// Neither named: an older member reporting incomplete for a fault this build
-		// has no field for, or a whole group-build transaction that failed before any
-		// group was evaluated.
+		// Neither named: a member reporting incomplete for a fault this build has no
+		// field for, or a group-build transaction that failed before any group was
+		// evaluated.
 		return "applied, but this member could not materialise all of it"
 	}
 	return "applied, but " + strings.Join(clauses, ", and ")
 }
 
 // syncFailureMessage renders the operator-facing line for a push that did not
-// converge the member, from the specific cause rather than a bare "failed": the
-// causes range from an unreachable host to a MASTER_KEY mismatch, and each points
-// at different work.
+// converge the member, naming the specific cause: they range from an unreachable
+// host to a MASTER_KEY mismatch, and each points at different work.
 //
-// A timed-out push gets its own wording because it is not a refusal. The member
-// took the request and is very likely still importing; the caller stamps it as
-// received and rate-limits the re-push on exactly that reading. Calling it a
-// failure sends the operator after a member that is working.
+// A timed-out push gets its own wording because it is not a refusal: the member
+// took the request and is likely still importing, so calling it a failure sends
+// the operator after a member that is working.
 func syncFailureMessage(member, cause string, timedOut bool) string {
 	if timedOut {
 		return fmt.Sprintf("%s did not answer the config push in time; it may still be applying", member)
@@ -418,11 +394,11 @@ func syncFailureMessage(member, cause string, timedOut bool) string {
 	return fmt.Sprintf("Failed to sync config to %s: %s", member, cause)
 }
 
-// isTimeout reports whether a member call failed because its deadline expired, as
-// opposed to being refused, unreachable, or cancelled. Both shapes count: the
+// isTimeout reports whether a member call failed because its deadline expired,
+// as opposed to being refused, unreachable, or cancelled. Both shapes count: the
 // client's own Timeout, and an expired context deadline. A cancelled context is
-// deliberately not a timeout, so a pass aborted by a rearm is never mistaken for a
-// slow member.
+// deliberately not a timeout, so a pass aborted by a rearm is never mistaken for
+// a slow member.
 func isTimeout(err error) bool {
 	var nerr net.Error
 	if errors.As(err, &nerr) && nerr.Timeout() {
@@ -446,11 +422,10 @@ const unconfirmed5xxFloor = 10 * time.Second
 //
 // 504 qualifies on its own: a gateway timeout means an intermediary waited for
 // the member and gave up, however long that wait was configured to be. Any
-// other 5xx qualifies only after unconfirmed5xxFloor: an instant 502/500
-// cannot mean "still importing" — it is a proxy whose upstream is down, or a
-// member handler erroring on the spot — and treating it as maybe-landed would
-// rate-limit the re-push (see applyAutoSync) for a push that demonstrably did
-// nothing, where retrying next tick is right.
+// other 5xx qualifies only after unconfirmed5xxFloor. An instant 502 or 500
+// cannot mean "still importing": it is a proxy whose upstream is down, or a
+// member handler erroring on the spot, and treating it as maybe-landed would
+// rate-limit the re-push of a push that demonstrably did nothing.
 func lostAnswer5xx(status int, elapsed time.Duration) bool {
 	if status == http.StatusGatewayTimeout {
 		return true
@@ -464,11 +439,10 @@ func lostAnswer5xx(status int, elapsed time.Duration) bool {
 // would accept refuses an envelope the fleet could have synced, and reading more
 // buys nothing since the receiving member would reject it.
 //
-// It has to be its own limit rather than the shared maxMemberRespBody, which is
-// eight times smaller and sized for fixed-shape documents. An envelope grows with
-// the fleet's providers, virtual keys, users and groups, and this one is
-// load-bearing for every member: a refused read aborts the whole pass, so no
-// member converges.
+// It is its own limit rather than the shared maxMemberRespBody, which is eight
+// times smaller and sized for fixed-shape documents. An envelope grows with the
+// fleet's providers, virtual keys, users and groups, and a refused read aborts
+// the whole pass, so no member converges.
 const maxMemberConfigExportBody = 8 << 20
 
 // fetchMemberExport reads a member's config envelope as raw JSON so it can be
@@ -497,14 +471,14 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 	var headers [][2]string
 	if dryRun {
 		path += "?dryRun=1"
-		// A dry run is read-only and never fenced, so the source-generation header
-		// is deliberately omitted: it carries no meaning for a preview.
+		// A dry run is read-only and never fenced, so it carries no
+		// source-generation header.
 	} else {
 		// Stamp the commit fence on the real import so the member can refuse a
 		// stale, out-of-order push (a primary repoint that lands mid-flight).
 		headers = append(headers, [2]string{fleetSourceGenHeader, strconv.FormatInt(sourceGen, 10)})
 	}
-	// The import client gets a longer deadline than the health probe: a real
+	// The import client has a longer deadline than the health probe: a real
 	// import runs model discovery on the member, which routinely exceeds the 4s
 	// probe timeout, and timing out there would mislabel a successful import as
 	// "could not reach this member".
@@ -525,11 +499,10 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 }
 
 // memberRefusal is a member answering the import with a status Front Desk
-// cannot apply, carrying whatever reason the member gave. A member refuses
-// an envelope it will not write (a provider field its own admin API would
-// reject, a wrong token) with a 400 whose body names the field; without the
-// body the operator driving the fleet saw only the status, and the reason
-// lived in the member's own log.
+// cannot apply, carrying whatever reason the member gave. A member refuses an
+// envelope it will not write (a provider field its own admin API would reject,
+// a wrong token) with a 400 whose body names the field, so the operator driving
+// the fleet sees the reason and not just the status.
 type memberRefusal struct {
 	status int
 	reason string
@@ -558,9 +531,9 @@ const maxRefusalReasonRunes = 240
 // characters (bidi overrides, zero-width joiners), stripped of any userinfo
 // in a URL it quotes (a refused setting or base_url is echoed raw by
 // url.Parse, password included), key-shape masked, and bounded in runes.
-// The exact credential layer runs too but has nothing to match here: Front
-// Desk decrypts no provider key, so its held set is empty; the shape layer
-// is what does the work in this process.
+// The exact-credential layer runs too but has nothing to match here: Front
+// Desk decrypts no provider key, so its held set is empty and the shape layer
+// does the work in this process.
 func refusalReason(body []byte) string {
 	text := strings.TrimSpace(string(body))
 	if text == "" || strings.HasPrefix(text, "<") {

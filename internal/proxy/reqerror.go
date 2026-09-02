@@ -9,8 +9,7 @@ import (
 
 // ErrorKind classifies why a proxied request failed. It is the machine-readable
 // contract for the request log and dashboard; the human-facing message is
-// rendered FROM it and must never be parsed to recover the kind. See
-// plans/logging-and-errors-overhaul.md.
+// rendered FROM it and must never be parsed to recover the kind.
 type ErrorKind string
 
 const (
@@ -32,8 +31,8 @@ const (
 	// retrying can never succeed until someone tops up or changes plan.
 	KindProviderNotEntitled ErrorKind = "provider_not_entitled"
 	// KindProviderBadRequest means the provider understood the request and
-	// refused the payload — normally a gateway bug (wrong dialect for the
-	// upstream route), not a provider fault.
+	// refused the payload, normally a gateway bug (the wrong dialect for the
+	// upstream route) rather than a provider fault.
 	KindProviderBadRequest ErrorKind = "provider_bad_request"
 	// KindProviderSaturated means the provider is alive and refusing on
 	// capacity (concurrency slots, RPM, TPM). Retry in seconds. Distinct from
@@ -45,7 +44,7 @@ const (
 	// resets. The difference from KindProviderNotEntitled is who fixes it:
 	// time, versus a person topping up or changing plan.
 	KindProviderQuotaExhausted ErrorKind = "provider_quota_exhausted"
-	// KindProviderTimeout means the TTFT probe or stall watchdog fired — the
+	// KindProviderTimeout means the TTFT probe or stall watchdog fired: the
 	// provider accepted the connection but did not produce output in time.
 	KindProviderTimeout ErrorKind = "provider_timeout"
 	// KindFailoverTimeout means the overall failover deadline expired.
@@ -53,9 +52,9 @@ const (
 	// KindRetryTimeout means the param-strip retry's deadline expired.
 	KindRetryTimeout ErrorKind = "retry_timeout"
 	// KindHedgeSuperseded means the gateway itself abandoned this attempt because
-	// another hedged candidate won the race. It is not a failure of the provider
-	// and not a client hangup — the client is still connected and is served by
-	// the winner — so it must never be confused with KindClientDisconnect.
+	// another hedged candidate won the race. It is not a provider failure and
+	// not a client hangup, since the client is still connected and served by the
+	// winner, so it must never be confused with KindClientDisconnect.
 	KindHedgeSuperseded ErrorKind = "hedge_superseded"
 	// KindInternal is a gateway-internal failure (e.g. could not build the request).
 	KindInternal ErrorKind = "internal"
@@ -68,14 +67,14 @@ const (
 
 // reqError is the structured description of a single failed failover attempt,
 // threaded through the loop as requestState.lastReqErr. The exhaustion path
-// (failAllExhausted) renders it — possibly wrapped — into the terminal request
+// (failAllExhausted) renders it, possibly wrapped, into the terminal request
 // log message, the client response, and the HTTP status code.
 //
 // Attempt is 0-based internally and always rendered 1-based for humans.
-// Underlying preserves the real provider/transport error even when the
+// Underlying preserves the real provider or transport error even when the
 // attempt's terminal cause is a context cancellation, so the original failure
-// is never silently dropped (the motivating bug). Detail carries a short
-// structured fragment such as "HTTP 500".
+// is never silently dropped. Detail carries a short structured fragment such as
+// "HTTP 500".
 type reqError struct {
 	Kind       ErrorKind
 	Attempt    int
@@ -89,26 +88,19 @@ type reqError struct {
 	Hint string
 }
 
-// cancelOriginToKind maps an internal cancel-origin identifier (the value
-// stored under ctxkeys.CancelOriginKey, also fed to humanReadableCancelOrigin)
-// to its error kind.
 // cancelKind classifies a failure that is a context error rather than the
-// provider misbehaving, and reports whether it was one.
-//
-// It exists because a second, narrower spelling of this rule kept being
-// hand-rolled at each new site and kept dropping a case. The one that cost most:
-// checking only errors.Is(err, context.Canceled) missed context.DeadlineExceeded,
-// which is what this gateway's own request_timeout produces mid-body-read — so a
-// slow but healthy provider was charged with a breaker failure, five of them
-// taking it out of rotation for every tenant.
+// provider misbehaving, and reports whether it was one. It is the package's
+// single spelling of that rule: a narrower one checking only
+// errors.Is(err, context.Canceled) misses context.DeadlineExceeded, which is
+// what this gateway's own request_timeout produces mid-body-read, and a slow but
+// healthy provider is then charged with a breaker failure.
 //
 // Two inputs, one question: the error itself, and the attempt's context going
-// down underneath a read that reported something else. Keeping those as two
-// separate guards at each site is what let one of them ship without the other.
+// down underneath a read that reported something else.
 //
 // Whoever cancelled, it was not the provider: every kind this returns is
 // excluded by providerAtFault, so a caller that classifies with this and then
-// gates on providerAtFault needs no separate client-gone guard at all.
+// gates on providerAtFault needs no separate client-gone guard.
 func cancelKind(ctx context.Context, err error) (ErrorKind, bool) {
 	interrupted := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 	if !interrupted && ctx.Err() == nil {
@@ -123,6 +115,9 @@ func cancelKind(ctx context.Context, err error) (ErrorKind, bool) {
 	return cancelOriginToKind(resolveCancelOrigin(ctx, err)), true
 }
 
+// cancelOriginToKind maps an internal cancel-origin identifier (the value stored
+// under ctxkeys.CancelOriginKey, also fed to humanReadableCancelOrigin) to its
+// error kind.
 func cancelOriginToKind(origin string) ErrorKind {
 	switch origin {
 	case "client_disconnect":
@@ -236,8 +231,8 @@ func (e reqError) terminalLogMessage(isFailover bool, numCandidates int) string 
 		return last
 	case KindProviderSaturated:
 		// Busy, not broken: every provider is alive and at capacity, and "all
-		// providers failed" would send the operator hunting an outage that is
-		// not happening.
+		// providers failed" sends the operator hunting an outage that is not
+		// happening.
 		if isFailover && numCandidates > 1 {
 			return fmt.Sprintf("all %d providers busy; last error: %s", numCandidates, last)
 		}
@@ -260,12 +255,12 @@ func (e reqError) terminalClientMessage(reqModel string, isFailover bool) string
 	case KindFailoverTimeout, KindRetryTimeout:
 		return fmt.Sprintf("request timed out for model %s", reqModel)
 	case KindHedgeSuperseded:
-		// Not reachable today (a superseded attempt is always replaced by the
-		// winner) but it must never render as "all providers failed".
+		// Not reachable while a superseded attempt is always replaced by the
+		// winner, but it must never render as "all providers failed".
 		return fmt.Sprintf("request superseded for model %s", reqModel)
 	case KindProviderSaturated:
 		// Alive and at capacity: telling the caller everything "failed" makes
-		// an immediate retry look pointless when it is exactly what will work.
+		// an immediate retry look pointless when it is what will work.
 		if isFailover {
 			return fmt.Sprintf("all providers busy for model %s, retry shortly", reqModel)
 		}
@@ -296,7 +291,7 @@ func errString(err error) string {
 	return string(r)
 }
 
-// statusClientClosedRequest is nginx's non-standard 499 "Client Closed Request".
-// Go's net/http has no constant for it. Used (in the request log and on the
-// wire) whenever the terminal cause is the client going away.
+// statusClientClosedRequest is nginx's non-standard 499 "Client Closed Request",
+// which Go's net/http has no constant for. It goes in the request log and on the
+// wire whenever the terminal cause is the client going away.
 const statusClientClosedRequest = 499

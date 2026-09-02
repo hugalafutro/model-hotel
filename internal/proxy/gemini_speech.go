@@ -18,27 +18,22 @@ import (
 
 // Gemini text-to-speech: /v1/audio/speech on a provider whose TTS models are
 // served by generateContent alone. Google's OpenAI-compatibility layer has no
-// speech route, so the pass-through that serves every other provider's TTS
-// answered a 404 for a Gemini TTS model; the request is translated to the
-// native call instead and the audio part it answers with is delivered as
-// the wav or pcm the client asked for (see internal/gemini/speech.go for
-// what the model can and cannot produce).
+// speech route, so the request is translated to the native call and the audio
+// part it answers with is delivered as the wav or pcm the client asked for.
 
 // speechEndpointPath is the pass-through endpoint the adapter serves.
 const speechEndpointPath = "/audio/speech"
 
 // speechBodyCap bounds the generateContent answer read for a speech request:
-// base64 of 16-bit 24 kHz mono is 64 KB per second of speech, so the cap
-// holds several minutes, past which a client is streaming an audiobook and
-// should ask for it in chapters.
+// base64 of 16-bit 24 kHz mono is 64 KB per second of speech, so the cap holds
+// several minutes.
 const speechBodyCap = 32 << 20
 
 // isGeminiSpeechAttempt reports a speech request landing on a provider whose
-// TTS models are served by Google's native route: Google AI Studio and
-// Vertex AI express, the two that hold Gemini TTS models. A model whose
-// discovered output modalities name no audio is not one of them and keeps
-// the pass-through (which Google answers with its 404); a model discovery
-// left without modalities is given the benefit of the doubt.
+// TTS models are served by Google's native route: Google AI Studio and Vertex
+// AI express. A model whose discovered output modalities name no audio keeps
+// the pass-through; a model discovery left without modalities is treated as
+// audio-capable.
 func isGeminiSpeechAttempt(st *requestState, providerType, outputModalities string) bool {
 	if st.endpointPath != speechEndpointPath || (providerType != "google" && providerType != "vertex-express") {
 		return false
@@ -47,13 +42,11 @@ func isGeminiSpeechAttempt(st *requestState, providerType, outputModalities stri
 	return len(declared) == 0 || slices.Contains(declared, "audio")
 }
 
-// speechRequestRefusal is the reason a Gemini speech attempt cannot serve
-// the request as asked, or empty: a response format the model does not
-// produce (the compressed ones need an encoder the gateway does not carry),
-// or a request the translation cannot read (no input). Checked before the
-// attempt is made, so a group mixing a Gemini TTS model with one that does
-// produce mp3 lets the request fail over to the one that can; when no
-// candidate can, the refusal is the client's 400.
+// speechRequestRefusal is the reason a Gemini speech attempt cannot serve the
+// request as asked, or empty: a response format the model does not produce
+// (the compressed ones need an encoder the gateway does not carry), or a
+// request the translation cannot read. Checked before the attempt is made, so
+// the request can fail over to a candidate that can serve it.
 func speechRequestRefusal(st *requestState, candidate modelCandidate) string {
 	if !isGeminiSpeechAttempt(st, provider.TypeOf(candidate.provider), candidate.model.OutputModalities) {
 		return ""
@@ -64,10 +57,9 @@ func speechRequestRefusal(st *requestState, candidate modelCandidate) string {
 	return ""
 }
 
-// refuseSpeechRequest answers a speech request no candidate can serve as
-// asked with the client's 400 before any attempt is made: every candidate is
-// a Gemini TTS model and each refuses the request. Reports whether the
-// request was answered.
+// refuseSpeechRequest answers a speech request with a 400 before any attempt
+// is made when every candidate refuses it. Reports whether the request was
+// answered.
 func (h *Handler) refuseSpeechRequest(w http.ResponseWriter, st *requestState, candidates []modelCandidate) bool {
 	if st.endpointPath != speechEndpointPath || len(candidates) == 0 {
 		return false
@@ -111,13 +103,11 @@ func (h *Handler) buildGeminiSpeechRequest(ctx context.Context, st *requestState
 // serveGeminiSpeechResponse delivers a speech attempt's 2xx: the
 // generateContent answer is read whole (bounded), its audio part becomes the
 // wav or pcm the client asked for, and the bytes go out through the
-// pass-through's own binary path, which owns the commit point, the breaker
-// credit, the request log and the metering. The usage the answer reported
-// rides along on the request state, since a binary body carries none. An
-// answer without audio is the model's refusal (a blocked prompt, a text
-// reply), handed to the loop as an untranslatable body: it fails over, and
-// the breaker is charged only when the body was not a generateContent
-// object at all.
+// pass-through's binary path, which owns the commit point, the breaker credit,
+// the request log and the metering. The usage the answer reported rides along
+// on the request state, since a binary body carries none. An answer without
+// audio (a blocked prompt, a text reply) is handed to the loop as an
+// untranslatable body and fails over.
 func (h *Handler) serveGeminiSpeechResponse(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64) candidateOutcome {
 	body, readErr := io.ReadAll(io.LimitReader(resp.Body, speechBodyCap+1))
 	_ = resp.Body.Close()
@@ -142,12 +132,11 @@ func (h *Handler) serveGeminiSpeechResponse(w http.ResponseWriter, r *http.Reque
 }
 
 // errSpeechBodyOversized reports a generateContent answer past speechBodyCap:
-// this gateway's own limit, never a provider fault for the breaker, as the
-// chat adapter's errEgressBodyOversized is not.
+// this gateway's own limit, never a provider fault for the breaker.
 var errSpeechBodyOversized = fmt.Errorf("gemini speech response exceeds %d bytes", speechBodyCap)
 
 // passthroughUsage is the usage a translating adapter read off a provider's
-// answer before re-shaping it into a body that carries none; the binary
+// answer before re-shaping it into a body that carries none. The binary
 // pass-through path meters from it in place of the estimate.
 type passthroughUsage struct {
 	prompt, completion int

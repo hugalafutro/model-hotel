@@ -15,12 +15,12 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// This file holds the background pollers: a per-member /health probe (status +
-// latency, with up/down transition events), a poller for Traefik's own
-// serverStatus view (so the UI can show both "Front Desk sees up/down" and
-// "Traefik sees up/down" for split-brain diagnostics), a member version
-// fetcher, and the "Traefik hasn't polled config for > N seconds" watchdog,
-// which is the one silent failure mode of the HTTP-provider design.
+// The background pollers: a per-member /health probe (status and latency, with
+// up/down transition events), a poller for Traefik's own serverStatus view (so
+// the UI can show both "Front Desk sees up/down" and "Traefik sees up/down" for
+// split-brain diagnostics), a member version fetcher, and the "Traefik has not
+// polled config for > N seconds" watchdog, the one silent failure mode of the
+// HTTP-provider design.
 //
 // All control-plane facts are persisted to the event log AND published on the
 // SSE bus. No request or prompt content is ever read or logged.
@@ -60,8 +60,7 @@ type MemberStatus struct {
 	// Commit is the source commit the member's binary was built from, read from
 	// the same settings response as Version. It is what distinguishes two builds
 	// on a fleet whose images all report the "dev" placeholder version, so it is
-	// serialized as well as gated on: an operator looking at a held sync can see
-	// which build each side runs without a second call.
+	// serialized as well as gated on.
 	Commit string `json:"commit,omitempty"`
 	// AutoSyncVerifiedAt is the last time the auto-syncer confirmed this member
 	// matches the primary (a real write, a self-converged empty diff, or a quiet
@@ -88,8 +87,8 @@ type Poller struct {
 
 	// frontdeskID is this Front Desk's persistent identity, stamped onto every
 	// announce so a member can tell which Front Desk owns its fleet role. Set
-	// once at startup via SetFrontdeskID; empty means a legacy build (a member
-	// then accepts our announces unconditionally, preserving old behaviour).
+	// once at startup via SetFrontdeskID; current members reject an announce
+	// without it.
 	frontdeskID string
 
 	mu                    sync.RWMutex
@@ -128,7 +127,7 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 
 // SetFrontdeskID records this Front Desk's persistent identity, stamped onto
 // every subsequent announce. Called once at startup after the ID is resolved
-// from the store. An empty ID leaves announces behaving like a legacy build.
+// from the store.
 func (p *Poller) SetFrontdeskID(id string) {
 	p.frontdeskID = id
 }
@@ -155,9 +154,7 @@ func (p *Poller) Snapshot() map[string]MemberStatus {
 // app_version and the commit that version was built from. Both are zero when
 // the member has never been polled or its last fetch failed. It is the read the
 // config-sync gates consult; an empty version means "cannot confirm", which
-// they treat as skewed (fail closed). Unexported along with memberBuild itself:
-// every caller is a gate in this package, and nothing outside it has ever asked
-// a Poller for a version.
+// they treat as skewed (fail closed).
 func (p *Poller) memberBuildOf(id string) memberBuild {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
@@ -166,7 +163,7 @@ func (p *Poller) memberBuildOf(id string) memberBuild {
 
 // buildOf reads a member's build out of a polled status. One extraction, so a
 // caller working from an already-taken snapshot cannot drift from
-// memberBuildOf if a third build field is ever added.
+// memberBuildOf.
 func buildOf(st MemberStatus) memberBuild {
 	return memberBuild{Version: st.Version, Commit: st.Commit}
 }
@@ -292,15 +289,14 @@ func (p *Poller) checkHealth(ctx context.Context, baseURL string) HealthStatus {
 
 // applyHealth records a health probe and emits an up/down transition event,
 // debounced so a member must miss `health_fail_threshold` polls in a row before
-// it is reported down (an error event plus, by default, an Apprise alert). This
+// it is reported down (an error event plus, by default, an Apprise alert). That
 // tolerates the brief unreachability of a routine container rebuild without
 // flapping. Recovery is immediate: the first healthy poll clears the count and,
 // if the member had been reported down, announces it back up.
 //
-// The reported badge follows the same rule as the version poller: during the
-// grace window (below threshold) the last known-good status is kept, so the
-// dashboard does not flicker red on every rebuild. A first observation that is
-// healthy is recorded silently (baseline).
+// During the grace window (below threshold) the badge keeps the last known-good
+// status, so the dashboard does not flicker red on every rebuild. A first
+// observation that is healthy is recorded silently as the baseline.
 func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
 	threshold := p.healthFailThreshold(ctx)
 

@@ -7,8 +7,8 @@ export interface FailoverEntry {
 	enabled: boolean;
 	model_enabled: boolean;
 	provider_enabled: boolean;
-	/** True when a user disabled the model; false when discovery auto-disabled it
-	 * (model no longer offered by the provider). Drives the N/A reason tooltip. */
+	/** True when a user disabled the model, false when discovery auto-disabled it
+	 * (the provider does not offer it). Drives the N/A reason tooltip. */
 	disabled_manually: boolean;
 	context_length: number | null;
 	owned_by: string;
@@ -57,46 +57,39 @@ export interface CircuitBreakerProviderStatus {
 	opened_at?: string;
 	cooldown_ms?: number;
 	next_retry_at?: string;
-	// True when the cooldown currently governing this circuit was pinned to the
-	// provider's quota reset deadline rather than the ordinary retry backoff. It
-	// describes the override in force, not a claim that traffic is blocked right
-	// now; when set, next_retry_at is that reset deadline.
+	// True when the cooldown governing this circuit is pinned to the provider's
+	// quota reset deadline rather than the ordinary retry backoff. Describes the
+	// override in force, not whether traffic is blocked; next_retry_at is then
+	// that reset deadline.
 	quota_pinned?: boolean;
-	// True when a probe backoff is in force on this circuit: the ordinary
-	// cooldown doubled once per half-open probe that failed since the circuit
-	// last closed, up to circuit_breaker_backoff_max. Like quota_pinned it
-	// describes an override in force, not whether traffic is blocked right now.
-	// Both can be set at once; cooldown_ms and next_retry_at are then whichever
-	// reaches further, which is nearly always the pin (a pin is floored at the
-	// backoff when it is stamped). Omitted when false.
+	// True when a probe backoff is in force: the cooldown doubled once per
+	// half-open probe that failed since the circuit last closed, up to
+	// circuit_breaker_backoff_max. Can be set alongside quota_pinned, in which
+	// case cooldown_ms and next_retry_at are whichever reaches further, nearly
+	// always the pin (a pin is floored at the backoff when it is stamped).
+	// Omitted when false.
 	backed_off?: boolean;
 	// How many half-open probes have failed since the circuit last closed. Sent
-	// whenever it is non-zero, even with backoff switched off: it is what
-	// happened, where backed_off is what governs.
+	// whenever non-zero, even with backoff switched off.
 	failed_probes?: number;
 	// The derived provider-wide verdict: whether the breaker is skipping this
 	// provider for every model. Circuits are keyed (provider, resolved upstream
-	// model), so `state` above describes the provider's most degraded circuit and
-	// the two legitimately disagree: one open model at the default span of 2
-	// gives state "open" with provider_open false, a provider still serving
-	// everything else. Always sent, false included, so a consumer never has to
-	// re-derive it from open_models and a span setting it cannot see.
+	// model), so `state` above is the provider's most degraded circuit and the
+	// two legitimately disagree: one open model at the default span of 2 gives
+	// state "open" with provider_open false. Always sent, false included.
 	provider_open: boolean;
 	// The resolved upstream model ids the breaker is currently blocking, sorted.
-	// Omitted when empty, so absent means none. Exactly the set provider_open is
-	// counted from; circuits owed a probe are not in it, because they block
-	// nothing.
+	// Omitted when empty. Exactly the set provider_open is counted from;
+	// circuits owed a probe are not in it, because they block nothing.
 	open_models?: string[];
 	// Every circuit the row above is built from, sorted by model, each with its
-	// own state, wait and last verdict. Additive: open_models stays what
-	// entryCircuitStatus keys on, and a member from before this field simply
-	// omits it, so a consumer must fall back to open_models when it is absent.
+	// own state, wait and last verdict. Absent when the member does not send it,
+	// so a consumer falls back to open_models.
 	circuits?: CircuitStatus[];
 }
 // One (provider, resolved upstream model) circuit as the detail endpoint
-// reports it. The row-level fields above describe the provider's most
-// degraded circuit; these are the same fields at the level the breaker keeps
-// them, plus the verdict that last landed on the circuit.
+// reports it: the row-level fields at the level the breaker keeps them, plus
+// the verdict that last landed on the circuit.
 export interface CircuitStatus {
 	model: string;
 	state: "closed" | "open" | "half-open";
@@ -105,7 +98,7 @@ export interface CircuitStatus {
 	cooldown_ms?: number;
 	next_retry_at?: string;
 	// The overrides governing THIS circuit's cooldown, unlike the row's
-	// quota_pinned, which is the verdict's "any blocking circuit is pinned" arm.
+	// quota_pinned, which means "any blocking circuit is pinned".
 	quota_pinned?: boolean;
 	pin_source?: "advisor" | "response";
 	backed_off?: boolean;
@@ -119,16 +112,15 @@ export interface CircuitStatus {
 	last_at?: string;
 }
 // Outcome of an operator forcing one provider's circuit back closed.
-// previous_state is what the breaker reported a moment before the reset, and
-// reset is false when there was nothing to clear (an already-closed or
-// never-tracked provider), so the UI can report a no-op honestly instead of
-// claiming a recovery that did not happen.
+// previous_state is what the breaker reported just before the reset; reset is
+// false when there was nothing to clear (an already-closed or never-tracked
+// provider), so the UI can report a no-op rather than claim a recovery.
 export interface CircuitBreakerResetResult {
 	provider_id: string;
 	previous_state: "closed" | "open" | "half-open";
 	reset: boolean;
-	// The upstream model id when the reset was scoped with ?model=. API-only
-	// today: the dashboard's per-entry reset button clears the whole provider.
+	// The upstream model id when the reset was scoped with ?model=. API only:
+	// the dashboard's per-entry reset button clears the whole provider.
 	model?: string;
 }
 export interface DeletedGroupInfo {

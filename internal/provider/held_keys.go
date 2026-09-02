@@ -11,16 +11,14 @@ import (
 // HoldKeys registers every provider key in the table with the credential
 // mask's held set (util.HoldSecret), whatever the row's enabled or
 // autodiscovery state. The mask exists for a relay that quotes the key of a
-// different provider row in its error body, and the row it quotes is, if
-// anything, more likely to be one the operator has disabled (a key being
-// rotated, a provider under suspicion) than one in use; so coverage cannot
-// depend on a key having been decrypted for a request, which a disabled
-// provider never is. Called at startup and after every import; the create
-// and update handlers register the plaintext they have in hand directly.
+// different provider row in its error body, and that row may well be one the
+// operator has disabled, so coverage cannot depend on a key having been
+// decrypted for a request. Called at startup and after every import; the
+// create and update handlers register the plaintext they hold directly.
 //
-// Decryption goes through the key cache, so a key already warmed costs a map
-// read and a cold one costs one Argon2 derivation; a large table is seconds
-// of CPU, which is why the callers run this off the request path.
+// Decryption goes through the key cache, so a warm key costs a map read and a
+// cold one an Argon2 derivation. A large table is seconds of CPU, so callers
+// run this off the request path.
 func HoldKeys(ctx context.Context, repo *Repository, masterKey string) (held, failed int) {
 	providers, err := repo.List(ctx)
 	if err != nil {

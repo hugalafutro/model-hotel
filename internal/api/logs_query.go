@@ -56,9 +56,9 @@ const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
     `
 
 // buildLogListQuery assembles the cursor data query: the column projection, the
-// shared filters, the keyset predicate (when a cursor is present), and the
-// ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort
-// inverted for backward pagination so LIMIT picks from the correct end.
+// shared filters, the keyset predicate (when a cursor is present), and the ORDER
+// BY + LIMIT. It fetches limit+1 to detect has_more, with the sort inverted for
+// backward pagination so LIMIT picks from the correct end.
 func buildLogListQuery(p logListParams) (string, []any) {
 	query := "SELECT " + logEntrySelectColumns
 
@@ -95,11 +95,11 @@ func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
 	return total
 }
 
-// paginateCursor applies has_after/has_before detection (using the fetched-one-
-// extra signal and cursor presence), trims to limit, and reverses the slice for
-// backward pagination (which fetched in inverted sort order). It is the single
-// keyset-pagination tail shared by the request-log, app-log, and model cursor
-// endpoints (T = LogEntry | AppLogEntry | ModelResponse).
+// paginateCursor applies has_after/has_before detection from the fetched-one-extra
+// signal and cursor presence, trims to limit, and reverses the slice for backward
+// pagination, which fetched in inverted sort order. It is the keyset-pagination
+// tail shared by the request-log, app-log, and model cursor endpoints
+// (T = LogEntry | AppLogEntry | ModelResponse).
 func paginateCursor[T any](entries []T, direction string, limit int, hasCursor bool) ([]T, bool, bool) {
 	var hasAfter, hasBefore bool
 	switch direction {
@@ -109,9 +109,9 @@ func paginateCursor[T any](entries []T, direction string, limit int, hasCursor b
 			hasAfter = true
 			entries = entries[:limit]
 		}
-		// For an initial request (no cursor) we're at the newest — nothing
-		// before. For cursor requests, assume newer entries exist until proven
-		// otherwise (a fetchBefore returning 0 corrects this client-side).
+		// An initial request (no cursor) is at the newest, so nothing is before it.
+		// A cursor request assumes newer entries exist until proven otherwise; a
+		// fetchBefore returning 0 corrects that client-side.
 		if hasCursor {
 			hasBefore = true
 		}
@@ -168,22 +168,18 @@ func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
 	return entry, err
 }
 
-// appendLogFilters appends the shared modelID/providerID/statusCode/from/to
-// WHERE fragments, returning the extended query, args, and next placeholder
-// index. The single source of truth used by both the data and count queries
-// in ListLogsCursor (previously two copy-pasted blocks that had drifted: the
-// count copy lacked the `statusCode >= 0` guard the data copy has; both now use
-// the guard, so an invalid negative status_code is uniformly ignored — a
-// behaviour-neutral fix since status codes are always >= 0).
+// appendLogFilters appends the shared modelID/providerID/statusCode/from/to WHERE
+// fragments, returning the extended query, args, and next placeholder index. It
+// is the single source of truth for both the data and count queries in
+// ListLogsCursor, so a negative status_code is ignored uniformly.
 func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID, attemptProviderID, attemptStatus string) (string, []any, int) {
-	// Owner scope first: for non-admins this is mandatory row-level security,
-	// for admins an optional dashboard filter. The two branches cover the two
-	// disjoint row shapes. A KEYED row resolves through the key's CURRENT owner,
-	// so reassigning a key moves its whole history with it. A KEYLESS row
-	// (dashboard chat/arena, which have no key to join through) carries the
-	// owner stamped at request time in request_logs.owner_user_id, written only
-	// for that shape; see migration 067. Rows predating that column stay NULL on
-	// both sides and remain admin-only.
+	// Owner scope first: mandatory row-level security for non-admins, an optional
+	// dashboard filter for admins. The two branches cover the two disjoint row
+	// shapes. A KEYED row resolves through the key's CURRENT owner, so reassigning
+	// a key moves its whole history with it. A KEYLESS row (dashboard chat/arena,
+	// which have no key to join through) carries the owner stamped at request time
+	// in request_logs.owner_user_id, written only for that shape. Rows with NULL on
+	// both sides stay admin-only.
 	if ownerUserID != "" {
 		ph := util.IntToStr(argIndex)
 		query += " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $" + ph + ")" +
@@ -254,12 +250,12 @@ func appendLogFilters(query string, args []any, argIndex int, modelID, providerI
 	return appendAttemptFilter(query, args, argIndex, attemptProviderID, attemptStatus)
 }
 
-// appendAttemptFilter adds the per-attempt trail filter: "every request in
-// which THIS provider answered THIS status, whoever served it in the end". One
-// containment predicate carrying both keys, so the two must hold on the same
-// element rather than on two different attempts; jsonb_path_ops on the
-// attempts index serves it. Either key alone is allowed. An unparseable
-// provider id or status is ignored, matching the other lenient filters.
+// appendAttemptFilter adds the per-attempt trail filter: "every request in which
+// THIS provider answered THIS status, whoever served it in the end". One
+// containment predicate carries both keys, so the two must hold on the same
+// element rather than on two different attempts; jsonb_path_ops on the attempts
+// index serves it. Either key alone is allowed. An unparseable provider id or
+// status is ignored, matching the other lenient filters.
 func appendAttemptFilter(query string, args []any, argIndex int, attemptProviderID, attemptStatus string) (string, []any, int) {
 	element := map[string]any{}
 	if attemptProviderID != "" {
@@ -286,8 +282,8 @@ func appendAttemptFilter(query string, args []any, argIndex int, attemptProvider
 }
 
 // isValidEndpointType reports whether s is a known endpoint family for the
-// endpoint_type log filter. Unknown values are ignored (no filter applied)
-// rather than rejected, matching the other filters' lenient behavior.
+// endpoint_type log filter. Unknown values are ignored (no filter applied) rather
+// than rejected, matching the other filters.
 func isValidEndpointType(s string) bool {
 	switch s {
 	case "chat", "embeddings", "image", "tts", "stt":
@@ -298,10 +294,9 @@ func isValidEndpointType(s string) bool {
 }
 
 // appendKeysetPredicate appends the (created_at, id) keyset comparison relative
-// to the cursor. The comparison operator is "<" when scrolling toward older
-// rows — (after, desc) or (before, asc) — and ">" otherwise, collapsing the
-// four direction/sort branches into one template. SQL is byte-identical to the
-// per-branch form.
+// to the cursor. The comparison operator is "<" when scrolling toward older rows
+// ((after, desc) or (before, asc)) and ">" otherwise, collapsing the four
+// direction/sort branches into one template.
 func appendKeysetPredicate(query string, args []any, argIndex int, cursor logCursor, direction, sortDir string) (string, []any, int) {
 	op := ">"
 	if (direction == "after") == (sortDir == "desc") {
@@ -381,9 +376,9 @@ func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, 
 	return p, true
 }
 
-// logCursor is the keyset cursor for cursor-based log pagination.
-// It encodes the created_at and id of a boundary row so the next page
-// can be fetched relative to it.
+// logCursor is the keyset cursor for cursor-based log pagination. It encodes the
+// created_at and id of a boundary row so the next page can be fetched relative
+// to it.
 type logCursor struct {
 	CreatedAt time.Time `json:"created_at"`
 	ID        string    `json:"id"`
@@ -404,8 +399,8 @@ func (c *logCursor) decode(s string) error {
 
 // logsSortDef resolves a user-supplied sort_by value to its ORDER BY
 // expressions, normalizing anything outside the whitelist to "time". Every
-// expression is a fixed compile-time constant; user input only ever selects a
-// map key, never reaches the SQL.
+// expression is a fixed compile-time constant; user input only selects a map
+// key and never reaches the SQL.
 func logsSortDef(sortBy string) (string, logSortDef) {
 	sortColumns := map[string]logSortDef{
 		"time":               {"", "rl.created_at"},
@@ -419,9 +414,9 @@ func logsSortDef(sortBy string) (string, logSortDef) {
 		"duration":           {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
 		"overhead":           {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
 		"key":                {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
-		// client_ip is TEXT, so this orders lexicographically (10.* before 9.*);
-		// good enough for grouping same-address rows, which is what the column
-		// sort is for. Rows without an address always sort last.
+		// client_ip is TEXT, so this orders lexicographically (10.* before 9.*),
+		// which is enough for grouping same-address rows. Rows without an address
+		// sort last.
 		"ip": {"CASE WHEN COALESCE(rl.client_ip, '') = '' THEN 1 ELSE 0 END", "COALESCE(rl.client_ip, '')"},
 	}
 	if _, ok := sortColumns[sortBy]; !ok {

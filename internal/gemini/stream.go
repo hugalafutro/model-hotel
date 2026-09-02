@@ -14,9 +14,9 @@ import (
 // (alt=sse: each data line is a full generateContent-shaped JSON chunk) into
 // an OpenAI chat.completion.chunk SSE stream ending in "data: [DONE]".
 //
-// It is the streaming counterpart of BuildChatCompletion and single-goroutine
-// by design: the proxy's egress loop feeds it one upstream data payload at a
-// time and forwards whatever bytes come back.
+// It is the streaming counterpart of BuildChatCompletion and single-goroutine:
+// the proxy's egress loop feeds it one upstream data payload at a time and
+// forwards whatever bytes come back.
 type StreamTranslator struct {
 	id      string
 	model   string
@@ -27,8 +27,8 @@ type StreamTranslator struct {
 	blocked      bool   // promptFeedback.blockReason seen
 	finishReason string // last Gemini finishReason observed
 	toolCalls    int    // tool_calls emitted so far (drives index + ids)
-	// Raw, for the reason given on genResponse.UsageMetadata: a count spelled
-	// differently must not cost the caller the stream.
+	// Raw, as on genResponse.UsageMetadata: a count spelled differently must
+	// not cost the caller the stream.
 	usage json.RawMessage
 }
 
@@ -111,9 +111,9 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 		return nil, fmt.Errorf("gemini: invalid stream chunk: %s", jsonfault.Describe(err, len(chunkJSON)))
 	}
 
-	// JSONMemberSet, for the reason on translateUsage: an explicit
-	// "usageMetadata": null is four bytes, and reading only the length let it
-	// overwrite the counts an earlier chunk had reported.
+	// JSONMemberSet, as in translateUsage: an explicit "usageMetadata": null
+	// is four bytes, so reading only the length lets it overwrite the counts
+	// an earlier chunk reported.
 	if util.JSONMemberSet(chunk.UsageMetadata) {
 		t.usage = chunk.UsageMetadata
 	}
@@ -141,10 +141,8 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 			continue
 		}
 		if p.FunctionCall != nil {
-			// The signature rides in the same part as the call: observed on
-			// Google AI Studio and Zen streams (one chunk carries both), and
-			// the tool_call delta is emitted here, so a signature arriving in
-			// a later part would not reach it.
+			// Upstreams carry the signature in the same part as the call; the
+			// tool_call delta is emitted here, so a later part could not reach it.
 			args := compactJSON(p.FunctionCall.Args)
 			if args == "" {
 				args = "{}"

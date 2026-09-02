@@ -43,11 +43,10 @@ type Handler struct {
 	// first use, so a Handler built as a literal has one too.
 	capLedger     *provider.CapLedger
 	capLedgerOnce sync.Once
-	// inflight is the adaptive per-provider concurrency learner (see
-	// inflight.go). Nil (tests building Handler{} directly) admits everything
-	// and learns nothing. NewHandler registers its scrape-time gauges; the
-	// registration is once-guarded, so like the breaker collector it reports
-	// the first handler's state — one handler exists outside tests.
+	// inflight is the adaptive per-provider concurrency learner. Nil admits
+	// everything and learns nothing. NewHandler registers its scrape-time
+	// gauges under a once-guard, so the gauges report the first handler's
+	// state.
 	inflight *inflightLimiter
 	// upstreamTransport is a shared Transport for all outbound proxy
 	// requests.  Reusing one Transport avoids creating a fresh Transport
@@ -55,7 +54,7 @@ type Handler struct {
 	upstreamTransport *http.Transport
 	// shutdown is closed by Close so in-flight streams can end with a
 	// well-formed error frame instead of a cut connection when the process
-	// is stopping; nil (tests building Handler{} directly) never fires.
+	// is stopping; a nil channel never fires.
 	shutdown     chan struct{}
 	shutdownOnce sync.Once
 
@@ -75,11 +74,10 @@ type Handler struct {
 	// param caches use. Value: anthropicegress.ThinkingDialect.
 	//
 	// Only models that answered a 400 appear here; everything else takes the
-	// adaptive default. In-memory and per-instance on purpose, like the param
-	// caches: the cost of relearning after a restart is one 400 on the first
-	// thinking request to a budget-dialect model, and the alternative is a
-	// persisted fact that goes stale the next time Anthropic moves a model
-	// between dialects.
+	// adaptive default. In-memory and per-instance like the param caches: a
+	// restart costs one 400 on the first thinking request to a budget-dialect
+	// model, while a persisted fact would go stale the next time Anthropic moves
+	// a model between dialects.
 	thinkingDialectCache sync.Map
 	// goneStrikes counts consecutive KindProviderModelGone responses per model
 	// UUID, so a model the provider has retired is probed and then disabled
@@ -87,17 +85,17 @@ type Handler struct {
 	// per-instance; see noteModelGone for why it is not persisted.
 	//
 	// Value: *goneStreak, not a plain int. A retired model is precisely the one
-	// taking concurrent refusals, so the increment has to be atomic or racing
+	// taking concurrent refusals, so the increment must be atomic or racing
 	// strikes overwrite each other and the streak never lands. The struct also
-	// carries the time of the last strike, which bounds how far apart the
-	// refusals in one streak may be, and the tombstone a success uses to stand
-	// down a disable that has been decided but not yet written.
+	// carries the time of the last strike, bounding how far apart the refusals
+	// in one streak may be, and the tombstone a success uses to stand down a
+	// disable that has been decided but not yet written.
 	goneStrikes sync.Map
 	// goneProbeSlots bounds how many pre-retirement probes may be in flight
 	// against one provider at once, keyed by provider UUID. Value: a
 	// chan struct{} of goneProbeMaxConcurrent capacity, used as a non-blocking
-	// semaphore (see acquireProbeSlot). Per gateway instance, like goneStrikes
-	// beside it: the cap describes what THIS gateway will aim at a provider.
+	// semaphore. Per gateway instance, like goneStrikes beside it: the cap
+	// describes what this gateway will aim at a provider.
 	goneProbeSlots sync.Map
 	// responsesRequiredCache remembers models whose upstream refused
 	// chat-completions and demanded /v1/responses, keyed by
@@ -117,9 +115,9 @@ type virtualKeyRepoAdapter struct {
 	repo *virtualkey.Repository
 }
 
-// WrapVirtualKeyRepo wraps a *virtualkey.Repository to implement the VirtualKeyRepository interface.
-// This is needed because the proxy package uses VirtualKeyInfo (a subset of virtualkey.VirtualKey)
-// and the interface signatures may diverge from the concrete repository.
+// WrapVirtualKeyRepo wraps a *virtualkey.Repository to implement the
+// VirtualKeyRepository interface, whose signatures use VirtualKeyInfo, a subset
+// of virtualkey.VirtualKey.
 func WrapVirtualKeyRepo(repo *virtualkey.Repository) VirtualKeyRepository {
 	return &virtualKeyRepoAdapter{repo: repo}
 }
@@ -256,23 +254,21 @@ func (h *Handler) Close() {
 // Register mounts the OpenAI-compatible surface. afterAuth are the caller's
 // middlewares that must see only authenticated requests: the server's
 // body-peeking timeout middleware buffers the whole request body (up to
-// MAX_REQUEST_SIZE) to read the stream flag and the model, and mounting it
-// ahead of the key check let an unauthenticated client make the gateway hold
-// that allocation for the duration of its upload. They run after the key is
-// verified and before the per-key limiters, which read nothing from the body.
-// The gateway itself then reads nothing of an unauthenticated body; net/http
-// still discards up to 256 KiB of it after the 401, under the body read
-// deadline, so that is the bound on how long such a connection is held.
+// MAX_REQUEST_SIZE) to read the stream flag and the model, so ahead of the key
+// check an unauthenticated client could make the gateway hold that allocation
+// for the duration of its upload. They run after the key is verified and before
+// the per-key limiters, which read nothing from the body. The gateway itself
+// reads nothing of an unauthenticated body; net/http still discards up to
+// 256 KiB of it after the 401, under the body read deadline, which bounds how
+// long such a connection is held.
 func (h *Handler) Register(r chi.Router, afterAuth ...func(http.Handler) http.Handler) {
 	r.Use(h.ipLimiter.Middleware)
 	r.Use(h.ProxyKeyMiddleware)
 	r.Use(afterAuth...)
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
 	// TPM admission runs after RPS: a key must pass the request-rate gate before
-	// its token budget is checked. This is the full two-stage gate (per-key
-	// budget, plus the owner's aggregate budget when the key is owned); admin
-	// chat has no virtual key and so runs only the owner stage, see
-	// RegisterAdminChat.
+	// its token budget is checked. This is the full two-stage gate: the per-key
+	// budget, plus the owner's aggregate budget when the key is owned.
 	r.Use(h.tpmLimiter.Middleware(h.cfg.RateLimitEnabled))
 
 	r.Get("/models", h.ListModels)
@@ -308,9 +304,9 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 	// TPM admission after RPS, mirroring Register. Only the owner stage applies
 	// here: this surface authenticates a dashboard session, so there is no
 	// virtual key to carry a per-key budget, and the per-key stage's fallback
-	// bucket (the resolved client address) has no debit path. The caller's own aggregate cap is
-	// published by api.ChatUserContextMiddleware, which main.go mounts ahead of
-	// this group; without both middlewares a user with a TPM cap would meter
+	// bucket (the resolved client address) has no debit path. The caller's own
+	// aggregate cap is published by api.ChatUserContextMiddleware, mounted ahead
+	// of this group; without both middlewares a user with a TPM cap meters
 	// nothing here while their /v1 traffic is capped.
 	r.Use(h.tpmLimiter.UserMiddleware(h.cfg.RateLimitEnabled))
 
@@ -328,9 +324,9 @@ const keyLookupTimeout = 10 * time.Second
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// A refusal closes the connection. net/http drains an unread request
-		// body before it sends a keep-alive response, so without this a
-		// client trickling a body with no valid key was told 401 only when
-		// the body deadline cut the drain; a caller with no key has no
+		// body before it sends a keep-alive response, so without the close a
+		// client trickling a body with no valid key hears the 401 only once
+		// the body deadline cuts the drain; a caller with no key has no
 		// keep-alive worth keeping. The IP limiter's 429 ahead of this check
 		// deliberately does not close: it also fronts the dashboard routes,
 		// where a throttled client is legitimate and retries on the same
@@ -341,7 +337,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		}
 		token, ok := util.ParseProxyKey(r)
 		if !ok {
-			// Client error, not a server fault — Warn keeps the Error stream
+			// Client error, not a server fault: Warn keeps the Error stream
 			// reserved for things the operator must act on.
 			debuglog.Warn("auth: missing authorization header", "remote_addr", clientip.From(r))
 			refuse("missing authorization header: expected \"Authorization: Bearer <virtual key>\" or \"x-api-key: <virtual key>\"")
@@ -349,9 +345,9 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		}
 
 		keyHash := virtualkey.Hash(token)
-		// Bounded on its own: the timeout middleware used to wrap this lookup
-		// and now runs behind it, so a wedged database must not park every
-		// request here until the client gives up.
+		// Bounded on its own, since the timeout middleware runs behind this
+		// lookup: a wedged database must not park every request here until the
+		// client gives up.
 		lookupCtx, lookupCancel := context.WithTimeout(r.Context(), keyLookupTimeout)
 		vk, err := h.virtualKeyRepo.FindByKeyHash(lookupCtx, keyHash)
 		lookupCancel()

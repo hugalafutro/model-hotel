@@ -1,12 +1,12 @@
 /**
  * Default values for all settings. When a setting is deleted from the
- * database, the server falls through to its Go-side default — these
+ * database, the server falls through to its Go-side default, so these
  * frontend defaults MUST match the Go defaults in:
  *   - internal/settings/settings.go (GetBool/GetInt/GetWithDefault fallbacks)
  *   - internal/api/settings.go (allowedSettings map)
  *
- * There is no automated cross-language sync test. When changing a Go
- * default, update the corresponding entry here (and in en.json labels).
+ * There is no automated cross-language sync test: when changing a Go default,
+ * update the corresponding entry here (and in en.json labels).
  */
 export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// Discovery
@@ -64,7 +64,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	stale_request_timeout: "30m0s",
 
 	// Alerting (Apprise). alert_events MUST match Go's alert.DefaultEnabledCSV()
-	// (internal/alert/catalog.go) — the comma-joined default-on event types.
+	// (internal/alert/catalog.go): the comma-joined default-on event types.
 	alert_enabled: "false",
 	alert_apprise_api_url: "",
 	alert_apprise_targets: "",
@@ -74,12 +74,12 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// discovery.claims_outstanding fires. Matches DefaultClaimAlertDays in
 	// internal/api/discovery_claim_alert.go. The ceiling is NOT here: it is
 	// derived from ClaimWindow and served as the read-only
-	// discovery_claim_window_days key, so the two cannot drift.
+	// discovery_claim_window_days key.
 	discovery_claim_alert_days: "7",
 
 	// Authentication. Dashboard auto-logout after inactivity, in minutes; 0
-	// disables it. Consumed entirely on the frontend (see useIdleLogout); the
-	// backend only validates/stores the value.
+	// disables it. Consumed entirely on the frontend (useIdleLogout); the
+	// backend only validates and stores the value.
 	session_idle_timeout_minutes: "60",
 
 	// Reject new account passwords found in a known breach (Have I Been Pwned

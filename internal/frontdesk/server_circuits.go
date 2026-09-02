@@ -9,11 +9,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// The fleet-wide circuit-breaker reset: the operation the 2026-08-31 reset
-// loop performed by hand, member by member. Each member's breaker is local
-// runtime state that nothing syncs, so the only way to clear a group's circuits
-// across the fleet is to ask every member. Front Desk already holds the member
-// tokens for config sync; this reuses that path.
+// The fleet-wide circuit-breaker reset. Each member's breaker is local runtime
+// state that nothing syncs, so the only way to clear a group's circuits across
+// the fleet is to ask every member. Front Desk already holds the member tokens
+// for config sync; this reuses that path.
 
 // fleetCircuitResetRequest names the failover group whose entries to clear on
 // every member. An empty group_id clears every circuit on every member.
@@ -54,11 +53,10 @@ type memberCircuitResetResult struct {
 
 // fleetCircuitReset fans a circuit-breaker reset out to every member, in
 // sequence (a handful of members, one small POST each), and reports per member.
-// A member that fails does not stop the others: the operator wants the fleet
-// cleared, and the response says who was not. A member without a stored token
-// is listed too, as skipped: it is exactly the member that stays dark after the
-// round, so it cannot be left out, but a fleet that keeps one is a supported
-// configuration, and a warning event on every reset for it would be noise.
+// A member that fails does not stop the others: the response says who was not
+// cleared. A member without a stored token is listed as skipped: it is the
+// member that stays dark after the round, so it cannot be left out, but a fleet
+// that keeps one is a supported configuration and warning on it would be noise.
 func (s *Server) fleetCircuitReset(w http.ResponseWriter, r *http.Request) {
 	var req fleetCircuitResetRequest
 	if !decodeJSON(w, r, &req) {

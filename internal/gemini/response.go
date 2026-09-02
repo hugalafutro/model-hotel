@@ -16,13 +16,12 @@ import (
 
 type genResponse struct {
 	Candidates []genCandidate `json:"candidates"`
-	// Held raw and decoded on its own, so a usage block this package cannot read
-	// costs the usage and nothing else. Decoded inline it was part of the
-	// response object, and one count the provider spelled differently — quoted,
-	// or with a fraction on it because a relay did its arithmetic in floating
-	// point — failed the whole translation and cost the caller the answer the
-	// model had already produced. Since #812 it charged the provider's circuit
-	// breaker for it too.
+	// Held raw and decoded on its own, so a usage block this package cannot
+	// read costs the usage and nothing else. Decoded inline, one count the
+	// provider spells differently (quoted, or with a fraction on it because a
+	// relay did its arithmetic in floating point) fails the whole translation
+	// and costs the caller the answer, and charges the provider's circuit
+	// breaker for it.
 	UsageMetadata  json.RawMessage `json:"usageMetadata"`
 	PromptFeedback *struct {
 		BlockReason string `json:"blockReason"`
@@ -47,7 +46,7 @@ type genRespPart struct {
 	// a function call's signature is carried: Gemini 3 may sign a text or
 	// thought part too, but omitting those is not validated, and the OpenAI
 	// wire shape has no carrier on a message. Google spells the field both
-	// ways across its own documents, so both are read.
+	// ways across its documents, so both are read.
 	ThoughtSignature      string `json:"thoughtSignature"`
 	ThoughtSignatureSnake string `json:"thought_signature"`
 	// InlineData carries a generated image (an image model answering a
@@ -146,15 +145,15 @@ type oaiUsage struct {
 }
 
 // ErrPromptBlocked marks the one translation failure that is NOT the provider
-// malfunctioning: Gemini answered, and its answer was a refusal — promptFeedback
-// carries a blockReason and no candidate. The body is a good Gemini object and
-// the provider is plainly alive, so a caller deciding whether to hold it at
-// fault has to be able to tell this apart from bytes that merely lack candidates.
+// malfunctioning: Gemini answered, and its answer is a refusal, so
+// promptFeedback carries a blockReason and no candidate. A caller deciding
+// whether to hold the provider at fault tells this apart from bytes that
+// merely lack candidates.
 //
-// Keyed on the stated reason, not on candidate absence: {} , null and an
-// aggregator's 200 {"error":…} all unmarshal into genResponse with no
-// candidates, and exempting those left no non-streaming body a Gemini provider
-// could return that would ever charge its breaker.
+// It is keyed on the stated reason, not on candidate absence: {}, null and an
+// aggregator's 200 {"error":...} all unmarshal into genResponse with no
+// candidates, and exempting those would leave no non-streaming body that ever
+// charges the breaker.
 var ErrPromptBlocked = errors.New("gemini: prompt blocked")
 
 // BuildChatCompletion converts a non-streaming Gemini generateContent response
@@ -169,9 +168,9 @@ func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, 
 		if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
 			return nil, fmt.Errorf("gemini: prompt blocked: %s: %w", resp.PromptFeedback.BlockReason, ErrPromptBlocked)
 		}
-		// No candidates and no stated reason. That is not Gemini declining to
-		// answer, it is a body that does not carry one — an aggregator's error
-		// envelope, a bare {}, a null — all of which unmarshal into genResponse
+		// No candidates and no stated reason: not Gemini declining to answer,
+		// but a body that carries none at all (an aggregator's error envelope,
+		// a bare {}, a null), each of which unmarshals into genResponse
 		// without complaint.
 		return nil, fmt.Errorf("gemini: no candidates in response")
 	}
@@ -211,8 +210,8 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 	var toolCalls []oaiToolCallOut
 	var images []oaiImageOut
 	for _, p := range parts {
-		// Thought parts first: an image model drafts interim images to test
-		// its composition, and those arrive as thought parts too.
+		// Thought parts are skipped first: an image model drafts interim
+		// images to test its composition, and those arrive as thought parts.
 		if p.Thought {
 			continue
 		}
@@ -269,14 +268,13 @@ func mapFinishReason(reason string, hasToolCalls bool) string {
 }
 
 // translateUsage maps usageMetadata to OpenAI usage. Thinking tokens are
-// billed output on Gemini, so completion_tokens includes them (this is what
-// MH's metering should count) with the split surfaced in
-// completion_tokens_details.reasoning_tokens, matching OpenAI's convention.
+// billed output on Gemini, so completion_tokens includes them, with the split
+// surfaced in completion_tokens_details.reasoning_tokens per OpenAI's
+// convention.
 func translateUsage(raw json.RawMessage) *oaiUsage {
 	// JSONMemberSet, not len(raw) > 0: a RawMessage for null is four non-empty
-	// bytes, where the *genUsage this replaced was nil for absent AND null
-	// alike. Reading only the length turned an omitted usage into a positive
-	// claim of zero tokens.
+	// bytes, so reading only the length turns a null usage into a positive claim
+	// of zero tokens.
 	if !util.JSONMemberSet(raw) {
 		return nil
 	}
@@ -284,8 +282,8 @@ func translateUsage(raw json.RawMessage) *oaiUsage {
 	// or absent; a SUMMED one is only as good as its addends, and a lost addend
 	// leaves a number that is wrong AND non-zero, which reads as authoritative
 	// and stops estimateMissingUsage replacing it. Dropping the whole block
-	// instead threw away counts that were never in doubt — and a completion
-	// count is what tells the breaker the provider answered at all.
+	// instead would throw away counts that were never in doubt, and a
+	// completion count is what tells the breaker the provider answered at all.
 	var u genUsage
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil

@@ -36,11 +36,11 @@ type modelsDevCanonical struct {
 	// Exclusive stops the lookup from falling back to the cross-provider index
 	// when the canonical entry misses. Set for single-vendor provider types:
 	// their API serves only their own models, so another models.dev provider's
-	// data for the same bare ID is by definition secondhand (e.g. OpenCode Go
-	// lists "glm-5.3" with a guessed price before Z.ai publishes one — that
-	// guess must not become the metered price on a Z.ai provider). Aggregator
-	// and catch-all types stay non-exclusive: their listings genuinely span
-	// many vendors, so the cross-provider index is legitimate gap coverage.
+	// data for the same bare ID is by definition secondhand (OpenCode Go lists
+	// "glm-5.3" with a guessed price before Z.ai publishes one, and that guess
+	// must not become the metered price on a Z.ai provider). Aggregator and
+	// catch-all types stay non-exclusive: their listings genuinely span many
+	// vendors, so the cross-provider index is legitimate gap coverage.
 	Exclusive bool
 }
 
@@ -169,12 +169,12 @@ var modelsDevCache = &ModelsDevCache{}
 
 // LoadModelsDev fetches the models.dev API and builds the in-memory index.
 // Each call fetches fresh data from the remote API and replaces the cache.
-// It is safe to call concurrently — the write is protected by a mutex.
+// It is safe to call concurrently: the write is protected by a mutex.
 //
 // This uses http.DefaultClient, which follows redirects without SSRF checks.
 // Production code must instead call LoadModelsDevWithClient with a client whose
-// transport is backed by a SafeDialer (see cmd/server/main.go); this bare form
-// is retained for tests that exercise the real fetch/error paths.
+// transport is backed by a SafeDialer; this bare form serves tests that
+// exercise the real fetch and error paths.
 func LoadModelsDev(ctx context.Context) error {
 	return modelsDevCache.load(ctx, http.DefaultClient)
 }
@@ -256,7 +256,7 @@ func (c *ModelsDevCache) load(ctx context.Context, client *http.Client) error {
 	// model ID appears under dozens of models.dev providers (official vendor
 	// plus resellers, each with its own prices), so the iteration order decides
 	// which spec a fallback lookup sees. Rank canonical providers (the values of
-	// modelsDevProviderForType — official vendor entries) ahead of everything
+	// modelsDevProviderForType, the official vendor entries) ahead of everything
 	// else, sorted within each group so the winner is deterministic across
 	// loads. Ranging over the providers map directly would pick a random winner
 	// per process start.
@@ -320,10 +320,10 @@ func (c *ModelsDevCache) LookupFuzzy(modelID string) *ModelsDevModelSpec {
 
 // lookupForProvider resolves a spec for a model discovered on a Model Hotel
 // provider of the given type. The canonical models.dev provider entry for that
-// type (see modelsDevProviderForType) is consulted first — it carries the
-// vendor's own official metadata and pricing — and only on a miss does the
-// lookup fall back to the cross-provider index. An empty or unmapped
-// providerType goes straight to the cross-provider index.
+// type (see modelsDevProviderForType) is consulted first, since it carries the
+// vendor's own official metadata and pricing; only on a miss does the lookup
+// fall back to the cross-provider index. An empty or unmapped providerType
+// goes straight to the cross-provider index.
 func (c *ModelsDevCache) lookupForProvider(providerType, modelID string) *ModelsDevModelSpec {
 	if c == nil {
 		return nil
@@ -341,8 +341,8 @@ func (c *ModelsDevCache) lookupForProvider(providerType, modelID string) *Models
 	return lookupFuzzyIn(c.byID, modelID)
 }
 
-// lookupFuzzyIn runs the exact-then-fuzzy match against one index map. Pure
-// helper — the caller holds whatever lock protects the map.
+// lookupFuzzyIn runs the exact-then-fuzzy match against one index map. The
+// caller holds whatever lock protects the map.
 func lookupFuzzyIn(index map[string]*ModelsDevModelSpec, modelID string) *ModelsDevModelSpec {
 	if len(index) == 0 {
 		return nil
@@ -482,7 +482,7 @@ func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) boo
 // Google's own docs, and the API answers JSON mode on every one of them with
 // a 400 (google-gemini/cookbook#1028); discovery leaves the flag off for
 // them, so the merge must not switch it back on. Reports whether it cleared
-// anything, which is what re-marshals the capabilities below.
+// anything.
 func clearRefusedCapabilities(providerType, modelID string, caps *model.Capability) bool {
 	if !caps.StructuredOutput || !googleServedImageModel(providerType, modelID) {
 		return false
@@ -554,8 +554,8 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	spec := c.lookupForProvider(providerType, m.ModelID)
 	if spec == nil && m.Name != "" && m.Name != m.ModelID {
 		// Deployment-based providers (Azure) invoke by user-chosen alias but
-		// record the underlying base-model name in Name — match on that when
-		// the alias misses the catalog.
+		// record the underlying base-model name in Name, which is matched on
+		// when the alias misses the catalog.
 		spec = c.lookupForProvider(providerType, m.Name)
 	}
 	if spec == nil {
@@ -594,7 +594,7 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	enriched = clearRefusedCapabilities(providerType, m.ModelID, &caps) || enriched
 
 	// Modality arrays: only set if currently empty. The modality *class* is
-	// not set here — NormalizeModelClassification derives it from the arrays
+	// not set here; NormalizeModelClassification derives it from the arrays
 	// after enrichment.
 	enriched = fillModalities(&m.InputModalities, spec.Modalities.Input) || enriched
 	enriched = fillModalities(&m.OutputModalities, spec.Modalities.Output) || enriched
@@ -634,16 +634,11 @@ func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string
 // reportUnpricedModels logs any model that finished discovery with no per-token
 // price on either side.
 //
-// This exists because the embedded catalogs were shrunk to overrides only: a
-// row that merely restated models.dev was deleted, since a stale duplicate is
-// worse than none (the catalog wins over models.dev, which is how xAI's
-// retired-model pricing sat 6x wrong until an audit found it). The cost of that
-// is a heavier reliance on models.dev, and a model it does not know now yields
-// no price at all rather than a catalog fallback.
-//
-// An unpriced model still works; it just meters at zero, which is invisible
-// until someone reconciles a bill. Naming it here turns that into something an
-// operator can see and fix by adding a catalog override.
+// The embedded catalogs hold overrides only, so a model models.dev does not
+// know yields no price at all. Such a model still works; it just meters at
+// zero, which is invisible until someone reconciles a bill. Naming it here
+// turns that into something an operator can see and fix by adding a catalog
+// override.
 func reportUnpricedModels(models []*model.Model) {
 	var unpriced []string
 	for _, m := range models {
@@ -661,8 +656,6 @@ func reportUnpricedModels(models []*model.Model) {
 	debuglog.Warn("discovery: models have no pricing from catalog or models.dev; they will meter at zero",
 		"count", len(unpriced), "models", strings.Join(unpriced, ","))
 }
-
-// contains removed — use slices.Contains from stdlib.
 
 func isNumeric(s string) bool {
 	for _, c := range s {

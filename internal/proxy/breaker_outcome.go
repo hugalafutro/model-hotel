@@ -12,46 +12,44 @@ import (
 )
 
 // The circuit-breaker verdict for a non-streaming attempt lives here, beside
-// the failover loop that produces it rather than inside it — the streaming
-// verdict has the same arrangement in stream_finalize.go, and keeping the two
-// policies in named places is what stops a second opinion growing at a call
-// site. Split out of proxy_failover.go when that file hit the size ceiling.
+// the failover loop that produces it rather than inside it. The streaming
+// verdict has the same arrangement in stream_finalize.go: keeping the two
+// policies in named places stops a second opinion growing at a call site.
 
 // recordBreakerOutcome records the circuit-breaker result for a completed
 // upstream attempt (phase D8). It is a no-op when the breaker is disabled.
 //
-// The verdict is recorded against the candidate's RESOLVED UPSTREAM model, which
-// is the key every other breaker site on this request uses — the skip in
+// The verdict is recorded against the candidate's RESOLVED UPSTREAM model, the
+// key every other breaker site on this request uses: the skip in
 // resolveCandidates, the success in recordAnswerOutcome, the stream verdict in
-// finalizeStream. Two of them disagreeing is silent: RecordFailure creates
-// whatever circuit it is handed, so the ledger fills up under a key nothing ever
-// reads and the failing model stays in rotation.
+// finalizeStream. Two of them disagreeing is silent, because RecordFailure
+// creates whatever circuit it is handed, so the ledger fills up under a key
+// nothing ever reads and the failing model stays in rotation.
 //
 // For a failover-eligible status it applies the breakerRecordAction mapping
 // (failure / no-op / success), refined for a CLASSIFIED 429 by rl:
 //
-//   - saturated: a breaker NO-OP, like 404/499 — neither charge nor credit. A
+//   - saturated: a breaker NO-OP, like 404/499, neither charge nor credit. A
 //     provider at its concurrency ceiling is alive, and charging it benches
 //     the very slots that are all busy serving. Not a success either:
 //     RecordSuccess resets consecutiveFails, and a provider alternating 500 /
 //     429-busy / 500 must still open. On a half-open probe this leaves the
-//     circuit half-open with failedProbes untouched — a busy signal is not a
-//     failed probe, and doubling the backoff for it is how a healthy provider
-//     stayed benched for 10 minutes on 2026-08-31.
+//     circuit half-open with failedProbes untouched: a busy signal is not a
+//     failed probe, and doubling the backoff for it benches a healthy provider
+//     for the whole cooldown.
 //   - exhausted: charged to the threshold at once (RecordExhausted), so one
 //     spent-window 429 opens the circuit instead of wasting a second request
-//     confirming it — unless circuit_breaker_open_on_exhaustion is OFF, which
+//     confirming it, unless circuit_breaker_open_on_exhaustion is OFF, which
 //     demotes it to an unclassified charge.
-//   - unknown: today's behaviour, via RecordRateLimited so the breaker can
-//     still escalate a circuit that only ever opens on 429s.
+//   - unknown: charged via RecordRateLimited, so the breaker can still
+//     escalate a circuit that only ever opens on 429s.
 //
 // A 2xx is a status, not an answer, and these headers arrive before a byte of
 // the body has been read. The verdict is deferred to whoever reads it:
 // judgeStreamForBreaker once the stream ends, recordAnswerOutcome once the
-// completion is decoded. Crediting here meant a provider answering
-// {"choices":[]} to every request recorded a success every time — and
-// RecordSuccess resets consecutiveFails, so its circuit could never open. #805
-// made that argument for streams and this is the same argument for completions.
+// completion is decoded. Crediting here would record a success for a provider
+// answering {"choices":[]} to every request, and RecordSuccess resets
+// consecutiveFails, so its circuit could never open.
 func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, candidate modelCandidate, statusCode int, isFailoverEligible bool, rl rateLimitVerdict) {
 	if !st.circuitBreakerEnabled {
 		return
@@ -82,18 +80,18 @@ func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, ca
 			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "upstream status", "status", statusCode, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
 			st.logData.noteBreaker(breakerCharge)
 			if statusCode == http.StatusTooManyRequests && rl.classified {
-				// Unclassifiable rate limit: charged exactly as before, and
-				// the breaker additionally counts the open (if one results)
-				// toward the 429-only escalation. Only while classification
-				// is on — its master switch must restore today's behaviour
-				// bit for bit, escalation included.
+				// Unclassifiable rate limit: charged like any other failure,
+				// and the breaker additionally counts the open (if one
+				// results) toward the 429-only escalation. Only while
+				// classification is on: its master switch gates the
+				// escalation too.
 				h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(statusCode, "unrecognised"))
 				return
 			}
 			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(statusCode, ""))
 		case breakerActionNoOp:
 			// Model-specific client error (404/499): provider is alive
-			// but rejecting this request. No-op for the breaker — neither
+			// but rejecting this request. No-op for the breaker: neither
 			// failure nor success. Recording success would erase real 5xx
 			// failure history (resetting consecutiveFails in Closed state)
 			// and could prematurely close a half-open circuit based on a
@@ -103,18 +101,18 @@ func (h *Handler) recordBreakerOutcome(ctx context.Context, st *requestState, ca
 			// Not reached for failover-eligible codes: shouldFailover only
 			// returns true for {5xx,429,401,403,402,404,499}, which map to
 			// failure or no-op above. Retained so the switch stays exhaustive
-			// over breakerAction — if the shouldFailover/breakerRecordAction
+			// over breakerAction: if the shouldFailover/breakerRecordAction
 			// mappings ever diverge, a success is recorded rather than dropped.
 			st.logData.noteBreaker(breakerSuccess)
 			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 		}
 		return
 	}
-	// Not a 2xx. A success of ANY 2xx defers its verdict to whoever reads the
-	// body — recordAnswerOutcome or judgeStreamForBreaker — for the reason the
-	// comment above gives: RecordSuccess resets consecutiveFails, so crediting
-	// here at header time erases the charge the answer verdict is about to make
-	// and the circuit can never open above a threshold of one.
+	// Not a 2xx. Any 2xx defers its verdict to whoever reads the body
+	// (recordAnswerOutcome or judgeStreamForBreaker): RecordSuccess resets
+	// consecutiveFails, so crediting here at header time erases the charge the
+	// answer verdict is about to make and the circuit can never open above a
+	// threshold of one.
 	//
 	// RecordAlive, not RecordSuccess: a plain 400 proves the provider alive
 	// (same credit) but served nothing, and the 429 behavioural fallback must
@@ -162,15 +160,15 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 // restores the ordinary charge here too rather than leaving one exhaustion path
 // still opening at once.
 //
-// What this does NOT do is confine the damage to one model. The charge lands on
-// the model that drew the refusal, but SpanModels defaults to 2, so the second
-// model to take a 402 darkens the whole provider — and if the quota advisor
-// already holds an exhaustion reading for it, applyQuotaPin prefers the advisor
-// source and the provider-wide arm can trip on the first one. That is the right
-// default for a billing block, which is account-wide by nature; it is the wrong
-// one for a provider that returns 402 per-request (OpenRouter answers 402 when
-// a single request's max cost exceeds the balance), where two large requests
-// can bench models that would have served. The operator's lever for that is
+// This does NOT confine the damage to one model. The charge lands on the model
+// that drew the refusal, but SpanModels defaults to 2, so the second model to
+// take a 402 darkens the whole provider, and if the quota advisor already holds
+// an exhaustion reading for it, applyQuotaPin prefers the advisor source and the
+// provider-wide arm can trip on the first one. That is the right default for a
+// billing block, which is account-wide by nature, and the wrong one for a
+// provider that returns 402 per-request (OpenRouter answers 402 when a single
+// request's max cost exceeds the balance), where two large requests can bench
+// models that would have served. The operator's lever for that is
 // circuit_breaker_open_on_exhaustion.
 func (h *Handler) recordPaymentRequiredOutcome(ctx context.Context, st *requestState, candidate modelCandidate) {
 	st.logData.noteBreaker(breakerCharge)
@@ -187,15 +185,14 @@ func (h *Handler) recordPaymentRequiredOutcome(ctx context.Context, st *requestS
 // non-streaming attempt, and is the completion-side sibling of
 // judgeStreamForBreaker.
 //
-// The bar is emptyCompletion — did ANYTHING come back — and deliberately not the
+// The bar is emptyCompletion (did ANYTHING come back) and deliberately not the
 // retirement verdict's bar two lines from each call site. See
 // answerCarriesSomething for why the two questions differ and why the answer to
 // this one cannot be `len(Choices) == 0`.
 //
 // A state other than "completed" means the attempt failed after the headers: a
 // body read that died, a body the gateway could not decode, an upstream that
-// sent a success shape behind a failure status. The old code had already
-// credited every one of those before the read was even attempted.
+// sent a success shape behind a failure status.
 //
 // status is the status the UPSTREAM answered, handed in by the caller rather
 // than read back off logData: a failure handler may have replaced
@@ -207,8 +204,7 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 		return
 	}
 	// Read here rather than at the call sites: two copies of the same expression
-	// is how one of them comes to be missing it, which is what happened to the
-	// third charge site this change added.
+	// is how one of them comes to be missing it.
 	if logData.state != "completed" {
 		// The attempt failed after the headers.
 		//
@@ -216,12 +212,9 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 		// the headers already has one: a caller hanging up, this gateway's own
 		// request_timeout, a body it could not decode, a body that died on the
 		// wire. providerAtFault excludes all but the last, which is the same
-		// predicate judgeStreamForBreaker uses.
-		//
-		// A separate client-gone guard used to sit here as well. It read the
-		// CLIENT's context, so it was blind to a failover-timeout cancel, and it
-		// was a second rule that had to agree with the first — the shape three
-		// review rounds kept finding a hole in.
+		// predicate judgeStreamForBreaker uses. No second client-gone guard
+		// belongs here: one reading the CLIENT's context is blind to a
+		// failover-timeout cancel and has to agree with this rule anyway.
 		if !providerAtFault(logData.errorKind) {
 			return
 		}
@@ -255,8 +248,7 @@ func judgeAnswerNow(logData *requestLogData) {
 
 // chargeBreaker records one breaker failure with its cause in the log. The
 // cause is worth the line: a breaker that opens on anything other than an
-// upstream status has no other record of why, which is the gap the
-// "recording circuit breaker failure" warn was added to close.
+// upstream status has no other record of why.
 //
 // The charge lands on the candidate's resolved upstream model, the same key the
 // success sites and the routing skip use. status is the upstream status the
@@ -274,19 +266,16 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, stat
 // rejectUntranslatableBody is the single outcome all three egress adapters have
 // for a success whose body they cannot turn into a completion.
 //
-// One place because the outcome has four parts — the log, the breaker charge,
-// the request error and the failover — and three copies of it is how the charge
-// came to be missing from all three: a 200 was credited at header time, before
-// any translation was attempted, and each adapter's own comment already called
-// this a provider fault. Mutation testing then showed two of the three copies
-// had no test behind them.
+// One place because the outcome has four parts (the log, the breaker charge,
+// the request error and the failover), and three copies of it is how the charge
+// comes to be missing from one.
 //
 // status is the 2xx the upstream answered before its body failed translation;
 // logData has not been stamped with it at this point.
 func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, status int, err error, attempt int, r *http.Request) candidateOutcome {
 	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter, "error", err, "model", logData.modelID, "provider", logData.providerName)
 	// The translators read the body under the attempt's context, so an
-	// interrupted request arrives here as a translation failure — a caller
+	// interrupted request arrives here as a translation failure: a caller
 	// hanging up or this gateway's own request_timeout, and neither is the
 	// provider's doing.
 	if _, aborted := cancelKind(r.Context(), err); !aborted && translationIsProviderFault(err) {
@@ -302,10 +291,10 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 // adapter expects" from "the provider answered, and its answer was a refusal".
 //
 // A Gemini prompt blocked by its safety filter returns 200 with an empty
-// candidate list, which BuildChatCompletion cannot turn into a completion — but
+// candidate list, which BuildChatCompletion cannot turn into a completion, but
 // the body is a perfectly good Gemini object and the provider is plainly alive.
-// Charging for it took a healthy provider out of rotation for every tenant after
-// five blocked prompts, which is exactly what a client retries.
+// Charging for it would take a healthy provider out of rotation for every tenant
+// after five blocked prompts, which is exactly what a client retries.
 //
 // The speech adapter's refusals are the same two shapes: an answer without an
 // audio part (a blocked prompt, a text reply) is the model answering, and a
@@ -322,16 +311,12 @@ func translationIsProviderFault(err error) bool {
 // Deliberately NOT chatAnswerCarriesContent, which backs the retirement verdict
 // and stays narrow: `refusal` is the likeliest field for an aggregator to write
 // "this model is gone" into behind a 200, and letting the retirement bar count
-// it would clear such a provider's gone-strikes forever. That bar gained exactly
-// one thing on this branch — it reads ReasoningDetails, which it had been
-// judging BEFORE the normalisation that folds them into ReasoningContent, so a
-// reasoning-only answer read as nothing at all.
+// it would clear such a provider's gone-strikes forever.
 //
-// And deliberately not `len(Choices) == 0` either, which is what this was first
-// narrowed to. Every egress translator synthesises a one-element Choices literal
-// on success, so an emptied Gemini, Anthropic-egress or Responses answer always
-// had a choice and the charge could never fire for any of them — the fix was a
-// no-op for three whole dialects.
+// And deliberately not `len(Choices) == 0` either: every egress translator
+// synthesises a one-element Choices literal on success, so an emptied Gemini,
+// Anthropic-egress or Responses answer always has a choice and the charge could
+// never fire for any of them.
 //
 // The bar is therefore: did any choice come back with SOMETHING in it. An
 // allowlist for the unmodelled shapes rather than "any member that carries",
@@ -351,7 +336,7 @@ func answerCarriesSomething(out ChatCompletionResponse) bool {
 
 func choiceCarriesSomething(choice Choice) bool {
 	// A stop reason the provider reported about its own output. A filtered
-	// answer is the provider answering — Gemini's SAFETY maps here too — and a
+	// answer is the provider answering (Gemini's SAFETY maps here too), and a
 	// length cut means there was output to cut.
 	if choice.FinishReason != nil {
 		switch *choice.FinishReason {
@@ -376,12 +361,8 @@ func choiceCarriesSomething(choice Choice) bool {
 	// object on a speech completion, a legacy function_call, OpenRouter's
 	// generated `images`, Perplexity's `citations`, an Anthropic-shaped relay's
 	// `thinking_blocks`. For the image and citation models those members are the
-	// WHOLE answer, so a relay forwarding one without a usage block would have
-	// had a correct answer charged against it.
-	//
-	// An allowlist rather than "any member that carries", because a relay
-	// stamping a bookkeeping field on the assistant message would otherwise make
-	// the breaker inert with nothing to show for it.
+	// WHOLE answer, so a relay forwarding one without a usage block would have a
+	// correct answer charged against it.
 	for _, key := range []string{"refusal", "audio", "function_call", "annotations", "images", "citations", "thinking_blocks"} {
 		if util.ValueCarries(msg.Extra[key]) {
 			return true

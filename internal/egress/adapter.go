@@ -11,19 +11,18 @@ import (
 
 // MaxSSEEventBytes caps the SSE event an adapter will buffer: the data fields
 // joined so far plus the line still being read. The Responses dialect sets the
-// floor — its response.completed event embeds the whole generated output, so a
-// 128k-token generation with JSON escaping approaches 1 MiB — and 4 MiB clears
-// that with headroom while still bounding a runaway upstream: one that never
-// closes an event fails the stream instead of growing the buffer until the
-// process suffers.
+// floor, since its response.completed event embeds the whole generated output
+// (a 128k-token generation with JSON escaping approaches 1 MiB); 4 MiB clears
+// that with headroom while still bounding an upstream that never closes an
+// event.
 const MaxSSEEventBytes = 4 << 20
 
 // Translator converts one upstream SSE data payload into the client-facing
 // bytes for that event, and produces the stream's terminal bytes on Finish.
 // Implemented by each dialect's StreamTranslator.
 type Translator interface {
-	// Translate maps one event's payload — every "data:" field of that event,
-	// joined with newlines — to zero or more output bytes. A non-nil error
+	// Translate maps one event's payload (every "data:" field of that event,
+	// joined with newlines) to zero or more output bytes. A non-nil error
 	// means the upstream stream is corrupt or carried an error event, and
 	// poisons the adapter.
 	Translate(payload []byte) ([]byte, error)
@@ -34,11 +33,9 @@ type Translator interface {
 
 // StreamAdapter wraps an upstream vendor SSE body as an io.ReadCloser that
 // yields chat.completion.chunk SSE bytes. Wrapping the UPSTREAM body (not the
-// client writer) lets the whole existing streaming pipeline — TTFT probe, stall
-// watchdog, transforms, metering — run unchanged on what it already
-// understands. All three dialect adapters — gemini, anthropicegress and
-// openairesponses — are this type; each supplies only its translator and its
-// log prefix.
+// client writer) lets the whole streaming pipeline (TTFT probe, stall watchdog,
+// transforms, metering) run unchanged on what it already understands. Each
+// dialect adapter is this type and supplies only its translator and log prefix.
 //
 // Vendor streams carry no [DONE] sentinel of their own, so the translator's
 // Finish() supplies the terminal chunk + [DONE] when upstream EOF arrives. Any
@@ -82,9 +79,9 @@ func NewStreamAdapterWithCap(component string, upstream io.ReadCloser, tr Transl
 // and the terminal Finish() bytes are appended before the EOF is
 // surfaced; other upstream errors surface only after all translated bytes have
 // been drained. A translation failure poisons the stream: already translated
-// bytes drain, then the error surfaces — Finish() is never fabricated over a
+// bytes drain, then the error surfaces. Finish() is never fabricated over a
 // corrupt upstream, so the proxy sees a failed stream instead of a clean
-// empty/partial success.
+// empty or partial success.
 func (a *StreamAdapter) Read(p []byte) (int, error) {
 	for len(a.pending) == 0 {
 		if a.transErr != nil {
@@ -126,7 +123,7 @@ func (a *StreamAdapter) Read(p []byte) (int, error) {
 // so a field is appended to the event under construction rather than
 // translated on its own, and the blank line that terminates the event hands
 // the joined payload to the translator exactly once. Comment lines (":") and
-// every other field — "event:", "id:", "retry:" — are ignored, because the
+// every other field ("event:", "id:", "retry:") are ignored, because the
 // dialect translators key off the payload's own JSON type rather than the SSE
 // event name. The adapter generates its own framing on the way out.
 func (a *StreamAdapter) consume(p []byte) {
@@ -150,8 +147,8 @@ func (a *StreamAdapter) consume(p []byte) {
 		}
 		// The spec strips one optional leading space; trimming both ends is
 		// safe on top of that because JSON ignores whitespace around a value,
-		// and a folded payload cannot split inside a string literal — the
-		// newline the join inserts would be illegal there — so no byte a
+		// and a folded payload cannot split inside a string literal (the
+		// newline the join inserts would be illegal there), so no byte a
 		// translator reads can be trimmed away. A field with no value adds
 		// nothing to the event.
 		value := bytes.TrimSpace(line[len("data:"):])
@@ -204,12 +201,11 @@ func (a *StreamAdapter) dispatchEvent() bool {
 }
 
 // flushAtEOF dispatches the stream's unterminated tail: the residual line the
-// upstream never terminated, and then the event no blank line ever closed. An
-// upstream that closes without that framing would otherwise lose its last event
-// entirely — including a final message_delta's stop_reason — while Finish()
-// still emitted a clean terminal chunk, which is exactly the quiet truncation
-// this adapter exists to prevent. A tail that does not translate poisons the
-// stream, so a connection cut mid-event surfaces as the failure it is.
+// upstream never terminated, and then the event no blank line ever closed.
+// Without this, an upstream that closes without that framing loses its last
+// event entirely (a final message_delta's stop_reason included) while Finish()
+// still emits a clean terminal chunk. A tail that does not translate poisons
+// the stream, so a connection cut mid-event surfaces as a failure.
 func (a *StreamAdapter) flushAtEOF() {
 	if a.transErr != nil {
 		return

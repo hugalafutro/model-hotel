@@ -13,11 +13,10 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-// The Members tab's circuits column: which member is dark for which model,
-// the question that needed four terminals on 2026-08-31. Each member's
-// breaker is local runtime state, so Front Desk reads every member's own
-// ledger (the ?detail=1 status the dashboard card reads) every three health
-// polls (15s at the defaults) and keeps only what the column shows. Not the
+// The Members tab's circuits column: which member is dark for which model. Each
+// member's breaker is local runtime state, so Front Desk reads every member's
+// own ledger (the ?detail=1 status the dashboard card reads) every three health
+// polls, 15s at the defaults, and keeps only what the column shows. Not the
 // health cadence itself: the member caches that status for 5s, so a 5s poll
 // would find the cache just expired every time and recompute the ledger, two
 // catalog queries and a breaker walk, on members with no dashboard open.
@@ -38,10 +37,9 @@ type MemberCircuits struct {
 }
 
 // maxOpenCircuits bounds the ledger a member status carries. The count is the
-// load-bearing number; the list is a hover aid, unusable past a few dozen
-// lines anyway, and /api/members is refetched every few seconds by every open
-// tab, so a provider-wide outage across a large catalog must not turn each
-// refetch into hundreds of rows per member.
+// load-bearing number; the list is a hover aid. /api/members is refetched every
+// few seconds by every open tab, so a provider-wide outage across a large
+// catalog must not turn each refetch into hundreds of rows per member.
 const maxOpenCircuits = 50
 
 // maxCircuitStatusBytes bounds the member's status response. The detail
@@ -65,11 +63,11 @@ type OpenCircuit struct {
 }
 
 // PollCircuitsOnce reads each tokened member's circuit ledger and stores the
-// non-closed circuits on its status. A member without a token, or one whose
-// read failed, shows no ledger at all rather than the last one it had: a
-// stale "1 open" would send the operator to a member that has recovered, and
-// a stale "none" would hide the one that has not. The UI is refreshed only
-// when the set changes, so a quiet fleet produces no events.
+// non-closed circuits on its status. A member without a token, or one whose read
+// failed, shows no ledger at all rather than the last one it had: a stale "1
+// open" would send the operator to a member that has recovered, and a stale
+// "none" would hide the one that has not. The UI is refreshed only when the set
+// changes, so a quiet fleet produces no events.
 func (p *Poller) PollCircuitsOnce(ctx context.Context) {
 	members, err := p.store.ListMembers(ctx)
 	if err != nil {
@@ -178,10 +176,10 @@ type memberCircuitStatus struct {
 
 // fetchMemberCircuits reads the member's detailed circuit status and returns
 // the circuits that are not closed, the first maxOpenCircuits of them listed
-// and all of them counted. A member from before circuits[] existed reports
-// rows without it and so an empty ledger, which the column shows as none
-// open: on such a member the row-level state is provider-wide and would
-// attribute one model's outage to every model of the provider.
+// and all of them counted. A member too old to report circuits[] yields an
+// empty ledger, which the column shows as none open: its row-level state is
+// provider-wide and would attribute one model's outage to every model of the
+// provider.
 func (p *Poller) fetchMemberCircuits(ctx context.Context, baseURL, token string) (*MemberCircuits, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+memberCircuitsPath, http.NoBody)
 	if err != nil {

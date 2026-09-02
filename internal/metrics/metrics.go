@@ -2,9 +2,8 @@
 // the request-outcome collectors, a circuit-breaker-state collector, and the
 // HTTP handler that serves the /metrics endpoint.
 //
-// Labels are deliberately low-cardinality — provider and model names yes,
-// virtual-key IDs or request IDs never. No prompt/request/response content ever
-// reaches a metric (consistent with the no-content logging rule).
+// Labels are low-cardinality: provider and model names yes, virtual-key IDs or
+// request IDs never. No prompt, request or response content reaches a metric.
 package metrics
 
 import (
@@ -105,7 +104,7 @@ type Observation struct {
 	CompletionTokens int
 	ReasoningTokens  int
 	// FailoverProviders names the provider of every attempt after the first
-	// (hedged launches included), in attempt order: one failover attempt each.
+	// (hedged launches included), in attempt order, one failover attempt each.
 	FailoverProviders []string
 }
 
@@ -135,9 +134,9 @@ func Record(o Observation) {
 
 // RecordUpstreamRateLimit counts one upstream 429 by the class the classifier
 // assigned it ("saturated", "exhausted", "unknown"). The caller owns that
-// vocabulary, as with RecordRetirementProbe: the class type lives in the proxy.
-// This is the counter that shows a provider's slot ceiling as a flat line of
-// saturated, where the request counter shows only 429s.
+// vocabulary, as with RecordRetirementProbe, because the class type lives in the
+// proxy. It shows a provider's slot ceiling as a flat line of saturated, where
+// the request counter shows only 429s.
 func RecordUpstreamRateLimit(provider, model, class string) {
 	upstreamRateLimitTotal.WithLabelValues(labelOrUnknown(provider), labelOrUnknown(model), class).Inc()
 }
@@ -172,30 +171,25 @@ func RecordResponsesReroute(provider, model, mode string) {
 // lives in the proxy and this package must stay importable by it.
 //
 // One series per (provider, model, verdict), and only for models the gateway
-// actually probed: a probe is rate-limited to one per model per cooldown, and
-// only a model drawing repeated gone-classified refusals is ever nominated. The
-// bound is the catalog, and in practice a small fraction of it.
+// probed: a probe is rate-limited to one per model per cooldown, and only a model
+// drawing repeated gone-classified refusals is nominated.
 //
 // The model label is the PROVIDER-SIDE id, while requestsTotal carries the name
 // the CLIENT asked for. For direct "provider/model" traffic those are the same
-// string — resolution matched the model row on that exact id, and the request
-// log keeps the post-slash part — so the two counters join. They diverge on
-// exactly two shapes: a request routed through a failover group is "hotel/<group>"
-// on requestsTotal and the real id here, and a validation failure is collapsed
-// there to "unresolved". A PromQL join is therefore sound but silently
-// incomplete, missing precisely the group-routed traffic.
+// string, so the two counters join. They diverge on two shapes: a request routed
+// through a failover group is "hotel/<group>" on requestsTotal and the real id
+// here, and a validation failure is collapsed there to "unresolved". A PromQL
+// join is sound but silently misses the group-routed traffic.
 //
-// Counting VERDICTS rather than retirements is deliberate. A retirement is
-// visible in the model row and in the model.auto_disabled_gone event; what
-// neither records is the probe that did NOT retire anything — a "served" is the
-// classifier having nominated a live model, and a run of "inconclusive" is the
-// gateway paying for an answer it is not getting. Those two are the reason this
-// metric exists, and they leave no other trace than a log line.
+// It counts VERDICTS rather than retirements. A retirement is visible in the
+// model row and in the model.auto_disabled_gone event; a probe that retired
+// nothing is not: a "served" means the classifier nominated a live model, and a
+// run of "inconclusive" means the gateway is paying for an answer it is not
+// getting.
 //
-// A refused verdict is not the same thing as a completed retirement: the write
-// that follows can still be superseded by a success, refused by the repository,
-// or reverted. Alert on the ratio between verdicts, not on refused as a
-// retirement count.
+// A refused verdict is not a completed retirement: the write that follows can be
+// superseded by a success, refused by the repository, or reverted. Alert on the
+// ratio between verdicts, not on refused as a retirement count.
 func RecordRetirementProbe(provider, model, verdict string) {
 	retirementProbesTotal.WithLabelValues(labelOrUnknown(provider), labelOrUnknown(model), verdict).Inc()
 }
@@ -207,8 +201,8 @@ func Handler() http.Handler {
 }
 
 // statusClass buckets an HTTP status into a low-cardinality label. 499 (client
-// closed request) is kept distinct so client disconnects are visible and not
-// conflated with provider 4xx.
+// closed request) stays distinct so client disconnects are not conflated with
+// provider 4xx.
 func statusClass(code int) string {
 	switch {
 	case code == 499:
@@ -240,7 +234,7 @@ type BreakerState struct {
 	State      int
 }
 
-// State numeric encoding for modelhotel_circuit_breaker_state.
+// Numeric state encoding for modelhotel_circuit_breaker_state.
 const (
 	BreakerClosed   = 0
 	BreakerHalfOpen = 1
@@ -248,12 +242,12 @@ const (
 )
 
 // RegisterBreakerCollector registers a scrape-time collector that reports the
-// circuit-breaker state per provider. collect is called on every scrape and
-// must be cheap and non-blocking; it returns the current states. Passing nil,
-// or calling more than once, is a no-op after the first registration.
+// circuit-breaker state per provider. collect runs on every scrape and must be
+// cheap and non-blocking. Passing nil, or calling more than once, is a no-op
+// after the first registration.
 //
-// A scrape-time collector (rather than an event-updated gauge) is used because
-// the open→half-open transition is time-based and would otherwise be missed.
+// Scrape-time rather than an event-updated gauge, because the open to half-open
+// transition is time-based and an event gauge would miss it.
 func RegisterBreakerCollector(collect func() []BreakerState) {
 	if collect == nil {
 		return
@@ -285,7 +279,7 @@ func (c *breakerCollector) Collect(ch chan<- prometheus.Metric) {
 	}
 }
 
-// compile-time guard: the collector implements prometheus.Collector.
+// Compile-time guard: the collector implements prometheus.Collector.
 var _ prometheus.Collector = (*breakerCollector)(nil)
 
 // InflightState is one provider's adaptive in-flight window for the gauges:

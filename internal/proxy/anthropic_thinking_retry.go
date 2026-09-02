@@ -20,11 +20,11 @@ import (
 //     (anthropicegress.ThinkingDialect); the proxy asks in its best-known shape
 //     and switches on the 400 that names the other.
 //   - A param the model has retired. Anthropic deprecates sampling params per
-//     model generation — claude-sonnet-5 and claude-opus-5 answer
-//     "`temperature` is deprecated for this model" while every 4.x model accepts
-//     it — and OpenAI clients send temperature as a matter of course.
+//     model generation, so claude-sonnet-5 and claude-opus-5 answer
+//     "`temperature` is deprecated for this model" where every 4.x model accepts
+//     it, and OpenAI clients send temperature as a matter of course.
 //
-// Either way the fact is learned for this provider+model and the request
+// Either way the fact is learned for this provider and model and the request
 // re-issued once, so the caller sees an answer rather than a 400 and no later
 // request to that model pays the round trip again.
 //
@@ -33,9 +33,9 @@ import (
 // rejects them alongside thinking), and a request that does not ask for thinking
 // cannot earn a dialect complaint.
 //
-// This cannot ride on retryWithStrippedParams. That path is skipped for every
+// This cannot ride on retryWithStrippedParams, which is skipped for every
 // dialect attempt (sentChatCompletionsBody) because it rebuilds an OpenAI body
-// and re-POSTs it, which /v1/messages would reject.
+// and re-POSTs it, and /v1/messages would reject that.
 
 // retryLearnableMessages400 handles a 400 from an Anthropic egress attempt. It
 // returns handled=false for any 400 it cannot learn from, leaving the response
@@ -63,8 +63,7 @@ func (h *Handler) retryLearnableMessages400(
 	// The same bounded read the other learners use: the body is decoded here and
 	// still has to be handed on readable when nothing can be learned from it.
 	body, readErr := readLearnable400(resp)
-	// No-op close on the buffered replacement, for bodyclose's benefit — see the
-	// identical note in retryWithResponses.
+	// A no-op close on the buffered replacement, for bodyclose's benefit.
 	_ = resp.Body.Close()
 	if readErr != nil {
 		return res, false
@@ -123,7 +122,7 @@ func (h *Handler) retryLearnableMessages400(
 
 	// The retry is still an egress attempt, so the response side keeps
 	// translating it. The guard flag stops a second round: what this self-heal
-	// can learn, it has learned, and a 400 after the re-issue is about something
+	// can learn it has learned, and a 400 after the re-issue is about something
 	// else.
 	st.messagesRetried = true
 	st.lastMessagesBody = rebuilt
@@ -136,14 +135,13 @@ func (h *Handler) retryLearnableMessages400(
 
 // learnAndRebuildMessages400 reads what a Messages 400 has to teach, records it,
 // and rebuilds the request accordingly. ok is false when the body teaches
-// nothing, or when what it teaches cannot change this particular request — in
-// which case re-issuing would send identical bytes and earn the identical 400.
+// nothing, or when what it teaches cannot change this particular request, where
+// re-issuing would send identical bytes and earn the identical 400.
 func (h *Handler) learnAndRebuildMessages400(st *requestState, candidate modelCandidate, providerType string, body []byte) (rebuilt []byte, model string, stream, ok bool) {
 	if dialect, isDialectError := anthropicegress.DialectFromError(body); isDialectError {
 		// Learn before deciding whether this request can be retried: a hedged
-		// attempt reaches the same learner, and the cached fact is what stops the
-		// next request repeating the mistake even when this one cannot be
-		// re-issued.
+		// attempt reaches the same learner, and the cached fact stops the next
+		// request repeating the mistake even when this one cannot be re-issued.
 		h.learnThinkingDialect(candidate, dialect)
 		rebuilt, model, stream, err := h.anthropicEgressBody(st, candidate, providerType, dialect)
 		if err != nil {
@@ -159,9 +157,9 @@ func (h *Handler) learnAndRebuildMessages400(st *requestState, candidate modelCa
 	}
 
 	// Param learning is scoped to anthropic-messages, whose ONLY route is
-	// Messages. The learned strip is keyed by provider+model and consulted by
-	// every build for that key, so learning one on an `anthropic` provider —
-	// whose default route is the OpenAI-compat endpoint — would let a name read
+	// Messages. The learned strip is keyed by provider and model and consulted
+	// by every build for that key, so learning one on an `anthropic` provider,
+	// whose default route is the OpenAI-compat endpoint, would let a name read
 	// out of a Messages 400 strip a param from compat traffic that accepts it.
 	if providerType != "anthropic-messages" {
 		return nil, "", false, false
@@ -170,9 +168,9 @@ func (h *Handler) learnAndRebuildMessages400(st *requestState, candidate modelCa
 	if len(rejected) == 0 {
 		return nil, "", false, false
 	}
-	// The names shared by the two dialects are exactly the ones the translator
-	// forwards unchanged (temperature, top_p, top_k), so a name learned here
-	// means the same thing it would on the compat path.
+	// The names shared by the two dialects are the ones the translator forwards
+	// unchanged (temperature, top_p, top_k), so a name learned here means the
+	// same thing it would on the compat path.
 	h.learnRejectedParams(candidate, body)
 	rebuilt, model, stream, err := h.anthropicEgressBody(st, candidate, providerType, h.thinkingDialectFor(candidate))
 	if err != nil {

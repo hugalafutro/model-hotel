@@ -27,11 +27,10 @@ type resolveTimings struct {
 	settingsReadMs   float64
 }
 
-// resolveCacheHits tracks whether each overhead component hit a prewarmed cache.
-// true = cache hit (fast, prewarmed); false = cache miss (had to compute/DB read).
-// Absent fields (parse, dial) are not applicable — they have no cache.
-// The canonical definition lives in internal/util.CacheHits so both proxy and
-// api packages can reference a single type.
+// resolveCacheHits tracks whether each overhead component hit a prewarmed cache:
+// true is a hit, false a miss that had to compute or read the DB. Absent fields
+// (parse, dial) have no cache. The canonical definition lives in
+// internal/util.CacheHits so the proxy and api packages share one type.
 type resolveCacheHits = util.CacheHits
 
 // proxyOverheadMs returns the total proxy overhead from accumulated timings.
@@ -41,10 +40,10 @@ func (t resolveTimings) proxyOverheadMs(parseMs float64) float64 {
 }
 
 // breakerSkipSummary aggregates the candidates the circuit breaker refused up
-// front while a group was resolving, so an empty candidate list can answer
-// with when a retry becomes worth making instead of a bare 502. allPinned
-// starts true and survives only if EVERY skip was quota-pinned: then the whole
-// group is waiting out spent windows and the honest kind is exhaustion.
+// front while a group was resolving, so an empty candidate list can say when a
+// retry becomes worth making instead of answering a bare 502. allPinned starts
+// true and survives only if EVERY skip was quota-pinned: then the whole group is
+// waiting out spent windows and the honest kind is exhaustion.
 type breakerSkipSummary struct {
 	skips         int
 	earliestRetry time.Time
@@ -85,8 +84,8 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	var ch resolveCacheHits
 	var skips breakerSkipSummary
 
-	// A — failover-group lookup + validation. Stamp ch.Failover / failoverLookupMs
-	// only after success so the early-error ledger leaves them zero.
+	// A: failover-group lookup and validation. ch.Failover and failoverLookupMs
+	// are stamped only after success, so an early error leaves them zero.
 	failoverLookupStart := time.Now()
 	fg, failoverHit, err := h.lookupFailoverGroup(ctx, displayModel)
 	if err != nil {
@@ -96,7 +95,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	t.failoverLookupMs = float64(time.Since(failoverLookupStart).Microseconds()) / 1000.0
 	debuglog.Debug("resolve: failover group found", "model", displayModel, "entries", len(fg.PriorityOrder), "enabled", fg.GroupEnabled)
 
-	// B — enabled-model collection + batch model lookup.
+	// B: enabled-model collection and batch model lookup.
 	modelLookupStart := time.Now()
 	enabledModelIDs := enabledEntryIDs(fg)
 	ch.Model = batchCacheHit(enabledModelIDs, model.IsCachedByUUID)
@@ -106,7 +105,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	}
 	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
 
-	// C — provider collection + batch provider lookup. providerLookupStart opens
+	// C: provider collection and batch provider lookup. providerLookupStart opens
 	// the window that physically contains the settings read (D) and every key
 	// decrypt (E); providerLookupMs is derived by subtracting those below.
 	providerLookupStart := time.Now()
@@ -119,15 +118,14 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		return nil, t, ch, skips, err
 	}
 
-	// D — read circuit_breaker_enabled once before the loop to avoid
+	// D: read circuit_breaker_enabled once before the loop, to avoid
 	// per-candidate settings reads. The single elapsed sample is accounted for
 	// in both settingsReadMs (via the context accumulator) and
-	// settingsReadInWindow (subtracted from providerLookupMs below) — keep both
-	// adds here, off one pre-computed cbElapsed, so the dual accounting stays
-	// visible in one place. Only track settings actually read during resolve;
-	// failover_on_rate_limit is read later in shouldFailover (outside the resolve
-	// phase) so checking it here would show a false amber for requests that
-	// never trigger 429.
+	// settingsReadInWindow (subtracted from providerLookupMs below); both adds
+	// stay here, off one pre-computed cbElapsed, so the dual accounting is
+	// visible in one place. Only settings actually read during resolve are
+	// tracked: failover_on_rate_limit is read later in shouldFailover, so
+	// checking it here would show a false amber for requests that never 429.
 	cbEnabled, settingsHit, cbElapsed := h.readCircuitBreakerFlag(ctx)
 	settingsReadInWindow += cbElapsed
 	if v := ctx.Value(ctxkeys.SettingsReadMsKey); v != nil {
@@ -137,13 +135,13 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	}
 	ch.Settings = &settingsHit
 
-	// E — candidate-build loop (no window math inside; it only returns the
-	// running key-decrypt total the caller subtracts).
+	// E: candidate-build loop. No window math inside; it returns only the
+	// running key-decrypt total the caller subtracts.
 	debuglog.Debug("resolve: building candidates from failover group", "model", displayModel, "priority_order_count", len(fg.PriorityOrder))
 	candidates, keyDecryptTotal, decryptFailures, keyHit := h.buildFailoverCandidates(fg, models, providers, cbEnabled, &skips)
 
-	// F — finalize timings + terminal error.
-	// Only record key cache hit if there were keys to decrypt.
+	// F: finalize timings and the terminal error. The key cache hit is recorded
+	// only when there were keys to decrypt.
 	if keyDecryptTotal > 0 {
 		ch.Key = &keyHit
 	}
@@ -157,9 +155,9 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 }
 
 // lookupFailoverGroup performs phase A: the failover cache probe, the repo
-// lookup, and the group-enabled / non-empty validations. It returns the group
-// and the cache-hit bool but does NOT stamp ch.Failover / failoverLookupMs —
-// the caller does that only on success, preserving the "zero on early error"
+// lookup, and the group-enabled and non-empty validations. It returns the group
+// and the cache-hit bool but does NOT stamp ch.Failover or failoverLookupMs; the
+// caller does that only on success, preserving the "zero on early error"
 // contract.
 func (h *Handler) lookupFailoverGroup(ctx context.Context, displayModel string) (*failover.FailoverGroup, bool, error) {
 	// Check failover cache before lookup (lookup populates cache on miss).
@@ -167,10 +165,9 @@ func (h *Handler) lookupFailoverGroup(ctx context.Context, displayModel string) 
 
 	fg, err := h.failoverRepo.GetByModel(ctx, displayModel)
 	if err != nil {
-		// A missing group must read as an unknown model, not a raw "no rows in
-		// result set" leaking from the DB layer (which is what a client saw when
-		// the LB routed to a member lacking a custom group). Other errors pass
-		// through unchanged.
+		// A missing group reads as an unknown model, not a raw "no rows in
+		// result set" leaking from the DB layer. Other errors pass through
+		// unchanged.
 		if errors.Is(err, pgx.ErrNoRows) {
 			return nil, false, fmt.Errorf("model not found: hotel/%s", displayModel)
 		}
@@ -191,7 +188,7 @@ func (h *Handler) lookupFailoverGroup(ctx context.Context, displayModel string) 
 }
 
 // enabledEntryIDs collects the model UUIDs whose failover entry is enabled,
-// preserving PriorityOrder. Pure selector (phase B-collect).
+// preserving PriorityOrder. A pure selector, phase B-collect.
 func enabledEntryIDs(fg *failover.FailoverGroup) []uuid.UUID {
 	ids := make([]uuid.UUID, 0, len(fg.PriorityOrder))
 	for _, modelUUID := range fg.PriorityOrder {
@@ -206,8 +203,8 @@ func enabledEntryIDs(fg *failover.FailoverGroup) []uuid.UUID {
 	return ids
 }
 
-// providerIDsFor collects the unique provider IDs of the enabled+provider-enabled
-// models among ids. Pure selector (phase C-collect).
+// providerIDsFor collects the unique provider IDs of the enabled and
+// provider-enabled models among ids. A pure selector, phase C-collect.
 func providerIDsFor(ids []uuid.UUID, models map[uuid.UUID]*model.Model) []uuid.UUID {
 	providerIDSet := make(map[uuid.UUID]struct{})
 	for _, modelUUID := range ids {
@@ -223,7 +220,7 @@ func providerIDsFor(ids []uuid.UUID, models map[uuid.UUID]*model.Model) []uuid.U
 }
 
 // batchCacheHit reports whether every id is cached (all-must-hit). It returns
-// nil for an empty batch so the caller skips the cache-hit field — an empty
+// nil for an empty batch so the caller skips the cache-hit field: an empty
 // all-must-hit set would otherwise falsely read "hit".
 func batchCacheHit[T comparable](ids []T, cached func(T) bool) *bool {
 	if len(ids) == 0 {
@@ -251,8 +248,8 @@ func (h *Handler) readCircuitBreakerFlag(ctx context.Context) (enabled, hit bool
 	return enabled, hit, elapsedMs
 }
 
-// buildFailoverCandidates performs phase E: walk PriorityOrder, skip
-// disabled/missing/circuit-broken entries, decrypt keys (keyless → ""), and
+// buildFailoverCandidates performs phase E: walk PriorityOrder, skip disabled,
+// missing and circuit-broken entries, decrypt keys (keyless yields ""), and
 // build the candidate list. It owns only the per-key decrypt timing, returning
 // the running total so the caller subtracts it from providerLookupMs; it does
 // no window math itself.
@@ -296,7 +293,7 @@ func (h *Handler) buildFailoverCandidates(fg *failover.FailoverGroup, models map
 		// Circuit breaker: skip a candidate whose own model circuit is open, and
 		// every candidate of a provider the derived verdict indicts. The model id
 		// is the resolved upstream one, which is what the charge sites record
-		// against, so what failed here is what is skipped here.
+		// against, so what failed is what is skipped.
 		if cbEnabled && h.circuitBreaker.IsOpen(prov.ID, prov.Name, m.ModelID) {
 			// The skip is dated so an all-skipped group can answer with when a
 			// retry becomes worth making, and with whether it is waiting out
@@ -306,7 +303,7 @@ func (h *Handler) buildFailoverCandidates(fg *failover.FailoverGroup, models map
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
 		}
-		// Keyless providers store nil encrypted key bytes — skip decryption.
+		// Keyless providers store nil encrypted key bytes, so skip decryption.
 		var apiKey string
 		if len(prov.EncryptedKey) == 0 {
 			apiKey = ""
@@ -375,8 +372,8 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		return nil, t, ch, fmt.Errorf("model or provider disabled")
 	}
 
-	// Keyless providers (e.g. OpenCode Zen free models) store nil encrypted
-	// key bytes. When the key is empty, skip decryption and use empty string.
+	// Keyless providers (OpenCode Zen free models, say) store nil encrypted key
+	// bytes: skip decryption and use the empty string.
 	var apiKey string
 	if len(prov.EncryptedKey) == 0 {
 		apiKey = ""
@@ -418,8 +415,9 @@ func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 	if statusCode == 402 {
 		return true
 	}
-	// 404 from a provider means the model doesn't exist there (stale DB entry,
-	// overloaded provider returning not_found, etc.) — try the next candidate.
+	// 404 from a provider means the model does not exist there (a stale DB
+	// entry, an overloaded provider returning not_found): try the next
+	// candidate.
 	if statusCode == 404 {
 		return true
 	}

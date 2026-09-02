@@ -7,12 +7,10 @@ import (
 	"github.com/google/uuid"
 )
 
-// What Model Hotel cannot know about a provider, made explicit. Ollama Cloud
-// exposes no usage; a plain OpenAI-compatible endpoint exposes nothing at all.
-// For those the only quota signal the gateway ever sees is the 429 whose body
-// says the window or balance is spent. The cap ledger keeps the last of those
-// per provider, so the quota badge can say "no usage API; last cap message:
-// \"session usage limit\" at 14:51 (from a 429)" instead of staying blank.
+// Providers that expose no usage API (Ollama Cloud, a plain OpenAI-compatible
+// endpoint) leave the gateway one quota signal: the 429 whose body says the
+// window or balance is spent. The cap ledger keeps the last of those per
+// provider, so the quota badge can name it instead of staying blank.
 
 // CapNote is the last exhausted 429 a provider answered: the phrase the
 // classifier matched (the phrase-table key, never the body), the model that

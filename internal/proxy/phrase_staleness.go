@@ -11,21 +11,18 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-// The rate-limit phrase table is data, and data rots: a provider rewrites its
-// error text and the entry keeps matching nothing, silently. The attempt trail
-// records which phrase decided each 429 (attemptRecord.Phrase), so once a day
-// the table is checked against it and any phrase that has matched nothing in
-// PhraseStalenessHorizon is named in the app log, where an operator reads it
-// as a maintenance report rather than finding out from the next incident.
+// The attempt trail records which phrase decided each 429
+// (attemptRecord.Phrase). This file checks the rate-limit phrase table against
+// that trail daily and names any phrase that has matched nothing in
+// PhraseStalenessHorizon, which points at a provider that rewrote its error
+// text.
 
 // PhraseStalenessHorizon is how long a phrase may go unmatched before it is
-// reported. Ninety days: long enough to cover a provider an operator only
-// touches quarterly, short enough that a rewritten error text is noticed
-// inside a season.
+// reported. Ninety days covers a provider an operator only touches quarterly.
 const PhraseStalenessHorizon = 90 * 24 * time.Hour
 
-// StalePhrase is one table entry the report names: the phrase, who it was
-// observed on and when it was added.
+// StalePhrase is one table entry the report names: the phrase, the provider it
+// was observed on and when it was added.
 type StalePhrase struct {
 	Phrase   string
 	Provider string
@@ -34,9 +31,7 @@ type StalePhrase struct {
 
 // StalePhrases lists the phrase-table entries that have matched no attempt in
 // the horizon ending at now. An entry added inside the horizon is never stale:
-// it has not had the horizon to prove itself, and the table's own dates are
-// the only evidence from before the trail existed. Each phrase costs one
-// indexed containment probe on request_logs.attempts.
+// it has not had the horizon to prove itself.
 func StalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) ([]StalePhrase, error) {
 	since := now.Add(-PhraseStalenessHorizon)
 	var stale []StalePhrase
@@ -56,11 +51,11 @@ func StalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) ([]Sta
 }
 
 // phraseMatchedSince reports whether any attempt trail written since the
-// instant names the phrase. The containment predicate is what the GIN index on
-// attempts serves; created_at bounds the scan the way the logs page does.
+// instant names the phrase. The containment predicate is served by the GIN
+// index on attempts; created_at bounds the scan.
 func phraseMatchedSince(ctx context.Context, pool *pgxpool.Pool, phrase string, since time.Time) (bool, error) {
 	// json.Marshal, not %q: Go's quoting is not JSON quoting, and a phrase
-	// with a byte outside JSON's escapes would abort the whole daily report.
+	// with a byte outside JSON's escapes would abort the report.
 	needle, err := json.Marshal([]map[string]string{{"phrase": phrase}})
 	if err != nil {
 		return false, err
@@ -75,8 +70,7 @@ func phraseMatchedSince(ctx context.Context, pool *pgxpool.Pool, phrase string, 
 }
 
 // ReportStalePhrases runs the check once and logs the result: one Warn naming
-// every stale phrase, or a Debug saying the table is healthy. It is the daily
-// maintenance report the phrase table's design asks for.
+// every stale phrase, or a Debug saying the table is healthy.
 func ReportStalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) {
 	stale, err := StalePhrases(ctx, pool, now)
 	if err != nil {
@@ -95,8 +89,7 @@ func ReportStalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) 
 }
 
 // PhraseStalenessLoop reports once shortly after start and then daily, until
-// ctx ends. Started from the server's background loops beside the stale-log
-// sweep.
+// ctx ends.
 func PhraseStalenessLoop(ctx context.Context, pool *pgxpool.Pool) {
 	phraseStalenessLoop(ctx, pool, 10*time.Minute, 24*time.Hour)
 }

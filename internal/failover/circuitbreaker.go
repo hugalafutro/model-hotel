@@ -18,9 +18,9 @@ type State int
 
 // Circuit breaker states.
 const (
-	StateClosed   State = iota // Normal operation — requests pass through
-	StateOpen                  // Provider is failing — requests are skipped
-	StateHalfOpen              // Testing recovery — limited probe requests allowed
+	StateClosed   State = iota // requests pass through
+	StateOpen                  // requests are skipped
+	StateHalfOpen              // limited probe requests allowed
 )
 
 func (s State) String() string {
@@ -41,15 +41,13 @@ func (s State) MarshalText() ([]byte, error) {
 	return []byte(s.String()), nil
 }
 
-// ProviderStatus represents the health status of a single provider for
-// API responses and SSE events.
+// ProviderStatus is the health status of a single provider for API responses
+// and SSE events.
 //
 // State and the fields beside it describe the provider's most degraded model
-// circuit. ProviderOpen and OpenModels describe the provider as a whole: the
-// derived verdict and the evidence it is derived from. The two answer different
-// questions and can disagree — one open model at the default span of 2 gives
-// State "open" and ProviderOpen false, which is exactly the case an operator
-// needs to see, because the provider is still serving every other model.
+// circuit. ProviderOpen and OpenModels describe the provider as a whole. The
+// two can disagree: one open model at the default span of 2 gives State "open"
+// and ProviderOpen false.
 type ProviderStatus struct {
 	ProviderID       string `json:"provider_id"`
 	ProviderName     string `json:"provider_name,omitempty"`
@@ -61,40 +59,33 @@ type ProviderStatus struct {
 	QuotaPinned      bool   `json:"quota_pinned,omitempty"`
 	// PinSource says where the dominant circuit's quota pin came from:
 	// "advisor" (a measured quota reading) or "response" (inferred from the
-	// exhausted 429 itself). Empty when that circuit carries no pin. It rides
-	// beside QuotaPinned so an operator can tell a measured pin from an
-	// inferred one; like BackedOff/FailedProbes it describes the dominant
-	// circuit, whose CooldownMs/NextRetryAt it explains.
+	// exhausted 429 itself). Empty when that circuit carries no pin.
 	PinSource string `json:"pin_source,omitempty"`
 	// BackedOff is true when the cooldown governing the circuit is the probe
 	// backoff rather than circuit_breaker_cooldown: CooldownMs and NextRetryAt
 	// are then the doubled value. FailedProbes is the count behind it, the
-	// half-open probes that failed since the circuit last closed. The count is
-	// reported even when backoff is switched off, because it is what happened;
-	// the flag says what governs.
+	// half-open probes that failed since the circuit last closed, and is
+	// reported even when backoff is switched off.
 	BackedOff    bool `json:"backed_off,omitempty"`
 	FailedProbes int  `json:"failed_probes,omitempty"`
 	// ProviderOpen is the derived provider-wide verdict: whether the breaker is
-	// skipping this provider for every model. Always emitted, including its
-	// false, so a consumer can tell "the provider is fine" from "the field is
-	// missing" without re-deriving it from OpenModels and the span setting.
+	// skipping this provider for every model. Always emitted, including when
+	// false, so a consumer never re-derives it from OpenModels and the span
+	// setting.
 	ProviderOpen bool `json:"provider_open"`
 	// OpenModels lists the resolved upstream model ids the breaker is currently
-	// blocking, sorted so a polling UI does not reshuffle the list. It is exactly
-	// the set ProviderOpen is counted from, so a provider detail can name the
-	// models a verdict rests on. Circuits owed a probe are not in it: they are no
-	// longer blocking anything.
+	// blocking, sorted so a polling UI does not reshuffle the list. It is the
+	// set ProviderOpen is counted from. Circuits owed a probe are excluded:
+	// they block nothing.
 	OpenModels []string `json:"open_models,omitempty"`
 	// Circuits lists every circuit the row above is built from, sorted by
 	// model, each with its own state, cooldown and last verdict. Filled only by
-	// StatusDetail. Additive: the row and OpenModels stay what the dashboard
-	// keys on, and an older member in a mixed-version fleet simply omits this.
+	// StatusDetail.
 	Circuits []CircuitStatus `json:"circuits,omitempty"`
 }
 
 // SettingsReader provides dynamic configuration for the circuit breaker.
-// This decouples the breaker from the settings package — callers inject
-// a thin shim that reads from their settings repository.
+// Callers inject a thin shim over their settings repository.
 type SettingsReader interface {
 	GetInt(ctx context.Context, key string, defaultValue int) int
 	GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration
@@ -103,9 +94,9 @@ type SettingsReader interface {
 
 // QuotaAdvisor supplies the reset deadline for a provider whose quota window is
 // spent. Implementations must be non-blocking: this is consulted while the
-// breaker holds its write lock on the request path. Implementations must not
-// call back into the CircuitBreaker (e.g. GetState, Status) — cb.mu is held
-// exclusively across the call and any such re-entry self-deadlocks.
+// breaker holds its write lock on the request path. They must not call back
+// into the CircuitBreaker (e.g. GetState, Status): cb.mu is held exclusively
+// across the call and any such re-entry self-deadlocks.
 type QuotaAdvisor interface {
 	ResetsAt(providerID uuid.UUID) (time.Time, bool)
 }
@@ -126,11 +117,9 @@ type CircuitBreaker struct {
 	// cooldown of an already-open circuit. Nil disables quota pinning.
 	quota QuotaAdvisor
 
-	// onOpen is notified whenever a circuit transitions to Open. It exists so a
-	// consumer can refresh what it knows about the provider at the one moment
-	// that knowledge decides how long the circuit stays dark. A plain callback
-	// rather than a package dependency: the breaker must not know what the
-	// consumer does with the notification. Nil when nothing is wired.
+	// onOpen is notified whenever a circuit transitions to Open, letting a
+	// consumer refresh what it knows about the provider. Nil when nothing is
+	// wired.
 	onOpen func(providerID uuid.UUID)
 
 	// Threshold is the number of consecutive failures before opening a model
@@ -191,9 +180,8 @@ func (cb *CircuitBreaker) SetOnOpen(fn func(providerID uuid.UUID)) {
 
 // notifyOpen fires the open-transition callback for a circuit that just went
 // open. The callback runs on its own goroutine, so it never executes under
-// cb.mu and never adds latency to the request that opened the circuit: this is
-// reached from RecordFailure on the proxy path, and a consumer is free to reach
-// the network. Must be called with cb.mu held.
+// cb.mu and never adds latency to the request that opened the circuit. Must be
+// called with cb.mu held.
 func (cb *CircuitBreaker) notifyOpen(providerID uuid.UUID) {
 	if cb.onOpen == nil {
 		return
@@ -208,8 +196,8 @@ func (cb *CircuitBreaker) notifyOpen(providerID uuid.UUID) {
 // takes, so nothing may write a line while holding it. Every value a line or
 // event carries is computed under the lock; only the write waits. Used as
 // `defer func() { cb.mu.Unlock(); after.run() }()`. Emission order across
-// goroutines is no longer transition order: two sections can unlock and then
-// resume in either order, so events carry the timestamp taken under the lock.
+// goroutines is not transition order, so events carry the timestamp taken
+// under the lock.
 type afterUnlock []func()
 
 func (a *afterUnlock) add(f func()) { *a = append(*a, f) }
@@ -229,8 +217,8 @@ func (a afterUnlock) run() {
 // Fast path: most calls hit the Closed state, which only needs a read lock.
 // Only the Open→HalfOpen transition requires a write lock.
 func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model string) bool {
-	// Fast path: read lock for the common case (nothing tracked, or a closed
-	// model circuit against a provider that is not indicted).
+	// Read lock for the common case: nothing tracked, or a closed model circuit
+	// against a provider that is not indicted.
 	cb.mu.RLock()
 	models, ok := cb.circuits[providerID.String()]
 	if !ok {
@@ -249,11 +237,9 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 	}
 	cb.mu.RUnlock()
 
-	// Slow path: write lock for the Open→HalfOpen transition. The circuit is
-	// re-read after acquiring the write lock, so we operate on the current
-	// state and not the snapshot from the RLock phase. If another goroutine
-	// transitioned it in between (e.g. RecordSuccess: HalfOpen→Closed), we see
-	// the up-to-date state and return the correct result.
+	// Write lock for the Open→HalfOpen transition. The circuit is re-read under
+	// the write lock, so a transition by another goroutine in between (e.g.
+	// RecordSuccess: HalfOpen→Closed) is seen rather than the RLock snapshot.
 	cb.mu.Lock()
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
@@ -269,18 +255,15 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 			debuglog.Info("circuit-breaker: model state=open→half-open (cooldown elapsed)", "provider", providerName, "provider_id", providerID, "model", model)
 		})
 	}
-	// This circuit is owed a probe and so counts for nothing in the provider
-	// verdict: only circuits still inside their cooldown do. That is what lets a
-	// provider recover, because a circuit that kept counting after its cooldown
-	// elapsed would keep the provider dark and block the very probes that close
-	// it. The provider can still be open on the others, which have not changed.
+	// A circuit owed a probe counts for nothing in the provider verdict: only
+	// circuits still inside their cooldown do, which is what lets a provider
+	// recover. The provider can still be open on the others.
 	return cb.providerOpen(models)
 }
 
 // RecordFailure records a failed request to one of a provider's models. It
-// charges that model's circuit and nothing else: a failure is evidence about
-// the model it was routed to, and only the derived provider verdict decides
-// whether enough models agree to call the provider itself down.
+// charges that model's circuit and nothing else; only the derived provider
+// verdict decides whether enough models agree to call the provider down.
 //   - Closed: increments the failure counter. Opens the circuit if the
 //     threshold is reached.
 //   - Half-open: immediately re-opens the circuit with a fresh cooldown, doubled
@@ -288,17 +271,16 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 //   - Open: no-op.
 //
 // cause is remembered as the circuit's last verdict and published with the open
-// it may produce; see Cause for what it must and must not carry.
+// it may produce.
 func (cb *CircuitBreaker) RecordFailure(providerID uuid.UUID, providerName, model string, cause Cause) {
 	cb.recordFailure(providerID, providerName, model, false, cause)
 }
 
 // RecordRateLimited is RecordFailure for an UNCLASSIFIED 429: it charges
-// identically, and additionally feeds the rate-limit-open streak so a circuit
+// identically and additionally feeds the rate-limit-open streak, so a circuit
 // that only ever opens on 429s escalates to exhausted handling without any
-// provider phrase saying so (see circuit.note429Open). The classified cases
-// never come here: a saturated 429 is a breaker no-op at the call site
-// (RecordSaturated remembers it), and an exhausted one goes through
+// provider phrase saying so (see circuit.note429Open). Classified cases go
+// elsewhere: a saturated 429 to RecordSaturated, an exhausted one to
 // RecordExhausted. cause says which reading of the 429 the caller reached.
 func (cb *CircuitBreaker) RecordRateLimited(providerID uuid.UUID, providerName, model string, cause Cause) {
 	cb.recordFailure(providerID, providerName, model, true, cause)
@@ -311,8 +293,8 @@ func (cb *CircuitBreaker) recordFailure(providerID uuid.UUID, providerName, mode
 
 	c := cb.getOrCreate(providerID.String(), model)
 	c.lastCharged = time.Now()
-	// Stamped before the switch so the open transition below logs and
-	// publishes the verdict that produced it.
+	// Stamped before the switch so an open transition logs and publishes the
+	// verdict that produced it.
 	c.note(c.lastCharged, cause)
 
 	switch c.state {
@@ -323,33 +305,28 @@ func (cb *CircuitBreaker) recordFailure(providerID uuid.UUID, providerName, mode
 		}
 	case StateHalfOpen:
 		c.consecutiveFails = cb.effectiveThreshold()
-		// The probe was a live request that just failed against a model the
-		// breaker already had reason to doubt. Counted before the open so the
-		// cooldown stamped there is the one this failure has earned.
+		// Counted before the open so the cooldown stamped there reflects this
+		// failed probe.
 		c.failedProbes++
 		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe failed)", providerID, providerName, model, c, by429, 0)
 	case StateOpen:
-		// Already open — no-op.
+		// Already open, no-op.
 	}
 }
 
 // RecordExhausted records a 429 whose body says the window or balance behind
-// this model is SPENT. One such response opens the circuit outright — the
-// charge jumps to the threshold the way a failed half-open probe does —
-// because the second request an ordinary charge would wait for exists only to
-// confirm what the body already said, and on a saturated sibling it is also
-// the request that tips that one over.
+// this model is SPENT. One such response opens the circuit outright: the charge
+// jumps to the threshold the way a failed half-open probe does.
 //
-// pinHint is the cooldown the response itself suggests (a dated Retry-After,
-// or the matched phrase's per-marker default); zero means none. It reaches the
+// pinHint is the cooldown the response itself suggests (a dated Retry-After, or
+// the matched phrase's per-marker default); zero means none. It reaches the
 // cooldown through the same clamps an advisor pin gets, and a real advisor
-// reading always beats it — see applyQuotaPin.
-// status is the status the upstream actually answered. It is a parameter
-// rather than a constant 429 because exhaustion is a claim, not a number: a 429
-// whose body says the window is spent and a 402 payment_required make the same
-// claim and take the same pin, and stamping every one of them as 429 would put
-// a status the provider never sent into the circuit's cause, the breaker-open
-// log line, the Front Desk circuits ledger and the opens_total metric.
+// reading beats it (see applyQuotaPin).
+//
+// status is the status the upstream answered. It is a parameter rather than a
+// constant 429 because a 402 payment_required makes the same exhaustion claim
+// and takes the same pin, and the status is stamped into the circuit's cause,
+// the breaker-open log line and the opens_total metric.
 func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, model string, status int, pinHint time.Duration) {
 	cb.mu.Lock()
 	var after afterUnlock
@@ -360,12 +337,10 @@ func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, mo
 	c.note(c.lastCharged, UpstreamStatus(status, causeExhausted))
 
 	// by429 feeds the rate-limit-only open streak, so it follows the status the
-	// provider actually sent rather than the fact that this is the exhaustion
-	// path. A 402 is an exhaustion but not a rate limit: counting it would let
-	// repeated payment refusals escalate a streak documented as 429-only, and
-	// that escalation raises the probe-backoff ceiling into a backoff which no
-	// quota lever clears — not ReleaseQuotaPins, not quota_pin_enabled=false —
-	// because those only ever clear a pin.
+	// provider sent rather than the fact that this is the exhaustion path. A 402
+	// is an exhaustion but not a rate limit, and counting it would let repeated
+	// payment refusals escalate a streak defined as 429-only into a probe
+	// backoff that no quota lever clears.
 	by429 := status == 429
 
 	switch c.state {
@@ -377,26 +352,21 @@ func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, mo
 		c.failedProbes++
 		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe drew exhaustion)", providerID, providerName, model, c, by429, pinHint)
 	case StateOpen:
-		// Already open — no-op. The quota poller's ApplyQuotaPins retargets an
-		// open circuit when a fresh reading lands; a second exhausted body is
-		// not fresher evidence than the one that opened it.
+		// Already open, no-op. ApplyQuotaPins retargets an open circuit when a
+		// fresh quota reading lands; a second exhausted body is not fresher
+		// evidence than the one that opened it.
 	}
 }
 
 // RecordSaturated remembers a 429 the classifier read as load rather than a
-// spent window. It is deliberately NOT a charge and not a credit: a provider at
-// its concurrency ceiling is alive, and benching it benches the slots that are
-// all busy serving (see recordRateLimitOutcome in the proxy). What it does is
-// leave the verdict on the circuit, so a status row can say "busy" about a
-// provider whose circuit is closed but whose last three answers were 429s,
-// which on 2026-08-31 was the whole story and was visible nowhere.
+// spent window. It is deliberately neither a charge nor a credit: a provider at
+// its concurrency ceiling is alive. It only leaves the verdict on the circuit,
+// so a status row can say "busy" about a provider whose circuit is closed but
+// whose last answers were 429s.
 //
-// It does not touch lastCharged: nothing landed, so the circuit ranks for
-// eviction exactly as it did, and a circuit that exists only because of this
-// stamp ranks first, behind every circuit a charge or credit ever reached.
-// That is also what keeps the creation here harmless at the cap: a burst of
-// saturated 429s across many untracked models evicts its own zero-stamped
-// entries first, never a circuit a charge ever reached.
+// It does not touch lastCharged, so a circuit that exists only because of this
+// stamp ranks first for eviction, behind every circuit a charge or credit
+// reached.
 func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, model string) {
 	cb.mu.Lock()
 	defer cb.mu.Unlock()
@@ -409,11 +379,11 @@ func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, model string) {
 // quota-pinned. It answers for the same rule IsOpen enforces: the model's own
 // blocking circuit when it has one, else the provider-wide verdict's blocking
 // set (whose earliest expiry is when the verdict can lapse). ok is false when
-// nothing is blocking the pair — the caller should not have skipped it.
+// nothing is blocking the pair: the caller should not have skipped it.
 //
-// It backs the honest all-skipped response: "no available provider" with a
-// Retry-After naming the earliest of these instants, and an exhausted kind
-// only when every blocking circuit is pinned (spent windows), else saturated.
+// It backs the all-skipped response: "no available provider" with a Retry-After
+// naming the earliest of these instants, and an exhausted kind only when every
+// blocking circuit is pinned (spent windows), else saturated.
 func (cb *CircuitBreaker) BlockedUntil(providerID uuid.UUID, model string) (retryAt time.Time, pinned, ok bool) {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
@@ -446,10 +416,8 @@ func (cb *CircuitBreaker) BlockedUntil(providerID uuid.UUID, model string) (retr
 
 // LastSuccessWithin reports whether this (provider, model) circuit served a
 // success inside the window. It backs the 429 behavioural fallback: a rate
-// limit from a model that answered moments ago is load, not a spent window,
-// because a spent window does not come back in a minute. An untracked pair has
-// no recorded success and reports false, so an unfamiliar provider never gets
-// the gentler treatment on a guess.
+// limit from a model that answered moments ago is load, not a spent window. An
+// untracked pair reports false.
 func (cb *CircuitBreaker) LastSuccessWithin(providerID uuid.UUID, model string, window time.Duration) bool {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
@@ -466,11 +434,9 @@ func (cb *CircuitBreaker) LastSuccessWithin(providerID uuid.UUID, model string, 
 // watches for it.
 //
 // cooldown_ms, quota_pinned, backed_off and failed_probes are the operator's
-// only log trail for how long this model will be dark and why: a quota pin can
-// hold a circuit open for a day, a backoff for an hour, and the failure count
-// alone says nothing about either. Routing metadata only — never payload or
-// credentials, and the model id goes last because it is the one attribute a
-// request can influence.
+// log trail for how long this model stays dark and why. Routing metadata only,
+// never payload or credentials, and the model id goes last because it is the
+// one attribute a request can influence.
 //
 // by429 feeds the rate-limit-open streak (note429Open) BEFORE the backoff is
 // stamped, so the escalation's lifted ceiling applies to the open that earned
@@ -489,8 +455,8 @@ func (cb *CircuitBreaker) openCircuit(after *afterUnlock, msg string, providerID
 	cb.applyBackoff(c)
 	cb.applyQuotaPin(providerID, c, exhaustHint)
 	// One walk for the log line and the event, so the two cannot disagree. The
-	// attributes are read now, under the lock, because the circuit keeps
-	// changing once it is released.
+	// attributes are read under the lock, because the circuit keeps changing
+	// once it is released.
 	r := cb.cooldowns()
 	attrs := []any{"provider", providerName, "provider_id", providerID, "cause", c.lastCause, "status", c.lastStatus, "consecutive_failures", c.consecutiveFails, "cooldown_ms", cb.effectiveCooldownForWith(c, r).Milliseconds(), "quota_pinned", cb.quotaPinnedForWith(c, r), "backed_off", cb.backedOffForWith(c, r), "failed_probes", c.failedProbes, "model", model}
 	cause := c.lastCause
@@ -503,26 +469,19 @@ func (cb *CircuitBreaker) openCircuit(after *afterUnlock, msg string, providerID
 		opens := c.opens
 		after.add(func() { cb.reportUnstable(providerID, providerName, model, opens) })
 	}
-	// After the line and the event, as before: the callback is the quota
-	// refresh, whose retarget line must not precede the open it retargets.
+	// After the line and the event: the callback is the quota refresh, whose
+	// retarget line must not precede the open it retargets.
 	after.add(func() { cb.notifyOpen(providerID) })
 }
 
 // reportUnstable says once that a model has opened its circuit repeatedly inside
 // one window, so a chronically broken model stops being invisible.
 //
-// It reports rather than retires, and that is the whole design. Retiring means
-// "the provider no longer serves this model", which only a request refused BY
-// NAME establishes, and a model failing that way is already nominated by the
-// gone-classified streak on the first refusal. What is left here is the model
-// that fails some OTHER way, repeatedly: timeouts, 5xx, a provider having a bad
-// week. Disabling that model would take a working one out of routing on
-// evidence that says only "upstream is unwell".
-//
-// It cannot hand the model to the retirement probe either, even to let the probe
-// decide. That path refuses to probe a model whose circuit is open (see
-// model_gone.go), which is by definition this model's state at the moment this
-// fires, so a nomination from here would be postponed and dropped every time.
+// It reports rather than retires: the failures counted here (timeouts, 5xx) say
+// only "upstream is unwell", not that the provider stopped serving the model.
+// It cannot nominate the model to the retirement probe either, because that
+// probe skips models whose circuit is open (see model_gone.go), which is this
+// model's state whenever this fires.
 //
 // Routing metadata only, and the model id goes last because it is the one
 // attribute a request can influence. Reads nothing from the breaker, so it
@@ -535,10 +494,9 @@ func (cb *CircuitBreaker) reportUnstable(providerID uuid.UUID, providerName, mod
 		Type:     "circuit_breaker.unstable",
 		Severity: "warning",
 		Source:   "failover",
-		// What the counter establishes is how many times the circuit opened, not
-		// what the model was doing in between: a success does not reset the
-		// count, so three recovered blips across a working day land here too.
-		// The sentence says only what was counted.
+		// The counter says how many times the circuit opened, not what the model
+		// did in between: a success does not reset it, so recovered blips land
+		// here too.
 		Message: fmt.Sprintf("%s on %s opened its circuit %d times in %s",
 			model, providerName, opens, reopenWindowLabel),
 		Metadata: map[string]any{
@@ -546,11 +504,9 @@ func (cb *CircuitBreaker) reportUnstable(providerID uuid.UUID, providerName, mod
 			"provider":    providerName,
 			"model":       model,
 			// model_id repeats model as the identity the alert dispatcher
-			// debounces on. Without it the most specific key present is
-			// provider_id, and two models crossing the threshold on one provider
-			// inside the dispatcher's cooldown collapse to one alert, silently
-			// dropping the second - which is the failure debouncing per entity
-			// exists to prevent.
+			// debounces on. Without it the most specific key is provider_id, and
+			// two models crossing the threshold on one provider inside the
+			// dispatcher's cooldown collapse to a single alert.
 			"model_id": model,
 			"opens":    opens,
 			"window":   reopenWindowLabel,
@@ -560,8 +516,7 @@ func (cb *CircuitBreaker) reportUnstable(providerID uuid.UUID, providerName, mod
 
 // RecordSuccess records a successful request to one of a provider's models. It
 // resets that model's circuit only: a model that works says nothing about a
-// sibling that does not, and erasing the sibling's streak is exactly how a
-// failing model stays in rotation forever.
+// sibling that does not.
 //   - Closed: resets the failure counter.
 //   - Half-open: increments the probe counter. Closes the circuit if
 //     enough probes succeed.
@@ -570,11 +525,10 @@ func (cb *CircuitBreaker) RecordSuccess(providerID uuid.UUID, providerName, mode
 }
 
 // RecordAlive is RecordSuccess for a response that proves the provider ALIVE
-// without having served anything: a non-failover-eligible non-2xx (a plain
-// 400, a 422). It credits the circuit identically but does not stamp
-// lastSuccess, because the 429 behavioural fallback reads that stamp as "this
-// model SERVED moments ago, so the window cannot be spent" — and a client's
-// own malformed payloads must not keep classifying a spent window as busy.
+// without having served anything: a non-failover-eligible non-2xx (a plain 400,
+// a 422). It credits the circuit identically but does not stamp lastSuccess,
+// which the 429 behavioural fallback reads as "this model SERVED moments ago";
+// a client's malformed payloads must not classify a spent window as busy.
 // status is that response's status, remembered as the verdict.
 func (cb *CircuitBreaker) RecordAlive(providerID uuid.UUID, providerName, model string, status int) {
 	cb.recordSuccess(providerID, providerName, model, false, UpstreamStatus(status, causeAlive))
@@ -603,9 +557,9 @@ func (cb *CircuitBreaker) recordSuccess(providerID uuid.UUID, providerName, mode
 			c.halfOpenProbes = 0
 			c.cooldownOverride = 0
 			c.pinSource = ""
-			// A probe that succeeded is the evidence the backoff was waiting for:
-			// the next open is a fresh incident and starts from the base again.
-			// The 429-open streak clears with it — HTTP just proved recovery.
+			// A succeeded probe clears the backoff: the next open is a fresh
+			// incident and starts from the base cooldown. The 429-open streak
+			// clears with it.
 			c.failedProbes = 0
 			c.cooldownBackoff = 0
 			c.clear429Escalation()
@@ -619,16 +573,15 @@ func (cb *CircuitBreaker) recordSuccess(providerID uuid.UUID, providerName, mode
 
 // Status returns the current status of all tracked providers, one row per
 // provider built from its most degraded model circuit, without the per-circuit
-// list. This is what the Prometheus scrape and the aggregate status poll read,
-// and both look only at the row.
+// list. The Prometheus scrape and the aggregate status poll read it.
 func (cb *CircuitBreaker) Status() []ProviderStatus {
 	return cb.status(false)
 }
 
 // StatusDetail is Status with Circuits filled in on every row: one entry per
-// circuit, sorted by model, with its own state, wait and last verdict. Only
-// the detail endpoint asks for it, because building the list allocates per
-// circuit under the lock the request path takes.
+// circuit, sorted by model, with its own state, wait and last verdict. Only the
+// detail endpoint asks for it, because building the list allocates per circuit
+// under the lock the request path takes.
 func (cb *CircuitBreaker) StatusDetail() []ProviderStatus {
 	return cb.status(true)
 }
@@ -637,10 +590,9 @@ func (cb *CircuitBreaker) status(detail bool) []ProviderStatus {
 	cb.mu.RLock()
 	defer cb.mu.RUnlock()
 
-	// One walk's reads for the whole scan, not per circuit: this is the
-	// Prometheus scrape path, it holds the lock the request path takes, and a
-	// deployment that never overrode a key has no settings row to cache, so every
-	// read is a DB round trip. Everything below takes the hoisted reads.
+	// One walk's settings reads for the whole scan, not per circuit: this holds
+	// the lock the request path takes, and an unoverridden key has no settings
+	// row to cache, so every read is a DB round trip.
 	r := cb.cooldowns()
 
 	statuses := make([]ProviderStatus, 0, len(cb.circuits))
@@ -652,9 +604,8 @@ func (cb *CircuitBreaker) status(detail bool) []ProviderStatus {
 		cooldown := cb.effectiveCooldownForWith(c, r)
 		state := cb.logicalStateWith(c, r)
 		// quotaPinned comes from this walk rather than from the dominant circuit:
-		// the verdict's pin arm is "any blocking circuit is pinned", and a row that
-		// answered the flag from the dominant circuit alone would tell an operator
-		// a provider is skipped outright when it is in fact waiting out a quota
+		// the verdict's pin arm is "any blocking circuit is pinned", and the
+		// dominant circuit alone would misreport a provider waiting out a quota
 		// window on a sibling model.
 		providerOpen, openModels, quotaPinned := cb.providerReport(models, r)
 		s := ProviderStatus{
@@ -663,8 +614,8 @@ func (cb *CircuitBreaker) status(detail bool) []ProviderStatus {
 			ConsecutiveFails: c.consecutiveFails,
 			QuotaPinned:      quotaPinned,
 			PinSource:        cb.pinSourceForWith(c, r),
-			// Both from the dominant circuit, like CooldownMs and NextRetryAt: they
-			// explain those two numbers, so they must come from the same circuit.
+			// From the dominant circuit, like CooldownMs and NextRetryAt: these
+			// explain those two numbers, so they come from the same circuit.
 			BackedOff:    cb.backedOffForWith(c, r),
 			FailedProbes: c.failedProbes,
 			ProviderOpen: providerOpen,

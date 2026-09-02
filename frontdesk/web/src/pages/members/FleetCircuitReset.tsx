@@ -6,11 +6,10 @@ import { ConfirmModal } from "../../components/ConfirmModal";
 import { useToast } from "../../context/ToastContext";
 
 // The fleet-wide circuit-breaker reset: one failover group's circuits, cleared
-// on every member with a token. Group-scoped by design: clearing every circuit
-// on the fleet stays API-only, for the same reason the member-side reset-all
-// has no button (it discards the breaker's evidence about every other
-// provider). A mutation across the fleet, so it confirms first. Its own file
-// because MembersPage sits at the size ceiling.
+// on every member with a token. Group-scoped by design, since clearing every
+// circuit on the fleet discards the breaker's evidence about every other
+// provider and so stays API-only, as it does on a member. It mutates the whole
+// fleet, so it confirms first.
 export function FleetCircuitReset({ primaryId }: { primaryId: string }) {
 	const { t } = useTranslation();
 	const { toast } = useToast();

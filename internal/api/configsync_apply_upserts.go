@@ -23,11 +23,11 @@ import (
 // operator's group. It returns what the build could not fully do.
 func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []ExportFailoverGroup) (groupApplyResult, error) {
 	// Distinguish "field absent" from "explicitly empty". A nil slice means the
-	// envelope carried no failover_groups key at all (a pre-PR primary), so leave
-	// the member's own custom groups untouched rather than wiping them on the first
-	// sync of a rolling upgrade. A non-nil empty slice means a current primary that
-	// genuinely has zero custom groups, which must reconcile: the declarative delete
-	// below then removes every stale custom group the member still has.
+	// envelope carried no failover_groups key, so leave the member's own custom
+	// groups untouched rather than wiping them on the first sync of a rolling
+	// upgrade. A non-nil empty slice means a primary with zero custom groups, which
+	// must reconcile: the declarative delete below removes every stale custom group
+	// the member still has.
 	if groups == nil {
 		return groupApplyResult{}, nil
 	}
@@ -54,13 +54,11 @@ func (h *ConfigSyncHandler) applyFailoverGroups(ctx context.Context, groups []Ex
 }
 
 // providerTypeForImport keeps an imported provider's type non-empty. A payload
-// from a member that predates the stored type carries none, and a row without a
-// type would fall back to the URL rules on every read; deriving it once here
-// pins the same answer to the row instead.
+// that carries none would leave a row falling back to the URL rules on every
+// read; deriving the type once here pins the answer to the row instead.
 func providerTypeForImport(p ExportProvider) string {
-	// An unknown type would be stored verbatim and then fall through to the
-	// generic path on every read, so a payload from a newer build (or a
-	// tampered one) is derived rather than trusted.
+	// An unknown type would be stored verbatim and fall through to the generic
+	// path on every read, so it is derived rather than trusted.
 	if provider.IsKnownType(p.ProviderType) {
 		return p.ProviderType
 	}
@@ -68,23 +66,17 @@ func providerTypeForImport(p ExportProvider) string {
 }
 
 // validateSyncedProvider applies to an imported provider the checks the
-// interactive admin API applies on create and update, so a compromised
-// primary cannot write through this path what the dashboard would reject.
-// The URL's shape is checked separately (validateURL below); this is the
-// rest: the in-flight ceiling, through the same rule the admin API uses
-// (the load-bearing one: a value below one is read as no ceiling at all),
-// the name's length and printability, and the disable date's format. A
-// disable date in the past is accepted: it was valid when the primary set
-// it, and the member's own sweep fires it immediately, which is what the
-// operator asked for. The URL's length is not bounded here: the admin API's
-// bound is cosmetic, a row past it is harmless, and refusing whole envelopes
-// over one would be a one-way door for a fleet. The name bound carries the
-// same door for a legacy row written before this check, and earns it: an
-// unprintable or ten-thousand-character name reaches logs, the dashboard
-// and hotel/ model strings, which a long URL never does. The name is
-// validated as sent and stored as sent (the admin API stores it trimmed):
-// storing a trimmed copy would diverge from the primary's hash and re-sync
-// forever, and trimming changes nothing the check cares about.
+// interactive admin API applies on create and update, so a compromised primary
+// cannot write through this path what the dashboard would reject. The URL's
+// shape is checked separately (validateURL); this covers the in-flight ceiling
+// (a value below one is read as no ceiling at all), the name's length and
+// printability, and the disable date's format. A disable date in the past is
+// accepted: the member's own sweep fires it immediately, which is what the
+// operator asked for. The URL's length is not bounded here, because a long URL
+// is harmless where an unprintable or ten-thousand-character name reaches logs,
+// the dashboard and hotel/ model strings. The name is validated as sent and
+// stored as sent (the admin API stores it trimmed): storing a trimmed copy would
+// diverge from the primary's hash and re-sync forever.
 func validateSyncedProvider(p ExportProvider) error {
 	if err := provider.ValidateMaxInFlight(p.MaxInFlight); err != nil {
 		return fmt.Errorf("%w: provider %q: %w", errInvalidSyncedProvider, p.Name, err)
@@ -105,18 +97,18 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 		if err := validateSyncedProvider(p); err != nil {
 			return err
 		}
-		// Defense in depth on the import path: a compromised primary must not be
-		// able to write a provider base_url that the interactive admin API would
-		// reject. validateURL is the same guard CreateProvider/UpdateProvider use
+		// Defense in depth on the import path: a compromised primary must not write
+		// a provider base_url the interactive admin API would reject. validateURL is
+		// the same guard CreateProvider/UpdateProvider use
 		// (config.ValidateProviderURL): it resolves DNS and blocks loopback, RFC
 		// 1918/ULA, link-local, CGNAT and cloud-metadata addresses (hosts in
-		// ALLOWED_PROVIDER_HOSTS are exempted). The runtime proxy SafeDialer also
-		// blocks these at dial time, but rejecting here keeps the poisoned value
-		// out of the database entirely. Nil validateURL disables the check (tests).
+		// ALLOWED_PROVIDER_HOSTS are exempted). The runtime proxy SafeDialer blocks
+		// these at dial time too, but rejecting here keeps the poisoned value out of
+		// the database. Nil validateURL disables the check.
 		if validateURL != nil {
 			if err := validateURL(p.BaseURL); err != nil {
-				// The same refusal class as the bounds above: the envelope
-				// carries what the admin API would reject, so a 400, not a 500.
+				// Same refusal class as the bounds above: the envelope carries what
+				// the admin API would reject, so a 400, not a 500.
 				return fmt.Errorf("%w: provider %q has an invalid base_url: %w", errInvalidSyncedProvider, p.Name, err)
 			}
 		}
@@ -143,17 +135,16 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 	return nil
 }
 
-// applyUsers converges the users table to the envelope, keyed by username. A
-// nil slice means the envelope predates the field: leave this member's users
-// alone (same contract as failover groups). Sequence matters: delete absent
-// users first, then blank all remaining emails, then upsert. The blanking step
-// lets an email move between two surviving accounts without tripping the
-// unique index mid-upsert (row-by-row upserts would otherwise 23505 on a
-// swap). Sessions of removed or disabled users die at the auth middleware,
-// which re-checks the users row on every request. nameToID resolves each
-// account's provider cap back to this member's provider UUIDs; it is built
-// after the provider upsert so every name a legitimate primary exported
-// resolves.
+// applyUsers converges the users table to the envelope, keyed by username. A nil
+// slice means the envelope omits the field: leave this member's users alone
+// (same contract as failover groups). Sequence matters: delete absent users
+// first, then blank all remaining emails, then upsert. The blanking step lets an
+// email move between two surviving accounts without tripping the unique index
+// mid-upsert (row-by-row upserts would otherwise 23505 on a swap). Sessions of
+// removed or disabled users die at the auth middleware, which re-checks the
+// users row on every request. nameToID resolves each account's provider cap back
+// to this member's provider UUIDs; it is built after the provider upsert so
+// every name a legitimate primary exported resolves.
 func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map[string]string) error {
 	if users == nil {
 		return nil
@@ -169,12 +160,11 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 		if err := validateSyncedRateLimits("user "+strconv.Quote(u.Username), u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM); err != nil {
 			return err
 		}
-		// The interactive API only ever stores hashes it computed itself; this
-		// path takes them off the wire, so it checks the encoding here. Login
-		// already fails closed on a malformed hash, so this is not an
-		// authentication fix: it stops an unusable hash from being written at
-		// all, where it would otherwise surface much later as an account that
-		// silently cannot log in.
+		// The interactive API only stores hashes it computed itself; this path takes
+		// them off the wire, so it checks the encoding. Login already fails closed
+		// on a malformed hash, so this is not an authentication fix: it stops an
+		// unusable hash from being written at all, where it would surface later as
+		// an account that silently cannot log in.
 		if err := user.ValidateHashFormat(u.PasswordHash); err != nil {
 			return fmt.Errorf("%w: user %s", errInvalidSyncedPasswordHash, strconv.Quote(u.Username))
 		}
@@ -186,7 +176,7 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 		// test is the POINTER, not the length, for the same reason as
 		// upsertVirtualKeys: an account whose capped providers were all deleted
 		// exports a present-but-empty list, and reading that as "uncapped" is the
-		// escalation being guarded.
+		// escalation this guards.
 		var allowedProviders *[]string
 		if u.AllowedProviderNames != nil {
 			resolved := []string{}
@@ -195,32 +185,28 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 					resolved = append(resolved, id)
 				}
 			}
-			// Two ways a cap can resolve to nothing here, and they are NOT the
-			// same thing.
+			// Two ways a cap resolves to nothing here, and they are NOT the same.
 			//
-			// The wire list is EMPTY: the primary itself resolved nothing, i.e.
-			// every provider in this account's cap has been deleted there. Fall
-			// through and write the empty array. proxy.effectiveAllowedProviders
-			// treats a non-nil cap as "exactly these providers" INCLUDING when
-			// empty, so `{}` reproduces the primary's own effective behaviour
-			// (deny everything) rather than NULL's "every provider". Refusing
-			// instead would wedge fleet sync on an ordinary provider deletion,
-			// and because a refusal fails the ENTIRE import the member would stay
-			// frozen on its previous cap for this account, which may be WIDER
-			// than what the primary now effectively enforces.
+			// The wire list is EMPTY: the primary itself resolved nothing, i.e. every
+			// provider in this account's cap has been deleted there. Fall through and
+			// write the empty array. proxy.effectiveAllowedProviders treats a non-nil
+			// cap as "exactly these providers" INCLUDING when empty, so `{}`
+			// reproduces the primary's own deny-everything behaviour rather than
+			// NULL's "every provider". Refusing would wedge fleet sync on an ordinary
+			// provider deletion and freeze the member on its previous cap, which may
+			// be WIDER than what the primary now enforces.
 			//
 			// The wire list is NON-EMPTY but none of it resolves: anomalous. The
-			// declarative provider replace runs earlier in this same transaction
-			// and nameToID is built from its result, so every name a legitimate
-			// primary exported resolves here. Refuse the envelope; the rollback
-			// undoes the users delete above with it.
+			// declarative provider replace runs earlier in this transaction and
+			// nameToID is built from its result, so every name a legitimate primary
+			// exported resolves here. Refuse the envelope; the rollback undoes the
+			// users delete with it.
 			if len(resolved) == 0 && len(*u.AllowedProviderNames) > 0 {
 				return fmt.Errorf("%w: user %s", errUnresolvableUserProviders, strconv.Quote(u.Username))
 			}
-			// A partially resolving list is just as anomalous as a fully
-			// unresolvable one for the same reason, and it narrows the account
-			// silently, so say so. Matches the warn upsertVirtualKeys emits on its
-			// analogous branch. Username only: no request content is ever logged.
+			// A partially resolving list is as anomalous as a fully unresolvable one
+			// and narrows the account silently, so it is logged. Username only: no
+			// request content is ever logged.
 			if len(resolved) < len(*u.AllowedProviderNames) {
 				debuglog.Warn("configsync: some of a user's allowed_providers do not resolve on this member; importing the subset",
 					"user", u.Username, "wanted", len(*u.AllowedProviderNames), "resolved", len(resolved))
@@ -283,40 +269,34 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 				}
 			}
 		}
-		// Privilege-safety: if this key was restricted to providers but none of
-		// them resolve on this member, do NOT import it. A nil allowed_providers
-		// means "all providers allowed" (pgx writes the nil slice as NULL, and
-		// the proxy treats only NULL as unrestricted), so writing it would
-		// silently turn a restricted key into an unrestricted one. Skipping is
-		// the lesser evil rather than a clean no-op: a key this member does not
-		// have yet simply stays absent, but a key it already has keeps its
-		// existing row, whose allowed_providers may be broader than the primary
-		// now intends. Stale-but-bounded still beats writing NULL.
+		// Privilege-safety: a key restricted to providers none of which resolve on
+		// this member is NOT imported. A nil allowed_providers means "all providers
+		// allowed" (pgx writes the nil slice as NULL, and the proxy treats only NULL
+		// as unrestricted), so writing it would turn a restricted key into an
+		// unrestricted one. Skipping is not a clean no-op: a key this member does
+		// not have stays absent, but one it already has keeps its existing row,
+		// whose allowed_providers may be broader than the primary intends.
 		//
 		// The presence test is the POINTER, not the length. A key whose providers
 		// were all deleted upstream exports a present-but-empty list, and reading
-		// that as "unrestricted" is exactly the escalation this guards.
+		// that as "unrestricted" is the escalation this guards.
 		//
-		// Which is also how this branch is reached in practice. Deleting a provider
-		// on the primary runs provider.PruneAllowLists, so any key scoped solely to
-		// it is left with `{}` and exports an empty list: an ordinary admin action
-		// trips this skip, with its warn, on every sync until the key is repaired or
-		// removed. The other way in, a NON-empty list none of whose names resolve,
-		// stays the rare one: providers are upserted in the same transaction before
-		// this runs, so every name a legitimate primary exported does resolve.
+		// That is also how the branch is reached in practice: deleting a provider on
+		// the primary runs provider.PruneAllowLists, so a key scoped solely to it is
+		// left with `{}` and exports an empty list, tripping this skip on every sync
+		// until the key is repaired or removed. A NON-empty list none of whose names
+		// resolve is rare: providers are upserted in the same transaction first.
 		//
-		// Note the deliberate difference from applyUsers, which writes an empty wire
-		// cap through as `{}` instead of skipping. A user cannot be skipped: the
-		// declarative replace would delete the row. A key can, and skipping keeps the
-		// member's own row rather than converging it, which is the accepted gap
-		// recorded in the design doc.
+		// applyUsers instead writes an empty wire cap through as `{}`: a user cannot
+		// be skipped, because the declarative replace would delete the row. A key
+		// can, and skipping keeps the member's own row rather than converging it.
 		if v.AllowedProviderNames != nil && len(allowed) == 0 {
 			debuglog.Warn("configsync: skipping virtual key whose allowed_providers do not resolve on this member", "key", v.Name)
 			continue
 		}
-		// Owner rides by username; an owner that does not resolve here (should
-		// not happen: users are applied first in the same transaction) imports
-		// as unowned rather than failing the sync.
+		// Owner rides by username; an owner that does not resolve here (users are
+		// applied first in the same transaction) imports as unowned rather than
+		// failing the sync.
 		var ownerID *string
 		if v.OwnerUsername != nil {
 			if id, ok := userNameToID[*v.OwnerUsername]; ok {
@@ -368,8 +348,8 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 	if len(groups) == 0 {
 		return res, nil
 	}
-	// (provider, model_id) -> local model UUID. Built inside the transaction so
-	// it reflects the just-synced provider set (deleted providers cascade-removed
+	// (provider, model_id) -> local model UUID. Built inside the transaction so it
+	// reflects the just-synced provider set (deleted providers cascade-removed
 	// their models). Models themselves come from each member's discovery.
 	localUUID := map[string]string{}
 	rows, err := tx.Query(ctx,
@@ -410,7 +390,7 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 		if len(priority) < len(g.Entries) {
 			// Routable, but across fewer providers than the primary routes it: this
 			// member holds fewer of the group's models. The group is written with what
-			// resolved, and named so the operator alert can say which one is short.
+			// resolved, and named so the operator alert can say which is short.
 			debuglog.Warn("configsync: building custom failover group with fewer entries than the primary sent",
 				"group", g.DisplayModel, "resolved", len(priority), "wanted", len(g.Entries))
 			res.Partial = append(res.Partial, g.DisplayModel)

@@ -45,8 +45,7 @@ export function EditProviderModal({
 }) {
 	const queryClient = useQueryClient();
 	// Claims are read per enabled provider, so switching one off takes every
-	// claim it owns out of the Models nav badge (and back on restores them).
-	// See useRefreshDiscoveryBadge.
+	// claim it owns out of the Models nav badge, and back on restores them.
 	const refreshBadge = useRefreshDiscoveryBadge();
 	const { t } = useTranslation();
 	const [formData, setFormData] = useState({
@@ -333,7 +332,7 @@ export function EditProviderModal({
 								checked={formData.enabled}
 								onChange={(v) => {
 									// Switching off hides the schedule row and disables its
-									// trigger, so an open picker goes with it. The keyboard
+									// trigger, so an open picker closes with it. The keyboard
 									// path fires no mousedown and so never reaches the
 									// popover's own click-outside handler.
 									if (!v) setPickerOpen(false);

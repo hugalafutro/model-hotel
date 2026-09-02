@@ -11,15 +11,13 @@ import (
 
 // dialTiming is the per-attempt slot the SafeDialer writes DNS+TCP time into
 // and the attempt reads back. It is atomic because the writer and the reader
-// are different goroutines with no ordering between them: http.Transport
-// dials on its own goroutine, and that goroutine can outlive the Do call
-// that started it. A request cancelled mid-dial returns from Do at once while
-// the dial goroutine finishes a moment later and records its time; a spare
-// connection the transport raced against an idle one lands the same way. A
-// plain *float64 in the context was a data race on exactly that shape, which
-// the race detector caught on master in the client-disconnect-during-backoff
-// test. A late write after take() is attributed nowhere, which is right: it
-// was not this attempt's wait.
+// are different goroutines with no ordering between them: http.Transport dials
+// on its own goroutine, and that goroutine can outlive the Do call that started
+// it. A request cancelled mid-dial returns from Do at once while the dial
+// goroutine finishes a moment later and records its time; a spare connection
+// the transport raced against an idle one lands the same way. A late write
+// after take() is attributed nowhere, which is right: it was not this attempt's
+// wait.
 type dialTiming struct {
 	bits atomic.Uint64
 }

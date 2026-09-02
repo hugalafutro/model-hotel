@@ -15,7 +15,7 @@ export interface Member {
 	// confirmed (member offline, or an older build). A refused token is a 400.
 	token_warning?: string;
 	// When Front Desk last applied config to this member (wizard or automatic),
-	// RFC3339; absent until the first sync. last_config_sync_reason explains why
+	// RFC3339; absent until the first sync. last_config_sync_reason says why
 	// (e.g. it did not hold the primary's config). Both drive the "Last Config
 	// Sync" column on the Members tab.
 	last_config_sync_at?: string;
@@ -347,7 +347,7 @@ export interface FleetVersionCheck {
 	skewed: FleetVersionSkewMember[];
 	// True when a real commit backed every alignment verdict. False means at
 	// least one rested on the version alone, which on a fleet of "dev" images
-	// means it rested on nothing - the case the acknowledgment covers.
+	// means it rested on nothing: the case the acknowledgment covers.
 	commit_vouched: boolean;
 }
 
@@ -478,9 +478,9 @@ export interface ZAICodingQuotaResponse {
 }
 
 // ── Kimi Code + MiniMax quota ───────────────────────────────────
-// Declared in web-shared/quota, which both Front Desk and the Model Hotel
-// dashboard parse these payloads with, and re-exported here so app code keeps
-// importing every API type from one place.
+// Declared in web-shared/quota, the parser both Front Desk and the Model Hotel
+// dashboard use for these payloads, and re-exported here so app code imports
+// every API type from one place.
 
 export type {
 	KimiCodeQuotaLimitEntry,
@@ -535,15 +535,14 @@ export interface NeuralWattQuotaUsagePeriod {
 /**
  * NeuralWatt's quota body, as relayed by the fleet primary.
  *
- * Only `balance` is declared required, and only because the badge visibility
- * gate (isNeuralWattQuotaVisible in web-shared/quota) refuses to render a
- * NeuralWatt badge at all unless balance.credits_remaining_usd is present, so
- * nothing downstream can be reached without it. Every other block is optional on purpose: this is an
- * upstream provider's JSON forwarded through another machine's export, not a
- * shape this build controls, and a fleet primary on a different version may
- * relay less than the current one does. Optional here is what makes the
- * compiler, rather than an operator's crashed dashboard, catch an unguarded
- * nested read.
+ * Only `balance` is required, because the badge visibility gate
+ * (isNeuralWattQuotaVisible in web-shared/quota) renders no NeuralWatt badge
+ * unless balance.credits_remaining_usd is present, so nothing downstream is
+ * reachable without it. Every other block is optional: this is an upstream
+ * provider's JSON forwarded through another machine's export, not a shape this
+ * build controls, and a fleet primary on a different version may relay less.
+ * Optional is what makes the compiler, rather than an operator's crashed
+ * dashboard, catch an unguarded nested read.
  */
 export interface NeuralWattQuotaResponse {
 	balance: {

@@ -51,10 +51,10 @@ func parseMultipartParts(body []byte, boundary string) ([]multipartPart, string,
 			data:        data,
 		}
 		if part.fieldName == "model" && part.fileName == "" {
-			// The form field is raw bytes. The JSON paths get valid UTF-8 for
-			// free from encoding/json; here an invalid byte would reach the
+			// The form field is raw bytes, where the JSON paths get valid UTF-8
+			// for free from encoding/json. An invalid byte would reach the
 			// request-log INSERT verbatim and Postgres refuses it, losing the
-			// row. Replace it the way the JSON decoder would.
+			// row, so it is replaced the way the JSON decoder would.
 			model = strings.ToValidUTF8(strings.TrimSpace(string(data)), "�")
 		}
 		parts = append(parts, part)
@@ -134,8 +134,8 @@ func newMultipartBodyBuilder(parts []multipartPart) func(string) ([]byte, string
 // prompt is the context hint the model conditions on.
 //
 // An allowlist rather than a denylist, because everything else on these forms is
-// configuration -- language, temperature, response_format, size, n, voice,
-// timestamp_granularities -- and charging for it would bill the caller for their
+// configuration (language, temperature, response_format, size, n, voice,
+// timestamp_granularities) and charging for it would bill the caller for their
 // own options. A denylist gets that wrong by default every time a provider adds
 // a parameter, which is the wrong direction for a billing decision to fail in.
 var multipartPromptFields = map[string]bool{"prompt": true}
@@ -184,8 +184,8 @@ func multipartPromptTextBytes(parts []multipartPart) int {
 func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request, endpointType string) (*requestState, []multipartPart, bool) {
 	startTime := time.Now()
 
-	// Create the log entry early so early-return paths can record failures.
-	// modelID gets updated after the multipart form is parsed.
+	// The log entry is created early so early-return paths can record failures;
+	// modelID is filled in once the multipart form is parsed.
 	logData, vkHash := h.newPendingRequestLog(r, endpointType, "", false)
 
 	// Multipart bodies are never buffered by streamingAwareTimeout (the
@@ -239,12 +239,12 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	debuglog.Info("proxy: multipart request start", "client_ip", clientip.From(r), "endpoint", endpointType, "model", reqModel, "key", logData.virtualKeyName, "parts", len(parts))
 
 	// bodyBytes stays nil: the parsed parts are the upstream-body source for
-	// multipart requests (via makeUpstreamBody), so retaining the raw body
-	// would pin a redundant full copy of the upload for the request lifetime.
-	// Size the text form fields, skipping the upload itself. Without this
-	// logData.promptTextBytes stays at its zero value for every multipart
-	// request, so the metering estimate downstream silently charges nothing --
-	// the same no-op that the chat-only sizer produced for the JSON families.
+	// multipart requests (via makeUpstreamBody), so retaining the raw body would
+	// pin a redundant full copy of the upload for the request lifetime.
+	//
+	// The text form fields are sized here, skipping the upload itself. Without
+	// it logData.promptTextBytes stays zero for every multipart request and the
+	// metering estimate downstream silently charges nothing.
 	logData.promptTextBytes = multipartPromptTextBytes(parts)
 	logData.content = newContentFence(nil, multipartTextFields(parts)...)
 

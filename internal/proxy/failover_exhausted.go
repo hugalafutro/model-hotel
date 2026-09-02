@@ -14,13 +14,12 @@ import (
 )
 
 // The exhaustion terminal of the failover loop: every candidate failed, or the
-// deadline was hit. Split out of proxy_failover.go when that file reached the
-// size ceiling.
+// deadline was hit.
 
-// failAllExhausted handles phase E: every candidate failed (or the overall
-// deadline was hit). It logs the exhaustion, records a 502 failure row, and
+// failAllExhausted ends a request whose candidates are all spent, or whose
+// overall deadline expired. It logs the exhaustion, records the failure row and
 // writes the failover-vs-single-provider error response. numCandidates is the
-// resolved candidate count (for the failRequest attempt index).
+// resolved candidate count, used for the failRequest attempt index.
 func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
 	last := st.lastReqErr
 	status := last.terminalStatus()
@@ -30,9 +29,8 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	clientMsg := last.terminalClientMessage(st.reqModel, st.isFailover)
 	if st.isFailover {
 		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
-		// all_busy is the exhaustion the 2026-08-31 incident was made of: the
-		// last candidate alive and at capacity. Anything else it said, and the
-		// failover deadline, is all_failed.
+		// all_busy means the last candidate was alive and at capacity; any other
+		// cause, and the failover deadline, is all_failed.
 		reason := "all_failed"
 		if last.Kind == KindProviderSaturated {
 			reason = "all_busy"
@@ -43,12 +41,11 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 	} else {
 		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "request_timeout", st.failoverTimeout)
 	}
-	// Honest status for an all-busy exhaustion: every provider is alive and at
-	// capacity, and OpenAI SDKs back off and retry on a 429 where a 502 is a
-	// coin toss. The Retry-After is the last provider's own ask (or the class
-	// default), so the client's backoff lines up with the slot actually
-	// freeing. Behind failover_exhaustion_status_429 for any client that has
-	// learnt to read the 502.
+	// An all-busy exhaustion answers 429 rather than 502: every provider is
+	// alive and at capacity, and OpenAI SDKs back off and retry on a 429.
+	// Retry-After carries the last provider's own ask, or the class default, so
+	// the client's backoff lines up with a slot actually freeing.
+	// Switching failover_exhaustion_status_429 off restores the 502.
 	if last.Kind == KindProviderSaturated && h.settingsRepo.GetBool(context.Background(), "failover_exhaustion_status_429", true) {
 		status = http.StatusTooManyRequests
 		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.rateLimit.retryAfter)))
@@ -59,8 +56,8 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 }
 
 // retryAfterSeconds renders a wait as the whole seconds a Retry-After header
-// carries: rounded up so a positive wait never becomes 0 ("retry now"), with
-// the saturated class default standing in for an absent one.
+// carries, rounded up so a positive wait never becomes 0 ("retry now"). An
+// absent wait falls back to the saturated class default.
 func retryAfterSeconds(d time.Duration) int {
 	if d <= 0 {
 		d = defaultSaturatedRetryAfter

@@ -1,15 +1,12 @@
 // Package openairesponses translates between the OpenAI chat-completions wire
 // format the gateway speaks and the OpenAI Responses API (/v1/responses).
 //
-// Direction is the mirror image of internal/anthropic: there the CLIENT speaks
-// a foreign dialect and the upstream speaks chat-completions; here the client
-// speaks chat-completions and the UPSTREAM demands the foreign dialect.
-// OpenAI's newest models (gpt-5.4+, the gpt-5.6 family) reject tool calling
-// combined with reasoning over /v1/chat/completions and require /v1/responses
-// (see plans/openai-responses-endpoint.md), and the pro tier (o1-pro, o3-pro,
-// gpt-5.x-pro) is served by /v1/responses alone, so the proxy translates the
-// request on the way out and the response/stream back on the way in. Like the
-// anthropic package this is a leaf: the proxy composes it, never the reverse.
+// The client speaks chat-completions and the UPSTREAM demands the foreign
+// dialect: OpenAI's newest models (gpt-5.4+, the gpt-5.6 family) reject tool
+// calling combined with reasoning over /v1/chat/completions and require
+// /v1/responses, and the pro tier (o1-pro, o3-pro, gpt-5.x-pro) is served by
+// /v1/responses alone, so the proxy translates the request on the way out and
+// the response or stream back on the way in.
 package openairesponses
 
 import (
@@ -35,7 +32,7 @@ type Request struct {
 	TopP              *float64        `json:"top_p,omitempty"`
 	Metadata          json.RawMessage `json:"metadata,omitempty"`
 	// Store is always false: MH is a stateless gateway and must not persist
-	// conversation state at OpenAI (no omitempty — the explicit false matters).
+	// conversation state at OpenAI. No omitempty: the explicit false matters.
 	Store  bool `json:"store"`
 	Stream bool `json:"stream,omitempty"`
 }
@@ -105,11 +102,10 @@ type Response struct {
 	IncompleteDetails *IncompleteDetails `json:"incomplete_details"`
 	Error             *ResponseError     `json:"error"`
 	Output            []OutputItem       `json:"output"`
-	// Held raw and decoded on its own, so a usage block this package cannot read
-	// costs the usage and nothing else. Decoded inline it was part of the
-	// response object, and one count the provider spelled differently — quoted,
-	// or with a fraction on it — failed the whole translation and cost the
-	// caller the answer the model had already produced.
+	// Held raw and decoded on its own, so a usage block this package cannot
+	// read costs the usage and nothing else. Decoded inline, one count the
+	// provider spells differently (quoted, or with a fraction on it) fails the
+	// whole translation and costs the caller the answer.
 	Usage json.RawMessage `json:"usage"`
 }
 
@@ -138,8 +134,8 @@ type OutputItem struct {
 	// function_call
 	CallID string `json:"call_id"`
 	Name   string `json:"name"`
-	// The provider's side of the same asymmetry: an object here failed the whole
-	// Response decode, so a tool call cost the caller the answer around it.
+	// util.ToolArguments: an object here would otherwise fail the whole
+	// Response decode, costing the caller the answer around the tool call.
 	Arguments util.ToolArguments `json:"arguments"`
 }
 
@@ -213,12 +209,9 @@ type chatToolCall struct {
 type chatToolCallFunc struct {
 	Name string `json:"name,omitempty"`
 	// util.ToolArguments, not a plain string: the spec says a JSON string and
-	// several providers send the object, so #808 taught the response side to
-	// accept both — and an ingress decoder has no business being stricter than
-	// the decoder that produced the value. This gateway rewrites the object form
-	// on its own way out, so a client holding one got it from another gateway or
-	// SDK. It marshals back as the spec's string either way, so the caller is
-	// still answered in the shape it asked for.
+	// several providers send the object instead. It marshals back as the
+	// spec's string either way, so the caller is answered in the shape it
+	// asked for.
 	Arguments util.ToolArguments `json:"arguments"`
 }
 
