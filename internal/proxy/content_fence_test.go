@@ -310,14 +310,20 @@ func TestContentFence_DenseTextIsContent(t *testing.T) {
 // the same request fences the same way every time.
 func TestContentFence_DeterministicOverTheBudget(t *testing.T) {
 	t.Parallel()
-	filler := strings.Repeat("tool description filler words that spend the whole budget ", contentIndexCap/58+1)
-	// "context" sorts before "messages", so only the content-first ranking
-	// keeps the prompt inside the budget; a rerank's "documents" would starve
-	// its "query" the same way.
+	// A filler whose four forms all differ (double spaces, newlines, quotes)
+	// and outweighs every per-form budget, so that only the walk order
+	// decides what is indexed. "context" sorts before "messages", so only the
+	// content-first ranking keeps the prompt inside the budget; a rerank's
+	// "documents" would starve its "query" the same way.
+	filler := strings.Repeat("tool  description \"filler\" words that spend the whole budget\n", 2*contentIndexCap/60+1)
 	body := []byte(`{"context":` + jsonString(filler) + `,"tools":[{"type":"function","function":{"name":"t","description":` + jsonString(filler) + `}}],"model":"p/m","messages":[{"role":"user","content":` + jsonString(canary) + `}]}`)
-	for i := 0; i < 20; i++ {
-		if got := newContentFence(body).maskOne("echo " + canary); strings.Contains(got, "SUPERSECRET") {
+	for i := 0; i < 5; i++ {
+		f := newContentFence(body)
+		if got := f.maskOne("echo " + canary); strings.Contains(got, "SUPERSECRET") {
 			t.Fatalf("run %d: messages lost to the budget: %q", i, got)
+		}
+		if n := len(f.strings()); n < len(contentForms) {
+			t.Fatalf("run %d: %d forms indexed, want every budget exhausted for the test to bite", i, n)
 		}
 	}
 	rerank := []byte(`{"model":"p/m","documents":[` + jsonString(filler) + `],"query":` + jsonString(canary) + `}`)

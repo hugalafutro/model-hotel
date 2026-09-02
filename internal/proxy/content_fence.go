@@ -56,10 +56,12 @@ const (
 	// contentIndexCap bounds the runes of request content the fence indexes
 	// per request, per form (each of the four forms below has its own
 	// budget, so the form the trail's detail needs is never starved by the
-	// raw one), so a tool-heavy body cannot make one failure cost seconds.
-	// The walk visits the content-bearing members first (contentFirstKeys)
-	// and every map in sorted key order, so what the cap leaves out is
-	// deterministic and is the tail of the request.
+	// raw one). The ceiling is therefore four times this: on the largest
+	// request whose forms all differ, about 4 MiB of runes retained for the
+	// failure's lifetime and on the order of 100ms per fenced text. The walk
+	// visits the content-bearing members first (contentFirstKeys) and every
+	// map in sorted key order, so what the cap leaves out is deterministic
+	// and is the tail of the request.
 	contentIndexCap = 1 << 20
 	// contentBlobProbe is how many runes into a long string the walk looks
 	// before deciding it is an encoded payload rather than text.
