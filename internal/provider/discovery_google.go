@@ -28,8 +28,8 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	//
 	// The credential is therefore IN THE URL, and a transport failure returns a
 	// *url.Error whose Error() quotes the whole URL back: Go redacts only
-	// userinfo passwords, not query parameters. Every rendering of that error
-	// below is scrubbed for exactly that reason; moving to the x-goog-api-key
+	// userinfo passwords, not query parameters. The transport error below is
+	// scrubbed for exactly that reason; moving to the x-goog-api-key
 	// header would remove the class instead of masking it.
 	url := fmt.Sprintf("%s/models?key=%s", nativeBaseURL, neturl.QueryEscape(apiKey))
 

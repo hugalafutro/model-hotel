@@ -49,8 +49,10 @@ func signedToolUseID(id, signature string) string {
 
 // splitToolUseID recovers the provider's id and the signature from a signed
 // id. The last marker is the one that counts, so an upstream id that happens
-// to contain the marker survives; the base64 payload cannot contain it. A payload that does not decode, or that
-// carries an unknown tag, falls back to the plain id.
+// to contain the marker survives. The base64 alphabet can spell the marker,
+// so a payload containing it is possible but vanishingly unlikely; the tag
+// and decode checks then fall back to the plain id, as does any payload that
+// does not decode or carries an unknown tag.
 func splitToolUseID(id string) (string, string) {
 	at := strings.LastIndex(id, thoughtSigMarker)
 	if at < 0 {

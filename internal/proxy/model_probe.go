@@ -277,10 +277,8 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 	// circuit past its cooldown already reads as half-open here. A nil breaker
 	// means nobody has an opinion, which is not a reason to postpone.
 	//
-	// Unlike every other breaker consultation in the proxy, this gate does not
-	// also check the circuit_breaker_enabled setting, because reading it means
-	// calling h.settingsRepo.GetBool and h.settingsRepo can be nil on this
-	// path. The failure mode is bounded: an operator who
+	// Like the auto-disable gate in model_gone.go, this reads the circuit state
+	// without the circuit_breaker_enabled setting. The failure mode is bounded: an operator who
 	// disables the breaker after a circuit has opened sees that model's probes
 	// deferred until the breaker's own cooldown clears, and a deferred probe can
 	// only leave a model enabled longer.

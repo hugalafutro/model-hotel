@@ -38,8 +38,8 @@ type CircuitBreakerResetter interface {
 
 // CircuitBreakerQuotaPinner lets a successful quota refresh lift the cooldown
 // pins of providers that are no longer exhausted. Separate from the reset contract
-// because it is a different power: it shortens a wait, it never clears a
-// circuit. Its own interface also keeps internal/failover free of any dependency
+// because it is a different power: it moves a cooldown, it never changes a
+// circuit's state. Its own interface also keeps internal/failover free of any dependency
 // on internal/quota: the set of recovered providers crosses the boundary as
 // plain UUIDs.
 type CircuitBreakerQuotaPinner interface {

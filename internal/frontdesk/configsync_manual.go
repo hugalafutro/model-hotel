@@ -79,7 +79,7 @@ func (run configSyncRun) repointedMessage() string {
 	return msg + ". Run the sync again from the new primary."
 }
 
-// interruptedMessage is the same line for a run cut short by shutdown, carried as
+// interruptedMessage is the same shape of message for a run cut short by shutdown, carried as
 // the error text of the 503.
 func (run configSyncRun) interruptedMessage() string {
 	msg := "front desk began shutting down during the sync, so it did not finish"

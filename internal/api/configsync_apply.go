@@ -286,8 +286,6 @@ func validateSyncedSetting(key, value string) error {
 		if err := netguard.ValidatePublicURL(value); err != nil {
 			return fmt.Errorf("%w %q: %w", errInvalidSyncedURL, key, err)
 		}
-	// An unparseable value is left alone rather than rejected: GetInt/GetFloat
-	// answer with the built-in default, so it relaxes nothing.
 	case "int":
 		if v, err := strconv.Atoi(value); err == nil && float64(v) < rule.min {
 			return fmt.Errorf("%w: %s must be >= %d, got %d", errInvalidSyncedSettingBound, key, int(rule.min), v)

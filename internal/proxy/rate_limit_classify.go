@@ -163,8 +163,8 @@ var rateLimitPhrases = []rateLimitPhrase{
 	// Usage windows: time fixes these. The weekly entries must precede the
 	// session/generic ones so the longer pin is not shadowed.
 	//
-	// "limit exhausted" is the broadest phrase here and runs ahead of every
-	// saturated entry, so it also requires the body to name a reset: a spent
+	// "limit exhausted" swallows "concurrency limit exhausted" and runs ahead
+	// of every saturated entry, so it also requires the body to name a reset: a spent
 	// window says when it comes back, a busy provider says "retry shortly", and
 	// "concurrency limit exhausted" must keep reaching the saturated entries
 	// below. The Z.ai entry pins pinHintWeekly rather than the named reset

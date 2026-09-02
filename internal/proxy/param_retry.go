@@ -61,7 +61,8 @@ func learnedScopeFor(candidate modelCandidate) string {
 	return candidate.provider.ID.String()
 }
 
-// candidateModelID reads a candidate's upstream model id for diagnostics. Some
+// candidateModelID reads a candidate's upstream model id for the breaker key,
+// the metrics and the attempt trail. Some
 // paths carry only the provider, so the model is never assumed present.
 //
 // The empty-string fallback is not inert: the breaker keys a circuit by this
@@ -142,11 +143,11 @@ func (h *Handler) retryLearnable400(
 	return paramRetryResult{resp: resp, streamCancelOrigin: streamCancelOrigin}, false
 }
 
-// learnRejectedParams caches the params and renames a 400 body names, so later
+// learnRejectedParams caches the params and renames that a 400 body names, so later
 // requests to the same provider+model are built without them. It is the
-// learning half of retryWithStrippedParams, for callers that cannot retry
-// in place (a hedged probe, which must not spend a second round-trip inside one
-// race slot).
+// learning half of retryWithStrippedParams, for callers that cannot use it:
+// a hedged probe, which must not spend a second round-trip inside one race
+// slot, and the Messages path, which rebuilds in its own dialect.
 func (h *Handler) learnRejectedParams(candidate modelCandidate, body []byte) {
 	h.mergeLearnedParams(candidate, paramrewrite.ParseProviderParamError(body), paramrewrite.ParseProviderParamRename(body))
 }
