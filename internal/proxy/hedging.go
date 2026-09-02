@@ -14,6 +14,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -367,6 +368,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		h.learnFromHedgedRefusal(st, candidate, providerType, resp.StatusCode, errBody)
+		h.learnFromHedgedResponsesRefusal(st, candidate, resp.StatusCode, errBody)
 		if resp.StatusCode == http.StatusBadRequest && st.anthropicEgressAttempt {
 			// The Messages route's own learnable 400, gated the opposite way: a
 			// thinking-dialect complaint only arrives on an egress attempt, and
@@ -617,5 +619,18 @@ func (h *Handler) learnFromHedgedRefusal(st *requestState, candidate modelCandid
 	h.learnResponsesRequirement(st, candidate, providerType, errBody)
 	if status == http.StatusBadRequest {
 		h.learnRejectedParams(candidate, errBody)
+	}
+}
+
+// learnFromHedgedResponsesRefusal is the Responses-dialect share of the
+// hedged learning: a 400 on a /v1/responses attempt names a sampling
+// parameter by the same quoted name chat-completions uses, so it teaches the
+// same strip the sequential param retry would, read through the same
+// dialect-aware reader (responsesRejectedParams). A Responses attempt is
+// only ever built for an OpenAI provider (shouldUseResponsesAttempt), which
+// is why no host or type gate repeats here.
+func (h *Handler) learnFromHedgedResponsesRefusal(st *requestState, candidate modelCandidate, status int, errBody []byte) {
+	if status == http.StatusBadRequest && st.responsesAttempt {
+		h.mergeLearnedParams(candidate, responsesRejectedParams(errBody), paramrewrite.ParseProviderParamRename(errBody))
 	}
 }

@@ -354,7 +354,12 @@ func (st *requestState) setReqErr(e reqError) {
 // learned there poisons the compat path for that model, and a rebuilt chat body
 // re-POSTed to a native endpoint would be malformed. The sequential and hedged
 // 400 paths share this predicate, so a dialect added later is covered at both
-// sites by extending it here.
+// sites by extending it here. The Responses dialect is the one exception,
+// handled by name at both sites: its body is a closed struct sharing only
+// the sampling names with chat-completions, OpenAI names a rejected one
+// exactly as it does there, the one shared name that means something else
+// is dropped by responsesRejectedParams, and the retry rebuilds in that
+// dialect (rebuildForParamRetry).
 //
 // It reads the attempt's own state: the hedged path holds a private snapshot
 // whose flags its own buildCandidateRequest set, so there is no shared-state

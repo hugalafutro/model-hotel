@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -160,12 +161,159 @@ func TestLearnFromHedgedRefusal(t *testing.T) {
 		t.Fatal("a 400 naming a param must still teach the strip")
 	}
 
-	// A hedged /v1/responses attempt's 400 names that dialect's fields; a
-	// strip learned from it would poison the compat path for the model.
+	// A hedged /v1/responses attempt's 400 is not chat-completions learning
+	// (learnFromHedgedRefusal leaves it alone), but OpenAI names a rejected
+	// sampling parameter there by the same quoted name, so the Responses
+	// share of the hedged learning teaches the strip.
 	dialectHandler := &Handler{}
 	dialect := &requestState{bodyBytes: []byte(plainChatBody), responsesAttempt: true}
-	dialectHandler.learnFromHedgedRefusal(dialect, cand, "openai", 400, []byte(`{"error":{"message":"`+"`top_p`"+` is not supported"}}`))
+	dialectHandler.learnFromHedgedRefusal(dialect, cand, "openai", 400, []byte(`{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model."}}`))
 	if _, ok := dialectHandler.deprecationCache.Load(paramKey); ok {
-		t.Fatal("a Responses-dialect 400 must not teach a param strip")
+		t.Fatal("the chat-completions learner must not read a Responses-dialect 400")
+	}
+	dialectHandler.learnFromHedgedResponsesRefusal(dialect, cand, 400, []byte(`{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model."}}`))
+	if _, ok := dialectHandler.deprecationCache.Load(paramKey); !ok {
+		t.Fatal("a Responses-dialect 400 naming temperature must teach the strip")
+	}
+	dialectHandler.learnFromHedgedResponsesRefusal(&requestState{bodyBytes: []byte(plainChatBody), responsesAttempt: true}, cand, 404, []byte(`{"error":{"message":"'top_p' is not supported"}}`))
+	if cached, _ := dialectHandler.deprecationCache.Load(paramKey); cached != nil && (*cached.(*map[string]bool))["top_p"] {
+		t.Fatal("a Responses-dialect 404 must not teach a strip")
+	}
+	// Only the Responses dialect: a gemini or Messages attempt's 400 names
+	// that dialect's fields and must teach the compat path nothing.
+	for _, other := range []*requestState{
+		{bodyBytes: []byte(plainChatBody), geminiAttempt: true},
+		{bodyBytes: []byte(plainChatBody), anthropicEgressAttempt: true},
+	} {
+		otherHandler := &Handler{}
+		otherHandler.learnFromHedgedResponsesRefusal(other, cand, 400, []byte(`{"error":{"message":"'top_p' is not supported"}}`))
+		if _, ok := otherHandler.deprecationCache.Load(paramKey); ok {
+			t.Fatal("a non-Responses dialect 400 taught a strip through the Responses reader")
+		}
+	}
+	// "reasoning" is the one shared name that means something else on the
+	// Responses body; it is never learned from that dialect.
+	reasoningHandler := &Handler{}
+	reasoningHandler.learnFromHedgedResponsesRefusal(dialect, cand, 400, []byte(`{"error":{"message":"Unsupported parameter: 'reasoning' is not supported with this model."}}`))
+	if _, ok := reasoningHandler.deprecationCache.Load(paramKey); ok {
+		t.Fatal("a Responses-dialect 400 naming reasoning taught a strip")
+	}
+}
+
+// A hedged probe whose Responses attempt is refused for a sampling parameter
+// learns the strip through the race itself, not only through the helper.
+func TestProbeStreamingCandidate_LearnsResponsesParamRefusal(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","type":"invalid_request_error","param":"temperature","code":"unsupported_parameter"}}`)
+	}))
+	defer srv.Close()
+	st, cand := probeStateForServer(srv.URL)
+	st.bodyBytes = []byte(`{"model":"orig-model","temperature":0.2,"messages":[{"role":"user","content":"hi"}],"stream":true}`)
+	h.responsesRequiredCache.Store(responsesCacheKey("openai", cand.model.ModelID), responsesAlways)
+	res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+	if res.won {
+		t.Fatal("a 400 must not win the race")
+	}
+	if !strings.HasSuffix(gotPath, "/responses") {
+		t.Fatalf("probe went to %q, want /v1/responses", gotPath)
+	}
+	key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if cached, ok := h.deprecationCache.Load(key); !ok || !(*cached.(*map[string]bool))["temperature"] {
+		t.Fatal("the hedged Responses 400 did not teach the temperature strip")
+	}
+}
+
+// A Responses attempt's 400 naming "reasoning" teaches nothing and issues no
+// retry: the Responses body regenerates that field on every request, and a
+// strip learned from it would delete the caller's object on the compat path.
+func TestRetryLearnable400_ResponsesReasoningRefusalTeachesNothing(t *testing.T) {
+	var posts int
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		posts++
+		http.Error(w, "unexpected", http.StatusInternalServerError)
+	}))
+	defer upstream.Close()
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	st := &requestState{bodyBytes: []byte(`{"model":"gpt-5.5-pro-2026-04-23","reasoning_effort":"high","reasoning":{"effort":"high"},"messages":[{"role":"user","content":"hi"}]}`), failoverTimeout: 5 * time.Second, responsesAttempt: true}
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	refusal := &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Unsupported parameter: 'reasoning' is not supported with this model.","type":"invalid_request_error","param":"reasoning","code":"unsupported_parameter"}}`))}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	res, handled := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/responses", refusal, 0, &dialMs, func() {}, "")
+	if !handled || res.retried || posts != 0 {
+		t.Fatalf("handled=%v retried=%v posts=%d, want handled with no retry", handled, res.retried, posts)
+	}
+	if _, ok := h.deprecationCache.Load(paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)); ok {
+		t.Fatal("a Responses 400 naming reasoning taught a strip on the sequential path")
+	}
+}
+
+// The Responses retry body cannot be built from a chat body the translator
+// rejects; that is this gateway's own failure, reported as such.
+func TestIssueParamRetry_ResponsesRebuildFailureIsInternal(t *testing.T) {
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	st := &requestState{bodyBytes: []byte(`{"model":"gpt-5.5-pro","messages":"not-an-array"}`), failoverTimeout: time.Second, responsesAttempt: true}
+	cand := responsesTestCandidate("https://api.openai.com/v1")
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	resp, rc, reqErr := h.issueParamRetry(r, st, cand, "openai", "https://api.openai.com/v1/responses", map[string]bool{"temperature": true}, 0, &dialMs)
+	if resp != nil || rc != nil || reqErr == nil || reqErr.Kind != KindInternal {
+		t.Fatalf("resp=%v rc=%v err=%+v, want an internal error and nothing issued", resp, rc, reqErr)
+	}
+}
+
+// A /v1/responses attempt whose 400 names a sampling parameter learns the
+// strip and re-issues the request in the Responses dialect without it, the
+// way a chat-completions attempt would; the pro tier has no other route.
+func TestRetryLearnable400_ResponsesAttemptStripsParam(t *testing.T) {
+	var bodies []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, r.URL.Path+" "+string(raw))
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(string(raw), `"temperature"`) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","type":"invalid_request_error","param":"temperature","code":"unsupported_parameter"}}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"id":"resp_2","object":"response","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Paris"}]}],"usage":{"input_tokens":1,"output_tokens":1}}`)
+	}))
+	defer upstream.Close()
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	body := `{"model":"gpt-5.5-pro-2026-04-23","temperature":0.2,"messages":[{"role":"user","content":"capital of France?"}]}`
+	st := &requestState{bodyBytes: []byte(body), failoverTimeout: 5 * time.Second, responsesAttempt: true}
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	targetURL := upstream.URL + "/v1/responses"
+	first := &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","type":"invalid_request_error","param":"temperature","code":"unsupported_parameter"}}`))}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	res, handled := h.retryLearnable400(r, st, cand, "openai", targetURL, first, 0, &dialMs, func() {}, "")
+	if !handled || !res.retried {
+		t.Fatalf("handled=%v retried=%v, want the request re-issued", handled, res.retried)
+	}
+	if len(bodies) != 1 || !strings.HasPrefix(bodies[0], "/v1/responses ") {
+		t.Fatalf("retry bodies = %v, want one POST to /v1/responses", bodies)
+	}
+	if strings.Contains(bodies[0], `"temperature"`) || !strings.Contains(bodies[0], `"input"`) || strings.Contains(bodies[0], `"messages"`) {
+		t.Fatalf("retry was not the Responses dialect without temperature: %s", bodies[0])
+	}
+	if res.resp == nil || res.resp.StatusCode != 200 {
+		t.Fatalf("retry result = %+v, want the 200", res.resp)
+	}
+	key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if cached, ok := h.deprecationCache.Load(key); !ok || !(*cached.(*map[string]bool))["temperature"] {
+		t.Fatalf("temperature was not learned under %s", key)
+	}
+	_ = res.resp.Body.Close()
+	if res.retryCancel != nil {
+		res.retryCancel()
 	}
 }
