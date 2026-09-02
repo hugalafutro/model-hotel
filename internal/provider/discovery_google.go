@@ -105,23 +105,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 
 		// Determine modality arrays from the model name; the endpoint class
 		// is derived centrally by NormalizeModelClassification.
-		inputMods := `["text"]`
-		outputMods := `["text"]`
-		if isGoogleVisionModel(modelID) {
-			inputMods = `["text","image"]`
-		}
-		if isGoogleImageGenModel(modelID) {
-			outputMods = `["text","image"]`
-			inputMods = `["text","image"]`
-		}
-		if isGoogleAudioModel(modelID) {
-			inputMods = `["text","image","audio","video"]`
-			outputMods = `["text","audio"]`
-		}
-		if isGoogleEmbeddingModel(modelID) {
-			inputMods = `["text","image","video","audio"]`
-			outputMods = `["embedding"]`
-		}
+		inputMods, outputMods := googleModalities(modelID)
 
 		ctxLen := gm.InputTokenLimit
 		maxOut := gm.OutputTokenLimit
@@ -208,6 +192,45 @@ func isGoogleVisionModel(modelID string) bool {
 func isGoogleImageGenModel(modelID string) bool {
 	lower := strings.ToLower(modelID)
 	return strings.Contains(lower, "image") || strings.Contains(lower, "banana")
+}
+
+// googleModalities derives a Google model's input and output modality arrays
+// from its name; the model list carries no modality information of its own.
+func googleModalities(modelID string) (inputMods, outputMods string) {
+	inputMods = `["text"]`
+	outputMods = `["text"]`
+	if isGoogleVisionModel(modelID) {
+		inputMods = `["text","image"]`
+	}
+	if isGoogleImageGenModel(modelID) {
+		outputMods = `["text","image"]`
+		inputMods = `["text","image"]`
+	}
+	if isGoogleAudioModel(modelID) {
+		inputMods = `["text","image","audio","video"]`
+		outputMods = `["text","audio"]`
+	}
+	if isGoogleTTSModel(modelID) {
+		// A text-to-speech model speaks and does nothing else: it refuses a
+		// TEXT response modality and takes no image or audio input
+		// ("The requested combination of response modalities (TEXT) is not
+		// supported"). Classified as text in and audio out it derives the tts
+		// class, so a chat, vision or audio-in request is never sent to it.
+		inputMods = `["text"]`
+		outputMods = `["audio"]`
+	}
+	if isGoogleEmbeddingModel(modelID) {
+		inputMods = `["text","image","video","audio"]`
+		outputMods = `["embedding"]`
+	}
+	return inputMods, outputMods
+}
+
+// isGoogleTTSModel reports a text-to-speech model (gemini-2.5-flash-preview-tts
+// and kin), as opposed to the live and native-audio models that both hear and
+// speak alongside text.
+func isGoogleTTSModel(modelID string) bool {
+	return strings.Contains(strings.ToLower(modelID), "tts")
 }
 
 func isGoogleAudioModel(modelID string) bool {

@@ -212,3 +212,28 @@ func TestIsGoogleEmbeddingModel(t *testing.T) {
 		})
 	}
 }
+
+// The modality arrays a Google model derives from its name, and the endpoint
+// class they yield: a TTS model is text in and audio out only, so it is never
+// offered a chat, vision or audio-in request it would refuse with a 400.
+func TestGoogleModalities(t *testing.T) {
+	cases := []struct {
+		model, wantIn, wantOut, wantClass string
+	}{
+		{"gemini-2.5-flash", `["text","image"]`, `["text"]`, "chat"},
+		{"gemini-3-pro-image", `["text","image"]`, `["text","image"]`, "chat"},
+		{"gemini-2.5-flash-preview-tts", `["text"]`, `["audio"]`, "tts"},
+		{"gemini-2.5-flash-native-audio-preview", `["text","image","audio","video"]`, `["text","audio"]`, "chat"},
+		{"gemini-2.0-flash-live-001", `["text","image","audio","video"]`, `["text","audio"]`, "chat"},
+		{"gemini-embedding-001", `["text","image","video","audio"]`, `["embedding"]`, "embedding"},
+	}
+	for _, tc := range cases {
+		in, out := googleModalities(tc.model)
+		if in != tc.wantIn || out != tc.wantOut {
+			t.Errorf("%s: modalities = %s -> %s, want %s -> %s", tc.model, in, out, tc.wantIn, tc.wantOut)
+		}
+		if class := DeriveModelClass(parseModalityList(in), parseModalityList(out), tc.model); class != tc.wantClass {
+			t.Errorf("%s: class = %q, want %q", tc.model, class, tc.wantClass)
+		}
+	}
+}
