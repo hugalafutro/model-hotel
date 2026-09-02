@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // StreamTranslator converts an internal OpenAI chat-completion chunk stream into
@@ -37,7 +39,17 @@ type StreamTranslator struct {
 	completionTokens int
 	finishReason     string // last OpenAI finish_reason observed
 	finished         bool   // Finish() already emitted
+
+	// lateSignatures counts thought signatures that arrived on a fragment
+	// after the one that opened the call's block, where the id (their only
+	// carrier) was already fixed; the proxy logs the count at the end of the
+	// stream, since the loss surfaces a turn later as Gemini's refusal.
+	lateSignatures int
 }
+
+// LateSignatures reports how many thought signatures the stream could not
+// carry because they arrived after their call's block had opened.
+func (t *StreamTranslator) LateSignatures() int { return t.lateSignatures }
 
 // NewStreamTranslator builds a translator for one response. messageID is the
 // Anthropic message id surfaced to the client (e.g. "msg_..."); model is echoed
@@ -129,8 +141,11 @@ func (t *StreamTranslator) openTextBlock(buf *bytes.Buffer) error {
 
 // openToolBlock starts a new tool_use content block for the given OpenAI
 // tool-call index, closing any open block first. id/name come from the first
-// fragment OpenAI streams for that index.
-func (t *StreamTranslator) openToolBlock(buf *bytes.Buffer, oaIndex int, id, name string) error {
+// fragment OpenAI streams for that index, and so does the thought signature
+// when the call carries one: the block's id is the only field that can hold
+// it, and it is fixed at content_block_start, so a signature arriving on a
+// later fragment would have nowhere to go.
+func (t *StreamTranslator) openToolBlock(buf *bytes.Buffer, oaIndex int, id, name, signature string) error {
 	if err := t.closeOpenBlock(buf); err != nil {
 		return err
 	}
@@ -148,7 +163,7 @@ func (t *StreamTranslator) openToolBlock(buf *bytes.Buffer, oaIndex int, id, nam
 		Index: t.curIndex,
 		ContentBlock: contentBlock{
 			Type:  "tool_use",
-			ID:    id,
+			ID:    signedToolUseID(id, signature),
 			Name:  name,
 			Input: json.RawMessage("{}"),
 		},
@@ -204,10 +219,12 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 		blockIdx, open := t.toolBlockByOAIndex[tc.Index]
 		if !open {
 			// First fragment for this tool call: open the block (carries id/name).
-			if err := t.openToolBlock(&buf, tc.Index, tc.ID, tc.Function.Name); err != nil {
+			if err := t.openToolBlock(&buf, tc.Index, tc.ID, tc.Function.Name, egress.ThoughtSignatureIn(tc.ExtraContent)); err != nil {
 				return nil, err
 			}
 			blockIdx = t.curIndex
+		} else if egress.ThoughtSignatureIn(tc.ExtraContent) != "" {
+			t.lateSignatures++
 		}
 		// Argument fragments stream as input_json_delta partial JSON.
 		if tc.Function.Arguments != "" {

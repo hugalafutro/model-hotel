@@ -348,3 +348,53 @@ func TestTranslateRequest_DecodeErrorOmitsPayload(t *testing.T) {
 		})
 	}
 }
+
+// A tool_use id carrying a Gemini 3 thought signature (see thoughtSigMarker)
+// translates to the bare id the provider issued, with the signature on the
+// tool call's extra_content in the shape the Gemini translator reads; the
+// tool_result naming that id maps to the bare id too. An unsigned id carries
+// no extra_content member.
+func TestTranslateRequest_ToolUseCarriesThoughtSignature(t *testing.T) {
+	signed := signedToolUseID("call_7", "sig-bytes")
+	body := []byte(`{
+		"model": "p/m", "max_tokens": 50,
+		"tools": [{"name": "get_weather", "input_schema": {"type":"object"}}],
+		"messages": [
+			{"role": "user", "content": "weather?"},
+			{"role": "assistant", "content": [
+				{"type": "tool_use", "id": "` + signed + `", "name": "get_weather", "input": {"city": "Paris"}},
+				{"type": "tool_use", "id": "call_8", "name": "get_weather", "input": {"city": "Rome"}}
+			]},
+			{"role": "user", "content": [
+				{"type": "tool_result", "tool_use_id": "` + signed + `", "content": "sunny"},
+				{"type": "tool_result", "tool_use_id": "call_8", "content": "rain"}
+			]}
+		]
+	}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	m := decodeOAI(t, out)
+	msgs := m["messages"].([]any)
+	tcs := msgs[1].(map[string]any)["tool_calls"].([]any)
+	signedCall := tcs[0].(map[string]any)
+	if signedCall["id"] != "call_7" {
+		t.Errorf("signed call id = %v, want the bare call_7", signedCall["id"])
+	}
+	extra, _ := signedCall["extra_content"].(map[string]any)
+	google, _ := extra["google"].(map[string]any)
+	if google["thought_signature"] != "sig-bytes" {
+		t.Errorf("extra_content = %v, want google.thought_signature sig-bytes", signedCall["extra_content"])
+	}
+	plainCall := tcs[1].(map[string]any)
+	if _, has := plainCall["extra_content"]; has || plainCall["id"] != "call_8" {
+		t.Errorf("unsigned call = %v, want id call_8 and no extra_content", plainCall)
+	}
+	if id := msgs[2].(map[string]any)["tool_call_id"]; id != "call_7" {
+		t.Errorf("tool result for the signed call names %v, want call_7", id)
+	}
+	if id := msgs[3].(map[string]any)["tool_call_id"]; id != "call_8" {
+		t.Errorf("tool result for the plain call names %v, want call_8", id)
+	}
+}

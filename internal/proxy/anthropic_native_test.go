@@ -536,3 +536,31 @@ func TestNative_UncachedRecordsNoCacheSplit(t *testing.T) {
 		}
 	})
 }
+
+// A Gemini thought signature riding on a tool_use id from an earlier
+// translated turn is stripped before the body reaches an Anthropic provider,
+// on the block and on the tool_result alike, with the ids still paired.
+func TestBuildNativeAnthropicRequest_StripsSignedToolUseIDs(t *testing.T) {
+	h := &Handler{}
+	signed := "toolu_01" + "_thoughtsig_" + "tc2ln" // the carrier's shape: marker, text tag, base64url("sig")
+	st := &requestState{anthropicRawBody: []byte(`{"model":"hotel/m","max_tokens":10,"messages":[` +
+		`{"role":"user","content":"hi"},` +
+		`{"role":"assistant","content":[{"type":"tool_use","id":"` + signed + `","name":"f","input":{}}]},` +
+		`{"role":"user","content":[{"type":"tool_result","tool_use_id":"` + signed + `","content":"ok"}]}]}`)}
+	cand := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "claude-opus-4-8"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "Anthropic", BaseURL: "https://api.anthropic.com"},
+		apiKey:   "sk-ant-test",
+	}
+	req, _, _, err := h.buildNativeAnthropicRequest(context.Background(), st, cand, "anthropic")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(req.Body)
+	if strings.Contains(string(body), "_thoughtsig_") {
+		t.Fatalf("signature suffix forwarded to Anthropic: %s", body)
+	}
+	if strings.Count(string(body), `"toolu_01"`) != 2 || !strings.Contains(string(body), `"claude-opus-4-8"`) {
+		t.Errorf("ids not paired or model not rewritten: %s", body)
+	}
+}

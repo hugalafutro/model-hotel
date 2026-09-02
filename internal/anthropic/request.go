@@ -107,6 +107,10 @@ type oaiToolCall struct {
 	ID       string          `json:"id"`
 	Type     string          `json:"type"` // "function"
 	Function oaiToolCallFunc `json:"function"`
+	// ExtraContent carries a Gemini 3 thought signature recovered from the
+	// tool_use id (see thoughtSigMarker) in the shape the chat path and the
+	// Gemini translator read it.
+	ExtraContent *egress.ExtraContent `json:"extra_content,omitempty"`
 }
 
 type oaiToolCallFunc struct {
@@ -232,19 +236,24 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 			if args == "" {
 				args = "{}"
 			}
+			id, signature := splitToolUseID(b.ID)
 			toolCalls = append(toolCalls, oaiToolCall{
-				ID:       b.ID,
-				Type:     "function",
-				Function: oaiToolCallFunc{Name: b.Name, Arguments: args},
+				ID:           id,
+				Type:         "function",
+				Function:     oaiToolCallFunc{Name: b.Name, Arguments: args},
+				ExtraContent: egress.ExtraContentFor(signature),
 			})
 		case "tool_result":
 			// Tool results become standalone role:"tool" messages. Emit any
 			// pending user parts first so ordering is preserved.
 			flushUserParts()
 			content, _ := decodeToolResultContent(b.Content)
+			// The result names the call by the id the client was given,
+			// signature and all; the provider knows the call by the bare id.
+			toolCallID, _ := splitToolUseID(b.ToolUseID)
 			out = append(out, oaiMessage{
 				Role:       "tool",
-				ToolCallID: b.ToolUseID,
+				ToolCallID: toolCallID,
 				Content:    content,
 			})
 		case "document", "thinking", "redacted_thinking":
