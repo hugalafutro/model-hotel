@@ -38,6 +38,12 @@ type oaiRequest struct {
 	ToolChoice          json.RawMessage `json:"tool_choice"`
 	ReasoningEffort     string          `json:"reasoning_effort"`
 	ResponseFormat      *oaiRespFormat  `json:"response_format"`
+	// Modalities is the OpenAI-compatible request for image output from a
+	// chat model ("modalities": ["image", "text"]). Gemini's image models
+	// generate an image only when the request names IMAGE among its response
+	// modalities; without it the model still produces the image and the API
+	// then fails the response ("Unhandled generated data mime type").
+	Modalities []string `json:"modalities"`
 }
 
 type oaiMessage struct {
@@ -162,6 +168,7 @@ type genConfig struct {
 	ResponseMimeType   string             `json:"responseMimeType,omitempty"`
 	ResponseJSONSchema json.RawMessage    `json:"responseJsonSchema,omitempty"`
 	ThinkingConfig     *genThinkingConfig `json:"thinkingConfig,omitempty"`
+	ResponseModalities []string           `json:"responseModalities,omitempty"`
 }
 
 type genThinkingConfig struct {
@@ -319,13 +326,29 @@ func buildGenerationConfig(req *oaiRequest) *genConfig {
 	if budget, ok := reasoningBudgets[strings.ToLower(req.ReasoningEffort)]; ok && req.ReasoningEffort != "" {
 		gc.ThinkingConfig = &genThinkingConfig{ThinkingBudget: budget}
 	}
+	if wantsImageOutput(req.Modalities) {
+		// TEXT alongside IMAGE: the image models answer with both, and
+		// asking for IMAGE alone is refused by the ones that always caption.
+		gc.ResponseModalities = []string{"TEXT", "IMAGE"}
+	}
 
 	if gc.MaxOutputTokens == 0 && gc.Temperature == nil && gc.TopP == nil &&
 		gc.FrequencyPenalty == nil && gc.PresencePenalty == nil && gc.Seed == nil &&
-		len(gc.StopSequences) == 0 && gc.ResponseMimeType == "" && gc.ThinkingConfig == nil {
+		len(gc.StopSequences) == 0 && gc.ResponseMimeType == "" && gc.ThinkingConfig == nil &&
+		len(gc.ResponseModalities) == 0 {
 		return nil
 	}
 	return &gc
+}
+
+// wantsImageOutput reports a modalities list that names image output.
+func wantsImageOutput(modalities []string) bool {
+	for _, m := range modalities {
+		if strings.EqualFold(m, "image") {
+			return true
+		}
+	}
+	return false
 }
 
 // translateParts converts an OpenAI message content field (string, part array,

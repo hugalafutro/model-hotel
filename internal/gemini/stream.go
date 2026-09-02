@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -58,6 +59,9 @@ type oaiChunkDelta struct {
 	Role      string                `json:"role,omitempty"`
 	Content   string                `json:"content,omitempty"`
 	ToolCalls []oaiChunkToolCallOut `json:"tool_calls,omitempty"`
+	// Images carries a generated image part, as the non-streaming message's
+	// images does: an image model streams its image as one inlineData part.
+	Images []oaiImageOut `json:"images,omitempty"`
 }
 
 // oaiChunkToolCallOut is a streamed tool call. Gemini delivers each
@@ -128,6 +132,10 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	delta := oaiChunkDelta{}
 	for _, p := range cand.Content.Parts {
+		if p.InlineData != nil && strings.HasPrefix(p.InlineData.MimeType, "image/") {
+			delta.Images = append(delta.Images, imageOut(p.InlineData))
+			continue
+		}
 		if p.FunctionCall != nil {
 			args := compactJSON(p.FunctionCall.Args)
 			if args == "" {
@@ -150,7 +158,7 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 		delta.Content += p.Text
 	}
 
-	if delta.Content == "" && len(delta.ToolCalls) == 0 {
+	if delta.Content == "" && len(delta.ToolCalls) == 0 && len(delta.Images) == 0 {
 		return nil, nil
 	}
 	if err := t.writeChunk(&buf, delta, nil, nil); err != nil {
