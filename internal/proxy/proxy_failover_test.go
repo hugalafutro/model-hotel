@@ -1149,13 +1149,19 @@ func TestExactMaskWriter(t *testing.T) {
 		t.Errorf("got %q", got)
 	}
 
+	// No candidate key: the writer still holds back for the process's held
+	// secrets (a foreign key can straddle writes just the same), so the bytes
+	// arrive whole at Flush, and a value nobody holds passes through unchanged.
 	out.Reset()
 	e = newExactMaskWriter(&out, credentialMasker{})
 	if _, err := e.Write([]byte("raw " + secret)); err != nil {
 		t.Fatal(err)
 	}
+	if err := e.Flush(); err != nil {
+		t.Fatalf("Flush: %v", err)
+	}
 	if out.String() != "raw "+secret {
-		t.Errorf("no key: bytes must pass through unchanged, got %q", out.String())
+		t.Errorf("no key: an unheld value must pass through unchanged, got %q", out.String())
 	}
 }
 
