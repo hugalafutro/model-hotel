@@ -333,10 +333,18 @@ func classifyUpstreamError(status int, body, modelID string) (ErrorKind, string)
 	}
 	// The entitlement phrases come from the shared rate-limit table
 	// (rateLimitPhrases), so the breaker's exhaustion verdict and this label
-	// can never disagree about what a balance error looks like.
-	for _, p := range entitledRateLimitPhrases() {
-		if strings.Contains(b, p) {
-			return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
+	// agree about what a balance error looks like, and both read a wait the
+	// body states the same way: a 429 whose body names a retry instant is a
+	// window that time reopens, not an account a person has to fund, however
+	// its sentence reads. Google's per-day quota shares its wording with
+	// OpenAI's out-of-credit refusal and dates its window in the same body.
+	// Only a 429 is read that way; a retry sentence inside any other status
+	// says nothing about a window.
+	if _, _, dated := bodyResetHint(b); status != http.StatusTooManyRequests || !dated {
+		for _, p := range entitledRateLimitPhrases() {
+			if strings.Contains(b, p) {
+				return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
+			}
 		}
 	}
 

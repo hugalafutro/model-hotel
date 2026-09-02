@@ -241,9 +241,9 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 		var v rateLimitVerdict
 		switch p.class {
 		case rateLimitExhausted:
-			v = exhaustedVerdict(hdr, maxWait, p.pinHint, p.entitled)
+			v = exhaustedVerdict(hdr, b, maxWait, p.pinHint, p.entitled)
 		case rateLimitSaturated:
-			v = saturatedVerdict(hdr, maxWait)
+			v = saturatedVerdict(hdr, b, maxWait)
 		case rateLimitUnknown:
 			// Not a class the table carries; listed so the switch is exhaustive.
 			continue
@@ -252,19 +252,20 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 		return v
 	}
 	if miniMaxBalanceCode.MatchString(b) {
-		v := exhaustedVerdict(hdr, maxWait, pinHintUntilPaid, true)
+		v := exhaustedVerdict(hdr, b, maxWait, pinHintUntilPaid, true)
 		v.phrase = miniMaxBalancePhrase
 		return v
 	}
 	if miniMaxWindowCode.MatchString(b) {
-		v := exhaustedVerdict(hdr, maxWait, pinHintWindow, false)
+		v := exhaustedVerdict(hdr, b, maxWait, pinHintWindow, false)
 		v.phrase = miniMaxWindowPhrase
 		return v
 	}
 
-	// No phrase matched: fall back to the headers. A Retry-After at or under the
-	// ceiling is a slot freeing; above it the provider is naming the window.
-	if wait, ok := rateLimitResetHint(hdr); ok {
+	// No phrase matched: fall back to the provider's own wait, from the headers
+	// or the body. A wait at or under the ceiling is a slot freeing; above it
+	// the provider is naming the window.
+	if wait, ok := providerResetHint(hdr, b); ok {
 		if wait <= maxWait {
 			return rateLimitVerdict{class: rateLimitSaturated, retryAfter: wait}
 		}
@@ -273,25 +274,113 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 	return rateLimitVerdict{}
 }
 
-// exhaustedVerdict builds the exhausted verdict for a matched phrase: a
-// Retry-After beyond the saturation ceiling overrides the phrase's own pin
-// hint, because the provider dating its window beats our per-marker default.
-func exhaustedVerdict(hdr http.Header, maxWait, phraseHint time.Duration, entitled bool) rateLimitVerdict {
+// exhaustedVerdict builds the exhausted verdict for a matched phrase. A wait
+// the provider states outranks the phrase's default pin. A Retry-After beyond
+// the saturation ceiling replaces the pin and leaves entitled alone, since a
+// proxy in front of the provider may stamp the header on a refusal a person
+// still has to fix. Otherwise a wait written into the body decides, whatever
+// the headers say: above the ceiling it replaces the pin and clears entitled,
+// because a body that names a retry instant is describing a window that time
+// reopens; at or under the ceiling it is saturation, but only when it comes
+// from a structured retry detail, since an aggregator's "try again in 30
+// seconds" boilerplate can wrap an out-of-credit refusal that no retry fixes.
+func exhaustedVerdict(hdr http.Header, body string, maxWait, phraseHint time.Duration, entitled bool) rateLimitVerdict {
 	v := rateLimitVerdict{class: rateLimitExhausted, pinHint: phraseHint, entitled: entitled}
 	if wait, ok := rateLimitResetHint(hdr); ok && wait > maxWait {
 		v.pinHint = wait
+		return v
+	}
+	wait, structured, ok := bodyResetHint(body)
+	switch {
+	case !ok:
+	case wait > maxWait:
+		v.pinHint = wait
+		v.entitled = false
+	case structured:
+		return rateLimitVerdict{class: rateLimitSaturated, retryAfter: wait}
 	}
 	return v
 }
 
-// saturatedVerdict builds the saturated verdict: the provider's Retry-After
+// saturatedVerdict builds the saturated verdict: the provider's stated wait
 // capped at the ceiling, else the class default.
-func saturatedVerdict(hdr http.Header, maxWait time.Duration) rateLimitVerdict {
+func saturatedVerdict(hdr http.Header, body string, maxWait time.Duration) rateLimitVerdict {
 	v := rateLimitVerdict{class: rateLimitSaturated, retryAfter: defaultSaturatedRetryAfter}
-	if wait, ok := rateLimitResetHint(hdr); ok {
+	if wait, ok := providerResetHint(hdr, body); ok {
 		v.retryAfter = min(wait, maxWait)
 	}
 	return v
+}
+
+// providerResetHint is how long the provider asked us to wait: the headers
+// first, then the body. body is the sanitized, lowercased text the classifier
+// already reads.
+func providerResetHint(hdr http.Header, body string) (time.Duration, bool) {
+	if d, ok := rateLimitResetHint(hdr); ok {
+		return d, true
+	}
+	d, _, ok := bodyResetHint(body)
+	return d, ok
+}
+
+// Google states a 429's wait twice in the body and never in a header: a
+// google.rpc.RetryInfo detail ("retryDelay": "9303s", protobuf's JSON
+// duration) and the sentence "Please retry in 2h35m3.27s". Other providers
+// write "try again in 30 seconds". The body is lowercased by the time it is
+// read. ms is listed before m: the alternation is leftmost-first, and "20ms"
+// read as twenty minutes would pin a model for a wait of milliseconds.
+var (
+	bodyRetryDelayRe  = regexp.MustCompile(`"retrydelay"\s*:\s*"(\d+(?:\.\d+)?)s"`)
+	bodyRetryGoDurRe  = regexp.MustCompile(`(?:retry|try again)\s+(?:in|after)\s+((?:\d+(?:\.\d+)?(?:ms|h|m|s))+)(?:[^a-z]|$)`)
+	bodyRetryWordsRe  = regexp.MustCompile(`(?:retry|try again)\s+(?:in|after)\s+(\d+(?:\.\d+)?)\s+([a-z]+)`)
+	bodyUnitDurations = map[string]time.Duration{"second": time.Second, "seconds": time.Second, "sec": time.Second, "secs": time.Second, "minute": time.Minute, "minutes": time.Minute, "min": time.Minute, "mins": time.Minute, "hour": time.Hour, "hours": time.Hour, "day": 24 * time.Hour, "days": 24 * time.Hour}
+)
+
+// bodyResetHintMax bounds a wait read out of a body. A quota window is hours
+// or days; anything longer is a number that overflowed or a sentence that was
+// not a wait, and neither should pin a model.
+const bodyResetHintMax = 30 * 24 * time.Hour
+
+// bodyResetHint reads a wait the provider wrote into a 429 body: the
+// structured retry detail first, then the prose. structured reports which
+// one answered, since only the detail is trusted to shorten a refusal. A
+// statement that fails the plausibility bound does not hide the next one:
+// the two Google statements sit in one body, and a zeroed or overflowed
+// detail must not discard the sentence beside it. ok is false when nothing
+// parses to a positive, plausible duration.
+func bodyResetHint(body string) (wait time.Duration, structured, ok bool) {
+	if m := bodyRetryDelayRe.FindStringSubmatch(body); m != nil {
+		if secs, err := strconv.ParseFloat(m[1], 64); err == nil {
+			if d, ok := plausibleWait(time.Duration(secs * float64(time.Second))); ok {
+				return d, true, true
+			}
+		}
+	}
+	if m := bodyRetryGoDurRe.FindStringSubmatch(body); m != nil {
+		if d, err := time.ParseDuration(m[1]); err == nil {
+			if d, ok := plausibleWait(d); ok {
+				return d, false, true
+			}
+		}
+	}
+	if m := bodyRetryWordsRe.FindStringSubmatch(body); m != nil {
+		n, err := strconv.ParseFloat(m[1], 64)
+		if per, known := bodyUnitDurations[m[2]]; err == nil && known {
+			if d, ok := plausibleWait(time.Duration(n * float64(per))); ok {
+				return d, false, true
+			}
+		}
+	}
+	return 0, false, false
+}
+
+// plausibleWait accepts a parsed wait that is positive and inside the bound;
+// a float that overflowed into a negative duration fails the first test.
+func plausibleWait(d time.Duration) (time.Duration, bool) {
+	if d <= 0 || d > bodyResetHintMax {
+		return 0, false
+	}
+	return d, true
 }
 
 // rateLimitResetHint reads how long the provider asked us to wait: Retry-After
