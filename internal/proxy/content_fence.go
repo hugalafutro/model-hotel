@@ -58,8 +58,8 @@ const (
 	// per request, per form (each of the four forms below has its own
 	// budget, so the form the trail's detail needs is never starved by the
 	// raw one). The ceiling is therefore four times this: on the largest
-	// request whose forms all differ, about four million windows hashed
-	// once (windowSet, tens of milliseconds) and then a few microseconds per
+	// request whose forms all differ, about four million windows hashed and
+	// sorted once (windowSet, about 110ms) and then a few microseconds per
 	// fenced text, with the window set retained for the failure's lifetime.
 	// The walk
 	// visits the content-bearing members first (contentFirstKeys) and every
@@ -125,8 +125,10 @@ func newContentFence(body []byte, extra ...string) *contentFence {
 	return &contentFence{body: body, extra: extra}
 }
 
-// strings returns the request's content strings in every indexed form.
-// Nil once windowSet has built the set and released them.
+// strings returns the request's content strings in every indexed form. It is
+// for windowSet and for tests, and only before the first mask: windowSet
+// releases the strings once the set is built, and reading them from another
+// goroutine while it does is a race. Nothing on the request path calls it.
 func (f *contentFence) strings() [][]rune {
 	f.once.Do(f.parse)
 	return f.strs
@@ -282,11 +284,14 @@ func windowHash(r []rune) uint64 {
 // windowSet returns the sorted, deduplicated hashes of every window of the
 // request's content, built once. Eight bytes per window: a 10 KB prompt is
 // 80 KB, and the largest request the index budget admits is about 32 MB,
-// held only for the failure's lifetime; the content strings are released
-// once the set exists, so the fence holds less than it did when it kept
-// them to walk on every call. The sort is a radix sort: a comparison sort
-// of four million hashes cost more than the walk it replaced, so a
-// single-frame failure would have paid for the memo without using it.
+// held only for the failure's lifetime. That is about twice what the old
+// design retained (the content strings themselves, 16 MB at the ceiling,
+// which are released once the set exists), bought for a walk that no longer
+// scales with the prompt; a hash table would build faster still but retain
+// about twice as much again, and retained bytes are what several large
+// failures at once add up. The sort is a radix sort: a comparison sort of
+// four million hashes cost more than the walk it replaced, so a single-frame
+// failure would have paid for the memo without using it.
 func (f *contentFence) windowSet() []uint64 {
 	f.winOnce.Do(func() {
 		strs := f.strings()
@@ -304,7 +309,10 @@ func (f *contentFence) windowSet() []uint64 {
 		}
 		radixSort(set)
 		set = slices.Compact(set)
-		f.windows = slices.Clip(set)
+		// A copy, not a clip: Compact returns a prefix of the same backing
+		// array, so a repetitive prompt that deduplicated to a handful of
+		// windows would otherwise keep the whole pre-dedup array alive.
+		f.windows = append(make([]uint64, 0, len(set)), set...)
 		f.strs = nil
 	})
 	return f.windows
@@ -316,9 +324,11 @@ func (f *contentFence) windowSet() []uint64 {
 // the sort is about 100ms, the hashing about 15ms, and the old per-call
 // walk this replaces was about 70ms, so the first fence of such a request
 // costs somewhat more than before and every later one costs microseconds.
-// The scratch buffer is transient.
+// A small input takes the comparison sort, which has no fixed cost of
+// passes and scratch to amortise. The scratch buffer is transient.
 func radixSort(v []uint64) {
-	if len(v) < 2 {
+	if len(v) < 1<<16 {
+		slices.Sort(v)
 		return
 	}
 	buf := make([]uint64, len(v))

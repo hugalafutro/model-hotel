@@ -319,6 +319,8 @@ func TestContentFence_DeterministicOverTheBudget(t *testing.T) {
 	body := []byte(`{"context":` + jsonString(filler) + `,"tools":[{"type":"function","function":{"name":"t","description":` + jsonString(filler) + `}}],"model":"p/m","messages":[{"role":"user","content":` + jsonString(canary) + `}]}`)
 	for i := 0; i < 5; i++ {
 		f := newContentFence(body)
+		// The forms are counted before the mask: the first mask builds the
+		// window set and releases the strings.
 		if n := len(f.strings()); n < len(contentForms) {
 			t.Fatalf("run %d: %d forms indexed, want every budget exhausted for the test to bite", i, n)
 		}

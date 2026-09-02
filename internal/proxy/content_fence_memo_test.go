@@ -32,6 +32,12 @@ func TestContentFence_WindowSetIsBuiltOnce(t *testing.T) {
 	if second := f.windowSet(); len(second) != len(first) || &second[0] != &first[0] {
 		t.Fatal("the window set was rebuilt")
 	}
+	// The set is a fresh copy, not a prefix of the pre-dedup array: a
+	// repetitive prompt keeps only its distinct windows alive.
+	rep := newContentFence(chatBody(strings.Repeat("the same sixteen runes again and again ", 2000)))
+	if set := rep.windowSet(); cap(set) != len(set) {
+		t.Fatalf("window set retains cap %d for len %d", cap(set), len(set))
+	}
 	if got := f.maskOne("echo " + canary); got != "echo [content]" {
 		t.Fatalf("got %q", got)
 	}
@@ -39,7 +45,7 @@ func TestContentFence_WindowSetIsBuiltOnce(t *testing.T) {
 
 // The radix sort agrees with the standard sort on hashes of every shape,
 // including the values a naive digit loop gets wrong (zeros, the top bit,
-// duplicates).
+// duplicates), on both sides of the small-input fallback.
 func TestRadixSort(t *testing.T) {
 	t.Parallel()
 	cases := [][]uint64{
@@ -47,7 +53,7 @@ func TestRadixSort(t *testing.T) {
 	}
 	var big []uint64
 	x := uint64(88172645463325252)
-	for i := 0; i < 100000; i++ {
+	for i := 0; i < 200000; i++ {
 		x ^= x << 13
 		x ^= x >> 7
 		x ^= x << 17
