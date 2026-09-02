@@ -66,23 +66,38 @@ func TestConfigSync_RefusesOutOfRangeMaxInFlight(t *testing.T) {
 	}
 }
 
-// The import's provider validation is the admin API's rule, not a copy of
-// it: the same function decides both, so the two cannot drift apart.
-func TestValidateSyncedProvider_IsTheInteractiveRule(t *testing.T) {
+// The import's provider validation uses the shared rule rather than a copy:
+// it refuses exactly what provider.ValidateMaxInFlight refuses, adds no
+// condition of its own on the ceiling, and wraps every refusal in the
+// sentinel the handler maps to a 400. The admin API's use of the same rule is
+// pinned by TestUpdateProvider_ScheduledDisable.
+func TestValidateSyncedProvider_UsesTheSharedRule(t *testing.T) {
 	for _, v := range []*int{nil, new(1), new(10000), new(0), new(-1), new(10001)} {
 		p := ExportProvider{Name: "p", BaseURL: "https://p.example.test/v1", MaxInFlight: v}
 		synced := validateSyncedProvider(p)
-		interactive := provider.ValidateMaxInFlight(v)
-		if (synced != nil) != (interactive != nil) {
-			t.Fatalf("value %v: import path (%v) and admin API (%v) disagree", v, synced, interactive)
+		shared := provider.ValidateMaxInFlight(v)
+		if (synced != nil) != (shared != nil) {
+			t.Fatalf("value %v: import path (%v) and the shared rule (%v) disagree", v, synced, shared)
 		}
 		if synced != nil && !errors.Is(synced, errInvalidSyncedProvider) {
 			t.Fatalf("error %v does not wrap errInvalidSyncedProvider", synced)
 		}
 	}
-	long := ExportProvider{Name: "p", BaseURL: "https://" + strings.Repeat("a", maxProviderURLLen) + ".example.test/v1"}
-	if err := validateSyncedProvider(long); err == nil || !errors.Is(err, errInvalidSyncedProvider) {
-		t.Fatalf("an over-long base_url was not refused: %v", err)
+	for _, tc := range []struct {
+		name string
+		p    ExportProvider
+	}{
+		{"over-long name", ExportProvider{Name: strings.Repeat("n", 101), BaseURL: "https://p.example.test/v1"}},
+		{"unprintable name", ExportProvider{Name: "bad\x00name", BaseURL: "https://p.example.test/v1"}},
+		{"malformed disable date", ExportProvider{Name: "p", BaseURL: "https://p.example.test/v1", ScheduledDisableOn: new("next tuesday")}},
+	} {
+		if err := validateSyncedProvider(tc.p); err == nil || !errors.Is(err, errInvalidSyncedProvider) {
+			t.Fatalf("%s: not refused with the sentinel: %v", tc.name, err)
+		}
+	}
+	past := ExportProvider{Name: "p", BaseURL: "https://p.example.test/v1", ScheduledDisableOn: new("2020-01-01")}
+	if err := validateSyncedProvider(past); err != nil {
+		t.Fatalf("a past disable date must be accepted on import: %v", err)
 	}
 }
 

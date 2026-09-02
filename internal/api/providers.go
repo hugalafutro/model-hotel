@@ -20,10 +20,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
-// maxProviderURLLen bounds a provider base_url on every write path (the admin
-// API here, the config import in configsync_apply_upserts.go).
-const maxProviderURLLen = 500
-
 // CreateProvider creates a new provider.
 func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	var req provider.CreateProviderRequest
@@ -62,8 +58,8 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 
 	// Measured after normalization, so the value that is actually stored is the
 	// one that has to fit.
-	if len(req.BaseURL) > maxProviderURLLen {
-		http.Error(w, "base_url must be less than 500 characters", http.StatusBadRequest)
+	if len(req.BaseURL) > 500 {
+		http.Error(w, "base_url must be at most 500 characters", http.StatusBadRequest)
 		return
 	}
 

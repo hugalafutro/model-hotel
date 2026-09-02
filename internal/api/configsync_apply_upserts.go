@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -66,18 +67,29 @@ func providerTypeForImport(p ExportProvider) string {
 	return provider.LegacyTypeFromURL(p.BaseURL)
 }
 
-// validateSyncedProvider applies to an imported provider the bounds the
+// validateSyncedProvider applies to an imported provider the checks the
 // interactive admin API applies on create and update, so a compromised
 // primary cannot write through this path what the dashboard would reject.
 // The URL's shape is checked separately (validateURL below); this is the
-// rest: the in-flight ceiling, through the same rule the admin API uses, and
-// the URL's length.
+// rest: the in-flight ceiling, through the same rule the admin API uses
+// (the load-bearing one: a value below one is read as no ceiling at all),
+// the name's length and printability, and the disable date's format. A
+// disable date in the past is accepted: it was valid when the primary set
+// it, and the member's own sweep fires it immediately, which is what the
+// operator asked for. The URL's length is not bounded here: the admin API's
+// bound is cosmetic, a row past it is harmless, and refusing whole envelopes
+// over one would be a one-way door for a fleet.
 func validateSyncedProvider(p ExportProvider) error {
 	if err := provider.ValidateMaxInFlight(p.MaxInFlight); err != nil {
 		return fmt.Errorf("%w: provider %q: %w", errInvalidSyncedProvider, p.Name, err)
 	}
-	if len(p.BaseURL) > maxProviderURLLen {
-		return fmt.Errorf("%w: provider %q: base_url must be at most %d characters", errInvalidSyncedProvider, p.Name, maxProviderURLLen)
+	if _, err := validateNameString("name", p.Name, 1, 100); err != nil {
+		return fmt.Errorf("%w: provider %q: %w", errInvalidSyncedProvider, p.Name, err)
+	}
+	if p.ScheduledDisableOn != nil {
+		if _, err := time.Parse("2006-01-02", *p.ScheduledDisableOn); err != nil {
+			return fmt.Errorf("%w: provider %q: scheduled_disable_on must be a YYYY-MM-DD date", errInvalidSyncedProvider, p.Name)
+		}
 	}
 	return nil
 }

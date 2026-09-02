@@ -354,13 +354,15 @@ What makes this safe to leave running:
   members already matching the primary are skipped without so much as a diff, and
   an unreachable or `MASTER_KEY`-blocked member is retried later rather than
   overwritten.
-- **Only what the dashboard would accept.** A member applies an envelope with the
-  same checks its own admin API applies on the way in, so a primary cannot write
-  through sync what an operator could not type: provider `base_url` shape and
-  length, the per-provider `max_in_flight` ceiling (1 to 10000, or null), settings
-  minimums and URL-typed settings, per-key and per-user rate limits, and password
-  hash format. An envelope that fails any of them is refused whole with a 400 that
-  names the field, and nothing is written.
+- **What the dashboard would refuse, sync refuses.** A member applies an envelope
+  with the load-bearing checks its own admin API applies on the way in: provider
+  `base_url` shape (the same address rules), provider name length and
+  printability, the disable date's format, the per-provider `max_in_flight`
+  ceiling (1 to 10000, or null: a value below one would read as no ceiling at
+  all), settings minimums and URL-typed settings, per-key and per-user rate
+  limits, and password hash format. An envelope that fails any of them is
+  refused whole with a 400 and nothing is written; the member's own log names
+  the field, Front Desk reports the refusal by status.
 - **Newer config always wins.** Each push carries a monotonic source generation,
   and a member refuses any import older than the one it has already applied, so
   repointing the primary while an earlier push is still in flight can never strand a
