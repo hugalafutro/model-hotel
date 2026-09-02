@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -132,7 +133,7 @@ type oaiToolCallOut struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
-	ExtraContent *oaiExtraContent `json:"extra_content,omitempty"`
+	ExtraContent *egress.ExtraContent `json:"extra_content,omitempty"`
 }
 
 type oaiUsage struct {
@@ -227,7 +228,7 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 			tc := oaiToolCallOut{
 				ID:           fmt.Sprintf("call_%s_%d", id, len(toolCalls)),
 				Type:         "function",
-				ExtraContent: extraContentFor(p.signature()),
+				ExtraContent: egress.ExtraContentFor(p.signature()),
 			}
 			tc.Function.Name = p.FunctionCall.Name
 			tc.Function.Arguments = args

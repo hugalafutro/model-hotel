@@ -53,40 +53,6 @@ type oaiMessage struct {
 	ToolCallID string          `json:"tool_call_id"`
 }
 
-// oaiExtraContent is the extra_content member of a tool call, Google's own
-// carrier for the thought signature on the OpenAI wire shape.
-type oaiExtraContent struct {
-	Google *struct {
-		ThoughtSignature string `json:"thought_signature,omitempty"`
-	} `json:"google,omitempty"`
-}
-
-// thoughtSignatureIn reads the signature out of a raw extra_content member:
-// nothing for an absent, null, foreign or malformed one, never an error.
-func thoughtSignatureIn(raw json.RawMessage) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	var e oaiExtraContent
-	if json.Unmarshal(raw, &e) != nil || e.Google == nil {
-		return ""
-	}
-	return e.Google.ThoughtSignature
-}
-
-// extraContentFor wraps a signature for the OpenAI wire shape; nothing for an
-// unsigned call, so the member is absent rather than empty.
-func extraContentFor(signature string) *oaiExtraContent {
-	if signature == "" {
-		return nil
-	}
-	e := &oaiExtraContent{}
-	e.Google = &struct {
-		ThoughtSignature string `json:"thought_signature,omitempty"`
-	}{ThoughtSignature: signature}
-	return e
-}
-
 type oaiContentPart struct {
 	Type     string `json:"type"` // "text" | "image_url"
 	Text     string `json:"text"`
@@ -292,7 +258,7 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 				args := util.ToolArgumentsObject(tc.Function.Arguments)
 				parts = append(parts, genPart{
 					FunctionCall:     &genFunctionCall{Name: tc.Function.Name, Args: args},
-					ThoughtSignature: thoughtSignatureIn(tc.ExtraContent),
+					ThoughtSignature: egress.ThoughtSignatureIn(tc.ExtraContent),
 				})
 			}
 			if len(parts) > 0 {

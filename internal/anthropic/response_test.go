@@ -263,3 +263,61 @@ func TestBuildMessageResponse_ObjectFormToolArguments(t *testing.T) {
 		t.Error("no tool_use block: stop_reason tool_use without one is a protocol violation")
 	}
 }
+
+// A tool call signed by Gemini 3 (extra_content.google.thought_signature)
+// surfaces as a tool_use whose id carries the signature, so the client
+// echoes it back on the next turn without knowing; TranslateRequest recovers
+// it. An unsigned call keeps its id, and an extra_content of a shape this
+// package does not read is an unsigned call, not a failed translation.
+func TestBuildMessageResponse_ToolUseCarriesThoughtSignature(t *testing.T) {
+	oai := []byte(`{
+		"choices": [{"message": {"role":"assistant","content":"","tool_calls":[
+			{"id":"call_9","type":"function","function":{"name":"lookup","arguments":"{}"},"extra_content":{"google":{"thought_signature":"sig-9"}}},
+			{"id":"call_10","type":"function","function":{"name":"lookup","arguments":"{}"}},
+			{"id":"call_11","type":"function","function":{"name":"lookup","arguments":"{}"},"extra_content":"junk"}
+		]}, "finish_reason": "tool_calls"}]
+	}`)
+	out, err := BuildMessageResponse(oai, "msg_2", "m")
+	if err != nil {
+		t.Fatalf("BuildMessageResponse: %v", err)
+	}
+	var m struct {
+		Content []struct {
+			ID string `json:"id"`
+		} `json:"content"`
+	}
+	if err := json.Unmarshal(out, &m); err != nil || len(m.Content) != 3 {
+		t.Fatalf("content = %s (%v)", out, err)
+	}
+	if id, sig := splitToolUseID(m.Content[0].ID); id != "call_9" || sig != "sig-9" {
+		t.Errorf("signed tool_use id %q splits to (%q, %q), want (call_9, sig-9)", m.Content[0].ID, id, sig)
+	}
+	if m.Content[1].ID != "call_10" || m.Content[2].ID != "call_11" {
+		t.Errorf("unsigned ids = %q, %q, want call_10 and call_11 untouched", m.Content[1].ID, m.Content[2].ID)
+	}
+}
+
+// An upstream tool call without an id gets a synthesized one, as on the
+// stream; signed or not, an empty id must never reach the wire.
+func TestBuildMessageResponse_EmptyToolIDSynthesized(t *testing.T) {
+	oai := []byte(`{"choices":[{"message":{"role":"assistant","content":"","tool_calls":[
+		{"id":"","type":"function","function":{"name":"f","arguments":"{}"},"extra_content":{"google":{"thought_signature":"s"}}},
+		{"type":"function","function":{"name":"g","arguments":"{}"}}
+	]},"finish_reason":"tool_calls"}]}`)
+	out, err := BuildMessageResponse(oai, "msg_7", "m")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var m struct {
+		Content []struct {
+			ID string `json:"id"`
+		} `json:"content"`
+	}
+	_ = json.Unmarshal(out, &m)
+	if id, sig := splitToolUseID(m.Content[0].ID); id != "toolu_msg_7_0" || sig != "s" {
+		t.Errorf("signed empty id became %q (%q, %q), want toolu_msg_7_0 signed", m.Content[0].ID, id, sig)
+	}
+	if m.Content[1].ID != "toolu_msg_7_1" {
+		t.Errorf("unsigned empty id became %q", m.Content[1].ID)
+	}
+}

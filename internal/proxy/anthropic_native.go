@@ -19,7 +19,10 @@ import (
 // upstream. Auth + anthropic-version headers come from SetProviderAuthHeaders.
 func (h *Handler) buildNativeAnthropicRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
 	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
-	body := anthropic.RewriteModel(st.anthropicRawBody, candidate.model.ModelID)
+	// A Gemini thought signature riding on a tool_use id (see
+	// anthropic.StripSignedToolUseIDs) is dropped here: this provider has no
+	// use for it, and it is a kilobyte of prompt per call per turn.
+	body := anthropic.RewriteModel(anthropic.StripSignedToolUseIDs(st.anthropicRawBody), candidate.model.ModelID)
 	debuglog.Debug("proxy: native anthropic passthrough", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name)
 
 	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))

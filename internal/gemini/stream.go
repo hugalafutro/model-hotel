@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -74,7 +75,7 @@ type oaiChunkToolCallOut struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
-	ExtraContent *oaiExtraContent `json:"extra_content,omitempty"`
+	ExtraContent *egress.ExtraContent `json:"extra_content,omitempty"`
 }
 
 // writeChunk appends one framed SSE chunk ("data: <json>\n\n").
@@ -152,7 +153,7 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 				Index:        t.toolCalls,
 				ID:           fmt.Sprintf("call_%s_%d", t.id, t.toolCalls),
 				Type:         "function",
-				ExtraContent: extraContentFor(p.signature()),
+				ExtraContent: egress.ExtraContentFor(p.signature()),
 			}
 			tc.Function.Name = p.FunctionCall.Name
 			tc.Function.Arguments = args
