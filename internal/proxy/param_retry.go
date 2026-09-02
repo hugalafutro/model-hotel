@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -107,10 +108,13 @@ func candidateModelID(candidate modelCandidate) string {
 // A /v1/responses attempt gets the param retry too: OpenAI names the
 // parameter there by the same quoted name it uses on chat-completions
 // ("Unsupported parameter: 'temperature' is not supported with this model"),
-// the learner matches quoted names only so a Responses-only field can never
-// be mislearned, and the retry rebuilds the body in the Responses dialect. A
-// pro-tier model is served by that route alone, so without this a client
-// sending temperature could never reach it at all.
+// and the retry rebuilds the body in the Responses dialect. A pro-tier model
+// is served by that route alone, so without this a client sending
+// temperature could never reach it at all. What keeps a Responses-only
+// field from being mislearned onto the compat path is that the Responses
+// body is a closed struct (openairesponses.Request) sharing only the
+// sampling names with chat-completions, plus one exception handled by name:
+// see responsesRejectedParams.
 //
 // Anthropic egress attempts get the one 400 that route can fix by asking
 // differently: a model refusing the extended-thinking shape it was asked in
@@ -147,8 +151,28 @@ func (h *Handler) retryLearnable400(
 // retry in place (a hedged probe, which must not spend a second round-trip
 // inside one race slot).
 func (h *Handler) learnRejectedParams(candidate modelCandidate, body []byte) {
+	h.mergeLearnedParams(candidate, paramrewrite.ParseProviderParamError(body), paramrewrite.ParseProviderParamRename(body))
+}
+
+// responsesRejectedParams reads a Responses-dialect 400 for the param
+// learner. "reasoning" is the one name both dialects carry that means
+// different things: on chat-completions it is a caller's object, on the
+// Responses body the translator regenerates it from reasoning_effort on every
+// request, so a strip learned from that 400 would delete the caller's object
+// on the compat path (the learned scope is provider+model, shared by both
+// dialects) and never fix the Responses request that taught it.
+func responsesRejectedParams(body []byte) map[string]bool {
 	rejected := paramrewrite.ParseProviderParamError(body)
-	renames := paramrewrite.ParseProviderParamRename(body)
+	delete(rejected, "reasoning")
+	if len(rejected) == 0 {
+		return nil
+	}
+	return rejected
+}
+
+// mergeLearnedParams is the caching half of the param learner, shared by the
+// dialect-specific readers.
+func (h *Handler) mergeLearnedParams(candidate modelCandidate, rejected map[string]bool, renames map[string]string) {
 	if rejected == nil && renames == nil {
 		return
 	}
@@ -240,6 +264,7 @@ func (h *Handler) issueParamRetry(
 func (h *Handler) rebuildForParamRetry(st *requestState, candidate modelCandidate, providerType string, strip map[string]bool) ([]byte, error) {
 	if st.responsesAttempt {
 		cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
+		metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "param_retry")
 		return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
 	}
 	return paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate)), nil
@@ -316,6 +341,9 @@ func (h *Handler) retryWithStrippedParams(
 	// the request does not already carry — i.e. whether re-issuing could help.
 	learnFrom := func(errBody []byte) bool {
 		rejected := paramrewrite.ParseProviderParamError(errBody)
+		if st.responsesAttempt {
+			rejected = responsesRejectedParams(errBody)
+		}
 		renames := paramrewrite.ParseProviderParamRename(errBody)
 		if rejected == nil && renames == nil {
 			return false
@@ -324,7 +352,7 @@ func (h *Handler) retryWithStrippedParams(
 		// application. Each cache is merged with any existing entries via
 		// CompareAndSwap to avoid data races from concurrent goroutines mutating
 		// the same map.
-		h.learnRejectedParams(candidate, errBody)
+		h.mergeLearnedParams(candidate, rejected, renames)
 		progressed := false
 		for p := range rejected {
 			if !strip[p] {

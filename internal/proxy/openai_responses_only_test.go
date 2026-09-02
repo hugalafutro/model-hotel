@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -177,6 +178,68 @@ func TestLearnFromHedgedRefusal(t *testing.T) {
 	dialectHandler.learnFromHedgedResponsesRefusal(&requestState{bodyBytes: []byte(plainChatBody), responsesAttempt: true}, cand, 404, []byte(`{"error":{"message":"'top_p' is not supported"}}`))
 	if cached, _ := dialectHandler.deprecationCache.Load(paramKey); cached != nil && (*cached.(*map[string]bool))["top_p"] {
 		t.Fatal("a Responses-dialect 404 must not teach a strip")
+	}
+	// Only the Responses dialect: a gemini or Messages attempt's 400 names
+	// that dialect's fields and must teach the compat path nothing.
+	for _, other := range []*requestState{
+		{bodyBytes: []byte(plainChatBody), geminiAttempt: true},
+		{bodyBytes: []byte(plainChatBody), anthropicEgressAttempt: true},
+	} {
+		otherHandler := &Handler{}
+		otherHandler.learnFromHedgedResponsesRefusal(other, cand, 400, []byte(`{"error":{"message":"'top_p' is not supported"}}`))
+		if _, ok := otherHandler.deprecationCache.Load(paramKey); ok {
+			t.Fatal("a non-Responses dialect 400 taught a strip through the Responses reader")
+		}
+	}
+	// "reasoning" is the one shared name that means something else on the
+	// Responses body; it is never learned from that dialect.
+	reasoningHandler := &Handler{}
+	reasoningHandler.learnFromHedgedResponsesRefusal(dialect, cand, 400, []byte(`{"error":{"message":"Unsupported parameter: 'reasoning' is not supported with this model."}}`))
+	if _, ok := reasoningHandler.deprecationCache.Load(paramKey); ok {
+		t.Fatal("a Responses-dialect 400 naming reasoning taught a strip")
+	}
+}
+
+// A hedged probe whose Responses attempt is refused for a sampling parameter
+// learns the strip through the race itself, not only through the helper.
+func TestProbeStreamingCandidate_LearnsResponsesParamRefusal(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	var gotPath string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotPath = r.URL.Path
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","type":"invalid_request_error","param":"temperature","code":"unsupported_parameter"}}`)
+	}))
+	defer srv.Close()
+	st, cand := probeStateForServer(srv.URL)
+	st.bodyBytes = []byte(`{"model":"orig-model","temperature":0.2,"messages":[{"role":"user","content":"hi"}],"stream":true}`)
+	h.responsesRequiredCache.Store(responsesCacheKey("openai", cand.model.ModelID), responsesAlways)
+	res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
+	if res.won {
+		t.Fatal("a 400 must not win the race")
+	}
+	if !strings.HasSuffix(gotPath, "/responses") {
+		t.Fatalf("probe went to %q, want /v1/responses", gotPath)
+	}
+	key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if cached, ok := h.deprecationCache.Load(key); !ok || !(*cached.(*map[string]bool))["temperature"] {
+		t.Fatal("the hedged Responses 400 did not teach the temperature strip")
+	}
+}
+
+// The Responses retry body cannot be built from a chat body the translator
+// rejects; that is this gateway's own failure, reported as such.
+func TestIssueParamRetry_ResponsesRebuildFailureIsInternal(t *testing.T) {
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	st := &requestState{bodyBytes: []byte(`{"model":"gpt-5.5-pro","messages":"not-an-array"}`), failoverTimeout: time.Second, responsesAttempt: true}
+	cand := responsesTestCandidate("https://api.openai.com/v1")
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	resp, rc, reqErr := h.issueParamRetry(r, st, cand, "openai", "https://api.openai.com/v1/responses", map[string]bool{"temperature": true}, 0, &dialMs)
+	if resp != nil || rc != nil || reqErr == nil || reqErr.Kind != KindInternal {
+		t.Fatalf("resp=%v rc=%v err=%+v, want an internal error and nothing issued", resp, rc, reqErr)
 	}
 }
 
