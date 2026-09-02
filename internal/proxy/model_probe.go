@@ -460,11 +460,12 @@ func judgeProbeSuccess(resp *http.Response, st *requestState, candidate modelCan
 // anthropic-messages model, since that provider type routes all of its chat
 // traffic through the adapter, and for no probe of an "anthropic" one, whose
 // re-route requires a document part the probe body has no reason to carry. The
-// Responses case cannot fire as the probe body stands — that re-route also
-// requires tools in the request — and is kept because the flag is set by
-// buildCandidateRequest and not by anything here. A probe that skipped the
-// translation would read a dialect object as an empty chat completion and
-// postpone those retirements forever, silently.
+// Responses case fires for a pro-tier model on OpenAI's own host, which lives
+// behind /v1/responses for every request including this text-only probe; a
+// model learned to refuse tools+reasoning is not re-routed, as the probe body
+// carries neither. A probe that skipped the translation would read a dialect
+// object as an empty chat completion and postpone those retirements forever,
+// silently.
 func translateProbeDialect(resp *http.Response, st *requestState, modelID string) error {
 	// The upstream model id, NOT st.reqModel: the served path passes the name the
 	// client asked for, and a probe has no client (st.reqModel is empty by design,

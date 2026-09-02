@@ -193,8 +193,9 @@ func translateChatMessages(msgs []chatReqMessage) (string, []any, error) {
 
 // translateUserContent converts a user message content (string or part array)
 // into Responses input parts. Non-text/image parts (audio) are dropped: the
-// Responses re-route only triggers for tools+reasoning requests, which are
-// text/vision workloads.
+// tools+reasoning re-route serves text/vision workloads, and a pro-tier model
+// routed here for every request cannot be reached over chat-completions at
+// all, so dropping the part is the only way its request gets served.
 func translateUserContent(raw json.RawMessage) ([]contentPart, error) {
 	if s, ok := egress.AsJSONString(raw); ok {
 		return []contentPart{{Type: "input_text", Text: s}}, nil

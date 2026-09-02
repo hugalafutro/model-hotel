@@ -15,6 +15,9 @@ import (
 )
 
 // responsesLearnBodyCap bounds a 400 that has to be parsed rather than scanned.
+// A learnable 404 is read at the classifier's cap instead: the pro tier's
+// refusal is a couple of hundred bytes, and a 404 of any other make is a
+// body the pipeline discards.
 //
 // openairesponses.RequiresResponsesAPI json.Unmarshals the whole error document,
 // so the classifier's window is the wrong size for it: a body cut off mid-JSON
@@ -226,7 +229,11 @@ func (h *Handler) issueParamRetry(
 // cap sits far past any real provider error, and everything above it is
 // discarded rather than held.
 func readLearnable400(resp *http.Response) ([]byte, error) {
-	body, err := io.ReadAll(io.LimitReader(resp.Body, responsesLearnBodyCap))
+	limit := int64(responsesLearnBodyCap)
+	if resp.StatusCode != http.StatusBadRequest {
+		limit = failoverErrorClassifyCap
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, limit))
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	resp.Body = io.NopCloser(bytes.NewReader(body))

@@ -99,10 +99,13 @@ type Handler struct {
 	// semaphore (see acquireProbeSlot). Per gateway instance, like goneStrikes
 	// beside it: the cap describes what THIS gateway will aim at a provider.
 	goneProbeSlots sync.Map
-	// responsesRequiredCache remembers models whose upstream 400'd
-	// tools+reasoning over chat-completions and demanded /v1/responses (OpenAI
-	// gpt-5.4+/gpt-5.6 families), keyed by "providerType:modelID". Once a model
-	// is flagged, matching requests route to /v1/responses preemptively.
+	// responsesRequiredCache remembers models whose upstream refused
+	// chat-completions and demanded /v1/responses, keyed by
+	// "providerType:modelID". The value says how much of the model's traffic
+	// that covers: responsesForTools (the gpt-5.4+/gpt-5.6 families, which
+	// 400 tools+reasoning over chat-completions) routes only the requests that
+	// carry that combination; responsesAlways (the pro tier, which 404s every
+	// chat-completions request as "not a chat model") routes all of them.
 	responsesRequiredCache sync.Map
 	// waitInsertTimeout overrides the default 5s WaitForInsert timeout.
 	// Zero means use the default. Set by tests only.
