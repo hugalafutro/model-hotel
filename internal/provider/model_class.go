@@ -58,8 +58,18 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// enrichment hands the gpt-4o transcription models the whole modality
 		// set of their chat namesake (text, image and audio in), so audio
 		// input plus a transcriber's name is the whole signal.
-		if containsModality(input, "audio") && inferNonChatModality(modelID) == "stt" {
+		//
+		// The same enrichment describes an embedding or reranking model as
+		// text in, text out, which is what its vectors and scores are made
+		// from but not what its endpoint serves; a text output alone is not
+		// evidence of chat when the name says otherwise. Left as chat, such a
+		// model sits in the chat pickers and answers a chat request with the
+		// provider's refusal.
+		switch class := inferNonChatModality(modelID); {
+		case class == "stt" && containsModality(input, "audio"):
 			return "stt"
+		case class == "embedding" || class == "rerank":
+			return class
 		}
 		return "chat"
 	}

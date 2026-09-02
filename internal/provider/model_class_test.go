@@ -382,3 +382,26 @@ func TestNormalizeModels_Batch(t *testing.T) {
 func containsSubstring(s, sub string) bool {
 	return strings.Contains(s, sub)
 }
+
+// models.dev enrichment describes an embedding or reranking model as text in,
+// text out, so the name has to break the tie the way it does for transcribers:
+// left to the arrays alone those models classed as chat and were offered a
+// chat request the provider refuses.
+func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T) {
+	for _, tc := range []struct{ id, want string }{
+		{"text-embedding-3-small", "embedding"},
+		{"text-embedding-ada-002", "embedding"},
+		{"nomic-embed-text", "embedding"},
+		{"rerank-v3.5", "rerank"},
+		{"gpt-4o", "chat"},
+		{"gpt-5.6-luna", "chat"},
+	} {
+		if got := DeriveModelClass([]string{"text"}, []string{"text"}, tc.id); got != tc.want {
+			t.Errorf("DeriveModelClass(text->text, %q) = %q, want %q", tc.id, got, tc.want)
+		}
+	}
+	// An explicit embedding output still wins on its own, whatever the name.
+	if got := DeriveModelClass([]string{"text"}, []string{"embedding"}, "mystery-model"); got != "embedding" {
+		t.Errorf("explicit embedding output = %q, want embedding", got)
+	}
+}
