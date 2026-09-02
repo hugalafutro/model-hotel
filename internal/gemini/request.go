@@ -327,9 +327,11 @@ func buildGenerationConfig(req *oaiRequest) *genConfig {
 		gc.ThinkingConfig = &genThinkingConfig{ThinkingBudget: budget}
 	}
 	if wantsImageOutput(req.Modalities) {
-		// TEXT alongside IMAGE: the image models answer with both, and
-		// asking for IMAGE alone is refused by the ones that always caption.
-		gc.ResponseModalities = []string{"TEXT", "IMAGE"}
+		// The request's list, translated: image plus text asks for both,
+		// image alone asks for the picture only. A request without the field
+		// sends nothing; an image model returns its image by default, which
+		// is what the text-only model probes rely on.
+		gc.ResponseModalities = responseModalities(req.Modalities)
 	}
 
 	if gc.MaxOutputTokens == 0 && gc.Temperature == nil && gc.TopP == nil &&
@@ -352,6 +354,19 @@ func RequestWantsImage(body []byte) bool {
 		return false
 	}
 	return wantsImageOutput(req.Modalities)
+}
+
+// responseModalities maps an OpenAI modalities list that names image onto
+// Gemini's response modalities, keeping text only when the client asked for
+// it.
+func responseModalities(modalities []string) []string {
+	out := []string{"IMAGE"}
+	for _, m := range modalities {
+		if strings.EqualFold(m, "text") {
+			return []string{"TEXT", "IMAGE"}
+		}
+	}
+	return out
 }
 
 // wantsImageOutput reports a modalities list that names image output.

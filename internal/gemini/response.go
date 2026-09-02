@@ -100,9 +100,13 @@ type oaiImageURLOut struct {
 	URL string `json:"url"`
 }
 
-// imageOut renders a generated image part as an image_url data URL.
-func imageOut(blob *genRespBlob) oaiImageOut {
-	return oaiImageOut{Type: "image_url", ImageURL: oaiImageURLOut{URL: "data:" + blob.MimeType + ";base64," + blob.Data}}
+// imageOut renders a generated image part as an image_url data URL. A part
+// that is not an image, or an image with no bytes or type, yields nothing.
+func imageOut(blob *genRespBlob) (oaiImageOut, bool) {
+	if blob == nil || blob.Data == "" || !strings.HasPrefix(blob.MimeType, "image/") {
+		return oaiImageOut{}, false
+	}
+	return oaiImageOut{Type: "image_url", ImageURL: oaiImageURLOut{URL: "data:" + blob.MimeType + ";base64," + blob.Data}}, true
 }
 
 type oaiToolCallOut struct {
@@ -189,8 +193,13 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 	var toolCalls []oaiToolCallOut
 	var images []oaiImageOut
 	for _, p := range parts {
-		if p.InlineData != nil && strings.HasPrefix(p.InlineData.MimeType, "image/") {
-			images = append(images, imageOut(p.InlineData))
+		// Thought parts first: an image model drafts interim images to test
+		// its composition, and those arrive as thought parts too.
+		if p.Thought {
+			continue
+		}
+		if img, ok := imageOut(p.InlineData); ok {
+			images = append(images, img)
 			continue
 		}
 		if p.FunctionCall != nil {
@@ -205,9 +214,6 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 			tc.Function.Name = p.FunctionCall.Name
 			tc.Function.Arguments = args
 			toolCalls = append(toolCalls, tc)
-			continue
-		}
-		if p.Thought {
 			continue
 		}
 		sb.WriteString(p.Text)

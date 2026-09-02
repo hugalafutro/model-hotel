@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -132,8 +131,11 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 	var buf bytes.Buffer
 	delta := oaiChunkDelta{}
 	for _, p := range cand.Content.Parts {
-		if p.InlineData != nil && strings.HasPrefix(p.InlineData.MimeType, "image/") {
-			delta.Images = append(delta.Images, imageOut(p.InlineData))
+		if p.Thought {
+			continue
+		}
+		if img, ok := imageOut(p.InlineData); ok {
+			delta.Images = append(delta.Images, img)
 			continue
 		}
 		if p.FunctionCall != nil {
@@ -150,9 +152,6 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 			tc.Function.Arguments = args
 			delta.ToolCalls = append(delta.ToolCalls, tc)
 			t.toolCalls++
-			continue
-		}
-		if p.Thought {
 			continue
 		}
 		delta.Content += p.Text

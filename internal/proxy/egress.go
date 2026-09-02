@@ -24,7 +24,10 @@ type chatCompletionBuilder func(body []byte, id, model string, created int64) ([
 // that surfaces the error still hands the pipeline a closed-once, drainable
 // response.
 func translateEgressResponseBody(resp *http.Response, model string, build chatCompletionBuilder) error {
-	body, err := io.ReadAll(resp.Body)
+	// Bounded like the plain non-streaming read: a body past the cap is cut
+	// and fails the translation, so one upstream cannot hold more than the
+	// cap (twice, original and translated) per concurrent request.
+	body, err := io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap))
 	_ = resp.Body.Close()
 	if err != nil {
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
