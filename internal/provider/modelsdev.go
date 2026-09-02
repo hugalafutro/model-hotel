@@ -476,6 +476,41 @@ func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) boo
 	return merged
 }
 
+// clearRefusedCapabilities clears a flag the catalog claims and the
+// provider's API refuses, after the OR-merge above has put it in. models.dev
+// lists structured output for Google's image-output models, following
+// Google's own docs, and the API answers JSON mode on every one of them with
+// a 400 (google-gemini/cookbook#1028); discovery leaves the flag off for
+// them, so the merge must not switch it back on. Reports whether it cleared
+// anything, which is what re-marshals the capabilities below.
+func clearRefusedCapabilities(providerType, modelID string, caps *model.Capability) bool {
+	if !caps.StructuredOutput || !googleServedImageModel(providerType, modelID) {
+		return false
+	}
+	caps.StructuredOutput = false
+	return true
+}
+
+// googleServedImageModel reports an image-output model that Google's own
+// generateContent route serves, where Google's refusals apply: on Google AI
+// Studio and Vertex AI express by name, and on OpenCode Zen for the Gemini
+// family it passes through to Google (Zen's own codenames share the naming
+// space, so the image-name match alone would claim a model Google never
+// served). An aggregator serving the same model id over its own dialect
+// answers for itself, and the flag it advertises is its own claim.
+func googleServedImageModel(providerType, modelID string) bool {
+	if !isGoogleImageGenModel(modelID) {
+		return false
+	}
+	switch providerType {
+	case "google", "vertex-express":
+		return true
+	case "opencode-zen":
+		return strings.HasPrefix(strings.ToLower(modelID), "gemini-")
+	}
+	return false
+}
+
 // attachmentImpliesVision reports whether an attachment claim is corroborated
 // by the declared input modalities.
 //
@@ -556,6 +591,7 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 
 	// Capabilities: only set individual fields if they're currently false.
 	enriched = mergeSpecCapabilities(spec, &caps) || enriched
+	enriched = clearRefusedCapabilities(providerType, m.ModelID, &caps) || enriched
 
 	// Modality arrays: only set if currently empty. The modality *class* is
 	// not set here — NormalizeModelClassification derives it from the arrays
