@@ -2907,7 +2907,7 @@
 			"clientIp": "IP klienta",
 			"copyClientIp": "Kopiuj IP klienta",
 			"attemptTrail": "Ślad prób",
-			"attemptTrailHint": "Każdy dostawca, do którego skierowano to żądanie, po kolei, wraz z tym, co odpowiedział. Pominięte pozycje odrzucił bezpiecznik, zanim wysłano jakiekolwiek żądanie.",
+			"attemptTrailHint": "Każdy dostawca, do którego skierowano to żądanie, w kolejności, wraz z odpowiedzią każdego z nich. Pominięte wpisy zostały odrzucone przed wysłaniem jakiegokolwiek żądania; powód jest pokazany przy wpisie.",
 			"attemptSkipped": "pominięto",
 			"attemptHedged": "zabezpieczone",
 			"attemptNoStatus": "brak odpowiedzi",

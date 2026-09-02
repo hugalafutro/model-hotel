@@ -2785,7 +2785,7 @@
 			"clientIp": "Klient-IP",
 			"copyClientIp": "Kopiér klient-IP",
 			"attemptTrail": "Forsøgsspor",
-			"attemptTrailHint": "Hver udbyder, denne anmodning blev sendt til, i rækkefølge, med hvad hver især svarede. Oversprungne poster blev afvist af afbryderen, før nogen anmodning blev sendt.",
+			"attemptTrailHint": "Hver udbyder, som denne forespørgsel blev sendt til, i rækkefølge, med hvad hver især svarede. Oversprungne poster blev afvist, før nogen forespørgsel blev sendt; årsagen vises ved posten.",
 			"attemptSkipped": "sprunget over",
 			"attemptHedged": "hedget",
 			"attemptNoStatus": "intet svar",

@@ -2785,7 +2785,7 @@
 			"clientIp": "IP máy khách",
 			"copyClientIp": "Sao chép IP máy khách",
 			"attemptTrail": "Dấu vết các lần thử",
-			"attemptTrailHint": "Mọi nhà cung cấp mà yêu cầu này được định tuyến tới, theo thứ tự, cùng phản hồi của từng bên. Các mục bị bỏ qua đã bị cầu dao từ chối trước khi bất kỳ yêu cầu nào được gửi.",
+			"attemptTrailHint": "Mọi nhà cung cấp mà yêu cầu này được định tuyến tới, theo thứ tự, cùng với phản hồi của từng bên. Các mục bị bỏ qua đã bị từ chối trước khi bất kỳ yêu cầu nào được gửi; lý do được hiển thị cùng mục đó.",
 			"attemptSkipped": "bỏ qua",
 			"attemptHedged": "phòng hộ",
 			"attemptNoStatus": "không phản hồi",

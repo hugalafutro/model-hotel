@@ -306,8 +306,13 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 // the body is a perfectly good Gemini object and the provider is plainly alive.
 // Charging for it took a healthy provider out of rotation for every tenant after
 // five blocked prompts, which is exactly what a client retries.
+//
+// The speech adapter's refusals are the same two shapes: an answer without an
+// audio part (a blocked prompt, a text reply) is the model answering, and a
+// body past speechBodyCap is this gateway's own limit.
 func translationIsProviderFault(err error) bool {
-	return !errors.Is(err, gemini.ErrPromptBlocked) && !errors.Is(err, errEgressBodyOversized)
+	return !errors.Is(err, gemini.ErrPromptBlocked) && !errors.Is(err, errEgressBodyOversized) &&
+		!errors.Is(err, gemini.ErrSpeechNoAudio) && !errors.Is(err, errSpeechBodyOversized)
 }
 
 // answerCarriesSomething reports whether a completion carries anything at all

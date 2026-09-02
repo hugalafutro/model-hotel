@@ -2907,7 +2907,7 @@
 			"clientIp": "IP klienta",
 			"copyClientIp": "Kopírovat IP klienta",
 			"attemptTrail": "Stopa pokusů",
-			"attemptTrailHint": "Každý poskytovatel, na kterého byl tento požadavek směrován, v pořadí, s tím, co který odpověděl. Přeskočené položky odmítl jistič dřív, než byl odeslán jakýkoli požadavek.",
+			"attemptTrailHint": "Každý poskytovatel, na kterého byl tento požadavek směrován, v pořadí, s tím, co každý odpověděl. Přeskočené položky byly odmítnuty ještě před odesláním jakéhokoli požadavku; důvod je uveden u položky.",
 			"attemptSkipped": "přeskočeno",
 			"attemptHedged": "zajištěno",
 			"attemptNoStatus": "bez odpovědi",

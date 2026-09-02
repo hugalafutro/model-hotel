@@ -2785,7 +2785,7 @@
 			"clientIp": "Kliens IP",
 			"copyClientIp": "Kliens IP másolása",
 			"attemptTrail": "Kísérletek nyoma",
-			"attemptTrailHint": "Minden szolgáltató, ahová ez a kérés irányítva lett, sorrendben, azzal, amit az egyes szolgáltatók válaszoltak. A kihagyott bejegyzéseket a megszakító utasította el, mielőtt bármilyen kérés kiment volna.",
+			"attemptTrailHint": "Minden szolgáltató, amelyhez ezt a kérést irányították, sorrendben, azzal együtt, hogy melyik mit válaszolt. A kihagyott bejegyzéseket még bármilyen kérés elküldése előtt elutasították; az ok a bejegyzésnél látható.",
 			"attemptSkipped": "kihagyva",
 			"attemptHedged": "fedezett",
 			"attemptNoStatus": "nincs válasz",

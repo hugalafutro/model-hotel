@@ -2785,7 +2785,7 @@
 			"clientIp": "客户端 IP",
 			"copyClientIp": "复制客户端 IP",
 			"attemptTrail": "尝试轨迹",
-			"attemptTrailHint": "此请求依次路由到的每个提供商及其各自的响应。被跳过的条目是在发出任何请求之前被断路器拒绝的。",
+			"attemptTrailHint": "此请求依次路由到的每个提供商，以及各自的响应。被跳过的条目在发出任何请求之前就已被拒绝；原因显示在条目旁。",
 			"attemptSkipped": "已跳过",
 			"attemptHedged": "对冲",
 			"attemptNoStatus": "无响应",

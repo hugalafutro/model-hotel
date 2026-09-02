@@ -2785,7 +2785,7 @@
 			"clientIp": "Client-IP",
 			"copyClientIp": "Client-IP kopiëren",
 			"attemptTrail": "Pogingenspoor",
-			"attemptTrailHint": "Elke provider waarnaar dit verzoek is gerouteerd, op volgorde, met wat elk antwoordde. Overgeslagen items zijn door de stroomonderbreker geweigerd voordat er een verzoek werd gedaan.",
+			"attemptTrailHint": "Elke provider waarnaar dit verzoek is gerouteerd, op volgorde, met wat elk antwoordde. Overgeslagen vermeldingen zijn geweigerd voordat er een verzoek is gedaan; de reden staat bij de vermelding.",
 			"attemptSkipped": "overgeslagen",
 			"attemptHedged": "gehedged",
 			"attemptNoStatus": "geen antwoord",
