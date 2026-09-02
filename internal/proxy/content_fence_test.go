@@ -319,11 +319,13 @@ func TestContentFence_DeterministicOverTheBudget(t *testing.T) {
 	body := []byte(`{"context":` + jsonString(filler) + `,"tools":[{"type":"function","function":{"name":"t","description":` + jsonString(filler) + `}}],"model":"p/m","messages":[{"role":"user","content":` + jsonString(canary) + `}]}`)
 	for i := 0; i < 5; i++ {
 		f := newContentFence(body)
-		if got := f.maskOne("echo " + canary); strings.Contains(got, "SUPERSECRET") {
-			t.Fatalf("run %d: messages lost to the budget: %q", i, got)
-		}
+		// The forms are counted before the mask: the first mask builds the
+		// window set and releases the strings.
 		if n := len(f.strings()); n < len(contentForms) {
 			t.Fatalf("run %d: %d forms indexed, want every budget exhausted for the test to bite", i, n)
+		}
+		if got := f.maskOne("echo " + canary); strings.Contains(got, "SUPERSECRET") {
+			t.Fatalf("run %d: messages lost to the budget: %q", i, got)
 		}
 	}
 	rerank := []byte(`{"model":"p/m","documents":[` + jsonString(filler) + `],"query":` + jsonString(canary) + `}`)

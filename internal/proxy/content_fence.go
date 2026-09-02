@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -57,8 +58,10 @@ const (
 	// per request, per form (each of the four forms below has its own
 	// budget, so the form the trail's detail needs is never starved by the
 	// raw one). The ceiling is therefore four times this: on the largest
-	// request whose forms all differ, about 4 MiB of runes retained for the
-	// failure's lifetime and on the order of 100ms per fenced text. The walk
+	// request whose forms all differ, about four million windows hashed and
+	// sorted once (windowSet, about 110ms) and then a few microseconds per
+	// fenced text, with the window set retained for the failure's lifetime.
+	// The walk
 	// visits the content-bearing members first (contentFirstKeys) and every
 	// map in sorted key order, so what the cap leaves out is deterministic
 	// and is the tail of the request.
@@ -102,6 +105,15 @@ type contentFence struct {
 	extra []string
 	once  sync.Once
 	strs  [][]rune
+	// windows is the sorted, deduplicated hash of every content window,
+	// built once on the first mask (windowSet) and reused by every later
+	// one: the streaming error attribute fences once per SSE error frame,
+	// and walking the content again for each was the cost that scaled with
+	// the prompt rather than with the frame. Once built, the content strings
+	// themselves are released; nothing on the request path reads them
+	// again.
+	winOnce sync.Once
+	windows []uint64
 }
 
 // newContentFence fences the strings of a JSON request body plus any extra
@@ -113,7 +125,10 @@ func newContentFence(body []byte, extra ...string) *contentFence {
 	return &contentFence{body: body, extra: extra}
 }
 
-// strings returns the request's content strings in every indexed form.
+// strings returns the request's content strings in every indexed form. It is
+// for windowSet and for tests, and only before the first mask: windowSet
+// releases the strings once the set is built, and reading them from another
+// goroutine while it does is a race. Nothing on the request path calls it.
 func (f *contentFence) strings() [][]rune {
 	f.once.Do(f.parse)
 	return f.strs
@@ -248,10 +263,15 @@ func isBase64Rune(r rune) bool {
 		r == '+' || r == '/' || r == '=' || r == '-' || r == '_'
 }
 
-// windowHash is an FNV-1a over the runes of one window. The content walk
-// computes it per position and looks it up in the texts' index without
-// building a string, then verifies the runes on a hit; a 1 MiB index costs a
-// few tens of milliseconds per fenced text rather than a million allocations.
+// windowHash is an FNV-1a over the runes of one window, computed per
+// position without building a string. A hit is taken on the 64-bit hash
+// alone. Two distinct windows collide with probability 2^-64, so a lookup
+// against a set of N windows is wrong with probability N/2^64 (2^-42 at the
+// four-million-window ceiling), and a false hit costs a masked run of
+// provider text (sixteen runes, or more where it bridges two real masks),
+// never a leak: a genuine echo has the same hash by construction, so no
+// echo is ever missed. That is not worth keeping every content window in
+// memory for a rune-by-rune check.
 func windowHash(r []rune) uint64 {
 	h := uint64(14695981039346656037)
 	for _, c := range r {
@@ -261,49 +281,122 @@ func windowHash(r []rune) uint64 {
 	return h
 }
 
+// windowSet returns the sorted, deduplicated hashes of every window of the
+// request's content, built once. Eight bytes per window: a 10 KB prompt is
+// 80 KB, and the largest request the index budget admits is about 32 MB,
+// held only for the failure's lifetime. That is about twice what the old
+// design retained (the content strings themselves, 16 MB at the ceiling,
+// which are released once the set exists), bought for a walk that no longer
+// scales with the prompt; a hash table would build faster still but retain
+// about twice as much again, and retained bytes are what several large
+// failures at once add up. The sort is a radix sort: a comparison sort of
+// four million hashes cost more than the walk it replaced, so a single-frame
+// failure would have paid for the memo without using it.
+func (f *contentFence) windowSet() []uint64 {
+	f.winOnce.Do(func() {
+		strs := f.strings()
+		n := 0
+		for _, c := range strs {
+			if len(c) >= contentEchoWindow {
+				n += len(c) - contentEchoWindow + 1
+			}
+		}
+		set := make([]uint64, 0, n)
+		for _, c := range strs {
+			for i := 0; i+contentEchoWindow <= len(c); i++ {
+				set = append(set, windowHash(c[i:i+contentEchoWindow]))
+			}
+		}
+		radixSort(set)
+		f.windows = compactCopy(set)
+		f.strs = nil
+	})
+	return f.windows
+}
+
+// compactCopy deduplicates a sorted set into a fresh array. A copy, not a
+// clip: slices.Compact returns a prefix of the same backing array, so a
+// repetitive prompt that deduplicated to a handful of windows would
+// otherwise keep the whole pre-dedup array alive for the failure's life.
+func compactCopy(sorted []uint64) []uint64 {
+	set := slices.Compact(sorted)
+	out := make([]uint64, len(set))
+	copy(out, set)
+	return out
+}
+
+// radixSort sorts hashes in place with an LSD radix sort, eight passes of
+// eight bits, which is linear in the count where a comparison sort of the
+// same four million values is not: on the largest request the index admits
+// the sort is about 100ms, the hashing about 15ms, and the old per-call
+// walk this replaces was about 70ms, so the first fence of such a request
+// costs somewhat more than before and every later one costs microseconds.
+// Measured against the standard sort it is already ahead from about a
+// thousand values (a one-kilobyte prompt), so there is no small-input
+// fallback. The scratch buffer is transient.
+func radixSort(v []uint64) {
+	if len(v) < 2 {
+		return
+	}
+	buf := make([]uint64, len(v))
+	src, dst := v, buf
+	for shift := uint(0); shift < 64; shift += 8 {
+		var count [256]int
+		for _, x := range src {
+			count[(x>>shift)&0xff]++
+		}
+		pos := 0
+		for i := range count {
+			c := count[i]
+			count[i] = pos
+			pos += c
+		}
+		for _, x := range src {
+			d := (x >> shift) & 0xff
+			dst[count[d]] = x
+			count[d]++
+		}
+		src, dst = dst, src
+	}
+	// Eight passes end with the result back in v.
+}
+
+// hasWindow reports whether the sorted set holds a window with this hash.
+func hasWindow(set []uint64, h uint64) bool {
+	i := sort.Search(len(set), func(i int) bool { return set[i] >= h })
+	return i < len(set) && set[i] == h
+}
+
 // mask returns texts with every run of contentEchoWindow or more runes that
-// also appears in the request's content replaced by contentMask. The texts
-// are indexed together so the request's strings are walked once for all of
-// them; a nil fence or texts too short to hold a window come back unchanged.
+// also appears in the request's content replaced by contentMask. Each text is
+// walked once, window by window, against the content's window set; a nil
+// fence or texts too short to hold a window come back unchanged.
 func (f *contentFence) mask(texts []string) []string {
 	if f == nil {
 		return texts
 	}
-	type at struct{ text, pos int }
-	index := map[uint64][]at{}
 	runes := make([][]rune, len(texts))
+	marks := make([][]bool, len(texts))
+	hit := false
+	var set []uint64
 	for t, s := range texts {
 		if utf8.RuneCountInString(s) < contentEchoWindow {
 			continue
 		}
+		if set == nil {
+			set = f.windowSet()
+		}
 		runes[t] = []rune(s)
 		for i := 0; i+contentEchoWindow <= len(runes[t]); i++ {
-			h := windowHash(runes[t][i : i+contentEchoWindow])
-			index[h] = append(index[h], at{t, i})
-		}
-	}
-	if len(index) == 0 {
-		return texts
-	}
-	marks := make([][]bool, len(texts))
-	hit := false
-	for _, c := range f.strings() {
-		for i := 0; i+contentEchoWindow <= len(c); i++ {
-			hits, ok := index[windowHash(c[i:i+contentEchoWindow])]
-			if !ok {
+			if !hasWindow(set, windowHash(runes[t][i:i+contentEchoWindow])) {
 				continue
 			}
-			for _, h := range hits {
-				if !equalRunes(runes[h.text][h.pos:h.pos+contentEchoWindow], c[i:i+contentEchoWindow]) {
-					continue
-				}
-				hit = true
-				if marks[h.text] == nil {
-					marks[h.text] = make([]bool, len(runes[h.text]))
-				}
-				for j := h.pos; j < h.pos+contentEchoWindow; j++ {
-					marks[h.text][j] = true
-				}
+			hit = true
+			if marks[t] == nil {
+				marks[t] = make([]bool, len(runes[t]))
+			}
+			for j := i; j < i+contentEchoWindow; j++ {
+				marks[t][j] = true
 			}
 		}
 	}
@@ -332,18 +425,6 @@ func (f *contentFence) mask(texts []string) []string {
 		out[t] = b.String()
 	}
 	return out
-}
-
-func equalRunes(a, b []rune) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
 }
 
 // maskOne is mask for a single text.
