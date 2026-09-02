@@ -356,6 +356,11 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			if errors.Is(err, virtualkey.ErrNotFound) {
 				debuglog.Warn("auth: key not found", "remote_addr", clientip.From(r))
 				refuse("invalid virtual key")
+			} else if errors.Is(err, context.Canceled) {
+				// The client left mid-lookup: nothing to answer, and not the
+				// database's fault, so not the Error stream.
+				debuglog.Warn("auth: key lookup abandoned, client gone", "remote_addr", clientip.From(r))
+				return
 			} else {
 				debuglog.Error("auth: db lookup failed", "error", err)
 				writeOpenAIError(w, "internal error", http.StatusInternalServerError)
