@@ -2785,7 +2785,7 @@
 			"clientIp": "İstemci IP'si",
 			"copyClientIp": "İstemci IP'sini kopyala",
 			"attemptTrail": "Deneme izi",
-			"attemptTrailHint": "Bu isteğin yönlendirildiği her sağlayıcı, sırayla ve her birinin verdiği yanıtla. Atlanan girdiler, herhangi bir istek gönderilmeden önce devre kesici tarafından reddedildi.",
+			"attemptTrailHint": "Bu isteğin yönlendirildiği her sağlayıcı, sırayla ve her birinin verdiği yanıtla birlikte. Atlanan girdiler herhangi bir istek gönderilmeden önce reddedildi; nedeni girdinin yanında gösterilir.",
 			"attemptSkipped": "atlandı",
 			"attemptHedged": "korumalı",
 			"attemptNoStatus": "yanıt yok",

@@ -2785,7 +2785,7 @@
 			"clientIp": "Kliënt-IP",
 			"copyClientIp": "Kopieer kliënt-IP",
 			"attemptTrail": "Pogingspoor",
-			"attemptTrailHint": "Elke verskaffer waarheen hierdie versoek gestuur is, in volgorde, met wat elkeen geantwoord het. Oorgeslaande inskrywings is deur die stroombreker geweier voordat enige versoek gemaak is.",
+			"attemptTrailHint": "Elke verskaffer waarheen hierdie versoek gestuur is, in volgorde, met wat elkeen geantwoord het. Oorgeslaande inskrywings is geweier voordat enige versoek gemaak is; die rede word by die inskrywing gewys.",
 			"attemptSkipped": "oorgeslaan",
 			"attemptHedged": "gehedge",
 			"attemptNoStatus": "geen antwoord",

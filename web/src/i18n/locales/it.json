@@ -2846,7 +2846,7 @@
 			"clientIp": "IP del client",
 			"copyClientIp": "Copia IP del client",
 			"attemptTrail": "Traccia dei tentativi",
-			"attemptTrailHint": "Ogni provider a cui questa richiesta è stata instradata, in ordine, con la risposta di ciascuno. Le voci saltate sono state rifiutate dall'interruttore prima di qualsiasi richiesta.",
+			"attemptTrailHint": "Ogni provider a cui questa richiesta è stata instradata, in ordine, con ciò che ciascuno ha risposto. Le voci saltate sono state rifiutate prima che venisse effettuata alcuna richiesta; il motivo è mostrato accanto alla voce.",
 			"attemptSkipped": "saltato",
 			"attemptHedged": "coperto",
 			"attemptNoStatus": "nessuna risposta",

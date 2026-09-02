@@ -214,7 +214,6 @@ func TestAudioSpeech_MixedGroupFailsOverToAModelThatProducesTheFormat(t *testing
 	}
 	body := fmt.Sprintf(`{"model":"hotel/%s","input":"hi","voice":"alloy","response_format":"mp3"}`, groupName)
 	w := httptest.NewRecorder()
-	started := time.Now()
 	envGemini.handler.AudioSpeech(w, envGemini.request("/v1/audio/speech", "application/json", strings.NewReader(body)))
 	if w.Code != http.StatusOK || w.Header().Get("Content-Type") != "audio/mpeg" {
 		t.Fatalf("status %d type %q (body %s), want the mp3 model's answer", w.Code, w.Header().Get("Content-Type"), w.Body.String())
@@ -225,8 +224,33 @@ func TestAudioSpeech_MixedGroupFailsOverToAModelThatProducesTheFormat(t *testing
 	if gemCalls != 0 || mp3Calls.Load() != 1 {
 		t.Errorf("gemini saw %d requests, mp3 model %d; want 0 and 1", gemCalls, mp3Calls.Load())
 	}
-	if took := time.Since(started); took > 90*time.Millisecond {
-		t.Errorf("request took %v: a skip that contacted nothing must not pay the failover backoff", took)
+}
+
+// The skip itself: a Gemini candidate refused for the request's format is
+// its own outcome (contacted nothing, so no backoff and nothing to come back
+// to), is recorded on the attempt trail like a breaker skip, and its reason
+// is what the exhaustion path renders.
+func TestAttemptPassthroughCandidate_SpeechSkipIsRecorded(t *testing.T) {
+	st := &requestState{
+		endpointPath:    speechEndpointPath,
+		bodyBytes:       []byte(`{"model":"m","input":"hi","voice":"alloy","response_format":"mp3"}`),
+		logData:         &requestLogData{endpointType: endpointTypeTTS},
+		failoverTimeout: time.Minute,
+	}
+	cand := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "gemini-2.5-flash-preview-tts", OutputModalities: `["audio"]`},
+		provider: &provider.Provider{ID: uuid.New(), Name: "Google", BaseURL: "https://generativelanguage.googleapis.com/v1beta/openai", ProviderType: "google"},
+	}
+	got := (&Handler{}).attemptPassthroughCandidate(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody), st, cand, 0, 2)
+	if got != outcomeSkipped {
+		t.Fatalf("outcome = %v, want outcomeSkipped", got)
+	}
+	if st.lastReqErr.Kind != KindProviderBadRequest || !strings.Contains(st.lastReqErr.Underlying, "wav or pcm") {
+		t.Errorf("recorded %+v, want the refusal as the attempt's underlying error", st.lastReqErr)
+	}
+	trail := st.logData.attempts
+	if len(trail) != 1 || trail[0].Attempt != -1 || trail[0].Breaker != breakerSkipped || !strings.Contains(trail[0].Detail, "wav or pcm") {
+		t.Errorf("trail = %+v, want one skipped entry carrying the reason", trail)
 	}
 }
 

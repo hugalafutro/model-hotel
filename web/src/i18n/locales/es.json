@@ -2846,7 +2846,7 @@
 			"clientIp": "IP del cliente",
 			"copyClientIp": "Copiar IP del cliente",
 			"attemptTrail": "Rastro de intentos",
-			"attemptTrailHint": "Cada proveedor al que se enrutó esta solicitud, en orden, con lo que respondió cada uno. Las entradas omitidas las rechazó el disyuntor antes de hacer ninguna solicitud.",
+			"attemptTrailHint": "Cada proveedor al que se enrutó esta solicitud, en orden, con lo que respondió cada uno. Las entradas omitidas se rechazaron antes de hacer ninguna solicitud; el motivo se muestra junto a la entrada.",
 			"attemptSkipped": "omitido",
 			"attemptHedged": "cubierto",
 			"attemptNoStatus": "sin respuesta",
