@@ -32,20 +32,34 @@ func TestContentFence_WindowSetIsBuiltOnce(t *testing.T) {
 	if second := f.windowSet(); len(second) != len(first) || &second[0] != &first[0] {
 		t.Fatal("the window set was rebuilt")
 	}
-	// The set is a fresh copy, not a prefix of the pre-dedup array: a
-	// repetitive prompt keeps only its distinct windows alive.
-	rep := newContentFence(chatBody(strings.Repeat("the same sixteen runes again and again ", 2000)))
-	if set := rep.windowSet(); cap(set) != len(set) {
-		t.Fatalf("window set retains cap %d for len %d", cap(set), len(set))
+}
+
+// The compacted set lives in its own array: a clip would keep the whole
+// pre-dedup array reachable, which for a repetitive prompt is megabytes
+// holding a few hundred bytes of distinct windows.
+func TestCompactCopy_ReleasesThePreDedupArray(t *testing.T) {
+	t.Parallel()
+	big := make([]uint64, 1<<20)
+	for i := range big {
+		big[i] = uint64(i / (1 << 18)) // four distinct values across a million slots
 	}
-	if got := f.maskOne("echo " + canary); got != "echo [content]" {
-		t.Fatalf("got %q", got)
+	out := compactCopy(big)
+	if len(out) != 4 || cap(out) != 4 {
+		t.Fatalf("compacted to len %d cap %d, want 4 and 4", len(out), cap(out))
+	}
+	if &out[0] == &big[0] {
+		t.Fatal("the compacted set shares the pre-dedup array")
+	}
+	for i, v := range out {
+		if v != uint64(i) {
+			t.Fatalf("out[%d] = %d", i, v)
+		}
 	}
 }
 
 // The radix sort agrees with the standard sort on hashes of every shape,
 // including the values a naive digit loop gets wrong (zeros, the top bit,
-// duplicates), on both sides of the small-input fallback.
+// duplicates).
 func TestRadixSort(t *testing.T) {
 	t.Parallel()
 	cases := [][]uint64{

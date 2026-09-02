@@ -308,14 +308,21 @@ func (f *contentFence) windowSet() []uint64 {
 			}
 		}
 		radixSort(set)
-		set = slices.Compact(set)
-		// A copy, not a clip: Compact returns a prefix of the same backing
-		// array, so a repetitive prompt that deduplicated to a handful of
-		// windows would otherwise keep the whole pre-dedup array alive.
-		f.windows = append(make([]uint64, 0, len(set)), set...)
+		f.windows = compactCopy(set)
 		f.strs = nil
 	})
 	return f.windows
+}
+
+// compactCopy deduplicates a sorted set into a fresh array. A copy, not a
+// clip: slices.Compact returns a prefix of the same backing array, so a
+// repetitive prompt that deduplicated to a handful of windows would
+// otherwise keep the whole pre-dedup array alive for the failure's life.
+func compactCopy(sorted []uint64) []uint64 {
+	set := slices.Compact(sorted)
+	out := make([]uint64, len(set))
+	copy(out, set)
+	return out
 }
 
 // radixSort sorts hashes in place with an LSD radix sort, eight passes of
@@ -324,11 +331,11 @@ func (f *contentFence) windowSet() []uint64 {
 // the sort is about 100ms, the hashing about 15ms, and the old per-call
 // walk this replaces was about 70ms, so the first fence of such a request
 // costs somewhat more than before and every later one costs microseconds.
-// A small input takes the comparison sort, which has no fixed cost of
-// passes and scratch to amortise. The scratch buffer is transient.
+// Measured against the standard sort it is already ahead from about a
+// thousand values (a one-kilobyte prompt), so there is no small-input
+// fallback. The scratch buffer is transient.
 func radixSort(v []uint64) {
-	if len(v) < 1<<16 {
-		slices.Sort(v)
+	if len(v) < 2 {
 		return
 	}
 	buf := make([]uint64, len(v))
