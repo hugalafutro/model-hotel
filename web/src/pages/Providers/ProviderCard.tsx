@@ -57,11 +57,11 @@ export function ProviderCard({
 	const { t } = useTranslation();
 
 	// Disabled cards render their informational content grayscale and dimmed,
-	// while the controls that keep working (Edit/Delete) and the Disabled
-	// badge stay at full color. CSS filters apply to the whole subtree with
-	// no child opt-out, so the split is per-element rather than one class on
-	// the card. The models-count and quota badges are hidden entirely: they
-	// would only show stale pre-disable values.
+	// while the controls that keep working (Edit/Delete) and the Disabled badge
+	// stay at full color. A CSS filter applies to the whole subtree with no child
+	// opt-out, so the split is per-element rather than one class on the card. The
+	// models-count and quota badges are hidden entirely, since they would only
+	// show stale values.
 	const dim = provider.enabled ? "" : "grayscale opacity-50";
 
 	return (
@@ -246,10 +246,10 @@ export function ProviderCard({
 	);
 }
 
-// capNoteApplies says whether the provider's quota badge is the one place a
-// cap message can appear: a provider with no usage API at all, or Ollama
-// Cloud, whose account API names the plan and never the usage. A provider
-// with a usage badge shows its real reading instead.
+// capNoteApplies says whether a cap note is the only quota reading available:
+// a provider with no usage API at all, or Ollama Cloud, whose account API names
+// the plan and never the usage. A provider with a usage badge shows its real
+// reading instead.
 function capNoteApplies(baseUrl: string): boolean {
 	const type = detectQuotaProviderType(baseUrl);
 	return type === null || type === "ollama-cloud";

@@ -101,7 +101,7 @@ func Assess(providerType string, s Snapshot) Assessment {
 // so Remaining can be *int64: that payload is passed through to the dashboard
 // as-is and must not change shape, but a bare int64 cannot tell "field absent"
 // apart from an explicit 0, and treating an absent remaining as a spent window
-// would pin a healthy provider shut. Same reasoning as minimaxModelRemain below.
+// would pin a healthy provider shut. Same reasoning as minimaxModelRemain.
 type zaiCodingQuotaLimit struct {
 	Type          string   `json:"type"`
 	Unit          int      `json:"unit"`
@@ -131,12 +131,12 @@ func assessZaiCoding(payload json.RawMessage) Assessment {
 		// Z.ai's remaining cannot be trusted on its own: the live API sends an
 		// explicit remaining: 0 on windows that are only partially used, while
 		// percentage (percent of the window consumed) tracks the account page
-		// exactly. A sane percentage — within [0, 100], the same definition
-		// addMiniMaxWindow uses — therefore decides; anything outside that
-		// range is nonsense, not a signal, and falls back to the remaining
-		// rule (where Z.ai's ever-present remaining: 0 still reads a genuine
-		// overage as exhausted). A missing field decodes to nil, never to 0,
-		// so absence is never read as exhausted.
+		// exactly. A sane percentage decides (within [0, 100], the same
+		// definition addMiniMaxWindow uses); anything outside that range is
+		// nonsense, not a signal, and falls back to the remaining rule, where
+		// Z.ai's ever-present remaining: 0 still reads a genuine overage as
+		// exhausted. A missing field decodes to nil, never to 0, so absence is
+		// never read as exhausted.
 		exhausted := false
 		switch {
 		case l.Percentage != nil && *l.Percentage >= 0 && *l.Percentage <= 100:
@@ -169,51 +169,46 @@ type neuralwattQuotaPayload struct {
 		// claim KwhRemaining <= 0 makes numerically. A bare bool rather than a
 		// pointer because the snapshot path stores a re-marshal of the provider
 		// struct, where the field is a bare bool too: absent upstream arrives
-		// here as false, which is the safe direction — it can only ever add
-		// exhaustion when NeuralWatt affirmatively says so.
+		// here as false, the safe direction, since it can only add exhaustion
+		// when NeuralWatt affirmatively says so.
 		InOverage        bool   `json:"in_overage"`
 		CurrentPeriodEnd string `json:"current_period_end"`
 	} `json:"subscription"`
 }
 
 // creditsSpentFloorUSD is the balance below which NeuralWatt credits count as
-// spent. It is not zero because NeuralWatt does not wait for zero:
-// observed on prod 2026-09-01, the account began answering 402
-// payment_required ("Subscription access is currently blocked because a usage
-// or billing limit was previously reached") with credits_remaining_usd still
-// at 0.0035, and it stayed there — the residue never drains, so an exact
-// <= 0 test never becomes true and the provider is never pinned.
+// spent. It is not zero because NeuralWatt does not wait for zero: the account
+// answers 402 payment_required ("Subscription access is currently blocked
+// because a usage or billing limit was previously reached") with
+// credits_remaining_usd still around 0.0035, and that residue never drains, so
+// an exact <= 0 test never becomes true and the provider is never pinned.
 //
-// What a cent is worth depends entirely on the request: the run that triggered
-// this burned $9.1061 over 1007 large-context requests (~$0.009 each, so a cent
-// is about one), while a 2026-08-24 probe of 49 tiny requests drew ~$0.006
-// (~$0.0001 each, so a cent is nearer eighty). The floor therefore forfeits
-// somewhere between one and a few dozen requests of genuine headroom, and only
-// for an account already in overage with its included energy gone. Being wrong
-// in the other direction leaves a provider that answers nothing but 402 sitting
-// live in its failover group, which is the state this rule exists to end.
+// What a cent buys depends on the request: large-context requests run about
+// $0.009 each (a cent is one), tiny ones about $0.0001 (a cent is nearer
+// eighty). The floor therefore forfeits between one and a few dozen requests of
+// genuine headroom, and only for an account already in overage with its
+// included energy gone. Being wrong in the other direction leaves a provider
+// that answers nothing but 402 sitting live in its failover group.
 const creditsSpentFloorUSD = 0.01
 
 // assessNeuralwatt handles NeuralWatt's balance model, which differs from the
 // window models above: spending the included monthly energy does not make the
-// provider refuse requests — it keeps serving in overage, debiting the credit
+// provider refuse requests, it keeps serving in overage, debiting the credit
 // balance. Requests only start failing once BOTH the included energy is gone
-// and the credit balance has fallen below creditsSpentFloorUSD — not to zero,
-// which NeuralWatt never reports; see that constant. The only scheduled
+// and the credit balance has fallen below creditsSpentFloorUSD (not to zero,
+// which NeuralWatt never reports; see that constant). The only scheduled
 // recovery from that state is the billing period end, so that is the reset the
-// pin targets (the
-// breaker's 24h pin ceiling re-pins toward it on each open, and an
-// off-schedule recovery — a top-up, a plan change — lifts the pin on the next
-// poll via the recovered path in buildQuotaAdvice).
+// pin targets: the breaker's 24h pin ceiling re-pins toward it on each open,
+// and an off-schedule recovery (a top-up, a plan change) lifts the pin on the
+// next poll via the recovered path in buildQuotaAdvice.
 //
 // That recovery path needs a datable reset to work: an account reporting no
-// usable current_period_end assesses OK=false below, which reaches neither
-// advice nor recovered, so nothing releases its pin early and it runs the full
-// ceiling. That is the intended trade. The alternative — reporting a spent
-// account healthy because it did not say when it recovers — puts it in
-// recovered, where ReleaseQuotaPins drops the pin and clears the 429-open
-// escalation of every circuit it owns, on every poll pass, for an account
-// answering nothing but 402.
+// usable current_period_end assesses OK=false, which reaches neither advice nor
+// recovered, so nothing releases its pin early and it runs the full ceiling.
+// That is the intended trade. Reporting a spent account healthy because it did
+// not say when it recovers would put it in recovered, where ReleaseQuotaPins
+// drops the pin and clears the 429-open escalation of every circuit it owns, on
+// every poll pass, for an account answering nothing but 402.
 func assessNeuralwatt(payload json.RawMessage) Assessment {
 	var res neuralwattQuotaPayload
 	if err := json.Unmarshal(payload, &res); err != nil {
@@ -221,8 +216,8 @@ func assessNeuralwatt(payload json.RawMessage) Assessment {
 	}
 	// Either signal settles the energy side: the number when NeuralWatt reports
 	// one, and the flag it sets on entering overage. Reading both means a
-	// kwh_remaining that freezes at a residue instead of a clean zero — the same
-	// shape the credits balance has — cannot short-circuit the conjunction and
+	// kwh_remaining that freezes at a residue instead of a clean zero (the same
+	// shape the credits balance has) cannot short-circuit the conjunction and
 	// leave the credits floor unreachable.
 	energySpent := (res.Subscription.KwhRemaining != nil && *res.Subscription.KwhRemaining <= 0) ||
 		res.Subscription.InOverage
@@ -237,7 +232,7 @@ func assessNeuralwatt(payload json.RawMessage) Assessment {
 			// through to e.result here would report "not exhausted", and
 			// buildQuotaAdvice reads that as affirmative health: the provider
 			// joins `recovered`, and ReleaseQuotaPins then clears the 429-open
-			// escalation of every circuit it owns on every poll pass — for an
+			// escalation of every circuit it owns on every poll pass, for an
 			// account answering nothing but 402. OK=false is the honest answer;
 			// it lands the provider in neither advice nor recovered.
 			return Assessment{}
@@ -337,16 +332,15 @@ func assessMiniMax(payload json.RawMessage) Assessment {
 
 // addMiniMaxWindow records one window if it is spent. Only a window the plan
 // actually covers is considered at all: status 1 means active, 3 means the
-// model class is not in the plan and its percent reads misleadingly as 100
-// (per plans/already-implemented/2026-07-19-minimax-provider-research.md).
+// model class is not in the plan and its percent reads misleadingly as 100.
 // A missing status decodes to 0 and is skipped the same way, so an
 // unrecognized shape fails open rather than guesses.
 //
 // Counts win when present: total > 0 means the count fields are meaningful,
 // and used >= total is exhausted, matching the other providers' rule. Some
 // Token Plan tiers report all-zero counts even on an active window, in which
-// case (total <= 0) the remaining-percentage field is the only real signal —
-// but only when it was actually present in the payload; a missing percent
+// case (total <= 0) the remaining-percentage field is the only real signal,
+// and only when it is actually present in the payload; a missing percent
 // decodes to nil, never to 0, so it can never be misread as "0% remaining".
 // The percent is REMAINING, not consumed, despite the neighbouring
 // *_usage_count field names, and a value outside [0, 100] is skipped as

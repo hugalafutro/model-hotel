@@ -28,11 +28,9 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	//
 	// The credential is therefore IN THE URL, and a transport failure returns a
 	// *url.Error whose Error() quotes the whole URL back: Go redacts only
-	// userinfo passwords, not query parameters. Every rendering of that error
-	// below is scrubbed for exactly that reason. Moving this endpoint to the
-	// x-goog-api-key header (which vertex-express already uses) would remove
-	// the class rather than mask it, and is worth doing separately, where the
-	// change can be exercised against the live API.
+	// userinfo passwords, not query parameters. The transport error below is
+	// scrubbed for exactly that reason; moving to the x-goog-api-key
+	// header would remove the class instead of masking it.
 	url := fmt.Sprintf("%s/models?key=%s", nativeBaseURL, neturl.QueryEscape(apiKey))
 
 	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
@@ -226,10 +224,10 @@ func googleModalities(modelID string) (inputMods, outputMods string) {
 		// ("The requested combination of response modalities (TEXT) is not
 		// supported"). Text in and audio out derives the tts class, which
 		// keeps it out of the chat and arena pickers and stops /v1/models
-		// advertising vision or audio input; nothing gates a request by
+		// advertising vision or audio input. An audio-only output also
+		// exempts it from the model-gone strike. Nothing gates a request by
 		// modality on the way in, so a client naming it directly still gets
-		// Google's 400. An audio-only output also exempts it from the
-		// model-gone strike, the trade every non-chat class makes.
+		// Google's 400.
 		inputMods = `["text"]`
 		outputMods = `["audio"]`
 	}
@@ -261,5 +259,3 @@ func isGoogleAudioModel(modelID string) bool {
 func isGoogleEmbeddingModel(modelID string) bool {
 	return strings.Contains(strings.ToLower(modelID), "embedding")
 }
-
-// containsString removed — use slices.Contains from stdlib.

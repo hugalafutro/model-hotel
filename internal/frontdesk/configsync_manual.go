@@ -11,15 +11,13 @@ import (
 
 // The operator-driven half of fleet config sync: the POST /api/config/sync
 // handler, the detached run it parks on, and the run's result shape. The member
-// plumbing both it and the automatic loop share (export, dry-run, import, the
-// per-member result) stays in configsync.go. Split out when that file crossed
-// the size ceiling.
+// plumbing this and the automatic loop share (export, dry-run, import, the
+// per-member result) lives in configsync.go.
 
 // errPrimaryExportUnreadable stops a run before any member is touched: the
-// primary's config could not be read, so there is nothing to push. It is a
-// sentinel rather than a message because the run happens away from the handler
-// that renders it, and this is the one failure that is a 502 (the primary
-// answered badly) rather than a store error.
+// primary's config could not be read, so there is nothing to push. A sentinel
+// because the run happens away from the handler that renders it, and this is
+// the one failure answered as a 502 rather than as a store error.
 var errPrimaryExportUnreadable = errors.New("could not read the primary's config")
 
 // The two refusals of the designation guard in runConfigSync. Sentinels so the
@@ -33,10 +31,10 @@ var (
 
 // Stable codes for the designation guard's answers. Coded rather than bare
 // text because Bellhop's error reader only surfaces the message from a coded
-// envelope, and because a bare 403 there reads as "this device is a monitor"
-// and hides the operator controls. A 409 is also the honest status: the request
-// conflicts with the fleet's designated state, and the remedy is to change that
-// state first, not to hold a different credential.
+// envelope, and a bare 403 there reads as "this device is a monitor" and hides
+// the operator controls. 409 is the honest status: the request conflicts with
+// the fleet's designated state, and the remedy is to change that state first,
+// not to hold a different credential.
 const (
 	primaryNotDesignatedCode = "primary_not_designated"
 	syncSourceNotPrimaryCode = "sync_source_not_primary"
@@ -69,10 +67,10 @@ type configSyncRun struct {
 	repointed bool
 }
 
-// interruptedMessage names what the operator is looking at: a partial run, how
-// much of the fleet it never reached, and what to do about it. It reaches the UI
-// as the error text of the 503, so it is written for a person.
-// repointedMessage is the same shape for a run the designation guard stopped.
+// repointedMessage names what the operator is looking at when the designation
+// guard stopped a run: a partial run, how much of the fleet it never reached,
+// and what to do about it. It reaches the UI as the error text of the 409, so
+// it is written for a person.
 func (run configSyncRun) repointedMessage() string {
 	msg := "the fleet primary was changed while this sync was running, so it stopped"
 	if run.notAttempted > 0 {
@@ -81,6 +79,8 @@ func (run configSyncRun) repointedMessage() string {
 	return msg + ". Run the sync again from the new primary."
 }
 
+// interruptedMessage is the same shape of message for a run cut short by shutdown, carried as
+// the error text of the 503.
 func (run configSyncRun) interruptedMessage() string {
 	msg := "front desk began shutting down during the sync, so it did not finish"
 	if run.notAttempted > 0 {
@@ -134,9 +134,9 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 		defer close(done)
 		run = s.runConfigSync(ctx, req.PrimaryID)
 	}) {
-		// Shutdown has begun. The auto-sync kick simply goes unfired at this point;
-		// here the run is the response, so say so instead: a fleet-wide write started
-		// now would be cancelled a moment later with nowhere to record what it did.
+		// Shutdown has begun, and the run is the response here, so say so: a
+		// fleet-wide write started now would be cancelled a moment later with
+		// nowhere to record what it did.
 		http.Error(w, "front desk is shutting down; run the sync again once it is back", http.StatusServiceUnavailable)
 		return
 	}
@@ -161,11 +161,11 @@ func (s *Server) configSync(w http.ResponseWriter, r *http.Request) {
 			"primary_id": run.primaryID, "results": run.results,
 		})
 	case run.interrupted:
-		// The coded-error shape (code + error), with the partial results alongside
+		// The coded-error shape (code + error) with the partial results alongside
 		// it: a caller that only reads the message still learns the run was cut
 		// short and how much of the fleet it never reached, and one that reads the
-		// body still sees what did happen. Not a 200, which would be read as a
-		// complete run of a fleet this size.
+		// body sees what did happen. Not a 200, which would read as a complete run
+		// of a fleet this size.
 		writeJSON(w, http.StatusServiceUnavailable, map[string]any{
 			"code": syncInterruptedCode, "error": run.interruptedMessage(),
 			"primary_id": run.primaryID, "results": run.results,
@@ -190,18 +190,11 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 
 	// The source must be the primary the operator designated. Picking which
 	// member's config the fleet copies is an admin-token confirmed decision
-	// (putAutoSync -> SetAutoSyncGuarded, "confirm the admin token to change or
-	// clear the configured primary"), and this run reaches the identical outcome
-	// by another door: every other member, the designated primary included, is
-	// overwritten with the chosen member's config. Taking the id from the
-	// request unchecked let the operator tier - which can also disable auto-sync
-	// unaided, so the rollback sticks - roll the whole fleet back to a stale
-	// member's config.
-	//
-	// No shipped client loses anything: the web wizard designates through the
-	// guarded endpoint and awaits it before calling this, Bellhop sends the
-	// designated id, and the auto-sync loop reads the designation itself.
-	// "Repair the fleet from member X" is still the two steps it always was:
+	// (putAutoSync -> SetAutoSyncGuarded), and this run reaches the identical
+	// outcome by another door: every other member, the designated primary
+	// included, is overwritten with the chosen member's config. An unchecked id
+	// from the request would let the operator tier roll the whole fleet back to a
+	// stale member's config. "Repair the fleet from member X" is two steps:
 	// repoint (admin token), then sync.
 	cfg, err := s.store.GetAutoSync(ctx)
 	if err != nil {
@@ -215,11 +208,11 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 		return configSyncRun{err: errSyncSourceNotPrimary}
 	}
 	// gen is the generation the designation above was read WITH (one row, one
-	// scan), not a later re-read. It stamps every push so the members' commit
-	// fence can refuse a stale one, and it is what the repoint gate below compares
-	// against. A generation read after the guard would let a repoint landing in
-	// between stamp this run's pushes with the new generation, and the fence
-	// that exists to refuse a stale source would accept them.
+	// scan), never a later re-read. It stamps every push so the members' commit
+	// fence can refuse a stale one, and the repoint gate below compares against
+	// it. A generation read after the guard would let a repoint landing in
+	// between stamp this run's pushes with the new generation, and the fence that
+	// exists to refuse a stale source would accept them.
 	gen := cfg.Gen
 
 	primary, primaryToken, err := s.memberTokenOrErr(ctx, primaryID)
@@ -248,12 +241,11 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 
 	// The guard is held for the whole run, not just at admission: a run can last
 	// minutes (memberSyncTimeout per member), and an admin repointing in the
-	// meantime has made a decision this run must not undo. The same three-layer
-	// arrangement as applyAutoSync: a gate at the top of each member, a gate
-	// tightest to the mutation after the slow dry-run, and a watcher that cancels
-	// an import already in flight the instant a rearm moves the generation. A
-	// read error reports "not moved": a transient DB failure must not abort an
-	// otherwise valid run.
+	// meantime has made a decision this run must not undo. Three layers, as in
+	// applyAutoSync: a gate at the top of each member, a gate tightest to the
+	// mutation after the slow dry-run, and a watcher that cancels an import
+	// already in flight the instant a rearm moves the generation. A read error
+	// reports "not moved", so a transient DB failure does not abort a valid run.
 	moved := func() bool {
 		cur, err := s.store.GetAutoSync(ctx)
 		return err == nil && (cur.Gen != gen || cur.PrimaryID != primaryID)
@@ -271,9 +263,9 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 		if ctx.Err() != nil {
 			// The server is shutting down. Stop between members rather than push a
 			// config whose outcome nothing can record: the store is waiting on this
-			// goroutine to close. The members left here go unattempted and are
-			// counted, not silently dropped, so the answer can say how much of the
-			// fleet this run never reached.
+			// goroutine to close. The members left here are counted, not silently
+			// dropped, so the answer can say how much of the fleet this run never
+			// reached.
 			notAttempted = syncableCount(members[i:], primary.ID)
 			debuglog.Info("frontdesk: manual config sync stopped by shutdown",
 				"primary", primary.Name, "not_attempted", notAttempted)
@@ -325,11 +317,11 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 	// reaching the guards above: the member being pushed when shutdown lands (or
 	// when the watcher cancels for a repoint) takes the cancellation on its own
 	// HTTP call, and the loop then ends of its own accord with nothing left to
-	// skip. Either way the run did not finish, so it reports itself as such rather
-	// than as a clean sweep of the fleet.
+	// skip. Either way the run did not finish, so it reports itself as such
+	// rather than as a clean sweep of the fleet.
 	//
-	// The run marker is skipped with it. It is a write like any other, and a
-	// cancelled run is not a run the fleet's staleness watchdog should count.
+	// The run marker is skipped with it: it is a write like any other, and a
+	// cancelled run is not one the fleet's staleness watchdog should count.
 	if ctx.Err() != nil {
 		return configSyncRun{
 			primaryID: primary.ID, results: results,

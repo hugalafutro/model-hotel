@@ -11,9 +11,9 @@ import (
 )
 
 // The per-attempt trail (request_logs.attempts): one element per failover
-// attempt, written once at terminal time. It exists because request_logs kept
-// only the TERMINAL attempt, so on 2026-08-31 every Neuralwatt 429 that was
-// attempt 0 of a request another provider then served left no trace at all.
+// attempt, written once at terminal time. The flat request_logs columns carry
+// only the TERMINAL attempt, so without the trail a 429 on attempt 0 of a
+// request another provider then served leaves no trace at all.
 //
 // Lifecycle: every attempt path opens a record when it commits to a candidate
 // (beginAttempt, the hedged launch, the breaker skip at resolve time) and
@@ -41,8 +41,8 @@ type attemptRecord struct {
 	// never request content (see attemptDetail).
 	Detail string `json:"detail,omitempty"`
 	// Phrase is the rate-limit phrase-table entry a 429 matched, when one did.
-	// It is what the phrase staleness report counts: a phrase absent from
-	// every trail for 90 days has stopped earning its place in the table.
+	// The phrase staleness report counts these: a phrase absent from every
+	// trail for 90 days no longer belongs in the table.
 	Phrase     string  `json:"phrase,omitempty"`
 	DurationMs float64 `json:"duration_ms"`
 	TTFTMs     float64 `json:"ttft_ms,omitempty"`
@@ -65,9 +65,7 @@ const (
 )
 
 // maxAttemptDetailRunes bounds attemptRecord.Detail. A provider's error code
-// or first sentence fits; a provider quoting the prompt back does not, which
-// with the credential masker is the second of the two fences the design asks
-// for.
+// or first sentence fits; a provider quoting the prompt back does not.
 const maxAttemptDetailRunes = 160
 
 // attemptDetail reduces an upstream error text to what the trail may carry:
@@ -92,8 +90,8 @@ func attemptDetail(masker credentialMasker, s string) string {
 // instant, not when its result arrived). cbEnabled false records the breaker
 // as disabled up front, because no verdict site will run to say otherwise.
 //
-// Every method here tolerates a nil receiver: unit tests drive attempt paths
-// with a bare requestState, and a trail nobody will read is not worth a panic.
+// Every method here tolerates a nil receiver: an attempt path can run against
+// a bare requestState, and a trail nobody reads is not worth a panic.
 func (l *requestLogData) openAttemptRecord(attempt int, candidate modelCandidate, hedged bool, startedAt time.Time, cbEnabled bool) {
 	if l == nil {
 		return
@@ -264,8 +262,7 @@ func (l *requestLogData) appendSkip(providerID uuid.UUID, providerName, model, d
 
 // attemptsJSON renders the trail for the request_logs.attempts column: nil (a
 // SQL NULL) when the request never committed to a candidate, so a validation
-// failure or an unknown model leaves the column exactly as an older binary
-// would.
+// failure or an unknown model leaves the column empty.
 func (l *requestLogData) attemptsJSON() []byte {
 	if l == nil || len(l.attempts) == 0 {
 		return nil
@@ -273,7 +270,7 @@ func (l *requestLogData) attemptsJSON() []byte {
 	// Skips first, then by attempt index: a hedged race appends its losers in
 	// arrival order and the winner last, so attempt 0 can follow attempt 1.
 	// Stable, so the saturation retry keeps its place behind the attempt it
-	// repeats. The column is documented as being in order; this is where.
+	// repeats. This is what puts the column in the order it documents.
 	sort.SliceStable(l.attempts, func(i, j int) bool { return l.attempts[i].Attempt < l.attempts[j].Attempt })
 	b, err := json.Marshal(l.attempts)
 	if err != nil {

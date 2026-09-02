@@ -22,19 +22,18 @@ var errEgressBodyOversized = errors.New("upstream response body exceeds the non-
 
 // translateEgressResponseBody swaps a non-streaming native 200 body for its
 // chat.completion translation so handleNonStreamingResponse can meter and
-// forward it unchanged. The dialect differs only in the builder, so every
-// egress adapter shares this body: read, translate, re-seat.
+// forward it unchanged. The dialect differs only in the builder, so every egress
+// adapter shares this body: read, translate, re-seat.
 //
-// resp.Body is always left readable — an empty reader on failure — so a caller
+// resp.Body is always left readable, an empty reader on failure, so a caller
 // that surfaces the error still hands the pipeline a closed-once, drainable
 // response.
 func translateEgressResponseBody(resp *http.Response, model string, build chatCompletionBuilder) error {
-	// Bounded like the plain non-streaming read: cap+1 is read, and a body
-	// that reaches it is refused with errEgressBodyOversized rather than
-	// translated, so one upstream cannot hold more than the cap (twice,
-	// original and translated) per concurrent request. The refusal is this
-	// gateway's policy and not the provider failing, which
-	// translationIsProviderFault knows.
+	// Bounded like the plain non-streaming read: cap+1 is read, and a body that
+	// reaches it is refused with errEgressBodyOversized rather than translated,
+	// so one upstream cannot hold more than the cap (twice over, original and
+	// translated) per concurrent request. The refusal is this gateway's policy
+	// and not the provider failing, which translationIsProviderFault knows.
 	body, err := io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap+1))
 	_ = resp.Body.Close()
 	if err != nil {

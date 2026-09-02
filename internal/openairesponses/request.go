@@ -68,7 +68,7 @@ type chatContentPart struct {
 // tool definitions are flattened, and reasoning_effort maps to reasoning
 // (with summary:"auto" so the model's reasoning summary can be surfaced back
 // as reasoning_content). store is always false: the gateway is stateless and
-// each turn re-sends the full transcript (plan §4.2).
+// each turn re-sends the full transcript.
 func TranslateChatToResponses(chatBody []byte, resolvedModel string) ([]byte, error) {
 	var req chatRequest
 	if err := json.Unmarshal(chatBody, &req); err != nil {
@@ -109,7 +109,7 @@ func TranslateChatToResponses(chatBody []byte, resolvedModel string) ([]byte, er
 
 	for _, t := range req.Tools {
 		if t.Type != "function" {
-			continue // built-in tool passthrough is out of scope for v1 (plan §2)
+			continue // only function tools translate; built-in tools are dropped
 		}
 		out.Tools = append(out.Tools, Tool{
 			Type:        "function",
@@ -137,8 +137,8 @@ func TranslateChatToResponses(chatBody []byte, resolvedModel string) ([]byte, er
 // translateChatMessages folds system/developer turns into instructions and
 // converts the rest of the transcript into Responses input items. Prior
 // reasoning items are NOT reconstructed (the gateway never sees encrypted
-// reasoning content); each turn reasons fresh from the transcript, matching
-// today's chat-completions behavior (plan §4.3).
+// reasoning content); each turn reasons fresh from the transcript, as the
+// chat-completions path does.
 func translateChatMessages(msgs []chatReqMessage) (string, []any, error) {
 	var sysParts []string
 	var input []any
@@ -167,9 +167,8 @@ func translateChatMessages(msgs []chatReqMessage) (string, []any, error) {
 			}
 			for _, tc := range m.ToolCalls {
 				// The Responses API types arguments as a string, so anything
-				// would forward — but a quoted array is garbage to the model,
-				// and the same input must not take a different fate here than on
-				// the other two egress paths.
+				// forwards, but a quoted array is garbage to the model. The
+				// object form is normalised here as on the other egress paths.
 				args := util.ToolArguments(util.ToolArgumentsObject(tc.Function.Arguments))
 				input = append(input, functionCallItem{
 					Type:      "function_call",

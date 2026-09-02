@@ -22,10 +22,10 @@ import (
 // newRequestWithContext is injectable for testing request creation errors.
 var newRequestWithContext = http.NewRequestWithContext
 
-// failRequest populates logData with failure details and updates the request log.
-// Always populates all timing fields from timings - if zero-valued, they record as 0ms.
-// kind is the machine-readable classification (a required argument so no failure
-// path can silently omit it); it is stored in request_logs.error_kind.
+// failRequest populates logData with failure details and updates the request
+// log. Every timing field is written from timings, recording 0ms when unset.
+// kind is the machine-readable classification stored in
+// request_logs.error_kind, required so no failure path can omit it.
 func (h *Handler) failRequest(logData *requestLogData, statusCode int, kind ErrorKind, errMsg string, attempt int, startTime time.Time, parseMs float64, timings resolveTimings, cacheHits resolveCacheHits, proxyOverhead float64) {
 	logData.statusCode = statusCode
 	logData.errorKind = kind
@@ -82,8 +82,8 @@ type attemptFn func(w http.ResponseWriter, r *http.Request, st *requestState, ca
 // candidate, and the all-exhausted failure path.
 func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *requestState, candidates []modelCandidate, attemptOne attemptFn) {
 	// Candidates skipped at their provider's learned in-flight window: no
-	// request was made, so when everything else is spent too they are worth
-	// waiting for — a slot freeing on any of them is the request's way through.
+	// request was made, so when everything else is spent they are worth waiting
+	// for, since a slot freeing on any of them is the request's way through.
 	var busyCandidates []modelCandidate
 	// contacted counts candidates a request was actually sent to: the
 	// exponential backoff protects providers that answered with failures, and
@@ -132,7 +132,7 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 				debuglog.Info("proxy: client disconnected during failover backoff", "model", st.logData.modelID, "provider", st.logData.providerName, "attempt", attempt+1)
 				// Carry the prior attempt's provider error (if any) so the log
 				// shows what was failing when the client gave up. 499 (client
-				// closed request) on both the log and the wire — see plan §7.
+				// closed request) on both the log and the wire.
 				st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: attempt - 1, Provider: st.logData.providerName, Underlying: st.lastReqErr.Underlying})
 				h.failRequest(st.logData, statusClientClosedRequest, KindClientDisconnect, st.lastErr, attempt-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 				writeOpenAIError(w, "client disconnected", statusClientClosedRequest)
@@ -173,12 +173,11 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 
 // retryAfterSlotFrees is the all-busy arm of the loop: every remaining live
 // candidate sat at its provider's learned in-flight window, so instead of
-// failing a request nothing upstream refused, wait for the first slot to free
-// on ANY of them (bounded by rate_limit_saturation_max_wait and the overall
-// deadline) and send there. This is the only place strict priority order is
-// not honoured, and only because the preferred entry had no slot to honour it
-// with: the walk below still prefers earlier entries whenever both have room.
-// Reports true when the request was answered.
+// failing a request nothing upstream refused, it waits for the first slot to
+// free on any of them (bounded by rate_limit_saturation_max_wait and the
+// overall deadline) and sends there. This is the only place strict priority
+// order is not honoured; the walk below still prefers earlier entries whenever
+// both have room. Reports true when the request was answered.
 func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st *requestState, busy []modelCandidate, numCandidates int, attemptOne attemptFn) bool {
 	deadline := time.Now().Add(h.settingsRepo.GetDuration(r.Context(), "rate_limit_saturation_max_wait", defaultSaturationMaxWait))
 	if st.overallDeadline.Before(deadline) {
@@ -224,7 +223,7 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 // failWaitDisconnect ends a request whose client hung up while the loop was
 // waiting (for a saturated provider's Retry-After, or for an in-flight slot):
 // 499 and client_disconnect, the same rule the ordinary failover backoff
-// applies. Always returns true — the response is written.
+// applies. Always returns true, since the response is written.
 func (h *Handler) failWaitDisconnect(w http.ResponseWriter, st *requestState, attempt int, providerName string) bool {
 	debuglog.Info("proxy: client disconnected while waiting out saturation", "model", st.logData.modelID, "provider", providerName)
 	st.setReqErr(reqError{Kind: KindClientDisconnect, Attempt: attempt, Provider: providerName, Underlying: st.lastReqErr.Underlying})
@@ -236,7 +235,7 @@ func (h *Handler) failWaitDisconnect(w http.ResponseWriter, st *requestState, at
 // retrySaturatedCandidate is the one extra attempt a saturated last candidate
 // earns: wait the provider's Retry-After (capped at
 // rate_limit_saturation_max_wait and at the remaining overall deadline), then
-// send the same candidate again. One retry, never a loop — the attempt fn
+// send the same candidate again. One retry, never a loop: the attempt fn
 // consults st.saturationRetried and cannot return outcomeRetrySaturated twice.
 // The retry is an ordinary failover attempt: its index is one past the
 // candidate list, so the request log shows it as a further failover_attempt.
@@ -276,23 +275,21 @@ func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request
 	}
 }
 
-// upstreamFrameError reports that the provider's first SSE data frame carried an
-// error envelope rather than a token. It is distinct from every other probe
+// upstreamFrameError reports that the provider's first SSE data frame carried
+// an error envelope rather than a token. It is distinct from every other probe
 // failure because the provider answered: the fault is never the client's, so it
-// is charged to the provider whatever the downstream connection was doing. See
-// classifyProbeError.
+// is charged to the provider whatever the downstream connection was doing.
 type upstreamFrameError struct{ msg string }
 
 func (e *upstreamFrameError) Error() string { return e.msg }
 
-// emptyStreamError reports that the provider's stream ended at its very FIRST
-// data frame — a bare [DONE] with no chunk before it — so it produced nothing at
-// all. Like upstreamFrameError it means the provider answered, so it is charged
-// to the provider rather than blamed on the client.
+// emptyStreamError reports that the provider's stream ended at its first data
+// frame (a bare [DONE] with no chunk before it), so it produced nothing at all.
+// Like upstreamFrameError it means the provider answered, so it is charged to
+// the provider rather than blamed on the client.
 //
-// The bar is deliberately "no chunks whatever". A provider that sends any real
-// frame and then finishes has answered, even if the answer is empty, and keeps
-// its win.
+// The bar is "no chunks whatever": a provider that sends any real frame and
+// then finishes has answered, even if the answer is empty, and keeps its win.
 type emptyStreamError struct{}
 
 func (e *emptyStreamError) Error() string {
@@ -303,15 +300,15 @@ func (e *emptyStreamError) Error() string {
 // is an error envelope instead of a token, and ok == false for every ordinary
 // frame.
 //
-// Whether the frame IS an error is util.ErrorMemberCarries. question, not a second
-// opinion: this package already decided what counts (a populated error member of
-// any shape, including Ollama's bare string; not null/{}/""/[]/false/0, which
-// leave a caller nothing to read). Answering it twice is how the two drift, and
-// either direction is a bug — a miss lets a broken provider win a hedged race, a
-// false positive fails over a healthy stream.
+// Whether the frame is an error is util.ErrorMemberCarries' decision alone (a
+// populated error member of any shape, including Ollama's bare string; not
+// null/{}/""/[]/false/0, which leave a caller nothing to read). Deciding it a
+// second time here is how the two drift, and either direction is a bug: a miss
+// lets a broken provider win a hedged race, a false positive fails over a
+// healthy stream.
 //
-// Only the message is extracted here, and util.ErrorMemberMessage renders shapes
-// wider than {"error":{"message":...}}, so its fallbacks are not decoration.
+// Only the message is extracted here, by util.ErrorMemberMessage, which renders
+// shapes wider than {"error":{"message":...}}.
 func errorEnvelopeMessage(content string) (msg string, ok bool) {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal([]byte(content), &envelope); err != nil {
@@ -331,16 +328,14 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 type probeFrame int
 
 const (
-	// probeFrameNotAToken is a data line carrying nothing — an empty or
+	// probeFrameNotAToken is a data line carrying nothing: an empty or
 	// whitespace-only field. Skipped exactly like a keepalive comment: it is not
 	// a token, but it is not a verdict either, so a real frame after it wins.
 	//
-	// This exists because the probe and the stream reader used to disagree about
-	// what a chunk IS. streamReader.classify treats a bare "data:" as a comment
-	// and an empty payload as delivering nothing, while the probe accepted any
-	// non-[DONE] content — so a stream of "data:" then "data: [DONE]" won the
-	// race while producing zero chunks downstream. That is the empty-stream bug
-	// wearing a different spelling.
+	// It keeps the probe agreeing with streamReader.classify, which treats a
+	// bare "data:" as a comment and an empty payload as delivering nothing.
+	// Counting such a frame as a token would let a stream of "data:" then
+	// "data: [DONE]" win a hedged race while producing zero chunks downstream.
 	probeFrameNotAToken probeFrame = iota
 	// probeFrameToken is a real first token: the provider is answering.
 	probeFrameToken
@@ -355,8 +350,7 @@ const (
 // is only populated for probeFrameError.
 //
 // One classifier, used by both the main scanner loop and the scanner-error
-// recovery branch, so the two cannot drift — and the recovery branch is the one
-// no test can reach.
+// recovery branch, so the two cannot drift.
 func classifyProbeFrame(content string) (probeFrame, string) {
 	switch content {
 	case "":
@@ -370,13 +364,8 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 	return probeFrameToken, ""
 }
 
-// recoverProbeFrame finds the first COMPLETE, meaningful SSE data line in a
+// recoverProbeFrame finds the first complete, meaningful SSE data line in a
 // probe buffer and classifies it. found is false when the buffer holds none.
-//
-// Extracted from probeFirstToken's scanner-error recovery branch so the logic
-// can be tested at all: that branch needs the watchdog to close the body in the
-// same instant the scanner yields a line, which no test can arrange
-// deterministically. The decision is testable even where the path is not.
 func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found bool) {
 	for rawLine := range strings.SplitSeq(bufStr, "\n") {
 		l := strings.TrimSpace(rawLine)
@@ -405,12 +394,8 @@ func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found boo
 // return triple. recovered is false when the buffer holds nothing usable, and
 // the caller falls through to its ordinary error returns.
 //
-// This is the whole recovery branch, extracted so it can be tested. The branch
-// is reached only when the watchdog closes the body in the same instant the
-// scanner yields a line — a race no test can arrange deterministically (see
-// TestProbeFirstToken_ScannerErrorRecovery_PipeRace, which documents the same
-// thing). Leaving it inline meant every verdict it can reach was unverifiable,
-// and reverting it left the whole package green.
+// The branch it serves is reached only when the watchdog closes the body in the
+// same instant the scanner yields a line.
 //
 //nolint:revive // the error is one of four coordinated results, not a trailing status
 func recoverFirstToken(buf *bytes.Buffer, startTime time.Time, scanErr error) (probeBuf *bytes.Buffer, ttftMs float64, err error, recovered bool) {
@@ -446,14 +431,14 @@ func recoverFirstToken(buf *bytes.Buffer, startTime time.Time, scanErr error) (p
 // "event:", "id:", and "retry:" directives are skipped but still captured in
 // probeBuf for replay.
 //
-// Both exclusions exist for the same reason and have the same consequence: a
-// provider that reports an error, and one that finishes without producing a
-// single chunk, have each given the caller nothing.
+// Both exclusions exist for the same reason: a provider that reports an error,
+// and one that finishes without producing a single chunk, have each given the
+// caller nothing.
 //
-// The error-envelope case exists because this probe picks the winner of a hedged
-// race. Treating a provider's error frame as a first token means the fastest
-// FAILURE wins: the broken candidate is committed to, every healthy rival still
-// in flight is cancelled as superseded, and the request has no second chance.
+// This probe picks the winner of a hedged race, so treating a provider's error
+// frame as a first token would let the fastest failure win: the broken
+// candidate is committed to, every healthy rival still in flight is cancelled
+// as superseded, and the request has no second chance.
 func (h *Handler) probeFirstToken(
 	ctx context.Context,
 	body io.ReadCloser,
@@ -485,7 +470,7 @@ func (h *Handler) probeFirstToken(
 	go func() {
 		select {
 		case <-probeDone:
-			// Probe finished — don't touch the body.
+			// Probe finished: leave the body alone.
 			return
 		case <-probeCtx.Done():
 			// Double-check: probe may have just finished between the
@@ -521,34 +506,32 @@ func (h *Handler) probeFirstToken(
 				// below rather than on any "data:" prefix.
 				continue
 			}
-			// Signal the goroutine — a frame that MEANS something was found, so
-			// the body must not be closed underneath us. Kept as early as
-			// possible so the goroutine sees it even if the timer fires at the
-			// same instant; the scanner-error recovery below covers the rest of
+			// Signal the goroutine that a meaningful frame was found, so the
+			// body is not closed underneath the read. Set as early as possible
+			// so the goroutine sees it even if the timer fires at the same
+			// instant; the scanner-error recovery below covers the rest of
 			// that window.
 			probeSucceeded.Store(true)
 			if verdict == probeFrameEmptyStream {
-				// The stream ended before producing a single chunk. This used to
-				// count as a win, which meant an instantly-empty provider beat a
-				// slower one that would really have answered — the same way an
-				// error frame did, and with the same consequence: every healthy
-				// rival still racing is cancelled and the caller gets nothing.
-				// Nothing is as good as an error, so it loses the same way.
+				// The stream ended before producing a single chunk, so it loses
+				// the race the way an error frame does: counting it as a win
+				// would cancel every healthy rival still racing and leave the
+				// caller with nothing.
 				debuglog.Warn("proxy: TTFT probe saw [DONE] before any first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
 				closeProbe()
 				return nil, 0, &emptyStreamError{}
 			}
 			if verdict == probeFrameError {
 				msg := envelopeMsg
-				// The provider answered, but with its own failure. Counting
-				// this as a first token is what lets a broken provider win a
-				// hedged race against a working one.
-				// The provider's own text is NOT logged here. This function never
-				// saw the api key, so it cannot mask it, and a provider is free
-				// to quote the credential back inside its error. Key-SHAPE
-				// masking is not enough — it only catches tokens that look like
-				// keys, and an operator's key need not. Both callers log the
-				// message one line later, exact-masked by classifyProbeError.
+				// The provider answered, but with its own failure, which must
+				// not win a hedged race against a working provider.
+				//
+				// The provider's own text is never logged here: this function
+				// never saw the api key, so it cannot mask it, and a provider
+				// is free to quote the credential back inside its error.
+				// Key-shape masking is not enough, since an operator's key
+				// need not look like one. Both callers log the message one
+				// line later, exact-masked by classifyProbeError.
 				debuglog.Warn("proxy: TTFT probe saw an error envelope instead of a first token", "message_bytes", len(msg))
 				closeProbe()
 				return nil, 0, &upstreamFrameError{msg: msg}
@@ -559,27 +542,24 @@ func (h *Handler) probeFirstToken(
 			closeProbe()
 			return &buf, ttft, nil
 		}
-		// Unknown line format — skip but captured in buf.
+		// Unknown line format: skipped, but captured in buf.
 	}
 
-	// Scanner exited — body closed (timeout) or read error.
-	// bufio.Scanner never returns io.EOF from Err(); on clean EOF,
-	// Scan() returns false with Err() == nil, handled by the fallback
-	// after this block.
+	// Scanner exited: body closed (timeout) or read error. bufio.Scanner never
+	// returns io.EOF from Err(); on clean EOF, Scan() returns false with
+	// Err() == nil, handled by the fallback after this block.
 	if scanErr := scanner.Err(); scanErr != nil {
 		// Race recovery: the goroutine may close the body between the
 		// scanner reading a complete data line and probeSucceeded being
 		// checked. TeeReader writes to buf before scanner.Scan() returns,
-		// so the data is captured. Only return success if the probe context
-		// is still valid — if it expired, the goroutine closed the body and
-		// returning success would give the caller a closed body, causing
-		// handleStreamingResponse to truncate the stream after buffer replay.
+		// so the data is captured. Success is only returned while the probe
+		// context is still valid: once it expires the goroutine has closed the
+		// body, and returning success would hand the caller a closed body,
+		// truncating the stream after buffer replay.
 		if probeCtx.Err() == nil {
 			probeSucceeded.Store(true) // mirror the main loop: store before any processing
-			// Every outcome logs, including the ones that refuse. This branch
-			// cannot be reached from a test (see
-			// TestProbeFirstToken_ScannerErrorRecovery_PipeRace), so the log is
-			// the only way an operator ever learns it fired.
+			// Every outcome logs, including the ones that refuse: the log is
+			// the only way an operator learns this branch fired.
 			if probeBuf, ttft, err, recovered := recoverFirstToken(&buf, startTime, scanErr); recovered {
 				return probeBuf, ttft, err
 			}
@@ -590,22 +570,21 @@ func (h *Handler) probeFirstToken(
 		return nil, 0, fmt.Errorf("TTFT probe read error: %w", scanErr)
 	}
 
-	// Scanner finished without error and without finding data — body EOF.
+	// Scanner finished without error and without finding data: body EOF.
 	return nil, 0, fmt.Errorf("TTFT probe: body closed before first data chunk")
 }
 
-// See util.BuildProviderTargetURL for URL construction and util.SetProviderAuthHeaders for auth.
-
-// mapKeys returns the keys of a map[string]bool for logging.
-// failoverBackoff calculates exponential backoff with jitter between failover attempts.
-// base is the starting delay, capacity is the maximum delay, attempt is the 1-indexed attempt number.
-// Jitter of [0, base) is added to spread retries from concurrent requests hitting the same cascade.
+// failoverBackoff calculates exponential backoff with jitter between failover
+// attempts. base is the starting delay, capacity is the maximum delay, attempt
+// is the 1-indexed attempt number. Jitter of [0, base) spreads retries from
+// concurrent requests hitting the same cascade.
 func failoverBackoff(base, capacity time.Duration, attempt int) time.Duration {
 	exp := min(time.Duration(float64(base)*math.Pow(2, float64(attempt-1))), capacity)
 	jitter := time.Duration(rand.Int64N(int64(base)))
 	return exp + jitter
 }
 
+// mapKeys returns the keys of a map[string]bool for logging.
 func mapKeys(m map[string]bool) []string {
 	keys := make([]string, 0, len(m))
 	for k := range m {
@@ -622,10 +601,10 @@ func writeOpenAIError(w http.ResponseWriter, message string, statusCode int) {
 }
 
 // humanReadableCancelOrigin maps internal cancel origin identifiers to
-// human-readable descriptions for error messages and request logs.
-// Raw Go errors like "context canceled" and "context deadline exceeded" are
-// opaque — callers need to know whether the client disconnected, the failover
-// timeout expired, or a param-strip retry timed out.
+// human-readable descriptions for error messages and request logs. Raw Go
+// errors like "context canceled" are opaque, while a caller needs to know
+// whether the client disconnected, the failover timeout expired, or a
+// param-strip retry timed out.
 func humanReadableCancelOrigin(origin string) string {
 	switch origin {
 	case "client_disconnect":

@@ -1,9 +1,7 @@
 // Package gemini translates between the OpenAI chat-completions wire shape and
-// Google's Gemini generateContent shape. It is MH's first *egress* dialect
-// adapter (the mirror image of internal/anthropic, which translates on
-// ingress): Vertex AI express-mode API keys only work on the native
-// publisher routes, so requests leaving MH for a vertex-express provider are
-// rewritten here and the responses translated back.
+// Google's Gemini generateContent shape. Vertex AI express-mode API keys only
+// work on the native publisher routes, so requests leaving MH for a
+// vertex-express provider are rewritten here and the responses translated back.
 package gemini
 
 import (
@@ -63,22 +61,17 @@ type oaiContentPart struct {
 
 type oaiToolCall struct {
 	ID string `json:"id"`
-	// ExtraContent is where the signature travels on the OpenAI side, the
-	// shape Google's own compatibility layer uses and the chat path keeps
-	// verbatim (see proxy jsonextras): extra_content.google.thought_signature.
-	// Raw, read leniently: an ingress decoder must not fail a conversation
-	// on every retry over a member of a shape it did not expect, the rule
-	// util.ToolArguments below states for the arguments.
+	// ExtraContent is where the thought signature travels on the OpenAI side:
+	// extra_content.google.thought_signature. Raw, read leniently, so a
+	// member of an unexpected shape does not fail the conversation on every
+	// retry.
 	ExtraContent json.RawMessage `json:"extra_content"`
 	Function     struct {
 		Name string `json:"name"`
-		// util.ToolArguments, not a plain string: the spec says a JSON string and
-		// several providers send the object, so #808 taught the RESPONSE side to
-		// accept both — and an ingress decoder has no business being stricter
-		// than the decoder that produced the value. This gateway rewrites the
-		// object form on its own way out, so the client holding one got it from
-		// another gateway or SDK; rejecting it 400s that conversation on every
-		// retry, because each one replays the same transcript.
+		// util.ToolArguments, not a plain string: the spec says a JSON string
+		// and several providers send the object instead. Rejecting the object
+		// form 400s the conversation on every retry, since each one replays
+		// the same transcript.
 		Arguments util.ToolArguments `json:"arguments"`
 	} `json:"function"`
 }
@@ -151,9 +144,9 @@ type genTool struct {
 }
 
 // genFunctionDecl carries tool parameters as parametersJsonSchema, which
-// accepts standard JSON Schema verbatim (live-verified 2026-07-18, incl.
-// additionalProperties) — unlike the older `parameters` OpenAPI subset, so
-// strict-mode client schemas survive untouched.
+// accepts standard JSON Schema verbatim (additionalProperties included),
+// unlike the older `parameters` OpenAPI subset, so strict-mode client schemas
+// survive untouched.
 type genFunctionDecl struct {
 	Name                 string          `json:"name"`
 	Description          string          `json:"description,omitempty"`
@@ -200,7 +193,7 @@ var reasoningBudgets = map[string]int{
 
 // TranslateRequest converts an OpenAI chat-completions request body into a
 // Gemini generateContent request body. It returns the Gemini JSON, the model
-// string (verbatim — the caller builds the :generateContent /
+// string (verbatim: the caller builds the :generateContent or
 // :streamGenerateContent URL from it), and the stream flag.
 func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool, err error) {
 	var req oaiRequest
@@ -219,7 +212,7 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 	callNames := map[string]string{}
 
 	var systemParts []genPart
-	// True while the previously emitted content is a coalescing tool-response
+	// True while the last emitted content is a coalescing tool-response
 	// content; any other message kind breaks the run.
 	lastToolContent := false
 	for _, m := range req.Messages {
@@ -252,9 +245,8 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 			}
 			for _, tc := range m.ToolCalls {
 				callNames[tc.ID] = tc.Function.Name
-				// Gemini types functionCall.args as a Struct, so forwarding a
-				// non-object was a 400 from the provider where the other two
-				// egress paths quietly substituted something. One decision now.
+				// Gemini types functionCall.args as a Struct, so a non-object
+				// forwarded verbatim is a 400 from the provider.
 				args := util.ToolArgumentsObject(tc.Function.Arguments)
 				parts = append(parts, genPart{
 					FunctionCall:     &genFunctionCall{Name: tc.Function.Name, Args: args},
@@ -416,8 +408,8 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 	for _, p := range oaiParts {
 		switch p.Type {
 		case "text":
-			// An empty text part would marshal as {} (Text is omitempty),
-			// which Gemini rejects — drop it.
+			// An empty text part marshals as {} (Text is omitempty), which
+			// Gemini rejects.
 			if p.Text == "" {
 				continue
 			}

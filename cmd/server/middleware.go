@@ -34,11 +34,10 @@ func securityHeadersMiddleware(cfg *config.Config) func(http.Handler) http.Handl
 			}
 			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
 			// HSTS only over TLS. Plain HTTP (e.g. behind a reverse proxy that
-			// terminates TLS) must not set HSTS or browsers will cache a broken
-			// redirect to a non-existent HTTPS listener. Currently the server
-			// only serves plain HTTP (ListenAndServe), so this guard is a
-			// forward-compatible placeholder: it will activate automatically if
-			// TLS is added later via ListenAndServeTLS.
+			// terminates TLS) must not set HSTS, or browsers cache a broken
+			// redirect to a non-existent HTTPS listener. The server listens over
+			// plain HTTP (ListenAndServe), so this arm is reached only if TLS is
+			// added via ListenAndServeTLS.
 			if r.TLS != nil {
 				w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
 			}
@@ -182,17 +181,6 @@ func silentLogger(next http.Handler) http.Handler {
 	})
 }
 
-// streamingAwareTimeout returns middleware that sets a request deadline only
-// for non-streaming requests. Streaming LLM calls (e.g. code generation that
-// runs for 10+ minutes) must not be killed by a short server-side timeout.
-//
-// It works by peeking at the request body to check the "stream" field:
-//   - stream=true  → no context deadline (client disconnect detection still works)
-//   - stream=false/absent → context deadline of maxNonStreamingDur
-//
-// The request body is stored in the context so downstream handlers can
-// reuse it without a second allocation, and also restored as r.Body for
-// any handler that reads it directly.
 // isLongRunningPath reports whether the request targets a multimodal proxy
 // endpoint whose legitimate latency exceeds the non-streaming deadline:
 // image generation/edits and audio synthesis/transcription regularly take
@@ -202,6 +190,17 @@ func isLongRunningPath(path string) bool {
 	return strings.HasPrefix(path, "/v1/images/") || strings.HasPrefix(path, "/v1/audio/")
 }
 
+// streamingAwareTimeout returns middleware that sets a request deadline only
+// for non-streaming requests. Streaming LLM calls (code generation that runs
+// for 10+ minutes) must not be killed by a short server-side timeout.
+//
+// It peeks at the request body to read the "stream" field:
+//   - stream=true: no context deadline (client disconnect detection still works)
+//   - stream=false or absent: context deadline of maxNonStreamingDur
+//
+// The request body is stored in the context so downstream handlers can reuse it
+// without a second allocation, and also restored as r.Body for any handler that
+// reads it directly.
 func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -281,13 +280,12 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 }
 
 // mountProxyRoutes mounts the OpenAI-compatible surface with the body-peeking
-// timeout middleware placed by Register behind the virtual-key check, not
-// ahead of it as a plain r.Use would. The peek buffers the whole body (up to
-// MAX_REQUEST_SIZE) and used to run first, so an unauthenticated client made
-// the gateway hold that allocation for the length of its upload before being
-// told 401. Now the gateway never buffers an unauthenticated body; net/http
-// still discards up to 256 KiB of it after the refusal, bounded by the body
-// read deadline, so the connection itself is held no longer than that.
+// timeout middleware placed by Register behind the virtual-key check, not ahead
+// of it as a plain r.Use would. The peek buffers the whole body (up to
+// MAX_REQUEST_SIZE), so running it first would make the gateway hold that
+// allocation for an unauthenticated client's whole upload before answering 401.
+// Behind the check no unauthenticated body is buffered; net/http still discards
+// up to 256 KiB of it after the refusal, bounded by the body read deadline.
 func mountProxyRoutes(r chi.Router, register func(chi.Router, ...func(http.Handler) http.Handler)) {
 	register(r, streamingAwareTimeout(5*time.Minute))
 }

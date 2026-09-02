@@ -6,9 +6,8 @@ import { DetailSectionHeader } from "./DetailSectionHeader";
 import { InfoHint } from "./InfoHint";
 import { StatusBadge } from "./LogDetailStatusBadge";
 
-// breakerVerdictKey maps an attempt's breaker verdict to its label key. Unknown
-// verdicts (a newer member's vocabulary) fall back to the generic key, which
-// interpolates the raw word, so the row never renders an empty span.
+// Label key per breaker verdict. An unknown verdict falls back to the generic
+// key, which interpolates the raw word, so the row never renders an empty span.
 const BREAKER_VERDICT_KEYS: Record<string, string> = {
 	charge: "components.requestLogDetail.attemptBreakerCharge",
 	noop: "components.requestLogDetail.attemptBreakerNoop",
@@ -18,14 +17,12 @@ const BREAKER_VERDICT_KEYS: Record<string, string> = {
 	disabled: "components.requestLogDetail.attemptBreakerDisabled",
 };
 
-// AttemptTrail renders the per-attempt trail of one request log row: every
-// provider the request was routed to, in order, with what each one answered,
-// so a "Neuralwatt 429 → Ollama 200" reads as the chain it was. Rendered by
-// RequestLogDetail whenever the row carries a trail.
+// AttemptTrail renders one request log row's attempt trail: every provider the
+// request was routed to, in order, with what each one answered.
 export function AttemptTrail({ attempts }: { attempts: AttemptRecord[] }) {
 	const { t } = useTranslation();
-	// Skips first, then by attempt index: a hedged race reports its losers in
-	// arrival order, so the winner (attempt 0) can arrive after a loser
+	// Skips (attempt -1) first, then by attempt index: a hedged race reports its
+	// losers in arrival order, so the winner (attempt 0) can arrive after a loser
 	// (attempt 1) and would otherwise read backwards. Stable, so equal indices
 	// keep their arrival order.
 	const ordered = [...attempts].sort((x, y) => x.attempt - y.attempt);
@@ -56,9 +53,8 @@ export function AttemptTrail({ attempts }: { attempts: AttemptRecord[] }) {
 								{t("components.requestLogDetail.attemptSkipped")}
 							</span>
 						) : a.error_kind === "hedge_superseded" ? (
-							// Abandoned by the gateway because another candidate won:
-							// not a failure, the client was served. Neutral, like the
-							// rest of the UI treats an interruption.
+							// Abandoned because another candidate won: not a failure,
+							// the client was served, so the badge is neutral.
 							<span
 								className="ui-badge ui-badge-neutral text-xs"
 								data-testid="attempt-superseded"

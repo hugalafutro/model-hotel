@@ -17,37 +17,36 @@ import { InflightLimiterGroup } from "./InflightLimiterGroup";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 // Bounds of the quota-pin ceiling slider, in hours. The floor keeps the
-// operator off the zero that does not mean what it looks like; the ceiling is
-// one week, the longest reset window internal/quota/normalize.go recognises.
-// Shared by the clamp and the slider props so the two cannot drift apart.
+// operator off zero, which the breaker reads as unset and replaces with its
+// default; the ceiling is one week, the longest reset window
+// internal/quota/normalize.go recognises. Shared by the clamp and the slider
+// props so the two cannot drift apart.
 const QUOTA_PIN_MAX_MIN_HOURS = 1;
 const QUOTA_PIN_MAX_MAX_HOURS = 168;
 
 // Bounds of the probe-backoff ceiling slider, in minutes. Minutes rather than
 // hours because the backoff starts from a cooldown measured in seconds and
 // doubles: 1, 2, 4, 8 minutes at the default cooldown before the default
-// 15-minute limit holds it, and an operator choosing where that stops wants
-// finer steps than an hour. The floor keeps the operator off the zero that
-// restores the default rather than disabling anything; the ceiling is four
-// hours, which keeps the track draggable (a day at one-minute steps is not)
-// while leaving room well past anything a probe cadence should be. A limit at
-// or below the cooldown period leaves the backoff nothing to add, which the
-// description says.
+// 15-minute limit holds it. The floor keeps the operator off the zero that
+// restores the default rather than disabling anything; the ceiling of four
+// hours keeps the track draggable (a day at one-minute steps is not) while
+// leaving room well past any probe cadence. A limit at or below the cooldown
+// period leaves the backoff nothing to add, which the description says.
 const BACKOFF_MAX_MIN_MINUTES = 1;
 const BACKOFF_MAX_MAX_MINUTES = 240;
 
 // Bounds of the model-span slider: how many of a provider's models must hold an
-// open circuit before the provider itself is skipped. The floor of 1 is the
-// escape hatch the breaker enforces too (internal/failover/model_circuits.go:
-// effectiveSpan), and it reproduces the old provider-wide behaviour. The ceiling
-// is far above any provider's catalog, so it only ever bites on a typo.
+// open circuit before the provider itself is skipped. The floor of 1, which the
+// breaker enforces too (internal/failover/model_circuits.go: effectiveSpan),
+// skips the provider on its first open model. The ceiling is far above any
+// provider's catalog, so it only ever bites on a typo.
 const SPAN_MODELS_MIN = 1;
 const SPAN_MODELS_MAX = 100;
 
 // Bounds of the two 429-classification sliders, in seconds. The saturation
 // wait limit separates "busy, a slot frees in seconds" from "the window is
 // spent": the floor keeps it a wait rather than a disable, the ceiling of two
-// minutes is already past any slot wait worth blocking a request for. The
+// minutes is past any slot wait worth blocking a request for. The
 // recent-success window bounds the fallback that reads an unrecognised 429
 // from a just-working model as busy; five minutes is the most a "moment ago"
 // can honestly stretch to.
@@ -64,9 +63,8 @@ interface CircuitBreakerSettingsProps {
 }
 
 // The 429 handling group: how a rate-limited response is classified (busy vs
-// spent) and what the breaker and the client get told about it. A sibling of
-// the main component rather than inline in it, so each stays well under the
-// function-size ceiling.
+// spent) and what the breaker and the client are told about it. Its own
+// component so each stays under the function-size ceiling.
 function RateLimit429Group() {
 	const { t } = useTranslation();
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
@@ -74,8 +72,7 @@ function RateLimit429Group() {
 
 	// Fallbacks mirror the Go defaults (internal/proxy/rate_limit_classify.go:
 	// classification on, 60s for both durations, exhaustion opens at once, the
-	// 429 exhaustion status on), fallback before clamp, clamp for display only,
-	// exactly as the quota-pin and backoff pairs above.
+	// 429 exhaustion status on). Fallback before clamp, clamp for display only.
 	const classifyEnabled = settings?.rate_limit_classify_enabled !== "false";
 	const saturationWaitSeconds = Math.min(
 		SATURATION_WAIT_MAX_SECONDS,
@@ -279,10 +276,9 @@ export function CircuitBreakerSettings({
 	);
 	// Both quota-pin fallbacks mirror the Go defaults the breaker applies when
 	// the key is absent (internal/failover/circuitbreaker.go: quotaPinEnabled
-	// defaults true, quotaPinMax falls back to 24h). The `|| 24` on the hours is
-	// the same fallback for a stored non-positive duration, which the breaker
-	// also reads as unset, so the slider shows the ceiling actually in force
-	// rather than a number nothing obeys.
+	// defaults true, quotaPinMax falls back to 24h). The `|| 24` on the hours
+	// covers a stored non-positive duration too, which the breaker also reads as
+	// unset, so the slider shows the ceiling actually in force.
 	//
 	// The clamp must come after that fallback, never merged into it: clamping
 	// first would turn a stored 0 into the floor of 1, which is truthy, and the
@@ -291,10 +287,9 @@ export function CircuitBreakerSettings({
 	// PUT /api/settings accepts any duration, so a stored value can also sit
 	// below the floor or above the ceiling. Both are clamped for display, since
 	// the browser sanitizes the range track against min/max but leaves the
-	// number box alone, and one control showing two different numbers is worse
-	// than either number. Display only: SettingsSlider seeds its local state
-	// from this prop and fires onChange on interaction, never on mount, so
-	// nothing is written back until the operator actually moves the control.
+	// number box alone. Display only: SettingsSlider seeds its local state from
+	// this prop and fires onChange on interaction, never on mount, so nothing is
+	// written back until the operator moves the control.
 	const quotaPinEnabled =
 		settings?.circuit_breaker_quota_pin_enabled !== "false";
 	const quotaPinMaxHours = Math.min(
@@ -304,10 +299,10 @@ export function CircuitBreakerSettings({
 			goDurationToHours(settings?.circuit_breaker_quota_pin_max || "24h") || 24,
 		),
 	);
-	// Same shape as the quota-pin pair, for the same reasons: the fallbacks
-	// mirror the Go defaults (backoffEnabled defaults true, backoffMax falls back
-	// to 15m, and a stored non-positive duration reads as unset), the fallback
-	// comes before the clamp, and the clamp is display only.
+	// Same shape as the quota-pin pair: the fallbacks mirror the Go defaults
+	// (backoffEnabled defaults true, backoffMax falls back to 15m, and a stored
+	// non-positive duration reads as unset), the fallback comes before the clamp,
+	// and the clamp is display only.
 	const backoffEnabled = settings?.circuit_breaker_backoff_enabled !== "false";
 	const backoffMaxMinutes = Math.min(
 		BACKOFF_MAX_MAX_MINUTES,

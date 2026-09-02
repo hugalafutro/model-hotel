@@ -59,9 +59,9 @@ export function hasSession(): boolean {
 
 // clearSessionHint locally expires the readable cookie so the UI drops to the
 // login screen immediately; the server's Set-Cookie on logout/401 is the
-// authoritative clear. Stays on document.cookie rather than the async Cookie
-// Store API (unavailable in Safari/Firefox) since every caller here either
-// reloads the page or throws right after this returns.
+// authoritative clear. It uses document.cookie rather than the async Cookie
+// Store API (unavailable in Safari/Firefox) because every caller either reloads
+// the page or throws right after this returns.
 export function clearSessionHint(): void {
 	// biome-ignore lint/suspicious/noDocumentCookie: must be synchronous; see the doc comment above.
 	document.cookie = `${CSRF_COOKIE}=; path=/; max-age=0`;
@@ -69,8 +69,8 @@ export function clearSessionHint(): void {
 
 export class ApiError extends Error {
 	status: number;
-	// Stable machine-readable code from a JSON error body ({code, error}), when the
-	// endpoint provides one. Lets callers route on the code instead of matching
+	// Stable machine-readable code from a JSON error body ({code, error}) when
+	// the endpoint provides one, so callers route on the code instead of on
 	// translatable English text. Undefined for plain-text error responses.
 	code?: string;
 	constructor(status: number, message: string, code?: string) {
@@ -89,10 +89,9 @@ export function onUnauthorized(fn: UnauthorizedListener): () => void {
 	unauthorizedListeners.add(fn);
 	return () => unauthorizedListeners.delete(fn);
 }
-// Clear the session hint and notify listeners (the app falls back to login).
-// Exported so the SSE stream, which uses raw fetch and bypasses request(), can
-// trigger the same path on a 401, so the app drops to login instead of
-// reconnecting a dead session.
+// Clear the session hint and notify listeners, so the app falls back to login.
+// Exported for the SSE stream, which uses raw fetch and bypasses request() but
+// must take the same path on a 401 rather than reconnect a dead session.
 export function notifyUnauthorized() {
 	clearSessionHint();
 	for (const fn of unauthorizedListeners) fn();
@@ -123,9 +122,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 	}
 	if (!resp.ok) {
 		const text = (await resp.text().catch(() => "")).trim();
-		// Some endpoints return a JSON {code, error} body so the caller can route on
-		// a stable code; others return plain text. Parse the coded form when present,
-		// otherwise fall back to the raw text as the message.
+		// Some endpoints return a JSON {code, error} body so the caller can route
+		// on a stable code; others return plain text. Parse the coded form when
+		// present, otherwise use the raw text as the message.
 		let message = text || `HTTP ${resp.status}`;
 		let code: string | undefined;
 		if (text.startsWith("{")) {
@@ -288,16 +287,16 @@ export const api = {
 			jsonInit("POST", { primary_id: primaryId }),
 		),
 
-	// Reset circuit breakers on every member that has a stored token: the
-	// whole ledger, or one failover group's entries when a group id is given.
-	// Each member's breaker is local runtime state nothing syncs, so this is
-	// the only fleet-wide lever.
 	// The primary's failover groups, reduced to what the reset picker needs.
 	fleetFailoverGroups: (primaryId: string) =>
 		request<FleetFailoverGroup[]>(
 			`/api/fleet/failover-groups?primary_id=${encodeURIComponent(primaryId)}`,
 		),
 
+	// Reset circuit breakers on every member that has a stored token: the whole
+	// ledger, or one failover group's entries when a group id is given. Each
+	// member's breaker is local runtime state nothing syncs, so this is the only
+	// fleet-wide lever.
 	fleetCircuitReset: (groupId?: string) =>
 		request<FleetCircuitReset>(
 			"/api/fleet/circuit-breaker/reset",
@@ -339,7 +338,7 @@ export const api = {
 			jsonInit("POST", { session_id: sessionId, credential }),
 		),
 
-	// Passkey management (admin-gated; bearer attached automatically once logged in).
+	// Passkey management (admin-gated; the session cookie rides on every request).
 	webauthnRegisterStart: () =>
 		request<{
 			session_id: string;

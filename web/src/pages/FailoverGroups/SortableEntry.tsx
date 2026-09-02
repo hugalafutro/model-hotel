@@ -23,20 +23,19 @@ export interface SortableEntryProps {
 		next_retry_at?: string;
 		opened_at?: string;
 		consecutive_fails: number;
-		// Set when a quota pin is in force: the cooldown was pinned to the
+		// Set when a quota pin is in force: the cooldown is pinned to the
 		// provider's quota reset deadline. next_retry_at is then that deadline
 		// unless a longer backoff is also in force, which is rare (a pin is
 		// floored at the backoff when it is stamped).
 		quota_pinned?: boolean;
 		// Set when a probe backoff is in force: the cooldown doubled once per
-		// failed half-open probe. Says why the wait is longer than the setting,
-		// the way quota_pinned does; next_retry_at is the longer of the two.
+		// failed half-open probe. Says why the wait is longer than the setting;
+		// next_retry_at is the longer of it and any pin.
 		backed_off?: boolean;
 		// The derived verdict that the breaker is skipping this provider for
-		// every model, and the model ids it is blocking. Which entries get a
-		// status at all is entryCircuitStatus's decision; these two are here so
-		// the tooltip can say whether the whole provider is out and name the
-		// models the verdict rests on.
+		// every model, and the model ids it is blocking. Here so the tooltip can
+		// say whether the whole provider is out and name the models the verdict
+		// rests on.
 		provider_open?: boolean;
 		open_models?: string[];
 	};
@@ -47,8 +46,8 @@ export interface SortableEntryProps {
 	onResetCircuit?: (providerId: string, providerName: string) => void;
 	resetPending?: boolean;
 	// The entry's own circuit as the chip and tooltip read it (entryCircuitView):
-	// live / busy / open / probe / pinned, with the last cause when the member
-	// reports circuits[]. Optional so older callers and tests render as before.
+	// live / busy / open / probe / pinned, with the last cause when the row
+	// carries circuits[]. Without it no chip is rendered.
 	circuitView?: EntryCircuitView;
 }
 
@@ -68,10 +67,9 @@ const CHIP_CLASS: Record<EntryCircuitView["chip"], string> = {
 const FUSE_ANIMATION_MAX_MS = 15 * 60 * 1000;
 
 // How often a still-too-long countdown re-checks whether it has come inside the
-// window above. Coarse on purpose: the threshold is a rough "is this worth
-// animating" judgement, so arriving up to half a minute late costs nothing,
-// while a per-second clock would re-render every open entry in every group for
-// the entire cooldown.
+// window above. Coarse on purpose: arriving up to half a minute late costs
+// nothing, while a per-second clock would re-render every open entry in every
+// group for the entire cooldown.
 const FUSE_THRESHOLD_TICK_MS = 30 * 1000;
 
 export function SortableEntry({
@@ -85,9 +83,8 @@ export function SortableEntry({
 	circuitView,
 }: SortableEntryProps) {
 	const { t } = useTranslation();
-	// The cause line the tooltip appends when the member reports the circuit's
-	// last verdict: what the breaker saw, the upstream status behind it and
-	// when. Absent on an older member, where only the row is known.
+	// The cause line the tooltip appends when the circuit reports its last
+	// verdict: what the breaker saw, the upstream status behind it and when.
 	// Some verdicts carry no upstream status (a pin retarget, a transport
 	// failure), and those read without the status clause.
 	const causeWhen = circuitView?.lastAt
@@ -136,9 +133,9 @@ export function SortableEntry({
 	const naReason = naReasonKey(entry);
 	const naReasonText = naReason ? t(naReason) : undefined;
 
-	// Determine if fuse should show (circuit breaker open/half-open).
-	// We trust the circuit breaker's own state — the backend already enforces
-	// the configured threshold before transitioning to open/half-open.
+	// The fuse shows while the circuit is open or half-open. The backend enforces
+	// the configured threshold before it transitions, so the reported state is
+	// taken as given.
 	const showFuse =
 		cbStatus &&
 		entry.enabled &&
@@ -152,31 +149,29 @@ export function SortableEntry({
 	// This says why the wait is long, not that the provider is unreachable now.
 	const quotaPinned = Boolean(showFuse && cbStatus.quota_pinned);
 
-	// The cooldown in force has been doubled by failed probes. Ranked below a
-	// provider-wide skip in the tooltip: that a whole provider is out matters
-	// more than why this one model's wait is long, and a backoff never implies
-	// the provider verdict the way a quota pin does. Ranked below the quota pin
-	// too, because a pin names the cause and is nearly always the longer of
-	// the two when both are set; the status has no field for which one governs.
+	// The cooldown in force has been doubled by failed probes. Ranked below both
+	// the provider-wide skip and the quota pin in the tooltip: a whole provider
+	// being out matters more than why one model's wait is long, and a pin names
+	// the cause and is nearly always the longer of the two when both are set;
+	// the status has no field for which one governs.
 	const backedOff = Boolean(showFuse && cbStatus.backed_off);
 
 	const nextRetryAt = cbStatus?.next_retry_at;
 
-	// The instant the countdown was last measured against. It advances only on
-	// the coarse tick below, never on an ordinary re-render, which is what keeps
-	// remainingMs stable: without that, intermediate re-renders (drag, toggle,
-	// parent refetch) would shorten it each time and the fuse would snap ahead of
-	// the cooldown it visualises.
+	// The instant the countdown is measured against. It advances only on the
+	// coarse tick below, never on an ordinary re-render, which keeps remainingMs
+	// stable: otherwise re-renders (drag, toggle, parent refetch) would shorten
+	// it each time and the fuse would snap ahead of the cooldown it visualises.
 	const [measuredAt, setMeasuredAt] = useState(() => Date.now());
 
 	// Which deadline that anchor belongs to. An entry that never unmounts can be
-	// handed a *new* next_retry_at — the circuit re-opened, or a quota pin
-	// replaced an ordinary cooldown — and measuring that against the anchor of
-	// the deadline it replaced folds all the time that passed before it arrived
-	// into the new duration: the fuse burns too slowly, or sits static for a
-	// cooldown that belongs inside the animation window. So the anchor is taken
-	// again whenever the deadline changes, and only then — re-taking it on every
-	// render is the very thing measuredAt exists to prevent.
+	// handed a *new* next_retry_at (the circuit re-opened, or a quota pin
+	// replaced an ordinary cooldown), and measuring that against the previous
+	// deadline's anchor folds the time that passed before it arrived into the new
+	// duration: the fuse burns too slowly, or sits static for a cooldown that
+	// belongs inside the animation window. So the anchor is taken again whenever
+	// the deadline changes, and only then: re-taking it on every render is the
+	// very thing measuredAt exists to prevent.
 	//
 	// Layout effect, not a plain one: the fuse restarts its CSS timeline every
 	// time durationMs changes, so a frame painted from the stale anchor would
@@ -188,11 +183,11 @@ export function SortableEntry({
 		setMeasuredAt(Date.now());
 	}, [nextRetryAt]);
 
-	// A countdown too long to animate has to keep watching the clock, because the
+	// A countdown too long to animate keeps watching the clock, because the
 	// animate-vs-static decision is a function of *now* while next_retry_at never
 	// changes for as long as the circuit stays open. Settled once at mount, an
-	// entry that appeared at 16 minutes remaining stayed static for the rest of
-	// its cooldown and never began burning as it crossed the threshold.
+	// entry that appears at 16 minutes remaining would stay static for the rest
+	// of its cooldown and never begin burning as it crossed the threshold.
 	//
 	// The watch stops itself at the crossing rather than running for the whole
 	// cooldown. Time only moves one way, so the decision cannot reverse, and
@@ -212,8 +207,8 @@ export function SortableEntry({
 		return () => clearInterval(id);
 	}, [showFuse, isHalfOpen, nextRetryAt]);
 
-	// Elapsed cooldown: circuit is open but the deadline has passed — the breaker
-	// has not reported half-open yet (clock drift or polling delay).
+	// Elapsed cooldown: the circuit is open but the deadline has passed and the
+	// breaker has not reported half-open yet (clock drift or polling delay).
 	const { remainingMs, elapsedCooldown } = useMemo(() => {
 		if (!showFuse || isHalfOpen || !nextRetryAt) {
 			return { remainingMs: 0, elapsedCooldown: false };
@@ -237,8 +232,8 @@ export function SortableEntry({
 		remainingMs <= FUSE_ANIMATION_MAX_MS;
 
 	// The provider itself is skipped, so this entry is turned away whatever its
-	// own model is doing. Naming the models the verdict rests on is the only way
-	// an operator can tell a provider outage from two unrelated models failing.
+	// own model is doing. The tooltip names the models the verdict rests on, so
+	// a provider outage reads apart from two unrelated models failing.
 	const openModels = cbStatus?.open_models;
 	const providerSkipped = Boolean(
 		showFuse && cbStatus.provider_open && openModels && openModels.length > 0,
@@ -262,11 +257,9 @@ export function SortableEntry({
 								resetTime: new Date(cbStatus.next_retry_at).toLocaleString(),
 							})
 						: t("failoverGroups.entry.circuitBreakerOpen");
-	// The chip's tooltip: the fuse text (or, for a busy entry, which has no fuse
-	// because its circuit is closed, why it is busy) plus the cause line. The
-	// row keeps only the fuse text: its inner text div carries its own title,
-	// so a row title is reachable only from the strip beside it, while the chip
-	// is the surface an operator actually hovers.
+	// The chip's tooltip: the fuse text, or for a busy entry (which has no fuse,
+	// its circuit being closed) why it is busy, plus the cause line. The row
+	// keeps only the fuse text, since its inner text div carries its own title.
 	const chipTitle =
 		circuitView?.chip === "busy"
 			? t("failoverGroups.entry.chipBusyTip")
@@ -339,10 +332,9 @@ export function SortableEntry({
 					</span>
 				)}
 			</div>
-			{/* Offered exactly where the fuse burns, i.e. an enabled member whose
-			    circuit is open or half-open. A closed circuit has nothing to reset,
-			    and a member the operator has switched off shows no breaker state at
-			    all, so a lone reset button there would have no context to act on. */}
+			{/* Offered exactly where the fuse burns: an enabled member whose circuit
+			    is open or half-open. A closed circuit has nothing to reset, and a
+			    member switched off shows no breaker state to act on. */}
 			{showFuse && onResetCircuit && (
 				<button
 					type="button"
@@ -358,10 +350,9 @@ export function SortableEntry({
 			)}
 			<Toggle
 				size="sm"
-				// Reflect effective state: an entry whose model/provider is disabled
-				// is not routable, so show the toggle off and lock it. Flipping the
-				// per-entry flag would do nothing while the underlying model is dead,
-				// which is the confusing "toggle says on but it's disabled" case.
+				// Effective state: an entry whose model or provider is disabled is not
+				// routable, so the toggle reads off and is locked. Flipping the
+				// per-entry flag does nothing while the underlying model is dead.
 				checked={entry.enabled && !effectivelyDisabled}
 				disabled={!groupEnabled || effectivelyDisabled || locked}
 				onChange={(v) => onToggle(entry.model_uuid, v)}

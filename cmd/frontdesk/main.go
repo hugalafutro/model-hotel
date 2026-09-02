@@ -50,10 +50,10 @@ func main() {
 	defer stop()
 
 	// OTLP log export: when the standard OTEL_EXPORTER_OTLP_* endpoint vars are
-	// set, fan the same structured records Front Desk already logs out to an
-	// OpenTelemetry collector, mirroring the main server. Logs only — no spans,
-	// no OTLP metrics (Prometheus stays the metrics path). Front Desk has no
-	// app-log ring buffer, so the fan-out base is the plain stdout handler.
+	// set, fan the structured records Front Desk logs out to an OpenTelemetry
+	// collector, as the main server does. Logs only: no spans, no OTLP metrics
+	// (Prometheus is the metrics path). Front Desk has no app-log ring buffer,
+	// so the fan-out base is the plain stdout handler.
 	var otelLogShutdown func(context.Context) error
 	if otelexport.LogsEnabled() {
 		otelHandler, shutdown, oerr := otelexport.NewSlogHandler(ctx, "front-desk", debuglog.Level())
@@ -121,8 +121,8 @@ func main() {
 	bus := events.NewBus()
 	poller := frontdesk.NewPoller(store, bus, traefikAPI)
 	// Resolve this Front Desk's persistent identity once and stamp it onto every
-	// announce. Members now reject announces without an id (it is how they know
-	// which control plane owns them), so a Front Desk that cannot establish its
+	// announce. Members reject announces without an id, it being how they know
+	// which control plane owns them, so a Front Desk that cannot establish its
 	// identity cannot manage any members: fail fast rather than run degraded.
 	fdID, err := store.EnsureFrontdeskID(ctx)
 	if err != nil {
@@ -207,8 +207,8 @@ func main() {
 	<-ctx.Done()
 	debuglog.Info("frontdesk: shutting down")
 	// End every open SSE stream first: each is an in-flight request that
-	// Shutdown would otherwise wait on until the deadline, so with a Front Desk
-	// tab open every restart burned the full 10s.
+	// Shutdown would otherwise wait on until the deadline, so one open Front
+	// Desk tab costs a restart the full 10s.
 	bus.Close()
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -218,11 +218,11 @@ func main() {
 	// Nothing accepts requests any more, so no new background work can start:
 	// drain what is in flight and close the store. Its own budget, not
 	// shutdownCtx, which the HTTP drain may already have spent. Bounded, so a
-	// loop that ignores its cancellation delays exit rather than hanging it.
-	// 5s, not the HTTP drain's 10s: every loop returns on ctx within a tick, so the
-	// budget only has to absorb a straggler. It keeps the worst case (10s HTTP + 5s
-	// drain + 5s OTLP flush) at cmd/server's shape plus the drain, which the
-	// stop_grace_period on the front-desk service in deploy/ha covers.
+	// loop that ignores its cancellation delays exit rather than hanging it. 5s
+	// rather than the HTTP drain's 10s: every loop returns on ctx within a tick,
+	// so the budget only has to absorb a straggler, and the worst case (10s HTTP
+	// + 5s drain + 5s OTLP flush) stays inside the stop_grace_period on the
+	// front-desk service in deploy/ha.
 	drainCtx, drainCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer drainCancel()
 	if err := srv.Shutdown(drainCtx); err != nil {
@@ -263,16 +263,11 @@ const (
 // the host to the operator's log store and retains it there under that store's
 // policy).
 //
-// To be precise about what this does and does not achieve: in a container,
-// stdout IS the log stream, so the token still reaches whatever collects
-// container output. What it stops is the token becoming a structured, indexed,
-// queryable attribute, and crossing the OTLP hop into a remote store. That is a
-// real reduction in reach and retention, not a guarantee the value never lands
-// in a log file.
-//
-// The gateway has always printed its own token straight to stdout for exactly
-// this reason (printAdminTokenBoxStdout); Front Desk logged it as a structured
-// attribute instead. Same credential, same requirement.
+// What this does and does not achieve: in a container, stdout IS the log
+// stream, so the token still reaches whatever collects container output. What
+// it stops is the token becoming a structured, indexed, queryable attribute,
+// and crossing the OTLP hop into a remote store. That is a reduction in reach
+// and retention, not a guarantee the value never lands in a log file.
 func announceGeneratedToken(w io.Writer, token string) {
 	// One Fprintf so the block cannot interleave with other Docker log output.
 	// This write is the ONLY copy the operator will ever get: the token is
@@ -287,9 +282,8 @@ func announceGeneratedToken(w io.Writer, token string) {
 }
 
 // sessionCleanupInterval is how often expired WebAuthn sessions are pruned,
-// matching the gateway's hourly sweep in cmd/server. A var, not a const, so a
-// test can prove the loop KEEPS sweeping after a failure rather than only that
-// it swept once and exited.
+// matching the gateway's hourly sweep in cmd/server. A var, not a const, so it
+// can be shortened under test.
 var sessionCleanupInterval = time.Hour
 
 // sessionCleaner is the slice of the WebAuthn store the cleanup loop needs.
@@ -301,16 +295,14 @@ type sessionCleaner interface {
 
 // webauthnSessionCleanupLoop prunes expired WebAuthn sessions until ctx is done.
 //
-// Front Desk had the store method and a SessionManager accessor documented as
-// existing for exactly this wiring, but nothing ever ran it, so the table only
-// grew. That matters here more than on the gateway: the OIDC login start is
-// unauthenticated and writes a session row per request, so anyone able to reach
-// Front Desk could grow its embedded SQLite database without limit.
+// It matters more here than on the gateway: the OIDC login start is
+// unauthenticated and writes a session row per request, so without the sweep
+// anyone able to reach Front Desk can grow its embedded SQLite database without
+// limit.
 //
-// The first sweep runs immediately rather than after a full interval: any
-// deployment upgrading into this fix already carries a backlog, and waiting an
-// hour to touch it serves nobody. A failed sweep is logged and the loop
-// continues, because a transient SQLite error must not disable cleanup for the
+// The first sweep runs immediately rather than after a full interval, since a
+// process starting up may inherit a backlog. A failed sweep is logged and the
+// loop continues, so a transient SQLite error does not disable cleanup for the
 // remaining life of the process.
 func webauthnSessionCleanupLoop(ctx context.Context, store sessionCleaner) {
 	sweep := func() {

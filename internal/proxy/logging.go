@@ -24,40 +24,39 @@ func isTerminalLogState(state string) bool {
 
 // updateLogOption configures updateRequestLog behavior.
 type updateLogOption struct {
-	// skipWaitForInsert skips the WaitForInsert call before the UPDATE.
-	// Used for all log updates that run before the response is written to the
-	// client, to avoid adding up to 5s INSERT-wait latency under DB stress.
+	// skipWaitForInsert skips the WaitForInsert call before the UPDATE, for the
+	// log updates that run before the response is written to the client, so
+	// they do not add up to 5s of INSERT-wait latency under DB stress.
 	//
 	// It is honoured as given: nothing waits before the first UPDATE. A terminal
-	// update that then finds no row waits and retries once — see
-	// updateRequestLog — so the wait is paid only where skipping it would have
+	// update that then finds no row waits and retries once (see
+	// updateRequestLog), so the wait is paid only where skipping it would have
 	// stranded the request at 'pending'.
 	skipWaitForInsert bool
 }
 
-// insertRequestLogAsync pre-generates the log ID and fires off the DB
-// insert in a goroutine so the handler is not blocked by the write. The ID
-// is assigned synchronously so updateRequestLog can reference it later. If
-// the insert fails, the error is logged but does not fail the request —
-// the update will simply be a no-op.
+// insertRequestLogAsync pre-generates the log ID and fires off the DB insert in
+// a goroutine so the handler is not blocked by the write. The ID is assigned
+// synchronously so updateRequestLog can reference it later. A failed insert is
+// logged but does not fail the request; the update is then simply a no-op.
 //
-// Note: The SSE "request.started" event is NOT published here because
-// modelID may be empty when this is called (before body parsing). Call
-// publishRequestStartedEvent after modelID is resolved.
+// The SSE "request.started" event is NOT published here: modelID may still be
+// empty at this point (before body parsing). Call publishRequestStartedEvent
+// once modelID is resolved.
 func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	logEntry.id = uuid.New().String()
 	logEntry.requestHash = generateRequestHash()
 
-	// Skip DB operations when no pool is available (unit tests without DB).
+	// Skip DB operations when no pool is configured.
 	if h.dbPool == nil {
 		return
 	}
 
 	logEntry.insertWg.Add(1)
 
-	// Capture values before spawning goroutine to avoid data races.
-	// The handler modifies logEntry fields after this function returns,
-	// so the goroutine must read from local copies, not the shared struct.
+	// Capture values before spawning the goroutine to avoid data races: the
+	// handler modifies logEntry fields after this function returns, so the
+	// goroutine reads local copies rather than the shared struct.
 	id := logEntry.id
 	requestHash := logEntry.requestHash
 	modelID := logEntry.modelID
@@ -90,15 +89,14 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		}
 		// owner_user_id is stored ONLY for keyless rows (dashboard chat/arena,
 		// which authenticate a session instead of a virtual key). A keyed row
-		// leaves it NULL and keeps resolving through the key's CURRENT owner, so
-		// reassigning a key still moves its whole log history; see migration 067
-		// for why the two row shapes are attributed differently.
+		// leaves it NULL and keeps resolving through the key's current owner, so
+		// reassigning a key moves its whole log history with it.
 		var ownerID any
 		if vkID == nil && ownerUserID != "" {
 			ownerID = ownerUserID
 		}
-		// NULL (not "") when the ingest path had no client address, so old and
-		// address-less rows look the same to the dashboard.
+		// NULL (not "") when the ingest path had no client address, so
+		// address-less rows all look the same to the dashboard.
 		var ip any
 		if clientIP != "" {
 			ip = clientIP
@@ -114,10 +112,8 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 	}()
 }
 
-// publishRequestStartedEvent emits the SSE "request.started" event.
-// Call this after modelID is resolved so the event always carries the
-// correct model (previously this was embedded in insertRequestLogAsync,
-// which could fire before body parsing had set modelID).
+// publishRequestStartedEvent emits the SSE "request.started" event. Call it
+// after modelID is resolved so the event always carries the correct model.
 func publishRequestStartedEvent(logEntry *requestLogData) {
 	events.Publish(events.Event{
 		Type:     "request.started",
@@ -135,14 +131,12 @@ func publishRequestStartedEvent(logEntry *requestLogData) {
 }
 
 // publishRequestStreamingEvent emits the SSE "request.streaming" event once the
-// proxy has committed to a provider and started forwarding the upstream stream
-// (including reasoning/thinking tokens). Until this point a live dashboard row
-// only knows the requested model and shows "Resolving" for the provider; this
-// event tells the dashboard to refetch the row so it can swap in the real
-// provider mid-stream instead of waiting for the terminal request.completed
-// event. Metadata mirrors request.completed (the frontend refetches by id
-// rather than reading these fields, so resolved_model_id, which is only set for
-// failover-routed requests, is intentionally omitted).
+// proxy has committed to a provider and started forwarding the upstream stream.
+// Until this point a live dashboard row knows only the requested model and
+// shows "Resolving" for the provider; the event tells the dashboard to refetch
+// the row and swap in the real provider mid-stream. Metadata mirrors
+// request.completed; the frontend refetches by id rather than reading these
+// fields, so resolved_model_id is omitted.
 func publishRequestStreamingEvent(logEntry *requestLogData) {
 	events.Publish(events.Event{
 		Type:     "request.streaming",
@@ -159,9 +153,8 @@ func publishRequestStreamingEvent(logEntry *requestLogData) {
 	})
 }
 
-// WaitForInsert blocks until the async INSERT goroutine has completed (or
-// timed out). Callers should invoke this before
-// updateRequestLog to guarantee the row exists in the database.
+// WaitForInsert blocks until the async INSERT goroutine has completed, or timed
+// out. Call it before updateRequestLog to guarantee the row exists.
 func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 	done := make(chan struct{})
 	go func() {
@@ -179,10 +172,9 @@ func (h *Handler) WaitForInsert(logEntry *requestLogData) {
 	}
 }
 
-// execRequestLogUpdate runs the terminal/interim UPDATE and reports how many
-// rows it touched. Separated from updateRequestLog because that function runs it
-// twice: a row count of zero means the UPDATE arrived before its own INSERT, and
-// the retry has to send exactly the same statement.
+// execRequestLogUpdate runs the terminal or interim UPDATE and reports how many
+// rows it touched. updateRequestLog runs it twice: a row count of zero means the
+// UPDATE arrived before its own INSERT, and the retry sends the same statement.
 func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) {
 	var providerID any
 	if logEntry.providerID != uuid.Nil {
@@ -251,10 +243,9 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 }
 
 // maxLogMessageRunes bounds request_logs.error_message and the
-// request.completed event built from it. Every current writer already passes
-// a bounded message (a constant, errString's cap, or a SanitizeLogBody body);
-// the bound lives at the sink so a future writer cannot miss it. It matches
-// the 10,000-character budget SanitizeLogBody gives upstream bodies.
+// request.completed event built from it. The bound lives at the sink so no
+// writer can miss it, and matches the 10,000-character budget SanitizeLogBody
+// gives upstream bodies.
 const maxLogMessageRunes = 10000
 
 // truncateLogMessage caps s at maxLogMessageRunes runes, cutting on a rune
@@ -267,19 +258,13 @@ func truncateLogMessage(s string) string {
 }
 
 func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOption) {
-	// Guard: if the log entry was never assigned an ID (insertRequestLogAsync
-	// not called), there is no row to update. An empty string is not a valid
-	// UUID and would cause "invalid input syntax for type uuid" errors.
-	// Note: if insertRequestLogAsync was called but the async INSERT failed,
-	// the ID will still be set (assigned synchronously), and the UPDATE will
-	// simply affect 0 rows (logged as a warning below).
 	// The terminal write closes the attempt in flight from the flat columns, so
-	// every terminal path in the package gets a trail record without knowing
-	// the trail exists. The deferred answer verdict runs first: it is what says
-	// whether this attempt charged or credited the circuit, and a verdict that
-	// landed after the write would be missing from the record for good. Both
-	// happen before the id and pool checks, so a handler with no row to write
-	// (a unit test) still reaches the breaker and builds the same trail.
+	// every terminal path in the package gets a trail record without knowing the
+	// trail exists. The deferred answer verdict runs first: it says whether this
+	// attempt charged or credited the circuit, and a verdict landing after the
+	// write would be missing from the record for good. Both run before the id
+	// and pool checks, so a handler with no row to write still reaches the
+	// breaker and builds the same trail.
 	if isTerminalLogState(logEntry.state) {
 		if judge := logEntry.judgeAnswer; judge != nil {
 			logEntry.judgeAnswer = nil
@@ -288,32 +273,34 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		logEntry.closeTerminalAttempt()
 	}
 
+	// An entry with no ID was never inserted, so there is no row to update; an
+	// empty string is not a valid UUID and Postgres would reject it. An entry
+	// whose async INSERT failed still has its ID and simply affects 0 rows.
 	if logEntry.id == "" {
 		debuglog.Warn("proxy: skipping updateRequestLog — log entry has no ID")
 		return
 	}
 
 	// Bound the message here, at the one place every terminal write and the
-	// request.completed event pass through. failRequest is not that place:
-	// four paths assign errorMessage directly and call this function
-	// themselves (the native Anthropic and non-streaming readers, the stream
-	// finaliser, the multimodal passthrough), so a clamp in failRequest would
-	// be a guarantee only some callers get.
+	// request.completed event pass through. failRequest is not that place: four
+	// paths assign errorMessage directly and call this function themselves (the
+	// native Anthropic and non-streaming readers, the stream finaliser, the
+	// multimodal passthrough), so a clamp there would only cover some callers.
 	logEntry.errorMessage = truncateLogMessage(logEntry.errorMessage)
 	// Then the content fence, for the same reason and at the same place: the
 	// error message and every attempt detail came from an upstream body that
 	// may quote the prompt back, and this is where all of them are written.
 	logEntry.fenceContent()
 
-	// Skip DB operations when no pool is available (unit tests without DB).
+	// Skip DB operations when no pool is configured.
 	if h.dbPool == nil {
 		return
 	}
 
 	// The interim "streaming" state update runs on the hot path before the first
-	// streamed byte, and blocking it on the DB INSERT delays the client by up to
-	// waitInsertTimeout (5s). That is what the flag is for, and it is honoured as
-	// given: nothing waits before the first UPDATE.
+	// streamed byte, where blocking on the DB INSERT would delay the client by
+	// up to waitInsertTimeout (5s). The flag is honoured as given: nothing waits
+	// before the first UPDATE.
 	skipWait := false
 	for _, o := range opts {
 		if o.skipWaitForInsert {
@@ -329,33 +316,29 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	logEntry.latencyMs = logEntry.durationMs - logEntry.proxyOverheadMs
 	rows, err := h.execRequestLogUpdate(logEntry)
 
-	// Nothing touches the row after a terminal update, so a terminal update that
-	// loses the race with its own INSERT hits 0 rows and leaves the request at
-	// 'pending': no status, no duration, no error, and a row the dashboard shows
-	// as still in flight until a cleanup pass relabels it "request interrupted
-	// (stale)" up to half an hour later.
+	// Nothing touches the row after a terminal update, so one that loses the race
+	// with its own INSERT hits 0 rows and leaves the request at 'pending': no
+	// status, no duration, no error, and a row the dashboard shows as still in
+	// flight until a cleanup pass relabels it "request interrupted (stale)".
 	//
-	// The flag's reasoning — "the INSERT has the entire provider round-trip to
-	// complete" — holds for a request that reached a provider and fails for one
-	// that did not. An unknown model, an invalid model format or a rejected key
-	// updates microseconds after the insert is queued, so for those it was never
-	// a low-probability race; it was the normal case, and those are exactly the
-	// rows whose error message is the only thing worth reading.
+	// An unknown model, an invalid model format or a rejected key updates
+	// microseconds after the insert is queued, so for those the race is the
+	// normal case rather than a rarity, and those are exactly the rows whose
+	// error message is worth reading.
 	//
-	// Waiting up front would fix that and charge every request for it, because
-	// the terminal update runs BEFORE the response body is written. So the wait
-	// is paid where it buys something instead: 0 rows IS the race, and from there
-	// the row either appears while we wait or the INSERT itself failed, which no
-	// amount of waiting up front would have repaired either.
+	// Waiting up front would charge every request for it, since the terminal
+	// update runs BEFORE the response body is written. The wait is paid where it
+	// buys something instead: 0 rows IS the race, and from there the row either
+	// appears while we wait or the INSERT itself failed, which waiting up front
+	// would not have repaired either.
 	//
-	// 0 rows is not the only way a row is left behind, and this repairs only that
-	// one. An UPDATE that ERRORS — an exhausted pool, a reset connection — has no
-	// row count to believe and no insert to wait for, so it strands the same row
-	// by a different door and only staleLogCleanupPass will reach it.
+	// This repairs only the 0-rows case. An UPDATE that errors (an exhausted
+	// pool, a reset connection) has no row count to believe and no insert to
+	// wait for, so it strands the row for staleLogCleanupPass to reach.
 	if err == nil && rows == 0 && skipWait && isTerminalLogState(logEntry.state) {
-		// Debug, not Warn: this is the repair working, and on the paths that
-		// strand it is the normal case rather than an incident. What is worth a
-		// Warn is the retry ALSO finding no row, which falls through below.
+		// Debug, not Warn: this is the repair working, and the normal case on the
+		// paths that strand. The retry ALSO finding no row is what earns a Warn,
+		// and falls through below.
 		debuglog.Debug("proxy: terminal log update arrived before its own insert", "request_id", logEntry.id, "state", logEntry.state)
 		h.WaitForInsert(logEntry)
 		rows, err = h.execRequestLogUpdate(logEntry)
@@ -367,9 +350,9 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		debuglog.Warn("proxy: updateRequestLog no rows affected", "request_id", logEntry.id)
 	}
 
-	// Publish request lifecycle event for terminal states
+	// Publish the request lifecycle event for terminal states.
 	if isTerminalLogState(logEntry.state) {
-		// Single Prometheus recording seam: every terminal request passes
+		// The single Prometheus recording seam: every terminal request passes
 		// through here exactly once with its provider/model/status/tokens.
 		metrics.Record(metrics.Observation{
 			Provider:          logEntry.providerName,
@@ -419,9 +402,9 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 
 // metricModelLabel is the model label the request-outcome metrics carry: the
 // name the client asked for, with two bounds on it. A validation failure
-// collapses to "unresolved" (the raw string is unbounded), and a hotel/ group
-// is lower-cased after the prefix the way the group lookup lower-cases it, so
-// a client's spelling of the group cannot mint one series per casing.
+// collapses to "unresolved", since the raw string is unbounded, and a hotel/
+// group is lower-cased after the prefix the way the group lookup lower-cases
+// it, so a client's spelling cannot mint one series per casing.
 func metricModelLabel(modelID string, kind ErrorKind) string {
 	if kind == KindValidation {
 		return "unresolved"

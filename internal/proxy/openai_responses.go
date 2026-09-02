@@ -16,17 +16,17 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// The OpenAI Responses re-route (plan: plans/openai-responses-endpoint.md).
+// The OpenAI Responses re-route.
 //
 // OpenAI's newest models reject tools+reasoning over /v1/chat/completions with
 // a 400 that names /v1/responses as the forward path. The proxy self-heals the
 // same way the param-strip retry does (learn from the 400, retry once), then
 // caches the requirement per model so subsequent tools+reasoning requests for
-// that model route to /v1/responses preemptively — hybrid strategy C of the
-// plan: no repeated 400 round-trips. The pro tier is served by /v1/responses
-// alone and refuses the chat endpoint with a 404; that refusal is learned the
-// same way for every request to the model, and the tier's names route there
-// from the first request on OpenAI's own host (see responsesRequirement).
+// that model route to /v1/responses preemptively, without repeating the 400
+// round-trip. The pro tier is served by /v1/responses alone and refuses the
+// chat endpoint with a 404; that refusal is learned the same way for every
+// request to the model, and the tier's names route there from the first request
+// on OpenAI's own host.
 
 // responsesCacheKey mirrors the paramrewrite cache keying.
 func responsesCacheKey(providerType, modelID string) string {
@@ -53,7 +53,7 @@ func (h *Handler) shouldUseResponsesAttempt(st *requestState, candidate modelCan
 	return false
 }
 
-// The two learned requirements (see responsesRequiredCache).
+// The two requirements responsesRequiredCache can hold for a model.
 const (
 	responsesForTools = "tools"
 	responsesAlways   = "always"
@@ -91,10 +91,9 @@ func isOpenAIHost(baseURL string) bool {
 }
 
 // buildResponsesRequest builds the upstream request for a /v1/responses
-// attempt. The chat body is pre-cleaned through the shared rewrite path first
-// so learned param strips/renames (e.g. an unsupported temperature, max_tokens
-// -> max_completion_tokens) still apply before translation — the Responses
-// path has no param-strip self-heal of its own.
+// attempt. The chat body is pre-cleaned through the shared rewrite path first,
+// so learned param strips and renames (e.g. an unsupported temperature,
+// max_tokens -> max_completion_tokens) apply before translation.
 func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
 	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/responses")
 	body, err := h.translateResponsesRequestBody(st, candidate, providerType)
@@ -114,9 +113,9 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 }
 
 // translateResponsesRequestBody produces the /v1/responses body for one
-// candidate: shared chat rewrite (model rename, learned strips/renames;
-// isStreaming=false so no stream_options is injected — the Responses API has
-// its own streaming usage semantics), then chat -> Responses translation.
+// candidate: shared chat rewrite (model rename, learned strips and renames,
+// isStreaming=false so no stream_options is injected, since the Responses API
+// has its own streaming usage semantics), then chat to Responses translation.
 func (h *Handler) translateResponsesRequestBody(st *requestState, candidate modelCandidate, providerType string) ([]byte, error) {
 	cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
 	return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
@@ -124,12 +123,12 @@ func (h *Handler) translateResponsesRequestBody(st *requestState, candidate mode
 
 // retryWithResponses handles a chat-completions refusal that demands the
 // Responses API, the tools+reasoning 400 or the pro tier's 404: learn the
-// requirement into responsesRequiredCache, rebuild the request
-// as a /v1/responses call and re-issue it once, marking the attempt so the
-// response dispatch translates the answer back. Returns handled=false — with
-// the 400 body restored on resp for the param-strip retry to inspect — when
-// the error is not the Responses rejection (or the request would not re-route
-// anyway). The result contract matches retryWithStrippedParams.
+// requirement into responsesRequiredCache, rebuild the request as a
+// /v1/responses call and re-issue it once, marking the attempt so the response
+// dispatch translates the answer back. When the error is not the Responses
+// rejection (or the request would not re-route anyway) it returns
+// handled=false, with the 400 body restored on resp for the param-strip retry
+// to inspect. The result contract matches retryWithStrippedParams.
 func (h *Handler) retryWithResponses(
 	r *http.Request,
 	st *requestState,
@@ -153,7 +152,7 @@ func (h *Handler) retryWithResponses(
 	// first.
 	body, readErr := readLearnable400(resp)
 	// The helper closed the upstream body and left a buffered reader in its
-	// place, so this close is a no-op — it is here because bodyclose only
+	// place, so this close is a no-op. It is here because bodyclose only
 	// recognises a close applied to the response value in the function that
 	// received it, not the one inside readLearnable400.
 	_ = resp.Body.Close()
@@ -230,7 +229,7 @@ func responsesTargetURL(candidate modelCandidate, providerType string) string {
 // when it is the Responses rejection on a request that would re-route, records
 // the requirement in responsesRequiredCache. Shared by the sequential retry
 // (which then re-issues in place) and the hedged probe, which cannot retry
-// in-race — there the learned flag makes every subsequent request, hedged or
+// in-race: there the learned flag makes every subsequent request, hedged or
 // sequential, route preemptively instead of 400ing again.
 func (h *Handler) learnResponsesRequirement(st *requestState, candidate modelCandidate, providerType string, errBody []byte) bool {
 	if st.responsesAttempt || providerType != "openai" || st.endpointPath != "" || st.makeUpstreamBody != nil {

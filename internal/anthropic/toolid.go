@@ -11,26 +11,21 @@ import (
 //
 // Gemini 3 signs each function call and refuses the follow-up turn without
 // the signature. The chat-completions surface carries it on the tool call as
-// extra_content.google.thought_signature, Google's own shape, which the SDKs
-// keep because they round-trip the call object whole. The Messages surface
-// has no such member: a tool_use block is id, name and input, and a native
-// Anthropic provider, which the same conversation can fail over to, rejects a
-// member it does not know. The id is the one field every Messages SDK echoes
-// back untouched, on the tool_use block and again as the tool_result's
-// tool_use_id, so the signature travels inside it, the way UniClaudeProxy
-// carries it (an intermediary that rewrites ids loses it, and the next turn
-// gets Gemini's refusal, as it would with no carrier at all). The encoding
-// keeps to the id alphabet Anthropic accepts ([A-Za-z0-9_-]); an id without
-// the marker, or with a suffix that does not decode, is a plain id.
+// extra_content.google.thought_signature; the Messages surface has no such
+// member, and a native Anthropic provider rejects a member it does not know.
+// The id is the one field every Messages SDK echoes back untouched, on the
+// tool_use block and again as the tool_result's tool_use_id, so the signature
+// travels inside it. The encoding keeps to the id alphabet Anthropic accepts
+// ([A-Za-z0-9_-]); an id without the marker, or with a suffix that does not
+// decode, is a plain id.
 //
 // The signature is base64 text on Google's wire. Carrying it as the bytes it
 // encodes (tag "b", put back through the same encoding on the way in) rather
-// than as text (tag "t", for a signature that is not padded base64) keeps
-// the id a third shorter: an id is echoed twice per call per turn and every
-// byte of it is prompt for the rest of the conversation. The tag is also
-// the form's version: a payload under a tag this build does not know is a
-// plain id, so a changed form degrades to Gemini's refusal of the turn, as
-// with no carrier, never to a corrupted signature.
+// than as text (tag "t", for a signature that is not padded base64) keeps the
+// id a third shorter, and an id is echoed twice per call per turn. The tag is
+// also the form's version: a payload under a tag this build does not know is a
+// plain id, so a changed form degrades to Gemini's refusal of the turn, never
+// to a corrupted signature.
 const thoughtSigMarker = "_thoughtsig_"
 
 const (
@@ -54,12 +49,10 @@ func signedToolUseID(id, signature string) string {
 
 // splitToolUseID recovers the provider's id and the signature from a signed
 // id. The last marker is the one that counts, so an upstream id that happens
-// to contain the marker survives; the payload cannot contain it when the
-// signature is base64-alphabet text (no run of it encodes to the marker)
-// and does so for arbitrary bytes only by a collision of one part in 64^12
-// per position, whose outcome is the plain-id fallback below (the tag byte
-// after a marker inside the payload is not a tag) and Gemini's refusal of
-// the turn, as with no carrier.
+// to contain the marker survives. The base64 alphabet can spell the marker,
+// so a payload containing it is possible but vanishingly unlikely; the tag
+// and decode checks then fall back to the plain id, as does any payload that
+// does not decode or carries an unknown tag.
 func splitToolUseID(id string) (string, string) {
 	at := strings.LastIndex(id, thoughtSigMarker)
 	if at < 0 {
@@ -84,11 +77,9 @@ func splitToolUseID(id string) (string, string) {
 
 // StripSignedToolUseIDs returns a Messages body with the signature suffix
 // removed from every tool_use id and tool_result tool_use_id, for the native
-// passthrough: an Anthropic provider has no use for a Gemini signature, the
-// suffix is a kilobyte of prompt per call per turn, and the ids stay paired
-// since both ends are stripped alike. The client keeps its signed history
-// for the next Gemini attempt. A body that is not the expected shape, or
-// carries no signed id, is returned as it came.
+// passthrough: an Anthropic provider has no use for a Gemini signature, and
+// the ids stay paired since both ends are stripped alike. A body that is not
+// the expected shape, or that carries no signed id, is returned as it came.
 func StripSignedToolUseIDs(body []byte) []byte {
 	var top map[string]json.RawMessage
 	if json.Unmarshal(body, &top) != nil {

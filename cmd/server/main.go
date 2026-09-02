@@ -68,8 +68,8 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	// Initialize admin manager before DB connection — it only needs the
-	// data directory and env token, no database dependency.
+	// Initialize the admin manager before the DB connection: it only needs the
+	// data directory and env token, no database.
 	adminMgr, isNew, err := admin.New(cfg.DataDir, cfg.AdminToken)
 	if err != nil {
 		debuglog.Fatal("startup: failed to initialize admin manager", "error", err)
@@ -103,8 +103,8 @@ func main() {
 
 	providerRepo := provider.NewRepository(database.Pool())
 	// Rows written before provider_type existed, or restored from an older
-	// dump, carry no type. Give them the one the URL rules used to imply
-	// before anything reads it.
+	// dump, carry no type. Give them the one the legacy URL rules imply before
+	// anything reads them.
 	if backfilled, err := providerRepo.BackfillTypes(ctx); err != nil {
 		debuglog.Error("startup: provider type backfill failed", "error", err)
 	} else if backfilled > 0 {
@@ -128,8 +128,8 @@ func main() {
 	// Global middleware
 	r.Use(middleware.RequestID)
 	// Resolve the client IP (trusted-proxy aware) once, before anything that
-	// logs an address — the access logger below, auth warnings, and the audit
-	// trail all read the resolved value via clientip.From.
+	// logs an address: the access logger, auth warnings, and the audit trail all
+	// read the resolved value via clientip.From.
 	r.Use(clientip.Middleware(cfg.TrustedProxies))
 	r.Use(silentLogger)
 	r.Use(middleware.Recoverer)
@@ -169,21 +169,22 @@ func main() {
 	proxyHandler.CircuitBreaker().SetOnOpen(apiHandler.NudgeQuotaPoll)
 
 	// Outbound alerting: a single consumer of the events bus that forwards
-	// operator-selected events to a stateless apprise-api container. Best-effort
-	// — a missing/failing apprise-api never affects request serving. Runs for the
-	// app lifetime (ctx), reading config live so toggles apply without a restart.
+	// operator-selected events to a stateless apprise-api container.
+	// Best-effort, so a missing or failing apprise-api never affects request
+	// serving. Runs for the app lifetime (ctx), reading config live so toggles
+	// apply without a restart.
 	alertDispatcher := alert.New(alert.NewSettingsConfigProvider(settingsRepo, cfg.MasterKey), nil)
 	go alertDispatcher.Run(ctx)
 
 	// Prometheus metrics at the conventional /metrics path (root, no IP rate
-	// limiter so scrapers aren't throttled). Authenticated via METRICS_TOKEN or
-	// the admin token — never unauthenticated.
+	// limiter so scrapers are not throttled). Authenticated via METRICS_TOKEN or
+	// the admin token, never unauthenticated.
 	r.Handle("/metrics", apiHandler.MetricsHandler())
 
 	// WebAuthn/FIDO2 passkey authentication (enabled when WEBAUTHN_RP_ID is set).
-	// The session manager is hoisted out of the WebAuthnRPID block so it is
-	// always available -- TOTP /totp/login reuses CreateAuthToken to mint session
-	// tokens once 2FA is enabled, even when passkeys (RP) are not configured.
+	// The session manager sits outside the WebAuthnRPID block so it is always
+	// available: TOTP /totp/login reuses CreateAuthToken to mint session tokens
+	// once 2FA is enabled, even when passkeys (RP) are not configured.
 	var webauthnHandler *adminauth.WebAuthnHandler
 	webauthnRepo := webauthn.NewRepository(database.Pool())
 	sessionMgr := webauthn.NewSessionManager(webauthnRepo)
@@ -198,7 +199,7 @@ func main() {
 	userRepo := user.NewRepository(database.Pool())
 	apiHandler.SetUserAuth(userRepo, webauthnRepo)
 	// Breached-password check: new dashboard passwords are screened against the
-	// Have I Been Pwned range API (k-anonymity — only a 5-char SHA-1 prefix ever
+	// Have I Been Pwned range API (k-anonymity: only a 5-char SHA-1 prefix
 	// leaves the process) unless disabled via the env kill-switch or DB toggle.
 	// It fails open, so an unreachable endpoint never blocks a password change;
 	// PWNED_PASSWORD_API_URL can point at a self-hosted mirror for offline or
@@ -265,7 +266,7 @@ func main() {
 		debuglog.Info("webauthn: passkey authentication enabled", "rp_id", cfg.WebAuthnRPID)
 	}
 
-	// API routes — IP rate limiting protects admin auth from brute-force.
+	// API routes. IP rate limiting protects admin auth from brute-force.
 	r.Route("/api", func(r chi.Router) {
 		r.Use(ipLimiter.Middleware)
 
@@ -303,18 +304,18 @@ func main() {
 			totpHandler.Register(r)
 		})
 
-		// OIDC SSO login endpoints (status/start/callback) — unauthenticated,
-		// same group as the other login routes; they ARE the login. The timeout
-		// matches the API group's posture so a slow or hostile IdP (discovery,
-		// token exchange, or UserInfo) can't pin a goroutine open indefinitely;
-		// the per-IP limiter and request-context cancellation already help.
+		// OIDC SSO login endpoints (status/start/callback): unauthenticated, in
+		// the same group as the other login routes, since they ARE the login. The
+		// timeout matches the API group's posture so a slow or hostile IdP
+		// (discovery, token exchange, or UserInfo) cannot pin a goroutine open
+		// indefinitely.
 		r.Group(func(r chi.Router) {
 			r.Use(middleware.Timeout(60 * time.Second))
 			oidcHandler.Register(r)
 			githubHandler.Register(r)
 		})
 
-		// Admin-token bootstrap exchange (POST /api/auth/admin-exchange) — a
+		// Admin-token bootstrap exchange (POST /api/auth/admin-exchange): a
 		// dashboard-only login front-end that trades a valid raw admin token for
 		// an HttpOnly session cookie so the browser never stores the raw token.
 		// Unauthenticated (the exchange IS the login), same posture as the other
@@ -332,16 +333,16 @@ func main() {
 
 	// The periodic backup scheduler must start AFTER apiHandler.Register, which
 	// is where the BackupHandler is constructed and wired as h.backupScheduler.
-	// Started any earlier it silently no-ops on a nil scheduler, so no automatic
-	// (GFS) backups ever run no matter what backup_enabled is set to.
+	// Started earlier it silently no-ops on a nil scheduler, so no automatic
+	// (GFS) backups run whatever backup_enabled is set to.
 	apiHandler.StartBackupScheduler(context.Background())
 
-	// Admin chat routes — admin-authenticated proxy for the Chat/Arena UI.
-	// Uses streaming-aware timeout (same as /v1) and rate limiting by IP.
+	// Admin chat routes: an admin-authenticated proxy for the Chat/Arena UI,
+	// with the streaming-aware timeout (as on /v1) and per-IP rate limiting.
 	// ChatUserContextMiddleware runs after the grant check because it reads the
 	// identity AuthMiddleware resolved, and before RegisterAdminChat because the
 	// consumers of what it publishes (the proxy's candidate filter and both rate
-	// limiters) are mounted in there. Without it the chat surface would carry
+	// limiters) are mounted in there. Without it the chat surface carries
 	// neither the caller's provider cap nor their per-user rate limits.
 	r.Route("/api/chat", func(r chi.Router) {
 		r.Use(ipLimiter.Middleware)
@@ -352,14 +353,12 @@ func main() {
 		proxyHandler.RegisterAdminChat(r)
 	})
 
-	// Proxy routes — streaming LLM requests can take many minutes.
-	// We must NOT apply a blanket timeout here; instead we use a
-	// streaming-aware middleware that:
+	// Proxy routes. Streaming LLM requests can take many minutes, so there is no
+	// blanket timeout here, only a streaming-aware middleware:
 	//   - streaming requests: no deadline (client-disconnect detection still works)
 	//   - non-streaming requests: 5-minute deadline
-	// It peeks at the body to decide, which buffers the body, so it is
-	// handed to Register to mount AFTER the virtual-key check (see
-	// mountProxyRoutes).
+	// It peeks at the body to decide, which buffers the body, so it is handed to
+	// Register to mount AFTER the virtual-key check (see mountProxyRoutes).
 	r.Route("/v1", func(r chi.Router) {
 		mountProxyRoutes(r, proxyHandler.Register)
 	})
@@ -448,8 +447,8 @@ func main() {
 	util.CloseDockerClient()
 
 	// End every open /api/events SSE stream. Each one is an in-flight request
-	// that server.Shutdown would otherwise wait on until the deadline, so with
-	// a dashboard tab open every restart burned the full 10s.
+	// that server.Shutdown would otherwise wait on until the deadline, so one
+	// open dashboard tab costs a restart the full 10s.
 	events.DefaultBus.Close()
 
 	// Flush pending app log DB writes before closing the database.

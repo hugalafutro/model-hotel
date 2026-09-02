@@ -22,8 +22,8 @@ import (
 // costs one counter increment per request.
 //
 // State is per provider (slots are an account property; the circuit breaker
-// stays per model — the two answer different questions, full vs broken), per
-// member, in memory: runtime health, not config, never synced. Four members
+// stays per model, since the two answer different questions, full vs broken),
+// per member, in memory: runtime health, not config, never synced. Four members
 // each learn their own allowance against a shared pool and the sum converges
 // because each member's cuts are driven by the 429s it draws itself.
 //
@@ -47,9 +47,8 @@ type inflightWindow struct {
 	lastCut  time.Time // when the allowance was last cut (may sit in the near future: a Retry-After defers the forget clock)
 }
 
-// inflightLimiter holds every provider's window. All methods are nil-safe:
-// a nil limiter admits everything and learns nothing, which is what the
-// handler-literal test fixtures get.
+// inflightLimiter holds every provider's window. All methods are nil-safe: a
+// nil limiter admits everything and learns nothing.
 type inflightLimiter struct {
 	mu      sync.Mutex
 	windows map[uuid.UUID]*inflightWindow
@@ -110,8 +109,8 @@ func (l *inflightLimiter) canAdmit(providerID uuid.UUID, ceiling int) bool {
 // (a 2xx that was consumed to its end), which is what grows a capped window:
 // +1 per growAfter consecutive clean completions, and back to uncapped once
 // the window has gone forgetAfter without a cut. Failures only reset the
-// clean-run count — shrinking is the cut's job, and only a saturated 429
-// proves the allowance too high.
+// clean-run count: shrinking is the cut's job, and only a saturated 429 proves
+// the allowance too high.
 func (l *inflightLimiter) release(providerID uuid.UUID, clean bool, growAfter int, forgetAfter time.Duration) {
 	if l == nil {
 		return
@@ -152,12 +151,11 @@ func (l *inflightLimiter) release(providerID uuid.UUID, clean bool, growAfter in
 
 // cut shrinks the provider's allowance after a SATURATED 429: the pool is
 // provably smaller than the load that included the refused request. The CALLER
-// settles the drawing request's own slot before cutting (see
-// recordRateLimitOutcome), so w.inflight here is exactly the load that fit -
-// the spec's "inflight - 1" with the subtraction made deterministic instead of
-// racing the body reader that may already have released the drawer. retryAfter,
-// when the provider sent one, pushes lastCut into the future so the forget
-// clock starts after the wait the provider asked for.
+// settles the drawing request's own slot before cutting, so w.inflight here is
+// exactly the load that fit rather than a count racing the body reader that may
+// already have released the drawer. retryAfter, when the provider sent one,
+// pushes lastCut into the future so the forget clock starts after the wait the
+// provider asked for.
 func (l *inflightLimiter) cut(providerID uuid.UUID, retryAfter time.Duration) {
 	if l == nil {
 		return
@@ -276,13 +274,13 @@ func (s *attemptSlot) settle(clean bool) {
 }
 
 // inflightRelease wraps an upstream body so the attempt's slot settles when
-// the response has actually been consumed - the window counts requests
+// the response has actually been consumed: the window counts requests
 // "between send and last byte", and releasing at header time would let the
 // gateway hold more streams open than the learned allowance. On EOF or Close,
-// whichever comes first: every attempt path closes the body on every exit
-// (client disconnect and hedge loss included), so a leaked count - a slow
-// self-inflicted saturation - would need a leaked body, which the bodyclose
-// lint already forbids.
+// whichever comes first; every attempt path closes the body on every exit
+// (client disconnect and hedge loss included), so a leaked count, a slow
+// self-inflicted saturation, would need a leaked body, which the bodyclose
+// lint forbids.
 type inflightRelease struct {
 	io.ReadCloser
 	slot  *attemptSlot

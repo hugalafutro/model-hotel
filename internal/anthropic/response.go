@@ -16,13 +16,10 @@ type oaiResponse struct {
 	ID      string      `json:"id"`
 	Model   string      `json:"model"`
 	Choices []oaiChoice `json:"choices"`
-	// Held raw and decoded on its own, so a usage block this package cannot read
-	// costs the usage and nothing else. Decoded inline it was part of the
-	// response object, and one count the provider spelled differently — quoted,
-	// or with a fraction on it — failed the whole decode, which the caller met
-	// as a 502 in place of the answer the model had already produced. The
-	// streaming twin of this path already reads counts that way; see
-	// proxy.anthropicResponseWriter.handleStreamLine.
+	// Held raw and decoded on its own, so a usage block this package cannot
+	// read costs the usage and nothing else. Decoded inline, one count the
+	// provider spells differently (quoted, or with a fraction on it) fails the
+	// whole decode and the caller gets a 502 in place of the answer.
 	Usage json.RawMessage `json:"usage"`
 }
 
@@ -38,8 +35,8 @@ type oaiRespMessage struct {
 	// structured-array response does not fail the whole translation.
 	Content   json.RawMessage   `json:"content"`
 	ToolCalls []oaiRespToolCall `json:"tool_calls"`
-	// reasoning_content is surfaced by some OpenAI-compatible providers; v1
-	// drops it on the translated path (thinking-block mapping is deferred).
+	// reasoning_content, surfaced by some OpenAI-compatible providers, has no
+	// field here: the translated path carries no thinking block.
 }
 
 // decodeRespContent extracts assistant text from an OpenAI chat-completion
@@ -76,25 +73,21 @@ type oaiRespToolCall struct {
 		Name      string             `json:"name"`
 		Arguments util.ToolArguments `json:"arguments"`
 	} `json:"function"`
-	// ExtraContent is the Gemini 3 thought signature's carrier on the
-	// OpenAI side; raw, since a shape this package does not expect is an
-	// unsigned call and not a failed translation.
+	// ExtraContent carries the Gemini 3 thought signature on the OpenAI
+	// side; raw, since a shape this package does not expect is an unsigned
+	// call and not a failed translation.
 	ExtraContent json.RawMessage `json:"extra_content"`
 }
 
 // readOAUsage maps an OpenAI usage block to the Anthropic token accounting.
 //
-// util.DecodeCounts, so a count written as "12" or 12.0 is still a count; the
-// shape tolerance (util.ShapeError) so a member this translator has no field
-// for, or one figure that is not a count in any spelling, keeps the figure
-// beside it. Both counts are read straight off their own member — neither is a
-// sum — so an unreadable one costs only itself.
+// util.DecodeCounts reads a count written as "12" or 12.0; the shape tolerance
+// (util.ShapeError) keeps the figure beside a member this translator has no
+// field for, or one that is not a count in any spelling. Both counts are read
+// straight off their own member, so an unreadable one costs only itself.
 //
-// Absent, null and unreadable all land on the same zeros, and there is no
-// util.JSONMemberSet guard here because there is nothing for it to protect: the
-// Anthropic Message schema makes usage mandatory, this translation reports one
-// response rather than accumulating across chunks, and metering reads the
-// upstream body, not this output.
+// Absent, null and unreadable all land on the same zeros. No JSONMemberSet
+// guard: usage is mandatory here and nothing accumulates across chunks.
 func readOAUsage(raw json.RawMessage) usage {
 	var u OAUsage
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
@@ -140,9 +133,9 @@ func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) 
 			}
 			id := tc.ID
 			if id == "" {
-				// Anthropic requires a tool_use id; synthesize a stable one
-				// as the streaming twin does, since a signed empty id would
-				// otherwise pass the wire and come back as an empty call id.
+				// Anthropic requires a tool_use id; synthesize a stable one,
+				// or a signed empty id passes the wire and comes back as an
+				// empty call id.
 				id = fmt.Sprintf("toolu_%s_%d", messageID, i)
 			}
 			msg.Content = append(msg.Content, contentBlock{

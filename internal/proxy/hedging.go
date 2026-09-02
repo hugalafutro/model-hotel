@@ -63,8 +63,8 @@ type hedgeResult struct {
 const minHedgeDelay = 100 * time.Millisecond
 
 // probeFn probes a single candidate to a ready-to-stream-or-failover state WITHOUT
-// writing to the client. It is the unit-test seam for runHedgedStreaming (mirroring
-// the attemptFn seam used by runFailoverLoop); the real implementation is
+// writing to the client. runHedgedStreaming takes it as a parameter, mirroring the
+// attemptFn seam runFailoverLoop takes; the real implementation is
 // probeStreamingCandidate.
 type probeFn func(ctx context.Context, st *requestState, candidate modelCandidate, attempt int, ttftTimeout, stallTimeout time.Duration) hedgeResult
 
@@ -134,7 +134,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 		// endpointType is load-bearing, not decoration: a losing candidate's
 		// refusal is classified against this throwaway (see
 		// probeStreamingCandidate), and an empty endpoint family switches
-		// auto-retirement off SILENTLY — noteModelGone's family gate rejects it
+		// auto-retirement off SILENTLY: noteModelGone's family gate rejects it
 		// before recording a strike and says so only at Debug. It is safe to copy
 		// where the rest is not, because ingest stamps it once and nothing writes
 		// it afterwards, so it cannot race serveHedgeWinner the way providerName
@@ -338,7 +338,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 
 	// MiniMax reports business errors (rate limit, exhausted plan balance,
 	// auth failures) inside an HTTP 200 envelope; remap them to an effective
-	// status so the breaker/failover paths below — all keyed on status codes —
+	// status so the breaker/failover paths below, all keyed on status codes,
 	// see the failure. The slot rides the body only from here, with the
 	// remapped status deciding the clean flag: losers are drained and closed
 	// by the orchestrator, the winner's stream closes at its end, and either
@@ -380,8 +380,8 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 			}
 		}
 		// A hedged race drops every candidate but the winner here, so without
-		// this a dead model in a hedged group accrued strikes only on the runs it
-		// happened to win — almost never, since a model answering 404 loses the
+		// this a dead model in a hedged group accrues strikes only on the runs it
+		// happens to win, almost never, since a model answering 404 loses the
 		// TTFT contest to anything that works. Same classification the sequential
 		// and pass-through loops do, on a body being discarded either way.
 		errBodyMsg := util.SanitizeLogBody(string(errBody), 10000)
@@ -399,7 +399,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// path): translate the upstream stream back to chat chunks before the
 		// TTFT probe so the whole hedged pipeline sees chat-completions SSE.
 		// st is this attempt's private snapshot, so the flag set by
-		// buildCandidateRequest is visible right here — no shared-state race.
+		// buildCandidateRequest is visible right here: no shared-state race.
 		resp.Body = openairesponses.NewStreamAdapter(resp.Body, st.reqModel)
 	}
 	if st.geminiAttempt {
@@ -564,12 +564,11 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 	h.noteStreamOutcome(logData, candidate)
 }
 
-// failHedgeDisconnect handles r.Context() cancellation during a hedged race. It
-// reuses the PR #258 classification: if the most recent attempt was a zero-token
-// provider stall, the silent connection was most likely dropped by an intermediary
-// (reverse proxy / LB / CDN) rather than the client, so the provider stall is
-// preserved as the terminal cause (502); otherwise it is a genuine client
-// disconnect (499).
+// failHedgeDisconnect handles r.Context() cancellation during a hedged race: if
+// the most recent attempt was a zero-token provider stall, the silent connection
+// was most likely dropped by an intermediary (reverse proxy / LB / CDN) rather
+// than the client, so the provider stall is preserved as the terminal cause
+// (502); otherwise it is a genuine client disconnect (499).
 func (h *Handler) failHedgeDisconnect(w http.ResponseWriter, st *requestState, launched int, providerStall reqError) {
 	// Prefer a provider stall seen at any point in the race over whatever happens
 	// to be the most recent result: a later non-stall failure must not relabel a
@@ -605,8 +604,8 @@ func hedgeProbeLog(entry *requestLogData, candidate modelCandidate) *requestLogD
 // path. A hedged probe cannot retry in-race (a second upstream round-trip
 // inside one race slot would skew the TTFT contest), but it can still LEARN
 // what the sequential path would: the /v1/responses requirement from the
-// tools+reasoning 400 or the pro tier's 404, so every subsequent request —
-// hedged or sequential — routes preemptively, and the params a 400 names, so
+// tools+reasoning 400 or the pro tier's 404, so every subsequent request
+// (hedged or sequential) routes preemptively, and the params a 400 names, so
 // the next request is built without them. Both readings are only valid on a
 // chat-completions attempt, judged by the same isLearnableRefusal the
 // sequential path uses: a dialect 400 names that dialect's fields, and a

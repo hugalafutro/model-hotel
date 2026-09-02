@@ -16,18 +16,17 @@ import (
 // maxModelNameRunes bounds the client-supplied `model` routing field.
 //
 // The field is routing metadata, and the pipeline persists it before it
-// validates it: the pending request-log row carries it, the request.started
-// event carries it, the "request start" app-log line carries it, and the
-// resolve failures quote it back in the error response. None of those sinks
-// had a bound of its own, so a multi-megabyte model inside the (legal, capped)
-// request body was a multi-megabyte write to every one of them, from one
-// virtual key. Real routing targets are "provider/model" or "hotel/group";
+// validates it: the pending request-log row, the request.started event, the
+// "request start" app-log line and the resolve failures all carry it. None of
+// those sinks has a bound of its own, so an unbounded model inside a legal,
+// capped request body would be a multi-megabyte write to each of them from one
+// virtual key. Real routing targets are "provider/model" or "hotel/group", and
 // the admin write paths cap display models at 128 characters, so 512 is far
 // above anything that can resolve.
 const maxModelNameRunes = 512
 
-// modelTooLongMessage is the constant refusal for an oversized model. A test
-// pins the number it spells to maxModelNameRunes so the two cannot drift.
+// modelTooLongMessage is the constant refusal for an oversized model. The
+// number it spells must match maxModelNameRunes.
 const modelTooLongMessage = "model exceeds maximum length of 512 characters"
 
 // modelExcerptRunes is how much of an oversized model the request-log row
@@ -52,15 +51,15 @@ func modelExcerpt(model string) string {
 	return string([]rune(model)[:modelExcerptRunes]) + "…"
 }
 
-// rejectOversizedModel is the one outcome every ingest path has for a model
-// past maxModelNameRunes: the pending row (already inserted by the caller) is
-// closed as a validation failure carrying the excerpt rather than the field,
-// subscribers see the started/completed pair every other early guard emits,
-// and the caller gets the constant message back. The response never quotes
-// the field. It takes the raw model and derives the excerpt itself so no
-// ingest path can put the field on the row at the refusal by forgetting to;
-// the middleware-preparsed path must still hand the excerpt to its own
-// pending INSERT, which runs before this can.
+// rejectOversizedModel is the one outcome every ingest path has for a model past
+// maxModelNameRunes: the pending row the caller already inserted is closed as a
+// validation failure carrying the excerpt rather than the field, subscribers see
+// the started/completed pair every other early guard emits, and the caller gets
+// the constant message back. The response never quotes the field.
+//
+// It takes the raw model and derives the excerpt itself, so no ingest path can
+// put the field on the row by forgetting to. The middleware-preparsed path must
+// still hand the excerpt to its own pending INSERT, which runs before this can.
 func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLogData, model string, startTime time.Time, parseMs float64) {
 	logData.modelID = modelExcerpt(model)
 	publishRequestStartedEvent(logData)
@@ -77,7 +76,7 @@ func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLo
 //
 // On success it returns a populated *requestState and true. On any guard
 // failure it records the failure, writes the OpenAI error response, and returns
-// (nil, false) — the caller must simply return.
+// (nil, false), on which the caller simply returns.
 func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpointType string) (*requestState, bool) {
 	startTime := time.Now()
 
@@ -85,9 +84,9 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	var reqModel string
 	var isStreaming bool
 
-	// Read pre-parsed values from middleware context when available.
-	// streamingAwareTimeout already read the body and extracted model+stream,
-	// so we skip the redundant json.Unmarshal that previously measured as parseMs.
+	// Read pre-parsed values from the middleware context when available:
+	// streamingAwareTimeout has already read the body and extracted model and
+	// stream, so the json.Unmarshal below is skipped.
 	if v := r.Context().Value(ctxkeys.RequestBodyParseMsKey); v != nil {
 		if ms, ok := v.(float64); ok {
 			parseMs = ms
@@ -104,8 +103,8 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		}
 	}
 
-	// Fallback: if middleware did not provide pre-parsed values (e.g. route
-	// not covered by streamingAwareTimeout), parse from body directly.
+	// Fallback for a route streamingAwareTimeout does not cover, where the
+	// middleware provided no pre-parsed values: parse the body directly.
 	var bodyBytes []byte
 
 	// The middleware-provided model is what the pending INSERT below would
@@ -149,8 +148,8 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		reqModel = req.Model
 		isStreaming = req.Stream
 	} else {
-		// Middleware provided model+stream; still need body bytes for
-		// stream_options injection and upstream forwarding.
+		// The middleware provided model and stream; the body bytes are still
+		// needed for stream_options injection and upstream forwarding.
 		if cached, ok := r.Context().Value(ctxkeys.RequestBodyKey).([]byte); ok {
 			bodyBytes = cached
 		}
@@ -165,12 +164,13 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		return nil, false
 	}
 
-	// Update log entry with model resolved from body parsing (if not set by middleware).
+	// Update the log entry with the model body parsing resolved, when the
+	// middleware did not set one.
 	logData.modelID = reqModel
 	logData.streaming = isStreaming
 
-	// Publish the SSE "request.started" event after modelID is resolved
-	// so subscribers always see the correct model (not an empty string).
+	// The SSE "request.started" event goes out after modelID is resolved, so
+	// subscribers always see the real model rather than an empty string.
 	publishRequestStartedEvent(logData)
 
 	if reqModel == "" {
@@ -214,10 +214,10 @@ func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID st
 	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
 		vkHash, _ = v.(string)
 	}
-	// The owning user's UUID (empty for unowned keys) scopes the SSE request
-	// events to that user, and is persisted on the log row itself when there is
-	// no virtual key to resolve an owner through (dashboard chat/arena), which is
-	// what lets the owner-scoped logs REST API see those rows at all.
+	// The owning user's UUID, empty for unowned keys, scopes the SSE request
+	// events to that user. It is persisted on the log row itself when there is
+	// no virtual key to resolve an owner through (dashboard chat/arena), which
+	// is what lets the owner-scoped logs REST API see those rows.
 	var ownerUserID string
 	if v := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey); v != nil {
 		ownerUserID, _ = v.(string)
@@ -274,9 +274,9 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 			writeOpenAIError(w, err.Error(), http.StatusNotFound)
 			return nil, false
 		}
-		// The candidates the breaker refused lead the attempt trail: an
-		// operator reading "Neuralwatt 429 → Ollama 200" also wants to know
-		// that Z.ai was never asked, and why.
+		// The candidates the breaker refused lead the attempt trail, so an
+		// operator reading it also sees which providers were never asked, and
+		// why.
 		for _, s := range skips.skipped {
 			st.logData.appendBreakerSkip(s.providerID, s.providerName, s.model)
 		}
@@ -300,12 +300,11 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		return nil, false
 	}
 
-	// Store cache hit data from resolve phase into the log entry.
 	st.logData.cacheHits = cacheHits
 
-	// Normalize logData fields after resolution: split the raw request model
-	// (e.g. "NanoGPT/deepseek-ai/DeepSeek-R1-0528") into provider name and
-	// model-only components so log lines are human-readable.
+	// Normalize logData after resolution: split the raw request model (say
+	// "NanoGPT/deepseek-ai/DeepSeek-R1-0528") into provider name and model so
+	// log lines are readable.
 	if parts := strings.SplitN(st.reqModel, "/", 2); len(parts) == 2 && !strings.HasPrefix(st.reqModel, "hotel/") {
 		st.logData.providerName = parts[0]
 		st.logData.modelID = parts[1]
@@ -337,12 +336,11 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 		}
 		// owner_capped records whether the owner HAS a cap, not which side did
 		// the narrowing: the two lists are intersected before this runs and the
-		// result no longer says where each member came from. It is still the
-		// field worth having, because a key that has always worked can start
-		// refusing purely because its owner's cap moved, and this is the only
-		// signal that an account cap is in play at all. The response body
-		// deliberately says none of it: a proxy client learns it lacks access,
-		// not whose rule denied it.
+		// result no longer says where each member came from. It is the only
+		// signal that an account cap is in play, which matters because a key
+		// that has always worked can start refusing purely because its owner's
+		// cap moved. The response body says none of it: a proxy client learns it
+		// lacks access, not whose rule denied it.
 		debuglog.Info("proxy: filtered candidates by allowed_providers",
 			"before", len(candidates), "after", len(filtered),
 			"owner_capped", ownerAllowed != nil, "key", st.logData.virtualKeyName)
@@ -360,14 +358,14 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 // restriction; a non-nil list restricts to exactly its members INCLUDING when
 // empty, which is what makes the pair fail-closed.
 //
-// This is the enforcement point for the per-user provider cap, and it is the
-// only one that runs on every request. The write-time check in
-// internal/api/virtualkeys.go merely produces a friendly refusal on the two
-// dashboard write paths, so a stored list wider than its owner's cap is a
-// normal state, not a corruption: upsertVirtualKeys in
+// This is the enforcement point for the per-user provider cap, and the only one
+// that runs on every request. The write-time check in
+// internal/api/virtualkeys.go only produces a friendly refusal on the two
+// dashboard write paths, so a stored list wider than its owner's cap is a normal
+// state rather than a corruption: upsertVirtualKeys in
 // internal/api/configsync_apply.go writes virtual_keys rows straight from a
-// fleet import without consulting the cap, and narrowing users.allowed_providers
-// updates only the users row, leaving that owner's existing keys untouched.
+// fleet import without consulting the cap, and narrowing
+// users.allowed_providers updates only the users row.
 func effectiveAllowedProviders(key, owner *[]string) *[]string {
 	switch {
 	case key == nil && owner == nil:
@@ -392,35 +390,33 @@ func effectiveAllowedProviders(key, owner *[]string) *[]string {
 
 // loadFailoverConfig performs phase C of ChatCompletions: finalize the
 // accumulated settings-read time, compute the initial proxy-overhead estimate,
-// and read the per-request failover knobs (request timeout — 10× for streaming,
-// circuit-breaker enablement, and the overall request deadline). The results
-// are stored on st for the failover loop. The loop recomputes proxyOverhead
-// after each dial, so the value set here is only the pre-loop estimate.
+// and read the per-request failover knobs (the request timeout, 10x for
+// streaming, circuit-breaker enablement, and the overall request deadline). The
+// results are stored on st for the failover loop, which recomputes
+// proxyOverhead after each dial, so the value set here is a pre-loop estimate.
 func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
-	// Re-read accumulated settings read time from context pointer.
-	// The initial read captured the rate limiter's contribution,
-	// but resolve handlers called AddSettingsReadMs for circuit breaker and
-	// failover settings. The pointer now holds the total.
+	// Re-read the accumulated settings-read time from the context pointer, which
+	// now holds the rate limiter's contribution plus the circuit-breaker and
+	// failover reads the resolve handlers added.
 	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
 		if p, ok := v.(*float64); ok {
 			st.timings.settingsReadMs = *p
 		}
 	}
 
-	// Initial overhead estimate (dialMs=0 — not yet populated).
-	// proxyOverhead is recomputed after each dial inside the failover loop
-	// so that all exit paths (backoff disconnect, error, failRequest) use
-	// the current accumulated total.
+	// Initial overhead estimate, with dialMs still 0. The failover loop
+	// recomputes proxyOverhead after each dial so every exit path (backoff
+	// disconnect, error, failRequest) uses the current accumulated total.
 	st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
 
-	// Non-streaming timeout is configurable via request_timeout setting (default 1m).
-	// Streaming requests get 10× the non-streaming timeout to accommodate
-	// thinking/reasoning models that can take several minutes before first token.
-	// Long-running multimodal endpoints (image generation, audio) get the same
-	// extended budget: their legitimate latencies and response transfers also
-	// run for minutes without carrying a chat-style stream flag.
-	// Read once before the loop so all attempts within a single request use
-	// the same timeout, avoiding inconsistency if the setting changes mid-request.
+	// The non-streaming timeout comes from the request_timeout setting, default
+	// 1m. Streaming requests get 10x that, to accommodate reasoning models that
+	// can take minutes before the first token, and so do the long-running
+	// multimodal endpoints (image generation, audio), whose legitimate latencies
+	// run just as long without carrying a chat-style stream flag.
+	//
+	// Read once before the loop so every attempt in a request uses the same
+	// timeout even if the setting changes mid-request.
 	rtStart := time.Now()
 	baseTimeout := h.settingsRepo.GetDuration(r.Context(), "request_timeout", time.Minute)
 	ctxkeys.AddSettingsReadMs(r.Context(), rtStart)
@@ -429,7 +425,8 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 		st.failoverTimeout = baseTimeout * 10
 	}
 
-	// Read circuit_breaker_enabled once before the loop to avoid repeated settings reads.
+	// Read circuit_breaker_enabled once before the loop, to avoid repeated
+	// settings reads.
 	cbStart2 := time.Now()
 	st.circuitBreakerEnabled = h.settingsRepo.GetBool(r.Context(), "circuit_breaker_enabled", true)
 	// Same once-per-request read for the adaptive in-flight limiter; a nil
@@ -444,18 +441,15 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 	st.hedgeDelay = max(h.settingsRepo.GetDuration(r.Context(), "hedge_delay", 4*time.Second), minHedgeDelay)
 	ctxkeys.AddSettingsReadMs(r.Context(), hedgeStart)
 
-	// Overall request deadline: caps total time across all failover candidates
-	// to prevent resource pinning from silent clients. Without this, N candidates
-	// with per-candidate failoverTimeout could hold a goroutine for N×failoverTimeout.
-	// The ceiling is 2× the per-candidate timeout, giving a second attempt full time
-	// while capping any number of subsequent candidates to the remaining budget.
+	// The overall request deadline caps total time across all failover
+	// candidates, so a silent client cannot pin a goroutine for N candidates x
+	// failoverTimeout. The ceiling is 2x the per-candidate timeout, giving a
+	// second attempt its full time while capping any number of subsequent
+	// candidates to the remaining budget.
 	st.overallDeadline = st.startTime.Add(st.failoverTimeout * 2)
 
-	// Final re-read of accumulated settings read time. The initial read
-	// captured the rate limiter's contribution, resolve handlers added
-	// circuit breaker/failover settings, and the proxy loop added
-	// request_timeout and circuit_breaker_enabled reads. Recompute
-	// proxyOverhead with the complete total.
+	// Final re-read of the accumulated settings-read time, which now also holds
+	// this function's request_timeout and circuit_breaker_enabled reads.
 	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
 		if p, ok := v.(*float64); ok {
 			st.timings.settingsReadMs = *p

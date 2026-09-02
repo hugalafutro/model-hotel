@@ -41,9 +41,8 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The dashboard sends the type the operator picked. A client that omits it
-	// gets the vendor-hostname derivation: enough to keep scripted adds of
-	// cloud providers working, without resurrecting the port guessing for
-	// self-hosted servers (which must be named to be added).
+	// gets the vendor-hostname derivation, which covers scripted adds of cloud
+	// providers; self-hosted servers must name their type to be added.
 	derivedType := req.ProviderType == ""
 	if derivedType {
 		req.ProviderType = provider.TypeFromHostname(req.BaseURL)
@@ -57,24 +56,24 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	// operator should not have to get right.
 	req.BaseURL = provider.NormalizeLocalBaseURL(req.ProviderType, req.BaseURL)
 
-	// Measured after normalization, so the value that is actually stored is the
-	// one that has to fit.
+	// Measured after normalization, so the stored value is the one that has to
+	// fit.
 	if len(req.BaseURL) > 500 {
 		http.Error(w, "base_url must be at most 500 characters", http.StatusBadRequest)
 		return
 	}
 
-	// An address that matches no vendor host and was given no type is a
-	// generic OpenAI endpoint. That is right for a gateway and wrong for a
-	// self-hosted server the caller forgot to name, and the difference is
-	// invisible afterwards, so say so once.
+	// An address matching no vendor host and given no type is a generic OpenAI
+	// endpoint. That is right for a gateway and wrong for a self-hosted server the
+	// caller forgot to name, and the difference is invisible afterwards, so it is
+	// logged once.
 	if derivedType && req.ProviderType == "openai" {
 		debuglog.Info("provider: no provider_type given, treating as a generic OpenAI-compatible endpoint",
 			"name", req.Name, "hint", "self-hosted servers (ollama, lmstudio, koboldcpp) must name their type to get native discovery")
 	}
 
-	// Some providers (e.g. OpenCode Zen) support keyless access for free models.
-	// Allow empty API key only for providers that support it.
+	// Some providers (e.g. OpenCode Zen) support keyless access for free models, so
+	// an empty API key is allowed only for those types.
 	if req.APIKey == "" && !providerTypeAllowsEmptyKey(req.ProviderType) {
 		http.Error(w, "api_key is required for this provider type", http.StatusBadRequest)
 		return
@@ -89,12 +88,12 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Application-level duplicate name check
+	// Application-level duplicate name check.
 	existing, err := h.providerRepo.GetByName(r.Context(), req.Name)
 	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		// A DB error here silently looks like "no duplicate", so the app-level
-		// guard is bypassed (the DB unique constraint is the backstop). Surface
-		// it so a flaky DB doesn't quietly admit dupes.
+		// A DB error here looks like "no duplicate" and bypasses the app-level
+		// guard, leaving the DB unique constraint as the backstop. Surfaced so a
+		// flaky DB does not quietly admit duplicates.
 		debuglog.Warn("provider create: duplicate-name check failed, relying on DB constraint", "name", req.Name, "error", err)
 	}
 	if existing != nil {
@@ -139,13 +138,13 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Skip key cache warming for keyless providers (nil encrypted key bytes)
+	// Skip key cache warming for keyless providers (nil encrypted key bytes).
 	if len(p.EncryptedKey) > 0 {
 		go auth.WarmKeyCache(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.cfg.MasterKey)
 	}
-	// The plaintext is in hand: hold it for the credential mask now rather
-	// than after the warm above lands, so a relay quoting this key is masked
-	// from the first request.
+	// The plaintext is in hand: hold it for the credential mask now rather than
+	// after the warm lands, so a relay quoting this key is masked from the first
+	// request.
 	util.HoldSecret(req.APIKey)
 
 	response := provider.ToResponse(p)
@@ -178,9 +177,9 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		modelCounts[providerID] = count
 	}
 
-	// Non-admins only ever see their own traffic in these totals: the same
-	// owner predicate the logs/stats surfaces apply, so a usage-granted user
-	// cannot read other tenants' aggregate volume off the provider list.
+	// Non-admins only see their own traffic in these totals: the same owner
+	// predicate the logs and stats surfaces apply, so a usage-granted user cannot
+	// read other tenants' aggregate volume off the provider list.
 	ownerFrag, ownerArgs := ownerFilterFragment(ownerScopeFromIdentity(r), 1)
 	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT rl.provider_id, SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) FROM request_logs rl WHERE rl.provider_id IS NOT NULL"+ownerFrag+" GROUP BY rl.provider_id", ownerArgs...)
 	if err != nil {
@@ -252,8 +251,8 @@ func (h *Handler) acceptProviderIdentity(w http.ResponseWriter, r *http.Request,
 		http.Error(w, "unknown provider_type", http.StatusBadRequest)
 		return false
 	}
-	// Checked before the provider is even loaded, so a refused address fails
-	// fast and for the right reason.
+	// Checked before the provider is loaded, so a refused address fails fast and
+	// for the right reason.
 	if req.BaseURL != nil && !h.acceptProviderURLShape(w, *req.BaseURL) {
 		return false
 	}
@@ -268,9 +267,9 @@ func (h *Handler) acceptProviderIdentity(w http.ResponseWriter, r *http.Request,
 		return false
 	}
 
-	// The type the provider will have once this update lands drives everything
-	// below: a new address must answer as it, and a corrected type must match
-	// the address already stored.
+	// The type the provider has once this update lands drives everything below: a
+	// new address must answer as it, and a corrected type must match the address
+	// already stored.
 	effectiveType := provider.TypeOf(current)
 	typeChanged := false
 	if req.ProviderType != nil && *req.ProviderType != effectiveType {
@@ -287,18 +286,17 @@ func (h *Handler) acceptProviderIdentity(w http.ResponseWriter, r *http.Request,
 		req.BaseURL = &normalized
 	}
 
-	// A type-only change probes the address already stored, which was checked
-	// when it was set. Re-check it: ALLOWED_PROVIDER_HOSTS may have been
-	// narrowed since, and every address this handler probes must be one the
-	// SSRF rules accept right now.
+	// A type-only change probes the address already stored. It is re-checked
+	// because ALLOWED_PROVIDER_HOSTS may have narrowed since, and every address
+	// this handler probes must be one the SSRF rules accept now.
 	if req.BaseURL == nil && !h.acceptProviderURLShape(w, normalized) {
 		return false
 	}
 
-	// Nothing that decides where requests land is actually changing: an update
-	// that only renames the provider must not fail because the server happens
-	// to be down. Both sides are normalized first, so a client echoing back a
-	// stored URL written before the /v1 form was canonical does not trip it.
+	// Nothing that decides where requests land is changing: an update that only
+	// renames the provider must not fail because the server is down. Both sides
+	// are normalized first, so a client echoing back a stored URL in a
+	// non-canonical form does not trip it.
 	if !typeChanged && normalized == provider.NormalizeLocalBaseURL(effectiveType, current.BaseURL) {
 		return true
 	}
@@ -315,8 +313,8 @@ func (h *Handler) acceptProviderIdentity(w http.ResponseWriter, r *http.Request,
 	} else if len(current.EncryptedKey) > 0 {
 		plain, decErr := auth.Decrypt(current.EncryptedKey, current.KeyNonce, current.KeySalt, h.cfg.MasterKey)
 		if decErr != nil {
-			// Not fatal: the probe simply goes out unauthenticated, and an
-			// unreadable key is the update's problem to report, not this check's.
+			// Not fatal: the probe goes out unauthenticated, and an unreadable key
+			// is the update's problem to report, not this check's.
 			debuglog.Warn("provider: could not decrypt key for the type probe", "provider_id", id, "error", decErr)
 		} else {
 			apiKey = plain
@@ -336,10 +334,10 @@ func (h *Handler) acceptProviderURLShape(w http.ResponseWriter, baseURL string) 
 		}
 	}
 	if err := h.cfg.ValidateProviderURL(baseURL); err != nil {
-		// The reason matters to the operator: "not in ALLOWED_PROVIDER_HOSTS"
-		// and "resolves to a private address" call for different fixes, and a
-		// containerised Model Hotel cannot reach the operator's localhost at
-		// all. This endpoint is admin-only, so echoing the reason leaks nothing.
+		// The reason matters to the operator: "not in ALLOWED_PROVIDER_HOSTS" and
+		// "resolves to a private address" call for different fixes, and a
+		// containerised Model Hotel cannot reach the operator's localhost at all.
+		// This endpoint is admin-only, so echoing the reason leaks nothing.
 		debuglog.Info("provider: base URL rejected", "error", err)
 		writeCodedError(w, http.StatusBadRequest, codeProviderURLRejected, err.Error())
 		return false
@@ -359,7 +357,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validate field lengths
+	// Validate field lengths.
 	if req.Name != nil {
 		trimmed, err := validateNamePtr("name", req.Name, 1, 100)
 		if err != nil {
@@ -391,20 +389,20 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 			respondBadRequest(w, "invalid scheduled_disable_on", err)
 			return
 		}
-		// ISO dates compare correctly as strings. The client's calendar floors
-		// at browser-tomorrow, but the server accepts its own today: a browser
-		// lagging the server clock would otherwise get a 400 on its earliest
-		// selectable day. A server-today schedule is due immediately, and the
-		// sweep fires it on its next tick.
+		// ISO dates compare correctly as strings. The client's calendar floors at
+		// browser-tomorrow, but the server accepts its own today, so a browser
+		// lagging the server clock does not get a 400 on its earliest selectable
+		// day. A server-today schedule is due immediately and the sweep fires it on
+		// its next tick.
 		if v < time.Now().Format("2006-01-02") {
 			http.Error(w, "scheduled_disable_on must not be in the past", http.StatusBadRequest)
 			return
 		}
 	}
 
-	// The one rule the config import and the column's CHECK constraint share
-	// (provider.ValidateMaxInFlight): a ceiling of zero would not admit
-	// nothing, it would read as no ceiling at all.
+	// The rule the config import and the column's CHECK constraint share
+	// (provider.ValidateMaxInFlight): a ceiling of zero does not admit nothing, it
+	// reads as no ceiling at all.
 	if req.MaxInFlight.Set {
 		if err := provider.ValidateMaxInFlight(req.MaxInFlight.Value); err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
@@ -412,7 +410,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Application-level duplicate name check when renaming
+	// Application-level duplicate name check when renaming.
 	if req.Name != nil {
 		existing, _ := h.providerRepo.GetByName(r.Context(), *req.Name)
 		if existing != nil && existing.ID != id {
@@ -458,9 +456,9 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// If the provider was just disabled, sync failover groups to remove
-	// stale entries from auto-created groups (routing already skips them,
-	// but the UI and group membership should reflect the new state).
+	// A newly disabled provider syncs failover groups to remove stale entries from
+	// auto-created groups; routing already skips them, but the UI and group
+	// membership must reflect the new state.
 	if req.Enabled != nil && !*req.Enabled {
 		if h.dbPool != nil {
 			failoverRepo := failover.NewRepository(h.dbPool.Pool())
@@ -491,18 +489,17 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// The quota drift watch keeps a per-provider schema baseline in the settings
-	// K/V; nothing else removes it, so it would outlive the provider forever.
-	// Detached from the request context like the sync below: the row is already
-	// deleted, and a client that hangs up now must not leave the orphan behind.
+	// K/V and nothing else removes it, so it would outlive the provider. Detached
+	// from the request context like the sync below: the row is already deleted, and
+	// a client that hangs up must not leave the orphan behind.
 	h.forgetQuotaSchema(context.WithoutCancel(r.Context()), id)
 
-	// Sync failover groups since the cascade-deleted models may leave
-	// groups with stale entries or zero candidates.
-	// Guarded because unit tests pass nil dbPool.
+	// Sync failover groups, since the cascade-deleted models may leave groups with
+	// stale entries or zero candidates. Guarded because dbPool can be nil.
 	if h.dbPool != nil {
 		failoverRepo := failover.NewRepository(h.dbPool.Pool())
 		if _, err := failoverRepo.SyncAllModels(context.WithoutCancel(r.Context())); err != nil {
-			// Log but don't fail the delete — the provider is already gone.
+			// Logged but not fatal: the provider is already gone.
 			debuglog.Info("admin: failed to sync failover groups after provider delete", "error", err)
 		}
 	}
@@ -522,7 +519,7 @@ func providerTypeAllowsEmptyKey(providerType string) bool {
 	}
 }
 
-// isForeignKeyViolation checks if the error is a PostgreSQL foreign key violation (error code 23503).
+// isForeignKeyViolation reports whether err is a PostgreSQL foreign key violation (error code 23503).
 func isForeignKeyViolation(err error) bool {
 	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
 		return pgErr.Code == "23503"

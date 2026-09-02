@@ -1,9 +1,9 @@
 // Package audit records an audit trail of admin actions: one row per mutating
-// request (POST/PUT/PATCH/DELETE) on the authenticated dashboard API. Capture
-// is middleware-based so new endpoints are covered without per-handler code.
-// Request bodies are NEVER stored - they carry provider keys, passwords, and
-// TOTP codes - only actor, method, route, entity id, response status, and the
-// caller address. The table is instance-local operational telemetry (not
+// request (POST/PUT/PATCH/DELETE) on the authenticated dashboard API. Capture is
+// middleware-based so new endpoints are covered without per-handler code.
+// Request bodies are NEVER stored, since they carry provider keys, passwords and
+// TOTP codes; a row holds only actor, method, route, entity id, response status
+// and the caller address. The table is instance-local operational telemetry (not
 // fleet-synced, not in backups) and is pruned opportunistically after inserts
 // against a configurable retention.
 package audit
@@ -45,9 +45,9 @@ type Entry struct {
 	EntityID   string    `json:"entity_id,omitempty"`
 	StatusCode int       `json:"status_code"`
 	RemoteAddr string    `json:"remote_addr"`
-	// EntityName is filled at read time by ResolveEntityNames for entities
-	// that still exist - never stored, so a rename shows the current name and
-	// a deleted entity leaves only the UUID.
+	// EntityName is filled at read time by ResolveEntityNames for entities that
+	// still exist. Never stored, so a rename shows the current name and a deleted
+	// entity leaves only the UUID.
 	EntityName string `json:"entity_name,omitempty"`
 }
 
@@ -58,10 +58,9 @@ type ListParams struct {
 	CursorCreatedAt time.Time
 	CursorID        string
 	Limit           int
-	// Offset skips this many rows before the page (0 = from the top). Used by the
-	// dashboard's page-numbered view; the keyset cursor above is used by infinite
-	// scroll. They are mutually exclusive in practice - a caller sends one or the
-	// other - but both may be set and are simply ANDed.
+	// Offset skips this many rows before the page (0 = from the top), for the
+	// dashboard's page-numbered view; the keyset cursor above serves infinite
+	// scroll. A caller sends one or the other, but both may be set and are ANDed.
 	Offset int
 	Actor  string
 	Method string
@@ -89,7 +88,7 @@ func New(pool *pgxpool.Pool, retentionDays func() int) *Recorder {
 
 // actorOf renders the request identity for the audit row: the username for
 // users-row identities, "admin" for every legacy admin login (env token,
-// passkey, TOTP, SSO allowlist - they all share the fixed admin identity).
+// passkey, TOTP, SSO allowlist all share the fixed admin identity).
 func actorOf(id *user.Identity) (actor, role string) {
 	if id == nil {
 		return "unknown", ""
@@ -116,14 +115,14 @@ func (w *statusRecorder) WriteHeader(code int) {
 	w.ResponseWriter.WriteHeader(code)
 }
 
-// Write is deliberately NOT overridden: the embedded ResponseWriter's Write is
-// inherited unchanged so the wrapper never touches the response body (a body
-// passthrough would be a reflected-XSS sink). A body written without an
-// explicit WriteHeader leaves status at 0; the middleware defaults that to 200
-// when it builds the entry.
+// Write is NOT overridden: the embedded ResponseWriter's Write is inherited
+// unchanged so the wrapper never touches the response body (a body passthrough
+// would be a reflected-XSS sink). A body written without an explicit WriteHeader
+// leaves status at 0; the middleware defaults that to 200 when it builds the
+// entry.
 
-// Unwrap lets http.ResponseController reach the underlying writer (flushing
-// SSE etc. keeps working through the wrapper).
+// Unwrap lets http.ResponseController reach the underlying writer, so flushing
+// SSE keeps working through the wrapper.
 func (w *statusRecorder) Unwrap() http.ResponseWriter {
 	return w.ResponseWriter
 }
@@ -156,9 +155,9 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			}
 		}
 		// Two kinds of non-GET call are not admin actions and are skipped:
-		// machine-to-machine fleet traffic (the liveness ping, the quota
-		// relay) and a read-only POST that answers a question without
-		// changing anything (see isAuditExempt for both).
+		// machine-to-machine fleet traffic (the liveness ping, the quota relay) and
+		// a read-only POST that answers a question without changing anything. See
+		// isAuditExempt.
 		if isAuditExempt(route) {
 			return
 		}
@@ -167,15 +166,15 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 		if status == 0 {
 			status = http.StatusOK
 		}
-		// Recorded on a background goroutine: the response is already written,
-		// so the insert (up to 5s under DB pressure) must not hold the handler
-		// goroutine or tie up server concurrency. Best-effort by design. The
-		// goroutine is tracked by rec.wg so Wait can drain it on shutdown.
+		// Recorded on a background goroutine: the response is already written, so
+		// the insert (up to 5s under DB pressure) must not hold the handler
+		// goroutine. Best-effort, and tracked by rec.wg so Wait can drain it on
+		// shutdown.
 		entry := Entry{
-			// Stamped here, at request completion, so the trail's order reflects
-			// when actions happened. The insert runs on a background goroutine, so
-			// leaving created_at to the DB default would let two rapid mutations
-			// race and land out of request order.
+			// Stamped at request completion so the trail's order reflects when
+			// actions happened. The insert runs on a background goroutine, so leaving
+			// created_at to the DB default would let two rapid mutations land out of
+			// request order.
 			CreatedAt:  time.Now(),
 			Actor:      actor,
 			ActorRole:  role,
@@ -184,8 +183,8 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			Path:       r.URL.Path,
 			EntityID:   entityID,
 			StatusCode: status,
-			// Trusted-proxy-aware client address (no ephemeral port): behind
-			// the reverse proxy this is the operator's real IP, not the proxy.
+			// Trusted-proxy-aware client address (no ephemeral port): behind a
+			// reverse proxy this is the operator's real IP, not the proxy's.
 			RemoteAddr: clientip.From(r),
 		}
 		//nolint:gosec // G118: record deliberately uses a background context so a
@@ -200,10 +199,9 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 // entityParam finds the entity a route acts on when the route does not name its
 // parameter "id". Routes that reach across resources spell the parameter out
 // (e.g. {provider_id} on the circuit-breaker reset), and without this the audit
-// row would record the action with an empty entity, leaving the trail unable to
-// answer "which provider was reset". Only "*_id"/"*_uuid" keys qualify, so
-// non-entity parameters (a backup {filename}, a wildcard) still record nothing
-// rather than something misleading.
+// row records an empty entity. Only "*_id"/"*_uuid" keys qualify, so non-entity
+// parameters (a backup {filename}, a wildcard) record nothing rather than
+// something misleading.
 //
 // Keys are scanned newest-first, matching chi's own URLParam lookup, so a nested
 // router's inner parameter wins over an outer one of the same shape.
@@ -222,20 +220,18 @@ func entityParam(rctx *chi.Context) string {
 // literal path check cannot be fooled by trailing slashes or query strings:
 //
 //   - machine-to-machine fleet traffic: the liveness ping Front Desk POSTs to
-//     every member every few seconds, and the quota snapshots it relays from
-//     the primary to every other member each minute (196 of the last 200 rows
-//     on every non-primary member of a live fleet). Neither carries an entity
-//     or an operator's choice;
-//   - read-only POSTs, endpoints that answer a question without changing
-//     anything and are POST only because their input is a body. The backup
-//     prune preview classifies the backups on disk and writes nothing; the
-//     dashboard re-read it on every backup change, and recording each read as
-//     an admin action buried the real mutations under bursts of identical
-//     rows seconds apart.
+//     every member every few seconds, and the quota snapshots it relays from the
+//     primary to every other member each minute. Neither carries an entity or an
+//     operator's choice;
+//   - read-only POSTs, endpoints that answer a question without changing anything
+//     and are POST only because their input is a body. The backup prune preview
+//     classifies the backups on disk and writes nothing, and the dashboard
+//     re-reads it on every backup change, which would bury real mutations under
+//     bursts of identical rows.
 //
-// The trail is a record of admin actions: a route belongs here when no
-// operator chose to call it (the heartbeat, which does write its liveness
-// stamps) or when a successful call leaves the system as it found it.
+// The trail is a record of admin actions: a route belongs here when no operator
+// chose to call it (the heartbeat, which does write its liveness stamps) or when
+// a successful call leaves the system as it found it.
 func isAuditExempt(route string) bool {
 	switch route {
 	case "/api/fleet/announce", "/api/config/quota-snapshots", "/api/backups/prune-preview":
@@ -250,8 +246,8 @@ func isAuditExempt(route string) bool {
 // sweep.
 func (rec *Recorder) record(e Entry) {
 	// The middleware stamps CreatedAt at request completion so the trail keeps
-	// request order despite the async insert. Fall back to now for any direct
-	// caller that left it zero, so no row lands with a year-0001 timestamp.
+	// request order despite the async insert. A direct caller that left it zero
+	// falls back to now, so no row lands with a year-0001 timestamp.
 	if e.CreatedAt.IsZero() {
 		e.CreatedAt = time.Now()
 	}
@@ -347,8 +343,8 @@ func (rec *Recorder) List(ctx context.Context, p ListParams) ([]Entry, error) {
 	}
 	query += fmt.Sprintf(" ORDER BY created_at DESC, id DESC LIMIT $%d", idx)
 	args = append(args, p.Limit+1)
-	// Offset-based paging for the page-numbered view. The +1 lookahead above still
-	// gives HasMore for the current page.
+	// Offset-based paging for the page-numbered view. The +1 lookahead above gives
+	// HasMore for the current page.
 	if p.Offset > 0 {
 		query += fmt.Sprintf(" OFFSET $%d", idx+1)
 		args = append(args, p.Offset)
@@ -415,7 +411,7 @@ func (rec *Recorder) Purge(ctx context.Context, cutoff time.Time, all bool) erro
 
 // isAuditedMethod reports whether m is one of the recorded HTTP methods, so
 // filter input cannot smuggle arbitrary values into the query (harmless with
-// binds, but a bogus method can only ever match nothing).
+// binds, but a bogus method matches nothing).
 func isAuditedMethod(m string) bool {
 	switch strings.ToUpper(m) {
 	case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:

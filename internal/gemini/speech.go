@@ -15,16 +15,16 @@ import (
 // Text-to-speech through generateContent.
 //
 // Google's OpenAI-compatibility layer does not serve /v1/audio/speech, so a
-// Gemini TTS model (gemini-2.5-flash-preview-tts and kin) is reached the way
-// LiteLLM reaches it: the OpenAI speech request becomes a generateContent
-// call asking for an AUDIO response with a speechConfig naming the voice, and
-// the audio comes back as an inlineData part of raw 16-bit PCM
-// (audio/L16;codec=pcm;rate=24000, mono). That is the only encoding the
-// model produces, so the OpenAI response_format is honoured for wav (the PCM
-// under a RIFF header) and pcm (the bytes as they are) and refused for the
-// compressed formats, which would need an encoder this gateway does not
-// carry. speed and instructions have no counterpart on the native call and
-// are ignored; Gemini takes delivery style from the text itself.
+// Gemini TTS model (gemini-2.5-flash-preview-tts and kin) is reached through
+// generateContent: the OpenAI speech request becomes a call asking for an
+// AUDIO response with a speechConfig naming the voice, and the audio comes
+// back as an inlineData part of raw 16-bit PCM (audio/L16;codec=pcm;rate=24000,
+// mono). That is the only encoding the model produces, so the OpenAI
+// response_format is honoured for wav (the PCM under a RIFF header) and pcm
+// (the bytes as they are) and refused for the compressed formats, which need
+// an encoder this gateway does not carry. speed and instructions have no
+// counterpart on the native call and are ignored; Gemini takes delivery style
+// from the text itself.
 
 // SpeechFormatWAV and SpeechFormatPCM are the response formats a Gemini TTS
 // model can honour.

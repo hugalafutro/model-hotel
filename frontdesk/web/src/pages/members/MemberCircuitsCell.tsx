@@ -2,11 +2,10 @@ import { useTranslation } from "react-i18next";
 import type { MemberStatus } from "../../api/types";
 import { formatAbsolute } from "../../utils/time";
 
-// The Members table's circuits column: how many circuits this member's
-// breaker holds open or owes a probe, with the ledger itself on hover
-// (provider, model, state, cause, next retry). Which member is dark for which
-// model, without a terminal per member. Read-only; the fleet reset button is
-// the write side.
+// The Members table's circuits column: how many circuits this member's breaker
+// holds open or owes a probe, with the ledger itself on hover (provider, model,
+// state, cause, next retry). Read-only; the fleet reset button is the write
+// side.
 export function MemberCircuitsCell({
 	status,
 	hasToken,

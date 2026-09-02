@@ -11,9 +11,8 @@ import (
 
 // --- Incoming Anthropic Messages request shape ---
 //
-// We decode only the fields the gateway needs to translate. Unknown fields are
-// ignored; provider-specific knobs the proxy already handles (and any params an
-// upstream rejects) are dropped here or stripped by the proxy's 400 auto-retry.
+// Only the fields the gateway needs to translate are decoded. Unknown fields
+// are ignored.
 
 // Request is a decoded Anthropic Messages API request.
 type Request struct {
@@ -108,8 +107,8 @@ type oaiToolCall struct {
 	Type     string          `json:"type"` // "function"
 	Function oaiToolCallFunc `json:"function"`
 	// ExtraContent carries a Gemini 3 thought signature recovered from the
-	// tool_use id (see thoughtSigMarker) in the shape the chat path and the
-	// Gemini translator read it.
+	// tool_use id (see thoughtSigMarker), in the shape the chat path and the
+	// Gemini translator read.
 	ExtraContent *egress.ExtraContent `json:"extra_content,omitempty"`
 }
 
@@ -131,10 +130,10 @@ type oaiToolFunc struct {
 
 // TranslateRequest converts an Anthropic Messages request body into an
 // OpenAI chat-completions request body. It returns the OpenAI JSON, the model
-// string (verbatim, for the proxy's existing provider/hotel routing), and the
-// stream flag. The translation is lossy by design for v1 (thinking blocks and
-// cache_control are dropped on this path; see plan), but preserves text, vision,
-// tool definitions, tool calls, and tool results.
+// string (verbatim, for the proxy's provider/hotel routing), and the stream
+// flag. The translation is lossy: thinking blocks and cache_control are dropped
+// on this path, while text, vision, tool definitions, tool calls and tool
+// results are preserved.
 func TranslateRequest(body []byte) (openaiBody []byte, model string, stream bool, err error) {
 	var req Request
 	if err := json.Unmarshal(body, &req); err != nil {
@@ -200,7 +199,7 @@ func TranslateRequest(body []byte) (openaiBody []byte, model string, stream bool
 // message with tool_calls.
 func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 	// Plain string content: straight passthrough. Only a genuine JSON string
-	// short-circuits here — an array of blocks must fall through to block
+	// short-circuits here; an array of blocks must fall through to block
 	// handling, or non-text blocks (images, tool_use, tool_result) are dropped.
 	if s, ok := egress.AsJSONString(m.Content); ok {
 		return []oaiMessage{{Role: m.Role, Content: s}}, nil
@@ -257,8 +256,8 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 				Content:    content,
 			})
 		case "document", "thinking", "redacted_thinking":
-			// v1: best-effort drop. Documents have no clean OpenAI equivalent;
-			// thinking is preserved only on the native passthrough path.
+			// Dropped: documents have no clean OpenAI equivalent, and thinking
+			// is preserved only on the native passthrough path.
 		}
 	}
 
@@ -357,8 +356,8 @@ func translateToolChoice(raw json.RawMessage) (any, bool) {
 		return "auto", true
 	case "none":
 		// The caller explicitly prohibits tool use; OpenAI's equivalent is the
-		// literal "none". Dropping this would let the upstream default to "auto"
-		// and call a tool against the caller's intent.
+		// literal "none". Omitting it lets the upstream default to "auto" and
+		// call a tool against the caller's intent.
 		return "none", true
 	case "any":
 		return "required", true

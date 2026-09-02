@@ -4,10 +4,9 @@ import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useToast } from "../context/ToastContext";
 
-// quotaRefreshCooldownMs matches the quota panel's refresh cooldown: the
-// refresh forwards to every quota-bearing provider and each call lands in the
-// audit trail, so a second click inside the window is answered with a toast,
-// not a second sweep.
+// quotaRefreshCooldownMs is the click cooldown on a quota refresh: the sweep
+// forwards to every quota-bearing provider and each call lands in the audit
+// trail, so a second click inside the window is answered with a toast.
 export const quotaRefreshCooldownMs = 10_000;
 
 // useQuotaRefresh is the Providers page's "refresh quotas" action: the

@@ -12,18 +12,16 @@ import (
 // Replicate, Groq and xAI), Google API keys (AIza...), AWS access key ids
 // (AKIA...), bare JWTs (the MiniMax API key format), and bearer tokens. The
 // minimum tail lengths keep prose like "sk-abc" out of scope, and the digit
-// rule below spares prose for the ambiguous half. A prefix list
-// necessarily trails the provider roster, so it is never the only layer:
-// MaskCredential runs an exact match of the gateway's own key in front of it,
-// and the proxy gates it behind a status class.
+// rule below spares prose for the ambiguous half. A prefix list necessarily
+// trails the provider roster, so it is never the only layer: MaskCredential
+// runs an exact match of the gateway's own key in front of it, and the proxy
+// gates it behind a status class.
 //
 // It lives here rather than in internal/proxy because the proxy is not the
-// only thing that handles upstream error text. The dashboard's model test and
+// only thing that handles upstream error text: the dashboard's model test and
 // provider discovery decrypt the same credential and write the same bodies to
-// the same tables, and when this rule lived in the proxy alone those paths had
-// only a UUID scrub, so an upstream quoting the key back ("Incorrect API key
-// provided: sk-...") put it in request_logs and app_logs in cleartext.
-// The two halves are split by whether a match needs the digit veto below.
+// the same tables. The two halves are split by whether a match needs the digit
+// veto below.
 //
 // ambiguousKeyShape carries prefixes that also start ordinary identifiers and
 // prose, so a match with no digit in it is kept: "sk_business_unit_identifier"
@@ -37,11 +35,10 @@ var ambiguousKeyShape = regexp.MustCompile(`\b(?:sk|gsk|xai|hf|fw|r8)[-_][A-Za-z
 // characters, and about one in thirty-six of them contains no digit at all.
 //
 // The JWT signature is optional so that header.payload alone still matches.
-// Every other pattern here matches its own truncated prefix, but a JWT needed
-// BOTH dots, so one cut short — by a truncating caller, or by the scan window
-// in SanitizeLogBody — matched nothing and left its head in the output. The
-// header and payload are the parts that carry claims; requiring the signature
-// to redact them had it backwards.
+// Every other pattern here matches its own truncated prefix; requiring BOTH
+// dots would leave the head of a JWT cut short (by a truncating caller, or by
+// the scan window in SanitizeLogBody) in the output, and the header and
+// payload are the parts that carry claims.
 var unambiguousKeyShape = regexp.MustCompile(`\bAIza[0-9A-Za-z_-]{30,}|\bAKIA[A-Z0-9]{16}\b|\beyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}(?:\.[A-Za-z0-9_-]{5,})?`)
 
 // CredentialMinLen is the shortest provider key the exact-value mask will
@@ -63,13 +60,13 @@ const CredentialMinLen = 8
 // Keeping this off model ids matters, because the proxy classifies a
 // retirement by finding the requested model's own id beside a phrase in a
 // sanitized body, and a scrub that ate an id could change routing. Two things
-// hold that line: no model id in the bundled catalogs matches (a test pins
-// it), and a replacement cannot CREATE a verdict either, since the brackets in
+// hold that line: no model id in the bundled catalogs matches, and a
+// replacement cannot CREATE a verdict either, since the brackets in
 // "[redacted]" break the phrase-binding gap the classifier requires.
 func MaskKeyShapedTokens(body []byte) []byte {
 	// The ambiguous pass runs FIRST because its alternatives are the outer
-	// ones. "Bearer <jwt>" is matched whole by the bearer alternative, but if
-	// the JWT is consumed first the bearer alternative no longer has sixteen
+	// ones. "Bearer <jwt>" is matched whole by the bearer alternative; with
+	// the JWT consumed first, that alternative no longer has sixteen
 	// characters left to match and up to fifteen characters of the token's
 	// head survive.
 	body = ambiguousKeyShape.ReplaceAllFunc(body, func(m []byte) []byte {
@@ -91,10 +88,8 @@ func MaskKeyShapedTokens(body []byte) []byte {
 // encoder turning "&" into "\u0026" defeats it; real keys rarely carry such
 // bytes), which is what the shape layer behind it is for.
 //
-// This is the same two-layer rule internal/proxy applies to the bodies it logs
-// and forwards. Callers outside that package hold a decrypted key only while
-// they are talking to an upstream, and this is the function to run over
-// anything that upstream says back.
+// Callers hold a decrypted key only while they are talking to an upstream, and
+// this is the function to run over anything that upstream says back.
 func MaskCredential(secret, body string) string {
 	return MaskCredentials([]string{secret}, body)
 }
@@ -106,8 +101,8 @@ func MaskCredential(secret, body string) string {
 // the request they are about to send, and so mask with everything that request
 // carries (each bearer, each query value) rather than with one named key.
 // Entries shorter than CredentialMinLen are skipped for the reason given there.
-// Every exact pass also masks the held set (held_secrets.go): the secrets the
-// caller names are the ones it knows about, and a relay can quote any other.
+// Every exact pass also masks the held set (held_secrets.go): the caller names
+// only the secrets it knows about, and a relay can quote any other.
 func MaskCredentials(secrets []string, body string) string {
 	return string(MaskKeyShapedTokens([]byte(maskExact(secrets, body))))
 }
@@ -165,7 +160,7 @@ func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
 // MaskCredentialBounded is MaskCredentialsBounded for a caller that holds one
 // key. It is the form every vendor path that logs or returns an upstream body
 // uses; MaskCredential over an already-sanitized body is the inverted order
-// and must not be written.
+// and unsafe.
 func MaskCredentialBounded(secret, body string, maxLen int) string {
 	return MaskCredentialsBounded([]string{secret}, body, maxLen)
 }

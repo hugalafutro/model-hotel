@@ -75,8 +75,7 @@ const maxDiscoveryRetries = 3
 // credentialHeaders are the request headers a discovery family folds its key
 // into. secretsOf reads the key back off these, so the shared helpers can
 // scrub what an upstream says back without ever being handed the key as a
-// value. A family that authenticates through another header must add it here
-// AND to TestRequestSecrets_CoversEveryCredentialHeader.
+// value. A family that authenticates through another header must add it here.
 var credentialHeaders = []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key"}
 
 // credentialQueryParams are the query parameter names a key may travel in
@@ -94,9 +93,7 @@ var credentialQueryParams = map[string]bool{
 // receive the key as a value: the caller has already folded it into a header
 // or the query string. Reading it back is what lets the shared path cover
 // every family, including the custom and self-hosted gateways whose key
-// format no prefix regex anticipates; the vendor paths that each fixed this
-// for themselves had left this shared one uncovered (Strix vuln-0005,
-// 2026-09-01, the fourth site of the #836 class).
+// format no prefix regex anticipates.
 //
 // A header value is listed raw and, for a bearer, stripped, since an upstream
 // may quote either. A query value is listed decoded, percent-escaped, and as
@@ -137,9 +134,8 @@ func querySecrets(rawQuery string) []string {
 		// wrap in the middle, a DEL) is what makes a URL unparseable in the
 		// first place, and url.Error renders the URL with %q, so that byte
 		// shows escaped and the exact match on the raw value misses the
-		// visible text. The %q rendering IS the visible text: list it. It
-		// covers any control byte anywhere in the value, which trimming the
-		// ends did not.
+		// visible text. The %q rendering IS the visible text, so it is listed
+		// too, for a control byte anywhere in the value.
 		for _, v := range []string{seg, raw} {
 			if q := strconv.Quote(v); q[1:len(q)-1] != v {
 				secrets = append(secrets, q[1:len(q)-1])
@@ -321,10 +317,10 @@ var hostTypeRules = []struct {
 	{"neuralwatt", []string{"api.neuralwatt.com", "neuralwatt.com"}, []string{".neuralwatt.com"}},
 	// Azure AI Foundry ({res}.services.ai.azure.com) and classic Azure OpenAI
 	// ({res}.openai.azure.com) resources. Both expose the same OpenAI v1
-	// surface under /openai/v1 (Bearer auth, live-verified 2026-07-18).
+	// surface under /openai/v1, with Bearer auth.
 	{"azure", nil, []string{".services.ai.azure.com", ".openai.azure.com"}},
 	// Kimi Code subscription endpoint (api.kimi.com/coding). Subscription
-	// sk-kimi- keys ONLY work here — the pay-per-token platform
+	// sk-kimi- keys ONLY work here: the pay-per-token platform
 	// (api.moonshot.ai) is a separate key namespace and stays generic openai.
 	{"kimi-code", []string{"api.kimi.com", "kimi.com"}, []string{".kimi.com"}},
 	// MiniMax intl platform (api.minimax.io). Token Plan subscription sk-cp-
@@ -350,8 +346,8 @@ func detectByHost(host, path string) string {
 	// (bedrock-mantle.{region}.api.aws). Prefix+suffix must both match so
 	// bedrock-named hosts on unrelated domains stay generic. The classic
 	// bedrock-runtime endpoint is deliberately not detected: it serves chat
-	// only under /openai/v1 and has no /models listing at all (live-verified
-	// 2026-07-18), so discovery can never succeed against it.
+	// only under /openai/v1 and has no /models listing at all, so discovery
+	// can never succeed against it.
 	if strings.HasPrefix(host, "bedrock-mantle.") && strings.HasSuffix(host, ".api.aws") {
 		return "bedrock"
 	}
@@ -398,11 +394,10 @@ func TypeFromHostname(baseURL string) string {
 }
 
 // LegacyTypeFromURL derives a provider type from a base URL, including the
-// default-port rules for self-hosted servers. It exists only to give rows that
-// predate the stored provider_type column a type: the startup backfill and
-// TypeOf's fallback are its only callers, and those rows were created while
-// the port rules were in force. Provider type is chosen by the operator when
-// the provider is added, never guessed at request time.
+// default-port rules for self-hosted servers. It serves rows with no stored
+// provider_type: the startup backfill and TypeOf's fallback are its only
+// callers. Provider type is chosen by the operator when the provider is
+// added, never guessed at request time.
 func LegacyTypeFromURL(baseURL string) string {
 	u, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || u.Host == "" {
@@ -424,8 +419,7 @@ func LegacyTypeFromURL(baseURL string) string {
 
 // TypeOf returns the provider's stored type. Rows that have not been backfilled
 // yet (a restored dump, an import that landed after startup) fall back to the
-// legacy URL derivation so they keep behaving as they did before the column
-// existed.
+// legacy URL derivation.
 func TypeOf(p *Provider) string {
 	if p == nil {
 		return "openai"
@@ -481,9 +475,8 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		case "ollama":
 			return d.discoverOllama(ctx, provider, apiKey)
 		case "ollama-cloud":
-			// Ollama Cloud (ollama.com) reuses the same /api/tags + /api/show
-			// discovery endpoints as local Ollama. If the cloud API diverges
-			// in the future, this will need a dedicated discoverer.
+			// Ollama Cloud (ollama.com) serves the same /api/tags + /api/show
+			// discovery endpoints as local Ollama.
 			return d.discoverOllama(ctx, provider, apiKey)
 		case "opencode-zen":
 			return d.discoverOpenCodeZen(ctx, provider, apiKey)
@@ -688,7 +681,7 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 			debuglog.Info("discovery: retryable HTTP status for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "status", resp.StatusCode, "attempt", attempt+1)
 			continue
 		}
-		// Success or non-retryable status — return as-is.
+		// Success or non-retryable status: return as-is.
 		if recovered := circuit.recordSuccess(); recovered {
 			debuglog.Info("discovery: quota circuit breaker recovered", "type", providerType, "provider", providerName, "provider_id", providerID)
 		}

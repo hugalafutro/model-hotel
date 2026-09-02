@@ -16,9 +16,8 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// CacheHits is an alias for the shared CacheHits type defined in util.
-// The API uses this alias for clarity in LogEntry — the underlying type
-// is the same one the proxy produces.
+// CacheHits aliases the shared CacheHits type in util, the same type the proxy
+// produces.
 type CacheHits = util.CacheHits
 
 // LogEntry represents a single request log entry.
@@ -52,18 +51,17 @@ type LogEntry struct {
 	VirtualKeyName            string     `json:"virtual_key_name"`
 	VirtualKeyDeleted         bool       `json:"virtual_key_deleted"`
 	VirtualKeyID              string     `json:"virtual_key_id"`
-	ClientIP                  string     `json:"client_ip"` // "" for rows predating migration 073 or address-less ingest paths
+	ClientIP                  string     `json:"client_ip"` // "" for legacy rows and address-less ingest paths
 	ErrorMessage              string     `json:"error_message"`
-	ErrorKind                 string     `json:"error_kind"` // "" when unclassified (legacy rows); frontend falls back to substring matching
+	ErrorKind                 string     `json:"error_kind"` // "" when unclassified; the frontend falls back to substring matching
 	FailoverAttempt           int        `json:"failover_attempt"`
 	State                     string     `json:"state"`
 	CreatedAt                 time.Time  `json:"created_at"`
 	ResolvedModelID           string     `json:"resolved_model_id"`
 	EndpointType              string     `json:"endpoint_type"`
-	// Attempts is the per-attempt trail (request_logs.attempts, migration
-	// 078): one element per failover attempt, hedged probes and skips
-	// included, forwarded verbatim. Omitted for rows without one (legacy rows,
-	// rows an older member wrote, requests that never reached a candidate).
+	// Attempts is the per-attempt trail (request_logs.attempts): one element per
+	// failover attempt, hedged probes and skips included, forwarded verbatim.
+	// Omitted for rows without one.
 	Attempts json.RawMessage `json:"attempts,omitempty"`
 }
 
@@ -99,9 +97,9 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 5*time.Second)
 	defer cancel()
 
-	// Non-admins can only fetch their own rows; a non-owned id scans zero rows
-	// and answers 404 below, so ownership is not an existence oracle. Same
-	// two-shape disjunction as appendLogFilters — see the comment there.
+	// Non-admins can only fetch their own rows; a non-owned id scans zero rows and
+	// answers 404, so ownership is not an existence oracle. Same two-shape
+	// disjunction as appendLogFilters.
 	ownerPredicate := ""
 	ownerArgs := []any{id}
 	if scope := ownerScopeFromIdentity(r); scope != "" {
@@ -180,11 +178,10 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 }
 
 // ownerScopeFromIdentity returns the forced virtual-key-owner scope for the
-// caller: non-admin identities only ever see traffic from keys they own, so
-// their own user id is returned. Admins are unscoped (""). A non-admin
-// without a users row cannot normally exist (resolveIdentity rejects it), but
-// if one ever appears it scopes to uuid.Nil, which owns no keys - fail closed,
-// not open.
+// caller: non-admin identities only see traffic from keys they own, so their own
+// user id is returned. Admins are unscoped (""). A non-admin without a users row
+// (which resolveIdentity rejects) scopes to uuid.Nil, which owns no keys, so it
+// fails closed.
 func ownerScopeFromIdentity(r *http.Request) string {
 	id := user.IdentityFrom(r.Context())
 	if id == nil || id.IsAdmin() {
@@ -223,16 +220,16 @@ type LogsCursorResponse struct {
 //
 // Query parameters:
 //   - cursor: encoded cursor from a previous response (base64 JSON of {created_at, id})
-//   - direction: "after" (default) or "before" — which way to scroll from cursor
+//   - direction: "after" (default) or "before", which way to scroll from cursor
 //   - limit: page size (default 20, max 200)
 //   - model_id, provider_id, virtual_key_id, client_ip, status_code, from, to: same
 //     filters as ListLogs
 //   - sort_by: only "time" is supported for cursor pagination (default "time")
 //   - sort_dir: "desc" (default, newest first) or "asc"
 //
-// The first request omits cursor to get the newest entries.
-// Subsequent requests pass the cursor from the response boundary and
-// direction to scroll older ("before") or newer ("after").
+// The first request omits cursor to get the newest entries. Subsequent requests
+// pass the cursor from the response boundary and a direction to scroll older
+// ("before") or newer ("after").
 func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	p, ok := parseLogListParams(w, r)
 	if !ok {
@@ -252,9 +249,9 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	}
 	defer rows.Close()
 
-	// limit is clamped to [1, 200] above; prealloc with the hard upper bound
-	// to satisfy CodeQL's uncontrolled-allocation-size check (user input must
-	// not flow into make() capacity even after clamping).
+	// limit is clamped to [1, 200]; the prealloc uses the hard upper bound to
+	// satisfy CodeQL's uncontrolled-allocation-size check, which forbids user input
+	// flowing into make() capacity even after clamping.
 	entries := make([]LogEntry, 0, 201) // limit+1 for has_more detection
 	for rows.Next() {
 		entry, err := scanLogEntry(rows)
@@ -286,10 +283,10 @@ type PurgeLogsRequest struct {
 // values, reused in the 400 message by every purge endpoint.
 const purgeOlderThanTokens = "1h, 1d, 1w, 1m, all"
 
-// olderThanCutoff maps a purge range token to a cutoff time. all=true signals
-// "delete everything" (cutoff is unused in that case); ok=false means the token
-// was not recognized. Shared by the request-log and app-log purge endpoints so
-// they accept exactly the same vocabulary.
+// olderThanCutoff maps a purge range token to a cutoff time. all=true means
+// "delete everything" (cutoff is unused then); ok=false means the token was not
+// recognized. Shared by the request-log and app-log purge endpoints so they
+// accept the same vocabulary.
 func olderThanCutoff(olderThan string) (cutoff time.Time, all, ok bool) {
 	switch olderThan {
 	case "1h":
@@ -347,9 +344,9 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	page := max(util.GetIntQueryParam(r, "page", 1), 1)
 	perPage := min(max(util.GetIntQueryParam(r, "per_page", 20), 1), 200)
 	ownerUserID := logOwnerScope(r)
-	// The response cache is shared across callers, so the key must carry the
-	// owner scope: a non-admin page and the admin's unscoped page for the same
-	// RawQuery are different result sets.
+	// The response cache is shared across callers, so the key carries the owner
+	// scope: a non-admin page and the admin's unscoped page for the same RawQuery
+	// are different result sets.
 	cacheKey := ownerUserID + "|" + r.URL.RawQuery
 	modelID := r.URL.Query().Get("model_id")
 	providerID := r.URL.Query().Get("provider_id")

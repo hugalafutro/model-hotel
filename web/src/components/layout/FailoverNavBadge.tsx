@@ -10,20 +10,17 @@ function count(n: number | undefined): number {
 }
 
 /**
- * The two provider counts beside the Failover item, with a tooltip that always
- * explains what they mean (they track providers, not groups, a common mix-up)
- * and names the unhealthy providers, split by what the breaker is actually
- * doing with each: skipping it entirely, waiting on its quota reset, or keeping
- * it in rotation with only some models blocked.
+ * The two provider counts beside the Failover item, with a tooltip that says
+ * what they mean (they track providers, not groups) and names the unhealthy
+ * providers split by what the breaker does with each: skipping it entirely,
+ * waiting on its quota reset, or keeping it in rotation with only some models
+ * blocked.
  *
- * The red number is the providers the breaker is skipping, which is the derived
- * verdict and not the endpoint's `open` tally. That tally counts providers whose
- * most degraded model circuit is open, and since circuits are keyed per model
- * that includes providers still serving every other model: at the default span
- * of 2 the first model to go dark leaves the provider in rotation. Those
- * providers stay visible in the amber count, which is therefore "unhealthy but
- * still routing" rather than only "recovering". The two derived numbers add up
- * to the endpoint's half_open + open, so nothing is dropped, only reclassified.
+ * The red number is the derived provider_open verdict, not the endpoint's
+ * `open` tally: that tally counts providers whose most degraded model circuit
+ * is open, which includes providers still serving every other model. Those sit
+ * in the amber count, which is therefore "unhealthy but still routing" rather
+ * than only "recovering". The two numbers add up to half_open + open.
  */
 export function FailoverNavBadge({
 	cbStatus,
@@ -36,10 +33,9 @@ export function FailoverNavBadge({
 	const unhealthy = cbStatus.providers?.filter(
 		(p) => p.state === "open" || p.state === "half-open",
 	);
-	// Without the detail rows there is no verdict to read, only the endpoint's
-	// own tally. Reporting it unchanged is the truthful fallback: it is the whole
-	// of what that response says. The nav badge always asks for detail, so this
-	// is the shape of the plain list endpoint rather than a state it reaches.
+	// Without the detail rows there is no verdict to read, so the endpoint's own
+	// tally is reported unchanged. The nav badge always asks for detail, so this
+	// is the shape of the plain list endpoint.
 	const skippedCount = unhealthy
 		? unhealthy.filter((p) => p.provider_open).length
 		: count(cbStatus.open);
@@ -55,30 +51,27 @@ export function FailoverNavBadge({
 	let title = explain;
 	if (unhealthy && unhealthy.length > 0) {
 		// Quota-pinned circuits wait until the provider's quota window resets,
-		// which can be days. Listing them beside ordinary sixty-second cooldowns
-		// reads as "back shortly", so they get their own line.
+		// which can be days, so they get their own line rather than reading as
+		// "back shortly" beside ordinary sixty-second cooldowns.
 		//
 		// The state check is load-bearing: quota_pinned stays set for the whole
 		// life of the circuit, and a pinned circuit whose deadline has passed is
 		// reported as half-open (ready to probe) with no next_retry_at. Bucketing
 		// on the flag alone would keep claiming a provider is waiting on a quota
-		// window that has already reset. This mirrors the per-entry rule, where
-		// cooldown-over wins over the quota tooltip.
+		// window that has already reset.
 		const stillPinned = (p: (typeof unhealthy)[number]) =>
 			Boolean(p.quota_pinned) && p.state === "open";
-		// Circuits are keyed per model, so a provider with an open circuit is not
-		// necessarily a provider that is down: at the default span of 2 the first
-		// model to go dark leaves every other model of that provider serving. Only
-		// the derived verdict says the breaker is skipping the provider outright,
-		// and the two buckets get separate lines so a partial outage is never read
-		// as a dead provider. Each name carries the models it is blocking, since
-		// that is what tells an operator which of the two this is.
-		// A quota-pinned provider the breaker is skipping outright lists no
-		// models: its quota window is spent for every model it serves, so naming
-		// each disabled model only makes the tooltip long without saying
-		// anything the provider's name does not. Pins land per circuit, though,
-		// so a pinned provider still routing the rest of its models is a partial
-		// outage and keeps naming the models that are dark.
+		// Names one bucket's providers, each with the models it is blocking.
+		// Circuits are keyed per model, so an open circuit is not necessarily a
+		// dead provider: at the default span of 2 the first model to go dark
+		// leaves every other model of that provider serving. Only the derived
+		// verdict says the breaker skips the provider outright, so the buckets get
+		// separate lines and a partial outage is never read as a dead provider.
+		//
+		// A quota-pinned provider the breaker skips outright lists no models: its
+		// quota window is spent for every model it serves. Pins land per circuit,
+		// so a pinned provider still routing the rest is a partial outage and
+		// keeps naming the models that are dark.
 		const names = (
 			list: typeof unhealthy,
 			withModels: (p: CircuitBreakerProviderStatus) => boolean = () => true,

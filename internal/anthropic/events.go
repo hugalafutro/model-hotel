@@ -1,16 +1,10 @@
 // Package anthropic translates between the Anthropic Messages API wire format
 // and the OpenAI chat-completions format the proxy pipeline speaks internally.
 //
-// Design note (2026-06-30): the plan's locked decision #5 said to emit the SSE
-// stream using anthropics/anthropic-sdk-go's struct definitions directly. In
-// SDK v1.53 those response/event types are decode-oriented: they carry no
-// `omitempty`, so marshaling them emits a wall of zero-value junk (a phantom
-// `stop_details.type:"refusal"` on every message_start, a full citation/document
-// union on every text content_block_start, etc.) that no Anthropic client should
-// be handed. We therefore emit via the small, omitempty-clean structs below and
-// VALIDATE that output by decoding it back through the real SDK's ssestream
-// decoder in the golden tests. The SDK still certifies our wire format; we just
-// don't let its decode structs author it.
+// The SSE events are emitted from the small omitempty structs below, not from
+// anthropic-sdk-go's response types: those are decode-oriented and marshal
+// zero-value members (a phantom stop_details, empty citation unions) that
+// Anthropic clients must not receive.
 package anthropic
 
 import "encoding/json"

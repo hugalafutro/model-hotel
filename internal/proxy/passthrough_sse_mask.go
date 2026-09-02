@@ -36,11 +36,11 @@ func (t *tailBuffer) Bytes() []byte {
 	return t.buf
 }
 
-// sseErrorMaskEventCap bounds how much of one SSE event the masking writer
-// holds back before giving up on it and passing the rest of that event
-// through raw. It matches the per-line cap of the chat stream reader; a sane
-// error frame is orders of magnitude smaller, and a partial-image event that
-// long is not something the mask should ever touch.
+// sseErrorMaskEventCap bounds how much of one SSE event the masking writer holds
+// back before giving up and passing the rest of that event through raw. It
+// matches the per-line cap of the chat stream reader: a sane error frame is
+// orders of magnitude smaller, and a partial-image event that long is not
+// something the mask should touch.
 const sseErrorMaskEventCap = 4 << 20
 
 // sseErrorMaskWriter is an io.Writer that forwards a pass-through SSE stream
@@ -51,14 +51,14 @@ const sseErrorMaskEventCap = 4 << 20
 // key-shape regex on error frames.
 //
 // It works per event rather than per line because SSE lets one payload span
-// several `data:` lines (joined with "\n"); judging each line alone would let
-// an error object split across two lines through unmasked. An event is held
+// several `data:` lines (joined with "\n"), and judging each line alone would
+// let an error object split across two lines through unmasked. An event is held
 // until its blank-line delimiter, then either forwarded byte-identical (the
-// common case: content events, multi-MB base64 partial images that must never
-// meet the mask's prefix regex) or, when the joined payload is a JSON object
-// carrying an "error" member and masking changes it, re-emitted with its
-// non-data lines intact and canonical "data: " lines. An event that
-// grows past sseErrorMaskEventCap is passed through raw from that point.
+// common case: content events, and multi-MB base64 partial images that must
+// never meet the mask's prefix regex) or, when the joined payload is a JSON
+// object carrying an "error" member and masking changes it, re-emitted with its
+// non-data lines intact and canonical "data: " lines. An event that grows past
+// sseErrorMaskEventCap is passed through raw from that point.
 //
 // Write returns len(p) on success. On a downstream error it returns only the
 // input bytes whose event was fully written, so the caller's byte count is a
@@ -162,11 +162,11 @@ func (m *sseErrorMaskWriter) Flush() error {
 }
 
 // spill abandons masking for the event in progress: everything buffered goes
-// downstream raw and the remainder of the event is passed through as it
-// arrives. Only reached when an event outgrows sseErrorMaskEventCap. Raw
-// mode keeps the candidate's key out (rawOut) and nothing else: an error
-// event past 4 MiB is not a shape any provider sends, so that is a
-// documented limit rather than a path worth a held-set pass per chunk.
+// downstream raw and the remainder of the event passes through as it arrives.
+// Only reached when an event outgrows sseErrorMaskEventCap. Raw mode keeps the
+// candidate's key out (rawOut) and nothing else: an error event past 4 MiB is
+// not a shape any provider sends, so that is a documented limit rather than a
+// path worth a held-set pass per chunk.
 func (m *sseErrorMaskWriter) spill() error {
 	var out []byte
 	for _, l := range m.event {
@@ -193,8 +193,8 @@ func (m *sseErrorMaskWriter) emitEvent(delimiter []byte) error {
 			out = append(out, l...)
 		}
 		// An event whose data is not a JSON object is not content this
-		// gateway forwards (content frames are JSON); a bare "error: bad api
-		// key ..." line is error text, so every held provider key is masked
+		// gateway forwards, since content frames are JSON; a bare "error: bad
+		// api key ..." line is error text, so every held provider key is masked
 		// out of it. Exact keys only: no regex over prose here.
 		if payload := sseDataPayload(lines); len(payload) > 0 && payload[0] != '{' && !bytes.Equal(payload, []byte("[DONE]")) {
 			out = m.cred.maskAll(out)
@@ -222,10 +222,10 @@ func isSSEBlankLine(line []byte) bool {
 
 // maskSSEErrorEvent joins the event's `data:` payloads per the SSE spec and,
 // when the result is a JSON object with a non-null "error" member that
-// cred.mask changes, returns the event re-serialised: non-data lines
-// in their original order and framing, then canonical "data: " lines carrying
-// the masked payload, one per physical line of the original. ok is false when the event is to be forwarded
-// verbatim.
+// cred.mask changes, returns the event re-serialised: non-data lines in their
+// original order and framing, then canonical "data: " lines carrying the masked
+// payload, one per physical line of the original. ok is false when the event is
+// to be forwarded verbatim.
 func maskSSEErrorEvent(lines [][]byte, cred credentialMasker) (out []byte, ok bool) {
 	payload, eol, dataLines := sseDataPayloadEOL(lines)
 	if dataLines == 0 || len(payload) == 0 || payload[0] != '{' || !bytes.Contains(payload, []byte(`"error"`)) {

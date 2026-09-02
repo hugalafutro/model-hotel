@@ -40,12 +40,12 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		build, err := p.fetchMemberBuild(ctx, m.URL, token)
 		if err != nil {
 			p.noteVersionFetchFailure(ctx, m, err)
-			// A build we can no longer read is unknown, and the config-sync
+			// A build that can no longer be read is unknown, and the config-sync
 			// gates treat unknown as skewed (fail closed). Keeping the last good
 			// value would let a sync proceed on stale data while the member is
-			// mid-upgrade, which is exactly the window the gate exists for. The
-			// commit is cleared with the version: a commit kept beside a blank
-			// version would outlive the read that vouched for it.
+			// mid-upgrade, the window the gate exists for. The commit is cleared
+			// with the version: kept beside a blank version it would outlive the
+			// read that vouched for it.
 			if p.clearBuild(m.ID) {
 				p.publishMemberStatus(m.ID)
 			}
@@ -163,15 +163,14 @@ func (p *Poller) fetchMemberBuild(ctx context.Context, baseURL, token string) (m
 }
 
 // The three Traefik staleness checks below subtract raw, without the
-// util.TrustedAge guard the settings- and database-backed staleness checks use,
-// and that is deliberate. Both operands are time.Time values taken by
-// time.Now() in THIS process (p.now is time.Now; lastConfigPollAt is assigned in
-// RecordConfigPoll; Server.startedAt in NewServer), so each carries a monotonic
-// reading and Sub uses the monotonic clock. No wall-clock step can make those
-// differences negative, which is the failure the guard exists for. Anything
-// that crosses a boundary - parsed from RFC3339, read back from a row, or
-// passed through .UTC()/.Round()/.Truncate() - loses the reading and does need
-// the guard. util.TrustedAge's doc comment carries the full rule.
+// util.TrustedAge guard the settings- and database-backed staleness checks use.
+// Both operands are time.Time values taken by time.Now() in THIS process (p.now
+// is time.Now; lastConfigPollAt is assigned in RecordConfigPoll;
+// Server.startedAt in NewServer), so each carries a monotonic reading and Sub
+// uses the monotonic clock: no wall-clock step can make those differences
+// negative, which is the failure the guard exists for. A time that crosses a
+// boundary, parsed from RFC3339, read back from a row, or passed through
+// .UTC()/.Round()/.Truncate(), loses the reading and does need the guard.
 
 // checkConfigStaleness emits a single warning when Traefik has not polled the
 // dynamic config within the configured threshold. It resets on the next poll
@@ -216,11 +215,11 @@ func (p *Poller) ConfigPollStale(ctx context.Context) bool {
 }
 
 // ConfigPollWarm reports whether the Traefik staleness input has produced a
-// real observation this process: either Traefik has fetched the config at
-// least once, or a full staleness window has elapsed since `since` (process
-// start) without a fetch — at which point the silence is itself the
-// steady-state observation ConfigPollStale will keep reporting. Used by
-// fleetInputsWarm to keep a cold start from reading as a recovery.
+// real observation this process: either Traefik has fetched the config at least
+// once, or a full staleness window has elapsed since `since` (process start)
+// without a fetch, at which point the silence is itself the steady-state
+// observation ConfigPollStale keeps reporting. Used by fleetInputsWarm to keep
+// a cold start from reading as a recovery.
 func (p *Poller) ConfigPollWarm(ctx context.Context, since time.Time) bool {
 	p.mu.RLock()
 	armed := !p.lastConfigPollAt.IsZero()
@@ -229,13 +228,12 @@ func (p *Poller) ConfigPollWarm(ctx context.Context, since time.Time) bool {
 }
 
 // checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
-// has not been synced within autoSyncStaleThreshold (see autoSyncStale for the
+// has not been synced within autoSyncStaleThreshold (autoSyncStale holds the
 // exact rule). Like checkConfigStaleness it de-dups on an in-memory flag so it
 // fires once per stale episode, not every tick; the flag disarms silently when
 // the condition clears (auto-sync re-enabled, or a fresh sync recorded), so a
-// later stale episode alerts again. On a restart the flag resets, so a fleet that
-// is already stale re-alerts once — the same best-effort trade-off as the health
-// and Traefik-staleness checks.
+// later stale episode alerts again. A restart resets the flag, so an
+// already-stale fleet re-alerts once, as with the other staleness checks.
 func (p *Poller) checkAutoSyncStale(ctx context.Context) {
 	cfg, err := p.store.GetAutoSync(ctx)
 	if err != nil {

@@ -16,26 +16,23 @@ import (
 )
 
 // This file is the non-streaming half of the proxy: reading an upstream answer
-// once, deciding whether it is a completion, and serving or failing it. Moved
-// here verbatim from proxy.go, which the 2xx-metering change pushed past the
-// 800-line ceiling. The same commit then changed what moved, so read the diff
-// rather than trusting the move to be inert.
+// once, deciding whether it is a completion, and serving or failing it.
 
 // nonStreamingFailureDetail decides what a response that is not a 2xx
 // completion may say about itself: the message stored in the request log
 // (dashboard-visible), the detail handed to the classifier and the debug log,
 // the error kind and the client-facing reason.
 //
-// It takes every response that is not a 2xx completion — any non-2xx whatever
-// its body decodes as, plus a 2xx that is not a chat completion — and the two
-// are NOT treated the same way. Do not merge them back together:
+// It takes every response that is not a 2xx completion (any non-2xx whatever its
+// body decodes as, plus a 2xx that is not a chat completion) and the two are NOT
+// treated the same way. Do not merge them:
 //
 //   - A 2xx body is a completion. It failed to decode (a relay answering 200
 //     with "created":"1699…" or "total_tokens":"12" as a string is the usual
 //     cause) but it still holds the model's generated text, and this gateway
-//     logs no prompt or response content, ever. Only non-content diagnostics
-//     are reported: the decode error, the body length, the content type. The
-//     body itself goes nowhere near the request log or the debug log.
+//     logs no prompt or response content. Only non-content diagnostics are
+//     reported: the decode error, the body length, the content type. The body
+//     itself goes nowhere near the request log or the debug log.
 //
 //   - A non-2xx carries no completion. Its body is the provider's error
 //     document, and that text is the whole reason such a row is worth reading,
@@ -45,34 +42,32 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 		if readErr != nil {
 			// A read the provider did not break is not the provider failing. The
 			// body is read under the attempt's context, so a caller hanging up
-			// AND this gateway's own request_timeout both arrive here as read
-			// errors — and reporting either as a provider fault put someone
-			// else's cancellation on the provider's row and, once the breaker
-			// started reading these, its circuit. cancelKind is the package's own
-			// classifier; hand-rolling a narrower one here is what dropped the
-			// deadline case.
+			// and this gateway's own request_timeout both arrive here as read
+			// errors, and reporting either as a provider fault puts someone
+			// else's cancellation on the provider's row and on its circuit.
+			// cancelKind is the package's classifier for that.
 			if kind, aborted := cancelKind(ctx, readErr); aborted {
 				detail = "the request was interrupted before the response was read"
 				return detail, detail, kind, "the request was interrupted"
 			}
 			// A body that died on the wire is not a body this gateway could not
-			// parse, and the two were collapsed into one kind. The parse failure
-			// is provider_bad_request because the answer is probably still in
-			// there; a transport failure is the provider breaking after it
-			// committed the status, which is what the breaker exists to catch —
-			// and classifying it as the parse failure left it uncharged.
+			// parse. The parse failure is provider_bad_request because the answer
+			// is probably still in there; a transport failure is the provider
+			// breaking after it committed the status, which is what the breaker
+			// exists to catch.
 			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", errString(readErr), len(body))
 			return detail, detail, KindProviderError, "the provider stopped sending its response"
 		}
 		detail = fmt.Sprintf("response decode error: %s (body_bytes=%d, content_type=%q)",
 			errString(decodeErr), len(body), resp.Header.Get("Content-Type"))
 		// Not "upstream provider returned HTTP 200": reporting the status as the
-		// failure sent operators hunting a provider outage that never happened.
+		// failure sends operators hunting a provider outage that is not
+		// happening.
 		return detail, detail, KindProviderBadRequest, "the provider returned a response the gateway could not decode"
 	}
 	detail = util.SanitizeLogBody(string(body), 10000)
 	// The prefix names which of the two ways in led here, so the row does not
-	// report a decode failure for a body that decoded perfectly well.
+	// report a decode failure for a body that decoded.
 	logMsg = fmt.Sprintf("upstream HTTP %d: %s", resp.StatusCode, detail)
 	if decodeErr != nil {
 		logMsg = fmt.Sprintf("response decode error: %s", detail)
@@ -85,13 +80,13 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 // nonStreamingBodyCap bounds the non-streaming completion body held in memory
 // for decoding. Unlike the caps on error bodies (failoverErrorClassifyCap,
 // responsesLearnBodyCap, miniMaxEnvelopeCap) this one guards a legitimate
-// payload, so it is set far above any real answer rather than just above any
-// real error message: 128k output tokens of text is well under 1MB, and the
-// outliers are chat completions carrying base64 image parts, several of which
-// still fit. It is 4x the multimodal pass-through's passthroughJSONBufferCap,
-// which can degrade to an unbuffered stream when a body is too large — this
-// path cannot, since it must decode to meter and normalise, so exceeding the
-// cap fails the request and it is set with that much more headroom.
+// payload, so it sits far above any real answer rather than just above any real
+// error message: 128k output tokens of text is well under 1MB, and the outliers
+// are chat completions carrying base64 image parts, several of which still fit.
+// It is 4x the multimodal pass-through's passthroughJSONBufferCap, which can
+// degrade to an unbuffered stream when a body is too large; this path cannot,
+// since it must decode to meter and normalise, so exceeding the cap fails the
+// request and the cap carries that much more headroom.
 const nonStreamingBodyCap = 32 << 20 // 32MB
 
 func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int) {
@@ -122,11 +117,11 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 	body, chatResp, readErr, decodeErr := readNonStreamingBody(resp, logData.masker)
 
 	// Only a 2xx that decodes is a completion. Some upstreams (OpenCode Zen and
-	// OpenCode Go both do this) answer a failed request with a non-2xx carrying a
-	// complete chat.completion envelope and no error object at all, which decodes
-	// cleanly; forwarding that leaves the caller with a failure status and nothing
-	// to read `.error.message` off. Status decides, the body only says whether the
-	// success shape is even available.
+	// OpenCode Go both do this) answer a failed request with a non-2xx carrying
+	// a complete chat.completion envelope and no error object at all, which
+	// decodes cleanly, and forwarding that leaves the caller with a failure
+	// status and nothing to read `.error.message` off. The status decides; the
+	// body only says whether the success shape is available.
 	switch {
 	case decodeErr == nil && servedSuccessStatus(resp.StatusCode):
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
@@ -135,15 +130,14 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		if chatResp.Usage.CompletionTokensDetails != nil && chatResp.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 			reasoningTokens = chatResp.Usage.CompletionTokensDetails.ReasoningTokens
 		}
-		// Clamped into locals, leaving chatResp alone: the body is re-encoded
-		// to the caller further down, and rewriting a provider's usage block on
-		// the way through is not this gateway's job. The native Anthropic path
-		// forwards the provider's bytes untouched and is the right precedent;
-		// a partial rewrite is worse than none, because the block carries nine
-		// token members and clamping the three the meter reads hands the caller
-		// an arithmetic no provider produced. What the gateway owns is its OWN
-		// state, so the bound applies to the log row, the TPS math and the
-		// charge below, all of which read these locals.
+		// Clamped into locals, leaving chatResp alone: the body is re-encoded to
+		// the caller further down, and rewriting a provider's usage block on the
+		// way through is not this gateway's job, as the native Anthropic path's
+		// untouched forward shows. A partial rewrite is worse than none, since
+		// the block carries nine token members and clamping the three the meter
+		// reads hands the caller an arithmetic no provider produced. The gateway
+		// owns its OWN state, so the bound applies to the log row, the TPS math
+		// and the charge below, all of which read these locals.
 		promptTokens, completionTokens, reasoningTokens := h.clampReportedUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData)
 		totalOutputTokens := completionTokens + reasoningTokens
 		generationDuration := totalDuration - responseHeaderMs
@@ -174,34 +168,34 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
-		// Whether the model actually answered, judged where the decoded body is in
-		// hand. The failover loop clears the gone-strike streak on it (see
-		// attemptCandidate): a 200 is a status, and a decodable-but-empty
+		// Whether the model actually answered, judged where the decoded body is
+		// in hand. The failover loop clears the gone-strike streak on it (see
+		// attemptCandidate): a 200 is only a status, and a decodable-but-empty
 		// completion is what an aggregator in front of a retired model returns,
-		// resetting the count so the model is never nominated.
+		// which would reset the count so the model is never nominated.
 		logData.deliveredContent = chatAnswerCarriesContent(chatResp)
-		// And the different question the breaker asks of the same body: see
+		// The different question the breaker asks of the same body: see
 		// answerCarriesSomething.
 		logData.emptyCompletion = !answerCarriesSomething(chatResp)
-		// Fire-and-forget: skip WaitForInsert to avoid blocking TTFB.
-		// The async INSERT is very likely complete by now; if not, the
-		// UPDATE simply affects 0 rows (harmless, logged as warning).
+		// Fire-and-forget: skip WaitForInsert so TTFB is not blocked. The async
+		// INSERT is very likely complete by now; if not, the UPDATE affects 0
+		// rows and is logged as a warning.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 		promptTokens, completionTokens, reasoningTokens = estimateMissingUsage(promptTokens, completionTokens, reasoningTokens, logData, chatAnswerBytes(chatResp))
 		h.recordTokenUsage(vkHash, logData, promptTokens, completionTokens, reasoningTokens)
 
-		// Normalize reasoning fields in the response message so that
-		// reasoning_content is always populated regardless of upstream
-		// provider format (Ollama's reasoning, OpenRouter's reasoning_details,
-		// MiniMax's <thinking> tags in content).
+		// Normalize the reasoning fields in the response message so
+		// reasoning_content is always populated whatever the upstream format
+		// (Ollama's reasoning, OpenRouter's reasoning_details, MiniMax's
+		// <thinking> tags in content).
 		for i := range chatResp.Choices {
 			msg := &chatResp.Choices[i].Message
-			// Rule 1: reasoning → reasoning_content
+			// Rule 1: reasoning to reasoning_content.
 			if msg.Reasoning != "" && msg.ReasoningContent == "" {
 				msg.ReasoningContent = msg.Reasoning
 			}
-			// Rule 2: reasoning_details text → reasoning_content
+			// Rule 2: reasoning_details text to reasoning_content.
 			if msg.ReasoningContent == "" && len(msg.ReasoningDetails) > 0 {
 				var texts []string
 				for _, rd := range msg.ReasoningDetails {
@@ -213,7 +207,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 					msg.ReasoningContent = strings.Join(texts, "")
 				}
 			}
-			// Rule 3: <thinking> tags in content → reasoning_content
+			// Rule 3: <thinking> tags in content to reasoning_content.
 			if c, ok := msg.Content.(string); ok && c != "" {
 				if thinking, remaining, found := extractThinkingFromContent(c); found {
 					if msg.ReasoningContent == "" {
@@ -226,19 +220,18 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			}
 		}
 
-		// A success status the provider chose is kept. The body is the
-		// gateway's own re-encoding either way, but rewriting 201 to 200 would
-		// be this gateway overruling a provider about whether its own answer
-		// was created or merely returned.
+		// A success status the provider chose is kept. The body is the gateway's
+		// own re-encoding either way, but rewriting 201 to 200 would overrule
+		// the provider about whether its own answer was created or merely
+		// returned.
 		if resp.StatusCode != http.StatusOK {
 			w.WriteHeader(resp.StatusCode)
 		}
 		if err := json.NewEncoder(w).Encode(chatResp); err != nil {
 			debuglog.Error("proxy: failed to encode response", "model", logData.modelID, "provider", logData.providerName, "error", err)
 		}
-		// reported_*, because these are the provider's own figures and the row
-		// carries what was recorded: the two differ whenever the bound bit, and
-		// an operator comparing them needs to know which is which.
+		// reported_*, because these are the provider's own figures while the row
+		// carries what was recorded: the two differ whenever the bound bit.
 		debuglog.Info("proxy: non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "duration_ms", totalDuration, "reported_prompt_tokens", chatResp.Usage.PromptTokens, "reported_completion_tokens", chatResp.Usage.CompletionTokens)
 	case bodilessSuccessStatus(resp.StatusCode):
 		// A success whose status forbids a body. There is nothing to decode and
@@ -247,8 +240,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// successful, under a status that may not carry one.
 		//
 		// Keyed on the STATUS, not on the body being empty. A 200 with an empty
-		// body is a provider that answered nothing and must keep failing as it
-		// always has (TestHandleNonStreamingResponse_EmptyBody); only 204/205
+		// body is a provider that answered nothing and must fail; only 204/205
 		// promise no body. Any other 2xx carrying something that is not a
 		// completion falls through to the failure branch exactly as a 200 does:
 		// the caller asked for a chat completion, and a success status alone is
@@ -264,13 +256,12 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// Completed, and empty. recordAnswerOutcome credits the provider for a
 		// completed answer unless told otherwise, so without this a relay
 		// answering 204 to every request would be credited a breaker success
-		// each time and its circuit could never open — the group would route to
+		// each time, its circuit could never open, and the group would route to
 		// a black hole for ever.
 		//
-		// deliveredContent is deliberately not set alongside it: it is already
-		// false, and every site that sets it sits on a terminal path that cannot
-		// precede this branch, so writing it here would be a line no mutation
-		// could kill.
+		// deliveredContent is not set alongside it: it is already false, and
+		// every site that sets it sits on a terminal path that cannot precede
+		// this branch.
 		logData.emptyCompletion = true
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		w.WriteHeader(resp.StatusCode)
@@ -295,7 +286,8 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.errorKind = kind
 		logData.failoverAttempt = attempt
 		logData.state = "failed"
-		// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
+		// Fire-and-forget: skip WaitForInsert so the error response is not
+		// blocked.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		if debuglog.Level() <= slog.LevelDebug {
 			// Fenced only when the line will be written: the fence's first
@@ -303,8 +295,8 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			// should not pay for.
 			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", logData.content.maskOne(detail), "duration_ms", totalDuration)
 		}
-		// The ROW keeps resp.StatusCode above: what the upstream said is the
-		// diagnostic. Only what the CLIENT is told changes.
+		// The row keeps resp.StatusCode above, since what the upstream said is
+		// the diagnostic. Only what the CLIENT is told changes.
 		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), nonCompletionClientStatus(resp.StatusCode))
 	}
 }
@@ -316,24 +308,24 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 // A 2xx becomes 502, because the gateway's own error envelope must never travel
 // under a success status. An OpenAI SDK does not raise on a 2xx: it unmarshals
 // the envelope, finds no choices, and hands the caller an empty answer instead
-// of an error. A relay answering 200 with something that is not a completion
-// therefore leaves the request log reading "failed" beside a client that
-// believes it succeeded, and nothing retries and nothing alerts.
+// of an error, so a relay answering 200 with something that is not a completion
+// leaves the request log reading "failed" beside a client that believes it
+// succeeded, with nothing retrying and nothing alerting.
 //
-// 502 rather than any other code because the multimodal pass-through already
-// answers exactly that for the same shape (serveBufferedJSONPassthrough on a
-// broken read, serveStreamedPassthrough on an empty body). The upstream status
-// still reaches the request-log row either way, and reaches the CLIENT only when
-// the provider is named: upstreamClientMessage appends it to the message with
-// the provider, and returns the bare reason without one.
+// 502 rather than another code because the multimodal pass-through answers
+// exactly that for the same shape (serveBufferedJSONPassthrough on a broken
+// read, serveStreamedPassthrough on an empty body). The upstream status still
+// reaches the request-log row either way, and reaches the CLIENT only when the
+// provider is named: upstreamClientMessage appends it to the message with the
+// provider, and returns the bare reason without one.
 //
-// The non-2xx return is defensive rather than live. Every caller reaches this
-// handler through attemptCandidate, which sends anything that is not a 2xx to
-// forwardUpstreamError first (proxy_failover.go), so in production only the 2xx
-// branch runs; the other keeps the function total for a handler driven directly.
+// The non-2xx return is defensive. Every caller reaches this handler through
+// attemptCandidate, which sends anything that is not a 2xx to
+// forwardUpstreamError first (proxy_failover.go), so only the 2xx branch runs in
+// production; the other keeps the function total for a handler driven directly.
 //
-// This is not reached for 204/205, which are served by their own branch, nor for
-// a 2xx that decodes as a completion.
+// This is not reached for 204/205, which have their own branch, nor for a 2xx
+// that decodes as a completion.
 func nonCompletionClientStatus(upstreamStatus int) int {
 	if servedSuccessStatus(upstreamStatus) {
 		return http.StatusBadGateway
@@ -357,9 +349,9 @@ func bodilessSuccessStatus(code int) bool {
 // cap+1 is refused rather than decoded, because a truncated completion
 // re-encoded as a valid one would hand the client silently mutilated content.
 // That refusal is THIS gateway's policy and not the provider failing, so it is
-// reported as a decode failure — folding it into readErr had an oversized answer
-// reported as "the provider stopped sending its response" and its provider's
-// circuit breaker charged for sending too much.
+// reported as a decode failure: folding it into readErr would report an
+// oversized answer as "the provider stopped sending its response" and charge its
+// provider's circuit breaker for sending too much.
 //
 // json.Decoder, not json.Unmarshal: a decoder stops at the end of the first JSON
 // value, so a completion with trailing bytes after it still decodes.
@@ -367,9 +359,9 @@ func bodilessSuccessStatus(code int) bool {
 // The decode is attempted even when the read errored, because JSON is
 // self-delimiting: a provider that sent the whole document and then dropped the
 // connection without its terminal chunk yields ErrUnexpectedEOF from a body that
-// parses perfectly. Discarding that threw away a complete answer and charged the
-// provider for it. If the bytes really were cut short the decode fails too, and
-// the read error is what gets reported. Same salvage rule as #810.
+// parses perfectly, and discarding that throws away a complete answer and
+// charges the provider for it. If the bytes really were cut short the decode
+// fails too, and the read error is what gets reported.
 func readNonStreamingBody(resp *http.Response, masker credentialMasker) (body []byte, chatResp ChatCompletionResponse, readErr, decodeErr error) {
 	body, readErr = io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap+1))
 	if readErr == nil && len(body) > nonStreamingBodyCap {
@@ -389,8 +381,8 @@ func readNonStreamingBody(resp *http.Response, masker credentialMasker) (body []
 		return body, chatResp, readErr, err
 	}
 	// readErr is returned as it was rather than cleared. It is only ever
-	// consulted alongside a decode failure — a clean decode means the 2xx branch
-	// serves the answer and never looks at it — so clearing it claimed a
-	// meaning it did not have.
+	// consulted alongside a decode failure, since a clean decode means the 2xx
+	// branch serves the answer without looking at it, so clearing it would claim
+	// a meaning it does not have.
 	return body, chatResp, readErr, nil
 }

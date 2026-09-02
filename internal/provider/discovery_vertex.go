@@ -71,7 +71,7 @@ func (d *DiscoveryService) discoverVertexExpress(ctx context.Context, provider *
 }
 
 // vertexCountTokensProbe issues one countTokens call for a candidate model and
-// returns the HTTP status. The response body is drained and discarded — only
+// returns the HTTP status. The response body is drained and discarded; only
 // reachability matters.
 func (d *DiscoveryService) vertexCountTokensProbe(ctx context.Context, baseURL, modelID, apiKey string) (int, error) {
 	endpoint := "/publishers/google/models/" + url.PathEscape(modelID) + ":countTokens"
@@ -87,9 +87,8 @@ func (d *DiscoveryService) vertexCountTokensProbe(ctx context.Context, baseURL, 
 
 	resp, err := d.httpClient.Do(req)
 	if err != nil {
-		// Off the shared helpers, so scrubbed here: the key is header-only
-		// today, but a transport error quotes the URL and this is the one
-		// probe whose URL a future change could carry it in.
+		// The key is header-only, so the URL a transport error quotes carries
+		// none; scrubbed anyway in case that ever changes.
 		return 0, maskedRequestError(req, err)
 	}
 	defer func() { _ = resp.Body.Close() }()

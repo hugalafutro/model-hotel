@@ -46,10 +46,10 @@ func initAppLogging(ctx context.Context) func(context.Context) error {
 }
 
 // cleanupInterruptedRequests marks request logs left in "pending" or
-// "streaming" state from a previous server crash, restart, or unhandled error
-// as failed. Using serverStartTime (captured before DB was ready) means we
-// only reclaim rows that predate this process — a genuine streaming request
-// that happens to be long-running is never touched.
+// "streaming" state by a previous server crash, restart, or unhandled error as
+// failed. serverStartTime is captured before the DB is ready, so only rows that
+// predate this process are reclaimed and a long-running live streaming request
+// is never touched.
 func cleanupInterruptedRequests(pool *pgxpool.Pool, serverStartTime time.Time) {
 	tag, err := pool.Exec(context.Background(), `
 		UPDATE request_logs
@@ -69,12 +69,11 @@ func cleanupInterruptedRequests(pool *pgxpool.Pool, serverStartTime time.Time) {
 	}
 }
 
-// warmCaches pre-warms caches synchronously before accepting connections.
-// Provider, model, and failover lookups are fast (simple SELECT queries),
-// but key warming (Argon2id) can take ~150ms per provider. The total
-// warm-up cost is typically under 1s for a handful of providers —
-// far better than letting the first request pay the cold-cache penalty
-// of ~170ms+ in failover + model + provider + key decryption DB queries.
+// warmCaches pre-warms caches synchronously before connections are accepted.
+// Provider, model, and failover lookups are fast (simple SELECT queries), but
+// key warming (Argon2id) takes ~150ms per provider, for a total under 1s for a
+// handful of providers. It spares the first request the cold-cache penalty of
+// ~170ms+ across the failover, model, provider, and key-decryption queries.
 func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
 	ctx := context.Background()
 
@@ -94,12 +93,11 @@ func warmCaches(deps discoveryDeps, settingsRepo *settings.Repository) {
 		}
 		provider.WarmProviderCache(enabledProviders)
 	}
-	// Every provider key, enabled or not, joins the credential mask's held
-	// set; a disabled provider is the one a relay is most likely to quote.
-	// Synchronous like the warm above, and for the same reason: the set has
-	// to be complete before the listener opens, and the rows the warm just
-	// derived are cache hits here, so the extra cost is the disabled and
-	// non-autodiscovery rows at a few milliseconds each.
+	// Every provider key, enabled or not, joins the credential mask's held set;
+	// a disabled provider is the one a relay is most likely to quote. Synchronous
+	// like the warm above: the set has to be complete before the listener opens,
+	// and the rows that warm just derived are cache hits here, so the extra cost
+	// is the disabled and non-autodiscovery rows at a few milliseconds each.
 	held, failed := provider.HoldKeys(ctx, deps.providerRepo, deps.cfg.MasterKey)
 	debuglog.Info("cache: provider keys held for the credential mask", "held", held, "failed", failed)
 

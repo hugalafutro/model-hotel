@@ -8,18 +8,17 @@ import type {
  * breaker is not turning that entry away.
  *
  * Circuits are keyed (provider, resolved upstream model) and the status endpoint
- * reports one row per provider, built from its most degraded circuit. So a row
+ * reports one row per provider, built from its most degraded circuit, so a row
  * saying "open" means *some* model of that provider is dark, not necessarily
- * this one, and painting every entry of the provider from it is exactly the
- * provider-wide darkening the per-model keying exists to end.
+ * this one.
  *
  * An entry is turned away when the derived provider verdict is open (the breaker
  * skips the provider for every model, whether from a quota pin or from enough
- * models corroborating) or when its own circuit is open or owed a probe. On a
- * member that reports circuits[] the entry's own circuit is the whole answer:
- * an entry with none has never been routed, and a sibling model's probe says
- * nothing about it. On an older member only the row and open_models are known:
- * a row owed a probe ("half-open") names no model at all, since open_models
+ * models corroborating) or when its own circuit is open or owed a probe. When
+ * the row carries circuits[] the entry's own circuit is the whole answer: an
+ * entry with none has never been routed, and a sibling model's probe says
+ * nothing about it. Without circuits[] only the row and open_models are known,
+ * and a row owed a probe ("half-open") names no model at all, since open_models
  * carries only circuits that are still blocking, so it stays on every entry of
  * the provider, where it reads as recovering rather than as down.
  */
@@ -32,9 +31,10 @@ export function entryCircuitStatus(
 	if (row.circuits) {
 		const own = row.circuits.find((c) => c.model === modelId);
 		if (!own || own.state === "closed") return undefined;
-		// The fuse reads state, the pin and backoff flags and the retry instant
-		// off the row it is given. The row's are the provider's most degraded
-		// circuit's, which may be a sibling's; this entry's fuse burns on its own.
+		// The fuse reads state, the pin and backoff flags and the retry instant off
+		// the row it is given, so this entry's own circuit values replace the row's,
+		// which belong to the provider's most degraded circuit and may be a
+		// sibling's.
 		return {
 			...row,
 			state: own.state,
@@ -53,16 +53,15 @@ export type EntryChip = "live" | "busy" | "open" | "probe" | "pinned";
 /**
  * How recently a saturated 429 must have landed on a closed circuit for the
  * entry to read as busy rather than live. Matches the breaker's behavioural
- * window (rate_limit_recent_success_window default): a provider that said
- * "busy" a minute ago is a routing fact, one that said it an hour ago is not.
+ * window (the rate_limit_recent_success_window default).
  */
 export const BUSY_WINDOW_MS = 60_000;
 
 /** What the chip and tooltip need about one entry's own circuit. */
 export interface EntryCircuitView {
 	chip: EntryChip;
-	// The entry's own circuit when the member reports circuits[]; undefined on
-	// a member from before that field, where only the row is known.
+	// The entry's own circuit when the row carries circuits[]; undefined when
+	// only the row is known.
 	circuit?: CircuitStatus;
 	// Why (and how recently) the breaker last judged this circuit, when known.
 	lastCause?: string;
@@ -74,8 +73,8 @@ export interface EntryCircuitView {
 
 /**
  * Derives the entry's chip from the provider row, preferring the entry's own
- * circuit when the member reports circuits[] (the per-model truth) and falling
- * back to the row's open_models on an older member, so a mixed-version fleet
+ * circuit when the row carries circuits[] (the per-model truth) and falling
+ * back to the row's open_models when it does not, so a mixed-version fleet
  * renders every entry either way.
  *
  * Rules, in order: the provider verdict open turns every entry of the provider
@@ -127,9 +126,9 @@ export function entryCircuitView(
 		return base;
 	}
 
-	// Older member: only the row and open_models are known. A current member
-	// that reports circuits[] without one for this model has simply never
-	// routed it, and a sibling model's probe or outage says nothing about it.
+	// No circuits[]: only the row and open_models are known. A row that carries
+	// circuits[] without one for this model has never routed it, and a sibling
+	// model's probe or outage says nothing about it.
 	if (!row.circuits) {
 		if (row.state === "half-open") return { ...base, chip: "probe" };
 		if (row.state === "open" && row.open_models?.includes(modelId)) {
@@ -147,8 +146,8 @@ export function entryCircuitView(
  * The group header's summary: how many entries are live out of those enabled,
  * and, when none are, the earliest instant one of them is eligible to probe
  * again. Busy counts as live (it still serves), and so does an entry owed a
- * probe: it gets exactly one request, which overstates it, but a group whose
- * every entry is recovering is not dark, and "all entries dark" is the alarm.
+ * probe, which gets exactly one request: a group whose every entry is
+ * recovering is not dark, and "all entries dark" is the alarm.
  */
 export function groupCircuitSummary(views: EntryCircuitView[]): {
 	live: number;

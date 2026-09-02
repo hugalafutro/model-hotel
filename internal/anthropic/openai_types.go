@@ -7,10 +7,8 @@ import (
 )
 
 // This file defines the minimal subset of the OpenAI chat-completions wire
-// format the translators consume. We deliberately do not import the proxy
-// package's own chunk types: the dependency runs proxy -> anthropic, never the
-// reverse, so the translator stays a leaf package the rest of the pipeline
-// composes. The proxy adapts its parsed chunks into these on the way in.
+// format the translators consume. The proxy adapts its parsed chunks into
+// these on the way in.
 
 // OAStreamChunk is one OpenAI `chat.completion.chunk` SSE payload.
 type OAStreamChunk struct {
@@ -38,9 +36,8 @@ type OAToolCallDelta struct {
 	ID       string          `json:"id"`
 	Type     string          `json:"type"`
 	Function OAFunctionDelta `json:"function"`
-	// ExtraContent is the Gemini 3 thought signature's carrier, on the
-	// fragment that opens the call (the Gemini translator and Google's own
-	// compatibility layer both put it there); raw, read leniently.
+	// ExtraContent carries the Gemini 3 thought signature, on the fragment
+	// that opens the call; raw, read leniently.
 	ExtraContent json.RawMessage `json:"extra_content"`
 }
 
@@ -48,10 +45,10 @@ type OAToolCallDelta struct {
 // JSON string.
 type OAFunctionDelta struct {
 	Name string `json:"name"`
-	// See util.ToolArguments. A plain string here dropped an object-form tool
-	// call from the translated stream, leaving the Anthropic client a
-	// message_delta with stop_reason "tool_use" and no tool_use content block
-	// at all — a shape the Anthropic SDKs reject.
+	// util.ToolArguments accepts both the string and the object form: a
+	// plain string drops an object-form tool call from the translated
+	// stream, leaving a stop_reason of "tool_use" with no tool_use block,
+	// a shape the Anthropic SDKs reject.
 	Arguments util.ToolArguments `json:"arguments"`
 }
 

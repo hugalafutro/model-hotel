@@ -15,12 +15,12 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// The vertex-express egress adapter. Vertex AI express-mode API keys only work
-// on Google's native publisher routes, so a chat-completions request bound for
-// a vertex-express provider is translated to generateContent shape on the way
-// out (internal/gemini) and the response translated back on the upstream side
-// of the pipeline — the same trick as the /v1/responses re-route, so the TTFT
-// probe, stall watchdog, transforms and metering all run unchanged.
+// The gemini egress adapter. Vertex AI express-mode API keys only work on
+// Google's native publisher routes, so a chat-completions request bound for
+// such a provider is translated to generateContent shape on the way out
+// (internal/gemini) and the response translated back on the upstream side of
+// the pipeline, leaving the TTFT probe, stall watchdog, transforms and metering
+// to run unchanged.
 
 // isGeminiEgressAttempt reports whether this candidate is served through the
 // gemini egress adapter: a plain chat-completions request (no explicit endpoint
@@ -90,7 +90,7 @@ func geminiEgressEndpoint(providerType, model string, stream bool) string {
 // Zen's Gemini passthrough answers a Bearer token with
 // {"type":"AuthError","message":"Missing API key."}. Only x-goog-api-key works,
 // which is why this cannot go through SetProviderAuthHeaders for Zen or
-// Google AI Studio — that switches on provider type alone, and Zen's other
+// Google AI Studio: that switches on provider type alone, and Zen's other
 // families and Google's compat layer do need Bearer.
 func setGeminiEgressAuth(req *http.Request, providerType, apiKey string) {
 	if providerType == "opencode-zen" || providerType == "google" {
@@ -102,12 +102,12 @@ func setGeminiEgressAuth(req *http.Request, providerType, apiKey string) {
 	util.SetProviderAuthHeaders(req, providerType, apiKey)
 }
 
-// buildGeminiRequest builds the upstream request for a vertex-express attempt.
+// buildGeminiRequest builds the upstream request for a gemini egress attempt.
 // The chat body goes through the shared rewrite path first (model rename,
-// learned strips; isStreaming=false so no stream_options is injected — Gemini
-// has no such knob), then chat -> generateContent translation. The model
-// string returned by the translation picks the :generateContent or
-// :streamGenerateContent route.
+// learned strips; isStreaming=false, since Gemini has no stream_options knob to
+// inject), then chat -> generateContent translation. The model string the
+// translation returns picks the :generateContent or :streamGenerateContent
+// route.
 func (h *Handler) buildGeminiRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
 	cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
 	body, model, stream, err := gemini.TranslateRequest(cleaned)
@@ -119,7 +119,7 @@ func (h *Handler) buildGeminiRequest(ctx context.Context, st *requestState, cand
 	baseURL := candidate.provider.BaseURL
 	if providerType == "google" {
 		// The provider is configured with the /v1beta/openai compat base;
-		// the native routes live one segment up, as discovery already knows.
+		// the native routes live one segment up.
 		baseURL = provider.GoogleNativeBaseURL(baseURL)
 	}
 	targetURL := util.BuildProviderTargetURL(baseURL, providerType, endpoint)

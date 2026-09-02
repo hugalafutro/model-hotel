@@ -13,26 +13,25 @@ import (
 // a line arrives that is not one, then parsed) and P1-C Anthropic typed error
 // events (a data line following an "event: error" line).
 //
-// P1-B is named for split errors, and its comments long claimed to reassemble
-// one, but it cannot: a CONTINUATION line does not start with {"error", so it
-// takes the flush branch rather than the append. What the buffer actually holds
-// is the last {"error"-prefixed line that would not parse — a truncated frame,
-// which is the case worth salvaging and the only one it ever sees. Any extracted message is recorded into streamState; it
-// returns whether it counted an Anthropic error for this line so the later
-// chunk.Error observer does not double-count it. lastAnthropicEvent is the carry
-// from the preceding "event:" line and is consumed (reset) here. No client output.
+// P1-B holds only the last {"error"-prefixed line that would not parse, a
+// truncated frame. It cannot reassemble a split error despite the name: a
+// continuation line does not start with {"error", so it takes the flush branch
+// rather than the append.
+//
+// Any extracted message is recorded into streamState. The return says whether an
+// Anthropic error was counted for this line, so the later chunk.Error observer
+// does not double-count it. lastAnthropicEvent is the carry from the preceding
+// "event:" line and is consumed here. Nothing is written to the client.
 func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *string, chunkCount int, logData *requestLogData) bool {
 	// P1-B: hold a truncated error line; flush on any other line.
 	//
-	// Only a FRAGMENT is held. A payload that parses is a whole frame,
-	// whatever it starts with, and the observer reads its error member properly;
-	// handing it to the accumulator instead put it in front of
-	// parseAccumulatedError, whose last resort is to return the entire payload
-	// as the error message. A frame like
-	// {"error":"","choices":[{"delta":{"content":…}}]} — an empty error member
-	// riding alongside a real delta — therefore wrote the model's output into
-	// request_logs.error_message, and marked the request failed for an error no
-	// reader of that member agrees is there.
+	// Only a FRAGMENT is held. A payload that parses is a whole frame, whatever
+	// it starts with, and the observer reads its error member properly. Handing
+	// one to the accumulator instead puts it in front of parseAccumulatedError,
+	// whose last resort is to return the entire payload as the error message, so
+	// a frame like {"error":"","choices":[{"delta":{"content":…}}]} would write
+	// the model's output into request_logs.error_message and mark the request
+	// failed for an error that is not there.
 	if strings.HasPrefix(payload, `{"error"`) && !json.Valid([]byte(payload)) {
 		st.errAccum = append(st.errAccum, []byte(payload)...)
 	} else {
@@ -43,17 +42,15 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 	// wrapped as {"type":"error","error":{...}} even when it doesn't start with
 	// {"error". Extract the message regardless.
 	//
-	// The member is read with the rule the rest of the gateway shares, not with a
-	// private object type one struct away from it. Typed as an object, any other
-	// shape failed the whole decode and this branch fell silent — the observer
-	// below still caught the member, but the event's own type went unlogged.
+	// The member is read with the rule the rest of the gateway shares rather than
+	// a private object type: typed as an object, any other shape fails the whole
+	// decode and this branch falls silent, leaving the event's own type unlogged.
 	//
-	// Emptiness matters more here than anywhere else it is read. errorChunkCount
-	// is what tells writeTerminalError the client has already seen the provider's
-	// error, and counting a member that carries nothing spent that on nothing: it
-	// left lastErrMsg blank, so no error was derived from it, and it suppressed
-	// the terminal frame for whatever really did end the stream afterwards. The
-	// caller got a cut connection in place of a reason.
+	// Emptiness matters more here than anywhere else the member is read.
+	// errorChunkCount is what tells writeTerminalError the client has already
+	// seen the provider's error, so counting a member that carries nothing
+	// leaves lastErrMsg blank and suppresses the terminal frame for whatever
+	// really ended the stream, handing the caller a cut connection.
 	anthropicErrorCounted := false
 	if *lastAnthropicEvent == "error" {
 		*lastAnthropicEvent = ""
@@ -81,12 +78,11 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 }
 
 // flushAccumulatedError parses and records any P1-B held error bytes (a
-// truncated {"error":…} line), then clears the buffer. A
-// no-op when nothing is accumulated. Every flush site goes through here — the
-// comment-line handler, captureSSEError's non-error data-line branch, and the
-// stream-end sweep — so they cannot drift; `what` is the only thing that differs
-// between them, and a copy of this body is how the stream-end sweep came to log
-// the provider's error text unmasked while the other two did not.
+// truncated {"error":…} line), then clears the buffer. It is a no-op when
+// nothing is accumulated. Every flush site goes through here (the comment-line
+// handler, captureSSEError's non-error data-line branch, and the stream-end
+// sweep) so they cannot drift; `what` is the only thing that differs between
+// them.
 func (st *streamState) flushAccumulatedError(what string, chunkCount int, logData *requestLogData) {
 	if len(st.errAccum) == 0 {
 		return
@@ -102,34 +98,32 @@ func (st *streamState) flushAccumulatedError(what string, chunkCount int, logDat
 // errLogAttr prepares provider error text for an application-log attribute:
 // masked, then bounded.
 //
-// The request log gets both of those at finalize, but the app log had neither.
-// It is a different audience and a different store — the live log viewer, the
-// app-logs API, the OTLP export — and provider error text is exactly where a
-// relay quotes a credential ("invalid key sk-…") or runs to whatever length it
-// likes. The observers also run BEFORE the stream's masking block, so the text
-// they hold has been scrubbed by nothing at all.
+// The app log is a different audience and a different store from the request log
+// (the live log viewer, the app-logs API, the OTLP export), and provider error
+// text is exactly where a relay quotes a credential ("invalid key sk-…") or runs
+// to whatever length it likes. The observers also run BEFORE the stream's
+// masking block, so the text they hold is otherwise unscrubbed.
 //
-// 500 bytes — SanitizeLogBody's limit is a byte count, so CJK error text from
-// MiniMax or Z.ai is cut at roughly a third of that in characters. It matches
-// the probe's own error sanitizer rather than the request log's 10000: a log
-// attribute is for recognising the failure, and the full text is already on the
-// row. SanitizeLogBody also redacts UUIDs, so a provider echoing a request id
-// back inside its error does not put one in the app log.
+// 500 bytes, matching the probe's error sanitizer rather than the request log's
+// 10000: a log attribute is for recognising the failure, and the full text is
+// already on the row. SanitizeLogBody's limit is a byte count, so CJK error text
+// from MiniMax or Z.ai is cut at roughly a third of that in characters. It also
+// redacts UUIDs, so a provider echoing a request id back inside its error does
+// not put one in the app log.
 //
-// A zero-value masker (a keyless local provider) masks by shape only, which is
-// what every other site on those paths does too.
+// A zero-value masker (a keyless local provider) masks by shape only, as every
+// other site on those paths does.
 func (st *streamState) errLogAttr(msg string) string {
 	return st.content.maskOne(util.SanitizeLogBody(string(st.masker.mask([]byte(msg))), 500))
 }
 
 // repeatedContentLimit is the consecutive-identical-content threshold (P2-5) at
-// which we log a warning. Lifted to package scope from handleStreamingResponse
-// in Phase 4 so observeDataChunk can reference it.
+// which observeDataChunk logs a warning.
 const repeatedContentLimit = 10
 
 // streamChunk is the typed view of a streaming "data:" JSON chunk that the
-// transforms and observers inspect (Phase 4). Only the fields the proxy acts on
-// are modelled; everything else is ignored on unmarshal.
+// transforms and observers inspect. Only the fields the proxy acts on are
+// modelled; everything else is ignored on unmarshal.
 type streamChunk struct {
 	Choices []struct {
 		Delta *struct {
@@ -138,10 +132,9 @@ type streamChunk struct {
 			// The two other spellings of the same thing. Ollama and OpenRouter
 			// send "reasoning"; OpenRouter and MiniMax send "reasoning_details".
 			// normalizeReasoningChunk rewrites both into reasoning_content for
-			// the client, but it runs AFTER the observers — so without these the
+			// the client, but runs AFTER the observers, so without these the
 			// caller receives a full answer while the delivery accounting sees
-			// nothing, and the provider is charged for an empty response it did
-			// not give.
+			// nothing and the provider is charged for an empty response.
 			Reasoning        *string         `json:"reasoning"`
 			ReasoningDetails json.RawMessage `json:"reasoning_details"`
 			ToolCalls        []struct {
@@ -149,8 +142,8 @@ type streamChunk struct {
 					Name string `json:"name"`
 					// util.ToolArguments, not string: several providers send the
 					// argument OBJECT where the spec says a JSON string, and a
-					// plain string field failed the WHOLE chunk unmarshal, so
-					// the frame was dropped as though the bytes were corrupt.
+					// plain string field fails the WHOLE chunk unmarshal, so
+					// the frame is dropped as though the bytes were corrupt.
 					Arguments util.ToolArguments `json:"arguments"`
 				} `json:"function"`
 			} `json:"tool_calls"`
@@ -164,25 +157,23 @@ type streamChunk struct {
 	} `json:"choices"`
 	Usage *Usage `json:"usage"`
 	// json.RawMessage, not a typed object: providers put an error of any shape
-	// here — Ollama's bare string, a list, a number — and a typed field failed
-	// the WHOLE chunk unmarshal, so the frame was dropped as corrupt bytes
-	// instead of forwarded, and the error it reported was recorded only when
-	// the payload happened to START with {"error" (the P1-B prefix). What the
-	// member means is util.ErrorMemberCarries/ErrorMemberMessage's answer, shared
-	// with the probe so the two readings cannot drift.
+	// here (Ollama's bare string, a list, a number), and a typed field fails the
+	// WHOLE chunk unmarshal, so the frame is dropped as corrupt bytes instead of
+	// forwarded. What the member means is
+	// util.ErrorMemberCarries/ErrorMemberMessage's answer, shared with the probe
+	// so the two readings cannot drift.
 	Error json.RawMessage `json:"error"`
 }
 
 // observeUsage records the counts a usage block reports.
 //
-// Each count is guarded on its own, the way the cache split already was. Two
-// providers make that necessary: one that rides a usage block on EVERY chunk,
-// and one whose usage block this gateway could only partly read —
-// encoding/json allocates the pointer before it calls the custom unmarshaler, so
-// a usage member in an unmodelled shape leaves a valid pointer to an all-zero
-// Usage, and a bare assignment then wrote zeros over counts an earlier chunk had
-// already reported. A usage chunk saying zero says nothing; only a count carries
-// a reading.
+// Each count is guarded on its own, as the cache split is. Two providers make
+// that necessary: one that rides a usage block on EVERY chunk, and one whose
+// usage block this gateway can only partly read. encoding/json allocates the
+// pointer before calling the custom unmarshaler, so a usage member in an
+// unmodelled shape leaves a valid pointer to an all-zero Usage, and a bare
+// assignment would write zeros over counts an earlier chunk reported. A usage
+// chunk saying zero says nothing; only a count carries a reading.
 //
 // The guard is a range, not a sign: a count is a reading only inside
 // (0, maxSaneTokenCount]. A member outside it neither replaces an earlier good
@@ -207,11 +198,10 @@ func (st *streamState) observeUsage(usage *Usage) {
 }
 
 // observeDataChunk applies the four non-emitting, side-channel observers over a
-// parsed data chunk, updating streamState in place (Phase 4 — the first pipeline
-// stage extracted from handleStreamingResponse). It never writes to the client
-// and never affects the emit decision; it only records metrics and detection
-// state. anthropicErrorCounted reports whether the P1-C Anthropic path already
-// counted an error for this line (so chunk.Error doesn't double-count it).
+// parsed data chunk, updating streamState in place. It never writes to the
+// client and never affects the emit decision; it records metrics and detection
+// state only. anthropicErrorCounted reports whether the P1-C Anthropic path
+// already counted an error for this line, so chunk.Error does not double-count.
 //
 // Observers, in order:
 //   - usage/token extraction (last usage chunk wins; cache hit/miss only when set)
@@ -220,23 +210,23 @@ func (st *streamState) observeUsage(usage *Usage) {
 //   - chunk.Error capture (clears errAccum so P1-B won't re-count)
 func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted bool, chunkCount int, logData *requestLogData) {
 	st.observeUsage(chunk.Usage)
-	// P2-7: Log native_finish_reason from OpenRouter for debugging.
-	// OpenRouter includes this field alongside the normalized finish_reason,
-	// preserving the original provider's value (e.g. "STOP" instead of "stop").
+	// P2-7: log OpenRouter's native_finish_reason, which rides alongside the
+	// normalized finish_reason and preserves the original provider's value
+	// ("STOP" rather than "stop").
 	if len(chunk.Choices) > 0 && chunk.Choices[0].NativeFinishReason != nil {
 		if *chunk.Choices[0].NativeFinishReason != st.lastNativeFinishReason {
 			st.lastNativeFinishReason = *chunk.Choices[0].NativeFinishReason
 			debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", st.lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerName)
 		}
 	}
-	// P2-5: Detect repeated identical content. Some models (notably
-	// xAI Grok reasoning) send the same reasoning text in consecutive
-	// deltas, causing "Thinking... Thinking... Thinking..." loops.
-	// We track consecutive identical content and log a warning when
-	// the threshold is exceeded.
-	// Every choice is delivered output, so the byte count covers all of them
-	// (an n>1 stream is billed for every choice), unlike the observers below,
-	// which only watch choices[0].
+	// P2-5: detect repeated identical content. Some models (notably xAI Grok
+	// reasoning) send the same reasoning text in consecutive deltas, causing
+	// "Thinking... Thinking... Thinking..." loops, so consecutive identical
+	// content is counted and a warning logged past the threshold.
+	//
+	// Every choice is delivered output, so the byte count covers all of them (an
+	// n>1 stream is billed for every choice), unlike the observers below, which
+	// watch choices[0] only.
 	for _, choice := range chunk.Choices {
 		if choice.Delta == nil {
 			continue
@@ -279,11 +269,10 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 			}
 		}
 		if currentContent != "" {
-			// The model produced something. Recorded here, at the only place
-			// that sees content itself, because the retirement verdict needs to
-			// know a stream really answered and cannot learn it from usage
-			// (providers omit the usage chunk) or from TTFT (the probe can be
-			// switched off).
+			// The model produced something. Recorded here, the only place that
+			// sees content itself, because the retirement verdict needs to know
+			// a stream really answered and cannot learn it from usage (providers
+			// omit the usage chunk) or from TTFT (the probe can be switched off).
 			st.sawContent = true
 		}
 		if currentContent == st.lastContent && currentContent != "" {
@@ -297,14 +286,14 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		st.lastContent = currentContent
 	}
 	if !anthropicErrorCounted && util.ErrorMemberCarries(chunk.Error) {
-		// Only count if P1-C didn't already handle this as an
-		// Anthropic error event (which shares the same data line).
+		// Counted only when P1-C did not already handle this as an Anthropic
+		// error event, which shares the same data line.
 		msg := util.ErrorMemberMessage(chunk.Error)
 		st.lastErrMsg = msg
 		st.errorChunkCount++
 		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", st.errLogAttr(msg), "chunk_number", chunkCount)
-		// Clear st.errAccum: chunk.Error already captured this error,
-		// so P1-B's next flush must not re-count it.
+		// chunk.Error captured this error, so P1-B's next flush must not
+		// re-count it.
 		st.errAccum = nil
 	}
 }

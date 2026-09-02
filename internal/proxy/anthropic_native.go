@@ -20,8 +20,8 @@ import (
 func (h *Handler) buildNativeAnthropicRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
 	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
 	// A Gemini thought signature riding on a tool_use id (see
-	// anthropic.StripSignedToolUseIDs) is dropped here: this provider has no
-	// use for it, and it is a kilobyte of prompt per call per turn.
+	// anthropic.StripSignedToolUseIDs) is dropped: this provider has no use for
+	// it, and it is a kilobyte of prompt per call per turn.
 	body := anthropic.RewriteModel(anthropic.StripSignedToolUseIDs(st.anthropicRawBody), candidate.model.ModelID)
 	debuglog.Debug("proxy: native anthropic passthrough", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name)
 
@@ -35,10 +35,9 @@ func (h *Handler) buildNativeAnthropicRequest(ctx context.Context, st *requestSt
 }
 
 // handleNativeNonStreaming serves a non-streaming native Anthropic success
-// response (any 2xx):
-// the upstream body is already an Anthropic message, so it is forwarded verbatim
-// (through the verbatim-mode response writer). Token usage is read from the
-// Anthropic usage block for metering + quota, mirroring handleNonStreamingResponse.
+// response (any 2xx). The upstream body is already an Anthropic message, so it
+// is forwarded verbatim. Token usage is read from the Anthropic usage block for
+// metering and quota, mirroring handleNonStreamingResponse.
 func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Request, st *requestState, resp *http.Response, attempt int, responseHeaderMs float64) candidateOutcome {
 	logData := st.logData
 	defer func() {
@@ -51,12 +50,11 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		debuglog.Warn("proxy: native anthropic read failed", "error", err, "provider", logData.providerName)
-		// Finalize the log row so it does not orphan in the in-flight state: a
-		// read failure on a success body is a provider/transport fault — unless it
-		// was interrupted rather than broken, which the translated path already
-		// classifies and this one hard-coded past. The identical event logged
-		// provider_error here and client_disconnect there, decided by nothing but
-		// which dialect the request came in on.
+		// Finalize the log row so it does not orphan in the in-flight state. A
+		// read failure on a success body is a provider or transport fault,
+		// unless it was interrupted rather than broken, which cancelKind
+		// classifies the same way the translated path does: the identical event
+		// must not log provider_error here and client_disconnect there.
 		kind := KindProviderError
 		if cancelled, aborted := cancelKind(r.Context(), err); aborted {
 			kind = cancelled
@@ -77,10 +75,10 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	body = logData.masker.maskExact(body)
 
 	usage := anthropic.ParseResponseUsage(body)
-	// The native prompt figure and its cache miss are sums of members the
-	// decoder bounded one at a time, so they arrive unbounded; every figure
-	// this function writes is clamped so the log row's five token columns,
-	// the estimate and the charge agree, and a rewrite is announced.
+	// The native prompt figure and its cache miss are sums of members the decoder
+	// bounded one at a time, so they arrive unbounded. Every figure this function
+	// writes is clamped, so the log row's five token columns, the estimate and
+	// the charge agree.
 	inputTokens, outputTokens, _ := h.clampReportedUsage(usage.PromptTokens, usage.CompletionTokens, 0, logData)
 	totalDuration := float64(time.Since(st.startTime).Microseconds()) / 1000.0
 
@@ -112,12 +110,12 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// front of a retired model returns between its refusals, and crediting it
 	// would stop the streak ever reaching three consecutive strikes. Tokens
 	// corroborate, for a provider that answers without reporting usage. Same
-	// judgement the OpenAI-shaped path makes with chatAnswerCarriesContent.
+	// judgement chatAnswerCarriesContent makes on the OpenAI-shaped path.
 	logData.deliveredContent = outputTokens > 0 || anthropic.ResponseCarriesContent(body)
 	// The question the breaker asks of the same body: did anything come back.
 	// ResponseCarriesContent reads block PRESENCE, which is the native analogue
-	// of the translated path's "any choice carrying something" — so on this path
-	// the two bars do coincide, and the negation is exact.
+	// of the translated path's "any choice carrying something", so on this path
+	// the two bars coincide and the negation is exact.
 	logData.emptyCompletion = outputTokens == 0 && !anthropic.ResponseCarriesContent(body)
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
@@ -133,24 +131,24 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	return outcomeServed
 }
 
-// emitRawData forwards one streaming data chunk verbatim (native Anthropic
-// passthrough), mirroring the no-transform branch of handleDataChunk. From the
-// same decode it (1) meters token usage, (2) records the terminal message_stop
-// so finalizeStream can tell a real completion from a mid-stream truncation, and
-// (3) captures a provider-sent error event into streamState so the request logs
-// as failed (deriveStreamError surfaces st.lastErrMsg) rather than silently
-// "completed" — the error frame is still forwarded to the client too, with
-// the provider's credential masked (the same credentialMasker scrub
-// handleDataChunk applies: exact key on every event, key shapes on errors).
+// emitRawData forwards one streaming data chunk verbatim on the native Anthropic
+// passthrough, mirroring the no-transform branch of handleDataChunk. From the
+// same decode it meters token usage, records the terminal message_stop so
+// finalizeStream can tell a real completion from a mid-stream truncation, and
+// captures a provider-sent error event into streamState so the request logs as
+// failed (deriveStreamError surfaces st.lastErrMsg) rather than "completed". The
+// error frame is still forwarded to the client, with the provider's credential
+// masked by the same credentialMasker scrub handleDataChunk applies: the exact
+// key on every event, key shapes on errors.
+//
 // Returns stop=true on a client write failure.
 func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
 	info := anthropic.InspectStreamEvent([]byte(ev.payload))
-	// Judged like the translated path's observer, which REFUSES an
-	// out-of-range member rather than clamping it: on a stream there is an
-	// earlier reading to keep and an estimator to fall back on, so a chunk
-	// saying something absurd says nothing. Clamping here instead let the same
-	// figure that is discarded on an OpenAI-shaped stream charge the ceiling
-	// on this one, which is the attack surviving on one dialect.
+	// Judged like the translated path's observer, which REFUSES an out-of-range
+	// member rather than clamping it: on a stream there is an earlier reading to
+	// keep and an estimator to fall back on, so a chunk saying something absurd
+	// says nothing. Clamping here instead would let the figure that is discarded
+	// on an OpenAI-shaped stream charge the ceiling on this one.
 	if info.HasInput && isTokenReading(info.InputTokens) {
 		st.promptTokens = info.InputTokens
 		// Guarded like the translated path's observer: a later usage event

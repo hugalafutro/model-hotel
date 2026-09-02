@@ -36,23 +36,23 @@ export interface LogEntry {
 	virtual_key_name: string;
 	virtual_key_deleted?: boolean;
 	virtual_key_id?: string;
-	/** Trusted-proxy-aware client address; "" or absent for rows predating it. */
+	/** Trusted-proxy-aware client address; "" or absent when unknown. */
 	client_ip?: string;
 	error_message: string;
-	/** Machine-readable failure classification; "" or absent for legacy rows. */
+	/** Machine-readable failure classification; "" or absent when unclassified. */
 	error_kind?: string;
 	failover_attempt: number;
 	created_at: string;
 	resolved_model_id: string;
 	endpoint_type: string;
 	/** Per-attempt trail: one element per failover attempt, hedged probes and
-	 * breaker skips included, in order. Absent for rows without one (legacy
-	 * rows, rows an older member wrote, requests that never reached a
-	 * candidate). The terminal attempt's values also live in the flat columns. */
+	 * breaker skips included, in order. Absent for rows without one, such as a
+	 * request that never reached a candidate. The terminal attempt's values also
+	 * live in the flat columns. */
 	attempts?: AttemptRecord[];
 }
 export interface AttemptRecord {
-	/** The loop's index (same numbering as failover_attempt); -1 marks a
+	/** The loop's index (same numbering as failover_attempt). -1 marks a
 	 * candidate the circuit breaker refused before any request was made. */
 	attempt: number;
 	provider_id: string;
@@ -80,8 +80,8 @@ export interface AppLogEntry {
 	source: string;
 	message: string;
 	/** True when the message's attribute values use the backend's flattened
-	 * encoding (spaces as \x20); gates display-side decoding. Absent/false on
-	 * legacy rows and raw io.Writer lines, which render verbatim. */
+	 * encoding (spaces as \x20); gates display-side decoding. Absent or false
+	 * for rows that render verbatim, such as raw io.Writer lines. */
 	escaped?: boolean;
 	/** Byte offset where the encoded attribute suffix begins; decoding applies
 	 * only from here, so raw message text is never altered. */

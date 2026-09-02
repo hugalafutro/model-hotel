@@ -14,9 +14,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// ModelRepository defines the interface for model operations.
-// Used to enable mocking in tests while allowing the real *model.Repository
-// to be used in production.
+// ModelRepository is the set of model-store operations the proxy needs.
 type ModelRepository interface {
 	ListEnabled(ctx context.Context) ([]*model.Model, error)
 	Upsert(ctx context.Context, model *model.Model) error
@@ -28,16 +26,14 @@ type ModelRepository interface {
 	SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error)
 	// AutoRetireIfConfirmed disables a model the provider has reported retired,
 	// staging the write so a model that answers while it is in flight never has
-	// a disabled state other sessions can act on (see noteModelGone).
+	// a disabled state other sessions can act on.
 	AutoRetireIfConfirmed(ctx context.Context, id uuid.UUID, confirm func() bool) (bool, error)
 	// RevertAutoRetire undoes such a retirement, but only while the row is still
 	// as the retirement left it, so it cannot overwrite an operator's disable.
 	RevertAutoRetire(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
-// VirtualKeyRepository defines the interface for virtual key operations.
-// Used to enable mocking in tests while allowing the real *virtualkey.Repository
-// to be used in production.
+// VirtualKeyRepository is the set of virtual-key operations the proxy needs.
 type VirtualKeyRepository interface {
 	AddTokens(ctx context.Context, keyHash string, tokens int) error
 	TouchLastUsed(ctx context.Context, keyHash string) error
@@ -82,14 +78,13 @@ type contextKey string
 const virtualKeyNameKey contextKey = "virtual_key_name"
 const virtualKeyIDKey contextKey = "virtual_key_id"
 
-// VirtualKeyHashKey re-exports the shared context key from ctxkeys so
-// existing code in this package can reference it without a package prefix.
-// The canonical definition lives in internal/ctxkeys to avoid import cycles.
+// VirtualKeyHashKey re-exports the shared context key so this package can use
+// it without a package prefix. The canonical definition lives in
+// internal/ctxkeys to avoid import cycles.
 const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 
-// Endpoint families recorded in request_logs.endpoint_type. The proxy serves
-// chat completions plus the multimodal OpenAI-compatible endpoints; every
-// request log row is tagged with the family it came through.
+// Endpoint families recorded in request_logs.endpoint_type: every request log
+// row is tagged with the family it came through.
 const (
 	endpointTypeChat       = "chat"
 	endpointTypeMessages   = "messages"
@@ -106,8 +101,8 @@ type requestLogData struct {
 	// the provider identity for each attempt; zero value masks by shape only.
 	masker credentialMasker
 	// content fences echoes of the request's own text out of the upstream
-	// error fragments this row stores (content_fence.go). Nil when the
-	// request carried nothing to fence.
+	// error fragments this row stores. Nil when the request carried nothing to
+	// fence.
 	content                   *contentFence
 	id                        string
 	providerID                uuid.UUID
@@ -144,51 +139,47 @@ type requestLogData struct {
 	clientIP string
 	// ownerUserID is the owning dashboard user's UUID; "" for unowned keys
 	// (admin-only visibility). Persisted to request_logs.owner_user_id only when
-	// there is no virtual key (migration 067); keyed rows resolve their owner
-	// through the key instead.
+	// there is no virtual key; keyed rows resolve their owner through the key
+	// instead.
 	ownerUserID  string
 	errorMessage string
 	errorKind    ErrorKind // machine-readable classification; "" = unclassified (NULL in DB)
-	// upstreamKind is what the PROVIDER said, kept apart from errorKind because
+	// upstreamKind is what the provider said, kept apart from errorKind because
 	// errorKind records how the request ended and later causes overwrite earlier
-	// ones. A client that hangs up on receiving an in-stream error turns the
-	// recorded kind into client_disconnect, which would otherwise erase the
-	// provider's own statement that the model is gone — the evidence destroyed
-	// by the client reacting to it. Not persisted; it exists so the retirement
-	// verdict can be drawn from the provider alone.
+	// ones: a client that hangs up on an in-stream error turns the recorded kind
+	// into client_disconnect, erasing the provider's statement that the model is
+	// gone. Not persisted; it lets the retirement verdict read what the provider
+	// said rather than how the request ended.
 	upstreamKind ErrorKind
 	// deliveredContent records that the stream actually produced content. Not
-	// persisted; it exists because the two signals that used to stand in for it
-	// are both optional — a provider can omit the usage chunk and the TTFT probe
-	// can be switched off — and a real success that reports neither would
-	// otherwise look indistinguishable from a stream that emitted nothing.
+	// persisted. Both weaker signals are optional (a provider can omit the usage
+	// chunk, the TTFT probe can be switched off), so without this a real success
+	// reporting neither looks like a stream that emitted nothing.
 	deliveredContent bool
-	// emptyCompletion records that the upstream answered with nothing at all --
-	// no choices and no completion tokens -- which is the only shape the circuit
-	// breaker charges a 200 for.
+	// emptyCompletion records that the upstream answered with nothing at all:
+	// no choices and no completion tokens, the only shape the circuit breaker
+	// charges a 200 for.
 	//
-	// A different question from !deliveredContent, not a narrower one. That flag
-	// backs the RETIREMENT verdict and stays strict, because `refusal` is the
-	// likeliest field for an aggregator to write "this model is gone" into
-	// behind a 200 and it must not clear a gone-strike streak. This one asks
-	// only whether ANYTHING came back, so a safety refusal, an audio answer, an
-	// Azure content_filter block or a legacy function_call all count as the
-	// provider answering. See answerCarriesSomething.
+	// A different question from !deliveredContent, not a narrower one: that flag
+	// backs the retirement verdict and stays strict, while this one asks only
+	// whether anything came back, so a safety refusal, an audio answer, an Azure
+	// content_filter block or a legacy function_call all count as the provider
+	// answering.
 	emptyCompletion bool
 	// promptTextBytes is the size of the prompt text in the client's request
 	// (message text and tool definitions, never inline media), recorded at
 	// ingest so every response path can estimate the prompt when the provider
-	// reports no usage (see estimateMissingUsage). Not persisted.
+	// reports no usage. Not persisted.
 	promptTextBytes int
 	failoverAttempt int
 	state           string
 	resolvedModelID string
 	endpointType    string         // endpoint family: chat, embeddings, rerank, image, tts, stt
 	insertWg        sync.WaitGroup // signals when the async INSERT has completed
-	// The per-attempt trail (see attempt_trail.go): attempts holds the closed
-	// records in order, openAttempt the one in flight, attemptStarted when it
-	// began and attemptBreaker what the breaker was told about it. Persisted
-	// as request_logs.attempts by the terminal write.
+	// The per-attempt trail: attempts holds the closed records in order,
+	// openAttempt the one in flight, attemptStarted when it began and
+	// attemptBreaker what the breaker was told about it. Persisted as
+	// request_logs.attempts by the terminal write.
 	attempts       []attemptRecord
 	openAttempt    *attemptRecord
 	attemptStarted time.Time
@@ -202,11 +193,10 @@ type requestLogData struct {
 	attemptStatus int
 	attemptPhrase string
 	// judgeAnswer is the deferred breaker verdict for a non-streaming attempt
-	// (recordAnswerOutcome bound to its candidate). The handler that decodes
-	// the answer also writes the terminal row, and the verdict must land before
-	// that write for the trail's terminal record to carry it, so
-	// updateRequestLog runs it first; the attempt path runs it afterwards only
-	// if no terminal write did. Exactly one of the two fires.
+	// (recordAnswerOutcome bound to its candidate). It must land before the
+	// terminal row is written for the trail's terminal record to carry it, so
+	// updateRequestLog runs it first and the attempt path runs it only if no
+	// terminal write did. Exactly one of the two fires.
 	judgeAnswer func()
 }
 
@@ -217,10 +207,10 @@ type modelCandidate struct {
 }
 
 // requestState is the per-request scratch threaded through the ChatCompletions
-// phases (ingest → resolve → config → failover loop), replacing the ~20 closure
-// locals the handler previously carried. It is built by ingestRequest and
-// augmented by later phases. Helpers mutate the shared pointer instance — never
-// a copy — so timing/overhead accumulation is visible to subsequent phases.
+// phases (ingest, resolve, config, failover loop). It is built by ingestRequest
+// and augmented by later phases. Helpers mutate the shared pointer instance,
+// never a copy, so timing and overhead accumulation is visible to subsequent
+// phases.
 type requestState struct {
 	startTime   time.Time
 	reqModel    string
@@ -271,13 +261,13 @@ type requestState struct {
 	// shape the pipeline and client expect.
 	geminiAttempt bool
 	// speechFormat is set by buildGeminiSpeechRequest for a /v1/audio/speech
-	// attempt served through generateContent (gemini_speech.go): the wav or
-	// pcm the answer's audio part is delivered as. Empty on every other
-	// attempt, which is how the pass-through dispatch tells the two apart.
+	// attempt served through generateContent: the wav or pcm the answer's audio
+	// part is delivered as. Empty on every other attempt, which is how the
+	// pass-through dispatch tells the two apart.
 	speechFormat string
 	// passthroughUsage is the usage a translating adapter read off the
-	// provider's answer before re-shaping it into a body that carries none;
-	// the binary pass-through path meters from it in place of the estimate.
+	// provider's answer before re-shaping it into a body that carries none.
+	// The binary pass-through path meters from it in place of the estimate.
 	passthroughUsage *passthroughUsage
 
 	// Anthropic egress adapter (zero value = plain chat-completions).
@@ -290,10 +280,9 @@ type requestState struct {
 	// the pipeline and client expect.
 	anthropicEgressAttempt bool
 	// messagesRetried marks that this candidate's request has already been
-	// re-issued once by the Messages-route self-heal (see
-	// anthropic_thinking_retry.go). A 400 after that is about something the
-	// self-heal cannot fix, so the attempt ends rather than asking a third time.
-	// Reset per candidate with the dialect flags above.
+	// re-issued once by the Messages-route self-heal. A 400 after that is about
+	// something the self-heal cannot fix, so the attempt ends rather than asking
+	// a third time. Reset per candidate with the dialect flags above.
 	messagesRetried bool
 	// lastMessagesBody is the Messages body of the current egress attempt, kept
 	// so the self-heal can tell whether a rebuild actually changed anything.
@@ -324,13 +313,12 @@ type requestState struct {
 	lastErr    string
 	lastReqErr reqError
 
-	// rateLimit is the current attempt's 429 verdict (see classify429Attempt),
-	// reset at attempt start by beginAttempt. The terminal paths read it for
-	// the Retry-After they hand the client; only a terminal whose own status is
-	// a classified 429 does, so a stale verdict from an earlier attempt can
-	// never label a later failure. saturationRetried marks that this request
-	// has already spent its one wait-and-retry on a saturated last candidate —
-	// one retry, not a loop.
+	// rateLimit is the current attempt's 429 verdict, reset at attempt start by
+	// beginAttempt. The terminal paths read it for the Retry-After they hand the
+	// client, and only a terminal whose own status is a classified 429 does, so
+	// a stale verdict from an earlier attempt can never label a later failure.
+	// saturationRetried marks that this request has already spent its one
+	// wait-and-retry on a saturated last candidate.
 	rateLimit         rateLimitVerdict
 	saturationRetried bool
 
@@ -344,31 +332,27 @@ type requestState struct {
 }
 
 // setReqErr records the structured cause of the most recent failed attempt and
-// keeps the rendered lastErr string in sync. Every failover-loop site that used
-// to assign st.lastErr a fmt.Sprintf string now goes through here so the
-// exhaustion path always has a structured error to render and classify.
+// keeps the rendered lastErr string in sync. Every failover-loop failure goes
+// through here, so the exhaustion path always has a structured error to render
+// and classify.
 func (st *requestState) setReqErr(e reqError) {
 	st.lastReqErr = e
 	st.lastErr = e.render()
 }
 
 // sentChatCompletionsBody reports whether the current attempt POSTed an OpenAI
-// chat-completions body to a chat-completions route — that is, no dialect flag
+// chat-completions body to a chat-completions route, that is, no dialect flag
 // is set for it.
 //
 // Everything that interprets a 400 as OpenAI gates on this: the param
 // self-heal's rebuild-and-re-POST, and learning a rejected param or a
 // /v1/responses requirement from the error text. On a dialect attempt both are
-// wrong — another dialect's error names another dialect's fields, so a strip
-// learned there poisons the compat path for that model, and a rebuilt chat body
-// re-POSTed to a native endpoint would be malformed. The sequential and hedged
-// 400 paths share this predicate, so a dialect added later is covered at both
-// sites by extending it here. The Responses dialect is the one exception,
-// handled by name at both sites: its body is a closed struct sharing only
-// the sampling names with chat-completions, OpenAI names a rejected one
-// exactly as it does there, the one shared name that means something else
-// is dropped by responsesRejectedParams, and the retry rebuilds in that
-// dialect (rebuildForParamRetry).
+// wrong: another dialect's error names another dialect's fields, and a rebuilt
+// chat body re-POSTed to a native endpoint would be malformed. A dialect added
+// later is covered at both the sequential and hedged 400 sites by extending
+// this predicate. The Responses dialect is the one exception, handled by name
+// at both sites, since it shares the sampling parameter names and rebuilds in
+// its own dialect.
 //
 // It reads the attempt's own state: the hedged path holds a private snapshot
 // whose flags its own buildCandidateRequest set, so there is no shared-state
@@ -378,19 +362,17 @@ func (st *requestState) sentChatCompletionsBody() bool {
 }
 
 // retryBudgetLeft reports whether a self-heal round may still be issued: at
-// least retryMinRound before the overall deadline. Past that, the refusal
-// in hand is handed on as the provider gave it, to fail over or reach the
-// client, rather than a round that would time out on issue and turn the
-// provider's own answer into a timeout of this gateway's making. What the
-// refusal taught is learned either way. A state that never set the deadline
-// (the unit tests' bare state) always has budget.
+// least retryMinRound before the overall deadline. Past that the refusal in
+// hand is handed on as the provider gave it, rather than a round that would
+// time out on issue. What the refusal taught is learned either way. A state
+// that never set the deadline always has budget.
 func (st *requestState) retryBudgetLeft() bool {
 	return st.overallDeadline.IsZero() || time.Until(st.overallDeadline) > retryMinRound
 }
 
-// candidateOutcome is the result of a single failover attempt
-// (attemptCandidate): whether the caller should try the next candidate, has
-// already served the client, or has written a terminal error.
+// candidateOutcome is the result of a single failover attempt: whether the
+// caller should try the next candidate, has already served the client, or has
+// written a terminal error.
 type candidateOutcome int
 
 const (
@@ -400,25 +382,24 @@ const (
 	outcomeServed
 	// outcomeFatal: a terminal error response was written; return.
 	outcomeFatal
-	// outcomeRetrySaturated: the LAST candidate answered a saturated 429 —
-	// alive, at capacity, a slot frees in seconds — and nothing was written.
-	// The loop waits the provider's Retry-After (bounded) and retries the same
-	// candidate once; st.saturationRetried guards the "once".
+	// outcomeRetrySaturated: the last candidate answered a saturated 429 (alive,
+	// at capacity, a slot frees in seconds) and nothing was written. The loop
+	// waits the provider's Retry-After (bounded) and retries the same candidate
+	// once; st.saturationRetried guards the "once".
 	outcomeRetrySaturated
 	// outcomeBusy: the candidate's provider is at its learned in-flight limit,
-	// so the attempt was skipped WITHOUT a request — the way a breaker-open
-	// candidate is. The loop moves on, remembers the candidate, and when every
-	// live entry ends busy it waits for the first slot to free on any of them.
+	// so the attempt was skipped without a request. The loop moves on, remembers
+	// the candidate, and when every live entry ends busy it waits for the first
+	// slot to free on any of them.
 	outcomeBusy
-	// outcomeSkipped: the candidate cannot serve this request as asked (a
-	// Gemini TTS candidate and a response format it does not produce), so
-	// the attempt was skipped WITHOUT a request. The loop moves on; unlike
-	// a busy skip nothing frees up later, so it is not retried.
+	// outcomeSkipped: the candidate cannot serve this request as asked (a Gemini
+	// TTS candidate and a response format it does not produce), so the attempt
+	// was skipped without a request. The loop moves on; unlike a busy skip
+	// nothing frees up later, so it is not retried.
 	outcomeSkipped
 )
 
-// streamOptions consolidates the parameters for handleStreamingResponse into
-// a single struct, replacing 17 positional parameters with named fields.
+// streamOptions carries the parameters for handleStreamingResponse.
 type streamOptions struct {
 	preReadBuf         *bytes.Buffer // nil = no TTFT probe (immediate commit)
 	trueTtftMs         float64       // measured during TTFT probe; a probe that finds no token fails rather than reporting 0
@@ -428,8 +409,8 @@ type streamOptions struct {
 	providerName       string
 	// model is the candidate's resolved upstream model id, the key
 	// finalizeStream charges and credits the breaker under. It rides here rather
-	// than being read off logData, whose modelID is what the CLIENT asked for
-	// (a hotel/ alias on a failover group) and so is not a circuit key at all.
+	// than being read off logData, whose modelID is what the client asked for (a
+	// hotel/ alias on a failover group) and so is not a circuit key.
 	model            string
 	circuitBreakerOn bool
 	// timing fields
@@ -470,18 +451,17 @@ type ChatCompletionResponse struct {
 	Usage   Usage    `json:"usage"`
 	// Extra carries the top-level fields this struct does not model
 	// (system_fingerprint, OpenRouter's provider, service_tier, ...) so they
-	// survive the non-streaming decode + re-encode. See jsonextras.go.
+	// survive the non-streaming decode + re-encode.
 	Extra jsonExtras `json:"-"`
 }
 
 // Choice represents a single completion choice in the response.
 //
-// Delta is a pointer so the two response shapes stay distinct. A struct is
-// never empty to encoding/json, so a value field emitted "delta":{"role":"",
-// "content":null} on every non-streaming completion, a key the OpenAI
-// non-streaming schema does not have. Nil omits it; a streaming chunk that
-// carries a delta still round-trips one, even a delta holding nothing but the
-// role.
+// Delta is a pointer so the two response shapes stay distinct: a struct is
+// never empty to encoding/json, so a value field would emit
+// "delta":{"role":"","content":null} on every non-streaming completion, a key
+// the OpenAI non-streaming schema does not have. Nil omits it, while a
+// streaming chunk that carries a delta still round-trips one.
 type Choice struct {
 	Index        int      `json:"index"`
 	Message      Message  `json:"message"`
@@ -489,7 +469,7 @@ type Choice struct {
 	FinishReason *string  `json:"finish_reason,omitempty"`
 	// Extra carries the per-choice fields this struct does not model (logprobs,
 	// OpenRouter's native_finish_reason, ...) so they survive the non-streaming
-	// decode + re-encode. See jsonextras.go.
+	// decode + re-encode.
 	Extra jsonExtras `json:"-"`
 }
 
@@ -498,8 +478,8 @@ type Message struct {
 	Role    string `json:"role"`
 	Content any    `json:"content"`
 	// ToolCalls/ToolCallID must round-trip through the non-streaming decode +
-	// re-encode in handleNonStreamingResponse, or function calls are silently
-	// dropped (finish_reason:"tool_calls" with no tool_calls array) for every
+	// re-encode, or function calls are silently dropped
+	// (finish_reason:"tool_calls" with no tool_calls array) for every
 	// non-streaming client. omitempty keeps plain text responses unchanged.
 	ToolCalls        []ToolCall        `json:"tool_calls,omitempty"`
 	ToolCallID       string            `json:"tool_call_id,omitempty"`
@@ -507,7 +487,7 @@ type Message struct {
 	Reasoning        string            `json:"reasoning,omitempty"`         // Ollama, OpenRouter
 	ReasoningDetails []ReasoningDetail `json:"reasoning_details,omitempty"` // OpenRouter, MiniMax
 	// Extra carries the response fields this struct does not model, so they
-	// survive the non-streaming decode + re-encode. See jsonextras.go.
+	// survive the non-streaming decode + re-encode.
 	Extra jsonExtras `json:"-"`
 }
 
@@ -520,17 +500,16 @@ type ToolCall struct {
 	Function ToolCallFunc `json:"function"`
 	// Extra carries provider fields this struct does not model. Gemini 3 puts
 	// extra_content.google.thought_signature here and rejects the follow-up
-	// turn without it, so dropping it breaks tool use outright. See
-	// jsonextras.go.
+	// turn without it, so dropping it breaks tool use outright.
 	Extra jsonExtras `json:"-"`
 }
 
 // ToolCallFunc is the function name + raw JSON arguments of a tool call.
 type ToolCallFunc struct {
 	Name string `json:"name"`
-	// See util.ToolArguments. A plain string here made the whole
-	// ChatCompletionResponse fail to decode when a provider sent the argument
-	// object, and the caller got an error envelope instead of its tool call.
+	// util.ToolArguments accepts both shapes providers send. A plain string
+	// here fails the whole ChatCompletionResponse decode when a provider sends
+	// the arguments as an object.
 	Arguments util.ToolArguments `json:"arguments"`
 }
 
@@ -562,6 +541,6 @@ type Usage struct {
 	CompletionTokensDetails  *CompletionTokensDetails `json:"completion_tokens_details,omitempty"`
 	// Extra carries the usage fields this struct does not model (OpenRouter's
 	// cost and is_byok, provider-specific token breakdowns, ...) so they survive
-	// the non-streaming decode + re-encode. See jsonextras.go.
+	// the non-streaming decode + re-encode.
 	Extra jsonExtras `json:"-"`
 }

@@ -105,9 +105,9 @@ type WebAuthnSessionManager interface {
 	RevokeAuthToken(ctx context.Context, token string) bool
 	// RevokeOtherSessions signs out every session belonging to identity except
 	// the one the request was made from. identity must come from the
-	// authentication layer, never from a token the caller supplied; the
-	// candidate tokens only decide which session is spared, and one that does
-	// not belong to identity spares nothing.
+	// authentication layer, never from a token the caller supplied; the candidate
+	// tokens only decide which session is spared; one belonging to another
+	// identity spares nothing.
 	RevokeOtherSessions(ctx context.Context, identity []byte, candidateTokens ...string) (int64, error)
 	// CreateAuthToken mints a new session token for the given user handle. The
 	// admin-token exchange trades a valid admin token for a session cookie via
@@ -135,8 +135,8 @@ type PwnedChecker interface {
 // Handler manages admin API operations for providers, models, and virtual keys.
 type Handler struct {
 	cfg *config.Config
-	// Shared outbound client for the alert endpoints; nil is valid and makes
-	// each dispatcher build its own, which is what handlers in tests get.
+	// Shared outbound client for the alert endpoints; nil is valid and makes each
+	// dispatcher build its own.
 	alertClient            *http.Client
 	providerRepo           ProviderStore
 	dbPool                 *db.DB
@@ -148,7 +148,7 @@ type Handler struct {
 	appVersion             string
 	ghReleasesURL          string                                             // injectable for testing; defaults to githubReleasesURL const
 	ghTagsURL              string                                             // injectable for testing; defaults to githubTagsURL const
-	eventBus               *events.Bus                                        // /api/events subscribes here (DefaultBus in production); publishers still use events.Publish, so a private bus only isolates the stream side
+	eventBus               *events.Bus                                        // /api/events subscribes here (DefaultBus in production); publishers use events.Publish, so a private bus isolates only the stream side
 	webauthnSessionMgr     WebAuthnSessionManager                             // nil when webAuthn is not configured
 	clientIPs              webauthn.ClientIPSource                            // trusted-proxy-aware client IP for session device metadata; nil falls back to the peer address
 	userRepo               UserStore                                          // nil until SetUserAuth (multi-user identities)
@@ -160,26 +160,23 @@ type Handler struct {
 	discoveryDialCtx       func(ctx context.Context, network, addr string) (net.Conn, error)
 	discoveryCheckRedirect func(req *http.Request, via []*http.Request) error
 	// newDiscovery builds this handler's DiscoveryService. Per-handler rather
-	// than package-level: NewHandler used to assign a global here, which made
-	// two handlers built concurrently a data race (parallel tests each build
-	// one) and silently coupled every handler in the process to whichever was
-	// constructed last. Nil falls back to the package default, for the handlers
-	// tests build as bare structs.
+	// than package-level, so two handlers built concurrently neither race nor
+	// couple to whichever was constructed last. Nil falls back to the package
+	// default.
 	newDiscovery   func() *provider.DiscoveryService
 	circuitBreaker CircuitBreakerControl
 	capLedger      *provider.CapLedger
 	audit          *audit.Recorder   // nil until SetAudit (audit trail of admin actions)
-	totpStatus     TotpStatus        // nil when TOTP feature not wired -> TotpEnabled() returns false (today's behavior)
+	totpStatus     TotpStatus        // nil when the TOTP feature is not wired -> TotpEnabled() returns false
 	totpEnabled    atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
 	quotaRepo      *quota.Repository // read-through store for polled provider quota snapshots
 	quotaAdvisor   *QuotaAdvisor     // nil until SetQuotaAdvisor; populated by RefreshQuotaAdvice
 	pwnedChecker   PwnedChecker      // nil until SetPwnedChecker (breached-password check on create/reset/change)
 
-	// Debounce state for the quota schema-drift watch: a per-provider shape
-	// that has been seen but not yet confirmed by a second consecutive poll.
-	// Deliberately in-memory (a restart re-arms the debounce, costing one extra
-	// poll before a real change is reported) and guarded because it is
-	// process-wide state, even though only the poll goroutine touches it today.
+	// Debounce state for the quota schema-drift watch: a per-provider shape that
+	// has been seen but not yet confirmed by a second consecutive poll. In-memory
+	// (a restart re-arms the debounce, costing one extra poll before a real change
+	// is reported) and guarded because it is process-wide state.
 	quotaSchemaMu   sync.Mutex
 	quotaSchemaSeen map[uuid.UUID]quotaSchemaCandidate
 
@@ -207,12 +204,12 @@ func NewHandler(cfg *config.Config, providerRepo ProviderStore, database *db.DB,
 		testModelCheckRedirect: testModelCheckRedirect,
 		discoveryDialCtx:       discoveryDialCtx,
 		discoveryCheckRedirect: discoveryCheckRedirect,
-		// Same profile as the login throttles: an authenticated session must
-		// not be a free brute-force oracle for the account's current password.
+		// Same profile as the login throttles: an authenticated session must not be
+		// a free brute-force oracle for the account's current password.
 		pwThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
 		quotaRepo:  quota.NewRepository(database.Pool()),
-		// One client for every alert probe/test this handler serves, rather than
-		// one per request: see alert.NewHTTPClient.
+		// One client for every alert probe/test this handler serves, rather than one
+		// per request: see alert.NewHTTPClient.
 		alertClient: alert.NewHTTPClient(),
 	}
 	// Wire the discovery service factory to use the SSRF-protected dial/redirect
@@ -348,9 +345,9 @@ func (h *Handler) StopBackupScheduler() {
 func (h *Handler) Register(r chi.Router) {
 	r.Use(h.AuthMiddleware)
 
-	// Audit trail: records every mutating request on this surface, including
-	// ones the demo read-only guard below refuses (mounted before it on
-	// purpose, so refused attempts appear with their 403).
+	// Audit trail: records every mutating request on this surface, including ones
+	// the demo read-only guard refuses. Mounted before that guard, so refused
+	// attempts appear with their 403.
 	if h.audit != nil {
 		r.Use(h.audit.Middleware)
 	}
@@ -372,10 +369,9 @@ func (h *Handler) Register(r chi.Router) {
 	r.Post("/auth/password", h.ChangeOwnPassword)
 
 	// Self-service session hygiene: sign this identity's other sessions out.
-	// Ungated like /auth/password because the handler takes the identity from
-	// this middleware rather than from the request, so a caller can only ever
-	// reach their own sessions. That property is what makes it safe to leave
-	// open, and auth_sessions_route_test.go pins it.
+	// Ungated like /auth/password, because the handler takes the identity from
+	// this middleware rather than from the request, so a caller can only reach
+	// their own sessions.
 	r.Post("/auth/sessions/revoke-others", h.RevokeOtherSessions)
 
 	// The active-sessions list and its per-row revoke. Same open-but-scoped
@@ -401,8 +397,8 @@ func (h *Handler) Register(r chi.Router) {
 		})
 		// Provider CRUD is synced config: a managed fleet member must not edit it
 		// locally (the primary owns it and replaces it on the next sync). Discovery
-		// routes under /providers (mounted via RegisterProviderDiscovery) are
-		// deliberately outside this group: models regenerate and are not synced.
+		// routes under /providers (mounted via RegisterProviderDiscovery) sit
+		// outside this group: models regenerate and are not synced.
 		r.Group(func(r chi.Router) {
 			r.Use(requireAdmin)
 			r.Use(managedWriteGuard(h.settingsRepo))
@@ -451,11 +447,10 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 	bh.Register(r)
 	h.backupScheduler = bh
 
-	// HA fleet config-sync endpoints (Phase 5). Always mounted: any member can be
-	// a primary (export) or a replica (import). Inherits this group's admin auth.
-	// The discovery callback lets an import populate this member's models so synced
-	// custom failover groups resolve without a manual discover (a freshly-synced
-	// member has providers but no models until discovery runs).
+	// HA fleet config-sync endpoints. Always mounted: any member can be a primary
+	// (export) or a replica (import). Inherits this group's admin auth. The
+	// discovery callback lets an import populate this member's models so synced
+	// custom failover groups resolve without a manual discover.
 	NewConfigSyncHandler(h.dbPool, h.settingsRepo, h.cfg.MasterKey, h.appVersion,
 		func(ctx context.Context) error {
 			// Request-bound (runs inside the config-sync import HTTP handler):
@@ -466,15 +461,15 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 			return err
 		}, h.cfg.ValidateProviderURL).Register(r)
 
-	// Fleet quota snapshot export/receive (quota poller Phase 2). Same
-	// fleet-authed router as config-sync; snapshots carry no key material, so
-	// unlike config import there is no MASTER_KEY canary.
+	// Fleet quota snapshot export/receive. Same fleet-authed router as
+	// config-sync; snapshots carry no key material, so unlike config import there
+	// is no MASTER_KEY canary.
 	NewQuotaFleetHandler(h.quotaRepo, h.providerRepo).Register(r)
 
-	// HA fleet membership heartbeat (Phase 6). Front Desk POSTs /fleet/announce
-	// on its poll; the member records the contact as instance-local _fleet_*
-	// settings and surfaces fleet state on its system payload. Inherits this
-	// group's admin auth so the badge cannot be forged.
+	// HA fleet membership heartbeat. Front Desk POSTs /fleet/announce on its poll;
+	// the member records the contact as instance-local _fleet_* settings and
+	// surfaces fleet state on its system payload. Inherits this group's admin auth
+	// so the badge cannot be forged.
 	NewFleetHandler(h.settingsRepo).Register(r)
 }
 
@@ -491,11 +486,11 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 //
 // use says whether this request counts as the person using the session: the
 // middleware passes true (stamp last-seen, slide the expiry); the SSE re-check
-// passes false and gets a pure lookup, because a heartbeat the server drives
-// is not use, must not keep an untouched tab's session alive by itself, and
-// could not carry a re-issued cookie anyway (its headers are long gone).
+// passes false and gets a pure lookup, because a server-driven heartbeat must
+// not keep an untouched tab's session alive and cannot carry a re-issued
+// cookie anyway.
 func (h *Handler) resolveCredentials(r *http.Request, use bool) (id *user.Identity, cookieAuth, ok bool, refresh *cookieRefresh) {
-	// Resolved lazily: both call sites below sit behind the nil guard on
+	// Resolved lazily: both call sites sit behind the nil guard on
 	// webauthnSessionMgr, and a method value taken from a nil interface would
 	// not.
 	authenticate := func(ctx context.Context, tok string) (webauthn.AuthResult, bool) {
@@ -524,19 +519,18 @@ func (h *Handler) resolveCredentials(r *http.Request, use bool) (id *user.Identi
 		return nil, false, false, nil
 	}
 
-	// Fast path: admin token (in-memory hash comparison) -- only when TOTP
-	// 2FA is disabled. With TOTP enabled, the raw admin token is a first
-	// factor only and must be exchanged for a session token via POST
-	// /api/totp/login; a bare admin token bearer is rejected so the second
-	// factor cannot be bypassed.
+	// Admin token (in-memory hash comparison), only when TOTP 2FA is disabled.
+	// With TOTP enabled the raw admin token is a first factor only and must be
+	// exchanged for a session token via POST /api/totp/login; a bare admin token
+	// bearer is rejected so the second factor cannot be bypassed.
 	if !h.TotpEnabled() && h.adminMgr.Validate(token) {
 		return user.AdminIdentity(), false, true, nil
 	}
 
-	// Fallback: session token (DB-backed SHA-256 hash lookup). The session's
-	// user handle resolves to an identity: legacy admin sessions stay admin,
-	// UUID handles must match an enabled users row (disabled/deleted users
-	// are rejected here even if their token has not been revoked yet).
+	// Fallback: session token (DB-backed SHA-256 hash lookup). The session's user
+	// handle resolves to an identity: legacy admin sessions stay admin, UUID
+	// handles must match an enabled users row (disabled or deleted users are
+	// rejected here even if their token is not revoked yet).
 	if h.webauthnSessionMgr != nil {
 		if res, valid := authenticate(r.Context(), token); valid {
 			if id, resolved := h.resolveIdentity(r.Context(), res.UserID); resolved {
@@ -563,9 +557,9 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id, cookieAuth, ok, refresh := h.resolveCredentials(r, true)
 		if !ok {
-			// Warn (not Error) with the remote address — never the token — so
-			// repeated admin-auth failures are visible for abuse detection
-			// without polluting the operator-actionable Error stream.
+			// Warn (not Error) with the remote address, never the token, so repeated
+			// admin-auth failures are visible for abuse detection without polluting
+			// the operator-actionable Error stream.
 			if _, hasBearer := util.ParseBearerToken(r); !hasBearer {
 				debuglog.Warn("auth: admin request missing bearer token", "remote_addr", clientip.From(r), "path", r.URL.Path)
 				http.Error(w, "Authorization header required (Bearer token)", http.StatusUnauthorized)
@@ -600,10 +594,10 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// RegisterEvents registers the SSE endpoint on a route group that is
-// exempt from the chi Timeout middleware.  SSE connections are long-lived
-// and must not be killed by a 60-second request deadline; the handler
-// detects client disconnect via r.Context().Done() instead.
+// RegisterEvents registers the SSE endpoint on a route group exempt from the
+// chi Timeout middleware. SSE connections are long-lived and must not be killed
+// by a 60-second request deadline; the handler detects client disconnect via
+// r.Context().Done() instead.
 func (h *Handler) RegisterEvents(r chi.Router) {
 	r.Use(h.AuthMiddleware)
 	r.Get("/events", h.StreamEvents)

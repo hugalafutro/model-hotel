@@ -17,27 +17,23 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// A 429 is two different claims wearing one number, and they need opposite
-// handling:
+// rateLimitClass says which of two claims a 429 makes:
 //
 //   - SATURATED ("busy"): a concurrency slot, RPM or TPM ceiling is full and a
 //     retry succeeds in seconds. Charging the circuit breaker for it benches a
-//     healthy provider, which is how the 2026-08-31 hotel/glm53 run turned
-//     nineteen avoidable 502s out of a provider that had free slots the whole
-//     time.
+//     healthy provider.
 //   - EXHAUSTED ("spent"): a usage window or a balance is gone and a retry
 //     cannot succeed until it resets or someone pays. Spending a second request
 //     to confirm it wastes the request and can tip a saturated sibling over.
 //
-// classifyRateLimit reads the response and says which claim it makes. Known
-// provider phrases and headers are accelerators, never prerequisites: with the
-// whole phrase table deleted the behavioural fallback in classify429Attempt (a
-// recent 2xx on the same circuit means saturated) still converges on the right
-// treatment, only more slowly. An unknown 429 keeps today's behaviour exactly.
+// classifyRateLimit reads the response and says which claim it makes. Provider
+// phrases and headers are accelerators, never prerequisites: the behavioural
+// fallback in classify429Attempt (a recent 2xx on the same circuit means
+// saturated) reaches the same verdict without them, only more slowly.
 type rateLimitClass int
 
 const (
-	// rateLimitUnknown is today's behaviour: failover-eligible, charged.
+	// rateLimitUnknown is failover-eligible and charged to the breaker.
 	rateLimitUnknown rateLimitClass = iota
 	// rateLimitSaturated: slots/RPM/TPM busy, retry in seconds.
 	rateLimitSaturated
@@ -59,16 +55,14 @@ func (c rateLimitClass) String() string {
 // rateLimitVerdict is what one 429 established, threaded from the classifier
 // to the breaker outcome, the saturation retry and the terminal response.
 type rateLimitVerdict struct {
-	// classified says the master switch was ON and the classifier actually
-	// looked, even if it found nothing (class stays unknown). It gates the
-	// 429-open escalation: with rate_limit_classify_enabled off the whole
-	// mechanism, escalation included, must restore today's behaviour bit for
-	// bit.
+	// classified says the classifier ran, even if it found nothing (class stays
+	// unknown). It gates the 429-open escalation, which is off whenever
+	// rate_limit_classify_enabled is off.
 	classified bool
 	class      rateLimitClass
 	// phrase is the phrase-table entry that decided the class, "" when the
 	// headers or the behavioural fallback did. It rides into the attempt trail
-	// so the staleness report can see which phrases still earn their keep.
+	// for the phrase staleness report.
 	phrase string
 	// detail is the sanitized body the classifier read, kept for the attempt
 	// trail (which caps and masks it); never forwarded anywhere else.
@@ -82,7 +76,7 @@ type rateLimitVerdict struct {
 	// Retry-After beyond the saturation ceiling, or the matched phrase's
 	// per-marker default. Zero means "no hint, use the ordinary cooldown". The
 	// breaker clamps it with the same floor/ceiling/jitter rules as an advisor
-	// pin, and an advisor reading always wins over it.
+	// pin, and an advisor reading wins over it.
 	pinHint time.Duration
 	// entitled marks an exhaustion a person fixes (balance, plan) rather than
 	// time; it keeps the provider_not_entitled error kind for those bodies.
@@ -108,7 +102,7 @@ func (v rateLimitVerdict) errorKind() (ErrorKind, bool) {
 const (
 	// defaultSaturationMaxWait is the Retry-After ceiling that separates "wait
 	// for a slot" from "wait for a window": a provider asking for more than a
-	// minute is telling us the window, not the slot. It also caps the
+	// minute is naming the window, not the slot. It also caps the
 	// last-candidate saturation wait. Runtime override:
 	// rate_limit_saturation_max_wait.
 	defaultSaturationMaxWait = 60 * time.Second
@@ -118,8 +112,7 @@ const (
 	// rate_limit_recent_success_window.
 	defaultRecentSuccessWindow = 60 * time.Second
 	// defaultSaturatedRetryAfter is the wait used when a saturated 429 carries
-	// no Retry-After. Two seconds is the shape of the gap the 2026-08-31 run
-	// turned into 502s.
+	// no Retry-After. Two seconds is the typical slot-freeing gap.
 	defaultSaturatedRetryAfter = 2 * time.Second
 	// pinHintWindow is the pin for a usage window whose reset the body names
 	// but does not date (Ollama's session cap, generic quota phrases).
@@ -135,11 +128,10 @@ const (
 )
 
 // rateLimitPhrase is one observed provider sentence and the claim it makes.
-// The table is data, not code: every entry names the provider it was observed
-// on and when (a test enforces both), so an entry can be deleted with its
-// provider and a phrase that stops matching has an owner to ask. Matching is a
-// lowercased substring test on the already-sanitized body, the same discipline
-// classifyUpstreamError uses; `also` narrows a phrase too generic on its own.
+// Every entry names the provider it was observed on and the date, so an entry
+// can be deleted with its provider and a phrase that stops matching has an
+// owner to ask. Matching is a lowercased substring test on the already
+// sanitized body; `also` narrows a phrase too generic on its own.
 type rateLimitPhrase struct {
 	phrase   string
 	also     string // second required substring; "" = none
@@ -151,12 +143,13 @@ type rateLimitPhrase struct {
 }
 
 // rateLimitPhrases is checked in order; first match wins. Exhausted entries
-// come first because an exhaustion body can also contain saturation vocabulary
-// ("rate limit"), and mistaking spent for busy retries into a certain 429.
+// must precede saturated ones: an exhaustion body can also contain saturation
+// vocabulary ("rate limit"), and mistaking spent for busy retries into a
+// certain 429.
 //
 // The entitled entries double as classifyUpstreamError's provider_not_entitled
-// list (entitledRateLimitPhrases below): one table, two consumers, so a phrase
-// cannot be added to one and not the other.
+// list (entitledRateLimitPhrases), so a phrase cannot be added to one and not
+// the other.
 var rateLimitPhrases = []rateLimitPhrase{
 	// Balance / plan: a person fixes these, so the pin holds as long as the
 	// ceiling allows.
@@ -170,25 +163,18 @@ var rateLimitPhrases = []rateLimitPhrase{
 	// Usage windows: time fixes these. The weekly entries must precede the
 	// session/generic ones so the longer pin is not shadowed.
 	//
-	// Z.ai's code 1310 names the reset to the second ("Your limit will reset
-	// at 2026-09-03 18:01:05"); the weekly pin, re-pinned toward that instant
-	// on each open by the advisor when the usage API agrees, is the safe
-	// reading of a body whose date format nothing here parses. Seen live on
-	// prod while the quota advisor was already pinning the same circuit; the
-	// cost of missing it was an "unrecognised" cause on every surface, a
-	// class="unknown" metric and a dependence on that advisor.
-	//
-	// "limit exhausted" alone would be the broadest phrase here, and it runs
-	// ahead of every saturated entry, so it also requires the body to name a
-	// reset: a spent window says when it comes back, a busy provider says
-	// "retry shortly", and "concurrency limit exhausted" must keep reaching
-	// the saturated entries below (a table case holds that line).
+	// "limit exhausted" swallows "concurrency limit exhausted" and runs ahead
+	// of every saturated entry, so it also requires the body to name a reset: a spent
+	// window says when it comes back, a busy provider says "retry shortly", and
+	// "concurrency limit exhausted" must keep reaching the saturated entries
+	// below. The Z.ai entry pins pinHintWeekly rather than the named reset
+	// instant: nothing here parses that date format.
 	{phrase: "limit exhausted", also: "reset", class: rateLimitExhausted, pinHint: pinHintWeekly, provider: "Z.ai Coding Plan (code 1310, \"Weekly/Monthly Limit Exhausted. Your limit will reset at ...\")", observed: "2026-09-01"},
 	{phrase: "weekly usage limit", class: rateLimitExhausted, pinHint: pinHintWeekly, provider: "Ollama Cloud", observed: "2026-08-31"},
 	{phrase: "session usage limit", class: rateLimitExhausted, pinHint: pinHintWindow, provider: "Ollama Cloud", observed: "2026-08-31"},
 	{phrase: "usage limit", also: "upgrade", class: rateLimitExhausted, pinHint: pinHintWindow, provider: "Ollama Cloud (\"you have reached your session usage limit, upgrade for higher limits\")", observed: "2026-08-31"},
 	{phrase: "overage_limit", class: rateLimitExhausted, pinHint: pinHintWindow, provider: "Neuralwatt (docs; not yet observed live)", observed: "2026-08-31"},
-	// Saturation: capacity vocabulary, all observed on live providers.
+	// Saturation: capacity vocabulary.
 	{phrase: "concurrent_budget_exceeded", class: rateLimitSaturated, provider: "Neuralwatt (2026-08-31 14:52 UTC)", observed: "2026-08-31"},
 	{phrase: "rate_limit_error", also: "concurr", class: rateLimitSaturated, provider: "Neuralwatt", observed: "2026-08-31"},
 	{phrase: "too many concurrent", class: rateLimitSaturated, provider: "Z.ai Coding Plan", observed: "2026-08-31"},
@@ -212,16 +198,15 @@ var (
 	miniMaxWindowCode  = regexp.MustCompile(`"status_code"\s*:\s*"?1039\b`)
 )
 
-// The names the two MiniMax code matches report as their phrase in the attempt
-// trail, so the staleness report can count them beside the table's entries.
+// The phrase names the two MiniMax code matches report in the attempt trail,
+// so the staleness report counts them beside the table's entries.
 const (
 	miniMaxBalancePhrase = "minimax status_code 1008"
 	miniMaxWindowPhrase  = "minimax status_code 1039"
 )
 
-// entitledRateLimitPhrases is the entitled slice of the table, consumed by
-// classifyUpstreamError for provider_not_entitled. Derived, never written out
-// twice; TestRateLimitPhrases_EntitledSubsetOfExhausted pins the relationship.
+// entitledRateLimitPhrases is the entitled slice of the phrase table, consumed
+// by classifyUpstreamError for provider_not_entitled.
 func entitledRateLimitPhrases() []string {
 	var out []string
 	for _, p := range rateLimitPhrases {
@@ -238,9 +223,8 @@ func entitledRateLimitPhrases() []string {
 // the saturated retryAfter.
 //
 // Decision order, first match wins: exhausted by body, saturated by body,
-// saturated-or-exhausted by header, unknown. The caller owns the behavioural
-// fallback for unknown (classify429Attempt); this function is pure so the
-// table tests need no handler.
+// saturated-or-exhausted by header, unknown. The behavioural fallback for
+// unknown lives in classify429Attempt.
 func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Duration) rateLimitVerdict {
 	if status != http.StatusTooManyRequests {
 		return rateLimitVerdict{}
@@ -278,7 +262,7 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 		return v
 	}
 
-	// No phrase matched: let the headers speak. A Retry-After at or under the
+	// No phrase matched: fall back to the headers. A Retry-After at or under the
 	// ceiling is a slot freeing; above it the provider is naming the window.
 	if wait, ok := rateLimitResetHint(hdr); ok {
 		if wait <= maxWait {
@@ -379,9 +363,8 @@ func parseResetValue(v string) (time.Duration, bool) {
 }
 
 // rebufferedBody hands back the bytes the classifier already read, then the
-// rest of the upstream stream, closing the real body. The same restore trick
-// the MiniMax envelope check uses, for the same reason: the downstream drains
-// and forwards must see the response exactly as it arrived.
+// rest of the upstream stream, closing the real body, so the downstream drains
+// and forwards see the response exactly as it arrived.
 type rebufferedBody struct {
 	io.Reader
 	io.Closer
@@ -390,19 +373,17 @@ type rebufferedBody struct {
 // classify429Attempt classifies one attempt's 429 and stamps the verdict on
 // st.rateLimit for the breaker outcome, the saturation retry and the terminal
 // response. It reads (and restores) at most failoverErrorClassifyCap of the
-// body — a 429 body is never forwarded verbatim (forwardableErrorStatus denies
+// body; a 429 body is never forwarded verbatim (forwardableErrorStatus denies
 // the status), so the peek changes nothing downstream.
 //
-// The behavioural fallback lives here, not in classifyRateLimit: an unknown
-// 429 from a (provider, model) circuit that served a 2xx inside
-// rate_limit_recent_success_window is saturated — it was fine a moment ago and
-// the load rose, and a spent window does not come back in a minute. This is
-// the rule that keeps the whole mechanism working with the phrase table
-// deleted; the phrases only make the verdict earlier. With no recent success
-// the verdict stays unknown and the 429 is charged exactly as today.
+// The behavioural fallback lives here rather than in classifyRateLimit because
+// it reads the breaker: an unknown 429 from a (provider, model) circuit that
+// served a 2xx inside rate_limit_recent_success_window is saturated, since a
+// spent window does not come back in a minute. With no recent success the
+// verdict stays unknown and the 429 is charged.
 //
-// rate_limit_classify_enabled OFF restores today's behaviour bit for bit: no
-// body peek, no verdict, every consumer sees rateLimitUnknown.
+// rate_limit_classify_enabled OFF: no body peek, no verdict, every consumer
+// sees rateLimitUnknown.
 func (h *Handler) classify429Attempt(ctx context.Context, st *requestState, candidate modelCandidate, resp *http.Response) rateLimitVerdict {
 	st.rateLimit = rateLimitVerdict{}
 	if resp.StatusCode != http.StatusTooManyRequests {
@@ -433,15 +414,13 @@ func (h *Handler) classify429Attempt(ctx context.Context, st *requestState, cand
 }
 
 // failNoAvailableProvider answers a request whose failover group resolved to
-// zero candidates. When the circuit breaker did the emptying, "502 bad
-// gateway" is not true — nothing upstream faulted on THIS request — so the
-// answer is a 429 with a Retry-After naming the earliest instant a circuit
-// comes back, capped at a minute so a long quota pin never tells a client to
-// go away for hours (a lapsed verdict frees the group far sooner than the
-// last circuit expires). The kind is exhaustion only when every skipped
-// candidate is waiting out a quota pin; a genuine upstream fault (no breaker
-// skips at all: everything disabled or missing) keeps today's 502, and so
-// does switching failover_exhaustion_status_429 off.
+// zero candidates. When the circuit breaker did the emptying nothing upstream
+// faulted on this request, so the answer is a 429 with a Retry-After naming
+// the earliest instant a circuit comes back, capped at a minute so a long
+// quota pin never tells a client to go away for hours. The kind is exhaustion
+// only when every skipped candidate is waiting out a quota pin; a genuine
+// upstream fault (no breaker skips at all: everything disabled or missing)
+// answers 502, and so does switching failover_exhaustion_status_429 off.
 func (h *Handler) failNoAvailableProvider(w http.ResponseWriter, r *http.Request, st *requestState, displayModel string, timings resolveTimings, cacheHits resolveCacheHits, skips breakerSkipSummary) {
 	msg := "no available provider for hotel/" + displayModel
 	metrics.RecordFailoverExhausted(displayModel, "no_available_provider")
@@ -466,11 +445,10 @@ func (h *Handler) failNoAvailableProvider(w http.ResponseWriter, r *http.Request
 }
 
 // rateLimitTerminalKind refines a terminal 429's classification with the
-// attempt's own verdict: the classes carry what the body-driven classifier
-// cannot see (headers, the behavioural fallback) and honour the master switch
-// (no verdict is stamped when it is off, so the old labels stand bit for
-// bit). It refines only the generic kind: a body-derived provider_not_entitled
-// names WHO fixes it and must not be blurred back into "quota".
+// attempt's own verdict, which carries what the body-driven classifier cannot
+// see (headers, the behavioural fallback). It refines only the generic kind: a
+// body-derived provider_not_entitled names WHO fixes it and must not be
+// blurred back into "quota".
 func rateLimitTerminalKind(kind ErrorKind, reason string, status int, v rateLimitVerdict) (ErrorKind, string) {
 	if status != http.StatusTooManyRequests || kind != KindProviderError {
 		return kind, reason
@@ -481,9 +459,8 @@ func rateLimitTerminalKind(kind ErrorKind, reason string, status int, v rateLimi
 	return kind, reason
 }
 
-// rateLimitClientReason words a classified 429 for the client the way
-// classifyUpstreamError words its kinds: gateway-authored static text, never
-// the provider's body.
+// rateLimitClientReason words a classified 429 for the client:
+// gateway-authored static text, never the provider's body.
 func rateLimitClientReason(class rateLimitClass) string {
 	if class == rateLimitExhausted {
 		return "the provider's usage quota is exhausted; retry after it resets"
@@ -491,8 +468,8 @@ func rateLimitClientReason(class rateLimitClass) string {
 	return "the provider is at capacity; retry shortly"
 }
 
-// rateLimitReqErr is the structured attempt error for a classified 429: it
-// keeps the terminal renderers able to tell "busy" from "spent" from "failed".
+// rateLimitReqErr is the structured attempt error for a classified 429, so the
+// terminal renderers can tell "busy" from "spent" from "failed".
 func rateLimitReqErr(v rateLimitVerdict, attempt int, providerName string) reqError {
 	kind, _ := v.errorKind()
 	detail := "HTTP 429 (" + v.class.String() + ")"
@@ -501,7 +478,7 @@ func rateLimitReqErr(v rateLimitVerdict, attempt int, providerName string) reqEr
 
 // failoverReqErr is the attempt error recorded when an eligible upstream error
 // sends the loop to the next candidate: the classified-429 shape when a
-// verdict exists, today's generic one otherwise.
+// verdict exists, the generic one otherwise.
 func failoverReqErr(rl rateLimitVerdict, attempt int, providerName string, status int) reqError {
 	if status == http.StatusTooManyRequests && rl.class != rateLimitUnknown {
 		return rateLimitReqErr(rl, attempt, providerName)
@@ -510,23 +487,21 @@ func failoverReqErr(rl rateLimitVerdict, attempt int, providerName string, statu
 }
 
 // judge429AndRecordBreaker is the one call an attempt path makes between
-// reading the status and acting on it: classify a 429 (eligible ones only —
-// with failover_on_rate_limit OFF a 429 keeps today's stay-and-forward
-// handling untouched) and record the breaker outcome with the verdict. One
-// entry point for the sequential, hedged and pass-through paths, so the three
-// cannot drift.
+// reading the status and acting on it: classify a 429 (eligible ones only, so
+// with failover_on_rate_limit OFF a 429 keeps its stay-and-forward handling)
+// and record the breaker outcome with the verdict. One entry point for the
+// sequential, hedged and pass-through paths, so the three cannot drift.
 func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState, candidate modelCandidate, resp *http.Response, isFailoverEligible bool) rateLimitVerdict {
 	var rl rateLimitVerdict
 	if isFailoverEligible {
 		rl = h.classify429Attempt(ctx, st, candidate, resp)
 	}
 	// Every 429 lands here, on all three serve paths, so this is the one place
-	// to count them by class and to keep the cap ledger. Both see a 429 that
-	// failover may not act on too (failover_on_rate_limit off): that is a
-	// routing choice, and it must not blind the badge that exists for the
-	// providers nothing else reports on. Such a 429 is classified by a read
-	// that leaves the request untouched, so what the client gets is exactly
-	// what it got before.
+	// to count them by class and to keep the cap ledger. Both also see a 429
+	// failover may not act on (failover_on_rate_limit off): that is a routing
+	// choice, and it must not blind the badge that exists for the providers
+	// nothing else reports on. Such a 429 is classified by a read that leaves
+	// the request untouched, so the client sees exactly what it otherwise would.
 	if resp.StatusCode == http.StatusTooManyRequests {
 		seen := rl
 		if !isFailoverEligible {
@@ -539,15 +514,14 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 			h.CapLedger().Note(candidate.provider.ID, provider.CapNote{Phrase: seen.phrase, Model: candidateModelID(candidate), Entitled: seen.entitled, At: time.Now()})
 		}
 	}
-	// The saturated 429 teaches the in-flight learner: the pool is provably
-	// smaller than the load that included this request, so the allowance is
-	// cut and the NEXT requests spill to the other entries before anyone has
-	// to say 429 again. Here rather than inside the breaker outcome, because
-	// the limiter is its own feature: circuit_breaker_enabled off must not
-	// stop it learning. The drawing request's own slot settles FIRST
-	// (idempotently), so cut's arithmetic sees exactly the load that fit,
-	// never a count that depends on whether the body reader beat it to the
-	// release.
+	// A saturated 429 teaches the in-flight learner: the pool is provably
+	// smaller than the load that included this request, so the allowance is cut
+	// and the NEXT requests spill to the other entries. Here rather than inside
+	// the breaker outcome, because the limiter is its own feature:
+	// circuit_breaker_enabled off must not stop it learning. The drawing
+	// request's own slot settles FIRST (idempotently), so cut's arithmetic sees
+	// exactly the load that fit, never a count that depends on whether the body
+	// reader beat it to the release.
 	if rl.class == rateLimitSaturated && st.inflightEnabled {
 		st.attemptSlot.settle(false)
 		h.inflight.cut(candidate.provider.ID, rl.retryAfter)
@@ -558,11 +532,10 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 
 // peekRateLimitVerdict classifies a 429 that failover may not act on, for the
 // 429 counter and the cap ledger only. It rebuffers what it read for whoever
-// forwards the body and writes nothing onto the request state, so the
-// response and its log row are exactly what they were. No behavioural
-// fallback: that reads the breaker, and a verdict nothing acts on does not
-// earn the lookup. rate_limit_classify_enabled off classifies nothing, as
-// everywhere.
+// forwards the body and writes nothing onto the request state, so the response
+// and its log row are untouched. No behavioural fallback: that reads the
+// breaker, and a verdict nothing acts on does not earn the lookup.
+// rate_limit_classify_enabled off classifies nothing.
 func (h *Handler) peekRateLimitVerdict(ctx context.Context, resp *http.Response) rateLimitVerdict {
 	if !h.settingsRepo.GetBool(ctx, "rate_limit_classify_enabled", true) {
 		return rateLimitVerdict{}
@@ -577,8 +550,8 @@ func (h *Handler) peekRateLimitVerdict(ctx context.Context, resp *http.Response)
 // deferSaturatedRetry closes out an attempt whose LAST candidate answered a
 // saturated 429: the response is drained, the attempt recorded, and the loop
 // told to wait and try the same candidate once more (outcomeRetrySaturated).
-// The point is to absorb the two-second gaps that became 502s on 2026-08-31,
-// not to build a queue — st.saturationRetried caps it at one.
+// It absorbs a short slot-freeing gap rather than building a queue:
+// st.saturationRetried caps it at one.
 func (h *Handler) deferSaturatedRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int) candidateOutcome {
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()

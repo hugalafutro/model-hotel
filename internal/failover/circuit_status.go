@@ -15,10 +15,9 @@ import (
 // reason and the upstream HTTP status behind it, 0 when no response was seen (a
 // connection that never completed, a stream that died before its status meant
 // anything). The circuit remembers its most recent one as its last verdict, the
-// open transition publishes it, and the detail endpoint lists it per circuit,
-// so a status row, an SSE event and an outbound alert can all say what the
-// breaker SAW rather than only what it did. Diagnosing the 2026-08-31 incident
-// took an hour of polling because none of them could.
+// open transition publishes it, and the detail endpoint lists it per circuit, so
+// a status row, an SSE event and an outbound alert can say what the breaker SAW
+// rather than only what it did.
 //
 // Routing metadata only. The reason is always a fixed phrase chosen by the
 // caller, never text copied from a provider response, so it can never carry a
@@ -60,11 +59,10 @@ func (c *circuit) note(now time.Time, cause Cause) {
 }
 
 // CircuitStatus is one (provider, resolved upstream model) circuit as the
-// detail endpoint reports it: the same fields the provider row carries, at the
-// level the breaker actually keeps them, plus the last verdict that landed on
-// it. The provider row is built from the most degraded of these, so a row
-// saying "open" while the model an operator cares about reads "closed" here is
-// not a contradiction: it is the per-model keying made visible.
+// detail endpoint reports it: the fields the provider row carries, at the level
+// the breaker keeps them, plus the last verdict that landed on it. The provider
+// row is built from the most degraded of these, so a row saying "open" while a
+// circuit here reads "closed" is the per-model keying, not a contradiction.
 type CircuitStatus struct {
 	Model            string `json:"model"`
 	State            string `json:"state"`

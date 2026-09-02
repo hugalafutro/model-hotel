@@ -5,11 +5,10 @@ import (
 	"time"
 )
 
-// Listener posture shared by both binaries (cmd/server, cmd/frontdesk). Each
-// used to build its own http.Server with ReadHeaderTimeout alone, which left
-// two ways for a client to hold a goroutine and a file descriptor for free:
-// send the headers promptly and then trickle the body, or send one request and
-// then leave the keep-alive connection open. NewServer closes both.
+// Listener posture shared by both binaries (cmd/server, cmd/frontdesk). It
+// closes the two ways a client can hold a goroutine and a file descriptor for
+// free: sending the headers promptly and then trickling the body, or sending
+// one request and then leaving the keep-alive connection open.
 //
 // ReadHeaderTimeout bounds the request line and headers. IdleTimeout bounds a
 // keep-alive connection between requests; when it is unset net/http falls back
@@ -21,7 +20,7 @@ import (
 // default 90s transport (Front Desk's member clients pool at that value), and
 // the gateway's own 120s outbound pool (one Model Hotel is a valid provider
 // for another). Bellhop's OkHttp pool keeps a connection for five minutes and
-// is left above it on purpose: OkHttp checks a pooled socket's health before
+// stays above it on purpose: OkHttp checks a pooled socket's health before
 // reuse and retries a connection failure, and a listener idle timeout has to
 // stay bounded rather than chase every client's pool.
 //
@@ -47,13 +46,11 @@ const (
 // is declared, the connection is released after fifteen minutes.
 //
 // The length that earns time is the declared Content-Length clamped to the
-// largest body the listener accepts (NewServer's maxBody), and a body that
-// declares no length at all (Transfer-Encoding: chunked, which any Go client
-// streaming a file or pipe, a browser fetch with a stream body, and curl
-// uploading from a pipe with -T - all send) is budgeted as that largest body.
-// A chunked 25 MiB transcription upload therefore gets the same time as one
-// that declared its size, while a declared or undeclared length past what the
-// listener would accept anyway earns nothing beyond it.
+// largest body the listener accepts (NewServer's maxBody). A body that declares
+// no length at all (Transfer-Encoding: chunked, which a Go client streaming a
+// file or pipe, a browser fetch with a stream body, and curl uploading with
+// -T - all send) is budgeted as that largest body, so a chunked 25 MiB
+// transcription upload gets the same time as one that declared its size.
 const (
 	bodyReadBase  = 30 * time.Second
 	bodyReadFloor = int64(128 << 10)
@@ -113,13 +110,13 @@ func bodyBudgetFor(maxBody int64) func(contentLength int64) time.Duration {
 //
 // The budget starts when the handler chain is entered, not at the first body
 // byte, so the time routing and auth take before the handler reads counts
-// against it; today that is milliseconds. The same holds for a client that
-// sends Expect: 100-continue and waits for the handler's first read.
+// against it, which is milliseconds. The same holds for a client that sends
+// Expect: 100-continue and waits for the handler's first read.
 //
 // A body the handler stops reading before EOF keeps the deadline, which then
 // bounds net/http's post-handler drain of the remainder as well: a client that
-// declares a body, gets rejected before it is read (a 401 or a 404) and then
-// trickles the rest no longer holds the connection open through that drain.
+// declares a body, is rejected before it is read (a 401 or a 404) and then
+// trickles the rest cannot hold the connection open through that drain.
 type bodyDeadline struct {
 	next   http.Handler
 	budget func(contentLength int64) time.Duration

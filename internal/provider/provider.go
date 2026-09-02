@@ -52,8 +52,8 @@ type UpdateProviderRequest struct {
 	Name    *string `json:"name"`
 	BaseURL *string `json:"base_url"`
 	// ProviderType corrects a provider's type. It is not something to change
-	// casually, but a row backfilled from the old URL rules can carry a type
-	// its operator never chose (a self-hosted server on a non-default port was
+	// casually, but a row backfilled from the legacy URL rules can carry a type
+	// its operator never chose (a self-hosted server on a non-default port is
 	// filed as generic OpenAI), and re-adding the provider would cascade away
 	// its models. A new self-hosted type is confirmed by probing, exactly as on
 	// create.
@@ -394,22 +394,19 @@ func (r *Repository) DisableDueScheduled(ctx context.Context) ([]*Provider, erro
 // what stops a failure between them leaving the provider gone with its id still
 // referenced, which is the exact dangling state the pruning exists to prevent.
 //
-// Concurrency note, because this changed when the transaction was introduced.
-// This used to be one autocommit statement holding its locks for the length of
-// that statement. It now holds them until commit, and the footprint is wider
+// Concurrency note: the locks are held until commit, over a footprint wider
 // than the three tables named in this file:
 //
 //   - providers, then virtual_keys, then users, written here directly;
 //   - models and provider_quota_snapshots, deleted by FK CASCADE;
 //   - request_logs, whose provider_id is set to NULL by FK (migration 010).
 //
-// That last one is the largest part of the change: request_logs is the
-// highest-volume table in the schema, every row belonging to this provider is
-// rewritten, and those row locks are now pinned across the two allow-list
-// UPDATEs as well instead of being released with the DELETE. It adds no
-// deadlock risk of its own, because the writer on the other side is a proxy log
-// insert, a single autocommit statement that takes only FOR KEY SHARE on the
-// provider row and so can never hold a lock while waiting for one of ours.
+// That last one weighs the most: request_logs is the highest-volume table in
+// the schema, every row belonging to this provider is rewritten, and those row
+// locks stay pinned across the two allow-list UPDATEs. It adds no deadlock risk
+// of its own, because the writer on the other side is a proxy log insert, a
+// single autocommit statement that takes only FOR KEY SHARE on the provider row
+// and so can never hold a lock while waiting for one of ours.
 //
 // A deadlock with a concurrent config-sync import IS possible, though the
 // window is narrow. Config-sync funnels through providers first: upsertProviders
@@ -433,13 +430,13 @@ func (r *Repository) DisableDueScheduled(ctx context.Context) ([]*Provider, erro
 //  7. T2 reaches upsertVirtualKeys, touches VK, and blocks on T1.
 //
 // Postgres detects the cycle and aborts one side with SQLSTATE 40P01. Both
-// operations are safely retriable, which is what keeps this a nuisance rather
-// than a correctness problem: the aborted transaction rolled back whole, so a
-// retried delete simply performs the delete (it returns pgx.ErrNoRows only if an
-// earlier attempt actually committed), and a member whose import was aborted is
-// re-pushed on the next auto-sync tick, because that tick reads the member's own
-// config hash and finds it still does not match the primary's. A one-off manual
-// sync from the wizard is NOT re-pushed and has to be repeated by the operator.
+// operations are safely retriable: the aborted transaction rolls back whole, so
+// a retried delete simply performs the delete (it returns pgx.ErrNoRows only if
+// an earlier attempt actually committed), and a member whose import was aborted
+// is re-pushed on the next auto-sync tick, because that tick reads the member's
+// own config hash and finds it still does not match the primary's. A one-off
+// manual sync from the wizard is NOT re-pushed and has to be repeated by the
+// operator.
 //
 // All of this is a property of config-sync's statement order rather than
 // anything enforced, so reordering internal/api/configsync_apply.go's apply()
@@ -482,11 +479,10 @@ func (r *Repository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-// BackfillTypes gives a stored type to every provider row that has none:
-// rows created before provider_type existed, and rows arriving from an older
-// dump or fleet export. The type is derived once, from the URL rules that were
-// in force when those rows were written, so their behaviour does not change.
-// Idempotent, and a no-op once every row has a type.
+// BackfillTypes gives a stored type to every provider row that has none, such
+// as one arriving from an older dump or fleet export. The type is derived once,
+// from the legacy URL rules, so the row's behaviour does not change. Idempotent,
+// and a no-op once every row has a type.
 func (r *Repository) BackfillTypes(ctx context.Context) (int, error) {
 	rows, err := r.pool.Query(ctx, `SELECT id, base_url FROM providers WHERE provider_type = ''`)
 	if err != nil {

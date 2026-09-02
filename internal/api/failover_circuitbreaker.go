@@ -37,11 +37,11 @@ type CircuitBreakerResetter interface {
 }
 
 // CircuitBreakerQuotaPinner lets a successful quota refresh lift the cooldown
-// pins of providers that are no longer exhausted. Separate from the reset
-// contract because it is a different power: it shortens a wait, it never clears
-// a circuit. Keeping it its own interface is also what keeps internal/failover
-// free of any dependency on internal/quota — the set of recovered providers
-// crosses the boundary as plain UUIDs.
+// pins of providers that are no longer exhausted. Separate from the reset contract
+// because it is a different power: it moves a cooldown, it never changes a
+// circuit's state. Its own interface also keeps internal/failover free of any dependency
+// on internal/quota: the set of recovered providers crosses the boundary as
+// plain UUIDs.
 type CircuitBreakerQuotaPinner interface {
 	// ReleaseQuotaPins clears the quota cooldown override on every tracked
 	// circuit whose provider appears in recovered, returning how many pins it
@@ -50,9 +50,9 @@ type CircuitBreakerQuotaPinner interface {
 	// anything absent (stale, unassessable, or never snapshotted) keeps its pin.
 	ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 	// ReleaseAllQuotaPins clears the override on every pinned circuit, for the
-	// one case where absence of evidence is decisive: quota polling has been
-	// switched off, so no refresh will ever report a recovery again. It must
-	// not change any circuit's state either.
+	// one case where absence of evidence is decisive: quota polling is switched
+	// off, so no refresh will report a recovery again. It must not change any
+	// circuit's state either.
 	ReleaseAllQuotaPins() int
 	// ApplyQuotaPins retargets the cooldown of every already-open circuit whose
 	// provider appears in advice, returning how many it retargeted. It only
@@ -64,8 +64,8 @@ type CircuitBreakerQuotaPinner interface {
 }
 
 // CircuitBreakerControl is the whole breaker surface the failover API needs.
-// Composed from the narrow interfaces above so internal/api still depends
-// on behaviour it names rather than on *failover.CircuitBreaker.
+// Composed from the narrow interfaces above so internal/api depends on behaviour
+// it names rather than on *failover.CircuitBreaker.
 type CircuitBreakerControl interface {
 	CircuitBreakerReader
 	CircuitBreakerResetter
@@ -80,9 +80,9 @@ type CircuitBreakerStatusResponse struct {
 	Providers []failover.ProviderStatus `json:"providers,omitempty"`
 }
 
-// cbStatusCacheTTL is how long the aggregate circuit-breaker status cache
-// is valid before re-computing. This avoids scanning all failover groups
-// on every 15s poll from each connected client.
+// cbStatusCacheTTL is how long the aggregate circuit-breaker status cache stays
+// valid, so a 15s poll from every connected client does not rescan all failover
+// groups.
 const cbStatusCacheTTL = 5 * time.Second
 
 // CircuitBreakerStatus returns the current circuit breaker state for all tracked providers.
@@ -127,16 +127,14 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	// Count failover group members not yet tracked by the circuit breaker as closed.
-	// Providers only appear in the CB map after being routed; until then they're
-	// implicitly healthy (closed).
+	// Count failover group members not yet tracked by the circuit breaker as
+	// closed: providers appear in the CB map only after being routed, and until
+	// then they are implicitly healthy.
 	//
-	// Note: there is an inherent race between reading cbReader.Status() above and
-	// failoverRepo.List() below. A provider that transitions from untracked to
-	// tracked (e.g., after a route that triggers its first CB circuit creation)
-	// could be counted in both passes, slightly inflating totals. This is acceptable
-	// for an aggregate dashboard endpoint with a 5s cache TTL — the next poll
-	// will correct any transient overcount.
+	// Reading cbReader.Status() and failoverRepo.List() races: a provider that goes
+	// from untracked to tracked in between is counted in both passes, slightly
+	// inflating the totals. Acceptable for an aggregate dashboard endpoint with a
+	// 5s cache TTL, since the next poll corrects the overcount.
 	var providerNameMap map[string]string // provider UUID -> name (for detail responses)
 	if h.failoverRepo != nil {
 		groups, err := h.failoverRepo.List(r.Context())
@@ -146,9 +144,9 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 				tracked[p.ProviderID] = struct{}{}
 			}
 
-			// Collect all model UUIDs across all groups, then resolve to
-			// provider UUIDs so we can compare against the tracked map
-			// (which is keyed by provider UUID, not model UUID).
+			// Collect all model UUIDs across all groups, then resolve them to
+			// provider UUIDs to compare against the tracked map, which is keyed by
+			// provider UUID.
 			var allModelIDs []uuid.UUID
 			seenModel := make(map[string]struct{})
 			for _, g := range groups {
@@ -210,7 +208,7 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	// Cache the response (after providers are appended for detail requests).
+	// Cache the response, after providers are appended for detail requests.
 	h.cbStatusMu.Lock()
 	if wantDetail {
 		h.cbDetailCache = resp
@@ -225,10 +223,10 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 }
 
 // CircuitBreakerResetResponse reports the outcome of resetting one provider's
-// circuit. PreviousState is what the breaker reported for that provider a
-// moment before it was cleared; Reset is false when there was nothing to clear
-// (an already-closed or never-tracked provider), so the UI can say "no change"
-// instead of claiming a recovery that did not happen.
+// circuit. PreviousState is what the breaker reported for that provider a moment
+// before it was cleared; Reset is false when there was nothing to clear (an
+// already-closed or never-tracked provider), so the UI can say "no change"
+// instead of claiming a recovery.
 type CircuitBreakerResetResponse struct {
 	ProviderID    string `json:"provider_id"`
 	PreviousState string `json:"previous_state"`
@@ -259,9 +257,9 @@ type CircuitBreakerResetAllResponse struct {
 }
 
 // invalidateCBStatusCache drops both cached circuit-breaker status slots. A
-// reset must be visible on the very next poll: without this the dashboard
-// refetches immediately after the mutation and is served the pre-reset snapshot
-// for up to cbStatusCacheTTL, which reads as "the reset did nothing".
+// reset must be visible on the next poll: without this the dashboard refetches
+// immediately after the mutation and is served the pre-reset snapshot for up to
+// cbStatusCacheTTL, which reads as "the reset did nothing".
 func (h *FailoverHandler) invalidateCBStatusCache() {
 	h.cbStatusMu.Lock()
 	defer h.cbStatusMu.Unlock()
@@ -285,10 +283,10 @@ func (h *FailoverHandler) ResetCircuitBreaker(w http.ResponseWriter, r *http.Req
 	}
 
 	// ?model=<resolved upstream id> scopes the reset to that one circuit; without
-	// it every circuit of the provider is cleared, as before. The breaker logs
-	// one "manual reset" line per circuit either way; the summary line below is
-	// the operator's action itself, written even when there was nothing to
-	// clear, so an audit of who reset what never depends on a circuit existing.
+	// it every circuit of the provider is cleared. The breaker logs one "manual
+	// reset" line per circuit either way; the summary line below is the operator's
+	// action itself, written even when there was nothing to clear, so an audit of
+	// who reset what never depends on a circuit existing.
 	model := r.URL.Query().Get("model")
 	var previous failover.State
 	if model != "" {
@@ -298,8 +296,8 @@ func (h *FailoverHandler) ResetCircuitBreaker(w http.ResponseWriter, r *http.Req
 	}
 	h.invalidateCBStatusCache()
 	// The action, not the circuits: those have their own lines. "reset" says
-	// whether anything was sidelined; the previous state per circuit is on
-	// the per-circuit line, and on the unscoped path there is no single one.
+	// whether anything was sidelined; the previous state per circuit is on the
+	// per-circuit line, and the unscoped path has no single one.
 	attrs := []any{"provider_id", providerID, "cause", "manual reset", "reset", previous != failover.StateClosed}
 	if model != "" {
 		attrs = append(attrs, "model", model)
@@ -315,11 +313,10 @@ func (h *FailoverHandler) ResetCircuitBreaker(w http.ResponseWriter, r *http.Req
 }
 
 // ResetGroupCircuitBreakers clears every circuit behind a failover group's
-// entries on this member, the operation the 2026-08-31 reset loop performed by
-// hand across four providers. Only the group's (provider, model) pairs are
-// touched: a provider's circuits for models outside the group keep their
-// state. Like the other resets it is deliberately outside the managed-write
-// guard: a circuit is local runtime health, not synced config.
+// entries on this member. Only the group's (provider, model) pairs are touched:
+// a provider's circuits for models outside the group keep their state. Like the
+// other resets it sits outside the managed-write guard, because a circuit is
+// local runtime health, not synced config.
 func (h *FailoverHandler) ResetGroupCircuitBreakers(w http.ResponseWriter, r *http.Request) {
 	id, ok := parseUUIDParam(w, r, "id", "failover group ID")
 	if !ok {

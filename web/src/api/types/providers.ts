@@ -16,9 +16,9 @@ export interface Provider {
 	updated_at: string;
 	model_count: number;
 	total_tokens: number;
-	/** The last exhausted 429 this provider answered since the gateway started:
-	 *  the only quota reading a provider with no usage API ever gives. Absent
-	 *  when there has been none. */
+	/** The last exhausted 429 this provider answered since the gateway started,
+	 *  the only quota reading a provider with no usage API gives. Absent when
+	 *  there has been none. */
 	last_cap?: CapNote;
 }
 export interface CapNote {
@@ -26,7 +26,7 @@ export interface CapNote {
 	 *  decided. Never the response body. */
 	phrase?: string;
 	model: string;
-	/** A spent balance or plan (a person fixes it) rather than a window. */
+	/** True when a spent balance or plan rather than a time window. */
 	entitled?: boolean;
 	at: string;
 }
