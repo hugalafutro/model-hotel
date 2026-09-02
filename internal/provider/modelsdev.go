@@ -476,6 +476,23 @@ func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) boo
 	return merged
 }
 
+// refuseSpecCapabilities clears a flag the catalog claims and the provider's
+// API refuses, after the OR-merge above has put it in. models.dev lists
+// structured output for Google's image-output models, following Google's own
+// docs, and the API answers JSON mode on every one of them with a 400
+// (google-gemini/cookbook#1028); discovery leaves the flag off for them, so
+// the merge must not switch it back on. Reports whether it cleared anything.
+func refuseSpecCapabilities(providerType, modelID string, caps *model.Capability) bool {
+	if !caps.StructuredOutput {
+		return false
+	}
+	if (providerType == "google" || providerType == "vertex-express") && isGoogleImageGenModel(modelID) {
+		caps.StructuredOutput = false
+		return true
+	}
+	return false
+}
+
 // attachmentImpliesVision reports whether an attachment claim is corroborated
 // by the declared input modalities.
 //
@@ -556,6 +573,7 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 
 	// Capabilities: only set individual fields if they're currently false.
 	enriched = mergeSpecCapabilities(spec, &caps) || enriched
+	enriched = refuseSpecCapabilities(providerType, m.ModelID, &caps) || enriched
 
 	// Modality arrays: only set if currently empty. The modality *class* is
 	// not set here — NormalizeModelClassification derives it from the arrays

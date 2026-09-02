@@ -701,7 +701,7 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 |-------|-------|
 | Vision | Name contains `gemini-2`, `gemini-3`, or `gemma` (excluding embedding/live and a `tts` name segment) |
 | Tool calling | Not embedding/imagen/veo/lyria/aqa/live, nor a `tts` name segment |
-| Structured output | Same as tool calling |
+| Structured output | Same as tool calling, minus the image-output models: Google answers JSON mode on those with a 400 whatever its docs list (google-gemini/cookbook#1028), and models.dev enrichment does not put the flag back for them |
 | Modality | Derived from the input/output lists by the shared classifier: `chat` whenever text is an output (Gemini image models included, since they emit text beside the image), `tts` for text in and audio out, `embedding` for an embedding output |
 | Input modalities | Vision → `["text","image"]`; live/native-audio → `["text","image","audio","video"]`; TTS (`tts` name segment) and embedding → `["text"]` |
 | Output modalities | Default `["text"]`; image gen → `["text","image"]`; live/native-audio → `["text","audio"]`; TTS → `["audio"]`; embedding → `["embedding"]` |
@@ -828,7 +828,7 @@ The `lookupFuzzyIn` helper implements this logic (the canonical-provider and cro
 | Input price per million (cache hit) | Only if nil/zero |
 | Reasoning capability | Only if false |
 | Tool calling capability | Only if false |
-| Structured output capability | Only if false |
+| Structured output capability | Only if false, and never for a Google or Vertex AI express image-output model, whose JSON mode the API refuses (google-gemini/cookbook#1028) |
 | Vision capability | Only if false (mapped from `attachment` field) |
 | Modality | Only if empty or default `"text"` |
 | Input modalities | Only if empty or default `"[]"` |
