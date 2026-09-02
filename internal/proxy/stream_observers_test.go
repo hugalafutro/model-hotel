@@ -225,3 +225,24 @@ func TestObserveDataChunk_RecordsThatContentFlowed(t *testing.T) {
 		}
 	})
 }
+
+// An image-only delta is the whole answer of an image model: it satisfies the
+// breaker's delivery bar without counting as content or delivered bytes,
+// which the retirement verdict and the usage estimate read.
+func TestObserveDataChunk_ImageDeltaIsDeliveryForTheBreakerOnly(t *testing.T) {
+	t.Parallel()
+	st := &streamState{}
+	ld := &requestLogData{modelID: "m", providerName: "p"}
+	st.observeDataChunk(parseStreamChunk(t, `{"choices":[{"delta":{"role":"assistant","content":"","images":[{"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}]}}]}`), false, 1, ld)
+	if !st.sawImage || st.sawContent || st.deliveredBytes != 0 {
+		t.Fatalf("sawImage=%v sawContent=%v deliveredBytes=%d, want true/false/0", st.sawImage, st.sawContent, st.deliveredBytes)
+	}
+	if !streamDeliveredOutput(st) {
+		t.Fatal("an image-only stream read as undelivered")
+	}
+	empty := &streamState{}
+	empty.observeDataChunk(parseStreamChunk(t, `{"choices":[{"delta":{"role":"assistant","content":"","images":[]}}]}`), false, 1, ld)
+	if empty.sawImage || streamDeliveredOutput(empty) {
+		t.Fatal("an empty images list counted as delivery")
+	}
+}

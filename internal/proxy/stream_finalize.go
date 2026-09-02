@@ -60,6 +60,11 @@ type streamState struct {
 	// which does not depend on optional behaviour: usage chunks are omitted by
 	// some providers, and the TTFT probe can be turned off.
 	sawContent bool
+	// sawImage records a generated image delta: the whole answer of an image
+	// model, and the streaming twin of the non-streaming breaker bar's
+	// `images` member (choiceCarriesSomething). The retirement verdict does
+	// not read it, as it does not read that member either.
+	sawImage bool
 	// deliveredBytes counts the bytes of content, reasoning and tool-call
 	// arguments the model produced as it streamed (before any strip_reasoning
 	// transform, which drops text the provider still billed). It backs the
@@ -129,11 +134,12 @@ func providerAtFault(kind ErrorKind) bool {
 // ended having produced nothing. Reading it as delivery is what let a completely
 // empty /v1/messages response escape the charge entirely.
 //
-// A tool call is output. So is reasoning. The cost of missing one of these is a
-// charge against a provider that answered correctly, which after five requests
-// takes it out of rotation for every tenant — so this errs toward "delivered".
+// A tool call is output. So is reasoning, and so is a generated image. The
+// cost of missing one of these is a charge against a provider that answered
+// correctly, which after five requests takes it out of rotation for every
+// tenant — so this errs toward "delivered".
 func streamDeliveredOutput(st *streamState) bool {
-	return st.sawContent || st.deliveredBytes > 0 || st.completionTokens > 0
+	return st.sawContent || st.sawImage || st.deliveredBytes > 0 || st.completionTokens > 0
 }
 
 // judgeStreamForBreaker decides what a finished stream tells the circuit
