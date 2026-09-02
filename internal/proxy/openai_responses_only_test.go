@@ -159,4 +159,13 @@ func TestLearnFromHedgedRefusal(t *testing.T) {
 	if _, ok := paramHandler.deprecationCache.Load(paramKey); !ok {
 		t.Fatal("a 400 naming a param must still teach the strip")
 	}
+
+	// A hedged /v1/responses attempt's 400 names that dialect's fields; a
+	// strip learned from it would poison the compat path for the model.
+	dialectHandler := &Handler{}
+	dialect := &requestState{bodyBytes: []byte(plainChatBody), responsesAttempt: true}
+	dialectHandler.learnFromHedgedRefusal(dialect, cand, "openai", 400, []byte(`{"error":{"message":"`+"`top_p`"+` is not supported"}}`))
+	if _, ok := dialectHandler.deprecationCache.Load(paramKey); ok {
+		t.Fatal("a Responses-dialect 400 must not teach a param strip")
+	}
 }
