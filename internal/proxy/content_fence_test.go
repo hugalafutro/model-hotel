@@ -360,9 +360,9 @@ func TestContentFence_IdentifiersAreContent(t *testing.T) {
 // fence, or the probe's failure line logs the provider's frame unfenced.
 func TestContentFence_HedgeProbeLogCarriesTheFence(t *testing.T) {
 	t.Parallel()
-	real := &requestLogData{modelID: "hotel/g", endpointType: "chat", content: newContentFence(chatBody(canary))}
-	snap := hedgeProbeLog(real, modelCandidate{provider: &provider.Provider{Name: "p"}})
-	if snap.content != real.content || snap.modelID != "hotel/g" || snap.providerName != "p" || snap.endpointType != "chat" {
+	entry := &requestLogData{modelID: "hotel/g", endpointType: "chat", content: newContentFence(chatBody(canary))}
+	snap := hedgeProbeLog(entry, modelCandidate{provider: &provider.Provider{Name: "p"}})
+	if snap.content != entry.content || snap.modelID != "hotel/g" || snap.providerName != "p" || snap.endpointType != "chat" {
 		t.Fatalf("snapshot = %+v", snap)
 	}
 	if got := snap.content.maskOne("cannot process: " + canary); strings.Contains(got, "SUPERSECRET") {

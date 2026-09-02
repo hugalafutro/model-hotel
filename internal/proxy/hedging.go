@@ -609,6 +609,6 @@ func (h *Handler) failHedgeDisconnect(w http.ResponseWriter, st *requestState, l
 // identity fields its log lines name, and the content fence, because the
 // probe's failure line renders the provider's error frame and that frame may
 // quote the prompt. Sharing the fence is safe: its parse is Once-guarded.
-func hedgeProbeLog(real *requestLogData, candidate modelCandidate) *requestLogData {
-	return &requestLogData{modelID: real.modelID, providerName: candidate.provider.Name, endpointType: real.endpointType, content: real.content}
+func hedgeProbeLog(entry *requestLogData, candidate modelCandidate) *requestLogData {
+	return &requestLogData{modelID: entry.modelID, providerName: candidate.provider.Name, endpointType: entry.endpointType, content: entry.content}
 }
