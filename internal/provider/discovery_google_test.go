@@ -69,8 +69,8 @@ func TestToNativeBaseURL(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := toNativeBaseURL(tt.proxyURL); got != tt.want {
-				t.Errorf("toNativeBaseURL(%q) = %v, want %v", tt.proxyURL, got, tt.want)
+			if got := GoogleNativeBaseURL(tt.proxyURL); got != tt.want {
+				t.Errorf("GoogleNativeBaseURL(%q) = %v, want %v", tt.proxyURL, got, tt.want)
 			}
 		})
 	}

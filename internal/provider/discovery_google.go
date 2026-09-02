@@ -22,7 +22,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 
 	// Determine the native API base URL from the proxy base URL.
 	// The proxy uses /v1beta/openai/ but discovery uses /v1beta/models?key=KEY
-	nativeBaseURL := toNativeBaseURL(baseURL)
+	nativeBaseURL := GoogleNativeBaseURL(baseURL)
 
 	// Use ?key= auth for native API.
 	//
@@ -159,10 +159,11 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	return models, nil
 }
 
-// toNativeBaseURL converts a proxy base URL to the native API base URL.
+// GoogleNativeBaseURL converts a proxy base URL to the native API base URL;
+// the proxy's gemini egress adapter uses it too.
 // Proxy:  https://generativelanguage.googleapis.com/v1beta/openai
 // Native: https://generativelanguage.googleapis.com/v1beta
-func toNativeBaseURL(proxyURL string) string {
+func GoogleNativeBaseURL(proxyURL string) string {
 	u := strings.TrimSuffix(proxyURL, "/")
 	if before, ok := strings.CutSuffix(u, "/openai"); ok {
 		return before

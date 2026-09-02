@@ -341,6 +341,19 @@ func buildGenerationConfig(req *oaiRequest) *genConfig {
 	return &gc
 }
 
+// RequestWantsImage reports whether a chat request names image among its
+// output modalities; the proxy uses it to pick the native route for a
+// provider whose OpenAI-compatibility layer cannot return one.
+func RequestWantsImage(body []byte) bool {
+	var req struct {
+		Modalities []string `json:"modalities"`
+	}
+	if json.Unmarshal(body, &req) != nil {
+		return false
+	}
+	return wantsImageOutput(req.Modalities)
+}
+
 // wantsImageOutput reports a modalities list that names image output.
 func wantsImageOutput(modalities []string) bool {
 	for _, m := range modalities {
