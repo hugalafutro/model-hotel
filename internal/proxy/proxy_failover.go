@@ -779,10 +779,13 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 
 // isLearnableRefusal reports an upstream status the attempt loop hands to
 // retryLearnable400: every 400, and a chat-completions 404 from an OpenAI
-// provider, which is how OpenAI refuses a Responses-only model.
+// provider, which is how OpenAI refuses a Responses-only model. The 404 arm
+// applies to the chat endpoint in the chat dialect only, the same shape the
+// Responses reroute itself is limited to; a 404 on embeddings or a
+// translated dialect is left as it arrived.
 func isLearnableRefusal(status int, providerType string, st *requestState) bool {
 	if status == 400 {
 		return true
 	}
-	return status == 404 && providerType == "openai" && st.sentChatCompletionsBody()
+	return status == 404 && providerType == "openai" && st.endpointPath == "" && st.makeUpstreamBody == nil && st.sentChatCompletionsBody()
 }
