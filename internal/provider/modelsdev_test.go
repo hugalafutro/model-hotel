@@ -2,6 +2,7 @@ package provider
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -333,6 +334,70 @@ func TestEnrichModel_FallsBackToNameForAliasedDeployments(t *testing.T) {
 	// The alias stays the invokable ID.
 	if m.ModelID != "my-fast-gpt" {
 		t.Errorf("ModelID = %q, want my-fast-gpt", m.ModelID)
+	}
+}
+
+// models.dev lists structured output for Google's image-output models, as
+// Google's own docs do, and the API refuses JSON mode on every one of them
+// (google-gemini/cookbook#1028). Discovery leaves the flag off; the OR-merge
+// must not put it back on any provider type that reaches Google's own route.
+// A text model keeps taking the flag from the catalog, and so does the same
+// image model behind an aggregator, whose claim is its own.
+func TestEnrichModel_GoogleImageModelsKeepJSONModeOff(t *testing.T) {
+	yes := true
+	specs := map[string]*ModelsDevModelSpec{
+		"gemini-2.5-flash-image":  {ID: "gemini-2.5-flash-image", StructuredOutput: &yes, ToolCall: true},
+		"nano-banana-pro-preview": {ID: "nano-banana-pro-preview", StructuredOutput: &yes},
+		"gemini-2.5-flash":        {ID: "gemini-2.5-flash", StructuredOutput: &yes},
+	}
+	setupCacheWithModels(t, specs)
+	// Both Google types look the catalog up under their own provider index
+	// only (Exclusive), so the flat index alone finds nothing for them; the
+	// non-exclusive types (Zen, OpenRouter) fall through to the flat index.
+	modelsDevCache.mu.Lock()
+	modelsDevCache.byProvider = map[string]map[string]*ModelsDevModelSpec{"google": specs, "google-vertex": specs}
+	modelsDevCache.mu.Unlock()
+	cache := GetModelsDevCache()
+	if cache == nil {
+		t.Fatal("expected cache to be loaded")
+		return
+	}
+	capsOf := func(t *testing.T, m *model.Model) model.Capability {
+		t.Helper()
+		var caps model.Capability
+		if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+			t.Fatalf("capabilities %q: %v", m.Capabilities, err)
+		}
+		return caps
+	}
+	for _, tc := range []struct {
+		modelID, providerType string
+		wantStructured        bool
+	}{
+		{"gemini-2.5-flash-image", "google", false},
+		{"gemini-2.5-flash-image", "vertex-express", false},
+		{"gemini-2.5-flash-image", "opencode-zen", false},
+		{"nano-banana-pro-preview", "google", false},
+		{"gemini-2.5-flash", "google", true},
+		{"gemini-2.5-flash-image", "openrouter", true},
+		// Zen's own codenames share the naming space: only its Gemini
+		// family is Google's.
+		{"nano-banana-pro-preview", "opencode-zen", true},
+	} {
+		m := &model.Model{ModelID: tc.modelID, Capabilities: `{"vision":true}`}
+		cache.EnrichModel(m, tc.providerType)
+		caps := capsOf(t, m)
+		if caps.StructuredOutput != tc.wantStructured {
+			t.Errorf("%s via %s: structured_output = %v, want %v (caps %s)", tc.modelID, tc.providerType, caps.StructuredOutput, tc.wantStructured, m.Capabilities)
+		}
+		if !caps.Vision {
+			t.Errorf("%s via %s: the discovered vision flag was lost", tc.modelID, tc.providerType)
+		}
+	}
+	m := &model.Model{ModelID: "gemini-2.5-flash-image"}
+	cache.EnrichModel(m, "google")
+	if caps := capsOf(t, m); !caps.ToolCalling || caps.StructuredOutput {
+		t.Errorf("only structured output is refused; caps = %s", m.Capabilities)
 	}
 }
 
