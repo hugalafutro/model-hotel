@@ -468,9 +468,13 @@ func TestGetFloat(t *testing.T) {
 	}
 }
 
+// A cached value is served until its entry expires, then re-read. The
+// "still cached" read used to race a 100ms TTL against the two queries
+// before it, which the race detector's slowdown lost on CI, so the TTL is
+// generous and expiry is forced on the entry rather than waited for.
 func TestCacheTTL(t *testing.T) {
 	r := NewRepository(testPool)
-	r.cacheTTL = 100 * time.Millisecond
+	r.cacheTTL = time.Minute
 	ctx := context.Background()
 	clearSettings(t)
 
@@ -497,7 +501,18 @@ func TestCacheTTL(t *testing.T) {
 		t.Errorf("got %q, want initial (cached)", val)
 	}
 
-	time.Sleep(r.cacheTTL + 50*time.Millisecond)
+	// Expire the entry in place: the same state the TTL elapsing leaves.
+	// cacheGen is left alone on purpose: expiry is not eviction, and only
+	// evictLocked bumps the generation.
+	r.mu.Lock()
+	entry, ok := r.cache[key]
+	if !ok {
+		r.mu.Unlock()
+		t.Fatal("the read did not populate the cache")
+	}
+	entry.expiresAt = time.Now().Add(-time.Second)
+	r.cache[key] = entry
+	r.mu.Unlock()
 
 	val = r.GetWithDefault(ctx, key, "default")
 	if val != "updated" {
