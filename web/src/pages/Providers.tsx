@@ -25,6 +25,7 @@ import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import { useManaged } from "../hooks/useManaged";
 import { useQuotaData } from "../hooks/useQuotaData";
+import { useQuotaRefresh } from "../hooks/useQuotaRefresh";
 import { useReadOnly } from "../hooks/useReadOnly";
 import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import { countLabel } from "../utils/format";
@@ -169,37 +170,7 @@ export function Providers() {
 		},
 	});
 
-	const refreshQuotasMutation = useMutation({
-		mutationFn: async () => {
-			return api.providers.refreshQuotas();
-		},
-		onSuccess: (data) => {
-			queryClient.invalidateQueries({ queryKey: ["providers"] });
-			if (data.failed > 0) {
-				toast(
-					t("providers.toast.refreshedQuotas", {
-						refreshed: data.refreshed,
-						failed: data.failed,
-						skipped: data.skipped,
-					}),
-					"warning",
-				);
-			} else if (data.refreshed === 0) {
-				toast(t("providers.toast_refresh_none"), "info");
-			} else {
-				toast(
-					t("providers.toast_refresh_success", { count: data.refreshed }),
-					"success",
-				);
-			}
-		},
-		onError: (err: Error) => {
-			toast(
-				t("providers.toast_refresh_failed", { message: err.message }),
-				"error",
-			);
-		},
-	});
+	const { refreshQuotas, isRefreshingQuotas } = useQuotaRefresh();
 
 	const discoverMutation = useMutation({
 		mutationFn: async (id: string) => {
@@ -367,11 +338,11 @@ export function Providers() {
 						</button>
 						<button
 							type="button"
-							onClick={() => refreshQuotasMutation.mutate()}
-							disabled={refreshQuotasMutation.isPending}
+							onClick={refreshQuotas}
+							disabled={isRefreshingQuotas}
 							className="ui-btn ui-btn-secondary"
 						>
-							{refreshQuotasMutation.isPending ? (
+							{isRefreshingQuotas ? (
 								<>
 									<Spinner /> {t("providers.btn_refreshing")}
 								</>
