@@ -167,6 +167,7 @@ var allowedSettings = map[string]struct {
 	"circuit_breaker_cooldown":           {typeName: "string"},                                       // duration (e.g. "1m0s")
 	"circuit_breaker_quota_pin_enabled":  {typeName: "string"},                                       // bool as string
 	"circuit_breaker_quota_pin_max":      {typeName: "string"},                                       // duration (e.g. "24h0m0s")
+	"circuit_breaker_pin_probe_interval": {typeName: "string"},                                       // duration between probes of a response-pinned circuit; "0s" disables
 	"circuit_breaker_backoff_enabled":    {typeName: "string"},                                       // bool as string; double the cooldown per failed half-open probe
 	"circuit_breaker_backoff_max":        {typeName: "string"},                                       // duration ceiling for that backoff (e.g. "1h0m0s")
 	"discovery_interval":                 {typeName: "string"},                                       // predefined option

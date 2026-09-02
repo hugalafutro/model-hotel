@@ -240,6 +240,7 @@ type cooldownReads struct {
 	base      time.Duration
 	backoffOn *bool
 	pinOn     *bool
+	pinProbe  *time.Duration
 }
 
 // cooldowns starts a walk: one read of the configured cooldown, the switches
@@ -263,6 +264,14 @@ func (r *cooldownReads) pinEnabled() bool {
 		r.pinOn = &v
 	}
 	return *r.pinOn
+}
+
+func (r *cooldownReads) pinProbeInterval() time.Duration {
+	if r.pinProbe == nil {
+		v := r.cb.pinProbeInterval()
+		r.pinProbe = &v
+	}
+	return *r.pinProbe
 }
 
 // providerOpen is the derived provider-wide verdict: the breaker never charges
@@ -495,10 +504,36 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 // longest is the pin whenever one is in force.
 func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads) time.Duration {
 	cooldown := cb.unpinnedCooldownWith(c, r)
-	if cb.quotaPinnedForWith(c, r) && c.cooldownOverride > cooldown {
-		cooldown = c.cooldownOverride
+	if !cb.quotaPinnedForWith(c, r) || c.cooldownOverride <= cooldown {
+		return cooldown
 	}
-	return cooldown
+	pinned := c.cooldownOverride
+	// A pin inferred from a response is a guess at a window nothing measures:
+	// the providers that answer with a bare "no credits" have no quota
+	// endpoint, so no advisor reading will ever release the pin early, and a
+	// top-up would otherwise wait out the whole ceiling. Such a circuit probes
+	// once per interval instead: the probe re-pins on another refusal and
+	// closes the circuit on a success. An advisor pin measured the window and
+	// keeps its full length.
+	if c.pinSource == pinSourceResponse {
+		if probe := r.pinProbeInterval(); probe > 0 && pinned > max(probe, cooldown) {
+			pinned = max(probe, cooldown)
+		}
+	}
+	return pinned
+}
+
+// defaultPinProbeInterval is how often a circuit pinned on a response's own
+// claim is probed when the operator has not set circuit_breaker_pin_probe_interval.
+const defaultPinProbeInterval = time.Hour
+
+// pinProbeInterval reads circuit_breaker_pin_probe_interval; zero disables the
+// periodic probe and lets a response pin run to the ceiling.
+func (cb *CircuitBreaker) pinProbeInterval() time.Duration {
+	if cb.settings != nil {
+		return cb.settings.GetDuration(context.Background(), "circuit_breaker_pin_probe_interval", defaultPinProbeInterval)
+	}
+	return defaultPinProbeInterval
 }
 
 // unpinnedCooldownWith is the cooldown a circuit serves when no quota pin is
