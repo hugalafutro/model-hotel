@@ -53,6 +53,40 @@ type oaiMessage struct {
 	ToolCallID string          `json:"tool_call_id"`
 }
 
+// oaiExtraContent is the extra_content member of a tool call, Google's own
+// carrier for the thought signature on the OpenAI wire shape.
+type oaiExtraContent struct {
+	Google *struct {
+		ThoughtSignature string `json:"thought_signature,omitempty"`
+	} `json:"google,omitempty"`
+}
+
+// thoughtSignatureIn reads the signature out of a raw extra_content member:
+// nothing for an absent, null, foreign or malformed one, never an error.
+func thoughtSignatureIn(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var e oaiExtraContent
+	if json.Unmarshal(raw, &e) != nil || e.Google == nil {
+		return ""
+	}
+	return e.Google.ThoughtSignature
+}
+
+// extraContentFor wraps a signature for the OpenAI wire shape; nothing for an
+// unsigned call, so the member is absent rather than empty.
+func extraContentFor(signature string) *oaiExtraContent {
+	if signature == "" {
+		return nil
+	}
+	e := &oaiExtraContent{}
+	e.Google = &struct {
+		ThoughtSignature string `json:"thought_signature,omitempty"`
+	}{ThoughtSignature: signature}
+	return e
+}
+
 type oaiContentPart struct {
 	Type     string `json:"type"` // "text" | "image_url"
 	Text     string `json:"text"`
@@ -62,8 +96,15 @@ type oaiContentPart struct {
 }
 
 type oaiToolCall struct {
-	ID       string `json:"id"`
-	Function struct {
+	ID string `json:"id"`
+	// ExtraContent is where the signature travels on the OpenAI side, the
+	// shape Google's own compatibility layer uses and the chat path keeps
+	// verbatim (see proxy jsonextras): extra_content.google.thought_signature.
+	// Raw, read leniently: an ingress decoder must not fail a conversation
+	// on every retry over a member of a shape it did not expect, the rule
+	// util.ToolArguments below states for the arguments.
+	ExtraContent json.RawMessage `json:"extra_content"`
+	Function     struct {
 		Name string `json:"name"`
 		// util.ToolArguments, not a plain string: the spec says a JSON string and
 		// several providers send the object, so #808 taught the RESPONSE side to
@@ -112,6 +153,11 @@ type genPart struct {
 	FileData         *genFileData     `json:"fileData,omitempty"`
 	FunctionCall     *genFunctionCall `json:"functionCall,omitempty"`
 	FunctionResponse *genFunctionResp `json:"functionResponse,omitempty"`
+	// ThoughtSignature rides beside a functionCall part on the way back in:
+	// Gemini 3 signs each call it makes and refuses the follow-up turn
+	// without the signature ("Function call is missing a thought_signature
+	// in functionCall parts").
+	ThoughtSignature string `json:"thoughtSignature,omitempty"`
 }
 
 type genBlob struct {
@@ -244,7 +290,10 @@ func TranslateRequest(body []byte) (geminiBody []byte, model string, stream bool
 				// non-object was a 400 from the provider where the other two
 				// egress paths quietly substituted something. One decision now.
 				args := util.ToolArgumentsObject(tc.Function.Arguments)
-				parts = append(parts, genPart{FunctionCall: &genFunctionCall{Name: tc.Function.Name, Args: args}})
+				parts = append(parts, genPart{
+					FunctionCall:     &genFunctionCall{Name: tc.Function.Name, Args: args},
+					ThoughtSignature: thoughtSignatureIn(tc.ExtraContent),
+				})
 			}
 			if len(parts) > 0 {
 				out.Contents = append(out.Contents, genContent{Role: "model", Parts: parts})

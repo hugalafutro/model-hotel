@@ -74,6 +74,7 @@ type oaiChunkToolCallOut struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
+	ExtraContent *oaiExtraContent `json:"extra_content,omitempty"`
 }
 
 // writeChunk appends one framed SSE chunk ("data: <json>\n\n").
@@ -139,14 +140,19 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 			continue
 		}
 		if p.FunctionCall != nil {
+			// The signature rides in the same part as the call: observed on
+			// Google AI Studio and Zen streams (one chunk carries both), and
+			// the tool_call delta is emitted here, so a signature arriving in
+			// a later part would not reach it.
 			args := compactJSON(p.FunctionCall.Args)
 			if args == "" {
 				args = "{}"
 			}
 			tc := oaiChunkToolCallOut{
-				Index: t.toolCalls,
-				ID:    fmt.Sprintf("call_%s_%d", t.id, t.toolCalls),
-				Type:  "function",
+				Index:        t.toolCalls,
+				ID:           fmt.Sprintf("call_%s_%d", t.id, t.toolCalls),
+				Type:         "function",
+				ExtraContent: extraContentFor(p.signature()),
 			}
 			tc.Function.Name = p.FunctionCall.Name
 			tc.Function.Arguments = args
