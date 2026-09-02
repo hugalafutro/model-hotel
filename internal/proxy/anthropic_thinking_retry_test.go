@@ -4,9 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -535,5 +537,39 @@ func TestThinkingDialectFor(t *testing.T) {
 	elsewhere := modelCandidate{provider: &provider.Provider{ID: uuid.New(), Name: "q"}, model: testModelNamed("claude-x")}
 	if got := h.thinkingDialectFor(elsewhere); got != anthropicegress.ThinkingAdaptive {
 		t.Errorf("same model at another provider = %s, want the default", got)
+	}
+}
+
+// Past the overall deadline the thinking retry is not issued: the dialect
+// is learned and the 400 handed on as it came, the attempt's context left
+// to its owner.
+func TestRetryLearnableMessages400_PastTheDeadlineHandsThe400On(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+	var hits int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		atomic.AddInt32(&hits, 1)
+		w.WriteHeader(http.StatusOK)
+	}))
+	defer upstream.Close()
+	st, cand := probeStateForServer(upstream.URL)
+	st.anthropicEgressAttempt = true
+	st.overallDeadline = time.Now().Add(-time.Second)
+	st.bodyBytes = []byte(`{"model":"m","reasoning_effort":"high","messages":[{"role":"user","content":"hi"}]}`)
+	resp := &http.Response{
+		StatusCode: http.StatusBadRequest,
+		Body:       newBodyReader(`{"type":"error","error":{"type":"invalid_request_error","message":"adaptive thinking is not supported on this model"}}`),
+	}
+	cancels := 0
+	res, handled := h.retryLearnableMessages400(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody),
+		st, cand, "anthropic-messages", resp, 0, new(float64), func() { cancels++ }, "")
+	if !handled || res.cont || res.retried || res.resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("handled=%v cont=%v retried=%v status=%d, want the 400 handed on", handled, res.cont, res.retried, res.resp.StatusCode)
+	}
+	if body, _ := io.ReadAll(res.resp.Body); !strings.Contains(string(body), "adaptive thinking") {
+		t.Errorf("body = %s, want the provider's own refusal readable", body)
+	}
+	if cancels != 0 || atomic.LoadInt32(&hits) != 0 {
+		t.Errorf("cancels=%d upstream hits=%d, want the context left to its owner and no request", cancels, hits)
 	}
 }

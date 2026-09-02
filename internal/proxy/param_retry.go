@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -114,7 +115,8 @@ func candidateModelID(candidate modelCandidate) string {
 // field from being mislearned onto the compat path is that the Responses
 // body is a closed struct (openairesponses.Request) sharing only the
 // sampling names with chat-completions, plus one exception handled by name:
-// see responsesRejectedParams.
+// see responsesRejectedParams. The reroute learned on this very attempt gets
+// it as well, on the 400 its rebuilt request may earn.
 //
 // Anthropic egress attempts get the one 400 that route can fix by asking
 // differently: a model refusing the extended-thinking shape it was asked in
@@ -135,8 +137,24 @@ func (h *Handler) retryLearnable400(
 		return h.retryLearnableMessages400(r, st, candidate, providerType, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
 	case st.sentChatCompletionsBody():
 		res, handled := h.retryWithResponses(r, st, candidate, providerType, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
-		if !handled {
+		switch {
+		case !handled:
 			res = h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
+		case res.retried && res.resp != nil && res.resp.StatusCode == http.StatusBadRequest:
+			// The rebuilt Responses request was refused in turn. It is a
+			// Responses attempt now (retryWithResponses marked it), so this
+			// is the same self-heal the responsesAttempt case below runs
+			// for a preemptively routed request, on the reroute's own 400:
+			// a first request to a pro-tier model that carries temperature
+			// otherwise came back 400 once and healed only from the second.
+			// The reroute's context owns the body being read; the learner
+			// releases it once the body is buffered, as it does the
+			// attempt's own context on the direct path.
+			res = h.retryWithStrippedParams(r, st, candidate, providerType, responsesTargetURL(candidate, providerType), res.resp, attempt, dialMs, res.retryCancel, res.streamCancelOrigin)
+			// The reroute was a retry whatever the chained self-heal did
+			// next; its fresh result must not report the attempt as never
+			// re-issued (the caller folds the dial time on that).
+			res.retried = true
 		}
 		return res, true
 	case st.responsesAttempt:
@@ -194,6 +212,13 @@ func (h *Handler) mergeLearnedParams(candidate modelCandidate, rejected map[stri
 // to something this self-heal cannot fix, and the 400 belongs to the client.
 const paramRetryRounds = 2
 
+// retryMinRound is the least budget a self-heal round is issued with. A
+// round cut shorter than this cannot finish a connect and a first byte,
+// so issuing it only has the provider start work the gateway then abandons
+// and turns the refusal in hand into a timeout; the loop's own smallest
+// interval is the same 100ms (failoverBackoff).
+const retryMinRound = 100 * time.Millisecond
+
 // issueParamRetry rebuilds the upstream body with strip applied on top of the
 // learned caches and re-POSTs it to targetURL, in the dialect the attempt
 // spoke: chat-completions as sent, or the Responses translation of it.
@@ -221,8 +246,7 @@ func (h *Handler) issueParamRetry(
 	if err != nil {
 		return nil, nil, &reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
 	}
-	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
-	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
+	retryCtx, rc := retryContext(r, st)
 	retryCtx, retryDial := withDialTiming(retryCtx)
 	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
 	if retryErr != nil {
@@ -239,6 +263,9 @@ func (h *Handler) issueParamRetry(
 	//nolint:bodyclose // retryResp.Body is returned to the caller, which consumes and closes it
 	retryResp, retryErr := retryClient.Do(retryReq)
 	*dialMs += retryDial.take()
+	if retryErr == nil && st.responsesAttempt {
+		metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "param_retry")
+	}
 	if retryErr != nil {
 		rc() // no body to consume on retry error
 		debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
@@ -264,14 +291,27 @@ func (h *Handler) issueParamRetry(
 func (h *Handler) rebuildForParamRetry(st *requestState, candidate modelCandidate, providerType string, strip map[string]bool) ([]byte, error) {
 	if st.responsesAttempt {
 		cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
-		body, err := openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
-		if err != nil {
-			return nil, err
-		}
-		metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "param_retry")
-		return body, nil
+		return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
 	}
 	return paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate)), nil
+}
+
+// retryContext is the context one self-heal round runs under: the attempt's
+// failover budget, cut at the request's overall deadline. Every round opens
+// a fresh budget, and an attempt can chain several (the Responses reroute
+// and up to paramRetryRounds strips, or the Messages thinking retry), while
+// the loop consults the overall deadline only between attempts; without the
+// cut, one candidate could hold the request for several budgets past the
+// point the loop would have given up. A state that never set the deadline
+// keeps the plain budget; every request the handlers build sets it, so that
+// case is the unit tests' bare state.
+func retryContext(r *http.Request, st *requestState) (context.Context, context.CancelFunc) {
+	deadline := time.Now().Add(st.failoverTimeout)
+	if !st.overallDeadline.IsZero() && st.overallDeadline.Before(deadline) {
+		deadline = st.overallDeadline
+	}
+	ctx, cancel := context.WithDeadline(r.Context(), deadline)
+	return context.WithValue(ctx, ctxkeys.CancelOriginKey, "retry_timeout"), cancel
 }
 
 // readLearnable400 consumes a 400 body for the param self-heal: it reads what
@@ -387,7 +427,7 @@ func (h *Handler) retryWithStrippedParams(
 	//
 	// The first 400 that names nothing recognisable falls straight out here and
 	// is handed back untouched.
-	for round := 0; learnFrom(body) && round < paramRetryRounds; round++ {
+	for round := 0; learnFrom(body) && round < paramRetryRounds && st.retryBudgetLeft(); round++ {
 		res.streamCancelOrigin = "retry_timeout"
 		retryResp, rc, retryErr := h.issueParamRetry(r, st, candidate, providerType, targetURL, strip, attempt, dialMs)
 		if retryErr != nil {

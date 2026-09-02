@@ -9,7 +9,6 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
@@ -161,9 +160,15 @@ func (h *Handler) retryWithResponses(
 	if readErr != nil || !h.learnResponsesRequirement(st, candidate, providerType, body) {
 		return res, false
 	}
+	if !st.retryBudgetLeft() {
+		// Learned for the next request; this one carries the refusal on
+		// as it came (the body is restored), the way an unlearnable one
+		// does, rather than a reroute that would time out on issue.
+		return res, true
+	}
 	failoverCancel() // 400 body fully consumed, original context no longer needed
 
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/responses")
+	targetURL := responsesTargetURL(candidate, providerType)
 	rebuilt, err := h.translateResponsesRequestBody(st, candidate, providerType)
 	if err != nil {
 		res.lastReqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
@@ -171,8 +176,7 @@ func (h *Handler) retryWithResponses(
 		return res, true
 	}
 
-	retryCtx, rc := context.WithTimeout(r.Context(), st.failoverTimeout)
-	retryCtx = context.WithValue(retryCtx, ctxkeys.CancelOriginKey, "retry_timeout")
+	retryCtx, rc := retryContext(r, st)
 	retryCtx, retryDial := withDialTiming(retryCtx)
 	res.streamCancelOrigin = "retry_timeout"
 	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
@@ -214,6 +218,12 @@ func (h *Handler) retryWithResponses(
 	debuglog.Info("proxy: responses api retry succeeded", "model", candidate.model.ModelID, "status", retryResp.StatusCode)
 	metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "learned")
 	return res, true
+}
+
+// responsesTargetURL is the provider's /v1/responses route, shared by the
+// reroute and the param retry that may follow it on the same attempt.
+func responsesTargetURL(candidate modelCandidate, providerType string) string {
+	return util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/responses")
 }
 
 // learnResponsesRequirement inspects a chat-completions 400 error body and,
