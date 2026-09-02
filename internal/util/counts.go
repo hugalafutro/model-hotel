@@ -119,6 +119,8 @@ func coerceCount(data []byte, path string) ([]byte, bool) {
 			return nil, false
 		}
 		c[i] = n
+	default:
+		return nil, false
 	}
 	out, err := json.Marshal(root)
 	if err != nil {
