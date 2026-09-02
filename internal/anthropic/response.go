@@ -133,14 +133,21 @@ func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) 
 				Text: text,
 			})
 		}
-		for _, tc := range choice.Message.ToolCalls {
+		for i, tc := range choice.Message.ToolCalls {
 			input := json.RawMessage(tc.Function.Arguments)
 			if len(input) == 0 || !json.Valid(input) {
 				input = json.RawMessage("{}")
 			}
+			id := tc.ID
+			if id == "" {
+				// Anthropic requires a tool_use id; synthesize a stable one
+				// as the streaming twin does, since a signed empty id would
+				// otherwise pass the wire and come back as an empty call id.
+				id = fmt.Sprintf("toolu_%s_%d", messageID, i)
+			}
 			msg.Content = append(msg.Content, contentBlock{
 				Type:  "tool_use",
-				ID:    signedToolUseID(tc.ID, egress.ThoughtSignatureIn(tc.ExtraContent)),
+				ID:    signedToolUseID(id, egress.ThoughtSignatureIn(tc.ExtraContent)),
 				Name:  tc.Function.Name,
 				Input: input,
 			})
