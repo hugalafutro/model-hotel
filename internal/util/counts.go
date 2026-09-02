@@ -101,15 +101,25 @@ func coerceCount(data []byte, path string) ([]byte, bool) {
 	if dec.Decode(&root) != nil {
 		return nil, false
 	}
-	holder, key, ok := locate(root, path)
+	parent, key, ok := locate(root, path)
 	if !ok {
 		return nil, false
 	}
-	n, ok := asCount(holder.get(key))
-	if !ok {
-		return nil, false
+	switch c := parent.(type) {
+	case map[string]any:
+		n, ok := asCount(c[key])
+		if !ok {
+			return nil, false
+		}
+		c[key] = n
+	case []any:
+		i, _ := strconv.Atoi(key) // locate already validated the index
+		n, ok := asCount(c[i])
+		if !ok {
+			return nil, false
+		}
+		c[i] = n
 	}
-	holder.set(key, n)
 	out, err := json.Marshal(root)
 	if err != nil {
 		return nil, false
@@ -118,19 +128,19 @@ func coerceCount(data []byte, path string) ([]byte, bool) {
 }
 
 // locate walks the dotted member path encoding/json reports and returns the
-// container holding the leaf, addressed by a key or an index.
+// object or array holding the leaf, with the key or index that addresses it.
 //
 // The path steps through arrays as well as objects: the decoder writes the index
 // into it, so a count inside a list reads as rows.1.count. A key containing a
 // dot is matched whole before the path is split, which covers it at the level it
 // appears on. A path that does not resolve simply yields no rewrite, and the
 // caller returns the decoder's original error.
-func locate(v any, path string) (container, string, bool) {
+func locate(v any, path string) (any, string, bool) {
 	head, rest, nested := strings.Cut(path, ".")
 	switch v := v.(type) {
 	case map[string]any:
 		if _, exists := v[path]; exists {
-			return objectContainer(v), path, true
+			return v, path, true
 		}
 		if !nested {
 			return nil, "", false
@@ -142,39 +152,11 @@ func locate(v any, path string) (container, string, bool) {
 			return nil, "", false
 		}
 		if !nested {
-			return sliceContainer(v), head, true
+			return v, head, true
 		}
 		return locate(v[i], rest)
 	default:
 		return nil, "", false
-	}
-}
-
-// container is the object or array a located member sits in, read and written
-// by the key or index the path named.
-type container interface {
-	get(key string) any
-	set(key string, v json.Number)
-}
-
-type objectContainer map[string]any
-
-func (c objectContainer) get(key string) any            { return c[key] }
-func (c objectContainer) set(key string, v json.Number) { c[key] = v }
-
-type sliceContainer []any
-
-func (c sliceContainer) get(key string) any {
-	i, err := strconv.Atoi(key)
-	if err != nil || i < 0 || i >= len(c) {
-		return nil
-	}
-	return c[i]
-}
-
-func (c sliceContainer) set(key string, v json.Number) {
-	if i, err := strconv.Atoi(key); err == nil && i >= 0 && i < len(c) {
-		c[i] = v
 	}
 }
 

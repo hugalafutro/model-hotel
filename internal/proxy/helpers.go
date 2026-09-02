@@ -208,7 +208,7 @@ func parseAccumulatedError(data []byte) string {
 		return ""
 	}
 	if complete {
-		if !util.ErrorMemberCarries(member) {
+		if !util.ValueCarries(member) {
 			return ""
 		}
 		return util.ErrorMemberMessage(member)

@@ -8,14 +8,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// shapeError is util.ShapeError, kept as a name this package reads well with.
-// The rule moved to util when the egress translators needed it too: four
-// packages deciding separately what "a member I have no struct for" means is
-// how they come to disagree.
-func shapeError(data []byte, decodeErr error) *json.UnmarshalTypeError {
-	return util.ShapeError(data, decodeErr)
-}
-
 // Provider-specific fields that this package does not model must survive the
 // decode/re-encode in handleNonStreamingResponse, because some of them are
 // required on the NEXT request rather than merely informative.
@@ -219,7 +211,7 @@ func (u *Usage) UnmarshalJSON(data []byte) error {
 	type alias Usage
 	var a alias
 	if err := util.DecodeCounts(data, &a); err != nil {
-		if shapeError(data, err) == nil {
+		if util.ShapeError(data, err) == nil {
 			return err
 		}
 		// encoding/json allocates a breakdown's pointer before it reaches the

@@ -8,7 +8,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-func TestErrorMemberCarries(t *testing.T) {
+func TestValueCarries(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
 		member string
@@ -45,8 +45,8 @@ func TestErrorMemberCarries(t *testing.T) {
 	} {
 		t.Run(tc.member, func(t *testing.T) {
 			t.Parallel()
-			if got := util.ErrorMemberCarries(json.RawMessage(tc.member)); got != tc.want {
-				t.Errorf("ErrorMemberCarries(%s) = %v, want %v", tc.member, got, tc.want)
+			if got := util.ValueCarries(json.RawMessage(tc.member)); got != tc.want {
+				t.Errorf("ValueCarries(%s) = %v, want %v", tc.member, got, tc.want)
 			}
 		})
 	}
@@ -73,15 +73,15 @@ func TestErrorMemberMessage(t *testing.T) {
 
 // encoding/json caps nesting while decoding, so the recursion is bounded before
 // it is ever entered. This is the depth that cap allows.
-func TestErrorMemberCarries_DeepNesting(t *testing.T) {
+func TestValueCarries_DeepNesting(t *testing.T) {
 	t.Parallel()
 	const depth = 9000
 	deep := strings.Repeat(`[`, depth) + `"boom"` + strings.Repeat(`]`, depth)
-	if !util.ErrorMemberCarries(json.RawMessage(deep)) {
+	if !util.ValueCarries(json.RawMessage(deep)) {
 		t.Error("a value nested to the decoder's limit must still be read")
 	}
 	empty := strings.Repeat(`[`, depth) + strings.Repeat(`]`, depth)
-	if util.ErrorMemberCarries(json.RawMessage(empty)) {
+	if util.ValueCarries(json.RawMessage(empty)) {
 		t.Error("nesting alone is not something to read")
 	}
 }

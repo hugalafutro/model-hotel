@@ -296,7 +296,7 @@ func maskKeyShapedTokens(body []byte) []byte {
 // "error" member that actually carries something, which is what decides between
 // forwarding that body verbatim and synthesising an envelope over it.
 //
-// util.ErrorMemberCarries holds the rule and documents it: emptiness, not shape,
+// util.ValueCarries holds the rule and documents it: emptiness, not shape,
 // applied at every depth, with `false` and `0` counting as empty like every
 // other zero value. A body that is not a JSON object (an array, a bare string,
 // HTML) can carry no member and reports false.
@@ -305,5 +305,5 @@ func carriesErrorObject(body []byte) bool {
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return false
 	}
-	return util.ErrorMemberCarries(envelope["error"])
+	return util.ValueCarries(envelope["error"])
 }

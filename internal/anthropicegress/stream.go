@@ -6,8 +6,8 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming Anthropic SSE event shapes ---
@@ -114,7 +114,7 @@ type StreamTranslator struct {
 	// runs them through translateUsage's arithmetic. A usage object carrying
 	// nothing but zeros leaves this zero-valued, and the terminal chunk then
 	// omits usage rather than reporting a fabricated 0/0/0.
-	usage antRespUsage
+	usage anthropic.Usage
 
 	// Anthropic's content-block indices count every block; OpenAI's
 	// tool_calls[].index counts only tool calls. This maps one to the other so
@@ -179,7 +179,7 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 	switch ev.Type {
 	case "message_start":
 		if ev.Message != nil {
-			if u, ok := readEventUsage(ev.Message.Usage); ok {
+			if u, ok := anthropic.ReadUsage(ev.Message.Usage); ok {
 				t.usage.InputTokens = u.InputTokens
 				t.usage.CacheCreationInputTokens = u.CacheCreationInputTokens
 				t.usage.CacheReadInputTokens = u.CacheReadInputTokens
@@ -200,7 +200,7 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 		if ev.Delta != nil && ev.Delta.StopReason != "" {
 			t.stopReason = ev.Delta.StopReason
 		}
-		if u, ok := readEventUsage(ev.Usage); ok {
+		if u, ok := anthropic.ReadUsage(ev.Usage); ok {
 			t.usage.OutputTokens = u.OutputTokens
 		}
 	case "message_stop":
@@ -305,7 +305,7 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	var buf bytes.Buffer
 	reason := mapFinishReason(t.stopReason)
 	var usage *completionUsage
-	if t.usage != (antRespUsage{}) {
+	if t.usage != (anthropic.Usage{}) {
 		usage = buildUsage(t.usage)
 	}
 	if err := t.writeChunk(&buf, chunkDelta{}, &reason, usage); err != nil {
@@ -313,29 +313,4 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	}
 	buf.WriteString("data: [DONE]\n\n")
 	return buf.Bytes(), nil
-}
-
-// readEventUsage decodes a stream event's usage member on its own, reporting
-// whether there was one to read.
-//
-// Separate from the event decode because an error there kills the STREAM: the
-// event loses its type along with its counts, so message_stop and the error
-// events stop being recognised for that frame. A count the provider spelled
-// differently — quoted, or with a fraction on it — is not a reason to do that.
-func readEventUsage(raw json.RawMessage) (antRespUsage, bool) {
-	if !util.JSONMemberSet(raw) {
-		return antRespUsage{}, false
-	}
-	// Per figure, as in translateUsage.
-	var u antRespUsage
-	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
-		return antRespUsage{}, false
-	}
-	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
-		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0
-	}
-	if len(util.UnreadableCounts(raw, "output_tokens")) > 0 {
-		u.OutputTokens = 0
-	}
-	return u, true
 }

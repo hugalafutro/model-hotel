@@ -259,6 +259,12 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// each time, its circuit could never open, and the group would route to
 		// a black hole for ever.
 		//
+		// This CHARGES where the pass-through families make a 204 a breaker
+		// no-op (serveBufferedJSONPassthrough), and the split is deliberate: a
+		// chat completion that answers 204 has by definition produced no
+		// completion, while an embeddings or image family has no rule that a
+		// success must carry a body.
+		//
 		// deliveredContent is not set alongside it: it is already false, and
 		// every site that sets it sits on a terminal path that cannot precede
 		// this branch.

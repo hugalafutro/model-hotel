@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming Anthropic Messages response shape ---
@@ -41,16 +41,6 @@ type antRespBlock struct {
 	ID    string          `json:"id,omitempty"`
 	Name  string          `json:"name,omitempty"`
 	Input json.RawMessage `json:"input,omitempty"`
-}
-
-// antRespUsage carries Anthropic token accounting, including the two cache
-// fields Anthropic reports at the top level of usage (unlike OpenAI, which
-// nests its cached-read count under prompt_tokens_details).
-type antRespUsage struct {
-	InputTokens              int `json:"input_tokens"`
-	OutputTokens             int `json:"output_tokens"`
-	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
-	CacheReadInputTokens     int `json:"cache_read_input_tokens"`
 }
 
 // antRespError is the body of an Anthropic {"type":"error"} envelope. Only
@@ -233,31 +223,19 @@ func mapFinishReason(stopReason string) string {
 // internal/proxy/helpers.go's extractCacheTokens, which computes
 // missTokens = promptTokens - cacheReadTokens).
 func translateUsage(raw json.RawMessage) *completionUsage {
-	if !util.JSONMemberSet(raw) {
+	// anthropic.ReadUsage holds the per-figure rule: a member that could not be
+	// read costs only the figures it feeds, and a completion count is what tells
+	// the breaker the provider answered at all.
+	u, ok := anthropic.ReadUsage(raw)
+	if !ok {
 		return nil
-	}
-	// Per FIGURE, not per block. A figure read straight off one member is right
-	// or absent; a SUMMED one is only as good as its addends, and a lost addend
-	// leaves a number that is wrong AND non-zero, which reads as authoritative
-	// and stops estimateMissingUsage replacing it. Dropping the whole block
-	// instead threw away counts that were never in doubt — and a completion
-	// count is what tells the breaker the provider answered at all.
-	var u antRespUsage
-	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
-		return nil
-	}
-	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
-		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0
-	}
-	if len(util.UnreadableCounts(raw, "output_tokens")) > 0 {
-		u.OutputTokens = 0
 	}
 	return buildUsage(u)
 }
 
 // buildUsage renders counts this package already holds. The streaming translator
 // accumulates its own across events and has no raw bytes to read.
-func buildUsage(u antRespUsage) *completionUsage {
+func buildUsage(u anthropic.Usage) *completionUsage {
 	prompt := u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens
 	out := &completionUsage{
 		PromptTokens:     prompt,
@@ -273,6 +251,3 @@ func buildUsage(u antRespUsage) *completionUsage {
 	}
 	return out
 }
-
-// promptAddends are the members the prompt figure is SUMMED from.
-var promptAddends = []string{"input_tokens", "cache_read_input_tokens", "cache_creation_input_tokens"}

@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/quota"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // The quota schema-drift watch alerts when a provider changes the *shape* of
@@ -93,10 +94,11 @@ func driftEligible(s quota.Snapshot, maxAge time.Duration, now time.Time) bool {
 	if maxAge <= 0 || s.HTTPStatus != http.StatusOK || len(s.Payload) == 0 {
 		return false
 	}
-	// Negative age (a future stamp) is untrustworthy, not eligible: see
-	// snapshotWithinAge. This is the same field and the same repository feed as
-	// the two staleness checks in quota_snapshot.go.
-	return snapshotWithinAge(now, s.FetchedAt, maxAge)
+	// A future stamp is untrustworthy, not eligible (util.TrustedAge). Same
+	// field and same repository feed as the two staleness checks in
+	// quota_snapshot.go; a snapshot at exactly maxAge is still eligible.
+	age, ok := util.TrustedAge(now, s.FetchedAt)
+	return ok && age <= maxAge
 }
 
 // driftDecision is the whole per-provider decision, kept pure so the debounce

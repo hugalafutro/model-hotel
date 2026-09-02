@@ -148,18 +148,3 @@ func TestBuildChatCompletion_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T
 		t.Errorf("the completion count was read straight off its own member and was thrown away: %s", out)
 	}
 }
-
-// The streaming reader keeps the same rule.
-func TestReadEventUsage_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T) {
-	t.Parallel()
-	u, ok := readEventUsage([]byte(`{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":[]}`))
-	if !ok {
-		t.Fatal("the whole block was rejected for one unreadable member")
-	}
-	if u.InputTokens != 0 {
-		t.Errorf("InputTokens = %d, want the prompt addends dropped together", u.InputTokens)
-	}
-	if u.OutputTokens != 5 {
-		t.Errorf("OutputTokens = %d, want 5: it is read straight off its own member", u.OutputTokens)
-	}
-}

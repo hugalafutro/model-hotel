@@ -182,7 +182,7 @@ func (a *anthropicResponseWriter) handleStreamLine(line []byte) {
 	// Anthropic translator, so a count the provider spelled differently reaches
 	// it verbatim, and keeping the frame while losing the count told the client
 	// the model produced zero output tokens for a real answer.
-	if err := util.DecodeCounts(payload, &chunk); err != nil && shapeError(payload, err) == nil {
+	if err := util.DecodeCounts(payload, &chunk); err != nil && util.ShapeError(payload, err) == nil {
 		debuglog.Debug("anthropic: skip unparseable upstream chunk", "error", err)
 		return
 	}

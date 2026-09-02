@@ -92,7 +92,7 @@ func TestInspectStreamEvent_MessageStartCountSpellings(t *testing.T) {
 	}
 }
 
-// An explicit null is not a usage block. The *antUsage this replaced was nil for
+// An explicit null is not a usage block. The *Usage this replaced was nil for
 // absent AND null alike; a json.RawMessage for null is four non-empty bytes, and
 // emitRawData assigns OutputTokens unguarded — so a null usage on a later event
 // would wipe the count message_start reported.
@@ -234,5 +234,27 @@ func TestBuildMessageResponse_BrokenBytesStillFail(t *testing.T) {
 				t.Error("want an error: these bytes are broken, not a count in another spelling")
 			}
 		})
+	}
+}
+
+// An unreadable member costs only the figures it feeds: the prompt addends fall
+// together, output_tokens is read straight off its own member.
+func TestReadUsage_AnUnreadableMemberCostsOnlyWhatItFeeds(t *testing.T) {
+	t.Parallel()
+	u, ok := ReadUsage([]byte(`{"input_tokens":4,"output_tokens":5,"cache_read_input_tokens":[]}`))
+	if !ok {
+		t.Fatal("the whole block was rejected for one unreadable member")
+	}
+	if u.InputTokens != 0 || u.CacheReadInputTokens != 0 {
+		t.Errorf("prompt addends = %d/%d, want both dropped together", u.InputTokens, u.CacheReadInputTokens)
+	}
+	if u.OutputTokens != 5 {
+		t.Errorf("OutputTokens = %d, want 5", u.OutputTokens)
+	}
+	if _, ok := ReadUsage([]byte(`null`)); ok {
+		t.Error("null is not a usage block")
+	}
+	if _, ok := ReadUsage(nil); ok {
+		t.Error("an absent member is not a usage block")
 	}
 }

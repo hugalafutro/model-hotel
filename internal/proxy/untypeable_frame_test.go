@@ -2,7 +2,6 @@ package proxy
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -479,32 +478,6 @@ func TestHandleStreamingResponse_StripReasoningDropsUntypeableFrames(t *testing.
 	}
 }
 
-// The inference the forward path rests on — a type error proves the bytes are
-// well-formed — is a property of json.Unmarshal, which validates the whole
-// document before decoding any of it. json.Decoder does not promise it, and
-// GOEXPERIMENT=jsonv2 decodes streaming and so can report a type error on an
-// early member before reaching a syntax error later on.
-//
-// The predicate therefore checks rather than infers. If that guarantee ever goes
-// away this branch keeps dropping truncated bytes instead of forwarding them to
-// callers, which is the whole point of the drop branch existing.
-func TestShapeError_ChecksValidityRatherThanInferringIt(t *testing.T) {
-	t.Parallel()
-	typeErr := &json.UnmarshalTypeError{Value: "number", Field: "choices.0.finish_reason"}
-	if shapeError([]byte(`{"choices":[{"finish_reason":0}]}`), typeErr) == nil {
-		t.Error("a type error on well-formed JSON is an untypeable frame")
-	}
-	if got := shapeError([]byte(`{"choices":[{"finish_reason":0`), typeErr); got != nil {
-		t.Errorf("a type error on truncated bytes must not be forwarded, got %v", got)
-	}
-	if got := shapeError([]byte(`{"choices":[]}`), nil); got != nil {
-		t.Errorf("a clean decode is not an untypeable frame, got %v", got)
-	}
-	if got := shapeError([]byte(`{"choices":[`), &json.SyntaxError{}); got != nil {
-		t.Errorf("a syntax error is not an untypeable frame, got %v", got)
-	}
-}
-
 // A frame whose usage member could not be read leaves chunk.Usage a valid
 // pointer to an all-zero Usage: encoding/json allocates it before it calls the
 // custom unmarshaler. The observer gated on the pointer alone, so such a frame
@@ -839,38 +812,6 @@ func TestHandleStreamingResponse_UnreadableUsageDoesNotCostTheFrame(t *testing.T
 
 			if !strings.Contains(w.Body.String(), "CONTENTMARKER") {
 				t.Errorf("a usage member the gateway could not read cost the caller the answer: %q", w.Body.String())
-			}
-		})
-	}
-}
-
-// The object rule, read directly. A nested custom UnmarshalJSON returns its
-// error with an empty Field, so "does the type error name a member" could not
-// tell a chat frame with an unreadable usage member from a bare number.
-func TestShapeError_RequiresAJSONObject(t *testing.T) {
-	t.Parallel()
-	typeErr := &json.UnmarshalTypeError{Value: "number", Field: "choices.0.finish_reason"}
-	fieldless := &json.UnmarshalTypeError{Value: "array"}
-	for _, tc := range []struct {
-		data string
-		err  error
-		want bool
-	}{
-		{`{"choices":[{"finish_reason":0}]}`, typeErr, true},
-		// An object whose type error names nothing: a nested unmarshaler's.
-		{`{"choices":[{"delta":{"content":"hi"}}],"usage":[]}`, fieldless, true},
-		// Not the document at all.
-		{`[1,2,3]`, fieldless, false},
-		{`"[DONE]"`, fieldless, false},
-		{`42`, fieldless, false},
-		{`null`, fieldless, false},
-		// An object, but not sound bytes.
-		{`{"choices":[`, typeErr, false},
-	} {
-		t.Run(tc.data, func(t *testing.T) {
-			t.Parallel()
-			if got := shapeError([]byte(tc.data), tc.err) != nil; got != tc.want {
-				t.Errorf("shapeError(%s) non-nil = %v, want %v", tc.data, got, tc.want)
 			}
 		})
 	}
