@@ -61,14 +61,38 @@ export function DatabaseBackupSettings({
 		queryFn: () => api.backups.list(),
 	});
 
+	const { data: settings, isPending: settingsPending } = useQuery({
+		queryKey: ["settings"],
+		queryFn: () => api.settings.get(),
+	});
+
 	// GFS bucket per backup, so each row can carry a Grandfather/Father/Son tag.
 	// Sourced from the prune-preview classifier (it groups every backup by age
 	// against the configured retention), so the labels track the same rotation
 	// the sliders above configure.
+	// Its own key, outside the "backups" prefix: the preview is a POST the
+	// server treats as a read, and re-running it on every backups invalidation
+	// (create, delete, prune, restore) re-classified an unchanged list. It
+	// re-runs when the classification can differ: the set of backups on disk
+	// or the retention the classifier applies changes, both carried in the key.
+	// It waits for the settings so a late settings answer does not cost a
+	// second read (isPending, not undefined, so a settings error still lets
+	// the buckets load).
+	const backupNames = useMemo(
+		() => (backups ?? []).map((b) => b.filename).sort(),
+		[backups],
+	);
 	const { data: classification } = useQuery({
-		queryKey: ["backups", "classification"],
+		queryKey: [
+			"backup-classification",
+			backupNames,
+			settings?.backup_son_retention,
+			settings?.backup_father_retention,
+			settings?.backup_grandfather_retention,
+		],
 		queryFn: () => api.backups.prunePreview(),
-		enabled: (backups?.length ?? 0) > 0,
+		enabled: backupNames.length > 0 && !settingsPending,
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 	const gfsLabel = useMemo(() => {
@@ -108,11 +132,6 @@ export function DatabaseBackupSettings({
 	});
 
 	// Settings for periodic backup
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
-
 	const settingsUpdateMutation = useMutation({
 		mutationFn: (updates: Record<string, string>) =>
 			api.settings.update(updates),
