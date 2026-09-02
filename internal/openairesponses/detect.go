@@ -42,3 +42,42 @@ func NeedsResponsesRouting(chatBody []byte) bool {
 	}
 	return len(probe.Tools) > 0 && probe.ReasoningEffort != "none"
 }
+
+// IsResponsesOnlyRejection reports the chat-completions refusal OpenAI
+// answers for a model that is served by the Responses API alone (the pro
+// tier: o1-pro, o3-pro, gpt-5-pro and its point releases). The message
+// misdirects, pointing at the legacy /v1/completions, and arrives as a 404
+// rather than a 400; unlike the tools+reasoning rejection it applies to
+// every request for the model, tools or not.
+func IsResponsesOnlyRejection(errBody []byte) bool {
+	var envelope struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(errBody, &envelope) != nil || envelope.Error.Message == "" {
+		return false
+	}
+	m := strings.ToLower(envelope.Error.Message)
+	return strings.Contains(m, "not a chat model") && strings.Contains(m, "chat/completions")
+}
+
+// ResponsesOnlyModel reports an OpenAI model id known to be served by the
+// Responses API alone, so the first request routes there rather than paying
+// a 404 to learn it: the pro tier, by name.
+func ResponsesOnlyModel(modelID string) bool {
+	id := strings.ToLower(modelID)
+	if strings.HasPrefix(id, "o1-pro") || strings.HasPrefix(id, "o3-pro") {
+		return true
+	}
+	if !strings.HasPrefix(id, "gpt-5") {
+		return false
+	}
+	rest := strings.TrimPrefix(id, "gpt-5")
+	// gpt-5-pro, gpt-5.5-pro, gpt-5.5-pro-2026-04-23; not gpt-5-mini or a
+	// hypothetical gpt-5-prose.
+	for len(rest) > 0 && (rest[0] == '.' || rest[0] >= '0' && rest[0] <= '9') {
+		rest = rest[1:]
+	}
+	return rest == "-pro" || strings.HasPrefix(rest, "-pro-")
+}

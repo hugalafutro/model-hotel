@@ -38,10 +38,36 @@ func (h *Handler) shouldUseResponsesAttempt(st *requestState, candidate modelCan
 	if providerType != "openai" || st.endpointPath != "" || st.makeUpstreamBody != nil {
 		return false
 	}
-	if _, ok := h.responsesRequiredCache.Load(responsesCacheKey(providerType, candidate.model.ModelID)); !ok {
-		return false
+	switch h.responsesRequirement(providerType, candidate.model.ModelID) {
+	case responsesAlways:
+		return true
+	case responsesForTools:
+		return openairesponses.NeedsResponsesRouting(st.bodyBytes)
 	}
-	return openairesponses.NeedsResponsesRouting(st.bodyBytes)
+	return false
+}
+
+// The two learned requirements (see responsesRequiredCache).
+const (
+	responsesForTools = "tools"
+	responsesAlways   = "always"
+)
+
+// responsesRequirement is what the cache holds for the model, or the name rule
+// for a model that has not been tried yet: the pro tier is Responses-only by
+// construction, and routing it there from the first request saves the 404 that
+// would otherwise teach it.
+func (h *Handler) responsesRequirement(providerType, modelID string) string {
+	if v, ok := h.responsesRequiredCache.Load(responsesCacheKey(providerType, modelID)); ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+		return responsesForTools
+	}
+	if openairesponses.ResponsesOnlyModel(modelID) {
+		return responsesAlways
+	}
+	return ""
 }
 
 // buildResponsesRequest builds the upstream request for a /v1/responses
@@ -178,10 +204,18 @@ func (h *Handler) learnResponsesRequirement(st *requestState, candidate modelCan
 	if st.responsesAttempt || providerType != "openai" || st.endpointPath != "" || st.makeUpstreamBody != nil {
 		return false
 	}
+	key := responsesCacheKey(providerType, candidate.model.ModelID)
+	if openairesponses.IsResponsesOnlyRejection(errBody) {
+		// The whole model lives behind /v1/responses: learn it for every
+		// request, whatever this one carried.
+		h.responsesRequiredCache.Store(key, responsesAlways)
+		debuglog.Info("proxy: learned responses-only model", "model", candidate.model.ModelID, "provider", candidate.provider.Name)
+		return true
+	}
 	if !openairesponses.RequiresResponsesAPI(errBody) || !openairesponses.NeedsResponsesRouting(st.bodyBytes) {
 		return false
 	}
-	h.responsesRequiredCache.Store(responsesCacheKey(providerType, candidate.model.ModelID), true)
+	h.responsesRequiredCache.Store(key, responsesForTools)
 	debuglog.Info("proxy: learned responses api requirement", "model", candidate.model.ModelID, "provider", candidate.provider.Name)
 	return true
 }

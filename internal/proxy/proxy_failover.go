@@ -92,8 +92,11 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 
 	// Auto-retry learnable 400s (see retryLearnable400 for which are learnable in
 	// which dialect). A 400 nothing can learn from is left exactly as it arrived,
-	// to fail over or be forwarded to the client.
-	if resp.StatusCode == 400 {
+	// to fail over or be forwarded to the client. OpenAI's Responses-only
+	// refusal ("not a chat model") is a 404, so a chat-completions 404 from an
+	// OpenAI provider takes the same path; one nothing can learn from is left
+	// as it arrived just the same.
+	if resp.StatusCode == 400 || (resp.StatusCode == 404 && providerType == "openai" && st.sentChatCompletionsBody()) {
 		res, handled := h.retryLearnable400(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
 		if handled {
 			resp = res.resp
