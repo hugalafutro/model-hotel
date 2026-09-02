@@ -258,17 +258,20 @@ func TestMiddlewareSkipsFleetHeartbeat(t *testing.T) {
 	}
 }
 
-func TestIsFleetHeartbeat(t *testing.T) {
+func TestIsAuditExempt(t *testing.T) {
 	cases := map[string]bool{
-		"/api/fleet/announce": true,
-		"/api/settings":       false,
-		"/fleet/announce":     false, // unmounted pattern is not the real route
-		"/api/fleet/members":  false,
-		"":                    false,
+		"/api/fleet/announce":        true,
+		"/api/backups/prune-preview": true,  // a read that is POST only for its body
+		"/api/backups/prune":         false, // the write next to it stays audited
+		"/api/backups":               false,
+		"/api/settings":              false,
+		"/fleet/announce":            false, // unmounted pattern is not the real route
+		"/api/fleet/members":         false,
+		"":                           false,
 	}
 	for route, want := range cases {
-		if got := isFleetHeartbeat(route); got != want {
-			t.Errorf("isFleetHeartbeat(%q) = %v, want %v", route, got, want)
+		if got := isAuditExempt(route); got != want {
+			t.Errorf("isAuditExempt(%q) = %v, want %v", route, got, want)
 		}
 	}
 }

@@ -160,7 +160,7 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 		// auditing them adds ~24 rows/min/member that bury real mutations (a live
 		// instance was 99.99% announce rows). They carry no entity and no state
 		// change worth an audit trail, so skip them.
-		if isFleetHeartbeat(route) {
+		if isAuditExempt(route) {
 			return
 		}
 		actor, role := actorOf(user.IdentityFrom(r.Context()))
@@ -218,12 +218,27 @@ func entityParam(rctx *chi.Context) string {
 	return ""
 }
 
-// isFleetHeartbeat reports whether a resolved route is a fleet liveness ping
-// that should be excluded from the audit trail. Only the member-side announce
-// endpoint qualifies today; it is matched on the router's route pattern so a
-// literal path check cannot be fooled by trailing slashes or query strings.
-func isFleetHeartbeat(route string) bool {
-	return route == "/api/fleet/announce"
+// isAuditExempt reports whether a resolved route is excluded from the audit
+// trail. Two kinds qualify, both matched on the router's route pattern so a
+// literal path check cannot be fooled by trailing slashes or query strings:
+//
+//   - the fleet liveness ping, a machine-to-machine POST Front Desk sends every
+//     member every few seconds, which carries no entity and no state change;
+//   - read-only POSTs, endpoints that answer a question without changing
+//     anything and are POST only because their input is a body. The backup
+//     prune preview classifies the backups on disk and writes nothing; the
+//     dashboard re-reads it on every backup change and every window focus, and
+//     recording each read as an admin action buried the real mutations under
+//     bursts of identical rows seconds apart.
+//
+// The trail is a record of state changes, so a route belongs here exactly when
+// a successful call leaves the system as it found it.
+func isAuditExempt(route string) bool {
+	switch route {
+	case "/api/fleet/announce", "/api/backups/prune-preview":
+		return true
+	}
+	return false
 }
 
 // record inserts one entry, best-effort: an audit failure never fails the

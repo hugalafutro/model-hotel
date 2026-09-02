@@ -1889,3 +1889,42 @@ describe("DatabaseBackupSettings additional coverage", () => {
 		);
 	});
 });
+
+// The prune preview is a POST the server treats as a read and audits as an
+// action: it runs once per set of backups, and neither a window focus nor an
+// unrelated invalidation re-runs it.
+describe("prune preview is read once per backup set", () => {
+	it("calls prune-preview once for two backups and not again on focus", async () => {
+		let previews = 0;
+		const manual = {
+			filename: "backup_20260115_103000_0010_manual.dump",
+			size_bytes: 1024,
+			created_at: "2026-01-15T10:30:00Z",
+			origin: "manual",
+		};
+		const scheduled = {
+			filename: "backup_20260116_103000_0010_auto.dump",
+			size_bytes: 2048,
+			created_at: "2026-01-16T10:30:00Z",
+			origin: "scheduled",
+		};
+		server.use(
+			http.get("/api/backups", () => HttpResponse.json([manual, scheduled])),
+			http.post("/api/backups/prune-preview", () => {
+				previews++;
+				return HttpResponse.json({
+					son: [scheduled],
+					father: [],
+					grandfather: [],
+					prune: [],
+				});
+			}),
+		);
+		renderWithProviders(<DatabaseBackupSettings />);
+		await waitFor(() => expect(previews).toBe(1));
+		window.dispatchEvent(new Event("focus"));
+		document.dispatchEvent(new Event("visibilitychange"));
+		await new Promise((r) => setTimeout(r, 50));
+		expect(previews).toBe(1);
+	});
+});

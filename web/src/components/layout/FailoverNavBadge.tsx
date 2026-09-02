@@ -70,11 +70,15 @@ export function FailoverNavBadge({
 		// and the two buckets get separate lines so a partial outage is never read
 		// as a dead provider. Each name carries the models it is blocking, since
 		// that is what tells an operator which of the two this is.
-		const names = (list: typeof unhealthy) =>
+		// A quota-pinned provider lists no models: the pin is provider-wide
+		// (its quota window is spent for every model it serves), so naming each
+		// disabled model only makes the tooltip long without saying anything the
+		// provider's name does not.
+		const names = (list: typeof unhealthy, withModels = true) =>
 			list
 				.map((p) => {
 					const name = p.provider_name || p.provider_id;
-					const models = p.open_models;
+					const models = withModels ? p.open_models : undefined;
 					return models && models.length > 0
 						? t("layout.nav.failoverBadgeOpenModels", {
 								provider: name,
@@ -109,7 +113,7 @@ export function FailoverNavBadge({
 			lines.push(
 				t("layout.nav.failoverBadgeQuotaTooltip", {
 					count: pinned.length,
-					providers: names(pinned),
+					providers: names(pinned, false),
 				}),
 			);
 		}

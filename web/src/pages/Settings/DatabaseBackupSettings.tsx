@@ -65,10 +65,21 @@ export function DatabaseBackupSettings({
 	// Sourced from the prune-preview classifier (it groups every backup by age
 	// against the configured retention), so the labels track the same rotation
 	// the sliders above configure.
+	// Its own key, outside the "backups" prefix, and no refetch on focus: the
+	// preview is a POST the server treats as a read, and re-running it on every
+	// backups invalidation and every tab switch re-classified an unchanged list.
+	// It re-runs when the set of backups on disk changes (the key carries the
+	// filenames), which is the only time the classification can differ.
+	const backupNames = useMemo(
+		() => (backups ?? []).map((b) => b.filename).sort(),
+		[backups],
+	);
 	const { data: classification } = useQuery({
-		queryKey: ["backups", "classification"],
+		queryKey: ["backup-classification", backupNames],
 		queryFn: () => api.backups.prunePreview(),
-		enabled: (backups?.length ?? 0) > 0,
+		enabled: backupNames.length > 0,
+		refetchOnWindowFocus: false,
+		staleTime: Number.POSITIVE_INFINITY,
 	});
 
 	const gfsLabel = useMemo(() => {
