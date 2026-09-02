@@ -65,12 +65,7 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 	}
 	c.cooldownOverride = d
 	c.pinSource = source
-	c.probeJitter = 0
-	if source == pinSourceResponse {
-		if spread := int64(cb.pinProbeInterval() / 20); spread > 0 {
-			c.probeJitter = time.Duration(rand.Int64N(spread + 1))
-		}
-	}
+	c.probeSeed = rand.Float64()
 }
 
 // The two pin sources ProviderStatus and the breaker events publish.

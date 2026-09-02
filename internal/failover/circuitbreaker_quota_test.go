@@ -914,4 +914,24 @@ func TestQuotaPin_ProbeIntervalScope(t *testing.T) {
 	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) < 4*time.Minute {
 		t.Errorf("a one-second interval undercut the cooldown: %v", time.Until(retryAt))
 	}
+
+	// A backoff already above the interval is the floor too: a pin never makes
+	// the breaker more aggressive than it was without one.
+	cb = NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour, pinProbe: &probe, backoffMax: 4 * time.Hour})
+	cb.RecordFailure(id, "p", "m", UpstreamStatus(500, "boom"))
+	for i := 0; i < 8; i++ { // ordinary failed probes double the backoff past the hour
+		cb.mu.Lock()
+		cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-8 * time.Hour)
+		cb.mu.Unlock()
+		cb.IsOpen(id, "p", "m")
+		cb.RecordFailure(id, "p", "m", UpstreamStatus(500, "boom"))
+	}
+	cb.mu.Lock()
+	cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-8 * time.Hour)
+	cb.mu.Unlock()
+	cb.IsOpen(id, "p", "m")
+	cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
+	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) < 2*time.Hour {
+		t.Errorf("the response pin cut a backoff of hours down to %v", time.Until(retryAt))
+	}
 }

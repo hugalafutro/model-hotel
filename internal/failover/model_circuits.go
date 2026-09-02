@@ -63,10 +63,11 @@ type circuit struct {
 	// pin is capped at the probe interval, an advisor pin is not, so a wrong
 	// source changes how long the circuit stays dark.
 	pinSource string
-	// probeJitter spreads a response pin's probes: stamped once with the pin,
-	// so every read agrees on the instant and one provider's models that went
-	// dark together do not all probe in the same second.
-	probeJitter time.Duration
+	// probeSeed spreads a response pin's probes: a fraction in [0, 1) drawn once
+	// with the pin and scaled by the interval at read time, so every read agrees
+	// on the instant, a changed interval rescales it, and one provider's models
+	// that went dark together do not all probe in the same second.
+	probeSeed float64
 	// lastCause, lastStatus and lastAt are the circuit's most recent verdict:
 	// why it was last charged, credited, pinned or released, the upstream status
 	// behind that (0 when none was seen) and when it landed. Like pinSource they
@@ -521,11 +522,12 @@ func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads)
 	// once per interval instead: the probe re-pins on another refusal and
 	// closes the circuit on a success. The interval, not the backoff, is the
 	// rate limit on those probes (a refused probe does not grow the backoff,
-	// see RecordExhausted), and it never undercuts the configured cooldown. An
-	// advisor pin measured the window and keeps its full length.
+	// see RecordExhausted), and it never undercuts the cooldown the circuit
+	// would serve unpinned, so the pin can never make the breaker more
+	// aggressive. An advisor pin measured the window and keeps its full length.
 	if c.pinSource == pinSourceResponse {
 		if probe := r.pinProbeInterval(); probe > 0 {
-			return max(probe, r.base) + c.probeJitter
+			return max(probe, cooldown) + time.Duration(c.probeSeed*float64(probe)/20)
 		}
 	}
 	return pinned

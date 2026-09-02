@@ -353,6 +353,8 @@ func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, mo
 		// interval, not by the backoff: counting it would double the backoff
 		// on every refusal until it outgrew the interval and the hourly probe
 		// decayed back into the day-long wait the interval exists to avoid.
+		// pinSource is read here, before openCircuit stamps the new pin over
+		// it; the interval read is a cached setting.
 		if c.pinSource != pinSourceResponse || cb.pinProbeInterval() <= 0 {
 			c.failedProbes++
 		}
