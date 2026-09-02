@@ -130,6 +130,15 @@ var errInvalidSyncedSettingBound = errors.New("configsync: refusing to apply a s
 // maps it to a 400 refusal.
 var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an invalid rate limit")
 
+// errInvalidSyncedProvider is returned by apply when a provider in the envelope
+// carries a field the interactive API would reject: a max_in_flight outside
+// 1..10000, which the runtime would read as "no ceiling" (zero or less) rather
+// than reject, silently deleting the operator's cap and then exporting the
+// value to every member on the next sync; a base_url its SSRF check refuses;
+// an unprintable or over-long name; or a disable date that is not a date.
+// Import maps it to a 400 refusal.
+var errInvalidSyncedProvider = errors.New("configsync: refusing to apply an invalid provider")
+
 // errInvalidSyncedPasswordHash is returned by apply when a user in the envelope
 // carries a password_hash that is not a well-formed argon2id hash. A password
 // hash is the one credential field this member does not compute itself, and

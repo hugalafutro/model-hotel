@@ -60,7 +60,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	// Measured after normalization, so the value that is actually stored is the
 	// one that has to fit.
 	if len(req.BaseURL) > 500 {
-		http.Error(w, "base_url must be less than 500 characters", http.StatusBadRequest)
+		http.Error(w, "base_url must be at most 500 characters", http.StatusBadRequest)
 		return
 	}
 
@@ -402,11 +402,12 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.MaxInFlight.Set && req.MaxInFlight.Value != nil {
-		// A ceiling of zero would admit nothing forever, which is what the
-		// enabled toggle is for; the upper bound only catches typos.
-		if v := *req.MaxInFlight.Value; v < 1 || v > 10000 {
-			http.Error(w, "max_in_flight must be between 1 and 10000, or null for no ceiling", http.StatusBadRequest)
+	// The one rule the config import and the column's CHECK constraint share
+	// (provider.ValidateMaxInFlight): a ceiling of zero would not admit
+	// nothing, it would read as no ceiling at all.
+	if req.MaxInFlight.Set {
+		if err := provider.ValidateMaxInFlight(req.MaxInFlight.Value); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}
