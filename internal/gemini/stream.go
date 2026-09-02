@@ -140,6 +140,10 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 			continue
 		}
 		if p.FunctionCall != nil {
+			// The signature rides in the same part as the call: observed on
+			// Google AI Studio and Zen streams (one chunk carries both), and
+			// the tool_call delta is emitted here, so a signature arriving in
+			// a later part would not reach it.
 			args := compactJSON(p.FunctionCall.Args)
 			if args == "" {
 				args = "{}"
