@@ -39,7 +39,17 @@ type StreamTranslator struct {
 	completionTokens int
 	finishReason     string // last OpenAI finish_reason observed
 	finished         bool   // Finish() already emitted
+
+	// lateSignatures counts thought signatures that arrived on a fragment
+	// after the one that opened the call's block, where the id (their only
+	// carrier) was already fixed; the proxy logs the count at the end of the
+	// stream, since the loss surfaces a turn later as Gemini's refusal.
+	lateSignatures int
 }
+
+// LateSignatures reports how many thought signatures the stream could not
+// carry because they arrived after their call's block had opened.
+func (t *StreamTranslator) LateSignatures() int { return t.lateSignatures }
 
 // NewStreamTranslator builds a translator for one response. messageID is the
 // Anthropic message id surfaced to the client (e.g. "msg_..."); model is echoed
@@ -213,6 +223,8 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 				return nil, err
 			}
 			blockIdx = t.curIndex
+		} else if egress.ThoughtSignatureIn(tc.ExtraContent) != "" {
+			t.lateSignatures++
 		}
 		// Argument fragments stream as input_json_delta partial JSON.
 		if tc.Function.Arguments != "" {

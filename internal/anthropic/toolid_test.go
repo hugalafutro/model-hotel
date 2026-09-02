@@ -95,7 +95,14 @@ func TestStripSignedToolUseIDs(t *testing.T) {
 	if !bytes.Contains(out, []byte(`"cache_control":{"type":"ephemeral"}`)) || !bytes.Contains(out, []byte(`"max_tokens":5`)) {
 		t.Errorf("unrelated members lost: %s", out)
 	}
-	for _, same := range []string{`{"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_9","name":"f","input":{}}]}]}`, `not json`, `{"messages":"nope"}`} {
+	for _, same := range []string{
+		`{"messages":[{"role":"user","content":"hi"},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_9","name":"f","input":{}}]}]}`,
+		`not json`,
+		`{"messages":"nope"}`,
+		// A content array holding a non-object is not the Messages shape:
+		// the message is left as it came.
+		`{"messages":[{"role":"assistant","content":["text",{"type":"tool_use","id":"toolu_1` + thoughtSigMarker + `tc2ln","name":"f","input":{}}]}]}`,
+	} {
 		if got := StripSignedToolUseIDs([]byte(same)); string(got) != same {
 			t.Errorf("body without a signed id was rewritten: %s -> %s", same, got)
 		}

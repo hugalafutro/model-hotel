@@ -275,3 +275,29 @@ func TestStreamTranslator_ToolUseIDCarriesThoughtSignature(t *testing.T) {
 		t.Errorf("unsigned block id = %q, want call_p untouched", ids[1])
 	}
 }
+
+// A signature on a fragment after the one that opened the call has no
+// carrier (the id is fixed at content_block_start); it is counted so the
+// proxy can log the loss, and the block keeps the id it opened with.
+func TestStreamTranslator_LateSignatureCounted(t *testing.T) {
+	tr := NewStreamTranslator("msg_late", "m")
+	var chunks []OAStreamChunk
+	for _, raw := range []string{
+		`{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_l","type":"function","function":{"name":"f","arguments":""}}]}}]}`,
+		`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{}"},"extra_content":{"google":{"thought_signature":"late"}}}]}}]}`,
+		`{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}`,
+	} {
+		var c OAStreamChunk
+		if err := json.Unmarshal([]byte(raw), &c); err != nil {
+			t.Fatal(err)
+		}
+		chunks = append(chunks, c)
+	}
+	sse := runTranslator(t, tr, chunks)
+	if tr.LateSignatures() != 1 {
+		t.Errorf("late signatures = %d, want 1", tr.LateSignatures())
+	}
+	if !strings.Contains(string(sse), `"id":"call_l"`) || strings.Contains(string(sse), thoughtSigMarker) {
+		t.Errorf("block id should be the bare call_l: %s", sse)
+	}
+}

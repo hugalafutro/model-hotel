@@ -27,7 +27,10 @@ import (
 // encodes (tag "b", put back through the same encoding on the way in) rather
 // than as text (tag "t", for a signature that is not padded base64) keeps
 // the id a third shorter: an id is echoed twice per call per turn and every
-// byte of it is prompt for the rest of the conversation.
+// byte of it is prompt for the rest of the conversation. The tag is also
+// the form's version: a payload under a tag this build does not know is a
+// plain id, so a changed form degrades to Gemini's refusal of the turn, as
+// with no carrier, never to a corrupted signature.
 const thoughtSigMarker = "_thoughtsig_"
 
 const (
@@ -40,6 +43,9 @@ func signedToolUseID(id, signature string) string {
 	if signature == "" {
 		return id
 	}
+	// Re-encoding proves the bytes give the signature back exactly: the
+	// decoder skips line breaks and accepts non-canonical trailing bits,
+	// either of which would round-trip to a different string.
 	if raw, err := base64.StdEncoding.DecodeString(signature); err == nil && base64.StdEncoding.EncodeToString(raw) == signature {
 		return id + thoughtSigMarker + string(sigTagBytes) + base64.RawURLEncoding.EncodeToString(raw)
 	}
@@ -48,10 +54,12 @@ func signedToolUseID(id, signature string) string {
 
 // splitToolUseID recovers the provider's id and the signature from a signed
 // id. The last marker is the one that counts, so an upstream id that happens
-// to contain the marker survives; the payload cannot contain it in the text
-// form (no run of base64 text encodes to it) and does so in the byte form
-// only by a collision of one part in 64^12, whose outcome is the plain-id
-// fallback below and Gemini's refusal of the turn, as with no carrier.
+// to contain the marker survives; the payload cannot contain it when the
+// signature is base64-alphabet text (no run of it encodes to the marker)
+// and does so for arbitrary bytes only by a collision of one part in 64^12
+// per position, whose outcome is the plain-id fallback below (the tag byte
+// after a marker inside the payload is not a tag) and Gemini's refusal of
+// the turn, as with no carrier.
 func splitToolUseID(id string) (string, string) {
 	at := strings.LastIndex(id, thoughtSigMarker)
 	if at < 0 {

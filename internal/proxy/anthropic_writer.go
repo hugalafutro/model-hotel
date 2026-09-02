@@ -209,6 +209,9 @@ func (a *anthropicResponseWriter) finishStream() {
 		debuglog.Warn("anthropic: stream finish failed", "error", err)
 		return
 	}
+	if n := a.translator.LateSignatures(); n > 0 {
+		debuglog.Warn("anthropic: thought signatures arrived after their tool_use block opened and could not be carried; the next turn will be refused", "count", n, "model", a.model)
+	}
 	if len(out) > 0 {
 		//nolint:gosec // G705 false positive: Anthropic SSE event body, not HTML; Content-Type is text/event-stream
 		_, _ = a.w.Write(out)
