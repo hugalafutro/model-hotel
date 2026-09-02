@@ -61,7 +61,7 @@ const modelPhraseWindow = 80
 var modelCapabilityRefusal = regexp.MustCompile(
 	`^(is not supported|is no longer available|is not available) (for|with|on|in) ` +
 		`((this|that|the|your|our|any) )?([a-z]+ ){0,3}` +
-		`(operation|endpoint|method|route|api|api version|request|request type|mode|task|region|plan|tier|account|subscription)s?\b`)
+		`(operation|endpoint|method|route|api|api version|request|request type|mode|modality|modalitie|task|region|plan|tier|account|subscription)s?\b`)
 
 // refusesCapabilityAt reports whether the phrase starting at pos is a capability
 // refusal rather than a retirement. The pattern is anchored, so this tests that

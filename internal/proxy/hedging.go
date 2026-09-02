@@ -401,7 +401,8 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		resp.Body = openairesponses.NewStreamAdapter(resp.Body, st.reqModel)
 	}
 	if st.geminiAttempt {
-		// Vertex-express candidate in a hedged race: same upstream-side
+		// Gemini egress candidate in a hedged race (vertex-express, a Zen
+		// Gemini model or a Google AI Studio image model): same upstream-side
 		// translation so the hedged pipeline sees chat-completions SSE.
 		resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 	}
