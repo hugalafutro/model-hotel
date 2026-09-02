@@ -342,32 +342,23 @@ func TestNormalizeName_MixedSpacesAndHyphens(t *testing.T) {
 // MaskAPIKey
 // ---------------------------------------------------------------------------
 
-func TestMaskAPIKey_LongKey(t *testing.T) {
-	result := MaskAPIKey("sk-abcdefghijklmnop1234567890")
-	if result != "sk...90" {
-		t.Errorf("MaskAPIKey(long key) = %q, want %q", result, "sk...90")
-	}
-}
-
-func TestMaskAPIKey_ShortKey(t *testing.T) {
-	// Keys ≤ 4 chars are masked entirely to "***"
-	result := MaskAPIKey("abcd")
-	if result != "***" {
-		t.Errorf("MaskAPIKey(4 chars) = %q, want %q", result, "***")
-	}
-}
-
-func TestMaskAPIKey_ThreeChars(t *testing.T) {
-	result := MaskAPIKey("abc")
-	if result != "***" {
-		t.Errorf("MaskAPIKey(3 chars) = %q, want %q", result, "***")
-	}
-}
-
-func TestMaskAPIKey_TwoChars(t *testing.T) {
-	result := MaskAPIKey("ab")
-	if result != "***" {
-		t.Errorf("MaskAPIKey(2 chars) = %q, want %q", result, "***")
+func TestMaskAPIKey(t *testing.T) {
+	for _, tc := range []struct{ key, want string }{
+		{"sk-abcdefghijklmnop1234567890", "sk...7890"},
+		// Anthropic keys all end in AA; the four-character tail still tells
+		// two of them apart.
+		{"sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxx-hQAA", "sk...hQAA"},
+		{"sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxx-8QAA", "sk...8QAA"},
+		// Thirteen characters is the shortest key that keeps more than half
+		// of itself hidden; at twelve and under nothing is shown.
+		{"abcdefghijklm", "ab...jklm"},
+		{"abcdefghijkl", "***"},
+		{"abcd", "***"},
+		{"ab", "***"},
+	} {
+		if got := MaskAPIKey(tc.key); got != tc.want {
+			t.Errorf("MaskAPIKey(%q) = %q, want %q", tc.key, got, tc.want)
+		}
 	}
 }
 
@@ -382,14 +373,6 @@ func TestMaskAPIKey_EmptyString(t *testing.T) {
 	result := MaskAPIKey("")
 	if result != "***" {
 		t.Errorf("MaskAPIKey('') = %q, want %q", result, "***")
-	}
-}
-
-func TestMaskAPIKey_FiveChars(t *testing.T) {
-	// Keys > 4 chars show first 2 and last 2 chars
-	result := MaskAPIKey("abcde")
-	if result != "ab...de" {
-		t.Errorf("MaskAPIKey(5 chars) = %q, want %q", result, "ab...de")
 	}
 }
 

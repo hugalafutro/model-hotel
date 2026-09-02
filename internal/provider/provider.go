@@ -553,12 +553,16 @@ func ToResponse(p *Provider) ProviderResponse {
 	}
 }
 
-// MaskAPIKey returns a masked version of an API key for display.
+// MaskAPIKey returns the display form of an API key: its first two and last
+// four characters. Four, because the tail is what tells one key from another
+// and every Anthropic key ends in the same two characters, so a two-character
+// tail showed a rotated key as unchanged. A key too short to keep most of
+// itself hidden is masked entirely.
 func MaskAPIKey(apiKey string) string {
-	if len(apiKey) <= 4 {
+	if len(apiKey) <= 12 {
 		return "***"
 	}
-	return apiKey[:2] + "..." + apiKey[len(apiKey)-2:]
+	return apiKey[:2] + "..." + apiKey[len(apiKey)-4:]
 }
 
 // TouchLastUsed updates the last_used_at timestamp for a provider.
