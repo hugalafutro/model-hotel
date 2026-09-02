@@ -3,7 +3,9 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -12,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -34,9 +37,14 @@ func TestIsGeminiEgressAttempt_GoogleImage(t *testing.T) {
 		{"request names image", wantsImage, "google", "", true},
 		{"chat model, plain request", plain, "google", `["text"]`, false},
 		{"chat model, empty modalities", plain, "google", "", false},
+		{"text-only model, request names image", wantsImage, "google", `["text"]`, false},
 		{"image model on another compat provider", plain, "openai", `["text","image"]`, false},
 		{"explicit endpoint override", &requestState{bodyBytes: plain.bodyBytes, endpointPath: "/v1/embeddings"}, "google", `["text","image"]`, false},
 	}
+	// A client naming an image modality must not be able to steer a model
+	// discovery declared text-only onto the native route: Google's refusal
+	// there reads as a capability refusal, not a retirement, but the compat
+	// route is the one the model is known to serve.
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := isGeminiEgressAttempt(tc.st, tc.providerType, "gemini-2.5-flash-image", tc.outputMods); got != tc.want {
@@ -136,5 +144,22 @@ func TestChatCompletions_GoogleImageEgress(t *testing.T) {
 	msg := resp.Choices[0].Message
 	if msg.Content != "A blue circle." || len(msg.Images) != 1 || msg.Images[0].ImageURL.URL != "data:image/png;base64,iVBORw0KGgo=" {
 		t.Fatalf("message = %+v", msg)
+	}
+}
+
+// A native-dialect body past the non-streaming cap is refused as the
+// gateway's own policy, never charged to the provider as a translation fault.
+func TestTranslateEgressResponseBody_OversizedIsNotTheProvidersFault(t *testing.T) {
+	big := `{"candidates":[{"content":{"parts":[{"inlineData":{"mimeType":"image/png","data":"` + strings.Repeat("A", nonStreamingBodyCap) + `"}}]}}]}`
+	resp := &http.Response{StatusCode: 200, Body: io.NopCloser(strings.NewReader(big))}
+	err := translateEgressResponseBody(resp, "gemini-3-pro-image", gemini.BuildChatCompletion)
+	if !errors.Is(err, errEgressBodyOversized) {
+		t.Fatalf("err = %v, want errEgressBodyOversized", err)
+	}
+	if translationIsProviderFault(err) {
+		t.Fatal("the gateway's own cap was read as a provider fault")
+	}
+	if rest, _ := io.ReadAll(resp.Body); len(rest) != 0 {
+		t.Fatalf("body left readable with %d bytes", len(rest))
 	}
 }

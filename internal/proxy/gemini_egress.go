@@ -48,13 +48,19 @@ func isGeminiEgressAttempt(st *requestState, providerType, modelID, outputModali
 // model there is answered with a 400 whether or not it names an image
 // modality, while the native generateContent route serves it and returns the
 // image as an inlineData part. The model's discovered output modalities
-// decide, and a request naming an image modality is a second trigger for a
-// model discovery has not marked.
+// decide. A request naming an image modality is a second trigger only for a
+// model whose modalities discovery left empty: a model declared text-only
+// stays on the compat route, since a client could otherwise steer it onto
+// the native one and have Google's refusal read as the model's retirement.
 func isGoogleImageEgress(providerType, outputModalities string, body []byte) bool {
 	if providerType != "google" {
 		return false
 	}
-	return slices.Contains(declaredModalities(outputModalities), "image") || gemini.RequestWantsImage(body)
+	declared := declaredModalities(outputModalities)
+	if slices.Contains(declared, "image") {
+		return true
+	}
+	return len(declared) == 0 && gemini.RequestWantsImage(body)
 }
 
 // isZenGeminiModel reports whether this is an OpenCode Zen candidate for a
