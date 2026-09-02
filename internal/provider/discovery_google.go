@@ -175,8 +175,14 @@ func isGoogleToolCallingModel(modelID string) bool {
 	return !isGoogleTTSModel(modelID)
 }
 
+// isGoogleStructuredOutputModel reports a model that honours JSON mode. An
+// image-output model does not, whatever Google's docs list for it: the API
+// answers responseMimeType application/json on gemini-2.5-flash-image with
+// "JSON mode is not enabled for this model" and on the gemini-3 image models
+// with a bare INVALID_ARGUMENT (google-gemini/cookbook#1028), for a schema
+// and for plain json_object alike.
 func isGoogleStructuredOutputModel(modelID string) bool {
-	return isGoogleToolCallingModel(modelID)
+	return isGoogleToolCallingModel(modelID) && !isGoogleImageGenModel(modelID)
 }
 
 func isGoogleVisionModel(modelID string) bool {
