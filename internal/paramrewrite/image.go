@@ -9,40 +9,46 @@ import (
 )
 
 // RewriteImageRequest adapts an OpenAI-shaped /v1/images/generations body to
-// what the provider's image endpoint accepts. Today that is xAI only: its
-// image API has no "size" and answers 400 "Argument not supported: size" to
-// any request carrying one, which the OpenAI SDKs and open-webui send by
-// default. The dimensions are kept as the aspect_ratio xAI does accept when
-// they reduce to one of its ratios, and dropped otherwise (xAI then picks its
-// own default, which is still an image rather than a refusal). A body that
-// does not parse is forwarded as it came, like every other rewriter here.
-func RewriteImageRequest(body []byte, providerType string) []byte {
+// what a provider TYPE's image API accepts; like the other type-keyed rewrites
+// here it cannot tell a relay behind that type apart from the real endpoint.
+// Today that is xAI only: its image API has no "size" and answers 400
+// "Argument not supported: size" to any request carrying one, which the OpenAI
+// SDKs and open-webui send by default. The dimensions are kept as the
+// aspect_ratio the grok-imagine family accepts when they reduce to one of its
+// ratios, and dropped otherwise (xAI then picks its own default, which is
+// still an image rather than a refusal). The older grok-2-image models take
+// neither member, so for them the size is only dropped. A body that does not
+// parse is forwarded as it came, like every other rewriter here. It reports
+// the aspect_ratio it chose, empty when none was set, for the caller's log.
+func RewriteImageRequest(body []byte, providerType, modelID string) ([]byte, string) {
 	if providerType != "xai" {
-		return body
+		return body, ""
 	}
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
 	var raw map[string]any
 	if dec.Decode(&raw) != nil {
-		return body
+		return body, ""
 	}
 	size, present := raw["size"]
 	if !present {
-		return body
+		return body, ""
 	}
 	delete(raw, "size")
-	if s, ok := size.(string); ok {
+	chosen := ""
+	if s, ok := size.(string); ok && strings.Contains(modelID, "imagine") {
 		if _, has := raw["aspect_ratio"]; !has {
 			if ratio, ok := xaiAspectRatio(s); ok {
 				raw["aspect_ratio"] = ratio
+				chosen = ratio
 			}
 		}
 	}
 	out, err := json.Marshal(raw)
 	if err != nil {
-		return body
+		return body, ""
 	}
-	return out
+	return out, chosen
 }
 
 // xaiAspectRatios are the aspect_ratio values xAI's image API documents.

@@ -579,10 +579,13 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		// The body builder knows the model but not the provider, and an image
 		// request carries parameters not every image API accepts: xAI answers
 		// 400 to the "size" the OpenAI SDKs send by default. Adapted here, the
-		// one place both are known, for every image attempt (the retirement
-		// probe's included).
+		// one place both are known.
 		if logData.endpointType == endpointTypeImage && contentType == "application/json" {
-			upstreamBody = paramrewrite.RewriteImageRequest(upstreamBody, providerType)
+			var ratio string
+			upstreamBody, ratio = paramrewrite.RewriteImageRequest(upstreamBody, providerType, candidate.model.ModelID)
+			if ratio != "" {
+				debuglog.Debug("proxy: image size rewritten to aspect ratio", "provider_type", providerType, "model", candidate.model.ModelID, "aspect_ratio", ratio)
+			}
 		}
 	} else {
 		needsRewrite := st.reqModel != candidate.model.ModelID || isAnthropicFamily(providerType) || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming

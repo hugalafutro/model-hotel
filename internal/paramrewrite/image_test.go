@@ -30,7 +30,7 @@ func TestRewriteImageRequest_XAISizeBecomesAspectRatio(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			out := RewriteImageRequest([]byte(tc.body), "xai")
+			out, chosen := RewriteImageRequest([]byte(tc.body), "xai", "grok-imagine-image")
 			var got map[string]any
 			if err := json.Unmarshal(out, &got); err != nil {
 				t.Fatalf("rewritten body is not JSON: %v: %s", err, out)
@@ -41,6 +41,15 @@ func TestRewriteImageRequest_XAISizeBecomesAspectRatio(t *testing.T) {
 			ratio, _ := got["aspect_ratio"].(string)
 			if ratio != tc.wantRatio {
 				t.Errorf("aspect_ratio = %q, want %q (body %s)", ratio, tc.wantRatio, out)
+			}
+			// The reported choice is what the rewrite SET, so a ratio the
+			// caller sent themselves is not reported as chosen.
+			wantChosen := tc.wantRatio
+			if strings.Contains(tc.body, "aspect_ratio") {
+				wantChosen = ""
+			}
+			if chosen != wantChosen {
+				t.Errorf("chosen = %q, want %q", chosen, wantChosen)
 			}
 			if got["prompt"] != "p" || got["model"] == nil {
 				t.Errorf("unrelated members disturbed: %s", out)
@@ -62,8 +71,9 @@ func TestRewriteImageRequest_LeavesEverythingElseAlone(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := string(RewriteImageRequest([]byte(tc.body), tc.providerType)); got != tc.body {
-				t.Errorf("body changed:\ngot  %s\nwant %s", got, tc.body)
+			out, chosen := RewriteImageRequest([]byte(tc.body), tc.providerType, "grok-imagine-image")
+			if got := string(out); got != tc.body || chosen != "" {
+				t.Errorf("body changed (chosen %q):\ngot  %s\nwant %s", chosen, got, tc.body)
 			}
 		})
 	}
@@ -74,10 +84,21 @@ func TestRewriteImageRequest_LeavesEverythingElseAlone(t *testing.T) {
 // precision on a seed.
 func TestRewriteImageRequest_KeepsNumberLiterals(t *testing.T) {
 	t.Parallel()
-	out := RewriteImageRequest([]byte(`{"model":"m","prompt":"p","size":"1024x1024","n":1,"seed":9007199254740993}`), "xai")
+	out, _ := RewriteImageRequest([]byte(`{"model":"m","prompt":"p","size":"1024x1024","n":1,"seed":9007199254740993}`), "xai", "grok-imagine-image")
 	for _, want := range []string{`"n":1`, `"seed":9007199254740993`} {
 		if !strings.Contains(string(out), want) {
 			t.Errorf("rewritten body lost %s: %s", want, out)
 		}
+	}
+}
+
+// The older grok-2-image models take neither size nor aspect_ratio, so for
+// them the size is dropped and nothing is put in its place: injecting the
+// ratio would only trade one "Argument not supported" for another.
+func TestRewriteImageRequest_Grok2ImageOnlyDropsSize(t *testing.T) {
+	t.Parallel()
+	out, chosen := RewriteImageRequest([]byte(`{"model":"grok-2-image-1212","prompt":"p","size":"1792x1024"}`), "xai", "grok-2-image-1212")
+	if strings.Contains(string(out), "size") || strings.Contains(string(out), "aspect_ratio") || chosen != "" {
+		t.Errorf("want size dropped and no aspect_ratio, got %s (chosen %q)", out, chosen)
 	}
 }
