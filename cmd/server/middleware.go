@@ -214,11 +214,10 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 			}
 
 			// Multipart uploads (audio transcription/translation, image
-			// edits/variations) are never buffered here: reading megabytes
-			// into memory before auth would let unauthenticated clients pin
-			// large allocations, and the JSON peek cannot apply anyway (the
-			// model field lives in the form, parsed by the handler after
-			// auth). These routes are long-running, so no deadline either.
+			// edits/variations) are never buffered here: the JSON peek cannot
+			// apply (the model field lives in the form, parsed by the
+			// handler), and megabytes of audio are better read once, by the
+			// handler. These routes are long-running, so no deadline either.
 			if strings.HasPrefix(strings.ToLower(r.Header.Get("Content-Type")), "multipart/") {
 				if isLongRunningPath(r.URL.Path) {
 					next.ServeHTTP(w, r)

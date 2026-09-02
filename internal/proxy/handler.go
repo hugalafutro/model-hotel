@@ -251,9 +251,17 @@ func (h *Handler) Close() {
 }
 
 // Register sets up the proxy routes on the given mux.
-func (h *Handler) Register(r chi.Router) {
+// Register mounts the OpenAI-compatible surface. afterAuth are the caller's
+// middlewares that must see only authenticated requests: the server's
+// body-peeking timeout middleware buffers the whole request body (up to
+// MAX_REQUEST_SIZE) to read the stream flag and the model, and mounting it
+// ahead of the key check let an unauthenticated client make the gateway hold
+// that allocation for the duration of its upload. They run after the key is
+// verified and before the per-key limiters, which read nothing from the body.
+func (h *Handler) Register(r chi.Router, afterAuth ...func(http.Handler) http.Handler) {
 	r.Use(h.ipLimiter.Middleware)
 	r.Use(h.ProxyKeyMiddleware)
+	r.Use(afterAuth...)
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
 	// TPM admission runs after RPS: a key must pass the request-rate gate before
 	// its token budget is checked. This is the full two-stage gate (per-key
