@@ -28,8 +28,7 @@ func (d *deadlineRepo) FindByKeyHash(ctx context.Context, _ string) (*VirtualKey
 
 // The key lookup runs under its own bound now that the timeout middleware
 // sits behind it: a database that does not answer yields a 500 rather than
-// a request parked until the client gives up, and a client that leaves
-// mid-lookup is not logged as a database fault.
+// a request parked until the client gives up.
 func TestProxyKeyMiddleware_KeyLookupIsBounded(t *testing.T) {
 	for _, tc := range []struct {
 		name string
@@ -37,7 +36,7 @@ func TestProxyKeyMiddleware_KeyLookupIsBounded(t *testing.T) {
 		want int
 	}{
 		{"deadline exceeded is a 500", context.DeadlineExceeded, http.StatusInternalServerError},
-		{"client gone writes nothing", context.Canceled, http.StatusOK},
+		{"a cancelled lookup on a live request is a 500 too", context.Canceled, http.StatusInternalServerError},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newUnitHandler()
