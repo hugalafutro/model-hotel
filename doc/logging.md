@@ -70,10 +70,15 @@ gateway holds the request body, so an echo of its content is by definition a
 substring of a string the client sent: at the one write boundary every terminal
 update passes through (`updateRequestLog`), `error_message` and every attempt's
 `detail` are checked against the request's own strings (raw and JSON-escaped)
-and any run of 16 or more runes they share becomes `[content]`. The two app-log
-lines that carry upstream error text (the non-streaming detail and the streaming
-error attribute) go through the same fence. An echo shorter than the window is
-not caught, and encoded payloads (data: URLs, base64 audio) are not indexed.
+and any run of 16 or more runes they share becomes `[content]`. Every app-log
+line that carries upstream error text goes through the same fence: the
+non-streaming detail, the streaming error attribute (`errLogAttr`), the TTFT
+probe failure on both the sequential and the hedged path, and the exhaustion
+line, whose rendered message carries the last provider's text. Each string is
+indexed as written, whitespace-collapsed (the trail's detail is collapsed) and
+JSON-escaped (error_message stores the body as sent). An echo shorter than the
+window is not caught, a string under a routing key (`model`, `role`, `name`, ...)
+is not content, and encoded payloads (data: URLs, base64) are not indexed.
 
 Provider discovery and quota polling scrub the same way. The shared HTTP helpers in
 `internal/provider/discovery.go` never receive the key as a value, so they read it back off the

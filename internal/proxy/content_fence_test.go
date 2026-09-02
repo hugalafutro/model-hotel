@@ -131,7 +131,7 @@ func TestContentFence_SkipsEncodedPayloads(t *testing.T) {
 func TestContentFence_MultipartTextFields(t *testing.T) {
 	t.Parallel()
 	parts := []multipartPart{
-		{fieldName: "model", data: []byte("p/m")},
+		{fieldName: "model", data: []byte("prov/very-long-model-name-here")},
 		{fieldName: "prompt", data: []byte("a watercolour of " + canary)},
 		{fieldName: "file", fileName: "a.wav", data: []byte(strings.Repeat("x", 100))},
 	}
@@ -143,6 +143,9 @@ func TestContentFence_MultipartTextFields(t *testing.T) {
 	}
 	if got := f.maskOne("file " + strings.Repeat("x", 40)); !strings.Contains(got, strings.Repeat("x", 40)) {
 		t.Fatalf("the upload's bytes were indexed: %q", got)
+	}
+	if got := f.maskOne("model prov/very-long-model-name-here not found"); got != "model prov/very-long-model-name-here not found" {
+		t.Fatalf("the model field was indexed: %q", got)
 	}
 }
 
@@ -236,5 +239,98 @@ func TestContentFence_StreamErrorLogAttr(t *testing.T) {
 	none := &streamState{}
 	if got := none.errLogAttr("plain"); got != "plain" {
 		t.Fatalf("no fence changed text: %q", got)
+	}
+}
+
+// The trail's detail is whitespace-collapsed by attemptDetail before the
+// fence sees it, so a prompt with indented code or double spaces has to
+// match in its collapsed form too.
+func TestContentFence_CollapsedTrailDetail(t *testing.T) {
+	t.Parallel()
+	prompt := "CANARY  merger  target  is  Aurora  Bio  Ltd\n    def leak():\n        print(SECRET_TOKEN_VALUE)\n"
+	f := newContentFence(chatBody(prompt))
+	raw := `{"error": {"message": "rate limit exceeded while processing: ` + strings.ReplaceAll(prompt, "\n", `\n`) + `"}}`
+	detail := attemptDetail(credentialMasker{}, raw)
+	got := f.maskOne(detail)
+	for _, leak := range []string{"CANARY", "Aurora", "leak()", "SECRET_TOKEN"} {
+		if strings.Contains(got, leak) {
+			t.Fatalf("collapsed detail still carries %q: %q", leak, got)
+		}
+	}
+	if !strings.HasPrefix(got, `{"error": {"message": "rate limit exceeded while processing:`) {
+		t.Fatalf("provider words lost: %q", got)
+	}
+	// And the same prompt echoed with its spacing intact, as error_message
+	// stores it.
+	if got := f.maskOne(raw); strings.Contains(got, "CANARY") || strings.Contains(got, "SECRET_TOKEN") {
+		t.Fatalf("raw echo survived: %q", got)
+	}
+}
+
+// Text with no spaces is still text: a page of Chinese, a minified JSON
+// document or a CSV must be indexed, and the blob rule must count runes,
+// not bytes, when it probes.
+func TestContentFence_DenseTextIsContent(t *testing.T) {
+	t.Parallel()
+	zh := strings.Repeat("我们公司的机密并购计划是收购北京晨光科技，出价四亿五千万。", 120) // ~3,600 runes, ~10,800 bytes
+	csv := strings.Repeat("id,name,ssn;", 500)
+	minified := `{"k":` + strings.Repeat(`{"a":1,"b":"x"},`, 400) + `1}`
+	f := newContentFence(chatBody(zh + "\n" + csv + "\n" + minified))
+	if n := len(f.strings()); n == 0 {
+		t.Fatal("dense text was not indexed")
+	}
+	for name, echo := range map[string]string{"zh": zh[:90], "csv": csv[:40], "json": minified[:40]} {
+		if got := f.maskOne("请求过长，无法处理：" + echo + " …"); strings.Contains(got, echo[:20]) {
+			t.Fatalf("%s echo survived: %q", name, got)
+		}
+	}
+	// The probe is in runes: a CJK string past 4096 bytes but under the
+	// probe in runes is plainly text and must not be judged as a blob.
+	if isEncodedPayload(strings.Repeat("日本語の文章", 300)) {
+		t.Fatal("1800 runes of CJK judged a blob")
+	}
+	if !isEncodedPayload(strings.Repeat("QUJDREVGR0hJSktMTU5PUA", 400)) {
+		t.Fatal("base64 not judged a blob")
+	}
+}
+
+// Over the index budget the walk is deterministic: the content-bearing
+// members are indexed first, whatever order the client wrote the JSON in, so
+// the same request fences the same way every time.
+func TestContentFence_DeterministicOverTheBudget(t *testing.T) {
+	t.Parallel()
+	filler := strings.Repeat("tool description filler words that spend the whole budget ", contentIndexCap/58+1)
+	body := []byte(`{"tools":[{"type":"function","function":{"name":"t","description":` + jsonString(filler) + `}}],"model":"p/m","messages":[{"role":"user","content":` + jsonString(canary) + `}]}`)
+	for i := 0; i < 20; i++ {
+		if got := newContentFence(body).maskOne("echo " + canary); strings.Contains(got, "SUPERSECRET") {
+			t.Fatalf("run %d: messages lost to the budget: %q", i, got)
+		}
+	}
+}
+
+// Routing fields are not content: the model name appears verbatim in the
+// gateway's own messages, and a role or a participant name is metadata.
+func TestContentFence_RoutingFieldsAreNotContent(t *testing.T) {
+	t.Parallel()
+	body := []byte(`{"model":"hotel/claude-sonnet-4-5-long","messages":[{"role":"user-with-a-long-role","name":"participant-name-here","content":` + jsonString(canary) + `}],"tool_choice":"auto-with-long-value","response_format":{"type":"json_schema","json_schema":{"schema":{"description":"schema text long enough to index"}}}}`)
+	f := newContentFence(body)
+	for _, keep := range []string{
+		"no available provider for hotel/claude-sonnet-4-5-long; earliest retry in 30s",
+		"invalid model format: hotel/claude-sonnet-4-5-long",
+		"role user-with-a-long-role not accepted",
+		"unknown participant-name-here",
+		"tool_choice auto-with-long-value rejected",
+	} {
+		if got := f.maskOne(keep); got != keep {
+			t.Fatalf("routing text was fenced: %q -> %q", keep, got)
+		}
+	}
+	if got := f.maskOne("echo " + canary); strings.Contains(got, "SUPERSECRET") {
+		t.Fatalf("content beside the routing fields was not fenced: %q", got)
+	}
+	// An object under a routing key is still walked: only a bare string is
+	// skipped.
+	if got := f.maskOne("schema text long enough to index"); got == "schema text long enough to index" {
+		t.Fatal("a description under response_format was not indexed")
 	}
 }
