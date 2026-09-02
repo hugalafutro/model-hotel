@@ -3,6 +3,7 @@ package paramrewrite
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"math"
 	"strconv"
 	"strings"
@@ -17,38 +18,44 @@ import (
 // aspect_ratio the grok-imagine family accepts when they reduce to one of its
 // ratios, and dropped otherwise (xAI then picks its own default, which is
 // still an image rather than a refusal). The older grok-2-image models take
-// neither member, so for them the size is only dropped. A body that does not
-// parse is forwarded as it came, like every other rewriter here. It reports
-// the aspect_ratio it chose, empty when none was set, for the caller's log.
-func RewriteImageRequest(body []byte, providerType, modelID string) ([]byte, string) {
+// neither member, so for them both are dropped. A body that does not parse is
+// forwarded as it came, like every other rewriter here. It reports the size it
+// dropped and the aspect_ratio it chose, each empty when nothing happened, so
+// the caller can log every body it changed.
+func RewriteImageRequest(body []byte, providerType, modelID string) (out []byte, droppedSize, chosenRatio string) {
 	if providerType != "xai" {
-		return body, ""
+		return body, "", ""
 	}
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
 	var raw map[string]any
 	if dec.Decode(&raw) != nil {
-		return body, ""
+		return body, "", ""
 	}
-	size, present := raw["size"]
-	if !present {
-		return body, ""
+	imagine := strings.Contains(strings.ToLower(modelID), "imagine")
+	size, hasSize := raw["size"]
+	_, hasRatio := raw["aspect_ratio"]
+	if !hasSize && (imagine || !hasRatio) {
+		return body, "", ""
 	}
-	delete(raw, "size")
-	chosen := ""
-	if s, ok := size.(string); ok && strings.Contains(modelID, "imagine") {
-		if _, has := raw["aspect_ratio"]; !has {
+	if hasSize {
+		delete(raw, "size")
+		droppedSize = fmt.Sprint(size)
+		if s, ok := size.(string); ok && imagine && !hasRatio {
 			if ratio, ok := xaiAspectRatio(s); ok {
 				raw["aspect_ratio"] = ratio
-				chosen = ratio
+				chosenRatio = ratio
 			}
 		}
 	}
+	if !imagine {
+		delete(raw, "aspect_ratio")
+	}
 	out, err := json.Marshal(raw)
 	if err != nil {
-		return body, ""
+		return body, "", ""
 	}
-	return out, chosen
+	return out, droppedSize, chosenRatio
 }
 
 // xaiAspectRatios are the aspect_ratio values xAI's image API documents.

@@ -581,10 +581,10 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		// 400 to the "size" the OpenAI SDKs send by default. Adapted here, the
 		// one place both are known.
 		if logData.endpointType == endpointTypeImage && contentType == "application/json" {
-			var ratio string
-			upstreamBody, ratio = paramrewrite.RewriteImageRequest(upstreamBody, providerType, candidate.model.ModelID)
-			if ratio != "" {
-				debuglog.Debug("proxy: image size rewritten to aspect ratio", "provider_type", providerType, "model", candidate.model.ModelID, "aspect_ratio", ratio)
+			var droppedSize, ratio string
+			upstreamBody, droppedSize, ratio = paramrewrite.RewriteImageRequest(upstreamBody, providerType, candidate.model.ModelID)
+			if droppedSize != "" {
+				debuglog.Debug("proxy: image size rewritten for the provider", "provider_type", providerType, "resolved_model", candidate.model.ModelID, "dropped_size", droppedSize, "aspect_ratio", ratio)
 			}
 		}
 	} else {
