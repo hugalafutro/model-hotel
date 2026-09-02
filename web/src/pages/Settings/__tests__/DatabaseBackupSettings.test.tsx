@@ -1890,11 +1890,12 @@ describe("DatabaseBackupSettings additional coverage", () => {
 	});
 });
 
-// The prune preview is a POST the server treats as a read and audits as an
-// action: it runs once per set of backups, and neither a window focus nor an
-// unrelated invalidation re-runs it.
+// The prune preview is a POST the server treats as a read: it runs once per
+// set of backups, and a backups invalidation that leaves the set unchanged (a
+// backup created that the list already carries, a refetch on focus) does not
+// re-run it. Under the "backups" key prefix it re-ran on every one.
 describe("prune preview is read once per backup set", () => {
-	it("calls prune-preview once for two backups and not again on focus", async () => {
+	it("calls prune-preview once for two backups and not again on an unchanged invalidation", async () => {
 		let previews = 0;
 		const manual = {
 			filename: "backup_20260115_103000_0010_manual.dump",
@@ -1908,8 +1909,13 @@ describe("prune preview is read once per backup set", () => {
 			created_at: "2026-01-16T10:30:00Z",
 			origin: "scheduled",
 		};
+		let lists = 0;
 		server.use(
-			http.get("/api/backups", () => HttpResponse.json([manual, scheduled])),
+			http.get("/api/backups", () => {
+				lists++;
+				return HttpResponse.json([manual, scheduled]);
+			}),
+			http.post("/api/backups", () => HttpResponse.json(scheduled)),
 			http.post("/api/backups/prune-preview", () => {
 				previews++;
 				return HttpResponse.json({
@@ -1920,10 +1926,13 @@ describe("prune preview is read once per backup set", () => {
 				});
 			}),
 		);
-		renderWithProviders(<DatabaseBackupSettings />);
+		const { user } = renderWithProviders(<DatabaseBackupSettings />);
 		await waitFor(() => expect(previews).toBe(1));
-		window.dispatchEvent(new Event("focus"));
-		document.dispatchEvent(new Event("visibilitychange"));
+		const listed = lists;
+		// Creating a backup invalidates the backups list; the list comes back
+		// unchanged, so the classification is not asked again.
+		await user.click(screen.getByRole("button", { name: "Create Backup" }));
+		await waitFor(() => expect(lists).toBeGreaterThan(listed));
 		await new Promise((r) => setTimeout(r, 50));
 		expect(previews).toBe(1);
 	});
