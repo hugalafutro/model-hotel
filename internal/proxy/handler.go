@@ -250,10 +250,20 @@ func (h *Handler) Close() {
 	}
 }
 
-// Register sets up the proxy routes on the given mux.
-func (h *Handler) Register(r chi.Router) {
+// Register mounts the OpenAI-compatible surface. afterAuth are the caller's
+// middlewares that must see only authenticated requests: the server's
+// body-peeking timeout middleware buffers the whole request body (up to
+// MAX_REQUEST_SIZE) to read the stream flag and the model, and mounting it
+// ahead of the key check let an unauthenticated client make the gateway hold
+// that allocation for the duration of its upload. They run after the key is
+// verified and before the per-key limiters, which read nothing from the body.
+// The gateway itself then reads nothing of an unauthenticated body; net/http
+// still discards up to 256 KiB of it after the 401, under the body read
+// deadline, so that is the bound on how long such a connection is held.
+func (h *Handler) Register(r chi.Router, afterAuth ...func(http.Handler) http.Handler) {
 	r.Use(h.ipLimiter.Middleware)
 	r.Use(h.ProxyKeyMiddleware)
+	r.Use(afterAuth...)
 	r.Use(h.rateLimiter.Middleware(h.cfg.RateLimitEnabled))
 	// TPM admission runs after RPS: a key must pass the request-rate gate before
 	// its token budget is checked. This is the full two-stage gate (per-key
@@ -306,25 +316,55 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 	r.Post("/completions", h.ChatCompletions)
 }
 
+// keyLookupTimeout bounds the virtual-key lookup: a primary-key read that is
+// not back in ten seconds is a database that is not answering, and the
+// request is refused as an internal error rather than parked.
+const keyLookupTimeout = 10 * time.Second
+
 // ProxyKeyMiddleware validates the virtual API key in the request header.
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A refusal closes the connection. net/http drains an unread request
+		// body before it sends a keep-alive response, so without this a
+		// client trickling a body with no valid key was told 401 only when
+		// the body deadline cut the drain; a caller with no key has no
+		// keep-alive worth keeping. The IP limiter's 429 ahead of this check
+		// deliberately does not close: it also fronts the dashboard routes,
+		// where a throttled client is legitimate and retries on the same
+		// connection.
+		refuse := func(msg string) {
+			w.Header().Set("Connection", "close")
+			writeOpenAIError(w, msg, http.StatusUnauthorized)
+		}
 		token, ok := util.ParseProxyKey(r)
 		if !ok {
 			// Client error, not a server fault — Warn keeps the Error stream
 			// reserved for things the operator must act on.
 			debuglog.Warn("auth: missing authorization header", "remote_addr", clientip.From(r))
-			writeOpenAIError(w, "missing authorization header: expected \"Authorization: Bearer <virtual key>\" or \"x-api-key: <virtual key>\"", http.StatusUnauthorized)
+			refuse("missing authorization header: expected \"Authorization: Bearer <virtual key>\" or \"x-api-key: <virtual key>\"")
 			return
 		}
 
 		keyHash := virtualkey.Hash(token)
-		vk, err := h.virtualKeyRepo.FindByKeyHash(r.Context(), keyHash)
+		// Bounded on its own: the timeout middleware used to wrap this lookup
+		// and now runs behind it, so a wedged database must not park every
+		// request here until the client gives up.
+		lookupCtx, lookupCancel := context.WithTimeout(r.Context(), keyLookupTimeout)
+		vk, err := h.virtualKeyRepo.FindByKeyHash(lookupCtx, keyHash)
+		lookupCancel()
 		if err != nil {
-			if errors.Is(err, virtualkey.ErrNotFound) {
+			switch {
+			case errors.Is(err, virtualkey.ErrNotFound):
 				debuglog.Warn("auth: key not found", "remote_addr", clientip.From(r))
-				writeOpenAIError(w, "invalid virtual key", http.StatusUnauthorized)
-			} else {
+				refuse("invalid virtual key")
+			case errors.Is(err, context.Canceled) && r.Context().Err() != nil:
+				// The client left mid-lookup: not the database's fault, so
+				// not the Error stream. The refusal is still written, into
+				// what is by now a closed socket; the response contract
+				// holds for every error the lookup can return.
+				debuglog.Warn("auth: key lookup abandoned, client gone", "remote_addr", clientip.From(r))
+				writeOpenAIError(w, "internal error", http.StatusInternalServerError)
+			default:
 				debuglog.Error("auth: db lookup failed", "error", err)
 				writeOpenAIError(w, "internal error", http.StatusInternalServerError)
 			}
@@ -336,7 +376,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			// login. The key itself stays intact for when the account
 			// returns.
 			debuglog.Warn("auth: key owner disabled", "remote_addr", clientip.From(r), "key", vk.Name)
-			writeOpenAIError(w, "virtual key disabled: owner account is disabled", http.StatusUnauthorized)
+			refuse("virtual key disabled: owner account is disabled")
 			return
 		}
 		debuglog.Info("auth: authenticated", "key", vk.Name)

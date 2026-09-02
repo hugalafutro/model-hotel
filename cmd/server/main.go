@@ -357,9 +357,11 @@ func main() {
 	// streaming-aware middleware that:
 	//   - streaming requests: no deadline (client-disconnect detection still works)
 	//   - non-streaming requests: 5-minute deadline
+	// It peeks at the body to decide, which buffers the body, so it is
+	// handed to Register to mount AFTER the virtual-key check (see
+	// mountProxyRoutes).
 	r.Route("/v1", func(r chi.Router) {
-		r.Use(streamingAwareTimeout(5 * time.Minute))
-		proxyHandler.Register(r)
+		mountProxyRoutes(r, proxyHandler.Register)
 	})
 
 	// SPA handler for frontend
