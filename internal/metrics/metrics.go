@@ -157,9 +157,11 @@ func RecordFailoverExhausted(group, reason string) {
 	failoverExhaustedTotal.WithLabelValues(labelOrUnknown(group), reason).Inc()
 }
 
-// RecordResponsesReroute counts one attempt routed to /v1/responses. mode is
-// "learned" when the route was discovered by healing a live 400, "preemptive"
-// when the cached requirement redirected the attempt up front.
+// RecordResponsesReroute counts one request issued to /v1/responses. mode is
+// "learned" when the route was discovered by healing a live refusal,
+// "preemptive" when the cached requirement redirected the attempt up front,
+// and "param_retry" for each re-issue of either that the param self-heal
+// makes on that route, so one attempt can count more than once.
 func RecordResponsesReroute(provider, model, mode string) {
 	responsesRerouteTotal.WithLabelValues(labelOrUnknown(provider), labelOrUnknown(model), mode).Inc()
 }

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -400,8 +402,8 @@ func TestRetryLearnable400_RerouteRefusalUnlearnableIsForwarded(t *testing.T) {
 	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 	var dialMs float64
 	res, handled := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/chat/completions", first, 0, &dialMs, func() {}, "")
-	if !handled || res.cont {
-		t.Fatalf("handled=%v cont=%v, want the reroute's answer handed back", handled, res.cont)
+	if !handled || res.cont || !res.retried {
+		t.Fatalf("handled=%v cont=%v retried=%v, want the reroute's answer handed back as a retry's", handled, res.cont, res.retried)
 	}
 	if res.resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status = %d, want the reroute's 400", res.resp.StatusCode)
@@ -413,5 +415,145 @@ func TestRetryLearnable400_RerouteRefusalUnlearnableIsForwarded(t *testing.T) {
 	}
 	if res.retryCancel != nil {
 		res.retryCancel()
+	}
+}
+
+// rerouteFixture is the upstream for the chained self-heal: chat 404 sends
+// the caller to /v1/responses, where each request is refused for the first
+// of the named params it still carries and answered 200 once it carries
+// none. Requests are recorded in order.
+func rerouteFixture(t *testing.T, refuse ...string) (*httptest.Server, *[]string) {
+	t.Helper()
+	var bodies []string
+	var mu sync.Mutex
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		mu.Lock()
+		bodies = append(bodies, r.URL.Path+" "+string(raw))
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		for _, p := range refuse {
+			if strings.Contains(string(raw), `"`+p+`"`) {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = io.WriteString(w, `{"error":{"message":"Unsupported parameter: '`+p+`' is not supported with this model.","type":"invalid_request_error","param":"`+p+`","code":"unsupported_parameter"}}`)
+				return
+			}
+		}
+		_, _ = io.WriteString(w, `{"id":"resp_4","object":"response","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Paris"}]}],"usage":{"input_tokens":1,"output_tokens":1}}`)
+	}))
+	t.Cleanup(upstream.Close)
+	return upstream, &bodies
+}
+
+func rerouteRefusal() *http.Response {
+	return &http.Response{StatusCode: 404, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?","type":"invalid_request_error","param":"model","code":null}}`))}
+}
+
+// The chained self-heal keeps the strip loop's rounds: a reroute refused for
+// one param, then refused again for a second, is answered on the third
+// Responses request with neither.
+func TestRetryLearnable400_RerouteRefusalStripsTwoRounds(t *testing.T) {
+	upstream, bodies := rerouteFixture(t, "temperature", "top_p")
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	body := `{"model":"gpt-5.5-pro-2026-04-23","temperature":0.2,"top_p":0.9,"messages":[{"role":"user","content":"capital of France?"}]}`
+	st := &requestState{bodyBytes: []byte(body), failoverTimeout: 5 * time.Second}
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	res, handled := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/chat/completions", rerouteRefusal(), 0, &dialMs, func() {}, "")
+	if !handled || !res.retried || res.cont || res.resp.StatusCode != http.StatusOK {
+		t.Fatalf("handled=%v retried=%v cont=%v status=%d, want the 200 after two strips", handled, res.retried, res.cont, res.resp.StatusCode)
+	}
+	_ = res.resp.Body.Close()
+	if res.retryCancel != nil {
+		res.retryCancel()
+	}
+	if len(*bodies) != 3 {
+		t.Fatalf("upstream saw %d requests, want reroute + two strip rounds: %v", len(*bodies), *bodies)
+	}
+	last := (*bodies)[2]
+	if !strings.HasPrefix(last, "/v1/responses ") || strings.Contains(last, `"temperature"`) || strings.Contains(last, `"top_p"`) {
+		t.Fatalf("final request = %s, want the Responses dialect without either param", last)
+	}
+	key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	cached, ok := h.deprecationCache.Load(key)
+	if !ok || !(*cached.(*map[string]bool))["temperature"] || !(*cached.(*map[string]bool))["top_p"] {
+		t.Fatalf("learned strips = %v, want both params", cached)
+	}
+}
+
+// A transport failure on the chained strip retry asks the loop to move on,
+// as the plain strip retry does; the reroute's context was released once
+// its 400 was read, so nothing is left open.
+func TestRetryLearnable400_RerouteRefusalStripTransportFailureContinues(t *testing.T) {
+	var n int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if atomic.AddInt32(&n, 1) == 1 {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","type":"invalid_request_error","param":"temperature","code":"unsupported_parameter"}}`)
+			return
+		}
+		// The strip retry: drop the connection without a response.
+		conn, _, err := w.(http.Hijacker).Hijack()
+		if err == nil {
+			_ = conn.Close()
+		}
+	}))
+	defer upstream.Close()
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	body := `{"model":"gpt-5.5-pro-2026-04-23","temperature":0.2,"messages":[{"role":"user","content":"capital of France?"}]}`
+	st := &requestState{bodyBytes: []byte(body), failoverTimeout: 5 * time.Second}
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	res, handled := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/chat/completions", rerouteRefusal(), 0, &dialMs, func() {}, "")
+	if !handled || !res.cont || res.lastReqErr.Kind != KindProviderError {
+		t.Fatalf("handled=%v cont=%v kind=%v, want the loop asked to continue on a provider error", handled, res.cont, res.lastReqErr.Kind)
+	}
+	if res.retryCancel != nil {
+		t.Fatal("a failed retry must not hand back a cancel func: there is no body to consume")
+	}
+	if atomic.LoadInt32(&n) != 2 {
+		t.Fatalf("upstream saw %d requests, want the reroute and the strip retry", n)
+	}
+}
+
+// A self-heal round is cut at the request's overall deadline: past it, the
+// strip retry is not issued and the attempt continues to the loop, which
+// stops there. A request without the deadline set keeps the plain budget.
+func TestRetryLearnable400_RoundsRespectTheOverallDeadline(t *testing.T) {
+	upstream, bodies := rerouteFixture(t, "temperature")
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	body := `{"model":"gpt-5.5-pro-2026-04-23","temperature":0.2,"messages":[{"role":"user","content":"capital of France?"}]}`
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+
+	// Expired before the round: the reroute itself is not issued.
+	st := &requestState{bodyBytes: []byte(body), failoverTimeout: 5 * time.Second, overallDeadline: time.Now().Add(-time.Second)}
+	res, handled := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/chat/completions", rerouteRefusal(), 0, &dialMs, func() {}, "")
+	if !handled || !res.cont {
+		t.Fatalf("handled=%v cont=%v, want the attempt handed to the loop past the deadline", handled, res.cont)
+	}
+	if len(*bodies) != 0 {
+		t.Fatalf("upstream saw %v past the overall deadline, want nothing", *bodies)
+	}
+
+	// Deadline ahead of the budget: the rounds run.
+	st = &requestState{bodyBytes: []byte(body), failoverTimeout: 5 * time.Second, overallDeadline: time.Now().Add(time.Minute)}
+	res, handled = h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/chat/completions", rerouteRefusal(), 0, &dialMs, func() {}, "")
+	if !handled || !res.retried || res.cont || res.resp.StatusCode != http.StatusOK {
+		t.Fatalf("handled=%v retried=%v cont=%v, want the healed 200 inside the deadline", handled, res.retried, res.cont)
+	}
+	_ = res.resp.Body.Close()
+	if res.retryCancel != nil {
+		res.retryCancel()
+	}
+	if len(*bodies) != 2 {
+		t.Fatalf("upstream saw %d requests, want the reroute and its strip", len(*bodies))
 	}
 }
