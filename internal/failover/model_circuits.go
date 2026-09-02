@@ -59,9 +59,14 @@ type circuit struct {
 	lastSuccess time.Time
 	// pinSource says where the quota pin in force came from: "advisor" (a
 	// measured quota reading) or "response" (inferred from the exhausted 429
-	// itself). Empty when no pin is stamped. Observability only; the pin's
-	// mechanics do not read it.
+	// itself). Empty when no pin is stamped. The cooldown reads it: a response
+	// pin is capped at the probe interval, an advisor pin is not, so a wrong
+	// source changes how long the circuit stays dark.
 	pinSource string
+	// probeJitter spreads a response pin's probes: stamped once with the pin,
+	// so every read agrees on the instant and one provider's models that went
+	// dark together do not all probe in the same second.
+	probeJitter time.Duration
 	// lastCause, lastStatus and lastAt are the circuit's most recent verdict:
 	// why it was last charged, credited, pinned or released, the upstream status
 	// behind that (0 when none was seen) and when it landed. Like pinSource they
@@ -494,7 +499,8 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 
 // effectiveCooldownForWith is the cooldown governing a circuit: the longest of
 // the configured cooldown, the circuit's probe backoff when backoff is switched
-// on, and its quota pin when pinning is switched on.
+// on, and its quota pin when pinning is switched on, except that a pin inferred
+// from a response is served as the probe interval instead of its full length.
 //
 // The longest, not a precedence order, because each of the three is a reason the
 // circuit must not be probed yet and none is a reason it may be. It also keeps
@@ -513,11 +519,13 @@ func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads)
 	// endpoint, so no advisor reading will ever release the pin early, and a
 	// top-up would otherwise wait out the whole ceiling. Such a circuit probes
 	// once per interval instead: the probe re-pins on another refusal and
-	// closes the circuit on a success. An advisor pin measured the window and
-	// keeps its full length.
+	// closes the circuit on a success. The interval, not the backoff, is the
+	// rate limit on those probes (a refused probe does not grow the backoff,
+	// see RecordExhausted), and it never undercuts the configured cooldown. An
+	// advisor pin measured the window and keeps its full length.
 	if c.pinSource == pinSourceResponse {
-		if probe := r.pinProbeInterval(); probe > 0 && pinned > max(probe, cooldown) {
-			pinned = max(probe, cooldown)
+		if probe := r.pinProbeInterval(); probe > 0 {
+			return max(probe, r.base) + c.probeJitter
 		}
 	}
 	return pinned
@@ -527,8 +535,10 @@ func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads)
 // claim is probed when the operator has not set circuit_breaker_pin_probe_interval.
 const defaultPinProbeInterval = time.Hour
 
-// pinProbeInterval reads circuit_breaker_pin_probe_interval; zero disables the
-// periodic probe and lets a response pin run to the ceiling.
+// pinProbeInterval reads circuit_breaker_pin_probe_interval. Unlike its sibling
+// ceilings, where a non-positive value means "unset", a zero here is a real
+// setting: it disables the periodic probe and lets a response pin run to the
+// ceiling.
 func (cb *CircuitBreaker) pinProbeInterval() time.Duration {
 	if cb.settings != nil {
 		return cb.settings.GetDuration(context.Background(), "circuit_breaker_pin_probe_interval", defaultPinProbeInterval)

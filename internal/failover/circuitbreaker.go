@@ -349,7 +349,13 @@ func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, mo
 		cb.openCircuit(&after, "circuit-breaker: model state=closed→open (exhausted)", providerID, providerName, model, c, by429, pinHint)
 	case StateHalfOpen:
 		c.consecutiveFails = cb.effectiveThreshold()
-		c.failedProbes++
+		// A probe let through by a response pin's interval is paced by that
+		// interval, not by the backoff: counting it would double the backoff
+		// on every refusal until it outgrew the interval and the hourly probe
+		// decayed back into the day-long wait the interval exists to avoid.
+		if c.pinSource != pinSourceResponse || cb.pinProbeInterval() <= 0 {
+			c.failedProbes++
+		}
 		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe drew exhaustion)", providerID, providerName, model, c, by429, pinHint)
 	case StateOpen:
 		// Already open, no-op. ApplyQuotaPins retargets an open circuit when a

@@ -126,6 +126,7 @@ These settings are stored in the `settings` table and can be changed at runtime 
 | `circuit_breaker_cooldown` | duration string | `60s` | Duration an open circuit stays open before transitioning to half-open. | `30s`, `60s`, `120s`, etc. |
 | `circuit_breaker_quota_pin_enabled` | bool string | `true` | When a circuit opens because the provider's quota window is spent, pin its cooldown to the provider's real reset deadline instead of `circuit_breaker_cooldown`, so an exhausted provider is not re-probed every minute for the rest of the window. Turning this off also releases a pin already in force, though the change takes up to ~30s to reach the proxy (settings cache TTL). | `true`, `false` |
 | `circuit_breaker_quota_pin_max` | duration string | `24h` | Ceiling on how far out a quota pin may push an open circuit's cooldown. A non-positive value does **not** disable pinning - it falls back to 24h. Use `circuit_breaker_quota_pin_enabled` to turn the feature off. | `1h`, `6h`, `24h`, etc. |
+| `circuit_breaker_pin_probe_interval` | duration string | `1h` | How often a circuit pinned on a response's own claim (a "no credits" body with no stated reset) lets one probe through; a refused probe re-pins for another interval, a success closes the circuit. `0s` disables the probe. Pins measured by the quota advisor are unaffected. | `30m`, `1h`, `0s` |
 | `circuit_breaker_backoff_enabled` | bool string | `true` | Double an open circuit's cooldown for every half-open probe that fails, so a model that stays broken is retried less and less often (the probe is a real user request, so each one it skips is a failed request avoided). A probe that succeeds closes the circuit and resets the doubling. Turning this off also releases a backoff already in force, subject to the same ~30s settings cache TTL. | `true`, `false` |
 | `circuit_breaker_backoff_max` | duration string | `15m` | Ceiling the backed-off cooldown may grow to. It is also the longest a model with no healthy sibling can stay untried after it has recovered, and the longest a partially broken provider's healthy models stay skipped, so raise it only if you can wait that long for a recovery to be noticed. A non-positive value does **not** disable backoff - it falls back to 15m; a value at or below `circuit_breaker_cooldown` leaves backoff nothing to add. Use `circuit_breaker_backoff_enabled` to turn the feature off. | `5m`, `15m`, `1h`, etc. |
 | `rate_limit_enabled` | bool string | `true` | Runtime toggle for rate limiting. **Overridden by `RATE_LIMIT_ENABLED` env var** - if env var is `false`, this setting has no effect. | `true`, `false` |
@@ -236,6 +237,7 @@ Reset works by deleting the row from the `settings` table. The Go code then fall
 | `circuit_breaker_cooldown` | `1m0s` |
 | `circuit_breaker_quota_pin_enabled` | `true` |
 | `circuit_breaker_quota_pin_max` | `24h0m0s` |
+| `circuit_breaker_pin_probe_interval` | `1h0m0s` |
 | `circuit_breaker_backoff_enabled` | `true` |
 | `circuit_breaker_backoff_max` | `15m0s` |
 | `failover_on_rate_limit` | `true` |

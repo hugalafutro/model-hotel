@@ -832,8 +832,8 @@ func TestQuotaPin_ResponsePinProbesEveryInterval(t *testing.T) {
 	if !ok || !pinned {
 		t.Fatalf("BlockedUntil = ok %v pinned %v, want a pinned block", ok, pinned)
 	}
-	if wait := time.Until(retryAt); wait < 59*time.Minute || wait > 61*time.Minute {
-		t.Errorf("retry in %v, want the probe interval, not the pin ceiling", wait)
+	if wait := time.Until(retryAt); wait < 59*time.Minute || wait > 64*time.Minute {
+		t.Errorf("retry in %v, want the probe interval plus at most its jitter, not the pin ceiling", wait)
 	}
 	if !cb.IsOpen(id, "p", "m") {
 		t.Fatal("still inside the probe interval: must be open")
@@ -842,7 +842,7 @@ func TestQuotaPin_ResponsePinProbesEveryInterval(t *testing.T) {
 	// The interval elapses: the circuit is owed a probe, so one request goes
 	// through; a probe that draws the same refusal re-pins for another interval.
 	cb.mu.Lock()
-	cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-probe - time.Second)
+	cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-probe - probe/20 - time.Second)
 	cb.mu.Unlock()
 	if cb.IsOpen(id, "p", "m") {
 		t.Fatal("interval elapsed: the circuit must let a probe through")
@@ -851,13 +851,33 @@ func TestQuotaPin_ResponsePinProbesEveryInterval(t *testing.T) {
 	if !cb.IsOpen(id, "p", "m") {
 		t.Fatal("a probe that drew the refusal again must re-pin")
 	}
-	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) > 61*time.Minute {
+	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) > 64*time.Minute {
 		t.Errorf("re-pinned for %v, want another probe interval", time.Until(retryAt))
+	}
+	// Refused probes do not feed the backoff, or the interval would double on
+	// every refusal and decay into the ceiling it replaces.
+	for i := 0; i < 6; i++ {
+		cb.mu.Lock()
+		cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-2 * probe)
+		cb.mu.Unlock()
+		if cb.IsOpen(id, "p", "m") {
+			t.Fatalf("refusal %d: probe due, must be let through", i)
+		}
+		cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
+	}
+	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) > 64*time.Minute {
+		t.Errorf("after six refused probes the wait is %v; the interval must not decay into a backoff", time.Until(retryAt))
+	}
+	cb.mu.RLock()
+	failed := cb.circuits[id.String()]["m"].failedProbes
+	cb.mu.RUnlock()
+	if failed != 0 {
+		t.Errorf("failedProbes = %d after interval probes, want 0", failed)
 	}
 
 	// A probe that succeeds closes the circuit.
 	cb.mu.Lock()
-	cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-probe - time.Second)
+	cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-probe - probe/20 - time.Second)
 	cb.mu.Unlock()
 	if cb.IsOpen(id, "p", "m") {
 		t.Fatal("interval elapsed again: probe due")
