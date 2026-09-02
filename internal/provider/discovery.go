@@ -79,9 +79,9 @@ const maxDiscoveryRetries = 3
 var credentialHeaders = []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key"}
 
 // credentialQueryParams are the query parameter names a key may travel in
-// (a custom gateway may authenticate by ?key=). Only these are treated as secrets: a
-// sweep of every query value would redact Azure's ?api-version=... out of the
-// one diagnostic an operator needs when a version is refused.
+// (a custom gateway may authenticate by ?key=). Only these are treated as
+// secrets: a sweep of every query value would redact Azure's ?api-version=...
+// out of the one diagnostic an operator needs when a version is refused.
 var credentialQueryParams = map[string]bool{
 	"key": true, "api_key": true, "apikey": true, "api-key": true,
 	"token": true, "access_token": true, "secret": true, "password": true,
@@ -189,10 +189,9 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
 			if isTransientNetworkError(err) {
-				// A transport error quotes the request URL, and one provider
-				// family authenticates by query parameter, so the key IS in
-				// scope here: it is in the request that just failed. Masked
-				// exactly off that request, then by shape, before it reaches
+				// A transport error quotes the request URL, and a custom
+				// gateway may authenticate by query parameter. Masked exactly
+				// off the failed request, then by shape, before it reaches
 				// the log or the caller.
 				lastErr = maskedRequestError(req, err)
 				debuglog.Info("discovery: transient fetch error, will retry",
@@ -229,8 +228,9 @@ func (e *maskedError) Error() string { return e.text }
 func (e *maskedError) Unwrap() error { return e.cause }
 
 // maskedRequestError wraps err so its text is scrubbed of everything req
-// carried (a url.Error quotes the request URL, and one family authenticates
-// by query parameter) and of anything key-shaped, bounded to 500 runes.
+// carried (a url.Error quotes the request URL, and a custom gateway may
+// authenticate by query parameter) and of anything key-shaped, bounded to 500
+// runes.
 func maskedRequestError(req *http.Request, err error) error {
 	if err == nil {
 		return nil

@@ -30,15 +30,13 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 		return nil, fmt.Errorf("google: failed to create request for provider %s: %w", provider.Name, err)
 	}
 	req.Header.Set("x-goog-api-key", apiKey)
-	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
 	if err != nil {
-		// Scrubbed anyway: the header value is what the shared masker reads.
-		scrubbed := maskRequestSecrets(req, err.Error(), 500)
-		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", scrubbed)
-		// %s, not %w: the wrapped error's own text is what would leak.
-		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, scrubbed)
+		// err is already masked by the shared retry path. %s, not %w: callers
+		// must not unwrap to the raw transport error.
+		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err.Error())
+		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, err.Error())
 	}
 	defer func() { _ = resp.Body.Close() }()
 
@@ -48,7 +46,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
+		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", maskRequestSecrets(req, string(bodyBytes), 2000))
 		return nil, fmt.Errorf("google: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
 	}
 

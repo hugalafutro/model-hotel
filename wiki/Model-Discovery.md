@@ -708,7 +708,7 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 
 **Model filtering:** Only models supporting `generateContent` or `embedContent` are included. AQA-only models are excluded.
 
-**Auth:** Discovery uses `?key=API_KEY` query parameter (native API). Proxy uses `Authorization: Bearer API_KEY` (OpenAI-compatible endpoint). Google API keys are simple alphanumeric strings starting with `AIzaSy...`.
+**Auth:** Discovery sends the key in the `x-goog-api-key` header (native API). Proxy uses `Authorization: Bearer API_KEY` (OpenAI-compatible endpoint). Google API keys are simple alphanumeric strings starting with `AIzaSy...`.
 
 ### Cohere
 
