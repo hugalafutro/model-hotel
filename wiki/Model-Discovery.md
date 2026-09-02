@@ -702,9 +702,9 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 | Vision | Name contains `gemini-2`, `gemini-3`, or `gemma` (excluding embedding/tts/live) |
 | Tool calling | Not embedding/imagen/veo/lyria/aqa/tts/live |
 | Structured output | Same as tool calling |
-| Modality | Default `text`; image gen models get text+image output |
-| Input modalities | Vision → `["text","image"]`, audio → `["text","image","audio","video"]` |
-| Output modalities | Default `["text"]`; image gen → `["text","image"]`, embedding → `["embedding"]` |
+| Modality | Derived from the input/output lists by the shared classifier: `chat` when text is an output, `image-gen`, `tts` (text in, audio out), `embedding` |
+| Input modalities | Vision → `["text","image"]`; live/native-audio → `["text","image","audio","video"]`; TTS (`tts` name segment) and embedding → `["text"]` |
+| Output modalities | Default `["text"]`; image gen → `["text","image"]`; live/native-audio → `["text","audio"]`; TTS → `["audio"]`; embedding → `["embedding"]` |
 
 **Model filtering:** Only models supporting `generateContent` or `embedContent` are included. AQA-only models are excluded.
 

@@ -176,13 +176,11 @@ func TestIsGoogleAudioModel(t *testing.T) {
 		modelID string
 		want    bool
 	}{
-		{"tts in name", "tts-1", true},
+		{"tts is speech only", "gemini-2.5-flash-preview-tts", false},
 		{"live in name", "gemini-live-2.0", true},
 		{"native-audio in name", "native-audio-1.0", true},
-		{"tts case insensitive", "TTS-1-HD", true},
 		{"live case insensitive", "LIVE-STREAM", true},
 		{"no match", "gemini-2.0-flash", false},
-		{"partial match", "my-tts-model", true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -190,6 +188,27 @@ func TestIsGoogleAudioModel(t *testing.T) {
 				t.Errorf("isGoogleAudioModel(%q) = %v, want %v", tt.modelID, got, tt.want)
 			}
 		})
+	}
+}
+
+// A TTS model is named by a whole "tts" segment; letters inside another word
+// do not make one.
+func TestIsGoogleTTSModel(t *testing.T) {
+	tests := []struct {
+		modelID string
+		want    bool
+	}{
+		{"gemini-2.5-flash-preview-tts", true},
+		{"gemini-2.5-pro-tts", true},
+		{"TTS-1-HD", true},
+		{"gemini-3.1-flash-tts-preview", true},
+		{"gemini-2.5-flash", false},
+		{"gemini-buttstone", false},
+	}
+	for _, tt := range tests {
+		if got := isGoogleTTSModel(tt.modelID); got != tt.want {
+			t.Errorf("isGoogleTTSModel(%q) = %v, want %v", tt.modelID, got, tt.want)
+		}
 	}
 }
 
@@ -214,8 +233,9 @@ func TestIsGoogleEmbeddingModel(t *testing.T) {
 }
 
 // The modality arrays a Google model derives from its name, and the endpoint
-// class they yield: a TTS model is text in and audio out only, so it is never
-// offered a chat, vision or audio-in request it would refuse with a 400.
+// class they yield: a TTS model is text in and audio out only, so the chat
+// pickers no longer offer it a request it would refuse with a 400, and an
+// embedding model is text in, so no vision or audio pill is advertised.
 func TestGoogleModalities(t *testing.T) {
 	cases := []struct {
 		model, wantIn, wantOut, wantClass string
@@ -225,7 +245,7 @@ func TestGoogleModalities(t *testing.T) {
 		{"gemini-2.5-flash-preview-tts", `["text"]`, `["audio"]`, "tts"},
 		{"gemini-2.5-flash-native-audio-preview", `["text","image","audio","video"]`, `["text","audio"]`, "chat"},
 		{"gemini-2.0-flash-live-001", `["text","image","audio","video"]`, `["text","audio"]`, "chat"},
-		{"gemini-embedding-001", `["text","image","video","audio"]`, `["embedding"]`, "embedding"},
+		{"gemini-embedding-001", `["text"]`, `["embedding"]`, "embedding"},
 	}
 	for _, tc := range cases {
 		in, out := googleModalities(tc.model)

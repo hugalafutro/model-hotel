@@ -214,13 +214,20 @@ func googleModalities(modelID string) (inputMods, outputMods string) {
 		// A text-to-speech model speaks and does nothing else: it refuses a
 		// TEXT response modality and takes no image or audio input
 		// ("The requested combination of response modalities (TEXT) is not
-		// supported"). Classified as text in and audio out it derives the tts
-		// class, so a chat, vision or audio-in request is never sent to it.
+		// supported"). Text in and audio out derives the tts class, which
+		// keeps it out of the chat and arena pickers and stops /v1/models
+		// advertising vision or audio input; nothing gates a request by
+		// modality on the way in, so a client naming it directly still gets
+		// Google's 400. An audio-only output also exempts it from the
+		// model-gone strike, the trade every non-chat class makes.
 		inputMods = `["text"]`
 		outputMods = `["audio"]`
 	}
 	if isGoogleEmbeddingModel(modelID) {
-		inputMods = `["text","image","video","audio"]`
+		// gemini-embedding-001 embeds text only (models.dev agrees); the
+		// input list drives the vision/audio/video capability flags, so
+		// anything wider advertises pills the model cannot honour.
+		inputMods = `["text"]`
 		outputMods = `["embedding"]`
 	}
 	return inputMods, outputMods
@@ -228,14 +235,17 @@ func googleModalities(modelID string) (inputMods, outputMods string) {
 
 // isGoogleTTSModel reports a text-to-speech model (gemini-2.5-flash-preview-tts
 // and kin), as opposed to the live and native-audio models that both hear and
-// speak alongside text.
+// speak alongside text. It matches "tts" as a whole name segment so a chat
+// model that merely contains the letters cannot lose its chat class.
 func isGoogleTTSModel(modelID string) bool {
-	return strings.Contains(strings.ToLower(modelID), "tts")
+	return slices.Contains(splitModelIDSegments(strings.ToLower(modelID)), "tts")
 }
 
+// isGoogleAudioModel reports a model that hears and speaks alongside text; a
+// text-to-speech model is not one, so the two derivations never overlap.
 func isGoogleAudioModel(modelID string) bool {
 	lower := strings.ToLower(modelID)
-	return strings.Contains(lower, "tts") || strings.Contains(lower, "live") || strings.Contains(lower, "native-audio")
+	return strings.Contains(lower, "live") || strings.Contains(lower, "native-audio")
 }
 
 func isGoogleEmbeddingModel(modelID string) bool {
