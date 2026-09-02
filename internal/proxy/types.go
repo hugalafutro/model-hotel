@@ -270,6 +270,15 @@ type requestState struct {
 	// translates the generateContent body/stream back to the chat-completions
 	// shape the pipeline and client expect.
 	geminiAttempt bool
+	// speechFormat is set by buildGeminiSpeechRequest for a /v1/audio/speech
+	// attempt served through generateContent (gemini_speech.go): the wav or
+	// pcm the answer's audio part is delivered as. Empty on every other
+	// attempt, which is how the pass-through dispatch tells the two apart.
+	speechFormat string
+	// passthroughUsage is the usage a translating adapter read off the
+	// provider's answer before re-shaping it into a body that carries none;
+	// the binary pass-through path meters from it in place of the estimate.
+	passthroughUsage *passthroughUsage
 
 	// Anthropic egress adapter (zero value = plain chat-completions).
 	// anthropicEgressAttempt is set per failover attempt by

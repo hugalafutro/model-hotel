@@ -465,7 +465,8 @@ The proxy also serves `/v1/rerank` (Cohere-style document rerank, common in RAG 
 `/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`,
 `/v1/audio/speech`, and `/v1/audio/translations` as transparent OpenAI-compatible pass-through
 (failover, circuit breaker, and virtual-key access control included; request/response content
-is never logged). See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.
+is never logged). Gemini TTS models, which Google serves through `generateContent` alone, are
+reached through the native route and answer as `wav` or `pcm`. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the full endpoint listing.
 
 A native **Anthropic Messages API** (`POST /v1/messages`) lets Claude Code and the anthropic SDKs
 drive the gateway directly, so an Anthropic client fails over across *every* provider in a `hotel/`

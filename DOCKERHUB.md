@@ -190,7 +190,7 @@ curl -X POST http://localhost:8081/v1/audio/transcriptions \
   -F model="OpenAI/whisper-1" -F file=@speech.mp3
 ```
 
-The proxy also serves `/v1/embeddings`, `/v1/rerank`, `/v1/images/generations|edits|variations`, `/v1/audio/speech` (TTS), `/v1/audio/translations`, and a native Anthropic `POST /v1/messages` (for Claude Code / anthropic SDKs, with cross-provider failover) - all transparent OpenAI-compatible pass-through. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference).
+The proxy also serves `/v1/embeddings`, `/v1/rerank`, `/v1/images/generations|edits|variations`, `/v1/audio/speech` (TTS; Gemini TTS models are served through the native route and answer as `wav` or `pcm`), `/v1/audio/translations`, and a native Anthropic `POST /v1/messages` (for Claude Code / anthropic SDKs, with cross-provider failover) - all transparent OpenAI-compatible pass-through. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference).
 
 ## Security & Authentication
 
