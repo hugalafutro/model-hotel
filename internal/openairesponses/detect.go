@@ -64,20 +64,35 @@ func IsResponsesOnlyRejection(errBody []byte) bool {
 
 // ResponsesOnlyModel reports an OpenAI model id known to be served by the
 // Responses API alone, so the first request routes there rather than paying
-// a 404 to learn it: the pro tier, by name.
+// a 404 to learn it: the pro tier, by name. The caller limits it to OpenAI's
+// own host; a relay re-exposing these names over chat-completions must not
+// be sent to a /v1/responses it may not have.
 func ResponsesOnlyModel(modelID string) bool {
 	id := strings.ToLower(modelID)
-	if strings.HasPrefix(id, "o1-pro") || strings.HasPrefix(id, "o3-pro") {
-		return true
+	for _, family := range []string{"o1", "o3"} {
+		if rest, ok := strings.CutPrefix(id, family); ok {
+			return proTierSuffix(rest)
+		}
 	}
-	if !strings.HasPrefix(id, "gpt-5") {
+	rest, ok := strings.CutPrefix(id, "gpt-5")
+	if !ok {
 		return false
 	}
-	rest := strings.TrimPrefix(id, "gpt-5")
 	// gpt-5-pro, gpt-5.5-pro, gpt-5.5-pro-2026-04-23; not gpt-5-mini or a
 	// hypothetical gpt-5-prose.
-	for len(rest) > 0 && (rest[0] == '.' || rest[0] >= '0' && rest[0] <= '9') {
+	for rest != "" && (rest[0] == '.' || rest[0] >= '0' && rest[0] <= '9') {
 		rest = rest[1:]
 	}
-	return rest == "-pro" || strings.HasPrefix(rest, "-pro-")
+	return proTierSuffix(rest)
+}
+
+// proTierSuffix reports the "-pro" that names the tier: alone, or followed
+// by a version or date stamp. "-professional", "-pro-mini" and
+// "-pro-chat-latest" are other models.
+func proTierSuffix(rest string) bool {
+	if rest == "-pro" {
+		return true
+	}
+	after, ok := strings.CutPrefix(rest, "-pro-")
+	return ok && after != "" && after[0] >= '0' && after[0] <= '9'
 }

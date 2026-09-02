@@ -77,6 +77,11 @@ func TestResponsesOnlyModel(t *testing.T) {
 		"gpt-4o-pro":             false,
 		"claude-pro":             false,
 		"o1-preview":             false,
+		"o3-professional":        false,
+		"o1-produce":             false,
+		"gpt-5-pro-mini":         false,
+		"gpt-5-pro-chat-latest":  false,
+		"O3-PRO":                 true,
 	} {
 		if got := ResponsesOnlyModel(id); got != want {
 			t.Errorf("ResponsesOnlyModel(%q) = %v, want %v", id, got, want)

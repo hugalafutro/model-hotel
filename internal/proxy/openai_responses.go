@@ -6,6 +6,8 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"net/url"
+	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -22,7 +24,10 @@ import (
 // same way the param-strip retry does (learn from the 400, retry once), then
 // caches the requirement per model so subsequent tools+reasoning requests for
 // that model route to /v1/responses preemptively — hybrid strategy C of the
-// plan: no hardcoded model list, no repeated 400 round-trips.
+// plan: no repeated 400 round-trips. The pro tier is served by /v1/responses
+// alone and refuses the chat endpoint with a 404; that refusal is learned the
+// same way for every request to the model, and the tier's names route there
+// from the first request on OpenAI's own host (see responsesRequirement).
 
 // responsesCacheKey mirrors the paramrewrite cache keying.
 func responsesCacheKey(providerType, modelID string) string {
@@ -30,15 +35,17 @@ func responsesCacheKey(providerType, modelID string) string {
 }
 
 // shouldUseResponsesAttempt reports whether this candidate must be served via
-// /v1/responses: a direct-OpenAI chat attempt whose model has been learned to
-// require it, on a request that actually carries the forcing combination
-// (tools + reasoning not "none"). Plain, reasoning-only and tools-off requests
-// keep the cheaper chat-completions path even for flagged models.
+// /v1/responses: a direct-OpenAI chat attempt whose model is known to require
+// it. A model learned to refuse tools+reasoning goes there only on a request
+// carrying that combination (tools + reasoning not "none"); plain,
+// reasoning-only and tools-off requests keep the cheaper chat-completions
+// path. A model known to live behind /v1/responses alone goes there for every
+// request.
 func (h *Handler) shouldUseResponsesAttempt(st *requestState, candidate modelCandidate, providerType string) bool {
 	if providerType != "openai" || st.endpointPath != "" || st.makeUpstreamBody != nil {
 		return false
 	}
-	switch h.responsesRequirement(providerType, candidate.model.ModelID) {
+	switch h.responsesRequirement(providerType, candidate.model.ModelID, candidate.provider.BaseURL) {
 	case responsesAlways:
 		return true
 	case responsesForTools:
@@ -56,18 +63,32 @@ const (
 // responsesRequirement is what the cache holds for the model, or the name rule
 // for a model that has not been tried yet: the pro tier is Responses-only by
 // construction, and routing it there from the first request saves the 404 that
-// would otherwise teach it.
-func (h *Handler) responsesRequirement(providerType, modelID string) string {
+// would otherwise teach it. The name rule applies on OpenAI's own host only:
+// "openai" is also the type of every unrecognised OpenAI-compatible host, and
+// a relay re-exposing a pro model over chat-completions has no /v1/responses
+// to fall back from, so there the model is learned from its refusal or not at
+// all.
+func (h *Handler) responsesRequirement(providerType, modelID, baseURL string) string {
 	if v, ok := h.responsesRequiredCache.Load(responsesCacheKey(providerType, modelID)); ok {
 		if s, ok := v.(string); ok {
 			return s
 		}
 		return responsesForTools
 	}
-	if openairesponses.ResponsesOnlyModel(modelID) {
+	if isOpenAIHost(baseURL) && openairesponses.ResponsesOnlyModel(modelID) {
 		return responsesAlways
 	}
 	return ""
+}
+
+// isOpenAIHost reports a base URL on api.openai.com: the one place the pro
+// tier's names and the chat endpoint's 404 refusal mean what OpenAI means by
+// them. An Azure deployment is its own provider type and never reaches this;
+// its deployment names are operator-chosen, so neither rule would be safe
+// there.
+func isOpenAIHost(baseURL string) bool {
+	u, err := url.Parse(baseURL)
+	return err == nil && strings.EqualFold(u.Hostname(), "api.openai.com")
 }
 
 // buildResponsesRequest builds the upstream request for a /v1/responses
@@ -102,8 +123,9 @@ func (h *Handler) translateResponsesRequestBody(st *requestState, candidate mode
 	return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
 }
 
-// retryWithResponses handles a chat-completions 400 that demands the Responses
-// API: learn the requirement into responsesRequiredCache, rebuild the request
+// retryWithResponses handles a chat-completions refusal that demands the
+// Responses API, the tools+reasoning 400 or the pro tier's 404: learn the
+// requirement into responsesRequiredCache, rebuild the request
 // as a /v1/responses call and re-issue it once, marking the attempt so the
 // response dispatch translates the answer back. Returns handled=false — with
 // the 400 body restored on resp for the param-strip retry to inspect — when

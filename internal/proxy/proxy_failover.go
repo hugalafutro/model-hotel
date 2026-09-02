@@ -96,7 +96,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// refusal ("not a chat model") is a 404, so a chat-completions 404 from an
 	// OpenAI provider takes the same path; one nothing can learn from is left
 	// as it arrived just the same.
-	if isLearnableRefusal(resp.StatusCode, providerType, st) {
+	if isLearnableRefusal(resp.StatusCode, providerType, candidate.provider.BaseURL, st) {
 		res, handled := h.retryLearnable400(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
 		if handled {
 			resp = res.resp
@@ -778,14 +778,16 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 }
 
 // isLearnableRefusal reports an upstream status the attempt loop hands to
-// retryLearnable400: every 400, and a chat-completions 404 from an OpenAI
-// provider, which is how OpenAI refuses a Responses-only model. The 404 arm
+// retryLearnable400: every 400, and a chat-completions 404 from OpenAI's own
+// host, which is how OpenAI refuses a Responses-only model. The 404 arm
 // applies to the chat endpoint in the chat dialect only, the same shape the
-// Responses reroute itself is limited to; a 404 on embeddings or a
-// translated dialect is left as it arrived.
-func isLearnableRefusal(status int, providerType string, st *requestState) bool {
+// Responses reroute itself is limited to; a 404 on embeddings, a translated
+// dialect, or a relay of unknown make (typed "openai" too) is left as it
+// arrived. The hedged path reads the same verdict to learn without retrying.
+func isLearnableRefusal(status int, providerType, baseURL string, st *requestState) bool {
 	if status == 400 {
 		return true
 	}
-	return status == 404 && providerType == "openai" && st.endpointPath == "" && st.makeUpstreamBody == nil && st.sentChatCompletionsBody()
+	return status == 404 && providerType == "openai" && isOpenAIHost(baseURL) &&
+		st.endpointPath == "" && st.makeUpstreamBody == nil && st.sentChatCompletionsBody()
 }

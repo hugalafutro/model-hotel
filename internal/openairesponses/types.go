@@ -6,7 +6,8 @@
 // speaks chat-completions and the UPSTREAM demands the foreign dialect.
 // OpenAI's newest models (gpt-5.4+, the gpt-5.6 family) reject tool calling
 // combined with reasoning over /v1/chat/completions and require /v1/responses
-// (see plans/openai-responses-endpoint.md), so the proxy translates the
+// (see plans/openai-responses-endpoint.md), and the pro tier (o1-pro, o3-pro,
+// gpt-5.x-pro) is served by /v1/responses alone, so the proxy translates the
 // request on the way out and the response/stream back on the way in. Like the
 // anthropic package this is a leaf: the proxy composes it, never the reverse.
 package openairesponses

@@ -366,22 +366,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, readCap))
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
-		if resp.StatusCode == http.StatusBadRequest && st.sentChatCompletionsBody() {
-			// A hedged probe cannot retry in-race (a second upstream round-trip
-			// inside one race slot would skew the TTFT contest), but it can
-			// still LEARN the /v1/responses requirement from the 400 so every
-			// subsequent request — hedged or sequential — routes preemptively.
-			h.learnResponsesRequirement(st, candidate, providerType, errBody)
-			// Same reasoning for rejected/renamed params: the retry is refused
-			// in-race, but learning here means the next request — hedged or
-			// sequential — is built without the params this model refuses.
-			h.learnRejectedParams(candidate, errBody)
-			// Both readings are only valid on a chat-completions attempt: a
-			// dialect 400 names that dialect's fields, and a strip mislearned
-			// from one poisons the compat path for this model on every later
-			// request. The sequential path gates its own 400 handling the same
-			// way.
-		}
+		h.learnFromHedgedRefusal(st, candidate, providerType, resp.StatusCode, errBody)
 		if resp.StatusCode == http.StatusBadRequest && st.anthropicEgressAttempt {
 			// The Messages route's own learnable 400, gated the opposite way: a
 			// thinking-dialect complaint only arrives on an egress attempt, and
@@ -611,4 +596,25 @@ func (h *Handler) failHedgeDisconnect(w http.ResponseWriter, st *requestState, l
 // quote the prompt. Sharing the fence is safe: its parse is Once-guarded.
 func hedgeProbeLog(entry *requestLogData, candidate modelCandidate) *requestLogData {
 	return &requestLogData{modelID: entry.modelID, providerName: candidate.provider.Name, endpointType: entry.endpointType, content: entry.content}
+}
+
+// learnFromHedgedRefusal is the hedged race's share of the learnable-refusal
+// path. A hedged probe cannot retry in-race (a second upstream round-trip
+// inside one race slot would skew the TTFT contest), but it can still LEARN
+// what the sequential path would: the /v1/responses requirement from the
+// tools+reasoning 400 or the pro tier's 404, so every subsequent request —
+// hedged or sequential — routes preemptively, and the params a 400 names, so
+// the next request is built without them. Both readings are only valid on a
+// chat-completions attempt, judged by the same isLearnableRefusal the
+// sequential path uses: a dialect 400 names that dialect's fields, and a
+// strip mislearned from one poisons the compat path for this model on every
+// later request.
+func (h *Handler) learnFromHedgedRefusal(st *requestState, candidate modelCandidate, providerType string, status int, errBody []byte) {
+	if !isLearnableRefusal(status, providerType, candidate.provider.BaseURL, st) || !st.sentChatCompletionsBody() {
+		return
+	}
+	h.learnResponsesRequirement(st, candidate, providerType, errBody)
+	if status == http.StatusBadRequest {
+		h.learnRejectedParams(candidate, errBody)
+	}
 }
