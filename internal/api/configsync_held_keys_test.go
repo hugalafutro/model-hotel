@@ -9,8 +9,9 @@ import (
 )
 
 // An import seeds the credential mask's held set with every imported key: a
-// fleet member receives providers it has never decrypted, and the seed runs
-// before the cache invalidation that makes the new rows routable.
+// fleet member receives providers it has never decrypted. (That the seed
+// runs before the cache invalidation which makes the rows routable is the
+// call site's ordering, documented there; this pins that it runs at all.)
 func TestConfigSync_ImportHoldsEveryProviderKey(t *testing.T) {
 	const key = "custom-key-imported-row-0011223344"
 	cleanConfigTables(t)

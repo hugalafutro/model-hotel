@@ -160,6 +160,12 @@ type StreamEvent struct {
 	OutputTokens    int
 	HasOutput       bool
 	ErrorMessage    string // set only when Type == "error"
+	// CarriesError reports a populated error member on ANY event type: a
+	// relay wraps its rejection as {"type":"error","error":{...}}, sends it
+	// bare as {"error":{...}}, or stamps it on an ordinary event, and every
+	// one of those is error text for the credential mask, which must not
+	// depend on the wrapper's type to recognise it.
+	CarriesError bool
 	// TextBytes is the byte length of the output a content block event carries:
 	// a content_block_delta's text, thinking or partial JSON, and a
 	// content_block_start's tool name (its input starts empty and arrives as
@@ -208,7 +214,7 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 	if json.Unmarshal(payload, &ev) != nil {
 		return StreamEvent{}
 	}
-	info := StreamEvent{Type: ev.Type}
+	info := StreamEvent{Type: ev.Type, CarriesError: util.ErrorMemberCarries(ev.Error)}
 	switch ev.Type {
 	case "message_start":
 		var raw json.RawMessage
