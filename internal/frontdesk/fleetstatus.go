@@ -203,6 +203,12 @@ func (s *Server) fleetStatusForMember(ctx context.Context, m *Member, primaryID 
 			item.Note = fmt.Sprintf("this member rejected the stored admin token (HTTP %d); update it on the Members tab", status)
 		default:
 			item.Note = fmt.Sprintf("this member rejected the config request (HTTP %d)", status)
+			// With the member's own reason when it gave one ("refusing to
+			// import an empty config"), as the real push reports it.
+			var refusal *memberRefusal
+			if errors.As(err, &refusal) && refusal.reason != "" {
+				item.Note = fmt.Sprintf("this member rejected the config request (HTTP %d): %s", status, refusal.reason)
+			}
 		}
 		return item
 	}
