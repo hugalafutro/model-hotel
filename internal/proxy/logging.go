@@ -300,6 +300,10 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// finaliser, the multimodal passthrough), so a clamp in failRequest would
 	// be a guarantee only some callers get.
 	logEntry.errorMessage = truncateLogMessage(logEntry.errorMessage)
+	// Then the content fence, for the same reason and at the same place: the
+	// error message and every attempt detail came from an upstream body that
+	// may quote the prompt back, and this is where all of them are written.
+	logEntry.fenceContent()
 
 	// Skip DB operations when no pool is available (unit tests without DB).
 	if h.dbPool == nil {

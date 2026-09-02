@@ -140,6 +140,21 @@ func newMultipartBodyBuilder(parts []multipartPart) func(string) ([]byte, string
 // a parameter, which is the wrong direction for a billing decision to fail in.
 var multipartPromptFields = map[string]bool{"prompt": true}
 
+// multipartTextFields returns the text a multipart request carries in its
+// non-file fields, for the content fence: the prompt of an image request and
+// whatever else the client typed; the upload itself is not text. The model
+// field rides along and is dropped by the fence's own routing-key rule only
+// for JSON bodies, so it is skipped here by name.
+func multipartTextFields(parts []multipartPart) []string {
+	var out []string
+	for _, p := range parts {
+		if p.fileName == "" && len(p.data) > 0 && !contentRoutingKeys[p.fieldName] {
+			out = append(out, string(p.data))
+		}
+	}
+	return out
+}
+
 // multipartPromptTextBytes sizes the prompt text a multipart request carries.
 //
 // The uploaded file is never measured: it is the payload (audio to transcribe,
@@ -231,6 +246,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	// request, so the metering estimate downstream silently charges nothing --
 	// the same no-op that the chat-only sizer produced for the JSON families.
 	logData.promptTextBytes = multipartPromptTextBytes(parts)
+	logData.content = newContentFence(nil, multipartTextFields(parts)...)
 
 	return &requestState{
 		startTime: startTime,

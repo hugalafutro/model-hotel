@@ -58,11 +58,30 @@ omitted when none), `error_kind`, `detail`, `phrase`, `duration_ms`, `ttft_ms`,
 `hedged` and `breaker` (`charge`, `noop`, `success`, `alive`, `skipped`,
 `disabled`: what the attempt did to the circuit).
 
-`detail` is the one field that carries provider text, and it is fenced twice: at
-most 160 runes of the already-sanitized body (`util.SanitizeLogBody`), passed
-through the attempt's credential masker. A provider quoting the prompt back
-cannot fit; a key cannot survive. The no-content rule of section 6 applies to it
-unchanged.
+`detail` is the one field that carries provider text, and it is fenced three
+times: at most 160 runes of the already-sanitized body (`util.SanitizeLogBody`),
+passed through the attempt's credential masker, and then through the content
+fence at the write boundary (`content_fence.go`, below). A key cannot survive; a
+provider quoting the prompt back keeps its own words and loses the quote. The
+no-content rule of section 6 applies to it unchanged.
+
+The content fence is what makes that rule true of provider text at all. The
+gateway holds the request body, so an echo of its content is by definition a
+substring of a string the client sent: at the one write boundary every terminal
+update passes through (`updateRequestLog`), `error_message` and every attempt's
+`detail` are checked against the request's own strings (raw and JSON-escaped)
+and any run of 16 or more runes they share becomes `[content]`. Every app-log
+line that carries upstream error text goes through the same fence: the
+non-streaming detail, the streaming error attribute (`errLogAttr`), the TTFT
+probe failure on both the sequential and the hedged path, and the exhaustion
+line, whose rendered message carries the last provider's text. Each string is
+indexed as written, whitespace-collapsed (the trail's detail is collapsed) and
+JSON-escaped (error_message stores the body as sent). An echo shorter than the
+window is not caught, a string under a routing key (`model`, `role`, `type`, ...)
+is not content (the client's own identifiers, `user` and a message `name`, are),
+and encoded payloads (data: URLs, unwrapped base64) are not indexed; each form
+has its own index budget of 1 MiB of runes, walked content-bearing members
+first, so what a very large request leaves unindexed is its tail.
 
 Provider discovery and quota polling scrub the same way. The shared HTTP helpers in
 `internal/provider/discovery.go` never receive the key as a value, so they read it back off the
@@ -94,7 +113,9 @@ Style:
 3. Name the model/provider when known and safe.
 4. **Never** echo prompt/request/response content or key material. Provider
    error bodies may contain prompt echoes - extract only the provider error
-   `message` field and truncate (`reqError.Underlying` caps at 500 chars).
+   `message` field and truncate (`reqError.Underlying` caps at 500 chars), and
+   the content fence masks whatever echo of the request survives that before
+   it is stored or logged (see the attempt-trail section).
 5. No internal jargon, no raw Go error prefixes (`context canceled`), no 0-based
    indices reaching users. ("param-strip retry" → "retry without unsupported
    parameters".)

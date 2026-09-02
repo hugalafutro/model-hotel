@@ -24,7 +24,9 @@ import (
 func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
 	last := st.lastReqErr
 	status := last.terminalStatus()
-	logMsg := last.terminalLogMessage(st.isFailover, numCandidates)
+	// Fenced: the message renders the last provider's own error text, which
+	// may quote the prompt (content_fence.go).
+	logMsg := st.logData.content.maskOne(last.terminalLogMessage(st.isFailover, numCandidates))
 	clientMsg := last.terminalClientMessage(st.reqModel, st.isFailover)
 	if st.isFailover {
 		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)

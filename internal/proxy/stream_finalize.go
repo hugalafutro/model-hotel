@@ -29,6 +29,10 @@ const (
 // hand-off between the loop and the finalizer; later phases migrate more of the
 // loop-local accumulators here.
 type streamState struct {
+	// content fences echoes of the request's own text out of the error
+	// messages this stream logs (errLogAttr). Copied from the log entry; nil
+	// fences nothing.
+	content *contentFence
 	// masker scrubs the provider's credential from every frame bound for the
 	// client and from the log's error message; copied from streamOptions so
 	// the chunk handlers can reach it.
