@@ -1717,3 +1717,46 @@ func TestImageGenerations_SSEPassthroughMasksSplitErrorFrame(t *testing.T) {
 		t.Errorf("masked stream mismatch:\ngot  %q\nwant %q", got, want)
 	}
 }
+
+// xAI's image API has no "size" and refuses a request carrying one, which the
+// OpenAI SDKs and open-webui send by default. On an xai-typed provider the
+// pass-through hands upstream the aspect_ratio xAI accepts instead; on every
+// other provider the size goes through untouched.
+func TestImageGenerations_XAISizeBecomesAspectRatio(t *testing.T) {
+	var gotBody atomic.Value
+	upstream := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		b, _ := io.ReadAll(r.Body)
+		gotBody.Store(string(b))
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"created":1,"data":[{"url":"https://x/img.png"}]}`)
+	})
+	for _, tc := range []struct {
+		providerType string
+		wantSize     bool
+		wantRatio    string
+	}{
+		{"xai", false, "16:9"},
+		{"openai", true, ""},
+	} {
+		t.Run(tc.providerType, func(t *testing.T) {
+			env := newMultimodalEnvTyped(t, upstream, `["image"]`, tc.providerType, "")
+			body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","size":"1792x1024"}`, env.providerName, env.modelName)
+			req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
+			w := httptest.NewRecorder()
+			env.handler.ImageGenerations(w, req)
+			if w.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200 (body: %s)", w.Code, w.Body.String())
+			}
+			sent, _ := gotBody.Load().(string)
+			if strings.Contains(sent, `"size"`) != tc.wantSize {
+				t.Errorf("upstream body size present = %v, want %v: %s", !tc.wantSize, tc.wantSize, sent)
+			}
+			if tc.wantRatio != "" && !strings.Contains(sent, `"aspect_ratio":"`+tc.wantRatio+`"`) {
+				t.Errorf("upstream body lacks aspect_ratio %s: %s", tc.wantRatio, sent)
+			}
+			if tc.wantRatio == "" && strings.Contains(sent, "aspect_ratio") {
+				t.Errorf("aspect_ratio invented for %s: %s", tc.providerType, sent)
+			}
+		})
+	}
+}

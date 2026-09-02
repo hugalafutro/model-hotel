@@ -576,6 +576,14 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		if err != nil {
 			return nil, providerType, targetURL, err
 		}
+		// The body builder knows the model but not the provider, and an image
+		// request carries parameters not every image API accepts: xAI answers
+		// 400 to the "size" the OpenAI SDKs send by default. Adapted here, the
+		// one place both are known, for every image attempt (the retirement
+		// probe's included).
+		if logData.endpointType == endpointTypeImage && contentType == "application/json" {
+			upstreamBody = paramrewrite.RewriteImageRequest(upstreamBody, providerType)
+		}
 	} else {
 		needsRewrite := st.reqModel != candidate.model.ModelID || isAnthropicFamily(providerType) || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
