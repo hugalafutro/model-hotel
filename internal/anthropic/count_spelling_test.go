@@ -92,8 +92,8 @@ func TestInspectStreamEvent_MessageStartCountSpellings(t *testing.T) {
 	}
 }
 
-// An explicit null is not a usage block. The *Usage this replaced was nil for
-// absent AND null alike; a json.RawMessage for null is four non-empty bytes, and
+// An explicit null is not a usage block: a json.RawMessage for null is four
+// non-empty bytes, and
 // emitRawData assigns OutputTokens unguarded — so a null usage on a later event
 // would wipe the count message_start reported.
 func TestInspectStreamEvent_ANullUsageIsNotAReading(t *testing.T) {

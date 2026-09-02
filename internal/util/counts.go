@@ -113,13 +113,18 @@ func coerceCount(data []byte, path string) ([]byte, bool) {
 		}
 		c[key] = n
 	case []any:
-		i, _ := strconv.Atoi(key) // locate already validated the index
+		i, err := strconv.Atoi(key)
+		if err != nil || i < 0 || i >= len(c) {
+			return nil, false
+		}
 		n, ok := asCount(c[i])
 		if !ok {
 			return nil, false
 		}
 		c[i] = n
 	default:
+		// locate yields only the two cases above; anything else is refused
+		// rather than reported as a rewrite.
 		return nil, false
 	}
 	out, err := json.Marshal(root)
