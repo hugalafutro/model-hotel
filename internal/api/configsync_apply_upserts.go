@@ -66,8 +66,27 @@ func providerTypeForImport(p ExportProvider) string {
 	return provider.LegacyTypeFromURL(p.BaseURL)
 }
 
+// validateSyncedProvider applies to an imported provider the bounds the
+// interactive admin API applies on create and update, so a compromised
+// primary cannot write through this path what the dashboard would reject.
+// The URL's shape is checked separately (validateURL below); this is the
+// rest: the in-flight ceiling, through the same rule the admin API uses, and
+// the URL's length.
+func validateSyncedProvider(p ExportProvider) error {
+	if err := provider.ValidateMaxInFlight(p.MaxInFlight); err != nil {
+		return fmt.Errorf("%w: provider %q: %w", errInvalidSyncedProvider, p.Name, err)
+	}
+	if len(p.BaseURL) > maxProviderURLLen {
+		return fmt.Errorf("%w: provider %q: base_url must be at most %d characters", errInvalidSyncedProvider, p.Name, maxProviderURLLen)
+	}
+	return nil
+}
+
 func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider, validateURL func(string) error) error {
 	for _, p := range providers {
+		if err := validateSyncedProvider(p); err != nil {
+			return err
+		}
 		// Defense in depth on the import path: a compromised primary must not be
 		// able to write a provider base_url that the interactive admin API would
 		// reject. validateURL is the same guard CreateProvider/UpdateProvider use
@@ -78,7 +97,9 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 		// out of the database entirely. Nil validateURL disables the check (tests).
 		if validateURL != nil {
 			if err := validateURL(p.BaseURL); err != nil {
-				return fmt.Errorf("provider %q has an invalid base_url: %w", p.Name, err)
+				// The same refusal class as the bounds above: the envelope
+				// carries what the admin API would reject, so a 400, not a 500.
+				return fmt.Errorf("%w: provider %q has an invalid base_url: %w", errInvalidSyncedProvider, p.Name, err)
 			}
 		}
 		_, err := tx.Exec(ctx, `

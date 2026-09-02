@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/google/uuid"
@@ -577,5 +578,26 @@ func (r *Repository) TouchLastUsed(ctx context.Context, id uuid.UUID) error {
 	// entries: a full flush here would empty the routing cache on every
 	// attempt/probe, and hedged streaming touches every launched candidate.
 	EvictProviderCacheByID(id)
+	return nil
+}
+
+// MaxInFlightCeiling bounds the operator's per-provider in-flight ceiling.
+// The floor is the load-bearing one: the runtime reads a ceiling of zero or
+// less as "no ceiling" (proxy.effectiveLimit), so a value below one would
+// not reject traffic but silently delete the cap; the upper bound catches
+// typos. One rule for every write path (the admin API, the config import, the
+// column's own CHECK constraint mirrors it), so none can admit what another
+// rejects.
+const MaxInFlightCeiling = 10000
+
+// ValidateMaxInFlight is the rule above as an error: nil is "no ceiling" and
+// is fine; anything else must be within 1 and MaxInFlightCeiling.
+func ValidateMaxInFlight(v *int) error {
+	if v == nil {
+		return nil
+	}
+	if *v < 1 || *v > MaxInFlightCeiling {
+		return fmt.Errorf("max_in_flight must be between 1 and %d, or null for no ceiling, got %d", MaxInFlightCeiling, *v)
+	}
 	return nil
 }
