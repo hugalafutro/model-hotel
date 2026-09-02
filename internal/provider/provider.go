@@ -4,12 +4,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"regexp"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
@@ -553,12 +555,80 @@ func ToResponse(p *Provider) ProviderResponse {
 	}
 }
 
-// MaskAPIKey returns a masked version of an API key for display.
+// maskMinLen is the shortest key the mask shows any of: below it more than
+// half of the key would be visible.
+const maskMinLen = 13
+
+// MaskAPIKey returns the display form of an API key: its first two and last
+// four characters. The tail is what tells one key from another, and four
+// characters keep two keys that share a two-character suffix apart, which
+// every Anthropic key does. A key shorter than maskMinLen is masked entirely,
+// the same "***" ToResponse shows for a stored key with no mask at all.
 func MaskAPIKey(apiKey string) string {
-	if len(apiKey) <= 4 {
+	if len(apiKey) < maskMinLen {
 		return "***"
 	}
-	return apiKey[:2] + "..." + apiKey[len(apiKey)-2:]
+	return apiKey[:2] + "..." + apiKey[len(apiKey)-4:]
+}
+
+// legacyMask is the mask shape written before the tail was widened: two
+// characters, three dots, two characters.
+var legacyMask = regexp.MustCompile(`^..\.{3}..$`)
+
+// BackfillMaskedKeys rewrites the stored mask of every provider whose mask
+// is empty or still in the legacy shape, from the decrypted key, and returns
+// how many rows it rewrote. It runs at startup and after a config-sync
+// import, the two places a legacy mask can enter a database. A key that does
+// not decrypt is counted and skipped, never fatal: the mask is display only.
+// Rows already written are reported alongside an error, so a caller can
+// invalidate the provider cache for them.
+func (r *Repository) BackfillMaskedKeys(ctx context.Context, masterKey string) (int, error) {
+	rows, err := r.pool.Query(ctx, `SELECT id, encrypted_key, key_nonce, key_salt, COALESCE(masked_key, '') FROM providers WHERE length(encrypted_key) > 0`)
+	if err != nil {
+		return 0, err
+	}
+	type stored struct {
+		ID                              uuid.UUID
+		EncryptedKey, KeyNonce, KeySalt []byte
+		Mask                            string
+	}
+	all, err := pgx.CollectRows(rows, pgx.RowToStructByPos[stored])
+	if err != nil {
+		return 0, err
+	}
+	type pending struct {
+		id   uuid.UUID
+		mask string
+	}
+	var todo []pending
+	undecryptable := 0
+	for _, row := range all {
+		if row.Mask != "" && !legacyMask.MatchString(row.Mask) {
+			continue
+		}
+		key, err := auth.Decrypt(row.EncryptedKey, row.KeyNonce, row.KeySalt, masterKey)
+		if err != nil {
+			undecryptable++
+			continue
+		}
+		todo = append(todo, pending{id: row.ID, mask: MaskAPIKey(key)})
+	}
+	if undecryptable > 0 {
+		debuglog.Warn("provider: mask backfill skipped keys it could not decrypt under this master key", "count", undecryptable)
+	}
+	written := 0
+	defer func() {
+		if written > 0 {
+			InvalidateProviderCache()
+		}
+	}()
+	for _, p := range todo {
+		if _, err := r.pool.Exec(ctx, `UPDATE providers SET masked_key = $1 WHERE id = $2`, p.mask, p.id); err != nil {
+			return written, err
+		}
+		written++
+	}
+	return written, nil
 }
 
 // TouchLastUsed updates the last_used_at timestamp for a provider.

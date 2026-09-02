@@ -342,72 +342,29 @@ func TestNormalizeName_MixedSpacesAndHyphens(t *testing.T) {
 // MaskAPIKey
 // ---------------------------------------------------------------------------
 
-func TestMaskAPIKey_LongKey(t *testing.T) {
-	result := MaskAPIKey("sk-abcdefghijklmnop1234567890")
-	if result != "sk...90" {
-		t.Errorf("MaskAPIKey(long key) = %q, want %q", result, "sk...90")
-	}
-}
-
-func TestMaskAPIKey_ShortKey(t *testing.T) {
-	// Keys ≤ 4 chars are masked entirely to "***"
-	result := MaskAPIKey("abcd")
-	if result != "***" {
-		t.Errorf("MaskAPIKey(4 chars) = %q, want %q", result, "***")
-	}
-}
-
-func TestMaskAPIKey_ThreeChars(t *testing.T) {
-	result := MaskAPIKey("abc")
-	if result != "***" {
-		t.Errorf("MaskAPIKey(3 chars) = %q, want %q", result, "***")
-	}
-}
-
-func TestMaskAPIKey_TwoChars(t *testing.T) {
-	result := MaskAPIKey("ab")
-	if result != "***" {
-		t.Errorf("MaskAPIKey(2 chars) = %q, want %q", result, "***")
-	}
-}
-
-func TestMaskAPIKey_OneChar(t *testing.T) {
-	result := MaskAPIKey("x")
-	if result != "***" {
-		t.Errorf("MaskAPIKey(1 char) = %q, want %q", result, "***")
-	}
-}
-
-func TestMaskAPIKey_EmptyString(t *testing.T) {
-	result := MaskAPIKey("")
-	if result != "***" {
-		t.Errorf("MaskAPIKey('') = %q, want %q", result, "***")
-	}
-}
-
-func TestMaskAPIKey_FiveChars(t *testing.T) {
-	// Keys > 4 chars show first 2 and last 2 chars
-	result := MaskAPIKey("abcde")
-	if result != "ab...de" {
-		t.Errorf("MaskAPIKey(5 chars) = %q, want %q", result, "ab...de")
-	}
-}
-
-func TestMaskAPIKey_DoesNotRevealMiddle(t *testing.T) {
-	key := "sk-proj-abc123def456ghi789"
-	result := MaskAPIKey(key)
-	if result == key {
-		t.Error("MaskAPIKey should not return the full key")
-	}
-	if len(result) >= len(key) {
-		t.Error("MaskAPIKey result should be shorter than the original key")
-	}
-	// Should start with first 2 chars and end with last 2
-	if result[:2] != "sk" {
-		t.Errorf("MaskAPIKey should start with first 2 chars, got %q", result[:2])
-	}
-	if result[len(result)-2:] != "89" {
-		t.Errorf("MaskAPIKey should end with last 2 chars, got %q", result[len(result)-2:])
+func TestMaskAPIKey(t *testing.T) {
+	for _, tc := range []struct{ key, want string }{
+		{"sk-abcdefghijklmnop1234567890", "sk...7890"},
+		{"sk-proj-abc123def456ghi789", "sk...i789"},
+		// Anthropic keys all end in AA; the four-character tail still tells
+		// two of them apart.
+		{"sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxx-hQAA", "sk...hQAA"},
+		{"sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxx-8QAA", "sk...8QAA"},
+		// Thirteen characters is the shortest key that keeps more than half
+		// of itself hidden; anything shorter shows nothing.
+		{"abcdefghijklm", "ab...jklm"},
+		{"abcdefghijkl", "***"},
+		{"abcd", "***"},
+		{"ab", "***"},
+		{"a", "***"},
+		{"", "***"},
+	} {
+		if got := MaskAPIKey(tc.key); got != tc.want {
+			t.Errorf("MaskAPIKey(%q) = %q, want %q", tc.key, got, tc.want)
+		}
+		if got := MaskAPIKey(tc.key); got != "***" && (len(got) != 9 || got[:2] != tc.key[:2] || got[5:] != tc.key[len(tc.key)-4:]) {
+			t.Errorf("MaskAPIKey(%q) = %q is not two characters, three dots, four characters", tc.key, got)
+		}
 	}
 }
 

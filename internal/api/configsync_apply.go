@@ -361,8 +361,18 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// enabled state: this proves each row and registers it. Inline, and BEFORE the
 	// cache invalidation makes the new rows routable, so the seed is in place
 	// before the proxy sends the first request to them.
-	held, failed := provider.HoldKeys(ctx, provider.NewRepository(h.db.Pool()), h.masterKey)
+	providerRepo := provider.NewRepository(h.db.Pool())
+	held, failed := provider.HoldKeys(ctx, providerRepo, h.masterKey)
 	debuglog.Info("configsync: provider keys held for the credential mask", "held", held, "failed", failed)
+	// The envelope carries each provider's stored mask verbatim, so a dump
+	// written before the mask widened brings the legacy shape with it; the
+	// same pass that runs at startup rewrites those rows now rather than at
+	// this member's next restart.
+	if remasked, err := providerRepo.BackfillMaskedKeys(ctx, h.masterKey); err != nil {
+		debuglog.Error("configsync: provider mask backfill failed", "error", err)
+	} else if remasked > 0 {
+		debuglog.Info("configsync: provider key masks rewritten", "count", remasked)
+	}
 
 	// Core config (providers, virtual keys, settings) is now durable. The writes
 	// bypassed the in-memory caches, so drop them: the proxy must see the new
