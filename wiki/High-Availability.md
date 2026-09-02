@@ -361,8 +361,12 @@ What makes this safe to leave running:
   ceiling (1 to 10000, or null: a value below one would read as no ceiling at
   all), settings minimums and URL-typed settings, per-key and per-user rate
   limits, and password hash format. An envelope that fails any of them is
-  refused whole with a 400 and nothing is written; the member's own log names
-  the field, Front Desk reports the refusal by status.
+  refused whole with a 400 and nothing is written. Front Desk shows the member's
+  own reason with the status (`this member rejected the request (HTTP 400):
+  configsync: refusing to apply an invalid provider: provider "x": max_in_flight
+  must be ...`), in the sync result, in the failure event and in the readiness
+  check, cut to one line of 240 characters; the member's own log carries the
+  full text.
 - **Newer config always wins.** Each push carries a monotonic source generation,
   and a member refuses any import older than the one it has already applied, so
   repointing the primary while an earlier push is still in flight can never strand a
