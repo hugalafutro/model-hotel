@@ -114,7 +114,8 @@ func candidateModelID(candidate modelCandidate) string {
 // field from being mislearned onto the compat path is that the Responses
 // body is a closed struct (openairesponses.Request) sharing only the
 // sampling names with chat-completions, plus one exception handled by name:
-// see responsesRejectedParams.
+// see responsesRejectedParams. The reroute learned on this very attempt gets
+// it as well, on the 400 its rebuilt request may earn.
 //
 // Anthropic egress attempts get the one 400 that route can fix by asking
 // differently: a model refusing the extended-thinking shape it was asked in
@@ -135,8 +136,20 @@ func (h *Handler) retryLearnable400(
 		return h.retryLearnableMessages400(r, st, candidate, providerType, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
 	case st.sentChatCompletionsBody():
 		res, handled := h.retryWithResponses(r, st, candidate, providerType, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
-		if !handled {
+		switch {
+		case !handled:
 			res = h.retryWithStrippedParams(r, st, candidate, providerType, targetURL, resp, attempt, dialMs, failoverCancel, streamCancelOrigin)
+		case res.retried && res.resp != nil && res.resp.StatusCode == http.StatusBadRequest:
+			// The rebuilt Responses request was refused in turn. It is a
+			// Responses attempt now (retryWithResponses marked it), so this
+			// is the same self-heal the responsesAttempt case below runs
+			// for a preemptively routed request, on the reroute's own 400:
+			// a first request to a pro-tier model that carries temperature
+			// otherwise came back 400 once and healed only from the second.
+			// The reroute's context owns the body being read; the learner
+			// releases it once the body is buffered, as it does the
+			// attempt's own context on the direct path.
+			res = h.retryWithStrippedParams(r, st, candidate, providerType, responsesTargetURL(candidate, providerType), res.resp, attempt, dialMs, res.retryCancel, res.streamCancelOrigin)
 		}
 		return res, true
 	case st.responsesAttempt:

@@ -317,3 +317,101 @@ func TestRetryLearnable400_ResponsesAttemptStripsParam(t *testing.T) {
 		res.retryCancel()
 	}
 }
+
+// The Responses-only 404 is learned and the request re-issued on
+// /v1/responses; when that rebuilt request is refused in turn for a
+// parameter the pro tier does not take, the param self-heal runs on the
+// reroute's own 400 rather than leaving it to the client. A first request
+// carrying temperature therefore reaches the model in one attempt:
+// chat 404, Responses 400, Responses 200.
+func TestRetryLearnable400_RerouteRefusalStripsParam(t *testing.T) {
+	var bodies []string
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		bodies = append(bodies, r.URL.Path+" "+string(raw))
+		w.Header().Set("Content-Type", "application/json")
+		if strings.Contains(string(raw), `"temperature"`) {
+			w.WriteHeader(http.StatusBadRequest)
+			_, _ = io.WriteString(w, `{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","type":"invalid_request_error","param":"temperature","code":"unsupported_parameter"}}`)
+			return
+		}
+		_, _ = io.WriteString(w, `{"id":"resp_3","object":"response","status":"completed","output":[{"type":"message","role":"assistant","content":[{"type":"output_text","text":"Paris"}]}],"usage":{"input_tokens":1,"output_tokens":1}}`)
+	}))
+	defer upstream.Close()
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	body := `{"model":"gpt-5.5-pro-2026-04-23","temperature":0.2,"messages":[{"role":"user","content":"capital of France?"}]}`
+	st := &requestState{bodyBytes: []byte(body), failoverTimeout: 5 * time.Second}
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	refusal := `{"error":{"message":"This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?","type":"invalid_request_error","param":"model","code":null}}`
+	first := &http.Response{StatusCode: 404, Body: io.NopCloser(strings.NewReader(refusal))}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	res, handled := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/chat/completions", first, 0, &dialMs, func() {}, "")
+	if !handled || !res.retried || res.cont {
+		t.Fatalf("handled=%v retried=%v cont=%v err=%+v, want the request re-issued", handled, res.retried, res.cont, res.lastReqErr)
+	}
+	t.Cleanup(func() {
+		_ = res.resp.Body.Close()
+		if res.retryCancel != nil {
+			res.retryCancel()
+		}
+	})
+	if len(bodies) != 2 {
+		t.Fatalf("upstream saw %d requests, want the reroute and its param retry: %v", len(bodies), bodies)
+	}
+	if !strings.HasPrefix(bodies[0], "/v1/responses ") || !strings.Contains(bodies[0], `"temperature"`) {
+		t.Fatalf("first re-issue = %s, want the Responses dialect still carrying temperature", bodies[0])
+	}
+	if !strings.HasPrefix(bodies[1], "/v1/responses ") || strings.Contains(bodies[1], `"temperature"`) || !strings.Contains(bodies[1], `"input"`) {
+		t.Fatalf("param retry = %s, want the Responses dialect without temperature", bodies[1])
+	}
+	if res.resp.StatusCode != http.StatusOK {
+		t.Fatalf("result status = %d, want the 200 the param retry earned", res.resp.StatusCode)
+	}
+	if !st.responsesAttempt {
+		t.Fatal("responsesAttempt not set: the dispatch would not translate the answer back")
+	}
+	key := paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)
+	if cached, ok := h.deprecationCache.Load(key); !ok || !(*cached.(*map[string]bool))["temperature"] {
+		t.Fatalf("temperature was not learned under %s", key)
+	}
+	if v, ok := h.responsesRequiredCache.Load("openai:gpt-5.5-pro-2026-04-23"); !ok || v != responsesAlways {
+		t.Fatalf("learned %v, want the always requirement", v)
+	}
+}
+
+// A rerouted request whose Responses 400 names nothing the learner reads is
+// handed back as it arrived, the reroute's 400 and not the original 404, so
+// the client sees the refusal the model actually gave.
+func TestRetryLearnable400_RerouteRefusalUnlearnableIsForwarded(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"message":"Your input exceeds the context window of this model.","type":"invalid_request_error"}}`)
+	}))
+	defer upstream.Close()
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	st := &requestState{bodyBytes: []byte(plainChatBody), failoverTimeout: 5 * time.Second}
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	refusal := `{"error":{"message":"This is not a chat model and thus not supported in the v1/chat/completions endpoint. Did you mean to use v1/completions?","type":"invalid_request_error","param":"model","code":null}}`
+	first := &http.Response{StatusCode: 404, Body: io.NopCloser(strings.NewReader(refusal))}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	res, handled := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/chat/completions", first, 0, &dialMs, func() {}, "")
+	if !handled || res.cont {
+		t.Fatalf("handled=%v cont=%v, want the reroute's answer handed back", handled, res.cont)
+	}
+	if res.resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("status = %d, want the reroute's 400", res.resp.StatusCode)
+	}
+	got, _ := io.ReadAll(res.resp.Body)
+	_ = res.resp.Body.Close()
+	if !strings.Contains(string(got), "context window") {
+		t.Fatalf("body = %s, want the reroute's own refusal readable for the client", got)
+	}
+	if res.retryCancel != nil {
+		res.retryCancel()
+	}
+}

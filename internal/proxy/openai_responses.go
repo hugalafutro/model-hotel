@@ -163,7 +163,7 @@ func (h *Handler) retryWithResponses(
 	}
 	failoverCancel() // 400 body fully consumed, original context no longer needed
 
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/responses")
+	targetURL := responsesTargetURL(candidate, providerType)
 	rebuilt, err := h.translateResponsesRequestBody(st, candidate, providerType)
 	if err != nil {
 		res.lastReqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
@@ -214,6 +214,12 @@ func (h *Handler) retryWithResponses(
 	debuglog.Info("proxy: responses api retry succeeded", "model", candidate.model.ModelID, "status", retryResp.StatusCode)
 	metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "learned")
 	return res, true
+}
+
+// responsesTargetURL is the provider's /v1/responses route, shared by the
+// reroute and the param retry that may follow it on the same attempt.
+func responsesTargetURL(candidate modelCandidate, providerType string) string {
+	return util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/responses")
 }
 
 // learnResponsesRequirement inspects a chat-completions 400 error body and,
