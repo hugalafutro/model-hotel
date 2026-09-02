@@ -264,8 +264,12 @@ func (h *Handler) issueParamRetry(
 func (h *Handler) rebuildForParamRetry(st *requestState, candidate modelCandidate, providerType string, strip map[string]bool) ([]byte, error) {
 	if st.responsesAttempt {
 		cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
+		body, err := openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
+		if err != nil {
+			return nil, err
+		}
 		metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "param_retry")
-		return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
+		return body, nil
 	}
 	return paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate)), nil
 }
@@ -340,9 +344,11 @@ func (h *Handler) retryWithStrippedParams(
 	// learning half for one 400 body and reports whether that body named anything
 	// the request does not already carry — i.e. whether re-issuing could help.
 	learnFrom := func(errBody []byte) bool {
-		rejected := paramrewrite.ParseProviderParamError(errBody)
+		var rejected map[string]bool
 		if st.responsesAttempt {
 			rejected = responsesRejectedParams(errBody)
+		} else {
+			rejected = paramrewrite.ParseProviderParamError(errBody)
 		}
 		renames := paramrewrite.ParseProviderParamRename(errBody)
 		if rejected == nil && renames == nil {

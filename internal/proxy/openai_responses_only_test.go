@@ -229,6 +229,32 @@ func TestProbeStreamingCandidate_LearnsResponsesParamRefusal(t *testing.T) {
 	}
 }
 
+// A Responses attempt's 400 naming "reasoning" teaches nothing and issues no
+// retry: the Responses body regenerates that field on every request, and a
+// strip learned from it would delete the caller's object on the compat path.
+func TestRetryLearnable400_ResponsesReasoningRefusalTeachesNothing(t *testing.T) {
+	var posts int
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		posts++
+		http.Error(w, "unexpected", http.StatusInternalServerError)
+	}))
+	defer upstream.Close()
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	st := &requestState{bodyBytes: []byte(`{"model":"gpt-5.5-pro-2026-04-23","reasoning_effort":"high","reasoning":{"effort":"high"},"messages":[{"role":"user","content":"hi"}]}`), failoverTimeout: 5 * time.Second, responsesAttempt: true}
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-2026-04-23"
+	refusal := &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Unsupported parameter: 'reasoning' is not supported with this model.","type":"invalid_request_error","param":"reasoning","code":"unsupported_parameter"}}`))}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	res, handled := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/responses", refusal, 0, &dialMs, func() {}, "")
+	if !handled || res.retried || posts != 0 {
+		t.Fatalf("handled=%v retried=%v posts=%d, want handled with no retry", handled, res.retried, posts)
+	}
+	if _, ok := h.deprecationCache.Load(paramrewrite.LearnedCacheKey(cand.provider.ID.String(), cand.model.ModelID)); ok {
+		t.Fatal("a Responses 400 naming reasoning taught a strip on the sequential path")
+	}
+}
+
 // The Responses retry body cannot be built from a chat body the translator
 // rejects; that is this gateway's own failure, reported as such.
 func TestIssueParamRetry_ResponsesRebuildFailureIsInternal(t *testing.T) {
