@@ -96,7 +96,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// refusal ("not a chat model") is a 404, so a chat-completions 404 from an
 	// OpenAI provider takes the same path; one nothing can learn from is left
 	// as it arrived just the same.
-	if resp.StatusCode == 400 || (resp.StatusCode == 404 && providerType == "openai" && st.sentChatCompletionsBody()) {
+	if isLearnableRefusal(resp.StatusCode, providerType, st) {
 		res, handled := h.retryLearnable400(r, st, candidate, providerType, targetURL, resp, attempt, &dialMs, failoverCancel, streamCancelOrigin)
 		if handled {
 			resp = res.resp
@@ -775,4 +775,14 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	// Log upstream response metadata for debugging.
 	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
 	return resp, true
+}
+
+// isLearnableRefusal reports an upstream status the attempt loop hands to
+// retryLearnable400: every 400, and a chat-completions 404 from an OpenAI
+// provider, which is how OpenAI refuses a Responses-only model.
+func isLearnableRefusal(status int, providerType string, st *requestState) bool {
+	if status == 400 {
+		return true
+	}
+	return status == 404 && providerType == "openai" && st.sentChatCompletionsBody()
 }

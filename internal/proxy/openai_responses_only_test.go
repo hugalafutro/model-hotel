@@ -71,3 +71,25 @@ func TestRetryWithResponses_ResponsesOnly404(t *testing.T) {
 		res.retryCancel()
 	}
 }
+
+// The attempt loop hands a chat-completions 404 from an OpenAI provider to
+// the learnable-refusal path, and nothing else that is not a 400.
+func TestIsLearnableRefusal(t *testing.T) {
+	chat := &requestState{bodyBytes: []byte(plainChatBody)}
+	for _, tc := range []struct {
+		status   int
+		provider string
+		st       *requestState
+		want     bool
+	}{
+		{400, "anthropic", chat, true},
+		{404, "openai", chat, true},
+		{404, "custom", chat, false},
+		{404, "openai", &requestState{endpointPath: "/embeddings"}, false},
+		{500, "openai", chat, false},
+	} {
+		if got := isLearnableRefusal(tc.status, tc.provider, tc.st); got != tc.want {
+			t.Errorf("isLearnableRefusal(%d, %q) = %v, want %v", tc.status, tc.provider, got, tc.want)
+		}
+	}
+}
