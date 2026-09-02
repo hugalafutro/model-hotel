@@ -41,6 +41,9 @@ type genRespPart struct {
 	Text         string           `json:"text"`
 	Thought      bool             `json:"thought"`
 	FunctionCall *genRespFuncCall `json:"functionCall"`
+	// ThoughtSignature signs a functionCall part; the follow-up turn must
+	// carry it back, so it goes out on the tool call as extra_content.
+	ThoughtSignature string `json:"thoughtSignature"`
 	// InlineData carries a generated image (an image model answering a
 	// request whose response modalities named IMAGE): base64 bytes and
 	// their mime type.
@@ -116,6 +119,7 @@ type oaiToolCallOut struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
+	ExtraContent *oaiExtraContent `json:"extra_content,omitempty"`
 }
 
 type oaiUsage struct {
@@ -208,8 +212,9 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 				args = "{}"
 			}
 			tc := oaiToolCallOut{
-				ID:   fmt.Sprintf("call_%s_%d", id, len(toolCalls)),
-				Type: "function",
+				ID:           fmt.Sprintf("call_%s_%d", id, len(toolCalls)),
+				Type:         "function",
+				ExtraContent: extraContentFor(p.ThoughtSignature),
 			}
 			tc.Function.Name = p.FunctionCall.Name
 			tc.Function.Arguments = args

@@ -74,6 +74,7 @@ type oaiChunkToolCallOut struct {
 		Name      string `json:"name"`
 		Arguments string `json:"arguments"`
 	} `json:"function"`
+	ExtraContent *oaiExtraContent `json:"extra_content,omitempty"`
 }
 
 // writeChunk appends one framed SSE chunk ("data: <json>\n\n").
@@ -144,9 +145,10 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 				args = "{}"
 			}
 			tc := oaiChunkToolCallOut{
-				Index: t.toolCalls,
-				ID:    fmt.Sprintf("call_%s_%d", t.id, t.toolCalls),
-				Type:  "function",
+				Index:        t.toolCalls,
+				ID:           fmt.Sprintf("call_%s_%d", t.id, t.toolCalls),
+				Type:         "function",
+				ExtraContent: extraContentFor(p.ThoughtSignature),
 			}
 			tc.Function.Name = p.FunctionCall.Name
 			tc.Function.Arguments = args
