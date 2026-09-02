@@ -55,17 +55,25 @@ type StreamAdapter struct {
 	readBuf  []byte
 	srcErr   error
 	transErr error // first translation failure; poisons the stream
+	eventCap int   // largest SSE event this adapter buffers; MaxSSEEventBytes unless the dialect says otherwise
 }
 
 // NewStreamAdapter builds an adapter for one streaming response. component is
 // the log prefix ("gemini", "anthropicegress"); tr is that dialect's stream
 // translator, already primed with the chunk id and model to echo.
 func NewStreamAdapter(component string, upstream io.ReadCloser, tr Translator) *StreamAdapter {
+	return NewStreamAdapterWithCap(component, upstream, tr, MaxSSEEventBytes)
+}
+
+// NewStreamAdapterWithCap is NewStreamAdapter with the dialect's own event
+// cap, for one whose single event legitimately outgrows MaxSSEEventBytes.
+func NewStreamAdapterWithCap(component string, upstream io.ReadCloser, tr Translator, eventCap int) *StreamAdapter {
 	return &StreamAdapter{
 		component: component,
 		upstream:  upstream,
 		tr:        tr,
 		readBuf:   make([]byte, 32*1024),
+		eventCap:  eventCap,
 	}
 }
 
@@ -165,12 +173,12 @@ func (a *StreamAdapter) consume(p []byte) {
 // of the line still being read, counted with the fields already joined so that
 // a folded event cannot carry more than a single line could.
 func (a *StreamAdapter) withinEventCap(partialLine int) bool {
-	if len(a.eventBuf)+partialLine <= MaxSSEEventBytes {
+	if len(a.eventBuf)+partialLine <= a.eventCap {
 		return true
 	}
 	a.lineBuf, a.eventBuf = nil, nil
-	a.transErr = fmt.Errorf("%s: upstream SSE event exceeds %d bytes", a.component, MaxSSEEventBytes)
-	debuglog.Warn(a.component+": stream event exceeds buffer cap", "limit", MaxSSEEventBytes)
+	a.transErr = fmt.Errorf("%s: upstream SSE event exceeds %d bytes", a.component, a.eventCap)
+	debuglog.Warn(a.component+": stream event exceeds buffer cap", "limit", a.eventCap)
 	return false
 }
 

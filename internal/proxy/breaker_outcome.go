@@ -285,10 +285,10 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, stat
 // logData has not been stamped with it at this point.
 func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, status int, err error, attempt int, r *http.Request) candidateOutcome {
 	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter, "error", err, "model", logData.modelID, "provider", logData.providerName)
-	// Both translators read the body with an unbounded ReadAll under the
-	// attempt's context, so an interrupted request arrives here as a translation
-	// failure — a caller hanging up or this gateway's own request_timeout, and
-	// neither is the provider's doing.
+	// The translators read the body under the attempt's context, so an
+	// interrupted request arrives here as a translation failure — a caller
+	// hanging up or this gateway's own request_timeout, and neither is the
+	// provider's doing.
 	if _, aborted := cancelKind(r.Context(), err); !aborted && translationIsProviderFault(err) {
 		h.chargeBreaker(st, candidate, status, "upstream body could not be translated")
 	}
@@ -307,7 +307,7 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 // Charging for it took a healthy provider out of rotation for every tenant after
 // five blocked prompts, which is exactly what a client retries.
 func translationIsProviderFault(err error) bool {
-	return !errors.Is(err, gemini.ErrPromptBlocked)
+	return !errors.Is(err, gemini.ErrPromptBlocked) && !errors.Is(err, errEgressBodyOversized)
 }
 
 // answerCarriesSomething reports whether a completion carries anything at all

@@ -295,6 +295,7 @@ func TestClassifyUpstreamError_OperationRefusalsAreNotDeadModels(t *testing.T) {
 		body string
 	}{
 		{"operation", `{"error":{"message":"Model gpt-5.6-sol is not supported for this operation"}}`},
+		{"response modalities", `{"error":{"message":"Model gemini-3.6-flash is not supported for the requested response modalities."}}`},
 		{"endpoint", `{"error":{"message":"Model claude-opus-5 is not supported for this endpoint"}}`},
 		{"method", `{"error":{"message":"Model gemini-3.6-flash is not supported for this method"}}`},
 		{"api route", `{"error":{"message":"Model glm-5.2 is not supported on this route"}}`},
