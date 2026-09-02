@@ -244,6 +244,34 @@ func TestFleetStatusMemberRejectsToken(t *testing.T) {
 	}
 }
 
+// A member refusing the dry run with a reason carries that reason into the
+// readiness note, as the real push does.
+func TestFleetStatusMemberRefusalCarriesTheReason(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubConfigMember(t, "ptoken")
+	rejecting := newStubConfigMember(t, "rtoken")
+	rejecting.importCode = http.StatusBadRequest
+	rejecting.importBody = "configsync: refusing to import an empty config\n"
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "rejecting", rejecting.srv.URL, "rtoken")
+
+	resp := fleetStatusByID(t, srv, pm.ID)
+	for _, it := range resp.Members {
+		if it.MemberID != rm.ID {
+			continue
+		}
+		if it.Reachable {
+			t.Errorf("refusing member reported reachable: %+v", it)
+		}
+		if want := "this member rejected the config request (HTTP 400): configsync: refusing to import an empty config"; it.Note != want {
+			t.Errorf("note = %q, want %q", it.Note, want)
+		}
+		return
+	}
+	t.Fatal("rejecting member missing from the status")
+}
+
 // TestFleetStatusKeylessFleet: when the primary has no provider keys there is
 // nothing to verify, so MASTER_KEY is reported as nil (not a false alarm).
 func TestFleetStatusKeylessFleet(t *testing.T) {

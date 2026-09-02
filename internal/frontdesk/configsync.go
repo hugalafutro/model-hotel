@@ -10,8 +10,10 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // This file implements the Front Desk side of HA fleet config sync. It
@@ -235,8 +237,14 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		res.Error = "could not reach this member"
 	case err != nil:
 		// The member answered, just with a status we cannot apply: surface it so a
-		// wrong stored token or a member-side error is not mislabeled "offline".
+		// wrong stored token or a member-side error is not mislabeled "offline",
+		// and with the member's own reason when it gave one, so a refused
+		// envelope names the field here rather than only in the member's log.
 		res.Error = fmt.Sprintf("this member rejected the request (HTTP %d)", status)
+		var refusal *memberRefusal
+		if errors.As(err, &refusal) && refusal.reason != "" {
+			res.Error = fmt.Sprintf("this member rejected the request (HTTP %d): %s", status, refusal.reason)
+		}
 		if lostAnswer5xx(status, time.Since(pushStart)) {
 			// This 5xx is not proof the import failed: a reverse proxy between Front
 			// Desk and the member answers 502/504 when the import outlives its own
@@ -512,6 +520,82 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 		}
 		return res, status, nil
 	default:
-		return memberImportResult{}, status, fmt.Errorf("member config-import returned %d", status)
+		return memberImportResult{}, status, &memberRefusal{status: status, reason: refusalReason(body)}
 	}
+}
+
+// memberRefusal is a member answering the import with a status Front Desk
+// cannot apply, carrying whatever reason the member gave. A member refuses
+// an envelope it will not write (a provider field its own admin API would
+// reject, a wrong token) with a 400 whose body names the field; without the
+// body the operator driving the fleet saw only the status, and the reason
+// lived in the member's own log.
+type memberRefusal struct {
+	status int
+	reason string
+}
+
+func (e *memberRefusal) Error() string {
+	if e.reason == "" {
+		return fmt.Sprintf("member config-import returned %d", e.status)
+	}
+	return fmt.Sprintf("member config-import returned %d: %s", e.status, e.reason)
+}
+
+// maxRefusalReasonRunes bounds the member's reason as shown to the operator,
+// in runes: a refusal names one field and one value, and a body past this is
+// not a reason but a page. The member's own log carries the full text.
+const maxRefusalReasonRunes = 240
+
+// refusalReason extracts the operator-readable reason from a member's
+// refusal body: the "error" member of a JSON body (the member's coded
+// errors), else the first line of a plain-text one (http.Error). An HTML
+// page (a reverse proxy's or the SPA's 404) carries no reason.
+//
+// The text is member-authored and reaches the dashboard, the event log, a
+// paired monitor device and the alert push, so it is reduced to one line
+// (Unicode line separators included), stripped of control and format
+// characters (bidi overrides, zero-width joiners), stripped of any userinfo
+// in a URL it quotes (a refused setting or base_url is echoed raw by
+// url.Parse, password included), key-shape masked, and bounded in runes.
+// The exact credential layer runs too but has nothing to match here: Front
+// Desk decrypts no provider key, so its held set is empty; the shape layer
+// is what does the work in this process.
+func refusalReason(body []byte) string {
+	text := strings.TrimSpace(string(body))
+	if text == "" || strings.HasPrefix(text, "<") {
+		return ""
+	}
+	if text[0] == '{' {
+		var coded struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(body, &coded) != nil || coded.Error == "" {
+			return ""
+		}
+		text = coded.Error
+	}
+	if i := strings.IndexFunc(text, isLineBreak); i >= 0 {
+		text = text[:i]
+	}
+	text = strings.Map(func(r rune) rune {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
+			return -1
+		}
+		return r
+	}, text)
+	text = urlUserinfoRE.ReplaceAllString(text, "$1")
+	// The byte bound here is generous on purpose (four bytes per rune is the
+	// UTF-8 maximum): the rune bound below is the one the operator sees.
+	text = strings.TrimSpace(util.MaskCredentialsBounded(nil, text, 4*maxRefusalReasonRunes))
+	if runes := []rune(text); len(runes) > maxRefusalReasonRunes {
+		text = strings.TrimSpace(string(runes[:maxRefusalReasonRunes])) + "…"
+	}
+	return text
+}
+
+// isLineBreak is every rune a terminal or a browser treats as a line break:
+// CR, LF, NEL and the Unicode line and paragraph separators.
+func isLineBreak(r rune) bool {
+	return r == '\r' || r == '\n' || r == 0x85 || r == 0x2028 || r == 0x2029
 }
