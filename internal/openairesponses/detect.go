@@ -42,3 +42,57 @@ func NeedsResponsesRouting(chatBody []byte) bool {
 	}
 	return len(probe.Tools) > 0 && probe.ReasoningEffort != "none"
 }
+
+// IsResponsesOnlyRejection reports the chat-completions refusal OpenAI
+// answers for a model that is served by the Responses API alone (the pro
+// tier: o1-pro, o3-pro, gpt-5-pro and its point releases). The message
+// misdirects, pointing at the legacy /v1/completions, and arrives as a 404
+// rather than a 400; unlike the tools+reasoning rejection it applies to
+// every request for the model, tools or not.
+func IsResponsesOnlyRejection(errBody []byte) bool {
+	var envelope struct {
+		Error struct {
+			Message string `json:"message"`
+		} `json:"error"`
+	}
+	if json.Unmarshal(errBody, &envelope) != nil || envelope.Error.Message == "" {
+		return false
+	}
+	m := strings.ToLower(envelope.Error.Message)
+	return strings.Contains(m, "not a chat model") && strings.Contains(m, "chat/completions")
+}
+
+// ResponsesOnlyModel reports an OpenAI model id known to be served by the
+// Responses API alone, so the first request routes there rather than paying
+// a 404 to learn it: the pro tier, by name. The caller limits it to OpenAI's
+// own host; a relay re-exposing these names over chat-completions must not
+// be sent to a /v1/responses it may not have.
+func ResponsesOnlyModel(modelID string) bool {
+	id := strings.ToLower(modelID)
+	for _, family := range []string{"o1", "o3"} {
+		if rest, ok := strings.CutPrefix(id, family); ok {
+			return proTierSuffix(rest)
+		}
+	}
+	rest, ok := strings.CutPrefix(id, "gpt-5")
+	if !ok {
+		return false
+	}
+	// gpt-5-pro, gpt-5.5-pro, gpt-5.5-pro-2026-04-23; not gpt-5-mini or a
+	// hypothetical gpt-5-prose.
+	for rest != "" && (rest[0] == '.' || rest[0] >= '0' && rest[0] <= '9') {
+		rest = rest[1:]
+	}
+	return proTierSuffix(rest)
+}
+
+// proTierSuffix reports the "-pro" that names the tier: alone, or followed
+// by a version or date stamp. "-professional", "-pro-mini" and
+// "-pro-chat-latest" are other models.
+func proTierSuffix(rest string) bool {
+	if rest == "-pro" {
+		return true
+	}
+	after, ok := strings.CutPrefix(rest, "-pro-")
+	return ok && after != "" && after[0] >= '0' && after[0] <= '9'
+}

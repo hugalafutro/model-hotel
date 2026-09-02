@@ -480,7 +480,10 @@ this transparently: the first such request gets the upstream 400, is retried aga
 `/v1/responses` on the spot, and the requirement is remembered per model so every later
 tools+reasoning request routes there directly. Clients keep speaking plain Chat Completions in
 both directions (streaming included); reasoning summaries come back as `reasoning_content`, and
-the gateway always sends `store: false` so OpenAI keeps no conversation state.
+the gateway always sends `store: false` so OpenAI keeps no conversation state. The pro tier
+(`o1-pro`, `o3-pro`, `gpt-5.x-pro`), which OpenAI serves over the Responses API alone, routes
+there from the first request on `api.openai.com`, and any other model that refuses the chat
+endpoint with OpenAI's "not a chat model" 404 is learned and re-routed the same way.
 
 ### Metrics & log shipping
 

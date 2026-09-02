@@ -390,7 +390,7 @@ Failover triggers on:
 | **Any 5xx status** (status >= 500) | Always triggers failover | Server errors indicate upstream problems |
 | **HTTP 429** (rate limit) | Triggers failover **if** `failover_on_rate_limit=true` (default) | Configurable via settings |
 | **HTTP 401 / 403** (auth errors) | Always triggers failover | Stale or rotated API keys |
-| **HTTP 404** (model not found at provider) | Always triggers failover | Stale DB entry, overloaded provider returning not_found |
+| **HTTP 404** (model not found at provider) | Always triggers failover, with one exception | Stale DB entry, overloaded provider returning not_found. The exception is OpenAI's own host refusing a Chat Completions request because the model is served by `/v1/responses` alone (the pro tier): that 404 is learned, the request is re-issued against `/v1/responses` on the spot, and every later request to the model routes there directly. See [API Reference](API-Reference#post-v1chatcompletions). |
 | **Timeouts** | Always triggers failover | Network timeout, connection refused, DNS failure |
 
 Failover does **not** trigger on:
