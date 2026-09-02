@@ -187,9 +187,12 @@ func TestSetTxThenInvalidateSeesThroughACachedAbsence(t *testing.T) {
 	}
 }
 
+// The one time-driven TTL test left in the package (TestCacheTTL forces its
+// expiry), so the budget for the queries before the "still cached" read is
+// generous: 250ms lost that race under the race detector's slowdown.
 func TestACachedAbsenceExpiresWithTheTTL(t *testing.T) {
 	r := NewRepository(testPool)
-	r.cacheTTL = 250 * time.Millisecond
+	r.cacheTTL = 2 * time.Second
 	ctx := context.Background()
 	clearSettings(t)
 	key := "absent_ttl_key"

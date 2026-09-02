@@ -502,6 +502,8 @@ func TestCacheTTL(t *testing.T) {
 	}
 
 	// Expire the entry in place: the same state the TTL elapsing leaves.
+	// cacheGen is left alone on purpose: expiry is not eviction, and only
+	// evictLocked bumps the generation.
 	r.mu.Lock()
 	entry, ok := r.cache[key]
 	if !ok {
