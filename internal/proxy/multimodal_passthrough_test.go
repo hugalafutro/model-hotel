@@ -1740,7 +1740,17 @@ func TestImageGenerations_XAISizeBecomesAspectRatio(t *testing.T) {
 	} {
 		t.Run(tc.providerType, func(t *testing.T) {
 			env := newMultimodalEnvTyped(t, upstream, `["image"]`, tc.providerType, "")
-			body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","size":"1792x1024"}`, env.providerName, env.modelName)
+			// The ratio is put on the grok-imagine family only, so the model
+			// under test carries that name on both providers.
+			const modelID = "grok-imagine-image"
+			if err := model.NewRepository(testDB.Pool()).Upsert(context.Background(), &model.Model{
+				ID: uuid.New(), ProviderID: env.providerID, ModelID: modelID, Name: modelID,
+				Capabilities: "{}", Params: "{}", InputModalities: "[]", OutputModalities: `["image"]`,
+				Enabled: true, ProviderName: env.providerName, ProviderEnabled: true,
+			}); err != nil {
+				t.Fatalf("create model: %v", err)
+			}
+			body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","size":"1792x1024"}`, env.providerName, modelID)
 			req := env.request("/v1/images/generations", "application/json", strings.NewReader(body))
 			w := httptest.NewRecorder()
 			env.handler.ImageGenerations(w, req)
