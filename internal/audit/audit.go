@@ -155,11 +155,10 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 				entityID = entityParam(rctx)
 			}
 		}
-		// Fleet heartbeat announces are machine-to-machine liveness pings, not
-		// human admin actions. Front Desk POSTs one to every member ~every 2.5s;
-		// auditing them adds ~24 rows/min/member that bury real mutations (a live
-		// instance was 99.99% announce rows). They carry no entity and no state
-		// change worth an audit trail, so skip them.
+		// Two kinds of non-GET call are not admin actions and are skipped: the
+		// fleet heartbeat, a machine-to-machine liveness ping, and a read-only
+		// POST that answers a question without changing anything (see
+		// isAuditExempt for both).
 		if isAuditExempt(route) {
 			return
 		}
@@ -227,12 +226,13 @@ func entityParam(rctx *chi.Context) string {
 //   - read-only POSTs, endpoints that answer a question without changing
 //     anything and are POST only because their input is a body. The backup
 //     prune preview classifies the backups on disk and writes nothing; the
-//     dashboard re-reads it on every backup change and every window focus, and
-//     recording each read as an admin action buried the real mutations under
-//     bursts of identical rows seconds apart.
+//     dashboard re-read it on every backup change, and recording each read as
+//     an admin action buried the real mutations under bursts of identical
+//     rows seconds apart.
 //
-// The trail is a record of state changes, so a route belongs here exactly when
-// a successful call leaves the system as it found it.
+// The trail is a record of admin actions: a route belongs here when no
+// operator chose to call it (the heartbeat, which does write its liveness
+// stamps) or when a successful call leaves the system as it found it.
 func isAuditExempt(route string) bool {
 	switch route {
 	case "/api/fleet/announce", "/api/backups/prune-preview":

@@ -61,24 +61,34 @@ export function DatabaseBackupSettings({
 		queryFn: () => api.backups.list(),
 	});
 
+	const { data: settings } = useQuery({
+		queryKey: ["settings"],
+		queryFn: () => api.settings.get(),
+	});
+
 	// GFS bucket per backup, so each row can carry a Grandfather/Father/Son tag.
 	// Sourced from the prune-preview classifier (it groups every backup by age
 	// against the configured retention), so the labels track the same rotation
 	// the sliders above configure.
-	// Its own key, outside the "backups" prefix, and no refetch on focus: the
-	// preview is a POST the server treats as a read, and re-running it on every
-	// backups invalidation and every tab switch re-classified an unchanged list.
-	// It re-runs when the set of backups on disk changes (the key carries the
-	// filenames), which is the only time the classification can differ.
+	// Its own key, outside the "backups" prefix: the preview is a POST the
+	// server treats as a read, and re-running it on every backups invalidation
+	// (create, delete, prune, restore) re-classified an unchanged list. It
+	// re-runs when the classification can differ: the set of backups on disk
+	// or the retention the classifier applies changes, both carried in the key.
 	const backupNames = useMemo(
 		() => (backups ?? []).map((b) => b.filename).sort(),
 		[backups],
 	);
 	const { data: classification } = useQuery({
-		queryKey: ["backup-classification", backupNames],
+		queryKey: [
+			"backup-classification",
+			backupNames,
+			settings?.backup_son_retention,
+			settings?.backup_father_retention,
+			settings?.backup_grandfather_retention,
+		],
 		queryFn: () => api.backups.prunePreview(),
 		enabled: backupNames.length > 0,
-		refetchOnWindowFocus: false,
 		staleTime: Number.POSITIVE_INFINITY,
 	});
 
@@ -119,11 +129,6 @@ export function DatabaseBackupSettings({
 	});
 
 	// Settings for periodic backup
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
-
 	const settingsUpdateMutation = useMutation({
 		mutationFn: (updates: Record<string, string>) =>
 			api.settings.update(updates),

@@ -1926,7 +1926,9 @@ describe("prune preview is read once per backup set", () => {
 				});
 			}),
 		);
-		const { user } = renderWithProviders(<DatabaseBackupSettings />);
+		const { user } = renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={vi.fn()} />,
+		);
 		await waitFor(() => expect(previews).toBe(1));
 		const listed = lists;
 		// Creating a backup invalidates the backups list; the list comes back
@@ -1935,5 +1937,63 @@ describe("prune preview is read once per backup set", () => {
 		await waitFor(() => expect(lists).toBeGreaterThan(listed));
 		await new Promise((r) => setTimeout(r, 50));
 		expect(previews).toBe(1);
+	});
+
+	it("re-classifies when the retention the classifier applies changes", async () => {
+		let previews = 0;
+		let sonRetention = "14";
+		const scheduled = {
+			filename: "backup_20260116_103000_0010_auto.dump",
+			size_bytes: 2048,
+			created_at: "2026-01-16T10:30:00Z",
+			origin: "scheduled",
+		};
+		server.use(
+			http.get("/api/backups", () => HttpResponse.json([scheduled])),
+			http.get("/api/settings", () =>
+				HttpResponse.json({
+					backup_enabled: "true",
+					backup_interval: "24h",
+					backup_son_retention: sonRetention,
+					backup_father_retention: "4",
+					backup_grandfather_retention: "3",
+				}),
+			),
+			http.put("/api/settings", async ({ request }) => {
+				const body = (await request.json()) as Record<string, string>;
+				sonRetention = body.backup_son_retention ?? sonRetention;
+				return HttpResponse.json({});
+			}),
+			http.post("/api/backups/prune-preview", () => {
+				previews++;
+				return HttpResponse.json({
+					son: [scheduled],
+					father: [],
+					grandfather: [],
+					prune: [],
+				});
+			}),
+		);
+		const { user, container } = renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={vi.fn()} />,
+		);
+		await waitFor(() => expect(previews).toBe(1));
+		await waitFor(() =>
+			expect(container.querySelector("#backup-son-retention")).toBeTruthy(),
+		);
+		const sonRow = container
+			.querySelector("#backup-son-retention")
+			?.closest("div");
+		const resetBtn = sonRow?.querySelector(
+			'button[aria-label="Reset to default"]',
+		);
+		expect(resetBtn).toBeTruthy();
+		// Resetting the son window saves it; the settings refetch carries the
+		// new retention, which the classification key does too, so the buckets
+		// are asked for again, and only then.
+		await user.click(resetBtn as HTMLElement);
+		await waitFor(() => expect(previews).toBe(2));
+		await new Promise((r) => setTimeout(r, 50));
+		expect(previews).toBe(2);
 	});
 });

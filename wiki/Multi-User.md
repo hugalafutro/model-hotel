@@ -78,7 +78,7 @@ The account bucket covers **every** surface the account can send from, not only 
 
 ## Audit trail
 
-Every mutating dashboard action (POST, PUT, PATCH, DELETE on the authenticated `/api/*` surface) by any signed-in account, admin or user, is recorded in an audit trail. Viewing the trail is admin-only.
+Every mutating dashboard action (POST, PUT, PATCH, DELETE on the authenticated `/api/*` surface) by any signed-in account, admin or user, is recorded in an audit trail. Two kinds of call are left out because they are not admin actions: the fleet heartbeat Front Desk sends every member, and a read-only POST that answers a question without changing anything (the backup prune preview). Viewing the trail is admin-only.
 
 <p align="center">
 <a href="screenshots/audit.png"><img src="screenshots/audit.png" alt="Audit page with the detail modal open" width="760"></a><br>
