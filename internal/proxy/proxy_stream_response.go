@@ -48,7 +48,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	// the transforms/observers and the finalizer share one named contract
 	// instead of a fistful of loop-locals. The stall flag and final chunkCount
 	// are filled from the reader at logUpdate.
-	st := &streamState{masker: opts.masker}
+	st := &streamState{masker: opts.masker, content: logData.content}
 	// Periodic streaming progress logging (every 50 chunks) to give
 	// visibility into stream health without flooding logs.
 	const chunkLogInterval = 50

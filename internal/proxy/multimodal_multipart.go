@@ -147,6 +147,19 @@ var multipartPromptFields = map[string]bool{"prompt": true}
 // so sizing it would invent a colossal charge. That is the same rule
 // promptTextBytes applies to image_url parts and passthroughPromptTextBytes
 // applies to an upload.
+// multipartTextFields returns the text a multipart request carries in its
+// non-file fields, for the content fence: the prompt of an image request and
+// whatever else the client typed; the upload itself is not text.
+func multipartTextFields(parts []multipartPart) []string {
+	var out []string
+	for _, p := range parts {
+		if p.fileName == "" && len(p.data) > 0 {
+			out = append(out, string(p.data))
+		}
+	}
+	return out
+}
+
 func multipartPromptTextBytes(parts []multipartPart) int {
 	n := 0
 	for _, p := range parts {
@@ -231,6 +244,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	// request, so the metering estimate downstream silently charges nothing --
 	// the same no-op that the chat-only sizer produced for the JSON families.
 	logData.promptTextBytes = multipartPromptTextBytes(parts)
+	logData.content = newContentFence(nil, multipartTextFields(parts)...)
 
 	return &requestState{
 		startTime: startTime,

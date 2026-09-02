@@ -104,7 +104,11 @@ type requestLogData struct {
 	// masker scrubs the attempt's provider credential from bodies bound for
 	// the client and from the error message stored on this row. Stamped with
 	// the provider identity for each attempt; zero value masks by shape only.
-	masker                    credentialMasker
+	masker credentialMasker
+	// content fences echoes of the request's own text out of the upstream
+	// error fragments this row stores (content_fence.go). Nil when the
+	// request carried nothing to fence.
+	content                   *contentFence
 	id                        string
 	providerID                uuid.UUID
 	providerName              string
