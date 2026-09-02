@@ -58,8 +58,10 @@ const (
 	// per request, per form (each of the four forms below has its own
 	// budget, so the form the trail's detail needs is never starved by the
 	// raw one). The ceiling is therefore four times this: on the largest
-	// request whose forms all differ, about 4 MiB of runes retained for the
-	// failure's lifetime and on the order of 100ms per fenced text. The walk
+	// request whose forms all differ, about four million windows hashed
+	// once (windowSet, tens of milliseconds) and then a few microseconds per
+	// fenced text, with the window set retained for the failure's lifetime.
+	// The walk
 	// visits the content-bearing members first (contentFirstKeys) and every
 	// map in sorted key order, so what the cap leaves out is deterministic
 	// and is the tail of the request.
@@ -107,7 +109,9 @@ type contentFence struct {
 	// built once on the first mask (windowSet) and reused by every later
 	// one: the streaming error attribute fences once per SSE error frame,
 	// and walking the content again for each was the cost that scaled with
-	// the prompt rather than with the frame.
+	// the prompt rather than with the frame. Once built, the content strings
+	// themselves are released; nothing on the request path reads them
+	// again.
 	winOnce sync.Once
 	windows []uint64
 }
@@ -122,6 +126,7 @@ func newContentFence(body []byte, extra ...string) *contentFence {
 }
 
 // strings returns the request's content strings in every indexed form.
+// Nil once windowSet has built the set and released them.
 func (f *contentFence) strings() [][]rune {
 	f.once.Do(f.parse)
 	return f.strs
@@ -258,10 +263,13 @@ func isBase64Rune(r rune) bool {
 
 // windowHash is an FNV-1a over the runes of one window, computed per
 // position without building a string. A hit is taken on the 64-bit hash
-// alone: the odds of two distinct 16-rune windows colliding are one in 2^64
-// per lookup, and a collision costs sixteen runes of provider text, not a
-// leak, so the verification a rune-by-rune compare would buy is not worth
-// keeping every content window in memory to perform it.
+// alone. Two distinct windows collide with probability 2^-64, so a lookup
+// against a set of N windows is wrong with probability N/2^64 (2^-42 at the
+// four-million-window ceiling), and a false hit costs a masked run of
+// provider text (sixteen runes, or more where it bridges two real masks),
+// never a leak: a genuine echo has the same hash by construction, so no
+// echo is ever missed. That is not worth keeping every content window in
+// memory for a rune-by-rune check.
 func windowHash(r []rune) uint64 {
 	h := uint64(14695981039346656037)
 	for _, c := range r {
@@ -273,31 +281,71 @@ func windowHash(r []rune) uint64 {
 
 // windowSet returns the sorted, deduplicated hashes of every window of the
 // request's content, built once. Eight bytes per window: a 10 KB prompt is
-// 80 KB, and the largest request the index budget admits is a few tens of
-// megabytes, held only for the failure's lifetime.
+// 80 KB, and the largest request the index budget admits is about 32 MB,
+// held only for the failure's lifetime; the content strings are released
+// once the set exists, so the fence holds less than it did when it kept
+// them to walk on every call. The sort is a radix sort: a comparison sort
+// of four million hashes cost more than the walk it replaced, so a
+// single-frame failure would have paid for the memo without using it.
 func (f *contentFence) windowSet() []uint64 {
 	f.winOnce.Do(func() {
+		strs := f.strings()
 		n := 0
-		for _, c := range f.strings() {
+		for _, c := range strs {
 			if len(c) >= contentEchoWindow {
 				n += len(c) - contentEchoWindow + 1
 			}
 		}
 		set := make([]uint64, 0, n)
-		for _, c := range f.strings() {
+		for _, c := range strs {
 			for i := 0; i+contentEchoWindow <= len(c); i++ {
 				set = append(set, windowHash(c[i:i+contentEchoWindow]))
 			}
 		}
-		sort.Slice(set, func(i, j int) bool { return set[i] < set[j] })
-		f.windows = slices.Compact(set)
+		radixSort(set)
+		set = slices.Compact(set)
+		f.windows = slices.Clip(set)
+		f.strs = nil
 	})
 	return f.windows
 }
 
-// hasWindow reports whether the content holds a window with this hash.
-func (f *contentFence) hasWindow(h uint64) bool {
-	set := f.windowSet()
+// radixSort sorts hashes in place with an LSD radix sort, eight passes of
+// eight bits, which is linear in the count where a comparison sort of the
+// same four million values is not: on the largest request the index admits
+// the sort is about 100ms, the hashing about 15ms, and the old per-call
+// walk this replaces was about 70ms, so the first fence of such a request
+// costs somewhat more than before and every later one costs microseconds.
+// The scratch buffer is transient.
+func radixSort(v []uint64) {
+	if len(v) < 2 {
+		return
+	}
+	buf := make([]uint64, len(v))
+	src, dst := v, buf
+	for shift := uint(0); shift < 64; shift += 8 {
+		var count [256]int
+		for _, x := range src {
+			count[(x>>shift)&0xff]++
+		}
+		pos := 0
+		for i := range count {
+			c := count[i]
+			count[i] = pos
+			pos += c
+		}
+		for _, x := range src {
+			d := (x >> shift) & 0xff
+			dst[count[d]] = x
+			count[d]++
+		}
+		src, dst = dst, src
+	}
+	// Eight passes end with the result back in v.
+}
+
+// hasWindow reports whether the sorted set holds a window with this hash.
+func hasWindow(set []uint64, h uint64) bool {
 	i := sort.Search(len(set), func(i int) bool { return set[i] >= h })
 	return i < len(set) && set[i] == h
 }
@@ -313,13 +361,17 @@ func (f *contentFence) mask(texts []string) []string {
 	runes := make([][]rune, len(texts))
 	marks := make([][]bool, len(texts))
 	hit := false
+	var set []uint64
 	for t, s := range texts {
 		if utf8.RuneCountInString(s) < contentEchoWindow {
 			continue
 		}
+		if set == nil {
+			set = f.windowSet()
+		}
 		runes[t] = []rune(s)
 		for i := 0; i+contentEchoWindow <= len(runes[t]); i++ {
-			if !f.hasWindow(windowHash(runes[t][i : i+contentEchoWindow])) {
+			if !hasWindow(set, windowHash(runes[t][i:i+contentEchoWindow])) {
 				continue
 			}
 			hit = true

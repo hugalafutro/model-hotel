@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -296,7 +297,12 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.state = "failed"
 		// Fire-and-forget: skip WaitForInsert to avoid blocking before error response.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-		debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", logData.content.maskOne(detail), "duration_ms", totalDuration)
+		if debuglog.Level() <= slog.LevelDebug {
+			// Fenced only when the line will be written: the fence's first
+			// call builds the content's window set, which a discarded line
+			// should not pay for.
+			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", logData.content.maskOne(detail), "duration_ms", totalDuration)
+		}
 		// The ROW keeps resp.StatusCode above: what the upstream said is the
 		// diagnostic. Only what the CLIENT is told changes.
 		writeOpenAIError(w, upstreamClientMessage(logData.providerName, resp.StatusCode, reason), nonCompletionClientStatus(resp.StatusCode))
