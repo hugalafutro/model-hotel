@@ -22,6 +22,8 @@ func TestConfigSyncCarriesTheMembersRefusalReason(t *testing.T) {
 		{"HTML page carries no reason", "<!doctype html><html><body>404</body></html>", "this member rejected the request (HTTP 404)", http.StatusNotFound},
 		{"credential in the body is masked", "invalid base_url for key sk-proj-0123456789abcdef0123456789abcdef\n", "this member rejected the request (HTTP 400): invalid base_url for key [redacted]", http.StatusBadRequest},
 		{"control characters stripped, first line only", "bad\x1b[31m field\nsecond line", "this member rejected the request (HTTP 400): bad[31m field", http.StatusBadRequest},
+		{"unicode line separator and format characters", "ok\u202eevil\u200bmore\u2028second line", "this member rejected the request (HTTP 400): okevilmore", http.StatusBadRequest},
+		{"userinfo in a quoted URL is redacted", `configsync: refusing to apply a setting with an invalid URL "oidc_issuer_url": invalid URL: parse "https://admin:sup3rs3cr3t@example.com/%zz": invalid URL escape "%zz"`, `this member rejected the request (HTTP 400): configsync: refusing to apply a setting with an invalid URL "oidc_issuer_url": invalid URL: parse "https://example.com/%zz": invalid URL escape "%zz"`, http.StatusBadRequest},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			srv, store := newTestServer(t)
@@ -65,13 +67,18 @@ func TestConfigSyncCarriesTheMembersRefusalReason(t *testing.T) {
 	}
 }
 
-// The reason is bounded: a page-sized body yields a bounded reason, never
-// the whole page.
+// The reason is bounded in runes, not bytes: a page-sized body yields 240
+// runes and an ellipsis whatever script it is written in.
 func TestRefusalReasonIsBounded(t *testing.T) {
-	long := strings.Repeat("x", 5000)
-	got := refusalReason([]byte(long))
-	if len([]rune(got)) > maxRefusalReasonRunes+1 {
-		t.Fatalf("reason is %d runes, want at most %d plus the ellipsis", len([]rune(got)), maxRefusalReasonRunes)
+	for _, long := range []string{strings.Repeat("x", 5000), strings.Repeat("é", 400), strings.Repeat("配置", 300)} {
+		got := refusalReason([]byte(long))
+		runes := []rune(got)
+		if len(runes) != 241 || runes[240] != '…' {
+			t.Fatalf("reason is %d runes ending %q, want 240 plus the ellipsis", len(runes), string(runes[len(runes)-1]))
+		}
+	}
+	if got := refusalReason([]byte(strings.Repeat("y", 240))); len([]rune(got)) != 240 || strings.HasSuffix(got, "…") {
+		t.Fatalf("a reason exactly at the bound was cut: %q", got)
 	}
 	if refusalReason(nil) != "" || refusalReason([]byte("   ")) != "" || refusalReason([]byte(`{"code":"x"}`)) != "" {
 		t.Fatal("an empty or reason-less body must yield no reason")

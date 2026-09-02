@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -541,18 +542,25 @@ func (e *memberRefusal) Error() string {
 	return fmt.Sprintf("member config-import returned %d: %s", e.status, e.reason)
 }
 
-// maxRefusalReasonRunes bounds the member's reason as shown to the operator:
-// a refusal names one field and one value, and a body past this is not a
-// reason but a page.
+// maxRefusalReasonRunes bounds the member's reason as shown to the operator,
+// in runes: a refusal names one field and one value, and a body past this is
+// not a reason but a page. The member's own log carries the full text.
 const maxRefusalReasonRunes = 240
 
 // refusalReason extracts the operator-readable reason from a member's
 // refusal body: the "error" member of a JSON body (the member's coded
 // errors), else the first line of a plain-text one (http.Error). An HTML
-// page (a reverse proxy's or the SPA's 404) carries no reason. The text is
-// member-authored, so it is credential-masked with the shared exact-and-shape
-// rule, stripped of control characters, and bounded, before it reaches the
-// dashboard and the event log.
+// page (a reverse proxy's or the SPA's 404) carries no reason.
+//
+// The text is member-authored and reaches the dashboard, the event log, a
+// paired monitor device and the alert push, so it is reduced to one line
+// (Unicode line separators included), stripped of control and format
+// characters (bidi overrides, zero-width joiners), stripped of any userinfo
+// in a URL it quotes (a refused setting or base_url is echoed raw by
+// url.Parse, password included), key-shape masked, and bounded in runes.
+// The exact credential layer runs too but has nothing to match here: Front
+// Desk decrypts no provider key, so its held set is empty; the shape layer
+// is what does the work in this process.
 func refusalReason(body []byte) string {
 	text := strings.TrimSpace(string(body))
 	if text == "" || strings.HasPrefix(text, "<") {
@@ -567,15 +575,27 @@ func refusalReason(body []byte) string {
 		}
 		text = coded.Error
 	}
-	if i := strings.IndexAny(text, "\r\n"); i >= 0 {
+	if i := strings.IndexFunc(text, isLineBreak); i >= 0 {
 		text = text[:i]
 	}
 	text = strings.Map(func(r rune) rune {
-		if r < 0x20 || r == 0x7f {
+		if unicode.IsControl(r) || unicode.Is(unicode.Cf, r) {
 			return -1
 		}
 		return r
 	}, text)
-	text = util.MaskCredentialsBounded(nil, text, maxRefusalReasonRunes)
-	return strings.TrimSpace(text)
+	text = urlUserinfoRE.ReplaceAllString(text, "$1")
+	// The byte bound here is generous on purpose (four bytes per rune is the
+	// UTF-8 maximum): the rune bound below is the one the operator sees.
+	text = strings.TrimSpace(util.MaskCredentialsBounded(nil, text, 4*maxRefusalReasonRunes))
+	if runes := []rune(text); len(runes) > maxRefusalReasonRunes {
+		text = strings.TrimSpace(string(runes[:maxRefusalReasonRunes])) + "…"
+	}
+	return text
+}
+
+// isLineBreak is every rune a terminal or a browser treats as a line break:
+// CR, LF, NEL and the Unicode line and paragraph separators.
+func isLineBreak(r rune) bool {
+	return r == '\r' || r == '\n' || r == 0x85 || r == 0x2028 || r == 0x2029
 }

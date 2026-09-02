@@ -363,8 +363,10 @@ What makes this safe to leave running:
   limits, and password hash format. An envelope that fails any of them is
   refused whole with a 400 and nothing is written. Front Desk shows the member's
   own reason with the status (`this member rejected the request (HTTP 400):
-  provider "x": max_in_flight must be ...`), in the sync result and in the
-  failure event, so the field is named where the operator is looking.
+  configsync: refusing to apply an invalid provider: provider "x": max_in_flight
+  must be ...`), in the sync result, in the failure event and in the readiness
+  check, cut to one line of 240 characters; the member's own log carries the
+  full text.
 - **Newer config always wins.** Each push carries a monotonic source generation,
   and a member refuses any import older than the one it has already applied, so
   repointing the primary while an earlier push is still in flight can never strand a
