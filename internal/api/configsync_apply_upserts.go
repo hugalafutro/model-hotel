@@ -78,7 +78,13 @@ func providerTypeForImport(p ExportProvider) string {
 // it, and the member's own sweep fires it immediately, which is what the
 // operator asked for. The URL's length is not bounded here: the admin API's
 // bound is cosmetic, a row past it is harmless, and refusing whole envelopes
-// over one would be a one-way door for a fleet.
+// over one would be a one-way door for a fleet. The name bound carries the
+// same door for a legacy row written before this check, and earns it: an
+// unprintable or ten-thousand-character name reaches logs, the dashboard
+// and hotel/ model strings, which a long URL never does. The name is
+// validated as sent and stored as sent (the admin API stores it trimmed):
+// storing a trimmed copy would diverge from the primary's hash and re-sync
+// forever, and trimming changes nothing the check cares about.
 func validateSyncedProvider(p ExportProvider) error {
 	if err := provider.ValidateMaxInFlight(p.MaxInFlight); err != nil {
 		return fmt.Errorf("%w: provider %q: %w", errInvalidSyncedProvider, p.Name, err)
