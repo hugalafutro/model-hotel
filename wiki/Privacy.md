@@ -54,7 +54,7 @@ The only information recorded is strictly necessary for routing, metering, and d
 
 The `error_message` field is populated **only when a request fails** and contains **provider diagnostic information, never user content**. Specifically:
 
-- **Upstream error responses**: When a provider returns a non-200 status code and no failover candidate is available, the raw upstream response body is captured (truncated to 2000 characters for failover responses, 200 characters for SSE events; full error stored in database). This is the provider's error JSON (e.g. `{"error": {"message": "Rate limit exceeded"}}`), not the user's prompt.
+- **Upstream error responses**: When a provider returns a non-200 status code and no failover candidate is available, the raw upstream response body is captured (truncated to 2000 characters for failover responses, 200 characters for SSE events; full error stored in database). This is the provider's error JSON (e.g. `{"error": {"message": "Rate limit exceeded"}}`), not the user's prompt. A provider that quotes the prompt back inside its error message does not get it into the row: before the row is written, the message and every per-attempt detail are checked against the request's own text and any run of 16 or more characters they share is replaced with `[content]`, so only the provider's own words are kept.
 - **Connection failures**: Network-level errors (timeouts, DNS failures, connection refused).
 - **Client disconnect**: `"client disconnected"` - recorded when a streaming client closes the connection mid-stream.
 - **Server restart**: `"request interrupted (server restart)"` - applied to in-flight requests when the server restarts.
