@@ -2785,7 +2785,7 @@
 			"clientIp": "Klient-IP",
 			"copyClientIp": "Kopier klient-IP",
 			"attemptTrail": "Forsøksspor",
-			"attemptTrailHint": "Hver leverandør denne forespørselen ble rutet til, i rekkefølge, med hva hver av dem svarte. Hoppede oppføringer ble avvist av sikringen før noen forespørsel ble sendt.",
+			"attemptTrailHint": "Hver leverandør denne forespørselen ble rutet til, i rekkefølge, med hva hver enkelt svarte. Oppføringer som ble hoppet over, ble avvist før noen forespørsel ble sendt; årsaken vises ved oppføringen.",
 			"attemptSkipped": "hoppet over",
 			"attemptHedged": "hedget",
 			"attemptNoStatus": "ingen respons",

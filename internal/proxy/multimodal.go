@@ -134,6 +134,9 @@ func (h *Handler) servePassthroughPipeline(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	h.loadFailoverConfig(r, st)
+	if h.refuseSpeechRequest(w, st, candidates) {
+		return
+	}
 	debuglog.Debug("proxy: model resolved (pre-loop)", "endpoint", st.logData.endpointType, "model", st.logData.modelID, "provider", st.logData.providerName, "candidates", len(candidates), "overhead_ms", st.proxyOverhead)
 	h.runFailoverLoop(w, r, st, candidates, h.attemptPassthroughCandidate)
 }
@@ -357,6 +360,12 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	}
 
 	promptTokens, completionTokens := extractPassthroughUsage(body)
+	if u := st.passthroughUsage; u != nil {
+		// A translating adapter read the provider's figures off the answer
+		// it re-shaped into this body (none does for JSON today; the binary
+		// twin below is where the speech adapter lands).
+		promptTokens, completionTokens = u.prompt, u.completion
+	}
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(resp.StatusCode)
 	//nolint:gosec // G705 false positive: provider JSON body, not HTML; Content-Type is application/json
@@ -525,6 +534,11 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	promptTokens, completionTokens := 0, 0
 	if tail != nil {
 		promptTokens, completionTokens = extractPassthroughSSEUsage(tail.Bytes())
+	}
+	if u := st.passthroughUsage; u != nil {
+		// A translating adapter (Gemini speech) read the provider's figures
+		// off the answer it re-shaped into these bytes.
+		promptTokens, completionTokens = u.prompt, u.completion
 	}
 
 	if copyErr != nil {

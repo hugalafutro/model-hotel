@@ -2846,7 +2846,7 @@
 			"clientIp": "IP-ul clientului",
 			"copyClientIp": "Copiază IP-ul clientului",
 			"attemptTrail": "Urma încercărilor",
-			"attemptTrailHint": "Fiecare furnizor către care a fost rutată această cerere, în ordine, cu răspunsul fiecăruia. Intrările sărite au fost refuzate de întrerupător înainte de a se face vreo cerere.",
+			"attemptTrailHint": "Fiecare furnizor către care a fost direcționată această cerere, în ordine, împreună cu ce a răspuns fiecare. Intrările sărite au fost refuzate înainte de a se face vreo cerere; motivul este afișat lângă intrare.",
 			"attemptSkipped": "sărit",
 			"attemptHedged": "acoperit",
 			"attemptNoStatus": "fără răspuns",

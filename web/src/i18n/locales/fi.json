@@ -2785,7 +2785,7 @@
 			"clientIp": "Asiakkaan IP",
 			"copyClientIp": "Kopioi asiakkaan IP",
 			"attemptTrail": "Yritysjälki",
-			"attemptTrailHint": "Jokainen palveluntarjoaja, jolle tämä pyyntö reititettiin, järjestyksessä, sekä kunkin vastaus. Ohitetut kohdat virrankatkaisin hylkäsi ennen kuin yhtään pyyntöä lähetettiin.",
+			"attemptTrailHint": "Jokainen palveluntarjoaja, jolle tämä pyyntö reititettiin, järjestyksessä, ja mitä kukin vastasi. Ohitetut merkinnät hylättiin ennen kuin yhtään pyyntöä lähetettiin; syy näytetään merkinnän yhteydessä.",
 			"attemptSkipped": "ohitettu",
 			"attemptHedged": "suojattu",
 			"attemptNoStatus": "ei vastausta",

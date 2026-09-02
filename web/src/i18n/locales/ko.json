@@ -2785,7 +2785,7 @@
 			"clientIp": "클라이언트 IP",
 			"copyClientIp": "클라이언트 IP 복사",
 			"attemptTrail": "시도 추적",
-			"attemptTrailHint": "이 요청이 라우팅된 각 공급자를 순서대로, 각각의 응답과 함께 표시합니다. 건너뛴 항목은 요청을 보내기 전에 서킷 브레이커가 거부한 것입니다.",
+			"attemptTrailHint": "이 요청이 라우팅된 모든 제공업체를 순서대로, 각각의 응답과 함께 표시합니다. 건너뛴 항목은 요청이 전송되기 전에 거부된 것이며, 사유는 항목과 함께 표시됩니다.",
 			"attemptSkipped": "건너뜀",
 			"attemptHedged": "헤지됨",
 			"attemptNoStatus": "응답 없음",

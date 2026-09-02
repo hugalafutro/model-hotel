@@ -539,6 +539,8 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	st.responsesAttempt = false
 	st.geminiAttempt = false
 	st.anthropicEgressAttempt = false
+	st.speechFormat = ""
+	st.passthroughUsage = nil
 	// The Messages self-heal is per candidate too. Within one attempt it cannot
 	// fire twice — attemptCandidate consults it from a single branch, not a loop
 	// — so carrying the flag forward would only deny the NEXT candidate a
@@ -549,6 +551,9 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	st.lastMessagesBody = nil
 	if st.anthropicNativeAttempt {
 		return h.buildNativeAnthropicRequest(ctx, st, candidate, providerType)
+	}
+	if isGeminiSpeechAttempt(st, providerType, candidate.model.OutputModalities) { // Gemini TTS via generateContent, see gemini_speech.go
+		return h.buildGeminiSpeechRequest(ctx, st, candidate, providerType)
 	}
 
 	// OpenAI Responses re-route: a model learned (from a prior 400) to reject

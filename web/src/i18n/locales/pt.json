@@ -2846,7 +2846,7 @@
 			"clientIp": "IP do cliente",
 			"copyClientIp": "Copiar IP do cliente",
 			"attemptTrail": "Rastro de tentativas",
-			"attemptTrailHint": "Cada provedor para o qual esta solicitação foi roteada, em ordem, com o que cada um respondeu. As entradas ignoradas foram recusadas pelo disjuntor antes de qualquer solicitação ser feita.",
+			"attemptTrailHint": "Cada provedor para o qual esta requisição foi roteada, em ordem, com o que cada um respondeu. As entradas puladas foram recusadas antes de qualquer requisição ser feita; o motivo é mostrado junto à entrada.",
 			"attemptSkipped": "ignorado",
 			"attemptHedged": "coberto",
 			"attemptNoStatus": "sem resposta",

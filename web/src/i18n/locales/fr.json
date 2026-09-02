@@ -2846,7 +2846,7 @@
 			"clientIp": "IP du client",
 			"copyClientIp": "Copier l'IP du client",
 			"attemptTrail": "Trace des tentatives",
-			"attemptTrailHint": "Chaque fournisseur vers lequel cette requête a été routée, dans l'ordre, avec la réponse de chacun. Les entrées ignorées ont été refusées par le disjoncteur avant toute requête.",
+			"attemptTrailHint": "Chaque fournisseur vers lequel cette requête a été routée, dans l'ordre, avec la réponse de chacun. Les entrées ignorées ont été refusées avant tout envoi de requête ; la raison est affichée avec l'entrée.",
 			"attemptSkipped": "ignoré",
 			"attemptHedged": "couvert",
 			"attemptNoStatus": "aucune réponse",

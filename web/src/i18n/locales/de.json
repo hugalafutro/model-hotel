@@ -2785,7 +2785,7 @@
 			"clientIp": "Client-IP",
 			"copyClientIp": "Client-IP kopieren",
 			"attemptTrail": "Versuchsverlauf",
-			"attemptTrailHint": "Jeder Anbieter, an den diese Anfrage geleitet wurde, in Reihenfolge, mit der jeweiligen Antwort. Übersprungene Einträge hat der Schutzschalter abgelehnt, bevor eine Anfrage gestellt wurde.",
+			"attemptTrailHint": "Jeder Anbieter, an den diese Anfrage weitergeleitet wurde, in Reihenfolge, mit der jeweiligen Antwort. Übersprungene Einträge wurden abgelehnt, bevor eine Anfrage gestellt wurde; der Grund wird beim Eintrag angezeigt.",
 			"attemptSkipped": "übersprungen",
 			"attemptHedged": "abgesichert",
 			"attemptNoStatus": "keine Antwort",

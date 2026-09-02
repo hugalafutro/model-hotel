@@ -31,6 +31,20 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	defer failoverCancel()
 	failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
 
+	// A Gemini TTS candidate asked for a response format it cannot produce
+	// is skipped before any request is built, so a group holding a model
+	// that can produce it serves the request; the pre-flight in
+	// servePassthroughPipeline answers the client when no candidate can.
+	// Nothing was contacted, so the skip is recorded on the trail like a
+	// breaker skip and pays no failover backoff.
+	if reason := speechRequestRefusal(st, candidate); reason != "" {
+		st.setReqErr(reqError{Kind: KindProviderBadRequest, Attempt: attempt, Provider: candidate.provider.Name, Underlying: reason})
+		logData.failoverAttempt = attempt
+		logData.appendSkip(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), reason)
+		debuglog.Info("proxy: speech candidate skipped", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "reason", reason)
+		return outcomeSkipped
+	}
+
 	resp, providerType, _, busyAttempt, ok := h.beginAttempt(failoverCtx, st, candidate, attempt, totalCandidates, &dialMs)
 	if busyAttempt {
 		return outcomeBusy
@@ -109,6 +123,9 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	// gone-strike streak is cleared at those same two points and for the same
 	// reason: 200 headers are a promise, not evidence.
 	debuglog.Debug("proxy: upstream responded OK, dispatching passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"))
+	if st.speechFormat != "" {
+		return h.serveGeminiSpeechResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
+	}
 	h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
 	return outcomeServed
 }

@@ -55,6 +55,14 @@ func newMultimodalEnv(t *testing.T, upstreamHandler http.Handler) *multimodalTes
 // than the "[]" every uncatalogued row carries.
 func newMultimodalEnvWith(t *testing.T, upstreamHandler http.Handler, outputModalities string) *multimodalTestEnv {
 	t.Helper()
+	return newMultimodalEnvTyped(t, upstreamHandler, outputModalities, "", "")
+}
+
+// newMultimodalEnvTyped is the same environment with the provider's type and
+// the path its base URL carries under the caller's control, for a provider
+// family the proxy serves through a native route rather than pass-through.
+func newMultimodalEnvTyped(t *testing.T, upstreamHandler http.Handler, outputModalities, providerType, basePath string) *multimodalTestEnv {
+	t.Helper()
 	pool := testDB.Pool()
 	settingsRepo := settings.NewRepository(pool)
 	failoverRepo := failover.NewRepository(pool)
@@ -67,7 +75,7 @@ func newMultimodalEnvWith(t *testing.T, upstreamHandler http.Handler, outputModa
 	upstream := httptest.NewServer(upstreamHandler)
 	t.Cleanup(upstream.Close)
 
-	providerName, providerID, modelUUID, modelName := createMultimodalProviderWith(t, upstream.URL, outputModalities)
+	providerName, providerID, modelUUID, modelName := createMultimodalProviderTyped(t, upstream.URL+basePath, outputModalities, providerType)
 
 	virtualKeyName := "mm-key-" + uuid.New().String()[:8]
 	keyHash := virtualkey.Hash(virtualKeyName)
@@ -99,6 +107,14 @@ func createMultimodalProvider(t *testing.T, baseURL string) (providerName string
 // modalities under the caller's control.
 func createMultimodalProviderWith(t *testing.T, baseURL, outputModalities string) (providerName string, providerID, modelUUID uuid.UUID, modelName string) {
 	t.Helper()
+	return createMultimodalProviderTyped(t, baseURL, outputModalities, "")
+}
+
+// createMultimodalProviderTyped is the same with the provider's type under
+// the caller's control ("" derives it from the base URL, as the dashboard
+// does for an unknown host).
+func createMultimodalProviderTyped(t *testing.T, baseURL, outputModalities, providerType string) (providerName string, providerID, modelUUID uuid.UUID, modelName string) {
+	t.Helper()
 	pool := testDB.Pool()
 	providerRepo := provider.NewRepository(pool)
 	modelRepo := model.NewRepository(pool)
@@ -109,9 +125,10 @@ func createMultimodalProviderWith(t *testing.T, baseURL, outputModalities string
 	}
 	providerName = "mm-provider-" + uuid.New().String()[:8]
 	createdProvider, err := providerRepo.Create(context.Background(), provider.CreateProviderRequest{
-		Name:    providerName,
-		BaseURL: baseURL,
-		APIKey:  "test-api-key",
+		Name:         providerName,
+		BaseURL:      baseURL,
+		APIKey:       "test-api-key",
+		ProviderType: providerType,
 	}, keyPair.Ciphertext, keyPair.Nonce, keyPair.Salt)
 	if err != nil {
 		t.Fatalf("failed to create provider: %v", err)

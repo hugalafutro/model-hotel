@@ -186,7 +186,16 @@ curl -X POST http://localhost:8081/v1/audio/speech \
   --output speech.mp3
 ```
 
-The response is the provider's raw binary audio (Content-Type passed through, e.g. `audio/mpeg`), streamed with no buffering. `stream_format: "sse"` responses stream through as SSE.
+**Gemini TTS models** (`gemini-2.5-flash-preview-tts` and kin on Google AI Studio or Vertex AI express) have no speech route on Google's OpenAI-compatibility layer, so the proxy serves them through `generateContent` instead of passing the request through: the text becomes a request for an `AUDIO` response with a `speechConfig` naming the voice, and the PCM the model answers with is delivered as the audio the client asked for. What that means for the request:
+
+- `response_format` may be `wav` (the default when absent, in place of OpenAI's mp3) or `pcm` (raw 16-bit mono at the model's 24 kHz). The compressed formats (`mp3`, `opus`, `aac`, `flac`) need an encoder the gateway does not carry and are refused with a 400 naming the two it takes; in a `hotel/` group holding a model that does produce them, the request fails over to that model instead.
+- `voice` takes OpenAI's names (`alloy`, `echo`, `fable`, `onyx`, `nova`, `shimmer`, `ash`, `ballad`, `coral`, `sage`, `verse`, `cedar`, `marin`), each mapped to a Gemini prebuilt voice, or any Gemini voice name (`Kore`, `Puck`, `Zephyr`, ...) as it is. Absent means `Kore`.
+- `speed` and `instructions` have no counterpart and are ignored; Gemini takes delivery style from the text itself ("Say cheerfully: ...").
+- `stream_format` is not honoured; the whole clip is returned at once.
+
+Usage is metered from the token counts the answer reports.
+
+Except for the Gemini TTS models described above, the response is the provider's raw binary audio (Content-Type passed through, e.g. `audio/mpeg`), streamed with no buffering, and `stream_format: "sse"` responses stream through as SSE.
 
 #### POST `/v1/audio/transcriptions` and `/v1/audio/translations`
 
