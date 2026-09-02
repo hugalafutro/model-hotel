@@ -828,7 +828,7 @@ The `lookupFuzzyIn` helper implements this logic (the canonical-provider and cro
 | Input price per million (cache hit) | Only if nil/zero |
 | Reasoning capability | Only if false |
 | Tool calling capability | Only if false |
-| Structured output capability | Only if false, and never for a Google or Vertex AI express image-output model, whose JSON mode the API refuses (google-gemini/cookbook#1028) |
+| Structured output capability | Only if false, and never for an image-output model on a provider that reaches Google's own route (Google AI Studio, Vertex AI express, OpenCode Zen), whose JSON mode the API refuses (google-gemini/cookbook#1028) |
 | Vision capability | Only if false (mapped from `attachment` field) |
 | Modality | Only if empty or default `"text"` |
 | Input modalities | Only if empty or default `"[]"` |

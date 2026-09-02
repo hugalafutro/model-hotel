@@ -142,6 +142,7 @@ func TestIsGoogleStructuredOutputModel(t *testing.T) {
 		// (google-gemini/cookbook#1028).
 		{"2.5 image model excluded", "gemini-2.5-flash-image", false},
 		{"3.x image model excluded", "gemini-3.1-flash-lite-image", false},
+		{"3 pro image model excluded", "gemini-3-pro-image", false},
 		{"nano banana excluded", "nano-banana-pro-preview", false},
 	}
 	for _, tt := range tests {

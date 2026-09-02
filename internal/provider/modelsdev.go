@@ -476,18 +476,30 @@ func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) boo
 	return merged
 }
 
-// refuseSpecCapabilities clears a flag the catalog claims and the provider's
-// API refuses, after the OR-merge above has put it in. models.dev lists
-// structured output for Google's image-output models, following Google's own
-// docs, and the API answers JSON mode on every one of them with a 400
-// (google-gemini/cookbook#1028); discovery leaves the flag off for them, so
-// the merge must not switch it back on. Reports whether it cleared anything.
-func refuseSpecCapabilities(providerType, modelID string, caps *model.Capability) bool {
-	if !caps.StructuredOutput {
+// clearRefusedCapabilities clears a flag the catalog claims and the
+// provider's API refuses, after the OR-merge above has put it in. models.dev
+// lists structured output for Google's image-output models, following
+// Google's own docs, and the API answers JSON mode on every one of them with
+// a 400 (google-gemini/cookbook#1028); discovery leaves the flag off for
+// them, so the merge must not switch it back on. The gate is the provider
+// types that reach Google's generateContent route: Google AI Studio, Vertex
+// AI express and OpenCode Zen's Gemini passthrough. An aggregator serving
+// the same model id over its own dialect answers for itself, and the flag
+// it advertises is its own claim. Reports whether it cleared anything, which
+// is what re-marshals the capabilities below.
+func clearRefusedCapabilities(providerType, modelID string, caps *model.Capability) bool {
+	if !caps.StructuredOutput || !googleNativeRoute(providerType) || !isGoogleImageGenModel(modelID) {
 		return false
 	}
-	if (providerType == "google" || providerType == "vertex-express") && isGoogleImageGenModel(modelID) {
-		caps.StructuredOutput = false
+	caps.StructuredOutput = false
+	return true
+}
+
+// googleNativeRoute reports a provider type whose Gemini models are served
+// by Google's own generateContent route, where Google's refusals apply.
+func googleNativeRoute(providerType string) bool {
+	switch providerType {
+	case "google", "vertex-express", "opencode-zen":
 		return true
 	}
 	return false
@@ -573,7 +585,7 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 
 	// Capabilities: only set individual fields if they're currently false.
 	enriched = mergeSpecCapabilities(spec, &caps) || enriched
-	enriched = refuseSpecCapabilities(providerType, m.ModelID, &caps) || enriched
+	enriched = clearRefusedCapabilities(providerType, m.ModelID, &caps) || enriched
 
 	// Modality arrays: only set if currently empty. The modality *class* is
 	// not set here — NormalizeModelClassification derives it from the arrays

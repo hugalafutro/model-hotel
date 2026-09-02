@@ -340,8 +340,9 @@ func TestEnrichModel_FallsBackToNameForAliasedDeployments(t *testing.T) {
 // models.dev lists structured output for Google's image-output models, as
 // Google's own docs do, and the API refuses JSON mode on every one of them
 // (google-gemini/cookbook#1028). Discovery leaves the flag off; the OR-merge
-// must not put it back, on either native Google provider type. A text model
-// keeps taking the flag from the catalog.
+// must not put it back on any provider type that reaches Google's own route.
+// A text model keeps taking the flag from the catalog, and so does the same
+// image model behind an aggregator, whose claim is its own.
 func TestEnrichModel_GoogleImageModelsKeepJSONModeOff(t *testing.T) {
 	yes := true
 	specs := map[string]*ModelsDevModelSpec{
@@ -374,8 +375,10 @@ func TestEnrichModel_GoogleImageModelsKeepJSONModeOff(t *testing.T) {
 	}{
 		{"gemini-2.5-flash-image", "google", false},
 		{"gemini-2.5-flash-image", "vertex-express", false},
+		{"gemini-2.5-flash-image", "opencode-zen", false},
 		{"nano-banana-pro-preview", "google", false},
 		{"gemini-2.5-flash", "google", true},
+		{"gemini-2.5-flash-image", "openrouter", true},
 	} {
 		m := &model.Model{ModelID: tc.modelID, Capabilities: `{"vision":true}`}
 		cache.EnrichModel(m, tc.providerType)
