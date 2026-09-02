@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"slices"
+	"sort"
 	"strconv"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -167,22 +168,30 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 // copies of one rule is how the scrub itself came to differ between packages.
 const credentialMinLen = util.CredentialMinLen
 
-// credentialMasker scrubs a provider's credential out of client-bound text.
-// The exact decrypted key is the primary control: it is an exact byte match,
-// so it covers every key shape, including custom or self-hosted gateways
-// whose format the prefix regex can never anticipate, but not a JSON-escaped
-// rendering of the key (an encoder turning "&" into "\u0026" or "/" into
-// "\/" defeats it; real keys rarely carry such bytes). maskKeyShapedTokens
-// runs after it as the third layer, behind the status-class gate, for
-// credentials a relay quotes that are not ours. Build one per candidate with
+// credentialMasker scrubs the operator's credentials out of client-bound
+// text. The exact layer is the primary control: an exact byte match covers
+// every key shape, including custom or self-hosted gateways whose format the
+// prefix regex can never anticipate, but not a JSON-escaped rendering of a
+// key (an encoder turning "&" into "\u0026" or "/" into "\/" defeats it;
+// real keys rarely carry such bytes). Over error text (mask) it replaces the
+// attempted candidate's key and every provider key the gateway holds
+// (util.HeldSecrets): a relay in front of the operator's other vendor
+// accounts echoes the rejection it received upstream, and that rejection
+// quotes the key of a different provider row, which the single-key masker
+// this used to be had no way to know. maskKeyShapedTokens runs after it as
+// the third layer, behind the status-class gate, for credentials a relay
+// quotes that are not ours at all. Build one per candidate with
 // newCredentialMasker and pass it to every client-facing emit of provider
 // error text: the buffered paths in forwardUpstreamError and the in-stream
 // error frames on the translated (handleDataChunk), native Anthropic
-// (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths. The
-// zero value masks by shape only. The exact layer alone (maskExact) also runs
-// on every other provider body a client receives; the request log's error
-// message gets both layers, since it is error text readable by non-admin
-// users with the logs grant. Content bodies never meet the regex.
+// (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths, each
+// of which applies mask to the frames it recognises as errors and maskExact
+// to the rest. The zero value masks the held set and by shape. The exact layer alone
+// (maskExact) runs on every other provider body a client receives, and there
+// it keeps to the candidate's own key (see util's held_secrets.go for why);
+// the request log's error message gets both layers, since it is error text
+// readable by non-admin users with the logs grant. Content bodies never meet
+// the regex.
 type credentialMasker struct {
 	secret []byte
 }
@@ -194,18 +203,40 @@ func newCredentialMasker(apiKey string) credentialMasker {
 	return credentialMasker{secret: []byte(apiKey)}
 }
 
-// mask returns body with every occurrence of the exact credential, then any
-// key-shaped token, replaced by "[redacted]". The exact pass runs first so the
-// regex cannot split the key and leave a recognisable remainder. For error
-// frames and bodies only: the regex layer can match prose.
+// mask returns body with every occurrence of the candidate's key and of every
+// held provider key, then any key-shaped token, replaced by "[redacted]". The
+// exact passes run first so the regex cannot split a key and leave a
+// recognisable remainder. For error frames and bodies only: the regex layer
+// can match prose, and the held set is for error text (held_secrets.go).
 func (m credentialMasker) mask(body []byte) []byte {
-	return maskKeyShapedTokens(m.maskExact(body))
+	return maskKeyShapedTokens(m.maskAll(body))
 }
 
-// maskExact replaces only the exact credential. It cannot false-positive, so
-// it is safe on every provider body bound for a client (content chunks,
-// success bodies) and on the request log, where it closes the read a
-// VK-owning dashboard user has on their own failed requests.
+// maskAll replaces the candidate's key and every held provider key as one
+// union ordered by length alone, longest first: a key that is a prefix of
+// another is never masked first, which would leave the longer one's tail
+// behind, whichever side of the union each came from. The held set is read
+// at call time, so a key registered after the masker was built is masked too.
+func (m credentialMasker) maskAll(body []byte) []byte {
+	held := util.HeldSecrets()
+	secrets := make([]string, 0, 1+len(held))
+	if len(m.secret) > 0 {
+		secrets = append(secrets, string(m.secret))
+	}
+	secrets = append(secrets, held...)
+	sort.SliceStable(secrets, func(i, j int) bool { return len(secrets[i]) > len(secrets[j]) })
+	for _, secret := range secrets {
+		if bytes.Contains(body, []byte(secret)) {
+			body = bytes.ReplaceAll(body, []byte(secret), []byte("[redacted]"))
+		}
+	}
+	return body
+}
+
+// maskExact replaces only the candidate's exact credential. It cannot
+// false-positive, so it is safe on every provider body bound for a client
+// (content chunks, success bodies) and on the request log, where it closes
+// the read a VK-owning dashboard user has on their own failed requests.
 func (m credentialMasker) maskExact(body []byte) []byte {
 	if len(m.secret) > 0 && bytes.Contains(body, m.secret) {
 		return bytes.ReplaceAll(body, m.secret, []byte("[redacted]"))
@@ -218,7 +249,8 @@ func (m credentialMasker) maskExact(body []byte) []byte {
 // write until the next one arrives, so a key straddling two writes is still
 // seen whole. Flush releases the held tail at end of stream. Used on the two
 // raw forwarding paths (an oversized pass-through JSON remainder and an
-// oversized SSE event) where per-chunk masking has boundaries.
+// oversized SSE event) where per-chunk masking has boundaries. Content paths,
+// so the candidate's key alone, like maskExact itself.
 type exactMaskWriter struct {
 	w    io.Writer
 	cred credentialMasker

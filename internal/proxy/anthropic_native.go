@@ -175,8 +175,11 @@ func (h *Handler) emitRawData(sink *streamSink, st *streamState, ev sseEvent, ch
 	}
 	line := ev.raw
 	masked := st.masker.maskExact([]byte(ev.payload))
-	if info.Type == "error" {
-		masked = maskKeyShapedTokens(masked)
+	if info.Type == "error" || info.CarriesError {
+		// Error text, by the wrapper's type or by a populated error member on
+		// any event (the same rule the translated path applies): every held
+		// provider key and the shape layer.
+		masked = st.masker.mask(masked)
 	}
 	if string(masked) != ev.payload {
 		line = append([]byte("data: "), masked...)

@@ -370,6 +370,15 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 		debuglog.Warn("configsync: failed to stamp fleet synced marker", "error", err)
 	}
 
+	// Every imported key joins the credential mask's held set, whatever its
+	// row's enabled state; the sample decrypt above proved the master key,
+	// this proves each row and registers it. Inline, and BEFORE the cache
+	// invalidation below makes the new rows routable: the seed must be in
+	// place before the proxy can send the first request to them. An import
+	// is an admin action and the table is small.
+	held, failed := provider.HoldKeys(ctx, provider.NewRepository(h.db.Pool()), h.masterKey)
+	debuglog.Info("configsync: provider keys held for the credential mask", "held", held, "failed", failed)
+
 	// Core config (providers, virtual keys, settings) is now durable. The writes
 	// bypassed the in-memory caches, so drop them: the proxy must see the new
 	// providers/keys and discovery must re-read providers.

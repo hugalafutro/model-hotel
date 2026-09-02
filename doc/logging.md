@@ -83,6 +83,22 @@ and encoded payloads (data: URLs, unwrapped base64) are not indexed; each form
 has its own index budget of 1 MiB of runes, walked content-bearing members
 first, so what a very large request leaves unindexed is its tail.
 
+The exact layer of every credential mask over error text, in the proxy (`credentialMasker.mask`)
+and in the shared helpers below, masks every provider key the gateway holds, not only the one the
+caller names. The set (`internal/util/held_secrets.go`) is seeded from the provider table at
+startup and after every config import (`provider.HoldKeys`, every keyed row whether enabled or
+not, since a disabled provider is the one a relay is most likely to quote), the create and update
+handlers add the plaintext they have in hand, and every exact pass over error or log text unions
+the caller's secrets with it, longest first. The masker used to know one key, the attempted
+provider's, which is the wrong scope for the threat: a relay in front of the operator's other
+vendor accounts echoes the rejection it received upstream, and that rejection quotes a different
+provider row's key in a custom format the shape layer cannot recognise. Content a client receives
+(a streamed answer, a success body) keeps to the attempted provider's own key: no provider quotes
+another's key inside an answer, and a placeholder key typed for a keyless local server is a plain
+word that must not be rewritten out of every answer. The set never expires within a process (a
+rotated key stays masked) and costs one substring search per held key over an error body that is
+already bounded.
+
 Provider discovery and quota polling scrub the same way. The shared HTTP helpers in
 `internal/provider/discovery.go` never receive the key as a value, so they read it back off the
 request they are sending (the credential headers, and the credential-bearing query parameters one

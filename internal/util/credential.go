@@ -106,6 +106,8 @@ func MaskCredential(secret, body string) string {
 // the request they are about to send, and so mask with everything that request
 // carries (each bearer, each query value) rather than with one named key.
 // Entries shorter than CredentialMinLen are skipped for the reason given there.
+// Every exact pass also masks the held set (held_secrets.go): the secrets the
+// caller names are the ones it knows about, and a relay can quote any other.
 func MaskCredentials(secrets []string, body string) string {
 	return string(MaskKeyShapedTokens([]byte(maskExact(secrets, body))))
 }
@@ -138,7 +140,7 @@ func MaskCredentialsBounded(secrets []string, body string, maxLen int) string {
 	// first secret that matches and stopping would let a second secret's head
 	// survive whenever an earlier secret's prefix is a suffix of it.
 	longest := 0
-	for _, secret := range secrets {
+	for _, secret := range withHeld(secrets) {
 		if len(secret) < CredentialMinLen {
 			continue
 		}
@@ -172,7 +174,7 @@ func MaskCredentialBounded(secret, body string, maxLen int) string {
 // list in order, so a caller that lists a superset ("Bearer X") before its
 // subset ("X") has the whole token consumed first.
 func maskExact(secrets []string, body string) string {
-	for _, secret := range secrets {
+	for _, secret := range withHeld(secrets) {
 		if len(secret) >= CredentialMinLen && strings.Contains(body, secret) {
 			body = strings.ReplaceAll(body, secret, "[redacted]")
 		}
