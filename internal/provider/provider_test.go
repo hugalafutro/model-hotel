@@ -1354,3 +1354,38 @@ func TestBackfillMaskedKeys(t *testing.T) {
 	}
 	readMasks("after second pass")
 }
+
+// A key that does not decrypt under this member's master key is skipped, its
+// legacy mask left in place, and the pass still rewrites the rest; a query
+// that cannot run reports the error.
+func TestBackfillMaskedKeys_SkipsWhatItCannotDecrypt(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	foreign, err := auth.Encrypt("sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxx-hQAA", "someone-elses-master-key")
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	p, err := repo.Create(ctx, CreateProviderRequest{Name: "backfill-foreign-" + uuid.NewString()[:8], BaseURL: "https://api.example.com/v1", APIKey: "x", ProviderType: "openai"}, foreign.Ciphertext, foreign.Nonce, foreign.Salt)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := testDB.Pool().Exec(ctx, `UPDATE providers SET masked_key = 'sk...AA' WHERE id = $1`, p.ID); err != nil {
+		t.Fatalf("seed mask: %v", err)
+	}
+	if _, err := repo.BackfillMaskedKeys(ctx, "this-members-master-key"); err != nil {
+		t.Fatalf("backfill: %v", err)
+	}
+	var got string
+	if err := testDB.Pool().QueryRow(ctx, `SELECT masked_key FROM providers WHERE id = $1`, p.ID).Scan(&got); err != nil {
+		t.Fatalf("read mask: %v", err)
+	}
+	if got != "sk...AA" {
+		t.Errorf("mask = %q, want the legacy mask left as it was", got)
+	}
+
+	cancelled, cancel := context.WithCancel(ctx)
+	cancel()
+	if _, err := repo.BackfillMaskedKeys(cancelled, "this-members-master-key"); err == nil {
+		t.Error("a query that cannot run must report its error")
+	}
+}

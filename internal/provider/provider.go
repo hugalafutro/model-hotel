@@ -587,35 +587,31 @@ func (r *Repository) BackfillMaskedKeys(ctx context.Context, masterKey string) (
 	if err != nil {
 		return 0, err
 	}
+	type stored struct {
+		ID                              uuid.UUID
+		EncryptedKey, KeyNonce, KeySalt []byte
+		Mask                            string
+	}
+	all, err := pgx.CollectRows(rows, pgx.RowToStructByPos[stored])
+	if err != nil {
+		return 0, err
+	}
 	type pending struct {
 		id   uuid.UUID
 		mask string
 	}
 	var todo []pending
 	undecryptable := 0
-	for rows.Next() {
-		var (
-			id                  uuid.UUID
-			encKey, nonce, salt []byte
-			mask                string
-		)
-		if err := rows.Scan(&id, &encKey, &nonce, &salt, &mask); err != nil {
-			rows.Close()
-			return 0, err
-		}
-		if mask != "" && !legacyMask.MatchString(mask) {
+	for _, row := range all {
+		if row.Mask != "" && !legacyMask.MatchString(row.Mask) {
 			continue
 		}
-		key, err := auth.Decrypt(encKey, nonce, salt, masterKey)
+		key, err := auth.Decrypt(row.EncryptedKey, row.KeyNonce, row.KeySalt, masterKey)
 		if err != nil {
 			undecryptable++
 			continue
 		}
-		todo = append(todo, pending{id: id, mask: MaskAPIKey(key)})
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return 0, err
+		todo = append(todo, pending{id: row.ID, mask: MaskAPIKey(key)})
 	}
 	if undecryptable > 0 {
 		debuglog.Warn("provider: mask backfill skipped keys it could not decrypt under this master key", "count", undecryptable)
