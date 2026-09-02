@@ -1318,7 +1318,9 @@ func TestBackfillMaskedKeys(t *testing.T) {
 	legacy := create("backfill-legacy-"+uuid.NewString()[:8], "sk-ant-api03-xxxxxxxxxxxxxxxxxxxxxxxxxxxx-hQAA")
 	blank := create("backfill-blank-"+uuid.NewString()[:8], "sk-proj-abc123def456ghi789")
 	current := create("backfill-current-"+uuid.NewString()[:8], "sk-abcdefghijklmnop1234567890")
-	for id, mask := range map[uuid.UUID]any{legacy.ID: "sk...AA", blank.ID: nil} {
+	// The current-shape row carries a sentinel no key would mask to, so a
+	// rewrite of it cannot hide behind an identical result.
+	for id, mask := range map[uuid.UUID]any{legacy.ID: "sk...AA", blank.ID: nil, current.ID: "zz...zzzz"} {
 		if _, err := testDB.Pool().Exec(ctx, `UPDATE providers SET masked_key = $1 WHERE id = $2`, mask, id); err != nil {
 			t.Fatalf("seed mask: %v", err)
 		}
@@ -1331,16 +1333,24 @@ func TestBackfillMaskedKeys(t *testing.T) {
 	if n < 2 {
 		t.Errorf("backfilled %d rows, want at least the two seeded ones", n)
 	}
-	for id, want := range map[uuid.UUID]string{legacy.ID: "sk...hQAA", blank.ID: "sk...i789", current.ID: "sk...7890"} {
-		var got string
-		if err := testDB.Pool().QueryRow(ctx, `SELECT COALESCE(masked_key, '') FROM providers WHERE id = $1`, id).Scan(&got); err != nil {
-			t.Fatalf("read mask: %v", err)
-		}
-		if got != want {
-			t.Errorf("mask after backfill = %q, want %q", got, want)
+	want := map[uuid.UUID]string{legacy.ID: "sk...hQAA", blank.ID: "sk...i789", current.ID: "zz...zzzz"}
+	readMasks := func(label string) {
+		t.Helper()
+		for id, w := range want {
+			var got string
+			if err := testDB.Pool().QueryRow(ctx, `SELECT COALESCE(masked_key, '') FROM providers WHERE id = $1`, id).Scan(&got); err != nil {
+				t.Fatalf("read mask: %v", err)
+			}
+			if got != w {
+				t.Errorf("%s: mask = %q, want %q", label, got, w)
+			}
 		}
 	}
-	if n, err := repo.BackfillMaskedKeys(ctx, masterKey); err != nil || n != 0 {
-		t.Errorf("second pass rewrote %d rows (err %v), want none", n, err)
+	readMasks("after backfill")
+	// A second pass finds nothing of ours to rewrite. The count is not
+	// asserted: the table is shared with other tests seeding their own rows.
+	if _, err := repo.BackfillMaskedKeys(ctx, masterKey); err != nil {
+		t.Fatalf("second pass: %v", err)
 	}
+	readMasks("after second pass")
 }

@@ -362,8 +362,8 @@ func TestMaskAPIKey(t *testing.T) {
 		if got := MaskAPIKey(tc.key); got != tc.want {
 			t.Errorf("MaskAPIKey(%q) = %q, want %q", tc.key, got, tc.want)
 		}
-		if tc.want != "***" && (len(tc.want) >= len(tc.key) || strings.Contains(tc.key[2:len(tc.key)-4], tc.want[5:])) {
-			t.Errorf("MaskAPIKey(%q) = %q reveals more than the ends", tc.key, tc.want)
+		if got := MaskAPIKey(tc.key); got != "***" && (len(got) != 9 || got[:2] != tc.key[:2] || got[5:] != tc.key[len(tc.key)-4:]) {
+			t.Errorf("MaskAPIKey(%q) = %q is not two characters, three dots, four characters", tc.key, got)
 		}
 	}
 }
