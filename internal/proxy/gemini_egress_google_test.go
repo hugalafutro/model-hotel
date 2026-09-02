@@ -48,7 +48,7 @@ func TestIsGeminiEgressAttempt_GoogleImage(t *testing.T) {
 	if got := geminiEgressEndpoint("google", "gemini-2.5-flash-image", false); got != "/models/gemini-2.5-flash-image:generateContent" {
 		t.Errorf("endpoint = %q", got)
 	}
-	req := httptest.NewRequest("POST", "http://x", nil)
+	req := httptest.NewRequest("POST", "http://x", http.NoBody)
 	setGeminiEgressAuth(req, "google", "studio-key")
 	if req.Header.Get("x-goog-api-key") != "studio-key" || req.Header.Get("Authorization") != "" {
 		t.Errorf("google egress auth headers = %v", req.Header)
