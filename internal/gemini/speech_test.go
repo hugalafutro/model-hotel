@@ -140,7 +140,7 @@ func TestBuildSpeechResponse_PCMAndRate(t *testing.T) {
 	if got := binary.LittleEndian.Uint32(wav[24:28]); got != 16000 {
 		t.Errorf("sample rate = %d, want the mime type's 16000", got)
 	}
-	for mime, want := range map[string]int{"audio/L16": 24000, "audio/L16;rate=abc": 24000, "audio/L16; codec=pcm; rate=48000": 48000} {
+	for mime, want := range map[string]int{"audio/L16": 24000, "audio/L16;rate=abc": 24000, "audio/L16; codec=pcm; rate=48000": 48000, "audio/L16;rate=0": 24000, "audio/L16;rate=99999999999": 24000, "audio/L16;rate=-24000": 24000} {
 		if got := sampleRateOf(mime); got != want {
 			t.Errorf("sampleRateOf(%q) = %d, want %d", mime, got, want)
 		}

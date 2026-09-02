@@ -185,8 +185,13 @@ func BuildSpeechResponse(body []byte, format string) (audio []byte, contentType 
 }
 
 // defaultSampleRate is what Gemini TTS produces, and what a mime type that
-// names no rate is taken to mean.
-const defaultSampleRate = 24000
+// names no rate, or one outside the range any PCM stream uses, is taken to
+// mean; the bounds also keep the WAV header's 32-bit fields honest.
+const (
+	defaultSampleRate = 24000
+	minSampleRate     = 8000
+	maxSampleRate     = 192000
+)
 
 // sampleRateOf reads the rate parameter off an L16 mime type
 // (audio/L16;codec=pcm;rate=24000).
@@ -196,7 +201,7 @@ func sampleRateOf(mimeType string) int {
 		if !ok || !strings.EqualFold(k, "rate") {
 			continue
 		}
-		if rate, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && rate > 0 {
+		if rate, err := strconv.Atoi(strings.TrimSpace(v)); err == nil && rate >= minSampleRate && rate <= maxSampleRate {
 			return rate
 		}
 	}
