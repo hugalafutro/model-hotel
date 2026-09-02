@@ -352,7 +352,8 @@ func TestEnrichModel_GoogleImageModelsKeepJSONModeOff(t *testing.T) {
 	}
 	setupCacheWithModels(t, specs)
 	// Both Google types look the catalog up under their own provider index
-	// only (Exclusive), so the flat index alone finds nothing for them.
+	// only (Exclusive), so the flat index alone finds nothing for them; the
+	// non-exclusive types (Zen, OpenRouter) fall through to the flat index.
 	modelsDevCache.mu.Lock()
 	modelsDevCache.byProvider = map[string]map[string]*ModelsDevModelSpec{"google": specs, "google-vertex": specs}
 	modelsDevCache.mu.Unlock()
@@ -379,6 +380,9 @@ func TestEnrichModel_GoogleImageModelsKeepJSONModeOff(t *testing.T) {
 		{"nano-banana-pro-preview", "google", false},
 		{"gemini-2.5-flash", "google", true},
 		{"gemini-2.5-flash-image", "openrouter", true},
+		// Zen's own codenames share the naming space: only its Gemini
+		// family is Google's.
+		{"nano-banana-pro-preview", "opencode-zen", true},
 	} {
 		m := &model.Model{ModelID: tc.modelID, Capabilities: `{"vision":true}`}
 		cache.EnrichModel(m, tc.providerType)
