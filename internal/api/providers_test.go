@@ -232,12 +232,16 @@ func TestUpdateProvider_Success(t *testing.T) {
 		},
 	}
 	h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
-	payload := `{"name":"` + newName + `"}`
+	payload := `{"name":"` + newName + `","api_key":"sk-rotated-key-for-held-test"}`
 	body := bytes.NewReader([]byte(payload))
 	req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), body)
 	req = setChiURLParam(req, "id", id.String())
 
 	h.UpdateProvider(w, req)
+	// A rotated key is held for the credential mask the moment it is set.
+	if !slices.Contains(util.HeldSecrets(), "sk-rotated-key-for-held-test") {
+		t.Error("rotated provider key not held for the credential mask")
+	}
 
 	if w.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, w.Code)

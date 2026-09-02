@@ -399,7 +399,10 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 		// member is empty, where the credential could only be in the content
 		// the regex must not touch anyway.
 		if util.ErrorMemberCarries(chunk.Error) {
-			masked = maskKeyShapedTokens(masked)
+			// An error frame is error text: every held provider key and the
+			// shape layer, not only the candidate's key the content pass
+			// applied above (a relay's rejection quotes another row's key).
+			masked = st.masker.mask(masked)
 		}
 		if string(masked) != payload {
 			payload = string(masked)

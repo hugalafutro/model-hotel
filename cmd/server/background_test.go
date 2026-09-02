@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"log/slog"
+	"slices"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -17,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func newTestSettingsRepo() *settings.Repository {
@@ -83,6 +85,11 @@ func TestWarmCaches(t *testing.T) {
 	}
 
 	warmCaches(deps, newTestSettingsRepo())
+	// The warm also seeds the credential mask's held set, synchronously, so
+	// the set is complete before the listener opens.
+	if !slices.Contains(util.HeldSecrets(), "sk-test-warm") {
+		t.Fatal("warmCaches did not hold the provider key for the credential mask")
+	}
 }
 
 func TestWarmCachesDBErrors(t *testing.T) {

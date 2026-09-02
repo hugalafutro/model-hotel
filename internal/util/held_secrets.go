@@ -28,9 +28,10 @@ import (
 // serves. The length floor here is the only filter, for the same reason: a
 // placeholder masked out of an error message costs nothing.
 //
-// Registration is by value and never expires. A rotated key stays held until
-// the process restarts, which is right: a body quoting the old key is still
-// quoting a credential. The set is bounded by the number of distinct keys, a
+// Registration is by value and never expires within a process: a rotated key
+// stays held until the next restart, after which the set is seeded from the
+// table again and the old key is gone with the row that held it. The set is
+// bounded by the number of distinct keys, a
 // few dozen on a large deployment, and a pass costs one substring search per
 // held key over an error body that is already bounded.
 

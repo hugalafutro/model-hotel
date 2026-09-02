@@ -163,7 +163,10 @@ func (m *sseErrorMaskWriter) Flush() error {
 
 // spill abandons masking for the event in progress: everything buffered goes
 // downstream raw and the remainder of the event is passed through as it
-// arrives. Only reached when an event outgrows sseErrorMaskEventCap.
+// arrives. Only reached when an event outgrows sseErrorMaskEventCap. Raw
+// mode keeps the candidate's key out (rawOut) and nothing else: an error
+// event past 4 MiB is not a shape any provider sends, so that is a
+// documented limit rather than a path worth a held-set pass per chunk.
 func (m *sseErrorMaskWriter) spill() error {
 	var out []byte
 	for _, l := range m.event {
@@ -188,6 +191,13 @@ func (m *sseErrorMaskWriter) emitEvent(delimiter []byte) error {
 	} else {
 		for _, l := range lines {
 			out = append(out, l...)
+		}
+		// An event whose data is not a JSON object is not content this
+		// gateway forwards (content frames are JSON); a bare "error: bad api
+		// key ..." line is error text, so every held provider key is masked
+		// out of it. Exact keys only: no regex over prose here.
+		if payload := sseDataPayload(lines); len(payload) > 0 && payload[0] != '{' && !bytes.Equal(payload, []byte("[DONE]")) {
+			out = m.cred.maskAll(out)
 		}
 	}
 	out = append(out, delimiter...)
@@ -217,23 +227,7 @@ func isSSEBlankLine(line []byte) bool {
 // the masked payload, one per physical line of the original. ok is false when the event is to be forwarded
 // verbatim.
 func maskSSEErrorEvent(lines [][]byte, cred credentialMasker) (out []byte, ok bool) {
-	var payload []byte
-	var eol []byte
-	dataLines := 0
-	for _, l := range lines {
-		rest, isData := bytes.CutPrefix(l, []byte("data:"))
-		if !isData {
-			continue
-		}
-		body := bytes.TrimRight(rest, "\r\n")
-		if dataLines == 0 {
-			eol = rest[len(body):]
-		} else {
-			payload = append(payload, '\n')
-		}
-		payload = append(payload, bytes.TrimSpace(body)...)
-		dataLines++
-	}
+	payload, eol, dataLines := sseDataPayloadEOL(lines)
 	if dataLines == 0 || len(payload) == 0 || payload[0] != '{' || !bytes.Contains(payload, []byte(`"error"`)) {
 		return nil, false
 	}
@@ -273,4 +267,31 @@ type flushWriter struct {
 func newFlushWriter(w http.ResponseWriter) flushWriter {
 	f, _ := w.(http.Flusher)
 	return flushWriter{w: w, f: f}
+}
+
+// sseDataPayload joins an event's data lines per the SSE spec.
+func sseDataPayload(lines [][]byte) []byte {
+	payload, _, _ := sseDataPayloadEOL(lines)
+	return payload
+}
+
+// sseDataPayloadEOL is sseDataPayload plus the first data line's end-of-line
+// bytes (kept so a re-serialised event keeps the original framing) and the
+// number of data lines.
+func sseDataPayloadEOL(lines [][]byte) (payload, eol []byte, dataLines int) {
+	for _, l := range lines {
+		rest, isData := bytes.CutPrefix(l, []byte("data:"))
+		if !isData {
+			continue
+		}
+		body := bytes.TrimRight(rest, "\r\n")
+		if dataLines == 0 {
+			eol = rest[len(body):]
+		} else {
+			payload = append(payload, '\n')
+		}
+		payload = append(payload, bytes.TrimSpace(body)...)
+		dataLines++
+	}
+	return payload, eol, dataLines
 }

@@ -184,8 +184,9 @@ const credentialMinLen = util.CredentialMinLen
 // newCredentialMasker and pass it to every client-facing emit of provider
 // error text: the buffered paths in forwardUpstreamError and the in-stream
 // error frames on the translated (handleDataChunk), native Anthropic
-// (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths. The
-// zero value masks the held set and by shape. The exact layer alone
+// (emitRawData) and pass-through (sseErrorMaskWriter) streaming paths, each
+// of which applies mask to the frames it recognises as errors and maskExact
+// to the rest. The zero value masks the held set and by shape. The exact layer alone
 // (maskExact) runs on every other provider body a client receives, and there
 // it keeps to the candidate's own key (see util's held_secrets.go for why);
 // the request log's error message gets both layers, since it is error text
