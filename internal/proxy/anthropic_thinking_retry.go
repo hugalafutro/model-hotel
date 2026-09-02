@@ -74,6 +74,12 @@ func (h *Handler) retryLearnableMessages400(
 	if !ok {
 		return res, false
 	}
+	if !st.retryBudgetLeft() {
+		// Learned for the next request; this one carries the 400 on as it
+		// came (the body is restored) rather than a retry that would time
+		// out on issue.
+		return res, true
+	}
 
 	failoverCancel() // 400 body fully consumed, original context no longer needed
 

@@ -212,6 +212,13 @@ func (h *Handler) mergeLearnedParams(candidate modelCandidate, rejected map[stri
 // to something this self-heal cannot fix, and the 400 belongs to the client.
 const paramRetryRounds = 2
 
+// retryMinRound is the least budget a self-heal round is issued with. A
+// round cut shorter than this cannot finish a connect and a first byte,
+// so issuing it only has the provider start work the gateway then abandons
+// and turns the refusal in hand into a timeout; the loop's own smallest
+// interval is the same 100ms (failoverBackoff).
+const retryMinRound = 100 * time.Millisecond
+
 // issueParamRetry rebuilds the upstream body with strip applied on top of the
 // learned caches and re-POSTs it to targetURL, in the dialect the attempt
 // spoke: chat-completions as sent, or the Responses translation of it.
@@ -305,16 +312,6 @@ func retryContext(r *http.Request, st *requestState) (context.Context, context.C
 	}
 	ctx, cancel := context.WithDeadline(r.Context(), deadline)
 	return context.WithValue(ctx, ctxkeys.CancelOriginKey, "retry_timeout"), cancel
-}
-
-// retryBudgetLeft reports whether a self-heal round may still be issued:
-// past the overall deadline it may not, and the refusal in hand is handed
-// on as the provider gave it, to fail over or reach the client, rather than
-// a round that would time out on issue and turn the provider's own answer
-// into a timeout of this gateway's making. What the refusal taught is
-// learned either way.
-func (st *requestState) retryBudgetLeft() bool {
-	return st.overallDeadline.IsZero() || time.Now().Before(st.overallDeadline)
 }
 
 // readLearnable400 consumes a 400 body for the param self-heal: it reads what

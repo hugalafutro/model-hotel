@@ -368,6 +368,17 @@ func (st *requestState) sentChatCompletionsBody() bool {
 	return !st.anthropicNativeAttempt && !st.responsesAttempt && !st.geminiAttempt && !st.anthropicEgressAttempt
 }
 
+// retryBudgetLeft reports whether a self-heal round may still be issued: at
+// least retryMinRound before the overall deadline. Past that, the refusal
+// in hand is handed on as the provider gave it, to fail over or reach the
+// client, rather than a round that would time out on issue and turn the
+// provider's own answer into a timeout of this gateway's making. What the
+// refusal taught is learned either way. A state that never set the deadline
+// (the unit tests' bare state) always has budget.
+func (st *requestState) retryBudgetLeft() bool {
+	return st.overallDeadline.IsZero() || time.Until(st.overallDeadline) > retryMinRound
+}
+
 // candidateOutcome is the result of a single failover attempt
 // (attemptCandidate): whether the caller should try the next candidate, has
 // already served the client, or has written a terminal error.

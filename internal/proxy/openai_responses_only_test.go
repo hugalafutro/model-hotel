@@ -2,15 +2,20 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/metrics"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 )
 
@@ -536,6 +541,15 @@ func TestRetryLearnable400_RoundsRespectTheOverallDeadline(t *testing.T) {
 		t.Fatalf("upstream saw %v past the overall deadline, want nothing", *bodies)
 	}
 
+	// A sliver of budget below the floor is no budget: the round would only
+	// have the provider start work the gateway then abandons.
+	st = &requestState{bodyBytes: []byte(body), failoverTimeout: 5 * time.Second, overallDeadline: time.Now().Add(retryMinRound / 4)}
+	res, handled = h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/chat/completions", rerouteRefusal(), 0, &dialMs, func() {}, "")
+	if !handled || res.cont || res.retried || len(*bodies) != 0 {
+		t.Fatalf("handled=%v cont=%v retried=%v requests=%d below the floor, want the refusal handed on", handled, res.cont, res.retried, len(*bodies))
+	}
+	_ = res.resp.Body.Close()
+
 	// Expired between a strip round and the next: the second 400 is learned
 	// and handed on, not retried.
 	stripped, recorded := rerouteFixture(t, "temperature", "top_p")
@@ -564,5 +578,67 @@ func TestRetryLearnable400_RoundsRespectTheOverallDeadline(t *testing.T) {
 	}
 	if len(*bodies) != 2 {
 		t.Fatalf("upstream saw %d requests, want the reroute and its strip", len(*bodies))
+	}
+}
+
+// rerouteCount reads the Responses reroute counter for one label set off
+// the metrics handler's exposition, so a test can pin when the sample is
+// taken (labels are exposed in name order: mode, model, provider).
+func rerouteCount(t *testing.T, providerName, model, mode string) float64 {
+	t.Helper()
+	w := httptest.NewRecorder()
+	metrics.Handler().ServeHTTP(w, httptest.NewRequest("GET", "/metrics", http.NoBody))
+	want := fmt.Sprintf(`modelhotel_responses_reroute_total{mode=%q,model=%q,provider=%q} `, mode, model, providerName)
+	for _, line := range strings.Split(w.Body.String(), "\n") {
+		if strings.HasPrefix(line, want) {
+			v, err := strconv.ParseFloat(strings.TrimPrefix(line, want), 64)
+			if err != nil {
+				t.Fatalf("metric line %q: %v", line, err)
+			}
+			return v
+		}
+	}
+	return 0
+}
+
+// The param_retry sample counts a request that reached the wire: one per
+// strip round issued on /v1/responses, none for a round whose transport
+// failed before an answer, none for a chat-completions strip.
+func TestIssueParamRetry_RerouteMetricCountsIssuedRequests(t *testing.T) {
+	upstream, _ := rerouteFixture(t, "temperature", "top_p")
+	h := &Handler{upstreamTransport: &http.Transport{}}
+	cand := responsesTestCandidate(upstream.URL + "/v1")
+	cand.model.ModelID = "gpt-5.5-pro-metric-" + uuid.NewString()[:8]
+	before := rerouteCount(t, cand.provider.Name, cand.model.ModelID, "param_retry")
+	st := &requestState{bodyBytes: []byte(`{"model":"` + cand.model.ModelID + `","temperature":0.2,"top_p":0.9,"messages":[{"role":"user","content":"hi"}]}`), failoverTimeout: 5 * time.Second, responsesAttempt: true}
+	first := &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","param":"temperature"}}`))}
+	r := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	var dialMs float64
+	res, _ := h.retryLearnable400(r, st, cand, "openai", upstream.URL+"/v1/responses", first, 0, &dialMs, func() {}, "")
+	_ = res.resp.Body.Close()
+	if res.retryCancel != nil {
+		res.retryCancel()
+	}
+	if got := rerouteCount(t, cand.provider.Name, cand.model.ModelID, "param_retry") - before; got != 2 {
+		t.Errorf("param_retry samples = %v, want 2 (two strip rounds issued)", got)
+	}
+
+	dead := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		if conn, _, err := w.(http.Hijacker).Hijack(); err == nil {
+			_ = conn.Close()
+		}
+	}))
+	t.Cleanup(dead.Close)
+	deadCand := responsesTestCandidate(dead.URL + "/v1")
+	deadCand.model.ModelID = cand.model.ModelID
+	before = rerouteCount(t, deadCand.provider.Name, deadCand.model.ModelID, "param_retry")
+	st = &requestState{bodyBytes: []byte(`{"model":"` + cand.model.ModelID + `","temperature":0.2,"messages":[{"role":"user","content":"hi"}]}`), failoverTimeout: 5 * time.Second, responsesAttempt: true}
+	first = &http.Response{StatusCode: 400, Body: io.NopCloser(strings.NewReader(`{"error":{"message":"Unsupported parameter: 'temperature' is not supported with this model.","param":"temperature"}}`))}
+	res, _ = h.retryLearnable400(r, st, deadCand, "openai", dead.URL+"/v1/responses", first, 0, &dialMs, func() {}, "")
+	if !res.cont {
+		t.Fatalf("transport failure should continue: %+v", res)
+	}
+	if got := rerouteCount(t, deadCand.provider.Name, deadCand.model.ModelID, "param_retry") - before; got != 0 {
+		t.Errorf("param_retry samples = %v after a round that never got an answer, want 0", got)
 	}
 }
