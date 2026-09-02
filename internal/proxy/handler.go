@@ -317,12 +317,21 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 // ProxyKeyMiddleware validates the virtual API key in the request header.
 func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// A refusal closes the connection. net/http drains an unread request
+		// body before it sends a keep-alive response, so without this a
+		// client trickling a body with no valid key was told 401 only when
+		// the body deadline cut the drain; a caller with no key has no
+		// keep-alive worth keeping.
+		refuse := func(msg string) {
+			w.Header().Set("Connection", "close")
+			writeOpenAIError(w, msg, http.StatusUnauthorized)
+		}
 		token, ok := util.ParseProxyKey(r)
 		if !ok {
 			// Client error, not a server fault — Warn keeps the Error stream
 			// reserved for things the operator must act on.
 			debuglog.Warn("auth: missing authorization header", "remote_addr", clientip.From(r))
-			writeOpenAIError(w, "missing authorization header: expected \"Authorization: Bearer <virtual key>\" or \"x-api-key: <virtual key>\"", http.StatusUnauthorized)
+			refuse("missing authorization header: expected \"Authorization: Bearer <virtual key>\" or \"x-api-key: <virtual key>\"")
 			return
 		}
 
@@ -331,7 +340,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		if err != nil {
 			if errors.Is(err, virtualkey.ErrNotFound) {
 				debuglog.Warn("auth: key not found", "remote_addr", clientip.From(r))
-				writeOpenAIError(w, "invalid virtual key", http.StatusUnauthorized)
+				refuse("invalid virtual key")
 			} else {
 				debuglog.Error("auth: db lookup failed", "error", err)
 				writeOpenAIError(w, "internal error", http.StatusInternalServerError)
@@ -344,7 +353,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 			// login. The key itself stays intact for when the account
 			// returns.
 			debuglog.Warn("auth: key owner disabled", "remote_addr", clientip.From(r), "key", vk.Name)
-			writeOpenAIError(w, "virtual key disabled: owner account is disabled", http.StatusUnauthorized)
+			refuse("virtual key disabled: owner account is disabled")
 			return
 		}
 		debuglog.Info("auth: authenticated", "key", vk.Name)

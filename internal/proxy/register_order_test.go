@@ -52,6 +52,11 @@ func TestRegister_AfterAuthMiddlewaresSeeOnlyAuthenticatedRequests(t *testing.T)
 	if ran != 0 || body.read != 0 {
 		t.Fatalf("no key: probe ran %d times and %d body bytes were read, want none of either", ran, body.read)
 	}
+	// The refusal closes the connection, so net/http does not drain the
+	// unread body before answering: a trickling client is told 401 at once.
+	if rr.Header().Get("Connection") != "close" {
+		t.Fatalf("no key: Connection = %q, want close", rr.Header().Get("Connection"))
+	}
 
 	// A key: the probe runs, after auth (the key is already in context).
 	req = httptest.NewRequest(http.MethodPost, "/chat/completions", strings.NewReader(`{"model":"p/m","messages":[]}`))
