@@ -1,6 +1,10 @@
 package anthropic
 
-import "github.com/hugalafutro/model-hotel/internal/util"
+import (
+	"encoding/json"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
+)
 
 // This file defines the minimal subset of the OpenAI chat-completions wire
 // format the translators consume. We deliberately do not import the proxy
@@ -34,6 +38,10 @@ type OAToolCallDelta struct {
 	ID       string          `json:"id"`
 	Type     string          `json:"type"`
 	Function OAFunctionDelta `json:"function"`
+	// ExtraContent is the Gemini 3 thought signature's carrier, on the
+	// fragment that opens the call (the Gemini translator and Google's own
+	// compatibility layer both put it there); raw, read leniently.
+	ExtraContent json.RawMessage `json:"extra_content"`
 }
 
 // OAFunctionDelta carries the function name and a fragment of the arguments

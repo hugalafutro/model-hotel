@@ -228,3 +228,50 @@ func tr(t *testing.T) *StreamTranslator {
 	t.Helper()
 	return NewStreamTranslator("msg_obj_args", "claude-sonnet-4-6")
 }
+
+// A streamed tool call whose opening fragment carries the Gemini 3 thought
+// signature opens a tool_use block whose id carries it (the id is fixed at
+// content_block_start, so that fragment is the only place it can be read),
+// and a call without one keeps the id it came with. Decoded from JSON since
+// the carrier is read off the wire.
+func TestStreamTranslator_ToolUseIDCarriesThoughtSignature(t *testing.T) {
+	tr := NewStreamTranslator("msg_sig", "m")
+	var chunks []OAStreamChunk
+	for _, raw := range []string{
+		`{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_s","type":"function","function":{"name":"get_weather","arguments":""},"extra_content":{"google":{"thought_signature":"sig-s"}}}]}}]}`,
+		`{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"{}"}}]}}]}`,
+		`{"choices":[{"delta":{"tool_calls":[{"index":1,"id":"call_p","type":"function","function":{"name":"get_weather","arguments":"{}"}}]}}]}`,
+		`{"choices":[{"delta":{},"finish_reason":"tool_calls"}]}`,
+	} {
+		var c OAStreamChunk
+		if err := json.Unmarshal([]byte(raw), &c); err != nil {
+			t.Fatalf("chunk %s: %v", raw, err)
+		}
+		chunks = append(chunks, c)
+	}
+	sse := runTranslator(t, tr, chunks)
+	var ids []string
+	for _, line := range strings.Split(string(sse), "\n") {
+		if !strings.HasPrefix(line, "data: ") || !strings.Contains(line, `"content_block_start"`) || !strings.Contains(line, `"tool_use"`) {
+			continue
+		}
+		var ev struct {
+			ContentBlock struct {
+				ID string `json:"id"`
+			} `json:"content_block"`
+		}
+		if err := json.Unmarshal([]byte(strings.TrimPrefix(line, "data: ")), &ev); err != nil {
+			t.Fatalf("event %s: %v", line, err)
+		}
+		ids = append(ids, ev.ContentBlock.ID)
+	}
+	if len(ids) != 2 {
+		t.Fatalf("tool_use blocks = %v, want two", ids)
+	}
+	if id, sig := splitToolUseID(ids[0]); id != "call_s" || sig != "sig-s" {
+		t.Errorf("signed block id %q splits to (%q, %q), want (call_s, sig-s)", ids[0], id, sig)
+	}
+	if ids[1] != "call_p" {
+		t.Errorf("unsigned block id = %q, want call_p untouched", ids[1])
+	}
+}

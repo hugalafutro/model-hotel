@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -75,6 +76,10 @@ type oaiRespToolCall struct {
 		Name      string             `json:"name"`
 		Arguments util.ToolArguments `json:"arguments"`
 	} `json:"function"`
+	// ExtraContent is the Gemini 3 thought signature's carrier on the
+	// OpenAI side; raw, since a shape this package does not expect is an
+	// unsigned call and not a failed translation.
+	ExtraContent json.RawMessage `json:"extra_content"`
 }
 
 // readOAUsage maps an OpenAI usage block to the Anthropic token accounting.
@@ -135,7 +140,7 @@ func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) 
 			}
 			msg.Content = append(msg.Content, contentBlock{
 				Type:  "tool_use",
-				ID:    tc.ID,
+				ID:    signedToolUseID(tc.ID, egress.ThoughtSignatureIn(tc.ExtraContent)),
 				Name:  tc.Function.Name,
 				Input: input,
 			})
