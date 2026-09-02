@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 func hdr(pairs ...string) http.Header {
@@ -416,5 +418,128 @@ func TestParseResetValue(t *testing.T) {
 	future := time.Now().Add(90 * time.Second).Unix()
 	if got, ok := parseResetValue(strconv.FormatInt(future, 10)); !ok || got <= 80*time.Second || got > 91*time.Second {
 		t.Errorf("epoch-seconds reset parsed to (%v, %v), want ~90s", got, ok)
+	}
+}
+
+// googleDailyQuota429 is Google AI Studio's per-day quota refusal for
+// gemini-3-pro-image, verbatim from prod on 2026-09-02 (request id and links
+// trimmed). It carries the wait twice, in prose and in a RetryInfo detail, and
+// no Retry-After header.
+const googleDailyQuota429 = `{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_requests_per_model_per_day, limit: 250, model: gemini-3-pro-image\nPlease retry in 2h35m3.273316703s.","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_requests_per_model_per_day","quotaId":"GenerateRequestsPerDayPerProjectPerModel","quotaValue":"250"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"9303s"}]}}`
+
+// A provider that dates its own window is pinned for that window, not for the
+// phrase's default: Google's daily quota shares its wording with OpenAI's
+// out-of-credit refusal and states its reset in the body, and since time fixes
+// it, it is not an entitlement refusal either. The body goes through the same
+// sanitizer the live path applies before classifying.
+func TestClassifyRateLimit_BodyRetryHintOutranksThePhrasePin(t *testing.T) {
+	t.Parallel()
+	const maxWait = 60 * time.Second
+	got := classifyRateLimit(429, nil, util.SanitizeLogBody(googleDailyQuota429, 10000), maxWait)
+	if got.class != rateLimitExhausted {
+		t.Fatalf("class = %v, want exhausted", got.class)
+	}
+	if got.pinHint != 9303*time.Second {
+		t.Errorf("pinHint = %v, want 9303s from RetryInfo", got.pinHint)
+	}
+	if got.entitled {
+		t.Error("a window with a stated reset is fixed by time, not by a person")
+	}
+	if got.phrase != "exceeded your current quota" {
+		t.Errorf("phrase = %q, the matched phrase still rides into the trail", got.phrase)
+	}
+	if kind, _ := got.errorKind(); kind != KindProviderQuotaExhausted {
+		t.Errorf("errorKind = %v, want quota exhausted", kind)
+	}
+}
+
+// A header wait still outranks the body and leaves entitled alone, a phrase
+// with no stated wait keeps its default and its entitled flag, and a stated
+// wait at or under the ceiling is saturation whatever sentence surrounds it:
+// Google's per-minute quota shares the daily quota's wording with a
+// retryDelay of seconds.
+func TestClassifyRateLimit_BodyHintPrecedence(t *testing.T) {
+	t.Parallel()
+	const maxWait = 60 * time.Second
+	hdr := http.Header{"Retry-After": []string{"3600"}}
+	if got := classifyRateLimit(429, hdr, util.SanitizeLogBody(googleDailyQuota429, 10000), maxWait); got.pinHint != time.Hour || !got.entitled {
+		t.Errorf("header wait: pin %v entitled %v, want the header's hour over the body's 9303s with entitled left alone", got.pinHint, got.entitled)
+	}
+	short := http.Header{"Retry-After": []string{"1"}}
+	if got := classifyRateLimit(429, short, util.SanitizeLogBody(googleDailyQuota429, 10000), maxWait); got.pinHint != 9303*time.Second || got.entitled {
+		t.Errorf("a header wait under the ceiling must not hide the body's window: pin %v entitled %v", got.pinHint, got.entitled)
+	}
+	wrapped := `{"error":"Your credit balance is too low to access the Anthropic API. Please try again in 30 seconds."}`
+	if got := classifyRateLimit(429, nil, wrapped, maxWait); got.class != rateLimitExhausted || got.pinHint != pinHintUntilPaid || !got.entitled {
+		t.Errorf("prose boilerplate must not shorten an out-of-credit refusal: class %v pin %v entitled %v", got.class, got.pinHint, got.entitled)
+	}
+	anthropic := `{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}`
+	if got := classifyRateLimit(429, nil, util.SanitizeLogBody(anthropic, 10000), maxWait); got.pinHint != pinHintUntilPaid || !got.entitled {
+		t.Errorf("no stated wait: pin %v entitled %v, want until-paid and entitled", got.pinHint, got.entitled)
+	}
+	perMinute := strings.Replace(googleDailyQuota429, `"retryDelay":"9303s"`, `"retryDelay":"23s"`, 1)
+	perMinute = strings.Replace(perMinute, "Please retry in 2h35m3.273316703s.", "Please retry in 23.4s.", 1)
+	if got := classifyRateLimit(429, nil, util.SanitizeLogBody(perMinute, 10000), maxWait); got.class != rateLimitSaturated || got.retryAfter != 23*time.Second || got.entitled {
+		t.Errorf("per-minute quota: class %v retryAfter %v entitled %v, want saturated 23s", got.class, got.retryAfter, got.entitled)
+	}
+	if got := classifyRateLimit(429, nil, `{"error":"rate limited, try again in 30 seconds"}`, maxWait); got.class != rateLimitSaturated || got.retryAfter != 30*time.Second {
+		t.Errorf("prose wait under the ceiling: class %v retryAfter %v, want saturated 30s", got.class, got.retryAfter)
+	}
+}
+
+// The request-log kind agrees with the verdict: the body-driven classifier
+// stops calling a dated window an entitlement refusal, and the terminal
+// refinement then lands on quota exhausted.
+func TestClassifyUpstreamError_DatedQuotaIsNotAnEntitlementRefusal(t *testing.T) {
+	t.Parallel()
+	body := util.SanitizeLogBody(googleDailyQuota429, 10000)
+	kind, _ := classifyUpstreamError(429, body, "gemini-3-pro-image")
+	if kind == KindProviderNotEntitled {
+		t.Fatalf("kind = %v for a 429 that dates its own window", kind)
+	}
+	v := classifyRateLimit(429, nil, body, 60*time.Second)
+	if got, _ := rateLimitTerminalKind(kind, "", 429, v); got != KindProviderQuotaExhausted {
+		t.Errorf("terminal kind = %v, want quota exhausted", got)
+	}
+	undated := `{"error":{"message":"You exceeded your current quota, please check your plan and billing details.","type":"insufficient_quota"}}`
+	if kind, _ := classifyUpstreamError(429, util.SanitizeLogBody(undated, 10000), "gpt-4o"); kind != KindProviderNotEntitled {
+		t.Errorf("kind = %v for OpenAI's undated out-of-credit refusal, want not entitled", kind)
+	}
+}
+
+func TestBodyResetHint(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		body string
+		want time.Duration
+	}{
+		{"google RetryInfo", `{"details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retrydelay":"9303s"}]}`, 9303 * time.Second},
+		{"google RetryInfo fractional", `"retrydelay": "0.5s"`, 500 * time.Millisecond},
+		{"a zeroed detail does not hide the sentence", `{"retrydelay":"0s","message":"please retry in 2h35m3.27s."}`, 2*time.Hour + 35*time.Minute + 3270*time.Millisecond},
+		{"an overflowed detail does not hide the sentence", `{"retrydelay":"99999999999999999999s","message":"please retry in 10 minutes."}`, 10 * time.Minute},
+		{"days", `retry in 1 day`, 24 * time.Hour},
+		{"google prose go duration", `please retry in 2h35m3.273316703s.`, 2*time.Hour + 35*time.Minute + 3273316703},
+		{"milliseconds are not minutes", `please try again in 20ms.`, 20 * time.Millisecond},
+		{"half a second", `retry in 500ms`, 500 * time.Millisecond},
+		{"try again in seconds", `rate limited. try again in 30 seconds`, 30 * time.Second},
+		{"retry after minutes", `retry after 5 minutes`, 5 * time.Minute},
+		{"words followed by more words", `retry after 3 hours or so`, 3 * time.Hour},
+		{"bare go duration", `retry in 45s`, 45 * time.Second},
+		{"zero is not a wait", `"retrydelay":"0s"`, 0},
+		{"no wait stated", `you exceeded your current quota`, 0},
+		{"unknown unit", `retry in 3 fortnights`, 0},
+		{"a moment is not a duration", `please retry in a moment, or try again later`, 0},
+		{"requests are not a duration", `retry after 5 requests`, 0},
+		{"overflowed seconds", `"retrydelay":"99999999999999999999s"`, 0},
+		{"absurd hours", `retry in 99999999999 hours`, 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got, _, ok := bodyResetHint(tc.body)
+			if ok != (tc.want > 0) || got != tc.want {
+				t.Errorf("bodyResetHint = %v, %v; want %v", got, ok, tc.want)
+			}
+		})
 	}
 }
