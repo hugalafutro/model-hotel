@@ -10,16 +10,12 @@ import (
 	"github.com/google/uuid"
 )
 
-// Google discovery authenticates by query parameter, so the credential is in
-// the request URL. Go's *url.Error renders the whole URL in Error() — it
-// redacts userinfo passwords, nothing else — so any transport failure (DNS,
-// TLS, timeout, a SafeDialer refusal) produced an error string carrying the
-// key, and that string reached the app log, the discovery HTTP response and
-// the discovery.provider_failed SSE event.
+// Go's *url.Error renders the whole request URL in Error(), redacting only
+// userinfo passwords, so a key in the query string would reach the app log,
+// the discovery HTTP response and the discovery.provider_failed SSE event on
+// any transport failure. The key travels in a header; this pins that.
 //
-// A real Google key is AIza-prefixed, which the shape layer catches on its
-// own; this uses a shapeless key so the assertion pins the exact-match layer
-// at the call site rather than the shared scrub.
+// A shapeless key, so the shape layer cannot hide a regression.
 func TestDiscoverGoogle_TransportErrorDoesNotCarryTheKeyFromTheURL(t *testing.T) {
 	const key = "selfhosted-gateway-secret"
 
@@ -35,10 +31,7 @@ func TestDiscoverGoogle_TransportErrorDoesNotCarryTheKeyFromTheURL(t *testing.T)
 		t.Fatal("expected a transport error against a closed listener")
 	}
 	if strings.Contains(err.Error(), key) {
-		t.Errorf("the API key survived from the URL into the error: %q", err.Error())
-	}
-	if !strings.Contains(err.Error(), "[redacted]") {
-		t.Errorf("the URL-borne credential was not scrubbed at all: %q", err.Error())
+		t.Errorf("the API key reached the error text: %q", err.Error())
 	}
 }
 

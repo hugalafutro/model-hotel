@@ -79,7 +79,7 @@ const maxDiscoveryRetries = 3
 var credentialHeaders = []string{"Authorization", "X-Api-Key", "Api-Key", "X-Goog-Api-Key"}
 
 // credentialQueryParams are the query parameter names a key may travel in
-// (one family authenticates by ?key=). Only these are treated as secrets: a
+// (a custom gateway may authenticate by ?key=). Only these are treated as secrets: a
 // sweep of every query value would redact Azure's ?api-version=... out of the
 // one diagnostic an operator needs when a version is refused.
 var credentialQueryParams = map[string]bool{

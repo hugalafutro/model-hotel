@@ -671,7 +671,7 @@ The live result is then merged with the catalog. The catalog **backfills** the f
 
 **Source files:** `discovery_google.go`, `google_catalog.go`, `google_types.go`
 
-**Method:** Uses Google's native Gemini API (`GET /v1beta/models?key=KEY`) for discovery, which provides rich metadata including context windows, max output tokens, supported generation methods, and thinking support. The base URL is configured for the OpenAI-compatible proxy endpoint (`/v1beta/openai`), but discovery internally converts to the native API URL.
+**Method:** Uses Google's native Gemini API (`GET /v1beta/models`, key in the `x-goog-api-key` header) for discovery, which provides rich metadata including context windows, max output tokens, supported generation methods, and thinking support. The base URL is configured for the OpenAI-compatible proxy endpoint (`/v1beta/openai`), but discovery internally converts to the native API URL.
 
 Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-flash`) which is stripped for internal use.
 
