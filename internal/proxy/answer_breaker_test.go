@@ -463,6 +463,9 @@ func TestChatAnswerCarriesContent_StaysNarrowForRetirement(t *testing.T) {
 		// clear the streak that is meant to retire the model.
 		{"a refusal envelope", `{"choices":[{"message":{"role":"assistant","content":null,"refusal":"this model is no longer available"}}]}`, false},
 		{"an audio answer", `{"choices":[{"message":{"role":"assistant","content":null,"audio":{"data":"AA"}}}]}`, false},
+		// An image-only answer is admitted by the completion-token fallback
+		// (an image model's usage counts its picture), never by a member of
+		// its own: the aggregator this bar exists to catch emits no images.
 		{"generated images", `{"choices":[{"message":{"role":"assistant","content":"","images":[{"image_url":{"url":"data:x"}}]}}]}`, false},
 		// The one addition, and why.
 		{"reasoning_details only", `{"choices":[{"message":{"role":"assistant","content":"","reasoning_details":[{"type":"reasoning.text","text":"t"}]}}]}`, true},

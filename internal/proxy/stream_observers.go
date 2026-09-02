@@ -154,6 +154,10 @@ type streamChunk struct {
 					Arguments util.ToolArguments `json:"arguments"`
 				} `json:"function"`
 			} `json:"tool_calls"`
+			// Images is a generated picture (OpenRouter's shape, which the
+			// gemini egress adapter emits too): the whole answer of an image
+			// model, read for the breaker's bar alone.
+			Images json.RawMessage `json:"images"`
 		} `json:"delta"`
 		FinishReason       *string `json:"finish_reason"`
 		NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
@@ -253,6 +257,12 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 			if tc.Function != nil {
 				st.deliveredBytes += len(tc.Function.Name) + len(tc.Function.Arguments)
 			}
+		}
+		// A generated image is output the model answered with, but no
+		// estimate is ever sized from its bytes (see estimateMissingUsage),
+		// so it is delivery for the breaker and not delivered bytes.
+		if util.ValueCarries(choice.Delta.Images) {
+			st.sawImage = true
 		}
 	}
 	if len(chunk.Choices) > 0 && chunk.Choices[0].Delta != nil {

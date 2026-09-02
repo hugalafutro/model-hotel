@@ -41,6 +41,15 @@ type genRespPart struct {
 	Text         string           `json:"text"`
 	Thought      bool             `json:"thought"`
 	FunctionCall *genRespFuncCall `json:"functionCall"`
+	// InlineData carries a generated image (an image model answering a
+	// request whose response modalities named IMAGE): base64 bytes and
+	// their mime type.
+	InlineData *genRespBlob `json:"inlineData"`
+}
+
+type genRespBlob struct {
+	MimeType string `json:"mimeType"`
+	Data     string `json:"data"`
 }
 
 type genRespFuncCall struct {
@@ -76,6 +85,28 @@ type oaiMessageOut struct {
 	Role      string           `json:"role"`
 	Content   *string          `json:"content"`
 	ToolCalls []oaiToolCallOut `json:"tool_calls,omitempty"`
+	// Images is the OpenAI-compatible shape for image output from a chat
+	// model (the one OpenRouter and the image-capable chat models use): a
+	// list of image_url parts carrying data URLs, beside the text content.
+	Images []oaiImageOut `json:"images,omitempty"`
+}
+
+type oaiImageOut struct {
+	Type     string         `json:"type"`
+	ImageURL oaiImageURLOut `json:"image_url"`
+}
+
+type oaiImageURLOut struct {
+	URL string `json:"url"`
+}
+
+// imageOut renders a generated image part as an image_url data URL. A part
+// that is not an image, or an image with no bytes or type, yields nothing.
+func imageOut(blob *genRespBlob) (oaiImageOut, bool) {
+	if blob == nil || blob.Data == "" || !strings.HasPrefix(blob.MimeType, "image/") {
+		return oaiImageOut{}, false
+	}
+	return oaiImageOut{Type: "image_url", ImageURL: oaiImageURLOut{URL: "data:" + blob.MimeType + ";base64," + blob.Data}}, true
 }
 
 type oaiToolCallOut struct {
@@ -128,9 +159,9 @@ func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, 
 	}
 
 	cand := resp.Candidates[0]
-	text, toolCalls := translateCandidateParts(id, cand.Content.Parts)
+	text, toolCalls, images := translateCandidateParts(id, cand.Content.Parts)
 
-	msg := oaiMessageOut{Role: "assistant", Content: &text, ToolCalls: toolCalls}
+	msg := oaiMessageOut{Role: "assistant", Content: &text, ToolCalls: toolCalls, Images: images}
 
 	out := oaiCompletion{
 		ID:      id,
@@ -153,14 +184,24 @@ func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, 
 }
 
 // translateCandidateParts joins visible text parts (thought parts are model
-// internals and must not surface as content) and converts functionCall parts
-// into OpenAI tool_calls. Gemini has no call IDs, so IDs are synthesized from
-// the response id + index; TranslateRequest resolves them back by mapping,
-// falling back to the function name.
-func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolCallOut) {
+// internals and must not surface as content), converts functionCall parts
+// into OpenAI tool_calls, and collects generated images. Gemini has no call
+// IDs, so IDs are synthesized from the response id + index; TranslateRequest
+// resolves them back by mapping, falling back to the function name.
+func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolCallOut, []oaiImageOut) {
 	var sb strings.Builder
 	var toolCalls []oaiToolCallOut
+	var images []oaiImageOut
 	for _, p := range parts {
+		// Thought parts first: an image model drafts interim images to test
+		// its composition, and those arrive as thought parts too.
+		if p.Thought {
+			continue
+		}
+		if img, ok := imageOut(p.InlineData); ok {
+			images = append(images, img)
+			continue
+		}
 		if p.FunctionCall != nil {
 			args := compactJSON(p.FunctionCall.Args)
 			if args == "" {
@@ -175,12 +216,9 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 			toolCalls = append(toolCalls, tc)
 			continue
 		}
-		if p.Thought {
-			continue
-		}
 		sb.WriteString(p.Text)
 	}
-	return sb.String(), toolCalls
+	return sb.String(), toolCalls, images
 }
 
 // compactJSON strips the pretty-print whitespace Vertex puts inside nested

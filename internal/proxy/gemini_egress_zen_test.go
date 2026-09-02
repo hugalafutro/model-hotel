@@ -48,7 +48,7 @@ func TestIsGeminiEgressAttempt_ZenGeminiOnly(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			if got := isGeminiEgressAttempt(tc.st, tc.providerType, tc.modelID); got != tc.want {
+			if got := isGeminiEgressAttempt(tc.st, tc.providerType, tc.modelID, ""); got != tc.want {
 				t.Errorf("isGeminiEgressAttempt(%q, %q) = %v, want %v", tc.providerType, tc.modelID, got, tc.want)
 			}
 		})

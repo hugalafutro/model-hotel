@@ -38,6 +38,12 @@ type oaiRequest struct {
 	ToolChoice          json.RawMessage `json:"tool_choice"`
 	ReasoningEffort     string          `json:"reasoning_effort"`
 	ResponseFormat      *oaiRespFormat  `json:"response_format"`
+	// Modalities is the OpenAI-compatible request for image output from a
+	// chat model ("modalities": ["image", "text"]). Gemini's image models
+	// generate an image only when the request names IMAGE among its response
+	// modalities; without it the model still produces the image and the API
+	// then fails the response ("Unhandled generated data mime type").
+	Modalities []string `json:"modalities"`
 }
 
 type oaiMessage struct {
@@ -162,6 +168,7 @@ type genConfig struct {
 	ResponseMimeType   string             `json:"responseMimeType,omitempty"`
 	ResponseJSONSchema json.RawMessage    `json:"responseJsonSchema,omitempty"`
 	ThinkingConfig     *genThinkingConfig `json:"thinkingConfig,omitempty"`
+	ResponseModalities []string           `json:"responseModalities,omitempty"`
 }
 
 type genThinkingConfig struct {
@@ -319,13 +326,57 @@ func buildGenerationConfig(req *oaiRequest) *genConfig {
 	if budget, ok := reasoningBudgets[strings.ToLower(req.ReasoningEffort)]; ok && req.ReasoningEffort != "" {
 		gc.ThinkingConfig = &genThinkingConfig{ThinkingBudget: budget}
 	}
+	if wantsImageOutput(req.Modalities) {
+		// The request's list, translated: image plus text asks for both,
+		// image alone asks for the picture only. A request without the field
+		// sends nothing; an image model returns its image by default, which
+		// is what the text-only model probes rely on.
+		gc.ResponseModalities = responseModalities(req.Modalities)
+	}
 
 	if gc.MaxOutputTokens == 0 && gc.Temperature == nil && gc.TopP == nil &&
 		gc.FrequencyPenalty == nil && gc.PresencePenalty == nil && gc.Seed == nil &&
-		len(gc.StopSequences) == 0 && gc.ResponseMimeType == "" && gc.ThinkingConfig == nil {
+		len(gc.StopSequences) == 0 && gc.ResponseMimeType == "" && gc.ThinkingConfig == nil &&
+		len(gc.ResponseModalities) == 0 {
 		return nil
 	}
 	return &gc
+}
+
+// RequestWantsImage reports whether a chat request names image among its
+// output modalities; the proxy uses it to pick the native route for a
+// provider whose OpenAI-compatibility layer cannot return one.
+func RequestWantsImage(body []byte) bool {
+	var req struct {
+		Modalities []string `json:"modalities"`
+	}
+	if json.Unmarshal(body, &req) != nil {
+		return false
+	}
+	return wantsImageOutput(req.Modalities)
+}
+
+// responseModalities maps an OpenAI modalities list that names image onto
+// Gemini's response modalities, keeping text only when the client asked for
+// it.
+func responseModalities(modalities []string) []string {
+	out := []string{"IMAGE"}
+	for _, m := range modalities {
+		if strings.EqualFold(m, "text") {
+			return []string{"TEXT", "IMAGE"}
+		}
+	}
+	return out
+}
+
+// wantsImageOutput reports a modalities list that names image output.
+func wantsImageOutput(modalities []string) bool {
+	for _, m := range modalities {
+		if strings.EqualFold(m, "image") {
+			return true
+		}
+	}
+	return false
 }
 
 // translateParts converts an OpenAI message content field (string, part array,
