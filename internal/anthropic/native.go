@@ -60,10 +60,12 @@ func ParseResponseUsage(body []byte) ResponseUsage {
 	return u.summary()
 }
 
-// Usage is an Anthropic usage block. The cache fields are absent from
-// responses that use no cache, which decodes to zero. Shared with the egress
-// translator, which reads the same block off an Anthropic-Messages upstream.
-type Usage struct {
+// UsageBlock is the usage block an Anthropic-Messages upstream reports, as
+// this gateway reads it. The cache fields are absent from responses that use
+// no cache, which decodes to zero. Shared with the egress translator, which
+// reads the same block. Distinct from the unexported usage in events.go, which
+// is the block this gateway WRITES when it emits Anthropic events.
+type UsageBlock struct {
 	InputTokens              int `json:"input_tokens"`
 	OutputTokens             int `json:"output_tokens"`
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens"`
@@ -81,7 +83,7 @@ type Usage struct {
 // reports NO cache counts rather than "miss = the whole prompt". Creation
 // tokens still count inside PromptTokens, which is what the request is metered
 // and priced on.
-func (u Usage) summary() ResponseUsage {
+func (u UsageBlock) summary() ResponseUsage {
 	out := ResponseUsage{
 		PromptTokens:     u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens,
 		CompletionTokens: u.OutputTokens,
@@ -251,13 +253,13 @@ var promptAddends = []string{"input_tokens", "cache_read_input_tokens", "cache_c
 // it FEEDS. output_tokens stands or falls alone; the prompt figure needs all
 // three of its addends, since a cache-read count of 20000 lost to an
 // unreadable sibling would bill 4, and no estimate replaces a non-zero figure.
-func ReadUsage(raw json.RawMessage) (Usage, bool) {
+func ReadUsage(raw json.RawMessage) (UsageBlock, bool) {
 	if !util.JSONMemberSet(raw) {
-		return Usage{}, false
+		return UsageBlock{}, false
 	}
-	var u Usage
+	var u UsageBlock
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
-		return Usage{}, false
+		return UsageBlock{}, false
 	}
 	if len(util.UnreadableCounts(raw, promptAddends...)) > 0 {
 		u.InputTokens, u.CacheReadInputTokens, u.CacheCreationInputTokens = 0, 0, 0

@@ -235,7 +235,7 @@ func translateUsage(raw json.RawMessage) *completionUsage {
 
 // buildUsage renders counts this package already holds. The streaming translator
 // accumulates its own across events and has no raw bytes to read.
-func buildUsage(u anthropic.Usage) *completionUsage {
+func buildUsage(u anthropic.UsageBlock) *completionUsage {
 	prompt := u.InputTokens + u.CacheReadInputTokens + u.CacheCreationInputTokens
 	out := &completionUsage{
 		PromptTokens:     prompt,

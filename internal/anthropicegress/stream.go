@@ -114,7 +114,7 @@ type StreamTranslator struct {
 	// runs them through translateUsage's arithmetic. A usage object carrying
 	// nothing but zeros leaves this zero-valued, and the terminal chunk then
 	// omits usage rather than reporting a fabricated 0/0/0.
-	usage anthropic.Usage
+	usage anthropic.UsageBlock
 
 	// Anthropic's content-block indices count every block; OpenAI's
 	// tool_calls[].index counts only tool calls. This maps one to the other so
@@ -305,7 +305,7 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	var buf bytes.Buffer
 	reason := mapFinishReason(t.stopReason)
 	var usage *completionUsage
-	if t.usage != (anthropic.Usage{}) {
+	if t.usage != (anthropic.UsageBlock{}) {
 		usage = buildUsage(t.usage)
 	}
 	if err := t.writeChunk(&buf, chunkDelta{}, &reason, usage); err != nil {
