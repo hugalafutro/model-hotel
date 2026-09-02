@@ -83,6 +83,17 @@ and encoded payloads (data: URLs, unwrapped base64) are not indexed; each form
 has its own index budget of 1 MiB of runes, walked content-bearing members
 first, so what a very large request leaves unindexed is its tail.
 
+The exact layer of every credential mask, in the proxy and in the shared helpers below, masks
+every secret this process has decrypted, not only the one the caller names. Each decryption in
+`internal/auth` registers its plaintext with `util.HoldSecret`, and every exact pass unions the
+caller's secrets with that set (`internal/util/held_secrets.go`). The masker used to know one
+key, the attempted provider's, which is the wrong scope for the threat: a relay in front of the
+operator's other vendor accounts echoes the rejection it received upstream, and that rejection
+quotes a different provider row's key in a custom format the shape layer cannot recognise. The
+set is bounded by the number of distinct secrets decrypted, never expires within a process (a
+rotated key stays masked), and costs one substring search per held secret over a body that is
+already bounded.
+
 Provider discovery and quota polling scrub the same way. The shared HTTP helpers in
 `internal/provider/discovery.go` never receive the key as a value, so they read it back off the
 request they are sending (the credential headers, and the credential-bearing query parameters one
