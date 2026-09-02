@@ -155,12 +155,11 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 				entityID = entityParam(rctx)
 			}
 		}
-		// Fleet heartbeat announces are machine-to-machine liveness pings, not
-		// human admin actions. Front Desk POSTs one to every member ~every 2.5s;
-		// auditing them adds ~24 rows/min/member that bury real mutations (a live
-		// instance was 99.99% announce rows). They carry no entity and no state
-		// change worth an audit trail, so skip them.
-		if isFleetHeartbeat(route) {
+		// Two kinds of non-GET call are not admin actions and are skipped:
+		// machine-to-machine fleet traffic (the liveness ping, the quota
+		// relay) and a read-only POST that answers a question without
+		// changing anything (see isAuditExempt for both).
+		if isAuditExempt(route) {
 			return
 		}
 		actor, role := actorOf(user.IdentityFrom(r.Context()))
@@ -218,12 +217,31 @@ func entityParam(rctx *chi.Context) string {
 	return ""
 }
 
-// isFleetHeartbeat reports whether a resolved route is a fleet liveness ping
-// that should be excluded from the audit trail. Only the member-side announce
-// endpoint qualifies today; it is matched on the router's route pattern so a
-// literal path check cannot be fooled by trailing slashes or query strings.
-func isFleetHeartbeat(route string) bool {
-	return route == "/api/fleet/announce"
+// isAuditExempt reports whether a resolved route is excluded from the audit
+// trail. Two kinds qualify, both matched on the router's route pattern so a
+// literal path check cannot be fooled by trailing slashes or query strings:
+//
+//   - machine-to-machine fleet traffic: the liveness ping Front Desk POSTs to
+//     every member every few seconds, and the quota snapshots it relays from
+//     the primary to every other member each minute (196 of the last 200 rows
+//     on every non-primary member of a live fleet). Neither carries an entity
+//     or an operator's choice;
+//   - read-only POSTs, endpoints that answer a question without changing
+//     anything and are POST only because their input is a body. The backup
+//     prune preview classifies the backups on disk and writes nothing; the
+//     dashboard re-read it on every backup change, and recording each read as
+//     an admin action buried the real mutations under bursts of identical
+//     rows seconds apart.
+//
+// The trail is a record of admin actions: a route belongs here when no
+// operator chose to call it (the heartbeat, which does write its liveness
+// stamps) or when a successful call leaves the system as it found it.
+func isAuditExempt(route string) bool {
+	switch route {
+	case "/api/fleet/announce", "/api/config/quota-snapshots", "/api/backups/prune-preview":
+		return true
+	}
+	return false
 }
 
 // record inserts one entry, best-effort: an audit failure never fails the

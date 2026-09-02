@@ -109,6 +109,33 @@ describe("Providers", () => {
 	});
 
 	describe("refreshQuotasMutation (lines 124-137)", () => {
+		it("answers a second click inside the cooldown with a toast and no second sweep", async () => {
+			let calls = 0;
+			server.use(
+				...mockProvidersPageDefaults(),
+				http.post("/api/providers/refresh-quotas", () => {
+					calls++;
+					return HttpResponse.json({ refreshed: 1, failed: 0, skipped: 0 });
+				}),
+			);
+			const { user } = renderWithProviders(<Providers />);
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+			const refreshButton = screen.getByRole("button", {
+				name: "Refresh Quotas/Balances",
+			});
+			await user.click(refreshButton);
+			await waitFor(() => expect(calls).toBe(1));
+			await user.click(refreshButton);
+			await waitFor(() => {
+				expect(
+					screen.getByText("Please wait before refreshing again"),
+				).toBeInTheDocument();
+			});
+			expect(calls).toBe(1);
+		});
+
 		it("shows warning toast when some quotas fail to refresh", async () => {
 			server.use(
 				...mockProvidersPageDefaults(),
