@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // This file implements the Front Desk side of HA fleet config sync. It
@@ -235,8 +236,14 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		res.Error = "could not reach this member"
 	case err != nil:
 		// The member answered, just with a status we cannot apply: surface it so a
-		// wrong stored token or a member-side error is not mislabeled "offline".
+		// wrong stored token or a member-side error is not mislabeled "offline",
+		// and with the member's own reason when it gave one, so a refused
+		// envelope names the field here rather than only in the member's log.
 		res.Error = fmt.Sprintf("this member rejected the request (HTTP %d)", status)
+		var refusal *memberRefusal
+		if errors.As(err, &refusal) && refusal.reason != "" {
+			res.Error = fmt.Sprintf("this member rejected the request (HTTP %d): %s", status, refusal.reason)
+		}
 		if lostAnswer5xx(status, time.Since(pushStart)) {
 			// This 5xx is not proof the import failed: a reverse proxy between Front
 			// Desk and the member answers 502/504 when the import outlives its own
@@ -512,6 +519,63 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 		}
 		return res, status, nil
 	default:
-		return memberImportResult{}, status, fmt.Errorf("member config-import returned %d", status)
+		return memberImportResult{}, status, &memberRefusal{status: status, reason: refusalReason(body)}
 	}
+}
+
+// memberRefusal is a member answering the import with a status Front Desk
+// cannot apply, carrying whatever reason the member gave. A member refuses
+// an envelope it will not write (a provider field its own admin API would
+// reject, a wrong token) with a 400 whose body names the field; without the
+// body the operator driving the fleet saw only the status, and the reason
+// lived in the member's own log.
+type memberRefusal struct {
+	status int
+	reason string
+}
+
+func (e *memberRefusal) Error() string {
+	if e.reason == "" {
+		return fmt.Sprintf("member config-import returned %d", e.status)
+	}
+	return fmt.Sprintf("member config-import returned %d: %s", e.status, e.reason)
+}
+
+// maxRefusalReasonRunes bounds the member's reason as shown to the operator:
+// a refusal names one field and one value, and a body past this is not a
+// reason but a page.
+const maxRefusalReasonRunes = 240
+
+// refusalReason extracts the operator-readable reason from a member's
+// refusal body: the "error" member of a JSON body (the member's coded
+// errors), else the first line of a plain-text one (http.Error). An HTML
+// page (a reverse proxy's or the SPA's 404) carries no reason. The text is
+// member-authored, so it is credential-masked with the shared exact-and-shape
+// rule, stripped of control characters, and bounded, before it reaches the
+// dashboard and the event log.
+func refusalReason(body []byte) string {
+	text := strings.TrimSpace(string(body))
+	if text == "" || strings.HasPrefix(text, "<") {
+		return ""
+	}
+	if text[0] == '{' {
+		var coded struct {
+			Error string `json:"error"`
+		}
+		if json.Unmarshal(body, &coded) != nil || coded.Error == "" {
+			return ""
+		}
+		text = coded.Error
+	}
+	if i := strings.IndexAny(text, "\r\n"); i >= 0 {
+		text = text[:i]
+	}
+	text = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return -1
+		}
+		return r
+	}, text)
+	text = util.MaskCredentialsBounded(nil, text, maxRefusalReasonRunes)
+	return strings.TrimSpace(text)
 }
