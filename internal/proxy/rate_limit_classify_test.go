@@ -428,11 +428,10 @@ func TestParseResetValue(t *testing.T) {
 const googleDailyQuota429 = `{"error":{"code":429,"message":"You exceeded your current quota, please check your plan and billing details. \n* Quota exceeded for metric: generativelanguage.googleapis.com/generate_requests_per_model_per_day, limit: 250, model: gemini-3-pro-image\nPlease retry in 2h35m3.273316703s.","status":"RESOURCE_EXHAUSTED","details":[{"@type":"type.googleapis.com/google.rpc.QuotaFailure","violations":[{"quotaMetric":"generativelanguage.googleapis.com/generate_requests_per_model_per_day","quotaId":"GenerateRequestsPerDayPerProjectPerModel","quotaValue":"250"}]},{"@type":"type.googleapis.com/google.rpc.RetryInfo","retryDelay":"9303s"}]}}`
 
 // A provider that dates its own window is pinned for that window, not for the
-// phrase's default. Google's daily quota shares its wording with OpenAI's
-// out-of-credit refusal, and on the phrase alone it drew the until-paid pin
-// (clamped to the ceiling, a day) for a wait of two and a half hours; and
-// since time fixes it, it is not an entitlement refusal either. The body goes
-// through the same sanitizer the live path applies before classifying.
+// phrase's default: Google's daily quota shares its wording with OpenAI's
+// out-of-credit refusal and states its reset in the body, and since time fixes
+// it, it is not an entitlement refusal either. The body goes through the same
+// sanitizer the live path applies before classifying.
 func TestClassifyRateLimit_BodyRetryHintOutranksThePhrasePin(t *testing.T) {
 	t.Parallel()
 	const maxWait = 60 * time.Second
@@ -465,6 +464,14 @@ func TestClassifyRateLimit_BodyHintPrecedence(t *testing.T) {
 	hdr := http.Header{"Retry-After": []string{"3600"}}
 	if got := classifyRateLimit(429, hdr, util.SanitizeLogBody(googleDailyQuota429, 10000), maxWait); got.pinHint != time.Hour || !got.entitled {
 		t.Errorf("header wait: pin %v entitled %v, want the header's hour over the body's 9303s with entitled left alone", got.pinHint, got.entitled)
+	}
+	short := http.Header{"Retry-After": []string{"1"}}
+	if got := classifyRateLimit(429, short, util.SanitizeLogBody(googleDailyQuota429, 10000), maxWait); got.pinHint != 9303*time.Second || got.entitled {
+		t.Errorf("a header wait under the ceiling must not hide the body's window: pin %v entitled %v", got.pinHint, got.entitled)
+	}
+	wrapped := `{"error":"Your credit balance is too low to access the Anthropic API. Please try again in 30 seconds."}`
+	if got := classifyRateLimit(429, nil, wrapped, maxWait); got.class != rateLimitExhausted || got.pinHint != pinHintUntilPaid || !got.entitled {
+		t.Errorf("prose boilerplate must not shorten an out-of-credit refusal: class %v pin %v entitled %v", got.class, got.pinHint, got.entitled)
 	}
 	anthropic := `{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API. Please go to Plans & Billing to upgrade or purchase credits."}}`
 	if got := classifyRateLimit(429, nil, util.SanitizeLogBody(anthropic, 10000), maxWait); got.pinHint != pinHintUntilPaid || !got.entitled {
@@ -509,6 +516,9 @@ func TestBodyResetHint(t *testing.T) {
 	}{
 		{"google RetryInfo", `{"details":[{"@type":"type.googleapis.com/google.rpc.RetryInfo","retrydelay":"9303s"}]}`, 9303 * time.Second},
 		{"google RetryInfo fractional", `"retrydelay": "0.5s"`, 500 * time.Millisecond},
+		{"a zeroed detail does not hide the sentence", `{"retrydelay":"0s","message":"please retry in 2h35m3.27s."}`, 2*time.Hour + 35*time.Minute + 3270*time.Millisecond},
+		{"an overflowed detail does not hide the sentence", `{"retrydelay":"99999999999999999999s","message":"please retry in 10 minutes."}`, 10 * time.Minute},
+		{"days", `retry in 1 day`, 24 * time.Hour},
 		{"google prose go duration", `please retry in 2h35m3.273316703s.`, 2*time.Hour + 35*time.Minute + 3273316703},
 		{"milliseconds are not minutes", `please try again in 20ms.`, 20 * time.Millisecond},
 		{"half a second", `retry in 500ms`, 500 * time.Millisecond},
@@ -526,7 +536,7 @@ func TestBodyResetHint(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			got, ok := bodyResetHint(tc.body)
+			got, _, ok := bodyResetHint(tc.body)
 			if ok != (tc.want > 0) || got != tc.want {
 				t.Errorf("bodyResetHint = %v, %v; want %v", got, ok, tc.want)
 			}
