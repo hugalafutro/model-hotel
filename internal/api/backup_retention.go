@@ -267,8 +267,9 @@ func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
 
 // listBackupFiles reads all backup entries from disk (newest first). A missing
 // directory is an empty listing, never an error. It is the one reader of the
-// backup directory: the listing endpoint, the rotation and the scheduler's
-// interval anchor all see the same files through it.
+// finished dumps: the listing endpoint, the rotation and the scheduler's
+// interval anchor all see the same files through it. The partials a killed
+// run left behind are not dumps and are swept separately.
 func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
 	entries, err := os.ReadDir(h.backupDir)
 	if err != nil {
