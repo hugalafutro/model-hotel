@@ -108,6 +108,14 @@ func TestBuildUpstreamBody_SchemaIgnoringModelKeepsSchemaAndFolds(t *testing.T) 
 	if raw["response_format"].(map[string]any)["type"] != "json_object" || len(raw["messages"].([]any)) != 2 {
 		t.Error("a JSON-mode-only type downgrades and folds")
 	}
+	for _, id := range []string{"glm4:9b", "z-ai/glm-5.3-flash:batch", "GLM-5.3"} {
+		if !schemaIgnoredByModel(id) {
+			t.Errorf("%s must match the GLM rule", id)
+		}
+	}
+	if schemaIgnoredByModel("paraglm-x") || schemaIgnoredByModel("llama3") {
+		t.Error("a name that only ends in glm, or another family, must not match")
+	}
 	other := []byte(`{"model":"llama3","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"name":"city","schema":{"type":"object"}}}}`)
 	raw = decodeJSONBody(t, BuildUpstreamBody(other, "ollama-cloud", "llama3", "llama3", false, &dep, &ren, nil, "p"))
 	if len(raw["messages"].([]any)) != 1 {

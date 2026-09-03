@@ -34,9 +34,11 @@ var jsonModeOnlyProviders = map[string]bool{
 // that does enforce it still can, and one that does not gets the shape from
 // the prompt; each of those hosts then answers bare, schema-shaped JSON. A
 // provider type that only serves JSON mode, or a learned 400, puts the
-// request in JSON mode instead, with the same fold.
+// request in JSON mode instead, with the same fold. Ollama's library names
+// the family without the hyphen (glm4, glm4:9b).
 func schemaIgnoredByModel(modelID string) bool {
-	return strings.Contains(strings.ToLower(modelID), "glm-")
+	lower := strings.ToLower(modelID)
+	return strings.Contains(lower, "glm-") || strings.Contains(lower, "glm4")
 }
 
 // schemaRefusalNames are the tokens a 400 about the response format names,
