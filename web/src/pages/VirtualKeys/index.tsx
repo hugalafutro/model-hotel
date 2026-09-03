@@ -402,9 +402,9 @@ export function VirtualKeys() {
 
 			{hasKeys && (
 				<>
-					<div className="ui-callout ui-callout-info flex items-start gap-3 p-4">
+					<div className="ui-callout ui-callout-info flex items-start gap-3">
 						<div className="w-1.5 h-1.5 rounded-(--radius-pill) bg-current mt-1.5 shrink-0" />
-						<p className="text-xs leading-relaxed">
+						<p className="text-xs leading-relaxed text-left">
 							{t("virtualkeys.note.text")}
 						</p>
 					</div>
