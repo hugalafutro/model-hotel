@@ -117,11 +117,11 @@ export function QuotaModalHeaderActions({
 	const { uiStyle } = useTheme();
 
 	return (
-		<div className="flex items-center gap-2">
+		<div className="absolute top-4 right-16 flex items-center gap-1">
 			<button
 				type="button"
 				onClick={() => onToggleBarMode()}
-				className="ui-icon-btn absolute top-4 right-20 p-1.5"
+				className="ui-icon-btn p-1.5"
 				aria-label={toggleAriaLabel}
 				title={toggleTitle}
 			>
@@ -131,7 +131,7 @@ export function QuotaModalHeaderActions({
 				type="button"
 				onClick={onRefresh}
 				disabled={isRefreshing}
-				className="ui-icon-btn absolute top-4 right-10 p-1.5"
+				className="ui-icon-btn p-1.5"
 				aria-label={refreshAriaLabel}
 				title={refreshTitle}
 			>
