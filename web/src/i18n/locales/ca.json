@@ -1322,7 +1322,9 @@
 			"keyUpdateFailed": "Fallat: {{message}}",
 			"usageExamples": "Exemples d'ús",
 			"rateLimitTpmLabel": "Límit de velocitat TPM (tokens/min)"
-		}
+		},
+		"filterPlaceholder": "Filtra les claus…",
+		"noMatch": "Cap clau virtual no coincideix amb el filtre."
 	},
 	"logs": {
 		"title": {

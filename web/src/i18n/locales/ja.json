@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "失敗: {{message}}",
 			"usageExamples": "使用例",
 			"rateLimitTpmLabel": "レート制限 TPM（トークン/分）"
-		}
+		},
+		"filterPlaceholder": "キーを絞り込み…",
+		"noMatch": "フィルターに一致する仮想キーはありません。"
 	},
 	"logs": {
 		"title": {

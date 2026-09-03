@@ -1322,7 +1322,9 @@
 			"keyUpdateFailed": "Eșec: {{message}}",
 			"usageExamples": "Exemple de utilizare",
 			"rateLimitTpmLabel": "Limită de rată TPM (tokeni/min)"
-		}
+		},
+		"filterPlaceholder": "Filtrează cheile…",
+		"noMatch": "Nicio cheie virtuală nu corespunde filtrului."
 	},
 	"logs": {
 		"title": {

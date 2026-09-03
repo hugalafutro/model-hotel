@@ -1322,7 +1322,9 @@
 			"keyUpdateFailed": "Fallito: {{message}}",
 			"usageExamples": "Esempi di utilizzo",
 			"rateLimitTpmLabel": "Limite di velocità TPM (token/min)"
-		}
+		},
+		"filterPlaceholder": "Filtro chiavi…",
+		"noMatch": "Nessuna chiave virtuale corrisponde al filtro."
 	},
 	"logs": {
 		"title": {

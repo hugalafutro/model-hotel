@@ -1322,7 +1322,9 @@
 			"keyUpdateFailed": "נכשל: {{message}}",
 			"usageExamples": "דוגמאות לשימוש",
 			"rateLimitTpmLabel": "מגבלת קצב TPM (אסימונים/דקה)"
-		}
+		},
+		"filterPlaceholder": "סינון מפתחות…",
+		"noMatch": "אין מפתחות וירטואליים התואמים לסינון."
 	},
 	"logs": {
 		"title": {

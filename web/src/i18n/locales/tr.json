@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "Başarısız: {{message}}",
 			"usageExamples": "Kullanım örnekleri",
 			"rateLimitTpmLabel": "Hız Sınırı TPM (token/dk)"
-		}
+		},
+		"filterPlaceholder": "Anahtarları filtrele…",
+		"noMatch": "Filtreyle eşleşen sanal anahtar yok."
 	},
 	"logs": {
 		"title": {

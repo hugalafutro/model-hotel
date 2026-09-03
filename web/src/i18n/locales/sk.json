@@ -1365,7 +1365,9 @@
 			"keyUpdateFailed": "Neúspešné: {{message}}",
 			"usageExamples": "Príklady použitia",
 			"rateLimitTpmLabel": "Limit rýchlosti TPM (tokeny/min)"
-		}
+		},
+		"filterPlaceholder": "Filtrovanie kľúčov…",
+		"noMatch": "Filtru nezodpovedajú žiadne virtuálne kľúče."
 	},
 	"logs": {
 		"title": {

@@ -1451,7 +1451,9 @@
 			"keyUpdateFailed": "فشل: {{message}}",
 			"usageExamples": "أمثلة على الاستخدام",
 			"rateLimitTpmLabel": "حد معدل TPM (رموز/دقيقة)"
-		}
+		},
+		"filterPlaceholder": "تصفية المفاتيح…",
+		"noMatch": "لا توجد مفاتيح افتراضية تطابق التصفية."
 	},
 	"logs": {
 		"title": {

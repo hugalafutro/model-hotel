@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "失败： {{message}}",
 			"usageExamples": "使用示例",
 			"rateLimitTpmLabel": "速率限制 TPM（令牌/分钟）"
-		}
+		},
+		"filterPlaceholder": "过滤密钥…",
+		"noMatch": "没有与过滤条件匹配的虚拟密钥。"
 	},
 	"logs": {
 		"title": {

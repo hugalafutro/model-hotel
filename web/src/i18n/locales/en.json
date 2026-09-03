@@ -1279,7 +1279,9 @@
 			"keyCreatedFailed": "Failed: {{message}}",
 			"keyUpdated": "Virtual key updated",
 			"keyUpdateFailed": "Failed: {{message}}"
-		}
+		},
+		"filterPlaceholder": "Filter keys…",
+		"noMatch": "No virtual keys match the filter."
 	},
 	"logs": {
 		"title": {

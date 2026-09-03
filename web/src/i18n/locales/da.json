@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "Mislykkedes: {{message}}",
 			"usageExamples": "Eksempler på brug",
 			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)"
-		}
+		},
+		"filterPlaceholder": "Filtrer nøgler…",
+		"noMatch": "Ingen virtuelle nøgler matcher filteret."
 	},
 	"logs": {
 		"title": {

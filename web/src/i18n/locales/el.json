@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "Αποτυχία: {{message}}",
 			"usageExamples": "Παραδείγματα χρήσης",
 			"rateLimitTpmLabel": "Όριο ρυθμού TPM (tokens/min)"
-		}
+		},
+		"filterPlaceholder": "Φιλτράρισμα κλειδιών…",
+		"noMatch": "Κανένα εικονικό κλειδί δεν ταιριάζει με το φίλτρο."
 	},
 	"logs": {
 		"title": {

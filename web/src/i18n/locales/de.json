@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "Fehler: {{message}}",
 			"usageExamples": "Anwendungsbeispiele",
 			"rateLimitTpmLabel": "Ratenbegrenzung TPM (Token/Min.)"
-		}
+		},
+		"filterPlaceholder": "Schlüssel filtern…",
+		"noMatch": "Keine virtuellen Schlüssel entsprechen dem Filter."
 	},
 	"logs": {
 		"title": {

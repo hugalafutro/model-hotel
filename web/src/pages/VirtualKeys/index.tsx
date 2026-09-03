@@ -13,6 +13,7 @@ import {
 	StaticHeader,
 } from "../../components/DataTable";
 import { EmptyState } from "../../components/EmptyState";
+import { FilterInput } from "../../components/FilterInput";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { ManagedBanner } from "../../components/ManagedBanner";
 import { PageHeader } from "../../components/PageHeader";
@@ -45,6 +46,7 @@ export function VirtualKeys() {
 		field: "name",
 		dir: "asc",
 	});
+	const [nameFilter, setNameFilter] = useState("");
 	const [pageSize, setPageSize] = useState(10);
 	const [currentPage, setCurrentPage] = useState(1);
 
@@ -69,7 +71,11 @@ export function VirtualKeys() {
 	const sortedKeys = useMemo(() => {
 		if (!keys) return [];
 		const dir = sort.dir === "asc" ? 1 : -1;
-		return [...keys].sort((a, b) => {
+		const needle = nameFilter.trim().toLowerCase();
+		const filtered = needle
+			? keys.filter((k) => k.name.toLowerCase().includes(needle))
+			: keys;
+		return [...filtered].sort((a, b) => {
 			switch (sort.field) {
 				case "name":
 					return dir * a.name.localeCompare(b.name);
@@ -105,8 +111,9 @@ export function VirtualKeys() {
 					return 0;
 			}
 		});
-	}, [keys, sort]);
+	}, [keys, sort, nameFilter]);
 
+	const hasKeys = (keys?.length ?? 0) > 0;
 	const totalPages = Math.ceil(sortedKeys.length / pageSize);
 	const paginatedKeys = sortedKeys.slice(
 		(currentPage - 1) * pageSize,
@@ -158,20 +165,31 @@ export function VirtualKeys() {
 
 			<ManagedBanner />
 
-			{sortedKeys.length > 0 && (
-				<div className="flex items-center justify-end">
-					<PaginationBar
-						page={currentPage}
-						totalPages={totalPages}
-						totalItems={sortedKeys.length}
-						pageSize={pageSize}
-						onPageChange={setCurrentPage}
-						onPageSizeChange={(s) => {
-							setPageSize(s);
+			{hasKeys && (
+				<div className="flex items-center justify-between gap-2">
+					<FilterInput
+						value={nameFilter}
+						onChange={(v) => {
+							setNameFilter(v);
 							setCurrentPage(1);
 						}}
-						label={t("virtualkeys.table.keys")}
+						placeholder={t("virtualkeys.filterPlaceholder")}
+						className="w-[200px]"
 					/>
+					{sortedKeys.length > 0 && (
+						<PaginationBar
+							page={currentPage}
+							totalPages={totalPages}
+							totalItems={sortedKeys.length}
+							pageSize={pageSize}
+							onPageChange={setCurrentPage}
+							onPageSizeChange={(s) => {
+								setPageSize(s);
+								setCurrentPage(1);
+							}}
+							label={t("virtualkeys.table.keys")}
+						/>
+					)}
 				</div>
 			)}
 
@@ -373,62 +391,68 @@ export function VirtualKeys() {
 					</table>
 				</div>
 			) : (
-				<EmptyState message={t("virtualkeys.emptyState")} />
+				<EmptyState
+					message={t(
+						hasKeys ? "virtualkeys.noMatch" : "virtualkeys.emptyState",
+					)}
+				/>
 			)}
 
-			{sortedKeys.length > 0 && (
-				<div className="ui-card p-6 space-y-5">
-					<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
-								1
-							</div>
-							<div>
-								<h3 className="text-sm font-medium text-gray-200">
-									{t("virtualkeys.steps.createKey")}
-								</h3>
-								<p className="text-xs text-gray-400 mt-1">
-									{t("virtualkeys.stepDescriptions.createKey")}
-								</p>
-							</div>
-						</div>
-						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
-								2
-							</div>
-							<div>
-								<h3 className="text-sm font-medium text-gray-200">
-									{t("virtualkeys.steps.copyKey")}
-								</h3>
-								<p className="text-xs text-gray-400 mt-1">
-									{t("virtualkeys.stepDescriptions.copyKey")}
-								</p>
-							</div>
-						</div>
-						<div className="flex items-start gap-3 p-4 ui-card">
-							<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
-								3
-							</div>
-							<div>
-								<h3 className="text-sm font-medium text-gray-200">
-									{t("virtualkeys.steps.makeRequests")}
-								</h3>
-								<p className="text-xs text-gray-400 mt-1">
-									{t("virtualkeys.stepDescriptions.makeRequests")}
-								</p>
-							</div>
-						</div>
-					</div>
-
-					<UsageSnippets />
-
+			{hasKeys && (
+				<>
 					<div className="ui-note-pill flex items-start gap-3 p-4 rounded-lg bg-(--accent-light) border border-(--accent-lighter)">
 						<div className="w-1.5 h-1.5 rounded-(--radius-pill) bg-(--accent) mt-1.5 shrink-0" />
 						<p className="text-xs text-gray-300 leading-relaxed">
 							{t("virtualkeys.note.text")}
 						</p>
 					</div>
-				</div>
+
+					<div className="ui-card p-6 space-y-5">
+						<div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+							<div className="flex items-start gap-3 p-4 ui-card">
+								<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
+									1
+								</div>
+								<div>
+									<h3 className="text-sm font-medium text-gray-200">
+										{t("virtualkeys.steps.createKey")}
+									</h3>
+									<p className="text-xs text-gray-400 mt-1">
+										{t("virtualkeys.stepDescriptions.createKey")}
+									</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3 p-4 ui-card">
+								<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
+									2
+								</div>
+								<div>
+									<h3 className="text-sm font-medium text-gray-200">
+										{t("virtualkeys.steps.copyKey")}
+									</h3>
+									<p className="text-xs text-(--warning-text) mt-1">
+										{t("virtualkeys.stepDescriptions.copyKey")}
+									</p>
+								</div>
+							</div>
+							<div className="flex items-start gap-3 p-4 ui-card">
+								<div className="flex items-center justify-center w-7 h-7 rounded-(--radius-pill) bg-(--accent)/15 text-(--accent) ring-1 ring-(--accent)/30 text-sm font-bold shrink-0">
+									3
+								</div>
+								<div>
+									<h3 className="text-sm font-medium text-gray-200">
+										{t("virtualkeys.steps.makeRequests")}
+									</h3>
+									<p className="text-xs text-gray-400 mt-1">
+										{t("virtualkeys.stepDescriptions.makeRequests")}
+									</p>
+								</div>
+							</div>
+						</div>
+
+						<UsageSnippets />
+					</div>
+				</>
 			)}
 
 			{showCreate && (

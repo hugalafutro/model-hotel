@@ -1365,7 +1365,9 @@
 			"keyUpdateFailed": "Помилка: {{message}}",
 			"usageExamples": "Приклади використання",
 			"rateLimitTpmLabel": "Обмеження швидкості TPM (токенів/хв)"
-		}
+		},
+		"filterPlaceholder": "Фільтр ключів…",
+		"noMatch": "Жоден віртуальний ключ не відповідає фільтру."
 	},
 	"logs": {
 		"title": {
