@@ -59,8 +59,8 @@ func entityKindOf(route string) string {
 	return seg
 }
 
-// lastSpelledParam returns the name of the last {..._id} or {..._uuid}
-// parameter in a route pattern, the one the middleware records, or "".
+// lastSpelledParam returns the name of the last entity parameter
+// (isEntityParam) in a route pattern, the one the middleware records, or "".
 func lastSpelledParam(rest string) string {
 	segs := strings.Split(rest, "/")
 	for i := len(segs) - 1; i >= 0; i-- {
@@ -68,7 +68,7 @@ func lastSpelledParam(rest string) string {
 		if !ok {
 			continue
 		}
-		if name, ok = strings.CutSuffix(name, "}"); ok && (strings.HasSuffix(name, "_id") || strings.HasSuffix(name, "_uuid")) {
+		if name, ok = strings.CutSuffix(name, "}"); ok && isEntityParam(name) {
 			return name
 		}
 	}

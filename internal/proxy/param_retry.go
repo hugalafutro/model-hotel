@@ -160,11 +160,7 @@ func (h *Handler) learnRejectedParams(st *requestState, candidate modelCandidate
 func learnableRejections(st *requestState, body []byte) map[string]bool {
 	rejected := paramrewrite.ParseProviderParamError(body)
 	if !st.sentChatCompletionsBody() {
-		delete(rejected, paramrewrite.SchemaFallbackKey)
-		if len(rejected) == 0 {
-			return nil
-		}
-		return rejected
+		return paramrewrite.WithoutParams(rejected, paramrewrite.SchemaFallbackKey)
 	}
 	return paramrewrite.DropSchemaFallbackUnlessRequested(rejected, st.bodyBytes)
 }
@@ -175,17 +171,12 @@ func learnableRejections(st *requestState, body []byte) map[string]bool {
 // translator regenerates it from reasoning_effort. The learned scope is
 // provider+model and shared by both dialects, so a strip learned from that 400
 // would delete the caller's object on the compat path.
+//
+// json_schema lives under text.format on the Responses body, so a 400 there
+// is about that dialect's field; the fallback key is shared with the compat
+// path and must not be learned from it either.
 func responsesRejectedParams(body []byte) map[string]bool {
-	rejected := paramrewrite.ParseProviderParamError(body)
-	delete(rejected, "reasoning")
-	// json_schema lives under text.format on the Responses body, so a 400
-	// there is about that dialect's field; the fallback key is shared with
-	// the compat path and must not be learned from it.
-	delete(rejected, paramrewrite.SchemaFallbackKey)
-	if len(rejected) == 0 {
-		return nil
-	}
-	return rejected
+	return paramrewrite.WithoutParams(paramrewrite.ParseProviderParamError(body), "reasoning", paramrewrite.SchemaFallbackKey)
 }
 
 // mergeLearnedParams is the caching half of the param learner, shared by the

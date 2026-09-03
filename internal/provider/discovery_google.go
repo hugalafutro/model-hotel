@@ -237,7 +237,7 @@ func googleModalities(modelID string) (inputMods, outputMods string) {
 // speak alongside text. It matches "tts" as a whole name segment so a chat
 // model that merely contains the letters cannot lose its chat class.
 func isGoogleTTSModel(modelID string) bool {
-	return slices.Contains(splitModelIDSegments(strings.ToLower(modelID)), "tts")
+	return slices.Contains(util.ModelIDSegments(modelID), "tts")
 }
 
 // isGoogleAudioModel reports a model that hears and speaks alongside text; a

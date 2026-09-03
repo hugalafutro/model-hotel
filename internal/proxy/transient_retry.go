@@ -101,6 +101,19 @@ func (h *Handler) deferLastCandidateRetry(st *requestState, candidate modelCandi
 	return outcomeFailover, false
 }
 
+// closeDeferredAttempt ends an attempt the loop will retry: the response is
+// drained and closed, its error becomes the request's, and the attempt is
+// closed on the trail with the detail and phrase given. The retry is its own
+// attempt with its own record. Shared by the saturation and server-error
+// deferrals so the two cannot record an attempt differently.
+func closeDeferredAttempt(st *requestState, resp *http.Response, attempt int, reqErr reqError, detail, phrase string) {
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	st.setReqErr(reqErr)
+	st.logData.failoverAttempt = attempt
+	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, detail, phrase, 0)
+}
+
 // deferServerErrorRetry ends an attempt whose last candidate answered a
 // retryable 5xx: the body is drained, the attempt is closed on the trail with
 // the provider's sentence (the breaker has already been charged for it), and
@@ -110,13 +123,8 @@ func (h *Handler) deferLastCandidateRetry(st *requestState, candidate modelCandi
 // does; a 5xx never reads it, but the request-scoped copy is not reached for.
 func (h *Handler) deferServerErrorRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int, rl rateLimitVerdict) candidateOutcome {
 	drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
 	st.serverErrorRetried = true
-	st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
-	st.logData.failoverAttempt = attempt
-	// The attempt ended here; the retry is its own attempt with its own record.
-	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, util.SanitizeLogBody(string(drained), 10000), "", 0)
+	closeDeferredAttempt(st, resp, attempt, failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode), util.SanitizeLogBody(string(drained), 10000), "")
 	debuglog.Info("proxy: last candidate answered a retryable server error, retrying it once", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "attempt", attempt+1)
 	return outcomeRetryServerError
 }

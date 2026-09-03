@@ -208,11 +208,18 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 func entityParam(rctx *chi.Context) string {
 	keys, values := rctx.URLParams.Keys, rctx.URLParams.Values
 	for i := min(len(keys), len(values)) - 1; i >= 0; i-- {
-		if strings.HasSuffix(keys[i], "_id") || strings.HasSuffix(keys[i], "_uuid") {
+		if isEntityParam(keys[i]) {
 			return values[i]
 		}
 	}
 	return ""
+}
+
+// isEntityParam reports whether a spelled-out route parameter names an
+// entity: the one rule entityParam records by and the name resolver reads
+// route patterns by, so the two cannot pick different parameters.
+func isEntityParam(name string) bool {
+	return strings.HasSuffix(name, "_id") || strings.HasSuffix(name, "_uuid")
 }
 
 // isAuditExempt reports whether a resolved route is excluded from the audit

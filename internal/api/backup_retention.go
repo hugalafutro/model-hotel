@@ -265,7 +265,11 @@ func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, classification)
 }
 
-// listBackupFiles reads all backup entries from disk (newest first).
+// listBackupFiles reads all backup entries from disk (newest first). A missing
+// directory is an empty listing, never an error. It is the one reader of the
+// finished dumps: the listing endpoint, the rotation and the scheduler's
+// interval anchor all see the same files through it. The partials a killed
+// run left behind are not dumps and are swept separately.
 func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
 	entries, err := os.ReadDir(h.backupDir)
 	if err != nil {
@@ -289,11 +293,12 @@ func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
 			SizeBytes: info.Size(),
 			CreatedAt: info.ModTime().Format(time.RFC3339),
 			Origin:    backupOrigin(entry.Name()),
+			modTime:   info.ModTime(),
 		})
 	}
 
 	sort.Slice(backups, func(i, j int) bool {
-		return backups[i].CreatedAt > backups[j].CreatedAt
+		return backups[i].modTime.After(backups[j].modTime)
 	})
 
 	if backups == nil {

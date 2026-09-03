@@ -340,18 +340,17 @@ func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads)
 		blocked = append(blocked, model)
 		if cb.quotaPinnedForWith(c, r) {
 			pinned = true
-			if c.pinSource == pinSourceAdvisor || c.pinSource == pinSourceAccount {
+			if pinSpeaksForAccount(c.pinSource) {
 				providerPinned = true
 			}
 		}
 	}
 	slices.Sort(blocked)
-	// A pin that speaks for the ACCOUNT indicts the provider on its own: the
-	// advisor measured the provider's account, and an account pin carries a
-	// refusal the provider made about its balance rather than about a model.
-	// A plain response pin is inferred from one model's 429 (a plan excluding
-	// ONE model, answered with a balance error), so it darkens that model
-	// alone. Corroboration across models (the span) still reaches the provider.
+	// A pin that speaks for the ACCOUNT indicts the provider on its own
+	// (pinSpeaksForAccount). A plain response pin is inferred from one model's
+	// 429 (a plan excluding ONE model, answered with a balance error), so it
+	// darkens that model alone. Corroboration across models (the span) still
+	// reaches the provider.
 	return providerPinned || len(blocked) >= cb.effectiveSpan(), blocked, pinned
 }
 
