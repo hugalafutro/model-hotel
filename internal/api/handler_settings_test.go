@@ -351,6 +351,7 @@ func TestUpdateSettings_RateLimitClassification(t *testing.T) {
 		"rate_limit_saturation_max_wait":     "45s",
 		"rate_limit_recent_success_window":   "90s",
 		"failover_exhaustion_status_429":     "false",
+		"server_error_retry_enabled":         "false",
 		"circuit_breaker_open_on_exhaustion": "false",
 		"inflight_limiter_enabled":           "false",
 		"inflight_grow_after":                "25",
