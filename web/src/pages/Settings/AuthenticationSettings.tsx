@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { KeyRound } from "@/lib/icons";
-import { ResetButton } from "../../components/ResetButton";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
-import { Toggle } from "../../components/Toggle";
+import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { ActiveSessionsPanel } from "./ActiveSessionsSettings";
 import { SETTING_DEFAULTS } from "./defaults";
 import { GithubPanel } from "./GithubSettings";
@@ -104,39 +103,23 @@ export function AuthenticationSettings({
 					    every control it wraps, the same idiom SettingsSection uses. */}
 					<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
 						<SettingsGroup title={t("settings.passwordPolicy.title")}>
-							<div className="flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.passwordPolicy.breachCheckLabel")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate([
-													"pwned_password_check_enabled",
-												])
-											}
-											size={12}
-											disabled={isResetting || updateMutation.isPending}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.passwordPolicy.breachCheckDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={breachCheckEnabled}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											pwned_password_check_enabled: v ? "true" : "false",
-										})
-									}
-									disabled={updateMutation.isPending || isResetting}
-									ariaLabel={t("settings.passwordPolicy.breachCheckLabel")}
-								/>
-							</div>
+							<SettingToggleRow
+								label={t("settings.passwordPolicy.breachCheckLabel")}
+								description={t(
+									"settings.passwordPolicy.breachCheckDescription",
+								)}
+								checked={breachCheckEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										pwned_password_check_enabled: v ? "true" : "false",
+									})
+								}
+								disabled={updateMutation.isPending || isResetting}
+								onReset={() =>
+									resetSettingMutation.mutate(["pwned_password_check_enabled"])
+								}
+								resetDisabled={isResetting || updateMutation.isPending}
+							/>
 							{/* The one place a trace of a user's password leaves the
 							    instance, so the k-anonymity mechanism is summarised
 							    next to the toggle. Environment-level configuration

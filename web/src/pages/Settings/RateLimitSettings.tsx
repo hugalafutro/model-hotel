@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Gauge } from "@/lib/icons";
-import { ResetButton } from "../../components/ResetButton";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
-import { Toggle } from "../../components/Toggle";
+import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface RateLimitSettingsProps {
@@ -47,35 +46,20 @@ export function RateLimitSettings({
 				</p>
 				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
 					<SettingsGroup title={t("common.global")}>
-						<div className="flex items-center justify-between gap-3">
-							<div className="min-w-0">
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.rateLimit.enable")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate(["rate_limit_enabled"])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.rateLimit.enableDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={rateLimitEnabled}
-								size="sm"
-								onChange={(v) =>
-									updateMutation.mutate({
-										rate_limit_enabled: v ? "true" : "false",
-									})
-								}
-							/>
-						</div>
+						<SettingToggleRow
+							label={t("settings.rateLimit.enable")}
+							description={t("settings.rateLimit.enableDescription")}
+							checked={rateLimitEnabled}
+							onChange={(v) =>
+								updateMutation.mutate({
+									rate_limit_enabled: v ? "true" : "false",
+								})
+							}
+							onReset={() =>
+								resetSettingMutation.mutate(["rate_limit_enabled"])
+							}
+							resetDisabled={isResetting}
+						/>
 
 						<SettingsSlider
 							id="rate-limit-rps"
@@ -150,35 +134,20 @@ export function RateLimitSettings({
 					</SettingsGroup>
 
 					<SettingsGroup title={t("settings.rateLimit.perIpGroup")}>
-						<div className="flex items-center justify-between gap-3">
-							<div className="min-w-0">
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.rateLimit.ipRateLimiting")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate(["rate_limit_ip_enabled"])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.rateLimit.ipRateLimitingDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={rateLimitIpEnabled}
-								size="sm"
-								onChange={(v) =>
-									updateMutation.mutate({
-										rate_limit_ip_enabled: v ? "true" : "false",
-									})
-								}
-							/>
-						</div>
+						<SettingToggleRow
+							label={t("settings.rateLimit.ipRateLimiting")}
+							description={t("settings.rateLimit.ipRateLimitingDescription")}
+							checked={rateLimitIpEnabled}
+							onChange={(v) =>
+								updateMutation.mutate({
+									rate_limit_ip_enabled: v ? "true" : "false",
+								})
+							}
+							onReset={() =>
+								resetSettingMutation.mutate(["rate_limit_ip_enabled"])
+							}
+							resetDisabled={isResetting}
+						/>
 
 						<SettingsSlider
 							id="rate-limit-ip-rps"

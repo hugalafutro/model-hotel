@@ -4,9 +4,8 @@ import { useTranslation } from "react-i18next";
 import { RefreshCw } from "@/lib/icons";
 import { api } from "../../api/client";
 import { CopyablePill } from "../../components/CopyablePill";
-import { ResetButton } from "../../components/ResetButton";
 import { SecretField } from "../../components/SecretField";
-import { Toggle } from "../../components/Toggle";
+import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 /**
@@ -82,34 +81,17 @@ export function GithubPanel({ managed }: { managed?: boolean }) {
 			</p>
 
 			{/* Enable toggle */}
-			<div className="flex items-center justify-between gap-3 ui-settings-group">
-				<div className="min-w-0">
-					<div className="flex items-center gap-1">
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.github.enable")}
-						</p>
-						<ResetButton
-							tooltip={t("settings.common.resetSetting")}
-							onClick={() =>
-								resetSettingMutation.mutate(["github_sso_enabled"])
-							}
-							size={12}
-							disabled={isResetting}
-						/>
-					</div>
-					<p className="text-gray-500 text-xs mt-0.5">
-						{t("settings.github.enableDescription")}
-					</p>
-				</div>
-				<Toggle
-					checked={enabled}
-					size="sm"
-					onChange={(v) =>
-						updateMutation.mutate({ github_sso_enabled: v ? "true" : "false" })
-					}
-					ariaLabel={t("settings.github.enable")}
-				/>
-			</div>
+			<SettingToggleRow
+				className="ui-settings-group"
+				label={t("settings.github.enable")}
+				description={t("settings.github.enableDescription")}
+				checked={enabled}
+				onChange={(v) =>
+					updateMutation.mutate({ github_sso_enabled: v ? "true" : "false" })
+				}
+				onReset={() => resetSettingMutation.mutate(["github_sso_enabled"])}
+				resetDisabled={isResetting}
+			/>
 
 			{enabled && (
 				<>

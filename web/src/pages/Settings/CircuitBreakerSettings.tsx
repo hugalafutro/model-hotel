@@ -1,10 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Shield } from "@/lib/icons";
-import { ResetButton } from "../../components/ResetButton";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
-import { Toggle } from "../../components/Toggle";
+import { SettingToggleRow } from "../../components/SettingToggleRow";
 import {
 	goDurationToHours,
 	goDurationToMinutes,
@@ -98,39 +97,21 @@ function RateLimit429Group() {
 
 	return (
 		<SettingsGroup title={t("settings.circuitBreaker.rateLimitGroup")}>
-			<div
-				className="flex items-center justify-between gap-3"
-				data-testid="classify-429-row"
-			>
-				<div className="min-w-0">
-					<div className="flex items-center gap-1">
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.classify429")}
-						</p>
-						<ResetButton
-							tooltip={t("settings.common.resetSetting")}
-							onClick={() =>
-								resetSettingMutation.mutate(["rate_limit_classify_enabled"])
-							}
-							size={12}
-							disabled={isResetting}
-						/>
-					</div>
-					<p className="text-gray-500 text-xs mt-0.5">
-						{t("settings.circuitBreaker.classify429Description")}
-					</p>
-				</div>
-				<Toggle
-					checked={classifyEnabled}
-					size="sm"
-					onChange={(v) =>
-						updateMutation.mutate({
-							rate_limit_classify_enabled: v ? "true" : "false",
-						})
-					}
-					ariaLabel={t("settings.circuitBreaker.classify429")}
-				/>
-			</div>
+			<SettingToggleRow
+				testId="classify-429-row"
+				label={t("settings.circuitBreaker.classify429")}
+				description={t("settings.circuitBreaker.classify429Description")}
+				checked={classifyEnabled}
+				onChange={(v) =>
+					updateMutation.mutate({
+						rate_limit_classify_enabled: v ? "true" : "false",
+					})
+				}
+				onReset={() =>
+					resetSettingMutation.mutate(["rate_limit_classify_enabled"])
+				}
+				resetDisabled={isResetting}
+			/>
 
 			<SettingsSlider
 				id="rate-limit-saturation-max-wait"
@@ -176,110 +157,54 @@ function RateLimit429Group() {
 				resetTooltip={t("settings.common.resetSetting")}
 			/>
 
-			<div
-				className="flex items-center justify-between gap-3"
-				data-testid="open-on-exhaustion-row"
-			>
-				<div className="min-w-0">
-					<div className="flex items-center gap-1">
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.openOnExhaustion")}
-						</p>
-						<ResetButton
-							tooltip={t("settings.common.resetSetting")}
-							onClick={() =>
-								resetSettingMutation.mutate([
-									"circuit_breaker_open_on_exhaustion",
-								])
-							}
-							size={12}
-							disabled={isResetting}
-						/>
-					</div>
-					<p className="text-gray-500 text-xs mt-0.5">
-						{t("settings.circuitBreaker.openOnExhaustionDescription")}
-					</p>
-				</div>
-				<Toggle
-					checked={openOnExhaustion}
-					size="sm"
-					disabled={!classifyEnabled}
-					onChange={(v) =>
-						updateMutation.mutate({
-							circuit_breaker_open_on_exhaustion: v ? "true" : "false",
-						})
-					}
-					ariaLabel={t("settings.circuitBreaker.openOnExhaustion")}
-				/>
-			</div>
+			<SettingToggleRow
+				testId="open-on-exhaustion-row"
+				label={t("settings.circuitBreaker.openOnExhaustion")}
+				description={t("settings.circuitBreaker.openOnExhaustionDescription")}
+				checked={openOnExhaustion}
+				disabled={!classifyEnabled}
+				onChange={(v) =>
+					updateMutation.mutate({
+						circuit_breaker_open_on_exhaustion: v ? "true" : "false",
+					})
+				}
+				onReset={() =>
+					resetSettingMutation.mutate(["circuit_breaker_open_on_exhaustion"])
+				}
+				resetDisabled={isResetting}
+			/>
 
-			<div
-				className="flex items-center justify-between gap-3"
-				data-testid="exhaustion-429-row"
-			>
-				<div className="min-w-0">
-					<div className="flex items-center gap-1">
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.exhaustion429")}
-						</p>
-						<ResetButton
-							tooltip={t("settings.common.resetSetting")}
-							onClick={() =>
-								resetSettingMutation.mutate(["failover_exhaustion_status_429"])
-							}
-							size={12}
-							disabled={isResetting}
-						/>
-					</div>
-					<p className="text-gray-500 text-xs mt-0.5">
-						{t("settings.circuitBreaker.exhaustion429Description")}
-					</p>
-				</div>
-				<Toggle
-					checked={exhaustion429}
-					size="sm"
-					onChange={(v) =>
-						updateMutation.mutate({
-							failover_exhaustion_status_429: v ? "true" : "false",
-						})
-					}
-					ariaLabel={t("settings.circuitBreaker.exhaustion429")}
-				/>
-			</div>
+			<SettingToggleRow
+				testId="exhaustion-429-row"
+				label={t("settings.circuitBreaker.exhaustion429")}
+				description={t("settings.circuitBreaker.exhaustion429Description")}
+				checked={exhaustion429}
+				onChange={(v) =>
+					updateMutation.mutate({
+						failover_exhaustion_status_429: v ? "true" : "false",
+					})
+				}
+				onReset={() =>
+					resetSettingMutation.mutate(["failover_exhaustion_status_429"])
+				}
+				resetDisabled={isResetting}
+			/>
 
-			<div
-				className="flex items-center justify-between gap-3"
-				data-testid="server-error-retry-row"
-			>
-				<div className="min-w-0">
-					<div className="flex items-center gap-1">
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.serverErrorRetry")}
-						</p>
-						<ResetButton
-							tooltip={t("settings.common.resetSetting")}
-							onClick={() =>
-								resetSettingMutation.mutate(["server_error_retry_enabled"])
-							}
-							size={12}
-							disabled={isResetting}
-						/>
-					</div>
-					<p className="text-gray-500 text-xs mt-0.5">
-						{t("settings.circuitBreaker.serverErrorRetryDescription")}
-					</p>
-				</div>
-				<Toggle
-					checked={serverErrorRetry}
-					size="sm"
-					onChange={(v) =>
-						updateMutation.mutate({
-							server_error_retry_enabled: v ? "true" : "false",
-						})
-					}
-					ariaLabel={t("settings.circuitBreaker.serverErrorRetry")}
-				/>
-			</div>
+			<SettingToggleRow
+				testId="server-error-retry-row"
+				label={t("settings.circuitBreaker.serverErrorRetry")}
+				description={t("settings.circuitBreaker.serverErrorRetryDescription")}
+				checked={serverErrorRetry}
+				onChange={(v) =>
+					updateMutation.mutate({
+						server_error_retry_enabled: v ? "true" : "false",
+					})
+				}
+				onReset={() =>
+					resetSettingMutation.mutate(["server_error_retry_enabled"])
+				}
+				resetDisabled={isResetting}
+			/>
 		</SettingsGroup>
 	);
 }
@@ -365,67 +290,37 @@ export function CircuitBreakerSettings({
 				</p>
 				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
 					<SettingsGroup title={t("settings.circuitBreaker.failoverGroup")}>
-						<div className="flex items-center justify-between gap-3">
-							<div className="min-w-0">
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.circuitBreaker.enable")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate(["circuit_breaker_enabled"])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.circuitBreaker.enableDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={circuitBreakerEnabled}
-								size="sm"
-								onChange={(v) =>
-									updateMutation.mutate({
-										circuit_breaker_enabled: v ? "true" : "false",
-									})
-								}
-								ariaLabel={t("settings.circuitBreaker.enable")}
-							/>
-						</div>
+						<SettingToggleRow
+							label={t("settings.circuitBreaker.enable")}
+							description={t("settings.circuitBreaker.enableDescription")}
+							checked={circuitBreakerEnabled}
+							onChange={(v) =>
+								updateMutation.mutate({
+									circuit_breaker_enabled: v ? "true" : "false",
+								})
+							}
+							onReset={() =>
+								resetSettingMutation.mutate(["circuit_breaker_enabled"])
+							}
+							resetDisabled={isResetting}
+						/>
 
-						<div className="flex items-center justify-between gap-3">
-							<div className="min-w-0">
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.circuitBreaker.failoverOnRateLimit")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate(["failover_on_rate_limit"])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.circuitBreaker.failoverOnRateLimitDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={failoverOnRateLimit}
-								size="sm"
-								onChange={(v) =>
-									updateMutation.mutate({
-										failover_on_rate_limit: v ? "true" : "false",
-									})
-								}
-								ariaLabel={t("settings.circuitBreaker.failoverOnRateLimit")}
-							/>
-						</div>
+						<SettingToggleRow
+							label={t("settings.circuitBreaker.failoverOnRateLimit")}
+							description={t(
+								"settings.circuitBreaker.failoverOnRateLimitDescription",
+							)}
+							checked={failoverOnRateLimit}
+							onChange={(v) =>
+								updateMutation.mutate({
+									failover_on_rate_limit: v ? "true" : "false",
+								})
+							}
+							onReset={() =>
+								resetSettingMutation.mutate(["failover_on_rate_limit"])
+							}
+							resetDisabled={isResetting}
+						/>
 
 						<SettingsSlider
 							id="circuit-breaker-threshold"
@@ -497,42 +392,24 @@ export function CircuitBreakerSettings({
 							resetTooltip={t("settings.common.resetSetting")}
 						/>
 
-						<div
-							className="flex items-center justify-between gap-3"
-							data-testid="quota-pin-row"
-						>
-							<div className="min-w-0">
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.circuitBreaker.quotaPin")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate([
-												"circuit_breaker_quota_pin_enabled",
-											])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.circuitBreaker.quotaPinDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={quotaPinEnabled}
-								size="sm"
-								disabled={!circuitBreakerEnabled}
-								onChange={(v) =>
-									updateMutation.mutate({
-										circuit_breaker_quota_pin_enabled: v ? "true" : "false",
-									})
-								}
-								ariaLabel={t("settings.circuitBreaker.quotaPin")}
-							/>
-						</div>
+						<SettingToggleRow
+							testId="quota-pin-row"
+							label={t("settings.circuitBreaker.quotaPin")}
+							description={t("settings.circuitBreaker.quotaPinDescription")}
+							checked={quotaPinEnabled}
+							disabled={!circuitBreakerEnabled}
+							onChange={(v) =>
+								updateMutation.mutate({
+									circuit_breaker_quota_pin_enabled: v ? "true" : "false",
+								})
+							}
+							onReset={() =>
+								resetSettingMutation.mutate([
+									"circuit_breaker_quota_pin_enabled",
+								])
+							}
+							resetDisabled={isResetting}
+						/>
 
 						<SettingsSlider
 							id="circuit-breaker-quota-pin-max"
@@ -555,42 +432,22 @@ export function CircuitBreakerSettings({
 							resetTooltip={t("settings.common.resetSetting")}
 						/>
 
-						<div
-							className="flex items-center justify-between gap-3"
-							data-testid="backoff-row"
-						>
-							<div className="min-w-0">
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.circuitBreaker.backoff")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate([
-												"circuit_breaker_backoff_enabled",
-											])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.circuitBreaker.backoffDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={backoffEnabled}
-								size="sm"
-								disabled={!circuitBreakerEnabled}
-								onChange={(v) =>
-									updateMutation.mutate({
-										circuit_breaker_backoff_enabled: v ? "true" : "false",
-									})
-								}
-								ariaLabel={t("settings.circuitBreaker.backoff")}
-							/>
-						</div>
+						<SettingToggleRow
+							testId="backoff-row"
+							label={t("settings.circuitBreaker.backoff")}
+							description={t("settings.circuitBreaker.backoffDescription")}
+							checked={backoffEnabled}
+							disabled={!circuitBreakerEnabled}
+							onChange={(v) =>
+								updateMutation.mutate({
+									circuit_breaker_backoff_enabled: v ? "true" : "false",
+								})
+							}
+							onReset={() =>
+								resetSettingMutation.mutate(["circuit_breaker_backoff_enabled"])
+							}
+							resetDisabled={isResetting}
+						/>
 
 						<SettingsSlider
 							id="circuit-breaker-backoff-max"
@@ -618,36 +475,18 @@ export function CircuitBreakerSettings({
 					    beneath it, so the warning sits next to the toggle it is about. */}
 					<div className="space-y-5" data-testid="hedging-column">
 						<SettingsGroup title={t("settings.circuitBreaker.hedgingGroup")}>
-							<div className="flex items-center justify-between gap-3">
-								<div className="min-w-0">
-									<div className="flex items-center gap-1">
-										<p className="text-sm font-medium text-gray-300">
-											{t("settings.circuitBreaker.hedging")}
-										</p>
-										<ResetButton
-											tooltip={t("settings.common.resetSetting")}
-											onClick={() =>
-												resetSettingMutation.mutate(["hedging_enabled"])
-											}
-											size={12}
-											disabled={isResetting}
-										/>
-									</div>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.circuitBreaker.hedgingDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={hedgingEnabled}
-									size="sm"
-									onChange={(v) =>
-										updateMutation.mutate({
-											hedging_enabled: v ? "true" : "false",
-										})
-									}
-									ariaLabel={t("settings.circuitBreaker.hedging")}
-								/>
-							</div>
+							<SettingToggleRow
+								label={t("settings.circuitBreaker.hedging")}
+								description={t("settings.circuitBreaker.hedgingDescription")}
+								checked={hedgingEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										hedging_enabled: v ? "true" : "false",
+									})
+								}
+								onReset={() => resetSettingMutation.mutate(["hedging_enabled"])}
+								resetDisabled={isResetting}
+							/>
 
 							<SettingsSlider
 								id="hedge-delay"
