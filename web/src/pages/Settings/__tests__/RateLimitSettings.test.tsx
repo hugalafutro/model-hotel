@@ -3,6 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api/client";
+import i18n from "../../../i18n";
+import { toggleRowResetButton } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { RateLimitSettings } from "../RateLimitSettings";
@@ -935,6 +937,22 @@ describe("per-setting reset", () => {
 			expect(screen.getByText(/reset went sideways/i)).toBeInTheDocument();
 		});
 
+		resetSpy.mockRestore();
+	});
+	it("resets each toggle row through the reset beside its label", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset").mockResolvedValue({});
+		const { user } = renderWithProviders(
+			<RateLimitSettings collapsed={false} onToggle={() => {}} />,
+		);
+		const rows: [string, string][] = [
+			["settings.rateLimit.enable", "rate_limit_enabled"],
+			["settings.rateLimit.ipRateLimiting", "rate_limit_ip_enabled"],
+		];
+		await screen.findByText(i18n.t(rows[0][0]));
+		for (const [label, key] of rows) {
+			await user.click(toggleRowResetButton(label));
+			await waitFor(() => expect(resetSpy).toHaveBeenLastCalledWith([key]));
+		}
 		resetSpy.mockRestore();
 	});
 });

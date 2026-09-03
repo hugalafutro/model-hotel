@@ -1,8 +1,9 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
+import { api } from "../../../api/client";
 import i18n from "../../../i18n";
-import { serveSettings } from "../../../test/helpers";
+import { serveSettings, toggleRowResetButton } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { AlertsSettings } from "../AlertsSettings";
@@ -1030,5 +1031,21 @@ describe("AlertsSettings", () => {
 		await waitFor(() =>
 			expect(screen.getByText("Status check failed")).toBeInTheDocument(),
 		);
+	});
+	it("resets each toggle row through the reset beside its label", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset").mockResolvedValue({});
+		serveSettings({ alert_enabled: "true" });
+		const { user } = renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		const rows: [string, string][] = [
+			["settings.alerts.enable", "alert_enabled"],
+		];
+		await screen.findByText(i18n.t(rows[0][0]));
+		for (const [label, key] of rows) {
+			await user.click(toggleRowResetButton(label));
+			await waitFor(() => expect(resetSpy).toHaveBeenLastCalledWith([key]));
+		}
+		resetSpy.mockRestore();
 	});
 });
