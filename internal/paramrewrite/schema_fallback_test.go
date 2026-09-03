@@ -120,6 +120,13 @@ func TestBuildUpstreamBody_SchemaInstructionShapes(t *testing.T) {
 			t.Errorf("%s: messages = %v, want the instruction on the leading turn", lead, msgs)
 		}
 	}
+	// Content of a shape the join cannot keep is left alone; the instruction
+	// goes ahead of it as its own turn.
+	odd := []byte(`{"model":"m","messages":[{"role":"system","content":{"weird":1}},{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"schema":{"type":"object"}}}}`)
+	raw = decodeJSONBody(t, BuildUpstreamBody(odd, "deepseek", "m", "m", false, &dep, &ren, nil, "p"))
+	if msgs := raw["messages"].([]any); len(msgs) != 3 || msgs[1].(map[string]any)["content"].(map[string]any)["weird"] == nil {
+		t.Errorf("odd content: messages = %v, want the caller's turn kept behind the instruction", msgs)
+	}
 	// A schema past the prompt bound is left out; the model still gets JSON mode.
 	big := `{"type":"object","properties":{"x":{"type":"string","description":"` + strings.Repeat("a", schemaPromptMax) + `"}}}`
 	body := []byte(`{"model":"m","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"schema":` + big + `}}}`)

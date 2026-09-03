@@ -38,7 +38,8 @@ func ProviderSupportsStreamOptions(providerType string) bool {
 //  5. Universal param stripping (ProviderUnsupportedParams)
 //  6. Learned param stripping (deprecationCache)
 //  7. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
-//     and the json_schema fallback for a provider that only serves JSON mode
+//     and, for the chat-completions builder only, the json_schema fallback for
+//     a provider that only serves JSON mode
 //  8. Message sanitization (drop empty tool_calls arrays)
 //
 // Injection (step 3) runs before all stripping (steps 5-7) so that a param a

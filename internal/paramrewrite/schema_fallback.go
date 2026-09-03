@@ -36,7 +36,7 @@ var jsonModeOnlyProviders = map[string]bool{
 var (
 	schemaRefusalNames    = []string{"response_format", "json_schema"}
 	schemaRefusalPhrases  = []string{"unavailable", "not available", "not supported", "unsupported", "does not support", "not implemented"}
-	schemaRefusalExcludes = []string{"invalid schema", "json_schema.schema", "schema.properties", " when ", " with tools", " if "}
+	schemaRefusalExcludes = []string{"invalid schema", "json_schema.schema", "schema.properties", " when ", " with tools"}
 )
 
 // refusesJSONSchema reports whether a 400 message says the provider does not
@@ -106,8 +106,9 @@ const schemaPromptMax = 8 << 10
 // conforming to the schema, which every such provider requires the prompt to
 // ask for in some form anyway. The instruction joins a leading system or
 // developer turn (appended to string content, a text part on content parts,
-// the content itself when it is neither), since a second system turn is not
-// accepted everywhere, and is prepended as a system turn when there is none.
+// the content itself when there is none), since a second system turn is not
+// accepted everywhere, and is prepended as a system turn when there is no
+// such turn or its content has a shape the join cannot keep.
 // A json_schema with no schema object, or one past schemaPromptMax, gets the
 // plain JSON-mode instruction. The provider does not validate the output
 // against the schema, so the caller's strict flag is a request the answer may
@@ -138,8 +139,10 @@ func downgradeJSONSchema(raw map[string]any, modelID string) {
 				first["content"] = content + "\n\n" + instruction
 			case []any:
 				first["content"] = append(content, map[string]any{"type": "text", "text": instruction})
-			default:
+			case nil:
 				first["content"] = instruction
+			default:
+				raw["messages"] = append([]any{map[string]any{"role": "system", "content": instruction}}, messages...)
 			}
 			return
 		}
