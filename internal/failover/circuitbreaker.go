@@ -58,8 +58,9 @@ type ProviderStatus struct {
 	NextRetryAt      string `json:"next_retry_at,omitempty"`
 	QuotaPinned      bool   `json:"quota_pinned,omitempty"`
 	// PinSource says where the dominant circuit's quota pin came from:
-	// "advisor" (a measured quota reading) or "response" (inferred from the
-	// exhausted 429 itself). Empty when that circuit carries no pin.
+	// "advisor" (a measured quota reading), "response" (inferred from the
+	// exhausted 429 itself) or "account" (inferred from a 429 that refused the
+	// whole account). Empty when that circuit carries no pin.
 	PinSource string `json:"pin_source,omitempty"`
 	// BackedOff is true when the cooldown governing the circuit is the probe
 	// backoff rather than circuit_breaker_cooldown: CooldownMs and NextRetryAt
@@ -226,6 +227,13 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 		return false
 	}
 	c := models[model]
+	if c != nil && c.state == StateHalfOpen && c.pinSource == pinSourceAccount {
+		// The one probe an account pin lets out: this model carries it, and
+		// the provider verdict, which counts the half-open account circuit as
+		// still pinning, keeps the siblings dark until it reports.
+		cb.mu.RUnlock()
+		return false
+	}
 	if c == nil || c.state != StateOpen {
 		open := cb.providerOpen(models)
 		cb.mu.RUnlock()
@@ -301,14 +309,14 @@ func (cb *CircuitBreaker) recordFailure(providerID uuid.UUID, providerName, mode
 	case StateClosed:
 		c.consecutiveFails++
 		if c.consecutiveFails >= cb.effectiveThreshold() {
-			cb.openCircuit(&after, "circuit-breaker: model state=closed→open", providerID, providerName, model, c, by429, 0)
+			cb.openCircuit(&after, "circuit-breaker: model state=closed→open", providerID, providerName, model, c, by429, 0, false)
 		}
 	case StateHalfOpen:
 		c.consecutiveFails = cb.effectiveThreshold()
 		// Counted before the open so the cooldown stamped there reflects this
 		// failed probe.
 		c.failedProbes++
-		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe failed)", providerID, providerName, model, c, by429, 0)
+		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe failed)", providerID, providerName, model, c, by429, 0, false)
 	case StateOpen:
 		// Already open, no-op.
 	}
@@ -349,13 +357,6 @@ func (cb *CircuitBreaker) recordExhausted(providerID uuid.UUID, providerName, mo
 	defer func() { cb.mu.Unlock(); after.run() }()
 
 	c := cb.getOrCreate(providerID.String(), model)
-	// The account mark is applied after the open stamps its pin, so it rides
-	// on a pin the floor accepted; a refusal that left no pin marks nothing.
-	defer func() {
-		if account && c.pinSource == pinSourceResponse {
-			c.pinSource = pinSourceAccount
-		}
-	}()
 	c.lastCharged = time.Now()
 	c.note(c.lastCharged, UpstreamStatus(status, causeExhausted))
 
@@ -369,7 +370,7 @@ func (cb *CircuitBreaker) recordExhausted(providerID uuid.UUID, providerName, mo
 	switch c.state {
 	case StateClosed:
 		c.consecutiveFails = cb.effectiveThreshold()
-		cb.openCircuit(&after, "circuit-breaker: model state=closed→open (exhausted)", providerID, providerName, model, c, by429, pinHint)
+		cb.openCircuit(&after, "circuit-breaker: model state=closed→open (exhausted)", providerID, providerName, model, c, by429, pinHint, account)
 	case StateHalfOpen:
 		c.consecutiveFails = cb.effectiveThreshold()
 		// A probe let through by a response pin's interval is paced by that
@@ -381,7 +382,7 @@ func (cb *CircuitBreaker) recordExhausted(providerID uuid.UUID, providerName, mo
 		if !pinProbes(c.pinSource) || cb.pinProbeInterval() <= 0 {
 			c.failedProbes++
 		}
-		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe drew exhaustion)", providerID, providerName, model, c, by429, pinHint)
+		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe drew exhaustion)", providerID, providerName, model, c, by429, pinHint, account)
 	case StateOpen:
 		// Already open, no-op. ApplyQuotaPins retargets an open circuit when a
 		// fresh quota reading lands; a second exhausted body is not fresher
@@ -476,7 +477,7 @@ func (cb *CircuitBreaker) LastSuccessWithin(providerID uuid.UUID, model string, 
 //
 // Must be called with cb.mu held; the line and the event it produces are
 // handed to after, for the caller to emit once the lock is released.
-func (cb *CircuitBreaker) openCircuit(after *afterUnlock, msg string, providerID uuid.UUID, providerName, model string, c *circuit, by429 bool, exhaustHint time.Duration) {
+func (cb *CircuitBreaker) openCircuit(after *afterUnlock, msg string, providerID uuid.UUID, providerName, model string, c *circuit, by429 bool, exhaustHint time.Duration, account bool) {
 	now := time.Now()
 	c.state = StateOpen
 	c.openedAt = now
@@ -484,7 +485,7 @@ func (cb *CircuitBreaker) openCircuit(after *afterUnlock, msg string, providerID
 	// Backoff first: the pin is floored at the cooldown in force, and that is
 	// the backoff once one is stamped.
 	cb.applyBackoff(c)
-	cb.applyQuotaPin(providerID, c, exhaustHint)
+	cb.applyQuotaPin(providerID, c, exhaustHint, account)
 	// One walk for the log line and the event, so the two cannot disagree. The
 	// attributes are read under the lock, because the circuit keeps changing
 	// once it is released.

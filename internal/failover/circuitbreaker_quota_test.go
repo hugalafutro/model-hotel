@@ -974,9 +974,35 @@ func TestQuotaPin_AccountRefusalDarkensTheProvider(t *testing.T) {
 	if cb.IsOpen(id, "p", "o1") {
 		t.Fatal("interval elapsed: the refused model must let a probe through")
 	}
+	// While that one probe is out the siblings stay dark: the moment the pin
+	// lifted, every sibling would otherwise be sent to draw the same refusal.
+	if !cb.IsOpen(id, "p", "gpt-4o") {
+		t.Error("a sibling must stay dark while the account circuit's probe is out")
+	}
+	if !cb.IsOpen(id, "p", "gpt-4.1") {
+		t.Error("a sibling never tried must stay dark while the probe is out")
+	}
 	cb.RecordSuccess(id, "p", "o1")
 	if cb.IsOpen(id, "p", "gpt-4o") {
 		t.Error("a successful probe must lift the account pin from the siblings")
+	}
+}
+
+// The open event of an account refusal carries the account source and the
+// provider verdict, since the source is stamped before the event is built.
+func TestQuotaPin_AccountRefusalEventNamesTheSource(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, span: 3})
+	id := uuid.New()
+	cb.RecordExhaustedAccount(id, "p", "o1", 429, 90*24*time.Hour)
+	statuses := cb.StatusDetail()
+	if len(statuses) != 1 || len(statuses[0].Circuits) != 1 {
+		t.Fatalf("status = %+v, want one tracked circuit", statuses)
+	}
+	if got := statuses[0].Circuits[0].PinSource; got != "account" {
+		t.Errorf("pin_source = %q, want account", got)
+	}
+	if !statuses[0].ProviderOpen {
+		t.Error("the provider verdict must be open on the account refusal alone")
 	}
 }
 

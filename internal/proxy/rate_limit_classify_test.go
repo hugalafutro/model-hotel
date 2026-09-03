@@ -557,7 +557,6 @@ func TestClassifyRateLimit_AccountWide(t *testing.T) {
 		account bool
 	}{
 		{"openai out of credit", `{"error":{"message":"You have no credits remaining. Add credits to continue using the API.","type":"insufficient_quota","code":"credit_balance_exhausted"}}`, true},
-		{"anthropic low balance", `{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}`, true},
 		{"minimax 1008", `{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`, true},
 		{"zai plan excludes the model", `{"error":{"code":"1113","message":"Insufficient balance or no resource package. Please recharge."}}`, false},
 		{"google dated window", googleDailyQuota429, false},

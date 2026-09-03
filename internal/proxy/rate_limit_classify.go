@@ -83,9 +83,9 @@ type rateLimitVerdict struct {
 	entitled bool
 	// account marks an entitled refusal that is about the account behind the
 	// provider, not the model asked for: a balance spent, a plan with no
-	// credit. Such a refusal darkens the whole provider at once. A plan that
-	// excludes one model (Z.ai's "no resource package") is entitled but not
-	// account-wide, since the plan's other models still serve.
+	// credit. Such a refusal darkens the whole provider at once. A phrase the
+	// table marks perModel (a plan that excludes one model) is entitled but
+	// not account-wide, since the plan's other models still serve.
 	account bool
 }
 
@@ -144,6 +144,7 @@ type rateLimitPhrase struct {
 	class    rateLimitClass
 	pinHint  time.Duration // exhausted only
 	entitled bool          // exhausted only: fixed by a person, not by time
+	perModel bool          // entitled only: the plan excludes THIS model, not the account
 	provider string        // where the phrase was observed
 	observed string        // when (YYYY-MM-DD)
 }
@@ -159,8 +160,11 @@ type rateLimitPhrase struct {
 var rateLimitPhrases = []rateLimitPhrase{
 	// Balance / plan: a person fixes these, so the pin holds as long as the
 	// ceiling allows.
+	// Ahead of "insufficient balance", which Z.ai puts in the same sentence:
+	// the resource package is the per-model plan unit, so this refusal is
+	// about the model asked for and the plan's other models still serve.
+	{phrase: "no resource package", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, perModel: true, provider: "Z.ai Coding Plan (code 1113)", observed: "2026-08-31"},
 	{phrase: "insufficient balance", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, provider: "Z.ai Coding Plan (code 1113); MiniMax 1008 status_msg", observed: "2026-08-31"},
-	{phrase: "no resource package", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, provider: "Z.ai Coding Plan (code 1113)", observed: "2026-08-31"},
 	{phrase: "please recharge", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, provider: "Z.ai Coding Plan (code 1113)", observed: "2026-08-31"},
 	{phrase: "insufficient_quota", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, provider: "OpenAI", observed: "2026-08-31"},
 	{phrase: "exceeded your current quota", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, provider: "OpenAI", observed: "2026-08-31"},
@@ -255,13 +259,13 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 			continue
 		}
 		v.phrase = p.phrase
-		v.account = accountWide(v, b)
+		v.account = v.class == rateLimitExhausted && v.entitled && !p.perModel
 		return v
 	}
 	if miniMaxBalanceCode.MatchString(b) {
 		v := exhaustedVerdict(hdr, b, maxWait, pinHintUntilPaid, true)
 		v.phrase = miniMaxBalancePhrase
-		v.account = accountWide(v, b)
+		v.account = v.entitled
 		return v
 	}
 	if miniMaxWindowCode.MatchString(b) {
@@ -280,16 +284,6 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 		return rateLimitVerdict{class: rateLimitExhausted, pinHint: wait}
 	}
 	return rateLimitVerdict{}
-}
-
-// accountWide reports whether an entitled exhaustion refused the account as a
-// whole. Every entitled phrase names a balance or a plan, so the account is
-// the default reading; the one exception observed is a plan that excludes the
-// model asked for, which Z.ai words with the per-model "resource package"
-// beside its balance sentence, and that leaves the plan's other models
-// serving.
-func accountWide(v rateLimitVerdict, body string) bool {
-	return v.class == rateLimitExhausted && v.entitled && !strings.Contains(body, "resource package")
 }
 
 // exhaustedVerdict builds the exhausted verdict for a matched phrase. A wait

@@ -37,7 +37,7 @@ import (
 // goes through the same ceiling, floor and jitter, and the release paths lift it
 // as they lift an advisor pin. pinSource records which source stamped the pin in
 // force.
-func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaustHint time.Duration) {
+func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaustHint time.Duration, account bool) {
 	c.cooldownOverride = 0
 	c.pinSource = ""
 	if !cb.quotaPinEnabled() {
@@ -45,6 +45,12 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 	}
 	d := exhaustHint
 	source := pinSourceResponse
+	if account {
+		// The refusal spoke for the account, so the pin does too: the
+		// provider verdict opens on it alone. Stamped here, before the open
+		// publishes, so the event and its alert carry the right source.
+		source = pinSourceAccount
+	}
 	if cb.quota != nil {
 		if resetsAt, ok := cb.quota.ResetsAt(providerID); ok {
 			d = time.Until(resetsAt)
