@@ -8,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -119,6 +118,9 @@ type backupEntry struct {
 	// signature is actually checked on download, where a single file is read
 	// anyway and a mismatch can stop the transfer.
 	Signed bool `json:"signed"`
+	// modTime is CreatedAt before formatting, for the callers that compare
+	// or do arithmetic on it (the listing's order, the scheduler's anchor).
+	modTime time.Time
 }
 
 // hasSignature reports whether a usable signature sidecar exists beside a dump.
@@ -203,41 +205,15 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 
 // ListBackups returns all backup files sorted by creation time (newest first).
 func (h *BackupHandler) ListBackups(w http.ResponseWriter, r *http.Request) {
-	entries, err := os.ReadDir(h.backupDir)
+	backups, err := h.listBackupFiles()
 	if err != nil {
-		if os.IsNotExist(err) {
-			writeJSON(w, []backupEntry{})
-			return
-		}
 		respondError(w, "failed to read backup directory", err, http.StatusInternalServerError)
 		return
 	}
-
-	var backups []backupEntry
-	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".dump") {
-			continue
-		}
-		info, err := entry.Info()
-		if err != nil {
-			continue
-		}
-		backups = append(backups, backupEntry{
-			Filename:  entry.Name(),
-			SizeBytes: info.Size(),
-			CreatedAt: info.ModTime().Format(time.RFC3339),
-			Origin:    backupOrigin(entry.Name()),
-			Signed:    hasSignature(filepath.Join(h.backupDir, entry.Name())),
-		})
-	}
-
-	// Sort newest first
-	sort.Slice(backups, func(i, j int) bool {
-		return backups[i].CreatedAt > backups[j].CreatedAt
-	})
-
-	if backups == nil {
-		backups = []backupEntry{}
+	// The signature stat is the listing's alone: the rotation and the
+	// scheduler read the same files and never look at the sidecars.
+	for i := range backups {
+		backups[i].Signed = hasSignature(filepath.Join(h.backupDir, backups[i].Filename))
 	}
 	writeJSON(w, backups)
 }

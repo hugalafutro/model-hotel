@@ -110,17 +110,16 @@ func (h *BackupHandler) schedulerTick(ctx context.Context) time.Duration {
 // Desk backups do not count: they are the operator's, and a scheduled backup
 // is due on its own clock regardless. An unreadable directory reads as due.
 func (h *BackupHandler) scheduledBackupWait(interval time.Duration, now time.Time) time.Duration {
-	entries, err := os.ReadDir(h.backupDir)
+	backups, err := h.listBackupFiles()
 	if err != nil {
 		return 0
 	}
+	// Newest first, so the first scheduled entry is the anchor.
 	var newest time.Time
-	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), ".dump") || backupOrigin(e.Name()) != "scheduled" {
-			continue
-		}
-		if info, err := e.Info(); err == nil && info.ModTime().After(newest) {
-			newest = info.ModTime()
+	for _, b := range backups {
+		if b.Origin == "scheduled" {
+			newest = b.modTime
+			break
 		}
 	}
 	if newest.IsZero() {

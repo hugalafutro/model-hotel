@@ -656,13 +656,21 @@ func (h *Handler) peekRateLimitVerdict(ctx context.Context, resp *http.Response)
 // It absorbs a short slot-freeing gap rather than building a queue:
 // st.saturationRetried caps it at one.
 func (h *Handler) deferSaturatedRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int) candidateOutcome {
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
 	st.saturationRetried = true
-	st.setReqErr(rateLimitReqErr(st.rateLimit, attempt, candidate.provider.Name))
-	st.logData.failoverAttempt = attempt
-	// The attempt ended here; the retry is its own attempt with its own record.
-	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, st.rateLimit.detail, st.rateLimit.phrase, 0)
+	closeDeferredAttempt(st, resp, attempt, rateLimitReqErr(st.rateLimit, attempt, candidate.provider.Name), st.rateLimit.detail, st.rateLimit.phrase)
 	debuglog.Info("proxy: last candidate saturated, waiting to retry it once", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", st.rateLimit.retryAfter, "attempt", attempt+1)
 	return outcomeRetrySaturated
+}
+
+// closeDeferredAttempt ends an attempt the loop will retry: the response is
+// drained and closed, its error becomes the request's, and the attempt is
+// closed on the trail with the detail and phrase given. The retry is its own
+// attempt with its own record. Shared by the saturation and server-error
+// deferrals so the two cannot record an attempt differently.
+func closeDeferredAttempt(st *requestState, resp *http.Response, attempt int, reqErr reqError, detail, phrase string) {
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	st.setReqErr(reqErr)
+	st.logData.failoverAttempt = attempt
+	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, detail, phrase, 0)
 }

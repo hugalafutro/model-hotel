@@ -142,16 +142,15 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 			h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(http.StatusTooManyRequests, "exhausted, not opened by setting"))
 			return
 		}
+		reason, record := "upstream 429 (exhausted)", h.circuitBreaker.RecordExhausted
 		if rl.account {
 			// The account behind the provider is what refused, so the pin
 			// speaks for every model of the provider: the next request to a
 			// sibling is skipped rather than sent to draw the same refusal.
-			debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 429 (account exhausted)", "status", http.StatusTooManyRequests, "pin_hint_ms", rl.pinHint.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-			h.circuitBreaker.RecordExhaustedAccount(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), http.StatusTooManyRequests, rl.pinHint)
-			return
+			reason, record = "upstream 429 (account exhausted)", h.circuitBreaker.RecordExhaustedAccount
 		}
-		debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 429 (exhausted)", "status", http.StatusTooManyRequests, "pin_hint_ms", rl.pinHint.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
-		h.circuitBreaker.RecordExhausted(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), http.StatusTooManyRequests, rl.pinHint)
+		debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", reason, "status", http.StatusTooManyRequests, "pin_hint_ms", rl.pinHint.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+		record(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), http.StatusTooManyRequests, rl.pinHint)
 	case rateLimitUnknown:
 		// Not reached: the caller only routes classified verdicts here. Listed
 		// so the switch stays exhaustive over rateLimitClass.

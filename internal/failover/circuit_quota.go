@@ -90,6 +90,15 @@ func pinProbes(source string) bool {
 	return source == pinSourceResponse || source == pinSourceAccount
 }
 
+// pinSpeaksForAccount reports whether a pin of this source indicts the whole
+// provider on its own: the advisor measured the provider's account, and an
+// account pin carries a refusal the provider made about its balance rather
+// than about a model. A plain response pin is one model's evidence and does
+// not; see providerReport.
+func pinSpeaksForAccount(source string) bool {
+	return source == pinSourceAdvisor || source == pinSourceAccount
+}
+
 // ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
 // provider appears in recovered, and reports how many pins it lifted. It is how
 // a provider that has recovered (a topped-up plan, a reset window observed early

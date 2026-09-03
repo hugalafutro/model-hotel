@@ -1,6 +1,10 @@
 package provider
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
+)
 
 // inferNonChatModality guesses a non-chat modality ("embedding", "rerank" or
 // "image") from a model ID when the provider does not report one.
@@ -44,7 +48,7 @@ func inferNonChatModality(modelID string) string {
 	// speech endpoints (tts-1, gpt-4o-mini-tts, whisper-1, gpt-4o-transcribe).
 	// Match them as whole segments (split on the usual id separators) so a
 	// substring can't trip a chat model that merely contains these letters.
-	for _, seg := range splitModelIDSegments(id) {
+	for _, seg := range util.ModelIDSegments(id) {
 		switch seg {
 		case "bge", "gte", "e5", "minilm":
 			return "embedding"
@@ -56,17 +60,4 @@ func inferNonChatModality(modelID string) string {
 	}
 
 	return ""
-}
-
-// splitModelIDSegments splits a lower-cased model ID on the separators commonly
-// found in HuggingFace-style IDs (org/name-with-parts).
-func splitModelIDSegments(id string) []string {
-	return strings.FieldsFunc(id, func(r rune) bool {
-		switch r {
-		case '/', '-', '_', '.', ':', ' ':
-			return true
-		default:
-			return false
-		}
-	})
 }

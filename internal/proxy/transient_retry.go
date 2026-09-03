@@ -110,13 +110,8 @@ func (h *Handler) deferLastCandidateRetry(st *requestState, candidate modelCandi
 // does; a 5xx never reads it, but the request-scoped copy is not reached for.
 func (h *Handler) deferServerErrorRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int, rl rateLimitVerdict) candidateOutcome {
 	drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
-	_, _ = io.Copy(io.Discard, resp.Body)
-	_ = resp.Body.Close()
 	st.serverErrorRetried = true
-	st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
-	st.logData.failoverAttempt = attempt
-	// The attempt ended here; the retry is its own attempt with its own record.
-	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, util.SanitizeLogBody(string(drained), 10000), "", 0)
+	closeDeferredAttempt(st, resp, attempt, failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode), util.SanitizeLogBody(string(drained), 10000), "")
 	debuglog.Info("proxy: last candidate answered a retryable server error, retrying it once", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "attempt", attempt+1)
 	return outcomeRetryServerError
 }

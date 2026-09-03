@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // SchemaFallbackKey is the pseudo-param the learned caches carry for a
@@ -35,11 +36,11 @@ var jsonModeOnlyProviders = map[string]bool{
 // the prompt; each of those hosts then answers bare, schema-shaped JSON. A
 // provider type that only serves JSON mode, or a learned 400, puts the
 // request in JSON mode instead, with the same fold. The family name opens a
-// segment of the id, after any vendor path or prefix (z-ai/glm-5.3-flash,
-// glm4:9b, zai.glm-4.7, zai-glm-4.7), so a name that merely contains the
-// letters does not match.
+// segment of the id (util.ModelIDSegments), after any vendor path or prefix
+// (z-ai/glm-5.3-flash, glm4:9b, zai.glm-4.7, zai-glm-4.7), so a name that
+// merely contains the letters does not match.
 func schemaIgnoredByModel(modelID string) bool {
-	for _, segment := range strings.FieldsFunc(strings.ToLower(modelID), func(r rune) bool { return r == '/' || r == '.' || r == '-' }) {
+	for _, segment := range util.ModelIDSegments(modelID) {
 		if strings.HasPrefix(segment, "glm") {
 			return true
 		}
@@ -111,7 +112,16 @@ func DropSchemaFallbackUnlessRequested(rejected map[string]bool, requestBody []b
 	if !rejected[SchemaFallbackKey] || RequestsJSONSchema(requestBody) {
 		return rejected
 	}
-	delete(rejected, SchemaFallbackKey)
+	return WithoutParams(rejected, SchemaFallbackKey)
+}
+
+// WithoutParams drops names from a learned set and returns it, or nil when
+// nothing is left: the param learner reads nil as "nothing to learn", and an
+// empty map would cache a no-op strip against the model.
+func WithoutParams(rejected map[string]bool, names ...string) map[string]bool {
+	for _, name := range names {
+		delete(rejected, name)
+	}
 	if len(rejected) == 0 {
 		return nil
 	}
