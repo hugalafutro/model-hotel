@@ -75,9 +75,10 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// provider's refusal. The same name heuristic the no-modality fallback
 		// uses decides here (embed and rerank anywhere in the name, bge, gte,
 		// e5 and minilm as whole segments), so those families are read the
-		// same way whether or not enrichment supplied arrays. A discovery whose listing states a chat model
-		// (Ollama's completion capability, LM Studio's llm type) writes the
-		// class explicitly and never reaches this branch.
+		// same way whether or not enrichment supplied arrays. A discovery
+		// whose listing states a chat model (Ollama's completion capability,
+		// LM Studio's llm type) writes the class explicitly and never reaches
+		// this branch.
 		switch class := inferNonChatModality(modelID); {
 		case class == "stt" && containsModality(input, "audio"):
 			return "stt"
@@ -195,10 +196,12 @@ func NormalizeModelClassification(m *model.Model) {
 	// and left at text they would all describe a chat model, and the model
 	// could never be retired on evidence from its own endpoint. Only the text
 	// entries go; any other output the array names is a discovery's own claim
-	// and is kept, and the class fills in when nothing else is left.
+	// and is kept, with the class named ahead of it so the array always says
+	// what the endpoint serves.
 	if class == "embedding" || class == "rerank" {
-		if output = withoutTextOutputs(output); len(output) == 0 {
-			output = []string{class}
+		output = withoutTextOutputs(output)
+		if !containsModality(output, class) {
+			output = append([]string{class}, output...)
 		}
 	}
 

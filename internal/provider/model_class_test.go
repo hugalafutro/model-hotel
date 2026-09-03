@@ -436,6 +436,12 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 	if mixed.OutputModalities != `["embedding"]` {
 		t.Errorf("mixed output = %s, want the text entry dropped", mixed.OutputModalities)
 	}
+	// An output naming something else entirely keeps it, behind the class.
+	odd := &model.Model{ModelID: "clip-embed", OutputModalities: `["text","image"]`, Capabilities: "{}"}
+	NormalizeModelClassification(odd)
+	if odd.OutputModalities != `["embedding","image"]` {
+		t.Errorf("odd output = %s, want the class named ahead of the kept entry", odd.OutputModalities)
+	}
 	// An explicit chat model still takes the input its capability flags imply.
 	flagged := &model.Model{ModelID: "llava-embed", Modality: "chat", InputModalities: `["text"]`, OutputModalities: `["text"]`, Capabilities: `{"vision":true}`}
 	NormalizeModelClassification(flagged)
