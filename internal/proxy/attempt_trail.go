@@ -37,8 +37,9 @@ type attemptRecord struct {
 	Status    int    `json:"status,omitempty"`
 	ErrorKind string `json:"error_kind,omitempty"`
 	// Detail is at most maxAttemptDetailRunes of the sanitized, credential-
-	// masked upstream error: the provider's error code or first sentence,
-	// never request content (see attemptDetail).
+	// masked upstream error text, never request content (see attemptDetail).
+	// Empty on the terminal attempt: its error is the row's own error_message,
+	// and the dashboard renders that once, below the trail.
 	Detail string `json:"detail,omitempty"`
 	// Phrase is the rate-limit phrase-table entry a 429 matched, when one did.
 	// The phrase staleness report counts these: a phrase absent from every
@@ -143,7 +144,9 @@ func (l *requestLogData) closeTerminalAttempt() {
 	if status == 0 {
 		status = l.statusCode
 	}
-	l.closeAttemptRecord(status, l.errorKind, l.errorMessage, l.attemptPhrase, l.ttftMs)
+	// No detail: the flat error_message is this attempt's error already, and a
+	// copy in the trail would be rendered twice on the same row.
+	l.closeAttemptRecord(status, l.errorKind, "", l.attemptPhrase, l.ttftMs)
 }
 
 // noteBreaker records what the breaker was just told about the attempt in

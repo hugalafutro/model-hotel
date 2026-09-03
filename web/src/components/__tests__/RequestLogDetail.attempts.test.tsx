@@ -120,6 +120,85 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(rows[2]).toHaveTextContent("200");
 	});
 
+	it("leaves out a detail that is the row's own error message", () => {
+		// Stored before the backend stopped writing the terminal attempt's
+		// detail: the same JSON, whitespace collapsed, as error_message.
+		const error =
+			'{"error": {"code": "1234",\n  "message": "Internal network failure, please try again later."}}';
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					status_code: 500,
+					error_message: error,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Neuralwatt",
+							model: "glm-5.3",
+							status: 503,
+							error_kind: "provider_error",
+							detail: "upstream is down for maintenance",
+							duration_ms: 90,
+							breaker: "charge",
+						},
+						{
+							attempt: 1,
+							provider_id: "prov-2",
+							provider: "Z.ai",
+							model: "glm-5.3-flash",
+							status: 500,
+							error_kind: "provider_error",
+							detail:
+								'{"error": {"code": "1234", "message": "Internal network failure, please try again later."}}',
+							duration_ms: 14917,
+							breaker: "charge",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const rows = screen.getAllByTestId("attempt-trail-row");
+		expect(rows[0]).toHaveTextContent("down for maintenance");
+		expect(rows[1]).toHaveTextContent("Z.ai");
+		expect(rows[1]).toHaveTextContent("500");
+		expect(rows[1]).not.toHaveTextContent("Internal network failure");
+	});
+
+	it("leaves out a last detail the terminal message quotes", () => {
+		// A transport failure: the attempt closes with the raw error and the
+		// terminal message wraps that same text.
+		const detail =
+			'Post "http://172.20.0.1:21434/v1/chat/completions": proxy: refused connection to private/reserved IP 172.20.0.1';
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					status_code: 502,
+					error_message: `provider "Ollama" failed on attempt 1: ${detail}`,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Ollama",
+							model: "smollm2:135m",
+							error_kind: "provider_error",
+							detail,
+							duration_ms: 384,
+							breaker: "charge",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const row = screen.getByTestId("attempt-trail-row");
+		expect(row).toHaveTextContent("provider_error");
+		expect(row).not.toHaveTextContent("refused connection");
+	});
+
 	it("renders nothing for a row without a trail", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={baseLog} onClose={onClose} />,

@@ -13,6 +13,10 @@ interface InfoHintProps {
  * Shared "(i)" help hint: a small Info icon with a help cursor and a native
  * tooltip. Replaces the copies that previously inlined
  * `<span className="ui-icon-btn cursor-help" title={…}><Info size={12} /></span>`.
+ *
+ * inline-flex, not inline: Tailwind's preflight makes every svg a block, and
+ * a block inside an inline span breaks the line around it, so a hint placed
+ * mid-text (a section header) would drop its icon onto the next line.
  */
 export function InfoHint({
 	tooltip,
@@ -22,7 +26,7 @@ export function InfoHint({
 	return (
 		<span
 			title={tooltip}
-			className={`ui-icon-btn cursor-help ${className}`.trimEnd()}
+			className={`ui-icon-btn cursor-help inline-flex items-center ${className}`.trimEnd()}
 		>
 			<Info size={size} />
 		</span>

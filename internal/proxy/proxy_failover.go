@@ -160,10 +160,12 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return outcomeFailover
 	}
 
-	// A saturated 429 on the last candidate: the provider asked for a wait of
-	// seconds, so it gets that instead of a terminal error. Once per request.
-	if isFailoverEligible && !hasMoreCandidates && rl.class == rateLimitSaturated && !st.saturationRetried {
-		return h.deferSaturatedRetry(st, candidate, resp, attempt)
+	// The last candidate's one-shot retries: a saturated 429 or a transient
+	// 5xx gets one more try instead of a terminal error.
+	if isFailoverEligible && !hasMoreCandidates {
+		if outcome, ok := h.deferLastCandidateRetry(st, candidate, resp, attempt, rl); ok {
+			return outcome
+		}
 	}
 
 	// The whole 2xx range, not a bare 200: a relay or aggregator may answer a

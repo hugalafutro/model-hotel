@@ -12,7 +12,7 @@ export function DetailSectionHeader({
 	return (
 		<div className="flex items-center gap-2 mb-3">
 			<Icon size={13} className="text-(--accent)" />
-			<span className="text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">
+			<span className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">
 				{children}
 			</span>
 			<div className="h-px flex-1 bg-(--border-default)" />

@@ -451,7 +451,10 @@ export function RequestLogDetail({
 			)}
 
 			{requestLog.attempts && requestLog.attempts.length > 0 && (
-				<AttemptTrail attempts={requestLog.attempts} />
+				<AttemptTrail
+					attempts={requestLog.attempts}
+					errorMessage={requestLog.error_message}
+				/>
 			)}
 
 			{/* Error Message */}

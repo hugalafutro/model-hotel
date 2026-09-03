@@ -145,7 +145,8 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 		// try the next candidate, that the response was served, that a
 		// terminal error was written, or that the last candidate is merely
 		// saturated and worth one short wait.
-		switch attemptOne(w, r, st, candidate, attempt, len(candidates)) {
+		outcome := attemptOne(w, r, st, candidate, attempt, len(candidates))
+		switch outcome {
 		case outcomeFailover:
 			contacted++
 			continue
@@ -155,8 +156,8 @@ func (h *Handler) runFailoverLoop(w http.ResponseWriter, r *http.Request, st *re
 		case outcomeSkipped:
 			// Contacted nothing, so no backoff; nothing to come back to.
 			continue
-		case outcomeRetrySaturated:
-			if h.retrySaturatedCandidate(w, r, st, candidate, len(candidates), attemptOne) {
+		case outcomeRetrySaturated, outcomeRetryServerError:
+			if h.settleLastCandidateRetry(w, r, st, candidate, len(candidates), attemptOne, outcome) {
 				return
 			}
 		default:
@@ -204,15 +205,21 @@ func (h *Handler) retryAfterSlotFrees(w http.ResponseWriter, r *http.Request, st
 			return false
 		}
 		debuglog.Info("proxy: slot freed, retrying a busy candidate", "provider", busy[idx].provider.Name, "model", st.logData.modelID, "attempt", attempt+1)
-		switch attemptOne(w, r, st, busy[idx], attempt, attempt+1) {
+		outcome := attemptOne(w, r, st, busy[idx], attempt, attempt+1)
+		switch outcome {
 		case outcomeBusy:
 			// Lost the acquisition race to a concurrent request; keep waiting
 			// inside the same bounded window.
 			attempt++
-		case outcomeFailover, outcomeRetrySaturated, outcomeSkipped:
+		case outcomeFailover, outcomeSkipped:
 			// The freed slot answered with a real failure; that verdict stands
 			// and the exhaustion path renders it.
 			return false
+		case outcomeRetrySaturated, outcomeRetryServerError:
+			// The freed slot's answer earned one of the one-shot retries, whose
+			// attempt has already been closed on the trail; the retry runs
+			// as the next attempt index.
+			return h.settleLastCandidateRetry(w, r, st, busy[idx], attempt+1, attemptOne, outcome)
 		default:
 			return true
 		}
@@ -235,13 +242,12 @@ func (h *Handler) failWaitDisconnect(w http.ResponseWriter, st *requestState, at
 // retrySaturatedCandidate is the one extra attempt a saturated last candidate
 // earns: wait the provider's Retry-After (capped at
 // rate_limit_saturation_max_wait and at the remaining overall deadline), then
-// send the same candidate again. One retry, never a loop: the attempt fn
-// consults st.saturationRetried and cannot return outcomeRetrySaturated twice.
-// The retry is an ordinary failover attempt: its index is one past the
-// candidate list, so the request log shows it as a further failover_attempt.
-// Reports true when the request was answered (served or terminal), false when
-// the loop should fall through to the exhaustion path.
-func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, numCandidates int, attemptOne attemptFn) bool {
+// send the same candidate again as attempt index `attempt`. One retry, never a
+// loop: the attempt fn consults st.saturationRetried and cannot return
+// outcomeRetrySaturated twice. Reports true when the request was answered
+// (served or terminal), false when the loop should fall through to the
+// exhaustion path.
+func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, attempt int, attemptOne attemptFn) bool {
 	wait := st.rateLimit.retryAfter
 	if wait <= 0 {
 		wait = defaultSaturatedRetryAfter
@@ -249,26 +255,73 @@ func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request
 	if maxWait := h.settingsRepo.GetDuration(r.Context(), "rate_limit_saturation_max_wait", defaultSaturationMaxWait); wait > maxWait {
 		wait = maxWait
 	}
+	return h.retryLastCandidate(w, r, st, candidate, attempt, attemptOne, wait, "saturation")
+}
+
+// retryServerErrorCandidate is the one extra attempt a last candidate that
+// answered a retryable 5xx earns: a short jittered backoff, then the same
+// candidate again as attempt index `attempt`. The attempt fn consults
+// st.serverErrorRetried, so it cannot return outcomeRetryServerError twice.
+func (h *Handler) retryServerErrorCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, attempt int, attemptOne attemptFn) bool {
+	wait := failoverBackoff(serverErrorRetryBackoff, 2*time.Second, 1)
+	// The backoff is the proxy's own guess, not a wait the provider asked for,
+	// so it yields to the deadline: draining the failed answer may have eaten
+	// the room the retry was offered on, and a shorter wait beats trading that
+	// answer for a generic exhaustion error.
+	if !st.overallDeadline.IsZero() {
+		remaining := time.Until(st.overallDeadline)
+		if remaining <= retryMinRound {
+			debuglog.Info("proxy: no time budget left to retry the last candidate", "reason", "server error", "model", st.logData.modelID, "remaining", remaining)
+			return false
+		}
+		wait = min(wait, remaining-retryMinRound)
+	}
+	return h.retryLastCandidate(w, r, st, candidate, attempt, attemptOne, wait, "server error")
+}
+
+// retryLastCandidate waits, then sends the same candidate again. The retry is
+// an ordinary failover attempt with its own trail record, numbered as the
+// next attempt after the one that earned it (one past the candidate list for
+// the first retry, two past when the retries chain), so the request log shows
+// it as a further failover_attempt. Reports true when the request was
+// answered (served or terminal), false when the loop should fall through to
+// the exhaustion path.
+func (h *Handler) retryLastCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, attempt int, attemptOne attemptFn, wait time.Duration, why string) bool {
 	// Never wait past the overall deadline: a slot that frees after the
-	// request's own budget is spent frees for someone else.
-	if remaining := time.Until(st.overallDeadline); wait >= remaining {
-		debuglog.Info("proxy: no time budget left for saturation retry", "model", st.logData.modelID, "retry_after", wait, "remaining", remaining)
+	// request's own budget is spent frees for someone else. A state that never
+	// set the deadline has no budget to run out of.
+	if remaining := time.Until(st.overallDeadline); !st.overallDeadline.IsZero() && wait >= remaining {
+		debuglog.Info("proxy: no time budget left to retry the last candidate", "reason", why, "model", st.logData.modelID, "wait", wait, "remaining", remaining)
 		return false
 	}
-	debuglog.Info("proxy: waiting out provider saturation before final retry", "model", st.logData.modelID, "provider", candidate.provider.Name, "wait", wait)
+	debuglog.Info("proxy: waiting before the final retry of the last candidate", "reason", why, "model", st.logData.modelID, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "wait", wait, "attempt", attempt+1)
 	select {
 	case <-time.After(wait):
 	case <-r.Context().Done():
 		// The client left during the wait: a 499 client disconnect, never the
 		// "all providers busy" the exhaustion path would render for a caller
 		// that is not around to receive it.
-		return h.failWaitDisconnect(w, st, numCandidates-1, candidate.provider.Name)
+		return h.failWaitDisconnect(w, st, attempt-1, candidate.provider.Name)
 	}
-	switch attemptOne(w, r, st, candidate, numCandidates, numCandidates+1) {
-	case outcomeFailover, outcomeRetrySaturated, outcomeSkipped:
-		// outcomeRetrySaturated cannot recur (saturationRetried is set), and a
-		// failed retry falls through to the exhaustion path like any other
-		// last-candidate failure.
+	return h.settleLastCandidateRetry(w, r, st, candidate, attempt+1, attemptOne, attemptOne(w, r, st, candidate, attempt, attempt+1))
+}
+
+// settleLastCandidateRetry acts on what the last candidate answered. The two
+// one-shot retries chain (a 5xx after the saturation wait, or a saturated 429
+// after the 5xx backoff, each still gets its own single retry as attempt
+// index `next`); the per-request flags cap each at one, so the chain is
+// bounded. A plain failure falls through to the exhaustion path (false);
+// anything else answered the client (true).
+func (h *Handler) settleLastCandidateRetry(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, next int, attemptOne attemptFn, outcome candidateOutcome) bool {
+	switch outcome {
+	case outcomeRetrySaturated:
+		return h.retrySaturatedCandidate(w, r, st, candidate, next, attemptOne)
+	case outcomeRetryServerError:
+		return h.retryServerErrorCandidate(w, r, st, candidate, next, attemptOne)
+	case outcomeFailover, outcomeSkipped, outcomeBusy:
+		// A busy retry lost its admission to a concurrent request and wrote
+		// nothing, so it is not answered: the exhaustion path renders the
+		// answer that earned the retry.
 		return false
 	default:
 		return true

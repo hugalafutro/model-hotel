@@ -61,7 +61,9 @@ export interface AttemptRecord {
 	/** Upstream HTTP status the attempt reached; absent when none was seen. */
 	status?: number;
 	error_kind?: string;
-	/** At most 160 characters of the sanitized, credential-masked upstream error. */
+	/** At most 160 characters of the sanitized, credential-masked upstream
+	 * error. Absent on the terminal attempt: the row's error_message is that
+	 * text already. */
 	detail?: string;
 	/** The rate-limit phrase-table entry a 429 matched, when one did. */
 	phrase?: string;

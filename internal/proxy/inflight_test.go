@@ -401,6 +401,43 @@ func TestRunFailoverLoop_BusyCandidates(t *testing.T) {
 		}
 	})
 
+	t.Run("a freed slot answering a transient 5xx gets the one retry", func(t *testing.T) {
+		st := newState()
+		for _, c := range cands {
+			if !h.inflight.tryAcquire(c.provider.ID, 1) {
+				t.Fatal("setup: slot not acquired")
+			}
+		}
+		t.Cleanup(func() {
+			for _, c := range cands {
+				h.inflight.release(c.provider.ID, true, 0, 0)
+			}
+		})
+		var tried []int
+		fn := func(_ http.ResponseWriter, _ *http.Request, st *requestState, c modelCandidate, attempt, _ int) candidateOutcome {
+			if !h.inflight.canAdmit(c.provider.ID, 1) {
+				return outcomeBusy
+			}
+			tried = append(tried, attempt)
+			if !st.serverErrorRetried {
+				// What deferServerErrorRetry does on the real path.
+				st.serverErrorRetried = true
+				return outcomeRetryServerError
+			}
+			return outcomeServed
+		}
+		go func() {
+			time.Sleep(30 * time.Millisecond)
+			h.inflight.release(cands[1].provider.ID, true, 0, 0)
+		}()
+		h.runFailoverLoop(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody), st, cands, fn)
+		// The freed slot ran as attempt 2 (past the two-entry list) and its
+		// retry as attempt 3.
+		if len(tried) != 2 || tried[0] != 2 || tried[1] != 3 {
+			t.Errorf("attempts on the freed slot = %v, want [2 3]: the 5xx and its retry", tried)
+		}
+	})
+
 	// holdAll takes both providers' only slots and returns them at cleanup.
 	holdAll := func(t *testing.T) {
 		t.Helper()
