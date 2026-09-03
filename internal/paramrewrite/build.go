@@ -38,6 +38,7 @@ func ProviderSupportsStreamOptions(providerType string) bool {
 //  5. Universal param stripping (ProviderUnsupportedParams)
 //  6. Learned param stripping (deprecationCache)
 //  7. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
+//     and the json_schema fallback for a provider that only serves JSON mode
 //  8. Message sanitization (drop empty tool_calls arrays)
 //
 // Injection (step 3) runs before all stripping (steps 5-7) so that a param a
@@ -107,15 +108,21 @@ func BuildUpstreamBody(
 	}
 
 	// 6. Learned param stripping
-	if cached := CachedRejectedParams(deprecationCache, cacheKey); cached != nil {
-		for param := range cached {
-			delete(raw, param)
-		}
+	cached := CachedRejectedParams(deprecationCache, cacheKey)
+	for param := range cached {
+		delete(raw, param)
 	}
 
 	// 7. Extra param stripping (e.g. newly-learned rejections from 400 auto-retry)
 	for param := range extraStrip {
 		delete(raw, param)
+	}
+
+	// 7b. Schema fallback: a provider that only serves JSON mode, by its
+	// documentation or by a 400 it has answered, gets json_schema rewritten
+	// into json_object with the schema in the prompt.
+	if jsonModeOnlyProviders[providerType] || cached[SchemaFallbackKey] || extraStrip[SchemaFallbackKey] {
+		downgradeJSONSchema(raw, resolvedModelID)
 	}
 
 	// 8. Message sanitization

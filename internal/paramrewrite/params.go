@@ -291,6 +291,13 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	if strings.Contains(msg, "chat_template_args") {
 		rejected["chat_template_args"] = true
 	}
+	// A refusal about the response format is learned as the schema fallback
+	// rather than a strip: dropping response_format would hand the caller
+	// prose where they asked for JSON, while JSON mode with the schema in the
+	// prompt still answers the request. See downgradeJSONSchema.
+	if refusesJSONSchema(msg) {
+		rejected[SchemaFallbackKey] = true
+	}
 	// Also catch any top_{single_letter} variant when quoted in any style.
 	for _, q := range paramQuoteChars {
 		if idx := strings.Index(msg, string(q)+"top_"); idx >= 0 && idx+7 <= len(msg) {
