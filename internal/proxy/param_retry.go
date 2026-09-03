@@ -288,7 +288,7 @@ func (h *Handler) issueParamRetry(
 // semantics.
 func (h *Handler) rebuildForParamRetry(st *requestState, candidate modelCandidate, providerType string, strip map[string]bool) ([]byte, error) {
 	if st.responsesAttempt {
-		cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
+		cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
 		return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
 	}
 	return paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate)), nil

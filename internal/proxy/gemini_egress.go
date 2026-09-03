@@ -109,7 +109,7 @@ func setGeminiEgressAuth(req *http.Request, providerType, apiKey string) {
 // translation returns picks the :generateContent or :streamGenerateContent
 // route.
 func (h *Handler) buildGeminiRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
-	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, learnedScopeFor(candidate))
+	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
 	body, model, stream, err := gemini.TranslateRequest(cleaned)
 	if err != nil {
 		return nil, providerType, "", err

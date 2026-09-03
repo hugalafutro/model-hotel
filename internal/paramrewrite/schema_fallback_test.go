@@ -77,7 +77,7 @@ func TestDropSchemaFallbackUnlessRequested(t *testing.T) {
 func TestBuildNativeUpstreamBody_KeepsJSONSchema(t *testing.T) {
 	var dep, ren sync.Map
 	MergeLearnedParamCache(&dep, LearnedCacheKey("p", "m"), map[string]bool{SchemaFallbackKey: true})
-	raw := decodeJSONBody(t, BuildNativeUpstreamBody(schemaRequest(""), "deepseek", "m", "m", &dep, &ren, "p"))
+	raw := decodeJSONBody(t, BuildNativeUpstreamBody(schemaRequest(""), "deepseek", "m", "m", &dep, &ren, map[string]bool{SchemaFallbackKey: true}, "p"))
 	if raw["response_format"].(map[string]any)["type"] != "json_schema" || len(raw["messages"].([]any)) != 1 {
 		t.Errorf("native body = %v, want json_schema kept and no instruction", raw)
 	}
@@ -108,6 +108,25 @@ func TestBuildUpstreamBody_SchemaInstructionShapes(t *testing.T) {
 	text, _ := content[1].(map[string]any)["text"].(string)
 	if !strings.HasPrefix(text, "Respond with a single JSON object") || strings.Contains(text, "JSON Schema") {
 		t.Errorf("instruction part = %q, want the plain JSON-mode instruction with no schema", text)
+	}
+	// A leading developer turn, or a system turn with content of no usable
+	// shape, takes the instruction rather than gaining a second system turn.
+	for _, lead := range []string{`{"role":"developer","content":"Be terse."}`, `{"role":"system","content":null}`} {
+		body := []byte(`{"model":"m","messages":[` + lead + `,{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"schema":{"type":"object"}}}}`)
+		raw := decodeJSONBody(t, BuildUpstreamBody(body, "deepseek", "m", "m", false, &dep, &ren, nil, "p"))
+		msgs := raw["messages"].([]any)
+		text, _ := msgs[0].(map[string]any)["content"].(string)
+		if len(msgs) != 2 || !strings.Contains(text, "JSON Schema") {
+			t.Errorf("%s: messages = %v, want the instruction on the leading turn", lead, msgs)
+		}
+	}
+	// A schema past the prompt bound is left out; the model still gets JSON mode.
+	big := `{"type":"object","properties":{"x":{"type":"string","description":"` + strings.Repeat("a", schemaPromptMax) + `"}}}`
+	body := []byte(`{"model":"m","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"schema":` + big + `}}}`)
+	raw = decodeJSONBody(t, BuildUpstreamBody(body, "deepseek", "m", "m", false, &dep, &ren, nil, "p"))
+	text, _ = raw["messages"].([]any)[0].(map[string]any)["content"].(string)
+	if strings.Contains(text, "JSON Schema") || raw["response_format"].(map[string]any)["type"] != "json_object" {
+		t.Error("an oversized schema must be left out of the prompt, JSON mode kept")
 	}
 }
 

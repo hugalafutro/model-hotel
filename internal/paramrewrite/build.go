@@ -64,12 +64,12 @@ func BuildUpstreamBody(
 	return buildUpstreamBody(proxyReqBody, providerType, resolvedModelID, requestModel, isStreaming, deprecationCache, renameCache, extraStrip, learnScope, true)
 }
 
-// BuildNativeUpstreamBody is BuildUpstreamBody for a body that a native
-// translator (Messages, generateContent) rewrites next. Those translators
+// BuildNativeUpstreamBody is BuildUpstreamBody for a body that a translator
+// (Messages, generateContent, Responses) rewrites next. Those translators
 // carry or drop response_format themselves, so the schema fallback is left
 // out: a key learned from a chat-completions 400 on the same model (a
-// provider routed per request, by the content it is sent) must not take a
-// schema away from a route that enforces it natively.
+// provider routed per request by its content, or the Responses reroute) must
+// not take a schema away from a route that enforces it natively.
 func BuildNativeUpstreamBody(
 	proxyReqBody []byte,
 	providerType string,
@@ -77,9 +77,10 @@ func BuildNativeUpstreamBody(
 	requestModel string,
 	deprecationCache *sync.Map,
 	renameCache *sync.Map,
+	extraStrip map[string]bool,
 	learnScope string,
 ) []byte {
-	return buildUpstreamBody(proxyReqBody, providerType, resolvedModelID, requestModel, false, deprecationCache, renameCache, nil, learnScope, false)
+	return buildUpstreamBody(proxyReqBody, providerType, resolvedModelID, requestModel, false, deprecationCache, renameCache, extraStrip, learnScope, false)
 }
 
 // HasLearnedRewrites reports whether a 400 has taught anything for this

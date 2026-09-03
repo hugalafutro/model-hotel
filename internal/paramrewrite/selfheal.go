@@ -56,7 +56,7 @@ func SelfHealChatCompletion(
 	errBody, _ := io.ReadAll(resp.Body)
 	_ = resp.Body.Close()
 
-	rejected := ParseProviderParamError(errBody)
+	rejected := DropSchemaFallbackUnlessRequested(ParseProviderParamError(errBody), baseBody)
 	renames := ParseProviderParamRename(errBody)
 	if rejected == nil && renames == nil {
 		// Not a param error we know how to heal — hand back the original 400

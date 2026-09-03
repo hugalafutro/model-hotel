@@ -94,44 +94,54 @@ func DropSchemaFallbackUnlessRequested(rejected map[string]bool, requestBody []b
 	return rejected
 }
 
+// schemaPromptMax bounds the schema text folded into the prompt. Past it the
+// plain JSON-mode instruction goes alone: the schema is billed as input on
+// every request, and one large enough to crowd the context would turn a 400
+// this heals into a context-length 400 nothing heals.
+const schemaPromptMax = 8 << 10
+
 // downgradeJSONSchema rewrites a response_format of type json_schema into JSON
 // mode with the schema folded into the prompt, the shape a JSON-mode-only
 // provider can serve: the model is told to answer with one JSON object
 // conforming to the schema, which every such provider requires the prompt to
-// ask for in some form anyway. The instruction joins a leading system message
-// (appended to string content, added as a text part to content parts), since
-// a second system turn is not accepted everywhere, and is prepended as one
-// when there is none. A json_schema with no schema object gets the plain
-// JSON-mode instruction. The provider does not validate the output against
-// the schema, so the caller's strict flag is a request the answer may not
-// honour; it is logged at debug, not signalled, since the response shape has
-// no field for it.
+// ask for in some form anyway. The instruction joins a leading system or
+// developer turn (appended to string content, a text part on content parts,
+// the content itself when it is neither), since a second system turn is not
+// accepted everywhere, and is prepended as a system turn when there is none.
+// A json_schema with no schema object, or one past schemaPromptMax, gets the
+// plain JSON-mode instruction. The provider does not validate the output
+// against the schema, so the caller's strict flag is a request the answer may
+// not honour; the debug line carries it, since the response shape has no
+// field for it.
 func downgradeJSONSchema(raw map[string]any, modelID string) {
 	rf, ok := raw["response_format"].(map[string]any)
 	if !ok || rf["type"] != "json_schema" {
 		return
 	}
 	instruction := "Respond with a single JSON object and nothing else."
+	var strict any
 	if wrapped, ok := rf["json_schema"].(map[string]any); ok {
+		strict = wrapped["strict"]
 		if schema, ok := wrapped["schema"].(map[string]any); ok {
-			if schemaJSON, err := json.Marshal(schema); err == nil {
+			if schemaJSON, err := json.Marshal(schema); err == nil && len(schemaJSON) <= schemaPromptMax {
 				instruction += " It must conform to this JSON Schema:\n" + string(schemaJSON)
 			}
 		}
 	}
 	raw["response_format"] = map[string]any{"type": "json_object"}
-	debuglog.Debug("paramrewrite: json_schema rewritten to JSON mode with the schema in the prompt", "model", modelID)
+	debuglog.Debug("paramrewrite: json_schema rewritten to JSON mode with the schema in the prompt", "model", modelID, "strict", strict)
 	messages, _ := raw["messages"].([]any)
 	if len(messages) > 0 {
-		if first, ok := messages[0].(map[string]any); ok && first["role"] == "system" {
+		if first, ok := messages[0].(map[string]any); ok && (first["role"] == "system" || first["role"] == "developer") {
 			switch content := first["content"].(type) {
 			case string:
 				first["content"] = content + "\n\n" + instruction
-				return
 			case []any:
 				first["content"] = append(content, map[string]any{"type": "text", "text": instruction})
-				return
+			default:
+				first["content"] = instruction
 			}
+			return
 		}
 	}
 	raw["messages"] = append([]any{map[string]any{"role": "system", "content": instruction}}, messages...)
