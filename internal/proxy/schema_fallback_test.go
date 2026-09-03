@@ -3,6 +3,7 @@ package proxy
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -58,8 +59,20 @@ func TestChatCompletions_JSONSchemaRefusalFallsBackToJSONMode(t *testing.T) {
 			return
 		}
 		msgs, _ := body["messages"].([]any)
+		if len(msgs) == 0 {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"message": "no messages"}})
+			return
+		}
 		if first, ok := msgs[0].(map[string]any); ok {
 			lastSystem.Store(first)
+		}
+		if !strings.Contains(strings.ToLower(fmt.Sprint(msgs)), "json") {
+			w.WriteHeader(http.StatusBadRequest)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{
+				"message": "Prompt must contain the word 'json' in some form to use 'response_format' of type 'json_object'.",
+			}})
+			return
 		}
 		w.WriteHeader(http.StatusOK)
 		_ = json.NewEncoder(w).Encode(map[string]any{
@@ -87,7 +100,7 @@ func TestChatCompletions_JSONSchemaRefusalFallsBackToJSONMode(t *testing.T) {
 
 	body := `{"model":"` + providerName + `/schema-model","messages":[{"role":"user","content":"Facts about Tokyo."}],"stream":false,` +
 		`"response_format":{"type":"json_schema","json_schema":{"name":"city","strict":true,"schema":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}}`
-	send := func() *httptest.ResponseRecorder {
+	send := func(body string) *httptest.ResponseRecorder {
 		req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
 		ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
 		ctx = context.WithValue(ctx, virtualKeyIDKey, virtualKey.ID.String())
@@ -97,7 +110,7 @@ func TestChatCompletions_JSONSchemaRefusalFallsBackToJSONMode(t *testing.T) {
 		return w
 	}
 
-	if w := send(); w.Code != http.StatusOK {
+	if w := send(body); w.Code != http.StatusOK {
 		t.Fatalf("first request: %d %s, want 200 after the JSON-mode retry", w.Code, w.Body.String())
 	}
 	if calls.Load() != 2 || schemaRefusals.Load() != 1 {
@@ -109,10 +122,20 @@ func TestChatCompletions_JSONSchemaRefusalFallsBackToJSONMode(t *testing.T) {
 		t.Errorf("retry's leading message = %v, want a system turn carrying the schema", first)
 	}
 
-	if w := send(); w.Code != http.StatusOK {
+	if w := send(body); w.Code != http.StatusOK {
 		t.Fatalf("second request: %d %s, want 200", w.Code, w.Body.String())
 	}
 	if calls.Load() != 3 || schemaRefusals.Load() != 1 {
 		t.Errorf("calls = %d refusals = %d, want the learned fallback to skip the 400", calls.Load(), schemaRefusals.Load())
+	}
+
+	// A JSON-mode request refused for its prompt is the caller's 400: the
+	// fallback has nothing to rewrite, so no retry is spent on it.
+	plain := `{"model":"` + providerName + `/schema-model","messages":[{"role":"user","content":"Facts about Tokyo."}],"stream":false,"response_format":{"type":"json_object"}}`
+	if w := send(plain); w.Code != http.StatusBadRequest {
+		t.Fatalf("json_object refusal: %d %s, want the provider's 400", w.Code, w.Body.String())
+	}
+	if calls.Load() != 4 {
+		t.Errorf("calls = %d, want no retry for a refusal the fallback cannot fix", calls.Load())
 	}
 }

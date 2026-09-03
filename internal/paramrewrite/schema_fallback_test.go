@@ -36,8 +36,57 @@ func TestParseProviderParamError_SchemaRefusalLearnsTheFallback(t *testing.T) {
 	if rejected["response_format"] {
 		t.Error("response_format itself must not be stripped")
 	}
-	if ParseProviderParamError([]byte(`{"error":{"message":"Unsupported parameter: 'temperature'"}}`))[SchemaFallbackKey] {
-		t.Error("a 400 about another param must not learn the fallback")
+	for _, msg := range []string{
+		"Unsupported parameter: 'temperature'",
+		"Invalid schema for response_format 'city': 'additionalProperties' is required to be supplied and to be false",
+		"Prompt must contain the word 'json' in some form to use 'response_format' of type 'json_object'.",
+	} {
+		if ParseProviderParamError([]byte(`{"error":{"message":"` + msg + `"}}`))[SchemaFallbackKey] {
+			t.Errorf("%q must not learn the fallback", msg)
+		}
+	}
+	if !ParseProviderParamError([]byte(`{"error":{"message":"'response_format' of type 'json_schema' is not supported with this model."}}`))[SchemaFallbackKey] {
+		t.Error("a shape the provider does not serve must learn the fallback")
+	}
+}
+
+// The fallback is kept only for a request that sent json_schema; a JSON-mode
+// request's 400 drops it, and the set is nil once nothing else is left.
+func TestDropSchemaFallbackUnlessRequested(t *testing.T) {
+	plain := []byte(`{"messages":[],"response_format":{"type":"json_object"}}`)
+	if got := DropSchemaFallbackUnlessRequested(map[string]bool{SchemaFallbackKey: true}, plain); got != nil {
+		t.Errorf("json_object request: got %v, want nil", got)
+	}
+	got := DropSchemaFallbackUnlessRequested(map[string]bool{SchemaFallbackKey: true, "top_p": true}, plain)
+	if got[SchemaFallbackKey] || !got["top_p"] {
+		t.Errorf("json_object request with another param: got %v, want top_p alone", got)
+	}
+	if got := DropSchemaFallbackUnlessRequested(map[string]bool{SchemaFallbackKey: true}, schemaRequest("")); !got[SchemaFallbackKey] {
+		t.Error("a json_schema request keeps the fallback")
+	}
+	if DropSchemaFallbackUnlessRequested(nil, plain) != nil {
+		t.Error("nil stays nil")
+	}
+}
+
+// A leading system message made of content parts takes the instruction as a
+// text part; a json_schema with no schema object gets the plain JSON-mode
+// instruction.
+func TestBuildUpstreamBody_SchemaInstructionShapes(t *testing.T) {
+	var dep, ren sync.Map
+	parts := []byte(`{"model":"m","messages":[{"role":"system","content":[{"type":"text","text":"Be terse."}]},{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"name":"city"}}}`)
+	raw := decodeJSONBody(t, BuildUpstreamBody(parts, "deepseek", "m", "m", false, &dep, &ren, nil, "p"))
+	msgs := raw["messages"].([]any)
+	if len(msgs) != 2 {
+		t.Fatalf("messages = %d, want no extra turn", len(msgs))
+	}
+	content := msgs[0].(map[string]any)["content"].([]any)
+	if len(content) != 2 {
+		t.Fatalf("system parts = %d, want the instruction appended as a part", len(content))
+	}
+	text, _ := content[1].(map[string]any)["text"].(string)
+	if !strings.HasPrefix(text, "Respond with a single JSON object") || strings.Contains(text, "JSON Schema") {
+		t.Errorf("instruction part = %q, want the plain JSON-mode instruction with no schema", text)
 	}
 }
 

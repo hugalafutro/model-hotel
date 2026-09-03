@@ -8,7 +8,6 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -164,14 +163,14 @@ func (h *Handler) learnAndRebuildMessages400(st *requestState, candidate modelCa
 	if providerType != "anthropic-messages" {
 		return nil, "", false, false
 	}
-	rejected := paramrewrite.ParseProviderParamError(body)
+	rejected := learnableRejections(st, body)
 	if len(rejected) == 0 {
 		return nil, "", false, false
 	}
 	// The names shared by the two dialects are the ones the translator forwards
 	// unchanged (temperature, top_p, top_k), so a name learned here means the
 	// same thing it would on the compat path.
-	h.learnRejectedParams(candidate, body)
+	h.learnRejectedParams(st, candidate, body)
 	rebuilt, model, stream, err := h.anthropicEgressBody(st, candidate, providerType, h.thinkingDialectFor(candidate))
 	if err != nil {
 		debuglog.Warn("proxy: anthropic messages retry could not rebuild without rejected params", "provider", candidate.provider.Name, "model", candidate.model.ModelID, "error", err)

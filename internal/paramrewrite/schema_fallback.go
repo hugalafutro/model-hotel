@@ -23,62 +23,110 @@ var jsonModeOnlyProviders = map[string]bool{
 	"deepseek": true,
 }
 
-// schemaRefusalNames are the tokens a 400 refusing the json_schema shape names.
-// A message about response_format that is not about the schema (DeepSeek's
-// "Prompt must contain the word 'json'" for JSON mode) teaches the same key,
-// which is harmless: the rewrite only touches a request that carries
-// json_schema, and that request was already rejected.
-var schemaRefusalNames = []string{"response_format", "json_schema"}
+// schemaRefusalNames are the tokens a 400 about the response format names,
+// and schemaRefusalPhrases the words that make it a refusal of the shape
+// rather than of this request's schema: OpenAI's "Invalid schema for
+// response_format 'x': 'additionalProperties' is required" is a complaint
+// about one caller's schema, and learning the fallback from it would strip
+// every later caller on that model of the schema enforcement the provider
+// has. Only a shape the provider says it does not serve is learned.
+var (
+	schemaRefusalNames   = []string{"response_format", "json_schema"}
+	schemaRefusalPhrases = []string{"unavailable", "not available", "not supported", "unsupported", "does not support", "not implemented"}
+)
 
-// refusesJSONSchema reports whether a 400 message is about the response
-// format, which for a request that sent json_schema means the provider does
-// not serve that shape.
+// refusesJSONSchema reports whether a 400 message says the provider does not
+// serve the response format shape it was sent.
 func refusesJSONSchema(msg string) bool {
+	lower := strings.ToLower(msg)
+	if strings.Contains(lower, "invalid schema") {
+		return false
+	}
+	named := false
 	for _, name := range schemaRefusalNames {
-		if strings.Contains(msg, name) {
+		if strings.Contains(lower, name) {
+			named = true
+			break
+		}
+	}
+	if !named {
+		return false
+	}
+	for _, phrase := range schemaRefusalPhrases {
+		if strings.Contains(lower, phrase) {
 			return true
 		}
 	}
 	return false
 }
 
+// RequestsJSONSchema reports whether a chat-completions body asks for
+// response_format type json_schema.
+func RequestsJSONSchema(body []byte) bool {
+	var req struct {
+		ResponseFormat struct {
+			Type string `json:"type"`
+		} `json:"response_format"`
+	}
+	return json.Unmarshal(body, &req) == nil && req.ResponseFormat.Type == "json_schema"
+}
+
+// DropSchemaFallbackUnlessRequested removes the schema fallback from a learned
+// set when the request that drew the 400 did not send json_schema: the
+// message then complained about something else in the response format (JSON
+// mode wanting the word json in the prompt), which the fallback cannot fix and
+// a retry would only repeat. The parser reads the 400 alone, so the request
+// side of the judgement lives here, at the callers that hold both.
+func DropSchemaFallbackUnlessRequested(rejected map[string]bool, requestBody []byte) map[string]bool {
+	if !rejected[SchemaFallbackKey] || RequestsJSONSchema(requestBody) {
+		return rejected
+	}
+	delete(rejected, SchemaFallbackKey)
+	if len(rejected) == 0 {
+		return nil
+	}
+	return rejected
+}
+
 // downgradeJSONSchema rewrites a response_format of type json_schema into JSON
 // mode with the schema folded into the prompt, the shape a JSON-mode-only
 // provider can serve: the model is told to answer with one JSON object
 // conforming to the schema, which every such provider requires the prompt to
-// ask for in some form anyway. The instruction joins an existing leading
-// system message (a second system turn is not accepted everywhere) and is
-// prepended as one when there is none. The provider does not validate the
-// output against the schema, so the caller's strict flag is a request the
-// answer may not honour; it is logged, not signalled, since the response
-// shape has no field for it. Reports whether the request was rewritten.
-func downgradeJSONSchema(raw map[string]any, modelID string) bool {
+// ask for in some form anyway. The instruction joins a leading system message
+// (appended to string content, added as a text part to content parts), since
+// a second system turn is not accepted everywhere, and is prepended as one
+// when there is none. A json_schema with no schema object gets the plain
+// JSON-mode instruction. The provider does not validate the output against
+// the schema, so the caller's strict flag is a request the answer may not
+// honour; it is logged at debug, not signalled, since the response shape has
+// no field for it.
+func downgradeJSONSchema(raw map[string]any, modelID string) {
 	rf, ok := raw["response_format"].(map[string]any)
 	if !ok || rf["type"] != "json_schema" {
-		return false
-	}
-	schema := rf["json_schema"]
-	if wrapped, ok := schema.(map[string]any); ok {
-		if inner, ok := wrapped["schema"]; ok {
-			schema = inner
-		}
+		return
 	}
 	instruction := "Respond with a single JSON object and nothing else."
-	if schemaJSON, err := json.Marshal(schema); err == nil && schema != nil {
-		instruction += " It must conform to this JSON Schema:\n" + string(schemaJSON)
+	if wrapped, ok := rf["json_schema"].(map[string]any); ok {
+		if schema, ok := wrapped["schema"].(map[string]any); ok {
+			if schemaJSON, err := json.Marshal(schema); err == nil {
+				instruction += " It must conform to this JSON Schema:\n" + string(schemaJSON)
+			}
+		}
 	}
 	raw["response_format"] = map[string]any{"type": "json_object"}
+	debuglog.Debug("paramrewrite: json_schema rewritten to JSON mode with the schema in the prompt", "model", modelID)
 	messages, _ := raw["messages"].([]any)
 	if len(messages) > 0 {
 		if first, ok := messages[0].(map[string]any); ok && first["role"] == "system" {
-			if content, ok := first["content"].(string); ok {
+			switch content := first["content"].(type) {
+			case string:
 				first["content"] = content + "\n\n" + instruction
-				debuglog.Debug("paramrewrite: json_schema rewritten to JSON mode with the schema in the prompt", "model", modelID)
-				return true
+				return
+			case []any:
+				first["content"] = append(content, map[string]any{"type": "text", "text": instruction})
+				return
 			}
 		}
 	}
 	raw["messages"] = append([]any{map[string]any{"role": "system", "content": instruction}}, messages...)
-	debuglog.Debug("paramrewrite: json_schema rewritten to JSON mode with the schema in the prompt", "model", modelID)
-	return true
 }

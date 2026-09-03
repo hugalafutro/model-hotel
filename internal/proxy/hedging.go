@@ -617,7 +617,7 @@ func (h *Handler) learnFromHedgedRefusal(st *requestState, candidate modelCandid
 	}
 	h.learnResponsesRequirement(st, candidate, providerType, errBody)
 	if status == http.StatusBadRequest {
-		h.learnRejectedParams(candidate, errBody)
+		h.learnRejectedParams(st, candidate, errBody)
 	}
 }
 

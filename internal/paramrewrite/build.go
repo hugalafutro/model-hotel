@@ -120,7 +120,11 @@ func BuildUpstreamBody(
 
 	// 7b. Schema fallback: a provider that only serves JSON mode, by its
 	// documentation or by a 400 it has answered, gets json_schema rewritten
-	// into json_object with the schema in the prompt.
+	// into json_object with the schema in the prompt. The native egress
+	// rebuilds (Messages, generateContent) pass through here too, and their
+	// translators carry json_schema natively; they are safe because the key
+	// is only ever learned from a chat-completions 400 and no (provider,
+	// model) pair is served by both a native route and chat-completions.
 	if jsonModeOnlyProviders[providerType] || cached[SchemaFallbackKey] || extraStrip[SchemaFallbackKey] {
 		downgradeJSONSchema(raw, resolvedModelID)
 	}
