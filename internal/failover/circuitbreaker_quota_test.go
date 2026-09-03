@@ -816,3 +816,122 @@ func TestApplyQuotaPins_CeilingCapsRunawayDeadline(t *testing.T) {
 		t.Errorf("got override %v, want capped near the settings max %v", o, ceiling)
 	}
 }
+
+// A pin inferred from a response's own claim ("no credits", no reset stated)
+// is probed once per circuit_breaker_pin_probe_interval instead of running to
+// the ceiling, because nothing measures such a window: the providers that
+// answer that way expose no quota endpoint, so no advisor reading would ever
+// release it, and a top-up would otherwise wait out a day.
+func TestQuotaPin_ResponsePinProbesEveryInterval(t *testing.T) {
+	probe := time.Hour
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, pinProbe: &probe})
+	id := uuid.New()
+	cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
+
+	retryAt, pinned, ok := cb.BlockedUntil(id, "m")
+	if !ok || !pinned {
+		t.Fatalf("BlockedUntil = ok %v pinned %v, want a pinned block", ok, pinned)
+	}
+	if wait := time.Until(retryAt); wait < 59*time.Minute || wait > 64*time.Minute {
+		t.Errorf("retry in %v, want the probe interval plus at most its jitter, not the pin ceiling", wait)
+	}
+	if !cb.IsOpen(id, "p", "m") {
+		t.Fatal("still inside the probe interval: must be open")
+	}
+
+	// The interval elapses: the circuit is owed a probe, so one request goes
+	// through; a probe that draws the same refusal re-pins for another interval.
+	cb.mu.Lock()
+	cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-probe - probe/20 - time.Second)
+	cb.mu.Unlock()
+	if cb.IsOpen(id, "p", "m") {
+		t.Fatal("interval elapsed: the circuit must let a probe through")
+	}
+	cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
+	if !cb.IsOpen(id, "p", "m") {
+		t.Fatal("a probe that drew the refusal again must re-pin")
+	}
+	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) > 64*time.Minute {
+		t.Errorf("re-pinned for %v, want another probe interval", time.Until(retryAt))
+	}
+	// Refused probes do not feed the backoff, or the interval would double on
+	// every refusal and decay into the ceiling it replaces.
+	for i := 0; i < 6; i++ {
+		cb.mu.Lock()
+		cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-2 * probe)
+		cb.mu.Unlock()
+		if cb.IsOpen(id, "p", "m") {
+			t.Fatalf("refusal %d: probe due, must be let through", i)
+		}
+		cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
+	}
+	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) > 64*time.Minute {
+		t.Errorf("after six refused probes the wait is %v; the interval must not decay into a backoff", time.Until(retryAt))
+	}
+	cb.mu.RLock()
+	failed := cb.circuits[id.String()]["m"].failedProbes
+	cb.mu.RUnlock()
+	if failed != 0 {
+		t.Errorf("failedProbes = %d after interval probes, want 0", failed)
+	}
+
+	// A probe that succeeds closes the circuit.
+	cb.mu.Lock()
+	cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-probe - probe/20 - time.Second)
+	cb.mu.Unlock()
+	if cb.IsOpen(id, "p", "m") {
+		t.Fatal("interval elapsed again: probe due")
+	}
+	cb.RecordSuccess(id, "p", "m")
+	if cb.IsOpen(id, "p", "m") {
+		t.Error("a successful probe must close the circuit")
+	}
+}
+
+// An advisor pin measured the provider's real window and is not shortened by
+// the probe interval; a zero interval restores the old behaviour for response
+// pins; and the interval never undercuts the ordinary cooldown.
+func TestQuotaPin_ProbeIntervalScope(t *testing.T) {
+	probe := time.Hour
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, pinProbe: &probe})
+	id := uuid.New()
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
+	cb.RecordExhausted(id, "p", "measured", 429, 0)
+	if retryAt, _, _ := cb.BlockedUntil(id, "measured"); time.Until(retryAt) < 5*time.Hour {
+		t.Errorf("advisor pin shortened to %v; it measured the window and must keep it", time.Until(retryAt))
+	}
+
+	off := time.Duration(0)
+	cb = NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, pinProbe: &off})
+	cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
+	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) < 23*time.Hour {
+		t.Errorf("interval off: pin ran %v, want the ceiling", time.Until(retryAt))
+	}
+
+	short := time.Second
+	cb = NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, pinProbe: &short})
+	cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
+	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) < 4*time.Minute {
+		t.Errorf("a one-second interval undercut the cooldown: %v", time.Until(retryAt))
+	}
+
+	// A backoff already above the interval is the floor too: a pin never makes
+	// the breaker more aggressive than it was without one.
+	cb = NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour, pinProbe: &probe, backoffMax: 4 * time.Hour})
+	cb.RecordFailure(id, "p", "m", UpstreamStatus(500, "boom"))
+	for i := 0; i < 8; i++ { // ordinary failed probes double the backoff past the hour
+		cb.mu.Lock()
+		cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-8 * time.Hour)
+		cb.mu.Unlock()
+		cb.IsOpen(id, "p", "m")
+		cb.RecordFailure(id, "p", "m", UpstreamStatus(500, "boom"))
+	}
+	cb.mu.Lock()
+	cb.circuits[id.String()]["m"].openedAt = time.Now().Add(-8 * time.Hour)
+	cb.mu.Unlock()
+	cb.IsOpen(id, "p", "m")
+	cb.RecordExhausted(id, "p", "m", 429, 90*24*time.Hour)
+	if retryAt, _, _ := cb.BlockedUntil(id, "m"); time.Until(retryAt) < 2*time.Hour {
+		t.Errorf("the response pin cut a backoff of hours down to %v", time.Until(retryAt))
+	}
+}
