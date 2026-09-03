@@ -1,5 +1,11 @@
 import { useTranslation } from "react-i18next";
-import { Layers, Shield } from "@/lib/icons";
+import {
+	Layers,
+	Shield,
+	ShieldAlert,
+	ShieldCheck,
+	ShieldOff,
+} from "@/lib/icons";
 import type { AttemptRecord } from "../api/types";
 import { formatMs } from "../pages/Logs/utils";
 import { DetailSectionHeader } from "./DetailSectionHeader";
@@ -23,6 +29,18 @@ const BREAKER_VERDICT_KEYS: Record<string, string> = {
 function collapseWhitespace(message: string): string {
 	return message.split(/\s+/).filter(Boolean).join(" ");
 }
+
+// Icon per breaker verdict, the shield family the Failover page draws the
+// circuit with: a charge is the alert, a credit the check, disabled the
+// struck shield, and the neutral verdicts (alive, untouched) the plain one.
+const BREAKER_VERDICT_ICONS: Record<
+	string,
+	React.ComponentType<{ size?: number; className?: string }>
+> = {
+	charge: ShieldAlert,
+	success: ShieldCheck,
+	disabled: ShieldOff,
+};
 
 // AttemptTrail renders one request log row's attempt trail: every provider the
 // request was routed to, in order, with what each one answered. errorMessage
@@ -116,16 +134,18 @@ export function AttemptTrail({
 									</span>
 								)}
 								{a.breaker && a.breaker !== "skipped" && (
-									// The shield is the circuit breaker's icon on the Failover
-									// page: it marks the verdict as the breaker's, not another
-									// word of the error kind beside it.
+									// The shield marks the verdict as the breaker's, not another
+									// word of the error kind or the timing beside it.
 									<span
 										className="inline-flex items-center gap-1 text-xs text-(--text-tertiary)"
 										title={t("components.requestLogDetail.attemptBreaker", {
 											verdict: a.breaker,
 										})}
 									>
-										<Shield size={11} aria-hidden="true" />
+										{(() => {
+											const Icon = BREAKER_VERDICT_ICONS[a.breaker] ?? Shield;
+											return <Icon size={11} aria-hidden="true" />;
+										})()}
 										{t(
 											BREAKER_VERDICT_KEYS[a.breaker] ??
 												"components.requestLogDetail.attemptBreaker",
