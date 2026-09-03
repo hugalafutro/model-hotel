@@ -988,8 +988,10 @@ func TestQuotaPin_AccountRefusalDarkensTheProvider(t *testing.T) {
 	if !cb.IsOpen(id, "p", "o1") {
 		t.Error("the provider verdict covers the half-open model too once a sibling re-pins the account")
 	}
-	if got := cb.StatusDetail()[0].PinSource; got != pinSourceAccount {
-		t.Errorf("dominant pin source = %q, want account", got)
+	for _, s := range cb.StatusDetail() {
+		if s.ProviderID == id.String() && s.PinSource != pinSourceAccount {
+			t.Errorf("dominant pin source = %q, want account", s.PinSource)
+		}
 	}
 	// The first probe reports success; the sibling's pin stands until its own
 	// interval, then its probe closes it and the provider is open again.
