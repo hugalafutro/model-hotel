@@ -163,11 +163,17 @@ func buildUpstreamBody(
 
 	// 7b. Schema fallback: a provider that only serves JSON mode, by its
 	// documentation or by a 400 it has answered, gets json_schema rewritten
-	// into json_object with the schema in the prompt. Chat-completions bodies
-	// only; a native rebuild comes through BuildNativeUpstreamBody with the
-	// fallback off.
-	if schemaFallback && (jsonModeOnlyProviders[providerType] || cached[SchemaFallbackKey] || extraStrip[SchemaFallbackKey]) {
-		downgradeJSONSchema(raw, resolvedModelID)
+	// into json_object with the schema in the prompt; a model that ignores
+	// json_schema wherever it is hosted keeps it and gets the schema in the
+	// prompt as well. Chat-completions bodies only; a native rebuild comes
+	// through BuildNativeUpstreamBody with the fallback off.
+	if schemaFallback {
+		switch {
+		case jsonModeOnlyProviders[providerType] || cached[SchemaFallbackKey] || extraStrip[SchemaFallbackKey]:
+			foldJSONSchema(raw, resolvedModelID, false)
+		case schemaIgnoredByModel(resolvedModelID):
+			foldJSONSchema(raw, resolvedModelID, true)
+		}
 	}
 
 	// 8. Message sanitization

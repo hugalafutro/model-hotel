@@ -18,9 +18,23 @@ const SchemaFallbackKey = "response_format.json_schema"
 // json_schema request is rewritten before the first attempt rather than after
 // a 400 per model per restart. DeepSeek answers json_schema with
 // "This response_format type is unavailable now" on every current model and
-// its JSON Output guide lists json_object alone.
+// its JSON Output guide lists json_object alone; Z.AI's structured output
+// guide documents json_object alone, and its models answer json_schema with
+// a fenced block of their own shape.
 var jsonModeOnlyProviders = map[string]bool{
-	"deepseek": true,
+	"deepseek":   true,
+	"zai-coding": true,
+}
+
+// schemaIgnoredByModel reports a model family that takes response_format
+// json_schema without error and answers in a shape of its own, wherever it
+// is hosted: GLM does so on Z.AI, Ollama Cloud and OpenCode Go alike, with
+// the JSON fenced as markdown. For such a model the schema is folded into
+// the prompt while json_schema stays on the request, so a host that does
+// enforce it still can, and one that does not gets the shape from the
+// prompt; observed to answer bare, schema-shaped JSON on all three.
+func schemaIgnoredByModel(modelID string) bool {
+	return strings.Contains(strings.ToLower(modelID), "glm")
 }
 
 // schemaRefusalNames are the tokens a 400 about the response format names,
@@ -100,21 +114,22 @@ func DropSchemaFallbackUnlessRequested(rejected map[string]bool, requestBody []b
 // this heals into a context-length 400 nothing heals.
 const schemaPromptMax = 8 << 10
 
-// downgradeJSONSchema rewrites a response_format of type json_schema into JSON
-// mode with the schema folded into the prompt, the shape a JSON-mode-only
-// provider can serve: the model is told to answer with one JSON object
-// conforming to the schema, which every such provider requires the prompt to
-// ask for in some form anyway. The instruction joins a leading system or
+// foldJSONSchema folds a response_format of type json_schema into the prompt:
+// the model is told to answer with one JSON object conforming to the schema,
+// which every JSON-mode provider requires the prompt to ask for in some form
+// anyway. With keepSchema the request keeps json_schema for a host that
+// enforces it; without, it becomes JSON mode (json_object), the shape a
+// JSON-mode-only provider can serve. The instruction joins a leading system or
 // developer turn (appended to string content, a text part on content parts,
 // the content itself when there is none), since a second system turn is not
 // accepted everywhere, and is prepended as a system turn when there is no
 // such turn or its content has a shape the join cannot keep.
 // A json_schema with no schema object, or one past schemaPromptMax, gets the
-// plain JSON-mode instruction. The provider does not validate the output
-// against the schema, so the caller's strict flag is a request the answer may
-// not honour; the debug line carries it, since the response shape has no
-// field for it.
-func downgradeJSONSchema(raw map[string]any, modelID string) {
+// plain JSON-mode instruction. A JSON-mode provider does not validate the
+// output against the schema, so the caller's strict flag is a request the
+// answer may not honour; the debug line carries it, since the response shape
+// has no field for it.
+func foldJSONSchema(raw map[string]any, modelID string, keepSchema bool) {
 	rf, ok := raw["response_format"].(map[string]any)
 	if !ok || rf["type"] != "json_schema" {
 		return
@@ -129,8 +144,10 @@ func downgradeJSONSchema(raw map[string]any, modelID string) {
 			}
 		}
 	}
-	raw["response_format"] = map[string]any{"type": "json_object"}
-	debuglog.Debug("paramrewrite: json_schema rewritten to JSON mode with the schema in the prompt", "model", modelID, "strict", strict)
+	if !keepSchema {
+		raw["response_format"] = map[string]any{"type": "json_object"}
+	}
+	debuglog.Debug("paramrewrite: json_schema folded into the prompt", "model", modelID, "strict", strict, "json_schema_kept", keepSchema)
 	messages, _ := raw["messages"].([]any)
 	if len(messages) > 0 {
 		if first, ok := messages[0].(map[string]any); ok && (first["role"] == "system" || first["role"] == "developer") {

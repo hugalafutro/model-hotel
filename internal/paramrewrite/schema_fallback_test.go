@@ -90,6 +90,31 @@ func TestBuildNativeUpstreamBody_KeepsJSONSchema(t *testing.T) {
 	}
 }
 
+// A model that ignores json_schema keeps it on the request and gets the schema
+// in the prompt too, on any provider type; Z.AI's coding type is JSON-mode
+// only by its docs and downgrades like DeepSeek.
+func TestBuildUpstreamBody_SchemaIgnoringModelKeepsSchemaAndFolds(t *testing.T) {
+	var dep, ren sync.Map
+	body := []byte(`{"model":"glm-5.3-flash","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"name":"city","schema":{"type":"object","required":["city"]}}}}`)
+	raw := decodeJSONBody(t, BuildUpstreamBody(body, "ollama-cloud", "glm-5.3-flash", "glm-5.3-flash", false, &dep, &ren, nil, "p"))
+	if raw["response_format"].(map[string]any)["type"] != "json_schema" {
+		t.Error("json_schema must stay on the request for a host that may enforce it")
+	}
+	msgs := raw["messages"].([]any)
+	if text, _ := msgs[0].(map[string]any)["content"].(string); len(msgs) != 2 || !strings.Contains(text, `"required":["city"]`) {
+		t.Errorf("messages = %v, want the schema folded into a leading system turn", msgs)
+	}
+	raw = decodeJSONBody(t, BuildUpstreamBody(body, "zai-coding", "glm-5.3-flash", "glm-5.3-flash", false, &dep, &ren, nil, "p"))
+	if raw["response_format"].(map[string]any)["type"] != "json_object" || len(raw["messages"].([]any)) != 2 {
+		t.Error("a JSON-mode-only type downgrades and folds")
+	}
+	other := []byte(`{"model":"llama3","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"name":"city","schema":{"type":"object"}}}}`)
+	raw = decodeJSONBody(t, BuildUpstreamBody(other, "ollama-cloud", "llama3", "llama3", false, &dep, &ren, nil, "p"))
+	if len(raw["messages"].([]any)) != 1 {
+		t.Error("a model outside the rule is left alone")
+	}
+}
+
 // A leading system message made of content parts takes the instruction as a
 // text part; a json_schema with no schema object gets the plain JSON-mode
 // instruction.
