@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "Epäonnistui: {{message}}",
 			"usageExamples": "Käyttöesimerkkejä",
 			"rateLimitTpmLabel": "Nopeusrajoitus TPM (tokenia/min)"
-		}
+		},
+		"filterPlaceholder": "Suodata avaimia…",
+		"noMatch": "Yksikään virtuaalinen avain ei vastaa suodatinta."
 	},
 	"logs": {
 		"title": {

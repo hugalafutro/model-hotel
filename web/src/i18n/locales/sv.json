@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "Misslyckades: {{message}}",
 			"usageExamples": "Användningsexempel",
 			"rateLimitTpmLabel": "Rate Limit TPM (tokens/min)"
-		}
+		},
+		"filterPlaceholder": "Filtrera nycklar…",
+		"noMatch": "Inga virtuella nycklar matchar filtret."
 	},
 	"logs": {
 		"title": {

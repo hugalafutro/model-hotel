@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "Misluk: {{message}}",
 			"usageExamples": "Gebruiksvoorbeelde",
 			"rateLimitTpmLabel": "Koersbeperking TPM (tokens/min)"
-		}
+		},
+		"filterPlaceholder": "Filter sleutels…",
+		"noMatch": "Geen virtuele sleutels pas by die filter nie."
 	},
 	"logs": {
 		"title": {

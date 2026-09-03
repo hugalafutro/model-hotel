@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "실패: {{message}}",
 			"usageExamples": "사용 예시",
 			"rateLimitTpmLabel": "요청 제한 TPM (토큰/분)"
-		}
+		},
+		"filterPlaceholder": "키 필터…",
+		"noMatch": "필터와 일치하는 가상 키가 없습니다."
 	},
 	"logs": {
 		"title": {

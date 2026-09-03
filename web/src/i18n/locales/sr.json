@@ -1322,7 +1322,9 @@
 			"keyUpdateFailed": "Неуспело: {{message}}",
 			"usageExamples": "Примери употребе",
 			"rateLimitTpmLabel": "Ограничење брзине TPM (токени/мин)"
-		}
+		},
+		"filterPlaceholder": "Филтрирај кључеве…",
+		"noMatch": "Ниједан виртуелни кључ не одговара филтеру."
 	},
 	"logs": {
 		"title": {

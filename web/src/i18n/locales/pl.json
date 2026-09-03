@@ -1365,7 +1365,9 @@
 			"keyUpdateFailed": "Niepowodzenie: {{message}}",
 			"usageExamples": "Przykłady użycia",
 			"rateLimitTpmLabel": "Limit szybkości TPM (tokeny/min)"
-		}
+		},
+		"filterPlaceholder": "Filtruj klucze…",
+		"noMatch": "Żaden klucz wirtualny nie pasuje do filtra."
 	},
 	"logs": {
 		"title": {

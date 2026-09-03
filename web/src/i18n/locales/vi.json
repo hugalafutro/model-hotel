@@ -1279,7 +1279,9 @@
 			"keyUpdateFailed": "Không thành công: {{message}}",
 			"usageExamples": "Ví dụ sử dụng",
 			"rateLimitTpmLabel": "Giới hạn tốc độ TPM (token/phút)"
-		}
+		},
+		"filterPlaceholder": "Lọc khóa…",
+		"noMatch": "Không có khóa ảo nào khớp với bộ lọc."
 	},
 	"logs": {
 		"title": {

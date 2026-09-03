@@ -1365,7 +1365,9 @@
 			"keyUpdateFailed": "Ошибка: {{message}}",
 			"usageExamples": "Примеры использования",
 			"rateLimitTpmLabel": "Ограничение скорости TPM (токены/мин)"
-		}
+		},
+		"filterPlaceholder": "Фильтр ключей…",
+		"noMatch": "Ни один виртуальный ключ не соответствует фильтру."
 	},
 	"logs": {
 		"title": {

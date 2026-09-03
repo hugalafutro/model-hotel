@@ -1365,7 +1365,9 @@
 			"keyUpdateFailed": "Selhalo: {{message}}",
 			"usageExamples": "Příklady použití",
 			"rateLimitTpmLabel": "Limit rychlosti TPM (tokeny/min)"
-		}
+		},
+		"filterPlaceholder": "Filtrovat klíče…",
+		"noMatch": "Filtru neodpovídají žádné virtuální klíče."
 	},
 	"logs": {
 		"title": {

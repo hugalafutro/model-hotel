@@ -1322,7 +1322,9 @@
 			"keyUpdateFailed": "Échec: {{message}}",
 			"usageExamples": "Exemples d'utilisation",
 			"rateLimitTpmLabel": "Limite de débit TPM (jetons/min)"
-		}
+		},
+		"filterPlaceholder": "Filtrer les clés…",
+		"noMatch": "Aucune clé virtuelle ne correspond au filtre."
 	},
 	"logs": {
 		"title": {
