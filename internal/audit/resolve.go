@@ -31,15 +31,48 @@ var entityKinds = map[string]entityKind{
 	"users":           {"users", "username"},
 }
 
-// entityKindOf returns the route segment following /api/, or "" when the
-// route pattern is not under /api.
+// paramKinds maps a spelled-out URL parameter to the family it names, for
+// routes that act on a provider from outside its own family: a circuit-breaker
+// reset, a discovery verdict.
+var paramKinds = map[string]string{"provider_id": "providers"}
+
+// entityKindOf returns the family whose id the route's entity is, or "" when
+// the route pattern is not under /api. It follows the rule the middleware
+// uses to pick the entity: a plain {id} first, otherwise the last spelled-out
+// parameter. A spelled-out parameter paramKinds knows names its family; any
+// other falls back to the route's first segment, which is right for a
+// same-family route and at worst resolves nothing.
 func entityKindOf(route string) string {
 	rest, ok := strings.CutPrefix(route, "/api/")
 	if !ok {
 		return ""
 	}
 	seg, _, _ := strings.Cut(rest, "/")
+	if strings.Contains(rest, "{id}") {
+		return seg
+	}
+	if name := lastSpelledParam(rest); name != "" {
+		if kind, ok := paramKinds[name]; ok {
+			return kind
+		}
+	}
 	return seg
+}
+
+// lastSpelledParam returns the name of the last {..._id} or {..._uuid}
+// parameter in a route pattern, the one the middleware records, or "".
+func lastSpelledParam(rest string) string {
+	segs := strings.Split(rest, "/")
+	for i := len(segs) - 1; i >= 0; i-- {
+		name, ok := strings.CutPrefix(segs[i], "{")
+		if !ok {
+			continue
+		}
+		if name, ok = strings.CutSuffix(name, "}"); ok && (strings.HasSuffix(name, "_id") || strings.HasSuffix(name, "_uuid")) {
+			return name
+		}
+	}
+	return ""
 }
 
 // ResolveEntityNames fills EntityName on entries whose entity still exists,

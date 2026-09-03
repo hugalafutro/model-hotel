@@ -460,12 +460,12 @@ func TestReadOnlyGuard(t *testing.T) {
 	// this wrong, so it is asserted explicitly.
 	called = false
 	rec := httptest.NewRecorder()
-	guard.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/discovery/dismiss", http.NoBody))
+	guard.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/api/discovery/p1/dismiss", http.NoBody))
 	if called {
-		t.Error("POST /api/discovery/dismiss: next handler must not be called in read-only mode")
+		t.Error("POST /api/discovery/p1/dismiss: next handler must not be called in read-only mode")
 	}
 	if rec.Code != http.StatusForbidden {
-		t.Errorf("read-only POST /api/discovery/dismiss = %d, want 403", rec.Code)
+		t.Errorf("read-only POST /api/discovery/p1/dismiss = %d, want 403", rec.Code)
 	}
 }
 
@@ -474,7 +474,7 @@ func TestIsReadOnlyExemptPost(t *testing.T) {
 		"/api/discovery/changes/ack":  true,
 		"/discovery/changes/ack":      true,
 		"/api/auth/webauthn/logout":   true,
-		"/api/discovery/dismiss":      false,
+		"/api/discovery/p1/dismiss":   false,
 		"/api/providers":              false,
 		"/api/discovery/changes/acks": false,
 	}

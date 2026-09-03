@@ -190,7 +190,7 @@ func (h *ConfigSyncHandler) applyDisabledModels(ctx context.Context, refs []Expo
 // reset with the pin because a pin held past the disable threshold leaves a mature
 // streak behind, and clearing the stamp alone would disable the model on its very
 // next scan instead of giving it the same grace an unpinned model gets (the same
-// rule POST /discovery/unpin follows).
+// rule POST /discovery/{provider_id}/unpin follows).
 //
 // Both directions re-zero missing_scans on every import, which is why a member's
 // own discrepancy modal rarely lists its pinned rows: listClaimRows reports a pin

@@ -416,7 +416,7 @@ describe("Layout", () => {
 						}),
 					);
 				}),
-				http.post("/api/discovery/dismiss", async ({ request }) => {
+				http.post("/api/discovery/:providerId/dismiss", async ({ request }) => {
 					const body = (await request.json()) as { model_ids: string[] };
 					bodies.push(body);
 					for (const m of body.model_ids) dismissed.add(m);
@@ -481,16 +481,16 @@ describe("Layout", () => {
 						}),
 					);
 				}),
-				http.post("/api/discovery/unpin", async ({ request }) => {
-					const body = (await request.json()) as {
-						provider_id: string;
-						model_ids: string[];
-					};
-					bodies.push(body);
-					for (const m of body.model_ids) unpinned.add(m);
-					// No `updated` key: the endpoint names the rows it cleared.
-					return HttpResponse.json({ unpinned: body.model_ids });
-				}),
+				http.post(
+					"/api/discovery/:providerId/unpin",
+					async ({ request, params }) => {
+						const body = (await request.json()) as { model_ids: string[] };
+						bodies.push({ provider_id: String(params.providerId), ...body });
+						for (const m of body.model_ids) unpinned.add(m);
+						// No `updated` key: the endpoint names the rows it cleared.
+						return HttpResponse.json({ unpinned: body.model_ids });
+					},
+				),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
@@ -603,7 +603,7 @@ describe("Layout", () => {
 				http.get("/api/discovery/status", () =>
 					HttpResponse.json(cleared ? status() : pinOnlyStatus()),
 				),
-				http.post("/api/discovery/unpin", () => {
+				http.post("/api/discovery/:providerId/unpin", () => {
 					cleared = true;
 					return HttpResponse.json({ error: "boom" }, { status: 500 });
 				}),
@@ -646,7 +646,7 @@ describe("Layout", () => {
 						}),
 					),
 				),
-				http.post("/api/discovery/dismiss", async ({ request }) => {
+				http.post("/api/discovery/:providerId/dismiss", async ({ request }) => {
 					const body = (await request.json()) as { model_ids: string[] };
 					bodies.push(body);
 					return HttpResponse.json({
@@ -680,7 +680,7 @@ describe("Layout", () => {
 						}),
 					),
 				),
-				http.post("/api/discovery/dismiss", () =>
+				http.post("/api/discovery/:providerId/dismiss", () =>
 					// One of the two took, and the response names it.
 					HttpResponse.json({ dismissed: ["a"], updated: 1 }),
 				),
@@ -712,7 +712,7 @@ describe("Layout", () => {
 						}),
 					),
 				),
-				http.post("/api/discovery/dismiss", () =>
+				http.post("/api/discovery/:providerId/dismiss", () =>
 					HttpResponse.json({ error: "boom" }, { status: 500 }),
 				),
 			);
@@ -753,7 +753,7 @@ describe("Layout", () => {
 						}),
 					),
 				),
-				http.post("/api/discovery/dismiss", async ({ request }) => {
+				http.post("/api/discovery/:providerId/dismiss", async ({ request }) => {
 					const body = (await request.json()) as { model_ids: string[] };
 					if (body.model_ids.includes("b")) {
 						return HttpResponse.json({ error: "boom" }, { status: 500 });
@@ -798,7 +798,7 @@ describe("Layout", () => {
 						}),
 					),
 				),
-				http.post("/api/discovery/dismiss", () =>
+				http.post("/api/discovery/:providerId/dismiss", () =>
 					HttpResponse.json({ error: "boom" }, { status: 500 }),
 				),
 			);
@@ -852,7 +852,7 @@ describe("Layout", () => {
 					);
 				}),
 				// Two requested, one applied: membership unknown.
-				http.post("/api/discovery/dismiss", () =>
+				http.post("/api/discovery/:providerId/dismiss", () =>
 					// One of the two took, and the response names it.
 					HttpResponse.json({ dismissed: ["a"], updated: 1 }),
 				),
@@ -897,7 +897,7 @@ describe("Layout", () => {
 
 		it("dismisses every provider at once, one request per provider", async () => {
 			// The endpoint is provider-scoped, so a modal-wide dismiss is N requests.
-			const bodies: { model_ids: string[] }[] = [];
+			const bodies: { provider_id: string; model_ids: string[] }[] = [];
 			server.use(
 				http.get("/api/discovery/status", () =>
 					HttpResponse.json(
@@ -910,14 +910,17 @@ describe("Layout", () => {
 						}),
 					),
 				),
-				http.post("/api/discovery/dismiss", async ({ request }) => {
-					const body = (await request.json()) as { model_ids: string[] };
-					bodies.push(body);
-					return HttpResponse.json({
-						dismissed: body.model_ids,
-						updated: body.model_ids.length,
-					});
-				}),
+				http.post(
+					"/api/discovery/:providerId/dismiss",
+					async ({ request, params }) => {
+						const body = (await request.json()) as { model_ids: string[] };
+						bodies.push({ provider_id: String(params.providerId), ...body });
+						return HttpResponse.json({
+							dismissed: body.model_ids,
+							updated: body.model_ids.length,
+						});
+					},
+				),
 			);
 			const { user } = renderWithProviders(<Layout>{mockChildren}</Layout>);
 
@@ -930,7 +933,14 @@ describe("Layout", () => {
 			);
 
 			await waitFor(() => expect(bodies).toHaveLength(2));
-			expect(bodies.flatMap((b) => b.model_ids).sort()).toEqual(["a", "b"]);
+			// One request per provider, each carrying only that provider's models:
+			// the provider rides in the URL, so this is what the audit row names.
+			expect(
+				bodies.sort((x, y) => x.provider_id.localeCompare(y.provider_id)),
+			).toEqual([
+				{ provider_id: "p1", model_ids: ["a"] },
+				{ provider_id: "p2", model_ids: ["b"] },
+			]);
 		});
 
 		/**
@@ -961,7 +971,7 @@ describe("Layout", () => {
 						}),
 					);
 				}),
-				http.post("/api/discovery/dismiss", async ({ request }) => {
+				http.post("/api/discovery/:providerId/dismiss", async ({ request }) => {
 					const body = (await request.json()) as { model_ids: string[] };
 					for (const m of body.model_ids) dismissed.add(m);
 					return HttpResponse.json({
@@ -1072,7 +1082,7 @@ describe("Layout", () => {
 						}),
 					);
 				}),
-				http.post("/api/discovery/dismiss", () => {
+				http.post("/api/discovery/:providerId/dismiss", () => {
 					dismissed = true;
 					return HttpResponse.json({ error: "boom" }, { status: 500 });
 				}),
@@ -1210,7 +1220,7 @@ describe("Layout", () => {
 						}),
 					),
 				),
-				http.post("/api/discovery/dismiss", () =>
+				http.post("/api/discovery/:providerId/dismiss", () =>
 					HttpResponse.json({ updated: 0 }),
 				),
 			);
@@ -1269,7 +1279,7 @@ describe("Layout", () => {
 					discovered = true;
 					return HttpResponse.json({ discovered: 0, diff: {} });
 				}),
-				http.post("/api/discovery/dismiss", async ({ request }) => {
+				http.post("/api/discovery/:providerId/dismiss", async ({ request }) => {
 					const body = (await request.json()) as { model_ids: string[] };
 					for (const m of body.model_ids) dismissed.add(m);
 					return HttpResponse.json({
@@ -1322,7 +1332,7 @@ describe("Layout", () => {
 						}),
 					),
 				),
-				http.post("/api/discovery/dismiss", () =>
+				http.post("/api/discovery/:providerId/dismiss", () =>
 					HttpResponse.json({ error: "boom" }, { status: 500 }),
 				),
 			);

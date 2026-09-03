@@ -186,8 +186,8 @@ func TestDismissDiscoveryClaims_RejectsMalformedRequests(t *testing.T) {
 	providerID := seedClaimProvider(t, pool, "dismiss-malformed", true)
 	seedClaimModel(t, pool, providerID, "gone-model", false, false, 0, nil)
 
-	post := func(body string) int {
-		req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+	post := func(provider, body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/discovery/"+provider+"/dismiss", strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -195,24 +195,24 @@ func TestDismissDiscoveryClaims_RejectsMalformedRequests(t *testing.T) {
 		return rec.Code
 	}
 
-	if code := post(`{"provider_id": not json at all`); code != http.StatusBadRequest {
+	if code := post(providerID.String(), `{"model_ids": not json at all`); code != http.StatusBadRequest {
 		t.Errorf("undecodable body = %d, want 400", code)
 	}
-	if code := post(`{"provider_id":"nanogpt","model_ids":["gone-model"]}`); code != http.StatusBadRequest {
+	if code := post("nanogpt", `{"model_ids":["gone-model"]}`); code != http.StatusBadRequest {
 		t.Errorf("non-UUID provider_id = %d, want 400 (not 404: the request was never understood)", code)
 	}
 
 	// Anchor: an otherwise identical, well-formed request succeeds against the
 	// same fixture, so the 400s above are the validation firing rather than the
 	// endpoint rejecting everything.
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["gone-model"]}`, providerID)); code != http.StatusOK {
+	if code := post(providerID.String(), `{"model_ids":["gone-model"]}`); code != http.StatusOK {
 		t.Fatalf("well-formed dismiss = %d, want 200", code)
 	}
 }
 
 // TestUnpinDiscoveryClaims_RejectsMalformedRequests mirrors
 // TestDismissDiscoveryClaims_RejectsMalformedRequests for the unpin endpoint's
-// twin validation: an undecodable body and a non-UUID provider_id are both 400,
+// twin validation: an undecodable body and a non-UUID provider path are both 400,
 // and neither reaches the database, for the same 400-vs-404 reason as dismiss.
 func TestUnpinDiscoveryClaims_RejectsMalformedRequests(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
@@ -221,8 +221,8 @@ func TestUnpinDiscoveryClaims_RejectsMalformedRequests(t *testing.T) {
 	seedClaimModel(t, pool, providerID, "held-model", true, false, 1, nil)
 	pinClaimModel(t, pool, providerID, "held-model")
 
-	post := func(body string) int {
-		req := httptest.NewRequest(http.MethodPost, "/discovery/unpin", strings.NewReader(body))
+	post := func(provider, body string) int {
+		req := httptest.NewRequest(http.MethodPost, "/discovery/"+provider+"/unpin", strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -230,17 +230,17 @@ func TestUnpinDiscoveryClaims_RejectsMalformedRequests(t *testing.T) {
 		return rec.Code
 	}
 
-	if code := post(`{"provider_id": not json at all`); code != http.StatusBadRequest {
+	if code := post(providerID.String(), `{"model_ids": not json at all`); code != http.StatusBadRequest {
 		t.Errorf("undecodable body = %d, want 400", code)
 	}
-	if code := post(`{"provider_id":"nanogpt","model_ids":["held-model"]}`); code != http.StatusBadRequest {
+	if code := post("nanogpt", `{"model_ids":["held-model"]}`); code != http.StatusBadRequest {
 		t.Errorf("non-UUID provider_id = %d, want 400 (not 404: the request was never understood)", code)
 	}
 
 	// Anchor: an otherwise identical, well-formed request succeeds against the
 	// same fixture, so the 400s above are the validation firing rather than the
 	// endpoint rejecting everything.
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["held-model"]}`, providerID)); code != http.StatusOK {
+	if code := post(providerID.String(), `{"model_ids":["held-model"]}`); code != http.StatusOK {
 		t.Fatalf("well-formed unpin = %d, want 200", code)
 	}
 }
@@ -261,8 +261,8 @@ func TestDismissDiscoveryClaims_DatabaseFailureIs500(t *testing.T) {
 
 	h.dbPool = closedAPIPool(t)
 
-	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["gone-model"]}`, providerID)
-	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+	body := `{"model_ids":["gone-model"]}`
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/discovery/%s/dismiss", providerID), strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()

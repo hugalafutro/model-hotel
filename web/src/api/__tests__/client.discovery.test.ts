@@ -63,7 +63,7 @@ describe("api.discovery", () => {
 	});
 
 	describe("dismiss", () => {
-		it("posts provider_id and model_ids in the body", async () => {
+		it("posts model_ids to the provider's dismiss route", async () => {
 			// No `dismissed` flag: the endpoint only stamps. A dismissal is reversed by
 			// discovery sighting the model again, not by a second call.
 			const mockResult = { dismissed: ["model-a", "model-b"], updated: 2 };
@@ -77,16 +77,13 @@ describe("api.discovery", () => {
 			]);
 			expect(result).toEqual(mockResult);
 			expect(globalThis.fetch).toHaveBeenCalledWith(
-				"/api/discovery/dismiss",
+				"/api/discovery/prov-1/dismiss",
 				expect.objectContaining({
 					method: "POST",
 					headers: expect.objectContaining({
 						"Content-Type": "application/json",
 					}),
-					body: JSON.stringify({
-						provider_id: "prov-1",
-						model_ids: ["model-a", "model-b"],
-					}),
+					body: JSON.stringify({ model_ids: ["model-a", "model-b"] }),
 				}),
 			);
 		});

@@ -13,8 +13,19 @@ func TestEntityKindOf(t *testing.T) {
 		"/api/failover-groups/{id}": "failover-groups",
 		"/api/users/{id}/password":  "users",
 		"/api/settings":             "settings",
-		"/models/{id}":              "", // unmounted pattern is not the real route
-		"":                          "",
+		// A spelled-out parameter names its own family, so a provider acted on
+		// from another route still resolves to its name.
+		"/api/discovery/{provider_id}/dismiss":                     "providers",
+		"/api/failover-groups/circuit-breaker/{provider_id}/reset": "providers",
+		// A plain {id} wins over a spelled-out parameter beside it.
+		"/api/failover-groups/{id}/circuit-breaker/{provider_id}/reset": "failover-groups",
+		// The last spelled-out parameter is the entity, as in the middleware.
+		"/api/discovery/{model_id}/x/{provider_id}": "providers",
+		// A spelled-out parameter no family claims falls back to the route's own
+		// family, so a same-family route still resolves.
+		"/api/virtual-keys/{vk_id}/rotate": "virtual-keys",
+		"/models/{id}":                     "", // unmounted pattern is not the real route
+		"":                                 "",
 	}
 	for route, want := range cases {
 		if got := entityKindOf(route); got != want {
@@ -32,11 +43,17 @@ func TestResolveEntityNames(t *testing.T) {
 		_, _ = pool.Exec(ctx, `DELETE FROM model_failover_groups WHERE display_model = 'hotel/resolve-me'`)
 		_, _ = pool.Exec(ctx, `DELETE FROM virtual_keys WHERE name = 'resolve-vk'`)
 		_, _ = pool.Exec(ctx, `DELETE FROM models WHERE model_id IN ('bare-model', 'named-model')`)
+		_, _ = pool.Exec(ctx, `DELETE FROM providers WHERE name = 'resolve-provider'`)
 	}
 	cleanup()
 	t.Cleanup(cleanup)
 
-	var groupID, vkID, bareModelID, namedModelID string
+	var groupID, vkID, bareModelID, namedModelID, providerID string
+	if err := pool.QueryRow(ctx,
+		`INSERT INTO providers (name, base_url, encrypted_key, key_nonce, key_salt) VALUES ('resolve-provider', 'https://example.invalid', ''::bytea, ''::bytea, ''::bytea) RETURNING id::text`,
+	).Scan(&providerID); err != nil {
+		t.Fatalf("seed provider: %v", err)
+	}
 	if err := pool.QueryRow(ctx,
 		`INSERT INTO model_failover_groups (display_model) VALUES ('hotel/resolve-me') RETURNING id::text`,
 	).Scan(&groupID); err != nil {
@@ -64,6 +81,8 @@ func TestResolveEntityNames(t *testing.T) {
 		{Route: "/api/virtual-keys/{id}", EntityID: vkID},
 		{Route: "/api/models/{id}/test", EntityID: bareModelID},
 		{Route: "/api/models/{id}", EntityID: namedModelID},
+		// A provider acted on through a discovery verdict resolves by name.
+		{Route: "/api/discovery/{provider_id}/dismiss", EntityID: providerID},
 		// Deleted entity: a UUID with no row stays unresolved.
 		{Route: "/api/providers/{id}", EntityID: uuid.NewString()},
 		// Non-UUID id must not poison the batch for its family.
@@ -74,7 +93,7 @@ func TestResolveEntityNames(t *testing.T) {
 	}
 	rec.ResolveEntityNames(ctx, entries)
 
-	want := []string{"hotel/resolve-me", "resolve-vk", "bare-model", "Nice Name", "", "", "", ""}
+	want := []string{"hotel/resolve-me", "resolve-vk", "bare-model", "Nice Name", "resolve-provider", "", "", "", ""}
 	for i, w := range want {
 		if entries[i].EntityName != w {
 			t.Errorf("entries[%d] (%s) EntityName = %q, want %q", i, entries[i].Route, entries[i].EntityName, w)

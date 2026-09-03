@@ -3,10 +3,12 @@ package api
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 )
 
-// DismissDiscoveryClaimsRequest carries the models to dismiss on one provider.
+// DismissDiscoveryClaimsRequest carries the models to dismiss on the provider
+// named in the path.
 //
 // Dismiss-only, deliberately: there is no un-dismiss direction. A dismissal
 // self-heals, because models.Upsert clears discovery_dismissed_at on any
@@ -24,8 +26,7 @@ import (
 // preserve-the-dismissal rule around a stamp nothing could clear. Still no
 // endpoint needed.
 type DismissDiscoveryClaimsRequest struct {
-	ProviderID string   `json:"provider_id"`
-	ModelIDs   []string `json:"model_ids"`
+	ModelIDs []string `json:"model_ids"`
 }
 
 // DismissDiscoveryClaims stamps the operator dismissal for models on one
@@ -38,13 +39,13 @@ type DismissDiscoveryClaimsRequest struct {
 // ack it sits beside, this suppresses a real discrepancy from every operator's
 // view, which is a genuine state change.
 func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
-	var req DismissDiscoveryClaimsRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	providerID, err := uuid.Parse(req.ProviderID)
+	providerID, err := uuid.Parse(chi.URLParam(r, "provider_id"))
 	if err != nil {
 		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+		return
+	}
+	var req DismissDiscoveryClaimsRequest
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.ModelIDs) == 0 {
@@ -68,9 +69,10 @@ func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request)
 	writeJSON(w, map[string]any{"dismissed": dismissed, "updated": len(dismissed)})
 }
 
-// UnpinDiscoveryClaimsRequest carries the models to unpin on one provider. It is
-// shaped exactly like DismissDiscoveryClaimsRequest because it is the same kind
-// of operation from the modal's side: a bulk verdict on a provider's rows.
+// UnpinDiscoveryClaimsRequest carries the models to unpin on the provider named
+// in the path. It is shaped exactly like DismissDiscoveryClaimsRequest because
+// it is the same kind of operation from the modal's side: a bulk verdict on a
+// provider's rows.
 //
 // Unpin-only, like dismiss, and for a matching reason: the pin direction is not
 // an endpoint. A pin is armed by the operator enabling the model
@@ -80,8 +82,7 @@ func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request)
 // the operator changing their mind about a model the provider still does not
 // list, where there is nothing to enable and no sighting coming.
 type UnpinDiscoveryClaimsRequest struct {
-	ProviderID string   `json:"provider_id"`
-	ModelIDs   []string `json:"model_ids"`
+	ModelIDs []string `json:"model_ids"`
 }
 
 // UnpinDiscoveryClaims drops the operator pin from models on one provider,
@@ -99,13 +100,13 @@ type UnpinDiscoveryClaimsRequest struct {
 // Deliberately NOT added to httpx.IsReadOnlyExemptPost: it hands a model back to
 // automatic management, which is a genuine state change.
 func (h *Handler) UnpinDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
-	var req UnpinDiscoveryClaimsRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	providerID, err := uuid.Parse(req.ProviderID)
+	providerID, err := uuid.Parse(chi.URLParam(r, "provider_id"))
 	if err != nil {
 		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+		return
+	}
+	var req UnpinDiscoveryClaimsRequest
+	if !decodeJSON(w, r, &req) {
 		return
 	}
 	if len(req.ModelIDs) == 0 {
