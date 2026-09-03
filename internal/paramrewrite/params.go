@@ -294,7 +294,7 @@ func ParseProviderParamError(body []byte) map[string]bool {
 	// A refusal about the response format is learned as the schema fallback
 	// rather than a strip: dropping response_format would hand the caller
 	// prose where they asked for JSON, while JSON mode with the schema in the
-	// prompt still answers the request. See downgradeJSONSchema.
+	// prompt still answers the request. See foldJSONSchema.
 	if refusesJSONSchema(msg) {
 		rejected[SchemaFallbackKey] = true
 	}
