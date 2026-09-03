@@ -227,13 +227,6 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 		return false
 	}
 	c := models[model]
-	if c != nil && c.state == StateHalfOpen && c.pinSource == pinSourceAccount {
-		// The one probe an account pin lets out: this model carries it, and
-		// the provider verdict, which counts the half-open account circuit as
-		// still pinning, keeps the siblings dark until it reports.
-		cb.mu.RUnlock()
-		return false
-	}
 	if c == nil || c.state != StateOpen {
 		open := cb.providerOpen(models)
 		cb.mu.RUnlock()
@@ -265,12 +258,7 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 	}
 	// A circuit owed a probe counts for nothing in the provider verdict: only
 	// circuits still inside their cooldown do, which is what lets a provider
-	// recover. The provider can still be open on the others, except for the
-	// account circuit that just went half-open: its probe is the one request
-	// the pin lets out, and the verdict it keeps up is for the siblings.
-	if c != nil && c.state == StateHalfOpen && c.pinSource == pinSourceAccount {
-		return false
-	}
+	// recover. The provider can still be open on the others.
 	return cb.providerOpen(models)
 }
 
@@ -351,7 +339,12 @@ func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, mo
 // answer instead of waiting for the failures to span more models, and a
 // model never tried is skipped without paying for its own refusal. The pin
 // probes like any response pin, so the provider recovers within an interval
-// of being topped up.
+// of being topped up, unless the quota advisor has a reading, which wins and
+// keeps its measured length. While the probe is out the pin no longer speaks
+// for the provider, as any half-open circuit counts for nothing, so a sibling
+// asked for meanwhile is served; one the account still refuses takes its own
+// account pin, which darkens the provider again. Bounded by the number of
+// models asked for in that window, and never a blackout no verdict can end.
 func (cb *CircuitBreaker) RecordExhaustedAccount(providerID uuid.UUID, providerName, model string, status int, pinHint time.Duration) {
 	cb.recordExhausted(providerID, providerName, model, status, pinHint, true)
 }

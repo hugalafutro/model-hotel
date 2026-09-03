@@ -301,7 +301,7 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 	// since providerReport builds a list.
 	anyOpen := false
 	for _, c := range models {
-		if c.state == StateOpen || (c.state == StateHalfOpen && c.pinSource == pinSourceAccount) {
+		if c.state == StateOpen {
 			anyOpen = true
 			break
 		}
@@ -334,14 +334,6 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads) (open bool, blocked []string, pinned bool) {
 	providerPinned := false
 	for model, c := range models {
-		// An account circuit whose probe is out still speaks for the account:
-		// its siblings stay dark until the one probe reports, or the moment
-		// the pin lifted for a probe every sibling would be sent to draw the
-		// same refusal.
-		if c.state == StateHalfOpen && c.pinSource == pinSourceAccount {
-			providerPinned = true
-			continue
-		}
 		if !cb.blocking(c, r) {
 			continue
 		}

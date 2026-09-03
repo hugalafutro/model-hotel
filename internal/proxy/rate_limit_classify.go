@@ -160,9 +160,11 @@ type rateLimitPhrase struct {
 var rateLimitPhrases = []rateLimitPhrase{
 	// Balance / plan: a person fixes these, so the pin holds as long as the
 	// ceiling allows.
-	// Ahead of "insufficient balance", which Z.ai puts in the same sentence:
-	// the resource package is the per-model plan unit, so this refusal is
-	// about the model asked for and the plan's other models still serve.
+	// Ahead of "insufficient balance", which Z.ai puts in the same sentence
+	// ("Insufficient balance or no resource package"): the resource package
+	// is the per-model plan unit, so that body is read as being about the
+	// model asked for and the plan's other models still serve; a balance
+	// spent for real still reaches the provider through the span rule.
 	{phrase: "no resource package", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, perModel: true, provider: "Z.ai Coding Plan (code 1113)", observed: "2026-08-31"},
 	{phrase: "insufficient balance", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, provider: "Z.ai Coding Plan (code 1113); MiniMax 1008 status_msg", observed: "2026-08-31"},
 	{phrase: "please recharge", class: rateLimitExhausted, pinHint: pinHintUntilPaid, entitled: true, provider: "Z.ai Coding Plan (code 1113)", observed: "2026-08-31"},
