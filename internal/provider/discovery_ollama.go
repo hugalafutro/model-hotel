@@ -190,9 +190,13 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	switch {
 	case !hasCompletion && !isVision && hasEmbedding:
 		outputMods = `["embedding"]`
-	case hasCompletion:
+	case hasCompletion && !hasEmbedding:
 		outputMods = `["text"]`
 		modality = "chat"
+	case hasCompletion:
+		// Both capabilities: the listing has not said which endpoint the
+		// model is for, so the name decides.
+		outputMods = `["text"]`
 	}
 
 	var contextLength *int

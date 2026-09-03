@@ -429,11 +429,17 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 	if c.Modality != "chat" {
 		t.Errorf("explicit chat class = %q, want chat kept over the name heuristic", c.Modality)
 	}
-	// An output that already names something beyond text is a discovery's own
-	// claim and is kept as it is.
+	// An enrichment text entry beside a discovery's own output goes, the
+	// discovery's entry stays.
 	mixed := &model.Model{ModelID: "text-embedding-3-small", OutputModalities: `["text","embedding"]`, Capabilities: "{}"}
 	NormalizeModelClassification(mixed)
-	if mixed.OutputModalities != `["text","embedding"]` {
-		t.Errorf("mixed output rewritten to %s, want kept", mixed.OutputModalities)
+	if mixed.OutputModalities != `["embedding"]` {
+		t.Errorf("mixed output = %s, want the text entry dropped", mixed.OutputModalities)
+	}
+	// An explicit chat model still takes the input its capability flags imply.
+	flagged := &model.Model{ModelID: "llava-embed", Modality: "chat", InputModalities: `["text"]`, OutputModalities: `["text"]`, Capabilities: `{"vision":true}`}
+	NormalizeModelClassification(flagged)
+	if flagged.InputModalities != `["text","image"]` || flagged.Modality != "chat" {
+		t.Errorf("explicit chat with vision flag: input %s class %q, want image input kept and chat", flagged.InputModalities, flagged.Modality)
 	}
 }

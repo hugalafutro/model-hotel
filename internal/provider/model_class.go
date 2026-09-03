@@ -16,7 +16,10 @@ import (
 //
 // The only exception is explicit endpoint knowledge: when a provider API
 // states the endpoint (Cohere rerank/embed flags, xAI image-generation
-// listing), discovery sets one of explicitClasses and it is final. "video" is
+// listing, an Ollama completion capability, an LM Studio llm or vlm type),
+// discovery sets one of explicitClasses and it is final. OpenRouter and
+// NanoGPT copy the provider's architecture.modality string through as it
+// came, so a provider that wrote "chat" there is taken at its word. "video" is
 // deliberately NOT explicit — the legacy vocabulary used "video" for
 // video-*input* chat models, so video generation must be signalled through
 // output_modalities instead.
@@ -70,9 +73,9 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// evidence of chat when the name says otherwise. Left as chat, such a
 		// model sits in the chat pickers and answers a chat request with the
 		// provider's refusal. The same name heuristic the no-modality fallback
-		// uses decides here, so the embedding families it knows (embed, bge,
-		// gte, e5, minilm) are read the same way whether or not enrichment
-		// supplied arrays. A discovery whose listing states a chat model
+		// uses decides here (embed and rerank anywhere in the name, bge, gte,
+		// e5 and minilm as whole segments), so those families are read the
+		// same way whether or not enrichment supplied arrays. A discovery whose listing states a chat model
 		// (Ollama's completion capability, LM Studio's llm type) writes the
 		// class explicitly and never reaches this branch.
 		switch class := inferNonChatModality(modelID); {
@@ -129,6 +132,9 @@ func NormalizeModelClassification(m *model.Model) {
 	// Explicit endpoint classes from endpoint-aware discovery are final. The
 	// capability flags still sync from the input array so e.g. an
 	// image-editing generation model with image input shows its Vision pill.
+	// An explicit chat model also takes the input modalities its capability
+	// flags imply, as the derived path does, so enrichment's vision flag and
+	// the stored input array cannot contradict each other.
 	if explicitClasses[legacy] {
 		defIn, defOut := classDefaultArrays(legacy)
 		if len(input) == 0 {
@@ -137,7 +143,11 @@ func NormalizeModelClassification(m *model.Model) {
 		if len(output) == 0 {
 			output = defOut
 		}
-		m.Capabilities = syncCapsFromInput(m.Capabilities, parseCapabilityFlags(m.Capabilities), input)
+		caps := parseCapabilityFlags(m.Capabilities)
+		if legacy == "chat" {
+			input = canonicalizeModalityList(unionCapsIntoInput(caps, input))
+		}
+		m.Capabilities = syncCapsFromInput(m.Capabilities, caps, input)
 		m.InputModalities = marshalModalityList(input)
 		m.OutputModalities = marshalModalityList(output)
 		m.Modality = legacy
@@ -183,11 +193,13 @@ func NormalizeModelClassification(m *model.Model) {
 	// output enrichment handed it is rewritten too: the output array is what
 	// the outputs filter, the produces badge and the retirement evidence read,
 	// and left at text they would all describe a chat model, and the model
-	// could never be retired on evidence from its own endpoint. Only an
-	// output of text alone is replaced; an array that already names another
-	// output is a discovery's own claim and is kept.
-	if (class == "embedding" || class == "rerank") && outputIsTextOnly(output) {
-		output = []string{class}
+	// could never be retired on evidence from its own endpoint. Only the text
+	// entries go; any other output the array names is a discovery's own claim
+	// and is kept, and the class fills in when nothing else is left.
+	if class == "embedding" || class == "rerank" {
+		if output = withoutTextOutputs(output); len(output) == 0 {
+			output = []string{class}
+		}
 	}
 
 	input = canonicalizeModalityList(input)
@@ -197,15 +209,16 @@ func NormalizeModelClassification(m *model.Model) {
 	m.Modality = class
 }
 
-// outputIsTextOnly reports whether an output array names nothing beyond text
-// or code, the shape enrichment writes for a model it does not understand.
-func outputIsTextOnly(output []string) bool {
+// withoutTextOutputs drops the text and code entries, the shape enrichment
+// writes for a model it does not understand, keeping the rest in order.
+func withoutTextOutputs(output []string) []string {
+	kept := output[:0:0]
 	for _, o := range output {
 		if o != "text" && o != "code" {
-			return false
+			kept = append(kept, o)
 		}
 	}
-	return true
+	return kept
 }
 
 // NormalizeModels normalizes classification for a batch of discovered models.
