@@ -543,3 +543,32 @@ func TestBodyResetHint(t *testing.T) {
 		})
 	}
 }
+
+// An entitled refusal is about the account unless it names the per-model
+// plan unit: OpenAI's out-of-credit and Anthropic's low balance darken the
+// provider, Z.ai's "no resource package" is one model outside the plan, and a
+// window with a stated reset is not entitled at all.
+func TestClassifyRateLimit_AccountWide(t *testing.T) {
+	t.Parallel()
+	const maxWait = 60 * time.Second
+	for _, tc := range []struct {
+		name    string
+		body    string
+		account bool
+	}{
+		{"openai out of credit", `{"error":{"message":"You have no credits remaining. Add credits to continue using the API.","type":"insufficient_quota","code":"credit_balance_exhausted"}}`, true},
+		{"anthropic low balance", `{"type":"error","error":{"type":"invalid_request_error","message":"Your credit balance is too low to access the Anthropic API."}}`, true},
+		{"minimax 1008", `{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`, true},
+		{"zai plan excludes the model", `{"error":{"code":"1113","message":"Insufficient balance or no resource package. Please recharge."}}`, false},
+		{"google dated window", googleDailyQuota429, false},
+		{"saturated", `{"error":{"code":"concurrent_budget_exceeded","message":"Concurrency budget exceeded for basic tier"}}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			got := classifyRateLimit(429, nil, util.SanitizeLogBody(tc.body, 10000), maxWait)
+			if got.account != tc.account {
+				t.Errorf("account = %v, want %v (class %v entitled %v)", got.account, tc.account, got.class, got.entitled)
+			}
+		})
+	}
+}

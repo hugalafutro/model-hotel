@@ -330,7 +330,7 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 //
 // Must be called with cb.mu held (read lock suffices).
 func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads) (open bool, blocked []string, pinned bool) {
-	advisorPinned := false
+	providerPinned := false
 	for model, c := range models {
 		if !cb.blocking(c, r) {
 			continue
@@ -338,18 +338,19 @@ func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads)
 		blocked = append(blocked, model)
 		if cb.quotaPinnedForWith(c, r) {
 			pinned = true
-			if c.pinSource == pinSourceAdvisor {
-				advisorPinned = true
+			if c.pinSource == pinSourceAdvisor || c.pinSource == pinSourceAccount {
+				providerPinned = true
 			}
 		}
 	}
 	slices.Sort(blocked)
-	// Only an ADVISOR pin indicts the provider on its own: it measured the
-	// provider's account, so its verdict is provider-scoped. A response-derived
-	// pin is inferred from one model's 429 (a plan excluding ONE model, answered
-	// with a balance error), so it darkens that model alone. Corroboration across
-	// models (the span) still reaches the provider.
-	return advisorPinned || len(blocked) >= cb.effectiveSpan(), blocked, pinned
+	// A pin that speaks for the ACCOUNT indicts the provider on its own: the
+	// advisor measured the provider's account, and an account pin carries a
+	// refusal the provider made about its balance rather than about a model.
+	// A plain response pin is inferred from one model's 429 (a plan excluding
+	// ONE model, answered with a balance error), so it darkens that model
+	// alone. Corroboration across models (the span) still reaches the provider.
+	return providerPinned || len(blocked) >= cb.effectiveSpan(), blocked, pinned
 }
 
 // blocking reports whether a circuit is turning requests away right now: open
@@ -525,7 +526,7 @@ func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads)
 	// see RecordExhausted), and it never undercuts the cooldown the circuit
 	// would serve unpinned, so the pin can never make the breaker more
 	// aggressive. An advisor pin measured the window and keeps its full length.
-	if c.pinSource == pinSourceResponse {
+	if pinProbes(c.pinSource) {
 		if probe := r.pinProbeInterval(); probe > 0 {
 			return max(probe, cooldown) + time.Duration(c.probeSeed*float64(probe)/20)
 		}

@@ -328,11 +328,34 @@ func (cb *CircuitBreaker) recordFailure(providerID uuid.UUID, providerName, mode
 // and takes the same pin, and the status is stamped into the circuit's cause,
 // the breaker-open log line and the opens_total metric.
 func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, model string, status int, pinHint time.Duration) {
+	cb.recordExhausted(providerID, providerName, model, status, pinHint, false)
+}
+
+// RecordExhaustedAccount is RecordExhausted for a refusal that is about the
+// account behind the provider rather than the model that drew it: a balance
+// spent, a plan with no credit. The pin it stamps is marked account-wide, so
+// the provider verdict darkens every model of the provider on this one
+// answer instead of waiting for the failures to span more models, and a
+// model never tried is skipped without paying for its own refusal. The pin
+// probes like any response pin, so the provider recovers within an interval
+// of being topped up.
+func (cb *CircuitBreaker) RecordExhaustedAccount(providerID uuid.UUID, providerName, model string, status int, pinHint time.Duration) {
+	cb.recordExhausted(providerID, providerName, model, status, pinHint, true)
+}
+
+func (cb *CircuitBreaker) recordExhausted(providerID uuid.UUID, providerName, model string, status int, pinHint time.Duration, account bool) {
 	cb.mu.Lock()
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
 
 	c := cb.getOrCreate(providerID.String(), model)
+	// The account mark is applied after the open stamps its pin, so it rides
+	// on a pin the floor accepted; a refusal that left no pin marks nothing.
+	defer func() {
+		if account && c.pinSource == pinSourceResponse {
+			c.pinSource = pinSourceAccount
+		}
+	}()
 	c.lastCharged = time.Now()
 	c.note(c.lastCharged, UpstreamStatus(status, causeExhausted))
 
@@ -355,7 +378,7 @@ func (cb *CircuitBreaker) RecordExhausted(providerID uuid.UUID, providerName, mo
 		// decayed back into the day-long wait the interval exists to avoid.
 		// pinSource is read here, before openCircuit stamps the new pin over
 		// it; the interval read is a cached setting.
-		if c.pinSource != pinSourceResponse || cb.pinProbeInterval() <= 0 {
+		if !pinProbes(c.pinSource) || cb.pinProbeInterval() <= 0 {
 			c.failedProbes++
 		}
 		cb.openCircuit(&after, "circuit-breaker: model state=half-open→open (probe drew exhaustion)", providerID, providerName, model, c, by429, pinHint)

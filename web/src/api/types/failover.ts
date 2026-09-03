@@ -100,7 +100,7 @@ export interface CircuitStatus {
 	// The overrides governing THIS circuit's cooldown, unlike the row's
 	// quota_pinned, which means "any blocking circuit is pinned".
 	quota_pinned?: boolean;
-	pin_source?: "advisor" | "response";
+	pin_source?: "advisor" | "response" | "account";
 	backed_off?: boolean;
 	failed_probes?: number;
 	// Why the circuit was last charged, credited, pinned or released ("upstream

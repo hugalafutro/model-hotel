@@ -68,11 +68,21 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 	c.probeSeed = rand.Float64()
 }
 
-// The two pin sources ProviderStatus and the breaker events publish.
+// The pin sources ProviderStatus and the breaker events publish: measured by
+// the quota advisor, inferred from one model's response, or inferred from a
+// response that refused the whole account.
 const (
 	pinSourceAdvisor  = "advisor"
 	pinSourceResponse = "response"
+	pinSourceAccount  = "account"
 )
+
+// pinProbes reports whether a pin of this source is served as the probe
+// interval rather than its full length: every pin inferred from a response
+// is, since nothing measures when such a window ends; an advisor pin is not.
+func pinProbes(source string) bool {
+	return source == pinSourceResponse || source == pinSourceAccount
+}
 
 // ReleaseQuotaPins lifts the quota cooldown override from every circuit whose
 // provider appears in recovered, and reports how many pins it lifted. It is how

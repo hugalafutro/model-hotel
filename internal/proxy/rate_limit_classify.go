@@ -81,6 +81,12 @@ type rateLimitVerdict struct {
 	// entitled marks an exhaustion a person fixes (balance, plan) rather than
 	// time; it keeps the provider_not_entitled error kind for those bodies.
 	entitled bool
+	// account marks an entitled refusal that is about the account behind the
+	// provider, not the model asked for: a balance spent, a plan with no
+	// credit. Such a refusal darkens the whole provider at once. A plan that
+	// excludes one model (Z.ai's "no resource package") is entitled but not
+	// account-wide, since the plan's other models still serve.
+	account bool
 }
 
 // errorKind maps the verdict onto the request-log classification. Unknown
@@ -249,11 +255,13 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 			continue
 		}
 		v.phrase = p.phrase
+		v.account = accountWide(v, b)
 		return v
 	}
 	if miniMaxBalanceCode.MatchString(b) {
 		v := exhaustedVerdict(hdr, b, maxWait, pinHintUntilPaid, true)
 		v.phrase = miniMaxBalancePhrase
+		v.account = accountWide(v, b)
 		return v
 	}
 	if miniMaxWindowCode.MatchString(b) {
@@ -272,6 +280,16 @@ func classifyRateLimit(status int, hdr http.Header, body string, maxWait time.Du
 		return rateLimitVerdict{class: rateLimitExhausted, pinHint: wait}
 	}
 	return rateLimitVerdict{}
+}
+
+// accountWide reports whether an entitled exhaustion refused the account as a
+// whole. Every entitled phrase names a balance or a plan, so the account is
+// the default reading; the one exception observed is a plan that excludes the
+// model asked for, which Z.ai words with the per-model "resource package"
+// beside its balance sentence, and that leaves the plan's other models
+// serving.
+func accountWide(v rateLimitVerdict, body string) bool {
+	return v.class == rateLimitExhausted && v.entitled && !strings.Contains(body, "resource package")
 }
 
 // exhaustedVerdict builds the exhausted verdict for a matched phrase. A wait
