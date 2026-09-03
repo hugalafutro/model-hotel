@@ -3,12 +3,11 @@ import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { Play, Search } from "@/lib/icons";
 import { api } from "../../api/client";
-import { ResetButton } from "../../components/ResetButton";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
+import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { Spinner } from "../../components/Spinner";
-import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { goDurationToHours, hoursToGoDuration } from "../../utils/duration";
@@ -111,73 +110,39 @@ export function DiscoverySettings({
 				</p>
 				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
 					<SettingsGroup title={t("settings.discovery.automaticGroup")}>
-						<div className="flex items-center justify-between">
-							<div>
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.discovery.discoverOnStartup")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate(["discovery_on_startup"])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t("settings.discovery.discoverOnStartupDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={discoveryOnStartup}
-								size="sm"
-								onChange={(v) =>
-									updateMutation.mutate({
-										discovery_on_startup: v ? "true" : "false",
-									})
-								}
-								disabled={isUpdating}
-								ariaLabel={t("settings.discovery.discoverOnStartup")}
-							/>
-						</div>
+						<SettingToggleRow
+							label={t("settings.discovery.discoverOnStartup")}
+							description={t("settings.discovery.discoverOnStartupDescription")}
+							checked={discoveryOnStartup}
+							disabled={isUpdating}
+							onChange={(v) =>
+								updateMutation.mutate({
+									discovery_on_startup: v ? "true" : "false",
+								})
+							}
+							onReset={() =>
+								resetSettingMutation.mutate(["discovery_on_startup"])
+							}
+							resetDisabled={isResetting}
+						/>
 
-						<div className="flex items-center justify-between">
-							<div>
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.discovery.discoverOnProviderCreation")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate([
-												"discovery_on_provider_create",
-											])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-gray-500 text-xs mt-0.5">
-									{t(
-										"settings.discovery.discoverOnProviderCreationDescription",
-									)}
-								</p>
-							</div>
-							<Toggle
-								checked={discoveryOnCreate}
-								size="sm"
-								onChange={(v) =>
-									updateMutation.mutate({
-										discovery_on_provider_create: v ? "true" : "false",
-									})
-								}
-								disabled={isUpdating}
-								ariaLabel={t("settings.discovery.discoverOnProviderCreation")}
-							/>
-						</div>
+						<SettingToggleRow
+							label={t("settings.discovery.discoverOnProviderCreation")}
+							description={t(
+								"settings.discovery.discoverOnProviderCreationDescription",
+							)}
+							checked={discoveryOnCreate}
+							disabled={isUpdating}
+							onChange={(v) =>
+								updateMutation.mutate({
+									discovery_on_provider_create: v ? "true" : "false",
+								})
+							}
+							onReset={() =>
+								resetSettingMutation.mutate(["discovery_on_provider_create"])
+							}
+							resetDisabled={isResetting}
+						/>
 
 						<SettingsSlider
 							id="discovery-interval"

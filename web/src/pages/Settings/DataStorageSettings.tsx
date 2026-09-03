@@ -6,7 +6,7 @@ import { api } from "../../api/client";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
-import { Toggle } from "../../components/Toggle";
+import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import {
@@ -388,39 +388,32 @@ export function DataStorageSettings({
 						</SettingsGroup>
 
 						<SettingsGroup title={t("settings.dataStorage.quotaBadges")}>
-							<div className="flex items-center justify-between gap-2">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.sidebarQuota.showQuotasPill")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.sidebarQuota.showQuotasPillDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={!quotaDisabled}
-									size="sm"
-									onChange={(v) => {
-										const newVal = !v;
-										setQuotaDisabled(newVal);
-										try {
-											localStorage.setItem(
-												"sidebarQuotaDisabled",
-												String(newVal),
-											);
-										} catch {
-											/* ignore */
-										}
-										toast(
-											newVal
-												? t("settings.sidebarQuota.disabledQuotas")
-												: t("settings.sidebarQuota.enabledQuotas"),
-											newVal ? "info" : "success",
+							<SettingToggleRow
+								label={t("settings.sidebarQuota.showQuotasPill")}
+								description={t(
+									"settings.sidebarQuota.showQuotasPillDescription",
+								)}
+								checked={!quotaDisabled}
+								onChange={(v) => {
+									const newVal = !v;
+									setQuotaDisabled(newVal);
+									try {
+										localStorage.setItem(
+											"sidebarQuotaDisabled",
+											String(newVal),
 										);
-										window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
-									}}
-								/>
-							</div>
+									} catch {
+										/* ignore */
+									}
+									toast(
+										newVal
+											? t("settings.sidebarQuota.disabledQuotas")
+											: t("settings.sidebarQuota.enabledQuotas"),
+										newVal ? "info" : "success",
+									);
+									window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
+								}}
+							/>
 
 							<SettingsSlider
 								id="quota-refresh-interval"
@@ -458,124 +451,92 @@ export function DataStorageSettings({
 
 					<div className="space-y-5">
 						<SettingsGroup title={t("settings.dataStorage.sessionPersistence")}>
-							<div className="flex items-center justify-between gap-2">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.dataStorage.persistChat")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.dataStorage.persistChatDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={persistChat}
-									size="sm"
-									onChange={(v) => {
-										const next = v;
-										if (
-											!next &&
-											!confirm(t("settings.dataStorage.persistChatConfirm"))
-										)
-											return;
-										setPersistChat(next);
-										toast(
-											next
-												? t("settings.dataStorage.persistChatEnabled")
-												: t("settings.dataStorage.persistChatDisabled"),
-											next ? "success" : "info",
-										);
-									}}
-								/>
-							</div>
+							<SettingToggleRow
+								label={t("settings.dataStorage.persistChat")}
+								description={t("settings.dataStorage.persistChatDescription")}
+								checked={persistChat}
+								onChange={(v) => {
+									const next = v;
+									if (
+										!next &&
+										!confirm(t("settings.dataStorage.persistChatConfirm"))
+									)
+										return;
+									setPersistChat(next);
+									toast(
+										next
+											? t("settings.dataStorage.persistChatEnabled")
+											: t("settings.dataStorage.persistChatDisabled"),
+										next ? "success" : "info",
+									);
+								}}
+							/>
 
-							<div className="flex items-center justify-between gap-2">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.dataStorage.persistArena")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.dataStorage.persistArenaDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={persistArena}
-									size="sm"
-									onChange={(v) => {
-										const next = v;
-										if (
-											!next &&
-											!confirm(t("settings.dataStorage.persistArenaConfirm"))
-										)
-											return;
-										setPersistArena(next);
-										toast(
-											next
-												? t("settings.dataStorage.persistArenaEnabled")
-												: t("settings.dataStorage.persistArenaDisabled"),
-											next ? "success" : "info",
-										);
-									}}
-								/>
-							</div>
+							<SettingToggleRow
+								label={t("settings.dataStorage.persistArena")}
+								description={t("settings.dataStorage.persistArenaDescription")}
+								checked={persistArena}
+								onChange={(v) => {
+									const next = v;
+									if (
+										!next &&
+										!confirm(t("settings.dataStorage.persistArenaConfirm"))
+									)
+										return;
+									setPersistArena(next);
+									toast(
+										next
+											? t("settings.dataStorage.persistArenaEnabled")
+											: t("settings.dataStorage.persistArenaDisabled"),
+										next ? "success" : "info",
+									);
+								}}
+							/>
 
-							<div className="flex items-center justify-between gap-2">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.dataStorage.persistConversation")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.dataStorage.persistConversationDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={persistConversation}
-									size="sm"
-									onChange={(v) => {
-										const next = v;
-										if (
-											!next &&
-											!confirm(
-												t("settings.dataStorage.persistConversationConfirm"),
-											)
+							<SettingToggleRow
+								label={t("settings.dataStorage.persistConversation")}
+								description={t(
+									"settings.dataStorage.persistConversationDescription",
+								)}
+								checked={persistConversation}
+								onChange={(v) => {
+									const next = v;
+									if (
+										!next &&
+										!confirm(
+											t("settings.dataStorage.persistConversationConfirm"),
 										)
-											return;
-										setPersistConversation(next);
-										toast(
-											next
-												? t("settings.dataStorage.persistConversationEnabled")
-												: t("settings.dataStorage.persistConversationDisabled"),
-											next ? "success" : "info",
-										);
-									}}
-								/>
-							</div>
+									)
+										return;
+									setPersistConversation(next);
+									toast(
+										next
+											? t("settings.dataStorage.persistConversationEnabled")
+											: t("settings.dataStorage.persistConversationDisabled"),
+										next ? "success" : "info",
+									);
+								}}
+							/>
 						</SettingsGroup>
 
 						<SettingsGroup title={t("settings.dataStorage.arenaHistory")}>
-							<div className="flex items-center justify-between gap-2">
-								<div>
-									<p className="text-sm font-medium text-gray-300">
-										{t("settings.dataStorage.saveMatchHistory")}
-									</p>
-									<p className="text-gray-500 text-xs mt-0.5">
-										{t("settings.dataStorage.saveMatchHistoryDescription")}
-									</p>
-								</div>
-								<Toggle
-									checked={arenaHistoryEnabled}
-									size="sm"
-									onChange={(v) => {
-										const next = v;
-										setArenaHistoryEnabled(next);
-										toast(
-											next
-												? t("settings.dataStorage.saveMatchHistoryEnabled")
-												: t("settings.dataStorage.saveMatchHistoryDisabled"),
-											next ? "success" : "info",
-										);
-									}}
-								/>
-							</div>
+							<SettingToggleRow
+								label={t("settings.dataStorage.saveMatchHistory")}
+								description={t(
+									"settings.dataStorage.saveMatchHistoryDescription",
+								)}
+								checked={arenaHistoryEnabled}
+								onChange={(v) => {
+									const next = v;
+									setArenaHistoryEnabled(next);
+									toast(
+										next
+											? t("settings.dataStorage.saveMatchHistoryEnabled")
+											: t("settings.dataStorage.saveMatchHistoryDisabled"),
+										next ? "success" : "info",
+									);
+								}}
+							/>
 
 							<SettingsSlider
 								id="history-limit"

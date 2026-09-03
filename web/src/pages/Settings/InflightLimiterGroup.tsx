@@ -1,8 +1,7 @@
 import { useTranslation } from "react-i18next";
-import { ResetButton } from "../../components/ResetButton";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSlider } from "../../components/SettingsSlider";
-import { Toggle } from "../../components/Toggle";
+import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { goDurationToMinutes, minutesToGoDuration } from "../../utils/duration";
 import { useSettingsMutations } from "./useSettingsMutations";
 
@@ -46,39 +45,21 @@ export function InflightLimiterGroup() {
 
 	return (
 		<SettingsGroup title={t("settings.circuitBreaker.inflightGroup")}>
-			<div
-				className="flex items-center justify-between gap-3"
-				data-testid="inflight-limiter-row"
-			>
-				<div className="min-w-0">
-					<div className="flex items-center gap-1">
-						<p className="text-sm font-medium text-gray-300">
-							{t("settings.circuitBreaker.inflightLimiter")}
-						</p>
-						<ResetButton
-							tooltip={t("settings.common.resetSetting")}
-							onClick={() =>
-								resetSettingMutation.mutate(["inflight_limiter_enabled"])
-							}
-							size={12}
-							disabled={isResetting}
-						/>
-					</div>
-					<p className="text-gray-500 text-xs mt-0.5">
-						{t("settings.circuitBreaker.inflightLimiterDescription")}
-					</p>
-				</div>
-				<Toggle
-					checked={limiterEnabled}
-					size="sm"
-					onChange={(v) =>
-						updateMutation.mutate({
-							inflight_limiter_enabled: v ? "true" : "false",
-						})
-					}
-					ariaLabel={t("settings.circuitBreaker.inflightLimiter")}
-				/>
-			</div>
+			<SettingToggleRow
+				testId="inflight-limiter-row"
+				label={t("settings.circuitBreaker.inflightLimiter")}
+				description={t("settings.circuitBreaker.inflightLimiterDescription")}
+				checked={limiterEnabled}
+				onChange={(v) =>
+					updateMutation.mutate({
+						inflight_limiter_enabled: v ? "true" : "false",
+					})
+				}
+				onReset={() =>
+					resetSettingMutation.mutate(["inflight_limiter_enabled"])
+				}
+				resetDisabled={isResetting}
+			/>
 
 			<SettingsSlider
 				id="inflight-grow-after"

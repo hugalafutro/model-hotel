@@ -14,7 +14,7 @@
  *   server.use(...mockProviders({ status: 500 }))
  */
 
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { HttpResponse, http, type RequestHandler } from "msw";
 import type {
 	BackupEntry,
@@ -28,6 +28,7 @@ import type {
 	SystemStats,
 	VirtualKey,
 } from "../api/types";
+import i18n from "../i18n";
 import {
 	mockStats as defaultStats,
 	mockSystemStats as defaultSystemStats,
@@ -457,3 +458,17 @@ export function getByDialogName(name: string): HTMLElement {
 
 // Re-export screen for convenience so test files only need one import
 export { screen } from "@testing-library/react";
+
+// toggleRowResetButton finds the per-setting reset beside a SettingToggleRow's
+// label, by the label's translation key so the lookup survives a locale swap.
+export function toggleRowResetButton(labelKey: string): HTMLElement {
+	const row = screen
+		.getByText(i18n.t(labelKey))
+		.closest(".flex.items-center.justify-between");
+	if (!(row instanceof HTMLElement)) {
+		throw new Error(`no toggle row for ${labelKey}`);
+	}
+	return within(row).getByRole("button", {
+		name: i18n.t("settings.common.resetSetting"),
+	});
+}

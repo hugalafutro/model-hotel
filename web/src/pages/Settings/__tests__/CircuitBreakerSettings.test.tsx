@@ -3,7 +3,8 @@ import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { api } from "../../../api/client";
-import { mockSettings } from "../../../test/helpers";
+import i18n from "../../../i18n";
+import { mockSettings, toggleRowResetButton } from "../../../test/helpers";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { CircuitBreakerSettings } from "../CircuitBreakerSettings";
@@ -1653,5 +1654,37 @@ describe("CircuitBreakerSettings", () => {
 			);
 			resetSpy.mockRestore();
 		});
+	});
+	it("resets each toggle row through the reset beside its label", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset").mockResolvedValue({});
+		const { user } = renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
+		);
+		const rows: [string, string][] = [
+			["settings.circuitBreaker.enable", "circuit_breaker_enabled"],
+			["settings.circuitBreaker.failoverOnRateLimit", "failover_on_rate_limit"],
+			["settings.circuitBreaker.classify429", "rate_limit_classify_enabled"],
+			[
+				"settings.circuitBreaker.openOnExhaustion",
+				"circuit_breaker_open_on_exhaustion",
+			],
+			[
+				"settings.circuitBreaker.exhaustion429",
+				"failover_exhaustion_status_429",
+			],
+			[
+				"settings.circuitBreaker.serverErrorRetry",
+				"server_error_retry_enabled",
+			],
+			["settings.circuitBreaker.quotaPin", "circuit_breaker_quota_pin_enabled"],
+			["settings.circuitBreaker.backoff", "circuit_breaker_backoff_enabled"],
+			["settings.circuitBreaker.hedging", "hedging_enabled"],
+		];
+		await screen.findByText(i18n.t(rows[0][0]));
+		for (const [label, key] of rows) {
+			await user.click(toggleRowResetButton(label));
+			await waitFor(() => expect(resetSpy).toHaveBeenLastCalledWith([key]));
+		}
+		resetSpy.mockRestore();
 	});
 });

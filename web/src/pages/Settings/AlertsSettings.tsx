@@ -6,7 +6,7 @@ import { ApiError, api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
-import { Toggle } from "../../components/Toggle";
+import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { useToast } from "../../context/ToastContext";
 import { AlertEventPicker } from "./AlertEventPicker";
 import { AlertSnippets } from "./AlertSnippets";
@@ -313,34 +313,17 @@ export function AlertsSettings({
 				<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
 					<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
 						{/* Enable toggle */}
-						<div className="flex items-center justify-between gap-3 ui-settings-group">
-							<div className="min-w-0">
-								<div className="flex items-center gap-1">
-									<p className="text-sm font-medium text-(--text-secondary)">
-										{t("settings.alerts.enable")}
-									</p>
-									<ResetButton
-										tooltip={t("settings.common.resetSetting")}
-										onClick={() =>
-											resetSettingMutation.mutate(["alert_enabled"])
-										}
-										size={12}
-										disabled={isResetting}
-									/>
-								</div>
-								<p className="text-(--text-muted) text-xs mt-0.5">
-									{t("settings.alerts.enableDescription")}
-								</p>
-							</div>
-							<Toggle
-								checked={enabled}
-								size="sm"
-								onChange={(v) =>
-									updateMutation.mutate({ alert_enabled: v ? "true" : "false" })
-								}
-								ariaLabel={t("settings.alerts.enable")}
-							/>
-						</div>
+						<SettingToggleRow
+							className="ui-settings-group"
+							label={t("settings.alerts.enable")}
+							description={t("settings.alerts.enableDescription")}
+							checked={enabled}
+							onChange={(v) =>
+								updateMutation.mutate({ alert_enabled: v ? "true" : "false" })
+							}
+							onReset={() => resetSettingMutation.mutate(["alert_enabled"])}
+							resetDisabled={isResetting}
+						/>
 
 						{/* Events to notify on (right column). Kept visible but dimmed and
 					    uninteractible until alerting is enabled, so the column is not

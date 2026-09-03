@@ -300,6 +300,7 @@ export function DatabaseBackupSettings({
 						<Toggle
 							checked={backupEnabled}
 							size="sm"
+							ariaLabel={t("settings.backup.rotation.title")}
 							onChange={async (v) => {
 								if (!v) {
 									settingsUpdateMutation.mutate({
