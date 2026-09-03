@@ -29,18 +29,24 @@ var jsonModeOnlyProviders = map[string]bool{
 // response_format 'x': 'additionalProperties' is required" is a complaint
 // about one caller's schema, and learning the fallback from it would strip
 // every later caller on that model of the schema enforcement the provider
-// has. Only a shape the provider says it does not serve is learned.
+// has. Only a shape the provider says it does not serve is learned, and
+// unconditionally: schemaRefusalExcludes name a path inside one caller's
+// schema (a keyword it used that the provider lacks) or a condition ("not
+// supported when tools are provided") that another request may not meet.
 var (
-	schemaRefusalNames   = []string{"response_format", "json_schema"}
-	schemaRefusalPhrases = []string{"unavailable", "not available", "not supported", "unsupported", "does not support", "not implemented"}
+	schemaRefusalNames    = []string{"response_format", "json_schema"}
+	schemaRefusalPhrases  = []string{"unavailable", "not available", "not supported", "unsupported", "does not support", "not implemented"}
+	schemaRefusalExcludes = []string{"invalid schema", "json_schema.schema", "schema.properties", " when ", " with tools", " if "}
 )
 
 // refusesJSONSchema reports whether a 400 message says the provider does not
 // serve the response format shape it was sent.
 func refusesJSONSchema(msg string) bool {
 	lower := strings.ToLower(msg)
-	if strings.Contains(lower, "invalid schema") {
-		return false
+	for _, exclude := range schemaRefusalExcludes {
+		if strings.Contains(lower, exclude) {
+			return false
+		}
 	}
 	named := false
 	for _, name := range schemaRefusalNames {

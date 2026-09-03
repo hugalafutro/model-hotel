@@ -588,7 +588,8 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 			}
 		}
 	} else {
-		needsRewrite := st.reqModel != candidate.model.ModelID || isAnthropicFamily(providerType) || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming
+		needsRewrite := st.reqModel != candidate.model.ModelID || isAnthropicFamily(providerType) || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming ||
+			paramrewrite.HasLearnedRewrites(&h.deprecationCache, &h.paramRenameCache, learnedScopeFor(candidate), candidate.model.ModelID)
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {
 			upstreamBody = paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))

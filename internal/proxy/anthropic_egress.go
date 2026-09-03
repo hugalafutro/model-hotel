@@ -100,7 +100,7 @@ func (h *Handler) buildAnthropicEgressRequest(ctx context.Context, st *requestSt
 // the given thinking dialect. The initial attempt and the dialect retry both go
 // through here so a change to either half cannot apply to only one of them.
 func (h *Handler) anthropicEgressBody(st *requestState, candidate modelCandidate, providerType string, dialect anthropicegress.ThinkingDialect) (body []byte, model string, stream bool, err error) {
-	cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
+	cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, learnedScopeFor(candidate))
 	return anthropicegress.TranslateRequestWithDialect(cleaned, dialect)
 }
 

@@ -61,6 +61,47 @@ func BuildUpstreamBody(
 	extraStrip map[string]bool,
 	learnScope string,
 ) []byte {
+	return buildUpstreamBody(proxyReqBody, providerType, resolvedModelID, requestModel, isStreaming, deprecationCache, renameCache, extraStrip, learnScope, true)
+}
+
+// BuildNativeUpstreamBody is BuildUpstreamBody for a body that a native
+// translator (Messages, generateContent) rewrites next. Those translators
+// carry or drop response_format themselves, so the schema fallback is left
+// out: a key learned from a chat-completions 400 on the same model (a
+// provider routed per request, by the content it is sent) must not take a
+// schema away from a route that enforces it natively.
+func BuildNativeUpstreamBody(
+	proxyReqBody []byte,
+	providerType string,
+	resolvedModelID string,
+	requestModel string,
+	deprecationCache *sync.Map,
+	renameCache *sync.Map,
+	learnScope string,
+) []byte {
+	return buildUpstreamBody(proxyReqBody, providerType, resolvedModelID, requestModel, false, deprecationCache, renameCache, nil, learnScope, false)
+}
+
+// HasLearnedRewrites reports whether a 400 has taught anything for this
+// provider and model, so a body that needs no other rewrite is still rebuilt
+// with what was learned instead of drawing the same 400 on every request.
+func HasLearnedRewrites(deprecationCache, renameCache *sync.Map, learnScope, resolvedModelID string) bool {
+	key := LearnedCacheKey(learnScope, resolvedModelID)
+	return CachedRejectedParams(deprecationCache, key) != nil || cachedRenames(renameCache, key) != nil
+}
+
+func buildUpstreamBody(
+	proxyReqBody []byte,
+	providerType string,
+	resolvedModelID string,
+	requestModel string,
+	isStreaming bool,
+	deprecationCache *sync.Map,
+	renameCache *sync.Map,
+	extraStrip map[string]bool,
+	learnScope string,
+	schemaFallback bool,
+) []byte {
 	var raw map[string]any
 	if err := json.Unmarshal(proxyReqBody, &raw); err != nil {
 		return proxyReqBody // unparseable — forward as-is
@@ -120,12 +161,10 @@ func BuildUpstreamBody(
 
 	// 7b. Schema fallback: a provider that only serves JSON mode, by its
 	// documentation or by a 400 it has answered, gets json_schema rewritten
-	// into json_object with the schema in the prompt. The native egress
-	// rebuilds (Messages, generateContent) pass through here too, and their
-	// translators carry json_schema natively; they are safe because the key
-	// is only ever learned from a chat-completions 400 and no (provider,
-	// model) pair is served by both a native route and chat-completions.
-	if jsonModeOnlyProviders[providerType] || cached[SchemaFallbackKey] || extraStrip[SchemaFallbackKey] {
+	// into json_object with the schema in the prompt. Chat-completions bodies
+	// only; a native rebuild comes through BuildNativeUpstreamBody with the
+	// fallback off.
+	if schemaFallback && (jsonModeOnlyProviders[providerType] || cached[SchemaFallbackKey] || extraStrip[SchemaFallbackKey]) {
 		downgradeJSONSchema(raw, resolvedModelID)
 	}
 

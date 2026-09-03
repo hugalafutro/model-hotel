@@ -40,6 +40,8 @@ func TestParseProviderParamError_SchemaRefusalLearnsTheFallback(t *testing.T) {
 		"Unsupported parameter: 'temperature'",
 		"Invalid schema for response_format 'city': 'additionalProperties' is required to be supplied and to be false",
 		"Prompt must contain the word 'json' in some form to use 'response_format' of type 'json_object'.",
+		"response_format.json_schema.schema.properties.email: format 'email' is not supported",
+		"json_schema response format is not supported when tools are provided",
 	} {
 		if ParseProviderParamError([]byte(`{"error":{"message":"` + msg + `"}}`))[SchemaFallbackKey] {
 			t.Errorf("%q must not learn the fallback", msg)
@@ -66,6 +68,25 @@ func TestDropSchemaFallbackUnlessRequested(t *testing.T) {
 	}
 	if DropSchemaFallbackUnlessRequested(nil, plain) != nil {
 		t.Error("nil stays nil")
+	}
+}
+
+// A native rebuild keeps json_schema for its translator, even on a provider
+// type or model the fallback would rewrite on the chat-completions route,
+// and learned state is what makes a body worth rebuilding.
+func TestBuildNativeUpstreamBody_KeepsJSONSchema(t *testing.T) {
+	var dep, ren sync.Map
+	MergeLearnedParamCache(&dep, LearnedCacheKey("p", "m"), map[string]bool{SchemaFallbackKey: true})
+	raw := decodeJSONBody(t, BuildNativeUpstreamBody(schemaRequest(""), "deepseek", "m", "m", &dep, &ren, "p"))
+	if raw["response_format"].(map[string]any)["type"] != "json_schema" || len(raw["messages"].([]any)) != 1 {
+		t.Errorf("native body = %v, want json_schema kept and no instruction", raw)
+	}
+	if !HasLearnedRewrites(&dep, &ren, "p", "m") || HasLearnedRewrites(&dep, &ren, "p", "other") {
+		t.Error("HasLearnedRewrites must follow the learned caches")
+	}
+	MergeLearnedParamCache(&ren, LearnedCacheKey("q", "m"), map[string]string{"max_tokens": "max_completion_tokens"})
+	if !HasLearnedRewrites(&dep, &ren, "q", "m") {
+		t.Error("a learned rename counts too")
 	}
 }
 

@@ -154,12 +154,12 @@ func (h *Handler) learnRejectedParams(st *requestState, candidate modelCandidate
 
 // learnableRejections reads a 400 for the params it rejects, keeping the
 // schema fallback only for a chat-completions request that sent json_schema:
-// a Messages 400 has no response_format to speak of, and a JSON-mode request
-// refused for its prompt is not healed by the fallback, so a retry built on
-// it would repeat the same 400.
+// a native dialect's 400 keeps its response format elsewhere, and a JSON-mode
+// request refused for its prompt is not healed by the fallback, so a retry
+// built on it would repeat the same 400.
 func learnableRejections(st *requestState, body []byte) map[string]bool {
 	rejected := paramrewrite.ParseProviderParamError(body)
-	if st.anthropicEgressAttempt {
+	if !st.sentChatCompletionsBody() {
 		delete(rejected, paramrewrite.SchemaFallbackKey)
 		if len(rejected) == 0 {
 			return nil
