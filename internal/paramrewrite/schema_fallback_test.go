@@ -116,7 +116,7 @@ func TestBuildUpstreamBody_SchemaIgnoringModelKeepsSchemaAndFolds(t *testing.T) 
 	if schemaIgnoredByModel("paraglm4") || schemaIgnoredByModel("llama3") {
 		t.Error("a name that merely contains the letters, or another family, must not match")
 	}
-	if !schemaIgnoredByModel("zai.glm-4.7") {
+	if !schemaIgnoredByModel("zai.glm-4.7") || !schemaIgnoredByModel("zai-glm-4.7") {
 		t.Error("a vendor-prefixed id must match")
 	}
 	other := []byte(`{"model":"llama3","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"name":"city","schema":{"type":"object"}}}}`)

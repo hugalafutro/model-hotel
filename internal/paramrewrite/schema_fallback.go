@@ -36,10 +36,10 @@ var jsonModeOnlyProviders = map[string]bool{
 // provider type that only serves JSON mode, or a learned 400, puts the
 // request in JSON mode instead, with the same fold. The family name opens a
 // segment of the id, after any vendor path or prefix (z-ai/glm-5.3-flash,
-// glm4:9b, zai.glm-4.7), so a name that merely contains the letters does
-// not match.
+// glm4:9b, zai.glm-4.7, zai-glm-4.7), so a name that merely contains the
+// letters does not match.
 func schemaIgnoredByModel(modelID string) bool {
-	for _, segment := range strings.FieldsFunc(strings.ToLower(modelID), func(r rune) bool { return r == '/' || r == '.' }) {
+	for _, segment := range strings.FieldsFunc(strings.ToLower(modelID), func(r rune) bool { return r == '/' || r == '.' || r == '-' }) {
 		if strings.HasPrefix(segment, "glm") {
 			return true
 		}
