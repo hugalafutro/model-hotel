@@ -265,7 +265,12 @@ func (cb *CircuitBreaker) IsOpen(providerID uuid.UUID, providerName, model strin
 	}
 	// A circuit owed a probe counts for nothing in the provider verdict: only
 	// circuits still inside their cooldown do, which is what lets a provider
-	// recover. The provider can still be open on the others.
+	// recover. The provider can still be open on the others, except for the
+	// account circuit that just went half-open: its probe is the one request
+	// the pin lets out, and the verdict it keeps up is for the siblings.
+	if c != nil && c.state == StateHalfOpen && c.pinSource == pinSourceAccount {
+		return false
+	}
 	return cb.providerOpen(models)
 }
 
