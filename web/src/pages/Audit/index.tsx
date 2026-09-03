@@ -247,14 +247,15 @@ export function Audit() {
 										>
 											{e.route}
 										</td>
-										{/* Resolved name when the entity still exists; its UUID
-										   (truncated) as the fallback trace when it does not. */}
+										{/* Resolved name when the entity still exists; its full UUID
+										   as the fallback trace when it does not. The cell clips
+										   with an ellipsis only once the column runs out of room. */}
 										<td className="px-4 py-3 text-sm text-gray-400 truncate">
 											{e.entity_name ? (
 												<span title={e.entity_id}>{e.entity_name}</span>
 											) : e.entity_id ? (
 												<span className="font-mono" title={e.entity_id}>
-													{e.entity_id.slice(0, 8)}…
+													{e.entity_id}
 												</span>
 											) : (
 												"—"

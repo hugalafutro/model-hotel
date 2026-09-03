@@ -381,7 +381,11 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	keyHash := virtualkey.Hash(rawKey)
-	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-2:]
+	// The "sk-" prefix and the last four characters: the same four-character
+	// tail the provider card shows (provider.MaskAPIKey), since two characters
+	// left too many keys reading alike to tell apart. The key is stored hashed,
+	// so a key issued before the tail widened keeps its old preview.
+	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-4:]
 
 	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner)
 	if err != nil {
