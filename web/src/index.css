@@ -3695,11 +3695,10 @@ html[data-ui-style="cyber-terminal"] .toast-monitor {
 	border-radius: 10px;
 }
 
-/* Terminal corner squaring: dashboard stat-card icon chips, the Virtual
-   Keys note pill, the mock-terminal snippet frames, and chart tooltips. */
+/* Terminal corner squaring: dashboard stat-card icon chips, the
+   mock-terminal snippet frames, and chart tooltips. */
 html[data-ui-style="cyber-terminal"] .ui-stat-icon,
 html[data-ui-style="cyber-terminal"] .ui-wizard-icon,
-html[data-ui-style="cyber-terminal"] .ui-note-pill,
 html[data-ui-style="cyber-terminal"] .terminal-frame,
 html[data-ui-style="cyber-terminal"] .chart-tooltip {
 	border-radius: 0;
