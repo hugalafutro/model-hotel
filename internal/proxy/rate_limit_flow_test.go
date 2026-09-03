@@ -29,14 +29,7 @@ const ollamaExhaustedBody = `{"error":"you have reached your session usage limit
 // provider/model and returns the recorder.
 func chatRequest(t *testing.T, env *testProxyEnv) *httptest.ResponseRecorder {
 	t.Helper()
-	body := `{"model": "` + env.ProviderName + `/` + env.ModelName + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
-	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
-	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
-	ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
-	req = req.WithContext(ctx)
-	w := httptest.NewRecorder()
-	env.Handler.ChatCompletions(w, req)
-	return w
+	return directChatRequest(t, env, false)
 }
 
 func chatCompletionJSON(model string) string {

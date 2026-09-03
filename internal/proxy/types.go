@@ -318,9 +318,11 @@ type requestState struct {
 	// client, and only a terminal whose own status is a classified 429 does, so
 	// a stale verdict from an earlier attempt can never label a later failure.
 	// saturationRetried marks that this request has already spent its one
-	// wait-and-retry on a saturated last candidate.
-	rateLimit         rateLimitVerdict
-	saturationRetried bool
+	// wait-and-retry on a saturated last candidate; serverErrorRetried the one
+	// backoff-and-retry on a last candidate that answered a retryable 5xx.
+	rateLimit          rateLimitVerdict
+	saturationRetried  bool
+	serverErrorRetried bool
 
 	// inflightEnabled mirrors inflight_limiter_enabled for the request, read
 	// once by loadFailoverConfig like the breaker flag beside it. attemptSlot
@@ -387,6 +389,11 @@ const (
 	// waits the provider's Retry-After (bounded) and retries the same candidate
 	// once; st.saturationRetried guards the "once".
 	outcomeRetrySaturated
+	// outcomeRetryServerError: the last candidate answered a retryable 5xx (see
+	// retryableServerError) and nothing was written. The loop backs off briefly
+	// and retries the same candidate once; st.serverErrorRetried guards the
+	// "once".
+	outcomeRetryServerError
 	// outcomeBusy: the candidate's provider is at its learned in-flight limit,
 	// so the attempt was skipped without a request. The loop moves on, remembers
 	// the candidate, and when every live entry ends busy it waits for the first

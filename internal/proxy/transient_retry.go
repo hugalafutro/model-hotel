@@ -5,8 +5,13 @@ import (
 	"errors"
 	"io"
 	"net"
+	"net/http"
 	"strings"
 	"syscall"
+	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // maxTransientRetries is the number of additional same-provider tries after a
@@ -57,4 +62,68 @@ func isRetryableUpstreamError(err error, requestWritten bool) bool {
 	}
 	// net/http does not export errServerClosedIdle; match its message.
 	return strings.Contains(err.Error(), "server closed idle connection")
+}
+
+// serverErrorRetryBackoff is the base of the jittered wait before the last
+// candidate is retried after a retryable 5xx: long enough for a load
+// balancer's failed backend to rotate out, short enough that the retry stays
+// well inside the request's overall deadline.
+const serverErrorRetryBackoff = 500 * time.Millisecond
+
+// retryableServerError reports whether an upstream status is a 5xx worth one
+// more try against the same provider when there is no other candidate: the
+// provider's own fault, transient by its own account (500 with a "try again",
+// a bad gateway, a service unavailable, a gateway timeout). 501 is a refusal
+// that will not change, and every other 5xx is left as the provider gave it.
+func retryableServerError(status int) bool {
+	switch status {
+	case http.StatusInternalServerError, http.StatusBadGateway, http.StatusServiceUnavailable, http.StatusGatewayTimeout:
+		return true
+	}
+	return false
+}
+
+// deferLastCandidateRetry decides whether a failover-eligible answer from the
+// last candidate earns one of the request's one-shot retries, and ends the
+// attempt accordingly: a saturated 429 waits the provider's Retry-After
+// (deferSaturatedRetry), a transient 5xx backs off briefly
+// (deferServerErrorRetry). Each fires once per request, and the 5xx retry only
+// while the overall deadline leaves room for it. ok is false when the
+// answer earns neither and the caller's terminal handling applies.
+func (h *Handler) deferLastCandidateRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int, rl rateLimitVerdict) (outcome candidateOutcome, ok bool) {
+	if rl.class == rateLimitSaturated && !st.saturationRetried {
+		return h.deferSaturatedRetry(st, candidate, resp, attempt), true
+	}
+	if retryableServerError(resp.StatusCode) && !st.serverErrorRetried && st.serverErrorRetryFits() {
+		return h.deferServerErrorRetry(st, candidate, resp, attempt), true
+	}
+	return outcomeFailover, false
+}
+
+// serverErrorRetryFits reports whether the overall deadline leaves room for
+// the longest backoff the server-error retry can draw plus a round: judged
+// before the body is drained, because past this point the answer in hand is
+// forwarded as the provider gave it, and a retry that then found no time
+// would have thrown that answer away for a generic exhaustion error. A state
+// that never set the deadline always has room.
+func (st *requestState) serverErrorRetryFits() bool {
+	return st.overallDeadline.IsZero() || time.Until(st.overallDeadline) > 2*serverErrorRetryBackoff+retryMinRound
+}
+
+// deferServerErrorRetry ends an attempt whose last candidate answered a
+// retryable 5xx: the body is drained, the attempt is closed on the trail with
+// the provider's sentence (the breaker has already been charged for it), and
+// the loop is told to back off and try the same candidate once more
+// (outcomeRetryServerError). st.serverErrorRetried caps it at one.
+func (h *Handler) deferServerErrorRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int) candidateOutcome {
+	drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+	_, _ = io.Copy(io.Discard, resp.Body)
+	_ = resp.Body.Close()
+	st.serverErrorRetried = true
+	st.setReqErr(failoverReqErr(st.rateLimit, attempt, candidate.provider.Name, resp.StatusCode))
+	st.logData.failoverAttempt = attempt
+	// The attempt ended here; the retry is its own attempt with its own record.
+	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, util.SanitizeLogBody(string(drained), 10000), "", 0)
+	debuglog.Info("proxy: last candidate answered a retryable server error, retrying it once", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "attempt", attempt+1)
+	return outcomeRetryServerError
 }

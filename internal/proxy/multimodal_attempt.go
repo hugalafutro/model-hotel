@@ -80,10 +80,9 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 			logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, drainedMsg, rl.phrase, 0)
 			return outcomeFailover
 		}
-		// A saturated 429 on the last candidate: wait the seconds the provider
-		// asked for and retry it once.
-		if rl.class == rateLimitSaturated && !st.saturationRetried {
-			return h.deferSaturatedRetry(st, candidate, resp, attempt)
+		// The last candidate's one-shot retries, the same as the chat path.
+		if outcome, ok := h.deferLastCandidateRetry(st, candidate, resp, attempt, rl); ok {
+			return outcome
 		}
 	}
 
