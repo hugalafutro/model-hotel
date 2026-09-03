@@ -64,23 +64,7 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 		}
 
 		for {
-			// Re-read settings each tick for dynamic updates
-			enabled := h.settingsRepo.GetBool(schedCtx, "backup_enabled", false)
-
-			sleep := backupSchedulerIdlePoll
-			if enabled {
-				interval := max(h.settingsRepo.GetDuration(schedCtx, "backup_interval", 24*time.Hour), 5*time.Minute)
-				// The interval runs from the last scheduled backup on disk, not
-				// from process start: a restart inside the interval waits out
-				// the remainder instead of paying a fresh pg_dump every deploy.
-				if wait := h.scheduledBackupWait(interval, time.Now()); wait > 0 {
-					debuglog.Info("backup: last scheduled backup is recent, waiting", "wait", wait.Round(time.Second).String())
-					sleep = wait
-				} else {
-					h.runScheduledBackup(schedCtx)
-					sleep = interval
-				}
-			}
+			sleep := h.schedulerTick(schedCtx)
 
 			select {
 			case <-schedCtx.Done():
@@ -100,6 +84,24 @@ func (h *BackupHandler) StopScheduler() {
 		h.schedulerCancel()
 		h.schedulerCancel = nil
 	}
+}
+
+// schedulerTick runs one scheduler cycle and returns how long to sleep before
+// the next. Settings are re-read on every tick so a change takes effect
+// without a restart. The interval runs from the last scheduled backup on
+// disk, not from process start: a restart inside the interval sleeps out the
+// remainder instead of paying a fresh pg_dump every deploy.
+func (h *BackupHandler) schedulerTick(ctx context.Context) time.Duration {
+	if !h.settingsRepo.GetBool(ctx, "backup_enabled", false) {
+		return backupSchedulerIdlePoll
+	}
+	interval := max(h.settingsRepo.GetDuration(ctx, "backup_interval", 24*time.Hour), 5*time.Minute)
+	if wait := h.scheduledBackupWait(interval, time.Now()); wait > 0 {
+		debuglog.Info("backup: last scheduled backup is recent, waiting", "wait", wait.Round(time.Second).String())
+		return wait
+	}
+	h.runScheduledBackup(ctx)
+	return interval
 }
 
 // scheduledBackupWait returns how long the scheduler still has to wait before
