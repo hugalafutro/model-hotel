@@ -34,11 +34,17 @@ var jsonModeOnlyProviders = map[string]bool{
 // that does enforce it still can, and one that does not gets the shape from
 // the prompt; each of those hosts then answers bare, schema-shaped JSON. A
 // provider type that only serves JSON mode, or a learned 400, puts the
-// request in JSON mode instead, with the same fold. Ollama's library names
-// the family without the hyphen (glm4, glm4:9b).
+// request in JSON mode instead, with the same fold. The family name opens a
+// segment of the id, after any vendor path or prefix (z-ai/glm-5.3-flash,
+// glm4:9b, zai.glm-4.7), so a name that merely contains the letters does
+// not match.
 func schemaIgnoredByModel(modelID string) bool {
-	lower := strings.ToLower(modelID)
-	return strings.Contains(lower, "glm-") || strings.Contains(lower, "glm4")
+	for _, segment := range strings.FieldsFunc(strings.ToLower(modelID), func(r rune) bool { return r == '/' || r == '.' }) {
+		if strings.HasPrefix(segment, "glm") {
+			return true
+		}
+	}
+	return false
 }
 
 // schemaRefusalNames are the tokens a 400 about the response format names,
@@ -138,16 +144,23 @@ func foldJSONSchema(raw map[string]any, modelID string, keepSchema bool) {
 	if !ok || rf["type"] != "json_schema" {
 		return
 	}
-	instruction := "Respond with a single JSON object and nothing else."
+	// The instruction names the schema's root type, so a schema whose root is
+	// an array or a scalar is not contradicted by a request for an object.
+	kind := "object"
 	var strict any
+	var schemaText string
 	if wrapped, ok := rf["json_schema"].(map[string]any); ok {
 		strict = wrapped["strict"]
 		if schema, ok := wrapped["schema"].(map[string]any); ok {
+			if root, ok := schema["type"].(string); ok && root != "" {
+				kind = root
+			}
 			if schemaJSON, err := json.Marshal(schema); err == nil && len(schemaJSON) <= schemaPromptMax {
-				instruction += " It must conform to this JSON Schema:\n" + string(schemaJSON)
+				schemaText = " It must conform to this JSON Schema:\n" + string(schemaJSON)
 			}
 		}
 	}
+	instruction := "Respond with a single JSON " + kind + " and nothing else." + schemaText
 	if !keepSchema {
 		raw["response_format"] = map[string]any{"type": "json_object"}
 	}

@@ -113,8 +113,11 @@ func TestBuildUpstreamBody_SchemaIgnoringModelKeepsSchemaAndFolds(t *testing.T) 
 			t.Errorf("%s must match the GLM rule", id)
 		}
 	}
-	if schemaIgnoredByModel("paraglm") || schemaIgnoredByModel("llama3") {
-		t.Error("a name that only ends in glm, or another family, must not match")
+	if schemaIgnoredByModel("paraglm4") || schemaIgnoredByModel("llama3") {
+		t.Error("a name that merely contains the letters, or another family, must not match")
+	}
+	if !schemaIgnoredByModel("zai.glm-4.7") {
+		t.Error("a vendor-prefixed id must match")
 	}
 	other := []byte(`{"model":"llama3","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"name":"city","schema":{"type":"object"}}}}`)
 	raw = decodeJSONBody(t, BuildUpstreamBody(other, "ollama-cloud", "llama3", "llama3", false, &dep, &ren, nil, "p"))
@@ -159,6 +162,12 @@ func TestBuildUpstreamBody_SchemaInstructionShapes(t *testing.T) {
 	raw = decodeJSONBody(t, BuildUpstreamBody(odd, "deepseek", "m", "m", false, &dep, &ren, nil, "p"))
 	if msgs := raw["messages"].([]any); len(msgs) != 3 || msgs[1].(map[string]any)["content"].(map[string]any)["weird"] == nil {
 		t.Errorf("odd content: messages = %v, want the caller's turn kept behind the instruction", msgs)
+	}
+	// The instruction names the schema's root type.
+	arr := []byte(`{"model":"m","messages":[{"role":"user","content":"Cities?"}],"response_format":{"type":"json_schema","json_schema":{"schema":{"type":"array","items":{"type":"string"}}}}}`)
+	raw = decodeJSONBody(t, BuildUpstreamBody(arr, "deepseek", "m", "m", false, &dep, &ren, nil, "p"))
+	if text, _ := raw["messages"].([]any)[0].(map[string]any)["content"].(string); !strings.HasPrefix(text, "Respond with a single JSON array and nothing else.") {
+		t.Errorf("array-root instruction = %q", text)
 	}
 	// A schema past the prompt bound is left out; the model still gets JSON mode.
 	big := `{"type":"object","properties":{"x":{"type":"string","description":"` + strings.Repeat("a", schemaPromptMax) + `"}}}`
