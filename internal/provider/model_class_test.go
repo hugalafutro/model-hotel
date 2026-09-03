@@ -77,9 +77,11 @@ func TestDeriveModelClass_TranscriptionModels(t *testing.T) {
 // The name heuristic is authoritative once audio input is present: an
 // audio-input model whose ID carries a whole "whisper" or "transcribe" segment
 // is a transcriber even when it also reports text input, because that is the
-// exact shape models.dev enrichment produces. The heuristic reaches no further
-// than that — it is consulted only for text-or-code output, so an audio-output
-// or rerank-output model with the same name in it is decided by its arrays.
+// exact shape models.dev enrichment produces. It is likewise authoritative for
+// the longer "embedding" and "rerank" tokens on a text output. The heuristic
+// reaches no further than that — it is consulted only for text-or-code output,
+// so an audio-output or rerank-output model with the same name in it is
+// decided by its arrays.
 func TestDeriveModelClass_NameHeuristicBoundary(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -381,4 +383,69 @@ func TestNormalizeModels_Batch(t *testing.T) {
 
 func containsSubstring(s, sub string) bool {
 	return strings.Contains(s, sub)
+}
+
+// models.dev enrichment describes an embedding or reranking model as text in,
+// text out, so the name has to break the tie the way it does for transcribers:
+// left to the arrays alone those models classed as chat and were offered a
+// chat request the provider refuses.
+func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T) {
+	for _, tc := range []struct{ id, want string }{
+		{"text-embedding-3-small", "embedding"},
+		{"text-embedding-ada-002", "embedding"},
+		{"embedding-gemma", "embedding"},
+		{"cohere-embed-v3-english", "embedding"},
+		{"mistral-embed", "embedding"},
+		{"bge-m3", "embedding"},
+		{"rerank-v3.5", "rerank"},
+		{"gpt-4o", "chat"},
+		{"gpt-5.6-luna", "chat"},
+	} {
+		if got := DeriveModelClass([]string{"text"}, []string{"text"}, tc.id); got != tc.want {
+			t.Errorf("DeriveModelClass(text->text, %q) = %q, want %q", tc.id, got, tc.want)
+		}
+	}
+	// An explicit embedding output still wins on its own, whatever the name.
+	if got := DeriveModelClass([]string{"text"}, []string{"embedding"}, "mystery-model"); got != "embedding" {
+		t.Errorf("explicit embedding output = %q, want embedding", got)
+	}
+
+	// Through the normalizer the stored output array follows the class, so an
+	// enriched and an unenriched row describe the model the same way.
+	m := &model.Model{ModelID: "text-embedding-3-small", InputModalities: `["text"]`, OutputModalities: `["text"]`, Capabilities: "{}"}
+	NormalizeModelClassification(m)
+	if m.Modality != "embedding" || m.OutputModalities != `["embedding"]` {
+		t.Errorf("normalized modality=%q outputs=%s, want embedding with an embedding output", m.Modality, m.OutputModalities)
+	}
+	r := &model.Model{ModelID: "rerank-v3.5", InputModalities: `["text"]`, OutputModalities: `["text"]`, Capabilities: "{}"}
+	NormalizeModelClassification(r)
+	if r.Modality != "rerank" || r.OutputModalities != `["rerank"]` {
+		t.Errorf("normalized modality=%q outputs=%s, want rerank with a rerank output", r.Modality, r.OutputModalities)
+	}
+	// A discovery that stated the chat class keeps it: a completion model
+	// named after its tutor is not an embedder, whatever the name says.
+	c := &model.Model{ModelID: "llama3-embed-tutor", Modality: "chat", OutputModalities: `["text"]`, Capabilities: "{}"}
+	NormalizeModelClassification(c)
+	if c.Modality != "chat" {
+		t.Errorf("explicit chat class = %q, want chat kept over the name heuristic", c.Modality)
+	}
+	// An enrichment text entry beside a discovery's own output goes, the
+	// discovery's entry stays.
+	mixed := &model.Model{ModelID: "text-embedding-3-small", OutputModalities: `["text","embedding"]`, Capabilities: "{}"}
+	NormalizeModelClassification(mixed)
+	if mixed.OutputModalities != `["embedding"]` {
+		t.Errorf("mixed output = %s, want the text entry dropped", mixed.OutputModalities)
+	}
+	// An output naming something else entirely keeps it, behind the class.
+	odd := &model.Model{ModelID: "clip-embed", OutputModalities: `["text","image"]`, Capabilities: "{}"}
+	NormalizeModelClassification(odd)
+	if odd.OutputModalities != `["embedding","image"]` {
+		t.Errorf("odd output = %s, want the class named ahead of the kept entry", odd.OutputModalities)
+	}
+	// An explicit chat model still takes the input its capability flags imply.
+	flagged := &model.Model{ModelID: "llava-embed", Modality: "chat", InputModalities: `["text"]`, OutputModalities: `["text"]`, Capabilities: `{"vision":true}`}
+	NormalizeModelClassification(flagged)
+	if flagged.InputModalities != `["text","image"]` || flagged.Modality != "chat" {
+		t.Errorf("explicit chat with vision flag: input %s class %q, want image input kept and chat", flagged.InputModalities, flagged.Modality)
+	}
 }

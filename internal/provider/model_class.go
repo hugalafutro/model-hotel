@@ -16,7 +16,10 @@ import (
 //
 // The only exception is explicit endpoint knowledge: when a provider API
 // states the endpoint (Cohere rerank/embed flags, xAI image-generation
-// listing), discovery sets one of explicitClasses and it is final. "video" is
+// listing, an Ollama completion capability, an LM Studio llm or vlm type),
+// discovery sets one of explicitClasses and it is final. OpenRouter and
+// NanoGPT copy the provider's architecture.modality string through as it
+// came, so a provider that wrote "chat" there is taken at its word. "video" is
 // deliberately NOT explicit — the legacy vocabulary used "video" for
 // video-*input* chat models, so video generation must be signalled through
 // output_modalities instead.
@@ -26,6 +29,11 @@ var explicitClasses = map[string]bool{
 	"image":     true,
 	"tts":       true,
 	"stt":       true,
+	// "chat" is explicit only from a discovery whose listing states it (an
+	// Ollama completion capability, an LM Studio llm or vlm type); it keeps
+	// the name heuristics below from reclassifying a chat model that merely
+	// carries an embedding-ish token. No discovery writes it as a default.
+	"chat": true,
 }
 
 // canonicalModalityRank orders array entries deterministically so stored JSON
@@ -58,8 +66,24 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// enrichment hands the gpt-4o transcription models the whole modality
 		// set of their chat namesake (text, image and audio in), so audio
 		// input plus a transcriber's name is the whole signal.
-		if containsModality(input, "audio") && inferNonChatModality(modelID) == "stt" {
+		//
+		// The same enrichment describes an embedding or reranking model as
+		// text in, text out, which is what its vectors and scores are made
+		// from but not what its endpoint serves; a text output alone is not
+		// evidence of chat when the name says otherwise. Left as chat, such a
+		// model sits in the chat pickers and answers a chat request with the
+		// provider's refusal. The same name heuristic the no-modality fallback
+		// uses decides here (embed and rerank anywhere in the name, bge, gte,
+		// e5 and minilm as whole segments), so those families are read the
+		// same way whether or not enrichment supplied arrays. A discovery
+		// whose listing states a chat model (Ollama's completion capability,
+		// LM Studio's llm type) writes the class explicitly and never reaches
+		// this branch.
+		switch class := inferNonChatModality(modelID); {
+		case class == "stt" && containsModality(input, "audio"):
 			return "stt"
+		case class == "embedding" || class == "rerank":
+			return class
 		}
 		return "chat"
 	}
@@ -109,6 +133,9 @@ func NormalizeModelClassification(m *model.Model) {
 	// Explicit endpoint classes from endpoint-aware discovery are final. The
 	// capability flags still sync from the input array so e.g. an
 	// image-editing generation model with image input shows its Vision pill.
+	// An explicit chat model also takes the input modalities its capability
+	// flags imply, as the derived path does, so enrichment's vision flag and
+	// the stored input array cannot contradict each other.
 	if explicitClasses[legacy] {
 		defIn, defOut := classDefaultArrays(legacy)
 		if len(input) == 0 {
@@ -117,7 +144,11 @@ func NormalizeModelClassification(m *model.Model) {
 		if len(output) == 0 {
 			output = defOut
 		}
-		m.Capabilities = syncCapsFromInput(m.Capabilities, parseCapabilityFlags(m.Capabilities), input)
+		caps := parseCapabilityFlags(m.Capabilities)
+		if legacy == "chat" {
+			input = canonicalizeModalityList(unionCapsIntoInput(caps, input))
+		}
+		m.Capabilities = syncCapsFromInput(m.Capabilities, caps, input)
 		m.InputModalities = marshalModalityList(input)
 		m.OutputModalities = marshalModalityList(output)
 		m.Modality = legacy
@@ -159,12 +190,38 @@ func NormalizeModelClassification(m *model.Model) {
 		input = []string{"audio"}
 		m.Capabilities = clearCapsNotInInput(m.Capabilities, caps, input)
 	}
+	// An embedding or reranking endpoint produces vectors or scores, so a text
+	// output enrichment handed it is rewritten too: the output array is what
+	// the outputs filter, the produces badge and the retirement evidence read,
+	// and left at text they would all describe a chat model, and the model
+	// could never be retired on evidence from its own endpoint. Only the text
+	// entries go; any other output the array names is a discovery's own claim
+	// and is kept, with the class named ahead of it so the array always says
+	// what the endpoint serves.
+	if class == "embedding" || class == "rerank" {
+		output = withoutTextOutputs(output)
+		if !containsModality(output, class) {
+			output = append([]string{class}, output...)
+		}
+	}
 
 	input = canonicalizeModalityList(input)
 	m.Capabilities = syncCapsFromInput(m.Capabilities, caps, input)
 	m.InputModalities = marshalModalityList(input)
 	m.OutputModalities = marshalModalityList(output)
 	m.Modality = class
+}
+
+// withoutTextOutputs drops the text and code entries, the shape enrichment
+// writes for a model it does not understand, keeping the rest in order.
+func withoutTextOutputs(output []string) []string {
+	kept := output[:0:0]
+	for _, o := range output {
+		if o != "text" && o != "code" {
+			kept = append(kept, o)
+		}
+	}
+	return kept
 }
 
 // NormalizeModels normalizes classification for a batch of discovered models.

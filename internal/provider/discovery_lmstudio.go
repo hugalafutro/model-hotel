@@ -119,15 +119,21 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 	}
 
 	// The native listing's type field is authoritative; express it through
-	// the modality arrays and let the endpoint class be derived centrally.
+	// the modality arrays, and state the chat class explicitly for llm and
+	// vlm so a name heuristic never reclassifies one, leaving the endpoint
+	// class to be derived centrally otherwise.
 	inputMods := `["text"]`
 	outputMods := `["text"]`
+	modality := ""
 	switch m.Type {
 	case "embeddings":
 		outputMods = `["embedding"]`
 	case "vlm":
 		caps.Vision = true
 		inputMods = `["text","image"]`
+		modality = "chat"
+	case "llm":
+		modality = "chat"
 	}
 	capJSON, _ := json.Marshal(caps)
 
@@ -153,6 +159,7 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 		Params:           "{}",
 		InputModalities:  inputMods,
 		OutputModalities: outputMods,
+		Modality:         modality,
 		ContextLength:    contextLength,
 		OwnedBy:          ownedBy,
 		Enabled:          true,
