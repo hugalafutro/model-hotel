@@ -55,7 +55,7 @@ Virtual keys use the `sk-` prefix (e.g., `sk-a1b2c3d4e5f6a7b8`) and are stored a
 - The raw key is shown **once** on creation, then discarded - it is never stored in plaintext
 - Only the SHA-256 hash is persisted in the `virtual_keys` table
 - Lookup compares SHA-256 of the provided Bearer token against the stored hash
-- A key preview (`sk-...01`) is stored for display purposes in the UI
+- A key preview (`sk-...ef01`) is stored for display purposes in the UI
 
 ### Admin Token
 

@@ -339,8 +339,11 @@ func TestCreateVirtualKey_Success(t *testing.T) {
 	if resp.Key == "" {
 		t.Error("expected key to be returned on creation")
 	}
-	if resp.KeyPreview == "" {
-		t.Error("expected key_preview to be set")
+	// The preview is the "sk-" prefix plus the key's last four characters,
+	// the same tail width the provider card shows; checked against the
+	// returned key so a wrong slice offset cannot pass on shape alone.
+	if want := "sk-..." + resp.Key[len(resp.Key)-4:]; resp.KeyPreview != want {
+		t.Errorf("key_preview = %q, want %q", resp.KeyPreview, want)
 	}
 }
 

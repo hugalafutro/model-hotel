@@ -58,8 +58,8 @@ func Generate() (string, error) {
 
 The `key_preview` field stores a human-readable identifier for the key:
 
-- **Format**: First 3 characters (including `sk-` prefix) + `...` + last 2 characters
-- **Example**: `sk-a1b2c3d4e5f6789012345678abcdef01` → `sk-...01`
+- **Format**: First 3 characters (including `sk-` prefix) + `...` + last 4 characters
+- **Example**: `sk-a1b2c3d4e5f6789012345678abcdef01` → `sk-...ef01`
 - **Purpose**: UI identification without exposing the full key
 - **Storage**: Stored in plaintext alongside the hash in the `virtual_keys` table
 
@@ -188,7 +188,7 @@ CREATE INDEX IF NOT EXISTS idx_virtual_keys_key_hash ON virtual_keys(key_hash);
 | `id` | `UUID` | PRIMARY KEY, DEFAULT `gen_random_uuid()` | Unique identifier |
 | `name` | `TEXT` | NOT NULL | Human-readable name (1-100 chars, printable) |
 | `key_hash` | `TEXT` | NOT NULL, UNIQUE | SHA-256 hash (64 hex characters) |
-| `key_preview` | `TEXT` | NOT NULL | First 3 + last 2 chars (e.g., `sk-...01`) |
+| `key_preview` | `TEXT` | NOT NULL | First 3 + last 4 chars (e.g., `sk-...ef01`) |
 | `tokens_used` | `BIGINT` | NOT NULL, DEFAULT 0 | Cumulative token count (prompt + completion) |
 | `last_used_at` | `TIMESTAMPTZ` | NULLABLE | Last authentication timestamp |
 | `created_at` | `TIMESTAMPTZ` | DEFAULT `now()` | Creation timestamp |
@@ -253,7 +253,7 @@ These are reserved because they conflict with built-in URL paths.
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "production-app",
   "key": "sk-a1b2c3d4e5f6789012345678abcdef01",
-  "key_preview": "sk-...01",
+  "key_preview": "sk-...ef01",
   "tokens_used": 0,
   "last_used_at": null,
   "created_at": "2025-01-15T10:30:00Z",
@@ -278,7 +278,7 @@ These are reserved because they conflict with built-in URL paths.
     "id": "550e8400-e29b-41d4-a716-446655440000",
     "name": "production-app",
     "key": "",
-    "key_preview": "sk-...01",
+    "key_preview": "sk-...ef01",
     "tokens_used": 125000,
     "last_used_at": "2025-01-15T14:22:00Z",
     "created_at": "2025-01-15T10:30:00Z",
@@ -290,7 +290,7 @@ These are reserved because they conflict with built-in URL paths.
     "id": "660e8400-e29b-41d4-a716-446655440001",
     "name": "dev-testing",
     "key": "",
-    "key_preview": "sk-...ab",
+    "key_preview": "sk-...9fab",
     "tokens_used": 4500,
     "last_used_at": null,
     "created_at": "2025-01-14T08:15:00Z",
@@ -313,7 +313,7 @@ Note: `key` is always empty string in list/get responses. `rate_limit_*` fields 
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "production-app",
   "key": "",
-  "key_preview": "sk-...01",
+  "key_preview": "sk-...ef01",
   "tokens_used": 125000,
   "last_used_at": "2025-01-15T14:22:00Z",
   "created_at": "2025-01-15T10:30:00Z",
@@ -343,7 +343,7 @@ Note: `key` is always empty string in list/get responses. `rate_limit_*` fields 
   "id": "550e8400-e29b-41d4-a716-446655440000",
   "name": "production-app-v2",
   "key": "",
-  "key_preview": "sk-...01",
+  "key_preview": "sk-...ef01",
   "tokens_used": 125000,
   "last_used_at": "2025-01-15T14:22:00Z",
   "created_at": "2025-01-15T10:30:00Z",
@@ -564,7 +564,7 @@ console.log(response.choices[0].message.content);
 |----------|---------------|
 | **Storage** | SHA-256 hash only - raw key never persisted |
 | **Key format** | `sk-` + 32 hex chars (128 bits entropy) |
-| **Key preview** | First 3 + last 2 chars stored as `key_preview` (e.g., `sk-...01`) |
+| **Key preview** | First 3 + last 4 chars stored as `key_preview` (e.g., `sk-...ef01`) |
 | **Deletion** | Permanent - `DELETE` removes key entirely |
 | **Per-key tracking** | Token usage logged per virtual key |
 | **Rate limiting** | Independent token bucket per key |
