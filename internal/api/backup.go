@@ -167,13 +167,9 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
-	cmd := h.buildDumpCommand(ctx, pgDumpPath, path)
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		// Clean up partial file
-		_ = os.Remove(path)
+	if output, err := h.runDump(ctx, pgDumpPath, path); err != nil {
 		// Log full pg_dump output server-side only (may contain connection details)
-		debuglog.Error("backup: pg_dump failed", "output", strings.TrimSpace(string(output)), "error", err)
+		debuglog.Error("backup: pg_dump failed", "output", output, "error", err)
 		respondError(w, "pg_dump failed - check server logs for details", nil, http.StatusInternalServerError)
 		return
 	}
@@ -382,6 +378,29 @@ func (h *BackupHandler) BackupSignature(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	writeJSON(w, backupSignatureResponse{Signature: strings.TrimSpace(string(contents))})
+}
+
+// backupPartialSuffix marks a dump pg_dump is still writing. The name does
+// not end in ".dump", so the listing, rotation, restore and the scheduler's
+// interval anchor all ignore it until it is renamed onto its final name.
+const backupPartialSuffix = ".partial"
+
+// runDump writes a dump to path, via a partial name renamed onto path only
+// once pg_dump completed, so a process killed mid-dump leaves nothing that
+// reads as a backup. A failed dump leaves nothing behind and returns pg_dump's
+// trimmed output with the error for the caller to log; a failed rename keeps
+// the completed partial, the only good copy, and names it in the error.
+func (h *BackupHandler) runDump(ctx context.Context, pgDumpPath, path string) (string, error) {
+	partial := path + backupPartialSuffix
+	output, err := h.buildDumpCommand(ctx, pgDumpPath, partial).CombinedOutput()
+	if err != nil {
+		_ = os.Remove(partial)
+		return strings.TrimSpace(string(output)), err
+	}
+	if err := os.Rename(partial, path); err != nil {
+		return "", fmt.Errorf("rename completed dump %s into place: %w", filepath.Base(partial), err)
+	}
+	return "", nil
 }
 
 // buildDumpCommand creates a pg_dump command with the password stripped from
