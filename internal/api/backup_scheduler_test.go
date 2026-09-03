@@ -119,6 +119,167 @@ func TestScheduler_FiresBackupWhenEnabled(t *testing.T) {
 	}
 }
 
+// TestScheduledBackupWait pins the interval to the newest scheduled dump on
+// disk: a fresh one defers the next run by the remainder, a stale one, a
+// manual one, or none at all makes a backup due now.
+func TestScheduledBackupWait(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, nil)
+	now := time.Now()
+	interval := time.Hour
+	touch := func(name string, age time.Duration) {
+		t.Helper()
+		path := filepath.Join(dir, name)
+		if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.Chtimes(path, now.Add(-age), now.Add(-age)); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	if got := h.scheduledBackupWait(interval, now); got != 0 {
+		t.Errorf("empty dir: wait = %v, want 0", got)
+	}
+	touch("backup_20260101_000000_0001_manual.dump", 10*time.Minute)
+	if got := h.scheduledBackupWait(interval, now); got != 0 {
+		t.Errorf("manual only: wait = %v, want 0", got)
+	}
+	touch("backup_20260101_000000_0002_auto.dump", 90*time.Minute)
+	if got := h.scheduledBackupWait(interval, now); got != 0 {
+		t.Errorf("stale auto: wait = %v, want 0", got)
+	}
+	touch("backup_20260101_000000_0003_auto.dump", 20*time.Minute)
+	if got := h.scheduledBackupWait(interval, now); got < 39*time.Minute || got > 41*time.Minute {
+		t.Errorf("fresh auto: wait = %v, want about 40m", got)
+	}
+	// A dump still being written, or one left behind by a killed process, is
+	// not a backup and cannot anchor the interval.
+	touch("backup_20260101_000000_0004_auto.dump"+backupPartialSuffix, 0)
+	if got := h.scheduledBackupWait(interval, now); got < 39*time.Minute || got > 41*time.Minute {
+		t.Errorf("partial ignored: wait = %v, want about 40m", got)
+	}
+	// A dump stamped in the future is no anchor: a backup is due now.
+	touch("backup_20260101_000000_0005_auto.dump", -3*time.Hour)
+	if got := h.scheduledBackupWait(interval, now); got != 0 {
+		t.Errorf("future mtime: wait = %v, want 0", got)
+	}
+	h.backupDir = filepath.Join(dir, "missing")
+	if got := h.scheduledBackupWait(interval, now); got != 0 {
+		t.Errorf("missing dir: wait = %v, want 0", got)
+	}
+}
+
+// TestSchedulerTick pins one cycle's outcome: disabled polls idly, a recent
+// scheduled dump defers by the remainder without dumping, and a stale one
+// dumps and sleeps a full interval.
+func TestSchedulerTick(t *testing.T) {
+	enabled := false
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, _, defaultValue string) string { return defaultValue },
+		getBoolFn:        func(_ context.Context, _ string, _ bool) bool { return enabled },
+		getDurationFn:    func(_ context.Context, _ string, _ time.Duration) time.Duration { return time.Hour },
+	}
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+	// No pg_dump on PATH, so a due cycle fails fast and writes nothing; the
+	// dump itself is covered by the runScheduledBackup tests.
+	t.Setenv("PATH", dir)
+	count := func() int {
+		t.Helper()
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return len(entries)
+	}
+
+	if got := h.schedulerTick(context.Background()); got != backupSchedulerIdlePoll {
+		t.Errorf("disabled: sleep = %v, want %v", got, backupSchedulerIdlePoll)
+	}
+	enabled = true
+	recent := filepath.Join(dir, "backup_20260101_000000_0001_auto.dump")
+	if err := os.WriteFile(recent, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.schedulerTick(context.Background()); got < 59*time.Minute || got > time.Hour {
+		t.Errorf("recent dump: sleep = %v, want just under 1h", got)
+	}
+	if count() != 1 {
+		t.Error("recent dump: a backup was attempted, want none")
+	}
+	stale := time.Now().Add(-2 * time.Hour)
+	if err := os.Chtimes(recent, stale, stale); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.schedulerTick(context.Background()); got != time.Hour {
+		t.Errorf("stale dump: sleep = %v, want 1h", got)
+	}
+}
+
+// TestRemoveStalePartials sweeps the leftovers of an interrupted dump and
+// nothing else.
+func TestRemoveStalePartials(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, nil)
+	for _, name := range []string{"backup_20260101_000000_0001_auto.dump", "backup_20260101_000000_0002_auto.dump" + backupPartialSuffix} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o600); err != nil {
+			t.Fatal(err)
+		}
+	}
+	h.removeStalePartials()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 1 || entries[0].Name() != "backup_20260101_000000_0001_auto.dump" {
+		t.Errorf("after sweep dir holds %v, want only the finished dump", entries)
+	}
+	h.backupDir = filepath.Join(dir, "missing")
+	h.removeStalePartials() // an unreadable dir is not an error
+
+	// A backup in progress holds the lock; the sweep must not touch its partial.
+	h.backupDir = dir
+	live := filepath.Join(dir, "backup_20260101_000000_0003_auto.dump"+backupPartialSuffix)
+	if err := os.WriteFile(live, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	h.backupMu.Lock()
+	h.removeStalePartials()
+	h.backupMu.Unlock()
+	if _, err := os.Stat(live); err != nil {
+		t.Errorf("sweep under a held lock removed the live partial: %v", err)
+	}
+}
+
+// TestRunDump_RenameFailureKeepsPartial pins that a completed dump survives a
+// failed rename, since it is the only good copy.
+func TestRunDump_RenameFailureKeepsPartial(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, nil)
+	mock := filepath.Join(dir, "pg_dump")
+	script := "#!/bin/sh\nfor a in \"$@\"; do case \"$a\" in --file=*) echo data > \"${a#--file=}\";; esac; done\n"
+	if err := os.WriteFile(mock, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	// The final name is taken by a directory, so the rename cannot land.
+	final := filepath.Join(dir, "backup_20260101_000000_0001_auto.dump")
+	if err := os.Mkdir(final, 0o750); err != nil {
+		t.Fatal(err)
+	}
+
+	output, err := h.runDump(context.Background(), mock, final)
+	if err == nil || !strings.Contains(err.Error(), "rename completed dump") {
+		t.Fatalf("err = %v, want a rename error", err)
+	}
+	if output != "" {
+		t.Errorf("output = %q, want empty for a rename failure", output)
+	}
+	if _, err := os.Stat(final + backupPartialSuffix); err != nil {
+		t.Errorf("completed partial was not kept: %v", err)
+	}
+}
+
 func TestRunScheduledBackup_PgDumpNotFound(t *testing.T) {
 	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, nil)
 	// runScheduledBackup should return without error when pg_dump is not found.
@@ -582,8 +743,8 @@ func TestRunScheduledBackup_PgDumpFailed(t *testing.T) {
 		t.Fatalf("failed to read backup dir: %v", err)
 	}
 	for _, e := range entries {
-		if strings.HasSuffix(e.Name(), ".dump") {
-			t.Errorf("expected no .dump files after pg_dump failure, found %q", e.Name())
+		if strings.HasSuffix(e.Name(), ".dump") || strings.HasSuffix(e.Name(), backupPartialSuffix) {
+			t.Errorf("expected no dump or partial files after pg_dump failure, found %q", e.Name())
 		}
 	}
 }
