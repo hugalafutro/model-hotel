@@ -1854,7 +1854,9 @@
 			"inflightGrowAfter": "Growth Interval",
 			"inflightGrowAfter.description": "Consecutive successful completions a capped provider must serve before its allowance grows by one.",
 			"inflightForgetAfter": "Forget After",
-			"inflightForgetAfter.description": "How long a capped provider must go without a new busy signal before its allowance returns to unlimited."
+			"inflightForgetAfter.description": "How long a capped provider must go without a new busy signal before its allowance returns to unlimited.",
+			"serverErrorRetry": "Retry a Transient 5xx Once",
+			"serverErrorRetryDescription": "When the last candidate answers a transient 5xx (500, 502, 503 or 504), back off briefly and try it once more before answering the client, instead of returning the error at once."
 		},
 		"logging": {
 			"title": "Logging",

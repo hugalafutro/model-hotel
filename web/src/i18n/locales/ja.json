@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "増加間隔",
 			"inflightGrowAfter.description": "上限付きプロバイダーの許容量が 1 増えるまでに、連続して成功しなければならない完了数。",
 			"inflightForgetAfter": "忘却までの時間",
-			"inflightForgetAfter.description": "上限付きプロバイダーが新たな混雑シグナルなしにこの時間を過ごすと、許容量は無制限に戻ります。"
+			"inflightForgetAfter.description": "上限付きプロバイダーが新たな混雑シグナルなしにこの時間を過ごすと、許容量は無制限に戻ります。",
+			"serverErrorRetry": "一時的な 5xx を一度だけ再試行",
+			"serverErrorRetryDescription": "最後の候補が一時的な 5xx（500、502、503、504）を返した場合、エラーをすぐに返す代わりに、少し待ってからもう一度だけ試してからクライアントに応答します。"
 		},
 		"logging": {
 			"title": "ログ",

@@ -52,6 +52,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	rate_limit_recent_success_window: "60s",
 	circuit_breaker_open_on_exhaustion: "true",
 	failover_exhaustion_status_429: "true",
+	server_error_retry_enabled: "true",
 	// The adaptive in-flight learner; matches internal/proxy/inflight.go.
 	inflight_limiter_enabled: "true",
 	inflight_grow_after: "20",
@@ -137,6 +138,7 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"rate_limit_recent_success_window",
 		"circuit_breaker_open_on_exhaustion",
 		"failover_exhaustion_status_429",
+		"server_error_retry_enabled",
 		"inflight_limiter_enabled",
 		"inflight_grow_after",
 		"inflight_forget_after",
@@ -183,6 +185,7 @@ export type SettingKey =
 	| "rate_limit_recent_success_window"
 	| "circuit_breaker_open_on_exhaustion"
 	| "failover_exhaustion_status_429"
+	| "server_error_retry_enabled"
 	| "inflight_limiter_enabled"
 	| "inflight_grow_after"
 	| "inflight_forget_after"
@@ -234,6 +237,7 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	circuit_breaker_open_on_exhaustion:
 		"settings.circuitBreaker.openOnExhaustion",
 	failover_exhaustion_status_429: "settings.circuitBreaker.exhaustion429",
+	server_error_retry_enabled: "settings.circuitBreaker.serverErrorRetry",
 	inflight_limiter_enabled: "settings.circuitBreaker.inflightLimiter",
 	inflight_grow_after: "settings.circuitBreaker.inflightGrowAfter",
 	inflight_forget_after: "settings.circuitBreaker.inflightForgetAfter",

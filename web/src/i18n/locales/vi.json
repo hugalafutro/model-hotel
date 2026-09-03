@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Khoảng tăng trưởng",
 			"inflightGrowAfter.description": "Số lần hoàn thành thành công liên tiếp mà nhà cung cấp bị giới hạn phải phục vụ trước khi hạn mức tăng thêm một.",
 			"inflightForgetAfter": "Quên sau",
-			"inflightForgetAfter.description": "Nhà cung cấp bị giới hạn phải trải qua bao lâu không có tín hiệu bận mới thì hạn mức trở lại không giới hạn."
+			"inflightForgetAfter.description": "Nhà cung cấp bị giới hạn phải trải qua bao lâu không có tín hiệu bận mới thì hạn mức trở lại không giới hạn.",
+			"serverErrorRetry": "Thử lại lỗi 5xx tạm thời một lần",
+			"serverErrorRetryDescription": "Khi ứng viên cuối cùng trả về lỗi 5xx tạm thời (500, 502, 503 hoặc 504), chờ một chút và thử lại một lần nữa trước khi trả lời máy khách, thay vì trả về lỗi ngay lập tức."
 		},
 		"logging": {
 			"title": "Ghi nhật ký",

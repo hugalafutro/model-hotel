@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Groei-interval",
 			"inflightGrowAfter.description": "Aantal opeenvolgende suksesvolle voltooiings wat 'n beperkte verskaffer moet lewer voordat sy toelae met een groei.",
 			"inflightForgetAfter": "Vergeet na",
-			"inflightForgetAfter.description": "Hoe lank 'n beperkte verskaffer sonder 'n nuwe besig-sein moet bly voordat sy toelae weer onbeperk word."
+			"inflightForgetAfter.description": "Hoe lank 'n beperkte verskaffer sonder 'n nuwe besig-sein moet bly voordat sy toelae weer onbeperk word.",
+			"serverErrorRetry": "Herprobeer 'n tydelike 5xx een keer",
+			"serverErrorRetryDescription": "Wanneer die laaste kandidaat met 'n tydelike 5xx (500, 502, 503 of 504) antwoord, wag kortliks en probeer dit nog een keer voordat die kliënt geantwoord word, in plaas daarvan om die fout dadelik terug te stuur."
 		},
 		"logging": {
 			"title": "Logboekregistrasie",

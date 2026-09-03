@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Büyüme aralığı",
 			"inflightGrowAfter.description": "Sınırlı bir sağlayıcının payı bir artmadan önce art arda sunması gereken başarılı tamamlanma sayısı.",
 			"inflightForgetAfter": "Şu süre sonra unut",
-			"inflightForgetAfter.description": "Sınırlı bir sağlayıcının payının yeniden sınırsız olması için yeni bir yoğunluk sinyali olmadan geçmesi gereken süre."
+			"inflightForgetAfter.description": "Sınırlı bir sağlayıcının payının yeniden sınırsız olması için yeni bir yoğunluk sinyali olmadan geçmesi gereken süre.",
+			"serverErrorRetry": "Geçici bir 5xx'i bir kez yeniden dene",
+			"serverErrorRetryDescription": "Son aday geçici bir 5xx (500, 502, 503 veya 504) ile yanıt verdiğinde, hatayı hemen döndürmek yerine kısa bir süre bekleyip istemciye yanıt vermeden önce onu bir kez daha dene."
 		},
 		"logging": {
 			"title": "Günlük kaydı",

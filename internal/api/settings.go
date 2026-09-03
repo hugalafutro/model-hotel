@@ -154,6 +154,7 @@ var allowedSettings = map[string]struct {
 	"request_timeout":                    {typeName: "string"},                      // duration (e.g. "1m0s")
 	"failover_on_rate_limit":             {typeName: "string"},                      // bool as string
 	"failover_exhaustion_status_429":     {typeName: "string"},                      // bool as string; all-busy/all-pinned exhaustion answers 429 + Retry-After instead of 502
+	"server_error_retry_enabled":         {typeName: "string"},                      // bool as string; the last candidate's one same-provider retry of a transient 5xx
 	"rate_limit_classify_enabled":        {typeName: "string"},                      // bool as string; master switch for 429 saturation-vs-exhaustion classification
 	"rate_limit_saturation_max_wait":     {typeName: "string"},                      // duration; Retry-After at or below this is saturation, and it caps the saturation wait
 	"rate_limit_recent_success_window":   {typeName: "string"},                      // duration; an unknown 429 after a 2xx this recent classifies saturated

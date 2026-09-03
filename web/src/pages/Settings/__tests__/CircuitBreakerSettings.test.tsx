@@ -1247,14 +1247,14 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
 			);
 			const column = await screen.findByTestId("hedging-column");
-			// Ten reset buttons live in the column, one per control, in DOM
+			// Eleven reset buttons live in the column, one per control, in DOM
 			// order: the Hedge Slow Streams toggle and the Hedge Delay slider,
-			// then the five 429-handling controls, then the three adaptive
-			// concurrency controls below them.
+			// then the five 429-handling controls and the 5xx retry toggle,
+			// then the three adaptive concurrency controls below them.
 			const resets = within(column).getAllByRole("button", {
 				name: /reset this setting to default/i,
 			});
-			expect(resets).toHaveLength(10);
+			expect(resets).toHaveLength(11);
 			await user.click(resets[0]);
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["hedging_enabled"]),
@@ -1283,6 +1283,10 @@ describe("CircuitBreakerSettings", () => {
 			screen
 				.getByTestId("exhaustion-429-row")
 				.querySelector("button[role='switch']") as HTMLButtonElement;
+		const serverErrorRetryToggle = () =>
+			screen
+				.getByTestId("server-error-retry-row")
+				.querySelector("button[role='switch']") as HTMLButtonElement;
 		const saturationWaitSlider = () =>
 			document.getElementById(
 				"rate-limit-saturation-max-wait",
@@ -1309,7 +1313,7 @@ describe("CircuitBreakerSettings", () => {
 			return captured;
 		};
 
-		it("renders all three toggles on and both sliders at 60s when the keys are absent, matching the backend defaults", async () => {
+		it("renders all four toggles on and both sliders at 60s when the keys are absent, matching the backend defaults", async () => {
 			server.use(...mockSettings({ body: {} }));
 			renderWithProviders(
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
@@ -1319,8 +1323,32 @@ describe("CircuitBreakerSettings", () => {
 			});
 			expect(openOnExhaustionToggle()).toHaveAttribute("aria-checked", "true");
 			expect(exhaustion429Toggle()).toHaveAttribute("aria-checked", "true");
+			expect(serverErrorRetryToggle()).toHaveAttribute("aria-checked", "true");
 			expect(saturationWaitSlider().value).toBe("60");
 			expect(successWindowSlider().value).toBe("60");
+		});
+
+		it("sends server_error_retry_enabled=false when the 5xx retry toggle is switched off", async () => {
+			const user = userEvent.setup();
+			server.use(
+				...mockSettings({ body: { server_error_retry_enabled: "true" } }),
+			);
+			const captured = capturePut();
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(serverErrorRetryToggle()).toHaveAttribute(
+					"aria-checked",
+					"true",
+				);
+			});
+			await user.click(serverErrorRetryToggle());
+			await waitFor(() => {
+				expect(captured.payload).toEqual({
+					server_error_retry_enabled: "false",
+				});
+			});
 		});
 
 		it("sends rate_limit_classify_enabled=false when the classify toggle is switched off", async () => {

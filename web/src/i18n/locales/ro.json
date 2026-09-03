@@ -1731,7 +1731,9 @@
 			"inflightGrowAfter": "Interval de creștere",
 			"inflightGrowAfter.description": "Câte finalizări reușite consecutive trebuie să servească un furnizor plafonat înainte ca alocarea sa să crească cu unu.",
 			"inflightForgetAfter": "Uită după",
-			"inflightForgetAfter.description": "Cât timp trebuie să stea un furnizor plafonat fără un nou semnal de aglomerare înainte ca alocarea sa să redevină nelimitată."
+			"inflightForgetAfter.description": "Cât timp trebuie să stea un furnizor plafonat fără un nou semnal de aglomerare înainte ca alocarea sa să redevină nelimitată.",
+			"serverErrorRetry": "Reîncearcă o dată un 5xx tranzitoriu",
+			"serverErrorRetryDescription": "Când ultimul candidat răspunde cu un 5xx tranzitoriu (500, 502, 503 sau 504), așteaptă puțin și încearcă-l încă o dată înainte de a răspunde clientului, în loc să returnezi eroarea imediat."
 		},
 		"logging": {
 			"title": "Logare",

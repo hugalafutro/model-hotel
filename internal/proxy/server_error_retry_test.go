@@ -150,6 +150,35 @@ func TestChatCompletions_ServerErrorTwice_ForwardsUpstreamError(t *testing.T) {
 	}
 }
 
+// With server_error_retry_enabled off, the 5xx is forwarded on the first
+// answer: one upstream call, the provider's status, the breaker charged once.
+func TestChatCompletions_ServerErrorRetryDisabled_ForwardsFirstAnswer(t *testing.T) {
+	var calls atomic.Int32
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		calls.Add(1)
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = io.WriteString(w, zaiNetworkFailureBody)
+	}))
+	defer upstream.Close()
+	env := newTestProxyEnvWithUpstream(t, upstream)
+	ctx := context.Background()
+	if err := env.Handler.settingsRepo.Set(ctx, "server_error_retry_enabled", "false"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	defer func() { _ = env.Handler.settingsRepo.Set(ctx, "server_error_retry_enabled", "true") }()
+
+	w := directChatRequest(t, env, false)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want the provider's 500 forwarded; body: %s", w.Code, w.Body.String())
+	}
+	if got := calls.Load(); got != 1 {
+		t.Errorf("upstream calls = %d, want 1: the retry is switched off", got)
+	}
+	if fails, _ := cbConsecutiveFails(env.Handler.circuitBreaker, env.ProviderID); fails != 1 {
+		t.Errorf("breaker consecutive fails = %d, want 1", fails)
+	}
+}
+
 // A 501 is a refusal that a retry cannot change: forwarded on the first
 // answer, one upstream call.
 func TestChatCompletions_NotImplemented_NotRetried(t *testing.T) {
@@ -295,9 +324,9 @@ func TestDeferLastCandidateRetry_ServerErrorNeedsRoom(t *testing.T) {
 			logData, _ := env.Handler.newPendingRequestLog(httptest.NewRequest("POST", "/", http.NoBody), endpointTypeChat, "m", false)
 			cand := modelCandidateForBreaker(uuid.New())
 			logData.openAttemptRecord(0, cand, false, time.Now(), true)
-			st := &requestState{overallDeadline: tc.deadline, logData: logData}
-			if got := st.serverErrorRetryFits(); got != tc.want {
-				t.Fatalf("serverErrorRetryFits() = %v, want %v", got, tc.want)
+			st := &requestState{overallDeadline: tc.deadline, logData: logData, serverErrorRetryEnabled: true}
+			if got := st.serverErrorRetryBudgetLeft(); got != tc.want {
+				t.Fatalf("serverErrorRetryBudgetLeft() = %v, want %v", got, tc.want)
 			}
 			body := io.NopCloser(strings.NewReader(zaiNetworkFailureBody))
 			resp := &http.Response{StatusCode: http.StatusInternalServerError, Body: body}

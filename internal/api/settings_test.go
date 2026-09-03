@@ -497,6 +497,7 @@ func TestRateLimitClassificationKeysAreRegisteredInBothAllowlists(t *testing.T) 
 		"rate_limit_saturation_max_wait",
 		"rate_limit_recent_success_window",
 		"failover_exhaustion_status_429",
+		"server_error_retry_enabled",
 		"circuit_breaker_open_on_exhaustion",
 		"inflight_limiter_enabled",
 		"inflight_forget_after",

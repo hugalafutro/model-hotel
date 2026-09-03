@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Vekstintervall",
 			"inflightGrowAfter.description": "Antall sammenhengende vellykkede fullføringer en begrenset leverandør må levere før kvoten vokser med én.",
 			"inflightForgetAfter": "Glem etter",
-			"inflightForgetAfter.description": "Hvor lenge en begrenset leverandør må være uten nytt travelhetssignal før kvoten igjen blir ubegrenset."
+			"inflightForgetAfter.description": "Hvor lenge en begrenset leverandør må være uten nytt travelhetssignal før kvoten igjen blir ubegrenset.",
+			"serverErrorRetry": "Prøv en forbigående 5xx på nytt én gang",
+			"serverErrorRetryDescription": "Når den siste kandidaten svarer med en forbigående 5xx (500, 502, 503 eller 504), vent kort og prøv den én gang til før klienten får svar, i stedet for å returnere feilen med en gang."
 		},
 		"logging": {
 			"title": "Logger",

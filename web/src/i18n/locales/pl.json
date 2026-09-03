@@ -1778,7 +1778,9 @@
 			"inflightGrowAfter": "Interwał wzrostu",
 			"inflightGrowAfter.description": "Ile kolejnych udanych ukończeń musi obsłużyć ograniczony dostawca, zanim jego przydział wzrośnie o jeden.",
 			"inflightForgetAfter": "Zapomnij po",
-			"inflightForgetAfter.description": "Jak długo ograniczony dostawca musi pozostać bez nowego sygnału obciążenia, zanim jego przydział wróci do nieograniczonego."
+			"inflightForgetAfter.description": "Jak długo ograniczony dostawca musi pozostać bez nowego sygnału obciążenia, zanim jego przydział wróci do nieograniczonego.",
+			"serverErrorRetry": "Ponów przejściowy błąd 5xx jeden raz",
+			"serverErrorRetryDescription": "Gdy ostatni kandydat odpowie przejściowym błędem 5xx (500, 502, 503 lub 504), odczekaj chwilę i spróbuj go jeszcze raz przed odpowiedzią klientowi, zamiast od razu zwracać błąd."
 		},
 		"logging": {
 			"title": "Rejestrowanie",

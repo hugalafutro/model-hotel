@@ -1731,7 +1731,9 @@
 			"inflightGrowAfter": "Intervallo di crescita",
 			"inflightGrowAfter.description": "Completamenti riusciti consecutivi che un provider limitato deve servire prima che il suo margine cresca di uno.",
 			"inflightForgetAfter": "Dimentica dopo",
-			"inflightForgetAfter.description": "Quanto a lungo un provider limitato deve restare senza un nuovo segnale di saturazione prima che il suo margine torni illimitato."
+			"inflightForgetAfter.description": "Quanto a lungo un provider limitato deve restare senza un nuovo segnale di saturazione prima che il suo margine torni illimitato.",
+			"serverErrorRetry": "Ritenta una volta un 5xx transitorio",
+			"serverErrorRetryDescription": "Quando l'ultimo candidato risponde con un 5xx transitorio (500, 502, 503 o 504), attendi brevemente e riprovalo una volta prima di rispondere al client, invece di restituire subito l'errore."
 		},
 		"logging": {
 			"title": "Registrazione",
