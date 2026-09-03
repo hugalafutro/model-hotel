@@ -323,6 +323,9 @@ type requestState struct {
 	rateLimit          rateLimitVerdict
 	saturationRetried  bool
 	serverErrorRetried bool
+	// serverErrorRetryEnabled mirrors server_error_retry_enabled for the
+	// request, read once by loadFailoverConfig like the breaker flag.
+	serverErrorRetryEnabled bool
 
 	// inflightEnabled mirrors inflight_limiter_enabled for the request, read
 	// once by loadFailoverConfig like the breaker flag beside it. attemptSlot
@@ -370,6 +373,16 @@ func (st *requestState) sentChatCompletionsBody() bool {
 // that never set the deadline always has budget.
 func (st *requestState) retryBudgetLeft() bool {
 	return st.overallDeadline.IsZero() || time.Until(st.overallDeadline) > retryMinRound
+}
+
+// serverErrorRetryBudgetLeft is retryBudgetLeft for the server-error retry:
+// the deadline must also hold the longest backoff that retry can draw. It is
+// judged before the failed answer is drained, because past that point the
+// answer in hand is forwarded as the provider gave it, and a retry that then
+// found no time would have thrown that answer away for a generic exhaustion
+// error. A state that never set the deadline always has budget.
+func (st *requestState) serverErrorRetryBudgetLeft() bool {
+	return st.overallDeadline.IsZero() || time.Until(st.overallDeadline) > 2*serverErrorRetryBackoff+retryMinRound
 }
 
 // candidateOutcome is the result of a single failover attempt: whether the

@@ -1731,7 +1731,9 @@
 			"inflightGrowAfter": "Intervalle de croissance",
 			"inflightGrowAfter.description": "Nombre de réponses réussies consécutives qu'un fournisseur plafonné doit servir avant que son allocation n'augmente d'une unité.",
 			"inflightForgetAfter": "Oublier après",
-			"inflightForgetAfter.description": "Durée sans nouveau signal de saturation au bout de laquelle l'allocation d'un fournisseur plafonné redevient illimitée."
+			"inflightForgetAfter.description": "Durée sans nouveau signal de saturation au bout de laquelle l'allocation d'un fournisseur plafonné redevient illimitée.",
+			"serverErrorRetry": "Réessayer une fois un 5xx transitoire",
+			"serverErrorRetryDescription": "Lorsque le dernier candidat répond par un 5xx transitoire (500, 502, 503 ou 504), patienter brièvement et le réessayer une fois avant de répondre au client, au lieu de renvoyer l'erreur immédiatement."
 		},
 		"logging": {
 			"title": "Journalisation",

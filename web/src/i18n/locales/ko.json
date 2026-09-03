@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "증가 간격",
 			"inflightGrowAfter.description": "한도가 걸린 제공자의 허용량이 1 늘어나기 전에 연속으로 성공해야 하는 완료 수입니다.",
 			"inflightForgetAfter": "망각 시간",
-			"inflightForgetAfter.description": "한도가 걸린 제공자가 새 혼잡 신호 없이 이 시간을 보내면 허용량이 무제한으로 돌아갑니다."
+			"inflightForgetAfter.description": "한도가 걸린 제공자가 새 혼잡 신호 없이 이 시간을 보내면 허용량이 무제한으로 돌아갑니다.",
+			"serverErrorRetry": "일시적인 5xx를 한 번 재시도",
+			"serverErrorRetryDescription": "마지막 후보가 일시적인 5xx(500, 502, 503 또는 504)로 응답하면 오류를 즉시 반환하는 대신 잠시 기다렸다가 한 번 더 시도한 뒤 클라이언트에 응답합니다."
 		},
 		"logging": {
 			"title": "로그 기록",

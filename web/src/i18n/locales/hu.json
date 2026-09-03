@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Növekedési intervallum",
 			"inflightGrowAfter.description": "Hány egymást követő sikeres befejezést kell egy korlátozott szolgáltatónak kiszolgálnia, mielőtt kerete eggyel nő.",
 			"inflightForgetAfter": "Felejtés ennyi után",
-			"inflightForgetAfter.description": "Mennyi ideig kell egy korlátozott szolgáltatónak új terheltségi jel nélkül maradnia, mielőtt kerete újra korlátlan lesz."
+			"inflightForgetAfter.description": "Mennyi ideig kell egy korlátozott szolgáltatónak új terheltségi jel nélkül maradnia, mielőtt kerete újra korlátlan lesz.",
+			"serverErrorRetry": "Átmeneti 5xx egyszeri újrapróbálása",
+			"serverErrorRetryDescription": "Ha az utolsó jelölt átmeneti 5xx hibával (500, 502, 503 vagy 504) válaszol, rövid várakozás után még egyszer próbálja meg, mielőtt a kliensnek válaszolna, ahelyett hogy azonnal visszaadná a hibát."
 		},
 		"logging": {
 			"title": "Naplózás",

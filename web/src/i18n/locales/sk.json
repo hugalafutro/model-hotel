@@ -1778,7 +1778,9 @@
 			"inflightGrowAfter": "Interval rastu",
 			"inflightGrowAfter.description": "Koľko po sebe idúcich úspešných dokončení musí obmedzený poskytovateľ obslúžiť, kým jeho prídel vzrastie o jedna.",
 			"inflightForgetAfter": "Zabudnúť po",
-			"inflightForgetAfter.description": "Ako dlho musí byť obmedzený poskytovateľ bez nového signálu vyťaženia, kým sa jeho prídel vráti na neobmedzený."
+			"inflightForgetAfter.description": "Ako dlho musí byť obmedzený poskytovateľ bez nového signálu vyťaženia, kým sa jeho prídel vráti na neobmedzený.",
+			"serverErrorRetry": "Zopakovať prechodnú chybu 5xx raz",
+			"serverErrorRetryDescription": "Keď posledný kandidát odpovie prechodnou chybou 5xx (500, 502, 503 alebo 504), krátko počkať a skúsiť ho ešte raz pred odpoveďou klientovi, namiesto okamžitého vrátenia chyby."
 		},
 		"logging": {
 			"title": "Vytváranie protokolov",

@@ -31,6 +31,7 @@ var AllowedSettings = map[string]bool{
 	"request_timeout":                    true,
 	"failover_on_rate_limit":             true,
 	"failover_exhaustion_status_429":     true,
+	"server_error_retry_enabled":         true,
 	"rate_limit_classify_enabled":        true,
 	"rate_limit_saturation_max_wait":     true,
 	"rate_limit_recent_success_window":   true,

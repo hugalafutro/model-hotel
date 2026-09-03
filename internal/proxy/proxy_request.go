@@ -432,6 +432,8 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 	// Same once-per-request read for the adaptive in-flight limiter; a nil
 	// limiter (handler-literal tests) admits everything whatever this says.
 	st.inflightEnabled = h.inflight != nil && h.settingsRepo.GetBool(r.Context(), "inflight_limiter_enabled", true)
+	// And for the last candidate's one retry of a transient 5xx.
+	st.serverErrorRetryEnabled = h.settingsRepo.GetBool(r.Context(), "server_error_retry_enabled", true)
 	ctxkeys.AddSettingsReadMs(r.Context(), cbStart2)
 
 	// Request hedging config (streaming only; applied at the failover gate).

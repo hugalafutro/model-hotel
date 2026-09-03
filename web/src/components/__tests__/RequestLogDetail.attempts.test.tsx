@@ -199,6 +199,38 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(row).not.toHaveTextContent("refused connection");
 	});
 
+	it("leaves out a last detail the terminal message quotes mid-sentence", () => {
+		// A hedged loser with no provider sentence carries the bare status,
+		// which the terminal message embeds rather than ends with.
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					status_code: 502,
+					error_message: 'provider "b" returned HTTP 503 on attempt 1',
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "b",
+							model: "glm-5.3",
+							status: 503,
+							error_kind: "provider_error",
+							detail: "HTTP 503",
+							duration_ms: 12,
+							hedged: true,
+							breaker: "charge",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const row = screen.getByTestId("attempt-trail-row");
+		expect(row).toHaveTextContent("503");
+		expect(row).not.toHaveTextContent("HTTP 503");
+	});
+
 	it("renders nothing for a row without a trail", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={baseLog} onClose={onClose} />,

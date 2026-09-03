@@ -1731,7 +1731,9 @@
 			"inflightGrowAfter": "Intervalo de crescimento",
 			"inflightGrowAfter.description": "Conclusões bem-sucedidas consecutivas que um fornecedor limitado deve servir antes de a sua margem crescer uma unidade.",
 			"inflightForgetAfter": "Esquecer após",
-			"inflightForgetAfter.description": "Quanto tempo um fornecedor limitado deve passar sem novo sinal de saturação antes de a sua margem voltar a ser ilimitada."
+			"inflightForgetAfter.description": "Quanto tempo um fornecedor limitado deve passar sem novo sinal de saturação antes de a sua margem voltar a ser ilimitada.",
+			"serverErrorRetry": "Repetir um 5xx transitório uma vez",
+			"serverErrorRetryDescription": "Quando o último candidato responde com um 5xx transitório (500, 502, 503 ou 504), aguardar brevemente e tentá-lo mais uma vez antes de responder ao cliente, em vez de retornar o erro imediatamente."
 		},
 		"logging": {
 			"title": "Registro",

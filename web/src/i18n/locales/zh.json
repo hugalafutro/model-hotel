@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "增长间隔",
 			"inflightGrowAfter.description": "受限提供商的额度增加一之前,必须连续成功完成的请求数。",
 			"inflightForgetAfter": "遗忘时间",
-			"inflightForgetAfter.description": "受限提供商在没有新的繁忙信号的情况下经过多久,其额度恢复为无限制。"
+			"inflightForgetAfter.description": "受限提供商在没有新的繁忙信号的情况下经过多久,其额度恢复为无限制。",
+			"serverErrorRetry": "对临时 5xx 重试一次",
+			"serverErrorRetryDescription": "当最后一个候选返回临时 5xx（500、502、503 或 504）时，短暂等待后再试一次，然后再回复客户端，而不是立即返回错误。"
 		},
 		"logging": {
 			"title": "日志记录",

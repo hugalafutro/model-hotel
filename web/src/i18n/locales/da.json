@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Vækstinterval",
 			"inflightGrowAfter.description": "Antal på hinanden følgende vellykkede gennemførsler en begrænset udbyder skal levere, før dens rådighed vokser med én.",
 			"inflightForgetAfter": "Glem efter",
-			"inflightForgetAfter.description": "Hvor længe en begrænset udbyder skal være uden nyt travlhedssignal, før dens rådighed igen bliver ubegrænset."
+			"inflightForgetAfter.description": "Hvor længe en begrænset udbyder skal være uden nyt travlhedssignal, før dens rådighed igen bliver ubegrænset.",
+			"serverErrorRetry": "Prøv en forbigående 5xx igen én gang",
+			"serverErrorRetryDescription": "Når den sidste kandidat svarer med en forbigående 5xx (500, 502, 503 eller 504), vent kort og prøv den én gang til, før klienten får svar, i stedet for at returnere fejlen med det samme."
 		},
 		"logging": {
 			"title": "Logning",

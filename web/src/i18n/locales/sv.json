@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Tillväxtintervall",
 			"inflightGrowAfter.description": "Antal på varandra följande lyckade slutföranden en begränsad leverantör måste leverera innan dess utrymme växer med ett.",
 			"inflightForgetAfter": "Glöm efter",
-			"inflightForgetAfter.description": "Hur länge en begränsad leverantör måste vara utan ny upptagetsignal innan dess utrymme åter blir obegränsat."
+			"inflightForgetAfter.description": "Hur länge en begränsad leverantör måste vara utan ny upptagetsignal innan dess utrymme åter blir obegränsat.",
+			"serverErrorRetry": "Försök en tillfällig 5xx igen en gång",
+			"serverErrorRetryDescription": "När den sista kandidaten svarar med en tillfällig 5xx (500, 502, 503 eller 504), vänta kort och försök den en gång till innan klienten får svar, i stället för att returnera felet direkt."
 		},
 		"logging": {
 			"title": "Loggar",

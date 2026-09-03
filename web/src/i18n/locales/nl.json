@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Groei-interval",
 			"inflightGrowAfter.description": "Aantal opeenvolgende geslaagde voltooiingen dat een begrensde provider moet leveren voordat zijn tegoed met één groeit.",
 			"inflightForgetAfter": "Vergeten na",
-			"inflightForgetAfter.description": "Hoe lang een begrensde provider zonder nieuw druktesignaal moet blijven voordat zijn tegoed weer onbeperkt wordt."
+			"inflightForgetAfter.description": "Hoe lang een begrensde provider zonder nieuw druktesignaal moet blijven voordat zijn tegoed weer onbeperkt wordt.",
+			"serverErrorRetry": "Een tijdelijke 5xx één keer opnieuw proberen",
+			"serverErrorRetryDescription": "Wanneer de laatste kandidaat antwoordt met een tijdelijke 5xx (500, 502, 503 of 504), kort wachten en het nog één keer proberen voordat de client antwoord krijgt, in plaats van de fout meteen terug te geven."
 		},
 		"logging": {
 			"title": "Logboekregistratie",

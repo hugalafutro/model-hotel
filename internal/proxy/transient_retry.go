@@ -88,39 +88,32 @@ func retryableServerError(status int) bool {
 // attempt accordingly: a saturated 429 waits the provider's Retry-After
 // (deferSaturatedRetry), a transient 5xx backs off briefly
 // (deferServerErrorRetry). Each fires once per request, and the 5xx retry only
-// while the overall deadline leaves room for it. ok is false when the
-// answer earns neither and the caller's terminal handling applies.
+// while server_error_retry_enabled is on and the overall deadline leaves room
+// for it. ok is false when the answer earns neither and the caller's terminal
+// handling applies.
 func (h *Handler) deferLastCandidateRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int, rl rateLimitVerdict) (outcome candidateOutcome, ok bool) {
 	if rl.class == rateLimitSaturated && !st.saturationRetried {
 		return h.deferSaturatedRetry(st, candidate, resp, attempt), true
 	}
-	if retryableServerError(resp.StatusCode) && !st.serverErrorRetried && st.serverErrorRetryFits() {
-		return h.deferServerErrorRetry(st, candidate, resp, attempt), true
+	if st.serverErrorRetryEnabled && retryableServerError(resp.StatusCode) && !st.serverErrorRetried && st.serverErrorRetryBudgetLeft() {
+		return h.deferServerErrorRetry(st, candidate, resp, attempt, rl), true
 	}
 	return outcomeFailover, false
-}
-
-// serverErrorRetryFits reports whether the overall deadline leaves room for
-// the longest backoff the server-error retry can draw plus a round: judged
-// before the body is drained, because past this point the answer in hand is
-// forwarded as the provider gave it, and a retry that then found no time
-// would have thrown that answer away for a generic exhaustion error. A state
-// that never set the deadline always has room.
-func (st *requestState) serverErrorRetryFits() bool {
-	return st.overallDeadline.IsZero() || time.Until(st.overallDeadline) > 2*serverErrorRetryBackoff+retryMinRound
 }
 
 // deferServerErrorRetry ends an attempt whose last candidate answered a
 // retryable 5xx: the body is drained, the attempt is closed on the trail with
 // the provider's sentence (the breaker has already been charged for it), and
 // the loop is told to back off and try the same candidate once more
-// (outcomeRetryServerError). st.serverErrorRetried caps it at one.
-func (h *Handler) deferServerErrorRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int) candidateOutcome {
+// (outcomeRetryServerError). st.serverErrorRetried caps it at one. rl is the
+// attempt's own 429 verdict, handed on the way every failover-shaped close
+// does; a 5xx never reads it, but the request-scoped copy is not reached for.
+func (h *Handler) deferServerErrorRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int, rl rateLimitVerdict) candidateOutcome {
 	drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	st.serverErrorRetried = true
-	st.setReqErr(failoverReqErr(st.rateLimit, attempt, candidate.provider.Name, resp.StatusCode))
+	st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
 	st.logData.failoverAttempt = attempt
 	// The attempt ended here; the retry is its own attempt with its own record.
 	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, util.SanitizeLogBody(string(drained), 10000), "", 0)

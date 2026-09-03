@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Wachstumsintervall",
 			"inflightGrowAfter.description": "So viele aufeinanderfolgende erfolgreiche Abschlüsse muss ein begrenzter Anbieter liefern, bevor sein Kontingent um eins wächst.",
 			"inflightForgetAfter": "Vergessen nach",
-			"inflightForgetAfter.description": "So lange muss ein begrenzter Anbieter ohne neues Auslastungssignal bleiben, bevor sein Kontingent wieder unbegrenzt ist."
+			"inflightForgetAfter.description": "So lange muss ein begrenzter Anbieter ohne neues Auslastungssignal bleiben, bevor sein Kontingent wieder unbegrenzt ist.",
+			"serverErrorRetry": "Vorübergehenden 5xx einmal wiederholen",
+			"serverErrorRetryDescription": "Wenn der letzte Kandidat mit einem vorübergehenden 5xx (500, 502, 503 oder 504) antwortet, kurz warten und ihn noch einmal versuchen, bevor dem Client geantwortet wird, statt den Fehler sofort zurückzugeben."
 		},
 		"logging": {
 			"title": "Protokollierung",

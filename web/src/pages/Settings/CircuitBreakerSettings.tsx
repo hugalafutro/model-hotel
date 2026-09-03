@@ -94,6 +94,7 @@ function RateLimit429Group() {
 	const openOnExhaustion =
 		settings?.circuit_breaker_open_on_exhaustion !== "false";
 	const exhaustion429 = settings?.failover_exhaustion_status_429 !== "false";
+	const serverErrorRetry = settings?.server_error_retry_enabled !== "false";
 
 	return (
 		<SettingsGroup title={t("settings.circuitBreaker.rateLimitGroup")}>
@@ -243,6 +244,40 @@ function RateLimit429Group() {
 						})
 					}
 					ariaLabel={t("settings.circuitBreaker.exhaustion429")}
+				/>
+			</div>
+
+			<div
+				className="flex items-center justify-between gap-3"
+				data-testid="server-error-retry-row"
+			>
+				<div className="min-w-0">
+					<div className="flex items-center gap-1">
+						<p className="text-sm font-medium text-gray-300">
+							{t("settings.circuitBreaker.serverErrorRetry")}
+						</p>
+						<ResetButton
+							tooltip={t("settings.common.resetSetting")}
+							onClick={() =>
+								resetSettingMutation.mutate(["server_error_retry_enabled"])
+							}
+							size={12}
+							disabled={isResetting}
+						/>
+					</div>
+					<p className="text-gray-500 text-xs mt-0.5">
+						{t("settings.circuitBreaker.serverErrorRetryDescription")}
+					</p>
+				</div>
+				<Toggle
+					checked={serverErrorRetry}
+					size="sm"
+					onChange={(v) =>
+						updateMutation.mutate({
+							server_error_retry_enabled: v ? "true" : "false",
+						})
+					}
+					ariaLabel={t("settings.circuitBreaker.serverErrorRetry")}
 				/>
 			</div>
 		</SettingsGroup>

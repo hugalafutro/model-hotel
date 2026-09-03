@@ -1731,7 +1731,9 @@
 			"inflightGrowAfter": "Interval de creixement",
 			"inflightGrowAfter.description": "Finalitzacions correctes consecutives que ha de servir un proveïdor limitat abans que el seu marge creixi en un.",
 			"inflightForgetAfter": "Oblida després de",
-			"inflightForgetAfter.description": "Quant de temps ha d'estar un proveïdor limitat sense un nou senyal de saturació abans que el seu marge torni a ser il·limitat."
+			"inflightForgetAfter.description": "Quant de temps ha d'estar un proveïdor limitat sense un nou senyal de saturació abans que el seu marge torni a ser il·limitat.",
+			"serverErrorRetry": "Reintenta un 5xx transitori una vegada",
+			"serverErrorRetryDescription": "Quan l'últim candidat respon amb un 5xx transitori (500, 502, 503 o 504), espera breument i torna-ho a provar una vegada abans de respondre al client, en lloc de retornar l'error de seguida."
 		},
 		"logging": {
 			"title": "Registre",

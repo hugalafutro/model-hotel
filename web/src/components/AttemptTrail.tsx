@@ -44,7 +44,10 @@ export function AttemptTrail({
 	const ordered = [...attempts].sort((x, y) => x.attempt - y.attempt);
 	const terminalMessage = errorMessage ? collapseWhitespace(errorMessage) : "";
 	const last = ordered[ordered.length - 1];
-	// A capped detail ends in an ellipsis the message does not have.
+	// The terminal message is the attempt's error text or quotes it, at the
+	// end ("failed on attempt 1: ...") or mid-sentence ("returned HTTP 503 on
+	// attempt 1"), so the detail is looked for as a run inside it. A detail
+	// the backend capped ends in an ellipsis the message does not have.
 	const repeatsError = (a: AttemptRecord) =>
 		a === last &&
 		!!a.detail &&

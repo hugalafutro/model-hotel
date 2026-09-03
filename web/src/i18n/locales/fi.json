@@ -1684,7 +1684,9 @@
 			"inflightGrowAfter": "Kasvuväli",
 			"inflightGrowAfter.description": "Montako peräkkäistä onnistunutta valmistumista rajoitetun palveluntarjoajan on palveltava, ennen kuin sen kiintiö kasvaa yhdellä.",
 			"inflightForgetAfter": "Unohda kun",
-			"inflightForgetAfter.description": "Kuinka kauan rajoitetun palveluntarjoajan on oltava ilman uutta ruuhkasignaalia, ennen kuin sen kiintiö palaa rajattomaksi."
+			"inflightForgetAfter.description": "Kuinka kauan rajoitetun palveluntarjoajan on oltava ilman uutta ruuhkasignaalia, ennen kuin sen kiintiö palaa rajattomaksi.",
+			"serverErrorRetry": "Yritä ohimenevää 5xx-virhettä kerran uudelleen",
+			"serverErrorRetryDescription": "Kun viimeinen ehdokas vastaa ohimenevällä 5xx-virheellä (500, 502, 503 tai 504), odota hetki ja yritä sitä vielä kerran ennen asiakkaalle vastaamista sen sijaan, että virhe palautettaisiin heti."
 		},
 		"logging": {
 			"title": "Lokitus",
