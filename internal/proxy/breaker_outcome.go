@@ -142,6 +142,14 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 			h.circuitBreaker.RecordRateLimited(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.UpstreamStatus(http.StatusTooManyRequests, "exhausted, not opened by setting"))
 			return
 		}
+		if rl.account {
+			// The account behind the provider is what refused, so the pin
+			// speaks for every model of the provider: the next request to a
+			// sibling is skipped rather than sent to draw the same refusal.
+			debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 429 (account exhausted)", "status", http.StatusTooManyRequests, "pin_hint_ms", rl.pinHint.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
+			h.circuitBreaker.RecordExhaustedAccount(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), http.StatusTooManyRequests, rl.pinHint)
+			return
+		}
 		debuglog.Warn("proxy: recording circuit breaker exhaustion", "reason", "upstream 429 (exhausted)", "status", http.StatusTooManyRequests, "pin_hint_ms", rl.pinHint.Milliseconds(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
 		h.circuitBreaker.RecordExhausted(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), http.StatusTooManyRequests, rl.pinHint)
 	case rateLimitUnknown:
@@ -160,10 +168,12 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 // restores the ordinary charge here too rather than leaving one exhaustion path
 // still opening at once.
 //
-// This does NOT confine the damage to one model. The charge lands on the model
-// that drew the refusal, but SpanModels defaults to 2, so the second model to
-// take a 402 darkens the whole provider, and if the quota advisor already holds
-// an exhaustion reading for it, applyQuotaPin prefers the advisor source and the
+// This does NOT confine the damage to one model, nor darken the provider at
+// once the way its 429 sibling does on an account-wide body: a 402 carries
+// no body the classifier reads, so the charge lands on the model that drew
+// it, and with SpanModels at its default of 2 the second model to take a 402
+// darkens the whole provider; if the quota advisor already holds an
+// exhaustion reading for it, applyQuotaPin prefers the advisor source and the
 // provider-wide arm can trip on the first one. That is the right default for a
 // billing block, which is account-wide by nature, and the wrong one for a
 // provider that returns 402 per-request (OpenRouter answers 402 when a single

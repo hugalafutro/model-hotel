@@ -37,7 +37,8 @@ func (cb *CircuitBreaker) publishEvent(after *afterUnlock, providerID uuid.UUID,
 		"cause":  c.lastCause,
 		"status": c.lastStatus,
 		// pin_source tells a measured pin ("advisor") from one inferred out of
-		// the exhausted response itself ("response"); empty when no pin governs.
+		// the exhausted response itself ("response") or out of a response that
+		// refused the whole account ("account"); empty when no pin governs.
 		"pin_source": cb.pinSourceForWith(c, r),
 		// provider_open is the derived verdict as it stands after this
 		// transition. The event names one model, so without this flag a consumer

@@ -935,3 +935,146 @@ func TestQuotaPin_ProbeIntervalScope(t *testing.T) {
 		t.Errorf("the response pin cut a backoff of hours down to %v", time.Until(retryAt))
 	}
 }
+
+// A refusal about the account behind the provider darkens every model of the
+// provider on that one answer: a sibling never tried is skipped instead of
+// being sent to draw the same refusal, its retry hint is the pin's, the pin
+// still probes on the interval, and a success on the refused model closes it
+// and lets the siblings back in. While the probe is out the siblings are
+// served, and one the account still refuses darkens the provider afresh.
+func TestQuotaPin_AccountRefusalDarkensTheProvider(t *testing.T) {
+	probe := time.Hour
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, pinProbe: &probe, span: 3})
+	id := uuid.New()
+	cb.RecordExhaustedAccount(id, "p", "o1", 429, 90*24*time.Hour)
+
+	if !cb.IsOpen(id, "p", "gpt-4o") {
+		t.Fatal("a sibling never tried must be skipped after an account refusal")
+	}
+	retryAt, pinned, ok := cb.BlockedUntil(id, "gpt-4o")
+	if !ok || !pinned {
+		t.Fatalf("BlockedUntil(sibling) = ok %v pinned %v, want the account pin", ok, pinned)
+	}
+	if wait := time.Until(retryAt); wait < 59*time.Minute || wait > 64*time.Minute {
+		t.Errorf("sibling retry in %v, want the probe interval", wait)
+	}
+
+	// The same refusal read as one model's evidence does not reach the
+	// provider below the span.
+	other := uuid.New()
+	cb.RecordExhausted(other, "q", "o1", 429, 90*24*time.Hour)
+	if cb.IsOpen(other, "q", "gpt-4o") {
+		t.Error("a per-model refusal must not darken a sibling below the span")
+	}
+
+	// Topped up: the interval elapses, the probe on the refused model succeeds,
+	// and the provider is open for business again.
+	cb.mu.Lock()
+	cb.circuits[id.String()]["o1"].openedAt = time.Now().Add(-probe - probe/20 - time.Second)
+	cb.mu.Unlock()
+	if cb.IsOpen(id, "p", "o1") {
+		t.Fatal("interval elapsed: the refused model must let a probe through")
+	}
+	// A half-open circuit counts for nothing, so the siblings are served while
+	// the probe is out, and the account's provider verdict is derived again
+	// from whichever of them it refuses.
+	if cb.IsOpen(id, "p", "gpt-4o") {
+		t.Error("a sibling must be served while the account circuit is half-open")
+	}
+	cb.RecordExhaustedAccount(id, "p", "gpt-4o", 429, 90*24*time.Hour)
+	if !cb.IsOpen(id, "p", "gpt-4.1") {
+		t.Error("a sibling refused during the probe must darken the provider again")
+	}
+	if !cb.IsOpen(id, "p", "o1") {
+		t.Error("the provider verdict covers the half-open model too once a sibling re-pins the account")
+	}
+	for _, s := range cb.StatusDetail() {
+		if s.ProviderID == id.String() && s.PinSource != pinSourceAccount {
+			t.Errorf("dominant pin source = %q, want account", s.PinSource)
+		}
+	}
+	// The first probe reports success; the sibling's pin stands until its own
+	// interval, then its probe closes it and the provider is open again.
+	cb.RecordSuccess(id, "p", "o1")
+	cb.mu.Lock()
+	cb.circuits[id.String()]["gpt-4o"].openedAt = time.Now().Add(-probe - probe/20 - time.Second)
+	cb.mu.Unlock()
+	if cb.IsOpen(id, "p", "gpt-4o") {
+		t.Fatal("the sibling's own interval must let its probe through")
+	}
+	cb.RecordSuccess(id, "p", "gpt-4o")
+	if cb.IsOpen(id, "p", "gpt-4.1") {
+		t.Error("successful probes must lift the account pins from the siblings")
+	}
+}
+
+// A probe the provider answers as busy rather than refused leaves the account
+// circuit half-open like any other, and the provider open: nothing keeps the
+// siblings dark once no circuit is inside its cooldown.
+func TestQuotaPin_AccountProbeAnsweredSaturatedLeavesTheProviderOpen(t *testing.T) {
+	probe := time.Hour
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, pinProbe: &probe, span: 3})
+	id := uuid.New()
+	cb.RecordExhaustedAccount(id, "p", "o1", 429, 90*24*time.Hour)
+	cb.mu.Lock()
+	cb.circuits[id.String()]["o1"].openedAt = time.Now().Add(-probe - probe/20 - time.Second)
+	cb.mu.Unlock()
+	if cb.IsOpen(id, "p", "o1") {
+		t.Fatal("interval elapsed: the refused model must let a probe through")
+	}
+	cb.RecordSaturated(id, "o1")
+	if cb.IsOpen(id, "p", "o1") || cb.IsOpen(id, "p", "gpt-4o") {
+		t.Error("a busy answer to the probe must not darken the provider")
+	}
+	if len(cb.StatusDetail()) != 0 && cb.StatusDetail()[0].ProviderOpen {
+		t.Error("provider verdict must not rest on a half-open circuit")
+	}
+}
+
+// The pin kill switch releases an account pin like any other: with pinning
+// off the provider verdict falls back to the span rule.
+func TestQuotaPin_AccountPinObeysTheKillSwitch(t *testing.T) {
+	off := false
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, pinEnabled: &off, span: 3})
+	id := uuid.New()
+	cb.RecordExhaustedAccount(id, "p", "o1", 429, 90*24*time.Hour)
+	if !cb.IsOpen(id, "p", "o1") {
+		t.Fatal("the refused model itself is open regardless of pinning")
+	}
+	if cb.IsOpen(id, "p", "gpt-4o") {
+		t.Error("with pinning off an account refusal must not darken a sibling below the span")
+	}
+	if s := cb.StatusDetail()[0]; s.QuotaPinned || s.PinSource != "" || s.ProviderOpen {
+		t.Errorf("status = pinned %v source %q provider_open %v, want no pin claimed", s.QuotaPinned, s.PinSource, s.ProviderOpen)
+	}
+}
+
+// The open event of an account refusal carries the account source and the
+// provider verdict, since the source is stamped before the event is built.
+func TestQuotaPin_AccountRefusalEventNamesTheSource(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, span: 3})
+	id := uuid.New()
+	cb.RecordExhaustedAccount(id, "p", "o1", 429, 90*24*time.Hour)
+	statuses := cb.StatusDetail()
+	if len(statuses) != 1 || len(statuses[0].Circuits) != 1 {
+		t.Fatalf("status = %+v, want one tracked circuit", statuses)
+	}
+	if got := statuses[0].Circuits[0].PinSource; got != "account" {
+		t.Errorf("pin_source = %q, want account", got)
+	}
+	if !statuses[0].ProviderOpen {
+		t.Error("the provider verdict must be open on the account refusal alone")
+	}
+}
+
+// An account refusal that stamps no pin (pinning switched off) marks nothing:
+// the mark rides on a pin, not on the refusal.
+func TestQuotaPin_AccountRefusalWithoutAPinMarksNothing(t *testing.T) {
+	off := false
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinEnabled: &off, span: 3})
+	id := uuid.New()
+	cb.RecordExhaustedAccount(id, "p", "o1", 429, 90*24*time.Hour)
+	if cb.IsOpen(id, "p", "gpt-4o") {
+		t.Error("with pinning off an account refusal opens one circuit like any exhaustion, not the provider")
+	}
+}

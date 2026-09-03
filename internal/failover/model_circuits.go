@@ -58,8 +58,9 @@ type circuit struct {
 	// that served moments ago is load, not a spent window.
 	lastSuccess time.Time
 	// pinSource says where the quota pin in force came from: "advisor" (a
-	// measured quota reading) or "response" (inferred from the exhausted 429
-	// itself). Empty when no pin is stamped. The cooldown reads it: a response
+	// measured quota reading), "response" (inferred from the exhausted 429
+	// itself) or "account" (inferred from a 429 that refused the whole
+	// account). Empty when no pin is stamped. The cooldown reads it: a response
 	// pin is capped at the probe interval, an advisor pin is not, so a wrong
 	// source changes how long the circuit stays dark.
 	pinSource string
@@ -283,12 +284,13 @@ func (r *cooldownReads) pinProbeInterval() time.Duration {
 // providerOpen is the derived provider-wide verdict: the breaker never charges
 // a provider directly, it reads one off the circuits it does charge.
 //
-// A provider is down when the quota ADVISOR's pin says its window is spent, or
-// when the failures span at least `span` distinct models. One model refusing is
-// evidence about that model (a plan that excludes it, a retirement, a bad
-// routing id) and must not darken its healthy siblings. A pin inferred from a
-// single response (pinSource "response") is one model's evidence and does not
-// count here; see providerReport.
+// A provider is down when a pin that speaks for the account says so (the quota
+// ADVISOR's measured window, or a response that refused the account itself),
+// or when the failures span at least `span` distinct models. One model
+// refusing is evidence about that model (a plan that excludes it, a
+// retirement, a bad routing id) and must not darken its healthy siblings. A
+// pin inferred from one model's response (pinSource "response") is one model's
+// evidence and does not count here; see providerReport.
 //
 // Must be called with cb.mu held (read lock suffices).
 func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
@@ -330,7 +332,7 @@ func (cb *CircuitBreaker) providerOpen(models modelCircuits) bool {
 //
 // Must be called with cb.mu held (read lock suffices).
 func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads) (open bool, blocked []string, pinned bool) {
-	advisorPinned := false
+	providerPinned := false
 	for model, c := range models {
 		if !cb.blocking(c, r) {
 			continue
@@ -338,18 +340,19 @@ func (cb *CircuitBreaker) providerReport(models modelCircuits, r *cooldownReads)
 		blocked = append(blocked, model)
 		if cb.quotaPinnedForWith(c, r) {
 			pinned = true
-			if c.pinSource == pinSourceAdvisor {
-				advisorPinned = true
+			if c.pinSource == pinSourceAdvisor || c.pinSource == pinSourceAccount {
+				providerPinned = true
 			}
 		}
 	}
 	slices.Sort(blocked)
-	// Only an ADVISOR pin indicts the provider on its own: it measured the
-	// provider's account, so its verdict is provider-scoped. A response-derived
-	// pin is inferred from one model's 429 (a plan excluding ONE model, answered
-	// with a balance error), so it darkens that model alone. Corroboration across
-	// models (the span) still reaches the provider.
-	return advisorPinned || len(blocked) >= cb.effectiveSpan(), blocked, pinned
+	// A pin that speaks for the ACCOUNT indicts the provider on its own: the
+	// advisor measured the provider's account, and an account pin carries a
+	// refusal the provider made about its balance rather than about a model.
+	// A plain response pin is inferred from one model's 429 (a plan excluding
+	// ONE model, answered with a balance error), so it darkens that model
+	// alone. Corroboration across models (the span) still reaches the provider.
+	return providerPinned || len(blocked) >= cb.effectiveSpan(), blocked, pinned
 }
 
 // blocking reports whether a circuit is turning requests away right now: open
@@ -525,7 +528,7 @@ func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads)
 	// see RecordExhausted), and it never undercuts the cooldown the circuit
 	// would serve unpinned, so the pin can never make the breaker more
 	// aggressive. An advisor pin measured the window and keeps its full length.
-	if c.pinSource == pinSourceResponse {
+	if pinProbes(c.pinSource) {
 		if probe := r.pinProbeInterval(); probe > 0 {
 			return max(probe, cooldown) + time.Duration(c.probeSeed*float64(probe)/20)
 		}
@@ -647,7 +650,7 @@ func (cb *CircuitBreaker) quotaPinnedForWith(c *circuit, r *cooldownReads) bool 
 	return c != nil && c.cooldownOverride > 0 && r.pinEnabled()
 }
 
-// pinSourceForWith is the pin's provenance ("advisor" or "response"), reported
+// pinSourceForWith is the pin's provenance ("advisor", "response" or "account"), reported
 // only while the pin is in force. It uses the predicate the quota_pinned flag
 // derives from, so a row cannot name a source for a pin it does not claim.
 func (cb *CircuitBreaker) pinSourceForWith(c *circuit, r *cooldownReads) string {
