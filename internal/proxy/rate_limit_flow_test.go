@@ -469,14 +469,17 @@ func TestRecordBreakerOutcome_PaymentRequired(t *testing.T) {
 		if c.LastCause != "upstream status 402 (exhausted)" || c.LastStatus != 402 {
 			t.Errorf("cause=%q status=%d, want the 402 the provider sent", c.LastCause, c.LastStatus)
 		}
-		// pinHintUntilPaid means "as long as allowed", so the stamped pin must
-		// land at the ceiling, not merely above the ordinary cooldown — a
-		// 61-second pin would clear that weaker bar and still half-open in a
-		// minute. The ceiling is quotaPinMax's 24h default (settings is nil
-		// here); jitter adds up to 5% on top.
-		const pinCeilingMs = int64(24 * 60 * 60 * 1000)
-		if c.CooldownMs < pinCeilingMs || c.CooldownMs > pinCeilingMs*11/10 {
-			t.Errorf("cooldown_ms = %d, want the until-paid pin at the 24h ceiling (+jitter)", c.CooldownMs)
+		// pinHintUntilPaid means "as long as allowed", and a pin the response
+		// itself produced is served as the probe interval rather than the 24h
+		// ceiling: nothing measures when a billing block lifts, so the
+		// circuit lets one probe through per interval (an hour by default,
+		// jittered by up to 5%) instead of staying dark for a day after the
+		// account is topped up. A 61-second pin would still be wrong, so the
+		// served wait is asserted against the interval, not merely against
+		// the ordinary cooldown.
+		const probeIntervalMs = int64(60 * 60 * 1000)
+		if c.CooldownMs < probeIntervalMs || c.CooldownMs > probeIntervalMs*21/20 {
+			t.Errorf("cooldown_ms = %d, want the until-paid pin served as the probe interval (+jitter)", c.CooldownMs)
 		}
 	})
 
