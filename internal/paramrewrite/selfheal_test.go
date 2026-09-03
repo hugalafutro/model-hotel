@@ -100,6 +100,27 @@ func TestSelfHeal_RejectedParamStripped(t *testing.T) {
 
 // TestSelfHeal_NonParam400NoRetry ensures a 400 that is not a param error is
 // returned as-is with its body intact and does not trigger a second request.
+// A probe never sends response_format, so a 400 about it is the provider's
+// answer and no retry is spent on it.
+func TestSelfHeal_ResponseFormat400WithoutJSONSchemaNoRetry(t *testing.T) {
+	var attempts int
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		attempts++
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = io.WriteString(w, `{"error":{"message":"This response_format type is unavailable now"}}`)
+	}))
+	defer srv.Close()
+	base := []byte(`{"model":"m","messages":[{"role":"user","content":"hi"}]}`)
+	resp, err := SelfHealChatCompletion(context.Background(), srv.Client(), srv.URL, "openai", "m", base, jsonHeaders)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusBadRequest || attempts != 1 {
+		t.Fatalf("status = %d attempts = %d, want the 400 handed back after one attempt", resp.StatusCode, attempts)
+	}
+}
+
 func TestSelfHeal_NonParam400NoRetry(t *testing.T) {
 	var attempts int
 	const msg = `{"error":{"message":"You exceeded your quota."}}`

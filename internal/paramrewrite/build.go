@@ -38,6 +38,8 @@ func ProviderSupportsStreamOptions(providerType string) bool {
 //  5. Universal param stripping (ProviderUnsupportedParams)
 //  6. Learned param stripping (deprecationCache)
 //  7. Extra param stripping (additional rejected params, e.g. from 400 auto-retry)
+//     and, for the chat-completions builder only, the json_schema fallback for
+//     a provider that only serves JSON mode
 //  8. Message sanitization (drop empty tool_calls arrays)
 //
 // Injection (step 3) runs before all stripping (steps 5-7) so that a param a
@@ -59,6 +61,48 @@ func BuildUpstreamBody(
 	renameCache *sync.Map,
 	extraStrip map[string]bool,
 	learnScope string,
+) []byte {
+	return buildUpstreamBody(proxyReqBody, providerType, resolvedModelID, requestModel, isStreaming, deprecationCache, renameCache, extraStrip, learnScope, true)
+}
+
+// BuildNativeUpstreamBody is BuildUpstreamBody for a body that a translator
+// (Messages, generateContent, Responses) rewrites next. Those translators
+// carry or drop response_format themselves, so the schema fallback is left
+// out: a key learned from a chat-completions 400 on the same model (a
+// provider routed per request by its content, or the Responses reroute) must
+// not take a schema away from a route that enforces it natively.
+func BuildNativeUpstreamBody(
+	proxyReqBody []byte,
+	providerType string,
+	resolvedModelID string,
+	requestModel string,
+	deprecationCache *sync.Map,
+	renameCache *sync.Map,
+	extraStrip map[string]bool,
+	learnScope string,
+) []byte {
+	return buildUpstreamBody(proxyReqBody, providerType, resolvedModelID, requestModel, false, deprecationCache, renameCache, extraStrip, learnScope, false)
+}
+
+// HasLearnedRewrites reports whether a 400 has taught anything for this
+// provider and model, so a body that needs no other rewrite is still rebuilt
+// with what was learned instead of drawing the same 400 on every request.
+func HasLearnedRewrites(deprecationCache, renameCache *sync.Map, learnScope, resolvedModelID string) bool {
+	key := LearnedCacheKey(learnScope, resolvedModelID)
+	return CachedRejectedParams(deprecationCache, key) != nil || cachedRenames(renameCache, key) != nil
+}
+
+func buildUpstreamBody(
+	proxyReqBody []byte,
+	providerType string,
+	resolvedModelID string,
+	requestModel string,
+	isStreaming bool,
+	deprecationCache *sync.Map,
+	renameCache *sync.Map,
+	extraStrip map[string]bool,
+	learnScope string,
+	schemaFallback bool,
 ) []byte {
 	var raw map[string]any
 	if err := json.Unmarshal(proxyReqBody, &raw); err != nil {
@@ -107,15 +151,23 @@ func BuildUpstreamBody(
 	}
 
 	// 6. Learned param stripping
-	if cached := CachedRejectedParams(deprecationCache, cacheKey); cached != nil {
-		for param := range cached {
-			delete(raw, param)
-		}
+	cached := CachedRejectedParams(deprecationCache, cacheKey)
+	for param := range cached {
+		delete(raw, param)
 	}
 
 	// 7. Extra param stripping (e.g. newly-learned rejections from 400 auto-retry)
 	for param := range extraStrip {
 		delete(raw, param)
+	}
+
+	// 7b. Schema fallback: a provider that only serves JSON mode, by its
+	// documentation or by a 400 it has answered, gets json_schema rewritten
+	// into json_object with the schema in the prompt. Chat-completions bodies
+	// only; a native rebuild comes through BuildNativeUpstreamBody with the
+	// fallback off.
+	if schemaFallback && (jsonModeOnlyProviders[providerType] || cached[SchemaFallbackKey] || extraStrip[SchemaFallbackKey]) {
+		downgradeJSONSchema(raw, resolvedModelID)
 	}
 
 	// 8. Message sanitization

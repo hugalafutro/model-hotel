@@ -148,8 +148,25 @@ func (h *Handler) retryLearnable400(
 // learning half of retryWithStrippedParams, for callers that cannot use it:
 // a hedged probe, which must not spend a second round-trip inside one race
 // slot, and the Messages path, which rebuilds in its own dialect.
-func (h *Handler) learnRejectedParams(candidate modelCandidate, body []byte) {
-	h.mergeLearnedParams(candidate, paramrewrite.ParseProviderParamError(body), paramrewrite.ParseProviderParamRename(body))
+func (h *Handler) learnRejectedParams(st *requestState, candidate modelCandidate, body []byte) {
+	h.mergeLearnedParams(candidate, learnableRejections(st, body), paramrewrite.ParseProviderParamRename(body))
+}
+
+// learnableRejections reads a 400 for the params it rejects, keeping the
+// schema fallback only for a chat-completions request that sent json_schema:
+// a native dialect's 400 keeps its response format elsewhere, and a JSON-mode
+// request refused for its prompt is not healed by the fallback, so a retry
+// built on it would repeat the same 400.
+func learnableRejections(st *requestState, body []byte) map[string]bool {
+	rejected := paramrewrite.ParseProviderParamError(body)
+	if !st.sentChatCompletionsBody() {
+		delete(rejected, paramrewrite.SchemaFallbackKey)
+		if len(rejected) == 0 {
+			return nil
+		}
+		return rejected
+	}
+	return paramrewrite.DropSchemaFallbackUnlessRequested(rejected, st.bodyBytes)
 }
 
 // responsesRejectedParams reads a Responses-dialect 400 for the param learner.
@@ -161,6 +178,10 @@ func (h *Handler) learnRejectedParams(candidate modelCandidate, body []byte) {
 func responsesRejectedParams(body []byte) map[string]bool {
 	rejected := paramrewrite.ParseProviderParamError(body)
 	delete(rejected, "reasoning")
+	// json_schema lives under text.format on the Responses body, so a 400
+	// there is about that dialect's field; the fallback key is shared with
+	// the compat path and must not be learned from it.
+	delete(rejected, paramrewrite.SchemaFallbackKey)
 	if len(rejected) == 0 {
 		return nil
 	}
@@ -267,7 +288,7 @@ func (h *Handler) issueParamRetry(
 // semantics.
 func (h *Handler) rebuildForParamRetry(st *requestState, candidate modelCandidate, providerType string, strip map[string]bool) ([]byte, error) {
 	if st.responsesAttempt {
-		cleaned := paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, false, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
+		cleaned := paramrewrite.BuildNativeUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate))
 		return openairesponses.TranslateChatToResponses(cleaned, candidate.model.ModelID)
 	}
 	return paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, strip, learnedScopeFor(candidate)), nil
@@ -359,7 +380,7 @@ func (h *Handler) retryWithStrippedParams(
 		if st.responsesAttempt {
 			rejected = responsesRejectedParams(errBody)
 		} else {
-			rejected = paramrewrite.ParseProviderParamError(errBody)
+			rejected = learnableRejections(st, errBody)
 		}
 		renames := paramrewrite.ParseProviderParamRename(errBody)
 		if rejected == nil && renames == nil {
