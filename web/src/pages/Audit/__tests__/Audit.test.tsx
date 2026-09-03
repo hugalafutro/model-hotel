@@ -97,11 +97,15 @@ describe("Audit page", () => {
 		expect(screen.getByText("DELETE")).toBeInTheDocument();
 		expect(screen.getByText("204")).toBeInTheDocument();
 		expect(screen.getByText("192.168.7.9:4242")).toBeInTheDocument();
-		// Unresolved entity falls back to the truncated UUID; a resolved one
-		// shows its current display name instead.
-		expect(screen.getByText("11111111…")).toBeInTheDocument();
+		// Unresolved entity falls back to its full UUID (the cell clips it, the
+		// markup does not); a resolved one shows its current display name instead.
+		expect(
+			screen.getByText("11111111-2222-4333-8444-555555555555"),
+		).toBeInTheDocument();
 		expect(screen.getByText("gpt-nice-name")).toBeInTheDocument();
-		expect(screen.queryByText("22222222…")).not.toBeInTheDocument();
+		expect(
+			screen.queryByText("22222222-2222-4333-8444-555555555555"),
+		).not.toBeInTheDocument();
 	});
 
 	it("opens the detail modal on row click", async () => {
@@ -131,7 +135,8 @@ describe("Audit page", () => {
 		await user.click(await screen.findByText("/api/models/{id}"));
 		const dialog = await screen.findByRole("dialog");
 		expect(dialog).toHaveTextContent("Audit Entry");
-		// Full path and UUID appear in the modal (the table truncates both).
+		// Full path and UUID appear in the modal; the table shows the route and
+		// the resolved name.
 		expect(dialog).toHaveTextContent(
 			"/api/models/33333333-2222-4333-8444-555555555555",
 		);

@@ -823,7 +823,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
   {
     "id": "uuid",
     "name": "Production Key",
-    "key_preview": "sk-...ab",
+    "key_preview": "sk-...c5d6",
     "tokens_used": 123456,
     "last_used_at": "2024-01-01T00:00:00Z",
     "created_at": "2024-01-01T00:00:00Z",
@@ -867,7 +867,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
   "id": "uuid",
   "name": "Production Key",
   "key": "sk-a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6",
-  "key_preview": "sk-...d6",
+  "key_preview": "sk-...c5d6",
   "tokens_used": 0,
   "last_used_at": null,
   "created_at": "2024-01-01T00:00:00Z",
