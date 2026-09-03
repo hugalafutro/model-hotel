@@ -65,6 +65,7 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 	}
 	c.cooldownOverride = d
 	c.pinSource = source
+	c.probeSeed = rand.Float64()
 }
 
 // The two pin sources ProviderStatus and the breaker events publish.

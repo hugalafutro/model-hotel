@@ -59,9 +59,15 @@ type circuit struct {
 	lastSuccess time.Time
 	// pinSource says where the quota pin in force came from: "advisor" (a
 	// measured quota reading) or "response" (inferred from the exhausted 429
-	// itself). Empty when no pin is stamped. Observability only; the pin's
-	// mechanics do not read it.
+	// itself). Empty when no pin is stamped. The cooldown reads it: a response
+	// pin is capped at the probe interval, an advisor pin is not, so a wrong
+	// source changes how long the circuit stays dark.
 	pinSource string
+	// probeSeed spreads a response pin's probes: a fraction in [0, 1) drawn once
+	// with the pin and scaled by the interval at read time, so every read agrees
+	// on the instant, a changed interval rescales it, and one provider's models
+	// that went dark together do not all probe in the same second.
+	probeSeed float64
 	// lastCause, lastStatus and lastAt are the circuit's most recent verdict:
 	// why it was last charged, credited, pinned or released, the upstream status
 	// behind that (0 when none was seen) and when it landed. Like pinSource they
@@ -240,6 +246,7 @@ type cooldownReads struct {
 	base      time.Duration
 	backoffOn *bool
 	pinOn     *bool
+	pinProbe  *time.Duration
 }
 
 // cooldowns starts a walk: one read of the configured cooldown, the switches
@@ -263,6 +270,14 @@ func (r *cooldownReads) pinEnabled() bool {
 		r.pinOn = &v
 	}
 	return *r.pinOn
+}
+
+func (r *cooldownReads) pinProbeInterval() time.Duration {
+	if r.pinProbe == nil {
+		v := r.cb.pinProbeInterval()
+		r.pinProbe = &v
+	}
+	return *r.pinProbe
 }
 
 // providerOpen is the derived provider-wide verdict: the breaker never charges
@@ -485,7 +500,8 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 
 // effectiveCooldownForWith is the cooldown governing a circuit: the longest of
 // the configured cooldown, the circuit's probe backoff when backoff is switched
-// on, and its quota pin when pinning is switched on.
+// on, and its quota pin when pinning is switched on, except that a pin inferred
+// from a response is served as the probe interval instead of its full length.
 //
 // The longest, not a precedence order, because each of the three is a reason the
 // circuit must not be probed yet and none is a reason it may be. It also keeps
@@ -495,10 +511,41 @@ func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 // longest is the pin whenever one is in force.
 func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads) time.Duration {
 	cooldown := cb.unpinnedCooldownWith(c, r)
-	if cb.quotaPinnedForWith(c, r) && c.cooldownOverride > cooldown {
-		cooldown = c.cooldownOverride
+	if !cb.quotaPinnedForWith(c, r) || c.cooldownOverride <= cooldown {
+		return cooldown
 	}
-	return cooldown
+	pinned := c.cooldownOverride
+	// A pin inferred from a response is a guess at a window nothing measures:
+	// the providers that answer with a bare "no credits" have no quota
+	// endpoint, so no advisor reading will ever release the pin early, and a
+	// top-up would otherwise wait out the whole ceiling. Such a circuit probes
+	// once per interval instead: the probe re-pins on another refusal and
+	// closes the circuit on a success. The interval, not the backoff, is the
+	// rate limit on those probes (a refused probe does not grow the backoff,
+	// see RecordExhausted), and it never undercuts the cooldown the circuit
+	// would serve unpinned, so the pin can never make the breaker more
+	// aggressive. An advisor pin measured the window and keeps its full length.
+	if c.pinSource == pinSourceResponse {
+		if probe := r.pinProbeInterval(); probe > 0 {
+			return max(probe, cooldown) + time.Duration(c.probeSeed*float64(probe)/20)
+		}
+	}
+	return pinned
+}
+
+// defaultPinProbeInterval is how often a circuit pinned on a response's own
+// claim is probed when the operator has not set circuit_breaker_pin_probe_interval.
+const defaultPinProbeInterval = time.Hour
+
+// pinProbeInterval reads circuit_breaker_pin_probe_interval. Unlike its sibling
+// ceilings, where a non-positive value means "unset", a zero here is a real
+// setting: it disables the periodic probe and lets a response pin run to the
+// ceiling.
+func (cb *CircuitBreaker) pinProbeInterval() time.Duration {
+	if cb.settings != nil {
+		return cb.settings.GetDuration(context.Background(), "circuit_breaker_pin_probe_interval", defaultPinProbeInterval)
+	}
+	return defaultPinProbeInterval
 }
 
 // unpinnedCooldownWith is the cooldown a circuit serves when no quota pin is
