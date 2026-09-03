@@ -26,6 +26,11 @@ var explicitClasses = map[string]bool{
 	"image":     true,
 	"tts":       true,
 	"stt":       true,
+	// "chat" is explicit only from a discovery whose listing states it (an
+	// Ollama completion capability, an LM Studio llm or vlm type); it keeps
+	// the name heuristics below from reclassifying a chat model that merely
+	// carries an embedding-ish token. No discovery writes it as a default.
+	"chat": true,
 }
 
 // canonicalModalityRank orders array entries deterministically so stored JSON
@@ -64,18 +69,17 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// from but not what its endpoint serves; a text output alone is not
 		// evidence of chat when the name says otherwise. Left as chat, such a
 		// model sits in the chat pickers and answers a chat request with the
-		// provider's refusal. The name test here is stricter than the bare
-		// "embed" the no-modality fallback accepts: a discovery that stated a
-		// text output for a model with an embedding-ish token in its name
-		// (an Ollama completion model) is trusted, and only the longer token
-		// marks the model as what it is.
-		switch id := strings.ToLower(modelID); {
-		case containsModality(input, "audio") && inferNonChatModality(modelID) == "stt":
+		// provider's refusal. The same name heuristic the no-modality fallback
+		// uses decides here, so the embedding families it knows (embed, bge,
+		// gte, e5, minilm) are read the same way whether or not enrichment
+		// supplied arrays. A discovery whose listing states a chat model
+		// (Ollama's completion capability, LM Studio's llm type) writes the
+		// class explicitly and never reaches this branch.
+		switch class := inferNonChatModality(modelID); {
+		case class == "stt" && containsModality(input, "audio"):
 			return "stt"
-		case strings.Contains(id, "rerank"):
-			return "rerank"
-		case strings.Contains(id, "embedding"):
-			return "embedding"
+		case class == "embedding" || class == "rerank":
+			return class
 		}
 		return "chat"
 	}
@@ -178,8 +182,11 @@ func NormalizeModelClassification(m *model.Model) {
 	// An embedding or reranking endpoint produces vectors or scores, so a text
 	// output enrichment handed it is rewritten too: the output array is what
 	// the outputs filter, the produces badge and the retirement evidence read,
-	// and left at text they would all describe a chat model.
-	if class == "embedding" || class == "rerank" {
+	// and left at text they would all describe a chat model, and the model
+	// could never be retired on evidence from its own endpoint. Only an
+	// output of text alone is replaced; an array that already names another
+	// output is a discovery's own claim and is kept.
+	if (class == "embedding" || class == "rerank") && outputIsTextOnly(output) {
 		output = []string{class}
 	}
 
@@ -188,6 +195,17 @@ func NormalizeModelClassification(m *model.Model) {
 	m.InputModalities = marshalModalityList(input)
 	m.OutputModalities = marshalModalityList(output)
 	m.Modality = class
+}
+
+// outputIsTextOnly reports whether an output array names nothing beyond text
+// or code, the shape enrichment writes for a model it does not understand.
+func outputIsTextOnly(output []string) bool {
+	for _, o := range output {
+		if o != "text" && o != "code" {
+			return false
+		}
+	}
+	return true
 }
 
 // NormalizeModels normalizes classification for a batch of discovered models.

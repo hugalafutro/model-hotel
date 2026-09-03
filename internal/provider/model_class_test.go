@@ -394,12 +394,12 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 		{"text-embedding-3-small", "embedding"},
 		{"text-embedding-ada-002", "embedding"},
 		{"embedding-gemma", "embedding"},
+		{"cohere-embed-v3-english", "embedding"},
+		{"mistral-embed", "embedding"},
+		{"bge-m3", "embedding"},
 		{"rerank-v3.5", "rerank"},
 		{"gpt-4o", "chat"},
 		{"gpt-5.6-luna", "chat"},
-		// A bare "embed" token with a stated text output is a discovery that
-		// knows better (an Ollama completion model named after its tutor).
-		{"llama3-embed-tutor", "chat"},
 	} {
 		if got := DeriveModelClass([]string{"text"}, []string{"text"}, tc.id); got != tc.want {
 			t.Errorf("DeriveModelClass(text->text, %q) = %q, want %q", tc.id, got, tc.want)
@@ -421,5 +421,19 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 	NormalizeModelClassification(r)
 	if r.Modality != "rerank" || r.OutputModalities != `["rerank"]` {
 		t.Errorf("normalized modality=%q outputs=%s, want rerank with a rerank output", r.Modality, r.OutputModalities)
+	}
+	// A discovery that stated the chat class keeps it: a completion model
+	// named after its tutor is not an embedder, whatever the name says.
+	c := &model.Model{ModelID: "llama3-embed-tutor", Modality: "chat", OutputModalities: `["text"]`, Capabilities: "{}"}
+	NormalizeModelClassification(c)
+	if c.Modality != "chat" {
+		t.Errorf("explicit chat class = %q, want chat kept over the name heuristic", c.Modality)
+	}
+	// An output that already names something beyond text is a discovery's own
+	// claim and is kept as it is.
+	mixed := &model.Model{ModelID: "text-embedding-3-small", OutputModalities: `["text","embedding"]`, Capabilities: "{}"}
+	NormalizeModelClassification(mixed)
+	if mixed.OutputModalities != `["text","embedding"]` {
+		t.Errorf("mixed output rewritten to %s, want kept", mixed.OutputModalities)
 	}
 }
