@@ -64,12 +64,18 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// from but not what its endpoint serves; a text output alone is not
 		// evidence of chat when the name says otherwise. Left as chat, such a
 		// model sits in the chat pickers and answers a chat request with the
-		// provider's refusal.
-		switch class := inferNonChatModality(modelID); {
-		case class == "stt" && containsModality(input, "audio"):
+		// provider's refusal. The name test here is stricter than the bare
+		// "embed" the no-modality fallback accepts: a discovery that stated a
+		// text output for a model with an embedding-ish token in its name
+		// (an Ollama completion model) is trusted, and only the whole word
+		// marks the model as what it is.
+		switch id := strings.ToLower(modelID); {
+		case containsModality(input, "audio") && inferNonChatModality(modelID) == "stt":
 			return "stt"
-		case class == "embedding" || class == "rerank":
-			return class
+		case strings.Contains(id, "embedding"):
+			return "embedding"
+		case strings.Contains(id, "rerank"):
+			return "rerank"
 		}
 		return "chat"
 	}

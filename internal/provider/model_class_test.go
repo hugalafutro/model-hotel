@@ -391,10 +391,13 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 	for _, tc := range []struct{ id, want string }{
 		{"text-embedding-3-small", "embedding"},
 		{"text-embedding-ada-002", "embedding"},
-		{"nomic-embed-text", "embedding"},
+		{"embedding-gemma", "embedding"},
 		{"rerank-v3.5", "rerank"},
 		{"gpt-4o", "chat"},
 		{"gpt-5.6-luna", "chat"},
+		// A bare "embed" token with a stated text output is a discovery that
+		// knows better (an Ollama completion model named after its tutor).
+		{"llama3-embed-tutor", "chat"},
 	} {
 		if got := DeriveModelClass([]string{"text"}, []string{"text"}, tc.id); got != tc.want {
 			t.Errorf("DeriveModelClass(text->text, %q) = %q, want %q", tc.id, got, tc.want)
