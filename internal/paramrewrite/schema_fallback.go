@@ -27,14 +27,16 @@ var jsonModeOnlyProviders = map[string]bool{
 }
 
 // schemaIgnoredByModel reports a model family that takes response_format
-// json_schema without error and answers in a shape of its own, wherever it
-// is hosted: GLM does so on Z.AI, Ollama Cloud and OpenCode Go alike, with
-// the JSON fenced as markdown. For such a model the schema is folded into
-// the prompt while json_schema stays on the request, so a host that does
-// enforce it still can, and one that does not gets the shape from the
-// prompt; observed to answer bare, schema-shaped JSON on all three.
+// json_schema without error and answers in a shape of its own on every
+// chat-completions host: GLM does so on Z.AI, Ollama Cloud and OpenCode Go
+// alike, with the JSON fenced as markdown. For such a model the schema is
+// folded into the prompt while json_schema stays on the request, so a host
+// that does enforce it still can, and one that does not gets the shape from
+// the prompt; each of those hosts then answers bare, schema-shaped JSON. A
+// provider type that only serves JSON mode, or a learned 400, puts the
+// request in JSON mode instead, with the same fold.
 func schemaIgnoredByModel(modelID string) bool {
-	return strings.Contains(strings.ToLower(modelID), "glm")
+	return strings.Contains(strings.ToLower(modelID), "glm-")
 }
 
 // schemaRefusalNames are the tokens a 400 about the response format names,
