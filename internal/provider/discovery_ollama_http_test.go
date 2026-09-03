@@ -681,6 +681,24 @@ func TestBuildOllamaModel_CompletionStaysTextHTTP(t *testing.T) {
 	}
 }
 
+func TestBuildOllamaModel_BothCapabilitiesLeaveTheNameToDecideHTTP(t *testing.T) {
+	service := &DiscoveryService{}
+	show := &OllamaShowResponse{
+		Capabilities: []string{"completion", "embedding"},
+		ModelInfo:    map[string]any{},
+		Details:      OllamaShowDetails{Family: "bert"},
+	}
+	provider := &Provider{ID: uuid.New()}
+	m := service.buildOllamaModel(provider, "nomic-embed-text", show)
+	if m.Modality != "" {
+		t.Fatalf("modality = %q, want unset when the listing names both endpoints", m.Modality)
+	}
+	NormalizeModelClassification(m)
+	if m.Modality != "embedding" {
+		t.Errorf("class = %q, want embedding from the name", m.Modality)
+	}
+}
+
 func TestBuildOllamaModel_EmbeddingByNameFallbackHTTP(t *testing.T) {
 	service := &DiscoveryService{}
 	// Older Ollama returns no capabilities at all; fall back to the name
