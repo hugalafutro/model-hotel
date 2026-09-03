@@ -67,15 +67,15 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// provider's refusal. The name test here is stricter than the bare
 		// "embed" the no-modality fallback accepts: a discovery that stated a
 		// text output for a model with an embedding-ish token in its name
-		// (an Ollama completion model) is trusted, and only the whole word
+		// (an Ollama completion model) is trusted, and only the longer token
 		// marks the model as what it is.
 		switch id := strings.ToLower(modelID); {
 		case containsModality(input, "audio") && inferNonChatModality(modelID) == "stt":
 			return "stt"
-		case strings.Contains(id, "embedding"):
-			return "embedding"
 		case strings.Contains(id, "rerank"):
 			return "rerank"
+		case strings.Contains(id, "embedding"):
+			return "embedding"
 		}
 		return "chat"
 	}
@@ -174,6 +174,13 @@ func NormalizeModelClassification(m *model.Model) {
 	if class == "stt" {
 		input = []string{"audio"}
 		m.Capabilities = clearCapsNotInInput(m.Capabilities, caps, input)
+	}
+	// An embedding or reranking endpoint produces vectors or scores, so a text
+	// output enrichment handed it is rewritten too: the output array is what
+	// the outputs filter, the produces badge and the retirement evidence read,
+	// and left at text they would all describe a chat model.
+	if class == "embedding" || class == "rerank" {
+		output = []string{class}
 	}
 
 	input = canonicalizeModalityList(input)

@@ -183,9 +183,10 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 	// Expressed through output_modalities; the endpoint class itself is derived
 	// centrally by NormalizeModelClassification. A reported "completion" pins
 	// text output so the central name heuristics can't reclassify a chat model
-	// that merely has "embed" in its name; an empty capability list (older
-	// Ollama) leaves output empty so those heuristics still catch embed/rerank
-	// models.
+	// that merely has "embed" in its name (a model named with the longer
+	// "embedding" or "rerank" token is still read as one, text output or not);
+	// an empty capability list (older Ollama) leaves output empty so those
+	// heuristics still catch embed/rerank models.
 	switch {
 	case !hasCompletion && !isVision && hasEmbedding:
 		outputMods = `["embedding"]`

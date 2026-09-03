@@ -77,9 +77,11 @@ func TestDeriveModelClass_TranscriptionModels(t *testing.T) {
 // The name heuristic is authoritative once audio input is present: an
 // audio-input model whose ID carries a whole "whisper" or "transcribe" segment
 // is a transcriber even when it also reports text input, because that is the
-// exact shape models.dev enrichment produces. The heuristic reaches no further
-// than that — it is consulted only for text-or-code output, so an audio-output
-// or rerank-output model with the same name in it is decided by its arrays.
+// exact shape models.dev enrichment produces. It is likewise authoritative for
+// the longer "embedding" and "rerank" tokens on a text output. The heuristic
+// reaches no further than that — it is consulted only for text-or-code output,
+// so an audio-output or rerank-output model with the same name in it is
+// decided by its arrays.
 func TestDeriveModelClass_NameHeuristicBoundary(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -406,5 +408,18 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 	// An explicit embedding output still wins on its own, whatever the name.
 	if got := DeriveModelClass([]string{"text"}, []string{"embedding"}, "mystery-model"); got != "embedding" {
 		t.Errorf("explicit embedding output = %q, want embedding", got)
+	}
+
+	// Through the normalizer the stored output array follows the class, so an
+	// enriched and an unenriched row describe the model the same way.
+	m := &model.Model{ModelID: "text-embedding-3-small", InputModalities: `["text"]`, OutputModalities: `["text"]`, Capabilities: "{}"}
+	NormalizeModelClassification(m)
+	if m.Modality != "embedding" || m.OutputModalities != `["embedding"]` {
+		t.Errorf("normalized modality=%q outputs=%s, want embedding with an embedding output", m.Modality, m.OutputModalities)
+	}
+	r := &model.Model{ModelID: "rerank-v3.5", InputModalities: `["text"]`, OutputModalities: `["text"]`, Capabilities: "{}"}
+	NormalizeModelClassification(r)
+	if r.Modality != "rerank" || r.OutputModalities != `["rerank"]` {
+		t.Errorf("normalized modality=%q outputs=%s, want rerank with a rerank output", r.Modality, r.OutputModalities)
 	}
 }
