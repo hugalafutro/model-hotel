@@ -63,6 +63,11 @@ export function VirtualKeys() {
 		setCurrentPage(1);
 	}, []);
 
+	const handleFilter = useCallback((value: string) => {
+		setNameFilter(value);
+		setCurrentPage(1);
+	}, []);
+
 	const proxyOrigin =
 		typeof window !== "undefined"
 			? window.location.origin
@@ -169,10 +174,7 @@ export function VirtualKeys() {
 				<div className="flex items-center justify-between gap-2">
 					<FilterInput
 						value={nameFilter}
-						onChange={(v) => {
-							setNameFilter(v);
-							setCurrentPage(1);
-						}}
+						onChange={handleFilter}
 						placeholder={t("virtualkeys.filterPlaceholder")}
 						className="w-[200px]"
 					/>

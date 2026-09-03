@@ -2,6 +2,7 @@ import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
+import i18n from "../../../i18n";
 import { mockVirtualKey } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
@@ -42,6 +43,10 @@ describe("VirtualKeys name filter", () => {
 
 		expect(screen.queryByRole("table")).not.toBeInTheDocument();
 		expect(screen.queryByText("Alpha Key")).not.toBeInTheDocument();
+		expect(screen.getByText(i18n.t("virtualkeys.noMatch"))).toBeInTheDocument();
+		expect(
+			screen.queryByText(i18n.t("virtualkeys.emptyState")),
+		).not.toBeInTheDocument();
 		expect(screen.getByRole("textbox")).toHaveValue("zzz");
 		expect(screen.getByText("1")).toBeInTheDocument();
 
@@ -57,5 +62,8 @@ describe("VirtualKeys name filter", () => {
 			expect(screen.queryByRole("status")).not.toBeInTheDocument();
 		});
 		expect(screen.queryByRole("textbox")).not.toBeInTheDocument();
+		expect(
+			screen.getByText(i18n.t("virtualkeys.emptyState")),
+		).toBeInTheDocument();
 	});
 });
