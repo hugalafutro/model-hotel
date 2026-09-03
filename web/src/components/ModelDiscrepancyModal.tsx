@@ -328,8 +328,8 @@ export function ModelDiscrepancyModal({
 	/**
 	 * Every dismissible model in the modal, batched by provider.
 	 *
-	 * Batched because the endpoint is provider-scoped: `POST /api/discovery/dismiss`
-	 * takes one provider_id and its model_ids, so a modal-wide dismiss is N requests
+	 * Batched because the endpoint is provider-scoped: `POST /api/discovery/{provider}/dismiss`
+	 * takes one provider's model_ids, so a modal-wide dismiss is N requests
 	 * however it is presented. Suspect ids are excluded here for the same reason as
 	 * on the pill: the server refuses a still-enabled model.
 	 */

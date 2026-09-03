@@ -81,8 +81,11 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 		r.Post("/ack", h.AckDiscoveryChanges)
 	})
 	r.Get("/discovery/status", h.GetDiscoveryStatus)
-	r.Post("/discovery/dismiss", h.DismissDiscoveryClaims)
-	r.Post("/discovery/unpin", h.UnpinDiscoveryClaims)
+	// The provider rides in the path, not the body, so the audit trail can
+	// name it: a modal-wide verdict fans out one call per provider, and rows
+	// without an entity read as identical.
+	r.Post("/discovery/{provider_id}/dismiss", h.DismissDiscoveryClaims)
+	r.Post("/discovery/{provider_id}/unpin", h.UnpinDiscoveryClaims)
 }
 
 // settingKeyDiscoveryLastReviewed marks when the operator last opened the

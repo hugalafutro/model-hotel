@@ -194,7 +194,6 @@ export const discovery = {
 			"Failed to load discovery status",
 		);
 	},
-	// Suppress (or, with dismissed=false, restore) a discrepancy.
 	// Dismiss only. There is deliberately no un-dismiss: a dismissal self-heals
 	// when discovery next sights the model, which is the only reversal the modal
 	// needs.
@@ -203,14 +202,11 @@ export const discovery = {
 		modelIds: string[],
 	): Promise<{ dismissed: string[]; updated: number }> => {
 		return fetchJSON<{ dismissed: string[]; updated: number }>(
-			`${API_BASE}/api/discovery/dismiss`,
+			`${API_BASE}/api/discovery/${encodeURIComponent(providerId)}/dismiss`,
 			{
 				method: "POST",
 				headers: getAuthHeaders(),
-				body: JSON.stringify({
-					provider_id: providerId,
-					model_ids: modelIds,
-				}),
+				body: JSON.stringify({ model_ids: modelIds }),
 			},
 			"Failed to dismiss discovery claims",
 		);
@@ -227,14 +223,11 @@ export const discovery = {
 		modelIds: string[],
 	): Promise<{ unpinned: string[] }> => {
 		return fetchJSON<{ unpinned: string[] }>(
-			`${API_BASE}/api/discovery/unpin`,
+			`${API_BASE}/api/discovery/${encodeURIComponent(providerId)}/unpin`,
 			{
 				method: "POST",
 				headers: getAuthHeaders(),
-				body: JSON.stringify({
-					provider_id: providerId,
-					model_ids: modelIds,
-				}),
+				body: JSON.stringify({ model_ids: modelIds }),
 			},
 			"Failed to unpin discovery claims",
 		);

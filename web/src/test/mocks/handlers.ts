@@ -636,7 +636,7 @@ export const handlers: RequestHandler[] = [
 		});
 	}),
 
-	http.post("/api/discovery/dismiss", ({ request }) => {
+	http.post("/api/discovery/:providerId/dismiss", ({ request }) => {
 		if (!hasValidAuth(request)) {
 			return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
 		}

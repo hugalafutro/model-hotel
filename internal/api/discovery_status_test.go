@@ -324,8 +324,8 @@ func TestDismissDiscoveryClaims_RemovesClaim(t *testing.T) {
 		t.Fatalf("before dismiss, claims = %v, want [doomed]", ids)
 	}
 
-	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["doomed"]}`, providerID)
-	req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+	body := `{"model_ids":["doomed"]}`
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/discovery/%s/dismiss", providerID), strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -345,7 +345,7 @@ func TestDismissDiscoveryClaims_UnknownModel(t *testing.T) {
 	providerID := seedClaimProvider(t, h.dbPool.Pool(), "dismiss-unknown", true)
 
 	post := func(body string) int {
-		req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/discovery/%s/dismiss", providerID), strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -360,11 +360,11 @@ func TestDismissDiscoveryClaims_UnknownModel(t *testing.T) {
 	// the route is live before the 404 below is trusted to mean "no matching
 	// model" rather than "no matching route". This does not touch the store
 	// layer at all, so it does not duplicate TestSetModelsDismissed.
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[]}`, providerID)); code != http.StatusBadRequest {
+	if code := post(`{"model_ids":[]}`); code != http.StatusBadRequest {
 		t.Fatalf("empty model_ids = %d, want 400 (anchor: proves the route is mounted)", code)
 	}
 
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["not-a-model"]}`, providerID)); code != http.StatusNotFound {
+	if code := post(`{"model_ids":["not-a-model"]}`); code != http.StatusNotFound {
 		t.Errorf("unknown model = %d, want 404", code)
 	}
 }
@@ -386,16 +386,16 @@ func TestDismissDiscoveryClaims_SuspectModelNotDismissible(t *testing.T) {
 	seedClaimModel(t, pool, providerID, "wobbling", true, false, 1, nil)
 
 	// Anchor 1: proves the seeded row is genuinely in suspect state, via
-	// GET /discovery/status. This does NOT prove POST /discovery/dismiss is
-	// mounted — that route and the status route are independently registered
-	// (discovery.go:73-74), so a status-route-only check cannot catch a
-	// missing dismiss route.
+	// GET /discovery/status. This does NOT prove POST
+	// /discovery/{provider_id}/dismiss is mounted — that route and the status
+	// route are independently registered, so a status-route-only check cannot
+	// catch a missing dismiss route.
 	if claim := findClaim(t, getStatus(t, r, "/discovery/status"), "wobbling"); claim.State != ClaimStateSuspect {
 		t.Fatalf("wobbling state = %q, want %q before the dismiss attempt", claim.State, ClaimStateSuspect)
 	}
 
 	post := func(body string) int {
-		req := httptest.NewRequest(http.MethodPost, "/discovery/dismiss", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/discovery/%s/dismiss", providerID), strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -406,14 +406,14 @@ func TestDismissDiscoveryClaims_SuspectModelNotDismissible(t *testing.T) {
 	// Anchor 2: mirrors TestDismissDiscoveryClaims_UnknownModel's pattern. An
 	// empty model_ids list only yields 400 once the request reaches the
 	// handler's own validation; an unmounted route 404s before that code
-	// runs. This proves POST /discovery/dismiss is live before the 404 below
+	// runs. This proves POST /discovery/{provider_id}/dismiss is live before the 404 below
 	// is trusted to mean "suspect model correctly rejected" rather than
 	// "route not mounted".
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[]}`, providerID)); code != http.StatusBadRequest {
+	if code := post(`{"model_ids":[]}`); code != http.StatusBadRequest {
 		t.Fatalf("empty model_ids = %d, want 400 (anchor: proves the route is mounted)", code)
 	}
 
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["wobbling"]}`, providerID)); code != http.StatusNotFound {
+	if code := post(`{"model_ids":["wobbling"]}`); code != http.StatusNotFound {
 		t.Errorf("dismiss suspect model = %d, want 404", code)
 	}
 
@@ -450,8 +450,8 @@ func TestUnpinDiscoveryClaims_ClearsPin(t *testing.T) {
 		t.Fatalf("held state = %q, want %q before the unpin", claim.State, ClaimStatePinned)
 	}
 
-	body := fmt.Sprintf(`{"provider_id":%q,"model_ids":["held"]}`, providerID)
-	req := httptest.NewRequest(http.MethodPost, "/discovery/unpin", strings.NewReader(body))
+	body := `{"model_ids":["held"]}`
+	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/discovery/%s/unpin", providerID), strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
@@ -506,7 +506,7 @@ func TestUnpinDiscoveryClaims_UnknownModel(t *testing.T) {
 	seedClaimModel(t, pool, providerID, "never-pinned", true, false, 1, nil)
 
 	post := func(body string) int {
-		req := httptest.NewRequest(http.MethodPost, "/discovery/unpin", strings.NewReader(body))
+		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/discovery/%s/unpin", providerID), strings.NewReader(body))
 		req.Header.Set("Authorization", "Bearer test-admin-token")
 		req.Header.Set("Content-Type", "application/json")
 		rec := httptest.NewRecorder()
@@ -518,13 +518,13 @@ func TestUnpinDiscoveryClaims_UnknownModel(t *testing.T) {
 	// validation, which only runs once the request reaches UnpinDiscoveryClaims.
 	// An unmounted route would 404 before that, so this proves the 404s below
 	// mean "no matching model" rather than "no matching route".
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":[]}`, providerID)); code != http.StatusBadRequest {
+	if code := post(`{"model_ids":[]}`); code != http.StatusBadRequest {
 		t.Fatalf("empty model_ids = %d, want 400 (anchor: proves the route is mounted)", code)
 	}
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["not-a-model"]}`, providerID)); code != http.StatusNotFound {
+	if code := post(`{"model_ids":["not-a-model"]}`); code != http.StatusNotFound {
 		t.Errorf("unknown model = %d, want 404", code)
 	}
-	if code := post(fmt.Sprintf(`{"provider_id":%q,"model_ids":["never-pinned"]}`, providerID)); code != http.StatusNotFound {
+	if code := post(`{"model_ids":["never-pinned"]}`); code != http.StatusNotFound {
 		t.Errorf("unpinned model = %d, want 404", code)
 	}
 }
