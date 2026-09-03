@@ -113,7 +113,7 @@ func TestBuildUpstreamBody_SchemaIgnoringModelKeepsSchemaAndFolds(t *testing.T) 
 			t.Errorf("%s must match the GLM rule", id)
 		}
 	}
-	if schemaIgnoredByModel("paraglm-x") || schemaIgnoredByModel("llama3") {
+	if schemaIgnoredByModel("paraglm") || schemaIgnoredByModel("llama3") {
 		t.Error("a name that only ends in glm, or another family, must not match")
 	}
 	other := []byte(`{"model":"llama3","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_schema","json_schema":{"name":"city","schema":{"type":"object"}}}}`)
