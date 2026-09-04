@@ -442,6 +442,8 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		util.HoldSecret(*req.APIKey)
 	}
 
+	enabling := h.isEnabling(r.Context(), id, req)
+
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
 		if db.IsUniqueViolation(err) {
@@ -456,21 +458,60 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A newly disabled provider syncs failover groups to remove stale entries from
-	// auto-created groups; routing already skips them, but the UI and group
-	// membership must reflect the new state.
-	if req.Enabled != nil && !*req.Enabled {
-		if h.dbPool != nil {
-			failoverRepo := failover.NewRepository(h.dbPool.Pool())
-			if _, err := failoverRepo.SyncAllModels(context.WithoutCancel(r.Context())); err != nil {
-				debuglog.Info("admin: failed to sync failover groups after provider disable", "error", err)
-			}
-		}
-	}
+	disabling := req.Enabled != nil && !*req.Enabled
+	h.settleProviderToggle(context.WithoutCancel(r.Context()), p, disabling, enabling)
 
 	response := provider.ToResponse(p)
 	writeJSON(w, response)
 }
+
+// isEnabling reports whether req switches provider id from disabled to enabled.
+// Read before the write so an enable can be told apart from an update that
+// leaves an already-enabled provider on: only the transition costs an upstream
+// quota call.
+func (h *Handler) isEnabling(ctx context.Context, id uuid.UUID, req provider.UpdateProviderRequest) bool {
+	if req.Enabled == nil || !*req.Enabled {
+		return false
+	}
+	prior, err := h.providerRepo.Get(ctx, id)
+	return err == nil && !prior.Enabled
+}
+
+// settleProviderToggle runs what an enabled-flag change owes the rest of the
+// system. A disable syncs failover groups to remove stale entries from
+// auto-created groups, and an enable syncs them to put its models back; routing
+// already follows the flag, but the UI and group membership must reflect the
+// new state. An enable also refreshes the quota snapshot inline (bounded by the
+// poll timeout): the background poller skips disabled providers, so the stored
+// snapshot is as old as the disable, and the badge the dashboard reads straight
+// after this response must show the current balance rather than that one.
+func (h *Handler) settleProviderToggle(ctx context.Context, p *provider.Provider, disabling, enabling bool) {
+	// A handler without a pool has none of the repositories this needs.
+	if h.dbPool == nil {
+		return
+	}
+	if disabling || enabling {
+		failoverRepo := failover.NewRepository(h.dbPool.Pool())
+		if _, err := failoverRepo.SyncAllModels(ctx); err != nil {
+			debuglog.Info("admin: failed to sync failover groups after provider enable/disable", "error", err)
+		}
+	}
+	if !enabling {
+		return
+	}
+	if kind, ok := quotaKindFor(provider.TypeOf(p)); ok {
+		// Tighter than the poll's own budget: this runs on an interactive save,
+		// and the background poller is the backstop for a slow upstream.
+		pollCtx, cancel := context.WithTimeout(ctx, enableQuotaRefreshTimeout)
+		defer cancel()
+		h.pollQuotaForProvider(pollCtx, h.discoveryService(), p, kind)
+		h.RefreshQuotaAdvice(ctx)
+	}
+}
+
+// enableQuotaRefreshTimeout bounds the upstream quota call an enable makes
+// before its response is written.
+const enableQuotaRefreshTimeout = 10 * time.Second
 
 // DeleteProvider removes a provider by ID and cleans up associated data.
 func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
