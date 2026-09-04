@@ -56,9 +56,42 @@ func TestTranslateTranscriptionRequest_Dedicated(t *testing.T) {
 	if strings.Contains(string(body), `"text"`) {
 		t.Errorf("dedicated model got an instruction: %s", body)
 	}
+	// The client's prompt is dropped too: the model answers any text beside
+	// the audio with an empty reply.
 	body, _, err = TranslateTranscriptionRequest(TranscriptionRequest{Audio: []byte("x"), FileName: "a.wav", Dedicated: true, Prompt: "Names: Prague."})
-	if err != nil || !strings.Contains(string(body), `"text":"Names: Prague."`) {
+	if err != nil || strings.Contains(string(body), `"text"`) {
 		t.Errorf("dedicated with client prompt: err=%v body=%s", err, body)
+	}
+}
+
+func TestTranslateTranscriptionRequest_Temperature(t *testing.T) {
+	body, _, err := TranslateTranscriptionRequest(TranscriptionRequest{Audio: []byte("x"), FileName: "a.wav", Temperature: "0.2"})
+	if err != nil || !strings.Contains(string(body), `"generationConfig":{"temperature":0.2}`) {
+		t.Errorf("temperature: err=%v body=%s", err, body)
+	}
+	body, _, err = TranslateTranscriptionRequest(TranscriptionRequest{Audio: []byte("x"), FileName: "a.wav", Temperature: "warm"})
+	if err != nil || strings.Contains(string(body), `generationConfig`) {
+		t.Errorf("unparsable temperature must be dropped: err=%v body=%s", err, body)
+	}
+}
+
+func TestAudioMimeType(t *testing.T) {
+	cases := []struct {
+		name, contentType, want string
+		ok                      bool
+	}{
+		{"clip.mp4", "application/octet-stream", "audio/m4a", true},
+		{"clip.MP3", "", "audio/mp3", true},
+		{"clip", "audio/x-wav", "audio/wav", true},
+		{"clip", "audio/mp4", "audio/m4a", true},
+		{"clip", "audio/flac; rate=44100", "audio/flac", true},
+		{"clip", "audio/x-foo", "audio/x-foo", false},
+		{"clip.txt", "text/plain", "text/plain", false},
+	}
+	for _, tc := range cases {
+		if got, ok := AudioMimeType(tc.name, tc.contentType); got != tc.want || ok != tc.ok {
+			t.Errorf("%s %q: got %q %v, want %q %v", tc.name, tc.contentType, got, ok, tc.want, tc.ok)
+		}
 	}
 }
 
@@ -70,8 +103,11 @@ func TestTranslateTranscriptionRequest_Refusals(t *testing.T) {
 	if _, _, err := TranslateTranscriptionRequest(TranscriptionRequest{FileName: "a.wav"}); err == nil || !strings.Contains(err.Error(), "no audio") {
 		t.Errorf("empty upload: err = %v", err)
 	}
-	if _, _, err := TranslateTranscriptionRequest(TranscriptionRequest{Audio: audio, FileName: "blob", ContentType: "application/octet-stream"}); err == nil || !strings.Contains(err.Error(), "audio container") {
-		t.Errorf("unknown container: err = %v", err)
+	if _, _, err := TranslateTranscriptionRequest(TranscriptionRequest{Audio: audio, FileName: "blob", ContentType: "application/octet-stream"}); err == nil || !strings.Contains(err.Error(), "audio container") || strings.Contains(err.Error(), "blob") {
+		t.Errorf("unknown container: err = %v (must not echo the file name)", err)
+	}
+	if _, _, err := TranslateTranscriptionRequest(TranscriptionRequest{Audio: audio, FileName: "a.wav", Stream: true}); err == nil || !strings.Contains(err.Error(), "stream") {
+		t.Errorf("stream: err = %v", err)
 	}
 }
 
@@ -103,6 +139,15 @@ func TestBuildTranscriptionResponse_DedicatedShape(t *testing.T) {
 	}
 	if string(out) != `{"text":"The pass phrase is orange elephant seven."}` || usage.PromptTokens != 66 || usage.CompletionTokens != 0 {
 		t.Errorf("out=%s usage=%+v", out, usage)
+	}
+}
+
+// A second candidate is the same transcript again and is not appended.
+func TestBuildTranscriptionResponse_FirstCandidateOnly(t *testing.T) {
+	body := []byte(`{"candidates":[{"content":{"parts":[{"text":"once"}]}},{"content":{"parts":[{"text":"once"}]}}]}`)
+	out, _, _, err := BuildTranscriptionResponse(body, TranscriptionFormatText)
+	if err != nil || string(out) != "once" {
+		t.Errorf("err=%v out=%s", err, out)
 	}
 }
 

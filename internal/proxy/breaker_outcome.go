@@ -305,12 +305,14 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 // Charging for it would take a healthy provider out of rotation for every tenant
 // after five blocked prompts, which is exactly what a client retries.
 //
-// The speech adapter's refusals are the same two shapes: an answer without an
-// audio part (a blocked prompt, a text reply) is the model answering, and a
-// body past speechBodyCap is this gateway's own limit.
+// The speech and transcription adapters' refusals are the same two shapes:
+// an answer without an audio part or without text (a blocked prompt, a reply
+// of the other kind) is the model answering, and a body past the adapter's
+// cap is this gateway's own limit.
 func translationIsProviderFault(err error) bool {
 	return !errors.Is(err, gemini.ErrPromptBlocked) && !errors.Is(err, errEgressBodyOversized) &&
-		!errors.Is(err, gemini.ErrSpeechNoAudio) && !errors.Is(err, errSpeechBodyOversized)
+		!errors.Is(err, gemini.ErrSpeechNoAudio) && !errors.Is(err, errSpeechBodyOversized) &&
+		!errors.Is(err, gemini.ErrTranscriptionNoText) && !errors.Is(err, errTranscriptionBodyOversized)
 }
 
 // answerCarriesSomething reports whether a completion carries anything at all

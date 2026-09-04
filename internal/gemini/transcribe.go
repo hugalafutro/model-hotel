@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
@@ -41,28 +42,47 @@ var ErrTranscriptionNoText = errors.New("gemini: no text in transcription respon
 // the client gave no prompt of its own: asked nothing about an audio clip it
 // tends to converse with it rather than transcribe it. A dedicated
 // transcription model (gemini-3.5-transcribe) takes the audio alone and
-// answers an instruction beside it with an empty reply, so it gets none.
+// answers any text beside it, the client's prompt included, with an empty
+// reply, so it gets none.
 const defaultTranscriptionPrompt = "Transcribe this audio verbatim. Reply with the transcript only."
 
 // audioMimeByExt maps the upload's file extension to the mime type Gemini
 // takes for that container. OpenAI clients commonly send the file as
-// application/octet-stream, so the name is the reliable signal.
+// application/octet-stream, so the name is the reliable signal. mp4 is the
+// same container as m4a, under the name OpenAI's own API lists.
 var audioMimeByExt = map[string]string{
 	"wav": "audio/wav", "mp3": "audio/mp3", "mpeg": "audio/mpeg", "mpga": "audio/mpeg",
-	"m4a": "audio/m4a", "aac": "audio/aac", "aiff": "audio/aiff", "aif": "audio/aiff",
+	"m4a": "audio/m4a", "mp4": "audio/m4a", "aac": "audio/aac", "aiff": "audio/aiff", "aif": "audio/aiff",
 	"ogg": "audio/ogg", "oga": "audio/ogg", "opus": "audio/opus", "flac": "audio/flac", "webm": "audio/webm",
 }
 
+// audioMimeAliases folds the content types browsers and curl send for the
+// same containers onto Gemini's names; anything else that is not already a
+// Gemini name is refused rather than passed on to the provider's 400.
+var audioMimeAliases = map[string]string{
+	"audio/x-wav": "audio/wav", "audio/wave": "audio/wav", "audio/vnd.wave": "audio/wav",
+	"audio/x-m4a": "audio/m4a", "audio/mp4": "audio/m4a", "audio/x-aiff": "audio/aiff",
+	"audio/x-flac": "audio/flac", "audio/mpeg3": "audio/mp3", "audio/x-mpeg-3": "audio/mp3",
+}
+
 // TranscriptionRequest is what the adapter needs off an OpenAI multipart
-// transcription form.
+// transcription form. language has no counterpart on generateContent (the
+// model detects it) and is dropped; timestamp_granularities only matters to
+// the formats the adapter refuses.
 type TranscriptionRequest struct {
 	Audio          []byte
 	FileName       string
 	ContentType    string
 	Prompt         string
 	ResponseFormat string
+	// Temperature is the form's temperature field as sent, mapped onto the
+	// generation config when it parses as a number.
+	Temperature string
+	// Stream is the form's stream field: the adapter delivers one body, so a
+	// streaming request is refused rather than quietly downgraded.
+	Stream bool
 	// Dedicated marks a transcription-only model, which is sent the audio
-	// with no instruction beside it.
+	// with no text beside it.
 	Dedicated bool
 }
 
@@ -80,42 +100,70 @@ func TranscriptionFormat(format string) (string, error) {
 }
 
 // AudioMimeType resolves the upload's mime type from its file name, falling
-// back to the part's own content type when that names an audio container.
+// back to the part's own content type when that names a container Gemini
+// takes.
 func AudioMimeType(fileName, contentType string) (string, bool) {
 	if mime, ok := audioMimeByExt[strings.ToLower(strings.TrimPrefix(path.Ext(fileName), "."))]; ok {
 		return mime, true
 	}
 	mime, _, _ := strings.Cut(contentType, ";")
 	mime = strings.TrimSpace(strings.ToLower(mime))
-	return mime, strings.HasPrefix(mime, "audio/")
+	if alias, ok := audioMimeAliases[mime]; ok {
+		return alias, true
+	}
+	for _, known := range audioMimeByExt {
+		if mime == known {
+			return mime, true
+		}
+	}
+	return mime, false
+}
+
+// ValidateTranscriptionRequest checks what the adapter can serve without
+// touching the upload's bytes, returning the container and the delivery
+// format. An unsupported response_format is ErrTranscriptionFormat; a
+// streaming request, an empty upload or one whose container cannot be named
+// is a plain error, since the model would answer it with a 400 of its own.
+// The refusal path runs this once per candidate, so the base64 of the upload
+// is left to the translation proper.
+func ValidateTranscriptionRequest(req TranscriptionRequest) (mime, format string, err error) {
+	format, err = TranscriptionFormat(req.ResponseFormat)
+	if err != nil {
+		return "", "", err
+	}
+	if req.Stream {
+		return "", "", errors.New("gemini: a transcription through generateContent is delivered whole; stream is not available")
+	}
+	if len(req.Audio) == 0 {
+		return "", "", errors.New("gemini: transcription request carries no audio")
+	}
+	mime, ok := AudioMimeType(req.FileName, req.ContentType)
+	if !ok {
+		return "", "", errors.New("gemini: cannot tell the audio container; name the file with its extension (wav, mp3, m4a, ogg, flac, webm)")
+	}
+	return mime, format, nil
 }
 
 // TranslateTranscriptionRequest maps an OpenAI transcription form onto a
 // generateContent request, returning the format the answer is to be
-// delivered in. An unsupported response_format is ErrTranscriptionFormat; an
-// empty upload or one whose container cannot be named is a plain error, since
-// the model would answer it with a 400 of its own.
+// delivered in. Its errors are ValidateTranscriptionRequest's.
 func TranslateTranscriptionRequest(req TranscriptionRequest) (geminiBody []byte, format string, err error) {
-	format, err = TranscriptionFormat(req.ResponseFormat)
+	mime, format, err := ValidateTranscriptionRequest(req)
 	if err != nil {
 		return nil, "", err
 	}
-	if len(req.Audio) == 0 {
-		return nil, "", errors.New("gemini: transcription request carries no audio")
-	}
-	mime, ok := AudioMimeType(req.FileName, req.ContentType)
-	if !ok {
-		return nil, "", fmt.Errorf("gemini: cannot tell the audio container of %q; name the file with its extension (wav, mp3, m4a, ogg, flac, webm)", req.FileName)
-	}
 	parts := []genPart{{InlineData: &genBlob{MimeType: mime, Data: base64.StdEncoding.EncodeToString(req.Audio)}}}
-	prompt := strings.TrimSpace(req.Prompt)
-	if prompt == "" && !req.Dedicated {
-		prompt = defaultTranscriptionPrompt
-	}
-	if prompt != "" {
+	if !req.Dedicated {
+		prompt := strings.TrimSpace(req.Prompt)
+		if prompt == "" {
+			prompt = defaultTranscriptionPrompt
+		}
 		parts = append(parts, genPart{Text: prompt})
 	}
 	out := genRequest{Contents: []genContent{{Role: "user", Parts: parts}}}
+	if temp, err := strconv.ParseFloat(strings.TrimSpace(req.Temperature), 64); err == nil {
+		out.GenerationConfig = &genConfig{Temperature: &temp}
+	}
 	geminiBody, err = json.Marshal(out)
 	if err != nil {
 		return nil, "", fmt.Errorf("gemini: marshal transcription request: %w", err)
@@ -141,9 +189,11 @@ func BuildTranscriptionResponse(body []byte, format string) (out []byte, content
 	if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
 		return nil, "", usage, fmt.Errorf("%w: prompt blocked (%s)", ErrTranscriptionNoText, resp.PromptFeedback.BlockReason)
 	}
+	// The first candidate alone: a second one would be the same transcript
+	// again.
 	var text strings.Builder
-	for _, c := range resp.Candidates {
-		for _, p := range c.Content.Parts {
+	if len(resp.Candidates) > 0 {
+		for _, p := range resp.Candidates[0].Content.Parts {
 			if p.AudioTranscription != nil {
 				text.WriteString(p.AudioTranscription.Text)
 				continue

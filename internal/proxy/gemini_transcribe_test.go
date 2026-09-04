@@ -9,8 +9,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -168,5 +173,55 @@ func TestAudioTranscriptions_GeminiTextOnlyModelStaysPassthrough(t *testing.T) {
 	defer up.mu.Unlock()
 	if len(up.paths) != 1 || up.paths[0] != "/v1beta/openai/audio/transcriptions" {
 		t.Errorf("upstream paths = %v, want the compat transcription route", up.paths)
+	}
+}
+
+// The adapter's refusals are not the provider's fault for the breaker: an
+// answer without text is the model answering, and the body cap is the
+// gateway's own.
+func TestTranslationIsProviderFault_TranscriptionSentinels(t *testing.T) {
+	if translationIsProviderFault(fmt.Errorf("%w: no text part", gemini.ErrTranscriptionNoText)) {
+		t.Error("an answer without text must not charge the breaker")
+	}
+	if translationIsProviderFault(errTranscriptionBodyOversized) {
+		t.Error("the gateway's own body cap must not charge the breaker")
+	}
+	if !translationIsProviderFault(fmt.Errorf("gemini: invalid transcription response: not JSON")) {
+		t.Error("a body that is not a generateContent object is the provider's fault")
+	}
+}
+
+// In a group mixing a Gemini model with one served by pass-through, a format
+// the adapter refuses skips the Gemini candidate without a request and the
+// other model serves it as asked.
+func TestAudioTranscriptions_MixedGroupFailsOverToAModelThatServesTheFormat(t *testing.T) {
+	gem := &speechUpstream{answer: transcriptionAnswer("x")}
+	envGemini := newMultimodalEnvTyped(t, gem, `["text"]`, "google", "/v1beta/openai")
+	var srtCalls atomic.Int32
+	srtUpstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		srtCalls.Add(1)
+		w.Header().Set("Content-Type", "text/plain")
+		_, _ = w.Write([]byte("1\n00:00:00,000 --> 00:00:01,000\nhello\n"))
+	}))
+	t.Cleanup(srtUpstream.Close)
+	_, _, srtModelUUID, _ := createMultimodalProvider(t, srtUpstream.URL)
+	groupName := envGemini.modelName
+	if _, err := failover.NewRepository(testDB.Pool()).UpsertWithConfig(context.Background(), groupName,
+		[]uuid.UUID{envGemini.modelUUID, srtModelUUID},
+		map[string]bool{envGemini.modelUUID.String(): true, srtModelUUID.String(): true},
+		nil, nil, nil, nil); err != nil {
+		t.Fatalf("failover group: %v", err)
+	}
+	form, contentType := buildTranscriptionForm(t, "hotel/"+groupName, map[string]string{"response_format": "srt"})
+	w := httptest.NewRecorder()
+	envGemini.handler.AudioTranscriptions(w, envGemini.request("/v1/audio/transcriptions", contentType, form))
+	if w.Code != http.StatusOK || !strings.Contains(w.Body.String(), "-->") {
+		t.Fatalf("status %d body %q, want the srt model's answer", w.Code, w.Body.String())
+	}
+	gem.mu.Lock()
+	gemCalls := len(gem.paths)
+	gem.mu.Unlock()
+	if gemCalls != 0 || srtCalls.Load() != 1 {
+		t.Errorf("gemini saw %d requests, srt model %d; want 0 and 1", gemCalls, srtCalls.Load())
 	}
 }

@@ -34,7 +34,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 		st.setReqErr(reqError{Kind: KindProviderBadRequest, Attempt: attempt, Provider: candidate.provider.Name, Underlying: reason})
 		logData.failoverAttempt = attempt
 		logData.appendSkip(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), reason)
-		debuglog.Info("proxy: speech candidate skipped", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "reason", reason)
+		debuglog.Info("proxy: gemini candidate skipped", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "reason", reason)
 		return outcomeSkipped
 	}
 

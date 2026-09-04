@@ -44,9 +44,9 @@ func isGeminiTranscriptionAttempt(st *requestState, providerType, inputModalitie
 }
 
 // transcriptionRequestFromParts lifts what the adapter needs off the parsed
-// multipart form: the upload and the prompt and response_format fields. A
-// model with a transcribe segment in its id (gemini-3.5-transcribe) is a
-// dedicated transcriber and is sent the audio alone.
+// multipart form: the upload and the fields the translation reads. A model
+// with a transcribe segment in its id (gemini-3.5-transcribe) is a dedicated
+// transcriber and is sent the audio alone.
 func transcriptionRequestFromParts(parts []multipartPart, modelID string) gemini.TranscriptionRequest {
 	req := gemini.TranscriptionRequest{Dedicated: slices.Contains(util.ModelIDSegments(modelID), "transcribe")}
 	for _, p := range parts {
@@ -57,6 +57,10 @@ func transcriptionRequestFromParts(parts []multipartPart, modelID string) gemini
 			req.Prompt = string(p.data)
 		case "response_format":
 			req.ResponseFormat = string(p.data)
+		case "temperature":
+			req.Temperature = string(p.data)
+		case "stream":
+			req.Stream = strings.EqualFold(strings.TrimSpace(string(p.data)), "true")
 		}
 	}
 	return req
@@ -64,14 +68,15 @@ func transcriptionRequestFromParts(parts []multipartPart, modelID string) gemini
 
 // transcriptionRequestRefusal is the reason a Gemini transcription attempt
 // cannot serve the request as asked, or empty: a response format the adapter
-// does not produce (the timestamped ones), or an upload the translation cannot
-// read. Checked before the attempt is made, so the request can fail over to a
-// candidate that can serve it.
+// does not produce (the timestamped ones), a streaming request, or an upload
+// whose container cannot be named. Checked before the attempt is made, so the
+// request can fail over to a candidate that can serve it. The check reads the
+// form's fields only; the upload is encoded once, when the attempt is built.
 func transcriptionRequestRefusal(st *requestState, candidate modelCandidate) string {
 	if !isGeminiTranscriptionAttempt(st, provider.TypeOf(candidate.provider), candidate.model.InputModalities) {
 		return ""
 	}
-	if _, _, err := gemini.TranslateTranscriptionRequest(transcriptionRequestFromParts(st.multipartParts, candidate.model.ModelID)); err != nil {
+	if _, _, err := gemini.ValidateTranscriptionRequest(transcriptionRequestFromParts(st.multipartParts, candidate.model.ModelID)); err != nil {
 		return strings.TrimPrefix(err.Error(), "gemini: ")
 	}
 	return ""
