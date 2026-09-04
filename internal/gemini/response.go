@@ -53,6 +53,12 @@ type genRespPart struct {
 	// request whose response modalities named IMAGE): base64 bytes and
 	// their mime type.
 	InlineData *genRespBlob `json:"inlineData"`
+	// AudioTranscription is how a dedicated transcription model
+	// (gemini-3.5-transcribe) answers: the transcript under its own key
+	// rather than as a text part.
+	AudioTranscription *struct {
+		Text string `json:"text"`
+	} `json:"audioTranscription"`
 }
 
 type genRespBlob struct {

@@ -265,6 +265,15 @@ type requestState struct {
 	// part is delivered as. Empty on every other attempt, which is how the
 	// pass-through dispatch tells the two apart.
 	speechFormat string
+	// transcriptionFormat is the same for a /v1/audio/transcriptions attempt
+	// served through generateContent: the json or text the answer's text is
+	// delivered as.
+	transcriptionFormat string
+	// multipartParts are the parsed parts of a multipart request, kept so a
+	// translating adapter can read the upload and its fields; the
+	// pass-through rebuilds its upstream body from the same parts through
+	// makeUpstreamBody. Nil on every other request.
+	multipartParts []multipartPart
 	// passthroughUsage is the usage a translating adapter read off the
 	// provider's answer before re-shaping it into a body that carries none.
 	// The binary pass-through path meters from it in place of the estimate.

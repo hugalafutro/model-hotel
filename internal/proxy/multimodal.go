@@ -119,6 +119,7 @@ func (h *Handler) serveMultipartPassthrough(w http.ResponseWriter, r *http.Reque
 	}
 	st.endpointPath = endpointPath
 	st.longRunning = isLongRunningEndpoint(endpointType)
+	st.multipartParts = parts
 	st.makeUpstreamBody = newMultipartBodyBuilder(parts)
 	h.servePassthroughPipeline(w, r, st)
 }
@@ -133,7 +134,7 @@ func (h *Handler) servePassthroughPipeline(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	h.loadFailoverConfig(r, st)
-	if h.refuseSpeechRequest(w, st, candidates) {
+	if h.refuseGeminiRequest(w, st, candidates) {
 		return
 	}
 	debuglog.Debug("proxy: model resolved (pre-loop)", "endpoint", st.logData.endpointType, "model", st.logData.modelID, "provider", st.logData.providerName, "candidates", len(candidates), "overhead_ms", st.proxyOverhead)
@@ -358,9 +359,8 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 
 	promptTokens, completionTokens := extractPassthroughUsage(body)
 	if u := st.passthroughUsage; u != nil {
-		// A translating adapter read the provider's figures off the answer
-		// it re-shaped into this body (none does for JSON today; the binary
-		// twin below is where the speech adapter lands).
+		// A translating adapter (Gemini transcription) read the provider's
+		// figures off the answer it re-shaped into this body.
 		promptTokens, completionTokens = u.prompt, u.completion
 	}
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
