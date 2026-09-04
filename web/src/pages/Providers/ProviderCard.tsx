@@ -126,7 +126,7 @@ export function ProviderCard({
 						</button>
 					)}
 					{provider.enabled && (
-						<span className="ml-auto inline-flex items-center gap-2">
+						<span className="inline-flex items-center gap-2">
 							<QuotaBadges
 								quotaData={quotaData}
 								variant="card"

@@ -20,7 +20,7 @@ export function CapNoteBadge({ note }: { note: CapNote }) {
 		: t("components.capNote.tipNoPhrase", { when, model: note.model });
 	return (
 		<span
-			className="px-2 py-1.5 text-xs font-medium ui-badge ui-badge-warning cursor-help"
+			className="px-2 py-px leading-[1.6] text-xs font-medium ui-badge ui-badge-warning cursor-help"
 			data-testid="cap-note-badge"
 			title={tip}
 		>
