@@ -745,6 +745,12 @@ h3 {
 	font-style: italic;
 }
 
+/* The account behind the pill is spent: brand pill kept, value in the warning
+   colour, so the reading says exhausted while the pill stays recognisable. */
+.fd-quota-pill-spent .fd-quota-pill-value {
+	color: var(--warn);
+}
+
 /* ── Quota modals ─────────────────────────────────────────────────────── */
 
 .fd-modal-head {

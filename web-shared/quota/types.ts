@@ -72,10 +72,13 @@ export interface KimiCodeQuotaWindow {
 // generic over it: they select by `type`/`unit` and hand the caller's own entry
 // back untouched.
 
-/** The two fields the Z.ai window selectors read. */
+/** The fields the Z.ai window selectors and the spent rule read. */
 export interface ZaiCodingLimitLike {
 	type?: string;
 	unit?: number;
+	/** Percent of the window consumed. */
+	percentage?: number | null;
+	remaining?: number | null;
 }
 
 export interface ZaiCodingResponseLike<
@@ -100,6 +103,11 @@ export interface MiniMaxModelRemains {
 	current_interval_remaining_percent: number;
 	current_weekly_status: number;
 	current_weekly_remaining_percent: number;
+	/** Request counts; some Token Plan tiers report them as all zero. */
+	current_interval_total_count?: number;
+	current_interval_usage_count?: number;
+	current_weekly_total_count?: number;
+	current_weekly_usage_count?: number;
 }
 
 export interface MiniMaxBaseResp {
@@ -130,14 +138,23 @@ export interface NanoGptUsageLike {
 	providerStatus?: string;
 	limits?: { weeklyInputTokens?: number | null } | null;
 	weeklyInputTokens?: { used?: number | null } | null;
+	/** An overage-enabled plan keeps serving past its allowance. */
+	allowOverage?: boolean;
 }
 
 export interface DeepSeekBalanceLike {
 	is_available?: boolean;
+	/** DeepSeek string-encodes its balances. */
+	balance_infos?: Array<{ total_balance?: string | null }> | null;
 }
 
 export interface OpenRouterBalanceLike {
 	credits_remaining?: number | null;
+	credits_total?: number | null;
+	/** A key that never bought credits; it still serves the free models. */
+	is_free_tier?: boolean;
+	/** Per-key spending cap left, null when the key has no cap. */
+	limit_remaining?: number | null;
 }
 
 export interface OllamaCloudAccountLike {
@@ -146,5 +163,9 @@ export interface OllamaCloudAccountLike {
 
 export interface NeuralWattQuotaLike {
 	balance?: { credits_remaining_usd?: number | null } | null;
-	subscription?: { plan?: string } | null;
+	subscription?: {
+		plan?: string;
+		in_overage?: boolean;
+		kwh_remaining?: number | null;
+	} | null;
 }

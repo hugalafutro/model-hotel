@@ -288,6 +288,32 @@ describe("QuotaBadge", () => {
 		);
 	});
 
+	it("marks a spent account, and only a spent one", () => {
+		const kimi = (remaining: string) => ({
+			usage: { limit: "100", remaining, resetTime: "2026-09-05T00:00:00Z" },
+		});
+		render(
+			<QuotaBadge
+				model={model({ type: "kimi-code", providerName: "a" }, kimi("0"))}
+				barMode="used"
+				onClick={vi.fn()}
+			/>,
+		);
+		render(
+			<QuotaBadge
+				model={model({ type: "kimi-code", providerName: "b" }, kimi("1"))}
+				barMode="used"
+				onClick={vi.fn()}
+			/>,
+		);
+		expect(screen.getByTestId("quota-badge-kimi-code:a")).toHaveClass(
+			"fd-quota-pill-spent",
+		);
+		expect(screen.getByTestId("quota-badge-kimi-code:b")).not.toHaveClass(
+			"fd-quota-pill-spent",
+		);
+	});
+
 	it("renders Ollama Cloud plan", () => {
 		render(
 			<QuotaBadge

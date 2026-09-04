@@ -1,3 +1,4 @@
+import { isQuotaPayloadSpent } from "@web-shared/quota";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -213,12 +214,17 @@ export function QuotaBadge({ model, barMode, onClick }: QuotaBadgeProps) {
 	const style = model.degraded
 		? undefined
 		: ({ "--quota-brand": QUOTA_BRAND_COLORS[model.type] } as CSSProperties);
+	// A spent account keeps its brand pill and turns only the value warning
+	// coloured, the same reading the dashboard gives the same snapshot. A
+	// degraded model has no readable payload, so it never reads as spent.
+	const payload = payloadOf<object>(model.snapshot);
+	const spent = payload != null && isQuotaPayloadSpent(model.type, payload);
 
 	return (
 		<button
 			type="button"
 			data-testid={`quota-badge-${model.key}`}
-			className={`fd-quota-pill${model.degraded ? " fd-quota-pill-degraded" : ""}`}
+			className={`fd-quota-pill${model.degraded ? " fd-quota-pill-degraded" : ""}${spent ? " fd-quota-pill-spent" : ""}`}
 			style={style}
 			onClick={onClick}
 			title={title}

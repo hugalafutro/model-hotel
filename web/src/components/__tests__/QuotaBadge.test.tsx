@@ -1,6 +1,7 @@
 import { act, render, screen, waitFor } from "@testing-library/react";
 import type {
 	DeepSeekBalance,
+	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
 	OpenRouterBalance,
@@ -667,6 +668,91 @@ describe("QuotaBadge", () => {
 				/>,
 			);
 			expect(screen.getByText("2.23/16 kWh")).toBeInTheDocument();
+		});
+
+		it("nanogpt: turns the text yellow once the weekly allowance is used up", () => {
+			const usage = {
+				limits: { weeklyInputTokens: 1000 },
+				weeklyInputTokens: { used: 1000 },
+				allowOverage: false,
+			} as unknown as NanoGPTUsage;
+			render(
+				<QuotaBadge
+					type="nanogpt"
+					variant="card"
+					weeklyUsed={1000}
+					weeklyLimit={1000}
+					nanogptUsage={usage}
+				/>,
+			);
+			expect(screen.getByRole("button")).toHaveClass("quota-badge-spent");
+		});
+
+		it("nanogpt: an overage-enabled plan at its allowance keeps the provider colour", () => {
+			const usage = {
+				limits: { weeklyInputTokens: 1000 },
+				weeklyInputTokens: { used: 1000 },
+				allowOverage: true,
+			} as unknown as NanoGPTUsage;
+			render(
+				<QuotaBadge
+					type="nanogpt"
+					variant="card"
+					weeklyUsed={1000}
+					weeklyLimit={1000}
+					nanogptUsage={usage}
+				/>,
+			);
+			expect(screen.getByRole("button")).not.toHaveClass("quota-badge-spent");
+		});
+
+		it("turns the text yellow once energy and credits are both spent", () => {
+			const spent: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				balance: {
+					...mockNeuralWattQuota.balance,
+					credits_remaining_usd: 0.0035,
+				},
+				subscription: { ...mockNeuralWattQuota.subscription, in_overage: true },
+			};
+			render(
+				<QuotaBadge type="neuralwatt" variant="card" neuralwattQuota={spent} />,
+			);
+			expect(screen.getByRole("button")).toHaveClass("quota-badge-spent");
+		});
+
+		it("keeps the provider text colour while credits remain", () => {
+			const overage: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				subscription: { ...mockNeuralWattQuota.subscription, in_overage: true },
+			};
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={overage}
+				/>,
+			);
+			expect(screen.getByRole("button")).not.toHaveClass("quota-badge-spent");
+		});
+
+		it("never derives spent from an absent balance", () => {
+			const unknown: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				balance: {
+					...mockNeuralWattQuota.balance,
+					credits_remaining_usd: null,
+				},
+				subscription: { ...mockNeuralWattQuota.subscription, in_overage: true },
+			};
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={unknown}
+				/>,
+			);
+			expect(screen.getByRole("button")).not.toHaveClass("quota-badge-spent");
 		});
 
 		it("renders with neuralwatt sidebar variant", () => {
