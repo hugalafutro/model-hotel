@@ -58,7 +58,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v0.22.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.46.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.11.0 | Go | Apache-2.0 |
-| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.55.0 | Go | BSD-3-Clause |
+| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.56.0 | Go | BSD-3-Clause |
 | [golang.org/x/net](https://golang.org/x/net) | v0.58.0 | Go | BSD-3-Clause |
 | [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.36.0 | Go | BSD-3-Clause |
 | [golang.org/x/sync](https://golang.org/x/sync) | v0.22.0 | Go | BSD-3-Clause |
@@ -968,7 +968,7 @@ Apache License
 
 Copyright 2009 The Go Authors.
 
-Applies to: `golang.org/x/crypto@v0.55.0`, `golang.org/x/net@v0.58.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.22.0`, `golang.org/x/sys@v0.47.0`, `golang.org/x/text@v0.41.0`, `golang.org/x/time@v0.15.0`
+Applies to: `golang.org/x/crypto@v0.56.0`, `golang.org/x/net@v0.58.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.22.0`, `golang.org/x/sys@v0.47.0`, `golang.org/x/text@v0.41.0`, `golang.org/x/time@v0.15.0`
 
 ```
 Copyright 2009 The Go Authors.
