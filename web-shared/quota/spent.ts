@@ -1,4 +1,4 @@
-import { getKimiCodeFiveHourLimit, getKimiCodeWeeklyLimit } from "./kimi";
+import { getKimiCodeWeeklyLimit, toKimiCodeWindow } from "./kimi";
 import type {
 	DeepSeekBalanceLike,
 	KimiCodeQuotaResponse,
@@ -10,13 +10,13 @@ import type {
 	ZaiCodingLimitLike,
 	ZaiCodingResponseLike,
 } from "./types";
-import { getZaiCodingFiveHourLimit, getZaiCodingWeeklyLimit } from "./zai";
 
 // Whether a readable payload says the account can serve nothing until it
 // resets or is topped up. The rules mirror the gateway's quota normalizer
-// (internal/quota/normalize.go) where one exists, so a badge reads as spent
-// exactly when the breaker would pin the provider. A field that is absent is
-// unknown, never spent: guessing here would flag a healthy provider.
+// (internal/quota/normalize.go) where one exists, judging the same windows by
+// the same fields; the normalizer additionally needs a parseable reset before
+// it pins, which a badge does not. A field that is absent is unknown, never
+// spent: guessing here would flag a healthy provider.
 
 /**
  * Below this balance NeuralWatt credits count as spent. NeuralWatt blocks the
@@ -40,16 +40,31 @@ function isZaiCodingWindowSpent(l: ZaiCodingLimitLike): boolean {
 	return l.remaining != null && l.remaining <= 0;
 }
 
+// Every rolling (unit 3) and weekly (unit 6) token window, as assessZaiCoding
+// walks them.
 export function isZaiCodingQuotaSpent(u: ZaiCodingResponseLike): boolean {
-	return [getZaiCodingFiveHourLimit(u), getZaiCodingWeeklyLimit(u)].some(
-		(l) => l != null && isZaiCodingWindowSpent(l),
+	return (u.data?.limits ?? []).some(
+		(l) =>
+			l.type === "TOKENS_LIMIT" &&
+			(l.unit === 3 || l.unit === 6) &&
+			isZaiCodingWindowSpent(l),
 	);
 }
 
+// The weekly block plus every rolling window, as assessKimiCode walks them.
 export function isKimiCodeQuotaSpent(u: KimiCodeQuotaResponse): boolean {
-	return [getKimiCodeFiveHourLimit(u), getKimiCodeWeeklyLimit(u)].some(
-		(w) => w != null && w.remaining <= 0,
-	);
+	const windows = [
+		getKimiCodeWeeklyLimit(u),
+		...(u.limits ?? []).map((l) =>
+			toKimiCodeWindow(
+				l.detail?.limit,
+				l.detail?.remaining,
+				l.detail?.used,
+				l.detail?.resetTime,
+			),
+		),
+	];
+	return windows.some((w) => w != null && w.remaining <= 0);
 }
 
 // One MiniMax window, judged as addMiniMaxWindow does: only a window the plan
@@ -75,7 +90,6 @@ function isMiniMaxWindowSpent(
 // Every model class, as the gateway judges the provider: the breaker is per
 // provider, so any spent window on any class pins it.
 export function isMiniMaxQuotaSpent(u: MiniMaxQuotaResponse): boolean {
-	if (u.base_resp?.status_code !== 0) return false;
 	return (u.model_remains ?? []).some(
 		(m) =>
 			isMiniMaxWindowSpent(

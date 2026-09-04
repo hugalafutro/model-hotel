@@ -255,9 +255,9 @@ function neuralwattBadgeContent(
 	return { label, title };
 }
 
-// The payload a badge reads spent-ness from, by type. No return annotation:
-// the inferred union keeps the switch exhaustive, so a new provider type is a
-// compile error here rather than a badge that can never read as spent.
+// The payload a badge reads spent-ness from, by type. The default arm makes a
+// new provider type a compile error here rather than a badge that can never
+// read as spent.
 function spentPayload(p: QuotaBadgeProps) {
 	switch (p.type) {
 		case "nanogpt":
@@ -276,6 +276,10 @@ function spentPayload(p: QuotaBadgeProps) {
 			return p.ollamaCloudAccount;
 		case "neuralwatt":
 			return p.neuralwattQuota;
+		default: {
+			const unhandled: never = p.type;
+			return unhandled;
+		}
 	}
 }
 

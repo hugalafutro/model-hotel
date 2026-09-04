@@ -215,8 +215,9 @@ export function QuotaBadge({ model, barMode, onClick }: QuotaBadgeProps) {
 		? undefined
 		: ({ "--quota-brand": QUOTA_BRAND_COLORS[model.type] } as CSSProperties);
 	// A spent account keeps its brand pill and turns only the value warning
-	// coloured, the same reading the dashboard gives the same snapshot.
-	const payload = model.degraded ? null : payloadOf<object>(model.snapshot);
+	// coloured, the same reading the dashboard gives the same snapshot. A
+	// degraded model has no readable payload, so it never reads as spent.
+	const payload = payloadOf<object>(model.snapshot);
 	const spent = payload != null && isQuotaPayloadSpent(model.type, payload);
 
 	return (

@@ -186,7 +186,74 @@ describe("isQuotaPayloadSpent", () => {
 			type: "openrouter",
 			why: "a free-tier key at zero still serves the free models",
 			spent: { credits_total: 10, credits_remaining: 0, is_free_tier: false },
-			healthy: { credits_total: 0, credits_remaining: 0, is_free_tier: true },
+			healthy: { credits_total: 10, credits_remaining: 0, is_free_tier: true },
+		},
+		{
+			type: "openrouter",
+			why: "a key that never bought credits has none to spend",
+			spent: { credits_total: 10, credits_remaining: 0, is_free_tier: false },
+			healthy: { credits_total: 0, credits_remaining: 0, is_free_tier: false },
+		},
+		{
+			type: "minimax",
+			why: "a window the plan does not cover is skipped whatever its percent",
+			spent: minimaxEntry(40, 0),
+			healthy: {
+				...minimaxEntry(40, 0),
+				model_remains: [
+					{ ...minimaxEntry(40, 0).model_remains[0], current_weekly_status: 3 },
+				],
+			},
+		},
+		{
+			type: "minimax",
+			why: "a percent outside 0 to 100 is nonsense, not a signal",
+			spent: minimaxEntry(40, 0),
+			healthy: minimaxEntry(40, -1),
+		},
+		{
+			type: "kimi-code",
+			why: "every rolling window counts, not only the 5-hour one",
+			spent: {
+				usage: kimiWindow("5"),
+				limits: [
+					{
+						window: { duration: 60, timeUnit: "TIME_UNIT_MINUTE" },
+						detail: kimiWindow("0"),
+					},
+				],
+			},
+			healthy: {
+				usage: kimiWindow("5"),
+				limits: [
+					{
+						window: { duration: 60, timeUnit: "TIME_UNIT_MINUTE" },
+						detail: kimiWindow("1"),
+					},
+				],
+			},
+		},
+		{
+			type: "zai-coding",
+			why: "a second entry for the same window counts too",
+			spent: {
+				success: true,
+				data: {
+					limits: [
+						{ type: "TOKENS_LIMIT", unit: 6, percentage: 10 },
+						{ type: "TOKENS_LIMIT", unit: 6, percentage: 100 },
+					],
+				},
+			},
+			healthy: {
+				success: true,
+				data: {
+					limits: [
+						{ type: "TOKENS_LIMIT", unit: 6, percentage: 10 },
+						{ type: "TOKENS_LIMIT", unit: 6, percentage: 90 },
+					],
+				},
+			},
 		},
 		{
 			type: "openrouter",
