@@ -778,7 +778,6 @@
 		"card_btn_discover": "모델 검색",
 		"card_btn_discovering": "찾아보는 중...",
 		"card_btn_delete": "삭제",
-		"card_copy_name": "클릭하여 제공자 이름 복사",
 		"card_copy_url": "API 기본 URL을 복사하려면 클릭하세요",
 		"toast_discover_success_one": "{{count}} 모델을 발견했습니다. {{name}}",
 		"toast_discover_success_other": "{{count}} 모델들을 발견했습니다. {{name}}",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "서버 날짜가 선택한 날에 도달하는 즉시 제공자가 비활성화됩니다.",
 		"schedule_disable_cancel": "예약 취소",
 		"scheduled_disable_card_tooltip": "{{date}}에 비활성화 예정",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "제공업체 웹사이트 열기",
+		"card_tokens_tooltip": "{{date}}부터 이 제공업체를 통해 라우팅된 토큰, 프롬프트와 응답 합산"
 	},
 	"models": {
 		"page_title_one": "모델",

@@ -132,6 +132,10 @@ type ProviderResponse struct {
 	UpdatedAt            time.Time  `json:"updated_at"`
 	ModelCount           int        `json:"model_count"`
 	TotalTokens          int        `json:"total_tokens"`
+	// TokensSince is the timestamp of the oldest request log behind TotalTokens,
+	// so the dashboard can say since when the count has been running. Absent
+	// when the provider has no logged traffic.
+	TokensSince *time.Time `json:"tokens_since,omitempty"`
 	// LastCap is the last exhausted 429 this provider answered since the
 	// process started (see CapLedger), overlaid by the API from the proxy's
 	// ledger. It is what the quota badge shows for a provider with no usage

@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { CalendarDays } from "@/lib/icons";
+import { CalendarDays, Globe } from "@/lib/icons";
 import type { Provider } from "../../api/types";
 import { CapNoteBadge } from "../../components/CapNoteBadge";
 import { CopyablePill } from "../../components/CopyablePill";
@@ -10,6 +10,7 @@ import {
 	type useQuotaData,
 } from "../../hooks/useQuotaData";
 import { formatDate, formatTimestamp, formatTokens } from "../../utils/format";
+import { providerHomepages } from "./constants";
 
 interface ProviderCardProps {
 	provider: Provider;
@@ -63,6 +64,7 @@ export function ProviderCard({
 	// models-count and quota badges are hidden entirely, since they would only
 	// show stale values.
 	const dim = provider.enabled ? "" : "grayscale opacity-50";
+	const homepage = providerHomepages[provider.provider_type];
 
 	return (
 		<div
@@ -82,12 +84,21 @@ export function ProviderCard({
 								<CalendarDays size={16} />
 							</span>
 						)}
-						<CopyablePill
-							text={provider.name}
-							displayText={provider.name}
-							textClassName="text-lg font-semibold text-white"
-							tooltip={t("providers.card_copy_name")}
-						/>
+						<span className="text-lg font-semibold text-white truncate">
+							{provider.name}
+						</span>
+						{homepage && (
+							<a
+								href={homepage}
+								target="_blank"
+								rel="noopener noreferrer"
+								title={t("providers.card_website")}
+								aria-label={t("providers.card_website")}
+								className="ui-icon-btn shrink-0 inline-flex"
+							>
+								<Globe size={14} />
+							</a>
+						)}
 					</span>
 				</div>
 				<div className="flex flex-wrap items-center gap-2 mt-1">
@@ -106,6 +117,13 @@ export function ProviderCard({
 					{provider.total_tokens > 0 && (
 						<span
 							className={`px-2 py-px leading-[1.6] text-xs font-medium whitespace-nowrap ui-badge ui-badge-purple ${dim}`}
+							title={
+								provider.tokens_since
+									? t("providers.card_tokens_tooltip", {
+											date: formatDate(provider.tokens_since),
+										})
+									: undefined
+							}
 						>
 							<span className="badge-text">
 								{t("providers.card_tokens", {

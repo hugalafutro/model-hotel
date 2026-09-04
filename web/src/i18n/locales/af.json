@@ -778,7 +778,6 @@
 		"card_btn_discover": "Ontdek modelle",
 		"card_btn_discovering": "Ontdek...",
 		"card_btn_delete": "Verwyder",
-		"card_copy_name": "Klik om verskaffer se naam te kopieer",
 		"card_copy_url": "Klik om die API-basis-URL te kopieer",
 		"toast_discover_success_one": "Ontdek {{count}} -model vanaf {{name}}",
 		"toast_discover_success_other": "Ontdek {{count}} -modelle vanaf {{name}}",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "Die verskaffer word gedeaktiveer sodra die bediener se datum die gekose dag bereik.",
 		"schedule_disable_cancel": "Kanselleer skedule",
 		"scheduled_disable_card_tooltip": "Geskeduleer om op {{date}} gedeaktiveer te word",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Open die verskaffer se webwerf",
+		"card_tokens_tooltip": "Tokens wat sedert {{date}} deur hierdie verskaffer gestuur is, prompt en voltooiing saam"
 	},
 	"models": {
 		"page_title_one": "Model",

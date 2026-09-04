@@ -778,7 +778,6 @@
 		"card_btn_discover": "Opdag Modeller",
 		"card_btn_discovering": "Opdager...",
 		"card_btn_delete": "Slet",
-		"card_copy_name": "Klik for at kopiere udbydernavn",
 		"card_copy_url": "Klik for at kopiere API base URL",
 		"toast_discover_success_one": "Opdagede {{count}} model fra {{name}}",
 		"toast_discover_success_other": "Opdagede {{count}} modeller fra {{name}}",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "Udbyderen deaktiveres, så snart serverens dato når den valgte dag.",
 		"schedule_disable_cancel": "Annuller planlægning",
 		"scheduled_disable_card_tooltip": "Planlagt til deaktivering den {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Åbn udbyderens websted",
+		"card_tokens_tooltip": "Tokens sendt gennem denne udbyder siden {{date}}, prompt og fuldførelse tilsammen"
 	},
 	"models": {
 		"page_title_one": "Model",

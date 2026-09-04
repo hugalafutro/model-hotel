@@ -778,7 +778,6 @@
 		"card_btn_discover": "モデルの発見",
 		"card_btn_discovering": "検出中…",
 		"card_btn_delete": "削除",
-		"card_copy_name": "クリックしてプロバイダ名をコピー",
 		"card_copy_url": "クリックして API ベース URL をコピー",
 		"toast_discover_success_one": "{{name}} から {{count}} 個のモデルを検出しました",
 		"toast_discover_success_other": "{{name}} から {{count}} 個のモデルを検出しました",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "サーバーの日付が選択した日に達すると、プロバイダーは無効化されます。",
 		"schedule_disable_cancel": "スケジュールをキャンセル",
 		"scheduled_disable_card_tooltip": "{{date}} に無効化予定",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "プロバイダーのウェブサイトを開く",
+		"card_tokens_tooltip": "{{date}}以降にこのプロバイダー経由で送られたトークン数、プロンプトと応答の合計"
 	},
 	"models": {
 		"page_title_one": "モデル",

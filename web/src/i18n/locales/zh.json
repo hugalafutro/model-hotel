@@ -778,7 +778,6 @@
 		"card_btn_discover": "发现模型",
 		"card_btn_discovering": "发现中...",
 		"card_btn_delete": "删除",
-		"card_copy_name": "点击复制提供商名称",
 		"card_copy_url": "单击以复制 API 基础 URL",
 		"toast_discover_success_one": "发现 {{count}} 模型来自 {{name}}",
 		"toast_discover_success_other": "发现 {{count}} 中的模型来自 {{name}}",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "当服务器日期到达所选日期时，提供商将立即被禁用。",
 		"schedule_disable_cancel": "取消计划",
 		"scheduled_disable_card_tooltip": "计划于 {{date}} 禁用",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "打开提供商网站",
+		"card_tokens_tooltip": "自 {{date}} 起经此提供商路由的 token 数，提示与回复合计"
 	},
 	"models": {
 		"page_title_one": "模型",

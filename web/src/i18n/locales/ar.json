@@ -804,7 +804,6 @@
 		"card_btn_discover": "اكتشف النماذج",
 		"card_btn_discovering": "جارٍ الاكتشاف...",
 		"card_btn_delete": "حذف",
-		"card_copy_name": "انقر لنسخ اسم المزود",
 		"card_copy_url": "انقر لنسخ رابط API الأساسي",
 		"toast_delete_models_success": "تم حذف {{count}} نموذج معطل",
 		"add": {
@@ -1094,7 +1093,9 @@
 		"schedule_disable_hint": "سيتم تعطيل المزود بمجرد أن يصل تاريخ الخادم إلى اليوم المحدد.",
 		"schedule_disable_cancel": "إلغاء الجدولة",
 		"scheduled_disable_card_tooltip": "مجدول للتعطيل في {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "افتح موقع المزود",
+		"card_tokens_tooltip": "الرموز المُمرّرة عبر هذا المزود منذ {{date}}، المطالبة والإكمال معًا"
 	},
 	"models": {
 		"page_description": "النماذج المكتشفة من مزودك",

@@ -1220,14 +1220,16 @@ func TestListProviders_WithTokenCounts(t *testing.T) {
 
 	providerUUID, _ := uuid.Parse(created.ID)
 
-	// Insert request logs with token counts for this provider
-	logID := uuid.New()
+	// Two request logs a day apart: the totals sum both, tokens_since is the
+	// older one.
+	oldest := time.Date(2026, time.March, 1, 12, 0, 0, 0, time.UTC)
 	_, err = pool.Exec(ctx, `
 		INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, created_at)
-		VALUES ($1, $2, 'test-model', 200, 100, 50, 75, NOW())`,
-		logID, providerUUID)
+		VALUES ($1, $3, 'test-model', 200, 100, 50, 25, $4),
+		       ($2, $3, 'test-model', 200, 100, 0, 50, $5)`,
+		uuid.New(), uuid.New(), providerUUID, oldest, oldest.Add(24*time.Hour))
 	if err != nil {
-		t.Fatalf("Failed to insert request log: %v", err)
+		t.Fatalf("Failed to insert request logs: %v", err)
 	}
 
 	// List providers
@@ -1252,6 +1254,9 @@ func TestListProviders_WithTokenCounts(t *testing.T) {
 			found = true
 			if p.TotalTokens != 125 {
 				t.Errorf("Expected TotalTokens=125, got %d", p.TotalTokens)
+			}
+			if p.TokensSince == nil || !p.TokensSince.Equal(oldest) {
+				t.Errorf("Expected TokensSince=%v (the oldest log), got %v", oldest, p.TokensSince)
 			}
 			break
 		}

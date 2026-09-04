@@ -778,7 +778,6 @@
 		"card_btn_discover": "Khám phá mô hình",
 		"card_btn_discovering": "Đang tìm kiếm...",
 		"card_btn_delete": "Xóa",
-		"card_copy_name": "Nhấp vào đây để sao chép tên nhà cung cấp",
 		"card_copy_url": "Nhấp vào đây để sao chép URL gốc của API",
 		"toast_discover_success_one": "Đã phát hiện {{count}} mô hình từ {{name}}",
 		"toast_discover_success_other": "Đã phát hiện {{count}} mô hình từ {{name}}",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "Nhà cung cấp sẽ bị tắt ngay khi ngày trên máy chủ đến ngày đã chọn.",
 		"schedule_disable_cancel": "Hủy lịch",
 		"scheduled_disable_card_tooltip": "Đã lên lịch tắt vào {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Mở trang web của nhà cung cấp",
+		"card_tokens_tooltip": "Token được định tuyến qua nhà cung cấp này kể từ {{date}}, gồm cả prompt và phản hồi"
 	},
 	"models": {
 		"page_title_one": "Mô hình",

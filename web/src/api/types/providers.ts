@@ -16,6 +16,9 @@ export interface Provider {
 	updated_at: string;
 	model_count: number;
 	total_tokens: number;
+	/** Oldest request log behind total_tokens: since when the count runs.
+	 *  Absent when the provider has no logged traffic. */
+	tokens_since?: string;
 	/** The last exhausted 429 this provider answered since the gateway started,
 	 *  the only quota reading a provider with no usage API gives. Absent when
 	 *  there has been none. */

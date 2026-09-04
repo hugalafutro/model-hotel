@@ -181,7 +181,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	// predicate the logs and stats surfaces apply, so a usage-granted user cannot
 	// read other tenants' aggregate volume off the provider list.
 	ownerFrag, ownerArgs := ownerFilterFragment(ownerScopeFromIdentity(r), 1)
-	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT rl.provider_id, SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) FROM request_logs rl WHERE rl.provider_id IS NOT NULL"+ownerFrag+" GROUP BY rl.provider_id", ownerArgs...)
+	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT rl.provider_id, SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)), MIN(rl.created_at) FROM request_logs rl WHERE rl.provider_id IS NOT NULL"+ownerFrag+" GROUP BY rl.provider_id", ownerArgs...)
 	if err != nil {
 		respondError(w, "failed to query token counts", err, http.StatusInternalServerError)
 		return
@@ -189,14 +189,19 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	defer tokenRows.Close()
 
 	tokenCounts := make(map[string]int)
+	tokensSince := make(map[string]time.Time)
 	for tokenRows.Next() {
 		var providerID string
 		var total int
-		if err := tokenRows.Scan(&providerID, &total); err != nil {
+		var since *time.Time
+		if err := tokenRows.Scan(&providerID, &total, &since); err != nil {
 			respondError(w, "failed to scan token count row", err, http.StatusInternalServerError)
 			return
 		}
 		tokenCounts[providerID] = total
+		if since != nil {
+			tokensSince[providerID] = *since
+		}
 	}
 
 	responses := make([]provider.ProviderResponse, len(providers))
@@ -204,6 +209,9 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		responses[i] = provider.ToResponse(p)
 		responses[i].ModelCount = modelCounts[p.ID.String()]
 		responses[i].TotalTokens = tokenCounts[p.ID.String()]
+		if since, ok := tokensSince[p.ID.String()]; ok {
+			responses[i].TokensSince = &since
+		}
 		responses[i].LastCap = h.lastCapFor(p.ID)
 	}
 

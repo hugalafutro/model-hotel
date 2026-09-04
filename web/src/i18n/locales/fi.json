@@ -778,7 +778,6 @@
 		"card_btn_discover": "Löydä Mallit",
 		"card_btn_discovering": "Löytää...",
 		"card_btn_delete": "Poista",
-		"card_copy_name": "Klikkaa kopioidaksesi palveluntarjoajan nimi",
 		"card_copy_url": "Klikkaa kopioidaksesi API base URL",
 		"toast_discover_success_one": "Löydetty {{count}} -malli osoitteesta {{name}}",
 		"toast_discover_success_other": "Löydettiin {{count}} mallia palvelusta {{name}}",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "Palveluntarjoaja poistetaan käytöstä heti, kun palvelimen päivämäärä saavuttaa valitun päivän.",
 		"schedule_disable_cancel": "Peruuta ajastus",
 		"scheduled_disable_card_tooltip": "Ajastettu poistettavaksi käytöstä {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Avaa palveluntarjoajan verkkosivusto",
+		"card_tokens_tooltip": "Tämän palveluntarjoajan kautta reititetyt tokenit {{date}} alkaen, kehote ja vastaus yhteensä"
 	},
 	"models": {
 		"page_title_one": "Malli",

@@ -219,7 +219,11 @@ export function NanoGPTQuotaModal({
 					<div className="ui-callout ui-callout-warning">
 						<p>
 							{t("components.providerModals.cancelAtPeriodEnd", {
-								date: formatDate(usage.period.currentPeriodEnd),
+								// Non-breaking spaces keep the parenthesised date on one line.
+								date: formatDate(usage.period.currentPeriodEnd).replace(
+									/ /g,
+									"\u00A0",
+								),
 							})}
 						</p>
 					</div>

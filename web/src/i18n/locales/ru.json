@@ -794,7 +794,6 @@
 		"card_btn_discover": "Обнаружить модели",
 		"card_btn_discovering": "Обнаружение...",
 		"card_btn_delete": "Удалить",
-		"card_copy_name": "Нажмите, чтобы скопировать имя провайдера",
 		"card_copy_url": "Нажмите, чтобы скопировать базовый URL API",
 		"toast_discover_success_one": "Обнаружена {{count}} модель от {{name}}",
 		"toast_discover_success_few": "Обнаружено {{count}} модели от {{name}}",
@@ -1034,7 +1033,9 @@
 		"schedule_disable_hint": "Провайдер будет отключён, как только дата сервера достигнет выбранного дня.",
 		"schedule_disable_cancel": "Отменить запланированное отключение",
 		"scheduled_disable_card_tooltip": "Отключение запланировано на {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Открыть сайт провайдера",
+		"card_tokens_tooltip": "Токены, прошедшие через этого провайдера с {{date}}, промпт и ответ вместе"
 	},
 	"models": {
 		"page_title_one": "Модель",

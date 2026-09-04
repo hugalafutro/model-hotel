@@ -44,6 +44,7 @@ const mockProvider: Provider = {
 	updated_at: "2026-05-10T12:00:00Z",
 	model_count: 5,
 	total_tokens: 1250000,
+	tokens_since: "2026-01-15T10:00:00Z",
 };
 
 const mockQuotaData = {
@@ -176,12 +177,33 @@ describe("ProviderCard", () => {
 			expect(screen.getByText(/1 model/)).toBeInTheDocument();
 		});
 
-		it("renders total tokens", () => {
+		it("renders total tokens with a since-date tooltip", () => {
 			const { container } = render(<ProviderCard {...defaultProps} />, {
 				wrapper: AllProviders,
 			});
 
 			expect(container.textContent).toContain("1.3M tokens");
+			const badge = screen.getByText("1.3M tokens").closest("span[title]");
+			// Locale-independent: assert the title contains the same string formatDate produces.
+			expect(badge?.getAttribute("title")).toContain(
+				new Date("2026-01-15T10:00:00Z").toLocaleDateString(undefined, {
+					day: "numeric",
+					month: "short",
+					year: "numeric",
+				}),
+			);
+		});
+
+		it("omits the tokens tooltip when the count has no start date", () => {
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{ ...mockProvider, tokens_since: undefined }}
+				/>,
+				{ wrapper: AllProviders },
+			);
+
+			expect(screen.getByText("1.3M tokens").closest("span[title]")).toBeNull();
 		});
 
 		it("does not render tokens when zero", () => {
@@ -1013,14 +1035,42 @@ describe("ProviderCard", () => {
 	});
 
 	describe("copyable pills", () => {
-		it("renders provider name as copyable pill", () => {
+		it("renders provider name as plain text with no homepage link for a custom type", () => {
 			render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
 
 			const nameElement = screen.getByText("Test Provider");
-			expect(nameElement).toBeInTheDocument();
-			// The button containing the text has the tooltip
-			const button = nameElement.closest("button");
-			expect(button).toHaveAttribute("title", "Test Provider");
+			expect(nameElement.closest("button")).toBeNull();
+			expect(screen.queryByRole("link")).not.toBeInTheDocument();
+		});
+
+		it("links a hosted provider type to its homepage in a new tab", () => {
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{ ...mockProvider, provider_type: "openrouter" }}
+				/>,
+				{ wrapper: AllProviders },
+			);
+
+			const link = screen.getByRole("link");
+			expect(link).toHaveAttribute("href", "https://openrouter.ai");
+			expect(link).toHaveAttribute("target", "_blank");
+			expect(link).toHaveAttribute("rel", "noopener noreferrer");
+		});
+
+		it("links a self-hosted provider type to its GitHub project", () => {
+			render(
+				<ProviderCard
+					{...defaultProps}
+					provider={{ ...mockProvider, provider_type: "koboldcpp" }}
+				/>,
+				{ wrapper: AllProviders },
+			);
+
+			expect(screen.getByRole("link")).toHaveAttribute(
+				"href",
+				"https://github.com/LostRuins/koboldcpp",
+			);
 		});
 
 		it("renders base URL as copyable pill", () => {
