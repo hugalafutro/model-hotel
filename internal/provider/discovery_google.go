@@ -200,6 +200,13 @@ func googleModalities(modelID string) (inputMods, outputMods string) {
 	outputMods = `["text"]`
 	if isGoogleVisionModel(modelID) {
 		inputMods = `["text","image"]`
+		// Gemini chat models also hear: the OpenAI-compatibility route
+		// accepts an input_audio part (verified live, gemini-3.5-flash-lite
+		// transcribed the sweep fixture). Gemma is image-only there. PDF is
+		// left out on purpose: the same route answers a file part with 400.
+		if strings.Contains(strings.ToLower(modelID), "gemini-") {
+			inputMods = `["text","image","audio"]`
+		}
 	}
 	if isGoogleImageGenModel(modelID) {
 		outputMods = `["text","image"]`
