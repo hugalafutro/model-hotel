@@ -52,12 +52,29 @@ type oaiMessage struct {
 }
 
 type oaiContentPart struct {
-	Type     string `json:"type"` // "text" | "image_url"
+	Type     string `json:"type"` // "text" | "image_url" | "input_audio" | "file"
 	Text     string `json:"text"`
 	ImageURL *struct {
 		URL string `json:"url"`
 	} `json:"image_url"`
+	InputAudio *struct {
+		Data   string `json:"data"`
+		Format string `json:"format"`
+	} `json:"input_audio"`
+	// File carries a document as a data: URI in file_data, the only field
+	// read here: a file_id refers to OpenAI's Files store, which Gemini
+	// cannot fetch, so a part without file_data is dropped like a malformed
+	// image.
+	File *struct {
+		FileData string `json:"file_data"`
+	} `json:"file"`
 }
+
+// audioFormats are the input_audio format words Gemini accepts as an
+// audio/<format> inlineData mime type. OpenAI's chat spec names wav and mp3;
+// the rest are Gemini's own list. Anything else (pcm16, webm, m4a) is dropped
+// like a malformed image rather than sent on to a certain 400.
+var audioFormats = map[string]bool{"wav": true, "mp3": true, "aiff": true, "aac": true, "ogg": true, "flac": true}
 
 type oaiToolCall struct {
 	ID string `json:"id"`
@@ -418,7 +435,26 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 			if p.ImageURL == nil || p.ImageURL.URL == "" {
 				continue
 			}
-			if part, ok := imagePart(p.ImageURL.URL); ok {
+			if part, ok := mediaPart(p.ImageURL.URL); ok {
+				parts = append(parts, part)
+			}
+		case "input_audio":
+			if p.InputAudio == nil || p.InputAudio.Data == "" {
+				continue
+			}
+			format := strings.ToLower(p.InputAudio.Format)
+			if !audioFormats[format] {
+				continue
+			}
+			parts = append(parts, genPart{InlineData: &genBlob{MimeType: "audio/" + format, Data: p.InputAudio.Data}})
+		case "file":
+			// file_data is base64 inline by definition, so only a data: URI
+			// is honoured; a plain URL here is not a fetch Gemini should make
+			// on the client's behalf.
+			if p.File == nil || !strings.HasPrefix(p.File.FileData, "data:") {
+				continue
+			}
+			if part, ok := mediaPart(p.File.FileData); ok {
 				parts = append(parts, part)
 			}
 		}
@@ -426,9 +462,9 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 	return parts, nil
 }
 
-// imagePart maps an OpenAI image_url value to inlineData (data: URIs) or
-// fileData (plain URLs).
-func imagePart(u string) (genPart, bool) {
+// mediaPart maps an OpenAI image_url or file_data value to inlineData (data:
+// URIs) or fileData (plain URLs).
+func mediaPart(u string) (genPart, bool) {
 	if rest, ok := strings.CutPrefix(u, "data:"); ok {
 		mime, data, found := strings.Cut(rest, ";base64,")
 		if !found || data == "" {
