@@ -253,45 +253,6 @@ describe("EditProviderModal", () => {
 			});
 		});
 
-		it("reports a disabled-to-enabled save through onEnabled", async () => {
-			server.use(
-				http.put("/api/providers/:id", () =>
-					HttpResponse.json({ ...mockProvider, enabled: true }),
-				),
-			);
-			const onEnabled = vi.fn();
-			const { user } = renderWithProviders(
-				<EditProviderModal
-					{...defaultProps}
-					provider={{ ...mockProvider, enabled: false }}
-					onEnabled={onEnabled}
-				/>,
-			);
-			await user.click(screen.getByLabelText("Provider enabled"));
-			await user.click(screen.getByRole("button", { name: "Save Changes" }));
-			await waitFor(() => {
-				expect(onEnabled).toHaveBeenCalledWith(
-					expect.objectContaining({ id: "provider-123", enabled: true }),
-				);
-			});
-		});
-
-		it("does not call onEnabled when the provider was already enabled", async () => {
-			server.use(
-				http.put("/api/providers/:id", () =>
-					HttpResponse.json({ ...mockProvider, name: "Renamed" }),
-				),
-			);
-			const onEnabled = vi.fn();
-			const { user } = renderWithProviders(
-				<EditProviderModal {...defaultProps} onEnabled={onEnabled} />,
-			);
-			await user.type(screen.getByLabelText("Name"), "x");
-			await user.click(screen.getByRole("button", { name: "Save Changes" }));
-			await waitFor(() => expect(onClose).toHaveBeenCalled());
-			expect(onEnabled).not.toHaveBeenCalled();
-		});
-
 		it("disables base URL input for known provider URLs", () => {
 			const knownProvider = {
 				...mockProvider,

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -365,7 +366,10 @@ func TestCreateProvider_Duplicate(t *testing.T) {
 // Test for admin.go - UpdateProvider_ChangeURL
 
 func TestUpdateProvider_ChangeURL(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	// The identity change rediscovers in the background; keep that scan off
+	// the network.
+	h.newDiscovery = rejectingDiscovery
 
 	// Create a provider first
 	providerData := `{"name": "test-update-url", "base_url": "https://api.openai.com", "api_key": "test-api-key"}`
@@ -879,7 +883,10 @@ func TestUpdateProvider_InvalidBody(t *testing.T) {
 // TestUpdateProvider_WithNewAPIKey tests updating with a new API key
 
 func TestUpdateProvider_WithNewAPIKey(t *testing.T) {
-	_, r := newTestHandlerWithRouter(t)
+	h, r := newTestHandlerWithRouter(t)
+	// The identity change rediscovers in the background; keep that scan off
+	// the network.
+	h.newDiscovery = rejectingDiscovery
 
 	// Create a provider first
 	body := `{"name":"test-update-key","base_url":"https://api.openai.com","api_key":"sk-old123"}`
@@ -1889,4 +1896,16 @@ func TestUpdateProvider_EnableWithoutQuotaEndpointSkipsFetch(t *testing.T) {
 			t.Fatalf("type without a quota endpoint must not be fetched: got %s snapshot source=%q", kind, snap.Source)
 		}
 	}
+}
+
+// rejectingDiscovery answers every upstream call with 401 so a background scan
+// a test triggers fails fast without leaving the process.
+func rejectingDiscovery() *provider.DiscoveryService {
+	ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{Transport: &mockTransport{
+		roundTripFunc: func(*http.Request) (*http.Response, error) {
+			return &http.Response{StatusCode: http.StatusUnauthorized, Body: io.NopCloser(strings.NewReader(`{}`)), Header: make(http.Header)}, nil
+		},
+	}})
+	ds.SetRetryBaseDelay(time.Millisecond)
+	return ds
 }
