@@ -64,6 +64,7 @@ export function ProviderCard({
 	// models-count and quota badges are hidden entirely, since they would only
 	// show stale values.
 	const dim = provider.enabled ? "" : "grayscale opacity-50";
+	const homepage = providerHomepages[provider.provider_type];
 
 	return (
 		<div
@@ -86,12 +87,13 @@ export function ProviderCard({
 						<span className="text-lg font-semibold text-white truncate">
 							{provider.name}
 						</span>
-						{providerHomepages[provider.provider_type] && (
+						{homepage && (
 							<a
-								href={providerHomepages[provider.provider_type]}
+								href={homepage}
 								target="_blank"
 								rel="noopener noreferrer"
 								title={t("providers.card_website")}
+								aria-label={t("providers.card_website")}
 								className="ui-icon-btn shrink-0 inline-flex"
 							>
 								<Globe size={14} />

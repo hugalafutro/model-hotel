@@ -22,7 +22,7 @@ export const baseUrls: Record<string, string> = {
 
 /** Where the globe icon on a provider card points: the vendor's main page for
  * a hosted API, the project's GitHub for a self-hosted server. The two
- * hand-entered dialects (`custom`, `anthropic-messages`) have no known home. */
+ * hand-entered `custom` dialect has no known home. */
 export const providerHomepages: Record<string, string> = {
 	nanogpt: "https://nano-gpt.com",
 	"zai-coding": "https://z.ai",
@@ -30,6 +30,7 @@ export const providerHomepages: Record<string, string> = {
 	minimax: "https://www.minimax.io",
 	openai: "https://openai.com",
 	anthropic: "https://www.anthropic.com",
+	"anthropic-messages": "https://www.anthropic.com",
 	deepseek: "https://www.deepseek.com",
 	"ollama-cloud": "https://ollama.com",
 	ollama: "https://github.com/ollama/ollama",

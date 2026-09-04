@@ -184,7 +184,14 @@ describe("ProviderCard", () => {
 
 			expect(container.textContent).toContain("1.3M tokens");
 			const badge = screen.getByText("1.3M tokens").closest("span[title]");
-			expect(badge?.getAttribute("title")).toContain("15 Jan 2026");
+			// Locale-independent: assert the title contains the same string formatDate produces.
+			expect(badge?.getAttribute("title")).toContain(
+				new Date("2026-01-15T10:00:00Z").toLocaleDateString(undefined, {
+					day: "numeric",
+					month: "short",
+					year: "numeric",
+				}),
+			);
 		});
 
 		it("omits the tokens tooltip when the count has no start date", () => {

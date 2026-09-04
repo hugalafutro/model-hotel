@@ -975,7 +975,7 @@
 		"scheduled_disable_card_tooltip": "Ajastettu poistettavaksi käytöstä {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Avaa palveluntarjoajan verkkosivusto",
-		"card_tokens_tooltip": "Tämän palveluntarjoajan kautta reititetyt tokenit alkaen {{date}}, kehote ja vastaus yhteensä"
+		"card_tokens_tooltip": "Tämän palveluntarjoajan kautta reititetyt tokenit {{date}} alkaen, kehote ja vastaus yhteensä"
 	},
 	"models": {
 		"page_title_one": "Malli",

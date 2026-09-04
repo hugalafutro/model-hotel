@@ -193,13 +193,19 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	for tokenRows.Next() {
 		var providerID string
 		var total int
-		var since time.Time
+		var since *time.Time
 		if err := tokenRows.Scan(&providerID, &total, &since); err != nil {
 			respondError(w, "failed to scan token count row", err, http.StatusInternalServerError)
 			return
 		}
 		tokenCounts[providerID] = total
-		tokensSince[providerID] = since
+		if since != nil {
+			tokensSince[providerID] = *since
+		}
+	}
+	if err := tokenRows.Err(); err != nil {
+		respondError(w, "failed to read token count rows", err, http.StatusInternalServerError)
+		return
 	}
 
 	responses := make([]provider.ProviderResponse, len(providers))
