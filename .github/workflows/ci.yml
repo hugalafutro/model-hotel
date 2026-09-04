@@ -100,13 +100,15 @@ jobs:
           go-version-file: go.mod
           cache: true
 
-      - name: Install pg_dump / pg_restore for backup tests
+      - name: Check pg_dump / pg_restore are present for backup tests
         # The backup integration tests (internal/api/backup_test.go) exec
         # pg_dump and pg_restore; without these binaries ~26 tests t.Skip and
-        # the backup/restore round-trip goes entirely untested. ubuntu-latest's
-        # postgresql-client meta-package ships v16, matching the postgres:16
-        # service container.
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+        # the backup/restore round-trip goes entirely untested. The runner image
+        # ships PostgreSQL 16 client tools, matching the postgres:16 service
+        # container, so nothing is installed here: an apt fetch from the
+        # runner's Azure mirror can stall for 20+ minutes on an 11 kB package.
+        # This fails loudly if an image update ever drops them.
+        run: pg_dump --version && pg_restore --version
 
       - name: Run tests
         env:
@@ -180,9 +182,11 @@ jobs:
           cache: true
 
       # internal/api's backup tests exec these; without them ~26 tests skip and
-      # the race job silently stops covering the backup round-trip.
-      - name: Install pg_dump / pg_restore for backup tests
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends postgresql-client
+      # the race job silently stops covering the backup round-trip. The runner
+      # image already ships them (see the Go Test job for why nothing is
+      # installed here).
+      - name: Check pg_dump / pg_restore are present for backup tests
+        run: pg_dump --version && pg_restore --version
 
       # A longer clock than go-test's 10m: the detector's slowdown lands on
       # internal/api, the one package already near that limit.
