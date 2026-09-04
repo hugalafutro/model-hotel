@@ -473,8 +473,11 @@ func TestTranslateRequest_AudioAndFileParts(t *testing.T) {
 			{"type": "text", "text": "Transcribe, then read the code."},
 			{"type": "input_audio", "input_audio": {"data": "UklGRg==", "format": "wav"}},
 			{"type": "file", "file": {"filename": "doc.pdf", "file_data": "data:application/pdf;base64,JVBERi0="}},
+			{"type": "input_audio", "input_audio": {"data": "SUQz", "format": "MP3"}},
 			{"type": "file", "file": {"file_id": "file-abc"}},
-			{"type": "input_audio", "input_audio": {"data": "", "format": "mp3"}}
+			{"type": "file", "file": {"filename": "x.pdf", "file_data": "https://example.com/x.pdf"}},
+			{"type": "input_audio", "input_audio": {"data": "", "format": "wav"}},
+			{"type": "input_audio", "input_audio": {"data": "AAAA", "format": "pcm16"}}
 		]}]
 	}`)
 
@@ -483,17 +486,22 @@ func TestTranslateRequest_AudioAndFileParts(t *testing.T) {
 		t.Fatalf("TranslateRequest failed: %v", err)
 	}
 	parts := decodeGemini(t, out)["contents"].([]any)[0].(map[string]any)["parts"].([]any)
-	// Text, audio, pdf. The id-only file and the empty audio are dropped.
-	if len(parts) != 3 {
-		t.Fatalf("parts len = %d, want 3: %v", len(parts), parts)
+	var got []string
+	for _, p := range parts {
+		if inline, ok := p.(map[string]any)["inlineData"].(map[string]any); ok {
+			got = append(got, inline["mimeType"].(string)+":"+inline["data"].(string))
+		} else if p.(map[string]any)["fileData"] != nil {
+			got = append(got, "fileData")
+		} else {
+			got = append(got, "text")
+		}
 	}
-	audio := parts[1].(map[string]any)["inlineData"].(map[string]any)
-	if audio["mimeType"] != "audio/wav" || audio["data"] != "UklGRg==" {
-		t.Errorf("audio inlineData = %v", audio)
-	}
-	pdf := parts[2].(map[string]any)["inlineData"].(map[string]any)
-	if pdf["mimeType"] != "application/pdf" || pdf["data"] != "JVBERi0=" {
-		t.Errorf("pdf inlineData = %v", pdf)
+	// The id-only file, the URL-shaped file_data, the empty audio and the
+	// unsupported pcm16 format are all dropped; the uppercase format is
+	// lowercased.
+	want := []string{"text", "audio/wav:UklGRg==", "application/pdf:JVBERi0=", "audio/mp3:SUQz"}
+	if strings.Join(got, " ") != strings.Join(want, " ") {
+		t.Errorf("parts = %v, want %v", got, want)
 	}
 }
 
