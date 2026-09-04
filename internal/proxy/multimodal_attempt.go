@@ -25,11 +25,12 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	defer failoverCancel()
 	failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
 
-	// A Gemini TTS candidate that cannot produce the requested format is
-	// skipped before any request is built, so another candidate in the group
-	// can serve it. Nothing was contacted, so the skip is recorded on the
-	// trail like a breaker skip and pays no failover backoff.
-	if reason := speechRequestRefusal(st, candidate); reason != "" {
+	// A Gemini TTS or STT candidate that cannot serve the request as asked
+	// (a format it does not produce, an upload it cannot read) is skipped
+	// before any request is built, so another candidate in the group can
+	// serve it. Nothing was contacted, so the skip is recorded on the trail
+	// like a breaker skip and pays no failover backoff.
+	if reason := geminiRequestRefusal(st, candidate); reason != "" {
 		st.setReqErr(reqError{Kind: KindProviderBadRequest, Attempt: attempt, Provider: candidate.provider.Name, Underlying: reason})
 		logData.failoverAttempt = attempt
 		logData.appendSkip(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), reason)
@@ -106,6 +107,9 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	debuglog.Debug("proxy: upstream responded OK, dispatching passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"))
 	if st.speechFormat != "" {
 		return h.serveGeminiSpeechResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
+	}
+	if st.transcriptionFormat != "" {
+		return h.serveGeminiTranscriptionResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
 	}
 	h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
 	return outcomeServed

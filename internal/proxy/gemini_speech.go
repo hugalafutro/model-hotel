@@ -57,16 +57,25 @@ func speechRequestRefusal(st *requestState, candidate modelCandidate) string {
 	return ""
 }
 
-// refuseSpeechRequest answers a speech request with a 400 before any attempt
-// is made when every candidate refuses it. Reports whether the request was
-// answered.
-func (h *Handler) refuseSpeechRequest(w http.ResponseWriter, st *requestState, candidates []modelCandidate) bool {
-	if st.endpointPath != speechEndpointPath || len(candidates) == 0 {
+// geminiRequestRefusal is the reason a Gemini speech or transcription
+// attempt cannot serve the request as asked, or empty.
+func geminiRequestRefusal(st *requestState, candidate modelCandidate) string {
+	if reason := speechRequestRefusal(st, candidate); reason != "" {
+		return reason
+	}
+	return transcriptionRequestRefusal(st, candidate)
+}
+
+// refuseGeminiRequest answers a speech or transcription request with a 400
+// before any attempt is made when every candidate refuses it. Reports whether
+// the request was answered.
+func (h *Handler) refuseGeminiRequest(w http.ResponseWriter, st *requestState, candidates []modelCandidate) bool {
+	if (st.endpointPath != speechEndpointPath && st.endpointPath != transcriptionEndpointPath) || len(candidates) == 0 {
 		return false
 	}
 	reason := ""
 	for _, c := range candidates {
-		reason = speechRequestRefusal(st, c)
+		reason = geminiRequestRefusal(st, c)
 		if reason == "" {
 			return false
 		}
