@@ -98,8 +98,8 @@ func TestAudioTranscriptions_GeminiNativeRoute(t *testing.T) {
 	if inline["mimeType"] != "audio/wav" || inline["data"] != "UklGRmZha2V3YXZkYXRh" {
 		t.Errorf("inlineData = %v", inline)
 	}
-	if parts[1].(map[string]any)["text"] != "Names: Prague." {
-		t.Errorf("prompt part = %v", parts[1])
+	if text, _ := parts[1].(map[string]any)["text"].(string); !strings.HasPrefix(text, "Transcribe this audio verbatim.") || !strings.HasSuffix(text, "Context: Names: Prague.") {
+		t.Errorf("prompt part = %v, want the instruction with the client's hint as context", parts[1])
 	}
 	if strings.Contains(up.bodies[0], `"language"`) || strings.Contains(up.bodies[0], `"model"`) {
 		t.Errorf("form fields leaked into the native request: %s", up.bodies[0])

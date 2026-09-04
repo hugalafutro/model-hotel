@@ -38,13 +38,16 @@ var ErrTranscriptionFormat = errors.New("gemini: unsupported transcription respo
 // text: the provider answered, and its answer was not a transcript.
 var ErrTranscriptionNoText = errors.New("gemini: no text in transcription response")
 
-// defaultTranscriptionPrompt is the instruction sent to a chat model when
-// the client gave no prompt of its own: asked nothing about an audio clip it
-// tends to converse with it rather than transcribe it. A dedicated
-// transcription model (gemini-3.5-transcribe) takes the audio alone and
-// answers any text beside it, the client's prompt included, with an empty
-// reply, so it gets none.
-const defaultTranscriptionPrompt = "Transcribe this audio verbatim. Reply with the transcript only."
+// transcriptionInstruction is the text sent to a chat model beside the
+// audio: asked nothing about a clip it converses with it rather than
+// transcribing it, and OpenAI's prompt field is a context hint (names,
+// spellings) rather than an instruction, so the client's prompt rides along
+// as context under the instruction instead of replacing it (verified live:
+// gemini-3.5-flash-lite answered a bare hint with "Understood. Your pass
+// phrase is..."). A dedicated transcription model (gemini-3.5-transcribe)
+// takes the audio alone and answers any text beside it with an empty reply,
+// so it gets none.
+const transcriptionInstruction = "Transcribe this audio verbatim. Reply with the transcript only."
 
 // audioMimeByExt maps the upload's file extension to the mime type Gemini
 // takes for that container. OpenAI clients commonly send the file as
@@ -154,11 +157,11 @@ func TranslateTranscriptionRequest(req TranscriptionRequest) (geminiBody []byte,
 	}
 	parts := []genPart{{InlineData: &genBlob{MimeType: mime, Data: base64.StdEncoding.EncodeToString(req.Audio)}}}
 	if !req.Dedicated {
-		prompt := strings.TrimSpace(req.Prompt)
-		if prompt == "" {
-			prompt = defaultTranscriptionPrompt
+		text := transcriptionInstruction
+		if hint := strings.TrimSpace(req.Prompt); hint != "" {
+			text += " Context: " + hint
 		}
-		parts = append(parts, genPart{Text: prompt})
+		parts = append(parts, genPart{Text: text})
 	}
 	out := genRequest{Contents: []genContent{{Role: "user", Parts: parts}}}
 	if temp, err := strconv.ParseFloat(strings.TrimSpace(req.Temperature), 64); err == nil {

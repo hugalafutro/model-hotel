@@ -29,21 +29,21 @@ func TestTranslateTranscriptionRequest(t *testing.T) {
 	if inline["mimeType"] != "audio/wav" || inline["data"] != base64.StdEncoding.EncodeToString(audio) {
 		t.Errorf("inlineData = %v", inline)
 	}
-	if parts[1].(map[string]any)["text"] != defaultTranscriptionPrompt {
+	if parts[1].(map[string]any)["text"] != transcriptionInstruction {
 		t.Errorf("instruction = %v", parts[1])
 	}
 	if _, ok := sent["generationConfig"]; ok {
 		t.Error("generationConfig present; a transcription asks for nothing but text")
 	}
 
-	// A client prompt replaces the default instruction; text format rides
-	// through; the container comes from the content type when the name
-	// gives none.
+	// A client prompt rides along as context under the instruction; text
+	// format rides through; the container comes from the content type when
+	// the name gives none.
 	body, format, err = TranslateTranscriptionRequest(TranscriptionRequest{Audio: audio, FileName: "clip", ContentType: "audio/ogg; codecs=opus", Prompt: "Names: Prague.", ResponseFormat: "text"})
 	if err != nil || format != TranscriptionFormatText {
 		t.Fatalf("text format: err=%v format=%q", err, format)
 	}
-	if !strings.Contains(string(body), `"mimeType":"audio/ogg"`) || !strings.Contains(string(body), `"text":"Names: Prague."`) {
+	if !strings.Contains(string(body), `"mimeType":"audio/ogg"`) || !strings.Contains(string(body), `"text":"`+transcriptionInstruction+` Context: Names: Prague."`) {
 		t.Errorf("body = %s", body)
 	}
 }
