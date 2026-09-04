@@ -527,10 +527,6 @@ export function Providers() {
 					providers={providers}
 					onClose={() => setEditProvider(null)}
 					onToast={toast}
-					onEnabled={(p) => {
-						// The discover route refuses a provider with autodiscovery off.
-						if (p.autodiscovery_enabled) discoverMutation.mutate(p.id);
-					}}
 				/>
 			)}
 

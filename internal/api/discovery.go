@@ -252,6 +252,9 @@ func (h *Handler) AckDiscoveryChanges(w http.ResponseWriter, r *http.Request) {
 }
 
 // DiscoverProviderModels discovers and imports models from a specific provider.
+// It keeps its own request-bound copy of the scan rather than calling
+// discoverOne because every failure here is answered as an HTTP error, while
+// the shared scan records failures and carries on.
 func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request) {
 	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
 	if !ok {
@@ -434,146 +437,164 @@ func (h *Handler) discoverAllProviders(ctx context.Context, recordMisses bool) (
 		if !prov.Enabled || !prov.AutodiscoveryEnabled {
 			continue
 		}
-
-		events.Publish(events.Event{
-			Type:     "request.discovery.provider_starting",
-			Severity: "info",
-			Source:   "proxy",
-			Message:  fmt.Sprintf("Discovering models from %s…", prov.Name),
-			Metadata: map[string]any{"provider_id": prov.ID, "provider": prov.Name},
-		})
-
-		provCtx, provCancel := context.WithTimeout(context.WithoutCancel(ctx), 180*time.Second)
-		result := DiscoverAllResult{
-			ProviderName: prov.Name,
-		}
-
-		models, discoverErr := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
-
-		if discoverErr != nil {
-			result.Error = discoverErr.Error()
+		result := h.discoverOne(ctx, discovery, modelRepo, failoverRepo, prov, recordMisses)
+		if result.Error != "" {
 			failed++
-			provCancel()
-			events.Publish(events.Event{
-				Type:     "discovery.provider_failed",
-				Severity: "error",
-				Source:   "discovery",
-				Message:  fmt.Sprintf("Failed to discover models from %s: %s", prov.Name, discoverErr.Error()),
-				Metadata: map[string]any{"provider": prov.Name, "error": discoverErr.Error()},
-			})
-			results = append(results, result)
-			continue
-		}
-
-		result.Discovered = len(models)
-		totalDiscovered += len(models)
-		succeeded++
-
-		events.Publish(events.Event{
-			Type:     "discovery.provider_fetched",
-			Severity: "success",
-			Source:   "discovery",
-			Message:  fmt.Sprintf("Fetched %s from %s", util.Count(len(models), "model", "models"), prov.Name),
-			Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
-		})
-
-		// Enrich models with data from models.dev.
-		if cache := provider.GetModelsDevCache(); cache != nil {
-			enriched := cache.EnrichModels(models, provider.TypeOf(prov))
-			if enriched > 0 {
-				events.Publish(events.Event{
-					Type:     "discovery.enriched",
-					Severity: "info",
-					Source:   "discovery",
-					Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
-					Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
-				})
-			}
-		}
-		// Runs unconditionally: modality arrays and the derived endpoint class
-		// must be consistent even when models.dev is unreachable.
-		provider.NormalizeModels(models)
-
-		snapshot, snapErr := SnapshotProviderModels(provCtx, modelRepo, prov.ID)
-		if snapErr != nil {
-			debuglog.Debug("discovery: failed to snapshot models", "provider", prov.Name, "error", snapErr)
-		}
-		DampenOpenRouterPriceJitter(provider.TypeOf(prov), snapshot, models)
-
-		existingModelIDs := make([]string, 0, len(models))
-		upsertedModels := make([]*model.Model, 0, len(models))
-		upsertFailed := false
-		for _, m := range models {
-			if err := modelRepo.Upsert(provCtx, m); err != nil {
-				debuglog.Warn("discovery: failed to upsert model", "model", m.ModelID, "provider", prov.Name, "error", err)
-				upsertFailed = true
-				continue
-			}
-			existingModelIDs = append(existingModelIDs, m.ModelID)
-			upsertedModels = append(upsertedModels, m)
-		}
-
-		// Miss recording needs a trustworthy membership picture: skip it when a
-		// snapshot is unavailable (cannot confirm absentees), when any upsert
-		// failed (a DB error must not count a listed model as missing), or when
-		// the confirmation probes flag the scan as suspect. Disabling happens
-		// only after MissingScanThreshold consecutive confirmed-missing scans.
-		// recordMisses is false on request-bound callers so the ~70s probe
-		// backoff never overruns their HTTP timeout (see the doc comment).
-		var disabledRefs []model.DisabledModelRef
-		if recordMisses && snapErr == nil && !upsertFailed {
-			confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot, NewSuspectStreak(h.dbPool.Pool()))
-			if suspect {
-				debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", prov.ID)
-			} else {
-				var pendingRefs []model.DisabledModelRef
-				disabledRefs, pendingRefs, err = modelRepoRecordMissing(modelRepo, provCtx, prov.ID, prov.Name, confirmedIDs)
-				if err != nil {
-					debuglog.Debug("discovery: failed to record missing models", "provider", prov.Name, "error", err)
-				}
-				if len(pendingRefs) > 0 {
-					debuglog.Info("discovery: models confirmed missing but below disable threshold",
-						"provider", prov.Name, "provider_id", prov.ID, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
-				}
-			}
-		}
-
-		// Without the before-snapshot the diff cannot be classified; the scan
-		// itself still completes and the result just omits the diff.
-		var diff *DiscoveryDiff
-		if snapErr == nil {
-			diff = BuildDiscoveryDiff(snapshot, upsertedModels, disabledRefs)
-		}
-
-		syncFailoverForScan(provCtx, failoverRepo, existingModelIDs, disabledRefs, diff, func(modelID string, disabled bool, err error) bool {
-			label := "model"
-			if disabled {
-				label = "disabled model"
-			}
-			debuglog.Debug("discovery: failed to sync failover for "+label, "model_id", modelID, "error", err)
-			return true
-		})
-		result.Diff = diff
-
-		now := time.Now()
-		if _, err := dbExec(h.dbPool.Pool(), provCtx,
-			`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID); err != nil {
-			debuglog.Debug("discovery: failed to update last_discovered_at", "provider_id", prov.ID, "error", err)
 		} else {
-			// Raw UPDATE bypasses the repository; evict this provider's cache
-			// entries so read-through Get sees the new last_discovered_at.
-			provider.EvictProviderCacheByID(prov.ID)
+			succeeded++
+			totalDiscovered += result.Discovered
 		}
-
-		provCancel()
 		results = append(results, result)
 	}
 
-	// Reflect the discovery in the failover "Last Sync" label whenever at least
-	// one provider's groups were actually (re)synced.
-	if succeeded > 0 {
-		stampFailoverSynced(context.WithoutCancel(ctx), h.settingsRepo)
+	return results, succeeded, failed, totalDiscovered, nil
+}
+
+// discoverOne scans a single provider and upserts what it lists: the
+// per-provider half of discoverAllProviders, shared with the rediscovery an
+// enabled provider gets when a save changes its address, type, key or enabled
+// flag. Each run has its own detached timeout so a caller's cancellation never
+// aborts a scan mid-upsert. Success is result.Error == "".
+func (h *Handler) discoverOne(ctx context.Context, discovery *provider.DiscoveryService, modelRepo *model.Repository, failoverRepo *failover.Repository, prov *provider.Provider, recordMisses bool) DiscoverAllResult {
+	events.Publish(events.Event{
+		Type:     "request.discovery.provider_starting",
+		Severity: "info",
+		Source:   "proxy",
+		Message:  fmt.Sprintf("Discovering models from %s…", prov.Name),
+		Metadata: map[string]any{"provider_id": prov.ID, "provider": prov.Name},
+	})
+
+	provCtx, provCancel := context.WithTimeout(context.WithoutCancel(ctx), 180*time.Second)
+	defer provCancel()
+	result := DiscoverAllResult{
+		ProviderName: prov.Name,
 	}
 
-	return results, succeeded, failed, totalDiscovered, nil
+	models, discoverErr := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
+
+	if discoverErr != nil {
+		result.Error = discoverErr.Error()
+		events.Publish(events.Event{
+			Type:     "discovery.provider_failed",
+			Severity: "error",
+			Source:   "discovery",
+			Message:  fmt.Sprintf("Failed to discover models from %s: %s", prov.Name, discoverErr.Error()),
+			Metadata: map[string]any{"provider": prov.Name, "error": discoverErr.Error()},
+		})
+		return result
+	}
+
+	result.Discovered = len(models)
+
+	events.Publish(events.Event{
+		Type:     "discovery.provider_fetched",
+		Severity: "success",
+		Source:   "discovery",
+		Message:  fmt.Sprintf("Fetched %s from %s", util.Count(len(models), "model", "models"), prov.Name),
+		Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
+	})
+
+	// Enrich models with data from models.dev.
+	if cache := provider.GetModelsDevCache(); cache != nil {
+		enriched := cache.EnrichModels(models, provider.TypeOf(prov))
+		if enriched > 0 {
+			events.Publish(events.Event{
+				Type:     "discovery.enriched",
+				Severity: "info",
+				Source:   "discovery",
+				Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
+				Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
+			})
+		}
+	}
+	// Runs unconditionally: modality arrays and the derived endpoint class
+	// must be consistent even when models.dev is unreachable.
+	provider.NormalizeModels(models)
+
+	snapshot, snapErr := SnapshotProviderModels(provCtx, modelRepo, prov.ID)
+	if snapErr != nil {
+		debuglog.Debug("discovery: failed to snapshot models", "provider", prov.Name, "error", snapErr)
+	}
+	DampenOpenRouterPriceJitter(provider.TypeOf(prov), snapshot, models)
+
+	existingModelIDs := make([]string, 0, len(models))
+	upsertedModels := make([]*model.Model, 0, len(models))
+	upsertFailed := false
+	for _, m := range models {
+		if err := modelRepo.Upsert(provCtx, m); err != nil {
+			debuglog.Warn("discovery: failed to upsert model", "model", m.ModelID, "provider", prov.Name, "error", err)
+			upsertFailed = true
+			continue
+		}
+		existingModelIDs = append(existingModelIDs, m.ModelID)
+		upsertedModels = append(upsertedModels, m)
+	}
+
+	// Miss recording needs a trustworthy membership picture: skip it when a
+	// snapshot is unavailable (cannot confirm absentees), when any upsert
+	// failed (a DB error must not count a listed model as missing), or when
+	// the confirmation probes flag the scan as suspect. Disabling happens
+	// only after MissingScanThreshold consecutive confirmed-missing scans.
+	// recordMisses is false on request-bound callers so the ~70s probe
+	// backoff never overruns their HTTP timeout (see the doc comment).
+	var disabledRefs []model.DisabledModelRef
+	if recordMisses && snapErr == nil && !upsertFailed {
+		confirmedIDs, suspect := ConfirmMissingModels(provCtx, discovery, prov, h.cfg.MasterKey, existingModelIDs, snapshot, NewSuspectStreak(h.dbPool.Pool()))
+		if suspect {
+			debuglog.Warn("discovery: suspect scan, skipping missing-model recording", "provider", prov.Name, "provider_id", prov.ID)
+		} else {
+			var pendingRefs []model.DisabledModelRef
+			var err error
+			disabledRefs, pendingRefs, err = modelRepoRecordMissing(modelRepo, provCtx, prov.ID, prov.Name, confirmedIDs)
+			if err != nil {
+				debuglog.Debug("discovery: failed to record missing models", "provider", prov.Name, "error", err)
+			}
+			if len(pendingRefs) > 0 {
+				debuglog.Info("discovery: models confirmed missing but below disable threshold",
+					"provider", prov.Name, "provider_id", prov.ID, "pending", len(pendingRefs), "threshold", model.MissingScanThreshold)
+			}
+		}
+	}
+
+	// Without the before-snapshot the diff cannot be classified; the scan
+	// itself still completes and the result just omits the diff.
+	var diff *DiscoveryDiff
+	if snapErr == nil {
+		diff = BuildDiscoveryDiff(snapshot, upsertedModels, disabledRefs)
+	}
+
+	syncFailoverForScan(provCtx, failoverRepo, existingModelIDs, disabledRefs, diff, func(modelID string, disabled bool, err error) bool {
+		label := "model"
+		if disabled {
+			label = "disabled model"
+		}
+		debuglog.Debug("discovery: failed to sync failover for "+label, "model_id", modelID, "error", err)
+		return true
+	})
+	result.Diff = diff
+	// Reflect the scan in the failover "Last Sync" label.
+	stampFailoverSynced(provCtx, h.settingsRepo)
+
+	now := time.Now()
+	if _, err := dbExec(h.dbPool.Pool(), provCtx,
+		`UPDATE providers SET last_discovered_at = $1 WHERE id = $2`, now, prov.ID); err != nil {
+		debuglog.Debug("discovery: failed to update last_discovered_at", "provider_id", prov.ID, "error", err)
+	} else {
+		// Raw UPDATE bypasses the repository; evict this provider's cache
+		// entries so read-through Get sees the new last_discovered_at.
+		provider.EvictProviderCacheByID(prov.ID)
+	}
+	// Last, once every row this scan writes is committed: the dashboard re-reads
+	// its lists on this event, and the earlier fetched/enriched events fire
+	// before the upserts, so a re-read on those would still see the old
+	// catalogue. The request. prefix keeps it out of the toast stream like the
+	// matching provider_starting event.
+	events.Publish(events.Event{
+		Type:     "request.discovery.provider_completed",
+		Severity: "info",
+		Source:   "discovery",
+		Message:  fmt.Sprintf("Finished discovery for %s", prov.Name),
+		Metadata: map[string]any{"provider_id": prov.ID, "provider": prov.Name, "count": len(models)},
+	})
+	return result
 }

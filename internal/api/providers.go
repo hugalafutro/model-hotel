@@ -442,7 +442,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		util.HoldSecret(*req.APIKey)
 	}
 
-	enabling := h.isEnabling(r.Context(), id, req)
+	prior := h.priorProvider(r.Context(), id, req)
 
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
@@ -458,23 +458,62 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	disabling := req.Enabled != nil && !*req.Enabled
-	h.settleProviderToggle(context.WithoutCancel(r.Context()), p, disabling, enabling)
+	h.settleProviderUpdate(context.WithoutCancel(r.Context()), prior, p, req)
 
 	response := provider.ToResponse(p)
 	writeJSON(w, response)
 }
 
-// isEnabling reports whether req switches provider id from disabled to enabled.
-// Read before the write so an enable can be told apart from an update that
-// leaves an already-enabled provider on: only the transition costs an upstream
-// quota call.
-func (h *Handler) isEnabling(ctx context.Context, id uuid.UUID, req provider.UpdateProviderRequest) bool {
-	if req.Enabled == nil || !*req.Enabled {
-		return false
+// priorProvider reads the row a save is about to replace, but only when the
+// save touches something whose before-and-after matters: the enabled flag or
+// the provider's identity. A rename never needs it.
+func (h *Handler) priorProvider(ctx context.Context, id uuid.UUID, req provider.UpdateProviderRequest) *provider.Provider {
+	if req.Enabled == nil && req.AutodiscoveryEnabled == nil && req.BaseURL == nil && req.ProviderType == nil && req.APIKey == nil {
+		return nil
 	}
 	prior, err := h.providerRepo.Get(ctx, id)
-	return err == nil && !prior.Enabled
+	if err != nil {
+		return nil
+	}
+	return prior
+}
+
+// settleProviderUpdate runs what a committed save owes the rest of the system:
+// the enabled-flag settlement, then a background rediscovery when the save
+// changed something that can change the catalogue.
+func (h *Handler) settleProviderUpdate(ctx context.Context, prior, p *provider.Provider, req provider.UpdateProviderRequest) {
+	disabling := req.Enabled != nil && !*req.Enabled
+	enabling := prior != nil && !prior.Enabled && p.Enabled
+	h.settleProviderToggle(ctx, p, disabling, enabling)
+	if shouldRediscover(prior, p, req.APIKey != nil) {
+		h.rediscoverInBackground(ctx, p)
+	}
+}
+
+// shouldRediscover reports whether a save changed something that can change
+// the provider's catalogue: it or its autodiscovery was switched on, or its
+// address, type or key moved. A config-sync import rediscovers on every fleet
+// member after such a change, so the node the save landed on scans too rather
+// than keeping the catalogue from before the edit until the next sweep.
+func shouldRediscover(prior, updated *provider.Provider, keyChanged bool) bool {
+	if prior == nil || !updated.Enabled || !updated.AutodiscoveryEnabled {
+		return false
+	}
+	return !prior.Enabled || !prior.AutodiscoveryEnabled || keyChanged ||
+		prior.BaseURL != updated.BaseURL ||
+		provider.TypeOf(prior) != provider.TypeOf(updated)
+}
+
+// rediscoverInBackground scans one provider without holding the response:
+// discovery can take minutes on a slow upstream. The dashboard follows the
+// scan through the discovery events (lists re-read on completion, failures
+// toasted) rather than the diff modal a manual Discover click shows; the scan
+// itself bounds its own upstream time.
+func (h *Handler) rediscoverInBackground(ctx context.Context, prov *provider.Provider) {
+	if h.dbPool == nil {
+		return
+	}
+	go h.discoverOne(ctx, h.discoveryService(), newModelRepo(h.dbPool.Pool()), newFailoverRepo(h.dbPool.Pool()), prov, false)
 }
 
 // settleProviderToggle runs what an enabled-flag change owes the rest of the

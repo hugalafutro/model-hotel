@@ -62,13 +62,11 @@ export function AllProviders({
 					<StorageProvider>
 						<SidebarModeProvider>
 							<ToastSlot>
-								<EventProvider>
-									<QuotaModalProvider>
-										<QueryClientProvider client={queryClient}>
-											{children}
-										</QueryClientProvider>
-									</QuotaModalProvider>
-								</EventProvider>
+								<QueryClientProvider client={queryClient}>
+									<EventProvider>
+										<QuotaModalProvider>{children}</QuotaModalProvider>
+									</EventProvider>
+								</QueryClientProvider>
 							</ToastSlot>
 						</SidebarModeProvider>
 					</StorageProvider>

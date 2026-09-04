@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef } from "react";
 import { API_BASE, clearAuth, isAuthenticated } from "../api/client";
 import { readSSEStream } from "../utils/sse";
@@ -14,6 +15,7 @@ interface ServerEvent {
 
 export function EventProvider({ children }: { children: ReactNode }) {
 	const { toast } = useToast();
+	const queryClient = useQueryClient();
 	const reconnectDelay = useRef(1000);
 	const abortRef = useRef<AbortController | null>(null);
 	const connectingRef = useRef(false);
@@ -72,6 +74,20 @@ export function EventProvider({ children }: { children: ReactNode }) {
 							if (!event.type.startsWith("request.")) {
 								toast(event.message, event.severity);
 							}
+							// Discovery also runs with no dashboard action behind it: a
+							// provider save that changed its address or key scans in the
+							// background, so the lists follow the completion event. Only
+							// that one: the fetched/enriched events fire before the scan's
+							// rows are written. exact on the badge key, for the reason
+							// useRefreshDiscoveryBadge gives.
+							if (event.type === "request.discovery.provider_completed") {
+								queryClient.invalidateQueries({ queryKey: ["providers"] });
+								queryClient.invalidateQueries({ queryKey: ["models"] });
+								queryClient.invalidateQueries({
+									queryKey: ["discovery-status"],
+									exact: true,
+								});
+							}
 						},
 					}).catch(() => {
 						// Stream ended or errored
@@ -105,7 +121,7 @@ export function EventProvider({ children }: { children: ReactNode }) {
 				reconnectTimerRef.current = null;
 			}
 		};
-	}, [toast]);
+	}, [toast, queryClient]);
 
 	return <>{children}</>;
 }

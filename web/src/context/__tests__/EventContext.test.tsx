@@ -1,3 +1,4 @@
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -15,14 +16,34 @@ interface ServerEvent {
 	timestamp: string;
 }
 
-function renderWithEventProvider(ui: React.ReactElement) {
+function renderWithEventProvider(
+	ui: React.ReactElement,
+	queryClient = new QueryClient(),
+) {
 	return render(ui, {
 		wrapper: ({ children }) => (
-			<ToastProvider>
-				<EventProvider>{children}</EventProvider>
-			</ToastProvider>
+			<QueryClientProvider client={queryClient}>
+				<ToastProvider>
+					<EventProvider>{children}</EventProvider>
+				</ToastProvider>
+			</QueryClientProvider>
 		),
 	});
+}
+
+function sseOnce(event: ServerEvent) {
+	server.use(
+		http.get("/api/events", () => {
+			const stream = createSSEStream([event], { doneSentinel: null });
+			return new HttpResponse(stream, {
+				status: 200,
+				headers: {
+					"Content-Type": "text/event-stream",
+					"Cache-Control": "no-cache",
+				},
+			});
+		}),
+	);
 }
 
 describe("EventContext", () => {
@@ -83,6 +104,56 @@ describe("SSE connection and event handling", () => {
 
 		expect(authHeader).toBeUndefined();
 		expect(cookieHeader).toContain("mh_csrf=");
+	});
+
+	it("re-reads providers, models and the badge when a discovery completes", async () => {
+		// Discovery can run server-side with no dashboard action behind it (a
+		// provider save that changed its address), so the lists follow the
+		// completion event rather than a mutation's settle.
+		const queryClient = new QueryClient();
+		const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+		sseOnce({
+			id: "evt-d",
+			type: "request.discovery.provider_completed",
+			severity: "info",
+			message: "Finished discovery for Test",
+			timestamp: new Date().toISOString(),
+		});
+		renderWithEventProvider(<div />, queryClient);
+		await waitFor(() => {
+			expect(invalidate).toHaveBeenCalledWith({ queryKey: ["providers"] });
+			expect(invalidate).toHaveBeenCalledWith({ queryKey: ["models"] });
+			// exact: a prefix match would also refetch the discrepancy modal's
+			// query, which stamps the server's last-reviewed marker.
+			expect(invalidate).toHaveBeenCalledWith({
+				queryKey: ["discovery-status"],
+				exact: true,
+			});
+		});
+	});
+
+	it.each([
+		"backup.created",
+		"request.discovery.provider_starting",
+		"discovery.provider_fetched",
+	])("does not re-read lists on %s", async (type) => {
+		// The mid-scan events fire before the scan's rows are written, so a
+		// re-read on them would still see the old catalogue.
+		const queryClient = new QueryClient();
+		const invalidate = vi.spyOn(queryClient, "invalidateQueries");
+		const seen = vi.fn();
+		window.addEventListener("server-event", seen);
+		sseOnce({
+			id: "evt-x",
+			type,
+			severity: "info",
+			message: "something happened",
+			timestamp: new Date().toISOString(),
+		});
+		renderWithEventProvider(<div />, queryClient);
+		await waitFor(() => expect(seen).toHaveBeenCalledTimes(1));
+		window.removeEventListener("server-event", seen);
+		expect(invalidate).not.toHaveBeenCalled();
 	});
 
 	it("dispatches server-event CustomEvent for each SSE chunk", async () => {

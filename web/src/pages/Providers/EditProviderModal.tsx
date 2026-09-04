@@ -36,17 +36,12 @@ export function EditProviderModal({
 	providers,
 	onClose,
 	onToast,
-	onEnabled,
 }: {
 	provider: Provider;
 	/** Every provider, so a URL edit can warn when it collides with another. */
 	providers?: Provider[];
 	onClose: () => void;
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
-	/** Called with the saved provider when this save switched it on. A provider
-	 * that sat disabled has a catalogue as old as the disable, so the page runs
-	 * discovery for it the way it does for a freshly added one. */
-	onEnabled?: (updated: Provider) => void;
 }) {
 	const queryClient = useQueryClient();
 	// Claims are read per enabled provider, so switching one off takes every
@@ -91,7 +86,6 @@ export function EditProviderModal({
 				"success",
 			);
 			onClose();
-			if (updated.enabled && !provider.enabled) onEnabled?.(updated);
 		},
 		onError: (err: Error) => {
 			// A new address that does not answer as the stored type is rejected;
