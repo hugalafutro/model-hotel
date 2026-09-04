@@ -246,7 +246,9 @@ func TestGoogleModalities(t *testing.T) {
 	cases := []struct {
 		model, wantIn, wantOut, wantClass string
 	}{
-		{"gemini-2.5-flash", `["text","image"]`, `["text"]`, "chat"},
+		{"gemini-2.5-flash", `["text","image","audio"]`, `["text"]`, "chat"},
+		{"gemini-3.5-flash-lite", `["text","image","audio"]`, `["text"]`, "chat"},
+		{"gemma-4-31b-it", `["text","image"]`, `["text"]`, "chat"},
 		{"gemini-3-pro-image", `["text","image"]`, `["text","image"]`, "chat"},
 		{"gemini-2.5-flash-preview-tts", `["text"]`, `["audio"]`, "tts"},
 		{"gemini-2.5-flash-native-audio-preview", `["text","image","audio","video"]`, `["text","audio"]`, "chat"},
