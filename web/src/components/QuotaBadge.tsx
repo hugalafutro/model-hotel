@@ -255,18 +255,13 @@ function neuralwattBadgeContent(
 	return { label, title };
 }
 
-// The payload a badge reads spent-ness from, by type. NanoGPT's badge is fed
-// the two weekly numbers rather than the usage payload, so they are folded
-// back into the shape the shared rule reads.
-function spentPayload(p: QuotaBadgeProps): object | null | undefined {
+// The payload a badge reads spent-ness from, by type. No return annotation:
+// the inferred union keeps the switch exhaustive, so a new provider type is a
+// compile error here rather than a badge that can never read as spent.
+function spentPayload(p: QuotaBadgeProps) {
 	switch (p.type) {
 		case "nanogpt":
-			return (
-				p.nanogptUsage ?? {
-					limits: { weeklyInputTokens: p.weeklyLimit },
-					weeklyInputTokens: { used: p.weeklyUsed },
-				}
-			);
+			return p.nanogptUsage;
 		case "zai-coding":
 			return p.zaiCodingUsage;
 		case "kimi-code":
@@ -473,6 +468,7 @@ export function QuotaBadges({
 						barMode={barMode}
 						weeklyUsed={quotaData.nanoWeeklyUsed}
 						weeklyLimit={quotaData.nanoWeeklyLimit}
+						nanogptUsage={quotaData.nanogptUsage}
 						onClick={onNanoClick}
 					/>
 				)}

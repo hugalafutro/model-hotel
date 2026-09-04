@@ -3534,7 +3534,10 @@ html.light .quota-card-neuralwatt {
 [data-ui-style] .quota-badge-spent {
 	color: #facc15;
 }
-[data-ui-style].light .quota-badge-spent {
+/* html is in the selector so this outranks the per-style light sidebar pill
+   rule (html[data-ui-style="..."].light .sidebar-quota-pill), which would
+   otherwise keep the pill's own light colour. */
+html[data-ui-style].light .quota-badge-spent {
 	color: #b45309;
 }
 

@@ -117,6 +117,50 @@ describe("isQuotaPayloadSpent", () => {
 			healthy: minimaxEntry(40, 1),
 		},
 		{
+			type: "minimax",
+			why: "the rolling window is judged on its own",
+			spent: minimaxEntry(0, 40),
+			healthy: minimaxEntry(1, 40),
+		},
+		{
+			type: "minimax",
+			why: "request counts win over the percent when the payload carries them",
+			spent: {
+				...minimaxEntry(40, 40),
+				model_remains: [
+					{
+						...minimaxEntry(40, 40).model_remains[0],
+						current_interval_total_count: 100,
+						current_interval_usage_count: 100,
+					},
+				],
+			},
+			healthy: {
+				...minimaxEntry(0, 40),
+				model_remains: [
+					{
+						...minimaxEntry(0, 40).model_remains[0],
+						current_interval_total_count: 100,
+						current_interval_usage_count: 99,
+					},
+				],
+			},
+		},
+		{
+			type: "nanogpt",
+			why: "an overage-enabled plan keeps serving past its allowance",
+			spent: {
+				limits: { weeklyInputTokens: 1000 },
+				weeklyInputTokens: { used: 1000 },
+				allowOverage: false,
+			},
+			healthy: {
+				limits: { weeklyInputTokens: 1000 },
+				weeklyInputTokens: { used: 1000 },
+				allowOverage: true,
+			},
+		},
+		{
 			type: "deepseek",
 			why: "an available account whose balance reads zero",
 			spent: {
@@ -130,9 +174,37 @@ describe("isQuotaPayloadSpent", () => {
 		},
 		{
 			type: "openrouter",
-			why: "credits at zero",
-			spent: { credits_remaining: 0, limit_remaining: null },
-			healthy: { credits_remaining: 0.5, limit_remaining: null },
+			why: "a funded key with its credits at zero",
+			spent: { credits_total: 10, credits_remaining: 0, limit_remaining: null },
+			healthy: {
+				credits_total: 10,
+				credits_remaining: 0.5,
+				limit_remaining: null,
+			},
+		},
+		{
+			type: "openrouter",
+			why: "a free-tier key at zero still serves the free models",
+			spent: { credits_total: 10, credits_remaining: 0, is_free_tier: false },
+			healthy: { credits_total: 0, credits_remaining: 0, is_free_tier: true },
+		},
+		{
+			type: "openrouter",
+			why: "the per-key cap decides on its own",
+			spent: { credits_total: 10, credits_remaining: 12, limit_remaining: 0 },
+			healthy: { credits_total: 10, credits_remaining: 12, limit_remaining: 5 },
+		},
+		{
+			type: "neuralwatt",
+			why: "energy at zero counts as spent even without the overage flag",
+			spent: {
+				subscription: { plan: "basic", kwh_remaining: 0 },
+				balance: { credits_remaining_usd: 0 },
+			},
+			healthy: {
+				subscription: { plan: "basic", kwh_remaining: 0.2 },
+				balance: { credits_remaining_usd: 0 },
+			},
 		},
 		{
 			type: "neuralwatt",
@@ -168,16 +240,20 @@ describe("isQuotaPayloadSpent", () => {
 		).toBe(false);
 	});
 
-	it("deepseek: unavailable is spent, and an empty balance list is not", () => {
+	it("deepseek: unavailable is spent; an empty list or a blank balance is not", () => {
 		expect(isDeepSeekQuotaSpent({ is_available: false })).toBe(true);
 		expect(
 			isDeepSeekQuotaSpent({ is_available: true, balance_infos: [] }),
 		).toBe(false);
+		expect(
+			isDeepSeekQuotaSpent({
+				is_available: true,
+				balance_infos: [{ total_balance: " " }],
+			}),
+		).toBe(false);
 	});
 
-	it("openrouter: a spent per-key cap counts even with credits left", () => {
-		expect(
-			isOpenRouterQuotaSpent({ credits_remaining: 12, limit_remaining: 0 }),
-		).toBe(true);
+	it("openrouter: an unfunded key never reads spent on credits alone", () => {
+		expect(isOpenRouterQuotaSpent({ credits_remaining: 0 })).toBe(false);
 	});
 });

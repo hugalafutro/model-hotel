@@ -1,5 +1,4 @@
 import { getKimiCodeFiveHourLimit, getKimiCodeWeeklyLimit } from "./kimi";
-import { getMiniMaxFiveHourLimit, getMiniMaxWeeklyLimit } from "./minimax";
 import type {
 	DeepSeekBalanceLike,
 	KimiCodeQuotaResponse,
@@ -27,6 +26,7 @@ import { getZaiCodingFiveHourLimit, getZaiCodingWeeklyLimit } from "./zai";
 const NEURALWATT_CREDITS_SPENT_FLOOR_USD = 0.01;
 
 export function isNanoGptQuotaSpent(u: NanoGptUsageLike): boolean {
+	if (u.allowOverage === true) return false;
 	const limit = u.limits?.weeklyInputTokens;
 	const used = u.weeklyInputTokens?.used;
 	return limit != null && limit > 0 && used != null && used >= limit;
@@ -52,9 +52,44 @@ export function isKimiCodeQuotaSpent(u: KimiCodeQuotaResponse): boolean {
 	);
 }
 
+// One MiniMax window, judged as addMiniMaxWindow does: only a window the plan
+// covers (status 1) counts; request counts decide when the payload carries
+// them, else a remaining percent inside [0, 100]; anything else is skipped.
+function isMiniMaxWindowSpent(
+	status: number | undefined,
+	total: number | undefined,
+	used: number | undefined,
+	remainingPercent: number | undefined,
+): boolean {
+	if (status !== 1) return false;
+	if (total != null && total > 0) return used != null && used >= total;
+	if (
+		remainingPercent != null &&
+		remainingPercent >= 0 &&
+		remainingPercent <= 100
+	)
+		return remainingPercent <= 0;
+	return false;
+}
+
+// Every model class, as the gateway judges the provider: the breaker is per
+// provider, so any spent window on any class pins it.
 export function isMiniMaxQuotaSpent(u: MiniMaxQuotaResponse): boolean {
-	return [getMiniMaxFiveHourLimit(u), getMiniMaxWeeklyLimit(u)].some(
-		(w) => w != null && w.remainingPercent <= 0,
+	if (u.base_resp?.status_code !== 0) return false;
+	return (u.model_remains ?? []).some(
+		(m) =>
+			isMiniMaxWindowSpent(
+				m.current_interval_status,
+				m.current_interval_total_count,
+				m.current_interval_usage_count,
+				m.current_interval_remaining_percent,
+			) ||
+			isMiniMaxWindowSpent(
+				m.current_weekly_status,
+				m.current_weekly_total_count,
+				m.current_weekly_usage_count,
+				m.current_weekly_remaining_percent,
+			),
 	);
 }
 
@@ -63,26 +98,38 @@ export function isDeepSeekQuotaSpent(b: DeepSeekBalanceLike): boolean {
 	const infos = b.balance_infos ?? [];
 	if (infos.length === 0) return false;
 	return infos.every((i) => {
-		const n = Number(i.total_balance);
-		return i.total_balance != null && Number.isFinite(n) && n <= 0;
+		const raw = i.total_balance?.trim();
+		if (!raw) return false;
+		const n = Number(raw);
+		return Number.isFinite(n) && n <= 0;
 	});
 }
 
+// A key that never bought credits reports credits_remaining 0 (the gateway
+// clamps total minus usage) yet still serves the free models, so only a
+// funded key can spend its credits. A spent per-key cap blocks regardless.
 export function isOpenRouterQuotaSpent(b: OpenRouterBalanceLike): boolean {
+	const funded =
+		b.is_free_tier !== true && b.credits_total != null && b.credits_total > 0;
 	return (
-		(b.credits_remaining != null && b.credits_remaining <= 0) ||
+		(funded && b.credits_remaining != null && b.credits_remaining <= 0) ||
 		(b.limit_remaining != null && b.limit_remaining <= 0)
 	);
 }
 
-// Spent means both meters are gone: the energy allowance (in overage) and the
+// Spent means both meters are gone: the energy allowance (kwh_remaining at
+// zero, or the in_overage flag NeuralWatt sets on entering overage) and the
 // credits that overage draws on.
 export function isNeuralWattQuotaSpent(q: NeuralWattQuotaLike): boolean {
-	const remaining = q.balance?.credits_remaining_usd;
+	const sub = q.subscription;
+	const energySpent =
+		(sub?.kwh_remaining != null && sub.kwh_remaining <= 0) ||
+		sub?.in_overage === true;
+	const credits = q.balance?.credits_remaining_usd;
 	return (
-		q.subscription?.in_overage === true &&
-		remaining != null &&
-		remaining < NEURALWATT_CREDITS_SPENT_FLOOR_USD
+		energySpent &&
+		credits != null &&
+		credits < NEURALWATT_CREDITS_SPENT_FLOOR_USD
 	);
 }
 
