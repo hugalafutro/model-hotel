@@ -52,11 +52,21 @@ type oaiMessage struct {
 }
 
 type oaiContentPart struct {
-	Type     string `json:"type"` // "text" | "image_url"
+	Type     string `json:"type"` // "text" | "image_url" | "input_audio" | "file"
 	Text     string `json:"text"`
 	ImageURL *struct {
 		URL string `json:"url"`
 	} `json:"image_url"`
+	InputAudio *struct {
+		Data   string `json:"data"`
+		Format string `json:"format"`
+	} `json:"input_audio"`
+	// File carries a document as a data: URI in file_data. A file_id refers
+	// to OpenAI's Files store, which Gemini cannot fetch, so a part with only
+	// an id is dropped like a malformed image.
+	File *struct {
+		FileData string `json:"file_data"`
+	} `json:"file"`
 }
 
 type oaiToolCall struct {
@@ -418,7 +428,21 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 			if p.ImageURL == nil || p.ImageURL.URL == "" {
 				continue
 			}
-			if part, ok := imagePart(p.ImageURL.URL); ok {
+			if part, ok := mediaPart(p.ImageURL.URL); ok {
+				parts = append(parts, part)
+			}
+		case "input_audio":
+			// OpenAI names the container (wav, mp3); Gemini's audio mime
+			// types use the same words (audio/wav, audio/mp3).
+			if p.InputAudio == nil || p.InputAudio.Data == "" || p.InputAudio.Format == "" {
+				continue
+			}
+			parts = append(parts, genPart{InlineData: &genBlob{MimeType: "audio/" + p.InputAudio.Format, Data: p.InputAudio.Data}})
+		case "file":
+			if p.File == nil || p.File.FileData == "" {
+				continue
+			}
+			if part, ok := mediaPart(p.File.FileData); ok {
 				parts = append(parts, part)
 			}
 		}
@@ -426,9 +450,9 @@ func translateParts(raw json.RawMessage) ([]genPart, error) {
 	return parts, nil
 }
 
-// imagePart maps an OpenAI image_url value to inlineData (data: URIs) or
-// fileData (plain URLs).
-func imagePart(u string) (genPart, bool) {
+// mediaPart maps an OpenAI image_url or file_data value to inlineData (data:
+// URIs) or fileData (plain URLs).
+func mediaPart(u string) (genPart, bool) {
 	if rest, ok := strings.CutPrefix(u, "data:"); ok {
 		mime, data, found := strings.Cut(rest, ";base64,")
 		if !found || data == "" {

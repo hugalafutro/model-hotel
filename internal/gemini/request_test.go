@@ -466,6 +466,37 @@ func TestTranslateRequest_SystemAsParts(t *testing.T) {
 	}
 }
 
+func TestTranslateRequest_AudioAndFileParts(t *testing.T) {
+	body := []byte(`{
+		"model": "gemini-3.5-flash-lite",
+		"messages": [{"role": "user", "content": [
+			{"type": "text", "text": "Transcribe, then read the code."},
+			{"type": "input_audio", "input_audio": {"data": "UklGRg==", "format": "wav"}},
+			{"type": "file", "file": {"filename": "doc.pdf", "file_data": "data:application/pdf;base64,JVBERi0="}},
+			{"type": "file", "file": {"file_id": "file-abc"}},
+			{"type": "input_audio", "input_audio": {"data": "", "format": "mp3"}}
+		]}]
+	}`)
+
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest failed: %v", err)
+	}
+	parts := decodeGemini(t, out)["contents"].([]any)[0].(map[string]any)["parts"].([]any)
+	// Text, audio, pdf. The id-only file and the empty audio are dropped.
+	if len(parts) != 3 {
+		t.Fatalf("parts len = %d, want 3: %v", len(parts), parts)
+	}
+	audio := parts[1].(map[string]any)["inlineData"].(map[string]any)
+	if audio["mimeType"] != "audio/wav" || audio["data"] != "UklGRg==" {
+		t.Errorf("audio inlineData = %v", audio)
+	}
+	pdf := parts[2].(map[string]any)["inlineData"].(map[string]any)
+	if pdf["mimeType"] != "application/pdf" || pdf["data"] != "JVBERi0=" {
+		t.Errorf("pdf inlineData = %v", pdf)
+	}
+}
+
 func TestTranslateRequest_EdgeCases(t *testing.T) {
 	body := []byte(`{
 		"model": "gemini-2.5-flash",
