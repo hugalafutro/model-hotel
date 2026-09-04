@@ -486,7 +486,11 @@ func (h *Handler) isEnabling(ctx context.Context, id uuid.UUID, req provider.Upd
 // snapshot is as old as the disable, and the badge the dashboard reads straight
 // after this response must show the current balance rather than that one.
 func (h *Handler) settleProviderToggle(ctx context.Context, p *provider.Provider, disabling, enabling bool) {
-	if (disabling || enabling) && h.dbPool != nil {
+	// A handler without a pool has none of the repositories this needs.
+	if h.dbPool == nil {
+		return
+	}
+	if disabling || enabling {
 		failoverRepo := failover.NewRepository(h.dbPool.Pool())
 		if _, err := failoverRepo.SyncAllModels(ctx); err != nil {
 			debuglog.Info("admin: failed to sync failover groups after provider enable/disable", "error", err)

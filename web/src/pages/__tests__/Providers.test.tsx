@@ -737,6 +737,7 @@ describe("Providers", () => {
 				expect(screen.queryByText("Edit Provider")).not.toBeInTheDocument(),
 			);
 			expect(discover).not.toHaveBeenCalled();
+			discover.mockRestore();
 		});
 	});
 
