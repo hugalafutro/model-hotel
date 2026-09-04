@@ -60,6 +60,11 @@ val EmberContainerLight = Color(0xFFF6DDD6)
 val SeverityErrorBg = Color(0xFFC62828) // red
 val SeverityErrorFg = Color(0xFFFFFFFF)
 val SeverityWarnBg = Color(0xFFE8820C) // orange
+
+// Warning as standalone text on the light Paper ground, where SeverityWarnBg
+// (a fill colour) falls short of AA contrast; the web dashboards' light-mode
+// spent tone. On the dark ground SeverityWarnBg itself reads fine.
+val SeverityWarnTextLight = Color(0xFFB45309)
 val SeverityWarnFg = Color(0xFF241100) // near-black: higher contrast on orange than white
 val SeverityInfoBg = Color(0xFF1E6FD9) // blue
 val SeverityInfoFg = Color(0xFFFFFFFF)

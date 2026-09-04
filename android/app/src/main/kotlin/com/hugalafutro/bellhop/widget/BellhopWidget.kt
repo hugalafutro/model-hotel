@@ -78,6 +78,8 @@ import com.hugalafutro.bellhop.ui.theme.Moss600
 import com.hugalafutro.bellhop.ui.theme.Paper200
 import com.hugalafutro.bellhop.ui.theme.PaperInk
 import com.hugalafutro.bellhop.ui.theme.PaperInkMuted
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnBg
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnTextLight
 import com.hugalafutro.bellhop.ui.theme.SteelContainerDark
 import com.hugalafutro.bellhop.ui.theme.SteelContainerLight
 import com.hugalafutro.bellhop.ui.theme.quotaBrand
@@ -256,6 +258,7 @@ private val BrandAccent = ColorProvider(day = Brass600, night = Brass300)
 private val BarTint = ColorProvider(day = SteelContainerLight, night = SteelContainerDark)
 private val TextPrimary = ColorProvider(day = PaperInk, night = Ink100)
 private val TextMuted = ColorProvider(day = PaperInkMuted, night = Ink300)
+private val SpentText = ColorProvider(day = SeverityWarnTextLight, night = SeverityWarnBg)
 
 // Hairline rules. Same tones the row and pill fills use, which on the widget
 // background read as a line rather than a second surface.
@@ -647,8 +650,17 @@ private fun WidgetContent(
                                                 // Provider brand colour, same source as the
                                                 // dashboard chips and the Model Hotel sidebar
                                                 // pills, so a strip of badges is scannable
-                                                // instead of eight identical pills.
-                                                color = quotaBadgeColor(badge.quotaType),
+                                                // instead of eight identical pills. A spent
+                                                // account reads in the warning colour, as
+                                                // the dashboard chip's value does.
+                                                color =
+                                                    if (badge.spent) {
+                                                        SpentText
+                                                    } else {
+                                                        quotaBadgeColor(
+                                                            badge.quotaType,
+                                                        )
+                                                    },
                                                 fontSize = 9.sp,
                                                 fontWeight = FontWeight.Medium,
                                             ),

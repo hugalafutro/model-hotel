@@ -218,6 +218,7 @@ data class ZaiCodingLimit(
     val type: String = "",
     val unit: Int = 0,
     val percentage: Double = 0.0,
+    val remaining: Long = 0,
     val nextResetTime: Long = 0,
     val usageDetails: List<ZaiCodingUsageDetail> = emptyList(),
 )
@@ -276,8 +277,12 @@ data class MiniMaxModelRemain(
     @SerialName("remains_time") val remainsTime: Long = 0,
     @SerialName("weekly_remains_time") val weeklyRemainsTime: Long = 0,
     @SerialName("current_interval_status") val currentIntervalStatus: Int = 0,
+    @SerialName("current_interval_total_count") val currentIntervalTotalCount: Long = 0,
+    @SerialName("current_interval_usage_count") val currentIntervalUsageCount: Long = 0,
     @SerialName("current_interval_remaining_percent") val currentIntervalRemainingPercent: Double = 0.0,
     @SerialName("current_weekly_status") val currentWeeklyStatus: Int = 0,
+    @SerialName("current_weekly_total_count") val currentWeeklyTotalCount: Long = 0,
+    @SerialName("current_weekly_usage_count") val currentWeeklyUsageCount: Long = 0,
     @SerialName("current_weekly_remaining_percent") val currentWeeklyRemainingPercent: Double = 0.0,
 )
 
@@ -370,7 +375,15 @@ data class ProviderQuota(
     val available: Boolean,
 )
 
-private val quotaPayloadJson = Json { ignoreUnknownKeys = true }
+// coerceInputValues: a Go nil slice marshals as an explicit null
+// ("model_remains": null on an empty MiniMax plan, "balance_infos": null on
+// DeepSeek), which must land on the field's default rather than fail the
+// whole decode and turn a readable payload into an unavailable badge.
+private val quotaPayloadJson =
+    Json {
+        ignoreUnknownKeys = true
+        coerceInputValues = true
+    }
 
 /**
  * providerQuotaOf maps one [QuotaWire] entry to a [ProviderQuota], decoding
@@ -711,7 +724,7 @@ private fun amountMeter(
  * so both arrive here as null and what the omission means is the caller's to
  * decide, field by field. Mirrors `parseKimiNumber` in web-shared/quota/kimi.ts.
  */
-private fun parseKimiNumber(v: String?): Double? {
+internal fun parseKimiNumber(v: String?): Double? {
     val trimmed = v?.trim().orEmpty()
     if (trimmed.isEmpty()) return null
     val n = trimmed.toDoubleOrNull() ?: return null
@@ -727,7 +740,7 @@ private fun parseKimiNumber(v: String?): Double? {
  * used, hence the full limit. A `used` that is present but unreadable yields
  * null: an unparseable window must not be turned into a number, ever.
  */
-private fun resolveKimiRemaining(
+internal fun resolveKimiRemaining(
     limit: Double,
     remainingStr: String?,
     usedStr: String?,

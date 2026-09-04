@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.data
 
+import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -150,6 +151,31 @@ class WidgetStateTest {
         // "+N" understate what is missing.
         assertEquals(14, badges.size)
         assertFalse(badges.any { it.providerName == "P2" })
+    }
+
+    @Test
+    fun widgetQuotaCarriesTheSpentVerdictAndOlderStateDecodesWithoutIt() {
+        val funded = QuotaData.OpenRouter(creditsTotal = 10.0, creditsRemaining = 0.0)
+        val quota =
+            ProviderQuota(
+                providerName = "OR",
+                type = QuotaType.OPENROUTER,
+                data = funded,
+                fetchedAt = "t",
+                available = true,
+            )
+        val cfg = QuotaBadgeConfig(order = listOf("OR"))
+
+        val badge = widgetQuotaOf(listOf(quota), cfg, QuotaBarMode.REMAINING).single()
+        assertTrue(badge.spent)
+        assertFalse(widgetQuotaOf(listOf(quota.copy(available = false)), cfg, QuotaBarMode.REMAINING).single().spent)
+
+        // A state persisted before the flag existed decodes as not spent.
+        val old =
+            Json.decodeFromString<WidgetQuotaBadge>(
+                """{"providerName":"OR","type":"OPENROUTER","label":"OR $0.00"}""",
+            )
+        assertFalse(old.spent)
     }
 
     @Test
