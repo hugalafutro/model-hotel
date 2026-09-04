@@ -16,6 +16,16 @@ export {
 	getMiniMaxGeneralEntry,
 	getMiniMaxWeeklyLimit,
 } from "./minimax";
+export {
+	isDeepSeekQuotaSpent,
+	isKimiCodeQuotaSpent,
+	isMiniMaxQuotaSpent,
+	isNanoGptQuotaSpent,
+	isNeuralWattQuotaSpent,
+	isOpenRouterQuotaSpent,
+	isQuotaPayloadSpent,
+	isZaiCodingQuotaSpent,
+} from "./spent";
 export type {
 	DeepSeekBalanceLike,
 	KimiCodeQuotaLimitEntry,

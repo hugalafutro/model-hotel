@@ -1,3 +1,4 @@
+import { isQuotaPayloadSpent } from "@web-shared/quota";
 import i18next from "i18next";
 import type {
 	DeepSeekBalance,
@@ -254,6 +255,35 @@ function neuralwattBadgeContent(
 	return { label, title };
 }
 
+// The payload a badge reads spent-ness from, by type. NanoGPT's badge is fed
+// the two weekly numbers rather than the usage payload, so they are folded
+// back into the shape the shared rule reads.
+function spentPayload(p: QuotaBadgeProps): object | null | undefined {
+	switch (p.type) {
+		case "nanogpt":
+			return (
+				p.nanogptUsage ?? {
+					limits: { weeklyInputTokens: p.weeklyLimit },
+					weeklyInputTokens: { used: p.weeklyUsed },
+				}
+			);
+		case "zai-coding":
+			return p.zaiCodingUsage;
+		case "kimi-code":
+			return p.kimiCodeUsage;
+		case "minimax":
+			return p.minimaxUsage;
+		case "deepseek":
+			return p.deepseekBalance;
+		case "openrouter":
+			return p.openrouterBalance;
+		case "ollama-cloud":
+			return p.ollamaCloudAccount;
+		case "neuralwatt":
+			return p.neuralwattQuota;
+	}
+}
+
 // ── QuotaBadge component ────────────────────────────────────────────────
 
 export interface QuotaBadgeProps {
@@ -283,23 +313,24 @@ export interface QuotaBadgeProps {
 	neuralwattDataUpdatedAt?: number;
 }
 
-export function QuotaBadge({
-	type,
-	variant,
-	onClick,
-	title,
-	barMode = "remaining",
-	weeklyUsed,
-	weeklyLimit,
-	zaiCodingUsage,
-	kimiCodeUsage,
-	minimaxUsage,
-	deepseekBalance,
-	openrouterBalance,
-	ollamaCloudAccount,
-	neuralwattQuota,
-	neuralwattDataUpdatedAt,
-}: QuotaBadgeProps) {
+export function QuotaBadge(props: QuotaBadgeProps) {
+	const {
+		type,
+		variant,
+		onClick,
+		title,
+		barMode = "remaining",
+		weeklyUsed,
+		weeklyLimit,
+		zaiCodingUsage,
+		kimiCodeUsage,
+		minimaxUsage,
+		deepseekBalance,
+		openrouterBalance,
+		ollamaCloudAccount,
+		neuralwattQuota,
+		neuralwattDataUpdatedAt,
+	} = props;
 	const { label, title: defaultTitle } = (() => {
 		switch (type) {
 			case "nanogpt":
@@ -351,7 +382,12 @@ export function QuotaBadge({
 		}
 	})();
 
-	const className = `${VARIANT_CLASSES[variant]} ${TYPE_STYLES[type][variant]}`;
+	// A spent account keeps its provider colours and turns only the text
+	// warning-yellow, so the badge stays recognisable while the reading reads
+	// as exhausted.
+	const payload = spentPayload(props);
+	const spent = payload != null && isQuotaPayloadSpent(type, payload);
+	const className = `${VARIANT_CLASSES[variant]} ${TYPE_STYLES[type][variant]}${spent ? " quota-badge-spent" : ""}`;
 
 	return (
 		<button

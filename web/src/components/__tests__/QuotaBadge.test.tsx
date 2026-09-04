@@ -669,6 +669,55 @@ describe("QuotaBadge", () => {
 			expect(screen.getByText("2.23/16 kWh")).toBeInTheDocument();
 		});
 
+		it("turns the text yellow once energy and credits are both spent", () => {
+			const spent: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				balance: {
+					...mockNeuralWattQuota.balance,
+					credits_remaining_usd: 0.0035,
+				},
+				subscription: { ...mockNeuralWattQuota.subscription, in_overage: true },
+			};
+			render(
+				<QuotaBadge type="neuralwatt" variant="card" neuralwattQuota={spent} />,
+			);
+			expect(screen.getByRole("button")).toHaveClass("quota-badge-spent");
+		});
+
+		it("keeps the provider text colour while credits remain", () => {
+			const overage: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				subscription: { ...mockNeuralWattQuota.subscription, in_overage: true },
+			};
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={overage}
+				/>,
+			);
+			expect(screen.getByRole("button")).not.toHaveClass("quota-badge-spent");
+		});
+
+		it("never derives spent from an absent balance", () => {
+			const unknown: NeuralWattQuotaResponse = {
+				...mockNeuralWattQuota,
+				balance: {
+					...mockNeuralWattQuota.balance,
+					credits_remaining_usd: null,
+				},
+				subscription: { ...mockNeuralWattQuota.subscription, in_overage: true },
+			};
+			render(
+				<QuotaBadge
+					type="neuralwatt"
+					variant="card"
+					neuralwattQuota={unknown}
+				/>,
+			);
+			expect(screen.getByRole("button")).not.toHaveClass("quota-badge-spent");
+		});
+
 		it("renders with neuralwatt sidebar variant", () => {
 			render(
 				<QuotaBadge

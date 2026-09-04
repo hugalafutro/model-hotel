@@ -72,10 +72,13 @@ export interface KimiCodeQuotaWindow {
 // generic over it: they select by `type`/`unit` and hand the caller's own entry
 // back untouched.
 
-/** The two fields the Z.ai window selectors read. */
+/** The fields the Z.ai window selectors and the spent rule read. */
 export interface ZaiCodingLimitLike {
 	type?: string;
 	unit?: number;
+	/** Percent of the window consumed. */
+	percentage?: number | null;
+	remaining?: number | null;
 }
 
 export interface ZaiCodingResponseLike<
@@ -134,10 +137,14 @@ export interface NanoGptUsageLike {
 
 export interface DeepSeekBalanceLike {
 	is_available?: boolean;
+	/** DeepSeek string-encodes its balances. */
+	balance_infos?: Array<{ total_balance?: string | null }> | null;
 }
 
 export interface OpenRouterBalanceLike {
 	credits_remaining?: number | null;
+	/** Per-key spending cap left, null when the key has no cap. */
+	limit_remaining?: number | null;
 }
 
 export interface OllamaCloudAccountLike {
@@ -146,5 +153,5 @@ export interface OllamaCloudAccountLike {
 
 export interface NeuralWattQuotaLike {
 	balance?: { credits_remaining_usd?: number | null } | null;
-	subscription?: { plan?: string } | null;
+	subscription?: { plan?: string; in_overage?: boolean } | null;
 }

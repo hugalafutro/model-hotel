@@ -3527,6 +3527,17 @@ html.light .quota-card-neuralwatt {
 	border-color: rgba(172, 67, 36, 0.25);
 }
 
+/* A quota badge whose account is spent keeps its provider colours and turns
+   only the text warning-yellow (the ui-badge-warning text colour), so the
+   badge stays recognisable while the reading reads as exhausted. Beats the
+   per-provider pill and card colour rules on specificity. */
+[data-ui-style] .quota-badge-spent {
+	color: #facc15;
+}
+[data-ui-style].light .quota-badge-spent {
+	color: #b45309;
+}
+
 .terminal-titlebar-win11 {
 	display: flex;
 	align-items: center;
