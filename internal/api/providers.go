@@ -203,10 +203,6 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 			tokensSince[providerID] = *since
 		}
 	}
-	if err := tokenRows.Err(); err != nil {
-		respondError(w, "failed to read token count rows", err, http.StatusInternalServerError)
-		return
-	}
 
 	responses := make([]provider.ProviderResponse, len(providers))
 	for i, p := range providers {
