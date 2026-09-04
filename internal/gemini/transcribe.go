@@ -149,7 +149,9 @@ func ValidateTranscriptionRequest(req TranscriptionRequest) (mime, format string
 
 // TranslateTranscriptionRequest maps an OpenAI transcription form onto a
 // generateContent request, returning the format the answer is to be
-// delivered in. Its errors are ValidateTranscriptionRequest's.
+// delivered in. Its refusals are ValidateTranscriptionRequest's; a
+// temperature that is not a finite number in Gemini's 0 to 2 range is
+// dropped rather than refused, the way the unparsable one is.
 func TranslateTranscriptionRequest(req TranscriptionRequest) (geminiBody []byte, format string, err error) {
 	mime, format, err := ValidateTranscriptionRequest(req)
 	if err != nil {
@@ -164,7 +166,7 @@ func TranslateTranscriptionRequest(req TranscriptionRequest) (geminiBody []byte,
 		parts = append(parts, genPart{Text: text})
 	}
 	out := genRequest{Contents: []genContent{{Role: "user", Parts: parts}}}
-	if temp, err := strconv.ParseFloat(strings.TrimSpace(req.Temperature), 64); err == nil {
+	if temp, err := strconv.ParseFloat(strings.TrimSpace(req.Temperature), 64); err == nil && temp >= 0 && temp <= 2 {
 		out.GenerationConfig = &genConfig{Temperature: &temp}
 	}
 	geminiBody, err = json.Marshal(out)
@@ -192,8 +194,8 @@ func BuildTranscriptionResponse(body []byte, format string) (out []byte, content
 	if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
 		return nil, "", usage, fmt.Errorf("%w: prompt blocked (%s)", ErrTranscriptionNoText, resp.PromptFeedback.BlockReason)
 	}
-	// The first candidate alone: a second one would be the same transcript
-	// again.
+	// The first candidate alone: the request asks for one, and were a
+	// second ever present it would be the same audio transcribed again.
 	var text strings.Builder
 	if len(resp.Candidates) > 0 {
 		for _, p := range resp.Candidates[0].Content.Parts {

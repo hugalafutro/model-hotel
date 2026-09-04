@@ -69,9 +69,11 @@ func TestTranslateTranscriptionRequest_Temperature(t *testing.T) {
 	if err != nil || !strings.Contains(string(body), `"generationConfig":{"temperature":0.2}`) {
 		t.Errorf("temperature: err=%v body=%s", err, body)
 	}
-	body, _, err = TranslateTranscriptionRequest(TranscriptionRequest{Audio: []byte("x"), FileName: "a.wav", Temperature: "warm"})
-	if err != nil || strings.Contains(string(body), `generationConfig`) {
-		t.Errorf("unparsable temperature must be dropped: err=%v body=%s", err, body)
+	for _, bad := range []string{"warm", "NaN", "Inf", "-1", "3"} {
+		body, _, err = TranslateTranscriptionRequest(TranscriptionRequest{Audio: []byte("x"), FileName: "a.wav", Temperature: bad})
+		if err != nil || strings.Contains(string(body), `generationConfig`) {
+			t.Errorf("temperature %q must be dropped: err=%v body=%s", bad, err, body)
+		}
 	}
 }
 
