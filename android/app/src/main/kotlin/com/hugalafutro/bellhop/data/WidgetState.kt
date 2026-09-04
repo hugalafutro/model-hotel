@@ -39,12 +39,15 @@ data class WidgetEvent(
  * wire name so a future build's new type degrades gracefully, same stance as
  * [WidgetMember.state]) and a precomputed [label] so the Glance render stays
  * a pure string (no [ProviderQuota]/formatting logic in the render path).
+ * [spent] is [isQuotaSpent]'s verdict, precomputed for the same reason; it
+ * defaults to false so a state written by an older build still decodes.
  */
 @Serializable
 data class WidgetQuotaBadge(
     val providerName: String,
     val type: String,
     val label: String,
+    val spent: Boolean = false,
 ) {
     /** Decoded [type], UNKNOWN for a name this build doesn't know (see the class note). */
     val quotaType: QuotaType
@@ -241,6 +244,7 @@ fun widgetQuotaOf(
                 providerName = it.providerName,
                 type = it.type.name,
                 label = "${quotaShortCode(it.type)} ${quotaBadgeLabel(it, mode)}",
+                spent = isQuotaSpent(it),
             )
         }
 

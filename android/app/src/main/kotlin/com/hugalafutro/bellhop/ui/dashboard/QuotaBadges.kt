@@ -37,11 +37,13 @@ import com.hugalafutro.bellhop.data.QuotaBarMode
 import com.hugalafutro.bellhop.data.QuotaData
 import com.hugalafutro.bellhop.data.QuotaMeter
 import com.hugalafutro.bellhop.data.QuotaMeterKind
+import com.hugalafutro.bellhop.data.isQuotaSpent
 import com.hugalafutro.bellhop.data.quotaBadgeLabel
 import com.hugalafutro.bellhop.data.quotaMeters
 import com.hugalafutro.bellhop.ui.common.TightTouchTarget
 import com.hugalafutro.bellhop.ui.theme.SeverityErrorBg
 import com.hugalafutro.bellhop.ui.theme.SeverityWarnBg
+import com.hugalafutro.bellhop.ui.theme.SeverityWarnTextLight
 import com.hugalafutro.bellhop.ui.theme.quotaBrandColor
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -96,7 +98,9 @@ fun QuotaBadgeRow(
  * badges is scannable by colour rather than eight identical pills. An
  * unavailable badge drops to the scheme's neutrals (matching a disabled-looking
  * control) but stays a live tap target either way: the detail sheet is what
- * explains the "-".
+ * explains the "-". A spent account keeps its brand pill and turns only the
+ * value warning coloured, the same reading the web dashboards give the same
+ * snapshot.
  */
 @Composable
 private fun QuotaBadgeChip(
@@ -141,6 +145,12 @@ private fun QuotaBadgeChip(
             Text(
                 text = quotaBadgeLabel(pq, mode),
                 style = MaterialTheme.typography.labelMedium,
+                color =
+                    when {
+                        !isQuotaSpent(pq) -> Color.Unspecified
+                        dark -> SeverityWarnBg
+                        else -> SeverityWarnTextLight
+                    },
             )
         }
     }
