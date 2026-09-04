@@ -1,6 +1,7 @@
 import { screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { api } from "../../api/client";
 import { Layout } from "../../components/Layout";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
@@ -674,6 +675,68 @@ describe("Providers", () => {
 			await waitFor(() => {
 				expect(screen.getByText("Edit Provider")).toBeInTheDocument();
 			});
+		});
+	});
+
+	describe("Enable Flow", () => {
+		// The card's own Discover button is hidden for a disabled provider, so a
+		// save that switches the provider on is the only path that reaches the
+		// discover route here.
+		async function saveEnabled(user: {
+			click: (el: Element) => Promise<void>;
+		}) {
+			await waitFor(() => {
+				expect(screen.getByText("Test Provider")).toBeInTheDocument();
+			});
+			await user.click(screen.getByRole("button", { name: "Edit" }));
+			await user.click(await screen.findByLabelText("Provider enabled"));
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+		}
+
+		it("runs discovery for a provider the save switched on", async () => {
+			let discovered = 0;
+			server.use(
+				http.get("/api/providers", () =>
+					HttpResponse.json([{ ...mockProvider, enabled: false }]),
+				),
+				http.put("/api/providers/:id", () =>
+					HttpResponse.json({ ...mockProvider, enabled: true }),
+				),
+				http.post("/api/providers/:id/discover", () => {
+					discovered++;
+					return HttpResponse.json({ discovered: 0, diff: {} });
+				}),
+			);
+			const { user } = renderWithProviders(<Providers />);
+			await saveEnabled(user);
+			await waitFor(() => expect(discovered).toBe(1));
+		});
+
+		it("skips discovery when the switched-on provider has autodiscovery off", async () => {
+			// Spied rather than counted at the mock server: the discover call is
+			// fire-and-forget from the save, so a request counter read right after
+			// the modal closes would still be 0 even without the guard.
+			const discover = vi.spyOn(api.providers, "discover");
+			server.use(
+				http.get("/api/providers", () =>
+					HttpResponse.json([
+						{ ...mockProvider, enabled: false, autodiscovery_enabled: false },
+					]),
+				),
+				http.put("/api/providers/:id", () =>
+					HttpResponse.json({
+						...mockProvider,
+						enabled: true,
+						autodiscovery_enabled: false,
+					}),
+				),
+			);
+			const { user } = renderWithProviders(<Providers />);
+			await saveEnabled(user);
+			await waitFor(() =>
+				expect(screen.queryByText("Edit Provider")).not.toBeInTheDocument(),
+			);
+			expect(discover).not.toHaveBeenCalled();
 		});
 	});
 

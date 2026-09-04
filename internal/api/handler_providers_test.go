@@ -15,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
 func TestListProviders_Empty(t *testing.T) {
@@ -1788,4 +1789,104 @@ func TestUpdateProvider_ScheduledDisable(t *testing.T) {
 			}
 		}
 	})
+}
+
+// TestUpdateProvider_EnableRefreshesQuota verifies that re-enabling a provider
+// refreshes its quota snapshot before the response is written: the poller
+// skips disabled providers, so the stored snapshot is as old as the disable,
+// and the badge the dashboard reads straight after the toggle must not show it.
+func TestUpdateProvider_EnableRefreshesQuota(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-reenable", "https://api.nano-gpt.com/v1", false)
+	stale := []byte(`{"dailyInputTokens":{"used":1,"limit":1000}}`)
+	if err := h.quotaRepo.Upsert(context.Background(), quota.Snapshot{ProviderID: id, Kind: "usage", Payload: stale, HTTPStatus: http.StatusOK, Source: "poll"}); err != nil {
+		t.Fatalf("seed stale snapshot: %v", err)
+	}
+	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/providers/"+id.String(), strings.NewReader(`{"enabled": true}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap, err := h.quotaRepo.Get(context.Background(), id, "usage")
+	if err != nil || snap == nil {
+		t.Fatalf("get snapshot: %v (nil=%v)", err, snap == nil)
+	}
+	var got struct {
+		DailyInputTokens struct {
+			Used int64 `json:"used"`
+		} `json:"dailyInputTokens"`
+	}
+	if uerr := json.Unmarshal(snap.Payload, &got); uerr != nil {
+		t.Fatalf("decode payload: %v (%s)", uerr, string(snap.Payload))
+	}
+	if got.DailyInputTokens.Used != 9 {
+		t.Fatalf("enable should refresh the stale snapshot: want used=9, got %d", got.DailyInputTokens.Used)
+	}
+}
+
+// TestUpdateProvider_EnableWithoutTransitionDoesNotRefetch verifies an update
+// that leaves an already-enabled provider enabled costs no upstream quota call.
+func TestUpdateProvider_EnableWithoutTransitionDoesNotRefetch(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-stays-on", "https://api.nano-gpt.com/v1", true)
+	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/providers/"+id.String(), strings.NewReader(`{"enabled": true}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	snap, err := h.quotaRepo.Get(context.Background(), id, "usage")
+	if err != nil {
+		t.Fatalf("get snapshot: %v", err)
+	}
+	if snap != nil {
+		t.Fatalf("no transition, no fetch: want no snapshot, got source=%q", snap.Source)
+	}
+}
+
+// TestUpdateProvider_EnableWithoutQuotaEndpointSkipsFetch verifies enabling a
+// provider whose type exposes no quota endpoint writes no snapshot.
+func TestUpdateProvider_EnableWithoutQuotaEndpointSkipsFetch(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "openai-reenable", "https://api.openai.com/v1", false)
+	h.newDiscovery = func() *provider.DiscoveryService { return nanoGPTPollDiscovery(9) }
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest("PUT", "/providers/"+id.String(), strings.NewReader(`{"enabled": true}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+
+	for _, kind := range []string{"usage", "balance", "account"} {
+		snap, err := h.quotaRepo.Get(context.Background(), id, kind)
+		if err != nil {
+			t.Fatalf("get %s snapshot: %v", kind, err)
+		}
+		if snap != nil {
+			t.Fatalf("type without a quota endpoint must not be fetched: got %s snapshot source=%q", kind, snap.Source)
+		}
+	}
 }
