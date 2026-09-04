@@ -786,7 +786,6 @@
 		"card_btn_discover": "Descoperă modele",
 		"card_btn_discovering": "Se descoperă...",
 		"card_btn_delete": "Ștergere",
-		"card_copy_name": "Faceți clic pentru a copia numele furnizorului",
 		"card_copy_url": "Click pentru a copia URL-ul de bază API",
 		"toast_discover_success_one": "S-a descoperit {{count}} model de la {{name}}",
 		"toast_discover_success_few": "S-au descoperit {{count}} modele de la {{name}}",
@@ -1004,7 +1003,9 @@
 		"schedule_disable_hint": "Furnizorul va fi dezactivat imediat ce data serverului ajunge la ziua aleasă.",
 		"schedule_disable_cancel": "Anulează programarea",
 		"scheduled_disable_card_tooltip": "Dezactivare programată pentru {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Deschide site-ul furnizorului",
+		"card_tokens_tooltip": "Tokeni rutați prin acest furnizor din {{date}}, prompt și răspuns împreună"
 	},
 	"models": {
 		"page_title_one": "Model",

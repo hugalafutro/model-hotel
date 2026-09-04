@@ -778,7 +778,6 @@
 		"card_btn_discover": "Fedezze fel a modelleket",
 		"card_btn_discovering": "Felfedezés...",
 		"card_btn_delete": "Törlés",
-		"card_copy_name": "Kattintson a szolgáltató nevére a másoláshoz",
 		"card_copy_url": "Kattintson az API alap-URL másolásához",
 		"toast_discover_success_one": "{{count}} modell felfedezve innen: {{name}}",
 		"toast_discover_success_other": "{{count}} modell felfedezve innen: {{name}}",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "A rendszer letiltja a szolgáltatót, amint a szerver dátuma eléri a kiválasztott napot.",
 		"schedule_disable_cancel": "Ütemezés törlése",
 		"scheduled_disable_card_tooltip": "Letiltás ütemezve erre a napra: {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "A szolgáltató webhelyének megnyitása",
+		"card_tokens_tooltip": "{{date}} óta ezen a szolgáltatón át továbbított tokenek, prompt és válasz együtt"
 	},
 	"models": {
 		"page_title_one": "Modell",

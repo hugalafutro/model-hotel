@@ -794,7 +794,6 @@
 		"card_btn_discover": "Vyhledat modely",
 		"card_btn_discovering": "Vyhledávám…",
 		"card_btn_delete": "Odstranit",
-		"card_copy_name": "Kliknutím zkopírujete název poskytovatele",
 		"card_copy_url": "Kliknutím zkopírujete základní adresu URL rozhraní API",
 		"toast_discover_success_one": "Nalezen {{count}} model od {{name}}",
 		"toast_discover_success_few": "Nalezeny {{count}} modely od {{name}}",
@@ -1034,7 +1033,9 @@
 		"schedule_disable_hint": "Poskytovatel bude deaktivován, jakmile datum serveru dosáhne zvoleného dne.",
 		"schedule_disable_cancel": "Zrušit plán",
 		"scheduled_disable_card_tooltip": "Naplánováno k deaktivaci dne {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Otevřít web poskytovatele",
+		"card_tokens_tooltip": "Tokeny směrované přes tohoto poskytovatele od {{date}}, prompt a dokončení dohromady"
 	},
 	"models": {
 		"page_title_one": "Model",

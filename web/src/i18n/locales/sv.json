@@ -778,7 +778,6 @@
 		"card_btn_discover": "Upptäck modeller",
 		"card_btn_discovering": "Upptäcker...",
 		"card_btn_delete": "Radera",
-		"card_copy_name": "Klicka för att kopiera leverantörens namn",
 		"card_copy_url": "Klicka för att kopiera API-bas-URL",
 		"toast_discover_success_one": "Upptäckt {{count}} modell från {{name}}",
 		"toast_discover_success_other": "Upptäckta {{count}} modeller från {{name}}",
@@ -974,7 +973,9 @@
 		"schedule_disable_hint": "Leverantören inaktiveras så snart serverns datum når den valda dagen.",
 		"schedule_disable_cancel": "Avbryt schemaläggning",
 		"scheduled_disable_card_tooltip": "Schemalagd för inaktivering den {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Öppna leverantörens webbplats",
+		"card_tokens_tooltip": "Tokens som skickats via denna leverantör sedan {{date}}, prompt och svar sammanlagt"
 	},
 	"models": {
 		"page_title_one": "Modell",

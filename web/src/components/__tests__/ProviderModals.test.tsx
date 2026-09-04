@@ -230,9 +230,15 @@ describe("NanoGPTQuotaModal", () => {
 			renderWithProviders(
 				<NanoGPTQuotaModal {...defaultProps} usage={cancellingUsage} />,
 			);
-			expect(
-				screen.getByText(/Subscription will cancel at period end/),
-			).toBeInTheDocument();
+			const warning = screen.getByText(
+				/Subscription will cancel at period end/,
+			);
+			// The date inside the parentheses must not wrap: every space in it
+			// is a non-breaking one.
+			const date = warning.textContent?.match(/\((.*)\)/)?.[1] ?? "";
+			expect(date).not.toBe("");
+			expect(date).not.toMatch(/ /);
+			expect(date).toMatch(/\u00A0/);
 		});
 	});
 

@@ -20,6 +20,33 @@ export const baseUrls: Record<string, string> = {
 	"vertex-express": "https://aiplatform.googleapis.com",
 };
 
+/** Where the globe icon on a provider card points: the vendor's main page for
+ * a hosted API, the project's GitHub for a self-hosted server. The two
+ * hand-entered dialects (`custom`, `anthropic-messages`) have no known home. */
+export const providerHomepages: Record<string, string> = {
+	nanogpt: "https://nano-gpt.com",
+	"zai-coding": "https://z.ai",
+	"kimi-code": "https://www.kimi.com",
+	minimax: "https://www.minimax.io",
+	openai: "https://openai.com",
+	anthropic: "https://www.anthropic.com",
+	deepseek: "https://www.deepseek.com",
+	"ollama-cloud": "https://ollama.com",
+	ollama: "https://github.com/ollama/ollama",
+	"opencode-zen": "https://opencode.ai",
+	"opencode-go": "https://opencode.ai",
+	xai: "https://x.ai",
+	google: "https://aistudio.google.com",
+	cohere: "https://cohere.com",
+	openrouter: "https://openrouter.ai",
+	neuralwatt: "https://neuralwatt.com",
+	koboldcpp: "https://github.com/LostRuins/koboldcpp",
+	lmstudio: "https://github.com/lmstudio-ai",
+	bedrock: "https://aws.amazon.com/bedrock",
+	azure: "https://ai.azure.com",
+	"vertex-express": "https://cloud.google.com/vertex-ai",
+};
+
 /** Example addresses for self-hosted providers, shown as placeholder text.
  * Nothing is pre-filled: only the operator knows whether their server runs on
  * this machine or another one, and a containerised Model Hotel cannot reach

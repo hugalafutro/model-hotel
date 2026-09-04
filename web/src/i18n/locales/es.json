@@ -786,7 +786,6 @@
 		"card_btn_discover": "Descubre modelos",
 		"card_btn_discovering": "Descubriendo...",
 		"card_btn_delete": "Eliminar",
-		"card_copy_name": "Haga clic para copiar el nombre del proveedor",
 		"card_copy_url": "Haga clic para copiar la URL base de API",
 		"toast_discover_success_one": "Modelo {{count}} descubierto de {{name}}",
 		"toast_discover_success_many": "{{count}} modelos descubiertos de {{name}}",
@@ -1004,7 +1003,9 @@
 		"schedule_disable_hint": "El proveedor se desactivará en cuanto la fecha del servidor alcance el día elegido.",
 		"schedule_disable_cancel": "Cancelar programación",
 		"scheduled_disable_card_tooltip": "Programado para desactivarse el {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"card_website": "Abrir el sitio web del proveedor",
+		"card_tokens_tooltip": "Tokens enrutados a través de este proveedor desde {{date}}, prompt y respuesta combinados"
 	},
 	"models": {
 		"page_title_one": "Modelo",

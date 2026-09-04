@@ -1253,6 +1253,9 @@ func TestListProviders_WithTokenCounts(t *testing.T) {
 			if p.TotalTokens != 125 {
 				t.Errorf("Expected TotalTokens=125, got %d", p.TotalTokens)
 			}
+			if p.TokensSince == nil || time.Since(*p.TokensSince) > time.Minute {
+				t.Errorf("Expected TokensSince at the log's created_at, got %v", p.TokensSince)
+			}
 			break
 		}
 	}
