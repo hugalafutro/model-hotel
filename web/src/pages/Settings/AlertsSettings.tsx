@@ -8,6 +8,7 @@ import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { useToast } from "../../context/ToastContext";
+import { isForcedBlur } from "../../utils/forcedBlur";
 import { AlertEventPicker } from "./AlertEventPicker";
 import { AlertSnippets } from "./AlertSnippets";
 import { AlertsWizard } from "./alerts/AlertsWizard";
@@ -148,8 +149,10 @@ export function AlertsSettings({
 		refetchOnWindowFocus: false,
 	});
 
-	const commitApiUrl = () => {
-		if (apiUrlDraft !== null && apiUrlDraft !== apiUrl) {
+	// Both commits skip the write on a forced blur (the card went managed while
+	// the field had focus) and drop the draft either way.
+	const commitApiUrl = (e: React.FocusEvent<HTMLInputElement>) => {
+		if (!isForcedBlur(e) && apiUrlDraft !== null && apiUrlDraft !== apiUrl) {
 			updateMutation.mutate({ alert_apprise_api_url: apiUrlDraft });
 		}
 		setApiUrlDraft(null);
@@ -157,8 +160,12 @@ export function AlertsSettings({
 
 	// The field is the stored list in plain text, so a blur that changed nothing
 	// writes nothing and an emptied field clears the destinations.
-	const commitTarget = () => {
-		if (targetDraft !== null && targetDraft.trim() !== storedTargets) {
+	const commitTarget = (e: React.FocusEvent<HTMLInputElement>) => {
+		if (
+			!isForcedBlur(e) &&
+			targetDraft !== null &&
+			targetDraft.trim() !== storedTargets
+		) {
 			updateMutation.mutate({ alert_apprise_targets: targetDraft.trim() });
 		}
 		setTargetDraft(null);

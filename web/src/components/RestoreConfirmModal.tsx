@@ -17,6 +17,8 @@ interface RestoreConfirmModalProps {
 	onConfirm: (adminToken: string, signature: string) => void;
 	/** Whether the restore action is in progress */
 	isPending: boolean;
+	/** Fleet-managed card: the dialog stays open but cannot restore. */
+	managed?: boolean;
 }
 
 export function RestoreConfirmModal({
@@ -24,6 +26,7 @@ export function RestoreConfirmModal({
 	onClose,
 	onConfirm,
 	isPending,
+	managed = false,
 }: RestoreConfirmModalProps) {
 	const { t } = useTranslation();
 	const [adminToken, setAdminToken] = useState("");
@@ -230,7 +233,9 @@ export function RestoreConfirmModal({
 				<button
 					type="button"
 					onClick={handleConfirm}
-					disabled={!adminToken.trim() || signatureMalformed || isPending}
+					disabled={
+						!adminToken.trim() || signatureMalformed || isPending || managed
+					}
 					className="ui-btn ui-btn-danger"
 				>
 					{isPending

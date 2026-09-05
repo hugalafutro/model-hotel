@@ -6,6 +6,7 @@ import { api } from "../../api/client";
 import { CopyablePill } from "../../components/CopyablePill";
 import { SecretField } from "../../components/SecretField";
 import { SettingToggleRow } from "../../components/SettingToggleRow";
+import { isForcedBlur } from "../../utils/forcedBlur";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 /**
@@ -104,8 +105,9 @@ export function OidcPanel({ managed }: { managed?: boolean }) {
 							spellCheck={false}
 							autoComplete="off"
 							onChange={(e) => setIssuerDraft(e.target.value)}
-							onBlur={() => {
-								commit("oidc_issuer_url", issuerDraft, issuer);
+							onBlur={(e) => {
+								if (!isForcedBlur(e))
+									commit("oidc_issuer_url", issuerDraft, issuer);
 								setIssuerDraft(null);
 							}}
 							onKeyDown={(e) => {
@@ -155,8 +157,9 @@ export function OidcPanel({ managed }: { managed?: boolean }) {
 							spellCheck={false}
 							autoComplete="off"
 							onChange={(e) => setClientIdDraft(e.target.value)}
-							onBlur={() => {
-								commit("oidc_client_id", clientIdDraft, clientId);
+							onBlur={(e) => {
+								if (!isForcedBlur(e))
+									commit("oidc_client_id", clientIdDraft, clientId);
 								setClientIdDraft(null);
 							}}
 							onKeyDown={(e) => {
@@ -213,8 +216,9 @@ export function OidcPanel({ managed }: { managed?: boolean }) {
 							spellCheck={false}
 							autoComplete="off"
 							onChange={(e) => setBaseUrlDraft(e.target.value)}
-							onBlur={() => {
-								commit("oidc_public_base_url", baseUrlDraft, baseUrl);
+							onBlur={(e) => {
+								if (!isForcedBlur(e))
+									commit("oidc_public_base_url", baseUrlDraft, baseUrl);
 								setBaseUrlDraft(null);
 							}}
 							onKeyDown={(e) => {
@@ -270,8 +274,9 @@ export function OidcPanel({ managed }: { managed?: boolean }) {
 					spellCheck={false}
 					autoComplete="off"
 					onChange={(e) => setEmailsDraft(e.target.value)}
-					onBlur={() => {
-						commit("oidc_allowed_emails", emailsDraft, allowedEmails);
+					onBlur={(e) => {
+						if (!isForcedBlur(e))
+							commit("oidc_allowed_emails", emailsDraft, allowedEmails);
 						setEmailsDraft(null);
 					}}
 					className="ui-input text-sm w-full font-mono"

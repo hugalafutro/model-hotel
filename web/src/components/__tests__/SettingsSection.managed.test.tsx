@@ -51,6 +51,14 @@ describe("SettingsSection managed gating", () => {
 		expect(after).toHaveValue("draft");
 		expect(after).toBeDisabled();
 		expect(screen.getByTestId("managed-note")).toBeInTheDocument();
+		// The fieldset is a named group (the section heading) and, while
+		// managed, the note describes it.
+		const fieldset = after.closest("fieldset") as HTMLElement;
+		expect(fieldset).toHaveAccessibleName("Test section");
+		expect(fieldset).toHaveAttribute(
+			"aria-describedby",
+			screen.getByTestId("managed-note").id,
+		);
 		// The way back (a heartbeat recovers) is the common direction and must
 		// hand the same element back, enabled, with the draft intact.
 		rerender(section(false));
@@ -59,6 +67,7 @@ describe("SettingsSection managed gating", () => {
 		expect(back).toHaveValue("draft");
 		expect(back).toBeEnabled();
 		expect(screen.queryByTestId("managed-note")).not.toBeInTheDocument();
+		expect(back.closest("fieldset")).not.toHaveAttribute("aria-describedby");
 	});
 
 	it("leaves the body editable and the reset visible when not managed", () => {

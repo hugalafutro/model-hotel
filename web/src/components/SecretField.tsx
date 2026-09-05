@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Eye, EyeOff, Trash2 } from "@/lib/icons";
+import { isForcedBlur } from "../utils/forcedBlur";
 import { ConfirmDialog } from "./ConfirmDialog";
 
 interface SecretFieldProps {
@@ -71,7 +72,9 @@ export function SecretField({
 				spellCheck={false}
 				autoComplete="off"
 				onChange={(e) => onChange(e.target.value)}
-				onBlur={onCommit}
+				onBlur={(e) => {
+					if (!isForcedBlur(e)) onCommit();
+				}}
 				onKeyDown={(e) => {
 					if (e.key === "Enter") e.currentTarget.blur();
 				}}
