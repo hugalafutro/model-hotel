@@ -77,7 +77,7 @@ func SelfHealChatCompletion(
 // postChatCompletion builds and sends a single POST with the given body,
 // applying caller-supplied headers.
 func postChatCompletion(ctx context.Context, client *http.Client, targetURL string, body []byte, applyHeaders func(*http.Request)) (*http.Response, error) {
-	// targetURL is admin-configured provider base, not user input
+	//nolint:gosec // targetURL is admin-configured provider base, not user input
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
