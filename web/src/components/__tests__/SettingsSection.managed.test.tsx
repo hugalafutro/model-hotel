@@ -1,4 +1,5 @@
 import { screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { Server } from "@/lib/icons";
 import { renderWithProviders } from "../../test/utils";
@@ -33,6 +34,34 @@ describe("SettingsSection managed gating", () => {
 		expect(
 			screen.queryByRole("button", { name: /reset/i }),
 		).not.toBeInTheDocument();
+	});
+
+	it("keeps the body mounted across a managed flip", async () => {
+		// The managed flag is polled, so a flip must not remount the children:
+		// an uncontrolled input's typed value only survives if the element does.
+		const user = userEvent.setup();
+		const { rerender } = renderSection(false);
+		await user.type(screen.getByTestId("synced-input"), "draft");
+		const before = screen.getByTestId("synced-input");
+		rerender(
+			<SettingsSection
+				icon={Server}
+				title="Test section"
+				collapsed={false}
+				onToggle={() => {}}
+				managed
+			>
+				<input data-testid="synced-input" />
+				<button type="button" data-testid="synced-button">
+					Save
+				</button>
+			</SettingsSection>,
+		);
+		const after = screen.getByTestId("synced-input");
+		expect(after).toBe(before);
+		expect(after).toHaveValue("draft");
+		expect(after).toBeDisabled();
+		expect(screen.getByTestId("managed-note")).toBeInTheDocument();
 	});
 
 	it("leaves the body editable and the reset visible when not managed", () => {

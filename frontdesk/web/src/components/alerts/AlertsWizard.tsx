@@ -144,7 +144,7 @@ const EMPTY_DRAFT: Draft = {
 // itself, so re-accepting an edit still works. Step 3 is gated on this: the
 // same URL twice is never what the operator meant, and apprise would just be
 // told to deliver to one address twice.
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- wizard state logic exported for its tests beside the component
 export function isDuplicate(s: WizardState): boolean {
 	const url =
 		s.draft.kind === null ? "" : compose(s.draft.kind, s.draft.fields);
@@ -160,7 +160,7 @@ export function isDuplicate(s: WizardState): boolean {
 // kind, a URL that composes and is not already on the list, a test that was
 // delivered. Editing anything a gate depends on clears the fact, so the gate
 // closes again by construction.
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- wizard state logic exported for its tests beside the component
 export function canNext(s: WizardState): boolean {
 	switch (s.step) {
 		case 1:
@@ -201,7 +201,7 @@ function newDraft(kind: DestinationKind, ntfyServer: string): Draft {
 	};
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- wizard state logic exported for its tests beside the component
 export function initialState(p: AlertsWizardProps): WizardState {
 	// "Add destination" only makes sense against a configured apprise-api; without
 	// one the run starts at step 1 whatever the caller asked for.
@@ -237,7 +237,7 @@ export function initialState(p: AlertsWizardProps): WizardState {
 	};
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- wizard state logic exported for its tests beside the component
 export function reducer(s: WizardState, a: Action): WizardState {
 	switch (a.type) {
 		case "setApiUrl":

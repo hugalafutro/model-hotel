@@ -81,24 +81,24 @@ export function SettingsSection({
 				    the tight box: padding is unsqueezable, so a bleed there
 				    would leave a visible band. */}
 				<div className={`overflow-hidden ${collapsed ? "" : "p-4 -m-4"}`}>
-					{managed ? (
-						<>
-							<p
-								data-testid="managed-note"
-								className="mb-4 text-xs text-(--text-muted)"
-							>
-								{t("settings.managed.sectionNote")}
-							</p>
-							{/* A disabled fieldset natively disables every form control it
-							    wraps (inputs, toggles, sliders, save buttons), so synced
-							    settings cannot be edited locally while managed. */}
-							<fieldset disabled className="m-0 min-w-0 border-0 p-0">
-								{children}
-							</fieldset>
-						</>
-					) : (
-						children
+					{managed && (
+						<p
+							data-testid="managed-note"
+							className="mb-4 text-xs text-(--text-muted)"
+						>
+							{t("settings.managed.sectionNote")}
+						</p>
 					)}
+					{/* A disabled fieldset natively disables every form control it
+					    wraps (inputs, toggles, sliders, save buttons), so synced
+					    settings cannot be edited locally while managed. The fieldset
+					    is always in the tree and only its disabled flag follows
+					    `managed`: swapping the wrapper in and out would remount every
+					    child on each flip, and the managed flag is polled, so open
+					    confirmations, drafts and in-flight mutations must survive it. */}
+					<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
+						{children}
+					</fieldset>
 				</div>
 			</div>
 		</div>

@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- every export is a withId() wrapped icon component the rule cannot recognise */
 // Every export here is a component; the withId() wrappers are just opaque to the
 // fast-refresh rule, which only recognises the plainly-declared one below.
 

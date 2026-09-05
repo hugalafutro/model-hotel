@@ -67,9 +67,10 @@ describe("SettingsSection", () => {
 				<div data-testid="child">Child content</div>
 			</SettingsSection>,
 		);
-		// The grid container is the parent of overflow-hidden div
-		const overflowDiv = screen.getByTestId("child").parentElement;
-		const gridContainer = overflowDiv?.parentElement;
+		// The children sit in the always-present fieldset inside the
+		// overflow-hidden div; the grid container is that div's parent.
+		const gridContainer = screen.getByTestId("child").closest("fieldset")
+			?.parentElement?.parentElement;
 		expect(gridContainer).toHaveClass("grid-rows-[0fr]");
 	});
 

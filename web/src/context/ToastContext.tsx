@@ -47,7 +47,7 @@ interface ToastContextType {
 	setFuse: (fuse: boolean) => void;
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- the context object is exported for tests and the provider that fills it
 export const ToastContext = createContext<ToastContextType>({
 	toast: () => {},
 	position: "bottom-center",
@@ -416,7 +416,7 @@ function ToastItem({
 	);
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- the consumer hook lives beside its provider
 export function useToast() {
 	return useContext(ToastContext);
 }
