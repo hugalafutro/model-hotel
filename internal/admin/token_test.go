@@ -33,7 +33,6 @@ func TestNewCreatesHashedToken(t *testing.T) {
 	}
 
 	tokenPath := filepath.Join(tmpDir, "admin-token")
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read token file: %v", err)
@@ -149,7 +148,6 @@ func TestLegacyPlaintextMigration(t *testing.T) {
 		t.Error("Legacy token should still validate after migration")
 	}
 
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read migrated token file: %v", err)
@@ -192,7 +190,7 @@ func TestExistingHashTokenNotMigrated(t *testing.T) {
 		t.Error("Existing hash token should not be treated as new")
 	}
 
-	data, err := os.ReadFile(tokenPath) //nolint:gosec // test-only: controlled test path
+	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read token file: %v", err)
 	}
@@ -215,7 +213,6 @@ func TestRegenerationByDeletingFile(t *testing.T) {
 	oldToken := mgr1.Token()
 
 	tokenPath := filepath.Join(tmpDir, "admin-token")
-	//nolint:gosec // test-only: cleanup before test
 	_ = os.Remove(tokenPath)
 
 	mgr2, isNew, err := New(tmpDir, "")
@@ -267,7 +264,7 @@ func TestNewWithExplicitToken(t *testing.T) {
 
 	// Verify the file stores the hash, not the plaintext
 	tokenPath := filepath.Join(tmpDir, "admin-token")
-	data, err := os.ReadFile(tokenPath) //nolint:gosec // test-only: controlled test path
+	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read token file: %v", err)
 	}
@@ -315,7 +312,7 @@ func TestNewCreatesTokenWithSha256Prefix(t *testing.T) {
 	}
 
 	tokenPath := filepath.Join(tmpDir, "admin-token")
-	data, err := os.ReadFile(tokenPath) //nolint:gosec // test-only: controlled test path
+	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read token file: %v", err)
 	}
@@ -356,7 +353,6 @@ func TestSha256PrefixedFileReadAsHash(t *testing.T) {
 	}
 
 	// File should not be modified (not re-hashed)
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read token file: %v", err)
@@ -395,7 +391,6 @@ func TestLegacyBare64HexFileStillWorks(t *testing.T) {
 	}
 
 	// File should not be modified (backward compat — keep as-is)
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read token file: %v", err)
@@ -427,7 +422,6 @@ func TestValidateTokenWithPrefixedAndLegacyFormat(t *testing.T) {
 
 	// Read the file — should be sha256: prefixed now
 	tokenPath := filepath.Join(tmpDir, "admin-token")
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read token file: %v", err)
@@ -443,7 +437,6 @@ func TestValidateTokenWithPrefixedAndLegacyFormat(t *testing.T) {
 
 	// Now simulate a legacy bare hash file: write the hash without prefix
 	hashPart := string(data[len(sha256Prefix):])
-	//nolint:gosec // test-only path
 	if err := os.WriteFile(tokenPath, []byte(hashPart), 0o600); err != nil {
 		t.Fatalf("Failed to write legacy format: %v", err)
 	}
@@ -485,7 +478,6 @@ func TestPlaintextTokenGetsHashedAndRewrittenWithPrefix(t *testing.T) {
 		t.Error("Plaintext token file should not be treated as new")
 	}
 
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(tokenPath)
 	if err != nil {
 		t.Fatalf("Failed to read token file: %v", err)

@@ -475,7 +475,6 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 // fire-and-forget goroutine with its own timeout, so the request path is
 // never blocked by a slow DB write.
 func (h *Handler) touchProviderLastUsed(pid uuid.UUID) {
-	//nolint:gosec // intentional: failover goroutine needs independent lifecycle
 	go func(pid uuid.UUID) {
 		defer func() {
 			if r := recover(); r != nil {

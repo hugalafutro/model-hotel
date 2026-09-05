@@ -544,7 +544,7 @@ func TestProbeErrorFrame_NeverLogsTheProviderCredential(t *testing.T) {
 		run  func(t *testing.T, h *Handler, st *requestState, cand modelCandidate)
 	}{
 		{"sequential", func(_ *testing.T, h *Handler, st *requestState, cand modelCandidate) {
-			resp, err := srv.Client().Get(srv.URL) //nolint:noctx // test server, no context needed
+			resp, err := srv.Client().Get(srv.URL)
 			if err != nil {
 				t.Fatalf("get: %v", err)
 			}

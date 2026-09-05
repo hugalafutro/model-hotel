@@ -46,7 +46,6 @@ func TestAnthropicDiscoveryWithMockServer(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/v1/models" {
 			w.Header().Set("Content-Type", "application/json")
-			//nolint:gosec // test-only: error handling not critical
 			w.Write([]byte(page1))
 			return
 		}
@@ -99,7 +98,6 @@ func TestAnthropicDiscoveryWithMockServer(t *testing.T) {
 
 	// Check capabilities parsed from API
 	var caps model.Capability
-	//nolint:gosec // test-only: error handling not critical
 	json.Unmarshal([]byte(m1.Capabilities), &caps)
 	if !caps.Vision {
 		t.Error("expected Vision=true for opus")
@@ -181,10 +179,8 @@ func TestAnthropicDiscoverypagination(t *testing.T) {
 		callCount++
 		w.Header().Set("Content-Type", "application/json")
 		if r.URL.Query().Get("after_id") == "" {
-			//nolint:gosec // test-only: mock server response
 			w.Write([]byte(page1))
 		} else {
-			//nolint:gosec // test-only: mock server response
 			w.Write([]byte(page2))
 		}
 	}))
@@ -233,7 +229,6 @@ func TestAnthropicDiscoverynoCapabilities(t *testing.T) {
 
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		//nolint:gosec // test-only: mock server response
 		w.Write([]byte(page1))
 	}))
 	defer server.Close()
@@ -273,7 +268,6 @@ func TestAnthropicDiscoverynoCapabilities(t *testing.T) {
 	}
 	// Capabilities should have defaults (streaming, tool_calling)
 	var caps model.Capability
-	//nolint:gosec // test-only
 	json.Unmarshal([]byte(m.Capabilities), &caps)
 	if !caps.Streaming {
 		t.Error("expected Streaming=true by default")

@@ -87,7 +87,6 @@ func (t *modelsDevTestTransport) RoundTrip(req *http.Request) (*http.Response, e
 	// Simple approach: if the request is for models.dev API, redirect to our test server
 	if req.URL.String() == modelsDevAPIURL {
 		// Create a new request to our test server
-		//nolint:gosec // test-only: test server URL
 		testReq, err := http.NewRequest(req.Method, t.url, req.Body)
 		if err != nil {
 			return nil, err

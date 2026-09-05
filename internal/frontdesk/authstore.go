@@ -301,8 +301,8 @@ func scanCredential(sc scanner) (*webauthn.CredentialRecord, error) {
 	}
 	// These columns are written from a byte and a uint32 respectively (see
 	// StoreCredential), so the stored values are always within range.
-	cred.FlagsByte = byte(flags & 0xff)             //nolint:gosec // value originates from a byte
-	cred.SignCount = uint32(signCount & 0xffffffff) //nolint:gosec // value originates from a uint32
+	cred.FlagsByte = byte(flags & 0xff)
+	cred.SignCount = uint32(signCount & 0xffffffff)
 	if parsed, err := uuid.Parse(aaguid); err == nil {
 		cred.AAGUID = parsed
 	}

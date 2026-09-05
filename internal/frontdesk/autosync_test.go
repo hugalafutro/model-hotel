@@ -336,7 +336,7 @@ func TestAutoSync_MemberWithADifferentConfigIsSynced(t *testing.T) {
 	replica.dryDiff = driftDiff
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID)
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -794,7 +794,7 @@ func TestAutoSyncDisabledIsNoop(t *testing.T) {
 	replica.dryDiff = driftDiff
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	// Designate a primary but leave auto-sync disabled.
 	if err := store.SetAutoSync(t.Context(), false, pm.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
@@ -821,8 +821,8 @@ func TestAutoSyncNoChangeWhenHashUnchanged(t *testing.T) {
 	replica.dryDiff = driftDiff
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
-	enableAutoSync(t, store, pm.ID)                                       // last applied == current
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID) // last applied == current
 	alignFleetVersions(t, srv, store, "dev")
 
 	if got := srv.autoSyncOnce(t.Context(), "hash-A"); got != "hash-A" {

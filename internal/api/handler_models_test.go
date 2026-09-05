@@ -280,7 +280,7 @@ func TestTestModel_VertexExpress(t *testing.T) {
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, network, target)
 		},
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // test-only mock server
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	defer func() { h.testModelTransport = origTransport }()
 
@@ -365,7 +365,7 @@ func TestTestModel_AnthropicMessages(t *testing.T) {
 		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, network, target)
 		},
-		TLSClientConfig: &tls.Config{InsecureSkipVerify: true}, //nolint:gosec // test-only mock server
+		TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 	}
 	defer func() { h.testModelTransport = origTransport }()
 

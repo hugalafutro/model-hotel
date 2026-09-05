@@ -120,7 +120,7 @@ func TestCatalogTypesAreEmitted(t *testing.T) {
 			if path == skipFile {
 				return nil
 			}
-			b, rerr := os.ReadFile(path) //nolint:gosec // fixed set of repo-relative paths, not user input
+			b, rerr := os.ReadFile(path)
 			if rerr != nil {
 				return rerr
 			}

@@ -89,7 +89,6 @@ func (a *anthropicResponseWriter) Write(p []byte) (int, error) {
 		// text/event-stream (never text/html), and the consumer is an API client,
 		// not a browser. CodeQL go/reflected-xss cannot trace the middleware header
 		// through this wrapper, so the alert is dismissed as a false positive.
-		//nolint:gosec // G705: see above — JSON/SSE API body, nosniff set globally, not HTML
 		return a.w.Write(p)
 	}
 	if a.streaming {

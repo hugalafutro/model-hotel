@@ -28,7 +28,6 @@ func TestListComposeContainers(t *testing.T) {
 		if r.URL.Path == "/containers/json" && r.URL.Query().Get("all") == "true" {
 			w.WriteHeader(http.StatusOK)
 			json.NewEncoder(w).Encode(containers)
-			//nolint:gosec // test-only: error handling not critical
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)

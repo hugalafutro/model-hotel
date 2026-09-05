@@ -222,7 +222,7 @@ func wavFromPCM(pcm []byte, sampleRate int) []byte {
 	binary.LittleEndian.PutUint16(header[22:], channels)
 	binary.LittleEndian.PutUint32(header[24:], uint32(sampleRate))            //nolint:gosec // G115: a sample rate is small and positive
 	binary.LittleEndian.PutUint32(header[28:], uint32(sampleRate*blockAlign)) //nolint:gosec // G115: as above
-	binary.LittleEndian.PutUint16(header[32:], uint16(blockAlign))            //nolint:gosec // G115: 2
+	binary.LittleEndian.PutUint16(header[32:], uint16(blockAlign))
 	binary.LittleEndian.PutUint16(header[34:], bitsPerSample)
 	copy(header[36:], "data")
 	binary.LittleEndian.PutUint32(header[40:], uint32(len(pcm))) //nolint:gosec // G115: as the RIFF size above
