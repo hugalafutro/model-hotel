@@ -115,9 +115,8 @@ export function GithubPanel({ managed }: { managed?: boolean }) {
 							spellCheck={false}
 							autoComplete="off"
 							onChange={(e) => setClientIdDraft(e.target.value)}
-							onBlur={(e) => {
-								if (!isForcedBlur(e))
-									commit("github_client_id", clientIdDraft, clientId);
+							onBlur={() => {
+								commit("github_client_id", clientIdDraft, clientId);
 								setClientIdDraft(null);
 							}}
 							onKeyDown={(e) => {
@@ -195,9 +194,8 @@ export function GithubPanel({ managed }: { managed?: boolean }) {
 							spellCheck={false}
 							autoComplete="off"
 							onChange={(e) => setBaseUrlDraft(e.target.value)}
-							onBlur={(e) => {
-								if (!isForcedBlur(e))
-									commit("github_public_base_url", baseUrlDraft, baseUrl);
+							onBlur={() => {
+								commit("github_public_base_url", baseUrlDraft, baseUrl);
 								setBaseUrlDraft(null);
 							}}
 							onKeyDown={(e) => {

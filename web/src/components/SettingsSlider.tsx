@@ -261,7 +261,7 @@ export function SettingsSlider({
 							onBlur={handleNumberBlur}
 							onKeyDown={handleNumberKeyDown}
 							disabled={disabled}
-							className={`w-12 text-right px-1 py-0.5 rounded text-xs border border-transparent outline-none bg-(--surface-input) text-(--text-primary) no-spinner ${
+							className={`w-12 text-right px-1 py-0.5 rounded text-xs border border-transparent outline-none bg-(--surface-input) text-(--text-primary) no-spinner disabled:opacity-50 ${
 								disabled ? "cursor-not-allowed" : "focus:border-(--accent)"
 							}`}
 						/>

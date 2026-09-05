@@ -114,6 +114,8 @@ describe("SettingsSlider", () => {
 		);
 		fireEvent.blur(numberInput);
 		expect(onChange).not.toHaveBeenCalled();
+		// The draft is discarded too: the field shows the fleet value again.
+		expect(numberInput).toHaveValue(defaultProps.value);
 	});
 
 	it("clamps number input value to max on blur", () => {

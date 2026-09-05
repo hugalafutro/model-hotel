@@ -48,6 +48,9 @@ export function RestoreConfirmModal({
 	// Only reachable from an enabled button, which the render below already
 	// gates on a non-empty token and a well-formed (or empty) signature.
 	const handleConfirm = () => {
+		// A managed card cannot restore from either stage, whatever the buttons
+		// happen to show at the instant the flag flips.
+		if (managed) return;
 		const token = adminToken.trim();
 		if (sig) {
 			onConfirm(token, sig);
@@ -107,7 +110,7 @@ export function RestoreConfirmModal({
 					<button
 						type="button"
 						onClick={handleConfirm}
-						disabled={isPending}
+						disabled={isPending || managed}
 						className="ui-btn ui-btn-danger"
 					>
 						{isPending
