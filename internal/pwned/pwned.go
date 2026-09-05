@@ -57,7 +57,7 @@ func (c *Checker) Breached(ctx context.Context, password string) (bool, int, err
 	// storage: only the 5-char prefix below is ever sent and the password is
 	// never persisted as this hash. The gosec/CodeQL weak-hash warnings key on
 	// the word "password" reaching sha1 and cannot see that distinction.
-	sum := sha1.Sum([]byte(password)) //nolint:gosec // codeql[go/weak-sensitive-data-hashing] -- G401 SHA-1 is the HIBP k-anonymity wire contract, not a security primitive
+	sum := sha1.Sum([]byte(password)) //nolint:gosec // codeql[go/weak-sensitive-data-hashing] -- HIBP k-anonymity wire contract, not a security primitive
 	hash := strings.ToUpper(hex.EncodeToString(sum[:]))
 	prefix, suffix := hash[:5], hash[5:]
 
