@@ -118,7 +118,7 @@ In `discover-all` responses the same `diff` object appears per provider inside e
 The badge on the **Models** sidebar item opens this. It answers one question: what does discovery currently believe is wrong, and what can you do about it.
 
 <div align="center">
-<img src="screenshots/discrepancy_modal.png" alt="Model discrepancy modal: one collapsed pill per provider with gone and stale counts" width="720"><br>
+<img src="screenshots/discrepancy_modal.png" alt="Model discrepancy modal: one provider pill open with its suspect bucket unrolled, the other pills collapsed with their gone counts, and the Recent changes journal expanded below" width="720"><br>
 </div>
 
 ### Claims are derived, never stored

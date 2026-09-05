@@ -147,9 +147,11 @@ Login endpoints are IP rate-limited to prevent brute-force probing of passkeys. 
 | `webauthn.credential_deleted` | A passkey is deleted |
 
 ![Passkey Login](screenshots/login_passkey.png)
+
 *Login screen with WebAuthn passkey option visible when `WEBAUTHN_RP_ID` is configured.*
 
 ![Passkey Credentials](screenshots/webauthn_credentials.png)
+
 *Settings page - Passkey credential management, showing registered credentials with rename and delete options.*
 
 ### TOTP / Authenticator-App Two-Factor (2FA)
@@ -157,6 +159,7 @@ Login endpoints are IP rate-limited to prevent brute-force probing of passkeys. 
 Time-based one-time passwords (RFC 6238) add a second factor to admin login, independent of passkeys. TOTP needs no environment variable: it is opt-in at runtime from the **Settings** page (scan the QR code with any authenticator app, enter the 6-digit code, and save the one-time recovery codes shown). The TOTP secret is encrypted at rest with AES-256-GCM under `MASTER_KEY`, the same as provider keys, and is never logged.
 
 ![Settings Authentication](screenshots/settings_authentication.png)
+
 *Settings page - Authentication section: passkey registration and the registered-credential list with the active sessions beneath them, the authenticator-app (TOTP) enable control, the tab timeout and the password policy (breached-password screening, with an inline note on what the lookup sends), then the single sign-on (OIDC and GitHub) configuration, the admin-login methods managed together.*
 
 **Enforcement (first-factor downgrade):** When TOTP is enabled, the raw admin token stops being a standalone bearer. It becomes a first factor that, combined with a valid 6-digit code, is exchanged on the login screen for a session token (the same DB-backed session infrastructure passkeys use). Only the session token then authorizes `/api/*` calls, which closes the static-token replay a bare bearer would otherwise allow. The same gate covers passkey management and backup restore.

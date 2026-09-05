@@ -53,10 +53,12 @@ The dispatcher is a single consumer of Model Hotel's internal event bus. For eac
 The two runs differ in two places. Front Desk offers a **Bellhop** tile and Model Hotel does not: [[Bellhop]] notifies from Front Desk's own fleet poll, so the gateway's events never reach it. And on a Model Hotel member whose settings are managed fleet-wide by config sync the events step shows a note in place of the picker, because Front Desk owns the event selection there and there is nothing to choose; that run writes the Apprise API URL and the destinations and leaves the alert switches alone.
 
 ![Model Hotel Alerts card](screenshots/settings_alerts.png)
+
 *Model Hotel dashboard - Alerts with alerting on: the "Events to notify on" picker unrolled, the plaintext Destinations list with its reachability indicator and per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)". With alerting off, the destinations list, the guided button and the manual fields are hidden and the event picker cannot be unrolled; the toggle stays, and so does a warning about a stored destination list that cannot be read. A managed member keeps the delivery settings visible in both states, because it cannot switch alerting on itself.*
 
 ![Front Desk Alerts card](screenshots/frontdesk_settings_alerts.png)
-*Front Desk Settings - Alerts: the same card in Front Desk's styling.*
+
+*Front Desk Settings - Alerts: the same card in Front Desk's styling, which folds the event routing into the manual block; shown with "Manual configuration (advanced)" opened so the Apprise API URL, the target list, the phone push fields and the Notify on groups are visible.*
 
 1. **Apprise.** The **Apprise API URL**, prefilled `http://apprise:8000`, which is the `apprise` service of the stack the surface runs in: the gateway's own `docker-compose.yml` above, or `deploy/ha/docker-compose.yml` for Front Desk (both ship it commented out). Front Desk sends its own fleet and member alerts, so a Front Desk stack gets a container beside it rather than borrowing the gateway's. **Check** probes the container and the step unlocks on "apprise-api reachable and healthy". A red result names the reason: nothing answered at that address, the container answered but reports a problem, or the URL is not valid.
 2. **Where should alerts go?** Tiles for **Phone (ntfy app)**, **Telegram**, **Discord**, **Email** and **Other (Apprise URL)**, plus **Bellhop** on Front Desk.
@@ -67,21 +69,27 @@ The two runs differ in two places. Front Desk offers a **Bellhop** tile and Mode
 7. **Finish.** One write covering the API URL, the destinations, the events and the enable toggle, so a failure leaves nothing half-applied. The final screen offers **Send test to everything**.
 
 ![Alerts wizard, step 1](screenshots/alerts_wizard_step1.png)
+
 *Step 1 on the Model Hotel dashboard: the Apprise API URL after a successful Check. Next stays locked until the container answers.*
 
 ![Alerts wizard, step 3](screenshots/alerts_wizard_step3_ntfy.png)
+
 *Step 3 for the Phone (ntfy app) tile: server and topic as plain fields, Generate for a random topic, the subscribe instructions for the phone with copy buttons, and the composed Apprise URL underneath. Whether the server is reachable is settled by step 4, which sends from the gateway rather than from the browser.*
 
 ![Alerts wizard, step 4](screenshots/alerts_wizard_step4_test.png)
+
 *Step 4: one test to the destination being added, through the step-1 container. Still nothing saved.*
 
 ![Front Desk alerts wizard, step 1](screenshots/frontdesk_alerts_wizard_step1.png)
+
 *The same step 1 on Front Desk, against the apprise container of the Front Desk stack.*
 
 ![Front Desk alerts wizard, step 3](screenshots/frontdesk_alerts_wizard_step3_ntfy.png)
+
 *Front Desk step 3 for the Phone (ntfy app) tile.*
 
 ![Front Desk alerts wizard, step 4](screenshots/frontdesk_alerts_wizard_step4_test.png)
+
 *Front Desk step 4: the per-destination test, sent by Front Desk.*
 
 ### Manual configuration

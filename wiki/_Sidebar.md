@@ -19,8 +19,8 @@
 - 🔀 [[Failover and Hotel Routing]]
 - 🔔 [[Alerting]]
 - 🏨 [[High Availability]]
-- 🧱 [[CrowdSec]]
 - 📱 [[Bellhop]]
+- 🧱 [[CrowdSec]]
 
 ### Reference
 
