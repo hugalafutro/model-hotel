@@ -575,3 +575,7 @@ export function useArena() {
 		toast,
 	};
 }
+
+/** Everything the Arena page and its sections read, minus the refs. */
+export type ArenaView = Omit<ReturnType<typeof useArena>, "refs">;
+export type ArenaRefs = ReturnType<typeof useArena>["refs"];

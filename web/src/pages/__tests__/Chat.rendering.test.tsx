@@ -23,6 +23,25 @@ describe("Chat", () => {
 			expect(screen.getByText("Controls")).toBeInTheDocument();
 		});
 
+		it("gives each sub-mode toggle its own icon", async () => {
+			renderWithProviders(<Chat />);
+			await waitFor(() => {
+				expect(screen.getByText("Chat")).toBeInTheDocument();
+			});
+			// Icons carry an icon-<name> class; a mis-aliased import would still
+			// type-check and render, just the wrong glyph.
+			expect(
+				screen
+					.getByRole("button", { name: /chat with ai/i })
+					.querySelector(".icon-message-square"),
+			).not.toBeNull();
+			expect(
+				screen
+					.getByRole("button", { name: /ai conversation/i })
+					.querySelector(".icon-users"),
+			).not.toBeNull();
+		});
+
 		it("renders chat mode by default", async () => {
 			renderWithProviders(<Chat />);
 

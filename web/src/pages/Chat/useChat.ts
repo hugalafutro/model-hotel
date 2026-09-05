@@ -486,3 +486,7 @@ export function useChat() {
 		clearConversationAbort,
 	};
 }
+
+/** Everything the Chat page and its sections read, minus the refs. */
+export type ChatView = Omit<ReturnType<typeof useChat>, "refs">;
+export type ChatRefs = ReturnType<typeof useChat>["refs"];
