@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- bar colour helpers exported beside the quota bar components that use them */
 import { ArrowLeftRight, RefreshCw } from "@/lib/icons";
 import { useTheme } from "../../context/ThemeContext";
 import { Spinner } from "../Spinner";

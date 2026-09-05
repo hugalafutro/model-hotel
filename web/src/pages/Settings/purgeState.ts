@@ -12,10 +12,9 @@ export interface PurgeState {
 
 /**
  * Confirm and range state for one PurgeLogsControl, owned by the settings
- * card rather than the control. The card's mutation outlives the control
- * (SettingsSection remounts its children when managed mode flips), so the
- * state and the settle reset have to live where the mutation does or a purge
- * that settles after a remount would leave a reopened control actionable.
+ * card rather than the control. The card owns the purge mutation, so the
+ * state it resets on settle lives beside it rather than in the control the
+ * mutation callbacks would otherwise have to reach into.
  */
 export function usePurgeState(): PurgeState {
 	const [confirming, setConfirming] = useState(false);

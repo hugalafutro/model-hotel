@@ -17,6 +17,8 @@ interface RestoreConfirmModalProps {
 	onConfirm: (adminToken: string, signature: string) => void;
 	/** Whether the restore action is in progress */
 	isPending: boolean;
+	/** Fleet-managed card: the dialog stays open but cannot restore. */
+	managed?: boolean;
 }
 
 export function RestoreConfirmModal({
@@ -24,6 +26,7 @@ export function RestoreConfirmModal({
 	onClose,
 	onConfirm,
 	isPending,
+	managed = false,
 }: RestoreConfirmModalProps) {
 	const { t } = useTranslation();
 	const [adminToken, setAdminToken] = useState("");
@@ -45,6 +48,9 @@ export function RestoreConfirmModal({
 	// Only reachable from an enabled button, which the render below already
 	// gates on a non-empty token and a well-formed (or empty) signature.
 	const handleConfirm = () => {
+		// Both stage buttons are disabled while managed; this is the belt to
+		// their braces, so a restore cannot start from a stale click either.
+		if (managed) return;
 		const token = adminToken.trim();
 		if (sig) {
 			onConfirm(token, sig);
@@ -104,7 +110,7 @@ export function RestoreConfirmModal({
 					<button
 						type="button"
 						onClick={handleConfirm}
-						disabled={isPending}
+						disabled={isPending || managed}
 						className="ui-btn ui-btn-danger"
 					>
 						{isPending
@@ -230,7 +236,9 @@ export function RestoreConfirmModal({
 				<button
 					type="button"
 					onClick={handleConfirm}
-					disabled={!adminToken.trim() || signatureMalformed || isPending}
+					disabled={
+						!adminToken.trim() || signatureMalformed || isPending || managed
+					}
 					className="ui-btn ui-btn-danger"
 				>
 					{isPending

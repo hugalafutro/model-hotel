@@ -16,7 +16,9 @@
 	button:disabled,
 	button[aria-disabled="true"],
 	[role="button"][aria-disabled="true"],
-	select:disabled {
+	select:disabled,
+	input:disabled,
+	textarea:disabled {
 		cursor: not-allowed;
 	}
 }
@@ -1804,6 +1806,15 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 [data-ui-style] .ui-btn:disabled {
 	opacity: 0.5;
 	filter: grayscale(1);
+	cursor: not-allowed;
+}
+
+/* Controls inside a disabled fieldset (a fleet-managed settings card) are
+   inert without their own disabled prop; show it. */
+[data-ui-style] .ui-toggle:disabled,
+[data-ui-style] .gen-slider:disabled,
+[data-ui-style] .ui-input:disabled {
+	opacity: 0.5;
 	cursor: not-allowed;
 }
 

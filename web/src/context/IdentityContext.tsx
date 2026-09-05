@@ -54,7 +54,7 @@ export function IdentityProvider({ children }: { children: React.ReactNode }) {
 	);
 }
 
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- the consumer hook lives beside its provider
 export function useIdentity(): IdentityValue {
 	return useContext(IdentityContext);
 }

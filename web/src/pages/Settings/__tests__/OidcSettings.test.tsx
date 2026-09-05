@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -71,6 +71,30 @@ describe("OidcPanel", () => {
 				"https://hotel.example.com/api/auth/oidc/callback",
 			),
 		).toBeInTheDocument();
+	});
+
+	it("does NOT commit the allowed-emails draft when the blur comes from going managed", async () => {
+		serveSettings({ oidc_enabled: "true" });
+		mockOidcStatus(true);
+		const puts: Record<string, string>[] = [];
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				puts.push((await request.json()) as Record<string, string>);
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+		const user = userEvent.setup();
+		const { rerender } = renderWithProviders(<OidcPanel />);
+		const el = await screen.findByTestId("oidc-allowed-emails-input");
+		await user.type(el, "draft@b.test");
+		// The fleet takes the allowlist over while the field has focus; the
+		// forced blur must drop the draft rather than write it.
+		rerender(<OidcPanel managed />);
+		expect(el).toBeDisabled();
+		fireEvent.blur(el);
+		await new Promise((r) => setTimeout(r, 50));
+		expect(puts.some((p) => "oidc_allowed_emails" in p)).toBe(false);
+		expect(el).toHaveValue("");
 	});
 
 	it("commits each editable field, sets and clears the secret", async () => {

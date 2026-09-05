@@ -6,6 +6,7 @@ import { api } from "../../api/client";
 import { CopyablePill } from "../../components/CopyablePill";
 import { SecretField } from "../../components/SecretField";
 import { SettingToggleRow } from "../../components/SettingToggleRow";
+import { isForcedBlur } from "../../utils/forcedBlur";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 /**
@@ -250,8 +251,9 @@ export function GithubPanel({ managed }: { managed?: boolean }) {
 					spellCheck={false}
 					autoComplete="off"
 					onChange={(e) => setEmailsDraft(e.target.value)}
-					onBlur={() => {
-						commit("github_allowed_emails", emailsDraft, allowedEmails);
+					onBlur={(e) => {
+						if (!isForcedBlur(e))
+							commit("github_allowed_emails", emailsDraft, allowedEmails);
 						setEmailsDraft(null);
 					}}
 					className="ui-input text-sm w-full font-mono"

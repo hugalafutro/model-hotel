@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronDown, ChevronUp } from "@/lib/icons";
+import { isForcedBlur } from "../utils/forcedBlur";
 import { ResetButton } from "./ResetButton";
 
 export interface SettingsSliderProps {
@@ -117,15 +118,25 @@ export function SettingsSlider({
 		[min, max, clampStep],
 	);
 
-	const handleNumberBlur = useCallback(() => {
-		const clamped = clampStep ? clampToStep(local, clampStep) : local;
-		const v = Math.max(min, Math.min(max, clamped));
-		if (v !== local) setLocal(v);
-		if (v !== committed.current) {
-			committed.current = v;
-			onChange(v);
-		}
-	}, [local, min, max, clampStep, onChange]);
+	const handleNumberBlur = useCallback(
+		(e: React.FocusEvent<HTMLInputElement>) => {
+			// A forced blur (the enclosing fieldset went managed while the number
+			// had focus) discards the draft instead of committing it: the key is
+			// fleet-owned now and the field must show the fleet value.
+			if (isForcedBlur(e)) {
+				setLocal(committed.current);
+				return;
+			}
+			const clamped = clampStep ? clampToStep(local, clampStep) : local;
+			const v = Math.max(min, Math.min(max, clamped));
+			if (v !== local) setLocal(v);
+			if (v !== committed.current) {
+				committed.current = v;
+				onChange(v);
+			}
+		},
+		[local, min, max, clampStep, onChange],
+	);
 
 	const handleNumberKeyDown = useCallback(
 		(e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -206,7 +217,7 @@ export function SettingsSlider({
 					onKeyUp={handleSliderKeyUp}
 					disabled={disabled}
 					className={`gen-slider flex-1 min-w-0 h-1.5 rounded-lg appearance-none ${
-						disabled ? "cursor-not-allowed opacity-40" : "cursor-pointer"
+						disabled ? "cursor-not-allowed" : "cursor-pointer"
 					} bg-(--surface-hover) accent-(--accent)`}
 					style={{
 						background: `linear-gradient(to right, var(--accent) ${pct}%, var(--surface-hover) ${pct}%)`,
@@ -250,7 +261,7 @@ export function SettingsSlider({
 							onBlur={handleNumberBlur}
 							onKeyDown={handleNumberKeyDown}
 							disabled={disabled}
-							className={`w-12 text-right px-1 py-0.5 rounded text-xs border border-transparent outline-none bg-(--surface-input) text-(--text-primary) no-spinner ${
+							className={`w-12 text-right px-1 py-0.5 rounded text-xs border border-transparent outline-none bg-(--surface-input) text-(--text-primary) no-spinner disabled:opacity-50 ${
 								disabled ? "cursor-not-allowed" : "focus:border-(--accent)"
 							}`}
 						/>

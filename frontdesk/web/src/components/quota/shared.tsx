@@ -209,7 +209,7 @@ export type Translate = (key: string, opts?: Record<string, unknown>) => string;
  * provider did not report one. Rendered inside a QuotaBar sublabel, which is
  * `white-space: pre-line`, so the newline becomes a second line.
  */
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- label helper shared by the quota modals beside their bar components
 export function resetSublabel(
 	iso: string | null | undefined,
 	t: Translate,
@@ -221,7 +221,7 @@ export function resetSublabel(
 }
 
 /** Same, from an epoch-milliseconds instant (Z.ai) or a computed one (MiniMax). */
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- label helper shared by the quota modals beside their bar components
 export function resetSublabelFromEpoch(
 	ms: number | null | undefined,
 	t: Translate,
@@ -243,7 +243,7 @@ export function resetSublabelFromEpoch(
  * whichever the current bar mode calls for. `used` is a percent used, matching
  * QuotaBar's `percentage`.
  */
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- label helper shared by the quota modals beside their bar components
 export function quotaRightText(
 	used: number,
 	barMode: QuotaBarMode,
