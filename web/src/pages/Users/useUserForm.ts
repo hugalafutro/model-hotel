@@ -16,9 +16,9 @@ function errMessage(err: unknown, fallback: string): string {
 }
 
 /**
- * Form state, validation and the four mutations behind UserModal. `user` null
- * means create mode. Everything the modal renders comes back in one bag so the
- * component is markup only.
+ * Form state, save validation and the four mutations behind UserModal. `user`
+ * null means create mode. The modal keeps only the reset-password length check
+ * that gates its own button.
  */
 export function useUserForm({
 	user,
@@ -269,6 +269,5 @@ export function useUserForm({
 		chooseProviderMode,
 		toggleProvider,
 		toggleGrant,
-		t,
 	};
 }

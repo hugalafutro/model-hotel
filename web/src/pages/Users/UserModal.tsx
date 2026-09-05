@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import type { DashboardUser } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Modal } from "../../components/Modal";
@@ -16,6 +17,7 @@ export function UserModal({
 	onClose: () => void;
 	onToast: (msg: string, type: "success" | "error" | "info") => void;
 }) {
+	const { t } = useTranslation();
 	const {
 		username,
 		setUsername,
@@ -59,7 +61,6 @@ export function UserModal({
 		chooseProviderMode,
 		toggleProvider,
 		toggleGrant,
-		t,
 	} = useUserForm({ user, onClose, onToast });
 
 	return (

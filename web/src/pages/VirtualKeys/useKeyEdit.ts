@@ -305,7 +305,6 @@ export function useKeyEdit({
 		startEditing,
 		hasChanges,
 		handleClose,
-		t,
 		isAdmin,
 		providers,
 		users,

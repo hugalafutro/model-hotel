@@ -32,6 +32,22 @@ export function PurgeLogsControl({
 	const [confirming, setConfirming] = useState(false);
 	const [selection, setSelection] = useState("");
 
+	// The mutation lives in the parent and outlives this component: the settings
+	// section remounts its children when managed mode flips, so a purge started
+	// before the flip settles after it. Close on settle by watching the
+	// mutation's submittedAt during render rather than through per-call
+	// callbacks, which would land on the discarded instance and leave a reopened
+	// control actionable. A purge already in flight at mount counts as unseen;
+	// one already settled at mount does not.
+	const [settledSeen, setSettledSeen] = useState(() =>
+		mutation.isPending ? 0 : mutation.submittedAt,
+	);
+	if (!mutation.isPending && mutation.submittedAt !== settledSeen) {
+		setSettledSeen(mutation.submittedAt);
+		setConfirming(false);
+		if (mutation.isSuccess) setSelection("");
+	}
+
 	if (!confirming) {
 		return (
 			<button
@@ -66,14 +82,7 @@ export function PurgeLogsControl({
 				type="button"
 				disabled={!selection || mutation.isPending}
 				onClick={() => {
-					if (!olderThan) return;
-					mutation.mutate(olderThan, {
-						onSuccess: () => {
-							setConfirming(false);
-							setSelection("");
-						},
-						onError: () => setConfirming(false),
-					});
+					if (olderThan) mutation.mutate(olderThan);
 				}}
 				className="ui-btn ui-btn-danger"
 			>

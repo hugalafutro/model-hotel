@@ -971,6 +971,42 @@ describe("Delete Request Logs", () => {
 		).toBeInTheDocument();
 	});
 
+	it("closes a purge confirmation reopened after a managed-mode remount", async () => {
+		// The purge mutation lives in the parent; the section remounts its
+		// children when managed flips, so a purge started before the flip
+		// settles against a fresh control that may have been reopened meanwhile.
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		server.use(
+			http.delete("/api/logs/purge", async () => {
+				await gate;
+				return HttpResponse.json({ deleted: 1 });
+			}),
+		);
+		const user = userEvent.setup();
+		const { rerender } = renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await user.click(screen.getByRole("button", { name: /delete requests/i }));
+		await user.selectOptions(screen.getByRole("combobox"), "1d");
+		await user.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+		rerender(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} managed />,
+		);
+		rerender(<DataStorageSettings collapsed={false} onToggle={onToggle} />);
+		await user.click(screen.getByRole("button", { name: /delete requests/i }));
+		expect(screen.getByRole("combobox")).toBeInTheDocument();
+
+		release();
+		await waitFor(() => {
+			expect(screen.getByText(/requests deleted/i)).toBeInTheDocument();
+		});
+		expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+	});
+
 	it("calls purgeMutation when selection made and confirmed", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(

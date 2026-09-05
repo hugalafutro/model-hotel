@@ -1,3 +1,4 @@
+import { useTranslation } from "react-i18next";
 import {
 	BrainSlashIcon,
 	CalendarPlus,
@@ -56,6 +57,7 @@ export function KeyDetailModal({
 	// hidden, since local changes are replaced on the next config sync.
 	managed?: boolean;
 }) {
+	const { t } = useTranslation();
 	const {
 		editing,
 		editName,
@@ -88,7 +90,6 @@ export function KeyDetailModal({
 		startEditing,
 		hasChanges,
 		handleClose,
-		t,
 		isAdmin,
 		providers,
 		users,
