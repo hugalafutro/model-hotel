@@ -20,6 +20,8 @@ import {
 	minutesToGoDuration,
 } from "../../utils/duration";
 import { clearProviderCache, getProviderCacheCount } from "./constants";
+import { PurgeLogsControl } from "./PurgeLogsControl";
+import { usePurgeState } from "./purgeState";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface DataStorageSettingsProps {
@@ -29,7 +31,6 @@ interface DataStorageSettingsProps {
 	managed?: boolean;
 }
 
-// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function DataStorageSettings({
 	collapsed,
 	onToggle,
@@ -41,10 +42,6 @@ export function DataStorageSettings({
 	const queryClient = useQueryClient();
 	const { settings, updateMutation, resetSettingMutation } =
 		useSettingsMutations();
-	const [confirmDelete, setConfirmDelete] = useState(false);
-	const [deleteSelection, setDeleteSelection] = useState("");
-	const [confirmDeleteAppLogs, setConfirmDeleteAppLogs] = useState(false);
-	const [appLogsDeleteSelection, setAppLogsDeleteSelection] = useState("");
 
 	const [quotaDisabled, setQuotaDisabled] = useState(() => {
 		try {
@@ -94,20 +91,22 @@ export function DataStorageSettings({
 		setArenaHistoryLimit,
 	} = useStorage();
 
+	const requestsPurge = usePurgeState();
+	const appLogsPurge = usePurgeState();
+
 	const purgeMutation = useMutation({
 		mutationFn: (olderThan: string) => api.logs.purge(olderThan),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["logs"] });
 			toast(t("settings.common.requestsDeleted"), "success");
-			setConfirmDelete(false);
-			setDeleteSelection("");
+			requestsPurge.settled(true);
 		},
 		onError: (err: Error) => {
 			toast(
 				t("settings.common.failedToDeleteRequests", { message: err.message }),
 				"error",
 			);
-			setConfirmDelete(false);
+			requestsPurge.settled(false);
 		},
 	});
 
@@ -116,15 +115,14 @@ export function DataStorageSettings({
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["appLogs"] });
 			toast(t("settings.common.logsDeleted"), "success");
-			setConfirmDeleteAppLogs(false);
-			setAppLogsDeleteSelection("");
+			appLogsPurge.settled(true);
 		},
 		onError: (err: Error) => {
 			toast(
 				t("settings.common.failedToDeleteAppLogs", { message: err.message }),
 				"error",
 			);
-			setConfirmDeleteAppLogs(false);
+			appLogsPurge.settled(false);
 		},
 	});
 
@@ -135,12 +133,6 @@ export function DataStorageSettings({
 	// The slider is in days; the backend stores a Go duration in hours.
 	const logRetentionDays = logRetentionToDays(logRetention);
 	const staleTimeoutMinutes = goDurationToMinutes(staleRequestTimeout);
-
-	// The dropdown values (1d/1w/1m/all) are exactly the tokens the backend's
-	// purge endpoints accept, so pass the selection through and only guard the
-	// empty "select a range" placeholder.
-	const getDeleteOlderThan = (selection: string): string =>
-		["1d", "1w", "1m", "all"].includes(selection) ? selection : "";
 
 	return (
 		<SettingsSection
@@ -204,126 +196,54 @@ export function DataStorageSettings({
 							/>
 
 							<div className="flex items-center gap-2 flex-wrap">
-								{!confirmDelete ? (
-									<button
-										type="button"
-										onClick={() => setConfirmDelete(true)}
-										className="ui-btn ui-btn-danger"
-										title={t("settings.logging.deleteRequests.tooltip")}
-									>
-										{t("settings.logging.deleteRequests")}
-									</button>
-								) : (
-									<>
-										<select
-											value={deleteSelection}
-											onChange={(e) => setDeleteSelection(e.target.value)}
-											className="ui-input px-3 py-1.5 text-xs"
-										>
-											<option value="">
-												{t("settings.logging.deleteRequests.selectRange")}
-											</option>
-											<option value="1d">
-												{t("settings.logging.deleteRequests.olderThan1d")}
-											</option>
-											<option value="1w">
-												{t("settings.logging.deleteRequests.olderThan1w")}
-											</option>
-											<option value="1m">
-												{t("settings.logging.deleteRequests.olderThan1m")}
-											</option>
-											<option value="all">
-												{t("settings.logging.deleteRequests.allLogs")}
-											</option>
-										</select>
-										<button
-											type="button"
-											disabled={!deleteSelection || purgeMutation.isPending}
-											onClick={() => {
-												const olderThan = getDeleteOlderThan(deleteSelection);
-												if (olderThan) purgeMutation.mutate(olderThan);
-											}}
-											className="ui-btn ui-btn-danger"
-										>
-											{t("settings.logging.deleteRequests.confirm")}
-										</button>
-										<button
-											type="button"
-											onClick={() => {
-												setConfirmDelete(false);
-												setDeleteSelection("");
-											}}
-											className="ui-btn ui-btn-secondary"
-										>
-											{t("settings.logging.deleteRequests.cancel")}
-										</button>
-									</>
-								)}
+								<PurgeLogsControl
+									mutation={purgeMutation}
+									state={requestsPurge}
+									labels={{
+										button: t("settings.logging.deleteRequests"),
+										tooltip: t("settings.logging.deleteRequests.tooltip"),
+										selectRange: t(
+											"settings.logging.deleteRequests.selectRange",
+										),
+										olderThan1d: t(
+											"settings.logging.deleteRequests.olderThan1d",
+										),
+										olderThan1w: t(
+											"settings.logging.deleteRequests.olderThan1w",
+										),
+										olderThan1m: t(
+											"settings.logging.deleteRequests.olderThan1m",
+										),
+										allLogs: t("settings.logging.deleteRequests.allLogs"),
+										confirm: t("settings.logging.deleteRequests.confirm"),
+										cancel: t("settings.logging.deleteRequests.cancel"),
+									}}
+								/>
 
-								{!confirmDeleteAppLogs ? (
-									<button
-										type="button"
-										onClick={() => setConfirmDeleteAppLogs(true)}
-										className="ui-btn ui-btn-danger"
-										title={t("settings.logging.deleteAppLogs.tooltip")}
-									>
-										{t("settings.logging.deleteAppLogs")}
-									</button>
-								) : (
-									<>
-										<select
-											value={appLogsDeleteSelection}
-											onChange={(e) =>
-												setAppLogsDeleteSelection(e.target.value)
-											}
-											className="ui-input px-3 py-1.5 text-xs"
-										>
-											<option value="">
-												{t("settings.logging.deleteAppLogs.selectRange")}
-											</option>
-											<option value="1d">
-												{t("settings.logging.deleteAppLogs.olderThan1d")}
-											</option>
-											<option value="1w">
-												{t("settings.logging.deleteAppLogs.olderThan1w")}
-											</option>
-											<option value="1m">
-												{t("settings.logging.deleteAppLogs.olderThan1m")}
-											</option>
-											<option value="all">
-												{t("settings.logging.deleteAppLogs.allLogs")}
-											</option>
-										</select>
-										<button
-											type="button"
-											disabled={
-												!appLogsDeleteSelection ||
-												purgeAppLogsMutation.isPending
-											}
-											onClick={() => {
-												const olderThan = getDeleteOlderThan(
-													appLogsDeleteSelection,
-												);
-												if (olderThan) purgeAppLogsMutation.mutate(olderThan);
-											}}
-											className="ui-btn ui-btn-danger"
-										>
-											{purgeAppLogsMutation.isPending
-												? t("settings.logging.deleteAppLogs.deleting")
-												: t("settings.logging.deleteAppLogs.confirm")}
-										</button>
-										<button
-											type="button"
-											onClick={() => {
-												setConfirmDeleteAppLogs(false);
-												setAppLogsDeleteSelection("");
-											}}
-											className="ui-btn ui-btn-secondary"
-										>
-											{t("settings.logging.deleteAppLogs.cancel")}
-										</button>
-									</>
-								)}
+								<PurgeLogsControl
+									mutation={purgeAppLogsMutation}
+									state={appLogsPurge}
+									labels={{
+										button: t("settings.logging.deleteAppLogs"),
+										tooltip: t("settings.logging.deleteAppLogs.tooltip"),
+										selectRange: t(
+											"settings.logging.deleteAppLogs.selectRange",
+										),
+										olderThan1d: t(
+											"settings.logging.deleteAppLogs.olderThan1d",
+										),
+										olderThan1w: t(
+											"settings.logging.deleteAppLogs.olderThan1w",
+										),
+										olderThan1m: t(
+											"settings.logging.deleteAppLogs.olderThan1m",
+										),
+										allLogs: t("settings.logging.deleteAppLogs.allLogs"),
+										confirm: t("settings.logging.deleteAppLogs.confirm"),
+										cancel: t("settings.logging.deleteAppLogs.cancel"),
+										deleting: t("settings.logging.deleteAppLogs.deleting"),
+									}}
+								/>
 							</div>
 						</SettingsGroup>
 
