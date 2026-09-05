@@ -517,6 +517,7 @@ describe("Drag-to-pan and wheel scroll", () => {
 			/>,
 		);
 		expect(screen.queryByText("←")).not.toBeInTheDocument();
+		expect(screen.getByText("→")).toBeInTheDocument();
 	});
 
 	it("sets isDragging on pointer down", async () => {
@@ -562,6 +563,36 @@ describe("Drag-to-pan and wheel scroll", () => {
 
 		// Viewport should have shifted - check that drag overlay is still visible
 		expect(chartContainer).toHaveStyle("cursor: grabbing");
+	});
+
+	it("ends a drag that began under another range instead of panning from it", () => {
+		const data = generateData(40);
+		const { rerender } = renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
+		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
+		expect(chartContainer).toHaveStyle("cursor: grabbing");
+
+		rerender(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1w"
+				metric="Requests"
+			/>,
+		);
+		// The captured offset is an index in 1h space; a move must not re-seed a
+		// 1w pan from it. Dragging right would otherwise reveal older data.
+		fireEvent.pointerMove(chartContainer, { clientX: 400, pointerId: 1 });
+		expect(chartContainer).toHaveStyle("cursor: grab");
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
 	});
 
 	it("clears isDragging on pointer up", async () => {

@@ -236,11 +236,11 @@ describe("MiniMaxQuotaModal", () => {
 			// general: remains_time 1h after fetchedAt 2026-07-26T10:00Z. Anchoring
 			// to Date.now() would print a date in August instead.
 			const expected = formatAbsolute("2026-07-26T11:00:00Z");
+			// The testid sits on the bar track; the reset sublabel is its sibling
+			// inside the same QuotaBar root.
 			expect(
-				screen.getAllByText(
-					(_, el) => el?.textContent?.includes(expected) ?? false,
-				).length,
-			).toBeGreaterThan(0);
+				screen.getByTestId("minimax-general-5h-bar").parentElement,
+			).toHaveTextContent(expected);
 		} finally {
 			vi.useRealTimers();
 		}

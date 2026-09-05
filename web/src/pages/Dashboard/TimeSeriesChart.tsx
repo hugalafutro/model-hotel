@@ -76,7 +76,7 @@ export function TimeSeriesChart({
 	// range switch snaps back to latest and a round-trip cannot resurrect it.
 	const [pan, setPan] = useState<{ range: Range; start: number } | null>(null);
 	if (pan && pan.range !== range) setPan(null);
-	const userStart = pan?.range === range ? pan.start : null;
+	const userStart = pan?.start ?? null;
 	// Returns the previous object when nothing moved so React bails out of the
 	// re-render, as the old numeric setState did on same-bucket pointer moves.
 	const panTo = useCallback(
@@ -88,6 +88,7 @@ export function TimeSeriesChart({
 	);
 	const [isDragging, setIsDragging] = useState(false);
 	const dragRef = useRef<{
+		range: Range;
 		startX: number;
 		startOffset: number;
 		containerWidth: number;
@@ -135,18 +136,26 @@ export function TimeSeriesChart({
 			const container = e.currentTarget;
 			container.setPointerCapture(e.pointerId);
 			dragRef.current = {
+				range,
 				startX: e.clientX,
 				startOffset: effectiveStart,
 				containerWidth: container.getBoundingClientRect().width,
 			};
 			setIsDragging(true);
 		},
-		[pannable, effectiveStart],
+		[pannable, effectiveStart, range],
 	);
 
 	const onPointerMove = useCallback(
 		(e: React.PointerEvent<HTMLDivElement>) => {
 			if (!dragRef.current) return;
+			// A drag that began under another range holds an offset in that
+			// range's index space; end it rather than re-seed a pan from it.
+			if (dragRef.current.range !== range) {
+				dragRef.current = null;
+				setIsDragging(false);
+				return;
+			}
 			const { startX, startOffset, containerWidth } = dragRef.current;
 			const dx = e.clientX - startX;
 			const pxPerBucket = containerWidth / viewportSize;
@@ -158,7 +167,7 @@ export function TimeSeriesChart({
 			);
 			panTo(newStart);
 		},
-		[maxStart, viewportSize, panTo],
+		[maxStart, viewportSize, panTo, range],
 	);
 
 	const onPointerUp = useCallback(() => {
