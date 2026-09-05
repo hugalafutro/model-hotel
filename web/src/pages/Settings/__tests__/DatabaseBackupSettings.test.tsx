@@ -1852,6 +1852,43 @@ describe("DatabaseBackupSettings additional coverage", () => {
 		);
 	});
 
+	it("makes the enable-confirm inert when the card becomes managed", async () => {
+		server.use(
+			http.get("/api/settings", () =>
+				HttpResponse.json({ backup_enabled: "false" }),
+			),
+			http.post("/api/backups/prune-preview", () =>
+				HttpResponse.json({
+					son: [],
+					father: [],
+					grandfather: [],
+					prune: [
+						{
+							filename: "old.dump",
+							size_bytes: 1,
+							created_at: "2025-01-01T00:00:00Z",
+						},
+					],
+				}),
+			),
+		);
+		const user = userEvent.setup();
+		const { rerender } = renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await user.click(screen.getByRole("switch"));
+		await waitFor(() =>
+			expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument(),
+		);
+		// The dialog is a portal, outside the disabled fieldset: the managed
+		// flip must reach its confirm button on its own.
+		rerender(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} managed />,
+		);
+		expect(screen.getByRole("button", { name: "Confirm" })).toBeDisabled();
+		expect(screen.getByText("Enable Periodic Backup?")).toBeInTheDocument();
+	});
+
 	it("closes the enable-confirm modal via the backdrop", async () => {
 		server.use(
 			http.get("/api/settings", () =>

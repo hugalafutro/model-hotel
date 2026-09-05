@@ -48,8 +48,8 @@ export function RestoreConfirmModal({
 	// Only reachable from an enabled button, which the render below already
 	// gates on a non-empty token and a well-formed (or empty) signature.
 	const handleConfirm = () => {
-		// A managed card cannot restore from either stage, whatever the buttons
-		// happen to show at the instant the flag flips.
+		// Both stage buttons are disabled while managed; this is the belt to
+		// their braces, so a restore cannot start from a stale click either.
 		if (managed) return;
 		const token = adminToken.trim();
 		if (sig) {

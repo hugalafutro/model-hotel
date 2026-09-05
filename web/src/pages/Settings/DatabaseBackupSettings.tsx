@@ -230,6 +230,7 @@ export function DatabaseBackupSettings({
 				</SettingsGroup>
 
 				<BackupEnableConfirm
+					managed={managed}
 					showEnableConfirm={showEnableConfirm}
 					setShowEnableConfirm={setShowEnableConfirm}
 					prunePreview={prunePreview}
@@ -265,10 +266,10 @@ export function DatabaseBackupSettings({
 					</ul>
 				</div>
 
-				{/* The confirm renders in a portal outside the disabled fieldset, so
-				    it is told about managed itself: it stays open (a polled flip must
-				    not wipe a typed token or an in-flight restore) but its restore
-				    button goes inert. */}
+				{/* Both confirms render in portals outside the disabled fieldset, so
+				    each is told about managed itself: they stay open (a polled flip
+				    must not wipe a typed token or an in-flight restore) but their
+				    action buttons go inert. */}
 				{showRestoreModal && restoreFile && (
 					<RestoreConfirmModal
 						managed={managed}

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -91,6 +91,30 @@ describe("GithubPanel", () => {
 				"https://hotel.example.com/api/auth/github/callback",
 			),
 		).toBeInTheDocument();
+	});
+
+	it("does NOT commit the allowed-emails draft when the blur comes from going managed", async () => {
+		serveSettings({ github_sso_enabled: "true", github_enabled: "true" });
+		mockGithubStatus(true);
+		const puts: Record<string, string>[] = [];
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				puts.push((await request.json()) as Record<string, string>);
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+		const user = userEvent.setup();
+		const { rerender } = renderWithProviders(<GithubPanel />);
+		const el = await screen.findByTestId("github-allowed-emails-input");
+		await user.type(el, "draft@b.test");
+		// The fleet takes the allowlist over while the field has focus; the
+		// forced blur must drop the draft rather than write it.
+		rerender(<GithubPanel managed />);
+		expect(el).toBeDisabled();
+		fireEvent.blur(el);
+		await new Promise((r) => setTimeout(r, 50));
+		expect(puts.some((p) => "github_allowed_emails" in p)).toBe(false);
+		expect(el).toHaveValue("");
 	});
 
 	it("commits each editable field, sets and clears the secret", async () => {
