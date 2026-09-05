@@ -13,8 +13,9 @@ export function stripApiHead(message: string, prefix: string): string {
 }
 
 // The stable failure codes the alert endpoints report: /api/alert/test with a
-// 502 and the reachability probe in AlertStatus.reason. Anything outside this
-// set falls back to a generic error, so no server internals reach the screen.
+// 502 and the reachability probe in AlertStatus.reason. Only codes in this set
+// get a translated reason: a test error outside it shows the generic message,
+// and a probe reason outside it shows no reason note at all.
 export const REASON_CODES = new Set([
 	"not_configured",
 	"invalid_url",

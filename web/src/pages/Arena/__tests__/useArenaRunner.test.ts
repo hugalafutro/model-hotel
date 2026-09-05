@@ -317,8 +317,8 @@ describe("useArenaRunner", () => {
 
 		it("defers (does not error) an unrecognised slot while models load", async () => {
 			// While the chat list is still loading we can't classify the model, so
-			// the pending response is cleared for retry rather than permanently
-			// failed, and nothing is dispatched.
+			// the pending response is left untouched for a retry rather than
+			// permanently failed, and nothing is dispatched.
 			let hit = false;
 			server.use(
 				http.post("/api/chat/arena", () => {

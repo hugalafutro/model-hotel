@@ -13,8 +13,9 @@ const deserializeMetric = (stored: string, fallback: MetricType): MetricType =>
 
 /**
  * The dashboard's time-range and metric selections: a global pair driven by
- * the page header plus one persisted pair per section. Sections follow the
- * header whenever it changes and otherwise keep whatever the user picked.
+ * the page header plus a persisted range per section, and a metric for the
+ * sections that have one. Sections follow the header whenever it changes and
+ * otherwise keep whatever the user picked.
  */
 export function useDashboardRanges() {
 	// Global header toggles, persisted.
