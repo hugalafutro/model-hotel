@@ -31,7 +31,8 @@ export function PurgeLogsControl({
 }: {
 	labels: PurgeLogsLabels;
 	mutation: UseMutationResult<unknown, Error, string>;
-	state: PurgeState;
+	/** Settling stays with the card that owns the mutation. */
+	state: Omit<PurgeState, "settled">;
 }) {
 	const { confirming, selection } = state;
 

@@ -972,9 +972,9 @@ describe("Delete Request Logs", () => {
 	});
 
 	it("closes a purge confirmation that outlived a managed-mode remount", async () => {
-		// The purge mutation lives in the parent; the section remounts its
-		// children when managed flips, so a purge started before the flip
-		// settles against a fresh control that may have been reopened meanwhile.
+		// The section remounts its children when managed flips. The confirm and
+		// range state is card state, so a purge started before the flip settles
+		// against the same open confirmation it started from.
 		let release!: () => void;
 		const gate = new Promise<void>((resolve) => {
 			release = resolve;
@@ -1007,6 +1007,9 @@ describe("Delete Request Logs", () => {
 		await waitFor(() => {
 			expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
 		});
+		// Success also clears the range, so reopening shows the placeholder.
+		await user.click(screen.getByRole("button", { name: /delete requests/i }));
+		expect(screen.getByRole("combobox")).toHaveValue("");
 	});
 
 	it("keeps the chosen range when a purge fails after a managed-mode remount", async () => {
