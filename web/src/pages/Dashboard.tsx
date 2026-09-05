@@ -400,6 +400,7 @@ export function Dashboard() {
 				{globalMetric === "requests" ? (
 					<>
 						<TimeSeriesChart
+							key="total"
 							data={acData}
 							range={requestsChartRange}
 							onRangeChange={setRequestsChartRange}
@@ -411,6 +412,7 @@ export function Dashboard() {
 							loading={tsDataLoading}
 						/>
 						<TimeSeriesChart
+							key="tokens"
 							data={tokenAcData}
 							range={tokensChartRange}
 							onRangeChange={setTokensChartRange}
@@ -428,6 +430,7 @@ export function Dashboard() {
 				) : (
 					<>
 						<TimeSeriesChart
+							key="tokens"
 							data={tokenAcData}
 							range={tokensChartRange}
 							onRangeChange={setTokensChartRange}
@@ -442,6 +445,7 @@ export function Dashboard() {
 							loading={tokenTsDataLoading}
 						/>
 						<TimeSeriesChart
+							key="total"
 							data={acData}
 							range={requestsChartRange}
 							onRangeChange={setRequestsChartRange}

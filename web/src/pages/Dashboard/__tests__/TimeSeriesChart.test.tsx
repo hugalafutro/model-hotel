@@ -505,6 +505,18 @@ describe("Drag-to-pan and wheel scroll", () => {
 		);
 		expect(screen.queryByText("←")).not.toBeInTheDocument();
 		expect(screen.getByText("→")).toBeInTheDocument();
+
+		// Returning to 1h must not resurrect the old pan: the stored position
+		// was dropped when the range changed, not merely hidden.
+		rerender(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
 	});
 
 	it("sets isDragging on pointer down", async () => {

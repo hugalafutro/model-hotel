@@ -71,10 +71,21 @@ export function TimeSeriesChart({
 	// Drag-to-pan state: enabled when data exceeds viewport
 	const pannable = data.length > viewportSize;
 	const maxStart = Math.max(0, lastRealIndex - viewportSize + 1);
-	// The pan position is keyed by the range it was made in, so switching
-	// ranges snaps back to latest without an effect: a stale key reads as null.
+	// The pan position is keyed by the range it was made in. A pan from another
+	// range is dropped during render (state adjusted on a prop change), so a
+	// range switch snaps back to latest and a round-trip cannot resurrect it.
 	const [pan, setPan] = useState<{ range: Range; start: number } | null>(null);
+	if (pan && pan.range !== range) setPan(null);
 	const userStart = pan?.range === range ? pan.start : null;
+	// Returns the previous object when nothing moved so React bails out of the
+	// re-render, as the old numeric setState did on same-bucket pointer moves.
+	const panTo = useCallback(
+		(start: number) =>
+			setPan((prev) =>
+				prev?.range === range && prev.start === start ? prev : { range, start },
+			),
+		[range],
+	);
 	const [isDragging, setIsDragging] = useState(false);
 	const dragRef = useRef<{
 		startX: number;
@@ -145,9 +156,9 @@ export function TimeSeriesChart({
 				0,
 				Math.min(maxStart, startOffset + bucketShift),
 			);
-			setPan({ range, start: newStart });
+			panTo(newStart);
 		},
-		[maxStart, viewportSize, range],
+		[maxStart, viewportSize, panTo],
 	);
 
 	const onPointerUp = useCallback(() => {
@@ -172,9 +183,9 @@ export function TimeSeriesChart({
 			// Scroll right (positive delta) = see older data (decrease start)
 			const shift = rawDelta > 0 ? -1 : 1;
 			const newStart = Math.max(0, Math.min(maxStart, effectiveStart + shift));
-			setPan({ range, start: newStart });
+			panTo(newStart);
 		},
-		[pannable, maxStart, effectiveStart, range],
+		[pannable, maxStart, effectiveStart, panTo],
 	);
 
 	if (data.length === 0) {

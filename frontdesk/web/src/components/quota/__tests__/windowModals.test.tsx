@@ -5,6 +5,7 @@ import type {
 	MiniMaxQuotaResponse,
 	ZAICodingQuotaResponse,
 } from "../../../api/types";
+import { formatAbsolute } from "../../../utils/time";
 import { KimiCodeQuotaModal } from "../KimiCodeQuotaModal";
 import { MiniMaxQuotaModal } from "../MiniMaxQuotaModal";
 import { ZAICodingQuotaModal } from "../ZAICodingQuotaModal";
@@ -223,6 +224,26 @@ describe("MiniMaxQuotaModal", () => {
 		expect(screen.getByTestId("minimax-general-weekly-fill")).toHaveStyle({
 			width: "70%",
 		});
+	});
+
+	it("anchors reset instants to fetchedAt rather than the render clock", () => {
+		vi.useFakeTimers();
+		vi.setSystemTime(new Date("2026-08-01T00:00:00Z"));
+		try {
+			render(
+				<MiniMaxQuotaModal {...chrome} payload={payload} barMode="used" />,
+			);
+			// general: remains_time 1h after fetchedAt 2026-07-26T10:00Z. Anchoring
+			// to Date.now() would print a date in August instead.
+			const expected = formatAbsolute("2026-07-26T11:00:00Z");
+			expect(
+				screen.getAllByText(
+					(_, el) => el?.textContent?.includes(expected) ?? false,
+				).length,
+			).toBeGreaterThan(0);
+		} finally {
+			vi.useRealTimers();
+		}
 	});
 
 	it("renders a not-in-plan placeholder instead of bars for an excluded class", () => {
