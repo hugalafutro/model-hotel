@@ -94,7 +94,7 @@ describe("GithubPanel", () => {
 	});
 
 	it("does NOT commit the allowed-emails draft when the blur comes from going managed", async () => {
-		serveSettings({ github_sso_enabled: "true", github_enabled: "true" });
+		serveSettings({ github_sso_enabled: "true" });
 		mockGithubStatus(true);
 		const puts: Record<string, string>[] = [];
 		server.use(

@@ -74,7 +74,7 @@ describe("OidcPanel", () => {
 	});
 
 	it("does NOT commit the allowed-emails draft when the blur comes from going managed", async () => {
-		serveSettings({ oidc_sso_enabled: "true", oidc_enabled: "true" });
+		serveSettings({ oidc_enabled: "true" });
 		mockOidcStatus(true);
 		const puts: Record<string, string>[] = [];
 		server.use(
