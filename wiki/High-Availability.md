@@ -595,7 +595,7 @@ runs the same wizard over its own card (without the Bellhop tile: Bellhop
 notifies from Front Desk's fleet poll, so the gateway's events never reach it).
 Each surface needs a container it can reach on its own network.
 
-<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the status pill, the Destinations list and the Add destination button a configured card shows (a fresh install shows Set up alerts instead)"></a></p>
+<p align="center"><a href="screenshots/frontdesk_settings_alerts.png"><img src="screenshots/frontdesk_settings_alerts.png" width="800" alt="Front Desk Settings: Alerts card with the status pill, the Destinations list, the manual configuration block opened, and the Add destination button a configured card shows (a fresh install shows Set up alerts instead)"></a></p>
 
 ### Phone push via ntfy
 

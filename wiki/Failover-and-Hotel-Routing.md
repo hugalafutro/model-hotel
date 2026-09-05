@@ -193,7 +193,7 @@ Individual entries can be disabled without removing them from the group:
 ```
 
 Disabled entries:
-- Appear strikethrough in UI
+- Shown with a dashed outline in the UI
 - Skipped during candidate selection
 - Preserved in priority order for re-enablement
 
@@ -341,7 +341,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 *Failover Groups page - showing groups with enabled status, model entries, and priority badges*
 
 ![Failover Per-Entry Toggles](screenshots/failover_entries.png)
-*Failover group entries with per-entry enable/disable toggles, strikethrough for disabled entries, and priority ordering.*
+*Failover group entries with per-entry enable/disable toggles, a dashed outline on disabled entries, and priority ordering.*
 
 ---
 

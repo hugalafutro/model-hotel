@@ -147,9 +147,11 @@ Login endpoints are IP rate-limited to prevent brute-force probing of passkeys. 
 | `webauthn.credential_deleted` | A passkey is deleted |
 
 ![Passkey Login](screenshots/login_passkey.png)
+
 *Login screen with WebAuthn passkey option visible when `WEBAUTHN_RP_ID` is configured.*
 
 ![Passkey Credentials](screenshots/webauthn_credentials.png)
+
 *Settings page - Passkey credential management, showing registered credentials with rename and delete options.*
 
 ### TOTP / Authenticator-App Two-Factor (2FA)
