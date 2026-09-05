@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	Area,
@@ -71,15 +71,24 @@ export function TimeSeriesChart({
 	// Drag-to-pan state: enabled when data exceeds viewport
 	const pannable = data.length > viewportSize;
 	const maxStart = Math.max(0, lastRealIndex - viewportSize + 1);
-	// userStart is null until the user explicitly pans; null = snap to latest
-	const [userStart, setUserStart] = useState<number | null>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: range is a deliberate trigger — switching time ranges resets panning position
-	useEffect(() => {
-		// eslint-disable-next-line react-hooks/set-state-in-effect
-		setUserStart(null);
-	}, [range]);
+	// The pan position is keyed by the range it was made in. A pan from another
+	// range is dropped during render (state adjusted on a prop change), so a
+	// range switch snaps back to latest and a round-trip cannot resurrect it.
+	const [pan, setPan] = useState<{ range: Range; start: number } | null>(null);
+	if (pan && pan.range !== range) setPan(null);
+	const userStart = pan?.start ?? null;
+	// Returns the previous object when nothing moved so React bails out of the
+	// re-render, as the old numeric setState did on same-bucket pointer moves.
+	const panTo = useCallback(
+		(start: number) =>
+			setPan((prev) =>
+				prev?.range === range && prev.start === start ? prev : { range, start },
+			),
+		[range],
+	);
 	const [isDragging, setIsDragging] = useState(false);
 	const dragRef = useRef<{
+		range: Range;
 		startX: number;
 		startOffset: number;
 		containerWidth: number;
@@ -127,18 +136,26 @@ export function TimeSeriesChart({
 			const container = e.currentTarget;
 			container.setPointerCapture(e.pointerId);
 			dragRef.current = {
+				range,
 				startX: e.clientX,
 				startOffset: effectiveStart,
 				containerWidth: container.getBoundingClientRect().width,
 			};
 			setIsDragging(true);
 		},
-		[pannable, effectiveStart],
+		[pannable, effectiveStart, range],
 	);
 
 	const onPointerMove = useCallback(
 		(e: React.PointerEvent<HTMLDivElement>) => {
 			if (!dragRef.current) return;
+			// A drag that began under another range holds an offset in that
+			// range's index space; end it rather than re-seed a pan from it.
+			if (dragRef.current.range !== range) {
+				dragRef.current = null;
+				setIsDragging(false);
+				return;
+			}
 			const { startX, startOffset, containerWidth } = dragRef.current;
 			const dx = e.clientX - startX;
 			const pxPerBucket = containerWidth / viewportSize;
@@ -148,9 +165,9 @@ export function TimeSeriesChart({
 				0,
 				Math.min(maxStart, startOffset + bucketShift),
 			);
-			setUserStart(newStart);
+			panTo(newStart);
 		},
-		[maxStart, viewportSize],
+		[maxStart, viewportSize, panTo, range],
 	);
 
 	const onPointerUp = useCallback(() => {
@@ -175,9 +192,9 @@ export function TimeSeriesChart({
 			// Scroll right (positive delta) = see older data (decrease start)
 			const shift = rawDelta > 0 ? -1 : 1;
 			const newStart = Math.max(0, Math.min(maxStart, effectiveStart + shift));
-			setUserStart(newStart);
+			panTo(newStart);
 		},
-		[pannable, maxStart, effectiveStart],
+		[pannable, maxStart, effectiveStart, panTo],
 	);
 
 	if (data.length === 0) {

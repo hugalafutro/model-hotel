@@ -476,6 +476,50 @@ describe("Drag-to-pan and wheel scroll", () => {
 		expect(screen.getByText("←")).toBeInTheDocument();
 	});
 
+	it("snaps back to latest when the range changes after panning", () => {
+		// 40 points: 1h viewport is 12 (maxStart 28), 1w viewport is 7 (maxStart 33).
+		const data = generateData(40);
+		const { rerender } = renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		expect(screen.getByText("←")).toBeInTheDocument();
+
+		// A stale pan (start 27) would still sit left of 1w's maxStart and keep
+		// the newer-data arrow; a reset snaps to latest and drops it.
+		rerender(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1w"
+				metric="Requests"
+			/>,
+		);
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
+		expect(screen.getByText("→")).toBeInTheDocument();
+
+		// Returning to 1h must not resurrect the old pan: the stored position
+		// was dropped when the range changed, not merely hidden.
+		rerender(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
+		expect(screen.getByText("→")).toBeInTheDocument();
+	});
+
 	it("sets isDragging on pointer down", async () => {
 		const data = generateData(15);
 		renderWithProviders(
@@ -519,6 +563,36 @@ describe("Drag-to-pan and wheel scroll", () => {
 
 		// Viewport should have shifted - check that drag overlay is still visible
 		expect(chartContainer).toHaveStyle("cursor: grabbing");
+	});
+
+	it("ends a drag that began under another range instead of panning from it", () => {
+		const data = generateData(40);
+		const { rerender } = renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
+		fireEvent.pointerDown(chartContainer, { clientX: 100, pointerId: 1 });
+		expect(chartContainer).toHaveStyle("cursor: grabbing");
+
+		rerender(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1w"
+				metric="Requests"
+			/>,
+		);
+		// The captured offset is an index in 1h space; a move must not re-seed a
+		// 1w pan from it. Dragging right would otherwise reveal older data.
+		fireEvent.pointerMove(chartContainer, { clientX: 400, pointerId: 1 });
+		expect(chartContainer).toHaveStyle("cursor: grab");
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
 	});
 
 	it("clears isDragging on pointer up", async () => {

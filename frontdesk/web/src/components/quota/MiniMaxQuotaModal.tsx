@@ -22,9 +22,11 @@ function classLabel(modelName: string, t: Translate): string {
 function ModelClassRows({
 	entry,
 	barMode,
+	fetchedAt,
 }: {
 	entry: MiniMaxModelRemains;
 	barMode: QuotaBarMode;
+	fetchedAt: string;
 }) {
 	const { t } = useTranslation();
 	const name = entry.model_name;
@@ -61,18 +63,16 @@ function ModelClassRows({
 
 	const rightText = (used: number) => quotaRightText(used, barMode, t);
 
-	// remains_time/weekly_remains_time are durations, not instants: convert to an
-	// absolute reset time relative to now. Date.now() is impure, but a "resets in
-	// N hours" label is inherently a snapshot of render time, same tradeoff as
-	// SortableEntry's cooldown fuse (web/src/pages/FailoverGroups/SortableEntry.tsx).
-	/* eslint-disable react-hooks/purity */
+	// remains_time/weekly_remains_time are durations measured when the provider
+	// answered, which is fetchedAt: anchor there so the reset instant stays put
+	// across re-renders instead of walking forward with the clock.
+	const fetchedAtMs = new Date(fetchedAt).getTime();
 	const fiveHourResetAt =
-		entry.remains_time > 0 ? Date.now() + entry.remains_time : null;
+		entry.remains_time > 0 ? fetchedAtMs + entry.remains_time : null;
 	const weeklyResetAt =
 		entry.weekly_remains_time > 0
-			? Date.now() + entry.weekly_remains_time
+			? fetchedAtMs + entry.weekly_remains_time
 			: null;
-	/* eslint-enable react-hooks/purity */
 
 	return (
 		<div className="fd-quota-class">
@@ -149,6 +149,7 @@ export function MiniMaxQuotaModal({
 					key={entry.model_name}
 					entry={entry}
 					barMode={barMode}
+					fetchedAt={fetchedAt}
 				/>
 			))}
 		</QuotaModalShell>
