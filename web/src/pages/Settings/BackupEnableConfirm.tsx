@@ -13,12 +13,15 @@ export function BackupEnableConfirm({
 	prunePreview,
 	setPrunePreview,
 	settingsUpdateMutation,
+	managed,
 }: {
 	showEnableConfirm: BackupActions["showEnableConfirm"];
 	setShowEnableConfirm: BackupActions["setShowEnableConfirm"];
 	prunePreview: BackupActions["prunePreview"];
 	setPrunePreview: BackupActions["setPrunePreview"];
 	settingsUpdateMutation: BackupActions["settingsUpdateMutation"];
+	/** Fleet-managed card: the dialog stays open but cannot enable or prune. */
+	managed: boolean | undefined;
 }) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -70,7 +73,11 @@ export function BackupEnableConfirm({
 						</button>
 						<button
 							type="button"
+							disabled={managed}
 							onClick={async () => {
+								// The dialog is a portal outside the disabled fieldset, so it
+								// checks managed itself: the prune below is a real delete.
+								if (managed) return;
 								try {
 									if ((prunePreview?.prune?.length ?? 0) > 0) {
 										await api.backups.prune();

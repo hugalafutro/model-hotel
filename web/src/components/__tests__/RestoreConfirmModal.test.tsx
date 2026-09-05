@@ -197,6 +197,57 @@ describe("RestoreConfirmModal", () => {
 		expect(onConfirm).toHaveBeenCalledWith("test-token", "");
 	});
 
+	it("goes inert on both stages when the card becomes managed", async () => {
+		const user = userEvent.setup();
+		const onConfirm = vi.fn();
+		const dialog = (managed: boolean) => (
+			<RestoreConfirmModal
+				open={true}
+				onClose={vi.fn()}
+				onConfirm={onConfirm}
+				isPending={false}
+				managed={managed}
+			/>
+		);
+		const { rerender } = renderWithProviders(dialog(false));
+		await user.type(
+			screen.getByLabelText("Confirm with admin token"),
+			"test-token",
+		);
+		await user.click(screen.getByRole("button", { name: "Restore Database" }));
+		expect(
+			screen.getByRole("heading", { name: "Restore an unsigned backup?" }),
+		).toBeInTheDocument();
+
+		// The managed poll flips while the operator sits on the second stage:
+		// the dialog stays, the restore button does not.
+		rerender(dialog(true));
+		const anyway = screen.getByRole("button", { name: "Restore anyway" });
+		expect(anyway).toBeDisabled();
+		await user.click(anyway);
+		expect(onConfirm).not.toHaveBeenCalled();
+	});
+
+	it("cannot start a restore from the first stage while managed", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<RestoreConfirmModal
+				open={true}
+				onClose={vi.fn()}
+				onConfirm={vi.fn()}
+				isPending={false}
+				managed
+			/>,
+		);
+		await user.type(
+			screen.getByLabelText("Confirm with admin token"),
+			"test-token",
+		);
+		expect(
+			screen.getByRole("button", { name: "Restore Database" }),
+		).toBeDisabled();
+	});
+
 	it("remounts and refocuses the dialog when switching to the unsigned confirm", async () => {
 		// The two stages are separate Modal instances (distinct keys), so the
 		// switch moves focus into the new dialog instead of leaving it on the

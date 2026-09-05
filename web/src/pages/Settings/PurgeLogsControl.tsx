@@ -21,8 +21,8 @@ export interface PurgeLogsLabels {
  * confirm and cancel. The dropdown values (1d/1w/1m/all) are exactly the
  * tokens the backend's purge endpoints accept, so the selection is passed
  * through and only the empty "select a range" placeholder is guarded. The
- * confirm and range state comes from the parent's usePurgeState so it survives
- * the section remount that a managed-mode flip causes.
+ * confirm and range state comes from the parent's usePurgeState, next to the
+ * mutation that resets it on settle.
  */
 export function PurgeLogsControl({
 	labels,

@@ -27,7 +27,7 @@ const StorageContext = createContext<StorageContextType>({
 	setArenaHistoryLimit: () => {},
 });
 
-// eslint-disable-next-line react-refresh/only-export-components
+// eslint-disable-next-line react-refresh/only-export-components -- the consumer hook lives beside its provider
 export function useStorage() {
 	return useContext(StorageContext);
 }

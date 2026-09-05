@@ -1,4 +1,4 @@
-/* eslint-disable react-refresh/only-export-components */
+/* eslint-disable react-refresh/only-export-components -- useCollapsible lives beside the toggle it drives */
 
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";

@@ -96,6 +96,28 @@ describe("SettingsSlider", () => {
 		expect(onChange).toHaveBeenCalledWith(80);
 	});
 
+	it("does NOT commit a draft when the blur comes from being disabled", () => {
+		const onChange = vi.fn();
+		const { rerender } = renderWithProviders(
+			<fieldset>
+				<SettingsSlider {...defaultProps} onChange={onChange} />
+			</fieldset>,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		fireEvent.change(numberInput, { target: { value: 80 } });
+		// The enclosing fieldset goes managed while the draft has focus; the
+		// blur that follows must not push the draft through onChange.
+		rerender(
+			<fieldset disabled>
+				<SettingsSlider {...defaultProps} onChange={onChange} />
+			</fieldset>,
+		);
+		fireEvent.blur(numberInput);
+		expect(onChange).not.toHaveBeenCalled();
+		// The draft is discarded too: the field shows the fleet value again.
+		expect(numberInput).toHaveValue(defaultProps.value);
+	});
+
 	it("clamps number input value to max on blur", () => {
 		const onChange = vi.fn();
 		renderWithProviders(
