@@ -8,7 +8,8 @@ import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 
 /**
  * Queries, mutations and the clipboard, download and restore state behind
- * DatabaseBackupSettings, returned as one bag so the card is markup only.
+ * DatabaseBackupSettings, returned as one bag. The card keeps the two
+ * handlers that sequence a prune preview and a restore against this state.
  */
 export function useBackupActions() {
 	const { t } = useTranslation();
