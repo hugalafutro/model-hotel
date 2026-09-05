@@ -1,5 +1,5 @@
 import type { UseMutationResult } from "@tanstack/react-query";
-import { useState } from "react";
+import type { PurgeState } from "./purgeState";
 
 export interface PurgeLogsLabels {
 	button: string;
@@ -20,39 +20,26 @@ export interface PurgeLogsLabels {
  * app-log purges: a danger button that expands into a range select plus
  * confirm and cancel. The dropdown values (1d/1w/1m/all) are exactly the
  * tokens the backend's purge endpoints accept, so the selection is passed
- * through and only the empty "select a range" placeholder is guarded.
+ * through and only the empty "select a range" placeholder is guarded. The
+ * confirm and range state comes from the parent's usePurgeState so it survives
+ * the section remount that a managed-mode flip causes.
  */
 export function PurgeLogsControl({
 	labels,
 	mutation,
+	state,
 }: {
 	labels: PurgeLogsLabels;
 	mutation: UseMutationResult<unknown, Error, string>;
+	state: PurgeState;
 }) {
-	const [confirming, setConfirming] = useState(false);
-	const [selection, setSelection] = useState("");
-
-	// The mutation lives in the parent and outlives this component: the settings
-	// section remounts its children when managed mode flips, so a purge started
-	// before the flip settles after it. Close on settle by watching the
-	// mutation's submittedAt during render rather than through per-call
-	// callbacks, which would land on the discarded instance and leave a reopened
-	// control actionable. A purge already in flight at mount counts as unseen;
-	// one already settled at mount does not.
-	const [settledSeen, setSettledSeen] = useState(() =>
-		mutation.isPending ? 0 : mutation.submittedAt,
-	);
-	if (!mutation.isPending && mutation.submittedAt !== settledSeen) {
-		setSettledSeen(mutation.submittedAt);
-		setConfirming(false);
-		if (mutation.isSuccess) setSelection("");
-	}
+	const { confirming, selection } = state;
 
 	if (!confirming) {
 		return (
 			<button
 				type="button"
-				onClick={() => setConfirming(true)}
+				onClick={state.open}
 				className="ui-btn ui-btn-danger"
 				title={labels.tooltip}
 			>
@@ -69,7 +56,7 @@ export function PurgeLogsControl({
 		<>
 			<select
 				value={selection}
-				onChange={(e) => setSelection(e.target.value)}
+				onChange={(e) => state.select(e.target.value)}
 				className="ui-input px-3 py-1.5 text-xs"
 			>
 				<option value="">{labels.selectRange}</option>
@@ -92,10 +79,7 @@ export function PurgeLogsControl({
 			</button>
 			<button
 				type="button"
-				onClick={() => {
-					setConfirming(false);
-					setSelection("");
-				}}
+				onClick={state.cancel}
 				className="ui-btn ui-btn-secondary"
 			>
 				{labels.cancel}

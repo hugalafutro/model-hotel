@@ -21,6 +21,7 @@ import {
 } from "../../utils/duration";
 import { clearProviderCache, getProviderCacheCount } from "./constants";
 import { PurgeLogsControl } from "./PurgeLogsControl";
+import { usePurgeState } from "./purgeState";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface DataStorageSettingsProps {
@@ -90,17 +91,22 @@ export function DataStorageSettings({
 		setArenaHistoryLimit,
 	} = useStorage();
 
+	const requestsPurge = usePurgeState();
+	const appLogsPurge = usePurgeState();
+
 	const purgeMutation = useMutation({
 		mutationFn: (olderThan: string) => api.logs.purge(olderThan),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["logs"] });
 			toast(t("settings.common.requestsDeleted"), "success");
+			requestsPurge.settled(true);
 		},
 		onError: (err: Error) => {
 			toast(
 				t("settings.common.failedToDeleteRequests", { message: err.message }),
 				"error",
 			);
+			requestsPurge.settled(false);
 		},
 	});
 
@@ -109,12 +115,14 @@ export function DataStorageSettings({
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ["appLogs"] });
 			toast(t("settings.common.logsDeleted"), "success");
+			appLogsPurge.settled(true);
 		},
 		onError: (err: Error) => {
 			toast(
 				t("settings.common.failedToDeleteAppLogs", { message: err.message }),
 				"error",
 			);
+			appLogsPurge.settled(false);
 		},
 	});
 
@@ -190,6 +198,7 @@ export function DataStorageSettings({
 							<div className="flex items-center gap-2 flex-wrap">
 								<PurgeLogsControl
 									mutation={purgeMutation}
+									state={requestsPurge}
 									labels={{
 										button: t("settings.logging.deleteRequests"),
 										tooltip: t("settings.logging.deleteRequests.tooltip"),
@@ -213,6 +222,7 @@ export function DataStorageSettings({
 
 								<PurgeLogsControl
 									mutation={purgeAppLogsMutation}
+									state={appLogsPurge}
 									labels={{
 										button: t("settings.logging.deleteAppLogs"),
 										tooltip: t("settings.logging.deleteAppLogs.tooltip"),

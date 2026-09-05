@@ -971,7 +971,7 @@ describe("Delete Request Logs", () => {
 		).toBeInTheDocument();
 	});
 
-	it("closes a purge confirmation reopened after a managed-mode remount", async () => {
+	it("closes a purge confirmation that outlived a managed-mode remount", async () => {
 		// The purge mutation lives in the parent; the section remounts its
 		// children when managed flips, so a purge started before the flip
 		// settles against a fresh control that may have been reopened meanwhile.
@@ -997,14 +997,52 @@ describe("Delete Request Logs", () => {
 			<DataStorageSettings collapsed={false} onToggle={onToggle} managed />,
 		);
 		rerender(<DataStorageSettings collapsed={false} onToggle={onToggle} />);
-		await user.click(screen.getByRole("button", { name: /delete requests/i }));
-		expect(screen.getByRole("combobox")).toBeInTheDocument();
+		// The confirmation is card state, so it survives the remount still open.
+		expect(screen.getByRole("combobox")).toHaveValue("1d");
 
 		release();
 		await waitFor(() => {
 			expect(screen.getByText(/requests deleted/i)).toBeInTheDocument();
 		});
-		expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+		await waitFor(() => {
+			expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+		});
+	});
+
+	it("keeps the chosen range when a purge fails after a managed-mode remount", async () => {
+		let release!: () => void;
+		const gate = new Promise<void>((resolve) => {
+			release = resolve;
+		});
+		server.use(
+			http.delete("/api/logs/purge", async () => {
+				await gate;
+				return HttpResponse.json({ error: "boom" }, { status: 500 });
+			}),
+		);
+		const user = userEvent.setup();
+		const { rerender } = renderWithProviders(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} />,
+		);
+		await user.click(screen.getByRole("button", { name: /delete requests/i }));
+		await user.selectOptions(screen.getByRole("combobox"), "1d");
+		await user.click(screen.getByRole("button", { name: /confirm delete/i }));
+
+		rerender(
+			<DataStorageSettings collapsed={false} onToggle={onToggle} managed />,
+		);
+		rerender(<DataStorageSettings collapsed={false} onToggle={onToggle} />);
+		release();
+		await waitFor(() => {
+			expect(screen.getByText(/failed to delete/i)).toBeInTheDocument();
+		});
+		// A failed purge closes the confirmation but keeps the range, so reopening
+		// shows the same choice instead of the placeholder.
+		await waitFor(() => {
+			expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
+		});
+		await user.click(screen.getByRole("button", { name: /delete requests/i }));
+		expect(screen.getByRole("combobox")).toHaveValue("1d");
 	});
 
 	it("calls purgeMutation when selection made and confirmed", async () => {
