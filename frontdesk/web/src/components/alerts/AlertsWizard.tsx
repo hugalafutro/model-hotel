@@ -144,7 +144,7 @@ const EMPTY_DRAFT: Draft = {
 // itself, so re-accepting an edit still works. Step 3 is gated on this: the
 // same URL twice is never what the operator meant, and apprise would just be
 // told to deliver to one address twice.
-// eslint-disable-next-line react-refresh/only-export-components -- wizard state logic exported for its tests beside the component
+// eslint-disable-next-line react-refresh/only-export-components -- step gating shared with steps.tsx and its tests beside the component
 export function isDuplicate(s: WizardState): boolean {
 	const url =
 		s.draft.kind === null ? "" : compose(s.draft.kind, s.draft.fields);

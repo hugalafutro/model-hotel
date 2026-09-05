@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "@/lib/icons";
 import { CollapsibleToggle } from "./CollapsibleToggle";
@@ -33,6 +34,8 @@ export function SettingsSection({
 	managed,
 }: SettingsSectionProps) {
 	const { t } = useTranslation();
+	const headingId = useId();
+	const noteId = `${headingId}-managed`;
 
 	return (
 		<div className="ui-card p-6">
@@ -49,7 +52,9 @@ export function SettingsSection({
 					className="flex flex-1 min-w-0 items-center gap-2 cursor-pointer text-left"
 				>
 					<Icon size={18} className="text-(--accent)" />
-					<h2 className="text-xl font-semibold text-white">{title}</h2>
+					<h2 id={headingId} className="text-xl font-semibold text-white">
+						{title}
+					</h2>
 				</button>
 				<div className="flex items-center gap-1.5">
 					{/* The section reset only shows while the section is open: on a
@@ -83,6 +88,7 @@ export function SettingsSection({
 				<div className={`overflow-hidden ${collapsed ? "" : "p-4 -m-4"}`}>
 					{managed && (
 						<p
+							id={noteId}
 							data-testid="managed-note"
 							className="mb-4 text-xs text-(--text-muted)"
 						>
@@ -95,8 +101,16 @@ export function SettingsSection({
 					    is always in the tree and only its disabled flag follows
 					    `managed`: swapping the wrapper in and out would remount every
 					    child on each flip, and the managed flag is polled, so open
-					    confirmations, drafts and in-flight mutations must survive it. */}
-					<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
+					    confirmations, drafts and in-flight mutations must survive it.
+					    A legendless fieldset is an unnamed group to assistive tech, so
+					    the section heading names it and, while managed, the note
+					    above describes it. */}
+					<fieldset
+						disabled={managed}
+						aria-labelledby={headingId}
+						aria-describedby={managed ? noteId : undefined}
+						className="m-0 min-w-0 border-0 p-0"
+					>
 						{children}
 					</fieldset>
 				</div>

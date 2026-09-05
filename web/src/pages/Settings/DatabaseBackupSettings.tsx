@@ -265,7 +265,10 @@ export function DatabaseBackupSettings({
 					</ul>
 				</div>
 
-				{showRestoreModal && restoreFile && (
+				{/* The confirm renders in a portal outside the disabled fieldset, so
+				    it is gated here: a managed flip while it is open must not leave
+				    a live restore button behind an otherwise inert card. */}
+				{showRestoreModal && restoreFile && !managed && (
 					<RestoreConfirmModal
 						open={showRestoreModal}
 						onClose={() => {

@@ -117,15 +117,22 @@ export function SettingsSlider({
 		[min, max, clampStep],
 	);
 
-	const handleNumberBlur = useCallback(() => {
-		const clamped = clampStep ? clampToStep(local, clampStep) : local;
-		const v = Math.max(min, Math.min(max, clamped));
-		if (v !== local) setLocal(v);
-		if (v !== committed.current) {
-			committed.current = v;
-			onChange(v);
-		}
-	}, [local, min, max, clampStep, onChange]);
+	const handleNumberBlur = useCallback(
+		(e: React.FocusEvent<HTMLInputElement>) => {
+			// A blur forced by the control being disabled (an enclosing fieldset
+			// going managed while it had focus) must not commit the draft: the key
+			// just became fleet-owned.
+			if (e.currentTarget.matches(":disabled")) return;
+			const clamped = clampStep ? clampToStep(local, clampStep) : local;
+			const v = Math.max(min, Math.min(max, clamped));
+			if (v !== local) setLocal(v);
+			if (v !== committed.current) {
+				committed.current = v;
+				onChange(v);
+			}
+		},
+		[local, min, max, clampStep, onChange],
+	);
 
 	const handleNumberKeyDown = useCallback(
 		(e: React.KeyboardEvent<HTMLInputElement>) => {

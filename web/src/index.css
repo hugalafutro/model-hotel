@@ -1807,6 +1807,14 @@ html[data-ui-style="glassmorphism-lite"].light [role="dialog"] .ui-card {
 	cursor: not-allowed;
 }
 
+/* Controls inside a disabled fieldset (a fleet-managed settings card) are
+   inert without their own disabled prop; show it. */
+[data-ui-style] .ui-toggle:disabled,
+[data-ui-style] .gen-slider:disabled {
+	opacity: 0.5;
+	cursor: not-allowed;
+}
+
 [data-ui-style] .ui-btn-primary {
 	background-color: var(--accent-light);
 	color: var(--accent);
