@@ -4,7 +4,7 @@ import { ResponseCard } from "./ResponseCard";
 import { SwapPicker } from "./SwapPicker";
 import type { ArenaRefs, ArenaView } from "./useArena";
 
-/** The per-round response cards: matchups in competition mode, one card per model in compare mode. */
+/** The per-round response cards (matchups in competition mode, one card per model in compare mode) and the full-reset confirm dialog. */
 export function ArenaResponseGrid({
 	arena,
 	abortMapRef,

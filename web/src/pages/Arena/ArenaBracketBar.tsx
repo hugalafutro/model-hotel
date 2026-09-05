@@ -5,7 +5,7 @@ import { MatchupCard } from "./MatchupCard";
 import { BracketPreviewPill } from "./shared";
 import type { ArenaView } from "./useArena";
 
-/** The bracket preview and the run, stop, reset and history actions. */
+/** The bracket preview and the run/stop button. */
 export function ArenaBracketBar({
 	arena,
 	displayNameMap,

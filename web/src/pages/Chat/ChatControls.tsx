@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import {
 	CircleStop,
 	Eraser,
-	Image as MessageSquare,
+	MessageSquare,
 	RotateCcw,
 	Users,
 } from "@/lib/icons";
@@ -12,10 +12,9 @@ import { ModelPicker } from "../../components/ModelPicker";
 import { PersonaPicker } from "../../components/PersonaPicker";
 import { SubModeToggle } from "../../components/SubModeToggle";
 import { CHAT_PERSONAS } from "../../data/presets";
-
 import type { ChatRefs, ChatView } from "./useChat";
 
-/** The controls card: sub-mode, model and persona pickers, and the conversation setup. */
+/** The controls card: sub-mode, model and persona pickers, the conversation setup, and the clear and reset actions. */
 export function ChatControls({
 	chat,
 	lastPromptRef,

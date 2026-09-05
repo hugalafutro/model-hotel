@@ -6,7 +6,6 @@ import { PageHeader } from "../components/PageHeader";
 import { ChatControls } from "./Chat/ChatControls";
 import { ChatInputArea } from "./Chat/ChatInputArea";
 import { ChatMessageList } from "./Chat/ChatMessageList";
-
 import { useChat } from "./Chat/useChat";
 
 export function Chat() {

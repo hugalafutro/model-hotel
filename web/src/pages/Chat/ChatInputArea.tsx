@@ -14,10 +14,9 @@ import {
 import { ActionIconButton } from "../../components/ActionIconButton";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { formatTokens } from "../../utils/format";
-
 import type { ChatRefs, ChatView } from "./useChat";
 
-/** The chat-mode input bar and the conversation-mode stats panel below the messages. */
+/** The chat-mode input bar, the conversation-mode stats panel below the messages, and the full-reset confirm dialog. */
 export function ChatInputArea({
 	chat,
 	lastPromptRef,

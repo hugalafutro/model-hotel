@@ -9,7 +9,7 @@ import { SubModeToggle } from "../../components/SubModeToggle";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../../data/presets";
 import type { ArenaRefs, ArenaView } from "./useArena";
 
-/** The controls card: sub-mode, prompt, persona and model selection. */
+/** The controls card: sub-mode, prompt, persona and model selection, plus the history, clear and reset actions. */
 export function ArenaControls({
 	arena,
 	abortMapRef,
