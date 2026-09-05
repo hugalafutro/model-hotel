@@ -296,7 +296,7 @@ func TestBodyReadDeadlineBoundsAnUnreadBody(t *testing.T) {
 // context stayed alive, then answers 200 with "alive" or "cancelled".
 func outliveBudget(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
-	http.NewResponseController(w).Flush()
+	http.NewResponseController(w).Flush() // a recorder cannot flush; irrelevant here
 	deadline := time.Now().Add(3 * slowBudget)
 	for time.Now().Before(deadline) {
 		if r.Context().Err() != nil {

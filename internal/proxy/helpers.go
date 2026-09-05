@@ -24,6 +24,7 @@ func extractStreamingUsage(data string) *Usage {
 	for scanner.Scan() {
 		line := scanner.Text()
 		var payload string
+		// if-else chain reads clearer than a switch for SSE prefix matching
 		if after, ok := strings.CutPrefix(line, "data: "); ok {
 			payload = after
 		} else if strings.HasPrefix(line, "data:") && len(line) > 5 {

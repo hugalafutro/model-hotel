@@ -249,6 +249,7 @@ func (h *Handler) issueParamRetry(
 		retryCheckRedirect = h.safeDialer.CheckRedirect
 	}
 	retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
+	// retryResp.Body is returned to the caller, which consumes and closes it
 	retryResp, retryErr := retryClient.Do(retryReq)
 	*dialMs += retryDial.take()
 	if retryErr == nil && st.responsesAttempt {
