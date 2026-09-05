@@ -24,86 +24,83 @@ export function BackupEnableConfirm({
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 	return (
-		<>
-			{/* Double-confirm modal for enabling periodic backup */}
-			{showEnableConfirm && (
-				<Modal
-					onClose={() => {
-						setShowEnableConfirm(false);
-						setPrunePreview(null);
-					}}
-					title={t("settings.backup.rotation.confirmEnableTitle")}
-					maxWidth="max-w-lg"
-				>
-					<div className="space-y-3">
-						<div className="flex items-start gap-2 text-amber-400">
-							<AlertTriangle size={18} className="shrink-0 mt-0.5" />
-							<p className="text-sm text-(--text-secondary)">
-								{t("settings.backup.rotation.confirmEnableDescription")}
-							</p>
-						</div>
-						<div className="space-y-2">
-							<p className="text-sm text-(--text-primary)">
-								{t("settings.backup.rotation.confirmEnableWouldRemove", {
-									count: prunePreview?.prune?.length ?? 0,
-								})}
-							</p>
-							<div className="max-h-40 overflow-y-auto rounded bg-(--surface-elevated) border border-(--border-default) p-2">
-								{(prunePreview?.prune ?? []).map((b) => (
-									<div
-										key={b.filename}
-										className="text-xs font-mono text-(--text-secondary) py-0.5"
-									>
-										{b.filename}
-									</div>
-								))}
-							</div>
-						</div>
-						<div className="flex justify-end gap-2 pt-2">
-							<button
-								type="button"
-								onClick={() => {
-									setShowEnableConfirm(false);
-									setPrunePreview(null);
-								}}
-								className="ui-btn ui-btn-secondary"
-							>
-								{t("common.cancel")}
-							</button>
-							<button
-								type="button"
-								onClick={async () => {
-									try {
-										if ((prunePreview?.prune?.length ?? 0) > 0) {
-											await api.backups.prune();
-										}
-										await settingsUpdateMutation.mutateAsync({
-											backup_enabled: "true",
-										});
-										toast(
-											t("settings.backup.rotation.pruneSuccess", {
-												count: prunePreview?.prune?.length ?? 0,
-											}),
-											"success",
-										);
-									} catch {
-										toast(t("settings.backup.rotation.pruneFailed"), "error");
-									} finally {
-										setShowEnableConfirm(false);
-										setPrunePreview(null);
-										queryClient.invalidateQueries({
-											queryKey: ["backups"],
-										});
-									}
-								}}
-								className="ui-btn ui-btn-primary"
-							>
-								{t("settings.backup.confirm")}
-							</button>
+		showEnableConfirm && (
+			<Modal
+				onClose={() => {
+					setShowEnableConfirm(false);
+					setPrunePreview(null);
+				}}
+				title={t("settings.backup.rotation.confirmEnableTitle")}
+				maxWidth="max-w-lg"
+			>
+				<div className="space-y-3">
+					<div className="flex items-start gap-2 text-amber-400">
+						<AlertTriangle size={18} className="shrink-0 mt-0.5" />
+						<p className="text-sm text-(--text-secondary)">
+							{t("settings.backup.rotation.confirmEnableDescription")}
+						</p>
+					</div>
+					<div className="space-y-2">
+						<p className="text-sm text-(--text-primary)">
+							{t("settings.backup.rotation.confirmEnableWouldRemove", {
+								count: prunePreview?.prune?.length ?? 0,
+							})}
+						</p>
+						<div className="max-h-40 overflow-y-auto rounded bg-(--surface-elevated) border border-(--border-default) p-2">
+							{(prunePreview?.prune ?? []).map((b) => (
+								<div
+									key={b.filename}
+									className="text-xs font-mono text-(--text-secondary) py-0.5"
+								>
+									{b.filename}
+								</div>
+							))}
 						</div>
 					</div>
-				</Modal>
-			)}
-		</>
+					<div className="flex justify-end gap-2 pt-2">
+						<button
+							type="button"
+							onClick={() => {
+								setShowEnableConfirm(false);
+								setPrunePreview(null);
+							}}
+							className="ui-btn ui-btn-secondary"
+						>
+							{t("common.cancel")}
+						</button>
+						<button
+							type="button"
+							onClick={async () => {
+								try {
+									if ((prunePreview?.prune?.length ?? 0) > 0) {
+										await api.backups.prune();
+									}
+									await settingsUpdateMutation.mutateAsync({
+										backup_enabled: "true",
+									});
+									toast(
+										t("settings.backup.rotation.pruneSuccess", {
+											count: prunePreview?.prune?.length ?? 0,
+										}),
+										"success",
+									);
+								} catch {
+									toast(t("settings.backup.rotation.pruneFailed"), "error");
+								} finally {
+									setShowEnableConfirm(false);
+									setPrunePreview(null);
+									queryClient.invalidateQueries({
+										queryKey: ["backups"],
+									});
+								}
+							}}
+							className="ui-btn ui-btn-primary"
+						>
+							{t("settings.backup.confirm")}
+						</button>
+					</div>
+				</div>
+			</Modal>
+		)
 	);
 }
