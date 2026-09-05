@@ -755,10 +755,7 @@ describe("ModelDetailModal", () => {
 	// handleTest exception catch - non-Error rejection
 	it("shows Unknown error when onTest rejects with non-Error", async () => {
 		const user = userEvent.setup();
-		/* eslint-disable @typescript-eslint/no-explicit-any */
-		// biome-ignore lint/suspicious/noExplicitAny: testing non-Error rejection path
-		onTest.mockRejectedValue("string error" as any);
-		/* eslint-enable @typescript-eslint/no-explicit-any */
+		onTest.mockRejectedValue("string error");
 
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 

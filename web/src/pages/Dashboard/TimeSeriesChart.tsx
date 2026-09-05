@@ -1,5 +1,5 @@
 import type React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	Area,
@@ -71,13 +71,10 @@ export function TimeSeriesChart({
 	// Drag-to-pan state: enabled when data exceeds viewport
 	const pannable = data.length > viewportSize;
 	const maxStart = Math.max(0, lastRealIndex - viewportSize + 1);
-	// userStart is null until the user explicitly pans; null = snap to latest
-	const [userStart, setUserStart] = useState<number | null>(null);
-	// biome-ignore lint/correctness/useExhaustiveDependencies: range is a deliberate trigger — switching time ranges resets panning position
-	useEffect(() => {
-		// eslint-disable-next-line react-hooks/set-state-in-effect
-		setUserStart(null);
-	}, [range]);
+	// The pan position is keyed by the range it was made in, so switching
+	// ranges snaps back to latest without an effect: a stale key reads as null.
+	const [pan, setPan] = useState<{ range: Range; start: number } | null>(null);
+	const userStart = pan?.range === range ? pan.start : null;
 	const [isDragging, setIsDragging] = useState(false);
 	const dragRef = useRef<{
 		startX: number;
@@ -148,9 +145,9 @@ export function TimeSeriesChart({
 				0,
 				Math.min(maxStart, startOffset + bucketShift),
 			);
-			setUserStart(newStart);
+			setPan({ range, start: newStart });
 		},
-		[maxStart, viewportSize],
+		[maxStart, viewportSize, range],
 	);
 
 	const onPointerUp = useCallback(() => {
@@ -175,9 +172,9 @@ export function TimeSeriesChart({
 			// Scroll right (positive delta) = see older data (decrease start)
 			const shift = rawDelta > 0 ? -1 : 1;
 			const newStart = Math.max(0, Math.min(maxStart, effectiveStart + shift));
-			setUserStart(newStart);
+			setPan({ range, start: newStart });
 		},
-		[pannable, maxStart, effectiveStart],
+		[pannable, maxStart, effectiveStart, range],
 	);
 
 	if (data.length === 0) {

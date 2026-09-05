@@ -476,6 +476,37 @@ describe("Drag-to-pan and wheel scroll", () => {
 		expect(screen.getByText("←")).toBeInTheDocument();
 	});
 
+	it("snaps back to latest when the range changes after panning", () => {
+		// 40 points: 1h viewport is 12 (maxStart 28), 1w viewport is 7 (maxStart 33).
+		const data = generateData(40);
+		const { rerender } = renderWithProviders(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1h"
+				metric="Requests"
+			/>,
+		);
+
+		const chartContainer = screen.getByTestId("area-chart")
+			.parentElement as HTMLElement;
+		fireEvent.wheel(chartContainer, { deltaY: 50 });
+		expect(screen.getByText("←")).toBeInTheDocument();
+
+		// A stale pan (start 27) would still sit left of 1w's maxStart and keep
+		// the newer-data arrow; a reset snaps to latest and drops it.
+		rerender(
+			<TimeSeriesChart
+				{...defaultProps}
+				data={data}
+				range="1w"
+				metric="Requests"
+			/>,
+		);
+		expect(screen.queryByText("←")).not.toBeInTheDocument();
+		expect(screen.getByText("→")).toBeInTheDocument();
+	});
+
 	it("sets isDragging on pointer down", async () => {
 		const data = generateData(15);
 		renderWithProviders(

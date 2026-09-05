@@ -62,10 +62,9 @@ function ModelClassRows({
 	const rightText = (used: number) => quotaRightText(used, barMode, t);
 
 	// remains_time/weekly_remains_time are durations, not instants: convert to an
-	// absolute reset time relative to now. Date.now() is impure, but a "resets in
-	// N hours" label is inherently a snapshot of render time, same tradeoff as
-	// SortableEntry's cooldown fuse (web/src/pages/FailoverGroups/SortableEntry.tsx).
-	/* eslint-disable react-hooks/purity */
+	// absolute reset time relative to now. A useState(() => Date.now()) snapshot
+	// would go stale once the entry refetches with a new duration.
+	/* eslint-disable react-hooks/purity -- duration to instant at render time; a "resets in N hours" label is a render snapshot by design */
 	const fiveHourResetAt =
 		entry.remains_time > 0 ? Date.now() + entry.remains_time : null;
 	const weeklyResetAt =

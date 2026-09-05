@@ -358,10 +358,7 @@ export function useArenaState(): ArenaStateAndActions {
 		const valid = new Set(
 			enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
 		);
-		// Reconciling persisted state against freshly-loaded data; the functional
-		// updates return the same reference when nothing changes, so this settles
-		// in one pass without an update loop.
-		// eslint-disable-next-line react-hooks/set-state-in-effect
+		// eslint-disable-next-line react-hooks/set-state-in-effect -- reconciles persisted ids against freshly loaded models; the functional updates return the same reference when nothing changed, so it settles in one pass
 		setBracketModels((prev) => {
 			const next = prev.filter((id) => valid.has(id));
 			return next.length === prev.length ? prev : next;
