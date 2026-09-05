@@ -187,7 +187,7 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			// reverse proxy this is the operator's real IP, not the proxy's.
 			RemoteAddr: clientip.From(r),
 		}
-		//nolint:gosec // G118: record deliberately uses a background context so a
+		// #nosec G118 -- record deliberately uses a background context so a
 		// client disconnect can never drop the audit row; the request context is
 		// the wrong scope here.
 		rec.wg.Go(func() {

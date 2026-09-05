@@ -145,20 +145,6 @@ linters:
           - revive
         text: "unused-parameter|package-comments"
 
-      # gosec's taint rules (G704 SSRF, G705 XSS, G118 context lifetime) are
-      # not deterministic: the same tree reports a finding, nothing, or an
-      # unused directive depending on analysis order between runs. A gosec
-      # //nolint that is unused on one run still suppresses a real report on
-      # the next, so nolintlint's unused check is waived for gosec. The
-      # message carries no rule id, so the waiver covers every gosec rule:
-      # a dead gosec directive for a deterministic rule goes unreported, the
-      # price of a lint that never flaps. The explanation and specific-linter
-      # requirements still apply. The text is a substring of nolintlint's
-      # own wording (golangci-lint 2.13); re-check it after an upgrade.
-      - linters:
-          - nolintlint
-        text: 'is unused for linter "gosec"'
-
 formatters:
   enable:
     - gci

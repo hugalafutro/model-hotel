@@ -126,7 +126,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(resp.StatusCode)
-	//nolint:gosec // G705 false positive: Anthropic JSON response body, not HTML; Content-Type is application/json
+	// #nosec G705 -- Anthropic JSON response body, not HTML; Content-Type is application/json
 	_, _ = w.Write(body)
 	return outcomeServed
 }

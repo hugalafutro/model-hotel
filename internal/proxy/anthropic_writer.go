@@ -89,7 +89,7 @@ func (a *anthropicResponseWriter) Write(p []byte) (int, error) {
 		// text/event-stream (never text/html), and the consumer is an API client,
 		// not a browser. CodeQL go/reflected-xss cannot trace the middleware header
 		// through this wrapper, so the alert is dismissed as a false positive.
-		//nolint:gosec // G705: see above — JSON/SSE API body, nosniff set globally, not HTML
+		// #nosec G705 -- see above — JSON/SSE API body, nosniff set globally, not HTML
 		return a.w.Write(p)
 	}
 	if a.streaming {
@@ -192,7 +192,7 @@ func (a *anthropicResponseWriter) handleStreamLine(line []byte) {
 		return
 	}
 	if len(out) > 0 {
-		//nolint:gosec // G705 false positive: Anthropic SSE event body, not HTML; Content-Type is text/event-stream
+		// #nosec G705 -- Anthropic SSE event body, not HTML; Content-Type is text/event-stream
 		_, _ = a.w.Write(out)
 		a.Flush()
 	}
@@ -213,7 +213,7 @@ func (a *anthropicResponseWriter) finishStream() {
 		debuglog.Warn("anthropic: thought signatures arrived after their tool_use block opened and could not be carried; the next turn will be refused", "count", n, "model", a.model)
 	}
 	if len(out) > 0 {
-		//nolint:gosec // G705 false positive: Anthropic SSE event body, not HTML; Content-Type is text/event-stream
+		// #nosec G705 -- Anthropic SSE event body, not HTML; Content-Type is text/event-stream
 		_, _ = a.w.Write(out)
 		a.Flush()
 	}
@@ -264,6 +264,6 @@ func (a *anthropicResponseWriter) Finalize() {
 
 	a.w.Header().Set("Content-Type", "application/json")
 	a.w.WriteHeader(a.status)
-	//nolint:gosec // G705 false positive: Anthropic JSON response body, not HTML; Content-Type is application/json
+	// #nosec G705 -- Anthropic JSON response body, not HTML; Content-Type is application/json
 	_, _ = a.w.Write(out)
 }

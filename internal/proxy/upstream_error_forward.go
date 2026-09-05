@@ -132,7 +132,7 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 		// provider-authored free text.
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(resp.StatusCode)
-		//nolint:gosec // G705 false positive: provider JSON error body, not HTML; Content-Type is application/json
+		// #nosec G705 -- provider JSON error body, not HTML; Content-Type is application/json
 		_, _ = w.Write(masker.mask(body))
 	case json.Valid(body):
 		// A non-2xx whose JSON body carries no error object. OpenCode Zen and

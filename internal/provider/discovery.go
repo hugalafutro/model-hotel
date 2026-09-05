@@ -658,7 +658,7 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 			case <-time.After(backoff):
 			}
 		}
-		//nolint:gosec // provider URL is admin-configured, not arbitrary user input
+		// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 		resp, err := d.httpClient.Do(req)
 		if err != nil {
 			// Same scrub as doDiscoveryRequest, for the same reason, and with a
