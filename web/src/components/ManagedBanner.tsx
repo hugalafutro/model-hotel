@@ -43,7 +43,7 @@ export function ManagedBanner({ fleetBoundary }: ManagedBannerProps) {
 		<div
 			role="status"
 			data-testid={primary ? "primary-banner" : "managed-banner"}
-			className="ui-fleet-banner mb-2 flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs"
+			className="ui-fleet-banner flex items-center gap-2 rounded-md border px-3 py-1.5 text-xs"
 		>
 			<Server size={14} className="shrink-0" aria-hidden="true" />
 			<span>
