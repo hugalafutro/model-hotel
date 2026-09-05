@@ -236,15 +236,10 @@ func (r *Repository) unsubscribe(id uint64) {
 	for i, sub := range r.subscriptions {
 		if sub.id == id {
 			r.subscriptions = append(r.subscriptions[:i], r.subscriptions[i+1:]...)
-			// Drain and close in a goroutine in case a publisher is
-			// currently blocked on this channel.
-			go func(c chan ChangeEvent) {
-				// Drain any remaining events from the channel before closing.
-				//nolint:revive,gosec // intentional: empty block for channel drain
-				for range c {
-				}
-				close(c)
-			}(sub.ch)
+			// Closing under the write lock is safe: notifyChange sends while
+			// holding the read lock, so no publisher can be mid-send here, and
+			// a buffered event stays readable by the subscriber after close.
+			close(sub.ch)
 			return
 		}
 	}
@@ -263,28 +258,22 @@ func (r *Repository) RegisterOnChange(fn func(key, value string)) {
 // It is non-blocking: subscriber channels that are full are skipped, and
 // callbacks are invoked in goroutines.
 func (r *Repository) notifyChange(key, value string) {
+	change := ChangeEvent{Key: key, Value: value}
+	// Sends are non-blocking, so holding the read lock across them costs
+	// nothing and guarantees unsubscribe (which closes under the write lock)
+	// never races a send on a closed channel.
 	r.changeMu.RLock()
-	subs := make([]subscription, len(r.subscriptions))
-	copy(subs, r.subscriptions)
+	for _, sub := range r.subscriptions {
+		select {
+		case sub.ch <- change:
+		default:
+			// Subscriber is too slow; skip to avoid blocking the writer.
+		}
+	}
 	callbacks := make([]func(key, value string), len(r.onChangeCallbacks))
 	copy(callbacks, r.onChangeCallbacks)
 	r.changeMu.RUnlock()
 
-	change := ChangeEvent{Key: key, Value: value}
-	for _, sub := range subs {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					debuglog.Warn("settings: failed to send change event, channel closed", "recover", r)
-				}
-			}()
-			select {
-			case sub.ch <- change:
-			default:
-				// Subscriber is too slow; skip to avoid blocking the writer.
-			}
-		}()
-	}
 	for _, fn := range callbacks {
 		go fn(key, value)
 	}
@@ -629,7 +618,7 @@ func (r *Repository) GetAll(ctx context.Context) (map[string]string, error) {
 		}
 		result[key] = value
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 // GetBool retrieves a setting and parses it as a boolean.

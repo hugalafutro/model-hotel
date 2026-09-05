@@ -1759,3 +1759,40 @@ func TestFailedWriteStillEvictsOnBothSides(t *testing.T) {
 		}
 	})
 }
+
+// TestUnsubscribeClosesEvents pins the teardown contract: after Unsubscribe the
+// Events channel is closed, so a `for range sub.Events()` consumer terminates.
+// A buffered event delivered before the unsubscribe is still readable first.
+func TestUnsubscribeClosesEvents(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	sub := r.Subscribe()
+	if err := r.Set(ctx, "close_key", "v"); err != nil {
+		t.Fatalf("Set failed: %v", err)
+	}
+	sub.Unsubscribe()
+
+	select {
+	case ev, ok := <-sub.Events():
+		if !ok || ev.Key != "close_key" {
+			t.Fatalf("first receive = (%v, %v), want the buffered event", ev, ok)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("buffered event was lost on unsubscribe")
+	}
+	select {
+	case _, ok := <-sub.Events():
+		if ok {
+			t.Fatal("received a second event, want closed channel")
+		}
+	case <-time.After(time.Second):
+		t.Fatal("Events() never closed after Unsubscribe")
+	}
+
+	// A write after unsubscribe must not panic on the closed channel.
+	if err := r.Set(ctx, "close_key", "again"); err != nil {
+		t.Fatalf("Set after unsubscribe failed: %v", err)
+	}
+}

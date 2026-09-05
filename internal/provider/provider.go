@@ -211,6 +211,10 @@ func (r *Repository) List(ctx context.Context) ([]*Provider, error) {
 		}
 		providers = append(providers, p)
 	}
+	if err := rows.Err(); err != nil {
+		debuglog.Error("provider: list iteration failed", "error", err)
+		return nil, err
+	}
 
 	return providers, nil
 }

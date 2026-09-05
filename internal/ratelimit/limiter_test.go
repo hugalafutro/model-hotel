@@ -1451,3 +1451,66 @@ func TestGetLimiter_FleetDivisorDividesPerKeyOverride(t *testing.T) {
 		t.Errorf("per-key override not divided: rps=%v burst=%d, want 10/10", e.rps, e.burst)
 	}
 }
+
+// TestWaitOrCancel pins the backpressure wait primitive: it returns true once
+// the delay elapses and false as soon as the context ends, without waiting
+// out the delay.
+func TestWaitOrCancel(t *testing.T) {
+	if !waitOrCancel(context.Background(), time.Millisecond) {
+		t.Error("elapsed delay: want true")
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	if waitOrCancel(ctx, time.Hour) {
+		t.Error("cancelled context: want false")
+	}
+	if time.Since(start) > time.Second {
+		t.Error("cancelled context: returned only after the delay")
+	}
+}
+
+// TestMiddleware_BackpressureCancelledRequestReturnsBudget covers a client that
+// disconnects while queued in the backpressure window: the handler never runs
+// and the reserved token goes back, so the next caller is served immediately
+// instead of inheriting the dead request's wait.
+func TestMiddleware_BackpressureCancelledRequestReturnsBudget(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "1") // one token per second: the wait is long enough to cancel into
+	repo.set(settingsKeyBurst, "1")
+	repo.set(settingsKeyMaxWaitMs, "5000")
+
+	served := 0
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served++
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, requestWithKey("key-cancel"))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req := requestWithKey("key-cancel").WithContext(context.WithValue(ctx, ctxkeys.VirtualKeyHashKey, "key-cancel"))
+	start := time.Now()
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if served != 1 {
+		t.Fatalf("cancelled request reached the handler (served=%d)", served)
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("cancelled request waited out the delay instead of returning")
+	}
+
+	// The cancelled request's token is back: this one waits ~1s at most, well
+	// inside max_wait, and is served rather than queued behind two reservations.
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, requestWithKey("key-cancel"))
+	if rr.Code != http.StatusOK || served != 2 {
+		t.Fatalf("request after cancel: code=%d served=%d, want 200 and 2", rr.Code, served)
+	}
+}

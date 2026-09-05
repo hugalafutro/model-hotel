@@ -405,7 +405,11 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 		respondError(w, "failed to save uploaded file", err, http.StatusInternalServerError)
 		return uploadedDump{}, false
 	}
-	tmpFile.Close() //nolint:errcheck,gosec // cleanup: file fully written, closing for pg_restore
+	if err := tmpFile.Close(); err != nil {
+		_ = os.Remove(tmpPath) // error path: a delayed write failure means the dump is incomplete
+		respondError(w, "failed to save uploaded file", err, http.StatusInternalServerError)
+		return uploadedDump{}, false
+	}
 
 	name := ""
 	if header != nil {
@@ -536,6 +540,7 @@ func (h *BackupHandler) runPgRestore(w http.ResponseWriter, pgRestorePath, tmpPa
 	restoreCmd := exec.CommandContext(restoreCtx, pgRestorePath,
 		"--clean",
 		"--if-exists",
+		"--single-transaction",
 		"--no-password",
 		"-d", restoreConnURL,
 		tmpPath,

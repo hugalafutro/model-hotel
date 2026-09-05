@@ -218,7 +218,7 @@ func scanModels(rows pgx.Rows) ([]*Model, error) {
 		}
 		models = append(models, &m)
 	}
-	return models, nil
+	return models, rows.Err()
 }
 
 // List returns all models, optionally filtered by provider ID.

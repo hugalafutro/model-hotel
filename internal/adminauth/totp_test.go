@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 	otptotp "github.com/pquerna/otp/totp"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
@@ -1132,5 +1133,32 @@ func TestTotpLogin_BadJSONBody(t *testing.T) {
 	doEnrollVerify(t, th) // login requires TOTP enabled
 	if w := doTotpPost(th, "/totp/login", "", "{not json"); w.Code != http.StatusBadRequest {
 		t.Errorf("login bad body: expected 400, got %d", w.Code)
+	}
+}
+
+// TestTotpLogin_StorageErrorIs500 covers a TOTP store failure during login: it
+// answers 500 rather than 401, and does not charge the per-IP login throttle,
+// because no code was actually checked. The store is a repository over a
+// closed pool, which fails every read.
+func TestTotpLogin_StorageErrorIs500(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	doEnrollVerify(t, th)
+
+	deadPool, err := pgxpool.New(context.Background(), apiTestDBURL)
+	if err != nil {
+		t.Fatalf("pgxpool.New: %v", err)
+	}
+	deadPool.Close()
+	th.totpRepo = totpsvc.NewRepository(deadPool, testMasterKey)
+
+	body := []byte(`{"token":"admin-token","code":"123456"}`)
+	for range 10 {
+		req := httptest.NewRequest(http.MethodPost, "/totp/login", bytes.NewReader(body))
+		req.Header.Set("Content-Type", "application/json")
+		w := httptest.NewRecorder()
+		serveTotpRouter(th).ServeHTTP(w, req)
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("expected 500 for storage failure, got %d: %s (a 429 here means the throttle was charged)", w.Code, w.Body.String())
+		}
 	}
 }

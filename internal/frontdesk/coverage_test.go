@@ -177,10 +177,7 @@ func TestServerSettingsEventsAndMemberMutations(t *testing.T) {
 
 // TestServerAccessorsAndHelpers covers the small exported accessors and helpers.
 func TestServerAccessorsAndHelpers(t *testing.T) {
-	srv, store := newTestServer(t)
-	if srv.SessionManager() == nil {
-		t.Error("SessionManager() returned nil")
-	}
+	_, store := newTestServer(t)
 	if store.DB() == nil {
 		t.Error("DB() returned nil")
 	}

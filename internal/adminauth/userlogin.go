@@ -217,16 +217,21 @@ func (h *UserLoginHandler) checkSecondFactor(w http.ResponseWriter, r *http.Requ
 		writeJSONStatus(w, http.StatusUnauthorized, map[string]bool{"totp_required": true})
 		return false
 	}
-	if ok, verr := repo.Verify(r.Context(), code); verr == nil && ok {
+	ok, err := repo.Verify(r.Context(), code)
+	if err == nil && ok {
 		return true
-	} else if verr != nil {
-		debuglog.Error("userlogin: totp verify failed", "error", verr)
 	}
-	if ok, cerr := repo.ConsumeRecoveryCode(r.Context(), code); cerr == nil && ok {
-		debuglog.Info("userlogin: recovery code used", "username", u.Username)
-		return true
-	} else if cerr != nil {
-		debuglog.Error("userlogin: recovery code check failed", "error", cerr)
+	if err == nil {
+		ok, err = repo.ConsumeRecoveryCode(r.Context(), code)
+		if err == nil && ok {
+			debuglog.Info("userlogin: recovery code used", "username", u.Username)
+			return true
+		}
+	}
+	if err != nil {
+		// A storage failure is not a wrong code: no throttle charge, no 401.
+		respondError(w, "login failed", err, http.StatusInternalServerError)
+		return false
 	}
 	h.throttle.RecordFailure(throttleKey)
 	h.userThrottle.RecordFailure(userKey)

@@ -982,3 +982,45 @@ func TestIPLimiter_ClientIP(t *testing.T) {
 		t.Errorf("ClientIP = %q, want 203.0.113.7", got)
 	}
 }
+
+// TestIPLimiter_BackpressureCancelledRequestReturnsBudget mirrors the key
+// limiter test for the IP stage: a client gone during the wait is not served
+// and gives its token back.
+func TestIPLimiter_BackpressureCancelledRequestReturnsBudget(t *testing.T) {
+	lim := NewIPLimiter(1, 1, nil, ipSettingsWithBackpressure(5000))
+	defer lim.Stop()
+
+	served := 0
+	handler := lim.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served++
+		w.WriteHeader(http.StatusOK)
+	}))
+	newReq := func(ctx context.Context) *http.Request {
+		req := httptest.NewRequestWithContext(ctx, "POST", "/api/totp/login", http.NoBody)
+		req.RemoteAddr = "1.2.3.4:1234"
+		return req
+	}
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, newReq(context.Background()))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: got %d, want 200", rr.Code)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	start := time.Now()
+	handler.ServeHTTP(httptest.NewRecorder(), newReq(ctx))
+	if served != 1 {
+		t.Fatalf("cancelled request reached the handler (served=%d)", served)
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("cancelled request waited out the delay instead of returning")
+	}
+
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, newReq(context.Background()))
+	if rr.Code != http.StatusOK || served != 2 {
+		t.Fatalf("request after cancel: code=%d served=%d, want 200 and 2", rr.Code, served)
+	}
+}

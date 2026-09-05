@@ -270,15 +270,31 @@ func (h *Handler) getAppLogCounts(ctx context.Context) (map[string]int, map[stri
 		for rows.Next() {
 			var kind, key string
 			var cnt int
-			if rows.Scan(&kind, &key, &cnt) == nil {
-				if kind == "level" {
-					levelCounts[key] = cnt
-				} else {
-					sourceCounts[key] = cnt
-				}
+			if err = rows.Scan(&kind, &key, &cnt); err != nil {
+				break
+			}
+			if kind == "level" {
+				levelCounts[key] = cnt
+			} else {
+				sourceCounts[key] = cnt
 			}
 		}
 		rows.Close()
+		if err == nil {
+			err = rows.Err()
+		}
+	}
+	if err != nil {
+		// Keep whatever the cache already holds rather than publishing zeros
+		// from a failed query; the next request past the TTL retries.
+		debuglog.Error("applogs: count query failed", "error", err)
+		appLogCountCache.RLock()
+		lc, sc := appLogCountCache.levelCounts, appLogCountCache.sourceCounts
+		appLogCountCache.RUnlock()
+		if lc != nil {
+			return lc, sc
+		}
+		return levelCounts, sourceCounts
 	}
 
 	appLogCountCache.Lock()
@@ -558,14 +574,14 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 
 	total, err := h.appLogTotal(ctx, q, levelCounts)
 	if err != nil {
-		writeJSON(w, map[string]string{"error": "failed to count logs"})
+		respondError(w, "failed to count logs", err, http.StatusInternalServerError)
 		return
 	}
 
 	query, args := buildAppLogHistoryQuery(p, q)
 	rows, err := h.dbPool.Pool().Query(ctx, query, args...)
 	if err != nil {
-		writeJSON(w, map[string]string{"error": "failed to query logs"})
+		respondError(w, "failed to query logs", err, http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
@@ -576,10 +592,15 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 		var e AppLogEntry
 		var ts time.Time
 		if err := rows.Scan(&ts, &e.Level, &e.Source, &e.Message, &e.Escaped, &e.AttrsAt); err != nil {
-			continue
+			respondError(w, "failed to scan app log row", err, http.StatusInternalServerError)
+			return
 		}
 		e.Timestamp = ts.UTC().Format(time.RFC3339Nano)
 		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		respondError(w, "failed to read app logs", err, http.StatusInternalServerError)
+		return
 	}
 
 	writeJSON(w, appLogsHistoryResponse{
@@ -658,9 +679,14 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		e, err := scanAppLogRow(rows)
 		if err != nil {
-			continue
+			respondError(w, "failed to scan app log row", err, http.StatusInternalServerError)
+			return
 		}
 		entries = append(entries, e)
+	}
+	if err := rows.Err(); err != nil {
+		respondError(w, "failed to read app logs", err, http.StatusInternalServerError)
+		return
 	}
 
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")

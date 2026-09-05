@@ -123,18 +123,12 @@ func TestGetAppLogsHistory_CancelledContext(t *testing.T) {
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
 
-	// The handler returns an error message in the body (status 200)
-	// Note: handler doesn't set 500 status, just returns error JSON
-	if rec.Code != http.StatusOK {
-		t.Errorf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	// A query that cannot run is a 500, not a success with an error body.
+	if rec.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d: %s", http.StatusInternalServerError, rec.Code, rec.Body.String())
 	}
-	// Verify error response is returned
-	var resp map[string]string
-	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
-	}
-	if resp["error"] == "" {
-		t.Error("expected error message in response")
+	if !strings.Contains(rec.Body.String(), "failed to query logs") {
+		t.Errorf("body = %q, want the query-failure error", rec.Body.String())
 	}
 }
 
@@ -864,13 +858,12 @@ func TestGetAppLogsHistory_QueryFailsWithCancelledContext(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.getAppLogsHistory(w, req)
 
-	// Should return an error JSON response (countAppLogs fails with closed pool)
-	var resp map[string]string
-	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
-		t.Fatalf("failed to decode response: %v", err)
+	// The closed pool fails the history query: a 500, not an error body under 200.
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("expected status %d, got %d: %s", http.StatusInternalServerError, w.Code, w.Body.String())
 	}
-	if _, hasError := resp["error"]; !hasError {
-		t.Error("expected error response for closed pool in getAppLogsHistory")
+	if !strings.Contains(w.Body.String(), "failed to query logs") {
+		t.Errorf("body = %q, want the query-failure error", w.Body.String())
 	}
 }
 

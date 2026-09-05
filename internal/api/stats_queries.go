@@ -22,8 +22,8 @@ const modelKeySQL = `
 			END`
 
 // statByModel fills stats.ByModel with the top-10 models by the requested
-// metric (Q2). A query failure is fatal (returned); a per-row scan error skips
-// the row, matching the original loop.
+// metric (Q2). Query, scan, and iteration failures are all returned: a partial
+// top-10 would rank the wrong models without any signal that rows were lost.
 func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, metric string, since time.Time) error {
 	query := `
 		SELECT
@@ -47,15 +47,15 @@ func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vk
 		var modelID string
 		var val int64
 		if err := rows.Scan(&modelID, &val); err != nil {
-			continue
+			return err
 		}
 		stats.ByModel[modelID] = val
 	}
-	return nil
+	return rows.Err()
 }
 
 // statByProvider fills stats.ByProvider with the top-10 providers by the
-// requested metric (Q3). Query failure fatal; per-row scan error skips the row.
+// requested metric (Q3). Query, scan, and iteration failures are all returned.
 func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, metric string, since time.Time) error {
 	query := `
 		SELECT p.name, ` + metricValueSelect(metric) + `
@@ -77,11 +77,11 @@ func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse,
 		var providerName string
 		var val int64
 		if err := rows.Scan(&providerName, &val); err != nil {
-			continue
+			return err
 		}
 		stats.ByProvider[providerName] = val
 	}
-	return nil
+	return rows.Err()
 }
 
 // statByVirtualKey fills stats.ByVirtualKey from live virtual keys (Q4), plus
@@ -111,9 +111,12 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 		var name string
 		var val int64
 		if err := rows.Scan(&name, &val); err != nil {
-			continue
+			return err
 		}
 		stats.ByVirtualKey[name] = val
+	}
+	if err := rows.Err(); err != nil {
+		return err
 	}
 
 	// Queries 4b/4c only make sense unscoped: deleted-key rows cannot be
@@ -333,9 +336,9 @@ func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJ
 }
 
 // statLatencyBreakdown fills ByProviderLatency with the top-N provider (Q13)
-// latency breakdown. Best-effort: a query failure logs and leaves the slice
-// empty; a per-row scan error skips the row. Only invoked when the caller
-// requested latency data.
+// latency breakdown. Best-effort: query, scan, and iteration failures are
+// logged and leave the slice as far as it got, never failing the whole stats
+// response. Only invoked when the caller requested latency data.
 func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, since time.Time) {
 	// Query 13: Per-provider latency breakdown (top 6 by avg total latency).
 	query := `
@@ -364,10 +367,14 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 		for rows.Next() {
 			var entry ProviderLatencyEntry
 			if err := rows.Scan(&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
-				continue
+				debuglog.Error("stats: scan failed", "query", "by_provider_latency", "error", err)
+				break
 			}
 			stats.ByProviderLatency = append(stats.ByProviderLatency, entry)
 		}
 		rows.Close()
+		if err := rows.Err(); err != nil {
+			debuglog.Error("stats: iteration failed", "query", "by_provider_latency", "error", err)
+		}
 	}
 }

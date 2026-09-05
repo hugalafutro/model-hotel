@@ -752,7 +752,7 @@ func TestLoadModelsDev_ContextCancelled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if err := LoadModelsDev(ctx); err == nil {
-		t.Error("expected error from LoadModelsDev with a cancelled context")
+	if err := LoadModelsDevWithClient(ctx, http.DefaultClient); err == nil {
+		t.Error("expected error from LoadModelsDevWithClient with a cancelled context")
 	}
 }

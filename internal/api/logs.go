@@ -256,10 +256,14 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	for rows.Next() {
 		entry, err := scanLogEntry(rows)
 		if err != nil {
-			debuglog.Error("logs-cursor: row scan failed", "error", err)
-			continue
+			respondError(w, "failed to scan log row", err, http.StatusInternalServerError)
+			return
 		}
 		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		respondError(w, "failed to read logs", err, http.StatusInternalServerError)
+		return
 	}
 
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
@@ -408,13 +412,18 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		// Windowed COUNT(*) OVER() comes first; the rest is the shared projection.
 		err := rows.Scan(append([]any{&totalCount}, logEntryScanDests(&entry)...)...)
 		if err != nil {
-			debuglog.Error("logs: row scan failed", "error", err)
-			continue
+			respondError(w, "failed to scan log row", err, http.StatusInternalServerError)
+			return
 		}
 		if total == 0 {
 			total = totalCount
 		}
 		entries = append(entries, entry)
+	}
+	if err := rows.Err(); err != nil {
+		// Never cache a page that lost rows to an interrupted query.
+		respondError(w, "failed to read logs", err, http.StatusInternalServerError)
+		return
 	}
 
 	response := LogsResponse{

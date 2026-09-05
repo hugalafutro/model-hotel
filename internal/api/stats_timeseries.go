@@ -90,7 +90,8 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		var latency, overheadMs, providerLatencyMs, avgTTFTMs float64
 		var cacheHit, cacheMiss int
 		if err := rows.Scan(&p.Bucket, &p.Count, &p.Tokens, &cacheHit, &cacheMiss, &p.Errors, &latency, &overheadMs, &providerLatencyMs, &p.RateLimitHits, &avgTTFTMs); err != nil {
-			continue
+			respondError(w, "failed to scan time series row", err, http.StatusInternalServerError)
+			return
 		}
 		p.Latency = latency
 		p.OverheadMs = overheadMs
@@ -99,6 +100,12 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		p.TokensCacheHit = cacheHit
 		p.TokensCacheMiss = cacheMiss
 		result.Points = append(result.Points, p)
+	}
+	if err := rows.Err(); err != nil {
+		// Missing buckets are synthesized as zeros below, so an interrupted
+		// query must fail here rather than render as a quiet period.
+		respondError(w, "failed to read time series", err, http.StatusInternalServerError)
+		return
 	}
 
 	if len(result.Points) > 0 && len(result.Points) < expectedBuckets {
@@ -202,10 +209,15 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 	for rows.Next() {
 		var i item
 		if err := rows.Scan(&i.Name, &i.Val); err != nil {
-			continue
+			respondError(w, "failed to scan provider distribution row", err, http.StatusInternalServerError)
+			return
 		}
 		total += i.Val
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		respondError(w, "failed to read provider distribution", err, http.StatusInternalServerError)
+		return
 	}
 
 	result := ProviderDistributionStats{Items: make([]ProviderDistributionItem, len(items))}

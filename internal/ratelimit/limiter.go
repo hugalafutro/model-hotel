@@ -220,7 +220,14 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				// under pressure, so an open throttle episode is left open (only a
 				// no-delay serve below closes it).
 				if delay <= maxWait {
-					time.Sleep(delay)
+					if !waitOrCancel(ctx, delay) {
+						// Client left during the wait: give the budget back.
+						reservation.Cancel()
+						if userRes != nil {
+							userRes.Cancel()
+						}
+						return
+					}
 					l.writeRateLimitHeaders(w, entry.limiter, 0)
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
@@ -377,5 +384,19 @@ func (l *Limiter) cleanup() {
 			entry.throttle.endIfThrottled(entry.throttleCtx(key), entry.lastUsed, "idle")
 			delete(l.limiters, key)
 		}
+	}
+}
+
+// waitOrCancel sleeps for delay unless ctx ends first. It reports false when
+// the context ended, so callers can return the reserved budget instead of
+// holding it for a client that has already gone.
+func waitOrCancel(ctx context.Context, delay time.Duration) bool {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-timer.C:
+		return true
+	case <-ctx.Done():
+		return false
 	}
 }

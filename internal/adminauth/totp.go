@@ -364,16 +364,16 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	tokenValid := h.adminMgr.Validate(req.Token)
 	codeValid := false
 	if tokenValid {
-		if ok, err := h.totpRepo.Verify(r.Context(), req.Code); err == nil && ok {
-			codeValid = true
-		} else {
-			if err != nil {
-				debuglog.Error("totp: login verify failed", "error", err, "remote_addr", clientip.From(r))
-			}
-			if ok, _ := h.totpRepo.ConsumeRecoveryCode(r.Context(), req.Code); ok {
-				codeValid = true
-			}
+		ok, err := h.totpRepo.Verify(r.Context(), req.Code)
+		if err == nil && !ok {
+			ok, err = h.totpRepo.ConsumeRecoveryCode(r.Context(), req.Code)
 		}
+		if err != nil {
+			// A storage failure is not a wrong code: no throttle charge, no 401.
+			respondError(w, "totp: login verify failed", err, http.StatusInternalServerError)
+			return
+		}
+		codeValid = ok
 	}
 	if !tokenValid || !codeValid {
 		h.loginThrottle.RecordFailure(throttleKey)

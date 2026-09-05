@@ -75,11 +75,18 @@ func publishDiscoveryEvent(source string, result DiscoveryResult) {
 			Message:  fmt.Sprintf("Discovery failed: %s", result.Errors[0]),
 			Metadata: map[string]any{"source": source, "errors": result.Errors},
 		})
-	case result.ProvidersFailed > 0:
+	case result.ProvidersFailed > 0 || len(result.Errors) > 0:
+		// Errors without a failed provider come from the failover sync input
+		// (a model list that could not be read): the scan itself succeeded,
+		// but the run is still not a clean success.
+		msg := fmt.Sprintf("Discovery partially failed: %d/%d providers OK, %s found", result.ProvidersScanned-result.ProvidersFailed, result.ProvidersScanned, util.Count(result.ModelsDiscovered, "model", "models"))
+		if result.ProvidersFailed == 0 {
+			msg = fmt.Sprintf("Discovery complete with %s: %s found", util.Count(len(result.Errors), "error", "errors"), util.Count(result.ModelsDiscovered, "model", "models"))
+		}
 		events.Publish(events.Event{
 			Type:     "discovery.complete",
 			Severity: "warning",
-			Message:  fmt.Sprintf("Discovery partially failed: %d/%d providers OK, %s found", result.ProvidersScanned-result.ProvidersFailed, result.ProvidersScanned, util.Count(result.ModelsDiscovered, "model", "models")),
+			Message:  msg,
 			Metadata: map[string]any{"source": source, "errors": result.Errors, "models_pruned": result.ModelsPruned},
 		})
 	default:
@@ -378,7 +385,12 @@ func syncFailoverAfterDiscovery(ctx context.Context, deps discoveryDeps, source 
 		if !p.Enabled {
 			continue
 		}
-		models, _ := deps.modelRepo.List(ctx, &p.ID)
+		models, err := deps.modelRepo.List(ctx, &p.ID)
+		if err != nil {
+			debuglog.Error("discovery: failed to list models for failover sync", "provider", p.Name, "error", err)
+			result.Errors = append(result.Errors, fmt.Sprintf("provider %s: list models for failover sync: %v", p.Name, err))
+			continue
+		}
 		for _, m := range models {
 			seenModelIDs[m.ModelID] = true
 		}

@@ -351,7 +351,11 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(keys)
 	debuglog.Info("settings: updated", "keys", keys)
 
-	all, _ := h.settingsRepo.GetAll(r.Context())
+	all, err := h.settingsRepo.GetAll(r.Context())
+	if err != nil {
+		respondError(w, "failed to read settings", err, http.StatusInternalServerError)
+		return
+	}
 	all = h.injectReadOnlyStatus(all)
 
 	writeJSON(w, all)
@@ -428,7 +432,11 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 	sort.Strings(keys)
 	debuglog.Info("settings: reset to defaults", "keys", keys)
 
-	all, _ := h.settingsRepo.GetAll(r.Context())
+	all, err := h.settingsRepo.GetAll(r.Context())
+	if err != nil {
+		respondError(w, "failed to read settings", err, http.StatusInternalServerError)
+		return
+	}
 	all = h.injectReadOnlyStatus(all)
 
 	writeJSON(w, all)
