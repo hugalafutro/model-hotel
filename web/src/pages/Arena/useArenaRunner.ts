@@ -89,7 +89,8 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	// React state: a late setState throws under jsdom teardown ("window is not
 	// defined") and leaks work in production. Flip a mounted flag on unmount,
 	// abort every in-flight request, and gate the setters through it so the
-	// streaming body below never dispatches into a dead tree.
+	// streaming body in streamModel.ts, which receives them on its context,
+	// never dispatches into a dead tree.
 	const mountedRef = useRef(true);
 	useEffect(() => {
 		// abortMapRef.current is stable for the component's lifetime (the Map is

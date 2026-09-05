@@ -1,10 +1,8 @@
 import type { UseQueryResult } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { RefreshCw } from "@/lib/icons";
-import type { api } from "../../../api/client";
+import type { AlertStatus } from "../../../api/types";
 import { REASON_CODES } from "./apiText";
-
-type AlertStatus = Awaited<ReturnType<typeof api.alert.status>>;
 
 /**
  * Whether apprise-api can be reached: a dot, a word, an optional reason, and a
