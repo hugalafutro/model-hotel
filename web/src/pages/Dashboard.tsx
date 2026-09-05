@@ -4,15 +4,12 @@ import {
 	Activity,
 	AlertTriangle,
 	ArrowUpRight,
-	Bot,
 	Clock,
 	Gauge as GaugeIcon,
 	Hash,
 	LayoutDashboard,
-	PlugZap,
 	RefreshCw,
 	ShieldAlert,
-	Target,
 	Timer,
 } from "@/lib/icons";
 import { api } from "../api/client";
@@ -20,12 +17,12 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
 import { useIdentity } from "../context/IdentityContext";
-import { formatCompact, formatTokens, formatWithCommas } from "../utils/format";
+import { formatCompact, formatTokens } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
 import { ProviderLatencyPanel } from "./Dashboard/ProviderLatencyPanel";
-import { StatCard } from "./Dashboard/StatCard";
+import { StatCardsRow } from "./Dashboard/StatCardsRow";
 import { TimeSeriesChart } from "./Dashboard/TimeSeriesChart";
 import { MetricToggle, RangeToggle } from "./Dashboard/ToggleGroup";
 import { TokenSplitBar } from "./Dashboard/TokenSplitBar";
@@ -36,7 +33,6 @@ import { ModelDetailModal } from "./Models/ModelDetailModal";
 /* =====================================================
    DASHBOARD
    ===================================================== */
-// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
 export function Dashboard() {
 	const { t } = useTranslation();
 	// Owner filter is admin-only: non-admins are already server-scoped to
@@ -312,88 +308,22 @@ export function Dashboard() {
 					</div>
 				}
 			/>
-			{/* Stat cards. The provider/model pills count what the proxy can serve
-			    right now: enabled providers, and models that are enabled AND whose
-			    provider is enabled (the /v1/models rule the Models page title uses).
-			    That subsumes the excludeDeleted pre-filter in useDashboard, which
-			    still matters for the other queries riding the same flag. */}
-
-			<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-6 gap-4">
-				<StatCard
-					label={t("dashboard.stats.totalProviders")}
-					value={providers?.filter((p) => p.enabled).length ?? 0}
-					icon={PlugZap}
-					accent={accents.providers}
-					loading={providersLoading}
-				/>
-				<StatCard
-					label={t("dashboard.stats.totalModels")}
-					value={
-						models?.filter((m) => m.enabled && m.provider_enabled).length ?? 0
-					}
-					icon={Bot}
-					accent={accents.models}
-					loading={modelsLoading}
-				/>
-				<StatCard
-					label={t("dashboard.chart.requestsOver", { range: rangeLabel })}
-					value={
-						globalRange === "1h"
-							? stats?.requests_last_1h || 0
-							: globalRange === "24h"
-								? stats?.total_requests_last_24h || 0
-								: stats?.total_requests_last_7d || 0
-					}
-					icon={Activity}
-					accent={accents.requests}
-					formatter={formatWithCommas}
-					onClick={() => setRequestsModalOpen(true)}
-					tooltip={t("dashboard.gauge.viewRequestHistory")}
-				/>
-				<StatCard
-					label={t("dashboard.chart.errorRateOver", { range: rangeLabel })}
-					value={(stats?.error_rate || 0) * 100}
-					decimals={1}
-					suffix="%"
-					icon={AlertTriangle}
-					accent={accents.errors}
-					onClick={() => setErrorModalOpen(true)}
-					tooltip={t("dashboard.gauge.viewErrorRateHistory")}
-				/>
-				<StatCard
-					label={t("dashboard.chart.avgDurationOver", { range: rangeLabel })}
-					value={(stats?.avg_latency_ms || 0) / 1000}
-					decimals={1}
-					suffix="s"
-					icon={Clock}
-					accent={accents.latency}
-					onClick={() => setLatencyModalOpen(true)}
-					tooltip={t("dashboard.gauge.viewDurationHistory")}
-				/>
-				<StatCard
-					label={
-						globalMetric === "tokens"
-							? t("dashboard.stats.totalTokens", { range: rangeLabel })
-							: t("dashboard.stats.avgTokensPerReq")
-					}
-					value={
-						globalMetric === "tokens"
-							? totalTokens
-							: stats?.avg_tokens_per_request || 0
-					}
-					decimals={0}
-					suffix={
-						globalMetric === "tokens"
-							? ""
-							: t("dashboard.label.requestsPerQuery")
-					}
-					icon={globalMetric === "tokens" ? Hash : Target}
-					accent={accents.tokens}
-					formatter={globalMetric === "tokens" ? formatCompact : undefined}
-					onClick={() => setTokensModalOpen(true)}
-					tooltip={t("dashboard.gauge.viewTokenHistory")}
-				/>
-			</div>
+			<StatCardsRow
+				globalRange={globalRange}
+				globalMetric={globalMetric}
+				rangeLabel={rangeLabel}
+				totalTokens={totalTokens}
+				accents={accents}
+				stats={stats}
+				models={models}
+				providers={providers}
+				modelsLoading={modelsLoading}
+				providersLoading={providersLoading}
+				setRequestsModalOpen={setRequestsModalOpen}
+				setErrorModalOpen={setErrorModalOpen}
+				setLatencyModalOpen={setLatencyModalOpen}
+				setTokensModalOpen={setTokensModalOpen}
+			/>
 
 			{/* Time-series charts row - selected metric renders first */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

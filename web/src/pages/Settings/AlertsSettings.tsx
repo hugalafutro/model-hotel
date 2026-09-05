@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Bell, ChevronDown, ChevronRight, RefreshCw } from "@/lib/icons";
+import { Bell, ChevronDown, ChevronRight } from "@/lib/icons";
 import { ApiError, api } from "../../api/client";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
@@ -11,26 +11,14 @@ import { useToast } from "../../context/ToastContext";
 import { AlertEventPicker } from "./AlertEventPicker";
 import { AlertSnippets } from "./AlertSnippets";
 import { AlertsWizard } from "./alerts/AlertsWizard";
-import { stripApiHead } from "./alerts/apiText";
+import { AppriseStatus } from "./alerts/AppriseStatus";
+import { REASON_CODES, stripApiHead } from "./alerts/apiText";
 import { DestinationList } from "./alerts/DestinationList";
 import { SETTING_DEFAULTS } from "./defaults";
 import {
 	invalidateAlertReads,
 	useSettingsMutations,
 } from "./useSettingsMutations";
-
-// The stable failure codes the alert endpoints report: /api/alert/test with a
-// 502 and the reachability probe in AlertStatus.reason. Anything outside this
-// set falls back to a generic error, so no server internals reach the screen.
-const REASON_CODES = new Set([
-	"not_configured",
-	"invalid_url",
-	"unreachable",
-	"unhealthy",
-	"apprise_reject",
-	"deliver_failed",
-	"undecryptable",
-]);
 
 interface AlertsSettingsProps {
 	collapsed: boolean;
@@ -39,7 +27,6 @@ interface AlertsSettingsProps {
 	managed?: boolean;
 }
 
-// eslint-disable-next-line max-lines-per-function -- size ratchet: split this component
 export function AlertsSettings({
 	collapsed,
 	onToggle,
@@ -264,31 +251,6 @@ export function AlertsSettings({
 					),
 				);
 
-	const status = statusQuery.data;
-	const statusDotColor =
-		status?.reachable && status.healthy
-			? "var(--success-text)"
-			: status?.reachable
-				? "var(--warning-text)"
-				: "var(--error-text)";
-	const statusText =
-		status?.reachable && status.healthy
-			? t("settings.alerts.status.reachable")
-			: status?.reachable
-				? t("settings.alerts.status.issues")
-				: t("settings.alerts.status.unreachable");
-	// The reason code is the translated, actionable half of the probe result; the
-	// detail is raw server text (English, sometimes an HTTP status). The note
-	// therefore carries the reason and keeps the detail as the tooltip, where an
-	// operator who wants the literal answer can still find it.
-	const statusReason =
-		status &&
-		(!status.reachable || !status.healthy) &&
-		status.reason &&
-		REASON_CODES.has(status.reason)
-			? t(`settings.alerts.reason.${status.reason}`)
-			: "";
-
 	return (
 		<SettingsSection
 			icon={Bell}
@@ -424,59 +386,7 @@ export function AlertsSettings({
 							<p className="text-sm font-medium text-(--text-secondary)">
 								{t("settings.alerts.destinations.title")}
 							</p>
-							{apiUrl !== "" && (
-								<div
-									className="flex items-center gap-2 text-xs"
-									data-testid="alert-status"
-								>
-									{statusQuery.isFetching ? (
-										<span className="inline-flex items-center gap-1.5 text-(--text-muted)">
-											<RefreshCw size={12} className="animate-spin" />
-											{t("settings.alerts.status.checking")}
-										</span>
-									) : statusQuery.isError ? (
-										<span className="inline-flex items-center gap-1.5 text-(--text-secondary)">
-											<span
-												className="inline-block w-2 h-2 rounded-full"
-												style={{ background: "var(--error-text)" }}
-												aria-hidden="true"
-											/>
-											{t("settings.alerts.status.checkFailed")}
-										</span>
-									) : status ? (
-										<>
-											<span
-												className="inline-flex items-center gap-1.5 text-(--text-secondary)"
-												title={status.detail}
-											>
-												<span
-													className="inline-block w-2 h-2 rounded-full"
-													style={{ background: statusDotColor }}
-													aria-hidden="true"
-												/>
-												{statusText}
-											</span>
-											{statusReason !== "" && (
-												<span
-													className="text-(--text-secondary)"
-													data-testid="alert-status-note"
-												>
-													{statusReason}
-												</span>
-											)}
-										</>
-									) : null}
-									<button
-										type="button"
-										className="ui-link-accent inline-flex items-center gap-1"
-										onClick={() => statusQuery.refetch()}
-										data-testid="alert-status-recheck"
-									>
-										<RefreshCw size={11} />
-										{t("settings.alerts.status.recheck")}
-									</button>
-								</div>
-							)}
+							{apiUrl !== "" && <AppriseStatus statusQuery={statusQuery} />}
 						</div>
 						<p className="text-xs text-(--text-muted)">
 							{t("settings.alerts.destinations.note")}

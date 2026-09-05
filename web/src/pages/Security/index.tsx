@@ -2,10 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import QRCode from "qrcode";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Check, Copy, Download, ShieldCheck, X } from "@/lib/icons";
+import { Copy, ShieldCheck, X } from "@/lib/icons";
 import { ApiError, api, clearAuth } from "../../api/client";
-import { CopyButton } from "../../components/CopyButton";
 import { PageHeader } from "../../components/PageHeader";
+import { TotpRecoveryCodes } from "../../components/TotpRecoveryCodes";
 import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatDate } from "../../utils/format";
@@ -19,7 +19,6 @@ import { isBreachedPasswordError } from "../../utils/passwordPolicy";
  * session the caller already holds. Reuses the settings.totp.* strings so the
  * two panels stay word-for-word consistent across locales.
  */
-// eslint-disable-next-line max-lines-per-function -- size ratchet: split this page
 export function Security() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
@@ -137,20 +136,6 @@ export function Security() {
 		else toast(t("common.failedToCopy"), "error");
 	};
 
-	const handleDownloadCodes = () => {
-		const blob = new Blob([`${recoveryCodes.join("\n")}\n`], {
-			type: "text/plain",
-		});
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = "model-hotel-totp-recovery-codes.txt";
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-		URL.revokeObjectURL(url);
-	};
-
 	const passwordMutation = useMutation({
 		mutationFn: () => api.userTotp.changePassword(currentPassword, newPassword),
 		onSuccess: () => {
@@ -203,57 +188,11 @@ export function Security() {
 	let body: React.ReactNode;
 	if (showRecovery && recoveryCodes.length > 0) {
 		body = (
-			<div className="space-y-4">
-				<div className="ui-callout ui-callout-warning">
-					<p className="font-medium">
-						{t("settings.totp.recoveryCodesWarning")}
-					</p>
-				</div>
-				<div>
-					<div className="flex items-center justify-between mb-2">
-						<h3 className="text-sm font-medium text-(--text-primary)">
-							{t("settings.totp.recoveryCodes")}
-						</h3>
-						<CopyButton
-							text={recoveryCodes.join("\n")}
-							size={16}
-							title={t("settings.totp.copyAll")}
-							toastType="success"
-						/>
-					</div>
-					<div className="p-3 bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default)">
-						<div className="font-mono text-sm space-y-1">
-							{recoveryCodes.map((code) => (
-								<div key={code} className="text-(--text-primary) break-all">
-									{code}
-								</div>
-							))}
-						</div>
-					</div>
-				</div>
-				<div className="flex flex-wrap gap-2">
-					<button
-						type="button"
-						onClick={handleDownloadCodes}
-						className="ui-btn ui-btn-secondary"
-						aria-label={t("settings.totp.downloadCodesAriaLabel")}
-						data-testid="security-download-codes"
-					>
-						<Download size={16} />
-						{t("settings.totp.downloadCodes")}
-					</button>
-					<button
-						type="button"
-						onClick={handleSavedRecoveryCodes}
-						className="ui-btn ui-btn-primary"
-						aria-label={t("settings.totp.savedAriaLabel")}
-						data-testid="security-saved-codes"
-					>
-						<Check size={16} />
-						{t("settings.totp.saved")}
-					</button>
-				</div>
-			</div>
+			<TotpRecoveryCodes
+				codes={recoveryCodes}
+				onSaved={handleSavedRecoveryCodes}
+				testIdPrefix="security"
+			/>
 		);
 	} else if (enrollUri) {
 		body = (

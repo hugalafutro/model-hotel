@@ -11,3 +11,16 @@ export function stripApiHead(message: string, prefix: string): string {
 	const status = /^\d+ /.exec(rest);
 	return status === null ? message : rest.slice(status[0].length);
 }
+
+// The stable failure codes the alert endpoints report: /api/alert/test with a
+// 502 and the reachability probe in AlertStatus.reason. Anything outside this
+// set falls back to a generic error, so no server internals reach the screen.
+export const REASON_CODES = new Set([
+	"not_configured",
+	"invalid_url",
+	"unreachable",
+	"unhealthy",
+	"apprise_reject",
+	"deliver_failed",
+	"undecryptable",
+]);
