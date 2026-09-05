@@ -338,10 +338,12 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 ```
 
 ![Failover Groups](screenshots/failover.png)
+
 *Failover Groups page - showing groups with enabled status, model entries, and priority badges*
 
 ![Failover Per-Entry Toggles](screenshots/failover_entries.png)
-*Failover group entries with per-entry enable/disable toggles, a dashed outline on disabled entries, and priority ordering.*
+
+*Failover group entries with per-entry enable/disable toggles and priority ordering.*
 
 ---
 

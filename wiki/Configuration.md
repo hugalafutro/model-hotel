@@ -392,12 +392,15 @@ Backend settings: `ttft_timeout`, `stream_stall_timeout`
 ### Screenshots
 
 ![Settings UI](screenshots/settings.png)
+
 *The Settings page header and its collapsible sections. Each section's controls are shown expanded in the screenshots that follow.*
 
 ![Settings Model Discovery](screenshots/settings_discovery.png)
+
 *Settings page - Model Discovery section: the automatic toggles (discover on startup, discover on provider creation, re-discovery interval) alongside the manual "Discover All Models" trigger and a live count of discovered models, providers, and last run.*
 
 ![Settings Appearance](screenshots/settings_appearance.png)
+
 *Settings page - Appearance section expanded, showing the UI Style cards (Clean SaaS, Cyber Terminal, Glassmorphism), Theme toggle, and Accent Color picker.*
 
 The three UI styles applied to the dashboard (dark mode, each style's default accent):
@@ -413,21 +416,27 @@ The three UI styles applied to the dashboard (dark mode, each style's default ac
 *Left to right: Clean SaaS (default), Cyber Terminal, Glassmorphism.*
 
 ![Settings Data Storage and Logging](screenshots/settings_data_storage.png)
+
 *Settings page - Data Storage and Logging section: log retention and stale-request timeout with one-click purge of request and app logs, cache and dismissed-banner resets, sidebar quota-badge controls, browser-local session persistence (chat, arena, conversation), arena history limits, and the dashboard refresh interval.*
 
 ![Settings Observability](screenshots/settings_observability.png)
+
 *Settings page - Observability & Log Export section: read-only status of the three log-export integrations. JSON logs enabled here; Prometheus and OTLP disabled, each showing its copyable enable instruction.*
 
 ![Settings Rate Limiting](screenshots/settings_ratelimit_failover.png)
+
 *Settings page - Rate Limiting section expanded, showing the enable toggle, RPS selector, and Burst selector.*
 
 ![Settings Proxy](screenshots/settings_proxy.png)
+
 *Settings page - Proxy section, showing TTFT Timeout and Stream Stall Timeout settings.*
 
 ![Settings Circuit Breaker](screenshots/settings_circuit_breaker.png)
+
 *Settings page - Circuit Breaker & Failover section: the failover column with cooldown, failure threshold and the quota-pin controls, and the Hedging column with its trade-off notice beneath the toggle.*
 
 ![Settings Backup](screenshots/settings_backup.png)
+
 *Settings page - Database Backup section, showing backup and restore controls.*
 
 ---
