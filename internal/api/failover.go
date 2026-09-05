@@ -184,15 +184,13 @@ func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, e
 	defer rows.Close()
 
 	counts := make(map[string]int)
-	for rows.Next() {
-		var modelID string
-		var total int
-		if err := rows.Scan(&modelID, &total); err != nil {
-			continue
-		}
+	var modelID string
+	var total int
+	_, err = pgx.ForEachRow(rows, []any{&modelID, &total}, func() error {
 		counts[modelID] = total
-	}
-	return counts, nil
+		return nil
+	})
+	return counts, err
 }
 
 // Get retrieves a failover group by ID.
@@ -277,7 +275,11 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 		entryEnabled[id.String()] = true
 	}
 
-	existing, _ := h.failoverRepo.GetByModel(r.Context(), req.DisplayModel)
+	existing, err := h.failoverRepo.GetByModel(r.Context(), req.DisplayModel)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		respondError(w, fmt.Sprintf("failed to look up failover group %q", req.DisplayModel), err, http.StatusInternalServerError)
+		return
+	}
 	if existing != nil {
 		http.Error(w, "A failover group for '"+req.DisplayModel+"' already exists (auto-created from shared model). Edit the existing group instead.", http.StatusConflict)
 		return

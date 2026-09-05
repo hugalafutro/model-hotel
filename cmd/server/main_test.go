@@ -52,6 +52,14 @@ func TestPublishDiscoveryEvent(t *testing.T) {
 			wantPruned: 2,
 		},
 		{
+			// No provider failed, but the failover sync could not read one
+			// provider's model list: still a warning, never a clean success.
+			name:       "sync_input_error_without_failed_provider",
+			result:     DiscoveryResult{ProvidersScanned: 3, ModelsDiscovered: 9, ModelsPruned: 1, Errors: []string{"provider x: list models for failover sync: boom"}},
+			severity:   "warning",
+			wantPruned: 1,
+		},
+		{
 			name:       "success",
 			result:     DiscoveryResult{ProvidersScanned: 3, ModelsDiscovered: 9, ModelsPruned: 4},
 			severity:   "success",

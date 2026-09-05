@@ -399,13 +399,17 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	}
 	tmpPath := tmpFile.Name()
 
-	if _, err := io.Copy(tmpFile, file); err != nil {
-		tmpFile.Close()        //nolint:errcheck,gosec // error path: closing after copy failure
+	_, err = io.Copy(tmpFile, file)
+	// Close is part of the write: a delayed write failure surfaces here, and
+	// an incomplete dump must never reach validation.
+	if cerr := tmpFile.Close(); err == nil {
+		err = cerr
+	}
+	if err != nil {
 		_ = os.Remove(tmpPath) // error path: discard partial temp file
 		respondError(w, "failed to save uploaded file", err, http.StatusInternalServerError)
 		return uploadedDump{}, false
 	}
-	tmpFile.Close() //nolint:errcheck,gosec // cleanup: file fully written, closing for pg_restore
 
 	name := ""
 	if header != nil {
@@ -536,6 +540,7 @@ func (h *BackupHandler) runPgRestore(w http.ResponseWriter, pgRestorePath, tmpPa
 	restoreCmd := exec.CommandContext(restoreCtx, pgRestorePath,
 		"--clean",
 		"--if-exists",
+		"--single-transaction",
 		"--no-password",
 		"-d", restoreConnURL,
 		tmpPath,

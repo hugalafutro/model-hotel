@@ -16,9 +16,14 @@ import (
 
 var testDB *db.DB
 
+// testDBURL is kept for tests that need a second pool with different
+// connection settings (see readfailure_test.go).
+var testDBURL string
+
 func TestMain(m *testing.M) {
 	ctx := context.Background()
-	testDBURL, setupErr := db.SetupTestDB("failover")
+	var setupErr error
+	testDBURL, setupErr = db.SetupTestDB("failover")
 	if setupErr != nil {
 		log.Printf("failed to setup test DB: %v", setupErr)
 		os.Exit(1)

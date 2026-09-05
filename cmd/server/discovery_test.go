@@ -6,7 +6,9 @@ import (
 	"log"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -905,5 +907,53 @@ func TestAnyRecentlyDiscovered(t *testing.T) {
 				t.Errorf("anyRecentlyDiscovered = %v, want %v", got, c.want)
 			}
 		})
+	}
+}
+
+// TestSyncFailoverAfterDiscovery_ModelListFailureIsRecorded covers a provider
+// whose model list cannot be read during failover sync: the failure lands in
+// result.Errors instead of the provider silently contributing an empty list.
+// Seam: repositories over a one-connection pool with a short statement_timeout,
+// and an ACCESS EXCLUSIVE lock on models held by another transaction.
+func TestSyncFailoverAfterDiscovery_ModelListFailureIsRecorded(t *testing.T) {
+	ctx := context.Background()
+	u, err := url.Parse(cmdTestDBURL)
+	if err != nil {
+		t.Fatalf("parse test DB URL: %v", err)
+	}
+	q := u.Query()
+	q.Set("statement_timeout", "250")
+	u.RawQuery = q.Encode()
+	slow, err := db.New(ctx, u.String(), 1, 1)
+	if err != nil {
+		t.Fatalf("db.New: %v", err)
+	}
+	defer slow.Close()
+
+	deps := testDiscoveryDeps(t)
+	deps.modelRepo = model.NewRepository(slow.Pool())
+	// The custom-group revalidation later in the same call reads models too;
+	// route it through the timing-out pool so it fails fast instead of waiting
+	// on the lock forever.
+	deps.failoverRepo = failover.NewRepository(slow.Pool())
+
+	p := &provider.Provider{ID: uuid.New(), Name: "locked-models", Enabled: true}
+	if _, err := deps.modelRepo.List(ctx, &p.ID); err != nil {
+		t.Fatalf("warm-up List: %v", err)
+	}
+
+	holder, err := cmdTestDB.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin holder: %v", err)
+	}
+	defer func() { _ = holder.Rollback(ctx) }()
+	if _, err := holder.Exec(ctx, "LOCK TABLE models IN ACCESS EXCLUSIVE MODE"); err != nil {
+		t.Fatalf("lock: %v", err)
+	}
+
+	var result DiscoveryResult
+	syncFailoverAfterDiscovery(ctx, deps, "test", []*provider.Provider{p}, &result)
+	if len(result.Errors) != 1 || !strings.Contains(result.Errors[0], "list models for failover sync") {
+		t.Fatalf("result.Errors = %v, want one model-list failure for the locked provider", result.Errors)
 	}
 }

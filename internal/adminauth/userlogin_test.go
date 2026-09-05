@@ -632,19 +632,36 @@ func TestUserLogin_TotpWiredButNotEnabled(t *testing.T) {
 	}
 }
 
-// TestUserLogin_TotpCodeCheckErrorsDeny covers the branches where the second
-// factor is enabled but both the TOTP verify and the recovery-code check error
-// out at the store: the failures are logged and login falls through to a
-// throttled 401, never a silent pass.
-func TestUserLogin_TotpCodeCheckErrorsDeny(t *testing.T) {
+// TestUserLogin_TotpCodeCheckErrorsAre500 covers the branches where the second
+// factor is enabled but the store fails during the code check: a storage
+// failure is a 500, never a silent pass and never a 401 that charges the
+// throttle for a code that was never actually checked. Repeating the failing
+// login must therefore never reach 429.
+func TestUserLogin_TotpCodeCheckErrorsAre500(t *testing.T) {
 	u := testUser(t, "alice", "correct-horse", true)
-	fake, _, r := newTotpLoginFixture(t, u)
-	fake.loadErr = errors.New("verify read boom")
-	fake.consumeErr = errors.New("recovery read boom")
+	fake, secret, r := newTotpLoginFixture(t, u)
 
-	w := doLogin(t, r, `{"username":"alice","password":"correct-horse","code":"123456"}`)
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("status = %d, body = %s, want 401", w.Code, w.Body.String())
+	fake.loadErr = errors.New("verify read boom")
+	for range 10 {
+		w := doLogin(t, r, `{"username":"alice","password":"correct-horse","code":"123456"}`)
+		if w.Code != http.StatusInternalServerError {
+			t.Fatalf("verify error: status = %d, body = %s, want 500", w.Code, w.Body.String())
+		}
+	}
+
+	// A wrong code that falls through to a failing recovery-code read is the
+	// same storage failure, not an invalid code.
+	fake.loadErr = nil
+	fake.consumeErr = errors.New("recovery read boom")
+	w := doLogin(t, r, `{"username":"alice","password":"correct-horse","code":"000000"}`)
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("recovery error: status = %d, body = %s, want 500", w.Code, w.Body.String())
+	}
+
+	// None of the failures above counted as an attempt: a valid code still logs in.
+	fake.consumeErr = nil
+	if w := doLogin(t, r, `{"username":"alice","password":"correct-horse","code":"`+validCode(t, secret)+`"}`); w.Code != http.StatusOK {
+		t.Fatalf("valid code after storage errors: status = %d, body = %s, want 200 (throttle must not have been charged)", w.Code, w.Body.String())
 	}
 }
 

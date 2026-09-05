@@ -31,11 +31,11 @@ func TestFDSessions_ListMarksCurrent(t *testing.T) {
 	srv, _ := newTestServer(t)
 	ctx := context.Background()
 
-	here, err := srv.SessionManager().CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{UserAgent: "here", IP: "203.0.113.7"})
+	here, err := srv.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{UserAgent: "here", IP: "203.0.113.7"})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := srv.SessionManager().CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{UserAgent: "phone"}); err != nil {
+	if _, err := srv.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{UserAgent: "phone"}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -89,7 +89,7 @@ func TestFDSessions_ListMarksCurrent(t *testing.T) {
 func TestFDSessions_RevokeByID(t *testing.T) {
 	srv, _ := newTestServer(t)
 	ctx := context.Background()
-	mgr := srv.SessionManager()
+	mgr := srv.sessionMgr
 
 	here, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{UserAgent: "here"})
 	if err != nil {
@@ -141,7 +141,7 @@ func TestFDSessions_RevokeByID(t *testing.T) {
 func TestFDSessions_RevokeOthers(t *testing.T) {
 	srv, _ := newTestServer(t)
 	ctx := context.Background()
-	mgr := srv.SessionManager()
+	mgr := srv.sessionMgr
 
 	here, err := mgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
 	if err != nil {

@@ -172,7 +172,7 @@ func TestSSEClosesAfterSessionRevoked(t *testing.T) {
 		t.Run(carrier, func(t *testing.T) {
 			srv, _ := newTestServer(t)
 			ctx := context.Background()
-			token, err := srv.SessionManager().CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+			token, err := srv.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
 			if err != nil {
 				t.Fatalf("CreateAuthToken: %v", err)
 			}
@@ -188,7 +188,7 @@ func TestSSEClosesAfterSessionRevoked(t *testing.T) {
 			rec, done := startStream(t, srv, req)
 			awaitWrite(t, rec, "keep-alive on a live session")
 
-			if !srv.SessionManager().RevokeAuthToken(ctx, token) {
+			if !srv.sessionMgr.RevokeAuthToken(ctx, token) {
 				t.Fatal("RevokeAuthToken did not find the session")
 			}
 			awaitClosed(t, done, "after its session was revoked")

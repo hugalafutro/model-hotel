@@ -169,7 +169,11 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 				maxWait = time.Duration(l.settings.GetInt(r.Context(), settingsKeyIPMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 			}
 			if delay <= maxWait {
-				time.Sleep(delay)
+				if !waitOrCancel(r.Context(), delay) {
+					// Client left during the wait: give the budget back.
+					reservation.Cancel()
+					return
+				}
 				l.writeHeaders(w, entry.limiter, 0)
 				next.ServeHTTP(w, r)
 				return

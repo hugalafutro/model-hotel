@@ -2,10 +2,12 @@ package failover
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -131,7 +133,10 @@ func (r *Repository) upsertAutoGroup(ctx context.Context, base string, currentID
 		entryEnabled[id.String()] = true
 	}
 
-	existing, _ = r.GetByModel(ctx, base)
+	existing, err = r.GetByModel(ctx, base)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil, fmt.Errorf("lookup existing group: %w", err)
+	}
 	if existing != nil {
 		for uuidStr, enabled := range existing.EntryEnabled {
 			if _, stillPresent := entryEnabled[uuidStr]; stillPresent {
@@ -258,7 +263,10 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		}
 	}
 
-	allGroups, _ := r.List(ctx)
+	allGroups, err := r.List(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list failover groups: %w", err)
+	}
 	for _, g := range allGroups {
 		if g.AutoCreated {
 			if _, ok := syncedBases[g.DisplayModel]; !ok {

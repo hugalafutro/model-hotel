@@ -449,16 +449,6 @@ func (s *Server) Shutdown(ctx context.Context) error {
 	return s.store.Close()
 }
 
-// SessionManager exposes the session manager for tests that need to mint or
-// inspect sessions directly.
-//
-// It used to claim it existed for "callers wiring background cleanup of expired
-// sessions". No such caller was ever written, and the cleanup that eventually
-// arrived (cmd/frontdesk) builds its own WebAuthnStore over the same database
-// instead, since it needs the store's cleanup method rather than the manager.
-// The comment is corrected rather than the accessor deleted: the tests use it.
-func (s *Server) SessionManager() *webauthn.SessionManager { return s.sessionMgr }
-
 func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHandler, oidc *adminauth.OIDCHandler, ui fs.FS) http.Handler {
 	r := chi.NewRouter()
 

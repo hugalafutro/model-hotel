@@ -167,19 +167,11 @@ func (i *ModelsDevInterleaved) UnmarshalJSON(data []byte) error {
 // Global models.dev cache instance.
 var modelsDevCache = &ModelsDevCache{}
 
-// LoadModelsDev fetches the models.dev API and builds the in-memory index.
-// Each call fetches fresh data from the remote API and replaces the cache.
-// It is safe to call concurrently: the write is protected by a mutex.
-//
-// This uses http.DefaultClient, which follows redirects without SSRF checks.
-// Production code must instead call LoadModelsDevWithClient with a client whose
-// transport is backed by a SafeDialer; this bare form serves tests that
-// exercise the real fetch and error paths.
-func LoadModelsDev(ctx context.Context) error {
-	return modelsDevCache.load(ctx, http.DefaultClient)
-}
-
-// LoadModelsDevWithClient is the testable version of LoadModelsDev.
+// LoadModelsDevWithClient fetches the models.dev API and builds the in-memory
+// index. Each call fetches fresh data from the remote API and replaces the
+// cache. It is safe to call concurrently: the write is protected by a mutex.
+// Callers supply the client so production can use a SafeDialer-backed
+// transport (models.dev redirects must not become an SSRF vector).
 func LoadModelsDevWithClient(ctx context.Context, client *http.Client) error {
 	return modelsDevCache.load(ctx, client)
 }

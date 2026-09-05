@@ -176,6 +176,10 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		}
 		modelCounts[providerID] = count
 	}
+	if err := rows.Err(); err != nil {
+		respondError(w, "failed to read model counts", err, http.StatusInternalServerError)
+		return
+	}
 
 	// Non-admins only see their own traffic in these totals: the same owner
 	// predicate the logs and stats surfaces apply, so a usage-granted user cannot
@@ -202,6 +206,10 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 		if since != nil {
 			tokensSince[providerID] = *since
 		}
+	}
+	if err := tokenRows.Err(); err != nil {
+		respondError(w, "failed to read token counts", err, http.StatusInternalServerError)
+		return
 	}
 
 	responses := make([]provider.ProviderResponse, len(providers))
