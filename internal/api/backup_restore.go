@@ -399,14 +399,14 @@ func (h *BackupHandler) saveUploadedDump(w http.ResponseWriter, r *http.Request)
 	}
 	tmpPath := tmpFile.Name()
 
-	if _, err := io.Copy(tmpFile, file); err != nil {
-		tmpFile.Close()        //nolint:errcheck,gosec // error path: closing after copy failure
-		_ = os.Remove(tmpPath) // error path: discard partial temp file
-		respondError(w, "failed to save uploaded file", err, http.StatusInternalServerError)
-		return uploadedDump{}, false
+	_, err = io.Copy(tmpFile, file)
+	// Close is part of the write: a delayed write failure surfaces here, and
+	// an incomplete dump must never reach validation.
+	if cerr := tmpFile.Close(); err == nil {
+		err = cerr
 	}
-	if err := tmpFile.Close(); err != nil {
-		_ = os.Remove(tmpPath) // error path: a delayed write failure means the dump is incomplete
+	if err != nil {
+		_ = os.Remove(tmpPath) // error path: discard partial temp file
 		respondError(w, "failed to save uploaded file", err, http.StatusInternalServerError)
 		return uploadedDump{}, false
 	}

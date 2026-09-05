@@ -267,22 +267,16 @@ func (h *Handler) getAppLogCounts(ctx context.Context) (map[string]int, map[stri
 	`
 	rows, err := h.dbPool.Pool().Query(ctx, countsSQL)
 	if err == nil {
-		for rows.Next() {
-			var kind, key string
-			var cnt int
-			if err = rows.Scan(&kind, &key, &cnt); err != nil {
-				break
-			}
+		var kind, key string
+		var cnt int
+		_, err = pgx.ForEachRow(rows, []any{&kind, &key, &cnt}, func() error {
 			if kind == "level" {
 				levelCounts[key] = cnt
 			} else {
 				sourceCounts[key] = cnt
 			}
-		}
-		rows.Close()
-		if err == nil {
-			err = rows.Err()
-		}
+			return nil
+		})
 	}
 	if err != nil {
 		// Keep whatever the cache already holds rather than publishing zeros
@@ -388,7 +382,7 @@ func appLogWhereClause(conditions []string) string {
 
 // scanAppLogRow scans one row of the cursor projection
 // (id, created_at, timestamp, level, source, message, escaped, attrs_at) into an AppLogEntry.
-func scanAppLogRow(rows pgx.Rows) (AppLogEntry, error) {
+func scanAppLogRow(rows pgx.CollectableRow) (AppLogEntry, error) {
 	var e AppLogEntry
 	var id string
 	var cat, ts time.Time
@@ -588,17 +582,13 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 
 	// per_page is clamped to [1, 100]; prealloc with the hard upper bound (CodeQL).
 	entries := make([]AppLogEntry, 0, 100)
-	for rows.Next() {
-		var e AppLogEntry
-		var ts time.Time
-		if err := rows.Scan(&ts, &e.Level, &e.Source, &e.Message, &e.Escaped, &e.AttrsAt); err != nil {
-			respondError(w, "failed to scan app log row", err, http.StatusInternalServerError)
-			return
-		}
+	var e AppLogEntry
+	var ts time.Time
+	if _, err := pgx.ForEachRow(rows, []any{&ts, &e.Level, &e.Source, &e.Message, &e.Escaped, &e.AttrsAt}, func() error {
 		e.Timestamp = ts.UTC().Format(time.RFC3339Nano)
 		entries = append(entries, e)
-	}
-	if err := rows.Err(); err != nil {
+		return nil
+	}); err != nil {
 		respondError(w, "failed to read app logs", err, http.StatusInternalServerError)
 		return
 	}
@@ -676,15 +666,8 @@ func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {
 	// limit is clamped to [1, 200]; prealloc with the hard upper bound so user
 	// input never flows into make() capacity (CodeQL guard).
 	entries := make([]AppLogEntry, 0, 201) // limit+1 for has_more detection
-	for rows.Next() {
-		e, err := scanAppLogRow(rows)
-		if err != nil {
-			respondError(w, "failed to scan app log row", err, http.StatusInternalServerError)
-			return
-		}
-		entries = append(entries, e)
-	}
-	if err := rows.Err(); err != nil {
+	entries, err = pgx.AppendRows(entries, rows, scanAppLogRow)
+	if err != nil {
 		respondError(w, "failed to read app logs", err, http.StatusInternalServerError)
 		return
 	}

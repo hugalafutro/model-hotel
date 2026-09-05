@@ -162,7 +162,7 @@ func logEntryScanDests(entry *LogEntry) []any {
 
 // scanLogEntry scans one request_logs row (the 38-column projection shared by
 // ListLogsCursor and ListLogs) into a LogEntry.
-func scanLogEntry(rows pgx.Rows) (LogEntry, error) {
+func scanLogEntry(rows pgx.CollectableRow) (LogEntry, error) {
 	var entry LogEntry
 	err := rows.Scan(logEntryScanDests(&entry)...)
 	return entry, err

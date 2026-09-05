@@ -1514,3 +1514,52 @@ func TestMiddleware_BackpressureCancelledRequestReturnsBudget(t *testing.T) {
 		t.Fatalf("request after cancel: code=%d served=%d, want 200 and 2", rr.Code, served)
 	}
 }
+
+// TestMiddleware_BackpressureCancelledRequestReturnsUserBudget is the two-stage
+// variant: a cancelled request in the backpressure window returns both the
+// per-key and the user-aggregate reservation.
+func TestMiddleware_BackpressureCancelledRequestReturnsUserBudget(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "1000")
+	repo.set(settingsKeyBurst, "1000")
+	repo.set(settingsKeyMaxWaitMs, "5000")
+
+	served := 0
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served++
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// User stage: one token per second, burst 1. The per-key stage is generous,
+	// so the wait comes from the user reservation.
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-u", "uid-cancel", 1, 1))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	userRPS, userBurst := 1.0, 1
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyHashKey, "key-u")
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyOwnerIDKey, "uid-cancel")
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, &userRPS)
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, &userBurst)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx)
+	start := time.Now()
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if served != 1 {
+		t.Fatalf("cancelled request reached the handler (served=%d)", served)
+	}
+	if time.Since(start) > time.Second {
+		t.Fatal("cancelled request waited out the delay instead of returning")
+	}
+
+	rr = httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-u", "uid-cancel", 1, 1))
+	if rr.Code != http.StatusOK || served != 2 {
+		t.Fatalf("request after cancel: code=%d served=%d, want 200 and 2", rr.Code, served)
+	}
+}

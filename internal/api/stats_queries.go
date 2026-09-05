@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"github.com/jackc/pgx/v5"
+
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
@@ -41,17 +43,13 @@ func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vk
 		debuglog.Error("stats: query failed", "query", "by_model", "error", err)
 		return err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var modelID string
-		var val int64
-		if err := rows.Scan(&modelID, &val); err != nil {
-			return err
-		}
+	var modelID string
+	var val int64
+	_, err = pgx.ForEachRow(rows, []any{&modelID, &val}, func() error {
 		stats.ByModel[modelID] = val
-	}
-	return rows.Err()
+		return nil
+	})
+	return err
 }
 
 // statByProvider fills stats.ByProvider with the top-10 providers by the
@@ -71,17 +69,13 @@ func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse,
 		debuglog.Error("stats: query failed", "query", "by_provider", "error", err)
 		return err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var providerName string
-		var val int64
-		if err := rows.Scan(&providerName, &val); err != nil {
-			return err
-		}
+	var providerName string
+	var val int64
+	_, err = pgx.ForEachRow(rows, []any{&providerName, &val}, func() error {
 		stats.ByProvider[providerName] = val
-	}
-	return rows.Err()
+		return nil
+	})
+	return err
 }
 
 // statByVirtualKey fills stats.ByVirtualKey from live virtual keys (Q4), plus
@@ -105,17 +99,12 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 		debuglog.Error("stats: query failed", "query", "by_virtual_key", "error", err)
 		return err
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var name string
-		var val int64
-		if err := rows.Scan(&name, &val); err != nil {
-			return err
-		}
+	var name string
+	var val int64
+	if _, err := pgx.ForEachRow(rows, []any{&name, &val}, func() error {
 		stats.ByVirtualKey[name] = val
-	}
-	if err := rows.Err(); err != nil {
+		return nil
+	}); err != nil {
 		return err
 	}
 
@@ -364,17 +353,12 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 	if err != nil {
 		debuglog.Error("stats: query failed", "query", "by_provider_latency", "error", err)
 	} else {
-		for rows.Next() {
-			var entry ProviderLatencyEntry
-			if err := rows.Scan(&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs); err != nil {
-				debuglog.Error("stats: scan failed", "query", "by_provider_latency", "error", err)
-				break
-			}
+		var entry ProviderLatencyEntry
+		if _, err := pgx.ForEachRow(rows, []any{&entry.ProviderName, &entry.RequestCount, &entry.TotalMs, &entry.OverheadMs, &entry.ProviderMs}, func() error {
 			stats.ByProviderLatency = append(stats.ByProviderLatency, entry)
-		}
-		rows.Close()
-		if err := rows.Err(); err != nil {
-			debuglog.Error("stats: iteration failed", "query", "by_provider_latency", "error", err)
+			return nil
+		}); err != nil {
+			debuglog.Error("stats: read failed", "query", "by_provider_latency", "error", err)
 		}
 	}
 }

@@ -253,15 +253,8 @@ func (h *Handler) ListLogsCursor(w http.ResponseWriter, r *http.Request) {
 	// satisfy CodeQL's uncontrolled-allocation-size check, which forbids user input
 	// flowing into make() capacity even after clamping.
 	entries := make([]LogEntry, 0, 201) // limit+1 for has_more detection
-	for rows.Next() {
-		entry, err := scanLogEntry(rows)
-		if err != nil {
-			respondError(w, "failed to scan log row", err, http.StatusInternalServerError)
-			return
-		}
-		entries = append(entries, entry)
-	}
-	if err := rows.Err(); err != nil {
+	entries, err = pgx.AppendRows(entries, rows, scanLogEntry)
+	if err != nil {
 		respondError(w, "failed to read logs", err, http.StatusInternalServerError)
 		return
 	}
@@ -406,21 +399,17 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	entries := make([]LogEntry, 0)
 	var total int
-	for rows.Next() {
-		var entry LogEntry
-		var totalCount int
-		// Windowed COUNT(*) OVER() comes first; the rest is the shared projection.
-		err := rows.Scan(append([]any{&totalCount}, logEntryScanDests(&entry)...)...)
-		if err != nil {
-			respondError(w, "failed to scan log row", err, http.StatusInternalServerError)
-			return
-		}
+	var entry LogEntry
+	var totalCount int
+	// Windowed COUNT(*) OVER() comes first; the rest is the shared projection.
+	if _, err := pgx.ForEachRow(rows, append([]any{&totalCount}, logEntryScanDests(&entry)...), func() error {
 		if total == 0 {
 			total = totalCount
 		}
 		entries = append(entries, entry)
-	}
-	if err := rows.Err(); err != nil {
+		entry = LogEntry{}
+		return nil
+	}); err != nil {
 		// Never cache a page that lost rows to an interrupted query.
 		respondError(w, "failed to read logs", err, http.StatusInternalServerError)
 		return

@@ -184,15 +184,13 @@ func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, e
 	defer rows.Close()
 
 	counts := make(map[string]int)
-	for rows.Next() {
-		var modelID string
-		var total int
-		if err := rows.Scan(&modelID, &total); err != nil {
-			return nil, err
-		}
+	var modelID string
+	var total int
+	_, err = pgx.ForEachRow(rows, []any{&modelID, &total}, func() error {
 		counts[modelID] = total
-	}
-	return counts, rows.Err()
+		return nil
+	})
+	return counts, err
 }
 
 // Get retrieves a failover group by ID.

@@ -1796,3 +1796,35 @@ func TestUnsubscribeClosesEvents(t *testing.T) {
 		t.Fatalf("Set after unsubscribe failed: %v", err)
 	}
 }
+
+// TestNotifyChangeSkipsSlowSubscriber pins the non-blocking publish: a
+// subscriber that never reads fills its buffer, further writes are dropped for
+// it rather than stalling the writer, and the writer keeps working.
+func TestNotifyChangeSkipsSlowSubscriber(t *testing.T) {
+	r := NewRepository(testPool)
+	ctx := context.Background()
+	clearSettings(t)
+
+	sub := r.Subscribe()
+	defer sub.Unsubscribe()
+
+	const writes = 20 // buffer is 16
+	for i := range writes {
+		if err := r.Set(ctx, "slow_key", fmt.Sprint(i)); err != nil {
+			t.Fatalf("Set %d failed: %v", i, err)
+		}
+	}
+	got := 0
+	for {
+		select {
+		case <-sub.Events():
+			got++
+			continue
+		default:
+		}
+		break
+	}
+	if got != 16 {
+		t.Errorf("slow subscriber received %d events, want exactly the 16 buffered", got)
+	}
+}
