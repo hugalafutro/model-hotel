@@ -97,3 +97,7 @@ __pycache__/
 
 # Catalog drift reporter (local-only for now; unignore + wire into CI once proven)
 /tools/refresh-catalogs/
+
+# Local agent tooling (skills, lockfile); never published
+/.agents/
+/skills-lock.json

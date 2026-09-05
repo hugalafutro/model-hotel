@@ -119,13 +119,13 @@ func TestLogsCacheSet_ExpiresInFuture(t *testing.T) {
 
 	// Check that expiry is in the future
 	entry := cache.entries["test"]
-	if entry == nil { //nolint:staticcheck // SA5011
+	if entry == nil {
 		t.Fatal("expected entry to exist")
 	}
-	if !entry.expiry.After(time.Now()) { //nolint:staticcheck // SA5011
+	if !entry.expiry.After(time.Now()) {
 		t.Error("expected expiry to be in the future")
 	}
-	if entry.expiry.After(time.Now().Add(2 * time.Second)) { //nolint:staticcheck // SA5011
+	if entry.expiry.After(time.Now().Add(2 * time.Second)) {
 		t.Error("expected expiry to be within TTL")
 	}
 }

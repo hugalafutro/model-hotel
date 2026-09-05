@@ -40,7 +40,7 @@ func newStreamSink(w http.ResponseWriter) *streamSink {
 // NOT flush — callers flush explicitly so the existing flush points stay
 // byte-for-byte where they were.
 func (s *streamSink) write(p []byte) error {
-	//nolint:gosec // G705 false positive: SSE frame to a text/event-stream response, not HTML
+	// #nosec G705 -- SSE frame to a text/event-stream response, not HTML
 	n, err := s.w.Write(p)
 	s.bytesWritten += int64(n)
 	return err

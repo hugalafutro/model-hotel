@@ -144,7 +144,7 @@ func TestSPAHandler_ConstructedDirectly_WithFileServer(t *testing.T) {
 	customFS := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript")
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("// custom file server")) //nolint:errcheck // test only
+		w.Write([]byte("// custom file server"))
 	})
 
 	h := &SPAHandler{

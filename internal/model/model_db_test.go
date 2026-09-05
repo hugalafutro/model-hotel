@@ -27,12 +27,12 @@ func TestMain(m *testing.M) {
 	testDB, err := db.New(ctx, dbURL, 25, 5)
 	if err != nil {
 		log.Printf("failed to initialize test DB: %v", err)
-		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
+		os.Exit(1)
 	}
 	testPool = testDB.Pool()
 	defer testDB.Close()
 
-	os.Exit(m.Run()) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
+	os.Exit(m.Run())
 }
 
 // insertTestProvider inserts a provider row and returns its ID.

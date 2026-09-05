@@ -356,7 +356,7 @@ func TestVerifyBackupHandle_ChecksTheOpenInodeNotThePath(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(path) //nolint:gosec // test-controlled temp path
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -390,7 +390,7 @@ func TestVerifyBackupHandle_LeavesTheHandleAtTheStart(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(path) //nolint:gosec // test-controlled temp path
+	f, err := os.Open(path)
 	if err != nil {
 		t.Fatal(err)
 	}

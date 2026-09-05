@@ -634,7 +634,6 @@ func TestPrunePreview(t *testing.T) {
 			fmt.Sprintf("backup_%s_001_auto.dump", now.AddDate(0, -3, 0).Format("20060102_150405")),
 		}
 		for _, name := range names {
-			//nolint:gosec // test-only: permissive perms acceptable
 			if err := os.WriteFile(filepath.Join(dir, name), []byte("test"), 0o644); err != nil {
 				t.Fatal(err)
 			}
@@ -715,7 +714,6 @@ func TestApplyPrune(t *testing.T) {
 		// Create an old scheduler backup that falls outside retention periods.
 		oldTime := time.Now().AddDate(-2, 0, 0)
 		oldName := fmt.Sprintf("backup_%s_001_auto.dump", oldTime.Format("20060102_150405"))
-		//nolint:gosec // test-only: permissive perms acceptable
 		if err := os.WriteFile(filepath.Join(dir, oldName), []byte("old-backup"), 0o644); err != nil {
 			t.Fatal(err)
 		}

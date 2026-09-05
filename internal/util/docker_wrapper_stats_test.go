@@ -14,7 +14,6 @@ func TestGetContainerStats(t *testing.T) {
 
 	// Use the production dockerStatsResponse type directly
 	var statsResp dockerStatsResponse
-	//nolint:gosec // test-only: error handling not critical
 	json.Unmarshal([]byte(`{
 		"cpu_stats": {
 			"cpu_usage": {"total_usage": 500, "percpu_usage": [250, 250]},
@@ -52,7 +51,6 @@ func TestGetContainerStats(t *testing.T) {
 		if r.URL.Path != "/containers/abc123def4567/stats" {
 			t.Errorf("unexpected path: %s", r.URL.Path)
 		}
-		//nolint:gosec // test-only: error handling not critical
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(statsResp)
 	}))

@@ -240,8 +240,6 @@ func (h *Handler) GetAppLogs(w http.ResponseWriter, r *http.Request) {
 // getAppLogCounts returns cached unfiltered level and source counts.
 // The cache refreshes every appLogCountCacheTTL to avoid running GROUP BY
 // queries on every paginated history request (which polls every 2s in live mode).
-//
-//nolint:revive // result names not needed for internal API types
 func (h *Handler) getAppLogCounts(ctx context.Context) (map[string]int, map[string]int) {
 	appLogCountCache.RLock()
 	if time.Since(appLogCountCache.fetchedAt) < appLogCountCacheTTL && appLogCountCache.levelCounts != nil {

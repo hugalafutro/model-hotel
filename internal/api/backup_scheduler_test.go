@@ -853,7 +853,6 @@ func TestRunScheduledBackup_RotationWithExistingBackups(t *testing.T) {
 
 	// Create an old backup file to test rotation after a new backup
 	oldName := fmt.Sprintf("backup_%s_001.dump", time.Now().AddDate(0, 0, -1).Format("20060102_150405"))
-	//nolint:gosec // test-only
 	if err := os.WriteFile(filepath.Join(dir, oldName), []byte("old"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -932,16 +931,13 @@ if [ -n "$OUTPUT_FILE" ]; then
 fi
 exit 0
 `
-	//nolint:gosec // test-only: script in temp dir
 	if err := os.WriteFile(mockPgDump, []byte(mockScript), 0o755); err != nil {
 		t.Fatalf("failed to write mock pg_dump: %v", err)
 	}
 
 	// Temporarily prepend the mock dir to PATH
 	originalPath := os.Getenv("PATH")
-	//nolint:errcheck // cleanup: restore PATH after test
 	defer os.Setenv("PATH", originalPath)
-	//nolint:errcheck // prepend mock dir to PATH
 	os.Setenv("PATH", tmpDir+":"+originalPath)
 
 	backupDir := t.TempDir()
@@ -965,7 +961,6 @@ exit 0
 	// Create some old scheduler backup files that should be pruned by rotation
 	// ("_auto" marks them as scheduler-created; manual backups are never pruned).
 	oldName := "backup_20240101_120000_001_auto.dump"
-	//nolint:gosec // test-only
 	if err := os.WriteFile(filepath.Join(backupDir, oldName), []byte("old backup data"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -1032,15 +1027,12 @@ if [ -n "$OUTPUT_FILE" ]; then
 fi
 exit 0
 `
-	//nolint:gosec // test-only
 	if err := os.WriteFile(mockPgDump, []byte(mockScript), 0o755); err != nil {
 		t.Fatalf("failed to write mock pg_dump: %v", err)
 	}
 
 	originalPath := os.Getenv("PATH")
-	//nolint:errcheck // cleanup
 	defer os.Setenv("PATH", originalPath)
-	//nolint:errcheck // test-only: prepend mock dir to PATH
 	os.Setenv("PATH", tmpDir+":"+originalPath)
 
 	backupDir := t.TempDir()
@@ -1231,15 +1223,12 @@ if [ -n "$OUTPUT_FILE" ]; then
 fi
 exit 0
 `
-	//nolint:gosec // test-only
 	if err := os.WriteFile(mockPgDump, []byte(mockScript), 0o755); err != nil {
 		t.Fatalf("failed to write mock pg_dump: %v", err)
 	}
 
 	originalPath := os.Getenv("PATH")
-	//nolint:errcheck // cleanup
 	defer os.Setenv("PATH", originalPath)
-	//nolint:errcheck // test-only: prepend mock dir to PATH
 	os.Setenv("PATH", tmpDir+":"+originalPath)
 
 	backupDir := t.TempDir()
@@ -1251,7 +1240,6 @@ exit 0
 		"backup_20240115_090000_001_auto.dump", // old enough to be pruned
 	}
 	for _, name := range oldFiles {
-		//nolint:gosec // test-only
 		if err := os.WriteFile(filepath.Join(backupDir, name), []byte("old data"), 0o644); err != nil {
 			t.Fatal(err)
 		}
@@ -1333,15 +1321,12 @@ if [ -n "$OUTPUT_FILE" ]; then
 fi
 exit 0
 `
-	//nolint:gosec // test-only
 	if err := os.WriteFile(mockPgDump, []byte(mockScript), 0o755); err != nil {
 		t.Fatalf("failed to write mock pg_dump: %v", err)
 	}
 
 	originalPath := os.Getenv("PATH")
-	//nolint:errcheck // cleanup
 	defer os.Setenv("PATH", originalPath)
-	//nolint:errcheck // test-only: prepend mock dir to PATH
 	os.Setenv("PATH", tmpDir+":"+originalPath)
 
 	backupDir := t.TempDir()
@@ -1365,7 +1350,6 @@ exit 0
 
 	// Create an old scheduler backup with a valid filename (classified as prune)
 	oldName := "backup_20230101_120000_001_auto.dump"
-	//nolint:gosec // test-only
 	if err := os.WriteFile(filepath.Join(backupDir, oldName), []byte("old data"), 0o644); err != nil {
 		t.Fatal(err)
 	}

@@ -20,10 +20,18 @@ linters:
     - nilerr       # Checks for returning nil even if err != nil
     - bodyclose    # HTTP response body must be closed
     - forbidigo    # Ban t.Skip: tests must pass or fail (see settings below)
+    - nolintlint   # Every //nolint must name a linter, carry a reason, and actually suppress something
 
   settings:
     errcheck:
       check-type-assertions: false
+
+    nolintlint:
+      # A directive that suppresses nothing is dead weight: either the linter
+      # is not enabled or the config already excludes it for that path.
+      allow-unused: false
+      require-explanation: true
+      require-specific: true
 
     forbidigo:
       # The test database and every required tool (pg_dump, pg_restore, docker)

@@ -315,7 +315,7 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		client.CheckRedirect = h.safeDialer.CheckRedirect
 	}
 
-	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
+	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	resp, err := client.Do(req)
 	if err != nil {
 		// A connection that never landed, a DNS failure or an expired deadline

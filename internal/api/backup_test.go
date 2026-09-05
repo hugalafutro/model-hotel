@@ -17,7 +17,6 @@ import (
 	"github.com/go-chi/chi/v5"
 )
 
-//nolint:gosec,revive // test-only: error not critical, unnamedResult is test helper
 func setupBackupRouter(t *testing.T) (chi.Router, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -58,13 +57,11 @@ func TestBackupHandler_ListBackups_WithFiles(t *testing.T) {
 
 	// Create fake backup files - names encode timestamps so sort is deterministic
 	for _, name := range []string{"backup_20250101_120000.dump", "backup_20250102_120000.dump"} {
-		//nolint:gosec // test-only: permissive perms acceptable
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("test"), 0o644); err != nil {
 			t.Fatal(err)
 		}
 	}
 	// Create a non-dump file that should be ignored
-	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("test"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -98,7 +95,6 @@ func TestBackupHandler_DownloadBackup(t *testing.T) {
 	r, dir := setupBackupRouter(t)
 
 	content := []byte("fake backup content")
-	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), content, 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -159,7 +155,6 @@ func TestBackupHandler_DownloadBackup_DoesNotHoldBackupMutex(t *testing.T) {
 	dir := t.TempDir()
 	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
 
-	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), []byte("payload"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -241,7 +236,6 @@ func TestBackupHandler_DeleteBackup(t *testing.T) {
 	r, dir := setupBackupRouter(t)
 
 	path := filepath.Join(dir, "backup_delete.dump")
-	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(path, []byte("test"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -420,7 +414,6 @@ func TestBackupHandler_DeleteBackup_RemoveError(t *testing.T) {
 	}
 
 	// Make directory read-only so os.Remove fails
-	//nolint:gosec // test-only: permissive to restrictive is fine
 	if err := os.Chmod(dir, 0o500); err != nil {
 		t.Fatal(err)
 	}
@@ -514,7 +507,6 @@ func TestBackupHandler_ListBackups_SingleDumpFile(t *testing.T) {
 	// Create a .dump file (content is not a real pg_dump, but ListBackups
 	// only reads file info, not content).
 	dumpPath := filepath.Join(dir, "backup_valid.dump")
-	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(dumpPath, []byte("test"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -773,7 +765,6 @@ func TestCreateBackup_Success(t *testing.T) {
 	// Verify the backup file actually exists on disk
 	backupPath := backupDir + "/" + resp.Filename
 	if _, err := exec.LookPath("stat"); err == nil {
-		//nolint:gosec // test-only subprocess
 		if _, err := exec.Command("stat", backupPath).CombinedOutput(); err != nil {
 			t.Errorf("backup file should exist at %s", backupPath)
 		}
@@ -923,7 +914,6 @@ func TestNewBackupHandler_AbsFallback_Subprocess(t *testing.T) {
 	}
 
 	// Delete the CWD while the subprocess is running
-	//nolint:gosec // test-only: removing test directory
 	if err := os.RemoveAll(tmpDir); err != nil {
 		t.Fatalf("cannot remove temp dir: %v", err)
 	}
@@ -969,22 +959,18 @@ fi
 # Exit successfully so the handler thinks backup worked
 exit 0
 `
-	//nolint:gosec // test-only: script in temp dir
 	if err := os.WriteFile(mockPgDump, []byte(mockScript), 0o755); err != nil {
 		t.Fatalf("failed to write mock pg_dump: %v", err)
 	}
 
 	// Temporarily modify PATH so exec.LookPath finds our mock first
 	originalPath := os.Getenv("PATH")
-	//nolint:errcheck // cleanup: restore PATH after test
 	defer os.Setenv("PATH", originalPath)
-	//nolint:errcheck // prepend mock dir to PATH
 	os.Setenv("PATH", tmpDir+":"+originalPath)
 
 	// Test case 1: DATABASE_URL with password
 	t.Run("with_password", func(t *testing.T) {
 		// Clear capture file
-		//nolint:errcheck,gosec // test-only: clearing capture file
 		os.WriteFile(captureFile, []byte{}, 0o644)
 
 		backupDir := t.TempDir()
@@ -1042,7 +1028,6 @@ exit 0
 	// Test case 2: DATABASE_URL without password
 	t.Run("without_password", func(t *testing.T) {
 		// Clear capture file
-		//nolint:errcheck,gosec // test-only: clearing capture file
 		os.WriteFile(captureFile, []byte{}, 0o644)
 
 		backupDir := t.TempDir()
@@ -1090,8 +1075,6 @@ exit 0
 
 // setupBackupRouterWithSettings creates a backup handler with a settingsRepo for tests
 // that need retention settings.
-//
-//nolint:revive // unnamedResult is test helper
 func setupBackupRouterWithSettings(t *testing.T, ss SettingsStore) (chi.Router, string) {
 	t.Helper()
 	dir := t.TempDir()

@@ -365,7 +365,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	}
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(resp.StatusCode)
-	//nolint:gosec // G705 false positive: provider JSON body, not HTML; Content-Type is application/json
+	// #nosec G705 -- provider JSON body, not HTML; Content-Type is application/json
 	if _, writeErr := w.Write(body); writeErr != nil {
 		debuglog.Warn("proxy: client write failed during passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", writeErr)
 	}

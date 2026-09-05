@@ -56,7 +56,6 @@ func TestDiscoverCohere(t *testing.T) {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		//nolint:gosec // test-only
 		json.NewEncoder(w).Encode(response)
 	}))
 	defer server.Close()

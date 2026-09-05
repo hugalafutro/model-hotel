@@ -92,13 +92,11 @@ func TestGetOwnContainerID_CgroupV1(t *testing.T) {
 11:cpu:/docker/abc123def4567890
 10:blkio:/docker/abc123def4567890`
 	cgroupFile := tmpDir + "/cgroup"
-	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0o644); err != nil {
 		t.Fatalf("failed to write temp cgroup file: %v", err)
 	}
 
 	// Read the file manually to verify the logic (since we can't override the path)
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(cgroupFile)
 	if err != nil {
 		t.Fatalf("failed to read temp file: %v", err)
@@ -136,12 +134,10 @@ func TestGetOwnContainerID_CgroupV2(t *testing.T) {
 	tmpDir := t.TempDir()
 	cgroupContent := `0::/abc123def4567890`
 	cgroupFile := tmpDir + "/cgroup"
-	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(cgroupFile, []byte(cgroupContent), 0o644); err != nil {
 		t.Fatalf("failed to write temp cgroup file: %v", err)
 	}
 
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(cgroupFile)
 	if err != nil {
 		t.Fatalf("failed to read temp file: %v", err)
@@ -175,12 +171,10 @@ func TestGetOwnContainerID_CgroupV2(t *testing.T) {
 func TestGetOwnContainerID_Empty(t *testing.T) {
 	tmpDir := t.TempDir()
 	cgroupFile := tmpDir + "/cgroup"
-	//nolint:gosec // test-only: permissive perms acceptable
 	if err := os.WriteFile(cgroupFile, []byte(""), 0o644); err != nil {
 		t.Fatalf("failed to write temp cgroup file: %v", err)
 	}
 
-	//nolint:gosec // test-only: controlled test path
 	data, err := os.ReadFile(cgroupFile)
 	if err != nil {
 		t.Fatalf("failed to read temp file: %v", err)

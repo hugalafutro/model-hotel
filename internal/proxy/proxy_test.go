@@ -42,11 +42,11 @@ func TestMain(m *testing.M) {
 	testDB, err = db.New(ctx, testDBURL, 25, 5)
 	if err != nil {
 		log.Printf("failed to initialize test DB: %v", err)
-		os.Exit(1) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
+		os.Exit(1)
 	}
 	defer testDB.Close()
 
-	os.Exit(m.Run()) //nolint:gocritic // test-only: os.Exit in TestMain is intentional
+	os.Exit(m.Run())
 }
 
 // newIntegrationHandler creates a Handler with a real settings.Repository

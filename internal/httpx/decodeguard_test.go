@@ -69,7 +69,7 @@ func TestNoUnboundedJSONDecode(t *testing.T) {
 		if filepath.Dir(abs) == selfDir {
 			return nil
 		}
-		src, err := os.ReadFile(path) //nolint:gosec // walking this repo's own source tree
+		src, err := os.ReadFile(path)
 		if err != nil {
 			return err
 		}

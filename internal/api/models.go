@@ -653,14 +653,14 @@ func (h *Handler) doTestModelEgressRequest(ctx context.Context, client *http.Cli
 	if err != nil {
 		return nil, err
 	}
-	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
+	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	req, err := http.NewRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
 	util.SetProviderAuthHeaders(req, providerType, apiKey)
 	req.Header.Set("Content-Type", "application/json")
-	//nolint:gosec // provider URL is admin-configured, not arbitrary user input
+	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	resp, err := client.Do(req)
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return resp, err

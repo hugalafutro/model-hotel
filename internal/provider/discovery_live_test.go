@@ -61,7 +61,6 @@ func TestAnthropicDiscoveryLiveAPI(t *testing.T) {
 
 	for _, m := range models {
 		var caps model.Capability
-		//nolint:gosec // test-only
 		json.Unmarshal([]byte(m.Capabilities), &caps)
 		ctxLen := "<nil>"
 		if m.ContextLength != nil {

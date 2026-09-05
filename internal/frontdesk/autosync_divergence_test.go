@@ -26,7 +26,7 @@ func TestAutoSync_MemberVersionUnreadableIsNotSkipped(t *testing.T) {
 	replica.dryDiff = driftDiff
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	enableAutoSync(t, store, pm.ID)
 	alignFleetVersions(t, srv, store, "dev")
 
@@ -171,7 +171,7 @@ func TestAutoSyncPrimaryExportUnreadable(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
-	store.CreateMember(t.Context(), "other", other.srv.URL, "otoken") //nolint:errcheck // presence is the point
+	store.CreateMember(t.Context(), "other", other.srv.URL, "otoken")
 	enableAutoSync(t, store, pm.ID)
 	alignFleetVersions(t, srv, store, "dev") // else the version gate holds both members first
 
@@ -199,7 +199,7 @@ func TestAutoSyncReEnableConvergesDriftedReplica(t *testing.T) {
 	replica.dryDiff = driftDiff
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	if err := store.SetAutoSync(t.Context(), true, pm.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
 	}

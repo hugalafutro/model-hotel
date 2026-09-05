@@ -160,7 +160,7 @@ func ConfirmMissingModels(ctx context.Context, svc *provider.DiscoveryService, p
 	}
 
 	for probe, delay := range confirmProbeDelays {
-		//nolint:gosec // jitter, not crypto
+		// jitter, not crypto
 		wait := delay + time.Duration(rand.Int64N(int64(confirmProbeJitter)))
 		debuglog.Info("discovery: models absent from listing, running confirmation probe",
 			"provider", prov.Name, "provider_id", prov.ID, "missing", missing,

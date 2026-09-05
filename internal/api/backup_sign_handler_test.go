@@ -18,8 +18,6 @@ import (
 
 // setupSignedBackupRouter is setupBackupRouter with a signing key wired, so the
 // signature paths are exercised the way a configured deployment runs them.
-//
-//nolint:revive // unnamedResult: test helper, mirrors setupBackupRouter
 func setupSignedBackupRouter(t *testing.T, masterKey string) (chi.Router, string) {
 	t.Helper()
 	dir := t.TempDir()

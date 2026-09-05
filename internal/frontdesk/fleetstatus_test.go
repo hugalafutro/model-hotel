@@ -196,7 +196,7 @@ func TestFleetStatusEmptyPrimaryExport(t *testing.T) {
 	replica := newStubFleetMember(t, "rtoken")
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 
 	resp := fleetStatusByID(t, srv, pm.ID)
 	if resp.PrimaryReachable {

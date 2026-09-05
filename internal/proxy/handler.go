@@ -397,7 +397,7 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		debuglog.Debug("proxy: virtual key auth", "key", vk.Name, "strip_reasoning", vk.StripReasoning)
 		// Fire-and-forget touch with a timeout so the goroutine cannot
 		// outlive the server if the DB is slow.
-		//nolint:gosec // intentional: periodic cache refresh is not request-scoped
+		// #nosec G118 -- intentional: periodic cache refresh is not request-scoped
 		go func(hash string) {
 			defer func() {
 				if r := recover(); r != nil {

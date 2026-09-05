@@ -103,6 +103,6 @@ func (h *Handler) readAnthropicBody(w http.ResponseWriter, r *http.Request) ([]b
 func writeAnthropicError(w http.ResponseWriter, message string, status int) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	//nolint:gosec // G705 false positive: Anthropic JSON error body, not HTML; Content-Type is application/json
+	// #nosec G705 -- Anthropic JSON error body, not HTML; Content-Type is application/json
 	_, _ = w.Write(anthropic.BuildErrorResponseFromMessage(message, status))
 }

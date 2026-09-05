@@ -384,7 +384,7 @@ func TestAutoSync_HealthyMemberIsSyncedOnceWhileAnotherIsIncomplete(t *testing.T
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	im, _ := store.CreateMember(t.Context(), "incomplete", incomplete.srv.URL, "itoken")
-	store.CreateMember(t.Context(), "healthy", healthy.srv.URL, "htoken") //nolint:errcheck // presence is the point
+	store.CreateMember(t.Context(), "healthy", healthy.srv.URL, "htoken")
 	enableAutoSync(t, store, pm.ID)
 	alignFleetVersions(t, srv, store, "dev")
 

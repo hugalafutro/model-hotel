@@ -422,7 +422,7 @@ func TestConfigSyncTakesNoPreSyncBackup(t *testing.T) {
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	enableAutoSync(t, store, pm.ID)
-	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken") //nolint:errcheck // presence is the point
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
 	alignFleetVersions(t, srv, store, "dev")
 
 	rec := do(t, srv, http.MethodPost, "/api/config/sync", `{"primary_id":"`+pm.ID+`"}`, true)

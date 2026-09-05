@@ -216,7 +216,7 @@ func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider 
 
 		// The OpenAI listing has no type; NormalizeModelClassification's name
 		// heuristics keep embedding/reranker models out of the chat picker.
-		//nolint:gocritic // model variable shadows import but context makes it clear
+		// model shadows the imported package for the rest of this block.
 		model := &model.Model{
 			ID:              uuid.New(),
 			ProviderID:      provider.ID,

@@ -187,12 +187,12 @@ func (h *Handler) providerNameByID(ctx context.Context) func(string) string {
 // undo a too-wide list this function let through.
 func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]string, error) {
 	if ownerID == nil || h.userRepo == nil {
-		return nil, nil //nolint:nilnil // nil cap = unrestricted, not an error sentinel
+		return nil, nil // nil cap = unrestricted, not an error sentinel
 	}
 	u, err := h.userRepo.Get(ctx, *ownerID)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
-			return nil, nil //nolint:nilnil // deleted owner; the FK rejects the write
+			return nil, nil // deleted owner; the FK rejects the write
 		}
 		return nil, err
 	}
@@ -200,7 +200,7 @@ func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]
 		// A store that reports neither a row nor an error. The real repository
 		// returns ErrNotFound, but ownerUsername guards this too and an
 		// authorization input must not depend on which of the two it gets.
-		return nil, nil //nolint:nilnil // no row = no cap to enforce
+		return nil, nil // no row = no cap to enforce
 	}
 	return u.AllowedProviders, nil
 }
@@ -288,7 +288,7 @@ func resolveWriteOwner(id *user.Identity, requested *string) (*uuid.UUID, error)
 		return id.UserID, nil
 	}
 	if requested == nil || *requested == "" {
-		return nil, nil //nolint:nilnil // nil owner = unowned key, not an error sentinel
+		return nil, nil // nil owner = unowned key, not an error sentinel
 	}
 	uid, err := uuid.Parse(*requested)
 	if err != nil {

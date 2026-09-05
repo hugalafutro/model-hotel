@@ -125,7 +125,7 @@ func (b *Bus) Close() {
 func closeAndDrain(ch chan Event) {
 	close(ch)
 	go func() {
-		//nolint:revive,gosec // intentional: empty block for channel drain
+		//nolint:revive // intentional: empty block for channel drain
 		for range ch {
 		}
 	}()
