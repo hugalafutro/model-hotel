@@ -365,7 +365,7 @@ Virtual keys can override global rate limits via `rate_limit_rps` and `rate_limi
 - **`null`**: Use global settings from `settings` table
 - **`0` for RPS**: Unlimited requests (no rate limiting for this key)
 - **`0` for burst**: Invalid - rejected on creation/update (must be ≥ 1)
-- **Above the global maximum** (rps 10000, burst 10000, tpm 100000000): Invalid - rejected on creation/update through the dashboard and API. Those ceilings are already effectively unlimited, so a fleet config sync deliberately does not re-check them (an older member must not reject a whole envelope over a raised ceiling)
+- **Above the global maximum** (rps 10000, burst 10000, tpm 100000000): Invalid - rejected on creation/update through the dashboard and API. A fleet config sync deliberately does not re-check them and honours the primary's larger limit as stored (an older member must not reject a whole envelope over a raised ceiling); the ceilings are already effectively unlimited, so nothing meaningful is relaxed. Rows set above a ceiling before it existed were clamped to it by migration 081
 
 ### Token Rate Limiting (TPM)
 

@@ -664,11 +664,12 @@ func (h *Handler) DeleteVirtualKey(w http.ResponseWriter, r *http.Request) {
 // The ceilings are the same numbers as the settings API's, so no interactive
 // caller can give a key or user a value the operator could not set globally.
 // They are input sanity, not a spend control: 10000 rps and 100 M tokens/min are
-// already effectively unlimited, so a value above them relaxed nothing that the
-// ceiling itself does not. That is why they live only here, not in the
-// config-sync import (validateSyncedRateLimits mirrors the floors alone) and not
-// in the migration 064 CHECK constraints, which hold floors only: a schema
-// ceiling would reject a synced envelope at the DB the same way.
+// already effectively unlimited, so a larger value buys no spend a smaller
+// operator would have wanted to stop. That is why they live only here, not in
+// the config-sync import (validateSyncedRateLimits mirrors the floors alone and
+// honours a primary's larger limit) and not as a CHECK constraint (migration
+// 064 holds floors only; migration 081 clamped the rows that predate the
+// ceilings): a schema ceiling would reject a synced envelope at the DB.
 // Returns a non-nil error (already written to w) if validation fails.
 func validateRateLimits(rps *float64, burst, tpm *int, w http.ResponseWriter) error {
 	if rps != nil && *rps < 0 {

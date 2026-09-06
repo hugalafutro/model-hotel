@@ -355,12 +355,15 @@ func validateSyncedSetting(key, value string) error {
 // already validated these on the way in, so anything out of bounds means a
 // compromised or corrupt envelope, and the limits it would relax meter the data
 // plane. And for the same reason as there, the interactive ceilings are NOT
-// mirrored: they sit at values that are already effectively unlimited (10000
-// rps, 100 M tokens/min), so an import above them relaxes nothing the ceiling
-// itself would not, while a newer primary that RAISES a ceiling must not make an
-// older member reject the ENTIRE envelope. The trade runs one way: a release
-// that LOWERS a ceiling leaves the import path writing values the interactive
-// API refuses, and nothing here would notice; lower one and revisit this.
+// mirrored: an import above them is honoured as the primary's larger limit
+// (the limiters size the bucket to whatever is stored, so 200 M tpm really is
+// twice the ceiling's budget), because a newer primary that RAISES a ceiling
+// must not make an older member reject the ENTIRE envelope, and because the
+// ceilings are already effectively unlimited (10000 rps, 100 M tokens/min), so
+// what is honoured is not a spend risk. Migration 081 clamped the rows that
+// predate the ceilings. The trade runs one way: a release that LOWERS a ceiling
+// leaves the import path writing values the interactive API refuses, and
+// nothing here would notice; lower one and revisit this.
 //
 // NOT mirrored on the import path: the interactive API's username
 // length/whitespace rules, display-name length, role allowlist, virtual-key
