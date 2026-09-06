@@ -14,6 +14,7 @@ import com.hugalafutro.bellhop.data.AlertEventDef
 import com.hugalafutro.bellhop.data.AlertStatus
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -24,7 +25,8 @@ import org.robolectric.annotation.Config
 
 /**
  * Alerts screen: delivery-status pill, catalog rows, revoked banner, back arrow.
- * Asserts on test tags, not display text, so English copy never breaks tests.
+ * Asserts on test tags, not display text, so English copy never breaks tests;
+ * the one text assertion reads its expectation back through getString.
  */
 @RunWith(RobolectricTestRunner::class)
 class AlertsScreenTest {
@@ -190,8 +192,13 @@ class AlertsScreenTest {
             }
         }
         val app = RuntimeEnvironment.getApplication()
+        val expected = app.getString(R.string.alerts_category_config_sync)
+        // Pins the qualifier: were the German resources not in effect, the
+        // expectation would equal the raw English and the assert below would
+        // pass against an untranslated header.
+        assertNotEquals("Config Sync", expected)
         composeTestRule.onNodeWithTag("alerts-list").performScrollToNode(hasTestTag("alert-sev-info"))
-        composeTestRule.onNodeWithText(app.getString(R.string.alerts_category_config_sync)).assertIsDisplayed()
+        composeTestRule.onNodeWithText(expected).assertIsDisplayed()
     }
 
     @Test
