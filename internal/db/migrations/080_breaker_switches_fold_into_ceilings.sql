@@ -8,15 +8,21 @@
 -- switches the feature off. Reset the setting to get the default back.
 --
 -- A member whose switch was off keeps that: its ceiling becomes zero whether
--- or not a ceiling row existed. Then the retired switch rows go, so they stop
--- shipping in config-sync envelopes and backups.
+-- or not a ceiling row existed. Off is whatever the previous release's
+-- strconv.ParseBool read as false; the dashboard wrote "false", but the API
+-- typed the key as a free string. Then the retired switch rows go, so they
+-- stop shipping in config-sync envelopes and backups.
+--
+-- Rolling a member back to the previous build reads the zero ceiling as
+-- unset and applies the default, so a feature switched off here comes back
+-- on there until the old switch is set again.
 INSERT INTO settings (key, value)
 SELECT c.ceiling, '0s'
 FROM (VALUES
     ('circuit_breaker_quota_pin_enabled', 'circuit_breaker_quota_pin_max'),
     ('circuit_breaker_backoff_enabled', 'circuit_breaker_backoff_max')
 ) AS c(switch, ceiling)
-JOIN settings s ON s.key = c.switch AND s.value = 'false'
+JOIN settings s ON s.key = c.switch AND lower(s.value) IN ('false', 'f', '0')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 
 DELETE FROM settings

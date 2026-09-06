@@ -635,22 +635,15 @@ func (cb *CircuitBreaker) backoffMax() time.Duration {
 	return ceilingOrDefault(cb.settings, "circuit_breaker_backoff_max", defaultBackoffMax)
 }
 
-// unsetCeiling is the sentinel a ceiling read comes back with when the key has
-// no row or does not parse, so that a stored zero (off) can be told from an
-// absent key (default). No operator stores a negative nanosecond.
-const unsetCeiling = -1
-
-// ceilingOrDefault reads a duration ceiling whose zero means off: absent or
-// unparsable falls back to def, anything stored comes back clamped at zero.
+// ceilingOrDefault reads a duration ceiling whose zero means off. GetDuration
+// already answers def for an absent or unparsable row and the stored value
+// otherwise, so a stored zero comes through as zero; a stored negative is
+// clamped to the same off position.
 func ceilingOrDefault(settings SettingsReader, key string, def time.Duration) time.Duration {
 	if settings == nil {
 		return def
 	}
-	v := settings.GetDuration(context.Background(), key, unsetCeiling)
-	if v == unsetCeiling {
-		return def
-	}
-	return max(v, 0)
+	return max(settings.GetDuration(context.Background(), key, def), 0)
 }
 
 // quotaPinnedForWith reports whether a quota pin is governing this circuit. The

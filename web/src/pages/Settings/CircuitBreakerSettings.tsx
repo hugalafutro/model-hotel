@@ -57,23 +57,24 @@ const SUCCESS_WINDOW_MIN_SECONDS = 10;
 const SUCCESS_WINDOW_MAX_SECONDS = 300;
 
 // What the breaker's duration parser accepts (internal/settings/settings.go:
-// ParseDuration): a bare 0, or a number with a Go unit, days included.
-const GO_DURATION = /^(0|-?\d+(\.\d+)?(ns|us|µs|ms|s|m|h|d))/;
+// parseDuration), whole string: a bare 0, or a signed run of number-and-unit
+// pairs, days included.
+const GO_DURATION = /^(0|-?(\d+(\.\d+)?(ns|us|µs|ms|s|m|h|d))+)$/;
 
 // ceilingForSlider maps a stored ceiling onto a slider whose zero is the off
 // switch, mirroring the breaker's reads (internal/failover/model_circuits.go:
 // ceilingOrDefault). An absent key is the default, and so is text the breaker
-// cannot parse, since it falls back to the default too. A duration that
-// amounts to nothing positive is the off position. Anything positive shows at
-// least one step: a live ten-minute pin ceiling rounds to zero hours, and
-// zero would read as switched off, which it is not.
+// cannot parse, since it falls back to the default too. A negative duration
+// is clamped to off there, and so is one whose every number is zero. Anything
+// else is positive and shows at least one step: a live ten-minute pin ceiling
+// rounds to zero hours, and zero would read as switched off, which it is not.
 function ceilingForSlider(
 	stored: string | undefined,
 	def: number,
 	toUnit: (d: string) => number,
 ): number {
 	if (stored === undefined || !GO_DURATION.test(stored)) return def;
-	if (goDurationToSeconds(stored) <= 0) return 0;
+	if (stored.startsWith("-") || !/[1-9]/.test(stored)) return 0;
 	return Math.max(1, toUnit(stored));
 }
 

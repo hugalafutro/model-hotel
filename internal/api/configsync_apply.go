@@ -259,23 +259,31 @@ func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want
 
 // retiredBreakerSwitches maps each circuit-breaker on/off key that migration
 // 080 retired to the ceiling that now carries the switch: a ceiling of zero is
-// off. An envelope from a member still running the older release carries the
-// switch, and "false" has to keep meaning off on this member, or a sync from
-// an older primary would silently turn pinning or backoff back on.
+// off. Fleet sync holds while builds differ (the version-skew gate), so no
+// envelope from an older primary reaches this code through Front Desk; the
+// fold covers an envelope pushed by hand from an older export, where a false
+// switch has to keep meaning off rather than silently turning pinning or
+// backoff back on.
 var retiredBreakerSwitches = map[string]string{
 	"circuit_breaker_quota_pin_enabled": "circuit_breaker_quota_pin_max",
 	"circuit_breaker_backoff_enabled":   "circuit_breaker_backoff_max",
 }
 
-// foldRetiredBreakerSwitches returns want with each retired "false" switch
-// folded into a zero ceiling. The retired keys themselves are no longer in
-// the allowlist, so the apply loop skips them either way. Copy-on-write: the
-// caller's envelope is not touched. applyImport folds once and hands the
-// result to both the settings transaction and the cache invalidation.
+// foldRetiredBreakerSwitches returns want with each retired switch that reads
+// false folded into a zero ceiling. False is whatever strconv.ParseBool read
+// as false, since that is how the older release read the row ("0", "f" and
+// "FALSE" included). The retired keys themselves are no longer in the
+// allowlist, so the apply loop skips them either way. Copy-on-write: the
+// caller's envelope is not touched. apply folds once and hands the result to
+// both the settings transaction and the cache invalidation.
 func foldRetiredBreakerSwitches(want map[string]string) map[string]string {
 	var out map[string]string
 	for legacy, ceiling := range retiredBreakerSwitches {
-		if want[legacy] != "false" {
+		v, ok := want[legacy]
+		if !ok {
+			continue
+		}
+		if b, err := strconv.ParseBool(v); err != nil || b {
 			continue
 		}
 		if out == nil {

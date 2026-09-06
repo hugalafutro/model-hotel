@@ -831,14 +831,13 @@ func TestConfigSync_SyncsSSOAllowlists(t *testing.T) {
 	}
 }
 
-// A zero quota-pin ceiling is the off switch. It travels as itself, and for a
-// member still on the release before migration 080 (which reads a non-positive
-// ceiling as unset) the envelope carries the retired switch it still honours
-// beside it. In the other direction, an envelope from a primary still on that
-// release carries only the switch (toggle flipped, slider never touched, no
-// ceiling row): a member on this release folds it into a zero ceiling, keeps
-// no switch row, and serves the zero at once rather than a cached absence.
-func TestConfigSync_ZeroPinCeilingTravelsWithTheRetiredSwitch(t *testing.T) {
+// An envelope from a primary on the release before migration 080 carries the
+// retired switch and, in the common case (toggle flipped, slider never
+// touched), no ceiling key at all. A member on this release folds it into a
+// zero ceiling, keeps no switch row, and serves the zero at once rather than
+// a cached absence. The switch is read the way the older release read it, so
+// "0" is false too.
+func TestConfigSync_RetiredSwitchFoldsIntoAZeroCeiling(t *testing.T) {
 	cleanConfigTables(t)
 	ctx := context.Background()
 	settingsRepo := settings.NewRepository(apiTestDB.Pool())
@@ -855,16 +854,14 @@ func TestConfigSync_ZeroPinCeilingTravelsWithTheRetiredSwitch(t *testing.T) {
 	if got := env.Config.Settings["circuit_breaker_quota_pin_max"]; got != "0s" {
 		t.Fatalf("exported pin ceiling = %q, want 0s", got)
 	}
-	if got := env.Config.Settings["circuit_breaker_quota_pin_enabled"]; got != "false" {
-		t.Fatalf("exported retired pin switch = %q, want false beside a zero ceiling", got)
-	}
-	if _, ok := env.Config.Settings["circuit_breaker_backoff_enabled"]; ok {
-		t.Fatal("exported a retired backoff switch beside a live 15m ceiling")
+	if _, ok := env.Config.Settings["circuit_breaker_quota_pin_enabled"]; ok {
+		t.Fatal("exported a retired switch")
 	}
 
 	cleanConfigTables(t)
 	// The old-primary shape: the switch alone, no ceiling key at all.
 	delete(env.Config.Settings, "circuit_breaker_quota_pin_max")
+	env.Config.Settings["circuit_breaker_quota_pin_enabled"] = "0"
 	// A read before the import caches the absence; the import must evict it.
 	if got := settingsRepo.GetDuration(ctx, "circuit_breaker_quota_pin_max", -1); got != -1 {
 		t.Fatalf("setup: member ceiling reads %v before the import, want the absent sentinel", got)
@@ -1321,7 +1318,7 @@ func strPtr(s *string) string {
 // the envelope carries (or omits) alone. The envelope itself is not mutated.
 func TestFoldRetiredBreakerSwitches(t *testing.T) {
 	in := map[string]string{
-		"circuit_breaker_quota_pin_enabled": "false",
+		"circuit_breaker_quota_pin_enabled": "FALSE",
 		"circuit_breaker_quota_pin_max":     "24h0m0s",
 		"circuit_breaker_backoff_enabled":   "true",
 		"circuit_breaker_backoff_max":       "15m0s",

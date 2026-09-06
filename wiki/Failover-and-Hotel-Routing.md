@@ -691,7 +691,7 @@ These are treated as user-side cancellations rather than provider health issues.
 | `ttft_timeout` | duration | `1m0s` | Time-to-first-token probe timeout for streaming requests. Set to `0s` to disable. |
 | `stream_stall_timeout` | duration | `30s` | Maximum silence during streaming before termination. After 50 chunks, timeout is multiplied by 3. Set to `0s` to disable. |
 
-All of these settings are runtime-configurable and take effect immediately. They have UI controls in the Settings page: the **Circuit Breaker & Failover** section (enabled, threshold, model span, cooldown, failover-on-429, quota pinning and its ceiling, probe backoff and its ceiling, and the 429 handling group) and the **Proxy** section (`ttft_timeout`, `stream_stall_timeout`). They can also be changed via `PUT /api/settings`.
+All of these settings are runtime-configurable and take effect immediately. They have UI controls in the Settings page: the **Circuit Breaker & Failover** section (enabled, threshold, model span, cooldown, failover-on-429, the quota-pin ceiling, the probe-backoff ceiling, and the 429 handling group) and the **Proxy** section (`ttft_timeout`, `stream_stall_timeout`). They can also be changed via `PUT /api/settings`.
 
 #### Quota-pinned cooldowns
 

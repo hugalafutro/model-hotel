@@ -938,11 +938,29 @@ describe("CircuitBreakerSettings", () => {
 					},
 				}),
 			);
-			renderWithProviders(
+			const unparsable = renderWithProviders(
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
 				expect(quotaPinMaxSlider().value).toBe("24");
+			});
+			unparsable.unmount();
+
+			// A negative duration is clamped to off by the breaker; the slider
+			// must not read the digits as a positive hour.
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "-1h",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("0");
 			});
 		});
 

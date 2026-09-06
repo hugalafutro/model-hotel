@@ -635,7 +635,7 @@ func (r *Repository) GetBool(ctx context.Context, key string, defaultValue bool)
 // which may be present from older frontend code.
 func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration {
 	val := r.GetWithDefault(ctx, key, defaultValue.String())
-	d, err := ParseDuration(val)
+	d, err := parseDuration(val)
 	if err != nil {
 		debuglog.Warn("settings: failed to parse as duration, using default", "key", key, "default", defaultValue, "error", err)
 		return defaultValue
@@ -643,11 +643,9 @@ func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue t
 	return d
 }
 
-// ParseDuration parses a Go time.Duration string and also accepts the "d" suffix
+// parseDuration parses a Go time.Duration string and also accepts the "d" suffix
 // for day units (1d = 24h0m0s), which Go's time.ParseDuration does not support.
-// It is what every GetDuration read goes through, so a caller that must agree
-// with the runtime about what a stored value means parses with it too.
-func ParseDuration(s string) (time.Duration, error) {
+func parseDuration(s string) (time.Duration, error) {
 	days := 0
 	if i := strings.IndexByte(s, 'd'); i >= 0 {
 		dayStr := s[:i]

@@ -15,7 +15,6 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
-	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -666,30 +665,5 @@ func exportSettings(ctx context.Context, q querier) (map[string]string, error) {
 		}
 		out[k] = val
 	}
-	addRetiredBreakerSwitches(out)
 	return out, rows.Err()
-}
-
-// addRetiredBreakerSwitches puts a retired on/off switch back beside a zero
-// ceiling. A member still on the release before migration 080 reads a
-// non-positive ceiling as unset and would turn pinning or backoff back ON
-// from this envelope; the switch it still honours keeps the feature off
-// there. A member on this release skips the switch on import (no longer
-// syncable) and folds it into the zero ceiling it already carries, so the
-// extra key changes nothing here.
-//
-// ponytail: compatibility shim for the mixed-version window; drop it together
-// with foldRetiredBreakerSwitches once every fleet member runs migration 080.
-func addRetiredBreakerSwitches(out map[string]string) {
-	for legacy, ceiling := range retiredBreakerSwitches {
-		v, ok := out[ceiling]
-		if !ok {
-			continue
-		}
-		// The runtime's parser, not time.ParseDuration: a stored "0d" is off at
-		// runtime and has to export as off too.
-		if d, err := settings.ParseDuration(v); err == nil && d <= 0 {
-			out[legacy] = "false"
-		}
-	}
 }
