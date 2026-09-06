@@ -147,7 +147,11 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		return applyOutcome{}, err
 	}
 
-	removedSettings, err := h.applySettingsTx(ctx, tx, env.Config.Settings)
+	// Folded once, here, and handed on to postImportRefresh so the cache
+	// invalidation walks the same keys the transaction wrote: a ceiling the fold
+	// produced must not stay a cached absence for the TTL.
+	wantSettings := foldRetiredBreakerSwitches(env.Config.Settings)
+	removedSettings, err := h.applySettingsTx(ctx, tx, wantSettings)
 	if err != nil {
 		return applyOutcome{}, err
 	}
@@ -167,7 +171,7 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		return applyOutcome{}, err
 	}
 
-	out := h.postImportRefresh(ctx, env, removedSettings)
+	out := h.postImportRefresh(ctx, env, wantSettings, removedSettings)
 	return out, nil
 }
 
@@ -228,7 +232,6 @@ func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []Export
 // Non-syncable keys (apprise, observability, instance-local) are never
 // touched, and unknown keys are skipped silently.
 func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want map[string]string) ([]string, error) {
-	want = foldRetiredBreakerSwitches(want)
 	for k, v := range want {
 		if !isSyncableSetting(k) {
 			continue // skip non-syncable / unknown keys silently
@@ -267,7 +270,8 @@ var retiredBreakerSwitches = map[string]string{
 // foldRetiredBreakerSwitches returns want with each retired "false" switch
 // folded into a zero ceiling. The retired keys themselves are no longer in
 // the allowlist, so the apply loop skips them either way. Copy-on-write: the
-// caller's envelope is not touched.
+// caller's envelope is not touched. applyImport folds once and hands the
+// result to both the settings transaction and the cache invalidation.
 func foldRetiredBreakerSwitches(want map[string]string) map[string]string {
 	var out map[string]string
 	for legacy, ceiling := range retiredBreakerSwitches {
@@ -367,7 +371,7 @@ func validateSyncedRateLimits(subject string, rps *float64, burst, tpm *int) err
 // postImportRefresh runs the best-effort post-commit steps of an import: the
 // core config is already durable, so nothing here can fail the sync. The
 // returned outcome records what these steps could not do.
-func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, removedSettings []string) applyOutcome {
+func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnvelope, wantSettings map[string]string, removedSettings []string) applyOutcome {
 	var out applyOutcome
 	// The core config is committed, so the remaining work is not bound to the
 	// caller's request. Front Desk's import client gives up after 240s
@@ -419,7 +423,7 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 	// until the pass ended or the cache TTL ran out. A removed key gets
 	// NotifyDeleted alone: it evicts and notifies subscribers with the empty value,
 	// where InvalidateCache would first re-read a row that no longer exists.
-	for k := range env.Config.Settings {
+	for k := range wantSettings {
 		if isSyncableSetting(k) {
 			h.settings.InvalidateCache(k)
 		}

@@ -15,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -685,7 +686,9 @@ func addRetiredBreakerSwitches(out map[string]string) {
 		if !ok {
 			continue
 		}
-		if d, err := time.ParseDuration(v); err == nil && d <= 0 {
+		// The runtime's parser, not time.ParseDuration: a stored "0d" is off at
+		// runtime and has to export as off too.
+		if d, err := settings.ParseDuration(v); err == nil && d <= 0 {
 			out[legacy] = "false"
 		}
 	}

@@ -33,7 +33,15 @@ func newConfigSyncRouter(t *testing.T, masterKey string) chi.Router {
 // import (the real wiring runs discoverAllProviders).
 func newConfigSyncRouterWithDiscovery(t *testing.T, masterKey string, discoverAll func(context.Context) error) chi.Router {
 	t.Helper()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), masterKey, "v-test", discoverAll, nil)
+	return newConfigSyncRouterWithSettings(t, masterKey, settings.NewRepository(apiTestDB.Pool()), discoverAll)
+}
+
+// newConfigSyncRouterWithSettings is the same router over a settings
+// repository the test also holds, so the test can watch the handler's own
+// cache rather than a second one over the same rows.
+func newConfigSyncRouterWithSettings(t *testing.T, masterKey string, repo *settings.Repository, discoverAll func(context.Context) error) chi.Router {
+	t.Helper()
+	h := NewConfigSyncHandler(apiTestDB, repo, masterKey, "v-test", discoverAll, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 	return r
@@ -826,14 +834,16 @@ func TestConfigSync_SyncsSSOAllowlists(t *testing.T) {
 // A zero quota-pin ceiling is the off switch. It travels as itself, and for a
 // member still on the release before migration 080 (which reads a non-positive
 // ceiling as unset) the envelope carries the retired switch it still honours
-// beside it. A member on this release folds that switch back into the zero
-// ceiling and keeps no switch row of its own.
+// beside it. In the other direction, an envelope from a primary still on that
+// release carries only the switch (toggle flipped, slider never touched, no
+// ceiling row): a member on this release folds it into a zero ceiling, keeps
+// no switch row, and serves the zero at once rather than a cached absence.
 func TestConfigSync_ZeroPinCeilingTravelsWithTheRetiredSwitch(t *testing.T) {
 	cleanConfigTables(t)
 	ctx := context.Background()
-	r := newConfigSyncRouter(t, configSyncMasterKey)
-	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
 	settingsRepo := settings.NewRepository(apiTestDB.Pool())
+	r := newConfigSyncRouterWithSettings(t, configSyncMasterKey, settingsRepo, nil)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
 	if err := settingsRepo.Set(ctx, "circuit_breaker_quota_pin_max", "0s"); err != nil {
 		t.Fatalf("seed primary ceiling: %v", err)
 	}
@@ -853,15 +863,21 @@ func TestConfigSync_ZeroPinCeilingTravelsWithTheRetiredSwitch(t *testing.T) {
 	}
 
 	cleanConfigTables(t)
-	if err := settingsRepo.Set(ctx, "circuit_breaker_quota_pin_max", "24h0m0s"); err != nil {
-		t.Fatalf("seed member ceiling: %v", err)
+	// The old-primary shape: the switch alone, no ceiling key at all.
+	delete(env.Config.Settings, "circuit_breaker_quota_pin_max")
+	// A read before the import caches the absence; the import must evict it.
+	if got := settingsRepo.GetDuration(ctx, "circuit_breaker_quota_pin_max", -1); got != -1 {
+		t.Fatalf("setup: member ceiling reads %v before the import, want the absent sentinel", got)
 	}
 	rec := doImport(t, r, env, "")
 	if rec.Code != http.StatusOK {
 		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
 	}
 	if got, err := settingsRepo.Get(ctx, "circuit_breaker_quota_pin_max"); err != nil || got != "0s" {
-		t.Errorf("member pin ceiling = %q (%v), want 0s from the envelope", got, err)
+		t.Errorf("member pin ceiling = %q (%v), want 0s folded from the retired switch", got, err)
+	}
+	if got := settingsRepo.GetDuration(ctx, "circuit_breaker_quota_pin_max", -1); got != 0 {
+		t.Errorf("cached member ceiling reads %v right after the import, want 0: the folded key was not invalidated", got)
 	}
 	if _, err := settingsRepo.Get(ctx, "circuit_breaker_quota_pin_enabled"); err == nil {
 		t.Error("the retired switch was written on a member that no longer knows it")

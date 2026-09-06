@@ -928,12 +928,13 @@ describe("CircuitBreakerSettings", () => {
 			tenMinutes.unmount();
 
 			// The breaker falls back to its default on text it cannot parse, so
-			// the slider shows the ceiling actually in force rather than off.
+			// the slider shows the ceiling actually in force rather than off. A
+			// digit alone does not make a duration.
 			server.use(
 				...mockSettings({
 					body: {
 						circuit_breaker_enabled: "true",
-						circuit_breaker_quota_pin_max: "soon",
+						circuit_breaker_quota_pin_max: "5 hours",
 					},
 				}),
 			);

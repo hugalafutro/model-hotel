@@ -1,7 +1,6 @@
 package failover
 
 import (
-	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -581,10 +580,10 @@ func (cb *CircuitBreaker) unpinnedCooldownWith(c *circuit, r *cooldownReads) tim
 // A circuit escalated to exhausted-without-a-phrase (see exhaustedEscalated)
 // takes the quota-pin ceiling when that reaches further: its probes are live
 // requests spent against a window that resets in hours, which the ordinary
-// 15-minute cap would re-probe through. The pin ceiling is borrowed as a
-// number only; with pinning switched off the default stands in, because the
-// reason (probes burnt against an hours-long window) does not go away with
-// pinning.
+// 15-minute cap would re-probe through. With pinning switched off the pin
+// ceiling is zero and widens nothing: the operator has opted out of holding
+// circuits for quota windows, and the escalation is that same rule applied to
+// a window no phrase named.
 func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 	c.cooldownBackoff = 0
 	if c.failedProbes == 0 {
@@ -596,7 +595,7 @@ func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 		return // backoff is switched off; the escalation below must not lift it back on
 	}
 	if c.exhaustedEscalated() {
-		ceiling = max(ceiling, cmp.Or(cb.quotaPinMax(), defaultQuotaPinMax))
+		ceiling = max(ceiling, cb.quotaPinMax())
 	}
 	if base <= 0 || ceiling <= base {
 		return
