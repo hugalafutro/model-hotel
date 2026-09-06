@@ -578,7 +578,7 @@ docker compose logs app | grep -A 3 "ADMIN TOKEN"
 
 It is shown once and stored only as a SHA-256 hash, so it cannot be read back later. If you lose
 it, delete `.data/admin-token` and restart to generate a new one. To pick the token yourself
-instead, set `ADMIN_TOKEN` in `.env` before the first start: no box is printed in that case.
+instead, set `ADMIN_TOKEN` in `.env` before the first start; the box is printed on that first boot either way, showing the token you chose.
 
 ---
 

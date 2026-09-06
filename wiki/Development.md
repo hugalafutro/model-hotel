@@ -286,8 +286,8 @@ make fmt              # gci import ordering + go fmt
 make size-check       # file-size ratchet
 ```
 
-`make fmt` runs both `gci` (import grouping: standard, default, then this module) and `go fmt`
-over `internal/` and `cmd/`.
+`make fmt` runs `gci` (import grouping: standard, default, then this module) over `internal/`
+and `cmd/`, then `go fmt ./...`.
 
 CI pins `golangci-lint` v2.13. `.golangci.yml` enables `errcheck`, `govet`, `ineffassign`,
 `staticcheck`, `unused`, `gosec`, `gocritic`, `revive`, `gocyclo`, `funlen`, `errorlint`,

@@ -106,7 +106,7 @@ Each entry records who (actor and role), what (HTTP method and route pattern), t
 - Clicking a row opens a detail modal with copyable fields: full timestamp, actor, entity name and UUID, endpoint pattern, the concrete request path, and remote address.
 - The list filters by actor and method, and pages newest-first.
 - The trail can be purged from the page. The purge is itself a mutating request and is recorded, so a wiped trail always shows who wiped it.
-- The trail is instance-local operational telemetry: it is not fleet-synced, not included in backups, and old rows are pruned against a retention window (90 days unless `audit_retention_days` says otherwise).
+- The trail is instance-local operational telemetry: it is not fleet-synced (a database backup does carry it, like every table), and old rows are pruned against a retention window (90 days unless `audit_retention_days` says otherwise).
 
 See [API Reference](API-Reference#audit-trail) for the `/api/audit` endpoints.
 
