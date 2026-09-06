@@ -1685,4 +1685,30 @@ describe("CircuitBreakerSettings", () => {
 		}
 		resetSpy.mockRestore();
 	});
+	it("resets each Failover slider through the reset beside its label", async () => {
+		const resetSpy = vi.spyOn(api.settings, "reset").mockResolvedValue({});
+		const { user } = renderWithProviders(
+			<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
+		);
+		// Addressed by element id, never by translated label. The reset button
+		// sits beside the range input inside the slider's header row.
+		const sliders: [string, string][] = [
+			["circuit-breaker-threshold", "circuit_breaker_threshold"],
+			["circuit-breaker-span-models", "circuit_breaker_span_models"],
+			["circuit-breaker-cooldown", "circuit_breaker_cooldown"],
+			["circuit-breaker-quota-pin-max", "circuit_breaker_quota_pin_max"],
+			["circuit-breaker-backoff-max", "circuit_breaker_backoff_max"],
+		];
+		await waitFor(() =>
+			expect(document.getElementById(sliders[0][0])).toBeInTheDocument(),
+		);
+		for (const [id, key] of sliders) {
+			const reset = document
+				.getElementById(id)
+				?.parentElement?.querySelector("button") as HTMLButtonElement;
+			await user.click(reset);
+			await waitFor(() => expect(resetSpy).toHaveBeenLastCalledWith([key]));
+		}
+		resetSpy.mockRestore();
+	});
 });
