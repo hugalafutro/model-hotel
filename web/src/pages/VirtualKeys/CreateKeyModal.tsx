@@ -280,6 +280,8 @@ export function CreateKeyModal({
 							id="vk-rate-limit-rps"
 							type="number"
 							min="0"
+							max="10000"
+							step="any"
 							value={rateLimitRps}
 							onChange={(e) => setRateLimitRps(e.target.value)}
 							className="ui-input"
@@ -297,6 +299,7 @@ export function CreateKeyModal({
 							id="vk-rate-limit-burst"
 							type="number"
 							min="1"
+							max="10000"
 							value={rateLimitBurst}
 							onChange={(e) => setRateLimitBurst(e.target.value)}
 							className="ui-input"
@@ -314,6 +317,7 @@ export function CreateKeyModal({
 							id="vk-rate-limit-tpm"
 							type="number"
 							min="1"
+							max="100000000"
 							value={rateLimitTpm}
 							onChange={(e) => setRateLimitTpm(e.target.value)}
 							className="ui-input"

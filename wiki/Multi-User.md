@@ -78,7 +78,7 @@ Three consequences are worth knowing before setting one:
 
 ## Per-user rate limits
 
-Each account can carry optional RPS, burst, and TPM caps. These are **aggregate** limits: they bound that account's combined traffic, on top of the per-key limits on individual keys. A null value means no cap. This lets you hand a user several keys and still bound their total consumption. See [Configuration](Configuration) for how the per-key and per-user buckets interact.
+Each account can carry optional RPS, burst, and TPM caps. These are **aggregate** limits: they bound that account's combined traffic, on top of the per-key limits on individual keys. A null value means no cap; set values follow the same bounds as per-key limits (RPS 0 to 10000, burst 1 to 10000, TPM 1 to 100000000). This lets you hand a user several keys and still bound their total consumption. See [Configuration](Configuration) for how the per-key and per-user buckets interact.
 
 The account bucket covers **every** surface the account can send from, not only its virtual keys. Requests made from the dashboard Chat and Arena pages carry no virtual key, and they are charged to the same bucket. So a user who exhausts an aggregate cap sees the Chat page fail with `429 Too Many Requests` carrying `user rate limit exceeded` (the RPS/burst cap) or `user token rate limit exceeded` (the TPM cap), exactly as their API traffic would. Set these caps expecting them to bound the person, not only the keys they hold.
 

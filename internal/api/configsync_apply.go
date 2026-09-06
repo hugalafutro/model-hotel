@@ -344,17 +344,23 @@ func validateSyncedSetting(key, value string) error {
 	return nil
 }
 
-// validateSyncedRateLimits applies the same bounds to an imported rate limit
+// validateSyncedRateLimits applies the same floors to an imported rate limit
 // that the interactive virtual-key and user endpoints enforce via
 // validateRateLimits (virtualkeys.go), so a config-sync import cannot write a
-// per-key or per-user limit the interactive endpoint would reject. subject
-// names the row for the error message. Nil values mean "fall back to the global
-// setting" and are always fine.
+// per-key or per-user limit that relaxes runtime enforcement. subject names the
+// row for the error message. Nil values mean "fall back to the global setting"
+// and are always fine.
 //
 // Same defense-in-depth shape as validateSyncedSetting: a legitimate primary
 // already validated these on the way in, so anything out of bounds means a
 // compromised or corrupt envelope, and the limits it would relax meter the data
-// plane.
+// plane. And for the same reason as there, the interactive ceilings are NOT
+// mirrored: they sit at values that are already effectively unlimited (10000
+// rps, 100 M tokens/min), so an import above them relaxes nothing the ceiling
+// itself would not, while a newer primary that RAISES a ceiling must not make an
+// older member reject the ENTIRE envelope. The trade runs one way: a release
+// that LOWERS a ceiling leaves the import path writing values the interactive
+// API refuses, and nothing here would notice; lower one and revisit this.
 //
 // NOT mirrored on the import path: the interactive API's username
 // length/whitespace rules, display-name length, role allowlist, virtual-key

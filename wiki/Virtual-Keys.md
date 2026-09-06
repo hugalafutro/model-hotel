@@ -202,9 +202,9 @@ Two things narrow that further:
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
 | `name` | `string` | Yes | 1-100 chars, printable Unicode, not reserved |
-| `rate_limit_rps` | `number` | No | Must be ≥ 0 (null = use global default) |
-| `rate_limit_burst` | `integer` | No | Must be ≥ 1 (null = use global default) |
-| `rate_limit_tpm` | `integer` | No | Tokens-per-minute cap, must be ≥ 1 (null = no cap / global default) |
+| `rate_limit_rps` | `number` | No | 0 to 10000 (null = use global default) |
+| `rate_limit_burst` | `integer` | No | 1 to 10000 (null = use global default) |
+| `rate_limit_tpm` | `integer` | No | Tokens-per-minute cap, 1 to 100000000 (null = no cap / global default) |
 | `allowed_providers` | `array of UUID strings` | No | Restrict the key to the listed provider IDs (null/omitted = all providers; empty array rejected) |
 | `strip_reasoning` | `boolean` | No | Strip `reasoning`/`reasoning_content` from streaming output (default false) |
 | `owner_user_id` | `UUID string` | No | Dashboard user to own the key. Admin callers only: a non-admin's key is always created as their own, whatever the body says. Null or empty = unowned |
@@ -365,6 +365,7 @@ Virtual keys can override global rate limits via `rate_limit_rps` and `rate_limi
 - **`null`**: Use global settings from `settings` table
 - **`0` for RPS**: Unlimited requests (no rate limiting for this key)
 - **`0` for burst**: Invalid - rejected on creation/update (must be ≥ 1)
+- **Above the global maximum** (rps 10000, burst 10000, tpm 100000000): Invalid - rejected on creation/update through the dashboard and API. Those ceilings are already effectively unlimited, so a fleet config sync deliberately does not re-check them (an older member must not reject a whole envelope over a raised ceiling)
 
 ### Token Rate Limiting (TPM)
 

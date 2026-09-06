@@ -173,6 +173,8 @@ export function KeyDetailModal({
 									id="vk-detail-rps"
 									type="number"
 									min="0"
+									max="10000"
+									step="any"
 									value={editRps}
 									onChange={(e) => setEditRps(e.target.value)}
 									className="ui-input"
@@ -190,6 +192,7 @@ export function KeyDetailModal({
 									id="vk-detail-burst"
 									type="number"
 									min="1"
+									max="10000"
 									value={editBurst}
 									onChange={(e) => setEditBurst(e.target.value)}
 									className="ui-input"
@@ -208,6 +211,7 @@ export function KeyDetailModal({
 								id="vk-detail-tpm"
 								type="number"
 								min="1"
+								max="100000000"
 								value={editTpm}
 								onChange={(e) => setEditTpm(e.target.value)}
 								className="ui-input"

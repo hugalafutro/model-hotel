@@ -8,11 +8,14 @@ import (
 	"testing"
 )
 
-// validateSyncedRateLimits must accept exactly what the interactive
-// validateRateLimits accepts, so the import path and the admin API cannot
-// disagree about what a legal limit is. Every case below is run through both
-// validators and their verdicts compared, so the parity is checked rather than
-// restated by a second hand-maintained table.
+// validateSyncedRateLimits must reject exactly the floor violations the
+// interactive validateRateLimits rejects, so the import path and the admin API
+// cannot disagree about what relaxes enforcement. Every case below is run
+// through both validators and their verdicts compared, so the parity is checked
+// rather than restated by a second hand-maintained table. Ceiling violations are
+// the one deliberate asymmetry (interactive 400, import accepted, see the
+// validateSyncedRateLimits comment) and are pinned as such by the cases that set
+// ceilingOnly.
 func TestValidateSyncedRateLimits(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -20,6 +23,9 @@ func TestValidateSyncedRateLimits(t *testing.T) {
 		burst   *int
 		tpm     *int
 		wantErr bool
+		// ceilingOnly marks a value above the interactive ceiling: the import
+		// path must accept it while the interactive API refuses it.
+		ceilingOnly bool
 	}{
 		{name: "all nil falls back to globals"},
 		{name: "zero rps means unlimited", rps: new(0.0)},
@@ -30,6 +36,10 @@ func TestValidateSyncedRateLimits(t *testing.T) {
 		{name: "negative burst rejects every request", burst: new(-5), wantErr: true},
 		{name: "zero tpm reads as no cap", tpm: new(0), wantErr: true},
 		{name: "negative tpm reads as no cap", tpm: new(-1), wantErr: true},
+		{name: "ceiling values pass both", rps: new(10000.0), burst: new(10000), tpm: new(100000000)},
+		{name: "rps above ceiling", rps: new(10000.5), ceilingOnly: true},
+		{name: "burst above ceiling", burst: new(10001), ceilingOnly: true},
+		{name: "tpm above ceiling", tpm: new(100000001), ceilingOnly: true},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -48,6 +58,12 @@ func TestValidateSyncedRateLimits(t *testing.T) {
 			// and the admin API started disagreeing about what a legal limit is,
 			// which is the whole gap this guard closes.
 			interactive := validateRateLimits(tt.rps, tt.burst, tt.tpm, httptest.NewRecorder())
+			if tt.ceilingOnly {
+				if interactive == nil {
+					t.Fatal("interactive API accepted a value above its ceiling")
+				}
+				return
+			}
 			if (interactive != nil) != (err != nil) {
 				t.Fatalf("import path and interactive API disagree: validateSyncedRateLimits() = %v, validateRateLimits() = %v",
 					err, interactive)
