@@ -659,7 +659,7 @@ func TestConfigSync_FailoverGroupsSurviveCancelledRequestContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel() // Front Desk hung up before the build began
 
-	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil)
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil, nil)
 
 	if out.GroupApplyErr != nil {
 		t.Fatalf("group apply must not inherit the request cancellation: %v", out.GroupApplyErr)
@@ -714,7 +714,7 @@ func TestConfigSync_FailoverGroupsSurviveExpiredRequestDeadline(t *testing.T) {
 		t.Fatal("test setup: the context was expected to be already expired")
 	}
 
-	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil)
+	out := h.postImportRefresh(ctx, ConfigEnvelope{Config: ConfigPayload{FailoverGroups: groups}}, nil, nil)
 
 	if out.GroupApplyErr != nil {
 		t.Fatalf("group apply inherited the expired deadline: %v", out.GroupApplyErr)

@@ -9,6 +9,15 @@ import {
 	secondsToGoDuration,
 } from "../duration";
 
+describe("decimal Go durations", () => {
+	it("reads a fractional component as a fraction, not as its digits", () => {
+		expect(goDurationToSeconds("0.5h")).toBe(1800);
+		expect(goDurationToMinutes("0.5h")).toBe(30);
+		expect(goDurationToHours("0.5h")).toBe(0.5);
+		expect(goDurationToHours("1.5h")).toBe(1.5);
+	});
+});
+
 describe("goDurationToSeconds", () => {
 	it("parses simple seconds", () => {
 		expect(goDurationToSeconds("30s")).toBe(30);

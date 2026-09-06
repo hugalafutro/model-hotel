@@ -243,11 +243,11 @@ func (cb *CircuitBreaker) evictIfFull(models modelCircuits) {
 // operator who flips one releases every override already in force, and one
 // Status row cannot report a pin its neighbour's read said was disabled.
 type cooldownReads struct {
-	cb        *CircuitBreaker
-	base      time.Duration
-	backoffOn *bool
-	pinOn     *bool
-	pinProbe  *time.Duration
+	cb         *CircuitBreaker
+	base       time.Duration
+	backoffMax *time.Duration
+	pinMax     *time.Duration
+	pinProbe   *time.Duration
 }
 
 // cooldowns starts a walk: one read of the configured cooldown, the switches
@@ -258,19 +258,19 @@ func (cb *CircuitBreaker) cooldowns() *cooldownReads {
 }
 
 func (r *cooldownReads) backoffEnabled() bool {
-	if r.backoffOn == nil {
-		v := r.cb.backoffEnabled()
-		r.backoffOn = &v
+	if r.backoffMax == nil {
+		v := r.cb.backoffMax()
+		r.backoffMax = &v
 	}
-	return *r.backoffOn
+	return *r.backoffMax > 0
 }
 
 func (r *cooldownReads) pinEnabled() bool {
-	if r.pinOn == nil {
-		v := r.cb.quotaPinEnabled()
-		r.pinOn = &v
+	if r.pinMax == nil {
+		v := r.cb.quotaPinMax()
+		r.pinMax = &v
 	}
-	return *r.pinOn
+	return *r.pinMax > 0
 }
 
 func (r *cooldownReads) pinProbeInterval() time.Duration {
@@ -539,10 +539,9 @@ func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads)
 // claim is probed when the operator has not set circuit_breaker_pin_probe_interval.
 const defaultPinProbeInterval = time.Hour
 
-// pinProbeInterval reads circuit_breaker_pin_probe_interval. Unlike its sibling
-// ceilings, where a non-positive value means "unset", a zero here is a real
-// setting: it disables the periodic probe and lets a response pin run to the
-// ceiling.
+// pinProbeInterval reads circuit_breaker_pin_probe_interval. Like its sibling
+// ceilings, a stored zero is a real setting, not an unset key: it disables the
+// periodic probe and lets a response pin run to the ceiling.
 func (cb *CircuitBreaker) pinProbeInterval() time.Duration {
 	if cb.settings != nil {
 		return cb.settings.GetDuration(context.Background(), "circuit_breaker_pin_probe_interval", defaultPinProbeInterval)
@@ -569,8 +568,11 @@ func (cb *CircuitBreaker) unpinnedCooldownWith(c *circuit, r *cooldownReads) tim
 // derived on every read: a ceiling read per circuit would put a DB round trip
 // per circuit back under the lock. The stored value cannot know a base raised
 // after it was stamped, which effectiveCooldownForWith covers by never serving
-// less than the base. Always stamped, gated only at read time by
-// backedOffForWith, so the kill switch acts at once in both directions.
+// less than the base. A stamped backoff is gated at read time by
+// backedOffForWith, so zeroing the ceiling releases one at once; a zero
+// ceiling stamps nothing, though, so switching backoff back on applies the
+// backoff the counted failures have earned at the next failed probe, not at
+// once.
 //
 // A ceiling at or below the base is not a shorter cooldown: the ceiling bounds
 // what the backoff may add, and a backoff that could add nothing is left off.
@@ -578,7 +580,10 @@ func (cb *CircuitBreaker) unpinnedCooldownWith(c *circuit, r *cooldownReads) tim
 // A circuit escalated to exhausted-without-a-phrase (see exhaustedEscalated)
 // takes the quota-pin ceiling when that reaches further: its probes are live
 // requests spent against a window that resets in hours, which the ordinary
-// 15-minute cap would re-probe through.
+// 15-minute cap would re-probe through. With pinning switched off the pin
+// ceiling is zero and widens nothing: the operator has opted out of holding
+// circuits for quota windows, and the escalation is that same rule applied to
+// a window no phrase named.
 func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 	c.cooldownBackoff = 0
 	if c.failedProbes == 0 {
@@ -586,6 +591,9 @@ func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 	}
 	base := cb.effectiveCooldown()
 	ceiling := cb.backoffMax()
+	if ceiling <= 0 {
+		return // backoff is switched off; the escalation below must not lift it back on
+	}
 	if c.exhaustedEscalated() {
 		ceiling = max(ceiling, cb.quotaPinMax())
 	}
@@ -619,21 +627,23 @@ func (cb *CircuitBreaker) backedOffForWith(c *circuit, r *cooldownReads) bool {
 	return c != nil && c.cooldownBackoff > r.base && r.backoffEnabled()
 }
 
-func (cb *CircuitBreaker) backoffEnabled() bool {
-	if cb.settings == nil {
-		return true
-	}
-	return cb.settings.GetBool(context.Background(), "circuit_breaker_backoff_enabled", true)
+// backoffMax is the ceiling a probe backoff may reach, or zero when backoff is
+// off. An absent key means defaultBackoffMax; a stored non-positive duration is
+// the operator's off switch, re-read on every walk so switching off also
+// releases a backoff already in force.
+func (cb *CircuitBreaker) backoffMax() time.Duration {
+	return ceilingOrDefault(cb.settings, "circuit_breaker_backoff_max", defaultBackoffMax)
 }
 
-// backoffMax is the ceiling a probe backoff may reach; see defaultBackoffMax.
-func (cb *CircuitBreaker) backoffMax() time.Duration {
-	if cb.settings != nil {
-		if v := cb.settings.GetDuration(context.Background(), "circuit_breaker_backoff_max", 0); v > 0 {
-			return v
-		}
+// ceilingOrDefault reads a duration ceiling whose zero means off. GetDuration
+// already answers def for an absent or unparsable row and the stored value
+// otherwise, so a stored zero comes through as zero; a stored negative is
+// clamped to the same off position.
+func ceilingOrDefault(settings SettingsReader, key string, def time.Duration) time.Duration {
+	if settings == nil {
+		return def
 	}
-	return defaultBackoffMax
+	return max(settings.GetDuration(context.Background(), key, def), 0)
 }
 
 // quotaPinnedForWith reports whether a quota pin is governing this circuit. The
@@ -659,18 +669,20 @@ func (cb *CircuitBreaker) pinSourceForWith(c *circuit, r *cooldownReads) string 
 	return c.pinSource
 }
 
+// quotaPinEnabled reports whether quota pinning is on at all: the ceiling is
+// the switch, and a ceiling of zero turns pinning off.
 func (cb *CircuitBreaker) quotaPinEnabled() bool {
-	if cb.settings == nil {
-		return true
-	}
-	return cb.settings.GetBool(context.Background(), "circuit_breaker_quota_pin_enabled", true)
+	return cb.quotaPinMax() > 0
 }
 
+// defaultQuotaPinMax is the ceiling a quota pin may reach when the key is
+// absent: a day, the longest window a plan resets on short of a weekly one.
+const defaultQuotaPinMax = 24 * time.Hour
+
+// quotaPinMax is the ceiling a quota pin may reach, or zero when pinning is
+// off. An absent key means defaultQuotaPinMax; a stored non-positive duration
+// is the operator's off switch, re-read on every walk so switching off also
+// releases a pin already in force.
 func (cb *CircuitBreaker) quotaPinMax() time.Duration {
-	if cb.settings != nil {
-		if v := cb.settings.GetDuration(context.Background(), "circuit_breaker_quota_pin_max", 0); v > 0 {
-			return v
-		}
-	}
-	return 24 * time.Hour
+	return ceilingOrDefault(cb.settings, "circuit_breaker_quota_pin_max", defaultQuotaPinMax)
 }

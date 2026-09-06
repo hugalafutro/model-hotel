@@ -725,13 +725,9 @@ describe("CircuitBreakerSettings", () => {
 		});
 	});
 
-	// Addressed by data-testid and element id like the quota-pin controls, so
-	// the tests are locale-independent.
+	// Addressed by element id like the quota-pin controls, so the tests are
+	// locale-independent.
 	describe("probe backoff", () => {
-		const backoffToggle = () =>
-			screen
-				.getByTestId("backoff-row")
-				.querySelector("button[role='switch']") as HTMLButtonElement;
 		const backoffMaxSlider = () =>
 			document.getElementById(
 				"circuit-breaker-backoff-max",
@@ -741,58 +737,7 @@ describe("CircuitBreakerSettings", () => {
 				"input[type='number']",
 			) as HTMLInputElement;
 
-		it("renders the backoff toggle on when circuit_breaker_backoff_enabled is absent, matching the backend default of true", async () => {
-			server.use(
-				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
-			);
-			renderWithProviders(
-				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-			);
-			await waitFor(() => {
-				expect(backoffToggle()).toHaveAttribute("aria-checked", "true");
-			});
-		});
-
-		it("sends circuit_breaker_backoff_enabled=false when the backoff toggle is switched off", async () => {
-			const user = userEvent.setup();
-			let capturedPayload: Record<string, string> | undefined;
-
-			server.use(
-				...mockSettings({
-					body: {
-						circuit_breaker_enabled: "true",
-						circuit_breaker_backoff_enabled: "true",
-					},
-				}),
-				http.put("/api/settings", async ({ request }) => {
-					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
-						return HttpResponse.json(
-							{ error: "Unauthorized" },
-							{ status: 401 },
-						);
-					}
-					capturedPayload = (await request.json()) as Record<string, string>;
-					return HttpResponse.json({ ok: true });
-				}),
-			);
-
-			renderWithProviders(
-				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-			);
-
-			await waitFor(() => {
-				expect(backoffToggle()).toHaveAttribute("aria-checked", "true");
-			});
-			await user.click(backoffToggle());
-
-			await waitFor(() => {
-				expect(capturedPayload).toEqual({
-					circuit_breaker_backoff_enabled: "false",
-				});
-			});
-		});
-
-		it("renders the backoff ceiling as 15 minutes when circuit_breaker_backoff_max is absent or stored as a non-positive duration", async () => {
+		it("renders the backoff ceiling as 15 minutes when circuit_breaker_backoff_max is absent and as 0 when a stored zero has switched backoff off", async () => {
 			server.use(
 				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
 			);
@@ -804,8 +749,8 @@ describe("CircuitBreakerSettings", () => {
 			});
 			absent.unmount();
 
-			// The breaker reads a non-positive ceiling as unset and applies 15m, so
-			// the slider must show the ceiling actually in force.
+			// A stored zero is the off switch, not an unset key: the slider must
+			// sit at 0, never snap back to the default the breaker is not using.
 			server.use(
 				...mockSettings({
 					body: {
@@ -818,11 +763,12 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
-				expect(backoffMaxSlider().value).toBe("15");
+				expect(backoffMaxSlider().value).toBe("0");
 			});
+			expect(backoffMaxNumberBox().value).toBe("0");
 		});
 
-		it("disables both backoff controls while the circuit breaker itself is off", async () => {
+		it("disables the backoff ceiling slider while the circuit breaker itself is off", async () => {
 			server.use(
 				...mockSettings({ body: { circuit_breaker_enabled: "false" } }),
 			);
@@ -830,9 +776,8 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
-				expect(backoffToggle()).toBeDisabled();
+				expect(backoffMaxSlider()).toBeDisabled();
 			});
-			expect(backoffMaxSlider()).toBeDisabled();
 		});
 
 		it("clamps a stored circuit_breaker_backoff_max above the slider maximum so both halves of the control agree", async () => {
@@ -917,35 +862,12 @@ describe("CircuitBreakerSettings", () => {
 				});
 			});
 		});
-
-		it("disables the backoff ceiling slider while circuit_breaker_backoff_enabled is false", async () => {
-			server.use(
-				...mockSettings({
-					body: {
-						circuit_breaker_enabled: "true",
-						circuit_breaker_backoff_enabled: "false",
-					},
-				}),
-			);
-			renderWithProviders(
-				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-			);
-			await waitFor(() => {
-				expect(backoffMaxSlider()).toBeDisabled();
-			});
-			expect(backoffToggle()).toHaveAttribute("aria-checked", "false");
-			expect(backoffToggle()).not.toBeDisabled();
-		});
 	});
 
 	// Locale-independent by construction: the quota-pin controls are addressed
 	// by data-testid and element id, never by their translated label, so these
 	// tests keep passing under every locale the suite may be run in.
 	describe("quota pin", () => {
-		const quotaPinToggle = () =>
-			screen
-				.getByTestId("quota-pin-row")
-				.querySelector("button[role='switch']") as HTMLButtonElement;
 		const quotaPinMaxSlider = () =>
 			document.getElementById(
 				"circuit-breaker-quota-pin-max",
@@ -958,87 +880,18 @@ describe("CircuitBreakerSettings", () => {
 				"input[type='number']",
 			) as HTMLInputElement;
 
-		it("renders the quota pin toggle on when circuit_breaker_quota_pin_enabled is absent, matching the backend default of true", async () => {
+		it("renders the quota pin ceiling as 24 hours when circuit_breaker_quota_pin_max is absent and as 0 when a stored zero has switched pinning off", async () => {
 			server.use(
 				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
 			);
-			renderWithProviders(
-				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-			);
-			await waitFor(() => {
-				expect(quotaPinToggle()).toHaveAttribute("aria-checked", "true");
-			});
-		});
-
-		it("renders the quota pin toggle off when circuit_breaker_quota_pin_enabled is stored as false", async () => {
-			server.use(
-				...mockSettings({
-					body: {
-						circuit_breaker_enabled: "true",
-						circuit_breaker_quota_pin_enabled: "false",
-					},
-				}),
-			);
-			renderWithProviders(
-				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-			);
-			await waitFor(() => {
-				expect(quotaPinToggle()).toHaveAttribute("aria-checked", "false");
-			});
-		});
-
-		it("sends circuit_breaker_quota_pin_enabled=false when the quota pin toggle is switched off", async () => {
-			const user = userEvent.setup();
-			let capturedPayload: Record<string, string> | undefined;
-
-			server.use(
-				...mockSettings({
-					body: {
-						circuit_breaker_enabled: "true",
-						circuit_breaker_quota_pin_enabled: "true",
-					},
-				}),
-				http.put("/api/settings", async ({ request }) => {
-					if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
-						return HttpResponse.json(
-							{ error: "Unauthorized" },
-							{ status: 401 },
-						);
-					}
-					capturedPayload = (await request.json()) as Record<string, string>;
-					return HttpResponse.json({ ok: true });
-				}),
-			);
-
-			renderWithProviders(
-				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-			);
-
-			await waitFor(() => {
-				expect(quotaPinToggle()).toHaveAttribute("aria-checked", "true");
-			});
-			await user.click(quotaPinToggle());
-
-			await waitFor(() => {
-				expect(capturedPayload).toEqual({
-					circuit_breaker_quota_pin_enabled: "false",
-				});
-			});
-		});
-
-		it("renders the quota pin ceiling as 24 hours when circuit_breaker_quota_pin_max is absent", async () => {
-			server.use(
-				...mockSettings({ body: { circuit_breaker_enabled: "true" } }),
-			);
-			renderWithProviders(
+			const absent = renderWithProviders(
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
 				expect(quotaPinMaxSlider().value).toBe("24");
 			});
-		});
+			absent.unmount();
 
-		it("shows 24 hours when circuit_breaker_quota_pin_max is stored as a non-positive duration, which the breaker reads as unset", async () => {
 			server.use(
 				...mockSettings({
 					body: {
@@ -1051,33 +904,64 @@ describe("CircuitBreakerSettings", () => {
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
-				expect(quotaPinMaxSlider().value).toBe("24");
+				expect(quotaPinMaxSlider().value).toBe("0");
 			});
+			expect(quotaPinMaxNumberBox().value).toBe("0");
 		});
 
-		it("clamps a stored circuit_breaker_quota_pin_max below the slider minimum so both halves of the control agree", async () => {
-			let putCalled = false;
+		it("shows a live sub-hour circuit_breaker_quota_pin_max as one step, never as the off position, and unparsable text as the default", async () => {
 			server.use(
 				...mockSettings({
 					body: {
 						circuit_breaker_enabled: "true",
-						circuit_breaker_quota_pin_max: "30m",
+						circuit_breaker_quota_pin_max: "10m0s",
 					},
 				}),
-				http.put("/api/settings", () => {
-					putCalled = true;
-					return HttpResponse.json({ ok: true });
-				}),
 			);
-			renderWithProviders(
+			const tenMinutes = renderWithProviders(
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
 			);
 			await waitFor(() => {
 				expect(quotaPinMaxSlider().value).toBe("1");
 			});
 			expect(quotaPinMaxNumberBox().value).toBe("1");
-			// Clamping is display only: rendering must never write storage back.
-			expect(putCalled).toBe(false);
+			tenMinutes.unmount();
+
+			// The breaker falls back to its default on text it cannot parse, so
+			// the slider shows the ceiling actually in force rather than off. A
+			// digit alone does not make a duration.
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "5 hours",
+					},
+				}),
+			);
+			const unparsable = renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("24");
+			});
+			unparsable.unmount();
+
+			// A negative duration is clamped to off by the breaker; the slider
+			// must not read the digits as a positive hour.
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "-1h",
+					},
+				}),
+			);
+			renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("0");
+			});
 		});
 
 		it("clamps a stored circuit_breaker_quota_pin_max above the slider maximum so both halves of the control agree", async () => {
@@ -1162,14 +1046,9 @@ describe("CircuitBreakerSettings", () => {
 			});
 		});
 
-		it("disables the quota pin ceiling slider while circuit_breaker_quota_pin_enabled is false", async () => {
+		it("disables the quota pin ceiling slider while the circuit breaker itself is off", async () => {
 			server.use(
-				...mockSettings({
-					body: {
-						circuit_breaker_enabled: "true",
-						circuit_breaker_quota_pin_enabled: "false",
-					},
-				}),
+				...mockSettings({ body: { circuit_breaker_enabled: "false" } }),
 			);
 			renderWithProviders(
 				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
@@ -1177,25 +1056,6 @@ describe("CircuitBreakerSettings", () => {
 			await waitFor(() => {
 				expect(quotaPinMaxSlider()).toBeDisabled();
 			});
-			expect(quotaPinToggle()).not.toBeDisabled();
-		});
-
-		it("disables both quota pin controls while the circuit breaker itself is off", async () => {
-			server.use(
-				...mockSettings({
-					body: {
-						circuit_breaker_enabled: "false",
-						circuit_breaker_quota_pin_enabled: "true",
-					},
-				}),
-			);
-			renderWithProviders(
-				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
-			);
-			await waitFor(() => {
-				expect(quotaPinToggle()).toBeDisabled();
-			});
-			expect(quotaPinMaxSlider()).toBeDisabled();
 		});
 	});
 
@@ -1249,11 +1109,11 @@ describe("CircuitBreakerSettings", () => {
 			// The Hedging group renders below the Failover group in the left
 			// column, so its two reset buttons (the Hedge Slow Streams toggle and
 			// the Hedge Delay slider) are the last two in DOM order there, after
-			// the nine Failover controls.
+			// the seven Failover controls.
 			const resets = within(column).getAllByRole("button", {
 				name: /reset this setting to default/i,
 			});
-			expect(resets).toHaveLength(11);
+			expect(resets).toHaveLength(9);
 			await user.click(resets[resets.length - 2]);
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["hedging_enabled"]),
@@ -1674,8 +1534,6 @@ describe("CircuitBreakerSettings", () => {
 				"settings.circuitBreaker.serverErrorRetry",
 				"server_error_retry_enabled",
 			],
-			["settings.circuitBreaker.quotaPin", "circuit_breaker_quota_pin_enabled"],
-			["settings.circuitBreaker.backoff", "circuit_breaker_backoff_enabled"],
 			["settings.circuitBreaker.hedging", "hedging_enabled"],
 		];
 		await screen.findByText(i18n.t(rows[0][0]));

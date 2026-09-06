@@ -33,7 +33,15 @@ func newConfigSyncRouter(t *testing.T, masterKey string) chi.Router {
 // import (the real wiring runs discoverAllProviders).
 func newConfigSyncRouterWithDiscovery(t *testing.T, masterKey string, discoverAll func(context.Context) error) chi.Router {
 	t.Helper()
-	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), masterKey, "v-test", discoverAll, nil)
+	return newConfigSyncRouterWithSettings(t, masterKey, settings.NewRepository(apiTestDB.Pool()), discoverAll)
+}
+
+// newConfigSyncRouterWithSettings is the same router over a settings
+// repository the test also holds, so the test can watch the handler's own
+// cache rather than a second one over the same rows.
+func newConfigSyncRouterWithSettings(t *testing.T, masterKey string, repo *settings.Repository, discoverAll func(context.Context) error) chi.Router {
+	t.Helper()
+	h := NewConfigSyncHandler(apiTestDB, repo, masterKey, "v-test", discoverAll, nil)
 	r := chi.NewRouter()
 	h.Register(r)
 	return r
@@ -823,6 +831,56 @@ func TestConfigSync_SyncsSSOAllowlists(t *testing.T) {
 	}
 }
 
+// An envelope from a primary on the release before migration 080 carries the
+// retired switch and, in the common case (toggle flipped, slider never
+// touched), no ceiling key at all. A member on this release folds it into a
+// zero ceiling, keeps no switch row, and serves the zero at once rather than
+// a cached absence. The switch is read the way the older release read it, so
+// "0" is false too.
+func TestConfigSync_RetiredSwitchFoldsIntoAZeroCeiling(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	settingsRepo := settings.NewRepository(apiTestDB.Pool())
+	r := newConfigSyncRouterWithSettings(t, configSyncMasterKey, settingsRepo, nil)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	if err := settingsRepo.Set(ctx, "circuit_breaker_quota_pin_max", "0s"); err != nil {
+		t.Fatalf("seed primary ceiling: %v", err)
+	}
+	if err := settingsRepo.Set(ctx, "circuit_breaker_backoff_max", "15m0s"); err != nil {
+		t.Fatalf("seed primary backoff ceiling: %v", err)
+	}
+
+	env := doExport(t, r)
+	if got := env.Config.Settings["circuit_breaker_quota_pin_max"]; got != "0s" {
+		t.Fatalf("exported pin ceiling = %q, want 0s", got)
+	}
+	if _, ok := env.Config.Settings["circuit_breaker_quota_pin_enabled"]; ok {
+		t.Fatal("exported a retired switch")
+	}
+
+	cleanConfigTables(t)
+	// The old-primary shape: the switch alone, no ceiling key at all.
+	delete(env.Config.Settings, "circuit_breaker_quota_pin_max")
+	env.Config.Settings["circuit_breaker_quota_pin_enabled"] = "0"
+	// A read before the import caches the absence; the import must evict it.
+	if got := settingsRepo.GetDuration(ctx, "circuit_breaker_quota_pin_max", -1); got != -1 {
+		t.Fatalf("setup: member ceiling reads %v before the import, want the absent sentinel", got)
+	}
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
+	}
+	if got, err := settingsRepo.Get(ctx, "circuit_breaker_quota_pin_max"); err != nil || got != "0s" {
+		t.Errorf("member pin ceiling = %q (%v), want 0s folded from the retired switch", got, err)
+	}
+	if got := settingsRepo.GetDuration(ctx, "circuit_breaker_quota_pin_max", -1); got != 0 {
+		t.Errorf("cached member ceiling reads %v right after the import, want 0: the folded key was not invalidated", got)
+	}
+	if _, err := settingsRepo.Get(ctx, "circuit_breaker_quota_pin_enabled"); err == nil {
+		t.Error("the retired switch was written on a member that no longer knows it")
+	}
+}
+
 // The circuit-breaker span is fleet policy, like the threshold and cooldown it
 // sits beside: it decides how many of a provider's models must be sidelined
 // before the provider itself is skipped, and a member holding its own value
@@ -1252,4 +1310,34 @@ func strPtr(s *string) string {
 		return "<nil>"
 	}
 	return *s
+}
+
+// An envelope from a member older than migration 080 still carries the
+// retired on/off switches. "false" must land as a zero ceiling, which is what
+// the switch means now, and a "true" or absent switch must leave the ceiling
+// the envelope carries (or omits) alone. The envelope itself is not mutated.
+func TestFoldRetiredBreakerSwitches(t *testing.T) {
+	in := map[string]string{
+		"circuit_breaker_quota_pin_enabled": "FALSE",
+		"circuit_breaker_quota_pin_max":     "24h0m0s",
+		"circuit_breaker_backoff_enabled":   "true",
+		"circuit_breaker_backoff_max":       "15m0s",
+	}
+	out := foldRetiredBreakerSwitches(in)
+	if out["circuit_breaker_quota_pin_max"] != "0s" {
+		t.Errorf("quota_pin_max=%q, want 0s folded from the false switch", out["circuit_breaker_quota_pin_max"])
+	}
+	if out["circuit_breaker_backoff_max"] != "15m0s" {
+		t.Errorf("backoff_max=%q, want the envelope's ceiling kept under a true switch", out["circuit_breaker_backoff_max"])
+	}
+	if in["circuit_breaker_quota_pin_max"] != "24h0m0s" {
+		t.Error("the caller's envelope was mutated")
+	}
+	if got := foldRetiredBreakerSwitches(map[string]string{"circuit_breaker_backoff_enabled": "false"}); got["circuit_breaker_backoff_max"] != "0s" {
+		t.Errorf("backoff_max=%q with no ceiling row in the envelope, want 0s", got["circuit_breaker_backoff_max"])
+	}
+	plain := map[string]string{"discovery_interval": "1h"}
+	if got := foldRetiredBreakerSwitches(plain); len(got) != 1 || got["discovery_interval"] != "1h" {
+		t.Errorf("got %v for an envelope without retired switches, want it unchanged", got)
+	}
 }

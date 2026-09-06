@@ -30,18 +30,18 @@ type stubSettings struct {
 	// span overrides circuit_breaker_span_models when non-zero. Negative values
 	// are passed through so the fallback to the default can be asserted.
 	span int
-	// pinEnabled overrides circuit_breaker_quota_pin_enabled when non-nil.
-	pinEnabled *bool
-	// pinMax overrides circuit_breaker_quota_pin_max when positive.
+	// pinMax overrides circuit_breaker_quota_pin_max when positive; pinOff
+	// stores a zero ceiling there, which is the operator's off switch.
 	pinMax time.Duration
+	pinOff bool
 	// pinProbe overrides circuit_breaker_pin_probe_interval when non-nil, so a
 	// test can also set it to zero.
 	pinProbe *time.Duration
-	// backoffEnabled overrides circuit_breaker_backoff_enabled when non-nil.
-	// A pointer, so a test can flip it after the breaker has stamped a backoff.
-	backoffEnabled *bool
-	// backoffMax overrides circuit_breaker_backoff_max when positive.
+	// backoffMax overrides circuit_breaker_backoff_max when positive;
+	// backoffOff stores a zero ceiling there. A test can flip backoffOff after
+	// the breaker has stamped a backoff, since the ceiling is re-read per walk.
 	backoffMax time.Duration
+	backoffOff bool
 }
 
 func (s *stubSettings) GetInt(_ context.Context, key string, def int) int {
@@ -58,25 +58,29 @@ func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Durat
 	if key == "circuit_breaker_cooldown" && s.cooldown > 0 {
 		return s.cooldown
 	}
-	if key == "circuit_breaker_quota_pin_max" && s.pinMax > 0 {
-		return s.pinMax
+	if key == "circuit_breaker_quota_pin_max" {
+		if s.pinOff {
+			return 0
+		}
+		if s.pinMax > 0 {
+			return s.pinMax
+		}
 	}
 	if key == "circuit_breaker_pin_probe_interval" && s.pinProbe != nil {
 		return *s.pinProbe
 	}
-	if key == "circuit_breaker_backoff_max" && s.backoffMax > 0 {
-		return s.backoffMax
+	if key == "circuit_breaker_backoff_max" {
+		if s.backoffOff {
+			return 0
+		}
+		if s.backoffMax > 0 {
+			return s.backoffMax
+		}
 	}
 	return def
 }
 
-func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
-	if key == "circuit_breaker_quota_pin_enabled" && s.pinEnabled != nil {
-		return *s.pinEnabled
-	}
-	if key == "circuit_breaker_backoff_enabled" && s.backoffEnabled != nil {
-		return *s.backoffEnabled
-	}
+func (s *stubSettings) GetBool(_ context.Context, _ string, def bool) bool {
 	return def
 }
 
@@ -122,12 +126,6 @@ func (s *countingSettings) reads(key string) int {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	return s.durations[key]
-}
-
-func (s *countingSettings) bools(key string) int {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	return s.booleans[key]
 }
 
 type stubAdvisor struct {
