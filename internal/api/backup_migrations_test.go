@@ -371,6 +371,7 @@ func TestExtractMigrationNames_Integration(t *testing.T) {
 
 	cmd := exec.CommandContext(ctx, pgDumpPath,
 		"--format=custom",
+		"--compress=zstd:19",
 		"--no-password",
 		"--file="+dumpPath,
 		apiTestDBURL,

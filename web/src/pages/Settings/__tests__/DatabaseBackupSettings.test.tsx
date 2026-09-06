@@ -223,8 +223,12 @@ describe("DatabaseBackupSettings", () => {
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			// The row and the total under the list both read 1 MB for one backup.
-			expect(screen.getAllByText(/1 MB/)).toHaveLength(2);
+			// The total under the list also reads 1 MB for one backup; the row
+			// is the other match.
+			const rows = screen
+				.getAllByText(/1 MB/)
+				.filter((el) => el.dataset.testid !== "backups-total-size");
+			expect(rows).toHaveLength(1);
 		});
 	});
 

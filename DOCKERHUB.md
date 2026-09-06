@@ -213,7 +213,9 @@ For pushed alerts rather than scraping, **Settings → Alerts** POSTs short summ
 
 ## Backup & Restore
 
-Backups from the Settings page or `POST /api/backups` use an unfiltered `pg_dump --format=custom`, so the `.dump` holds every table: providers (encrypted keys), models, virtual key hashes, failover groups and settings, but also request and app logs, the audit log, discovery history, quota snapshots, user accounts, TOTP secrets and recovery-code hashes, and WebAuthn credentials and sessions. Treat a `.dump` as sensitive.
+Backups from the Settings page or `POST /api/backups` use an unfiltered `pg_dump --format=custom --compress=zstd:19`, so the `.dump` holds every table: providers (encrypted keys), models, virtual key hashes, failover groups and settings, but also request and app logs, the audit log, discovery history, quota snapshots, user accounts, TOTP secrets and recovery-code hashes, and WebAuthn credentials and sessions. Treat a `.dump` as sensitive.
+
+The dumps are zstd-compressed, so restoring outside the app needs `pg_restore` 16 or later built with zstd (the `postgres:16-alpine` image qualifies).
 
 ```bash
 # Direct

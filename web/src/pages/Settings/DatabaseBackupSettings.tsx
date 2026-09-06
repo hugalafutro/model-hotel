@@ -385,16 +385,6 @@ export function DatabaseBackupSettings({
 						<LoadingSpinner />
 					) : backups && backups.length > 0 ? (
 						<>
-							<p
-								className="text-xs text-(--text-tertiary)"
-								data-testid="backups-total-size"
-							>
-								{t("settings.backup.totalSize", {
-									size: formatBytes(
-										backups.reduce((sum, b) => sum + b.size_bytes, 0),
-									),
-								})}
-							</p>
 							<div className="space-y-2 max-h-[300px] overflow-y-auto">
 								{backups.map((backup) => (
 									<div
@@ -491,6 +481,16 @@ export function DatabaseBackupSettings({
 									</div>
 								))}
 							</div>
+							<p
+								className="text-xs text-(--text-tertiary)"
+								data-testid="backups-total-size"
+							>
+								{t("settings.backup.totalSize", {
+									size: formatBytes(
+										backups.reduce((sum, b) => sum + b.size_bytes, 0),
+									),
+								})}
+							</p>
 						</>
 					) : (
 						<p className="text-xs text-(--text-muted)">

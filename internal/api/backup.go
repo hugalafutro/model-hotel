@@ -164,9 +164,10 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	filename := generateBackupFilename(origin)
 	path := filepath.Join(h.backupDir, filename)
 
-	// Use a dedicated 10-minute timeout so large databases don't get killed
-	// by the chi request timeout middleware (~60s).
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
+	// A dedicated budget, detached from the chi request timeout (~60s), and
+	// sized for zstd 19: at the measured 12 s per 72 MB of raw data, thirty
+	// minutes covers a database of roughly ten gigabytes.
+	ctx, cancel := context.WithTimeout(context.Background(), backupDumpBudget)
 	defer cancel()
 
 	if output, err := h.runDump(ctx, pgDumpPath, path); err != nil {
@@ -414,6 +415,9 @@ func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePa
 	return cmd
 }
 
+// backupDumpBudget bounds one pg_dump run, manual or scheduled.
+const backupDumpBudget = 30 * time.Minute
+
 // generateBackupFilename creates a timestamped backup filename carrying its
 // origin ("manual" or "auto") as a trailing segment. parseBackupTimestamp only
 // reads the date/time segments, so the extra suffix does not affect parsing.
@@ -464,9 +468,15 @@ func scheduledBackups(backups []backupEntry) []backupEntry {
 	return out
 }
 
-// DeleteBackup removes a backup file.
+// DeleteBackup removes a backup file. Like every other holder of backupMu it
+// refuses rather than queues behind a running dump: a zstd 19 dump can hold
+// the lock for minutes, longer than the request timeout a queued delete would
+// hit.
 func (h *BackupHandler) DeleteBackup(w http.ResponseWriter, r *http.Request) {
-	h.backupMu.Lock()
+	if !h.backupMu.TryLock() {
+		respondError(w, "backup already in progress", nil, http.StatusConflict)
+		return
+	}
 	defer h.backupMu.Unlock()
 
 	filename := chi.URLParam(r, "filename")

@@ -1870,7 +1870,7 @@
 			"copySignature": "서명 복사",
 			"signatureCopied": "서명을 클립보드에 복사했습니다",
 			"signatureCopyFailed": "서명을 복사할 수 없습니다: {{message}}",
-			"totalSize": "전체 백업 합계 크기: {{size}}"
+			"totalSize": "모든 백업의 총 크기: {{size}}"
 		},
 		"appearance": {
 			"title": "외관",

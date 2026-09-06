@@ -182,7 +182,7 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 	filename := generateBackupFilename("auto")
 	path := filepath.Join(h.backupDir, filename)
 
-	dumpCtx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	dumpCtx, cancel := context.WithTimeout(ctx, backupDumpBudget)
 	defer cancel()
 
 	if output, err := h.runDump(dumpCtx, pgDumpPath, path); err != nil {
