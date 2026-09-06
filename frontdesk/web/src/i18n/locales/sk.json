@@ -474,6 +474,14 @@
 				"backToList": "Späť na ciele",
 				"nothingAdded": "V tomto priechode zatiaľ nebolo nič pridané.",
 				"alreadySaved": "Tento cieľ už je v zozname. Nedá sa pridať dvakrát."
+			},
+			"category": {
+				"backups": "Zálohy",
+				"config_sync": "Synchronizácia konfigurácie",
+				"health": "Stav",
+				"member_reads": "Čítanie členov",
+				"membership": "Členstvo",
+				"routing": "Smerovanie"
 			}
 		},
 		"wizard": {

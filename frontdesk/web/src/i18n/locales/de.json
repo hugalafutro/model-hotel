@@ -462,6 +462,14 @@
 				"backToList": "Zurück zu den Zielen",
 				"nothingAdded": "In diesem Durchlauf wurde noch nichts hinzugefügt.",
 				"alreadySaved": "Dieses Ziel steht bereits auf der Liste. Es kann nicht zweimal hinzugefügt werden."
+			},
+			"category": {
+				"backups": "Sicherungen",
+				"config_sync": "Konfigurationsabgleich",
+				"health": "Zustand",
+				"member_reads": "Mitgliederabfragen",
+				"membership": "Mitgliedschaft",
+				"routing": "Routing"
 			}
 		},
 		"wizard": {

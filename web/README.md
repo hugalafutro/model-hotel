@@ -1,381 +1,108 @@
-# Model Hotel Frontend
+# Model Hotel dashboard (`web/`)
 
-React + TypeScript dashboard for the Model Hotel multi-provider AI gateway. Provides a web interface for managing LLM providers, virtual keys, monitoring usage, and interactive testing via chat and arena modes.
+React + TypeScript single-page app for the Model Hotel gateway: providers, models, failover groups,
+virtual keys, users, security, audit, logs, settings, plus the chat and arena testing surfaces. It
+builds to `web/dist/`, which is copied into `cmd/server/static/` and embedded in the Go binary, so
+in production the backend serves it from its own origin.
 
-## Tech Stack
+Setup, the Docker workflow, CI, git hooks, translations and the semantic `ui-*` design system are
+documented in the
+[Development wiki](https://github.com/hugalafutro/model-hotel/wiki/Development). This page is the
+short orientation for working inside `web/`.
 
-- **Framework**: React 18 with TypeScript
-- **Build Tool**: Vite
-- **Routing**: React Router v6
-- **State Management**: React Context + TanStack Query
-- **Styling**: Tailwind CSS with custom CSS variables
-- **UI Components**: Custom component library
-- **Icons**: Lucide React
-- **API Client**: Fetch API withTanStack Query
-- **Linting**: ESLint + TypeScript ESLint
-- **Formatting**: Biome (configured for tabs)
+## Stack
 
-## Project Structure
+- React 19 with TypeScript, Vite 8, React Router 8
+- TanStack Query for server state; React Context for cross-cutting UI state (theme, toasts, events,
+  identity, storage, sidebar mode, quota modal)
+- Tailwind CSS 4, themed through semantic `ui-*` classes defined in `src/index.css`
+- Phosphor icons; i18next with 29 locale catalogs (every user-facing string goes through `t()`)
+- Vitest, Testing Library and MSW for tests; ESLint and Biome for lint and formatting
 
-```
-web/
-├── public/                 # Static assets
-├── dist/                   # Build output (served by Go backend)
-├── src/
-│   ├── api/               # API client and type definitions
-│   │   ├── client.ts      # Fetch wrapper and auth
-│   │   └── types.ts       # TypeScript interfaces
-│   ├── components/        # Reusable UI components
-│   │   ├── Layout.tsx     # Main layout with sidebar
-│   │   ├── ModelPicker.tsx
-│   │   ├── ModelReplyCard.tsx
-│   │   ├── PersonaPicker.tsx
-│   │   ├── PresetBar.tsx
-│   │   └── ...           # 30+ components
-│   ├── pages/            # Page components
-│   │   ├── Dashboard.tsx # Overview and stats
-│   │   ├── Providers.tsx # Provider management
-│   │   ├── Models.tsx    # Model list and testing
-│   │   ├── FailoverGroups.tsx
-│   │   ├── VirtualKeys.tsx
-│   │   ├── Logs.tsx      # Request logs
-│   │   ├── AppLogs.tsx   # Application logs
-│   │   ├── Settings.tsx  # Runtime configuration
-│   │   ├── Chat.tsx      # Interactive chat
-│   │   └── Arena.tsx     # Competition/compare modes
-│   ├── context/          # React Context providers
-│   │   ├── ThemeContext.tsx
-│   │   ├── EventContext.tsx      # SSE events
-│   │   ├── ToastContext.tsx
-│   │   ├── StorageContext.tsx    # localStorage
-│   │   └── SidebarModeContext.tsx
-│   ├── data/             # Presets and static data
-│   │   └── presets.ts    # Chat personas, arena prompts
-│   ├── hooks/            # Custom React hooks
-│   ├── utils/            # Utility functions
-│   │   ├── arenaHistory.ts
-│   │   ├── model.ts
-│   │   ├── thinking.ts
-│   │   └── stagger.ts
-│   ├── App.tsx           # Root component
-│   ├── main.tsx          # Entry point
-│   └── index.css         # Global styles
-├── index.html
-├── package.json
-├── tsconfig.json
-├── vite.config.ts
-└── biome.json
-```
+## Layout
 
-## Key Features
+| Path | What lives there |
+|------|------------------|
+| `src/api/` | `http.ts` (fetch wrapper, `ApiError`, cookie auth helpers), `endpoints/` per area, `client.ts` (the assembled typed `api` facade), `types.ts` / `types/` |
+| `src/components/` | Reusable UI, including the virtualized log tables |
+| `src/pages/` | Top-level screens, most a `Page.tsx` plus a `Page/` directory of its parts, a few a directory only: Dashboard, Providers, Models, FailoverGroups, VirtualKeys, Logs (request and app logs), Users, Security, Audit, Settings, Chat, Arena |
+| `src/context/` | Theme, Toast, Event (SSE), Identity, Storage, SidebarMode, QuotaModal |
+| `src/hooks/` | Custom hooks (`useLocalStorage`, `useModels`, `useQuotaData`, `useIdleLogout`, ...) |
+| `src/i18n/` | i18next setup and `locales/*.json` |
+| `src/lib/`, `src/utils/`, `src/data/` | Icon registry, helpers (formatting, SSE parsing, model utils), static presets |
+| `src/test/` | Vitest setup and shared test helpers |
 
-### Dashboard (`/dashboard`)
-- Provider and model counts
-- Recent request stats
-- Quick actions (add provider, create key)
+Modules shared with the Front Desk SPA live in `../web-shared/` (cookies, quota, alerts, i18n,
+device, clipboard, ...) and are imported through the `@web-shared/*` alias, which is configured in
+both `vite.config.ts` and `vitest.config.ts`. They are linted and coverage-gated as part of `web/`.
 
-### Provider Management (`/providers`)
-- Add/edit/delete LLM providers
-- Auto-detect provider type from URL
-- Manual and automatic model discovery
-- View quota/balance (DeepSeek, NanoGPT, Z.AI, NeuralWatt - Standard plan or higher)
+## Commands
 
-### Model Management (`/models`)
-- Browse discovered models
-- Enable/disable models
-- Test model connectivity
-- View model capabilities and pricing
+Node 24 or newer (the floor CI runs; the Docker builder image is `node:26-alpine`) and pnpm
+10.33.0, pinned by the `packageManager` field in `package.json`. Run everything from `web/`, with
+paths relative to `web/`.
 
-### Failover Groups (`/failover`)
-- Configure `hotel/` routing groups
-- Set provider priority order
-- Enable/disable individual entries
-- Sync groups with discovered models
-
-### Virtual Keys (`/virtual-keys`)
-- Create per-client API keys
-- Set per-key rate limits (RPS/burst) and a token-per-minute (TPM) cap
-- View usage statistics
-- Revoke keys instantly
-
-### Logs (`/logs`)
-- **Request Logs**: Filterable request history with latency, tokens, errors
-- **App Logs**: Application events and errors
-
-### Settings (`/settings`)
-- Runtime configuration UI
-- Theme selection (dark/light)
-- UI style presets (cyber-terminal, glassmorphism-lite)
-- Accent color picker
-
-### Chat (`/chat`)
-Two sub-modes:
-- **Chat**: Standard interactive chat with personas, streaming
-- **Conversation**: Two models talking to each other (round-based)
-
-### Arena (`/arena`)
-Two sub-modes:
-- **Competition**: Bracket tournaments with voting
-- **Compare**: Side-by-side model comparison
-
-## Development Setup
-
-### Prerequisites
-- Node.js 18+
-- pnpm (recommended) or npm
-
-### Install Dependencies
 ```bash
-cd web
 pnpm install
+pnpm dev                                  # UI on http://localhost:5173, no API proxy (see below)
+pnpm build                                # tsc -b, then vite build -> web/dist/
+pnpm exec tsc -b                          # typecheck alone (what the pre-push hook runs)
+pnpm lint                                 # ESLint over web/ and web-shared/
+pnpm format                               # Biome check, no writes (what CI runs)
+pnpm format:fix src/components/Foo.tsx    # Biome format + lint, writing fixes
+pnpm test                                 # Vitest, single run
+pnpm test:watch
+pnpm vitest run --coverage                # full suite, about 85 seconds; run it once
 ```
 
-### Development Server
-```bash
-pnpm dev
-```
-Runs on <http://localhost:5173> (points to backend at localhost:8081 by default)
+Never run `pnpm biome` or `pnpm exec biome`. Under `pnpm exec` the native lint worker is killed and
+Biome misreports it as `Linter process terminated abnormally (possibly out of memory)`. Use the
+`format` / `format:fix` scripts, or call `./node_modules/.bin/biome` directly.
 
-### Build for Production
-```bash
-pnpm build
-```
-Output goes to `web/dist/`, served by Go backend at `/`
+## Talking to the backend
 
-## Configuration
+`API_BASE` is the empty string in `src/api/http.ts`, and `vite.config.ts` configures no proxy, so
+requests always resolve against the serving origin. Nothing in `src/` reads `import.meta.env`;
+there are no `VITE_*` variables to set. In practice that means `pnpm dev` serves the UI with hot
+reload but cannot reach the API: use the Docker stack on `:8081` for anything that talks to the
+backend. Because the built assets are embedded in the Go binary, `web/src/` changes need
+`make docker-build` from the repo root; `docker compose restart` does not pick them up.
 
-The frontend reads from these sources:
-1. **API_BASE**: Runtime config from `import.meta.env.VITE_API_BASE` or defaults to `/api`
-2. **localStorage**: User preferences
-   - `adminToken`: Authentication token
-   - `theme`: dark/light
-   - `accentColor`: Hex color
-   - `uiStyle`: cyber-terminal, glassmorphism-lite, or default
-   - `persistChat/persistConversation/persistArena`: State persistence flags
+## Auth and events
 
-### Environment Variables
-- `VITE_API_BASE`: Override API base URL (default: `/api`)
-- `VITE_WS_BASE`: Override WebSocket base URL for SSE (default: same as API)
+Auth is a cookie session, not a bearer token. The server sets an httpOnly `mh_session` cookie that
+the browser attaches automatically on same-origin requests, plus a readable `mh_csrf` cookie that
+acts as the client-visible "logged in" signal. `getAuthHeaders()` echoes that token in an
+`X-CSRF-Token` header on mutating requests; `fetchOK` strips it from GET and HEAD, and calls
+`clearAuth()` on a 401 so `isAuthenticated()` flips false. No token is ever stored in
+`localStorage`.
 
-## State Management
+Server-sent events go through `src/context/EventContext.tsx`, which opens
+`fetch("/api/events", { credentials: "same-origin" })` and parses the stream with `readSSEStream`
+(`src/utils/sse.ts`) rather than using `EventSource`, so the cookie session, the 401 path and
+reconnect backoff are all handled explicitly. Incoming events invalidate the relevant TanStack
+Query caches and raise toasts.
 
-### API Data (TanStack Query)
-```typescript
-// Example from Dashboard.tsx
-const { data: stats } = useQuery({
-  queryKey: ['stats'],
-  queryFn: () => api.get('/stats'),
-  refetchInterval: 10000, // Poll every 10s
-})
-```
+## localStorage
 
-### UI State (React Context)
-```typescript
-// Theme example
-const { theme, accentColor, setTheme } = useTheme()
-
-// Sidebar mode example
-const { chatSubMode, setChatSubMode } = useSidebarMode()
-```
-
-### Persistent State (localStorage)
-```typescript
-// Automatically persisted via StorageContext
-localStorage.setItem('adminToken', token)
-localStorage.setItem('persistChat', 'true')
-```
-
-## API Integration
-
-All API calls go through `src/api/client.ts`:
-- Automatic admin token injection
-- JSON parsing/serialization
-- Error handling
-- Type-safe responses
-
-```typescript
-import { api } from '../api/client'
-
-// Typed response
-const providers = await api.get<Provider[]>('/providers')
-```
-
-## Styling
-
-### Tailwind CSS with Custom Properties
-```css
-/* index.css */
-@theme {
-  --color-accent: var(--accent-color, #1dd1a1);
-  --font-mono: 'JetBrains Mono', 'SFMono-Regular', monospace;
-}
-```
-
-### Theme Variables
-- `--accent-color`: Primary brand color
-- `--bg-primary`: Main background
-- `--bg-secondary`: Panel background
-- `--text-primary`: Primary text color
-- `--text-secondary`: Secondary text color
-
-### Dark/Light Mode
-Uses CSS variables that switch based on `data-theme` attribute:
-```css
-[data-theme="dark"] { /* dark mode variables */ }
-[data-theme="light"] { /* light mode variables */ }
-```
-
-### UI Style Presets
-- **default**: Standard dark/light theme
-- **cyber-terminal**: Green on black monospace
-- **glassmorphism-lite**: Semi-transparent panels
-
-## SSE Events
-
-Real-time events via Server-Sent Events:
-```typescript
-// src/context/EventContext.tsx
-const eventSource = new EventSource('/api/events', {
-  headers: { Authorization: `Bearer ${adminToken}` }
-})
-
-eventSource.addEventListener('discovery.finished', (e) => {
-  const data = JSON.parse(e.data)
-  showToast(`${data.models_discovered} models discovered`)
-})
-```
-
-Event types:
-- `discovery.started/finished`
-- `discovery.provider_error`
-- `discovery.models_disabled`
-- `failover.sync_error`
-- `model.disabled_manually`
+Only UI preferences, never credentials. `StorageContext` owns the persistence toggles
+(`persistChat`, `persistArena`, `persistConversation`, `arenaHistoryEnabled`, `arenaHistoryLimit`).
+`ThemeContext` owns `theme` (`dark`, `light` or `system`), `uiStyle` (`clean-saas` by default, plus
+`cyber-terminal` and `glassmorphism-lite`) and `accentColor`. The remaining keys are per-page view
+modes, chart ranges, toast settings, sidebar state and unsent chat or arena drafts, plus
+`i18nextLng` from the language detector.
 
 ## Testing
 
-### Run Tests
-```bash
-# Unit tests
-pnpm test
-
-# Linting
-pnpm lint
-
-# Type checking
-pnpm typecheck
-```
-
-### Manual Testing
-1. Start backend: `docker compose -f docker-compose.yml -f compose.dev.yml up` (or `go run cmd/server/main.go`)
-2. Start frontend: `pnpm dev`
-3. Login with admin token
-4. Add a provider and test
-
-## Performance Considerations
-
-### Optimizations
-- Lazy loaded routes (React.lazy + Suspense)
-- Virtualized lists for large datasets (logs, models)
-- Debounced filters and search
-- Optimistic updates where appropriate
-- Inline SVG icons (no icon font)
-
-### Bundle Size
-- Tree-shaken imports
-- Code splitting by route
-- Vendor chunk separation (Vite default)
-
-### Caching
-- TanStack Query handles API response caching
-- Model/state lists refetch intelligently
-- Stale-while-revalidate pattern
-
-## Common Development Tasks
-
-### Adding a New Page
-1. Create `src/pages/NewPage.tsx`
-2. Add route in `src/App.tsx`
-3. Add navigation in `src/components/Layout.tsx`
-4. Create API types in `src/api/types.ts`
-
-### Adding a New Component
-1. Create `src/components/Component.tsx`
-2. Use TypeScript interfaces for props
-3. Follow existing style patterns
-4. Add to storybook (if applicable)
-
-### Modifying API Calls
-1. Update types in `src/api/types.ts`
-2. Modify call in component or add to `src/api/client.ts`
-3. Handle loading/error states
-
-### Changing Styles
-1. Update Tailwind classes or CSS variables
-2. Consider dark/light mode
-3. Test with different UI style presets
-
-## Build & Deployment
-
-### Production Build
-```bash
-pnpm build
-```
-Creates optimized bundle in `web/dist/`
-
-### Docker Deployment
-The Go backend serves the built frontend:
-```go
-// cmd/server/static.go
-r.Get("/*", spaHandler.ServeHTTP)
-```
-
-### Environment-Specific Builds
-```bash
-# Development
-VITE_API_BASE=http://localhost:8081 pnpm dev
-
-# Production (default)
-pnpm build
-```
-
-## Troubleshooting
-
-### CORS Issues
-- Ensure backend CORS_ORIGINS includes frontend origin
-- Check browser console for errors
-- Verify admin token is set
-
-### API Errors
-- Check browser network tab
-- Verify backend is running
-- Check backend logs: `docker compose -f docker-compose.yml -f compose.dev.yml logs app`
-
-### Build Failures
-- Clear node_modules and reinstall
-- Check TypeScript errors: `pnpm typecheck`
-- Verify Vite config
-
-### Hot Reload Not Working
-- Ensure WDS port not blocked
-- Check browser console for WS errors
-- Restart dev server
-
-## Contributing
-
-When contributing to the frontend:
-
-1. Follow TypeScript strict mode
-2. Use Biome formatting (tabs)
-3. Add tests for new features
-4. Update this README if adding major features
-5. Consider accessibility (ARIA labels, keyboard nav)
-6. Test with both dark and light themes
-7. Verify mobile responsiveness
+Test files live in a `__tests__/` directory beside the code they cover, for example
+`src/components/__tests__/Foo.test.tsx` (a few older `src/utils/` tests still sit next to their
+source). The environment is jsdom with `TZ` pinned to UTC, `globals: true`, `retry: 2` and a 15s
+timeout; MSW handles network stubbing. Coverage settings, including the `web-shared/` include
+pattern, live in `vitest.config.ts`.
 
 ## Resources
 
-- [Main Project README](../README.md)
+- [Main project README](../README.md)
+- [Development](https://github.com/hugalafutro/model-hotel/wiki/Development)
 - [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference)
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration)
-```

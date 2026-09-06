@@ -462,6 +462,14 @@
 				"backToList": "Terug naar bestemmingen",
 				"nothingAdded": "In deze ronde is nog niets toegevoegd.",
 				"alreadySaved": "Deze bestemming staat al in de lijst. Hij kan niet twee keer worden toegevoegd."
+			},
+			"category": {
+				"backups": "Back-ups",
+				"config_sync": "Configuratiesynchronisatie",
+				"health": "Status",
+				"member_reads": "Lidmaatschapsuitlezingen",
+				"membership": "Lidmaatschap",
+				"routing": "Routering"
 			}
 		},
 		"wizard": {

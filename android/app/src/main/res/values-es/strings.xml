@@ -135,6 +135,12 @@
     <string name="alerts_catalog_note">Cambia el interruptor para activar o silenciar una alerta. Los cambios se aplican a Front Desk de inmediato.</string>
     <string name="alerts_flip_forbidden">Este dispositivo está vinculado como monitor y no puede cambiar las alertas. Vuelve a vincularlo con un código de operador en Front Desk.</string>
     <string name="alerts_flip_failed">No se pudo cambiar esa alerta: %1$s</string>
+    <string name="alerts_category_health">Estado</string>
+    <string name="alerts_category_config_sync">Sincronización de configuración</string>
+    <string name="alerts_category_member_reads">Lecturas de miembros</string>
+    <string name="alerts_category_routing">Enrutamiento</string>
+    <string name="alerts_category_membership">Membresía</string>
+    <string name="alerts_category_backups">Copias de seguridad</string>
     <string name="alerts_event_health_down">Miembro caído</string>
     <string name="alerts_event_health_up">Miembro recuperado</string>
     <string name="alerts_event_config_sync_failed">Fallo al sincronizar la configuración</string>

@@ -3,7 +3,7 @@ import {
 	APPRISE_SERVICES_URL,
 	ntfyServerOf,
 } from "@web-shared/alerts/composers";
-import { eventLabel, parseCsv } from "@web-shared/alerts/events";
+import { categoryLabel, eventLabel, parseCsv } from "@web-shared/alerts/events";
 import { ntfyAppriseURL } from "@web-shared/ntfy";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -136,7 +136,7 @@ export function AlertsPanel() {
 		return t("errors.generic");
 	};
 
-	// Group the catalog by its (English) category for the picker.
+	// Group the catalog by its category (translated for display) for the picker.
 	const grouped = useMemo(() => {
 		const m = new Map<string, AlertEventDef[]>();
 		for (const e of catalog ?? []) {
@@ -465,7 +465,7 @@ export function AlertsPanel() {
 								{grouped.map(([category, defs]) => (
 									<div key={category} style={{ marginBottom: "0.6rem" }}>
 										<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
-											{category}
+											{categoryLabel(t, category)}
 										</div>
 										{defs.map((d) => {
 											const label = eventLabel(t, d.type);

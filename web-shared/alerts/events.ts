@@ -24,6 +24,18 @@ export function eventLabel(t: EventTranslator, type: string): string {
 	});
 }
 
+// categoryLabel names one catalog category the same way: the server sends a
+// display string ("Config Sync"), which becomes a key slug so each locale can
+// name the group, and an unknown category reads as itself.
+export function categoryLabel(t: EventTranslator, category: string): string {
+	const slug = category
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "_")
+		.replace(/^_+|_+$/g, "");
+	return t(`settings.alerts.category.${slug}`, { defaultValue: category });
+}
+
 // parseCsv turns the stored alert_events CSV into a membership Set. Blank
 // entries are dropped, so a trailing comma or a stray space never becomes an
 // event type nothing matches.

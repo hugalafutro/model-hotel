@@ -2199,6 +2199,13 @@
 				"doneManaged": "Ziele gespeichert. Welche Ereignisse einen Alert senden, bleibt flottenweit verwaltet.",
 				"step7HintManaged": "Die Ziele speichern. Alert-Schalter und Ereignisse werden auf dieser Instanz flottenweit verwaltet.",
 				"testFailed": "Die Testbenachrichtigung konnte nicht zugestellt werden."
+			},
+			"category": {
+				"discovery": "Erkennung",
+				"failover": "Failover",
+				"high_availability": "Hochverfügbarkeit",
+				"quota": "Kontingent",
+				"security": "Sicherheit"
 			}
 		},
 		"totp": {

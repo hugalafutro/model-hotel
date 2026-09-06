@@ -135,6 +135,12 @@
     <string name="alerts_catalog_note">Zet de schakelaar om om een waarschuwing in of uit te schakelen. Wijzigingen worden direct op Front Desk toegepast.</string>
     <string name="alerts_flip_forbidden">Dit apparaat is gekoppeld als monitor en kan waarschuwingen niet wijzigen. Koppel het opnieuw met een operatorcode in Front Desk.</string>
     <string name="alerts_flip_failed">Kon die waarschuwing niet wijzigen: %1$s</string>
+    <string name="alerts_category_health">Status</string>
+    <string name="alerts_category_config_sync">Configuratiesynchronisatie</string>
+    <string name="alerts_category_member_reads">Lidmaatschapsuitlezingen</string>
+    <string name="alerts_category_routing">Routering</string>
+    <string name="alerts_category_membership">Lidmaatschap</string>
+    <string name="alerts_category_backups">Back-ups</string>
     <string name="alerts_event_health_down">Lid ging offline</string>
     <string name="alerts_event_health_up">Lid hersteld</string>
     <string name="alerts_event_config_sync_failed">Configuratiesynchronisatie mislukt</string>

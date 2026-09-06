@@ -2305,6 +2305,13 @@
 				"doneManaged": "Cíle byly uloženy. To, které události odešlou upozornění, zůstává spravováno pro celou flotilu.",
 				"step7HintManaged": "Uložit cíle. Zapínání upozornění a události jsou na této instanci spravovány pro celou flotilu.",
 				"testFailed": "Testovací upozornění se nepodařilo doručit."
+			},
+			"category": {
+				"discovery": "Objevování",
+				"failover": "Failover",
+				"high_availability": "Vysoká dostupnost",
+				"quota": "Kvóta",
+				"security": "Zabezpečení"
 			}
 		},
 		"totp": {

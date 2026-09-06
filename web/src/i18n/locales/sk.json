@@ -2305,6 +2305,13 @@
 				"doneManaged": "Ciele boli uložené. To, ktoré udalosti odošlú upozornenie, zostáva spravované pre celú flotilu.",
 				"step7HintManaged": "Uložiť ciele. Zapínanie upozornení a udalosti sú na tejto inštancii spravované pre celú flotilu.",
 				"testFailed": "Testovacie upozornenie sa nepodarilo doručiť."
+			},
+			"category": {
+				"discovery": "Objavovanie",
+				"failover": "Failover",
+				"high_availability": "Vysoká dostupnosť",
+				"quota": "Kvóta",
+				"security": "Zabezpečenie"
 			}
 		},
 		"totp": {

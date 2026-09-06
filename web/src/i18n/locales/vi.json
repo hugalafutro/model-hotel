@@ -2199,6 +2199,13 @@
 				"sendAll": "Gửi thử nghiệm đến tất cả",
 				"sentAll": "Đã gửi thử nghiệm đến mọi đích đến",
 				"apiChangedDrops": "Việc thay đổi địa chỉ sẽ xóa các đích đến đã thêm trong lần chạy này; chúng đã được thử nghiệm với địa chỉ cũ."
+			},
+			"category": {
+				"discovery": "Khám phá",
+				"failover": "Chuyển đổi dự phòng",
+				"high_availability": "Tính sẵn sàng cao",
+				"quota": "Hạn mức",
+				"security": "Bảo mật"
 			}
 		},
 		"totp": {

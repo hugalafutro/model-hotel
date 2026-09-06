@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { eventLabel } from "@web-shared/alerts/events";
+import { categoryLabel, eventLabel } from "@web-shared/alerts/events";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckSquare, Square } from "@/lib/icons";
@@ -113,7 +113,7 @@ export function AlertEventPicker({
 					<div key={category} className="space-y-1.5">
 						<div className="flex items-center justify-between">
 							<span className="text-xs font-semibold uppercase tracking-wide text-(--text-muted)">
-								{category}
+								{categoryLabel(t, category)}
 							</span>
 							{/* Select-all/none — same icon affordance as the Failover page.
 							    Hidden for single-event categories where it is redundant. */}

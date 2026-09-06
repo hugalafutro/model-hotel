@@ -111,7 +111,7 @@ stored as a provider's quota failure. The vendor-specific paths that talk to an 
 `phrase` is what the daily phrase-staleness report reads
 (`internal/proxy/phrase_staleness.go`): a rate-limit phrase-table entry that has
 matched no attempt in 90 days, and was added more than 90 days ago, is named in a
-`rate-limit phrases: entries unmatched inside the horizon` Warn line so a
+`phrases: entries unmatched inside the horizon` Warn line so a
 provider that rewrote its error text is noticed inside a season rather than at
 the next incident.
 

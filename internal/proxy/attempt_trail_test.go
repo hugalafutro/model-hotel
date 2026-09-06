@@ -451,7 +451,7 @@ func TestStalePhrases_ReportPathsAndLoop(t *testing.T) {
 	// Every entry inside the horizon by its own date: nothing to query, nothing
 	// stale, a Debug line only.
 	ReportStalePhrases(context.Background(), pool, now)
-	if len(capt.find("rate-limit phrases: entries unmatched inside the horizon; the provider may have rewritten its error text")) > 0 {
+	if len(capt.find("phrases: entries unmatched inside the horizon; the provider may have rewritten its error text")) > 0 {
 		t.Error("a fresh table was reported stale")
 	}
 
@@ -463,7 +463,7 @@ func TestStalePhrases_ReportPathsAndLoop(t *testing.T) {
 		t.Error("StalePhrases on a cancelled context returned no error")
 	}
 	ReportStalePhrases(cancelled, pool, now)
-	if len(capt.find("rate-limit phrases: staleness check failed")) == 0 {
+	if len(capt.find("phrases: staleness check failed")) == 0 {
 		t.Error("the failed check was not logged")
 	}
 
@@ -475,7 +475,7 @@ func TestStalePhrases_ReportPathsAndLoop(t *testing.T) {
 		close(done)
 	}()
 	deadline := time.After(2 * time.Second)
-	for len(capt.find("rate-limit phrases: entries unmatched inside the horizon; the provider may have rewritten its error text")) == 0 {
+	for len(capt.find("phrases: entries unmatched inside the horizon; the provider may have rewritten its error text")) == 0 {
 		select {
 		case <-deadline:
 			t.Fatal("the loop never ran the report")

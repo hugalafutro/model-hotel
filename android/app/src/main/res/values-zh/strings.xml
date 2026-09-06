@@ -132,6 +132,12 @@
     <string name="alerts_catalog_note">拨动开关以启用或静音某个警报。更改会立即应用到 Front Desk。</string>
     <string name="alerts_flip_forbidden">此设备以监视器身份配对，无法更改警报。请在 Front Desk 中使用操作员代码重新配对。</string>
     <string name="alerts_flip_failed">无法更改该警报：%1$s</string>
+    <string name="alerts_category_health">健康状态</string>
+    <string name="alerts_category_config_sync">配置同步</string>
+    <string name="alerts_category_member_reads">成员读取</string>
+    <string name="alerts_category_routing">路由</string>
+    <string name="alerts_category_membership">成员关系</string>
+    <string name="alerts_category_backups">备份</string>
     <string name="alerts_event_health_down">成员宕机</string>
     <string name="alerts_event_health_up">成员恢复</string>
     <string name="alerts_event_config_sync_failed">配置同步失败</string>

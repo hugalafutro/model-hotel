@@ -2199,6 +2199,13 @@
 				"sendAll": "전체에 테스트 보내기",
 				"sentAll": "모든 대상에 테스트를 보냈습니다",
 				"apiChangedDrops": "주소를 바꾸면 이번에 추가한 대상이 제거됩니다. 이전 주소로 테스트한 것이기 때문입니다."
+			},
+			"category": {
+				"discovery": "검색",
+				"failover": "장애 조치",
+				"high_availability": "고가용성",
+				"quota": "할당량",
+				"security": "보안"
 			}
 		},
 		"totp": {

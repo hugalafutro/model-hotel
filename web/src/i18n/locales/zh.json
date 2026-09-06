@@ -2199,6 +2199,13 @@
 				"doneManaged": "目标已保存。哪些事件发送警报仍由机群统一管理。",
 				"step7HintManaged": "保存目标。警报开关和事件在本实例由机群统一管理。",
 				"testFailed": "测试通知未能送达。"
+			},
+			"category": {
+				"discovery": "发现",
+				"failover": "故障转移",
+				"high_availability": "高可用",
+				"quota": "配额",
+				"security": "安全"
 			}
 		},
 		"totp": {

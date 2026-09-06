@@ -132,6 +132,12 @@
     <string name="alerts_catalog_note">スイッチを切り替えてアラートを有効化またはミュートします。変更は Front Desk にすぐに適用されます。</string>
     <string name="alerts_flip_forbidden">このデバイスはモニターとしてペア設定されており、アラートを変更できません。Front Desk でオペレーターコードを使って再ペア設定してください。</string>
     <string name="alerts_flip_failed">そのアラートを変更できませんでした: %1$s</string>
+    <string name="alerts_category_health">ヘルス</string>
+    <string name="alerts_category_config_sync">設定同期</string>
+    <string name="alerts_category_member_reads">メンバー読み取り</string>
+    <string name="alerts_category_routing">ルーティング</string>
+    <string name="alerts_category_membership">メンバーシップ</string>
+    <string name="alerts_category_backups">バックアップ</string>
     <string name="alerts_event_health_down">メンバーがダウン</string>
     <string name="alerts_event_health_up">メンバーが復旧</string>
     <string name="alerts_event_config_sync_failed">設定の同期に失敗</string>

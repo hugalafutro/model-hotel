@@ -2199,6 +2199,13 @@
 				"sendAll": "Lähetä testi kaikkiin",
 				"sentAll": "Testi lähetetty jokaiseen kohteeseen",
 				"apiChangedDrops": "Osoitteen vaihtaminen poistaa tällä kierroksella lisätyt kohteet; ne testattiin vanhaa osoitetta vastaan."
+			},
+			"category": {
+				"discovery": "Löytäminen",
+				"failover": "Vikasieto",
+				"high_availability": "Korkea käytettävyys",
+				"quota": "Kiintiö",
+				"security": "Turvallisuus"
 			}
 		},
 		"totp": {

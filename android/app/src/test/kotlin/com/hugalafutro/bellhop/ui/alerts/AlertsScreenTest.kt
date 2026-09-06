@@ -6,21 +6,27 @@ import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
+import com.hugalafutro.bellhop.R
 import com.hugalafutro.bellhop.data.AlertEventDef
 import com.hugalafutro.bellhop.data.AlertStatus
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 
 /**
  * Alerts screen: delivery-status pill, catalog rows, revoked banner, back arrow.
- * Asserts on test tags, not display text, so English copy never breaks tests.
+ * Asserts on test tags, not display text, so English copy never breaks tests;
+ * the one text assertion reads its expectation back through getString.
  */
 @RunWith(RobolectricTestRunner::class)
 class AlertsScreenTest {
@@ -173,6 +179,26 @@ class AlertsScreenTest {
         composeTestRule.onNodeWithTag("alert-toggle-spinner-health.down", useUnmergedTree = true).assertIsDisplayed()
         // The switch is replaced by the spinner, so a double-tap can't fire a second request.
         assertTrue(composeTestRule.onAllNodesWithTag("alert-toggle-health.down").fetchSemanticsNodes().isEmpty())
+    }
+
+    @Test
+    @Config(qualifiers = "de")
+    fun categoryHeaderIsTranslated() {
+        // Front Desk sends the category as raw English, so a non-English device
+        // must show the translated header, not "Config Sync".
+        composeTestRule.setContent {
+            BellhopTheme {
+                AlertsScreen(onBack = {}, ui = loaded)
+            }
+        }
+        val app = RuntimeEnvironment.getApplication()
+        val expected = app.getString(R.string.alerts_category_config_sync)
+        // Pins the qualifier: were the German resources not in effect, the
+        // expectation would equal the raw English and the assert below would
+        // pass against an untranslated header.
+        assertNotEquals("Config Sync", expected)
+        composeTestRule.onNodeWithTag("alerts-list").performScrollToNode(hasTestTag("alert-sev-info"))
+        composeTestRule.onNodeWithText(expected).assertIsDisplayed()
     }
 
     @Test

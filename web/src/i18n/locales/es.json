@@ -2252,6 +2252,13 @@
 				"doneManaged": "Destinos guardados. Qué eventos envían una alerta sigue gestionándose para toda la flota.",
 				"step7HintManaged": "Guardar los destinos. La activación de las alertas y los eventos se gestionan para toda la flota en esta instancia.",
 				"testFailed": "No se ha podido entregar la notificación de prueba."
+			},
+			"category": {
+				"discovery": "Descubrimiento",
+				"failover": "Conmutación por error",
+				"high_availability": "Alta disponibilidad",
+				"quota": "Cuota",
+				"security": "Seguridad"
 			}
 		},
 		"totp": {

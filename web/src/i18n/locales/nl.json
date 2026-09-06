@@ -2199,6 +2199,13 @@
 				"doneManaged": "Bestemmingen opgeslagen. Welke gebeurtenissen een waarschuwing sturen, blijft vlootbreed beheerd.",
 				"step7HintManaged": "De bestemmingen opslaan. De schakelaars voor waarschuwingen en de gebeurtenissen worden op deze instantie vlootbreed beheerd.",
 				"testFailed": "De testmelding kon niet worden bezorgd."
+			},
+			"category": {
+				"discovery": "Detectie",
+				"failover": "Failover",
+				"high_availability": "Hoge beschikbaarheid",
+				"quota": "Quotum",
+				"security": "Beveiliging"
 			}
 		},
 		"totp": {

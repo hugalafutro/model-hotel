@@ -2252,6 +2252,13 @@
 				"sendAll": "Enviar teste para tudo",
 				"sentAll": "Teste enviado para todos os destinos",
 				"apiChangedDrops": "Alterar o endereço remove os destinos adicionados nesta execução; eles foram testados com o endereço antigo."
+			},
+			"category": {
+				"discovery": "Descoberta",
+				"failover": "Failover",
+				"high_availability": "Alta disponibilidade",
+				"quota": "Cota",
+				"security": "Segurança"
 			}
 		},
 		"totp": {
