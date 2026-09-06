@@ -469,6 +469,32 @@ func TestBackupHandler_CreateBackup_ConcurrentLock(t *testing.T) {
 	}
 }
 
+// A delete issued while a dump runs answers 409 like a create does, rather
+// than queueing behind a zstd 19 dump that can hold the mutex for minutes.
+func TestBackupHandler_DeleteBackup_ConcurrentLock(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
+	if err := os.WriteFile(filepath.Join(dir, "backup_test.dump"), []byte("payload"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	h.backupMu.Lock()
+	defer h.backupMu.Unlock()
+
+	r := chi.NewRouter()
+	h.Register(r)
+	req := httptest.NewRequest("DELETE", "/backups/backup_test.dump", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+
+	if w.Code != http.StatusConflict {
+		t.Errorf("expected status %d, got %d: %s", http.StatusConflict, w.Code, w.Body.String())
+	}
+	if _, err := os.Stat(filepath.Join(dir, "backup_test.dump")); err != nil {
+		t.Errorf("the refused delete removed the file: %v", err)
+	}
+}
+
 // TestBackupHandler_ListBackups_NonExistentDir tests that an empty array
 // is returned when the backup directory doesn't exist.
 func TestBackupHandler_ListBackups_NonExistentDir(t *testing.T) {
