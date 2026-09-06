@@ -164,13 +164,13 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	filename := generateBackupFilename(origin)
 	path := filepath.Join(h.backupDir, filename)
 
-	// A dedicated budget, detached from the chi request timeout (~60s), and
-	// sized for zstd 19: at the measured 12 s per 72 MB of raw data, thirty
-	// minutes covers a database of roughly ten gigabytes.
+	// A dedicated budget, detached from the chi request timeout (~60s). The
+	// request itself still waits for the dump, which is why this path takes
+	// the cheaper compression level: see buildDumpCommand.
 	ctx, cancel := context.WithTimeout(context.Background(), backupDumpBudget)
 	defer cancel()
 
-	if output, err := h.runDump(ctx, pgDumpPath, path); err != nil {
+	if output, err := h.runDump(ctx, pgDumpPath, path, requestDumpCompression); err != nil {
 		// Log full pg_dump output server-side only (may contain connection details)
 		debuglog.Error("backup: pg_dump failed", "output", output, "error", err)
 		respondError(w, "pg_dump failed - check server logs for details", nil, http.StatusInternalServerError)
@@ -367,9 +367,9 @@ const backupPartialSuffix = ".partial"
 // reads as a backup. A failed dump leaves nothing behind and returns pg_dump's
 // trimmed output with the error for the caller to log; a failed rename keeps
 // the completed partial, the only good copy, and names it in the error.
-func (h *BackupHandler) runDump(ctx context.Context, pgDumpPath, path string) (string, error) {
+func (h *BackupHandler) runDump(ctx context.Context, pgDumpPath, path, compression string) (string, error) {
 	partial := path + backupPartialSuffix
-	output, err := h.buildDumpCommand(ctx, pgDumpPath, partial).CombinedOutput()
+	output, err := h.buildDumpCommand(ctx, pgDumpPath, partial, compression).CombinedOutput()
 	if err != nil {
 		_ = os.Remove(partial)
 		return strings.TrimSpace(string(output)), err
@@ -380,10 +380,28 @@ func (h *BackupHandler) runDump(ctx context.Context, pgDumpPath, path string) (s
 	return "", nil
 }
 
+// Compression levels for the custom-format dump, one per caller. The format
+// is already compressed (zlib level 6 by default), so wrapping the file in
+// gzip afterwards gains about one percent; only zstd still buys anything.
+// Measured on a 72 MB database: zlib 6 gave 5.1 MB in 1 s, zstd 12 gave
+// 4.5 MB in 1 s, zstd 19 gave 4.0 MB in 13 s.
+//
+// The scheduled dump runs in the background under backupDumpBudget, so it
+// takes the top level: those are the backups that accumulate. A dump taken on
+// request (the dashboard button, a Front Desk snapshot) keeps the client
+// waiting and sits behind whatever proxy timeout fronts the dashboard, so it
+// takes the level that costs no more time than today. Either way the file
+// stays a custom-format dump that pg_restore 16 and later read unchanged, so
+// the restore and signature paths know nothing about it.
+const (
+	scheduledDumpCompression = "zstd:19"
+	requestDumpCompression   = "zstd:12"
+)
+
 // buildDumpCommand creates a pg_dump command with the password stripped from
 // the connection URL and passed via PGPASSWORD instead. The caller is
 // responsible for running the command and handling errors.
-func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePath string) *exec.Cmd {
+func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePath, compression string) *exec.Cmd {
 	connURL := h.databaseURL
 	var envPassword string
 	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
@@ -393,18 +411,10 @@ func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePa
 			connURL = u.String()
 		}
 	}
-	// Custom format is already compressed (zlib level 6 by default), so wrapping
-	// the file in gzip afterwards gains about one percent. zstd at its top level
-	// is the only setting that still buys anything: measured on a 72 MB
-	// database, zlib 6 gave 5.1 MB in 2 s and zstd 19 gave 4.0 MB in 12 s. The
-	// dump runs in the background under backupDumpBudget, so the CPU is
-	// affordable; the file stays a custom-format dump that pg_restore 16 and
-	// later read unchanged, so the restore and signature paths know nothing
-	// about it.
 	//nolint:gosec // pgDumpPath is a configured binary path, not arbitrary user input
 	cmd := exec.CommandContext(ctx, pgDumpPath,
 		"--format=custom",
-		"--compress=zstd:19",
+		"--compress="+compression,
 		"--no-password",
 		"--file="+filePath,
 		connURL,
@@ -415,7 +425,9 @@ func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePa
 	return cmd
 }
 
-// backupDumpBudget bounds one pg_dump run, manual or scheduled.
+// backupDumpBudget bounds one pg_dump run, manual or scheduled: at the
+// measured 13 s per 72 MB of raw data at zstd 19, thirty minutes covers a
+// database of roughly ten gigabytes.
 const backupDumpBudget = 30 * time.Minute
 
 // generateBackupFilename creates a timestamped backup filename carrying its
@@ -469,12 +481,12 @@ func scheduledBackups(backups []backupEntry) []backupEntry {
 }
 
 // DeleteBackup removes a backup file. Like every other holder of backupMu it
-// refuses rather than queues behind a running dump: a zstd 19 dump can hold
-// the lock for minutes, longer than the request timeout a queued delete would
-// hit.
+// refuses rather than queues behind a running dump, restore or prune: a
+// scheduled zstd 19 dump can hold the lock for minutes, longer than the
+// request timeout a queued delete would hit.
 func (h *BackupHandler) DeleteBackup(w http.ResponseWriter, r *http.Request) {
 	if !h.backupMu.TryLock() {
-		respondError(w, "backup already in progress", nil, http.StatusConflict)
+		respondError(w, "a backup operation is in progress", nil, http.StatusConflict)
 		return
 	}
 	defer h.backupMu.Unlock()

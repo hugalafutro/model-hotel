@@ -1181,7 +1181,7 @@ The purge is itself a mutating request and is recorded by the audit middleware, 
 
 #### POST `/api/backups`
 
-Creates a PostgreSQL backup using `pg_dump` (custom format, `--compress=zstd:19`; readable by `pg_restore` 16 or later built with zstd, which the `postgres:16-alpine` image is).
+Creates a PostgreSQL backup using `pg_dump` (custom format, zstd-compressed: level 12 here, so the request stays short, and level 19 for scheduled backups; readable by `pg_restore` 16 or later built with zstd, which the `postgres:16-alpine` image is).
 
 **Response:** `201 Created`
 ```json
@@ -1220,6 +1220,12 @@ Returns the backup's HMAC signature sidecar, the value the restore endpoint take
 #### DELETE `/api/backups/{filename}`
 
 **Response:** `204 No Content`
+
+**Error Responses:**
+- `400 Bad Request` - Invalid filename
+- `404 Not Found` - Backup does not exist
+- `409 Conflict` - A backup, restore or prune is in progress
+- `500 Internal Server Error` - The file could not be removed
 
 #### POST `/api/backups/prune-preview`
 

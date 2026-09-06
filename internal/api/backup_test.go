@@ -470,7 +470,7 @@ func TestBackupHandler_CreateBackup_ConcurrentLock(t *testing.T) {
 }
 
 // A delete issued while a dump runs answers 409 like a create does, rather
-// than queueing behind a zstd 19 dump that can hold the mutex for minutes.
+// than queueing behind a scheduled dump that can hold the mutex for minutes.
 func TestBackupHandler_DeleteBackup_ConcurrentLock(t *testing.T) {
 	dir := t.TempDir()
 	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
@@ -1132,21 +1132,23 @@ func backupTOTPRouter(t *testing.T, totpOn bool, sessionMgr WebAuthnSessionManag
 	return r
 }
 
-// The dump is a custom-format archive compressed with zstd at its top level,
-// which is the only setting that still shrinks an already-compressed custom
-// dump, and the password travels in the environment rather than on the
-// command line.
+// The dump is a custom-format archive compressed with zstd, at the top level
+// for the scheduled dump and at a level that costs no extra time for one
+// taken on request, and the password travels in the environment rather than
+// on the command line.
 func TestBuildDumpCommand_ZstdCustomFormatWithPasswordInEnv(t *testing.T) {
 	h := &BackupHandler{databaseURL: "postgres://mh:s3cret@db:5432/mh?sslmode=disable"}
-	cmd := h.buildDumpCommand(context.Background(), "/usr/bin/pg_dump", "/tmp/out.dump")
-	args := strings.Join(cmd.Args[1:], " ")
+	if scheduledDumpCompression != "zstd:19" || requestDumpCompression != "zstd:12" {
+		t.Fatalf("compression levels = %q / %q, want zstd:19 scheduled and zstd:12 on request", scheduledDumpCompression, requestDumpCompression)
+	}
+	cmd := h.buildDumpCommand(context.Background(), "/usr/bin/pg_dump", "/tmp/out.dump", scheduledDumpCompression)
 	for _, want := range []string{"--format=custom", "--compress=zstd:19", "--file=/tmp/out.dump", "postgres://mh@db:5432/mh?sslmode=disable"} {
-		if !strings.Contains(args, want) {
-			t.Errorf("pg_dump args %q lack %q", args, want)
+		if !slices.Contains(cmd.Args[1:], want) {
+			t.Errorf("pg_dump args %q lack %q", cmd.Args[1:], want)
 		}
 	}
-	if strings.Contains(args, "s3cret") {
-		t.Errorf("pg_dump args %q carry the password", args)
+	if strings.Contains(strings.Join(cmd.Args, " "), "s3cret") {
+		t.Errorf("pg_dump args %q carry the password", cmd.Args)
 	}
 	if !slices.Contains(cmd.Env, "PGPASSWORD=s3cret") {
 		t.Error("PGPASSWORD missing from the pg_dump environment")

@@ -380,7 +380,7 @@ instructions for those that are off:
 
 #### Database Backup
 Backend settings: `backup_enabled`, `backup_interval`, `backup_son_retention`, `backup_father_retention`, `backup_grandfather_retention`
-- **Backup:** Download a PostgreSQL dump of the database (custom format, zstd-compressed, so restoring outside the app needs `pg_restore` 16 or later built with zstd; the `postgres:16-alpine` image qualifies). The list shows the combined size of every backup on disk.
+- **Backup:** Download a PostgreSQL dump of the database (custom format, zstd-compressed at level 12 here and level 19 for scheduled backups, so restoring outside the app needs `pg_restore` 16 or later built with zstd; the `postgres:16-alpine` image qualifies). The list shows the combined size of every backup on disk.
 - **Restore:** Upload a previously downloaded backup file to restore. The confirm dialog takes the backup's signature (optional; "Copy signature" on a signed backup's row puts it on the clipboard) so the dump is integrity-checked before it is applied; leaving it empty is allowed for backups that have no signature, but the dashboard then asks for an explicit "restore anyway" confirmation, because an unsigned dump's contents cannot be verified (see [Security](Security#backup-integrity))
 - **Periodic Backup:** Enable automatic scheduled backups with son/father/grandfather rotation (see backup settings above)
 

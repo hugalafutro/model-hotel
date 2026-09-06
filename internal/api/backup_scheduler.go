@@ -185,7 +185,7 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 	dumpCtx, cancel := context.WithTimeout(ctx, backupDumpBudget)
 	defer cancel()
 
-	if output, err := h.runDump(dumpCtx, pgDumpPath, path); err != nil {
+	if output, err := h.runDump(dumpCtx, pgDumpPath, path, scheduledDumpCompression); err != nil {
 		debuglog.Error("backup: scheduled pg_dump failed", "output", output, "error", err)
 		return
 	}

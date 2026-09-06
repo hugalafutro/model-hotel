@@ -108,7 +108,11 @@ jobs:
         # runner's Azure mirror can stall for 20+ minutes on an 11 kB package.
         # This names the missing binary up front if an image update ever
         # drops them, instead of a wall of backup test failures.
-        run: pg_dump --version && pg_restore --version
+        # The dumps are zstd-compressed, so the trial dump also proves the
+        # client is built against libzstd, not only that it exists.
+        run: |
+          pg_dump --version && pg_restore --version
+          pg_dump --format=custom --compress=zstd:1 --schema-only --file=/dev/null "postgres://modelhotel:${{ env.POSTGRES_PASSWORD }}@localhost:5433/testdb?sslmode=disable"
 
       - name: Run tests
         env:

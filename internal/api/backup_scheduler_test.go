@@ -268,7 +268,7 @@ func TestRunDump_RenameFailureKeepsPartial(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	output, err := h.runDump(context.Background(), mock, final)
+	output, err := h.runDump(context.Background(), mock, final, scheduledDumpCompression)
 	if err == nil || !strings.Contains(err.Error(), "rename completed dump") {
 		t.Fatalf("err = %v, want a rename error", err)
 	}
