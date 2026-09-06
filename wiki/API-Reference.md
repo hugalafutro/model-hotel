@@ -1276,11 +1276,9 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 | `circuit_breaker_threshold` | int | 1-100 |
 | `circuit_breaker_span_models` | int | 1-100 (default `2`); open model circuits it takes to skip the provider itself |
 | `circuit_breaker_cooldown` | string | Duration |
-| `circuit_breaker_quota_pin_enabled` | string | `"true"` or `"false"` (default `"true"`); pin an open circuit's cooldown to the provider's quota reset |
-| `circuit_breaker_quota_pin_max` | string | Duration ceiling for a quota pin (default `"24h0m0s"`); a non-positive value falls back to 24h |
+| `circuit_breaker_quota_pin_max` | string | Duration ceiling for pinning an open circuit's cooldown to the provider's quota reset (default `"24h0m0s"`); `"0s"` switches pinning off |
 | `circuit_breaker_pin_probe_interval` | string | Duration between probes of a circuit pinned on a response's own claim (default `"1h0m0s"`); `"0s"` disables the probe |
-| `circuit_breaker_backoff_enabled` | string | `"true"` or `"false"` (default `"true"`); double an open circuit's cooldown per failed half-open probe |
-| `circuit_breaker_backoff_max` | string | Duration ceiling for that backoff (default `"15m0s"`); a non-positive value falls back to 15m |
+| `circuit_breaker_backoff_max` | string | Duration ceiling for doubling an open circuit's cooldown per failed half-open probe (default `"15m0s"`); `"0s"` switches backoff off |
 | `discovery_interval` | string | Duration (e.g. `"6h"`, `"0"` = disabled) |
 | `discovery_on_startup` | string | `"true"` or `"false"` |
 | `discovery_on_provider_create` | string | `"true"` or `"false"` |

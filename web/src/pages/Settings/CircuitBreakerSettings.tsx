@@ -15,23 +15,25 @@ import {
 import { InflightLimiterGroup } from "./InflightLimiterGroup";
 import { useSettingsMutations } from "./useSettingsMutations";
 
-// Bounds of the quota-pin ceiling slider, in hours. The floor keeps the
-// operator off zero, which the breaker reads as unset and replaces with its
-// default; the ceiling is one week, the longest reset window
+// Bounds of the quota-pin ceiling slider, in hours. Zero is the off switch
+// (the breaker reads a stored zero ceiling as pinning disabled), so the floor
+// is zero; the ceiling is one week, the longest reset window
 // internal/quota/normalize.go recognises. Shared by the clamp and the slider
-// props so the two cannot drift apart.
-const QUOTA_PIN_MAX_MIN_HOURS = 1;
+// props so the two cannot drift apart. Deliberately NOT infinityValue={0}: on
+// other sliders 0 lifts a limit, here it turns the feature off, and the ∞
+// glyph would read as the opposite. The description says what zero does.
+const QUOTA_PIN_MAX_MIN_HOURS = 0;
 const QUOTA_PIN_MAX_MAX_HOURS = 168;
 
 // Bounds of the probe-backoff ceiling slider, in minutes. Minutes rather than
 // hours because the backoff starts from a cooldown measured in seconds and
 // doubles: 1, 2, 4, 8 minutes at the default cooldown before the default
-// 15-minute limit holds it. The floor keeps the operator off the zero that
-// restores the default rather than disabling anything; the ceiling of four
-// hours keeps the track draggable (a day at one-minute steps is not) while
-// leaving room well past any probe cadence. A limit at or below the cooldown
-// period leaves the backoff nothing to add, which the description says.
-const BACKOFF_MAX_MIN_MINUTES = 1;
+// 15-minute limit holds it. Zero is the off switch, same as the quota-pin
+// ceiling; the ceiling of four hours keeps the track draggable (a day at
+// one-minute steps is not) while leaving room well past any probe cadence. A
+// limit at or below the cooldown period leaves the backoff nothing to add,
+// which the description says.
+const BACKOFF_MAX_MIN_MINUTES = 0;
 const BACKOFF_MAX_MAX_MINUTES = 240;
 
 // Bounds of the model-span slider: how many of a provider's models must hold an
@@ -234,15 +236,11 @@ export function CircuitBreakerSettings({
 			Number(settings?.circuit_breaker_span_models) || 2,
 		),
 	);
-	// Both quota-pin fallbacks mirror the Go defaults the breaker applies when
-	// the key is absent (internal/failover/model_circuits.go: quotaPinEnabled
-	// defaults true, quotaPinMax falls back to 24h). The `|| 24` on the hours
-	// covers a stored non-positive duration too, which the breaker also reads as
-	// unset, so the slider shows the ceiling actually in force.
-	//
-	// The clamp must come after that fallback, never merged into it: clamping
-	// first would turn a stored 0 into the floor of 1, which is truthy, and the
-	// `|| 24` would then never fire.
+	// The ceilings double as the off switches: a stored zero is off, an absent
+	// key is the Go default (internal/failover/model_circuits.go: quotaPinMax
+	// falls back to 24h, backoffMax to defaultBackoffMax). So the fallback
+	// fires only on an absent key, never on a parsed zero, which must display
+	// as the off position it is.
 	//
 	// PUT /api/settings accepts any duration, so a stored value can also sit
 	// below the floor or above the ceiling. Both are clamped for display, since
@@ -250,25 +248,22 @@ export function CircuitBreakerSettings({
 	// number box alone. Display only: SettingsSlider seeds its local state from
 	// this prop and fires onChange on interaction, never on mount, so nothing is
 	// written back until the operator moves the control.
-	const quotaPinEnabled =
-		settings?.circuit_breaker_quota_pin_enabled !== "false";
 	const quotaPinMaxHours = Math.min(
 		QUOTA_PIN_MAX_MAX_HOURS,
 		Math.max(
 			QUOTA_PIN_MAX_MIN_HOURS,
-			goDurationToHours(settings?.circuit_breaker_quota_pin_max || "24h") || 24,
+			settings?.circuit_breaker_quota_pin_max === undefined
+				? 24
+				: goDurationToHours(settings.circuit_breaker_quota_pin_max),
 		),
 	);
-	// Same shape as the quota-pin pair: the fallbacks mirror the Go defaults
-	// (backoffEnabled defaults true, backoffMax falls back to 15m, and a stored
-	// non-positive duration reads as unset), the fallback comes before the clamp,
-	// and the clamp is display only.
-	const backoffEnabled = settings?.circuit_breaker_backoff_enabled !== "false";
 	const backoffMaxMinutes = Math.min(
 		BACKOFF_MAX_MAX_MINUTES,
 		Math.max(
 			BACKOFF_MAX_MIN_MINUTES,
-			goDurationToMinutes(settings?.circuit_breaker_backoff_max || "15m") || 15,
+			settings?.circuit_breaker_backoff_max === undefined
+				? 15
+				: goDurationToMinutes(settings.circuit_breaker_backoff_max),
 		),
 	);
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";
@@ -398,28 +393,9 @@ export function CircuitBreakerSettings({
 								resetTooltip={t("settings.common.resetSetting")}
 							/>
 
-							<SettingToggleRow
-								testId="quota-pin-row"
-								label={t("settings.circuitBreaker.quotaPin")}
-								description={t("settings.circuitBreaker.quotaPinDescription")}
-								checked={quotaPinEnabled}
-								disabled={!circuitBreakerEnabled}
-								onChange={(v) =>
-									updateMutation.mutate({
-										circuit_breaker_quota_pin_enabled: v ? "true" : "false",
-									})
-								}
-								onReset={() =>
-									resetSettingMutation.mutate([
-										"circuit_breaker_quota_pin_enabled",
-									])
-								}
-								resetDisabled={isResetting}
-							/>
-
 							<SettingsSlider
 								id="circuit-breaker-quota-pin-max"
-								disabled={!circuitBreakerEnabled || !quotaPinEnabled}
+								disabled={!circuitBreakerEnabled}
 								label={t("settings.circuitBreaker.quotaPinMax")}
 								value={quotaPinMaxHours}
 								min={QUOTA_PIN_MAX_MIN_HOURS}
@@ -440,28 +416,9 @@ export function CircuitBreakerSettings({
 								resetTooltip={t("settings.common.resetSetting")}
 							/>
 
-							<SettingToggleRow
-								testId="backoff-row"
-								label={t("settings.circuitBreaker.backoff")}
-								description={t("settings.circuitBreaker.backoffDescription")}
-								checked={backoffEnabled}
-								disabled={!circuitBreakerEnabled}
-								onChange={(v) =>
-									updateMutation.mutate({
-										circuit_breaker_backoff_enabled: v ? "true" : "false",
-									})
-								}
-								onReset={() =>
-									resetSettingMutation.mutate([
-										"circuit_breaker_backoff_enabled",
-									])
-								}
-								resetDisabled={isResetting}
-							/>
-
 							<SettingsSlider
 								id="circuit-breaker-backoff-max"
-								disabled={!circuitBreakerEnabled || !backoffEnabled}
+								disabled={!circuitBreakerEnabled}
 								label={t("settings.circuitBreaker.backoffMax")}
 								value={backoffMaxMinutes}
 								min={BACKOFF_MAX_MIN_MINUTES}

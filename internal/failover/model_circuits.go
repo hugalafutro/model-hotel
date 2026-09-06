@@ -243,11 +243,11 @@ func (cb *CircuitBreaker) evictIfFull(models modelCircuits) {
 // operator who flips one releases every override already in force, and one
 // Status row cannot report a pin its neighbour's read said was disabled.
 type cooldownReads struct {
-	cb        *CircuitBreaker
-	base      time.Duration
-	backoffOn *bool
-	pinOn     *bool
-	pinProbe  *time.Duration
+	cb         *CircuitBreaker
+	base       time.Duration
+	backoffMax *time.Duration
+	pinMax     *time.Duration
+	pinProbe   *time.Duration
 }
 
 // cooldowns starts a walk: one read of the configured cooldown, the switches
@@ -258,19 +258,19 @@ func (cb *CircuitBreaker) cooldowns() *cooldownReads {
 }
 
 func (r *cooldownReads) backoffEnabled() bool {
-	if r.backoffOn == nil {
-		v := r.cb.backoffEnabled()
-		r.backoffOn = &v
+	if r.backoffMax == nil {
+		v := r.cb.backoffMax()
+		r.backoffMax = &v
 	}
-	return *r.backoffOn
+	return *r.backoffMax > 0
 }
 
 func (r *cooldownReads) pinEnabled() bool {
-	if r.pinOn == nil {
-		v := r.cb.quotaPinEnabled()
-		r.pinOn = &v
+	if r.pinMax == nil {
+		v := r.cb.quotaPinMax()
+		r.pinMax = &v
 	}
-	return *r.pinOn
+	return *r.pinMax > 0
 }
 
 func (r *cooldownReads) pinProbeInterval() time.Duration {
@@ -619,21 +619,30 @@ func (cb *CircuitBreaker) backedOffForWith(c *circuit, r *cooldownReads) bool {
 	return c != nil && c.cooldownBackoff > r.base && r.backoffEnabled()
 }
 
-func (cb *CircuitBreaker) backoffEnabled() bool {
-	if cb.settings == nil {
-		return true
-	}
-	return cb.settings.GetBool(context.Background(), "circuit_breaker_backoff_enabled", true)
+// backoffMax is the ceiling a probe backoff may reach, or zero when backoff is
+// off. An absent key means defaultBackoffMax; a stored non-positive duration is
+// the operator's off switch, re-read on every walk so switching off also
+// releases a backoff already in force.
+func (cb *CircuitBreaker) backoffMax() time.Duration {
+	return ceilingOrDefault(cb.settings, "circuit_breaker_backoff_max", defaultBackoffMax)
 }
 
-// backoffMax is the ceiling a probe backoff may reach; see defaultBackoffMax.
-func (cb *CircuitBreaker) backoffMax() time.Duration {
-	if cb.settings != nil {
-		if v := cb.settings.GetDuration(context.Background(), "circuit_breaker_backoff_max", 0); v > 0 {
-			return v
-		}
+// unsetCeiling is the sentinel a ceiling read comes back with when the key has
+// no row or does not parse, so that a stored zero (off) can be told from an
+// absent key (default). No operator stores a negative nanosecond.
+const unsetCeiling = -1
+
+// ceilingOrDefault reads a duration ceiling whose zero means off: absent or
+// unparsable falls back to def, anything stored comes back clamped at zero.
+func ceilingOrDefault(settings SettingsReader, key string, def time.Duration) time.Duration {
+	if settings == nil {
+		return def
 	}
-	return defaultBackoffMax
+	v := settings.GetDuration(context.Background(), key, unsetCeiling)
+	if v == unsetCeiling {
+		return def
+	}
+	return max(v, 0)
 }
 
 // quotaPinnedForWith reports whether a quota pin is governing this circuit. The
@@ -659,18 +668,16 @@ func (cb *CircuitBreaker) pinSourceForWith(c *circuit, r *cooldownReads) string 
 	return c.pinSource
 }
 
+// quotaPinEnabled reports whether quota pinning is on at all: the ceiling is
+// the switch, and a ceiling of zero turns pinning off.
 func (cb *CircuitBreaker) quotaPinEnabled() bool {
-	if cb.settings == nil {
-		return true
-	}
-	return cb.settings.GetBool(context.Background(), "circuit_breaker_quota_pin_enabled", true)
+	return cb.quotaPinMax() > 0
 }
 
+// quotaPinMax is the ceiling a quota pin may reach, or zero when pinning is
+// off. An absent key means 24h; a stored non-positive duration is the
+// operator's off switch, re-read on every walk so switching off also releases
+// a pin already in force.
 func (cb *CircuitBreaker) quotaPinMax() time.Duration {
-	if cb.settings != nil {
-		if v := cb.settings.GetDuration(context.Background(), "circuit_breaker_quota_pin_max", 0); v > 0 {
-			return v
-		}
-	}
-	return 24 * time.Hour
+	return ceilingOrDefault(cb.settings, "circuit_breaker_quota_pin_max", 24*time.Hour)
 }

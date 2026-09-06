@@ -170,19 +170,19 @@ func TestCircuitBreaker_AProbeThatSucceedsResetsTheBackoff(t *testing.T) {
 	}
 }
 
-// The kill switch is re-read on every check, like the quota pin's: an operator
-// who switches backoff off to get a provider back does not wait out a backoff
-// that was stamped on before the switch.
+// The ceiling is the kill switch and it is re-read on every check, like the
+// quota pin's: an operator who zeroes the backoff limit to get a provider back
+// does not wait out a backoff that was stamped on before the switch.
 func TestCircuitBreaker_DisablingBackoffReleasesOneAlreadyInForce(t *testing.T) {
-	enabled := true
-	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: backoffTestBase, backoffEnabled: &enabled})
+	settings := &stubSettings{threshold: 1, cooldown: backoffTestBase}
+	cb := NewCircuitBreaker(settings)
 	id := uuid.New()
 	backOffOnce(t, cb, id)
 	if s := onlyStatus(t, cb); !s.BackedOff {
 		t.Fatal("setup: no backoff in force")
 	}
 
-	enabled = false
+	settings.backoffOff = true
 
 	s := onlyStatus(t, cb)
 	if s.CooldownMs != backoffTestBase.Milliseconds() || s.BackedOff {
@@ -200,7 +200,7 @@ func TestCircuitBreaker_DisablingBackoffReleasesOneAlreadyInForce(t *testing.T) 
 
 	// Switching it back on re-applies the backoff already stamped, in the same
 	// way: the switch is a read-time gate, not a stamp-time one.
-	enabled = true
+	settings.backoffOff = false
 	if s := onlyStatus(t, cb); !s.BackedOff {
 		t.Error("re-enabling backoff did not restore the backoff already stamped")
 	}
@@ -247,32 +247,36 @@ func TestCircuitBreaker_PinCeilingBelowTheBackoffStampsNoPin(t *testing.T) {
 }
 
 // A pin is floored at the cooldown in force when it is stamped, and with
-// backoff switched off that floor is the base. Switch backoff back on and the
-// pin in force is shorter than the backoff. The longest governs, so the circuit
-// serves the backoff, and both flags say what is in force.
-func TestCircuitBreaker_PinStampedWithBackoffOffNeverOutranksTheBackoffOnceOn(t *testing.T) {
-	enabled := false
-	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: backoffTestBase, backoffEnabled: &enabled})
+// backoff switched off that floor is the base, and the failed probe stamps no
+// backoff at all (a zero ceiling has nothing to double towards), though it is
+// still counted. Switching backoff back on changes nothing by itself: the pin
+// stays the only override. The next failed probe then applies the backoff every
+// counted failure has earned, and the 3m advice sinks under that floor.
+func TestCircuitBreaker_BackoffOffStampsNothingButStillCounts(t *testing.T) {
+	settings := &stubSettings{threshold: 1, cooldown: backoffTestBase, backoffOff: true}
+	cb := NewCircuitBreaker(settings)
 	id := uuid.New()
 	openBreaker(t, cb, id)
 	backdateOpen(t, cb, id, 24*time.Hour)
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(3 * time.Minute), ok: true})
 	failProbe(t, cb, id)
-	if s := onlyStatus(t, cb); !s.QuotaPinned || s.BackedOff {
-		t.Fatalf("setup: quota_pinned=%v backed_off=%v, want a 3m pin over a disabled backoff", s.QuotaPinned, s.BackedOff)
+	if s := onlyStatus(t, cb); !s.QuotaPinned || s.BackedOff || s.FailedProbes != 1 {
+		t.Fatalf("setup: quota_pinned=%v backed_off=%v failed_probes=%d, want a 3m pin, no backoff, one counted probe", s.QuotaPinned, s.BackedOff, s.FailedProbes)
 	}
 
-	enabled = true
+	settings.backoffOff = false
+	if s := onlyStatus(t, cb); s.BackedOff || !s.QuotaPinned {
+		t.Errorf("backed_off=%v quota_pinned=%v right after re-enabling, want only the pin: nothing was stamped while off", s.BackedOff, s.QuotaPinned)
+	}
+
+	backdateOpen(t, cb, id, 24*time.Hour)
+	failProbe(t, cb, id)
 	s := onlyStatus(t, cb)
-	if s.CooldownMs != (2 * backoffTestBase).Milliseconds() {
-		t.Errorf("backoff re-enabled under a shorter pin: cooldown %dms, want the 4m backoff", s.CooldownMs)
+	if s.CooldownMs != (4*backoffTestBase).Milliseconds() || !s.BackedOff || s.FailedProbes != 2 {
+		t.Errorf("cooldown %dms backed_off=%v failed_probes=%d after the next failed probe, want the 8m two counted failures earn", s.CooldownMs, s.BackedOff, s.FailedProbes)
 	}
-	if !s.BackedOff || !s.QuotaPinned {
-		t.Errorf("backed_off=%v quota_pinned=%v, want both: both are in force, the longer governs", s.BackedOff, s.QuotaPinned)
-	}
-	backdateOpen(t, cb, id, 3*time.Minute+30*time.Second)
-	if !cb.IsOpen(id, "test-provider", "") {
-		t.Error("the shorter pin handed out a probe inside the 4m backoff")
+	if s.QuotaPinned {
+		t.Error("3m advice pinned over an 8m backoff floor")
 	}
 }
 
@@ -325,7 +329,7 @@ func TestCircuitBreaker_ReleasingAPinFallsBackToTheBackoff(t *testing.T) {
 }
 
 // Status is the Prometheus scrape path and it holds the lock the request path
-// takes. The switches that gate a backoff and a pin are settings reads, and a
+// takes. The ceilings that gate a backoff and a pin are settings reads, and a
 // deployment that never set them has no row to cache, so each is a DB round
 // trip: the number of them one Status call takes must not grow with the number
 // of backed-off circuits it walks, and the same holds for a request checking a
@@ -355,10 +359,10 @@ func TestCircuitBreaker_SwitchReadsDoNotScaleWithBackedOffCircuits(t *testing.T)
 		if !s.BackedOff || len(s.OpenModels) != circuits {
 			t.Fatalf("setup: backed_off=%v with %d blocking circuits, want true and %d", s.BackedOff, len(s.OpenModels), circuits)
 		}
-		status = settings.bools("circuit_breaker_backoff_enabled")
+		status = settings.reads("circuit_breaker_backoff_max")
 		settings.reset()
 		cb.IsOpen(id, "test-provider", "a-sibling-nothing-charged")
-		isOpen = settings.bools("circuit_breaker_backoff_enabled")
+		isOpen = settings.reads("circuit_breaker_backoff_max")
 		return status, isOpen
 	}
 

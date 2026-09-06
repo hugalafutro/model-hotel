@@ -1253,3 +1253,33 @@ func strPtr(s *string) string {
 	}
 	return *s
 }
+
+// An envelope from a member older than migration 080 still carries the
+// retired on/off switches. "false" must land as a zero ceiling, which is what
+// the switch means now, and a "true" or absent switch must leave the ceiling
+// the envelope carries (or omits) alone. The envelope itself is not mutated.
+func TestFoldRetiredBreakerSwitches(t *testing.T) {
+	in := map[string]string{
+		"circuit_breaker_quota_pin_enabled": "false",
+		"circuit_breaker_quota_pin_max":     "24h0m0s",
+		"circuit_breaker_backoff_enabled":   "true",
+		"circuit_breaker_backoff_max":       "15m0s",
+	}
+	out := foldRetiredBreakerSwitches(in)
+	if out["circuit_breaker_quota_pin_max"] != "0s" {
+		t.Errorf("quota_pin_max=%q, want 0s folded from the false switch", out["circuit_breaker_quota_pin_max"])
+	}
+	if out["circuit_breaker_backoff_max"] != "15m0s" {
+		t.Errorf("backoff_max=%q, want the envelope's ceiling kept under a true switch", out["circuit_breaker_backoff_max"])
+	}
+	if in["circuit_breaker_quota_pin_max"] != "24h0m0s" {
+		t.Error("the caller's envelope was mutated")
+	}
+	if got := foldRetiredBreakerSwitches(map[string]string{"circuit_breaker_backoff_enabled": "false"}); got["circuit_breaker_backoff_max"] != "0s" {
+		t.Errorf("backoff_max=%q with no ceiling row in the envelope, want 0s", got["circuit_breaker_backoff_max"])
+	}
+	plain := map[string]string{"discovery_interval": "1h"}
+	if got := foldRetiredBreakerSwitches(plain); len(got) != 1 || got["discovery_interval"] != "1h" {
+		t.Errorf("got %v for an envelope without retired switches, want it unchanged", got)
+	}
+}

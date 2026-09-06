@@ -43,7 +43,7 @@ func TestRecordExhausted_OpensOnOneCharge(t *testing.T) {
 
 // The rate-limit-open streak is documented as 429-only, and escalating it
 // raises the probe-backoff ceiling into a BACKOFF — which no quota lever
-// clears, since ReleaseQuotaPins and circuit_breaker_quota_pin_enabled=false
+// clears, since ReleaseQuotaPins and a zero circuit_breaker_quota_pin_max
 // both only ever clear a pin. A 402 is an exhaustion but not a rate limit, so
 // counting it would strand a provider at the ceiling with no operator lever
 // short of a manual reset.

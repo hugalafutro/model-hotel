@@ -149,8 +149,8 @@ type CircuitBreaker struct {
 //
 // If settings is non-nil, threshold, cooldown, span and the probe backoff are
 // read from it at runtime (via "circuit_breaker_threshold",
-// "circuit_breaker_cooldown", "circuit_breaker_span_models",
-// "circuit_breaker_backoff_enabled" and "circuit_breaker_backoff_max").
+// "circuit_breaker_cooldown", "circuit_breaker_span_models" and
+// "circuit_breaker_backoff_max", whose zero switches the backoff off).
 // Hardcoded defaults are used when settings is nil or a key is missing.
 func NewCircuitBreaker(settings SettingsReader) *CircuitBreaker {
 	return &CircuitBreaker{

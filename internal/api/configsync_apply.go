@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
 	"strconv"
 	"time"
 
@@ -227,6 +228,7 @@ func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []Export
 // Non-syncable keys (apprise, observability, instance-local) are never
 // touched, and unknown keys are skipped silently.
 func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want map[string]string) ([]string, error) {
+	want = foldRetiredBreakerSwitches(want)
 	for k, v := range want {
 		if !isSyncableSetting(k) {
 			continue // skip non-syncable / unknown keys silently
@@ -250,6 +252,38 @@ func (h *ConfigSyncHandler) applySettingsTx(ctx context.Context, tx pgx.Tx, want
 		return nil, err
 	}
 	return removedSettings, nil
+}
+
+// retiredBreakerSwitches maps each circuit-breaker on/off key that migration
+// 080 retired to the ceiling that now carries the switch: a ceiling of zero is
+// off. An envelope from a member still running the older release carries the
+// switch, and "false" has to keep meaning off on this member, or a sync from
+// an older primary would silently turn pinning or backoff back on.
+var retiredBreakerSwitches = map[string]string{
+	"circuit_breaker_quota_pin_enabled": "circuit_breaker_quota_pin_max",
+	"circuit_breaker_backoff_enabled":   "circuit_breaker_backoff_max",
+}
+
+// foldRetiredBreakerSwitches returns want with each retired "false" switch
+// folded into a zero ceiling. The retired keys themselves are no longer in
+// the allowlist, so the apply loop skips them either way. Copy-on-write: the
+// caller's envelope is not touched.
+func foldRetiredBreakerSwitches(want map[string]string) map[string]string {
+	var out map[string]string
+	for legacy, ceiling := range retiredBreakerSwitches {
+		if want[legacy] != "false" {
+			continue
+		}
+		if out == nil {
+			out = make(map[string]string, len(want))
+			maps.Copy(out, want)
+		}
+		out[ceiling] = "0s"
+	}
+	if out == nil {
+		return want
+	}
+	return out
 }
 
 // validateSyncedSetting applies the interactive UpdateSettings checks

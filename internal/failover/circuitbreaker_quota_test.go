@@ -162,11 +162,10 @@ func TestQuotaPin_AbsentOrDecliningAdvisorUsesDefault(t *testing.T) {
 }
 
 // TestQuotaPin_DisabledBySettingUsesDefault verifies the operator's kill
-// switch: circuit_breaker_quota_pin_enabled=false must suppress pinning even
+// switch: a zero circuit_breaker_quota_pin_max must suppress pinning even
 // when the advisor offers perfectly usable, floor-clearing advice.
 func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
-	disabled := false
-	settings := &stubSettings{threshold: 1, cooldown: 50 * time.Millisecond, pinEnabled: &disabled}
+	settings := &stubSettings{threshold: 1, cooldown: 50 * time.Millisecond, pinOff: true}
 	cb := NewCircuitBreaker(settings)
 	id := uuid.New()
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
@@ -175,7 +174,7 @@ func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
 
 	s := cb.Status()[0]
 	if s.QuotaPinned {
-		t.Error("circuit_breaker_quota_pin_enabled=false must disable pinning even with usable advice")
+		t.Error("a zero circuit_breaker_quota_pin_max must disable pinning even with usable advice")
 	}
 	if s.CooldownMs != cb.effectiveCooldown().Milliseconds() {
 		t.Errorf("got CooldownMs=%d, want configured cooldown %d", s.CooldownMs, cb.effectiveCooldown().Milliseconds())
@@ -184,8 +183,8 @@ func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
 
 // TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit verifies the
 // kill switch is retroactive, not merely prospective. An operator looking at
-// "next retry in 22 hours" flips circuit_breaker_quota_pin_enabled to false to
-// get the provider back; if the switch were only consulted at the moment a
+// "next retry in 22 hours" zeroes circuit_breaker_quota_pin_max to get the
+// provider back; if the switch were only consulted at the moment a
 // circuit opens, nothing would change on any surface until the pin expired.
 // That matters because it is the only fleet-wide recovery lever: the
 // alternative to clearing every pin at once is resetting circuits one provider
@@ -195,13 +194,12 @@ func TestQuotaPin_DisabledBySettingUsesDefault(t *testing.T) {
 // flip the circuit must actually admit a probe once the *configured* cooldown
 // has elapsed, which a pinned circuit would refuse for another six hours.
 func TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit(t *testing.T) {
-	enabled := true
 	// 500ms, not the tens of milliseconds the other cooldown tests use: between
 	// openBreaker and the "still open" assertion below sit two Status() calls,
 	// and a GC pause or a loaded runner overrunning the configured cooldown there
 	// would fail the test with a message about the kill switch. The assertions
 	// are unchanged; only the budget they run inside is widened.
-	settings := &stubSettings{threshold: 1, cooldown: 500 * time.Millisecond, pinEnabled: &enabled}
+	settings := &stubSettings{threshold: 1, cooldown: 500 * time.Millisecond}
 	cb := NewCircuitBreaker(settings)
 	id := uuid.New()
 	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(6 * time.Hour), ok: true})
@@ -216,8 +214,8 @@ func TestQuotaPin_DisablingTheSettingReleasesAnAlreadyPinnedCircuit(t *testing.T
 		t.Fatalf("setup: got CooldownMs=%d, want the ~6h pin", pinnedMs)
 	}
 
-	// The operator flips the kill switch while the pin is already in force.
-	enabled = false
+	// The operator zeroes the ceiling while the pin is already in force.
+	settings.pinOff = true
 
 	s := cb.Status()[0]
 	if s.QuotaPinned {
@@ -782,8 +780,7 @@ func TestApplyQuotaPins_NeverShortensExistingPin(t *testing.T) {
 // value is checked directly: a circuit must not carry a pin an operator has
 // switched off, or re-enabling would resurrect deadlines from a disabled span.
 func TestApplyQuotaPins_SkipsWhenPinDisabled(t *testing.T) {
-	disabled := false
-	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 60 * time.Second, pinEnabled: &disabled})
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 60 * time.Second, pinOff: true})
 	id := uuid.New()
 
 	cb.RecordFailure(id, "test-provider", "", Cause{})
@@ -1034,8 +1031,7 @@ func TestQuotaPin_AccountProbeAnsweredSaturatedLeavesTheProviderOpen(t *testing.
 // The pin kill switch releases an account pin like any other: with pinning
 // off the provider verdict falls back to the span rule.
 func TestQuotaPin_AccountPinObeysTheKillSwitch(t *testing.T) {
-	off := false
-	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinMax: 24 * time.Hour, pinEnabled: &off, span: 3})
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinOff: true, span: 3})
 	id := uuid.New()
 	cb.RecordExhaustedAccount(id, "p", "o1", 429, 90*24*time.Hour)
 	if !cb.IsOpen(id, "p", "o1") {
@@ -1070,8 +1066,7 @@ func TestQuotaPin_AccountRefusalEventNamesTheSource(t *testing.T) {
 // An account refusal that stamps no pin (pinning switched off) marks nothing:
 // the mark rides on a pin, not on the refusal.
 func TestQuotaPin_AccountRefusalWithoutAPinMarksNothing(t *testing.T) {
-	off := false
-	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinEnabled: &off, span: 3})
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: 5 * time.Minute, pinOff: true, span: 3})
 	id := uuid.New()
 	cb.RecordExhaustedAccount(id, "p", "o1", 429, 90*24*time.Hour)
 	if cb.IsOpen(id, "p", "gpt-4o") {

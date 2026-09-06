@@ -38,11 +38,9 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	circuit_breaker_threshold: "5",
 	circuit_breaker_span_models: "2",
 	circuit_breaker_cooldown: "1m0s",
-	circuit_breaker_quota_pin_enabled: "true",
+	// Zero switches pinning or backoff off; these match quotaPinMax /
+	// defaultBackoffMax in internal/failover/model_circuits.go.
 	circuit_breaker_quota_pin_max: "24h",
-	// Matches backoffEnabled / defaultBackoffMax in
-	// internal/failover/model_circuits.go.
-	circuit_breaker_backoff_enabled: "true",
 	circuit_breaker_backoff_max: "15m",
 	failover_on_rate_limit: "true",
 	// The 429 saturation-vs-exhaustion classification; matches the Go defaults
@@ -128,9 +126,7 @@ export const SECTION_SETTINGS: Record<SectionName, string[]> = {
 		"circuit_breaker_threshold",
 		"circuit_breaker_span_models",
 		"circuit_breaker_cooldown",
-		"circuit_breaker_quota_pin_enabled",
 		"circuit_breaker_quota_pin_max",
-		"circuit_breaker_backoff_enabled",
 		"circuit_breaker_backoff_max",
 		"failover_on_rate_limit",
 		"rate_limit_classify_enabled",
@@ -175,9 +171,7 @@ export type SettingKey =
 	| "circuit_breaker_threshold"
 	| "circuit_breaker_span_models"
 	| "circuit_breaker_cooldown"
-	| "circuit_breaker_quota_pin_enabled"
 	| "circuit_breaker_quota_pin_max"
-	| "circuit_breaker_backoff_enabled"
 	| "circuit_breaker_backoff_max"
 	| "failover_on_rate_limit"
 	| "rate_limit_classify_enabled"
@@ -225,9 +219,7 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	circuit_breaker_threshold: "settings.circuitBreaker.failureThreshold",
 	circuit_breaker_span_models: "settings.circuitBreaker.spanModels",
 	circuit_breaker_cooldown: "settings.circuitBreaker.cooldownPeriod",
-	circuit_breaker_quota_pin_enabled: "settings.circuitBreaker.quotaPin",
 	circuit_breaker_quota_pin_max: "settings.circuitBreaker.quotaPinMax",
-	circuit_breaker_backoff_enabled: "settings.circuitBreaker.backoff",
 	circuit_breaker_backoff_max: "settings.circuitBreaker.backoffMax",
 	failover_on_rate_limit: "settings.circuitBreaker.failoverOnRateLimit",
 	rate_limit_classify_enabled: "settings.circuitBreaker.classify429",

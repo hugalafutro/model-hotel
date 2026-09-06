@@ -166,11 +166,9 @@ var allowedSettings = map[string]struct {
 	"circuit_breaker_threshold":          {typeName: "int", min: 1, max: 100},
 	"circuit_breaker_span_models":        {typeName: "int", min: 1, max: 100},                        // open model circuits it takes to indict the provider itself; 1 restores the per-provider verdict
 	"circuit_breaker_cooldown":           {typeName: "string"},                                       // duration (e.g. "1m0s")
-	"circuit_breaker_quota_pin_enabled":  {typeName: "string"},                                       // bool as string
-	"circuit_breaker_quota_pin_max":      {typeName: "string"},                                       // duration (e.g. "24h0m0s")
+	"circuit_breaker_quota_pin_max":      {typeName: "string"},                                       // duration (e.g. "24h0m0s"); zero switches pinning off
 	"circuit_breaker_pin_probe_interval": {typeName: "string"},                                       // duration between probes of a response-pinned circuit; "0s" disables
-	"circuit_breaker_backoff_enabled":    {typeName: "string"},                                       // bool as string; double the cooldown per failed half-open probe
-	"circuit_breaker_backoff_max":        {typeName: "string"},                                       // duration ceiling for that backoff (e.g. "1h0m0s")
+	"circuit_breaker_backoff_max":        {typeName: "string"},                                       // duration ceiling for the probe backoff (e.g. "1h0m0s"); zero switches it off
 	"discovery_interval":                 {typeName: "string"},                                       // predefined option
 	"discovery_on_startup":               {typeName: "string"},                                       // bool as string
 	"discovery_on_provider_create":       {typeName: "string"},                                       // bool as string
