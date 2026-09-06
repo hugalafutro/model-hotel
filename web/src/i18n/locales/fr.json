@@ -2252,6 +2252,13 @@
 				"doneManaged": "Destinations enregistrées. Le choix des événements qui déclenchent une alerte reste géré pour toute la flotte.",
 				"step7HintManaged": "Enregistrer les destinations. L'activation des alertes et les événements sont gérés pour toute la flotte sur cette instance.",
 				"testFailed": "La notification de test n'a pas pu être délivrée."
+			},
+			"category": {
+				"discovery": "Découverte",
+				"failover": "Basculement",
+				"high_availability": "Haute disponibilité",
+				"quota": "Quota",
+				"security": "Sécurité"
 			}
 		},
 		"totp": {

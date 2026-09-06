@@ -294,5 +294,9 @@
 	],
 	"members.circuitsOpen_other": [
 		"nl"
+	],
+	"settings.alerts.category.routing": [
+		"de",
+		"pl"
 	]
 }

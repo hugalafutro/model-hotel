@@ -474,6 +474,14 @@
 				"backToList": "Wróć do celów",
 				"nothingAdded": "W tym przebiegu nie dodano jeszcze niczego.",
 				"alreadySaved": "Ten cel jest już na liście. Nie można dodać go dwa razy."
+			},
+			"category": {
+				"backups": "Kopie zapasowe",
+				"config_sync": "Synchronizacja konfiguracji",
+				"health": "Stan",
+				"member_reads": "Odczyty członków",
+				"membership": "Członkostwo",
+				"routing": "Routing"
 			}
 		},
 		"wizard": {

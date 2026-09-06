@@ -2252,6 +2252,13 @@
 				"sendAll": "Invia una prova a tutto",
 				"sentAll": "Prova inviata a ogni destinazione",
 				"apiChangedDrops": "Cambiare l'indirizzo rimuove le destinazioni aggiunte in questa sessione; erano state provate con quello vecchio."
+			},
+			"category": {
+				"discovery": "Rilevamento",
+				"failover": "Failover",
+				"high_availability": "Alta disponibilità",
+				"quota": "Quota",
+				"security": "Sicurezza"
 			}
 		},
 		"totp": {

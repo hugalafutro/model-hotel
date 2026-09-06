@@ -7167,5 +7167,22 @@
 	],
 	"logs.endpoint.messages": [
 		"fr"
+	],
+	"settings.alerts.category.failover": [
+		"cs",
+		"da",
+		"de",
+		"it",
+		"nl",
+		"no",
+		"pt",
+		"ro",
+		"sk",
+		"sv"
+	],
+	"settings.alerts.category.quota": [
+		"ca",
+		"fr",
+		"it"
 	]
 }

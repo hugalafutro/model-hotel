@@ -2199,6 +2199,13 @@
 				"sendAll": "Send test til alt",
 				"sentAll": "Test sendt til hver destinasjon",
 				"apiChangedDrops": "Endrer du adressen, fjernes destinasjonene som er lagt til i denne gjennomgangen; de ble testet mot den gamle."
+			},
+			"category": {
+				"discovery": "Oppdagelse",
+				"failover": "Failover",
+				"high_availability": "Høy tilgjengelighet",
+				"quota": "Kvote",
+				"security": "Sikkerhet"
 			}
 		},
 		"totp": {

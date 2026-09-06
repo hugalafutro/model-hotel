@@ -462,6 +462,14 @@
 				"backToList": "送信先に戻る",
 				"nothingAdded": "この操作ではまだ何も追加されていません。",
 				"alreadySaved": "この送信先はすでにリストにあります。重複して追加することはできません。"
+			},
+			"category": {
+				"backups": "バックアップ",
+				"config_sync": "設定同期",
+				"health": "ヘルス",
+				"member_reads": "メンバー読み取り",
+				"membership": "メンバーシップ",
+				"routing": "ルーティング"
 			}
 		},
 		"wizard": {

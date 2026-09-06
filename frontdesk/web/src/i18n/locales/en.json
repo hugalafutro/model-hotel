@@ -462,6 +462,14 @@
 				"backToList": "Back to destinations",
 				"nothingAdded": "Nothing added in this run yet.",
 				"alreadySaved": "This destination is already on the list. It cannot be added twice."
+			},
+			"category": {
+				"backups": "Backups",
+				"config_sync": "Config Sync",
+				"health": "Health",
+				"member_reads": "Member Reads",
+				"membership": "Membership",
+				"routing": "Routing"
 			}
 		},
 		"wizard": {

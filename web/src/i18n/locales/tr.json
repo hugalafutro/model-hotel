@@ -2199,6 +2199,13 @@
 				"sendAll": "Her şeye test gönder",
 				"sentAll": "Her hedefe test gönderildi",
 				"apiChangedDrops": "Adresi değiştirmek bu çalıştırmada eklenen hedefleri kaldırır; bunlar eski adrese göre test edilmişti."
+			},
+			"category": {
+				"discovery": "Keşif",
+				"failover": "Yük devretme",
+				"high_availability": "Yüksek erişilebilirlik",
+				"quota": "Kota",
+				"security": "Güvenlik"
 			}
 		},
 		"totp": {

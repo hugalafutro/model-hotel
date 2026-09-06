@@ -2199,6 +2199,13 @@
 				"sendAll": "Stuur toets na alles",
 				"sentAll": "Toets na elke bestemming gestuur",
 				"apiChangedDrops": "As jy die adres verander, word die bestemmings wat in hierdie deurloop bygevoeg is, verwyder; hulle is teen die ou een getoets."
+			},
+			"category": {
+				"discovery": "Ontdekking",
+				"failover": "Oorskakeling",
+				"high_availability": "Hoë beskikbaarheid",
+				"quota": "Kwota",
+				"security": "Sekuriteit"
 			}
 		},
 		"totp": {

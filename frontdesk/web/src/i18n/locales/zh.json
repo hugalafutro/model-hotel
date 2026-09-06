@@ -462,6 +462,14 @@
 				"backToList": "返回目标列表",
 				"nothingAdded": "本次尚未添加任何内容。",
 				"alreadySaved": "该目标已在列表中，不能重复添加。"
+			},
+			"category": {
+				"backups": "备份",
+				"config_sync": "配置同步",
+				"health": "健康状态",
+				"member_reads": "成员读取",
+				"membership": "成员关系",
+				"routing": "路由"
 			}
 		},
 		"wizard": {

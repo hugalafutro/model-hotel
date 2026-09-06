@@ -6,7 +6,7 @@ import {
 	parseDiscordWebhook,
 	parseUnifiedPushEndpoint,
 } from "@web-shared/alerts/composers";
-import { eventLabel } from "@web-shared/alerts/events";
+import { categoryLabel, eventLabel } from "@web-shared/alerts/events";
 import { generateTopic } from "@web-shared/ntfy";
 import type { TFunction } from "i18next";
 import {
@@ -492,7 +492,7 @@ export function StepEvents({
 	t,
 	catalog,
 }: StepProps & { catalog: AlertEventDef[] }) {
-	// Grouped by the catalog's own (English) category, exactly as the card's
+	// Grouped by the catalog's own category (translated for display), exactly as the card's
 	// picker does, so the two lists read the same way.
 	const grouped = useMemo(() => {
 		const m = new Map<string, AlertEventDef[]>();
@@ -510,7 +510,9 @@ export function StepEvents({
 			<p className="fd-faint fd-step-intro">{t(`${K}.step6Hint`)}</p>
 			{grouped.map(([category, defs]) => (
 				<div key={category} style={{ marginBottom: "0.6rem" }}>
-					<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>{category}</div>
+					<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
+						{categoryLabel(t, category)}
+					</div>
 					{defs.map((d) => {
 						const label = eventLabel(t, d.type);
 						return (

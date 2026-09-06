@@ -74,18 +74,18 @@ func phraseMatchedSince(ctx context.Context, pool *pgxpool.Pool, phrase string, 
 func ReportStalePhrases(ctx context.Context, pool *pgxpool.Pool, now time.Time) {
 	stale, err := StalePhrases(ctx, pool, now)
 	if err != nil {
-		debuglog.Warn("rate-limit phrases: staleness check failed", "error", err)
+		debuglog.Warn("phrases: staleness check failed", "error", err)
 		return
 	}
 	if len(stale) == 0 {
-		debuglog.Debug("rate-limit phrases: every entry matched inside the horizon", "phrases", len(rateLimitPhrases), "horizon_days", int(PhraseStalenessHorizon.Hours()/24))
+		debuglog.Debug("phrases: every entry matched inside the horizon", "phrases", len(rateLimitPhrases), "horizon_days", int(PhraseStalenessHorizon.Hours()/24))
 		return
 	}
 	phrases := make([]string, 0, len(stale))
 	for _, s := range stale {
 		phrases = append(phrases, fmt.Sprintf("%q (%s, added %s)", s.Phrase, s.Provider, s.Observed))
 	}
-	debuglog.Warn("rate-limit phrases: entries unmatched inside the horizon; the provider may have rewritten its error text", "count", len(stale), "horizon_days", int(PhraseStalenessHorizon.Hours()/24), "phrases", phrases)
+	debuglog.Warn("phrases: entries unmatched inside the horizon; the provider may have rewritten its error text", "count", len(stale), "horizon_days", int(PhraseStalenessHorizon.Hours()/24), "phrases", phrases)
 }
 
 // PhraseStalenessLoop reports once shortly after start and then daily, until

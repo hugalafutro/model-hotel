@@ -2199,6 +2199,13 @@
 				"sendAll": "Skicka test till allt",
 				"sentAll": "Test skickat till varje destination",
 				"apiChangedDrops": "Om du ändrar adressen tas destinationerna som lagts till i den här omgången bort; de testades mot den gamla."
+			},
+			"category": {
+				"discovery": "Upptäckt",
+				"failover": "Failover",
+				"high_availability": "Hög tillgänglighet",
+				"quota": "Kvot",
+				"security": "Säkerhet"
 			}
 		},
 		"totp": {

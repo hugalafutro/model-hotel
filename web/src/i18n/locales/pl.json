@@ -2305,6 +2305,13 @@
 				"doneManaged": "Cele zapisane. To, które zdarzenia wysyłają powiadomienie, pozostaje zarządzane dla całej floty.",
 				"step7HintManaged": "Zapisz cele. Włączanie powiadomień i zdarzenia są w tej instancji zarządzane dla całej floty.",
 				"testFailed": "Nie udało się dostarczyć powiadomienia testowego."
+			},
+			"category": {
+				"discovery": "Wykrywanie",
+				"failover": "Przełączanie awaryjne",
+				"high_availability": "Wysoka dostępność",
+				"quota": "Limit",
+				"security": "Bezpieczeństwo"
 			}
 		},
 		"totp": {

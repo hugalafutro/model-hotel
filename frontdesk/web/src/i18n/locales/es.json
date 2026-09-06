@@ -468,6 +468,14 @@
 				"backToList": "Volver a los destinos",
 				"nothingAdded": "Todavía no se ha añadido nada en esta sesión.",
 				"alreadySaved": "Este destino ya está en la lista. No se puede añadir dos veces."
+			},
+			"category": {
+				"backups": "Copias de seguridad",
+				"config_sync": "Sincronización de configuración",
+				"health": "Estado",
+				"member_reads": "Lecturas de miembros",
+				"membership": "Membresía",
+				"routing": "Enrutamiento"
 			}
 		},
 		"wizard": {

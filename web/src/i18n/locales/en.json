@@ -1811,6 +1811,13 @@
 				"sendAll": "Send test to everything",
 				"sentAll": "Test sent to every destination",
 				"apiChangedDrops": "Changing the address removes the destinations added in this run; they were tested against the old one."
+			},
+			"category": {
+				"discovery": "Discovery",
+				"failover": "Failover",
+				"high_availability": "High Availability",
+				"quota": "Quota",
+				"security": "Security"
 			}
 		},
 		"circuitBreaker": {

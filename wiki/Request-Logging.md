@@ -262,7 +262,7 @@ case-insensitively). The scopes that actually emit Debug records are:
 
 `access`, `admin`, `admin-chat`, `adminauth`, `anthropic`, `api`, `audit`,
 `configsync`, `db`, `discovery`, `failover`, `frontdesk`, `models.dev`,
-`paramrewrite`, `provider`, `prune`, `proxy`, `quota`, `rate-limit phrases`,
+`paramrewrite`, `phrases`, `provider`, `prune`, `proxy`, `quota`,
 `resolve`.
 
 `proxy` is by far the most voluminous (the per-request mechanics), followed by
