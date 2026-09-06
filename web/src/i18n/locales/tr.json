@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Veritabanı geri yüklendi, imza doğrulandı. Sunucu yeniden başlatılıyor…",
 			"copySignature": "İmzayı kopyala",
 			"signatureCopied": "İmza panoya kopyalandı",
-			"signatureCopyFailed": "İmza kopyalanamadı: {{message}}"
+			"signatureCopyFailed": "İmza kopyalanamadı: {{message}}",
+			"totalSize": "Tüm yedeklerin toplam boyutu: {{size}}"
 		},
 		"appearance": {
 			"title": "Görünüm",

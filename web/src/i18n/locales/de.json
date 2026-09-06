@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Datenbank wiederhergestellt, Signatur verifiziert. Der Server startet neu…",
 			"copySignature": "Signatur kopieren",
 			"signatureCopied": "Signatur in die Zwischenablage kopiert",
-			"signatureCopyFailed": "Signatur konnte nicht kopiert werden: {{message}}"
+			"signatureCopyFailed": "Signatur konnte nicht kopiert werden: {{message}}",
+			"totalSize": "Gesamtgröße aller Sicherungen: {{size}}"
 		},
 		"appearance": {
 			"title": "Erscheinungsbild",

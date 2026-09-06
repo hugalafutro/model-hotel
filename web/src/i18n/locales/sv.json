@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Databasen återställd, signaturen verifierad. Servern startar om…",
 			"copySignature": "Kopiera signatur",
 			"signatureCopied": "Signaturen kopierad till urklipp",
-			"signatureCopyFailed": "Kunde inte kopiera signaturen: {{message}}"
+			"signatureCopyFailed": "Kunde inte kopiera signaturen: {{message}}",
+			"totalSize": "Total storlek på alla säkerhetskopior: {{size}}"
 		},
 		"appearance": {
 			"title": "Utseende",

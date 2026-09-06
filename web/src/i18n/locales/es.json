@@ -1918,7 +1918,8 @@
 			"restoreSuccessVerified": "Base de datos restaurada, firma verificada. El servidor se está reiniciando…",
 			"copySignature": "Copiar firma",
 			"signatureCopied": "Firma copiada al portapapeles",
-			"signatureCopyFailed": "No se pudo copiar la firma: {{message}}"
+			"signatureCopyFailed": "No se pudo copiar la firma: {{message}}",
+			"totalSize": "Tamaño total de todas las copias de seguridad: {{size}}"
 		},
 		"appearance": {
 			"title": "Apariencia",

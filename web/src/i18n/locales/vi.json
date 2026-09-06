@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Đã khôi phục cơ sở dữ liệu, chữ ký đã được xác minh. Máy chủ đang khởi động lại…",
 			"copySignature": "Sao chép chữ ký",
 			"signatureCopied": "Đã sao chép chữ ký vào bảng nhớ tạm",
-			"signatureCopyFailed": "Không thể sao chép chữ ký: {{message}}"
+			"signatureCopyFailed": "Không thể sao chép chữ ký: {{message}}",
+			"totalSize": "Tổng dung lượng tất cả bản sao lưu: {{size}}"
 		},
 		"appearance": {
 			"title": "Hình thức",

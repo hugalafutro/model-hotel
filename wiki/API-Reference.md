@@ -1181,7 +1181,7 @@ The purge is itself a mutating request and is recorded by the audit middleware, 
 
 #### POST `/api/backups`
 
-Creates a PostgreSQL backup using `pg_dump`.
+Creates a PostgreSQL backup using `pg_dump` (custom format, `--compress=zstd:19`; readable by `pg_restore` 16 or later).
 
 **Response:** `201 Created`
 ```json

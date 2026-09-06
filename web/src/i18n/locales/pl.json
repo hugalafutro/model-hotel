@@ -1967,7 +1967,8 @@
 			"restoreSuccessVerified": "Baza danych przywrócona, podpis zweryfikowany. Serwer uruchamia się ponownie…",
 			"copySignature": "Kopiuj podpis",
 			"signatureCopied": "Podpis skopiowany do schowka",
-			"signatureCopyFailed": "Nie udało się skopiować podpisu: {{message}}"
+			"signatureCopyFailed": "Nie udało się skopiować podpisu: {{message}}",
+			"totalSize": "Łączny rozmiar wszystkich kopii zapasowych: {{size}}"
 		},
 		"appearance": {
 			"title": "Wygląd",

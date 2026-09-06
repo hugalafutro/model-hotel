@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "データベースを復元し、署名を検証しました。サーバーを再起動しています…",
 			"copySignature": "署名をコピー",
 			"signatureCopied": "署名をクリップボードにコピーしました",
-			"signatureCopyFailed": "署名をコピーできませんでした: {{message}}"
+			"signatureCopyFailed": "署名をコピーできませんでした: {{message}}",
+			"totalSize": "すべてのバックアップの合計サイズ: {{size}}"
 		},
 		"appearance": {
 			"title": "外観",

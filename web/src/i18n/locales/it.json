@@ -1918,7 +1918,8 @@
 			"restoreSuccessVerified": "Database ripristinato, firma verificata. Il server si sta riavviando…",
 			"copySignature": "Copia firma",
 			"signatureCopied": "Firma copiata negli appunti",
-			"signatureCopyFailed": "Impossibile copiare la firma: {{message}}"
+			"signatureCopyFailed": "Impossibile copiare la firma: {{message}}",
+			"totalSize": "Dimensione totale di tutti i backup: {{size}}"
 		},
 		"appearance": {
 			"title": "Aspetto",

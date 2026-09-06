@@ -1967,7 +1967,8 @@
 			"restoreSuccessVerified": "Databáza obnovená, podpis overený. Server sa reštartuje…",
 			"copySignature": "Kopírovať podpis",
 			"signatureCopied": "Podpis skopírovaný do schránky",
-			"signatureCopyFailed": "Podpis sa nepodarilo skopírovať: {{message}}"
+			"signatureCopyFailed": "Podpis sa nepodarilo skopírovať: {{message}}",
+			"totalSize": "Celková veľkosť všetkých záloh: {{size}}"
 		},
 		"appearance": {
 			"title": "Vzhľad",

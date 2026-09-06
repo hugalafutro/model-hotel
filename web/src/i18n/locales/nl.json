@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Database hersteld, handtekening geverifieerd. De server wordt opnieuw gestart…",
 			"copySignature": "Handtekening kopiëren",
 			"signatureCopied": "Handtekening naar klembord gekopieerd",
-			"signatureCopyFailed": "Kon de handtekening niet kopiëren: {{message}}"
+			"signatureCopyFailed": "Kon de handtekening niet kopiëren: {{message}}",
+			"totalSize": "Totale grootte van alle back-ups: {{size}}"
 		},
 		"appearance": {
 			"title": "Uiterlijk",

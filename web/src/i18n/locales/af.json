@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Databasis herstel, handtekening geverifieer. Die bediener herbegin…",
 			"copySignature": "Kopieer handtekening",
 			"signatureCopied": "Handtekening na knipbord gekopieer",
-			"signatureCopyFailed": "Kon nie handtekening kopieer nie: {{message}}"
+			"signatureCopyFailed": "Kon nie handtekening kopieer nie: {{message}}",
+			"totalSize": "Totale grootte van alle rugsteune: {{size}}"
 		},
 		"appearance": {
 			"title": "Uiterlike voorkoms",

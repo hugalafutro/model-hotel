@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -1103,4 +1104,25 @@ func backupTOTPRouter(t *testing.T, totpOn bool, sessionMgr WebAuthnSessionManag
 	r := chi.NewRouter()
 	h.Register(r)
 	return r
+}
+
+// The dump is a custom-format archive compressed with zstd at its top level,
+// which is the only setting that still shrinks an already-compressed custom
+// dump, and the password travels in the environment rather than on the
+// command line.
+func TestBuildDumpCommand_ZstdCustomFormatWithPasswordInEnv(t *testing.T) {
+	h := &BackupHandler{databaseURL: "postgres://mh:s3cret@db:5432/mh?sslmode=disable"}
+	cmd := h.buildDumpCommand(context.Background(), "/usr/bin/pg_dump", "/tmp/out.dump")
+	args := strings.Join(cmd.Args[1:], " ")
+	for _, want := range []string{"--format=custom", "--compress=zstd:19", "--file=/tmp/out.dump", "postgres://mh@db:5432/mh?sslmode=disable"} {
+		if !strings.Contains(args, want) {
+			t.Errorf("pg_dump args %q lack %q", args, want)
+		}
+	}
+	if strings.Contains(args, "s3cret") {
+		t.Errorf("pg_dump args %q carry the password", args)
+	}
+	if !slices.Contains(cmd.Env, "PGPASSWORD=s3cret") {
+		t.Error("PGPASSWORD missing from the pg_dump environment")
+	}
 }

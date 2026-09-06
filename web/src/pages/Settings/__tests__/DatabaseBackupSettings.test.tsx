@@ -170,6 +170,16 @@ describe("DatabaseBackupSettings", () => {
 		expect(screen.getByTestId("spinner")).toBeInTheDocument();
 	});
 
+	it("shows the combined size of every backup on disk under the list", async () => {
+		renderWithProviders(
+			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
+		);
+		// 1 MB + 2 MB from the two mocked backups.
+		expect(await screen.findByTestId("backups-total-size")).toHaveTextContent(
+			"Total size of all backups: 3 MB",
+		);
+	});
+
 	it("shows No backups yet. when list is empty", async () => {
 		server.use(
 			http.get("/api/backups", () => {
@@ -213,7 +223,8 @@ describe("DatabaseBackupSettings", () => {
 			<DatabaseBackupSettings collapsed={false} onToggle={onToggle} />,
 		);
 		await waitFor(() => {
-			expect(screen.getByText(/1 MB/)).toBeInTheDocument();
+			// The row and the total under the list both read 1 MB for one backup.
+			expect(screen.getAllByText(/1 MB/)).toHaveLength(2);
 		});
 	});
 

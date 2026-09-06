@@ -1918,7 +1918,8 @@
 			"restoreSuccessVerified": "База података је враћена, потпис проверен. Сервер се поново покреће…",
 			"copySignature": "Копирај потпис",
 			"signatureCopied": "Потпис је копиран у оставу",
-			"signatureCopyFailed": "Није могуће копирати потпис: {{message}}"
+			"signatureCopyFailed": "Није могуће копирати потпис: {{message}}",
+			"totalSize": "Укупна величина свих резервних копија: {{size}}"
 		},
 		"appearance": {
 			"title": "Изглед",

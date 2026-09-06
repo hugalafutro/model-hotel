@@ -1918,7 +1918,8 @@
 			"restoreSuccessVerified": "Base de dades restaurada, signatura verificada. El servidor s'està reiniciant…",
 			"copySignature": "Copia la signatura",
 			"signatureCopied": "Signatura copiada al porta-retalls",
-			"signatureCopyFailed": "No s'ha pogut copiar la signatura: {{message}}"
+			"signatureCopyFailed": "No s'ha pogut copiar la signatura: {{message}}",
+			"totalSize": "Mida total de totes les còpies de seguretat: {{size}}"
 		},
 		"appearance": {
 			"title": "Aparença",

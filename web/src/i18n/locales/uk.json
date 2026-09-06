@@ -1967,7 +1967,8 @@
 			"restoreSuccessVerified": "Базу даних відновлено, підпис перевірено. Сервер перезапускається…",
 			"copySignature": "Скопіювати підпис",
 			"signatureCopied": "Підпис скопійовано в буфер обміну",
-			"signatureCopyFailed": "Не вдалося скопіювати підпис: {{message}}"
+			"signatureCopyFailed": "Не вдалося скопіювати підпис: {{message}}",
+			"totalSize": "Загальний розмір усіх резервних копій: {{size}}"
 		},
 		"appearance": {
 			"title": "Зовнішній вигляд",

@@ -2046,7 +2046,8 @@
 			},
 			"availableBackupsTitle": "Available backups",
 			"manuallyCreated": "Manual",
-			"frontDeskCreated": "Created by Front Desk before an HA config sync"
+			"frontDeskCreated": "Created by Front Desk before an HA config sync",
+			"totalSize": "Total size of all backups: {{size}}"
 		},
 		"appearance": {
 			"title": "Appearance",
