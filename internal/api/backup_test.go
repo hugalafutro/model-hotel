@@ -490,6 +490,9 @@ func TestBackupHandler_DeleteBackup_ConcurrentLock(t *testing.T) {
 	if w.Code != http.StatusConflict {
 		t.Errorf("expected status %d, got %d: %s", http.StatusConflict, w.Code, w.Body.String())
 	}
+	if !strings.Contains(w.Body.String(), "a backup operation is in progress") {
+		t.Errorf("409 body %q does not name the operation in progress", w.Body.String())
+	}
 	if _, err := os.Stat(filepath.Join(dir, "backup_test.dump")); err != nil {
 		t.Errorf("the refused delete removed the file: %v", err)
 	}

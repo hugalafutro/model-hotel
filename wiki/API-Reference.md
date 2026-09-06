@@ -1224,7 +1224,7 @@ Returns the backup's HMAC signature sidecar, the value the restore endpoint take
 **Error Responses:**
 - `400 Bad Request` - Invalid filename
 - `404 Not Found` - Backup does not exist
-- `409 Conflict` - A backup, restore or prune is in progress
+- `409 Conflict` - Another backup operation (a dump, restore, prune or delete) is in progress
 - `500 Internal Server Error` - The file could not be removed
 
 #### POST `/api/backups/prune-preview`
