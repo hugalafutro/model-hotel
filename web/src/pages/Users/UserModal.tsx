@@ -291,6 +291,8 @@ export function UserModal({
 								id="user-limit-rps"
 								type="number"
 								min="0"
+								max="10000"
+								step="any"
 								value={limitRps}
 								onChange={(e) => setLimitRps(e.target.value)}
 								className="ui-input"
@@ -310,6 +312,7 @@ export function UserModal({
 								id="user-limit-burst"
 								type="number"
 								min="1"
+								max="10000"
 								value={limitBurst}
 								onChange={(e) => setLimitBurst(e.target.value)}
 								className="ui-input"
@@ -329,6 +332,7 @@ export function UserModal({
 								id="user-limit-tpm"
 								type="number"
 								min="1"
+								max="100000000"
 								value={limitTpm}
 								onChange={(e) => setLimitTpm(e.target.value)}
 								className="ui-input"

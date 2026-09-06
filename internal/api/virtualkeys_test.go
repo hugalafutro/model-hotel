@@ -424,6 +424,46 @@ func TestValidateRateLimits_ValidTPM(t *testing.T) {
 	}
 }
 
+// The per-key ceilings are the global settings' maxima, so a value the settings
+// API would refuse is refused here too; the ceiling itself is still accepted.
+func TestValidateRateLimits_Ceilings(t *testing.T) {
+	tests := []struct {
+		name    string
+		rps     *float64
+		burst   *int
+		tpm     *int
+		wantErr string
+	}{
+		{name: "rps at ceiling", rps: new(10000.0)},
+		{name: "burst at ceiling", burst: new(10000)},
+		{name: "tpm at ceiling", tpm: new(100000000)},
+		{name: "rps above ceiling", rps: new(10000.5), wantErr: "rate_limit_rps must be <= 10000"},
+		{name: "burst above ceiling", burst: new(10001), wantErr: "rate_limit_burst must be <= 10000"},
+		{name: "tpm above ceiling", tpm: new(100000001), wantErr: "rate_limit_tpm must be <= 100000000"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			err := validateRateLimits(tt.rps, tt.burst, tt.tpm, w)
+			if tt.wantErr == "" {
+				if err != nil {
+					t.Fatalf("value at the ceiling should pass, got %v", err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatal("value above the ceiling should be rejected")
+			}
+			if w.Code != http.StatusBadRequest {
+				t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+			}
+			if !strings.Contains(w.Body.String(), tt.wantErr) {
+				t.Fatalf("body %q does not name the ceiling %q", w.Body.String(), tt.wantErr)
+			}
+		})
+	}
+}
+
 func TestCond_EmptyStringFalse(t *testing.T) {
 	result := cond("", false)
 	if result != "" {
@@ -1137,6 +1177,23 @@ func TestCreateVirtualKey_InvalidRateLimitBurst(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "rate_limit_burst") {
 		t.Errorf("expected rate_limit_burst error, got: %s", w.Body.String())
+	}
+}
+
+// TestCreateVirtualKey_RateLimitAboveCeiling proves the ceiling 400 reaches the
+// wire through CreateVirtualKey, not only the validator.
+func TestCreateVirtualKey_RateLimitAboveCeiling(t *testing.T) {
+	h := testHandler(nil, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+	body := bytes.NewReader([]byte(`{"name":"valid-key","rate_limit_tpm":1000000000}`))
+	req, w := newChiRequest(http.MethodPost, "/virtual-keys", body)
+
+	h.CreateVirtualKey(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("expected status %d, got %d: %s", http.StatusBadRequest, w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "rate_limit_tpm must be <= 100000000") {
+		t.Errorf("expected ceiling error, got: %s", w.Body.String())
 	}
 }
 

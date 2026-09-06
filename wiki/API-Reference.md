@@ -878,9 +878,9 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | string | Yes | 1-100 characters, cannot be reserved names (`chat`, `arena`, `completions`, `admin`) |
-| `rate_limit_rps` | number | No | Requests per second (null = use global default) |
-| `rate_limit_burst` | integer | No | Burst capacity (null = use global default, must be >= 1 if set) |
-| `rate_limit_tpm` | integer | No | Tokens-per-minute cap (null = no cap / global default, must be >= 1 if set). Counts prompt + completion + reasoning; over-budget keys get `429 token rate limit exceeded` with `Retry-After` |
+| `rate_limit_rps` | number | No | Requests per second, 0 to 10000 (null = use global default) |
+| `rate_limit_burst` | integer | No | Burst capacity, 1 to 10000 (null = use global default) |
+| `rate_limit_tpm` | integer | No | Tokens-per-minute cap, 1 to 100000000 (null = no cap / global default). Counts prompt + completion + reasoning; over-budget keys get `429 token rate limit exceeded` with `Retry-After` |
 | `allowed_providers` | array of UUID strings | No | Restrict this key to the listed provider IDs (null = all providers accessible; an empty array is rejected) |
 | `strip_reasoning` | boolean | No | Strip `reasoning`/`reasoning_content` fields from streaming output for this key |
 

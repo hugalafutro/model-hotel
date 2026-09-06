@@ -656,9 +656,20 @@ func (h *Handler) DeleteVirtualKey(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// validateRateLimits checks that per-key rate limit overrides are non-negative
-// and that burst is at least 1 (burst=0 rejects all requests). Use null to fall
-// back to global settings.
+// validateRateLimits checks that per-key rate limit overrides are non-negative,
+// that burst and tpm are at least 1 (burst=0 rejects all requests, tpm<=0 reads
+// as no cap), and that none exceeds the ceiling the global setting of the same
+// name has in allowedSettings. Use null to fall back to global settings.
+//
+// The ceilings are the same numbers as the settings API's, so no interactive
+// caller can give a key or user a value the operator could not set globally.
+// They are input sanity, not a spend control: 10000 rps and 100 M tokens/min are
+// already effectively unlimited, so a larger value buys no spend a smaller
+// operator would have wanted to stop. That is why they live only here, not in
+// the config-sync import (validateSyncedRateLimits mirrors the floors alone and
+// honours a primary's larger limit) and not as a CHECK constraint (migration
+// 064 holds floors only; migration 081 clamped the rows that predate the
+// ceilings): a schema ceiling would reject a synced envelope at the DB.
 // Returns a non-nil error (already written to w) if validation fails.
 func validateRateLimits(rps *float64, burst, tpm *int, w http.ResponseWriter) error {
 	if rps != nil && *rps < 0 {
@@ -671,6 +682,18 @@ func validateRateLimits(rps *float64, burst, tpm *int, w http.ResponseWriter) er
 	}
 	if tpm != nil && *tpm < 1 {
 		respondBadRequest(w, "rate_limit_tpm must be >= 1 (use null for no cap / global default)", fmt.Errorf("got %d", *tpm))
+		return fmt.Errorf("invalid rate_limit_tpm")
+	}
+	if maxRPS := allowedSettings["rate_limit_rps"].max; rps != nil && *rps > maxRPS {
+		respondBadRequest(w, fmt.Sprintf("rate_limit_rps must be <= %g", maxRPS), fmt.Errorf("got %f", *rps))
+		return fmt.Errorf("invalid rate_limit_rps")
+	}
+	if maxBurst := int(allowedSettings["rate_limit_burst"].max); burst != nil && *burst > maxBurst {
+		respondBadRequest(w, fmt.Sprintf("rate_limit_burst must be <= %d", maxBurst), fmt.Errorf("got %d", *burst))
+		return fmt.Errorf("invalid rate_limit_burst")
+	}
+	if maxTPM := int(allowedSettings["rate_limit_tpm"].max); tpm != nil && *tpm > maxTPM {
+		respondBadRequest(w, fmt.Sprintf("rate_limit_tpm must be <= %d", maxTPM), fmt.Errorf("got %d", *tpm))
 		return fmt.Errorf("invalid rate_limit_tpm")
 	}
 	return nil
