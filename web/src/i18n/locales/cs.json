@@ -1750,7 +1750,7 @@
 			"quotaPinMax": "Limit připnutí kvóty",
 			"quotaPinMax.description": "Nejdéle, jak může připnutí kvóty poskytovatele zdržet. Nula obnoví výchozích 24 hodin, připnutí nevypne.",
 			"backoff": "Prodlužovat dobu ochlazení po neúspěšných opakovaných pokusech",
-			"backoffDescription": "Po každém neúspěšném opakovaném pokusu o přerušený spoj zdvojnásobit dobu ochlazení, aby model, který zůstává rozbitý, plýtval méně požadavky. Vypnutí uvolní již platné prodloužení, zhruba do 30 sekund.",
+			"backoffDescription": "Po každém neúspěšném opakovaném pokusu při přerušeném spoji zdvojnásobit dobu ochlazení, aby model, který zůstává rozbitý, plýtval méně požadavky. Vypnutí uvolní již platné prodloužení, zhruba do 30 sekund.",
 			"backoffMax": "Limit prodlužování",
 			"backoffMax.description": "Nejdéle, na kolik může prodloužená doba ochlazení narůst. Limit ne delší než doba ochlazení nic nepřidá. Nula obnoví výchozích 15 minut, prodlužování nevypne.",
 			"failoverOnRateLimit": "Failover při rate limit",

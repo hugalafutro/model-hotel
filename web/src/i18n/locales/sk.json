@@ -1750,7 +1750,7 @@
 			"quotaPinMax": "Limit pripnutia kvóty",
 			"quotaPinMax.description": "Najdlhšie, ako môže pripnutie kvóty poskytovateľa zdržať. Nula obnoví predvolených 24 hodín, pripnutie nevypne.",
 			"backoff": "Predlžovať dobu pokoja po neúspešných opakovaných pokusoch",
-			"backoffDescription": "Po každom neúspešnom opakovanom pokuse o prerušený spoj zdvojnásobiť dobu pokoja, aby model, ktorý ostáva pokazený, plytval menej požiadavkami. Vypnutie uvoľní už platné predĺženie, zhruba do 30 sekúnd.",
+			"backoffDescription": "Po každom neúspešnom opakovanom pokuse pri prerušenom spoji zdvojnásobiť dobu pokoja, aby model, ktorý ostáva pokazený, plytval menej požiadavkami. Vypnutie uvoľní už platné predĺženie, zhruba do 30 sekúnd.",
 			"backoffMax": "Limit predlžovania",
 			"backoffMax.description": "Najdlhšie, na koľko môže predĺžená doba pokoja narásť. Limit nie dlhší ako doba pokoja nič nepridá. Nula obnoví predvolených 15 minút, predlžovanie nevypne.",
 			"failoverOnRateLimit": "Prepnutie pri prekročení limitu",
