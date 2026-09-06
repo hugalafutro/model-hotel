@@ -1409,7 +1409,8 @@
 			"rerank": "Reranking",
 			"image": "Obraz",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Wiadomości"
 		},
 		"table": {
 			"timeDate": "Czas/Data",

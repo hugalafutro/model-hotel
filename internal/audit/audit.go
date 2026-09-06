@@ -3,8 +3,9 @@
 // middleware-based so new endpoints are covered without per-handler code.
 // Request bodies are NEVER stored, since they carry provider keys, passwords and
 // TOTP codes; a row holds only actor, method, route, entity id, response status
-// and the caller address. The table is instance-local operational telemetry (not
-// fleet-synced, not in backups) and is pruned opportunistically after inserts
+// and the caller address. The table is instance-local operational telemetry (never
+// fleet-synced, though a database backup carries it like every other table) and is
+// pruned opportunistically after inserts
 // against a configurable retention.
 package audit
 

@@ -457,7 +457,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	// our own request logs). It does, however, appear in this 302's Location
 	// response header, so a proxy that logs response headers would capture it --
 	// operators should redact `Location` on /api/auth/oidc/callback in their
-	// access logs (see README).
+	// access logs.
 	http.Redirect(w, r, "/#oidc_token="+url.QueryEscape(sessionToken), http.StatusFound)
 }
 

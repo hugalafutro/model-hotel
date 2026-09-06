@@ -18,7 +18,7 @@
 - 🔍 [[Model Discovery]]
 - 🔀 [[Failover and Hotel Routing]]
 - 🔔 [[Alerting]]
-- 🏨 [[High Availability]]
+- 🧭 [[High Availability]]
 - 📱 [[Bellhop]]
 - 🧱 [[CrowdSec]]
 

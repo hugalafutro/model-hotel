@@ -1323,7 +1323,8 @@
 			"rerank": "Uudelleenjärjestys",
 			"image": "Kuva",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Viestit"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",

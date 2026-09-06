@@ -1366,7 +1366,8 @@
 			"rerank": "Reordenación",
 			"image": "Imagen",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Mensajes"
 		},
 		"table": {
 			"timeDate": "Hora/Fecha",

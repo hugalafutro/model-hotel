@@ -1323,7 +1323,8 @@
 			"rerank": "Újrarangsorolás",
 			"image": "Kép",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Üzenetek"
 		},
 		"table": {
 			"timeDate": "Idő/Dátum",

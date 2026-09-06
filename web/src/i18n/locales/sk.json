@@ -1409,7 +1409,8 @@
 			"rerank": "Preradenie",
 			"image": "Obrázok",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Správy"
 		},
 		"table": {
 			"timeDate": "Čas/Dátum",

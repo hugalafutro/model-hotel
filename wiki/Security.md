@@ -65,7 +65,8 @@ The admin token is **SHA-256 hashed** before storage:
 - Hash stored in `<DATA_DIR>/admin-token` with `0600` permissions (owner read/write only)
 - Regenerate by deleting the file and restarting
 - **Constant-time comparison** via `crypto/subtle.ConstantTimeCompare` prevents timing attacks
-- Legacy plaintext tokens are automatically migrated to hashed format on next validation - if the stored file is not 64 hex characters, it is assumed to be a legacy plaintext token, hashed, and the file is overwritten with the hash
+- Legacy plaintext token files are migrated on startup: a file whose contents are neither `sha256:`-prefixed nor exactly 64 hex characters is assumed to be plaintext, so it is hashed and rewritten with the `sha256:` prefix
+- A bare 64-character hex hash is read as a hash and deliberately left alone: rewriting a file that already stores a valid hash would buy nothing
 
 The generated token is 32 hex characters (derived from a random UUID hashed with SHA-256, truncated).
 
@@ -76,7 +77,7 @@ Stored admin token hashes use the `sha256:` prefix format:
 sha256:<64-character-hex-hash>
 ```
 
-Legacy formats (bare 64-char hex or plaintext) are automatically migrated on first access.
+A plaintext file is hashed and rewritten in this format on first access. A bare 64-character hex hash is accepted as it stands.
 
 ---
 
@@ -84,29 +85,29 @@ Legacy formats (bare 64-char hex or plaintext) are automatically migrated on fir
 
 ### Admin API Authentication
 
-The admin API requires a Bearer token in the `Authorization` header:
+Two credentials reach the admin API, and `AuthMiddleware` tries them in that order: the browser's session cookie first, then the `Authorization: Bearer` header.
+
+**Browser: the session cookie.** The dashboard never keeps a raw token. Every login path (admin token, passkey, TOTP, SSO) mints the same DB-backed session token, which is handed to the browser as `mh_session`, an HttpOnly cookie the page's own JavaScript cannot read, alongside a readable `mh_csrf` cookie. Both are `SameSite=Strict`, and their `Secure` attribute follows `COOKIE_SECURE` (default `always`).
+
+A cookie-authenticated request using an unsafe method (anything other than GET, HEAD or OPTIONS) must echo the CSRF cookie back in the `X-CSRF-Token` header, or it is refused with HTTP 403. That double-submit check is what stops a cross-site form from riding the ambient cookie. When a session's expiry slides forward, the middleware re-issues the cookie pair with the new lifetime so the browser does not drop it on the original schedule.
+
+The admin token is traded for that cookie by `POST /api/auth/admin-exchange`, which validates the token and sets the cookie without echoing either token back; `POST /api/auth/logout` revokes the session and clears the pair. Both sit in the auth-exempt route group, because the exchange runs before any session exists and logout has to work on an already-invalid one. With TOTP enabled the exchange refuses outright and directs the caller to the TOTP login flow.
+
+**API clients: the Bearer header.**
 
 ```
 Authorization: Bearer <admin-token>
 ```
 
-**Validation flow:**
-1. Extract token from `Authorization: Bearer` header
-2. Compute SHA-256 hash of provided token
-3. Compare against stored hash using `crypto/subtle.ConstantTimeCompare`
-4. Return HTTP 401 with generic "Invalid admin token" message on failure
+The presented token is SHA-256 hashed and compared against the stored hash with `crypto/subtle.ConstantTimeCompare`, so a timing difference cannot leak the valid token. Failure is a generic HTTP 401. A Bearer that is not the admin token is then tried as a session token, which is how a non-browser client can use a session it was issued.
 
-The constant-time comparison prevents timing attacks that could leak information about the valid token.
+Header callers are exempt from the CSRF check: an explicit header is not a credential a browser attaches on its own.
 
 ### WebAuthn/FIDO2 Passkey Authentication
 
 When `WEBAUTHN_RP_ID` is set, users can log in with FIDO2/WebAuthn passkeys (Touch ID, Windows Hello, YubiKey, etc.) as an alternative to the admin token. Passkey login is disabled by default.
 
-**Dual authentication middleware:** The `AuthMiddleware` in `internal/api/admin.go` checks both methods:
-1. **Admin token** (fast, in-memory) - checked first using the SHA-256 hash
-2. **WebAuthn session token** (DB-backed) - checked as fallback when `webauthnSessionMgr` is configured
-
-The admin token always works. The WebAuthn path is nil-safe: when `WEBAUTHN_RP_ID` is not set, `webauthnSessionMgr` is nil and the fallback is skipped entirely.
+A finished passkey login mints the same DB-backed session token every other login path produces, so nothing downstream is passkey-specific. The session manager itself is constructed unconditionally rather than only when `WEBAUTHN_RP_ID` is set, because TOTP and SSO logins mint their sessions through it too. `WEBAUTHN_RP_ID` gates the passkey ceremony alone.
 
 **Session tokens:**
 - Generated using `crypto/rand` (32 bytes, hex-encoded)
@@ -127,7 +128,7 @@ This is deliberately an explicit action rather than automatic revocation on ever
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
-| `/api/webauthn/available` | GET | None (public) | Check if WebAuthn is enabled |
+| `/api/webauthn/available` | GET | IP rate-limited | Check if WebAuthn is enabled |
 | `/api/webauthn/login/start` | POST | IP rate-limited | Begin passkey login |
 | `/api/webauthn/login/finish` | POST | IP rate-limited | Complete passkey login, receive session token |
 | `/api/webauthn/register/start` | POST | Admin/session token | Begin credential registration |
@@ -138,6 +139,8 @@ This is deliberately an explicit action rather than automatic revocation on ever
 | `/api/webauthn/logout` | POST | Admin/session token | Revoke the current session token |
 
 Login endpoints are IP rate-limited to prevent brute-force probing of passkeys. Registration and credential management require admin or session token auth.
+
+**Per-key backoff on top of the rate limiter.** Every login ceremony except passkeys (TOTP, SSO, GitHub, and dashboard passwords) also keeps an in-memory failure counter per client IP. After 5 failures it starts refusing with an exponential backoff, from 1 second up to a 5-minute cap, and a success clears the counter. Because the delay is capped and self-clearing, a sustained attack slows the real admin down but never locks them out.
 
 **SSE events:**
 
@@ -190,7 +193,7 @@ Admins can sign in through an external OpenID Connect provider (Authentik, Authe
 
 **Identity and allowlist.** Logins are gated by an email allowlist that fails closed (an empty allowlist denies everyone) and matches only on the provider's `email_verified` claim. A user is anchored on the stable `(issuer, subject)` pair, which is logged on each successful login (app log, source `oidc`, with a masked email), so an allowlisted address cannot be hijacked through a second provider or a reused email. When the ID token omits the email (as Authelia does), the handler falls back to the OIDC UserInfo endpoint.
 
-**Flow hardening.** The exchange uses PKCE plus a single-use `state` nonce, both bound to a short-lived login-state record (10-minute TTL) carried across the IdP round trip in a cookie. The client secret is AES-256-GCM encrypted at rest under `MASTER_KEY`, like provider keys. The minted session token is handed to the browser in the URL **fragment**, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it appears is the callback's `302 Location` header: if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
+**Flow hardening.** The exchange uses PKCE plus a single-use `state` nonce, both bound to a short-lived login-state record (10-minute TTL) carried across the IdP round trip in a cookie. The client secret is AES-256-GCM encrypted at rest under `MASTER_KEY`, like provider keys. The minted session token never appears in a URL: the callback sets it as the HttpOnly session cookie and redirects to `/`, so there is nothing to leak through a `Referer` header, a request log, or a proxy's record of the `302 Location`.
 
 **Transient network failures.** All four OIDC hops (discovery, token exchange, JWKS, UserInfo), and GitHub login's equivalents, go out through the guarded client described in [netguard](#netguard-admin-configured-endpoints), which re-issues a request that failed before it ever reached the provider. A momentary DNS or dial fault at the token exchange therefore costs a 250ms retry instead of the entire login: without it the user is returned to the login screen to repeat the whole IdP round trip, consent screen included. That section covers exactly what is and is not retried, and why re-issuing a token exchange cannot burn the single-use authorization code.
 
@@ -205,39 +208,18 @@ When you register the app with your provider, two values must match what Model H
 
 Then, in Model Hotel's own Settings, the **allowlist** must contain the exact verified email of the account that will sign in (lowercased, comma-separated for several). A mismatch is the `oidc: login denied: email not allowlisted` log line. The placeholder you started with is not magic: put the real address the provider returns.
 
-Your provider's own login policy (how many factors it prompts for) is independent of Model Hotel. With Authelia, for example, `authorization_policy: one_factor` gives a one-click sign-in once you have an Authelia session, while `two_factor` makes Authelia prompt for its own second factor (passkey/TOTP) before returning. Neither changes Model Hotel's behaviour; pick the friction you want at the IdP.
-
-Authelia example client (`identity_providers.oidc.clients`):
-
-```yaml
-- client_id: model-hotel-frontdesk
-  client_name: Model Hotel Front Desk
-  client_secret: '$pbkdf2-sha512$...'   # the hashed digest from: authelia crypto hash generate pbkdf2 --variant sha512 --random
-  public: false
-  authorization_policy: one_factor       # or two_factor for an IdP-side second factor
-  redirect_uris:
-    - https://front-desk.example.com/api/auth/oidc/callback
-  scopes:
-    - openid
-    - email
-    - profile                            # required: omitting it causes invalid_scope
-  response_types:
-    - code
-  grant_types:
-    - authorization_code
-  token_endpoint_auth_method: client_secret_basic
-  pkce_challenge_method: S256
-```
-
-Paste the secret's plaintext (the "Random Password" the hash command prints, not the digest) into the client-secret field in Settings; the digest goes in the Authelia config. The issuer URL is the provider's bare origin (e.g. `https://auth.example.com`), not its `.well-known` path: discovery is appended automatically.
-
-The provider's token-signing key (Authelia's `identity_providers.oidc.jwks`, plus the `hmac_secret`) is a one-time, provider-wide bootstrap, not per-client: you generate it once when you first enable OIDC on the IdP, and every client after that (a second app, Front Desk, etc.) reuses it. So if you set up the main dashboard first, registering Front Desk needs only the client block above, no new key. Neither Model Hotel nor Front Desk ever holds that private key; they verify tokens with the IdP's published public key fetched via discovery.
+The issuer URL is the provider's bare origin (e.g. `https://auth.example.com`), not its `.well-known` path: discovery is appended automatically. For a worked client registration, and for how your provider's own login policy interacts with all this, see [Appendix: Authelia client example](#appendix-authelia-client-example).
 
 | Route | Method | Auth | Description |
 |-------|--------|------|-------------|
 | `/api/auth/oidc/status` | GET | None (public) | Report whether SSO is enabled and the provider display name (login UI gating) |
-| `/api/auth/oidc/start` | GET | None (public) | Begin login: build PKCE + state, redirect to the provider |
-| `/api/auth/oidc/callback` | GET | None (public) | Provider redirect target: verify state/PKCE/ID token, enforce the allowlist, mint a session token |
+| `/api/auth/oidc/start` | GET | IP rate-limited | Begin login: build PKCE + state, redirect to the provider |
+| `/api/auth/oidc/callback` | GET | IP rate-limited | Provider redirect target: verify state/PKCE/ID token, enforce the allowlist, mint a session token |
+| `/api/auth/github/status` | GET | None (public) | Report whether GitHub login is enabled (login UI gating) |
+| `/api/auth/github/start` | GET | None (public) | Begin GitHub OAuth: build state, redirect to GitHub |
+| `/api/auth/github/callback` | GET | None (public) | GitHub redirect target: verify state, enforce the allowlist, mint a session token |
+
+Status is deliberately outside the limiter: the login screen polls it, it reads a few cached settings keys and makes no outbound call. Start and callback write a login-state row per request, so they carry the limiter. The GitHub callback is covered by the per-key backoff described above rather than the request limiter; GitHub OAuth Apps support neither PKCE nor a nonce, which is why its flow is state-only.
 
 Configuration lives entirely in the settings store (no migration): `oidc_enabled`, `oidc_issuer_url`, `oidc_client_id`, `oidc_client_secret` (encrypted), `oidc_public_base_url`, and `oidc_allowed_emails`.
 
@@ -332,8 +314,14 @@ Exceeded limits return HTTP 413 (Payload Too Large). A body that is malformed, t
 A size ceiling bounds how much a client may send, not how long it may take to send it, so both listeners (the gateway and Front Desk) also bound the time a connection can be held without doing work. The posture is decided once, in `internal/httpx.NewServer`, and is the same for both binaries:
 
 - **Headers**: a request must deliver its request line and headers within 10 seconds (`ReadHeaderTimeout`).
-- **Body**: a request that carries a body gets a per-request read deadline of 30 seconds plus one second per 128 KiB of its length, capped at 15 minutes. The length that earns time is the declared `Content-Length` clamped to the largest body the listener accepts (`MAX_REQUEST_SIZE` on the gateway, the 1 MB JSON ceiling on Front Desk); a body that declares no length (`Transfer-Encoding: chunked`, which a Go client streaming a file, a browser `fetch` with a stream body, or `curl -T -` uploading from a pipe sends) is budgeted as that largest body. A control-plane JSON body or an ordinary chat request has to arrive within the 30 seconds; a 20 MB vision request earns 190 seconds and the 100 MB backup restore 830 seconds, so an honest upload on a poor uplink still fits, while a client that declares a huge length and trickles bytes earns nothing past the listener's ceiling and is released after the cap at the latest. That ceiling is `MAX_REQUEST_SIZE` on the gateway, so raising it for larger uploads also lengthens the longest hold a hostile connection can buy: 430 seconds at the 50 MB default, 830 seconds at the 100 MB maximum. The clock starts when the request enters the handler chain, so the milliseconds routing and auth take count against it. The deadline covers the body only: the moment the body has been read, a streaming completion or an `/api/events` stream runs as long as it needs to, and a request without a body never gets a deadline at all. A body the handler rejects before reading (a 401 on a `POST`, say) keeps its deadline, so the client cannot hold the connection open through the server's drain of the remainder either.
+- **Body**: a request that carries a body gets a per-request read deadline of 30 seconds plus one second per 128 KiB of its length, capped at 15 minutes.
 - **Idle keep-alive**: a connection that has finished one request must start the next within 180 seconds (`IdleTimeout`). The server side of an idle race should be the longer one, so this sits above the pools under the project's control: Traefik's default 90-second upstream idle, Front Desk's member clients (90 seconds), and the gateway's own 120-second outbound pool when one Model Hotel is a provider for another. Bellhop's OkHttp pool keeps a connection for five minutes and is deliberately left above it: OkHttp checks a pooled socket before reuse and retries a connection failure, and the listener's idle bound has to stay bounded rather than chase every client's pool.
+
+**How the body budget is sized.** The length that earns time is the declared `Content-Length`, clamped to the largest body the listener accepts (`MAX_REQUEST_SIZE` on the gateway, the 1 MB JSON ceiling on Front Desk). A body that declares no length at all (`Transfer-Encoding: chunked`, as sent by a Go client streaming a file, a browser `fetch` with a stream body, or `curl -T -` uploading from a pipe) is budgeted as that largest body.
+
+So a control-plane JSON body or an ordinary chat request has to arrive within the 30 seconds, a 20 MB vision request earns 190 seconds, and a 100 MB backup restore 830 seconds. An honest upload on a poor uplink still fits, while a client that declares a huge length and trickles bytes earns nothing past the listener's ceiling. Raising `MAX_REQUEST_SIZE` for larger uploads therefore also lengthens the longest hold a hostile connection can buy: 430 seconds at the 50 MB default, 830 seconds at the 100 MB maximum.
+
+The clock starts when the request enters the handler chain, so the milliseconds routing and auth take count against it. The deadline covers the body only: once the body has been read, a streaming completion or an `/api/events` stream runs as long as it needs, and a request without a body never gets a deadline at all. A body the handler rejects before reading (a 401 on a `POST`, say) keeps its deadline, so the client cannot hold the connection open through the server's drain of the remainder either.
 
 There is deliberately no whole-request `ReadTimeout` or `WriteTimeout` on either listener: streaming responses run for minutes to hours, and a write timeout would cut them off.
 
@@ -363,8 +351,13 @@ All HTTP responses include standard security headers (set globally via middlewar
 | `X-Content-Type-Options` | `nosniff` | Prevents MIME type sniffing |
 | `X-Frame-Options` | `DENY` | Prevents clickjacking via iframes |
 | `Referrer-Policy` | `strict-origin-when-cross-origin` | Controls referrer information sent with requests |
-| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | Enforces HTTPS connections (when TLS is active) |
+| `Strict-Transport-Security` | `max-age=63072000; includeSubDomains; preload` | Enforces HTTPS connections |
 | `Content-Security-Policy` | `default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'` | Prevents injection of unauthorized scripts and resources |
+
+Two of those are conditional:
+
+- **HSTS is set only when the connection itself is TLS.** The server listens over plain HTTP, so behind a TLS-terminating reverse proxy this header is never emitted by Model Hotel. That is deliberate: a plain-HTTP listener that advertised HSTS would teach browsers to redirect to an HTTPS port that does not exist. Set the header at the proxy instead.
+- **`ALLOW_EMBED=true` drops both frame protections.** `X-Frame-Options: DENY` is omitted and the CSP loses `frame-ancestors 'none'`, so any origin may put the dashboard in an iframe (workspace browsers, Home Assistant). Everything else in the policy is unchanged. Leave it off unless you need the embed.
 
 ---
 
@@ -374,12 +367,12 @@ The `ValidateProviderURL` function enforces multiple security checks to prevent 
 
 1. **HTTPS by default** - HTTP is only allowed if `ALLOW_HTTP_PROVIDERS=true`
 2. **Loopback block** - `localhost`, `127.0.0.1`, `::1` are rejected by default (prevents SSRF)
-3. **IP resolution check** - All resolved IPs are checked for loopback addresses (blocks DNS rebinding)
-4. **IPv6 loopback** - `::1` and IPv6-mapped loopback addresses are blocked
-5. **Allowed hosts** - Optional allowlist via `ALLOWED_PROVIDER_HOSTS`:
-   - Built-in provider hosts (`api.openai.com`, `api.nano-gpt.com`, `api.z.ai`, `api.deepseek.com`, `api.anthropic.com`, `ollama.com`, `opencode.ai`, `api.x.ai`, `generativelanguage.googleapis.com`, `aiplatform.googleapis.com`, `api.cohere.com`, `api.cohere.ai`, `openrouter.ai`, `api.neuralwatt.com`, `neuralwatt.com`) are **always allowed** regardless of the allowlist
-   - Hosts explicitly listed in `ALLOWED_PROVIDER_HOSTS` bypass the loopback restriction - this is intentional to allow `localhost` for local Ollama or testing scenarios
-   - When `ALLOWED_PROVIDER_HOSTS` is empty (the default), any non-loopback HTTPS URL is accepted
+3. **IP resolution check** - the host is resolved and every returned address is checked against the same blocked ranges the runtime dialer enforces (see [SafeDialer](#safedialer-runtime-ssrf-protection)), so a `base_url` accepted here cannot be silently refused later at dial time. A resolution that fails outright is not treated as a rejection: the name may simply be unresolvable from the box doing the saving, and the dial-time check is the authoritative one
+4. **Allowed hosts** - optional allowlist via `ALLOWED_PROVIDER_HOSTS`:
+   - Built-in provider hosts are **always allowed** regardless of the allowlist, and skip the loopback and IP checks entirely: `api.openai.com`, `api.nano-gpt.com`, `api.z.ai`, `api.kimi.com`, `kimi.com`, `api.minimax.io`, `minimax.io`, `api.deepseek.com`, `api.anthropic.com`, `ollama.com`, `opencode.ai`, `api.x.ai`, `generativelanguage.googleapis.com`, `aiplatform.googleapis.com`, `api.cohere.com`, `api.cohere.ai`, `openrouter.ai`, `api.neuralwatt.com`, `neuralwatt.com`
+   - Any subdomain of a known provider domain is accepted the same way, by suffix: `.nano-gpt.com`, `.z.ai`, `.kimi.com`, `.minimax.io`, `.deepseek.com`, `.anthropic.com`, `.ollama.com`, `.opencode.ai`, `.x.ai`, `.cohere.com`, `.cohere.ai`, `.openrouter.ai`, `.neuralwatt.com`. Runtime dialing still applies the reserved-IP checks to these, so the suffix rule does not widen SSRF exposure
+   - Hosts explicitly listed in `ALLOWED_PROVIDER_HOSTS` bypass the loopback and reserved-IP restrictions - this is intentional, to allow `localhost` or an internal address for a self-hosted Ollama
+   - When `ALLOWED_PROVIDER_HOSTS` is empty (the default), any non-loopback HTTPS URL that does not resolve to a blocked address is accepted
 
 ---
 
@@ -390,7 +383,7 @@ While `ValidateProviderURL` blocks dangerous URLs at configuration time, the **S
 ### How It Works
 
 1. **Resolve first, dial by IP**: The dialer first resolves the hostname to a list of IP addresses, then checks all IPs against blocked ranges (private, loopback, link-local, cloud-metadata). If all are blocked, the connection is refused.
-2. **DNS rebinding protection**: By resolving first and dialing by IP (not hostname), the dialer closes the TOCTOU gap where DNS could resolve to a different address between check and dial.
+2. **DNS rebinding protection**: By resolving first and dialing by IP (not hostname), the dialer closes the TOCTOU (time-of-check to time-of-use) gap where DNS could resolve to a different address between check and dial.
 3. **Redirect validation**: HTTP redirect targets are also validated - the redirect host's IPs are checked against the same blocked ranges.
 4. **Known bypass via `KNOWN_PROXIES`**: IPs within CIDRs listed in `KNOWN_PROXIES` bypass the private-IP block, allowing connections to internal LLM servers (e.g. self-hosted Ollama on 10.0.0.5:11434).
 5. **Host bypass via `ALLOWED_PROVIDER_HOSTS`**: Hostnames in `ALLOWED_PROVIDER_HOSTS` skip the SafeDialer IP checks entirely.
@@ -399,11 +392,15 @@ While `ValidateProviderURL` blocks dangerous URLs at configuration time, the **S
 
 | Category | CIDR/Address | Reason |
 |----------|-------------|--------|
-| Unspecified | `0.0.0.0/8`, `::` | Unusable addresses |
+| Unspecified | `0.0.0.0`, `::` | Unusable addresses |
 | Loopback | `127.0.0.0/8`, `::1` | Localhost |
 | Private | `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, `fc00::/7` | Internal networks |
-| Link-local | `169.254.0.0/16`, `fe80::/10` | Link-local |
-| Cloud metadata | `169.254.169.254` | AWS/GCP/Azure metadata endpoint |
+| Carrier-grade NAT | `100.64.0.0/10` | Internal networks (RFC 6598, not covered by Go's private-address check) |
+| Link-local unicast | `169.254.0.0/16`, `fe80::/10` | Link-local |
+| Link-local multicast | `224.0.0.0/24`, `ff02::/16` | Never a legitimate HTTP endpoint |
+| Cloud metadata | `169.254.169.254` | AWS/GCP/Azure metadata endpoint (also link-local, checked again by name) |
+
+The same list backs both provider-URL validation and the runtime dialer, so the two layers cannot drift apart.
 
 ---
 
@@ -526,8 +523,8 @@ App Logs view and its source filter.
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `MASTER_KEY` | (required) | Base secret for Argon2id key derivation. Should be 32+ random bytes. Never log or commit. |
-| `ADMIN_TOKEN` | (auto-generated) | Admin API authentication token. Generated on first boot if not provided. |
+| `MASTER_KEY` | (required) | Base secret for Argon2id key derivation. Should be 32+ characters; a shorter value logs a startup warning but still boots, since rotating it would invalidate every encrypted key. Never log or commit. |
+| `ADMIN_TOKEN` | (auto-generated) | Admin API authentication token. Read on first boot only, when no `<DATA_DIR>/admin-token` file exists yet; once that file holds a hash it takes precedence and this variable is ignored. Auto-generated when unset. |
 | `RATE_LIMIT_ENABLED` | `true` | Master kill-switch for all rate limiting. `false` removes middleware entirely. |
 | `RATE_LIMIT_IP_RPS` | `30` | Default requests per second for IP-based limiting. |
 | `RATE_LIMIT_IP_BURST` | `60` | Default burst size for IP-based limiting. |
@@ -538,6 +535,12 @@ App Logs view and its source filter.
 | `TRUSTED_PROXIES` | (empty) | CIDR list of trusted proxy IPs. Required for X-Forwarded-For header validation. Controls inbound trust only. |
 | `KNOWN_PROXIES` | (empty) | CIDR list of internal LLM server networks. Bypasses SafeDialer private-IP blocking for outbound connections. |
 | `WEBAUTHN_RP_ID` | (empty) | Relying Party ID for WebAuthn/FIDO2 passkey login. Empty = disabled. |
+| `WEBAUTHN_RP_ORIGINS` | (empty) | Comma-separated origins accepted during passkey ceremonies. Empty falls back to `CORS_ORIGINS`, then to `http://localhost:<PORT>`. |
+| `COOKIE_SECURE` | `always` | `Secure` attribute on the session cookie pair: `always`, `auto` (only over TLS), or `never`. Unset or unrecognized values fall back to `always`. |
+| `ALLOW_EMBED` | `false` | Allows any origin to embed the dashboard in an iframe by dropping `X-Frame-Options` and the CSP `frame-ancestors` directive. |
+| `METRICS_TOKEN` | (empty) | Bearer token for `/metrics` scrapes. Empty means the endpoint falls back to normal admin auth. |
+| `DEMO_READONLY` | `false` | Refuses every mutating request on the admin CRUD surface with a 403. Admin chat and the public proxy stay usable, and refused attempts are still recorded in the audit trail. |
+| `DEMO_SHOW_TOKEN` | `false` | Publishes the admin token on the login screen for a public demo. Inert (and warned about at startup) unless `DEMO_READONLY` is also on. |
 | `PWNED_PASSWORD_CHECK_ENABLED` | `true` | Hard kill-switch for breached-password screening of new dashboard passwords (Have I Been Pwned range API, k-anonymity: only a five-character SHA-1 prefix leaves the box, fail-open). `false` disables it outright; the runtime toggle under Settings > Authentication > Password policy cannot re-enable it. See [Configuration](Configuration#breached-password-screening). |
 | `PWNED_PASSWORD_API_URL` | `https://api.pwnedpasswords.com` | Base URL of the range API; point at a self-hosted mirror for air-gapped deployments. |
 | `DATA_DIR` | `./data` | Directory for admin token storage. Must have restricted permissions. |
@@ -563,12 +566,21 @@ App Logs view and its source filter.
 - [ ] Regularly rotate virtual keys and provider API keys
 - [ ] Review access logs for unusual patterns
 
+### Behind a reverse proxy
+
+The app itself listens over plain HTTP and terminates no TLS, so a public deployment always has a proxy in front of it. Four things to get right:
+
+- [ ] Terminate TLS at the proxy and set `Strict-Transport-Security` there, since the app will not.
+- [ ] Set `TRUSTED_PROXIES` to the CIDRs of that proxy only, or every logged client IP is whatever the caller claims.
+- [ ] Leave `COOKIE_SECURE` at `always` (the default) so the session cookie is never sent over cleartext. Use `never` only for a plain-HTTP LAN deployment.
+- [ ] Do not publish the app's port (8081 in the stock compose file) to the WAN. Only the proxy should be able to reach it.
+
 ### Key Rotation
 
 **Provider API Keys:**
 1. Update the provider's encrypted key via admin API
 2. Old key is immediately invalidated (cache entry expires naturally)
-3. New key is encrypted with v2 scheme (per-provider salt)
+3. The new key is encrypted with a freshly generated per-provider salt
 
 **Virtual Keys:**
 1. Delete the old virtual key via admin API
@@ -601,7 +613,7 @@ App Logs view and its source filter.
 
 Database backups are `pg_dump --format=custom` files sitting in `DATA_DIR/backups`. Anything able to write into that directory could otherwise replace a dump with a crafted one containing an injected admin account, and a later restore would activate it.
 
-Each backup is therefore signed when it is written, manually or by the rotation scheduler. The signature is HMAC-SHA256 under a key derived from `MASTER_KEY` via HKDF with a dedicated label, so the signing key is not the key that encrypts provider credentials, and it lives in a `<backup>.dump.sig` sidecar rather than inside the dump, which keeps the dump a valid `pg_restore` input. Deleting or pruning a backup removes its sidecar with it.
+Each backup is therefore signed when it is written, manually or by the rotation scheduler. The signature is HMAC-SHA256 under a key derived from `MASTER_KEY` via HKDF (HMAC-based key derivation) with a dedicated label, so the signing key is not the key that encrypts provider credentials, and it lives in a `<backup>.dump.sig` sidecar rather than inside the dump, which keeps the dump a valid `pg_restore` input. Deleting or pruning a backup removes its sidecar with it.
 
 **The signature covers the filename as well as the contents.** Signing contents alone would let a dump and its sidecar be renamed together and still verify, so an attacker able to write to the directory could drop an older genuine backup into today's name. It would verify clean and restore stale state, reinstating revoked virtual keys and deleted accounts without forging anything. Binding the name makes that swap fail the check.
 
@@ -651,12 +663,41 @@ If you discover a security vulnerability, please report it privately before publ
 
 ---
 
-*Last updated: 2026-06-10 (v0.9.49)*
+## Appendix: Authelia client example
+
+Your provider's own login policy (how many factors it prompts for) is independent of Model Hotel. With Authelia, `authorization_policy: one_factor` gives a one-click sign-in once you have an Authelia session, while `two_factor` makes Authelia prompt for its own second factor (passkey/TOTP) before returning. Neither changes Model Hotel's behaviour; pick the friction you want at the IdP.
+
+Authelia example client (`identity_providers.oidc.clients`):
+
+```yaml
+- client_id: model-hotel-frontdesk
+  client_name: Model Hotel Front Desk
+  client_secret: '$pbkdf2-sha512$...'   # the hashed digest from: authelia crypto hash generate pbkdf2 --variant sha512 --random
+  public: false
+  authorization_policy: one_factor       # or two_factor for an IdP-side second factor
+  redirect_uris:
+    - https://front-desk.example.com/api/auth/oidc/callback
+  scopes:
+    - openid
+    - email
+    - profile                            # required: omitting it causes invalid_scope
+  response_types:
+    - code
+  grant_types:
+    - authorization_code
+  token_endpoint_auth_method: client_secret_basic
+  pkce_challenge_method: S256
+```
+
+Paste the secret's plaintext (the "Random Password" the hash command prints, not the digest) into the client-secret field in Settings; the digest goes in the Authelia config.
+
+The provider's token-signing key (Authelia's `identity_providers.oidc.jwks`, plus the `hmac_secret`) is a one-time, provider-wide bootstrap, not per-client: you generate it once when you first enable OIDC on the IdP, and every client after that (a second app, Front Desk, etc.) reuses it. So if you set up the main dashboard first, registering Front Desk needs only the client block above, no new key. Neither Model Hotel nor Front Desk ever holds that private key; they verify tokens with the IdP's published public key fetched via discovery.
 
 ---
 
 ## Related Documentation
 
 - [[Virtual Keys]] - Virtual key creation, hashing, and management
+- [[Multi-User]] - Accounts, roles, and per-user grants on the admin surface
 - [[Privacy]] - Data handling, logging, and privacy guarantees
 - [[Request Logging]] - Request log structure and retention

@@ -14,7 +14,7 @@ Authorization: Bearer <virtual-key>
 
 Virtual keys use the `sk-` prefix (e.g. `sk-a1b2c3d4e5f6a7b8`). Keys are created via the Admin API and are shown only once at creation time.
 
-The native Anthropic endpoint `/v1/messages` additionally accepts the virtual key in the `x-api-key` header (what the anthropic SDKs send); `Authorization: Bearer` works on every endpoint.
+The `x-api-key` header (what the Anthropic SDKs send) carries the virtual key just as well, on every `/v1` route rather than only `/v1/messages`. `Authorization: Bearer` is preferred when both are present.
 
 ### Endpoints
 
@@ -22,7 +22,7 @@ The native Anthropic endpoint `/v1/messages` additionally accepts the virtual ke
 |----------|--------|------|-------------|
 | `/v1/models` | GET | Virtual Key | List available models (OpenAI-compatible format) |
 | `/v1/chat/completions` | POST | Virtual Key | Chat completion (streaming and non-streaming) |
-| `/v1/messages` | POST | Virtual Key (`x-api-key` or Bearer) | Anthropic Messages API (translation + native passthrough) |
+| `/v1/messages` | POST | Virtual Key | Anthropic Messages API (translation + native passthrough) |
 | `/v1/embeddings` | POST | Virtual Key | Embeddings (JSON pass-through) |
 | `/v1/rerank` | POST | Virtual Key | Document rerank (JSON pass-through, Cohere-style body) |
 | `/v1/images/generations` | POST | Virtual Key | Image generation (JSON; SSE streaming via `partial_images`) |
@@ -88,13 +88,9 @@ curl -X POST http://localhost:8081/v1/chat/completions \
 
 **Message normalization:** if a message in `messages` carries `tool_calls: []` (an empty array), the proxy removes the field before forwarding. Some clients serialize aborted or filtered tool-call turns this way, and strict providers reject the whole request with a 400 (`Invalid 'messages[N].tool_calls': empty array`), which permanently breaks any conversation carrying such a turn in its history. Non-empty `tool_calls` and all other message content pass through untouched.
 
-**OpenAI Responses API re-route:** OpenAI's newest models (gpt-5.4 and later, including the gpt-5.6 family) reject function tools combined with reasoning on `/v1/chat/completions` (`"Function tools with reasoning_effort are not supported... use the /v1/responses endpoint"`). When a direct OpenAI candidate answers with that 400, the proxy retries the same request once against the provider's `/v1/responses`, translated in both directions, and caches the requirement per model, so subsequent tools+reasoning requests for that model go to `/v1/responses` immediately with no extra round-trip. This is invisible to the client: you keep sending and receiving ordinary Chat Completions, streaming included.
+**OpenAI Responses API re-route:** OpenAI's newest models refuse function tools combined with reasoning on `/v1/chat/completions`, and the pro tier (`o1-pro`, `o3-pro`, `gpt-5.x-pro`) is not served there at all. When a direct OpenAI candidate refuses for either reason, the proxy retries the same request against that provider's `/v1/responses`, translated in both directions, and remembers the requirement per model so later requests go straight there.
 
-- The re-route applies only when the request actually carries the forcing combination: `tools` present and `reasoning_effort` not `"none"`. Tools-free or reasoning-off requests keep the ordinary Chat Completions path even for flagged models.
-- The pro tier (`o1-pro`, `o3-pro`, `gpt-5.x-pro`, dated variants included) is served by `/v1/responses` alone: OpenAI answers a Chat Completions request to one of these with a 404 saying it is not a chat model. On `api.openai.com` the proxy routes every request to these models through `/v1/responses` from the first one, with no learning round-trip, and any other model that refuses the chat endpoint the same way is learned from that 404 and re-routed on the spot and for every later request; a sampling parameter the model then refuses on `/v1/responses` (the pro tier takes no `temperature`) is learned and stripped in the same attempt, on a rerouted and a preemptively routed request alike. A relay of unknown make that re-exposes these names stays on Chat Completions: it may have no `/v1/responses` to fall back from.
-- The model's reasoning summary is requested (`reasoning: {summary: "auto"}`) and surfaced as `reasoning_content` on the message (or streamed as `reasoning_content` deltas), the same field the proxy already normalizes for other reasoning providers.
-- The gateway stays stateless: every `/v1/responses` call sends `store: false`, so OpenAI retains no conversation state, and each turn re-sends the full transcript. Reasoning items from prior turns are not replayed; each turn reasons fresh, matching Chat Completions behavior.
-- Token usage is metered identically (prompt/completion counts plus reasoning and cached-token details), and as everywhere else, **request/response content is never logged**.
+This is invisible to the client: ordinary Chat Completions in and out, streaming included, with the model's reasoning summary surfaced as `reasoning_content` and token usage metered as usual. Every `/v1/responses` call sends `store: false`, so OpenAI retains no conversation state. See [Failover & Hotel Routing](Failover-and-Hotel-Routing).
 
 **Model Routing:**
 
@@ -216,11 +212,14 @@ Per-key rate limiting applies based on virtual key configuration. Returns `429 T
 ```json
 {
   "error": {
-    "message": "Rate limit exceeded",
-    "type": "rate_limit_error"
+    "message": "rate limit exceeded",
+    "type": "rate_limit_error",
+    "code": 429
   }
 }
 ```
+
+The message names the limiter that refused: `rate limit exceeded` for a per-key or per-IP request cap, `user rate limit exceeded` for the caller's account-wide request cap, `token rate limit exceeded` and `user token rate limit exceeded` for the tokens-per-minute equivalents.
 
 ---
 
@@ -251,8 +250,10 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
 | `/api/providers/{id}/account` | GET | Get account info (Ollama Cloud) |
 | `/api/providers/discover-all` | POST | Trigger discovery for all enabled providers |
 | `/api/providers/refresh-quotas` | POST | Refresh quota/balance data for all supported providers |
-| `/api/discovery/changes` | GET | List unseen model changes recorded by background (scheduled/startup) discovery |
-| `/api/discovery/changes/ack` | POST | Mark recorded background changes as seen (clears the Models nav badge); returns the acked entries |
+| `/api/discovery/changes/ack` | POST | Mark model changes recorded by background (scheduled/startup) discovery as seen, clearing the Models nav badge; returns the acked entries |
+| `/api/discovery/status` | GET | Outstanding discovery claims and their flap counts (`?review=1` adds the since-last-review numbers the modal shows) |
+| `/api/discovery/{provider_id}/dismiss` | POST | Stop reporting a discrepancy for the given `model_ids` on one provider. Only already auto-disabled rows can be dismissed; `404` if none match |
+| `/api/discovery/{provider_id}/unpin` | POST | Drop the operator pin from the given `model_ids`, handing them back to discovery's listing-based auto-disable; `404` if none carry a pin |
 
 #### GET `/api/providers`
 
@@ -263,13 +264,24 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
     "id": "uuid",
     "name": "OpenAI",
     "base_url": "https://api.openai.com/v1",
+    "provider_type": "openai",
+    "masked_key": "sk-p...c5d6",
     "enabled": true,
+    "autodiscovery_enabled": true,
+    "scheduled_disable_on": null,
+    "max_in_flight": null,
+    "last_discovered_at": "2024-01-01T00:00:00Z",
+    "last_used_at": "2024-01-01T00:00:00Z",
+    "created_at": "2024-01-01T00:00:00Z",
+    "updated_at": "2024-01-01T00:00:00Z",
     "model_count": 15,
     "total_tokens": 1234567,
-    "last_discovered_at": "2024-01-01T00:00:00Z"
+    "tokens_since": "2024-01-01T00:00:00Z"
   }
 ]
 ```
+
+The plaintext API key is never returned; `masked_key` is a display-only preview. `tokens_since` (the timestamp of the oldest request log behind `total_tokens`) is omitted when the provider has no logged traffic, and a `last_cap` object is added only when the provider has answered an exhausted `429` since the process started. Non-admin callers see only their own traffic in `total_tokens`.
 
 ![Providers Page](screenshots/providers.png)
 
@@ -317,7 +329,9 @@ in `ALLOWED_PROVIDER_HOSTS` before the provider can be created.
 
 #### PUT `/api/providers/{id}`
 
-**Request Body:** All fields optional for partial update. Accepts `name`, `base_url`, `api_key`, and `enabled` - unlike POST which does not accept `enabled`. `provider_type` is fixed at creation and cannot be changed; changing `base_url` on a self-hosted provider re-runs the same probe against the new address.
+**Request Body:** all fields optional for partial update. Accepts `name`, `base_url`, `provider_type`, `api_key`, `enabled`, `autodiscovery_enabled`, `scheduled_disable_on` and `max_in_flight`; POST accepts only the first four of those.
+
+`provider_type` can be corrected here, which matters for a row the legacy hostname rules filed under the wrong type: re-adding the provider instead would cascade its models away. A new self-hosted type is probed exactly as on create, as is a changed `base_url`. `scheduled_disable_on` is an ISO date (`YYYY-MM-DD`) that must not be in the past, or `null` to clear it. `max_in_flight` caps the provider's concurrent upstream requests: `null` means no ceiling, and any number outside 1-10000 is a `400`.
 
 #### DELETE `/api/providers/{id}`
 
@@ -481,10 +495,13 @@ Refreshes quota/balance information for all providers that support it.
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/models` | GET | List all models (optional `?provider_id=` and `?provider_enabled=true\|false` filters; the latter scopes to rows whose provider is enabled, i.e. what `/v1/models` advertises) |
-| `/api/models/cursor` | GET | Cursor-paginated model listing (keyset pagination for large catalogs; accepts the same `provider_enabled` filter and reports filter-wide `total`, `enabled_total` and `parked_total`) |
+| `/api/models/cursor` | GET | Cursor-paginated model listing for large catalogues; accepts the same `provider_enabled` filter and reports filter-wide `total`, `enabled_total` and `parked_total` |
+| `/api/models/bulk-delete` | POST | Delete several models in one call (admin only) |
 | `/api/models/{id}` | PATCH | Update model (enable/disable, edit metadata) |
 | `/api/models/{id}` | DELETE | Delete model permanently |
 | `/api/models/{id}/test` | POST | Test a model by sending a minimal prompt |
+
+Cursor (keyset) pagination walks the list by passing the previous response's `next_cursor` back instead of an offset, so a page stays stable while rows are inserted ahead of it.
 
 #### GET `/api/models`
 
@@ -529,24 +546,28 @@ Refreshes quota/balance information for all providers that support it.
 
 #### PATCH `/api/models/{id}`
 
-**Request Body:** (all fields optional)
+**Request Body:** (all fields optional, but at least one is required: an empty body is a `400`)
 ```json
 {
   "display_name": "Custom Name",
   "context_length": 128000,
   "max_output_tokens": 16384,
   "input_price_per_million": 5.0,
+  "input_price_per_million_cache_hit": 2.5,
   "output_price_per_million": 15.0,
+  "price_customized": true,
   "enabled": true
 }
 ```
 
 **Validation:**
-- `display_name`: 1-128 characters
+- `display_name`: 1-128 characters (empty clears it back to the discovered name)
 - `context_length`: 256-2000000
 - `max_output_tokens`: 1-128000
 - `input_price_per_million`: 0-1000
+- `input_price_per_million_cache_hit`: 0-1000
 - `output_price_per_million`: 0-1000
+- `price_customized`: boolean; marks the prices as operator-set so discovery enrichment leaves them alone
 
 #### DELETE `/api/models/{id}`
 
@@ -657,6 +678,7 @@ On error:
 ```json
 {
   "display_name": "Updated Name",
+  "display_model": "glm-4.6",
   "description": "Updated description",
   "group_enabled": true,
   "priority_order": ["uuid-2", "uuid-1", "uuid-3"],
@@ -671,12 +693,13 @@ On error:
 | Field | Type | Description |
 |-------|------|-------------|
 | `display_name` | string | 1-128 characters |
+| `display_model` | string | 1-128 characters, must stay unique across groups: the `hotel/` name clients route on |
 | `description` | string | 0-500 characters |
 | `group_enabled` | boolean | Enable/disable entire group |
 | `priority_order` | array | New priority order of model UUIDs |
 | `entry_enabled` | object | Map of model UUID to enabled state |
 
-**Validation:** At least one entry must be enabled for an active failover group.
+**Validation:** an active group must keep at least one enabled entry. Turning a group on (the off to on transition only) additionally requires at least 2 routable members, meaning entries whose model and whose provider are both enabled; short of that the request is a `400`.
 
 #### GET `/api/failover-groups/by-model/{model_uuid}`
 
@@ -755,7 +778,7 @@ This endpoint backs the circular-arrow button ("Reset circuit breaker") beside e
 
 #### POST `/api/failover-groups/{id}/circuit-breaker/reset`
 
-Clears every circuit behind one failover group's entries on this member, the operation the 2026-08-31 reset loop performed by hand across four providers. Only the group's (provider, resolved model) pairs are touched: a provider's circuits for models outside the group keep their state.
+Clears every circuit behind one failover group's entries on this member, in one call instead of one per provider. Only the group's (provider, resolved model) pairs are touched: a provider's circuits for models outside the group keep their state.
 
 **Response:**
 ```json
@@ -894,11 +917,11 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/logs` | GET | Query request logs (with pagination, filtering, sorting) |
-| `/api/logs/cursor` | GET | Cursor-paginated request log listing (keyset pagination) |
+| `/api/logs/cursor` | GET | Cursor-paginated request log listing |
 | `/api/logs/{id}` | GET | Get a single request log entry by ID |
 | `/api/logs/purge` | DELETE | Purge logs older than a specified period |
 
-> **Caching:** Responses are cached using a `globalLogsCache` keyed by the raw query string. The response includes an `X-Cache: HIT` or `X-Cache: MISS` header.
+> **Caching:** responses are cached in-process, keyed by the raw query string. Each response carries an `X-Cache: HIT` or `X-Cache: MISS` header.
 
 #### GET `/api/logs`
 
@@ -910,13 +933,16 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `per_page` | integer | 20 | Page size (max 200) |
 | `model_id` | string | - | Filter by model ID (partial match) |
 | `provider_id` | UUID | - | Filter by provider UUID |
+| `virtual_key_id` | UUID | - | Filter by the virtual key that made the request |
+| `client_ip` | string | - | Filter by the resolved client address |
+| `owner_user_id` | UUID | - | Filter by the account that owns the key (admins only; a non-admin caller is scoped to their own rows regardless) |
 | `status_code` | string | - | Filter by status code (`4xx`, `5xx`, or exact integer; `0` = no response) |
-| `endpoint_type` | string | - | Filter by endpoint family: `chat`, `embeddings`, `image`, `tts`, `stt` (unknown values are ignored) |
+| `endpoint_type` | string | - | Filter by endpoint family: `chat`, `messages`, `embeddings`, `rerank`, `image`, `tts`, `stt` (unknown values are ignored) |
 | `from` | RFC3339 | - | Start timestamp |
 | `to` | RFC3339 | - | End timestamp |
 | `attempt_provider_id` | UUID | - | Select requests whose per-attempt trail names this provider on ANY attempt, whoever served the request in the end ("every request in which Neuralwatt answered") |
 | `attempt_status` | positive integer | - | Select requests with an attempt that reached this upstream status (`0`, "no response seen", cannot be selected: such attempts carry no status). Combined with `attempt_provider_id`, both must hold on the same attempt ("every request in which Neuralwatt returned 429") |
-| `sort_by` | string | `time` | Sort column: `time`, `model`, `provider`, `status`, `tokens`, `tps`, `ttft`, `duration`, `overhead`, `key` |
+| `sort_by` | string | `time` | Sort column: `time`, `model`, `provider`, `status`, `tokens`, `tps`, `ttft`, `response_header_ms`, `duration`, `overhead`, `key`, `ip`. Anything else falls back to `time` |
 | `sort_dir` | string | `desc` | Sort direction: `asc` or `desc` |
 
 **Response:**
@@ -993,7 +1019,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | Endpoint | Method | Description |
 |----------|--------|-------------|
 | `/api/logs/app` | GET | Query application logs |
-| `/api/logs/app/cursor` | GET | Cursor-paginated app log history (keyset pagination) |
+| `/api/logs/app/cursor` | GET | Cursor-paginated app log history |
 | `/api/logs/app` | DELETE | Clear all app logs (ring buffer + DB) |
 
 #### GET `/api/logs/app`
@@ -1197,7 +1223,7 @@ Returns the backup's HMAC signature sidecar, the value the restore endpoint take
 
 #### POST `/api/backups/prune-preview`
 
-Preview which backups would be pruned under the son/father/grandfather rotation scheme. Non-destructive (dry run).
+Preview which backups would be pruned under the son/father/grandfather rotation scheme (three retention tiers: daily "son" backups, weekly "father", monthly "grandfather", each with its own count). Non-destructive (dry run).
 
 **Response:**
 ```json
@@ -1231,6 +1257,8 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 
 #### GET `/api/settings`
 
+Every value is a string, whatever its logical type. The map also carries a few read-only keys that `PUT` rejects: `app_version`, `app_commit`, `log_export_json`, `log_export_metrics`, `log_export_otel` and `discovery_claim_window_days`. Secret values (`alert_apprise_targets`, `oidc_client_secret`, `github_client_secret`) come back as a fixed placeholder, never as stored ciphertext or plaintext.
+
 **Response:**
 ```json
 {
@@ -1240,8 +1268,7 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
   "discovery_interval": "6h",
   "discovery_on_startup": "true",
   "circuit_breaker_enabled": "true",
-  "theme": "dark",
-  "accent_color": "#1dd1a1"
+  "app_version": "1.2.3"
 }
 ```
 
@@ -1253,15 +1280,16 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 ```json
 {
   "rate_limit_ip_rps": "50",
-  "discovery_interval": "12h",
-  "theme": "light"
+  "discovery_interval": "12h"
 }
 ```
 
+A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a value longer than 500 characters or outside its range. A managed fleet member additionally answers `403` for any synced key: the primary owns those and replaces them on the next sync.
+
 **Allowed Settings:**
 
-| Key | Type | Description |
-|-----|------|-------------|
+| Key | Type | Constraints and meaning |
+|-----|------|-------------------------|
 | `rate_limit_enabled` | string | `"true"` or `"false"` |
 | `rate_limit_ip_enabled` | string | `"true"` or `"false"` |
 | `rate_limit_ip_rps` | float | 0-10000 |
@@ -1269,10 +1297,19 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 | `rate_limit_max_wait_ms` | int | 0-10000 |
 | `rate_limit_rps` | float | 0-10000 |
 | `rate_limit_burst` | int | 1-10000 |
-| `rate_limit_tpm` | int | 0-100000000 |
+| `rate_limit_tpm` | int | 0-100000000; global per-key tokens-per-minute default, `0` = no cap |
 | `request_timeout` | string | Duration (e.g. `"1m0s"`) |
 | `failover_on_rate_limit` | string | `"true"` or `"false"` |
+| `failover_exhaustion_status_429` | string | `"true"` or `"false"`; all-busy/all-pinned exhaustion answers `429` plus `Retry-After` instead of `502` |
+| `server_error_retry_enabled` | string | `"true"` or `"false"`; the last candidate's one same-provider retry of a transient 5xx |
+| `rate_limit_classify_enabled` | string | `"true"` or `"false"`; master switch for saturation-vs-exhaustion classification of a `429` |
+| `rate_limit_saturation_max_wait` | string | Duration; a `Retry-After` at or below this reads as saturation, and it caps the saturation wait |
+| `rate_limit_recent_success_window` | string | Duration; an unclassifiable `429` following a `2xx` this recent is treated as saturation |
+| `inflight_limiter_enabled` | string | `"true"` or `"false"`; adaptive per-provider concurrency learner |
+| `inflight_grow_after` | int | 1-1000; clean completions per `+1` of a capped in-flight window |
+| `inflight_forget_after` | string | Duration; a capped window returns to uncapped after this long without a cut |
 | `circuit_breaker_enabled` | string | `"true"` or `"false"` |
+| `circuit_breaker_open_on_exhaustion` | string | `"true"` or `"false"`; one exhausted `429` opens the model circuit outright |
 | `circuit_breaker_threshold` | int | 1-100 |
 | `circuit_breaker_span_models` | int | 1-100 (default `2`); open model circuits it takes to skip the provider itself |
 | `circuit_breaker_cooldown` | string | Duration |
@@ -1282,16 +1319,38 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 | `discovery_interval` | string | Duration (e.g. `"6h"`, `"0"` = disabled) |
 | `discovery_on_startup` | string | `"true"` or `"false"` |
 | `discovery_on_provider_create` | string | `"true"` or `"false"` |
+| `discovery_claim_alert_days` | int | 1-29; age at which an unaddressed discovery claim raises an alert. The ceiling is one day below the 30-day claim window |
+| `model_prune_days` | int | 0-180; days an unlisted model stays before its row is deleted, `0` = never |
 | `log_retention` | string | Any Go duration (`"24h"`, `"48h"`, `"168h0m0s"`); legacy `"1d"`/`"1w"`/`"1m"` (30 days) still accepted; `"0"` or empty = keep forever |
 | `stale_request_timeout` | string | Duration |
 | `key_cache_ttl` | string | Duration (e.g. `"10m0s"`) |
 | `ttft_timeout` | string | Duration; time-to-first-token probe timeout for streaming (`"0s"` disables) |
 | `stream_stall_timeout` | string | Duration; max silence during streaming before termination (`"0s"` disables) |
+| `hedging_enabled` | string | `"true"` or `"false"` |
+| `hedge_delay` | string | Duration before a backup provider is raced (default `"4s"`) |
 | `backup_enabled` | string | `"true"` or `"false"` (periodic backup with rotation) |
-| `backup_interval` | string | Duration between automatic backups (minimum 300s) |
-| `backup_son_retention` | int | 0-365 (daily tier) |
+| `backup_interval` | string | Duration between automatic backups (default `"24h"`); anything under 5 minutes is clamped up to 5 minutes |
+| `backup_son_retention` | int | 1-365 (daily tier) |
 | `backup_father_retention` | int | 0-52 (weekly tier) |
 | `backup_grandfather_retention` | int | 0-120 (monthly tier) |
+| `alert_enabled` | string | `"true"` or `"false"`; outbound alerting through apprise-api |
+| `alert_apprise_api_url` | string | Base URL of the apprise-api container, validated against SSRF targets |
+| `alert_apprise_targets` | string | Secret: encrypted at rest, masked on read |
+| `alert_events` | string | Comma-separated list of the event types to notify on |
+| `session_idle_timeout_minutes` | int | 0-240; dashboard auto-logout window, `0` = disabled |
+| `pwned_password_check_enabled` | string | `"true"` or `"false"`; breached-password screening |
+| `oidc_enabled` | string | `"true"` or `"false"` |
+| `oidc_issuer_url` | string | OIDC discovery base URL, validated against SSRF targets |
+| `oidc_client_id` | string | OAuth client id |
+| `oidc_client_secret` | string | Secret: encrypted at rest, masked on read |
+| `oidc_allowed_emails` | string | Comma- or newline-separated allowlist |
+| `oidc_public_base_url` | string | This app's external origin, used to build the redirect URI |
+| `github_sso_enabled` | string | `"true"` or `"false"` |
+| `github_client_id` | string | GitHub OAuth App client id |
+| `github_client_secret` | string | Secret: encrypted at rest, masked on read |
+| `github_allowed_emails` | string | Comma- or newline-separated allowlist of verified emails |
+| `github_public_base_url` | string | This app's external origin, used to build the callback URI |
+| `quota_refresh_interval_min` | int | 0-30; provider quota poll interval in minutes, `0` = disabled |
 
 **Response:** `200 OK` with full settings map
 
@@ -1311,9 +1370,10 @@ Execute the son/father/grandfather rotation, deleting backups that fall outside 
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `period` | string | `24h` | Time period: `1h`, `24h`, `7d` |
-| `exclude_deleted` | boolean | `true` | Exclude deleted providers/keys |
+| `period` | string | `24h` | Time period: `1h`, `24h`, `7d` (anything else is read as `24h`) |
+| `exclude_deleted` | boolean | `false` | Set `true` to exclude rows whose virtual key has been deleted |
 | `metric` | string | `requests` | Metric for aggregation: `requests` or `tokens` |
+| `include_latency` | boolean | `false` | Set `true` to add the latency breakdown to the response |
 
 **Response:**
 ```json
@@ -1376,8 +1436,8 @@ Returns hourly buckets for `1h` and `24h` periods, daily buckets for `7d`. Empty
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `period` | string | `24h` | Time period: `1h`, `24h`, `7d` |
-| `exclude_deleted` | boolean | `true` | Exclude deleted providers/keys |
+| `period` | string | `24h` | Time period: `1h`, `24h`, `7d` (anything else is read as `24h`) |
+| `exclude_deleted` | boolean | `false` | Set `true` to exclude rows whose virtual key has been deleted |
 | `metric` | string | `requests` | Distribution metric: `requests` or `tokens` |
 
 **Response:**
@@ -1489,22 +1549,45 @@ data: {"type":"discovery.complete","severity":"success","message":"Discovery com
 
 | Event | Severity | Description |
 |-------|----------|-------------|
-| `discovery.complete` | `success`/`warning`/`error` | Model discovery finished for a provider |
+| `discovery.complete` | `success`/`warning`/`error` | A discovery run finished |
 | `discovery.provider_fetched` | `success` | Fetched models from a provider |
 | `discovery.provider_failed` | `error` | Discovery failed for a provider |
-| `discovery.enriched` | `info` | Models enriched from models.dev catalogue |
+| `discovery.enriched` | `info` | Models enriched from the models.dev catalogue |
 | `discovery.models_disabled` | `warning` | Models were disabled during discovery |
 | `discovery.changes_pending` | `info` | Background discovery recorded model changes (badged on the Models nav) |
+| `discovery.claims_outstanding` | `warning` | Model discrepancies have gone unaddressed past `discovery_claim_alert_days` |
+| `discovery.suspect_scan` | `warning` | A scan produced models that look wrong and were held back from auto-disable |
+| `discovery.bulk_removal_suspected` | `error` | A provider dropped so many models at once that the listing itself is suspect |
+| `model.auto_disabled_gone` | `warning` | A model was disabled because the provider kept refusing it as retired |
+| `provider.scheduled_disable` | `warning` | A provider reached its `scheduled_disable_on` date and was switched off |
 | `failover.sync_error` | `warning` | Error during failover group synchronization |
-| `circuit_breaker.open` | `warning` | Provider circuit breaker opened |
-| `circuit_breaker.closed` | `success` | Circuit breaker closed (recovered) |
+| `circuit_breaker.open` | `warning` | A circuit opened |
+| `circuit_breaker.closed` | `success` | A circuit closed (recovered) |
 | `circuit_breaker.unstable` | `warning` | One model opened its circuit 3 times in 24h, so it keeps returning to service still broken |
 | `quota.schema_drift` | `warning` | A provider changed the shape of its quota response |
 | `tokens.error` | `error` | Error counting tokens |
+| `request.started` | `info` | A proxied request started |
+| `request.streaming` | `info` | A proxied request began streaming |
+| `request.completed` | varies | A proxied request finished (severity follows the outcome) |
+| `request.discovery.provider_starting` | `info` | Starting discovery for a provider |
+| `request.discovery.provider_completed` | `info` | Discovery finished for a provider |
 | `backup.created` | `success` | Database backup created (manual or scheduled) |
 | `backup.deleted` | `info` | Backup deleted |
 | `backup.pruned` | `info` | Backup pruned by rotation |
-| `request.discovery.provider_starting` | `info` | Starting discovery for a provider |
+| `backup.restored` | `success` | Database restored from a backup |
+| `backup.integrity_failed` | `error` | A backup failed its integrity check |
+| `backup.restore_unverified` | `warning` | A restore ran from a backup whose signature could not be verified |
+| `backup.unsigned` | `warning` | A backup was written without a signature |
+| `configsync.malformed_password_hash` | `error` | A config export or import carried an unusable password hash |
+| `fleet.conflict` | `warning` | Two fleet members claim the same role |
+| `auth.sessions_revoked` | `info` | Sessions were signed out |
+| `auth.sso_identity_bound` | `warning` | An SSO identity was bound to an existing account |
+| `webauthn.credential_registered` | `success` | A passkey was registered |
+| `webauthn.credential_deleted` | `info` | A passkey was deleted |
+| `logs.stale_startup` | `warning` | Requests left in flight by a previous process were closed out at startup |
+| `logs.stale_cleanup` | `warning` | The background sweep closed out requests that never finished |
+
+Front Desk publishes its own event set (`member.*`, `fleet.*`, `config.*`, `health.*`, `settings.changed`, and more) on its own stream; those never appear here.
 
 Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 
@@ -1516,34 +1599,23 @@ Heartbeat comments (`: heartbeat`) are sent every 30 seconds.
 |-------|------|---------|---------|
 | `provider_id` | string (UUID) | always | The provider whose circuit changed state |
 | `provider` | string | always | Provider name, so the event reads without a lookup |
-| `model` | string | always | The resolved upstream model id whose circuit changed state (the id sent upstream, never a `hotel/` alias) |
-| `model_id` | string | on `closed` always; on `open` unless `provider_open` is `true` | The same value as `model`, carried separately because it is the identity outbound alerts debounce on, so two models opening on one provider inside the alert cooldown notify separately. Omitted from an `open` once the provider itself is skipped, so a provider outage debounces as one fact on `provider_id` rather than once per model; a `closed` always carries it, so two recoveries are two notifications |
+| `model` | string | always | The resolved upstream model id whose circuit changed state (never a `hotel/` alias) |
+| `model_id` | string | on `closed` always; on `open` unless `provider_open` is `true` | The same value as `model`, carried separately because outbound alerts debounce on it |
 | `state` | string | always | `open` or `closed` |
-| `cause` | string | always | The verdict that produced the transition: why the circuit opened (`upstream status 503`, `upstream status 429 (saturated)`, `response failed after headers`, ...) or what closed it (`success`). A fixed phrase chosen by the gateway, never provider text; see [Why a circuit is open](Failover-and-Hotel-Routing#why-a-circuit-is-open) |
+| `cause` | string | always | A fixed phrase chosen by the gateway for the transition (`upstream status 503`, `success`, ...), never provider text; see [Why a circuit is open](Failover-and-Hotel-Routing#why-a-circuit-is-open) |
 | `status` | int | always | The upstream HTTP status behind `cause`; `0` when no response was seen |
-| `provider_open` | bool | always | Whether the provider as a whole is now being skipped. One model's circuit opening does not skip the provider until `circuit_breaker_span_models` of them are open, so this is `false` on most `circuit_breaker.open` events |
+| `provider_open` | bool | always | Whether the provider as a whole is now being skipped |
 | `consecutive_fails` | int | always | Consecutive failures recorded against that model's circuit |
 | `quota_pinned` | bool | always | Whether a quota reset deadline is in force on this circuit |
-| `backed_off` | bool | always | Whether the probe backoff (the cooldown doubled per failed half-open probe, capped at `circuit_breaker_backoff_max`) is in force on this circuit; the longer of the two overrides governs the cooldown |
-| `failed_probes` | int | always | Half-open probes that failed since the circuit last closed; `0` on a first open |
+| `pin_source` | string | always | Where a pin came from: `advisor` (measured by the quota poller), `response` (inferred from the exhausted reply), `account` (the reply refused the whole account); empty when no pin governs |
+| `backed_off` | bool | always | Whether the probe backoff is in force on this circuit |
+| `failed_probes` | int | always | Half-open probes that failed since the circuit last closed |
 | `cooldown_ms` | int | on `open` | The cooldown actually enforced |
 | `next_retry_at` | string (RFC3339) | on `open`, when `quota_pinned` or `backed_off` is `true` | When the circuit is next eligible to probe |
 
-`circuit_breaker.unstable` is not a state transition and carries its own smaller
-block: `provider_id`, `provider`, `model`, `model_id` (the same value as `model`,
-carried separately because it is the identity outbound alerts debounce on),
-`opens` (how many times the circuit opened, always 3) and `window` (the span they
-fell within, the string `24h`). It fires at most once per model per window: the
-window keeps running after it reports, so a model that stays broken reports again
-only once a full 24 hours has passed since the window's first open, not every
-three opens. It reports and never retires: a model the provider has stopped
-serving is refused by name and retired by the model-gone path instead, so what
-reaches this event is a model failing some other way, which disabling would be
-wrong about.
+`next_retry_at` is the retry deadline, not the provider's quota reset time: it is the open moment plus the cooldown actually in force, and the longer of a pin and a backoff governs. A pin can also be lifted early, without any event, when a quota refresh shows the provider back in credit. See [Quota-pinned cooldowns](Failover-and-Hotel-Routing#quota-pinned-cooldowns).
 
-`next_retry_at` is the **retry deadline, not the quota reset time**. Under a pin it is the moment the circuit opened plus the pin after it has been clamped to `circuit_breaker_quota_pin_max` and jittered, so on a weekly plan whose quota resets days out it lands at the 24h ceiling instead (unless the pin came from the response rather than the quota advisor, in which case it lands at the next `circuit_breaker_pin_probe_interval` probe); under a backoff it is the open moment plus the doubled cooldown. The message of a `circuit_breaker.open` whose backoff is the value in force says so too (`... (backing off after 3 failed retries, next retry in 8m)`), since the message is all an outbound alert renders; a circuit held longer by a pin carries `backed_off: true` but no suffix, because then it is quota that holds it. It is the same value the circuit-breaker status API publishes under that name, and both derive from one predicate, so the number and the explanation beside it can never disagree.
-
-A `quota_pinned: true` circuit is **not** committed to waiting that long. Every successful quota refresh (each `quota_refresh_interval_min`, 5 minutes by default) lifts the pin from any provider whose fresh snapshot says it is no longer out of quota, dropping the circuit back to `circuit_breaker_cooldown` (or to its probe backoff, if one is in force). A snapshot too stale to trust, one that could not be interpreted, or one whose own most recent refresh attempt failed (the dashboard keeps the last good payload on file, so a failed row can still look fresh) is not such a statement and leaves the pin alone; setting the interval to `0` turns polling off and releases every pin at once. No event is published when that happens, because nothing transitions: the circuit is still open, only its cooldown changed. Poll `/api/failover-groups/circuit-breaker-status?detail=1` to see it, where `quota_pinned` flips to `false` and `next_retry_at` moves in. See [Failover & Hotel Routing](Failover-and-Hotel-Routing#quota-pinned-cooldowns) for the full behaviour.
+`circuit_breaker.unstable` is not a state transition and carries a smaller block: `provider_id`, `provider`, `model`, `model_id`, `opens` (always 3) and `window` (the string `24h`). It fires at most once per model per window and never disables anything: a model the provider has stopped serving is retired by the model-gone path instead.
 
 **Quota schema drift metadata:**
 
@@ -1556,7 +1628,7 @@ A `quota_pinned: true` circuit is **not** committed to waiting that long. Every 
 | `added` | array of string | Key paths present now but not in the stored baseline |
 | `removed` | array of string | Key paths that were in the baseline and have gone |
 
-`quota.schema_drift` is alert-only: it never affects routing, failover, or the circuit breaker. It exists because the failure it guards against is silent - a normalizer written against the old shape keeps answering, wrongly, and nothing else would ever say so.
+`quota.schema_drift` is alert-only: it never affects routing, failover, or the circuit breaker. It exists because the failure it guards against is silent: a normalizer written against the old shape keeps answering, wrongly, and nothing else would ever say so.
 
 ---
 
@@ -1584,6 +1656,7 @@ Time-based one-time passwords (RFC 6238) as an admin-login second factor, indepe
 |-------|--------|------|-------------|
 | `/api/totp/status` | GET | None (public) | Report whether TOTP is enabled (`{"enabled": true/false}`) |
 | `/api/totp/login` | POST | IP rate-limited | Exchange admin token + 6-digit code (or a recovery code) for a session token |
+| `/api/totp/info` | GET | Admin/session token | Enrollment state and remaining recovery-code count |
 | `/api/totp/enroll/start` | POST | Admin/session token | Begin enrollment; returns the otpauth URI + base32 secret |
 | `/api/totp/enroll/verify` | POST | Admin/session token | Verify the first code, enable TOTP, return recovery codes + a session token |
 | `/api/totp/disable` | POST | Admin/session token | Disable TOTP (gated on a current code or recovery code) |
@@ -1596,7 +1669,7 @@ When TOTP is enabled, the raw admin token alone no longer authorizes `/api/*`: i
 
 | Endpoint | Method | Description |
 |----------|--------|-------------|
-| `/api/version/latest` | GET | Latest released version tag (fetched from GitHub, cached) - used by the dashboard update notice |
+| `/api/version/latest` | GET | Latest released version tag (fetched from GitHub, cached), used by the dashboard update notice |
 
 ---
 
@@ -1608,9 +1681,50 @@ When TOTP is enabled, the raw admin token alone no longer authorizes `/api/*`: i
 | `/api/chat/arena` | POST | Arena mode (admin-authenticated, multi-model comparison) |
 | `/api/chat/completions` | POST | Admin-authenticated chat completion (single model) |
 
-These endpoints proxy through the same completion handler as `/v1/chat/completions` but use admin token authentication instead of a virtual key. They support the same streaming and non-streaming modes. Rate limiting applies per-IP on these routes.
+These endpoints proxy through the same completion handler as `/v1/chat/completions`, but authenticate a dashboard session instead of a virtual key: any signed-in identity holding the chat grant may use them, not only an admin. Streaming and non-streaming both work as on `/v1`.
+
+Three limiters apply in order: the per-IP limiter every `/api` route carries, the per-key RPS limiter (bucketed on the route name, `chat`/`arena`/`completions`, since there is no virtual key here), and the caller's own per-user tokens-per-minute cap. A user with a TPM cap is metered here exactly as on `/v1`.
 
 **Request/Response:** Same format as `/v1/chat/completions`
+
+---
+
+### Other endpoints
+
+Routes that exist but have no section of their own. Everything under `/api` carries the same admin/session authentication unless the row says otherwise.
+
+| Endpoint | Method | Auth | Description |
+|----------|--------|------|-------------|
+| `/metrics` | GET | `METRICS_TOKEN` or admin token | Prometheus metrics; never anonymous, and outside the per-IP limiter so scrapers are not throttled |
+| `/api/public-config` | GET | None (public) | Feature flags the login screen needs (e.g. read-only demo mode) |
+| `/api/demo-login` | GET | None (public) | Demo-mode login helper |
+| `/api/auth/status` | GET | None (public) | Whether password login is available |
+| `/api/auth/login` | POST | None (IP rate-limited) | Password login; mints a session |
+| `/api/auth/admin-exchange` | POST | None (IP rate-limited) | Trade a raw admin token for an HttpOnly session cookie |
+| `/api/auth/logout` | POST | Session | End the current session |
+| `/api/auth/me` | GET | Any signed-in identity | The caller's identity, role and grants |
+| `/api/auth/password` | POST | Any signed-in identity | Rotate the caller's own password |
+| `/api/auth/sessions` | GET | Any signed-in identity | The caller's own active sessions |
+| `/api/auth/sessions/{id}` | DELETE | Any signed-in identity | Revoke one of the caller's own sessions |
+| `/api/auth/sessions/revoke-others` | POST | Any signed-in identity | Sign the caller's other sessions out |
+| `/api/auth/totp/status`, `/enroll/start`, `/enroll/verify`, `/disable` | GET/POST | Any signed-in identity | Per-user TOTP self-service (the `/api/totp/*` routes above are the admin-level equivalents) |
+| `/api/auth/oidc/status`, `/start`, `/callback` | GET | None (the ceremony is the login) | OIDC single sign-on |
+| `/api/auth/github/status`, `/start`, `/callback` | GET | None (the ceremony is the login) | GitHub single sign-on |
+| `/api/users` | GET/POST | Admin | List and create accounts |
+| `/api/users/grants` | GET | Admin | The catalogue of assignable grants |
+| `/api/users/{id}` | PUT/DELETE | Admin | Update or delete an account |
+| `/api/users/{id}/password` | POST | Admin | Set another account's password |
+| `/api/users/{id}/totp/reset` | POST | Admin | Clear an account's TOTP enrollment |
+| `/api/alert/events` | GET | Admin | The catalogue of alertable event types |
+| `/api/alert/status` | GET | Admin | Whether outbound alerting is configured and reachable |
+| `/api/alert/targets` | GET | Admin | The configured apprise targets |
+| `/api/alert/probe` | POST | Admin | Check that apprise-api answers |
+| `/api/alert/test` | POST | Admin | Send a test notification |
+| `/api/config/export` | GET | Admin | Fleet config export (the primary's side of config sync) |
+| `/api/config/version` | GET | Admin | The exporting member's config version, for the skew check |
+| `/api/config/import` | POST | Admin | Apply an exported config on this member |
+| `/api/config/quota-snapshots` | GET/POST | Admin | Export or receive fleet quota snapshots (no key material, so no `MASTER_KEY` canary) |
+| `/api/fleet/announce` | POST | Admin | Front Desk's membership heartbeat |
 
 ---
 
@@ -1618,16 +1732,11 @@ These endpoints proxy through the same completion handler as `/v1/chat/completio
 
 | Endpoint | Method | Auth | Description |
 |----------|--------|------|-------------|
-| `/health` | GET | None | Returns `OK` with HTTP 200 |
+| `/health` | GET | None | Database reachability: `200 OK` or `503 DEGRADED` |
 
-#### GET `/health`
+### GET `/health`
 
-**Response:**
-```
-OK
-```
-
-This endpoint is intended for load balancer health checks and monitoring. No authentication is required.
+Returns `200` with the body `OK` while the database answers, and `503` with the body `DEGRADED` when it does not, so a load balancer stops routing to an instance whose Postgres is down. The probe result is cached briefly, so a burst of health checks costs one database round-trip. Content type is `text/plain`; no authentication is required.
 
 ---
 
@@ -1638,11 +1747,23 @@ This endpoint is intended for load balancer health checks and monitoring. No aut
 ```json
 {
   "error": {
-    "message": "Error description",
-    "type": "error_type"
+    "message": "error description",
+    "type": "invalid_request_error",
+    "code": 400
   }
 }
 ```
+
+`code` repeats the HTTP status as a number. `type` is derived from that status and is one of exactly six values; messages are lowercase.
+
+| Status | `type` |
+|--------|--------|
+| `401` | `authentication_error` |
+| `403` | `permission_error` |
+| `404` | `not_found_error` |
+| `429` | `rate_limit_error` |
+| `500` and above | `server_error` |
+| anything else | `invalid_request_error` |
 
 ### HTTP Status Codes
 
@@ -1653,6 +1774,7 @@ This endpoint is intended for load balancer health checks and monitoring. No aut
 | `204` | No Content | Successful deletion |
 | `400` | Bad Request | Invalid request body, validation errors |
 | `401` | Unauthorized | Missing or invalid authentication |
+| `403` | Forbidden | Authenticated but not permitted (missing grant, read-only demo, managed fleet member) |
 | `404` | Not Found | Resource not found |
 | `409` | Conflict | Duplicate resource, operation in progress |
 | `412` | Precondition Failed | Missing dependency (e.g. `pg_dump`) |
@@ -1666,8 +1788,9 @@ This endpoint is intended for load balancer health checks and monitoring. No aut
 ```json
 {
   "error": {
-    "message": "Invalid virtual key",
-    "type": "authentication_error"
+    "message": "invalid virtual key",
+    "type": "authentication_error",
+    "code": 401
   }
 }
 ```
@@ -1676,8 +1799,9 @@ This endpoint is intended for load balancer health checks and monitoring. No aut
 ```json
 {
   "error": {
-    "message": "Rate limit exceeded",
-    "type": "rate_limit_error"
+    "message": "rate limit exceeded",
+    "type": "rate_limit_error",
+    "code": 429
   }
 }
 ```
@@ -1686,19 +1810,20 @@ This endpoint is intended for load balancer health checks and monitoring. No aut
 ```json
 {
   "error": {
-    "message": "Model not found: hotel/gpt-5",
-    "type": "model_not_found"
+    "message": "model not found: hotel/gpt-5",
+    "type": "not_found_error",
+    "code": 404
   }
 }
 ```
 
-**Upstream Provider Error:**
+**No Provider Left:**
 ```json
 {
   "error": {
-    "message": "Upstream provider returned error: Invalid API key",
-    "type": "upstream_error",
-    "provider": "openai"
+    "message": "virtual key does not have access to any provider for this model",
+    "type": "permission_error",
+    "code": 403
   }
 }
 ```
@@ -1712,7 +1837,7 @@ This endpoint is intended for load balancer health checks and monitoring. No aut
 | `/v1/*` | Virtual Key | `Bearer sk-...` |
 | `/api/*` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
 | `/api/events` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
-| `/api/chat/*` | Admin Token (or WebAuthn/TOTP session) | `Bearer <admin-token>` |
+| `/api/chat/*` | Any signed-in identity holding the chat grant | `Bearer <admin-token>` or session cookie |
 | `/api/webauthn/available`, `/api/webauthn/login/*` | None (IP rate-limited) | - |
 | `/api/totp/status` | None (public) | - |
 | `/api/totp/login` | None (IP rate-limited) | - |
@@ -1731,7 +1856,10 @@ Virtual keys can have custom rate limits configured. If not set, global defaults
 Retry-After: 60
 X-RateLimit-Limit: 10
 X-RateLimit-Remaining: 0
+X-RateLimit-Burst: 20
 ```
+
+`Retry-After` is only set when a wait was computed. The per-IP limiter adds `X-RateLimit-Scope: ip`, so a client can tell an address-wide refusal from a key-wide one.
 
 ### Per-IP Rate Limits
 
@@ -1774,4 +1902,6 @@ Referrer-Policy: strict-origin-when-cross-origin
 Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
 ```
 
-HSTS (`Strict-Transport-Security`) is set only over HTTPS connections.
+With `ALLOW_EMBED=true` the two framing controls are dropped, `X-Frame-Options` entirely and `frame-ancestors 'none'` out of the CSP, so any origin can put the dashboard in an iframe (workspace browsers, Home Assistant). Nothing else about the policy changes.
+
+HSTS (`Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`) is set only when this process terminated the TLS connection itself. Behind a reverse proxy that terminates TLS and forwards plain HTTP, the gateway does not set it, because a cached HSTS pin would point browsers at an HTTPS listener that does not exist; set the header on the proxy instead.

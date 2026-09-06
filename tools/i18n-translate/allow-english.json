@@ -7164,5 +7164,8 @@
 		"nl",
 		"pt",
 		"sv"
+	],
+	"logs.endpoint.messages": [
+		"fr"
 	]
 }

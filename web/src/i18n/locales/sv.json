@@ -1323,7 +1323,8 @@
 			"rerank": "Omrankning",
 			"image": "Bild",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Meddelanden"
 		},
 		"table": {
 			"timeDate": "Tid/datum",

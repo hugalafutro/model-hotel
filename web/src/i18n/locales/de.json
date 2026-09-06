@@ -1323,7 +1323,8 @@
 			"rerank": "Neusortierung",
 			"image": "Bild",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Nachrichten"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",

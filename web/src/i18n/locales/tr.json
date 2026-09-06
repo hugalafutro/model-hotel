@@ -1323,7 +1323,8 @@
 			"rerank": "Yeniden sıralama",
 			"image": "Resim",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Mesajlar"
 		},
 		"table": {
 			"timeDate": "Saat/Tarih",

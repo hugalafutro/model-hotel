@@ -1323,7 +1323,8 @@
 			"rerank": "Herrangskikking",
 			"image": "Beeld",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Boodskappe"
 		},
 		"table": {
 			"timeDate": "Tyd/Datum",

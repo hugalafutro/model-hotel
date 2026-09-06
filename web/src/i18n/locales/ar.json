@@ -1495,7 +1495,8 @@
 			"rerank": "إعادة الترتيب",
 			"image": "صورة",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "الرسائل"
 		},
 		"table": {
 			"timeDate": "الوقت/التاريخ",

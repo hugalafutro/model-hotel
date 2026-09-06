@@ -374,7 +374,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		}
 		msg := fmt.Sprintf("Request completed: %s", logEntry.modelID)
 		if logEntry.state == "failed" && logEntry.errorMessage != "" {
-			msg = fmt.Sprintf("Request failed: %s — %s", logEntry.modelID, logEntry.errorMessage)
+			msg = fmt.Sprintf("Request failed: %s: %s", logEntry.modelID, logEntry.errorMessage)
 			if len(msg) > 200 {
 				for len(msg) > 200 {
 					_, size := utf8.DecodeLastRuneInString(msg)

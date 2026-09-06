@@ -1409,7 +1409,8 @@
 			"rerank": "Rerank",
 			"image": "Obrázek",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Zprávy"
 		},
 		"table": {
 			"timeDate": "Čas/Datum",

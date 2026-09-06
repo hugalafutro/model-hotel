@@ -1323,7 +1323,8 @@
 			"rerank": "Herrangschikking",
 			"image": "Afbeelding",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Berichten"
 		},
 		"table": {
 			"timeDate": "Tijd/Datum",

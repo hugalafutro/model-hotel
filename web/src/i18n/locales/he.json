@@ -1366,7 +1366,8 @@
 			"rerank": "דירוג מחדש",
 			"image": "תמונה",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "הודעות"
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",

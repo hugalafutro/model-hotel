@@ -1409,7 +1409,8 @@
 			"rerank": "Переранжирование",
 			"image": "Изображение",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Сообщения"
 		},
 		"table": {
 			"timeDate": "Время/Дата",

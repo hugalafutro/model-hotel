@@ -44,6 +44,36 @@ A single OpenAI-compatible endpoint that sits in front of all your LLM providers
  <sub>Model Hotel Dashboard</sub>
 </p>
 
+### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
+```bash
+git clone https://github.com/hugalafutro/model-hotel.git
+cd model-hotel
+
+cp .env.example .env
+nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD
+
+docker compose up --build -d
+```
+
+For local development, layer the `compose.dev.yml` override instead. It mounts the Docker socket, turns on `DEBUG_LOG`, and allows embedding, so use it only in a trusted environment:
+
+```bash
+# Development only:
+docker compose -f docker-compose.yml -f compose.dev.yml up --build -d
+```
+
+To run a prebuilt image instead of building from source, edit `docker-compose.yml`: comment out the `build:` block and uncomment one of the `image:` lines.
+
+On first run the admin token is printed once, in a boxed **ADMIN TOKEN** block in the startup banner, and never shown again:
+
+```bash
+docker compose logs app
+```
+
+If you lose it, delete `.data/admin-token` and restart to generate a new one. The `ADMIN_TOKEN` environment variable seeds the token on first boot only: once `.data/admin-token` exists the file wins and the variable is ignored.
+
+Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
+
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> High Availability](#-high-availability)
 Run several instances behind one client endpoint with no client-side change: a **Front Desk** control plane manages the fleet and replicates config to every member, while **Traefik** load-balances them with health checks and automatic failover. Members share one `MASTER_KEY` (so encrypted provider keys port across the fleet) and each keeps its own admin token.
 
@@ -75,7 +105,7 @@ Full deployment in the [High Availability wiki](https://github.com/hugalafutro/m
 > APK download: [![Latest Bellhop release](https://img.shields.io/github/v/release/hugalafutro/model-hotel?filter=bellhop-v*&label=Bellhop%20APK&color=3ddc84)](https://github.com/hugalafutro/model-hotel/releases/tag/bellhop-latest) (signed; [Obtainium](https://github.com/ImranR98/Obtainium)-compatible).
 
 ### [<img src="docs/icons/providers.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> One Endpoint, Many Providers](#-one-endpoint-many-providers)
-Add any OpenAI-compatible provider ([Anthropic](https://claude.ai/), [AWS Bedrock](https://aws.amazon.com/bedrock/), [Azure AI Foundry](https://ai.azure.com/), [DeepSeek](https://deepseek.com/), [Kimi Code](https://www.kimi.com/), [KoboldCPP](https://koboldcpp.com/), [LMStudio](https://lmstudio.ai/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://docs.nano-gpt.com/), [OpenRouter](https://openrouter.ai/), [Z.AI](https://z.ai/), [x.ai](https://x.ai/), [Google AI Studio](https://aistudio.google.com/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [Cohere](https://cohere.com/), [Ollama](https://github.com/ollama/ollama), [Ollama Cloud](https://ollama.com), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenAI](https://openai.com/), or your own), and call them all through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models, local Ollama) are also supported (no API key required). Self-hosted servers (Ollama, LM Studio, KoboldCPP) run wherever you put them: pick the type, enter the address and port, and Model Hotel checks that the server really is that type before saving it, telling you what answered if it is not.
+Pick a provider family when you add a provider: [Azure AI Foundry](https://ai.azure.com/), [DeepSeek](https://deepseek.com/), [Kimi Code](https://www.kimi.com/), [KoboldCPP](https://koboldcpp.com/), [LMStudio](https://lmstudio.ai/), [MiniMax](https://www.minimax.io/), [NanoGPT](https://docs.nano-gpt.com/), [NeuralWatt](https://neuralwatt.com/), [OpenRouter](https://openrouter.ai/), [Z.AI](https://z.ai/), [x.ai](https://x.ai/), [Google AI Studio](https://aistudio.google.com/), [Vertex AI](https://cloud.google.com/vertex-ai) (express keys), [Cohere](https://cohere.com/), [Ollama](https://github.com/ollama/ollama), [Ollama Cloud](https://ollama.com), [OpenCode Go](https://opencode.ai), [OpenCode Zen](https://opencode.ai), [OpenAI](https://openai.com/), or a custom OpenAI-compatible endpoint of your own. [Anthropic](https://claude.ai/) and [AWS Bedrock](https://aws.amazon.com/bedrock/) are native families rather than OpenAI-compatible ones, and a hand-entered endpoint that speaks Anthropic's native `/v1/messages` has its own type (`anthropic-messages`). All of them are called through the same `/v1/chat/completions` endpoint. The proxy handles model ID mapping and failover transparently. Provider API keys are encrypted with AES-256-GCM at rest using your `MASTER_KEY`; only the proxy ever sees the decrypted credentials. Keyless providers (e.g. OpenCode Zen free models, local Ollama) are also supported (no API key required). Self-hosted servers (Ollama, LM Studio, KoboldCPP) run wherever you put them: pick the type, enter the address and port, and Model Hotel checks that the server really is that type before saving it, telling you what answered if it is not.
 
 <p align="center">
  <img src="docs/screenshots/providers.png" alt="Providers" width="720">
@@ -86,6 +116,8 @@ Add any OpenAI-compatible provider ([Anthropic](https://claude.ai/), [AWS Bedroc
 ### [<img src="docs/icons/failover.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Transparent Failover](#-transparent-failover)
 Requests that fail (server errors, rate limits, auth issues, request timeouts, and TTFT probe timeouts) are automatically retried on the next available provider. For streaming requests, a **TTFT probe** reads ahead to confirm the first token arrives before committing the stream to your client; if the provider fails to produce a token within the configured timeout (default 60s), the request fails over to the next provider. Once streaming begins, a **stall watchdog** monitors for silence: if no data arrives within the configured window (default 30s), the connection is terminated and the circuit breaker records a failure. After 50 chunks the stall threshold is multiplied by 3 to tolerate tool-call pauses and long reasoning chains. Both timeouts are configurable in **Settings → Proxy** (set to `0s` to disable). Retries are paced with exponential backoff and jitter to avoid overloading failing providers.
 
+Streaming requests to a failover group can also be **hedged** (off by default, enabled under **Settings → Circuit Breaker & Failover → Hedging**): instead of trying group members strictly in sequence, the first candidate is launched immediately and every `hedge_delay` without a first token (default 4s) launches the next one in parallel, with the first provider to confirm a first token winning and the rest cancelled. That trades duplicate upstream load on slow starts for lower tail latency, so it uses provider rate limits and capacity faster; turn it on only if slow first tokens hurt more than the extra load.
+
 <p align="center">
  <img src="docs/screenshots/failover.png" alt="Failover Groups" width="720">
  <br>
@@ -95,7 +127,9 @@ Requests that fail (server errors, rate limits, auth issues, request timeouts, a
 ### [<img src="docs/icons/hotel.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Hotel Routing](#-hotel-routing)
 Prefix a model with `hotel/` to use its failover group. `hotel/glm-4.6` resolves to every provider offering `glm-4.6`, tried in priority order. Groups form automatically when 2+ providers share a model name (auto-created groups show an "auto" badge and are deleted when they drop below 2 providers). Manually created groups persist regardless of provider count. Individual entries can be toggled on/off, priorities are preserved across syncs, and stale entries are pruned when a model is deleted from a provider or leaves the provider's listing (discovery re-syncs the affected groups automatically). The UI shows each entry's *effective* state: entries whose model or provider is disabled are greyed out with a badge, since the router skips them regardless of the entry toggle. A manual sync can be triggered from the dashboard or via `POST /api/failover-groups/sync`.
 
-Provider health is tracked with a **circuit breaker**. Each provider is tracked individually: after a configurable number of consecutive failures (default 5) the circuit moves to **Open** and all requests skip that provider. After a cooldown period (default 60s), a single **HalfOpen** probe is allowed; if it succeeds the circuit closes, if it fails the cooldown resets. State transitions are broadcast as SSE events. The breaker can be disabled entirely in Settings. See [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing) for the full breakdown.
+Provider health is tracked with a **circuit breaker**, keyed per (provider, model) rather than per provider: after a configurable number of consecutive failures (default 5) that one model's circuit moves to **Open** and requests for that model skip that provider. The provider as a whole is only skipped once enough distinct model circuits are open (default 2, the "span" setting), so one broken model never condemns a healthy provider.
+
+After a cooldown period (default 60s), a single **HalfOpen** probe is allowed; if it succeeds the circuit closes. If it fails, the circuit re-opens with the cooldown doubled for every probe that has failed since it last closed, up to a ceiling (default 15 minutes; set the backoff limit to `0` to switch the doubling off). A circuit blocked by an exhausted provider quota is instead pinned until the quota window resets, up to a separate quota pin limit (default 24 hours, `0` to switch pinning off). State transitions are broadcast as SSE events, and the breaker can be disabled entirely in Settings. See [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing) for the full breakdown.
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
 Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, set per-key rate limits (requests/sec and burst) plus an optional tokens-per-minute (TPM) cap, restrict which providers a key may reach, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
@@ -113,7 +147,7 @@ Issue separate API keys for different users or services. Each key is SHA-256 has
 
 The only information recorded is what is strictly necessary to route and meter the request: timestamp, duration, latency, time-to-first-token (TTFT, measured during the streaming probe), token counts (including cache-hit/miss breakdown), tokens per second, HTTP status code, error messages (upstream provider failures only, never user content), proxy overhead breakdown (parse, model lookup, provider lookup, key decryption), streaming flag, failover attempt count, resolved model ID (the actual upstream model used, which may differ from the requested `hotel/` name), request state, virtual key identifier, and target provider/model identifiers.
 
-The optional **Arena History** feature (disabled by default, configurable in **Settings → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
+The optional **Arena History** feature (disabled by default, toggled under **Settings → Data Storage → Arena History**) can persist completed arena and compare session results in your browser's local storage. When enabled:
 
 - **Model-generated responses** (output text, thinking blocks, metrics) are stored locally so you can review past results.
 - **Preset prompts and personas** are saved by reference (e.g. "Dilemma preset", "Merlin persona"), storing only their built-in IDs, never the text content you didn't write yourself.
@@ -147,13 +181,13 @@ Add a provider and the service pulls the model list automatically via the provid
 
 | Provider | Context Length | Pricing | Reasoning Flags | Input/Output Modalities | Source |
 |---|---|---|---|---|---|
-| DeepSeek | ✅ | ✅ | ✅ | *(none)* | API (`/models`) + Catalog |
+| DeepSeek | ✅ | ✅ | ✅ | ✅ (text, plus image on the vision model) | API (`/models`) + Catalog |
 | NanoGPT | ✅ | ✅ | ✅ | ✅ | API (`/models?detailed=true`) |
-| Z.AI | ✅ | *(none)* | ✅ | Derived | API (`/models`) + Catalog |
+| Z.AI | ✅ | ✅ (partial) | ✅ | Derived | API (`/models`) + Catalog |
 | OpenCode Go | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
 | OpenCode Zen | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
 | OpenAI | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
-| OpenRouter | ✅ | ✅ | ✅ | ✅ | API (/models) |
+| OpenRouter | ✅ | ✅ | ✅ | ✅ | API (`/models`) |
 | Anthropic | ✅ | ✅ | *(none)* | ✅ (partial) | API + Pricing catalog |
 | xAI (Grok) | ✅ | ✅ | ✅ | ✅ | API (`/language-models`) + Catalog |
 | Kimi Code | ✅ | *(none)* | ✅ | ✅ | API (`/models`) |
@@ -165,7 +199,7 @@ Add a provider and the service pulls the model list automatically via the provid
 
 Models that aren't covered by any built-in catalog are automatically enriched from [models.dev](https://models.dev/), an open-source model catalogue that provides pricing, context limits, capabilities, and modality data for 40+ providers. The enrichment is non-destructive: it only fills fields that are empty or missing, never overwriting data that was already populated. This makes the full precedence per field **live provider data → built-in catalog → models.dev → empty**: you get the freshest values the provider reports, the catalog and models.dev only fill what's missing, and a stale catalog can never mask fresh live data. If models.dev is unreachable, discovery proceeds normally using whatever data the provider returned, so your existing catalogue is never at risk.
 
-Every discovered model carries three classification fields with closed vocabularies. `input_modalities` lists what the model accepts (`text`, `image`, `audio`, `video`, `pdf`); `output_modalities` lists what it produces (`text`, `image`, `audio`, `video`, plus `embedding` and `rerank` for those endpoint families); and `modality` is an *endpoint class* derived from the arrays — `chat`, `embedding`, `rerank`, `image`, `video`, `tts`, or `stt`. The class is never hand-set per provider: one central deriver computes it after enrichment, so a vision chat model ("understands images") can't be confused with an image-generation model ("produces images"), and non-chat models are reliably kept out of the chat and arena pickers while remaining visible on `/v1/models` and in failover groups.
+Every discovered model carries three classification fields with closed vocabularies. `input_modalities` lists what the model accepts (`text`, `image`, `audio`, `video`, `pdf`); `output_modalities` lists what it produces (`text`, `image`, `audio`, `video`, plus `embedding` and `rerank` for those endpoint families); and `modality` is an *endpoint class* derived from the arrays (`chat`, `embedding`, `rerank`, `image`, `video`, `tts`, or `stt`). The class is never hand-set per provider: one central deriver computes it after enrichment, so a vision chat model ("understands images") can't be confused with an image-generation model ("produces images"), and non-chat models are reliably kept out of the chat and arena pickers while remaining visible on `/v1/models` and in failover groups.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Model Health at a Glance](#-model-health-at-a-glance)
 Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT, Z.AI, Kimi Code, and MiniMax providers show quota and usage data; NeuralWatt providers show energy quota and credit balance (Standard plan or higher). All fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
@@ -225,7 +259,7 @@ A live SSE event bus delivers toast notifications for discovery outcomes, model 
 </p>
 
 ### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Security & Privacy](#-security--privacy)
-Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage: the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Outbound connections to providers are protected against SSRF and DNS rebinding attacks: the proxy resolves hostnames and blocks connections to private, loopback, link-local, and cloud-metadata IP addresses, then dials by IP (not hostname) to close the DNS-rebinding TOCTOU gap. Redirect targets are also validated. Use `KNOWN_PROXIES` to allow specific private CIDR ranges for internal LLM servers, and `ALLOWED_PROVIDER_HOSTS` to allow specific hostnames. Standard security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Strict-Transport-Security (when TLS is active), Content-Security-Policy) are applied to all responses. Decrypted provider keys are cached in memory for up to 10 minutes (configurable via the `key_cache_ttl` setting) to avoid repeated key derivation overhead. WebAuthn session tokens are SHA-256 hashed and never stored in plaintext, with a 3-day idle TTL and a 30-day absolute cap.
+Provider API keys are encrypted at rest with AES-256-GCM. The `MASTER_KEY` is strengthened via **Argon2id** key derivation (with per-provider random salts) before use as the AES key. Virtual keys are SHA-256 hashed. The admin token is SHA-256 hashed before storage: the plaintext token is displayed once on first run and never stored on disk. To regenerate a lost token, delete the `admin-token` file in your configured `DATA_DIR` and restart. Outbound connections to providers are protected against SSRF and DNS rebinding attacks: the proxy resolves hostnames and blocks connections to private, loopback, link-local, and cloud-metadata IP addresses, then dials by IP (not hostname) to close the DNS-rebinding TOCTOU gap. Redirect targets are also validated. Use `KNOWN_PROXIES` to allow specific private CIDR ranges for internal LLM servers, and `ALLOWED_PROVIDER_HOSTS` to allow specific hostnames. Standard security headers (X-Content-Type-Options, X-Frame-Options, Referrer-Policy, Strict-Transport-Security (when TLS is active), Content-Security-Policy) are applied to all responses. Decrypted provider keys are cached in memory for up to 10 minutes (configurable via the `key_cache_ttl` setting) to avoid repeated key derivation overhead. WebAuthn session tokens are SHA-256 hashed and never stored in plaintext, with a 3-day idle TTL and a 30-day absolute cap. For blocking abusive clients at the edge, the repository ships [CrowdSec](https://www.crowdsec.net/) parsers and scenarios under `contrib/crowdsec/` that read the gateway's container logs and hand repeated authentication failures and rate-limit abuse to a bouncer; see the [CrowdSec wiki page](https://github.com/hugalafutro/model-hotel/wiki/CrowdSec).
 
 ### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Passkey Authentication](#-passkey-authentication)
 Log into the admin dashboard using a FIDO2/WebAuthn passkey (Touch ID, Windows Hello, YubiKey, etc.) instead of the admin token. Register passkeys from the Settings page and use them on the login screen alongside the traditional admin token.
@@ -243,7 +277,7 @@ Add a time-based one-time password (TOTP, RFC 6238) from an authenticator app (G
 
 When TOTP is enabled the raw admin token no longer authenticates API requests on its own. It becomes a first factor that, combined with a valid 6-digit code, is exchanged for a session token on the login screen (the same session infrastructure passkeys use). Only that session token authorizes subsequent API calls, which closes the static-token replay that a bare bearer would otherwise allow. Disable is gated on a current TOTP or recovery code.
 
-If you lose your authenticator, a recovery code signs you in once so you can disable or re-enroll TOTP. Recovery codes are single-use, stored as SHA-256 hashes, and displayed only at enable time (the TOTP secret itself is AES-256-GCM encrypted at rest with `MASTER_KEY`, like provider keys). If you lose both the authenticator and every recovery code, an operator can remove 2FA directly from the database: run `make totp-disable`, or `DELETE FROM admin_totp;` via psql against the stack's Postgres. TOTP is independent of passkeys and needs no environment variable, it is opt-in at runtime from Settings.
+If you lose your authenticator, a recovery code signs you in once so you can disable or re-enroll TOTP. Recovery codes are single-use, stored as SHA-256 hashes, and displayed only at enable time (the TOTP secret itself is AES-256-GCM encrypted at rest with `MASTER_KEY`, like provider keys). If you lose both the authenticator and every recovery code, an operator can remove 2FA directly from the database: run `make totp-disable`, or run `DELETE FROM admin_totp_recovery; DELETE FROM admin_totp;` via psql against the stack's Postgres (both tables, or the stale recovery codes survive). TOTP is independent of passkeys and needs no environment variable: it is opt-in at runtime from Settings.
 
 ### [<img src="docs/icons/security.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Single Sign-On (OIDC)](#-single-sign-on-oidc)
 Let admins sign in through an external OpenID Connect provider (Authentik, Authelia, Keycloak, Pocket-ID, Okta, Google, Entra, and so on). Configure it from the Settings page: paste the issuer URL, client ID, and client secret from an app you register with your provider, then list the verified email addresses allowed to sign in. A "Sign in with SSO" button appears on the login screen. Any standards-compliant OpenID Connect provider works (the names above are just examples): the login flow uses only standard discovery, PKCE, and ID-token verification, so the single requirement is that the provider releases the signing-in user's verified email (in the ID token, or from its UserInfo endpoint), because the allowlist is email-based and fails closed.
@@ -258,11 +292,11 @@ Let admins sign in through an external OpenID Connect provider (Authentik, Authe
   <sub>The Authentication settings page, split into its three sections. Click any panel for the full view.</sub>
 </p>
 
-SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are logged on each login (app log, source `oidc`). The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted token is handed to the browser in the URL fragment, so it is never sent back to the server on later requests (no Referer leak, nothing in request logs). The one place it does appear is the callback's `302 Location` response header; if your reverse proxy logs response headers, redact `Location` on `/api/auth/oidc/callback`.
+SSO is a third login path, not a replacement: after the provider confirms an allowlisted, email-verified identity it mints the same session token as passkey and TOTP login, so nothing downstream changes. Logins are gated by the email allowlist (empty allowlist denies everyone) and matched only on verified emails, while the provider's stable `sub` and issuer are logged on each login (app log, source `oidc`). The client secret is AES-256-GCM encrypted at rest with `MASTER_KEY`, the flow uses PKCE plus single-use state and nonce, and the minted session rides an HttpOnly cookie set on the callback, so the token never appears in the URL or in the callback's `302 Location` response header.
 
 Because it is self-hosted, there is no turnkey "Google login": each operator registers their own OIDC app with their provider and points it at this app's redirect URI (`<public base URL>/api/auth/oidc/callback`, shown in Settings). The client must allow the `openid`, `email`, and `profile` scopes (all three are requested; a client permitting fewer fails with `invalid_scope`), and the Settings allowlist must hold the signing-in account's exact verified email. SSO never removes local login, so a misconfigured or unreachable provider cannot lock you out: the admin token, passkeys, and TOTP all keep working. SSO is opt-in at runtime from Settings and needs no environment variable. The [Security wiki page](https://github.com/hugalafutro/model-hotel/wiki/Security) has a copy-paste provider client example.
 
-GitHub works the same way as a separate option. GitHub is OAuth2 only (no OpenID Connect, no ID token), so instead of verifying an ID token it reads the account's verified emails from the GitHub API and matches them against the same kind of allowlist: an unverified address never counts, and the account's stable numeric id and login are logged on each sign-in (source `github`). Register a GitHub OAuth App, set its Authorization callback URL to `<public base URL>/api/auth/github/callback`, and paste the Client ID and secret into Settings. A "Sign in with GitHub" button then appears alongside the SSO button. As with OIDC, redact `Location` on `/api/auth/github/callback` if your reverse proxy logs response headers, and local login always keeps working.
+GitHub works the same way as a separate option. GitHub is OAuth2 only (no OpenID Connect, no ID token), so instead of verifying an ID token it reads the account's verified emails from the GitHub API and matches them against the same kind of allowlist: an unverified address never counts, and the account's stable numeric id and login are logged on each sign-in (source `github`). Register a GitHub OAuth App, set its Authorization callback URL to `<public base URL>/api/auth/github/callback`, and paste the Client ID and secret into Settings. A "Sign in with GitHub" button then appears alongside the SSO button. As with OIDC, the session is delivered over an HttpOnly cookie, and local login always keeps working.
 
 ### [<img src="docs/icons/users.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Multi-User Access](#-multi-user-access)
 Beyond the shared admin token, you can provision named dashboard accounts that sign in with a username and password (plus their own optional TOTP second factor) on the same login screen. Two roles: **admin** sees and does everything, while **user** accounts are scoped by granular grants (Chat/Arena, Usage dashboards, Request Logs, Models, Virtual Keys) so a teammate gets exactly the access they need and nothing more. Virtual keys belong to a user, and per-account rate limits (RPS/burst/TPM) aggregate across the keys that user owns.
@@ -274,37 +308,6 @@ Beyond the shared admin token, you can provision named dashboard accounts that s
 </p>
 
 Manage accounts from the Users page (admin only): create a user, assign grants, set an initial password, reset a password or second factor, enable or disable, and read last-login and TOTP status at a glance. The username/password form appears on the login screen only once at least one user exists, so a fresh install keeps the single admin-token flow, and local token login is never removed so you cannot lock yourself out. See the [Multi-User wiki page](https://github.com/hugalafutro/model-hotel/wiki/Multi-User) for roles, grants, and the per-user rate-limit model.
-
-### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Quick Start](#-quick-start)
-```bash
-git clone <repository-url>
-cd model-hotel
-
-cp .env.example .env
-nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD
-
-docker compose -f docker-compose.yml -f compose.dev.yml up --build -d
-```
-
-For development, use the dev compose override: `docker compose -f docker-compose.yml -f compose.dev.yml up -d`. To use the prebuilt image instead of building from source, edit `docker-compose.yml`: comment out `build: .` and uncomment the `image:` line.
-
-The admin token is displayed once in the logs on first run and will never be shown again:
-
-```bash
-docker compose -f docker-compose.yml -f compose.dev.yml logs app | grep "ADMIN_TOKEN="
-```
-
-If you lose the token, delete `.data/admin-token` and restart to generate a new one.
-
-You can also set a fixed admin token via the `ADMIN_TOKEN` environment variable.
-
-Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
-
-> [!TIP]
-> The admin token appears only once in the logs on first run. If you lose it, delete `.data/admin-token` and restart to generate a new one, or set a fixed token via the `ADMIN_TOKEN` env var.
-
-> [!IMPORTANT]
-> **Security:** The Docker socket is disabled by default in `docker-compose.yml` (production). The `compose.dev.yml` override enables it for local development. Only use the dev override in trusted environments.
 
 ### [<img src="docs/icons/quickstart.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Deploy without Git](#-deploy-without-git)
 No `git clone` needed. Create two files and go:
@@ -421,11 +424,11 @@ ADMIN_TOKEN=
 **3.** Deploy:
 
 ```bash
-docker compose -f docker-compose.yml -f compose.dev.yml up --build -d
+docker compose up --build -d
 ```
 
 > [!NOTE]
-> The `docker-compose.yml` content above is the production compose (auto-synced by a GitHub Action). For development, layer the `compose.dev.yml` override: `docker compose -f docker-compose.yml -f compose.dev.yml up -d`. If you want the prebuilt image instead of building from source, uncomment the `image:` line and comment out `build: .` in the compose file.
+> The `docker-compose.yml` content above is the production compose (auto-synced by a GitHub Action). See [Quick Start](#-quick-start) for the development override and the prebuilt-image option.
 
 > [!NOTE]
 > `WEBAUTHN_RP_ID` enables FIDO2/WebAuthn passkey login (leave empty to disable); `WEBAUTHN_RP_ORIGINS` is optional and falls back to `CORS_ORIGINS`. `TRUSTED_PROXIES` is for trusting inbound `X-Forwarded-For` headers from reverse proxies (rate limiting/logging). `KNOWN_PROXIES` is for allowing outbound connections to internal LLM servers on private networks (bypasses SSRF protection). See [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration) for details.
@@ -515,6 +518,12 @@ turns on Debug for everything; `DEBUG_LOG_SCOPES=failover,resolve` turns it on f
 areas. The **Settings → Observability** section shows which of these three exporters are active
 and how to enable the rest. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
 
+For push notifications rather than scraping, **Settings → Alerts** can POST short summaries of
+operational events (a provider going down, a circuit breaker tripping, a failover group failing to
+sync) to a stateless [Apprise](https://github.com/caronc/apprise) container, which fans them out to
+Telegram, email, Discord, Slack, Matrix, a raw webhook, and around 80 other destinations; only the
+event summary is sent, never request content. See the [Alerting wiki](https://github.com/hugalafutro/model-hotel/wiki/Alerting).
+
 ### Full Documentation
 - [Configuration](https://github.com/hugalafutro/model-hotel/wiki/Configuration): Environment variables, runtime settings, Docker Compose
 - [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference): Proxy and admin endpoints
@@ -523,14 +532,17 @@ and how to enable the rest. See the [Configuration wiki](https://github.com/huga
 - [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing): Failover groups, circuit breaker, backoff
 - [Model Discovery](https://github.com/hugalafutro/model-hotel/wiki/Model-Discovery): Automatic sync, provider-specific metadata, enrichment
 - [Virtual Keys](https://github.com/hugalafutro/model-hotel/wiki/Virtual-Keys): Creating, using, and deleting client keys
+- [Multi-User](https://github.com/hugalafutro/model-hotel/wiki/Multi-User): Dashboard accounts, roles, grants, per-user rate limits
 - [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging): Log fields, overhead breakdown, retention
+- [Alerting](https://github.com/hugalafutro/model-hotel/wiki/Alerting): Outbound event notifications via Apprise
+- [CrowdSec](https://github.com/hugalafutro/model-hotel/wiki/CrowdSec): Parsers and scenarios for banning abusive clients at the edge
 - [Backup & Restore](#-backup--restore): Creating backups, restoring, critical requirements
 - [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability): Front Desk control plane + Traefik, drop-in HA across multiple instances
 - [Bellhop](https://github.com/hugalafutro/model-hotel/wiki/Bellhop): Android companion app, pairing, roles, monitoring and operator controls
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development): Local setup, build commands, contributing
 
 ### [<img src="docs/icons/backup.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Backup & Restore](#-backup--restore)
-Backups are created via the Settings page or the admin API (`POST /api/backups`) using `pg_dump --format=custom`. The resulting `.dump` files contain all database tables: providers, models, virtual keys, failover groups, and settings.
+Backups are created via the Settings page or the admin API (`POST /api/backups`) using an unfiltered `pg_dump --format=custom`. The resulting `.dump` files therefore contain *every* database table, not just the configuration ones: providers (encrypted keys), models, virtual key hashes, failover groups, and settings, but also request logs, app logs, the audit log, discovery history, quota snapshots, dashboard user accounts, TOTP secrets and recovery-code hashes, and WebAuthn credentials and sessions. Treat a `.dump` as sensitive and store it accordingly.
 
 ### Restoring a backup
 ```bash
@@ -549,7 +561,7 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 | **Virtual keys are irrecoverable** | Virtual keys are stored as SHA-256 hashes only. Plaintext virtual keys are never persisted. If you lose the plaintext keys, they cannot be recovered from the backup (by design). |
 
 ### What is and isn't in the backup
-**Included** (in the database, captured by `pg_dump`): providers (encrypted keys, nonces, salts), models, virtual keys (hashes only), failover groups, settings.
+**Included** (in the database, captured by `pg_dump`): providers (encrypted keys, nonces, salts), models, virtual keys (hashes only), failover groups, settings, request and app logs, the audit log, discovery history, quota snapshots, user accounts, TOTP secrets and recovery-code hashes, WebAuthn credentials and sessions.
 
 **Not included** (filesystem only): `DATA_DIR/admin-token` (admin token hash), `DATA_DIR/backups/` (the backup files themselves), `MASTER_KEY` (environment variable).
 
