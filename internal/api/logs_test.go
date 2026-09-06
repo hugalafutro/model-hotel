@@ -1507,7 +1507,7 @@ func TestAppendLogFilters_EndpointTypeInvalidIgnored(t *testing.T) {
 }
 
 func TestIsValidEndpointType(t *testing.T) {
-	for _, v := range []string{"chat", "embeddings", "image", "tts", "stt"} {
+	for _, v := range []string{"chat", "messages", "embeddings", "rerank", "image", "tts", "stt"} {
 		if !isValidEndpointType(v) {
 			t.Errorf("isValidEndpointType(%q) = false, want true", v)
 		}

@@ -143,7 +143,7 @@ type CircuitBreaker struct {
 
 // NewCircuitBreaker creates a circuit breaker with sensible defaults:
 //   - Threshold: 5 consecutive failures
-//   - Cooldown: 60 seconds, doubled per failed probe up to 1 hour
+//   - Cooldown: 60 seconds, doubled per failed probe up to 15 minutes
 //   - HalfOpenMaxProbes: 1 success to close
 //   - SpanModels: 2 open model circuits to call the provider down
 //

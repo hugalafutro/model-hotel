@@ -27,22 +27,27 @@ cd model-hotel
 cp .env.example .env
 nano .env          # set a strong MASTER_KEY and POSTGRES_PASSWORD
 
+docker compose up --build -d
+```
+
+For local development, layer the `compose.dev.yml` override instead. It mounts the Docker socket, turns on `DEBUG_LOG`, and allows embedding, so only use it in a trusted environment:
+
+```bash
+# Development only:
 docker compose -f docker-compose.yml -f compose.dev.yml up --build -d
 ```
 
-To use the prebuilt image instead of building from source, edit `docker-compose.yml`: comment out `build: .` and uncomment the `image:` line.
+To run a prebuilt image instead of building from source, edit `docker-compose.yml`: comment out the `build:` block and uncomment one of the `image:` lines.
 
-The admin token is shown once in the logs on first run and never again:
+On first run the admin token is printed once, in a boxed **ADMIN TOKEN** block in the startup banner, and never shown again:
 
 ```bash
-docker compose -f docker-compose.yml -f compose.dev.yml logs app | grep "ADMIN_TOKEN="
+docker compose logs app
 ```
 
-If you lose the token, delete `.data/admin-token` and restart to generate a new one, or set a fixed token via the `ADMIN_TOKEN` environment variable.
+If you lose it, delete `.data/admin-token` and restart to generate a new one. The `ADMIN_TOKEN` environment variable seeds the token on first boot only: once `.data/admin-token` exists the file wins and the variable is ignored.
 
 Open `http://localhost:8081`, log in with that token, add your first provider, and start proxying.
-
-> **Security:** The Docker socket is disabled by default; the `compose.dev.yml` override enables it for local development - only use it in trusted environments.
 
 ## Deploy without Git
 
@@ -160,10 +165,10 @@ ADMIN_TOKEN=
 **3.** Deploy:
 
 ```bash
-docker compose up -d
+docker compose up --build -d
 ```
 
-> **Note:** For development, layer `compose.dev.yml`. For the prebuilt image, uncomment the `image:` line and comment out `build: .`. `WEBAUTHN_RP_ID` enables passkey login (empty to disable); `TRUSTED_PROXIES` trusts inbound `X-Forwarded-For` headers from reverse proxies; `KNOWN_PROXIES` allows outbound connections to internal LLM servers on private networks (bypasses SSRF protection). See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration) for every variable.
+> **Note:** The compose above is the production file; see Quick Start above for the development override and the prebuilt-image option. `WEBAUTHN_RP_ID` enables passkey login (empty to disable); `TRUSTED_PROXIES` trusts inbound `X-Forwarded-For` headers from reverse proxies; `KNOWN_PROXIES` allows outbound connections to internal LLM servers on private networks (bypasses SSRF protection). See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration) for every variable.
 
 ## High Availability
 
@@ -194,7 +199,7 @@ The proxy also serves `/v1/embeddings`, `/v1/rerank`, `/v1/images/generations|ed
 
 ## Security & Authentication
 
-Provider keys: AES-256-GCM at rest (`MASTER_KEY`, Argon2id-derived). Virtual keys and the admin token: SHA-256 hashed. Outbound SSRF/DNS-rebinding protection. Optional login: WebAuthn passkey, TOTP, and OIDC/GitHub SSO. Details in the [Security guide](https://github.com/hugalafutro/model-hotel/wiki/Security). **No prompt or request content is ever logged** - see [Privacy](https://github.com/hugalafutro/model-hotel/wiki/Privacy).
+Provider keys: AES-256-GCM at rest (`MASTER_KEY`, Argon2id-derived). Virtual keys and the admin token: SHA-256 hashed. Outbound SSRF/DNS-rebinding protection. Optional login: WebAuthn passkey, TOTP, and OIDC/GitHub SSO. Details in the [Security guide](https://github.com/hugalafutro/model-hotel/wiki/Security). The repository also ships [CrowdSec](https://www.crowdsec.net/) parsers and scenarios under `contrib/crowdsec/` for banning repeated auth failures and rate-limit abuse at the edge; see the [CrowdSec wiki page](https://github.com/hugalafutro/model-hotel/wiki/CrowdSec). **No prompt or request content is ever logged** - see [Privacy](https://github.com/hugalafutro/model-hotel/wiki/Privacy).
 
 ## Multi-User Access
 
@@ -204,9 +209,11 @@ Beyond the shared admin token, provision named dashboard accounts (username + pa
 
 Prometheus at `/metrics` (set `METRICS_TOKEN` so the scrape config carries no admin token). `LOG_FORMAT=json` emits structured stdout logs for Fluent Bit / Vector / Promtail / Datadog; `OTEL_EXPORTER_OTLP_ENDPOINT` pushes them to an OTel collector. `DEBUG_LOG=true` for verbose, `DEBUG_LOG_SCOPES=failover,resolve` to scope it. See the [Configuration wiki](https://github.com/hugalafutro/model-hotel/wiki/Configuration).
 
+For pushed alerts rather than scraping, **Settings → Alerts** POSTs short summaries of operational events (provider down, circuit breaker tripped, failover group out of sync) to a stateless [Apprise](https://github.com/caronc/apprise) container that fans them out to Telegram, email, Discord, Slack, Matrix, a webhook, and around 80 other destinations; only the event summary is sent, never request content. See the [Alerting wiki](https://github.com/hugalafutro/model-hotel/wiki/Alerting).
+
 ## Backup & Restore
 
-Backups from the Settings page or `POST /api/backups` (`pg_dump --format=custom`); the `.dump` holds providers, models, virtual keys, failover groups, and settings.
+Backups from the Settings page or `POST /api/backups` use an unfiltered `pg_dump --format=custom`, so the `.dump` holds every table: providers (encrypted keys), models, virtual key hashes, failover groups and settings, but also request and app logs, the audit log, discovery history, quota snapshots, user accounts, TOTP secrets and recovery-code hashes, and WebAuthn credentials and sessions. Treat a `.dump` as sensitive.
 
 ```bash
 # Direct
@@ -229,6 +236,8 @@ docker exec -i postgres-container pg_restore --clean --if-exists -U user -d dbna
 - [Virtual Keys](https://github.com/hugalafutro/model-hotel/wiki/Virtual-Keys) - client key management
 - [Multi-User](https://github.com/hugalafutro/model-hotel/wiki/Multi-User) - dashboard accounts, roles, and grants
 - [Request Logging](https://github.com/hugalafutro/model-hotel/wiki/Request-Logging) - log fields, overhead breakdown
+- [Alerting](https://github.com/hugalafutro/model-hotel/wiki/Alerting) - outbound event notifications via Apprise
+- [CrowdSec](https://github.com/hugalafutro/model-hotel/wiki/CrowdSec) - parsers and scenarios for banning abusive clients at the edge
 - [High Availability](https://github.com/hugalafutro/model-hotel/wiki/High-Availability) - Front Desk + Traefik multi-instance HA
 - [Bellhop](https://github.com/hugalafutro/model-hotel/wiki/Bellhop) - Android companion app for Front Desk
 - [Development](https://github.com/hugalafutro/model-hotel/wiki/Development) - local setup, build, contributing

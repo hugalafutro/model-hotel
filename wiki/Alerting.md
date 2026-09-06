@@ -13,6 +13,8 @@ It does this through [Apprise](https://github.com/caronc/apprise): you run a sma
   - [Guided setup](#guided-setup)
   - [Manual configuration](#manual-configuration)
 - [Choosing which events fire](#choosing-which-events-fire)
+  - [Model Hotel events](#model-hotel-events)
+  - [Front Desk events](#front-desk-events)
 - [Notification targets](#notification-targets)
 - [Phone push (ntfy and Bellhop)](#phone-push-ntfy-and-bellhop)
 - [Security](#security)
@@ -54,7 +56,9 @@ The two runs differ in two places. Front Desk offers a **Bellhop** tile and Mode
 
 ![Model Hotel Alerts card](screenshots/settings_alerts.png)
 
-*Model Hotel dashboard - Alerts with alerting on: the "Events to notify on" picker unrolled, the plaintext Destinations list with its reachability indicator and per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)". With alerting off, the destinations list, the guided button and the manual fields are hidden and the event picker cannot be unrolled; the toggle stays, and so does a warning about a stored destination list that cannot be read. A managed member keeps the delivery settings visible in both states, because it cannot switch alerting on itself.*
+*Model Hotel dashboard - Alerts with alerting on: the "Events to notify on" picker unrolled, the plaintext Destinations list with its reachability indicator and per-row Copy, Test and Remove, the single guided button (**Add destination** on a configured card, **Set up alerts** on a fresh one), and the individual fields folded into "Manual configuration (advanced)".*
+
+With alerting off, the destinations list, the guided button and the manual fields are hidden and the event picker cannot be unrolled. The toggle stays, and so does a warning about a stored destination list that cannot be read. A managed member keeps the delivery settings visible in both states, because it cannot switch alerting on itself.
 
 ![Front Desk Alerts card](screenshots/frontdesk_settings_alerts.png)
 
@@ -63,7 +67,7 @@ The two runs differ in two places. Front Desk offers a **Bellhop** tile and Mode
 1. **Apprise.** The **Apprise API URL**, prefilled `http://apprise:8000`, which is the `apprise` service of the stack the surface runs in: the gateway's own `docker-compose.yml` above, or `deploy/ha/docker-compose.yml` for Front Desk (both ship it commented out). Front Desk sends its own fleet and member alerts, so a Front Desk stack gets a container beside it rather than borrowing the gateway's. **Check** probes the container and the step unlocks on "apprise-api reachable and healthy". A red result names the reason: nothing answered at that address, the container answered but reports a problem, or the URL is not valid.
 2. **Where should alerts go?** Tiles for **Phone (ntfy app)**, **Telegram**, **Discord**, **Email** and **Other (Apprise URL)**, plus **Bellhop** on Front Desk.
 3. **Details.** Plain fields for the tile you picked, with the composed Apprise URL rendered in clear underneath. You never type an Apprise URL yourself. A destination that is already stored, or already added earlier in this run, stops here: it cannot be added twice.
-4. **Test this destination.** **Send test** posts one notification through the step-1 container to this destination only, and nothing is saved. A success is required before the wizard moves on. A failure says which part failed: apprise rejected the destination URL, apprise could not deliver it (check the server and topic, or the bot token), or apprise stopped answering. A Bellhop destination answers the test with a "push test received" notification on the phone (needs Bellhop 0.9.10 or newer); real alerts only wake it.
+4. **Test this destination.** **Send test** posts one notification through the step-1 container to this destination only, and nothing is saved. A success is required before the wizard moves on. A failure says which part failed: apprise-api rejected the destination URL, apprise-api could not deliver it (check the server and topic, or the bot token), or nothing answered at that address. A Bellhop destination answers the test with a "push test received" notification on the phone (needs Bellhop 0.9.10 or newer); real alerts only wake it.
 5. **Destinations.** The destinations this run adds; anything already saved stays as it is. **Add another** returns to step 2. The wizard only appends; it never drops a destination you already had.
 6. **Events.** The event picker. A run on a surface with no saved selection starts from the recommended set; a run where you already saved one starts from that selection, including an empty one. **Reset to recommended** is always there to tick the recommended set again. On a managed member the step shows a note instead of the picker, because there is nothing to choose there, and **Next** carries on.
 7. **Finish.** One write covering the API URL, the destinations, the events and the enable toggle, so a failure leaves nothing half-applied. The final screen offers **Send test to everything**.
@@ -107,24 +111,53 @@ A live **reachability indicator** beside the Destinations list shows whether the
 
 ## Choosing which events fire
 
-The **Events to notify on** picker (step 6 of the wizard, or on the card itself) lists every event you can subscribe to, grouped by category, each with a severity dot. Toggle individual events or whole categories. The list is served by the backend catalog (`GET /api/alert/events`), so it always reflects exactly what the running version can emit.
+The event picker (step 6 of the wizard, or on the card itself) lists every event you can subscribe to, grouped by category, each with a severity dot. Toggle individual events or whole categories. The list is served by the backend catalog (`GET /api/alert/events`), so it always reflects exactly what the running version can emit. The dashboard heads it **Events to notify on** and Front Desk heads it **Notify on**; the card's button is **Reset to defaults**, the wizard's is **Reset to recommended**, and both tick the same default-on set.
 
-Current events:
+Each surface has its own catalog, because each emits its own events: the gateway alerts on routing and discovery, Front Desk on the fleet it watches.
+
+### Model Hotel events
 
 | Event | Category | Default | Fires when |
 |---|---|---|---|
 | Provider down (circuit breaker opened) | Failover | ✅ on | a provider's breaker trips |
 | Provider recovered (circuit breaker closed) | Failover | ✅ on | the breaker recovers |
+| Model keeps breaking (circuit reopened repeatedly) | Failover | ⬜ off | one model's circuit opens three times inside 24 hours. Reported once per window, so a model failing every cooldown cannot repeat it. Off by default: an instance upgrading with a provider that has been flaky for weeks would otherwise be told on the third open about a condition its operator already lives with |
 | Failover group sync failed | Failover | ✅ on | a failover group fails to sync |
 | Provider disabled as scheduled | Failover | ✅ on | a provider reaches the disable date you set for it and the background sweep switches it off |
 | Provider failed during discovery | Discovery | ⬜ off | a provider errors during model discovery |
-| Model discrepancies left unaddressed | Discovery | ⬜ off | the Models badge has been asking for attention for longer than your threshold |
-| Model disabled (provider no longer serves it) | Discovery | ✅ on | the gateway disables a model because the provider keeps refusing it as retired |
+| Model discrepancies left unaddressed | Discovery | ⬜ off | the Models badge has been asking for attention for longer than your threshold (`discovery_claim_alert_days`, 7 days by default) |
+| Model disabled (provider no longer serves it) | Discovery | ✅ on | the retirement probe confirms a provider has stopped serving a model, so the gateway disables it |
 | Front Desk ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |
 | SSO identity bound to an account | Security | ⬜ off | an external identity is bound to an admin account for the first time |
 | Provider changed its quota response shape | Quota | ✅ on | a provider changes the *shape* of its quota response (a key path appears or disappears). Carries the added and removed paths. Alert-only: nothing about routing or failover changes, but a normalizer written against the old shape may now be reporting the wrong numbers silently, which is why it defaults on |
 
-On first run the default-on events are pre-selected. Deselecting everything means nothing fires.
+### Front Desk events
+
+Front Desk's picker carries its own set, about the fleet rather than about routing:
+
+| Event | Category | Default | Fires when |
+|---|---|---|---|
+| Member went down | Health | ✅ on | a member stops answering its health check |
+| Member recovered | Health | ✅ on | it answers again |
+| Fleet state changed | Health | ✅ on | the fleet crosses an ok/degraded/faulty boundary, including a forgotten drain |
+| Config sync failed | Config Sync | ✅ on | a push to a member is refused |
+| Config synced to a member | Config Sync | ⬜ off | a manual push lands |
+| Auto-sync applied to the fleet | Config Sync | ⬜ off | an automatic push lands |
+| Auto-sync off, fleet not synced | Config Sync | ✅ on | auto-sync is off and the fleet has not been synced in a day, so replicas are drifting silently |
+| Sync held (version skew) | Config Sync | ✅ on | a member runs a different build than the primary, so auto-sync holds it rather than risk deleting settings the newer build legitimately has |
+| Sync unverified (member not confirmed) | Config Sync | ✅ on | a member committed a sync but could not build every custom failover group, so it serves 404 for those `hotel/` models until it converges |
+| Sync complete again | Config Sync | ⬜ off | a held or failed member is back in sync |
+| Member version unreadable | Member Reads | ✅ on | a member's URL keeps failing the version read |
+| Member version readable again | Member Reads | ⬜ off | that read recovers |
+| Traefik config stale | Routing | ⬜ off | the Traefik dynamic config is out of date |
+| Member added | Membership | ⬜ off | a member joins the fleet |
+| Member removed | Membership | ⬜ off | a member leaves |
+| Member activated or drained | Membership | ⬜ off | a member is drained or brought back |
+| Fleet disbanded | Membership | ⬜ off | removing a member of a two-member fleet disbands the fleet (a fleet below two members cannot exist) and switches auto-sync off fleet-wide |
+| Member has no recent backup | Backups | ✅ on | a member has no database dump from the last day. Front Desk takes no snapshot of its own, so a member's scheduled dumps are the only copy of its config |
+| Member backups healthy again | Backups | ⬜ off | a fresh dump appears |
+
+On first run the default-on events are pre-selected on either surface. Deselecting everything means nothing fires.
 
 ## Notification targets
 
@@ -154,7 +187,7 @@ You pick the ntfy server. Self-host one (see below) or use the public `ntfy.sh`;
  Front Desk event  ──►  apprise-api  ──►  <your ntfy server>/<your-topic>  ──►  phone (ntfy app / Bellhop)
 ```
 
-**1. Add `apprise-api` to the Front Desk stack.** For Bellhop the alerts come from Front Desk (fleet and member events), so the container belongs with Front Desk, not the main gateway; adding it to the main `docker-compose.yml` would only wire the gateway's own alerts. The `deploy/ha/docker-compose.yml` stack ships it commented out; uncomment it:
+**1. Add `apprise-api` to the Front Desk stack.** The `deploy/ha/docker-compose.yml` stack ships it commented out; uncomment it:
 
 ```yaml
 services:
@@ -170,11 +203,11 @@ services:
 ```
 
 **2. Run the wizard for the ntfy app.** In Front Desk → **Settings → Alerts**, switch **Send outbound alert notifications** on and press **Set up alerts** (or **Add destination** if alerts are already configured), then:
-   - Step 1: **Apprise API URL** `http://apprise:8000`, then **Check** until it reports the container reachable and healthy.
-   - Step 2: pick the **Phone (ntfy app)** tile.
-   - Step 3: enter your ntfy server (yours, or `https://ntfy.sh`) and press **Generate** for a random 20-character topic. The topic is the only access control on a public server, so treat it like a password; **Generate** exists so you do not invent a weak one. The step also prints the exact phone-side steps ("Subscribe to topic, Use another server", then the server and topic with copy buttons) and shows the composed `ntfys://<server>/<topic>` underneath.
-   - Step 4: **Send test**. Subscribe on the phone first (step 3 below) and the test lands there.
-   - Steps 5 to 7: add more destinations if you want, pick events, **Finish**.
+- Wizard step 1: **Apprise API URL** `http://apprise:8000`, then **Check** until it reports the container reachable and healthy.
+- Wizard step 2: pick the **Phone (ntfy app)** tile.
+- Wizard step 3: enter your ntfy server (yours, or `https://ntfy.sh`) and press **Generate** for a random 20-character topic. The topic is the only access control on a public server, so treat it like a password; **Generate** exists so you do not invent a weak one. The step also prints the exact phone-side steps ("Subscribe to topic, Use another server", then the server and topic with copy buttons) and shows the composed `ntfys://<server>/<topic>` underneath.
+- Wizard step 4: **Send test**. Subscribe on the phone first (part 3 below) and the test lands there.
+- Wizard steps 5 to 7: add more destinations if you want, pick events, **Finish**.
 
 **3. Subscribe on the phone.** Install the [ntfy Android app](https://ntfy.sh) and subscribe to the same server and topic, or use [[Bellhop]]'s real-time push, which generates the topic on the phone instead; the wizard's **Bellhop** tile then takes it as a single paste (see the Bellhop page for the phone-side steps).
 
@@ -186,11 +219,17 @@ services:
 
 The notification target typically contains a credential (a bot token, an SMTP password). Both surfaces **encrypt it at rest** with the same `MASTER_KEY`-derived scheme used for provider API keys (Front Desk with its own `FRONTDESK_MASTER_KEY`), and both show the saved destinations in clear to signed-in admins, for the reason given under [Notification targets](#notification-targets): an admin can already rewrite the targets and fire a test at them, so masking hides nothing from them and only makes it harder to check what is stored.
 
-`GET /api/alert/targets` is the one endpoint that decrypts, and it is admin-only on both surfaces. It is what the **Destinations** list and the manual **Notification target** field read; the encrypted string itself never leaves the database.
+`GET /api/alert/targets` is the one endpoint that *returns* the decrypted destinations, and it is admin-only on both surfaces. It is what the **Destinations** list and the manual **Notification target** field read; the encrypted string itself never leaves the database. (A test send decrypts the stored target too, but only to hand it to `apprise-api`, never back to the browser.)
+
+A database backup carries the encrypted string, not the plaintext, so a restore onto an instance with a different `MASTER_KEY` cannot read it. The card says so rather than failing quietly: "Stored destinations cannot be read (master key rotated?). Remove them below and set them up again."
 
 ## Reliability
 
-Alerting is strictly **best-effort and non-blocking**. A missing, misconfigured, or failing `apprise-api` never affects request serving and never fails a proxied request; failures are logged and dropped. A per-event, per-provider debounce window suppresses repeat alerts so a flapping circuit breaker cannot spam you; recovery ("all clear") notifications are always delivered.
+Alerting is strictly **best-effort and non-blocking**. A missing, misconfigured, or failing `apprise-api` never affects request serving and never fails a proxied request; failures are logged and dropped. Each POST is bounded at 5 seconds and is made on its own goroutine, so a hanging container cannot stall the event bus.
+
+A **5-minute debounce window** suppresses repeats so a flapping circuit breaker cannot spam you. It is scoped per event type and per entity, and the entity is the most specific identifier the event carries: the model where the event names one (a breaker charges one model circuit at a time), otherwise the provider. Two providers failing inside the same window therefore still produce two alerts. A recovery carries a different event type from the failure it clears, so an "all clear" is never swallowed by the failure that preceded it; a second identical recovery inside 5 minutes is. The window is counted from the attempt rather than from a success, so a broken `apprise-api` is not hammered on every event.
+
+Each notification is titled with its source and event type, `Model Hotel: circuit_breaker.open` from the gateway and `Front Desk: health.down` from Front Desk, so a shared destination shows at a glance which surface spoke.
 
 A dropped alert is not retried. The dispatcher dials `apprise-api` through the [netguard](Security#netguard-admin-configured-endpoints) client, which allows the private and loopback addresses a notification container actually lives on and blocks link-local/metadata ones. The pre-connection retry the SSO login paths use is deliberately not applied here: nobody is waiting inside a notification, and the next event will alert anyway.
 

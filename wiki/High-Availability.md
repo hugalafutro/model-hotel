@@ -1,4 +1,4 @@
-# 🏨 High Availability: Front Desk + Traefik
+# 🧭 High Availability: Front Desk + Traefik
 
 Run two or more independent Model Hotel installations behind a single client
 endpoint, with no client-side change. This is the **Front Desk** HA stack: a
@@ -21,12 +21,13 @@ with the last config it fetched; only membership changes pause until it returns.
 7. [Front Desk Settings](#front-desk-settings)
 8. [Admin Authentication (Passkeys & TOTP)](#admin-authentication-passkeys--totp)
 9. [Replicating Config Across the Fleet](#replicating-config-across-the-fleet)
-10. [TLS Proxy](#tls-proxy)
-11. [Observability](#observability)
-12. [Alerting](#alerting)
-13. [Paired Devices (Bellhop)](#paired-devices-bellhop)
-14. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
-15. [Acceptance Checks](#acceptance-checks)
+10. [What Members Learn From Front Desk](#what-members-learn-from-front-desk)
+11. [TLS Proxy](#tls-proxy)
+12. [Observability](#observability)
+13. [Alerting](#alerting)
+14. [Paired Devices (Bellhop)](#paired-devices-bellhop)
+15. [What This Does and Does Not Give You](#what-this-does-and-does-not-give-you)
+16. [Acceptance Checks](#acceptance-checks)
 
 ---
 
@@ -96,10 +97,13 @@ docker compose logs -f      # capture the generated FRONTDESK_TOKEN if you left 
 ```
 
 > Build stamping: the Front Desk footer shows the version and commit stamped in
-> at build time. `make ha-up` (from the repo root) passes both into the build; a
-> bare `docker compose up -d` built from source does not, so its footer reads
-> `dev`. The prebuilt image (uncomment `image:` in the compose file) carries its
-> own release stamp.
+> at build time. `make ha-up` (from the repo root) passes the real commit but a
+> literal `dev` version, so a source build's footer always reads `dev` with a
+> usable commit next to it; a bare `docker compose up -d` passes neither. The
+> prebuilt image (uncomment `image:` in the compose file) carries its own release
+> stamp. The commit is the part that matters in a fleet, precisely because every
+> source build claims the same `dev` version (see
+> [Upgrade the whole fleet](#upgrade-the-whole-fleet-before-expecting-config-sync-to-run)).
 
 Traefik answers client traffic on `:8080`; Front Desk's UI is on `:8090`. Point
 your external TLS proxy at both (see [TLS Proxy](#tls-proxy)).
@@ -114,7 +118,12 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
 1. On the existing host: change the published port `8080` to `8081`, then
    `docker compose up -d`.
 2. Copy `deploy/ha/` to the HA host, fill in `.env`, `docker compose up -d`.
-   Traefik now answers on `:8080`; clients work again.
+   Traefik now answers on `:8080`; clients work again. Because the members below
+   are registered by plain-http LAN address, also set
+   `FRONTDESK_ALLOW_HTTP_MEMBERS=true` in `.env`. Front Desk rejects an `http://`
+   member URL otherwise, since the member's admin token would travel in the
+   clear. Only opt in on a trusted internal network; where a member already has
+   its own HTTPS hostname, register that instead and leave the flag off.
 3. In Front Desk: add `http://ip1:8081` as "hotel-1" (supplying its admin token),
    confirm the health badge is green. Front Desk highlights the **first member as
    the default config-sync primary** (the instance the rest of the fleet copies).
@@ -124,11 +133,16 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
    every dashboard with one password, set the same `ADMIN_TOKEN` on each member
    (a shared env secret, like `MASTER_KEY`).
 5. In Front Desk: add `http://ip2:8081` as "hotel-2" (supplying its admin token),
-   then converge its config from the primary via **Settings -> Fleet sync wizard**.
+   then converge its config from the primary via **Settings → Fleet sync wizard**.
 6. **Repeat steps 4-5 for each additional member.** Same secrets, add it with its
    admin token, run the config sync.
 7. Maintenance: drain a member in Front Desk, rebuild it, re-activate. Re-run the
-   config sync after any provider/key/settings change on the primary.
+   config sync after any provider/key/settings change on the primary. Two floors
+   guard the routing pool. The last active member cannot be drained: Front Desk
+   refuses rather than empty Traefik's backend pool, so on a two-member fleet
+   re-activate one before draining the other. And removing a member from a
+   two-member fleet disbands the fleet outright, clearing every member row, the
+   primary designation and auto-sync, rather than leaving a one-member "fleet".
 
 <p align="center"><a href="screenshots/frontdesk_addmember.png"><img src="screenshots/frontdesk_addmember.png" width="800" alt="Front Desk: add a member"></a></p>
 
@@ -194,6 +208,12 @@ Admin Authentication, Replicating Config, Alerting and Paired Devices sections
 below zoom into individual cards; TLS Proxy and the closing sections are about
 the stack around Front Desk, not this tab.
 
+The polling card's defaults, all editable: health poll interval 5 seconds,
+Traefik status poll interval 5 seconds, Traefik staleness warning 30 seconds,
+event retention 90 days, retry attempts 2 (retries of failures that happened
+before any response byte, which are safe to replay), health-fail threshold 3
+consecutive failed polls, and tab timeout 60 minutes.
+
 <p align="center"><a href="screenshots/frontdesk_settings.png"><img src="screenshots/frontdesk_settings.png" width="800" alt="Front Desk Settings tab: full-width polling and sync cards above three side-by-side card pairs, single sign-on at the bottom"></a></p>
 
 ---
@@ -223,6 +243,14 @@ request scheme (TLS or `X-Forwarded-Proto: https`) instead. Set
 otherwise the browser silently drops the cookies and login loops back to the
 login screen.
 
+Three independent timers bound an admin session. The **Tab timeout** setting
+signs a forgotten open tab out after 60 minutes without activity by default
+(settable from 0 to 240; 0 leaves open tabs signed in), and it is a per-instance
+operator preference that config sync never carries. Regardless of that setting, a
+login expires 3 days after its last use, and 30 days after it was minted whatever
+happens. Using the session slides the 3-day window out; nothing slides the 30-day
+cap.
+
 Two things are worth understanding about authentication in an HA deployment:
 
 - **Passkeys and TOTP are per-instance and are never synced.** Config sync pushes
@@ -250,6 +278,7 @@ Front Desk runs the *same* OIDC implementation as the main dashboard, so everyth
 
 <p align="center"><a href="screenshots/frontdesk_settings_oidc.png"><img src="screenshots/frontdesk_settings_oidc.png" width="800" alt="Front Desk Settings: Single sign-on (OIDC)"></a></p>
 
+---
 
 ## Replicating Config Across the Fleet
 
@@ -347,6 +376,11 @@ What makes this safe to leave running:
   not is pushed to again, at most once every 10 minutes so a member that cannot
   converge never re-imports on every tick; one that still does not match after a
   push is badged amber and raises `config.sync_incomplete`.
+- **An empty config cannot wipe a member.** An envelope carrying no providers is
+  refused with a 400 when the member has providers, because the declarative
+  replace would delete every one of them. An envelope with no providers, no
+  virtual keys and no syncable settings at all is refused earlier on the same
+  grounds: it has nothing to sync and could only subtract.
 - **No pre-sync snapshot.** Front Desk does not ask a member to back itself up
   before overwriting it. Members back themselves up on their own schedule when you
   have enabled backups, so keep those on if you want a rollback point.
@@ -386,18 +420,72 @@ on once you trust the primary as the source of truth.
 
 ### Resetting circuit breakers fleet-wide
 
-Each member keeps its own circuit breaker: it is local runtime health, computed from that member's own upstream traffic, and nothing syncs it. The Members table's **Circuits** column shows each member's own ledger: how many circuits its breaker holds open or owes a probe (`2 open`), with the provider, model, state, cause and next retry on hover, read from the member's `GET /api/failover-groups/circuit-breaker-status?detail=1` every three health polls (15 s at the defaults; the member caches that status for 5 s, so polling faster would only make it recompute). The hover list is capped at 50 circuits; the count is always exact. A member without a stored token, or one whose last read failed, shows no ledger rather than a stale one. That is the fleet-wide "which member is dark for which model" view that used to need one terminal per member. When an upstream incident trips the same group's circuits on every member, clearing them meant one reset per member. The Members page's **Reset circuit breakers** button does the round for you: it lists the primary's failover groups (`GET /api/fleet/failover-groups?primary_id=...`), you pick one, and Front Desk asks every member to clear the circuits behind that group's entries (`POST /api/fleet/circuit-breaker/reset` with `{"group_id": "..."}`, relayed to each member's `POST /api/failover-groups/{id}/circuit-breaker/reset`). The response names each member with what it cleared and recovered; a member that could not be reached is reported as failed rather than hidden, and a member with no stored admin token is listed as skipped (it is exactly the member that stays dark after the round, so it cannot go unmentioned, but keeping one is a supported configuration, not a failure); a `fleet.circuit_breaker_reset` event records the action. Sending an empty `group_id` clears every circuit on every member; like the member-side reset-all that is deliberately API only, with no button. The button asks for confirmation: it is a mutation across the fleet.
+Each member keeps its own circuit breaker. It is local runtime health, computed
+from that member's own upstream traffic, and nothing syncs it.
+
+**Seeing which member is dark.** The Members table's **Circuits** column shows
+each member's own ledger: how many circuits its breaker holds open or owes a
+probe (`2 open`), with the provider, model, state, cause and next retry on hover.
+Front Desk reads it from the member's
+`GET /api/failover-groups/circuit-breaker-status?detail=1` every three health
+polls, 15 s at the defaults. Faster would be wasted: the member caches that
+status for 5 s, so a 5 s poll would only make it recompute the ledger every time.
+The hover list is capped at 50 circuits, while the count itself is always exact.
+A member without a stored token, or one whose last read failed, shows no ledger
+rather than a stale one. This is the fleet-wide "which member is dark for which
+model" view that used to need one terminal per member.
+
+**Clearing them in one round.** When an upstream incident trips the same group's
+circuits on every member, clearing them meant one reset per member. The Members
+page's **Reset circuit breakers** button does the round for you: it lists the
+primary's failover groups (`GET /api/fleet/failover-groups?primary_id=...`), you
+pick one, and Front Desk asks every member to clear the circuits behind that
+group's entries (`POST /api/fleet/circuit-breaker/reset` with
+`{"group_id": "..."}`, relayed to each member's
+`POST /api/failover-groups/{id}/circuit-breaker/reset`). The button asks for
+confirmation first: it is a mutation across the whole fleet.
+
+**Reading the result.** The response names each member with what it cleared and
+recovered. A member that could not be reached is reported as failed rather than
+hidden, and a member with no stored admin token is listed as skipped. That
+skipped member is exactly the one still dark after the round, so it cannot go
+unmentioned, though keeping a token-less member is a supported configuration and
+not a failure in itself. A `fleet.circuit_breaker_reset` event records the
+action. Sending an empty `group_id` clears every circuit on every member; like
+the member-side reset-all, that is deliberately API only, with no button.
 
 ### Upgrade the whole fleet before expecting config sync to run
 
-Config sync carries a schema version in every envelope, and a member applies an
-envelope only when that version is exactly the one it understands. Anything else
-is refused outright rather than half-applied, because a member that guessed at an
-envelope it does not understand could silently widen a restricted virtual key.
+Config sync will not write to a member running a different build than the
+primary. Two gates enforce that, and the first one trips far more often.
 
-The refusal is **symmetric**. It is not "old members are rejected": a new primary
-pushing to an old member and an old primary pushing to a new member both fail, so
-config sync stops fleet-wide the moment two builds disagree. What you see is:
+**Build skew: the usual case.** Front Desk holds sync for any member whose app
+version differs from the primary's and, when both sides report a real build
+commit, for any member whose commit differs. The commit check exists because a
+self-built fleet reports the same `dev` version on every image, so version
+equality alone would vouch for nothing and a rolling rebuild would read as an
+aligned fleet while its halves ran different code. A member that cannot report a
+commit (built without the stamp, or too old to carry one) falls back to the
+version verdict rather than being held forever, and a member whose version cannot
+be read at all is held: Front Desk never overwrites a build it cannot confirm.
+The hold covers the wizard and automatic sync alike, so a bypassed UI cannot
+force a mismatched push. You see it as **Sync held** on the Members tab, as
+`Sync is on hold: N members run a different build than the primary. Align the
+builds, then refresh.` in the wizard (with a **Refresh versions** button beside
+it), as `held: member's build differs from the primary's` in a manual sync
+result, and as a `config.sync_held` event raised once on the way into the hold
+rather than on every pass.
+
+**Schema version: the rare case.** Config sync also carries a schema version in
+every envelope, and a member applies an envelope only when that version is
+exactly the one it understands. Anything else is refused outright rather than
+half-applied, because a member that guessed at an envelope it does not understand
+could silently widen a restricted virtual key.
+
+This second refusal is **symmetric**. It is not "old members are rejected": a
+new primary pushing to an old member and an old primary pushing to a new member
+both fail, so config sync stops fleet-wide the moment two builds disagree. What
+you see is:
 
 - In the **Fleet sync wizard**, affected members are flagged with
   `this member's app version is too old to sync with the primary` (the wording
@@ -428,6 +516,38 @@ older code.
 
 ---
 
+## What Members Learn From Front Desk
+
+Config sync is a push you trigger. Separately, Front Desk sends every member a
+small heartbeat telling it that it is in a managed fleet and how many members are
+active. Three behaviours ride on that heartbeat.
+
+**Rate limits are split, not multiplied.** A member told the fleet has N active
+members divides each configured rate limit by N, requests per second and tokens
+per minute alike, so the limits you set on the primary describe the fleet's total
+capacity rather than each member's. Without it, a limit of 100 requests per
+minute replicated to four members would let 400 through. Each share is floored at
+1, so a cap smaller than the fleet is served by every member rather than by none.
+At those (non-physical) settings the aggregate can exceed the configured cap, by
+at most the member count. Unlimited stays unlimited: a limit of 0 is never
+divided.
+
+**Quota reads happen once for the fleet.** Front Desk pulls the primary's
+provider quota snapshots every 60 seconds and posts them to the other members, so
+the fleet does not poll the same upstream account once per member. A member
+applies a snapshot only when it is newer than the one it holds, and a member
+Front Desk is not feeding simply keeps polling for itself.
+
+**A forgotten member returns to standalone.** Fleet awareness expires on its
+own. A member that has not heard from Front Desk for 90 seconds shows a warning
+on its own dashboard, and one that has not heard for 24 hours treats itself as
+standalone again: the divisor reverts to 1 and the fleet line disappears. That is
+what lets a member you pull out of the fleet clean itself up without being told,
+and it is why a Front Desk restart or a multi-hour outage never quietly throttles
+the fleet to a stale fraction of its capacity.
+
+---
+
 ## TLS Proxy
 
 Put a real TLS proxy in front of both published ports. Example nginx, two
@@ -455,33 +575,9 @@ server {
     server_name frontdesk.example.com;
     # ssl_certificate / ssl_certificate_key ...
 
-    # Defense in depth: keep /traefik/config off the public hostname (Traefik
-    # fetches it over the compose network; it carries no secrets, only member
-    # URLs and settings). Setting FRONTDESK_TRAEFIK_TOKEN in .env additionally
-    # locks the endpoint to Traefik's own polls, so this block stops being the
-    # only line of defense — keep it anyway.
+    # Keep /traefik/config off the public hostname; see below.
     location = /traefik/config { return 404; }
     location /traefik/ { return 404; }
-
-    # `/healthz` stays reachable through the catch-all below, on purpose: it is
-    # the container liveness probe and discloses nothing. It is bounded at 2
-    # requests per second per resolved client address, as is `/traefik/config`
-    # while FRONTDESK_TRAEFIK_TOKEN is unset.
-    #
-    # Those budgets are a fallback, not the control. FRONTDESK_TRAEFIK_TOKEN is
-    # the control: with it set, an unauthenticated poll is refused before any
-    # work happens and the limiter is not mounted at all. Set it.
-    #
-    # If you set FRONTDESK_TRUSTED_PROXIES, set it to the address Front Desk
-    # actually sees as the TCP peer, which with a published port and Docker's
-    # userland proxy is the bridge gateway rather than this nginx. Be aware of
-    # what that buys and costs: trusting the bridge means anything reaching the
-    # published port chooses its own X-Forwarded-For, and therefore its own rate
-    # -limit bucket. It can then key a flood into the bucket Traefik polls on,
-    # or the one the container healthcheck uses. Leaving it unset is safe but
-    # coarse: every client behind this proxy shares one budget, so one noisy
-    # prober can exhaust it for the rest. Either way, gate the endpoint with the
-    # token and do not publish the port beyond where it is needed.
 
     location / {
         proxy_pass http://HA_HOST:8090;
@@ -493,6 +589,31 @@ server {
     }
 }
 ```
+
+**Why the `/traefik/` 404s.** Traefik fetches its config over the compose
+network, so that endpoint has no business being served on the public hostname.
+It carries no secrets, only member URLs and settings, which makes these blocks
+defense in depth rather than the control. The control is
+`FRONTDESK_TRAEFIK_TOKEN` in `.env`: with it set, an unauthenticated poll is
+refused before any work happens. Set the token, and keep the 404s anyway.
+
+**About the rate limits.** `/healthz` stays reachable through the catch-all on
+purpose: it is the container liveness probe and discloses nothing. It is bounded
+at 2 requests per second per resolved client address, as is `/traefik/config`
+while `FRONTDESK_TRAEFIK_TOKEN` is unset (with the token set the limiter is not
+mounted at all, because the request never gets that far). Those budgets are a
+fallback, not the control.
+
+**About `FRONTDESK_TRUSTED_PROXIES`.** If you set it, set it to the address Front
+Desk actually sees as the TCP peer, which with a published port and Docker's
+userland proxy is the bridge gateway rather than this nginx. Know what that buys
+and costs. Trusting the bridge means anything reaching the published port chooses
+its own `X-Forwarded-For`, and therefore its own rate-limit bucket, so it can key
+a flood into the bucket Traefik polls on or the one the container healthcheck
+uses. Leaving it unset is safe but coarse: every client behind this proxy shares
+one budget, so a single noisy prober can exhaust it for everyone else. Either
+way, gate the endpoint with the token and do not publish the port beyond where it
+is needed.
 
 If the member URLs you register in Front Desk also sit behind reverse proxies
 (each member's own dashboard hostname), give those proxies a read timeout of at
@@ -525,6 +646,19 @@ Desk's **Events** tab records control-plane facts only: membership changes,
 health transitions tagged by source, config lifecycle, and a warning when
 **Traefik has not polled for too long** (the one silent failure mode of the
 HTTP-provider design). No request or prompt content is ever logged.
+
+Front Desk also publishes one server-side verdict on the fleet as a whole, so
+every client (the web UI, Bellhop) shows the same judgment instead of deriving
+its own: **Healthy**, **Degraded** or **Faulty**, each with machine-readable
+reason codes. Degraded is a partial fault: a member down, a member drained out of
+the routing pool, a member held for build skew, a member not confirmed to hold
+the primary's config, or auto-sync off with no fleet sync for over a day. Faulty
+is reserved for a fleet-wide blast radius: every member down, draining down to a
+single active member (no redundancy left), sync held for every member (which
+means the primary itself is the odd one out), no sync in over three days, or
+Traefik having stopped fetching the routing config. Severity is judged by blast
+radius, never by comparing version strings, which are unorderable across
+self-built images.
 
 The **Traffic** tab charts each member's recent request and error volume as a
 live time series, proxied from the member's own stats endpoint: green for
@@ -618,12 +752,14 @@ phone the moment it fires.
 
 ## Paired Devices (Bellhop)
 
-**Settings -> Paired devices** links the Bellhop Android companion app (or any
+**Settings → Paired devices** links the Bellhop Android companion app (or any
 API client) to Front Desk without ever sharing the `FRONTDESK_TOKEN`:
 
 1. Choose a role and click **Pair device**. **Monitor** tokens are read-only
    (members, health, traffic, events, alerts, SSE); **Operator** tokens add
-   drain/activate, config sync, and the auto-sync toggle. A config sync only
+   drain/activate, config sync, the auto-sync toggle, the fleet version check,
+   the fleet-wide circuit-breaker reset (and the failover-group list it picks
+   from), and the choice of which events raise an alert. A config sync only
    ever copies from the designated primary: to copy from a different member,
    repoint the primary first, which takes the admin token. Neither role can add
    or remove members, change settings, or manage pairing; those stay with the
@@ -658,7 +794,8 @@ effect on the device's next request.
 
 1. Drop-in swap (runbook 1-3); client traffic uninterrupted after step 2.
 2. Kill member 1 mid-stream: that stream breaks, retry lands on member 2, badge
-   goes red within seconds.
+   goes red in about 15 seconds (three consecutive failed 5-second polls at the
+   defaults).
 3. Drain member 2 during a long stream: the stream completes, no new requests
    arrive; rebuild, re-activate, badge green; browser SSE reconnects.
 4. A virtual key created on member 1 and backup-restored to member 2

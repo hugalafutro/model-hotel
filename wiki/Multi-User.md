@@ -13,15 +13,15 @@ Model Hotel ships with a single shared admin token by default. Multi-user access
 - Two roles: **admin** (full access, every grant implied) and **user** (access bounded by a grant list).
 - A user **owns** their virtual keys. Per-account rate limits (RPS / burst / TPM) cap that account's aggregate traffic: every virtual key the user owns, plus what they send from the dashboard Chat and Arena pages.
 - An account can also carry a **provider cap**, an admin-set list of the providers it may reach. The cap bounds every key that account owns.
-- The username/password login form appears on the login screen only once at least one user exists. A fresh install keeps the single admin-token flow.
+- The username/password login form appears on the login screen only once at least one **enabled** user exists. A fresh install keeps the single admin-token flow.
 - Local admin-token login is never removed, so a locked-out or misconfigured user can never lock you out of the dashboard.
 
 ## Roles
 
 | Role | Access |
 |---|---|
-| `admin` | Everything: the Users page, all settings, providers, virtual keys, and logs. Grants are implied (the column reads "All grants"). |
-| `user` | Only the pages allowed by their `grants` list. No admin pages (Users, most of Settings). |
+| `admin` | Everything: the Users page, all settings, providers, virtual keys, and logs. Grants are implied (the **Access** column reads "Everything"). |
+| `user` | Only the pages allowed by their `grants` list, plus their own Security page. The admin-only pages (Users, Providers, Failover groups, Audit, Settings) stay out of reach whatever the grants say. |
 
 ## Grants
 
@@ -35,19 +35,32 @@ Grants apply to `user` accounts only. An `admin` implies all of them.
 | `models` | The models list (read-only). |
 | `virtual_keys` | The Virtual Keys page, with full CRUD over the user's own keys. |
 
-The grant catalog is defined in `internal/user/grants.go`; add a row there when a new alert- or feature-worthy surface is introduced.
+The edit modal renders its checkboxes from the backend grant catalog (`internal/user/grants.go`), so the list above is always what the server actually enforces.
 
 ## Managing users
 
 Admins manage accounts from the Users page:
 
-- **Create**: choose a username, display name, email, role, and grants, then set an initial password (minimum 8 characters). Share that password with the user out of band; the user signs in with it and the flow proceeds as normal.
-- **Edit**: change profile fields, role, or grants, and enable or disable the account.
-- **Reset password**: set a new password for the user.
-- **Reset second factor**: clear a user's TOTP enrollment if they lose their authenticator.
-- **Delete**: remove the account entirely.
+- **Create**: choose a username, display name, email, role, and grants, then set an initial password. Share that password with the user out of band; the user signs in with it and the flow proceeds as normal.
+- **Edit**: change profile fields, role, or grants, and enable or disable the account. Disabling revokes the account's live sessions immediately. An admin cannot disable or demote their own account, so nobody saws off the branch they sit on.
+- **Reset password**: set a new password for the user. This signs them out everywhere, so a reset always forces a fresh login.
+- **Reset two-factor authentication**: clear a user's TOTP enrollment if they lose their authenticator. It removes the authenticator binding **and all of that user's recovery codes**; their password is untouched.
+- **Delete**: remove the account and its sessions. Virtual keys the account owned are kept and become unowned, not deleted.
 
-The table shows each account's role, grants, enabled/disabled status (a shield icon marks accounts with a confirmed TOTP second factor), and last-login time.
+Passwords must be at least 8 characters. When breached-password screening is enabled (the default), they are also checked against the Have I Been Pwned corpus and a known-breached password is refused. See [Security](Security#authentication) for that check and what it sends.
+
+The **Email** field is more than a profile detail: it is the binding key for single sign-on. A verified OIDC or GitHub login carrying that address signs in as this account. One account binds to one external identity, so a second provider cannot claim it later by asserting the same email.
+
+The table shows each account's role, access, enabled/disabled status (a shield icon marks accounts with a confirmed TOTP second factor), and last-login time.
+
+## What a user manages themselves
+
+A signed-in user account gets its own **Security** page (the env admin token has no user row and uses Settings instead). From there a user can:
+
+- Change their own password, presenting the current one first. On success every session of the account is revoked, including the one making the change, so they sign back in with the new password.
+- Enroll, view, or disable their own authenticator app, and see how many recovery codes are left.
+
+Admins never see a user's password or TOTP secret; the only admin actions are reset and clear.
 
 ## Provider access
 
@@ -71,9 +84,11 @@ The account bucket covers **every** surface the account can send from, not only 
 
 ## Login and second factor
 
-- A user signs in with username and password on the standard login screen. A "Sign in with password" block appears alongside passkey, SSO, and the admin token once any user exists.
+- A user signs in with username and password on the standard login screen. A "Sign in with password" block appears alongside passkey, SSO, and the admin token once any enabled user exists.
 - If the user has enrolled TOTP, the login completes with their own 6-digit code (separate from the admin TOTP). Recovery codes are per account.
-- Sessions are SHA-256 hashed and never stored in plaintext, on the same infrastructure passkey and admin TOTP login use.
+- Unknown username, wrong password, and disabled account all return the same 401, and a missing username costs the same hashing work as a wrong password, so the form leaks neither which usernames exist nor which are enabled.
+- Failed sign-ins back off after five failures, per IP address and per username, growing from one second up to a five-minute ceiling. The backoff always expires: an attacker hammering a username cannot lock its owner out permanently.
+- Sessions are the same DB-backed session tokens that passkey and admin TOTP login use, with the same hashing and expiry. See [Security](Security#authentication) for session lifetime and the sign-out-others controls.
 - The admin token, passkeys, and SSO all keep working regardless of how many user accounts exist.
 
 ## Audit trail
@@ -89,14 +104,16 @@ Each entry records who (actor and role), what (HTTP method and route pattern), t
 
 - The **Entity** column resolves the target's UUID to its current display name at read time (model, provider, virtual key, failover group, or username). Names are never stored: after a rename the trail shows the new name, and a deleted entity leaves only its UUID as the trace.
 - Clicking a row opens a detail modal with copyable fields: full timestamp, actor, entity name and UUID, endpoint pattern, the concrete request path, and remote address.
-- The list filters by actor and method, and paginates newest-first with a cursor.
+- The list filters by actor and method, and pages newest-first.
 - The trail can be purged from the page. The purge is itself a mutating request and is recorded, so a wiped trail always shows who wiped it.
+- The trail is instance-local operational telemetry: it is not fleet-synced, not included in backups, and old rows are pruned against a retention window (90 days unless `audit_retention_days` says otherwise).
 
 See [API Reference](API-Reference#audit-trail) for the `/api/audit` endpoints.
 
 ## Security notes
 
-- Passwords are hashed with **argon2id** (per-account random salt, PHC string format), the same KDF used for `MASTER_KEY` derivation. Plaintext passwords are never stored.
+- Passwords are hashed with **argon2id**, each with its own random salt, and stored as a PHC string (a self-describing hash that carries the salt and cost parameters alongside the digest, so the cost can be raised later without a migration). It is the same key-derivation function used for `MASTER_KEY`. Plaintext passwords are never stored.
 - User TOTP secrets are AES-256-GCM encrypted at rest with `MASTER_KEY`, like provider keys.
 - Grants are enforced server-side on every request. The UI gating is convenience, not the security boundary: a user who loses a grant cannot reach that data even by calling the API directly.
-- In a High Availability fleet, user accounts live in each member's database and are replicated by Front Desk config-sync (alongside providers, virtual keys, settings, and failover groups), so a user can sign in against any healthy member. See [High Availability](High-Availability).
+- On a demo instance running with `DEMO_READONLY=true`, every user-management write is refused along with the rest of the admin CRUD surface. The roster stays browsable.
+- In a High Availability fleet, user accounts (including the password hash, role, grants, limits, and provider cap) are replicated by Front Desk config-sync alongside providers, virtual keys, settings, and failover groups, so a user can sign in against any healthy member with the same credentials. Two things stay local to each member: **per-user TOTP enrollments and recovery codes**, which are never synced, so a user enrolls a second factor separately on each member and resets it there; and **user management writes**, which a managed member refuses, because the primary owns the roster and replaces it on the next sync. See [High Availability](High-Availability).

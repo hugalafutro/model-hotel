@@ -1,6 +1,6 @@
 # 🔍 Model Discovery
 
-Model discovery is the process by which Model Hotel learns about available models from configured providers. Discovery fetches model lists from provider APIs, enriches them with metadata from built-in catalogs and the models.dev community database, and upserts the results into the PostgreSQL database.
+Model discovery is the process by which Model Hotel learns about available models from configured providers. Discovery fetches model lists from provider APIs, enriches them with metadata from built-in catalogs and the models.dev community database, and writes the results into the PostgreSQL database, inserting rows it has not seen before and updating the ones it has (an *upsert*).
 
 <p align="center">
 <img src="screenshots/models.png" alt="Models Page" width="700"><br>
@@ -26,6 +26,9 @@ Model discovery is the process by which Model Hotel learns about available model
 - [Enabling/Disabling Models](#enablingdisabling-models)
 - [Model CRUD API](#model-crud-api)
 - [Model Caching](#model-caching)
+- [Provider Metadata Comparison](#provider-metadata-comparison)
+- [Additional Provider APIs](#additional-provider-apis)
+- [Related Documentation](#related-documentation)
 
 ---
 
@@ -84,13 +87,21 @@ Two manual discovery endpoints are available:
 | `/api/providers/{id}/discover` | POST | Single provider | Discover and import models for one provider |
 | `/api/providers/discover-all` | POST | All providers | Discover and import models for every enabled provider; skips disabled providers |
 
-Both endpoints upsert discovered models and re-sync failover groups for what they saw. They do **not** disable missing models: disabling requires two consecutive confirmed-missing scans, so a single on-demand click can never reach that threshold, and running the in-scan confirmation probes (up to ~70s of backoff) on a request would overrun the route's 60s HTTP timeout - which also made the HA config-sync import look like it failed. Miss-recording and disabling are therefore owned exclusively by the scheduled/startup background sweep - see [Missing models: three layers of proof before a disable](#missing-models-three-layers-of-proof-before-a-disable). When the background sweep does disable a model, its failover group is re-synced in the same scan so the model is pruned instead of lingering as a stale entry.
+Both endpoints upsert discovered models and re-sync failover groups for what they saw. They do **not** disable missing models: disabling requires two consecutive confirmed-missing scans, so a single on-demand click can never reach that threshold, and running the in-scan confirmation probes (up to ~70s of backoff) on a request would overrun the route's 60s HTTP timeout - which also made the HA config-sync import look like it failed. Miss-recording and disabling are therefore owned exclusively by the scheduled/startup background sweep, see [Missing models: three layers of proof before a disable](#missing-models-three-layers-of-proof-before-a-disable). When the background sweep does disable a model, its failover group is re-synced in the same scan so the model is pruned instead of lingering as a stale entry.
 
-Both endpoints also return a `diff` describing what the scan changed - models added or re-enabled (with machine-readable reason codes `new_model`, `reappeared`) plus any failover groups updated as a result. (The background sweep's diff can also carry `disabled` entries with reason `not_listed`; manual scans never disable, so theirs will not.) It also reports `updated` models whose pricing or context-length metadata moved since the previous scan: each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old`/`new` numbers). The diff reports what actually persisted: price moves are reported from any source (live API, catalog, models.dev - prices follow their source on unpinned rows) but suppressed on operator-pinned rows, where the upsert keeps the stored values; context-length moves are reported only when the provider's own live API supplied the value (tracked via transient per-field live provenance), since a non-live context value is fill-only. OpenRouter's sub-tolerance price jitter is damped to the stored value before the upsert, so it neither persists nor reports. The dashboard renders this diff as a post-scan summary modal after manual Discover / Discover All runs; an all-empty diff still confirms "scanned, nothing changed".
+Both endpoints also return a `diff` describing what the scan changed: models added or re-enabled (with machine-readable reason codes `new_model`, `reappeared`), plus any failover groups updated as a result. The background sweep's diff can also carry `disabled` entries with reason `not_listed`; manual scans never disable, so theirs will not.
 
-Scheduled/startup background discovery does not pop the modal (SSE events cover it). Instead, any changes it records are persisted to a `discovery_changes` store (migration `047`) and surfaced as a badge on the **Models** sidebar item; clicking the badge opens the [Model Discrepancy Modal](#the-model-discrepancy-modal). A `discovery.changes_pending` SSE event fires when a background scan records changes. See the [API Reference](https://github.com/hugalafutro/model-hotel/wiki/API-Reference) for the `GET /api/discovery/changes` and `POST /api/discovery/changes/ack` endpoints.
+The diff also reports `updated` models whose pricing or context-length metadata moved since the previous scan. Each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old` and `new` numbers).
 
-Opening the modal does **not** clear the badge. Nothing is acked until the operator actually expands the Recent changes section, because a badge that clears on a glance is a badge that hides things.
+What the diff reports is what actually persisted:
+
+- Price moves are reported from any source (live API, catalog, models.dev), because prices follow their source on unpinned rows, but suppressed on operator-pinned rows, where the upsert keeps the stored values.
+- Context-length moves are reported only when the provider's own live API supplied the value (tracked via transient per-field live provenance), since a non-live context value is fill-only.
+- OpenRouter's sub-tolerance price jitter is damped to the stored value before the upsert, so it neither persists nor reports.
+
+The dashboard renders this diff as a post-scan summary modal after manual Discover and Discover All runs. An all-empty diff still confirms "scanned, nothing changed".
+
+Scheduled/startup background discovery does not pop the modal (SSE events cover it). Instead, any changes it records are persisted to a `discovery_changes` store (migration `047`) and surfaced as a badge on the **Models** sidebar item; clicking the badge opens the [Model Discrepancy Modal](#the-model-discrepancy-modal). Two SSE events come out of a background sweep: `discovery.changes_pending` when it records any change, and `discovery.models_disabled` (severity warning) naming the provider and count whenever it disables models. The modal reads `GET /api/discovery/status`; `POST /api/discovery/changes/ack` marks the journal seen. See the [API Reference](API-Reference) for both.
 
 ```json
 {
@@ -121,59 +132,56 @@ The badge on the **Models** sidebar item opens this. It answers one question: wh
 <img src="screenshots/discrepancy_modal.png" alt="Model discrepancy modal: one provider pill open with its suspect bucket unrolled, the other pills collapsed with their gone counts, and the Recent changes journal expanded below" width="720"><br>
 </div>
 
-### Claims are derived, never stored
+### Rules
 
-Every row is computed from live state (`models`, `model_failover_groups`) on each request. Nothing is read back from the `discovery_changes` journal, so a claim cannot drift from reality and a rescan always corrects it. The only persisted operator intent is two columns: `models.discovery_dismissed_at` (migration `061`) and `model_failover_groups.auto_disabled_at` (`062`).
+- Every row is computed from live state (`models`, `model_failover_groups`) on each request. Nothing is read back from the `discovery_changes` journal, so a claim cannot drift from reality and a rescan always corrects it.
+- The only persisted operator intent is three columns: `models.discovery_dismissed_at` (migration `061`), `models.manually_enabled_at` (`070`), and `model_failover_groups.auto_disabled_at` (`062`).
+- `ClaimWindow` (30 days) bounds three things that must agree: how far back flap counts are computed, how long journal rows are retained, and how long a quiet gone model waits before it stops counting. Auto-dismiss at that horizon is a *predicate*, not a write, so changing the constant re-derives every claim with no backfill.
+- Providers render as collapsed pills carrying their actionable counts. Click a pill to reveal its bucket lines, click a line to reveal the models. Only one provider and only one bucket line are ever open, so opening a second collapses the first.
+- Rows are mounted only while their bucket is open. That is a performance decision: a fleet with eight providers and 179 discrepancies would otherwise hold every row in the DOM at once, and animating a 52-row list open forces a full-subtree relayout on every frame.
+- Scroll past the open provider's header and a return-to-top control floats in. It scrolls without collapsing what you are reading.
+- Opening the modal does not clear the badge. Nothing is acked until the operator actually expands the Recent changes section, because a badge that clears on a glance is a badge that hides things.
+- Dismissing is one-way. There is no undo and the endpoint has no un-dismiss direction: a dismissal reverses itself when discovery next sights the model, which is the only reversal the feature needs.
+- Dismissing never stops discovery. It clears rows from this list; discovery keeps sweeping, and `models.Upsert` clears `discovery_dismissed_at` on any sighting, so a dismissed model returns as a fresh claim if its provider lists it again and it later goes missing again.
+- A refused (traffic-retired) model is the exception: it never leaves the listing, so it is sighted on every scan and its dismissal is deliberately kept. Only enabling it by hand brings it back.
+- Suspect models cannot be dismissed at all. `setModelsDismissed` only touches `enabled = false` rows, because pre-dismissing a still-enabled model would silently hide the claim the next time it genuinely went missing.
+- Nothing vanishes when you act on it. A dismissed or resolved row stays struck through where it sat, and a cleared provider keeps its buckets as the log of what you did, until you clear the provider.
+- **dismissed** and **back** mean opposite things and are tracked separately: dismissed means you acknowledged it and the model is still gone, back means the provider is listing it again and it fixed itself. Both are absent from the next fetch, which is why the distinction has to be tracked client-side rather than inferred from absence.
 
-### The three buckets
+### The five buckets
 
 | Bucket | Meaning | Counted by the badge? |
 | --- | --- | --- |
 | **Gone** | The provider stopped listing it and discovery disabled it here. | **Yes** |
+| **Refused** | The provider still lists it, but it refused every request, so the gateway retired it (`models.auto_retired_at`). | **Yes** |
 | **Suspect** | Still enabled, but absent from recent scans. One more miss and it goes. | No, early warning only |
 | **Stale** | Missing over 30 days with no flapping, so almost certainly retired rather than broken. | No |
+| **Pinned by you** | You enabled it by hand while the provider's listing still omits it. Shown so a forgotten pin stays visible. | No |
 
-`ClaimWindow` (30 days) bounds three things that must agree: how far back flap counts are computed, how long journal rows are retained, and how long a quiet gone model waits before it stops counting. Auto-dismiss at that horizon is a *predicate*, not a write, so changing the constant re-derives every claim with no backfill.
-
-### Navigating it
-
-Providers render as collapsed pills carrying their actionable counts. Click a pill to reveal its bucket lines; click a line to reveal the models. **Only one provider and only one bucket line are ever open**, so opening a second collapses the first.
-
-Rows are mounted only while their bucket is open. That is a performance decision, not a cosmetic one: a fleet with eight providers and 179 discrepancies would otherwise hold every row in the DOM at once, and animating a 52-row list open forces a full-subtree relayout on every frame. Scroll past the open provider's header and a return-to-top control floats in; it scrolls without collapsing what you are reading.
-
-### Acting on it
+### Controls
 
 | Control | Scope | Effect |
 | --- | --- | --- |
-| **Retest** | one provider | Re-runs discovery for it and re-checks its models. |
+| **Retest** | one provider | Re-runs discovery for it and re-checks its models. Not offered when a provider's only rows are refused ones: a retest asks what the provider lists, and those models are listed. |
 | **Retest all** | header | Walks every listed provider in turn, cancellable. |
 | **Dismiss** | one model | Clears that row from the list. |
-| **Dismiss all** | one provider | Clears every gone and stale model on it, in one request, after a confirm. |
+| **Unpin** | one model | Hands a pinned model back to automatic management with a clean miss streak (`POST /api/discovery/{provider_id}/unpin`). |
+| **Dismiss all** | one provider | Clears every gone, refused and stale model on it, in one request, after a confirm. |
 | **Dismiss all** | header | Same, across every listed provider. This is the "I saw the badge, I do not need the detail" path: confirm once and the badge clears. |
-| **Clean** (broom) | one provider | Appears only once nothing on that provider is actionable. Drops the pill from the view and writes nothing. |
+| **Clear this provider** (broom) | one provider | Appears only once nothing on that provider is actionable. Drops the pill from the view and writes nothing. |
 
-**Dismissing is one-way, and that is deliberate.** There is no undo, and the endpoint has no un-dismiss direction: a dismissal reverses itself when discovery next sights the model, which is the only reversal the feature needs. Nothing here writes anything a scan cannot correct on its own.
-
-**Dismissing never stops discovery.** It clears rows from this list. Discovery keeps sweeping, and `models.Upsert` clears `discovery_dismissed_at` on any sighting, so a dismissed model returns as a fresh claim if its provider lists it again and it later goes missing again. Suspect models cannot be dismissed at all: `setModelsDismissed` only touches `enabled = false` rows, because pre-dismissing a still-enabled model would silently hide the claim the next time it genuinely went missing.
-
-Nothing vanishes when you act on it. A dismissed or resolved row stays struck through where it sat, and a cleared provider keeps its buckets as the log of what you did, until you hit Clean.
-
-### Dismissed is not resolved
-
-The modal distinguishes two reasons a row can clear, because they mean opposite things:
-
-- **dismissed** - you acknowledged it. The model is still gone.
-- **back** - the provider is listing it again. It fixed itself.
-
-Both are absent from the next fetch, which is why the distinction has to be tracked client-side rather than inferred from absence.
+In a fleet, pins are managed by the primary and replaced on the next config sync, so a member's modal points you at the primary instead of offering Unpin.
 
 ### Retired rows are pruned
 
-A model the provider stopped listing stays in the table as a disabled row so you can see what went away, retest it, or pin it. It does not stay forever. After each scheduled discovery pass, rows that discovery retired more than `model_prune_days` ago (default 7, maximum 180, `0` to keep everything) are deleted, and their failover groups resynced. The pass only touches providers it just scanned successfully, skips anything that flapped (was re-listed) in the last 30 days, and deletes at most 500 rows per pass. A row's own retirement does not count as a flap, so a horizon shorter than the 30-day flap window is honoured as written. Manual discovery from the dashboard never prunes; only the scheduled and startup passes do.
+A model the provider stopped listing stays in the table as a disabled row so you can see what went away, retest it, or pin it. It does not stay forever. The rules:
 
-Never pruned: models you disabled or enabled by hand, models the proxy retired for refusing requests (the provider still lists those), and models of disabled providers (those wait, with their pins, prices and failover memberships, for the provider to come back).
-
-Each fleet member prunes on its own schedule with the same horizon, so members converge without any deletion sync. If a pruned model is listed again later, discovery creates a fresh row.
+- After each scheduled discovery pass, rows that discovery retired more than `model_prune_days` ago (default 7, maximum 180, `0` to keep everything) are deleted and their failover groups resynced.
+- The pass only touches providers it just scanned successfully, skips anything that flapped (was re-listed) in the last 30 days, and deletes at most 500 rows per pass.
+- A row's own retirement does not count as a flap, so a horizon shorter than the 30-day flap window is honoured as written.
+- Manual discovery from the dashboard never prunes. Only the scheduled and startup passes do.
+- Never pruned: models you disabled or enabled by hand, models the proxy retired for refusing requests (the provider still lists those), and models of disabled providers (those wait, with their pins, prices and failover memberships, for the provider to come back).
+- Each fleet member prunes on its own schedule with the same horizon, so members converge without any deletion sync. If a pruned model is listed again later, discovery creates a fresh row.
 
 ### Failover group claims
 
@@ -183,11 +191,34 @@ Failover groups that discovery disabled appear in their own section, with live m
 
 The informational journal, newest first. It never holds the badge count open, only its dot, and collapsing or expanding it is what marks it seen. Price and context-length moves land here rather than as claims: a price change is news, not a fault.
 
+### Unaddressed claims raise an alert
+
+The badge is passive, and an operator who does not open the dashboard never learns that models stopped working. So when the oldest still-counted claim has been sitting there longer than `discovery_claim_alert_days` (default `7`, minimum `1`, maximum `29`), discovery publishes a `discovery.claims_outstanding` warning event. The rules:
+
+- The ceiling is deliberately one day below the 30-day claim window. Set equal, a gone claim would age out of the count at exactly the instant the alert would fire, and the alert would look configured while being silently dead.
+- The alert is edge-triggered like the circuit breaker, and the edge is persisted (`_discovery_claim_alert_fired_at`) because the evaluation runs once per discovery cycle by a process that may restart between cycles.
+- The latch stores the *count* it last alerted at, not a flag. It rises only by firing, and falls silently whenever the live total drops below it, so a fixed backlog followed by a fresh one alerts again. A boolean latch would be held open forever by a refused model or an accepted dead failover group, neither of which ever ages out.
+
 ---
 
 ## Provider-Specific Discovery
 
 Each provider type has its own discovery implementation in `internal/provider/discovery_*.go`. Discovery reads the type stored on the provider row, which is the one the operator picked when adding it. A row without a type (created before the column existed) falls back to the legacy URL derivation. Types with no dedicated implementation, including `custom`, use OpenAI-compatible discovery.
+
+### The modality class is derived, not written
+
+`models.modality` is a derived *endpoint class* with a closed vocabulary: `chat`, `embedding`, `rerank`, `image`, `video`, `tts`, `stt`. Discovery never hand-writes it. `input_modalities` and `output_modalities` are the source of truth, and `NormalizeModelClassification` (`internal/provider/model_class.go`) derives the class from them once, after models.dev enrichment and immediately before the upsert.
+
+The one exception is explicit endpoint knowledge. Where a provider's API states the endpoint (Cohere's rerank and embed listings, xAI's image-generation listing, an Ollama `completion` capability, an LM Studio `llm` or `vlm` type) discovery sets the class and it is final. OpenRouter and NanoGPT copy the provider's own `architecture.modality` string through as it came, so a provider that wrote `chat` there is taken at its word. `video` is deliberately never explicit: the legacy vocabulary used it for video-*input* chat models, so video generation must be signalled through `output_modalities` instead.
+
+The rest is derivation:
+
+- A `rerank` or `embedding` output wins outright.
+- A text (or `code`) output means `chat`, unless the model id names a transcriber beside an audio input (`stt`) or an embedding/rerank family (`embed`, `rerank`, `bge`, `gte`, `e5`, `minilm`).
+- Otherwise the output array decides: `video`, then `image`, then audio out as `tts`.
+- With no modality information at all, the model id is the only signal, and anything unrecognized derives `chat` so a new modality never silently disappears from the pickers.
+
+Legacy modality words a catalog still carries (`vision`, `audio`, `multimodal`) and arrow strings (`text+image->text`) are read as hints, folded into the modality arrays, and the class is then re-derived. Input-flavoured capability flags (`vision`, `audio_input`, `video_input`, `pdf_upload`) and the input array are kept in sync in both directions, so a Vision pill and a stored input array can never contradict each other.
 
 ### Live + Catalog Merge
 
@@ -262,13 +293,19 @@ The match is on the body, never on the status: LM Studio answers routes it does
 not serve with HTTP 200 and an `{"error": ...}` body, so a status-only check
 would identify it as whichever family was probed first.
 
+Each probe is bounded at 5 seconds. The operator is waiting on the add dialog
+and the server is on the LAN or the same box, so a slow answer is a wrong
+answer. If no probe reaches the server at all the save is rejected as
+unreachable, which is a different failure from "something answered but it is
+not the family you picked".
+
 ### OpenAI
 
 **Source files:** `discovery_openai.go`, `openai_catalog.go`, `catalog_merge.go`
 
-**Method:** Calls `GET /v1/models`, converts the listing to clean stubs (id + owner), and **backfills** matching models from the built-in `openaiCatalog` (the gpt-5.x family) via `backfillLiveFromCatalog` - *not* a union. discoverOpenAI is also the fallback for unknown/custom hosts, so the catalog must never add catalog-only models (that would attach phantom gpt-5.x models to a custom OpenAI-compatible provider); for real OpenAI the catalog is a subset of the live listing anyway. The ~110 uncatalogued models (gpt-4o, the o-series, etc.) are enriched by models.dev instead of the old fabricated empty entry.
+**Method:** Calls `GET /v1/models`, converts the listing to clean stubs (id + owner), and **backfills** matching models from the built-in `openaiCatalog` via `backfillLiveFromCatalog` (*not* a union). The catalog is small on purpose: two rows, `gpt-5.5-pro` and `gpt-5.4-pro`. discoverOpenAI is also the fallback for unknown and custom hosts, so the catalog must never add catalog-only models (that would attach phantom OpenAI models to a custom OpenAI-compatible provider); for real OpenAI the catalog is a subset of the live listing anyway. Every uncatalogued model (gpt-4o, the o-series, and anything new) is enriched by models.dev.
 
-- Models covered by the catalog receive full metadata: display name, description, context length, max output tokens, modality, input/output modalities, streaming/reasoning/tool-calling/structured-output/vision flags, pricing (including cache-hit pricing).
+- Models covered by the catalog receive full metadata: display name, description, context length, max output tokens, input/output modalities, streaming/reasoning/tool-calling/structured-output/vision flags, pricing (including cache-hit pricing).
 - Models **not** in the catalog pass through as clean stubs (`Streaming: true`, empty modalities) for models.dev to fill.
 
 **Catalog fields provided:**
@@ -279,7 +316,6 @@ would identify it as whichever family was probed first.
 | Description | Catalog |
 | Context length | Catalog |
 | Max output tokens | Catalog |
-| Modality | Catalog |
 | Input/Output modalities | Catalog |
 | Streaming | Catalog |
 | Reasoning | Catalog |
@@ -293,7 +329,9 @@ would identify it as whichever family was probed first.
 
 **Source files:** `discovery_anthropic.go`, `anthropic_catalog.go`
 
-**Method:** Calls `GET /v1/models?limit=100` with pagination (using `after_id` cursor) to list all models. The Anthropic API returns rich capability metadata per model. Pricing is then looked up from the built-in `anthropicPricing` catalog. Date-suffixed model IDs (e.g., `claude-sonnet-4-5-20250514`) are stripped to their base ID for catalog lookup.
+**Method:** Calls `GET /v1/models?limit=100` with pagination (using an `after_id` cursor) to list all models. The Anthropic API returns rich capability metadata per model. Pricing is then looked up from the built-in `anthropicPricing` catalog. Date-suffixed model IDs (e.g. `claude-sonnet-4-5-20250514`) are stripped to their base ID for that lookup.
+
+That catalog currently ships **empty** (`catalogs/anthropic.json`): models.dev's canonical `anthropic` entry covers Claude pricing, so there is nothing to override. It stays as an override channel for a price models.dev has not caught up with.
 
 **API-provided fields:**
 
@@ -305,11 +343,10 @@ would identify it as whichever family was probed first.
 | Vision | API (`capabilities.image_input.supported`) |
 | PDF upload | API (`capabilities.pdf_input.supported`) |
 | Structured output | API (`capabilities.structured_outputs.supported`) |
-| Modality | Derived from API capabilities (vision → `"vision"`, else `"text"`) |
-| Input modalities | Derived from API capabilities (vision → `["text","image"]`, else `["text"]`) |
+| Input modalities | Derived from API capabilities: PDF → `["text","image","pdf"]`, vision → `["text","image"]`, else `["text"]` |
 | Streaming | Hardcoded `true` |
 | Tool calling | Hardcoded `true` |
-| Output modalities | Hardcoded `[]` |
+| Output modalities | Hardcoded `["text"]` |
 
 **Catalog-provided fields:**
 
@@ -335,6 +372,8 @@ Discovery fails loudly if the endpoint does not serve the listing, rather than a
 
 #### Extended thinking
 
+This is proxy behaviour rather than discovery, kept here because it is specific to this provider type.
+
 An OpenAI client asks for reasoning with `reasoning_effort`, and Anthropic takes that request in one of two mutually exclusive shapes:
 
 | Shape | Request | Models |
@@ -344,7 +383,7 @@ An OpenAI client asks for reasoning with `reasoning_effort`, and Anthropic takes
 
 Nothing in a model id says which it takes, and the split is not generational. Measured live on 2026-08-20: `claude-opus-5` and `claude-sonnet-5` accept adaptive **only**, `claude-opus-4-5` and `claude-haiku-4-5` accept budget **only**, and `claude-sonnet-4-6` accepts **both**. A third-party Messages endpoint may serve model ids that follow no Anthropic naming convention at all.
 
-So the dialect is learned rather than guessed. MH asks in the adaptive shape (what current models want), and if the upstream refuses with the 400 that names the other shape, it records the dialect for that provider+model and re-issues the request once. The caller sees the answer, not the 400, and no later request to that model pays the extra round-trip. The cache is in memory and per instance, like the learned param caches: relearning after a restart costs one 400, and the alternative is a stored fact that goes stale when Anthropic moves a model between dialects. See `internal/proxy/anthropic_thinking_retry.go`.
+So the dialect is learned rather than guessed. Model Hotel asks in the adaptive shape (what current models want), and if the upstream refuses with the 400 that names the other shape, it records the dialect for that provider+model and re-issues the request once. The caller sees the answer, not the 400, and no later request to that model pays the extra round-trip. The cache is in memory and per instance, like the learned param caches: relearning after a restart costs one 400, and the alternative is a stored fact that goes stale when Anthropic moves a model between dialects. See `internal/proxy/anthropic_thinking_retry.go`.
 
 The same self-heal covers the other per-model fact no id reveals: **a param the model has retired.** `claude-sonnet-5` and `claude-opus-5` answer `` `temperature` is deprecated for this model `` while every 4.x model accepts it, and OpenAI clients send `temperature` as a matter of course, so this is the more common of the two. A Messages 400 naming a rejected param is learned into the same `deprecationCache` the compat path uses and the request re-issued without it. Learning is deliberately restricted to `anthropic-messages` providers, whose only route is Messages: the cache is keyed by provider+model, so learning a strip from a Messages 400 on an `anthropic` provider could remove a param from that model's compat traffic, which accepts it.
 
@@ -367,36 +406,36 @@ Only mantle is supported: the classic `bedrock-runtime` endpoint serves chat sol
 
 **Anthropic models are skipped at discovery.** On Bedrock, `anthropic.*` models reject `/v1/chat/completions` (they are served only through the Anthropic Messages dialect at `{base}/anthropic/v1/messages`, which the proxy does not forward to). Exposing them would list models that fail on every chat request, so the discoverer drops them (logged at debug level, with an aggregate `skipped_messages_dialect` count in the completion log line).
 
-**Account prerequisites for Bedrock itself** (not MH-specific): most non-Anthropic models (GPT-OSS, GPT-5.x, Qwen, Kimi, GLM, DeepSeek, Mistral, Gemma, ...) work as soon as you generate an API key in the Bedrock console. Anthropic models additionally require a valid payment method, the Anthropic first-time-use form, a per-model Marketplace agreement (`aws bedrock create-foundation-model-agreement`), and on new or low-usage accounts may still be gated behind an AWS support request.
+**Account prerequisites for Bedrock itself** (not Model Hotel specific): most non-Anthropic models (GPT-OSS, GPT-5.x, Qwen, Kimi, GLM, DeepSeek, Mistral, Gemma, ...) work as soon as you generate an API key in the Bedrock console. Anthropic models additionally require a valid payment method, the Anthropic first-time-use form, a per-model Marketplace agreement (`aws bedrock create-foundation-model-agreement`), and on new or low-usage accounts may still be gated behind an AWS support request.
 
 ### Azure AI Foundry
 
 **Source files:** `discovery_azure.go`
 
-**Method:** Azure is deployment-based: `GET /openai/v1/models` returns the full Azure model *catalog* (300+ entries), but only **deployments** the user created are invokable — and requests must name the deployment, not the base model. Discovery therefore enumerates deployments, via one of two routes depending on the base URL:
+**Method:** Azure is deployment-based: `GET /openai/v1/models` returns the full Azure model *catalog* (300+ entries), but only **deployments** the user created are invokable, and requests must name the deployment, not the base model. Discovery therefore enumerates deployments, via one of two routes depending on the base URL:
 
-- **Foundry project endpoint** (`https://{resource}.services.ai.azure.com/api/projects/{project}` — exactly the string the Foundry portal hands you; recommended): lists via the project data-plane (`{root}/api/projects/{project}/deployments?api-version=v1`), which also carries the underlying model name, version, and publisher.
-- **Anything else on an Azure AI host** (a bare resource root or an `/openai/v1` base, including classic `{resource}.openai.azure.com` resources): lists via the classic data-plane route (`{root}/openai/deployments?api-version=2023-03-15-preview` — the only api-version that still serves the listing; GA versions dropped it). Non-`succeeded` deployments are skipped.
+- **Foundry project endpoint** (`https://{resource}.services.ai.azure.com/api/projects/{project}`, exactly the string the Foundry portal hands you; recommended): lists via the project data-plane (`{root}/api/projects/{project}/deployments?api-version=v1`), which also carries the underlying model name, version, and publisher.
+- **Anything else on an Azure AI host** (a bare resource root or an `/openai/v1` base, including classic `{resource}.openai.azure.com` resources): lists via the classic data-plane route (`{root}/openai/deployments?api-version=2023-03-15-preview`, the only api-version that still serves the listing, since GA versions dropped it). Non-`succeeded` deployments are skipped.
 
-Both routes accept the resource API key as a **bearer token** (the legacy `api-key` header also works but MH doesn't need it). Whatever base URL shape is configured, the proxy sends chat traffic to the one real inference surface, `https://{host}/openai/v1/chat/completions` (no `api-version` parameter needed on the v1 surface).
+Both routes accept the resource API key as a **bearer token** (the legacy `api-key` header also works but Model Hotel does not need it). Whatever base URL shape is configured, the proxy sends chat traffic to the one real inference surface, `https://{host}/openai/v1/chat/completions` (no `api-version` parameter needed on the v1 surface).
 
 **Enrichment for aliased deployments:** the deployment name becomes the model ID (it is the invokable identifier) and the underlying base-model name is kept as the model's internal name. models.dev enrichment matches the deployment name first and falls back to the base-model name, so a deployment called `my-fast-gpt` backing `gpt-4.1-mini` still gets context/pricing metadata.
 
-**Account prerequisites for Azure itself** (not MH-specific): create an Azure AI Foundry resource (or classic Azure OpenAI resource) in the Azure portal, then **deploy at least one model** (Foundry portal → Deployments → Deploy model). A resource with zero deployments discovers zero models (MH logs a warning telling you to deploy first). Azure-sold models (OpenAI family) need no extra agreement; partner/community models (Meta, Mistral, xAI, Anthropic, ...) may require an Azure Marketplace subscription accepted during deployment.
+**Account prerequisites for Azure itself** (not Model Hotel specific): create an Azure AI Foundry resource (or classic Azure OpenAI resource) in the Azure portal, then **deploy at least one model** (Foundry portal → Deployments → Deploy model). A resource with zero deployments discovers zero models (Model Hotel logs a warning telling you to deploy first). Azure-sold models (OpenAI family) need no extra agreement; partner/community models (Meta, Mistral, xAI, Anthropic, ...) may require an Azure Marketplace subscription accepted during deployment.
 
 ### Vertex AI (express keys)
 
 **Source files:** `discovery_vertex.go`, `vertex_catalog.go`, `catalogs/vertex_express.json`
 
-**Method:** Vertex AI **express-mode** API keys (free-tier keys from [express mode](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview), no billing account needed) only work on Google's *native* publisher routes — every OpenAI-compatible Google surface rejects them, and **no model-listing route accepts them** (the publishers listing wants OAuth). Discovery therefore starts from a shipped candidate list (`catalogs/vertex_express.json`) and validates each entry with a free `POST .../models/{id}:countTokens` probe (parallel, bounded concurrency):
+**Method:** Vertex AI **express-mode** API keys (free-tier keys from [express mode](https://cloud.google.com/vertex-ai/generative-ai/docs/start/express-mode/overview), no billing account needed) only work on Google's *native* publisher routes: every OpenAI-compatible Google surface rejects them, and **no model-listing route accepts them** (the publishers listing wants OAuth). Discovery therefore starts from a shipped candidate list (`catalogs/vertex_express.json`) and validates each entry with a free `POST .../models/{id}:countTokens` probe (parallel, bounded concurrency):
 
 - **200** → the key can invoke the model; it is kept as a clean stub for models.dev enrichment (context, pricing, modalities).
 - **404** → not express-eligible (or retired); dropped silently. Not-yet-eligible candidates stay in the catalog so they light up automatically once Google enables them for express mode.
 - **401/403** → discovery fails loudly, so a bad key reads as an error instead of "zero models".
 
-**Chat traffic is translated, not proxied.** Gemini's native `generateContent` dialect is not OpenAI-shaped, so requests to a vertex-express provider go through MH's Gemini egress adapter (`internal/gemini`): the chat-completions body is rewritten to `generateContent` on the way out (system → `systemInstruction`, tools → `functionDeclarations` with full JSON Schema, images → `inlineData`, `reasoning_effort` → thinking budget, JSON response formats → `responseJsonSchema`, penalties/seed → `generationConfig`) and the response — including SSE streams, tool calls, and thinking-token usage — is translated back to the chat-completions shape before the rest of the pipeline sees it. Failover groups can therefore mix vertex-express with OpenAI-compatible providers transparently. Auth uses the `x-goog-api-key` header.
+**Chat traffic is translated, not proxied.** Gemini's native `generateContent` dialect is not OpenAI-shaped, so requests to a vertex-express provider go through Model Hotel's Gemini egress adapter (`internal/gemini`): the chat-completions body is rewritten to `generateContent` on the way out (system → `systemInstruction`, tools → `functionDeclarations` with full JSON Schema, images → `inlineData`, `reasoning_effort` → thinking budget, JSON response formats → `responseJsonSchema`, penalties/seed → `generationConfig`) and the response (including SSE streams, tool calls, and thinking-token usage) is translated back to the chat-completions shape before the rest of the pipeline sees it. Failover groups can therefore mix vertex-express with OpenAI-compatible providers transparently. Auth uses the `x-goog-api-key` header.
 
-**Account prerequisites for Vertex itself** (not MH-specific): sign up for Vertex AI express mode with a Google account and copy the express API key (`AQ.`-prefixed). Free-tier keys expire after 90 days and cover a subset of Gemini models under pre-GA terms; a paid Vertex key on the same routes works identically.
+**Account prerequisites for Vertex itself** (not Model Hotel specific): sign up for Vertex AI express mode with a Google account and copy the express API key (`AQ.`-prefixed). Free-tier keys expire after 90 days and cover a subset of Gemini models under pre-GA terms; a paid Vertex key on the same routes works identically.
 
 ### NanoGPT
 
@@ -428,11 +467,21 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 | Subscription info | API (`subscription.included`, `subscription.note`) → stored in `params` |
 | Owned by | API (`owned_by`) |
 
+### NeuralWatt
+
+**Source files:** none of its own for discovery; `discovery_neuralwatt.go` covers quota only
+
+**Method:** NeuralWatt has no dedicated discoverer. It is an OpenAI-compatible endpoint, so it falls through to `discoverOpenAI`: `GET /v1/models` produces clean stubs (id + owner) and models.dev fills in everything else from its `neuralwatt` entry, with the cross-provider index as gap coverage. The built-in OpenAI catalog cannot attach to it, because that backfill only matches ids the listing already returned.
+
+Its quota endpoint is the part that needed code: see [Additional Provider APIs](#additional-provider-apis). A `404` there means a free-tier key with no quota endpoint, which is reported as "no data" rather than as an error.
+
 ### DeepSeek
 
 **Source files:** `discovery_deepseek.go`, `deepseek_catalog.go`, `catalog_merge.go`
 
-**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in `deepseekCatalog` via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog backfills context length, max output, reasoning flag, and pricing (cache-miss maps to the standard input price; cache-hit is carried separately). The former hardcoded 128k/8k default for uncatalogued models was dropped - an unknown model is now a clean stub filled by models.dev (DeepSeek models are 1M/384K, so the old default was stale).
+**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in `deepseekCatalog` (5 rows) via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog backfills context length, max output, reasoning flag, input modalities, and pricing (cache-miss maps to the standard input price; cache-hit is carried separately). Uncatalogued models are clean stubs filled by models.dev; there is no hardcoded context default.
+
+Two of the five rows are not price overrides but the only source of the model at all: `deepseek-chat` and `deepseek-reasoner` are permanent aliases onto `deepseek-v4-flash` (thinking off and on) and are absent from the live listing entirely. The other three exist because models.dev still carries DeepSeek's pre-V4 rates under the V4 IDs. Catalog prices are DeepSeek's **off-peak** rates, which apply for 17 of every 24 hours; peak hours (01:00-04:00 and 06:00-10:00 UTC) bill at exactly double, and a model row holds one figure, so metering under-reports during that window.
 
 **Catalog provides:**
 
@@ -441,6 +490,8 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 | Context length | Catalog |
 | Max output tokens | Catalog |
 | Reasoning | Catalog |
+| Vision | Catalog (`vision`, set on the experimental vision model only) |
+| Input modalities | Catalog (`["text"]` unless the row names more) |
 | Input price (cache miss) | Catalog |
 | Input price (cache hit) | Catalog |
 | Output price | Catalog |
@@ -449,12 +500,9 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 
 | Field | Value |
 |-------|-------|
-| Modality | Hardcoded `"text"` |
-| Input modalities | Hardcoded `"[]"` |
-| Output modalities | Hardcoded `"[]"` |
+| Output modalities | Hardcoded `["text"]` |
 | Streaming | Hardcoded `true` |
 | Tool calling | Hardcoded `true` |
-| Vision | Not set |
 
 ### Ollama
 
@@ -480,24 +528,37 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 | Tool calling | `"tools"` in capabilities array |
 | Reasoning | `"thinking"` in capabilities array |
 | Vision | `"vision"` in capabilities array |
-| Modality | Vision → `"vision"`, else `"text"` |
 | Input modalities | Vision → `["text","image"]`, else `["text"]` |
+| Output modalities | `"embedding"` with no `"completion"` → `["embedding"]`, otherwise `["text"]` |
+| Endpoint class | `"completion"` with no `"embedding"` beside it is stated as an explicit `chat` class, so the central name heuristics cannot reclassify a chat model whose name merely contains "embed". A listing naming both, or neither (older Ollama), leaves the class to be derived. |
+
+Ollama reports capabilities authoritatively, so an embedding-only model is kept out of the chat pickers rather than guessed at.
 
 **Hardcoded / missing:**
 
 | Field | Value |
 |-------|-------|
 | Streaming | Hardcoded `true` |
-| Output modalities | Hardcoded `"[]"` |
 | Pricing | None (Ollama is local, no pricing) |
 | Max output tokens | None |
 | Structured output | Not set |
+
+### Ollama Cloud
+
+**Source files:** `discovery_ollama.go` (shared with local Ollama)
+
+**Method:** Identical to local Ollama above: `ollama.com` serves the same `/api/tags` plus `/api/show` pair, so the same code path runs against it. The type is a separate one only because the host is known (`ollama.com` and its subdomains resolve to `ollama-cloud`) whereas a self-hosted Ollama runs on whatever address the operator gave and has to be chosen and probed.
+
+Two differences follow from it being a hosted service rather than a local one:
+
+- The provider carries an API key, and an extra account endpoint is available (`POST /api/me`, see [Additional Provider APIs](#additional-provider-apis)).
+- `ollama-cloud` is deliberately absent from the canonical models.dev map. The models.dev `ollama-cloud` entry is subscription-shaped and carries no cost data at all, so mapping it would return canonical specs whose empty prices block the cross-provider index, which is this provider's only pricing source.
 
 ### Z.AI (Zhipu)
 
 **Source files:** `discovery_zai.go`, `zai_catalog.go`, `catalog_merge.go`
 
-**Method:** Fetches the live OpenAI-compatible model list from `GET /models` on the coding-plan base URL, then merges it with the built-in `zaiCatalog` via [`mergeLiveAndCatalog`](#live--catalog-merge). The live listing supplies the authoritative model set and `owned_by`; the catalog backfills context length, max output, capability flags, and modality, and unions in catalog models the listing omits (a freshly released GLM, or the vision/turbo variants the coding plan serves but does not advertise). If the `/models` fetch fails, the scan **aborts** rather than falling back to the pure catalog: the catalog is a subset of the live listing, so a catalog-only result would let `RecordMissingModels` disable every live-only model on a transient outage.
+**Method:** Fetches the live OpenAI-compatible model list from `GET /models` on the coding-plan base URL, then merges it with the built-in `zaiCatalog` (19 rows) via [`mergeLiveAndCatalog`](#live--catalog-merge). The live listing supplies the authoritative model set and `owned_by`; the catalog backfills context length, max output, capability flags, and modalities, and unions in catalog models the listing omits (a freshly released GLM, or the vision/turbo variants the coding plan serves but does not advertise). If the `/models` fetch fails, the scan **aborts** rather than falling back to the pure catalog: the catalog is a subset of the live listing, so a catalog-only result would let `RecordMissingModels` disable every live-only model on a transient outage.
 
 **Live API provides:**
 
@@ -515,32 +576,31 @@ Both routes accept the resource API key as a **bearer token** (the legacy `api-k
 | Reasoning | Catalog |
 | Tool calling | Catalog |
 | Structured output | Catalog |
-| Modality | Catalog |
+| Input modalities | Catalog (via its `text` / `vision` hint) |
 | Pricing | Catalog **overrides only** (see below); otherwise models.dev (canonical `zai` entry) |
 
 **Pricing:** most Z.AI prices come from models.dev enrichment via its canonical `zai` provider entry, which tracks the [official pricing page](https://docs.z.ai/guides/overview/pricing). The catalog carries per-model price *overrides* only for models that entry lacks - currently `glm-4.5-x` and `glm-4.5-airx` (official prices restated from the pricing page). Do not duplicate a models.dev-covered price into the catalog, and do not guess a price for a model whose official price is not yet published (`glm-5.3` at its release): the catalog wins over models.dev, so a duplicate or a guess keeps enforcing itself after the real price lands. An unpriced model meters at zero and is named in the discovery warning log until models.dev lists it, at which point [price-follows-source](#stored-metadata-on-re-scan-context-is-stable-prices-follow-source) propagates the real price to existing rows on the next scan.
 
-**Derived from catalog modality:**
+**Derived from the catalog's `text` / `vision` hint:**
 
 | Field | Logic |
 |-------|-------|
-| Vision | `modality == "vision"` |
-| Video input | `modality == "vision"` |
-| Input modalities | Vision → `["text","image","video","file"]`, else `["text"]` |
+| Vision | hint is `vision` |
+| Video input | hint is `vision` |
+| Input modalities | Vision → `["text","image","video","pdf"]`, else `["text"]` |
 
 **Hardcoded / missing:**
 
 | Field | Value |
 |-------|-------|
 | Streaming | Hardcoded `true` (catalog entries) |
-| Output modalities | Hardcoded `"[]"` |
-| Pricing | None |
+| Output modalities | Hardcoded `["text"]` |
 
 ### Kimi Code
 
 **Source files:** `discovery_kimi.go`
 
-**Method:** Moonshot's coding-subscription endpoint (base URL `https://api.kimi.com/coding/v1`, API keys `sk-kimi-...` from the Kimi Code console). `discoverKimiCode` fetches `GET {base}/models`, an OpenAI-shaped listing with rich extras that are mapped directly onto the model rather than routed through a catalog - there is no embedded catalog and no models.dev fallback for this provider; everything comes from the live API.
+**Method:** Moonshot's coding-subscription endpoint (base URL `https://api.kimi.com/coding/v1`, API keys `sk-kimi-...` from the Kimi Code console). `discoverKimiCode` fetches `GET {base}/models`, an OpenAI-shaped listing with rich extras that are mapped directly onto the model rather than routed through a catalog. There is no embedded catalog, and in practice nothing comes from models.dev either: the type maps exclusively to the canonical `moonshotai` entry, which does not carry the coding-plan model ids, so the lookup finds nothing and the live API supplies everything.
 
 Subscription keys only work against `api.kimi.com/coding` - they 401 on Moonshot's pay-per-token platform (`api.moonshot.ai`) and vice versa, since the two are isolated key namespaces. A platform key pointed at `api.moonshot.ai` is handled by the generic OpenAI-compatible discoverer instead.
 
@@ -577,13 +637,13 @@ Everything else - context length, pricing, capabilities, reasoning - is backfill
 
 Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMax-M2.5` (+ `MiniMax-M2.5-highspeed`), `MiniMax-M2.1` (+ `MiniMax-M2.1-highspeed`), and `MiniMax-M2`.
 
-**Chat-completion HTTP-200 business errors:** MiniMax reports chat-completion failures (rate limit, exhausted Token Plan balance, auth rejection) inside a real HTTP `200` whose JSON body carries `base_resp.status_code != 0` (e.g. `1008` "insufficient balance"). The proxy's failover, circuit-breaker, and error-forwarding paths are all keyed on `resp.StatusCode`, so an unmodified `200` would be treated as success - the client gets an empty completion and no failover fires. For minimax-typed providers, the proxy inspects each non-streaming `200` and remaps the business code to the HTTP status it stands for (`1002`/`1039`/`1008` rate/token/balance to `429`, `1004` auth to `401`, anything else to `502`), restoring the original body so the error message still forwards. Genuine successes (`base_resp.status_code == 0`), streaming SSE responses, and unparseable bodies are passed through untouched. This is a proxy concern only; the quota endpoint (`GetMiniMaxQuota`, below) still passes `base_resp` through to the dashboard as-is.
+**Chat-completion HTTP-200 business errors** (proxy behaviour, documented here because it is MiniMax-specific)**:** MiniMax reports chat-completion failures (rate limit, exhausted Token Plan balance, auth rejection) inside a real HTTP `200` whose JSON body carries `base_resp.status_code != 0` (e.g. `1008` "insufficient balance"). The proxy's failover, circuit-breaker, and error-forwarding paths are all keyed on `resp.StatusCode`, so an unmodified `200` would be treated as success - the client gets an empty completion and no failover fires. For minimax-typed providers, the proxy inspects each non-streaming `200` and remaps the business code to the HTTP status it stands for (`1002`/`1039`/`1008` rate/token/balance to `429`, `1004` auth to `401`, anything else to `502`), restoring the original body so the error message still forwards. Genuine successes (`base_resp.status_code == 0`), streaming SSE responses, and unparseable bodies are passed through untouched. This is a proxy concern only; the quota endpoint (`GetMiniMaxQuota`, below) still passes `base_resp` through to the dashboard as-is.
 
 ### OpenCode Go
 
 **Source files:** `discovery_opencode_go.go`, `opencode_go_catalog.go`, `opencode_catalog_types.go`, `catalog_merge.go`
 
-**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog is an **override channel that is normally empty**: every live model's metadata and per-token prices come from models.dev's `opencode-go` entry (with the cross-provider index as gap coverage). Those prices are not what a Go subscriber pays per request - they are the shadow cost that Go's dollar-based quotas ($/5h, $/week, $/month) burn, the same convention used for the Z.AI and Kimi coding plans. A `404` (endpoint gone) falls back to the catalog - normally empty, so the scan yields no models and nothing gets disabled; other non-200s abort the scan so a transient outage can't disable live-only models. (Quota overrun does not gate the listing - it still returns `200`.)
+**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog is an **override channel**, and it currently ships empty (`catalogs/opencode_go.json` has no rows): every live model's metadata and per-token prices come from models.dev's `opencode-go` entry (with the cross-provider index as gap coverage). Those prices are not what a Go subscriber pays per request - they are the shadow cost that Go's dollar-based quotas ($/5h, $/week, $/month) burn, the same convention used for the Z.AI and Kimi coding plans. A `404` (endpoint gone) falls back to the catalog - normally empty, so the scan yields no models and nothing gets disabled; other non-200s abort the scan so a transient outage can't disable live-only models. (Quota overrun does not gate the listing - it still returns `200`.)
 
 **Catalog rows, when present, are overrides:** a row wins over models.dev for every field it sets, and `OpenCodeCatalogToModel` always materializes the price fields - so an override row **must state real prices**, because omitting them pins the model's price at $0 and it meters free.
 
@@ -593,7 +653,7 @@ Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMa
 
 **Method:** For **keyed** providers, same as OpenCode Go - `GET /models` merged with the catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). For **keyless** providers (no API key), the merge is bypassed: only free (zero-priced) catalog models the live listing includes are returned, with no union, since a keyless caller must not be shown models it cannot reach.
 
-The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. The Zen catalog carries **only the zero-priced free-model rows** - they are load-bearing for the keyless path above, which can only surface free models the catalog identifies. Paid models take their metadata and pricing from live + models.dev (`opencode` entry). (OpenCode Zen rotates free models aggressively; stale delisted free/preview entries are pruned from the catalog rather than unioned in as dead models.)
+The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. The Zen catalog carries **only the zero-priced free-model rows** (currently 8): they are load-bearing for the keyless path above, which can only surface free models the catalog identifies. Paid models take their metadata and pricing from live + models.dev (`opencode` entry). (OpenCode Zen rotates free models aggressively; stale delisted free/preview entries are pruned from the catalog rather than unioned in as dead models.)
 
 ### xAI (Grok)
 
@@ -605,7 +665,9 @@ The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeM
 2. **No-access accounts (403/429)**: xAI returns 403 for unauthorized keys and 429 for accounts that have exhausted credits or reached spending limits. Discovery falls back to the pure static catalog in both cases.
 3. **Other failures / empty list**: Falls back to `GET /v1/models` (minimal OpenAI-compatible: id + owner).
 
-The live result is then merged with the catalog. The catalog **backfills** the fields xAI's API does not report (context window, max output, reasoning flag, friendly display name) and **unions in** catalog grok models the listing endpoints don't advertise but that remain callable (verified: all catalog grok ids return 200). Live values always win - unlike the previous implementation, the catalog no longer overrides live data, and no placeholder description (`"xAI language model (vX)"`) or hardcoded `"text"` modality is fabricated, so a real catalog description/modality is never masked.
+The live result is then merged with the catalog. The 6-row catalog **backfills** the fields xAI's API does not report (context window, max output, reasoning flag, friendly display name) and **unions in** catalog grok models the listing endpoints do not advertise but that remain callable (verified: all catalog grok ids return 200). Live values always win: the catalog never overrides live data, and no placeholder description or modality is fabricated, so a real catalog description is never masked.
+
+Image-generation models come from a separate listing, `GET /image-generation-models`, and are the one place xAI discovery states an endpoint class outright (`image`). Their per-image price, which has no per-token equivalent, is carried in `params.image_price`.
 
 **Live API provides (from `/language-models`):**
 
@@ -706,7 +768,11 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 | Input modalities | Vision → `["text","image"]`; live/native-audio → `["text","image","audio","video"]`; TTS (`tts` name segment) and embedding → `["text"]` |
 | Output modalities | Default `["text"]`; image gen → `["text","image"]`; live/native-audio → `["text","audio"]`; TTS → `["audio"]`; embedding → `["embedding"]` |
 
-**Model filtering:** Only models supporting `generateContent` or `embedContent` are included. AQA-only models are excluded.
+**Model filtering:** Only models supporting `generateContent` or `embedContent` are included. AQA-only models are excluded. A shipped retired-model list (`catalogs/google_retired.json`) is filtered out on top of that.
+
+**The retired list.** Google publishes shutdown dates as the *earliest possible* date and does not always prune its own listing on time: it kept `gemini-2.0-flash` listed for two months after retirement. Neither the listing nor the date can be trusted alone, so the file holds ids that were each confirmed to answer a real request with `404 This model is no longer available`. Without the filter those models are upserted as enabled, offered to callers, and fail every request. Dropping only their pricing entry would not help, since an absent pricing entry just skips price enrichment. The list currently holds the four `gemini-2.0-flash` and `gemini-2.0-flash-lite` ids, stored without the `models/` prefix.
+
+**Pricing.** `catalogs/google.json` ships empty. Google prices come from models.dev's canonical `google` entry; the file stays as an override channel for a price models.dev has not caught up with.
 
 **Auth:** Discovery sends the key in the `x-goog-api-key` header (native API). Proxy uses `Authorization: Bearer API_KEY` (OpenAI-compatible endpoint). Google API keys are simple alphanumeric strings starting with `AIzaSy...`.
 
@@ -714,7 +780,7 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 
 **Source files:** `discovery_cohere.go`, `cohere_catalog.go`
 
-**Method:** Calls `GET /v1/models` with pagination support to list all available models. The API returns model metadata including context length, pricing, and capabilities. Discovery filters out deprecated models (those marked with `deprecated: true` in the API response). Models are enriched with the built-in `cohere_catalog` which contains 10 models with detailed pricing information.
+**Method:** Calls Cohere's native `/v1/models` with pagination, once for the chat endpoint family and once for rerank, and filters out models the API marks `deprecated: true`. Rerank models are listed so the Models page can show them and the proxy's `/v1/rerank` passthrough can route them; a rerank fetch that fails leaves the chat models in place rather than failing the scan. The built-in `cohere.json` catalog is a pricing override channel and currently holds 2 rows (`c4ai-aya-expanse-32b`, `c4ai-aya-vision-32b`); everything else takes its price from the API.
 
 **API-provided fields:**
 
@@ -727,10 +793,10 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 | Pricing | API (`pricing`) |
 | Tool calling capability | API (`capabilities.tool_calling`) |
 | Structured output | API (`capabilities.structured_output`) |
-| Vision | API (`capabilities.vision`) |
+| Vision | API (`features` contains `vision`) |
 | Streaming | Hardcoded `true` |
-| Input modalities | Derived from capabilities |
-| Output modalities | Hardcoded `[]` |
+| Input modalities | Derived: vision → `["text","image"]`, else `["text"]` |
+| Output modalities | `["rerank"]` for a rerank model (the endpoint listing is authoritative, so the derived class can never mistake one for chat), else `["text"]` |
 
 **Capability mapping:** Cohere API `features` array is mapped to capabilities:
 - `tools` → tool calling
@@ -743,6 +809,8 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 | Input price per million | Catalog |
 | Output price per million | Catalog |
 | Cache-hit price | Catalog |
+
+Rerank models are billed per search unit rather than per token, so their price fields stay unset rather than being filled with a misleading zero.
 
 **Host detection:** `api.cohere.com`, `api.cohere.ai`, and all subdomains of `cohere.com`
 
@@ -762,7 +830,7 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 | Max output tokens | Not set |
 | Pricing | None (self-hosted) |
 | Capabilities | From the native listing (e.g. `tool_use`); not set on the fallback |
-| Modality | From the native listing's model `type`; not set on the fallback |
+| Modalities | From the native listing's model `type`: `embeddings` produces `["embedding"]`, `vlm` takes `["text","image"]` in and states the `chat` class, `llm` states `chat`. The `/v1/models` fallback carries no type, so the class is derived from the model id there. |
 
 ### KoboldCPP
 
@@ -780,7 +848,7 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 | Max output tokens | Not set |
 | Pricing | None (self-hosted) |
 | Capabilities | Hardcoded: streaming on, tool calling off (KoboldCPP uses its own tool format) |
-| Modality | Input modalities from the version endpoint's `vision` and `audio` flags. `transcribe`, `tts`, `txt2img` and `embeddings` are separate endpoints and are deliberately ignored |
+| Modalities | Input modalities from the version endpoint's `vision` and `audio` flags, so a vision or audio KoboldCPP is not filed as text-only. `transcribe`, `tts`, `txt2img` and `embeddings` are separate endpoints and are deliberately ignored, and the endpoint class is derived centrally |
 
 ---
 
@@ -792,10 +860,10 @@ In addition to provider-specific discovery and built-in catalogs, Model Hotel ca
 
 ### How It Works
 
-1. On server startup, a blocking call in `main.go` fetches `https://models.dev/api.json` with the default HTTP client (no explicit timeout).
+1. On server startup, a blocking call in `main.go` fetches `https://models.dev/api.json` with a 15-second timeout, through the SafeDialer, so a redirect from models.dev to a private or reserved address cannot be turned into an SSRF.
 2. The response is parsed into two in-memory indexes: a per-provider index (models.dev provider ID → model ID → spec) and a cross-provider index keyed by bare model ID.
 3. During **every** discovery run (after the provider-specific discovery function returns its model list), each model is passed through the enrichment layer along with the provider's detected type.
-4. `EnrichModel` fills **only empty or zero-value fields** - it never overwrites data already populated by the provider API or built-in catalog.
+4. `EnrichModel` fills **only empty or zero-value fields**: it never overwrites data already populated by the provider API or built-in catalog. Capability flags are OR-merged, never cleared, with one exception noted in the table below.
 5. If the models.dev fetch fails (network error, timeout, invalid JSON), enrichment is silently disabled. Existing catalogue data is never at risk.
 
 ### Canonical Provider Preference
@@ -803,7 +871,9 @@ In addition to provider-specific discovery and built-in catalogs, Model Hotel ca
 The same bare model ID appears under dozens of models.dev providers - the official vendor plus resellers, each publishing its own prices (`glm-5.2` is listed by 26 providers). Enrichment therefore resolves specs in two steps:
 
 1. **Canonical provider first.** `modelsDevProviderForType` maps each Model Hotel provider type to the models.dev provider entry that carries the vendor's own official metadata (`zai-coding` → `zai`, `minimax` → `minimax`, `kimi-code` → `moonshotai`, ...). That entry's models are consulted first, so a reseller's price can never shadow the official one. Coding-plan types deliberately map to the pay-per-token vendor entry, not the `-coding-plan` entry (which prices everything at $0): Model Hotel meters the shadow cost a request would have had at list price.
-2. **Cross-provider fallback.** On a miss (or for unmapped/custom provider types) the lookup falls back to the cross-provider index. That index is built deterministically - canonical vendor entries are ranked ahead of all other providers, each group sorted by provider ID - so a colliding bare ID always resolves to the same spec across restarts. (Previously the winner was whichever provider a Go map iteration happened to visit first, which let random reseller prices land on official models.)
+2. **Cross-provider fallback.** On a miss (or for unmapped and custom provider types) the lookup falls back to the cross-provider index. That index is built deterministically, canonical vendor entries ranked ahead of all other providers and each group sorted by provider ID, so a colliding bare ID always resolves to the same spec across restarts. (Previously the winner was whichever provider a Go map iteration happened to visit first, which let random reseller prices land on official models.)
+
+**Single-vendor types never take that fallback.** A type whose API serves only its own models is marked *exclusive*: `anthropic`, `deepseek`, `xai`, `google`, `vertex-express`, `cohere`, `minimax`, `kimi-code`, `zai-coding`. If their canonical entry misses, enrichment gives up rather than borrowing another provider's data for the same bare ID, because that data is by definition secondhand: OpenCode Go lists `glm-5.3` with a guessed price before Z.ai publishes one, and that guess must not become the metered price on a Z.ai provider. Aggregators and the unknown-host catch-all (`openai`, `nanogpt`, `openrouter`, `opencode-go`, `opencode-zen`, `bedrock`, `azure`, `neuralwatt`) stay non-exclusive: their listings genuinely span many vendors, so the cross-provider index is legitimate gap coverage. `ollama-cloud` is mapped to nothing at all, for the reason given in its section above.
 
 ### Matching Logic
 
@@ -829,13 +899,16 @@ The `lookupFuzzyIn` helper implements this logic (the canonical-provider and cro
 | Reasoning capability | Only if false |
 | Tool calling capability | Only if false |
 | Structured output capability | Only if false, and never for an image-output model on a provider that reaches Google's own route (Google AI Studio, Vertex AI express, and OpenCode Zen for its `gemini-*` ids), whose JSON mode the API refuses (google-gemini/cookbook#1028) |
-| Vision capability | Only if false (mapped from `attachment` field) |
-| Modality | Only if empty or default `"text"` |
-| Input modalities | Only if empty or default `"[]"` |
-| Output modalities | Only if empty or default `"[]"` |
+| Vision capability | Only if false, and only when the `attachment` flag is corroborated by an `image` input modality (or by no input list at all). models.dev sets `attachment` on models whose only input is text, `deepseek-chat` among them, which answer an image with a 400. |
+| Input modalities | Only if empty or `"[]"` |
+| Output modalities | Only if empty or `"[]"` |
 | Owned by / family | Only if empty |
 
-**Note:** The `modalityFromModelsDev` function produces `"audio"`, `"multimodal"`, and `"video"` modalities from models.dev data, not just `"text"` and `"vision"`.
+**Enrichment never sets the modality class.** It fills the modality *arrays* only; `NormalizeModelClassification` derives `models.modality` from them afterwards. See [The modality class is derived, not written](#the-modality-class-is-derived-not-written).
+
+Enrichment also matches a second key for deployment-based providers: when the model ID misses, the underlying base-model name in `name` is tried, so an Azure deployment called `my-fast-gpt` backing `gpt-4.1-mini` still gets metadata.
+
+Any model that finishes discovery with no per-token price on either side is named in a warning log line, because it meters at zero and that is otherwise invisible until someone reconciles a bill.
 
 ### Configuration
 
@@ -849,9 +922,10 @@ Models.dev is particularly valuable for providers that lack built-in catalogs or
 
 | Provider | Built-in Catalog | What models.dev adds |
 |----------|-----------------|---------------------|
-| **OpenAI** (generic) | GPT-5.x family only | Pricing and specs for older GPT-4.x, o-series, and any new models |
-| **Anthropic** | Pricing only | Capabilities, modalities, context limits for Claude models |
-| **DeepSeek** | 2 models (v4 only) | Specs for older DeepSeek models and any not yet in the catalog |
+| **OpenAI** (generic) | 2 rows (`gpt-5.5-pro`, `gpt-5.4-pro`) | Pricing and specs for older GPT-4.x, the o-series, and any new models |
+| **Anthropic** | Pricing channel, currently empty | Pricing, capabilities, modalities and context limits for Claude models |
+| **Google AI Studio** | Pricing channel, currently empty | Pricing for Gemini models |
+| **DeepSeek** | 5 rows | Specs for older DeepSeek models and any not yet in the catalog |
 | **Ollama** | None | Pricing, capabilities for well-known models available through Ollama |
 | **OpenRouter** | None (API-driven) | Pricing and specs for any OpenRouter-hosted model not covered by the API |
 | **Any unknown provider** | None | Full metadata for any model that exists in the models.dev database |
@@ -872,7 +946,7 @@ Each discovered model is stored in the `models` database table with the followin
 | `display_name` | string | Friendly display name |
 | `capabilities` | JSONB | `Capability` struct serialized as JSON |
 | `params` | JSONB | Provider-specific parameters (e.g., NanoGPT subscription info) |
-| `modality` | string | Primary modality: `"text"`, `"vision"`, `"audio"`, `"video"`, or `"multimodal"` |
+| `modality` | string | Derived endpoint class: `"chat"`, `"embedding"`, `"rerank"`, `"image"`, `"video"`, `"tts"`, or `"stt"` |
 | `input_modalities` | JSONB array | Input modality list (e.g., `["text","image"]`) |
 | `output_modalities` | JSONB array | Output modality list (e.g., `["text"]` or `[]`) |
 | `context_length` | int (nullable) | Maximum context window in tokens |
@@ -883,6 +957,12 @@ Each discovered model is stored in the `models` database table with the followin
 | `owned_by` | string | Model creator/owner |
 | `enabled` | bool | Whether the model is active for routing |
 | `disabled_manually` | bool | Whether the model was disabled by a user (not discovery) |
+| `display_name_customized` | bool | The operator renamed it, so discovery leaves `display_name` alone (migration `033`) |
+| `price_customized` | bool | The operator pinned the prices, so no source overwrites them (`071`) |
+| `missing_scans` | int | Consecutive confirmed-missing scans; 2 disables the model (`054`) |
+| `discovery_dismissed_at` | timestamptz (nullable) | The operator dismissed this model's discrepancy claim (`061`) |
+| `auto_retired_at` | timestamptz (nullable) | The proxy retired it from traffic after a verifying probe (`063`) |
+| `manually_enabled_at` | timestamptz (nullable) | The operator enabled it by hand while the listing omits it: the manual-enable pin (`070`) |
 | `created_at` | timestamptz | When the model was first discovered |
 | `last_seen_at` | timestamptz | When the model was last seen during discovery |
 | `provider_name` | string | Denormalized provider name (from JOIN) |
@@ -935,7 +1015,12 @@ CREATE TABLE IF NOT EXISTS models (
     owned_by    TEXT,
     enabled     BOOLEAN DEFAULT true,
     disabled_manually BOOLEAN DEFAULT false,
+    display_name_customized BOOLEAN DEFAULT false,
+    price_customized BOOLEAN NOT NULL DEFAULT false,
     missing_scans INTEGER NOT NULL DEFAULT 0,
+    discovery_dismissed_at TIMESTAMPTZ,
+    auto_retired_at        TIMESTAMPTZ,
+    manually_enabled_at    TIMESTAMPTZ,
     created_at  TIMESTAMPTZ DEFAULT now(),
     last_seen_at TIMESTAMPTZ DEFAULT now(),
     UNIQUE(provider_id, model_id)
@@ -950,8 +1035,16 @@ CREATE TABLE IF NOT EXISTS models (
 - `001_init.sql` - Initial table creation
 - `002_model_seen_and_settings.sql` - Added `last_seen_at`, `owned_by`, `context_length`, `input_price_per_million`, `output_price_per_million`
 - `003_model_details.sql` - Added `name`, `description`, `max_output_tokens`, `modality`, `input_modalities`, `output_modalities`
-- `021_model_disabled_manually.sql` - Added `disabled_manually` column
-- `054_model_missing_scans.sql` - Added `missing_scans` consecutive-miss counter
+- `017_deepseek_pricing.sql` - Backfilled DeepSeek pricing
+- `021_model_disabled_manually.sql` - Added `disabled_manually`
+- `033_display_name_customized.sql` - Added `display_name_customized` (the display-name pin)
+- `054_model_missing_scans.sql` - Added the `missing_scans` consecutive-miss counter
+- `061_model_discovery_dismissed.sql` - Added `discovery_dismissed_at`
+- `063_model_auto_retired.sql` - Added `auto_retired_at`
+- `070_model_manual_enable_pin.sql` - Added `manually_enabled_at` (the manual-enable pin)
+- `071_model_price_pin.sql` - Added `price_customized` (the price pin)
+
+Two related migrations live on other tables: `047_discovery_changes.sql` creates the background-discovery journal, and `062_failover_group_auto_disabled.sql` adds `model_failover_groups.auto_disabled_at`.
 
 ### Settings Table (Discovery Configuration)
 
@@ -967,6 +1060,8 @@ Default settings:
 - `discovery_interval` = `"6h"`
 - `discovery_on_startup` = `"true"`
 - `discovery_on_provider_create` = `"true"`
+- `discovery_claim_alert_days` = `"7"`
+- `model_prune_days` = `"7"`
 
 ---
 
@@ -1034,7 +1129,7 @@ requires three independent layers of evidence, so one DNS flap, transient 5xx,
 or partial upstream listing cannot disable models (which, in an HA fleet,
 would then propagate to every member). Only the scheduled/startup background
 sweep applies these layers and disables; manual `Discover` scans just import
-what they see (see [Manual Discovery](#manual-discovery)).
+what they see (see [Manual (API)](#4-manual-api)).
 
 1. **Transport retries.** Every discovery HTTP call (listings and per-model
    detail probes) retries transient network errors and 429/5xx responses up to
@@ -1049,7 +1144,17 @@ what they see (see [Manual Discovery](#manual-discovery)).
    probe itself fails, or if the confirmed-missing set is implausibly large
    (more than 5 models AND more than half the provider's enabled models - the
    *mass-vanish guard*, which emits a `discovery.suspect_scan` warning event),
-   the whole scan is treated as suspect and records no misses at all. A provider
+   the whole scan is treated as suspect and records no misses at all.
+   Operator-pinned models leave that ratio entirely, numerator and denominator
+   both: a pinned model is permanently absent from the listing by the
+   operator's own decision, so it is neither evidence that the listing is
+   broken nor part of the population the listing is judged against. Left in,
+   enough pins would mark every scan suspect and freeze listing-based
+   auto-disable for the whole provider. A total blackout (the initial listing
+   and every confirmation probe returning nothing while the provider still has
+   enabled models) is treated as suspect regardless of the floor, since a small
+   provider would otherwise slip past it and stay stale indefinitely with no
+   operator signal. A provider
    that genuinely retires that many models would otherwise trip the guard on
    every scan and stay stale forever, so a per-provider `suspect_scans` counter
    tracks consecutive mass-vanish scans; once it reaches 3 (and every 3 after),
@@ -1061,8 +1166,10 @@ what they see (see [Manual Discovery](#manual-discovery)).
 3. **Cross-scan miss streak (`RecordMissingModels`).** A confirmed miss
    increments the model's `missing_scans` counter. Only when the streak
    reaches 2 consecutive scans is the model disabled (`enabled = false`). Any
-   sighting - a scheduled scan, a manual re-test, even a confirmation probe -
-   resets the streak to 0.
+   sighting (a scheduled scan, a manual re-test, even a confirmation probe)
+   resets the streak to 0. A model carrying the manual-enable pin keeps
+   accumulating misses but is never disabled by them: see
+   [The three pins](#the-three-pins).
 
 `RecordMissingModels` returns the newly disabled models, which the discovery
 handlers use to (a) re-sync the failover groups those models belonged to,
@@ -1080,156 +1187,45 @@ In summary:
 
 ### Traffic-driven retirement: verified before it is written
 
-Discovery can only act when a model leaves a provider's listing. Some providers
-keep serving a listing entry for a model they have already shut down (Google
-kept `gemini-2.0-flash` listed for two months after retirement, OpenCode Zen
-lists `claude-sonnet-4` and refuses it), so the only thing that knows such a
-model is dead is a real request to it. The proxy therefore also retires models
-from traffic, and every one of those retirements is verified with an upstream
-request before anything is written.
+Discovery can only act when a model leaves a provider's listing. Some providers keep serving a listing entry for a model they have already shut down (Google kept `gemini-2.0-flash` listed for two months after retirement, OpenCode Zen lists `claude-sonnet-4` and refuses it), so the only thing that knows such a model is dead is a real request to it. The proxy therefore also retires models from traffic, and every one of those retirements is verified with an upstream request before anything is written.
 
-How a retirement is reached:
+**Nomination: three strikes**
 
-1. **Nomination.** A request the provider refuses as a retirement counts one
-   strike against that model. Three strikes nominate it, with no successful
-   request in between and no more than 30 minutes between one strike and the
-   next. That is a gap, not a deadline: refusals at 0, 29 and 58 minutes are one
-   streak of three, while a model refused once an hour never accumulates one.
-   Strikes are in-memory and per gateway instance: they are not persisted, and
-   each HA member reaches its own conclusion from its own traffic.
+- A request the provider refuses as a retirement counts one strike. Three strikes nominate the model, with no successful request in between and no more than 30 minutes between one strike and the next. That is a gap, not a deadline: refusals at 0, 29 and 58 minutes are one streak of three, while a model refused once an hour never accumulates one.
+- Strikes are in memory and per gateway instance. They are not persisted, and each fleet member reaches its own conclusion from its own traffic.
+- In prose, the model's own id has to sit beside the phrase that retires it, with no clause break between them. A phrase that only refuses one capability ("not supported for this endpoint") does not count.
+- In fields, a model-scoped error code (`model_not_found`, `model_not_supported`) is a retirement on its own, because it names its own subject. A generic `not_found_error` counts only when the error's message also names the model.
+- The name may be a dated snapshot, since providers resolve an alias like `claude-sonnet-4` and answer about `claude-sonnet-4-20250514`. Only dash-separated digit runs are accepted as that kind of suffix, so `gpt-4.1` still cannot retire `gpt-4`.
+- Strikes are counted per surface, and a refusal only counts on a surface the model is known to serve. Chat and embeddings keep separate counts: sending a chat model to `/v1/embeddings` draws a capability error naming the model that reads exactly like a retirement, and a misconfigured client must not be able to disable a model that serves chat perfectly.
+- A refusal on `/v1/embeddings` counts only when the model's `output_modalities` say it produces embeddings, so an embeddings model whose catalog entry declares nothing is never auto-retired.
+- A refusal on chat counts unless the entry positively describes something a chat completion cannot be about: an image, video, audio, embedding or rerank output, or an input that admits no text. (A speech-to-text model produces text like any chat model and gives itself away on the input side.) Chat is where most refusals arrive, so requiring a declared modality there would switch traffic-driven retirement off for every uncatalogued model at once.
+- A success clears the surface it arrived on and only that one, for the same reason the counts are separate: a provider can retire a model's chat surface while still serving its embeddings, and a global clear would let the healthy surface hold the dead one open forever. Traffic on a surface that is never auto-retired (images, speech, rerank) clears nothing at all.
+- A model the catalog says serves **both** chat and embeddings is never auto-retired. Disabling turns off the model row, so it cannot express "gone on chat, still serving embeddings", and no probe can catch that. Such a model stays enabled until discovery drops it or you disable it by hand. It needs a provider serving one model id on both surfaces, which is rare.
 
-   A refusal is read two ways. In prose, the model's own id has to sit beside the
-   phrase that retires it, with no clause break between them, and a phrase that
-   only refuses one capability ("not supported for this endpoint") does not
-   count. In fields, a model-scoped error code (`model_not_found`,
-   `model_not_supported`) is a retirement on its own because it names its own
-   subject, and a generic `not_found_error` counts only when the error's message
-   also names the model. That name may be a dated snapshot, since providers
-   resolve an alias like `claude-sonnet-4` and answer about
-   `claude-sonnet-4-20250514`. Only dash-separated digit runs are accepted as
-   that kind of suffix, so `gpt-4.1` still cannot retire `gpt-4`.
+**Adjudication: one probe**
 
-   Strikes are counted per surface, and a refusal only counts on a surface the
-   model is known to serve. Chat and embeddings keep separate counts, because the
-   probe asks on the surface the strikes came from and the two are different
-   questions. Sending a chat model to `/v1/embeddings` draws a capability error
-   that names the model, which reads exactly like a retirement, and a
-   misconfigured client must not be able to disable a model that serves chat
-   perfectly.
+- At the threshold the gateway sends a real, minimal request to the model itself (a 64-token chat completion, or a one-input embedding), off the request path.
+- Content coming back means the model works: the strike count is cleared, nothing is disabled, and a warning is logged, because a model that refuses real traffic and answers a probe is worth a look. It needs three fresh strikes **and** the probe cooldown before it is asked again, which matters because a provider whose prose disagrees with its own behaviour keeps producing this outcome.
+- Only the provider refusing the model by name writes the disable. A 429, a 5xx, an entitlement failure, a timeout or an unreadable answer establishes nothing and postpones.
+- The rate is bounded on two axes: a model is probed at most once every 5 minutes however hard it is being retried, and at most 4 probes are in flight against any one provider at a time.
+- Probes deliberately skip rate limiting and circuit-breaker accounting (a verification must not be able to sideline a healthy provider), but they respect an already-open circuit and postpone rather than calling a provider the gateway has sidelined.
+- A model whose probe can never answer keeps its strikes and keeps paying that cost. After three postponements in a row the log line escalates from info to warning (`proxy: auto-disable postponed repeatedly`, carrying `inconclusive_probes`). Nothing is retired on the strength of it; the run ends as soon as the model answers.
+- Only chat, messages and embeddings models are auto-retired from traffic at all. Image, TTS, STT and rerank models never are, because a chat probe against one fails for reasons that have nothing to do with retirement and that failure would read as confirmation. Their refusals are logged at debug level and no strikes are kept, so such a model stays enabled until discovery drops it from the listing or you disable it by hand.
 
-   The two surfaces treat a silent catalog differently, on purpose. A refusal on
-   `/v1/embeddings` only counts when the model's `output_modalities` say it
-   produces embeddings, so an embeddings model whose catalog entry declares
-   nothing is never auto-retired. A refusal on chat counts unless the entry
-   positively describes something a chat completion cannot be about: an image,
-   video, audio, embedding or rerank output, or an input that admits no text
-   (a speech-to-text model produces text like any chat model and gives itself
-   away on the input side). Chat is what most models are and where most refusals
-   arrive, so requiring a declared modality there would switch traffic-driven
-   retirement off for every uncatalogued model at once, while guessing wrong on
-   embeddings retires a working chat model everywhere.
+**The write**
 
-   A success clears the surface it arrived on and only that one, for the same
-   reason the counts are separate: a provider can retire a model's chat surface
-   while still serving its embeddings, and a global clear would let the healthy
-   surface hold the dead one open forever. Traffic on a surface that is never
-   auto-retired (images, speech, rerank) clears nothing at all.
+- A confirmed retirement sets `enabled = false`, stamps `auto_retired_at` (migration `063`), revalidates the custom failover groups the model belonged to, and publishes a `model.auto_disabled_gone` event.
+- Reappearing in a listing does not revive it. The provider was refusing it while still listing it, so a sighting says nothing new, and reviving it would put it back into routing to fail, re-alert and churn failover groups on every scan. Only an operator clears the stamp, by enabling the model by hand.
+- If the strike count was cleared (the gateway restarted, 30 minutes passed with no further refusal, or a request succeeded) the model re-earns three strikes before the next probe. If the count is still parked at the threshold in the same running process, the first refusal past the probe cooldown claims a probe directly; that is also how a disable that failed to write is retried. Either way nothing is retired without a probe confirming it, and the cooldown applies to every route in. A success resets what the model is accused of, not the rate at which the gateway may ask about it.
 
-   A model the catalog says serves BOTH chat and embeddings is never
-   auto-retired. Disabling turns off the model row, so it cannot express "gone on
-   chat, still serving embeddings", and no probe can catch that: the probe would
-   be right about the surface it asked, and the disable simply broader than what
-   was found. Such a model stays enabled until discovery drops it or you disable
-   it by hand. It needs a provider serving one model id on both surfaces, which
-   is rare.
-2. **Adjudication.** At the threshold the gateway sends a real, minimal request
-   to the model itself (a 64-token chat completion, or a one-input embedding),
-   off the request path. Content coming back means the model works: the strike
-   count is cleared, nothing is disabled, and a warning is logged because a model
-   that refuses real traffic and answers a probe is worth a look. Such a model
-   needs three fresh strikes AND the probe cooldown below before it is asked
-   again, which matters because a provider whose prose disagrees with its own
-   behaviour keeps producing this outcome. The provider
-   refusing the model by name is what writes the disable. Anything else (a 429,
-   a 5xx, an entitlement failure, a timeout, an unreadable answer) establishes
-   nothing and postpones.
-3. **The write.** A confirmed retirement sets `enabled = false` and stamps
-   `auto_retired_at`, revalidates the custom failover groups the model belonged
-   to, and publishes a `model.auto_disabled_gone` event.
+**Watching the cost**
 
-Two consequences worth knowing about before you upgrade:
-
-- **Every retirement decision costs one upstream request.** It is a call you did
-  not make, so it is logged as one: the `proxy: auto-disabled retired model`
-  line and the `model.auto_disabled_gone` event both carry `probe_verdict` and
-  the endpoint family. A retirement without `probe_verdict: refused` did not
-  come from this path. The rate is bounded on two axes: a model is probed at
-  most once every 5 minutes however hard it is being retried, and at most 4
-  probes are in flight against any one provider at a time. Probes deliberately
-  skip rate limiting and circuit-breaker accounting (a verification must not be
-  able to sideline a healthy provider), but they do respect an already-open
-  circuit and postpone instead of calling a provider the gateway has sidelined.
-
-  A model whose probe can never answer keeps its strikes and keeps paying that
-  cost. After three postponements in a row the line escalates from info to
-  warning (`proxy: auto-disable postponed repeatedly`, carrying
-  `inconclusive_probes`), so a provider that rate limits the gateway, or a model
-  that cannot be reached on the surface the probe asks, shows up as itself rather
-  than as ordinary noise. Nothing is retired on the strength of it; the run ends
-  as soon as the model answers.
-
-  Every finished probe is also counted, so the cost and the classifier's accuracy
-  can be watched without reading logs:
-
-  ```
-  modelhotel_retirement_probes_total{provider,model,verdict}
-  ```
-
-  `verdict` is `refused`, `served` or `inconclusive`. The interesting figure is
-  the ratio rather than any single series: a rising `served` count means the
-  classifier keeps nominating models that are alive, and a rising `inconclusive`
-  count means those nominations are not being settled, so the model keeps its
-  strikes and comes back every cooldown. Most inconclusive verdicts cost an
-  upstream request, but not all of them do (a request that cannot be built for
-  that provider, for instance, is counted without anything being sent), so read
-  the series as unanswered questions rather than as a spend figure.
-
-  Two things it does not say. `refused` counts verdicts, not completed
-  retirements: the write that follows can still be called off by a late success
-  or refused by the database, so count retirements with the
-  `model.auto_disabled_gone` event instead. And `model` here is the provider-side
-  model id, whereas `modelhotel_requests_total` carries the name the client asked
-  for. For ordinary `provider/model` traffic those are the same string and the two
-  metrics join cleanly. They part company on requests routed through a failover
-  group, which `modelhotel_requests_total` labels `hotel/<group>` while this
-  counter uses the real model id, so a join covers direct traffic and silently
-  drops the group-routed kind. (Validation failures are labelled `unresolved`
-  there and are the other place the two label spaces differ, but they never
-  reached a provider, so there is no probe for them to have joined to.)
-- **Some endpoint families are never auto-retired from traffic.** Only chat,
-  messages and embeddings models can be verified cheaply and safely. Image, TTS,
-  STT and rerank models are never auto-retired at all, because a chat probe
-  against one fails for reasons that have nothing to do with retirement and that
-  failure would read as confirmation. Retiring them without verification is the
-  guessing this design exists to remove, so a retired image or TTS model stays
-  enabled until discovery drops it from the listing or you disable it by hand.
-  Refusals on those families are logged at debug level and no strikes are kept.
-
-A model retired this way is distinct from both a manual disable and a discovery
-disable (see migration `063`): re-appearing in a listing does not revive it,
-because the provider was refusing it while still listing it. Enabling it by hand
-clears the stamp, and if the model really is gone it is retired again with a
-fresh alert, always behind a fresh probe. What differs is how it gets there.
-Strikes are kept in memory (see above), so if the count was cleared (the gateway
-restarted, 30 minutes passed with no further refusal, or a request to the model
-succeeded) the model re-earns its three strikes before the next probe. If the
-count is still parked at the threshold in the same running process, with no
-successful request in between, the first refusal past the probe cooldown claims
-a probe directly instead of re-earning three strikes; that is also how a disable
-that failed to write is retried. Either way, nothing is retired without a probe
-confirming it first, and the probe cooldown applies to every one of those
-routes. A success resets what the model is accused of, not the rate at which the
-gateway may ask the provider about it.
+- Every retirement decision costs one upstream request, and it is logged as one. The `proxy: auto-disabled retired model` line and the `model.auto_disabled_gone` event both carry `probe_verdict` and the endpoint family, so a retirement without `probe_verdict: refused` did not come from this path.
+- Every finished probe is counted as `modelhotel_retirement_probes_total{provider,model,verdict}`, where `verdict` is `refused`, `served` or `inconclusive`.
+- Read the ratio rather than any single series. A rising `served` count means the classifier keeps nominating models that are alive; a rising `inconclusive` count means those nominations are not being settled, so the model keeps its strikes and comes back every cooldown.
+- Most inconclusive verdicts cost an upstream request but not all do (one that cannot be built for that provider is counted without anything being sent), so read the series as unanswered questions rather than as a spend figure.
+- `refused` counts verdicts, not completed retirements: the write that follows can still be called off by a late success or refused by the database. Count retirements with the `model.auto_disabled_gone` event instead.
+- `model` here is the provider-side model id, whereas `modelhotel_requests_total` carries the name the client asked for. Those are the same string for direct `provider/model` traffic and part company on group-routed requests, which `modelhotel_requests_total` labels `hotel/<group>`, so a join covers direct traffic and silently drops the rest. (Validation failures are labelled `unresolved` there and are the other place the two label spaces differ, but they never reached a provider, so there is no probe to join to.)
 
 ### Manual Enable/Disable (API)
 
@@ -1246,7 +1242,38 @@ This sets both `enabled` and `disabled_manually`:
 - `enabled = false`, `disabled_manually = true` - model is disabled and stays disabled across discovery runs.
 - `enabled = true`, `disabled_manually = false` - model is re-enabled and will stay enabled.
 
-The `Update` endpoint also supports editing: `display_name`, `context_length`, `max_output_tokens`, `input_price_per_million`, and `output_price_per_million`.
+Either direction also clears `auto_retired_at` and `discovery_dismissed_at`: operator intent supersedes a traffic retirement and their own earlier dismissal, and it has to happen in the same statement rather than on the next sighting, since a model retired again before that scan would keep a dismissal nothing could clear.
+
+The `Update` endpoint also supports editing `display_name`, `context_length`, `max_output_tokens`, `input_price_per_million`, `input_price_per_million_cache_hit`, `output_price_per_million`, and `price_customized`.
+
+### The three pins
+
+Editing a model arms a pin that stops discovery from writing over the operator's decision. All three are independent, and only a write that touches the field in question moves its pin.
+
+**The display-name pin** (`display_name_customized`, migration `033`). Setting `display_name` marks the row customized, and the upsert then keeps the stored name on every later scan: `display_name = CASE WHEN models.display_name_customized THEN models.display_name ELSE EXCLUDED.display_name END`. Clearing the name clears the pin, and discovery goes back to supplying it.
+
+**The price pin** (`price_customized`, migration `071`). Editing any price sets it implicitly. A pinned row's stored prices are untouchable: no source, live included, replaces them. A `NULL` price on a pinned row still fills from the scan, because the pin protects values rather than vetoing gap-fill. Sending `"price_customized": false` clears the pin **and** nulls all three price columns, so the next scan re-derives them; the dashboard's model detail modal surfaces that as "Reset to source" on the pin banner.
+
+**The manual-enable pin** (`manually_enabled_at`, migration `070`). Enabling a model by hand stamps it, disabling clears it. The pin exists for one situation: the provider's listing omits a model the operator has verified works, and without it the listing-based auto-disable would turn the model straight back off. While the pin is set:
+
+- The model is exempt from the miss-streak auto-disable.
+- Its row appears in the discrepancy modal's **Pinned by you** bucket, informational and never counted, so a forgotten pin stays visible.
+- It is excluded from the mass-vanish guard's ratio, numerator and denominator both. A pinned model is permanently absent from the listing by the operator's own decision, so it is not evidence that the listing is broken. Counted, enough pins would mark every scan suspect and freeze listing-based auto-disable for the whole provider.
+- It is still probed by the confirmation probes, so a pin the provider starts listing again resolves on the very next scan.
+
+The pin clears itself on any sighting: the listing naming the model again ends the disagreement and hands it back to automatic management. The one case neither an enable nor a sighting reaches is the operator changing their mind about a model the provider still does not list, and `POST /api/discovery/{provider_id}/unpin` covers exactly that, returning the models to listing-based auto-disable with a clean miss streak. There is no pin direction on that endpoint, because enabling the model is the pin.
+
+### Disabling a whole provider on a date
+
+A provider can carry `scheduled_disable_on` (a `YYYY-MM-DD` date, migration `068`), which is useful when a subscription or trial has a known end and its models should stop being routed to on that day rather than start failing.
+
+- A minute-tick loop fires every due schedule, and also runs once at startup so a restart that straddled midnight still fires.
+- The comparison date is the app server's clock, the same clock the update validation uses when it rejects a date in the past, because the database session's timezone can differ.
+- Firing sets `enabled = false` and clears `scheduled_disable_on` in the same statement, so a disable happens once.
+- It then does what a manual disable does: invalidates the provider and model caches, resyncs failover groups so the provider's models leave the auto-created ones, and publishes one `provider.scheduled_disable` warning event per provider.
+- A sweep that has begun finishes even while the server is shutting down. The schedule is already cleared by then, so a cancellation would lose the operator's event permanently and leave failover groups carrying a disabled provider's models.
+
+A disabled provider is skipped by discovery entirely, and its models are never pruned: they wait, with their pins, prices and failover memberships, for the provider to come back.
 
 ### Summary of Enable/Disable States
 
@@ -1302,19 +1329,24 @@ Content-Type: application/json
   "context_length": 64000,
   "max_output_tokens": 4096,
   "input_price_per_million": 2.5,
+  "input_price_per_million_cache_hit": 0.25,
   "output_price_per_million": 10.0,
+  "price_customized": true,
   "enabled": true
 }
 ```
 
-All fields are optional. Updates the model and returns the updated record.
+All fields are optional, but at least one must be present: a body that changes nothing is a 400. Updates the model and returns the updated record.
 
 **Validation:**
-- `display_name`: 1-128 characters
+- `display_name`: 1-128 characters, or empty to clear the pin and hand the name back to discovery
 - `context_length`: 256-2,000,000
 - `max_output_tokens`: 1-128,000
 - `input_price_per_million`: 0-1000
+- `input_price_per_million_cache_hit`: 0-1000
 - `output_price_per_million`: 0-1000
+
+`"price_customized": false` is the unpin: it clears the pin and nulls all three price columns so the next scan re-derives them. Any price edit sets the pin implicitly. See [The three pins](#the-three-pins).
 
 ### Delete Model
 
@@ -1340,7 +1372,8 @@ Tests a model by making a minimal chat completion request (`"Respond only with '
 ```json
 {
   "success": true,
-  "ttft_ms": 150,
+  "streaming": false,
+  "response_header_ms": 450,
   "duration_ms": 450,
   "response": "Hi"
 }
@@ -1350,12 +1383,15 @@ Or on error:
 ```json
 {
   "success": false,
+  "streaming": false,
   "duration_ms": 5000,
   "error": "connection timeout"
 }
 ```
 
-The test request is logged to `request_logs` table with full timing breakdown.
+`ttft_ms` is reserved for a streaming probe and is omitted from this non-streaming one. Any upstream error text is scrubbed of the provider key, by regex and by exact match against the key just decrypted for the probe, before it is returned or persisted: an auth failure is exactly where an upstream quotes the key back.
+
+The test request is logged to the `request_logs` table with a full timing breakdown. A disabled model is normally not testable; `?allow_disabled=true` opts in, which is how the failover page re-checks members that went N/A.
 
 ---
 
@@ -1401,20 +1437,20 @@ The table below summarizes what each provider type supplies during model discove
 
 | Provider | Context Length | Pricing | Capabilities | Modalities | Source |
 |----------|---------------|---------|-------------|------------|--------|
-| OpenAI | Catalog | Catalog | Catalog | Catalog | Live API + catalog (merge) |
-| Anthropic | API | Catalog | API | API | Live API + catalog |
+| OpenAI | Catalog, else models.dev | Catalog, else models.dev | Catalog, else models.dev | Catalog, else models.dev | Live API + 2-row catalog (backfill only) |
+| Anthropic | API | models.dev | API | API | Live API (the pricing catalog ships empty) |
 | DeepSeek | Catalog | Catalog | Catalog | Catalog | Live API + catalog (merge) |
-| Google AI Studio | API | Catalog | API | API | Live API + catalog |
+| Google AI Studio | API | models.dev | API | Derived | Live API (the pricing catalog ships empty) |
 | xAI | Catalog | API | Catalog | API | Live API + catalog (merge) |
-| Cohere | API | Catalog | API | API | Live API + catalog |
+| Cohere | API | API, 2-row catalog overrides | API | API | Live API + catalog |
 | NanoGPT | API | API | API | API | Live API |
-| Z.AI | Catalog | - | Catalog | Catalog | Live API + catalog (merge) |
-| OpenCode Go | Catalog | Catalog | Catalog | Catalog | Live API + catalog (merge) |
+| Z.AI | Catalog | models.dev (catalog overrides only) | Catalog | Catalog | Live API + catalog (merge) |
+| OpenCode Go | models.dev | models.dev | models.dev | models.dev | Live API + catalog (merge); the catalog is an empty override channel |
 | OpenCode Zen | Catalog | Catalog | Catalog | Catalog | Live API + catalog (merge) |
 | Ollama | API | - | API | API | Live API |
-| Ollama Cloud | API | - | API | API | Live API |
+| Ollama Cloud | API | models.dev (cross-provider index) | API | API | Live API |
 | LMStudio | API | - | API | API | Live API |
-| KoboldCPP | API | - | - | - | Live API |
+| KoboldCPP | API | - | Hardcoded | API (`vision`/`audio` flags) | Live API |
 | NeuralWatt | models.dev | models.dev | models.dev | models.dev | OpenAI-compatible `GET /v1/models` (no dedicated discovery; enriched via models.dev) |
 | Kimi Code | API | - | API | API | Live API (no catalog, no models.dev) |
 | MiniMax | models.dev | models.dev | models.dev | models.dev | Live API (metadata-bare `GET /models`; no catalog, enriched via models.dev) |
@@ -1428,7 +1464,7 @@ Some providers offer supplementary APIs that are accessible outside of model dis
 | Provider | Endpoint | API | Description |
 |----------|----------|-----|-------------|
 | NanoGPT | `GET /usage` | `GetNanoGPTUsage` | Account usage: daily/weekly token counts, image limits, subscription status |
-| Z.AI | `GET /api/monitor/usage/quota/limit` | `GetZAIQuota` | Quota limits and usage per model |
+| Z.AI | `GET /api/monitor/usage/quota/limit` | `GetZAICodingQuota` | Quota limits and usage per model |
 | DeepSeek | `GET /user/balance` | `GetDeepSeekBalance` | Account balance (total, granted, topped-up) |
 | OpenRouter | `GET /api/v1/credits`, `GET /api/v1/key` | `GetOpenRouterBalance` | Account credits, rate limits, usage limits, free tier status |
 | Ollama Cloud | `POST /api/me` | `GetOllamaCloudAccount` | Account information |
@@ -1439,6 +1475,7 @@ Some providers offer supplementary APIs that are accessible outside of model dis
 These are exposed via:
 - `GET /api/providers/{id}/usage` - for NanoGPT, Z.AI, OpenRouter, NeuralWatt, Kimi Code, and MiniMax
 - `GET /api/providers/{id}/balance` - for DeepSeek
+- `GET /api/providers/{id}/account` - for Ollama Cloud
 - `POST /api/providers/refresh-quotas` - refreshes usage/balance for all supported providers
 
 Quota/balance fetches use a circuit breaker with 5 consecutive failure threshold and 5-minute cooldown.
@@ -1447,6 +1484,6 @@ Quota/balance fetches use a circuit breaker with 5 consecutive failure threshold
 
 ## Related Documentation
 
-- [[Failover & Hotel Routing]] - How discovered models are grouped for automatic failover
+- [[Failover and Hotel Routing]] - How discovered models are grouped for automatic failover
 - [[Security]] - Provider key encryption and virtual key hashing
 - [[Home]] - Architecture overview and feature summary

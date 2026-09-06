@@ -286,7 +286,7 @@ func appendAttemptFilter(query string, args []any, argIndex int, attemptProvider
 // than rejected, matching the other filters.
 func isValidEndpointType(s string) bool {
 	switch s {
-	case "chat", "embeddings", "image", "tts", "stt":
+	case "chat", "messages", "embeddings", "rerank", "image", "tts", "stt":
 		return true
 	default:
 		return false
