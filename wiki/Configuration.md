@@ -405,9 +405,9 @@ Backend settings: `rate_limit_enabled`, `rate_limit_ip_enabled`, `rate_limit_rps
 The largest section, laid out as four groups in a two-column grid: **Failover**, **Hedging**, **Rate Limit (429)
 Handling**, and **Adaptive Concurrency**.
 
-Failover group: `circuit_breaker_enabled`, `circuit_breaker_threshold`,
+Failover group: `circuit_breaker_enabled`, `failover_on_rate_limit`, `circuit_breaker_threshold`,
 `circuit_breaker_span_models`, `circuit_breaker_cooldown`, `circuit_breaker_quota_pin_max`,
-`circuit_breaker_backoff_max`, `failover_on_rate_limit`.
+`circuit_breaker_backoff_max`.
 
 - **Failure Threshold:** Consecutive failures before a model's circuit opens (default 5).
 - **Models Before Provider Skip:** How many of a provider's models must have an open circuit before the provider itself is skipped for every model (default 2, range 1-100). At 1 the first open circuit sidelines the whole provider.
@@ -423,9 +423,10 @@ this doubles the upstream request, so provider rate limits and capacity are cons
 a backup that ignores cancellation can keep generating in the background. Full mechanics under
 [Request hedging](Failover-and-Hotel-Routing#request-hedging).
 
-Rate Limit (429) Handling group: `server_error_retry_enabled`, `rate_limit_classify_enabled`,
+Rate Limit (429) Handling group: `rate_limit_classify_enabled`,
 `rate_limit_saturation_max_wait`, `rate_limit_recent_success_window`,
-`circuit_breaker_open_on_exhaustion`, `failover_exhaustion_status_429`. These read each 429 to
+`circuit_breaker_open_on_exhaustion`, `failover_exhaustion_status_429`, and, last in the group,
+`server_error_retry_enabled`. The 429 settings read each 429 to
 tell a provider that is briefly at capacity from one whose quota window or balance is spent, and
 decide what the client sees when every member of a group is unavailable. See
 [429s: saturated vs exhausted](Failover-and-Hotel-Routing#429s-saturated-vs-exhausted).
