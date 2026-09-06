@@ -8,9 +8,10 @@
 -- switches the feature off. Reset the setting to get the default back.
 --
 -- A member whose switch was off keeps that: its ceiling becomes zero whether
--- or not a ceiling row existed. Off is whatever the previous release's
--- strconv.ParseBool read as false; the dashboard wrote "false", but the API
--- typed the key as a free string. Then the retired switch rows go, so they
+-- or not a ceiling row existed. Off is exactly what the previous release's
+-- strconv.ParseBool read as false (the dashboard wrote "false", but the API
+-- typed the key as a free string); any other spelling failed to parse there
+-- and meant the default, on, so it folds to nothing here. Then the retired switch rows go, so they
 -- stop shipping in config-sync envelopes and backups.
 --
 -- Rolling a member back to the previous build reads the zero ceiling as
@@ -22,7 +23,7 @@ FROM (VALUES
     ('circuit_breaker_quota_pin_enabled', 'circuit_breaker_quota_pin_max'),
     ('circuit_breaker_backoff_enabled', 'circuit_breaker_backoff_max')
 ) AS c(switch, ceiling)
-JOIN settings s ON s.key = c.switch AND lower(s.value) IN ('false', 'f', '0')
+JOIN settings s ON s.key = c.switch AND s.value IN ('false', 'False', 'FALSE', 'f', 'F', '0')
 ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
 
 DELETE FROM settings

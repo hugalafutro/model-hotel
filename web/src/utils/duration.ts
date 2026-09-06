@@ -5,10 +5,10 @@
 export function goDurationToSeconds(d: string): number {
 	if (!d) return 0;
 	let total = 0;
-	const dayMatch = d.match(/(\d+)d/);
-	const hourMatch = d.match(/(\d+)h/);
-	const minMatch = d.match(/(\d+)m(?!s)/);
-	const secMatch = /(\d+)s/.exec(d);
+	const dayMatch = d.match(/(\d+(?:\.\d+)?)d/);
+	const hourMatch = d.match(/(\d+(?:\.\d+)?)h/);
+	const minMatch = d.match(/(\d+(?:\.\d+)?)m(?!s)/);
+	const secMatch = /(\d+(?:\.\d+)?)s/.exec(d);
 	if (dayMatch) total += Number(dayMatch[1]) * 86400;
 	if (hourMatch) total += Number(hourMatch[1]) * 3600;
 	if (minMatch) total += Number(minMatch[1]) * 60;
@@ -39,10 +39,10 @@ export function secondsToGoDuration(s: number): string {
 export function goDurationToHours(d: string): number {
 	if (!d || d === "0") return 0;
 	let total = 0;
-	const dayMatch = d.match(/(\d+)d/);
-	const hourMatch = d.match(/(\d+)h/);
-	const minMatch = d.match(/(\d+)m(?!s)/);
-	const secMatch = /(\d+)s/.exec(d);
+	const dayMatch = d.match(/(\d+(?:\.\d+)?)d/);
+	const hourMatch = d.match(/(\d+(?:\.\d+)?)h/);
+	const minMatch = d.match(/(\d+(?:\.\d+)?)m(?!s)/);
+	const secMatch = /(\d+(?:\.\d+)?)s/.exec(d);
 	if (dayMatch) total += Number(dayMatch[1]) * 24;
 	if (hourMatch) total += Number(hourMatch[1]);
 	if (minMatch) total += Number(minMatch[1]) / 60;
@@ -72,10 +72,10 @@ export function hoursToGoDuration(h: number): string {
 export function goDurationToMinutes(d: string): number {
 	if (!d || d === "0") return 0;
 	let total = 0;
-	const dayMatch = d.match(/(\d+)d/);
-	const hourMatch = d.match(/(\d+)h/);
-	const minMatch = d.match(/(\d+)m(?!s)/);
-	const secMatch = /(\d+)s/.exec(d);
+	const dayMatch = d.match(/(\d+(?:\.\d+)?)d/);
+	const hourMatch = d.match(/(\d+(?:\.\d+)?)h/);
+	const minMatch = d.match(/(\d+(?:\.\d+)?)m(?!s)/);
+	const secMatch = /(\d+(?:\.\d+)?)s/.exec(d);
 	if (dayMatch) total += Number(dayMatch[1]) * 1440;
 	if (hourMatch) total += Number(hourMatch[1]) * 60;
 	if (minMatch) total += Number(minMatch[1]);
