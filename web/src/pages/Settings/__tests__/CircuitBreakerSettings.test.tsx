@@ -635,19 +635,17 @@ describe("CircuitBreakerSettings", () => {
 				await screen.findByText(/Hedging fires a second/i),
 			).toBeInTheDocument();
 			// The notice is a semantic warning callout stacked under the Hedging
-			// group, in the Hedging column.
+			// group, in the left (Failover) column, not beside the 429 controls.
 			const notice = screen.getByTestId("hedging-notice");
 			expect(notice).toHaveClass("ui-callout", "ui-callout-warning");
-			const column = screen.getByTestId("hedging-column");
+			const column = screen.getByTestId("failover-column");
 			expect(column).toContainElement(notice);
 			expect(
 				within(column).getByRole("switch", { name: /hedge slow streams/i }),
 			).toBeInTheDocument();
-			expect(
-				within(column).queryByRole("switch", {
-					name: /enable circuit breaker/i,
-				}),
-			).not.toBeInTheDocument();
+			expect(column).not.toContainElement(
+				screen.getByTestId("classify-429-row"),
+			);
 		});
 
 		it("toggles hedging on and calls mutation", async () => {
@@ -1235,7 +1233,7 @@ describe("CircuitBreakerSettings", () => {
 			resetSpy.mockRestore();
 		});
 
-		it("resets exactly the hedging keys from the Hedging column's inline reset buttons", async () => {
+		it("resets exactly the hedging keys from the Hedging group's inline reset buttons", async () => {
 			const resetSpy = vi.spyOn(api.settings, "reset");
 			resetSpy.mockResolvedValue({});
 			server.use(
@@ -1247,20 +1245,18 @@ describe("CircuitBreakerSettings", () => {
 			renderWithProviders(
 				<CircuitBreakerSettings collapsed={false} onToggle={() => {}} />,
 			);
-			const column = await screen.findByTestId("hedging-column");
-			// Eleven reset buttons live in the column, one per control, in DOM
-			// order: the Hedge Slow Streams toggle and the Hedge Delay slider,
-			// then the five 429-handling controls and the 5xx retry toggle,
-			// then the three adaptive concurrency controls below them.
+			const column = await screen.findByTestId("failover-column");
+			// The Hedging group renders below the Failover group in the left
+			// column, so its two reset buttons (the Hedge Slow Streams toggle and
+			// the Hedge Delay slider) are the last two in DOM order there.
 			const resets = within(column).getAllByRole("button", {
 				name: /reset this setting to default/i,
 			});
-			expect(resets).toHaveLength(11);
-			await user.click(resets[0]);
+			await user.click(resets[resets.length - 2]);
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["hedging_enabled"]),
 			);
-			await user.click(resets[1]);
+			await user.click(resets[resets.length - 1]);
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["hedge_delay"]),
 			);
@@ -1638,9 +1634,9 @@ describe("CircuitBreakerSettings", () => {
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["inflight_limiter_enabled"]),
 			);
-			// The two sliders' reset buttons are the last two in the hedging
-			// column: the group renders below every other control there.
-			const column = await screen.findByTestId("hedging-column");
+			// The two sliders' reset buttons are the last two in the right
+			// column: the group renders below the 429 controls there.
+			const column = await screen.findByTestId("limits-column");
 			const resets = within(column).getAllByRole("button", {
 				name: /reset this setting to default/i,
 			});

@@ -289,191 +289,200 @@ export function CircuitBreakerSettings({
 					{t("settings.circuitBreaker.description")}
 				</p>
 				<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
-					<SettingsGroup title={t("settings.circuitBreaker.failoverGroup")}>
-						<SettingToggleRow
-							label={t("settings.circuitBreaker.enable")}
-							description={t("settings.circuitBreaker.enableDescription")}
-							checked={circuitBreakerEnabled}
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_enabled: v ? "true" : "false",
-								})
-							}
-							onReset={() =>
-								resetSettingMutation.mutate(["circuit_breaker_enabled"])
-							}
-							resetDisabled={isResetting}
-						/>
+					{/* Left column: Failover, then the Hedging group with its trade-off
+					    notice directly beneath it, so the warning sits next to the toggle
+					    it is about and the two columns end up roughly level. */}
+					<div className="space-y-5" data-testid="failover-column">
+						<SettingsGroup title={t("settings.circuitBreaker.failoverGroup")}>
+							<SettingToggleRow
+								label={t("settings.circuitBreaker.enable")}
+								description={t("settings.circuitBreaker.enableDescription")}
+								checked={circuitBreakerEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_enabled: v ? "true" : "false",
+									})
+								}
+								onReset={() =>
+									resetSettingMutation.mutate(["circuit_breaker_enabled"])
+								}
+								resetDisabled={isResetting}
+							/>
 
-						<SettingToggleRow
-							label={t("settings.circuitBreaker.failoverOnRateLimit")}
-							description={t(
-								"settings.circuitBreaker.failoverOnRateLimitDescription",
-							)}
-							checked={failoverOnRateLimit}
-							onChange={(v) =>
-								updateMutation.mutate({
-									failover_on_rate_limit: v ? "true" : "false",
-								})
-							}
-							onReset={() =>
-								resetSettingMutation.mutate(["failover_on_rate_limit"])
-							}
-							resetDisabled={isResetting}
-						/>
+							<SettingToggleRow
+								label={t("settings.circuitBreaker.failoverOnRateLimit")}
+								description={t(
+									"settings.circuitBreaker.failoverOnRateLimitDescription",
+								)}
+								checked={failoverOnRateLimit}
+								onChange={(v) =>
+									updateMutation.mutate({
+										failover_on_rate_limit: v ? "true" : "false",
+									})
+								}
+								onReset={() =>
+									resetSettingMutation.mutate(["failover_on_rate_limit"])
+								}
+								resetDisabled={isResetting}
+							/>
 
-						<SettingsSlider
-							id="circuit-breaker-threshold"
-							disabled={!circuitBreakerEnabled}
-							label={t("settings.circuitBreaker.failureThreshold")}
-							value={Number(circuitBreakerThreshold)}
-							min={1}
-							max={50}
-							step={1}
-							unit="s"
-							hideUnit
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_threshold: String(v),
-								})
-							}
-							description={t(
-								"settings.circuitBreaker.failureThreshold.description",
-							)}
-							onReset={() =>
-								resetSettingMutation.mutate(["circuit_breaker_threshold"])
-							}
-							resetTooltip={t("settings.common.resetSetting")}
-						/>
+							<SettingsSlider
+								id="circuit-breaker-threshold"
+								disabled={!circuitBreakerEnabled}
+								label={t("settings.circuitBreaker.failureThreshold")}
+								value={Number(circuitBreakerThreshold)}
+								min={1}
+								max={50}
+								step={1}
+								unit="s"
+								hideUnit
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_threshold: String(v),
+									})
+								}
+								description={t(
+									"settings.circuitBreaker.failureThreshold.description",
+								)}
+								onReset={() =>
+									resetSettingMutation.mutate(["circuit_breaker_threshold"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
 
-						<SettingsSlider
-							id="circuit-breaker-span-models"
-							disabled={!circuitBreakerEnabled}
-							label={t("settings.circuitBreaker.spanModels")}
-							value={circuitBreakerSpanModels}
-							min={SPAN_MODELS_MIN}
-							max={SPAN_MODELS_MAX}
-							step={1}
-							unit="s"
-							hideUnit
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_span_models: String(v),
-								})
-							}
-							description={t("settings.circuitBreaker.spanModels.description")}
-							onReset={() =>
-								resetSettingMutation.mutate(["circuit_breaker_span_models"])
-							}
-							resetTooltip={t("settings.common.resetSetting")}
-						/>
+							<SettingsSlider
+								id="circuit-breaker-span-models"
+								disabled={!circuitBreakerEnabled}
+								label={t("settings.circuitBreaker.spanModels")}
+								value={circuitBreakerSpanModels}
+								min={SPAN_MODELS_MIN}
+								max={SPAN_MODELS_MAX}
+								step={1}
+								unit="s"
+								hideUnit
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_span_models: String(v),
+									})
+								}
+								description={t(
+									"settings.circuitBreaker.spanModels.description",
+								)}
+								onReset={() =>
+									resetSettingMutation.mutate(["circuit_breaker_span_models"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
 
-						<SettingsSlider
-							id="circuit-breaker-cooldown"
-							disabled={!circuitBreakerEnabled}
-							label={t("settings.circuitBreaker.cooldownPeriod")}
-							value={goDurationToSeconds(circuitBreakerCooldown)}
-							min={30}
-							max={600}
-							step={30}
-							clampStep={30}
-							unit="s"
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_cooldown: secondsToGoDuration(v),
-								})
-							}
-							description={t(
-								"settings.circuitBreaker.cooldownPeriod.description",
-							)}
-							onReset={() =>
-								resetSettingMutation.mutate(["circuit_breaker_cooldown"])
-							}
-							resetTooltip={t("settings.common.resetSetting")}
-						/>
+							<SettingsSlider
+								id="circuit-breaker-cooldown"
+								disabled={!circuitBreakerEnabled}
+								label={t("settings.circuitBreaker.cooldownPeriod")}
+								value={goDurationToSeconds(circuitBreakerCooldown)}
+								min={30}
+								max={600}
+								step={30}
+								clampStep={30}
+								unit="s"
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_cooldown: secondsToGoDuration(v),
+									})
+								}
+								description={t(
+									"settings.circuitBreaker.cooldownPeriod.description",
+								)}
+								onReset={() =>
+									resetSettingMutation.mutate(["circuit_breaker_cooldown"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
 
-						<SettingToggleRow
-							testId="quota-pin-row"
-							label={t("settings.circuitBreaker.quotaPin")}
-							description={t("settings.circuitBreaker.quotaPinDescription")}
-							checked={quotaPinEnabled}
-							disabled={!circuitBreakerEnabled}
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_quota_pin_enabled: v ? "true" : "false",
-								})
-							}
-							onReset={() =>
-								resetSettingMutation.mutate([
-									"circuit_breaker_quota_pin_enabled",
-								])
-							}
-							resetDisabled={isResetting}
-						/>
+							<SettingToggleRow
+								testId="quota-pin-row"
+								label={t("settings.circuitBreaker.quotaPin")}
+								description={t("settings.circuitBreaker.quotaPinDescription")}
+								checked={quotaPinEnabled}
+								disabled={!circuitBreakerEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_quota_pin_enabled: v ? "true" : "false",
+									})
+								}
+								onReset={() =>
+									resetSettingMutation.mutate([
+										"circuit_breaker_quota_pin_enabled",
+									])
+								}
+								resetDisabled={isResetting}
+							/>
 
-						<SettingsSlider
-							id="circuit-breaker-quota-pin-max"
-							disabled={!circuitBreakerEnabled || !quotaPinEnabled}
-							label={t("settings.circuitBreaker.quotaPinMax")}
-							value={quotaPinMaxHours}
-							min={QUOTA_PIN_MAX_MIN_HOURS}
-							max={QUOTA_PIN_MAX_MAX_HOURS}
-							step={1}
-							unit="h"
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_quota_pin_max: hoursToGoDuration(v),
-								})
-							}
-							description={t("settings.circuitBreaker.quotaPinMax.description")}
-							onReset={() =>
-								resetSettingMutation.mutate(["circuit_breaker_quota_pin_max"])
-							}
-							resetTooltip={t("settings.common.resetSetting")}
-						/>
+							<SettingsSlider
+								id="circuit-breaker-quota-pin-max"
+								disabled={!circuitBreakerEnabled || !quotaPinEnabled}
+								label={t("settings.circuitBreaker.quotaPinMax")}
+								value={quotaPinMaxHours}
+								min={QUOTA_PIN_MAX_MIN_HOURS}
+								max={QUOTA_PIN_MAX_MAX_HOURS}
+								step={1}
+								unit="h"
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_quota_pin_max: hoursToGoDuration(v),
+									})
+								}
+								description={t(
+									"settings.circuitBreaker.quotaPinMax.description",
+								)}
+								onReset={() =>
+									resetSettingMutation.mutate(["circuit_breaker_quota_pin_max"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
 
-						<SettingToggleRow
-							testId="backoff-row"
-							label={t("settings.circuitBreaker.backoff")}
-							description={t("settings.circuitBreaker.backoffDescription")}
-							checked={backoffEnabled}
-							disabled={!circuitBreakerEnabled}
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_backoff_enabled: v ? "true" : "false",
-								})
-							}
-							onReset={() =>
-								resetSettingMutation.mutate(["circuit_breaker_backoff_enabled"])
-							}
-							resetDisabled={isResetting}
-						/>
+							<SettingToggleRow
+								testId="backoff-row"
+								label={t("settings.circuitBreaker.backoff")}
+								description={t("settings.circuitBreaker.backoffDescription")}
+								checked={backoffEnabled}
+								disabled={!circuitBreakerEnabled}
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_backoff_enabled: v ? "true" : "false",
+									})
+								}
+								onReset={() =>
+									resetSettingMutation.mutate([
+										"circuit_breaker_backoff_enabled",
+									])
+								}
+								resetDisabled={isResetting}
+							/>
 
-						<SettingsSlider
-							id="circuit-breaker-backoff-max"
-							disabled={!circuitBreakerEnabled || !backoffEnabled}
-							label={t("settings.circuitBreaker.backoffMax")}
-							value={backoffMaxMinutes}
-							min={BACKOFF_MAX_MIN_MINUTES}
-							max={BACKOFF_MAX_MAX_MINUTES}
-							step={1}
-							unit="m"
-							onChange={(v) =>
-								updateMutation.mutate({
-									circuit_breaker_backoff_max: minutesToGoDuration(v),
-								})
-							}
-							description={t("settings.circuitBreaker.backoffMax.description")}
-							onReset={() =>
-								resetSettingMutation.mutate(["circuit_breaker_backoff_max"])
-							}
-							resetTooltip={t("settings.common.resetSetting")}
-						/>
-					</SettingsGroup>
+							<SettingsSlider
+								id="circuit-breaker-backoff-max"
+								disabled={!circuitBreakerEnabled || !backoffEnabled}
+								label={t("settings.circuitBreaker.backoffMax")}
+								value={backoffMaxMinutes}
+								min={BACKOFF_MAX_MIN_MINUTES}
+								max={BACKOFF_MAX_MAX_MINUTES}
+								step={1}
+								unit="m"
+								onChange={(v) =>
+									updateMutation.mutate({
+										circuit_breaker_backoff_max: minutesToGoDuration(v),
+									})
+								}
+								description={t(
+									"settings.circuitBreaker.backoffMax.description",
+								)}
+								onReset={() =>
+									resetSettingMutation.mutate(["circuit_breaker_backoff_max"])
+								}
+								resetTooltip={t("settings.common.resetSetting")}
+							/>
+						</SettingsGroup>
 
-					{/* Right column: the Hedging group with its trade-off notice directly
-					    beneath it, so the warning sits next to the toggle it is about. */}
-					<div className="space-y-5" data-testid="hedging-column">
 						<SettingsGroup title={t("settings.circuitBreaker.hedgingGroup")}>
 							<SettingToggleRow
 								label={t("settings.circuitBreaker.hedging")}
@@ -518,7 +527,10 @@ export function CircuitBreakerSettings({
 								<p>{t("settings.circuitBreaker.hedgingNotice")}</p>
 							</div>
 						)}
+					</div>
 
+					{/* Right column: 429 handling and the adaptive concurrency limiter. */}
+					<div className="space-y-5" data-testid="limits-column">
 						<RateLimit429Group />
 
 						<InflightLimiterGroup />
