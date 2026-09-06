@@ -397,7 +397,7 @@ func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePa
 	// the file in gzip afterwards gains about one percent. zstd at its top level
 	// is the only setting that still buys anything: measured on a 72 MB
 	// database, zlib 6 gave 5.1 MB in 2 s and zstd 19 gave 4.0 MB in 12 s. The
-	// dump runs in the background under a ten-minute budget, so the CPU is
+	// dump runs in the background under backupDumpBudget, so the CPU is
 	// affordable; the file stays a custom-format dump that pg_restore 16 and
 	// later read unchanged, so the restore and signature paths know nothing
 	// about it.
