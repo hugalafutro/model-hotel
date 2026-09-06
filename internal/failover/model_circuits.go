@@ -1,6 +1,7 @@
 package failover
 
 import (
+	"cmp"
 	"context"
 	"fmt"
 	"slices"
@@ -539,10 +540,9 @@ func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads)
 // claim is probed when the operator has not set circuit_breaker_pin_probe_interval.
 const defaultPinProbeInterval = time.Hour
 
-// pinProbeInterval reads circuit_breaker_pin_probe_interval. Unlike its sibling
-// ceilings, where a non-positive value means "unset", a zero here is a real
-// setting: it disables the periodic probe and lets a response pin run to the
-// ceiling.
+// pinProbeInterval reads circuit_breaker_pin_probe_interval. Like its sibling
+// ceilings, a stored zero is a real setting, not an unset key: it disables the
+// periodic probe and lets a response pin run to the ceiling.
 func (cb *CircuitBreaker) pinProbeInterval() time.Duration {
 	if cb.settings != nil {
 		return cb.settings.GetDuration(context.Background(), "circuit_breaker_pin_probe_interval", defaultPinProbeInterval)
@@ -569,8 +569,11 @@ func (cb *CircuitBreaker) unpinnedCooldownWith(c *circuit, r *cooldownReads) tim
 // derived on every read: a ceiling read per circuit would put a DB round trip
 // per circuit back under the lock. The stored value cannot know a base raised
 // after it was stamped, which effectiveCooldownForWith covers by never serving
-// less than the base. Always stamped, gated only at read time by
-// backedOffForWith, so the kill switch acts at once in both directions.
+// less than the base. A stamped backoff is gated at read time by
+// backedOffForWith, so zeroing the ceiling releases one at once; a zero
+// ceiling stamps nothing, though, so switching backoff back on applies the
+// backoff the counted failures have earned at the next failed probe, not at
+// once.
 //
 // A ceiling at or below the base is not a shorter cooldown: the ceiling bounds
 // what the backoff may add, and a backoff that could add nothing is left off.
@@ -578,7 +581,10 @@ func (cb *CircuitBreaker) unpinnedCooldownWith(c *circuit, r *cooldownReads) tim
 // A circuit escalated to exhausted-without-a-phrase (see exhaustedEscalated)
 // takes the quota-pin ceiling when that reaches further: its probes are live
 // requests spent against a window that resets in hours, which the ordinary
-// 15-minute cap would re-probe through.
+// 15-minute cap would re-probe through. The pin ceiling is borrowed as a
+// number only; with pinning switched off the default stands in, because the
+// reason (probes burnt against an hours-long window) does not go away with
+// pinning.
 func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 	c.cooldownBackoff = 0
 	if c.failedProbes == 0 {
@@ -586,8 +592,11 @@ func (cb *CircuitBreaker) applyBackoff(c *circuit) {
 	}
 	base := cb.effectiveCooldown()
 	ceiling := cb.backoffMax()
+	if ceiling <= 0 {
+		return // backoff is switched off; the escalation below must not lift it back on
+	}
 	if c.exhaustedEscalated() {
-		ceiling = max(ceiling, cb.quotaPinMax())
+		ceiling = max(ceiling, cmp.Or(cb.quotaPinMax(), defaultQuotaPinMax))
 	}
 	if base <= 0 || ceiling <= base {
 		return
@@ -674,10 +683,14 @@ func (cb *CircuitBreaker) quotaPinEnabled() bool {
 	return cb.quotaPinMax() > 0
 }
 
+// defaultQuotaPinMax is the ceiling a quota pin may reach when the key is
+// absent: a day, the longest window a plan resets on short of a weekly one.
+const defaultQuotaPinMax = 24 * time.Hour
+
 // quotaPinMax is the ceiling a quota pin may reach, or zero when pinning is
-// off. An absent key means 24h; a stored non-positive duration is the
-// operator's off switch, re-read on every walk so switching off also releases
-// a pin already in force.
+// off. An absent key means defaultQuotaPinMax; a stored non-positive duration
+// is the operator's off switch, re-read on every walk so switching off also
+// releases a pin already in force.
 func (cb *CircuitBreaker) quotaPinMax() time.Duration {
-	return ceilingOrDefault(cb.settings, "circuit_breaker_quota_pin_max", 24*time.Hour)
+	return ceilingOrDefault(cb.settings, "circuit_breaker_quota_pin_max", defaultQuotaPinMax)
 }

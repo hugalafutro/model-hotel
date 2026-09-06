@@ -190,6 +190,49 @@ func TestRecordRateLimited_ThirdOpenLiftsBackoffCeiling(t *testing.T) {
 	}
 }
 
+// Pinning switched off does not shorten the escalated reach: the pin ceiling
+// is borrowed as a number, and with pinning off the 24h default stands in, so
+// the doubling still passes circuit_breaker_backoff_max.
+func TestRecordRateLimited_ThirdOpenLiftsBackoffCeilingWithPinningOff(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, backoffMax: 2 * time.Minute, pinOff: true})
+	id := uuid.New()
+
+	cb.RecordRateLimited(id, "p", "m", Cause{})
+	backdateOpenModel(t, cb, id, "m", 2*time.Minute)
+	cb.IsOpen(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
+	backdateOpenModel(t, cb, id, "m", 3*time.Minute)
+	cb.IsOpen(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
+
+	c := exhaustedCircuit(t, cb, id, "m")
+	if c.cooldownBackoff != 4*time.Minute {
+		t.Errorf("backoff after third 429 open with pinning off = %v, want 4m (past the 2m backoff_max, under the 24h default the escalation borrows)", c.cooldownBackoff)
+	}
+	if c.cooldownOverride != 0 {
+		t.Errorf("cooldownOverride = %v, want no pin stamped while pinning is off", c.cooldownOverride)
+	}
+}
+
+// With backoff switched off the escalation has nothing to widen: three 429
+// opens stamp no backoff, or re-enabling backoff would apply one at once.
+func TestRecordRateLimited_EscalationStampsNothingWithBackoffOff(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, backoffOff: true, pinMax: 5 * time.Hour})
+	id := uuid.New()
+
+	cb.RecordRateLimited(id, "p", "m", Cause{})
+	backdateOpenModel(t, cb, id, "m", 2*time.Minute)
+	cb.IsOpen(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
+	backdateOpenModel(t, cb, id, "m", 3*time.Minute)
+	cb.IsOpen(id, "p", "m")
+	cb.RecordRateLimited(id, "p", "m", Cause{})
+
+	if c := exhaustedCircuit(t, cb, id, "m"); c.cooldownBackoff != 0 || c.failedProbes != 2 {
+		t.Errorf("backoff=%v failed_probes=%d after three 429 opens with backoff off, want nothing stamped and both probes counted", c.cooldownBackoff, c.failedProbes)
+	}
+}
+
 func TestRecordRateLimited_NonRateLimitOpenResetsEscalation(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, backoffMax: 2 * time.Minute, pinMax: 5 * time.Hour})
 	id := uuid.New()

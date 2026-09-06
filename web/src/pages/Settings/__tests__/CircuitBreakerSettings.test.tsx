@@ -909,12 +909,31 @@ describe("CircuitBreakerSettings", () => {
 			expect(quotaPinMaxNumberBox().value).toBe("0");
 		});
 
-		it("shows 24 hours when circuit_breaker_quota_pin_max is stored as a non-positive duration, which the breaker reads as unset", async () => {
+		it("shows a live sub-hour circuit_breaker_quota_pin_max as one step, never as the off position, and unparsable text as the default", async () => {
 			server.use(
 				...mockSettings({
 					body: {
 						circuit_breaker_enabled: "true",
-						circuit_breaker_quota_pin_max: "0s",
+						circuit_breaker_quota_pin_max: "10m0s",
+					},
+				}),
+			);
+			const tenMinutes = renderWithProviders(
+				<CircuitBreakerSettings collapsed={false} onToggle={onToggle} />,
+			);
+			await waitFor(() => {
+				expect(quotaPinMaxSlider().value).toBe("1");
+			});
+			expect(quotaPinMaxNumberBox().value).toBe("1");
+			tenMinutes.unmount();
+
+			// The breaker falls back to its default on text it cannot parse, so
+			// the slider shows the ceiling actually in force rather than off.
+			server.use(
+				...mockSettings({
+					body: {
+						circuit_breaker_enabled: "true",
+						circuit_breaker_quota_pin_max: "soon",
 					},
 				}),
 			);

@@ -56,6 +56,23 @@ const SATURATION_WAIT_MAX_SECONDS = 120;
 const SUCCESS_WINDOW_MIN_SECONDS = 10;
 const SUCCESS_WINDOW_MAX_SECONDS = 300;
 
+// ceilingForSlider maps a stored ceiling onto a slider whose zero is the off
+// switch, mirroring the breaker's reads (internal/failover/model_circuits.go:
+// ceilingOrDefault). An absent key is the default, and so is text the breaker
+// cannot parse, since it falls back to the default too. A duration that
+// amounts to nothing positive is the off position. Anything positive shows at
+// least one step: a live ten-minute pin ceiling rounds to zero hours, and
+// zero would read as switched off, which it is not.
+function ceilingForSlider(
+	stored: string | undefined,
+	def: number,
+	toUnit: (d: string) => number,
+): number {
+	if (stored === undefined || !/\d/.test(stored)) return def;
+	if (goDurationToSeconds(stored) <= 0) return 0;
+	return Math.max(1, toUnit(stored));
+}
+
 interface CircuitBreakerSettingsProps {
 	collapsed: boolean;
 	onToggle: () => void;
@@ -236,34 +253,27 @@ export function CircuitBreakerSettings({
 			Number(settings?.circuit_breaker_span_models) || 2,
 		),
 	);
-	// The ceilings double as the off switches: a stored zero is off, an absent
-	// key is the Go default (internal/failover/model_circuits.go: quotaPinMax
-	// falls back to 24h, backoffMax to defaultBackoffMax). So the fallback
-	// fires only on an absent key, never on a parsed zero, which must display
-	// as the off position it is.
-	//
-	// PUT /api/settings accepts any duration, so a stored value can also sit
-	// below the floor or above the ceiling. Both are clamped for display, since
-	// the browser sanitizes the range track against min/max but leaves the
-	// number box alone. Display only: SettingsSlider seeds its local state from
-	// this prop and fires onChange on interaction, never on mount, so nothing is
-	// written back until the operator moves the control.
+	// The ceilings double as the off switches; see ceilingForSlider for how a
+	// stored value maps onto the track. PUT /api/settings accepts any duration,
+	// so a stored value can also sit above the ceiling, which is clamped for
+	// display since the browser sanitizes the range track against min/max but
+	// leaves the number box alone. Display only: SettingsSlider seeds its local
+	// state from this prop and fires onChange on interaction, never on mount, so
+	// nothing is written back until the operator moves the control.
 	const quotaPinMaxHours = Math.min(
 		QUOTA_PIN_MAX_MAX_HOURS,
-		Math.max(
-			QUOTA_PIN_MAX_MIN_HOURS,
-			settings?.circuit_breaker_quota_pin_max === undefined
-				? 24
-				: goDurationToHours(settings.circuit_breaker_quota_pin_max),
+		ceilingForSlider(
+			settings?.circuit_breaker_quota_pin_max,
+			24,
+			goDurationToHours,
 		),
 	);
 	const backoffMaxMinutes = Math.min(
 		BACKOFF_MAX_MAX_MINUTES,
-		Math.max(
-			BACKOFF_MAX_MIN_MINUTES,
-			settings?.circuit_breaker_backoff_max === undefined
-				? 15
-				: goDurationToMinutes(settings.circuit_breaker_backoff_max),
+		ceilingForSlider(
+			settings?.circuit_breaker_backoff_max,
+			15,
+			goDurationToMinutes,
 		),
 	);
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";

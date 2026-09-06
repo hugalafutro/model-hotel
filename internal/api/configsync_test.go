@@ -823,6 +823,51 @@ func TestConfigSync_SyncsSSOAllowlists(t *testing.T) {
 	}
 }
 
+// A zero quota-pin ceiling is the off switch. It travels as itself, and for a
+// member still on the release before migration 080 (which reads a non-positive
+// ceiling as unset) the envelope carries the retired switch it still honours
+// beside it. A member on this release folds that switch back into the zero
+// ceiling and keeps no switch row of its own.
+func TestConfigSync_ZeroPinCeilingTravelsWithTheRetiredSwitch(t *testing.T) {
+	cleanConfigTables(t)
+	ctx := context.Background()
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret", configSyncMasterKey)
+	settingsRepo := settings.NewRepository(apiTestDB.Pool())
+	if err := settingsRepo.Set(ctx, "circuit_breaker_quota_pin_max", "0s"); err != nil {
+		t.Fatalf("seed primary ceiling: %v", err)
+	}
+	if err := settingsRepo.Set(ctx, "circuit_breaker_backoff_max", "15m0s"); err != nil {
+		t.Fatalf("seed primary backoff ceiling: %v", err)
+	}
+
+	env := doExport(t, r)
+	if got := env.Config.Settings["circuit_breaker_quota_pin_max"]; got != "0s" {
+		t.Fatalf("exported pin ceiling = %q, want 0s", got)
+	}
+	if got := env.Config.Settings["circuit_breaker_quota_pin_enabled"]; got != "false" {
+		t.Fatalf("exported retired pin switch = %q, want false beside a zero ceiling", got)
+	}
+	if _, ok := env.Config.Settings["circuit_breaker_backoff_enabled"]; ok {
+		t.Fatal("exported a retired backoff switch beside a live 15m ceiling")
+	}
+
+	cleanConfigTables(t)
+	if err := settingsRepo.Set(ctx, "circuit_breaker_quota_pin_max", "24h0m0s"); err != nil {
+		t.Fatalf("seed member ceiling: %v", err)
+	}
+	rec := doImport(t, r, env, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import: %d %s", rec.Code, rec.Body.String())
+	}
+	if got, err := settingsRepo.Get(ctx, "circuit_breaker_quota_pin_max"); err != nil || got != "0s" {
+		t.Errorf("member pin ceiling = %q (%v), want 0s from the envelope", got, err)
+	}
+	if _, err := settingsRepo.Get(ctx, "circuit_breaker_quota_pin_enabled"); err == nil {
+		t.Error("the retired switch was written on a member that no longer knows it")
+	}
+}
+
 // The circuit-breaker span is fleet policy, like the threshold and cooldown it
 // sits beside: it decides how many of a provider's models must be sidelined
 // before the provider itself is skipped, and a member holding its own value
