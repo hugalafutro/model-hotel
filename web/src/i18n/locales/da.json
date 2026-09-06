@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Database gendannet, signatur verificeret. Serveren genstarter…",
 			"copySignature": "Kopiér signatur",
 			"signatureCopied": "Signatur kopieret til udklipsholderen",
-			"signatureCopyFailed": "Kunne ikke kopiere signaturen: {{message}}"
+			"signatureCopyFailed": "Kunne ikke kopiere signaturen: {{message}}",
+			"totalSize": "Samlet størrelse af alle sikkerhedskopier: {{size}}"
 		},
 		"appearance": {
 			"title": "Udseende",

@@ -1918,7 +1918,8 @@
 			"restoreSuccessVerified": "Banco de dados restaurado, assinatura verificada. O servidor está reiniciando…",
 			"copySignature": "Copiar assinatura",
 			"signatureCopied": "Assinatura copiada para a área de transferência",
-			"signatureCopyFailed": "Não foi possível copiar a assinatura: {{message}}"
+			"signatureCopyFailed": "Não foi possível copiar a assinatura: {{message}}",
+			"totalSize": "Tamanho total de todos os backups: {{size}}"
 		},
 		"appearance": {
 			"title": "Aparência",

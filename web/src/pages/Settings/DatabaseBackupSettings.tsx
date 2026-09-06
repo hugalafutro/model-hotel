@@ -384,100 +384,114 @@ export function DatabaseBackupSettings({
 					{isLoading ? (
 						<LoadingSpinner />
 					) : backups && backups.length > 0 ? (
-						<div className="space-y-2 max-h-[300px] overflow-y-auto">
-							{backups.map((backup) => (
-								<div
-									key={backup.filename}
-									className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
-								>
-									<div className="min-w-0 flex-1">
-										<div className="flex items-center gap-2">
-											{backup.origin === "scheduled" &&
-												gfsLabel.get(backup.filename) && (
-													<span className="shrink-0 inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold bg-(--accent)/15 text-(--accent)">
-														{gfsLabel.get(backup.filename)}
+						<>
+							<div className="space-y-2 max-h-[300px] overflow-y-auto">
+								{backups.map((backup) => (
+									<div
+										key={backup.filename}
+										className="flex items-center justify-between bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) p-3"
+									>
+										<div className="min-w-0 flex-1">
+											<div className="flex items-center gap-2">
+												{backup.origin === "scheduled" &&
+													gfsLabel.get(backup.filename) && (
+														<span className="shrink-0 inline-flex h-4 w-4 items-center justify-center rounded text-[10px] font-bold bg-(--accent)/15 text-(--accent)">
+															{gfsLabel.get(backup.filename)}
+														</span>
+													)}
+												{backup.origin === "frontdesk" && (
+													<span
+														className="shrink-0 inline-flex h-4 items-center justify-center rounded px-1 text-[10px] font-bold bg-(--accent)/15 text-(--accent)"
+														title={t("settings.backup.frontDeskCreated")}
+													>
+														FD
 													</span>
 												)}
-											{backup.origin === "frontdesk" && (
-												<span
-													className="shrink-0 inline-flex h-4 items-center justify-center rounded px-1 text-[10px] font-bold bg-(--accent)/15 text-(--accent)"
-													title={t("settings.backup.frontDeskCreated")}
-												>
-													FD
-												</span>
-											)}
-											<p className="text-sm font-medium text-(--text-primary) truncate">
-												{backup.filename}
+												<p className="text-sm font-medium text-(--text-primary) truncate">
+													{backup.filename}
+												</p>
+											</div>
+											<p className="text-xs text-(--text-muted)">
+												{backup.origin === "manual" && (
+													<span className="text-(--accent)">
+														{t("settings.backup.manuallyCreated")} ·{" "}
+													</span>
+												)}
+												{formatBytes(backup.size_bytes)} -{" "}
+												{formatDateTimeShort(backup.created_at)}
 											</p>
 										</div>
-										<p className="text-xs text-(--text-muted)">
-											{backup.origin === "manual" && (
-												<span className="text-(--accent)">
-													{t("settings.backup.manuallyCreated")} ·{" "}
-												</span>
-											)}
-											{formatBytes(backup.size_bytes)} -{" "}
-											{formatDateTimeShort(backup.created_at)}
-										</p>
-									</div>
-									<div className="flex items-center gap-2 ml-3 shrink-0">
-										{confirmDelete === backup.filename ? (
-											<>
-												<span className="text-xs text-red-400">
-													{t("settings.backup.deleteConfirm")}
-												</span>
-												<button
-													type="button"
-													onClick={() => deleteMutation.mutate(backup.filename)}
-													disabled={deleteMutation.isPending}
-													className="ui-btn ui-btn-danger"
-												>
-													{t("settings.backup.confirm")}
-												</button>
-												<button
-													type="button"
-													onClick={() => setConfirmDelete(null)}
-													className="ui-btn ui-btn-secondary"
-												>
-													{t("settings.backup.cancel")}
-												</button>
-											</>
-										) : (
-											<>
-												{backup.signed && (
+										<div className="flex items-center gap-2 ml-3 shrink-0">
+											{confirmDelete === backup.filename ? (
+												<>
+													<span className="text-xs text-red-400">
+														{t("settings.backup.deleteConfirm")}
+													</span>
 													<button
 														type="button"
-														onClick={() => copySignature(backup.filename)}
-														className="ui-btn ui-btn-secondary"
-														title={t("settings.backup.copySignature")}
-														aria-label={t("settings.backup.copySignature")}
+														onClick={() =>
+															deleteMutation.mutate(backup.filename)
+														}
+														disabled={deleteMutation.isPending}
+														className="ui-btn ui-btn-danger"
 													>
-														<Copy size={12} />
+														{t("settings.backup.confirm")}
 													</button>
-												)}
-												<button
-													type="button"
-													onClick={() => downloadBackup(backup.filename)}
-													className="ui-btn ui-btn-secondary"
-												>
-													<Download size={12} />
-													{t("settings.backup.download")}
-												</button>
-												<button
-													type="button"
-													onClick={() => setConfirmDelete(backup.filename)}
-													className="ui-btn ui-btn-danger"
-													title={t("settings.backup.delete")}
-													aria-label={t("settings.backup.delete")}
-												>
-													<Trash2 size={12} />
-												</button>
-											</>
-										)}
+													<button
+														type="button"
+														onClick={() => setConfirmDelete(null)}
+														className="ui-btn ui-btn-secondary"
+													>
+														{t("settings.backup.cancel")}
+													</button>
+												</>
+											) : (
+												<>
+													{backup.signed && (
+														<button
+															type="button"
+															onClick={() => copySignature(backup.filename)}
+															className="ui-btn ui-btn-secondary"
+															title={t("settings.backup.copySignature")}
+															aria-label={t("settings.backup.copySignature")}
+														>
+															<Copy size={12} />
+														</button>
+													)}
+													<button
+														type="button"
+														onClick={() => downloadBackup(backup.filename)}
+														className="ui-btn ui-btn-secondary"
+													>
+														<Download size={12} />
+														{t("settings.backup.download")}
+													</button>
+													<button
+														type="button"
+														onClick={() => setConfirmDelete(backup.filename)}
+														className="ui-btn ui-btn-danger"
+														title={t("settings.backup.delete")}
+														aria-label={t("settings.backup.delete")}
+													>
+														<Trash2 size={12} />
+													</button>
+												</>
+											)}
+										</div>
 									</div>
-								</div>
-							))}
-						</div>
+								))}
+							</div>
+							<p
+								className="text-xs text-(--text-tertiary)"
+								data-testid="backups-total-size"
+							>
+								{t("settings.backup.totalSize", {
+									size: formatBytes(
+										backups.reduce((sum, b) => sum + b.size_bytes, 0),
+									),
+								})}
+							</p>
+						</>
 					) : (
 						<p className="text-xs text-(--text-muted)">
 							{t("settings.backup.noBackups")}

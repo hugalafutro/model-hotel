@@ -1322,6 +1322,7 @@ func TestRestoreBackup_ValidDumpPassesValidation_Integration(t *testing.T) {
 	pgDumpPath, _ := exec.LookPath("pg_dump")
 	cmd := exec.CommandContext(ctx, pgDumpPath,
 		"--format=custom",
+		"--compress=zstd:19",
 		"--no-password",
 		"--file="+dumpPath,
 		apiTestDBURL,

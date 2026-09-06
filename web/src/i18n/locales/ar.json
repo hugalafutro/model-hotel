@@ -2065,7 +2065,8 @@
 			"restoreSuccessVerified": "تمت استعادة قاعدة البيانات والتحقق من التوقيع. الخادم يعيد التشغيل…",
 			"copySignature": "نسخ التوقيع",
 			"signatureCopied": "تم نسخ التوقيع إلى الحافظة",
-			"signatureCopyFailed": "تعذّر نسخ التوقيع: {{message}}"
+			"signatureCopyFailed": "تعذّر نسخ التوقيع: {{message}}",
+			"totalSize": "الحجم الإجمالي لكل النسخ الاحتياطية: {{size}}"
 		},
 		"appearance": {
 			"title": "المظهر",

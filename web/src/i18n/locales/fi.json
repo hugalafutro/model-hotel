@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Tietokanta palautettu, allekirjoitus todennettu. Palvelin käynnistyy uudelleen…",
 			"copySignature": "Kopioi allekirjoitus",
 			"signatureCopied": "Allekirjoitus kopioitu leikepöydälle",
-			"signatureCopyFailed": "Allekirjoituksen kopiointi epäonnistui: {{message}}"
+			"signatureCopyFailed": "Allekirjoituksen kopiointi epäonnistui: {{message}}",
+			"totalSize": "Kaikkien varmuuskopioiden yhteiskoko: {{size}}"
 		},
 		"appearance": {
 			"title": "Ulkoasu",

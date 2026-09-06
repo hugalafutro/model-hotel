@@ -1918,7 +1918,8 @@
 			"restoreSuccessVerified": "מסד הנתונים שוחזר, החתימה אומתה. השרת מופעל מחדש…",
 			"copySignature": "העתק חתימה",
 			"signatureCopied": "החתימה הועתקה ללוח",
-			"signatureCopyFailed": "לא ניתן להעתיק את החתימה: {{message}}"
+			"signatureCopyFailed": "לא ניתן להעתיק את החתימה: {{message}}",
+			"totalSize": "גודל כולל של כל הגיבויים: {{size}}"
 		},
 		"appearance": {
 			"title": "מראה",

@@ -1918,7 +1918,8 @@
 			"restoreSuccessVerified": "Base de données restaurée, signature vérifiée. Le serveur redémarre…",
 			"copySignature": "Copier la signature",
 			"signatureCopied": "Signature copiée dans le presse-papiers",
-			"signatureCopyFailed": "Impossible de copier la signature : {{message}}"
+			"signatureCopyFailed": "Impossible de copier la signature : {{message}}",
+			"totalSize": "Taille totale de toutes les sauvegardes : {{size}}"
 		},
 		"appearance": {
 			"title": "Apparence",

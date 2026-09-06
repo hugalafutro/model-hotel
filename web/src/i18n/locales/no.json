@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Database gjenopprettet, signatur verifisert. Serveren starter på nytt…",
 			"copySignature": "Kopier signatur",
 			"signatureCopied": "Signatur kopiert til utklippstavlen",
-			"signatureCopyFailed": "Kunne ikke kopiere signaturen: {{message}}"
+			"signatureCopyFailed": "Kunne ikke kopiere signaturen: {{message}}",
+			"totalSize": "Samlet størrelse på alle sikkerhetskopier: {{size}}"
 		},
 		"appearance": {
 			"title": "Utseende",

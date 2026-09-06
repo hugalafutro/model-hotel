@@ -1967,7 +1967,8 @@
 			"restoreSuccessVerified": "База данных восстановлена, подпись проверена. Сервер перезапускается…",
 			"copySignature": "Скопировать подпись",
 			"signatureCopied": "Подпись скопирована в буфер обмена",
-			"signatureCopyFailed": "Не удалось скопировать подпись: {{message}}"
+			"signatureCopyFailed": "Не удалось скопировать подпись: {{message}}",
+			"totalSize": "Общий размер всех резервных копий: {{size}}"
 		},
 		"appearance": {
 			"title": "Внешний вид",

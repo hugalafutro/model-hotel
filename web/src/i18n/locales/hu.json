@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "Adatbázis visszaállítva, aláírás ellenőrizve. A szerver újraindul…",
 			"copySignature": "Aláírás másolása",
 			"signatureCopied": "Aláírás a vágólapra másolva",
-			"signatureCopyFailed": "Az aláírás másolása nem sikerült: {{message}}"
+			"signatureCopyFailed": "Az aláírás másolása nem sikerült: {{message}}",
+			"totalSize": "Az összes biztonsági mentés teljes mérete: {{size}}"
 		},
 		"appearance": {
 			"title": "Megjelenés",

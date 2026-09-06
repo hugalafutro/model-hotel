@@ -1918,7 +1918,8 @@
 			"restoreSuccessVerified": "Baza de date a fost restaurată, semnătura verificată. Serverul repornește…",
 			"copySignature": "Copiază semnătura",
 			"signatureCopied": "Semnătura a fost copiată în clipboard",
-			"signatureCopyFailed": "Semnătura nu a putut fi copiată: {{message}}"
+			"signatureCopyFailed": "Semnătura nu a putut fi copiată: {{message}}",
+			"totalSize": "Dimensiunea totală a tuturor copiilor de rezervă: {{size}}"
 		},
 		"appearance": {
 			"title": "Aspectul",

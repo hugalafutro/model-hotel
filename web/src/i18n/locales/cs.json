@@ -1967,7 +1967,8 @@
 			"restoreSuccessVerified": "Databáze obnovena, podpis ověřen. Server se restartuje…",
 			"copySignature": "Kopírovat podpis",
 			"signatureCopied": "Podpis zkopírován do schránky",
-			"signatureCopyFailed": "Podpis se nepodařilo zkopírovat: {{message}}"
+			"signatureCopyFailed": "Podpis se nepodařilo zkopírovat: {{message}}",
+			"totalSize": "Celková velikost všech záloh: {{size}}"
 		},
 		"appearance": {
 			"title": "Vzhled",

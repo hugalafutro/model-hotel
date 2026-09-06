@@ -1869,7 +1869,8 @@
 			"restoreSuccessVerified": "数据库已恢复,签名已验证。服务器正在重启…",
 			"copySignature": "复制签名",
 			"signatureCopied": "签名已复制到剪贴板",
-			"signatureCopyFailed": "无法复制签名:{{message}}"
+			"signatureCopyFailed": "无法复制签名:{{message}}",
+			"totalSize": "所有备份的总大小：{{size}}"
 		},
 		"appearance": {
 			"title": "外观",
