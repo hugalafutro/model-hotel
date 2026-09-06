@@ -135,6 +135,12 @@
     <string name="alerts_catalog_note">Basculez l\'interrupteur pour activer ou couper une alerte. Les changements s\'appliquent à Front Desk immédiatement.</string>
     <string name="alerts_flip_forbidden">Cet appareil est associé en tant que moniteur et ne peut pas modifier les alertes. Réassociez-le avec un code opérateur dans Front Desk.</string>
     <string name="alerts_flip_failed">Impossible de modifier cette alerte : %1$s</string>
+    <string name="alerts_category_health">État</string>
+    <string name="alerts_category_config_sync">Synchronisation de la configuration</string>
+    <string name="alerts_category_member_reads">Lectures des membres</string>
+    <string name="alerts_category_routing">Routage</string>
+    <string name="alerts_category_membership">Adhésion</string>
+    <string name="alerts_category_backups">Sauvegardes</string>
     <string name="alerts_event_health_down">Membre hors service</string>
     <string name="alerts_event_health_up">Membre rétabli</string>
     <string name="alerts_event_config_sync_failed">Échec de la synchro de config</string>

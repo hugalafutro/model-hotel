@@ -141,6 +141,12 @@
     <string name="alerts_catalog_note">Przełącz przełącznik, aby włączyć lub wyciszyć alert. Zmiany są stosowane w Front Desk natychmiast.</string>
     <string name="alerts_flip_forbidden">To urządzenie jest sparowane jako monitor i nie może zmieniać alertów. Sparuj je ponownie kodem operatora w Front Desk.</string>
     <string name="alerts_flip_failed">Nie udało się zmienić tego alertu: %1$s</string>
+    <string name="alerts_category_health">Stan</string>
+    <string name="alerts_category_config_sync">Synchronizacja konfiguracji</string>
+    <string name="alerts_category_member_reads">Odczyty członków</string>
+    <string name="alerts_category_routing">Routing</string>
+    <string name="alerts_category_membership">Członkostwo</string>
+    <string name="alerts_category_backups">Kopie zapasowe</string>
     <string name="alerts_event_health_down">Węzeł przestał działać</string>
     <string name="alerts_event_health_up">Węzeł przywrócony</string>
     <string name="alerts_event_config_sync_failed">Synchronizacja konfiguracji nie powiodła się</string>

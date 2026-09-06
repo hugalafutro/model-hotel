@@ -52,6 +52,24 @@ internal fun eventTypeLabelRes(type: String): Int? =
 internal fun eventTypeLabel(type: String): String = eventTypeLabelRes(type)?.let { stringResource(it) } ?: type
 
 /**
+ * categoryLabel is the human name for an alert-catalog category, which Front
+ * Desk sends as raw English ("Config Sync"). A category this build doesn't know
+ * yet falls back to that raw English name, the same way [eventTypeLabel] falls
+ * back to the raw event code.
+ */
+@Composable
+internal fun categoryLabel(category: String): String =
+    when (category) {
+        "Health" -> stringResource(R.string.alerts_category_health)
+        "Config Sync" -> stringResource(R.string.alerts_category_config_sync)
+        "Member Reads" -> stringResource(R.string.alerts_category_member_reads)
+        "Routing" -> stringResource(R.string.alerts_category_routing)
+        "Membership" -> stringResource(R.string.alerts_category_membership)
+        "Backups" -> stringResource(R.string.alerts_category_backups)
+        else -> category
+    }
+
+/**
  * withoutMemberName drops the member's own name out of a Front Desk event
  * message on surfaces that already show that name directly above the line --
  * the dashboard card's recent-event pill and the member's own log -- so

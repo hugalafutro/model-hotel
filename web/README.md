@@ -25,7 +25,7 @@ short orientation for working inside `web/`.
 |------|------------------|
 | `src/api/` | `http.ts` (fetch wrapper, `ApiError`, cookie auth helpers), `endpoints/` per area, `client.ts` (the assembled typed `api` facade), `types.ts` / `types/` |
 | `src/components/` | Reusable UI, including the virtualized log tables |
-| `src/pages/` | Top-level screens, each a `Page.tsx` plus a `Page/` directory of its parts: Dashboard, Providers, Models, FailoverGroups, VirtualKeys, Logs (request and app logs), Users, Security, Audit, Settings, Chat, Arena |
+| `src/pages/` | Top-level screens, most a `Page.tsx` plus a `Page/` directory of its parts, a few a directory only: Dashboard, Providers, Models, FailoverGroups, VirtualKeys, Logs (request and app logs), Users, Security, Audit, Settings, Chat, Arena |
 | `src/context/` | Theme, Toast, Event (SSE), Identity, Storage, SidebarMode, QuotaModal |
 | `src/hooks/` | Custom hooks (`useLocalStorage`, `useModels`, `useQuotaData`, `useIdleLogout`, ...) |
 | `src/i18n/` | i18next setup and `locales/*.json` |
@@ -38,8 +38,9 @@ both `vite.config.ts` and `vitest.config.ts`. They are linted and coverage-gated
 
 ## Commands
 
-Node 24 or newer (CI runs 24, the Docker builder image is `node:26-alpine`) and pnpm 10.33.0, as
-pinned by `package.json`. Run everything from `web/`, with paths relative to `web/`.
+Node 24 or newer (the floor CI runs; the Docker builder image is `node:26-alpine`) and pnpm
+10.33.0, pinned by the `packageManager` field in `package.json`. Run everything from `web/`, with
+paths relative to `web/`.
 
 ```bash
 pnpm install

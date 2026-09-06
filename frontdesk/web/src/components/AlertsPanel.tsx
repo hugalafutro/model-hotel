@@ -136,7 +136,7 @@ export function AlertsPanel() {
 		return t("errors.generic");
 	};
 
-	// Group the catalog by its (English) category for the picker.
+	// Group the catalog by its category (translated for display) for the picker.
 	const grouped = useMemo(() => {
 		const m = new Map<string, AlertEventDef[]>();
 		for (const e of catalog ?? []) {

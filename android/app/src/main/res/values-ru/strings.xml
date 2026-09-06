@@ -141,6 +141,12 @@
     <string name="alerts_catalog_note">Переключите тумблер, чтобы включить или отключить оповещение. Изменения применяются во Front Desk сразу.</string>
     <string name="alerts_flip_forbidden">Это устройство связано как монитор и не может менять оповещения. Свяжите его заново кодом оператора в Front Desk.</string>
     <string name="alerts_flip_failed">Не удалось изменить это оповещение: %1$s</string>
+    <string name="alerts_category_health">Состояние</string>
+    <string name="alerts_category_config_sync">Синхронизация конфигурации</string>
+    <string name="alerts_category_member_reads">Опрос участников</string>
+    <string name="alerts_category_routing">Маршрутизация</string>
+    <string name="alerts_category_membership">Членство</string>
+    <string name="alerts_category_backups">Резервные копии</string>
     <string name="alerts_event_health_down">Узел недоступен</string>
     <string name="alerts_event_health_up">Узел восстановлен</string>
     <string name="alerts_event_config_sync_failed">Сбой синхронизации конфигурации</string>

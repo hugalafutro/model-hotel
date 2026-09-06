@@ -135,6 +135,12 @@
     <string name="alerts_catalog_note">Lege den Schalter um, um eine Warnung zu aktivieren oder stummzuschalten. Änderungen werden sofort auf Front Desk angewendet.</string>
     <string name="alerts_flip_forbidden">Dieses Gerät ist als Monitor gekoppelt und kann Warnungen nicht ändern. Koppele es in Front Desk mit einem Operator-Code neu.</string>
     <string name="alerts_flip_failed">Warnung konnte nicht geändert werden: %1$s</string>
+    <string name="alerts_category_health">Zustand</string>
+    <string name="alerts_category_config_sync">Konfigurationsabgleich</string>
+    <string name="alerts_category_member_reads">Mitgliederabfragen</string>
+    <string name="alerts_category_routing">Routing</string>
+    <string name="alerts_category_membership">Mitgliedschaft</string>
+    <string name="alerts_category_backups">Sicherungen</string>
     <string name="alerts_event_health_down">Mitglied ausgefallen</string>
     <string name="alerts_event_health_up">Mitglied wiederhergestellt</string>
     <string name="alerts_event_config_sync_failed">Konfigurationssynchronisierung fehlgeschlagen</string>

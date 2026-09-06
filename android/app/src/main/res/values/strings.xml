@@ -151,6 +151,12 @@
     <string name="alerts_catalog_note">Flip the switch to enable or mute an alert. Changes apply to Front Desk right away.</string>
     <string name="alerts_flip_forbidden">This device is paired as a monitor and can\'t change alerts. Re-pair with an operator code in Front Desk.</string>
     <string name="alerts_flip_failed">Couldn\'t change that alert: %1$s</string>
+    <string name="alerts_category_health">Health</string>
+    <string name="alerts_category_config_sync">Config Sync</string>
+    <string name="alerts_category_member_reads">Member Reads</string>
+    <string name="alerts_category_routing">Routing</string>
+    <string name="alerts_category_membership">Membership</string>
+    <string name="alerts_category_backups">Backups</string>
     <string name="alerts_event_health_down">Member went down</string>
     <string name="alerts_event_health_up">Member recovered</string>
     <string name="alerts_event_config_sync_failed">Config sync failed</string>

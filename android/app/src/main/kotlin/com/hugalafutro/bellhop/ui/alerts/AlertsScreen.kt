@@ -37,6 +37,7 @@ import com.hugalafutro.bellhop.data.AlertStatus
 import com.hugalafutro.bellhop.ui.common.BellhopSwitch
 import com.hugalafutro.bellhop.ui.common.Pill
 import com.hugalafutro.bellhop.ui.common.StatusBanner
+import com.hugalafutro.bellhop.ui.common.categoryLabel
 import com.hugalafutro.bellhop.ui.common.eventTypeLabel
 import com.hugalafutro.bellhop.ui.common.severityColors
 import com.hugalafutro.bellhop.ui.theme.BellhopTheme
@@ -151,13 +152,14 @@ fun AlertsScreen(
                     }
                     // Group by category, preserving the server's order (a
                     // LinkedHashMap keeps first-seen category order, mirroring the
-                    // Front Desk web picker).
+                    // Front Desk web picker). The category arrives as raw English,
+                    // so the header goes through [categoryLabel] to be translated.
                     ui.catalog
                         .groupByTo(LinkedHashMap()) { it.category }
                         .forEach { (category, defs) ->
                             item {
                                 Text(
-                                    text = category,
+                                    text = categoryLabel(category),
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.padding(top = 8.dp),

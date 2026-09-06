@@ -141,6 +141,12 @@
     <string name="alerts_catalog_note">Přepnutím přepínače povolíte nebo ztlumíte upozornění. Změny se na Front Desku projeví okamžitě.</string>
     <string name="alerts_flip_forbidden">Toto zařízení je spárováno jako monitor a nemůže měnit upozornění. Spárujte ho znovu s operátorským kódem ve Front Desku.</string>
     <string name="alerts_flip_failed">Toto upozornění se nepodařilo změnit: %1$s</string>
+    <string name="alerts_category_health">Stav</string>
+    <string name="alerts_category_config_sync">Synchronizace konfigurace</string>
+    <string name="alerts_category_member_reads">Čtení členů</string>
+    <string name="alerts_category_routing">Směrování</string>
+    <string name="alerts_category_membership">Členství</string>
+    <string name="alerts_category_backups">Zálohy</string>
     <string name="alerts_event_health_down">Člen spadl</string>
     <string name="alerts_event_health_up">Člen obnoven</string>
     <string name="alerts_event_config_sync_failed">Synchronizace konfigurace selhala</string>
