@@ -174,16 +174,12 @@ export function Chat() {
 							{chat.chatSubMode === "chat" ? (
 								<Bot size={48} strokeWidth={1} className="mb-4 opacity-40" />
 							) : (
-								<div className="relative mb-4 w-20 h-12 flex items-center justify-center">
+								<div className="mb-4 flex gap-4">
+									<Bot size={48} strokeWidth={1} className="opacity-40" />
 									<Bot
 										size={48}
 										strokeWidth={1}
-										className="opacity-40 absolute left-0"
-									/>
-									<Bot
-										size={48}
-										strokeWidth={1}
-										className="opacity-40 absolute right-0 scale-x-[-1]"
+										className="opacity-40 scale-x-[-1]"
 									/>
 								</div>
 							)}

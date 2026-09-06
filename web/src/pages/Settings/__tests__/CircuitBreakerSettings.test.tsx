@@ -1248,10 +1248,12 @@ describe("CircuitBreakerSettings", () => {
 			const column = await screen.findByTestId("failover-column");
 			// The Hedging group renders below the Failover group in the left
 			// column, so its two reset buttons (the Hedge Slow Streams toggle and
-			// the Hedge Delay slider) are the last two in DOM order there.
+			// the Hedge Delay slider) are the last two in DOM order there, after
+			// the nine Failover controls.
 			const resets = within(column).getAllByRole("button", {
 				name: /reset this setting to default/i,
 			});
+			expect(resets).toHaveLength(11);
 			await user.click(resets[resets.length - 2]);
 			await waitFor(() =>
 				expect(resetSpy).toHaveBeenLastCalledWith(["hedging_enabled"]),

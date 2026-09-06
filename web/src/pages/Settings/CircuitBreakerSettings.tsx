@@ -235,7 +235,7 @@ export function CircuitBreakerSettings({
 		),
 	);
 	// Both quota-pin fallbacks mirror the Go defaults the breaker applies when
-	// the key is absent (internal/failover/circuitbreaker.go: quotaPinEnabled
+	// the key is absent (internal/failover/model_circuits.go: quotaPinEnabled
 	// defaults true, quotaPinMax falls back to 24h). The `|| 24` on the hours
 	// covers a stored non-positive duration too, which the breaker also reads as
 	// unset, so the slider shows the ceiling actually in force.
