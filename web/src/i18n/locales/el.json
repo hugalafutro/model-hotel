@@ -1323,7 +1323,8 @@
 			"rerank": "Ανακατάταξη",
 			"image": "Εικόνα",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Μηνύματα"
 		},
 		"table": {
 			"timeDate": "Ώρα/Ημερομηνία",

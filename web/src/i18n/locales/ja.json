@@ -1323,7 +1323,8 @@
 			"rerank": "再ランク付け",
 			"image": "画像",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "メッセージ"
 		},
 		"table": {
 			"timeDate": "時刻/日付",

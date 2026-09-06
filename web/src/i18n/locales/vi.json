@@ -1323,7 +1323,8 @@
 			"rerank": "Xếp hạng lại",
 			"image": "Hình ảnh",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Tin nhắn"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",

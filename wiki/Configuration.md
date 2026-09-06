@@ -402,36 +402,37 @@ A background scheduler (started about a minute after the server boots) drives pe
 Backend settings: `rate_limit_enabled`, `rate_limit_ip_enabled`, `rate_limit_rps`, `rate_limit_burst`, `rate_limit_ip_rps`, `rate_limit_ip_burst`, `rate_limit_max_wait_ms`. `rate_limit_tpm` is writable through the API but has no control in this section.
 
 #### Circuit Breaker & Failover
-The largest section, laid out in four columns: **Failover**, **Hedging**, **Rate Limit (429)
+The largest section, laid out as four groups in a two-column grid: **Failover**, **Hedging**, **Rate Limit (429)
 Handling**, and **Adaptive Concurrency**.
 
-Failover column: `circuit_breaker_enabled`, `circuit_breaker_threshold`,
+Failover group: `circuit_breaker_enabled`, `circuit_breaker_threshold`,
 `circuit_breaker_span_models`, `circuit_breaker_cooldown`, `circuit_breaker_quota_pin_max`,
-`circuit_breaker_backoff_max`, `failover_on_rate_limit`, `server_error_retry_enabled`.
+`circuit_breaker_backoff_max`, `failover_on_rate_limit`.
 
 - **Failure Threshold:** Consecutive failures before a model's circuit opens (default 5).
 - **Models Before Provider Skip:** How many of a provider's models must have an open circuit before the provider itself is skipped for every model (default 2, range 1-100). At 1 the first open circuit sidelines the whole provider.
 - **Cooldown Period:** How long an open circuit stays open before it goes half-open (default `60s`).
 - **Backoff Limit:** Double the cooldown for every half-open probe that fails, up to this limit (default 15 minutes). Zero switches backoff off, and releases a backoff already in force within about 30 seconds. See [Probe backoff](Failover-and-Hotel-Routing#probe-backoff).
 - **Quota Pin Limit:** When a circuit opens on a spent quota window, hold it open until the provider's quota actually resets rather than re-probing every cooldown, up to this ceiling (default `24h`). Zero switches pinning off, and releases a pin already in force within about 30 seconds.
-- **Retry a Transient 5xx Once:** Let the last candidate back off briefly and try once more on a 500, 502, 503 or 504 before the error reaches the client.
 - The number of half-open probe successes needed to close the circuit is fixed in code (`HalfOpenMaxProbes`, default 1) and is **not** a runtime setting.
 
-Hedging column: `hedging_enabled`, `hedge_delay`. Off by default. When on, a streaming request
+Hedging group: `hedging_enabled`, `hedge_delay`. Off by default. When on, a streaming request
 that has waited `hedge_delay` for its first token also fires a backup provider and keeps
 whichever answers first. The notice under the toggle spells out the trade-off: on slow starts
 this doubles the upstream request, so provider rate limits and capacity are consumed faster and
 a backup that ignores cancellation can keep generating in the background. Full mechanics under
 [Request hedging](Failover-and-Hotel-Routing#request-hedging).
 
-Rate Limit (429) Handling column: `rate_limit_classify_enabled`,
+Rate Limit (429) Handling group: `server_error_retry_enabled`, `rate_limit_classify_enabled`,
 `rate_limit_saturation_max_wait`, `rate_limit_recent_success_window`,
 `circuit_breaker_open_on_exhaustion`, `failover_exhaustion_status_429`. These read each 429 to
 tell a provider that is briefly at capacity from one whose quota window or balance is spent, and
 decide what the client sees when every member of a group is unavailable. See
 [429s: saturated vs exhausted](Failover-and-Hotel-Routing#429s-saturated-vs-exhausted).
 
-Adaptive Concurrency column: `inflight_limiter_enabled`, `inflight_grow_after`,
+- **Retry a Transient 5xx Once:** Let the last candidate back off briefly and try once more on a 500, 502, 503 or 504 before the error reaches the client.
+
+Adaptive Concurrency group: `inflight_limiter_enabled`, `inflight_grow_after`,
 `inflight_forget_after`. Learns each provider's real concurrency from its busy 429s, shrinking
 the allowance when one arrives and growing it back on clean completions. See
 [Adaptive in-flight limiter](Failover-and-Hotel-Routing#adaptive-in-flight-limiter).

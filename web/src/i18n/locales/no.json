@@ -1323,7 +1323,8 @@
 			"rerank": "Omrangering",
 			"image": "Bilde",
 			"tts": "TTS",
-			"stt": "STT"
+			"stt": "STT",
+			"messages": "Meldinger"
 		},
 		"table": {
 			"timeDate": "Tid/dato",

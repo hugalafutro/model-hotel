@@ -140,7 +140,7 @@ This is deliberately an explicit action rather than automatic revocation on ever
 
 Login endpoints are IP rate-limited to prevent brute-force probing of passkeys. Registration and credential management require admin or session token auth.
 
-**Per-key backoff on top of the rate limiter.** Every login ceremony (passkey, TOTP, SSO, GitHub, and dashboard passwords) also keeps an in-memory failure counter per client IP. After 5 failures it starts refusing with an exponential backoff, from 1 second up to a 5-minute cap, and a success clears the counter. Because the delay is capped and self-clearing, a sustained attack slows the real admin down but never locks them out.
+**Per-key backoff on top of the rate limiter.** Every login ceremony except passkeys (TOTP, SSO, GitHub, and dashboard passwords) also keeps an in-memory failure counter per client IP. After 5 failures it starts refusing with an exponential backoff, from 1 second up to a 5-minute cap, and a success clears the counter. Because the delay is capped and self-clearing, a sustained attack slows the real admin down but never locks them out.
 
 **SSE events:**
 
