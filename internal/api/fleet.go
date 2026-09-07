@@ -390,6 +390,14 @@ func (h *FleetHandler) rejectConflict(storedID, rejectedID string) {
 	last, seen := h.conflictSeen[rejectedID]
 	shouldEmit := !seen || now.Sub(last) >= conflictNotifyInterval
 	if shouldEmit {
+		// A stamp past the interval no longer debounces anything. Dropping it
+		// keeps the map to the IDs currently announcing, instead of one row
+		// per distinct id a caller ever sent.
+		for id, ts := range h.conflictSeen {
+			if now.Sub(ts) >= conflictNotifyInterval {
+				delete(h.conflictSeen, id)
+			}
+		}
 		h.conflictSeen[rejectedID] = now
 	}
 	h.conflictMu.Unlock()

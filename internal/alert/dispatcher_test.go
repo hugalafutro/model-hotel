@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -608,5 +609,38 @@ func TestRunStopsWhenBusClosed(t *testing.T) {
 	case <-done:
 	case <-time.After(2 * time.Second):
 		t.Fatal("Run kept going after the bus was closed")
+	}
+}
+
+// TestSuppressedEvictsStaleStamps: the debounce map is keyed by event type plus
+// entity id, so without eviction it grows one row per provider or model that
+// ever alerted and never shrinks. A stamp past the cooldown suppresses nothing,
+// so it must not be retained.
+func TestSuppressedEvictsStaleStamps(t *testing.T) {
+	d := New(fakeCfg{}, http.DefaultClient)
+	d.cooldown = 50 * time.Millisecond
+
+	d.mu.Lock()
+	for i := range 100 {
+		d.lastSent[fmt.Sprintf("provider.down|gone-%d", i)] = time.Now().Add(-time.Hour)
+	}
+	d.lastSent["provider.down|fresh"] = time.Now()
+	d.mu.Unlock()
+
+	ev := events.Event{Type: "provider.down", Metadata: map[string]any{"provider_id": "live"}}
+	if d.suppressed(ev) {
+		t.Fatal("a first-time key must not be suppressed")
+	}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	if len(d.lastSent) != 2 {
+		t.Errorf("lastSent holds %d stamps, want the fresh one and the new one", len(d.lastSent))
+	}
+	if _, ok := d.lastSent["provider.down|fresh"]; !ok {
+		t.Error("a stamp still inside the cooldown was evicted")
+	}
+	if _, ok := d.lastSent["provider.down|live"]; !ok {
+		t.Error("the new stamp was not recorded")
 	}
 }

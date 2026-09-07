@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 var dockerSocketPath = "/var/run/docker.sock"
@@ -174,7 +175,7 @@ func ListComposeContainers(filter ContainerFilter) ([]DockerContainer, error) {
 	}
 
 	var all []DockerContainer
-	if err := json.NewDecoder(resp.Body).Decode(&all); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, &all); err != nil {
 		return nil, err
 	}
 
@@ -221,13 +222,13 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
 		debuglog.Info("docker: stats API returned non-200", "status", resp.StatusCode, "container", containerID[:12], "body", string(body[:min(len(body), 200)]))
 		return nil, fmt.Errorf("docker stats API returned %d: %s", resp.StatusCode, string(body))
 	}
 
 	var raw dockerStatsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, &raw); err != nil {
 		return nil, err
 	}
 
@@ -441,7 +442,7 @@ func detectContainerFilter() ContainerFilter {
 		return ContainerFilter{}
 	}
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxUpstreamBody))
 	var info struct {
 		Config struct {
 			Labels map[string]string `json:"Labels"`

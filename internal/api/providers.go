@@ -438,7 +438,11 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		util.HoldSecret(*req.APIKey)
 	}
 
-	prior := h.priorProvider(r.Context(), id, req)
+	prior, err := h.priorProvider(r.Context(), id, req)
+	if err != nil {
+		respondError(w, fmt.Sprintf("failed to load provider %s before update", id), err, http.StatusInternalServerError)
+		return
+	}
 
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
@@ -463,15 +467,23 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 // priorProvider reads the row a save is about to replace, but only when the
 // save touches something whose before-and-after matters: the enabled flag or
 // the provider's identity. A rename never needs it.
-func (h *Handler) priorProvider(ctx context.Context, id uuid.UUID, req provider.UpdateProviderRequest) *provider.Provider {
+//
+// A missing row is (nil, nil): the update below answers that with its own 404.
+// Any other read failure is returned, because a nil prior is indistinguishable
+// from "provider absent" and would make the caller skip the enable-state
+// settlement, rediscovery and failover synchronisation a committed save owes.
+func (h *Handler) priorProvider(ctx context.Context, id uuid.UUID, req provider.UpdateProviderRequest) (*provider.Provider, error) {
 	if req.Enabled == nil && req.AutodiscoveryEnabled == nil && req.BaseURL == nil && req.ProviderType == nil && req.APIKey == nil {
-		return nil
+		return nil, nil
 	}
 	prior, err := h.providerRepo.Get(ctx, id)
 	if err != nil {
-		return nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
 	}
-	return prior
+	return prior, nil
 }
 
 // settleProviderUpdate runs what a committed save owes the rest of the system:

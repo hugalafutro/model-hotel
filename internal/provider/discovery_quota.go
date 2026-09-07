@@ -2,7 +2,6 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -10,6 +9,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -78,7 +78,7 @@ func (d *DiscoveryService) fetchQuotaJSONAt(ctx context.Context, provider *Provi
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
 		if authErr := quotaAuthError(label, apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return authErr
 		}
@@ -89,7 +89,7 @@ func (d *DiscoveryService) fetchQuotaJSONAt(ctx context.Context, provider *Provi
 		}
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, out); err != nil {
 		return fmt.Errorf("%s: failed to decode %s response for provider %s: %w", label, resource, provider.Name, err)
 	}
 

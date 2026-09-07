@@ -7,6 +7,8 @@ import (
 	"slices"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // TestCursorPageParams_LimitClampsRatherThanFallsBack pins the one behaviour
@@ -37,7 +39,7 @@ func TestCursorPageParams_LimitClampsRatherThanFallsBack(t *testing.T) {
 }
 
 func TestCursorPageParams_DirectionAndCursor(t *testing.T) {
-	c := logCursor{CreatedAt: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC), ID: "row-1"}
+	c := logCursor{CreatedAt: time.Date(2026, 9, 7, 12, 0, 0, 0, time.UTC), ID: uuid.NewString()}
 	w := httptest.NewRecorder()
 	_, cursorStr, direction, decoded, ok := cursorPageParams(w,
 		url.Values{"direction": {"before"}, "cursor": {c.encode()}}, 20, 200)

@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -12,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 const (
@@ -117,7 +117,7 @@ func githubGetJSON(ctx context.Context, url string, out any) (int, error) {
 	if resp.StatusCode != http.StatusOK {
 		return resp.StatusCode, fmt.Errorf("GitHub returned status %d", resp.StatusCode)
 	}
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, out); err != nil {
 		return resp.StatusCode, fmt.Errorf("decode response: %w", err)
 	}
 	return resp.StatusCode, nil

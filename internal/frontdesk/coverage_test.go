@@ -11,6 +11,8 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // TestPollerRunTicksAndStops exercises Run + tickLoop and one tick of every poll
@@ -327,7 +329,7 @@ func TestWithRefusalReason(t *testing.T) {
 func TestMaskSecretsAndResolveSecret(t *testing.T) {
 	set := Settings{AlertAppriseTargets: "cipher-a", OidcClientSecret: "cipher-b"}
 	maskSecrets(&set)
-	if set.AlertAppriseTargets != alertMaskValue || set.OidcClientSecret != alertMaskValue {
+	if set.AlertAppriseTargets != util.SecretMask || set.OidcClientSecret != util.SecretMask {
 		t.Fatalf("masked settings = %+v", set)
 	}
 	empty := Settings{}
@@ -336,7 +338,7 @@ func TestMaskSecretsAndResolveSecret(t *testing.T) {
 		t.Errorf("an unset secret must stay empty, got %+v", empty)
 	}
 
-	if got, err := resolveSecret(alertMaskValue, "cipher-a", "key"); err != nil || got != "cipher-a" {
+	if got, err := resolveSecret(util.SecretMask, "cipher-a", "key"); err != nil || got != "cipher-a" {
 		t.Errorf("echoed mask = (%q, %v), want the stored ciphertext", got, err)
 	}
 	if got, err := resolveSecret("", "cipher-a", "key"); err != nil || got != "" {

@@ -57,11 +57,11 @@ func TokenExchange(
 		}
 		tok, err := sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, ips))
 		if err != nil {
-			http.Error(w, "failed to create session", http.StatusInternalServerError)
+			respondError(w, "failed to create session", err, http.StatusInternalServerError)
 			return
 		}
 		if err := jar.SetSession(w, tok, authcookie.Secure(r, cookieSecure), webauthn.AuthTokenTTL); err != nil {
-			http.Error(w, "failed to set session cookie", http.StatusInternalServerError)
+			respondError(w, "failed to set session cookie", err, http.StatusInternalServerError)
 			return
 		}
 		// Neither the admin token nor the session token goes in the body; the

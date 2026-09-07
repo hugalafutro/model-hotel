@@ -13,6 +13,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -125,7 +126,7 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
 		// Sanitized like every sibling discovery path: an upstream that quotes
 		// the operator's key back in an auth failure would otherwise put it in
 		// app_logs verbatim, and from there into the OTLP export.
@@ -134,7 +135,7 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 	}
 
 	var showResp OllamaShowResponse
-	if err := json.NewDecoder(resp.Body).Decode(&showResp); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, &showResp); err != nil {
 		return nil, err
 	}
 	return &showResp, nil

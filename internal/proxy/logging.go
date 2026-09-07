@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // isTerminalLogState reports whether a request-log state is one a row can end
@@ -253,15 +254,6 @@ const logBodyCap = 10000
 // gives upstream bodies.
 const maxLogMessageRunes = 10000
 
-// truncateLogMessage caps s at maxLogMessageRunes runes, cutting on a rune
-// boundary so the stored text stays valid UTF-8, and marks the cut.
-func truncateLogMessage(s string) string {
-	if utf8.RuneCountInString(s) <= maxLogMessageRunes {
-		return s
-	}
-	return string([]rune(s)[:maxLogMessageRunes]) + "…"
-}
-
 func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOption) {
 	// The terminal write closes the attempt in flight from the flat columns, so
 	// every terminal path in the package gets a trail record without knowing the
@@ -288,7 +280,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// paths assign errorMessage directly and call this function themselves (the
 	// native Anthropic and non-streaming readers, the stream finaliser, the
 	// multimodal passthrough), so a clamp there would only cover some callers.
-	logEntry.errorMessage = truncateLogMessage(logEntry.errorMessage)
+	logEntry.errorMessage = util.TruncateRunes(logEntry.errorMessage, maxLogMessageRunes)
 	// Then the content fence, for the same reason and at the same place: the
 	// error message and every attempt detail came from an upstream body that
 	// may quote the prompt back, and this is where all of them are written.

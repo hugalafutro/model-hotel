@@ -3,9 +3,7 @@ package proxy
 import (
 	"encoding/json"
 	"sort"
-	"strings"
 	"time"
-	"unicode/utf8"
 
 	"github.com/google/uuid"
 
@@ -81,11 +79,7 @@ func attemptDetail(masker credentialMasker, s string) string {
 		return ""
 	}
 	s = string(masker.mask([]byte(s)))
-	s = strings.Join(strings.Fields(s), " ")
-	if utf8.RuneCountInString(s) <= maxAttemptDetailRunes {
-		return s
-	}
-	return string([]rune(s)[:maxAttemptDetailRunes]) + "…"
+	return util.TruncateRunes(util.CollapseSpace(s), maxAttemptDetailRunes)
 }
 
 // openAttemptRecord starts the record for an attempt that is committing to a
@@ -174,7 +168,7 @@ func (l *requestLogData) closeAttemptRecord(status int, kind ErrorKind, detail, 
 	rec.TTFTMs = ttftMs
 	rec.Breaker = l.attemptBreaker
 	if !l.attemptStarted.IsZero() {
-		rec.DurationMs = float64(time.Since(l.attemptStarted).Microseconds()) / 1000.0
+		rec.DurationMs = util.MillisSince(l.attemptStarted)
 	}
 	l.attempts = append(l.attempts, *rec)
 }

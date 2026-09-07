@@ -2,9 +2,9 @@ package api
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
@@ -39,8 +39,7 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	key := id.UserID.String()
 	if ok, retry := h.pwThrottle.Allowed(key); !ok {
 		debuglog.Warn("userpassword: throttled", "username", id.Username)
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
 	u, err := h.userRepo.Get(r.Context(), *id.UserID)

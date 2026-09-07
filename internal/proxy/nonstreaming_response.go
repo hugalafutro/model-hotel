@@ -130,7 +130,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 
 	switch {
 	case decodeErr == nil && servedSuccessStatus(resp.StatusCode):
-		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+		totalDuration := util.MillisSince(startTime)
 		var reasoningTokens int
 		if chatResp.Usage.CompletionTokensDetails != nil && chatResp.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 			reasoningTokens = chatResp.Usage.CompletionTokensDetails.ReasoningTokens
@@ -233,7 +233,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// completion falls through to the failure branch exactly as a 200 does:
 		// the caller asked for a chat completion, and a success status alone is
 		// not one.
-		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+		totalDuration := util.MillisSince(startTime)
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
 		logData.responseHeaderMs = responseHeaderMs
@@ -259,7 +259,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		w.WriteHeader(resp.StatusCode)
 		debuglog.Info("proxy: upstream answered with no content", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "duration_ms", totalDuration)
 	default:
-		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+		totalDuration := util.MillisSince(startTime)
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
 		logData.responseHeaderMs = responseHeaderMs

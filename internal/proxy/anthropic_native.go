@@ -4,10 +4,11 @@ import (
 	"context"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // buildNativeAnthropicRequest builds the upstream request for the native
@@ -41,7 +42,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		_ = resp.Body.Close()
 	}()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := httpx.ReadCappedBody(resp.Body, nonStreamingBodyCap)
 	if err != nil {
 		debuglog.Warn("proxy: native anthropic read failed", "error", err, "provider", logData.providerName)
 		// Finalize the log row so it does not orphan in the in-flight state. A
@@ -54,7 +55,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 			kind = cancelled
 		}
 		logData.statusCode = http.StatusBadGateway
-		logData.durationMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
+		logData.durationMs = util.MillisSince(st.startTime)
 		logData.responseHeaderMs = responseHeaderMs
 		logData.failoverAttempt = attempt
 		logData.errorKind = kind
@@ -74,7 +75,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// writes is clamped, so the log row's five token columns, the estimate and
 	// the charge agree.
 	inputTokens, outputTokens, _ := h.clampReportedUsage(usage.PromptTokens, usage.CompletionTokens, 0, logData)
-	totalDuration := float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	totalDuration := util.MillisSince(st.startTime)
 
 	// The status the provider actually sent, not a flattened 200: a relay may
 	// answer a native message 201, and recording 200 would put a number in the

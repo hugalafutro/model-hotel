@@ -8,6 +8,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // TestOIDCStatusRouteMountedUnauthenticated proves the shared adminauth OIDC
@@ -83,7 +84,7 @@ func TestSettingsOIDCSecretMaskRoundTrip(t *testing.T) {
 		t.Errorf("stored client secret decrypts to %q", got)
 	}
 	// GET masks it (never the ciphertext or the plaintext).
-	if m := get().OidcClientSecret; m != alertMaskValue {
+	if m := get().OidcClientSecret; m != util.SecretMask {
 		t.Errorf("GET client secret = %q, want mask", m)
 	}
 

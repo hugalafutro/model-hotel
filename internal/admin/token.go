@@ -101,6 +101,13 @@ func writeTokenFileAtomic(path string, data []byte) error {
 	return nil
 }
 
+// isSHA256Hex reports whether s is a SHA-256 digest in the form this package
+// stores: exactly 64 hex characters, decoding to 32 bytes.
+func isSHA256Hex(s string) bool {
+	raw, err := hex.DecodeString(s)
+	return err == nil && len(raw) == sha256.Size
+}
+
 func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken string, isNew bool, err error) {
 	tokenPath := filepath.Join(m.dataDir, "admin-token")
 
@@ -120,13 +127,23 @@ func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken 
 	}
 
 	// sha256: prefix format
-	if strings.HasPrefix(content, sha256Prefix) {
-		return content[len(sha256Prefix):], "", false, nil
+	if stored, ok := strings.CutPrefix(content, sha256Prefix); ok {
+		if !isSHA256Hex(stored) {
+			return "", "", false, fmt.Errorf("token file %s holds a malformed %s hash: expected 64 hex characters, got %d characters", tokenPath, sha256Prefix, len(stored))
+		}
+		return stored, "", false, nil
 	}
 
 	// Legacy: bare 64-char hex hash (no prefix). Not migrated to sha256:
-	// prefix to avoid rewriting a file that already stores a valid hash.
+	// prefix to avoid rewriting a file that already stores a valid hash. A
+	// 64-character value that is not hex cannot be a digest, so it is a
+	// corrupt file rather than a plaintext token to migrate: no caller could
+	// ever authenticate against it, and silently accepting it would lock the
+	// dashboard out with no diagnosis.
 	if len(content) == 64 {
+		if !isSHA256Hex(content) {
+			return "", "", false, fmt.Errorf("token file %s holds a malformed legacy hash: 64 characters that are not hex", tokenPath)
+		}
 		return content, "", false, nil
 	}
 

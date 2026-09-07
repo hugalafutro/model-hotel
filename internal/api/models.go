@@ -24,6 +24,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -120,7 +121,16 @@ func (c *modelCursor) decode(s string) error {
 	if err != nil {
 		return fmt.Errorf("invalid base64: %w", err)
 	}
-	return json.Unmarshal(b, c)
+	if err := json.Unmarshal(b, c); err != nil {
+		return err
+	}
+	// The id is compared against a uuid column. A base64-valid cursor carrying
+	// anything else is malformed client input, so it is rejected here as a 400
+	// instead of reaching Postgres as a type error and surfacing as a 500.
+	if _, err := uuid.Parse(c.ID); err != nil {
+		return fmt.Errorf("invalid cursor id: %w", err)
+	}
+	return nil
 }
 
 // ModelsCursorResponse is the cursor-based paginated response for models.
@@ -442,8 +452,8 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	keyDecryptMs := float64(time.Since(keyDecryptStart).Microseconds()) / 1000.0
-	proxyOverheadMs := float64(time.Since(start).Microseconds()) / 1000.0
+	keyDecryptMs := util.MillisSince(keyDecryptStart)
+	proxyOverheadMs := util.MillisSince(start)
 
 	baseBody, providerType, targetURL, reqHash := buildTestModelRequest(m, prov)
 
@@ -457,7 +467,7 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	respBody, _ := io.ReadAll(resp.Body)
+	respBody, _ := httpx.ReadCappedBody(resp.Body, httpx.MaxUpstreamBody)
 	duration := time.Since(startRequest).Milliseconds()
 
 	if resp.StatusCode != http.StatusOK {
@@ -635,7 +645,7 @@ func (h *Handler) doTestModelEgressRequest(ctx context.Context, client *http.Cli
 	if err != nil || resp.StatusCode != http.StatusOK {
 		return resp, err
 	}
-	upstream, err := io.ReadAll(resp.Body)
+	upstream, err := httpx.ReadCappedBody(resp.Body, httpx.MaxUpstreamBody)
 	_ = resp.Body.Close()
 	if err != nil {
 		resp.Body = io.NopCloser(bytes.NewReader(nil))

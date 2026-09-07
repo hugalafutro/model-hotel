@@ -217,6 +217,11 @@ func TestUpdateProvider_Success(t *testing.T) {
 	id := uuid.New()
 	newName := "updated-name"
 	mockProv := &mockProviderStore{
+		// A save that rotates the key reads the prior row: the enable-state
+		// settlement and the rediscovery decision both need the before state.
+		getFn: func(ctx context.Context, pid uuid.UUID) (*provider.Provider, error) {
+			return &provider.Provider{ID: pid, Name: "old-name", BaseURL: "https://api.example.com", Enabled: true}, nil
+		},
 		updateFn: func(ctx context.Context, pid uuid.UUID, req provider.UpdateProviderRequest, ek, kn, ks []byte) (*provider.Provider, error) {
 			if pid != id {
 				t.Errorf("expected id %s, got %s", id, pid)

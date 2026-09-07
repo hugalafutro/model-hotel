@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // oversizedModelWithPrefix builds a model one rune past the bound. The random
@@ -95,7 +96,7 @@ func assertRefusal(t *testing.T, rr *httptest.ResponseRecorder) {
 // excerpt, the validation kind, and the constant message.
 func assertBoundedRow(t *testing.T, row modelRow, model string) {
 	t.Helper()
-	if want := modelExcerpt(model); row.modelID != want {
+	if want := util.TruncateRunes(model, modelExcerptRunes); row.modelID != want {
 		t.Errorf("model_id = %q (%d runes), want the excerpt %q", row.modelID, utf8.RuneCountInString(row.modelID), want)
 	}
 	if row.errorKind != string(KindValidation) {
@@ -275,15 +276,15 @@ func TestModelTooLongMessage_SpellsTheBound(t *testing.T) {
 
 func TestModelExcerpt(t *testing.T) {
 	short := "openai/gpt-4o"
-	if got := modelExcerpt(short); got != short {
+	if got := util.TruncateRunes(short, modelExcerptRunes); got != short {
 		t.Errorf("short model changed: %q", got)
 	}
 	exact := strings.Repeat("é", modelExcerptRunes)
-	if got := modelExcerpt(exact); got != exact {
+	if got := util.TruncateRunes(exact, modelExcerptRunes); got != exact {
 		t.Errorf("model at the excerpt length changed: %q", got)
 	}
 	long := strings.Repeat("é", modelExcerptRunes+1)
-	got := modelExcerpt(long)
+	got := util.TruncateRunes(long, modelExcerptRunes)
 	if !utf8.ValidString(got) {
 		t.Fatalf("excerpt is not valid UTF-8: %q", got)
 	}
@@ -297,15 +298,15 @@ func TestModelExcerpt(t *testing.T) {
 
 func TestTruncateLogMessage(t *testing.T) {
 	short := "provider request failed"
-	if got := truncateLogMessage(short); got != short {
+	if got := util.TruncateRunes(short, maxLogMessageRunes); got != short {
 		t.Errorf("short message changed: %q", got)
 	}
 	exact := strings.Repeat("é", maxLogMessageRunes)
-	if got := truncateLogMessage(exact); got != exact {
+	if got := util.TruncateRunes(exact, maxLogMessageRunes); got != exact {
 		t.Errorf("message at the bound changed")
 	}
 	long := strings.Repeat("é", maxLogMessageRunes+50)
-	got := truncateLogMessage(long)
+	got := util.TruncateRunes(long, maxLogMessageRunes)
 	if !utf8.ValidString(got) {
 		t.Fatalf("truncated message is not valid UTF-8")
 	}

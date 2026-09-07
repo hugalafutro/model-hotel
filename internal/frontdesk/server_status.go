@@ -128,7 +128,7 @@ func (s *Server) sse(w http.ResponseWriter, r *http.Request) {
 // the request is live; a client hanging up races the tick and is not a fault.
 func (s *Server) revalidate(r *http.Request) bool {
 	if token, ok := util.ParseBearerToken(r); ok {
-		_, err := s.store.DeviceByTokenHash(r.Context(), hashDeviceToken(token))
+		_, err := s.store.DeviceByTokenHash(r.Context(), util.SHA256Hex(token))
 		if err == nil {
 			return true
 		}

@@ -74,7 +74,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 
 	entries, hasAfter, hasBefore := paginateCursor(entries, p.direction, p.limit, p.cursorStr != "")
 
-	counts := h.countModels(ctx, q, p.providerEnabled, p.enabled)
+	counts := h.countModels(ctx, q, p)
 	writeJSON(w, ModelsCursorResponse{
 		Entries:       entries,
 		Total:         counts.total,
@@ -91,7 +91,7 @@ func (h *Handler) ListModelsCursor(w http.ResponseWriter, r *http.Request) {
 // ORDER BY + LIMIT — fetching limit+1 to detect has_more, with the sort inverted
 // for backward pagination so LIMIT picks from the correct end.
 func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
-	conditions, args := buildModelFilterConditions(q, p.providerEnabled, p.enabled)
+	conditions, args := buildModelFilterConditions(q, p)
 	argIdx := len(args) + 1
 
 	if p.cursorStr != "" {
@@ -135,8 +135,8 @@ type modelCounts struct {
 // countModels returns the filter-wide counts for the same filters as the data
 // query (no keyset predicate, so every page reports the same numbers).
 // Best-effort: returns zeros on error.
-func (h *Handler) countModels(ctx context.Context, q url.Values, providerEnabled, enabled *bool) modelCounts {
-	conditions, args := buildModelFilterConditions(q, providerEnabled, enabled)
+func (h *Handler) countModels(ctx context.Context, q url.Values, p modelListParams) modelCounts {
+	conditions, args := buildModelFilterConditions(q, p)
 	whereClause := ""
 	if len(conditions) > 0 {
 		whereClause = " WHERE " + strings.Join(conditions, " AND ")
@@ -163,6 +163,10 @@ type modelListParams struct {
 	// any. The bulk delete reads the disabled rows of the current filter
 	// through it.
 	enabled *bool
+	// providerIDs is the parsed provider_id filter; empty means any. Parsed
+	// once at the entry point so a malformed UUID is a 400 rather than a
+	// silently dropped predicate that would broaden the result set.
+	providerIDs []uuid.UUID
 }
 
 // parseModelListParams reads and validates the cursor list query parameters:
@@ -197,6 +201,11 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 		return p, false
 	}
 	p.enabled = enabled
+	providerIDs, ok := parseProviderIDFilter(w, q.Get("provider_id"))
+	if !ok {
+		return p, false
+	}
+	p.providerIDs = providerIDs
 	switch p.sortBy {
 	case "discovered", "context", "output", "provider", "status":
 		// valid
@@ -214,6 +223,27 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 		}
 	}
 	return p, true
+}
+
+// parseProviderIDFilter parses the comma-separated provider_id filter. Every
+// value must be a UUID: dropping a malformed one would turn a restrictive
+// request into a broader one, which is the opposite of what the caller asked
+// for.
+func parseProviderIDFilter(w http.ResponseWriter, raw string) ([]uuid.UUID, bool) {
+	if raw == "" {
+		return nil, true
+	}
+	parts := util.SplitAndTrim(raw)
+	ids := make([]uuid.UUID, 0, len(parts))
+	for _, part := range parts {
+		id, err := uuid.Parse(part)
+		if err != nil {
+			respondBadRequest(w, "invalid provider_id", err)
+			return nil, false
+		}
+		ids = append(ids, id)
+	}
+	return ids, true
 }
 
 // modelSelectColumns is the cursor data query's column projection (models joined
@@ -323,7 +353,7 @@ func buildModelKeysetPredicate(cursor modelCursor, direction, sortDir string, ar
 // search, provider_id, provider_enabled, enabled, capabilities, and outputs
 // filters. Shared between the main data query and the count query to avoid
 // duplication.
-func buildModelFilterConditions(q url.Values, providerEnabled, enabled *bool) ([]string, []any) {
+func buildModelFilterConditions(q url.Values, p modelListParams) ([]string, []any) {
 	conditions := []string{}
 	args := []any{}
 	argIdx := 1
@@ -336,18 +366,10 @@ func buildModelFilterConditions(q url.Values, providerEnabled, enabled *bool) ([
 		args = append(args, "%"+search+"%")
 		argIdx++
 	}
-	if providerIDs := q.Get("provider_id"); providerIDs != "" {
-		validPids := make([]uuid.UUID, 0)
-		for _, pidStr := range util.SplitAndTrim(providerIDs) {
-			if pid, err := uuid.Parse(pidStr); err == nil {
-				validPids = append(validPids, pid)
-			}
-		}
-		if len(validPids) > 0 {
-			conditions = append(conditions, fmt.Sprintf("m.provider_id = ANY($%d)", argIdx))
-			args = append(args, validPids)
-			argIdx++
-		}
+	if len(p.providerIDs) > 0 {
+		conditions = append(conditions, fmt.Sprintf("m.provider_id = ANY($%d)", argIdx))
+		args = append(args, p.providerIDs)
+		argIdx++
 	}
 	if caps := q.Get("capabilities"); caps != "" {
 		capMap := map[string]bool{}
@@ -361,16 +383,16 @@ func buildModelFilterConditions(q url.Values, providerEnabled, enabled *bool) ([
 			argIdx++
 		}
 	}
-	if providerEnabled != nil {
+	if p.providerEnabled != nil {
 		// providers.enabled is nullable (migration 001); the proxy treats NULL
 		// as not served, so the "disabled" scope must own those rows too.
 		conditions = append(conditions, fmt.Sprintf("COALESCE(p.enabled, false) = $%d", argIdx))
-		args = append(args, *providerEnabled)
+		args = append(args, *p.providerEnabled)
 		argIdx++
 	}
-	if enabled != nil {
+	if p.enabled != nil {
 		conditions = append(conditions, fmt.Sprintf("m.enabled = $%d", argIdx))
-		args = append(args, *enabled)
+		args = append(args, *p.enabled)
 		argIdx++
 	}
 	if outputs := q.Get("outputs"); outputs != "" {

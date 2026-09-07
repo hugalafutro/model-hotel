@@ -2,12 +2,12 @@ package api
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -165,8 +165,7 @@ func (h *Handler) UserTotpDisable(w http.ResponseWriter, r *http.Request) {
 	key := id.UserID.String()
 	if ok, retry := h.pwThrottle.Allowed(key); !ok {
 		debuglog.Warn("usertotp: disable throttled", "username", id.Username)
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
 	authorized, err := repo.DisableWithCode(r.Context(), req.Code)

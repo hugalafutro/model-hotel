@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -16,6 +15,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -72,7 +72,7 @@ func (s *ssoLogin) throttled(w http.ResponseWriter, r *http.Request) (string, bo
 	if ok {
 		return key, true
 	}
-	w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
+	httpx.SetRetryAfter(w, retry)
 	debuglog.Warn(s.name+": callback throttled", "remote_addr", clientip.From(r))
 	s.redirectError(w, r, "throttled")
 	return key, false

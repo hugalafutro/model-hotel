@@ -17,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -201,7 +202,7 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 			return nil, maskedRequestError(req, err)
 		}
 		if isRetryableStatus(resp.StatusCode) {
-			body, _ := io.ReadAll(resp.Body)
+			body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
 			_ = resp.Body.Close()
 			lastErr = fmt.Errorf("retryable HTTP status %d: %s", resp.StatusCode, maskRequestSecrets(req, string(body), 200))
 			debuglog.Info("discovery: retryable fetch status, will retry",
@@ -300,7 +301,7 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	bodyBytes, err := io.ReadAll(resp.Body)
+	bodyBytes, err := httpx.ReadCappedBody(resp.Body, discoveryBodyCap)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read response: %w", err)
 	}
@@ -562,11 +563,22 @@ const (
 	quotaBreakerResetAfter = 5 * time.Minute
 )
 
+// discoveryBodyCap bounds a model-listing response. A full upstream catalogue
+// is the largest body this process reads from a provider, and the widest ones
+// are a few megabytes, so the ceiling is set well above them and only stops a
+// response that could exhaust memory.
+const discoveryBodyCap = 32 << 20 // 32 MiB
+
 // quotaCircuitState tracks consecutive failures for a single provider.
 type quotaCircuitState struct {
 	mu             sync.Mutex
 	consecFailures int
 	openUntil      time.Time // zero means closed; set when circuit opens
+	// probing is true while the single half-open probe is out. Without it,
+	// every caller arriving after the open window expires sees a cleared
+	// openUntil and proceeds, turning the one allowed probe into an unbounded
+	// burst against an upstream that has just been failing.
+	probing bool
 }
 
 // isCircuitOpen returns true if the circuit is open (requests should be
@@ -575,15 +587,22 @@ type quotaCircuitState struct {
 func (s *quotaCircuitState) isCircuitOpen() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if s.probing {
+		// The half-open probe is already out; everyone else waits for its
+		// verdict rather than joining it.
+		return true
+	}
 	if s.openUntil.IsZero() {
 		return false
 	}
 	if time.Now().Before(s.openUntil) {
 		return true
 	}
-	// Half-open: allow one probe. Don't reset consecFailures yet; the
-	// probe success will do that.
+	// Half-open: hand exactly one caller the probe. Don't reset
+	// consecFailures yet; the probe success will do that. Every path out of
+	// the fetch records an outcome, and both outcomes release the probe.
 	s.openUntil = time.Time{}
+	s.probing = true
 	return false
 }
 
@@ -597,9 +616,10 @@ func (s *quotaCircuitState) recordSuccess() bool {
 	// probing after a trip (half-open keeps consecFailures at/above threshold
 	// until this success). A sub-threshold blip never opened, so its recovery
 	// isn't worth a line.
-	wasFailing := s.consecFailures >= quotaBreakerThreshold || !s.openUntil.IsZero()
+	wasFailing := s.consecFailures >= quotaBreakerThreshold || !s.openUntil.IsZero() || s.probing
 	s.consecFailures = 0
 	s.openUntil = time.Time{}
+	s.probing = false
 	return wasFailing
 }
 
@@ -609,6 +629,7 @@ func (s *quotaCircuitState) recordFailure() bool {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	s.consecFailures++
+	s.probing = false
 	if s.consecFailures >= quotaBreakerThreshold && s.openUntil.IsZero() {
 		s.openUntil = time.Now().Add(quotaBreakerResetAfter)
 		return true

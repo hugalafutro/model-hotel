@@ -935,3 +935,35 @@ func TestListLogs_SortByIP(t *testing.T) {
 		t.Errorf("first entry client_ip = %v, want 192.0.2.1 (empty IPs sort last)", got)
 	}
 }
+
+// TestPurgeLogsClearsListCache: the list cache holds whole responses for two
+// seconds, so a purge that leaves it standing keeps serving deleted rows to a
+// page refreshed right afterwards.
+func TestPurgeLogsClearsListCache(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	for _, olderThan := range []string{"1h", "all"} {
+		t.Run(olderThan, func(t *testing.T) {
+			globalLogsCache.set("stale-key", &LogsResponse{})
+			if _, ok := globalLogsCache.get("stale-key"); !ok {
+				t.Fatal("seeded cache entry is missing")
+			}
+
+			rec := httptest.NewRecorder()
+			req := httptest.NewRequest("DELETE", "/logs/purge",
+				strings.NewReader(fmt.Sprintf(`{"older_than": %q}`, olderThan)))
+			req.Header.Set("Authorization", "Bearer test-admin-token")
+			req.Header.Set("Content-Type", "application/json")
+			r.ServeHTTP(rec, req)
+
+			if rec.Code != http.StatusNoContent {
+				t.Fatalf("purge status = %d: %s", rec.Code, rec.Body.String())
+			}
+			if _, ok := globalLogsCache.get("stale-key"); ok {
+				t.Error("the list cache still holds a response built before the purge")
+			}
+		})
+	}
+}

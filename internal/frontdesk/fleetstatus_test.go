@@ -322,3 +322,32 @@ func TestFleetStatusPrimaryUnusable(t *testing.T) {
 		t.Errorf("unknown primary = %d, want 404", rec.Code)
 	}
 }
+
+// TestFleetStatusUnparsablePrimaryExport: a primary that answers 200 with a
+// body that is not the export shape is a primary-side fault, and must be
+// reported as one. Treating the zero-value shape as "no providers, virtual
+// keys, or settings" sends the operator to configure a primary that is already
+// configured.
+func TestFleetStatusUnparsablePrimaryExport(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubFleetMember(t, "ptoken")
+	primary.exportBody = `<html>not json at all</html>`
+	replica := newStubFleetMember(t, "rtoken")
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+
+	resp := fleetStatusByID(t, srv, pm.ID)
+	if !strings.Contains(resp.PrimaryNote, "could not be parsed") {
+		t.Errorf("primary note = %q, want it to name the parse failure", resp.PrimaryNote)
+	}
+	if strings.Contains(resp.PrimaryNote, "no providers") {
+		t.Errorf("primary note = %q, want the parse failure and not the empty-config note", resp.PrimaryNote)
+	}
+	if len(resp.Members) != 0 {
+		t.Errorf("members = %+v, want none (no peer probed)", resp.Members)
+	}
+	if replica.gotDryRun {
+		t.Error("replica was probed with a config that could not be parsed")
+	}
+}

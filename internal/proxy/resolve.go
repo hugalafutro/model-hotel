@@ -94,7 +94,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		return nil, t, ch, skips, err
 	}
 	ch.Failover = &failoverHit
-	t.failoverLookupMs = float64(time.Since(failoverLookupStart).Microseconds()) / 1000.0
+	t.failoverLookupMs = util.MillisSince(failoverLookupStart)
 	debuglog.Debug("resolve: failover group found", "model", displayModel, "entries", len(fg.PriorityOrder), "enabled", fg.GroupEnabled)
 
 	// B: enabled-model collection and batch model lookup.
@@ -105,7 +105,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	if err != nil {
 		return nil, t, ch, skips, err
 	}
-	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	t.modelLookupMs = util.MillisSince(modelLookupStart)
 
 	// C: provider collection and batch provider lookup. providerLookupStart opens
 	// the window that physically contains the settings read (D) and every key
@@ -143,7 +143,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	if keyDecryptTotal > 0 {
 		ch.Key = &keyHit
 	}
-	t.providerLookupMs = max(0, float64(time.Since(providerLookupStart).Microseconds())/1000.0-keyDecryptTotal-settingsReadInWindow)
+	t.providerLookupMs = max(0, util.MillisSince(providerLookupStart)-keyDecryptTotal-settingsReadInWindow)
 	t.keyDecryptMs = keyDecryptTotal
 	if len(candidates) == 0 && decryptFailures > 0 {
 		return nil, t, ch, skips, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
@@ -228,7 +228,7 @@ func (h *Handler) readCircuitBreakerFlag(ctx context.Context) (enabled, hit bool
 	hit = h.settingsRepo.IsCached("circuit_breaker_enabled")
 	cbStart := time.Now()
 	enabled = h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
-	elapsedMs = float64(time.Since(cbStart).Microseconds()) / 1000.0
+	elapsedMs = util.MillisSince(cbStart)
 	return enabled, hit, elapsedMs
 }
 
@@ -311,7 +311,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 	debuglog.Debug("resolve: provider found", "provider", prov.Name, "provider_id", prov.ID, "enabled", prov.Enabled)
 
 	ch.Provider = &provHit
-	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0
+	t.providerLookupMs = util.MillisSince(providerLookupStart)
 
 	modelLookupStart := time.Now()
 
@@ -325,7 +325,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 	}
 	debuglog.Debug("resolve: model found", "model", m.ModelID, "provider", prov.Name, "enabled", m.Enabled, "provider_enabled", m.ProviderEnabled)
 	ch.Model = &modelHit
-	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	t.modelLookupMs = util.MillisSince(modelLookupStart)
 
 	if !m.Enabled {
 		debuglog.Info("resolve: model disabled", "model", modelID, "provider", providerName)

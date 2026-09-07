@@ -19,7 +19,7 @@ import (
 // secretSettingKeys are settings whose values carry a credential (e.g. an
 // Apprise URL containing a bot token). They are encrypted at rest via
 // auth.EncryptString and masked in every settings response, so the dashboard
-// only ever sees secretMaskValue here. The alert destinations have one
+// only ever sees util.SecretMask here. The alert destinations have one
 // deliberate exception: GET /alert/targets decrypts them for the readable
 // list on the Alerts card (see Handler.GetAlertTargets, which carries its own
 // demo guard for that reason).
@@ -28,10 +28,6 @@ var secretSettingKeys = map[string]bool{
 	"oidc_client_secret":    true,
 	"github_client_secret":  true,
 }
-
-// secretMaskValue is returned to clients in place of a configured secret, and
-// recognised on write to mean "leave the stored ciphertext unchanged".
-const secretMaskValue = "********"
 
 // encryptSecretSettings rewrites secret keys in req in place: a masked
 // (unchanged) value is removed so the existing stored ciphertext is preserved;
@@ -47,7 +43,7 @@ func (h *Handler) encryptSecretSettings(req map[string]string) error {
 			continue
 		}
 		switch value {
-		case secretMaskValue:
+		case util.SecretMask:
 			delete(req, key) // unchanged — keep stored ciphertext
 		case "":
 			// explicit clear — leave empty
@@ -117,7 +113,7 @@ func (h *Handler) injectReadOnlyStatus(all map[string]string) map[string]string 
 	// fixed placeholder; an unset one stays empty.
 	for key := range secretSettingKeys {
 		if all[key] != "" {
-			all[key] = secretMaskValue
+			all[key] = util.SecretMask
 		}
 	}
 	return all

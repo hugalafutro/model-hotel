@@ -162,7 +162,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	h.finishAttemptAdmission(st, candidate, resp)
 	logData.noteAttemptStatus(resp.StatusCode)
 
-	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	responseHeaderMs := util.MillisSince(st.startTime)
 
 	hasMoreCandidates := attempt < totalCandidates-1
 	isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)

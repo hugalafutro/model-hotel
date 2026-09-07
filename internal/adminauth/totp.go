@@ -3,7 +3,6 @@ package adminauth
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -337,9 +337,8 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// refuse before doing any work while this key is locked.
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 		debuglog.Warn("totp: login throttled", "remote_addr", clientip.From(r))
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
 	var req struct {

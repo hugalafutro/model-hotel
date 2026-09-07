@@ -37,7 +37,7 @@ func sessionCandidates(r *http.Request) []string {
 func (s *Server) listAuthSessions(w http.ResponseWriter, r *http.Request) {
 	sessions, err := s.sessionMgr.ListAuthSessions(r.Context(), fdAdminIdentity, sessionCandidates(r)...)
 	if err != nil {
-		http.Error(w, "failed to list sessions", http.StatusInternalServerError)
+		writeError(w, err)
 		return
 	}
 	if sessions == nil {
@@ -66,7 +66,7 @@ func (s *Server) revokeAuthSession(w http.ResponseWriter, r *http.Request) {
 		writeCodedError(w, http.StatusNotFound, "session_not_found", "session not found")
 		return
 	default:
-		http.Error(w, "failed to revoke session", http.StatusInternalServerError)
+		writeError(w, err)
 		return
 	}
 
@@ -81,7 +81,7 @@ func (s *Server) revokeAuthSession(w http.ResponseWriter, r *http.Request) {
 func (s *Server) revokeOtherSessions(w http.ResponseWriter, r *http.Request) {
 	revoked, err := s.sessionMgr.RevokeOtherSessions(r.Context(), fdAdminIdentity, sessionCandidates(r)...)
 	if err != nil {
-		http.Error(w, "failed to revoke other sessions", http.StatusInternalServerError)
+		writeError(w, err)
 		return
 	}
 

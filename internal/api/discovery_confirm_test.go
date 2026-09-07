@@ -260,20 +260,6 @@ func TestShouldEscalateSuspect(t *testing.T) {
 	}
 }
 
-func TestSleepWithContext(t *testing.T) {
-	if err := sleepWithContext(context.Background(), 0); err != nil {
-		t.Errorf("zero delay: expected nil, got %v", err)
-	}
-	if err := sleepWithContext(context.Background(), time.Millisecond); err != nil {
-		t.Errorf("short sleep: expected nil, got %v", err)
-	}
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if err := sleepWithContext(ctx, time.Hour); !errors.Is(err, context.Canceled) {
-		t.Errorf("cancelled ctx: expected context.Canceled, got %v", err)
-	}
-}
-
 func TestConfirmMissingModels_PinnedModelsExcludedFromMassVanishGuard(t *testing.T) {
 	// 10 enabled models; the listing returns 2. The other 8 are operator pins:
 	// permanently absent by design, because a pin IS the answer to "the listing

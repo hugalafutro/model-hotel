@@ -10,12 +10,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/auth"
 )
 
-// alertMaskValue is returned to the UI in place of a stored Apprise target so the
-// encrypted secret never leaves the server. A PUT echoing this value preserves
-// the stored ciphertext; any other value is a new secret to encrypt. Matches the
-// main app's secretMaskValue.
-const alertMaskValue = "********"
-
 // fdCatalog is Front Desk's alertable-event registry: the per-event picker and
 // the dispatcher's gate are both built from it. Every Type is grounded in an
 // event Front Desk actually publishes (recordEvent/emit), so the operator never

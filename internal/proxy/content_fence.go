@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // The content fence. The request log stores fragments of upstream error text
@@ -132,12 +134,10 @@ func (f *contentFence) strings() [][]rune {
 // (the trail's detail of a JSON body). Each has its own index budget.
 var contentForms = []func(string) string{
 	func(s string) string { return s },
-	collapseSpace,
+	util.CollapseSpace,
 	escapeJSON,
-	func(s string) string { return collapseSpace(escapeJSON(s)) },
+	func(s string) string { return util.CollapseSpace(escapeJSON(s)) },
 }
-
-func collapseSpace(s string) string { return strings.Join(strings.Fields(s), " ") }
 
 func escapeJSON(s string) string {
 	esc, err := json.Marshal(s)

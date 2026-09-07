@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -31,10 +32,10 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 // secret never leave the process. One place to extend when a secret is added.
 func maskSecrets(set *Settings) {
 	if set.AlertAppriseTargets != "" {
-		set.AlertAppriseTargets = alertMaskValue
+		set.AlertAppriseTargets = util.SecretMask
 	}
 	if set.OidcClientSecret != "" {
-		set.OidcClientSecret = alertMaskValue
+		set.OidcClientSecret = util.SecretMask
 	}
 }
 
@@ -100,7 +101,7 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 // master key. Shared by every settings secret (Apprise target, OIDC client secret).
 func resolveSecret(submitted, stored, masterKey string) (string, error) {
 	switch submitted {
-	case alertMaskValue:
+	case util.SecretMask:
 		return stored, nil
 	case "":
 		return "", nil

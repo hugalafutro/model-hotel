@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -558,7 +557,7 @@ func copyPassthroughHeaders(w http.ResponseWriter, resp *http.Response, contentT
 func (h *Handler) finalizePassthroughLog(st *requestState, statusCode, attempt int, responseHeaderMs float64, promptTokens, completionTokens int, state, errMsg string) {
 	logData := st.logData
 	logData.statusCode = statusCode
-	logData.durationMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	logData.durationMs = util.MillisSince(st.startTime)
 	logData.proxyOverheadMs = st.proxyOverhead
 	logData.parseMs = st.parseMs
 	logData.failoverLookupMs = st.timings.failoverLookupMs

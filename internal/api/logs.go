@@ -269,6 +269,9 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 			respondError(w, "failed to purge logs", err, http.StatusInternalServerError)
 			return
 		}
+		// The list cache holds whole responses for two seconds, so without this
+		// a page refreshed right after the purge still lists deleted rows.
+		globalLogsCache.clear()
 		debuglog.Info("logs: purged all logs")
 		w.WriteHeader(http.StatusNoContent)
 		return
@@ -280,6 +283,7 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to purge old logs", err, http.StatusInternalServerError)
 		return
 	}
+	globalLogsCache.clear()
 	debuglog.Info("logs: purged old logs", "cutoff", cutoff)
 
 	w.WriteHeader(http.StatusNoContent)

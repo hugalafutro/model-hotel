@@ -160,7 +160,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// Capture total settings read time (GetBool above + GetFloat/GetInt inside getLimiter).
 			// Use a pointer so downstream handlers (resolve, proxy) can accumulate
 			// additional settings reads via ctxkeys.AddSettingsReadMs.
-			settingsReadMs := float64(time.Since(settingsStart).Microseconds()) / 1000.0
+			settingsReadMs := util.MillisSince(settingsStart)
 			var settingsReadMsVal = settingsReadMs
 			ctx := context.WithValue(r.Context(), ctxkeys.SettingsReadMsKey, &settingsReadMsVal)
 

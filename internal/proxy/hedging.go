@@ -333,7 +333,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		res.reqErr = st.lastReqErr
 		return res
 	}
-	res.respHeaderMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	res.respHeaderMs = util.MillisSince(st.startTime)
 
 	// MiniMax reports business errors (rate limit, exhausted plan balance,
 	// auth failures) inside an HTTP 200 envelope; remap them to an effective

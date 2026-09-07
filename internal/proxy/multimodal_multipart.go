@@ -14,6 +14,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // multipartPart is one parsed part of a multipart/form-data body, retained so
@@ -216,7 +217,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 		h.rejectIngest(w, logData, "invalid multipart form", startTime, 0)
 		return nil, nil, false
 	}
-	parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
+	parseMs := util.MillisSince(parseStart)
 
 	// The `model` form field gets the same bound as the JSON ingest paths,
 	// checked before it is assigned to the log entry, published, or logged.

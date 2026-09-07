@@ -226,7 +226,7 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 // is the upstream response status; scanErr is the reader's terminal scanner
 // error.
 func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr error, logData *requestLogData, opts streamOptions, statusCode int, startTime time.Time) {
-	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
+	totalDuration := util.MillisSince(startTime)
 	// True TTFT (first token) is preferred when the probe measured it, response
 	// header time otherwise.
 	ttftForTPS := opts.responseHeaderMs

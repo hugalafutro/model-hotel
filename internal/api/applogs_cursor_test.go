@@ -874,9 +874,12 @@ func TestGetAppLogsHistory_QueryFailsWithCancelledContext(t *testing.T) {
 // TestAppLogCursor_EncodeDecode verifies that encode/decode round-trips correctly.
 func TestAppLogCursor_EncodeDecode(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
+	// The id is a row id, and every row this cursor points at is keyed by a
+	// uuid, so the decoder requires one.
+	rowID := uuid.NewString()
 	c := &logCursor{
 		CreatedAt: now,
-		ID:        "test-id-123",
+		ID:        rowID,
 	}
 
 	encoded := c.encode()
@@ -889,8 +892,8 @@ func TestAppLogCursor_EncodeDecode(t *testing.T) {
 		t.Fatalf("decode failed: %v", err)
 	}
 
-	if decoded.ID != "test-id-123" {
-		t.Errorf("expected ID 'test-id-123', got %q", decoded.ID)
+	if decoded.ID != rowID {
+		t.Errorf("expected ID %q, got %q", rowID, decoded.ID)
 	}
 }
 

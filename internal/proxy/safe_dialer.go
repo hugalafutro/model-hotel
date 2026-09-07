@@ -104,7 +104,7 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 		return nil, fmt.Errorf("safeDialer: DNS resolution failed for %s: %w", host, err)
 	}
 
-	debuglog.Debug("proxy: SafeDialer DNS resolved", "host", host, "ip_count", len(ips), "dns_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
+	debuglog.Debug("proxy: SafeDialer DNS resolved", "host", host, "ip_count", len(ips), "dns_ms", util.MillisSince(dnsStart))
 
 	// Dial by the first allowed IP to close the TOCTOU gap: the IP that was
 	// checked is the one connected to, so DNS cannot rebind between resolution
@@ -127,7 +127,7 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 			debuglog.Warn("proxy: SafeDialer dial failed", "host", host, "ip", ip.IP, "error", dialErr)
 			continue
 		}
-		debuglog.Debug("proxy: SafeDialer connected", "host", host, "ip", ip.IP, "total_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
+		debuglog.Debug("proxy: SafeDialer connected", "host", host, "ip", ip.IP, "total_ms", util.MillisSince(dnsStart))
 		// Overwrite the timing with the full DNS+TCP duration.
 		recordDialMs(ctx, dnsStart)
 		return conn, nil

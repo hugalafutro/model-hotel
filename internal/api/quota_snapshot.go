@@ -262,6 +262,14 @@ func (h *Handler) allowQuotaNudge(providerID uuid.UUID, now time.Time) bool {
 	if h.quotaNudgeLast == nil {
 		h.quotaNudgeLast = make(map[uuid.UUID]time.Time)
 	}
+	// A stamp past the debounce window no longer blocks a nudge, so it is
+	// dropped: without this the map keeps a row for every provider that ever
+	// existed, including deleted ones.
+	for id, ts := range h.quotaNudgeLast {
+		if now.Sub(ts) >= quotaNudgeDebounce {
+			delete(h.quotaNudgeLast, id)
+		}
+	}
 	h.quotaNudgeLast[providerID] = now
 	return true
 }

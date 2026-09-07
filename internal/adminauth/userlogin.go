@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -14,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
@@ -109,9 +109,8 @@ var dummyHash = sync.OnceValue(func() string {
 func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.throttle.Allowed(throttleKey); !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 		debuglog.Warn("userlogin: throttled", "remote_addr", clientip.From(r))
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
 
@@ -134,9 +133,8 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// source IPs never trips the per-IP throttle above.
 	userKey := "user:" + req.Username
 	if ok, retry := h.userThrottle.Allowed(userKey); !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 		debuglog.Warn("userlogin: account throttled", "remote_addr", clientip.From(r))
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
 

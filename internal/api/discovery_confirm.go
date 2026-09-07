@@ -11,6 +11,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Confirmation-probe schedule for ConfirmMissingModels: a model absent from
@@ -106,20 +107,8 @@ func (s *SuspectStreak) reset(ctx context.Context, prov *provider.Provider) {
 }
 
 // confirmProbeSleep waits for the probe backoff, honouring ctx cancellation.
-// Injectable for tests (which also exercise sleepWithContext directly).
-var confirmProbeSleep = sleepWithContext
-
-func sleepWithContext(ctx context.Context, d time.Duration) error {
-	if d <= 0 {
-		return nil
-	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(d):
-		return nil
-	}
-}
+// Injectable for tests.
+var confirmProbeSleep = util.SleepContext
 
 // ConfirmMissingModels gives absent models a second opinion before any miss is
 // recorded. presentIDs is the initial listing's membership; every snapshot

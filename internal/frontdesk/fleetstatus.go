@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"net/http"
 	"slices"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // GET /api/fleet/status, the single probe that powers the step-gated fleet-sync
@@ -102,7 +104,19 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 			Settings    map[string]string `json:"settings"`
 		} `json:"config"`
 	}
-	_ = json.Unmarshal(export, &exportShape)
+	if err := json.Unmarshal(export, &exportShape); err != nil {
+		// A body that is not the export shape is a primary-side fault, not an
+		// empty configuration: saying "nothing to sync yet" would send the
+		// operator to configure a primary that is already configured.
+		debuglog.Error("frontdesk: primary export is not valid JSON", "primary_id", primary.ID, "error", err)
+		writeJSON(w, http.StatusOK, fleetStatusResponse{
+			PrimaryID:   primary.ID,
+			PrimaryNote: "this primary returned a config export that could not be parsed. Check that it is reachable and running a compatible version, then re-run the wizard.",
+			Members:     []fleetMemberStatus{},
+			LBPort:      s.lbPort,
+		})
+		return
+	}
 
 	// An export with no providers, virtual keys, or settings is one every member
 	// refuses (the member-side Import returns 400 rather than wipe itself clean).

@@ -319,21 +319,16 @@ func (s *pgStore) ReplaceRecoveryCodes(ctx context.Context, codeHashes []string)
 	}
 
 	if len(codeHashes) > 0 {
-		// Build a single batched INSERT, one row per hash, each carrying the
-		// bound key placeholder when the recovery table is keyed.
+		// One row per hash from a single text[] argument, carrying the bound
+		// key value in the projection when the recovery table is keyed.
 		cols, keyVal := "code_hash", ""
 		if s.keyed {
 			keyCol, kv, _ := strings.Cut(s.keyCond, " = ")
 			cols, keyVal = keyCol+", code_hash", kv+", "
 		}
-		rows := make([]string, len(codeHashes))
-		args := make([]any, len(codeHashes))
-		for i, h := range codeHashes {
-			rows[i] = "(" + keyVal + s.ph(i+1) + ")"
-			args[i] = h
-		}
-		query := "INSERT INTO " + s.recoveryTable + " (" + cols + ") VALUES " + strings.Join(rows, ", ")
-		if _, err := tx.Exec(ctx, query, s.args(args...)...); err != nil {
+		query := "INSERT INTO " + s.recoveryTable + " (" + cols + ") SELECT " + keyVal +
+			"code FROM unnest(" + s.ph(1) + "::text[]) AS code"
+		if _, err := tx.Exec(ctx, query, s.args(codeHashes)...); err != nil {
 			return s.errf("recovery codes (insert)", err)
 		}
 	}

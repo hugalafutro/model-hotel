@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // maxModelNameRunes bounds the client-supplied `model` routing field.
@@ -43,16 +44,6 @@ func modelTooLong(model string) bool {
 	return utf8.RuneCountInString(model) > maxModelNameRunes
 }
 
-// modelExcerpt returns the bounded form of an oversized model for the
-// request-log row: the first modelExcerptRunes runes and an ellipsis, cut on a
-// rune boundary so the stored text stays valid UTF-8.
-func modelExcerpt(model string) string {
-	if utf8.RuneCountInString(model) <= modelExcerptRunes {
-		return model
-	}
-	return string([]rune(model)[:modelExcerptRunes]) + "…"
-}
-
 // rejectOversizedModel is the one outcome every ingest path has for a model past
 // maxModelNameRunes: the pending row the caller already inserted is closed as a
 // validation failure carrying the excerpt rather than the field, subscribers see
@@ -72,7 +63,7 @@ func (h *Handler) rejectIngest(w http.ResponseWriter, logData *requestLogData, m
 }
 
 func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLogData, model string, startTime time.Time, parseMs float64) {
-	logData.modelID = modelExcerpt(model)
+	logData.modelID = util.TruncateRunes(model, modelExcerptRunes)
 	publishRequestStartedEvent(logData)
 	h.rejectIngest(w, logData, modelTooLongMessage, startTime, parseMs)
 }
@@ -110,7 +101,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	// inserted with the excerpt and closed as the refusal. Every later sink
 	// (the event, the app-log lines, the response) is behind the return.
 	if modelTooLong(reqModel) {
-		logData, _ := h.newPendingRequestLog(r, endpointType, modelExcerpt(reqModel), isStreaming)
+		logData, _ := h.newPendingRequestLog(r, endpointType, util.TruncateRunes(reqModel, modelExcerptRunes), isStreaming)
 		h.rejectOversizedModel(w, logData, reqModel, startTime, parseMs)
 		return nil, false
 	}
@@ -140,7 +131,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 			h.rejectIngest(w, logData, "invalid request body", startTime, parseMs)
 			return nil, false
 		}
-		parseMs = float64(time.Since(parseStart).Microseconds()) / 1000.0
+		parseMs = util.MillisSince(parseStart)
 		reqModel = req.Model
 		isStreaming = req.Stream
 	} else {

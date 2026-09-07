@@ -3,10 +3,10 @@ package proxy
 import (
 	"context"
 	"net/http"
-	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // attemptPassthroughCandidate runs one failover attempt for a multimodal
@@ -51,7 +51,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	h.finishAttemptAdmission(st, candidate, resp)
 	logData.noteAttemptStatus(resp.StatusCode)
 
-	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	responseHeaderMs := util.MillisSince(st.startTime)
 	hasMoreCandidates := attempt < totalCandidates-1
 	isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
 

@@ -30,7 +30,7 @@ func (h *Handler) failRequest(logData *requestLogData, statusCode int, kind Erro
 	logData.statusCode = statusCode
 	logData.errorKind = kind
 	logData.errorMessage = errMsg
-	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+	logData.durationMs = util.MillisSince(startTime)
 	logData.proxyOverheadMs = proxyOverhead
 	logData.parseMs = parseMs
 	logData.applyTimings(timings)
@@ -463,7 +463,7 @@ func recoverFirstToken(buf *bytes.Buffer, startTime time.Time, scanErr error) (p
 		return nil, 0, &upstreamFrameError{msg: msg}, true
 	case probeFrameNotAToken, probeFrameToken:
 	}
-	ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+	ttft := util.MillisSince(startTime)
 	debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
 	return buf, ttft, nil, true
 }
@@ -564,7 +564,7 @@ func (h *Handler) probeFirstToken(
 				// the race the way an error frame does: counting it as a win
 				// would cancel every healthy rival still racing and leave the
 				// caller with nothing.
-				debuglog.Warn("proxy: TTFT probe saw [DONE] before any first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
+				debuglog.Warn("proxy: TTFT probe saw [DONE] before any first token", "ttft_ms", util.MillisSince(startTime))
 				closeProbe()
 				return nil, 0, &emptyStreamError{}
 			}
@@ -584,7 +584,7 @@ func (h *Handler) probeFirstToken(
 				return nil, 0, &upstreamFrameError{msg: msg}
 			}
 			// First real data chunk found.
-			ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+			ttft := util.MillisSince(startTime)
 			debuglog.Info("proxy: TTFT probe found first token", "ttft_ms", ttft)
 			closeProbe()
 			return &buf, ttft, nil

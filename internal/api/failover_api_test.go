@@ -1719,3 +1719,54 @@ func TestFailoverHandler_Update_DisplayModel_SameName(t *testing.T) {
 		t.Errorf("GroupEnabled = %v, want false", resp.GroupEnabled)
 	}
 }
+
+// TestCircuitBreakerStatus_FailoverListError: a backend failure must not be
+// served as a valid, smaller circuit-breaker picture. Swallowing the error
+// reports an empty or partial state that an operator reads as "nothing is
+// tripped", and the five-second cache then repeats it.
+func TestCircuitBreakerStatus_FailoverListError(t *testing.T) {
+	closedPool := newClosedPool(t)
+	h := NewFailoverHandler(closedPool, failover.NewRepository(closedPool),
+		model.NewRepository(closedPool), settings.NewRepository(closedPool), nil)
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/circuit-breaker/status", nil)
+	h.CircuitBreakerStatus(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body: %s", w.Code, w.Body.String())
+	}
+
+	// Nothing was cached, so the next request re-reads instead of serving the
+	// failed build for the cache lifetime.
+	h.cbStatusMu.Lock()
+	stamped := h.cbStatusCacheTime
+	h.cbStatusMu.Unlock()
+	if !stamped.IsZero() {
+		t.Error("a build that failed was cached")
+	}
+}
+
+// TestCircuitBreakerStatus_ModelResolveError covers the second dependency: the
+// group list succeeds, resolving its models does not.
+func TestCircuitBreakerStatus_ModelResolveError(t *testing.T) {
+	workingPool := apiTestDB.Pool()
+	failoverRepo := failover.NewRepository(workingPool)
+	closedPool := newClosedPool(t)
+	h := NewFailoverHandler(workingPool, failoverRepo,
+		model.NewRepository(closedPool), settings.NewRepository(workingPool), nil)
+
+	ctx := context.Background()
+	displayModel := "test-cb-modelerr-" + uuid.New().String()[:8]
+	if _, err := failoverRepo.UpsertWithConfig(ctx, displayModel,
+		[]uuid.UUID{uuid.New(), uuid.New()}, nil, nil, nil, nil, nil); err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() { _ = failoverRepo.Delete(ctx, displayModel) }()
+
+	req, w := newChiRequest(http.MethodGet, "/failover-groups/circuit-breaker/status", nil)
+	h.CircuitBreakerStatus(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body: %s", w.Code, w.Body.String())
+	}
+}

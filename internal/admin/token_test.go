@@ -705,3 +705,28 @@ func TestGenerateToken_IsHexString(t *testing.T) {
 func newManagerForTest(dataDir string) (*Manager, error) {
 	return &Manager{dataDir: dataDir}, nil
 }
+
+// TestMalformedStoredHashFailsStartup covers both persisted forms holding a
+// value that is not a SHA-256 digest. Such a file can never authenticate a
+// caller, so accepting it at startup would lock the dashboard out with no
+// diagnosis anywhere.
+func TestMalformedStoredHashFailsStartup(t *testing.T) {
+	cases := map[string]string{
+		"prefixed too short":     sha256Prefix + "deadbeef",
+		"prefixed not hex":       sha256Prefix + strings.Repeat("z", 64),
+		"prefixed empty":         sha256Prefix,
+		"legacy 64 chars nonhex": strings.Repeat("g", 64),
+	}
+	for name, content := range cases {
+		t.Run(name, func(t *testing.T) {
+			tmpDir := t.TempDir()
+			tokenPath := filepath.Join(tmpDir, "admin-token")
+			if err := os.WriteFile(tokenPath, []byte(content), 0o600); err != nil {
+				t.Fatalf("write token file: %v", err)
+			}
+			if _, _, err := New(tmpDir, ""); err == nil {
+				t.Fatal("New() accepted a token file that can never authenticate")
+			}
+		})
+	}
+}

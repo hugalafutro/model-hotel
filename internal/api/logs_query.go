@@ -421,7 +421,16 @@ func (c *logCursor) decode(s string) error {
 	if err != nil {
 		return fmt.Errorf("invalid base64: %w", err)
 	}
-	return json.Unmarshal(b, c)
+	if err := json.Unmarshal(b, c); err != nil {
+		return err
+	}
+	// The id is compared against a uuid column. A base64-valid cursor carrying
+	// anything else is malformed client input, so it is rejected here as a 400
+	// instead of reaching Postgres as a type error and surfacing as a 500.
+	if _, err := uuid.Parse(c.ID); err != nil {
+		return fmt.Errorf("invalid cursor id: %w", err)
+	}
+	return nil
 }
 
 // logsSortDef resolves a user-supplied sort_by value to its ORDER BY

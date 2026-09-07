@@ -230,6 +230,15 @@ func (d *Dispatcher) suppressed(ev events.Event) bool {
 	if last, seen := d.lastSent[key]; seen && now.Sub(last) < d.cooldown {
 		return true
 	}
+	// A stamp older than the cooldown suppresses nothing, so drop it rather
+	// than keep a row for every entity that ever alerted: the key carries a
+	// provider or model id and the set of those churns over a process
+	// lifetime.
+	for k, last := range d.lastSent {
+		if now.Sub(last) >= d.cooldown {
+			delete(d.lastSent, k)
+		}
+	}
 	d.lastSent[key] = now
 	return false
 }
