@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"io"
 	"net/http"
 
@@ -50,9 +51,15 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		// unless it was interrupted rather than broken, which cancelKind
 		// classifies the same way the translated path does: the identical event
 		// must not log provider_error here and client_disconnect there.
+		// A body past the cap is refused by THIS gateway, so it is reported the
+		// way the translated path reports its own refusal: a bad request the
+		// provider is not charged for, never a provider fault.
 		kind := KindProviderError
-		if cancelled, aborted := cancelKind(r.Context(), err); aborted {
+		switch cancelled, aborted := cancelKind(r.Context(), err); {
+		case aborted:
 			kind = cancelled
+		case errors.Is(err, httpx.ErrBodyTooLarge):
+			kind = KindProviderBadRequest
 		}
 		logData.statusCode = http.StatusBadGateway
 		logData.durationMs = util.MillisSince(st.startTime)

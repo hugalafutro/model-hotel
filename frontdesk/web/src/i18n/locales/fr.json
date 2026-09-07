@@ -464,7 +464,7 @@
 				"done": "Les alertes sont actives.",
 				"sendAll": "Envoyer un test à toutes",
 				"sentAll": "Test envoyé à toutes les destinations",
-				"apiChangedDrops": "Changer l'adresse retire les destinations ajoutées lors de cette session ; elles ont été testées avec l'ancienne adresse.",
+				"apiChangedDrops": "Vérifier une autre adresse retire les destinations ajoutées lors de cette session ; elles ont été testées avec l'ancienne adresse.",
 				"backToList": "Retour aux destinations",
 				"nothingAdded": "Rien n'a encore été ajouté dans cette session.",
 				"alreadySaved": "Cette destination figure déjà dans la liste. Elle ne peut pas être ajoutée deux fois."

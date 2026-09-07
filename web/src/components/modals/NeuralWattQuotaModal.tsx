@@ -44,6 +44,14 @@ export function NeuralWattQuotaModal({
 		quota.subscription.kwh_included > 0
 			? (quota.subscription.kwh_used / quota.subscription.kwh_included) * 100
 			: 0;
+	// The provider reports used and remaining kWh separately and they do not
+	// always add up to the included amount, so the remaining bar reads its own
+	// figure rather than the complement of the used one.
+	const kwhRemaining =
+		quota.subscription.kwh_included > 0
+			? (quota.subscription.kwh_remaining / quota.subscription.kwh_included) *
+				100
+			: 100;
 
 	return (
 		<Modal
@@ -103,6 +111,7 @@ export function NeuralWattQuotaModal({
 						label={t("components.providerModals.neuralwattEnergyQuota")}
 						rightText={`${formatKwh(quota.subscription.kwh_used)} / ${formatKwh(quota.subscription.kwh_included)} kWh`}
 						percentage={kwhUsed}
+						remainingPercentage={kwhRemaining}
 						barMode={barMode}
 						dataTestId="neuralwatt-kwh-bar"
 						footer={

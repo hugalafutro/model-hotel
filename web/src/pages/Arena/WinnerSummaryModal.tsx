@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { Trophy } from "@/lib/icons";
 import { Modal } from "../../components/Modal";
+import { getRoundLabel } from "../../utils/arenaRounds";
 import { shortModelName } from "../../utils/model";
-import { getRoundLabel } from "./builders";
 import type { WinnerSummaryModalProps } from "./types";
 
 export function WinnerSummaryModal({

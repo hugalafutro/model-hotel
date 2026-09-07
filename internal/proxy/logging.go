@@ -243,16 +243,15 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 	return tag.RowsAffected(), nil
 }
 
-// logBodyCap is the byte budget SanitizeLogBody gets for an upstream body
-// before it reaches the request log. It matches maxLogMessageRunes, the rune
-// bound the sink applies to what is finally stored.
-const logBodyCap = 10000
-
 // maxLogMessageRunes bounds request_logs.error_message and the
 // request.completed event built from it. The bound lives at the sink so no
-// writer can miss it, and matches the 10,000-character budget SanitizeLogBody
-// gives upstream bodies.
+// writer can miss it.
 const maxLogMessageRunes = 10000
+
+// logBodyCap is the byte budget SanitizeLogBody gets for an upstream body
+// before it reaches the request log. Defined as the sink's own bound so the
+// budget a writer spends and the bound the sink enforces cannot drift apart.
+const logBodyCap = maxLogMessageRunes
 
 func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOption) {
 	// The terminal write closes the attempt in flight from the flat columns, so

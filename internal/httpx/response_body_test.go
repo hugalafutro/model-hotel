@@ -65,3 +65,32 @@ func TestDecodeCappedJSON(t *testing.T) {
 		t.Errorf("limited reader: %v", err)
 	}
 }
+
+// TestDecodeCappedJSON_TrailingContent pins the upstream-response leniency this
+// helper inherits from json.NewDecoder: a provider that appends a newline or a
+// second document after the payload still decodes, so migrating a fetcher onto
+// the capped read cannot start rejecting an upstream that always worked.
+func TestDecodeCappedJSON_TrailingContent(t *testing.T) {
+	for _, body := range []string{
+		`{"a":1}` + "\n",
+		`{"a":1}{"a":2}`,
+		`{"a":1} trailing junk`,
+	} {
+		var out struct {
+			A int `json:"a"`
+		}
+		if err := DecodeCappedJSON(strings.NewReader(body), 1024, &out); err != nil {
+			t.Fatalf("DecodeCappedJSON(%q) = %v, want the first value decoded", body, err)
+		}
+		if out.A != 1 {
+			t.Errorf("DecodeCappedJSON(%q) decoded a = %d, want 1", body, out.A)
+		}
+	}
+}
+
+func TestDecodeCappedJSON_OverLimit(t *testing.T) {
+	var out map[string]any
+	if err := DecodeCappedJSON(strings.NewReader(`{"a":"aaaaaaaaaa"}`), 4, &out); !errors.Is(err, ErrBodyTooLarge) {
+		t.Errorf("err = %v, want ErrBodyTooLarge", err)
+	}
+}

@@ -458,7 +458,7 @@
 				"done": "Alerts staan aan.",
 				"sendAll": "Test naar alle bestemmingen versturen",
 				"sentAll": "Test naar elke bestemming verzonden",
-				"apiChangedDrops": "Als je het adres wijzigt, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn met het oude adres getest.",
+				"apiChangedDrops": "Als je een ander adres verifieert, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn met het oude adres getest.",
 				"backToList": "Terug naar bestemmingen",
 				"nothingAdded": "In deze ronde is nog niets toegevoegd.",
 				"alreadySaved": "Deze bestemming staat al in de lijst. Hij kan niet twee keer worden toegevoegd."

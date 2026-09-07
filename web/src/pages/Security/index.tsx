@@ -137,6 +137,11 @@ export function Security() {
 							className="ui-input"
 							data-testid="security-new-password"
 						/>
+						{newPassword.length > 0 && newPassword.length < 8 && (
+							<p className="text-sm text-red-400 mt-1">
+								{t("users.validation.passwordShort")}
+							</p>
+						)}
 					</div>
 					<div>
 						<label

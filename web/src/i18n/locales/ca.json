@@ -2262,7 +2262,7 @@
 				"doneManaged": "Destinacions desades. Quins esdeveniments envien una alerta continua gestionant-se per a tota la flota.",
 				"sendAll": "Envia una prova a tot",
 				"sentAll": "Prova enviada a totes les destinacions",
-				"apiChangedDrops": "Si canvies l'adreça, s'eliminen les destinacions afegides en aquesta execució; s'havien provat amb l'anterior."
+				"apiChangedDrops": "Si verifiques una adreça diferent, s'eliminen les destinacions afegides en aquesta execució; s'havien provat amb l'anterior."
 			},
 			"category": {
 				"discovery": "Descobriment",
@@ -2454,7 +2454,8 @@
 		},
 		"copyablePill": {
 			"copy": "Copia",
-			"copyToClipboard": "Copia al porta-retalls"
+			"copyToClipboard": "Copia al porta-retalls",
+			"copied": "Copiat!"
 		},
 		"collapsibleToggle": {
 			"expand": "Expandir",

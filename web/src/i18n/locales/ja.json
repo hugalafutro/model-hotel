@@ -2178,7 +2178,7 @@
 				"done": "アラートは有効です。",
 				"sendAll": "すべてにテスト送信",
 				"sentAll": "すべての送信先にテストを送信しました",
-				"apiChangedDrops": "アドレスを変更すると、この操作で追加した送信先は取り消されます。古いアドレスでテストされたものだからです。",
+				"apiChangedDrops": "別のアドレスを検証すると、この操作で追加した送信先は取り消されます。古いアドレスでテストされたものだからです。",
 				"savedNote_one": "保存済みの送信先 {{count}} 件はそのまま残ります。",
 				"savedNote_other": "保存済みの送信先 {{count}} 件はそのまま残ります。",
 				"field": {
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "コピー",
-			"copyToClipboard": "クリップボードにコピー"
+			"copyToClipboard": "クリップボードにコピー",
+			"copied": "コピーしました！"
 		},
 		"collapsibleToggle": {
 			"expand": "展開",

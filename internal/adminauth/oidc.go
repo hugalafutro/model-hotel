@@ -115,6 +115,7 @@ func NewOIDCHandler(
 			cookieSecure:     cookieSecure,
 			useCookieAuth:    useCookieAuth,
 			tokenFragmentKey: "oidc_token",
+			peerLabel:        "idp",
 		},
 		settings:   settings,
 		masterKey:  masterKey,

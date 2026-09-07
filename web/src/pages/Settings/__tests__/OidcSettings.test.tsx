@@ -73,9 +73,10 @@ describe("OidcPanel", () => {
 		).toBeInTheDocument();
 	});
 
-	it("does not call the pill configured while the client secret is unset", async () => {
-		// The status endpoint never reads the client secret, so a green pill on
-		// a blank secret would promise a login path that cannot be built.
+	it("calls the pill configured with a blank client secret", async () => {
+		// OIDC builds a usable runtime from issuer, client id and base URL alone
+		// (internal/adminauth/oidc.go), which is what a public/PKCE client sends,
+		// so an empty secret is not an incomplete config here.
 		serveSettings({
 			oidc_enabled: "true",
 			oidc_issuer_url: "https://auth.example.com",
@@ -87,10 +88,7 @@ describe("OidcPanel", () => {
 
 		const pill = await screen.findByTestId("oidc-status");
 		await waitFor(() =>
-			expect(pill).toHaveTextContent(i18n.t("settings.oidc.status.incomplete")),
-		);
-		expect(pill).not.toHaveTextContent(
-			i18n.t("settings.oidc.status.configured"),
+			expect(pill).toHaveTextContent(i18n.t("settings.oidc.status.configured")),
 		);
 	});
 

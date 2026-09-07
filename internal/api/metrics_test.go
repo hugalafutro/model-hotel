@@ -130,3 +130,38 @@ func TestMetricsHandler_ServesBreakerGauge(t *testing.T) {
 		t.Errorf("expected open breaker gauge for prov-x, got:\n%s", body)
 	}
 }
+
+// TestMetricsAuth_LogLinesFeedTheCrowdSecParser pins the wording of the two
+// refusal lines the metrics gate emits. The parser shipped in
+// contrib/crowdsec/parsers/s01-parse/model-hotel-logs.yaml matches them by
+// literal prefix to feed the model-hotel-admin-bf brute-force scenario, so a
+// reworded line here disarms that scenario without failing anything else.
+func TestMetricsAuth_LogLinesFeedTheCrowdSecParser(t *testing.T) {
+	tests := []struct {
+		name   string
+		bearer string
+		want   string
+	}{
+		{"no bearer", "", "auth: metrics scrape missing bearer token"},
+		{"wrong bearer", "Bearer nope", "auth: metrics scrape with invalid token"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			capt := captureAPILogs(t)
+			h := &Handler{cfg: &config.Config{MetricsToken: "s3cret"}}
+			guarded := h.metricsAuth(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+				t.Error("next must not run for a refused scrape")
+			}))
+
+			r := httptest.NewRequest("GET", "/metrics", http.NoBody)
+			if tc.bearer != "" {
+				r.Header.Set("Authorization", tc.bearer)
+			}
+			guarded.ServeHTTP(httptest.NewRecorder(), r)
+
+			if capt.msg != tc.want {
+				t.Errorf("log message = %q, want %q", capt.msg, tc.want)
+			}
+		})
+	}
+}

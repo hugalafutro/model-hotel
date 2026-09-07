@@ -601,6 +601,14 @@ it("Add another returns to the list, and a row added here can be dropped again",
 	expect(screen.queryAllByTestId("alert-destination-row")).toHaveLength(0);
 	expect(screen.getByTestId("alert-destinations-empty")).toBeInTheDocument();
 	expect(screen.getByTestId("wiz-saved-note")).toBeInTheDocument();
+
+	// With the list emptied, starting another destination and changing your mind
+	// again still has its way back: the list is where the run came from, whether
+	// or not this run currently has a row on it.
+	await userEvent.click(screen.getByTestId("wiz-add-another"));
+	expect(screen.getByTestId("wiz-step-2")).toBeInTheDocument();
+	await userEvent.click(screen.getByTestId("wiz-back-to-list"));
+	expect(screen.getByTestId("wiz-step-5")).toBeInTheDocument();
 	// One stored destination is still a destination, so the run can continue.
 	expect(screen.getByTestId("wiz-next")).toBeEnabled();
 });

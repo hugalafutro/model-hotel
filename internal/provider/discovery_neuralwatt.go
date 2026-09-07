@@ -10,8 +10,9 @@ import (
 // GetNeuralWattQuota retrieves the quota/balance from NeuralWatt.
 func (d *DiscoveryService) GetNeuralWattQuota(ctx context.Context, provider *Provider, masterKey string) (*NeuralWattQuotaResponse, error) {
 	var quota NeuralWattQuotaResponse
-	err := d.fetchQuotaJSON(ctx, provider, masterKey, "/quota", "neuralwatt", "quota", &quota)
-	// 404 = free tier key, no quota endpoint. Report no data and no error.
+	// 404 = free tier key, no quota endpoint. It is an expected answer, so it
+	// comes back unlogged and reports no data and no error.
+	err := d.fetchQuotaJSON(ctx, provider, masterKey, "/quota", "neuralwatt", "quota", &quota, http.StatusNotFound)
 	if errorStatusCode(err) == http.StatusNotFound {
 		debuglog.Info("discovery: neuralwatt quota endpoint not available (likely free tier)", "provider", provider.Name, "provider_id", provider.ID)
 		return nil, nil

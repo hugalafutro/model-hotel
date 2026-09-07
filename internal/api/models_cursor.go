@@ -22,7 +22,8 @@ import (
 // Query parameters:
 //   - cursor: encoded cursor from a previous response
 //   - direction: "after" (default) or "before"
-//   - limit: page size (default 50, max 200)
+//   - limit: page size (default 50). A value outside [1, 200] is clamped to the
+//     nearest bound, so limit=0 returns one row and limit=100000 returns 200.
 //   - sort_by: "name" (default), "discovered", "context", "output", "provider", "status"
 //   - sort_dir: "asc" (default) or "desc"
 //   - search: text search on model_id, name, display_name

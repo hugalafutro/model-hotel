@@ -5,10 +5,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // chatCompletionBuilder turns one egress dialect's non-streaming success body
@@ -39,8 +38,7 @@ func translateEgressResponseBody(resp *http.Response, model string, build chatCo
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
 		return err
 	}
-	id := "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	translated, err := build(body, id, model, time.Now().Unix())
+	translated, err := build(body, egress.NewChatCompletionID(), model, time.Now().Unix())
 	if err != nil {
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
 		return err

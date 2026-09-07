@@ -2262,7 +2262,7 @@
 				"doneManaged": "Destinații salvate. Ce evenimente trimit o alertă rămâne gestionat pentru toată flota.",
 				"sendAll": "Trimiteți test către tot",
 				"sentAll": "Test trimis către fiecare destinație",
-				"apiChangedDrops": "Schimbarea adresei elimină destinațiile adăugate în această rulare; ele au fost testate cu adresa veche."
+				"apiChangedDrops": "Verificarea unei alte adrese elimină destinațiile adăugate în această rulare; ele au fost testate cu adresa veche."
 			},
 			"category": {
 				"discovery": "Descoperire",
@@ -2454,7 +2454,8 @@
 		},
 		"copyablePill": {
 			"copy": "Copiază",
-			"copyToClipboard": "Copiază în clipboard"
+			"copyToClipboard": "Copiază în clipboard",
+			"copied": "Copiat!"
 		},
 		"collapsibleToggle": {
 			"expand": "Extinde",

@@ -324,27 +324,50 @@ function mockArena(overrides: Record<string, unknown> = {}) {
 	} as unknown as ReturnType<typeof useArena>);
 }
 
+const VOTE_TO_CONTINUE = "Vote on all matchups to continue to the next round";
+
+/** One matchup, voted or not, shaped as the bar reads it. */
+function matchup(vote: string | null) {
+	return { slotA: null, slotB: null, responseA: null, responseB: null, vote };
+}
+
 describe("Arena - voting message", () => {
-	it("shows the vote-to-continue reason while voting", () => {
+	it("shows the vote-to-continue reason while votes are missing", () => {
 		mockArena({
 			phase: "voting",
 			currentRound: 0,
-			disabledReason: "Vote on all matchups to continue to the next round",
+			rounds: [{ matchups: [matchup(null)] }],
+			disabledReason: VOTE_TO_CONTINUE,
 		});
 
 		render(<Arena />);
-		expect(
-			screen.getByText("Vote on all matchups to continue to the next round"),
-		).toBeInTheDocument();
+		expect(screen.getByText(VOTE_TO_CONTINUE)).toBeInTheDocument();
+	});
+
+	it("hides it once every matchup in the round is voted", () => {
+		// The phase can stay "voting" with nothing left to vote on, and the
+		// reason string is phase-keyed, so the bar has to make the call itself.
+		mockArena({
+			phase: "voting",
+			currentRound: 0,
+			rounds: [{ matchups: [matchup("A")] }],
+			disabledReason: VOTE_TO_CONTINUE,
+		});
+
+		render(<Arena />);
+		expect(screen.queryByText(VOTE_TO_CONTINUE)).not.toBeInTheDocument();
 	});
 
 	it("shows no message while voting once there is no reason left", () => {
-		mockArena({ phase: "voting", currentRound: 0, disabledReason: "" });
+		mockArena({
+			phase: "voting",
+			currentRound: 0,
+			rounds: [{ matchups: [matchup(null)] }],
+			disabledReason: "",
+		});
 
 		render(<Arena />);
-		expect(
-			screen.queryByText("Vote on all matchups to continue to the next round"),
-		).not.toBeInTheDocument();
+		expect(screen.queryByText(VOTE_TO_CONTINUE)).not.toBeInTheDocument();
 	});
 });
 

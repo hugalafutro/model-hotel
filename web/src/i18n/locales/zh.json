@@ -2178,7 +2178,7 @@
 				"done": "警报已开启。",
 				"sendAll": "向全部目标发送测试",
 				"sentAll": "已向每个目标发送测试",
-				"apiChangedDrops": "更改地址会移除本次添加的目标；它们是针对旧地址测试的。",
+				"apiChangedDrops": "验证其他地址会移除本次添加的目标；它们是针对旧地址测试的。",
 				"savedNote_one": "已保存的 {{count}} 个目标保持不变。",
 				"savedNote_other": "已保存的 {{count}} 个目标保持不变。",
 				"field": {
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "复制",
-			"copyToClipboard": "复制到剪贴板"
+			"copyToClipboard": "复制到剪贴板",
+			"copied": "已复制！"
 		},
 		"collapsibleToggle": {
 			"expand": "展开",

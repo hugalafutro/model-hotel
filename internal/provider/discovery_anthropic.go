@@ -35,7 +35,7 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 		bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
 		if err != nil {
 			debuglog.Error("discovery: anthropic fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-			return nil, fmt.Errorf("failed to fetch models: %w", err)
+			return nil, fmt.Errorf("failed to fetch models: %w", statusOnly(err))
 		}
 
 		var pageResp AnthropicModelsResponse

@@ -467,8 +467,21 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = resp.Body.Close() }()
 
-	respBody, _ := httpx.ReadCappedBody(resp.Body, httpx.MaxUpstreamBody)
+	respBody, readErr := httpx.ReadCappedBody(resp.Body, httpx.MaxUpstreamBody)
 	duration := time.Since(startRequest).Milliseconds()
+
+	// A body over the ceiling, or one that failed mid-read, leaves respBody nil.
+	// Reporting the real cause beats letting the nil fall through and surface as
+	// an empty or unparseable upstream response.
+	if readErr != nil {
+		errMsg := "upstream response too large"
+		if !errors.Is(readErr, httpx.ErrBodyTooLarge) {
+			errMsg = "failed to read upstream response: " + readErr.Error()
+		}
+		h.logTestModelHTTPError(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, errMsg, clientip.From(r))
+		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
+		return
+	}
 
 	if resp.StatusCode != http.StatusOK {
 		// The same two-layer scrub the proxy runs over the bodies it logs and
@@ -649,6 +662,10 @@ func (h *Handler) doTestModelEgressRequest(ctx context.Context, client *http.Cli
 	_ = resp.Body.Close()
 	if err != nil {
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
+		if errors.Is(err, httpx.ErrBodyTooLarge) {
+			// Same sentence the OpenAI-shaped path reports for this failure.
+			return resp, errors.New("upstream response too large")
+		}
 		return resp, err
 	}
 	translated, err := buildChatCompletion(upstream, "chatcmpl-test-"+modelID, modelID, time.Now().Unix())

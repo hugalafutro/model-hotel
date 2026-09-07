@@ -2207,7 +2207,7 @@
 				"doneManaged": "Bestemmings gestoor. Watter gebeure 'n waarskuwing stuur, bly vlootwyd bestuur.",
 				"sendAll": "Stuur toets na alles",
 				"sentAll": "Toets na elke bestemming gestuur",
-				"apiChangedDrops": "As jy die adres verander, word die bestemmings wat in hierdie deurloop bygevoeg is, verwyder; hulle is teen die ou een getoets."
+				"apiChangedDrops": "As jy 'n ander adres verifieer, word die bestemmings wat in hierdie deurloop bygevoeg is, verwyder; hulle is teen die ou een getoets."
 			},
 			"category": {
 				"discovery": "Ontdekking",
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "Kopieer",
-			"copyToClipboard": "Kopieer na knipbord"
+			"copyToClipboard": "Kopieer na knipbord",
+			"copied": "Gekopieer!"
 		},
 		"collapsibleToggle": {
 			"expand": "Uitbrei",

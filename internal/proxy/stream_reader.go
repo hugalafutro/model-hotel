@@ -221,8 +221,12 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	r.emptyLines = 0
 
 	// Match "data: " (standard) or "data:" (LM Studio and some proxies send
-	// SSE without a space after the colon). Strip leading whitespace from the
-	// payload so both forms yield the same JSON.
+	// SSE without a space after the colon). The standard form gives up exactly
+	// its one separator space; the bare form has its leading whitespace
+	// stripped so both yield the same JSON.
+	if rest, ok := strings.CutPrefix(lineStr, "data: "); ok {
+		return dataEvent(line, rest), true
+	}
 	if rest, ok := strings.CutPrefix(lineStr, "data:"); ok && rest != "" {
 		return dataEvent(line, strings.TrimLeft(rest, " \t")), true
 	}

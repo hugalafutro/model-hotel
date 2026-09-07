@@ -17,7 +17,8 @@ func (h *Handler) SetAudit(rec *audit.Recorder) {
 	h.audit = rec
 }
 
-// RegisterAudit mounts the admin-only audit-trail routes.
+// RegisterAudit mounts the audit-trail routes. The parent router must apply
+// admin auth: these routes carry no guard of their own.
 func (h *Handler) RegisterAudit(r chi.Router) {
 	r.Route("/audit", func(r chi.Router) {
 		r.Get("/", h.ListAudit)

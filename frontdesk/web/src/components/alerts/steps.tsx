@@ -155,8 +155,10 @@ export function StepKind({
 			<p className="fd-faint fd-step-intro">{t(`${K}.step2Hint`)}</p>
 			{/* "Add another" is one click, so undoing it has to be one click too:
 			    Back walks the run's own order (towards the apprise address), which
-			    is not where a second destination was started from. */}
-			{state.added.length > 0 && (
+			    is not where a second destination was started from. It is offered
+			    from the moment the run has seen the list, which includes coming
+			    back here after removing every row that was on it. */}
+			{state.listSeen && (
 				<div>
 					<button
 						type="button"

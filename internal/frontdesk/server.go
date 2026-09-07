@@ -633,7 +633,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 func (s *Server) metricsAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.metricsToken != "" {
-			adminauth.BearerTokenGate(s.metricsToken, "metrics", next).ServeHTTP(w, r)
+			adminauth.BearerTokenGate(s.metricsToken, "metrics", "frontdesk: metrics scrape", next).ServeHTTP(w, r)
 			return
 		}
 		// No dedicated token configured — fall back to ADMIN auth. requireAuth
@@ -713,7 +713,7 @@ func (s *Server) traefikAuth(next http.HandlerFunc) http.HandlerFunc {
 			next(w, r)
 			return
 		}
-		adminauth.BearerTokenGate(s.traefikToken, "traefik", http.HandlerFunc(next)).ServeHTTP(w, r)
+		adminauth.BearerTokenGate(s.traefikToken, "traefik", "frontdesk: traefik config poll", http.HandlerFunc(next)).ServeHTTP(w, r)
 	}
 }
 

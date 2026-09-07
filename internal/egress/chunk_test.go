@@ -23,9 +23,6 @@ func newTestWriter() ChunkWriter {
 // every chunk carries the same envelope.
 func TestWriteChunk_RoleOnFirstChunkOnly(t *testing.T) {
 	w := newTestWriter()
-	if w.Started() {
-		t.Error("a fresh writer reports started")
-	}
 	var buf bytes.Buffer
 	for _, content := range []string{"a", "b"} {
 		delta := testDelta{Content: content}
@@ -38,9 +35,6 @@ func TestWriteChunk_RoleOnFirstChunkOnly(t *testing.T) {
 		`data: {"id":"chatcmpl-x","object":"chat.completion.chunk","created":7,"model":"m","choices":[{"index":0,"delta":{"content":"b"},"finish_reason":null}]}` + "\n\n"
 	if buf.String() != want {
 		t.Errorf("frames =\n%s\nwant\n%s", buf.String(), want)
-	}
-	if !w.Started() {
-		t.Error("writer does not report started after a chunk")
 	}
 }
 

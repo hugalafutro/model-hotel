@@ -2207,7 +2207,7 @@
 				"doneManaged": "Hedefler kaydedildi. Hangi olayların uyarı göndereceği filo genelinde yönetilmeye devam eder.",
 				"sendAll": "Her şeye test gönder",
 				"sentAll": "Her hedefe test gönderildi",
-				"apiChangedDrops": "Adresi değiştirmek bu çalıştırmada eklenen hedefleri kaldırır; bunlar eski adrese göre test edilmişti."
+				"apiChangedDrops": "Farklı bir adresi doğrulamak bu çalıştırmada eklenen hedefleri kaldırır; bunlar eski adrese göre test edilmişti."
 			},
 			"category": {
 				"discovery": "Keşif",
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "Kopyala",
-			"copyToClipboard": "Panoya kopyala"
+			"copyToClipboard": "Panoya kopyala",
+			"copied": "Kopyalandı!"
 		},
 		"collapsibleToggle": {
 			"expand": "Genişlet",

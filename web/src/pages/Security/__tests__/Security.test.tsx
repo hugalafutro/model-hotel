@@ -137,6 +137,23 @@ describe("Security page", () => {
 		});
 	});
 
+	it("explains a too-short new password instead of a dead submit button", async () => {
+		mockStatus({ enabled: false });
+		const { user } = renderWithProviders(<Security />);
+
+		const short = i18n.t("users.validation.passwordShort");
+		expect(screen.queryByText(short)).not.toBeInTheDocument();
+
+		await user.type(screen.getByTestId("security-new-password"), "short");
+		expect(await screen.findByText(short)).toBeInTheDocument();
+		expect(screen.getByTestId("security-password-submit")).toBeDisabled();
+
+		await user.type(screen.getByTestId("security-new-password"), "-enough");
+		await waitFor(() =>
+			expect(screen.queryByText(short)).not.toBeInTheDocument(),
+		);
+	});
+
 	it("keeps the session on a rejected current password", {
 		timeout: 30000,
 	}, async () => {

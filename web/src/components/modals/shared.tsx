@@ -98,8 +98,14 @@ interface QuotaBarProps {
 	label: string;
 	/** Already-translated/formatted content for the right side of the header row. */
 	rightText: React.ReactNode;
-	/** Used percentage, 0–100. The component computes remaining as (100 − percentage). */
+	/** Used percentage, 0–100. */
 	percentage: number;
+	/**
+	 * Remaining percentage, 0–100. Defaults to (100 − percentage), which is only
+	 * right when the provider reports used and remaining as one complementary
+	 * pair; a provider that reports the two independently passes its own.
+	 */
+	remainingPercentage?: number;
 	/** Whether to show "used" or "remaining" coloring and width. */
 	barMode: "used" | "remaining";
 	/** Optional data-testid for the bar track div. */
@@ -123,6 +129,7 @@ export function QuotaBar({
 	label,
 	rightText,
 	percentage,
+	remainingPercentage = 100 - percentage,
 	barMode,
 	dataTestId,
 	fillTestId,
@@ -143,9 +150,9 @@ export function QuotaBar({
 			>
 				<div
 					{...(fillTestId ? { "data-testid": fillTestId } : {})}
-					className={`${barMode === "used" ? usedBarColor(percentage) : remainingBarColor(100 - percentage)} h-3 ui-bar transition-all`}
+					className={`${barMode === "used" ? usedBarColor(percentage) : remainingBarColor(remainingPercentage)} h-3 ui-bar transition-all`}
 					style={{
-						width: `${barMode === "used" ? Math.min(percentage, 100) : Math.min(100 - percentage, 100)}%`,
+						width: `${barMode === "used" ? Math.min(percentage, 100) : Math.min(remainingPercentage, 100)}%`,
 					}}
 				/>
 			</div>

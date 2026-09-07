@@ -50,9 +50,6 @@ func (w *ChunkWriter) Role() string {
 	return "assistant"
 }
 
-// Started reports whether a chunk has already gone out on this stream.
-func (w *ChunkWriter) Started() bool { return w.started }
-
 // WriteChunk appends one framed SSE chunk ("data: <json>\n\n") carrying delta
 // as the single choice.
 func WriteChunk[D, U any](buf *bytes.Buffer, w *ChunkWriter, delta D, finishReason *string, usage *U) error {

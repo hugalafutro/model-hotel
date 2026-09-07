@@ -2232,7 +2232,7 @@
 				"done": "Les alertes sont actives.",
 				"sendAll": "Envoyer un test à toutes",
 				"sentAll": "Test envoyé à toutes les destinations",
-				"apiChangedDrops": "Changer l'adresse retire les destinations ajoutées lors de cette session ; elles ont été testées avec l'ancienne adresse.",
+				"apiChangedDrops": "Vérifier une autre adresse retire les destinations ajoutées lors de cette session ; elles ont été testées avec l'ancienne adresse.",
 				"savedNote_one": "{{count}} destination déjà enregistrée reste telle quelle.",
 				"savedNote_many": "{{count}} destinations déjà enregistrées restent telles quelles.",
 				"savedNote_other": "{{count}} destinations déjà enregistrées restent telles quelles.",
@@ -2454,7 +2454,8 @@
 		},
 		"copyablePill": {
 			"copy": "Copie",
-			"copyToClipboard": "Copier dans le presse-papiers"
+			"copyToClipboard": "Copier dans le presse-papiers",
+			"copied": "Copié!"
 		},
 		"collapsibleToggle": {
 			"expand": "Agrandir",

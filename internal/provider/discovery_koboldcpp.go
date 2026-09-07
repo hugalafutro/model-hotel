@@ -110,7 +110,7 @@ func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase, apiKey
 	// included, so the key belongs on this request as much as on /models.
 	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/extra/version", bearerHeader(apiKey))
 	if err != nil {
-		return nil, err
+		return nil, statusOnly(err)
 	}
 
 	var versionResp KoboldCPPVersionResponse
@@ -156,7 +156,7 @@ func (d *DiscoveryService) koboldcppLoadedModel(ctx context.Context, baseURL, ap
 func (d *DiscoveryService) koboldcppContextLength(ctx context.Context, apiBase, apiKey string) *int {
 	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/extra/true_max_context_length", bearerHeader(apiKey))
 	if err != nil {
-		debuglog.Info("discovery: koboldcpp context length unavailable", "error", err)
+		debuglog.Info("discovery: koboldcpp context length unavailable", "status", errorStatusCode(err), "error", err)
 		return nil
 	}
 

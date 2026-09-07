@@ -2207,7 +2207,7 @@
 				"doneManaged": "Destinationer sparade. Vilka händelser som skickar en varning hanteras fortfarande för hela flottan.",
 				"sendAll": "Skicka test till allt",
 				"sentAll": "Test skickat till varje destination",
-				"apiChangedDrops": "Om du ändrar adressen tas destinationerna som lagts till i den här omgången bort; de testades mot den gamla."
+				"apiChangedDrops": "Om du verifierar en annan adress tas destinationerna som lagts till i den här omgången bort; de testades mot den gamla."
 			},
 			"category": {
 				"discovery": "Upptäckt",
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "Kopiera",
-			"copyToClipboard": "Kopiera till urklipp"
+			"copyToClipboard": "Kopiera till urklipp",
+			"copied": "Kopierad!"
 		},
 		"collapsibleToggle": {
 			"expand": "Expandera",

@@ -8,9 +8,12 @@ import { hasAnyParam } from "./params";
 export const ARENA_HISTORY_KEY = "arenaMatchHistory";
 export const ARENA_HISTORY_ENABLED_KEY = "arenaHistoryEnabled";
 export const ARENA_HISTORY_LIMIT_KEY = "arenaHistoryLimit";
-// Every localStorage key the arena's persisted setup lives under. Named once
-// because the arena's own reset and StorageContext's "stop persisting" branch
-// must clear the same set.
+// Every localStorage key the arena's persisted setup lives under, cleared as
+// one set by both the arena's own reset and StorageContext's "stop persisting"
+// branch. The union is deliberate: a reset that leaves the mirrored board in
+// `arenaState` brings the cleared setup back on the next mount, and switching
+// persistence off has to take the compare persona with it like every other
+// stored field.
 export const ARENA_STORAGE_KEYS = [
 	"arenaState",
 	"arenaCompetitionPrompt",

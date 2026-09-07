@@ -17,9 +17,9 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
-// TestGetProviderUsage_InvalidUUID tests that GetProviderUsage returns 400 for
+// TestQuotaUsage_InvalidUUID tests that quotaHandler("usage") returns 400 for
 // an invalid UUID in the path.
-func TestGetProviderUsage_InvalidUUID(t *testing.T) {
+func TestQuotaUsage_InvalidUUID(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	rec := httptest.NewRecorder()
@@ -32,9 +32,9 @@ func TestGetProviderUsage_InvalidUUID(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_NonExistent tests that GetProviderUsage returns 404 for
+// TestQuotaUsage_NonExistent tests that quotaHandler("usage") returns 404 for
 // a valid but non-existent UUID.
-func TestGetProviderUsage_NonExistent(t *testing.T) {
+func TestQuotaUsage_NonExistent(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	nonExistentID := uuid.New().String()
@@ -48,9 +48,9 @@ func TestGetProviderUsage_NonExistent(t *testing.T) {
 	}
 }
 
-// TestGetProviderBalance_InvalidUUID tests that GetProviderBalance returns 400 for
+// TestQuotaBalance_InvalidUUID tests that quotaHandler("balance") returns 400 for
 // an invalid UUID in the path.
-func TestGetProviderBalance_InvalidUUID(t *testing.T) {
+func TestQuotaBalance_InvalidUUID(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	rec := httptest.NewRecorder()
@@ -63,9 +63,9 @@ func TestGetProviderBalance_InvalidUUID(t *testing.T) {
 	}
 }
 
-// TestGetProviderBalance_NonExistent tests that GetProviderBalance returns 404 for
+// TestQuotaBalance_NonExistent tests that quotaHandler("balance") returns 404 for
 // a valid but non-existent UUID.
-func TestGetProviderBalance_NonExistent(t *testing.T) {
+func TestQuotaBalance_NonExistent(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	nonExistentID := uuid.New().String()
@@ -79,9 +79,9 @@ func TestGetProviderBalance_NonExistent(t *testing.T) {
 	}
 }
 
-// TestGetOllamaCloudAccount_InvalidUUID tests that GetOllamaCloudAccount returns 400 for
+// TestQuotaAccount_InvalidUUID tests that quotaHandler("account") returns 400 for
 // an invalid UUID in the path.
-func TestGetOllamaCloudAccount_InvalidUUID(t *testing.T) {
+func TestQuotaAccount_InvalidUUID(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	rec := httptest.NewRecorder()
@@ -94,9 +94,9 @@ func TestGetOllamaCloudAccount_InvalidUUID(t *testing.T) {
 	}
 }
 
-// TestGetOllamaCloudAccount_NonExistent tests that GetOllamaCloudAccount returns 404 for
+// TestQuotaAccount_NonExistent tests that quotaHandler("account") returns 404 for
 // a valid but non-existent UUID.
-func TestGetOllamaCloudAccount_NonExistent(t *testing.T) {
+func TestQuotaAccount_NonExistent(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	nonExistentID := uuid.New().String()
@@ -110,9 +110,9 @@ func TestGetOllamaCloudAccount_NonExistent(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_UnsupportedType tests that GetProviderUsage returns 400 for
+// TestQuotaUsage_UnsupportedType tests that quotaHandler("usage") returns 400 for
 // a provider type that doesn't support usage information.
-func TestGetProviderUsage_UnsupportedType(t *testing.T) {
+func TestQuotaUsage_UnsupportedType(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with OpenAI URL (doesn't support usage endpoint)
@@ -148,9 +148,9 @@ func TestGetProviderUsage_UnsupportedType(t *testing.T) {
 	}
 }
 
-// TestGetProviderBalance_UnsupportedType tests that GetProviderBalance returns 400 for
+// TestQuotaBalance_UnsupportedType tests that quotaHandler("balance") returns 400 for
 // a provider type that doesn't support balance information.
-func TestGetProviderBalance_UnsupportedType(t *testing.T) {
+func TestQuotaBalance_UnsupportedType(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with non-DeepSeek URL
@@ -187,10 +187,10 @@ func TestGetProviderBalance_UnsupportedType(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_RejectsMismatchedKind verifies the endpoint contract: a
+// TestQuotaUsage_RejectsMismatchedKind verifies the endpoint contract: a
 // provider whose type maps to a different quota kind (DeepSeek is balance-kind)
 // is rejected on /usage rather than served the wrong payload shape.
-func TestGetProviderUsage_RejectsMismatchedKind(t *testing.T) {
+func TestQuotaUsage_RejectsMismatchedKind(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// DeepSeek maps to the "balance" kind, not "usage".
@@ -227,9 +227,9 @@ func TestGetProviderUsage_RejectsMismatchedKind(t *testing.T) {
 	}
 }
 
-// TestGetOllamaCloudAccount_NonOllamaCloud tests that GetOllamaCloudAccount returns 400 for
+// TestQuotaAccount_NonOllamaCloud tests that quotaHandler("account") returns 400 for
 // a provider that is not Ollama Cloud.
-func TestGetOllamaCloudAccount_NonOllamaCloud(t *testing.T) {
+func TestQuotaAccount_NonOllamaCloud(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with non-OllamaCloud URL
@@ -265,9 +265,9 @@ func TestGetOllamaCloudAccount_NonOllamaCloud(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_ZAICodingError tests that GetProviderUsage handles
+// TestQuotaUsage_ZAICodingError tests that quotaHandler("usage") handles
 // z.ai API errors (note: z.ai returns 200 with error JSON for invalid keys).
-func TestGetProviderUsage_ZAICodingError(t *testing.T) {
+func TestQuotaUsage_ZAICodingError(t *testing.T) {
 	// Point this handler's discovery at a mock transport, so no real API is called.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -311,7 +311,7 @@ func TestGetProviderUsage_ZAICodingError(t *testing.T) {
 	}
 
 	// Try to get usage - z.ai returns 200 with error JSON for invalid keys
-	// This exercises the zai-coding case in GetProviderUsage
+	// This exercises the zai-coding case in quotaHandler("usage")
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -327,12 +327,12 @@ func TestGetProviderUsage_ZAICodingError(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_KimiCodeError tests that GetProviderUsage handles
+// TestQuotaUsage_KimiCodeError tests that quotaHandler("usage") handles
 // Kimi Code API errors. Unlike z.ai (hardcoded quota URL), Kimi Code builds
 // its quota URL from the provider's own base_url + "/usages", but
 // LegacyTypeFromURL still routes purely by hostname, so the provider row's
 // base_url must be an api.kimi.com URL to select the kimi-code arm.
-func TestGetProviderUsage_KimiCodeError(t *testing.T) {
+func TestQuotaUsage_KimiCodeError(t *testing.T) {
 	// Point this handler's discovery at a mock transport, so no real API is called.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -376,7 +376,7 @@ func TestGetProviderUsage_KimiCodeError(t *testing.T) {
 	}
 
 	// Try to get usage - the fake key causes a 500 from the mock transport,
-	// which exercises the kimi-code case in GetProviderUsage.
+	// which exercises the kimi-code case in quotaHandler("usage").
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -390,9 +390,9 @@ func TestGetProviderUsage_KimiCodeError(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_NanoGPTError tests that GetProviderUsage returns 500
+// TestQuotaUsage_NanoGPTError tests that quotaHandler("usage") returns 500
 // when the NanoGPT API call fails with an invalid key.
-func TestGetProviderUsage_NanoGPTError(t *testing.T) {
+func TestQuotaUsage_NanoGPTError(t *testing.T) {
 	// Point this handler's discovery at a mock transport, so no real API is called.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -449,9 +449,9 @@ func TestGetProviderUsage_NanoGPTError(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_OpenRouterError tests that GetProviderUsage returns 500
+// TestQuotaUsage_OpenRouterError tests that quotaHandler("usage") returns 500
 // when the OpenRouter API call fails with an invalid key.
-func TestGetProviderUsage_OpenRouterError(t *testing.T) {
+func TestQuotaUsage_OpenRouterError(t *testing.T) {
 	// Point this handler's discovery at a mock transport, so no real API is called.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -509,9 +509,9 @@ func TestGetProviderUsage_OpenRouterError(t *testing.T) {
 	}
 }
 
-// TestGetProviderBalance_DeepSeekError tests that GetProviderBalance returns 500
+// TestQuotaBalance_DeepSeekError tests that quotaHandler("balance") returns 500
 // when the DeepSeek API call fails with an invalid key.
-func TestGetProviderBalance_DeepSeekError(t *testing.T) {
+func TestQuotaBalance_DeepSeekError(t *testing.T) {
 	// Point this handler's discovery at a mock transport, so no real API is called.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -568,9 +568,9 @@ func TestGetProviderBalance_DeepSeekError(t *testing.T) {
 	}
 }
 
-// TestGetOllamaCloudAccount_Error tests that GetOllamaCloudAccount returns 500
+// TestQuotaAccount_Error tests that quotaHandler("account") returns 500
 // when the Ollama Cloud API call fails with an invalid key.
-func TestGetOllamaCloudAccount_Error(t *testing.T) {
+func TestQuotaAccount_Error(t *testing.T) {
 	// Point this handler's discovery at a mock transport, so no real API is called.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -628,11 +628,11 @@ func TestGetOllamaCloudAccount_Error(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_KimiCodeSuccess exercises the success arm of the
-// kimi-code case in GetProviderUsage: a 200 /usages response is decoded and
+// TestQuotaUsage_KimiCodeSuccess exercises the success arm of the
+// kimi-code case in quotaHandler("usage"): a 200 /usages response is decoded and
 // written back as JSON. The mock transport intercepts the api.kimi.com request
 // so no real network call is made while LegacyTypeFromURL still routes by host.
-func TestGetProviderUsage_KimiCodeSuccess(t *testing.T) {
+func TestQuotaUsage_KimiCodeSuccess(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	h.newDiscovery = func() *provider.DiscoveryService {
@@ -693,12 +693,12 @@ func TestGetProviderUsage_KimiCodeSuccess(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_MiniMaxError tests that GetProviderUsage handles a
+// TestQuotaUsage_MiniMaxError tests that quotaHandler("usage") handles a
 // MiniMax API key rejection. LegacyTypeFromURL routes purely by hostname
 // (api.minimax.io), so the provider row's base_url selects the minimax arm;
 // a 401 upstream response is classified by quotaAuthError into the
 // dependency-failure envelope rather than the generic 500 error path.
-func TestGetProviderUsage_MiniMaxError(t *testing.T) {
+func TestQuotaUsage_MiniMaxError(t *testing.T) {
 	// Point this handler's discovery at a mock transport, so no real API is called.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -742,7 +742,7 @@ func TestGetProviderUsage_MiniMaxError(t *testing.T) {
 	}
 
 	// Try to get usage - the fake key causes a 401 from the mock transport,
-	// which exercises the minimax case in GetProviderUsage.
+	// which exercises the minimax case in quotaHandler("usage").
 	rec = httptest.NewRecorder()
 	req = httptest.NewRequest(http.MethodGet, "/providers/"+createResp.ID+"/usage", http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -756,12 +756,12 @@ func TestGetProviderUsage_MiniMaxError(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_MiniMaxSuccess exercises the success arm of the
-// minimax case in GetProviderUsage: a 200 /token_plan/remains response is
+// TestQuotaUsage_MiniMaxSuccess exercises the success arm of the
+// minimax case in quotaHandler("usage"): a 200 /token_plan/remains response is
 // decoded and written back as JSON, passing model_remains through untouched.
 // The mock transport intercepts the api.minimax.io request so no real
 // network call is made while LegacyTypeFromURL still routes by host.
-func TestGetProviderUsage_MiniMaxSuccess(t *testing.T) {
+func TestQuotaUsage_MiniMaxSuccess(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	h.newDiscovery = func() *provider.DiscoveryService {
@@ -822,7 +822,7 @@ func TestGetProviderUsage_MiniMaxSuccess(t *testing.T) {
 	}
 }
 
-func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
+func TestQuotaUsage_ZAICodingQuotaError(t *testing.T) {
 	// DB-backed handler so the read-through cold-fill has a real quota store and
 	// the provider row satisfies the snapshot FK.
 	h, r := newTestHandlerWithRouter(t)
@@ -858,7 +858,7 @@ func TestGetProviderUsage_ZAICodingQuotaError(t *testing.T) {
 	}
 }
 
-func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
+func TestQuotaUsage_NanoGPTSuccess(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
 	h, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid NanoGPT JSON
@@ -899,7 +899,7 @@ func TestGetProviderUsage_NanoGPTSuccess(t *testing.T) {
 	}
 }
 
-func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
+func TestQuotaUsage_OpenRouterSuccess(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
 	h, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid OpenRouter JSON
@@ -950,10 +950,10 @@ func TestGetProviderUsage_OpenRouterSuccess(t *testing.T) {
 }
 
 // =============================================================================
-// GetProviderBalance Tests
+// quotaHandler("balance") Tests
 // =============================================================================
 
-func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
+func TestQuotaBalance_DeepSeekSuccess(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
 	h, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid DeepSeek JSON
@@ -995,10 +995,10 @@ func TestGetProviderBalance_DeepSeekSuccess(t *testing.T) {
 }
 
 // =============================================================================
-// GetOllamaCloudAccount Tests
+// quotaHandler("account") Tests
 // =============================================================================
 
-func TestGetOllamaCloudAccount_Success(t *testing.T) {
+func TestQuotaAccount_Success(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
 	h, r := newTestHandlerWithRouter(t)
 	// Override newDiscoveryService with mock transport returning valid Ollama Cloud JSON
@@ -1043,7 +1043,7 @@ func TestGetOllamaCloudAccount_Success(t *testing.T) {
 // RefreshAllQuotas Tests
 // =============================================================================
 
-func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
+func TestQuotaUsage_NeuralWattSuccess(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -1083,7 +1083,7 @@ func TestGetProviderUsage_NeuralWattSuccess(t *testing.T) {
 	}
 }
 
-func TestGetProviderUsage_NeuralWattFreeTier(t *testing.T) {
+func TestQuotaUsage_NeuralWattFreeTier(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -1113,7 +1113,7 @@ func TestGetProviderUsage_NeuralWattFreeTier(t *testing.T) {
 	}
 }
 
-func TestGetProviderUsage_NeuralWattError(t *testing.T) {
+func TestQuotaUsage_NeuralWattError(t *testing.T) {
 	// DB-backed handler: read-through cold-fill needs a real quota store + FK row.
 	h, r := newTestHandlerWithRouter(t)
 
@@ -1145,10 +1145,10 @@ func TestGetProviderUsage_NeuralWattError(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_ServesStoredSnapshot proves the read-through serves a
+// TestQuotaUsage_ServesStoredSnapshot proves the read-through serves a
 // stored snapshot verbatim without any upstream call: the discovery service
 // fails the test if it is ever invoked.
-func TestGetProviderUsage_ServesStoredSnapshot(t *testing.T) {
+func TestQuotaUsage_ServesStoredSnapshot(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
 
@@ -1185,9 +1185,9 @@ func TestGetProviderUsage_ServesStoredSnapshot(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_Reproduces424 confirms a stored 424 snapshot is served
+// TestQuotaUsage_Reproduces424 confirms a stored 424 snapshot is served
 // as 424 (the store-seed path deferred from the Task 3 review).
-func TestGetProviderUsage_Reproduces424(t *testing.T) {
+func TestQuotaUsage_Reproduces424(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
 
@@ -1203,9 +1203,9 @@ func TestGetProviderUsage_Reproduces424(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_ColdLazyFill verifies that a first view with no stored
+// TestQuotaUsage_ColdLazyFill verifies that a first view with no stored
 // snapshot performs one live fetch, persists it, and serves the fetched body.
-func TestGetProviderUsage_ColdLazyFill(t *testing.T) {
+func TestQuotaUsage_ColdLazyFill(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 	provID, idStr := createQuotaProvider(t, r, "https://nano-gpt.com")
 

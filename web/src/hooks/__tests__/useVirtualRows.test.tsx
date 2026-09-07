@@ -138,6 +138,42 @@ describe("useVirtualRows", () => {
 		expect(el.scrollTop).toBe(900 + 10 * 45);
 	});
 
+	// A live log list parked at the top is following the tail: correcting its
+	// scroll position would push every newly prepended row straight back out of
+	// view. Both log tables leave the top alone, which is what these pin.
+	it.each([0, 1])(
+		"leaves a top-pinned list at scrollTop %i when rows are prepended",
+		(top) => {
+			const { rerender, getByTestId } = render(
+				<Harness
+					entries={rows(10, 50)}
+					heights={{}}
+					hasBefore
+					hasAfter
+					fetchNewer={vi.fn()}
+					fetchOlder={vi.fn()}
+					expose={() => {}}
+				/>,
+			);
+			const el = getByTestId("scroller") as HTMLDivElement;
+			scrollGeometry(el, top, 4000);
+			act(() => {
+				rerender(
+					<Harness
+						entries={[...rows(0, 10), ...rows(10, 50)]}
+						heights={{}}
+						hasBefore
+						hasAfter
+						fetchNewer={vi.fn()}
+						fetchOlder={vi.fn()}
+						expose={() => {}}
+					/>,
+				);
+			});
+			expect(el.scrollTop).toBe(top);
+		},
+	);
+
 	it("uses the prepended rows' own measured heights, not the old rows' measurements", () => {
 		const restore = mockOffsetHeights();
 		// The two rows at the top are short and measured; the two that will be

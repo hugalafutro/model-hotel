@@ -32,7 +32,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 		// err is already masked by the shared fetch path. %s, not %w: callers
 		// must not unwrap to the raw transport error.
 		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err.Error())
-		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, err.Error())
+		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, statusOnly(err).Error())
 	}
 
 	var googleResp GoogleModelsResponse

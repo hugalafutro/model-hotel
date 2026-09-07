@@ -2286,7 +2286,7 @@
 				"done": "Upozornění jsou zapnutá.",
 				"sendAll": "Odeslat test na vše",
 				"sentAll": "Test odeslán na všechny cíle",
-				"apiChangedDrops": "Změna adresy odebere cíle přidané v tomto průchodu; byly testovány proti té staré.",
+				"apiChangedDrops": "Ověření jiné adresy odebere cíle přidané v tomto průchodu; byly testovány proti té staré.",
 				"savedNote_one": "{{count}} již uložený cíl zůstává beze změny.",
 				"savedNote_few": "{{count}} již uložené cíle zůstávají beze změny.",
 				"savedNote_many": "{{count}} již uloženého cíle zůstává beze změny.",
@@ -2510,7 +2510,8 @@
 		},
 		"copyablePill": {
 			"copy": "Kopírovat",
-			"copyToClipboard": "Zkopírovat do schránky"
+			"copyToClipboard": "Zkopírovat do schránky",
+			"copied": "Zkopírováno!"
 		},
 		"collapsibleToggle": {
 			"expand": "Rozbalit",

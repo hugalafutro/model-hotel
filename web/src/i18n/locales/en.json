@@ -1818,7 +1818,7 @@
 				"doneManaged": "Destinations saved. Which events send an alert stays managed fleet-wide.",
 				"sendAll": "Send test to everything",
 				"sentAll": "Test sent to every destination",
-				"apiChangedDrops": "Changing the address removes the destinations added in this run; they were tested against the old one."
+				"apiChangedDrops": "Verifying a different address removes the destinations added in this run; they were tested against the old one."
 			},
 			"category": {
 				"discovery": "Discovery",
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "Copy",
-			"copyToClipboard": "Copy to clipboard"
+			"copyToClipboard": "Copy to clipboard",
+			"copied": "Copied!"
 		},
 		"collapsibleToggle": {
 			"expand": "Expand",

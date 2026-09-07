@@ -2207,7 +2207,7 @@
 				"doneManaged": "Đã lưu các đích đến. Những sự kiện nào gửi cảnh báo vẫn do toàn hạm đội quản lý.",
 				"sendAll": "Gửi thử nghiệm đến tất cả",
 				"sentAll": "Đã gửi thử nghiệm đến mọi đích đến",
-				"apiChangedDrops": "Việc thay đổi địa chỉ sẽ xóa các đích đến đã thêm trong lần chạy này; chúng đã được thử nghiệm với địa chỉ cũ."
+				"apiChangedDrops": "Việc xác minh một địa chỉ khác sẽ xóa các đích đến đã thêm trong lần chạy này; chúng đã được thử nghiệm với địa chỉ cũ."
 			},
 			"category": {
 				"discovery": "Khám phá",
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "Sao chép",
-			"copyToClipboard": "Sao chép vào khay nhớ tạm"
+			"copyToClipboard": "Sao chép vào khay nhớ tạm",
+			"copied": "Đã sao chép!"
 		},
 		"collapsibleToggle": {
 			"expand": "Mở rộng",

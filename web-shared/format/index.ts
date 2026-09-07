@@ -46,7 +46,7 @@ export function formatCount(n: number | null | undefined): string {
 	return Math.round(n).toLocaleString("en-US");
 }
 
-/** Confines a value to [lo, hi]. With lo > hi, lo wins. */
+/** Confines a value to [lo, hi]. With an inverted range (lo > hi), hi wins. */
 export function clamp(v: number, lo: number, hi: number): number {
 	return Math.min(Math.max(v, lo), hi);
 }

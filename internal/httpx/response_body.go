@@ -1,6 +1,7 @@
 package httpx
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -45,12 +46,16 @@ func ReadCappedBody(r io.Reader, limit int64) ([]byte, error) {
 }
 
 // DecodeCappedJSON reads a response body under the same ceiling as
-// ReadCappedBody and unmarshals it into out. It replaces
-// json.NewDecoder(resp.Body).Decode, which otherwise allocates until EOF.
+// ReadCappedBody and decodes it into out. It replaces
+// json.NewDecoder(resp.Body).Decode, which otherwise allocates until EOF, and
+// keeps that decoder's tolerance of whatever follows the first JSON value: an
+// upstream that appends a newline, a second document, or trailing junk still
+// parses. A request body, where trailing content is a smuggling signal rather
+// than an upstream quirk, goes through DecodeJSON instead, which rejects it.
 func DecodeCappedJSON(r io.Reader, limit int64, out any) error {
 	b, err := ReadCappedBody(r, limit)
 	if err != nil {
 		return err
 	}
-	return json.Unmarshal(b, out)
+	return json.NewDecoder(bytes.NewReader(b)).Decode(out)
 }

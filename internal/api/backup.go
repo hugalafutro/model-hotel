@@ -159,8 +159,10 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 			status = http.StatusPreconditionFailed
 		}
 		// createDump has already logged the underlying cause with the detail
-		// (pg_dump output, connection URLs) that must not leave the server.
-		respondError(w, err.Error(), nil, status)
+		// (pg_dump output, connection URLs) that must not leave the server, so
+		// this writes the client-safe message without respondError's second
+		// log line for the 500s.
+		http.Error(w, err.Error(), status)
 		return
 	}
 

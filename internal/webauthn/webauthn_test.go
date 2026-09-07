@@ -1754,3 +1754,22 @@ func TestRevokeAuthToken_DeleteSessionFailure(t *testing.T) {
 		t.Error("expected token to still be valid after failed revocation with closed pool")
 	}
 }
+
+// TestToWebAuthnCredential_AAGUIDIsCopied keeps the returned credential
+// independent of the record it came from: AAGUID is an array on a pointer
+// receiver, so handing out a slice of it would let a caller's write land back
+// in the stored record.
+func TestToWebAuthnCredential_AAGUIDIsCopied(t *testing.T) {
+	record := &CredentialRecord{
+		ID:     []byte("aaguid-alias-id"),
+		AAGUID: uuid.MustParse("11111111-2222-3333-4444-555555555555"),
+	}
+	original := record.AAGUID
+
+	cred := record.ToWebAuthnCredential()
+	cred.Authenticator.AAGUID[0] ^= 0xff
+
+	if record.AAGUID != original {
+		t.Errorf("record AAGUID mutated through the returned credential: %v", record.AAGUID)
+	}
+}

@@ -179,12 +179,13 @@ function LoginScreen() {
 	}, []);
 
 	// Whether the admin token needs a second factor. Cached app-wide; config
-	// does not change at runtime. A failed probe leaves TOTP off.
+	// does not change at runtime. One probe, no retries: a failed probe leaves
+	// TOTP off and the login form usable.
 	const { data: totpStatus } = useQuery({
 		queryKey: ["totp-status"],
 		queryFn: () => api.totp.status(),
+		retry: false,
 		staleTime: Number.POSITIVE_INFINITY,
-		retry: 1,
 	});
 	const totpEnabled = totpForced || (totpStatus?.enabled ?? false);
 

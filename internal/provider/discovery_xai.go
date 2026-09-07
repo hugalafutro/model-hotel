@@ -105,10 +105,10 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/language-models", xaiHeaders(apiKey))
 	if err != nil {
 		if errorStatusCode(err) == http.StatusForbidden {
-			return nil, err
+			return nil, statusOnly(err)
 		}
 		debuglog.Error("discovery: xai language-models fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, statusOnly(err))
 	}
 
 	var langResp XAILanguageModelsResponse
@@ -182,7 +182,7 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 func (d *DiscoveryService) discoverXAIImageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/image-generation-models", xaiHeaders(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("xAI: image-models request failed for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("xAI: image-models request failed for provider %s: %w", provider.Name, statusOnly(err))
 	}
 
 	var imgResp XAIImageGenerationModelsResponse
@@ -233,10 +233,10 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", xaiHeaders(apiKey))
 	if err != nil {
 		if errorStatusCode(err) == http.StatusForbidden {
-			return nil, err
+			return nil, statusOnly(err)
 		}
 		debuglog.Error("discovery: xai minimal models fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, statusOnly(err))
 	}
 
 	var openAIResp OpenAIModelsResponse

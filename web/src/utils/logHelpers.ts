@@ -63,7 +63,8 @@ export const liveDurationMs = (createdAt: string, nowMs: number): number =>
  * Formats a request duration for the compact log-table duration cell: seconds
  * with one decimal at >= 1s, whole milliseconds below that. Shared by both the
  * paginated and virtualized tables (and live in-progress rows) so they format
- * identically.
+ * identically. The rounding runs first, so the second/millisecond boundary sits
+ * at the rounded value: 999.5ms reads as "1.0s", not "1000ms".
  */
 export const formatDurationCell = (ms: number): string =>
 	formatDuration(Math.round(ms));

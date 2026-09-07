@@ -1,6 +1,7 @@
 package adminauth
 
 import (
+	"cmp"
 	"context"
 	"crypto/subtle"
 	"encoding/json"
@@ -58,8 +59,12 @@ type ssoLogin struct {
 	// tokenFragmentKey for header-bearer clients.
 	useCookieAuth bool
 	// tokenFragmentKey names the fragment slot the SPA reads the token from in
-	// header-bearer mode.
+	// header-bearer mode. Empty falls back to "<name>_token".
 	tokenFragmentKey string
+	// peerLabel names the remote party in the "<peer> returned error" callback
+	// log line: OIDC calls it the idp, GitHub the provider. Log queries key on
+	// the exact text.
+	peerLabel string
 }
 
 // throttled applies the per-IP backoff. It returns the throttle key and whether
@@ -140,7 +145,7 @@ func (s *ssoLogin) consumeState(w http.ResponseWriter, r *http.Request, throttle
 	// A provider-reported error (e.g. access_denied) short-circuits before any
 	// token work.
 	if e := r.URL.Query().Get("error"); e != "" {
-		debuglog.Warn(s.name+": provider returned error", "error", e)
+		debuglog.Warn(s.name+": "+s.peerLabel+" returned error", "error", e)
 		s.fail(w, r, throttleKey, "provider declined", nil)
 		return "", false
 	}
@@ -185,7 +190,7 @@ func (s *ssoLogin) finishLogin(w http.ResponseWriter, r *http.Request, throttleK
 		http.Redirect(w, r, "/", http.StatusFound)
 		return
 	}
-	http.Redirect(w, r, "/#"+s.tokenFragmentKey+"="+url.QueryEscape(sessionToken), http.StatusFound)
+	http.Redirect(w, r, "/#"+cmp.Or(s.tokenFragmentKey, s.name+"_token")+"="+url.QueryEscape(sessionToken), http.StatusFound)
 }
 
 // fail records a per-IP failure, logs the reason, and redirects the browser back

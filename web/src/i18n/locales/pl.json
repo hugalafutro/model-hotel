@@ -2286,7 +2286,7 @@
 				"done": "Powiadomienia są włączone.",
 				"sendAll": "Wyślij test do wszystkich",
 				"sentAll": "Test wysłany do każdego celu",
-				"apiChangedDrops": "Zmiana adresu usuwa cele dodane w tym przebiegu; były testowane wobec starego adresu.",
+				"apiChangedDrops": "Zweryfikowanie innego adresu usuwa cele dodane w tym przebiegu; były testowane wobec starego adresu.",
 				"savedNote_one": "{{count}} już zapisany cel pozostaje bez zmian.",
 				"savedNote_few": "{{count}} już zapisane cele pozostają bez zmian.",
 				"savedNote_many": "{{count}} już zapisanych celów pozostaje bez zmian.",
@@ -2510,7 +2510,8 @@
 		},
 		"copyablePill": {
 			"copy": "Kopiuj",
-			"copyToClipboard": "Kopiuj do schowka"
+			"copyToClipboard": "Kopiuj do schowka",
+			"copied": "Skopiowano!"
 		},
 		"collapsibleToggle": {
 			"expand": "Rozwiń",

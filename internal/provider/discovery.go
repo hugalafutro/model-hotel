@@ -231,6 +231,20 @@ func (e *httpError) Error() string {
 	return fmt.Sprintf("unexpected status %d", e.StatusCode)
 }
 
+// statusOnly drops the quoted upstream body from a fetch error, leaving the
+// status. The scans whose failure is stored as the provider's last error and
+// rendered on the dashboard return it, so an upstream that answers a discovery
+// listing with a page of its own text cannot push that text into the operator's
+// view; the full masked body stays in the debuglog line at the call site.
+// Anything that is not an *httpError passes through unchanged.
+func statusOnly(err error) error {
+	httpErr := &httpError{}
+	if errors.As(err, &httpErr) {
+		return &httpError{StatusCode: httpErr.StatusCode}
+	}
+	return err
+}
+
 // maskedError is a transport error whose text has been scrubbed of what the
 // request carried, with the original still reachable through Unwrap. So
 // errors.Is on a cancelled context or a deadline, and errors.As on a net.Error,

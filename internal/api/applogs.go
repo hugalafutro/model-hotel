@@ -589,7 +589,8 @@ type AppLogsCursorResponse struct {
 // Query parameters:
 //   - cursor: encoded cursor from a previous response
 //   - direction: "after" (default) or "before"
-//   - limit: page size (default 20, max 200)
+//   - limit: page size (default 20). A value outside [1, 200] is clamped to the
+//     nearest bound, so limit=0 returns one row and limit=100000 returns 200.
 //   - level, source, search, from, to: same filters as getAppLogsHistory
 //   - sort_dir: "desc" (default) or "asc"
 func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {

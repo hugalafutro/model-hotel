@@ -99,7 +99,12 @@ export function useVirtualRows<T extends { id?: string }>({
 					first && oldFirst
 						? oldFirst.start - first.start
 						: newItemCount * estimateSize;
-				scrollEl.scrollTop += added;
+				// A list parked at the top is following the live tail: pushing
+				// scrollTop down there would carry the rows that just arrived
+				// straight back out of view, so leave the top pinned.
+				if (scrollEl.scrollTop > 1) {
+					scrollEl.scrollTop += added;
+				}
 				prevEntriesRef.current = entries;
 				forceRerender((c) => c + 1);
 				return;

@@ -37,8 +37,10 @@ export const CopyablePill = memo(function CopyablePill({
 	const handleCopy = async (e: React.MouseEvent) => {
 		e.stopPropagation();
 		const ok = await copy(text);
+		// The pill's own short confirmation: it fires beside a one-line value, so
+		// it stays "Copied!" rather than the longer shared clipboard wording.
 		toast(
-			ok ? t("common.copiedToClipboard") : t("common.failedToCopy"),
+			ok ? t("components.copyablePill.copied") : t("common.failedToCopy"),
 			ok ? "info" : "error",
 		);
 	};

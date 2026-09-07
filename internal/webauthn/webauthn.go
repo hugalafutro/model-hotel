@@ -4,6 +4,7 @@ package webauthn
 import (
 	"context"
 	"errors"
+	"slices"
 	"time"
 
 	"github.com/go-webauthn/webauthn/protocol"
@@ -64,7 +65,7 @@ func (r *CredentialRecord) ToWebAuthnCredential() gowa.Credential {
 		Transport:         transports,
 		Flags:             gowa.NewCredentialFlags(protocol.AuthenticatorFlags(r.FlagsByte)),
 		Authenticator: gowa.Authenticator{
-			AAGUID:    r.AAGUID[:],
+			AAGUID:    slices.Clone(r.AAGUID[:]),
 			SignCount: r.SignCount,
 		},
 		Attestation: gowa.CredentialAttestation{
@@ -501,7 +502,7 @@ func SessionCleanupLoop(ctx context.Context, store SessionCleaner, interval time
 		switch n, err := store.CleanupExpiredSessions(ctx); {
 		case errors.Is(err, context.Canceled):
 		case err != nil:
-			debuglog.Error("webauthn: session cleanup failed", "error", err)
+			debuglog.Error("webauthn: failed to cleanup expired sessions", "error", err)
 		case n > 0:
 			debuglog.Info("webauthn: cleaned up expired sessions", "count", n)
 		}

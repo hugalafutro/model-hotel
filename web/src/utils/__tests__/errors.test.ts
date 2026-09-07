@@ -6,9 +6,19 @@ describe("errorMessage", () => {
 		expect(errorMessage(new Error("boom"))).toBe("boom");
 	});
 
+	it("reads a duck-typed message off a plain object", () => {
+		// A rejection whose Error class came from another bundle fails
+		// `instanceof Error`; the login screen still has to see the body it
+		// carries, e.g. the totp_required marker.
+		expect(errorMessage({ status: 401, message: "totp_required" })).toBe(
+			"totp_required",
+		);
+	});
+
 	it("stringifies anything else", () => {
 		expect(errorMessage("plain")).toBe("plain");
 		expect(errorMessage(404)).toBe("404");
+		expect(errorMessage({ message: 42 }, "fallback")).toBe("[object Object]");
 	});
 
 	it("falls back for an empty or absent message", () => {

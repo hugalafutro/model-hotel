@@ -2207,7 +2207,7 @@
 				"doneManaged": "Kohteet tallennettu. Sitä, mitkä tapahtumat lähettävät hälytyksen, hallitaan edelleen koko laivaston tasolla.",
 				"sendAll": "Lähetä testi kaikkiin",
 				"sentAll": "Testi lähetetty jokaiseen kohteeseen",
-				"apiChangedDrops": "Osoitteen vaihtaminen poistaa tällä kierroksella lisätyt kohteet; ne testattiin vanhaa osoitetta vastaan."
+				"apiChangedDrops": "Toisen osoitteen vahvistaminen poistaa tällä kierroksella lisätyt kohteet; ne testattiin vanhaa osoitetta vastaan."
 			},
 			"category": {
 				"discovery": "Löytäminen",
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "Kopioi",
-			"copyToClipboard": "Kopioi leikepöydälle"
+			"copyToClipboard": "Kopioi leikepöydälle",
+			"copied": "Kopioitu!"
 		},
 		"collapsibleToggle": {
 			"expand": "Laajenna",

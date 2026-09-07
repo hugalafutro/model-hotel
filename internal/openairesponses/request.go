@@ -239,6 +239,16 @@ func translateToolChoice(raw json.RawMessage) (any, bool) {
 	case !ok:
 		return nil, false
 	case mode == "function":
+		// Only an object that calls itself a function names one. A tool_choice
+		// of another type that happens to carry a function member states a
+		// choice this dialect cannot make, and forwarding it as a function
+		// choice would pick a tool the caller did not ask for.
+		var tc struct {
+			Type string `json:"type"`
+		}
+		if json.Unmarshal(raw, &tc) != nil || tc.Type != "function" {
+			return nil, false
+		}
 		return map[string]string{"type": "function", "name": name}, true
 	default:
 		return mode, true

@@ -687,6 +687,11 @@ func validateVirtualKeyName(w http.ResponseWriter, name string) (string, bool) {
 	return trimmed, true
 }
 
+// errEmptyAllowedProviders is the 400 body text for a present-but-empty allow
+// list. Shared by the virtual-key and user endpoints, which offer the same
+// tri-state list.
+var errEmptyAllowedProviders = errors.New("allowed_providers must be null or contain at least one provider ID")
+
 // validateAllowedProvidersShape rejects a present-but-empty allow list: nil
 // means "no restriction" and a populated list means "only these", so an empty
 // one is an ambiguous third state rather than "deny all".

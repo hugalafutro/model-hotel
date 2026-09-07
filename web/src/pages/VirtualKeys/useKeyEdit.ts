@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
@@ -61,13 +61,18 @@ export function useKeyEdit({
 	} = cap;
 
 	// The key's stored restriction expressed as picker exclusions: every loaded
-	// provider the key does not allow. Derived, so a later provider load or a
-	// changed key is reflected without a second copy in state.
-	const originalExcluded = useMemo(() => {
+	// provider the key does not allow. A snapshot taken when edit mode opens,
+	// not a derivation: `providersChanged` compares the picker against what the
+	// user started from, so a providers refetch mid-edit must not move the
+	// baseline, and outside edit mode there is nothing to compare against.
+	const [originalExcluded, setOriginalExcluded] = useState<string[]>([]);
+
+	/** The exclusions that express the key's stored restriction right now. */
+	const excludedFromStored = () => {
 		if (!vk.allowed_providers || !providers) return [];
 		const allowed = vk.allowed_providers;
 		return providers.map((p) => p.id).filter((id) => !allowed.includes(id));
-	}, [providers, vk.allowed_providers]);
+	};
 
 	const deleteMutation = useMutation({
 		mutationFn: () => api.virtualKeys.delete(vk.id),
@@ -183,6 +188,7 @@ export function useKeyEdit({
 	const handleCancelEdit = () => {
 		resetFields();
 		setExcludedProviders([]);
+		setOriginalExcluded([]);
 		setEditing(false);
 	};
 
@@ -200,7 +206,9 @@ export function useKeyEdit({
 		if (vk.allowed_providers && !providers) {
 			return;
 		}
-		setExcludedProviders(originalExcluded);
+		const excluded = excludedFromStored();
+		setExcludedProviders(excluded);
+		setOriginalExcluded(excluded);
 		setEditing(true);
 	};
 

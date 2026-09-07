@@ -354,8 +354,6 @@ func TestListLogs_WithVirtualKeyFilter(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_Error tests the error path when discovery service returns an error
-
 func TestListLogs_WithStatusCodeFilter(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 

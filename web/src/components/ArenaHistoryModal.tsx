@@ -17,7 +17,6 @@ import { PaginationBar } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 import { useWheelPaging } from "../hooks/useWheelPaging";
-import { getRoundLabel } from "../pages/Arena/builders";
 import {
 	type ArenaHistoryEntry,
 	clearArenaHistory,
@@ -28,6 +27,7 @@ import {
 	type HistoryMode,
 	type HistoryResponse,
 } from "../utils/arenaHistory";
+import { getRoundLabel } from "../utils/arenaRounds";
 import { formatDate, formatTime } from "../utils/format";
 import { shortModelName } from "../utils/model";
 

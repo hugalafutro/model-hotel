@@ -27,6 +27,7 @@ export function GithubPanel({ managed }: { managed?: boolean }) {
 				description: "callbackUriDescription",
 			}}
 			setupHint
+			secretRequired
 			managed={managed}
 		/>
 	);

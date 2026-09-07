@@ -24,6 +24,10 @@ vi.mock("../api/client", async (importOriginal) => ({
 		auth: {
 			// Admin-token bootstrap for non-TOTP login.
 			adminExchange: vi.fn().mockResolvedValue({ success: true }),
+			status: vi.fn().mockResolvedValue({ enabled: false }),
+		},
+		totp: {
+			status: vi.fn().mockResolvedValue({ enabled: false }),
 		},
 		settings: {
 			get: vi.fn().mockResolvedValue({ app_version: "v0.0.0-test" }),

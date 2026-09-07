@@ -162,7 +162,9 @@ func runCleanup(stopCh <-chan struct{}, sweep func()) {
 }
 
 // writeRateLimitHeaders adds the standard rate-limit response headers. A
-// non-empty scope names the stage that rejected the request.
+// non-empty scope names the stage that rejected the request. Retry-After is the
+// wait rounded up rather than truncated-plus-one, so a compliant client retries
+// at the bucket boundary instead of a second past it.
 func writeRateLimitHeaders(w http.ResponseWriter, lim *rate.Limiter, retryAfter time.Duration, scope string) {
 	w.Header().Set("X-RateLimit-Limit", strconv.FormatFloat(float64(lim.Limit()), 'f', -1, 64))
 	w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(int64(lim.Tokens()), 10))

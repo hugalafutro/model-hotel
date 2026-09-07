@@ -2207,7 +2207,7 @@
 				"doneManaged": "대상을 저장했습니다. 어떤 이벤트가 알림을 보낼지는 계속 플릿 전체 단위로 관리됩니다.",
 				"sendAll": "전체에 테스트 보내기",
 				"sentAll": "모든 대상에 테스트를 보냈습니다",
-				"apiChangedDrops": "주소를 바꾸면 이번에 추가한 대상이 제거됩니다. 이전 주소로 테스트한 것이기 때문입니다."
+				"apiChangedDrops": "다른 주소를 확인하면 이번에 추가한 대상이 제거됩니다. 이전 주소로 테스트한 것이기 때문입니다."
 			},
 			"category": {
 				"discovery": "검색",
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "복사",
-			"copyToClipboard": "클립보드에 복사"
+			"copyToClipboard": "클립보드에 복사",
+			"copied": "복사했습니다!"
 		},
 		"collapsibleToggle": {
 			"expand": "펼치기",

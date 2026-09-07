@@ -2262,7 +2262,7 @@
 				"doneManaged": "Destinos salvos. Quais eventos enviam um alerta continua sendo gerenciado para toda a frota.",
 				"sendAll": "Enviar teste para tudo",
 				"sentAll": "Teste enviado para todos os destinos",
-				"apiChangedDrops": "Alterar o endereço remove os destinos adicionados nesta execução; eles foram testados com o endereço antigo."
+				"apiChangedDrops": "Verificar um endereço diferente remove os destinos adicionados nesta execução; eles foram testados com o endereço antigo."
 			},
 			"category": {
 				"discovery": "Descoberta",
@@ -2454,7 +2454,8 @@
 		},
 		"copyablePill": {
 			"copy": "copiar",
-			"copyToClipboard": "Copiar para área de transferência"
+			"copyToClipboard": "Copiar para área de transferência",
+			"copied": "Copiado!"
 		},
 		"collapsibleToggle": {
 			"expand": "Expandir",

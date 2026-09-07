@@ -54,10 +54,10 @@ const failoverErrorClassifyCap = 16 << 10
 // body being held in memory at whatever size the provider chose to send, closes
 // it, and returns the head sanitized for the log.
 func drainErrorHead(body io.ReadCloser) string {
-	head, _ := io.ReadAll(io.LimitReader(body, failoverErrorClassifyCap))
+	msg := errorHeadMessage(body)
 	_, _ = io.Copy(io.Discard, body)
 	_ = body.Close()
-	return util.SanitizeLogBody(string(head), logBodyCap)
+	return msg
 }
 
 // failOverPastCandidate ends a failover-eligible attempt that has another
@@ -604,7 +604,17 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 			}
 		}
 	} else {
-		needsRewrite := st.reqModel != candidate.model.ModelID || isAnthropicFamily(providerType) || paramrewrite.NeedsProviderInjection(providerType) || st.isStreaming ||
+		// NeedsRewrite answers for everything BuildUpstreamBody decides from the
+		// provider and the model (unsupported params, provider injection, the
+		// json_schema fallbacks), so a table gaining an entry gates a rebuild in
+		// without a second edit here. The three terms beside it are the caller's
+		// own: the model rename, stream_options, and what a 400 has taught.
+		// Sixteen provider types carry an unsupported-params entry, so most
+		// non-streaming chat requests take the decode-and-re-encode path even when
+		// the body names nothing the tables strip; correctness of the stripped
+		// params outranks forwarding those bytes untouched.
+		needsRewrite := st.reqModel != candidate.model.ModelID || st.isStreaming ||
+			paramrewrite.NeedsRewrite(providerType, candidate.model.ModelID) ||
 			paramrewrite.HasLearnedRewrites(&h.deprecationCache, &h.paramRenameCache, learnedScopeFor(candidate), candidate.model.ModelID)
 		debuglog.Debug("proxy: request rewrite check", "needs_rewrite", needsRewrite, "request_model", logData.modelID, "provider", logData.providerName, "resolved_model", candidate.model.ModelID, "provider_type", providerType)
 		if needsRewrite {

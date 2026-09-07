@@ -35,6 +35,7 @@ export function SsoPanel({
 	callbackPath,
 	callbackKeys,
 	setupHint = false,
+	secretRequired = false,
 	managed,
 }: {
 	/** Names the i18n namespace (`settings.<prefix>.*`), the element ids and the test ids. */
@@ -47,6 +48,13 @@ export function SsoPanel({
 	callbackKeys: { label: string; copy: string; description: string };
 	/** True to show the provider-registration hint above the fields. */
 	setupHint?: boolean;
+	/**
+	 * True when a blank client secret leaves the provider unusable, so the pill
+	 * has to weigh it. GitHub's OAuth token exchange needs the secret
+	 * (internal/adminauth/github.go), while OIDC builds a working runtime from
+	 * issuer, client id and base URL alone and supports public/PKCE clients.
+	 */
+	secretRequired?: boolean;
 	managed?: boolean;
 }) {
 	const { t } = useTranslation();
@@ -92,10 +100,13 @@ export function SsoPanel({
 		refetchOnWindowFocus: false,
 	});
 	// Status deliberately does not read the client secret (it's an unauthenticated,
-	// login-screen-polled endpoint), so AND in the locally-known secret presence:
-	// without this the pill would show a false-positive green when the secret is
-	// blank, even though Start would then fail to build a usable runtime.
-	const configured = secretConfigured && (statusQuery.data?.enabled ?? false);
+	// login-screen-polled endpoint), so where the secret is mandatory, AND in the
+	// locally-known presence: without this the pill would show a false-positive
+	// green when the secret is blank, even though Start would then fail to build
+	// a usable runtime.
+	const configured =
+		(!secretRequired || secretConfigured) &&
+		(statusQuery.data?.enabled ?? false);
 
 	// The pill sits under the first field: the issuer where there is one, the
 	// client id otherwise.

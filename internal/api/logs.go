@@ -170,7 +170,8 @@ type LogsCursorResponse struct {
 // Query parameters:
 //   - cursor: encoded cursor from a previous response (base64 JSON of {created_at, id})
 //   - direction: "after" (default) or "before", which way to scroll from cursor
-//   - limit: page size (default 20, max 200)
+//   - limit: page size (default 20). A value outside [1, 200] is clamped to the
+//     nearest bound, so limit=0 returns one row and limit=100000 returns 200.
 //   - model_id, provider_id, virtual_key_id, client_ip, status_code, from, to: same
 //     filters as ListLogs
 //   - sort_by: only "time" is supported for cursor pagination (default "time")

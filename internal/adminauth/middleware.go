@@ -191,7 +191,14 @@ func validAdminBearer(
 // did not match) and are recorded at warning with the client address, never the
 // token, so repeated attempts are visible to abuse detection. The client sees
 // the same message either way.
-func BearerTokenGate(want, what string, next http.Handler) http.Handler {
+//
+// logSubject is the whole scope-and-subject prefix of those two lines, so each
+// call site keeps the exact wording its binary has always emitted (the gateway
+// scopes with "auth: ", Front Desk with "frontdesk: "). The shipped CrowdSec
+// parser in contrib/crowdsec matches these lines by literal prefix and
+// TestBearerTokenGateLogLines pins them, so a reworded line here silently stops
+// feeding the model-hotel-admin-bf brute-force scenario.
+func BearerTokenGate(want, what, logSubject string, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		tok, ok := util.ParseBearerToken(r)
 		// want == "" is an unconfigured gate: refuse rather than let a caller
@@ -201,9 +208,9 @@ func BearerTokenGate(want, what string, next http.Handler) http.Handler {
 			return
 		}
 		if !ok || tok == "" {
-			debuglog.Warn("auth: "+what+" request missing bearer token", "remote_addr", clientip.From(r))
+			debuglog.Warn(logSubject+" missing bearer token", "remote_addr", clientip.From(r))
 		} else {
-			debuglog.Warn("auth: "+what+" request with invalid token", "remote_addr", clientip.From(r))
+			debuglog.Warn(logSubject+" with invalid token", "remote_addr", clientip.From(r))
 		}
 		http.Error(w, "invalid "+what+" token", http.StatusUnauthorized)
 	})

@@ -152,12 +152,12 @@ func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *P
 	// carries the limits and usage (/api/v1/key).
 	var creditsData OpenRouterCreditsResponse
 	if err := d.fetchQuotaJSON(ctx, provider, masterKey, "/credits", "openrouter", "credits", &creditsData); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w (credits endpoint)", err)
 	}
 
 	var keyData OpenRouterKeyResponse
 	if err := d.fetchQuotaJSON(ctx, provider, masterKey, "/key", "openrouter", "key info", &keyData); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("%w (key endpoint)", err)
 	}
 
 	remaining := creditsData.Data.TotalCredits - creditsData.Data.TotalUsage

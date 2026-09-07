@@ -4,7 +4,7 @@ import { api } from "../../api/client";
 import type { FailoverGroup } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { failoverDeleteReasonText } from "../../utils/failoverEntry";
-import { entryEnabledMapOf, entryToggleUpdate } from "./groupDerivations";
+import { entryEnabledMapOf } from "./groupDerivations";
 
 /**
  * The page's four server mutations (sync, update, delete, circuit reset) and
@@ -187,14 +187,17 @@ export function useFailoverGroupMutations(refreshGroups: () => void) {
 			toast(t("failover.toast_entry_min_two"), "error");
 			return;
 		}
+		// Only the entry flags travel. The bulk toggles additionally carry
+		// `group_enabled` because they can strip a group down in one write, but
+		// a single member switch must not re-enable a group the operator turned
+		// off by hand; the backend heals `group_enabled` downward on its own.
 		update.mutate({
 			id: group.id,
-			data: entryToggleUpdate(
-				group,
-				entryEnabledMapOf(group, (e) =>
+			data: {
+				entry_enabled: entryEnabledMapOf(group, (e) =>
 					e.model_uuid === uuid ? enabled : e.enabled,
 				),
-			),
+			},
 		});
 	};
 

@@ -2207,7 +2207,7 @@
 				"doneManaged": "Destinasjoner lagret. Hvilke hendelser som sender et varsel, styres fortsatt for hele flåten.",
 				"sendAll": "Send test til alt",
 				"sentAll": "Test sendt til hver destinasjon",
-				"apiChangedDrops": "Endrer du adressen, fjernes destinasjonene som er lagt til i denne gjennomgangen; de ble testet mot den gamle."
+				"apiChangedDrops": "Verifiserer du en annen adresse, fjernes destinasjonene som er lagt til i denne gjennomgangen; de ble testet mot den gamle."
 			},
 			"category": {
 				"discovery": "Oppdagelse",
@@ -2398,7 +2398,8 @@
 		},
 		"copyablePill": {
 			"copy": "Kopier",
-			"copyToClipboard": "Kopier til utklippstavlen"
+			"copyToClipboard": "Kopier til utklippstavlen",
+			"copied": "Kopiert!"
 		},
 		"collapsibleToggle": {
 			"expand": "Utvid",

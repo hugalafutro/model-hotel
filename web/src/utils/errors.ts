@@ -1,9 +1,18 @@
 // Coercions for the `unknown` a catch block hands over. One spelling each, so
 // an error surfaced in a toast reads the same wherever it was thrown.
 
-/** The message of an Error, the string form of anything else, or `fallback` for an empty one. */
+/**
+ * The `message` of anything carrying a string one, the string form of anything
+ * else, or `fallback` for an empty result. Duck-typed rather than gated on
+ * `instanceof Error`, so a rejection whose Error class came from another bundle
+ * or a mock still yields its message instead of "[object Object]".
+ */
 export function errorMessage(err: unknown, fallback = ""): string {
-	const msg = err instanceof Error ? err.message : String(err ?? "");
+	const message =
+		typeof err === "object" && err !== null
+			? (err as { message?: unknown }).message
+			: undefined;
+	const msg = typeof message === "string" ? message : String(err ?? "");
 	return msg || fallback;
 }
 

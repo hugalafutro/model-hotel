@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // maxTransientRetries is the number of additional same-provider tries after a
@@ -106,14 +107,19 @@ func (h *Handler) deferLastCandidateRetry(st *requestState, candidate modelCandi
 // attempt with its own record. Shared by the saturation and server-error
 // deferrals so the two cannot record an attempt differently.
 func closeDeferredAttempt(st *requestState, resp *http.Response, attempt int, reqErr reqError, detail, phrase string) {
-	// drainErrorHead already drained and closed a body it read the detail from;
-	// draining a closed body is a no-op, and the saturation path arrives here
-	// with the body still open.
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	st.setReqErr(reqErr)
 	st.logData.failoverAttempt = attempt
 	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, detail, phrase, 0)
+}
+
+// errorHeadMessage reads only what an error body can be classified from and
+// returns it sanitized for the log, leaving the body open for whoever owns its
+// drain and close. drainErrorHead is the same read for a caller that owns both.
+func errorHeadMessage(body io.Reader) string {
+	head, _ := io.ReadAll(io.LimitReader(body, failoverErrorClassifyCap))
+	return util.SanitizeLogBody(string(head), logBodyCap)
 }
 
 // deferServerErrorRetry ends an attempt whose last candidate answered a
@@ -124,9 +130,11 @@ func closeDeferredAttempt(st *requestState, resp *http.Response, attempt int, re
 // attempt's own 429 verdict, handed on the way every failover-shaped close
 // does; a 5xx never reads it, but the request-scoped copy is not reached for.
 func (h *Handler) deferServerErrorRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int, rl rateLimitVerdict) candidateOutcome {
-	drainedMsg := drainErrorHead(resp.Body)
+	// The head only: closeDeferredAttempt owns the drain and the close, so the
+	// body is left open for it.
+	detail := errorHeadMessage(resp.Body)
 	st.serverErrorRetried = true
-	closeDeferredAttempt(st, resp, attempt, failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode), drainedMsg, "")
+	closeDeferredAttempt(st, resp, attempt, failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode), detail, "")
 	debuglog.Info("proxy: last candidate answered a retryable server error, retrying it once", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "attempt", attempt+1)
 	return outcomeRetryServerError
 }

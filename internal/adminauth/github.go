@@ -128,6 +128,7 @@ func NewGitHubHandler(
 			jar:           authcookie.Dashboard,
 			cookieSecure:  cookieSecure,
 			useCookieAuth: true,
+			peerLabel:     "provider",
 		},
 		settings:   settings,
 		masterKey:  masterKey,

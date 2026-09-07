@@ -1177,3 +1177,32 @@ func TestCredentialMasker(t *testing.T) {
 		t.Errorf("unexpected rewrite: %s", got)
 	}
 }
+
+// A chat request that names the upstream model id exactly, does not stream and
+// has learned nothing still has to be rebuilt when the provider's own table
+// says so. Cohere rejects top_k, so forwarding the client's body untouched
+// earns a 400 from a provider that would otherwise have answered.
+func TestBuildCandidateRequest_RebuildsForAProvidersUnsupportedParams(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	st, cand := probeStateForServer("https://cohere.invalid")
+	st.isStreaming = false
+	st.reqModel = "command-a"
+	st.bodyBytes = []byte(`{"model":"command-a","messages":[{"role":"user","content":"hi"}],"top_k":40}`)
+	st.logData = &requestLogData{modelID: "command-a"}
+	cand.model.ModelID = "command-a"
+	cand.provider.ProviderType = "cohere"
+
+	req, _, _, err := h.buildCandidateRequest(context.Background(), st, cand)
+	if err != nil {
+		t.Fatalf("buildCandidateRequest: %v", err)
+	}
+	body, _ := io.ReadAll(req.Body)
+	if bytes.Contains(body, []byte(`"top_k"`)) {
+		t.Errorf("upstream body still carries top_k, which cohere rejects: %s", body)
+	}
+	if !bytes.Contains(body, []byte(`"command-a"`)) {
+		t.Errorf("upstream body lost the model: %s", body)
+	}
+}

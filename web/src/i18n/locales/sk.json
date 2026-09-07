@@ -2286,7 +2286,7 @@
 				"done": "Upozornenia sú zapnuté.",
 				"sendAll": "Poslať test na všetko",
 				"sentAll": "Test odoslaný na všetky ciele",
-				"apiChangedDrops": "Zmena adresy odstráni ciele pridané v tomto priechode; testovali sa proti tej starej.",
+				"apiChangedDrops": "Overenie inej adresy odstráni ciele pridané v tomto priechode; testovali sa proti tej starej.",
 				"savedNote_one": "{{count}} už uložený cieľ zostáva bez zmeny.",
 				"savedNote_few": "{{count}} už uložené ciele zostávajú bez zmeny.",
 				"savedNote_many": "{{count}} už uloženého cieľa zostáva bez zmeny.",
@@ -2510,7 +2510,8 @@
 		},
 		"copyablePill": {
 			"copy": "Kopírovať",
-			"copyToClipboard": "Kopírovať do schránky"
+			"copyToClipboard": "Kopírovať do schránky",
+			"copied": "Kopírované!"
 		},
 		"collapsibleToggle": {
 			"expand": "Rozbaliť",

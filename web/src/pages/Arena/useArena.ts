@@ -6,7 +6,8 @@ import {
 	getArenaHistoryEnabled,
 	saveCompetitionToHistory,
 } from "../../utils/arenaHistory";
-import { advanceWinners, getRoundLabel, roundWinner } from "./builders";
+import { getRoundLabel } from "../../utils/arenaRounds";
+import { advanceWinners, roundWinner } from "./builders";
 import type { Matchup, MatchupSlot } from "./types";
 import { useArenaRunner } from "./useArenaRunner";
 import { ARENA_STORAGE_KEYS, useArenaState } from "./useArenaState";

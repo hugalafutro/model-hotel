@@ -32,7 +32,7 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 			return catalog, nil
 		}
 		debuglog.Error("discovery: opencode-go http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("opencode-go: failed to fetch models for provider %s: %w", provider.Name, err)
+		return nil, fmt.Errorf("opencode-go: failed to fetch models for provider %s: %w", provider.Name, statusOnly(err))
 	}
 
 	var openAIResp OpenAIModelsResponse

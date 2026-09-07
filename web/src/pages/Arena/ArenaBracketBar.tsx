@@ -184,7 +184,16 @@ export function ArenaBracketBar({
 									{t("arena.status.generating")}
 								</>
 							);
-						} else if (arena.phase === "voting" && arena.disabledReason) {
+						} else if (
+							// The phase alone is not enough: a round can sit in "voting"
+							// with every matchup already voted (an undecidable final
+							// matchup keeps the phase there), and the nag has nothing
+							// left to ask for.
+							arena.phase === "voting" &&
+							!arena.rounds[arena.currentRound]?.matchups.every(
+								(m) => m.vote !== null,
+							)
+						) {
 							msg = arena.disabledReason;
 						} else if (arena.phase === "next_round_ready" && !arena.canRun) {
 							msg = arena.disabledReason || t("arena.status.nextRoundReady");

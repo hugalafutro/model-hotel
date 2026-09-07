@@ -1,7 +1,6 @@
-import { useQuery } from "@tanstack/react-query";
-import { api } from "../api/client";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
+import { useProviders } from "../hooks/useModels";
 import { useQuotaData } from "../hooks/useQuotaData";
 import {
 	KimiCodeQuotaModal,
@@ -28,11 +27,7 @@ export function QuotaModalsHost() {
 	const { open, setOpen } = useQuotaModal();
 	const { toast } = useToast();
 
-	const { data: providers } = useQuery({
-		queryKey: ["providers"],
-		queryFn: () => api.providers.list(),
-		staleTime: 60_000,
-	});
+	const { data: providers } = useProviders();
 	// Read-only: the panel and the Providers page own the polling interval, this
 	// host only renders whatever their queries have already put in the cache.
 	const q = useQuotaData(providers, { refetchInterval: false });

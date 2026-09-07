@@ -2262,7 +2262,7 @@
 				"doneManaged": "Destinazioni salvate. Quali eventi inviano un avviso resta gestito per l'intera flotta.",
 				"sendAll": "Invia una prova a tutto",
 				"sentAll": "Prova inviata a ogni destinazione",
-				"apiChangedDrops": "Cambiare l'indirizzo rimuove le destinazioni aggiunte in questa sessione; erano state provate con quello vecchio."
+				"apiChangedDrops": "Verificare un indirizzo diverso rimuove le destinazioni aggiunte in questa sessione; erano state provate con quello vecchio."
 			},
 			"category": {
 				"discovery": "Rilevamento",
@@ -2454,7 +2454,8 @@
 		},
 		"copyablePill": {
 			"copy": "Copia",
-			"copyToClipboard": "Copia negli appunti"
+			"copyToClipboard": "Copia negli appunti",
+			"copied": "Copiato!"
 		},
 		"collapsibleToggle": {
 			"expand": "Espandi",

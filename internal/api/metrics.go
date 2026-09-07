@@ -53,7 +53,7 @@ func breakerStateCode(state string) int {
 func (h *Handler) metricsAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.cfg != nil && h.cfg.MetricsToken != "" {
-			adminauth.BearerTokenGate(h.cfg.MetricsToken, "metrics", next).ServeHTTP(w, r)
+			adminauth.BearerTokenGate(h.cfg.MetricsToken, "metrics", "auth: metrics scrape", next).ServeHTTP(w, r)
 			return
 		}
 		// No dedicated token configured — fall back to ADMIN auth, which is
