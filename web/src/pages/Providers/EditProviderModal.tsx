@@ -1,18 +1,20 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { CalendarDays, Eye, EyeOff } from "@/lib/icons";
+import { CalendarDays } from "@/lib/icons";
 import { api } from "../../api/client";
-import type { Provider } from "../../api/types";
+import type { Provider, UpdateProviderRequest } from "../../api/types";
 import { toISODate } from "../../components/AccentCalendar.utils";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { DatePickerPopover } from "../../components/DatePickerPopover";
+import { ErrorCallout } from "../../components/ErrorCallout";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Modal } from "../../components/Modal";
+import { RevealableInput } from "../../components/RevealableInput";
 import { Toggle } from "../../components/Toggle";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
-import { formatDate } from "../../utils/format";
-import { isKnownProviderUrl, providerTypeTranslationKeys } from "./constants";
+import { formatDateOnly } from "../../utils/format";
+import { isKnownProviderUrl, providerTypeOptions } from "./constants";
 import { findProviderAtAddress } from "./duplicateAddress";
 import { providerTypeGateMessage } from "./typeGateError";
 
@@ -62,7 +64,6 @@ export function EditProviderModal({
 	});
 	const [error, setError] = useState<string | null>(null);
 	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
-	const [showApiKey, setShowApiKey] = useState(false);
 	const [pickerOpen, setPickerOpen] = useState(false);
 	// The picked day is held aside until Apply, so dismissing the popover leaves
 	// the form untouched.
@@ -70,16 +71,8 @@ export function EditProviderModal({
 	const scheduleRowRef = useRef<HTMLDivElement>(null);
 
 	const updateMutation = useMutation({
-		mutationFn: (data: {
-			name?: string;
-			provider_type?: string;
-			base_url?: string;
-			api_key?: string;
-			enabled?: boolean;
-			autodiscovery_enabled?: boolean;
-			scheduled_disable_on?: string | null;
-			max_in_flight?: number | null;
-		}) => api.providers.update(provider.id, data),
+		mutationFn: (data: UpdateProviderRequest) =>
+			api.providers.update(provider.id, data),
 		onSuccess: (updated: Provider) => {
 			onToast(
 				t("providers.toast_provider_updated", { name: updated.name }),
@@ -111,49 +104,13 @@ export function EditProviderModal({
 		provider.id,
 	);
 
-	const getChangedFields = (): string[] => {
-		const fields: string[] = [];
-		if (formData.name !== provider.name) fields.push("name");
-		if (formData.provider_type !== provider.provider_type)
-			fields.push("provider_type");
-		if (formData.base_url !== provider.base_url) fields.push("base_url");
-		if (formData.api_key !== "") fields.push("api_key");
-		if (formData.enabled !== provider.enabled) fields.push("enabled");
-		if (formData.autodiscovery_enabled !== provider.autodiscovery_enabled)
-			fields.push("autodiscovery_enabled");
-		if (
-			(formData.scheduled_disable_on ?? null) !==
-			(provider.scheduled_disable_on ?? null)
-		)
-			fields.push("scheduled_disable_on");
-		if (parsedMaxInFlight(formData.max_in_flight) !== provider.max_in_flight)
-			fields.push("max_in_flight");
-		return fields;
-	};
-
-	const handleClose = () => {
-		const changed = getChangedFields();
-		if (changed.length > 0) {
-			setConfirmFields(changed);
-		} else {
-			onClose();
-		}
-	};
-
-	const handleSubmit = (e: React.SubmitEvent) => {
-		e.preventDefault();
-		setError(null);
-		const payload: {
-			name?: string;
-			provider_type?: string;
-			base_url?: string;
-			api_key?: string;
-			enabled?: boolean;
-			autodiscovery_enabled?: boolean;
-			scheduled_disable_on?: string | null;
-			max_in_flight?: number | null;
-		} = {};
-		if (formData.name !== provider.name) payload.name = formData.name.trim();
+	// The edit as the API takes it: only the fields that actually differ. One
+	// derivation, so the unsaved-changes list and the request can never
+	// disagree about what changed (the name is compared trimmed, as it is sent).
+	const buildPayload = (): UpdateProviderRequest => {
+		const payload: UpdateProviderRequest = {};
+		const name = formData.name.trim();
+		if (name !== provider.name) payload.name = name;
 		if (formData.provider_type !== provider.provider_type)
 			payload.provider_type = formData.provider_type;
 		if (formData.base_url !== provider.base_url)
@@ -170,19 +127,31 @@ export function EditProviderModal({
 			payload.scheduled_disable_on = formData.scheduled_disable_on ?? null;
 		if (parsedMaxInFlight(formData.max_in_flight) !== provider.max_in_flight)
 			payload.max_in_flight = parsedMaxInFlight(formData.max_in_flight);
-		updateMutation.mutate(payload);
+		return payload;
+	};
+
+	const handleClose = () => {
+		const changed = Object.keys(buildPayload());
+		if (changed.length > 0) {
+			setConfirmFields(changed);
+		} else {
+			onClose();
+		}
+	};
+
+	const handleSubmit = (e: React.SubmitEvent) => {
+		e.preventDefault();
+		setError(null);
+		updateMutation.mutate(buildPayload());
 	};
 
 	return (
 		<>
 			<Modal title={t("providers.edit_modal_title")} onClose={handleClose}>
 				{error && (
-					<div
-						data-testid="edit-provider-error"
-						className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm"
-					>
+					<ErrorCallout className="mb-4" testId="edit-provider-error">
 						{error}
-					</div>
+					</ErrorCallout>
 				)}
 
 				<form onSubmit={handleSubmit} className="space-y-4">
@@ -220,20 +189,9 @@ export function EditProviderModal({
 							placeholder={t("providers.form_type_label")}
 							value={formData.provider_type}
 							onChange={(type) =>
-								setFormData({ ...formData, provider_type: type ?? "" })
+								setFormData({ ...formData, provider_type: type })
 							}
-							options={Object.keys(providerTypeTranslationKeys)
-								.sort((a, b) => {
-									if (a === "custom") return -1;
-									if (b === "custom") return 1;
-									return t(providerTypeTranslationKeys[a]).localeCompare(
-										t(providerTypeTranslationKeys[b]),
-									);
-								})
-								.map((type) => ({
-									value: type,
-									label: t(providerTypeTranslationKeys[type]),
-								}))}
+							options={providerTypeOptions(t)}
 						/>
 						<p className="text-gray-500 text-xs mt-1">
 							{t("providers.edit.typeHelper")}
@@ -290,35 +248,13 @@ export function EditProviderModal({
 						>
 							{t("providers.form_api_key_label")}
 						</label>
-						<div className="relative">
-							<input
-								id="edit-provider-api-key"
-								type={showApiKey ? "text" : "password"}
-								maxLength={500}
-								value={formData.api_key}
-								onChange={(e) =>
-									setFormData({
-										...formData,
-										api_key: e.target.value,
-									})
-								}
-								className="ui-input pr-10! overflow-hidden"
-								placeholder={t("providers.edit_api_key_placeholder")}
-							/>
-							<button
-								type="button"
-								onClick={() => setShowApiKey(!showApiKey)}
-								className="ui-icon-btn absolute right-3 top-1/2 -translate-y-1/2"
-								tabIndex={-1}
-								aria-label={
-									showApiKey
-										? t("providers.form_api_key_hide")
-										: t("providers.form_api_key_show")
-								}
-							>
-								{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
-							</button>
-						</div>
+						<RevealableInput
+							id="edit-provider-api-key"
+							maxLength={500}
+							value={formData.api_key}
+							onChange={(api_key) => setFormData({ ...formData, api_key })}
+							placeholder={t("providers.edit_api_key_placeholder")}
+						/>
 						<p className="text-gray-500 text-xs mt-1">
 							{t("providers.edit_api_key_current", {
 								key: provider.masked_key,
@@ -329,6 +265,7 @@ export function EditProviderModal({
 					<div className="space-y-1" ref={scheduleRowRef}>
 						<div className="flex items-center gap-3">
 							<Toggle
+								id="edit-provider-enabled"
 								checked={formData.enabled}
 								onChange={(v) => {
 									// Switching off hides the schedule row and disables its
@@ -371,7 +308,7 @@ export function EditProviderModal({
 										data-testid="scheduled-disable-date"
 										className="text-xs text-orange-400"
 									>
-										{formatDate(`${formData.scheduled_disable_on}T00:00:00`)}
+										{formatDateOnly(formData.scheduled_disable_on)}
 									</span>
 									<button
 										type="button"
@@ -413,6 +350,7 @@ export function EditProviderModal({
 					>
 						<div className="flex items-center gap-3">
 							<Toggle
+								id="edit-provider-autodiscovery"
 								checked={formData.autodiscovery_enabled}
 								onChange={(v) =>
 									setFormData({

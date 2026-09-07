@@ -2,32 +2,12 @@ import { useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { DiscoveryDiff } from "../../api/types";
 import { Modal } from "../../components/Modal";
-import { ChevronDown, ChevronRight, RefreshCw } from "../../lib/icons";
+import { DisclosureChevron, RefreshCw } from "../../lib/icons";
+import { toggleInSet } from "../../utils/collections";
+import { failoverDeleteReasonText } from "../../utils/failoverEntry";
 import { formatFieldValue } from "./discoveryFormat";
 import { CategoryGroup, Chip, DetailRow } from "./discoveryPrimitives";
-
-export interface DiscoverySummaryEntry {
-	providerName: string;
-	diff?: DiscoveryDiff;
-	error?: string;
-	/** Stable React key; needed when the same provider appears more than once
-	 * (e.g. several background runs recorded before review). Falls back to
-	 * providerName, which is unique for a single discovery response. */
-	entryKey?: string;
-	/** Provider ID, when known. Enables the per-provider "Retest" action that
-	 * re-runs discovery to re-probe models disabled during the original run.
-	 * Background entries that only carry a provider name leave this unset. */
-	providerId?: string;
-}
-
-// The backend stores failover deletion reasons as pre-existing English
-// strings; map the two known values to i18n keys and fall back to raw text.
-const FAILOVER_DELETE_REASON_KEYS: Record<string, string> = {
-	"no enabled providers found":
-		"providers.discoverySummary.failoverReason.noProviders",
-	"only 1 enabled provider (need 2+ for failover)":
-		"providers.discoverySummary.failoverReason.onlyOne",
-};
+import { type DiscoverySummaryEntry, entryKeyOf } from "./discoverySummary";
 
 function diffIsEmpty(diff: DiscoveryDiff): boolean {
 	return (
@@ -44,10 +24,6 @@ function diffIsEmpty(diff: DiscoveryDiff): boolean {
 // An entry counts as "unchanged" when it has no error and an empty/missing diff.
 function entryIsUnchanged(r: DiscoverySummaryEntry): boolean {
 	return !r.error && (!r.diff || diffIsEmpty(r.diff));
-}
-
-function entryKeyOf(r: DiscoverySummaryEntry): string {
-	return r.entryKey ?? r.providerName;
 }
 
 export function DiscoverySummaryModal({
@@ -80,12 +56,7 @@ export function DiscoverySummaryModal({
 	// reviewed. Keyed by entryKey so duplicate provider names stay independent.
 	const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
 	const toggleCollapsed = (key: string) =>
-		setCollapsed((prev) => {
-			const next = new Set(prev);
-			if (next.has(key)) next.delete(key);
-			else next.add(key);
-			return next;
-		});
+		setCollapsed((prev) => toggleInSet(prev, key));
 
 	// A small Retest button for providers that had a model disabled this run.
 	// Re-running discovery re-probes those models so a transient provider hiccup
@@ -256,11 +227,7 @@ export function DiscoverySummaryModal({
 									key={g.display_model}
 									stacked
 									primary={g.display_model}
-									secondary={
-										FAILOVER_DELETE_REASON_KEYS[g.reason]
-											? t(FAILOVER_DELETE_REASON_KEYS[g.reason])
-											: g.reason
-									}
+									secondary={failoverDeleteReasonText(g.reason, t)}
 								/>
 							))}
 						</div>
@@ -393,11 +360,10 @@ export function DiscoverySummaryModal({
 													{r.providerName}
 												</span>
 												<span className="h-px flex-1 bg-white/30" />
-												{isCollapsed ? (
-													<ChevronRight size={14} className="shrink-0" />
-												) : (
-													<ChevronDown size={14} className="shrink-0" />
-												)}
+												<DisclosureChevron
+													open={!isCollapsed}
+													className="shrink-0"
+												/>
 											</button>
 											{renderRetestButton(r)}
 										</div>

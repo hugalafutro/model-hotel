@@ -97,9 +97,7 @@ export function normalizeToProviderType(providerName: string): string {
 
 	// Case-insensitive match against known type keys
 	const lower = providerName.toLowerCase().replace(/\s+/g, "-");
-	for (const key of Object.keys(PROVIDER_PARAM_INCOMPATIBILITY)) {
-		if (key === lower) return key;
-	}
+	if (lower in PROVIDER_PARAM_INCOMPATIBILITY) return lower;
 
 	// Substring heuristic: check if the provider name contains a known type
 	const typePatterns: Record<string, string[]> = {
@@ -108,12 +106,13 @@ export function normalizeToProviderType(providerName: string): string {
 		google: ["google", "gemini", "generativelanguage"],
 		deepseek: ["deepseek"],
 		xai: ["xai", "x.ai", "grok"],
-		ollama: ["ollama"],
+		// Before the bare "ollama" row: every cloud name contains "ollama" too.
 		"ollama-cloud": ["ollama-cloud", "ollama cloud"],
+		ollama: ["ollama"],
 		openrouter: ["openrouter"],
 		cohere: ["cohere"],
 		"zai-coding": ["z.ai", "zai", "z-ai"],
-		nanogpt: ["nanogpt", "nano-gpt", "nano-gpt"],
+		nanogpt: ["nanogpt", "nano-gpt"],
 		lmstudio: ["lmstudio", "lm-studio", "lm studio"],
 		koboldcpp: ["koboldcpp", "kobold"],
 		"opencode-zen": ["opencode-zen", "opencode zen"],

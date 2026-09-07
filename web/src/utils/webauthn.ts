@@ -11,6 +11,15 @@ import { api } from "../api/client";
 
 let _serverEnabled: boolean | null = null;
 
+/**
+ * Clears the memoized "server has WebAuthn configured" flag. The flag is
+ * process-wide, so a test that changes what /api/webauthn/available answers
+ * has to drop it.
+ */
+export function resetWebAuthnCache(): void {
+	_serverEnabled = null;
+}
+
 export async function isWebAuthnAvailable(): Promise<boolean> {
 	if (!browserSupportsWebAuthn()) return false;
 	if (_serverEnabled !== null) return _serverEnabled;
@@ -21,10 +30,6 @@ export async function isWebAuthnAvailable(): Promise<boolean> {
 		_serverEnabled = false;
 	}
 	return _serverEnabled;
-}
-
-export function resetWebAuthnCache(): void {
-	_serverEnabled = null;
 }
 
 // canUsePasskeyLogin reports whether the login screen should offer the passkey

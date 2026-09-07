@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { renderHook, waitFor } from "@testing-library/react";
+import i18next from "i18next";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { Model } from "../../api/types";
@@ -51,7 +52,9 @@ describe("useDisableModel", () => {
 		);
 	});
 
-	it("throws error when model identifier not found in enabledModels", async () => {
+	// The message is phrased through t(), so the expectation is resolved the same
+	// way rather than being a second copy of the English wording.
+	it("throws a translated error when the identifier is not in enabledModels", async () => {
 		const { result } = renderHook(() => useDisableModel([]), {
 			wrapper: createWrapper(),
 		});
@@ -61,8 +64,10 @@ describe("useDisableModel", () => {
 				await result.current.mutateAsync("nonexistent-model");
 			} catch (error) {
 				expect(error).toBeInstanceOf(Error);
-				expect((error as Error).message).toContain(
-					'Model "nonexistent-model" not found in enabled models',
+				expect((error as Error).message).toBe(
+					i18next.t("hooks.useDisableModel.notFound", {
+						model: "nonexistent-model",
+					}),
 				);
 			}
 		});

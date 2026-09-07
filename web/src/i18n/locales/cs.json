@@ -361,10 +361,14 @@
 			"distributionChart": "Graf rozložení poskytovatelů",
 			"emptyState": "Zatím nejsou k dispozici žádné údaje o poskytovatelích. Rozpis podle poskytovatelů se zde zobrazí, jakmile začne proudit provoz.",
 			"chartAriaLabel": "Graf rozložení poskytovatelů",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokeny",
-			"requestUnit": "Požadavek",
-			"requestsUnit": "Požadavky"
+			"tokens_one": "Token",
+			"tokens_few": "Tokeny",
+			"tokens_many": "Tokeny",
+			"tokens_other": "Tokeny",
+			"requests_one": "Požadavek",
+			"requests_few": "Požadavky",
+			"requests_many": "Požadavky",
+			"requests_other": "Požadavky"
 		},
 		"models": {
 			"viewDetails": "Zobrazit podrobnosti o modelu {{label}}",
@@ -611,7 +615,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Probíhá generování modelů – kliknutím na tlačítko „Zastavit vše“ můžete proces zrušit",
-			"voteToContinue": "Hlasujte ve všech soubojích, abyste postoupili do dalšího kola",
 			"nextRoundReady": "Až budete připraveni, spusťte další kolo"
 		},
 		"responses": {
@@ -666,13 +669,6 @@
 			"close": "Zavřít"
 		},
 		"params": {
-			"temperature": "Teplota",
-			"maxTokens": "Max. tokenů",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Penalizace frekvence",
-			"presPenalty": "Penalizace přítomnosti",
 			"resetAll": "Vynulovat vše",
 			"done": "Hotovo"
 		},
@@ -868,7 +864,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Nezbývají žádní povolené poskytovatelé",
-				"onlyOne": "Zbývá pouze jeden povolený poskytovatel (pro failover jsou potřeba alespoň dva)"
+				"onlyOne": "Zbývá pouze jeden povolený poskytovatel (pro failover jsou potřeba alespoň dva)",
+				"noValidProviders": "Po prořezání nezbyl žádný platný poskytovatel",
+				"onlyOneValid": "Po prořezání zbyl jen jeden platný poskytovatel (převzetí služeb vyžaduje alespoň dva)"
 			},
 			"error": "Chyba",
 			"failover": "Skupiny pro převzetí služeb při výpadku",
@@ -1129,7 +1127,17 @@
 		"scope_all": "Všichni poskytovatelé",
 		"badge_parked": "{{count}} odstaveno",
 		"status_parked": "Odstaveno",
-		"status_parked_hint": "Poskytovatel je zakázán; tento model zůstává v seznamu, ale neobsluhuje se, dokud poskytovatel nebude znovu povolen."
+		"status_parked_hint": "Poskytovatel je zakázán; tento model zůstává v seznamu, ale neobsluhuje se, dokud poskytovatel nebude znovu povolen.",
+		"capPills": {
+			"vision": "Vize",
+			"reasoning": "Uvažování",
+			"tool_calling": "Nástroje",
+			"structured_output": "Strukturovaně",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Zvuk",
+			"parallel_tool_calls": "Paralelně"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátit se k zjištěné hodnotě",
@@ -1353,7 +1361,6 @@
 				"owner": "Vlastník"
 			},
 			"noProvidersConfigured": "Není nakonfigurován žádný poskytovatel.",
-			"discardChanges": "Zrušit neuložené změny?",
 			"loadingProviders": "Načítání poskytovatelů…",
 			"stripReasoningDescriptionText": "Je-li tato funkce zapnutá, jsou tokeny pro uvažování a logiku odstraněny z průběžných odpovědí pro klienty, kteří je nedokážou zpracovat.",
 			"providerInstructionsText": "Kliknutím na poskytovatele omezíte přístup. Ve výchozím nastavení jsou všichni dostupní.",
@@ -1494,6 +1501,11 @@
 			"search": "Filtrovat logy…",
 			"allLevels": "Všechny úrovně",
 			"allSources": "Všechny zdroje"
+		},
+		"level": {
+			"info": "Informace",
+			"warning": "Varování",
+			"error": "Chyba"
 		},
 		"table": {
 			"timeDate": "Čas/Datum",
@@ -1957,8 +1969,8 @@
 				"confirmEnableTitle": "Povolit periodickou zálohu?",
 				"confirmEnableDescription": "Povolení pravidelného zálohování odstraní stávající zálohy, které spadají mimo rotační okno syn/otec/děd.",
 				"confirmEnableWouldRemove": "Těchto {{count}} záloh spadá mimo rotační okno a budou trvale odstraněny:",
-				"prunePreviewFailed": "Náhled odstranění starých záloh se nezdařil",
-				"pruneFailed": "Nepodařilo se odstranit staré zálohy",
+				"prunePreviewFailed": "Náhled odstranění starých záloh se nezdařil: {{message}}",
+				"pruneFailed": "Nepodařilo se odstranit staré zálohy: {{message}}",
 				"pruneSuccess": "Pravidelné zálohování povoleno. Odstraněno {{count}} starých záloh."
 			},
 			"availableBackupsTitle": "Dostupné zálohy",
@@ -2496,16 +2508,9 @@
 			"filter": "Filtr…",
 			"clearFilter": "Vymazat filtr"
 		},
-		"copyButton": {
-			"copy": "Kopírovat",
-			"copiedToClipboard": "Zkopírováno do schránky",
-			"failedToCopy": "Kopírování selhalo"
-		},
 		"copyablePill": {
 			"copy": "Kopírovat",
-			"copyToClipboard": "Zkopírovat do schránky",
-			"copied": "Zkopírováno!",
-			"failedToCopy": "Kopírování selhalo"
+			"copyToClipboard": "Zkopírovat do schránky"
 		},
 		"collapsibleToggle": {
 			"expand": "Rozbalit",
@@ -2832,11 +2837,6 @@
 			"compare": "Porovnat",
 			"noMatchHistory": "Zatím žádná historie zápasů",
 			"completedSessionsHere": "Zde se zobrazí dokončené relace v aréně a srovnávací relace",
-			"match": "Zápas",
-			"final": "Finále",
-			"semifinals": "Semifinále",
-			"quarterfinals": "Čtvrtfinále",
-			"round": "Kolo {{number}}",
 			"winner": "Vítěz: {{name}}",
 			"responsesAbbrev": "{{count}} odp.",
 			"error": "Chyba: {{message}}",
@@ -2948,35 +2948,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Nebyly nalezeny žádné záznamy",
-			"entries": "položek",
-			"loadingNewer": "Načítání novějších…",
-			"loadingOlder": "Načítání starších…",
-			"timeDate": "Čas/Datum",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Poskytovatel",
-			"providerDeleted": "Poskytovatel byl odstraněn",
-			"status": "Stav",
-			"tokens": "Tokeny",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Hlavičky",
-			"ttft": "TTFT",
-			"duration": "Trvání",
-			"overhead": "Režie",
-			"key": "Klíč",
-			"interrupted": "Přerušeno",
-			"internal": "interní",
-			"cacheInflated": "Nadhodnoceno zásahy do promptové mezipaměti",
-			"deleted": "Smazáno",
-			"zeroEntries": "0 záznamů",
-			"ip": "IP"
+			"zeroEntries": "0 záznamů"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Žádné log záznamy nenalezeny",
-			"entries": "položek",
-			"loadingNewer": "Načítání novějších…",
-			"loadingOlder": "Načítání starších…",
 			"timeDate": "Čas/Datum",
 			"level": "Úroveň",
 			"source": "Zdroj",
@@ -3193,7 +3168,8 @@
 		},
 		"useDisableModel": {
 			"success": "Model „{{model}}“ je deaktivován",
-			"error": "Nepodařilo se deaktivovat model: {{error}}"
+			"error": "Nepodařilo se deaktivovat model: {{error}}",
+			"notFound": "Model \"{{model}}\" nebyl nalezen mezi povolenými modely"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Načtení počátečních dat selhalo",

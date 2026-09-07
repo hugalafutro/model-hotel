@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { CircleStop, Mic, RefreshCw, Settings, Trash2 } from "@/lib/icons";
+import { CircleStop, Mic, RefreshCw, Trash2 } from "@/lib/icons";
 import type { ChatMessage, Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { MarkdownContent } from "../../components/MarkdownContent";
@@ -7,7 +7,7 @@ import { ModelReplyCard } from "../../components/ModelReplyCard";
 import { CHAT_PERSONAS } from "../../data/presets";
 import { useDisableModel } from "../../hooks/useDisableModel";
 import { formatTime } from "../../utils/format";
-import { parseCapabilities, proxyModelID } from "../../utils/model";
+import { isReasoningModel } from "../../utils/model";
 
 export interface ChatMessageListProps {
 	messages: ChatMessage[];
@@ -44,6 +44,14 @@ export function ChatMessageList({
 		(m) => m.role === "assistant",
 	);
 
+	// Conversation turns are numbered by position among the assistant replies:
+	// counted once here rather than re-scanned for every message.
+	const turnNumbers = new Map<number, number>();
+	let assistantSeen = 0;
+	messages.forEach((m, i) => {
+		if (m.role === "assistant") turnNumbers.set(i, ++assistantSeen);
+	});
+
 	return (
 		<>
 			{messages.map((msg, i) => {
@@ -59,12 +67,8 @@ export function ChatMessageList({
 					(isLastAssistant && !isStreaming) ||
 					(isStreamingThis && isLastAssistant);
 
-				// Turn number: only in conversation mode - counts assistant messages up to and including this one
 				const turnNumber =
-					chatSubMode === "conversation" && msg.role === "assistant"
-						? messages.filter((m, mi) => m.role === "assistant" && mi <= i)
-								.length
-						: undefined;
+					chatSubMode === "conversation" ? turnNumbers.get(i) : undefined;
 
 				// Persona lookup for conversation mode
 				const personaForModel = isModelB
@@ -73,15 +77,9 @@ export function ChatMessageList({
 						? CHAT_PERSONAS.find((p) => p.id === conversationActivePersonaIdA)
 						: CHAT_PERSONAS.find((p) => p.id === chatActivePersonaId);
 				const personaName =
-					chatSubMode === "conversation" &&
-					msg.role === "assistant" &&
-					personaForModel
+					msg.role === "assistant" && personaForModel
 						? `${personaForModel.icon} ${t(personaForModel.label)}`
-						: chatSubMode === "chat" &&
-								msg.role === "assistant" &&
-								personaForModel
-							? `${personaForModel.icon} ${t(personaForModel.label)}`
-							: undefined;
+						: undefined;
 				const personaTooltip = personaForModel
 					? t(personaForModel.systemPrompt)
 					: undefined;
@@ -141,78 +139,12 @@ export function ChatMessageList({
 					);
 				}
 
-				/* ── Model B message (conversation mode, right side) ── */
-				if (chatSubMode === "conversation" && isModelB) {
-					return (
-						<div key={`modelb-${msg.timestamp}`} className="flex justify-end">
-							<div className="max-w-[80%]">
-								<ModelReplyCard
-									model={msg.model || ""}
-									content={msg.content}
-									thinkingContent={msg.thinkingContent}
-									error={msg.error}
-									metrics={msg.metrics}
-									isStreaming={isStreamingThis}
-									startTimeMs={isStreamingThis ? msg.timestamp : undefined}
-									shortenModelName={false}
-									isReasoningModel={enabledModels.some(
-										(m) =>
-											proxyModelID(m.provider_name, m.model_id) === msg.model &&
-											parseCapabilities(m.capabilities).reasoning,
-									)}
-									tint="blue"
-									personaName={personaName}
-									personaTooltip={personaTooltip}
-									turnNumber={turnNumber}
-									onDisableModel={
-										msg.error && msg.model
-											? () => disableModelMutation.mutate(msg.model as string)
-											: undefined
-									}
-									headerEnd={
-										isStreamingThis ? (
-											<button
-												type="button"
-												onClick={onStopConversation}
-												className="text-red-400/60 hover:text-red-400 transition-colors ml-1"
-												title={t("chat.aria.cancel")}
-												aria-label={t("chat.aria.cancel")}
-											>
-												<CircleStop size={14} />
-											</button>
-										) : null
-									}
-									footerStart={<span>{formatTime(msg.timestamp)}</span>}
-									footerEnd={
-										<div className="flex items-center gap-2">
-											<CopyButton text={msg.content} size={10} />
-											{canDelete && (
-												<button
-													type="button"
-													className="ui-icon-btn ui-icon-btn-danger inline-flex items-center"
-													onClick={() => onDeleteMessage(i)}
-													title={t("chat.aria.deleteMessage")}
-													aria-label={t("chat.aria.deleteMessage")}
-												>
-													<Trash2 size={10} />
-												</button>
-											)}
-										</div>
-									}
-									className="rounded-xl rounded-br-sm p-4"
-									headerClassName="mb-2"
-									footerClassName="mt-2"
-								/>
-							</div>
-						</div>
-					);
-				}
-
-				/* ── Assistant message (Model A or chat mode) ── */
+				/* ── Assistant message: Model B on the right, Model A / chat on the left ── */
+				const isB = chatSubMode === "conversation" && isModelB;
 				return (
 					<div
 						key={`assistant-${msg.timestamp}`}
-						className="flex justify-start"
+						className={`flex ${isB ? "justify-end" : "justify-start"}`}
 					>
 						<div className="max-w-[80%]">
 							<ModelReplyCard
@@ -224,14 +156,15 @@ export function ChatMessageList({
 								isStreaming={isStreamingThis}
 								startTimeMs={isStreamingThis ? msg.timestamp : undefined}
 								shortenModelName={false}
-								isReasoningModel={enabledModels.some(
-									(m) =>
-										proxyModelID(m.provider_name, m.model_id) === msg.model &&
-										parseCapabilities(m.capabilities).reasoning,
+								isReasoningModel={isReasoningModel(
+									enabledModels,
+									msg.model || "",
 								)}
+								tint={isB ? "blue" : undefined}
 								personaName={personaName}
 								personaTooltip={personaTooltip}
 								turnNumber={turnNumber}
+								params={msg.params}
 								onDisableModel={
 									msg.error && msg.model
 										? () => disableModelMutation.mutate(msg.model as string)
@@ -282,19 +215,9 @@ export function ChatMessageList({
 												<Trash2 size={10} />
 											</button>
 										)}
-										{msg.params && (
-											<button
-												type="button"
-												className="ui-icon-btn inline-flex items-center"
-												title={t("chat.settings")}
-												aria-label={t("chat.settings")}
-											>
-												<Settings size={10} />
-											</button>
-										)}
 									</div>
 								}
-								className="rounded-xl rounded-bl-sm p-4"
+								className={`rounded-xl p-4 ${isB ? "rounded-br-sm" : "rounded-bl-sm"}`}
 								headerClassName="mb-2"
 								footerClassName="mt-2"
 							/>

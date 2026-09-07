@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { CheckCircle2, type LucideIcon, XCircle } from "@/lib/icons";
 import type { AlertStatus } from "../../../api/types";
 import { CopyButton } from "../../../components/CopyButton";
+import { appriseTone, TONE_LABEL } from "./apiText";
 import { K } from "./stepShared";
 
 // StepTitle names the step. It is a plain heading: the step change is announced
@@ -71,18 +72,14 @@ export function FinalPill({
 	status: AlertStatus;
 	t: TFunction;
 }) {
-	const [variant, label] = !status.reachable
-		? (["ui-badge-error", "unreachable"] as const)
-		: !status.healthy
-			? (["ui-badge-warning", "issues"] as const)
-			: (["ui-badge-success", "reachable"] as const);
+	const tone = appriseTone(status);
 	return (
 		<span
-			className={`ui-badge ${variant}`}
+			className={`ui-badge ui-badge-${tone}`}
 			data-testid="wiz-done-pill"
 			title={status.detail}
 		>
-			{t(`settings.alerts.status.${label}`)}
+			{t(`settings.alerts.status.${TONE_LABEL[tone]}`)}
 		</span>
 	);
 }
@@ -133,20 +130,9 @@ export function Mono({
 export function Composed({ url, t }: { url: string; t: TFunction }) {
 	if (url === "") return null;
 	return (
-		<div className="ui-detail-tile space-y-1.5 px-3 py-2.5">
-			<span className="block text-[11px] font-medium uppercase tracking-wider text-(--text-tertiary)">
-				{t(`${K}.composedLabel`)}
-			</span>
-			{/* The theme's own mono face: Tailwind's font-mono is a fixed stack and
-			    would ignore the Terminal style's JetBrains Mono. */}
-			<code
-				className="block text-xs text-(--text-primary) select-all break-all"
-				data-testid="wiz-composed"
-				style={{ fontFamily: "var(--font-mono)" }}
-			>
-				{url}
-			</code>
-		</div>
+		<Summary label={t(`${K}.composedLabel`)} testId="wiz-composed">
+			<Mono block>{url}</Mono>
+		</Summary>
 	);
 }
 export function Field({
@@ -207,12 +193,7 @@ export function CopyRow({
 	return (
 		<div className="flex items-center gap-2 flex-wrap">
 			<span className="text-xs text-(--text-muted)">{label}</span>
-			<code
-				className="text-xs text-(--text-primary) select-all break-all"
-				style={{ fontFamily: "var(--font-mono)" }}
-			>
-				{value}
-			</code>
+			<Mono>{value}</Mono>
 			<CopyButton
 				variant="label"
 				text={value}

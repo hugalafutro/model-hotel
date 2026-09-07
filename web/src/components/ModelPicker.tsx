@@ -1,19 +1,15 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-	ChevronDown,
-	ChevronsDownUp,
-	ChevronsUpDown,
-	Dices,
-	Info,
-	Settings,
-} from "@/lib/icons";
+import { ChevronDown, Dices, Info, Settings } from "@/lib/icons";
 import type { GenerationParams, Model } from "../api/types";
 import { useModels } from "../hooks/useModels";
 import { ModelDetailModal } from "../pages/Models/ModelDetailModal";
+import { toggleInSet } from "../utils/collections";
 import { parseCapabilities, proxyModelID } from "../utils/model";
+import { hasAnyParam } from "../utils/params";
+import { CollapseBody, CollapsibleToggle } from "./CollapsibleToggle";
 import type { CapKey } from "./capMeta";
-import { CAP_META, hasCap, matchesAllCaps } from "./capMeta";
+import { CAP_DISABLED, CAP_META, hasCap, matchesAllCaps } from "./capMeta";
 import { FilterInput } from "./FilterInput";
 import { ProviderFilter } from "./ProviderFilter";
 
@@ -29,12 +25,9 @@ export interface ModelItem {
 	unavailableReason?: string;
 }
 
-interface SingleProps {
-	multi?: false;
+interface BaseProps {
 	id?: string;
 	models: ModelItem[];
-	selected: string;
-	onChange: (selected: string) => void;
 	maxSelections?: number;
 	label?: string;
 	align?: "left" | "right";
@@ -54,32 +47,17 @@ interface SingleProps {
 	sortProvidersAlpha?: boolean;
 }
 
-interface MultiProps {
-	multi: true;
-	id?: string;
-	models: ModelItem[];
-	selected: string[];
-	onChange: (selected: string[]) => void;
-	maxSelections?: number;
-	label?: string;
-	align?: "left" | "right";
-	exclude?: string[];
-	/** Per-model generation params shown on selected pills */
-	slotParams?: Record<string, GenerationParams>;
-	/** Called when user clicks the cog on a selected pill */
-	onConfigureParams?: (modelId: string) => void;
-	/** When true, param cogs are non-interactive (e.g. arena is running) */
-	paramsReadonly?: boolean;
-	/** When true, the picker is disabled (e.g. conversation is running) */
-	disabled?: boolean;
-	/** Called when random button is clicked */
-	onRandom?: () => void;
-	/** Order provider groups alphabetically instead of selected-first. Used by
-	 * the failover group editor so the provider list stays stable while picking. */
-	sortProvidersAlpha?: boolean;
-}
-
-type ModelPickerProps = SingleProps | MultiProps;
+// `multi` is what ties `selected` to `onChange`: one model id and one setter,
+// or a list and a list setter. Everything else is the same either way.
+type ModelPickerProps = BaseProps &
+	(
+		| { multi?: false; selected: string; onChange: (selected: string) => void }
+		| {
+				multi: true;
+				selected: string[];
+				onChange: (selected: string[]) => void;
+		  }
+	);
 
 export function ModelPicker({
 	id,
@@ -224,13 +202,10 @@ export function ModelPicker({
 	}, [filteredModels, sortProvidersAlpha]);
 
 	const toggleCollapse = (provider: string) => {
-		setCollapsedProviders((prev) => {
-			const next = new Set(prev);
-			if (next.has(provider)) next.delete(provider);
-			else next.add(provider);
-			return next;
-		});
+		setCollapsedProviders((prev) => toggleInSet(prev, provider));
 	};
+
+	const allCollapsed = collapsedProviders.size === groupedModels.size;
 
 	const collapseAll = () => {
 		setCollapsedProviders(new Set([...groupedModels.keys()]));
@@ -296,18 +271,13 @@ export function ModelPicker({
 								type="button"
 								disabled={isDisabled}
 								onClick={() => {
-									setCapFilter((prev) => {
-										const next = new Set(prev);
-										if (next.has(m.key)) next.delete(m.key);
-										else next.add(m.key);
-										return next;
-									});
+									setCapFilter((prev) => toggleInSet(prev, m.key));
 								}}
 								className={`ui-tab inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
-									isActive ? m.style : isDisabled ? m.disabled : m.muted
+									isActive ? m.style : isDisabled ? CAP_DISABLED : m.muted
 								}`}
 							>
-								{m.label}
+								{t(m.labelKey)}
 							</button>
 						);
 					})}
@@ -338,26 +308,15 @@ export function ModelPicker({
 								<Dices size={13} />
 							</button>
 						)}
-						<button
-							type="button"
-							onClick={
-								collapsedProviders.size === groupedModels.size
-									? expandAll
-									: collapseAll
-							}
-							title={
-								collapsedProviders.size === groupedModels.size
-									? t("components.modelPicker.expandAllProviders")
-									: t("components.modelPicker.collapseAllProviders")
-							}
+						<CollapsibleToggle
+							collapsed={allCollapsed}
+							onToggle={allCollapsed ? expandAll : collapseAll}
+							iconStyle="double"
+							size={13}
 							className="ui-icon-btn p-1 flex items-center"
-						>
-							{collapsedProviders.size === groupedModels.size ? (
-								<ChevronsUpDown size={13} />
-							) : (
-								<ChevronsDownUp size={13} />
-							)}
-						</button>
+							expandTitle={t("components.modelPicker.expandAllProviders")}
+							collapseTitle={t("components.modelPicker.collapseAllProviders")}
+						/>
 					</div>
 				)}
 				<div
@@ -381,99 +340,92 @@ export function ModelPicker({
 										({providerModels.length})
 									</span>
 								</button>
-								<div
-									className={`grid transition-[grid-template-rows] duration-200 ease-in-out ${isCollapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
+								<CollapseBody
+									collapsed={isCollapsed}
+									durationMs={200}
+									className={`flex flex-wrap gap-0.5 ${align === "right" ? "justify-end" : "justify-start"}`}
 								>
-									<div
-										className={`flex flex-wrap gap-0.5 overflow-hidden ${align === "right" ? "justify-end" : "justify-start"}`}
-									>
-										{providerModels.map((m) => {
-											const val = proxyModelID(m.provider_name, m.model_id);
-											const isSelected = selectedSet.has(val);
-											const detailModel = modelDetailLookup.get(val);
-											const hasParams = !!(
-												slotParams?.[val] &&
-												Object.values(slotParams[val]).some(
-													(v) => v !== undefined,
-												)
-											);
-											return (
-												<div
-													key={val}
-													className={`ui-tab inline-flex items-center gap-1 px-2 py-0.5 text-[11px] border transition-all whitespace-nowrap ${
-														isSelected
-															? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
-															: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
-													}`}
-													title={
-														m.unavailable && m.unavailableReason
-															? m.unavailableReason
-															: // The routable proxy ID, not the display name: two model
-																// paths can share one display name (same model served on
-																// two routes), and the tooltip is what tells them apart.
-																val
-													}
+									{providerModels.map((m) => {
+										const val = proxyModelID(m.provider_name, m.model_id);
+										const isSelected = selectedSet.has(val);
+										const detailModel = modelDetailLookup.get(val);
+										const hasParams = !!(
+											slotParams?.[val] && hasAnyParam(slotParams[val])
+										);
+										return (
+											<div
+												key={val}
+												className={`ui-tab inline-flex items-center gap-1 px-2 py-0.5 text-[11px] border transition-all whitespace-nowrap ${
+													isSelected
+														? "bg-(--accent)/15 border-(--accent)/40 text-(--accent)"
+														: "bg-(--surface-hover) border-(--border-subtle) text-(--text-secondary) hover:text-(--text-primary)"
+												}`}
+												title={
+													m.unavailable && m.unavailableReason
+														? m.unavailableReason
+														: // The routable proxy ID, not the display name: two model
+															// paths can share one display name (same model served on
+															// two routes), and the tooltip is what tells them apart.
+															val
+												}
+											>
+												<button
+													type="button"
+													onClick={() => toggleModel(val)}
+													className={`${disabled ? "cursor-not-allowed" : ""}`}
+													disabled={disabled}
 												>
+													{m.display_name || m.model_id}
+												</button>
+												{m.unavailable && (
+													<span className="ui-badge ui-badge-warning shrink-0 text-[9px] leading-none px-1 py-px">
+														{t("failoverGroups.entry.naBadge")}
+													</span>
+												)}
+												{detailModel && (
 													<button
 														type="button"
-														onClick={() => toggleModel(val)}
-														className={`${disabled ? "cursor-not-allowed" : ""}`}
-														disabled={disabled}
+														onClick={(e) => {
+															e.stopPropagation();
+															setInfoModel(detailModel);
+														}}
+														className="ui-icon-btn shrink-0 flex items-center"
+														title={t("components.modelPicker.viewDetails")}
+														aria-label={t("components.modelPicker.viewDetails")}
 													>
-														{m.display_name || m.model_id}
+														<Info size={11} />
 													</button>
-													{m.unavailable && (
-														<span className="ui-badge ui-badge-warning shrink-0 text-[9px] leading-none px-1 py-px">
-															{t("failoverGroups.entry.naBadge")}
-														</span>
-													)}
-													{detailModel && (
-														<button
-															type="button"
-															onClick={(e) => {
-																e.stopPropagation();
-																setInfoModel(detailModel);
-															}}
-															className="ui-icon-btn shrink-0 flex items-center"
-															title={t("components.modelPicker.viewDetails")}
-															aria-label={t(
-																"components.modelPicker.viewDetails",
-															)}
-														>
-															<Info size={11} />
-														</button>
-													)}
+												)}
 
-													{isSelected && onConfigureParams && (
-														<button
-															type="button"
-															onClick={(e) => {
-																e.stopPropagation();
-																onConfigureParams(val);
-															}}
-															disabled={paramsReadonly}
-															className="ui-icon-btn shrink-0 flex items-center"
-															title={
-																paramsReadonly
-																	? t("components.modelPicker.paramsLocked")
-																	: hasParams
-																		? t("components.modelPicker.editParams")
-																		: t("components.modelPicker.addParams")
+												{isSelected && onConfigureParams && (
+													<button
+														type="button"
+														onClick={(e) => {
+															e.stopPropagation();
+															onConfigureParams(val);
+														}}
+														disabled={paramsReadonly}
+														className="ui-icon-btn shrink-0 flex items-center"
+														title={
+															paramsReadonly
+																? t("components.modelPicker.paramsLocked")
+																: hasParams
+																	? t("components.modelPicker.editParams")
+																	: t("components.modelPicker.addParams")
+														}
+													>
+														<Settings
+															size={10}
+															className={
+																hasParams ? "text-(--accent)" : "text-white"
 															}
-														>
-															<Settings
-																size={10}
-																className={
-																	hasParams ? "text-(--accent)" : "text-white"
-																}
-															/>
-														</button>
-													)}
-												</div>
-											);
-										})}
-									</div>
-								</div>
+														/>
+													</button>
+												)}
+											</div>
+										);
+									})}
+								</CollapseBody>
 							</div>
 						);
 					})}

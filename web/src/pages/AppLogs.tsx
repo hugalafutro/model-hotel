@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { FileText, ScrollText } from "@/lib/icons";
 import { api } from "../api/client";
@@ -8,9 +8,11 @@ import { Badge } from "../components/Badge";
 import type { SortState } from "../components/DataTable";
 import {
 	EmptyRow,
+	flipSortDir,
 	PaginationBar,
 	Row,
 	SortableHeader,
+	toggleSort,
 } from "../components/DataTable";
 import { FilterDropdown } from "../components/FilterDropdown";
 import { FilterInput } from "../components/FilterInput";
@@ -29,7 +31,9 @@ import { useSidebarMode } from "../context/SidebarModeContext";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
+import { useDocumentVisible } from "../hooks/useDocumentVisible";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useScrollLivePoll } from "../hooks/useScrollLivePoll";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { encodeCursor } from "../utils/format";
 import {
@@ -45,12 +49,7 @@ export function AppLogs() {
 	const { t } = useTranslation();
 	const { logsSubMode, setLogsSubMode } = useSidebarMode();
 	const [liveEnabled, setLiveEnabled] = useState(true);
-	const [isVisible, setIsVisible] = useState(!document.hidden);
-	useEffect(() => {
-		const handler = () => setIsVisible(!document.hidden);
-		document.addEventListener("visibilitychange", handler);
-		return () => document.removeEventListener("visibilitychange", handler);
-	}, []);
+	const isVisible = useDocumentVisible();
 	const [searchFilter, setSearchFilter] = useState("");
 	const [levelFilter, setLevelFilter] = useState<
 		"all" | "info" | "warning" | "error"
@@ -87,10 +86,7 @@ export function AppLogs() {
 	} = useDateRangePicker(() => setPage(1));
 
 	const handleSort = useCallback((field: AppLogSortField) => {
-		setSort((prev) => ({
-			field,
-			dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
-		}));
+		setSort((prev) => toggleSort(prev, field));
 		setPage(1);
 	}, []);
 
@@ -178,28 +174,13 @@ export function AppLogs() {
 			`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`,
 	});
 
-	// Slow poll for scroll mode (no SSE events exist for app logs)
-	useEffect(() => {
-		if (viewMode !== "scroll" || !liveEnabled) return;
-		const interval = setInterval(() => {
-			if (!document.hidden) {
-				scrollFetchNewer();
-			}
-		}, 5000);
-		return () => clearInterval(interval);
-	}, [viewMode, liveEnabled, scrollFetchNewer]);
-
-	// Visibility/focus refresh for scroll mode
-	useEffect(() => {
-		if (viewMode !== "scroll" || !liveEnabled) return;
-		const handler = () => {
-			if (!document.hidden) {
-				scrollFetchNewer();
-			}
-		};
-		document.addEventListener("visibilitychange", handler);
-		return () => document.removeEventListener("visibilitychange", handler);
-	}, [viewMode, liveEnabled, scrollFetchNewer]);
+	// App logs have no SSE events, so a slow poll plus a refresh on tab focus
+	// is the whole live path.
+	useScrollLivePoll({
+		enabled: viewMode === "scroll" && liveEnabled,
+		fetchNewer: scrollFetchNewer,
+		intervalMs: 5000,
+	});
 
 	const entries = useMemo(
 		() => historyData?.entries ?? [],
@@ -325,7 +306,7 @@ export function AppLogs() {
 								allLabel={t("applogs.filters.allLevels")}
 								options={(["info", "warning", "error"] as const).map((lvl) => ({
 									value: lvl,
-									label: lvl.charAt(0).toUpperCase() + lvl.slice(1),
+									label: t(`applogs.level.${lvl}`),
 									count: levelCounts[lvl] ?? 0,
 								}))}
 								className="w-36"
@@ -513,12 +494,7 @@ export function AppLogs() {
 								onFetchOlder={scrollFetchOlder}
 								onRowClick={(entry) => setSelectedLog(entry)}
 								sortDir={scrollSortDir}
-								onSortToggle={() =>
-									setSort((prev) => ({
-										field: prev.field,
-										dir: prev.dir === "asc" ? "desc" : "asc",
-									}))
-								}
+								onSortToggle={() => setSort(flipSortDir)}
 							/>
 						)}
 					</div>

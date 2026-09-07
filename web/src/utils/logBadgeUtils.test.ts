@@ -207,7 +207,7 @@ describe("formatLogTimestamp", () => {
 	it("formats valid ISO date string", () => {
 		const result = formatLogTimestamp("2024-01-15T10:30:45Z");
 		expect(result).toBe(
-			new Date("2024-01-15T10:30:45Z").toLocaleString("en-US", {
+			new Date("2024-01-15T10:30:45Z").toLocaleString(undefined, {
 				year: "numeric",
 				month: "2-digit",
 				day: "2-digit",

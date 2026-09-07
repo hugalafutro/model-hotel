@@ -22,10 +22,8 @@ export function LiveToggleButton({ enabled, onToggle }: LiveToggleButtonProps) {
 					"info",
 				);
 			}}
-			className={`ui-badge flex items-center px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors ${
-				enabled
-					? "ui-badge-success hover:brightness-125"
-					: "ui-badge-neutral hover:brightness-125"
+			className={`ui-badge flex items-center px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors hover:brightness-125 ${
+				enabled ? "ui-badge-success" : "ui-badge-neutral"
 			}`}
 		>
 			<span className="badge-text">{t("components.logs.liveToggle.live")}</span>

@@ -12,6 +12,7 @@ import { useToast } from "../context/ToastContext";
 import { useManaged } from "../hooks/useManaged";
 import { useReadOnly } from "../hooks/useReadOnly";
 import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
+import { toggleInSet } from "../utils/collections";
 import { countLabel, formatTimestamp } from "../utils/format";
 import { AlphabetSidebar } from "./FailoverGroups/AlphabetSidebar";
 import { CreateGroupModal } from "./FailoverGroups/CreateGroupModal";
@@ -71,12 +72,7 @@ export function FailoverGroups() {
 	const [showProviderModal, setShowProviderModal] = useState(false);
 
 	const toggleLetterCollapse = (letter: string) => {
-		setCollapsedLetters((prev) => {
-			const next = new Set(prev);
-			if (next.has(letter)) next.delete(letter);
-			else next.add(letter);
-			return next;
-		});
+		setCollapsedLetters((prev) => toggleInSet(prev, letter));
 	};
 
 	const { data: listData, isLoading } = useQuery({
@@ -118,12 +114,7 @@ export function FailoverGroups() {
 	);
 
 	const toggleGroupSelect = (groupId: string, checked: boolean) => {
-		setSelectedGroupIds((prev) => {
-			const next = new Set(prev);
-			if (checked) next.add(groupId);
-			else next.delete(groupId);
-			return next;
-		});
+		setSelectedGroupIds((prev) => toggleInSet(prev, groupId, checked));
 	};
 
 	const {
@@ -392,6 +383,7 @@ export function FailoverGroups() {
 					candidates={candidates}
 					onClose={() => setShowCreateModal(false)}
 					onCreated={() => setShowCreateModal(false)}
+					refreshGroups={refreshGroups}
 				/>
 			)}
 
@@ -401,6 +393,7 @@ export function FailoverGroups() {
 					group={editGroup}
 					onClose={() => setEditGroup(null)}
 					onUpdated={() => setEditGroup(null)}
+					refreshGroups={refreshGroups}
 				/>
 			)}
 
@@ -428,7 +421,6 @@ export function FailoverGroups() {
 
 			{showProviderModal && (
 				<ProviderDisableModal
-					open={showProviderModal}
 					onClose={() => setShowProviderModal(false)}
 					providers={(providers ?? [])
 						.filter((p) => providerNames.includes(p.name))

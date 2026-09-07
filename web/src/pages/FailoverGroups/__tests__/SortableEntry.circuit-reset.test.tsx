@@ -1,6 +1,10 @@
 import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { FailoverGroup } from "../../../api/types";
+import type {
+	CircuitBreakerProviderStatus,
+	CircuitState,
+	FailoverGroup,
+} from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
 import { SortableEntry, type SortableEntryProps } from "../SortableEntry";
 
@@ -21,7 +25,7 @@ vi.mock("@dnd-kit/utilities", () => ({
 
 vi.mock("../../../hooks/useResizeObserver", () => ({
 	useResizeObserver: vi.fn(() => ({
-		ref: { current: null },
+		ref: vi.fn(),
 		width: 100,
 		height: 40,
 	})),
@@ -43,6 +47,17 @@ const entry: FailoverGroup["entries"][0] = {
 
 const RESET_BUTTON = "failover-entry-reset-circuit";
 
+/** A provider circuit row: the state a case cares about over the required pair. */
+const cb = (
+	state: CircuitState,
+	consecutive_fails: number,
+): CircuitBreakerProviderStatus => ({
+	provider_id: "provider-uuid-1",
+	provider_open: false,
+	state,
+	consecutive_fails,
+});
+
 function renderEntry(props: Partial<SortableEntryProps> = {}) {
 	return renderWithProviders(
 		<SortableEntry
@@ -57,17 +72,17 @@ function renderEntry(props: Partial<SortableEntryProps> = {}) {
 
 describe("SortableEntry circuit-breaker reset control", () => {
 	it("offers the reset for an open circuit", () => {
-		renderEntry({ cbStatus: { state: "open", consecutive_fails: 5 } });
+		renderEntry({ cbStatus: cb("open", 5) });
 		expect(screen.getByTestId(RESET_BUTTON)).toBeInTheDocument();
 	});
 
 	it("offers the reset for a half-open circuit still probing recovery", () => {
-		renderEntry({ cbStatus: { state: "half-open", consecutive_fails: 5 } });
+		renderEntry({ cbStatus: cb("half-open", 5) });
 		expect(screen.getByTestId(RESET_BUTTON)).toBeInTheDocument();
 	});
 
 	it("offers no reset for a closed circuit, which has nothing to clear", () => {
-		renderEntry({ cbStatus: { state: "closed", consecutive_fails: 0 } });
+		renderEntry({ cbStatus: cb("closed", 0) });
 		expect(screen.queryByTestId(RESET_BUTTON)).not.toBeInTheDocument();
 	});
 
@@ -78,7 +93,7 @@ describe("SortableEntry circuit-breaker reset control", () => {
 
 	it("offers no reset when the caller cannot reset (no handler supplied)", () => {
 		renderEntry({
-			cbStatus: { state: "open", consecutive_fails: 5 },
+			cbStatus: cb("open", 5),
 			onResetCircuit: undefined,
 		});
 		expect(screen.queryByTestId(RESET_BUTTON)).not.toBeInTheDocument();
@@ -90,7 +105,7 @@ describe("SortableEntry circuit-breaker reset control", () => {
 	it("keeps the reset available on a locked (fleet-managed) entry", () => {
 		renderEntry({
 			locked: true,
-			cbStatus: { state: "open", consecutive_fails: 5 },
+			cbStatus: cb("open", 5),
 		});
 		expect(screen.getByTestId(RESET_BUTTON)).toBeInTheDocument();
 	});
@@ -99,7 +114,7 @@ describe("SortableEntry circuit-breaker reset control", () => {
 		const onResetCircuit = vi.fn();
 		renderEntry({
 			onResetCircuit,
-			cbStatus: { state: "open", consecutive_fails: 5 },
+			cbStatus: cb("open", 5),
 		});
 
 		fireEvent.click(screen.getByTestId(RESET_BUTTON));
@@ -116,7 +131,7 @@ describe("SortableEntry circuit-breaker reset control", () => {
 		renderEntry({
 			onResetCircuit,
 			resetPending: true,
-			cbStatus: { state: "open", consecutive_fails: 5 },
+			cbStatus: cb("open", 5),
 		});
 
 		const button = screen.getByTestId(RESET_BUTTON);

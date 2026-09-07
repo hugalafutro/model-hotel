@@ -160,7 +160,7 @@ describe("ChatMessageList", () => {
 			expect(deleteButtons.length).toBeGreaterThanOrEqual(2);
 		});
 
-		it("renders settings icon when message has params", () => {
+		it("renders the generation params as a tooltip when the message has them", () => {
 			const messagesWithParams: ChatMessage[] = [
 				{
 					role: "assistant",
@@ -179,7 +179,7 @@ describe("ChatMessageList", () => {
 			renderWithProviders(
 				<ChatMessageList {...defaultProps} messages={messagesWithParams} />,
 			);
-			expect(screen.getByTitle(/Settings/)).toBeInTheDocument();
+			expect(screen.getByTitle(/Temperature: 0.7/)).toBeInTheDocument();
 		});
 	});
 });

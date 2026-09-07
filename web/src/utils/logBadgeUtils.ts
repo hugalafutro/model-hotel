@@ -79,16 +79,18 @@ export const getSourceBadgeClasses = (source: string) => {
 };
 
 // Log-row stamp: fixed-width 24-hour date and time down to the second, so rows
-// line up in the log tables. An unparsable value is passed through as it came.
-// Distinct from utils/format's formatTimestamp, which is the locale-short form
-// used everywhere else.
+// line up in the log tables. The explicit 2-digit fields and hour12:false give
+// that fixed width in any locale, so the stamp reads in the operator's own date
+// order. An unparsable value is passed through as it came. Distinct from
+// utils/format's formatTimestamp, which is the locale-short form used
+// everywhere else.
 export const formatLogTimestamp = (ts: string) => {
 	try {
 		const d = new Date(ts);
 		if (Number.isNaN(d.getTime())) {
 			return ts;
 		}
-		return d.toLocaleString("en-US", {
+		return d.toLocaleString(undefined, {
 			year: "numeric",
 			month: "2-digit",
 			day: "2-digit",

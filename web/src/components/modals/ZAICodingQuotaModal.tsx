@@ -1,13 +1,21 @@
+import {
+	getZaiCodingFiveHourLimit,
+	getZaiCodingMcpLimit,
+	getZaiCodingWeeklyLimit,
+} from "@web-shared/quota";
 import { useTranslation } from "react-i18next";
 import type { ZAICodingQuotaResponse } from "../../api/types";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
-import {
-	formatRelativeTime,
-	formatTimestamp,
-	formatTimeUntil,
-} from "../../utils/format";
 import { Modal } from "../Modal";
-import { QuotaBar, QuotaModalHeaderActions } from "./shared";
+import {
+	LastRefreshedRow,
+	type OnToast,
+	QuotaBar,
+	QuotaModalHeaderActions,
+	resetAtLabel,
+	usedLeftText,
+	useQuotaBarMode,
+	useQuotaRefreshToast,
+} from "./shared";
 
 export function ZAICodingQuotaModal({
 	usage,
@@ -21,32 +29,16 @@ export function ZAICodingQuotaModal({
 	onClose: () => void;
 	onRefresh: () => Promise<unknown>;
 	isRefreshing: boolean;
-	onToast: (msg: string, type: "success" | "error" | "info") => void;
+	onToast: OnToast;
 	lastRefreshed?: number;
 }) {
 	const { t } = useTranslation();
-	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
-		"quota-bar-mode",
-		"remaining",
-	);
-	const limits = usage.data?.limits || [];
+	const [barMode, toggleBarMode] = useQuotaBarMode();
+	const fiveHourLimit = getZaiCodingFiveHourLimit(usage);
+	const weeklyLimit = getZaiCodingWeeklyLimit(usage);
+	const mcpLimit = getZaiCodingMcpLimit(usage);
 
-	const fiveHourLimit = limits.find(
-		(l) => l.type === "TOKENS_LIMIT" && l.unit === 3,
-	);
-	const weeklyLimit = limits.find(
-		(l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
-	);
-	const mcpLimit = limits.find((l) => l.type === "TIME_LIMIT" && l.unit === 5);
-
-	const handleRefresh = async () => {
-		try {
-			await onRefresh();
-			onToast(t("components.providerModals.quotaRefreshed"), "success");
-		} catch {
-			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
-		}
-	};
+	const handleRefresh = useQuotaRefreshToast(onRefresh, onToast);
 
 	return (
 		<Modal
@@ -64,21 +56,10 @@ export function ZAICodingQuotaModal({
 						</p>
 					</div>
 					<QuotaModalHeaderActions
-						onToggleBarMode={() =>
-							setBarMode((prev) =>
-								prev === "remaining" ? "used" : "remaining",
-							)
-						}
+						barMode={barMode}
+						onToggleBarMode={toggleBarMode}
 						onRefresh={handleRefresh}
 						isRefreshing={isRefreshing}
-						toggleAriaLabel={t("components.providerModals.toggleRemainingUsed")}
-						toggleTitle={
-							barMode === "remaining"
-								? t("components.providerModals.showQuotaUsed")
-								: t("components.providerModals.showQuotaRemaining")
-						}
-						refreshAriaLabel={t("common.refresh")}
-						refreshTitle={t("components.providerModals.refreshQuotaInfo")}
 					/>
 				</div>
 			}
@@ -89,47 +70,29 @@ export function ZAICodingQuotaModal({
 				{fiveHourLimit && (
 					<QuotaBar
 						label={t("components.providerModals.hTokenQuota", { hours: 5 })}
-						rightText={
-							barMode === "used"
-								? `${fiveHourLimit.percentage.toFixed(0)}% ${t("components.providerModals.used")}`
-								: `${(100 - fiveHourLimit.percentage).toFixed(0)}% ${t("components.providerModals.left")}`
-						}
+						rightText={usedLeftText(fiveHourLimit.percentage, barMode, t)}
 						percentage={fiveHourLimit.percentage}
 						barMode={barMode}
 					>
-						{t("components.providerModals.resets")}{" "}
-						{fiveHourLimit.nextResetTime
-							? `${formatTimestamp(fiveHourLimit.nextResetTime)}\n${formatTimeUntil(fiveHourLimit.nextResetTime)}`
-							: "N/A"}
+						{resetAtLabel(fiveHourLimit.nextResetTime, t)}
 					</QuotaBar>
 				)}
 
 				{weeklyLimit && (
 					<QuotaBar
 						label={t("components.providerModals.weeklyTokenQuota")}
-						rightText={
-							barMode === "used"
-								? `${weeklyLimit.percentage.toFixed(0)}% ${t("components.providerModals.used")}`
-								: `${(100 - weeklyLimit.percentage).toFixed(0)}% ${t("components.providerModals.left")}`
-						}
+						rightText={usedLeftText(weeklyLimit.percentage, barMode, t)}
 						percentage={weeklyLimit.percentage}
 						barMode={barMode}
 					>
-						{t("components.providerModals.resets")}{" "}
-						{weeklyLimit.nextResetTime
-							? `${formatTimestamp(weeklyLimit.nextResetTime)}\n${formatTimeUntil(weeklyLimit.nextResetTime)}`
-							: "N/A"}
+						{resetAtLabel(weeklyLimit.nextResetTime, t)}
 					</QuotaBar>
 				)}
 
 				{mcpLimit && (
 					<QuotaBar
 						label={t("components.providerModals.mcpTokenQuota")}
-						rightText={
-							barMode === "used"
-								? `${mcpLimit.percentage.toFixed(0)}% ${t("components.providerModals.used")}`
-								: `${(100 - mcpLimit.percentage).toFixed(0)}% ${t("components.providerModals.left")}`
-						}
+						rightText={usedLeftText(mcpLimit.percentage, barMode, t)}
 						percentage={mcpLimit.percentage}
 						barMode={barMode}
 						footer={
@@ -151,21 +114,11 @@ export function ZAICodingQuotaModal({
 							)
 						}
 					>
-						{t("components.providerModals.resets")}{" "}
-						{mcpLimit.nextResetTime
-							? `${formatTimestamp(mcpLimit.nextResetTime)}\n${formatTimeUntil(mcpLimit.nextResetTime)}`
-							: "N/A"}
+						{resetAtLabel(mcpLimit.nextResetTime, t)}
 					</QuotaBar>
 				)}
 
-				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
-						<span>{t("components.providerModals.lastRefreshed")}</span>
-						<span>
-							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
-						</span>
-					</div>
-				) : null}
+				<LastRefreshedRow at={lastRefreshed} />
 			</div>
 		</Modal>
 	);

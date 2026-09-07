@@ -12,10 +12,12 @@ import {
 	Trash2,
 	Trophy,
 } from "@/lib/icons";
+import { CollapseBody } from "../components/CollapsibleToggle";
 import { PaginationBar } from "../components/DataTable";
 import { Modal } from "../components/Modal";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
 import { useWheelPaging } from "../hooks/useWheelPaging";
+import { getRoundLabel } from "../pages/Arena/builders";
 import {
 	type ArenaHistoryEntry,
 	clearArenaHistory,
@@ -27,6 +29,7 @@ import {
 	type HistoryResponse,
 } from "../utils/arenaHistory";
 import { formatDate, formatTime } from "../utils/format";
+import { shortModelName } from "../utils/model";
 
 interface ArenaHistoryModalProps {
 	onClose: () => void;
@@ -36,23 +39,27 @@ interface ArenaHistoryModalProps {
 // FilterMode mirrors the HistoryMode values plus "all"
 type FilterMode = "all" | HistoryMode;
 
-function roundLabel(
-	roundIdx: number,
-	totalRounds: number,
-	t: (key: string, params?: Record<string, unknown>) => string,
+/** One line naming the models an entry ran, for its collapsed row and title. */
+function entrySummary(
+	entry: ArenaHistoryEntry,
+	t: (key: string) => string,
 ): string {
-	if (totalRounds === 1) return t("components.arenaHistoryModal.match");
-	if (totalRounds - 1 === roundIdx)
-		return t("components.arenaHistoryModal.final");
-	if (totalRounds - 2 === roundIdx)
-		return t("components.arenaHistoryModal.semifinals");
-	if (totalRounds - 3 === roundIdx)
-		return t("components.arenaHistoryModal.quarterfinals");
-	return t("components.arenaHistoryModal.round", { number: roundIdx + 1 });
-}
-
-function shortModelName(modelId: string): string {
-	return modelId.split("/").pop() ?? modelId;
+	if (entry.mode === "competition") {
+		const first = entry.rounds?.[0];
+		if (!first || first.matchups.length === 0)
+			return t("components.arenaHistoryModal.bracket");
+		return first.matchups
+			.map((mu) =>
+				[mu.slotA, mu.slotB]
+					.filter((slot) => slot !== null && slot !== undefined)
+					.map((slot) => shortModelName(slot.modelId))
+					.join(" vs "),
+			)
+			.join(" · ");
+	}
+	return entry.compareModels
+		? entry.compareModels.map(shortModelName).join(", ")
+		: t("components.arenaHistoryModal.compare");
 }
 
 function findPromptPreset(id: string | null) {
@@ -168,15 +175,16 @@ export function ArenaHistoryModal({
 	];
 
 	const renderCompetitionDetail = (entry: ArenaHistoryEntry) => {
-		if (!entry.rounds || entry.rounds.length === 0) return null;
+		const rounds = entry.rounds;
+		if (!rounds || rounds.length === 0) return null;
 
 		return (
 			<div className="mt-3 space-y-3">
-				{entry.rounds.map((round: HistoryBracketRound, rIdx: number) => (
+				{rounds.map((round: HistoryBracketRound, rIdx: number) => (
 					// biome-ignore lint/suspicious/noArrayIndexKey: tournament rounds have no stable unique id
 					<div key={`${entry.id}-round-${rIdx}`}>
 						<h5 className="text-xs font-semibold text-(--text-secondary) uppercase tracking-wider mb-1.5">
-							{roundLabel(rIdx, entry.rounds?.length ?? 0, t)}
+							{getRoundLabel(rIdx, rounds.length, "competition")}
 						</h5>
 						<div className="space-y-1.5">
 							{round.matchups.map((mu: HistoryMatchup) => {
@@ -413,6 +421,7 @@ export function ArenaHistoryModal({
 					{pagedEntries.map((entry) => {
 						const isExpanded = expandedId === entry.id;
 						const preset = findPromptPreset(entry.promptPresetId);
+						const summary = entrySummary(entry, t);
 
 						return (
 							<div key={entry.id} className="ui-card p-4">
@@ -444,49 +453,9 @@ export function ArenaHistoryModal({
 									<div className="flex-1 min-w-0 flex flex-col gap-0.5">
 										<span
 											className="text-sm text-(--text-primary) truncate"
-											title={
-												entry.mode === "competition"
-													? entry.rounds &&
-														entry.rounds.length > 0 &&
-														entry.rounds[0].matchups.length > 0
-														? entry.rounds[0].matchups
-																.map((mu) => {
-																	const names: string[] = [];
-																	if (mu.slotA)
-																		names.push(
-																			shortModelName(mu.slotA.modelId),
-																		);
-																	if (mu.slotB)
-																		names.push(
-																			shortModelName(mu.slotB.modelId),
-																		);
-																	return names.join(" vs ");
-																})
-																.join(" · ")
-														: t("components.arenaHistoryModal.bracket")
-													: entry.compareModels
-														? entry.compareModels.map(shortModelName).join(", ")
-														: t("components.arenaHistoryModal.compare")
-											}
+											title={summary}
 										>
-											{entry.mode === "competition"
-												? entry.rounds &&
-													entry.rounds.length > 0 &&
-													entry.rounds[0].matchups.length > 0
-													? entry.rounds[0].matchups
-															.map((mu) => {
-																const names: string[] = [];
-																if (mu.slotA)
-																	names.push(shortModelName(mu.slotA.modelId));
-																if (mu.slotB)
-																	names.push(shortModelName(mu.slotB.modelId));
-																return names.join(" vs ");
-															})
-															.join(" · ")
-													: t("components.arenaHistoryModal.bracket")
-												: entry.compareModels
-													? entry.compareModels.map(shortModelName).join(", ")
-													: t("components.arenaHistoryModal.compare")}
+											{summary}
 										</span>
 										<div className="flex items-center gap-1">
 											{preset && (
@@ -527,13 +496,9 @@ export function ArenaHistoryModal({
 								</button>
 
 								{/* Expanded detail */}
-								<div
-									className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${isExpanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]"}`}
-								>
-									<div className="overflow-hidden">
-										{renderEntryDetail(entry)}
-									</div>
-								</div>
+								<CollapseBody collapsed={!isExpanded}>
+									{renderEntryDetail(entry)}
+								</CollapseBody>
 							</div>
 						);
 					})}
@@ -550,7 +515,6 @@ export function ArenaHistoryModal({
 						pageSize={pageSize}
 						onPageChange={handlePageChange}
 						onPageSizeChange={handlePageSizeChange}
-						label={t("components.arenaHistoryModal.entries")}
 						hideCount
 					/>
 				</div>

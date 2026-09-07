@@ -14,9 +14,14 @@ import {
 	saveArenaHistory,
 	saveCompareToHistory,
 	saveCompetitionToHistory,
-	setArenaHistoryEnabled,
-	setArenaHistoryLimit,
 } from "../arenaHistory";
+
+// The enabled flag and the limit are written by StorageContext, so these tests
+// seed the raw keys the readers below parse.
+const storeEnabled = (on: boolean) =>
+	localStorage.setItem("arenaHistoryEnabled", String(on));
+const storeLimit = (n: number) =>
+	localStorage.setItem("arenaHistoryLimit", String(n));
 
 describe("arenaHistory", () => {
 	beforeEach(() => {
@@ -46,88 +51,52 @@ describe("arenaHistory", () => {
 		});
 	});
 
-	describe("getArenaHistoryEnabled / setArenaHistoryEnabled", () => {
+	describe("getArenaHistoryEnabled", () => {
 		it("returns false by default when not set", () => {
 			expect(getArenaHistoryEnabled()).toBe(false);
 		});
 
-		it("returns true after enabling", () => {
-			setArenaHistoryEnabled(true);
+		it("returns true when the flag is stored", () => {
+			storeEnabled(true);
 			expect(getArenaHistoryEnabled()).toBe(true);
 		});
 
-		it("returns false after disabling", () => {
-			setArenaHistoryEnabled(true);
-			setArenaHistoryEnabled(false);
+		it("returns false when the flag is stored as off", () => {
+			storeEnabled(true);
+			storeEnabled(false);
 			expect(getArenaHistoryEnabled()).toBe(false);
 		});
 
-		it("clears history when disabled", () => {
-			const entry: ArenaHistoryEntry = {
-				id: "test-1",
-				timestamp: Date.now(),
-				mode: "compare",
-				promptPresetId: null,
-				comparePersonaId: null,
-				compareModels: ["model-a", "model-b"],
-				compareResponses: [],
-				completed: true,
-			};
-			saveArenaHistory(entry);
-			expect(getArenaHistoryCount()).toBe(1);
-
-			setArenaHistoryEnabled(false);
-			expect(getArenaHistoryCount()).toBe(0);
-		});
-
-		it("handles localStorage errors gracefully", () => {
-			// Replace localStorage with a mock that throws on setItem.
-			// Object.defineProperty and vi.spyOn don't work on jsdom's
-			// non-configurable localStorage in CI.
-			const realStorage = globalThis.localStorage;
-			const store: Record<string, string> = {};
-			vi.stubGlobal("localStorage", {
-				getItem: (key: string) => store[key] ?? null,
-				setItem: () => {
+		it("reads as off when localStorage throws", () => {
+			const spy = vi
+				.spyOn(Storage.prototype, "getItem")
+				.mockImplementation(() => {
 					throw new Error("Storage error");
-				},
-				removeItem: (key: string) => {
-					delete store[key];
-				},
-				clear: () => {
-					for (const k of Object.keys(store)) delete store[k];
-				},
-				get length() {
-					return Object.keys(store).length;
-				},
-				key: (i: number) => Object.keys(store)[i] ?? null,
-			});
+				});
 
-			expect(() => setArenaHistoryEnabled(true)).not.toThrow();
-			// When setItem fails, the value is not persisted
 			expect(getArenaHistoryEnabled()).toBe(false);
 
-			vi.stubGlobal("localStorage", realStorage);
+			spy.mockRestore();
 		});
 	});
 
-	describe("getArenaHistoryLimit / setArenaHistoryLimit", () => {
+	describe("getArenaHistoryLimit", () => {
 		it("returns default limit of 25 when not set", () => {
 			expect(getArenaHistoryLimit()).toBe(25);
 		});
 
-		it("returns custom limit after setting", () => {
-			setArenaHistoryLimit(50);
+		it("returns the stored limit", () => {
+			storeLimit(50);
 			expect(getArenaHistoryLimit()).toBe(50);
 		});
 
 		it("returns default for invalid values (negative)", () => {
-			setArenaHistoryLimit(-10);
+			storeLimit(-10);
 			expect(getArenaHistoryLimit()).toBe(25);
 		});
 
 		it("returns default for invalid values (zero)", () => {
-			setArenaHistoryLimit(0);
+			storeLimit(0);
 			expect(getArenaHistoryLimit()).toBe(25);
 		});
 
@@ -136,14 +105,14 @@ describe("arenaHistory", () => {
 			expect(getArenaHistoryLimit()).toBe(25);
 		});
 
-		it("handles localStorage errors gracefully", () => {
+		it("returns the default when localStorage throws", () => {
 			const spy = vi
-				.spyOn(Storage.prototype, "setItem")
+				.spyOn(Storage.prototype, "getItem")
 				.mockImplementation(() => {
 					throw new Error("Storage error");
 				});
 
-			expect(() => setArenaHistoryLimit(100)).not.toThrow();
+			expect(getArenaHistoryLimit()).toBe(25);
 
 			spy.mockRestore();
 		});
@@ -216,7 +185,7 @@ describe("arenaHistory", () => {
 		});
 
 		it("enforces the history limit", () => {
-			setArenaHistoryLimit(3);
+			storeLimit(3);
 
 			for (let i = 1; i <= 5; i++) {
 				saveArenaHistory({
@@ -397,7 +366,7 @@ describe("arenaHistory", () => {
 
 	describe("saveCompetitionToHistory", () => {
 		it("does not save when history is disabled", () => {
-			setArenaHistoryEnabled(false);
+			storeEnabled(false);
 
 			saveCompetitionToHistory({
 				rounds: [],
@@ -410,7 +379,7 @@ describe("arenaHistory", () => {
 		});
 
 		it("saves competition bracket with winner", () => {
-			setArenaHistoryEnabled(true);
+			storeEnabled(true);
 
 			const rounds = [
 				{
@@ -479,7 +448,7 @@ describe("arenaHistory", () => {
 		});
 
 		it("strips non-preset persona IDs", () => {
-			setArenaHistoryEnabled(true);
+			storeEnabled(true);
 
 			saveCompetitionToHistory({
 				rounds: [
@@ -511,7 +480,7 @@ describe("arenaHistory", () => {
 		});
 
 		it("preserves all prompt preset IDs from ARENA_PROMPTS", () => {
-			setArenaHistoryEnabled(true);
+			storeEnabled(true);
 
 			// "cipher" was missing from the old hardcoded set
 			saveCompetitionToHistory({
@@ -526,7 +495,7 @@ describe("arenaHistory", () => {
 		});
 
 		it("strips non-preset prompt IDs", () => {
-			setArenaHistoryEnabled(true);
+			storeEnabled(true);
 
 			saveCompetitionToHistory({
 				rounds: [],
@@ -542,7 +511,7 @@ describe("arenaHistory", () => {
 
 	describe("saveCompareToHistory", () => {
 		it("does not save when history is disabled", () => {
-			setArenaHistoryEnabled(false);
+			storeEnabled(false);
 
 			saveCompareToHistory({
 				models: ["model-a", "model-b"],
@@ -555,7 +524,7 @@ describe("arenaHistory", () => {
 		});
 
 		it("saves compare mode results", () => {
-			setArenaHistoryEnabled(true);
+			storeEnabled(true);
 
 			const responses = [
 				{
@@ -599,7 +568,7 @@ describe("arenaHistory", () => {
 		});
 
 		it("filters out null responses", () => {
-			setArenaHistoryEnabled(true);
+			storeEnabled(true);
 
 			saveCompareToHistory({
 				models: ["model-a", "model-b"],

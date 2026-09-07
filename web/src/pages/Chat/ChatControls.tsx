@@ -12,16 +12,10 @@ import { ModelPicker } from "../../components/ModelPicker";
 import { PersonaPicker } from "../../components/PersonaPicker";
 import { SubModeToggle } from "../../components/SubModeToggle";
 import { CHAT_PERSONAS } from "../../data/presets";
-import type { ChatRefs, ChatView } from "./useChat";
+import type { ChatView } from "./useChat";
 
 /** The controls card: sub-mode, model and persona pickers, the conversation setup, and the clear and reset actions. */
-export function ChatControls({
-	chat,
-	lastPromptRef,
-}: {
-	chat: ChatView;
-	lastPromptRef: ChatRefs["lastPromptRef"];
-}) {
+export function ChatControls({ chat }: { chat: ChatView }) {
 	const { t } = useTranslation();
 	return (
 		<div className="ui-card p-4 shrink-0">
@@ -76,15 +70,7 @@ export function ChatControls({
 								<ActionIconButton
 									icon={Eraser}
 									onClick={() => {
-										if (chat.chatSubMode === "conversation") {
-											chat.clearConversationAbort();
-										}
-										chat.setMessages([]);
-										chat.setInput(lastPromptRef.current);
-										chat.setConversationState("idle");
-										chat.setCurrentTurn(0);
-										chat.setTurnCountdown(0);
-										chat.setIsStreaming(false);
+										chat.clearMessages();
 										chat.toast(
 											chat.chatSubMode === "chat"
 												? t("chat.toast.chatCleared")

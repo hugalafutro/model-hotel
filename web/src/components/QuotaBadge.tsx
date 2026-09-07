@@ -116,55 +116,73 @@ function nanoBadgeContent(
 	};
 }
 
+/**
+ * Label for a provider that reports a 5-hour and a weekly window as
+ * percentages, and the title naming which way round the pair reads.
+ */
+function percentPairContent(
+	fiveHour: { percentage: number } | undefined,
+	weekly: { percentage: number } | undefined,
+	barMode: QuotaBarMode,
+	usedKey: string,
+	remainingKey: string,
+): BadgeContent {
+	const pct = (w: { percentage: number } | undefined) =>
+		w
+			? `${(barMode === "remaining" ? 100 - w.percentage : w.percentage).toFixed(0)}%`
+			: "-";
+	return {
+		label: `${pct(fiveHour)}/${pct(weekly)}`,
+		title: i18next.t(barMode === "remaining" ? remainingKey : usedKey),
+	};
+}
+
+/** "updated HH:MM" for a tooltip, empty when nothing has been fetched yet. */
+function refreshedAt(dataUpdatedAt?: number): string {
+	return dataUpdatedAt
+		? i18next.t("components.quotaBadge.updated", {
+				time: new Date(dataUpdatedAt).toLocaleTimeString(),
+			})
+		: "";
+}
+
 function zaiCodingBadgeContent(
 	usage: ZAICodingQuotaResponse | null | undefined,
 	barMode: QuotaBarMode,
 ): BadgeContent {
-	const fiveHour = getZaiCodingFiveHourLimit(usage);
-	const weekly = getZaiCodingWeeklyLimit(usage);
-	if (barMode === "remaining") {
-		const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
-		return {
-			label,
-			title: i18next.t("components.quotaBadge.zaiCodingRemaining"),
-		};
-	}
-	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
-	return { label, title: i18next.t("components.quotaBadge.zaiCodingUsed") };
+	return percentPairContent(
+		getZaiCodingFiveHourLimit(usage),
+		getZaiCodingWeeklyLimit(usage),
+		barMode,
+		"components.quotaBadge.zaiCodingUsed",
+		"components.quotaBadge.zaiCodingRemaining",
+	);
 }
 
 function kimiCodeBadgeContent(
 	usage: KimiCodeQuotaResponse | null | undefined,
 	barMode: QuotaBarMode,
 ): BadgeContent {
-	const fiveHour = getKimiCodeFiveHourLimit(usage);
-	const weekly = getKimiCodeWeeklyLimit(usage);
-	if (barMode === "remaining") {
-		const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
-		return {
-			label,
-			title: i18next.t("components.quotaBadge.kimiCodeRemaining"),
-		};
-	}
-	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
-	return { label, title: i18next.t("components.quotaBadge.kimiCodeUsed") };
+	return percentPairContent(
+		getKimiCodeFiveHourLimit(usage),
+		getKimiCodeWeeklyLimit(usage),
+		barMode,
+		"components.quotaBadge.kimiCodeUsed",
+		"components.quotaBadge.kimiCodeRemaining",
+	);
 }
 
 function miniMaxBadgeContent(
 	usage: MiniMaxQuotaResponse | null | undefined,
 	barMode: QuotaBarMode,
 ): BadgeContent {
-	const fiveHour = getMiniMaxFiveHourLimit(usage);
-	const weekly = getMiniMaxWeeklyLimit(usage);
-	if (barMode === "remaining") {
-		const label = `${fiveHour ? `${(100 - fiveHour.percentage).toFixed(0)}%` : "-"}/${weekly ? `${(100 - weekly.percentage).toFixed(0)}%` : "-"}`;
-		return {
-			label,
-			title: i18next.t("components.quotaBadge.miniMaxRemaining"),
-		};
-	}
-	const label = `${fiveHour ? `${fiveHour.percentage.toFixed(0)}%` : "-"}/${weekly ? `${weekly.percentage.toFixed(0)}%` : "-"}`;
-	return { label, title: i18next.t("components.quotaBadge.miniMaxUsed") };
+	return percentPairContent(
+		getMiniMaxFiveHourLimit(usage),
+		getMiniMaxWeeklyLimit(usage),
+		barMode,
+		"components.quotaBadge.miniMaxUsed",
+		"components.quotaBadge.miniMaxRemaining",
+	);
 }
 
 function deepseekBadgeContent(
@@ -176,11 +194,7 @@ function deepseekBadgeContent(
 		(b: DeepSeekBalanceInfo) => b.currency === "USD",
 	)?.total_balance;
 	const label = variant === "sidebar" ? `$${usd ?? "-"}` : `${usd ?? "-"} USD`;
-	const refreshed = dataUpdatedAt
-		? i18next.t("components.quotaBadge.updated", {
-				time: new Date(dataUpdatedAt).toLocaleTimeString(),
-			})
-		: "";
+	const refreshed = refreshedAt(dataUpdatedAt);
 	return {
 		label,
 		title: i18next.t("components.quotaBadge.deepseekBalance", {
@@ -202,11 +216,7 @@ function ollamaCloudBadgeContent(
 	dataUpdatedAt?: number,
 ): BadgeContent {
 	const plan = account.plan || "unknown";
-	const refreshed = dataUpdatedAt
-		? i18next.t("components.quotaBadge.updated", {
-				time: new Date(dataUpdatedAt).toLocaleTimeString(),
-			})
-		: "";
+	const refreshed = refreshedAt(dataUpdatedAt);
 	let title = i18next.t("components.quotaBadge.ollamaCloudPlan", {
 		plan,
 		refreshed,
@@ -233,11 +243,7 @@ function neuralwattBadgeContent(
 		included > 0
 			? `${formatKwh(used)}/${formatKwh(included)} kWh`
 			: `${formatKwh(used)} kWh`;
-	const refreshed = dataUpdatedAt
-		? i18next.t("components.quotaBadge.updated", {
-				time: new Date(dataUpdatedAt).toLocaleTimeString(),
-			})
-		: "";
+	const refreshed = refreshedAt(dataUpdatedAt);
 	// In overage the kwh_used counter freezes at the included amount and the
 	// spend moves to the credit balance, so the kWh label alone would read as
 	// "nothing is happening"; the tooltip says so. No dollar figure: NeuralWatt
@@ -309,7 +315,8 @@ export interface QuotaBadgeProps {
 	ollamaCloudAccount?: OllamaCloudAccount;
 	/** NeuralWatt props */
 	neuralwattQuota?: NeuralWattQuotaResponse | null;
-	neuralwattDataUpdatedAt?: number;
+	/** When the payload was last fetched, for the "updated HH:MM" tooltip. */
+	dataUpdatedAt?: number;
 }
 
 export function QuotaBadge(props: QuotaBadgeProps) {
@@ -328,7 +335,7 @@ export function QuotaBadge(props: QuotaBadgeProps) {
 		openrouterBalance,
 		ollamaCloudAccount,
 		neuralwattQuota,
-		neuralwattDataUpdatedAt,
+		dataUpdatedAt,
 	} = props;
 	const { label, title: defaultTitle } = (() => {
 		switch (type) {
@@ -348,7 +355,7 @@ export function QuotaBadge(props: QuotaBadgeProps) {
 							"components.quotaBadge.deepseekBalanceUnavailable",
 						),
 					};
-				return deepseekBadgeContent(deepseekBalance, variant);
+				return deepseekBadgeContent(deepseekBalance, variant, dataUpdatedAt);
 			}
 			case "openrouter": {
 				if (!openrouterBalance)
@@ -366,7 +373,7 @@ export function QuotaBadge(props: QuotaBadgeProps) {
 						label: "-",
 						title: i18next.t("components.quotaBadge.ollamaCloudUnavailable"),
 					};
-				return ollamaCloudBadgeContent(ollamaCloudAccount);
+				return ollamaCloudBadgeContent(ollamaCloudAccount, dataUpdatedAt);
 			}
 			case "neuralwatt": {
 				if (!neuralwattQuota)
@@ -376,7 +383,7 @@ export function QuotaBadge(props: QuotaBadgeProps) {
 							"components.quotaBadge.neuralwattBalanceUnavailable",
 						),
 					};
-				return neuralwattBadgeContent(neuralwattQuota, neuralwattDataUpdatedAt);
+				return neuralwattBadgeContent(neuralwattQuota, dataUpdatedAt);
 			}
 		}
 	})();
@@ -516,14 +523,8 @@ export function QuotaBadges({
 						type="deepseek"
 						variant={variant}
 						deepseekBalance={quotaData.deepseekBalance}
+						dataUpdatedAt={quotaData.deepseekDataUpdatedAt}
 						onClick={onDeepseekClick}
-						title={
-							deepseekBadgeContent(
-								quotaData.deepseekBalance,
-								variant,
-								quotaData.deepseekDataUpdatedAt,
-							).title
-						}
 					/>
 				)}
 			{quotaData.showOrBadge &&
@@ -543,13 +544,8 @@ export function QuotaBadges({
 						type="ollama-cloud"
 						variant={variant}
 						ollamaCloudAccount={quotaData.ollamaCloudAccount}
+						dataUpdatedAt={quotaData.ollamaCloudDataUpdatedAt}
 						onClick={onOllamaCloudClick}
-						title={
-							ollamaCloudBadgeContent(
-								quotaData.ollamaCloudAccount,
-								quotaData.ollamaCloudDataUpdatedAt,
-							).title
-						}
 					/>
 				)}
 			{quotaData.showNeuralwattBadge &&
@@ -559,7 +555,7 @@ export function QuotaBadges({
 						type="neuralwatt"
 						variant={variant}
 						neuralwattQuota={quotaData.neuralwattQuota}
-						neuralwattDataUpdatedAt={quotaData.neuralwattDataUpdatedAt}
+						dataUpdatedAt={quotaData.neuralwattDataUpdatedAt}
 						onClick={onNeuralwattClick}
 					/>
 				)}

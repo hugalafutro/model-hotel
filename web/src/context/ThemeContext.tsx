@@ -1,3 +1,4 @@
+import { clamp } from "@web-shared/format";
 import {
 	createContext,
 	type ReactNode,
@@ -141,17 +142,14 @@ function hslToRGB(h: number, s: number, l: number): [number, number, number] {
 
 function applyAccentColor(color: string, theme: Theme) {
 	const hsl = hexToHSL(color);
-	if (Number.isNaN(hsl.h) || Number.isNaN(hsl.s) || Number.isNaN(hsl.l)) {
-		return;
-	}
 	const root = document.documentElement;
 
 	// Clamp lightness to ensure readability while preserving the color's character
 	const minL = theme === "dark" ? 45 : 35;
 	const maxL = theme === "dark" ? 80 : 60;
-	const baseL = Math.max(minL, Math.min(maxL, hsl.l));
+	const baseL = clamp(hsl.l, minL, maxL);
 
-	const hoverL = Math.max(minL, Math.min(maxL, baseL + 5));
+	const hoverL = clamp(baseL + 5, minL, maxL);
 	const lightAlpha = theme === "dark" ? 0.2 : 0.15;
 	const lighterAlpha = theme === "dark" ? 0.1 : 0.08;
 

@@ -1,47 +1,31 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 /**
- * Tracks the dimensions of a DOM element using ResizeObserver.
- * Returns a ref to attach to the target element and its current width/height.
+ * Tracks the dimensions of a DOM element with a ResizeObserver.
  *
- * The observer re-subscribes automatically when the element changes
- * between renders (i.e. the component unmounts the old element and
- * mounts a new one, causing `observedEl` state to update). However,
- * if `ref.current` is swapped in-place without a re-render (e.g.
- * conditional rendering into the same ref mid-lifecycle), the
- * observer will continue watching the old element until the next render
- * triggers the sync effect. For stable-element consumers like
- * FuseOutline, this is not an issue.
+ * `ref` is a callback ref, so React reports the element the moment it is
+ * attached or swapped, and the observer follows it: an element replaced in
+ * place is picked up without waiting for another render. `el` is that element,
+ * for consumers that need the node itself (FuseOutline measures its parent).
  */
 export function useResizeObserver<
 	T extends HTMLElement | SVGElement = HTMLElement,
 >() {
-	const ref = useRef<T | null>(null);
+	const [el, setEl] = useState<T | null>(null);
+	const ref = useCallback((node: T | null) => setEl(node), []);
 	const [size, setSize] = useState({ width: 0, height: 0 });
-	const [observedEl, setObservedEl] = useState<T | null>(null);
 
-	const compute = useCallback(() => {
-		if (ref.current) {
-			const { width, height } = ref.current.getBoundingClientRect();
+	useEffect(() => {
+		if (!el) return;
+		const compute = () => {
+			const { width, height } = el.getBoundingClientRect();
 			setSize({ width, height });
-		}
-	}, []);
-
-	// Sync observed element state so the effect re-runs when ref.current changes
-	useEffect(() => {
-		if (ref.current !== observedEl) {
-			setObservedEl(ref.current);
-		}
-	}, [observedEl]);
-
-	useEffect(() => {
-		if (!observedEl) return;
-
+		};
 		compute();
 		const ro = new ResizeObserver(compute);
-		ro.observe(observedEl);
+		ro.observe(el);
 		return () => ro.disconnect();
-	}, [observedEl, compute]);
+	}, [el]);
 
-	return { ref, ...size };
+	return { ref, el, ...size };
 }

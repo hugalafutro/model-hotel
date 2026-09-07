@@ -1,5 +1,6 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { isDuplicate, reducer } from "@web-shared/alerts/wizardState";
 import i18n from "i18next";
 import { HttpResponse, http } from "msw";
 import { expect, it, vi } from "vitest";
@@ -10,8 +11,6 @@ import {
 	AlertsWizard,
 	type AlertsWizardProps,
 	initialState,
-	isDuplicate,
-	reducer,
 } from "../AlertsWizard";
 
 const catalog: AlertEventDef[] = [
@@ -667,9 +666,17 @@ it("warns on step 1 that changing the address drops this run's destinations", as
 	expect(screen.getByTestId("wiz-step-1")).toBeInTheDocument();
 	expect(screen.getByTestId("wiz-api-changed-drops")).toBeInTheDocument();
 
-	// Editing the address carries out exactly what the note promised.
+	// Editing the field costs the run nothing on its own: the step 1 gate already
+	// blocks an address nothing has verified, so the note and the destination both
+	// stay until a different apprise is actually proven.
 	await userEvent.type(screen.getByTestId("wiz-api-url"), "1");
-	expect(screen.queryByTestId("wiz-api-changed-drops")).toBeNull();
+	expect(screen.getByTestId("wiz-api-changed-drops")).toBeInTheDocument();
+
+	// Verifying the new address carries out what the note promised.
+	await userEvent.click(screen.getByTestId("wiz-api-check"));
+	await waitFor(() =>
+		expect(screen.queryByTestId("wiz-api-changed-drops")).toBeNull(),
+	);
 });
 
 // Cancel is the "I am not doing this after all" exit, and a probe or a test in
@@ -719,7 +726,7 @@ it("does not add a destination that is already stored a second time", () => {
 	expect(s.step).toBe(5);
 });
 
-it("drops the destinations added in this run when the apprise address changes", () => {
+it("keeps this run's destinations across an edit and drops them once a different apprise is verified", () => {
 	const props: AlertsWizardProps = {
 		initialApiUrl: "http://apprise:8000",
 		savedTargets: ["tgram://1/2"],
@@ -729,7 +736,14 @@ it("drops the destinations added in this run when the apprise address changes", 
 		onClose: () => {},
 		onFinished: () => {},
 	};
+	const ok = { configured: true, reachable: true, healthy: true };
 	let s = reducer(initialState(props), {
+		type: "probed",
+		url: "http://apprise:8000",
+		status: ok,
+		demote: false,
+	});
+	s = reducer(s, {
 		type: "setKind",
 		kind: "ntfy",
 		ntfyServer: "https://ntfy.example.com",
@@ -740,10 +754,23 @@ it("drops the destinations added in this run when the apprise address changes", 
 	expect(s.added).toEqual(["ntfys://ntfy.example.com/one"]);
 	expect(s.saved).toEqual(["tgram://1/2"]);
 
-	// The destination was proven through the old apprise only, so pointing at a
-	// different one drops it rather than carrying an unproven URL to Finish. The
-	// saved targets are untouched: they are not this run's to remove.
-	s = reducer(s, { type: "setApiUrl", value: "http://apprise-b:8000" });
+	// A stray keystroke, immediately undone, must not cost the run the
+	// destinations it has already proven: the step 1 gate blocks an unverified
+	// address by itself.
+	s = reducer(s, { type: "setApiUrl", value: "http://apprise:80001" });
+	expect(s.added).toEqual(["ntfys://ntfy.example.com/one"]);
+	s = reducer(s, { type: "setApiUrl", value: "http://apprise:8000" });
+	expect(s.added).toEqual(["ntfys://ntfy.example.com/one"]);
+
+	// Verifying a DIFFERENT apprise is what invalidates the proof: the
+	// destination was tested through the old address only. The saved targets are
+	// untouched; they are not this run's to remove.
+	s = reducer(s, {
+		type: "probed",
+		url: "http://apprise-b:8000",
+		status: ok,
+		demote: false,
+	});
 	expect(s.added).toEqual([]);
 	expect(s.draft.acceptedUrl).toBeNull();
 	expect(s.saved).toEqual(["tgram://1/2"]);

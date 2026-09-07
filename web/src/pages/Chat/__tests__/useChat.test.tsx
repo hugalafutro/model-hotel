@@ -145,7 +145,6 @@ vi.mock("../useConversationRunner", () => ({
 
 vi.mock("../useMultimodalAttachments", () => ({
 	useMultimodalAttachments: vi.fn(() => ({
-		hasVision: false,
 		pendingImage: null,
 		setPendingImage: mockSetPendingImage,
 		pendingAudio: null,
@@ -158,17 +157,25 @@ vi.mock("../useMultimodalAttachments", () => ({
 	})),
 }));
 
+type MockModel = { provider_name: string; model_id: string };
+const mockProxyId = (m: MockModel) => `${m.provider_name}/${m.model_id}`;
+
 vi.mock("../../../utils/model", () => ({
 	parseCapabilities: vi.fn(() => ({})),
 	proxyModelID: (providerName: string, modelId: string) =>
 		`${providerName}/${modelId}`,
+	findChatModel: (models: MockModel[], id: string) =>
+		models.find((m) => mockProxyId(m) === id),
+	chatModelIdSet: (models: MockModel[]) => new Set(models.map(mockProxyId)),
+	shortModelName: (id: string) => id.slice(id.lastIndexOf("/") + 1),
 }));
 
 vi.mock("../../../utils/params", () => ({
 	hasAnyParam: vi.fn(() => false),
 }));
 
-vi.mock("../chatStreaming", () => ({
+vi.mock("../chatStreaming", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../chatStreaming")>()),
 	getApiMessagesForModel: vi.fn(() => mockGetApiMessagesForModel()),
 	streamModelResponse: vi.fn(() => mockStreamModelResponse()),
 }));
@@ -1325,7 +1332,6 @@ describe("useChat", () => {
 			};
 			vi.mocked(MultimodalAttachments.useMultimodalAttachments).mockReturnValue(
 				{
-					hasVision: false,
 					pendingImage: pendingImageData,
 					setPendingImage: mockSetPendingImage,
 					pendingAudio: null,
@@ -1368,17 +1374,20 @@ describe("useChat", () => {
 			await act(async () => {});
 		});
 
-		it("returns early when already sending (sendingRef)", () => {
+		it("does not start a second send while one is in flight", async () => {
 			const { result } = renderHook(() => useChat());
 			act(() => {
 				result.current.setInput("Hello");
 				result.current.setChatSelectedModel("Provider/model");
-				result.current.refs.sendingRef.current = true;
 			});
-			act(() => {
+			// Two sends fired back to back: the second sees the in-flight guard.
+			await act(async () => {
+				result.current.handleSend();
 				result.current.handleSend();
 			});
-			expect(result.current.messages.length).toBe(0);
+			expect(
+				result.current.messages.filter((m) => m.role === "user").length,
+			).toBe(1);
 		});
 
 		it("shows toast error for non-AbortError errors", async () => {
@@ -1418,7 +1427,6 @@ describe("useChat", () => {
 		it("does nothing when no model is selected", () => {
 			vi.mocked(MultimodalAttachments.useMultimodalAttachments).mockReturnValue(
 				{
-					hasVision: false,
 					pendingImage: null,
 					setPendingImage: mockSetPendingImage,
 					pendingAudio: null,
@@ -1444,7 +1452,6 @@ describe("useChat", () => {
 		it("does nothing when input is empty and no attachments", () => {
 			vi.mocked(MultimodalAttachments.useMultimodalAttachments).mockReturnValue(
 				{
-					hasVision: false,
 					pendingImage: null,
 					setPendingImage: mockSetPendingImage,
 					pendingAudio: null,
@@ -1548,6 +1555,47 @@ describe("useChat", () => {
 			expect(userMessages[1].content).toBe("Second");
 		});
 
+		it("re-sends the original user message with its attachments", async () => {
+			// Regenerating a reply to an image must resend the image: rebuilding
+			// the user message from its text alone silently drops the attachment.
+			mockGetApiMessagesForModel.mockReturnValue([
+				{ role: "user", content: "Describe this" },
+			]);
+			mockStreamModelResponse.mockResolvedValue({
+				rawContent: "",
+				content: "A cat",
+				thinkingContent: "",
+				tokensPerSecond: 10,
+				durationMs: 1000,
+				promptTokens: 10,
+				completionTokens: 20,
+				error: null,
+				aborted: false,
+			});
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.setMessages([
+					{
+						role: "user",
+						content: "Describe this",
+						timestamp: 1,
+						imageUrl: "data:image/png;base64,abc",
+					},
+					{ role: "assistant", content: "A dog", timestamp: 2 },
+				]);
+				result.current.setChatSelectedModel("test/model");
+			});
+			await act(async () => {
+				await result.current.handleRegenerate();
+			});
+
+			const userMessage = result.current.messages.find(
+				(m) => m.role === "user",
+			);
+			expect(userMessage?.imageUrl).toBe("data:image/png;base64,abc");
+			expect(mockGetApiMessagesForModel).toHaveBeenCalled();
+		});
+
 		it("shows a toast when regenerate resolves with an error result", async () => {
 			// streamModelResponse resolves (does not throw) with a non-aborted error,
 			// e.g. an upstream provider error surfaced on the stream.
@@ -1626,7 +1674,7 @@ describe("useChat", () => {
 			expect(result.current.messages).toEqual(storedMessages);
 		});
 
-		it("reads from localStorage 'conversationMessages' when persistConversation=true", () => {
+		it("reads from localStorage 'conversationMessages' in conversation mode", () => {
 			const storedMessages: ChatMessage[] = [
 				{ role: "user", content: "Persisted conversation", timestamp: 1 },
 			];
@@ -1635,6 +1683,14 @@ describe("useChat", () => {
 				"conversationMessages",
 				JSON.stringify(storedMessages),
 			);
+			vi.mocked(SidebarModeContext.useSidebarMode).mockReturnValue({
+				chatSubMode: "conversation",
+				setChatSubMode: vi.fn(),
+				arenaSubMode: "competition",
+				setArenaSubMode: vi.fn(),
+				logsSubMode: "request",
+				setLogsSubMode: vi.fn(),
+			});
 			vi.mocked(StorageContext.useStorage).mockReturnValue({
 				persistChat: false,
 				setPersistChat: vi.fn(),
@@ -1649,6 +1705,30 @@ describe("useChat", () => {
 			});
 			const { result } = renderHook(() => useChat());
 			expect(result.current.messages).toEqual(storedMessages);
+		});
+
+		it("does not read the conversation transcript into chat mode", () => {
+			localStorage.setItem("persistConversation", "true");
+			localStorage.setItem(
+				"conversationMessages",
+				JSON.stringify([
+					{ role: "user", content: "Persisted conversation", timestamp: 1 },
+				]),
+			);
+			vi.mocked(StorageContext.useStorage).mockReturnValue({
+				persistChat: false,
+				setPersistChat: vi.fn(),
+				persistArena: false,
+				setPersistArena: vi.fn(),
+				persistConversation: true,
+				setPersistConversation: vi.fn(),
+				arenaHistoryEnabled: false,
+				setArenaHistoryEnabled: vi.fn(),
+				arenaHistoryLimit: 25,
+				setArenaHistoryLimit: vi.fn(),
+			});
+			const { result } = renderHook(() => useChat());
+			expect(result.current.messages).toEqual([]);
 		});
 
 		it("returns empty array when no persistence is enabled", () => {

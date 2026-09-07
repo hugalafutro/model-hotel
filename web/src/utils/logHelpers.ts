@@ -1,3 +1,5 @@
+import { formatDuration } from "./format";
+
 /**
  * Error kinds (request_logs.error_kind) that represent an interruption rather
  * than a provider failure: the client went away, or a gateway/retry deadline
@@ -37,14 +39,12 @@ const isCancelledMessage = (errorMessage?: string): boolean => {
  *
  * Prefers the machine-readable error_kind; only falls back to substring
  * matching of the English error_message for legacy rows that have no kind.
- * Accepts either a log-like object ({ error_kind, error_message }) or a raw
- * error message string (legacy callers and unit tests).
  */
-export const isCancelled = (
-	log?: string | { error_kind?: string; error_message?: string },
-): boolean => {
+export const isCancelled = (log?: {
+	error_kind?: string;
+	error_message?: string;
+}): boolean => {
 	if (!log) return false;
-	if (typeof log === "string") return isCancelledMessage(log);
 	if (log.error_kind) return CANCELLED_KINDS.has(log.error_kind);
 	return isCancelledMessage(log.error_message);
 };
@@ -66,7 +66,7 @@ export const liveDurationMs = (createdAt: string, nowMs: number): number =>
  * identically.
  */
 export const formatDurationCell = (ms: number): string =>
-	ms >= 1000 ? `${(ms / 1000).toFixed(1)}s` : `${ms.toFixed(0)}ms`;
+	formatDuration(Math.round(ms));
 
 export type StatusBadgeVariant =
 	| "error"
@@ -159,3 +159,11 @@ export const getRowStatusVariant = (
 	if (isInProgress(log, nowMs, staleThresholdMs)) return "info";
 	return getStatusBadgeVariant(log.status_code, log);
 };
+
+/** Tokens per second for the log tables' TPS cell; absent or zero reads as "-". */
+export const formatTPS = (v: number | null): string =>
+	v == null || v === 0 ? "-" : v.toFixed(1);
+
+/** A sub-second latency in milliseconds; absent or zero reads as "-". */
+export const formatMs = (v: number | null | undefined, decimals = 2): string =>
+	v == null || v === 0 ? "-" : `${v.toFixed(decimals)}ms`;

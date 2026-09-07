@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../../components/ConfirmDialog";
 import { CopyButton } from "../../../components/CopyButton";
+import { Mono } from "./stepPrimitives";
 
 // DestinationList renders the saved Apprise targets as one readable row each:
 // which service it points at, which host, and the identifying segment (topic,
@@ -76,14 +77,7 @@ export function DestinationList({
 					>
 						<span className="ui-badge ui-badge-neutral">{kindLabel}</span>
 						<span className="text-(--text-secondary)">{info.host}</span>
-						{/* The theme's own mono face: Tailwind's font-mono is a fixed
-						    stack and would ignore the Terminal style's JetBrains Mono. */}
-						<code
-							className="text-xs text-(--text-primary) select-all break-all"
-							style={{ fontFamily: "var(--font-mono)" }}
-						>
-							{info.secret || info.url}
-						</code>
+						<Mono>{info.secret || info.url}</Mono>
 						<span className="flex items-center gap-1.5 ml-auto">
 							{/* Puts one target URL on the clipboard so it can be pasted
 							    into another Model Hotel or a service's own UI. */}

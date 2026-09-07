@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { GenerationParams } from "../../api/types";
-import { hasAnyParam } from "../params";
+import { hasAnyParam, PARAM_SPECS } from "../params";
 
 describe("hasAnyParam", () => {
 	it("returns false for empty object", () => {
@@ -85,5 +85,34 @@ describe("hasAnyParam", () => {
 		expect(hasAnyParam({ reasoning_effort: "high" })).toBe(true);
 		expect(hasAnyParam({ reasoning_effort: "medium" })).toBe(true);
 		expect(hasAnyParam({ reasoning_effort: "low" })).toBe(true);
+	});
+});
+
+describe("PARAM_SPECS", () => {
+	it("names the seven numeric parameters in slider order", () => {
+		expect(PARAM_SPECS.map((s) => s.key)).toEqual([
+			"temperature",
+			"max_tokens",
+			"top_p",
+			"min_p",
+			"top_k",
+			"frequency_penalty",
+			"presence_penalty",
+		]);
+	});
+
+	it("marks only the whole-number parameters as integer", () => {
+		expect(PARAM_SPECS.filter((s) => s.integer).map((s) => s.key)).toEqual([
+			"max_tokens",
+			"top_k",
+		]);
+	});
+
+	it("gives every parameter a usable range and a label key", () => {
+		for (const spec of PARAM_SPECS) {
+			expect(spec.max).toBeGreaterThan(spec.min);
+			expect(spec.step).toBeGreaterThan(0);
+			expect(spec.labelKey).toMatch(/^components\.modelDetailPanel\./);
+		}
 	});
 });

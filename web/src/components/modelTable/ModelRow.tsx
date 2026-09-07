@@ -59,7 +59,7 @@ export function ModelRow({
 							key={m.key}
 							className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border ${m.style}`}
 						>
-							{m.label}
+							{t(m.labelKey)}
 						</span>
 					))}
 					<OutputBadges outputModalities={model.output_modalities} />

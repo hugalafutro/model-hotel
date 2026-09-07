@@ -5,6 +5,19 @@
 	"applogs.filters.source": [
 		"fr"
 	],
+	"applogs.level.error": [
+		"ca",
+		"es"
+	],
+	"applogs.level.info": [
+		"da",
+		"de",
+		"fr",
+		"it",
+		"nl",
+		"no",
+		"sv"
+	],
 	"applogs.table.level": [
 		"de"
 	],
@@ -2229,7 +2242,7 @@
 	"dashboard.providerLatency.overheadTooltip": [
 		"el"
 	],
-	"dashboard.providers.tokenUnit": [
+	"dashboard.providers.tokens_one": [
 		"af",
 		"ca",
 		"cs",
@@ -2247,7 +2260,7 @@
 		"sv",
 		"vi"
 	],
-	"dashboard.providers.tokensUnit": [
+	"dashboard.providers.tokens_other": [
 		"af",
 		"ca",
 		"da",
@@ -3043,6 +3056,41 @@
 	"logs.tooltip.dial": [
 		"af",
 		"no"
+	],
+	"models.capPills.audio_input": [
+		"de",
+		"es",
+		"fr",
+		"it",
+		"nl",
+		"ro"
+	],
+	"models.capPills.parallel_tool_calls": [
+		"af",
+		"da",
+		"de",
+		"nl"
+	],
+	"models.capPills.pdf_upload": [
+		"*"
+	],
+	"models.capPills.video_input": [
+		"af",
+		"cs",
+		"da",
+		"de",
+		"fi",
+		"it",
+		"nl",
+		"no",
+		"ro",
+		"sk",
+		"sv",
+		"tr",
+		"vi"
+	],
+	"models.capPills.vision": [
+		"fr"
 	],
 	"models.detail.input": [
 		"ar",

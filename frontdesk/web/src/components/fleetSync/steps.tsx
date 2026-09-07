@@ -411,6 +411,15 @@ function MemberBadge({
 				{t("settings.wizard.badgeMatch")}
 			</span>
 		);
+	return <ConfigDelta member={member} />;
+}
+
+// ConfigDelta is what one member's config sync would change, as the +added /
+// ~updated / -removed badges ConfigLegend explains. A zero is left out rather
+// than shown as "+0". Rendered wherever those counts appear, so the legend
+// always describes what is on screen.
+export function ConfigDelta({ member }: { member: FleetMemberStatus }) {
+	const { t } = useTranslation();
 	return (
 		<span
 			className="fd-row"
@@ -495,7 +504,9 @@ export function WizardNav({
 					</button>
 				)}
 			</div>
-			<div className="fd-wizard-dots" aria-hidden="true">
+			{/* Not aria-hidden: every dot is a real, focusable navigation button,
+			    gated on its step being unlocked, and carries its own step label. */}
+			<div className="fd-wizard-dots">
 				{STEPS.map((s) => {
 					const state = s === step ? "current" : s < step ? "done" : "ahead";
 					const reachable = unlocked(s);

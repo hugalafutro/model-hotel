@@ -55,11 +55,7 @@ describe("api.virtualKeys", () => {
 				new Response(JSON.stringify(mockResponse), { status: 200 }),
 			);
 
-			const result = await api.virtualKeys.create(
-				requestBody.name,
-				requestBody.rate_limit_rps,
-				requestBody.rate_limit_burst,
-			);
+			const result = await api.virtualKeys.create(requestBody);
 
 			expect(result).toEqual(mockResponse);
 			expect(globalThis.fetch).toHaveBeenCalledWith(
@@ -79,7 +75,11 @@ describe("api.virtualKeys", () => {
 				}),
 			);
 
-			await api.virtualKeys.create("unlimited", null, null);
+			await api.virtualKeys.create({
+				name: "unlimited",
+				rate_limit_rps: null,
+				rate_limit_burst: null,
+			});
 
 			expect(globalThis.fetch).toHaveBeenCalledWith(
 				"/api/virtual-keys",
@@ -98,7 +98,7 @@ describe("api.virtualKeys", () => {
 				new Response("duplicate name", { status: 409 }),
 			);
 
-			await expect(api.virtualKeys.create("dup")).rejects.toThrow(
+			await expect(api.virtualKeys.create({ name: "dup" })).rejects.toThrow(
 				"Failed to create virtual key: 409 duplicate name",
 			);
 		});

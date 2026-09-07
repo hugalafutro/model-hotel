@@ -157,6 +157,38 @@ export function Dashboard() {
 		);
 	}
 
+	const requestsChart = (
+		<TimeSeriesChart
+			key="total"
+			data={acData}
+			range={requestsChartRange}
+			onRangeChange={setRequestsChartRange}
+			metric={t("dashboard.metricRequests")}
+			icon={Activity}
+			color={accents.requests}
+			label={t("dashboard.label.requests")}
+			dataKey="total"
+			loading={tsDataLoading}
+		/>
+	);
+	const tokensChart = (
+		<TimeSeriesChart
+			key="tokens"
+			data={tokenAcData}
+			range={tokensChartRange}
+			onRangeChange={setTokensChartRange}
+			metric={t("dashboard.metricTokens")}
+			icon={Hash}
+			color={accents.tokens}
+			label={t("dashboard.label.tokens")}
+			dataKey="tokens"
+			overlayDataKey="tokens_cache_hit"
+			overlayColor="var(--accent)"
+			overlayLabel={t("dashboard.chart.cacheHit")}
+			loading={tokenTsDataLoading}
+		/>
+	);
+
 	return (
 		<div className="space-y-6 pb-8">
 			{/* Page header */}
@@ -286,7 +318,7 @@ export function Dashboard() {
 									value={stats?.rate_limit_hits || 0}
 									decimals={0}
 									suffix=""
-									color="#a855f7"
+									color={accents.rateLimit}
 									onClick={() => setRateLimitModalOpen(true)}
 									tooltip={t("dashboard.gauge.viewRateLimitHistory")}
 									maxScale={Math.max(10, (stats?.rate_limit_hits || 0) * 1.5)}
@@ -309,9 +341,9 @@ export function Dashboard() {
 				}
 			/>
 			<StatCardsRow
-				globalRange={globalRange}
 				globalMetric={globalMetric}
 				rangeLabel={rangeLabel}
+				gaugeRequestCount={gaugeRequestCount}
 				totalTokens={totalTokens}
 				accents={accents}
 				stats={stats}
@@ -327,67 +359,9 @@ export function Dashboard() {
 
 			{/* Time-series charts row - selected metric renders first */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				{globalMetric === "requests" ? (
-					<>
-						<TimeSeriesChart
-							key="total"
-							data={acData}
-							range={requestsChartRange}
-							onRangeChange={setRequestsChartRange}
-							metric={t("dashboard.metricRequests")}
-							icon={Activity}
-							color={accents.requests}
-							label={t("dashboard.label.requests")}
-							dataKey="total"
-							loading={tsDataLoading}
-						/>
-						<TimeSeriesChart
-							key="tokens"
-							data={tokenAcData}
-							range={tokensChartRange}
-							onRangeChange={setTokensChartRange}
-							metric={t("dashboard.metricTokens")}
-							icon={Hash}
-							color={accents.tokens}
-							label={t("dashboard.label.tokens")}
-							dataKey="tokens"
-							overlayDataKey="tokens_cache_hit"
-							overlayColor="var(--accent)"
-							overlayLabel={t("dashboard.chart.cacheHit")}
-							loading={tokenTsDataLoading}
-						/>
-					</>
-				) : (
-					<>
-						<TimeSeriesChart
-							key="tokens"
-							data={tokenAcData}
-							range={tokensChartRange}
-							onRangeChange={setTokensChartRange}
-							metric={t("dashboard.metricTokens")}
-							icon={Hash}
-							color={accents.tokens}
-							label={t("dashboard.label.tokens")}
-							dataKey="tokens"
-							overlayDataKey="tokens_cache_hit"
-							overlayColor="var(--accent)"
-							overlayLabel={t("dashboard.chart.cacheHit")}
-							loading={tokenTsDataLoading}
-						/>
-						<TimeSeriesChart
-							key="total"
-							data={acData}
-							range={requestsChartRange}
-							onRangeChange={setRequestsChartRange}
-							metric={t("dashboard.metricRequests")}
-							icon={Activity}
-							color={accents.requests}
-							label={t("dashboard.label.requests")}
-							dataKey="total"
-							loading={tsDataLoading}
-						/>
-					</>
-				)}
+				{globalMetric === "requests"
+					? [requestsChart, tokensChart]
+					: [tokensChart, requestsChart]}
 			</div>
 
 			{/* Charts row: doughnut + token split */}
@@ -509,7 +483,7 @@ export function Dashboard() {
 				title={t("dashboard.modal.rateLimitHits")}
 				metric={t("dashboard.gauge.modal.rateLimitHitsMetric")}
 				icon={ShieldAlert}
-				color="#a855f7"
+				color={accents.rateLimit}
 				dataKey="rate_limit_hits"
 				label={t("dashboard.gauge.modal.rateLimitHitsLabel")}
 				allowDecimals={false}

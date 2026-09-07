@@ -1,9 +1,7 @@
-import { useLayoutEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
-import { X } from "@/lib/icons";
 import { AccentCalendar } from "../AccentCalendar";
 import { formatDateRangeShort } from "../AccentCalendar.utils";
+import { AnchoredPopover } from "../AnchoredPopover";
 
 interface DateRangePickerPopoverProps {
 	pickerYear: number;
@@ -25,9 +23,7 @@ interface DateRangePickerPopoverProps {
 }
 
 /**
- * Date range picker popover that uses a React Portal to escape any
- * overflow-hidden parent containers. Positions itself relative to the
- * trigger element using a provided containerRef.
+ * Date range picker in an AnchoredPopover, hanging from the date-range trigger.
  */
 export function DateRangePickerPopover({
 	pickerYear,
@@ -42,92 +38,15 @@ export function DateRangePickerPopover({
 	triggerRef,
 }: DateRangePickerPopoverProps) {
 	const { t } = useTranslation();
-	const popoverRef = useRef<HTMLDivElement>(null);
-	const [position, setPosition] = useState<{ top: number; left: number }>({
-		top: 0,
-		left: 0,
-	});
 
-	// Compute popover position relative to the trigger button.
-	// Re-computes on scroll/resize so the popover tracks its anchor.
-	// Uses data-popover-trigger for lookup — the trigger's aria-label changes
-	// when a date range is active, so querying by aria-label would return null.
-	useLayoutEffect(() => {
-		const scope = triggerRef?.current ?? document;
-		const trigger = scope.querySelector<HTMLElement>(
-			'[data-popover-trigger="date-range"]',
-		);
-		if (!trigger) return;
-
-		const popoverWidth = 288; // w-72 = 18rem = 288px
-		const gap = 8; // mt-2
-
-		const reposition = () => {
-			const triggerRect = trigger.getBoundingClientRect();
-			const top = triggerRect.bottom + gap;
-			let left =
-				anchor === "right"
-					? triggerRect.right - popoverWidth
-					: triggerRect.left;
-			// Clamp to viewport so the popover never renders off-screen.
-			const viewportWidth = window.innerWidth;
-			if (left < 0) left = 0;
-			if (left + popoverWidth > viewportWidth)
-				left = viewportWidth - popoverWidth;
-			setPosition({ top, left });
-		};
-
-		reposition();
-
-		window.addEventListener("scroll", reposition, true);
-		window.addEventListener("resize", reposition);
-		return () => {
-			window.removeEventListener("scroll", reposition, true);
-			window.removeEventListener("resize", reposition);
-		};
-	}, [anchor, triggerRef]);
-
-	// Close on click outside
-	useLayoutEffect(() => {
-		const scope = triggerRef?.current ?? document;
-		const handleClickOutside = (e: MouseEvent) => {
-			if (
-				popoverRef.current &&
-				!popoverRef.current.contains(e.target as Node)
-			) {
-				// Check if click is on the trigger button (which toggles the picker)
-				const trigger = scope.querySelector<HTMLElement>(
-					'[data-popover-trigger="date-range"]',
-				);
-				if (trigger?.contains(e.target as Node)) return;
-				onClose();
-			}
-		};
-		document.addEventListener("mousedown", handleClickOutside);
-		return () => document.removeEventListener("mousedown", handleClickOutside);
-	}, [onClose, triggerRef]);
-
-	const popover = (
-		<div
-			ref={popoverRef}
-			className="fixed w-72 p-4 ui-card shadow-2xl z-50"
-			style={{ top: position.top, left: position.left }}
+	return (
+		<AnchoredPopover
+			triggerSelector="date-range"
+			triggerRef={triggerRef}
+			anchor={anchor}
+			title={t("components.logs.dateRangePicker.selectDateRange")}
+			onClose={onClose}
 		>
-			<div className="flex items-center justify-between mb-3">
-				<span className="text-sm font-semibold text-(--text-primary)">
-					{t("components.logs.dateRangePicker.selectDateRange")}
-				</span>
-				<button
-					type="button"
-					onClick={onClose}
-					className="ui-icon-btn leading-none p-1"
-					title={t("components.logs.dateRangePicker.close")}
-					aria-label={t("components.logs.dateRangePicker.close")}
-				>
-					<X size={16} />
-				</button>
-			</div>
-
 			<AccentCalendar
 				initialYear={pickerYear}
 				initialMonth={pickerMonth}
@@ -165,8 +84,6 @@ export function DateRangePickerPopover({
 					{t("components.logs.dateRangePicker.apply")}
 				</button>
 			</div>
-		</div>
+		</AnchoredPopover>
 	);
-
-	return createPortal(popover, document.body);
 }

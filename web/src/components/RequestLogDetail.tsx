@@ -4,9 +4,8 @@ import {
 	AlertTriangle,
 	Box,
 	Calendar,
-	ChevronDown,
-	ChevronRight,
 	Clock,
+	DisclosureChevron,
 	Gauge,
 	Globe,
 	Hash,
@@ -17,14 +16,16 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { LogEntry } from "../api/types";
-import { formatMs } from "../pages/Logs/utils";
+import { formatLogTimestamp } from "../utils/logBadgeUtils";
+import { formatMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
+import { CollapseBody } from "./CollapsibleToggle";
 import { CopyablePill } from "./CopyablePill";
 import { DetailSectionHeader } from "./DetailSectionHeader";
 import { InfoHint } from "./InfoHint";
 import { DetailItem } from "./LogDetailItem";
 import { StatusBadge } from "./LogDetailStatusBadge";
-import { formatDateTime, splitDuration } from "./logDetailUtils";
+import { DurationFigure } from "./logDetailUtils";
 import { EndpointTypeBadge } from "./logs";
 import { MaybeJsonBlock } from "./MaybeJsonBlock";
 import { Modal } from "./Modal";
@@ -97,15 +98,7 @@ export function RequestLogDetail({
 				<div className="p-3 ui-stat-tile text-center">
 					<Clock size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						{(() => {
-							const d = splitDuration(requestLog.duration_ms);
-							return (
-								<>
-									{d.value}
-									<span className="text-(--text-tertiary)">{d.unit}</span>
-								</>
-							);
-						})()}
+						<DurationFigure ms={requestLog.duration_ms} />
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						{t("components.requestLogDetail.duration")}
@@ -117,17 +110,11 @@ export function RequestLogDetail({
 				<div className="p-3 ui-stat-tile text-center">
 					<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						{requestLog.response_header_ms > 0
-							? (() => {
-									const d = splitDuration(requestLog.response_header_ms);
-									return (
-										<>
-											{d.value}
-											<span className="text-(--text-tertiary)">{d.unit}</span>
-										</>
-									);
-								})()
-							: "-"}
+						{requestLog.response_header_ms > 0 ? (
+							<DurationFigure ms={requestLog.response_header_ms} />
+						) : (
+							"-"
+						)}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						{t("components.requestLogDetail.headers")}
@@ -139,17 +126,11 @@ export function RequestLogDetail({
 				<div className="p-3 ui-stat-tile text-center">
 					<Timer size={16} className="mx-auto mb-1 text-(--accent)" />
 					<div className="text-lg font-bold text-(--text-primary)">
-						{requestLog.ttft_ms > 0
-							? (() => {
-									const d = splitDuration(requestLog.ttft_ms);
-									return (
-										<>
-											{d.value}
-											<span className="text-(--text-tertiary)">{d.unit}</span>
-										</>
-									);
-								})()
-							: "-"}
+						{requestLog.ttft_ms > 0 ? (
+							<DurationFigure ms={requestLog.ttft_ms} />
+						) : (
+							"-"
+						)}
 					</div>
 					<div className="flex items-center justify-center gap-1 text-[10px] uppercase tracking-wider text-(--text-tertiary)">
 						{t("components.requestLogDetail.ttft")}
@@ -164,7 +145,7 @@ export function RequestLogDetail({
 						className={`text-lg font-bold ${requestLog.tokens_prompt_cache_hit > 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
 						title={
 							requestLog.tokens_prompt_cache_hit > 0
-								? t("components.virtualLogTable.cacheInflated")
+								? t("logs.table.cacheInflated")
 								: undefined
 						}
 					>
@@ -199,7 +180,7 @@ export function RequestLogDetail({
 				<DetailItem
 					icon={Calendar}
 					label={t("components.requestLogDetail.timestamp")}
-					value={formatDateTime(requestLog.created_at)}
+					value={formatLogTimestamp(requestLog.created_at)}
 				/>
 				<DetailItem
 					icon={Hash}
@@ -333,80 +314,84 @@ export function RequestLogDetail({
 						<span className="ml-auto font-mono text-(--accent)">
 							{formatMs(totalOverheadMs, 3)}
 						</span>
-						{overheadOpen ? (
-							<ChevronDown size={14} className="text-(--accent)" />
-						) : (
-							<ChevronRight size={14} className="text-(--accent)" />
-						)}
+						<DisclosureChevron
+							open={overheadOpen}
+							className="text-(--accent)"
+						/>
 					</button>
-					<div
-						className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-							overheadOpen ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-						}`}
-					>
-						<div className="overflow-hidden">
-							<div className="space-y-2 mt-3">
-								{[
-									{
-										label: t("components.requestLogDetail.requestParsing"),
-										value: requestLog.parse_ms,
-										tooltip: t(
-											"components.requestLogDetail.timeToParseRequest",
-										),
-										cacheHit: null as boolean | null,
-									},
-									{
-										label: t("components.requestLogDetail.failoverGroupLookup"),
-										value: requestLog.failover_lookup_ms,
-										tooltip: t(
-											"components.requestLogDetail.timeToResolveFailover",
-										),
-										cacheHit: requestLog.cache_hits?.failover ?? null,
-									},
-									{
-										label: t("components.requestLogDetail.modelLookup"),
-										value: requestLog.model_lookup_ms,
-										tooltip: t("components.requestLogDetail.timeToLookupModel"),
-										cacheHit: requestLog.cache_hits?.model ?? null,
-									},
-									{
-										label: t("components.requestLogDetail.providerLookup"),
-										value: requestLog.provider_lookup_ms,
-										tooltip: t(
-											"components.requestLogDetail.timeToLookupProvider",
-										),
-										cacheHit: requestLog.cache_hits?.provider ?? null,
-									},
-									{
-										label: t("components.requestLogDetail.keyDecryption"),
-										value: requestLog.key_decrypt_ms,
-										tooltip: t("components.requestLogDetail.timeToDecryptKey"),
-										cacheHit: requestLog.cache_hits?.key ?? null,
-									},
-									{
-										label: t("components.requestLogDetail.dialDnsTcp"),
-										value: requestLog.dial_ms,
-										tooltip: t(
-											"components.requestLogDetail.timeToEstablishTcp",
-										),
-										cacheHit: null as boolean | null,
-									},
-									{
-										label: t("components.requestLogDetail.settingsReads"),
-										value: requestLog.settings_read_ms,
-										tooltip: t(
-											"components.requestLogDetail.timeToReadSettings",
-										),
-										cacheHit: requestLog.cache_hits?.settings ?? null,
-									},
-								].map(
-									({ label, value, tooltip, cacheHit }) =>
-										(value > 0 ||
-											(label === t("components.requestLogDetail.dialDnsTcp") &&
-												value === 0)) && (
-											<div key={label} className="flex justify-between text-sm">
+					<CollapseBody collapsed={!overheadOpen}>
+						<div className="space-y-2 mt-3">
+							{[
+								{
+									key: "parse",
+									labelKey: "components.requestLogDetail.requestParsing",
+									value: requestLog.parse_ms,
+									tooltipKey: "components.requestLogDetail.timeToParseRequest",
+									cacheHit: null as boolean | null,
+								},
+								{
+									key: "failover",
+									labelKey: "components.requestLogDetail.failoverGroupLookup",
+									value: requestLog.failover_lookup_ms,
+									tooltipKey:
+										"components.requestLogDetail.timeToResolveFailover",
+									cacheHit: requestLog.cache_hits?.failover ?? null,
+								},
+								{
+									key: "model",
+									labelKey: "components.requestLogDetail.modelLookup",
+									value: requestLog.model_lookup_ms,
+									tooltipKey: "components.requestLogDetail.timeToLookupModel",
+									cacheHit: requestLog.cache_hits?.model ?? null,
+								},
+								{
+									key: "provider",
+									labelKey: "components.requestLogDetail.providerLookup",
+									value: requestLog.provider_lookup_ms,
+									tooltipKey:
+										"components.requestLogDetail.timeToLookupProvider",
+									cacheHit: requestLog.cache_hits?.provider ?? null,
+								},
+								{
+									key: "key",
+									labelKey: "components.requestLogDetail.keyDecryption",
+									value: requestLog.key_decrypt_ms,
+									tooltipKey: "components.requestLogDetail.timeToDecryptKey",
+									cacheHit: requestLog.cache_hits?.key ?? null,
+								},
+								{
+									key: "dial",
+									labelKey: "components.requestLogDetail.dialDnsTcp",
+									value: requestLog.dial_ms,
+									tooltipKey: "components.requestLogDetail.timeToEstablishTcp",
+									cacheHit: null as boolean | null,
+									// A zero dial is not "no time spent": the connection
+									// came from the pool, which is worth saying.
+									reusedWhenZero: true,
+								},
+								{
+									key: "settings",
+									labelKey: "components.requestLogDetail.settingsReads",
+									value: requestLog.settings_read_ms,
+									tooltipKey: "components.requestLogDetail.timeToReadSettings",
+									cacheHit: requestLog.cache_hits?.settings ?? null,
+								},
+							]
+								.filter((row) => row.value > 0 || row.reusedWhenZero)
+								.map(
+									({
+										key,
+										labelKey,
+										value,
+										tooltipKey,
+										cacheHit,
+										reusedWhenZero,
+									}) => {
+										const tooltip = t(tooltipKey);
+										return (
+											<div key={key} className="flex justify-between text-sm">
 												<span className="flex items-center gap-1 text-(--text-secondary)">
-													{label}
+													{t(labelKey)}
 													<InfoHint
 														tooltip={
 															cacheHit === null
@@ -426,27 +411,25 @@ export function RequestLogDetail({
 																: "text-(--text-primary)"
 													}`}
 												>
-													{label ===
-														t("components.requestLogDetail.dialDnsTcp") &&
-													value === 0
+													{reusedWhenZero && value === 0
 														? t("components.requestLogDetail.reused")
 														: formatMs(value, 3)}
 												</span>
 											</div>
-										),
+										);
+									},
 								)}
-								<div className="border-t border-(--border-default) my-2" />
-								<div className="flex justify-between text-sm font-semibold">
-									<span className="text-(--text-primary)">
-										{t("components.requestLogDetail.totalOverhead")}
-									</span>
-									<span className="font-mono text-(--accent)">
-										{formatMs(totalOverheadMs, 3)}
-									</span>
-								</div>
+							<div className="border-t border-(--border-default) my-2" />
+							<div className="flex justify-between text-sm font-semibold">
+								<span className="text-(--text-primary)">
+									{t("components.requestLogDetail.totalOverhead")}
+								</span>
+								<span className="font-mono text-(--accent)">
+									{formatMs(totalOverheadMs, 3)}
+								</span>
 							</div>
 						</div>
-					</div>
+					</CollapseBody>
 				</div>
 			)}
 

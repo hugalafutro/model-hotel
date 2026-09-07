@@ -674,7 +674,7 @@ describe("Logs", () => {
 		});
 	});
 
-	describe("parseGoDuration via Custom Stale Timeout", () => {
+	describe("custom stale timeout from settings", () => {
 		it("uses custom stale timeout from settings with hours", async () => {
 			// Override settings with custom stale timeout (1h30m)
 			// Entry is 80 min old, so should NOT be stale

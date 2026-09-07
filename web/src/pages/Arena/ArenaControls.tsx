@@ -7,16 +7,10 @@ import { PersonaPicker } from "../../components/PersonaPicker";
 import { PromptPicker } from "../../components/PromptPicker";
 import { SubModeToggle } from "../../components/SubModeToggle";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../../data/presets";
-import type { ArenaRefs, ArenaView } from "./useArena";
+import type { ArenaView } from "./useArena";
 
 /** The controls card: sub-mode, prompt, persona and model selection, plus the history, clear and reset actions. */
-export function ArenaControls({
-	arena,
-	abortMapRef,
-}: {
-	arena: ArenaView;
-	abortMapRef: ArenaRefs["abortMapRef"];
-}) {
+export function ArenaControls({ arena }: { arena: ArenaView }) {
 	const { t } = useTranslation();
 	return (
 		<div className="ui-card p-4">
@@ -69,16 +63,7 @@ export function ArenaControls({
 								<ActionIconButton
 									icon={Eraser}
 									onClick={() => {
-										for (const [, ctrl] of abortMapRef.current) {
-											ctrl.abort();
-										}
-										abortMapRef.current.clear();
-										arena.setRounds([]);
-										arena.setCurrentRound(0);
-										arena.setPhase("setup");
-										arena.setRunningModels(new Set());
-										arena.setWinnerModal(null);
-										arena.setDisabledModels(new Set());
+										arena.clearResults();
 										arena.toast(t("arena.toast.cleared"), "info");
 									}}
 									title={t("arena.clearResults.title")}

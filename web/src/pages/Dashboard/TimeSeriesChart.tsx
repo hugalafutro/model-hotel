@@ -1,3 +1,4 @@
+import { clamp } from "@web-shared/format";
 import type React from "react";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -97,7 +98,7 @@ export function TimeSeriesChart({
 	// If user hasn't panned, always show latest data (maxStart).
 	// Otherwise, clamp their position to the valid range.
 	const effectiveStart =
-		userStart !== null ? Math.max(0, Math.min(userStart, maxStart)) : maxStart;
+		userStart !== null ? clamp(userStart, 0, maxStart) : maxStart;
 
 	const visibleData = pannable
 		? data.slice(effectiveStart, effectiveStart + viewportSize)
@@ -161,10 +162,7 @@ export function TimeSeriesChart({
 			const pxPerBucket = containerWidth / viewportSize;
 			// Drag right = see older data (lower start), drag left = see newer data
 			const bucketShift = Math.round(-dx / pxPerBucket);
-			const newStart = Math.max(
-				0,
-				Math.min(maxStart, startOffset + bucketShift),
-			);
+			const newStart = clamp(startOffset + bucketShift, 0, maxStart);
 			panTo(newStart);
 		},
 		[maxStart, viewportSize, panTo, range],
@@ -191,28 +189,32 @@ export function TimeSeriesChart({
 			e.preventDefault();
 			// Scroll right (positive delta) = see older data (decrease start)
 			const shift = rawDelta > 0 ? -1 : 1;
-			const newStart = Math.max(0, Math.min(maxStart, effectiveStart + shift));
+			const newStart = clamp(effectiveStart + shift, 0, maxStart);
 			panTo(newStart);
 		},
 		[pannable, maxStart, effectiveStart, panTo],
 	);
 
+	const header = (
+		<div className="flex items-center justify-between mb-4">
+			<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
+				<Icon size={18} style={{ color }} />
+				{metric} /{" "}
+				{range === "1h"
+					? t("dashboard.chart.hour")
+					: range === "1w"
+						? t("dashboard.chart.week")
+						: t("dashboard.chart.day")}
+				{loading && <Spinner className="ml-1" />}
+			</h3>
+			{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
+		</div>
+	);
+
 	if (data.length === 0) {
 		return (
 			<div className="ui-card p-6">
-				<div className="flex items-center justify-between mb-4">
-					<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
-						<Icon size={18} style={{ color }} />
-						{metric} /{" "}
-						{range === "1h"
-							? t("dashboard.chart.hour")
-							: range === "1w"
-								? t("dashboard.chart.week")
-								: t("dashboard.chart.day")}
-						{loading && <Spinner className="ml-1" />}
-					</h3>
-					{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
-				</div>
+				{header}
 				<p className="text-sm text-(--text-muted) text-center py-12">
 					{t("dashboard.chart.emptyState", { metric })}
 				</p>
@@ -224,19 +226,7 @@ export function TimeSeriesChart({
 
 	return (
 		<div className="ui-card p-6">
-			<div className="flex items-center justify-between mb-4">
-				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
-					<Icon size={18} style={{ color }} />
-					{metric} /{" "}
-					{range === "1h"
-						? t("dashboard.chart.hour")
-						: range === "1w"
-							? t("dashboard.chart.week")
-							: t("dashboard.chart.day")}
-					{loading && <Spinner className="ml-1" />}
-				</h3>
-				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
-			</div>
+			{header}
 			<div
 				style={{
 					height,

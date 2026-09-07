@@ -75,6 +75,8 @@ export function ProviderSection({
 	const dismissable = [...retired, ...gone, ...stale].map((c) => c.model_id);
 	const pointlessRetest = retestProvesNothing(p);
 	const all = ALL_GROUPS.flatMap((g) => p[g] ?? []);
+	const dismissed = all.filter((c) => c.status === "dismissed");
+	const relisted = all.filter((c) => c.status === "resolved");
 	const regionId = `${regionIdBase}-provider-${p.provider_id}`;
 	const bucket = (group: Group) => (
 		<BucketSection
@@ -108,8 +110,8 @@ export function ProviderSection({
 						retired: retired.length,
 					}}
 					cleared={{
-						dismissed: all.filter((c) => c.status === "dismissed").length,
-						resolved: all.filter((c) => c.status === "resolved").length,
+						dismissed: dismissed.length,
+						resolved: relisted.length,
 					}}
 					isCleared={isCleared}
 					canDismiss={dismissable.length > 0}
@@ -150,7 +152,12 @@ export function ProviderSection({
 					// Clean. Dropping them here would be the vanishing-rows complaint
 					// one level up.
 					<div className="space-y-2 pl-5">
-						{isCleared ? <ClearedSummary provider={p} /> : null}
+						{isCleared ? (
+							<ClearedSummary
+								dismissed={dismissed.length}
+								relisted={relisted}
+							/>
+						) : null}
 						{bucket("retired")}
 						{bucket("gone")}
 						{bucket("suspect")}

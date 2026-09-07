@@ -1,4 +1,5 @@
 import type { ChatMessage } from "../../api/types";
+import { shortModelName } from "../../utils/model";
 
 /**
  * The last failed assistant reply in chat mode, but only if it came from the
@@ -33,8 +34,8 @@ export function failedConversationModel(
 ): string | undefined {
 	if (chatSubMode !== "conversation" || conversationState !== "error")
 		return undefined;
-	const lastErr = [...messages].reverse().find((m) => m.error);
-	return lastErr?.model ? lastErr.model.split("/").pop() : undefined;
+	const lastErr = messages.findLast((m) => m.error);
+	return lastErr?.model ? shortModelName(lastErr.model) : undefined;
 }
 
 /** Token and wall-clock totals across every reply that reported metrics. */

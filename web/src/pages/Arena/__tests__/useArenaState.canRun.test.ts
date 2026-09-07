@@ -1,5 +1,5 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useArenaState } from "../useArenaState";
 import {
 	arenaHistoryMocks,
@@ -287,6 +287,13 @@ describe("useArenaState", () => {
 	});
 
 	describe("stale-selection reconciliation", () => {
+		beforeEach(() => {
+			persistRef.current = true;
+		});
+		afterEach(() => {
+			persistRef.current = false;
+		});
+
 		// A persisted line-up can contain an id that is no longer a valid chat
 		// model (e.g. it became an embedding/rerank model, or got disabled).
 		// Once the chat list loads, those ids are dropped so a run can't start

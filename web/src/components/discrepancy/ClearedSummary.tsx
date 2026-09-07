@@ -1,6 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { MergedProvider } from "../../hooks/useDiscrepancies";
-import { ALL_GROUPS } from "./groups";
+import type { MergedClaim } from "../../hooks/useDiscrepancies";
 
 /**
  * Headline over a cleared provider's buckets, reporting the TWO causes
@@ -11,17 +10,22 @@ import { ALL_GROUPS } from "./groups";
  * click away in their bucket. Resolved rows keep their per-model line, because
  * "is listed again" says something the count cannot.
  */
-export function ClearedSummary({ provider }: { provider: MergedProvider }) {
+export function ClearedSummary({
+	dismissed,
+	relisted,
+}: {
+	/** How many rows the operator dismissed, counted by ProviderSection. */
+	dismissed: number;
+	/** The rows the provider lists again, each one named below the headline. */
+	relisted: MergedClaim[];
+}) {
 	const { t } = useTranslation();
-	const all = ALL_GROUPS.flatMap((g) => provider[g] ?? []);
-	const dismissed = all.filter((c) => c.status === "dismissed");
-	const relisted = all.filter((c) => c.status === "resolved");
 	return (
 		<div
 			data-testid="discrepancy-resolved"
 			className="space-y-1 rounded-(--radius-box) border border-(--border-default) bg-(--surface-elevated) px-2.5 py-2"
 		>
-			{dismissed.length > 0 ? (
+			{dismissed > 0 ? (
 				<div className="flex items-center gap-2">
 					<span className="ui-badge ui-badge-neutral shrink-0">✓</span>
 					<span
@@ -29,7 +33,7 @@ export function ClearedSummary({ provider }: { provider: MergedProvider }) {
 						data-testid="discrepancy-dismissed-summary"
 					>
 						{t("providers.discrepancies.dismissedSummary", {
-							count: dismissed.length,
+							count: dismissed,
 						})}
 					</span>
 				</div>

@@ -2,18 +2,33 @@ import { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model, Provider } from "../api/types";
 import { useWheelPaging } from "../hooks/useWheelPaging";
+import { toggleInSet } from "../utils/collections";
 import { formatDate, formatRelativeTime, formatTokens } from "../utils/format";
 import {
 	nonTextOutputs,
 	parseCapabilities,
 	proxyModelID,
 } from "../utils/model";
+import { sortByName } from "../utils/sort";
 import { CapBadge } from "./CapBadge";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { CopyablePill } from "./CopyablePill";
-import { CAP_META, type CapKey, hasCap, matchesAllCaps } from "./capMeta";
+import {
+	CAP_DISABLED,
+	CAP_META,
+	type CapKey,
+	hasCap,
+	matchesAllCaps,
+} from "./capMeta";
 import type { SortState } from "./DataTable";
-import { EmptyRow, PaginationBar, Row, SortableHeader } from "./DataTable";
+import {
+	EmptyRow,
+	PaginationBar,
+	Row,
+	SortableHeader,
+	StaticHeaderNoArrow,
+	toggleSort,
+} from "./DataTable";
 import { FilterDropdown } from "./FilterDropdown";
 import { FilterInput } from "./FilterInput";
 import {
@@ -43,6 +58,24 @@ export interface ModelTableProps {
 	/** When provided, shows a "Delete disabled" button. Called with IDs of disabled models. */
 	onDeleteDisabled?: (ids: string[]) => void;
 }
+
+/** Enabled, manually disabled, or disabled by discovery. */
+function modelStatus(model: Model): "enabled" | "manual" | "disabled" {
+	if (!model.enabled) return "disabled";
+	return model.disabled_manually ? "manual" : "enabled";
+}
+
+const STATUS_BADGE = {
+	enabled: "ui-badge-success",
+	manual: "ui-badge-warning",
+	disabled: "ui-badge-error",
+} as const;
+
+const STATUS_LABEL_KEY = {
+	enabled: "common.enabled",
+	manual: "common.manuallyDisabled",
+	disabled: "common.disabled",
+} as const;
 
 export function ModelTable({
 	models,
@@ -77,22 +110,14 @@ export function ModelTable({
 
 	const { sortedAndFiltered, pillAvailability, existingCaps, existingOutputs } =
 		useMemo(() => {
-			if (!models) {
-				return {
-					sortedAndFiltered: [],
-					pillAvailability: new Map<CapKey, boolean>(),
-					existingCaps: new Set<CapKey>(),
-					existingOutputs: new Set<string>(),
-				};
-			}
-
+			const q = searchQuery.toLowerCase();
 			const baseFiltered = models.filter(
 				(model) =>
 					proxyModelID(model.provider_name, model.model_id)
 						.toLowerCase()
-						.includes(searchQuery.toLowerCase()) ||
-					model.name?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-					model.display_name?.toLowerCase().includes(searchQuery.toLowerCase()),
+						.includes(q) ||
+					model.name?.toLowerCase().includes(q) ||
+					model.display_name?.toLowerCase().includes(q),
 			);
 
 			const capsInData = new Set<CapKey>();
@@ -198,30 +223,17 @@ export function ModelTable({
 	const disabledCount = disabledModelIds.length;
 
 	const toggleCapFilter = useCallback((key: CapKey) => {
-		setCapFilter((prev) => {
-			const next = new Set(prev);
-			if (next.has(key)) next.delete(key);
-			else next.add(key);
-			return next;
-		});
+		setCapFilter((prev) => toggleInSet(prev, key));
 		setCurrentPage(1);
 	}, []);
 
 	const toggleOutputFilter = useCallback((key: string) => {
-		setOutputFilter((prev) => {
-			const next = new Set(prev);
-			if (next.has(key)) next.delete(key);
-			else next.add(key);
-			return next;
-		});
+		setOutputFilter((prev) => toggleInSet(prev, key));
 		setCurrentPage(1);
 	}, []);
 
 	const handleSort = (field: SortField) => {
-		setSort((prev) => ({
-			field,
-			dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
-		}));
+		setSort((prev) => toggleSort(prev, field));
 		setCurrentPage(1);
 	};
 
@@ -254,9 +266,10 @@ export function ModelTable({
 							allLabel={t("failover.filter_providers", {
 								count: providers.length,
 							})}
-							options={[...providers]
-								.sort((a, b) => a.name.localeCompare(b.name))
-								.map((p) => ({ value: p.id, label: p.name }))}
+							options={sortByName(providers).map((p) => ({
+								value: p.id,
+								label: p.name,
+							}))}
 							className="w-[220px] shrink-0"
 						/>
 					)}
@@ -286,7 +299,7 @@ export function ModelTable({
 					)}
 				</div>
 				<div className="flex-1 flex justify-end">
-					{models && models.length > 0 && (
+					{models.length > 0 && (
 						<PaginationBar
 							page={currentPage}
 							totalPages={totalPages}
@@ -323,12 +336,9 @@ export function ModelTable({
 								onSort={handleSort}
 								tooltip={t("components.modelTable.modelNameAndId")}
 							/>
-							<th
-								className="px-4 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text"
-								title={t("components.modelDetailPanel.capabilities")}
-							>
+							<StaticHeaderNoArrow>
 								{t("components.modelDetailPanel.capabilities")}
-							</th>
+							</StaticHeaderNoArrow>
 							{showProviderCol && (
 								<SortableHeader
 									label={t("components.modelTable.provider")}
@@ -385,9 +395,9 @@ export function ModelTable({
 												disabled={isDisabled}
 												aria-pressed={isActive}
 												onClick={() => toggleCapFilter(m.key)}
-												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : isDisabled ? m.disabled : m.muted}`}
+												className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${isActive ? m.style : isDisabled ? CAP_DISABLED : m.muted}`}
 											>
-												{m.label}
+												{t(m.labelKey)}
 											</button>
 										);
 									})}
@@ -496,7 +506,7 @@ export function ModelTable({
 												</span>
 											) : (
 												<span
-													className={`ui-badge px-2 py-px leading-[1.6] text-xs ${model.enabled && !model.disabled_manually ? "ui-badge-success" : model.enabled && model.disabled_manually ? "ui-badge-warning" : "ui-badge-error"}`}
+													className={`ui-badge px-2 py-px leading-[1.6] text-xs ${STATUS_BADGE[modelStatus(model)]}`}
 													{...(!model.enabled && !model.disabled_manually
 														? {
 																title: t("models.disabledByDiscovery", {
@@ -507,11 +517,7 @@ export function ModelTable({
 														: {})}
 												>
 													<span className="badge-text">
-														{model.enabled && !model.disabled_manually
-															? t("common.enabled")
-															: model.enabled && model.disabled_manually
-																? t("common.manuallyDisabled")
-																: t("common.disabled")}
+														{t(STATUS_LABEL_KEY[modelStatus(model)])}
 													</span>
 												</span>
 											)}

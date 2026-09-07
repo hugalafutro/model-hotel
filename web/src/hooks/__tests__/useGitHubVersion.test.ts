@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockSettings, mockVersionLatest } from "../../test/helpers";
 import { server } from "../../test/mocks/server";
+import { createQueryWrapper } from "../../test/utils";
 import { useGitHubVersion } from "../useGitHubVersion";
 
 const STORAGE_KEY = "github-latest-version";
@@ -16,7 +17,9 @@ describe("useGitHubVersion", () => {
 		server.use(...mockSettings({ status: 500 }));
 		server.use(...mockVersionLatest({ status: 500 }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 		expect(result.current.running).toBe("dev");
 		expect(result.current.latest).toBe("GitHub");
 		expect(result.current.updateAvailable).toBe(false);
@@ -26,13 +29,13 @@ describe("useGitHubVersion", () => {
 		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
 		server.use(...mockVersionLatest({ status: 500 }));
 
-		const { result } = renderHook(() => useGitHubVersion());
-
-		await act(async () => {
-			await new Promise((r) => setTimeout(r, 0));
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
 		});
 
-		expect(result.current.running).toBe("v1.0.0");
+		await waitFor(() => {
+			expect(result.current.running).toBe("v1.0.0");
+		});
 	});
 
 	it("returns the build commit from settings API", async () => {
@@ -41,7 +44,9 @@ describe("useGitHubVersion", () => {
 		);
 		server.use(...mockVersionLatest({ status: 500 }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await waitFor(() => expect(result.current.commit).toBe("abc1234"));
 	});
@@ -52,7 +57,9 @@ describe("useGitHubVersion", () => {
 		);
 		server.use(...mockVersionLatest({ status: 500 }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -66,7 +73,9 @@ describe("useGitHubVersion", () => {
 		localStorage.setItem(STORAGE_KEY, cached);
 
 		server.use(...mockVersionLatest({ status: 500 }));
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 		expect(result.current.latest).toBe("v0.1.2");
 	});
 
@@ -75,7 +84,9 @@ describe("useGitHubVersion", () => {
 		localStorage.setItem(STORAGE_KEY, cached);
 
 		const fetchSpy = vi.spyOn(globalThis, "fetch");
-		renderHook(() => useGitHubVersion());
+		renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -95,7 +106,9 @@ describe("useGitHubVersion", () => {
 
 		server.use(...mockVersionLatest({ body: { tag_name: "v0.2" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 		// Starts from the stale cached tag...
 		expect(result.current.latest).toBe("v0.1.1");
 
@@ -109,7 +122,9 @@ describe("useGitHubVersion", () => {
 	it("updates latest from API response", async () => {
 		server.use(...mockVersionLatest({ body: { tag_name: "v0.2" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 		expect(result.current.latest).toBe("GitHub");
 
 		await act(async () => {
@@ -122,7 +137,9 @@ describe("useGitHubVersion", () => {
 	it("caches fetched version in localStorage", async () => {
 		server.use(...mockVersionLatest({ body: { tag_name: "v0.2" } }));
 
-		renderHook(() => useGitHubVersion());
+		renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -147,7 +164,9 @@ describe("useGitHubVersion", () => {
 
 		server.use(...mockVersionLatest({ status: 403 }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 		expect(result.current.latest).toBe("v0.1.2");
 
 		await act(async () => {
@@ -170,7 +189,9 @@ describe("useGitHubVersion", () => {
 
 		server.use(...mockVersionLatest({ status: 500 }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -182,7 +203,9 @@ describe("useGitHubVersion", () => {
 	it("ignores response without tag_name", async () => {
 		server.use(...mockVersionLatest({ body: { message: "Not Found" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -195,13 +218,13 @@ describe("useGitHubVersion", () => {
 		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
 		server.use(...mockVersionLatest({ body: { tag_name: "v1.1.0" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
-
-		await act(async () => {
-			await new Promise((r) => setTimeout(r, 0));
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
 		});
 
-		expect(result.current.running).toBe("v1.0.0");
+		await waitFor(() => {
+			expect(result.current.running).toBe("v1.0.0");
+		});
 		expect(result.current.latest).toBe("v1.1.0");
 		expect(result.current.isDev).toBe(false);
 		expect(result.current.updateAvailable).toBe(true);
@@ -211,7 +234,9 @@ describe("useGitHubVersion", () => {
 		server.use(...mockSettings({ body: { app_version: "v1.0.0" } }));
 		server.use(...mockVersionLatest({ body: { tag_name: "v1.0.0" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -224,7 +249,9 @@ describe("useGitHubVersion", () => {
 		server.use(...mockSettings({ body: { app_version: "dev" } }));
 		server.use(...mockVersionLatest({ body: { tag_name: "v1.0.0" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -240,7 +267,9 @@ describe("useGitHubVersion", () => {
 		server.use(...mockSettings({ body: { app_version: "0.9.80" } }));
 		server.use(...mockVersionLatest({ body: { tag_name: "nightly" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -256,7 +285,9 @@ describe("useGitHubVersion", () => {
 		server.use(...mockSettings({ body: { app_version: "v1.0.0-beta" } }));
 		server.use(...mockVersionLatest({ body: { tag_name: "v1.0.0" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));
@@ -272,7 +303,9 @@ describe("useGitHubVersion", () => {
 		server.use(...mockSettings({ body: { app_version: "0.9.80" } }));
 		server.use(...mockVersionLatest({ body: { tag_name: "v0.9.81" } }));
 
-		const { result } = renderHook(() => useGitHubVersion());
+		const { result } = renderHook(() => useGitHubVersion(), {
+			wrapper: createQueryWrapper(),
+		});
 
 		await act(async () => {
 			await new Promise((r) => setTimeout(r, 0));

@@ -1,12 +1,14 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { type SubmitEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Eye, EyeOff } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { Provider } from "../../api/types";
+import { ErrorCallout } from "../../components/ErrorCallout";
 import { FilterDropdown } from "../../components/FilterDropdown";
 import { Modal } from "../../components/Modal";
+import { RevealableInput } from "../../components/RevealableInput";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
+import { errorMessage } from "../../utils/errors";
 import {
 	baseUrls,
 	hasEditableBaseUrl,
@@ -14,10 +16,38 @@ import {
 	localProviderPlaceholders,
 	providerTypeAllowsEmptyKey,
 	providerTypeHasFreeModels,
+	providerTypeOptions,
 	providerTypeTranslationKeys,
 } from "./constants";
 import { findProviderAtAddress } from "./duplicateAddress";
 import { providerTypeGateMessage } from "./typeGateError";
+
+/** Provider types whose quota is read through the same usage endpoint. */
+const USAGE_DETECT: Record<string, { toastKey: string; queryKey: string }> = {
+	nanogpt: {
+		toastKey: "providers.toast_quota_detected_nanogpt",
+		queryKey: "nanogpt-usage",
+	},
+	"zai-coding": {
+		toastKey: "providers.toast_quota_detected_zai",
+		queryKey: "zai-coding-usage",
+	},
+	"kimi-code": {
+		toastKey: "providers.toast_quota_detected_kimi",
+		queryKey: "kimi-code-usage",
+	},
+	minimax: {
+		toastKey: "providers.toast_quota_detected_minimax",
+		queryKey: "minimax-usage",
+	},
+};
+
+const EMPTY_FORM = {
+	name: "",
+	base_url: "",
+	api_key: "",
+	provider_type: "custom",
+};
 
 interface AddProviderModalProps {
 	onClose: () => void;
@@ -54,18 +84,7 @@ export function AddProviderModal({
 	const queryClient = useQueryClient();
 	const refreshBadge = useRefreshDiscoveryBadge();
 	const { t } = useTranslation();
-	const [formData, setFormData] = useState<{
-		name: string;
-		base_url: string;
-		api_key: string;
-		provider_type: string;
-	}>({
-		name: "",
-		base_url: "",
-		api_key: "",
-		provider_type: "custom",
-	});
-	const [showApiKey, setShowApiKey] = useState(false);
+	const [formData, setFormData] = useState(EMPTY_FORM);
 	const [error, setError] = useState<string | null>(null);
 
 	const createMutation = useMutation({
@@ -78,13 +97,6 @@ export function AddProviderModal({
 		onSuccess: async (newProvider) => {
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			onClose();
-			setFormData({
-				name: "",
-				base_url: "",
-				api_key: "",
-				provider_type: "custom",
-			});
-			setError(null);
 			onToast(
 				t("providers.toast_provider_added", { name: newProvider.name }),
 				"success",
@@ -101,8 +113,7 @@ export function AddProviderModal({
 				} catch (e) {
 					onToast(
 						t("providers.toast_discover_failed", {
-							message:
-								e instanceof Error ? e.message : t("common.unknownError"),
+							message: errorMessage(e, t("common.unknownError")),
 						}),
 						"warning",
 					);
@@ -120,27 +131,14 @@ export function AddProviderModal({
 
 			// Try to detect quota/balance for providers that support it
 			try {
+				const usage = USAGE_DETECT[providerType];
+				if (usage) {
+					await api.providers.getUsage(newProvider.id);
+					onToast(t(usage.toastKey), "info");
+					queryClient.invalidateQueries({ queryKey: [usage.queryKey] });
+					return;
+				}
 				switch (providerType) {
-					case "nanogpt":
-						await api.providers.getUsage(newProvider.id);
-						onToast(t("providers.toast_quota_detected_nanogpt"), "info");
-						queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
-						break;
-					case "zai-coding":
-						await api.providers.getUsage(newProvider.id);
-						onToast(t("providers.toast_quota_detected_zai"), "info");
-						queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
-						break;
-					case "kimi-code":
-						await api.providers.getUsage(newProvider.id);
-						onToast(t("providers.toast_quota_detected_kimi"), "info");
-						queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
-						break;
-					case "minimax":
-						await api.providers.getUsage(newProvider.id);
-						onToast(t("providers.toast_quota_detected_minimax"), "info");
-						queryClient.invalidateQueries({ queryKey: ["minimax-usage"] });
-						break;
 					case "deepseek": {
 						const balance = await api.providers.getBalance(newProvider.id);
 						const usd = balance.balance_infos.find((b) => b.currency === "USD");
@@ -215,12 +213,7 @@ export function AddProviderModal({
 
 	const handleProviderTypeChange = (type: string) => {
 		if (type === "custom") {
-			setFormData((prev) => ({
-				...prev,
-				provider_type: type,
-				base_url: prev.base_url,
-				name: prev.name,
-			}));
+			setFormData((prev) => ({ ...prev, provider_type: type }));
 			return;
 		}
 		const newName = generateProviderName(type, providers, t);
@@ -247,27 +240,12 @@ export function AddProviderModal({
 		});
 	};
 
-	const closeAndReset = () => {
-		onClose();
-		setFormData({
-			name: "",
-			base_url: "",
-			api_key: "",
-			provider_type: "custom",
-		});
-		setShowApiKey(false);
-		setError(null);
-	};
-
 	return (
-		<Modal title={t("providers.form_modal_title")} onClose={closeAndReset}>
+		<Modal title={t("providers.form_modal_title")} onClose={onClose}>
 			{error && (
-				<div
-					data-testid="add-provider-error"
-					className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm"
-				>
+				<ErrorCallout className="mb-4" testId="add-provider-error">
 					{error}
-				</div>
+				</ErrorCallout>
 			)}
 
 			<form onSubmit={handleSubmit} className="space-y-4">
@@ -281,18 +259,7 @@ export function AddProviderModal({
 						placeholder={t("providers.form_type_label")}
 						value={formData.provider_type}
 						onChange={handleProviderTypeChange}
-						options={Object.keys(providerTypeTranslationKeys)
-							.sort((aKey, bKey) => {
-								if (aKey === "custom") return -1;
-								if (bKey === "custom") return 1;
-								return t(
-									providerTypeTranslationKeys[aKey] || aKey,
-								).localeCompare(t(providerTypeTranslationKeys[bKey] || bKey));
-							})
-							.map((key) => ({
-								value: key,
-								label: t(providerTypeTranslationKeys[key] || key),
-							}))}
+						options={providerTypeOptions(t)}
 					/>
 				</div>
 
@@ -396,46 +363,24 @@ export function AddProviderModal({
 					>
 						{t("providers.add.apiKey")}
 					</label>
-					<div className="relative">
-						<input
-							id="provider-api-key"
-							type={showApiKey ? "text" : "password"}
-							maxLength={500}
-							required={!providerTypeAllowsEmptyKey(formData.provider_type)}
-							value={formData.api_key}
-							onChange={(e) =>
-								setFormData({
-									...formData,
-									api_key: e.target.value,
-								})
-							}
-							className="ui-input pr-10! overflow-hidden"
-							placeholder={
-								providerTypeHasFreeModels(formData.provider_type)
-									? t("providers.form_api_key_placeholder_optional")
-									: t("providers.form_api_key_placeholder_required")
-							}
-						/>
-						<button
-							type="button"
-							onClick={() => setShowApiKey(!showApiKey)}
-							className="ui-icon-btn absolute right-3 top-1/2 -translate-y-1/2"
-							tabIndex={-1}
-							aria-label={
-								showApiKey
-									? t("providers.form_api_key_hide")
-									: t("providers.form_api_key_show")
-							}
-						>
-							{showApiKey ? <EyeOff size={18} /> : <Eye size={18} />}
-						</button>
-					</div>
+					<RevealableInput
+						id="provider-api-key"
+						maxLength={500}
+						required={!providerTypeAllowsEmptyKey(formData.provider_type)}
+						value={formData.api_key}
+						onChange={(api_key) => setFormData({ ...formData, api_key })}
+						placeholder={
+							providerTypeHasFreeModels(formData.provider_type)
+								? t("providers.form_api_key_placeholder_optional")
+								: t("providers.form_api_key_placeholder_required")
+						}
+					/>
 				</div>
 
 				<div className="flex space-x-3 justify-end pt-4">
 					<button
 						type="button"
-						onClick={closeAndReset}
+						onClick={onClose}
 						className="ui-btn ui-btn-secondary"
 					>
 						{t("common.cancel")}

@@ -354,10 +354,12 @@
 			"distributionChart": "Gràfic de distribució de proveïdors",
 			"emptyState": "Encara no hi ha dades dels proveïdors. El desglossament dels proveïdors apareixerà aquí un cop flueixi el trànsit.",
 			"chartAriaLabel": "Gràfic de distribució de proveïdors",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokens",
-			"requestUnit": "Sol·licitud",
-			"requestsUnit": "Sol·licituds"
+			"tokens_one": "Token",
+			"tokens_many": "Tokens",
+			"tokens_other": "Tokens",
+			"requests_one": "Sol·licitud",
+			"requests_many": "Sol·licituds",
+			"requests_other": "Sol·licituds"
 		},
 		"models": {
 			"viewDetails": "Veure detalls de {{label}}",
@@ -604,7 +606,6 @@
 		"vs": "contra",
 		"status": {
 			"generating": "Els models s'estan generant - feu clic a Atura-ho tot per cancel·lar",
-			"voteToContinue": "Vota en tots els enfrontaments per passar a la ronda següent.",
 			"nextRoundReady": "Comença la següent ronda quan estiguis a punt."
 		},
 		"responses": {
@@ -659,13 +660,6 @@
 			"close": "Tanca"
 		},
 		"params": {
-			"temperature": "Temperatura",
-			"maxTokens": "Màx. de tokens",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Penalització de freqüència",
-			"presPenalty": "Pres Penalty",
 			"resetAll": "Restablix tot",
 			"done": "Enllestit"
 		},
@@ -856,7 +850,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "No queden proveïdors habilitats",
-				"onlyOne": "Només queda un proveïdor habilitat (el failover necessita com a mínim dos)"
+				"onlyOne": "Només queda un proveïdor habilitat (el failover necessita com a mínim dos)",
+				"noValidProviders": "No queda cap proveïdor vàlid després de la poda",
+				"onlyOneValid": "Només queda un proveïdor vàlid després de la poda (la commutació per error en necessita almenys dos)"
 			},
 			"error": "Error",
 			"failover": "Grups de fallada",
@@ -1097,7 +1093,17 @@
 		"scope_all": "Tots els proveïdors",
 		"badge_parked": "{{count}} aparcats",
 		"status_parked": "Aparcat",
-		"status_parked_hint": "El proveïdor està desactivat; aquest model continua llistat però no se serveix fins que el proveïdor es torni a activar."
+		"status_parked_hint": "El proveïdor està desactivat; aquest model continua llistat però no se serveix fins que el proveïdor es torni a activar.",
+		"capPills": {
+			"vision": "Visió",
+			"reasoning": "Raonament",
+			"tool_calling": "Eines",
+			"structured_output": "Estructurat",
+			"pdf_upload": "PDF",
+			"video_input": "Vídeo",
+			"audio_input": "Àudio",
+			"parallel_tool_calls": "Paral·lel"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Restablir al valor descobert",
@@ -1310,7 +1316,6 @@
 				"owner": "Propietari"
 			},
 			"noProvidersConfigured": "No s'ha configurat cap proveïdor.",
-			"discardChanges": "Descartar els canvis no desats?",
 			"loadingProviders": "Carregant proveïdors...",
 			"stripReasoningDescriptionText": "Quan està habilitat, els tokens de raonament/pensament s'eliminen de les respostes en streaming per als clients que no els poden gestionar.",
 			"providerInstructionsText": "Feu clic en un proveïdor per restringir l'accés. Tots són accessibles per defecte.",
@@ -1451,6 +1456,11 @@
 			"search": "Filtreu els registres…",
 			"allLevels": "Tots els nivells",
 			"allSources": "Totes les fonts"
+		},
+		"level": {
+			"info": "Informació",
+			"warning": "Advertència",
+			"error": "Error"
 		},
 		"table": {
 			"timeDate": "Hora/Data",
@@ -1908,8 +1918,8 @@
 				"confirmEnableTitle": "Activar la còpia de seguretat periòdica?",
 				"confirmEnableDescription": "En activar la còpia de seguretat periòdica s'eliminen les còpies existents que queden fora de la finestra de rotació fill/pare/avi.",
 				"confirmEnableWouldRemove": "Aquestes {{count}} còpia/es de seguretat queden fora de la finestra de rotació i s'eliminaran permanentment:",
-				"prunePreviewFailed": "S'ha produït un error en previsualitzar la poda de còpies de seguretat.",
-				"pruneFailed": "S'ha fallat la poda de còpies de seguretat",
+				"prunePreviewFailed": "S'ha produït un error en previsualitzar la poda de còpies de seguretat: {{message}}",
+				"pruneFailed": "S'ha fallat la poda de còpies de seguretat: {{message}}",
 				"pruneSuccess": "Còpia de seguretat periòdica activada. S'han eliminat {{count}} còpia/es antiga/es."
 			},
 			"availableBackupsTitle": "Còpies de seguretat disponibles",
@@ -2442,16 +2452,9 @@
 			"filter": "Filtre…",
 			"clearFilter": "Neteja el filtre"
 		},
-		"copyButton": {
-			"copy": "Copia",
-			"copiedToClipboard": "Copiat al porta-retalls",
-			"failedToCopy": "No s'ha pogut copiar"
-		},
 		"copyablePill": {
 			"copy": "Copia",
-			"copyToClipboard": "Copia al porta-retalls",
-			"copied": "Copiat!",
-			"failedToCopy": "No s'ha pogut copiar"
+			"copyToClipboard": "Copia al porta-retalls"
 		},
 		"collapsibleToggle": {
 			"expand": "Expandir",
@@ -2773,11 +2776,6 @@
 			"compare": "Comparar",
 			"noMatchHistory": "Encara no hi ha històric de partides",
 			"completedSessionsHere": "Les sessions d'arena i de comparació completades apareixeran aquí",
-			"match": "Partit",
-			"final": "Final",
-			"semifinals": "Semifinals",
-			"quarterfinals": "Quarts de final",
-			"round": "Ronda {{number}}",
 			"winner": "Guanyador: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Error: {{message}}",
@@ -2887,35 +2885,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "No s'han trobat registres",
-			"entries": "entrades",
-			"loadingNewer": "Carregant els més recents…",
-			"loadingOlder": "Carregant les entrades més antigues…",
-			"timeDate": "Hora/Data",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Proveïdor",
-			"providerDeleted": "El proveïdor ha estat eliminat",
-			"status": "Estat",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Encapçalaments",
-			"ttft": "TTFT",
-			"duration": "Durada",
-			"overhead": "Sobrecàrrega",
-			"key": "Clau",
-			"interrupted": "Interromput",
-			"internal": "intern",
-			"cacheInflated": "Inflat pels encerts de memòria cau del prompt",
-			"deleted": "Eliminat",
-			"zeroEntries": "0 entrades",
-			"ip": "IP"
+			"zeroEntries": "0 entrades"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No s'han trobat entrades de registre",
-			"entries": "entrades",
-			"loadingNewer": "Carregant els més recents…",
-			"loadingOlder": "Carregant les entrades més antigues…",
 			"timeDate": "Hora/Data",
 			"level": "Nivell",
 			"source": "Font",
@@ -3129,7 +3102,8 @@
 		},
 		"useDisableModel": {
 			"success": "Model \"{{model}}\" desactivat",
-			"error": "S'ha fallat la desactivació del model: {{error}}"
+			"error": "S'ha fallat la desactivació del model: {{error}}",
+			"notFound": "No s'ha trobat el model \"{{model}}\" als models activats"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Impossible de recollir les dades inicials",

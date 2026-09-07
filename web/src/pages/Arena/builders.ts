@@ -84,9 +84,36 @@ export function getRoundLabel(
 	return i18next.t("arena.round.numbered", { num: roundIdx + 1 });
 }
 
+/**
+ * Writes the winners of `roundIdx` into the next round's slots, pairing them
+ * up in board order. A round with no successor is left alone.
+ */
+export function advanceWinners(draft: BracketRound[], roundIdx: number): void {
+	const next = draft[roundIdx + 1];
+	if (!next) return;
+	const winners = draft[roundIdx].matchups.map((m: Matchup) =>
+		m.vote === "A" ? m.slotA : m.slotB,
+	);
+	for (let i = 0; i < winners.length; i += 2) {
+		next.matchups[i / 2] = {
+			slotA: winners[i] ? { ...(winners[i] as MatchupSlot) } : null,
+			slotB: winners[i + 1] ? { ...(winners[i + 1] as MatchupSlot) } : null,
+			responseA: null,
+			responseB: null,
+			vote: null,
+		};
+	}
+}
+
+/** The model the final round's single matchup was voted for, if it was voted. */
+export function roundWinner(round: BracketRound): string | undefined {
+	const mu = round.matchups[0];
+	return mu?.vote === "A" ? mu.slotA?.modelId : mu?.slotB?.modelId;
+}
+
 export function getPreviewPairs(
 	bracketModels: string[],
-): { a: string; b: string }[] | null {
+): { a: string; b: string }[] {
 	const target = nextBracketSize(bracketModels.length);
 	const items = [...bracketModels];
 	while (items.length < target) items.push("");

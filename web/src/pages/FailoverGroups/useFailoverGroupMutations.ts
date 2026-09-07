@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { FailoverGroup } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { failoverDeleteReasonText } from "../../utils/failoverEntry";
+import { entryEnabledMapOf, entryToggleUpdate } from "./groupDerivations";
 
 /**
  * The page's four server mutations (sync, update, delete, circuit reset) and
@@ -27,7 +29,7 @@ export function useFailoverGroupMutations(refreshGroups: () => void) {
 					toast(
 						t("failover.toast_sync_deleted", {
 							model: g.display_model,
-							reason: g.reason,
+							reason: failoverDeleteReasonText(g.reason, t),
 							providers: provs,
 						}),
 						"warning",
@@ -185,14 +187,14 @@ export function useFailoverGroupMutations(refreshGroups: () => void) {
 			toast(t("failover.toast_entry_min_two"), "error");
 			return;
 		}
-		const entryEnabledMap: Record<string, boolean> = {};
-		group.entries.forEach((e) => {
-			entryEnabledMap[e.model_uuid] = e.enabled;
-		});
-		entryEnabledMap[uuid] = enabled;
 		update.mutate({
 			id: group.id,
-			data: { entry_enabled: entryEnabledMap },
+			data: entryToggleUpdate(
+				group,
+				entryEnabledMapOf(group, (e) =>
+					e.model_uuid === uuid ? enabled : e.enabled,
+				),
+			),
 		});
 	};
 

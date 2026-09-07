@@ -29,6 +29,7 @@ import { MiniMaxQuotaModal } from "./quota/MiniMaxQuotaModal";
 import { NanoGPTQuotaModal } from "./quota/NanoGPTQuotaModal";
 import { NeuralWattQuotaModal } from "./quota/NeuralWattQuotaModal";
 import { OpenRouterQuotaModal } from "./quota/OpenRouterQuotaModal";
+import type { QuotaModalProps } from "./quota/shared";
 import { ZAICodingQuotaModal } from "./quota/ZAICodingQuotaModal";
 
 const COLLAPSED_KEY = "fdQuotaCollapsed";
@@ -267,7 +268,8 @@ interface QuotaModalForProps {
 
 /** Picks the modal for a badge and narrows its payload to that provider's shape. */
 function QuotaModalFor({ model, ...rest }: QuotaModalForProps) {
-	const common = {
+	// Everything but the payload, which each arm below narrows to its own shape.
+	const common: Omit<QuotaModalProps<unknown>, "payload"> = {
 		providerName: model.providerName,
 		fetchedAt: model.snapshot.fetched_at,
 		...rest,

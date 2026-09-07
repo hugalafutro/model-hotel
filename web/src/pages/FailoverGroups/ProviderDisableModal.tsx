@@ -1,9 +1,9 @@
 import { useTranslation } from "react-i18next";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
+import { sortByName } from "../../utils/sort";
 
 interface ProviderDisableModalProps {
-	open: boolean;
 	onClose: () => void;
 	providers: { id: string; name: string }[];
 	disabledProviders: Set<string>;
@@ -12,7 +12,6 @@ interface ProviderDisableModalProps {
 }
 
 export function ProviderDisableModal({
-	open,
 	onClose,
 	providers,
 	disabledProviders,
@@ -20,10 +19,7 @@ export function ProviderDisableModal({
 	isProcessing,
 }: ProviderDisableModalProps) {
 	const { t } = useTranslation();
-
-	if (!open) return null;
-
-	const sorted = [...providers].sort((a, b) => a.name.localeCompare(b.name));
+	const sorted = sortByName(providers);
 
 	return (
 		<Modal

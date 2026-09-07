@@ -1,7 +1,7 @@
 import { renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it } from "vitest";
-import type { Model, Provider } from "../../api/types";
+import type { Model } from "../../api/types";
 import { IdentityProvider, useIdentity } from "../../context/IdentityContext";
 import { mockModel, mockProvider } from "../../test/mocks/data";
 import { server } from "../../test/mocks/server";
@@ -10,7 +10,6 @@ import {
 	useChatModels,
 	useEnabledModels,
 	useModels,
-	useProviderData,
 	useProviders,
 } from "../useModels";
 
@@ -299,73 +298,6 @@ describe("useChatModels", () => {
 				expect(result.current.chat.isSuccess).toBe(true);
 			});
 			expect(result.current.chat.data).toEqual([]);
-		});
-	});
-});
-
-describe("useProviderData", () => {
-	it("maps providers to { name, base_url }", async () => {
-		const { result } = renderHook(() => useProviderData(), {
-			wrapper: createQueryWrapper(),
-		});
-
-		await waitFor(() => {
-			expect(result.current.isSuccess).toBe(true);
-		});
-
-		expect(result.current.data).toHaveLength(1);
-		expect(result.current.data?.[0]).toEqual({
-			name: mockProvider.name,
-			base_url: mockProvider.base_url,
-		});
-	});
-
-	it("returns empty array when no providers", async () => {
-		server.use(
-			http.get("/api/providers", () => HttpResponse.json([], { status: 200 })),
-		);
-
-		const { result } = renderHook(() => useProviderData(), {
-			wrapper: createQueryWrapper(),
-		});
-
-		await waitFor(() => {
-			expect(result.current.isSuccess).toBe(true);
-		});
-
-		expect(result.current.data).toEqual([]);
-	});
-
-	it("handles multiple providers", async () => {
-		const extraProvider: Provider = {
-			...mockProvider,
-			id: "provider-extra",
-			name: "Extra Provider",
-			base_url: "https://extra.example.com/v1",
-		};
-
-		server.use(
-			http.get("/api/providers", () =>
-				HttpResponse.json([mockProvider, extraProvider], { status: 200 }),
-			),
-		);
-
-		const { result } = renderHook(() => useProviderData(), {
-			wrapper: createQueryWrapper(),
-		});
-
-		await waitFor(() => {
-			expect(result.current.isSuccess).toBe(true);
-		});
-
-		expect(result.current.data).toHaveLength(2);
-		expect(result.current.data?.[0]).toEqual({
-			name: mockProvider.name,
-			base_url: mockProvider.base_url,
-		});
-		expect(result.current.data?.[1]).toEqual({
-			name: "Extra Provider",
-			base_url: "https://extra.example.com/v1",
 		});
 	});
 });

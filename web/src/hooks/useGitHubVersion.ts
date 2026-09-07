@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { api } from "../api/client";
+import { useSettingsQuery } from "./useSettingsQuery";
 
 const STORAGE_KEY = "github-latest-version";
 const CACHE_TTL = 30 * 60 * 1000; // 30 minutes
@@ -79,31 +80,16 @@ export function useGitHubVersion(): VersionInfo {
 		return "GitHub";
 	});
 
-	const [running, setRunning] = useState<string>("dev");
-	const [commit, setCommit] = useState<string>("");
-
-	// Fetch running version from settings API once
-	useEffect(() => {
-		let cancelled = false;
-		api.settings
-			.get()
-			.then((settings) => {
-				if (cancelled) return;
-				if (settings.app_version) {
-					setRunning(settings.app_version);
-				}
-				// "unknown" is the un-stamped sentinel; treat it as no commit.
-				if (settings.app_commit && settings.app_commit !== "unknown") {
-					setCommit(settings.app_commit);
-				}
-			})
-			.catch(() => {
-				/* ignore — keep default */
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, []);
+	// The running version rides on the shared settings query, so the sidebar and
+	// the settings screen issue one GET between them and a settings write
+	// refreshes the version too.
+	const { data: settings } = useSettingsQuery();
+	const running = settings?.app_version || "dev";
+	// "unknown" is the un-stamped sentinel; treat it as no commit.
+	const commit =
+		settings?.app_commit && settings.app_commit !== "unknown"
+			? settings.app_commit
+			: "";
 
 	// Fetch latest GitHub release via backend proxy
 	useEffect(() => {

@@ -1,4 +1,10 @@
-import { API_BASE, fetchJSON, getAuthHeaders } from "../http";
+import {
+	API_BASE,
+	buildUrl,
+	fetchJSON,
+	fetchOK,
+	getAuthHeaders,
+} from "../http";
 import type {
 	CandidateModel,
 	CircuitBreakerResetResult,
@@ -8,6 +14,7 @@ import type {
 	FailoverListResponse,
 	Model,
 	ModelsCursorResponse,
+	ModelTestResult,
 	SyncResult,
 	UpdateFailoverGroupRequest,
 } from "../types";
@@ -17,14 +24,11 @@ export const models = {
 		providerId?: string,
 		providerEnabled?: boolean,
 	): Promise<Model[]> => {
-		const sp = new URLSearchParams();
-		if (providerId) sp.set("provider_id", providerId);
-		if (providerEnabled !== undefined)
-			sp.set("provider_enabled", String(providerEnabled));
-		const qs = sp.toString();
-		const url = qs ? `${API_BASE}/api/models?${qs}` : `${API_BASE}/api/models`;
 		return fetchJSON<Model[]>(
-			url,
+			buildUrl("/api/models", {
+				provider_id: providerId || undefined,
+				provider_enabled: providerEnabled,
+			}),
 			{
 				headers: getAuthHeaders(),
 			},
@@ -46,21 +50,19 @@ export const models = {
 		/** Filter on the model's own enabled flag; undefined = any. */
 		enabled?: boolean;
 	}): Promise<ModelsCursorResponse> => {
-		const sp = new URLSearchParams();
-		if (params.cursor) sp.set("cursor", params.cursor);
-		sp.set("direction", params.direction);
-		sp.set("limit", String(params.limit));
-		if (params.sort_by) sp.set("sort_by", params.sort_by);
-		if (params.sort_dir) sp.set("sort_dir", params.sort_dir);
-		if (params.provider_id) sp.set("provider_id", params.provider_id);
-		if (params.search) sp.set("search", params.search);
-		if (params.capabilities) sp.set("capabilities", params.capabilities);
-		if (params.outputs) sp.set("outputs", params.outputs);
-		if (params.provider_enabled !== undefined)
-			sp.set("provider_enabled", String(params.provider_enabled));
-		if (params.enabled !== undefined) sp.set("enabled", String(params.enabled));
+		// buildUrl drops undefined values; the empty-string filters are mapped to
+		// undefined so a cleared search box does not become "search=".
 		return fetchJSON<ModelsCursorResponse>(
-			`${API_BASE}/api/models/cursor?${sp.toString()}`,
+			buildUrl("/api/models/cursor", {
+				...params,
+				cursor: params.cursor || undefined,
+				sort_by: params.sort_by || undefined,
+				sort_dir: params.sort_dir || undefined,
+				provider_id: params.provider_id || undefined,
+				search: params.search || undefined,
+				capabilities: params.capabilities || undefined,
+				outputs: params.outputs || undefined,
+			}),
 			{ headers: getAuthHeaders() },
 			"Failed to fetch models (cursor)",
 		);
@@ -95,23 +97,11 @@ export const models = {
 		// allowDisabled lets the failover "Retry N/A" action probe a disabled
 		// model; the Models page test button omits it (enabled models only).
 		allowDisabled = false,
-	): Promise<{
-		success: boolean;
-		streaming: boolean;
-		ttft_ms: number;
-		duration_ms: number;
-		response: string;
-		error?: string;
-	}> => {
-		return fetchJSON<{
-			success: boolean;
-			streaming: boolean;
-			ttft_ms: number;
-			duration_ms: number;
-			response: string;
-			error?: string;
-		}>(
-			`${API_BASE}/api/models/${id}/test${allowDisabled ? "?allow_disabled=true" : ""}`,
+	): Promise<ModelTestResult> => {
+		return fetchJSON<ModelTestResult>(
+			buildUrl(`/api/models/${id}/test`, {
+				allow_disabled: allowDisabled || undefined,
+			}),
 			{
 				method: "POST",
 				headers: getAuthHeaders(),
@@ -120,13 +110,11 @@ export const models = {
 		);
 	},
 	delete: async (id: string): Promise<void> => {
-		const response = await fetch(`${API_BASE}/api/models/${id}`, {
-			method: "DELETE",
-			headers: getAuthHeaders(),
-		});
-		if (!response.ok) {
-			throw new Error("Failed to delete model");
-		}
+		await fetchOK(
+			`${API_BASE}/api/models/${id}`,
+			{ method: "DELETE", headers: getAuthHeaders() },
+			"Failed to delete model",
+		);
 	},
 	// Delete many models in one request. Deleting one HTTP DELETE per model
 	// stampedes the admin IP rate limiter, so bulk selections go through this
@@ -192,13 +180,11 @@ export const failoverGroups = {
 		);
 	},
 	delete: async (id: string): Promise<void> => {
-		const response = await fetch(`${API_BASE}/api/failover-groups/${id}`, {
-			method: "DELETE",
-			headers: getAuthHeaders(),
-		});
-		if (!response.ok) {
-			throw new Error("Failed to delete failover group");
-		}
+		await fetchOK(
+			`${API_BASE}/api/failover-groups/${id}`,
+			{ method: "DELETE", headers: getAuthHeaders() },
+			"Failed to delete failover group",
+		);
 	},
 	sync: async (): Promise<SyncResult> => {
 		return fetchJSON<SyncResult>(
@@ -222,11 +208,10 @@ export const failoverGroups = {
 	circuitBreakerStatus: async (
 		detail = false,
 	): Promise<CircuitBreakerStatus> => {
-		const url = detail
-			? `${API_BASE}/api/failover-groups/circuit-breaker-status?detail=1`
-			: `${API_BASE}/api/failover-groups/circuit-breaker-status`;
 		return fetchJSON<CircuitBreakerStatus>(
-			url,
+			buildUrl("/api/failover-groups/circuit-breaker-status", {
+				detail: detail ? 1 : undefined,
+			}),
 			{
 				headers: getAuthHeaders(),
 			},

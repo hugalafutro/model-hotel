@@ -97,24 +97,17 @@ export function nonTextOutputs(m: { output_modalities?: string }): string[] {
 	);
 }
 
+// A price to at most four decimals. Number#toString already prints the
+// shortest round-trip form, so the rounded value never carries trailing zeros
+// to trim.
 export function formatPrice(n: number | null | undefined): string {
 	if (n == null) return "-";
-	const rounded = Math.round(n * 10000) / 10000;
-	const str = rounded.toString();
-	const [intPart, decPart] = str.split(".");
-	if (!decPart) return intPart;
-	const trimmed = decPart.replace(/0+$/, "");
-	return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
+	return String(Math.round(n * 10000) / 10000);
 }
 
+/** The same price for a text input, where absent reads as an empty field. */
 export function formatPriceInput(n: number | null | undefined): string {
-	if (n == null) return "";
-	const rounded = Math.round(n * 10000) / 10000;
-	const str = rounded.toString();
-	const [intPart, decPart] = str.split(".");
-	if (!decPart) return intPart;
-	const trimmed = decPart.replace(/0+$/, "");
-	return trimmed.length > 0 ? `${intPart}.${trimmed}` : intPart;
+	return n == null ? "" : formatPrice(n);
 }
 
 /**
@@ -123,9 +116,62 @@ export function formatPriceInput(n: number | null | undefined): string {
  * where the status code is in the 500-599 range.
  */
 export function is5xxError(error: string | null | undefined): boolean {
-	if (!error) return false;
-	const match = error.match(/\b(5\d{2})\b/);
-	if (!match) return false;
-	const code = Number.parseInt(match[1], 10);
-	return code >= 500 && code <= 599;
+	return !!error && /\b5\d{2}\b/.test(error);
+}
+
+/**
+ * The bare model id, without the provider prefix a proxy model id carries
+ * ("OpenAI/gpt-4o" reads as "gpt-4o"). An id with no prefix is returned as it is.
+ */
+export function shortModelName(id: string): string {
+	return id.slice(id.lastIndexOf("/") + 1);
+}
+
+/** The model a proxy model id names, or undefined when nothing matches. */
+export function findChatModel<
+	T extends { provider_name: string; model_id: string },
+>(models: readonly T[], proxyId: string): T | undefined {
+	return models.find(
+		(m) => proxyModelID(m.provider_name, m.model_id) === proxyId,
+	);
+}
+
+/** True when the model a proxy model id names advertises the reasoning capability. */
+export function isReasoningModel(
+	models: readonly {
+		provider_name: string;
+		model_id: string;
+		capabilities: string;
+	}[],
+	proxyId: string,
+): boolean {
+	const model = findChatModel(models, proxyId);
+	return model
+		? parseCapabilities(model.capabilities).reasoning === true
+		: false;
+}
+
+/** The proxy model ids of a model list, for membership tests. */
+export function chatModelIdSet(
+	models: readonly { provider_name: string; model_id: string }[],
+): Set<string> {
+	return new Set(models.map((m) => proxyModelID(m.provider_name, m.model_id)));
+}
+
+/**
+ * The model-picker search predicate: a case-insensitive substring of the
+ * display name, the model id or the provider name. An empty query matches
+ * everything.
+ */
+export function matchesModelSearch(
+	m: { display_name?: string; model_id: string; provider_name: string },
+	query: string,
+): boolean {
+	const q = query.trim().toLowerCase();
+	if (q === "") return true;
+	return (
+		(m.display_name || m.model_id).toLowerCase().includes(q) ||
+		m.model_id.toLowerCase().includes(q) ||
+		m.provider_name.toLowerCase().includes(q)
+	);
 }

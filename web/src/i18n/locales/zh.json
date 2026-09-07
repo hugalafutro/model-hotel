@@ -347,10 +347,10 @@
 			"distributionChart": "供货商分布图",
 			"emptyState": "尚无提供商数据。有流量后，提供商明细将显示在此处。",
 			"chartAriaLabel": "供货商分布图",
-			"tokenUnit": "令牌",
-			"tokensUnit": "令牌",
-			"requestUnit": "请求",
-			"requestsUnit": "请求"
+			"tokens_one": "令牌",
+			"tokens_other": "令牌",
+			"requests_one": "请求",
+			"requests_other": "请求"
 		},
 		"models": {
 			"viewDetails": "查看详情 {{label}}",
@@ -597,7 +597,6 @@
 		"vs": "对决",
 		"status": {
 			"generating": "模型正在生成 - 单击停止所有以取消",
-			"voteToContinue": "投票所有比赛，继续到下一轮比赛",
 			"nextRoundReady": "下一轮准备好后开始"
 		},
 		"responses": {
@@ -652,13 +651,6 @@
 			"close": "关闭"
 		},
 		"params": {
-			"temperature": "温度",
-			"maxTokens": "最大令牌",
-			"topP": "Top P",
-			"minP": "最小P",
-			"topK": "前 K",
-			"freqPenalty": "频率惩罚",
-			"presPenalty": "存在惩罚",
 			"resetAll": "重置所有",
 			"done": "完成"
 		},
@@ -844,7 +836,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "已无启用的提供商",
-				"onlyOne": "当前仅剩一个已启用的提供商（故障转移至少需要两个）"
+				"onlyOne": "当前仅剩一个已启用的提供商（故障转移至少需要两个）",
+				"noValidProviders": "清理后没有剩余的有效提供商",
+				"onlyOneValid": "清理后仅剩一个有效提供商（故障转移至少需要两个）"
 			},
 			"error": "错误",
 			"failover": "故障转移组",
@@ -1065,7 +1059,17 @@
 		"scope_all": "所有提供商",
 		"badge_parked": "{{count}} 个已搁置",
 		"status_parked": "已搁置",
-		"status_parked_hint": "提供商已禁用；此模型仍在列表中，但在提供商重新启用之前不会提供服务。"
+		"status_parked_hint": "提供商已禁用；此模型仍在列表中，但在提供商重新启用之前不会提供服务。",
+		"capPills": {
+			"vision": "视觉",
+			"reasoning": "推理",
+			"tool_calling": "工具",
+			"structured_output": "结构化",
+			"pdf_upload": "PDF",
+			"video_input": "视频",
+			"audio_input": "音频",
+			"parallel_tool_calls": "并行"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "恢复到发现的值",
@@ -1267,7 +1271,6 @@
 				"owner": "所有者"
 			},
 			"noProvidersConfigured": "没有配置提供者。",
-			"discardChanges": "放弃未保存的更改？",
 			"loadingProviders": "正在加载提供商...",
 			"stripReasoningDescriptionText": "启用时，无法处理的客户端的串流响应中会删除推理/思考令牌。",
 			"providerInstructionsText": "点击提供商限制访问。默认情况下所有都可以访问。",
@@ -1408,6 +1411,11 @@
 			"search": "过滤日志…",
 			"allLevels": "所有级别",
 			"allSources": "所有来源"
+		},
+		"level": {
+			"info": "信息",
+			"warning": "警告",
+			"error": "错误"
 		},
 		"table": {
 			"timeDate": "时间/日期",
@@ -1859,8 +1867,8 @@
 				"confirmEnableTitle": "启用定期备份？",
 				"confirmEnableDescription": "启用定期备份会删除超出 子/父/祖 轮换窗口的现有备份。",
 				"confirmEnableWouldRemove": "这 {{count}} 个备份超出轮换窗口，将被永久删除：",
-				"prunePreviewFailed": "预览备份清理失败",
-				"pruneFailed": "清理备份失败",
+				"prunePreviewFailed": "预览备份清理失败： {{message}}",
+				"pruneFailed": "清理备份失败： {{message}}",
 				"pruneSuccess": "已启用定期备份。已删除 {{count}} 个旧备份。"
 			},
 			"availableBackupsTitle": "可用备份",
@@ -2388,16 +2396,9 @@
 			"filter": "筛选…",
 			"clearFilter": "清除过滤器"
 		},
-		"copyButton": {
-			"copy": "复制",
-			"copiedToClipboard": "复制到剪贴板",
-			"failedToCopy": "复制失败"
-		},
 		"copyablePill": {
 			"copy": "复制",
-			"copyToClipboard": "复制到剪贴板",
-			"copied": "已复制！",
-			"failedToCopy": "复制失败"
+			"copyToClipboard": "复制到剪贴板"
 		},
 		"collapsibleToggle": {
 			"expand": "展开",
@@ -2714,11 +2715,6 @@
 			"compare": "比较",
 			"noMatchHistory": "尚无比赛历史记录",
 			"completedSessionsHere": "已完成的 Arena 与 Compare 会话将显示在这里",
-			"match": "对局",
-			"final": "决赛",
-			"semifinals": "半决赛",
-			"quarterfinals": "四分之一决赛",
-			"round": "第 {{number}} 轮",
 			"winner": "获奖者： {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "错误： {{message}}",
@@ -2826,35 +2822,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "未找到日志",
-			"entries": "条目",
-			"loadingNewer": "加载较新的…",
-			"loadingOlder": "加载旧的…",
-			"timeDate": "时间/日期",
-			"hash": "哈希",
-			"model": "模型",
-			"provider": "提供商",
-			"providerDeleted": "提供商已被删除",
-			"status": "状态",
-			"tokens": "令牌",
-			"tps": "T/秒",
-			"tokensPerSecond": "T/秒",
-			"headers": "响应头",
-			"ttft": "TTFT",
-			"duration": "时长",
-			"overhead": "开销",
-			"key": "密钥",
-			"interrupted": "已中断",
-			"internal": "内部设置",
-			"cacheInflated": "因提示缓存命中而偏高",
-			"deleted": "已删除",
-			"zeroEntries": "0 个条目",
-			"ip": "IP"
+			"zeroEntries": "0 个条目"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "未找到日志条目",
-			"entries": "条目",
-			"loadingNewer": "加载较新的…",
-			"loadingOlder": "加载旧的…",
 			"timeDate": "时间/日期",
 			"level": "级别",
 			"source": "来源",
@@ -3065,7 +3036,8 @@
 		},
 		"useDisableModel": {
 			"success": "已禁用“{{model}}”模型",
-			"error": "无法禁用模型： {{error}}"
+			"error": "无法禁用模型： {{error}}",
+			"notFound": "在已启用的模型中找不到“{{model}}”"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "获取初始数据失败",

@@ -54,38 +54,28 @@ export function ClaimRow({
 
 	const flapChip = () => {
 		// Primary number is "since your last visit"; the 30-day total is shown
-		// in the tooltip as extra context beyond that count.
-		if (c.flap_since_review > 0) {
-			return (
-				<span
-					className="ui-badge ui-badge-warning shrink-0 tabular-nums"
-					data-testid="discrepancy-flap"
-					title={t("providers.discrepancies.flapWindowTooltip", {
-						count: c.flap_window,
-					})}
-				>
-					{t("providers.discrepancies.flapped", { count: c.flap_since_review })}
-				</span>
-			);
-		}
-		if (c.flap_window > 1) {
-			// Nothing has flapped since the last visit here (flap_since_review is
-			// 0), so there is no complementary count worth surfacing. The tooltip
-			// instead names the window the visible count is scoped to, since the
-			// chip label itself never states a timeframe.
-			return (
-				<span
-					className="ui-badge ui-badge-warning shrink-0 tabular-nums"
-					data-testid="discrepancy-flap"
-					title={t("providers.discrepancies.flapWindowTooltip", {
-						count: c.flap_window,
-					})}
-				>
-					{t("providers.discrepancies.flapped", { count: c.flap_window })}
-				</span>
-			);
-		}
-		return null;
+		// in the tooltip as extra context beyond that count. When nothing has
+		// flapped since the last visit the window total stands in, and the
+		// tooltip then names the window the visible count is scoped to, since
+		// the chip label itself never states a timeframe.
+		const count =
+			c.flap_since_review > 0
+				? c.flap_since_review
+				: c.flap_window > 1
+					? c.flap_window
+					: 0;
+		if (count === 0) return null;
+		return (
+			<span
+				className="ui-badge ui-badge-warning shrink-0 tabular-nums"
+				data-testid="discrepancy-flap"
+				title={t("providers.discrepancies.flapWindowTooltip", {
+					count: c.flap_window,
+				})}
+			>
+				{t("providers.discrepancies.flapped", { count })}
+			</span>
+		);
 	};
 
 	/**

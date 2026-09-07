@@ -17,6 +17,7 @@
  * escape and an even run belongs to the value. An escaped quote (`\"`) inside
  * a quoted value does not end the token.
  */
+import { clamp } from "@web-shared/format";
 /** The display form of an app-log message: decoded only when the backend
  * marked the row as using the flattened encoding (AppLogEntry.escaped), and
  * only from the recorded attribute boundary (AppLogEntry.attrs_at) onward.
@@ -29,7 +30,7 @@ export function displayLogMessage(
 	attrsAt?: number,
 ): string {
 	if (!escaped) return message;
-	const at = Math.min(Math.max(attrsAt ?? 0, 0), message.length);
+	const at = clamp(attrsAt ?? 0, 0, message.length);
 	return message.slice(0, at) + decodeLogEscapes(message.slice(at));
 }
 

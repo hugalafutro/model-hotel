@@ -83,26 +83,22 @@ export function ErrorShelf() {
 		setDetailEntry({ log: err.entry, type: err.kind });
 	}, []);
 
+	// The detail modal outlives the shelf: acking the last row hides the shelf
+	// while the modal opened from that row stays on screen.
+	const detail = detailEntry ? (
+		<LogDetailModal
+			log={detailEntry.log}
+			type={detailEntry.type}
+			onClose={() => setDetailEntry(null)}
+		/>
+	) : null;
+
 	// Nothing new to surface: stay out of the way.
-	if (unacked.length === 0) {
-		return detailEntry ? (
-			<LogDetailModal
-				log={detailEntry.log}
-				type={detailEntry.type}
-				onClose={() => setDetailEntry(null)}
-			/>
-		) : null;
-	}
+	if (unacked.length === 0) return detail;
 
 	return (
 		<>
-			{detailEntry && (
-				<LogDetailModal
-					log={detailEntry.log}
-					type={detailEntry.type}
-					onClose={() => setDetailEntry(null)}
-				/>
-			)}
+			{detail}
 			<div
 				className="ui-error-shelf mb-2 overflow-hidden rounded-lg border border-[var(--error-border)] bg-[var(--error-bg)]"
 				data-testid="error-shelf"
@@ -257,9 +253,7 @@ export function ErrorShelf() {
 											className="ui-error-shelf-msg mt-0.5 break-words font-mono text-[9.5px] leading-relaxed text-[var(--error-text-muted)]"
 											title={displayMessage}
 										>
-											{displayMessage.length > 200
-												? truncateWithEllipsis(displayMessage, 200)
-												: displayMessage}
+											{truncateWithEllipsis(displayMessage, 200)}
 										</p>
 									</li>
 								);

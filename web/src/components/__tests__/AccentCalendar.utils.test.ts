@@ -6,8 +6,7 @@ import {
 	pad,
 	todayISO,
 	toISODate,
-} from "../../../components/AccentCalendar.utils";
-import { formatMs, formatTPS } from "../utils";
+} from "../AccentCalendar.utils";
 
 describe("toISODate", () => {
 	it("formats date as YYYY-MM-DD", () => {
@@ -166,64 +165,5 @@ describe("formatDateRangeShort", () => {
 		const from = "2024-02-25";
 		const to = "2024-03-05T12:00:00";
 		expect(formatDateRangeShort(from, to)).toBe("25/02/24 - 05/03/2024");
-	});
-});
-
-describe("formatTPS", () => {
-	it("returns '-' for null", () => {
-		expect(formatTPS(null)).toBe("-");
-	});
-
-	it("returns '-' for zero", () => {
-		expect(formatTPS(0)).toBe("-");
-	});
-
-	it("formats 45.5 as '45.5'", () => {
-		expect(formatTPS(45.5)).toBe("45.5");
-	});
-
-	it("formats 1000.123 as '1000.1' (1 decimal)", () => {
-		expect(formatTPS(1000.123)).toBe("1000.1");
-	});
-
-	it("returns '-' for undefined", () => {
-		expect(formatTPS(undefined as unknown as null)).toBe("-");
-	});
-});
-
-describe("formatMs", () => {
-	it("returns '-' for null", () => {
-		expect(formatMs(null)).toBe("-");
-	});
-
-	it("returns '-' for undefined", () => {
-		expect(formatMs(undefined)).toBe("-");
-	});
-
-	it("returns '-' for zero", () => {
-		expect(formatMs(0)).toBe("-");
-	});
-
-	it("formats number with 2 decimals by default", () => {
-		expect(formatMs(100)).toBe("100.00ms");
-		expect(formatMs(100.5)).toBe("100.50ms");
-		expect(formatMs(100.123)).toBe("100.12ms");
-	});
-
-	it("respects custom decimals parameter", () => {
-		expect(formatMs(100, 0)).toBe("100ms");
-		expect(formatMs(100, 1)).toBe("100.0ms");
-		expect(formatMs(100, 3)).toBe("100.000ms");
-		expect(formatMs(100.1234, 3)).toBe("100.123ms");
-	});
-
-	it("handles small values", () => {
-		expect(formatMs(0.5)).toBe("0.50ms");
-		expect(formatMs(0.001)).toBe("0.00ms");
-	});
-
-	it("handles large values", () => {
-		expect(formatMs(1000)).toBe("1000.00ms");
-		expect(formatMs(10000.5)).toBe("10000.50ms");
 	});
 });

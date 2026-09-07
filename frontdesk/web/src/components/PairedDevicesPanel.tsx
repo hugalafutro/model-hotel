@@ -1,10 +1,10 @@
-import QRCode from "qrcode";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { DeviceRole, PairedDevice, PairStart } from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import { useCopyWithToast } from "../hooks/useCopyWithToast";
+import { useQrDataUrl } from "../hooks/useQrDataUrl";
 import { formatAbsolute } from "../utils/time";
 import { ConfirmModal } from "./ConfirmModal";
 
@@ -34,13 +34,10 @@ const DEVICE_LIST_POLL_MS = 5000;
 export function PairedDevicesPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	// Copying the pairing string is reported as a toast, not a label on the
-	// button, so the hook's "Copied" flag is left off.
-	const { copy } = useCopyToClipboard({ trackCopied: false });
+	const copyWithToast = useCopyWithToast();
 	const [devices, setDevices] = useState<PairedDevice[] | null>(null);
 	const [role, setRole] = useState<DeviceRole>("operator");
 	const [pair, setPair] = useState<PairStart | null>(null);
-	const [qrDataUrl, setQrDataUrl] = useState("");
 	const [expired, setExpired] = useState(false);
 	const [working, setWorking] = useState(false);
 	const [revoking, setRevoking] = useState<PairedDevice | null>(null);
@@ -61,13 +58,10 @@ export function PairedDevicesPanel() {
 			.catch(() => {});
 	}, []);
 
-	useEffect(() => {
-		refresh();
-	}, [refresh]);
-
 	// Keep the list live at all times: a phone that pairs or unlinks itself shows
 	// up (or drops off) on its own, so the operator never has to reload the page.
 	useEffect(() => {
+		refresh();
 		const id = setInterval(refresh, DEVICE_LIST_POLL_MS);
 		return () => clearInterval(id);
 	}, [refresh]);
@@ -103,22 +97,9 @@ export function PairedDevicesPanel() {
 		};
 	}, [pair, expired]);
 
-	// Render the QR whenever a code is minted. The stale-QR reset happens in
-	// generate() (not here) so the effect never sets state synchronously.
-	useEffect(() => {
-		if (!pair) return;
-		let cancelled = false;
-		QRCode.toDataURL(pairingPayload(pair.code), { width: 220, margin: 2 })
-			.then((url) => {
-				if (!cancelled) setQrDataUrl(url);
-			})
-			.catch(() => {
-				if (!cancelled) setQrDataUrl("");
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [pair]);
+	// The QR of whichever code is live; a new code drops the previous image until
+	// its own renders.
+	const qrDataUrl = useQrDataUrl(pair ? pairingPayload(pair.code) : "", 220);
 
 	// Dismiss the QR/string only when THIS code paired a device: a new device ID
 	// appeared AND our own code is no longer outstanding. Requiring both means a
@@ -130,7 +111,6 @@ export function PairedDevicesPanel() {
 		if (paired) {
 			setPair(null);
 			setExpired(false);
-			setQrDataUrl("");
 			setCodeSpent(false);
 			toast(t("settings.devices.paired"), "success");
 		}
@@ -144,7 +124,6 @@ export function PairedDevicesPanel() {
 			// THIS code produces a new one and dismiss itself.
 			pairedBaselineRef.current = new Set((devices ?? []).map((d) => d.id));
 			setCodeSpent(false);
-			setQrDataUrl(""); // drop the previous code's QR until the new one renders
 			setExpired(false);
 			setPair(p);
 		} catch {
@@ -154,13 +133,9 @@ export function PairedDevicesPanel() {
 		}
 	};
 
-	const copyPayload = async () => {
+	const copyPayload = () => {
 		if (!pair) return;
-		const ok = await copy(pairingPayload(pair.code));
-		toast(
-			ok ? t("settings.devices.copied") : t("errors.generic"),
-			ok ? "success" : "error",
-		);
+		copyWithToast(pairingPayload(pair.code), t("settings.devices.copied"));
 	};
 
 	const confirmRevoke = async () => {
@@ -295,7 +270,7 @@ export function PairedDevicesPanel() {
 				</p>
 			)}
 
-			{devices && devices.length > 0 && (
+			{devices.length > 0 && (
 				<div style={{ overflowX: "auto", marginTop: "0.8rem" }}>
 					<table className="ui-table ui-table--nowrap">
 						<thead>

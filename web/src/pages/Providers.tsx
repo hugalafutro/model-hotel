@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowDownAZ, ArrowUpZA, PlugZap } from "@/lib/icons";
 import { api } from "../api/client";
@@ -11,18 +11,12 @@ import { FilterInput } from "../components/FilterInput";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { ManagedBanner } from "../components/ManagedBanner";
 import { PageHeader } from "../components/PageHeader";
-import {
-	KimiCodeQuotaModal,
-	MiniMaxQuotaModal,
-	NanoGPTQuotaModal,
-	NeuralWattQuotaModal,
-	OpenRouterQuotaModal,
-	ZAICodingQuotaModal,
-} from "../components/ProviderModals";
 import { ProviderModelsModal } from "../components/ProviderModelsModal";
 import { Spinner } from "../components/Spinner";
+import { useServerEvent } from "../context/EventContext";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
+import { useBulkDeleteModels } from "../hooks/useBulkDeleteModels";
 import { useManaged } from "../hooks/useManaged";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { useQuotaRefresh } from "../hooks/useQuotaRefresh";
@@ -32,10 +26,8 @@ import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
 import { AddProviderModal } from "./Providers/AddProviderModal";
 import { providerTypeTranslationKeys } from "./Providers/constants";
-import {
-	type DiscoverySummaryEntry,
-	DiscoverySummaryModal,
-} from "./Providers/DiscoverySummaryModal";
+import { DiscoverySummaryModal } from "./Providers/DiscoverySummaryModal";
+import type { DiscoverySummaryEntry } from "./Providers/discoverySummary";
 import { EditProviderModal } from "./Providers/EditProviderModal";
 import { ProviderCard } from "./Providers/ProviderCard";
 import { useDiscoveryRetest } from "./Providers/useDiscoveryRetest";
@@ -98,35 +90,18 @@ export function Providers() {
 
 	const quotaData = useQuotaData(providers, { toastErrors: toast });
 
-	const {
-		isNanoOpen,
-		setNanoOpen,
-		isZaiCodingOpen,
-		setZaiCodingOpen,
-		isKimiCodeOpen,
-		setKimiCodeOpen,
-		isMiniMaxOpen,
-		setMiniMaxOpen,
-		isOpenRouterOpen,
-		setOpenRouterOpen,
-		isNeuralwattOpen,
-		setNeuralwattOpen,
-	} = useQuotaModal();
+	// The modals themselves are mounted once by QuotaModalsHost in Layout.
+	const { setOpen } = useQuotaModal();
 
 	// Track which provider is currently being scanned during Discover All
-	useEffect(() => {
-		const handler = (e: Event) => {
-			const event = (e as CustomEvent).detail;
-			if (
-				event?.type === "request.discovery.provider_starting" &&
-				event?.metadata?.provider_id
-			) {
-				setDiscoverAllCurrentId(event.metadata.provider_id as string);
-			}
-		};
-		window.addEventListener("server-event", handler);
-		return () => window.removeEventListener("server-event", handler);
-	}, []);
+	useServerEvent((event) => {
+		if (
+			event?.type === "request.discovery.provider_starting" &&
+			event?.metadata?.provider_id
+		) {
+			setDiscoverAllCurrentId(event.metadata.provider_id as string);
+		}
+	});
 
 	const discoverAllMutation = useMutation({
 		mutationFn: async () => {
@@ -234,44 +209,16 @@ export function Providers() {
 			setDeleteProvider(null);
 			queryClient.invalidateQueries({ queryKey: ["providers"] });
 			queryClient.invalidateQueries({ queryKey: ["models"] });
-			queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
-			queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
-			queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
-			queryClient.invalidateQueries({ queryKey: ["minimax-usage"] });
-			queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
-			queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
+			quotaData.invalidateAll();
 			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
 			refreshBadge();
 		},
 	});
 
-	const handleDeleteDisabledModels = useCallback(
-		async (ids: string[]) => {
-			try {
-				// One atomic request instead of one DELETE per model: a concurrent
-				// burst trips the admin IP rate limiter and reports spurious failures.
-				const { deleted } = await api.models.bulkDelete(ids);
-				queryClient.invalidateQueries({ queryKey: ["models"] });
-				refreshBadge();
-				toast(
-					t("providers.toast_delete_models_success", { count: deleted }),
-					"success",
-				);
-			} catch (err) {
-				// The bulk delete is one request, but a failure does not prove nothing
-				// was deleted, so both paths re-read what the server now has.
-				queryClient.invalidateQueries({ queryKey: ["models"] });
-				refreshBadge();
-				toast(
-					t("providers.toast_delete_failed", {
-						message: (err as Error).message,
-					}),
-					"error",
-				);
-			}
-		},
-		[queryClient, refreshBadge, toast, t],
-	);
+	const handleDeleteDisabledModels = useBulkDeleteModels({
+		successKey: "providers.toast_delete_models_success",
+		errorKey: "providers.toast_delete_failed",
+	});
 
 	const typeOptions = useMemo(() => {
 		if (!providers) return [];
@@ -412,12 +359,12 @@ export function Providers() {
 						onDelete={setDeleteProvider}
 						managed={managed}
 						onSetModelsProvider={setModelsProvider}
-						onSetModalNano={() => setNanoOpen(true)}
-						onSetModalZaiCoding={() => setZaiCodingOpen(true)}
-						onSetModalKimiCode={() => setKimiCodeOpen(true)}
-						onSetModalMiniMax={() => setMiniMaxOpen(true)}
-						onSetModalOpenRouter={() => setOpenRouterOpen(true)}
-						onSetModalNeuralwatt={() => setNeuralwattOpen(true)}
+						onSetModalNano={() => setOpen("nanogpt")}
+						onSetModalZaiCoding={() => setOpen("zai-coding")}
+						onSetModalKimiCode={() => setOpen("kimi-code")}
+						onSetModalMiniMax={() => setOpen("minimax")}
+						onSetModalOpenRouter={() => setOpen("openrouter")}
+						onSetModalNeuralwatt={() => setOpen("neuralwatt")}
 						toast={toast}
 					/>
 				))}
@@ -452,72 +399,6 @@ export function Providers() {
 					onRetest={onRetest}
 					retestingKey={retestingKey}
 					isAnyRetesting={isAnyRetesting}
-				/>
-			)}
-
-			{isNanoOpen && quotaData.nanogptUsage && (
-				<NanoGPTQuotaModal
-					usage={quotaData.nanogptUsage}
-					onClose={() => setNanoOpen(false)}
-					onRefresh={quotaData.refetchNano}
-					isRefreshing={quotaData.isNanoRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.nanogptDataUpdatedAt}
-				/>
-			)}
-
-			{isZaiCodingOpen && quotaData.zaiCodingUsage && (
-				<ZAICodingQuotaModal
-					usage={quotaData.zaiCodingUsage}
-					onClose={() => setZaiCodingOpen(false)}
-					onRefresh={quotaData.refetchZaiCoding}
-					isRefreshing={quotaData.isZaiCodingRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.zaiCodingDataUpdatedAt}
-				/>
-			)}
-
-			{isKimiCodeOpen && quotaData.kimiCodeUsage && (
-				<KimiCodeQuotaModal
-					usage={quotaData.kimiCodeUsage}
-					onClose={() => setKimiCodeOpen(false)}
-					onRefresh={quotaData.refetchKimiCode}
-					isRefreshing={quotaData.isKimiCodeRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.kimiCodeDataUpdatedAt}
-				/>
-			)}
-
-			{isMiniMaxOpen && quotaData.minimaxUsage && (
-				<MiniMaxQuotaModal
-					usage={quotaData.minimaxUsage}
-					onClose={() => setMiniMaxOpen(false)}
-					onRefresh={quotaData.refetchMiniMax}
-					isRefreshing={quotaData.isMiniMaxRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.minimaxDataUpdatedAt}
-				/>
-			)}
-
-			{isOpenRouterOpen && quotaData.openrouterBalance && (
-				<OpenRouterQuotaModal
-					balance={quotaData.openrouterBalance}
-					onClose={() => setOpenRouterOpen(false)}
-					onRefresh={quotaData.refetchOpenRouter}
-					isRefreshing={quotaData.isOrRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.openrouterDataUpdatedAt}
-				/>
-			)}
-
-			{isNeuralwattOpen && quotaData.neuralwattQuota && (
-				<NeuralWattQuotaModal
-					quota={quotaData.neuralwattQuota}
-					onClose={() => setNeuralwattOpen(false)}
-					onRefresh={quotaData.refetchNeuralwatt}
-					isRefreshing={quotaData.isNeuralwattRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.neuralwattDataUpdatedAt}
 				/>
 			)}
 

@@ -369,16 +369,24 @@
 			"distributionChart": "مخطط توزيع المزود",
 			"emptyState": "لا توجد بيانات موفر بعد. سيظهر تفكيك موفر الخدمة هنا بمجرد تدفق حركة المرور.",
 			"chartAriaLabel": "مخطط توزيع المزود",
-			"tokenUnit": "الرمز",
-			"tokensUnit": "الرموز",
-			"requestUnit": "طلب",
-			"requestsUnit": "الطلبات",
 			"top_zero": "أفضل {{count}} مزود",
 			"top_one": "أفضل {{count}} مزود",
 			"top_two": "أفضل {{count}} مزودين",
 			"top_few": "أفضل {{count}} مزودين",
 			"top_many": "أفضل {{count}} مزودًا",
-			"top_other": "أفضل {{count}} مزود"
+			"top_other": "أفضل {{count}} مزود",
+			"tokens_zero": "الرموز",
+			"tokens_one": "الرمز",
+			"tokens_two": "الرموز",
+			"tokens_few": "الرموز",
+			"tokens_many": "الرموز",
+			"tokens_other": "الرموز",
+			"requests_zero": "الطلبات",
+			"requests_one": "طلب",
+			"requests_two": "الطلبات",
+			"requests_few": "الطلبات",
+			"requests_many": "الطلبات",
+			"requests_other": "الطلبات"
 		},
 		"models": {
 			"viewDetails": "عرض التفاصيل ل {{label}}",
@@ -625,7 +633,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "النماذج قيد التوليد - انقر على إيقاف الكل للإلغاء",
-			"voteToContinue": "صوّت على جميع المواجهات للانتقال إلى الجولة التالية",
 			"nextRoundReady": "ابدأ الجولة التالية عندما تكون جاهزة"
 		},
 		"responses": {
@@ -680,13 +687,6 @@
 			"close": "أغلق"
 		},
 		"params": {
-			"temperature": "درجة الحرارة",
-			"maxTokens": "الحد الاقصى للرموز",
-			"topP": "Top P",
-			"minP": "الحد الأدنى P",
-			"topK": "Top K",
-			"freqPenalty": "عقوبة التكرار",
-			"presPenalty": "عقوبة التواجد",
 			"resetAll": "إعادة تعيين الكل",
 			"done": "تم"
 		},
@@ -868,7 +868,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "لا يوجد مزودون ممكّنون متبقون",
-				"onlyOne": "لم يتبق سوى مزود واحد ممكّن (يحتاج التحويل التلقائي إلى اثنين على الأقل)"
+				"onlyOne": "لم يتبق سوى مزود واحد ممكّن (يحتاج التحويل التلقائي إلى اثنين على الأقل)",
+				"noValidProviders": "لم يتبقَّ أي مزوّد صالح بعد التقليم",
+				"onlyOneValid": "لم يتبقَّ سوى مزوّد صالح واحد بعد التقليم (تجاوز الفشل يحتاج إلى اثنين على الأقل)"
 			},
 			"error": "خطأ",
 			"failover": "مجموعات التحويل التلقائي",
@@ -1193,7 +1195,17 @@
 		"scope_all": "جميع المزودين",
 		"badge_parked": "{{count}} متوقف",
 		"status_parked": "متوقف",
-		"status_parked_hint": "المزود معطل؛ يبقى هذا النموذج مدرجًا لكنه لا يُقدَّم حتى يتم تفعيل المزود مجددًا."
+		"status_parked_hint": "المزود معطل؛ يبقى هذا النموذج مدرجًا لكنه لا يُقدَّم حتى يتم تفعيل المزود مجددًا.",
+		"capPills": {
+			"vision": "رؤية",
+			"reasoning": "الاستدلال",
+			"tool_calling": "أدوات",
+			"structured_output": "منظَّم",
+			"pdf_upload": "PDF",
+			"video_input": "فيديو",
+			"audio_input": "صوت",
+			"parallel_tool_calls": "متوازٍ"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "العودة إلى القيمة المكتشفة",
@@ -1439,7 +1451,6 @@
 				"owner": "المالك"
 			},
 			"noProvidersConfigured": "لم يتم تكوين موفري الخدمة.",
-			"discardChanges": "تجاهل التغييرات غير المحفوظة؟",
 			"loadingProviders": "جاري تحميل مقدمي الخدمات...",
 			"stripReasoningDescriptionText": "عند التمكين، يتم إزالة رموز التعليل/التفكير من استجابات البث للعملاء الذين لا يستطيعون التعامل معهم.",
 			"providerInstructionsText": "انقر فوق موفر لتقييد الوصول. يمكن الوصول إلى الجميع بشكل افتراضي.",
@@ -1580,6 +1591,11 @@
 			"search": "تصفية السجلات…",
 			"allLevels": "جميع المستويات",
 			"allSources": "جميع المصادر"
+		},
+		"level": {
+			"info": "معلومات",
+			"warning": "تحذير",
+			"error": "خطأ"
 		},
 		"table": {
 			"timeDate": "الوقت/التاريخ",
@@ -2055,8 +2071,8 @@
 				"confirmEnableTitle": "تمكين النسخ الاحتياطي الدوري؟",
 				"confirmEnableDescription": "يؤدي تفعيل النسخ الاحتياطي الدوري إلى حذف النسخ الاحتياطية الحالية التي تقع خارج نافذة تدوير الابن/الأب/الجد.",
 				"confirmEnableWouldRemove": "هذه {{count}} نسخة احتياطية تقع خارج نافذة التدوير وسيتم حذفها نهائيًا:",
-				"prunePreviewFailed": "فشل في معاينة التقسيم الاحتياطي",
-				"pruneFailed": "فشل حذف النسخ الاحتياطية القديمة",
+				"prunePreviewFailed": "فشل في معاينة التقسيم الاحتياطي: {{message}}",
+				"pruneFailed": "فشل حذف النسخ الاحتياطية القديمة: {{message}}",
 				"pruneSuccess": "تم تفعيل النسخ الاحتياطي الدوري. تمت إزالة {{count}} نسخة احتياطية قديمة."
 			},
 			"availableBackupsTitle": "النسخ الاحتياطي المتوفر",
@@ -2604,16 +2620,9 @@
 			"filter": "تصفية…",
 			"clearFilter": "مسح الفلتر"
 		},
-		"copyButton": {
-			"copy": "نسخ",
-			"copiedToClipboard": "نسخ إلى الحافظة",
-			"failedToCopy": "فشل في النسخ"
-		},
 		"copyablePill": {
 			"copy": "نسخ",
-			"copyToClipboard": "نسخ إلى الحافظة",
-			"copied": "نسخ!",
-			"failedToCopy": "فشل في النسخ"
+			"copyToClipboard": "نسخ إلى الحافظة"
 		},
 		"collapsibleToggle": {
 			"expand": "توسيع",
@@ -2950,11 +2959,6 @@
 			"compare": "قارن",
 			"noMatchHistory": "لا يوجد سجل مباريات بعد",
 			"completedSessionsHere": "الحلبة المكتملة ومقارنة الجلسات ستظهر هنا",
-			"match": "المباراة",
-			"final": "نهائي",
-			"semifinals": "نصف نهائي",
-			"quarterfinals": "ربع النهائي",
-			"round": "الجولة {{number}}",
 			"winner": "الفائز: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "خطأ: {{message}}",
@@ -3070,35 +3074,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "لا توجد سجلات",
-			"entries": "إدخالات",
-			"loadingNewer": "تحميل أحدث…",
-			"loadingOlder": "تحميل القديم…",
-			"timeDate": "الوقت/التاريخ",
-			"hash": "التجزئة",
-			"model": "الموديل",
-			"provider": "موفر",
-			"providerDeleted": "تم حذف المزود",
-			"status": "الحالة",
-			"tokens": "الرموز",
-			"tps": "ت/ث",
-			"tokensPerSecond": "ت/ث",
-			"headers": "الترويسات",
-			"ttft": "TTFT",
-			"duration": "المدة",
-			"overhead": "العبء الإضافي",
-			"key": "المفتاح",
-			"interrupted": "مقطوع",
-			"internal": "داخلي",
-			"cacheInflated": "متضخم بسبب إصابات ذاكرة الموجّهات المؤقتة",
-			"deleted": "محذوف",
-			"zeroEntries": "0 إدخالات",
-			"ip": "IP"
+			"zeroEntries": "0 إدخالات"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "لم يتم العثور على إدخالات السجل",
-			"entries": "إدخالات",
-			"loadingNewer": "تحميل أحدث…",
-			"loadingOlder": "تحميل القديم…",
 			"timeDate": "الوقت/التاريخ",
 			"level": "المستوى",
 			"source": "المصدر",
@@ -3321,7 +3300,8 @@
 		},
 		"useDisableModel": {
 			"success": "تم تعطيل الموديل \"{{model}}\"",
-			"error": "فشل تعطيل النموذج: {{error}}"
+			"error": "فشل تعطيل النموذج: {{error}}",
+			"notFound": "لم يتم العثور على النموذج \"{{model}}\" ضمن النماذج المفعّلة"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "فشل في جلب البيانات الأولية",

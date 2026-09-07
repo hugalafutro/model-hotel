@@ -3,10 +3,17 @@ import type {
 	MiniMaxModelRemains,
 	MiniMaxQuotaResponse,
 } from "../../api/types";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
-import { formatRelativeTime, formatTimeUntil } from "../../utils/format";
+import { formatTimeUntil } from "../../utils/format";
 import { Modal } from "../Modal";
-import { QuotaBar, QuotaModalHeaderActions } from "./shared";
+import {
+	LastRefreshedRow,
+	type OnToast,
+	QuotaBar,
+	QuotaModalHeaderActions,
+	usedLeftText,
+	useQuotaBarMode,
+	useQuotaRefreshToast,
+} from "./shared";
 
 /** Human label for a MiniMax model class. */
 function classLabel(modelName: string, t: (k: string) => string): string {
@@ -64,11 +71,6 @@ function ModelClassRows({
 			? Math.round((entry.end_time - entry.start_time) / 3_600_000)
 			: 5;
 
-	const rightText = (used: number) =>
-		barMode === "used"
-			? `${used.toFixed(0)}% ${t("components.providerModals.used")}`
-			: `${(100 - used).toFixed(0)}% ${t("components.providerModals.left")}`;
-
 	return (
 		<div className="space-y-4">
 			<p className="text-sm font-medium text-(--text-secondary)">{label}</p>
@@ -76,7 +78,7 @@ function ModelClassRows({
 				label={t("components.providerModals.hTokenQuota", {
 					hours: intervalHours,
 				})}
-				rightText={rightText(fiveHourUsed)}
+				rightText={usedLeftText(fiveHourUsed, barMode, t)}
 				percentage={fiveHourUsed}
 				barMode={barMode}
 				dataTestId={`minimax-${name}-5h-bar`}
@@ -86,7 +88,7 @@ function ModelClassRows({
 			</QuotaBar>
 			<QuotaBar
 				label={t("components.providerModals.weeklyTokenQuota")}
-				rightText={rightText(weeklyUsed)}
+				rightText={usedLeftText(weeklyUsed, barMode, t)}
 				percentage={weeklyUsed}
 				barMode={barMode}
 				dataTestId={`minimax-${name}-weekly-bar`}
@@ -110,25 +112,15 @@ export function MiniMaxQuotaModal({
 	onClose: () => void;
 	onRefresh: () => Promise<unknown>;
 	isRefreshing: boolean;
-	onToast: (msg: string, type: "success" | "error" | "info") => void;
+	onToast: OnToast;
 	lastRefreshed?: number;
 }) {
 	const { t } = useTranslation();
-	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
-		"quota-bar-mode",
-		"remaining",
-	);
+	const [barMode, toggleBarMode] = useQuotaBarMode();
 
 	const entries = usage.model_remains ?? [];
 
-	const handleRefresh = async () => {
-		try {
-			await onRefresh();
-			onToast(t("components.providerModals.quotaRefreshed"), "success");
-		} catch {
-			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
-		}
-	};
+	const handleRefresh = useQuotaRefreshToast(onRefresh, onToast);
 
 	return (
 		<Modal
@@ -140,21 +132,10 @@ export function MiniMaxQuotaModal({
 						</h2>
 					</div>
 					<QuotaModalHeaderActions
-						onToggleBarMode={() =>
-							setBarMode((prev) =>
-								prev === "remaining" ? "used" : "remaining",
-							)
-						}
+						barMode={barMode}
+						onToggleBarMode={toggleBarMode}
 						onRefresh={handleRefresh}
 						isRefreshing={isRefreshing}
-						toggleAriaLabel={t("components.providerModals.toggleRemainingUsed")}
-						toggleTitle={
-							barMode === "remaining"
-								? t("components.providerModals.showQuotaUsed")
-								: t("components.providerModals.showQuotaRemaining")
-						}
-						refreshAriaLabel={t("common.refresh")}
-						refreshTitle={t("components.providerModals.refreshQuotaInfo")}
 					/>
 				</div>
 			}
@@ -170,14 +151,7 @@ export function MiniMaxQuotaModal({
 					/>
 				))}
 
-				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
-						<span>{t("components.providerModals.lastRefreshed")}</span>
-						<span>
-							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
-						</span>
-					</div>
-				) : null}
+				<LastRefreshedRow at={lastRefreshed} />
 			</div>
 		</Modal>
 	);

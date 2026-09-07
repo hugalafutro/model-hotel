@@ -427,6 +427,49 @@ describe("Security page edge handlers", () => {
 		}
 	});
 
+	it("does not reload after the page is left mid-countdown", {
+		timeout: 30000,
+	}, async () => {
+		mockStatus({ enabled: false });
+		server.use(
+			http.post("/api/auth/password", () => HttpResponse.json({ ok: true })),
+		);
+		const reload = vi.fn();
+		const original = window.location;
+		Object.defineProperty(window, "location", {
+			value: { ...original, reload },
+			configurable: true,
+		});
+		try {
+			const { user, unmount } = renderWithProviders(<Security />);
+			await user.type(
+				await screen.findByTestId("security-current-password"),
+				"old-password",
+			);
+			await user.type(
+				screen.getByTestId("security-new-password"),
+				"new-password-1",
+			);
+			await user.type(
+				screen.getByTestId("security-confirm-password"),
+				"new-password-1",
+			);
+			await user.click(screen.getByTestId("security-password-submit"));
+			await screen.findByText(i18n.t("security.password.success"));
+			unmount();
+			// The countdown is cancelled on unmount, so navigating away within it
+			// leaves the page the caller moved to alone.
+			await new Promise((resolve) => setTimeout(resolve, 2000));
+			expect(reload).not.toHaveBeenCalled();
+		} finally {
+			Object.defineProperty(window, "location", {
+				value: original,
+				configurable: true,
+			});
+			document.cookie = "mh_csrf=test-csrf; path=/";
+		}
+	});
+
 	it("reports a generic failure for non-401 password errors", {
 		timeout: 30000,
 	}, async () => {

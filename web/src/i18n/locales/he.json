@@ -354,10 +354,12 @@
 			"distributionChart": "תרשים התפלגות הספקים",
 			"emptyState": "אין עדיין נתונים על ספקים. פירוט הספקים יופיע כאן ברגע שתתחיל תנועת הגלישה.",
 			"chartAriaLabel": "תרשים התפלגות הספקים",
-			"tokenUnit": "אסימון",
-			"tokensUnit": "אסימונים",
-			"requestUnit": "בקשה",
-			"requestsUnit": "בקשות"
+			"tokens_one": "אסימון",
+			"tokens_two": "אסימונים",
+			"tokens_other": "אסימונים",
+			"requests_one": "בקשה",
+			"requests_two": "בקשות",
+			"requests_other": "בקשות"
 		},
 		"models": {
 			"viewDetails": "הצג פרטים על {{label}}",
@@ -604,7 +606,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "המודלים נמצאים בתהליך יצירה - לחץ על 'עצור הכל' כדי לבטל",
-			"voteToContinue": "הצביעו בכל המשחקים כדי לעבור לשלב הבא",
 			"nextRoundReady": "התחל את הסיבוב הבא כשתהיה מוכן"
 		},
 		"responses": {
@@ -659,13 +660,6 @@
 			"close": "סגור"
 		},
 		"params": {
-			"temperature": "טמפרטורה",
-			"maxTokens": "מקס אסימונים",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "הטופ K",
-			"freqPenalty": "עונש תדירות",
-			"presPenalty": "עונש נוכחות",
 			"resetAll": "אפס הכל",
 			"done": "בוצע"
 		},
@@ -856,7 +850,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "לא נותרו ספקים מופעלים",
-				"onlyOne": "נותר ספק מופעל אחד בלבד (למעבר לגיבוי דרושים לפחות שניים)"
+				"onlyOne": "נותר ספק מופעל אחד בלבד (למעבר לגיבוי דרושים לפחות שניים)",
+				"noValidProviders": "לא נותרו ספקים תקפים לאחר הגיזום",
+				"onlyOneValid": "נותר רק ספק תקף אחד לאחר הגיזום (מעבר לגיבוי דורש לפחות שניים)"
 			},
 			"error": "שגיאה",
 			"failover": "קבוצות מעבר לגיבוי",
@@ -1097,7 +1093,17 @@
 		"scope_all": "כל הספקים",
 		"badge_parked": "{{count}} מושהים",
 		"status_parked": "מושהה",
-		"status_parked_hint": "הספק מושבת; המודל נשאר ברשימה אך אינו מוגש עד שהספק יופעל מחדש."
+		"status_parked_hint": "הספק מושבת; המודל נשאר ברשימה אך אינו מוגש עד שהספק יופעל מחדש.",
+		"capPills": {
+			"vision": "ראייה",
+			"reasoning": "הסקה",
+			"tool_calling": "כלים",
+			"structured_output": "מובנה",
+			"pdf_upload": "PDF",
+			"video_input": "וידאו",
+			"audio_input": "אודיו",
+			"parallel_tool_calls": "מקבילי"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "חזור לערך שנמצא",
@@ -1310,7 +1316,6 @@
 				"owner": "בעלים"
 			},
 			"noProvidersConfigured": "לא הוגדרו ספקים.",
-			"discardChanges": "האם למחוק שינויים שלא נשמרו?",
 			"loadingProviders": "טוען ספקים...",
 			"stripReasoningDescriptionText": "כאשר אפשרות זו מופעלת, אסימוני ההיגיון/החשיבה מוסרים מתגובות הזרם עבור לקוחות שאינם מסוגלים לטפל בהם.",
 			"providerInstructionsText": "לחץ על ספק כדי להגביל את הגישה. כברירת מחדל, הגישה פתוחה לכולם.",
@@ -1451,6 +1456,11 @@
 			"search": "סינון יומנים…",
 			"allLevels": "כל הרמות",
 			"allSources": "כל המקורות"
+		},
+		"level": {
+			"info": "מידע",
+			"warning": "אזהרה",
+			"error": "שגיאה"
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",
@@ -1908,8 +1918,8 @@
 				"confirmEnableTitle": "להפעיל גיבוי תקופתי?",
 				"confirmEnableDescription": "הפעלת גיבוי תקופתי מוחקת גיבויים קיימים שנמצאים מחוץ לחלון הסבב בן/אב/סב.",
 				"confirmEnableWouldRemove": "{{count}} גיבויים אלה נמצאים מחוץ לחלון הסבב והם יימחקו לצמיתות:",
-				"prunePreviewFailed": "לא ניתן להציג תצוגה מקדימה של צמצום הגיבוי",
-				"pruneFailed": "לא הצליחו לנקות את הגיבויים",
+				"prunePreviewFailed": "לא ניתן להציג תצוגה מקדימה של צמצום הגיבוי: {{message}}",
+				"pruneFailed": "לא הצליחו לנקות את הגיבויים: {{message}}",
 				"pruneSuccess": "גיבוי תקופתי הופעל. הוסרו {{count}} גיבויים ישנים."
 			},
 			"availableBackupsTitle": "גיבויים זמינים",
@@ -2442,16 +2452,9 @@
 			"filter": "סינון…",
 			"clearFilter": "נקה את המסנן"
 		},
-		"copyButton": {
-			"copy": "העתק",
-			"copiedToClipboard": "הועתק ללוח",
-			"failedToCopy": "לא הצליח להעתיק"
-		},
 		"copyablePill": {
 			"copy": "העתק",
-			"copyToClipboard": "העתק ללוח",
-			"copied": "הועתק!",
-			"failedToCopy": "לא הצליח להעתיק"
+			"copyToClipboard": "העתק ללוח"
 		},
 		"collapsibleToggle": {
 			"expand": "הרחב",
@@ -2773,11 +2776,6 @@
 			"compare": "השווה",
 			"noMatchHistory": "עדיין אין היסטוריית משחקים",
 			"completedSessionsHere": "הפעילויות שהושלמו וההשוואות יופיעו כאן",
-			"match": "משחק",
-			"final": "סופי",
-			"semifinals": "חצי הגמר",
-			"quarterfinals": "רבע הגמר",
-			"round": "סיבוב {{number}}",
 			"winner": "הזוכה: {{name}}",
 			"responsesAbbrev": "{{count}} תגובות",
 			"error": "שגיאה: {{message}}",
@@ -2887,35 +2885,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "לא נמצאו יומנים",
-			"entries": "רשומות",
-			"loadingNewer": "טוען רשומות חדשות יותר…",
-			"loadingOlder": "טוען רשומות ישנות יותר…",
-			"timeDate": "שעה/תאריך",
-			"hash": "גיבוב",
-			"model": "דגם",
-			"provider": "ספק",
-			"providerDeleted": "הספק נמחק",
-			"status": "סטטוס",
-			"tokens": "אסימונים",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "כותרות",
-			"ttft": "TTFT",
-			"duration": "משך",
-			"overhead": "תקורה",
-			"key": "מפתח",
-			"interrupted": "נקטע",
-			"internal": "פנימי",
-			"cacheInflated": "מוגדל עקב פגיעות במטמון ההנחיות",
-			"deleted": "נמחק",
-			"zeroEntries": "0 רשומות",
-			"ip": "IP"
+			"zeroEntries": "0 רשומות"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "לא נמצאו רשומות ביומן",
-			"entries": "רשומות",
-			"loadingNewer": "טוען רשומות חדשות יותר…",
-			"loadingOlder": "טוען רשומות ישנות יותר…",
 			"timeDate": "שעה/תאריך",
 			"level": "רמה",
 			"source": "מקור",
@@ -3129,7 +3102,8 @@
 		},
 		"useDisableModel": {
 			"success": "הדגם \"{{model}}\" מושבת",
-			"error": "לא הצלחתי להשבית את המודל: {{error}}"
+			"error": "לא הצלחתי להשבית את המודל: {{error}}",
+			"notFound": "הדגם \"{{model}}\" לא נמצא בין הדגמים המופעלים"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "לא הצליחו לאחזר את הנתונים הראשוניים",

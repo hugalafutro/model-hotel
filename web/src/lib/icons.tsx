@@ -126,7 +126,6 @@ export const ShieldCheck = withId(Ph.ShieldCheckIcon, "ShieldCheck");
 export const ShieldOff = withId(Ph.ShieldSlashIcon, "ShieldOff");
 export const ShieldAlert = withId(Ph.ShieldWarningIcon, "ShieldAlert");
 export const Shuffle = withId(Ph.ShuffleIcon, "Shuffle");
-export const LogOut = withId(Ph.SignOutIcon, "LogOut");
 export const LogIn = withId(Ph.SignInIcon, "LogIn");
 export const GithubLogo = withId(Ph.GithubLogoIcon, "GithubLogo");
 export const ArrowDownAZ = withId(Ph.SortAscendingIcon, "ArrowDownAZ");
@@ -193,5 +192,26 @@ export function BrainSlashIcon({
 				<span className="w-full h-[1.5px] bg-current rotate-45" />
 			</span>
 		</span>
+	);
+}
+
+/**
+ * The chevron a disclosure control shows: down when the section is open, right
+ * when it is closed. Every collapsible header in the dashboard uses this pair,
+ * so the direction convention is stated once.
+ */
+export function DisclosureChevron({
+	open,
+	size = 14,
+	className = "",
+}: {
+	open: boolean;
+	size?: number;
+	className?: string;
+}) {
+	return open ? (
+		<ChevronDown size={size} className={className} />
+	) : (
+		<ChevronRight size={size} className={className} />
 	);
 }

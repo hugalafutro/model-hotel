@@ -124,6 +124,7 @@ describe("Chat", () => {
 			handleDeleteMessage: vi.fn(),
 			handleKeyDown: vi.fn(),
 			clearConversationAbort: vi.fn(),
+			clearMessages: vi.fn(),
 			...overrides,
 		} as ReturnType<typeof UseChatHook>);
 	};
@@ -304,14 +305,19 @@ describe("Chat", () => {
 						error: "API Error",
 					},
 				],
+				// What useChat derives from those messages, which is what the
+				// stats bar names in its failure line.
+				failedConversationModel: "test-model-v1",
 			});
 
 			renderWithProviders(<Chat />);
 
 			await waitFor(() => {
+				// The failing model is named in both the reply card and the stats
+				// bar below it, from the one value useChat derives.
 				expect(
-					screen.getByText(/test-model-v1.*Generation failed/),
-				).toBeInTheDocument();
+					screen.getAllByText(/test-model-v1.*Generation failed/).length,
+				).toBeGreaterThan(0);
 			});
 		});
 
@@ -668,35 +674,16 @@ describe("Chat", () => {
 			expect(handleStopConversation).toHaveBeenCalled();
 		});
 
-		it("calls all state setters and toast when Clear button is clicked", async () => {
-			const clearConversationAbort = vi.fn();
-			const setMessages = vi.fn();
-			const setInput = vi.fn();
-			const setConversationState = vi.fn();
-			const setCurrentTurn = vi.fn();
-			const setTurnCountdown = vi.fn();
-			const setIsStreaming = vi.fn();
+		it("clears the messages and toasts when Clear button is clicked", async () => {
+			const clearMessages = vi.fn();
 			const toast = vi.fn();
 
 			mockUseChatResult({
 				chatSubMode: "conversation",
 				conversationState: "completed",
 				messages: [{ role: "user", content: "Test", timestamp: 1 }],
-				clearConversationAbort,
-				setMessages,
-				setInput,
-				setConversationState,
-				setCurrentTurn,
-				setTurnCountdown,
-				setIsStreaming,
+				clearMessages,
 				toast,
-				refs: {
-					sendingRef: { current: false },
-					lastPromptRef: { current: "Last prompt" },
-					messagesContainerRef: { current: null },
-					imageInputRef: { current: null },
-					audioInputRef: { current: null },
-				},
 			});
 
 			const { user } = renderWithProviders(<Chat />);
@@ -715,13 +702,7 @@ describe("Chat", () => {
 				}),
 			);
 
-			expect(clearConversationAbort).toHaveBeenCalled();
-			expect(setMessages).toHaveBeenCalledWith([]);
-			expect(setInput).toHaveBeenCalledWith("Last prompt");
-			expect(setConversationState).toHaveBeenCalledWith("idle");
-			expect(setCurrentTurn).toHaveBeenCalledWith(0);
-			expect(setTurnCountdown).toHaveBeenCalledWith(0);
-			expect(setIsStreaming).toHaveBeenCalledWith(false);
+			expect(clearMessages).toHaveBeenCalled();
 			expect(toast).toHaveBeenCalledWith("Conversation cleared", "info");
 		});
 
@@ -810,42 +791,23 @@ describe("Chat", () => {
 	});
 
 	describe("Stats Bar Clear Button", () => {
-		it("restores the last prompt and resets conversation state", async () => {
-			const clearConversationAbort = vi.fn();
-			const setMessages = vi.fn();
-			const setInput = vi.fn();
-			const setConversationState = vi.fn();
-			const setIsStreaming = vi.fn();
+		it("clears the messages and toasts", async () => {
+			const clearMessages = vi.fn();
 			const toast = vi.fn();
 
 			mockUseChatResult({
 				chatSubMode: "conversation",
 				conversationState: "completed",
 				messages: [{ role: "user", content: "Test", timestamp: 1 }],
-				clearConversationAbort,
-				setMessages,
-				setInput,
-				setConversationState,
-				setIsStreaming,
+				clearMessages,
 				toast,
-				refs: {
-					sendingRef: { current: false },
-					lastPromptRef: { current: "Last stats prompt" },
-					messagesContainerRef: { current: null },
-					imageInputRef: { current: null },
-					audioInputRef: { current: null },
-				},
 			});
 
 			const { user } = renderWithProviders(<Chat />);
 
 			await user.click(screen.getByRole("button", { name: "Clear" }));
 
-			expect(clearConversationAbort).toHaveBeenCalled();
-			expect(setMessages).toHaveBeenCalledWith([]);
-			expect(setInput).toHaveBeenCalledWith("Last stats prompt");
-			expect(setConversationState).toHaveBeenCalledWith("idle");
-			expect(setIsStreaming).toHaveBeenCalledWith(false);
+			expect(clearMessages).toHaveBeenCalled();
 			expect(toast).toHaveBeenCalledWith("Conversation cleared", "info");
 		});
 	});
@@ -860,7 +822,6 @@ describe("Chat", () => {
 				selectedModel: "Test Provider/test-model",
 				hasVision: true,
 				refs: {
-					sendingRef: { current: false },
 					lastPromptRef: { current: "" },
 					messagesContainerRef: { current: null },
 					imageInputRef,
@@ -892,7 +853,6 @@ describe("Chat", () => {
 				selectedModel: "Test Provider/test-model",
 				hasAudioInput: true,
 				refs: {
-					sendingRef: { current: false },
 					lastPromptRef: { current: "" },
 					messagesContainerRef: { current: null },
 					imageInputRef: { current: null },

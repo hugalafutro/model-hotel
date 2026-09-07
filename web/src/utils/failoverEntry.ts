@@ -32,3 +32,28 @@ export function naReasonKey(e: NaReasonInput): string | null {
 export function isNaEntry(e: NaReasonInput): boolean {
 	return e.model_enabled === false || e.provider_enabled === false;
 }
+
+/**
+ * The failover deletion reasons the backend emits, as i18n keys. They are
+ * English sentences written by internal/failover (sync.go and revalidate.go),
+ * so the mapping is on the exact strings; anything unrecognised is shown as it
+ * came rather than as a missing key.
+ */
+const FAILOVER_DELETE_REASON_KEYS: Record<string, string> = {
+	"no enabled providers found":
+		"providers.discoverySummary.failoverReason.noProviders",
+	"only 1 enabled provider (need 2+ for failover)":
+		"providers.discoverySummary.failoverReason.onlyOne",
+	"no valid providers after prune":
+		"providers.discoverySummary.failoverReason.noValidProviders",
+	"only 1 valid provider after prune (need 2+ for failover)":
+		"providers.discoverySummary.failoverReason.onlyOneValid",
+};
+
+export function failoverDeleteReasonText(
+	reason: string,
+	t: (key: string) => string,
+): string {
+	const key = FAILOVER_DELETE_REASON_KEYS[reason];
+	return key ? t(key) : reason;
+}

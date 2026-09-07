@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../../../api/types";
 import { mockChatStream } from "../../../test/helpers";
@@ -5,11 +6,14 @@ import { server } from "../../../test/mocks/server";
 import {
 	buildMessageContent,
 	getApiMessagesForModel,
+	newAssistantPlaceholder,
+	patchAssistantAt,
 	streamModelResponse,
+	withStreamResult,
 } from "../chatStreaming";
 
 /** Minimal t() mock that maps i18n keys used in chatStreaming to English values. */
-const mockT = (key: string) => {
+const mockT = ((key: string) => {
 	const map: Record<string, string> = {
 		"chat.stream.stoppedByUser": "Stopped by user",
 		"chat.stream.unknownError": "Unknown error",
@@ -19,7 +23,7 @@ const mockT = (key: string) => {
 			"Stream ended unexpectedly with no content.",
 	};
 	return map[key] ?? key;
-};
+}) as unknown as TFunction;
 
 describe("buildMessageContent", () => {
 	it("returns plain string for message without attachments", () => {
@@ -366,6 +370,7 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
+			mockT,
 		);
 
 		expect(result.error).toBeNull();
@@ -391,6 +396,7 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
+			mockT,
 		);
 
 		expect(result.error).toBeNull();
@@ -414,6 +420,7 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
+			mockT,
 		);
 
 		expect(result.error).toBeNull();
@@ -433,6 +440,7 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
+			mockT,
 		);
 
 		expect(result.error).toBeNull();
@@ -452,6 +460,7 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
+			mockT,
 		);
 
 		expect(result.error).toBeNull();
@@ -472,13 +481,15 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			onDelta,
+			mockT,
 		);
 
 		expect(onDelta).toHaveBeenCalledTimes(2);
 	});
 
 	it("handles HTTP error response", async () => {
-		server.use(...mockChatStream([], { status: 429 }));
+		// 500 is not retry-able, so the failure surfaces without a backoff wait.
+		server.use(...mockChatStream([], { status: 500 }));
 
 		const result = await streamModelResponse(
 			"model-1",
@@ -486,11 +497,11 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
-			{ maxRetries: 0 },
+			mockT,
 		);
 
 		expect(result.error).not.toBeNull();
-		expect(result.error).toMatch(/429|Chat failed/);
+		expect(result.error).toMatch(/500|Chat failed/);
 	});
 
 	it("handles stream without [DONE] sentinel and no content", async () => {
@@ -502,7 +513,6 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
-			undefined,
 			mockT,
 		);
 
@@ -520,7 +530,6 @@ describe("streamModelResponse", () => {
 			baseParams,
 			new AbortController(),
 			vi.fn(),
-			undefined,
 			mockT,
 		);
 
@@ -545,11 +554,91 @@ describe("streamModelResponse", () => {
 			baseParams,
 			abortCtrl,
 			vi.fn(),
-			{ maxRetries: 0 },
 			mockT,
 		);
 
 		expect(result.aborted).toBe(true);
 		expect(result.error).toBe("Stopped by user");
+	});
+});
+
+describe("newAssistantPlaceholder", () => {
+	it("is empty and carries the model", () => {
+		const msg = newAssistantPlaceholder("Provider/model", {});
+		expect(msg).toMatchObject({
+			role: "assistant",
+			content: "",
+			rawContent: "",
+			thinkingContent: "",
+			model: "Provider/model",
+		});
+		expect(typeof msg.timestamp).toBe("number");
+	});
+
+	it("keeps the params only when some were set", () => {
+		expect(newAssistantPlaceholder("m", {}).params).toBeUndefined();
+		expect(newAssistantPlaceholder("m", { temperature: 0.5 }).params).toEqual({
+			temperature: 0.5,
+		});
+	});
+});
+
+describe("withStreamResult", () => {
+	it("folds the stream result into the message", () => {
+		const msg = newAssistantPlaceholder("Provider/model", {});
+		const merged = withStreamResult(msg, {
+			rawContent: "raw",
+			content: "clean",
+			thinkingContent: "thought",
+			error: null,
+			aborted: false,
+			durationMs: 500,
+			tokensPerSecond: 10,
+			promptTokens: 3,
+			completionTokens: 5,
+		});
+		expect(merged).toMatchObject({
+			model: "Provider/model",
+			rawContent: "raw",
+			content: "clean",
+			thinkingContent: "thought",
+			error: null,
+			metrics: {
+				tokensPerSecond: 10,
+				durationMs: 500,
+				promptTokens: 3,
+				completionTokens: 5,
+			},
+		});
+		// `aborted` is only set when it is true, so a normal reply has no flag.
+		expect(merged.aborted).toBeUndefined();
+	});
+});
+
+describe("patchAssistantAt", () => {
+	const messages: ChatMessage[] = [
+		{ role: "user", content: "hi", timestamp: 1 },
+		{ role: "assistant", content: "", timestamp: 2, model: "m" },
+	];
+
+	it("patches the assistant message with that timestamp", () => {
+		const next = patchAssistantAt(messages, 2, { content: "there" });
+		expect(next[1].content).toBe("there");
+		expect(next).not.toBe(messages);
+		expect(messages[1].content).toBe("");
+	});
+
+	it("accepts a mapper", () => {
+		const next = patchAssistantAt(messages, 2, (m) => ({
+			...m,
+			content: `${m.model}!`,
+		}));
+		expect(next[1].content).toBe("m!");
+	});
+
+	it("returns the list unchanged when the message is gone", () => {
+		expect(patchAssistantAt(messages, 99, { content: "x" })).toBe(messages);
+		// A user message with the same timestamp is not a target either.
+		expect(patchAssistantAt(messages, 1, { content: "x" })).toBe(messages);
 	});
 });

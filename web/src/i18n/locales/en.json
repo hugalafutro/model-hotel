@@ -347,10 +347,10 @@
 			"distributionChart": "Provider distribution chart",
 			"emptyState": "No provider data yet. Provider breakdown will appear here once traffic flows.",
 			"chartAriaLabel": "Provider distribution chart",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokens",
-			"requestUnit": "Request",
-			"requestsUnit": "Requests"
+			"tokens_one": "Token",
+			"tokens_other": "Tokens",
+			"requests_one": "Request",
+			"requests_other": "Requests"
 		},
 		"models": {
 			"viewDetails": "View details for {{label}}",
@@ -597,7 +597,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Models are generating - click Stop All to cancel",
-			"voteToContinue": "Vote on all matchups to continue to the next round",
 			"nextRoundReady": "Start the next round when ready"
 		},
 		"responses": {
@@ -652,13 +651,6 @@
 			"close": "Close"
 		},
 		"params": {
-			"temperature": "Temperature",
-			"maxTokens": "Max Tokens",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Freq Penalty",
-			"presPenalty": "Pres Penalty",
 			"resetAll": "Reset all",
 			"done": "Done"
 		},
@@ -858,7 +850,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "No enabled providers remain",
-				"onlyOne": "Only one enabled provider remains (failover needs at least two)"
+				"onlyOne": "Only one enabled provider remains (failover needs at least two)",
+				"noValidProviders": "No valid providers remain after pruning",
+				"onlyOneValid": "Only one valid provider remains after pruning (failover needs at least two)"
 			},
 			"error": "Error",
 			"retest": "Retest",
@@ -1065,7 +1059,17 @@
 		"scope_all": "All providers",
 		"badge_parked": "{{count}} parked",
 		"status_parked": "Parked",
-		"status_parked_hint": "The provider is disabled; this model stays listed but is not served until the provider is enabled again."
+		"status_parked_hint": "The provider is disabled; this model stays listed but is not served until the provider is enabled again.",
+		"capPills": {
+			"vision": "Vision",
+			"reasoning": "Reasoning",
+			"tool_calling": "Tools",
+			"structured_output": "Structured",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Audio",
+			"parallel_tool_calls": "Parallel"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revert to discovered value",
@@ -1268,7 +1272,6 @@
 				"owner": "Owner"
 			},
 			"noProvidersConfigured": "No providers configured.",
-			"discardChanges": "Discard unsaved changes?",
 			"loadingProviders": "Loading providers...",
 			"stripReasoningDescriptionText": "When enabled, reasoning/thinking tokens are removed from streaming responses for clients that cannot handle them.",
 			"providerInstructionsText": "Click a provider to restrict access. All are accessible by default.",
@@ -1408,6 +1411,11 @@
 			"allLevels": "All Levels",
 			"allSources": "All Sources",
 			"search": "Filter logs…"
+		},
+		"level": {
+			"info": "Info",
+			"warning": "Warning",
+			"error": "Error"
 		},
 		"table": {
 			"timeDate": "Time/Date",
@@ -2040,8 +2048,8 @@
 				"confirmEnableTitle": "Enable Periodic Backup?",
 				"confirmEnableDescription": "Enabling periodic backup deletes existing backups that fall outside the son/father/grandfather rotation window.",
 				"confirmEnableWouldRemove": "These {{count}} backup(s) fall outside the rotation window and will be permanently deleted:",
-				"prunePreviewFailed": "Failed to preview backup pruning",
-				"pruneFailed": "Failed to prune backups",
+				"prunePreviewFailed": "Failed to preview backup pruning: {{message}}",
+				"pruneFailed": "Failed to prune backups: {{message}}",
 				"pruneSuccess": "Periodic backup enabled. Removed {{count}} old backup(s)."
 			},
 			"availableBackupsTitle": "Available backups",
@@ -2388,16 +2396,9 @@
 			"filter": "Filter…",
 			"clearFilter": "Clear filter"
 		},
-		"copyButton": {
-			"copy": "Copy",
-			"copiedToClipboard": "Copied to clipboard",
-			"failedToCopy": "Failed to copy"
-		},
 		"copyablePill": {
 			"copy": "Copy",
-			"copyToClipboard": "Copy to clipboard",
-			"copied": "Copied!",
-			"failedToCopy": "Failed to copy"
+			"copyToClipboard": "Copy to clipboard"
 		},
 		"collapsibleToggle": {
 			"expand": "Expand",
@@ -2714,11 +2715,6 @@
 			"compare": "Compare",
 			"noMatchHistory": "No match history yet",
 			"completedSessionsHere": "Completed arena and compare sessions will appear here",
-			"match": "Match",
-			"final": "Final",
-			"semifinals": "Semifinals",
-			"quarterfinals": "Quarterfinals",
-			"round": "Round {{number}}",
 			"winner": "Winner: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Error: {{message}}",
@@ -2826,35 +2822,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "No logs found",
-			"entries": "entries",
-			"loadingNewer": "Loading newer…",
-			"loadingOlder": "Loading older…",
-			"timeDate": "Time/Date",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Provider",
-			"providerDeleted": "Provider was deleted",
-			"status": "Status",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Headers",
-			"ttft": "TTFT",
-			"duration": "Duration",
-			"overhead": "Overhead",
-			"key": "Key",
-			"interrupted": "Interrupted",
-			"internal": "internal",
-			"cacheInflated": "Inflated by prompt cache hits",
-			"deleted": "Deleted",
-			"zeroEntries": "0 entries",
-			"ip": "IP"
+			"zeroEntries": "0 entries"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No log entries found",
-			"entries": "entries",
-			"loadingNewer": "Loading newer…",
-			"loadingOlder": "Loading older…",
 			"timeDate": "Time/Date",
 			"level": "Level",
 			"source": "Source",
@@ -3065,7 +3036,8 @@
 		},
 		"useDisableModel": {
 			"success": "Model \"{{model}}\" disabled",
-			"error": "Failed to disable model: {{error}}"
+			"error": "Failed to disable model: {{error}}",
+			"notFound": "Model \"{{model}}\" not found in enabled models"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Failed to fetch initial data",

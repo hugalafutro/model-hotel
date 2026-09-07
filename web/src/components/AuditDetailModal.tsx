@@ -10,11 +10,11 @@ import {
 } from "@/lib/icons";
 import type { AuditEntry } from "../api/types";
 import { formatRelativeTime } from "../utils/format";
+import { formatLogTimestamp } from "../utils/logBadgeUtils";
 import { auditMethodVariant, auditStatusVariant } from "./auditUtils";
 import { Badge } from "./Badge";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
-import { formatDateTime } from "./logDetailUtils";
 import { Modal } from "./Modal";
 
 interface AuditDetailModalProps {
@@ -46,7 +46,10 @@ export function AuditDetailModal({ entry, onClose }: AuditDetailModalProps) {
 				>
 					<CopyablePill
 						text={entry.created_at}
-						displayText={formatDateTime(entry.created_at).replace(", ", "\n")}
+						displayText={formatLogTimestamp(entry.created_at).replace(
+							", ",
+							"\n",
+						)}
 						lines={2}
 						textClassName="text-sm text-(--text-primary) whitespace-pre-line leading-tight"
 					/>

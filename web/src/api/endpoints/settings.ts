@@ -1,4 +1,11 @@
-import { API_BASE, fetchJSON, getAuthHeaders, getCsrfToken } from "../http";
+import {
+	API_BASE,
+	buildUrl,
+	fetchJSON,
+	fetchOK,
+	getAuthHeaders,
+	getCsrfToken,
+} from "../http";
 import type {
 	AlertEventDef,
 	AlertStatus,
@@ -7,6 +14,12 @@ import type {
 	BackupEntry,
 	SystemStats,
 } from "../types";
+
+// The heads fetchOK builds into ApiError.message for the two calls whose text
+// the alerts UI strips before showing it. Exported so the stripper matches by
+// reference instead of by a second copy of the string.
+export const SETTINGS_UPDATE_PREFIX = "Failed to update settings";
+export const ALERT_TEST_PREFIX = "Test notification failed";
 
 export const settings = {
 	get: async (): Promise<Record<string, string>> => {
@@ -28,7 +41,7 @@ export const settings = {
 				headers: getAuthHeaders(),
 				body: JSON.stringify(settings),
 			},
-			"Failed to update settings",
+			SETTINGS_UPDATE_PREFIX,
 		);
 	},
 	reset: async (keys: string[] = []): Promise<Record<string, string>> => {
@@ -70,7 +83,7 @@ export const alert = {
 				headers,
 				...(body ? { body: JSON.stringify(body) } : {}),
 			},
-			"Test notification failed",
+			ALERT_TEST_PREFIX,
 		);
 	},
 	status: async (): Promise<AlertStatus> => {
@@ -119,7 +132,7 @@ export const system = {
 		const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate());
 		const since = midnight.toISOString();
 		return fetchJSON<SystemStats>(
-			`${API_BASE}/api/system?since=${encodeURIComponent(since)}`,
+			buildUrl("/api/system", { since }),
 			{
 				headers: getAuthHeaders(),
 			},
@@ -161,16 +174,11 @@ export const backups = {
 		);
 	},
 	delete: async (filename: string): Promise<void> => {
-		const response = await fetch(
+		await fetchOK(
 			`${API_BASE}/api/backups/${encodeURIComponent(filename)}`,
-			{
-				method: "DELETE",
-				headers: getAuthHeaders(),
-			},
+			{ method: "DELETE", headers: getAuthHeaders() },
+			"Failed to delete backup",
 		);
-		if (!response.ok) {
-			throw new Error("Failed to delete backup");
-		}
 	},
 	restore: async (
 		file: File,
@@ -192,17 +200,15 @@ export const backups = {
 		// multipart/form-data with the correct boundary for FormData. The
 		// session rides in the cookie; the CSRF token authorizes this write.
 		const csrf = getCsrfToken();
-		const response = await fetch(`${API_BASE}/api/backups/restore`, {
-			method: "POST",
-			credentials: "same-origin",
-			headers: csrf ? { "X-CSRF-Token": csrf } : {},
-			body: formData,
-		});
-		if (!response.ok) {
-			const text = await response.text();
-			throw new Error(`Restore failed: ${response.status} ${text}`);
-		}
-		return response.json();
+		return fetchJSON<{ migration_count: number; known_count: number }>(
+			`${API_BASE}/api/backups/restore`,
+			{
+				method: "POST",
+				headers: csrf ? { "X-CSRF-Token": csrf } : {},
+				body: formData,
+			},
+			"Restore failed",
+		);
 	},
 	prunePreview: async (): Promise<BackupClassification> => {
 		return fetchJSON<BackupClassification>(

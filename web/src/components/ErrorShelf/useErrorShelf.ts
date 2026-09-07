@@ -17,7 +17,8 @@ export const ERROR_SHELF_LIMIT = 15;
  * keep dismissing. */
 export const ERROR_SHELF_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
-const ACKED_KEYS_STORAGE = "ackedErrorKeys";
+/** The key the per-error acknowledgements live under; the Settings reset clears it. */
+export const ACKED_KEYS_STORAGE = "ackedErrorKeys";
 /** Bound localStorage growth — keep only the most-recently acked keys. */
 const ACKED_KEYS_CAP = 200;
 

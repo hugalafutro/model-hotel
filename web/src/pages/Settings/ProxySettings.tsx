@@ -4,6 +4,7 @@ import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { goDurationToSeconds, secondsToGoDuration } from "../../utils/duration";
+import { settingOr } from "./defaults";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface ProxySettingsProps {
@@ -23,10 +24,10 @@ export function ProxySettings({
 	const { settings, updateMutation, resetSettingMutation } =
 		useSettingsMutations();
 
-	const requestTimeout = settings?.request_timeout || "1m0s";
-	const keyCacheTTL = settings?.key_cache_ttl || "10m0s";
-	const ttftTimeout = settings?.ttft_timeout || "1m0s";
-	const streamStallTimeout = settings?.stream_stall_timeout || "30s";
+	const requestTimeout = settingOr(settings, "request_timeout");
+	const keyCacheTTL = settingOr(settings, "key_cache_ttl");
+	const ttftTimeout = settingOr(settings, "ttft_timeout");
+	const streamStallTimeout = settingOr(settings, "stream_stall_timeout");
 
 	return (
 		<SettingsSection

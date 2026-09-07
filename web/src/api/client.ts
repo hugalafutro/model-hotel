@@ -11,7 +11,6 @@ import {
 	userTotp,
 	webauthn,
 } from "./endpoints/auth";
-import { chat } from "./endpoints/chat";
 import { appLogs, audit, logs, stats } from "./endpoints/logs";
 import { failoverGroups, models } from "./endpoints/models";
 import { discovery, providers } from "./endpoints/providers";
@@ -34,6 +33,8 @@ export {
 	getAuthHeaders,
 	getCsrfToken,
 	isAuthenticated,
+	isConflict,
+	resetToLogin,
 	serverNowFromResponse,
 } from "./http";
 
@@ -51,7 +52,6 @@ export const api = {
 	version,
 	virtualKeys,
 	system,
-	chat,
 	failoverGroups,
 	backups,
 	webauthn,

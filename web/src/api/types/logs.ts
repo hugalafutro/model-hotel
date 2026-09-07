@@ -133,3 +133,13 @@ export interface AuditListResponse {
 	has_more: boolean;
 	next_cursor?: string;
 }
+
+/** One page of the paginated app-log history. */
+export interface AppLogsHistoryResponse {
+	entries: AppLogEntry[];
+	total: number;
+	page: number;
+	per_page: number;
+	level_counts?: Record<string, number>;
+	source_counts?: Record<string, number>;
+}

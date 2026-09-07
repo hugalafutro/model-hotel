@@ -1,7 +1,9 @@
+import type { TFunction } from "i18next";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { FdEvent } from "../api/types";
+import { useLatestRequest } from "../hooks/useLatestRequest";
 import { useMembers } from "../hooks/useMembers";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { formatAbsolute } from "../utils/time";
@@ -16,6 +18,7 @@ const EVENT_TYPES = [
 	"member.state_changed",
 	"fleet.disbanded",
 	"fleet.state_changed",
+	"fleet.circuit_breaker_reset",
 	"health.up",
 	"health.down",
 	"version.fetch_failed",
@@ -46,6 +49,14 @@ const RANGES: { key: string; ms: number }[] = [
 	{ key: "7d", ms: 604_800_000 },
 	{ key: "30d", ms: 2_592_000_000 },
 ];
+
+// sevLabel names one severity, falling back to the raw value so an unknown one
+// reads as itself rather than as a missing key.
+function sevLabel(t: TFunction, sev: string): string {
+	return t(`events.sev${sev.charAt(0).toUpperCase()}${sev.slice(1)}`, {
+		defaultValue: sev,
+	});
+}
 
 function severityBadgeClass(sev: string): string {
 	switch (sev) {
@@ -85,17 +96,28 @@ export function EventsPage() {
 		return p;
 	}, [memberId, type, severity, range, page]);
 
+	// A filter change, a page change and an SSE-triggered refetch can be in flight
+	// at once, so only the newest read is applied: otherwise page 2's counter can
+	// end up over page 1's rows.
+	const latest = useLatestRequest();
+
 	const refetch = useCallback(() => {
+		const seq = latest.next();
 		api
 			.listEvents(buildParams())
 			.then((res) => {
+				if (!latest.isCurrent(seq)) return;
 				setEvents(res.events ?? []);
 				setTotal(res.total);
 				setError(false);
 			})
-			.catch(() => setError(true))
-			.finally(() => setLoading(false));
-	}, [buildParams]);
+			.catch(() => {
+				if (latest.isCurrent(seq)) setError(true);
+			})
+			.finally(() => {
+				if (latest.isCurrent(seq)) setLoading(false);
+			});
+	}, [buildParams, latest]);
 
 	// Live updates only while viewing the first, unfiltered-by-page top of the
 	// log. Routed through useMembers' single SSE subscription instead of opening a
@@ -187,7 +209,7 @@ export function EventsPage() {
 						<option value="">{t("events.allSeverities")}</option>
 						{SEVERITIES.map((s) => (
 							<option key={s} value={s}>
-								{t(`events.sev${s.charAt(0).toUpperCase()}${s.slice(1)}`)}
+								{sevLabel(t, s)}
 							</option>
 						))}
 					</select>
@@ -241,10 +263,7 @@ export function EventsPage() {
 									</td>
 									<td>
 										<span className={severityBadgeClass(e.severity)}>
-											{t(
-												`events.sev${e.severity.charAt(0).toUpperCase()}${e.severity.slice(1)}`,
-												{ defaultValue: e.severity },
-											)}
+											{sevLabel(t, e.severity)}
 										</span>
 									</td>
 									<td className="fd-mono fd-faint">{e.source}</td>

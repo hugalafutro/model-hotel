@@ -58,5 +58,6 @@ export {
 } from "./visibility";
 export {
 	getZaiCodingFiveHourLimit,
+	getZaiCodingMcpLimit,
 	getZaiCodingWeeklyLimit,
 } from "./zai";

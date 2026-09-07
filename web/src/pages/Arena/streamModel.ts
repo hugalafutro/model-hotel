@@ -2,20 +2,25 @@ import type { TFunction } from "i18next";
 import { produce } from "immer";
 import { API_BASE, getAuthHeaders } from "../../api/client";
 import type { GenerationParams } from "../../api/types";
+import { errorMessage } from "../../utils/errors";
+import { tokensPerSecond } from "../../utils/format";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry } from "../../utils/stagger";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
-import type { ArenaResponse } from "./types";
 import type { ArenaRunnerDeps } from "./useArenaRunner";
+import { patchSlotResponse, RESP_KEY } from "./utils";
 
-/** What one arena stream needs from the runner hook: mount-gated setters plus the mode and abort registries. */
+/** What one arena stream needs from the runner hook: mount-gated setters plus the abort registry. */
 export interface ArenaStreamContext
-	extends Pick<
-		ArenaRunnerDeps,
-		"setRounds" | "setPhase" | "setRunningModels" | "arenaModeRef" | "toast"
-	> {
+	extends Pick<ArenaRunnerDeps, "setRounds" | "toast"> {
 	t: TFunction;
+	/**
+	 * Drops the model from the running set. `settle` flips the phase once the
+	 * last model is done; an aborted stream leaves the phase to whoever
+	 * cancelled it.
+	 */
+	finishModel: (model: string, settle?: boolean) => void;
 	abortMapRef: React.RefObject<Map<string, AbortController>>;
 	mountedRef: React.RefObject<boolean>;
 }
@@ -42,16 +47,7 @@ export async function streamArenaResponse(
 	ctx: ArenaStreamContext,
 	args: ArenaStreamArgs,
 ): Promise<void> {
-	const {
-		t,
-		toast,
-		setRounds,
-		setPhase,
-		setRunningModels,
-		arenaModeRef,
-		abortMapRef,
-		mountedRef,
-	} = ctx;
+	const { t, toast, setRounds, finishModel, abortMapRef, mountedRef } = ctx;
 	const {
 		model,
 		personaPrompt,
@@ -123,21 +119,16 @@ export async function streamArenaResponse(
 					const clean = sanitizeDelta(delta);
 					setRounds(
 						produce((draft) => {
-							const mu = draft[roundIdx]?.matchups[matchupIdx];
-							if (mu) {
-								const respKey = slotKey === "A" ? "responseA" : "responseB";
-								const resp = mu[respKey] as ArenaResponse;
-								const newRaw = resp.rawContent + clean;
-								const extracted = extractThinking(newRaw);
-								const nextContent = extracted.content;
-								const nextThinking = extracted.thinking || resp.thinkingContent;
-								mu[respKey] = {
-									...resp,
-									rawContent: newRaw,
-									content: nextContent,
-									thinkingContent: nextThinking,
-								};
-							}
+							const resp =
+								draft[roundIdx]?.matchups[matchupIdx]?.[RESP_KEY[slotKey]];
+							if (!resp) return;
+							const rawContent = resp.rawContent + clean;
+							const extracted = extractThinking(rawContent);
+							patchSlotResponse(draft, roundIdx, matchupIdx, slotKey, {
+								rawContent,
+								content: extracted.content,
+								thinkingContent: extracted.thinking || resp.thinkingContent,
+							});
 						}),
 					);
 				}
@@ -147,15 +138,12 @@ export async function streamArenaResponse(
 				if (thinkingDelta) {
 					setRounds(
 						produce((draft) => {
-							if (draft[roundIdx]?.matchups[matchupIdx]) {
-								const mu = draft[roundIdx].matchups[matchupIdx];
-								const respKey = slotKey === "A" ? "responseA" : "responseB";
-								mu[respKey] = {
-									...(mu[respKey] as ArenaResponse),
-									thinkingContent:
-										(mu[respKey]?.thinkingContent ?? "") + thinkingDelta,
-								};
-							}
+							const resp =
+								draft[roundIdx]?.matchups[matchupIdx]?.[RESP_KEY[slotKey]];
+							if (!resp) return;
+							patchSlotResponse(draft, roundIdx, matchupIdx, slotKey, {
+								thinkingContent: resp.thinkingContent + thinkingDelta,
+							});
 						}),
 					);
 				}
@@ -167,10 +155,6 @@ export async function streamArenaResponse(
 		});
 
 		const durationMs = performance.now() - startTime;
-		const tokensPerSecond =
-			completionTokens > 0 && durationMs > 0
-				? completionTokens / (durationMs / 1000)
-				: null;
 
 		const truncationError: string | null =
 			!completion.sawDone && !completion.aborted
@@ -181,47 +165,33 @@ export async function streamArenaResponse(
 
 		setRounds(
 			produce((draft) => {
-				if (draft[roundIdx]?.matchups[matchupIdx]) {
-					const mu = draft[roundIdx].matchups[matchupIdx];
-					const respKey = slotKey === "A" ? "responseA" : "responseB";
-					mu[respKey] = {
-						...(mu[respKey] as ArenaResponse),
-						done: true,
-						error: truncationError,
-						metrics: {
-							tokensPerSecond,
-							durationMs: Math.round(durationMs),
-							promptTokens,
-							completionTokens,
-						},
-					};
-				}
+				patchSlotResponse(draft, roundIdx, matchupIdx, slotKey, {
+					done: true,
+					error: truncationError,
+					metrics: {
+						tokensPerSecond: tokensPerSecond(completionTokens, durationMs),
+						durationMs: Math.round(durationMs),
+						promptTokens,
+						completionTokens,
+					},
+				});
 			}),
 		);
 	} catch (err) {
-		const msg =
-			err instanceof Error ? err.message : t("chat.stream.unknownError");
+		const msg = errorMessage(err, t("chat.stream.unknownError"));
 		const errorDurationMs = Math.round(performance.now() - startTime);
 		setRounds(
 			produce((draft) => {
-				if (draft[roundIdx]?.matchups[matchupIdx]) {
-					const mu = draft[roundIdx].matchups[matchupIdx];
-					const respKey = slotKey === "A" ? "responseA" : "responseB";
-					mu[respKey] = {
-						...(mu[respKey] as ArenaResponse),
-						done: true,
-						error: msg,
-						metrics: {
-							tokensPerSecond:
-								completionTokens > 0 && errorDurationMs > 0
-									? completionTokens / (errorDurationMs / 1000)
-									: null,
-							durationMs: errorDurationMs,
-							promptTokens,
-							completionTokens,
-						},
-					};
-				}
+				patchSlotResponse(draft, roundIdx, matchupIdx, slotKey, {
+					done: true,
+					error: msg,
+					metrics: {
+						tokensPerSecond: tokensPerSecond(completionTokens, errorDurationMs),
+						durationMs: errorDurationMs,
+						promptTokens,
+						completionTokens,
+					},
+				});
 			}),
 		);
 		if (mountedRef.current) {
@@ -231,14 +201,7 @@ export async function streamArenaResponse(
 			);
 		}
 	} finally {
-		setRunningModels((prev) => {
-			const next = new Set(prev);
-			next.delete(model);
-			if (next.size === 0 && !abortCtrl.signal.aborted) {
-				setPhase(arenaModeRef.current === "compare" ? "finished" : "voting");
-			}
-			return next;
-		});
+		finishModel(model, !abortCtrl.signal.aborted);
 		abortMapRef.current.delete(model);
 	}
 }

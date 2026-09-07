@@ -1,36 +1,26 @@
 import { useTranslation } from "react-i18next";
 import type { NeuralWattQuotaResponse } from "../../api/types";
-import { formatDollars, formatKwh, formatTokens } from "../../utils/format";
-import type { QuotaBarMode } from "../../utils/quota";
+import {
+	formatCount,
+	formatDollars,
+	formatKwh,
+	formatTokens,
+} from "../../utils/format";
 import { formatAbsolute } from "../../utils/time";
 import {
 	QuotaBar,
 	QuotaDetailGrid,
 	QuotaDetailItem,
+	type QuotaModalProps,
 	QuotaModalShell,
 } from "./shared";
-
-export interface NeuralWattQuotaModalProps {
-	providerName: string;
-	payload: NeuralWattQuotaResponse;
-	fetchedAt: string;
-	barMode: QuotaBarMode;
-	onToggleBarMode: () => void;
-	onRefresh: () => void;
-	isRefreshing: boolean;
-	onClose: () => void;
-}
 
 export function NeuralWattQuotaModal({
 	providerName,
 	payload,
-	fetchedAt,
 	barMode,
-	onToggleBarMode,
-	onRefresh,
-	isRefreshing,
-	onClose,
-}: NeuralWattQuotaModalProps) {
+	...shell
+}: QuotaModalProps<NeuralWattQuotaResponse>) {
 	const { t } = useTranslation();
 	// Only `balance` is assured: the badge gate keys on it, everything else is
 	// whatever the provider put in a 200 (see NeuralWattQuotaResponse). Each
@@ -62,11 +52,7 @@ export function NeuralWattQuotaModal({
 				))
 			}
 			barMode={barMode}
-			onToggleBarMode={onToggleBarMode}
-			onRefresh={onRefresh}
-			isRefreshing={isRefreshing}
-			fetchedAt={fetchedAt}
-			onClose={onClose}
+			{...shell}
 		>
 			{/* Just the number, no bar: NeuralWatt exposes no cumulative draw
 			    (credits_used_usd is a hardwired 0 and total_credits_usd
@@ -147,7 +133,7 @@ export function NeuralWattQuotaModal({
 							<span>{t("quota.modal.currentMonth")}</span>
 							<span>
 								{formatDollars(currentMonth.cost_usd)} ·{" "}
-								{currentMonth.requests.toLocaleString("en-US")} ·{" "}
+								{formatCount(currentMonth.requests)} ·{" "}
 								{formatTokens(currentMonth.tokens)} ·{" "}
 								{formatKwh(currentMonth.energy_kwh)} kWh
 							</span>
@@ -158,7 +144,7 @@ export function NeuralWattQuotaModal({
 							<span>{t("quota.modal.lifetime")}</span>
 							<span>
 								{formatDollars(lifetime.cost_usd)} ·{" "}
-								{lifetime.requests.toLocaleString("en-US")} ·{" "}
+								{formatCount(lifetime.requests)} ·{" "}
 								{formatTokens(lifetime.tokens)} ·{" "}
 								{formatKwh(lifetime.energy_kwh)} kWh
 							</span>

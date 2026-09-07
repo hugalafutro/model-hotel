@@ -7,7 +7,7 @@ import {
 	ShieldOff,
 } from "@/lib/icons";
 import type { AttemptRecord } from "../api/types";
-import { formatMs } from "../pages/Logs/utils";
+import { formatMs } from "../utils/logHelpers";
 import { DetailSectionHeader } from "./DetailSectionHeader";
 import { InfoHint } from "./InfoHint";
 import { StatusBadge } from "./LogDetailStatusBadge";

@@ -73,6 +73,27 @@ describe("OidcPanel", () => {
 		).toBeInTheDocument();
 	});
 
+	it("does not call the pill configured while the client secret is unset", async () => {
+		// The status endpoint never reads the client secret, so a green pill on
+		// a blank secret would promise a login path that cannot be built.
+		serveSettings({
+			oidc_enabled: "true",
+			oidc_issuer_url: "https://auth.example.com",
+			oidc_client_id: "model-hotel",
+			oidc_public_base_url: "https://hotel.example.com",
+		});
+		mockOidcStatus(true);
+		renderWithProviders(<OidcPanel />);
+
+		const pill = await screen.findByTestId("oidc-status");
+		await waitFor(() =>
+			expect(pill).toHaveTextContent(i18n.t("settings.oidc.status.incomplete")),
+		);
+		expect(pill).not.toHaveTextContent(
+			i18n.t("settings.oidc.status.configured"),
+		);
+	});
+
 	it("does NOT commit the allowed-emails draft when the blur comes from going managed", async () => {
 		serveSettings({ oidc_enabled: "true" });
 		mockOidcStatus(true);

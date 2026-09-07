@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import i18next from "../i18n";
+import { errorMessage } from "../utils/errors";
 
 const FETCH_SIZE = 200;
 const MAX_ROWS = 10000;
@@ -172,127 +173,85 @@ export function useBidirectionalFetch<
 		}
 	}, [fetchFn, filters, sortDir]);
 
-	const fetchNewer = useCallback(async () => {
-		if (
-			isLoadingBeforeRef.current ||
-			isLoadingInitialRef.current ||
-			entries.length === 0 ||
-			entries.length >= MAX_ROWS
-		) {
-			return;
-		}
+	// The two directions are one routine: which end of the list supplies the
+	// cursor, which loading pair guards it, where the page is spliced in, and
+	// which "has more" flag it updates.
+	const fetchPage = useCallback(
+		async (direction: "before" | "after") => {
+			const before = direction === "before";
+			const loadingRef = before ? isLoadingBeforeRef : isLoadingAfterRef;
+			const setLoading = before ? setIsLoadingBefore : setIsLoadingAfter;
+			const setHas = before ? setHasBefore : setHasAfter;
 
-		const firstEntry = entries[0];
-		const cursor = getCursor(firstEntry);
-
-		isLoadingBeforeRef.current = true;
-		setIsLoadingBefore(true);
-		setError(null);
-
-		const gen = generationRef.current;
-
-		try {
-			const response = await fetchFn({
-				cursor,
-				direction: "before",
-				limit: FETCH_SIZE,
-				sort_dir: sortDir,
-				...filters,
-			});
-
-			if (gen !== generationRef.current) return;
-			setLastResponse(response);
-
-			if (response.entries.length === 0) {
-				setHasBefore(false);
+			if (
+				loadingRef.current ||
+				isLoadingInitialRef.current ||
+				entries.length === 0 ||
+				entries.length >= MAX_ROWS
+			) {
 				return;
 			}
 
-			// Prepend new entries, deduplicate by id
-			setEntries((prev) => {
-				const existingIds = new Set(prev.map((e) => getId(e)));
-				const newEntries = response.entries.filter(
-					(e) => !existingIds.has(getId(e)),
-				);
-				return [...newEntries, ...prev];
-			});
-
-			setHasBefore(response.has_before);
-		} catch (err) {
-			if (gen !== generationRef.current) return;
-			setError(
-				err instanceof Error
-					? err.message
-					: i18next.t("hooks.useBidirectionalFetch.newerError"),
+			const cursor = getCursor(
+				before ? entries[0] : entries[entries.length - 1],
 			);
-		} finally {
-			if (gen === generationRef.current) {
-				isLoadingBeforeRef.current = false;
-				setIsLoadingBefore(false);
-			}
-		}
-	}, [fetchFn, filters, sortDir, entries, getCursor, getId]);
 
-	const fetchOlder = useCallback(async () => {
-		if (
-			isLoadingAfterRef.current ||
-			isLoadingInitialRef.current ||
-			entries.length === 0 ||
-			entries.length >= MAX_ROWS
-		) {
-			return;
-		}
+			loadingRef.current = true;
+			setLoading(true);
+			setError(null);
 
-		const lastEntry = entries[entries.length - 1];
-		const cursor = getCursor(lastEntry);
+			const gen = generationRef.current;
 
-		isLoadingAfterRef.current = true;
-		setIsLoadingAfter(true);
-		setError(null);
+			try {
+				const response = await fetchFn({
+					cursor,
+					direction,
+					limit: FETCH_SIZE,
+					sort_dir: sortDir,
+					...filters,
+				});
 
-		const gen = generationRef.current;
+				if (gen !== generationRef.current) return;
+				setLastResponse(response);
 
-		try {
-			const response = await fetchFn({
-				cursor,
-				direction: "after",
-				limit: FETCH_SIZE,
-				sort_dir: sortDir,
-				...filters,
-			});
+				if (response.entries.length === 0) {
+					setHas(false);
+					return;
+				}
 
-			if (gen !== generationRef.current) return;
-			setLastResponse(response);
+				setEntries((prev) => {
+					const existingIds = new Set(prev.map((e) => getId(e)));
+					const fresh = response.entries.filter(
+						(e) => !existingIds.has(getId(e)),
+					);
+					return before ? [...fresh, ...prev] : [...prev, ...fresh];
+				});
 
-			if (response.entries.length === 0) {
-				setHasAfter(false);
-				return;
-			}
-
-			// Append new entries, deduplicate by id
-			setEntries((prev) => {
-				const existingIds = new Set(prev.map((e) => getId(e)));
-				const newEntries = response.entries.filter(
-					(e) => !existingIds.has(getId(e)),
+				setHas(before ? response.has_before : response.has_after);
+			} catch (err) {
+				if (gen !== generationRef.current) return;
+				setError(
+					errorMessage(
+						err,
+						i18next.t(
+							before
+								? "hooks.useBidirectionalFetch.newerError"
+								: "hooks.useBidirectionalFetch.olderError",
+						),
+					),
 				);
-				return [...prev, ...newEntries];
-			});
-
-			setHasAfter(response.has_after);
-		} catch (err) {
-			if (gen !== generationRef.current) return;
-			setError(
-				err instanceof Error
-					? err.message
-					: i18next.t("hooks.useBidirectionalFetch.olderError"),
-			);
-		} finally {
-			if (gen === generationRef.current) {
-				isLoadingAfterRef.current = false;
-				setIsLoadingAfter(false);
+			} finally {
+				if (gen === generationRef.current) {
+					loadingRef.current = false;
+					setLoading(false);
+				}
 			}
-		}
-	}, [fetchFn, filters, sortDir, entries, getCursor, getId]);
+		},
+		[fetchFn, filters, sortDir, entries, getCursor, getId],
+	);
+
+	const fetchNewer = useCallback(() => fetchPage("before"), [fetchPage]);
+	const fetchOlder = useCallback(() => fetchPage("after"), [fetchPage]);
 
 	// Detect filter changes and reset + refetch
 	useEffect(() => {

@@ -1,6 +1,10 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { CollapsibleToggle, useCollapsible } from "../CollapsibleToggle";
+import {
+	CollapseBody,
+	CollapsibleToggle,
+	useCollapsible,
+} from "../CollapsibleToggle";
 
 describe("CollapsibleToggle", () => {
 	const onToggle = vi.fn();
@@ -97,5 +101,56 @@ describe("useCollapsible", () => {
 	it("uses defaultValue when no storage key provided", () => {
 		// Hook behavior tested through CollapsibleToggle component integration
 		expect(typeof useCollapsible).toBe("function");
+	});
+});
+
+describe("CollapseBody", () => {
+	it("collapses to a zero row and expands to a full one", () => {
+		const { container, rerender } = render(
+			<CollapseBody collapsed>body</CollapseBody>,
+		);
+		const grid = container.firstElementChild as HTMLElement;
+		expect(grid.className).toContain("grid-rows-[0fr]");
+
+		rerender(<CollapseBody collapsed={false}>body</CollapseBody>);
+		expect((container.firstElementChild as HTMLElement).className).toContain(
+			"grid-rows-[1fr]",
+		);
+	});
+
+	it("bleeds only while expanded, so the collapsed box stays tight", () => {
+		const { container, rerender } = render(
+			<CollapseBody collapsed bleed>
+				body
+			</CollapseBody>,
+		);
+		const clip = () =>
+			container.querySelector(".overflow-hidden") as HTMLElement;
+		expect(clip().className).not.toContain("p-4");
+
+		rerender(
+			<CollapseBody collapsed={false} bleed>
+				body
+			</CollapseBody>,
+		);
+		expect(clip().className).toContain("p-4 -m-4");
+	});
+
+	it("makes the collapsed body inert when asked, and only then", () => {
+		const { container, rerender } = render(
+			<CollapseBody collapsed inert>
+				body
+			</CollapseBody>,
+		);
+		const clip = () =>
+			container.querySelector(".overflow-hidden") as HTMLElement;
+		expect(clip().hasAttribute("inert")).toBe(true);
+
+		rerender(
+			<CollapseBody collapsed={false} inert>
+				body
+			</CollapseBody>,
+		);
+		expect(clip().hasAttribute("inert")).toBe(false);
 	});
 });

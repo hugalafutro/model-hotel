@@ -37,17 +37,7 @@ export function secondsToGoDuration(s: number): string {
  * Used by discovery interval and log retention sliders.
  */
 export function goDurationToHours(d: string): number {
-	if (!d || d === "0") return 0;
-	let total = 0;
-	const dayMatch = d.match(/(\d+(?:\.\d+)?)d/);
-	const hourMatch = d.match(/(\d+(?:\.\d+)?)h/);
-	const minMatch = d.match(/(\d+(?:\.\d+)?)m(?!s)/);
-	const secMatch = /(\d+(?:\.\d+)?)s/.exec(d);
-	if (dayMatch) total += Number(dayMatch[1]) * 24;
-	if (hourMatch) total += Number(hourMatch[1]);
-	if (minMatch) total += Number(minMatch[1]) / 60;
-	if (secMatch) total += Number(secMatch[1]) / 3600;
-	return Math.round(total * 2) / 2;
+	return Math.round((goDurationToSeconds(d) / 3600) * 2) / 2;
 }
 
 /**
@@ -70,17 +60,7 @@ export function hoursToGoDuration(h: number): string {
  * Used by stale request timeout slider.
  */
 export function goDurationToMinutes(d: string): number {
-	if (!d || d === "0") return 0;
-	let total = 0;
-	const dayMatch = d.match(/(\d+(?:\.\d+)?)d/);
-	const hourMatch = d.match(/(\d+(?:\.\d+)?)h/);
-	const minMatch = d.match(/(\d+(?:\.\d+)?)m(?!s)/);
-	const secMatch = /(\d+(?:\.\d+)?)s/.exec(d);
-	if (dayMatch) total += Number(dayMatch[1]) * 1440;
-	if (hourMatch) total += Number(hourMatch[1]) * 60;
-	if (minMatch) total += Number(minMatch[1]);
-	if (secMatch) total += Number(secMatch[1]) / 60;
-	return Math.round(total);
+	return Math.round(goDurationToSeconds(d) / 60);
 }
 
 /**

@@ -6,40 +6,31 @@ import { api } from "../api/client";
 import { useQuotaModal } from "../context/QuotaModalContext";
 import { useToast } from "../context/ToastContext";
 import {
+	storedBool,
 	useLocalStorage,
 	useLocalStorageValue,
 } from "../hooks/useLocalStorage";
 import { useQuotaData } from "../hooks/useQuotaData";
-import { CollapsibleToggle } from "./CollapsibleToggle";
-import {
-	KimiCodeQuotaModal,
-	MiniMaxQuotaModal,
-	NanoGPTQuotaModal,
-	NeuralWattQuotaModal,
-	OpenRouterQuotaModal,
-	ZAICodingQuotaModal,
-} from "./ProviderModals";
+import { quotaRefreshCooldownMs } from "../hooks/useQuotaRefresh";
+import { CollapseBody, CollapsibleToggle } from "./CollapsibleToggle";
 import { QuotaBadges } from "./QuotaBadge";
 
 export function ProviderQuotaPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const lastManualRefresh = useRef(0);
-	const refreshCooldownMs = 10_000;
 
 	// Stored as "true"/"false"; anything else reads as expanded.
 	const [collapsed, setCollapsed] = useLocalStorage<boolean>(
 		"sidebarQuotaCollapsed",
 		false,
-		{ deserialize: (stored) => stored === "true" },
+		{ deserialize: storedBool },
 	);
-	// The show/hide flag belongs to the Settings page, which announces its writes
-	// as "sidebarQuotaToggle"; this panel follows the value and never writes it.
-	// The refresh interval comes from the server setting below, so it needs no
-	// listener of its own.
+	// The show/hide flag belongs to the Settings page; this panel follows the
+	// value and never writes it. The refresh interval comes from the server
+	// setting below, so it needs no listener of its own.
 	const disabled = useLocalStorageValue("sidebarQuotaDisabled", false, {
-		deserialize: (stored) => stored === "true",
-		events: ["sidebarQuotaToggle"],
+		deserialize: storedBool,
 	});
 
 	// The toast is announced here, outside the state updater, which React may
@@ -89,6 +80,8 @@ export function ProviderQuotaPanel() {
 		isMiniMaxRefetching,
 		isDsRefetching,
 		isOrRefetching,
+		isOllamaCloudRefetching,
+		isNeuralwattRefetching,
 	} = quotaData;
 
 	const anyRefreshing =
@@ -98,13 +91,14 @@ export function ProviderQuotaPanel() {
 		isMiniMaxRefetching ||
 		isDsRefetching ||
 		isOrRefetching ||
-		quotaData.isNeuralwattRefetching;
+		isOllamaCloudRefetching ||
+		isNeuralwattRefetching;
 
 	const isAutoRefreshing = anyRefreshing && !collapsed;
 
 	const handleRefresh = useCallback(() => {
 		const now = Date.now();
-		if (now - lastManualRefresh.current < refreshCooldownMs) {
+		if (now - lastManualRefresh.current < quotaRefreshCooldownMs) {
 			toast(
 				t("components.providerQuotaPanel.pleaseWaitBeforeRefreshing"),
 				"info",
@@ -126,20 +120,8 @@ export function ProviderQuotaPanel() {
 			});
 	}, [toast, invalidateAll, t]);
 
-	const {
-		isNanoOpen,
-		setNanoOpen,
-		isZaiCodingOpen,
-		setZaiCodingOpen,
-		isKimiCodeOpen,
-		setKimiCodeOpen,
-		isMiniMaxOpen,
-		setMiniMaxOpen,
-		isOpenRouterOpen,
-		setOpenRouterOpen,
-		isNeuralwattOpen,
-		setNeuralwattOpen,
-	} = useQuotaModal();
+	// The modals themselves are mounted once by QuotaModalsHost in Layout.
+	const { setOpen } = useQuotaModal();
 
 	if (!quotaData.hasAnyProvider || disabled) return null;
 
@@ -175,87 +157,22 @@ export function ProviderQuotaPanel() {
 				</div>
 			</div>
 
-			<div
-				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
-			>
-				<div className="overflow-hidden">
-					<div className="flex flex-wrap gap-1 justify-center">
-						<QuotaBadges
-							quotaData={quotaData}
-							variant="sidebar"
-							onNanoClick={() => setNanoOpen(true)}
-							onZaiCodingClick={() => setZaiCodingOpen(true)}
-							onKimiCodeClick={() => setKimiCodeOpen(true)}
-							onMiniMaxClick={() => setMiniMaxOpen(true)}
-							onDeepseekClick={handleRefresh}
-							onOpenRouterClick={() => setOpenRouterOpen(true)}
-							onOllamaCloudClick={handleRefresh}
-							onNeuralwattClick={() => setNeuralwattOpen(true)}
-						/>
-					</div>
+			<CollapseBody collapsed={collapsed}>
+				<div className="flex flex-wrap gap-1 justify-center">
+					<QuotaBadges
+						quotaData={quotaData}
+						variant="sidebar"
+						onNanoClick={() => setOpen("nanogpt")}
+						onZaiCodingClick={() => setOpen("zai-coding")}
+						onKimiCodeClick={() => setOpen("kimi-code")}
+						onMiniMaxClick={() => setOpen("minimax")}
+						onDeepseekClick={handleRefresh}
+						onOpenRouterClick={() => setOpen("openrouter")}
+						onOllamaCloudClick={handleRefresh}
+						onNeuralwattClick={() => setOpen("neuralwatt")}
+					/>
 				</div>
-			</div>
-
-			{isNanoOpen && quotaData.nanogptUsage && (
-				<NanoGPTQuotaModal
-					usage={quotaData.nanogptUsage}
-					onClose={() => setNanoOpen(false)}
-					onRefresh={quotaData.refetchNano}
-					isRefreshing={quotaData.isNanoRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.nanogptDataUpdatedAt}
-				/>
-			)}
-			{isZaiCodingOpen && quotaData.zaiCodingUsage && (
-				<ZAICodingQuotaModal
-					usage={quotaData.zaiCodingUsage}
-					onClose={() => setZaiCodingOpen(false)}
-					onRefresh={quotaData.refetchZaiCoding}
-					isRefreshing={quotaData.isZaiCodingRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.zaiCodingDataUpdatedAt}
-				/>
-			)}
-			{isKimiCodeOpen && quotaData.kimiCodeUsage && (
-				<KimiCodeQuotaModal
-					usage={quotaData.kimiCodeUsage}
-					onClose={() => setKimiCodeOpen(false)}
-					onRefresh={quotaData.refetchKimiCode}
-					isRefreshing={quotaData.isKimiCodeRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.kimiCodeDataUpdatedAt}
-				/>
-			)}
-			{isMiniMaxOpen && quotaData.minimaxUsage && (
-				<MiniMaxQuotaModal
-					usage={quotaData.minimaxUsage}
-					onClose={() => setMiniMaxOpen(false)}
-					onRefresh={quotaData.refetchMiniMax}
-					isRefreshing={quotaData.isMiniMaxRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.minimaxDataUpdatedAt}
-				/>
-			)}
-			{isOpenRouterOpen && quotaData.openrouterBalance && (
-				<OpenRouterQuotaModal
-					balance={quotaData.openrouterBalance}
-					onClose={() => setOpenRouterOpen(false)}
-					onRefresh={quotaData.refetchOpenRouter}
-					isRefreshing={quotaData.isOrRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.openrouterDataUpdatedAt}
-				/>
-			)}
-			{isNeuralwattOpen && quotaData.neuralwattQuota && (
-				<NeuralWattQuotaModal
-					quota={quotaData.neuralwattQuota}
-					onClose={() => setNeuralwattOpen(false)}
-					onRefresh={quotaData.refetchNeuralwatt}
-					isRefreshing={quotaData.isNeuralwattRefetching}
-					onToast={toast}
-					lastRefreshed={quotaData.neuralwattDataUpdatedAt}
-				/>
-			)}
+			</CollapseBody>
 		</div>
 	);
 }

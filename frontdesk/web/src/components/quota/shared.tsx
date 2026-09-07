@@ -3,6 +3,7 @@ import {
 	ArrowsLeftRightIcon,
 	XIcon,
 } from "@phosphor-icons/react";
+import { clamp } from "@web-shared/format";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { barTone, type QuotaBarMode } from "../../utils/quota";
@@ -41,7 +42,7 @@ export function QuotaBar({
 	footer,
 }: QuotaBarProps) {
 	const shown = barMode === "used" ? percentage : 100 - percentage;
-	const width = Math.min(Math.max(shown, 0), 100);
+	const width = clamp(shown, 0, 100);
 	const tone = barTone(percentage, barMode);
 
 	return (
@@ -65,6 +66,21 @@ export function QuotaBar({
 		</div>
 	);
 }
+
+/**
+ * What every provider's quota modal takes: its own payload plus the shell's own
+ * controls, forwarded straight through. The shell owns the header, so a modal
+ * writes only the parts that are its own (the title, the subtitle and the bars)
+ * and spreads the rest, which means adding a shell control touches the shell
+ * alone rather than all six modals.
+ */
+export type QuotaModalProps<P> = Omit<
+	QuotaModalShellProps,
+	"title" | "subtitle" | "children"
+> & {
+	providerName: string;
+	payload: P;
+};
 
 export interface QuotaModalShellProps {
 	title: string;

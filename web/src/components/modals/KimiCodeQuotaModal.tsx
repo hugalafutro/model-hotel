@@ -1,25 +1,20 @@
 import { useTranslation } from "react-i18next";
 import type { KimiCodeQuotaResponse } from "../../api/types";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
 } from "../../hooks/useQuotaData";
-import {
-	formatRelativeTime,
-	formatTimestamp,
-	formatTimeUntil,
-} from "../../utils/format";
 import { Modal } from "../Modal";
-import { QuotaBar, QuotaModalHeaderActions } from "./shared";
-
-/** Renders "resets <timestamp>\n<time-until>" for an ISO reset time. */
-function resetLabel(resetTime: string, resetsWord: string): string {
-	if (!resetTime) return "N/A";
-	const ms = new Date(resetTime).getTime();
-	if (!Number.isFinite(ms)) return "N/A";
-	return `${resetsWord} ${formatTimestamp(resetTime)}\n${formatTimeUntil(ms)}`;
-}
+import {
+	LastRefreshedRow,
+	type OnToast,
+	QuotaBar,
+	QuotaModalHeaderActions,
+	resetAtLabel,
+	usedLeftText,
+	useQuotaBarMode,
+	useQuotaRefreshToast,
+} from "./shared";
 
 export function KimiCodeQuotaModal({
 	usage,
@@ -33,14 +28,11 @@ export function KimiCodeQuotaModal({
 	onClose: () => void;
 	onRefresh: () => Promise<unknown>;
 	isRefreshing: boolean;
-	onToast: (msg: string, type: "success" | "error" | "info") => void;
+	onToast: OnToast;
 	lastRefreshed?: number;
 }) {
 	const { t } = useTranslation();
-	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
-		"quota-bar-mode",
-		"remaining",
-	);
+	const [barMode, toggleBarMode] = useQuotaBarMode();
 
 	const fiveHour = getKimiCodeFiveHourLimit(usage);
 	const weekly = getKimiCodeWeeklyLimit(usage);
@@ -48,14 +40,7 @@ export function KimiCodeQuotaModal({
 	const parallelLimit = usage.parallel?.limit;
 	const totalQuota = usage.totalQuota;
 
-	const handleRefresh = async () => {
-		try {
-			await onRefresh();
-			onToast(t("components.providerModals.quotaRefreshed"), "success");
-		} catch {
-			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
-		}
-	};
+	const handleRefresh = useQuotaRefreshToast(onRefresh, onToast);
 
 	return (
 		<Modal
@@ -76,21 +61,10 @@ export function KimiCodeQuotaModal({
 						</p>
 					</div>
 					<QuotaModalHeaderActions
-						onToggleBarMode={() =>
-							setBarMode((prev) =>
-								prev === "remaining" ? "used" : "remaining",
-							)
-						}
+						barMode={barMode}
+						onToggleBarMode={toggleBarMode}
 						onRefresh={handleRefresh}
 						isRefreshing={isRefreshing}
-						toggleAriaLabel={t("components.providerModals.toggleRemainingUsed")}
-						toggleTitle={
-							barMode === "remaining"
-								? t("components.providerModals.showQuotaUsed")
-								: t("components.providerModals.showQuotaRemaining")
-						}
-						refreshAriaLabel={t("common.refresh")}
-						refreshTitle={t("components.providerModals.refreshQuotaInfo")}
 					/>
 				</div>
 			}
@@ -101,40 +75,26 @@ export function KimiCodeQuotaModal({
 				{fiveHour && (
 					<QuotaBar
 						label={t("components.providerModals.hTokenQuota", { hours: 5 })}
-						rightText={
-							barMode === "used"
-								? `${fiveHour.percentage.toFixed(0)}% ${t("components.providerModals.used")}`
-								: `${(100 - fiveHour.percentage).toFixed(0)}% ${t("components.providerModals.left")}`
-						}
+						rightText={usedLeftText(fiveHour.percentage, barMode, t)}
 						percentage={fiveHour.percentage}
 						barMode={barMode}
 						dataTestId="kimi-code-5h-bar"
 						fillTestId="kimi-code-5h-fill"
 					>
-						{resetLabel(
-							fiveHour.resetTime,
-							t("components.providerModals.resets"),
-						)}
+						{resetAtLabel(fiveHour.resetTime, t)}
 					</QuotaBar>
 				)}
 
 				{weekly && (
 					<QuotaBar
 						label={t("components.providerModals.weeklyTokenQuota")}
-						rightText={
-							barMode === "used"
-								? `${weekly.percentage.toFixed(0)}% ${t("components.providerModals.used")}`
-								: `${(100 - weekly.percentage).toFixed(0)}% ${t("components.providerModals.left")}`
-						}
+						rightText={usedLeftText(weekly.percentage, barMode, t)}
 						percentage={weekly.percentage}
 						barMode={barMode}
 						dataTestId="kimi-code-weekly-bar"
 						fillTestId="kimi-code-weekly-fill"
 					>
-						{resetLabel(
-							weekly.resetTime,
-							t("components.providerModals.resets"),
-						)}
+						{resetAtLabel(weekly.resetTime, t)}
 					</QuotaBar>
 				)}
 
@@ -165,14 +125,7 @@ export function KimiCodeQuotaModal({
 					</div>
 				)}
 
-				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
-						<span>{t("components.providerModals.lastRefreshed")}</span>
-						<span>
-							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
-						</span>
-					</div>
-				) : null}
+				<LastRefreshedRow at={lastRefreshed} />
 			</div>
 		</Modal>
 	);

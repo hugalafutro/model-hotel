@@ -26,13 +26,14 @@ export function BackupEnableConfirm({
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
+	const close = () => {
+		setShowEnableConfirm(false);
+		setPrunePreview(null);
+	};
 	return (
 		showEnableConfirm && (
 			<Modal
-				onClose={() => {
-					setShowEnableConfirm(false);
-					setPrunePreview(null);
-				}}
+				onClose={close}
 				title={t("settings.backup.rotation.confirmEnableTitle")}
 				maxWidth="max-w-lg"
 			>
@@ -63,10 +64,7 @@ export function BackupEnableConfirm({
 					<div className="flex justify-end gap-2 pt-2">
 						<button
 							type="button"
-							onClick={() => {
-								setShowEnableConfirm(false);
-								setPrunePreview(null);
-							}}
+							onClick={close}
 							className="ui-btn ui-btn-secondary"
 						>
 							{t("common.cancel")}
@@ -91,11 +89,15 @@ export function BackupEnableConfirm({
 										}),
 										"success",
 									);
-								} catch {
-									toast(t("settings.backup.rotation.pruneFailed"), "error");
+								} catch (err) {
+									toast(
+										t("settings.backup.rotation.pruneFailed", {
+											message: (err as Error).message,
+										}),
+										"error",
+									);
 								} finally {
-									setShowEnableConfirm(false);
-									setPrunePreview(null);
+									close();
 									queryClient.invalidateQueries({
 										queryKey: ["backups"],
 									});

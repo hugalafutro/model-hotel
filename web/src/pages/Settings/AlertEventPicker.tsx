@@ -1,10 +1,15 @@
 import { useQuery } from "@tanstack/react-query";
-import { categoryLabel, eventLabel } from "@web-shared/alerts/events";
+import {
+	categoryLabel,
+	eventLabel,
+	groupByCategory,
+	parseCsv,
+} from "@web-shared/alerts/events";
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { CheckSquare, Square } from "@/lib/icons";
 import { api } from "../../api/client";
-import type { AlertEventDef } from "../../api/types";
+import { toggleInSet } from "../../utils/collections";
 
 // The severity dot's colour, as the theme's own text tokens rather than a
 // fixed palette: the three UI styles each define these, so the dot follows the
@@ -49,23 +54,10 @@ export function AlertEventPicker({
 			for (const e of events ?? []) if (e.defaultOn) s.add(e.type);
 			return s;
 		}
-		return new Set(
-			value
-				.split(",")
-				.map((x) => x.trim())
-				.filter(Boolean),
-		);
+		return parseCsv(value);
 	}, [value, events]);
 
-	const groups = useMemo(() => {
-		const m = new Map<string, AlertEventDef[]>();
-		for (const e of events ?? []) {
-			const arr = m.get(e.category) ?? [];
-			arr.push(e);
-			m.set(e.category, arr);
-		}
-		return [...m.entries()];
-	}, [events]);
+	const groups = useMemo(() => groupByCategory(events ?? []), [events]);
 
 	// Emit selection as a CSV in stable catalog order, followed by any selected
 	// type this build does not know about.
@@ -86,12 +78,7 @@ export function AlertEventPicker({
 		onChange([...ordered, ...unknown].join(","));
 	};
 
-	const toggle = (type: string) => {
-		const next = new Set(selected);
-		if (next.has(type)) next.delete(type);
-		else next.add(type);
-		emit(next);
-	};
+	const toggle = (type: string) => emit(toggleInSet(selected, type));
 
 	const toggleGroup = (category: string, on: boolean) => {
 		const next = new Set(selected);

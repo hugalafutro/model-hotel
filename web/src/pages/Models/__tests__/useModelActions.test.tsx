@@ -60,6 +60,51 @@ describe("useModelActions", () => {
 		expect(onDiscover).toHaveBeenCalledTimes(2);
 	});
 
+	it("toasts a failed re-discovery instead of rejecting, and arms no cooldown", async () => {
+		const onToast = vi.fn();
+		const onDiscover = vi.fn().mockRejectedValue(new Error("provider down"));
+		render(<Harness model={model} onDiscover={onDiscover} onToast={onToast} />);
+		await act(async () => {
+			screen.getByText("discover").click();
+		});
+		expect(onToast).toHaveBeenCalledWith(
+			expect.stringContaining("provider down"),
+			"error",
+		);
+		expect(state()).toBe("0|-|-|-");
+	});
+
+	it("keeps one flash timer, so a second failure restarts the three seconds", async () => {
+		const onToast = vi.fn();
+		const onTest = vi.fn().mockResolvedValue({
+			success: false,
+			streaming: false,
+			ttft_ms: 0,
+			duration_ms: 10,
+			response: "",
+			error: "boom",
+		});
+		render(<Harness model={model} onTest={onTest} onToast={onToast} />);
+		await act(async () => {
+			screen.getByText("test").click();
+		});
+		act(() => {
+			vi.advanceTimersByTime(2_000);
+		});
+		await act(async () => {
+			screen.getByText("test").click();
+		});
+		// The first failure's timer would un-flash here; the second replaced it.
+		act(() => {
+			vi.advanceTimersByTime(1_000);
+		});
+		expect(state()).toBe("0|-|-|e");
+		act(() => {
+			vi.advanceTimersByTime(2_000);
+		});
+		expect(state()).toBe("0|-|-|-");
+	});
+
 	it("flashes the test button red for three seconds on a failed test and toasts the error", async () => {
 		const onToast = vi.fn();
 		const onTest = vi.fn().mockResolvedValue({

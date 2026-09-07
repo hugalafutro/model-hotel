@@ -1,21 +1,23 @@
 import { useTranslation } from "react-i18next";
 import { Activity, Gauge, RefreshCw } from "@/lib/icons";
 import type { NeuralWattQuotaResponse } from "../../api/types";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
 	formatDate,
 	formatDollars,
 	formatKwh,
-	formatRelativeTime,
 	formatTokens,
+	formatWithCommas,
 } from "../../utils/format";
 import { DetailSectionHeader } from "../DetailSectionHeader";
 import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
+	LastRefreshedRow,
+	type OnToast,
+	QuotaBar,
 	QuotaModalHeaderActions,
-	remainingBarColor,
-	usedBarColor,
+	useQuotaBarMode,
+	useQuotaRefreshToast,
 } from "./shared";
 
 export function NeuralWattQuotaModal({
@@ -30,29 +32,13 @@ export function NeuralWattQuotaModal({
 	onClose: () => void;
 	onRefresh: () => Promise<unknown>;
 	isRefreshing: boolean;
-	onToast: (msg: string, type: "success" | "error" | "info") => void;
+	onToast: OnToast;
 	lastRefreshed?: number;
 }) {
 	const { t } = useTranslation();
-	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
-		"quota-bar-mode",
-		"remaining",
-	);
+	const [barMode, toggleBarMode] = useQuotaBarMode();
 
-	const handleRefresh = async () => {
-		try {
-			await onRefresh();
-			onToast(t("components.providerModals.quotaRefreshed"), "success");
-		} catch {
-			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
-		}
-	};
-
-	const kwhRemaining =
-		quota.subscription.kwh_included > 0
-			? (quota.subscription.kwh_remaining / quota.subscription.kwh_included) *
-				100
-			: 100;
+	const handleRefresh = useQuotaRefreshToast(onRefresh, onToast);
 
 	const kwhUsed =
 		quota.subscription.kwh_included > 0
@@ -83,21 +69,10 @@ export function NeuralWattQuotaModal({
 						</p>
 					</div>
 					<QuotaModalHeaderActions
-						onToggleBarMode={() =>
-							setBarMode((prev) =>
-								prev === "remaining" ? "used" : "remaining",
-							)
-						}
+						barMode={barMode}
+						onToggleBarMode={toggleBarMode}
 						onRefresh={handleRefresh}
 						isRefreshing={isRefreshing}
-						toggleAriaLabel={t("components.providerModals.toggleRemainingUsed")}
-						toggleTitle={
-							barMode === "remaining"
-								? t("components.providerModals.showQuotaUsed")
-								: t("components.providerModals.showQuotaRemaining")
-						}
-						refreshAriaLabel={t("common.refresh")}
-						refreshTitle={t("components.providerModals.refreshQuotaInfo")}
 					/>
 				</div>
 			}
@@ -124,43 +99,29 @@ export function NeuralWattQuotaModal({
 
 				{/* ── kWh energy bar ── */}
 				{quota.subscription.kwh_included > 0 && (
-					<div>
-						<div className="flex justify-between items-center mb-2">
-							<span className="text-sm font-medium text-(--text-secondary)">
-								{t("components.providerModals.neuralwattEnergyQuota")}
-							</span>
-							<span className="text-sm text-(--text-tertiary)">
-								{formatKwh(quota.subscription.kwh_used)} /{" "}
-								{formatKwh(quota.subscription.kwh_included)} kWh
-							</span>
-						</div>
-						<div
-							data-testid="neuralwatt-kwh-bar"
-							className="w-full bg-(--surface-input) ui-bar h-3"
-						>
-							<div
-								className={`${barMode === "used" ? usedBarColor(kwhUsed) : remainingBarColor(kwhRemaining)} h-3 ui-bar transition-all`}
-								style={{
-									width: `${barMode === "used" ? Math.min(kwhUsed, 100) : Math.min(kwhRemaining, 100)}%`,
-								}}
-							/>
-						</div>
-						<p className="text-xs text-(--text-muted) mt-1">
-							{kwhUsed.toFixed(1)}% {t("components.providerModals.used")}.{" "}
-							{formatKwh(quota.subscription.kwh_remaining)} kWh{" "}
-							{t("components.providerModals.remaining")}
-							{quota.subscription.current_period_end &&
-								` · ${t("components.providerModals.resets")} ${formatDate(quota.subscription.current_period_end)}`}
-						</p>
-						{quota.balance.accounting_method && (
-							<p className="text-xs text-(--text-muted) mt-1">
-								{t("components.providerModals.neuralwattAccountingMethod")}:{" "}
-								<span className="capitalize">
-									{quota.balance.accounting_method}
-								</span>
-							</p>
-						)}
-					</div>
+					<QuotaBar
+						label={t("components.providerModals.neuralwattEnergyQuota")}
+						rightText={`${formatKwh(quota.subscription.kwh_used)} / ${formatKwh(quota.subscription.kwh_included)} kWh`}
+						percentage={kwhUsed}
+						barMode={barMode}
+						dataTestId="neuralwatt-kwh-bar"
+						footer={
+							quota.balance.accounting_method && (
+								<p className="text-xs text-(--text-muted) mt-1">
+									{t("components.providerModals.neuralwattAccountingMethod")}:{" "}
+									<span className="capitalize">
+										{quota.balance.accounting_method}
+									</span>
+								</p>
+							)
+						}
+					>
+						{`${kwhUsed.toFixed(1)}% ${t("components.providerModals.used")}. ${formatKwh(quota.subscription.kwh_remaining)} kWh ${t("components.providerModals.remaining")}${
+							quota.subscription.current_period_end
+								? ` · ${t("components.providerModals.resets")} ${formatDate(quota.subscription.current_period_end)}`
+								: ""
+						}`}
+					</QuotaBar>
 				)}
 
 				{/* In overage the provider freezes kwh_used at the included amount
@@ -251,7 +212,7 @@ export function NeuralWattQuotaModal({
 							{formatDollars(quota.usage.current_month.cost_usd)}
 						</p>
 						<p className="text-gray-200">
-							{quota.usage.current_month.requests.toLocaleString("en-US")}
+							{formatWithCommas(quota.usage.current_month.requests)}
 						</p>
 						<p className="text-gray-200">
 							{formatTokens(quota.usage.current_month.tokens)}
@@ -266,7 +227,7 @@ export function NeuralWattQuotaModal({
 							{formatDollars(quota.usage.lifetime.cost_usd)}
 						</p>
 						<p className="text-gray-200">
-							{quota.usage.lifetime.requests.toLocaleString("en-US")}
+							{formatWithCommas(quota.usage.lifetime.requests)}
 						</p>
 						<p className="text-gray-200">
 							{formatTokens(quota.usage.lifetime.tokens)}
@@ -309,14 +270,7 @@ export function NeuralWattQuotaModal({
 					</div>
 				</div>
 
-				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
-						<span>{t("components.providerModals.lastRefreshed")}</span>
-						<span>
-							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
-						</span>
-					</div>
-				) : null}
+				<LastRefreshedRow at={lastRefreshed} />
 			</div>
 		</Modal>
 	);

@@ -361,10 +361,14 @@
 			"distributionChart": "Wykres dystrybucji dostawcy",
 			"emptyState": "Brak danych dostawcy. Podział dostawcy pojawi się tutaj po przepływie ruchu.",
 			"chartAriaLabel": "Wykres dystrybucji dostawcy",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokeny",
-			"requestUnit": "Żądanie",
-			"requestsUnit": "Żądania"
+			"tokens_one": "Token",
+			"tokens_few": "Tokeny",
+			"tokens_many": "Tokeny",
+			"tokens_other": "Tokeny",
+			"requests_one": "Żądanie",
+			"requests_few": "Żądania",
+			"requests_many": "Żądania",
+			"requests_other": "Żądania"
 		},
 		"models": {
 			"viewDetails": "Zobacz szczegóły dla {{label}}",
@@ -611,7 +615,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modele są generowane - kliknij przycisk Zatrzymaj Wszystko, aby anulować",
-			"voteToContinue": "Głosuj we wszystkich parach, aby przejść do następnej rundy",
 			"nextRoundReady": "Rozpocznij następną rundę po przygotowaniu"
 		},
 		"responses": {
@@ -666,13 +669,6 @@
 			"close": "Zamknij"
 		},
 		"params": {
-			"temperature": "Temperatura",
-			"maxTokens": "Maks. tokeny",
-			"topP": "Top P",
-			"minP": "Min. P",
-			"topK": "Top K",
-			"freqPenalty": "Kara Freq",
-			"presPenalty": "Kara Pres",
 			"resetAll": "Zresetuj wszystko",
 			"done": "Gotowe"
 		},
@@ -868,7 +864,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Nie pozostało żadnych aktywnych dostawców",
-				"onlyOne": "Pozostał tylko jeden włączony dostawca (przełączanie awaryjne wymaga co najmniej dwóch)."
+				"onlyOne": "Pozostał tylko jeden włączony dostawca (przełączanie awaryjne wymaga co najmniej dwóch).",
+				"noValidProviders": "Po oczyszczeniu nie został żaden prawidłowy dostawca",
+				"onlyOneValid": "Po oczyszczeniu został tylko jeden prawidłowy dostawca (przełączanie awaryjne wymaga co najmniej dwóch)"
 			},
 			"error": "Błąd",
 			"failover": "Grupy przełączania awaryjnego",
@@ -1129,7 +1127,17 @@
 		"scope_all": "Wszyscy dostawcy",
 		"badge_parked": "{{count}} zaparkowanych",
 		"status_parked": "Zaparkowany",
-		"status_parked_hint": "Dostawca jest wyłączony; ten model pozostaje na liście, ale nie jest obsługiwany, dopóki dostawca nie zostanie ponownie włączony."
+		"status_parked_hint": "Dostawca jest wyłączony; ten model pozostaje na liście, ale nie jest obsługiwany, dopóki dostawca nie zostanie ponownie włączony.",
+		"capPills": {
+			"vision": "Wizja",
+			"reasoning": "Rozumowanie",
+			"tool_calling": "Narzędzia",
+			"structured_output": "Strukturalne",
+			"pdf_upload": "PDF",
+			"video_input": "Wideo",
+			"audio_input": "Dźwięk",
+			"parallel_tool_calls": "Równolegle"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Przywróć do odkrytej wartości",
@@ -1353,7 +1361,6 @@
 				"owner": "Właściciel"
 			},
 			"noProvidersConfigured": "Brak skonfigurowanych dostawców.",
-			"discardChanges": "Odrzucić niezapisane zmiany?",
 			"loadingProviders": "Ładowanie dostawców...",
 			"stripReasoningDescriptionText": "Gdy włączone, tokeny ponownego myślenia są usuwane z odpowiedzi strumieniowej dla klientów, którzy nie mogą ich obsługiwać.",
 			"providerInstructionsText": "Kliknij dostawcę, aby ograniczyć dostęp. Wszystko jest domyślnie dostępne.",
@@ -1494,6 +1501,11 @@
 			"search": "Filtruj logi…",
 			"allLevels": "Wszystkie poziomy",
 			"allSources": "Wszystkie źródła"
+		},
+		"level": {
+			"info": "Informacja",
+			"warning": "Ostrzeżenie",
+			"error": "Błąd"
 		},
 		"table": {
 			"timeDate": "Czas/Data",
@@ -1957,8 +1969,8 @@
 				"confirmEnableTitle": "Włączyć okresową kopię zapasową?",
 				"confirmEnableDescription": "Włączenie okresowej kopii zapasowej usuwa istniejące kopie, które wykraczają poza okno rotacji syn/ojciec/dziadek.",
 				"confirmEnableWouldRemove": "Te {{count}} kopie zapasowe wykraczają poza okno rotacji i zostaną trwale usunięte:",
-				"prunePreviewFailed": "Podgląd kopii zapasowej nie powiódł się",
-				"pruneFailed": "Nie udało się usunąć kopii zapasowych",
+				"prunePreviewFailed": "Podgląd kopii zapasowej nie powiódł się: {{message}}",
+				"pruneFailed": "Nie udało się usunąć kopii zapasowych: {{message}}",
 				"pruneSuccess": "Okresowa kopia zapasowa włączona. Usunięto {{count}} starych kopii zapasowych."
 			},
 			"availableBackupsTitle": "Dostępne kopie zapasowe",
@@ -2496,16 +2508,9 @@
 			"filter": "Filtruj…",
 			"clearFilter": "Wyczyść filtr"
 		},
-		"copyButton": {
-			"copy": "Kopiuj",
-			"copiedToClipboard": "Skopiowano do schowka",
-			"failedToCopy": "Nie udało się skopiować"
-		},
 		"copyablePill": {
 			"copy": "Kopiuj",
-			"copyToClipboard": "Kopiuj do schowka",
-			"copied": "Skopiowano!",
-			"failedToCopy": "Nie udało się skopiować"
+			"copyToClipboard": "Kopiuj do schowka"
 		},
 		"collapsibleToggle": {
 			"expand": "Rozwiń",
@@ -2832,11 +2837,6 @@
 			"compare": "Porównaj",
 			"noMatchHistory": "Brak historii meczu",
 			"completedSessionsHere": "Ukończona arena i porównywanie sesji pojawi się tutaj",
-			"match": "Mecz",
-			"final": "Końcowy",
-			"semifinals": "Półfinały",
-			"quarterfinals": "Ćwierćfinały",
-			"round": "Runda {{number}}",
 			"winner": "Zwycięzca: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Błąd: {{message}}",
@@ -2948,35 +2948,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Nie znaleziono logów",
-			"entries": "wpisy",
-			"loadingNewer": "Wczytywanie nowszych…",
-			"loadingOlder": "Ładowanie starszego…",
-			"timeDate": "Czas/Data",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Dostawca",
-			"providerDeleted": "Dostawca został usunięty",
-			"status": "Status",
-			"tokens": "Tokeny",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Nagłówki",
-			"ttft": "TTFT",
-			"duration": "Czas trwania",
-			"overhead": "Narzut",
-			"key": "Klucz",
-			"interrupted": "Przerwane",
-			"internal": "wewnętrzna",
-			"cacheInflated": "Zawyżone przez trafienia w pamięci podręcznej promptu",
-			"deleted": "Usunięto",
-			"zeroEntries": "0 wpisów",
-			"ip": "IP"
+			"zeroEntries": "0 wpisów"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nie znaleziono wpisów dziennika",
-			"entries": "wpisy",
-			"loadingNewer": "Wczytywanie nowszych…",
-			"loadingOlder": "Ładowanie starszego…",
 			"timeDate": "Czas/Data",
 			"level": "Poziom",
 			"source": "Źródło",
@@ -3193,7 +3168,8 @@
 		},
 		"useDisableModel": {
 			"success": "Model \"{{model}}\" wyłączony",
-			"error": "Nie można wyłączyć modelu: {{error}}"
+			"error": "Nie można wyłączyć modelu: {{error}}",
+			"notFound": "Nie znaleziono modelu \"{{model}}\" wśród włączonych modeli"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Nie udało się pobrać danych początkowych",

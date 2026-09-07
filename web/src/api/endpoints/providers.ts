@@ -1,8 +1,14 @@
-import { API_BASE, fetchJSON, fetchOK, getAuthHeaders } from "../http";
+import {
+	API_BASE,
+	buildUrl,
+	fetchJSON,
+	fetchOK,
+	getAuthHeaders,
+} from "../http";
 import type {
 	CreateProviderRequest,
 	DeepSeekBalance,
-	DiscoverAllResult,
+	DiscoverAllResponse,
 	DiscoveryChangesResponse,
 	DiscoveryDiff,
 	DiscoveryStatusResponse,
@@ -13,6 +19,7 @@ import type {
 	OllamaCloudAccount,
 	OpenRouterBalance,
 	Provider,
+	RefreshQuotasResponse,
 	UpdateProviderRequest,
 	ZAICodingQuotaResponse,
 } from "../types";
@@ -71,18 +78,8 @@ export const providers = {
 			"Failed to discover models",
 		);
 	},
-	discoverAll: async (): Promise<{
-		succeeded: number;
-		failed: number;
-		discovered: number;
-		results: DiscoverAllResult[];
-	}> => {
-		return fetchJSON<{
-			succeeded: number;
-			failed: number;
-			discovered: number;
-			results: DiscoverAllResult[];
-		}>(
+	discoverAll: async (): Promise<DiscoverAllResponse> => {
+		return fetchJSON<DiscoverAllResponse>(
 			`${API_BASE}/api/providers/discover-all`,
 			{
 				method: "POST",
@@ -91,28 +88,8 @@ export const providers = {
 			"Failed to discover all",
 		);
 	},
-	refreshQuotas: async (): Promise<{
-		refreshed: number;
-		failed: number;
-		skipped: number;
-		results: {
-			provider_name: string;
-			provider_type: string;
-			refreshed: boolean;
-			error?: string;
-		}[];
-	}> => {
-		return fetchJSON<{
-			refreshed: number;
-			failed: number;
-			skipped: number;
-			results: {
-				provider_name: string;
-				provider_type: string;
-				refreshed: boolean;
-				error?: string;
-			}[];
-		}>(
+	refreshQuotas: async (): Promise<RefreshQuotasResponse> => {
+		return fetchJSON<RefreshQuotasResponse>(
 			`${API_BASE}/api/providers/refresh-quotas`,
 			{
 				method: "POST",
@@ -189,7 +166,7 @@ export const discovery = {
 	// consume it.
 	status: async (review = false): Promise<DiscoveryStatusResponse> => {
 		return fetchJSON<DiscoveryStatusResponse>(
-			`${API_BASE}/api/discovery/status${review ? "?review=1" : ""}`,
+			buildUrl("/api/discovery/status", { review: review ? 1 : undefined }),
 			{ headers: getAuthHeaders() },
 			"Failed to load discovery status",
 		);

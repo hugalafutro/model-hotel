@@ -2,11 +2,13 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	EmptyRow,
+	flipSortDir,
 	PaginationBar,
 	Row,
 	SortableHeader,
 	StaticHeader,
 	StaticHeaderNoArrow,
+	toggleSort,
 } from "../DataTable";
 
 describe("SortableHeader", () => {
@@ -846,5 +848,38 @@ describe("header title (truncation tooltip)", () => {
 			</table>,
 		);
 		expect(headerCell()).toHaveAttribute("title", "Provider");
+	});
+});
+
+describe("toggleSort", () => {
+	it("sorts a new field ascending", () => {
+		expect(toggleSort({ field: "name", dir: "desc" }, "age")).toEqual({
+			field: "age",
+			dir: "asc",
+		});
+	});
+
+	it("flips the direction when the same field is clicked again", () => {
+		expect(toggleSort({ field: "name", dir: "asc" }, "name")).toEqual({
+			field: "name",
+			dir: "desc",
+		});
+		expect(toggleSort({ field: "name", dir: "desc" }, "name")).toEqual({
+			field: "name",
+			dir: "asc",
+		});
+	});
+});
+
+describe("flipSortDir", () => {
+	it("keeps the field and reverses the direction", () => {
+		expect(flipSortDir({ field: "name", dir: "asc" })).toEqual({
+			field: "name",
+			dir: "desc",
+		});
+		expect(flipSortDir({ field: "name", dir: "desc" })).toEqual({
+			field: "name",
+			dir: "asc",
+		});
 	});
 });

@@ -2,9 +2,9 @@ import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { useCopyToClipboard } from "../useCopyToClipboard";
 
-// The write itself -- a missing Clipboard API, a refusal, a caller-supplied
-// writer that throws -- is web-shared/clipboard's writeClipboard and is covered
-// against it directly. What is left here is the hook's own half: the flag, the
+// The write itself -- a missing Clipboard API and its legacy fallback, a
+// refusal -- is web-shared/clipboard's writeClipboard and is covered against it
+// directly. What is left here is the hook's own half: the flag, the
 // reset timer, and what an unmount does to both.
 describe("useCopyToClipboard", () => {
 	const writeText = navigator.clipboard.writeText as ReturnType<typeof vi.fn>;
@@ -154,19 +154,5 @@ describe("useCopyToClipboard", () => {
 
 		expect(ok).toBe(false);
 		expect(result.current.copied).toBe(false);
-	});
-
-	it("uses a caller-supplied writer instead of the Clipboard API", async () => {
-		const write = vi.fn().mockResolvedValue(undefined);
-		const { result } = renderHook(() => useCopyToClipboard({ write }));
-
-		let ok: boolean | undefined;
-		await act(async () => {
-			ok = await result.current.copy("hello");
-		});
-
-		expect(ok).toBe(true);
-		expect(write).toHaveBeenCalledWith("hello");
-		expect(writeText).not.toHaveBeenCalled();
 	});
 });

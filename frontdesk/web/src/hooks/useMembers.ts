@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { FdEvent, MemberView } from "../api/types";
+import { useLatestRequest } from "./useLatestRequest";
 import { useSSE } from "./useSSE";
 
 interface UseMembers {
@@ -33,10 +34,10 @@ export function useMembers(onEvent?: (e: FdEvent) => void): UseMembers {
 	const [loading, setLoading] = useState(true);
 	const [error, setError] = useState(false);
 	const [lastUpdatedAt, setLastUpdatedAt] = useState<string | null>(null);
-	// Monotonic request id: SSE events can fire refetch faster than the network
-	// responds, so only the newest in-flight request is allowed to apply, keeping
-	// the list from flipping back to a stale snapshot.
-	const seqRef = useRef(0);
+	// SSE events can fire refetch faster than the network responds, so only the
+	// newest in-flight request is allowed to apply, keeping the list from
+	// flipping back to a stale snapshot.
+	const latest = useLatestRequest();
 	// Hold the latest consumer handler in a ref so the SSE callback stays stable
 	// (keyed only on refetch) and never reconnects when the handler identity changes.
 	const onEventRef = useRef(onEvent);
@@ -45,22 +46,22 @@ export function useMembers(onEvent?: (e: FdEvent) => void): UseMembers {
 	}, [onEvent]);
 
 	const refetch = useCallback(() => {
-		const seq = ++seqRef.current;
+		const seq = latest.next();
 		api
 			.listMembers()
 			.then((m) => {
-				if (seq !== seqRef.current) return;
+				if (!latest.isCurrent(seq)) return;
 				setMembers(m);
 				setError(false);
 				setLastUpdatedAt(new Date().toISOString());
 			})
 			.catch(() => {
-				if (seq === seqRef.current) setError(true);
+				if (latest.isCurrent(seq)) setError(true);
 			})
 			.finally(() => {
-				if (seq === seqRef.current) setLoading(false);
+				if (latest.isCurrent(seq)) setLoading(false);
 			});
-	}, []);
+	}, [latest]);
 
 	useEffect(refetch, [refetch]);
 

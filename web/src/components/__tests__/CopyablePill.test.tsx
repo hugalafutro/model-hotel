@@ -46,7 +46,7 @@ describe("CopyablePill", () => {
 		fireEvent.click(screen.getByText("api-key"));
 
 		await waitFor(() => {
-			expect(screen.getByText("Copied!")).toBeInTheDocument();
+			expect(screen.getByText("Copied to clipboard")).toBeInTheDocument();
 		});
 	});
 

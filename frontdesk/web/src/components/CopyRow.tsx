@@ -22,8 +22,6 @@ export function CopyRow({
 	/** data-testid for the copy button; omitted when unset. */
 	testId?: string;
 }) {
-	const { t } = useTranslation();
-	const { copy, copied } = useCopyToClipboard();
 	if (value === "") return null;
 	const labelled = label !== undefined;
 	return (
@@ -46,17 +44,47 @@ export function CopyRow({
 			>
 				{value}
 			</code>
-			<button
-				type="button"
-				className="ui-btn ui-btn-sm"
-				data-testid={testId}
-				aria-label={labelled ? `${t("common.copy")}: ${label}` : undefined}
-				onClick={() => {
-					void copy(value);
-				}}
-			>
-				{copied ? t("common.copied") : t("common.copy")}
-			</button>
+			<CopyButton value={value} name={label} testId={testId} />
 		</div>
+	);
+}
+
+// CopyButton puts one value on the clipboard: the button half of CopyRow, also
+// used on its own beside a value that already has its own row markup (a saved
+// alert destination). A blocked clipboard is silent; the button simply never
+// says "Copied" and the text beside it stays selectable.
+export function CopyButton({
+	value,
+	name,
+	testId,
+}: {
+	/** The text copied. */
+	value: string;
+	// What the button copies, for its accessible name ("Copy: Webhook URL").
+	// Unset: the button carries no label of its own, for a value whose own
+	// heading already names it.
+	name?: string;
+	/** data-testid for the button; omitted when unset. */
+	testId?: string;
+}) {
+	const { t } = useTranslation();
+	// The "Copied" label reverts on a timer the hook drops if the button goes
+	// first: removing a destination unmounts it, and firing then would set state
+	// on an unmounted button.
+	const { copy, copied } = useCopyToClipboard();
+	return (
+		<button
+			type="button"
+			className="ui-btn ui-btn-sm"
+			data-testid={testId}
+			aria-label={
+				name === undefined ? undefined : `${t("common.copy")}: ${name}`
+			}
+			onClick={() => {
+				void copy(value);
+			}}
+		>
+			{copied ? t("common.copied") : t("common.copy")}
+		</button>
 	);
 }

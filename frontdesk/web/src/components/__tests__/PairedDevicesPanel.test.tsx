@@ -295,6 +295,9 @@ it("selects the pairing string on focus for easy manual copying", async () => {
 	expect(field.selectionEnd - field.selectionStart).toBe(field.value.length);
 });
 
+// A refused clipboard is reported as the failure it is ("Failed to copy"), the
+// same wording every other copy button in Front Desk uses, rather than as the
+// generic "something went wrong" that says nothing about what to do next.
 it("shows an error toast when the clipboard write fails", async () => {
 	server.use(...handlers([]));
 	Object.assign(navigator, {
@@ -307,7 +310,7 @@ it("shows an error toast when the clipboard write fails", async () => {
 	await userEvent.click(
 		screen.getByRole("button", { name: "Copy pairing string" }),
 	);
-	expect(await screen.findByText("Something went wrong")).toBeInTheDocument();
+	expect(await screen.findByText("Failed to copy")).toBeInTheDocument();
 });
 
 it("keeps the device and shows an error toast when revoking fails", async () => {

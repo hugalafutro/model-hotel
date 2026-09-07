@@ -9,7 +9,7 @@ const EDGE_THRESHOLD_PX = 500;
  * that stands in for the unmounted rows, the edge-triggered fetches, and the
  * visible index range for the footer.
  */
-export function useVirtualRows<T extends { id: string }>({
+export function useVirtualRows<T extends { id?: string }>({
 	entries,
 	hasBefore,
 	hasAfter,
@@ -17,6 +17,8 @@ export function useVirtualRows<T extends { id: string }>({
 	isLoadingAfter,
 	fetchNewer,
 	fetchOlder,
+	estimateSize = 45,
+	getItemKey,
 }: {
 	entries: T[];
 	hasBefore: boolean;
@@ -25,6 +27,10 @@ export function useVirtualRows<T extends { id: string }>({
 	isLoadingAfter: boolean;
 	fetchNewer: () => void;
 	fetchOlder: () => void;
+	/** Row height before measurement. Also the fallback the prepend correction uses. */
+	estimateSize?: number;
+	/** Row identity, for lists whose rows carry no id of their own. */
+	getItemKey?: (item: T, index: number) => string | number;
 }) {
 	"use no memo";
 	// TanStack Virtual hands back mutable functions and a measurements cache
@@ -42,9 +48,13 @@ export function useVirtualRows<T extends { id: string }>({
 		// shifts to a new index, and index-keyed measurements would describe the
 		// old rows' heights under the new rows' slots, which is exactly the data
 		// the prepend correction below reads.
-		getItemKey: (index) => entries[index]?.id ?? index,
+		getItemKey: (index) => {
+			const item = entries[index];
+			if (item === undefined) return index;
+			return getItemKey ? getItemKey(item, index) : (item.id ?? index);
+		},
 		getScrollElement: () => scrollEl,
-		estimateSize: () => 45,
+		estimateSize: () => estimateSize,
 		overscan: 20,
 	});
 
@@ -70,7 +80,14 @@ export function useVirtualRows<T extends { id: string }>({
 		const prev = prevEntriesRef.current;
 		if (entries.length > prev.length && prev.length > 0) {
 			const newItemCount = entries.length - prev.length;
-			if (entries[newItemCount]?.id === prev[0]?.id && scrollEl) {
+			const keyOf = (item: T | undefined, index: number) => {
+				if (item === undefined) return undefined;
+				return getItemKey ? getItemKey(item, index) : item.id;
+			};
+			if (
+				keyOf(entries[newItemCount], newItemCount) === keyOf(prev[0], 0) &&
+				scrollEl
+			) {
 				// The rows committed in this same pass were measured by their ref
 				// callbacks a moment ago; getVirtualItems() folds those sizes into
 				// the measurements before they are read.
@@ -79,7 +96,9 @@ export function useVirtualRows<T extends { id: string }>({
 				const first = cache[0];
 				const oldFirst = cache[newItemCount];
 				const added =
-					first && oldFirst ? oldFirst.start - first.start : newItemCount * 45;
+					first && oldFirst
+						? oldFirst.start - first.start
+						: newItemCount * estimateSize;
 				scrollEl.scrollTop += added;
 				prevEntriesRef.current = entries;
 				forceRerender((c) => c + 1);
@@ -87,7 +106,7 @@ export function useVirtualRows<T extends { id: string }>({
 			}
 		}
 		prevEntriesRef.current = entries;
-	}, [entries, virtualizer, scrollEl]);
+	}, [entries, virtualizer, scrollEl, estimateSize, getItemKey]);
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0

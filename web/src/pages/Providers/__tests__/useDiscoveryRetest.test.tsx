@@ -6,7 +6,7 @@ import { api } from "../../../api/client";
 import type { DiscoveryDiff } from "../../../api/types";
 import { server } from "../../../test/mocks/server";
 import { AllProviders } from "../../../test/utils";
-import type { DiscoverySummaryEntry } from "../DiscoverySummaryModal";
+import type { DiscoverySummaryEntry } from "../discoverySummary";
 import { useDiscoveryRetest } from "../useDiscoveryRetest";
 
 const discover = vi.fn();

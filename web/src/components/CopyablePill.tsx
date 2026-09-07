@@ -1,6 +1,7 @@
 import { memo } from "react";
 import { useTranslation } from "react-i18next";
 import { useToast } from "../context/ToastContext";
+import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
 
 interface CopyablePillProps {
 	text: string;
@@ -26,29 +27,29 @@ export const CopyablePill = memo(function CopyablePill({
 }: CopyablePillProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 
 	// Title shows full text for sighted users (visible on hover when truncated).
 	// aria-label provides a short action description for screen readers.
 	const ariaLabel = tooltip ?? t("components.copyablePill.copy", { text });
 	const effectiveTitle = text;
 
-	const handleCopy = (e: React.MouseEvent) => {
+	const handleCopy = async (e: React.MouseEvent) => {
 		e.stopPropagation();
-		navigator.clipboard
-			.writeText(text)
-			.then(() => {
-				toast(t("components.copyablePill.copied"), "info");
-			})
-			.catch(() => {
-				toast(t("components.copyablePill.failedToCopy"), "error");
-			});
+		const ok = await copy(text);
+		toast(
+			ok ? t("common.copiedToClipboard") : t("common.failedToCopy"),
+			ok ? "info" : "error",
+		);
 	};
 
 	return (
 		<div className={`flex items-center gap-2 min-w-0 ${className}`}>
 			<button
 				type="button"
-				onClick={handleCopy}
+				onClick={(e) => {
+					void handleCopy(e);
+				}}
 				className={`group/button flex items-center gap-1.5 min-w-0 ${lines > 1 ? "" : "overflow-hidden"} select-none text-left pl-[3px] pr-1 py-px rounded hover:bg-gray-700 transition-colors`}
 				title={effectiveTitle}
 				aria-label={ariaLabel}

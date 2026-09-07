@@ -1,10 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { RefreshCw } from "@/lib/icons";
 import type { NanoGPTUsage } from "../../api/types";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
 	formatDate,
-	formatRelativeTime,
 	formatTimestamp,
 	formatTimeUntil,
 	formatTokens,
@@ -14,10 +12,13 @@ import { DetailSectionHeader } from "../DetailSectionHeader";
 import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
+	LastRefreshedRow,
+	type OnToast,
 	QuotaBar,
 	QuotaModalHeaderActions,
-	remainingBarColor,
-	usedBarColor,
+	resetAtLabel,
+	useQuotaBarMode,
+	useQuotaRefreshToast,
 } from "./shared";
 
 export function NanoGPTQuotaModal({
@@ -32,27 +33,17 @@ export function NanoGPTQuotaModal({
 	onClose: () => void;
 	onRefresh: () => Promise<unknown>;
 	isRefreshing: boolean;
-	onToast: (msg: string, type: "success" | "info" | "error") => void;
+	onToast: OnToast;
 	lastRefreshed?: number;
 }) {
 	const { t } = useTranslation();
-	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
-		"quota-bar-mode",
-		"remaining",
-	);
+	const [barMode, toggleBarMode] = useQuotaBarMode();
 	const weeklyLimit = usage.limits.weeklyInputTokens ?? 0;
 	const weeklyUsed = usage.weeklyInputTokens?.used ?? 0;
 	const weeklyRemaining =
 		weeklyLimit > 0 ? ((weeklyLimit - weeklyUsed) / weeklyLimit) * 100 : 100;
 
-	const handleRefresh = async () => {
-		try {
-			await onRefresh();
-			onToast(t("components.providerModals.quotaRefreshed"), "success");
-		} catch {
-			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
-		}
-	};
+	const handleRefresh = useQuotaRefreshToast(onRefresh, onToast);
 
 	return (
 		<Modal
@@ -83,21 +74,10 @@ export function NanoGPTQuotaModal({
 						</p>
 					</div>
 					<QuotaModalHeaderActions
-						onToggleBarMode={() =>
-							setBarMode((prev) =>
-								prev === "remaining" ? "used" : "remaining",
-							)
-						}
+						barMode={barMode}
+						onToggleBarMode={toggleBarMode}
 						onRefresh={handleRefresh}
 						isRefreshing={isRefreshing}
-						toggleAriaLabel={t("components.providerModals.toggleRemainingUsed")}
-						toggleTitle={
-							barMode === "remaining"
-								? t("components.providerModals.showQuotaUsed")
-								: t("components.providerModals.showQuotaRemaining")
-						}
-						refreshAriaLabel={t("common.refresh")}
-						refreshTitle={t("components.providerModals.refreshQuotaInfo")}
 					/>
 				</div>
 			}
@@ -122,67 +102,33 @@ export function NanoGPTQuotaModal({
 				</QuotaBar>
 
 				{usage.dailyImages && (
-					<div>
-						<div className="flex justify-between items-center mb-2">
-							<span className="text-sm font-medium text-(--text-secondary)">
-								{t("components.providerModals.dailyImages")}
-							</span>
-							<span className="text-sm text-(--text-tertiary)">
-								{formatWithCommas(usage.dailyImages.used)} /{" "}
-								{usage.limits.dailyImages != null
-									? formatWithCommas(usage.limits.dailyImages)
-									: "∞"}
-							</span>
-						</div>
-						<div className="w-full bg-(--surface-input) ui-bar h-3">
-							<div
-								className={`${barMode === "used" ? usedBarColor(usage.dailyImages.percentUsed * 100) : remainingBarColor(100 - usage.dailyImages.percentUsed * 100)} h-3 ui-bar transition-all`}
-								style={{
-									width: `${barMode === "used" ? Math.min(usage.dailyImages.percentUsed * 100, 100) : Math.min(100 - usage.dailyImages.percentUsed * 100, 100)}%`,
-								}}
-							/>
-						</div>
-						<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
-							{usage.dailyImages.percentUsed.toFixed(1)}%{" "}
-							{t("components.providerModals.used")}.{" "}
-							{t("components.providerModals.resets")}{" "}
-							{usage.dailyImages.resetAt
-								? `${formatTimestamp(usage.dailyImages.resetAt)}\n${formatTimeUntil(usage.dailyImages.resetAt)}`
-								: "N/A"}
-						</p>
-					</div>
+					<QuotaBar
+						label={t("components.providerModals.dailyImages")}
+						rightText={`${formatWithCommas(usage.dailyImages.used)} / ${
+							usage.limits.dailyImages != null
+								? formatWithCommas(usage.limits.dailyImages)
+								: "∞"
+						}`}
+						percentage={usage.dailyImages.percentUsed * 100}
+						barMode={barMode}
+					>
+						{`${usage.dailyImages.percentUsed.toFixed(1)}% ${t("components.providerModals.used")}. ${resetAtLabel(usage.dailyImages.resetAt, t)}`}
+					</QuotaBar>
 				)}
 
 				{usage.dailyInputTokens && (
-					<div>
-						<div className="flex justify-between items-center mb-2">
-							<span className="text-sm font-medium text-(--text-secondary)">
-								{t("components.providerModals.dailyInputTokens")}
-							</span>
-							<span className="text-sm text-(--text-tertiary)">
-								{formatTokens(usage.dailyInputTokens.used)} /{" "}
-								{usage.limits.dailyInputTokens
-									? formatTokens(usage.limits.dailyInputTokens)
-									: "∞"}
-							</span>
-						</div>
-						<div className="w-full bg-(--surface-input) ui-bar h-3">
-							<div
-								className={`${barMode === "used" ? usedBarColor(usage.dailyInputTokens.percentUsed * 100) : remainingBarColor(100 - usage.dailyInputTokens.percentUsed * 100)} h-3 ui-bar transition-all`}
-								style={{
-									width: `${barMode === "used" ? Math.min(usage.dailyInputTokens.percentUsed * 100, 100) : Math.min(100 - usage.dailyInputTokens.percentUsed * 100, 100)}%`,
-								}}
-							/>
-						</div>
-						<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
-							{usage.dailyInputTokens.percentUsed.toFixed(1)}%{" "}
-							{t("components.providerModals.used")}.{" "}
-							{t("components.providerModals.resets")}{" "}
-							{usage.dailyInputTokens.resetAt
-								? `${formatTimestamp(usage.dailyInputTokens.resetAt)}\n${formatTimeUntil(usage.dailyInputTokens.resetAt)}`
-								: "N/A"}
-						</p>
-					</div>
+					<QuotaBar
+						label={t("components.providerModals.dailyInputTokens")}
+						rightText={`${formatTokens(usage.dailyInputTokens.used)} / ${
+							usage.limits.dailyInputTokens
+								? formatTokens(usage.limits.dailyInputTokens)
+								: "∞"
+						}`}
+						percentage={usage.dailyInputTokens.percentUsed * 100}
+						barMode={barMode}
+					>
+						{`${usage.dailyInputTokens.percentUsed.toFixed(1)}% ${t("components.providerModals.used")}. ${resetAtLabel(usage.dailyInputTokens.resetAt, t)}`}
+					</QuotaBar>
 				)}
 
 				<div>
@@ -229,14 +175,7 @@ export function NanoGPTQuotaModal({
 					</div>
 				)}
 
-				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
-						<span>{t("components.providerModals.lastRefreshed")}</span>
-						<span>
-							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
-						</span>
-					</div>
-				) : null}
+				<LastRefreshedRow at={lastRefreshed} />
 			</div>
 		</Modal>
 	);

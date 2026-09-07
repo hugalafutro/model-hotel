@@ -41,18 +41,6 @@ describe("useMultimodalAttachments", () => {
 		expect(result.current.pendingAudio).toBeNull();
 	});
 
-	it("returns hasVision value", () => {
-		const { result: resultWithVision } = renderHook(() =>
-			useMultimodalAttachments(true, mockToast),
-		);
-		expect(resultWithVision.current.hasVision).toBe(true);
-
-		const { result: resultWithoutVision } = renderHook(() =>
-			useMultimodalAttachments(false, mockToast),
-		);
-		expect(resultWithoutVision.current.hasVision).toBe(false);
-	});
-
 	it("returns imageInputRef and audioInputRef", () => {
 		const { result } = renderHook(() =>
 			useMultimodalAttachments(false, mockToast),

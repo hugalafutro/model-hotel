@@ -1,7 +1,6 @@
-import { useQueryClient } from "@tanstack/react-query";
 import { Trans, useTranslation } from "react-i18next";
 import { Copy, Download, HardDrive, Plus, Trash2, Upload } from "@/lib/icons";
-import { api, getAuthHeaders } from "../../api/client";
+import { api } from "../../api/client";
 import { LoadingSpinner } from "../../components/LoadingSpinner";
 import { RestoreConfirmModal } from "../../components/RestoreConfirmModal";
 import { SettingsGroup } from "../../components/SettingsGroup";
@@ -10,8 +9,9 @@ import { SettingsSlider } from "../../components/SettingsSlider";
 import { Spinner } from "../../components/Spinner";
 import { Toggle } from "../../components/Toggle";
 import { useToast } from "../../context/ToastContext";
-import { formatDateTimeShort } from "../../utils/format";
+import { formatBytes, formatDateTimeShort } from "../../utils/format";
 import { BackupEnableConfirm } from "./BackupEnableConfirm";
+import { BACKUP_KEYS, SETTING_DEFAULTS } from "./defaults";
 import { useBackupActions } from "./useBackupActions";
 
 interface DatabaseBackupSettingsProps {
@@ -27,7 +27,6 @@ export function DatabaseBackupSettings({
 }: DatabaseBackupSettingsProps) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const queryClient = useQueryClient();
 	const {
 		confirmDelete,
 		setConfirmDelete,
@@ -42,8 +41,8 @@ export function DatabaseBackupSettings({
 		prunePreview,
 		setPrunePreview,
 		fileInputRef,
-		pollingRef,
 		gfsLabel,
+		waitForServer,
 		createMutation,
 		deleteMutation,
 		settingsUpdateMutation,
@@ -56,7 +55,6 @@ export function DatabaseBackupSettings({
 		downloadBackup,
 		backups,
 		isLoading,
-		formatBytes,
 	} = useBackupActions();
 
 	return (
@@ -67,13 +65,9 @@ export function DatabaseBackupSettings({
 			onToggle={onToggle}
 			managed={managed}
 			onResetSection={() =>
-				settingsUpdateMutation.mutate({
-					backup_enabled: "false",
-					backup_interval: "24h",
-					backup_son_retention: "7",
-					backup_father_retention: "4",
-					backup_grandfather_retention: "3",
-				})
+				settingsUpdateMutation.mutate(
+					Object.fromEntries(BACKUP_KEYS.map((k) => [k, SETTING_DEFAULTS[k]])),
+				)
 			}
 			resetTooltip={t("settings.common.resetSection")}
 		>
@@ -121,9 +115,11 @@ export function DatabaseBackupSettings({
 									}
 									setPrunePreview(preview);
 									setShowEnableConfirm(true);
-								} catch {
+								} catch (err) {
 									toast(
-										t("settings.backup.rotation.prunePreviewFailed"),
+										t("settings.backup.rotation.prunePreviewFailed", {
+											message: (err as Error).message,
+										}),
 										"error",
 									);
 								}
@@ -143,7 +139,9 @@ export function DatabaseBackupSettings({
 							clampStep={0.5}
 							unit="h"
 							onReset={() =>
-								settingsUpdateMutation.mutate({ backup_interval: "24h" })
+								settingsUpdateMutation.mutate({
+									backup_interval: SETTING_DEFAULTS.backup_interval,
+								})
 							}
 							resetTooltip={t("settings.common.resetToDefault")}
 							onChange={(v) =>
@@ -164,7 +162,9 @@ export function DatabaseBackupSettings({
 							clampStep={1}
 							unit="d"
 							onReset={() =>
-								settingsUpdateMutation.mutate({ backup_son_retention: "7" })
+								settingsUpdateMutation.mutate({
+									backup_son_retention: SETTING_DEFAULTS.backup_son_retention,
+								})
 							}
 							resetTooltip={t("settings.common.resetToDefault")}
 							onChange={(v) =>
@@ -188,7 +188,8 @@ export function DatabaseBackupSettings({
 							unit="w"
 							onReset={() =>
 								settingsUpdateMutation.mutate({
-									backup_father_retention: "4",
+									backup_father_retention:
+										SETTING_DEFAULTS.backup_father_retention,
 								})
 							}
 							resetTooltip={t("settings.common.resetToDefault")}
@@ -213,7 +214,8 @@ export function DatabaseBackupSettings({
 							unit="m"
 							onReset={() =>
 								settingsUpdateMutation.mutate({
-									backup_grandfather_retention: "3",
+									backup_grandfather_retention:
+										SETTING_DEFAULTS.backup_grandfather_retention,
 								})
 							}
 							resetTooltip={t("settings.common.resetToDefault")}
@@ -294,32 +296,7 @@ export function DatabaseBackupSettings({
 								);
 								setShowRestoreModal(false);
 								setRestoreFile(null);
-								pollingRef.current = true;
-								const checkServer = async () => {
-									let attempts = 0;
-									while (pollingRef.current && attempts < 60) {
-										try {
-											const res = await fetch("/api/backups", {
-												headers: getAuthHeaders(),
-											});
-											if (res.ok) {
-												queryClient.invalidateQueries({
-													queryKey: ["backups"],
-												});
-												toast(t("settings.backup.serverBackOnline"), "success");
-												return;
-											}
-										} catch {
-											// Server not up yet
-										}
-										await new Promise((r) => setTimeout(r, 2000));
-										attempts++;
-									}
-									if (pollingRef.current) {
-										toast(t("settings.backup.serverRestarting"), "warning");
-									}
-								};
-								checkServer();
+								waitForServer();
 							} catch (err) {
 								toast(
 									t("settings.backup.restoreFailed", {

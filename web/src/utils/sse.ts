@@ -73,9 +73,7 @@ export async function readSSEStream<T = unknown>(opts: {
 	let bomStripped = false;
 
 	while (true) {
-		let readResult: Awaited<
-			ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>
-		>;
+		let readResult: ReadableStreamReadResult<Uint8Array>;
 		if (idleTimeoutMs > 0 && idleTimeoutMs < Infinity) {
 			// Race the read against an idle timeout so stalled streams don't hang forever.
 			let idleTimerId: ReturnType<typeof setTimeout> | undefined;
@@ -89,9 +87,7 @@ export async function readSSEStream<T = unknown>(opts: {
 				reader.cancel();
 				break;
 			}
-			readResult = result as Awaited<
-				ReturnType<ReadableStreamDefaultReader<Uint8Array>["read"]>
-			>;
+			readResult = result as ReadableStreamReadResult<Uint8Array>;
 		} else {
 			readResult = await reader.read();
 		}

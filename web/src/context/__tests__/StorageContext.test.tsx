@@ -164,9 +164,14 @@ describe("StorageContext", () => {
 		expect(localStorage.getItem("arenaState")).toBeNull();
 	});
 
-	it("Setting persistConversation to false clears conversation-related localStorage keys", () => {
+	it("Setting persistConversation to false clears the transcript and its prompts", () => {
 		localStorage.setItem("conversationMessages", "[]");
-		localStorage.setItem("conversationState", "{}");
+		localStorage.setItem("conversationSystemPromptA", "a");
+		localStorage.setItem("conversationSystemPromptB", "b");
+		localStorage.setItem("conversationActivePersonaIdA", "pa");
+		localStorage.setItem("conversationActivePersonaIdB", "pb");
+		// The model picks are settings, not content, so they survive.
+		localStorage.setItem("conversationModelA", "OpenAI/gpt-4o");
 
 		const { result } = renderHook(() => useStorage(), {
 			wrapper: StorageProvider,
@@ -177,7 +182,11 @@ describe("StorageContext", () => {
 		});
 
 		expect(localStorage.getItem("conversationMessages")).toBeNull();
-		expect(localStorage.getItem("conversationState")).toBeNull();
+		expect(localStorage.getItem("conversationSystemPromptA")).toBeNull();
+		expect(localStorage.getItem("conversationSystemPromptB")).toBeNull();
+		expect(localStorage.getItem("conversationActivePersonaIdA")).toBeNull();
+		expect(localStorage.getItem("conversationActivePersonaIdB")).toBeNull();
+		expect(localStorage.getItem("conversationModelA")).toBe("OpenAI/gpt-4o");
 	});
 
 	it("Setting arenaHistoryEnabled to false clears arenaMatchHistory", () => {

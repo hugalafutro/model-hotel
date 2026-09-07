@@ -194,8 +194,8 @@ export function ProviderDoughnut({
 									<span className="text-xs text-(--text-muted) text-left">
 										(
 										{metric === "tokens"
-											? `${formatCompact(it.tokens)} ${t(it.tokens !== 1 ? "dashboard.providers.tokensUnit" : "dashboard.providers.tokenUnit")}`
-											: `${it.count} ${t(it.count !== 1 ? "dashboard.providers.requestsUnit" : "dashboard.providers.requestUnit")}`}
+											? `${formatCompact(it.tokens)} ${t("dashboard.providers.tokens", { count: it.tokens })}`
+											: `${it.count} ${t("dashboard.providers.requests", { count: it.count })}`}
 										)
 									</span>
 								</li>

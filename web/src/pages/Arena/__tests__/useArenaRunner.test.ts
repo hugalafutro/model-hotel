@@ -1398,6 +1398,56 @@ describe("useArenaRunner", () => {
 			expect(setRoundsMock).toHaveBeenCalled();
 		});
 
+		it("drops slots still waiting in the stagger window when the run is stopped", () => {
+			// Both slots are on the same provider, so the second one is scheduled
+			// 300ms out. Stopping before it fires must cancel it: otherwise it
+			// starts a stream into a run that is already over.
+			vi.useFakeTimers();
+			const rounds: BracketRound[] = [
+				{
+					matchups: [
+						{
+							slotA: {
+								modelId: "P/model-a",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							slotB: {
+								modelId: "P/model-b",
+								personaId: null,
+								personaPrompt: "",
+								params: {},
+							},
+							responseA: null,
+							responseB: null,
+							vote: null,
+						},
+					],
+				},
+			];
+
+			const deps = createMockDeps({ rounds, roundsRef: { current: rounds } });
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.runRound(0);
+			});
+			expect(result.current.abortMapRef.current.size).toBe(1);
+
+			act(() => {
+				result.current.handleStopAll();
+			});
+			act(() => {
+				vi.advanceTimersByTime(1000);
+			});
+
+			expect(result.current.abortMapRef.current.size).toBe(0);
+			vi.useRealTimers();
+		});
+
 		it("does not start a round without a usable allowlist", () => {
 			// An empty / not-yet-loaded list must not start the round: doing so would
 			// defer every slot and could erase a valid persisted competition. State

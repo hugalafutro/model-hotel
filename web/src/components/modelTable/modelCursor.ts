@@ -2,6 +2,9 @@ import { api } from "../../api/client";
 import type { Model, ModelsCursorResponse } from "../../api/types";
 import { encodeCursor } from "../../utils/format";
 
+/** The `"true"`/`"false"`/absent tri-state the string-keyed filter bags carry. */
+const optBool = (v?: string) => (v === undefined ? undefined : v === "true");
+
 export type ModelSortField =
 	| "name"
 	| "discovered"
@@ -62,8 +65,6 @@ export function modelCursor(field: ModelSortField, entry: Model): string {
 				id: entry.id,
 			};
 			break;
-		default:
-			cursorObj = { sort_by: "name", name: entry.name, id: entry.id };
 	}
 	return encodeCursor(cursorObj);
 }
@@ -78,7 +79,7 @@ export function fetchModelsPage(params: {
 }): Promise<ModelsCursorResponse> {
 	return api.models.cursor({
 		cursor: params.cursor,
-		direction: params.direction as "after" | "before",
+		direction: params.direction,
 		limit: params.limit,
 		sort_by: params.sort_by as string | undefined,
 		sort_dir: params.sort_dir,
@@ -86,10 +87,7 @@ export function fetchModelsPage(params: {
 		search: params.search as string | undefined,
 		capabilities: params.capabilities as string | undefined,
 		outputs: params.outputs as string | undefined,
-		provider_enabled:
-			params.provider_enabled === undefined
-				? undefined
-				: params.provider_enabled === "true",
+		provider_enabled: optBool(params.provider_enabled as string | undefined),
 	});
 }
 
@@ -116,10 +114,7 @@ export async function loadAllDisabledModels(
 			search,
 			capabilities,
 			outputs,
-			provider_enabled:
-				provider_enabled === undefined
-					? undefined
-					: provider_enabled === "true",
+			provider_enabled: optBool(provider_enabled),
 			enabled: false,
 		});
 		all.push(...page.entries);

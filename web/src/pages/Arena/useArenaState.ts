@@ -6,21 +6,30 @@ import { useSidebarMode } from "../../context/SidebarModeContext";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import { CHAT_PERSONAS } from "../../data/presets";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { readJSON, useLocalStorage } from "../../hooks/useLocalStorage";
 import { useChatModels } from "../../hooks/useModels";
 import {
+	ARENA_STORAGE_KEYS,
 	getArenaHistoryEnabled,
 	saveCompareToHistory,
 } from "../../utils/arenaHistory";
-import { proxyModelID } from "../../utils/model";
+import { chatModelIdSet } from "../../utils/model";
+import { pickRandom, randomChatModelId } from "../../utils/random";
 import {
 	buildCompareRound,
 	buildInitialRounds,
 	getPreviewPairs,
 } from "./builders";
 import type { BracketPhase, BracketRound, WinnerModal } from "./types";
-import { useArenaPersistence } from "./useArenaPersistence";
-import { nextBracketSize } from "./utils";
+import {
+	type ArenaPersistenceState,
+	useArenaPersistence,
+} from "./useArenaPersistence";
+import { BRACKET_SIZES, nextBracketSize } from "./utils";
+
+// Re-exported because the arena's own modules have always reached the key list
+// through this hook.
+export { ARENA_STORAGE_KEYS };
 
 export interface ArenaStateAndActions {
 	// State values
@@ -75,10 +84,7 @@ export interface ArenaStateAndActions {
 	arenaMode: ArenaSubMode;
 	setArenaMode: (mode: ArenaSubMode) => void;
 	// Refs
-	abortMapRef: React.RefObject<Map<string, AbortController>>;
-	lastExtractLenRef: React.RefObject<Map<string, number>>;
 	currentRoundRef: React.RefObject<number>;
-	roundsLengthRef: React.RefObject<number>;
 	roundsRef: React.RefObject<BracketRound[]>;
 	activePromptIdRef: React.RefObject<string | null>;
 	comparePersonaIdRef: React.RefObject<string | null>;
@@ -95,7 +101,7 @@ export interface ArenaStateAndActions {
 	handleRandomComparePersona: () => void;
 	handleRandomBracketModel: () => void;
 	handleRandomCompareModel: () => void;
-	previewPairs: ReturnType<typeof getPreviewPairs>;
+	previewPairs: { a: string; b: string }[] | null;
 	// Dependencies
 	enabledModels: ReturnType<typeof useChatModels>["data"];
 	modelsReady: boolean;
@@ -112,37 +118,31 @@ export function useArenaState(): ArenaStateAndActions {
 	const arenaMode = arenaSubMode;
 	const setArenaMode = setArenaSubMode;
 
-	const [compareModels, setCompareModels] = useState<string[]>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const raw = localStorage.getItem("arenaState");
-				if (raw) {
-					const s = JSON.parse(raw);
-					return s.compareModels ?? [];
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-		return [];
-	});
+	// The persisted blob is parsed once at mount: every field below reads its
+	// own default out of it rather than re-parsing the same string.
+	const [persisted] = useState(() =>
+		persistArena
+			? readJSON<
+					Partial<ArenaPersistenceState> & {
+						group1Models?: string[];
+						group2Models?: string[];
+					}
+				>("arenaState")
+			: null,
+	);
+
+	const [compareModels, setCompareModels] = useState<string[]>(
+		() => persisted?.compareModels ?? [],
+	);
 
 	const [bracketModels, setBracketModels] = useState<string[]>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const raw = localStorage.getItem("arenaState");
-				if (raw) {
-					const s = JSON.parse(raw);
-					if (s.bracketModels) return s.bracketModels;
-					const g1: string[] = s.group1Models ?? [];
-					const g2: string[] = s.group2Models ?? [];
-					if (g1.length > 0 || g2.length > 0) return [...g1, ...g2];
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-		return [];
+		if (persisted?.bracketModels) return persisted.bracketModels;
+		// Pre-bracket saves split the line-up across two groups.
+		const legacy = [
+			...(persisted?.group1Models ?? []),
+			...(persisted?.group2Models ?? []),
+		];
+		return legacy;
 	});
 
 	const [competitionActivePromptId, setCompetitionActivePromptId] =
@@ -197,20 +197,9 @@ export function useArenaState(): ArenaStateAndActions {
 		},
 		[setCompetitionActivePromptId, setCompareActivePromptId],
 	);
-	const [savedPrompt, setSavedPrompt] = useState<string>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const raw = localStorage.getItem("arenaState");
-				if (raw) {
-					const s = JSON.parse(raw);
-					return s.savedPrompt ?? "";
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-		return "";
-	});
+	const [savedPrompt, setSavedPrompt] = useState<string>(
+		() => persisted?.savedPrompt ?? "",
+	);
 
 	const [comparePersonaId, setComparePersonaId] = useLocalStorage<
 		string | null
@@ -224,103 +213,57 @@ export function useArenaState(): ArenaStateAndActions {
 			enabled: persistArena,
 		});
 
-	const [rounds, setRounds] = useState<BracketRound[]>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const raw = localStorage.getItem("arenaState");
-				if (raw) {
-					const s = JSON.parse(raw);
-					return s.rounds ?? [];
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-		return [];
-	});
-	const [currentRound, setCurrentRound] = useState(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const raw = localStorage.getItem("arenaState");
-				if (raw) {
-					const s = JSON.parse(raw);
-					return s.currentRound ?? 0;
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-		return 0;
-	});
-	const [phase, setPhase] = useState<BracketPhase>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const raw = localStorage.getItem("arenaState");
-				if (raw) {
-					const s = JSON.parse(raw);
-					return s.phase ?? "setup";
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-		return "setup";
-	});
+	const [rounds, setRounds] = useState<BracketRound[]>(
+		() => persisted?.rounds ?? [],
+	);
+	const [currentRound, setCurrentRound] = useState(
+		() => persisted?.currentRound ?? 0,
+	);
+	const [phase, setPhase] = useState<BracketPhase>(
+		() => persisted?.phase ?? "setup",
+	);
 	const [runningModels, setRunningModels] = useState<Set<string>>(new Set());
 	const [winnerModal, setWinnerModal] = useState<WinnerModal | null>(null);
 	const [disabledModels, setDisabledModels] = useState<Set<string>>(new Set());
-	const [arenaCollapsed, setArenaCollapsed] = useState<boolean>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const raw = localStorage.getItem("arenaState");
-				if (raw) {
-					const s = JSON.parse(raw);
-					return s.arenaCollapsed ?? false;
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-		return false;
-	});
+	const [arenaCollapsed, setArenaCollapsed] = useState<boolean>(
+		() => persisted?.arenaCollapsed ?? false,
+	);
 	const [pendingFullReset, setPendingFullReset] = useState(false);
 	const [showHistoryModal, setShowHistoryModal] = useState(false);
 
 	const [modelParams, setModelParams] = useState<
 		Record<string, GenerationParams>
-	>(() => {
-		try {
-			if (localStorage.getItem("persistArena") === "true") {
-				const raw = localStorage.getItem("arenaState");
-				if (raw) {
-					const s = JSON.parse(raw);
-					return s.modelParams ?? {};
-				}
-			}
-		} catch {
-			/* ignore */
-		}
-		return {};
-	});
+	>(() => persisted?.modelParams ?? {});
 
 	const [paramEditorModel, setParamEditorModel] = useState<string | null>(null);
 
-	useArenaPersistence({
-		arenaMode,
-		compareModels,
-		bracketModels,
-		rounds,
-		currentRound,
-		phase,
-		arenaCollapsed,
-		savedPrompt,
-		modelParams,
-	});
+	const persistedSnapshot = useMemo(
+		() => ({
+			arenaMode,
+			compareModels,
+			bracketModels,
+			rounds,
+			currentRound,
+			phase,
+			arenaCollapsed,
+			savedPrompt,
+			modelParams,
+		}),
+		[
+			arenaMode,
+			compareModels,
+			bracketModels,
+			rounds,
+			currentRound,
+			phase,
+			arenaCollapsed,
+			savedPrompt,
+			modelParams,
+		],
+	);
+	useArenaPersistence(persistedSnapshot);
 
-	const abortMapRef = useRef<Map<string, AbortController>>(new Map());
-	const lastExtractLenRef = useRef<Map<string, number>>(new Map());
 	const currentRoundRef = useRef(0);
-	const roundsLengthRef = useRef(0);
 	const roundsRef = useRef<BracketRound[]>([]);
 	const activePromptIdRef = useRef<string | null>(null);
 	const comparePersonaIdRef = useRef<string | null>(null);
@@ -328,16 +271,6 @@ export function useArenaState(): ArenaStateAndActions {
 	useEffect(() => {
 		arenaModeRef.current = arenaMode;
 	}, [arenaMode]);
-
-	useEffect(() => {
-		const map = abortMapRef.current;
-		return () => {
-			for (const [, ctrl] of map) {
-				ctrl.abort();
-			}
-			map.clear();
-		};
-	}, []);
 
 	useEffect(() => {
 		activePromptIdRef.current = activePromptId;
@@ -355,9 +288,7 @@ export function useArenaState(): ArenaStateAndActions {
 	// empty fetch never wipes valid selections.
 	useEffect(() => {
 		if (phase !== "setup" || enabledModels.length === 0) return;
-		const valid = new Set(
-			enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
-		);
+		const valid = chatModelIdSet(enabledModels);
 		// eslint-disable-next-line react-hooks/set-state-in-effect -- reconciles persisted ids against freshly loaded models; the functional updates return the same reference when nothing changed, so it settles in one pass
 		setBracketModels((prev) => {
 			const next = prev.filter((id) => valid.has(id));
@@ -438,8 +369,7 @@ export function useArenaState(): ArenaStateAndActions {
 			if (new Set(compareModels).size !== compareModels.length) return false;
 			return true;
 		}
-		const validSizes = new Set([2, 4, 8]);
-		if (!validSizes.has(bracketModels.length)) return false;
+		if (!BRACKET_SIZES.includes(bracketModels.length)) return false;
 		if (new Set(bracketModels).size !== bracketModels.length) return false;
 		return true;
 	}, [phase, arenaMode, compareModels, bracketModels, prompt]);
@@ -463,7 +393,7 @@ export function useArenaState(): ArenaStateAndActions {
 				return i18next.t("arena.disabledReason.pickOneMore");
 			if (new Set(bracketModels).size !== bracketModels.length)
 				return i18next.t("arena.disabledReason.noDuplicates");
-			if (![2, 4, 8].includes(bracketModels.length)) {
+			if (!BRACKET_SIZES.includes(bracketModels.length)) {
 				const nextValid = nextBracketSize(bracketModels.length);
 				return i18next.t("arena.disabledReason.pickOrRemove", {
 					count: nextValid - bracketModels.length,
@@ -496,33 +426,24 @@ export function useArenaState(): ArenaStateAndActions {
 	);
 
 	const handleRandomComparePersona = useCallback(() => {
-		const available = CHAT_PERSONAS.filter((p) => p.id !== comparePersonaId);
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
+		const pick = pickRandom(
+			CHAT_PERSONAS.filter((p) => p.id !== comparePersonaId),
+		);
+		if (!pick) return;
 		setComparePersonaId(pick.id);
 		setComparePersonaPrompt(i18next.t(pick.systemPrompt));
 	}, [comparePersonaId, setComparePersonaId, setComparePersonaPrompt]);
 
 	const handleRandomBracketModel = useCallback(() => {
-		const available = enabledModels.filter((m) => {
-			const val = proxyModelID(m.provider_name, m.model_id);
-			return !bracketModels.includes(val);
-		});
-		if (available.length === 0 || bracketModels.length >= 8) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
-		const val = proxyModelID(pick.provider_name, pick.model_id);
-		setBracketModels([...bracketModels, val]);
+		if (bracketModels.length >= 8) return;
+		const val = randomChatModelId(enabledModels, bracketModels);
+		if (val) setBracketModels([...bracketModels, val]);
 	}, [enabledModels, bracketModels]);
 
 	const handleRandomCompareModel = useCallback(() => {
-		const available = enabledModels.filter((m) => {
-			const val = proxyModelID(m.provider_name, m.model_id);
-			return !compareModels.includes(val);
-		});
-		if (available.length === 0 || compareModels.length >= 6) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
-		const val = proxyModelID(pick.provider_name, pick.model_id);
-		setCompareModels([...compareModels, val]);
+		if (compareModels.length >= 6) return;
+		const val = randomChatModelId(enabledModels, compareModels);
+		if (val) setCompareModels([...compareModels, val]);
 	}, [enabledModels, compareModels]);
 	// Compute bracket preview pairs for setup phase
 	const previewPairs = useMemo(() => {
@@ -584,10 +505,7 @@ export function useArenaState(): ArenaStateAndActions {
 		arenaMode,
 		setArenaMode,
 		// Refs
-		abortMapRef,
-		lastExtractLenRef,
 		currentRoundRef,
-		roundsLengthRef,
 		roundsRef,
 		activePromptIdRef,
 		comparePersonaIdRef,

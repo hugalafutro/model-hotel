@@ -23,7 +23,19 @@ interface UseMultimodalAttachmentsReturn {
 	handlePaste: (e: React.ClipboardEvent<HTMLTextAreaElement>) => void;
 	handleImageSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
 	handleAudioSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
-	hasVision: boolean;
+}
+
+/** Attachment size ceilings, matched to what the chat endpoints accept. */
+const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
+
+/** The file as a data URL, the form the content-parts API expects. */
+function readAsDataUrl(file: File): Promise<string> {
+	return new Promise((resolve) => {
+		const reader = new FileReader();
+		reader.onload = () => resolve(reader.result as string);
+		reader.readAsDataURL(file);
+	});
 }
 
 export function useMultimodalAttachments(
@@ -53,14 +65,7 @@ export function useMultimodalAttachments(
 
 			// If clipboard has text content, let normal paste through
 			// (e.g. spreadsheet cells that produce both text/plain and image/png)
-			let hasText = false;
-			for (let i = 0; i < items.length; i++) {
-				if (items[i].type.startsWith("text/")) {
-					hasText = true;
-					break;
-				}
-			}
-			if (hasText) return;
+			if (Array.from(items).some((i) => i.type.startsWith("text/"))) return;
 
 			for (const item of items) {
 				if (item.type.startsWith("image/")) {
@@ -76,22 +81,20 @@ export function useMultimodalAttachments(
 					const file = item.getAsFile();
 					if (!file) continue;
 
-					if (file.size > 20 * 1024 * 1024) {
+					if (file.size > MAX_IMAGE_BYTES) {
 						toast(t("hooks.useMultimodalAttachments.imageTooLarge"), "error");
 						e.preventDefault();
 						return;
 					}
 
-					const reader = new FileReader();
-					reader.onload = () => {
+					void readAsDataUrl(file).then((dataUrl) => {
 						setPendingImage({
-							dataUrl: reader.result as string,
+							dataUrl,
 							name: file.name || "pasted-image",
 						});
 						setPendingAudio(null);
 						toast(t("hooks.useMultimodalAttachments.imagePasted"), "info");
-					};
-					reader.readAsDataURL(file);
+					});
 					e.preventDefault();
 					return;
 				}
@@ -106,16 +109,14 @@ export function useMultimodalAttachments(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
 			const file = e.target.files?.[0];
 			if (!file) return;
-			if (file.size > 20 * 1024 * 1024) {
+			if (file.size > MAX_IMAGE_BYTES) {
 				toast(t("hooks.useMultimodalAttachments.imageTooLarge"), "error");
 				return;
 			}
-			const reader = new FileReader();
-			reader.onload = () => {
-				setPendingImage({ dataUrl: reader.result as string, name: file.name });
+			void readAsDataUrl(file).then((dataUrl) => {
+				setPendingImage({ dataUrl, name: file.name });
 				setPendingAudio(null); // only one attachment at a time
-			};
-			reader.readAsDataURL(file);
+			});
 			// Reset so the same file can be re-selected
 			e.target.value = "";
 		},
@@ -126,30 +127,16 @@ export function useMultimodalAttachments(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
 			const file = e.target.files?.[0];
 			if (!file) return;
-			if (file.size > 25 * 1024 * 1024) {
+			if (file.size > MAX_AUDIO_BYTES) {
 				toast(t("hooks.useMultimodalAttachments.audioTooLarge"), "error");
 				return;
 			}
-			const ext = file.name.split(".").pop()?.toLowerCase() || "mp3";
-			const formatMap: Record<string, string> = {
-				mp3: "mp3",
-				wav: "wav",
-				ogg: "ogg",
-				m4a: "m4a",
-				flac: "flac",
-				webm: "webm",
-			};
-			const format = formatMap[ext] || ext;
-			const reader = new FileReader();
-			reader.onload = () => {
-				setPendingAudio({
-					dataUrl: reader.result as string,
-					name: file.name,
-					format,
-				});
+			// The extension is the format the API wants ("mp3", "wav", …).
+			const format = file.name.split(".").pop()?.toLowerCase() || "mp3";
+			void readAsDataUrl(file).then((dataUrl) => {
+				setPendingAudio({ dataUrl, name: file.name, format });
 				setPendingImage(null); // only one attachment at a time
-			};
-			reader.readAsDataURL(file);
+			});
 			e.target.value = "";
 		},
 		[t, toast],
@@ -165,6 +152,5 @@ export function useMultimodalAttachments(
 		handlePaste,
 		handleImageSelect,
 		handleAudioSelect,
-		hasVision,
 	};
 }

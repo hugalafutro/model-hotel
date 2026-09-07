@@ -3,11 +3,34 @@ import { providerFromModelID } from "../../../utils/model";
 import { staggerByProvider } from "../../../utils/stagger";
 import type { BracketRound, Matchup } from "../types";
 import {
+	clearSlot,
 	collectSlots,
 	initMatchupResponses,
+	newArenaResponse,
 	nextBracketSize,
+	patchSlotResponse,
 	staggerAndDispatch,
+	usedModelIds,
 } from "../utils";
+
+const slot = (modelId: string) => ({
+	modelId,
+	personaId: null,
+	personaPrompt: "",
+});
+
+const roundWith = (matchups: Partial<Matchup>[]): BracketRound[] => [
+	{
+		matchups: matchups.map((mu) => ({
+			slotA: null,
+			slotB: null,
+			responseA: null,
+			responseB: null,
+			vote: null,
+			...mu,
+		})),
+	},
+];
 
 vi.mock("../../../utils/stagger", () => ({
 	staggerByProvider: vi.fn(),
@@ -362,5 +385,129 @@ describe("staggerAndDispatch", () => {
 		staggerAndDispatch([], [], dispatch);
 
 		expect(dispatch).not.toHaveBeenCalled();
+	});
+});
+
+describe("staggerAndDispatch timers", () => {
+	it("returns the pending timer ids so a stop can cancel them", () => {
+		const slots = [
+			{
+				modelId: "OpenAI/gpt-4",
+				personaPrompt: "",
+				slotKey: "A" as const,
+				matchupIdx: 0,
+			},
+			{
+				modelId: "OpenAI/gpt-3.5",
+				personaPrompt: "",
+				slotKey: "B" as const,
+				matchupIdx: 0,
+			},
+		];
+		const dispatch = vi.fn();
+		vi.mocked(staggerByProvider).mockReturnValue([
+			{ item: slots[0], delayMs: 0 },
+			{ item: slots[1], delayMs: 300 },
+		]);
+		vi.useFakeTimers();
+
+		const timers = staggerAndDispatch(slots, ["OpenAI"], dispatch);
+		expect(timers).toHaveLength(1);
+
+		for (const id of timers) clearTimeout(id);
+		vi.advanceTimersByTime(1000);
+		expect(dispatch).toHaveBeenCalledTimes(1);
+
+		vi.useRealTimers();
+	});
+});
+
+describe("newArenaResponse", () => {
+	it("starts empty and not done", () => {
+		expect(newArenaResponse("Provider/model", 1000)).toEqual({
+			model: "Provider/model",
+			rawContent: "",
+			content: "",
+			thinkingContent: "",
+			startTimeMs: 1000,
+			done: false,
+			error: null,
+			metrics: null,
+		});
+	});
+
+	it("applies the patch over the defaults", () => {
+		const resp = newArenaResponse("Provider/model", 1000, {
+			done: true,
+			error: "boom",
+		});
+		expect(resp.done).toBe(true);
+		expect(resp.error).toBe("boom");
+		expect(resp.content).toBe("");
+	});
+});
+
+describe("patchSlotResponse", () => {
+	it("merges the patch into the slot's response", () => {
+		const draft = roundWith([
+			{ responseA: newArenaResponse("Provider/model", 1) },
+		]);
+		patchSlotResponse(draft, 0, 0, "A", { content: "hi", done: true });
+		expect(draft[0].matchups[0].responseA).toMatchObject({
+			model: "Provider/model",
+			content: "hi",
+			done: true,
+		});
+	});
+
+	it("clears the response when the patch is null", () => {
+		const draft = roundWith([
+			{ responseB: newArenaResponse("Provider/model", 1) },
+		]);
+		patchSlotResponse(draft, 0, 0, "B", null);
+		expect(draft[0].matchups[0].responseB).toBeNull();
+	});
+
+	it("does nothing when the matchup is gone", () => {
+		const draft = roundWith([{}]);
+		expect(() =>
+			patchSlotResponse(draft, 5, 9, "A", { done: true }),
+		).not.toThrow();
+	});
+});
+
+describe("clearSlot", () => {
+	it("empties both the slot and its response", () => {
+		const draft = roundWith([
+			{
+				slotA: slot("Provider/a"),
+				responseA: newArenaResponse("Provider/a", 1),
+				slotB: slot("Provider/b"),
+				responseB: newArenaResponse("Provider/b", 1),
+			},
+		]);
+		clearSlot(draft, 0, 0, "A");
+		expect(draft[0].matchups[0].slotA).toBeNull();
+		expect(draft[0].matchups[0].responseA).toBeNull();
+		expect(draft[0].matchups[0].slotB).not.toBeNull();
+	});
+});
+
+describe("usedModelIds", () => {
+	it("lists every id in the round except the slot being swapped", () => {
+		const [round] = roundWith([
+			{ slotA: slot("P/a1"), slotB: slot("P/b1") },
+			{ slotA: slot("P/a2"), slotB: slot("P/b2") },
+		]);
+		expect(usedModelIds(round, 0, "A")).toEqual(["P/b1", "P/a2", "P/b2"]);
+		expect(usedModelIds(round, 1, "B")).toEqual(["P/a1", "P/b1", "P/a2"]);
+	});
+
+	it("skips empty slots (compare mode has no B side)", () => {
+		const [round] = roundWith([
+			{ slotA: slot("P/a1") },
+			{ slotA: slot("P/a2") },
+		]);
+		expect(usedModelIds(round, 0, "A")).toEqual(["P/a2"]);
 	});
 });

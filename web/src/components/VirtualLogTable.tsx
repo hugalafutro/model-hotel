@@ -1,20 +1,11 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../api/types";
-import { formatMs, formatTPS } from "../pages/Logs/utils";
+import { useVirtualRows } from "../hooks/useVirtualRows";
 import { formatNumber } from "../utils/format";
-import {
-	formatDurationCell,
-	getRowStatusVariant,
-	isCancelled,
-	isInProgress,
-	isStale,
-	liveDurationMs,
-} from "../utils/logHelpers";
-import { Badge } from "./Badge";
-import { EndpointTypeBadge } from "./logs";
+import { isInProgress } from "../utils/logHelpers";
+import { RequestLogCells } from "./logs/RequestLogCells";
 import { LOG_COL_WIDTHS, LOG_TABLE_MIN_W } from "./logTableWidths";
+import { VirtualTableFooter } from "./VirtualTableFooter";
 
 interface VirtualLogTableProps {
 	entries: LogEntry[];
@@ -37,8 +28,6 @@ interface VirtualLogTableProps {
 const HEADER_BASE =
 	"px-2 py-2 text-left text-xs font-medium uppercase tracking-wider whitespace-nowrap ui-table-header-text";
 
-const EDGE_THRESHOLD_PX = 500;
-
 export function VirtualLogTable(props: VirtualLogTableProps) {
 	"use no memo";
 	const { t } = useTranslation();
@@ -59,134 +48,25 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		onSortToggle,
 	} = props;
 
-	const scrollRef = useRef<HTMLDivElement>(null);
-
-	// eslint-disable-next-line react-hooks/incompatible-library -- TanStack Virtual returns mutable functions; compiler skips memoization
-	const virtualizer = useVirtualizer({
-		count: entries.length,
-		getScrollElement: () => scrollRef.current,
-		estimateSize: () => 29,
-		overscan: 20,
-		getItemKey: (index) => entries[index].id,
-	});
-
-	const virtualItems = virtualizer.getVirtualItems();
-
-	const prevEntriesRef = useRef(entries);
-	const prevTotalSizeRef = useRef(0);
-	const [, forceRerender] = useState(0);
-
-	// biome-ignore lint/correctness/useExhaustiveDependencies: virtualizer.getTotalSize is a stable reference
-	useLayoutEffect(() => {
-		const prev = prevEntriesRef.current;
-		if (entries.length > prev.length && prev.length > 0) {
-			const newItemCount = entries.length - prev.length;
-			if (entries[newItemCount]?.id === prev[0]?.id && scrollRef.current) {
-				if (scrollRef.current.scrollTop > 1) {
-					const newTotalSize = virtualizer.getTotalSize();
-					scrollRef.current.scrollTop +=
-						newTotalSize - prevTotalSizeRef.current;
-				}
-				prevEntriesRef.current = entries;
-				prevTotalSizeRef.current = virtualizer.getTotalSize();
-				forceRerender((c) => c + 1);
-				return;
-			}
-		}
-		prevEntriesRef.current = entries;
-		prevTotalSizeRef.current = virtualizer.getTotalSize();
-		// eslint-disable-next-line react-hooks/exhaustive-deps -- virtualizer is stable ref; adding it would cause infinite re-renders
-	}, [entries]);
-
-	useLayoutEffect(() => {
-		prevTotalSizeRef.current = virtualizer.getTotalSize();
-	});
-
-	const [paddingTop, paddingBottom] =
-		virtualItems.length > 0
-			? [
-					Math.max(0, virtualItems[0].start),
-					Math.max(
-						0,
-						virtualizer.getTotalSize() -
-							virtualItems[virtualItems.length - 1].end,
-					),
-				]
-			: [0, 0];
-
-	const handleScroll = useCallback(() => {
-		const el = scrollRef.current;
-		if (!el) return;
-
-		const nearTop = el.scrollTop < EDGE_THRESHOLD_PX;
-		const nearBottom =
-			el.scrollHeight - el.scrollTop - el.clientHeight < EDGE_THRESHOLD_PX;
-
-		if (nearTop && hasBefore && !isLoadingBefore) {
-			onFetchNewer();
-		}
-		if (nearBottom && hasAfter && !isLoadingAfter) {
-			onFetchOlder();
-		}
-	}, [
+	const {
+		scrollRef,
+		virtualizer,
+		virtualItems,
+		paddingTop,
+		paddingBottom,
+		handleScroll,
+		startIndex,
+		endIndex,
+	} = useVirtualRows({
+		entries,
 		hasBefore,
 		hasAfter,
 		isLoadingBefore,
 		isLoadingAfter,
-		onFetchNewer,
-		onFetchOlder,
-	]);
-
-	if (entries.length === 0) {
-		return (
-			<div className="flex flex-col">
-				<div
-					ref={scrollRef}
-					className="ui-card overflow-y-auto"
-					style={{
-						overflowAnchor: "none",
-						height: "calc(100dvh - 242px)",
-						minHeight: "200px",
-					}}
-				>
-					<table
-						className={`w-full table-fixed ui-table ui-table-virtual ${LOG_TABLE_MIN_W}`}
-					>
-						<colgroup>
-							{LOG_COL_WIDTHS.map((col) => (
-								<col key={col.key} className={col.width} />
-							))}
-						</colgroup>
-						<tbody>
-							<tr>
-								<td
-									colSpan={12}
-									className="px-4 py-8 text-center text-gray-500 text-sm"
-								>
-									{t("components.virtualLogTable.noLogsFound")}
-								</td>
-							</tr>
-						</tbody>
-					</table>
-				</div>
-				<div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
-					<span>0 {t("components.virtualLogTable.entries")}</span>
-					<span className="flex items-center gap-2">
-						{isLoadingBefore && (
-							<span className="text-(--accent)">
-								{t("components.virtualLogTable.loadingNewer")}
-							</span>
-						)}
-						{isLoadingAfter && (
-							<span className="text-(--accent)">
-								{t("components.virtualLogTable.loadingOlder")}
-							</span>
-						)}
-					</span>
-				</div>
-			</div>
-		);
-	}
+		fetchNewer: onFetchNewer,
+		fetchOlder: onFetchOlder,
+		estimateSize: 29,
+	});
 
 	return (
 		<div className="flex flex-col min-h-0">
@@ -217,84 +97,59 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 							<th
 								className={`${HEADER_BASE} cursor-pointer`}
 								onClick={onSortToggle}
-								title={t("components.virtualLogTable.timeDate")}
+								title={t("logs.table.timeDate")}
 							>
-								{t("components.virtualLogTable.timeDate")}{" "}
-								{sortDir === "desc" ? "↓" : "↑"}
+								{t("logs.table.timeDate")} {sortDir === "desc" ? "↓" : "↑"}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.model")}
-							>
-								{t("components.virtualLogTable.model")}
+							<th className={HEADER_BASE} title={t("logs.table.model")}>
+								{t("logs.table.model")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.provider")}
-							>
-								{t("components.virtualLogTable.provider")}
+							<th className={HEADER_BASE} title={t("logs.table.provider")}>
+								{t("logs.table.provider")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.status")}
-							>
-								{t("components.virtualLogTable.status")}
+							<th className={HEADER_BASE} title={t("logs.table.status")}>
+								{t("logs.table.status")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.tokens")}
-							>
-								{t("components.virtualLogTable.tokens")}
+							<th className={HEADER_BASE} title={t("logs.table.tokens")}>
+								{t("logs.table.tokens")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.tps")}
-							>
-								{t("components.virtualLogTable.tps")}
+							<th className={HEADER_BASE} title={t("logs.table.tps")}>
+								{t("logs.table.tps")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.headers")}
-							>
-								{t("components.virtualLogTable.headers")}
+							<th className={HEADER_BASE} title={t("logs.table.headers")}>
+								{t("logs.table.headers")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.ttft")}
-							>
-								{t("components.virtualLogTable.ttft")}
+							<th className={HEADER_BASE} title={t("logs.table.ttft")}>
+								{t("logs.table.ttft")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.duration")}
-							>
-								{t("components.virtualLogTable.duration")}
+							<th className={HEADER_BASE} title={t("logs.table.duration")}>
+								{t("logs.table.duration")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.overhead")}
-							>
-								{t("components.virtualLogTable.overhead")}
+							<th className={HEADER_BASE} title={t("logs.table.overhead")}>
+								{t("logs.table.overhead")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.key")}
-							>
-								{t("components.virtualLogTable.key")}
+							<th className={HEADER_BASE} title={t("logs.table.key")}>
+								{t("logs.table.key")}
 							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualLogTable.ip")}
-							>
-								{t("components.virtualLogTable.ip")}
+							<th className={HEADER_BASE} title={t("logs.table.ip")}>
+								{t("logs.table.ip")}
 							</th>
 						</tr>
 					</thead>
 					<tbody>
+						{entries.length === 0 && (
+							<tr>
+								<td
+									colSpan={LOG_COL_WIDTHS.length}
+									className="px-4 py-8 text-center text-gray-500 text-sm"
+								>
+									{t("components.virtualLogTable.noLogsFound")}
+								</td>
+							</tr>
+						)}
 						{virtualItems.map((vItem) => {
 							const log = entries[vItem.index];
 							const inProgress = isInProgress(log, nowMs, staleThresholdMs);
-							const stale = isStale(log, nowMs, staleThresholdMs);
 							return (
 								<tr
 									key={vItem.key}
@@ -303,208 +158,26 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} ${inProgress ? "animate-pulse-subtle" : ""} cursor-pointer`}
 									onClick={() => onRowClick(log)}
 								>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{log.created_at
-											? new Date(log.created_at).toLocaleString()
-											: "-"}
-									</td>
-									<td
-										className="px-2 py-1 whitespace-nowrap text-xs text-gray-200 truncate"
-										title={
-											log.model_id?.startsWith("hotel/") &&
-											log.resolved_model_id
-												? `${log.model_id} (${log.resolved_model_id})`
-												: log.model_id
-										}
-									>
-										<EndpointTypeBadge endpointType={log.endpoint_type} />
-										{log.model_id ? (
-											log.model_id.startsWith("hotel/") ? (
-												<>
-													<span className="text-(--accent)">
-														{log.model_id}
-													</span>
-													{log.resolved_model_id && (
-														<span className="text-gray-500">
-															{" "}
-															({log.resolved_model_id})
-														</span>
-													)}
-												</>
-											) : log.model_id.includes("/") ? (
-												log.model_id.slice(log.model_id.indexOf("/") + 1)
-											) : (
-												log.model_id
-											)
-										) : (
-											"-"
-										)}
-									</td>
-									<td
-										className="px-2 py-1 whitespace-nowrap text-xs text-gray-300 truncate"
-										title={log.provider_name || undefined}
-									>
-										{log.provider_name === "Deleted" ? (
-											<span
-												className="text-red-400 italic"
-												title={t("components.virtualLogTable.deleted")}
-											>
-												{t("components.virtualLogTable.deleted")}
-											</span>
-										) : inProgress && !log.provider_name ? (
-											<span className="text-blue-400/60 italic">
-												{t("logs.table.resolving")}
-											</span>
-										) : (
-											log.provider_name || "-"
-										)}
-									</td>
-									<td className="px-2 py-1 whitespace-nowrap">
-										<Badge
-											variant={getRowStatusVariant(
-												log,
-												nowMs,
-												staleThresholdMs,
-											)}
-											className="gap-1 whitespace-nowrap"
-										>
-											{stale ? (
-												<span className="text-yellow-500/70">⚠</span>
-											) : inProgress ? (
-												<span className="text-blue-400">
-													{log.state === "streaming"
-														? t("logs.table.live")
-														: "…"}
-												</span>
-											) : (
-												log.status_code
-											)}
-										</Badge>
-									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{isCancelled(log) ? (
-											t("components.virtualLogTable.interrupted")
-										) : log.tokens_prompt + log.tokens_completion > 0 ? (
-											<>
-												{formatNumber(log.tokens_prompt)}
-												<span className="text-gray-600">+</span>
-												{formatNumber(log.tokens_completion)}
-											</>
-										) : (
-											"-"
-										)}
-									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
-										{isCancelled(log) ? (
-											"-"
-										) : (
-											<span
-												className={
-													log.tokens_prompt_cache_hit > 0
-														? "opacity-50"
-														: undefined
-												}
-												title={
-													log.tokens_prompt_cache_hit > 0
-														? t("components.virtualLogTable.cacheInflated")
-														: undefined
-												}
-											>
-												{formatTPS(log.tokens_per_second)}
-											</span>
-										)}
-									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{isCancelled(log)
-											? "-"
-											: log.response_header_ms > 0
-												? formatMs(log.response_header_ms, 1)
-												: "-"}
-									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{isCancelled(log)
-											? "-"
-											: log.ttft_ms > 0
-												? formatMs(log.ttft_ms, 1)
-												: "-"}
-									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
-										{inProgress && log.duration_ms === 0 ? (
-											<span className="inline-block text-blue-400">
-												{formatDurationCell(
-													liveDurationMs(log.created_at, nowMs),
-												)}
-											</span>
-										) : log.duration_ms > 0 ? (
-											formatDurationCell(log.duration_ms)
-										) : (
-											"-"
-										)}
-									</td>
-									<td className="px-2 py-1 whitespace-nowrap text-xs font-mono">
-										{log.proxy_overhead_ms != null &&
-										log.proxy_overhead_ms > 0 ? (
-											<span className="text-(--accent)">
-												{formatMs(log.proxy_overhead_ms)}
-											</span>
-										) : (
-											<span className="text-gray-400">-</span>
-										)}
-									</td>
-									<td
-										className="px-2 py-1 text-xs text-gray-400 max-w-[7rem] truncate"
-										title={
-											log.virtual_key_deleted
-												? undefined
-												: log.virtual_key_name ||
-													log.virtual_key_id ||
-													undefined
-										}
-									>
-										{log.virtual_key_deleted ? (
-											<span className="text-red-400 italic">
-												{t("components.virtualLogTable.deleted")}
-											</span>
-										) : log.virtual_key_name &&
-											log.virtual_key_name.toLowerCase() === "internal" ? (
-											<span className="text-gray-400 italic">
-												{t("components.virtualLogTable.internal")}
-											</span>
-										) : (
-											log.virtual_key_name || log.virtual_key_id || "-"
-										)}
-									</td>
-									<td
-										className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono truncate"
-										title={log.client_ip || undefined}
-									>
-										{log.client_ip || "-"}
-									</td>
+									<RequestLogCells
+										log={log}
+										nowMs={nowMs}
+										staleThresholdMs={staleThresholdMs}
+									/>
 								</tr>
 							);
 						})}
 					</tbody>
 				</table>
 			</div>
-			<div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
-				<span>
-					{entries.length > 0
-						? `${formatNumber(Math.max(1, Math.min((virtualItems[0]?.index ?? 0) + 1, entries.length)))}–${formatNumber(Math.min((virtualItems[virtualItems.length - 1]?.index ?? 0) + 1, entries.length))} / ${formatNumber(total)}`
-						: t("components.virtualLogTable.zeroEntries")}
-				</span>
-				<span className="flex items-center gap-2">
-					{isLoadingBefore && (
-						<span className="text-(--accent)">
-							{t("components.virtualLogTable.loadingNewer")}
-						</span>
-					)}
-					{isLoadingAfter && (
-						<span className="text-(--accent)">
-							{t("components.virtualLogTable.loadingOlder")}
-						</span>
-					)}
-				</span>
-			</div>
+			<VirtualTableFooter
+				range={
+					entries.length > 0
+						? `${formatNumber(startIndex)}–${formatNumber(endIndex)} / ${formatNumber(total)}`
+						: t("components.virtualLogTable.zeroEntries")
+				}
+				isLoadingBefore={isLoadingBefore}
+				isLoadingAfter={isLoadingAfter}
+			/>
 		</div>
 	);
 }

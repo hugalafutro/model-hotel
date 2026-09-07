@@ -82,7 +82,7 @@ interface UseLocalStorageValueOptions<T> {
 	deserialize?: (stored: string | null, fallback: T) => T;
 	/**
 	 * Extra window events that also announce a change to this key, for writers
-	 * that dispatch their own (e.g. "sidebarQuotaToggle").
+	 * that dispatch their own instead of the shared "localStorageChange".
 	 */
 	events?: string[];
 }
@@ -163,4 +163,21 @@ export function useLocalStorageValue<T>(
 			return fallback;
 		}
 	}, [raw, fallback, deserialize]);
+}
+
+/** Deserializer for a boolean stored as "true"/"false" by the write-through setter. */
+export const storedBool = (stored: string | null) => stored === "true";
+
+/**
+ * A JSON blob read straight out of localStorage, or null when the key is
+ * absent, unreadable or not valid JSON. Callers that persist a whole slice of
+ * state read it once at mount rather than parsing the same string per field.
+ */
+export function readJSON<T>(key: string): T | null {
+	try {
+		const raw = localStorage.getItem(key);
+		return raw === null ? null : (JSON.parse(raw) as T);
+	} catch {
+		return null;
+	}
 }

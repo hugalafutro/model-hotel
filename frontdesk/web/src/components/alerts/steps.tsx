@@ -6,21 +6,20 @@ import {
 	parseDiscordWebhook,
 	parseUnifiedPushEndpoint,
 } from "@web-shared/alerts/composers";
-import { categoryLabel, eventLabel } from "@web-shared/alerts/events";
+import { eventLabel } from "@web-shared/alerts/events";
+import {
+	type Action,
+	isDuplicate,
+	type WizardState,
+} from "@web-shared/alerts/wizardState";
 import { generateTopic } from "@web-shared/ntfy";
 import type { TFunction } from "i18next";
-import {
-	type Dispatch,
-	Fragment,
-	type ReactNode,
-	useMemo,
-	useState,
-} from "react";
+import { type Dispatch, Fragment, type ReactNode, useState } from "react";
 import type { AlertEventDef, AlertStatus } from "../../api/types";
 import { CopyRow } from "../CopyRow";
-import { type Action, isDuplicate, type WizardState } from "./AlertsWizard";
 import { DestinationList } from "./DestinationList";
-import { SEVERITY_COLOR } from "./events";
+import { EventPicker } from "./EventPicker";
+import { statusBadge } from "./events";
 
 // The seven step bodies of the alerts wizard: prove apprise-api answers, pick
 // what kind of destination this is, fill in the parts that kind needs, deliver
@@ -492,65 +491,18 @@ export function StepEvents({
 	t,
 	catalog,
 }: StepProps & { catalog: AlertEventDef[] }) {
-	// Grouped by the catalog's own category (translated for display), exactly as the card's
-	// picker does, so the two lists read the same way.
-	const grouped = useMemo(() => {
-		const m = new Map<string, AlertEventDef[]>();
-		for (const e of catalog) {
-			const g = m.get(e.category) ?? [];
-			g.push(e);
-			m.set(e.category, g);
-		}
-		return [...m.entries()];
-	}, [catalog]);
-
 	return (
 		<>
 			<StepTitle>{t(`${K}.step6Title`)}</StepTitle>
 			<p className="fd-faint fd-step-intro">{t(`${K}.step6Hint`)}</p>
-			{grouped.map(([category, defs]) => (
-				<div key={category} style={{ marginBottom: "0.6rem" }}>
-					<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
-						{categoryLabel(t, category)}
-					</div>
-					{defs.map((d) => {
-						const label = eventLabel(t, d.type);
-						return (
-							<label
-								key={d.type}
-								className="fd-row"
-								style={{ cursor: "pointer", marginTop: "0.2rem" }}
-							>
-								<input
-									type="checkbox"
-									data-testid={`wiz-event-${d.type}`}
-									aria-label={label}
-									checked={state.events.has(d.type)}
-									onChange={(e) =>
-										dispatch({
-											type: "toggleEvent",
-											eventType: d.type,
-											on: e.target.checked,
-										})
-									}
-								/>
-								<span
-									aria-hidden="true"
-									style={{
-										display: "inline-block",
-										width: "0.5rem",
-										height: "0.5rem",
-										borderRadius: "50%",
-										background:
-											SEVERITY_COLOR[d.severity] ?? "var(--text-faint)",
-									}}
-								/>
-								<span style={{ fontSize: "0.85rem" }}>{label}</span>
-							</label>
-						);
-					})}
-				</div>
-			))}
+			<EventPicker
+				catalog={catalog}
+				selected={state.events}
+				onToggle={(eventType, on) =>
+					dispatch({ type: "toggleEvent", eventType, on })
+				}
+				testIdPrefix="wiz-event-"
+			/>
 			{/* An empty selection is a legitimate choice ("set up now, decide what
 			    to hear about later"), so it is a note rather than a gate. */}
 			{state.events.size === 0 && (
@@ -663,18 +615,14 @@ export function StepFinish({
 // pill covers a fourth state (nothing configured at all) that cannot happen
 // here: the wizard has just configured it.
 function FinalPill({ status, t }: { status: AlertStatus; t: TFunction }) {
-	const [variant, label] = !status.reachable
-		? (["ui-badge-danger", "statusUnreachable"] as const)
-		: !status.healthy
-			? (["ui-badge-warn", "statusUnhealthy"] as const)
-			: (["ui-badge-ok", "statusOk"] as const);
+	const { variant, key } = statusBadge(status);
 	return (
 		<span
 			className={`ui-badge ${variant}`}
 			data-testid="wiz-done-pill"
 			title={status.detail}
 		>
-			{t(`settings.alerts.${label}`)}
+			{t(`settings.alerts.${key}`)}
 		</span>
 	);
 }

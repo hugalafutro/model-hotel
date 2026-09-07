@@ -347,10 +347,10 @@
 			"distributionChart": "Szolgáltatók eloszlásának ábrája",
 			"emptyState": "Még nincsenek szolgáltatói adatok. A forgalom megindulásával itt megjelenik a szolgáltatók szerinti bontás.",
 			"chartAriaLabel": "Szolgáltatók eloszlásának ábrája",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokenek",
-			"requestUnit": "Kérés",
-			"requestsUnit": "Kérések"
+			"tokens_one": "Token",
+			"tokens_other": "Tokenek",
+			"requests_one": "Kérés",
+			"requests_other": "Kérések"
 		},
 		"models": {
 			"viewDetails": "{{label}} részleteinek megtekintése",
@@ -597,7 +597,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "A modellek generálása folyamatban van – a művelet megszakításához kattintson az „Összes leállítása” gombra",
-			"voteToContinue": "Szavazz az összes párosításra, hogy továbbjuss a következő fordulóba",
 			"nextRoundReady": "Ha készen állsz, kezdd el a következő kört"
 		},
 		"responses": {
@@ -652,13 +651,6 @@
 			"close": "Bezárás"
 		},
 		"params": {
-			"temperature": "Hőmérséklet",
-			"maxTokens": "Max. tokenek",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Frekvencia-büntetés",
-			"presPenalty": "Jelenlét-büntetés",
 			"resetAll": "Minden visszaállítása",
 			"done": "Kész"
 		},
@@ -844,7 +836,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Nincs engedélyezett szolgáltató",
-				"onlyOne": "Csak egy engedélyezett szolgáltató maradt (a failoverhez legalább kettőre van szükség)"
+				"onlyOne": "Csak egy engedélyezett szolgáltató maradt (a failoverhez legalább kettőre van szükség)",
+				"noValidProviders": "A tisztítás után nem maradt érvényes szolgáltató",
+				"onlyOneValid": "A tisztítás után csak egy érvényes szolgáltató maradt (a feladatátvételhez legalább kettő kell)"
 			},
 			"error": "Hiba",
 			"failover": "Failover csoportok",
@@ -1065,7 +1059,17 @@
 		"scope_all": "Összes szolgáltató",
 		"badge_parked": "{{count}} parkoltatva",
 		"status_parked": "Parkoltatva",
-		"status_parked_hint": "A szolgáltató le van tiltva; ez a modell listázva marad, de nem szolgálja ki a kéréseket, amíg a szolgáltatót újra nem engedélyezik."
+		"status_parked_hint": "A szolgáltató le van tiltva; ez a modell listázva marad, de nem szolgálja ki a kéréseket, amíg a szolgáltatót újra nem engedélyezik.",
+		"capPills": {
+			"vision": "Látás",
+			"reasoning": "Következtetés",
+			"tool_calling": "Eszközök",
+			"structured_output": "Strukturált",
+			"pdf_upload": "PDF",
+			"video_input": "Videó",
+			"audio_input": "Hang",
+			"parallel_tool_calls": "Párhuzamos"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vissza a megállapított értékhez",
@@ -1267,7 +1271,6 @@
 				"owner": "Tulajdonos"
 			},
 			"noProvidersConfigured": "Nincs beállított szolgáltató.",
-			"discardChanges": "El akarja vetni a mentetlen módosításokat?",
 			"loadingProviders": "Szolgáltatók betöltése...",
 			"stripReasoningDescriptionText": "Ha ez az opció engedélyezve van, a következtető/gondolkodó tokenek eltávolításra kerülnek a folyamatos válaszokból azoknál az ügyfeleknél, amelyek nem tudják azokat feldolgozni.",
 			"providerInstructionsText": "Kattintson egy szolgáltatóra a hozzáférés korlátozásához. Alapértelmezés szerint mindegyik elérhető.",
@@ -1408,6 +1411,11 @@
 			"search": "Naplók szűrése:…",
 			"allLevels": "Minden szint",
 			"allSources": "Minden forrás"
+		},
+		"level": {
+			"info": "Információ",
+			"warning": "Figyelmeztetés",
+			"error": "Hiba"
 		},
 		"table": {
 			"timeDate": "Idő/Dátum",
@@ -1859,8 +1867,8 @@
 				"confirmEnableTitle": "Engedélyezni az időszakos biztonsági mentést?",
 				"confirmEnableDescription": "Az időszakos biztonsági mentés engedélyezése törli a meglévő mentéseket, amelyek a fiú/apa/nagyapa rotációs ablakon kívül esnek.",
 				"confirmEnableWouldRemove": "Ez a(z) {{count}} biztonsági mentés a rotációs ablakon kívül esik, és véglegesen törlődik:",
-				"prunePreviewFailed": "A biztonsági mentés tisztításának előnézete nem sikerült",
-				"pruneFailed": "A biztonsági másolatok törlése nem sikerült",
+				"prunePreviewFailed": "A biztonsági mentés tisztításának előnézete nem sikerült: {{message}}",
+				"pruneFailed": "A biztonsági másolatok törlése nem sikerült: {{message}}",
 				"pruneSuccess": "Időszakos biztonsági mentés engedélyezve. {{count}} régi mentés eltávolítva."
 			},
 			"availableBackupsTitle": "Elérhető biztonsági másolatok",
@@ -2388,16 +2396,9 @@
 			"filter": "Szűrő:…",
 			"clearFilter": "Szűrő törlése"
 		},
-		"copyButton": {
-			"copy": "Másolás",
-			"copiedToClipboard": "A vágólapra másolva",
-			"failedToCopy": "A másolás nem sikerült"
-		},
 		"copyablePill": {
 			"copy": "Másolás",
-			"copyToClipboard": "Másolás a vágólapra",
-			"copied": "Másolva!",
-			"failedToCopy": "A másolás nem sikerült"
+			"copyToClipboard": "Másolás a vágólapra"
 		},
 		"collapsibleToggle": {
 			"expand": "Kibontás",
@@ -2714,11 +2715,6 @@
 			"compare": "Összehasonlítás",
 			"noMatchHistory": "Még nincs mérkőzéselőzmény",
 			"completedSessionsHere": "Az elvégzett aréna- és összehasonlító munkamenetek itt jelennek meg",
-			"match": "Mérkőzés",
-			"final": "Döntő",
-			"semifinals": "Elődöntők",
-			"quarterfinals": "Negyeddöntők",
-			"round": "{{number}}. forduló",
 			"winner": "Győztes: {{name}}",
 			"responsesAbbrev": "{{count}} vál.",
 			"error": "Hiba: {{message}}",
@@ -2826,35 +2822,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Nem találtam naplófájlokat",
-			"entries": "bejegyzések",
-			"loadingNewer": "Újabb bejegyzések betöltése:…",
-			"loadingOlder": "Régebbi bejegyzések betöltése…",
-			"timeDate": "Idő/Dátum",
-			"hash": "Hash",
-			"model": "Modell",
-			"provider": "Szolgáltató",
-			"providerDeleted": "A szolgáltató törlésre került",
-			"status": "Állapot",
-			"tokens": "Tokenek",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Fejlécek",
-			"ttft": "TTFT",
-			"duration": "Időtartam",
-			"overhead": "Többletidő",
-			"key": "Kulcs",
-			"interrupted": "Megszakítva",
-			"internal": "belső",
-			"cacheInflated": "A prompt-cache találatai miatt megnövelt",
-			"deleted": "Törölve",
-			"zeroEntries": "0 találat",
-			"ip": "IP"
+			"zeroEntries": "0 találat"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nem találtam naplóbejegyzéseket",
-			"entries": "bejegyzések",
-			"loadingNewer": "Újabb bejegyzések betöltése:…",
-			"loadingOlder": "Régebbi bejegyzések betöltése…",
 			"timeDate": "Idő/Dátum",
 			"level": "Szint",
 			"source": "Forrás",
@@ -3065,7 +3036,8 @@
 		},
 		"useDisableModel": {
 			"success": "A „{{model}}” modell le van tiltva",
-			"error": "A modell letiltása nem sikerült: {{error}}"
+			"error": "A modell letiltása nem sikerült: {{error}}",
+			"notFound": "A(z) \"{{model}}\" modell nem található az engedélyezett modellek között"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "A kezdeti adatok letöltése nem sikerült",

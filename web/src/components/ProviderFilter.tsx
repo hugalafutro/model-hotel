@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "@/lib/icons";
+import { useClickOutside } from "../hooks/useClickOutside";
+import { onActivateKey } from "../utils/a11y";
+import { toggleInSet } from "../utils/collections";
+import { sortByName } from "../utils/sort";
 
 interface Provider {
 	id: string;
@@ -24,18 +28,13 @@ export function ProviderFilter({
 	const containerRef = useRef<HTMLDivElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
 
-	const filtered = (
+	const filtered = sortByName(
 		providers?.filter((p) =>
 			p.name.toLowerCase().includes(search.toLowerCase()),
-		) ?? []
-	).sort((a, b) => a.name.localeCompare(b.name));
+		),
+	);
 
-	const toggle = (id: string) => {
-		const next = new Set(selected);
-		if (next.has(id)) next.delete(id);
-		else next.add(id);
-		onChange(next);
-	};
+	const toggle = (id: string) => onChange(toggleInSet(selected, id));
 
 	const clear = () => onChange(new Set());
 
@@ -51,20 +50,14 @@ export function ProviderFilter({
 		onChange(next);
 	};
 
-	useEffect(() => {
-		if (!open) return;
-		const handle = (e: MouseEvent) => {
-			if (
-				containerRef.current &&
-				!containerRef.current.contains(e.target as Node)
-			) {
-				setOpen(false);
-				setSearch("");
-			}
-		};
-		document.addEventListener("mousedown", handle);
-		return () => document.removeEventListener("mousedown", handle);
-	}, [open]);
+	useClickOutside(
+		containerRef,
+		() => {
+			setOpen(false);
+			setSearch("");
+		},
+		{ enabled: open },
+	);
 
 	useEffect(() => {
 		if (open && searchRef.current) {
@@ -110,13 +103,10 @@ export function ProviderFilter({
 								e.stopPropagation();
 								clear();
 							}}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" || e.key === " ") {
-									e.preventDefault();
-									e.stopPropagation();
-									clear();
-								}
-							}}
+							onKeyDown={onActivateKey((e) => {
+								e.stopPropagation();
+								clear();
+							})}
 							title={t("components.providerFilter.clearFilter")}
 						>
 							{selected.size}

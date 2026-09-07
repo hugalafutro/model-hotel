@@ -1,12 +1,31 @@
+/* eslint-disable react-refresh/only-export-components -- sort-state reducers and the page-size list live beside the table parts they drive */
+
 import type { MouseEvent, ReactNode } from "react";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
+import { onActivateKey } from "../utils/a11y";
 
 type SortDir = "asc" | "desc";
 
 export interface SortState<F> {
 	field: F;
 	dir: SortDir;
+}
+
+/**
+ * The sort state after clicking `field`: a new field sorts ascending, the
+ * current field flips direction.
+ */
+export function toggleSort<F>(prev: SortState<F>, field: F): SortState<F> {
+	return {
+		field,
+		dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
+	};
+}
+
+/** The same sort field, the other direction. */
+export function flipSortDir<F>(prev: SortState<F>): SortState<F> {
+	return { ...prev, dir: prev.dir === "asc" ? "desc" : "asc" };
 }
 
 const HEADER_BASE =
@@ -109,12 +128,9 @@ export function Row({
 			onClick={onClick}
 			onKeyDown={
 				onClick
-					? (e) => {
-							if (e.key === "Enter" || e.key === " ") {
-								e.preventDefault();
-								onClick(e as unknown as MouseEvent<HTMLTableRowElement>);
-							}
-						}
+					? onActivateKey((e) =>
+							onClick(e as unknown as MouseEvent<HTMLTableRowElement>),
+						)
 					: undefined
 			}
 		>
@@ -138,6 +154,8 @@ export function EmptyRow({
 		</tr>
 	);
 }
+
+const PAGE_SIZES = [10, 20, 30, 40, 50];
 
 export function PaginationBar({
 	page,
@@ -205,21 +223,11 @@ export function PaginationBar({
 					onChange={(e) => onPageSizeChange(Number(e.target.value))}
 					className="ui-input ui-input-sm"
 				>
-					<option value={10}>
-						{t("components.dataTable.perPage", { size: 10 })}
-					</option>
-					<option value={20}>
-						{t("components.dataTable.perPage", { size: 20 })}
-					</option>
-					<option value={30}>
-						{t("components.dataTable.perPage", { size: 30 })}
-					</option>
-					<option value={40}>
-						{t("components.dataTable.perPage", { size: 40 })}
-					</option>
-					<option value={50}>
-						{t("components.dataTable.perPage", { size: 50 })}
-					</option>
+					{PAGE_SIZES.map((size) => (
+						<option key={size} value={size}>
+							{t("components.dataTable.perPage", { size })}
+						</option>
+					))}
 				</select>
 			)}
 			{totalPages > 1 && (

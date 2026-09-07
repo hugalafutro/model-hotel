@@ -9,13 +9,13 @@ import {
 	XIcon,
 } from "@phosphor-icons/react";
 import type { TFunction } from "i18next";
-import QRCode from "qrcode";
 import { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import type { TotpInfo, WebAuthnCredential } from "../api/types";
 import { useToast } from "../context/ToastContext";
-import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import { useCopyWithToast } from "../hooks/useCopyWithToast";
+import { useQrDataUrl } from "../hooks/useQrDataUrl";
 import { formatAbsolute } from "../utils/time";
 import { registerPasskey } from "../utils/webauthn";
 import { ConfirmModal } from "./ConfirmModal";
@@ -313,21 +313,7 @@ function CredentialRow({
 function TotpPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	// The result is reported as a toast rather than a label on the button, so the
-	// hook's "Copied" flag is left off.
-	const { copy } = useCopyToClipboard({ trackCopied: false });
-
-	// copyValue puts one secret on the clipboard and says which way it went. A
-	// refused clipboard toasts the failure rather than passing silently, because
-	// the operator is mid-enrolment and has to know to select the text by hand.
-	const copyValue = (value: string, okMessage: string) => {
-		void copy(value).then((ok) => {
-			toast(
-				ok ? okMessage : t("common.failedToCopy"),
-				ok ? "success" : "error",
-			);
-		});
-	};
+	const copyValue = useCopyWithToast();
 
 	const [enabled, setEnabled] = useState(false);
 	const [enabledAt, setEnabledAt] = useState<string | undefined>(undefined);
@@ -335,7 +321,6 @@ function TotpPanel() {
 
 	const [enrollUri, setEnrollUri] = useState("");
 	const [enrollSecret, setEnrollSecret] = useState("");
-	const [qrDataUrl, setQrDataUrl] = useState("");
 	const [verifyCode, setVerifyCode] = useState("");
 	const [verifying, setVerifying] = useState(false);
 
@@ -363,25 +348,12 @@ function TotpPanel() {
 		loadStatus();
 	}, [loadStatus]);
 
-	useEffect(() => {
-		if (!enrollUri) return;
-		let cancelled = false;
-		QRCode.toDataURL(enrollUri, { width: 200, margin: 2 })
-			.then((url) => {
-				if (!cancelled) setQrDataUrl(url);
-			})
-			.catch(() => {
-				if (!cancelled) setQrDataUrl("");
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [enrollUri]);
+	// The QR of the enrolment URI, cleared with the URI when enrolment ends.
+	const qrDataUrl = useQrDataUrl(enrollUri, 200);
 
 	const resetEnroll = () => {
 		setEnrollUri("");
 		setEnrollSecret("");
-		setQrDataUrl("");
 		setVerifyCode("");
 	};
 

@@ -1,63 +1,50 @@
 import { Monitor, Sparkles, Terminal } from "@/lib/icons";
 
+// The three UI styles the Appearance card offers. i18nKey is the stem under
+// settings.appearance.uiStyles.* holding the name and its description.
 export const UI_STYLES = [
 	{
 		id: "clean-saas" as const,
-		label: "Clean SaaS",
-		description: "Refined, professional, minimal",
+		i18nKey: "cleanSaas" as const,
 		icon: Monitor,
 	},
 	{
 		id: "cyber-terminal" as const,
-		label: "Cyber Terminal",
-		description: "Developer-centric, high-contrast",
+		i18nKey: "cyberTerminal" as const,
 		icon: Terminal,
 	},
 	{
 		id: "glassmorphism-lite" as const,
-		label: "Glassmorphism",
-		description: "Slick, translucent surfaces",
+		i18nKey: "glassmorphism" as const,
 		icon: Sparkles,
 	},
 ];
 
 const PROVIDER_CACHE_KEYS = [
-	{ key: "model-hotel:nanogpt-usage", name: "NanoGPT" },
-	{ key: "model-hotel:zai-coding-usage", name: "Z.ai Coding Plan" },
-	{ key: "model-hotel:kimi-code-usage", name: "Kimi Code" },
-	{ key: "model-hotel:minimax-usage", name: "MiniMax" },
-	{ key: "model-hotel:deepseek-balance", name: "DeepSeek" },
-	{ key: "model-hotel:ollama-cloud-account", name: "Ollama Cloud" },
+	"model-hotel:nanogpt-usage",
+	"model-hotel:zai-coding-usage",
+	"model-hotel:kimi-code-usage",
+	"model-hotel:minimax-usage",
+	"model-hotel:deepseek-balance",
+	"model-hotel:ollama-cloud-account",
 ] as const;
 
-export function getProviderCacheCount(): number {
-	let count = 0;
-	for (const entry of PROVIDER_CACHE_KEYS) {
-		try {
-			if (localStorage.getItem(entry.key) !== null) count++;
-		} catch {
-			/* ignore */
-		}
+function hasCacheKey(key: string): boolean {
+	try {
+		return localStorage.getItem(key) !== null;
+	} catch {
+		return false;
 	}
-	return count;
 }
 
-export function getProviderCacheNames(): string[] {
-	const names: string[] = [];
-	for (const entry of PROVIDER_CACHE_KEYS) {
-		try {
-			if (localStorage.getItem(entry.key) !== null) names.push(entry.name);
-		} catch {
-			/* ignore */
-		}
-	}
-	return names;
+export function getProviderCacheCount(): number {
+	return PROVIDER_CACHE_KEYS.filter(hasCacheKey).length;
 }
 
 export function clearProviderCache() {
-	for (const entry of PROVIDER_CACHE_KEYS) {
+	for (const key of PROVIDER_CACHE_KEYS) {
 		try {
-			localStorage.removeItem(entry.key);
+			localStorage.removeItem(key);
 		} catch {
 			/* ignore */
 		}

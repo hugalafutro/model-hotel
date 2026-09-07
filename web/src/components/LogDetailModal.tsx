@@ -1,10 +1,14 @@
 import { useTranslation } from "react-i18next";
 import { Activity, Calendar, FileText, Tag } from "@/lib/icons";
 import type { AppLogEntry, LogEntry } from "../api/types";
+import {
+	formatLogTimestamp,
+	getLevelBadgeVariant,
+} from "../utils/logBadgeUtils";
 import { displayLogMessage } from "../utils/logText";
+import { Badge } from "./Badge";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
-import { formatDateTime } from "./logDetailUtils";
 import { MaybeJsonBlock } from "./MaybeJsonBlock";
 import { Modal } from "./Modal";
 import { RequestLogDetail } from "./RequestLogDetail";
@@ -27,6 +31,7 @@ function AppLogDetail({
 	onClose: () => void;
 }) {
 	const { t } = useTranslation();
+	const message = displayLogMessage(log.message, log.escaped, log.attrs_at);
 
 	return (
 		<Modal
@@ -39,36 +44,27 @@ function AppLogDetail({
 				<DetailItem
 					icon={Calendar}
 					label={t("components.appLogDetail.timestamp")}
-					value={formatDateTime(log.timestamp)}
+					value={formatLogTimestamp(log.timestamp)}
 				/>
-				<DetailItem
-					icon={Activity}
-					label={t("components.appLogDetail.level")}
-					value={log.level.toUpperCase()}
-				>
-					<span
-						className={`inline-flex items-center px-2 py-px leading-[1.6] text-xs font-medium ui-badge ${
-							log.level === "error"
-								? "ui-badge-error"
-								: log.level === "warning"
-									? "ui-badge-warning"
-									: "ui-badge-info"
-						}`}
+				<DetailItem icon={Activity} label={t("components.appLogDetail.level")}>
+					<Badge
+						variant={getLevelBadgeVariant(log.level)}
+						className="text-xs px-2"
 					>
-						<span className="badge-text">{log.level.toUpperCase()}</span>
-					</span>
+						{log.level.toUpperCase()}
+					</Badge>
 				</DetailItem>
 				<DetailItem
 					icon={Tag}
 					label={t("components.appLogDetail.source")}
-					value={log.source || "-"}
+					value={log.source}
 				/>
 				<DetailItem
 					icon={FileText}
 					label={t("components.appLogDetail.message")}
 					labelExtra={
 						<CopyablePill
-							text={displayLogMessage(log.message, log.escaped, log.attrs_at)}
+							text={message}
 							displayText={t("common.copy")}
 							tooltip={t("components.appLogDetail.copyMessage")}
 							textClassName="text-[11px] uppercase tracking-wider"
@@ -78,7 +74,7 @@ function AppLogDetail({
 				>
 					<MaybeJsonBlock
 						className="text-sm text-(--text-primary) font-mono whitespace-pre-wrap break-words bg-(--surface-elevated) p-3 rounded-(--radius-box) border border-(--border-subtle) max-h-60 overflow-y-auto"
-						text={displayLogMessage(log.message, log.escaped, log.attrs_at)}
+						text={message}
 					/>
 				</DetailItem>
 			</div>

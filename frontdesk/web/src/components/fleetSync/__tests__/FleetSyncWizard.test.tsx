@@ -104,6 +104,18 @@ describe("FleetSyncWizard", () => {
 		).toBeInTheDocument();
 	});
 
+	// The step dots are real navigation, not decoration: they are focusable and
+	// gated on the step being unlocked, so a screen reader must see them rather
+	// than have them hidden behind aria-hidden on their container.
+	it("exposes the step dots to assistive tech", async () => {
+		renderWizard();
+		expect(
+			await screen.findByRole("button", { name: "Step 1" }),
+		).toBeInTheDocument();
+		// Step 3 is locked until the earlier gates pass, and says so.
+		expect(screen.getByRole("button", { name: "Step 3" })).toBeDisabled();
+	});
+
 	it("blocks the config step until MASTER_KEY matches on every member", async () => {
 		server.use(
 			http.get("/api/fleet/status", () =>

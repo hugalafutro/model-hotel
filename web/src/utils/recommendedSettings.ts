@@ -1,4 +1,8 @@
 import type { GenerationParams } from "../api/types";
+// The model family identifier (gpt-4o, llama-3, deepseek-r1) always lives in the
+// final path segment, so curated-pattern and family-bonus matching use just that
+// segment, which is what shortModelName returns.
+import { normalizeProviderName, shortModelName } from "./model";
 
 // ---------------------------------------------------------------------------
 // models.dev types
@@ -157,17 +161,8 @@ function normalizeForMatch(s: string): string {
  * prefix, and must be preserved.
  */
 function stripProviderPrefix(modelId: string, providerName: string): string {
-	const prefix = `${providerName.replace(/ /g, "-")}/`;
+	const prefix = `${normalizeProviderName(providerName)}/`;
 	return modelId.startsWith(prefix) ? modelId.slice(prefix.length) : modelId;
-}
-
-/**
- * The model family identifier (gpt-4o, llama-3, deepseek-r1) always lives in the
- * final path segment, so curated-pattern and family-bonus matching use just that
- * segment. For "openai/gpt-4o" this is "gpt-4o"; for a bare id it is the id.
- */
-function modelFamilySegment(modelId: string): string {
-	return modelId.slice(modelId.lastIndexOf("/") + 1);
 }
 
 // ---------------------------------------------------------------------------
@@ -178,10 +173,9 @@ const MODELS_DEV_URL = "https://models.dev/api.json";
 
 async function fetchModelsDevApi(): Promise<ModelsDevApi | null> {
 	try {
-		const controller = new AbortController();
-		const timeoutId = setTimeout(() => controller.abort(), 10_000);
-		const res = await fetch(MODELS_DEV_URL, { signal: controller.signal });
-		clearTimeout(timeoutId);
+		const res = await fetch(MODELS_DEV_URL, {
+			signal: AbortSignal.timeout(10_000),
+		});
 		if (!res.ok) return null;
 		return (await res.json()) as ModelsDevApi;
 	} catch {
@@ -221,7 +215,7 @@ function findModelsDevMatch(
 	// path segment so an inner vendor prefix like "openai/" does not skew it.
 	// Computed once: it does not vary across models.
 	const searchFamilyToken = normalizeForMatch(
-		modelFamilySegment(modelId).split(/[\s._-]/)[0],
+		shortModelName(modelId).split(/[\s._-]/)[0],
 	);
 
 	let best: ModelsDevMatch | null = null;
@@ -318,7 +312,7 @@ export async function fetchRecommendedSettings(
 	const bareModelId = stripProviderPrefix(modelId, providerName);
 
 	// 1. Match curated settings by model family (final segment of the id)
-	const normFamily = normalizeForMatch(modelFamilySegment(bareModelId));
+	const normFamily = normalizeForMatch(shortModelName(bareModelId));
 	let curatedParams: GenerationParams | null = null;
 
 	for (const [pattern, params] of RECOMMENDED_SETTINGS) {

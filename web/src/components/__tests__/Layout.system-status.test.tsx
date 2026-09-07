@@ -375,10 +375,10 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("CPU")).toBeInTheDocument();
+				// Verify CPU value has orange warning color class
+				const cpuRow = screen.getByText("CPU").closest("div");
+				expect(cpuRow?.querySelector(".text-orange-400")).toBeInTheDocument();
 			});
-			// Verify CPU value has orange warning color class
-			const cpuRow = screen.getByText("CPU").closest("div");
-			expect(cpuRow?.querySelector(".text-orange-400")).toBeInTheDocument();
 		});
 
 		it("renders goroutines count", async () => {
@@ -452,8 +452,8 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("CPU")).toBeInTheDocument();
+				expect(screen.getByText(/proc(?!s)/)).toBeInTheDocument();
 			});
-			expect(screen.getByText(/proc(?!s)/)).toBeInTheDocument();
 		});
 
 		it("renders plural 'procs' when process count > 1", async () => {
@@ -490,8 +490,8 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("CPU")).toBeInTheDocument();
+				expect(screen.getByText(/procs/)).toBeInTheDocument();
 			});
-			expect(screen.getByText(/procs/)).toBeInTheDocument();
 		});
 
 		it("toggles collapsed state on CollapsibleToggle click", async () => {
@@ -539,9 +539,9 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("CPU")).toBeInTheDocument();
+				const cpuRow = screen.getByText("CPU").closest("div");
+				expect(cpuRow?.querySelector(".text-red-400")).toBeInTheDocument();
 			});
-			const cpuRow = screen.getByText("CPU").closest("div");
-			expect(cpuRow?.querySelector(".text-red-400")).toBeInTheDocument();
 		});
 
 		it("renders dash for CPU when cpu_percent is null", async () => {
@@ -577,11 +577,11 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("CPU")).toBeInTheDocument();
+				const cpuRow = screen.getByText("CPU").closest("div");
+				expect(
+					cpuRow?.querySelector(".text-\\(--text-muted\\)"),
+				).toBeInTheDocument();
 			});
-			const cpuRow = screen.getByText("CPU").closest("div");
-			expect(
-				cpuRow?.querySelector(".text-\\(--text-muted\\)"),
-			).toBeInTheDocument();
 		});
 
 		it("renders dash for Network when value is not a number", async () => {
@@ -617,10 +617,10 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Network")).toBeInTheDocument();
+				const networkRow = screen.getByText("Network").closest("div");
+				const dashes = networkRow?.querySelectorAll(".text-\\(--text-muted\\)");
+				expect(dashes?.length).toBeGreaterThanOrEqual(2);
 			});
-			const networkRow = screen.getByText("Network").closest("div");
-			const dashes = networkRow?.querySelectorAll(".text-\\(--text-muted\\)");
-			expect(dashes?.length).toBeGreaterThanOrEqual(2);
 		});
 
 		it("renders dash for Disk when value is not a number", async () => {
@@ -656,10 +656,10 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Disk")).toBeInTheDocument();
+				const diskRow = screen.getByText("Disk").closest("div");
+				const dashes = diskRow?.querySelectorAll(".text-\\(--text-muted\\)");
+				expect(dashes?.length).toBeGreaterThanOrEqual(2);
 			});
-			const diskRow = screen.getByText("Disk").closest("div");
-			const dashes = diskRow?.querySelectorAll(".text-\\(--text-muted\\)");
-			expect(dashes?.length).toBeGreaterThanOrEqual(2);
 		});
 
 		it("renders Docker memory with limit when docker has memory_limit_bytes", async () => {
@@ -706,10 +706,10 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Memory")).toBeInTheDocument();
+				const memoryRow = screen.getByText("Memory").closest("div");
+				expect(memoryRow?.textContent).toContain("512");
+				expect(memoryRow?.textContent).toContain("GB");
 			});
-			const memoryRow = screen.getByText("Memory").closest("div");
-			expect(memoryRow?.textContent).toContain("512");
-			expect(memoryRow?.textContent).toContain("GB");
 		});
 
 		it("renders app memory with limit when app has memory_limit_bytes", async () => {
@@ -745,10 +745,10 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Memory")).toBeInTheDocument();
+				const memoryRow = screen.getByText("Memory").closest("div");
+				expect(memoryRow?.textContent).toContain("50");
+				expect(memoryRow?.textContent).toContain("100");
 			});
-			const memoryRow = screen.getByText("Memory").closest("div");
-			expect(memoryRow?.textContent).toContain("50");
-			expect(memoryRow?.textContent).toContain("100");
 		});
 
 		it("renders app heap memory when no docker and no limit", async () => {
@@ -784,10 +784,10 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Memory")).toBeInTheDocument();
+				const memoryRow = screen.getByText("Memory").closest("div");
+				expect(memoryRow?.textContent).toContain("50");
+				expect(memoryRow?.textContent).toContain("heap");
 			});
-			const memoryRow = screen.getByText("Memory").closest("div");
-			expect(memoryRow?.textContent).toContain("50");
-			expect(memoryRow?.textContent).toContain("heap");
 		});
 
 		it("renders DB hit ratio with orange warning when between 80-90", async () => {
@@ -823,9 +823,9 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("DB")).toBeInTheDocument();
+				const dbRow = screen.getByText("DB").closest("div");
+				expect(dbRow?.querySelector(".text-orange-400")).toBeInTheDocument();
 			});
-			const dbRow = screen.getByText("DB").closest("div");
-			expect(dbRow?.querySelector(".text-orange-400")).toBeInTheDocument();
 		});
 
 		it("renders DB hit ratio with red when below 80", async () => {
@@ -861,9 +861,9 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("DB")).toBeInTheDocument();
+				const dbRow = screen.getByText("DB").closest("div");
+				expect(dbRow?.querySelector(".text-red-400")).toBeInTheDocument();
 			});
-			const dbRow = screen.getByText("DB").closest("div");
-			expect(dbRow?.querySelector(".text-red-400")).toBeInTheDocument();
 		});
 
 		it("renders dash for DB hit ratio when the sample window is idle", async () => {
@@ -901,11 +901,13 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("DB")).toBeInTheDocument();
+				expect(screen.queryByText("75")).not.toBeInTheDocument();
+				const dbRow = screen.getByText("DB").closest("div");
+				expect(dbRow?.querySelector(".text-red-400")).not.toBeInTheDocument();
+				expect(
+					dbRow?.querySelector(".text-orange-400"),
+				).not.toBeInTheDocument();
 			});
-			expect(screen.queryByText("75")).not.toBeInTheDocument();
-			const dbRow = screen.getByText("DB").closest("div");
-			expect(dbRow?.querySelector(".text-red-400")).not.toBeInTheDocument();
-			expect(dbRow?.querySelector(".text-orange-400")).not.toBeInTheDocument();
 		});
 
 		it("renders dash for Req Today when value is 0", async () => {
@@ -941,11 +943,11 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText(REQ_TODAY_LABEL)).toBeInTheDocument();
+				const reqRow = screen.getByText(REQ_TODAY_LABEL).closest("div");
+				expect(
+					reqRow?.querySelector(".text-\\(--text-muted\\)"),
+				).toBeInTheDocument();
 			});
-			const reqRow = screen.getByText(REQ_TODAY_LABEL).closest("div");
-			expect(
-				reqRow?.querySelector(".text-\\(--text-muted\\)"),
-			).toBeInTheDocument();
 		});
 
 		it("renders Req Today with M suffix for millions", async () => {
@@ -981,10 +983,10 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText(REQ_TODAY_LABEL)).toBeInTheDocument();
+				const reqRow = screen.getByText(REQ_TODAY_LABEL).closest("div");
+				expect(reqRow?.textContent).toContain("5.0");
+				expect(reqRow?.textContent).toContain("M");
 			});
-			const reqRow = screen.getByText(REQ_TODAY_LABEL).closest("div");
-			expect(reqRow?.textContent).toContain("5.0");
-			expect(reqRow?.textContent).toContain("M");
 		});
 
 		it("renders uptime with days and hours", async () => {
@@ -1020,11 +1022,11 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Uptime")).toBeInTheDocument();
+				const uptimeRow = screen.getByText("Uptime").closest("div");
+				expect(uptimeRow?.textContent).toContain("1");
+				expect(uptimeRow?.textContent).toContain("d");
+				expect(uptimeRow?.textContent).toContain("h");
 			});
-			const uptimeRow = screen.getByText("Uptime").closest("div");
-			expect(uptimeRow?.textContent).toContain("1");
-			expect(uptimeRow?.textContent).toContain("d");
-			expect(uptimeRow?.textContent).toContain("h");
 		});
 
 		it("renders uptime with hours and minutes", async () => {
@@ -1060,11 +1062,11 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Uptime")).toBeInTheDocument();
+				const uptimeRow = screen.getByText("Uptime").closest("div");
+				expect(uptimeRow?.textContent).toContain("1");
+				expect(uptimeRow?.textContent).toContain("h");
+				expect(uptimeRow?.textContent).toContain("m");
 			});
-			const uptimeRow = screen.getByText("Uptime").closest("div");
-			expect(uptimeRow?.textContent).toContain("1");
-			expect(uptimeRow?.textContent).toContain("h");
-			expect(uptimeRow?.textContent).toContain("m");
 		});
 
 		it("renders uptime with minutes only", async () => {
@@ -1100,11 +1102,11 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Uptime")).toBeInTheDocument();
+				const uptimeRow = screen.getByText("Uptime").closest("div");
+				expect(uptimeRow?.textContent).toContain("1");
+				expect(uptimeRow?.textContent).toContain("m");
+				expect(uptimeRow?.textContent).not.toMatch(/\d+[dh]/);
 			});
-			const uptimeRow = screen.getByText("Uptime").closest("div");
-			expect(uptimeRow?.textContent).toContain("1");
-			expect(uptimeRow?.textContent).toContain("m");
-			expect(uptimeRow?.textContent).not.toMatch(/\d+[dh]/);
 		});
 
 		it("renders 0 B/s for network when bytes/sec is 0", async () => {
@@ -1140,10 +1142,10 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Network")).toBeInTheDocument();
+				const networkRow = screen.getByText("Network").closest("div");
+				expect(networkRow?.textContent).toContain("0");
+				expect(networkRow?.textContent).toContain("B/s");
 			});
-			const networkRow = screen.getByText("Network").closest("div");
-			expect(networkRow?.textContent).toContain("0");
-			expect(networkRow?.textContent).toContain("B/s");
 		});
 
 		it("renders DB size with decimal when less than 1 MB", async () => {
@@ -1178,9 +1180,9 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("DB")).toBeInTheDocument();
+				const dbRow = screen.getByText("DB").closest("div");
+				expect(dbRow?.textContent).toContain("0.5");
 			});
-			const dbRow = screen.getByText("DB").closest("div");
-			expect(dbRow?.textContent).toContain("0.5");
 		});
 
 		it("renders Memory with warning color when usage >= 75%", async () => {
@@ -1227,9 +1229,11 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Memory")).toBeInTheDocument();
+				const memoryRow = screen.getByText("Memory").closest("div");
+				expect(
+					memoryRow?.querySelector(".text-orange-400"),
+				).toBeInTheDocument();
 			});
-			const memoryRow = screen.getByText("Memory").closest("div");
-			expect(memoryRow?.querySelector(".text-orange-400")).toBeInTheDocument();
 		});
 	});
 
@@ -1272,8 +1276,8 @@ describe("Layout", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 			await waitFor(() => {
 				expect(screen.getByText("Uptime")).toBeInTheDocument();
+				expect(screen.queryByTestId("ha-status")).not.toBeInTheDocument();
 			});
-			expect(screen.queryByTestId("ha-status")).not.toBeInTheDocument();
 		});
 
 		it.each([

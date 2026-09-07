@@ -17,32 +17,43 @@ export function anyFilterSet(f: GroupFilters): boolean {
 	);
 }
 
+/** True when a group has an entry whose provider name contains the (lowercased) filter. */
+export function entryOnProvider(
+	group: FailoverGroup,
+	providerLower: string,
+): boolean {
+	return group.entries.some((e) =>
+		e.provider_name.toLowerCase().includes(providerLower),
+	);
+}
+
+/** The `entry_enabled` map an update payload carries, from a per-entry rule. */
+export function entryEnabledMapOf(
+	group: FailoverGroup,
+	pick: (entry: FailoverGroup["entries"][number]) => boolean,
+): Record<string, boolean> {
+	return Object.fromEntries(group.entries.map((e) => [e.model_uuid, pick(e)]));
+}
+
 /** Groups with at least one entry on a provider whose name contains the filter. */
 export function groupsMatchingProvider(
 	groups: FailoverGroup[],
 	providerFilter: string,
 ): FailoverGroup[] {
 	const providerLower = providerFilter.toLowerCase();
-	return groups.filter((g) =>
-		g.entries.some((e) =>
-			e.provider_name.toLowerCase().includes(providerLower),
-		),
-	);
+	return groups.filter((g) => entryOnProvider(g, providerLower));
 }
 
 export function filterGroups(
 	groups: FailoverGroup[],
 	f: GroupFilters,
 ): FailoverGroup[] {
+	const searchLower = f.searchQuery.toLowerCase();
+	const providerLower = f.providerFilter.toLowerCase();
 	return groups.filter((g) => {
-		const matchesModel = g.display_model
-			.toLowerCase()
-			.includes(f.searchQuery.toLowerCase());
+		const matchesModel = g.display_model.toLowerCase().includes(searchLower);
 		const matchesProvider =
-			!f.providerFilter ||
-			g.entries.some((e) =>
-				e.provider_name.toLowerCase().includes(f.providerFilter.toLowerCase()),
-			);
+			!f.providerFilter || entryOnProvider(g, providerLower);
 		const matchesEnabled =
 			f.enabledFilter === "" ||
 			(f.enabledFilter === "enabled" && g.group_enabled) ||

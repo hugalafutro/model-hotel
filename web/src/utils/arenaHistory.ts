@@ -1,10 +1,34 @@
 import type { GenerationParams } from "../api/types";
 import { ARENA_PROMPTS, CHAT_PERSONAS } from "../data/presets";
+import { hasAnyParam } from "./params";
 
-// Storage keys
-const ARENA_HISTORY_KEY = "arenaMatchHistory";
-const ARENA_HISTORY_ENABLED_KEY = "arenaHistoryEnabled";
-const ARENA_HISTORY_LIMIT_KEY = "arenaHistoryLimit";
+// The three localStorage keys the arena history lives under. Exported because
+// StorageContext owns the writes for the enabled flag and the limit, and both
+// sides must name the same keys.
+export const ARENA_HISTORY_KEY = "arenaMatchHistory";
+export const ARENA_HISTORY_ENABLED_KEY = "arenaHistoryEnabled";
+export const ARENA_HISTORY_LIMIT_KEY = "arenaHistoryLimit";
+// Every localStorage key the arena's persisted setup lives under. Named once
+// because the arena's own reset and StorageContext's "stop persisting" branch
+// must clear the same set.
+export const ARENA_STORAGE_KEYS = [
+	"arenaState",
+	"arenaCompetitionPrompt",
+	"arenaComparePrompt",
+	"arenaCompetitionActivePromptId",
+	"arenaCompareActivePromptId",
+	"arenaComparePersonaId",
+	"arenaComparePersonaPrompt",
+];
+
+/** The stored history cap; an absent, unparsable or non-positive value reads as 25. */
+export const DEFAULT_ARENA_HISTORY_LIMIT = 25;
+export function parseArenaHistoryLimit(raw: string | null): number {
+	const parsed = raw === null ? Number.NaN : Number.parseInt(raw, 10);
+	return !Number.isNaN(parsed) && parsed > 0
+		? parsed
+		: DEFAULT_ARENA_HISTORY_LIMIT;
+}
 
 // ---------------------------------------------------------------------------
 // Serializable history entry types (simplified from Arena.tsx internal types)
@@ -136,7 +160,7 @@ function toHistorySlot(
 	return {
 		modelId: slot.modelId,
 		personaId: isPresetPersonaId(slot.personaId) ? slot.personaId : null,
-		...(slot.params && Object.keys(slot.params).length > 0
+		...(slot.params && hasAnyParam(slot.params)
 			? { params: { ...slot.params } }
 			: undefined),
 	};
@@ -152,15 +176,8 @@ function toHistoryResponse(
 		content: resp.content,
 		thinkingContent: resp.thinkingContent,
 		error: resp.error,
-		metrics: resp.metrics
-			? {
-					tokensPerSecond: resp.metrics.tokensPerSecond,
-					durationMs: resp.metrics.durationMs,
-					promptTokens: resp.metrics.promptTokens,
-					completionTokens: resp.metrics.completionTokens,
-				}
-			: null,
-		...(resp.params && Object.keys(resp.params).length > 0
+		metrics: resp.metrics ? { ...resp.metrics } : null,
+		...(resp.params && hasAnyParam(resp.params)
 			? { params: { ...resp.params } }
 			: undefined),
 	};
@@ -193,36 +210,13 @@ export function getArenaHistoryEnabled(): boolean {
 	}
 }
 
-export function setArenaHistoryEnabled(v: boolean): void {
-	try {
-		localStorage.setItem(ARENA_HISTORY_ENABLED_KEY, String(v));
-		if (!v) {
-			// When disabled, clear stored history data
-			localStorage.removeItem(ARENA_HISTORY_KEY);
-		}
-	} catch {
-		// Silently ignore
-	}
-}
-
 export function getArenaHistoryLimit(): number {
 	try {
-		const raw = localStorage.getItem(ARENA_HISTORY_LIMIT_KEY);
-		if (raw !== null) {
-			const parsed = parseInt(raw, 10);
-			if (!Number.isNaN(parsed) && parsed > 0) return parsed;
-		}
+		return parseArenaHistoryLimit(
+			localStorage.getItem(ARENA_HISTORY_LIMIT_KEY),
+		);
 	} catch {
-		// Fall through to default
-	}
-	return 25;
-}
-
-export function setArenaHistoryLimit(n: number): void {
-	try {
-		localStorage.setItem(ARENA_HISTORY_LIMIT_KEY, String(n));
-	} catch {
-		// Silently ignore
+		return DEFAULT_ARENA_HISTORY_LIMIT;
 	}
 }
 

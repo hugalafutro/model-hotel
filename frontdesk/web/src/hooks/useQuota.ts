@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "../api/client";
 import type { QuotaSnapshot } from "../api/types";
+import { useLatestRequest } from "./useLatestRequest";
 
 // Read cadence. Quota moves slowly and this reads snapshots the primary has
 // already stored, so a minute is plenty; the member list next door polls at 5s
@@ -76,7 +77,7 @@ export function useQuota(collapsed: boolean): UseQuota {
 
 	// SSE-free, but the poll and a manual refresh can still overlap, so only the
 	// newest in-flight read is allowed to apply.
-	const seqRef = useRef(0);
+	const latest = useLatestRequest();
 	const lastRefreshRef = useRef(0);
 
 	// Resolves true only when this read APPLIED its own result. A 200 is not
@@ -93,11 +94,11 @@ export function useQuota(collapsed: boolean): UseQuota {
 	// cost more state than the rare wrong toast is worth, so do NOT "fix" this
 	// back to returning true on any 200.
 	const read = useCallback((): Promise<boolean> => {
-		const seq = ++seqRef.current;
+		const seq = latest.next();
 		return api
 			.getQuota()
 			.then(({ quota }) => {
-				if (seq !== seqRef.current) return false;
+				if (!latest.isCurrent(seq)) return false;
 				// A 200 is authoritative in both directions. An empty list means no
 				// primary is designated, which is a real steady state, so it CLEARS the
 				// badges; anything less would leave stale ones on screen forever after a
@@ -111,26 +112,23 @@ export function useQuota(collapsed: boolean): UseQuota {
 				// which is NOT the same as "this fleet has no quota providers". Keep the
 				// last-good snapshots and let the caller mark them stale. See
 				// internal/frontdesk/quota.go for the contract this mirrors.
-				if (seq === seqRef.current) setError(true);
+				if (latest.isCurrent(seq)) setError(true);
 				return false;
 			})
 			.finally(() => {
-				if (seq === seqRef.current) setLoading(false);
+				if (latest.isCurrent(seq)) setLoading(false);
 			});
-	}, []);
+	}, [latest]);
 
 	// Discard an in-flight response that lands after unmount: it must not
-	// setState on a dead tree. Pulled out of the effect body itself (rather
-	// than `seqRef.current++` inline in the cleanup closure) because eslint's
-	// ref-in-cleanup heuristic can't tell this apart from a DOM-node ref.
-	const cancelInFlightRead = useCallback(() => {
-		seqRef.current++;
-	}, []);
-
+	// setState on a dead tree. Taking a ticket nobody reads back invalidates
+	// whatever is still in flight.
 	useEffect(() => {
 		void read();
-		return cancelInFlightRead;
-	}, [read, cancelInFlightRead]);
+		return () => {
+			latest.next();
+		};
+	}, [read, latest]);
 
 	useEffect(() => {
 		if (collapsed) return;

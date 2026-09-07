@@ -14,9 +14,9 @@ import type { UseDashboardReturn } from "./useDashboard";
 
 type StatCardsRowProps = Pick<
 	UseDashboardReturn,
-	| "globalRange"
 	| "globalMetric"
 	| "rangeLabel"
+	| "gaugeRequestCount"
 	| "totalTokens"
 	| "accents"
 	| "stats"
@@ -32,9 +32,9 @@ type StatCardsRowProps = Pick<
 
 /** The six headline tiles under the dashboard header. */
 export function StatCardsRow({
-	globalRange,
 	globalMetric,
 	rangeLabel,
+	gaugeRequestCount,
 	totalTokens,
 	accents,
 	stats,
@@ -73,13 +73,7 @@ export function StatCardsRow({
 			/>
 			<StatCard
 				label={t("dashboard.chart.requestsOver", { range: rangeLabel })}
-				value={
-					globalRange === "1h"
-						? stats?.requests_last_1h || 0
-						: globalRange === "24h"
-							? stats?.total_requests_last_24h || 0
-							: stats?.total_requests_last_7d || 0
-				}
+				value={gaugeRequestCount}
 				icon={Activity}
 				accent={accents.requests}
 				formatter={formatWithCommas}

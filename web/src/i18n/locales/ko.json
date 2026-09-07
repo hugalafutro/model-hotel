@@ -347,10 +347,10 @@
 			"distributionChart": "서비스 제공자 분포도",
 			"emptyState": "아직 제공업체 데이터가 없습니다. 트래픽이 발생하면 제공업체별 내역이 여기에 표시됩니다.",
 			"chartAriaLabel": "서비스 제공자 분포도",
-			"tokenUnit": "토큰",
-			"tokensUnit": "토큰",
-			"requestUnit": "요청",
-			"requestsUnit": "요청"
+			"tokens_one": "토큰",
+			"tokens_other": "토큰",
+			"requests_one": "요청",
+			"requests_other": "요청"
 		},
 		"models": {
 			"viewDetails": "상세 정보 보기 {{label}}",
@@ -597,7 +597,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "모델이 생성 중입니다. 취소하려면 ‘모두 중지’를 클릭하세요.",
-			"voteToContinue": "다음 라운드로 진출하려면 모든 대진표에 투표해 주세요",
 			"nextRoundReady": "준비가 되면 다음 라운드를 시작하세요"
 		},
 		"responses": {
@@ -652,13 +651,6 @@
 			"close": "닫기"
 		},
 		"params": {
-			"temperature": "온도",
-			"maxTokens": "최대 토큰 수",
-			"topP": "Top P",
-			"minP": "최소 P",
-			"topK": "Top K",
-			"freqPenalty": "빈도 페널티",
-			"presPenalty": "존재 페널티",
 			"resetAll": "모두 초기화",
 			"done": "완료"
 		},
@@ -844,7 +836,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "활성화된 제공자가 남아 있지 않습니다",
-				"onlyOne": "활성화된 제공업체가 하나만 남아 있습니다(페일오버에는 최소 두 개가 필요합니다)."
+				"onlyOne": "활성화된 제공업체가 하나만 남아 있습니다(페일오버에는 최소 두 개가 필요합니다).",
+				"noValidProviders": "정리 후 유효한 공급자가 남아 있지 않습니다",
+				"onlyOneValid": "정리 후 유효한 공급자가 하나만 남았습니다 (장애 조치에는 두 개 이상이 필요합니다)"
 			},
 			"error": "오류",
 			"failover": "페일오버 그룹",
@@ -1065,7 +1059,17 @@
 		"scope_all": "모든 제공업체",
 		"badge_parked": "{{count}}개 보류",
 		"status_parked": "보류",
-		"status_parked_hint": "제공업체가 비활성화되어 있습니다. 이 모델은 목록에 남지만 제공업체가 다시 활성화될 때까지 제공되지 않습니다."
+		"status_parked_hint": "제공업체가 비활성화되어 있습니다. 이 모델은 목록에 남지만 제공업체가 다시 활성화될 때까지 제공되지 않습니다.",
+		"capPills": {
+			"vision": "비전",
+			"reasoning": "추론",
+			"tool_calling": "도구",
+			"structured_output": "구조화",
+			"pdf_upload": "PDF",
+			"video_input": "비디오",
+			"audio_input": "오디오",
+			"parallel_tool_calls": "병렬"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "발견된 값으로 되돌리기",
@@ -1267,7 +1271,6 @@
 				"owner": "소유자"
 			},
 			"noProvidersConfigured": "설정된 공급자가 없습니다.",
-			"discardChanges": "저장되지 않은 변경 사항을 버릴까요?",
 			"loadingProviders": "제공업체 불러오는 중...",
 			"stripReasoningDescriptionText": "이 기능이 활성화되면, 해당 토큰을 처리할 수 없는 클라이언트에 대한 스트리밍 응답에서 추론/사고 토큰이 제거됩니다.",
 			"providerInstructionsText": "제공자를 클릭하여 액세스를 제한하세요. 기본적으로 모두 액세스할 수 있습니다.",
@@ -1408,6 +1411,11 @@
 			"search": "로그 필터링…",
 			"allLevels": "모든 레벨",
 			"allSources": "모든 출처"
+		},
+		"level": {
+			"info": "정보",
+			"warning": "경고",
+			"error": "오류"
 		},
 		"table": {
 			"timeDate": "시간/날짜",
@@ -1859,8 +1867,8 @@
 				"confirmEnableTitle": "주기적 백업을 활성화하시겠습니까?",
 				"confirmEnableDescription": "정기 백업을 활성화하면 아들/아버지/할아버지 순환 범위를 벗어난 기존 백업이 삭제됩니다.",
 				"confirmEnableWouldRemove": "이 {{count}}개의 백업은 순환 범위를 벗어나므로 영구적으로 삭제됩니다:",
-				"prunePreviewFailed": "백업 정리 미리 보기에 실패했습니다",
-				"pruneFailed": "백업 정리 실패",
+				"prunePreviewFailed": "백업 정리 미리 보기에 실패했습니다: {{message}}",
+				"pruneFailed": "백업 정리 실패: {{message}}",
 				"pruneSuccess": "정기 백업이 활성화되었습니다. 오래된 백업 {{count}}개를 삭제했습니다."
 			},
 			"availableBackupsTitle": "사용 가능한 백업",
@@ -2388,16 +2396,9 @@
 			"filter": "… 필터",
 			"clearFilter": "필터 지우기"
 		},
-		"copyButton": {
-			"copy": "복사",
-			"copiedToClipboard": "클립보드에 복사됨",
-			"failedToCopy": "복사하지 못했습니다"
-		},
 		"copyablePill": {
 			"copy": "복사",
-			"copyToClipboard": "클립보드에 복사",
-			"copied": "복사했습니다!",
-			"failedToCopy": "복사하지 못했습니다"
+			"copyToClipboard": "클립보드에 복사"
 		},
 		"collapsibleToggle": {
 			"expand": "펼치기",
@@ -2714,11 +2715,6 @@
 			"compare": "비교하기",
 			"noMatchHistory": "아직 경기 기록이 없습니다",
 			"completedSessionsHere": "완료된 아레나 및 비교 세션이 여기에 표시됩니다",
-			"match": "경기",
-			"final": "최종",
-			"semifinals": "준결승",
-			"quarterfinals": "8강전",
-			"round": "라운드 {{number}}",
 			"winner": "수상자: {{name}}",
 			"responsesAbbrev": "{{count}} 응답",
 			"error": "오류: {{message}}",
@@ -2826,35 +2822,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "로그가 없습니다",
-			"entries": "항목",
-			"loadingNewer": "최신 항목 불러오는 중…",
-			"loadingOlder": "이전 항목 불러오는 중…",
-			"timeDate": "시간/날짜",
-			"hash": "해시",
-			"model": "모델",
-			"provider": "제공업체",
-			"providerDeleted": "제공자가 삭제되었습니다",
-			"status": "상태",
-			"tokens": "토큰",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "헤더",
-			"ttft": "TTFT",
-			"duration": "소요 시간",
-			"overhead": "오버헤드",
-			"key": "키",
-			"interrupted": "중단됨",
-			"internal": "내부",
-			"cacheInflated": "프롬프트 캐시 적중으로 인해 부풀려짐",
-			"deleted": "삭제됨",
-			"zeroEntries": "0건",
-			"ip": "IP"
+			"zeroEntries": "0건"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "로그 항목이 없습니다",
-			"entries": "항목",
-			"loadingNewer": "최신 항목 불러오는 중…",
-			"loadingOlder": "이전 항목 불러오는 중…",
 			"timeDate": "시간/날짜",
 			"level": "레벨",
 			"source": "출처",
@@ -3065,7 +3036,8 @@
 		},
 		"useDisableModel": {
 			"success": "\"{{model}}\" 모델이 비활성화되었습니다.",
-			"error": "모델 비활성화에 실패했습니다: {{error}}"
+			"error": "모델 비활성화에 실패했습니다: {{error}}",
+			"notFound": "활성화된 모델에서 \"{{model}}\"을(를) 찾을 수 없습니다"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "초기 데이터 가져오기에 실패했습니다",

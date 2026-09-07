@@ -3,6 +3,7 @@ import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { goDurationToMinutes, minutesToGoDuration } from "../../utils/duration";
+import { SETTING_DEFAULTS, settingOr } from "./defaults";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 // Bounds of the two learner knobs. The grow counter is how many clean
@@ -27,19 +28,24 @@ export function InflightLimiterGroup() {
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
 
-	// Fallbacks mirror the Go defaults (internal/proxy/inflight.go: enabled,
-	// grow after 20, forget after 10m). Fallback before clamp, clamp for
-	// display only.
+	// SETTING_DEFAULTS mirrors the Go defaults (internal/proxy/inflight.go).
+	// Fallback before clamp, clamp for display only; a stored value the parse
+	// rejects falls back to the default too.
 	const limiterEnabled = settings?.inflight_limiter_enabled !== "false";
 	const growAfter = Math.min(
 		GROW_AFTER_MAX,
-		Math.max(GROW_AFTER_MIN, Number(settings?.inflight_grow_after) || 20),
+		Math.max(
+			GROW_AFTER_MIN,
+			Number(settingOr(settings, "inflight_grow_after")) ||
+				Number(SETTING_DEFAULTS.inflight_grow_after),
+		),
 	);
 	const forgetMinutes = Math.min(
 		FORGET_MAX_MINUTES,
 		Math.max(
 			FORGET_MIN_MINUTES,
-			goDurationToMinutes(settings?.inflight_forget_after || "10m") || 10,
+			goDurationToMinutes(settingOr(settings, "inflight_forget_after")) ||
+				goDurationToMinutes(SETTING_DEFAULTS.inflight_forget_after),
 		),
 	);
 

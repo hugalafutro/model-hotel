@@ -222,8 +222,6 @@ export interface AlertTargets {
 	targets: string[];
 }
 
-export type Severity = "info" | "success" | "warning" | "error";
-
 export interface FdEvent {
 	id: string;
 	type: string;

@@ -12,6 +12,7 @@ import { useDiscrepancyModal } from "./layout/useDiscrepancyModal";
 import { useLogout } from "./layout/useLogout";
 import { useNavigation } from "./layout/useNavigation";
 import { ModelDiscrepancyModal } from "./ModelDiscrepancyModal";
+import { QuotaModalsHost } from "./QuotaModalsHost";
 
 interface LayoutProps {
 	children: React.ReactNode;
@@ -93,6 +94,8 @@ export function Layout({ children }: LayoutProps) {
 					managed={managed}
 				/>
 			)}
+
+			<QuotaModalsHost />
 		</div>
 	);
 }

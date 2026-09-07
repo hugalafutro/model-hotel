@@ -306,6 +306,21 @@ describe("AppearanceSettings", () => {
 				expect(screen.getByTitle("Bottom Right")).toBeInTheDocument();
 			});
 
+			it("names the selected position through the translated key", async () => {
+				// The label under the preview is the same catalog entry the dot's
+				// own title uses, not the raw "top-left" enum spelled with a space.
+				const user = userEvent.setup();
+				renderWithProviders(
+					<AppearanceSettings collapsed={false} onToggle={onToggle} />,
+				);
+
+				await user.click(screen.getByTitle("Top Left"));
+				await waitFor(() => {
+					expect(screen.getByText("Top Left")).toBeInTheDocument();
+				});
+				expect(screen.queryByText("top left")).not.toBeInTheDocument();
+			});
+
 			it("renders Auto-dismiss slider", () => {
 				renderWithProviders(
 					<AppearanceSettings collapsed={false} onToggle={onToggle} />,

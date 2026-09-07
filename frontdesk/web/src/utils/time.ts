@@ -18,11 +18,24 @@ export function formatRelative(iso: string | undefined): string {
 		["second", 1000],
 	];
 	for (const [unit, ms] of units) {
-		if (Math.abs(diffMs) >= ms || unit === "second") {
+		if (Math.abs(diffMs) >= ms)
 			return rtf.format(Math.round(diffMs / ms), unit);
-		}
 	}
-	return rtf.format(0, "second");
+	return rtf.format(Math.round(diffMs / 1000), "second");
+}
+
+// fmt is the shared body of the absolute formatters below: guard an empty or
+// unparseable value with the caller's fallback, then render the date with the
+// caller's Intl options in the active i18next language.
+function fmt(
+	iso: string | undefined,
+	opts: Intl.DateTimeFormatOptions,
+	invalid: string,
+): string {
+	if (!iso) return invalid;
+	const d = new Date(iso);
+	if (Number.isNaN(d.getTime())) return invalid;
+	return new Intl.DateTimeFormat(i18next.language, opts).format(d);
 }
 
 // formatTimeOfDay renders an ISO timestamp as the active locale's wall-clock
@@ -30,34 +43,22 @@ export function formatRelative(iso: string | undefined): string {
 // implied and only the time-of-day matters. Falls back to "never" for an
 // empty/invalid value.
 export function formatTimeOfDay(iso: string | undefined): string {
-	if (!iso) return i18next.t("common.never");
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return i18next.t("common.never");
-	return new Intl.DateTimeFormat(i18next.language, {
-		timeStyle: "medium",
-	}).format(d);
+	return fmt(iso, { timeStyle: "medium" }, i18next.t("common.never"));
 }
 
 // formatHourTick renders an ISO bucket timestamp as a short wall-clock label for
 // a chart's X-axis hour ticks, in the active locale (e.g. "14:00"). Returns the
 // raw string on an unparseable value so a tick is never blank.
 export function formatHourTick(iso: string): string {
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return iso;
-	return new Intl.DateTimeFormat(i18next.language, {
-		hour: "2-digit",
-		minute: "2-digit",
-	}).format(d);
+	return fmt(iso, { hour: "2-digit", minute: "2-digit" }, iso);
 }
 
 // formatAbsolute renders an ISO timestamp in the active locale's date+time
 // format, for tables where an exact time matters more than recency.
 export function formatAbsolute(iso: string | undefined): string {
-	if (!iso) return i18next.t("common.never");
-	const d = new Date(iso);
-	if (Number.isNaN(d.getTime())) return i18next.t("common.never");
-	return new Intl.DateTimeFormat(i18next.language, {
-		dateStyle: "medium",
-		timeStyle: "medium",
-	}).format(d);
+	return fmt(
+		iso,
+		{ dateStyle: "medium", timeStyle: "medium" },
+		i18next.t("common.never"),
+	);
 }

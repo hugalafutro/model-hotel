@@ -26,6 +26,7 @@ export function SettingsSelect({
 }: SettingsSelectProps) {
 	const isCustomValue =
 		value !== "" && !options.some((opt) => opt.value === value);
+	const controlClass = `ui-input disabled:opacity-50 disabled:cursor-not-allowed ${inline ? "w-auto text-xs px-2 py-1" : ""}`;
 
 	const selectElement = isCustomValue ? (
 		<input
@@ -33,7 +34,7 @@ export function SettingsSelect({
 			type="text"
 			value={value}
 			onChange={(e) => onChange(e.target.value)}
-			className={`ui-input disabled:opacity-50 disabled:cursor-not-allowed ${inline ? "w-auto text-xs px-2 py-1" : ""}`}
+			className={controlClass}
 			disabled={disabled}
 		/>
 	) : (
@@ -41,7 +42,7 @@ export function SettingsSelect({
 			id={id}
 			value={value}
 			onChange={(e) => onChange(e.target.value)}
-			className={`ui-input disabled:opacity-50 disabled:cursor-not-allowed ${inline ? "w-auto text-xs px-2 py-1" : ""}`}
+			className={controlClass}
 			disabled={disabled}
 		>
 			{options.map((opt) => (
@@ -52,9 +53,9 @@ export function SettingsSelect({
 		</select>
 	);
 
-	if (inline) {
-		return (
-			<div>
+	return (
+		<div>
+			{inline ? (
 				<div className="flex items-center justify-between gap-3">
 					<label
 						htmlFor={id}
@@ -64,22 +65,17 @@ export function SettingsSelect({
 					</label>
 					{selectElement}
 				</div>
-				{description && (
-					<p className="text-gray-500 text-xs mt-1">{description}</p>
-				)}
-			</div>
-		);
-	}
-
-	return (
-		<div>
-			<label
-				htmlFor={id}
-				className="block text-sm font-medium text-gray-300 mb-2"
-			>
-				{label}
-			</label>
-			{selectElement}
+			) : (
+				<>
+					<label
+						htmlFor={id}
+						className="block text-sm font-medium text-gray-300 mb-2"
+					>
+						{label}
+					</label>
+					{selectElement}
+				</>
+			)}
 			{description && (
 				<p className="text-gray-500 text-xs mt-1">{description}</p>
 			)}

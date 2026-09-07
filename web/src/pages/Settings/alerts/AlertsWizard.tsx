@@ -6,7 +6,8 @@ import { Check } from "@/lib/icons";
 import { ApiError, api } from "../../../api/client";
 import type { AlertEventDef } from "../../../api/types";
 import { Modal } from "../../../components/Modal";
-import { stripApiHead } from "./apiText";
+import { SETTINGS_UPDATE_PREFIX, safeApiMessage } from "./apiText";
+import { K } from "./stepShared";
 import {
 	StepApprise,
 	StepDestinations,
@@ -37,7 +38,6 @@ import {
 	TOTAL_STEPS,
 } from "./wizardState";
 
-const K = "settings.alerts.wizard";
 export interface AlertsWizardProps {
 	/** Saved Apprise API URL ("" when none is configured yet). */
 	initialApiUrl: string;
@@ -161,9 +161,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 		// there before the write rather than after it: what step 7 shows while the
 		// write is in flight is then already what the write carries.
 		dispatch({ type: "savedRefreshed", targets: stored });
-		const merged = [...stored, ...state.added].filter(
-			(u, i, all) => all.indexOf(u) === i,
-		);
+		const merged = [...new Set([...stored, ...state.added])];
 
 		try {
 			await api.settings.update({
@@ -194,10 +192,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 				// leak internals, so it is reported generically. The dialog already
 				// says which step failed, so fetchOK's "what failed: <status>" head
 				// comes off and only the sentence is shown.
-				message:
-					err instanceof ApiError && err.status === 400
-						? stripApiHead(err.message, "Failed to update settings")
-						: t("common.unknownError"),
+				message: safeApiMessage(err, SETTINGS_UPDATE_PREFIX, t),
 			});
 			return;
 		}

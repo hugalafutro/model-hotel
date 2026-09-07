@@ -184,13 +184,8 @@ export function ArenaBracketBar({
 									{t("arena.status.generating")}
 								</>
 							);
-						} else if (
-							arena.phase === "voting" &&
-							!arena.rounds[arena.currentRound]?.matchups.every(
-								(m) => m.vote !== null,
-							)
-						) {
-							msg = t("arena.status.voteToContinue");
+						} else if (arena.phase === "voting" && arena.disabledReason) {
+							msg = arena.disabledReason;
 						} else if (arena.phase === "next_round_ready" && !arena.canRun) {
 							msg = arena.disabledReason || t("arena.status.nextRoundReady");
 						}

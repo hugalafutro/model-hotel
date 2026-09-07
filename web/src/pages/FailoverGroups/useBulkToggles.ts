@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { FailoverGroup } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
-import { entryToggleUpdate, groupsMatchingProvider } from "./groupDerivations";
+import { entryEnabledMapOf, entryToggleUpdate } from "./groupDerivations";
 
 /**
  * The three many-groups-at-once toggles: the selected groups, every group on
@@ -34,16 +34,15 @@ export function useBulkToggles({
 		const targets = allGroups.filter((g) => selectedGroupIds.has(g.id));
 		if (targets.length === 0) return;
 
-		const promises = targets.map((group) => {
-			const entryEnabledMap: Record<string, boolean> = {};
-			group.entries.forEach((e) => {
-				entryEnabledMap[e.model_uuid] = enabled;
-			});
-			return api.failoverGroups.update(
+		const promises = targets.map((group) =>
+			api.failoverGroups.update(
 				group.id,
-				entryToggleUpdate(group, entryEnabledMap),
-			);
-		});
+				entryToggleUpdate(
+					group,
+					entryEnabledMapOf(group, () => enabled),
+				),
+			),
+		);
 
 		try {
 			await Promise.all(promises);
@@ -62,95 +61,81 @@ export function useBulkToggles({
 		}
 	};
 
-	const handleBulkProviderToggle = async (enabled: boolean) => {
-		if (!allGroups || !providerFilter) return;
-		const providerLower = providerFilter.toLowerCase();
-		const affectedGroups = groupsMatchingProvider(allGroups, providerFilter);
-		if (affectedGroups.length === 0) return;
-
-		const promises = affectedGroups.map((group) => {
-			const entryEnabledMap: Record<string, boolean> = {};
-			group.entries.forEach((e) => {
-				entryEnabledMap[e.model_uuid] = e.provider_name
-					.toLowerCase()
-					.includes(providerLower)
-					? enabled
-					: e.enabled;
-			});
-			return api.failoverGroups.update(
-				group.id,
-				entryToggleUpdate(group, entryEnabledMap),
-			);
-		});
-
-		try {
-			await Promise.all(promises);
-			refreshGroups();
-			toast(
-				t("failover.toast_provider_toggle_success", {
-					action: enabled ? t("common.enabled") : t("common.disabled"),
-					provider: providerFilter,
-					count: affectedGroups.length,
-				}),
-				"success",
-			);
-		} catch {
-			refreshGroups();
-			toast(t("failover.toast_provider_toggle_failed"), "error");
-		}
-	};
-
-	// Provider modal toggle
-	const handleProviderToggle = async (
-		providerName: string,
+	/**
+	 * Switch every entry on a matching provider across the groups that have
+	 * one. The bulk bar matches a name fragment from the provider filter, the
+	 * provider modal an exact name.
+	 */
+	const toggleProviderEntries = async (
+		matches: (providerName: string) => boolean,
+		providerLabel: string,
 		enabled: boolean,
+		opts: { toastWhenNoGroups?: boolean; trackBusy?: boolean } = {},
 	) => {
 		if (!allGroups) return;
 		const affectedGroups = allGroups.filter((g) =>
-			g.entries.some((e) => e.provider_name === providerName),
+			g.entries.some((e) => matches(e.provider_name)),
 		);
 		if (affectedGroups.length === 0) {
-			toast(
-				t("failover.toast_provider_toggle_no_groups", {
-					provider: providerName,
-				}),
-				"info",
-			);
+			if (opts.toastWhenNoGroups) {
+				toast(
+					t("failover.toast_provider_toggle_no_groups", {
+						provider: providerLabel,
+					}),
+					"info",
+				);
+			}
 			return;
 		}
 
-		setIsProviderToggling(true);
-		const promises = affectedGroups.map((group) => {
-			const entryEnabledMap: Record<string, boolean> = {};
-			group.entries.forEach((e) => {
-				entryEnabledMap[e.model_uuid] =
-					e.provider_name === providerName ? enabled : e.enabled;
-			});
-			return api.failoverGroups.update(
-				group.id,
-				entryToggleUpdate(group, entryEnabledMap),
-			);
-		});
-
+		if (opts.trackBusy) setIsProviderToggling(true);
 		try {
-			await Promise.all(promises);
-			// Re-fetch groups; disabledProviders is derived from the result.
-			refreshGroups();
+			await Promise.all(
+				affectedGroups.map((group) =>
+					api.failoverGroups.update(
+						group.id,
+						entryToggleUpdate(
+							group,
+							entryEnabledMapOf(group, (e) =>
+								matches(e.provider_name) ? enabled : e.enabled,
+							),
+						),
+					),
+				),
+			);
 			toast(
 				t("failover.toast_provider_toggle_success", {
 					action: enabled ? t("common.enabled") : t("common.disabled"),
-					provider: providerName,
+					provider: providerLabel,
 					count: affectedGroups.length,
 				}),
 				"success",
 			);
 		} catch {
-			refreshGroups();
 			toast(t("failover.toast_provider_toggle_failed"), "error");
 		} finally {
-			setIsProviderToggling(false);
+			// Re-fetch either way; disabledProviders is derived from the result.
+			refreshGroups();
+			if (opts.trackBusy) setIsProviderToggling(false);
 		}
 	};
+
+	const handleBulkProviderToggle = async (enabled: boolean) => {
+		if (!providerFilter) return;
+		const providerLower = providerFilter.toLowerCase();
+		await toggleProviderEntries(
+			(name) => name.toLowerCase().includes(providerLower),
+			providerFilter,
+			enabled,
+		);
+	};
+
+	// Provider modal toggle
+	const handleProviderToggle = (providerName: string, enabled: boolean) =>
+		toggleProviderEntries((n) => n === providerName, providerName, enabled, {
+			toastWhenNoGroups: true,
+			trackBusy: true,
+		});
 
 	return {
 		handleBulkModelToggle,

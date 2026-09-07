@@ -967,13 +967,10 @@ describe("ModelTable", () => {
 		});
 	});
 
-	describe("Empty State with Null Models", () => {
-		it("renders empty state when models is null", () => {
+	describe("Empty State", () => {
+		it("renders empty state when there are no models", () => {
 			renderWithProviders(
-				<ModelTable
-					models={null as unknown as []}
-					providers={[mockProvider]}
-				/>,
+				<ModelTable models={[]} providers={[mockProvider]} />,
 			);
 
 			expect(

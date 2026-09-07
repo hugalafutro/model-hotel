@@ -2,7 +2,7 @@ import type { UseQueryResult } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { RefreshCw } from "@/lib/icons";
 import type { AlertStatus } from "../../../api/types";
-import { REASON_CODES } from "./apiText";
+import { appriseTone, reasonText, TONE_LABEL } from "./apiText";
 
 /**
  * Whether apprise-api can be reached: a dot, a word, an optional reason, and a
@@ -15,28 +15,17 @@ export function AppriseStatus({
 }) {
 	const { t } = useTranslation();
 	const status = statusQuery.data;
-	const statusDotColor =
-		status?.reachable && status.healthy
-			? "var(--success-text)"
-			: status?.reachable
-				? "var(--warning-text)"
-				: "var(--error-text)";
-	const statusText =
-		status?.reachable && status.healthy
-			? t("settings.alerts.status.reachable")
-			: status?.reachable
-				? t("settings.alerts.status.issues")
-				: t("settings.alerts.status.unreachable");
+	const tone = appriseTone(status);
+	const statusDotColor = `var(--${tone}-text)`;
+	const statusText = t(`settings.alerts.status.${TONE_LABEL[tone]}`);
 	// The reason code is the translated, actionable half of the probe result; the
 	// detail is raw server text (English, sometimes an HTTP status). The note
 	// therefore carries the reason and keeps the detail as the tooltip, where an
-	// operator who wants the literal answer can still find it.
+	// operator who wants the literal answer can still find it. A code the locale
+	// catalog does not cover shows no note at all.
 	const statusReason =
-		status &&
-		(!status.reachable || !status.healthy) &&
-		status.reason &&
-		REASON_CODES.has(status.reason)
-			? t(`settings.alerts.reason.${status.reason}`)
+		status && tone !== "success" && status.reason
+			? reasonText(status.reason, t, "")
 			: "";
 
 	return (

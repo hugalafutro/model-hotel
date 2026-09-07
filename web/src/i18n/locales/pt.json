@@ -354,10 +354,12 @@
 			"distributionChart": "Gráfico de distribuição provedor",
 			"emptyState": "Não há dados do provedor ainda. O detalhamento por provedor aparecerá aqui quando o tráfego fluir.",
 			"chartAriaLabel": "Gráfico de distribuição provedor",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokens",
-			"requestUnit": "Pedido",
-			"requestsUnit": "Solicitações"
+			"tokens_one": "Token",
+			"tokens_many": "Tokens",
+			"tokens_other": "Tokens",
+			"requests_one": "Pedido",
+			"requests_many": "Solicitações",
+			"requests_other": "Solicitações"
 		},
 		"models": {
 			"viewDetails": "Ver detalhes do {{label}}",
@@ -604,7 +606,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modelos estão gerando - clique em Parar Tudo para cancelar",
-			"voteToContinue": "Vote em todos os confrontos para continuar para a próxima rodada",
 			"nextRoundReady": "Iniciar a próxima rodada quando estiver pronta"
 		},
 		"responses": {
@@ -659,13 +660,6 @@
 			"close": "FECHAR"
 		},
 		"params": {
-			"temperature": "Temperatura",
-			"maxTokens": "Max Tokens",
-			"topP": "Top P",
-			"minP": "P Mínimo",
-			"topK": "Top K",
-			"freqPenalty": "Penalidade de Freq",
-			"presPenalty": "Penalidade de Presença",
 			"resetAll": "Redefinir tudo",
 			"done": "Concluído"
 		},
@@ -856,7 +850,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Não há mais provedores habilitados",
-				"onlyOne": "Resta apenas um provedor habilitado (o failover requer pelo menos dois)"
+				"onlyOne": "Resta apenas um provedor habilitado (o failover requer pelo menos dois)",
+				"noValidProviders": "Não resta nenhum provedor válido após a limpeza",
+				"onlyOneValid": "Resta apenas um provedor válido após a limpeza (o failover precisa de pelo menos dois)"
 			},
 			"error": "Erro",
 			"failover": "Grupos de failover",
@@ -1097,7 +1093,17 @@
 		"scope_all": "Todos os provedores",
 		"badge_parked": "{{count}} estacionados",
 		"status_parked": "Estacionado",
-		"status_parked_hint": "O provedor está desativado; este modelo continua listado, mas não é servido até que o provedor seja reativado."
+		"status_parked_hint": "O provedor está desativado; este modelo continua listado, mas não é servido até que o provedor seja reativado.",
+		"capPills": {
+			"vision": "Visão",
+			"reasoning": "Raciocínio",
+			"tool_calling": "Ferramentas",
+			"structured_output": "Estruturado",
+			"pdf_upload": "PDF",
+			"video_input": "Vídeo",
+			"audio_input": "Áudio",
+			"parallel_tool_calls": "Paralelo"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Reverter para o valor descoberto",
@@ -1310,7 +1316,6 @@
 				"owner": "Proprietário"
 			},
 			"noProvidersConfigured": "Nenhum provedor configurado.",
-			"discardChanges": "Descartar alterações não salvas?",
 			"loadingProviders": "Carregando provedores...",
 			"stripReasoningDescriptionText": "Quando habilitado, o raciocínio/pensamento tokens são removidos das respostas de streaming para clientes que não podem lidar com eles.",
 			"providerInstructionsText": "Clique em um provedor para restringir o acesso. Todos são acessíveis por padrão.",
@@ -1451,6 +1456,11 @@
 			"search": "Filtrar logs…",
 			"allLevels": "Todos os níveis",
 			"allSources": "Todas as fontes"
+		},
+		"level": {
+			"info": "Informação",
+			"warning": "Aviso",
+			"error": "Erro"
 		},
 		"table": {
 			"timeDate": "Hora/Data",
@@ -1908,8 +1918,8 @@
 				"confirmEnableTitle": "Ativar Backup Periódico?",
 				"confirmEnableDescription": "Ativar a cópia de segurança periódica elimina as cópias existentes que ficam fora da janela de rotação filho/pai/avô.",
 				"confirmEnableWouldRemove": "Estas {{count}} cópia(s) de segurança ficam fora da janela de rotação e serão eliminadas permanentemente:",
-				"prunePreviewFailed": "Falha ao pré-visualizar a limpeza de backup",
-				"pruneFailed": "Falha ao remover backups",
+				"prunePreviewFailed": "Falha ao pré-visualizar a limpeza de backup: {{message}}",
+				"pruneFailed": "Falha ao remover backups: {{message}}",
 				"pruneSuccess": "Cópia de segurança periódica ativada. Removidas {{count}} cópia(s) antiga(s)."
 			},
 			"availableBackupsTitle": "Backups disponíveis",
@@ -2442,16 +2452,9 @@
 			"filter": "Filtrar…",
 			"clearFilter": "Limpar filtro"
 		},
-		"copyButton": {
-			"copy": "copiar",
-			"copiedToClipboard": "Copiado para o clipboard",
-			"failedToCopy": "Falha ao copiar"
-		},
 		"copyablePill": {
 			"copy": "copiar",
-			"copyToClipboard": "Copiar para área de transferência",
-			"copied": "Copiado!",
-			"failedToCopy": "Falha ao copiar"
+			"copyToClipboard": "Copiar para área de transferência"
 		},
 		"collapsibleToggle": {
 			"expand": "Expandir",
@@ -2773,11 +2776,6 @@
 			"compare": "Comparar",
 			"noMatchHistory": "Sem histórico de partidas ainda",
 			"completedSessionsHere": "Sessões concluídas da arena e de comparação aparecerão aqui",
-			"match": "Partida",
-			"final": "Final",
-			"semifinals": "Semifinal",
-			"quarterfinals": "Quartas de final",
-			"round": "Rodada {{number}}",
 			"winner": "Vencedor: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Erro: {{message}}",
@@ -2887,35 +2885,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Nenhum log encontrado",
-			"entries": "entradas",
-			"loadingNewer": "Carregando os novos…",
-			"loadingOlder": "Carregando mais antigos…",
-			"timeDate": "Hora/Data",
-			"hash": "Hash",
-			"model": "Modelo",
-			"provider": "Fornecedor",
-			"providerDeleted": "O provedor foi excluído",
-			"status": "Situação",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Cabeçalhos",
-			"ttft": "TTFT",
-			"duration": "Duração",
-			"overhead": "Sobrecarga",
-			"key": "Chave",
-			"interrupted": "Interrompido",
-			"internal": "Interno",
-			"cacheInflated": "Inflado por acertos do cache de prompt",
-			"deleted": "Excluído",
-			"zeroEntries": "0 entradas",
-			"ip": "IP"
+			"zeroEntries": "0 entradas"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nenhuma entrada de log encontrada",
-			"entries": "entradas",
-			"loadingNewer": "Carregando os novos…",
-			"loadingOlder": "Carregando mais antigos…",
 			"timeDate": "Hora/Data",
 			"level": "Nível",
 			"source": "fonte",
@@ -3129,7 +3102,8 @@
 		},
 		"useDisableModel": {
 			"success": "Modelo \"{{model}}\" desativado",
-			"error": "Falha ao desativar o modelo: {{error}}"
+			"error": "Falha ao desativar o modelo: {{error}}",
+			"notFound": "Modelo \"{{model}}\" não encontrado nos modelos ativados"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Falha ao buscar dados iniciais",

@@ -7,8 +7,10 @@ import type { LogEntry } from "../api/types";
 import type { SortState } from "../components/DataTable";
 import {
 	EmptyRow,
+	flipSortDir,
 	PaginationBar,
 	SortableHeader,
+	toggleSort,
 } from "../components/DataTable";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { LogDetailModal } from "../components/LogDetailModal";
@@ -22,6 +24,7 @@ import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useSettingsQuery } from "../hooks/useSettingsQuery";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { encodeCursor } from "../utils/format";
 import { AppLogs } from "./AppLogs";
@@ -84,17 +87,11 @@ function RequestLogs() {
 	const [liveEnabled, setLiveEnabled] = useState(true);
 
 	const handleSort = useCallback((field: LogSortField) => {
-		setSort((prev) => ({
-			field,
-			dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
-		}));
+		setSort((prev) => toggleSort(prev, field));
 		setPage(1);
 	}, []);
 
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
+	const { data: settings } = useSettingsQuery();
 
 	// --- Virtual scroll mode data ---
 	const scrollSortDir = sort.dir; // same sort direction as pagination
@@ -330,7 +327,7 @@ function RequestLogs() {
 									))
 								) : (
 									<EmptyRow
-										colSpan={12}
+										colSpan={LOG_COL_WIDTHS.length}
 										message={t("logs.emptyState.requests")}
 									/>
 								)}
@@ -365,12 +362,7 @@ function RequestLogs() {
 								nowMs={nowMs}
 								staleThresholdMs={staleThresholdMs}
 								sortDir={scrollSortDir}
-								onSortToggle={() =>
-									setSort((prev) => ({
-										field: prev.field,
-										dir: prev.dir === "asc" ? "desc" : "asc",
-									}))
-								}
+								onSortToggle={() => setSort(flipSortDir)}
 							/>
 						)}
 					</div>

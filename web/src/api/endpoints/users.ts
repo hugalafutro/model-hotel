@@ -1,5 +1,10 @@
 import { API_BASE, fetchJSON, fetchOK, getAuthHeaders } from "../http";
-import type { DashboardUser, UserUpsertRequest, VirtualKey } from "../types";
+import type {
+	DashboardUser,
+	UserUpsertRequest,
+	VirtualKey,
+	VirtualKeyUpsert,
+} from "../types";
 
 export const virtualKeys = {
 	list: async (): Promise<VirtualKey[]> => {
@@ -11,29 +16,13 @@ export const virtualKeys = {
 			"Failed to fetch virtual keys",
 		);
 	},
-	create: async (
-		name: string,
-		rate_limit_rps?: number | null,
-		rate_limit_burst?: number | null,
-		rate_limit_tpm?: number | null,
-		allowed_providers?: string[] | null,
-		strip_reasoning?: boolean,
-		owner_user_id?: string | null,
-	): Promise<VirtualKey> => {
+	create: async (req: VirtualKeyUpsert): Promise<VirtualKey> => {
 		return fetchJSON<VirtualKey>(
 			`${API_BASE}/api/virtual-keys`,
 			{
 				method: "POST",
 				headers: getAuthHeaders(),
-				body: JSON.stringify({
-					name,
-					rate_limit_rps,
-					rate_limit_burst,
-					rate_limit_tpm,
-					allowed_providers,
-					strip_reasoning,
-					owner_user_id,
-				}),
+				body: JSON.stringify(req),
 			},
 			"Failed to create virtual key",
 		);
@@ -47,19 +36,7 @@ export const virtualKeys = {
 			"Failed to fetch virtual key",
 		);
 	},
-	update: async (
-		id: string,
-		data: {
-			name: string;
-			rate_limit_rps?: number | null;
-			rate_limit_burst?: number | null;
-			rate_limit_tpm?: number | null;
-			allowed_providers?: string[] | null;
-			strip_reasoning?: boolean;
-			// Omit to preserve the current owner; null clears it (admin only).
-			owner_user_id?: string | null;
-		},
-	): Promise<VirtualKey> => {
+	update: async (id: string, data: VirtualKeyUpsert): Promise<VirtualKey> => {
 		return fetchJSON<VirtualKey>(
 			`${API_BASE}/api/virtual-keys/${id}`,
 			{
@@ -71,13 +48,11 @@ export const virtualKeys = {
 		);
 	},
 	delete: async (id: string): Promise<void> => {
-		const response = await fetch(`${API_BASE}/api/virtual-keys/${id}`, {
-			method: "DELETE",
-			headers: getAuthHeaders(),
-		});
-		if (!response.ok) {
-			throw new Error("Failed to delete virtual key");
-		}
+		await fetchOK(
+			`${API_BASE}/api/virtual-keys/${id}`,
+			{ method: "DELETE", headers: getAuthHeaders() },
+			"Failed to delete virtual key",
+		);
 	},
 };
 

@@ -3,16 +3,17 @@ import {
 	APPRISE_SERVICES_URL,
 	ntfyServerOf,
 } from "@web-shared/alerts/composers";
-import { categoryLabel, eventLabel, parseCsv } from "@web-shared/alerts/events";
+import { parseCsv } from "@web-shared/alerts/events";
 import { ntfyAppriseURL } from "@web-shared/ntfy";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { AlertEventDef, AlertStatus, Settings } from "../api/types";
 import { useToast } from "../context/ToastContext";
 import { AlertsWizard } from "./alerts/AlertsWizard";
 import { DestinationList } from "./alerts/DestinationList";
-import { SEVERITY_COLOR } from "./alerts/events";
+import { EventPicker } from "./alerts/EventPicker";
+import { statusBadge } from "./alerts/events";
 
 // The failure codes /api/alert/test returns with a 502 that map to an
 // actionable sentence; anything else falls back to the generic error.
@@ -136,17 +137,6 @@ export function AlertsPanel() {
 		return t("errors.generic");
 	};
 
-	// Group the catalog by its category (translated for display) for the picker.
-	const grouped = useMemo(() => {
-		const m = new Map<string, AlertEventDef[]>();
-		for (const e of catalog ?? []) {
-			const g = m.get(e.category) ?? [];
-			g.push(e);
-			m.set(e.category, g);
-		}
-		return [...m.entries()];
-	}, [catalog]);
-
 	if (loadError || !catalog) return null; // stay quiet; the rest of Settings works
 
 	// persist PUTs only the alert fields; the server merges them onto the stored
@@ -198,11 +188,13 @@ export function AlertsPanel() {
 		}
 	};
 
-	const save = async () => {
+	// saveWith writes the card and re-probes. `overrides` lets a row action write
+	// a different target list than the manual field currently holds.
+	const saveWith = async (overrides?: Partial<Settings>) => {
 		setSaveError("");
 		setSaving(true);
 		try {
-			await persist();
+			await persist(overrides);
 			await refreshStatus();
 			toast(t("settings.alerts.saved"), "success");
 		} catch (err) {
@@ -212,62 +204,45 @@ export function AlertsPanel() {
 		}
 	};
 
-	// sendTest persists first so the test reflects the on-screen config, then asks
-	// the server to deliver a test notification to the configured target(s). A
-	// failure shows a generic toast (the reachability pill carries the reason); the
-	// raw transport/5xx error is never surfaced.
-	const sendTest = async () => {
-		setSaveError("");
-		setTesting(true);
-		try {
-			await persist();
-			await api.testAlert();
-			toast(t("settings.alerts.testSent"), "success");
-		} catch (err) {
-			setSaveError(describeError(err));
-			toast(t("settings.alerts.testFailed"), "error");
-		} finally {
-			await refreshStatus();
-			setTesting(false);
-		}
-	};
-
-	// testDestination delivers to one saved destination only, so a fleet with
-	// several phones can tell which one is broken. It tests what is stored, so
-	// nothing on screen is persisted first; the probe result is refreshed after,
-	// exactly as a full Send test does.
-	const testDestination = async (dest: string) => {
-		setSaveError("");
-		setTesting(true);
-		try {
-			await api.testAlert({ targets: [dest] });
-			toast(t("settings.alerts.testSent"), "success");
-		} catch (err) {
-			setSaveError(describeError(err));
-			toast(t("settings.alerts.testFailed"), "error");
-		} finally {
-			await refreshStatus();
-			setTesting(false);
-		}
-	};
+	const save = () => saveWith();
 
 	// removeDestination persists the list without that one URL. The remaining
 	// on-screen edits ride along, exactly as they do for Save.
-	const removeDestination = async (dest: string) => {
+	const removeDestination = (dest: string) =>
+		saveWith({
+			alert_apprise_targets: targets.filter((x) => x !== dest).join("; "),
+		});
+
+	// runTest asks the server to deliver a test notification. A failure shows a
+	// generic toast (the reachability pill carries the reason); the raw
+	// transport/5xx error is never surfaced. The probe result is refreshed after
+	// either way.
+	const runTest = async (
+		body?: { targets: string[] },
+		persistFirst = false,
+	) => {
 		setSaveError("");
-		setSaving(true);
+		setTesting(true);
 		try {
-			await persist({
-				alert_apprise_targets: targets.filter((x) => x !== dest).join("; "),
-			});
-			await refreshStatus();
-			toast(t("settings.alerts.saved"), "success");
+			if (persistFirst) await persist();
+			await api.testAlert(body);
+			toast(t("settings.alerts.testSent"), "success");
 		} catch (err) {
 			setSaveError(describeError(err));
+			toast(t("settings.alerts.testFailed"), "error");
 		} finally {
-			setSaving(false);
+			await refreshStatus();
+			setTesting(false);
 		}
 	};
+
+	// sendTest persists first so the test reflects the on-screen config.
+	const sendTest = () => runTest(undefined, true);
+
+	// testDestination delivers to one saved destination only, so a fleet with
+	// several phones can tell which one is broken. It tests what is stored, so
+	// nothing on screen is persisted first.
+	const testDestination = (dest: string) => runTest({ targets: [dest] });
 
 	const toggleEvent = (type: string, on: boolean) =>
 		setSelected((prev) => {
@@ -462,45 +437,11 @@ export function AlertsPanel() {
 								>
 									{t("settings.alerts.eventsHint")}
 								</div>
-								{grouped.map(([category, defs]) => (
-									<div key={category} style={{ marginBottom: "0.6rem" }}>
-										<div style={{ fontWeight: 500, fontSize: "0.85rem" }}>
-											{categoryLabel(t, category)}
-										</div>
-										{defs.map((d) => {
-											const label = eventLabel(t, d.type);
-											return (
-												<label
-													key={d.type}
-													className="fd-row"
-													style={{ cursor: "pointer", marginTop: "0.2rem" }}
-												>
-													<input
-														type="checkbox"
-														aria-label={label}
-														checked={selected.has(d.type)}
-														onChange={(e) =>
-															toggleEvent(d.type, e.target.checked)
-														}
-													/>
-													<span
-														aria-hidden="true"
-														style={{
-															display: "inline-block",
-															width: "0.5rem",
-															height: "0.5rem",
-															borderRadius: "50%",
-															background:
-																SEVERITY_COLOR[d.severity] ??
-																"var(--text-faint)",
-														}}
-													/>
-													<span style={{ fontSize: "0.85rem" }}>{label}</span>
-												</label>
-											);
-										})}
-									</div>
-								))}
+								<EventPicker
+									catalog={catalog}
+									selected={selected}
+									onToggle={toggleEvent}
+								/>
 							</fieldset>
 						</div>
 					</details>
@@ -683,11 +624,7 @@ function StatusPill({
 			</span>
 		);
 	}
-	const [variant, label] = !status.reachable
-		? (["ui-badge-danger", t("settings.alerts.statusUnreachable")] as const)
-		: !status.healthy
-			? (["ui-badge-warn", t("settings.alerts.statusUnhealthy")] as const)
-			: (["ui-badge-ok", t("settings.alerts.statusOk")] as const);
+	const { variant, key } = statusBadge(status);
 	// The reason code is the translated, actionable half of the probe result; the
 	// detail is raw server text (English, sometimes an HTTP status). The note
 	// therefore prefers the reason and keeps the detail as the tooltip, where an
@@ -703,7 +640,7 @@ function StatusPill({
 			style={{ gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}
 		>
 			<span className={`ui-badge ${variant}`} title={status.detail}>
-				{label}
+				{t(`settings.alerts.${key}`)}
 			</span>
 			{showNote && (
 				<span

@@ -1080,12 +1080,10 @@ describe("KeyDetailModal edit validation", () => {
 });
 
 describe("KeyDetailModal unsaved-changes guard", () => {
-	it("prompts when closing with unsaved changes and stays open on cancel", async () => {
+	async function openEditAndRename() {
 		server.use(
 			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
 		);
-
-		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
 
 		const { user } = renderWithProviders(<VirtualKeys />);
 
@@ -1093,7 +1091,6 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 			expect(screen.getByText("Test API Key")).toBeInTheDocument();
 		});
 
-		// Open detail modal
 		await user.click(screen.getByText("Test API Key"));
 		await waitFor(() => {
 			expect(
@@ -1105,7 +1102,6 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 			name: "Virtual Key Details",
 		});
 
-		// Enter edit mode and make a change
 		await user.click(within(dialog).getByRole("button", { name: "Edit" }));
 		const nameInput = within(dialog).getByLabelText("Name");
 		await user.clear(nameInput);
@@ -1114,66 +1110,34 @@ describe("KeyDetailModal unsaved-changes guard", () => {
 		// Click close (X button)
 		await user.click(within(dialog).getByRole("button", { name: "Close" }));
 
-		// Confirm should have been called (after fade animation)
+		// The dialog names the fields that would be lost.
 		await waitFor(() => {
-			expect(confirmSpy).toHaveBeenCalledWith("Discard unsaved changes?");
+			expect(screen.getByText("Unsaved Changes")).toBeInTheDocument();
 		});
+		expect(screen.getByRole("listitem")).toHaveTextContent("Name");
+		return user;
+	}
 
-		// Modal should still be open (user cancelled confirm)
+	it("prompts when closing with unsaved changes and stays open on cancel", async () => {
+		const user = await openEditAndRename();
+
+		await user.click(screen.getByTestId("confirm-dialog-cancel"));
+
 		expect(
 			screen.getByRole("dialog", { name: "Virtual Key Details" }),
 		).toBeInTheDocument();
-
-		confirmSpy.mockRestore();
 	});
 
 	it("closes modal when confirming discard", async () => {
-		server.use(
-			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
-		);
+		const user = await openEditAndRename();
 
-		const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+		await user.click(screen.getByRole("button", { name: "Delete" }));
 
-		const { user } = renderWithProviders(<VirtualKeys />);
-
-		await waitFor(() => {
-			expect(screen.getByText("Test API Key")).toBeInTheDocument();
-		});
-
-		// Open detail modal
-		await user.click(screen.getByText("Test API Key"));
-		await waitFor(() => {
-			expect(
-				screen.getByRole("dialog", { name: "Virtual Key Details" }),
-			).toBeInTheDocument();
-		});
-
-		const dialog = screen.getByRole("dialog", {
-			name: "Virtual Key Details",
-		});
-
-		// Enter edit mode and make a change
-		await user.click(within(dialog).getByRole("button", { name: "Edit" }));
-		const nameInput = within(dialog).getByLabelText("Name");
-		await user.clear(nameInput);
-		await user.type(nameInput, "Modified Name");
-
-		// Click close (X button)
-		await user.click(within(dialog).getByRole("button", { name: "Close" }));
-
-		// Confirm should have been called (after fade animation)
-		await waitFor(() => {
-			expect(confirmSpy).toHaveBeenCalledWith("Discard unsaved changes?");
-		});
-
-		// Modal should be closed (user confirmed discard)
 		await waitFor(() => {
 			expect(
 				screen.queryByRole("dialog", { name: "Virtual Key Details" }),
 			).not.toBeInTheDocument();
 		});
-
-		confirmSpy.mockRestore();
 	});
 });
 

@@ -1,6 +1,5 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { lazy, Suspense } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import App from "../App";
 import { api } from "../api/client";
@@ -383,72 +382,6 @@ describe("App providers", () => {
 
 		// Basic sanity check - app renders without crashing
 		expect(screen.getByLabelText("Admin Token")).toBeInTheDocument();
-	});
-});
-
-describe("PageSuspense pattern (Suspense with spinner fallback)", () => {
-	beforeEach(() => {
-		localStorage.clear();
-	});
-
-	it("renders children when resolved", () => {
-		renderWithProviders(
-			<Suspense
-				fallback={
-					<div className="flex items-center justify-center h-64">
-						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent)"></div>
-					</div>
-				}
-			>
-				<div data-testid="child-content">Test Content</div>
-			</Suspense>,
-		);
-
-		expect(screen.getByTestId("child-content")).toBeInTheDocument();
-		expect(screen.getByText("Test Content")).toBeInTheDocument();
-	});
-
-	it("shows loading spinner fallback for lazy components", async () => {
-		// Create a lazy component using React.lazy with a deliberate delay
-		// to ensure the spinner fallback is visible before resolution.
-		let resolveLazy!: (value: { default: React.ComponentType }) => void;
-		const LazyComponent = lazy(
-			() =>
-				new Promise<{ default: React.ComponentType }>((resolve) => {
-					resolveLazy = resolve;
-				}),
-		);
-
-		const { container } = renderWithProviders(
-			<Suspense
-				fallback={
-					<div className="flex items-center justify-center h-64">
-						<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent)"></div>
-					</div>
-				}
-			>
-				<LazyComponent />
-			</Suspense>,
-		);
-
-		// Initially should show spinner
-		const spinner = container.querySelector(".animate-spin");
-		expect(spinner).toBeInTheDocument();
-
-		// Manually resolve the lazy component to remove timing dependency
-		resolveLazy({
-			default: () => <div data-testid="lazy-content">Lazy Loaded</div>,
-		});
-
-		// Wait for lazy component to resolve
-		await waitFor(
-			() => {
-				expect(screen.getByTestId("lazy-content")).toBeInTheDocument();
-			},
-			{ timeout: 10000 },
-		);
-
-		expect(screen.getByText("Lazy Loaded")).toBeInTheDocument();
 	});
 });
 

@@ -1,3 +1,4 @@
+import { onActivateKey } from "../../utils/a11y";
 import type { DiscoveryBadge } from "./useDiscrepancyModal";
 
 /**
@@ -26,13 +27,10 @@ export function DiscoveryNavBadge({
 				e.stopPropagation();
 				onOpen();
 			}}
-			onKeyDown={(e) => {
-				if (e.key === "Enter" || e.key === " ") {
-					e.preventDefault();
-					e.stopPropagation();
-					onOpen();
-				}
-			}}
+			onKeyDown={onActivateKey((e) => {
+				e.stopPropagation();
+				onOpen();
+			})}
 			className={
 				claimCount > 0
 					? "inline-flex items-center leading-[1.6] translate-y-[1px] ui-badge ui-badge-accent cursor-pointer"

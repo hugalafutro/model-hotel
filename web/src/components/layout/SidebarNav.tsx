@@ -4,7 +4,7 @@ import { ProviderQuotaPanel } from "../ProviderQuotaPanel";
 import { DiscoveryNavBadge } from "./DiscoveryNavBadge";
 import { FailoverNavBadge } from "./FailoverNavBadge";
 import type { DiscoveryBadge } from "./useDiscrepancyModal";
-import type { NavIcon, useNavigation } from "./useNavigation";
+import type { useNavigation } from "./useNavigation";
 
 type Navigation = ReturnType<typeof useNavigation>;
 
@@ -42,10 +42,7 @@ export function SidebarNav({
 				{navigation.map((item) => {
 					const sm = subModeMap[item.href];
 					const currentMode = sm?.mode ?? "";
-					const Icon: NavIcon =
-						typeof item.icon === "function"
-							? (item.icon as (mode: string) => NavIcon)(currentMode)
-							: (item.icon as NavIcon);
+					const Icon = item.iconFor ? item.iconFor(currentMode) : item.icon;
 					const active = isActive(item.href);
 					const hasSubModes = Boolean(item.subModes);
 					const currentSubLabel =

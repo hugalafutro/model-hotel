@@ -1,21 +1,16 @@
 import { memo, type ReactNode, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-	Bot,
-	Clock,
-	Copy,
-	Maximize2,
-	PowerOff,
-	Settings,
-	Zap,
-} from "@/lib/icons";
+import { Bot, Clock, Copy, Maximize2, PowerOff, Zap } from "@/lib/icons";
 import type { GenerationParams } from "../api/types";
 import { useCopyToClipboard } from "../hooks/useCopyToClipboard";
+import { onActivateKey } from "../utils/a11y";
 import { formatDuration, formatNumber } from "../utils/format";
-import { is5xxError } from "../utils/model";
+import { is5xxError, shortModelName } from "../utils/model";
+import { CARD_TINT_CLASS, type CardTint } from "./cardTint";
 import { InfoHint } from "./InfoHint";
 import { MARKDOWN_PROSE_CLASSES, MarkdownContent } from "./MarkdownContent";
 import { Modal } from "./Modal";
+import { ParamsTooltip } from "./ParamsTooltip";
 import { ThinkingBlock } from "./ThinkingBlock";
 
 export { MARKDOWN_PROSE_CLASSES };
@@ -55,7 +50,7 @@ interface ModelReplyCardProps {
 	/** Content rendered on the right side of the footer */
 	footerEnd?: ReactNode;
 	/** Tint style for the card - "accent" applies a light accent background tint, "blue" applies a light blue tint */
-	tint?: "accent" | "blue" | "default";
+	tint?: CardTint;
 	/** Additional class names for the root card element */
 	className?: string;
 	/** Additional class names for the header row */
@@ -163,26 +158,10 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 	}, [isStreaming, startTimeMs]);
 
 	const hasThinking = (thinkingContent || "").length > 0;
-	const displayName = shortenModelName
-		? (model.split("/").pop() as string)
-		: model;
+	const displayName = shortenModelName ? shortModelName(model) : model;
 
 	// Show maximize button only when streaming finished without error and there's content
 	const canMaximize = !isStreaming && !error && content.trim().length > 0;
-
-	const hasCustomParams =
-		!!params && Object.values(params).some((v) => v !== undefined);
-	const paramsTooltip = hasCustomParams
-		? Object.entries(params as GenerationParams)
-				.filter(([, v]) => v !== undefined)
-				.map(([k, v]) => {
-					const label = k
-						.replace(/_/g, " ")
-						.replace(/^\w/, (c) => c.toUpperCase());
-					return `${label}: ${v}`;
-				})
-				.join("\n")
-		: undefined;
 
 	const stateClass = isWinner
 		? "ring-1 ring-green-500/40 shadow-[0_0_12px_rgba(34,197,94,0.1)]"
@@ -190,12 +169,58 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 			? "opacity-60"
 			: "";
 
-	const tintClass =
-		tint === "accent"
-			? "ui-card-tint-accent"
-			: tint === "blue"
-				? "ui-card-tint-blue"
-				: "";
+	const tintClass = CARD_TINT_CLASS[tint];
+	const accentText = tint !== "default";
+
+	// The 5xx disable control, offered both beside the inline error and in the
+	// error banner under a partial reply.
+	const disableModelButton = (compact: boolean) =>
+		is5xxError(error) && onDisableModel ? (
+			<button
+				type="button"
+				onClick={onDisableModel}
+				className={
+					compact
+						? "inline-flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-(--radius-button) text-[11px] font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/30 transition-all"
+						: "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-(--radius-button) text-xs font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300 border border-red-500/30 transition-all"
+				}
+				title={t("components.modelReplyCard.disableModelTooltip")}
+			>
+				<PowerOff size={compact ? 10 : 12} />
+				{compact
+					? t("components.modelReplyCard.disable")
+					: t("components.modelReplyCard.disableModel")}
+			</button>
+		) : null;
+
+	// Duration, tokens per second and total tokens, in the card footer and
+	// again in the maximised header.
+	const metricsSummary = (size: "sm" | "md") => {
+		if (!metrics) return null;
+		const iconSize = size === "sm" ? 10 : 12;
+		const cell = size === "sm" ? "" : "text-xs text-(--text-tertiary) ";
+		return (
+			<>
+				<span className={`${cell}flex items-center gap-1`}>
+					<Clock size={iconSize} />
+					{formatDuration(metrics.durationMs)}
+				</span>
+				{metrics.tokensPerSecond !== null && (
+					<span className={`${cell}flex items-center gap-1`}>
+						<Zap size={iconSize} />
+						{metrics.tokensPerSecond.toFixed(1)}{" "}
+						{t("components.modelReplyCard.tokPerSec")}
+					</span>
+				)}
+				{metrics.promptTokens + metrics.completionTokens > 0 && (
+					<span className={cell.trimEnd()}>
+						{formatNumber(metrics.promptTokens + metrics.completionTokens)}{" "}
+						{t("components.modelReplyCard.tok")}
+					</span>
+				)}
+			</>
+		);
+	};
 
 	return (
 		<>
@@ -216,31 +241,15 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								className={`group/button flex items-center gap-1 min-w-0 ${onModelNameClick ? "cursor-pointer" : ""}`}
 								onClick={onModelNameClick}
 								onKeyDown={
-									onModelNameClick
-										? (e) => {
-												if (e.key === "Enter" || e.key === " ") {
-													e.preventDefault();
-													onModelNameClick();
-												}
-											}
-										: undefined
+									onModelNameClick ? onActivateKey(onModelNameClick) : undefined
 								}
 							>
-								{onModelNameClick ? (
-									<span
-										className={`text-sm font-medium truncate ui-link-accent ui-link-accent-in-group ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
-										title={model}
-									>
-										{displayName}
-									</span>
-								) : (
-									<span
-										className={`text-sm font-medium truncate ${modelMaxWidth} ${tint === "accent" || tint === "blue" ? "text-(--accent)" : "text-(--text-primary)"}`}
-										title={model}
-									>
-										{displayName}
-									</span>
-								)}
+								<span
+									className={`text-sm font-medium truncate ${onModelNameClick ? "ui-link-accent ui-link-accent-in-group " : ""}${modelMaxWidth} ${accentText ? "text-(--accent)" : "text-(--text-primary)"}`}
+									title={model}
+								>
+									{displayName}
+								</span>
 								{showInfoIcon && onModelNameClick && (
 									<InfoHint
 										tooltip={t("components.modelReplyCard.modelDetails")}
@@ -248,14 +257,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									/>
 								)}
 							</div>
-							{hasCustomParams && (
-								<span
-									className="shrink-0 text-(--accent) cursor-help"
-									title={paramsTooltip}
-								>
-									<Settings size={10} />
-								</span>
-							)}
+							<ParamsTooltip params={params} />
 							{afterModel}
 						</div>
 						<div className="flex items-center gap-2 shrink-0">
@@ -284,17 +286,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 					{error && !content ? (
 						<div className="flex flex-col gap-2">
 							<div className="text-red-400 text-xs">{error}</div>
-							{is5xxError(error) && onDisableModel && (
-								<button
-									type="button"
-									onClick={onDisableModel}
-									className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-(--radius-button) text-xs font-medium bg-red-500/15 text-red-400 hover:bg-red-500/25 hover:text-red-300 border border-red-500/30 transition-all"
-									title={t("components.modelReplyCard.disableModelTooltip")}
-								>
-									<PowerOff size={12} />
-									{t("components.modelReplyCard.disableModel")}
-								</button>
-							)}
+							{disableModelButton(false)}
 						</div>
 					) : (
 						<>
@@ -322,19 +314,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								<div className="mt-3 px-3 py-2 rounded border border-red-500/30 bg-red-500/10 text-red-400 text-xs">
 									<div className="flex items-start justify-between gap-2">
 										<span>⚠ {error}</span>
-										{is5xxError(error) && onDisableModel && (
-											<button
-												type="button"
-												onClick={onDisableModel}
-												className="inline-flex items-center gap-1 shrink-0 px-2 py-0.5 rounded-(--radius-button) text-[11px] font-medium bg-red-500/20 text-red-400 hover:bg-red-500/30 hover:text-red-300 border border-red-500/30 transition-all"
-												title={t(
-													"components.modelReplyCard.disableModelTooltip",
-												)}
-											>
-												<PowerOff size={10} />
-												{t("components.modelReplyCard.disable")}
-											</button>
-										)}
+										{disableModelButton(true)}
 									</div>
 								</div>
 							)}
@@ -361,29 +341,9 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 								<Clock size={10} />
 								{elapsed}s
 							</span>
-						) : metrics ? (
-							<>
-								<span className="flex items-center gap-1">
-									<Clock size={10} />
-									{formatDuration(metrics.durationMs)}
-								</span>
-								{metrics.tokensPerSecond !== null && (
-									<span className="flex items-center gap-1">
-										<Zap size={10} />
-										{metrics.tokensPerSecond.toFixed(1)}{" "}
-										{t("components.modelReplyCard.tokPerSec")}
-									</span>
-								)}
-								{metrics.promptTokens + metrics.completionTokens > 0 && (
-									<span>
-										{formatNumber(
-											metrics.promptTokens + metrics.completionTokens,
-										)}{" "}
-										{t("components.modelReplyCard.tok")}
-									</span>
-								)}
-							</>
-						) : null}
+						) : (
+							metricsSummary("sm")
+						)}
 					</div>
 					{footerEnd}
 				</div>
@@ -406,14 +366,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 							>
 								{displayName}
 							</span>
-							{hasCustomParams && (
-								<span
-									className="shrink-0 text-(--accent) cursor-help"
-									title={paramsTooltip}
-								>
-									<Settings size={12} />
-								</span>
-							)}
+							<ParamsTooltip params={params} size={12} />
 							{afterModel}
 						</div>
 						<div className="flex items-center gap-3 shrink-0 pr-8">
@@ -425,29 +378,7 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 									{personaName}
 								</span>
 							)}
-							{metrics && (
-								<>
-									<span className="text-xs text-(--text-tertiary) flex items-center gap-1">
-										<Clock size={12} />
-										{formatDuration(metrics.durationMs)}
-									</span>
-									{metrics.tokensPerSecond !== null && (
-										<span className="text-xs text-(--text-tertiary) flex items-center gap-1">
-											<Zap size={12} />
-											{metrics.tokensPerSecond.toFixed(1)}{" "}
-											{t("components.modelReplyCard.tokPerSec")}
-										</span>
-									)}
-									{metrics.promptTokens + metrics.completionTokens > 0 && (
-										<span className="text-xs text-(--text-tertiary)">
-											{formatNumber(
-												metrics.promptTokens + metrics.completionTokens,
-											)}{" "}
-											{t("components.modelReplyCard.tok")}
-										</span>
-									)}
-								</>
-							)}
+							{metricsSummary("md")}
 							<button
 								type="button"
 								onClick={() => {

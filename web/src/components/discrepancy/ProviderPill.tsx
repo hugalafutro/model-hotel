@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
-import { Broom, ChevronDown, ChevronRight, RefreshCw } from "../../lib/icons";
+import { Broom, DisclosureChevron, RefreshCw } from "../../lib/icons";
+import { BUCKET_SIGN, BUCKET_VARIANT } from "./groups";
 
 export interface ProviderPillProps {
 	providerName: string;
@@ -87,40 +88,18 @@ export function ProviderPill({
 					tooltip: t("providers.discrepancies.chipResolvedTooltip"),
 				},
 			].filter((c): c is PillChip => c !== false)
-		: [
-				counts.retired > 0 && {
-					key: "retired",
-					variant: "ui-badge-error",
-					sign: "!",
-					count: counts.retired,
-					label: t("providers.discrepancies.group.retired"),
-					tooltip: t("providers.discrepancies.chipRetiredTooltip"),
-				},
-				counts.gone > 0 && {
-					key: "gone",
-					variant: "ui-badge-error",
-					sign: "×",
-					count: counts.gone,
-					label: t("providers.discrepancies.group.gone"),
-					tooltip: t("providers.discrepancies.chipGoneTooltip"),
-				},
-				counts.suspect > 0 && {
-					key: "suspect",
-					variant: "ui-badge-warning",
-					sign: "?",
-					count: counts.suspect,
-					label: t("providers.discrepancies.group.suspect"),
-					tooltip: t("providers.discrepancies.chipSuspectTooltip"),
-				},
-				counts.stale > 0 && {
-					key: "stale",
-					variant: "ui-badge-neutral",
-					sign: "",
-					count: counts.stale,
-					label: t("providers.discrepancies.group.stale"),
-					tooltip: t("providers.discrepancies.chipStaleTooltip"),
-				},
-			].filter((c): c is PillChip => c !== false);
+		: (["retired", "gone", "suspect", "stale"] as const)
+				.filter((g) => counts[g] > 0)
+				.map((g) => ({
+					key: g,
+					variant: BUCKET_VARIANT[g],
+					sign: BUCKET_SIGN[g],
+					count: counts[g],
+					label: t(`providers.discrepancies.group.${g}`),
+					tooltip: t(
+						`providers.discrepancies.chip${g[0].toUpperCase()}${g.slice(1)}Tooltip`,
+					),
+				}));
 
 	return (
 		// A hairline outline is what makes these read as one pill per provider in a
@@ -145,11 +124,7 @@ export function ProviderPill({
 				className="flex min-w-0 flex-1 items-center gap-2 text-left"
 				data-testid="discrepancy-provider-pill"
 			>
-				{expanded ? (
-					<ChevronDown size={14} className="shrink-0" />
-				) : (
-					<ChevronRight size={14} className="shrink-0" />
-				)}
+				<DisclosureChevron open={expanded} className="shrink-0" />
 				<span className="truncate text-sm font-semibold text-(--accent)">
 					{providerName}
 				</span>

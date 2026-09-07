@@ -1,26 +1,8 @@
 import { useTranslation } from "react-i18next";
 import type { MergedProvider } from "../../hooks/useDiscrepancies";
-import { ChevronDown, ChevronRight } from "../../lib/icons";
+import { DisclosureChevron } from "../../lib/icons";
 import { ClaimRow, type ClaimRowActions } from "./ClaimRow";
-import type { Group } from "./groups";
-
-const BUCKET_SIGN: Record<Group, string> = {
-	gone: "×",
-	suspect: "?",
-	retired: "!",
-	stale: "·",
-	// "+" as in "you put these back", the same sign the journal uses for models
-	// that appeared. Deliberately not one of the alarm signs: a pin is a
-	// decision the operator made, not something that went wrong.
-	pinned: "+",
-};
-const BUCKET_VARIANT: Record<Group, string> = {
-	gone: "ui-badge-error",
-	suspect: "ui-badge-warning",
-	retired: "ui-badge-error",
-	stale: "ui-badge-neutral",
-	pinned: "ui-badge-info",
-};
+import { BUCKET_SIGN, BUCKET_VARIANT, type Group } from "./groups";
 
 /**
  * Level 2: one collapsible line per bucket, all closed when a provider opens.
@@ -78,11 +60,7 @@ export function BucketSection({
 				className="flex w-full items-center gap-2 text-left"
 				data-testid={`discrepancy-group-${group}-toggle`}
 			>
-				{open ? (
-					<ChevronDown size={14} className="shrink-0" />
-				) : (
-					<ChevronRight size={14} className="shrink-0" />
-				)}
+				<DisclosureChevron open={open} className="shrink-0" />
 				<span
 					className={`ui-badge ${BUCKET_VARIANT[group]} shrink-0 tabular-nums`}
 				>

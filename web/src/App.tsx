@@ -6,7 +6,9 @@ import { Navigate, Route, Routes } from "react-router";
 import { Eye, EyeOff, Fingerprint, GithubLogo, LogIn } from "@/lib/icons";
 import { api, isAuthenticated } from "./api/client";
 import { CopyablePill } from "./components/CopyablePill";
+import { ErrorCallout } from "./components/ErrorCallout";
 import { Layout } from "./components/Layout";
+import { LoadingSpinner } from "./components/LoadingSpinner";
 import { Logo } from "./components/Logo";
 import { Spinner } from "./components/Spinner";
 import { ThemedIconProvider } from "./components/ThemedIconProvider";
@@ -17,6 +19,7 @@ import { SidebarModeProvider } from "./context/SidebarModeContext";
 import { StorageProvider } from "./context/StorageContext";
 import { ThemeProvider } from "./context/ThemeContext";
 import { ToastProvider } from "./context/ToastContext";
+import { errorMessage, errorStatus } from "./utils/errors";
 import { canUsePasskeyLogin, loginWithPasskey } from "./utils/webauthn";
 
 const Dashboard = lazy(() =>
@@ -66,7 +69,9 @@ function LoginScreen() {
 	const [loading, setLoading] = useState(false);
 	const [passkeyLoading, setPasskeyLoading] = useState(false);
 	const [passkeyAvailable, setPasskeyAvailable] = useState(false);
-	const [totpEnabled, setTotpEnabled] = useState(false);
+	// Set when a 400 reveals that the admin account has TOTP after all, which
+	// the unauthenticated probe below does not report.
+	const [totpForced, setTotpForced] = useState(false);
 	const [totpCode, setTotpCode] = useState("");
 	const [username, setUsername] = useState("");
 	const [userPassword, setUserPassword] = useState("");
@@ -130,17 +135,10 @@ function LoginScreen() {
 			// The server set the session cookie pair; reload boots into the app.
 			window.location.reload();
 		} catch (err) {
-			const status =
-				err && typeof err === "object" && "status" in err
-					? (err as { status?: number }).status
-					: undefined;
+			const status = errorStatus(err);
 			// The ApiError message carries the response body, so the
-			// totp_required marker survives duck-typing across bundles.
-			const message =
-				err && typeof err === "object" && "message" in err
-					? String((err as { message?: unknown }).message ?? "")
-					: "";
-			if (status === 401 && message.includes("totp_required")) {
+			// totp_required marker rides along with it.
+			if (status === 401 && errorMessage(err).includes("totp_required")) {
 				setUserTotpNeeded(true);
 				setError(null);
 			} else if (status === 429) {
@@ -180,15 +178,15 @@ function LoginScreen() {
 		canUsePasskeyLogin().then(setPasskeyAvailable);
 	}, []);
 
-	useEffect(() => {
-		// Defensive: api.totp is always present in production, but test mocks
-		// may omit it. A failed probe defaults to TOTP disabled.
-		if (!api.totp) return;
-		api.totp
-			.status()
-			.then((s) => setTotpEnabled(s.enabled))
-			.catch(() => setTotpEnabled(false));
-	}, []);
+	// Whether the admin token needs a second factor. Cached app-wide; config
+	// does not change at runtime. A failed probe leaves TOTP off.
+	const { data: totpStatus } = useQuery({
+		queryKey: ["totp-status"],
+		queryFn: () => api.totp.status(),
+		staleTime: Number.POSITIVE_INFINITY,
+		retry: 1,
+	});
+	const totpEnabled = totpForced || (totpStatus?.enabled ?? false);
 
 	const handleLogin = async () => {
 		const value = token.trim();
@@ -217,12 +215,10 @@ function LoginScreen() {
 			await api.auth.adminExchange(value);
 			window.location.reload();
 		} catch (err) {
-			// Duck-type the status (ApiError carries it) so this is robust to the
-			// error class identity differing across module/bundler/mock boundaries.
-			const status =
-				err && typeof err === "object" && "status" in err
-					? (err as { status?: number }).status
-					: undefined;
+			// The status is read off the shape (ApiError carries it) so this is
+			// robust to the error class identity differing across
+			// module/bundler/mock boundaries.
+			const status = errorStatus(err);
 			if (totpEnabled) {
 				setError(
 					status === 429
@@ -231,7 +227,7 @@ function LoginScreen() {
 				);
 			} else if (status === 400) {
 				// The admin account has TOTP enabled; reveal the code field.
-				setTotpEnabled(true);
+				setTotpForced(true);
 				setError(t("layout.auth.totpCodeRequired"));
 			} else if (status === 401) {
 				setError(t("layout.auth.invalidToken"));
@@ -270,11 +266,7 @@ function LoginScreen() {
 					</p>
 				</div>
 
-				{error && (
-					<div className="mb-4 p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm">
-						{error}
-					</div>
-				)}
+				{error && <ErrorCallout className="mb-4">{error}</ErrorCallout>}
 
 				<div className="space-y-4">
 					{ssoEnabled && (
@@ -551,7 +543,7 @@ function RequireUserAccount({ children }: { children: React.ReactNode }) {
 	const { me, isLoading } = useIdentity();
 	if (isLoading) return null;
 	if (!me?.user_account) return <HomeRedirect />;
-	return <>{children}</>;
+	return <PageBody>{children}</PageBody>;
 }
 
 // RequireAccess hides a route from callers without the grant (server-side
@@ -567,22 +559,34 @@ function RequireAccess({
 	if (isLoading) return null;
 	const allowed = access === "admin" ? isAdmin : can(access);
 	if (!allowed) return <HomeRedirect />;
-	return <>{children}</>;
+	return <PageBody>{children}</PageBody>;
 }
 
-function PageSuspense({ children }: { children: React.ReactNode }) {
-	return (
-		<Suspense
-			fallback={
-				<div className="flex items-center justify-center h-64">
-					<div className="animate-spin rounded-full h-12 w-12 border-b-2 border-(--accent)"></div>
-				</div>
-			}
-		>
-			{children}
-		</Suspense>
-	);
+// Every page is lazy, so a gate that lets the caller through always hands over
+// to a Suspense boundary.
+function PageBody({ children }: { children: React.ReactNode }) {
+	return <Suspense fallback={<LoadingSpinner />}>{children}</Suspense>;
 }
+
+// The routed pages, in sidebar order. Security is the one route gated on
+// holding a user account rather than on a grant.
+const ROUTES: Array<{
+	path: string;
+	access: string;
+	Page: React.ComponentType;
+}> = [
+	{ path: "/dashboard", access: "usage", Page: Dashboard },
+	{ path: "/chat", access: "chat", Page: Chat },
+	{ path: "/arena", access: "chat", Page: Arena },
+	{ path: "/providers", access: "admin", Page: Providers },
+	{ path: "/models", access: "models", Page: Models },
+	{ path: "/failover", access: "admin", Page: FailoverGroups },
+	{ path: "/virtual-keys", access: "virtual_keys", Page: VirtualKeys },
+	{ path: "/logs", access: "logs", Page: Logs },
+	{ path: "/users", access: "admin", Page: Users },
+	{ path: "/audit", access: "admin", Page: Audit },
+	{ path: "/settings", access: "admin", Page: Settings },
+];
 
 function AppContent() {
 	// Auth is derived from the session cookie pair (set by the server on every
@@ -597,124 +601,23 @@ function AppContent() {
 			<Layout>
 				<Routes>
 					<Route path="/" element={<HomeRedirect />} />
-					<Route
-						path="/dashboard"
-						element={
-							<RequireAccess access="usage">
-								<PageSuspense>
-									<Dashboard />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/chat"
-						element={
-							<RequireAccess access="chat">
-								<PageSuspense>
-									<Chat />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/arena"
-						element={
-							<RequireAccess access="chat">
-								<PageSuspense>
-									<Arena />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/providers"
-						element={
-							<RequireAccess access="admin">
-								<PageSuspense>
-									<Providers />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/models"
-						element={
-							<RequireAccess access="models">
-								<PageSuspense>
-									<Models />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/failover"
-						element={
-							<RequireAccess access="admin">
-								<PageSuspense>
-									<FailoverGroups />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/virtual-keys"
-						element={
-							<RequireAccess access="virtual_keys">
-								<PageSuspense>
-									<VirtualKeys />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/logs"
-						element={
-							<RequireAccess access="logs">
-								<PageSuspense>
-									<Logs />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/users"
-						element={
-							<RequireAccess access="admin">
-								<PageSuspense>
-									<Users />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
+					{ROUTES.map(({ path, access, Page }) => (
+						<Route
+							key={path}
+							path={path}
+							element={
+								<RequireAccess access={access}>
+									<Page />
+								</RequireAccess>
+							}
+						/>
+					))}
 					<Route
 						path="/security"
 						element={
 							<RequireUserAccount>
-								<PageSuspense>
-									<Security />
-								</PageSuspense>
+								<Security />
 							</RequireUserAccount>
-						}
-					/>
-					<Route
-						path="/audit"
-						element={
-							<RequireAccess access="admin">
-								<PageSuspense>
-									<Audit />
-								</PageSuspense>
-							</RequireAccess>
-						}
-					/>
-					<Route
-						path="/settings"
-						element={
-							<RequireAccess access="admin">
-								<PageSuspense>
-									<Settings />
-								</PageSuspense>
-							</RequireAccess>
 						}
 					/>
 				</Routes>

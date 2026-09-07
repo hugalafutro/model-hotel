@@ -2,6 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { isConflict } from "../../api/http";
 import type { CandidateModel, FailoverGroup } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { Modal } from "../../components/Modal";
@@ -11,10 +12,8 @@ import { useToast } from "../../context/ToastContext";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { isNaEntry, naReasonKey } from "../../utils/failoverEntry";
 import { proxyModelID } from "../../utils/model";
-import {
-	type DiscoverySummaryEntry,
-	DiscoverySummaryModal,
-} from "../Providers/DiscoverySummaryModal";
+import { DiscoverySummaryModal } from "../Providers/DiscoverySummaryModal";
+import type { DiscoverySummaryEntry } from "../Providers/discoverySummary";
 
 export function CreateGroupModal({
 	candidates,
@@ -22,19 +21,21 @@ export function CreateGroupModal({
 	onClose,
 	onCreated,
 	onUpdated,
+	refreshGroups,
 }: {
 	candidates: CandidateModel[];
 	group?: FailoverGroup;
 	onClose: () => void;
 	onCreated?: () => void;
 	onUpdated?: () => void;
+	/** Re-reads the group list and the Models nav badge together. */
+	refreshGroups: () => void;
 }) {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
-	// Editing or deleting a group moves the group claims the Models nav badge
-	// counts, and Retry N/A re-enables models, which reclassifies theirs. See
-	// useRefreshDiscoveryBadge.
+	// Retry N/A re-enables models, which reclassifies the claims the Models nav
+	// badge counts. See useRefreshDiscoveryBadge.
 	const refreshBadge = useRefreshDiscoveryBadge();
 	const isEdit = !!group;
 
@@ -45,59 +46,41 @@ export function CreateGroupModal({
 	// Map candidates to ModelItem format for ModelPicker
 	// In edit mode, also include group entries whose providers are no longer in candidates
 	// so they appear as selectable pills and aren't silently dropped on submit
-	const modelItems = useMemo<ModelItem[]>(() => {
-		const seen = new Set<string>();
+	// One walk over candidates then the group's own entries, deduped by proxy
+	// id, producing both the picker's items and the submit-time uuid lookup.
+	// In edit mode the entries whose provider is no longer a candidate are kept
+	// so they show as selectable pills instead of being dropped on submit.
+	const { modelItems, proxyToUuid } = useMemo(() => {
 		const items: ModelItem[] = [];
-		for (const c of candidates) {
-			const pid = proxyModelID(c.provider_name, c.model_id);
-			if (!seen.has(pid)) {
-				seen.add(pid);
-				items.push({
-					provider_name: c.provider_name,
-					model_id: c.model_id,
-					display_name: c.display_name || undefined,
-				});
-			}
-		}
-		if (group) {
-			for (const e of group.entries) {
-				const pid = proxyModelID(e.provider_name, e.model_id);
-				if (!seen.has(pid)) {
-					seen.add(pid);
-					// Entries absent from candidates have a disabled model or
-					// provider; flag them N/A so the picker shows a badge with the
-					// reason, matching the card's N/A badge.
-					const reasonKey = naReasonKey(e);
-					items.push({
-						provider_name: e.provider_name,
-						model_id: e.model_id,
-						display_name: e.display_name || undefined,
-						unavailable: true,
-						unavailableReason: reasonKey ? t(reasonKey) : undefined,
-					});
-				}
-			}
-		}
-		return items;
-	}, [candidates, group, t]);
-
-	// Build proxyID → model_uuid lookup for submission
-	// Includes candidates AND group entries (edit mode) so unavailable providers aren't lost
-	const proxyToUuid = useMemo(() => {
 		const map = new Map<string, string>();
 		for (const c of candidates) {
-			map.set(proxyModelID(c.provider_name, c.model_id), c.model_uuid);
+			const pid = proxyModelID(c.provider_name, c.model_id);
+			if (map.has(pid)) continue;
+			map.set(pid, c.model_uuid);
+			items.push({
+				provider_name: c.provider_name,
+				model_id: c.model_id,
+				display_name: c.display_name || undefined,
+			});
 		}
-		if (group) {
-			for (const e of group.entries) {
-				const pid = proxyModelID(e.provider_name, e.model_id);
-				if (!map.has(pid)) {
-					map.set(pid, e.model_uuid);
-				}
-			}
+		for (const e of group?.entries ?? []) {
+			const pid = proxyModelID(e.provider_name, e.model_id);
+			if (map.has(pid)) continue;
+			map.set(pid, e.model_uuid);
+			// Entries absent from candidates have a disabled model or provider;
+			// flag them N/A so the picker shows a badge with the reason, matching
+			// the card's N/A badge.
+			const reasonKey = naReasonKey(e);
+			items.push({
+				provider_name: e.provider_name,
+				model_id: e.model_id,
+				display_name: e.display_name || undefined,
+				unavailable: true,
+				unavailableReason: reasonKey ? t(reasonKey) : undefined,
+			});
 		}
-		return map;
-	}, [candidates, group]);
+		return { modelItems: items, proxyToUuid: map };
+	}, [candidates, group, t]);
 
 	// In edit mode, pre-select entries from the group
 	const [selectedProxyIDs, setSelectedProxyIDs] = useState<string[]>(() => {
@@ -117,10 +100,7 @@ export function CreateGroupModal({
 			onCreated?.();
 		},
 		onError: (err: Error) => {
-			if (
-				err.message.includes("409") &&
-				err.message.includes("already exists")
-			) {
+			if (isConflict(err)) {
 				toast(
 					t("failover.toast_create_collision", {
 						model:
@@ -140,10 +120,7 @@ export function CreateGroupModal({
 		// rather than reasoned about: a new group is enabled, so it is not itself
 		// a claim, but that is a property of the backend's rules, not of this
 		// call site.
-		onSettled: () => {
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			refreshBadge();
-		},
+		onSettled: refreshGroups,
 	});
 
 	const updateMutation = useMutation({
@@ -156,10 +133,7 @@ export function CreateGroupModal({
 			onUpdated?.();
 		},
 		onError: (err: Error) => {
-			if (
-				err.message.includes("409") &&
-				err.message.includes("already exists")
-			) {
+			if (isConflict(err)) {
 				toast(t("failover.toast_update_collision"), "error");
 			} else {
 				toast(
@@ -168,12 +142,9 @@ export function CreateGroupModal({
 				);
 			}
 		},
-		onSettled: () => {
-			// A rejected write can still have landed, so the group list and the
-			// badge are re-read together.
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			refreshBadge();
-		},
+		// A rejected write can still have landed, so the group list and the
+		// badge are re-read together.
+		onSettled: refreshGroups,
 	});
 
 	// N/A members of the group being edited (model or provider disabled).
@@ -207,11 +178,8 @@ export function CreateGroupModal({
 				"error",
 			);
 		},
-		onSettled: () => {
-			// See updateMutation: a rejected DELETE can still have landed.
-			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			refreshBadge();
-		},
+		// See updateMutation: a rejected DELETE can still have landed.
+		onSettled: refreshGroups,
 	});
 
 	// Re-check every retryable N/A member and re-enable the ones that answer, then

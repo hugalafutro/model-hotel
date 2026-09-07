@@ -1,12 +1,10 @@
-import { render } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { act, render } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import { AnimatedValue } from "../AnimatedValue";
 
-// AnimatedValue uses requestAnimationFrame + useState in a useEffect with
-// `display` in its dependency array, creating an animation loop. In jsdom
-// we cannot realistically test the animation timing, so we test only the
-// static rendering behavior by passing the component's expected output
-// directly via the formatter prop (bypassing animation).
+// AnimatedValue eases from its current reading to the new value over
+// `duration` ms, driven by requestAnimationFrame. Most cases below cover the
+// static rendering; the timing case drives the frames by hand.
 
 describe("AnimatedValue", () => {
 	it("renders with text-transform none style", () => {
@@ -66,5 +64,26 @@ describe("AnimatedValue", () => {
 		expect(outerSpan).toBeInTheDocument();
 		const innerSpan = container.querySelector("span span");
 		expect(innerSpan?.textContent).toBe("tokens");
+	});
+
+	it("reaches the target value once the duration has elapsed", () => {
+		const frames: FrameRequestCallback[] = [];
+		vi.stubGlobal("requestAnimationFrame", (cb: FrameRequestCallback) => {
+			frames.push(cb);
+			return frames.length;
+		});
+		vi.stubGlobal("cancelAnimationFrame", () => {});
+
+		const { container } = render(<AnimatedValue value={100} duration={100} />);
+		// One frame at each end of the ease plus one in the middle: the effect
+		// must keep easing from where it started, not restart at every frame.
+		for (const ts of [0, 50, 100]) {
+			const next = frames.pop();
+			if (!next) break;
+			act(() => next(ts));
+		}
+
+		expect(container.querySelector("span")?.textContent).toBe("100");
+		vi.unstubAllGlobals();
 	});
 });

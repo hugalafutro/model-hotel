@@ -572,7 +572,7 @@ describe("Logs", () => {
 		});
 	});
 
-	describe("parseGoDuration with minutes and seconds only", () => {
+	describe("stale timeout with minutes and seconds only", () => {
 		it("parses minutes-only duration correctly", async () => {
 			// Override settings with minutes-only stale timeout (45m0s = 2,700,000ms)
 			server.use(

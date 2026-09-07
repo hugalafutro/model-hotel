@@ -347,10 +347,10 @@
 			"distributionChart": "Distributionstabell för leverantörer",
 			"emptyState": "Inga leverantörsdata ännu. Fördelningen av leverantörer visas här när trafiken börjar flöda.",
 			"chartAriaLabel": "Distributionstabell för leverantörer",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokens",
-			"requestUnit": "Begäran",
-			"requestsUnit": "Förfrågningar"
+			"tokens_one": "Token",
+			"tokens_other": "Tokens",
+			"requests_one": "Begäran",
+			"requests_other": "Förfrågningar"
 		},
 		"models": {
 			"viewDetails": "Visa detaljer för {{label}}",
@@ -597,7 +597,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modeller genererar - klicka Stoppa alla för att avbryta",
-			"voteToContinue": "Rösta på alla matchups för att fortsätta till nästa runda",
 			"nextRoundReady": "Starta nästa runda när den är klar"
 		},
 		"responses": {
@@ -652,13 +651,6 @@
 			"close": "Stäng"
 		},
 		"params": {
-			"temperature": "Temperatur",
-			"maxTokens": "Max antal tokens",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Topp K",
-			"freqPenalty": "Freq-straff",
-			"presPenalty": "Pres straff",
 			"resetAll": "Återställ alla",
 			"done": "Klar"
 		},
@@ -844,7 +836,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Inga aktiverade leverantörer kvar",
-				"onlyOne": "Endast en aktiverad leverantör återstår (failover kräver minst två)"
+				"onlyOne": "Endast en aktiverad leverantör återstår (failover kräver minst två)",
+				"noValidProviders": "Inga giltiga leverantörer återstår efter rensningen",
+				"onlyOneValid": "Endast en giltig leverantör återstår efter rensningen (failover kräver minst två)"
 			},
 			"error": "Fel",
 			"failover": "Failover-grupper",
@@ -1065,7 +1059,17 @@
 		"scope_all": "Alla leverantörer",
 		"badge_parked": "{{count}} parkerade",
 		"status_parked": "Parkerad",
-		"status_parked_hint": "Leverantören är inaktiverad; den här modellen finns kvar i listan men serveras inte förrän leverantören aktiveras igen."
+		"status_parked_hint": "Leverantören är inaktiverad; den här modellen finns kvar i listan men serveras inte förrän leverantören aktiveras igen.",
+		"capPills": {
+			"vision": "Syn",
+			"reasoning": "Resonemang",
+			"tool_calling": "Verktyg",
+			"structured_output": "Strukturerat",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Ljud",
+			"parallel_tool_calls": "Parallellt"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Återgå till upptäckt värde",
@@ -1267,7 +1271,6 @@
 				"owner": "Ägare"
 			},
 			"noProvidersConfigured": "Inga leverantörer konfigurerade.",
-			"discardChanges": "Ignorera osparade ändringar?",
 			"loadingProviders": "Laddar leverantörer...",
 			"stripReasoningDescriptionText": "När detta är aktiverat tas resonemangs-/tanketokens bort från strömmande svar för klienter som inte kan hantera dem.",
 			"providerInstructionsText": "Klicka på en leverantör för att begränsa åtkomst. Alla är tillgängliga som standard.",
@@ -1408,6 +1411,11 @@
 			"search": "Filtrera loggar…",
 			"allLevels": "Alla nivåer",
 			"allSources": "Alla källor"
+		},
+		"level": {
+			"info": "Info",
+			"warning": "Varning",
+			"error": "Fel"
 		},
 		"table": {
 			"timeDate": "Tid/datum",
@@ -1859,8 +1867,8 @@
 				"confirmEnableTitle": "Aktivera periodisk säkerhetskopiering?",
 				"confirmEnableDescription": "När du aktiverar periodisk säkerhetskopiering tas befintliga säkerhetskopior bort som hamnar utanför rotationsfönstret son/far/farfar.",
 				"confirmEnableWouldRemove": "Dessa {{count}} säkerhetskopior hamnar utanför rotationsfönstret och tas bort permanent:",
-				"prunePreviewFailed": "Det gick inte att förhandsgranska säkerhetskopia",
-				"pruneFailed": "Det gick inte att beskära säkerhetskopior",
+				"prunePreviewFailed": "Det gick inte att förhandsgranska säkerhetskopia: {{message}}",
+				"pruneFailed": "Det gick inte att beskära säkerhetskopior: {{message}}",
 				"pruneSuccess": "Periodisk säkerhetskopiering aktiverad. Tog bort {{count}} gamla säkerhetskopior."
 			},
 			"availableBackupsTitle": "Tillgängliga säkerhetskopior",
@@ -2388,16 +2396,9 @@
 			"filter": "Filtrera…",
 			"clearFilter": "Rensa filter"
 		},
-		"copyButton": {
-			"copy": "Kopiera",
-			"copiedToClipboard": "Kopierad till urklipp",
-			"failedToCopy": "Det gick inte att kopiera"
-		},
 		"copyablePill": {
 			"copy": "Kopiera",
-			"copyToClipboard": "Kopiera till urklipp",
-			"copied": "Kopierad!",
-			"failedToCopy": "Det gick inte att kopiera"
+			"copyToClipboard": "Kopiera till urklipp"
 		},
 		"collapsibleToggle": {
 			"expand": "Expandera",
@@ -2714,11 +2715,6 @@
 			"compare": "Jämför",
 			"noMatchHistory": "Ingen matchhistorik ännu",
 			"completedSessionsHere": "Slutförda arena- och jämförelsesessioner visas här",
-			"match": "Match",
-			"final": "Final",
-			"semifinals": "Semifinal",
-			"quarterfinals": "Kvartsfinaler",
-			"round": "Runda {{number}}",
 			"winner": "Vinnare: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Fel: {{message}}",
@@ -2826,35 +2822,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Inga loggar hittades",
-			"entries": "poster",
-			"loadingNewer": "Laddar nyare…",
-			"loadingOlder": "Laddar äldre…",
-			"timeDate": "Tid/datum",
-			"hash": "Hash",
-			"model": "Modell",
-			"provider": "Leverantör",
-			"providerDeleted": "Leverantören har tagits bort",
-			"status": "Status",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Huvuden",
-			"ttft": "TTFT",
-			"duration": "Varaktighet",
-			"overhead": "Overhead",
-			"key": "Nyckel",
-			"interrupted": "Avbruten",
-			"internal": "intern",
-			"cacheInflated": "Inflated by prompt cache hits",
-			"deleted": "Borttagen",
-			"zeroEntries": "0 poster",
-			"ip": "IP"
+			"zeroEntries": "0 poster"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Inga loggposter hittades",
-			"entries": "poster",
-			"loadingNewer": "Laddar nyare…",
-			"loadingOlder": "Laddar äldre…",
 			"timeDate": "Tid/datum",
 			"level": "Nivå",
 			"source": "Källa",
@@ -3065,7 +3036,8 @@
 		},
 		"useDisableModel": {
 			"success": "Modell \"{{model}}\" inaktiverad",
-			"error": "Det gick inte att inaktivera modell: {{error}}"
+			"error": "Det gick inte att inaktivera modell: {{error}}",
+			"notFound": "Modellen \"{{model}}\" hittades inte bland aktiverade modeller"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Det gick inte att hämta startdata",

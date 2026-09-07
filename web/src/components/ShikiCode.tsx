@@ -1,9 +1,6 @@
 import { Fragment, useContext, useEffect, useState } from "react";
 import type { ThemedToken } from "shiki/core";
-import {
-	getSnippetHighlighter,
-	resolveShikiLang,
-} from "../utils/shikiHighlighter";
+import { getSnippetHighlighter } from "../utils/shikiHighlighter";
 import { splitLineByHighlights } from "../utils/snippetHighlights";
 import { MarkdownStreamingContext } from "./markdownStreamingContext";
 
@@ -38,11 +35,11 @@ export function ShikiCode({ code, lang, highlights = [] }: ShikiCodeProps) {
 		if (isStreaming) return;
 		let cancelled = false;
 		getSnippetHighlighter(lang)
-			.then((highlighter) => {
-				if (cancelled || !highlighter) return;
-				const canonical = resolveShikiLang(lang);
-				if (!canonical) return;
-				setTokens(highlighter.codeToTokensBase(code, { lang: canonical }));
+			.then((loaded) => {
+				if (cancelled || !loaded) return;
+				setTokens(
+					loaded.highlighter.codeToTokensBase(code, { lang: loaded.lang }),
+				);
 			})
 			.catch(() => {
 				// Keep the plain-text fallback.

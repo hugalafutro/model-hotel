@@ -9,7 +9,12 @@ import {
 	detectQuotaProviderType,
 	type useQuotaData,
 } from "../../hooks/useQuotaData";
-import { formatDate, formatTimestamp, formatTokens } from "../../utils/format";
+import {
+	formatDate,
+	formatDateOnly,
+	formatTimestamp,
+	formatTokens,
+} from "../../utils/format";
 import { providerHomepages } from "./constants";
 
 interface ProviderCardProps {
@@ -78,7 +83,7 @@ export function ProviderCard({
 								data-testid="scheduled-disable-icon"
 								className="text-orange-400 shrink-0 inline-flex"
 								title={t("providers.scheduled_disable_card_tooltip", {
-									date: formatDate(`${provider.scheduled_disable_on}T00:00:00`),
+									date: formatDateOnly(provider.scheduled_disable_on),
 								})}
 							>
 								<CalendarDays size={16} />
@@ -149,10 +154,10 @@ export function ProviderCard({
 								quotaData={quotaData}
 								variant="card"
 								providerBaseUrl={provider.base_url}
-								onNanoClick={() => onSetModalNano()}
-								onZaiCodingClick={() => onSetModalZaiCoding()}
-								onKimiCodeClick={() => onSetModalKimiCode()}
-								onMiniMaxClick={() => onSetModalMiniMax()}
+								onNanoClick={onSetModalNano}
+								onZaiCodingClick={onSetModalZaiCoding}
+								onKimiCodeClick={onSetModalKimiCode}
+								onMiniMaxClick={onSetModalMiniMax}
 								onDeepseekClick={async () => {
 									try {
 										await quotaData.refetchDeepseek();
@@ -161,7 +166,7 @@ export function ProviderCard({
 										toast(t("providers.toast_quota_refresh_failed"), "error");
 									}
 								}}
-								onOpenRouterClick={() => onSetModalOpenRouter()}
+								onOpenRouterClick={onSetModalOpenRouter}
 								onOllamaCloudClick={async () => {
 									try {
 										await quotaData.refetchOllamaCloud();
@@ -170,7 +175,7 @@ export function ProviderCard({
 										toast(t("providers.toast_account_refresh_failed"), "error");
 									}
 								}}
-								onNeuralwattClick={() => onSetModalNeuralwatt()}
+								onNeuralwattClick={onSetModalNeuralwatt}
 							/>
 							{provider.last_cap && capNoteApplies(provider.base_url) && (
 								<CapNoteBadge note={provider.last_cap} />

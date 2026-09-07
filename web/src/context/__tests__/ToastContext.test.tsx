@@ -6,7 +6,7 @@ import { ToastProvider, useToast } from "../ToastContext";
 // Mock useResizeObserver so FuseOutline renders in jsdom (no real layout)
 vi.mock("../../hooks/useResizeObserver", () => ({
 	useResizeObserver: vi.fn(() => ({
-		ref: { current: null },
+		ref: vi.fn(),
 		width: 200,
 		height: 40,
 	})),

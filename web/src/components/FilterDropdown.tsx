@@ -1,6 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "@/lib/icons";
+import { useClickOutside } from "../hooks/useClickOutside";
+import { onActivateKey } from "../utils/a11y";
 
 interface FilterDropdownProps {
 	options: { value: string; label: string; count?: number }[];
@@ -43,19 +45,7 @@ export function FilterDropdown({
 	const [open, setOpen] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
 
-	useEffect(() => {
-		if (!open) return;
-		const handle = (e: MouseEvent) => {
-			if (
-				containerRef.current &&
-				!containerRef.current.contains(e.target as Node)
-			) {
-				setOpen(false);
-			}
-		};
-		document.addEventListener("mousedown", handle);
-		return () => document.removeEventListener("mousedown", handle);
-	}, [open]);
+	useClickOutside(containerRef, () => setOpen(false), { enabled: open });
 
 	const selectedOption = options.find((o) => o.value === value);
 	const displayLabel = value
@@ -104,13 +94,10 @@ export function FilterDropdown({
 								e.stopPropagation();
 								onChange("");
 							}}
-							onKeyDown={(e) => {
-								if (e.key === "Enter" || e.key === " ") {
-									e.preventDefault();
-									e.stopPropagation();
-									onChange("");
-								}
-							}}
+							onKeyDown={onActivateKey((e) => {
+								e.stopPropagation();
+								onChange("");
+							})}
 							title={t("common.clearFilter")}
 						>
 							<X size={iconSize} />
@@ -133,56 +120,69 @@ export function FilterDropdown({
 					<div className="max-h-48 overflow-y-auto px-1">
 						{/* All option (filter mode only) */}
 						{allowClear && (
-							<button
-								type="button"
-								onClick={() => {
+							<OptionRow
+								selected={value === ""}
+								label={effectiveAllLabel}
+								onSelect={() => {
 									onChange("");
 									setOpen(false);
 								}}
-								className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${value === "" ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
-							>
-								<span
-									className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${value === "" ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
-								>
-									{value === "" && <Check size={10} className="text-white" />}
-								</span>
-								<span className="truncate">{effectiveAllLabel}</span>
-							</button>
+							/>
 						)}
 
-						{options.map((option) => {
-							const isSelected = value === option.value;
-							return (
-								<button
-									key={option.value}
-									type="button"
-									data-value={option.value}
-									data-selected={isSelected}
-									onClick={() => {
-										onChange(option.value);
-										setOpen(false);
-									}}
-									className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
-								>
-									<span
-										className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${isSelected ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
-									>
-										{isSelected && <Check size={10} className="text-white" />}
-									</span>
-									<span className="truncate">
-										{option.label}
-										{option.count !== undefined && (
-											<span className="text-(--text-tertiary) ml-1">
-												({option.count})
-											</span>
-										)}
-									</span>
-								</button>
-							);
-						})}
+						{options.map((option) => (
+							<OptionRow
+								key={option.value}
+								value={option.value}
+								selected={value === option.value}
+								label={option.label}
+								count={option.count}
+								onSelect={() => {
+									onChange(option.value);
+									setOpen(false);
+								}}
+							/>
+						))}
 					</div>
 				</div>
 			)}
 		</div>
+	);
+}
+
+/** One checkbox row of the dropdown: the "All" entry and every option. */
+function OptionRow({
+	value,
+	selected,
+	label,
+	count,
+	onSelect,
+}: {
+	value?: string;
+	selected: boolean;
+	label: string;
+	count?: number;
+	onSelect: () => void;
+}) {
+	return (
+		<button
+			type="button"
+			data-value={value}
+			data-selected={value === undefined ? undefined : selected}
+			onClick={onSelect}
+			className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${selected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
+		>
+			<span
+				className={`inline-flex items-center justify-center w-3.5 h-3.5 rounded border transition-colors shrink-0 ${selected ? "bg-(--accent) border-(--accent)" : "border-(--border-input) bg-(--surface-input)"}`}
+			>
+				{selected && <Check size={10} className="text-white" />}
+			</span>
+			<span className="truncate">
+				{label}
+				{count !== undefined && (
+					<span className="text-(--text-tertiary) ml-1">({count})</span>
+				)}
+			</span>
+		</button>
 	);
 }
