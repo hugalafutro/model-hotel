@@ -60,4 +60,13 @@ describe("toChartPoints", () => {
 		expect(mapped.tokens_cache_miss).toBe(0);
 		expect(mapped.avg_ttft_ms).toBe(0);
 	});
+
+	it("keeps latency raw when rounding is off", () => {
+		const [mapped] = toChartPoints(
+			{ points: [point] } as TimeSeriesStats,
+			"24h",
+			false,
+		);
+		expect(mapped.latency).toBe(250.5);
+	});
 });

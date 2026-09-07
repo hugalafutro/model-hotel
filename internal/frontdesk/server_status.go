@@ -53,8 +53,9 @@ func (s *Server) traefikStatus(w http.ResponseWriter, _ *http.Request) {
 // buildCommit is the source commit SHA this Front Desk binary was built from,
 // stamped at build time via -ldflags -X (see the Makefile / Dockerfile.frontdesk)
 // and surfaced read-only as app_commit so the UI footer can show which commit a
-// `dev` build corresponds to. Defaults to "unknown" for un-stamped builds.
-var buildCommit = "unknown"
+// `dev` build corresponds to. Defaults to the UnstampedCommit sentinel for
+// un-stamped builds.
+var buildCommit = util.UnstampedCommit
 
 // getVersion returns the running build's version and source commit so the UI
 // footer can show which Front Desk build is deployed (and link a `dev` build to

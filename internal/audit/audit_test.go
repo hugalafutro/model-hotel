@@ -161,6 +161,26 @@ func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	}
 }
 
+// TestMiddlewareNormalizesMethodCase pins that a recorded mutation stores its
+// method upper-cased. The list filter binds strings.ToUpper on the method it is
+// given, so a row spelled any other way could never be matched by the
+// dashboard's method filter.
+func TestMiddlewareNormalizesMethodCase(t *testing.T) {
+	rec := newRecorder(t, nil)
+	r := chi.NewRouter()
+	r.Use(rec.Middleware)
+	r.Post("/lower", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+
+	req := httptest.NewRequest("post", "/lower", http.NoBody)
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	eventually(t, func() bool { return countRows(t, "path = '/lower'") == 1 })
+	if n := countRows(t, `path = '/lower' AND method = 'POST'`); n != 1 {
+		t.Errorf("method not stored upper-cased: %d rows match method = 'POST'", n)
+	}
+}
+
 // TestMiddlewareRecordsResolvedClientIP pins remote_addr to the trusted-proxy
 // resolved client address from clientip.Middleware. The raw socket peer would
 // be the docker bridge gateway behind the compose NAT, which cannot answer

@@ -13,6 +13,7 @@ const mockSetPendingImage = vi.fn();
 const mockSetPendingAudio = vi.fn();
 const mockStreamModelResponse = vi.fn();
 const mockGetApiMessagesForModel = vi.fn();
+const mockClearConversationAbort = vi.fn();
 
 // ── Mock all dependencies ──
 vi.mock("../../../context/SidebarModeContext", () => ({
@@ -139,7 +140,7 @@ vi.mock("../useConversationRunner", () => ({
 		runConversation: vi.fn(),
 		handleStopConversation: vi.fn(),
 		handleRetryConversation: vi.fn(),
-		clearConversationAbort: vi.fn(),
+		clearConversationAbort: mockClearConversationAbort,
 	})),
 }));
 
@@ -249,6 +250,7 @@ describe("useChat", () => {
 		mockSetPendingAudio.mockClear();
 		mockStreamModelResponse.mockClear();
 		mockGetApiMessagesForModel.mockClear();
+		mockClearConversationAbort.mockClear();
 		// Reset to defaults
 		vi.mocked(SidebarModeContext.useSidebarMode).mockReturnValue({
 			chatSubMode: "chat",
@@ -1126,6 +1128,17 @@ describe("useChat", () => {
 				result.current.setInput("Test prompt");
 			});
 			expect(result.current.canStartConversation).toBe(false);
+		});
+	});
+
+	describe("clearMessages", () => {
+		it("aborts a running conversation even when chat mode is showing", () => {
+			const { result } = renderHook(() => useChat());
+			act(() => {
+				result.current.clearMessages();
+			});
+			expect(mockClearConversationAbort).toHaveBeenCalled();
+			expect(result.current.messages).toEqual([]);
 		});
 	});
 

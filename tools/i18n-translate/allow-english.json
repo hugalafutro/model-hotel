@@ -2357,6 +2357,38 @@
 		"pt",
 		"sv"
 	],
+	"dashboard.usage.tokens_many": [
+		"ca",
+		"es",
+		"pt"
+	],
+	"dashboard.usage.tokens_one": [
+		"af",
+		"ca",
+		"cs",
+		"da",
+		"es",
+		"fi",
+		"hu",
+		"it",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"sk",
+		"sv",
+		"vi"
+	],
+	"dashboard.usage.tokens_other": [
+		"af",
+		"ca",
+		"da",
+		"es",
+		"nl",
+		"pt",
+		"sv"
+	],
 	"failover.btn_sync": [
 		"de"
 	],

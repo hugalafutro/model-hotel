@@ -416,9 +416,9 @@ function MemberBadge({
 
 // ConfigDelta is what one member's config sync would change, as the +added /
 // ~updated / -removed badges ConfigLegend explains. A zero is left out rather
-// than shown as "+0". Rendered wherever those counts appear, so the legend
-// always describes what is on screen.
-export function ConfigDelta({ member }: { member: FleetMemberStatus }) {
+// than shown as "+0". It is the member table's cell, so it aligns to the right
+// edge the other status cells share.
+function ConfigDelta({ member }: { member: FleetMemberStatus }) {
 	const { t } = useTranslation();
 	return (
 		<span

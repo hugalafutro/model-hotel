@@ -325,7 +325,11 @@
 			"emptyState": "Még nincsenek használati adatok. A forgalom megindulásával itt jelennek meg a használati adatok.",
 			"viewDetailsFor": "{{label}} részleteinek megtekintése",
 			"deletedModelTooltip": "A modell már nem elérhető – lehet, hogy törölték, vagy a szolgáltatóját eltávolították",
-			"reservedKeyTooltip": "Belső fenntartott név, nem az Ön által létrehozott kulcs – ez a használat a Model Hotel saját „{{name}}” útvonalából származik"
+			"reservedKeyTooltip": "Belső fenntartott név, nem az Ön által létrehozott kulcs – ez a használat a Model Hotel saját „{{name}}” útvonalából származik",
+			"tokens_one": "token",
+			"tokens_other": "tokenek",
+			"requests_one": "kérés",
+			"requests_other": "kérések"
 		},
 		"providerLatency": {
 			"title": "Szolgáltatói késleltetés",

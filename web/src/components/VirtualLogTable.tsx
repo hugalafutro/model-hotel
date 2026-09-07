@@ -66,6 +66,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 		fetchNewer: onFetchNewer,
 		fetchOlder: onFetchOlder,
 		estimateSize: 29,
+		pinTop: true,
 	});
 
 	return (
@@ -92,50 +93,55 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 							<col key={col.key} className={col.width} />
 						))}
 					</colgroup>
-					<thead className="sticky top-0 z-10">
-						<tr>
-							<th
-								className={`${HEADER_BASE} cursor-pointer`}
-								onClick={onSortToggle}
-								title={t("logs.table.timeDate")}
-							>
-								{t("logs.table.timeDate")} {sortDir === "desc" ? "↓" : "↑"}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.model")}>
-								{t("logs.table.model")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.provider")}>
-								{t("logs.table.provider")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.status")}>
-								{t("logs.table.status")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.tokens")}>
-								{t("logs.table.tokens")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.tps")}>
-								{t("logs.table.tps")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.headers")}>
-								{t("logs.table.headers")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.ttft")}>
-								{t("logs.table.ttft")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.duration")}>
-								{t("logs.table.duration")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.overhead")}>
-								{t("logs.table.overhead")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.key")}>
-								{t("logs.table.key")}
-							</th>
-							<th className={HEADER_BASE} title={t("logs.table.ip")}>
-								{t("logs.table.ip")}
-							</th>
-						</tr>
-					</thead>
+					{/* No header over an empty table: with nothing to sort or line
+					    up, the column strip reads as a broken load rather than an
+					    empty result. */}
+					{entries.length > 0 && (
+						<thead className="sticky top-0 z-10">
+							<tr>
+								<th
+									className={`${HEADER_BASE} cursor-pointer`}
+									onClick={onSortToggle}
+									title={t("logs.table.timeDate")}
+								>
+									{t("logs.table.timeDate")} {sortDir === "desc" ? "↓" : "↑"}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.model")}>
+									{t("logs.table.model")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.provider")}>
+									{t("logs.table.provider")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.status")}>
+									{t("logs.table.status")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.tokens")}>
+									{t("logs.table.tokens")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.tps")}>
+									{t("logs.table.tps")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.headers")}>
+									{t("logs.table.headers")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.ttft")}>
+									{t("logs.table.ttft")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.duration")}>
+									{t("logs.table.duration")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.overhead")}>
+									{t("logs.table.overhead")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.key")}>
+									{t("logs.table.key")}
+								</th>
+								<th className={HEADER_BASE} title={t("logs.table.ip")}>
+									{t("logs.table.ip")}
+								</th>
+							</tr>
+						</thead>
+					)}
 					<tbody>
 						{entries.length === 0 && (
 							<tr>

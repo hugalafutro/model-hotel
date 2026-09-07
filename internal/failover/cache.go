@@ -55,10 +55,14 @@ func InvalidateFailoverCache() {
 }
 
 // IsCachedByModel reports whether a failover group for the given display model
-// is present in the cache and not expired. It does not modify the cache.
+// is present in the cache and not expired. It does not modify the cache. The
+// probe is inline rather than a GetCachedFailoverByModel call so the per-request
+// proxy resolve path does not copy a group it immediately discards.
 func IsCachedByModel(displayModel string) bool {
-	_, ok := GetCachedFailoverByModel(displayModel)
-	return ok
+	failoverCacheMu.RLock()
+	entry, ok := failoverByModelCache[displayModel]
+	failoverCacheMu.RUnlock()
+	return ok && !time.Now().After(entry.expiresAt)
 }
 
 // WarmFailoverCache populates the cache with the provided failover groups.

@@ -325,7 +325,11 @@
 			"emptyState": "利用データはまだありません。トラフィックが流れると、利用状況の内訳がここに表示されます。",
 			"viewDetailsFor": "{{label}} の詳細を表示",
 			"deletedModelTooltip": "このモデルは利用できなくなりました - 削除されたか、プロバイダーが削除された可能性があります",
-			"reservedKeyTooltip": "内部で予約済みの名前であり、ユーザーが作成したキーではありません。この使用量は、Model Hotel 独自の「{{name}}」ルートによるものです。"
+			"reservedKeyTooltip": "内部で予約済みの名前であり、ユーザーが作成したキーではありません。この使用量は、Model Hotel 独自の「{{name}}」ルートによるものです。",
+			"tokens_one": "トークン",
+			"tokens_other": "トークン",
+			"requests_one": "リクエスト",
+			"requests_other": "リクエスト"
 		},
 		"providerLatency": {
 			"title": "プロバイダーのレイテンシ",

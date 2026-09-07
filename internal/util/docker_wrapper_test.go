@@ -43,16 +43,16 @@ func (t *localhostRedirectTransport) RoundTrip(req *http.Request) (*http.Respons
 // resetDockerState resets package-level state for testing
 func resetDockerState() {
 	dockerHTTPClient = sync.OnceValue(newDockerHTTPClient)
-	IsDockerAvailable = sync.OnceValue(probeDockerAvailable)
-	DetectContainerFilter = sync.OnceValue(detectContainerFilter)
+	dockerAvailable = sync.OnceValue(probeDockerAvailable)
+	containerFilter = sync.OnceValue(detectContainerFilter)
 	dockerRates.reset()
 }
 
 // useDockerClient points the package's memoised Docker client at a test server.
 func useDockerClient(c *http.Client) {
 	dockerHTTPClient = func() *http.Client { return c }
-	IsDockerAvailable = sync.OnceValue(probeDockerAvailable)
-	DetectContainerFilter = sync.OnceValue(detectContainerFilter)
+	dockerAvailable = sync.OnceValue(probeDockerAvailable)
+	containerFilter = sync.OnceValue(detectContainerFilter)
 }
 
 // TestIsDockerAvailable tests the Docker availability check

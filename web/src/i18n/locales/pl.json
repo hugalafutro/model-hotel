@@ -337,7 +337,15 @@
 			"emptyState": "Brak danych o użytkowaniu. Podział użycia pojawi się tutaj po przepływie ruchu.",
 			"viewDetailsFor": "Zobacz szczegóły dla {{label}}",
 			"deletedModelTooltip": "Model nie jest już dostępny - mógł zostać usunięty lub jego dostawca został wycofany",
-			"reservedKeyTooltip": "Wewnętrzna nazwa zarezerwowana, a nie klucz utworzony przez użytkownika - to użycie pochodzi z własnych tras „{{name}}” serwisu Model Hotel"
+			"reservedKeyTooltip": "Wewnętrzna nazwa zarezerwowana, a nie klucz utworzony przez użytkownika - to użycie pochodzi z własnych tras „{{name}}” serwisu Model Hotel",
+			"tokens_one": "token",
+			"tokens_few": "tokeny",
+			"tokens_many": "tokeny",
+			"tokens_other": "tokeny",
+			"requests_one": "żądanie",
+			"requests_few": "żądania",
+			"requests_many": "żądania",
+			"requests_other": "żądania"
 		},
 		"providerLatency": {
 			"title": "Opóźnienie dostawców",

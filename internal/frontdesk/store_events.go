@@ -157,7 +157,7 @@ func (s *Store) PruneEvents(ctx context.Context, retentionDays int) (int64, erro
 	}
 	cutoff := time.Now().UTC().Add(-time.Duration(retentionDays) * 24 * time.Hour).UnixNano()
 	res, err := s.db.ExecContext(ctx, `DELETE FROM events WHERE created_at < ?
-		 AND id NOT IN (SELECT id FROM events WHERE type = 'fleet.state_changed' ORDER BY created_at DESC LIMIT 1)`, cutoff)
+		 AND id NOT IN (SELECT id FROM events WHERE type = 'fleet.state_changed' ORDER BY created_at DESC, id DESC LIMIT 1)`, cutoff)
 	if err != nil {
 		return 0, fmt.Errorf("frontdesk: prune events: %w", err)
 	}

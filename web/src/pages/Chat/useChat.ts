@@ -312,10 +312,12 @@ export function useChat() {
 	/**
 	 * Drops the transcript and puts the conversation back at turn zero. The
 	 * prompt that started it is restored to the input by default so the user
-	 * can run it again without retyping.
+	 * can run it again without retyping. The abort runs whatever sub-mode is
+	 * showing: a conversation left running behind a switch to chat would
+	 * otherwise keep writing turns into the transcript this just emptied.
 	 */
 	const clearMessages = (restorePrompt = true) => {
-		if (chatSubMode === "conversation") clearConversationAbort();
+		clearConversationAbort();
 		setMessages([]);
 		setInput(restorePrompt ? lastPromptRef.current : "");
 		setConversationState("idle");

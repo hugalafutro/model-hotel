@@ -617,14 +617,14 @@ export function StepFinish({
 // pill covers a fourth state (nothing configured at all) that cannot happen
 // here: the wizard has just configured it.
 function FinalPill({ status, t }: { status: AlertStatus; t: TFunction }) {
-	const { variant, key } = statusBadge(status);
+	const { variant, label } = statusBadge(status, t);
 	return (
 		<span
 			className={`ui-badge ${variant}`}
 			data-testid="wiz-done-pill"
 			title={status.detail}
 		>
-			{t(`settings.alerts.${key}`)}
+			{label}
 		</span>
 	);
 }

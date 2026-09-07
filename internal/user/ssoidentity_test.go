@@ -58,8 +58,8 @@ func TestResolveSSOIdentity(t *testing.T) {
 	}
 }
 
-// A disabled account never binds or authenticates, matching GetByEmail's
-// enabled-only contract.
+// A disabled account never binds or authenticates: the lookup treats it as
+// absent, so SSO can neither bind a new identity to it nor sign it in.
 func TestResolveSSOIdentity_DisabledDenied(t *testing.T) {
 	repo := NewRepository(testDB.Pool())
 	ctx := context.Background()

@@ -331,7 +331,13 @@
 			"emptyState": "Encara no hi ha dades d'ús. El desglossament de l'ús apareixerà aquí un cop hi hagi trànsit.",
 			"viewDetailsFor": "Veure detalls de {{label}}",
 			"deletedModelTooltip": "El model ja no està disponible - pot haver estat suprimit o el seu proveïdor s'ha eliminat",
-			"reservedKeyTooltip": "Nom intern reservat, no és una clau que hàgiu creat - aquest ús prové de les rutes \"{{name}}\" del mateix Model Hotel."
+			"reservedKeyTooltip": "Nom intern reservat, no és una clau que hàgiu creat - aquest ús prové de les rutes \"{{name}}\" del mateix Model Hotel.",
+			"tokens_one": "token",
+			"tokens_many": "tokens",
+			"tokens_other": "tokens",
+			"requests_one": "sol·licitud",
+			"requests_many": "sol·licituds",
+			"requests_other": "sol·licituds"
 		},
 		"providerLatency": {
 			"title": "Latència dels proveïdors",

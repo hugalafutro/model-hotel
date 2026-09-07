@@ -113,8 +113,8 @@ export function UsageBarPanel({
 										{metric !== undefined &&
 											` ${t(
 												metric === "tokens"
-													? "dashboard.providers.tokens"
-													: "dashboard.providers.requests",
+													? "dashboard.usage.tokens"
+													: "dashboard.usage.requests",
 												{ count: entry.value },
 											)}`}
 									</span>

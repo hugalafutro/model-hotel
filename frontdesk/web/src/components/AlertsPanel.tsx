@@ -624,7 +624,7 @@ function StatusPill({
 			</span>
 		);
 	}
-	const { variant, key } = statusBadge(status);
+	const { variant, label } = statusBadge(status, t);
 	// The reason code is the translated, actionable half of the probe result; the
 	// detail is raw server text (English, sometimes an HTTP status). The note
 	// therefore prefers the reason and keeps the detail as the tooltip, where an
@@ -640,7 +640,7 @@ function StatusPill({
 			style={{ gap: "0.4rem", alignItems: "center", flexWrap: "wrap" }}
 		>
 			<span className={`ui-badge ${variant}`} title={status.detail}>
-				{t(`settings.alerts.${key}`)}
+				{label}
 			</span>
 			{showNote && (
 				<span

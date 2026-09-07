@@ -325,7 +325,11 @@
 			"emptyState": "Inga användningsdata än. Användningen visas här när trafiken börjar flöda.",
 			"viewDetailsFor": "Visa detaljer för {{label}}",
 			"deletedModelTooltip": "Modellen finns inte längre tillgänglig – den kan ha tagits bort eller så har leverantören av den avregistrerats",
-			"reservedKeyTooltip": "Internt reserverat namn, inte en nyckel som du har skapat – denna användning kommer från Model Hotels egna ”{{name}}”-rutter"
+			"reservedKeyTooltip": "Internt reserverat namn, inte en nyckel som du har skapat – denna användning kommer från Model Hotels egna ”{{name}}”-rutter",
+			"tokens_one": "token",
+			"tokens_other": "tokens",
+			"requests_one": "begäran",
+			"requests_other": "förfrågningar"
 		},
 		"providerLatency": {
 			"title": "Leverantörslatens",

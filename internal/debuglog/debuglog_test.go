@@ -254,7 +254,8 @@ func TestEnvBool(t *testing.T) {
 	}{
 		{"true", true, true},
 		{"TRUE", true, true},
-		{" 1 ", true, true},
+		{"1", true, true},
+		{" 1 ", false, false},
 		{"yes", true, true},
 		{"false", false, true},
 		{"0", false, true},

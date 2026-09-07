@@ -11,20 +11,9 @@ import {
 	type DestinationKind,
 	FIELDS,
 } from "./composers";
+import type { AlertStatus } from "./status";
 
-/**
- * What the machine needs from an apprise-api probe: whether the address is
- * configured, answering and healthy, plus the server's machine-readable reason
- * code. Declared here rather than imported so the module keeps to relative
- * imports; both apps' own AlertStatus is the same shape.
- */
-export interface AlertStatus {
-	configured: boolean;
-	reachable: boolean;
-	healthy: boolean;
-	reason?: string;
-	detail?: string;
-}
+export type { AlertStatus };
 
 export type Step = 1 | 2 | 3 | 4 | 5 | 6 | 7;
 export const TOTAL_STEPS = 7;

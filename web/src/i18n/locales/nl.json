@@ -325,7 +325,11 @@
 			"emptyState": "Er zijn nog geen gebruiksgegevens. Het gebruik zal hier verschijnen zodra het verkeer stroomt.",
 			"viewDetailsFor": "Bekijk de details van {{label}}",
 			"deletedModelTooltip": "Dit model is niet meer verkrijgbaar - het is mogelijk verwijderd of de leverancier is geschrapt",
-			"reservedKeyTooltip": "Interne gereserveerde naam, geen sleutel die u zelf hebt aangemaakt – dit gebruik is afkomstig van Model Hotel's eigen \"{{name}}\"-routes"
+			"reservedKeyTooltip": "Interne gereserveerde naam, geen sleutel die u zelf hebt aangemaakt – dit gebruik is afkomstig van Model Hotel's eigen \"{{name}}\"-routes",
+			"tokens_one": "token",
+			"tokens_other": "tokens",
+			"requests_one": "aanvragen",
+			"requests_other": "verzoeken"
 		},
 		"providerLatency": {
 			"title": "Provider-latentie",

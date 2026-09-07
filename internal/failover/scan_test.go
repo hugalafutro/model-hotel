@@ -265,8 +265,13 @@ func TestScanFailoverGroups_ScanError(t *testing.T) {
 		t.Fatal("expected error, got nil")
 		return
 	}
-	if !strings.Contains(err.Error(), "scanFailoverGroups: row scan failed") {
+	if !strings.Contains(err.Error(), "scanFailoverGroups: ") {
 		t.Errorf("error message does not contain expected prefix: %v", err)
+	}
+	// The wrap is neutral so it does not label an unmarshal failure a scan
+	// failure; the inner error is what says which one happened.
+	if strings.Contains(err.Error(), "unmarshal") {
+		t.Errorf("scan failure reported as an unmarshal failure: %v", err)
 	}
 	if groups != nil {
 		t.Errorf("expected nil groups on error, got %d groups", len(groups))

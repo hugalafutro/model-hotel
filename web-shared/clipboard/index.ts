@@ -27,15 +27,23 @@ function legacyCopy(text: string): boolean {
  * false instead of throwing when it has not, so a caller that reports a failure
  * still can. The write runs inside the async body on purpose: a Clipboard API
  * that rejects or throws synchronously becomes a rejection the catch sees,
- * rather than escaping past it. Without the Clipboard API it falls back to the
- * legacy selection copy.
+ * rather than escaping past it. The legacy selection copy stands in both where
+ * the Clipboard API is absent and where its write is refused (an unfocused
+ * document, a denied permission), which is where a fallback is worth having.
  */
 export async function writeClipboard(text: string): Promise<boolean> {
 	try {
-		if (!navigator.clipboard?.writeText) return legacyCopy(text);
-		await navigator.clipboard.writeText(text);
+		if (navigator.clipboard?.writeText) {
+			await navigator.clipboard.writeText(text);
+			return true;
+		}
+	} catch {
+		// Fall through to the selection copy: a refused write is the case the
+		// fallback exists for.
+	}
+	try {
+		return legacyCopy(text);
 	} catch {
 		return false;
 	}
-	return true;
 }

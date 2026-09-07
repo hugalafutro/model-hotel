@@ -618,7 +618,9 @@ func TestRunStopsWhenBusClosed(t *testing.T) {
 // so it must not be retained.
 func TestSuppressedEvictsStaleStamps(t *testing.T) {
 	d := New(fakeCfg{}, http.DefaultClient)
-	d.cooldown = 50 * time.Millisecond
+	// Long enough that a scheduling stall cannot age the fresh stamp out; the
+	// test never waits on it.
+	d.cooldown = 2 * time.Second
 
 	d.mu.Lock()
 	for i := range 100 {

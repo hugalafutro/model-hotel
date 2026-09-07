@@ -560,12 +560,7 @@ func (h *Handler) finalizePassthroughLog(st *requestState, statusCode, attempt i
 	logData.durationMs = util.MillisSince(st.startTime)
 	logData.proxyOverheadMs = st.proxyOverhead
 	logData.parseMs = st.parseMs
-	logData.failoverLookupMs = st.timings.failoverLookupMs
-	logData.modelLookupMs = st.timings.modelLookupMs
-	logData.providerLookupMs = st.timings.providerLookupMs
-	logData.keyDecryptMs = st.timings.keyDecryptMs
-	logData.dialMs = st.timings.dialMs
-	logData.settingsReadMs = st.timings.settingsReadMs
+	logData.applyTimings(st.timings)
 	logData.responseHeaderMs = responseHeaderMs
 	logData.tokensPrompt = promptTokens
 	logData.tokensCompletion = completionTokens

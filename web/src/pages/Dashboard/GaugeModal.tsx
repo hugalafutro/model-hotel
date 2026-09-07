@@ -43,7 +43,7 @@ export function GaugeModal({
 		enabled: open,
 	});
 
-	const chartData = toChartPoints(tsData, range);
+	const chartData = toChartPoints(tsData, range, false);
 
 	if (!open) return null;
 

@@ -331,7 +331,13 @@
 			"emptyState": "עדיין אין נתוני שימוש. פירוט השימוש יופיע כאן ברגע שתתחיל תנועת הגולשים.",
 			"viewDetailsFor": "הצג פרטים על {{label}}",
 			"deletedModelTooltip": "הדגם אינו זמין עוד - ייתכן שהוא נמחק או שהספק שלו הוסר",
-			"reservedKeyTooltip": "שם שמור פנימי, לא מפתח שיצרת - שימוש זה מקורו בנתיבי \"{{name}}\" של Model Hotel עצמה"
+			"reservedKeyTooltip": "שם שמור פנימי, לא מפתח שיצרת - שימוש זה מקורו בנתיבי \"{{name}}\" של Model Hotel עצמה",
+			"tokens_one": "אסימון",
+			"tokens_two": "אסימונים",
+			"tokens_other": "אסימונים",
+			"requests_one": "בקשה",
+			"requests_two": "בקשות",
+			"requests_other": "בקשות"
 		},
 		"providerLatency": {
 			"title": "השהיית ספקים",

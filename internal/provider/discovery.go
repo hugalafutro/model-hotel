@@ -277,9 +277,11 @@ func (d *DiscoveryService) doDiscoveryRequestPrebuilt(ctx context.Context, req *
 	return d.doDiscoveryRequest(ctx, func() (*http.Request, error) { return req, nil })
 }
 
-// fetchURL makes an HTTP request with the given headers, reads the full
-// response body, and checks for a 200 OK status. Returns the response body
-// bytes on success. The caller is responsible for unmarshaling the result.
+// fetchURL makes an HTTP request with the given headers, reads the response
+// body up to discoveryBodyCap, and checks for a 200 OK status. Returns the
+// response body bytes on success; a listing past the cap fails with
+// httpx.ErrBodyTooLarge rather than being silently truncated. The caller is
+// responsible for unmarshaling the result.
 // Transient network errors and 429/5xx are retried via doDiscoveryRequest.
 func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, headers http.Header) ([]byte, error) {
 	// The last request built is kept for the scrub below: the credential is in
@@ -344,7 +346,8 @@ func bearerHeader(apiKey string) http.Header {
 // hostTypeRules maps provider hostnames to provider types: apex host names
 // plus suffixes for subdomain matches (api.foo.deepseek.com, custom.nano-gpt.com).
 // Every "api.<domain>" host is already covered by its ".<domain>" suffix, so
-// only the bare apex belongs in exact.
+// only the bare apex belongs in exact. cohere has no exact entry because
+// cohere.com and cohere.ai are the marketing sites, not API hosts.
 // Suffix matching (rather than strings.Contains) ensures
 // "https://my-proxy.deepseek.com" resolves to "deepseek" without substring
 // false positives. Providers needing path- or contains-based detection

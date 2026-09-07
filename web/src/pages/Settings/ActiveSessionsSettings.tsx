@@ -1,11 +1,15 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { deviceSummary } from "@web-shared/device";
-import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { AuthSession } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { useArmedConfirm } from "../../hooks/useArmedConfirm";
 import { formatRelativeTime } from "../../utils/format";
+
+// Arm key for the bulk button. Session ids are UUIDs, so it cannot collide
+// with a row.
+const ALL_SESSIONS = "all";
 
 /**
  * The identity's live sessions, one row per device, with a per-row sign-out
@@ -28,19 +32,10 @@ export function ActiveSessionsPanel() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
-	const [armedAll, setArmedAll] = useState(false);
-	// Row id whose sign-out is armed; a single slot, so arming one row (or the
-	// bulk button) disarms any other.
-	const [armedRow, setArmedRow] = useState<string | null>(null);
-
-	useEffect(() => {
-		if (!armedAll && armedRow === null) return;
-		const id = setTimeout(() => {
-			setArmedAll(false);
-			setArmedRow(null);
-		}, 3000);
-		return () => clearTimeout(id);
-	}, [armedAll, armedRow]);
+	// One arm slot for both buttons, keyed by row id (or ALL_SESSIONS for the
+	// bulk action), so arming one disarms any other.
+	const { armed, fire, disarm } = useArmedConfirm<string>();
+	const armedAll = armed === ALL_SESSIONS;
 
 	const sessionsQuery = useQuery({
 		queryKey: ["auth-sessions"],
@@ -53,7 +48,6 @@ export function ActiveSessionsPanel() {
 	const revokeAllMutation = useMutation({
 		mutationFn: () => api.auth.revokeOtherSessions(),
 		onSuccess: ({ revoked }) => {
-			setArmedAll(false);
 			invalidate();
 			toast(
 				revoked > 0
@@ -63,7 +57,6 @@ export function ActiveSessionsPanel() {
 			);
 		},
 		onError: (err: Error) => {
-			setArmedAll(false);
 			toast(err.message, "error");
 		},
 	});
@@ -71,12 +64,10 @@ export function ActiveSessionsPanel() {
 	const revokeOneMutation = useMutation({
 		mutationFn: (id: string) => api.auth.revokeSession(id),
 		onSuccess: () => {
-			setArmedRow(null);
 			invalidate();
 			toast(t("settings.activeSessions.signedOut", { count: 1 }), "success");
 		},
 		onError: (err: Error) => {
-			setArmedRow(null);
 			// The list may be stale (the session already gone, or it became the
 			// current one); refetch so the rows match the server again.
 			invalidate();
@@ -107,15 +98,8 @@ export function ActiveSessionsPanel() {
 						armedAll ? "ring-2 ring-red-400/50" : ""
 					}`}
 					disabled={revokeAllMutation.isPending}
-					onBlur={() => setArmedAll(false)}
-					onClick={() => {
-						if (!armedAll) {
-							setArmedAll(true);
-							setArmedRow(null);
-							return;
-						}
-						revokeAllMutation.mutate();
-					}}
+					onBlur={disarm}
+					onClick={() => fire(ALL_SESSIONS, () => revokeAllMutation.mutate())}
 				>
 					{armedAll
 						? t("settings.activeSessions.confirm")
@@ -139,20 +123,13 @@ export function ActiveSessionsPanel() {
 						<SessionRow
 							key={s.id}
 							session={s}
-							armed={armedRow === s.id}
+							armed={armed === s.id}
 							pending={
 								revokeOneMutation.isPending &&
 								revokeOneMutation.variables === s.id
 							}
-							onClick={() => {
-								if (armedRow !== s.id) {
-									setArmedRow(s.id);
-									setArmedAll(false);
-									return;
-								}
-								revokeOneMutation.mutate(s.id);
-							}}
-							onDisarm={() => setArmedRow(null)}
+							onClick={() => fire(s.id, () => revokeOneMutation.mutate(s.id))}
+							onDisarm={disarm}
 						/>
 					))}
 				</ul>

@@ -67,7 +67,7 @@ func TestFlattenText(t *testing.T) {
 	}{
 		{name: "absent field", raw: "", want: "", wantOK: false},
 		{name: "plain string", raw: `"hi"`, want: "hi", wantOK: true},
-		{name: "null is a string field", raw: `null`, want: "", wantOK: true},
+		{name: "null carries no text", raw: `null`, want: "", wantOK: false},
 		{name: "text parts join", raw: `[{"type":"text","text":"a"},{"type":"text","text":"b"}]`, want: "ab", wantOK: true},
 		{name: "untyped part counts as text", raw: `[{"text":"a"}]`, want: "a", wantOK: true},
 		{name: "non-text parts are dropped", raw: `[{"type":"image_url","image_url":{"url":"u"}},{"type":"text","text":"a"}]`, want: "a", wantOK: true},

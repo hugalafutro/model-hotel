@@ -235,7 +235,10 @@ func isDebugLogEnv() bool {
 // empty value) so the caller can apply its own default. It lives here because
 // debuglog is the leaf package both config and the binaries already import.
 func EnvBool(raw string) (value, ok bool) {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
+	// No TrimSpace: a padded value is not recognised, so a security knob read
+	// through config.BoolEnv warns and keeps its safer default instead of
+	// taking effect.
+	switch strings.ToLower(raw) {
 	case "true", "1", "yes":
 		return true, true
 	case "false", "0", "no":

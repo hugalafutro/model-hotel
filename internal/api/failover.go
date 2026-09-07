@@ -193,6 +193,7 @@ func (h *FailoverHandler) getTokenCounts(ctx context.Context) map[string]int {
 		return nil
 	}); err != nil {
 		debuglog.Warn("failover: token totals unavailable", "error", err)
+		return make(map[string]int)
 	}
 	return counts
 }

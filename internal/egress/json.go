@@ -56,6 +56,10 @@ func DecodeStop(raw json.RawMessage) []string {
 // type, or type "text"; every other part carries something text cannot hold).
 // ok is false when raw is neither, which includes an absent or null field.
 func FlattenText(raw json.RawMessage) (string, bool) {
+	// Checked before AsJSONString, which reads null as the empty string.
+	if len(raw) == 0 || string(raw) == "null" {
+		return "", false
+	}
 	if s, ok := AsJSONString(raw); ok {
 		return s, true
 	}

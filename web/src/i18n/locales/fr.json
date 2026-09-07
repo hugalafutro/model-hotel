@@ -331,7 +331,13 @@
 			"emptyState": "Aucune donnée d'utilisation pour le moment. La ventilation de l'utilisation apparaîtra ici une fois le trafic écoulé.",
 			"viewDetailsFor": "Voir les détails pour {{label}}",
 			"deletedModelTooltip": "Ce modèle n'est plus disponible - il a peut-être été supprimé ou son fournisseur a été retiré",
-			"reservedKeyTooltip": "Nom réservé en interne, il ne s'agit pas d'une clé que vous avez créée - cette utilisation provient des routes « {{name}} » propres à Model Hotel"
+			"reservedKeyTooltip": "Nom réservé en interne, il ne s'agit pas d'une clé que vous avez créée - cette utilisation provient des routes « {{name}} » propres à Model Hotel",
+			"tokens_one": "jeton",
+			"tokens_many": "jetons",
+			"tokens_other": "jetons",
+			"requests_one": "requête",
+			"requests_many": "requêtes",
+			"requests_other": "requêtes"
 		},
 		"providerLatency": {
 			"title": "Latence des fournisseurs",

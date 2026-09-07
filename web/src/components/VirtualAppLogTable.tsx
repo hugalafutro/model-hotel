@@ -63,6 +63,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 		fetchNewer: onFetchNewer,
 		fetchOlder: onFetchOlder,
 		estimateSize: 48,
+		pinTop: true,
 		// App-log rows can arrive without an id, so fall back to the fields that
 		// together identify one.
 		getItemKey: (entry) =>
@@ -95,36 +96,41 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 						<col className="w-24" />
 						<col />
 					</colgroup>
-					<thead className="sticky top-0 z-10">
-						<tr>
-							<th
-								className={`${HEADER_BASE} cursor-pointer`}
-								onClick={onSortToggle}
-								title={t("components.virtualAppLogTable.timeDate")}
-							>
-								{t("components.virtualAppLogTable.timeDate")}{" "}
-								{sortDir === "desc" ? "↓" : "↑"}
-							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualAppLogTable.level")}
-							>
-								{t("components.virtualAppLogTable.level")}
-							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualAppLogTable.source")}
-							>
-								{t("components.virtualAppLogTable.source")}
-							</th>
-							<th
-								className={HEADER_BASE}
-								title={t("components.virtualAppLogTable.message")}
-							>
-								{t("components.virtualAppLogTable.message")}
-							</th>
-						</tr>
-					</thead>
+					{/* No header over an empty table: with nothing to sort or line
+					    up, the column strip reads as a broken load rather than an
+					    empty result. */}
+					{entries.length > 0 && (
+						<thead className="sticky top-0 z-10">
+							<tr>
+								<th
+									className={`${HEADER_BASE} cursor-pointer`}
+									onClick={onSortToggle}
+									title={t("components.virtualAppLogTable.timeDate")}
+								>
+									{t("components.virtualAppLogTable.timeDate")}{" "}
+									{sortDir === "desc" ? "↓" : "↑"}
+								</th>
+								<th
+									className={HEADER_BASE}
+									title={t("components.virtualAppLogTable.level")}
+								>
+									{t("components.virtualAppLogTable.level")}
+								</th>
+								<th
+									className={HEADER_BASE}
+									title={t("components.virtualAppLogTable.source")}
+								>
+									{t("components.virtualAppLogTable.source")}
+								</th>
+								<th
+									className={HEADER_BASE}
+									title={t("components.virtualAppLogTable.message")}
+								>
+									{t("components.virtualAppLogTable.message")}
+								</th>
+							</tr>
+						</thead>
+					)}
 					<tbody>
 						{entries.length === 0 && (
 							<tr>

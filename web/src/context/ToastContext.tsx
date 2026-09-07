@@ -101,7 +101,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 			// POSITION_CLASSES names every valid position, so it is also the
 			// membership test a stored value has to pass.
 			deserialize: (v) =>
-				v in POSITION_CLASSES ? (v as ToastPosition) : "bottom-center",
+				Object.hasOwn(POSITION_CLASSES, v)
+					? (v as ToastPosition)
+					: "bottom-center",
 		},
 	);
 

@@ -320,8 +320,8 @@ func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 	for rows.Next() {
 		fg, err := scanFailoverGroup(rows)
 		if err != nil {
-			debuglog.Warn("failover: row scan failed", "error", err)
-			return nil, fmt.Errorf("scanFailoverGroups: row scan failed: %w", err)
+			debuglog.Warn("failover: row read failed", "error", err)
+			return nil, fmt.Errorf("scanFailoverGroups: %w", err)
 		}
 		groups = append(groups, fg)
 	}

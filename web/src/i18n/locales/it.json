@@ -331,7 +331,13 @@
 			"emptyState": "Ancora nessun dato di utilizzo. La ripartizione dell'utilizzo apparirà qui una volta che il traffico inizierà a fluire.",
 			"viewDetailsFor": "Visualizza i dettagli per {{label}}",
 			"deletedModelTooltip": "Il modello non è più disponibile: potrebbe essere stato eliminato oppure il fornitore è stato rimosso",
-			"reservedKeyTooltip": "Nome riservato interno, non una chiave creata dall'utente - questo utilizzo deriva dalle rotte \"{{name}}\" di Model Hotel"
+			"reservedKeyTooltip": "Nome riservato interno, non una chiave creata dall'utente - questo utilizzo deriva dalle rotte \"{{name}}\" di Model Hotel",
+			"tokens_one": "token",
+			"tokens_many": "token",
+			"tokens_other": "token",
+			"requests_one": "richiesta",
+			"requests_many": "richieste",
+			"requests_other": "richieste"
 		},
 		"providerLatency": {
 			"title": "Latenza dei provider",

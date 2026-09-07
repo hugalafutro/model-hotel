@@ -19,6 +19,7 @@ export function useVirtualRows<T extends { id?: string }>({
 	fetchOlder,
 	estimateSize = 45,
 	getItemKey,
+	pinTop = false,
 }: {
 	entries: T[];
 	hasBefore: boolean;
@@ -31,6 +32,13 @@ export function useVirtualRows<T extends { id?: string }>({
 	estimateSize?: number;
 	/** Row identity, for lists whose rows carry no id of their own. */
 	getItemKey?: (item: T, index: number) => string | number;
+	/**
+	 * For a list that follows a live tail: a scroller parked at the top skips
+	 * the prepend correction so the rows that just arrived stay in view. Lists
+	 * whose top is a normal reading position leave this off and always correct,
+	 * so the row being read holds its place.
+	 */
+	pinTop?: boolean;
 }) {
 	"use no memo";
 	// TanStack Virtual hands back mutable functions and a measurements cache
@@ -99,10 +107,7 @@ export function useVirtualRows<T extends { id?: string }>({
 					first && oldFirst
 						? oldFirst.start - first.start
 						: newItemCount * estimateSize;
-				// A list parked at the top is following the live tail: pushing
-				// scrollTop down there would carry the rows that just arrived
-				// straight back out of view, so leave the top pinned.
-				if (scrollEl.scrollTop > 1) {
+				if (!pinTop || scrollEl.scrollTop > 1) {
 					scrollEl.scrollTop += added;
 				}
 				prevEntriesRef.current = entries;
@@ -111,7 +116,7 @@ export function useVirtualRows<T extends { id?: string }>({
 			}
 		}
 		prevEntriesRef.current = entries;
-	}, [entries, virtualizer, scrollEl, estimateSize, getItemKey]);
+	}, [entries, virtualizer, scrollEl, estimateSize, getItemKey, pinTop]);
 
 	const [paddingTop, paddingBottom] =
 		virtualItems.length > 0

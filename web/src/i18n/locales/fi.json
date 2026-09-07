@@ -325,7 +325,11 @@
 			"emptyState": "Käyttötietoja ei ole vielä. Käytön jakautuminen näkyy tässä liikennevirtojen jälkeen.",
 			"viewDetailsFor": "Näytä kohteen {{label}} tiedot",
 			"deletedModelTooltip": "Mallia ei ole enää saatavilla – se on mahdollisesti poistettu tai sen tarjoaja on poistettu",
-			"reservedKeyTooltip": "Sisäinen varattu nimi, ei käyttäjän luoma avain – tämä käyttö on peräisin Model Hotelin omista \"{{name}}\"-reiteistä"
+			"reservedKeyTooltip": "Sisäinen varattu nimi, ei käyttäjän luoma avain – tämä käyttö on peräisin Model Hotelin omista \"{{name}}\"-reiteistä",
+			"tokens_one": "token",
+			"tokens_other": "tokenit",
+			"requests_one": "pyyntö",
+			"requests_other": "pyynnöt"
 		},
 		"providerLatency": {
 			"title": "Tarjoajan viive",

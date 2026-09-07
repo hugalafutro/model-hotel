@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -156,7 +156,7 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				if userRes != nil {
 					userRes.CancelAt(now)
 				}
-				w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(entry.limiter)))
+				httpx.SetRetryAfter(w, time.Duration(tpmRetryAfter(entry.limiter))*time.Second)
 				util.WriteOpenAIError(w, "token rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
@@ -238,7 +238,7 @@ func (l *TPMLimiter) admitUserTPM(ctx context.Context, w http.ResponseWriter, no
 	userRes := userEntry.limiter.ReserveN(now, 1)
 	if !userRes.OK() || userRes.DelayFrom(now) > 0 {
 		userRes.CancelAt(now)
-		w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(userEntry.limiter)))
+		httpx.SetRetryAfter(w, time.Duration(tpmRetryAfter(userEntry.limiter))*time.Second)
 		util.WriteOpenAIError(w, "user token rate limit exceeded", http.StatusTooManyRequests)
 		return nil, false
 	}

@@ -337,7 +337,15 @@
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o využívaní. Rozpis využívania sa tu zobrazí, akonáhle začne prúdiť prevádzka.",
 			"viewDetailsFor": "Zobraziť podrobnosti o {{label}}",
 			"deletedModelTooltip": "Tento model už nie je k dispozícii – mohol byť vyradený alebo bol zrušený jeho dodávateľ",
-			"reservedKeyTooltip": "Interné vyhradené meno, nie kľúč, ktorý ste vytvorili – toto použitie pochádza z vlastných smerov „{{name}}“ služby Model Hotel."
+			"reservedKeyTooltip": "Interné vyhradené meno, nie kľúč, ktorý ste vytvorili – toto použitie pochádza z vlastných smerov „{{name}}“ služby Model Hotel.",
+			"tokens_one": "token",
+			"tokens_few": "tokeny",
+			"tokens_many": "tokeny",
+			"tokens_other": "tokeny",
+			"requests_one": "žiadosť",
+			"requests_few": "žiadosti",
+			"requests_many": "žiadosti",
+			"requests_other": "žiadosti"
 		},
 		"providerLatency": {
 			"title": "Latencia poskytovateľov",

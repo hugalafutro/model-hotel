@@ -20,9 +20,10 @@ import (
 //     allowed: Front Desk members live on the internal network by design, unlike
 //     the proxy SafeDialer (util.IsBlockedIP) which blocks them for outbound
 //     provider calls.
-//   - a redirect policy that refuses cross-host redirects, so a member endpoint
-//     cannot bounce a probe (carrying the member's admin Bearer token) to a
-//     different host.
+//   - a redirect policy that refuses cross-host redirects, https->http
+//     downgrades, a chain longer than netguard's 10-hop cap, and a hop whose
+//     literal host is a blocked address, so a member endpoint cannot bounce a
+//     probe (carrying the member's admin Bearer token) somewhere else.
 func newProbeClient(timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{
 		Timeout:   timeout,

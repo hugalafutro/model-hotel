@@ -174,10 +174,12 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			// actions happened. The insert runs on a background goroutine, so leaving
 			// created_at to the DB default would let two rapid mutations land out of
 			// request order.
-			CreatedAt:  time.Now(),
-			Actor:      actor,
-			ActorRole:  role,
-			Method:     r.Method,
+			CreatedAt: time.Now(),
+			Actor:     actor,
+			ActorRole: role,
+			// Normalized: filter() binds an upper-cased method, so a row stored
+			// with the method spelled any other way could never be matched.
+			Method:     strings.ToUpper(r.Method),
 			Route:      route,
 			Path:       r.URL.Path,
 			EntityID:   entityID,

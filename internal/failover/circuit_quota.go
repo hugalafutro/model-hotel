@@ -57,7 +57,8 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 			source = pinSourceAdvisor
 		}
 	}
-	// Floor: pinning must never make the breaker more aggressive.
+	// Ceiling, floor, then jitter: pinning must never make the breaker more
+	// aggressive than the cooldown it would have used unpinned.
 	d, ok := clampPin(d, cb.quotaPinMax(), cb.unpinnedCooldownWith(c, cb.cooldowns()))
 	if !ok {
 		return

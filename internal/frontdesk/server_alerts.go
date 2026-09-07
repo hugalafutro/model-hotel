@@ -167,22 +167,19 @@ func (s *Server) alertTargets(w http.ResponseWriter, r *http.Request) {
 }
 
 // alertTargetsPlain decrypts the stored Apprise destinations, returning "" when
-// none are stored and errUndecryptableTarget when the ciphertext cannot be read
-// (a rotated master key, a corrupted value). Each caller keeps its own status
-// mapping; the raw decrypt error is never surfaced.
+// none are stored and an error carrying alert.MsgUndecryptable when the
+// ciphertext cannot be read (a rotated master key, a corrupted value). Each
+// caller keeps its own status mapping; the raw decrypt error is never surfaced.
 func (s *Server) alertTargetsPlain(set Settings) (string, error) {
 	if set.AlertAppriseTargets == "" {
 		return "", nil
 	}
 	plain, err := auth.DecryptString(set.AlertAppriseTargets, s.masterKey)
 	if err != nil {
-		return "", errUndecryptableTarget
+		return "", errors.New("frontdesk: " + alert.MsgUndecryptable)
 	}
 	return plain, nil
 }
-
-// errUndecryptableTarget is a stored Apprise target that cannot be decrypted.
-var errUndecryptableTarget = errors.New("frontdesk: " + alert.MsgUndecryptable)
 
 // alertEventState is one catalog event plus whether Front Desk currently alerts
 // on it. It is the wire shape for the operator-facing selection endpoints so

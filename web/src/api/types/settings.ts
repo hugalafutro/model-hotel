@@ -40,19 +40,8 @@ export interface AlertEventDef {
 	severity: "success" | "info" | "warning" | "error";
 	defaultOn: boolean;
 }
-// AlertStatus reports whether the configured apprise-api container is reachable,
-// served by GET /api/alert/status and POST /api/alert/probe. `configured` is
-// false when no URL is set; `reachable` means the host answered; `healthy`
-// means GET /status returned 2xx. `reason` is a stable machine-readable code
-// (not_configured, invalid_url, unreachable, unhealthy) the wizard can branch
-// on instead of matching `detail`'s English text.
-export interface AlertStatus {
-	configured: boolean;
-	reachable: boolean;
-	healthy: boolean;
-	reason?: string;
-	detail?: string;
-}
+// AlertStatus is declared once beside the wizard machine that reads it.
+export type { AlertStatus } from "@web-shared/alerts/status";
 // AlertTargets is the saved destination list, served decrypted by
 // GET /api/alert/targets for the admin UI's readable list.
 export interface AlertTargets {

@@ -465,3 +465,21 @@ func TestBuildUpstreamBody_NullBodyIsForwardedUnchanged(t *testing.T) {
 		}
 	}
 }
+
+// A body that is one JSON object followed by anything else is not rewritable:
+// the rewriters re-marshal the first value, which would drop the rest without
+// saying so. It is forwarded exactly as it arrived, like any other unparseable
+// body, so the provider decides what to make of it.
+func TestBuildUpstreamBody_TrailingContentForwardsVerbatim(t *testing.T) {
+	t.Parallel()
+
+	for _, body := range []string{
+		`{"model":"old","messages":[]} trailing`,
+		`{"model":"old","messages":[]}{"model":"second"}`,
+	} {
+		out := BuildUpstreamBody([]byte(body), "openai", "new", "old", false, &sync.Map{}, &sync.Map{}, nil, "openai")
+		if string(out) != body {
+			t.Errorf("BuildUpstreamBody(%q) = %q, want it forwarded verbatim", body, out)
+		}
+	}
+}

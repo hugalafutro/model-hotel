@@ -740,7 +740,7 @@ func TestValidateProviderURL_AllowListMultipleEntries(t *testing.T) {
 // envNumber (int)
 // ---------------------------------------------------------------------------
 
-func TestGetIntEnvAsInt_ValidValue(t *testing.T) {
+func TestEnvNumberInt_ValidValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT", "42")
 	defer os.Unsetenv("TEST_INTASINT")
 	result := envNumberInt("TEST_INTASINT", 0)
@@ -749,7 +749,7 @@ func TestGetIntEnvAsInt_ValidValue(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt_Empty(t *testing.T) {
+func TestEnvNumberInt_Empty(t *testing.T) {
 	os.Unsetenv("TEST_INTASINT_MISSING")
 	result := envNumberInt("TEST_INTASINT_MISSING", 99)
 	if result != 99 {
@@ -757,7 +757,7 @@ func TestGetIntEnvAsInt_Empty(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt_InvalidString(t *testing.T) {
+func TestEnvNumberInt_InvalidString(t *testing.T) {
 	os.Setenv("TEST_INTASINT", "not-a-number")
 	defer os.Unsetenv("TEST_INTASINT")
 	result := envNumberInt("TEST_INTASINT", 50)
@@ -766,7 +766,7 @@ func TestGetIntEnvAsInt_InvalidString(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt_NegativeValue(t *testing.T) {
+func TestEnvNumberInt_NegativeValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT", "-5")
 	defer os.Unsetenv("TEST_INTASINT")
 	result := envNumberInt("TEST_INTASINT", 0)
@@ -775,7 +775,7 @@ func TestGetIntEnvAsInt_NegativeValue(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt_ZeroValue(t *testing.T) {
+func TestEnvNumberInt_ZeroValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT", "0")
 	defer os.Unsetenv("TEST_INTASINT")
 	result := envNumberInt("TEST_INTASINT", 10)
@@ -788,7 +788,7 @@ func TestGetIntEnvAsInt_ZeroValue(t *testing.T) {
 // envNumber (int32)
 // ---------------------------------------------------------------------------
 
-func TestGetIntEnvAsInt32_ValidValue(t *testing.T) {
+func TestEnvNumber32_ValidValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "42")
 	defer os.Unsetenv("TEST_INTASINT32")
 	result := envNumber32("TEST_INTASINT32", 0)
@@ -797,7 +797,7 @@ func TestGetIntEnvAsInt32_ValidValue(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt32_Empty(t *testing.T) {
+func TestEnvNumber32_Empty(t *testing.T) {
 	os.Unsetenv("TEST_INTASINT32_MISSING")
 	result := envNumber32("TEST_INTASINT32_MISSING", 99)
 	if result != 99 {
@@ -805,7 +805,7 @@ func TestGetIntEnvAsInt32_Empty(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt32_InvalidString(t *testing.T) {
+func TestEnvNumber32_InvalidString(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "not-a-number")
 	defer os.Unsetenv("TEST_INTASINT32")
 	result := envNumber32("TEST_INTASINT32", 50)
@@ -814,7 +814,7 @@ func TestGetIntEnvAsInt32_InvalidString(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt32_NegativeValue(t *testing.T) {
+func TestEnvNumber32_NegativeValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "-5")
 	defer os.Unsetenv("TEST_INTASINT32")
 	result := envNumber32("TEST_INTASINT32", 0)
@@ -823,7 +823,7 @@ func TestGetIntEnvAsInt32_NegativeValue(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt32_Overflow(t *testing.T) {
+func TestEnvNumber32_Overflow(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "9999999999")
 	defer os.Unsetenv("TEST_INTASINT32")
 	result := envNumber32("TEST_INTASINT32", 10)
@@ -832,7 +832,7 @@ func TestGetIntEnvAsInt32_Overflow(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvAsInt32_ZeroValue(t *testing.T) {
+func TestEnvNumber32_ZeroValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "0")
 	defer os.Unsetenv("TEST_INTASINT32")
 	result := envNumber32("TEST_INTASINT32", 10)
@@ -845,7 +845,7 @@ func TestGetIntEnvAsInt32_ZeroValue(t *testing.T) {
 // BoolEnv
 // ---------------------------------------------------------------------------
 
-func TestGetBoolEnvWithDefault_TrueValues(t *testing.T) {
+func TestBoolEnv_TrueValues(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
@@ -870,7 +870,7 @@ func TestGetBoolEnvWithDefault_TrueValues(t *testing.T) {
 	}
 }
 
-func TestGetBoolEnvWithDefault_FalseValues(t *testing.T) {
+func TestBoolEnv_FalseValues(t *testing.T) {
 	tests := []struct {
 		name  string
 		value string
@@ -893,7 +893,7 @@ func TestGetBoolEnvWithDefault_FalseValues(t *testing.T) {
 	}
 }
 
-func TestGetBoolEnvWithDefault_DefaultOnEmpty(t *testing.T) {
+func TestBoolEnv_DefaultOnEmpty(t *testing.T) {
 	os.Unsetenv("TEST_BOOL_MISSING")
 	result := BoolEnv("TEST_BOOL_MISSING", true)
 	if result != true {
@@ -906,7 +906,7 @@ func TestGetBoolEnvWithDefault_DefaultOnEmpty(t *testing.T) {
 	}
 }
 
-func TestGetBoolEnvWithDefault_DefaultOnGarbage(t *testing.T) {
+func TestBoolEnv_DefaultOnGarbage(t *testing.T) {
 	os.Setenv("TEST_BOOL", "maybe")
 	defer os.Unsetenv("TEST_BOOL")
 	result := BoolEnv("TEST_BOOL", true)
@@ -915,11 +915,25 @@ func TestGetBoolEnvWithDefault_DefaultOnGarbage(t *testing.T) {
 	}
 }
 
+// A padded value is not a recognized boolean: security knobs like
+// ALLOW_HTTP_PROVIDERS and DEMO_SHOW_TOKEN keep their safer default rather than
+// being switched on by stray whitespace in a compose file.
+func TestBoolEnv_PaddedValueKeepsDefault(t *testing.T) {
+	for _, raw := range []string{" true ", "\ttrue", "true\n", " 1"} {
+		os.Setenv("TEST_BOOL", raw)
+		if BoolEnv("TEST_BOOL", false) {
+			os.Unsetenv("TEST_BOOL")
+			t.Errorf("BoolEnv(%q) = true, want the false default", raw)
+		}
+		os.Unsetenv("TEST_BOOL")
+	}
+}
+
 // ---------------------------------------------------------------------------
 // envNumber (int64)
 // ---------------------------------------------------------------------------
 
-func TestGetIntEnvWithDefault_ValidInt(t *testing.T) {
+func TestEnvNumber64_ValidInt(t *testing.T) {
 	os.Setenv("TEST_INT", "42")
 	defer os.Unsetenv("TEST_INT")
 	result := envNumber64("TEST_INT", 0)
@@ -928,7 +942,7 @@ func TestGetIntEnvWithDefault_ValidInt(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvWithDefault_Empty(t *testing.T) {
+func TestEnvNumber64_Empty(t *testing.T) {
 	os.Unsetenv("TEST_INT_MISSING")
 	result := envNumber64("TEST_INT_MISSING", 99)
 	if result != 99 {
@@ -936,7 +950,7 @@ func TestGetIntEnvWithDefault_Empty(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvWithDefault_InvalidString(t *testing.T) {
+func TestEnvNumber64_InvalidString(t *testing.T) {
 	os.Setenv("TEST_INT", "not-a-number")
 	defer os.Unsetenv("TEST_INT")
 	result := envNumber64("TEST_INT", 50)
@@ -945,7 +959,7 @@ func TestGetIntEnvWithDefault_InvalidString(t *testing.T) {
 	}
 }
 
-func TestGetIntEnvWithDefault_NegativeValue(t *testing.T) {
+func TestEnvNumber64_NegativeValue(t *testing.T) {
 	os.Setenv("TEST_INT", "-5")
 	defer os.Unsetenv("TEST_INT")
 	result := envNumber64("TEST_INT", 0)
@@ -958,7 +972,7 @@ func TestGetIntEnvWithDefault_NegativeValue(t *testing.T) {
 // envNumber (float64)
 // ---------------------------------------------------------------------------
 
-func TestGetFloatEnvWithDefault_ValidFloat(t *testing.T) {
+func TestEnvNumberFloat_ValidFloat(t *testing.T) {
 	os.Setenv("TEST_FLOAT", "3.14")
 	defer os.Unsetenv("TEST_FLOAT")
 	result := envNumberFloat("TEST_FLOAT", 0.0)
@@ -967,7 +981,7 @@ func TestGetFloatEnvWithDefault_ValidFloat(t *testing.T) {
 	}
 }
 
-func TestGetFloatEnvWithDefault_Empty(t *testing.T) {
+func TestEnvNumberFloat_Empty(t *testing.T) {
 	os.Unsetenv("TEST_FLOAT_MISSING")
 	result := envNumberFloat("TEST_FLOAT_MISSING", 2.5)
 	if result != 2.5 {
@@ -975,7 +989,7 @@ func TestGetFloatEnvWithDefault_Empty(t *testing.T) {
 	}
 }
 
-func TestGetFloatEnvWithDefault_InvalidString(t *testing.T) {
+func TestEnvNumberFloat_InvalidString(t *testing.T) {
 	os.Setenv("TEST_FLOAT", "abc")
 	defer os.Unsetenv("TEST_FLOAT")
 	result := envNumberFloat("TEST_FLOAT", 1.0)

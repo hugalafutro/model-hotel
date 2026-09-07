@@ -1,5 +1,4 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Database } from "@/lib/icons";
 import { api } from "../../api/client";
@@ -10,7 +9,11 @@ import { SettingsSlider } from "../../components/SettingsSlider";
 import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
-import { storedBool, useLocalStorage } from "../../hooks/useLocalStorage";
+import {
+	storedBool,
+	storedNumber,
+	useLocalStorage,
+} from "../../hooks/useLocalStorage";
 import {
 	clearArenaHistory,
 	getArenaHistoryCount,
@@ -57,7 +60,7 @@ export function DataStorageSettings({
 	const [refreshSec, setRefreshSec] = useLocalStorage(
 		"dashboardRefreshSec",
 		30,
-		{ deserialize: Number },
+		{ deserialize: storedNumber },
 	);
 
 	const handleDashboardRefreshChange = (val: number) => {
@@ -98,11 +101,6 @@ export function DataStorageSettings({
 			set: setPersistConversation,
 		},
 	];
-
-	// Read once at mount and again after a clear, rather than rescanning
-	// localStorage twice per render for the description and the disabled flag.
-	const [cacheCount, setCacheCount] = useState(getProviderCacheCount);
-	const [historyCount, setHistoryCount] = useState(getArenaHistoryCount);
 
 	const requestsPurge = usePurgeState();
 	const appLogsPurge = usePurgeState();
@@ -231,7 +229,7 @@ export function DataStorageSettings({
 									</p>
 									<p className="text-gray-500 text-xs mt-0.5">
 										{t("settings.dataStorage.providerQuotaCacheDescription", {
-											count: cacheCount,
+											count: getProviderCacheCount(),
 										})}
 									</p>
 								</div>
@@ -240,7 +238,6 @@ export function DataStorageSettings({
 									onClick={() => {
 										if (confirm(t("settings.dataStorage.clearCacheConfirm"))) {
 											clearProviderCache();
-											setCacheCount(0);
 											toast(
 												t("settings.dataStorage.clearCacheCleared"),
 												"info",
@@ -248,7 +245,7 @@ export function DataStorageSettings({
 										}
 									}}
 									className="ui-btn ui-btn-danger"
-									disabled={cacheCount === 0}
+									disabled={getProviderCacheCount() === 0}
 									title={t("settings.dataStorage.clearCache.tooltip")}
 								>
 									{t("settings.dataStorage.clearCache")}
@@ -417,7 +414,7 @@ export function DataStorageSettings({
 									</p>
 									<p className="text-gray-500 text-xs mt-0.5">
 										{t("settings.dataStorage.clearHistoryDescription", {
-											count: historyCount,
+											count: getArenaHistoryCount(),
 										})}
 									</p>
 								</div>
@@ -428,7 +425,6 @@ export function DataStorageSettings({
 											confirm(t("settings.dataStorage.clearHistoryConfirm"))
 										) {
 											clearArenaHistory();
-											setHistoryCount(0);
 											toast(
 												t("settings.dataStorage.clearHistoryAllCleared"),
 												"info",
@@ -436,7 +432,7 @@ export function DataStorageSettings({
 										}
 									}}
 									className="ui-btn ui-btn-danger"
-									disabled={historyCount === 0}
+									disabled={getArenaHistoryCount() === 0}
 									title={t("settings.dataStorage.clearHistoryAll.tooltip")}
 								>
 									{t("settings.dataStorage.clearHistoryAll")}

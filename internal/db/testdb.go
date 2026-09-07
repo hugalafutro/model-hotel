@@ -66,15 +66,15 @@ func testDBName(baseDBName, pkgName string) string {
 	return name + "_" + b.String()
 }
 
-// testDBTarget resolves the maintenance URL and the per-package database name
-// both entry points work against.
-func testDBTarget(pkgName string) (baseURL, dbName string, err error) {
-	baseURL = buildTestDBURL()
-	parsed, err := url.Parse(baseURL)
+// testDBTarget resolves the parsed maintenance URL and the per-package database
+// name both entry points work against. The URL comes back parsed so the caller
+// that rewrites its path does not parse it a second time.
+func testDBTarget(pkgName string) (base *url.URL, dbName string, err error) {
+	parsed, err := url.Parse(buildTestDBURL())
 	if err != nil {
-		return "", "", fmt.Errorf("failed to parse TEST_DATABASE_URL: %w", err)
+		return nil, "", fmt.Errorf("failed to parse TEST_DATABASE_URL: %w", err)
 	}
-	return baseURL, testDBName(strings.TrimPrefix(parsed.Path, "/"), pkgName), nil
+	return parsed, testDBName(strings.TrimPrefix(parsed.Path, "/"), pkgName), nil
 }
 
 // terminateBackends disconnects every session on dbName except this one, so a
@@ -97,14 +97,14 @@ func terminateBackends(ctx context.Context, pool *pgxpool.Pool, dbName string) {
 // The caller should defer a call to CleanupTestDB to drop the database after
 // tests complete, though the next test run will DROP+CREATE anyway.
 func SetupTestDB(pkgName string) (string, error) {
-	baseURL, newDBName, err := testDBTarget(pkgName)
+	base, newDBName, err := testDBTarget(pkgName)
 	if err != nil {
 		return "", err
 	}
 
 	// Connect to the "maintenance" database (the original one) to CREATE/DROP.
 	ctx := context.Background()
-	maintPool, err := pgxpool.New(ctx, baseURL)
+	maintPool, err := pgxpool.New(ctx, base.String())
 	if err != nil {
 		return "", fmt.Errorf("failed to connect to maintenance DB: %w", err)
 	}
@@ -120,25 +120,21 @@ func SetupTestDB(pkgName string) (string, error) {
 		return "", fmt.Errorf("failed to create test database %s: %w", newDBName, err)
 	}
 
-	// Build the new URL pointing to the per-package database.
-	parsed, err := url.Parse(baseURL)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse TEST_DATABASE_URL: %w", err)
-	}
-	parsed.Path = "/" + newDBName
-	return parsed.String(), nil
+	// Point the URL at the per-package database.
+	base.Path = "/" + newDBName
+	return base.String(), nil
 }
 
 // CleanupTestDB drops the per-package test database. Call this in a defer
 // from TestMain after tests finish.
 func CleanupTestDB(pkgName string) {
-	baseURL, newDBName, err := testDBTarget(pkgName)
+	base, newDBName, err := testDBTarget(pkgName)
 	if err != nil {
 		return
 	}
 
 	ctx := context.Background()
-	maintPool, err := pgxpool.New(ctx, baseURL)
+	maintPool, err := pgxpool.New(ctx, base.String())
 	if err != nil {
 		return
 	}

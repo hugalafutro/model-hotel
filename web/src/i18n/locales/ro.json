@@ -331,7 +331,13 @@
 			"emptyState": "Nu există încă date de utilizare. Defalcarea utilizării va apărea aici odată cu traficul de trafic.",
 			"viewDetailsFor": "Vezi detalii pentru {{label}}",
 			"deletedModelTooltip": "Modelul nu mai este disponibil - este posibil să fi fost eliminat sau furnizorul său să fi fost eliminat",
-			"reservedKeyTooltip": "Nume rezervat intern, nu o cheie creată de dvs. – această utilizare provine din rutele „{{name}}” proprii ale Model Hotel"
+			"reservedKeyTooltip": "Nume rezervat intern, nu o cheie creată de dvs. – această utilizare provine din rutele „{{name}}” proprii ale Model Hotel",
+			"tokens_one": "token",
+			"tokens_few": "token-uri",
+			"tokens_other": "token-uri",
+			"requests_one": "solicitare",
+			"requests_few": "cereri",
+			"requests_other": "cereri"
 		},
 		"providerLatency": {
 			"title": "Latența furnizorilor",

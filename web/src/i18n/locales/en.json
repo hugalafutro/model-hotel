@@ -325,7 +325,11 @@
 			"emptyState": "No usage data yet. Usage breakdown will appear here once traffic flows.",
 			"viewDetailsFor": "View details for {{label}}",
 			"deletedModelTooltip": "Model no longer available - it may have been deleted or its provider was removed",
-			"reservedKeyTooltip": "Internal reserved name, not a key you created - this usage comes from Model Hotel's own \"{{name}}\" routes"
+			"reservedKeyTooltip": "Internal reserved name, not a key you created - this usage comes from Model Hotel's own \"{{name}}\" routes",
+			"tokens_one": "token",
+			"tokens_other": "tokens",
+			"requests_one": "request",
+			"requests_other": "requests"
 		},
 		"providerLatency": {
 			"title": "Provider Latency",

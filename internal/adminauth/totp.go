@@ -151,6 +151,10 @@ type infoResponse struct {
 // enrollment. Admin/session gated (unlike Status) since it exposes recovery
 // state; the settings panel reads it once rather than polling it.
 func (h *TotpHandler) Info(w http.ResponseWriter, r *http.Request) {
+	if h.totpRepo == nil {
+		writeJSON(w, infoResponse{})
+		return
+	}
 	si, err := h.totpRepo.Info(r.Context())
 	if err != nil {
 		respondError(w, "failed to read TOTP info", err, http.StatusInternalServerError)
@@ -168,12 +172,15 @@ func (h *TotpHandler) Info(w http.ResponseWriter, r *http.Request) {
 
 // cachedEnabledAt returns the RFC3339 confirmation time, reading the DB at most
 // once per enable: the value never changes while TOTP stays enabled, so it is
-// memoized and cleared on enable/disable. Returns "" when unknown (not enabled,
-// or a transient read error), in which case the field is omitted and the next
-// call retries rather than caching the miss.
+// memoized and cleared on enable/disable. Returns "" when unknown (no repo, not
+// enabled, or a transient read error), in which case the field is omitted and
+// the next call retries rather than caching the miss.
 func (h *TotpHandler) cachedEnabledAt(ctx context.Context) string {
 	if cached := h.enabledAtCache.Load(); cached != nil {
 		return cached.UTC().Format(time.RFC3339)
+	}
+	if h.totpRepo == nil {
+		return ""
 	}
 	// Snapshot the generation before the read. The DB fetch runs without the lock
 	// (so it can't block a concurrent enroll/disable); publishEnabledAt then stores

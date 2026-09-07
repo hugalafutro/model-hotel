@@ -20,7 +20,6 @@ import {
 } from "./gates";
 import { StepResting } from "./resting";
 import {
-	ConfigDelta,
 	ConfigLegend,
 	StepChoosePrimary,
 	StepConfig,
@@ -441,12 +440,39 @@ export function FleetSyncWizard({
 							{t("settings.configSyncRemovalWarning", { count: totalRemoved })}
 						</p>
 					)}
+					{/* Inline faint counts rather than the member table's badges: these
+					    rows read as a sentence about one member, and every count is
+					    shown (including zero) so the three positions stay in the same
+					    place down the list. */}
 					<ul style={{ margin: "0.6rem 0" }}>
 						{overwrites.map((m) => (
 							<li key={m.member_id}>
-								<span className="fd-row" style={{ gap: "0.4rem" }}>
-									{m.name}
-									<ConfigDelta member={m} />
+								{m.name}
+								<span className="fd-faint">
+									{" "}
+									(
+									<span
+										title={t("settings.wizard.configTipAdded", {
+											count: m.added,
+										})}
+									>
+										+{m.added}
+									</span>{" "}
+									<span
+										title={t("settings.wizard.configTipUpdated", {
+											count: m.updated,
+										})}
+									>
+										~{m.updated}
+									</span>{" "}
+									<span
+										title={t("settings.wizard.configTipRemoved", {
+											count: m.removed,
+										})}
+									>
+										-{m.removed}
+									</span>
+									)
 								</span>
 							</li>
 						))}

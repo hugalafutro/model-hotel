@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	AlertTriangle,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/icons";
 import type { AppLogEntry, LogEntry } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { useArmedConfirm } from "../../hooks/useArmedConfirm";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatRelativeTime, formatTimestamp } from "../../utils/format";
 import { displayLogMessage } from "../../utils/logText";
@@ -38,18 +39,13 @@ export function ErrorShelf() {
 	const [expanded, setExpanded] = useState(false);
 	// Two-step Clear all: first click arms (shows a confirm hint), second
 	// commits. Auto-disarms after a few seconds so a stray click doesn't linger.
-	const [clearArmed, setClearArmed] = useState(false);
+	const { armed, fire, disarm } = useArmedConfirm<"clear">();
+	const clearArmed = armed === "clear";
 	const [detailEntry, setDetailEntry] = useState<{
 		log: LogEntry | AppLogEntry;
 		type: "request" | "app";
 	} | null>(null);
 	const listId = useId();
-
-	useEffect(() => {
-		if (!clearArmed) return;
-		const id = setTimeout(() => setClearArmed(false), 3000);
-		return () => clearTimeout(id);
-	}, [clearArmed]);
 
 	const handleAck = useCallback(
 		(key: string) => {
@@ -60,14 +56,11 @@ export function ErrorShelf() {
 	);
 
 	const handleClearAll = useCallback(() => {
-		if (!clearArmed) {
-			setClearArmed(true);
-			return;
-		}
-		setClearArmed(false);
-		ackAll();
-		toast(t("layout.toast.errorsCleared"), "info");
-	}, [clearArmed, ackAll, toast, t]);
+		fire("clear", () => {
+			ackAll();
+			toast(t("layout.toast.errorsCleared"), "info");
+		});
+	}, [fire, ackAll, toast, t]);
 
 	const handleCopy = useCallback(
 		async (message: string) => {
@@ -111,7 +104,7 @@ export function ErrorShelf() {
 					type="button"
 					onClick={() => {
 						setExpanded((v) => !v);
-						setClearArmed(false);
+						disarm();
 					}}
 					aria-expanded={expanded}
 					aria-controls={listId}

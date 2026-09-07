@@ -26,12 +26,14 @@ type pgStore struct {
 	db *pgxpool.Pool
 	// table and recoveryTable are the config and recovery-code tables.
 	table, recoveryTable string
-	// keyCond is the row predicate ("id = 1" or "user_id = $1"); keyArgs holds
-	// the values its placeholders consume and is prepended to every argument
-	// list. keyed reports whether the recovery table is scoped by the same key.
-	keyCond string
-	keyArgs []any
-	keyed   bool
+	// keyCol is the row's key column ("id" or "user_id") and keyVal the SQL
+	// literal or placeholder it is matched against ("1" or "$1"); together they
+	// form the row predicate. keyArgs holds the values those placeholders
+	// consume and is prepended to every argument list. keyed reports whether the
+	// recovery table is scoped by the same key.
+	keyCol, keyVal string
+	keyArgs        []any
+	keyed          bool
 	// label distinguishes the two stores in wrapped errors ("" or "user ").
 	label string
 }
@@ -46,7 +48,8 @@ func NewPostgresStore(pool *pgxpool.Pool) Store {
 		db:            pool,
 		table:         "admin_totp",
 		recoveryTable: "admin_totp_recovery",
-		keyCond:       "id = 1",
+		keyCol:        "id",
+		keyVal:        "1",
 	}
 }
 
@@ -58,7 +61,8 @@ func NewUserPostgresStore(pool *pgxpool.Pool, userID uuid.UUID) Store {
 		db:            pool,
 		table:         "user_totp",
 		recoveryTable: "user_totp_recovery",
-		keyCond:       "user_id = $1",
+		keyCol:        "user_id",
+		keyVal:        "$1",
 		keyArgs:       []any{userID},
 		keyed:         true,
 		label:         "user ",
@@ -75,9 +79,14 @@ func (s *pgStore) ph(i int) string {
 	return "$" + strconv.Itoa(len(s.keyArgs)+i)
 }
 
+// keyCond renders the row predicate the key column and its bound value form.
+func (s *pgStore) keyCond() string {
+	return s.keyCol + " = " + s.keyVal
+}
+
 // where builds the config-table predicate, ANDing any extra conditions.
 func (s *pgStore) where(extra ...string) string {
-	return " WHERE " + strings.Join(append([]string{s.keyCond}, extra...), " AND ")
+	return " WHERE " + strings.Join(append([]string{s.keyCond()}, extra...), " AND ")
 }
 
 // recoveryWhere builds the recovery-table predicate. The admin recovery table
@@ -85,7 +94,7 @@ func (s *pgStore) where(extra ...string) string {
 func (s *pgStore) recoveryWhere(extra ...string) string {
 	conds := extra
 	if s.keyed {
-		conds = append([]string{s.keyCond}, extra...)
+		conds = append([]string{s.keyCond()}, extra...)
 	}
 	if len(conds) == 0 {
 		return ""
@@ -101,11 +110,10 @@ func (s *pgStore) errf(what string, err error) error {
 // clause resets enabled/confirmed_at/last_used_step so a half-finished or live
 // enrollment cleanly restarts and requires re-verification.
 func (s *pgStore) UpsertEnrollment(ctx context.Context, cipher, nonce, salt []byte) error {
-	keyCol, keyVal, _ := strings.Cut(s.keyCond, " = ")
 	_, err := s.db.Exec(ctx,
-		`INSERT INTO `+s.table+` (`+keyCol+`, secret_cipher, secret_nonce, secret_salt, enabled, confirmed_at)
-		 VALUES (`+keyVal+`, `+s.ph(1)+`, `+s.ph(2)+`, `+s.ph(3)+`, FALSE, NULL)
-		 ON CONFLICT (`+keyCol+`) DO UPDATE SET
+		`INSERT INTO `+s.table+` (`+s.keyCol+`, secret_cipher, secret_nonce, secret_salt, enabled, confirmed_at)
+		 VALUES (`+s.keyVal+`, `+s.ph(1)+`, `+s.ph(2)+`, `+s.ph(3)+`, FALSE, NULL)
+		 ON CONFLICT (`+s.keyCol+`) DO UPDATE SET
 		   secret_cipher = EXCLUDED.secret_cipher,
 		   secret_nonce  = EXCLUDED.secret_nonce,
 		   secret_salt   = EXCLUDED.secret_salt,
@@ -323,8 +331,7 @@ func (s *pgStore) ReplaceRecoveryCodes(ctx context.Context, codeHashes []string)
 		// key value in the projection when the recovery table is keyed.
 		cols, keyVal := "code_hash", ""
 		if s.keyed {
-			keyCol, kv, _ := strings.Cut(s.keyCond, " = ")
-			cols, keyVal = keyCol+", code_hash", kv+", "
+			cols, keyVal = s.keyCol+", code_hash", s.keyVal+", "
 		}
 		query := "INSERT INTO " + s.recoveryTable + " (" + cols + ") SELECT " + keyVal +
 			"code FROM unnest(" + s.ph(1) + "::text[]) AS code"

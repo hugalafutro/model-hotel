@@ -91,12 +91,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.durationMs = totalDuration
 	logData.proxyOverheadMs = st.proxyOverhead
 	logData.parseMs = st.parseMs
-	logData.failoverLookupMs = st.timings.failoverLookupMs
-	logData.modelLookupMs = st.timings.modelLookupMs
-	logData.providerLookupMs = st.timings.providerLookupMs
-	logData.keyDecryptMs = st.timings.keyDecryptMs
-	logData.dialMs = st.timings.dialMs
-	logData.settingsReadMs = st.timings.settingsReadMs
+	logData.applyTimings(st.timings)
 	logData.responseHeaderMs = responseHeaderMs
 	logData.tokensPrompt = inputTokens
 	logData.tokensCompletion = outputTokens

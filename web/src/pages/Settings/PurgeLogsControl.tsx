@@ -2,12 +2,21 @@ import type { UseMutationResult } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import type { PurgeState } from "./purgeState";
 
+// The token set the backend's purge endpoints accept, each mapped to the i18n
+// suffix its <option> label lives under.
+const PURGE_RANGES = {
+	"1d": "olderThan1d",
+	"1w": "olderThan1w",
+	"1m": "olderThan1m",
+	all: "allLogs",
+} as const;
+
 /**
  * The two-step "delete older than" control shared by the request-log and
  * app-log purges: a danger button that expands into a range select plus
- * confirm and cancel. The dropdown values (1d/1w/1m/all) are exactly the
- * tokens the backend's purge endpoints accept, so the selection is passed
- * through. Both callers name the same nine suffixes under their own stem, so
+ * confirm and cancel. PURGE_RANGES is the token set the backend's purge
+ * endpoints accept: it fills the dropdown and gates what reaches the mutation.
+ * Both callers name the same nine suffixes under their own stem, so
  * the stem is what comes in rather than nine translated strings; `deleting` is
  * the one optional suffix and falls back to `confirm`. The confirm and range
  * state comes from the parent's usePurgeState, next to the mutation that
@@ -25,6 +34,8 @@ export function PurgeLogsControl({
 }) {
 	const { t } = useTranslation();
 	const { confirming, selection } = state;
+	// Only a token the endpoint accepts reaches the mutation.
+	const olderThan = Object.hasOwn(PURGE_RANGES, selection) ? selection : "";
 
 	if (!confirming) {
 		return (
@@ -48,15 +59,16 @@ export function PurgeLogsControl({
 				className="ui-input px-3 py-1.5 text-xs"
 			>
 				<option value="">{t(`${i18nStem}.selectRange`)}</option>
-				<option value="1d">{t(`${i18nStem}.olderThan1d`)}</option>
-				<option value="1w">{t(`${i18nStem}.olderThan1w`)}</option>
-				<option value="1m">{t(`${i18nStem}.olderThan1m`)}</option>
-				<option value="all">{t(`${i18nStem}.allLogs`)}</option>
+				{Object.entries(PURGE_RANGES).map(([range, suffix]) => (
+					<option key={range} value={range}>
+						{t(`${i18nStem}.${suffix}`)}
+					</option>
+				))}
 			</select>
 			<button
 				type="button"
-				disabled={!selection || mutation.isPending}
-				onClick={() => mutation.mutate(selection)}
+				disabled={!olderThan || mutation.isPending}
+				onClick={() => mutation.mutate(olderThan)}
 				className="ui-btn ui-btn-danger"
 			>
 				{mutation.isPending

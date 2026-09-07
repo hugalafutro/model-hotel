@@ -349,7 +349,19 @@
 			"emptyState": "لا توجد بيانات استخدام حتى الآن. سيظهر تفكيك الاستخدام هنا بمجرد تدفق حركة المرور.",
 			"viewDetailsFor": "عرض التفاصيل ل {{label}}",
 			"deletedModelTooltip": "هذا الطراز لم يعد متوفراً - ربما تم حذفه أو تم إزالة مزوده",
-			"reservedKeyTooltip": "اسم داخلي محجوز، وليس مفتاحًا قمت بإنشائه - هذا الاستخدام يأتي من مسارات \"{{name}}\" الخاصة بـ Model Hotel"
+			"reservedKeyTooltip": "اسم داخلي محجوز، وليس مفتاحًا قمت بإنشائه - هذا الاستخدام يأتي من مسارات \"{{name}}\" الخاصة بـ Model Hotel",
+			"tokens_zero": "الرموز",
+			"tokens_one": "الرمز",
+			"tokens_two": "الرموز",
+			"tokens_few": "الرموز",
+			"tokens_many": "الرموز",
+			"tokens_other": "الرموز",
+			"requests_zero": "الطلبات",
+			"requests_one": "طلب",
+			"requests_two": "الطلبات",
+			"requests_few": "الطلبات",
+			"requests_many": "الطلبات",
+			"requests_other": "الطلبات"
 		},
 		"providerLatency": {
 			"title": "زمن استجابة المزودين",

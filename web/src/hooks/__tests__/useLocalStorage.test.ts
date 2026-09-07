@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	readJSON,
 	storedBool,
+	storedNumber,
 	useLocalStorage,
 	useLocalStorageValue,
 } from "../useLocalStorage";
@@ -210,32 +211,6 @@ describe("useLocalStorageValue", () => {
 		expect(result.current).toBe("second");
 	});
 
-	it("re-reads on an extra event the writer announces", () => {
-		localStorage.setItem(key, "first");
-		const { result } = renderHook(() =>
-			useLocalStorageValue(key, "fallback", { events: ["writerToggle"] }),
-		);
-
-		localStorage.setItem(key, "second");
-		act(() => {
-			window.dispatchEvent(new CustomEvent("writerToggle"));
-		});
-		expect(result.current).toBe("second");
-	});
-
-	it("subscribes to an event name containing a space", () => {
-		localStorage.setItem(key, "first");
-		const { result } = renderHook(() =>
-			useLocalStorageValue(key, "fallback", { events: ["writer toggle"] }),
-		);
-
-		localStorage.setItem(key, "second");
-		act(() => {
-			window.dispatchEvent(new CustomEvent("writer toggle"));
-		});
-		expect(result.current).toBe("second");
-	});
-
 	it("ignores changes to other keys", () => {
 		localStorage.setItem(key, "first");
 		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
@@ -320,6 +295,16 @@ describe("storedBool", () => {
 		expect(storedBool("false")).toBe(false);
 		expect(storedBool("TRUE")).toBe(false);
 		expect(storedBool(null)).toBe(false);
+	});
+});
+
+describe("storedNumber", () => {
+	it("falls back when the stored string is not a number", () => {
+		expect(storedNumber("15", 30)).toBe(15);
+		expect(storedNumber("0", 30)).toBe(0);
+		expect(storedNumber("nonsense", 30)).toBe(30);
+		expect(storedNumber("", 30)).toBe(30);
+		expect(storedNumber(null, 30)).toBe(30);
 	});
 });
 

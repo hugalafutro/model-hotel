@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -125,15 +125,29 @@ describe("EventsPage", () => {
 	// superseded response is dropped.
 	it("ignores a superseded page response that lands last", async () => {
 		let seen = 0;
+		// The page-2 read is held open by a promise the test releases, and it
+		// reports back once its body has been handed to the client. Both halves
+		// are explicit signals: a wall-clock wait could expire before the held
+		// response existed, and the assertions below would then hold vacuously.
+		let release!: () => void;
+		const held = new Promise<void>((r) => {
+			release = r;
+		});
+		let served!: () => void;
+		const landed = new Promise<void>((r) => {
+			served = r;
+		});
 		server.use(
 			http.get("/api/events", async ({ request }) => {
 				const offset = Number(new URL(request.url).searchParams.get("offset"));
 				seen += 1;
+				const mine = seen;
 				// Hold the second read (page 2) open past the third (back to page 1).
-				if (seen === 2) await new Promise((r) => setTimeout(r, 60));
+				if (mine === 2) await held;
 				const events = Array.from({ length: offset === 0 ? 25 : 5 }, (_, i) =>
 					ev(`${offset + i}`),
 				);
+				if (mine === 2) setTimeout(served, 0);
 				return HttpResponse.json({ events, total: 30 });
 			}),
 		);
@@ -142,8 +156,13 @@ describe("EventsPage", () => {
 		await userEvent.click(screen.getByRole("button", { name: /Next/i }));
 		await userEvent.click(screen.getByRole("button", { name: /Previous/i }));
 		await screen.findByText("event 0");
-		// Long enough for the held page-2 read to land, which must change nothing.
-		await new Promise((r) => setTimeout(r, 120));
+		release();
+		await landed;
+		// One more turn of the loop, so the superseded response has been through
+		// the client before the rows are read.
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
 		expect(screen.getByText("event 0")).toBeInTheDocument();
 		expect(screen.queryByText("event 25")).toBeNull();
 	});

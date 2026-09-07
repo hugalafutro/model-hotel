@@ -202,6 +202,7 @@ export function AppearanceSettings({
 							description={t("settings.toast.fuseEffectDescription")}
 							checked={toastFuse}
 							onChange={setToastFuse}
+							size="default"
 						/>
 					</SettingsGroup>
 				</div>

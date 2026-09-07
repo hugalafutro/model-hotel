@@ -28,7 +28,9 @@ var (
 // IsDockerAvailable reports whether the Docker socket is accessible and
 // responsive. The answer cannot change for the life of the process, so it is
 // computed once.
-var IsDockerAvailable = sync.OnceValue(probeDockerAvailable)
+func IsDockerAvailable() bool { return dockerAvailable() }
+
+var dockerAvailable = sync.OnceValue(probeDockerAvailable)
 
 func probeDockerAvailable() bool {
 	if _, err := os.Stat(dockerSocketPath); err != nil {
@@ -223,7 +225,7 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 
 	if resp.StatusCode != 200 {
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
-		debuglog.Info("docker: stats API returned non-200", "status", resp.StatusCode, "container", containerID[:12], "body", string(body[:min(len(body), 200)]))
+		debuglog.Info("docker: stats API returned non-200", "status", resp.StatusCode, "container", containerID[:min(len(containerID), 12)], "body", string(body[:min(len(body), 200)]))
 		return nil, fmt.Errorf("docker stats API returned %d: %s", resp.StatusCode, string(body))
 	}
 
@@ -418,7 +420,9 @@ func isHex(s string) bool {
 //
 // The labels cannot change for the life of the process, so the socket inspect
 // runs once rather than on every /api/system read.
-var DetectContainerFilter = sync.OnceValue(detectContainerFilter)
+func DetectContainerFilter() ContainerFilter { return containerFilter() }
+
+var containerFilter = sync.OnceValue(detectContainerFilter)
 
 func detectContainerFilter() ContainerFilter {
 	containerID := getOwnContainerID()

@@ -73,13 +73,13 @@ func (h *Handler) RegisterSettings(r chi.Router) {
 // buildCommit is the SHA of the source commit this binary was built from. It is
 // stamped at build time via -ldflags -X (see the Makefile / Dockerfile) and
 // surfaced read-only as app_commit so the dashboard can show which commit a
-// `dev` build corresponds to. Defaults to "unknown" for un-stamped builds.
+// `dev` build corresponds to. Defaults to util.UnstampedCommit for un-stamped builds.
 //
 // Different build paths stamp different SHA lengths (local `make build` derives
 // a full SHA via git, CI passes the full ${{ github.sha }}), so the value is
 // normalized through util.ShortCommit before it reaches the API to keep the
 // app_commit contract identical for the same commit regardless of build path.
-var buildCommit = "unknown"
+var buildCommit = util.UnstampedCommit
 
 // injectReadOnlyStatus adds server-derived, read-only fields to a settings map
 // before it is returned to the client. These keys are deliberately excluded
@@ -297,8 +297,8 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	// owns them and replaces them on the next sync. Instance-local keys (Apprise,
 	// Observability) are allowed through, mirroring the mixed Alerts section in the
 	// dashboard. Checked after validation so an unknown key still reports 400.
-	keys := slices.Sorted(maps.Keys(req))
-	if managedBlocksSyncableSettings(r.Context(), h.settingsRepo, keys) {
+	reqKeys := slices.Sorted(maps.Keys(req))
+	if managedBlocksSyncableSettings(r.Context(), h.settingsRepo, reqKeys) {
 		respondError(w, managedWriteMsg, nil, http.StatusForbidden)
 		return
 	}
@@ -336,7 +336,9 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	for key := range req {
 		h.settingsRepo.InvalidateCache(key)
 	}
-	debuglog.Info("settings: updated", "keys", keys)
+	// Read back from req, not from the request keys: encryptSecretSettings drops
+	// masked secrets, and those keys were never written.
+	debuglog.Info("settings: updated", "keys", slices.Sorted(maps.Keys(req)))
 
 	all, err := h.settingsRepo.GetAll(r.Context())
 	if err != nil {

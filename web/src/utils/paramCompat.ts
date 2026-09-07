@@ -91,13 +91,13 @@ export function normalizeToProviderType(providerName: string): string {
 	if (!providerName) return "openai"; // fallback
 
 	// Direct match (already a type key)
-	if (providerName in PROVIDER_PARAM_INCOMPATIBILITY) {
+	if (Object.hasOwn(PROVIDER_PARAM_INCOMPATIBILITY, providerName)) {
 		return providerName;
 	}
 
 	// Case-insensitive match against known type keys
 	const lower = providerName.toLowerCase().replace(/\s+/g, "-");
-	if (lower in PROVIDER_PARAM_INCOMPATIBILITY) return lower;
+	if (Object.hasOwn(PROVIDER_PARAM_INCOMPATIBILITY, lower)) return lower;
 
 	// Substring heuristic: check if the provider name contains a known type
 	const typePatterns: Record<string, string[]> = {
@@ -139,7 +139,7 @@ export function getParamIncompatibility(
 ): string | null {
 	const providerType = normalizeToProviderType(providerName);
 	const rules = PROVIDER_PARAM_INCOMPATIBILITY[providerType];
-	if (!rules || !(paramKey in rules)) return null;
+	if (!rules || !Object.hasOwn(rules, paramKey)) return null;
 	const reason = rules[paramKey];
 	return reason || null; // empty string means no incompatibility
 }

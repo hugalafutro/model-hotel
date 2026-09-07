@@ -196,9 +196,7 @@ export function AlertsWizard(props: AlertsWizardProps) {
 		// there before the write rather than after it: what step 7 shows while the
 		// write is in flight is then already what the write carries.
 		dispatch({ type: "savedRefreshed", targets: stored });
-		const merged = [...stored, ...state.added].filter(
-			(u, i, all) => all.indexOf(u) === i,
-		);
+		const merged = [...new Set([...stored, ...state.added])];
 
 		try {
 			await api.putSettings({

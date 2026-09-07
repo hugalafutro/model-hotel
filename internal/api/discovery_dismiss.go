@@ -88,22 +88,6 @@ func (h *Handler) bulkModelVerdict(
 	writeJSON(w, out)
 }
 
-// UnpinDiscoveryClaimsRequest carries the models to unpin on the provider named
-// in the path. It is shaped exactly like DismissDiscoveryClaimsRequest because
-// it is the same kind of operation from the modal's side: a bulk verdict on a
-// provider's rows.
-//
-// Unpin-only, like dismiss, and for a matching reason: the pin direction is not
-// an endpoint. A pin is armed by the operator enabling the model
-// (models.SetEnabled and models.Update stamp manually_enabled_at), and cleared
-// automatically by the next sighting, since a listed model needs no exemption
-// from the listing. This endpoint covers the one case neither of those reaches:
-// the operator changing their mind about a model the provider still does not
-// list, where there is nothing to enable and no sighting coming.
-type UnpinDiscoveryClaimsRequest struct {
-	ModelIDs []string `json:"model_ids"`
-}
-
 // UnpinDiscoveryClaims drops the operator pin from models on one provider,
 // returning them to discovery's listing-based auto-disable with a clean
 // miss-streak. setModelsUnpinned only touches rows that actually carry a pin, so

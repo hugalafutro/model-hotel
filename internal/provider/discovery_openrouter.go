@@ -148,15 +148,23 @@ func parseOpenRouterPrice(s string) *float64 {
 
 // GetOpenRouterBalance retrieves credits and usage info from OpenRouter.
 func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *Provider, masterKey string) (*OpenRouterBalance, error) {
+	// Two endpoints, one key derivation: the decrypt runs an uncached argon2id
+	// pass, so it happens once per poll rather than once per request.
+	apiKey, err := decryptProviderKey(provider, masterKey, "openrouter")
+	if err != nil {
+		return nil, err
+	}
+	base := util.SanitizeBaseURL(provider.BaseURL)
+
 	// Credits are the actual account balance (/api/v1/credits); key info
 	// carries the limits and usage (/api/v1/key).
 	var creditsData OpenRouterCreditsResponse
-	if err := d.fetchQuotaJSON(ctx, provider, masterKey, "/credits", "openrouter", "credits", &creditsData); err != nil {
+	if err := d.fetchQuotaJSONAt(ctx, provider, apiKey, "GET", base+"/credits", "openrouter", "credits", &creditsData); err != nil {
 		return nil, fmt.Errorf("%w (credits endpoint)", err)
 	}
 
 	var keyData OpenRouterKeyResponse
-	if err := d.fetchQuotaJSON(ctx, provider, masterKey, "/key", "openrouter", "key info", &keyData); err != nil {
+	if err := d.fetchQuotaJSONAt(ctx, provider, apiKey, "GET", base+"/key", "openrouter", "key info", &keyData); err != nil {
 		return nil, fmt.Errorf("%w (key endpoint)", err)
 	}
 

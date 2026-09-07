@@ -13,6 +13,7 @@ import {
 	Timer,
 } from "@/lib/icons";
 import { api } from "../api/client";
+import { ErrorCallout } from "../components/ErrorCallout";
 import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
@@ -150,9 +151,9 @@ export function Dashboard() {
 					</h1>
 					<p className="text-gray-400">{t("dashboard.description")}</p>
 				</div>
-				<div className="bg-red-900/50 border border-red-700 rounded-lg p-6 text-red-300">
+				<ErrorCallout>
 					{t("dashboard.failedToLoadGaugeStats")}: {statsError.message}
-				</div>
+				</ErrorCallout>
 			</div>
 		);
 	}

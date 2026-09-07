@@ -136,6 +136,18 @@ describe("Position persistence (useLocalStorage with validation)", () => {
 		const { result } = renderHook(() => useToast(), { wrapper });
 		expect(result.current.position).toBe("bottom-center");
 	});
+
+	// A prototype key is not a position: the membership test has to ask what the
+	// table owns, or "toString" would be accepted and resolve to a function.
+	it.each(["toString", "constructor", "hasOwnProperty"])(
+		"rejects the inherited key %s",
+		(key) => {
+			localStorage.setItem("toastPosition", key);
+
+			const { result } = renderHook(() => useToast(), { wrapper });
+			expect(result.current.position).toBe("bottom-center");
+		},
+	);
 });
 
 describe("Timeout persistence (useLocalStorage with clamping)", () => {

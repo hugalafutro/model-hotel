@@ -307,6 +307,30 @@ func TestTotpPublishEnabledAt_GenerationGuard(t *testing.T) {
 
 // --- Info tests ---
 
+// TestTotpInfo_NilRepo covers the guard branch: NewTotpHandler accepts a nil
+// repository, so with none wired Info must return an empty payload and
+// cachedEnabledAt must report "unknown" rather than panic.
+func TestTotpInfo_NilRepo(t *testing.T) {
+	th := &TotpHandler{}
+	req := httptest.NewRequest(http.MethodGet, "/totp/info", http.NoBody)
+	w := httptest.NewRecorder()
+	th.Info(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var resp infoResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.RecoveryTotal != 0 || resp.RecoveryRemaining != 0 || resp.LastUsedAt != "" {
+		t.Errorf("expected empty info for nil repo, got %+v", resp)
+	}
+	if got := th.cachedEnabledAt(context.Background()); got != "" {
+		t.Errorf("cachedEnabledAt with no repo = %q, want empty", got)
+	}
+}
+
 // TestTotpInfo_ReportsRecoveryAndLastUsed drives the success path end to end:
 // recovery counts reflect issued/consumed codes, and last_used_at is stamped
 // once a TOTP code is accepted.

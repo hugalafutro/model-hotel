@@ -49,7 +49,7 @@ describe("UsageBarPanel", () => {
 		renderWithProviders(<UsageBarPanel {...defaultProps} metric="requests" />);
 
 		const entryDiv = screen.getByText("Model A").closest("div");
-		expect(entryDiv?.textContent).toContain("Requests");
+		expect(entryDiv?.textContent).toContain("requests");
 	});
 
 	it("picks the plural form from the value, not an English suffix rule", () => {
@@ -64,8 +64,8 @@ describe("UsageBarPanel", () => {
 		);
 
 		const entryDiv = screen.getByText("Single").closest("div");
-		expect(entryDiv?.textContent).toContain("Token");
-		expect(entryDiv?.textContent).not.toContain("Tokens");
+		expect(entryDiv?.textContent).toContain("token");
+		expect(entryDiv?.textContent).not.toContain("tokens");
 	});
 
 	it("names no unit on a panel with no metric toggle", () => {

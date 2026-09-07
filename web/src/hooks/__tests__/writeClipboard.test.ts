@@ -28,10 +28,26 @@ describe("writeClipboard", () => {
 		expect(writeText).toHaveBeenCalledWith("hello");
 	});
 
-	it("reports failure when the clipboard refuses", async () => {
+	// A refused write (an unfocused document, a denied permission) is where the
+	// selection copy earns its keep, so it is tried there too and not only where
+	// the Clipboard API is missing entirely.
+	it("falls back to the legacy selection copy when the clipboard refuses", async () => {
 		stubClipboard({
 			writeText: vi.fn().mockRejectedValue(new Error("denied")),
 		});
+		const exec = vi.fn().mockReturnValue(true);
+		document.execCommand = exec;
+
+		await expect(writeClipboard("hello")).resolves.toBe(true);
+		expect(exec).toHaveBeenCalledWith("copy");
+		expect(document.querySelector("textarea")).toBeNull();
+	});
+
+	it("reports failure when both the clipboard and the fallback refuse", async () => {
+		stubClipboard({
+			writeText: vi.fn().mockRejectedValue(new Error("denied")),
+		});
+		document.execCommand = vi.fn().mockReturnValue(false);
 
 		await expect(writeClipboard("hello")).resolves.toBe(false);
 	});

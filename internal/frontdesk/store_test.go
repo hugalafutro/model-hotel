@@ -547,6 +547,48 @@ func TestPruneEventsKeepsNewestFleetState(t *testing.T) {
 	}
 }
 
+// TestPruneEventsKeepsTheRowTheReaderPicks pins the tiebreak: when two
+// fleet.state_changed rows share a created_at, the row prune keeps must be the
+// row lastEmittedFleetState reads back, or a restart is seeded from a state the
+// fleet already left.
+func TestPruneEventsKeepsTheRowTheReaderPicks(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	tied := time.Now().Add(-100 * 24 * time.Hour)
+	for _, e := range []Event{
+		// Inserted with the id order reversed against the insert order, so a
+		// subquery that breaks the tie by anything but id picks the other row.
+		{ID: "zzzzzzzz-0000-0000-0000-000000000000", Type: "fleet.state_changed", Severity: "warning", Source: "x", Message: "faulty", CreatedAt: tied, Metadata: map[string]any{"to": "faulty"}},
+		{ID: "aaaaaaaa-0000-0000-0000-000000000000", Type: "fleet.state_changed", Severity: "warning", Source: "x", Message: "degraded", CreatedAt: tied, Metadata: map[string]any{"to": "degraded"}},
+	} {
+		if _, err := s.InsertEvent(ctx, e); err != nil {
+			t.Fatalf("InsertEvent %s: %v", e.ID, err)
+		}
+	}
+
+	// The seeding read: newest first, id breaking the created_at tie.
+	before, _, err := s.ListEvents(ctx, EventFilter{Type: "fleet.state_changed", Limit: 1})
+	if err != nil || len(before) != 1 {
+		t.Fatalf("ListEvents before prune: %v (%d rows)", err, len(before))
+	}
+
+	if _, err := s.PruneEvents(ctx, 90); err != nil {
+		t.Fatalf("PruneEvents: %v", err)
+	}
+
+	after, total, err := s.ListEvents(ctx, EventFilter{Type: "fleet.state_changed", Limit: 1})
+	if err != nil {
+		t.Fatalf("ListEvents after prune: %v", err)
+	}
+	if total != 1 {
+		t.Fatalf("remaining fleet.state_changed rows = %d, want 1", total)
+	}
+	if after[0].ID != before[0].ID {
+		t.Errorf("prune kept %q, but the reader picks %q", after[0].ID, before[0].ID)
+	}
+}
+
 func TestEnsureFrontdeskID(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

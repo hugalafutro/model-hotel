@@ -325,7 +325,11 @@
 			"emptyState": "尚无使用数据。有流量后，用量明细将显示在此处。",
 			"viewDetailsFor": "查看详情 {{label}}",
 			"deletedModelTooltip": "模型已不可用——可能已被删除，或其提供商已被移除",
-			"reservedKeyTooltip": "内部保留名称，并非您创建的密钥 - 此用量来自 Model Hotel 自身的“{{name}}”路由"
+			"reservedKeyTooltip": "内部保留名称，并非您创建的密钥 - 此用量来自 Model Hotel 自身的“{{name}}”路由",
+			"tokens_one": "令牌",
+			"tokens_other": "令牌",
+			"requests_one": "请求",
+			"requests_other": "请求"
 		},
 		"providerLatency": {
 			"title": "提供商延迟",

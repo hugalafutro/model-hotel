@@ -325,7 +325,11 @@
 			"emptyState": "Henüz kullanım verisi yok. Trafik akışı başladığında kullanım dağılımı burada görünecektir.",
 			"viewDetailsFor": "Ayrıntıları görüntüle {{label}}",
 			"deletedModelTooltip": "Model artık mevcut değil - silinmiş olabilir veya sağlayıcısı kaldırılmış olabilir",
-			"reservedKeyTooltip": "Dahili ayrılmış ad, sizin oluşturduğunuz bir anahtar değil - bu kullanım Model Hotel'in kendi \"{{name}}\" rotalarından gelmektedir"
+			"reservedKeyTooltip": "Dahili ayrılmış ad, sizin oluşturduğunuz bir anahtar değil - bu kullanım Model Hotel'in kendi \"{{name}}\" rotalarından gelmektedir",
+			"tokens_one": "jeton",
+			"tokens_other": "jetonlar",
+			"requests_one": "talep",
+			"requests_other": "istekler"
 		},
 		"providerLatency": {
 			"title": "Sağlayıcı gecikmesi",

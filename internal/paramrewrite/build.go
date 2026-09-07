@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"maps"
 	"sync"
 
@@ -212,12 +213,17 @@ func buildUpstreamBody(
 // its callers goes through here so none of them can drift back.
 //
 // A literal "null" decodes without error into a nil map, which every rewrite
-// step here would then panic writing to, so it counts as unparseable.
+// step here would then panic writing to, so it counts as unparseable. So does
+// anything after the object: re-marshalling would drop the trailing content
+// silently, changing what the provider is asked.
 func decodeObject(body []byte) (map[string]any, bool) {
 	dec := json.NewDecoder(bytes.NewReader(body))
 	dec.UseNumber()
 	var raw map[string]any
 	if dec.Decode(&raw) != nil || raw == nil {
+		return nil, false
+	}
+	if err := dec.Decode(new(json.RawMessage)); err != io.EOF {
 		return nil, false
 	}
 	return raw, true

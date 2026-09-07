@@ -22,6 +22,7 @@ function Harness({
 	fetchNewer,
 	fetchOlder,
 	expose,
+	pinTop = false,
 }: {
 	entries: Row[];
 	heights: Record<string, number>;
@@ -30,6 +31,7 @@ function Harness({
 	fetchNewer: () => void;
 	fetchOlder: () => void;
 	expose: (api: { handleScroll: () => void }) => void;
+	pinTop?: boolean;
 }) {
 	const {
 		scrollRef,
@@ -46,6 +48,7 @@ function Harness({
 		isLoadingAfter: false,
 		fetchNewer,
 		fetchOlder,
+		pinTop,
 	});
 	expose({ handleScroll });
 	return (
@@ -140,9 +143,9 @@ describe("useVirtualRows", () => {
 
 	// A live log list parked at the top is following the tail: correcting its
 	// scroll position would push every newly prepended row straight back out of
-	// view. Both log tables leave the top alone, which is what these pin.
+	// view. Both log tables pass pinTop, which is what these pin.
 	it.each([0, 1])(
-		"leaves a top-pinned list at scrollTop %i when rows are prepended",
+		"leaves a pinTop list at scrollTop %i when rows are prepended",
 		(top) => {
 			const { rerender, getByTestId } = render(
 				<Harness
@@ -153,6 +156,7 @@ describe("useVirtualRows", () => {
 					fetchNewer={vi.fn()}
 					fetchOlder={vi.fn()}
 					expose={() => {}}
+					pinTop
 				/>,
 			);
 			const el = getByTestId("scroller") as HTMLDivElement;
@@ -167,12 +171,46 @@ describe("useVirtualRows", () => {
 						fetchNewer={vi.fn()}
 						fetchOlder={vi.fn()}
 						expose={() => {}}
+						pinTop
 					/>,
 				);
 			});
 			expect(el.scrollTop).toBe(top);
 		},
 	);
+
+	// Without pinTop the top of the list is an ordinary reading position, so a
+	// prepend there still holds the row the operator was looking at. This is the
+	// models table, whose newest page is not a live tail.
+	it("corrects a list sitting at the top when pinTop is off", () => {
+		const { rerender, getByTestId } = render(
+			<Harness
+				entries={rows(10, 50)}
+				heights={{}}
+				hasBefore
+				hasAfter
+				fetchNewer={vi.fn()}
+				fetchOlder={vi.fn()}
+				expose={() => {}}
+			/>,
+		);
+		const el = getByTestId("scroller") as HTMLDivElement;
+		scrollGeometry(el, 0, 4000);
+		act(() => {
+			rerender(
+				<Harness
+					entries={[...rows(0, 10), ...rows(10, 50)]}
+					heights={{}}
+					hasBefore
+					hasAfter
+					fetchNewer={vi.fn()}
+					fetchOlder={vi.fn()}
+					expose={() => {}}
+				/>,
+			);
+		});
+		expect(el.scrollTop).toBe(10 * 45);
+	});
 
 	it("uses the prepended rows' own measured heights, not the old rows' measurements", () => {
 		const restore = mockOffsetHeights();
