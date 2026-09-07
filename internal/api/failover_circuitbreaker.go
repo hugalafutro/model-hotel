@@ -89,21 +89,19 @@ const cbStatusCacheTTL = 5 * time.Second
 func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
 	wantDetail := r.URL.Query().Get("detail") == "1"
 
-	h.cbStatusMu.Lock()
+	// The detail and summary responses are cached in separate slots: the
+	// summary omits the per-provider list, so one cannot serve the other.
+	slot, stamp := &h.cbStatusCache, &h.cbStatusCacheTime
 	if wantDetail {
-		if time.Since(h.cbDetailCacheTime) < cbStatusCacheTTL {
-			cached := h.cbDetailCache
-			h.cbStatusMu.Unlock()
-			writeJSON(w, cached)
-			return
-		}
-	} else {
-		if time.Since(h.cbStatusCacheTime) < cbStatusCacheTTL {
-			cached := h.cbStatusCache
-			h.cbStatusMu.Unlock()
-			writeJSON(w, cached)
-			return
-		}
+		slot, stamp = &h.cbDetailCache, &h.cbDetailCacheTime
+	}
+
+	h.cbStatusMu.Lock()
+	if time.Since(*stamp) < cbStatusCacheTTL {
+		cached := *slot
+		h.cbStatusMu.Unlock()
+		writeJSON(w, cached)
+		return
 	}
 	h.cbStatusMu.Unlock()
 
@@ -210,13 +208,7 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 
 	// Cache the response, after providers are appended for detail requests.
 	h.cbStatusMu.Lock()
-	if wantDetail {
-		h.cbDetailCache = resp
-		h.cbDetailCacheTime = time.Now()
-	} else {
-		h.cbStatusCache = resp
-		h.cbStatusCacheTime = time.Now()
-	}
+	*slot, *stamp = resp, time.Now()
 	h.cbStatusMu.Unlock()
 
 	writeJSON(w, resp)

@@ -464,7 +464,7 @@ func translateTurn(role string, m oaiMessage) (*antMessage, error) {
 // or null) into Anthropic content blocks. Part types with no Anthropic
 // equivalent are dropped rather than forwarded raw.
 func translateBlocks(raw json.RawMessage) ([]antBlock, error) {
-	if len(raw) == 0 || string(raw) == "null" {
+	if !util.JSONMemberSet(raw) {
 		return nil, nil
 	}
 	if s, ok := egress.AsJSONString(raw); ok {
@@ -633,28 +633,17 @@ func translateTools(in []oaiTool) []antTool {
 // "none", which Anthropic cannot express and which therefore drops the tools
 // array along with the choice.
 func translateToolChoice(raw json.RawMessage) (*antToolChoice, bool) {
-	if len(raw) == 0 {
+	switch mode, name, ok := egress.DecodeToolChoice(raw); {
+	case !ok:
 		return nil, true
-	}
-	if s, ok := egress.AsJSONString(raw); ok {
-		switch s {
-		case "auto":
-			return &antToolChoice{Type: "auto"}, true
-		case "required":
-			return &antToolChoice{Type: "any"}, true
-		case "none":
-			return nil, false
-		}
-		return nil, true
-	}
-
-	var tc struct {
-		Function struct {
-			Name string `json:"name"`
-		} `json:"function"`
-	}
-	if json.Unmarshal(raw, &tc) == nil && tc.Function.Name != "" {
-		return &antToolChoice{Type: "tool", Name: tc.Function.Name}, true
+	case mode == "auto":
+		return &antToolChoice{Type: "auto"}, true
+	case mode == "required":
+		return &antToolChoice{Type: "any"}, true
+	case mode == "none":
+		return nil, false
+	case mode == "function":
+		return &antToolChoice{Type: "tool", Name: name}, true
 	}
 	return nil, true
 }
@@ -662,18 +651,6 @@ func translateToolChoice(raw json.RawMessage) (*antToolChoice, bool) {
 // flattenText reduces a content field (string or part array) to plain text, for
 // the fields Anthropic types as text: the system prompt and tool_result content.
 func flattenText(raw json.RawMessage) string {
-	if s, ok := egress.AsJSONString(raw); ok {
-		return s
-	}
-	var parts []oaiContentPart
-	if json.Unmarshal(raw, &parts) == nil {
-		var sb strings.Builder
-		for _, p := range parts {
-			if p.Type == "" || p.Type == "text" {
-				sb.WriteString(p.Text)
-			}
-		}
-		return sb.String()
-	}
-	return ""
+	s, _ := egress.FlattenText(raw)
+	return s
 }

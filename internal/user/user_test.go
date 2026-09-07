@@ -243,10 +243,6 @@ func TestRepository_CreateGetList(t *testing.T) {
 	if err != nil || byName.ID != u.ID {
 		t.Fatalf("GetByUsername: %v", err)
 	}
-	byEmail, err := repo.GetByEmail(context.Background(), "BOB@example.COM")
-	if err != nil || byEmail.ID != u.ID {
-		t.Fatalf("GetByEmail: %v", err)
-	}
 
 	list, err := repo.List(context.Background())
 	if err != nil {
@@ -314,9 +310,6 @@ func TestRepository_NotFoundAndDelete(t *testing.T) {
 	}
 	if _, err := repo.GetByUsername(context.Background(), "nobody-"+uuid.NewString()); !errors.Is(err, ErrNotFound) {
 		t.Errorf("GetByUsername(missing) = %v, want ErrNotFound", err)
-	}
-	if _, err := repo.GetByEmail(context.Background(), ""); !errors.Is(err, ErrNotFound) {
-		t.Errorf("GetByEmail(empty) = %v, want ErrNotFound", err)
 	}
 	if err := repo.SetPassword(context.Background(), missing, "$argon2id$x"); !errors.Is(err, ErrNotFound) {
 		t.Errorf("SetPassword(missing) = %v, want ErrNotFound", err)
@@ -388,9 +381,6 @@ func TestRepository_CancelledContext(t *testing.T) {
 	}
 	if _, err := repo.GetByUsername(ctx, "x"); err == nil {
 		t.Error("GetByUsername(cancelled) err = nil, want error")
-	}
-	if _, err := repo.GetByEmail(ctx, "x@example.com"); err == nil {
-		t.Error("GetByEmail(cancelled) err = nil, want error")
 	}
 	if _, err := repo.Create(ctx, "x", "d", nil, "h", RoleUser, nil, Limits{}, nil); err == nil {
 		t.Error("Create(cancelled) err = nil, want error")

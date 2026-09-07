@@ -448,7 +448,7 @@ func TestChatCompletions_HotelModelNoCandidates(t *testing.T) {
 	// When resolveHotelModel tries to fetch the model, it won't be found,
 	// resulting in an empty candidates slice (all candidates skipped).
 	nonExistentModelUUID := uuid.New()
-	fg, err := h.failoverRepo.Upsert(ctx, "test-fg-no-candidates", []uuid.UUID{nonExistentModelUUID})
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, "test-fg-no-candidates", []uuid.UUID{nonExistentModelUUID}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("failed to create failover group: %v", err)
 	}

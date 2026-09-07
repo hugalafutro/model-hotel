@@ -998,7 +998,7 @@ func TestPollQuotasOnce_ProviderListFailureClearsQuotaAdvice(t *testing.T) {
 // comment's "no-op" contract).
 func TestClearQuotaAdvice_NilAdvisorNoop(t *testing.T) {
 	h := newTestHandler(t)
-	h.ClearQuotaAdvice(context.Background())
+	h.ClearQuotaAdvice()
 }
 
 // ---------------------------------------------------------------------------

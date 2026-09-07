@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -139,19 +140,9 @@ func listGroupClaims(ctx context.Context, pool *pgxpool.Pool) ([]GroupClaim, err
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
 	// Never nil: the JSON response promises group_claims: GroupClaim[] with no
-	// null guard on the client, matching how ProviderClaims' buckets are built.
-	out := []GroupClaim{}
-	for rows.Next() {
-		var c GroupClaim
-		if err := rows.Scan(&c.DisplayModel, &c.MemberCount, &c.RoutableCount, &c.DisabledAt); err != nil {
-			return nil, err
-		}
-		out = append(out, c)
-	}
-	return out, rows.Err()
+	// null guard on the client, and CollectRows starts from an empty slice.
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[GroupClaim])
 }
 
 // claimRow is one candidate model straight from the derivation query.
@@ -201,17 +192,7 @@ func listClaimRows(ctx context.Context, pool *pgxpool.Pool) ([]claimRow, error) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var out []claimRow
-	for rows.Next() {
-		var r claimRow
-		if err := rows.Scan(&r.ProviderID, &r.ProviderName, &r.ModelID, &r.LastSeenAt, &r.Enabled, &r.MissingScans, &r.RetiredAt, &r.PinnedAt); err != nil {
-			return nil, err
-		}
-		out = append(out, r)
-	}
-	return out, rows.Err()
+	return pgx.CollectRows(rows, pgx.RowToStructByPos[claimRow])
 }
 
 // flapCounts tallies membership transitions per (provider, model) from the
@@ -405,19 +386,9 @@ func setModelsDismissed(ctx context.Context, pool *pgxpool.Pool, providerID uuid
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
 	// Never nil: the JSON response promises dismissed: string[] with no null guard
-	// on the client.
-	out := []string{}
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
+	// on the client, and CollectRows starts from an empty slice.
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
 // setModelsUnpinned drops the operator pin from the given models, handing them
@@ -449,19 +420,9 @@ func setModelsUnpinned(ctx context.Context, pool *pgxpool.Pool, providerID uuid.
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
 	// Never nil: the JSON response promises unpinned: string[] with no null guard
-	// on the client.
-	out := []string{}
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-		out = append(out, id)
-	}
-	return out, rows.Err()
+	// on the client, and CollectRows starts from an empty slice.
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
 // PruneDiscoveryChanges deletes seen journal rows older than the window. Safe

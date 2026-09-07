@@ -4,16 +4,18 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
+// zaiQuotaURL is Z.ai's monitor host, which serves the coding-plan quota
+// regardless of the base URL a provider is configured with.
+const zaiQuotaURL = "https://api.z.ai/api/monitor/usage/quota/limit"
 
 func (d *DiscoveryService) discoverZAICoding(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	catalog := zaiCodingCatalogModels(provider.ID)
@@ -150,42 +152,15 @@ func zaiCodingSpecToModel(spec ZAICodingModelSpec, providerID uuid.UUID) *model.
 
 // GetZAICodingQuota retrieves quota information for a ZAI Coding provider.
 func (d *DiscoveryService) GetZAICodingQuota(ctx context.Context, provider *Provider, masterKey string) (*ZAICodingQuotaResponse, error) {
-	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	apiKey, err := decryptProviderKey(provider, masterKey, "zai-coding")
 	if err != nil {
-		return nil, fmt.Errorf("zai-coding: failed to decrypt API key for provider %s: %w", provider.Name, err)
+		return nil, err
 	}
-
-	quotaURL := "https://api.z.ai/api/monitor/usage/quota/limit"
-
-	req, err := http.NewRequestWithContext(ctx, "GET", quotaURL, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("zai-coding: failed to create request for provider %s: %w", provider.Name, err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), provider.Name, "zai-coding")
-	if err != nil {
-		debuglog.Error("discovery: zai-coding quota fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("zai-coding: failed to fetch quota for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		if authErr := quotaAuthError("zai-coding", apiKey, provider, resp.StatusCode, body); authErr != nil {
-			return nil, authErr
-		}
-		debuglog.Error("discovery: zai-coding quota fetch non-200 status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
-		return nil, fmt.Errorf("zai-coding: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
-	}
-
+	// The quota endpoint lives on the Z.ai monitor host, not under the
+	// provider's configured coding base URL.
 	var quota ZAICodingQuotaResponse
-	if err := json.NewDecoder(resp.Body).Decode(&quota); err != nil {
-		debuglog.Error("discovery: zai-coding quota decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("zai-coding: failed to decode response for provider %s: %w", provider.Name, err)
+	if err := d.fetchQuotaJSONAt(ctx, provider, apiKey, "GET", zaiQuotaURL, "zai-coding", "quota", &quota); err != nil {
+		return nil, err
 	}
-
 	return &quota, nil
 }

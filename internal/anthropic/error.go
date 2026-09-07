@@ -3,6 +3,8 @@ package anthropic
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // anthropicErrorType maps an HTTP status code to the Anthropic error `type`
@@ -32,28 +34,18 @@ func anthropicErrorType(status int) string {
 	}
 }
 
-// openAIErrorBody is the shape util.WriteOpenAIError emits. `code` is left out
-// deliberately: the proxy writes it as an int, so typing it here (as string or
-// int) risks an unmarshal mismatch that would discard the whole envelope and
-// leak the raw JSON as the message. We only need the message.
-type openAIErrorBody struct {
-	Error struct {
-		Message string `json:"message"`
-		Type    string `json:"type"`
-	} `json:"error"`
-}
-
 // BuildErrorResponse produces an Anthropic-shaped error body
 // ({"type":"error","error":{"type","message"}}) for the given HTTP status. When
 // openaiBody carries an OpenAI error envelope, its message is reused; otherwise
 // the raw body (or a status-derived default) becomes the message. The error
 // `type` is always derived from the status so it matches Anthropic's vocabulary.
 func BuildErrorResponse(openaiBody []byte, status int) []byte {
-	message := ""
-	var oaErr openAIErrorBody
-	if json.Unmarshal(openaiBody, &oaErr) == nil && oaErr.Error.Message != "" {
-		message = oaErr.Error.Message
-	} else if len(openaiBody) > 0 {
+	// util.ErrorEnvelopeMessage reads only the message. The proxy writes the
+	// envelope's `code` as an int, so a struct typing it here (as string or
+	// int) would risk an unmarshal mismatch that discards the whole envelope
+	// and leaks the raw JSON as the message.
+	message := util.ErrorEnvelopeMessage(openaiBody)
+	if message == "" && len(openaiBody) > 0 {
 		message = string(openaiBody)
 	}
 	return BuildErrorResponseFromMessage(message, status)

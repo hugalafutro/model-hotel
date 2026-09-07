@@ -30,10 +30,11 @@ var (
 const modelCacheTTL = 5 * time.Minute
 
 func cacheModelsByModelID(modelID string, models []*Model) {
+	exp := time.Now().Add(modelCacheTTL)
 	modelCacheMu.Lock()
-	modelByModelIDCache[modelID] = modelCacheEntry{models: models, expiresAt: time.Now().Add(modelCacheTTL)}
+	modelByModelIDCache[modelID] = modelCacheEntry{models: models, expiresAt: exp}
 	for _, m := range models {
-		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
+		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: exp}
 	}
 	modelCacheMu.Unlock()
 }
@@ -94,30 +95,16 @@ func GetCachedByCompositeKey(providerID uuid.UUID, modelID string) (*Model, bool
 // IsCachedByUUID reports whether a model for the given UUID is present in the
 // cache and not expired. It does not modify the cache.
 func IsCachedByUUID(id uuid.UUID) bool {
-	modelCacheMu.RLock()
-	entry, ok := modelByUUIDCache[id]
-	modelCacheMu.RUnlock()
-	return ok && !time.Now().After(entry.expiresAt)
+	_, ok := GetCachedByUUID(id)
+	return ok
 }
 
 // IsCachedByCompositeKey reports whether a model for the given provider+model
 // composite key is present in the cache and not expired. It does not modify
 // the cache.
 func IsCachedByCompositeKey(providerID uuid.UUID, modelID string) bool {
-	key := providerID.String() + ":" + modelID
-	modelCacheMu.RLock()
-	entry, ok := modelByCompositeKey[key]
-	modelCacheMu.RUnlock()
-	return ok && !time.Now().After(entry.expiresAt)
-}
-
-// IsCachedByModelID reports whether models for the given model ID string are
-// present in the cache and not expired. It does not modify the cache.
-func IsCachedByModelID(modelID string) bool {
-	modelCacheMu.RLock()
-	entry, ok := modelByModelIDCache[modelID]
-	modelCacheMu.RUnlock()
-	return ok && !time.Now().After(entry.expiresAt)
+	_, ok := GetCachedByCompositeKey(providerID, modelID)
+	return ok
 }
 
 // InvalidateModelCache clears all model cache entries.
@@ -134,10 +121,11 @@ func InvalidateModelCache() {
 // composite provider:modelID key) so that lookups from all resolve paths
 // hit cache on the first request.
 func WarmModelCache(models []*Model) {
+	exp := time.Now().Add(modelCacheTTL)
 	modelCacheMu.Lock()
 	for _, m := range models {
-		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
-		modelByCompositeKey[m.ProviderID.String()+":"+m.ModelID] = modelByIDCacheEntry{model: m, expiresAt: time.Now().Add(modelCacheTTL)}
+		modelByUUIDCache[m.ID] = modelByIDCacheEntry{model: m, expiresAt: exp}
+		modelByCompositeKey[m.ProviderID.String()+":"+m.ModelID] = modelByIDCacheEntry{model: m, expiresAt: exp}
 	}
 	// Group models by ModelID string for the byModelIDCache.
 	byModelID := make(map[string][]*Model)
@@ -145,7 +133,7 @@ func WarmModelCache(models []*Model) {
 		byModelID[m.ModelID] = append(byModelID[m.ModelID], m)
 	}
 	for modelID, group := range byModelID {
-		modelByModelIDCache[modelID] = modelCacheEntry{models: group, expiresAt: time.Now().Add(modelCacheTTL)}
+		modelByModelIDCache[modelID] = modelCacheEntry{models: group, expiresAt: exp}
 	}
 	modelCacheMu.Unlock()
 	debuglog.Info("model: warmed cache", "count", len(models))

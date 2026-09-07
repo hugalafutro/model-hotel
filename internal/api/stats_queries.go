@@ -136,19 +136,10 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 	// Query 4c: Chat and Arena -- stored via virtual_key_name for admin chat/arena routes
 	for _, keyName := range []string{"chat", "arena"} {
 		var val int64
-		if metric == "tokens" {
-			err = h.dbPool.QueryRow(ctx, `
-				SELECT SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0))
-				FROM request_logs rl
-				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
-				since, keyName).Scan(&val)
-		} else {
-			err = h.dbPool.QueryRow(ctx, `
-				SELECT COUNT(*)
-				FROM request_logs rl
-				WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2`,
-				since, keyName).Scan(&val)
-		}
+		err = h.dbPool.QueryRow(ctx,
+			"SELECT "+metricValueSelect(metric)+
+				" FROM request_logs rl WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2",
+			since, keyName).Scan(&val)
 		if err == nil && val > 0 {
 			stats.ByVirtualKey[keyName] = val
 		}
@@ -272,54 +263,33 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 	stats.RequestsLast1h = requests1h
 }
 
-// statTotals fills TotalRequestsLast24h / TotalRequestsLast7d: the count for the
-// requested period plus the cross-fill of the other window (a 24h request also
-// fills the 7d total and vice-versa). A query failure here is fatal — returned
-// so calculateStats aborts.
-func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, period time.Duration, since, now time.Time) error {
-	switch period {
-	case 7 * 24 * time.Hour:
-		stats.TotalRequestsLast7d = 0
-	default:
-		stats.TotalRequestsLast24h = 0
-	}
-
+// statTotals fills TotalRequestsLast24h / TotalRequestsLast7d. Both windows are
+// always counted, whatever period the caller asked for: the dashboard shows the
+// two figures side by side and reads the requested period's own count from
+// RequestsLast1h / the time series instead. A query failure here is fatal,
+// returned so calculateStats aborts.
+func (h *StatsHandler) statTotals(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, now time.Time) error {
 	// Query 1: Total request count
 	query := `
 		SELECT COUNT(*) as count
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter
 
-	var count int
-	err := h.dbPool.QueryRow(ctx, query, append([]any{since}, filterArgs...)...).Scan(&count)
-	if err != nil {
-		debuglog.Error("stats: query failed", "query", "total_requests", "error", err)
+	count := func(since time.Time, name string) (int, error) {
+		var n int
+		if err := h.dbPool.QueryRow(ctx, query, append([]any{since}, filterArgs...)...).Scan(&n); err != nil {
+			debuglog.Error("stats: query failed", "query", name, "error", err)
+			return 0, err
+		}
+		return n, nil
+	}
+
+	var err error
+	if stats.TotalRequestsLast24h, err = count(now.Add(-24*time.Hour), "total_requests_24h"); err != nil {
 		return err
 	}
-
-	switch period {
-	case 7 * 24 * time.Hour:
-		stats.TotalRequestsLast7d = count
-	default:
-		stats.TotalRequestsLast24h = count
-	}
-
-	if period == 24*time.Hour {
-		_7dAgo := now.Add(-7 * 24 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, query, append([]any{_7dAgo}, filterArgs...)...).Scan(&count)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "total_requests_7d", "error", err)
-			return err
-		}
-		stats.TotalRequestsLast7d = count
-	} else {
-		_24hAgo := now.Add(-24 * time.Hour)
-		err = h.dbPool.QueryRow(ctx, query, append([]any{_24hAgo}, filterArgs...)...).Scan(&count)
-		if err != nil {
-			debuglog.Error("stats: query failed", "query", "total_requests_24h", "error", err)
-			return err
-		}
-		stats.TotalRequestsLast24h = count
+	if stats.TotalRequestsLast7d, err = count(now.Add(-7*24*time.Hour), "total_requests_7d"); err != nil {
+		return err
 	}
 	return nil
 }

@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
@@ -55,21 +56,6 @@ type antEventDelta struct {
 
 // --- Outgoing OpenAI chat.completion.chunk shape ---
 
-type chunk struct {
-	ID      string           `json:"id"`
-	Object  string           `json:"object"`
-	Created int64            `json:"created"`
-	Model   string           `json:"model"`
-	Choices []chunkChoice    `json:"choices"`
-	Usage   *completionUsage `json:"usage,omitempty"`
-}
-
-type chunkChoice struct {
-	Index        int        `json:"index"`
-	Delta        chunkDelta `json:"delta"`
-	FinishReason *string    `json:"finish_reason"`
-}
-
 type chunkDelta struct {
 	Role             string          `json:"role,omitempty"`
 	Content          string          `json:"content,omitempty"`
@@ -99,11 +85,8 @@ type chunkToolFunction struct {
 // by design: the adapter feeds it one upstream data payload at a time and
 // forwards whatever bytes come back.
 type StreamTranslator struct {
-	id      string
-	model   string
-	created int64
+	w egress.ChunkWriter
 
-	started  bool // role delta emitted
 	finished bool // terminal chunk + [DONE] already emitted
 	failed   bool // an error event arrived; no clean finish may follow
 
@@ -129,34 +112,15 @@ type StreamTranslator struct {
 // requested, not the id or model Anthropic reports on message_start).
 func NewStreamTranslator(id, model string, created int64) *StreamTranslator {
 	return &StreamTranslator{
-		id:               id,
-		model:            model,
-		created:          created,
+		w:                egress.ChunkWriter{Component: "anthropicegress", ID: id, Model: model, Created: created},
 		toolIndexByBlock: map[int]int{},
 	}
 }
 
 // writeChunk appends one framed SSE chunk ("data: <json>\n\n").
 func (t *StreamTranslator) writeChunk(buf *bytes.Buffer, delta chunkDelta, finishReason *string, usage *completionUsage) error {
-	if !t.started {
-		delta.Role = "assistant"
-		t.started = true
-	}
-	payload, err := json.Marshal(chunk{
-		ID:      t.id,
-		Object:  "chat.completion.chunk",
-		Created: t.created,
-		Model:   t.model,
-		Choices: []chunkChoice{{Index: 0, Delta: delta, FinishReason: finishReason}},
-		Usage:   usage,
-	})
-	if err != nil {
-		return fmt.Errorf("anthropicegress: marshal stream chunk: %w", err)
-	}
-	buf.WriteString("data: ")
-	buf.Write(payload)
-	buf.WriteString("\n\n")
-	return nil
+	delta.Role = t.w.Role()
+	return egress.WriteChunk(buf, &t.w, delta, finishReason, usage)
 }
 
 // Translate processes one Anthropic SSE data payload and returns the chunk
@@ -210,11 +174,7 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 		// terminal chunk that reads as a clean completion. Only the error type
 		// is named — error.message can echo request content.
 		t.failed = true
-		kind := "unknown"
-		if ev.Error != nil && ev.Error.Type != "" {
-			kind = ev.Error.Type
-		}
-		return nil, fmt.Errorf("anthropicegress: upstream error: %s", kind)
+		return nil, upstreamError(ev.Error)
 	case "ping":
 		// Anthropic's keepalive across a generation gap, and the gap is longest
 		// exactly where this adapter earns its keep: prompt processing after
@@ -311,6 +271,6 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	if err := t.writeChunk(&buf, chunkDelta{}, &reason, usage); err != nil {
 		return nil, err
 	}
-	buf.WriteString("data: [DONE]\n\n")
+	buf.WriteString(egress.Done)
 	return buf.Bytes(), nil
 }

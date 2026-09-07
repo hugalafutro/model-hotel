@@ -2,7 +2,6 @@ package failover
 
 import (
 	"context"
-	"fmt"
 	"os"
 	"testing"
 
@@ -1407,87 +1406,6 @@ func TestSyncAllModels_PreservesDescription(t *testing.T) {
 	if group.Description != description {
 		t.Errorf("Expected description %q, got %q", description, group.Description)
 	}
-}
-
-func TestSyncAllModels_UpsertError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	baseModel := "test-sync-upsert-error-" + uuid.New().String()[:8]
-	provider1Name := "test-provider-1-" + uuid.New().String()[:8]
-	provider2Name := "test-provider-2-" + uuid.New().String()[:8]
-
-	provider1ID := uuid.New()
-	provider2ID := uuid.New()
-	model1ID := uuid.New()
-	model2ID := uuid.New()
-
-	_, err := testDB.Pool().Exec(ctx, `
-		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
-		VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
-	`, provider1ID, provider1Name)
-	if err != nil {
-		t.Fatalf("Failed to insert provider1: %v", err)
-	}
-	defer func() {
-		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", provider1ID)
-	}()
-
-	_, err = testDB.Pool().Exec(ctx, `
-		INSERT INTO providers (id, name, base_url, encrypted_key, key_nonce, key_salt, enabled, created_at)
-		VALUES ($1, $2, 'http://localhost:11434', 'dGVzdA==', 'dGVzdA==', 'dGVzdA==', true, now())
-	`, provider2ID, provider2Name)
-	if err != nil {
-		t.Fatalf("Failed to insert provider2: %v", err)
-	}
-	defer func() {
-		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM providers WHERE id = $1", provider2ID)
-	}()
-
-	_, err = testDB.Pool().Exec(ctx, `
-		INSERT INTO models (id, model_id, provider_id, enabled, created_at)
-		VALUES ($1, $2, $3, true, now())
-	`, model1ID, baseModel, provider1ID)
-	if err != nil {
-		t.Fatalf("Failed to insert model1: %v", err)
-	}
-	defer func() {
-		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model1ID)
-	}()
-
-	_, err = testDB.Pool().Exec(ctx, `
-		INSERT INTO models (id, model_id, provider_id, enabled, created_at)
-		VALUES ($1, $2, $3, true, now())
-	`, model2ID, baseModel, provider2ID)
-	if err != nil {
-		t.Fatalf("Failed to insert model2: %v", err)
-	}
-	defer func() {
-		_, _ = testDB.Pool().Exec(ctx, "DELETE FROM models WHERE id = $1", model2ID)
-	}()
-
-	origMarshal := jsonMarshal
-	defer func() { jsonMarshal = origMarshal }()
-
-	callCount := 0
-	jsonMarshal = func(v any) ([]byte, error) {
-		callCount++
-		if callCount == 1 {
-			return nil, fmt.Errorf("test marshal error")
-		}
-		return origMarshal(v)
-	}
-
-	result, err := repo.SyncAllModels(ctx)
-	if err != nil {
-		t.Fatalf("SyncAllModels should not return error, but capture it in SyncErrors: %v", err)
-	}
-
-	if len(result.SyncErrors) == 0 {
-		t.Error("Expected sync errors when UpsertWithConfig fails")
-	}
-
-	_ = repo.Delete(ctx, baseModel)
 }
 
 // TestRepository_SyncAllModels_EmptyPriorityOrder tests the early return path

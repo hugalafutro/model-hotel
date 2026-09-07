@@ -35,24 +35,11 @@ func quotaKindFor(providerType string) (string, bool) {
 // unexpected failures. A dead credential becomes 424; NeuralWatt free-tier
 // (nil result) becomes 204 with a null payload. This is the single source of
 // truth shared by the poller, manual refresh, and cold lazy-fill.
-//
-// Each discovery result is captured into its concrete typed variable before
-// marshalling. Assigning a typed pointer into an `any` would wrap a nil pointer
-// in a non-nil interface, so NeuralWatt's `nil` free-tier result must be
-// detected on the typed value, not via an interface `== nil` check.
 func fetchQuotaSnapshot(ctx context.Context, disc *provider.DiscoveryService, prov *provider.Provider, masterKey string) (string, json.RawMessage, int, error) {
 	providerType := provider.TypeOf(prov)
 	kind, ok := quotaKindFor(providerType)
 	if !ok {
 		return "", nil, 0, errors.New("provider type does not expose quota")
-	}
-
-	marshal := func(v any) (json.RawMessage, int, error) {
-		b, err := json.Marshal(v)
-		if err != nil {
-			return nil, 0, err
-		}
-		return b, http.StatusOK, nil
 	}
 
 	var (
@@ -62,48 +49,21 @@ func fetchQuotaSnapshot(ctx context.Context, disc *provider.DiscoveryService, pr
 	)
 	switch providerType {
 	case "nanogpt":
-		var res *provider.NanoGPTUsageResponse
-		if res, err = disc.GetNanoGPTUsage(ctx, prov, masterKey); err == nil {
-			payload, status, err = marshal(res)
-		}
+		payload, status, err = marshalQuota(disc.GetNanoGPTUsage(ctx, prov, masterKey))
 	case "zai-coding":
-		var res *provider.ZAICodingQuotaResponse
-		if res, err = disc.GetZAICodingQuota(ctx, prov, masterKey); err == nil {
-			payload, status, err = marshal(res)
-		}
+		payload, status, err = marshalQuota(disc.GetZAICodingQuota(ctx, prov, masterKey))
 	case "kimi-code":
-		var res *provider.KimiCodeQuotaResponse
-		if res, err = disc.GetKimiCodeQuota(ctx, prov, masterKey); err == nil {
-			payload, status, err = marshal(res)
-		}
+		payload, status, err = marshalQuota(disc.GetKimiCodeQuota(ctx, prov, masterKey))
 	case "minimax":
-		var res *provider.MiniMaxQuotaResponse
-		if res, err = disc.GetMiniMaxQuota(ctx, prov, masterKey); err == nil {
-			payload, status, err = marshal(res)
-		}
+		payload, status, err = marshalQuota(disc.GetMiniMaxQuota(ctx, prov, masterKey))
 	case "openrouter":
-		var res *provider.OpenRouterBalance
-		if res, err = disc.GetOpenRouterBalance(ctx, prov, masterKey); err == nil {
-			payload, status, err = marshal(res)
-		}
+		payload, status, err = marshalQuota(disc.GetOpenRouterBalance(ctx, prov, masterKey))
 	case "neuralwatt":
-		var res *provider.NeuralWattQuotaResponse
-		if res, err = disc.GetNeuralWattQuota(ctx, prov, masterKey); err == nil {
-			if res == nil {
-				return kind, json.RawMessage("null"), http.StatusNoContent, nil
-			}
-			payload, status, err = marshal(res)
-		}
+		payload, status, err = marshalQuota(disc.GetNeuralWattQuota(ctx, prov, masterKey))
 	case "deepseek":
-		var res *provider.DeepSeekBalanceResponse
-		if res, err = disc.GetDeepSeekBalance(ctx, prov, masterKey); err == nil {
-			payload, status, err = marshal(res)
-		}
+		payload, status, err = marshalQuota(disc.GetDeepSeekBalance(ctx, prov, masterKey))
 	case "ollama-cloud":
-		var res *provider.OllamaCloudAccount
-		if res, err = disc.GetOllamaCloudAccount(ctx, prov, masterKey); err == nil {
-			payload, status, err = marshal(res)
-		}
+		payload, status, err = marshalQuota(disc.GetOllamaCloudAccount(ctx, prov, masterKey))
 	}
 	if err != nil {
 		if errors.Is(err, provider.ErrProviderKeyInvalid) {
@@ -112,6 +72,31 @@ func fetchQuotaSnapshot(ctx context.Context, disc *provider.DiscoveryService, pr
 		return kind, nil, 0, err
 	}
 	return kind, payload, status, nil
+}
+
+// quotaRefreshInterval reads the quota poll interval. Zero or less means quota
+// polling is switched off.
+func quotaRefreshInterval(ctx context.Context, s SettingsStore) time.Duration {
+	return time.Duration(s.GetInt(ctx, "quota_refresh_interval_min", 5)) * time.Minute
+}
+
+// marshalQuota turns one discovery result into the stored snapshot body. The
+// result is taken as its concrete typed pointer rather than an `any`: assigning
+// a typed nil pointer into an interface yields a non-nil interface, so a
+// NeuralWatt free-tier `nil` must be detected on the typed value. That nil is
+// the 204-with-null-payload case.
+func marshalQuota[T any](res *T, err error) (json.RawMessage, int, error) {
+	if err != nil {
+		return nil, 0, err
+	}
+	if res == nil {
+		return json.RawMessage("null"), http.StatusNoContent, nil
+	}
+	b, err := json.Marshal(res)
+	if err != nil {
+		return nil, 0, err
+	}
+	return b, http.StatusOK, nil
 }
 
 // PollQuotasOnce refreshes the snapshot for every enabled quota-capable
@@ -126,10 +111,11 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 		// computed map could be arbitrarily stale by the time providers are
 		// listable again. Fail closed: clear it rather than let a frozen
 		// deadline keep pinning a circuit's cooldown.
-		h.ClearQuotaAdvice(ctx)
+		h.ClearQuotaAdvice()
 		return
 	}
 	disc := h.discoveryService()
+	interval := quotaRefreshInterval(ctx, h.settingsRepo)
 	for _, prov := range providers {
 		if !prov.Enabled {
 			continue
@@ -143,7 +129,6 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 		// provider, skip the upstream call. The primary (and any node FD is not
 		// feeding) has no recent fleet snapshot and still self-polls, so quota is
 		// never worse than standalone.
-		interval := time.Duration(h.settingsRepo.GetInt(ctx, "quota_refresh_interval_min", 5)) * time.Minute
 		if interval > 0 {
 			// util.TrustedAge: a future-dated row must never read as fresh, or
 			// this member's own poll is skipped forever. The repository clamps
@@ -302,17 +287,17 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 		// Same rule as PollQuotasOnce's provider-list failure: a frozen advice
 		// map could be arbitrarily stale by the time listing works again, so
 		// fail closed rather than keep pinning on it.
-		h.ClearQuotaAdvice(ctx)
+		h.ClearQuotaAdvice()
 		return
 	}
-	interval := time.Duration(h.settingsRepo.GetInt(ctx, "quota_refresh_interval_min", 5)) * time.Minute
+	interval := quotaRefreshInterval(ctx, h.settingsRepo)
 	maxAge := 3 * interval
 
 	providers, err := h.providerRepo.List(ctx)
 	if err != nil {
 		debuglog.Warn("quota: advice refresh failed to list providers", "error", err)
 		// Same fail-closed rule as above and as PollQuotasOnce.
-		h.ClearQuotaAdvice(ctx)
+		h.ClearQuotaAdvice()
 		return
 	}
 	typeByID := make(map[uuid.UUID]string, len(providers))
@@ -383,7 +368,7 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 // RefreshQuotaAdvice entirely, so the last computed map would otherwise be
 // retained for the process lifetime), or a poll pass could not even list
 // providers. Safe to call when no advisor was ever wired (no-op).
-func (h *Handler) ClearQuotaAdvice(_ context.Context) {
+func (h *Handler) ClearQuotaAdvice() {
 	if h.quotaAdvisor == nil {
 		return
 	}
@@ -404,7 +389,7 @@ func (h *Handler) ClearQuotaAdvice(_ context.Context) {
 // also call: a database blip is exactly the case where the gateway is still
 // looking and the pins must stand.
 func (h *Handler) DisableQuotaAdvice(ctx context.Context) {
-	h.ClearQuotaAdvice(ctx)
+	h.ClearQuotaAdvice()
 	if h.circuitBreaker == nil {
 		return
 	}

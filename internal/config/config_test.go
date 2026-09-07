@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -736,119 +737,13 @@ func TestValidateProviderURL_AllowListMultipleEntries(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// clampInt
-// ---------------------------------------------------------------------------
-
-func TestClampInt_WithinRange(t *testing.T) {
-	result := clampInt(5, 1, 10)
-	if result != 5 {
-		t.Errorf("clampInt(5, 1, 10) = %d, want 5", result)
-	}
-}
-
-func TestClampInt_BelowMin(t *testing.T) {
-	result := clampInt(0, 1, 10)
-	if result != 1 {
-		t.Errorf("clampInt(0, 1, 10) = %d, want 1", result)
-	}
-}
-
-func TestClampInt_AboveMax(t *testing.T) {
-	result := clampInt(15, 1, 10)
-	if result != 10 {
-		t.Errorf("clampInt(15, 1, 10) = %d, want 10", result)
-	}
-}
-
-func TestClampInt_AtMin(t *testing.T) {
-	result := clampInt(1, 1, 10)
-	if result != 1 {
-		t.Errorf("clampInt(1, 1, 10) = %d, want 1", result)
-	}
-}
-
-func TestClampInt_AtMax(t *testing.T) {
-	result := clampInt(10, 1, 10)
-	if result != 10 {
-		t.Errorf("clampInt(10, 1, 10) = %d, want 10", result)
-	}
-}
-
-func TestClampInt_NegativeValues(t *testing.T) {
-	result := clampInt(-5, -10, -1)
-	if result != -5 {
-		t.Errorf("clampInt(-5, -10, -1) = %d, want -5", result)
-	}
-}
-
-func TestClampInt_BelowMinNegative(t *testing.T) {
-	result := clampInt(-15, -10, -1)
-	if result != -10 {
-		t.Errorf("clampInt(-15, -10, -1) = %d, want -10", result)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// clampInt32
-// ---------------------------------------------------------------------------
-
-func TestClampInt32_WithinRange(t *testing.T) {
-	result := clampInt32(5, 1, 10)
-	if result != 5 {
-		t.Errorf("clampInt32(5, 1, 10) = %d, want 5", result)
-	}
-}
-
-func TestClampInt32_BelowMin(t *testing.T) {
-	result := clampInt32(0, 1, 10)
-	if result != 1 {
-		t.Errorf("clampInt32(0, 1, 10) = %d, want 1", result)
-	}
-}
-
-func TestClampInt32_AboveMax(t *testing.T) {
-	result := clampInt32(15, 1, 10)
-	if result != 10 {
-		t.Errorf("clampInt32(15, 1, 10) = %d, want 10", result)
-	}
-}
-
-func TestClampInt32_AtMin(t *testing.T) {
-	result := clampInt32(1, 1, 10)
-	if result != 1 {
-		t.Errorf("clampInt32(1, 1, 10) = %d, want 1", result)
-	}
-}
-
-func TestClampInt32_AtMax(t *testing.T) {
-	result := clampInt32(10, 1, 10)
-	if result != 10 {
-		t.Errorf("clampInt32(10, 1, 10) = %d, want 10", result)
-	}
-}
-
-func TestClampInt32_NegativeValues(t *testing.T) {
-	result := clampInt32(-5, -10, -1)
-	if result != -5 {
-		t.Errorf("clampInt32(-5, -10, -1) = %d, want -5", result)
-	}
-}
-
-func TestClampInt32_BelowMinNegative(t *testing.T) {
-	result := clampInt32(-15, -10, -1)
-	if result != -10 {
-		t.Errorf("clampInt32(-15, -10, -1) = %d, want -10", result)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// getIntEnvAsInt
+// envNumber (int)
 // ---------------------------------------------------------------------------
 
 func TestGetIntEnvAsInt_ValidValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT", "42")
 	defer os.Unsetenv("TEST_INTASINT")
-	result := getIntEnvAsInt("TEST_INTASINT", 0)
+	result := envNumberInt("TEST_INTASINT", 0)
 	if result != 42 {
 		t.Errorf("expected 42, got %d", result)
 	}
@@ -856,7 +751,7 @@ func TestGetIntEnvAsInt_ValidValue(t *testing.T) {
 
 func TestGetIntEnvAsInt_Empty(t *testing.T) {
 	os.Unsetenv("TEST_INTASINT_MISSING")
-	result := getIntEnvAsInt("TEST_INTASINT_MISSING", 99)
+	result := envNumberInt("TEST_INTASINT_MISSING", 99)
 	if result != 99 {
 		t.Errorf("expected default 99, got %d", result)
 	}
@@ -865,7 +760,7 @@ func TestGetIntEnvAsInt_Empty(t *testing.T) {
 func TestGetIntEnvAsInt_InvalidString(t *testing.T) {
 	os.Setenv("TEST_INTASINT", "not-a-number")
 	defer os.Unsetenv("TEST_INTASINT")
-	result := getIntEnvAsInt("TEST_INTASINT", 50)
+	result := envNumberInt("TEST_INTASINT", 50)
 	if result != 50 {
 		t.Errorf("expected fallback default 50, got %d", result)
 	}
@@ -874,7 +769,7 @@ func TestGetIntEnvAsInt_InvalidString(t *testing.T) {
 func TestGetIntEnvAsInt_NegativeValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT", "-5")
 	defer os.Unsetenv("TEST_INTASINT")
-	result := getIntEnvAsInt("TEST_INTASINT", 0)
+	result := envNumberInt("TEST_INTASINT", 0)
 	if result != -5 {
 		t.Errorf("expected -5, got %d", result)
 	}
@@ -883,20 +778,20 @@ func TestGetIntEnvAsInt_NegativeValue(t *testing.T) {
 func TestGetIntEnvAsInt_ZeroValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT", "0")
 	defer os.Unsetenv("TEST_INTASINT")
-	result := getIntEnvAsInt("TEST_INTASINT", 10)
+	result := envNumberInt("TEST_INTASINT", 10)
 	if result != 0 {
 		t.Errorf("expected 0, got %d", result)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// getIntEnvAsInt32
+// envNumber (int32)
 // ---------------------------------------------------------------------------
 
 func TestGetIntEnvAsInt32_ValidValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "42")
 	defer os.Unsetenv("TEST_INTASINT32")
-	result := getIntEnvAsInt32("TEST_INTASINT32", 0)
+	result := envNumber32("TEST_INTASINT32", 0)
 	if result != 42 {
 		t.Errorf("expected 42, got %d", result)
 	}
@@ -904,7 +799,7 @@ func TestGetIntEnvAsInt32_ValidValue(t *testing.T) {
 
 func TestGetIntEnvAsInt32_Empty(t *testing.T) {
 	os.Unsetenv("TEST_INTASINT32_MISSING")
-	result := getIntEnvAsInt32("TEST_INTASINT32_MISSING", 99)
+	result := envNumber32("TEST_INTASINT32_MISSING", 99)
 	if result != 99 {
 		t.Errorf("expected default 99, got %d", result)
 	}
@@ -913,7 +808,7 @@ func TestGetIntEnvAsInt32_Empty(t *testing.T) {
 func TestGetIntEnvAsInt32_InvalidString(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "not-a-number")
 	defer os.Unsetenv("TEST_INTASINT32")
-	result := getIntEnvAsInt32("TEST_INTASINT32", 50)
+	result := envNumber32("TEST_INTASINT32", 50)
 	if result != 50 {
 		t.Errorf("expected fallback default 50, got %d", result)
 	}
@@ -922,7 +817,7 @@ func TestGetIntEnvAsInt32_InvalidString(t *testing.T) {
 func TestGetIntEnvAsInt32_NegativeValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "-5")
 	defer os.Unsetenv("TEST_INTASINT32")
-	result := getIntEnvAsInt32("TEST_INTASINT32", 0)
+	result := envNumber32("TEST_INTASINT32", 0)
 	if result != -5 {
 		t.Errorf("expected -5, got %d", result)
 	}
@@ -931,7 +826,7 @@ func TestGetIntEnvAsInt32_NegativeValue(t *testing.T) {
 func TestGetIntEnvAsInt32_Overflow(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "9999999999")
 	defer os.Unsetenv("TEST_INTASINT32")
-	result := getIntEnvAsInt32("TEST_INTASINT32", 10)
+	result := envNumber32("TEST_INTASINT32", 10)
 	if result != 10 {
 		t.Errorf("expected fallback default 10 for overflow, got %d", result)
 	}
@@ -940,88 +835,14 @@ func TestGetIntEnvAsInt32_Overflow(t *testing.T) {
 func TestGetIntEnvAsInt32_ZeroValue(t *testing.T) {
 	os.Setenv("TEST_INTASINT32", "0")
 	defer os.Unsetenv("TEST_INTASINT32")
-	result := getIntEnvAsInt32("TEST_INTASINT32", 10)
+	result := envNumber32("TEST_INTASINT32", 10)
 	if result != 0 {
 		t.Errorf("expected 0, got %d", result)
 	}
 }
 
-func TestClampInt64_WithinRange(t *testing.T) {
-	result := clampInt64(5, 1, 10)
-	if result != 5 {
-		t.Errorf("clampInt64(5, 1, 10) = %d, want 5", result)
-	}
-}
-
-func TestClampInt64_BelowMin(t *testing.T) {
-	result := clampInt64(0, 1, 10)
-	if result != 1 {
-		t.Errorf("clampInt64(0, 1, 10) = %d, want 1", result)
-	}
-}
-
-func TestClampInt64_AboveMax(t *testing.T) {
-	result := clampInt64(15, 1, 10)
-	if result != 10 {
-		t.Errorf("clampInt64(15, 1, 10) = %d, want 10", result)
-	}
-}
-
-func TestClampInt64_AtMin(t *testing.T) {
-	result := clampInt64(1, 1, 10)
-	if result != 1 {
-		t.Errorf("clampInt64(1, 1, 10) = %d, want 1", result)
-	}
-}
-
-func TestClampInt64_AtMax(t *testing.T) {
-	result := clampInt64(10, 1, 10)
-	if result != 10 {
-		t.Errorf("clampInt64(10, 1, 10) = %d, want 10", result)
-	}
-}
-
-func TestClampInt64_NegativeValues(t *testing.T) {
-	result := clampInt64(-5, -10, -1)
-	if result != -5 {
-		t.Errorf("clampInt64(-5, -10, -1) = %d, want -5", result)
-	}
-}
-
-func TestClampInt64_BelowMinNegative(t *testing.T) {
-	result := clampInt64(-15, -10, -1)
-	if result != -10 {
-		t.Errorf("clampInt64(-15, -10, -1) = %d, want -10", result)
-	}
-}
-
 // ---------------------------------------------------------------------------
-// clampFloat
-// ---------------------------------------------------------------------------
-
-func TestClampFloat_WithinRange(t *testing.T) {
-	result := clampFloat(0.5, 0.0, 1.0)
-	if result != 0.5 {
-		t.Errorf("clampFloat(0.5, 0, 1) = %g, want 0.5", result)
-	}
-}
-
-func TestClampFloat_BelowMin(t *testing.T) {
-	result := clampFloat(-0.1, 0.0, 1.0)
-	if result != 0.0 {
-		t.Errorf("clampFloat(-0.1, 0, 1) = %g, want 0", result)
-	}
-}
-
-func TestClampFloat_AboveMax(t *testing.T) {
-	result := clampFloat(1.5, 0.0, 1.0)
-	if result != 1.0 {
-		t.Errorf("clampFloat(1.5, 0, 1) = %g, want 1", result)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// getBoolEnvWithDefault
+// BoolEnv
 // ---------------------------------------------------------------------------
 
 func TestGetBoolEnvWithDefault_TrueValues(t *testing.T) {
@@ -1041,9 +862,9 @@ func TestGetBoolEnvWithDefault_TrueValues(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			os.Setenv("TEST_BOOL", tc.value)
 			defer os.Unsetenv("TEST_BOOL")
-			result := getBoolEnvWithDefault("TEST_BOOL", false)
+			result := BoolEnv("TEST_BOOL", false)
 			if result != tc.want {
-				t.Errorf("getBoolEnvWithDefault(%q) = %v, want %v", tc.value, result, tc.want)
+				t.Errorf("BoolEnv(%q) = %v, want %v", tc.value, result, tc.want)
 			}
 		})
 	}
@@ -1064,9 +885,9 @@ func TestGetBoolEnvWithDefault_FalseValues(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			os.Setenv("TEST_BOOL", tc.value)
 			defer os.Unsetenv("TEST_BOOL")
-			result := getBoolEnvWithDefault("TEST_BOOL", true)
+			result := BoolEnv("TEST_BOOL", true)
 			if result != false {
-				t.Errorf("getBoolEnvWithDefault(%q) = %v, want false", tc.value, result)
+				t.Errorf("BoolEnv(%q) = %v, want false", tc.value, result)
 			}
 		})
 	}
@@ -1074,12 +895,12 @@ func TestGetBoolEnvWithDefault_FalseValues(t *testing.T) {
 
 func TestGetBoolEnvWithDefault_DefaultOnEmpty(t *testing.T) {
 	os.Unsetenv("TEST_BOOL_MISSING")
-	result := getBoolEnvWithDefault("TEST_BOOL_MISSING", true)
+	result := BoolEnv("TEST_BOOL_MISSING", true)
 	if result != true {
 		t.Error("expected default true when env var is missing")
 	}
 
-	result = getBoolEnvWithDefault("TEST_BOOL_MISSING", false)
+	result = BoolEnv("TEST_BOOL_MISSING", false)
 	if result != false {
 		t.Error("expected default false when env var is missing")
 	}
@@ -1088,20 +909,20 @@ func TestGetBoolEnvWithDefault_DefaultOnEmpty(t *testing.T) {
 func TestGetBoolEnvWithDefault_DefaultOnGarbage(t *testing.T) {
 	os.Setenv("TEST_BOOL", "maybe")
 	defer os.Unsetenv("TEST_BOOL")
-	result := getBoolEnvWithDefault("TEST_BOOL", true)
+	result := BoolEnv("TEST_BOOL", true)
 	if result != true {
 		t.Error("expected default value for unrecognized string")
 	}
 }
 
 // ---------------------------------------------------------------------------
-// getIntEnvWithDefault
+// envNumber (int64)
 // ---------------------------------------------------------------------------
 
 func TestGetIntEnvWithDefault_ValidInt(t *testing.T) {
 	os.Setenv("TEST_INT", "42")
 	defer os.Unsetenv("TEST_INT")
-	result := getIntEnvWithDefault("TEST_INT", 0)
+	result := envNumber64("TEST_INT", 0)
 	if result != 42 {
 		t.Errorf("expected 42, got %d", result)
 	}
@@ -1109,7 +930,7 @@ func TestGetIntEnvWithDefault_ValidInt(t *testing.T) {
 
 func TestGetIntEnvWithDefault_Empty(t *testing.T) {
 	os.Unsetenv("TEST_INT_MISSING")
-	result := getIntEnvWithDefault("TEST_INT_MISSING", 99)
+	result := envNumber64("TEST_INT_MISSING", 99)
 	if result != 99 {
 		t.Errorf("expected default 99, got %d", result)
 	}
@@ -1118,7 +939,7 @@ func TestGetIntEnvWithDefault_Empty(t *testing.T) {
 func TestGetIntEnvWithDefault_InvalidString(t *testing.T) {
 	os.Setenv("TEST_INT", "not-a-number")
 	defer os.Unsetenv("TEST_INT")
-	result := getIntEnvWithDefault("TEST_INT", 50)
+	result := envNumber64("TEST_INT", 50)
 	if result != 50 {
 		t.Errorf("expected fallback default 50, got %d", result)
 	}
@@ -1127,20 +948,20 @@ func TestGetIntEnvWithDefault_InvalidString(t *testing.T) {
 func TestGetIntEnvWithDefault_NegativeValue(t *testing.T) {
 	os.Setenv("TEST_INT", "-5")
 	defer os.Unsetenv("TEST_INT")
-	result := getIntEnvWithDefault("TEST_INT", 0)
+	result := envNumber64("TEST_INT", 0)
 	if result != -5 {
 		t.Errorf("expected -5, got %d", result)
 	}
 }
 
 // ---------------------------------------------------------------------------
-// getFloatEnvWithDefault
+// envNumber (float64)
 // ---------------------------------------------------------------------------
 
 func TestGetFloatEnvWithDefault_ValidFloat(t *testing.T) {
 	os.Setenv("TEST_FLOAT", "3.14")
 	defer os.Unsetenv("TEST_FLOAT")
-	result := getFloatEnvWithDefault("TEST_FLOAT", 0.0)
+	result := envNumberFloat("TEST_FLOAT", 0.0)
 	if result != 3.14 {
 		t.Errorf("expected 3.14, got %g", result)
 	}
@@ -1148,7 +969,7 @@ func TestGetFloatEnvWithDefault_ValidFloat(t *testing.T) {
 
 func TestGetFloatEnvWithDefault_Empty(t *testing.T) {
 	os.Unsetenv("TEST_FLOAT_MISSING")
-	result := getFloatEnvWithDefault("TEST_FLOAT_MISSING", 2.5)
+	result := envNumberFloat("TEST_FLOAT_MISSING", 2.5)
 	if result != 2.5 {
 		t.Errorf("expected default 2.5, got %g", result)
 	}
@@ -1157,7 +978,7 @@ func TestGetFloatEnvWithDefault_Empty(t *testing.T) {
 func TestGetFloatEnvWithDefault_InvalidString(t *testing.T) {
 	os.Setenv("TEST_FLOAT", "abc")
 	defer os.Unsetenv("TEST_FLOAT")
-	result := getFloatEnvWithDefault("TEST_FLOAT", 1.0)
+	result := envNumberFloat("TEST_FLOAT", 1.0)
 	if result != 1.0 {
 		t.Errorf("expected fallback default 1.0, got %g", result)
 	}
@@ -1168,7 +989,7 @@ func TestGetFloatEnvWithDefault_InvalidString(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFormatCORSOriginRows_EmptyList(t *testing.T) {
-	result := formatCORSOriginRows([]string{}, 16, 3, 2)
+	result := formatCORSOriginRows([]string{})
 	if len(result) != 1 {
 		t.Fatalf("expected 1 row for empty list, got %d", len(result))
 	}
@@ -1178,7 +999,7 @@ func TestFormatCORSOriginRows_EmptyList(t *testing.T) {
 }
 
 func TestFormatCORSOriginRows_SingleOrigin(t *testing.T) {
-	result := formatCORSOriginRows([]string{"http://localhost:5173"}, 16, 3, 2)
+	result := formatCORSOriginRows([]string{"http://localhost:5173"})
 	if len(result) != 1 {
 		t.Fatalf("expected 1 row, got %d", len(result))
 	}
@@ -1192,7 +1013,7 @@ func TestFormatCORSOriginRows_SingleOrigin(t *testing.T) {
 
 func TestFormatCORSOriginRows_MultipleOrigins(t *testing.T) {
 	origins := []string{"http://a.com", "http://b.com", "http://c.com"}
-	result := formatCORSOriginRows(origins, 16, 3, 2)
+	result := formatCORSOriginRows(origins)
 	if len(result) != 3 {
 		t.Fatalf("expected 3 rows, got %d", len(result))
 	}
@@ -1215,17 +1036,20 @@ func TestFormatCORSOriginRows_MultipleOrigins(t *testing.T) {
 	}
 }
 
-func TestFormatCORSOriginRows_Truncation(t *testing.T) {
+// TestConfigString_TruncatesLongCORSOrigin pins the truncation to String,
+// which applies one cut to every row it prints, origins included.
+func TestConfigString_TruncatesLongCORSOrigin(t *testing.T) {
 	longOrigin := "http://example.com/very/long/path/that/exceeds/the/max/value/width/by/quite/a/lot"
-	origins := []string{longOrigin, "http://b.com"}
-	// maxValW = 80 - 3 - 16 - 2 = 59
-	result := formatCORSOriginRows(origins, 16, 3, 2)
-	if len(result) != 2 {
-		t.Fatalf("expected 2 rows, got %d", len(result))
+	cfg := &Config{CORSOrigins: []string{longOrigin, "http://b.com"}}
+	out := cfg.String()
+	if contains(out, longOrigin) {
+		t.Error("String() printed a CORS origin wider than the frame")
 	}
-	// The first origin should be truncated since it's > 59 chars
-	if !contains(result[0].value, "...") {
-		t.Errorf("expected truncation for long origin, got %q", result[0].value)
+	if !contains(out, "...") {
+		t.Errorf("expected a truncation marker in:\n%s", out)
+	}
+	if !contains(out, "http://b.com") {
+		t.Error("String() dropped the second CORS origin")
 	}
 }
 
@@ -1254,49 +1078,12 @@ func TestPadRight_LongerThanWidth(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// formatBytes
-// ---------------------------------------------------------------------------
-
-func TestFormatBytes_Bytes(t *testing.T) {
-	result := formatBytes(500)
-	if result != "500 B" {
-		t.Errorf("expected %q, got %q", "500 B", result)
-	}
-}
-
-func TestFormatBytes_Kilobytes(t *testing.T) {
-	result := formatBytes(2048)
-	if result != "2 KB" {
-		t.Errorf("expected %q, got %q", "2 KB", result)
-	}
-}
-
-func TestFormatBytes_Megabytes(t *testing.T) {
-	result := formatBytes(5 * 1024 * 1024)
-	if result != "5 MB" {
-		t.Errorf("expected %q, got %q", "5 MB", result)
-	}
-}
-
-func TestFormatBytes_Gigabytes(t *testing.T) {
-	result := formatBytes(3 * 1024 * 1024 * 1024)
-	if result != "3 GB" {
-		t.Errorf("expected %q, got %q", "3 GB", result)
-	}
-}
-
-func TestFormatBytes_Zero(t *testing.T) {
-	result := formatBytes(0)
-	if result != "0 B" {
-		t.Errorf("expected %q, got %q", "0 B", result)
-	}
-}
-
-func TestFormatBytes_JustUnderKB(t *testing.T) {
-	result := formatBytes(1023)
-	if result != "1023 B" {
-		t.Errorf("expected %q, got %q", "1023 B", result)
+// TestConfigString_MaxRequestSize pins the banner's byte rendering, which
+// util.FormatBytes owns.
+func TestConfigString_MaxRequestSize(t *testing.T) {
+	cfg := &Config{MaxRequestSize: 50 * 1024 * 1024}
+	if out := cfg.String(); !contains(out, "50.0 MB") {
+		t.Errorf("expected 50.0 MB in:\n%s", out)
 	}
 }
 
@@ -1436,9 +1223,9 @@ func TestGetEnvWithDefault(t *testing.T) {
 				t.Setenv(tt.key, tt.envValue)
 				defer t.Cleanup(func() { t.Setenv(tt.key, "") })
 			}
-			got := getEnvWithDefault(tt.key, tt.defaultValue)
+			got := EnvOr(tt.key, tt.defaultValue)
 			if got != tt.want {
-				t.Errorf("getEnvWithDefault(%q, %q) = %q, want %q", tt.key, tt.defaultValue, got, tt.want)
+				t.Errorf("EnvOr(%q, %q) = %q, want %q", tt.key, tt.defaultValue, got, tt.want)
 			}
 		})
 	}
@@ -1756,3 +1543,14 @@ func TestLoad_WarnsOnWeakMasterKey(t *testing.T) {
 		t.Errorf("strong key: unexpected warning %q", got[0].Message)
 	}
 }
+
+// envNumberInt, envNumber32, envNumber64 and envNumberFloat name the four
+// numeric shapes envNumber is instantiated with in Load, so the tests read the
+// same as the call sites.
+func envNumberInt(key string, def int) int { return envNumber(key, def, strconv.Atoi) }
+
+func envNumber32(key string, def int32) int32 { return envNumber(key, def, parseInt32) }
+
+func envNumber64(key string, def int64) int64 { return envNumber(key, def, parseInt64) }
+
+func envNumberFloat(key string, def float64) float64 { return envNumber(key, def, parseFloat) }

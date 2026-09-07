@@ -6,8 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/google/uuid"
-
+	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -51,12 +50,8 @@ func TranslateResponsesToChat(respBody []byte, model string) ([]byte, error) {
 			if args == "" || !json.Valid([]byte(args)) {
 				args = "{}"
 			}
-			id := item.CallID
-			if id == "" {
-				id = item.ID
-			}
 			msg.ToolCalls = append(msg.ToolCalls, chatToolCall{
-				ID:       id,
+				ID:       item.callID(),
 				Type:     "function",
 				Function: chatToolCallFunc{Name: item.Name, Arguments: args},
 			})
@@ -97,7 +92,7 @@ func TranslateResponsesToChat(respBody []byte, model string) ([]byte, error) {
 // response id, synthesizing one when the upstream omitted it.
 func chatCompletionID(respID string) string {
 	if respID == "" {
-		return "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", "")
+		return egress.NewChatCompletionID()
 	}
 	return "chatcmpl-" + strings.TrimPrefix(respID, "resp_")
 }
@@ -128,20 +123,18 @@ func translateUsage(raw json.RawMessage) *chatUsage {
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
 	}
-	lostAddend := len(util.UnreadableCounts(raw, "input_tokens", "output_tokens")) > 0
-	for _, key := range []string{"input_tokens", "output_tokens", "total_tokens"} {
-		if len(util.UnreadableCounts(raw, key)) == 0 {
-			continue
-		}
-		switch key {
-		case "input_tokens":
-			u.InputTokens = 0
-		case "output_tokens":
-			u.OutputTokens = 0
-		case "total_tokens":
-			u.TotalTokens = 0
-		}
+	lostInput := len(util.UnreadableCounts(raw, "input_tokens")) > 0
+	lostOutput := len(util.UnreadableCounts(raw, "output_tokens")) > 0
+	if lostInput {
+		u.InputTokens = 0
 	}
+	if lostOutput {
+		u.OutputTokens = 0
+	}
+	if len(util.UnreadableCounts(raw, "total_tokens")) > 0 {
+		u.TotalTokens = 0
+	}
+	lostAddend := lostInput || lostOutput
 	out := &chatUsage{
 		PromptTokens:     u.InputTokens,
 		CompletionTokens: u.OutputTokens,

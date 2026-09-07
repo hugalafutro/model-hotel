@@ -2,10 +2,7 @@ package gemini
 
 import (
 	"io"
-	"strings"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 )
@@ -32,6 +29,5 @@ const MaxEventBytes = 32 << 20
 // NewStreamAdapter builds an adapter for one streaming response. model is
 // echoed in every emitted chunk (the model string the client requested).
 func NewStreamAdapter(upstream io.ReadCloser, model string) *StreamAdapter {
-	id := "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	return egress.NewStreamAdapterWithCap("gemini", upstream, NewStreamTranslator(id, model, time.Now().Unix()), MaxEventBytes)
+	return egress.NewStreamAdapterWithCap("gemini", upstream, NewStreamTranslator(egress.NewChatCompletionID(), model, time.Now().Unix()), MaxEventBytes)
 }

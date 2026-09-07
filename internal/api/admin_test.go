@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"testing"
 	"time"
 
@@ -213,6 +214,11 @@ func (m *mockSettingsStore) GetDuration(ctx context.Context, key string, default
 func (m *mockSettingsStore) GetInt(ctx context.Context, key string, defaultValue int) int {
 	if m.getIntFn != nil {
 		return m.getIntFn(ctx, key, defaultValue)
+	}
+	// Mirrors settings.Repository, which reads GetInt through GetWithDefault, so
+	// a test that stubs only the string getter sees its values here too.
+	if v, err := strconv.Atoi(m.GetWithDefault(ctx, key, strconv.Itoa(defaultValue))); err == nil {
+		return v
 	}
 	return defaultValue
 }

@@ -3,6 +3,9 @@ package api
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -46,4 +49,20 @@ func (h *Handler) AuthLogout(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, map[string]bool{"success": true})
+}
+
+// RegisterAuthExchange mounts the admin-token exchange endpoint and the
+// always-available logout endpoint. Both must be registered in the
+// auth-exempt group: the exchange runs before any session exists, and
+// logout must work even for an already-expired or otherwise invalid
+// session. Mounted under /api, this resolves to POST /api/auth/admin-exchange
+// and POST /api/auth/logout.
+//
+// The exchange itself is adminauth's, the same handler Front Desk mounts, so
+// the two SPAs cannot drift on what a raw admin token buys.
+func (h *Handler) RegisterAuthExchange(r chi.Router) {
+	r.Post("/auth/admin-exchange", adminauth.TokenExchange(
+		h.adminMgr, h.webauthnSessionMgr, h.TotpEnabled, authcookie.Dashboard,
+		h.cfg.CookieSecure, h.clientIPs))
+	r.Post("/auth/logout", h.AuthLogout)
 }

@@ -254,3 +254,19 @@ func readsAsCount(member json.RawMessage) bool {
 	}
 	return DecodeCounts(append(append([]byte(`{"n":`), member...), '}'), &wrapped) == nil
 }
+
+// DecodeCountsTolerant is DecodeCounts with the project's one rule for what a
+// decode failure means: a type error on a well-formed JSON object is a member
+// the caller has no struct for, so the members that did decode are kept and the
+// error is dropped; anything else is fatal. Every usage decoder in the project
+// wants that rule, and spelling it per site invites a caller to get half of it.
+func DecodeCountsTolerant(data []byte, dst any) error {
+	err := DecodeCounts(data, dst)
+	if err != nil && ShapeError(data, err) != nil {
+		//nolint:nilerr // a type error on a well-formed object is a member we
+		// have no struct for: the members that did decode are kept and the
+		// error is deliberately dropped.
+		return nil
+	}
+	return err
+}

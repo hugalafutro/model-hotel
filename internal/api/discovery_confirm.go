@@ -6,7 +6,6 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -56,13 +55,12 @@ func shouldEscalateSuspect(streak int) bool {
 // nil on paths that must not touch the counter (unit tests, and any future
 // caller without a pool); ConfirmMissingModels guards every use.
 type SuspectStreak struct {
-	exec func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 	pool *pgxpool.Pool
 }
 
 // NewSuspectStreak builds a pool-backed SuspectStreak for the discovery sweep.
 func NewSuspectStreak(pool *pgxpool.Pool) *SuspectStreak {
-	return &SuspectStreak{exec: dbExec, pool: pool}
+	return &SuspectStreak{pool: pool}
 }
 
 // bump increments the provider's consecutive mass-vanish counter and, every
@@ -101,7 +99,7 @@ func (s *SuspectStreak) reset(ctx context.Context, prov *provider.Provider) {
 	if s == nil {
 		return
 	}
-	if _, err := s.exec(s.pool, ctx,
+	if _, err := s.pool.Exec(ctx,
 		`UPDATE providers SET suspect_scans = 0 WHERE id = $1 AND suspect_scans <> 0`, prov.ID); err != nil {
 		debuglog.Warn("discovery: failed to reset provider suspect streak", "provider", prov.Name, "error", err)
 	}

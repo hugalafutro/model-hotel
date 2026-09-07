@@ -1,7 +1,6 @@
 package paramrewrite
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"math"
@@ -26,10 +25,8 @@ func RewriteImageRequest(body []byte, providerType, modelID string) (out []byte,
 	if providerType != "xai" {
 		return body, "", ""
 	}
-	dec := json.NewDecoder(bytes.NewReader(body))
-	dec.UseNumber()
-	var raw map[string]any
-	if dec.Decode(&raw) != nil {
+	raw, ok := decodeObject(body)
+	if !ok {
 		return body, "", ""
 	}
 	imagine := strings.Contains(strings.ToLower(modelID), "imagine")

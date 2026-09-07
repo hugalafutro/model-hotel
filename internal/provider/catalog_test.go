@@ -4,7 +4,11 @@ import (
 	"testing"
 )
 
-// Test GetDeepSeekModels and GetDeepSeekModelSpec
+// deepseekSpec finds a DeepSeek catalog row by model ID.
+func deepseekSpec(modelID string) *DeepSeekModelSpec {
+	return lookupByModelID(GetDeepSeekModels(), modelID, func(s *DeepSeekModelSpec) string { return s.ModelID })
+}
+
 func TestGetDeepSeekModels_NonEmpty(t *testing.T) {
 	catalog := GetDeepSeekModels()
 	if len(catalog) == 0 {
@@ -36,13 +40,13 @@ func TestGetDeepSeekModels_AllFieldsValid(t *testing.T) {
 	}
 }
 
-func TestGetDeepSeekModelSpec_Found(t *testing.T) {
+func TestLookupByModelID_Found(t *testing.T) {
 	catalog := GetDeepSeekModels()
 	if len(catalog) == 0 {
 		t.Fatal("catalog is empty")
 	}
 	first := catalog[0]
-	result := GetDeepSeekModelSpec(first.ModelID)
+	result := deepseekSpec(first.ModelID)
 	if result == nil {
 		t.Fatalf("expected non-nil for %q", first.ModelID)
 		return
@@ -52,8 +56,8 @@ func TestGetDeepSeekModelSpec_Found(t *testing.T) {
 	}
 }
 
-func TestGetDeepSeekModelSpec_NotFound(t *testing.T) {
-	result := GetDeepSeekModelSpec("nonexistent-model-xyz")
+func TestLookupByModelID_NotFound(t *testing.T) {
+	result := deepseekSpec("nonexistent-model-xyz")
 	if result != nil {
 		t.Errorf("expected nil for unknown model, got %+v", result)
 	}

@@ -1,7 +1,6 @@
 package util
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -9,9 +8,6 @@ import (
 	"testing"
 	"time"
 	"unicode/utf8"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 // ---------------------------------------------------------------------------
@@ -490,104 +486,6 @@ func TestOpenAIErrorType_0(t *testing.T) {
 	}
 }
 
-// IntToStr
-// ---------------------------------------------------------------------------
-
-func TestIntToStr(t *testing.T) {
-	tests := []struct {
-		input    int
-		expected string
-	}{
-		{0, "0"},
-		{1, "1"},
-		{42, "42"},
-		{-1, "-1"},
-		{999999, "999999"},
-		{-12345, "-12345"},
-	}
-	for _, tc := range tests {
-		result := IntToStr(tc.input)
-		if result != tc.expected {
-			t.Errorf("IntToStr(%d) = %q, want %q", tc.input, result, tc.expected)
-		}
-	}
-}
-
-// ---------------------------------------------------------------------------
-// ParseInt
-// ---------------------------------------------------------------------------
-
-func TestParseInt_Valid(t *testing.T) {
-	result, err := ParseInt("12345")
-	if err != nil {
-		t.Fatalf("ParseInt failed: %v", err)
-	}
-	if result != 12345 {
-		t.Errorf("expected 12345, got %d", result)
-	}
-}
-
-func TestParseInt_Zero(t *testing.T) {
-	result, err := ParseInt("0")
-	if err != nil {
-		t.Fatalf("ParseInt failed: %v", err)
-	}
-	if result != 0 {
-		t.Errorf("expected 0, got %d", result)
-	}
-}
-
-func TestParseInt_EmptyString(t *testing.T) {
-	result, err := ParseInt("")
-	if err != nil {
-		t.Fatalf("ParseInt failed: %v", err)
-	}
-	if result != 0 {
-		t.Errorf("expected 0 for empty string, got %d", result)
-	}
-}
-
-func TestParseInt_TrailingNonDigits(t *testing.T) {
-	// ParseInt stops at the first non-digit character
-	result, err := ParseInt("123abc")
-	if err != nil {
-		t.Fatalf("ParseInt failed: %v", err)
-	}
-	if result != 123 {
-		t.Errorf("expected 123 (stops at non-digit), got %d", result)
-	}
-}
-
-func TestParseInt_LargeNumber(t *testing.T) {
-	result, err := ParseInt("9999999999999")
-	if err != nil {
-		t.Fatalf("ParseInt failed: %v", err)
-	}
-	if result != int64(9999999999999) {
-		t.Errorf("expected 9999999999999, got %d", result)
-	}
-}
-
-func TestParseInt_LeadingNonDigit(t *testing.T) {
-	result, err := ParseInt("abc123")
-	if err != nil {
-		t.Fatalf("ParseInt failed: %v", err)
-	}
-	if result != 0 {
-		t.Errorf("expected 0 for leading non-digits, got %d", result)
-	}
-}
-
-func TestParseInt_SingleDigit(t *testing.T) {
-	result, err := ParseInt("7")
-	if err != nil {
-		t.Fatalf("ParseInt failed: %v", err)
-	}
-	if result != 7 {
-		t.Errorf("expected 7, got %d", result)
-	}
-}
-
 func TestSanitizeLogBody_ShortBody_NoTruncation(t *testing.T) {
 	body := "hello world"
 	result := SanitizeLogBody(body, 100)
@@ -726,43 +624,6 @@ func TestSanitizeLogBody_EmptyBody(t *testing.T) {
 	result := SanitizeLogBody("", 100)
 	if result != "" {
 		t.Errorf("expected empty string, got %q", result)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// ParseUUIDParam
-// ---------------------------------------------------------------------------
-
-func TestParseUUIDParam_Valid(t *testing.T) {
-	testUUID := uuid.Must(uuid.Parse("793ac38b-0211-43e6-baa7-aa7054c39931"))
-	r := httptest.NewRequest("GET", "/test/"+testUUID.String(), http.NoBody)
-
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", testUUID.String())
-	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
-
-	result, err := ParseUUIDParam(r, "id")
-	if err != nil {
-		t.Fatalf("ParseUUIDParam failed: %v", err)
-	}
-	if result != testUUID {
-		t.Errorf("expected %v, got %v", testUUID, result)
-	}
-}
-
-func TestParseUUIDParam_Invalid(t *testing.T) {
-	r := httptest.NewRequest("GET", "/test/not-a-uuid", http.NoBody)
-
-	rctx := chi.NewRouteContext()
-	rctx.URLParams.Add("id", "not-a-uuid")
-	r = r.WithContext(context.WithValue(r.Context(), chi.RouteCtxKey, rctx))
-
-	result, err := ParseUUIDParam(r, "id")
-	if err == nil {
-		t.Error("ParseUUIDParam should return error for invalid UUID")
-	}
-	if result != uuid.Nil {
-		t.Errorf("expected uuid.Nil, got %v", result)
 	}
 }
 

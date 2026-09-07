@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -109,62 +110,10 @@ func (h *Handler) GetLog(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var entry LogEntry
-	err := h.dbPool.Pool().QueryRow(ctx, `
-		SELECT rl.id, COALESCE(rl.provider_id::text, ''),
-			CASE
-				WHEN rl.provider_id IS NULL THEN ''
-				WHEN p.name IS NOT NULL THEN p.name
-				ELSE 'Deleted'
-			END,
-			rl.model_id,
-			COALESCE(rl.request_hash, ''), COALESCE(rl.status_code, 0),
-			COALESCE(rl.latency_ms, 0), COALESCE(rl.duration_ms, 0),
-			COALESCE(rl.ttft_ms, 0), COALESCE(rl.proxy_overhead_ms, 0),
-                COALESCE(rl.parse_ms, 0), COALESCE(rl.failover_lookup_ms, 0), COALESCE(rl.model_lookup_ms, 0), COALESCE(rl.provider_lookup_ms, 0), COALESCE(rl.key_decrypt_ms, 0),
-                COALESCE(rl.dial_ms, 0), COALESCE(rl.settings_read_ms, 0),
-                rl.cache_hits,
-			COALESCE(rl.tokens_per_second, 0),
-			COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
-			COALESCE(rl.tokens_completion_reasoning, 0),
-			COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
-			COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
-			 CASE
-				WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
-				WHEN vk.id IS NULL THEN true
-				ELSE false
-			END AS virtual_key_deleted,
-			COALESCE(rl.error_message, ''), COALESCE(rl.failover_attempt, 0), COALESCE(rl.state, 'completed'), rl.created_at,
-			COALESCE(rl.response_header_ms, 0),
-			COALESCE(rl.resolved_model_id, ''),
-			COALESCE(rl.endpoint_type, 'chat'),
-			COALESCE(rl.error_kind, ''),
-			COALESCE(rl.client_ip, ''),
-			rl.attempts
-		FROM request_logs rl LEFT JOIN providers p ON rl.provider_id = p.id
-		LEFT JOIN virtual_keys vk ON rl.virtual_key_id = vk.id
-		WHERE rl.id = $1`+ownerPredicate,
+	err := h.dbPool.Pool().QueryRow(ctx,
+		"SELECT "+logEntrySelectColumns+" AND rl.id = $1"+ownerPredicate,
 		ownerArgs...,
-	).Scan(
-		&entry.ID, &entry.ProviderID, &entry.ProviderName, &entry.ModelID,
-		&entry.RequestHash, &entry.StatusCode, &entry.LatencyMs, &entry.DurationMs,
-		&entry.TTFTMs, &entry.ProxyOverheadMs,
-		&entry.ParseMs, &entry.FailoverLookupMs, &entry.ModelLookupMs, &entry.ProviderLookupMs, &entry.KeyDecryptMs,
-		&entry.DialMs, &entry.SettingsReadMs,
-		&entry.CacheHits,
-		&entry.TokensPerSecond,
-		&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
-		&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
-		&entry.Streaming,
-		&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
-		&entry.ErrorMessage,
-		&entry.FailoverAttempt, &entry.State, &entry.CreatedAt,
-		&entry.ResponseHeaderMs,
-		&entry.ResolvedModelID,
-		&entry.EndpointType,
-		&entry.ErrorKind,
-		&entry.ClientIP,
-		&entry.Attempts,
-	)
+	).Scan(logEntryScanDests(&entry)...)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			respondError(w, "log not found", nil, http.StatusNotFound)
@@ -340,21 +289,11 @@ func (h *Handler) PurgeLogs(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 	page := max(util.GetIntQueryParam(r, "page", 1), 1)
 	perPage := min(max(util.GetIntQueryParam(r, "per_page", 20), 1), 200)
-	ownerUserID := logOwnerScope(r)
+	filters := parseLogFilters(r)
 	// The response cache is shared across callers, so the key carries the owner
 	// scope: a non-admin page and the admin's unscoped page for the same RawQuery
 	// are different result sets.
-	cacheKey := ownerUserID + "|" + r.URL.RawQuery
-	modelID := r.URL.Query().Get("model_id")
-	providerID := r.URL.Query().Get("provider_id")
-	virtualKeyID := r.URL.Query().Get("virtual_key_id")
-	clientIP := r.URL.Query().Get("client_ip")
-	statusCodeStr := r.URL.Query().Get("status_code")
-	fromDate := r.URL.Query().Get("from")
-	toDate := r.URL.Query().Get("to")
-	endpointType := r.URL.Query().Get("endpoint_type")
-	attemptProviderID := r.URL.Query().Get("attempt_provider_id")
-	attemptStatus := r.URL.Query().Get("attempt_status")
+	cacheKey := filters.ownerUserID + "|" + r.URL.RawQuery
 	sortBy, sd := logsSortDef(r.URL.Query().Get("sort_by"))
 	sortDir := r.URL.Query().Get("sort_dir")
 	if sortDir != "asc" && sortDir != "desc" {
@@ -373,7 +312,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID, attemptProviderID, attemptStatus)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, filters)
 
 	orderClause := " ORDER BY "
 	if sd.tierExpr != "" {
@@ -385,7 +324,7 @@ func (h *Handler) ListLogs(w http.ResponseWriter, r *http.Request) {
 		orderClause += ", CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 0 END ASC"
 	}
 
-	orderClause += " LIMIT $" + util.IntToStr(argIndex) + " OFFSET $" + util.IntToStr(argIndex+1)
+	orderClause += " LIMIT $" + strconv.Itoa(argIndex) + " OFFSET $" + strconv.Itoa(argIndex+1)
 	query += orderClause
 	args = append(args, perPage, offset)
 

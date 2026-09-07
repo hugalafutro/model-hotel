@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"io"
 	"net/http"
@@ -9,7 +8,6 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // buildNativeAnthropicRequest builds the upstream request for the native
@@ -18,19 +16,15 @@ import (
 // translation, so cache_control / thinking / fine-grained tool streaming survive
 // upstream. Auth + anthropic-version headers come from SetProviderAuthHeaders.
 func (h *Handler) buildNativeAnthropicRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
 	// A Gemini thought signature riding on a tool_use id (see
 	// anthropic.StripSignedToolUseIDs) is dropped: this provider has no use for
 	// it, and it is a kilobyte of prompt per call per turn.
 	body := anthropic.RewriteModel(anthropic.StripSignedToolUseIDs(st.anthropicRawBody), candidate.model.ModelID)
+	proxyReq, targetURL, err := newMessagesRequest(ctx, candidate, providerType, body)
 	debuglog.Debug("proxy: native anthropic passthrough", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name)
-
-	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, providerType, targetURL, err
 	}
-	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
 }
 
@@ -111,12 +105,13 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// would stop the streak ever reaching three consecutive strikes. Tokens
 	// corroborate, for a provider that answers without reporting usage. Same
 	// judgement chatAnswerCarriesContent makes on the OpenAI-shaped path.
-	logData.deliveredContent = outputTokens > 0 || anthropic.ResponseCarriesContent(body)
+	carriesContent := outputTokens > 0 || anthropic.ResponseCarriesContent(body)
+	logData.deliveredContent = carriesContent
 	// The question the breaker asks of the same body: did anything come back.
 	// ResponseCarriesContent reads block PRESENCE, which is the native analogue
 	// of the translated path's "any choice carrying something", so on this path
 	// the two bars coincide and the negation is exact.
-	logData.emptyCompletion = outputTokens == 0 && !anthropic.ResponseCarriesContent(body)
+	logData.emptyCompletion = !carriesContent
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 	inputTokens, outputTokens, _ = estimateMissingUsage(inputTokens, outputTokens, 0, logData, anthropic.ResponseTextBytes(body))

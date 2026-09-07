@@ -49,7 +49,7 @@ func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provide
 	// a subset of the live listing, so there is nothing to union regardless.
 	// models.dev still enriches the rest. An empty listing stays empty, so
 	// RecordMissingModels is a no-op.
-	backfilled := backfillLiveFromCatalog(live, openaiCatalogModels(provider.ID))
+	backfilled := backfillLiveFromCatalog(live, opencodeCatalogModels(openaiCatalog, provider.ID, "openai"))
 	debuglog.Info("discovery: openai discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(GetOpenAIModels()))
 	return backfilled, nil
 }

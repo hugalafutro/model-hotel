@@ -135,18 +135,7 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 	if err != nil {
 		return nil, err
 	}
-	info := &VirtualKeyInfo{
-		ID:               vk.ID.String(),
-		Name:             vk.Name,
-		KeyHash:          vk.KeyHash,
-		KeyPreview:       vk.KeyPreview,
-		TokensUsed:       vk.TokensUsed,
-		RateLimitRPS:     vk.RateLimitRPS,
-		RateLimitBurst:   vk.RateLimitBurst,
-		RateLimitTPM:     vk.RateLimitTPM,
-		AllowedProviders: vk.AllowedProviders,
-		StripReasoning:   vk.StripReasoning,
-	}
+	info := vkInfoFrom(vk)
 	if vk.Owner != nil && vk.OwnerUserID != nil {
 		info.Owner = &OwnerInfo{
 			ID:               vk.OwnerUserID.String(),
@@ -166,6 +155,20 @@ func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPr
 	if err != nil {
 		return nil, err
 	}
+	return vkInfoFrom(vk), nil
+}
+
+func (a *virtualKeyRepoAdapter) Delete(ctx context.Context, id string) error {
+	vid, err := uuid.Parse(id)
+	if err != nil {
+		return err
+	}
+	return a.repo.Delete(ctx, vid)
+}
+
+// vkInfoFrom is the proxy's view of a virtual-key row: the fields the request
+// path reads, so a field added to the row is threaded in one place.
+func vkInfoFrom(vk *virtualkey.VirtualKey) *VirtualKeyInfo {
 	return &VirtualKeyInfo{
 		ID:               vk.ID.String(),
 		Name:             vk.Name,
@@ -177,15 +180,7 @@ func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPr
 		RateLimitTPM:     vk.RateLimitTPM,
 		AllowedProviders: vk.AllowedProviders,
 		StripReasoning:   vk.StripReasoning,
-	}, nil
-}
-
-func (a *virtualKeyRepoAdapter) Delete(ctx context.Context, id string) error {
-	vid, err := uuid.Parse(id)
-	if err != nil {
-		return err
 	}
-	return a.repo.Delete(ctx, vid)
 }
 
 // NewHandler creates a new proxy Handler.
@@ -424,4 +419,20 @@ func (h *Handler) CircuitBreaker() *failover.CircuitBreaker {
 func (h *Handler) CapLedger() *provider.CapLedger {
 	h.capLedgerOnce.Do(func() { h.capLedger = provider.NewCapLedger() })
 	return h.capLedger
+}
+
+// upstreamClient is the client every upstream call is made with: the shared
+// Transport (a fresh one per request spawns readLoop/writeLoop goroutines that
+// only die after IdleConnTimeout) plus the SafeDialer's redirect guard, so a
+// redirect cannot walk a provider URL into the gateway's own network.
+//
+// A nil upstreamTransport is not filled in here: an unset Transport IS
+// http.DefaultTransport, which carries no DialContext and so no dial-time
+// guard. Callers that can be constructed without one check for it themselves.
+func (h *Handler) upstreamClient() *http.Client {
+	c := &http.Client{Transport: h.upstreamTransport}
+	if h.safeDialer != nil {
+		c.CheckRedirect = h.safeDialer.CheckRedirect
+	}
+	return c
 }

@@ -18,7 +18,6 @@ import "net/http"
 type streamSink struct {
 	w            http.ResponseWriter
 	flusher      http.Flusher
-	canFlush     bool
 	bytesWritten int64
 
 	// swallowBlank records that the previous line was a data line, so the next
@@ -31,8 +30,8 @@ type streamSink struct {
 
 // newStreamSink wraps w, detecting http.Flusher support once up front.
 func newStreamSink(w http.ResponseWriter) *streamSink {
-	flusher, canFlush := w.(http.Flusher)
-	return &streamSink{w: w, flusher: flusher, canFlush: canFlush}
+	flusher, _ := w.(http.Flusher)
+	return &streamSink{w: w, flusher: flusher}
 }
 
 // write writes p to the client and adds the bytes actually written to the
@@ -58,7 +57,7 @@ func (s *streamSink) writeData(payload []byte) error {
 
 // flush flushes the underlying writer when it supports flushing.
 func (s *streamSink) flush() {
-	if s.canFlush {
+	if s.flusher != nil {
 		s.flusher.Flush()
 	}
 }

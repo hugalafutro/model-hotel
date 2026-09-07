@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -177,7 +176,7 @@ func findSchemaMigrationsEntry(entries []tocEntry) int {
 // extractMigrationNames runs pg_restore with a filtered list to extract
 // only the schema_migrations table data, then parses the COPY block
 // to find the migration names stored in the dump.
-func extractMigrationNames(dumpPath string, schemaMigrationsEntry int) ([]string, error) {
+func extractMigrationNames(pgRestorePath, dumpPath string, schemaMigrationsEntry int) ([]string, error) {
 	filterContent := fmt.Sprintf("%d;\n", schemaMigrationsEntry)
 	filterFile, err := os.CreateTemp("", "restore-filter-*.txt")
 	if err != nil {
@@ -192,11 +191,6 @@ func extractMigrationNames(dumpPath string, schemaMigrationsEntry int) ([]string
 	}
 	if err := filterFile.Close(); err != nil {
 		return nil, fmt.Errorf("failed to close filter file: %w", err)
-	}
-
-	pgRestorePath, err := exec.LookPath("pg_restore")
-	if err != nil {
-		return nil, fmt.Errorf("pg_restore not found: %w", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
@@ -498,7 +492,7 @@ func validateRestoreDump(w http.ResponseWriter, tmpPath string) (pgRestorePath s
 		return "", nil, false
 	}
 
-	dumpMigrations, err = extractMigrationNames(tmpPath, schemaEntry)
+	dumpMigrations, err = extractMigrationNames(pgRestorePath, tmpPath, schemaEntry)
 	if err != nil {
 		respondError(w, "failed to extract migration info from dump", err, http.StatusInternalServerError)
 		return "", nil, false
@@ -525,16 +519,7 @@ func (h *BackupHandler) runPgRestore(w http.ResponseWriter, pgRestorePath, tmpPa
 	restoreCtx, restoreCancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer restoreCancel()
 
-	// Strip password from connection URL for command line (same as pg_dump above)
-	restoreConnURL := h.databaseURL
-	var restoreEnvPassword string
-	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
-		if pass, ok := u.User.Password(); ok && pass != "" {
-			restoreEnvPassword = pass
-			u.User = url.User(u.User.Username())
-			restoreConnURL = u.String()
-		}
-	}
+	restoreConnURL, restoreEnv := pgCommandEnv(h.databaseURL)
 
 	//nolint:gosec // pgRestorePath is a configured binary path
 	restoreCmd := exec.CommandContext(restoreCtx, pgRestorePath,
@@ -545,9 +530,7 @@ func (h *BackupHandler) runPgRestore(w http.ResponseWriter, pgRestorePath, tmpPa
 		"-d", restoreConnURL,
 		tmpPath,
 	)
-	if restoreEnvPassword != "" {
-		restoreCmd.Env = append(os.Environ(), "PGPASSWORD="+restoreEnvPassword)
-	}
+	restoreCmd.Env = restoreEnv
 
 	var restoreStderr bytes.Buffer
 	restoreCmd.Stderr = &restoreStderr

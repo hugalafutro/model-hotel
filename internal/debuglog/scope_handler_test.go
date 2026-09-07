@@ -16,9 +16,9 @@ func TestScopeFilterHandler_DerivedHandlersKeepFilter(t *testing.T) {
 	// own env restore (t.Cleanup is LIFO): Init then recomputes enabledScopes from
 	// the restored DEBUG_LOG_SCOPES rather than from the unset value. t.Setenv
 	// already restores/unsets the variable itself, so no manual os.Unsetenv.
-	t.Cleanup(func() { Init(false) })
+	t.Cleanup(func() { Init() })
 	t.Setenv("DEBUG_LOG_SCOPES", "failover")
-	Init(false) // global debug off, scopes = {failover} -> wrapping is active
+	Init() // global debug off, scopes = {failover} -> wrapping is active
 
 	capH := newCaptureHandler(slog.LevelDebug)
 	wrapped := maybeScopeFilter(capH)

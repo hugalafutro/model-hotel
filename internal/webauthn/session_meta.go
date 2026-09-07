@@ -3,8 +3,8 @@ package webauthn
 import (
 	"net"
 	"net/http"
-	"strings"
-	"unicode/utf8"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // metaUserAgentMax caps what a login request's User-Agent can put into the
@@ -33,7 +33,7 @@ type ClientIPSource interface {
 // that does not parse as an IP is dropped rather than displayed.
 func MetaFromRequest(r *http.Request, ips ClientIPSource) SessionMeta {
 	return SessionMeta{
-		UserAgent: truncateUTF8(r.UserAgent(), metaUserAgentMax),
+		UserAgent: util.TruncateBytes(r.UserAgent(), metaUserAgentMax),
 		IP:        clientIP(r, ips),
 	}
 }
@@ -53,20 +53,4 @@ func clientIP(r *http.Request, ips ClientIPSource) string {
 		return ""
 	}
 	return ip
-}
-
-// truncateUTF8 cuts s to at most max bytes without splitting a rune, dropping
-// any invalid sequences the wire delivered. A byte-level cut could split a
-// multi-byte rune and Postgres refuses invalid UTF-8, which would turn a
-// valid login from a long-UA browser into a 500.
-func truncateUTF8(s string, maxBytes int) string {
-	s = strings.ToValidUTF8(s, "")
-	if len(s) <= maxBytes {
-		return s
-	}
-	cut := maxBytes
-	for cut > 0 && !utf8.RuneStart(s[cut]) {
-		cut--
-	}
-	return s[:cut]
 }

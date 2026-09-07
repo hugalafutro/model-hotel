@@ -1,7 +1,9 @@
 package util
 
 import (
-	"sort"
+	"cmp"
+	"maps"
+	"slices"
 	"sync"
 )
 
@@ -49,17 +51,9 @@ func HoldSecret(secret string) {
 		return
 	}
 	heldSet[secret] = struct{}{}
-	list := make([]string, 0, len(heldSet))
-	for s := range heldSet {
-		list = append(list, s)
-	}
-	sort.Slice(list, func(i, j int) bool {
-		if len(list[i]) != len(list[j]) {
-			return len(list[i]) > len(list[j])
-		}
-		return list[i] < list[j]
+	heldList = slices.SortedFunc(maps.Keys(heldSet), func(a, b string) int {
+		return cmp.Or(cmp.Compare(len(b), len(a)), cmp.Compare(a, b))
 	})
-	heldList = list
 }
 
 // HeldSecrets returns the held set, longest first. The slice is shared and
@@ -83,12 +77,12 @@ func withHeld(secrets []string) []string {
 	}
 	out := make([]string, 0, len(secrets)+len(held))
 	seen := make(map[string]bool, len(secrets)+len(held))
-	for _, s := range append(append([]string{}, secrets...), held...) {
+	for _, s := range slices.Concat(secrets, held) {
 		if !seen[s] {
 			seen[s] = true
 			out = append(out, s)
 		}
 	}
-	sort.SliceStable(out, func(i, j int) bool { return len(out[i]) > len(out[j]) })
+	slices.SortStableFunc(out, func(a, b string) int { return cmp.Compare(len(b), len(a)) })
 	return out
 }

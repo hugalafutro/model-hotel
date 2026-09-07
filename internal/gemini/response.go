@@ -40,7 +40,7 @@ type genRespContent struct {
 type genRespPart struct {
 	Text         string           `json:"text"`
 	Thought      bool             `json:"thought"`
-	FunctionCall *genRespFuncCall `json:"functionCall"`
+	FunctionCall *genFunctionCall `json:"functionCall"`
 	// ThoughtSignature signs a functionCall part; the follow-up turn must
 	// carry it back, so it goes out on the tool call as extra_content. Only
 	// a function call's signature is carried: Gemini 3 may sign a text or
@@ -52,23 +52,13 @@ type genRespPart struct {
 	// InlineData carries a generated image (an image model answering a
 	// request whose response modalities named IMAGE): base64 bytes and
 	// their mime type.
-	InlineData *genRespBlob `json:"inlineData"`
+	InlineData *genBlob `json:"inlineData"`
 	// AudioTranscription is how a dedicated transcription model
 	// (gemini-3.5-transcribe) answers: the transcript under its own key
 	// rather than as a text part.
 	AudioTranscription *struct {
 		Text string `json:"text"`
 	} `json:"audioTranscription"`
-}
-
-type genRespBlob struct {
-	MimeType string `json:"mimeType"`
-	Data     string `json:"data"`
-}
-
-type genRespFuncCall struct {
-	Name string          `json:"name"`
-	Args json.RawMessage `json:"args"`
 }
 
 type genUsage struct {
@@ -116,7 +106,7 @@ type oaiImageURLOut struct {
 
 // imageOut renders a generated image part as an image_url data URL. A part
 // that is not an image, or an image with no bytes or type, yields nothing.
-func imageOut(blob *genRespBlob) (oaiImageOut, bool) {
+func imageOut(blob *genBlob) (oaiImageOut, bool) {
 	if blob == nil || blob.Data == "" || !strings.HasPrefix(blob.MimeType, "image/") {
 		return oaiImageOut{}, false
 	}
@@ -226,18 +216,7 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 			continue
 		}
 		if p.FunctionCall != nil {
-			args := compactJSON(p.FunctionCall.Args)
-			if args == "" {
-				args = "{}"
-			}
-			tc := oaiToolCallOut{
-				ID:           fmt.Sprintf("call_%s_%d", id, len(toolCalls)),
-				Type:         "function",
-				ExtraContent: egress.ExtraContentFor(p.signature()),
-			}
-			tc.Function.Name = p.FunctionCall.Name
-			tc.Function.Arguments = args
-			toolCalls = append(toolCalls, tc)
+			toolCalls = append(toolCalls, p.toolCall(id, len(toolCalls)))
 			continue
 		}
 		sb.WriteString(p.Text)
@@ -245,15 +224,31 @@ func translateCandidateParts(id string, parts []genRespPart) (string, []oaiToolC
 	return sb.String(), toolCalls, images
 }
 
+// toolCall renders a functionCall part as an OpenAI tool call. Gemini has no
+// call ids, so one is synthesized from the response id and the call's ordinal
+// n; TranslateRequest resolves them back by mapping, falling back to the
+// function name.
+func (p genRespPart) toolCall(id string, n int) oaiToolCallOut {
+	tc := oaiToolCallOut{
+		ID:           fmt.Sprintf("call_%s_%d", id, n),
+		Type:         "function",
+		ExtraContent: egress.ExtraContentFor(p.signature()),
+	}
+	tc.Function.Name = p.FunctionCall.Name
+	tc.Function.Arguments = compactJSON(p.FunctionCall.Args)
+	return tc
+}
+
 // compactJSON strips the pretty-print whitespace Vertex puts inside nested
-// raw values (functionCall args). Invalid/empty input returns "".
+// raw values (functionCall args). Empty or invalid input becomes the empty
+// object, which is what a tool call with no arguments carries on the wire.
 func compactJSON(raw json.RawMessage) string {
 	if len(raw) == 0 {
-		return ""
+		return "{}"
 	}
 	var buf bytes.Buffer
 	if err := json.Compact(&buf, raw); err != nil {
-		return ""
+		return "{}"
 	}
 	return buf.String()
 }

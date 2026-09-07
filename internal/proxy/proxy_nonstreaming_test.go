@@ -64,7 +64,7 @@ func TestHandleNonStreamingResponse_Success_Integration(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	if inner.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, inner.Code)
@@ -129,7 +129,7 @@ func TestHandleNonStreamingResponse_PromptCacheHitTokens(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -179,7 +179,7 @@ func TestHandleNonStreamingResponse_NonJSONError(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	// Verify status code is 500 (preserved from upstream)
 	if inner.Code != http.StatusInternalServerError {
@@ -243,7 +243,7 @@ func TestHandleNonStreamingResponse_AddTokensError(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=%q, got %q", "completed", logData.state)
@@ -285,7 +285,7 @@ func TestHandleNonStreamingResponse_ChatShapedNon2xxGetsErrorEnvelope(t *testing
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	if inner.Code != http.StatusBadRequest {
 		t.Errorf("expected upstream status %d to be forwarded, got %d", http.StatusBadRequest, inner.Code)
@@ -349,7 +349,7 @@ func TestHandleNonStreamingResponse_ChatShaped2xxPassesThrough(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	if inner.Code != http.StatusOK {
 		t.Errorf("expected status %d, got %d", http.StatusOK, inner.Code)
@@ -401,7 +401,7 @@ func TestHandleNonStreamingResponse_ChatShapedNon2xxDoesNotMeter(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	if logData.tokensPrompt != 0 || logData.tokensCompletion != 0 {
 		t.Errorf("metered a failed request: prompt=%d completion=%d", logData.tokensPrompt, logData.tokensCompletion)
@@ -484,7 +484,7 @@ func undecodable2xxDoesNotLogContent(t *testing.T, status int) {
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 	logData := nonStreamingLogData()
 
-	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
 
 	if logData.state != "failed" {
 		t.Fatalf("state = %q, want failed", logData.state)
@@ -521,7 +521,7 @@ func TestHandleNonStreamingResponse_Non2xxKeepsUpstreamErrorText(t *testing.T) {
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 	logData := nonStreamingLogData()
 
-	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
 
 	if logData.state != "failed" {
 		t.Fatalf("state = %q, want failed", logData.state)
@@ -546,7 +546,7 @@ func TestHandleNonStreamingResponse_UndecodableNon2xxKeepsBody(t *testing.T) {
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 	logData := nonStreamingLogData()
 
-	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
 
 	if !strings.Contains(logData.errorMessage, "504 Gateway Time-out") {
 		t.Fatalf("upstream error page lost from the request log: %q", logData.errorMessage)
@@ -576,7 +576,7 @@ func TestHandleNonStreamingResponse_OversizedBodyRefused(t *testing.T) {
 	logData := nonStreamingLogData()
 	rec := httptest.NewRecorder()
 
-	h.handleNonStreamingResponse(rec, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(rec, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
 
 	if logData.state != "failed" {
 		t.Fatalf("state = %q, want failed for an oversized body", logData.state)
@@ -616,7 +616,7 @@ func TestHandleNonStreamingResponse_BodyAtCapDecodesIntact(t *testing.T) {
 	logData := nonStreamingLogData()
 	rec := httptest.NewRecorder()
 
-	h.handleNonStreamingResponse(rec, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(rec, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
 
 	if logData.state != "completed" {
 		t.Fatalf("state = %q (%s), want completed for a body exactly at the cap", logData.state, logData.errorMessage)
@@ -653,7 +653,7 @@ func TestHandleNonStreamingResponse_PreservesUnmodelledFields(t *testing.T) {
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 	rec := httptest.NewRecorder()
 
-	h.handleNonStreamingResponse(rec, req, nonStreamingLogData(), resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(rec, req, nonStreamingLogData(), resp, time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
 
 	var got map[string]any
 	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {

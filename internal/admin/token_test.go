@@ -501,30 +501,6 @@ func TestPlaintextTokenGetsHashedAndRewrittenWithPrefix(t *testing.T) {
 	}
 }
 
-func TestIsNew(t *testing.T) {
-	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
-	if err != nil {
-		t.Fatalf("Failed to create temp dir: %v", err)
-	}
-	defer os.RemoveAll(tmpDir)
-
-	mgr, _, err := New(tmpDir, "")
-	if err != nil {
-		t.Fatalf("New() failed: %v", err)
-	}
-	if !mgr.IsNew() {
-		t.Error("IsNew() should return true on first creation")
-	}
-
-	mgr2, _, err := New(tmpDir, "")
-	if err != nil {
-		t.Fatalf("Second New() failed: %v", err)
-	}
-	if mgr2.IsNew() {
-		t.Error("IsNew() should return false on reload")
-	}
-}
-
 func TestLoadOrCreateToken_ReadError(t *testing.T) {
 	tmpDir, err := os.MkdirTemp("", "llm-proxy-admin-test")
 	if err != nil {

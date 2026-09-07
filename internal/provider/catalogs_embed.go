@@ -4,6 +4,7 @@ import (
 	"embed"
 	"encoding/json"
 	"fmt"
+	"slices"
 )
 
 //go:embed catalogs/*.json
@@ -21,4 +22,16 @@ func loadCatalog[T any](name string) T {
 		panic(fmt.Sprintf("catalog: parse %s: %v", name, err))
 	}
 	return result
+}
+
+// lookupByModelID finds the catalog entry whose model ID matches id, or nil.
+// key reads the ID out of an entry, since every embedded catalog carries it
+// under its own field name. The result points into catalog, so a caller that
+// mutates what it reads must copy first.
+func lookupByModelID[T any](catalog []T, id string, key func(*T) string) *T {
+	i := slices.IndexFunc(catalog, func(e T) bool { return key(&e) == id })
+	if i < 0 {
+		return nil
+	}
+	return &catalog[i]
 }

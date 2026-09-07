@@ -48,11 +48,8 @@ func (d *DiscoveryService) IdentifyLocalServer(ctx context.Context, baseURL, api
 	if body, ok, err := d.probeLocal(ctx, origin+"/api/extra/version", apiKey); err == nil {
 		reached = true
 		if ok {
-			var v struct {
-				Result  string `json:"result"`
-				Version string `json:"version"`
-			}
-			if json.Unmarshal(body, &v) == nil && strings.EqualFold(v.Result, "koboldcpp") {
+			var v KoboldCPPVersionResponse
+			if json.Unmarshal(body, &v) == nil && isKoboldCPPVersion(v) {
 				return LocalServerIdentity{Type: "koboldcpp", Version: v.Version}, nil
 			}
 		}

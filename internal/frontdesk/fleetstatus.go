@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 )
 
 // GET /api/fleet/status, the single probe that powers the step-gated fleet-sync
@@ -91,11 +92,12 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 	// Parse just enough of the export to count providers that carry an encrypted
 	// key, rather than scanning raw bytes for the literal "encrypted_key", which
 	// would misfire on any string value containing that text.
+	type exportProvider struct {
+		EncryptedKey string `json:"encrypted_key"`
+	}
 	var exportShape struct {
 		Config struct {
-			Providers []struct {
-				EncryptedKey string `json:"encrypted_key"`
-			} `json:"providers"`
+			Providers   []exportProvider  `json:"providers"`
 			VirtualKeys []json.RawMessage `json:"virtual_keys"`
 			Settings    map[string]string `json:"settings"`
 		} `json:"config"`
@@ -118,13 +120,7 @@ func (s *Server) fleetStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	keyless := true
-	for _, p := range exportShape.Config.Providers {
-		if p.EncryptedKey != "" {
-			keyless = false
-			break
-		}
-	}
+	keyless := !slices.ContainsFunc(exportShape.Config.Providers, func(p exportProvider) bool { return p.EncryptedKey != "" })
 
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
@@ -174,12 +170,8 @@ func (s *Server) fleetStatusForMember(ctx context.Context, m *Member, primaryID 
 		item.Note = "primary (source of truth)"
 		return item
 	}
-	if !m.HasToken {
-		item.Note = "no stored admin token; add it on the Members tab"
-		return item
-	}
-	token, ok, err := s.store.MemberToken(ctx, m.ID)
-	if err != nil || !ok {
+	token, ok := s.store.MemberTokenOf(ctx, m)
+	if !ok {
 		item.Note = "no stored admin token; add it on the Members tab"
 		return item
 	}
@@ -199,13 +191,9 @@ func (s *Server) fleetStatusForMember(ctx context.Context, m *Member, primaryID 
 		case http.StatusUnauthorized, http.StatusForbidden:
 			item.Note = fmt.Sprintf("this member rejected the stored admin token (HTTP %d); update it on the Members tab", status)
 		default:
-			item.Note = fmt.Sprintf("this member rejected the config request (HTTP %d)", status)
 			// With the member's own reason when it gave one ("refusing to
 			// import an empty config"), as the real push reports it.
-			var refusal *memberRefusal
-			if errors.As(err, &refusal) && refusal.reason != "" {
-				item.Note = fmt.Sprintf("this member rejected the config request (HTTP %d): %s", status, refusal.reason)
-			}
+			item.Note = withRefusalReason(fmt.Sprintf("this member rejected the config request (HTTP %d)", status), err)
 		}
 		return item
 	}

@@ -8,7 +8,10 @@
 // serving and never propagates an error up the stack.
 package alert
 
-import "strings"
+import (
+	"slices"
+	"strings"
+)
 
 // EventDef describes one operator-subscribable event. The catalog is the
 // single source of truth for what can be alerted on; the dashboard renders its
@@ -69,9 +72,7 @@ var catalog = []EventDef{
 
 // Catalog returns a copy of the event registry, safe for the caller to mutate.
 func Catalog() []EventDef {
-	out := make([]EventDef, len(catalog))
-	copy(out, catalog)
-	return out
+	return slices.Clone(catalog)
 }
 
 // catalogIndex builds a Type -> EventDef lookup for the main-app catalog.

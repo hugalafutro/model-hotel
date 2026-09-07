@@ -22,12 +22,12 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 
 	// Verify lookup works
 	for _, spec := range catalog {
-		found := LookupOpenAICatalog(catalog, spec.ModelID)
+		found := LookupOpenCodeCatalog(catalog, spec.ModelID)
 		if found == nil {
-			t.Errorf("LookupOpenAICatalog failed for %s", spec.ModelID)
+			t.Errorf("LookupOpenCodeCatalog failed for %s", spec.ModelID)
 		}
 		if found != nil && found.DisplayName != spec.DisplayName {
-			t.Errorf("LookupOpenAICatalog returned wrong spec for %s: got %s, want %s", spec.ModelID, found.DisplayName, spec.DisplayName)
+			t.Errorf("LookupOpenCodeCatalog returned wrong spec for %s: got %s, want %s", spec.ModelID, found.DisplayName, spec.DisplayName)
 		}
 	}
 
@@ -45,7 +45,7 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 
 	result := make([]*model.Model, 0, len(apiModels))
 	for _, m := range apiModels {
-		spec := LookupOpenAICatalog(catalog, m.ID)
+		spec := LookupOpenCodeCatalog(catalog, m.ID)
 		if spec != nil {
 			caps := model.Capability{
 				Streaming:        spec.Streaming,

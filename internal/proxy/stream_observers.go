@@ -22,7 +22,7 @@ import (
 // Anthropic error was counted for this line, so the later chunk.Error observer
 // does not double-count it. lastAnthropicEvent is the carry from the preceding
 // "event:" line and is consumed here. Nothing is written to the client.
-func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *string, chunkCount int, logData *requestLogData) bool {
+func (st *streamState) captureSSEError(payload string, chunkCount int, logData *requestLogData) bool {
 	// P1-B: hold a truncated error line; flush on any other line.
 	//
 	// Only a FRAGMENT is held. A payload that parses is a whole frame, whatever
@@ -52,18 +52,15 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 	// leaves lastErrMsg blank and suppresses the terminal frame for whatever
 	// really ended the stream, handing the caller a cut connection.
 	anthropicErrorCounted := false
-	if *lastAnthropicEvent == "error" {
-		*lastAnthropicEvent = ""
+	if st.lastAnthropicEvent == "error" {
+		st.lastAnthropicEvent = ""
 		// Only the member: the wrapper's own "type":"error" is what the
 		// preceding event line already said.
 		var anthErr struct {
 			Error json.RawMessage `json:"error"`
 		}
 		if json.Unmarshal([]byte(payload), &anthErr) == nil && util.ValueCarries(anthErr.Error) {
-			msg := util.ErrorMemberMessage(anthErr.Error)
-			st.lastErrMsg = msg
 			anthropicErrorCounted = true
-			st.errorChunkCount++
 			// The error's own type, when the member is the object that has one.
 			// Provider text like any other, so it goes through the same masking
 			// and bounding as the message beside it.
@@ -71,10 +68,22 @@ func (st *streamState) captureSSEError(payload string, lastAnthropicEvent *strin
 				Type string `json:"type"`
 			}
 			_ = json.Unmarshal(anthErr.Error, &typed)
-			debuglog.Warn("proxy: Anthropic SSE error event", "error_type", st.errLogAttr(typed.Type), "error_message", st.errLogAttr(msg), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+			st.noteSSEError("proxy: Anthropic SSE error event", util.ErrorMemberMessage(anthErr.Error), chunkCount, logData, "error_type", st.errLogAttr(typed.Type))
 		}
 	}
 	return anthropicErrorCounted
+}
+
+// noteSSEError records a provider error read off the stream: it becomes the
+// message the terminal frame reports, counts towards errorChunkCount (which is
+// what tells writeTerminalError the client has already seen the provider's
+// error), and gets one warn line. `what` names the observer; `extra` carries
+// any attributes only that observer has.
+func (st *streamState) noteSSEError(what, msg string, chunkCount int, logData *requestLogData, extra ...any) {
+	st.lastErrMsg = msg
+	st.errorChunkCount++
+	attrs := append([]any{"error_message", st.errLogAttr(msg), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount}, extra...)
+	debuglog.Warn(what, attrs...)
 }
 
 // flushAccumulatedError parses and records any P1-B held error bytes (a
@@ -88,9 +97,7 @@ func (st *streamState) flushAccumulatedError(what string, chunkCount int, logDat
 		return
 	}
 	if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
-		st.lastErrMsg = accumulatedMsg
-		st.errorChunkCount++
-		debuglog.Warn(what, "error_message", st.errLogAttr(accumulatedMsg), "model", logData.modelID, "provider", logData.providerName, "chunk_number", chunkCount)
+		st.noteSSEError(what, accumulatedMsg, chunkCount, logData)
 	}
 	st.errAccum = nil
 }
@@ -288,10 +295,7 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 	if !anthropicErrorCounted && util.ValueCarries(chunk.Error) {
 		// Counted only when P1-C did not already handle this as an Anthropic
 		// error event, which shares the same data line.
-		msg := util.ErrorMemberMessage(chunk.Error)
-		st.lastErrMsg = msg
-		st.errorChunkCount++
-		debuglog.Warn("proxy: SSE error chunk", "model", logData.modelID, "provider", logData.providerName, "error_message", st.errLogAttr(msg), "chunk_number", chunkCount)
+		st.noteSSEError("proxy: SSE error chunk", util.ErrorMemberMessage(chunk.Error), chunkCount, logData)
 		// chunk.Error captured this error, so P1-B's next flush must not
 		// re-count it.
 		st.errAccum = nil

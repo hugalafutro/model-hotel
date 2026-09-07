@@ -147,13 +147,17 @@ func (s *Store) NewestEventOfTypes(ctx context.Context, memberID string, types .
 }
 
 // PruneEvents deletes events older than retentionDays and returns the count
-// removed.
+// removed. The newest fleet.state_changed row is kept whatever its age: it is
+// what seeds the in-memory fleet-state edge detector on restart, and deleting
+// it would demote a restart to the "ok" assumption and re-announce a state the
+// fleet has been in all along (see lastEmittedFleetState).
 func (s *Store) PruneEvents(ctx context.Context, retentionDays int) (int64, error) {
 	if retentionDays < 1 {
 		return 0, fmt.Errorf("%w: retention must be at least 1 day", ErrValidation)
 	}
 	cutoff := time.Now().UTC().Add(-time.Duration(retentionDays) * 24 * time.Hour).UnixNano()
-	res, err := s.db.ExecContext(ctx, `DELETE FROM events WHERE created_at < ?`, cutoff)
+	res, err := s.db.ExecContext(ctx, `DELETE FROM events WHERE created_at < ?
+		 AND id NOT IN (SELECT id FROM events WHERE type = 'fleet.state_changed' ORDER BY created_at DESC LIMIT 1)`, cutoff)
 	if err != nil {
 		return 0, fmt.Errorf("frontdesk: prune events: %w", err)
 	}

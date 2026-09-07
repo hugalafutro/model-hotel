@@ -17,7 +17,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
@@ -49,6 +48,47 @@ const failoverErrorClassifyCap = 16 << 10
 // Accumulating state (dial time, proxy overhead, lastErr, failoverAttempt) is
 // written back to st so the loop's deadline/backoff checks and the exhaustion
 // path see the running totals.
+
+// drainErrorHead reads only what an error body can be classified from, drains
+// the rest straight to Discard so the connection stays reusable without the
+// body being held in memory at whatever size the provider chose to send, closes
+// it, and returns the head sanitized for the log.
+func drainErrorHead(body io.ReadCloser) string {
+	head, _ := io.ReadAll(io.LimitReader(body, failoverErrorClassifyCap))
+	_, _ = io.Copy(io.Discard, body)
+	_ = body.Close()
+	return util.SanitizeLogBody(string(head), logBodyCap)
+}
+
+// failOverPastCandidate ends a failover-eligible attempt that has another
+// candidate behind it: the body is drained and classified on the way out, the
+// attempt is closed on the trail, and the loop moves on.
+//
+// The body is being discarded anyway, so it is classified on the way out. A
+// retired model usually answers 404, which is failover-eligible, so without
+// this the "model gone" signal would be lost whenever there is another
+// candidate to fall back to. The whole candidate goes through, not just the
+// model: the retirement is adjudicated by a real request to this provider, so
+// it needs the provider and the decrypted key. The endpoint family comes off
+// the log entry and decides whether the refusal can be adjudicated at all.
+//
+// extra carries any log attributes the calling path adds to the "failover
+// triggered" line.
+func (h *Handler) failOverPastCandidate(st *requestState, candidate modelCandidate, resp *http.Response, attempt int, rl rateLimitVerdict, extra ...any) candidateOutcome {
+	logData := st.logData
+	drainedMsg := drainErrorHead(resp.Body)
+	kind, _ := classifyUpstreamError(resp.StatusCode, drainedMsg, candidate.model.ModelID)
+	if kind == KindProviderModelGone {
+		h.noteModelGone(candidate, logData.endpointType)
+	}
+	st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
+	attrs := append(append([]any{}, extra...), "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "rate_limit_class", rl.class.String())
+	debuglog.Info("proxy: failover triggered", attrs...)
+	logData.failoverAttempt = attempt
+	logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, drainedMsg, rl.phrase, 0)
+	return outcomeFailover
+}
+
 func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, attempt, totalCandidates int) candidateOutcome {
 	logData := st.logData
 	// Per-attempt DNS resolution timing. SafeDialer's DialContext writes into
@@ -133,31 +173,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	debuglog.Debug("proxy: failover decision", "status", resp.StatusCode, "is_failover_eligible", isFailoverEligible, "has_more_candidates", hasMoreCandidates, "should_failover_now", shouldFailoverNow, "attempt", attempt+1)
 
 	if shouldFailoverNow {
-		// Read only what can be classified, then drain the rest straight to
-		// Discard so the connection stays reusable without the body being held
-		// in memory at whatever size the provider chose to send.
-		drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
-		_, _ = io.Copy(io.Discard, resp.Body)
-		_ = resp.Body.Close()
-		// The body is being discarded anyway, so classify it on the way out.
-		// A retired model usually answers 404, which is failover-eligible, so
-		// without this the "model gone" signal would be lost whenever there is
-		// another candidate to fall back to.
-		//
-		// The whole candidate goes through, not just the model: the retirement
-		// is adjudicated by a real request to this provider, so it needs the
-		// provider and the decrypted key. The endpoint family comes off the log
-		// entry and decides whether the refusal can be adjudicated at all.
-		drainedMsg := util.SanitizeLogBody(string(drained), 10000)
-		kind, _ := classifyUpstreamError(resp.StatusCode, drainedMsg, candidate.model.ModelID)
-		if kind == KindProviderModelGone {
-			h.noteModelGone(candidate, logData.endpointType)
-		}
-		st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
-		debuglog.Info("proxy: failover triggered", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "rate_limit_class", rl.class.String())
-		logData.failoverAttempt = attempt
-		logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, drainedMsg, rl.phrase, 0)
-		return outcomeFailover
+		return h.failOverPastCandidate(st, candidate, resp, attempt, rl)
 	}
 
 	// The last candidate's one-shot retries: a saturated 429 or a transient
@@ -248,7 +264,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// The handler reads the upstream body under failoverCtx, so that is the
 	// context it judges an interrupted read by. With the bare client request
 	// instead, this gateway's own request_timeout looks like the provider dying.
-	h.handleNonStreamingResponse(w, r.WithContext(failoverCtx), logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings.failoverLookupMs, st.timings.modelLookupMs, st.timings.providerLookupMs, st.timings.keyDecryptMs, st.timings.dialMs, st.timings.settingsReadMs, responseHeaderMs, st.vkHash, attempt)
+	h.handleNonStreamingResponse(w, r.WithContext(failoverCtx), logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings, responseHeaderMs, st.vkHash, attempt)
 	judgeAnswerNow(logData)
 	if producedOutput(logData) {
 		h.noteModelServed(candidate.model, logData.endpointType)
@@ -341,12 +357,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 		circuitBreakerOn:   st.circuitBreakerEnabled,
 		proxyOverheadMs:    st.proxyOverhead,
 		parseMs:            st.parseMs,
-		failoverLookupMs:   st.timings.failoverLookupMs,
-		modelLookupMs:      st.timings.modelLookupMs,
-		providerLookupMs:   st.timings.providerLookupMs,
-		keyDecryptMs:       st.timings.keyDecryptMs,
-		dialMs:             st.timings.dialMs,
-		settingsReadMs:     st.timings.settingsReadMs,
+		timings:            st.timings,
 		vkHash:             st.vkHash,
 		attempt:            attempt,
 		cancelOrigin:       streamCancelOrigin,
@@ -369,9 +380,8 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			clientGone := r.Context().Err() != nil
 			elapsed := time.Since(st.startTime)
 			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
-			if recordFailure && st.circuitBreakerEnabled {
-				logData.noteBreaker(breakerCharge)
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "TTFT probe failed"})
+			if recordFailure {
+				h.chargeBreaker(st, candidate, resp.StatusCode, "TTFT probe failed")
 			}
 			st.setReqErr(re)
 			logData.failoverAttempt = attempt
@@ -661,14 +671,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	// swapped out into *dialMs once Do has returned.
 	dialCtx, dialTimer := withDialTiming(ctx)
 
-	var checkRedirect func(req *http.Request, via []*http.Request) error
-	if h.safeDialer != nil {
-		checkRedirect = h.safeDialer.CheckRedirect
-	}
-	upstreamClient := &http.Client{
-		Transport:     h.upstreamTransport,
-		CheckRedirect: checkRedirect,
-	}
+	upstreamClient := h.upstreamClient()
 
 	var resp *http.Response
 	var err error
@@ -758,11 +761,8 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		// attempt, here, after any transient retries are exhausted, so a blip
 		// that self-heals on retry never counts against the provider.
 		if !isContextErr {
-			if st.circuitBreakerEnabled {
-				// No status: the request never completed, so there is none.
-				st.logData.noteBreaker(breakerCharge)
-				h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Reason: "upstream request failed"})
-			}
+			// No status: the request never completed, so there is none.
+			h.chargeBreaker(st, candidate, 0, "upstream request failed")
 		}
 		return nil, false
 	}
@@ -783,6 +783,5 @@ func isLearnableRefusal(status int, providerType, baseURL string, st *requestSta
 	if status == 400 {
 		return true
 	}
-	return status == 404 && providerType == "openai" && isOpenAIHost(baseURL) &&
-		st.endpointPath == "" && st.makeUpstreamBody == nil && st.sentChatCompletionsBody()
+	return status == 404 && isOpenAIHost(baseURL) && st.plainOpenAIChat(providerType) && st.sentChatCompletionsBody()
 }

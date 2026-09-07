@@ -154,9 +154,6 @@ func scanPairedDevice(sc scanner) (*PairedDevice, error) {
 	}
 	d.Role = DeviceRole(role)
 	d.CreatedAt = time.Unix(0, createdAt).UTC()
-	if lastSeen.Valid {
-		t := time.Unix(0, lastSeen.Int64).UTC()
-		d.LastSeenAt = &t
-	}
+	d.LastSeenAt = nullTime(lastSeen)
 	return &d, nil
 }

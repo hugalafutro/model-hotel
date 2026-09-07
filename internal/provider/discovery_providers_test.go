@@ -455,8 +455,8 @@ func TestAnthropicDiscovery_Non200Status(t *testing.T) {
 	if err == nil {
 		t.Error("Expected error for non-200 status, got nil")
 	}
-	if !strings.Contains(err.Error(), "unexpected status code") {
-		t.Errorf("Expected 'unexpected status code' error, got: %v", err)
+	if !strings.Contains(err.Error(), "unexpected status 403") {
+		t.Errorf("Expected 'unexpected status 403' error, got: %v", err)
 	}
 }
 
@@ -762,7 +762,7 @@ func TestDiscoverOllama_ShowModelFailure(t *testing.T) {
 				ModelInfo: map[string]any{
 					"llama.context_length": float64(8192),
 				},
-				Details: OllamaShowDetails{
+				Details: OllamaModelDetails{
 					Family: "llama",
 				},
 			}
@@ -815,7 +815,7 @@ func TestBuildOllamaModel_ThinkingCapability(t *testing.T) {
 		ModelInfo: map[string]any{
 			"llama.context_length": float64(32768),
 		},
-		Details: OllamaShowDetails{
+		Details: OllamaModelDetails{
 			Family: "llama",
 		},
 	}
@@ -862,7 +862,7 @@ func TestBuildOllamaModel_EmptyFamily(t *testing.T) {
 		ModelInfo: map[string]any{
 			"llama.context_length": float64(8192),
 		},
-		Details: OllamaShowDetails{
+		Details: OllamaModelDetails{
 			Family: "", // Empty family should default to "ollama"
 		},
 	}

@@ -237,8 +237,7 @@ func (h *Handler) recordAnswerOutcome(st *requestState, candidate modelCandidate
 		h.chargeBreaker(st, candidate, status, "response completed without delivering content")
 		return
 	}
-	logData.noteBreaker(breakerSuccess)
-	h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+	h.creditBreaker(st, candidate)
 }
 
 // deferAnswerJudgement binds recordAnswerOutcome to the attempt so the
@@ -270,6 +269,17 @@ func (h *Handler) chargeBreaker(st *requestState, candidate modelCandidate, stat
 	debuglog.Warn("proxy: recording circuit breaker failure", "reason", reason, "status", status, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidateModelID(candidate))
 	st.logData.noteBreaker(breakerCharge)
 	h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: status, Reason: reason})
+}
+
+// creditBreaker records one breaker success: the counterpart to chargeBreaker,
+// so the credit reaches the same circuit key and the same attempt trail note
+// wherever a path decides the provider answered.
+func (h *Handler) creditBreaker(st *requestState, candidate modelCandidate) {
+	if !st.circuitBreakerEnabled {
+		return
+	}
+	st.logData.noteBreaker(breakerSuccess)
+	h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 }
 
 // rejectUntranslatableBody is the single outcome all three egress adapters have

@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -136,8 +135,8 @@ func (p *Poller) PollAnnounceOnce(ctx context.Context) {
 	primaryID, primaryName, hasPrimary := p.fleetPrimary(ctx, members)
 	activeCount := activeMemberCount(members)
 	for _, m := range members {
-		token, ok, err := p.store.MemberToken(ctx, m.ID)
-		if err != nil || !ok {
+		token, ok := p.store.MemberTokenOf(ctx, m)
+		if !ok {
 			continue // no stored token: the announce endpoint needs admin auth
 		}
 		ann := memberAnnounce{
@@ -176,25 +175,17 @@ func (p *Poller) announceToMember(ctx context.Context, baseURL, token string, an
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+memberAnnouncePath, bytes.NewReader(body))
+	status, _, err := callMemberWith(ctx, p.client, http.MethodPost, baseURL, memberAnnouncePath, token, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	req.Header.Set("Content-Type", "application/json")
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	_, _ = io.Copy(io.Discard, io.LimitReader(resp.Body, 1<<10))
-	if resp.StatusCode == http.StatusConflict {
+	if status == http.StatusConflict {
 		// The member is owned by another Front Desk. Distinguish this from a
 		// generic failure so the caller can surface it once, not spam Debug.
 		return errAnnounceConflict
 	}
-	if resp.StatusCode != http.StatusNoContent {
-		return fmt.Errorf("announce returned %d", resp.StatusCode)
+	if status != http.StatusNoContent {
+		return fmt.Errorf("announce returned %d", status)
 	}
 	return nil
 }

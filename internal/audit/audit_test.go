@@ -98,6 +98,22 @@ func TestActorOf(t *testing.T) {
 	}
 }
 
+// TestPageLimit pins the clamp an HTTP caller sizes its has_more lookahead by:
+// it must agree with what List pages by, or the dashboard trims the wrong row.
+func TestPageLimit(t *testing.T) {
+	cases := []struct {
+		limit int
+		want  int
+	}{
+		{0, 50}, {-5, 50}, {1, 1}, {200, 200}, {201, 200}, {10000, 200},
+	}
+	for _, tc := range cases {
+		if got := (ListParams{Limit: tc.limit}).PageLimit(); got != tc.want {
+			t.Errorf("ListParams{Limit: %d}.PageLimit() = %d, want %d", tc.limit, got, tc.want)
+		}
+	}
+}
+
 func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	rec := newRecorder(t, nil)
 	r := chi.NewRouter()

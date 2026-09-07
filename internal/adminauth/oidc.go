@@ -2,12 +2,8 @@ package adminauth
 
 import (
 	"context"
-	"crypto/rand"
 	"crypto/subtle"
-	"encoding/hex"
-	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -17,15 +13,12 @@ import (
 
 	"github.com/coreos/go-oidc/v3/oidc"
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 
-	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
-	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/netguard"
-	"github.com/hugalafutro/model-hotel/internal/totp"
+	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -72,22 +65,13 @@ type OIDCSettings interface {
 // so every downstream gate (RequireAdminOrSession, the proxy, virtual keys)
 // keeps working unchanged.
 type OIDCHandler struct {
-	settings   OIDCSettings
-	sessionMgr *webauthn.SessionManager
-	ipLimiter  IPLimiterMiddleware
-	masterKey  string
-	users      SSOUserResolver // nil = no user email binding (admin allowlist only)
+	// ssoLogin carries the login-state cookie, per-IP backoff, error redirect
+	// and session hand-off this flow shares with the GitHub handler.
+	ssoLogin
 
-	// useCookieAuth delivers the session over the jar's HttpOnly cookie and a
-	// clean redirect; false delivers it in the URL fragment for header-bearer
-	// clients.
-	useCookieAuth bool
-	// cookieSecure ("auto"/"always"/"never") resolves the cookie Secure
-	// attribute; only consulted when useCookieAuth is true.
-	cookieSecure string
-	// jar names the cookie pair this handler's app owns (dashboard vs Front
-	// Desk), so two apps on one hostname cannot overwrite each other's session.
-	jar authcookie.Jar
+	settings  OIDCSettings
+	masterKey string
+	users     SSOUserResolver // nil = no user email binding (admin allowlist only)
 
 	// httpClient is an SSRF-guarded client used for every outbound OIDC request
 	// (discovery, token exchange, JWKS, UserInfo). Without it go-oidc/oauth2 fall
@@ -97,10 +81,6 @@ type OIDCHandler struct {
 	// still works, and retries a request that failed before reaching the IdP so a
 	// momentary DNS or dial fault does not cost the user the whole login.
 	httpClient *http.Client
-
-	// loginThrottle applies per-IP exponential backoff to the callback, mirroring
-	// the TOTP login defense (5 failures, 1s doubling, capped at 5m).
-	loginThrottle *totp.Throttle
 
 	// cached holds the lazily-built provider/verifier/oauth2 config. It is rebuilt
 	// only when the config fingerprint changes (mirroring RefreshTotpEnabled's
@@ -123,15 +103,22 @@ func NewOIDCHandler(
 	jar authcookie.Jar,
 ) *OIDCHandler {
 	return &OIDCHandler{
-		settings:      settings,
-		sessionMgr:    sessionMgr,
-		ipLimiter:     ipLimiter,
-		masterKey:     masterKey,
-		useCookieAuth: useCookieAuth,
-		cookieSecure:  cookieSecure,
-		jar:           jar,
-		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
-		httpClient:    netguard.NewClientWithRetry(oidcHTTPTimeout),
+		ssoLogin: ssoLogin{
+			name:             "oidc",
+			cookieName:       oidcCookieName,
+			cookiePath:       "/api/auth/oidc",
+			ttl:              oidcLoginTTL,
+			sessionMgr:       sessionMgr,
+			ipLimiter:        ipLimiter,
+			throttle:         newSSOThrottle(),
+			jar:              jar,
+			cookieSecure:     cookieSecure,
+			useCookieAuth:    useCookieAuth,
+			tokenFragmentKey: "oidc_token",
+		},
+		settings:   settings,
+		masterKey:  masterKey,
+		httpClient: netguard.NewClientWithRetry(oidcHTTPTimeout),
 	}
 }
 
@@ -146,8 +133,6 @@ func (h *OIDCHandler) SetUserResolver(users SSOUserResolver) {
 // fingerprint.
 type oidcRuntime struct {
 	enabled      bool
-	displayName  string // IdP host, for the login button label
-	redirectURL  string
 	provider     *oidc.Provider // kept for the UserInfo fallback
 	verifier     *oidc.IDTokenVerifier
 	oauth2Config *oauth2.Config
@@ -161,6 +146,8 @@ type oidcLoginState struct {
 	Nonce    string `json:"nonce"`
 	Verifier string `json:"verifier"`
 }
+
+func (st *oidcLoginState) stateToken() string { return st.State }
 
 // Register mounts the OIDC routes. All three are unauthenticated because they
 // ARE the login flow; the allowlist (not a bearer token) gates who may complete
@@ -227,41 +214,21 @@ func (h *OIDCHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := randToken()
+	state, err := util.RandomHex(ssoStateBytes)
 	if err != nil {
 		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
 		return
 	}
-	nonce, err := randToken()
+	nonce, err := util.RandomHex(ssoStateBytes)
 	if err != nil {
 		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
 		return
 	}
 	verifier := oauth2.GenerateVerifier()
 
-	blob, err := json.Marshal(oidcLoginState{State: state, Nonce: nonce, Verifier: verifier})
-	if err != nil {
-		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
+	if !h.beginState(r.Context(), w, oidcLoginState{State: state, Nonce: nonce, Verifier: verifier}) {
 		return
 	}
-	id, err := h.sessionMgr.CreateLoginState(r.Context(), blob, oidcLoginTTL)
-	if err != nil {
-		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
-		return
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     oidcCookieName,
-		Value:    id.String(),
-		Path:     "/api/auth/oidc",
-		MaxAge:   int(oidcLoginTTL.Seconds()),
-		HttpOnly: true,
-		Secure:   true,
-		// Lax (not Strict) so the cookie survives the top-level GET redirect
-		// back from the IdP; the state+nonce+PKCE triple carries the CSRF/replay
-		// defense, not the cookie's SameSite mode.
-		SameSite: http.SameSiteLaxMode,
-	})
 
 	authURL := rt.oauth2Config.AuthCodeURL(
 		state,
@@ -281,64 +248,21 @@ func (h *OIDCHandler) Start(w http.ResponseWriter, r *http.Request) {
 func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Per-IP backoff (defense in depth atop the /api per-IP rate limit).
-	// Redirect back to the SPA with an error fragment like every other failure
-	// (Retry-After still set as a hint) rather than a plaintext 429: the callback
-	// is always a browser navigation, so a raw 429 page would strand the user
-	// off the SPA. The throttle still blocks all work before this point.
-	throttleKey := h.ipLimiter.ClientIP(r)
-	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		debuglog.Warn("oidc: callback throttled", "remote_addr", clientip.From(r))
-		h.redirectError(w, r, "throttled")
+	throttleKey, ok := h.throttled(w, r)
+	if !ok {
 		return
 	}
 
 	rt, err := h.runtime(ctx)
 	if err != nil || rt == nil || !rt.enabled {
+		h.clearCookie(w)
 		h.redirectError(w, r, "unavailable")
 		return
 	}
 
-	// The login-state cookie is consumed (single use) regardless of outcome.
-	cookie, err := r.Cookie(oidcCookieName)
-	h.clearCookie(w)
-	if err != nil {
-		h.fail(w, r, throttleKey, "missing login state", nil)
-		return
-	}
-	id, err := uuid.Parse(cookie.Value)
-	if err != nil {
-		h.fail(w, r, throttleKey, "bad login state", err)
-		return
-	}
-	blob, err := h.sessionMgr.ConsumeLoginState(ctx, id)
-	if err != nil {
-		h.fail(w, r, throttleKey, "expired login state", nil)
-		return
-	}
 	var st oidcLoginState
-	if err := json.Unmarshal(blob, &st); err != nil {
-		h.fail(w, r, throttleKey, "corrupt login state", err)
-		return
-	}
-
-	// An IdP-reported error (e.g. access_denied) short-circuits before any token work.
-	if e := r.URL.Query().Get("error"); e != "" {
-		debuglog.Warn("oidc: idp returned error", "error", e)
-		h.fail(w, r, throttleKey, "provider declined", nil)
-		return
-	}
-	// CSRF: the returned state must match what we issued. Constant-time compare
-	// for consistency with the rest of the codebase (session.go); the record is
-	// already single-use so this is defense in depth, not load-bearing.
-	if subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("state")), []byte(st.State)) != 1 {
-		h.fail(w, r, throttleKey, "state mismatch", nil)
-		return
-	}
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		h.fail(w, r, throttleKey, "missing code", nil)
+	code, ok := h.consumeState(w, r, throttleKey, &st)
+	if !ok {
 		return
 	}
 
@@ -352,8 +276,8 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		h.fail(w, r, throttleKey, "code exchange failed", err)
 		return
 	}
-	rawIDToken, ok := token.Extra("id_token").(string)
-	if !ok || rawIDToken == "" {
+	rawIDToken, hasID := token.Extra("id_token").(string)
+	if !hasID || rawIDToken == "" {
 		h.fail(w, r, throttleKey, "no id_token in response", nil)
 		return
 	}
@@ -428,70 +352,8 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		sessionHandle = []byte(u.ID.String())
 	}
 
-	// Mint the same session token as passkey/TOTP login, carrying the resolved
-	// identity handle; no passkey credential to cascade-revoke (nil credentialID).
-	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, sessionHandle, nil, webauthn.MetaFromRequest(r, h.ipLimiter))
-	if err != nil {
-		h.fail(w, r, throttleKey, "failed to create session", err)
-		return
-	}
-	h.loginThrottle.RecordSuccess(throttleKey)
-	debuglog.Info("oidc: login success",
+	h.finishLogin(w, r, throttleKey, sessionHandle,
 		"email_masked", maskEmail(email), "sub", idToken.Subject, "iss", idToken.Issuer)
-
-	if h.useCookieAuth {
-		if err := h.jar.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
-			debuglog.Error("oidc: set session cookie failed", "error", err)
-			h.redirectError(w, r, "session_error")
-			return
-		}
-		// Clean redirect: the session rides the HttpOnly cookie, so the token
-		// never appears in the URL or this 302's Location response header.
-		http.Redirect(w, r, "/", http.StatusFound)
-		return
-	}
-
-	// Header-bearer delivery: put the token in the URL *fragment*. The SPA
-	// reads it on mount, stores it, and scrubs the URL. The fragment is never
-	// sent to the server on the follow-up request (no Referer leak, nothing in
-	// our own request logs). It does, however, appear in this 302's Location
-	// response header, so a proxy that logs response headers would capture it --
-	// operators should redact `Location` on /api/auth/oidc/callback in their
-	// access logs.
-	http.Redirect(w, r, "/#oidc_token="+url.QueryEscape(sessionToken), http.StatusFound)
-}
-
-// fail records a per-IP failure, logs the reason, and redirects the browser back
-// to the SPA login screen with a generic error marker. err (if any) is logged
-// server-side only; the user-facing reason stays coarse to avoid an oracle.
-func (h *OIDCHandler) fail(w http.ResponseWriter, r *http.Request, throttleKey, reason string, err error) {
-	h.loginThrottle.RecordFailure(throttleKey)
-	if err != nil {
-		debuglog.Warn("oidc: callback failed", "remote_addr", clientip.From(r), "reason", reason, "error", err)
-	} else {
-		debuglog.Warn("oidc: callback failed", "remote_addr", clientip.From(r), "reason", reason)
-	}
-	h.redirectError(w, r, "failed")
-}
-
-// redirectError sends the browser back to the SPA with an error code in the
-// fragment so the login screen can show a message. The code is intentionally
-// coarse (no per-cause detail leaks to the client).
-func (h *OIDCHandler) redirectError(w http.ResponseWriter, r *http.Request, code string) {
-	http.Redirect(w, r, "/#oidc_error="+url.QueryEscape(code), http.StatusFound)
-}
-
-// clearCookie expires the login-state cookie.
-func (h *OIDCHandler) clearCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     oidcCookieName,
-		Value:    "",
-		Path:     "/api/auth/oidc",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
 }
 
 // runtime returns the built OIDC runtime for the current settings, rebuilding it
@@ -540,31 +402,23 @@ func (h *OIDCHandler) build(ctx context.Context, enabled bool, issuer, clientID,
 		return &oidcRuntime{enabled: false}, nil
 	}
 
-	clientSecret := ""
-	if clientSecretEnc != "" {
-		if h.masterKey == "" {
-			return nil, fmt.Errorf("MASTER_KEY not configured")
-		}
-		dec, err := auth.DecryptString(clientSecretEnc, h.masterKey)
-		if err != nil {
-			return nil, fmt.Errorf("decrypt client secret: %w", err)
-		}
-		clientSecret = dec
+	clientSecret, err := decryptClientSecret(clientSecretEnc, h.masterKey)
+	if err != nil {
+		return nil, err
 	}
 
 	// Run discovery through the SSRF-guarded client so a hostile issuer URL
 	// cannot make the server fetch a cloud-metadata/link-local endpoint.
-	provider, err := oidc.NewProvider(oidc.ClientContext(ctx, h.httpClient), issuer)
-	if err != nil {
-		return nil, fmt.Errorf("oidc discovery: %w", err)
+	provider, perr := oidc.NewProvider(oidc.ClientContext(ctx, h.httpClient), issuer)
+	if perr != nil {
+		return nil, fmt.Errorf("oidc discovery: %w", perr)
 	}
 
 	redirectURL := strings.TrimRight(baseURL, "/") + oidcCallbackPath
-	rt := &oidcRuntime{
-		enabled:     true,
-		redirectURL: redirectURL,
-		provider:    provider,
-		verifier:    provider.Verifier(&oidc.Config{ClientID: clientID}),
+	return &oidcRuntime{
+		enabled:  true,
+		provider: provider,
+		verifier: provider.Verifier(&oidc.Config{ClientID: clientID}),
 		oauth2Config: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
@@ -573,11 +427,7 @@ func (h *OIDCHandler) build(ctx context.Context, enabled bool, issuer, clientID,
 			Scopes:       []string{oidc.ScopeOpenID, "email", "profile"},
 		},
 		allowed: parseAllowlist(allowedRaw),
-	}
-	if u, err := url.Parse(issuer); err == nil && u.Host != "" {
-		rt.displayName = u.Host
-	}
-	return rt, nil
+	}, nil
 }
 
 // parseAllowlist splits a comma/newline/space-separated email list into a
@@ -593,15 +443,6 @@ func parseAllowlist(raw string) map[string]bool {
 		}
 	}
 	return set
-}
-
-// randToken returns a 32-byte hex random string for state/nonce.
-func randToken() (string, error) {
-	b := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, b); err != nil {
-		return "", err
-	}
-	return hex.EncodeToString(b), nil
 }
 
 // maskEmail reduces an email to a non-identifying form for audit logs:

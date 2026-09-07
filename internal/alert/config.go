@@ -19,6 +19,11 @@ const (
 	keyEvents  = "alert_events" // CSV of enabled event Types
 )
 
+// MsgUndecryptable is what every alert surface reports when the stored Apprise
+// target is present but will not decrypt. One constant so the dashboard and
+// Front Desk say the same thing about the same condition.
+const MsgUndecryptable = "stored target cannot be decrypted (master key rotated?)"
+
 // settingsReader is the slice of the settings repository the provider needs.
 // *settings.Repository satisfies it.
 type settingsReader interface {

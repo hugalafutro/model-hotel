@@ -2,16 +2,12 @@ package util
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf8"
-
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 )
 
 // scrubMargin is how far past maxLen SanitizeLogBody still scans for secrets.
@@ -70,15 +66,8 @@ func SanitizeLogBody(body string, maxLen int) string {
 // Returns the token and true if valid, or empty string and false if the header
 // is missing or malformed.
 func ParseBearerToken(r *http.Request) (string, bool) {
-	authHeader := r.Header.Get("Authorization")
-	if authHeader == "" {
-		return "", false
-	}
-	if len(authHeader) <= 7 || authHeader[:7] != "Bearer " {
-		return "", false
-	}
-	token := authHeader[7:]
-	if token == "" {
+	token, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
+	if !ok || token == "" {
 		return "", false
 	}
 	return token, true
@@ -100,17 +89,6 @@ func ParseProxyKey(r *http.Request) (string, bool) {
 	return "", false
 }
 
-// ParseUUIDParam extracts and parses a UUID from a chi URL parameter.
-// Returns the parsed UUID or an error.
-func ParseUUIDParam(r *http.Request, key string) (uuid.UUID, error) {
-	idStr := chi.URLParam(r, key)
-	id, err := uuid.Parse(idStr)
-	if err != nil {
-		return uuid.Nil, fmt.Errorf("invalid %s: %w", key, err)
-	}
-	return id, nil
-}
-
 // GetIntQueryParam parses an integer from a query parameter, returning
 // defaultValue if the parameter is missing or unparseable.
 func GetIntQueryParam(r *http.Request, key string, defaultValue int) int {
@@ -123,13 +101,6 @@ func GetIntQueryParam(r *http.Request, key string, defaultValue int) int {
 		return defaultValue
 	}
 	return result
-}
-
-// IntToStr converts an integer to its string representation.
-// This is a convenience function primarily useful for building
-// parameterized SQL queries with positional arguments.
-func IntToStr(i int) string {
-	return strconv.Itoa(i)
 }
 
 // WriteOpenAIError writes an OpenAI-compatible JSON error response.
@@ -168,16 +139,6 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 		return strings.Replace(sanitized, "/subscription", "", 1) + endpoint
 	}
 	switch providerType {
-	case "vertex-express":
-		// Vertex AI express keys work only on the native publisher routes
-		// under {host}/v1 (the egress adapter builds the
-		// /publishers/google/models/{m}:generateContent endpoint). Accept a
-		// bare host or a /v1 base without doubling the prefix.
-		versioned := strings.TrimRight(sanitized, "/")
-		if strings.HasSuffix(versioned, "/v1") {
-			return versioned + endpoint
-		}
-		return versioned + "/v1" + endpoint
 	case "azure":
 		// Azure AI resources serve their OpenAI-compatible surface only under
 		// {scheme}://{host}/openai/v1, but the base URL users hold is usually
@@ -189,8 +150,12 @@ func BuildProviderTargetURL(baseURL, providerType, endpoint string) string {
 			return u.Scheme + "://" + u.Host + "/openai/v1" + endpoint
 		}
 		return sanitized + endpoint
-	case "anthropic", "anthropic-messages", "ollama", "lmstudio", "koboldcpp":
-		// These providers expose their API under /v1: Ollama, LM Studio and
+	case "vertex-express", "anthropic", "anthropic-messages", "ollama", "lmstudio", "koboldcpp":
+		// Vertex AI express keys work only on the native publisher routes under
+		// {host}/v1 (the egress adapter builds the
+		// /publishers/google/models/{m}:generateContent endpoint).
+		//
+		// The rest expose their API under /v1 too: Ollama, LM Studio and
 		// KoboldCPP all serve /v1/chat/completions, and both Anthropic types serve
 		// /v1/messages (Anthropic's compatibility layer lives under /v1 too).
 		// Auto-add the prefix when the configured base URL omits it (e.g. a bare

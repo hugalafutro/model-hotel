@@ -238,21 +238,15 @@ func (s *Store) migrate(ctx context.Context) error {
 // binary). SQLite executes DDL transactionally, so a failure rolls the whole
 // migration back.
 func (s *Store) applyMigration(ctx context.Context, name, content string) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("frontdesk: begin migration %s: %w", name, err)
-	}
-	defer tx.Rollback() //nolint:errcheck // rollback after a successful commit is a no-op
-	if _, err := tx.ExecContext(ctx, content); err != nil {
-		return fmt.Errorf("frontdesk: apply migration %s: %w", name, err)
-	}
-	if _, err := tx.ExecContext(ctx,
-		`INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)`, name, time.Now().UTC().UnixNano(),
-	); err != nil {
-		return fmt.Errorf("frontdesk: record migration %s: %w", name, err)
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("frontdesk: commit migration %s: %w", name, err)
-	}
-	return nil
+	return inTx(ctx, s.db, "frontdesk: migration "+name, func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx, content); err != nil {
+			return fmt.Errorf("frontdesk: apply migration %s: %w", name, err)
+		}
+		if _, err := tx.ExecContext(ctx,
+			`INSERT INTO schema_migrations (name, applied_at) VALUES (?, ?)`, name, time.Now().UTC().UnixNano(),
+		); err != nil {
+			return fmt.Errorf("frontdesk: record migration %s: %w", name, err)
+		}
+		return nil
+	})
 }

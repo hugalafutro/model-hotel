@@ -6,7 +6,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -235,41 +237,60 @@ func (h *Handler) issueParamRetry(
 	if err != nil {
 		return nil, nil, &reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}
 	}
-	retryCtx, rc := retryContext(r, st)
-	retryCtx, retryDial := withDialTiming(retryCtx)
-	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
-	if retryErr != nil {
-		rc()
-		return nil, nil, &reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
-	}
-	util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
-	retryReq.Header.Set("Content-Type", "application/json")
-	var retryCheckRedirect func(req *http.Request, via []*http.Request) error
-	if h.safeDialer != nil {
-		retryCheckRedirect = h.safeDialer.CheckRedirect
-	}
-	retryClient := &http.Client{Transport: h.upstreamTransport, CheckRedirect: retryCheckRedirect}
 	// retryResp.Body is returned to the caller, which consumes and closes it
-	retryResp, retryErr := retryClient.Do(retryReq)
-	*dialMs += retryDial.take()
-	if retryErr == nil && st.responsesAttempt {
+	retryResp, rc, reqErr, ok := h.issueRetry(r, st, candidate, providerType, targetURL, rebuilt, attempt, dialMs, "proxy: auto-retry request failed")
+	if !ok {
+		return nil, nil, &reqErr
+	}
+	if st.responsesAttempt {
 		metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "param_retry")
 	}
-	if retryErr != nil {
+	return retryResp, rc, nil
+}
+
+// issueRetry issues one self-heal round: it runs under the retry context with
+// its own dial slot, carries the provider auth and JSON content type, and maps
+// a transport failure into the request's error kind the way the main failover
+// loop does (Canceled is a client disconnect, DeadlineExceeded a retry
+// timeout). `what` names the round in the warn line. On success the caller owns
+// both the response body and the returned cancel func.
+func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelCandidate, providerType, targetURL string, body []byte, attempt int, dialMs *float64, what string) (*http.Response, context.CancelFunc, reqError, bool) {
+	retryCtx, rc := retryContext(r, st)
+	retryCtx, retryDial := withDialTiming(retryCtx)
+	req, err := newJSONUpstreamRequest(retryCtx, targetURL, body)
+	if err != nil {
+		rc()
+		return nil, nil, reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)}, false
+	}
+	util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
+	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
+	resp, doErr := h.upstreamClient().Do(req)
+	*dialMs += retryDial.take()
+	if doErr != nil {
 		rc() // no body to consume on retry error
-		debuglog.Warn("proxy: auto-retry request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
-		if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
-			// Branch like the main failover loop: Canceled = client
-			// disconnect, DeadlineExceeded = retry timeout.
+		debuglog.Warn(what, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", doErr)
+		if errors.Is(doErr, context.Canceled) || errors.Is(doErr, context.DeadlineExceeded) {
 			origin := "retry_timeout"
-			if errors.Is(retryErr, context.Canceled) {
+			if errors.Is(doErr, context.Canceled) {
 				origin = "client_disconnect"
 			}
-			return nil, nil, &reqError{Kind: cancelOriginToKind(origin), Attempt: attempt, Provider: candidate.provider.Name}
+			return nil, nil, reqError{Kind: cancelOriginToKind(origin), Attempt: attempt, Provider: candidate.provider.Name}, false
 		}
-		return nil, nil, &reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
+		return nil, nil, reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(doErr)}, false
 	}
-	return retryResp, rc, nil
+	return resp, rc, reqError{}, true
+}
+
+// newJSONUpstreamRequest is the POST every upstream call in this package is
+// built from: the body as a reader and the JSON content type. The per-family
+// auth headers are the caller's, since only it knows the provider type.
+func newJSONUpstreamRequest(ctx context.Context, targetURL string, body []byte) (*http.Request, error) {
+	req, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	return req, nil
 }
 
 // rebuildForParamRetry builds the retry's body in the attempt's dialect, with
@@ -310,15 +331,24 @@ func retryContext(r *http.Request, st *requestState) (context.Context, context.C
 // failoverErrorClassifyCap: learning json.Unmarshals the whole document, so a
 // body cut mid-JSON teaches nothing. Everything above the cap is discarded.
 func readLearnable400(resp *http.Response) ([]byte, error) {
-	limit := int64(responsesLearnBodyCap)
-	if resp.StatusCode != http.StatusBadRequest {
-		limit = failoverErrorClassifyCap
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, limit))
+	body, err := io.ReadAll(io.LimitReader(resp.Body, learnableBodyCap(resp.StatusCode)))
 	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
 	resp.Body = io.NopCloser(bytes.NewReader(body))
 	return body, err
+}
+
+// learnableBodyCap is how much of a refusal body has to be kept, which follows
+// the status because the two readers want different amounts.
+// classifyUpstreamError never sees past SanitizeLogBody's budget, which
+// failoverErrorClassifyCap is sized against; but a 400 also goes to the
+// learners, which json.Unmarshal it, and a document cut short does not parse at
+// all.
+func learnableBodyCap(status int) int64 {
+	if status == http.StatusBadRequest {
+		return responsesLearnBodyCap
+	}
+	return failoverErrorClassifyCap
 }
 
 // retryWithStrippedParams handles a 400 from an upstream: it reads and restores
@@ -421,7 +451,7 @@ func (h *Handler) retryWithStrippedParams(
 			res.resp = retryResp
 			res.retryCancel = rc
 			res.retried = true
-			debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rounds", round+1, "rejected_params", mapKeys(strip), "renamed_params", renameKeys(renamed))
+			debuglog.Info("proxy: auto-retry succeeded", "model", candidate.model.ModelID, "rounds", round+1, "rejected_params", slices.Sorted(maps.Keys(strip)), "renamed_params", slices.Sorted(maps.Keys(renamed)))
 			return res
 		}
 		// The retry was rejected too. Read its body so the params it names are
@@ -437,16 +467,4 @@ func (h *Handler) retryWithStrippedParams(
 		}
 	}
 	return res
-}
-
-// renameKeys returns the old param names from a rename map, for log fields.
-func renameKeys(m map[string]string) []string {
-	if len(m) == 0 {
-		return nil
-	}
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }

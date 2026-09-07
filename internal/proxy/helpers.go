@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -10,41 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"strings"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
-
-func extractStreamingUsage(data string) *Usage {
-	scanner := bufio.NewScanner(strings.NewReader(data))
-	var lastUsage *Usage
-	for scanner.Scan() {
-		line := scanner.Text()
-		var payload string
-		// if-else chain reads clearer than a switch for SSE prefix matching
-		if after, ok := strings.CutPrefix(line, "data: "); ok {
-			payload = after
-		} else if strings.HasPrefix(line, "data:") && len(line) > 5 {
-			// "data:" with no space — LM Studio compatibility.
-			payload = strings.TrimLeft(line[5:], " \t")
-		} else {
-			continue
-		}
-		if payload == "[DONE]" {
-			break
-		}
-		var chunk struct {
-			Usage *Usage `json:"usage"`
-		}
-		if json.Unmarshal([]byte(payload), &chunk) == nil && chunk.Usage != nil {
-			lastUsage = chunk.Usage
-		}
-	}
-	return lastUsage
-}
 
 // normalizeFinishReason maps provider-specific finish reasons to
 // OpenAI-compatible values. Different providers use different vocabularies:
@@ -693,4 +663,38 @@ func chatAnswerBytes(out ChatCompletionResponse) int {
 		}
 	}
 	return n
+}
+
+// tokensPerSecond is the generation rate a completed request is logged with:
+// output tokens over the time after the first token, falling back to the whole
+// duration when generation time is negligible (non-streaming, where TTFT is
+// nearly the whole request) so a rate is not absurd. ttftMs is the true
+// first-token time when a probe measured it, the response header time
+// otherwise.
+func tokensPerSecond(outputTokens int, totalMs, ttftMs float64) float64 {
+	if outputTokens <= 0 {
+		return 0
+	}
+	generation := totalMs - ttftMs
+	if generation >= max(1.0, totalMs*0.05) {
+		return float64(outputTokens) / generation * 1000
+	}
+	if totalMs > 0 {
+		return float64(outputTokens) / totalMs * 1000
+	}
+	return 0
+}
+
+// reserialize writes delta back into the chunk and re-encodes it: the three
+// stream transforms all end this way. finish_reason is normalized on the way
+// out so non-standard values ("end_turn", "STOP") map to OpenAI equivalents
+// even on a chunk a transform already rewrote.
+func (p parsedChunk) reserialize(delta any, lastFinishReason *string, logData *requestLogData) []byte {
+	newDelta, _ := json.Marshal(delta)
+	p.choices[0]["delta"] = json.RawMessage(newDelta)
+	normalizeFinishReasonInChoices(p.choices, lastFinishReason, logData.modelID, logData.providerName)
+	newChoices, _ := json.Marshal(p.choices)
+	p.raw["choices"] = json.RawMessage(newChoices)
+	newPayload, _ := json.Marshal(p.raw)
+	return newPayload
 }

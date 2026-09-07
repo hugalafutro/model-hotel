@@ -16,8 +16,9 @@ package debuglog
 import (
 	"context"
 	"log/slog"
+	"maps"
 	"os"
-	"sort"
+	"slices"
 	"strings"
 )
 
@@ -37,10 +38,8 @@ var globalDebug bool
 // can turn on Debug for one noisy area without flooding everything at high RPS.
 var enabledScopes map[string]bool
 
-// Init configures the default slog logger based on the debug flag.
-// If debug is true, log level is set to Debug; otherwise Info.
-// This also reads the DEBUG_LOG env var as a fallback if debug is false
-// but the env var is explicitly set to a truthy value.
+// Init configures the default slog logger from the environment: DEBUG_LOG set
+// to a truthy value turns global Debug output on, otherwise the level is Info.
 //
 // DEBUG_LOG_SCOPES (comma-separated scope prefixes) enables Debug output for
 // just those scopes when global Debug is off.
@@ -48,9 +47,9 @@ var enabledScopes map[string]bool
 // The output format honors LOG_FORMAT (see JSONFormat): "json" emits one JSON
 // object per line for external log collectors, anything else (default) keeps
 // the human-readable text format. The choice lives here, not in the caller, so
-// every binary that calls Init (server today, Front Desk later) inherits it.
-func Init(debug bool) {
-	globalDebug = debug || isDebugLogEnv()
+// every binary that calls Init inherits it.
+func Init() {
+	globalDebug = isDebugLogEnv()
 	enabledScopes = parseScopes(os.Getenv("DEBUG_LOG_SCOPES"))
 
 	// The handler must accept Debug records whenever any Debug output is
@@ -67,12 +66,7 @@ func Init(debug bool) {
 	// the parsed/normalized scopes (not the raw env string) so a tainted value
 	// can't forge log lines.
 	if !globalDebug && len(enabledScopes) > 0 {
-		scopeList := make([]string, 0, len(enabledScopes))
-		for s := range enabledScopes {
-			scopeList = append(scopeList, s)
-		}
-		sort.Strings(scopeList)
-		slog.Info("debuglog: per-scope debug enabled", "scopes", scopeList)
+		slog.Info("debuglog: per-scope debug enabled", "scopes", slices.Sorted(maps.Keys(enabledScopes)))
 	}
 }
 
@@ -232,8 +226,22 @@ func SetHandler(h slog.Handler) {
 
 // isDebugLogEnv returns true if the DEBUG_LOG env var is set to a truthy value.
 func isDebugLogEnv() bool {
-	v := strings.ToLower(os.Getenv("DEBUG_LOG"))
-	return v == "true" || v == "1" || v == "yes"
+	v, _ := EnvBool(os.Getenv("DEBUG_LOG"))
+	return v
+}
+
+// EnvBool parses the truthy/falsy spellings every binary accepts for a boolean
+// environment variable, reporting ok=false for anything else (including an
+// empty value) so the caller can apply its own default. It lives here because
+// debuglog is the leaf package both config and the binaries already import.
+func EnvBool(raw string) (value, ok bool) {
+	switch strings.ToLower(strings.TrimSpace(raw)) {
+	case "true", "1", "yes":
+		return true, true
+	case "false", "0", "no":
+		return false, true
+	}
+	return false, false
 }
 
 // Debug logs at Debug level. Discarded with zero allocation unless Debug output

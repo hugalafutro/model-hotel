@@ -227,24 +227,13 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 // error.
 func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr error, logData *requestLogData, opts streamOptions, statusCode int, startTime time.Time) {
 	totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-	var tps float64
-	// Total output tokens (text + reasoning) over generation time. True TTFT
-	// (first token) is preferred when the probe measured it, response header
-	// time otherwise.
-	totalOutputTokens := st.completionTokens + st.reasoningTokens
+	// True TTFT (first token) is preferred when the probe measured it, response
+	// header time otherwise.
 	ttftForTPS := opts.responseHeaderMs
 	if opts.trueTtftMs > 0 {
 		ttftForTPS = opts.trueTtftMs
 	}
-	generationDuration := totalDuration - ttftForTPS
-	// Avoid absurd TPS when generation time is negligible
-	// (e.g. non-streaming where response_header_ms ≈ duration_ms).
-	minGeneration := max(1.0, totalDuration*0.05)
-	if totalOutputTokens > 0 && generationDuration >= minGeneration {
-		tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
-	} else if totalOutputTokens > 0 && totalDuration > 0 {
-		tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
-	}
+	tps := tokensPerSecond(st.completionTokens+st.reasoningTokens, totalDuration, ttftForTPS)
 
 	errMsg := deriveStreamError(st, scanErr, opts, logData)
 	if errMsg == "" && !st.sawDone && opts.rawPassthrough {
@@ -286,11 +275,6 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	logData.durationMs = totalDuration
 	logData.proxyOverheadMs = opts.proxyOverheadMs
 	logData.parseMs = opts.parseMs
-	logData.failoverLookupMs = opts.failoverLookupMs
-	logData.modelLookupMs = opts.modelLookupMs
-	logData.providerLookupMs = opts.providerLookupMs
-	logData.keyDecryptMs = opts.keyDecryptMs
-	logData.dialMs = opts.dialMs
 	logData.responseHeaderMs = opts.responseHeaderMs
 	logData.tokensPerSecond = tps
 	logData.tokensPrompt = st.promptTokens
@@ -310,12 +294,10 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// verdict into a served one: verdictForStream decides gone from the error
 	// kind before it looks at this at all.
 	logData.deliveredContent = st.sawContent || st.sawMessageStop || st.deliveredBytes > 0
-	if errMsg != "" {
-		h.writeTerminalError(sink, st, opts, logData, errMsg)
-	}
 	logData.errorMessage = string(opts.masker.mask([]byte(errMsg)))
 	logData.failoverAttempt = opts.attempt
 	if errMsg != "" {
+		h.writeTerminalError(sink, st, opts, logData, errMsg)
 		logData.statusCode = 0
 		logData.state = "failed"
 	} else {
@@ -377,7 +359,7 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		// the same reason forwardUpstreamError sanitizes on the non-streaming
 		// path: a provider may echo the request back inside an error, and an
 		// unbounded provider string must not land in the log.
-		errMsg = util.SanitizeLogBody(errMsg, 10000)
+		errMsg = util.SanitizeLogBody(errMsg, logBodyCap)
 		logData.errorKind, _ = classifyUpstreamError(logData.statusCode, errMsg, upstreamModelID(logData))
 		// Kept separately as well, because everything below can overwrite
 		// errorKind with a later cause. A client that receives this error chunk
@@ -432,11 +414,15 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	//
 	// A process shutdown also closes the upstream body, and is judged before the
 	// stall so a restart never reads as a provider fault.
-	if st.interrupted && !st.sawDone && !st.sawMessageStop && !st.clientDisconnected {
+	// Either verdict needs the stream to have ended without a terminal sentinel
+	// and without the client leaving.
+	cutShort := !st.sawDone && !st.sawMessageStop && !st.clientDisconnected
+	switch {
+	case st.interrupted && cutShort:
 		errMsg = "stream interrupted: gateway restarting"
 		logData.errorKind = KindInternal
 		debuglog.Warn("proxy: stream interrupted by shutdown", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
-	} else if st.stalled && !st.sawDone && !st.sawMessageStop && !st.clientDisconnected {
+	case st.stalled && cutShort:
 		effectiveStall := opts.streamStallTimeout
 		if st.chunkCount > progressiveChunkThreshold {
 			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier

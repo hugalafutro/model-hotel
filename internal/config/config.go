@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/url"
 	"os"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -137,7 +138,7 @@ var defaultKnownProviderHostSuffixes = []string{
 
 // KnownProviderHosts returns the built-in provider host allowlist.
 func KnownProviderHosts() []string {
-	return append([]string{}, defaultKnownProviderHosts...)
+	return slices.Clone(defaultKnownProviderHosts)
 }
 
 // LoadEnvFile loads the optional .env file into the process environment
@@ -159,47 +160,47 @@ func Load() (*Config, error) {
 	}
 
 	cfg := &Config{
-		Port:        getEnvWithDefault("PORT", ":8080"),
-		DatabaseURL: getEnv("DATABASE_URL"),
-		MasterKey:   getEnv("MASTER_KEY"),
+		Port:        EnvOr("PORT", ":8080"),
+		DatabaseURL: os.Getenv("DATABASE_URL"),
+		MasterKey:   os.Getenv("MASTER_KEY"),
 
-		DataDir:              getEnvWithDefault("DATA_DIR", "./data"),
-		AdminToken:           getEnv("ADMIN_TOKEN"),
-		MetricsToken:         getEnv("METRICS_TOKEN"),
-		AllowHTTPProviders:   getBoolEnvWithDefault("ALLOW_HTTP_PROVIDERS", false),
-		AllowEmbed:           getBoolEnvWithDefault("ALLOW_EMBED", false),
-		RateLimitEnabled:     getBoolEnvWithDefault("RATE_LIMIT_ENABLED", true),
-		RateLimitIPRPS:       clampFloat(getFloatEnvWithDefault("RATE_LIMIT_IP_RPS", 30), 0, 10000),
-		RateLimitIPBurst:     clampInt(getIntEnvAsInt("RATE_LIMIT_IP_BURST", 60), 1, 10000),
-		MaxRequestSize:       clampInt64(getIntEnvWithDefault("MAX_REQUEST_SIZE", 50*1024*1024), 1024, 100*1024*1024), // 1KB–100MB; default 50MB covers multipart audio uploads (OpenAI limit: 25MB); also sizes the body read budget (httpx.NewServer), so a larger ceiling lengthens the longest hold a hostile body can buy
-		CORSOrigins:          parseCORSOrigins(getEnvWithDefault("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
-		AllowedProviderHosts: parseProviderHosts(getEnvWithDefault("ALLOWED_PROVIDER_HOSTS", "")),
-		DBMaxConns:           clampInt32(getIntEnvAsInt32("DATABASE_MAX_CONNS", 25), 1, 1000),
-		DBMinConns:           clampInt32(getIntEnvAsInt32("DATABASE_MIN_CONNS", 5), 1, 1000),
-		ModelsDevEnabled:     getBoolEnvWithDefault("MODELSDEV_ENABLED", true),
-		DemoReadOnly:         getBoolEnvWithDefault("DEMO_READONLY", false),
-		DemoShowToken:        getBoolEnvWithDefault("DEMO_SHOW_TOKEN", false),
-		DebugLog:             getBoolEnvWithDefault("DEBUG_LOG", false),
+		DataDir:              EnvOr("DATA_DIR", "./data"),
+		AdminToken:           os.Getenv("ADMIN_TOKEN"),
+		MetricsToken:         os.Getenv("METRICS_TOKEN"),
+		AllowHTTPProviders:   BoolEnv("ALLOW_HTTP_PROVIDERS", false),
+		AllowEmbed:           BoolEnv("ALLOW_EMBED", false),
+		RateLimitEnabled:     BoolEnv("RATE_LIMIT_ENABLED", true),
+		RateLimitIPRPS:       min(max(envNumber("RATE_LIMIT_IP_RPS", 30.0, parseFloat), 0), 10000),
+		RateLimitIPBurst:     min(max(envNumber("RATE_LIMIT_IP_BURST", 60, strconv.Atoi), 1), 10000),
+		MaxRequestSize:       min(max(envNumber("MAX_REQUEST_SIZE", int64(50*1024*1024), parseInt64), 1024), 100*1024*1024), // 1KB–100MB; default 50MB covers multipart audio uploads (OpenAI limit: 25MB); also sizes the body read budget (httpx.NewServer), so a larger ceiling lengthens the longest hold a hostile body can buy
+		CORSOrigins:          parseCORSOrigins(EnvOr("CORS_ORIGINS", "http://localhost:5173,http://localhost:8081")),
+		AllowedProviderHosts: util.SplitAndTrim(os.Getenv("ALLOWED_PROVIDER_HOSTS")),
+		DBMaxConns:           min(max(envNumber("DATABASE_MAX_CONNS", int32(25), parseInt32), 1), 1000),
+		DBMinConns:           min(max(envNumber("DATABASE_MIN_CONNS", int32(5), parseInt32), 1), 1000),
+		ModelsDevEnabled:     BoolEnv("MODELSDEV_ENABLED", true),
+		DemoReadOnly:         BoolEnv("DEMO_READONLY", false),
+		DemoShowToken:        BoolEnv("DEMO_SHOW_TOKEN", false),
+		DebugLog:             BoolEnv("DEBUG_LOG", false),
 		TrustedProxies:       LoadTrustedProxies(),
 		KnownProxies:         LoadKnownProxies(),
 
-		PwnedPasswordCheckEnabled: getBoolEnvWithDefault("PWNED_PASSWORD_CHECK_ENABLED", true),
-		PwnedPasswordAPIURL:       getEnvWithDefault("PWNED_PASSWORD_API_URL", "https://api.pwnedpasswords.com"),
+		PwnedPasswordCheckEnabled: BoolEnv("PWNED_PASSWORD_CHECK_ENABLED", true),
+		PwnedPasswordAPIURL:       EnvOr("PWNED_PASSWORD_API_URL", "https://api.pwnedpasswords.com"),
 
-		WebAuthnRPID:          getEnv("WEBAUTHN_RP_ID"),
-		WebAuthnRPDisplayName: getEnvWithDefault("WEBAUTHN_RP_DISPLAY_NAME", "Model Hotel"),
-		WebAuthnRPOrigins:     parseCORSOrigins(getEnv("WEBAUTHN_RP_ORIGINS")),
+		WebAuthnRPID:          os.Getenv("WEBAUTHN_RP_ID"),
+		WebAuthnRPDisplayName: EnvOr("WEBAUTHN_RP_DISPLAY_NAME", "Model Hotel"),
+		WebAuthnRPOrigins:     parseCORSOrigins(os.Getenv("WEBAUTHN_RP_ORIGINS")),
 
-		CookieSecure: NormalizeCookieSecure(getEnv("COOKIE_SECURE")),
+		CookieSecure: NormalizeCookieSecure(os.Getenv("COOKIE_SECURE")),
 	}
 
 	// If DATABASE_URL is not set, construct it from POSTGRES_* components.
 	// This eliminates duplication: the password only needs to be set once.
 	if cfg.DatabaseURL == "" {
-		pgUser := getEnvWithDefault("POSTGRES_USER", "modelhotel")
-		pgPass := getEnv("POSTGRES_PASSWORD")
-		pgHost := getEnvWithDefault("POSTGRES_HOST", "db")
-		pgDB := getEnvWithDefault("POSTGRES_DB", "modelhotel")
+		pgUser := EnvOr("POSTGRES_USER", "modelhotel")
+		pgPass := os.Getenv("POSTGRES_PASSWORD")
+		pgHost := EnvOr("POSTGRES_HOST", "db")
+		pgDB := EnvOr("POSTGRES_DB", "modelhotel")
 		if pgPass == "" {
 			return nil, fmt.Errorf("DATABASE_URL or POSTGRES_PASSWORD is required")
 		}
@@ -272,7 +273,7 @@ func (c *Config) String() string {
 		{"Allow Embed", fmt.Sprintf("%t", c.AllowEmbed)},
 		{"Rate Limiting", fmt.Sprintf("%t", c.RateLimitEnabled)},
 		{"Breached-PW Check", fmt.Sprintf("%t", c.PwnedPasswordCheckEnabled)},
-		{"Max Request Size", formatBytes(c.MaxRequestSize)},
+		{"Max Request Size", util.FormatBytes(c.MaxRequestSize)},
 		{"Debug Log", fmt.Sprintf("%t", c.DebugLog)},
 		{"Log Format", logFormat},
 		{"Metrics", metrics},
@@ -289,20 +290,16 @@ func (c *Config) String() string {
 	// misalignment if other labels are shorter)
 	labelW := len("CORS Origins")
 	for _, r := range rows {
-		if len(r.label) > labelW {
-			labelW = len(r.label)
-		}
+		labelW = max(labelW, len(r.label))
 	}
 
 	// Max value width that fits within a reasonable frame
-	const maxFrameW = 80
 	const indent = "   "
 	const gap = "  "
 	maxValW := maxFrameW - len(indent) - labelW - len(gap)
 
 	// Add CORS origins as multi-line rows
-	corsRows := formatCORSOriginRows(c.CORSOrigins, labelW, len(indent), len(gap))
-	rows = append(rows, corsRows...)
+	rows = append(rows, formatCORSOriginRows(c.CORSOrigins)...)
 
 	// Build content lines, truncating values that exceed maxValW
 	contentLines := []string{
@@ -321,14 +318,9 @@ func (c *Config) String() string {
 	// Calculate content width, capped at maxFrameW
 	contentW := 0
 	for _, l := range contentLines {
-		if len(l) > contentW {
-			contentW = len(l)
-		}
+		contentW = max(contentW, len(l))
 	}
-	contentW += len(indent) // right margin matches left indent
-	if contentW > maxFrameW {
-		contentW = maxFrameW
-	}
+	contentW = min(contentW+len(indent), maxFrameW) // right margin matches left indent
 
 	// Build double-line frame
 	var sb strings.Builder
@@ -342,6 +334,9 @@ func (c *Config) String() string {
 	return sb.String()
 }
 
+// maxFrameW is the widest the startup banner is allowed to be, in characters.
+const maxFrameW = 80
+
 func padRight(s string, width int) string {
 	if len(s) >= width {
 		return s
@@ -349,46 +344,21 @@ func padRight(s string, width int) string {
 	return s + strings.Repeat(" ", width-len(s))
 }
 
-func formatBytes(b int64) string {
-	const (
-		KB int64 = 1024
-		MB int64 = KB * 1024
-		GB int64 = MB * 1024
-	)
-	switch {
-	case b >= GB:
-		return fmt.Sprintf("%d GB", b/GB)
-	case b >= MB:
-		return fmt.Sprintf("%d MB", b/MB)
-	case b >= KB:
-		return fmt.Sprintf("%d KB", b/KB)
-	default:
-		return fmt.Sprintf("%d B", b)
-	}
-}
-
-func formatCORSOriginRows(origins []string, labelW, indentLen, gapLen int) []configRow {
+// formatCORSOriginRows renders one row per origin. The first carries the
+// "CORS Origins" label and the rest a blank one, so the padRight(label,
+// labelW) + gap alignment keeps the values stacked. Truncation is String's
+// job, which applies the same cut to every row it prints.
+func formatCORSOriginRows(origins []string) []configRow {
 	if len(origins) == 0 {
 		return []configRow{{"CORS Origins", "(none)"}}
 	}
-
-	// Calculate max value width from the same logic used for other rows.
-	const maxFrameW = 80
-	maxValW := maxFrameW - indentLen - labelW - gapLen
-
-	// First origin gets the "CORS Origins" label; others use a blank label
-	// so the padRight(label, labelW) + gap alignment keeps values stacked.
 	result := make([]configRow, 0, len(origins))
 	for i, o := range origins {
-		v := o
-		if len(v) > maxValW {
-			v = v[:maxValW-3] + "..."
-		}
+		label := ""
 		if i == 0 {
-			result = append(result, configRow{"CORS Origins", v})
-		} else {
-			result = append(result, configRow{"", v})
+			label = "CORS Origins"
 		}
+		result = append(result, configRow{label, o})
 	}
 	return result
 }
@@ -417,20 +387,20 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 		}
 	}
 	lowerHost := strings.ToLower(host)
-	for _, suffix := range defaultKnownProviderHostSuffixes {
-		if strings.HasSuffix(lowerHost, suffix) {
-			return nil
-		}
+	if slices.ContainsFunc(defaultKnownProviderHostSuffixes, func(suffix string) bool {
+		return strings.HasSuffix(lowerHost, suffix)
+	}) {
+		return nil
 	}
 
 	// If AllowedProviderHosts is set, the host must be in the allowlist.
 	// Hosts explicitly listed here bypass the private/reserved-IP checks so that
 	// internal LLM servers (or localhost in tests) can be used as provider URLs.
 	if len(c.AllowedProviderHosts) > 0 {
-		for _, allowedHost := range c.AllowedProviderHosts {
-			if strings.EqualFold(host, allowedHost) {
-				return nil
-			}
+		if slices.ContainsFunc(c.AllowedProviderHosts, func(allowed string) bool {
+			return strings.EqualFold(host, allowed)
+		}) {
+			return nil
 		}
 		return fmt.Errorf("provider host %q is not in ALLOWED_PROVIDER_HOSTS allowlist", host)
 	}
@@ -452,21 +422,18 @@ func (c *Config) ValidateProviderURL(rawURL string) error {
 	}
 	ips, err := lookupIP(host)
 	if err == nil {
-		for _, ip := range ips {
-			if util.IsBlockedIP(ip) {
-				return fmt.Errorf("host %q resolves to private/reserved address %s: not allowed as provider URL (add to ALLOWED_PROVIDER_HOSTS to permit)", host, ip)
-			}
+		if i := slices.IndexFunc(ips, util.IsBlockedIP); i >= 0 {
+			return fmt.Errorf("host %q resolves to private/reserved address %s: not allowed as provider URL (add to ALLOWED_PROVIDER_HOSTS to permit)", host, ips[i])
 		}
 	}
 
 	return nil
 }
 
-func getEnv(key string) string {
-	return os.Getenv(key)
-}
-
-func getEnvWithDefault(key, defaultValue string) string {
+// EnvOr reads an environment variable, falling back to defaultValue when it is
+// unset or empty. Exported so the Front Desk binary, which reads its own
+// environment rather than this Config, resolves its knobs identically.
+func EnvOr(key, defaultValue string) string {
 	if value := os.Getenv(key); value != "" {
 		return value
 	}
@@ -492,14 +459,13 @@ func NormalizeCookieSecure(raw string) string {
 	}
 }
 
-func getBoolEnvWithDefault(key string, defaultValue bool) bool {
+// BoolEnv reads a boolean environment variable, warning once and returning
+// defaultValue for anything outside the truthy/falsy set. Exported alongside
+// EnvOr so every binary reads the same spellings.
+func BoolEnv(key string, defaultValue bool) bool {
 	raw := os.Getenv(key)
-	value := strings.ToLower(raw)
-	if value == "true" || value == "1" || value == "yes" {
-		return true
-	}
-	if value == "false" || value == "0" || value == "no" {
-		return false
+	if value, ok := debuglog.EnvBool(raw); ok {
+		return value
 	}
 	if raw != "" {
 		debuglog.Warn("config: ignoring unrecognized boolean env value, using default",
@@ -508,34 +474,37 @@ func getBoolEnvWithDefault(key string, defaultValue bool) bool {
 	return defaultValue
 }
 
-func getIntEnvWithDefault(key string, defaultValue int64) int64 {
+// envNumber reads a numeric environment variable through parse, warning once
+// and returning def when the value is unparseable. The warn text says
+// "integer" for every integer width and "float" for float64, which is what
+// parseLabel resolves.
+func envNumber[T int | int32 | int64 | float64](key string, def T, parse func(string) (T, error)) T {
 	value := os.Getenv(key)
 	if value == "" {
-		return defaultValue
+		return def
 	}
-
-	result, err := strconv.ParseInt(value, 10, 64)
+	result, err := parse(value)
 	if err != nil {
-		debuglog.Warn("config: ignoring invalid integer env value, using default",
-			"key", key, "value", value, "default", defaultValue)
-		return defaultValue
+		kind := "integer"
+		if _, isFloat := any(def).(float64); isFloat {
+			kind = "float"
+		}
+		debuglog.Warn("config: ignoring invalid "+kind+" env value, using default",
+			"key", key, "value", value, "default", def)
+		return def
 	}
 	return result
 }
 
-func getFloatEnvWithDefault(key string, defaultValue float64) float64 {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	result, err := strconv.ParseFloat(value, 64)
-	if err != nil {
-		debuglog.Warn("config: ignoring invalid float env value, using default",
-			"key", key, "value", value, "default", defaultValue)
-		return defaultValue
-	}
-	return result
+// parseInt64, parseInt32 and parseFloat adapt strconv to envNumber's signature.
+func parseInt64(s string) (int64, error) { return strconv.ParseInt(s, 10, 64) }
+
+func parseInt32(s string) (int32, error) {
+	v, err := strconv.ParseInt(s, 10, 32)
+	return int32(v), err
 }
+
+func parseFloat(s string) (float64, error) { return strconv.ParseFloat(s, 64) }
 
 func parseCORSOrigins(value string) []string {
 	result := util.SplitAndTrim(value)
@@ -544,84 +513,9 @@ func parseCORSOrigins(value string) []string {
 	}
 	// Reject "*" wildcard — it is incompatible with credentials=true (CORS spec
 	// forbids it) and would silently break auth. Force users to list explicit origins.
-	for i, o := range result {
-		if o == "*" {
-			debuglog.Warn("CORS_ORIGINS contains '*' wildcard, which is incompatible with credentials=true; removing it")
-			result = append(result[:i], result[i+1:]...)
-			return parseCORSOrigins(strings.Join(result, ","))
-		}
+	if slices.Contains(result, "*") {
+		debuglog.Warn("CORS_ORIGINS contains '*' wildcard, which is incompatible with credentials=true; removing it")
+		result = slices.DeleteFunc(result, func(o string) bool { return o == "*" })
 	}
 	return result
-}
-
-func parseProviderHosts(value string) []string {
-	return util.SplitAndTrim(value)
-}
-
-func clampInt64(value, minVal, maxVal int64) int64 {
-	if value < minVal {
-		return minVal
-	}
-	if value > maxVal {
-		return maxVal
-	}
-	return value
-}
-
-func clampFloat(value, minVal, maxVal float64) float64 {
-	if value < minVal {
-		return minVal
-	}
-	if value > maxVal {
-		return maxVal
-	}
-	return value
-}
-
-func clampInt(value, minVal, maxVal int) int {
-	if value < minVal {
-		return minVal
-	}
-	if value > maxVal {
-		return maxVal
-	}
-	return value
-}
-
-func clampInt32(value, minVal, maxVal int32) int32 {
-	if value < minVal {
-		return minVal
-	}
-	if value > maxVal {
-		return maxVal
-	}
-	return value
-}
-
-func getIntEnvAsInt(key string, defaultValue int) int {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	result, err := strconv.Atoi(value)
-	if err != nil {
-		debuglog.Warn("config: ignoring invalid integer env value, using default",
-			"key", key, "value", value, "default", defaultValue)
-		return defaultValue
-	}
-	return result
-}
-
-func getIntEnvAsInt32(key string, defaultValue int32) int32 {
-	value := os.Getenv(key)
-	if value == "" {
-		return defaultValue
-	}
-	result, err := strconv.ParseInt(value, 10, 32)
-	if err != nil {
-		debuglog.Warn("config: ignoring invalid integer env value, using default",
-			"key", key, "value", value, "default", defaultValue)
-		return defaultValue
-	}
-	return int32(result)
 }

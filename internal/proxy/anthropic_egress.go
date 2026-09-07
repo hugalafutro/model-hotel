@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 
@@ -81,18 +80,27 @@ func (h *Handler) buildAnthropicEgressRequest(ctx context.Context, st *requestSt
 	// learnAndRebuildMessages400); overwritten per attempt, like the dialect flags.
 	st.lastMessagesBody = body
 
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
+	proxyReq, targetURL, err := newMessagesRequest(ctx, candidate, providerType, body)
 	debuglog.Info("proxy: routing via anthropic egress adapter", "target_url", targetURL, "model", model, "provider", candidate.provider.Name, "stream", stream)
-
-	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, providerType, targetURL, err
 	}
-	// SetProviderAuthHeaders already sends x-api-key + anthropic-version for
-	// this provider type, which is exactly what the native route requires.
-	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
+}
+
+// newMessagesRequest builds the POST every Anthropic-family route makes: the
+// provider's /messages target URL, the body, and the auth headers.
+// SetProviderAuthHeaders already sends x-api-key + anthropic-version for this
+// provider type, which is exactly what the native route requires. The target
+// URL comes back even on failure, since the callers log it either way.
+func newMessagesRequest(ctx context.Context, candidate modelCandidate, providerType string, body []byte) (*http.Request, string, error) {
+	targetURL := messagesTargetURL(candidate, providerType)
+	req, err := newJSONUpstreamRequest(ctx, targetURL, body)
+	if err != nil {
+		return nil, targetURL, err
+	}
+	util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
+	return req, targetURL, nil
 }
 
 // anthropicEgressBody builds the Messages body for one egress attempt: the
@@ -125,4 +133,9 @@ func (h *Handler) learnThinkingDialect(candidate modelCandidate, dialect anthrop
 	key := paramrewrite.LearnedCacheKey(learnedScopeFor(candidate), candidate.model.ModelID)
 	h.thinkingDialectCache.Store(key, dialect)
 	debuglog.Info("proxy: learned anthropic thinking dialect from upstream 400", "provider", candidate.provider.Name, "model", candidate.model.ModelID, "dialect", dialect.String())
+}
+
+// messagesTargetURL is the provider's Anthropic Messages endpoint.
+func messagesTargetURL(candidate modelCandidate, providerType string) string {
+	return util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
 }

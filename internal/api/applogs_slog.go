@@ -153,24 +153,17 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 }
 
 func (h *appSlogHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &appSlogHandler{
-		level:      h.level,
-		stderr:     h.stderr,
-		group:      h.group,
-		attrs:      append(slices.Clone(h.attrs), attrs...),
-		jsonOutput: h.jsonOutput,
-	}
+	c := *h
+	c.attrs = append(slices.Clone(h.attrs), attrs...)
+	return &c
 }
 
 func (h *appSlogHandler) WithGroup(name string) slog.Handler {
-	if h.group != "" {
-		name = h.group + "." + name
+	c := *h
+	if c.group != "" {
+		name = c.group + "." + name
 	}
-	return &appSlogHandler{
-		level:      h.level,
-		stderr:     h.stderr,
-		group:      name,
-		attrs:      slices.Clone(h.attrs),
-		jsonOutput: h.jsonOutput,
-	}
+	c.group = name
+	c.attrs = slices.Clone(h.attrs)
+	return &c
 }

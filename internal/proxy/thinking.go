@@ -52,31 +52,22 @@ func ExtractThinking(raw string) (thinking, content string) {
 	// Check tag format.
 	tagOpenIdx := thinkingOpenRE.FindStringIndex(content)
 	if tagOpenIdx != nil {
-		afterOpen := content[tagOpenIdx[0]:]
-		closeMatch := thinkingCloseRE.FindStringIndex(afterOpen)
-		if closeMatch != nil {
+		// Everything after the open tag. A close tag cannot occur inside the
+		// open tag itself, so searching from here finds the same match.
+		rest := content[tagOpenIdx[1]:]
+		inner := rest
+		if closeMatch := thinkingCloseRE.FindStringIndex(rest); closeMatch != nil {
 			// Full tag pair: <thinking>...</thinking>
-			closeStart := tagOpenIdx[0] + closeMatch[0]
-			closeEnd := tagOpenIdx[0] + closeMatch[1]
-			inner := afterOpen[tagOpenIdx[1]-tagOpenIdx[0] : closeStart-tagOpenIdx[0]]
-			inner = strings.TrimSpace(inner)
-			if thinking != "" {
-				thinking = thinking + "\n" + inner
-			} else {
-				thinking = inner
-			}
-			content = content[:tagOpenIdx[0]] + content[closeEnd:]
+			inner = rest[:closeMatch[0]]
+			content = content[:tagOpenIdx[0]] + rest[closeMatch[1]:]
 		} else {
 			// Open tag without close (still streaming).
-			inner := afterOpen[tagOpenIdx[1]-tagOpenIdx[0]:]
-			inner = strings.TrimSpace(inner)
-			if thinking != "" {
-				thinking = thinking + "\n" + inner
-			} else {
-				thinking = inner
-			}
 			content = content[:tagOpenIdx[0]]
 		}
+		if thinking != "" {
+			thinking += "\n"
+		}
+		thinking += strings.TrimSpace(inner)
 	}
 
 	// Clean up any remaining stray open/close tags.
@@ -151,72 +142,13 @@ func NormalizeReasoningFields(delta map[string]any) bool {
 
 	// Rule 3: <thinking> tags in content → reasoning_content
 	if c, ok := delta["content"].(string); ok && c != "" {
-		if thinking, remaining, found := extractThinkingFromContent(c); found {
+		if thinking, remaining := ExtractThinking(c); thinking != "" {
 			if rcEmpty {
 				delta["reasoning_content"] = thinking
 			} else {
 				delta["reasoning_content"] = rc + thinking
 			}
 			delta["content"] = remaining
-			changed = true
-		}
-	}
-
-	return changed
-}
-
-// extractThinkingFromContent is a thin wrapper around ExtractThinking
-// that returns (thinking, remaining, found) for use in normalization.
-func extractThinkingFromContent(content string) (string, string, bool) {
-	thinking, remaining := ExtractThinking(content)
-	return thinking, remaining, thinking != ""
-}
-
-// NormalizeMessageReasoning applies the same normalization rules to
-// a non-streaming message object. Returns true if modified.
-func NormalizeMessageReasoning(msg map[string]any) bool {
-	changed := false
-
-	rc, _ := msg["reasoning_content"].(string)
-	rcEmpty := rc == ""
-
-	// Rule 1: reasoning → reasoning_content
-	if r, ok := msg["reasoning"].(string); ok && r != "" && rcEmpty {
-		msg["reasoning_content"] = r
-		rc = r
-		rcEmpty = false
-		changed = true
-	}
-
-	// Rule 2: reasoning_details text → reasoning_content
-	if rcEmpty {
-		if details, ok := msg["reasoning_details"].([]any); ok && len(details) > 0 {
-			var texts []string
-			for _, d := range details {
-				if dm, ok := d.(map[string]any); ok {
-					if t, _ := dm["type"].(string); t == "reasoning.text" {
-						if txt, _ := dm["text"].(string); txt != "" {
-							texts = append(texts, txt)
-						}
-					}
-				}
-			}
-			if len(texts) > 0 {
-				msg["reasoning_content"] = strings.Join(texts, "")
-				changed = true
-			}
-		}
-	}
-
-	// Rule 3: <thinking> tags in content → reasoning_content
-	if c, ok := msg["content"].(string); ok && c != "" {
-		if thinking, remaining, found := extractThinkingFromContent(c); found {
-			if rcEmpty {
-				msg["reasoning_content"] = thinking
-			} else {
-				msg["reasoning_content"] = rc + thinking
-			}
-			msg["content"] = remaining
 			changed = true
 		}
 	}

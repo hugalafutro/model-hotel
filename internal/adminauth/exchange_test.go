@@ -1,8 +1,10 @@
 package adminauth
 
 import (
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -142,5 +144,32 @@ func TestTokenExchange_RejectsBadToken(t *testing.T) {
 		if len(rec.Result().Cookies()) != 0 {
 			t.Fatalf("body %q: no cookie may be set on failure", body)
 		}
+	}
+}
+
+// failingMinter stands in for a session store that is reachable but refuses to
+// write, the path that must not leave the caller believing they are logged in.
+type failingMinter struct{}
+
+func (failingMinter) CreateAuthToken(context.Context, []byte, []byte, webauthn.SessionMeta) (string, error) {
+	return "", errors.New("session store unavailable")
+}
+
+// TestTokenExchange_MintFailure_500 pins the failure half of a valid login: the
+// admin token checked out but the session could not be stored, so the caller
+// gets a server error and no cookie rather than a success it cannot use.
+func TestTokenExchange_MintFailure_500(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "sekrit" }}
+	h := TokenExchange(adminMgr, failingMinter{}, nil, authcookie.FrontDesk, "never", nil)
+
+	rec := httptest.NewRecorder()
+	h(rec, httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange",
+		strings.NewReader(`{"admin_token":"sekrit"}`)))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500; body %s", rec.Code, rec.Body.String())
+	}
+	if len(rec.Result().Cookies()) != 0 {
+		t.Errorf("no cookie may be set when the mint failed, got %+v", rec.Result().Cookies())
 	}
 }

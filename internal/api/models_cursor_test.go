@@ -1296,38 +1296,6 @@ func TestBuildModelKeysetPredicate_ArgIdxAdvances(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// joinAnd unit tests
-// ---------------------------------------------------------------------------
-
-func TestJoinAnd_EmptySlice(t *testing.T) {
-	result := joinAnd([]string{})
-	if result != "" {
-		t.Errorf("expected empty string, got %q", result)
-	}
-}
-
-func TestJoinAnd_SingleCondition(t *testing.T) {
-	result := joinAnd([]string{"a = 1"})
-	if result != "a = 1" {
-		t.Errorf("expected 'a = 1', got %q", result)
-	}
-}
-
-func TestJoinAnd_MultipleConditions(t *testing.T) {
-	result := joinAnd([]string{"a = 1", "b = 2", "c = 3"})
-	if result != "a = 1 AND b = 2 AND c = 3" {
-		t.Errorf("expected 'a = 1 AND b = 2 AND c = 3', got %q", result)
-	}
-}
-
-func TestJoinAnd_TwoConditions(t *testing.T) {
-	result := joinAnd([]string{"x > 0", "y < 10"})
-	if result != "x > 0 AND y < 10" {
-		t.Errorf("expected 'x > 0 AND y < 10', got %q", result)
-	}
-}
-
-// ---------------------------------------------------------------------------
 // modelSortColumn unit tests
 // ---------------------------------------------------------------------------
 

@@ -8,6 +8,8 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/google/uuid"
+
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -60,11 +62,19 @@ func modelExcerpt(model string) string {
 // It takes the raw model and derives the excerpt itself, so no ingest path can
 // put the field on the row by forgetting to. The middleware-preparsed path must
 // still hand the excerpt to its own pending INSERT, which runs before this can.
+
+// rejectIngest refuses a request at the ingest guards: the failure is stamped
+// on the log row with the validation kind and the same message goes back as the
+// OpenAI error envelope, so the row and the client agree on what was wrong.
+func (h *Handler) rejectIngest(w http.ResponseWriter, logData *requestLogData, msg string, startTime time.Time, parseMs float64) {
+	h.failRequest(logData, http.StatusBadRequest, KindValidation, msg, 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
+	writeOpenAIError(w, msg, http.StatusBadRequest)
+}
+
 func (h *Handler) rejectOversizedModel(w http.ResponseWriter, logData *requestLogData, model string, startTime time.Time, parseMs float64) {
 	logData.modelID = modelExcerpt(model)
 	publishRequestStartedEvent(logData)
-	h.failRequest(logData, http.StatusBadRequest, KindValidation, modelTooLongMessage, 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
-	writeOpenAIError(w, modelTooLongMessage, http.StatusBadRequest)
+	h.rejectIngest(w, logData, modelTooLongMessage, startTime, parseMs)
 }
 
 // ingestRequest performs phase A of ChatCompletions and the JSON multimodal
@@ -87,21 +97,9 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	// Read pre-parsed values from the middleware context when available:
 	// streamingAwareTimeout has already read the body and extracted model and
 	// stream, so the json.Unmarshal below is skipped.
-	if v := r.Context().Value(ctxkeys.RequestBodyParseMsKey); v != nil {
-		if ms, ok := v.(float64); ok {
-			parseMs = ms
-		}
-	}
-	if v := r.Context().Value(ctxkeys.RequestModelKey); v != nil {
-		if m, ok := v.(string); ok {
-			reqModel = m
-		}
-	}
-	if v := r.Context().Value(ctxkeys.IsStreamingKey); v != nil {
-		if s, ok := v.(bool); ok {
-			isStreaming = s
-		}
-	}
+	parseMs, _ = r.Context().Value(ctxkeys.RequestBodyParseMsKey).(float64)
+	reqModel, _ = r.Context().Value(ctxkeys.RequestModelKey).(string)
+	isStreaming, _ = r.Context().Value(ctxkeys.IsStreamingKey).(bool)
 
 	// Fallback for a route streamingAwareTimeout does not cover, where the
 	// middleware provided no pre-parsed values: parse the body directly.
@@ -129,8 +127,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 			if err != nil {
 				debuglog.Warn("proxy: failed to read request body", "error", err)
 				publishRequestStartedEvent(logData)
-				h.failRequest(logData, 400, KindValidation, "failed to read request body", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
-				writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
+				h.rejectIngest(w, logData, "failed to read request body", startTime, parseMs)
 				return nil, false
 			}
 			_ = r.Body.Close()
@@ -140,8 +137,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		if err := json.Unmarshal(bodyBytes, &req); err != nil {
 			debuglog.Warn("proxy: failed to parse request body", "error", err)
 			publishRequestStartedEvent(logData)
-			h.failRequest(logData, 400, KindValidation, "invalid request body", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
-			writeOpenAIError(w, "invalid request body", http.StatusBadRequest)
+			h.rejectIngest(w, logData, "invalid request body", startTime, parseMs)
 			return nil, false
 		}
 		parseMs = float64(time.Since(parseStart).Microseconds()) / 1000.0
@@ -174,8 +170,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	publishRequestStartedEvent(logData)
 
 	if reqModel == "" {
-		h.failRequest(logData, 400, KindValidation, "model is required", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
-		writeOpenAIError(w, "model is required", http.StatusBadRequest)
+		h.rejectIngest(w, logData, "model is required", startTime, parseMs)
 		return nil, false
 	}
 
@@ -205,23 +200,14 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID string, isStreaming bool) (logData *requestLogData, vkHash string) {
 	vkName := ""
 	var vkID string
-	if v := r.Context().Value(virtualKeyNameKey); v != nil {
-		vkName, _ = v.(string)
-	}
-	if v := r.Context().Value(virtualKeyIDKey); v != nil {
-		vkID, _ = v.(string)
-	}
-	if v := r.Context().Value(VirtualKeyHashKey); v != nil {
-		vkHash, _ = v.(string)
-	}
+	vkName, _ = r.Context().Value(virtualKeyNameKey).(string)
+	vkID, _ = r.Context().Value(virtualKeyIDKey).(string)
+	vkHash, _ = r.Context().Value(VirtualKeyHashKey).(string)
 	// The owning user's UUID, empty for unowned keys, scopes the SSE request
 	// events to that user. It is persisted on the log row itself when there is
 	// no virtual key to resolve an owner through (dashboard chat/arena), which
 	// is what lets the owner-scoped logs REST API see those rows.
-	var ownerUserID string
-	if v := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey); v != nil {
-		ownerUserID, _ = v.(string)
-	}
+	ownerUserID, _ := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string)
 
 	logData = &requestLogData{
 		modelID:         modelID,
@@ -254,11 +240,7 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 
 	// Capture accumulated settings read time (pointer in context, set by
 	// rate limiter middleware and added to by resolve/proxy handlers).
-	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
-		if p, ok := v.(*float64); ok {
-			timings.settingsReadMs = *p
-		}
-	}
+	timings.settingsReadMs = ctxkeys.SettingsReadMs(r.Context())
 
 	isFailover := false
 
@@ -266,7 +248,7 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 	case strings.HasPrefix(st.reqModel, "hotel/"):
 		isFailover = true
 		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", st.reqModel)
-		displayModel := strings.ToLower(strings.TrimPrefix(st.reqModel, "hotel/"))
+		displayModel := hotelGroupName(st.reqModel)
 		var skips breakerSkipSummary
 		candidates, timings, cacheHits, skips, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
@@ -284,10 +266,11 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 			h.failNoAvailableProvider(w, r, st, displayModel, timings, cacheHits, skips)
 			return nil, false
 		}
-	case strings.Contains(st.reqModel, "/") && !strings.HasPrefix(st.reqModel, "hotel/"):
+	// The hotel/ arm above already took every group model, so a remaining "/"
+	// is always provider/model.
+	case strings.Contains(st.reqModel, "/"):
 		debuglog.Debug("proxy: model resolution path", "type", "specific_provider", "model", st.reqModel)
-		parts := strings.SplitN(st.reqModel, "/", 2)
-		providerName, modelID := parts[0], parts[1]
+		providerName, modelID, _ := strings.Cut(st.reqModel, "/")
 		candidates, timings, cacheHits, err = h.resolveSpecificProvider(r.Context(), providerName, modelID)
 		if err != nil {
 			h.failRequest(st.logData, 404, KindValidation, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
@@ -319,13 +302,10 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 	keyAllowed, _ := r.Context().Value(ctxkeys.VirtualKeyAllowedProvidersKey).(*[]string)
 	ownerAllowed, _ := r.Context().Value(ctxkeys.UserAllowedProvidersKey).(*[]string)
 	if allowed := effectiveAllowedProviders(keyAllowed, ownerAllowed); allowed != nil {
-		allowedSet := make(map[string]struct{}, len(*allowed))
-		for _, id := range *allowed {
-			allowedSet[id] = struct{}{}
-		}
+		providerAllowed := providerAllowFunc(allowed)
 		filtered := candidates[:0]
 		for _, c := range candidates {
-			if _, ok := allowedSet[c.provider.ID.String()]; ok {
+			if providerAllowed(c.provider.ID) {
 				filtered = append(filtered, c)
 			}
 		}
@@ -351,6 +331,24 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 	st.cacheHits = cacheHits
 	st.isFailover = isFailover
 	return candidates, true
+}
+
+// providerAllowFunc turns a caller's effective provider allow-list into a
+// membership test over provider ids. A nil list is the unrestricted case and
+// admits every provider; a non-nil list admits exactly its members, so an empty
+// one admits none. The test is the list's PRESENCE, never its length.
+func providerAllowFunc(allowed *[]string) func(uuid.UUID) bool {
+	if allowed == nil {
+		return func(uuid.UUID) bool { return true }
+	}
+	set := make(map[string]struct{}, len(*allowed))
+	for _, id := range *allowed {
+		set[id] = struct{}{}
+	}
+	return func(id uuid.UUID) bool {
+		_, ok := set[id.String()]
+		return ok
+	}
 }
 
 // effectiveAllowedProviders intersects a virtual key's provider allow-list with
@@ -398,11 +396,7 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 	// Re-read the accumulated settings-read time from the context pointer, which
 	// now holds the rate limiter's contribution plus the circuit-breaker and
 	// failover reads the resolve handlers added.
-	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
-		if p, ok := v.(*float64); ok {
-			st.timings.settingsReadMs = *p
-		}
-	}
+	st.timings.settingsReadMs = ctxkeys.SettingsReadMs(r.Context())
 
 	// Initial overhead estimate, with dialMs still 0. The failover loop
 	// recomputes proxyOverhead after each dial so every exit path (backoff
@@ -452,9 +446,12 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 
 	// Final re-read of the accumulated settings-read time, which now also holds
 	// this function's request_timeout and circuit_breaker_enabled reads.
-	if v := r.Context().Value(ctxkeys.SettingsReadMsKey); v != nil {
-		if p, ok := v.(*float64); ok {
-			st.timings.settingsReadMs = *p
-		}
-	}
+	st.timings.settingsReadMs = ctxkeys.SettingsReadMs(r.Context())
+}
+
+// hotelGroupName is the group a hotel/ model names: the prefix stripped and the
+// rest lower-cased the way the group lookup lower-cases it, so a client's
+// spelling reaches one group and mints one metric series.
+func hotelGroupName(reqModel string) string {
+	return strings.ToLower(strings.TrimPrefix(reqModel, "hotel/"))
 }

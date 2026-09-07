@@ -20,66 +20,41 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
-	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
-// discoverySchedulerLoop runs periodic discovery based on the settings
-// interval. The first run waits a full interval so it doesn't bypass the
-// discovery_on_startup setting: when that is true, the startup runner already
-// handles immediate discovery; when false, we must not discover on startup
-// either.
+// settingsIntervalLoop runs tick on a timer whose period comes from a setting,
+// and reacts to changes of that setting immediately via sub rather than waiting
+// for the current timer to expire. An interval of 0 ("Disabled") truly disables
+// the loop rather than falling back to a default: it blocks on the subscription
+// until a non-zero value arrives.
 //
-// The timer reacts immediately to discovery_interval changes via the settings
-// subscription channel, instead of waiting for the current timer to expire.
-// An interval of 0 ("Disabled") truly disables periodic discovery rather than
-// resetting to a default: the loop blocks on the subscription channel until a
-// non-zero value arrives.
-func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Repository, runDisc func(source string) DiscoveryResult) {
-	const defaultInterval = 6 * time.Hour
+// onDisabled, when non-nil, runs once per disabled span (including a loop that
+// starts disabled), so a caller that has to release state on the way into the
+// disabled state is not asked to do it again on every wakeup.
+//
+// The loop owns sub and unsubscribes on return.
+func settingsIntervalLoop(ctx context.Context, sub *settings.Subscription, readInterval func() time.Duration, tick, onDisabled func()) {
+	defer sub.Unsubscribe()
 
-	readInterval := func() time.Duration {
-		return settingsRepo.GetDuration(context.Background(), "discovery_interval", defaultInterval)
-	}
-
-	settingsSub := settingsRepo.Subscribe()
-	defer settingsSub.Unsubscribe()
-
-	// applyInterval sets up the timer for the given interval. If the
-	// interval is <= 0 (disabled) the timer is stopped and set to nil.
-	// A nil timer channel blocks forever in select, which is exactly what
-	// we want for the disabled state — only the settings subscription
-	// and the context cancellation can wake us.
+	// A nil timer channel blocks forever in select, which is exactly the
+	// disabled state: only the settings subscription and the context
+	// cancellation can wake us.
 	var timer *time.Timer
 	var timerC <-chan time.Time
 	applyInterval := func(d time.Duration) {
 		if d <= 0 {
-			// Transitioning to disabled: stop and drain the existing timer.
 			if timer != nil {
 				timer.Stop()
-				// Drain the channel if the timer already fired, so the
-				// receive does not leak into the next cycle.
-				select {
-				case <-timer.C:
-				default:
-				}
-				timer = nil
-				timerC = nil
+				timer, timerC = nil, nil
 			}
-		} else {
-			// Transitioning to enabled: reset (or create) the timer.
-			if timer != nil {
-				timer.Stop()
-				select {
-				case <-timer.C:
-				default:
-				}
-				timer.Reset(d)
-			} else {
-				timer = time.NewTimer(d)
-				// NewTimer already starts with duration d; no Reset needed.
-			}
-			timerC = timer.C
+			return
 		}
+		if timer == nil {
+			timer = time.NewTimer(d)
+		} else {
+			timer.Reset(d)
+		}
+		timerC = timer.C
 	}
 
 	interval := readInterval()
@@ -91,13 +66,20 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 		}
 	}()
 
+	// disabledHandled tracks whether onDisabled has already run for the
+	// current disabled span.
+	disabledHandled := false
+
 	for {
 		if interval <= 0 {
-			// Discovery is disabled. Block until the setting changes
-			// or the server shuts down. We cannot reach the main
-			// select because timerC is nil (blocks forever).
+			if onDisabled != nil && !disabledHandled {
+				onDisabled()
+				disabledHandled = true
+			}
+			// Blocked until the setting changes or the server shuts down:
+			// the main select is unreachable while timerC is nil.
 			select {
-			case <-settingsSub.Events():
+			case <-sub.Events():
 				interval = readInterval()
 				applyInterval(interval)
 			case <-ctx.Done():
@@ -105,22 +87,21 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 			}
 			continue
 		}
+		disabledHandled = false
 
 		select {
 		case <-timerC:
-			result := runDisc("scheduled")
-			publishDiscoveryEvent("Scheduled", result)
-			// Re-read interval in case it changed since the last
+			tick()
+			// Re-read the interval in case it changed since the last
 			// subscription event was processed.
 			interval = readInterval()
 			applyInterval(interval)
 
-		case <-settingsSub.Events():
-			// Re-read from DB (the source of truth) rather than
-			// parsing the event value, which may be empty if the
-			// setting was deleted or the lookup failed.
-			newInterval := readInterval()
-			if newInterval != interval {
+		case <-sub.Events():
+			// Re-read from the DB (the source of truth) rather than
+			// parsing the event value, which may be empty if the setting
+			// was deleted or the lookup failed.
+			if newInterval := readInterval(); newInterval != interval {
 				interval = newInterval
 				applyInterval(interval)
 			}
@@ -131,12 +112,41 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 	}
 }
 
+// every runs f on a ticker of period d until ctx is done.
+func every(ctx context.Context, d time.Duration, f func()) {
+	ticker := time.NewTicker(d)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ticker.C:
+			f()
+		case <-ctx.Done():
+			return
+		}
+	}
+}
+
+// discoverySchedulerLoop runs periodic discovery based on the settings
+// interval. The first run waits a full interval so it doesn't bypass the
+// discovery_on_startup setting: when that is true, the startup runner already
+// handles immediate discovery; when false, we must not discover on startup
+// either.
+func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Repository, runDisc func(source string) DiscoveryResult) {
+	const defaultInterval = 6 * time.Hour
+
+	settingsIntervalLoop(ctx, settingsRepo.Subscribe(),
+		func() time.Duration {
+			return settingsRepo.GetDuration(context.Background(), "discovery_interval", defaultInterval)
+		},
+		func() {
+			publishDiscoveryEvent("Scheduled", runDisc("scheduled"))
+		},
+		nil)
+}
+
 // quotaPollLoop periodically refreshes provider quota snapshots based on the
-// quota_refresh_interval_min setting. It mirrors discoverySchedulerLoop: the
-// first run waits a full interval, the timer reacts immediately to interval
-// changes via the settings subscription channel, and an interval of 0
-// ("Disabled") truly disables polling — the loop blocks on the subscription
-// channel until a non-zero value arrives.
+// quota_refresh_interval_min setting. Like discoverySchedulerLoop, the first
+// run waits a full interval and an interval of 0 disables polling.
 //
 // onDisabled is invoked once whenever the loop enters (or starts in) the
 // disabled state. pollOnce — and with it api.Handler.RefreshQuotaAdvice — is
@@ -153,107 +163,12 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 // call redundantly; it is deliberately not called again for as long as the loop
 // stays disabled.
 func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce, onDisabled func(context.Context), unit time.Duration) {
-	readInterval := func() time.Duration {
-		return time.Duration(settingsRepo.GetInt(context.Background(), "quota_refresh_interval_min", 5)) * unit
-	}
-
-	settingsSub := settingsRepo.Subscribe()
-	defer settingsSub.Unsubscribe()
-
-	// applyInterval sets up the timer for the given interval. If the
-	// interval is <= 0 (disabled) the timer is stopped and set to nil.
-	// A nil timer channel blocks forever in select, which is exactly what
-	// we want for the disabled state — only the settings subscription
-	// and the context cancellation can wake us.
-	var timer *time.Timer
-	var timerC <-chan time.Time
-	applyInterval := func(d time.Duration) {
-		if d <= 0 {
-			// Transitioning to disabled: stop and drain the existing timer.
-			if timer != nil {
-				timer.Stop()
-				// Drain the channel if the timer already fired, so the
-				// receive does not leak into the next cycle.
-				select {
-				case <-timer.C:
-				default:
-				}
-				timer = nil
-				timerC = nil
-			}
-		} else {
-			// Transitioning to enabled: reset (or create) the timer.
-			if timer != nil {
-				timer.Stop()
-				select {
-				case <-timer.C:
-				default:
-				}
-				timer.Reset(d)
-			} else {
-				timer = time.NewTimer(d)
-				// NewTimer already starts with duration d; no Reset needed.
-			}
-			timerC = timer.C
-		}
-	}
-
-	interval := readInterval()
-	applyInterval(interval)
-
-	defer func() {
-		if timer != nil {
-			timer.Stop()
-		}
-	}()
-
-	// advisorCleared tracks whether onDisabled has already run for the
-	// current disabled span, so repeated settings events while still
-	// disabled don't call it again on every wakeup.
-	advisorCleared := false
-
-	for {
-		if interval <= 0 {
-			if !advisorCleared {
-				onDisabled(ctx)
-				advisorCleared = true
-			}
-			// Polling is disabled. Block until the setting changes
-			// or the server shuts down. We cannot reach the main
-			// select because timerC is nil (blocks forever).
-			select {
-			case <-settingsSub.Events():
-				interval = readInterval()
-				applyInterval(interval)
-			case <-ctx.Done():
-				return
-			}
-			continue
-		}
-		advisorCleared = false
-
-		select {
-		case <-timerC:
-			pollOnce(ctx)
-			// Re-read interval in case it changed since the last
-			// subscription event was processed.
-			interval = readInterval()
-			applyInterval(interval)
-
-		case <-settingsSub.Events():
-			// Re-read from DB (the source of truth) rather than
-			// parsing the event value, which may be empty if the
-			// setting was deleted or the lookup failed.
-			newInterval := readInterval()
-			if newInterval != interval {
-				interval = newInterval
-				applyInterval(interval)
-			}
-
-		case <-ctx.Done():
-			return
-		}
-	}
+	settingsIntervalLoop(ctx, settingsRepo.Subscribe(),
+		func() time.Duration {
+			return time.Duration(settingsRepo.GetInt(context.Background(), "quota_refresh_interval_min", 5)) * unit
+		},
+		func() { pollOnce(ctx) },
+		func() { onDisabled(ctx) })
 }
 
 // staleLogCleanupLoop periodically marks rows stuck in "pending"/"streaming"
@@ -269,17 +184,9 @@ func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollO
 //     updateRequestLog). The timeout is generous to avoid killing
 //     legitimate long-running streaming requests.
 func staleLogCleanupLoop(ctx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository, serverStartTime time.Time) {
-	timer := time.NewTimer(5 * time.Minute)
-	defer timer.Stop()
-	for {
-		select {
-		case <-timer.C:
-		case <-ctx.Done():
-			return
-		}
+	every(ctx, 5*time.Minute, func() {
 		staleLogCleanupPass(pool, settingsRepo, serverStartTime)
-		timer.Reset(5 * time.Minute)
-	}
+	})
 }
 
 // staleLogCleanupPass runs one stale-log sweep; a stale_request_timeout of 0
@@ -289,19 +196,15 @@ func staleLogCleanupPass(pool *pgxpool.Pool, settingsRepo *settings.Repository, 
 	if staleTimeout <= 0 {
 		return
 	}
-	// Build a PostgreSQL-safe interval string from the parsed duration.
-	// Truncate to whole seconds to avoid fractional-unit issues (e.g. "30.5 minutes").
-	totalSecs := int64(staleTimeout.Seconds())
-	hours := totalSecs / 3600
-	mins := (totalSecs % 3600) / 60
-	secs := totalSecs % 60
-	intervalStr := fmt.Sprintf("%d hours %d minutes %d seconds", hours, mins, secs)
+	// The age cutoff is computed here, like the server-start cutoff beside it,
+	// rather than handed to Postgres as an interval string to parse back.
+	cutoff := time.Now().Add(-staleTimeout)
 	tag, err := pool.Exec(context.Background(), `
 		UPDATE request_logs
 		SET state = 'failed', error_kind = 'internal', error_message = 'request interrupted (stale)'
 		WHERE state IN ('pending', 'streaming')
-		  AND (created_at < $1 OR created_at < NOW() - $2::interval)`,
-		serverStartTime, intervalStr)
+		  AND (created_at < $1 OR created_at < $2)`,
+		serverStartTime, cutoff)
 	if err == nil && tag.RowsAffected() > 0 {
 		debuglog.Info("retention: stale log cleanup", "rows", tag.RowsAffected())
 		events.Publish(events.Event{
@@ -318,17 +221,9 @@ func staleLogCleanupPass(pool *pgxpool.Pool, settingsRepo *settings.Repository, 
 // logRetentionLoop hourly deletes request_logs and app_logs rows older than
 // the log_retention setting; a disabled or unparseable value skips the cycle.
 func logRetentionLoop(ctx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository) {
-	timer := time.NewTimer(1 * time.Hour)
-	defer timer.Stop()
-	for {
-		select {
-		case <-timer.C:
-		case <-ctx.Done():
-			return
-		}
+	every(ctx, time.Hour, func() {
 		logRetentionPass(pool, settingsRepo)
-		timer.Reset(1 * time.Hour)
-	}
+	})
 }
 
 // errRetentionUnparseable marks a log_retention value that is neither a
@@ -396,20 +291,14 @@ func logRetentionPass(pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 		return
 	}
 	cutoff := time.Now().Add(-window)
-	tag, err := pool.Exec(context.Background(),
-		`DELETE FROM request_logs WHERE created_at < $1`, cutoff)
-	if err != nil {
-		debuglog.Error("retention: request log delete failed", "error", err)
-	} else {
-		debuglog.Info("retention: log retention deleted old entries", "retention", retention, "rows", tag.RowsAffected())
-	}
-	// Clean app_logs with same retention
-	tag, err = pool.Exec(context.Background(),
-		`DELETE FROM app_logs WHERE created_at < $1`, cutoff)
-	if err != nil {
-		debuglog.Error("retention: app log delete failed", "error", err)
-	} else {
-		debuglog.Info("retention: app log retention deleted old entries", "retention", retention, "rows", tag.RowsAffected())
+	for _, table := range []string{"request_logs", "app_logs"} {
+		tag, err := pool.Exec(context.Background(),
+			`DELETE FROM `+table+` WHERE created_at < $1`, cutoff)
+		if err != nil {
+			debuglog.Error("retention: delete of old entries failed", "table", table, "error", err)
+			continue
+		}
+		debuglog.Info("retention: deleted old entries", "table", table, "retention", retention, "rows", tag.RowsAffected())
 	}
 }
 
@@ -459,28 +348,7 @@ func sweepScheduledDisables(ctx context.Context, providerRepo *provider.Reposito
 // A one-minute tick keeps "as soon as the date flips" honest at negligible cost:
 // the sweep is a single UPDATE on a table of tens of rows.
 func scheduledDisableLoop(ctx context.Context, providerRepo *provider.Repository, failoverRepo *failover.Repository, tick time.Duration) {
-	sweepScheduledDisables(ctx, providerRepo, failoverRepo)
-	ticker := time.NewTicker(tick)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ticker.C:
-			sweepScheduledDisables(ctx, providerRepo, failoverRepo)
-		case <-ctx.Done():
-			return
-		}
-	}
-}
-
-// webauthnSessionCleanupLoop prunes expired WebAuthn sessions hourly.
-func webauthnSessionCleanupLoop(webauthnRepo *webauthn.Repository) {
-	ticker := time.NewTicker(1 * time.Hour)
-	defer ticker.Stop()
-	for range ticker.C {
-		if n, err := webauthnRepo.CleanupExpiredSessions(context.Background()); err != nil {
-			debuglog.Error("webauthn: session cleanup failed", "error", err)
-		} else if n > 0 {
-			debuglog.Info("webauthn: cleaned up expired sessions", "count", n)
-		}
-	}
+	sweep := func() { sweepScheduledDisables(ctx, providerRepo, failoverRepo) }
+	sweep()
+	every(ctx, tick, sweep)
 }

@@ -213,6 +213,23 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 	return nil, fmt.Errorf("discovery fetch failed after %d attempts: %w", maxDiscoveryRetries, lastErr)
 }
 
+// httpError reports an upstream HTTP status so a caller can branch on the code
+// through errors.As. Message is the rendered text when the caller has one worth
+// keeping; it MUST already be masked, since anything here reaches logs and the
+// stored provider error. Left empty, Error() renders the status alone, which is
+// what the no-access checks need and cannot leak a credential.
+type httpError struct {
+	StatusCode int
+	Message    string
+}
+
+func (e *httpError) Error() string {
+	if e.Message != "" {
+		return e.Message
+	}
+	return fmt.Sprintf("unexpected status %d", e.StatusCode)
+}
+
 // maskedError is a transport error whose text has been scrubbed of what the
 // request carried, with the original still reachable through Unwrap. So
 // errors.Is on a cancelled context or a deadline, and errors.As on a net.Error,
@@ -289,14 +306,30 @@ func (d *DiscoveryService) fetchURL(ctx context.Context, method, rawURL string, 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d: %s", resp.StatusCode, maskRequestSecrets(last, string(bodyBytes), 2000))
+		return nil, &httpError{
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("unexpected status %d: %s", resp.StatusCode, maskRequestSecrets(last, string(bodyBytes), 2000)),
+		}
 	}
 
 	return bodyBytes, nil
 }
 
-// hostTypeRules maps provider hostnames to provider types: exact host names
+// bearerHeader builds the request headers for a Bearer-authenticated fetch,
+// omitting the header entirely when the server needs no key (a local
+// KoboldCPP or LM Studio started without --password).
+func bearerHeader(apiKey string) http.Header {
+	h := http.Header{}
+	if apiKey != "" {
+		h.Set("Authorization", "Bearer "+apiKey)
+	}
+	return h
+}
+
+// hostTypeRules maps provider hostnames to provider types: apex host names
 // plus suffixes for subdomain matches (api.foo.deepseek.com, custom.nano-gpt.com).
+// Every "api.<domain>" host is already covered by its ".<domain>" suffix, so
+// only the bare apex belongs in exact.
 // Suffix matching (rather than strings.Contains) ensures
 // "https://my-proxy.deepseek.com" resolves to "deepseek" without substring
 // false positives. Providers needing path- or contains-based detection
@@ -306,15 +339,15 @@ var hostTypeRules = []struct {
 	exact    []string
 	suffixes []string
 }{
-	{"nanogpt", []string{"api.nano-gpt.com", "nano-gpt.com"}, []string{".nano-gpt.com"}},
-	{"zai-coding", []string{"api.z.ai", "z.ai"}, []string{".z.ai"}},
-	{"deepseek", []string{"api.deepseek.com", "deepseek.com"}, []string{".deepseek.com"}},
-	{"anthropic", []string{"api.anthropic.com", "anthropic.com"}, []string{".anthropic.com"}},
-	{"xai", []string{"api.x.ai", "x.ai"}, []string{".x.ai"}},
-	{"cohere", []string{"api.cohere.com", "api.cohere.ai"}, []string{".cohere.com", ".cohere.ai"}},
+	{"nanogpt", []string{"nano-gpt.com"}, []string{".nano-gpt.com"}},
+	{"zai-coding", []string{"z.ai"}, []string{".z.ai"}},
+	{"deepseek", []string{"deepseek.com"}, []string{".deepseek.com"}},
+	{"anthropic", []string{"anthropic.com"}, []string{".anthropic.com"}},
+	{"xai", []string{"x.ai"}, []string{".x.ai"}},
+	{"cohere", nil, []string{".cohere.com", ".cohere.ai"}},
 	{"openrouter", []string{"openrouter.ai"}, []string{".openrouter.ai"}},
 	{"ollama-cloud", []string{"ollama.com"}, []string{".ollama.com"}},
-	{"neuralwatt", []string{"api.neuralwatt.com", "neuralwatt.com"}, []string{".neuralwatt.com"}},
+	{"neuralwatt", []string{"neuralwatt.com"}, []string{".neuralwatt.com"}},
 	// Azure AI Foundry ({res}.services.ai.azure.com) and classic Azure OpenAI
 	// ({res}.openai.azure.com) resources. Both expose the same OpenAI v1
 	// surface under /openai/v1, with Bearer auth.
@@ -322,11 +355,11 @@ var hostTypeRules = []struct {
 	// Kimi Code subscription endpoint (api.kimi.com/coding). Subscription
 	// sk-kimi- keys ONLY work here: the pay-per-token platform
 	// (api.moonshot.ai) is a separate key namespace and stays generic openai.
-	{"kimi-code", []string{"api.kimi.com", "kimi.com"}, []string{".kimi.com"}},
+	{"kimi-code", []string{"kimi.com"}, []string{".kimi.com"}},
 	// MiniMax intl platform (api.minimax.io). Token Plan subscription sk-cp-
 	// keys and pay-as-you-go sk-api- keys share the same OpenAI-compatible
 	// endpoint; the CN twin (api.minimaxi.com) stays generic openai.
-	{"minimax", []string{"api.minimax.io", "minimax.io"}, []string{".minimax.io"}},
+	{"minimax", []string{"minimax.io"}, []string{".minimax.io"}},
 }
 
 // detectByHost resolves a provider type from a lowercased hostname (and URL
@@ -382,15 +415,25 @@ func detectByHost(host, path string) string {
 // that does not match one is generic OpenAI-compatible rather than a guess at
 // which self-hosted server might be listening on that port.
 func TypeFromHostname(baseURL string) string {
-	u, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil || u.Host == "" {
+	typ, _, ok := hostType(baseURL)
+	if !ok {
 		debuglog.Warn("discovery: failed to parse base URL", "url", baseURL)
-		return "openai"
 	}
-	if typ := detectByHost(strings.ToLower(u.Hostname()), strings.ToLower(u.Path)); typ != "" {
-		return typ
+	return typ
+}
+
+// hostType parses baseURL once and resolves its vendor type, returning
+// "openai" when no rule matches. ok is false for a URL with no host, whose
+// parsed form carries nothing worth inspecting.
+func hostType(baseURL string) (typ string, u *url.URL, ok bool) {
+	u, err := url.Parse(strings.TrimSpace(baseURL))
+	if err != nil || u == nil || u.Host == "" {
+		return "openai", nil, false
 	}
-	return "openai"
+	if t := detectByHost(strings.ToLower(u.Hostname()), strings.ToLower(u.Path)); t != "" {
+		return t, u, true
+	}
+	return "openai", u, true
 }
 
 // LegacyTypeFromURL derives a provider type from a base URL, including the
@@ -399,11 +442,11 @@ func TypeFromHostname(baseURL string) string {
 // callers. Provider type is chosen by the operator when the provider is
 // added, never guessed at request time.
 func LegacyTypeFromURL(baseURL string) string {
-	u, err := url.Parse(strings.TrimSpace(baseURL))
-	if err != nil || u.Host == "" {
+	typ, u, ok := hostType(baseURL)
+	if !ok {
 		return TypeFromHostname(baseURL)
 	}
-	if typ := detectByHost(strings.ToLower(u.Hostname()), strings.ToLower(u.Path)); typ != "" {
+	if typ != "openai" {
 		return typ
 	}
 	switch u.Port() {
@@ -509,8 +552,6 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 	return models, nil
 }
 
-const maxQuotaRetries = 3
-
 // Circuit breaker thresholds.
 const (
 	// quotaBreakerThreshold is the number of consecutive failures before the
@@ -579,12 +620,7 @@ func (s *quotaCircuitState) recordFailure() bool {
 // creating one if it doesn't exist yet.
 func (d *DiscoveryService) getOrCreateCircuit(providerID string) *quotaCircuitState {
 	val, _ := d.quotaBreaker.LoadOrStore(providerID, &quotaCircuitState{})
-	circuit, ok := val.(*quotaCircuitState)
-	if !ok {
-		debuglog.Error("quotaBreaker: unexpected type", "provider_id", providerID, "type", fmt.Sprintf("%T", val))
-		return &quotaCircuitState{}
-	}
-	return circuit
+	return val.(*quotaCircuitState)
 }
 
 // isTransientNetworkError returns true for DNS failures, timeouts, and
@@ -647,48 +683,19 @@ func (d *DiscoveryService) doQuotaRequestWithRetry(ctx context.Context, req *htt
 		return nil, fmt.Errorf("quota fetch circuit breaker open for provider %s (consecutive failures threshold reached)", providerName)
 	}
 
-	var lastErr error
-	for attempt := range maxQuotaRetries {
-		if attempt > 0 {
-			backoff := retryBackoff(d.retryBaseDelay, attempt)
-			debuglog.Info("discovery: retrying quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "backoff", backoff, "attempt", attempt+1, "max_attempts", maxQuotaRetries)
-			select {
-			case <-ctx.Done():
-				return nil, fmt.Errorf("context cancelled during retry: %w", lastErr)
-			case <-time.After(backoff):
-			}
+	// The retry loop, the masking and the backoff are the discovery ones; a
+	// quota fetch adds only the breaker bookkeeping around them. Every error
+	// path out of the fetch is final, so one recordFailure here covers both an
+	// unretryable transport error and an exhausted retry budget.
+	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+	if err != nil {
+		if opened := circuit.recordFailure(); opened {
+			debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "threshold", quotaBreakerThreshold)
 		}
-		// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
-		resp, err := d.httpClient.Do(req)
-		if err != nil {
-			// Same scrub as doDiscoveryRequest, for the same reason, and with a
-			// worse sink: this error is persisted as the provider's quota
-			// failure and rendered on the dashboard, not only logged.
-			if isTransientNetworkError(err) {
-				lastErr = maskedRequestError(req, err)
-				continue
-			}
-			if opened := circuit.recordFailure(); opened {
-				debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "threshold", quotaBreakerThreshold)
-			}
-			return nil, maskedRequestError(req, err)
-		}
-		// Retry on 429 (rate-limited) and 5xx (server error) responses.
-		if isRetryableStatus(resp.StatusCode) {
-			body, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			lastErr = fmt.Errorf("retryable HTTP %d: %s", resp.StatusCode, maskRequestSecrets(req, string(body), 200))
-			debuglog.Info("discovery: retryable HTTP status for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "status", resp.StatusCode, "attempt", attempt+1)
-			continue
-		}
-		// Success or non-retryable status: return as-is.
-		if recovered := circuit.recordSuccess(); recovered {
-			debuglog.Info("discovery: quota circuit breaker recovered", "type", providerType, "provider", providerName, "provider_id", providerID)
-		}
-		return resp, nil
+		return nil, fmt.Errorf("quota fetch failed for provider %s (type=%s): %w", providerName, providerType, err)
 	}
-	if opened := circuit.recordFailure(); opened {
-		debuglog.Warn("discovery: circuit breaker opened for quota fetch", "type", providerType, "provider", providerName, "provider_id", providerID, "threshold", quotaBreakerThreshold)
+	if recovered := circuit.recordSuccess(); recovered {
+		debuglog.Info("discovery: quota circuit breaker recovered", "type", providerType, "provider", providerName, "provider_id", providerID)
 	}
-	return nil, fmt.Errorf("quota fetch failed for provider %s (type=%s) after %d attempts: %w", providerName, providerType, maxQuotaRetries, lastErr)
+	return resp, nil
 }

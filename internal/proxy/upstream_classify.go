@@ -265,6 +265,16 @@ func modelGoneAbout(body, modelID string) bool {
 	return false
 }
 
+// badRequestPhrases are the 400 bodies that say the provider understood the
+// request and refused its payload rather than failing.
+var badRequestPhrases = []string{
+	"invalid json request body",
+	"invalid_request_error",
+	"missing key",
+	"unsupported parameter",
+	"invalid argument",
+}
+
 // classifyUpstreamError turns an upstream non-2xx response into a stable
 // ErrorKind plus a short, gateway-authored reason for the client. It keeps
 // apart the three failures that need different operator responses: a model the
@@ -341,8 +351,8 @@ func classifyUpstreamError(status int, body, modelID string) (ErrorKind, string)
 	// Only a 429 is read that way; a retry sentence inside any other status
 	// says nothing about a window.
 	if _, _, dated := bodyResetHint(b); status != http.StatusTooManyRequests || !dated {
-		for _, p := range entitledRateLimitPhrases() {
-			if strings.Contains(b, p) {
+		for _, p := range rateLimitPhrases {
+			if p.entitled && strings.Contains(b, p.phrase) {
 				return KindProviderNotEntitled, "the provider rejected this request for billing or plan reasons"
 			}
 		}
@@ -359,13 +369,7 @@ func classifyUpstreamError(status int, body, modelID string) (ErrorKind, string)
 	// Google's native API, which rejects an OpenAI-shaped body with
 	// "Invalid JSON request body: Missing key at [\"contents\"]".
 	if status == 400 {
-		for _, p := range []string{
-			"invalid json request body",
-			"invalid_request_error",
-			"missing key",
-			"unsupported parameter",
-			"invalid argument",
-		} {
+		for _, p := range badRequestPhrases {
 			if strings.Contains(b, p) {
 				return KindProviderBadRequest, "the provider rejected the request payload"
 			}

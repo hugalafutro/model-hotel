@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"reflect"
+	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -32,11 +33,7 @@ func jsonFieldNames(v any) map[string]struct{} {
 	t := reflect.TypeOf(v)
 	names := make(map[string]struct{}, t.NumField())
 	for i := range t.NumField() {
-		tag := t.Field(i).Tag.Get("json")
-		name := tag
-		if idx := indexByte(tag, ','); idx >= 0 {
-			name = tag[:idx]
-		}
+		name, _, _ := strings.Cut(t.Field(i).Tag.Get("json"), ",")
 		if name == "" {
 			name = t.Field(i).Name
 		}
@@ -46,15 +43,6 @@ func jsonFieldNames(v any) map[string]struct{} {
 		names[name] = struct{}{}
 	}
 	return names
-}
-
-func indexByte(s string, b byte) int {
-	for i := range len(s) {
-		if s[i] == b {
-			return i
-		}
-	}
-	return -1
 }
 
 // decodeExtras collects the keys of a JSON object that the caller's struct does

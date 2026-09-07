@@ -65,7 +65,7 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 		// happening.
 		return detail, detail, KindProviderBadRequest, "the provider returned a response the gateway could not decode"
 	}
-	detail = util.SanitizeLogBody(string(body), 10000)
+	detail = util.SanitizeLogBody(string(body), logBodyCap)
 	// The prefix names which of the two ways in led here, so the row does not
 	// report a decode failure for a body that decoded.
 	logMsg = fmt.Sprintf("upstream HTTP %d: %s", resp.StatusCode, detail)
@@ -89,7 +89,7 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 // request and the cap carries that much more headroom.
 const nonStreamingBodyCap = 32 << 20 // 32MB
 
-func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs, failoverLookupMs, modelLookupMs, providerLookupMs, keyDecryptMs, dialMs, settingsReadMs, responseHeaderMs float64, vkHash string, attempt int) {
+func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs float64, timings resolveTimings, responseHeaderMs float64, vkHash string, attempt int) {
 	defer func() {
 		if r.Context().Err() == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
@@ -122,10 +122,15 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 	// decodes cleanly, and forwarding that leaves the caller with a failure
 	// status and nothing to read `.error.message` off. The status decides; the
 	// body only says whether the success shape is available.
+	// Stamped once for every arm, so no terminal path can record five of six
+	// (the 204 arm used to record none of them).
+	logData.proxyOverheadMs = proxyOverhead
+	logData.parseMs = parseMs
+	logData.applyTimings(timings)
+
 	switch {
 	case decodeErr == nil && servedSuccessStatus(resp.StatusCode):
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
-		var tps float64
 		var reasoningTokens int
 		if chatResp.Usage.CompletionTokensDetails != nil && chatResp.Usage.CompletionTokensDetails.ReasoningTokens > 0 {
 			reasoningTokens = chatResp.Usage.CompletionTokensDetails.ReasoningTokens
@@ -139,27 +144,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// owns its OWN state, so the bound applies to the log row, the TPS math
 		// and the charge below, all of which read these locals.
 		promptTokens, completionTokens, reasoningTokens := h.clampReportedUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData)
-		totalOutputTokens := completionTokens + reasoningTokens
-		generationDuration := totalDuration - responseHeaderMs
-		// Avoid absurd TPS when generation time is negligible
-		// (e.g. non-streaming where response_header_ms ≈ duration_ms).
-		minGeneration := max(1.0, totalDuration*0.05)
-		if totalOutputTokens > 0 && generationDuration >= minGeneration {
-			tps = float64(totalOutputTokens) / float64(generationDuration) * 1000
-		} else if totalOutputTokens > 0 && totalDuration > 0 {
-			tps = float64(totalOutputTokens) / float64(totalDuration) * 1000
-		}
+		tps := tokensPerSecond(completionTokens+reasoningTokens, totalDuration, responseHeaderMs)
 
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
-		logData.proxyOverheadMs = proxyOverhead
-		logData.parseMs = parseMs
-		logData.modelLookupMs = modelLookupMs
-		logData.providerLookupMs = providerLookupMs
-		logData.keyDecryptMs = keyDecryptMs
-		logData.failoverLookupMs = failoverLookupMs
-		logData.dialMs = dialMs
-		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
 		logData.tokensPerSecond = tps
 		logData.tokensPrompt = promptTokens
@@ -209,7 +197,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 			}
 			// Rule 3: <thinking> tags in content to reasoning_content.
 			if c, ok := msg.Content.(string); ok && c != "" {
-				if thinking, remaining, found := extractThinkingFromContent(c); found {
+				if thinking, remaining := ExtractThinking(c); thinking != "" {
 					if msg.ReasoningContent == "" {
 						msg.ReasoningContent = thinking
 					} else {
@@ -248,8 +236,6 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
-		logData.proxyOverheadMs = proxyOverhead
-		logData.parseMs = parseMs
 		logData.responseHeaderMs = responseHeaderMs
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
@@ -276,14 +262,6 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		totalDuration := float64(time.Since(startTime).Microseconds()) / 1000.0
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
-		logData.proxyOverheadMs = proxyOverhead
-		logData.parseMs = parseMs
-		logData.modelLookupMs = modelLookupMs
-		logData.providerLookupMs = providerLookupMs
-		logData.keyDecryptMs = keyDecryptMs
-		logData.failoverLookupMs = failoverLookupMs
-		logData.dialMs = dialMs
-		logData.settingsReadMs = settingsReadMs
 		logData.responseHeaderMs = responseHeaderMs
 		logMsg, detail, kind, reason := nonStreamingFailureDetail(r.Context(), resp, body, readErr, decodeErr, logData.modelID)
 		// body is already exact-masked; the log row also gets the key-shape

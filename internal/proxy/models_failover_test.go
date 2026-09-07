@@ -466,8 +466,8 @@ func TestListModels_FailoverGroupInvalidJSON(t *testing.T) {
 	}
 	defer func() { _ = h.failoverRepo.Delete(ctx, "fg-invalid-json") }()
 
-	// Replace modelRepo with mock that returns model with invalid JSON on Get()
-	// ListEnabled returns empty so only failover path is tested
+	// Replace modelRepo with a mock whose enabled catalogue is the model with
+	// invalid JSON, which is what the failover walk resolves its entry from.
 	invalidModel := &model.Model{
 		ID:               modelID,
 		ProviderID:       prov.ID,
@@ -486,8 +486,7 @@ func TestListModels_FailoverGroupInvalidJSON(t *testing.T) {
 	}
 
 	h.modelRepo = &mockModelRepo{
-		listEnabledResult: []*model.Model{},
-		getResult:         invalidModel,
+		listEnabledResult: []*model.Model{invalidModel},
 	}
 
 	req := httptest.NewRequest("GET", "/models", http.NoBody)
@@ -640,7 +639,7 @@ func TestListModels_WithFailoverGroups(t *testing.T) {
 	}
 
 	// Create a failover group
-	if _, err := failoverRepo.Upsert(context.Background(), "my-failover-model", []uuid.UUID{modelID}); err != nil {
+	if _, err := failoverRepo.UpsertWithConfig(context.Background(), "my-failover-model", []uuid.UUID{modelID}, nil, nil, nil, nil, nil); err != nil {
 		t.Fatalf("failed to create failover group: %v", err)
 	}
 

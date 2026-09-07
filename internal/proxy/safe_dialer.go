@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"time"
 
@@ -32,16 +33,7 @@ type SafeDialer struct {
 // (lowercased for comparison) bypass all IP checks. IPs within knownProxies
 // CIDRs bypass the private-IP restriction (for internal LLM servers).
 func NewSafeDialer(allowedHosts []string, knownProxies []*net.IPNet) *SafeDialer {
-	hosts := make(map[string]bool, len(allowedHosts))
-	for _, h := range allowedHosts {
-		hosts[strings.ToLower(h)] = true
-	}
-	return &SafeDialer{
-		d:            &net.Dialer{Resolver: net.DefaultResolver},
-		hosts:        hosts,
-		resolver:     net.DefaultResolver,
-		knownProxies: knownProxies,
-	}
+	return newSafeDialerWithResolver(allowedHosts, net.DefaultResolver, knownProxies)
 }
 
 // newSafeDialerWithResolver creates a SafeDialer with a custom resolver, for
@@ -61,12 +53,15 @@ func newSafeDialerWithResolver(allowedHosts []string, resolver ipResolver, known
 
 // isKnownProxy checks if the given IP belongs to any of the known proxy CIDRs.
 func (s *SafeDialer) isKnownProxy(ip net.IP) bool {
-	for _, n := range s.knownProxies {
-		if n.Contains(ip) {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(s.knownProxies, func(n *net.IPNet) bool { return n.Contains(ip) })
+}
+
+// allowsIP reports an IP this dialer may connect to: not in a blocked range, or
+// inside a configured known-proxy CIDR (an internal LLM server). Every check in
+// this file asks the question this way, so a rule added here reaches the dial
+// loop and the redirect guard alike.
+func (s *SafeDialer) allowsIP(ip net.IP) bool {
+	return !isBlockedIP(ip) || s.isKnownProxy(ip)
 }
 
 // DialContext implements the dial function signature http.Transport.DialContext
@@ -111,26 +106,21 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 
 	debuglog.Debug("proxy: SafeDialer DNS resolved", "host", host, "ip_count", len(ips), "dns_ms", float64(time.Since(dnsStart).Microseconds())/1000.0)
 
-	// If every resolved IP is blocked (and not in knownProxies), reject.
-	blocked := true
-	for _, ip := range ips {
-		if !isBlockedIP(ip.IP) || s.isKnownProxy(ip.IP) {
-			blocked = false
-			break
-		}
-	}
-	if blocked && len(ips) > 0 {
-		return nil, fmt.Errorf("proxy: refused connection to private/reserved IP %s for host %s", ips[0].IP, host)
-	}
-
 	// Dial by the first allowed IP to close the TOCTOU gap: the IP that was
 	// checked is the one connected to, so DNS cannot rebind between resolution
-	// and dial.
+	// and dial. The first blocked IP is remembered so a host that resolves to
+	// nothing allowed is refused by name.
+	var firstBlocked net.IP
+	triedAllowed := false
 	for _, ip := range ips {
-		if isBlockedIP(ip.IP) && !s.isKnownProxy(ip.IP) {
+		if !s.allowsIP(ip.IP) {
+			if firstBlocked == nil {
+				firstBlocked = ip.IP
+			}
 			debuglog.Debug("proxy: SafeDialer blocked IP skipped", "host", host, "ip", ip.IP)
 			continue
 		}
+		triedAllowed = true
 		dialAddr := net.JoinHostPort(ip.IP.String(), port)
 		conn, dialErr := s.d.DialContext(ctx, network, dialAddr)
 		if dialErr != nil {
@@ -143,7 +133,12 @@ func (s *SafeDialer) DialContext(ctx context.Context, network, addr string) (net
 		return conn, nil
 	}
 
-	// Reached only when the loop fell through without a non-blocked IP.
+	// Reached when the loop found no allowed IP, or every allowed one failed to
+	// dial. A host whose every IP was blocked is named as such; one whose
+	// allowed IPs simply would not connect gets the connection error.
+	if firstBlocked != nil && !triedAllowed {
+		return nil, fmt.Errorf("proxy: refused connection to private/reserved IP %s for host %s", firstBlocked, host)
+	}
 	return nil, fmt.Errorf("proxy: no allowed IP found for host %s", host)
 }
 
@@ -179,14 +174,7 @@ func (s *SafeDialer) CheckRedirect(req *http.Request, via []*http.Request) error
 		// available to the caller.
 		return fmt.Errorf("proxy: redirect to host %s rejected: DNS resolution failed: %w", host, err)
 	}
-	hasAllowedIP := false
-	for _, ip := range ips {
-		if !isBlockedIP(ip.IP) || s.isKnownProxy(ip.IP) {
-			hasAllowedIP = true
-			break
-		}
-	}
-	if !hasAllowedIP {
+	if !slices.ContainsFunc(ips, func(ip net.IPAddr) bool { return s.allowsIP(ip.IP) }) {
 		return fmt.Errorf("proxy: redirect to host %s rejected: all resolved IPs are private/reserved", host)
 	}
 	return nil

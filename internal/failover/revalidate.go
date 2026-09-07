@@ -2,8 +2,12 @@ package failover
 
 import (
 	"context"
+	"encoding/json"
+	"maps"
+	"slices"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
@@ -27,29 +31,23 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 	}
 
 	// Query which UUIDs still exist in the models table.
-	existingIDs := make(map[uuid.UUID]struct{})
-	ids := make([]uuid.UUID, 0, len(allUUIDs))
-	for id := range allUUIDs {
-		ids = append(ids, id)
-	}
+	ids := slices.Collect(maps.Keys(allUUIDs))
 
 	rows, err := r.pool.Query(ctx, `SELECT id FROM models WHERE id = ANY($1)`, ids)
 	if err != nil {
 		debuglog.Error("failover: failed to query existing models for prune", "error", err)
 		return
 	}
-	defer rows.Close()
-
-	for rows.Next() {
-		var id uuid.UUID
-		if err := rows.Scan(&id); err != nil {
-			continue
-		}
-		existingIDs[id] = struct{}{}
-	}
-	if err := rows.Err(); err != nil {
-		debuglog.Error("failover: error iterating model rows during prune", "error", err)
+	// A read error aborts the prune: a dropped row would make a live model look
+	// deleted, and the prune would strip it from every group it belongs to.
+	live, err := pgx.CollectRows(rows, pgx.RowTo[uuid.UUID])
+	if err != nil {
+		debuglog.Error("failover: error reading model rows during prune", "error", err)
 		return
+	}
+	existingIDs := make(map[uuid.UUID]struct{}, len(live))
+	for _, id := range live {
+		existingIDs[id] = struct{}{}
 	}
 
 	// Now prune each group.
@@ -99,13 +97,9 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 			// never writes group_enabled, so the group's enabled state (and the
 			// discovery stamp that goes with it) is preserved structurally
 			// rather than by round-tripping the current value.
-			validEntryEnabled := make(map[string]bool)
+			validEntryEnabled := make(map[string]bool, len(validPriority))
 			for _, id := range validPriority {
-				if enabled, ok := g.EntryEnabled[id.String()]; ok {
-					validEntryEnabled[id.String()] = enabled
-				} else {
-					validEntryEnabled[id.String()] = true
-				}
+				validEntryEnabled[id.String()] = g.IsEntryEnabled(id)
 			}
 			err := r.pruneMembership(ctx, g.ID, g.DisplayModel, validPriority, validEntryEnabled)
 			if err != nil {
@@ -144,11 +138,11 @@ func (r *Repository) pruneStaleEntries(ctx context.Context, groups []*FailoverGr
 // manually-disabled group" structurally, instead of reading the current value
 // and writing it back through a call that has side effects on other columns.
 func (r *Repository) pruneMembership(ctx context.Context, id uuid.UUID, displayModel string, priorityOrder []uuid.UUID, entryEnabled map[string]bool) error {
-	priorityJSON, err := jsonMarshal(priorityOrder)
+	priorityJSON, err := json.Marshal(priorityOrder)
 	if err != nil {
 		return err
 	}
-	entryEnabledJSON, err := jsonMarshal(entryEnabled)
+	entryEnabledJSON, err := json.Marshal(entryEnabled)
 	if err != nil {
 		return err
 	}
@@ -230,11 +224,7 @@ func (r *Repository) revalidateCustomGroups(ctx context.Context, groups []*Failo
 		return
 	}
 
-	memberIDs := make([]uuid.UUID, 0, len(memberSet))
-	for id := range memberSet {
-		memberIDs = append(memberIDs, id)
-	}
-	routable, err := r.routableMemberIDs(ctx, memberIDs)
+	routable, err := r.routableMemberIDs(ctx, slices.Collect(maps.Keys(memberSet)))
 	if err != nil {
 		debuglog.Error("failover: failed to query routable members for revalidation", "error", err)
 		return

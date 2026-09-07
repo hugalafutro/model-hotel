@@ -3,12 +3,8 @@ package webauthn
 import (
 	"bytes"
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
-	"encoding/hex"
 	"errors"
-	"io"
 	"time"
 
 	"github.com/google/uuid"
@@ -83,7 +79,7 @@ func NewSessionManager(store SessionStore) *SessionManager {
 // tokens stored) and uses constant-time comparison for the hash match.
 // The ctx parameter propagates request deadlines and tracing.
 func (m *SessionManager) Validate(ctx context.Context, token string) bool {
-	_, ok := m.TokenUser(ctx, token)
+	_, ok := m.authenticate(ctx, token, true)
 	return ok
 }
 
@@ -141,8 +137,7 @@ func (m *SessionManager) authenticate(ctx context.Context, token string, slide b
 	// Hash the token first — eliminates the timing oracle between UUID-parse
 	// failures and DB lookup, and matches the project's hash-before-store
 	// security model (admin token, virtual keys).
-	hash := sha256.Sum256([]byte(token))
-	tokenHash := hex.EncodeToString(hash[:])
+	tokenHash := util.SHA256Hex(token)
 
 	session, err := m.store.GetSessionByTokenHash(ctx, tokenHash)
 	if err != nil {
@@ -257,23 +252,19 @@ var ErrCurrentSession = errors.New("cannot revoke the current session")
 // deleting the passkey can cascade-revoke its derived sessions.
 // meta carries the login request's device metadata into the stored session.
 func (m *SessionManager) CreateAuthToken(ctx context.Context, userID, credentialID []byte, meta SessionMeta) (string, error) {
-	// Generate a high-entropy random token (32 bytes = 256 bits).
-	tokenBytes := make([]byte, 32)
-	if _, err := io.ReadFull(rand.Reader, tokenBytes); err != nil {
+	// A high-entropy random token (32 bytes = 256 bits); only its hash is
+	// persisted, never the raw token.
+	token, tokenHash, err := util.MintHexToken(32)
+	if err != nil {
 		return "", err
 	}
-	token := hex.EncodeToString(tokenBytes)
-
-	// Hash the token for storage — the raw token is never persisted.
-	hash := sha256.Sum256([]byte(token))
-	tokenHash := hex.EncodeToString(hash[:])
 
 	id, err := uuid.NewRandom()
 	if err != nil {
 		return "", err
 	}
 
-	challenge, err := generateChallenge(32)
+	challenge, err := util.RandomHex(32)
 	if err != nil {
 		return "", err
 	}
@@ -314,7 +305,7 @@ func (m *SessionManager) CreateLoginState(ctx context.Context, data []byte, ttl 
 	if err != nil {
 		return uuid.Nil, err
 	}
-	challenge, err := generateChallenge(32)
+	challenge, err := util.RandomHex(32)
 	if err != nil {
 		return uuid.Nil, err
 	}
@@ -386,12 +377,7 @@ func (m *SessionManager) RevokeOtherSessions(ctx context.Context, identity []byt
 	}
 
 	keepHash := ""
-	for _, token := range candidateTokens {
-		if token == "" {
-			continue
-		}
-		sum := sha256.Sum256([]byte(token))
-		hash := hex.EncodeToString(sum[:])
+	for _, hash := range candidateHashes(candidateTokens...) {
 		session, err := m.store.GetSessionByTokenHash(ctx, hash)
 		if errors.Is(err, ErrNotFound) {
 			continue
@@ -436,12 +422,7 @@ func (m *SessionManager) ListAuthSessions(ctx context.Context, identity []byte, 
 	}
 
 	currentHash := ""
-	for _, token := range candidateTokens {
-		if token == "" {
-			continue
-		}
-		sum := sha256.Sum256([]byte(token))
-		hash := hex.EncodeToString(sum[:])
+	for _, hash := range candidateHashes(candidateTokens...) {
 		for _, rec := range records {
 			if rec.TokenHash != nil && *rec.TokenHash == hash {
 				currentHash = hash
@@ -494,12 +475,8 @@ func (m *SessionManager) RevokeSessionByID(ctx context.Context, identity []byte,
 		return ErrNotFound
 	}
 	if session.TokenHash != nil {
-		for _, token := range candidateTokens {
-			if token == "" {
-				continue
-			}
-			sum := sha256.Sum256([]byte(token))
-			if hex.EncodeToString(sum[:]) == *session.TokenHash {
+		for _, hash := range candidateHashes(candidateTokens...) {
+			if hash == *session.TokenHash {
 				return ErrCurrentSession
 			}
 		}
@@ -515,10 +492,7 @@ func (m *SessionManager) RevokeAuthToken(ctx context.Context, token string) bool
 		return false
 	}
 
-	hash := sha256.Sum256([]byte(token))
-	tokenHash := hex.EncodeToString(hash[:])
-
-	session, err := m.store.GetSessionByTokenHash(ctx, tokenHash)
+	session, err := m.store.GetSessionByTokenHash(ctx, util.SHA256Hex(token))
 	if err != nil {
 		return false
 	}
@@ -531,11 +505,15 @@ func (m *SessionManager) RevokeAuthToken(ctx context.Context, token string) bool
 	return true
 }
 
-// generateChallenge returns a hex-encoded random challenge of the given byte length.
-func generateChallenge(length int) (string, error) {
-	buf := make([]byte, length)
-	if _, err := io.ReadFull(rand.Reader, buf); err != nil {
-		return "", err
+// candidateHashes returns the SHA-256 hex digests of the non-empty tokens a
+// request carried, in the order given. The session lookups that decide "is this
+// the caller's own session" all start from this list.
+func candidateHashes(tokens ...string) []string {
+	hashes := make([]string, 0, len(tokens))
+	for _, token := range tokens {
+		if token != "" {
+			hashes = append(hashes, util.SHA256Hex(token))
+		}
 	}
-	return hex.EncodeToString(buf), nil
+	return hashes
 }

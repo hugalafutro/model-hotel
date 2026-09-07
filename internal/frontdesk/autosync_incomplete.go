@@ -7,6 +7,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // incompleteState is what Front Desk remembers about a member it has given the
@@ -87,6 +89,21 @@ func (s *Server) markUnconfirmedPush(memberID, hash string) {
 	s.syncIncompleteMu.Lock()
 	defer s.syncIncompleteMu.Unlock()
 	s.unconfirmedSync[memberID] = hash
+}
+
+// stampMemberSync records that a member holds this config now and, once the
+// stamp lands, forgets the unconfirmed push it covers: a lost-answer push of
+// this same config is now accounted for, while a concurrent push of newer
+// config keeps its own flag (see clearUnconfirmedPush). A failed stamp is
+// returned so the caller can decide what it means for its own result; the flag
+// survives it and the next converged pass retries.
+func (s *Server) stampMemberSync(ctx context.Context, m *Member, reason, hash string) error {
+	if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
+		debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "reason", reason, "error", err)
+		return err
+	}
+	s.clearUnconfirmedPush(m.ID, hash)
+	return nil
 }
 
 // clearUnconfirmedPush forgets a member's unconfirmed push of exactly this

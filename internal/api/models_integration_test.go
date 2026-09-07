@@ -708,7 +708,7 @@ func TestBulkDeleteModels_ResyncFailureDoesNotFail(t *testing.T) {
 	done := make(chan struct{})
 	go func() {
 		// Must return despite SyncForModel and PruneModelUUID erroring.
-		h.resyncFailoverAfterModelDelete(cancelled, []string{"any-model"}, []uuid.UUID{uuid.New()})
+		ResyncFailoverAfterModelDelete(cancelled, failover.NewRepository(h.dbPool.Pool()), []string{"any-model"}, []uuid.UUID{uuid.New()})
 		close(done)
 	}()
 

@@ -92,13 +92,13 @@ func expectReadFailure(t *testing.T, handler http.HandlerFunc, warm, locked *htt
 
 func TestGetTimeSeries_ReadFailureIs500(t *testing.T) {
 	pool, lock := lockedReadDB(t, "request_logs")
-	h := NewStatsHandler(pool.Pool(), &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewStatsHandler(pool.Pool())
 	expectReadFailure(t, h.GetTimeSeries, adminGet("/stats/timeseries?period=24h"), adminGet("/stats/timeseries?period=24h"), lock, "failed to read time series")
 }
 
 func TestGetProviderDistribution_ReadFailureIs500(t *testing.T) {
 	pool, lock := lockedReadDB(t, "request_logs")
-	h := NewStatsHandler(pool.Pool(), &mockAdminAuth{validateFn: func(string) bool { return true }})
+	h := NewStatsHandler(pool.Pool())
 	expectReadFailure(t, h.GetProviderDistribution, adminGet("/stats/providers?period=24h"), adminGet("/stats/providers?period=24h"), lock, "failed to read provider distribution")
 }
 
@@ -108,7 +108,7 @@ func TestGetProviderDistribution_ReadFailureIs500(t *testing.T) {
 // breakdown logs it and leaves the slice empty.
 func TestStatsQueries_ReadFailurePropagates(t *testing.T) {
 	pool, lock := lockedReadDB(t, "request_logs")
-	h := NewStatsHandler(pool.Pool(), nil)
+	h := NewStatsHandler(pool.Pool())
 	ctx := context.Background()
 	since := time.Now().Add(-24 * time.Hour)
 

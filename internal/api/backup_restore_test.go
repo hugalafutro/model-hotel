@@ -500,7 +500,7 @@ func TestRestoreBackup_DangerousObjectsInDump_Integration(t *testing.T) {
 	}
 
 	// Verify migrations match known list
-	migrations, err := extractMigrationNames(dumpPath, schemaEntry)
+	migrations, err := extractMigrationNames(testPgRestorePath(t), dumpPath, schemaEntry)
 	if err != nil {
 		t.Fatalf("extractMigrationNames failed: %v", err)
 	}

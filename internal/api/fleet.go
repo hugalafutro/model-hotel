@@ -317,7 +317,7 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !ownerStale(seen, time.Now()) {
-			h.rejectConflict(ctx, storedID, req.FrontdeskID)
+			h.rejectConflict(storedID, req.FrontdeskID)
 			http.Error(w, "another Front Desk currently manages this instance", http.StatusConflict)
 			return
 		}
@@ -331,7 +331,7 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	// surface as a spurious 500 on the member.
 	writes := [][2]string{
 		{keyFleetManagedSeenAt, now},
-		{keyFleetIsPrimary, boolStr(req.IsPrimary)},
+		{keyFleetIsPrimary, strconv.FormatBool(req.IsPrimary)},
 		{keyFleetPrimaryName, req.PrimaryName},
 		{keyFleetFrontdeskID, req.FrontdeskID},
 	}
@@ -384,12 +384,9 @@ func ownerStale(seen string, now time.Time) bool {
 
 // rejectConflict surfaces a rejected ownership claim: a debounced Warn plus a
 // dashboard event (Events page + SSE), at most once per hour per rejected ID.
-func (h *FleetHandler) rejectConflict(_ context.Context, storedID, rejectedID string) {
+func (h *FleetHandler) rejectConflict(storedID, rejectedID string) {
 	now := time.Now()
 	h.conflictMu.Lock()
-	if h.conflictSeen == nil {
-		h.conflictSeen = map[string]time.Time{}
-	}
 	last, seen := h.conflictSeen[rejectedID]
 	shouldEmit := !seen || now.Sub(last) >= conflictNotifyInterval
 	if shouldEmit {
@@ -411,11 +408,4 @@ func (h *FleetHandler) rejectConflict(_ context.Context, storedID, rejectedID st
 			"rejected_frontdesk_id": rejectedID,
 		},
 	})
-}
-
-func boolStr(b bool) string {
-	if b {
-		return "true"
-	}
-	return "false"
 }

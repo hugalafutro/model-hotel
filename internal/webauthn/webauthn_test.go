@@ -13,7 +13,6 @@ import (
 
 	gowa "github.com/go-webauthn/webauthn/webauthn"
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -662,36 +661,6 @@ func TestSessionManagerRevokeAuthToken_EmptyToken(t *testing.T) {
 	}
 }
 
-// TestGenerateChallenge verifies that generateChallenge produces correct-length
-// hex strings and is non-deterministic across calls.
-func TestGenerateChallenge(t *testing.T) {
-	ch1, err := generateChallenge(32)
-	if err != nil {
-		t.Fatalf("generateChallenge(32): %v", err)
-	}
-	if len(ch1) != 64 { // 32 bytes = 64 hex chars
-		t.Errorf("expected 64-char hex string, got %d chars", len(ch1))
-	}
-
-	// Zero-length should return empty string
-	ch0, err := generateChallenge(0)
-	if err != nil {
-		t.Fatalf("generateChallenge(0): %v", err)
-	}
-	if ch0 != "" {
-		t.Errorf("expected empty string for length 0, got %q", ch0)
-	}
-
-	// Two calls with the same length should produce different values (randomness)
-	ch2, err := generateChallenge(32)
-	if err != nil {
-		t.Fatalf("generateChallenge(32) second call: %v", err)
-	}
-	if ch1 == ch2 {
-		t.Error("expected different challenge values from consecutive calls")
-	}
-}
-
 // TestSessionManagerRevokeAuthToken_NonAuthToken verifies that RevokeAuthToken
 // returns false when no auth_token session matches the token. A registration-type
 // session with the same token hash exists in the DB, but GetSessionByTokenHash
@@ -826,28 +795,6 @@ func TestSessionManagerRevokeAuthToken_CanceledContext(t *testing.T) {
 	// Token should still be valid since revocation failed
 	if !mgr.Validate(ctx, token) {
 		t.Error("expected token to still be valid after failed revocation")
-	}
-}
-
-// TestGenerateChallenge_OutputLength verifies generateChallenge returns
-// correctly sized hex-encoded output.
-func TestGenerateChallenge_OutputLength(t *testing.T) {
-	for _, size := range []int{1, 16, 32, 64} {
-		result, err := generateChallenge(size)
-		if err != nil {
-			t.Errorf("generateChallenge(%d): %v", size, err)
-		}
-		if len(result) != size*2 {
-			t.Errorf("generateChallenge(%d): got length %d, want %d", size, len(result), size*2)
-		}
-	}
-
-	result, err := generateChallenge(0)
-	if err != nil {
-		t.Errorf("generateChallenge(0): %v", err)
-	}
-	if result != "" {
-		t.Errorf("generateChallenge(0): got %q, want empty string", result)
 	}
 }
 
@@ -1282,41 +1229,6 @@ func TestListCredentials_CancelledContext(t *testing.T) {
 	_, err := repo.ListCredentials(ctx)
 	if err == nil {
 		t.Error("expected error for cancelled context in ListCredentials")
-	}
-}
-
-// TestListCredentials_ScanError verifies that ListCredentials returns an error
-// when rows.Scan fails during iteration, using the rowsScan override.
-func TestListCredentials_ScanError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	// Insert a credential so the query returns a row
-	cred := &CredentialRecord{
-		ID:                []byte("scan-error-cred-id"),
-		PublicKey:         []byte("fake-public-key"),
-		AttestationType:   "none",
-		AttestationFormat: "packed",
-		Transport:         []string{"internal"},
-		FlagsByte:         0x41,
-		SignCount:         0,
-		AAGUID:            uuid.Nil,
-	}
-	if err := repo.StoreCredential(ctx, cred); err != nil {
-		t.Fatalf("StoreCredential: %v", err)
-	}
-
-	// Override rowsScan to simulate a scan error.
-	// NOTE: This mutates a package-level variable; do not use t.Parallel() in this test.
-	origRowsScan := rowsScan
-	rowsScan = func(rows pgx.Rows, dest ...any) error {
-		return errors.New("simulated scan error")
-	}
-	defer func() { rowsScan = origRowsScan }()
-
-	_, err := repo.ListCredentials(ctx)
-	if err == nil {
-		t.Error("expected error from scan failure in ListCredentials")
 	}
 }
 

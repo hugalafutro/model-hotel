@@ -75,7 +75,7 @@ func NewTPMLimiter(settings SettingsReader) *TPMLimiter {
 		settings: settings,
 		stopCh:   make(chan struct{}),
 	}
-	go l.cleanupLoop()
+	go runCleanup(l.stopCh, l.cleanup)
 	return l
 }
 
@@ -245,19 +245,6 @@ func (l *TPMLimiter) admitUserTPM(ctx context.Context, w http.ResponseWriter, no
 	return userRes, true
 }
 
-// Allow reports whether a request may be admitted for keyHash under the given
-// per-minute token budget, and atomically reserves one admission token when it
-// returns true. tpm <= 0 means no cap (always allowed, no reservation). The
-// reservation is what makes admission race-free: concurrent callers cannot all
-// pass the same non-mutating peek. Exposed for testing and reuse; the
-// Middleware performs the same reserving check inline.
-func (l *TPMLimiter) Allow(keyHash string, tpm int) bool {
-	if tpm <= 0 {
-		return true
-	}
-	return l.getEntry(keyHash, tpm).limiter.Allow()
-}
-
 // Debit removes the actual token total from a key's budget after a request
 // completes, driving the budget toward (and past) zero so subsequent requests
 // are throttled. It is a no-op when no bucket exists for the key (no cap in
@@ -419,21 +406,6 @@ func tpmRetryAfter(lim *rate.Limiter) int {
 	}
 	secs := max(int(math.Ceil((1-avail)/perSec)), 1)
 	return secs
-}
-
-// cleanupLoop periodically evicts idle buckets to bound memory.
-func (l *TPMLimiter) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-l.stopCh:
-			return
-		case <-ticker.C:
-			l.cleanup()
-		}
-	}
 }
 
 func (l *TPMLimiter) cleanup() {

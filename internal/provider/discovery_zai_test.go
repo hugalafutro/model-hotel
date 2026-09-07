@@ -497,7 +497,7 @@ func TestGetZAICodingQuota_JSONDecodeError_ZAI(t *testing.T) {
 	if err == nil {
 		t.Fatal("Expected error for JSON decode failure, got nil")
 	}
-	if !strings.Contains(err.Error(), "failed to decode response") {
+	if !strings.Contains(err.Error(), "failed to decode quota response") {
 		t.Errorf("Expected 'failed to decode response' in error, got: %v", err)
 	}
 }

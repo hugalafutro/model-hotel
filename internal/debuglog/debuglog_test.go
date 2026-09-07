@@ -43,33 +43,26 @@ func TestStdoutHandler(t *testing.T) {
 	})
 
 	t.Run("honours the level set by Init", func(t *testing.T) {
-		t.Setenv("DEBUG_LOG", "")
-		Init(true)
+		t.Setenv("DEBUG_LOG", "1")
+		Init()
 		if !StdoutHandler().Enabled(context.Background(), slog.LevelDebug) {
-			t.Errorf("StdoutHandler() should accept Debug after Init(true)")
+			t.Errorf("StdoutHandler() should accept Debug with DEBUG_LOG set")
 		}
 	})
 }
 
 func TestInit(t *testing.T) {
-	t.Run("debug true sets LevelDebug", func(t *testing.T) {
-		Init(true)
-		if got := Level(); got != slog.LevelDebug {
-			t.Errorf("Level() = %v, want %v", got, slog.LevelDebug)
-		}
-	})
-
-	t.Run("debug false with no env sets LevelInfo", func(t *testing.T) {
+	t.Run("no DEBUG_LOG sets LevelInfo", func(t *testing.T) {
 		t.Setenv("DEBUG_LOG", "")
-		Init(false)
+		Init()
 		if got := Level(); got != slog.LevelInfo {
 			t.Errorf("Level() = %v, want %v", got, slog.LevelInfo)
 		}
 	})
 
-	t.Run("debug false with DEBUG_LOG=true still sets LevelDebug", func(t *testing.T) {
+	t.Run("DEBUG_LOG=true sets LevelDebug", func(t *testing.T) {
 		t.Setenv("DEBUG_LOG", "true")
-		Init(false)
+		Init()
 		if got := Level(); got != slog.LevelDebug {
 			t.Errorf("Level() = %v, want %v", got, slog.LevelDebug)
 		}
@@ -103,23 +96,6 @@ func TestIsDebugLogEnv(t *testing.T) {
 	}
 }
 
-func TestLevel(t *testing.T) {
-	t.Run("after Init(true) returns Debug", func(t *testing.T) {
-		Init(true)
-		if got := Level(); got != slog.LevelDebug {
-			t.Errorf("Level() = %v, want %v", got, slog.LevelDebug)
-		}
-	})
-
-	t.Run("after Init(false) returns Info", func(t *testing.T) {
-		t.Setenv("DEBUG_LOG", "")
-		Init(false)
-		if got := Level(); got != slog.LevelInfo {
-			t.Errorf("Level() = %v, want %v", got, slog.LevelInfo)
-		}
-	})
-}
-
 func TestSetHandler(t *testing.T) {
 	h := newCaptureHandler(slog.LevelInfo)
 	SetHandler(h)
@@ -133,7 +109,8 @@ func TestSetHandler(t *testing.T) {
 
 func TestDebug(t *testing.T) {
 	t.Run("when debug enabled", func(t *testing.T) {
-		Init(true)
+		t.Setenv("DEBUG_LOG", "1")
+		Init()
 		h := newCaptureHandler(slog.LevelDebug)
 		SetHandler(h)
 
@@ -151,7 +128,7 @@ func TestDebug(t *testing.T) {
 	})
 
 	t.Run("when debug disabled", func(t *testing.T) {
-		Init(false)
+		Init()
 		h := newCaptureHandler(slog.LevelInfo)
 		SetHandler(h)
 
@@ -164,7 +141,8 @@ func TestDebug(t *testing.T) {
 }
 
 func TestInfo(t *testing.T) {
-	Init(true)
+	t.Setenv("DEBUG_LOG", "1")
+	Init()
 	h := newCaptureHandler(slog.LevelInfo)
 	SetHandler(h)
 
@@ -182,7 +160,8 @@ func TestInfo(t *testing.T) {
 }
 
 func TestWarn(t *testing.T) {
-	Init(true)
+	t.Setenv("DEBUG_LOG", "1")
+	Init()
 	h := newCaptureHandler(slog.LevelWarn)
 	SetHandler(h)
 
@@ -200,7 +179,8 @@ func TestWarn(t *testing.T) {
 }
 
 func TestError(t *testing.T) {
-	Init(true)
+	t.Setenv("DEBUG_LOG", "1")
+	Init()
 	h := newCaptureHandler(slog.LevelError)
 	SetHandler(h)
 
@@ -237,10 +217,10 @@ func TestScopeOf(t *testing.T) {
 // others are dropped.
 func TestDebug_ScopeFiltering(t *testing.T) {
 	t.Setenv("DEBUG_LOG_SCOPES", "failover, discovery")
-	Init(false) // global debug off; scopes = {failover, discovery}
+	Init() // global debug off; scopes = {failover, discovery}
 	t.Cleanup(func() {
 		os.Unsetenv("DEBUG_LOG_SCOPES")
-		Init(false)
+		Init()
 	})
 
 	// Handler must accept Debug; Init set the level to Debug because scopes are
@@ -262,6 +242,30 @@ func TestDebug_ScopeFiltering(t *testing.T) {
 	for _, r := range h.records {
 		if s := scopeOf(r.Message); s != "failover" && s != "discovery" {
 			t.Errorf("unexpected scoped record emitted: %q (scope %q)", r.Message, s)
+		}
+	}
+}
+
+func TestEnvBool(t *testing.T) {
+	tests := []struct {
+		raw       string
+		wantValue bool
+		wantOK    bool
+	}{
+		{"true", true, true},
+		{"TRUE", true, true},
+		{" 1 ", true, true},
+		{"yes", true, true},
+		{"false", false, true},
+		{"0", false, true},
+		{"no", false, true},
+		{"", false, false},
+		{"maybe", false, false},
+	}
+	for _, tt := range tests {
+		value, ok := EnvBool(tt.raw)
+		if value != tt.wantValue || ok != tt.wantOK {
+			t.Errorf("EnvBool(%q) = (%v, %v), want (%v, %v)", tt.raw, value, ok, tt.wantValue, tt.wantOK)
 		}
 	}
 }

@@ -98,13 +98,7 @@ func parseTrafficWindow(r *http.Request) int {
 	if err != nil || n <= 0 {
 		return 0
 	}
-	if n < minTrafficWindowMinutes {
-		return minTrafficWindowMinutes
-	}
-	if n > maxTrafficWindowMinutes {
-		return maxTrafficWindowMinutes
-	}
-	return n
+	return min(max(n, minTrafficWindowMinutes), maxTrafficWindowMinutes)
 }
 
 // reportedWindow is the window_minutes echoed to the caller: the requested
@@ -125,7 +119,7 @@ func reportedWindow(windowMin int) int {
 func (s *Server) fetchMemberTraffic(ctx context.Context, m *Member, token string, windowMin int) memberTrafficResponse {
 	out := memberTrafficResponse{MemberID: m.ID, WindowMinutes: reportedWindow(windowMin), Points: []trafficPoint{}}
 
-	status, body, err := s.callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberTimeSeriesPath, token, nil)
+	status, body, err := callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberTimeSeriesPath, token, nil)
 	if err != nil {
 		debuglog.Debug("frontdesk: member traffic fetch failed", "member", m.Name, "error", err)
 		return out

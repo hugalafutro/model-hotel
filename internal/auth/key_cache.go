@@ -10,11 +10,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-var (
-	keyCacheEvictionStop chan struct{}
-	keyCacheEvictionDone chan struct{}
-)
-
 type cacheEntry struct {
 	plaintext string
 	expiresAt time.Time
@@ -82,40 +77,21 @@ func DecryptCached(ciphertext, nonce, salt []byte, masterKey string) (string, er
 	}
 	keyCacheMu.RUnlock()
 
-	key := deriveKey(masterKey, salt)
-
-	block, err := newCipherBlock(key)
-	if err != nil {
-		return "", fmt.Errorf("failed to create cipher: %w", err)
-	}
-
-	gcm, err := newGCM(block)
-	if err != nil {
-		return "", fmt.Errorf("failed to create GCM: %w", err)
-	}
-
-	// gcm.Open panics rather than erroring on a wrong-length nonce, so a corrupt or
-	// truncated stored nonce must be caught here. Mirrors decryptWithKey; every
-	// caller of either reads the nonce from storage.
-	if len(nonce) != gcm.NonceSize() {
-		return "", fmt.Errorf("failed to decrypt: invalid nonce length %d (want %d)", len(nonce), gcm.NonceSize())
-	}
-
-	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	plaintext, err := Decrypt(ciphertext, nonce, salt, masterKey)
 	if err != nil {
 		debuglog.Warn("keycache: decryption failed, possible wrong master key", "error", err)
-		return "", fmt.Errorf("failed to decrypt: %w", err)
+		return "", err
 	}
 
 	ttl := getKeyCacheTTL()
 	keyCacheMu.Lock()
 	keyCache[ck] = cacheEntry{
-		plaintext: string(plaintext),
+		plaintext: plaintext,
 		expiresAt: time.Now().Add(ttl),
 	}
 	keyCacheMu.Unlock()
 
-	return string(plaintext), nil
+	return plaintext, nil
 }
 
 // WarmKeyCache pre-computes Argon2id keys for active providers.
@@ -127,21 +103,13 @@ func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 }
 
 func startKeyCacheEviction() {
-	keyCacheEvictionStop = make(chan struct{})
-	keyCacheEvictionDone = make(chan struct{})
 	go func() {
-		defer close(keyCacheEvictionDone)
 		ticker := time.NewTicker(getKeyCacheTTL())
 		defer ticker.Stop()
-		for {
-			select {
-			case <-ticker.C:
-				evictExpiredKeyCacheEntries()
-				// Reset ticker to pick up any TTL changes.
-				ticker.Reset(getKeyCacheTTL())
-			case <-keyCacheEvictionStop:
-				return
-			}
+		for range ticker.C {
+			evictExpiredKeyCacheEntries()
+			// Reset the ticker to pick up any TTL changes.
+			ticker.Reset(getKeyCacheTTL())
 		}
 	}()
 }
@@ -154,15 +122,5 @@ func evictExpiredKeyCacheEntries() {
 		if now.After(v.expiresAt) {
 			delete(keyCache, k)
 		}
-	}
-}
-
-// StopKeyCacheEviction stops the periodic key cache eviction goroutine.
-func StopKeyCacheEviction() {
-	if keyCacheEvictionStop != nil {
-		close(keyCacheEvictionStop)
-		<-keyCacheEvictionDone
-		keyCacheEvictionStop = nil
-		keyCacheEvictionDone = nil
 	}
 }

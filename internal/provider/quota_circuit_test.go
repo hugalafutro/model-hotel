@@ -48,30 +48,6 @@ func TestGetOrCreateCircuit_SameProviderReturnsSame(t *testing.T) {
 	}
 }
 
-func TestGetOrCreateCircuit_MalformedValueFallback(t *testing.T) {
-	t.Helper()
-
-	d := NewDiscoveryService(nil, nil)
-
-	// Inject a wrong type into the sync.Map
-	d.quotaBreaker.Store("malformed-provider", "not-a-circuit")
-
-	circuit := d.getOrCreateCircuit("malformed-provider")
-
-	if circuit == nil {
-		t.Fatal("getOrCreateCircuit should return non-nil circuit even for malformed value")
-		return
-	}
-	// Verify the returned circuit is usable (can call isCircuitOpen without panic)
-	if circuit.isCircuitOpen() {
-		t.Error("fresh circuit from malformed fallback should be closed")
-	}
-	// Verify it starts with zero failures
-	if circuit.consecFailures != 0 {
-		t.Errorf("fresh circuit should have consecFailures=0, got %d", circuit.consecFailures)
-	}
-}
-
 func TestGetOrCreateCircuit_ConcurrentAccess(t *testing.T) {
 	t.Helper()
 

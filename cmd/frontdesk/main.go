@@ -42,8 +42,9 @@ import (
 var version = "dev"
 
 func main() {
-	dbg := os.Getenv("DEBUG_LOG")
-	debuglog.Init(strings.EqualFold(dbg, "true") || dbg == "1")
+	// Init reads DEBUG_LOG (and DEBUG_LOG_SCOPES, LOG_FORMAT) from the
+	// environment itself, so Front Desk has no flag of its own to pass.
+	debuglog.Init()
 
 	// Root context for process-lifetime background work and log-exporter shutdown.
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
@@ -68,20 +69,19 @@ func main() {
 		}
 	}
 
-	port := envOr("PORT", ":8090")
+	port := config.EnvOr("PORT", ":8090")
 	if !strings.HasPrefix(port, ":") {
 		port = ":" + port
 	}
-	dataDir := envOr("DATA_DIR", "./data")
+	dataDir := config.EnvOr("DATA_DIR", "./data")
 	masterKey := os.Getenv("FRONTDESK_MASTER_KEY")
 	publicOrigin := os.Getenv("PUBLIC_ORIGIN")
 	traefikAPI := os.Getenv("TRAEFIK_API_URL")
 	// The host port the load balancer is published on (LB_PORT in the HA .env),
 	// passed in so the wizard's final step can tell the operator exactly where to
 	// point their clients. Informational only; Front Desk does not bind it.
-	lbPort := envOr("FLEET_LB_PORT", "8080")
-	allowHTTPMembers := strings.EqualFold(os.Getenv("FRONTDESK_ALLOW_HTTP_MEMBERS"), "true") ||
-		os.Getenv("FRONTDESK_ALLOW_HTTP_MEMBERS") == "1"
+	lbPort := config.EnvOr("FLEET_LB_PORT", "8080")
+	allowHTTPMembers := config.BoolEnv("FRONTDESK_ALLOW_HTTP_MEMBERS", false)
 
 	// HTTPS-only ingress: refuse to start without PUBLIC_ORIGIN so a misconfigured
 	// plain-HTTP deployment fails loudly instead of silently weakening passkeys.
@@ -178,7 +178,7 @@ func main() {
 	// before Shutdown closes the store, or a sweep mid-DELETE would be reading a
 	// handle that is already closed.
 	srv.StartBackground(ctx, func(c context.Context) {
-		webauthnSessionCleanupLoop(c, frontdesk.NewWebAuthnStore(store))
+		webauthn.SessionCleanupLoop(c, frontdesk.NewWebAuthnStore(store), time.Hour)
 	})
 
 	// Every process-lifetime loop runs on the server's background group, so the
@@ -281,54 +281,6 @@ func announceGeneratedToken(w io.Writer, token string) {
 	debuglog.Info("frontdesk: generated a Front Desk login token, printed to stdout once")
 }
 
-// sessionCleanupInterval is how often expired WebAuthn sessions are pruned,
-// matching the gateway's hourly sweep in cmd/server. A var, not a const, so it
-// can be shortened under test.
-var sessionCleanupInterval = time.Hour
-
-// sessionCleaner is the slice of the WebAuthn store the cleanup loop needs.
-// An interface rather than the concrete store so the loop is testable without
-// a database.
-type sessionCleaner interface {
-	CleanupExpiredSessions(ctx context.Context) (int64, error)
-}
-
-// webauthnSessionCleanupLoop prunes expired WebAuthn sessions until ctx is done.
-//
-// It matters more here than on the gateway: the OIDC login start is
-// unauthenticated and writes a session row per request, so without the sweep
-// anyone able to reach Front Desk can grow its embedded SQLite database without
-// limit.
-//
-// The first sweep runs immediately rather than after a full interval, since a
-// process starting up may inherit a backlog. A failed sweep is logged and the
-// loop continues, so a transient SQLite error does not disable cleanup for the
-// remaining life of the process.
-func webauthnSessionCleanupLoop(ctx context.Context, store sessionCleaner) {
-	sweep := func() {
-		if n, err := store.CleanupExpiredSessions(ctx); err != nil {
-			if errors.Is(err, context.Canceled) {
-				return // shutting down, not a fault
-			}
-			debuglog.Error("frontdesk: webauthn session cleanup failed", "error", err)
-		} else if n > 0 {
-			debuglog.Info("frontdesk: cleaned up expired webauthn sessions", "count", n)
-		}
-	}
-
-	sweep()
-	ticker := time.NewTicker(sessionCleanupInterval)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return
-		case <-ticker.C:
-			sweep()
-		}
-	}
-}
-
 // newRelyingParty builds the WebAuthn relying party from PUBLIC_ORIGIN: the RP
 // ID is the hostname and the expected origin is scheme://host.
 func newRelyingParty(publicOrigin string) (*gowa.WebAuthn, error) {
@@ -357,23 +309,10 @@ func newRelyingParty(publicOrigin string) (*gowa.WebAuthn, error) {
 }
 
 var (
-	errInvalidOrigin  = &originError{}
+	errInvalidOrigin  = errors.New("PUBLIC_ORIGIN must be an absolute URL like https://hotel.example.com")
 	errInsecureOrigin = errors.New("PUBLIC_ORIGIN must be https:// (http is allowed only for localhost); HTTPS-only ingress is required")
 	errIPOrigin       = errors.New("PUBLIC_ORIGIN must use a hostname, not an IP address: a WebAuthn relying party ID has to be a domain")
 )
-
-type originError struct{}
-
-func (e *originError) Error() string {
-	return "PUBLIC_ORIGIN must be an absolute URL like https://hotel.example.com"
-}
-
-func envOr(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
-}
 
 // warnWeakMasterKey mirrors the main server's MASTER_KEY check: the at-rest
 // KDF runs with deliberately low cost on the assumption that the key is

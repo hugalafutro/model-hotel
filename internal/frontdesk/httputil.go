@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io/fs"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -52,17 +51,6 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	return httpx.DecodeJSON(w, r, logComponent, httpx.MaxJSONBody, v)
 }
 
-func atoiDefault(s string, def int) int {
-	if s == "" {
-		return def
-	}
-	n, err := strconv.Atoi(s)
-	if err != nil {
-		return def
-	}
-	return n
-}
-
 // Event listing page-size bounds. A request with no/blank limit gets the
 // default; a non-positive limit would otherwise disable the store's LIMIT clause
 // (unbounded query), and an over-large one could return the whole table, so both
@@ -77,10 +65,7 @@ func clampEventsLimit(n int) int {
 	if n < 1 {
 		return defaultEventsLimit
 	}
-	if n > maxEventsLimit {
-		return maxEventsLimit
-	}
-	return n
+	return min(n, maxEventsLimit)
 }
 
 // parseRFC3339 parses an RFC3339 timestamp from a query value, returning the

@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -19,6 +18,11 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 
 	pricingCatalog := GetAnthropicPricing()
 
+	headers := http.Header{}
+	headers.Set("x-api-key", apiKey)
+	headers.Set("anthropic-version", "2023-06-01")
+	headers.Set("Content-Type", "application/json")
+
 	var allModels []AnthropicModelInfo
 	afterID := ""
 
@@ -28,29 +32,10 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 			url += "&after_id=" + afterID
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
-		}
-		req.Header.Set("x-api-key", apiKey)
-		req.Header.Set("anthropic-version", "2023-06-01")
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+		bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
 		if err != nil {
 			debuglog.Error("discovery: anthropic fetch models failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
-		}
-
-		bodyBytes, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			debuglog.Error("discovery: anthropic returned non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
-			return nil, fmt.Errorf("unexpected status code %d", resp.StatusCode)
 		}
 
 		var pageResp AnthropicModelsResponse

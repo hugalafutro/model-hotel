@@ -8,8 +8,6 @@ import (
 	"path"
 	"strconv"
 	"strings"
-
-	"github.com/hugalafutro/model-hotel/internal/jsonfault"
 )
 
 // Speech-to-text through generateContent.
@@ -184,15 +182,9 @@ func TranslateTranscriptionRequest(req TranscriptionRequest) (geminiBody []byte,
 // ErrTranscriptionNoText, wrapped with what the answer said instead; a body
 // that is not a generateContent object at all is a plain decode error.
 func BuildTranscriptionResponse(body []byte, format string) (out []byte, contentType string, usage SpeechUsage, err error) {
-	var resp genResponse
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, "", usage, fmt.Errorf("gemini: invalid transcription response: %s", jsonfault.Describe(err, len(body)))
-	}
-	if u := translateUsage(resp.UsageMetadata); u != nil {
-		usage = SpeechUsage{PromptTokens: u.PromptTokens, CompletionTokens: u.CompletionTokens}
-	}
-	if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
-		return nil, "", usage, fmt.Errorf("%w: prompt blocked (%s)", ErrTranscriptionNoText, resp.PromptFeedback.BlockReason)
+	resp, usage, err := decodeAudioAnswer(body, "transcription", ErrTranscriptionNoText)
+	if err != nil {
+		return nil, "", usage, err
 	}
 	// The first candidate alone: the request asks for one, and were a
 	// second ever present it would be the same audio transcribed again.
@@ -211,11 +203,7 @@ func BuildTranscriptionResponse(body []byte, format string) (out []byte, content
 	}
 	transcript := strings.TrimSpace(text.String())
 	if transcript == "" {
-		detail := "no text part"
-		if len(resp.Candidates) > 0 && resp.Candidates[0].FinishReason != "" {
-			detail += " (finish reason " + resp.Candidates[0].FinishReason + ")"
-		}
-		return nil, "", usage, fmt.Errorf("%w: %s", ErrTranscriptionNoText, detail)
+		return nil, "", usage, noContentError(resp, ErrTranscriptionNoText, "no text part")
 	}
 	if format == TranscriptionFormatText {
 		return []byte(transcript), "text/plain; charset=utf-8", usage, nil

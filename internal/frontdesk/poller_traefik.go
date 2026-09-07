@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 
@@ -108,21 +107,12 @@ func (p *Poller) noteTraefikAPIFailure(ctx context.Context) {
 }
 
 func (p *Poller) fetchTraefikServerStatus(ctx context.Context) (map[string]string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, p.traefikAPI+traefikServicesAPI, http.NoBody)
+	status, body, err := callMemberWith(ctx, p.client, http.MethodGet, p.traefikAPI, traefikServicesAPI, "", nil)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("traefik api returned %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return nil, err
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("traefik api returned %d", status)
 	}
 	return parseTraefikServerStatus(body)
 }

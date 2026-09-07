@@ -1,6 +1,7 @@
 package paramrewrite
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"maps"
@@ -23,6 +24,24 @@ func ProviderSupportsStreamOptions(providerType string) bool {
 		// neuralwatt, bedrock, etc.) accept or silently ignore stream_options.
 		return true
 	}
+}
+
+// NeedsRewrite reports whether BuildUpstreamBody could change a chat body for
+// this provider and model, for a caller deciding whether to rebuild at all. It
+// reads the same tables the rewrite does, so a provider or a model family
+// added to one of them is gated in without a second edit elsewhere.
+//
+// Three of the rewrite steps are not predictable from these two arguments. The
+// model rename and stream_options belong to the caller, which knows the
+// requested model and whether the request streams; HasLearnedRewrites answers
+// for what a 400 has taught. The empty-tool_calls sanitization depends on the
+// body alone, so a caller that skips the rebuild on a false here still
+// forwards an empty tool_calls array to a provider that rejects it.
+func NeedsRewrite(providerType, modelID string) bool {
+	return len(ProviderUnsupportedParams[providerType]) > 0 ||
+		NeedsProviderInjection(providerType) ||
+		jsonModeOnlyProviders[providerType] ||
+		schemaIgnoredByModel(modelID)
 }
 
 // BuildUpstreamBody rewrites the client request body for a specific provider
@@ -104,8 +123,8 @@ func buildUpstreamBody(
 	learnScope string,
 	schemaFallback bool,
 ) []byte {
-	var raw map[string]any
-	if err := json.Unmarshal(proxyReqBody, &raw); err != nil {
+	raw, ok := decodeObject(proxyReqBody)
+	if !ok {
 		return proxyReqBody // unparseable — forward as-is
 	}
 
@@ -183,6 +202,25 @@ func buildUpstreamBody(
 		return b
 	}
 	return proxyReqBody
+}
+
+// decodeObject reads a JSON request body as a mutable object.
+//
+// Numbers decode as json.Number, not float64: a body is decoded here only to
+// be re-marshalled, and float64 cannot hold a seed above 2^53 or re-emit a
+// large integer in the form it arrived in. Every rewriter in this package and
+// its callers goes through here so none of them can drift back.
+//
+// A literal "null" decodes without error into a nil map, which every rewrite
+// step here would then panic writing to, so it counts as unparseable.
+func decodeObject(body []byte) (map[string]any, bool) {
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.UseNumber()
+	var raw map[string]any
+	if dec.Decode(&raw) != nil || raw == nil {
+		return nil, false
+	}
+	return raw, true
 }
 
 // stripEmptyToolCalls removes "tool_calls": [] from every message in the

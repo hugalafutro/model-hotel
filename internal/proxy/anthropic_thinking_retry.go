@@ -3,12 +3,10 @@ package proxy
 import (
 	"bytes"
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // The Messages-route self-heal, sibling of the chat-completions param retry. It
@@ -81,40 +79,13 @@ func (h *Handler) retryLearnableMessages400(
 
 	failoverCancel() // 400 body fully consumed, original context no longer needed
 
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
-	retryCtx, rc := retryContext(r, st)
-	retryCtx, retryDial := withDialTiming(retryCtx)
+	targetURL := messagesTargetURL(candidate, providerType)
 	res.streamCancelOrigin = "retry_timeout"
 
-	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
-	if retryErr != nil {
-		rc()
-		res.lastReqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
-		res.cont = true
-		return res, true
-	}
-	util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
-	retryReq.Header.Set("Content-Type", "application/json")
-
-	var checkRedirect func(req *http.Request, via []*http.Request) error
-	if h.safeDialer != nil {
-		checkRedirect = h.safeDialer.CheckRedirect
-	}
 	//nolint:bodyclose // retry resp.Body is consumed by the caller's dispatch
-	retryResp, doErr := (&http.Client{Transport: h.upstreamTransport, CheckRedirect: checkRedirect}).Do(retryReq)
-	*dialMs += retryDial.take()
-	if doErr != nil {
-		rc()
-		debuglog.Warn("proxy: anthropic thinking dialect retry failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", doErr)
-		if errors.Is(doErr, context.Canceled) || errors.Is(doErr, context.DeadlineExceeded) {
-			origin := "retry_timeout"
-			if errors.Is(doErr, context.Canceled) {
-				origin = "client_disconnect"
-			}
-			res.lastReqErr = reqError{Kind: cancelOriginToKind(origin), Attempt: attempt, Provider: candidate.provider.Name}
-		} else {
-			res.lastReqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(doErr)}
-		}
+	retryResp, rc, reqErr, ok := h.issueRetry(r, st, candidate, providerType, targetURL, rebuilt, attempt, dialMs, "proxy: anthropic thinking dialect retry failed")
+	if !ok {
+		res.lastReqErr = reqErr
 		res.cont = true
 		return res, true
 	}

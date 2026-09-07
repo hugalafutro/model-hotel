@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
@@ -28,17 +26,6 @@ type KoboldCPPVersionResponse struct {
 	Version string `json:"version"`
 	Vision  bool   `json:"vision"`
 	Audio   bool   `json:"audio"`
-}
-
-// KoboldCPPModelsResponse is the OpenAI-compatible models response from KoboldCPP.
-type KoboldCPPModelsResponse struct {
-	Object string `json:"object"`
-	Data   []struct {
-		ID      string `json:"id"`
-		Object  string `json:"object"`
-		Created int64  `json:"created"`
-		OwnedBy string `json:"owned_by"`
-	} `json:"data"`
 }
 
 // KoboldCPPContextResponse is the response from
@@ -119,62 +106,39 @@ func (d *DiscoveryService) discoverKoboldCPP(ctx context.Context, provider *Prov
 }
 
 func (d *DiscoveryService) koboldcppVersion(ctx context.Context, apiBase, apiKey string) (*KoboldCPPVersionResponse, error) {
-	url := apiBase + "/api/extra/version"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
+	// A server started with --password rejects every route, native ones
+	// included, so the key belongs on this request as much as on /models.
+	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/extra/version", bearerHeader(apiKey))
 	if err != nil {
 		return nil, err
 	}
-	// A server started with --password rejects every route, native ones
-	// included, so the key belongs on this request as much as on /models.
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("http request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("unexpected status %d", resp.StatusCode)
-	}
 
 	var versionResp KoboldCPPVersionResponse
-	if err := json.NewDecoder(resp.Body).Decode(&versionResp); err != nil {
+	if err := json.Unmarshal(bodyBytes, &versionResp); err != nil {
 		return nil, fmt.Errorf("failed to decode: %w", err)
 	}
 
-	if !strings.EqualFold(versionResp.Result, "koboldcpp") {
+	if !isKoboldCPPVersion(versionResp) {
 		return nil, fmt.Errorf("not a KoboldCPP server (got %q)", versionResp.Result)
 	}
 
 	return &versionResp, nil
 }
 
+// isKoboldCPPVersion reports whether an /api/extra/version payload is
+// KoboldCPP identifying itself, the one fingerprint that names the product.
+func isKoboldCPPVersion(v KoboldCPPVersionResponse) bool {
+	return strings.EqualFold(v.Result, "koboldcpp")
+}
+
 func (d *DiscoveryService) koboldcppLoadedModel(ctx context.Context, baseURL, apiKey string) (string, error) {
-	url := baseURL + "/models"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", bearerHeader(apiKey))
 	if err != nil {
 		return "", err
 	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
 
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
-	if err != nil {
-		return "", fmt.Errorf("http request failed: %w", err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("status %d: %s", resp.StatusCode, util.MaskCredentialBounded(apiKey, string(body), 2000))
-	}
-
-	var modelsResp KoboldCPPModelsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
+	var modelsResp OpenAIModelsResponse
+	if err := json.Unmarshal(bodyBytes, &modelsResp); err != nil {
 		return "", fmt.Errorf("failed to decode: %w", err)
 	}
 
@@ -190,29 +154,14 @@ func (d *DiscoveryService) koboldcppLoadedModel(ctx context.Context, baseURL, ap
 // It returns nil when the endpoint is missing or unreadable: an unknown context
 // size is left unset rather than guessed.
 func (d *DiscoveryService) koboldcppContextLength(ctx context.Context, apiBase, apiKey string) *int {
-	url := apiBase + "/api/extra/true_max_context_length"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
-	if err != nil {
-		return nil
-	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/extra/true_max_context_length", bearerHeader(apiKey))
 	if err != nil {
 		debuglog.Info("discovery: koboldcpp context length unavailable", "error", err)
 		return nil
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		debuglog.Info("discovery: koboldcpp context length unavailable", "status", resp.StatusCode)
-		return nil
-	}
 
 	var out KoboldCPPContextResponse
-	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+	if err := json.Unmarshal(bodyBytes, &out); err != nil {
 		debuglog.Info("discovery: koboldcpp context length undecodable", "error", err)
 		return nil
 	}

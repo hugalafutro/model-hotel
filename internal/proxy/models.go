@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"cmp"
 	"encoding/json"
 	"net/http"
 
@@ -11,24 +12,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
-
-// providerAllowFunc turns a caller's effective provider allow-list into a
-// membership test over provider ids. A nil list is the unrestricted case and
-// admits every provider; a non-nil list admits exactly its members, so an empty
-// one admits none. The test is the list's PRESENCE, never its length.
-func providerAllowFunc(allowed *[]string) func(uuid.UUID) bool {
-	if allowed == nil {
-		return func(uuid.UUID) bool { return true }
-	}
-	set := make(map[string]struct{}, len(*allowed))
-	for _, id := range *allowed {
-		set[id] = struct{}{}
-	}
-	return func(id uuid.UUID) bool {
-		_, ok := set[id.String()]
-		return ok
-	}
-}
 
 // ListModels returns the models this virtual key can actually call, in
 // OpenAI-compatible format.
@@ -59,7 +42,13 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	providerAllowed := providerAllowFunc(effectiveAllowedProviders(keyAllowed, ownerAllowed))
 
 	openAIModels := make([]map[string]any, 0, len(models))
+	// The enabled catalogue, keyed for the failover-group walk below: ListEnabled
+	// already returned exactly the rows a group entry may serve
+	// (model.enabled AND provider.enabled), so an entry not in here is skipped
+	// without a per-entry round trip.
+	byID := make(map[uuid.UUID]*model.Model, len(models))
 	for _, m := range models {
+		byID[m.ID] = m
 		if !providerAllowed(m.ProviderID) {
 			continue
 		}
@@ -73,16 +62,11 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 	} else {
 		for _, g := range groups {
 			for _, modelUUID := range g.PriorityOrder {
-				entryEnabled := true
-				if val, ok := g.EntryEnabled[modelUUID.String()]; ok {
-					entryEnabled = val
-				}
-				if !entryEnabled {
+				if !g.IsEntryEnabled(modelUUID) {
 					continue
 				}
-
-				m, err := h.modelRepo.Get(r.Context(), modelUUID)
-				if err != nil || !m.Enabled || !m.ProviderEnabled {
+				m, ok := byID[modelUUID]
+				if !ok {
 					continue
 				}
 				if !providerAllowed(m.ProviderID) {
@@ -114,16 +98,11 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 
 // modelToOpenAIItem builds an OpenAI-compatible model object from a model entity.
 func modelToOpenAIItem(m *model.Model, id, providerName string) map[string]any {
-	ownedBy := m.OwnedBy
-	if ownedBy == "" {
-		ownedBy = m.ProviderName
-	}
-
 	item := map[string]any{
 		"id":       id,
 		"object":   "model",
 		"created":  m.CreatedAt.Unix(),
-		"owned_by": ownedBy,
+		"owned_by": cmp.Or(m.OwnedBy, m.ProviderName),
 		"provider": providerName,
 	}
 
@@ -134,10 +113,8 @@ func modelToOpenAIItem(m *model.Model, id, providerName string) map[string]any {
 	if m.MaxOutputTokens != nil {
 		item["max_output_tokens"] = *m.MaxOutputTokens
 	}
-	if m.DisplayName != "" {
-		item["name"] = m.DisplayName
-	} else if m.Name != "" {
-		item["name"] = m.Name
+	if name := cmp.Or(m.DisplayName, m.Name); name != "" {
+		item["name"] = name
 	}
 	if m.Description != "" {
 		item["description"] = m.Description
@@ -153,20 +130,20 @@ func modelToOpenAIItem(m *model.Model, id, providerName string) map[string]any {
 			debuglog.Warn("proxy: invalid capabilities JSON in model", "model", m.ModelID, "error", err)
 		}
 	}
-	if m.InputModalities != "" && m.InputModalities != "[]" {
-		var modalities []string
-		if err := json.Unmarshal([]byte(m.InputModalities), &modalities); err == nil {
-			item["input_modalities"] = modalities
-		} else {
-			debuglog.Warn("proxy: invalid input_modalities JSON in model", "model", m.ModelID, "error", err)
+	// Same rule declaredModalities encodes, kept inline here because an
+	// unreadable column is worth a log line on the catalog surface.
+	for _, col := range []struct{ key, raw string }{
+		{"input_modalities", m.InputModalities},
+		{"output_modalities", m.OutputModalities},
+	} {
+		if col.raw == "" || col.raw == "[]" {
+			continue
 		}
-	}
-	if m.OutputModalities != "" && m.OutputModalities != "[]" {
 		var modalities []string
-		if err := json.Unmarshal([]byte(m.OutputModalities), &modalities); err == nil {
-			item["output_modalities"] = modalities
+		if err := json.Unmarshal([]byte(col.raw), &modalities); err == nil {
+			item[col.key] = modalities
 		} else {
-			debuglog.Warn("proxy: invalid output_modalities JSON in model", "model", m.ModelID, "error", err)
+			debuglog.Warn("proxy: invalid modalities JSON in model", "column", col.key, "model", m.ModelID, "error", err)
 		}
 	}
 	if m.InputPricePerMillion != nil {

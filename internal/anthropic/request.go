@@ -246,7 +246,7 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 			// Tool results become standalone role:"tool" messages. Emit any
 			// pending user parts first so ordering is preserved.
 			flushUserParts()
-			content, _ := decodeToolResultContent(b.Content)
+			content, _ := decodeText(b.Content)
 			// The result names the call by the id the client was given,
 			// signature and all; the provider knows the call by the bare id.
 			toolCallID, _ := splitToolUseID(b.ToolUseID)
@@ -290,12 +290,6 @@ func decodeText(raw json.RawMessage) (string, bool) {
 		return joinReqTextBlocks(blocks), true
 	}
 	return "", false
-}
-
-// decodeToolResultContent flattens a tool_result content field (string or block
-// array) into the text OpenAI expects on a role:"tool" message.
-func decodeToolResultContent(raw json.RawMessage) (string, bool) {
-	return decodeText(raw)
 }
 
 func joinReqTextBlocks(blocks []reqBlock) string {

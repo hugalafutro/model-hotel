@@ -471,8 +471,7 @@ func TestFetchLatestTagFromTags_Success(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	tag, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	tag, err := fetchLatestTagFromTags(context.Background(), ts.URL)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -487,8 +486,7 @@ func TestFetchLatestTagFromTags_Non200Status(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	_, err := fetchLatestTagFromTags(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for non-200 status")
 	}
@@ -501,8 +499,7 @@ func TestFetchLatestTagFromTags_EmptyTagsArray(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	_, err := fetchLatestTagFromTags(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for empty tags array")
 	}
@@ -513,8 +510,7 @@ func TestFetchLatestTagFromTags_ConnectionError(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	_, err := fetchLatestTagFromTags(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for connection failure")
 	}
@@ -527,8 +523,7 @@ func TestFetchLatestTagFromTags_InvalidJSON(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	_, err := fetchLatestTagFromTags(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for invalid JSON")
 	}
@@ -540,8 +535,7 @@ func TestFetchLatestTag_Non200Status(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	_, err := fetchLatestTag(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for non-200 status from fetchLatestTag")
 	}
@@ -553,8 +547,7 @@ func TestFetchLatestTag_404ReturnsErrNotFound(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	_, err := fetchLatestTag(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for 404 from fetchLatestTag")
 	}
@@ -567,8 +560,7 @@ func TestFetchLatestTag_ConnectionError(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {}))
 	ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	_, err := fetchLatestTag(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for connection failure from fetchLatestTag")
 	}
@@ -581,8 +573,7 @@ func TestFetchLatestTag_MissingTagName(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	_, err := fetchLatestTag(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for missing tag_name from fetchLatestTag")
 	}
@@ -595,8 +586,7 @@ func TestFetchLatestTag_InvalidJSON(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTag(context.Background(), ts.URL)
+	_, err := fetchLatestTag(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for invalid JSON from fetchLatestTag")
 	}
@@ -609,8 +599,7 @@ func TestFetchLatestTagFromTags_EmptyTagNameInArray(t *testing.T) {
 	}))
 	defer ts.Close()
 
-	h := &Handler{}
-	_, err := h.fetchLatestTagFromTags(context.Background(), ts.URL)
+	_, err := fetchLatestTagFromTags(context.Background(), ts.URL)
 	if err == nil {
 		t.Error("expected error for empty tag name from fetchLatestTagFromTags")
 	}
@@ -621,12 +610,11 @@ func TestFetchLatestTagFromTags_EmptyTagNameInArray(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFetchLatestTagFromTags_InvalidURL(t *testing.T) {
-	h := &Handler{}
-	_, err := h.fetchLatestTagFromTags(context.Background(), "http://invalid url with spaces.com/tags")
+	_, err := fetchLatestTagFromTags(context.Background(), "http://invalid url with spaces.com/tags")
 	if err == nil {
 		t.Error("expected error for invalid URL")
 	}
-	if !strings.Contains(err.Error(), "create tags request") {
+	if !strings.Contains(err.Error(), "create request") {
 		t.Errorf("expected error about creating request, got: %v", err)
 	}
 }
@@ -680,12 +668,12 @@ func TestVersionLookupsShareOneClient(t *testing.T) {
 	t.Cleanup(func() { githubClient = original })
 
 	h := &Handler{ghReleasesURL: srv.URL, ghTagsURL: srv.URL}
-	if _, err := h.fetchLatestTag(context.Background(), h.ghReleasesURL); err != nil {
+	if _, err := fetchLatestTag(context.Background(), h.ghReleasesURL); err != nil {
 		t.Fatalf("fetchLatestTag failed: %v", err)
 	}
 	// The tags body is a list, which the stub above cannot serve, so the second
 	// lookup is expected to fail decoding; reaching the stub at all is the point.
-	_, _ = h.fetchLatestTagFromTags(context.Background(), h.ghTagsURL)
+	_, _ = fetchLatestTagFromTags(context.Background(), h.ghTagsURL)
 
 	if got := stub.count(); got != 2 {
 		t.Errorf("shared client carried %d of the 2 lookups", got)

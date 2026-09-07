@@ -83,8 +83,8 @@ func modelToResponse(m model.Model) ModelResponse {
 		Enabled:                      m.Enabled,
 		DisabledManually:             m.DisabledManually,
 		PriceCustomized:              m.PriceCustomized,
-		CreatedAt:                    m.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		LastSeenAt:                   m.LastSeenAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt:                    m.CreatedAt.Format(time.RFC3339),
+		LastSeenAt:                   m.LastSeenAt.Format(time.RFC3339),
 	}
 }
 
@@ -164,14 +164,6 @@ func (h *Handler) RegisterModels(r chi.Router) {
 	})
 }
 
-// parseProviderEnabledParam reads the optional provider_enabled query value:
-// "" means no filter, "true"/"false" filter on the owning provider's enabled
-// flag (NULL counts as false, matching the proxy), anything else is a 400. Shared by the list and cursor endpoints so both
-// views of the Models page agree on what "available on the proxy" means.
-func parseProviderEnabledParam(w http.ResponseWriter, raw string) (*bool, bool) {
-	return parseBoolFilterParam(w, "provider_enabled", raw)
-}
-
 // parseBoolFilterParam reads an optional tri-state boolean query value: ""
 // means no filter, "true"/"false" filter, anything else is a 400 naming the
 // parameter.
@@ -204,7 +196,7 @@ func (h *Handler) ListModels(w http.ResponseWriter, r *http.Request) {
 		providerID = &parsedID
 	}
 
-	providerEnabled, ok := parseProviderEnabledParam(w, r.URL.Query().Get("provider_enabled"))
+	providerEnabled, ok := parseBoolFilterParam(w, "provider_enabled", r.URL.Query().Get("provider_enabled"))
 	if !ok {
 		return
 	}
@@ -320,14 +312,8 @@ func (h *Handler) DeleteModel(w http.ResponseWriter, r *http.Request) {
 	// with too few candidates. SyncForModel handles the auto-group for
 	// this model's base name; PruneModelUUID cleans up any custom groups
 	// that reference the deleted model UUID.
-	failoverRepo := failover.NewRepository(h.dbPool.Pool())
-	bgCtx := context.WithoutCancel(r.Context())
-	if _, err := failoverRepo.SyncForModel(bgCtx, modelID); err != nil {
-		debuglog.Info("admin: failed to sync failover groups after model delete", "error", err)
-	}
-	if err := failoverRepo.PruneModelUUID(bgCtx, id); err != nil {
-		debuglog.Info("admin: failed to prune stale failover entries after model delete", "error", err)
-	}
+	ResyncFailoverAfterModelDelete(context.WithoutCancel(r.Context()),
+		failover.NewRepository(h.dbPool.Pool()), []string{modelID}, []uuid.UUID{id})
 
 	w.WriteHeader(http.StatusNoContent)
 }
@@ -398,7 +384,8 @@ func (h *Handler) BulkDeleteModels(w http.ResponseWriter, r *http.Request) {
 	// cleans up any custom groups that referenced the deleted UUIDs. Best-effort
 	// like single-model DeleteModel: log but don't fail the delete. WithoutCancel
 	// so it survives the request completing.
-	h.resyncFailoverAfterModelDelete(context.WithoutCancel(r.Context()), modelIDs, ids)
+	ResyncFailoverAfterModelDelete(context.WithoutCancel(r.Context()),
+		failover.NewRepository(h.dbPool.Pool()), modelIDs, ids)
 
 	writeJSON(w, BulkDeleteResponse{Requested: int64(len(req.IDs)), Deleted: deleted})
 }
@@ -410,24 +397,7 @@ func (h *Handler) collectDistinctModelIDs(ctx context.Context, ids []uuid.UUID) 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-
-	var modelIDs []string
-	for rows.Next() {
-		var mid string
-		if err := rows.Scan(&mid); err != nil {
-			return nil, err
-		}
-		modelIDs = append(modelIDs, mid)
-	}
-	return modelIDs, rows.Err()
-}
-
-// resyncFailoverAfterModelDelete resyncs the auto-group for each affected base
-// model once and prunes any custom groups that referenced the deleted UUIDs.
-// This mirrors the per-model cleanup in DeleteModel, batched for a bulk delete.
-func (h *Handler) resyncFailoverAfterModelDelete(ctx context.Context, modelIDs []string, deletedIDs []uuid.UUID) {
-	ResyncFailoverAfterModelDelete(ctx, failover.NewRepository(h.dbPool.Pool()), modelIDs, deletedIDs)
+	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 
 // ResyncFailoverAfterModelDelete rebuilds the auto-groups of every affected
@@ -542,7 +512,7 @@ func (h *Handler) resolveTestModelTarget(w http.ResponseWriter, r *http.Request)
 
 	prov, err = h.providerRepo.Get(r.Context(), m.ProviderID)
 	if err != nil {
-		respondError(w, "provider not found", nil, http.StatusInternalServerError)
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
 		return nil, nil, false
 	}
 	return m, prov, true
@@ -558,7 +528,7 @@ func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Prov
 	}
 	apiKey, err := auth.Decrypt(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
 	if err != nil {
-		respondError(w, "failed to decrypt API key", nil, http.StatusInternalServerError)
+		respondError(w, "failed to decrypt API key", err, http.StatusInternalServerError)
 		return "", false
 	}
 	return apiKey, true

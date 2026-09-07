@@ -40,12 +40,10 @@ func TestListComposeContainers(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// First, verify Docker is available
 	if !IsDockerAvailable() {
@@ -61,8 +59,8 @@ func TestListComposeContainers(t *testing.T) {
 	}
 }
 
-// TestDetectComposeProject tests compose project detection
-func TestDetectComposeProject(t *testing.T) {
+// TestDetectContainerFilterComposeProject tests compose project detection
+func TestDetectContainerFilterComposeProject(t *testing.T) {
 	resetDockerState()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -90,25 +88,23 @@ func TestDetectComposeProject(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Mock getOwnContainerID to return a container ID
 	// Since we can't easily mock /proc/self/cgroup in tests,
 	// we'll just verify it doesn't panic and returns empty string
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	// In test environment without real Docker, this should return empty string
 	if result != "" {
-		t.Errorf("DetectComposeProject() = %q, want empty string (no real Docker)", result)
+		t.Errorf("DetectContainerFilter().ComposeProject = %q, want empty string (no real Docker)", result)
 	}
 }
 
-// TestDetectComposeProject_NoLabels tests when container has no compose labels
-func TestDetectComposeProject_NoLabels(t *testing.T) {
+// TestDetectContainerFilterComposeProject_NoLabels tests when container has no compose labels
+func TestDetectContainerFilterComposeProject_NoLabels(t *testing.T) {
 	resetDockerState()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -134,20 +130,19 @@ func TestDetectComposeProject_NoLabels(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "" {
 		t.Errorf("Expected empty string when no compose labels, got %q", result)
 	}
 }
 
-// TestDetectComposeProject_APIError tests when Docker API fails
-func TestDetectComposeProject_APIError(t *testing.T) {
+// TestDetectContainerFilterComposeProject_APIError tests when Docker API fails
+func TestDetectContainerFilterComposeProject_APIError(t *testing.T) {
 	resetDockerState()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -165,13 +160,12 @@ func TestDetectComposeProject_APIError(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "" {
 		t.Errorf("Expected empty string on API error, got %q", result)
 	}
@@ -201,12 +195,10 @@ func TestListComposeContainers_Empty(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if !IsDockerAvailable() {
 		t.Fatal("Docker not available in test setup")
@@ -221,8 +213,8 @@ func TestListComposeContainers_Empty(t *testing.T) {
 	}
 }
 
-// TestDetectComposeProject_WithContainerID tests compose project detection with mock container ID
-func TestDetectComposeProject_WithContainerID(t *testing.T) {
+// TestDetectContainerFilterComposeProject_WithContainerID tests compose project detection with mock container ID
+func TestDetectContainerFilterComposeProject_WithContainerID(t *testing.T) {
 	resetDockerState()
 
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -249,22 +241,21 @@ func TestDetectComposeProject_WithContainerID(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// In CI, getOwnContainerID() returns "" because /proc/self/cgroup doesn't contain container ID
 	// This test verifies the function doesn't panic and returns empty string gracefully
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "" {
-		t.Logf("DetectComposeProject returned %q (expected empty in CI)", result)
+		t.Logf("DetectContainerFilter().ComposeProject returned %q (expected empty in CI)", result)
 	}
 }
 
-// TestDetectComposeProject_DockerUnavailable tests when Docker is not available
-func TestDetectComposeProject_DockerUnavailable(t *testing.T) {
+// TestDetectContainerFilterComposeProject_DockerUnavailable tests when Docker is not available
+func TestDetectContainerFilterComposeProject_DockerUnavailable(t *testing.T) {
 	resetDockerState()
 
 	// Set up server that fails the /info check
@@ -282,14 +273,13 @@ func TestDetectComposeProject_DockerUnavailable(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Should return empty string without panic
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "" {
 		t.Errorf("Expected empty string when Docker unavailable, got %q", result)
 	}
@@ -326,11 +316,10 @@ func TestListComposeContainers_AllProjects(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if !IsDockerAvailable() {
 		t.Fatal("Docker not available in test setup")
@@ -374,11 +363,10 @@ func TestListComposeContainers_NoComposeLabel(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if !IsDockerAvailable() {
 		t.Fatal("Docker not available in test setup")
@@ -417,11 +405,10 @@ func TestListComposeContainers_JSONDecodeError(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if !IsDockerAvailable() {
 		t.Fatal("Docker not available in test setup")
@@ -433,7 +420,7 @@ func TestListComposeContainers_JSONDecodeError(t *testing.T) {
 	}
 }
 
-func TestDetectComposeProject_HappyPath(t *testing.T) {
+func TestDetectContainerFilterComposeProject_HappyPath(t *testing.T) {
 	resetDockerState()
 
 	// Set up fake cgroup file with container ID
@@ -483,19 +470,18 @@ func TestDetectComposeProject_HappyPath(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "myproject" {
 		t.Errorf("Expected project name myproject, got %q", result)
 	}
 }
 
-func TestDetectComposeProject_NoLabelsWithID(t *testing.T) {
+func TestDetectContainerFilterComposeProject_NoLabelsWithID(t *testing.T) {
 	resetDockerState()
 
 	dir := t.TempDir()
@@ -540,19 +526,18 @@ func TestDetectComposeProject_NoLabelsWithID(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "" {
 		t.Errorf("Expected empty string when no compose labels, got %q", result)
 	}
 }
 
-func TestDetectComposeProject_JSONDecodeError(t *testing.T) {
+func TestDetectContainerFilterComposeProject_JSONDecodeError(t *testing.T) {
 	resetDockerState()
 
 	dir := t.TempDir()
@@ -593,19 +578,18 @@ func TestDetectComposeProject_JSONDecodeError(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "" {
 		t.Errorf("Expected empty string on JSON decode error, got %q", result)
 	}
 }
 
-func TestDetectComposeProject_HTTPError(t *testing.T) {
+func TestDetectContainerFilterComposeProject_HTTPError(t *testing.T) {
 	resetDockerState()
 
 	dir := t.TempDir()
@@ -643,28 +627,27 @@ func TestDetectComposeProject_HTTPError(t *testing.T) {
 		targetURL: ts.URL,
 		backend:   http.DefaultTransport,
 	}
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: infoTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 	if !IsDockerAvailable() {
 		t.Fatal("Expected Docker to be available for test setup")
 	}
 
 	// Now swap the transport to one that returns errors for the container inspect
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: errorRoundTripper{},
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "" {
 		t.Errorf("Expected empty string on HTTP error, got %q", result)
 	}
 }
 
-func TestDetectComposeProject_Non200Status(t *testing.T) {
+func TestDetectContainerFilterComposeProject_Non200Status(t *testing.T) {
 	resetDockerState()
 
 	dir := t.TempDir()
@@ -704,13 +687,12 @@ func TestDetectComposeProject_Non200Status(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := DetectComposeProject()
+	result := DetectContainerFilter().ComposeProject
 	if result != "" {
 		t.Errorf("Expected empty string on non-200 status, got %q", result)
 	}
@@ -798,11 +780,10 @@ func TestDetectContainerFilter(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	result := DetectContainerFilter()
 	if result != (ContainerFilter{ComposeProject: "testproject"}) {
@@ -861,11 +842,10 @@ func TestDetectContainerFilter_AppGroupLabel(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	result := DetectContainerFilter()
 	if result != (ContainerFilter{AppGroup: "model-hotel"}) {
@@ -905,11 +885,10 @@ func TestListComposeContainers_Non200Status(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if !IsDockerAvailable() {
 		t.Fatal("Docker not available in test setup")
@@ -985,11 +964,10 @@ func TestDetectContainerFilter_NoLabels(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	result := DetectContainerFilter()
 	if result != (ContainerFilter{}) {
@@ -1083,11 +1061,10 @@ func TestListComposeContainers_AppGroupFilter(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if !IsDockerAvailable() {
 		t.Fatal("Docker not available in test setup")

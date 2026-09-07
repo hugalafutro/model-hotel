@@ -199,13 +199,16 @@ func (p *Poller) Run(ctx context.Context) {
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkConfigStaleness},
 		{func(s Settings) time.Duration { return secs(s.TraefikPollSecs, 5) }, p.checkAutoSyncStale},
 		{func(s Settings) time.Duration { return secs(s.HealthPollSecs, 5) }, p.PollAnnounceOnce},
+		// Retention is a days-scale bound, so an hourly sweep is as fine-grained
+		// as it needs to be.
+		{func(Settings) time.Duration { return time.Hour }, p.PruneEventsOnce},
 	}
 	for _, l := range loops {
 		wg.Add(1)
-		go func(interval func(Settings) time.Duration, fn func(context.Context)) {
+		go func() {
 			defer wg.Done()
-			p.tickLoop(ctx, interval, fn)
-		}(l.interval, l.fn)
+			p.tickLoop(ctx, l.interval, l.fn)
+		}()
 	}
 	wg.Wait()
 }
@@ -250,9 +253,10 @@ func (p *Poller) PollHealthOnce(ctx context.Context) {
 		debuglog.Warn("frontdesk: poll health: list members", "error", err)
 		return
 	}
+	threshold := p.healthFailThreshold(ctx)
 	for _, m := range members {
 		hs := p.checkHealth(ctx, m.URL)
-		p.applyHealth(ctx, m, hs)
+		p.applyHealth(ctx, m, hs, threshold)
 	}
 }
 
@@ -297,9 +301,7 @@ func (p *Poller) checkHealth(ctx context.Context, baseURL string) HealthStatus {
 // During the grace window (below threshold) the badge keeps the last known-good
 // status, so the dashboard does not flicker red on every rebuild. A first
 // observation that is healthy is recorded silently as the baseline.
-func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
-	threshold := p.healthFailThreshold(ctx)
-
+func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, threshold int) {
 	p.mu.Lock()
 	prev, had := p.statuses[m.ID]
 	cur := prev
@@ -356,14 +358,25 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus) {
 }
 
 // recordEvent persists a control-plane event and publishes it on the SSE bus.
-func (p *Poller) recordEvent(ctx context.Context, e Event) {
-	stored, err := p.store.InsertEvent(ctx, e)
-	if err != nil {
-		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
-		stored = e
+func (p *Poller) recordEvent(ctx context.Context, e Event) { emitEvent(ctx, p.store, p.bus, e) }
+
+// PruneEventsOnce drops events past the operator's retention window, so the
+// event log stays bounded rather than growing for the life of the deployment.
+// A retention value the settings row cannot supply (an unreadable row falls back
+// to defaults that carry none) skips the sweep rather than guessing a window.
+func (p *Poller) PruneEventsOnce(ctx context.Context) {
+	days := p.settings(ctx).EventRetentionDays
+	if days < 1 {
+		return
 	}
-	logEvent(stored)
-	p.bus.Publish(busEvent(stored))
+	n, err := p.store.PruneEvents(ctx, days)
+	if err != nil {
+		debuglog.Warn("frontdesk: prune events", "error", err)
+		return
+	}
+	if n > 0 {
+		debuglog.Debug("frontdesk: pruned events past retention", "removed", n, "retention_days", days)
+	}
 }
 
 // publishMemberStatus emits a bus-only signal that a member's live status

@@ -143,8 +143,3 @@ func validatePrintable(field, value string) error {
 	}
 	return nil
 }
-
-// trimString returns a trimmed copy of the string.
-func trimString(s string) string {
-	return strings.TrimSpace(s)
-}

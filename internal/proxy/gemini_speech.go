@@ -13,7 +13,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/provider"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Gemini text-to-speech: /v1/audio/speech on a provider whose TTS models are
@@ -35,10 +34,19 @@ const speechBodyCap = 32 << 20
 // the pass-through; a model discovery left without modalities is treated as
 // audio-capable.
 func isGeminiSpeechAttempt(st *requestState, providerType, outputModalities string) bool {
-	if st.endpointPath != speechEndpointPath || (providerType != "google" && providerType != "vertex-express") {
+	return isGeminiAudioAttempt(st, speechEndpointPath, providerType, outputModalities)
+}
+
+// isGeminiAudioAttempt reports an audio request landing on a provider whose
+// hearing or speaking models are served by Google's native route: Google AI
+// Studio and Vertex AI express. A model whose discovered modalities name no
+// audio keeps the pass-through; a model discovery left without modalities is
+// treated as audio-capable.
+func isGeminiAudioAttempt(st *requestState, endpoint, providerType, modalities string) bool {
+	if st.endpointPath != endpoint || (providerType != "google" && providerType != "vertex-express") {
 		return false
 	}
-	declared := declaredModalities(outputModalities)
+	declared := declaredModalities(modalities)
 	return len(declared) == 0 || slices.Contains(declared, "audio")
 }
 
@@ -93,19 +101,11 @@ func (h *Handler) buildGeminiSpeechRequest(ctx context.Context, st *requestState
 		return nil, providerType, "", err
 	}
 	st.speechFormat = format
-	endpoint := geminiEgressEndpoint(providerType, candidate.model.ModelID, false)
-	baseURL := candidate.provider.BaseURL
-	if providerType == "google" {
-		baseURL = provider.GoogleNativeBaseURL(baseURL)
-	}
-	targetURL := util.BuildProviderTargetURL(baseURL, providerType, endpoint)
+	proxyReq, targetURL, err := newGeminiEgressRequest(ctx, candidate, providerType, geminiEgressEndpoint(providerType, candidate.model.ModelID, false), body)
 	debuglog.Info("proxy: routing speech via gemini egress adapter", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name, "format", format)
-	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, providerType, targetURL, err
 	}
-	setGeminiEgressAuth(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
 }
 
@@ -118,23 +118,31 @@ func (h *Handler) buildGeminiSpeechRequest(ctx context.Context, st *requestState
 // audio (a blocked prompt, a text reply) is handed to the loop as an
 // untranslatable body and fails over.
 func (h *Handler) serveGeminiSpeechResponse(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64) candidateOutcome {
-	body, readErr := io.ReadAll(io.LimitReader(resp.Body, speechBodyCap+1))
-	_ = resp.Body.Close()
-	if readErr == nil && len(body) > speechBodyCap {
-		readErr = errSpeechBodyOversized
-	}
+	return h.serveGeminiReshaped(w, r, st, candidate, resp, attempt, responseHeaderMs, "gemini speech", speechBodyCap, errSpeechBodyOversized, st.speechFormat, gemini.BuildSpeechResponse)
+}
+
+// serveGeminiReshaped delivers a Gemini native audio attempt's 2xx: the
+// generateContent answer is read whole (bounded), build re-shapes it into what
+// the client asked for, and the bytes go out through the pass-through, which
+// owns the commit point, the breaker credit, the request log and the metering.
+// The usage the answer reported rides along on the request state, since the
+// re-shaped body carries none. An answer build cannot read (a blocked prompt,
+// a reply in the wrong modality) is handed to the loop as an untranslatable
+// body and fails over.
+func (h *Handler) serveGeminiReshaped(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64, adapter string, limit int, oversized error, format string, build func([]byte, string) ([]byte, string, gemini.SpeechUsage, error)) candidateOutcome {
+	body, readErr := readCappedBody(resp, limit, oversized)
 	if readErr != nil {
-		return h.rejectUntranslatableBody(st, candidate, st.logData, "gemini speech", resp.StatusCode, readErr, attempt, r)
+		return h.rejectUntranslatableBody(st, candidate, st.logData, adapter, resp.StatusCode, readErr, attempt, r)
 	}
-	audio, contentType, usage, err := gemini.BuildSpeechResponse(body, st.speechFormat)
+	out, contentType, usage, err := build(body, format)
 	if err != nil {
-		return h.rejectUntranslatableBody(st, candidate, st.logData, "gemini speech", resp.StatusCode, err, attempt, r)
+		return h.rejectUntranslatableBody(st, candidate, st.logData, adapter, resp.StatusCode, err, attempt, r)
 	}
 	st.passthroughUsage = &passthroughUsage{prompt: usage.PromptTokens, completion: usage.CompletionTokens}
 	delivered := &http.Response{
 		StatusCode: resp.StatusCode,
-		Header:     http.Header{"Content-Type": {contentType}, "Content-Length": {strconv.Itoa(len(audio))}},
-		Body:       io.NopCloser(bytes.NewReader(audio)),
+		Header:     http.Header{"Content-Type": {contentType}, "Content-Length": {strconv.Itoa(len(out))}},
+		Body:       io.NopCloser(bytes.NewReader(out)),
 	}
 	h.servePassthroughResponse(w, r, st, candidate, delivered, attempt, responseHeaderMs)
 	return outcomeServed

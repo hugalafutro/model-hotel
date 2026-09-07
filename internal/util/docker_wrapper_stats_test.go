@@ -62,12 +62,10 @@ func TestGetContainerStats(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	stats, err := GetContainerStats("abc123def4567")
 	if err != nil {
@@ -137,14 +135,12 @@ func TestCollectDockerStats(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := CollectDockerStats("myapp")
+	result := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	if !result.Available {
 		t.Fatal("expected Available=true")
 	}
@@ -173,14 +169,12 @@ func TestCollectDockerStats_NotAvailable(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := CollectDockerStats("myapp")
+	result := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	if result.Available {
 		t.Error("expected Available=false when Docker is not available")
 	}
@@ -209,12 +203,10 @@ func TestGetContainerStats_Error(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	stats, err := GetContainerStats("abc123def4567")
 	if err == nil {
@@ -244,14 +236,13 @@ func TestCollectDockerStats_NoDockerAvailable(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Should not panic and should return empty result
-	result := CollectDockerStats("myapp")
+	result := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	if result.Available {
 		t.Error("expected Available=false when Docker is not available")
 	}
@@ -283,14 +274,13 @@ func TestCollectDockerStats_ListContainersError(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Should not panic and should return empty result
-	result := CollectDockerStats("myapp")
+	result := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	if result.Available {
 		t.Error("expected Available=false when container listing fails")
 	}
@@ -324,13 +314,12 @@ func TestCollectDockerStats_NoRunningContainers(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := CollectDockerStats("myapp")
+	result := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	// Available should be true (Docker is available, containers listed)
 	// but CPU/Memory should be 0 since no containers are running
 	if !result.Available {
@@ -408,11 +397,10 @@ func TestCollectDockerStats_GetStatsError(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Should not panic, should aggregate stats from successful container only
 	result := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
@@ -477,11 +465,10 @@ func TestGetContainerStats_CacheFallback(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	stats, err := GetContainerStats("abc123def4567")
 	if err != nil {
@@ -541,11 +528,10 @@ func TestGetContainerStats_ZeroOnlineCPUs(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	stats, err := GetContainerStats("abc123def4567")
 	if err != nil {
@@ -606,11 +592,10 @@ func TestGetContainerStats_CPUCapped(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	stats, err := GetContainerStats("abc123def4567")
 	if err != nil {
@@ -677,11 +662,10 @@ func TestGetContainerStats_CPUCapped_Exceeded(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	stats, err := GetContainerStats("abc123def4567")
 	if err != nil {
@@ -740,11 +724,10 @@ func TestGetContainerStats_NilNetworks(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Should not panic with nil networks
 	stats, err := GetContainerStats("abc123def4567")
@@ -850,14 +833,13 @@ func TestCollectDockerStats_SecondCall(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// First call - initializes baseline, no rates
-	result1 := CollectDockerStats("myapp")
+	result1 := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	if !result1.Available {
 		t.Fatal("expected Available=true on first call")
 	}
@@ -869,7 +851,7 @@ func TestCollectDockerStats_SecondCall(t *testing.T) {
 	time.Sleep(10 * time.Millisecond)
 
 	// Second call - should calculate rates
-	result2 := CollectDockerStats("myapp")
+	result2 := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	if !result2.Available {
 		t.Fatal("expected Available=true on second call")
 	}
@@ -913,11 +895,10 @@ func TestGetContainerStats_JSONDecodeError(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	stats, err := GetContainerStats("abc123def4567")
 	if err == nil {
@@ -983,13 +964,12 @@ func TestCollectDockerStats_ProcsFallbackToPids(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
-	result := CollectDockerStats("myapp")
+	result := CollectDockerStatsWithFilter(ContainerFilter{ComposeProject: "myapp"})
 	if !result.Available {
 		t.Fatal("expected Available=true")
 	}

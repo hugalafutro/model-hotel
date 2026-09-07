@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 
@@ -50,6 +49,10 @@ func (d *DiscoveryService) discoverCohere(ctx context.Context, provider *Provide
 func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Provider, apiKey, nativeBaseURL, endpoint string, pricingCatalog []CoherePricingEntry) ([]*model.Model, error) {
 	models := make([]*model.Model, 0)
 
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+apiKey)
+	headers.Set("Content-Type", "application/json")
+
 	// Paginate through all model pages
 	pageToken := ""
 	for {
@@ -58,28 +61,10 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 			url += "&page_token=" + pageToken
 		}
 
-		req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create request: %w", err)
-		}
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-		req.Header.Set("Content-Type", "application/json")
-
-		resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+		bodyBytes, err := d.fetchURL(ctx, "GET", url, headers)
 		if err != nil {
 			debuglog.Error("discovery: cohere http request failed", "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "error", err)
 			return nil, fmt.Errorf("failed to fetch models: %w", err)
-		}
-
-		bodyBytes, err := io.ReadAll(resp.Body)
-		_ = resp.Body.Close()
-		if err != nil {
-			return nil, fmt.Errorf("failed to read response: %w", err)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			debuglog.Error("discovery: cohere non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "endpoint", endpoint, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
-			return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
 		}
 
 		var cohereResp CohereModelsResponse

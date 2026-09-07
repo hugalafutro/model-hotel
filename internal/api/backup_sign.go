@@ -185,25 +185,6 @@ func sidecarExpectation(path, masterKey string) (want []byte, status backupSigSt
 	return decoded, backupSigValid, nil
 }
 
-// verifyBackupFile checks a dump in the backup directory against its sidecar,
-// reading the dump by path. Callers that already hold the file open should use
-// verifyBackupHandle instead so the bytes checked are the bytes they will use.
-func verifyBackupFile(path, masterKey string) (backupSigStatus, error) {
-	want, status, err := sidecarExpectation(path, masterKey)
-	if err != nil || status != backupSigValid {
-		return status, err
-	}
-	key, err := backupSignatureKey(masterKey)
-	if err != nil {
-		return backupSigUnavailable, err
-	}
-	got, err := hmacBackupFile(path, key)
-	if err != nil {
-		return backupSigInvalid, err
-	}
-	return compareSignature(got, want), nil
-}
-
 // verifyBackupHandle checks the bytes behind an open handle against the sidecar
 // for name, and leaves the handle rewound. This is what the download path uses:
 // checking the same inode it is about to serve closes the window where the file
@@ -267,7 +248,9 @@ func verifyUploadedDumpSignature(path, name, signature, masterKey string) (backu
 // missing dump as a 404; a sidecar that could not be removed is reported only
 // when the dump itself came away cleanly.
 func removeBackupWithSignature(path string) error {
+	//nolint:gosec // G703: every caller passes a path validateBackupFilename resolved under backupDir
 	err := os.Remove(path)
+	//nolint:gosec // G703: same validated path, with the sidecar suffix
 	sigErr := os.Remove(path + backupSignatureExt)
 	if err != nil {
 		return err

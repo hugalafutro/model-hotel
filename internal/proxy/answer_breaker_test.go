@@ -77,7 +77,7 @@ func TestHandleNonStreamingResponse_EmptyAnswerChargesTheBreaker(t *testing.T) {
 			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(tc.body)), Header: make(http.Header)}
 			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 
-			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 			h.recordAnswerOutcome(st, candidate, logData, 200)
 
 			charged := h.circuitBreaker.GetState(providerID, "") == failover.StateOpen
@@ -336,7 +336,7 @@ func TestHandleNonStreamingResponse_AnInterruptedReadIsNotCharged(t *testing.T) 
 			}
 			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)).WithContext(ctx)
 
-			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 			h.recordAnswerOutcome(st, candidate, logData, 200)
 
 			if logData.errorKind != tc.wantKind {
@@ -503,7 +503,7 @@ func TestHandleNonStreamingResponse_AnOversizedBodyIsNotTheProvidersFault(t *tes
 		strings.Repeat("x", nonStreamingBodyCap) + `"}}]}`
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(huge)), Header: make(http.Header)}
 
-	h.handleNonStreamingResponse(httptest.NewRecorder(), withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if logData.errorKind != KindProviderBadRequest {
@@ -754,7 +754,7 @@ func TestHandleNonStreamingResponse_ABodyThatDiedOnTheWireIsCharged(t *testing.T
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(body), Header: make(http.Header)}
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 
-	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if logData.errorKind != KindProviderError {
@@ -948,7 +948,7 @@ func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t 
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(body), Header: make(http.Header)}
 	w := httptest.NewRecorder()
 
-	h.handleNonStreamingResponse(w, withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(w, withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if !strings.Contains(w.Body.String(), "hello") {

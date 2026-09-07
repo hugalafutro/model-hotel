@@ -3,7 +3,6 @@ package ratelimit
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -46,43 +45,28 @@ const (
 // without a restart.
 type Limiter struct {
 	mu          sync.Mutex
-	limiters    map[string]*keyEntry
+	limiters    map[string]*bucketEntry
 	settings    SettingsReader
 	stopCh      chan struct{}
 	wasDisabled atomic.Bool // tracks whether rate limiting was off so we can reset buckets on re-enable
 }
 
-type keyEntry struct {
-	limiter  *rate.Limiter
-	rps      float64
-	burst    int
-	lastUsed time.Time
-	throttle throttleState // edge-triggered throttle logging (see throttle.go)
-}
-
-// throttleCtx builds the per-key logging context for the shared throttleState.
-func (e *keyEntry) throttleCtx(keyHash string) throttleLogCtx {
-	return throttleLogCtx{prefix: "ratelimit", label: "key", id: keyHash, rps: e.rps, burst: e.burst}
-}
-
-func (e *keyEntry) noteRejected(keyHash string) {
-	e.throttle.noteRejected(e.throttleCtx(keyHash))
-}
-
-func (e *keyEntry) noteAllowed(keyHash string) {
-	e.throttle.noteAllowed(e.throttleCtx(keyHash))
-}
+// The prefix and label every per-key bucket logs under (see bucketEntry).
+const (
+	keyLogPrefix = "ratelimit"
+	keyLogLabel  = "key"
+)
 
 // NewLimiter creates a Limiter that reads configuration from the provided
 // SettingsReader. A background goroutine is started to clean up entries
 // that have not been used in the last 10 minutes.
 func NewLimiter(settings SettingsReader) *Limiter {
 	l := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: settings,
 		stopCh:   make(chan struct{}),
 	}
-	go l.cleanupLoop()
+	go runCleanup(l.stopCh, l.cleanup)
 	return l
 }
 
@@ -129,7 +113,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// limiters so every key gets a fresh bucket on re-enable.
 			if l.wasDisabled.CompareAndSwap(true, false) {
 				l.mu.Lock()
-				l.limiters = make(map[string]*keyEntry)
+				l.limiters = make(map[string]*bucketEntry)
 				l.mu.Unlock()
 				debuglog.Info("ratelimit: rate limiting re-enabled, reset all buckets")
 			}
@@ -160,7 +144,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// an RPS cap, all their keys share one "user:<uuid>" bucket. The
 			// user reservation is taken first and cancelled if the per-key
 			// stage rejects, so a 429 never burns aggregate budget.
-			var userEntry *keyEntry
+			var userEntry *bucketEntry
 			userKey := ""
 			if uid, ok := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string); ok && uid != "" {
 				if uRPS, ok := r.Context().Value(ctxkeys.UserRateLimitRPSKey).(*float64); ok && uRPS != nil {
@@ -187,7 +171,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				userRes = userEntry.limiter.Reserve()
 				if !userRes.OK() {
 					userEntry.noteRejected(userKey)
-					l.writeRateLimitHeaders(w, userEntry.limiter, 0)
+					writeRateLimitHeaders(w, userEntry.limiter, 0, "")
 					util.WriteOpenAIError(w, "user rate limit exceeded", http.StatusTooManyRequests)
 					return
 				}
@@ -199,7 +183,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 					userRes.Cancel()
 				}
 				entry.noteRejected(keyHash)
-				l.writeRateLimitHeaders(w, entry.limiter, 0)
+				writeRateLimitHeaders(w, entry.limiter, 0, "")
 				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
@@ -228,7 +212,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 						}
 						return
 					}
-					l.writeRateLimitHeaders(w, entry.limiter, 0)
+					writeRateLimitHeaders(w, entry.limiter, 0, "")
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
@@ -239,7 +223,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 					userRes.Cancel()
 				}
 				limitedBy.noteRejected(limitedKey)
-				l.writeRateLimitHeaders(w, limitedBy.limiter, delay)
+				writeRateLimitHeaders(w, limitedBy.limiter, delay, "")
 				msg := "rate limit exceeded"
 				if limitedBy == userEntry {
 					msg = "user rate limit exceeded"
@@ -254,7 +238,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			if userEntry != nil {
 				userEntry.noteAllowed(userKey)
 			}
-			l.writeRateLimitHeaders(w, entry.limiter, 0)
+			writeRateLimitHeaders(w, entry.limiter, 0, "")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -264,7 +248,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 // If per-key overrides are provided (non-nil), they take precedence over
 // global settings. If the stored limiter's RPS or burst no longer matches,
 // it is replaced so runtime changes take effect immediately.
-func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *float64, perKeyBurst *int) *keyEntry {
+func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *float64, perKeyBurst *int) *bucketEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -294,19 +278,17 @@ func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *flo
 		burst = max(1, burst/n)
 	}
 
-	// Unlimited (RPS=0) — use an extremely high rate that never blocks.
-	if rps <= 0 {
-		rps = 1e6
-		burst = 1e6
-	}
+	rps, burst = bucketRate(rps, burst)
 
 	entry, ok := l.limiters[keyHash]
 	if !ok || entry.rps != rps || entry.burst != burst {
-		entry = &keyEntry{
+		entry = &bucketEntry{
 			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
 			rps:      rps,
 			burst:    burst,
 			lastUsed: time.Now(),
+			prefix:   keyLogPrefix,
+			label:    keyLogLabel,
 		}
 		l.limiters[keyHash] = entry
 	} else {
@@ -343,33 +325,6 @@ func extractKey(r *http.Request) string {
 	// its own bucket. /v1 is unaffected either way, since the hash is always
 	// present there and this line never runs.
 	return clientip.From(r)
-}
-
-// writeRateLimitHeaders adds standard rate-limit response headers.
-func (l *Limiter) writeRateLimitHeaders(w http.ResponseWriter, lim *rate.Limiter, retryAfter time.Duration) {
-	w.Header().Set("X-RateLimit-Limit", strconv.FormatFloat(float64(lim.Limit()), 'f', -1, 64))
-	w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(int64(lim.Tokens()), 10))
-	w.Header().Set("X-RateLimit-Burst", strconv.Itoa(lim.Burst()))
-
-	if retryAfter > 0 {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
-	}
-}
-
-// cleanupLoop periodically removes limiter entries that haven't been
-// used recently, preventing unbounded memory growth.
-func (l *Limiter) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-l.stopCh:
-			return
-		case <-ticker.C:
-			l.cleanup()
-		}
-	}
 }
 
 func (l *Limiter) cleanup() {

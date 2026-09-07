@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -92,7 +93,7 @@ func WithTitlePrefix(p string) Option { return func(d *Dispatcher) { d.titlePref
 // WithDebounceKeys sets the metadata keys used to scope per-entity debounce. The
 // slice is copied so a later mutation by the caller cannot change debounce behavior.
 func WithDebounceKeys(keys []string) Option {
-	return func(d *Dispatcher) { d.debounceKeys = append([]string(nil), keys...) }
+	return func(d *Dispatcher) { d.debounceKeys = slices.Clone(keys) }
 }
 
 // WithResultHook observes the outcome of every dispatched notification attempt

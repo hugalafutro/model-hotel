@@ -29,8 +29,8 @@ func TestIsNoAccessError_Forbidden(t *testing.T) {
 
 func TestIsNoAccessError_TooManyRequests(t *testing.T) {
 	err := &httpError{StatusCode: http.StatusTooManyRequests}
-	if !isNoAccessError(err) {
-		t.Error("isNoAccessError(429) = false, want true")
+	if isNoAccessError(err) {
+		t.Error("isNoAccessError(429) = true, want false")
 	}
 }
 

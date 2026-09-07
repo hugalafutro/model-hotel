@@ -268,7 +268,7 @@ func TestFailoverHandler_Create_Conflict(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	_, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	_, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -299,7 +299,7 @@ func TestFailoverHandler_Get_Success(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -365,7 +365,7 @@ func TestFailoverHandler_Update_Success(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestFailoverHandler_Update_InvalidatesCache(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -618,7 +618,7 @@ func TestFailoverHandler_Update_DisableGroup(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -654,7 +654,7 @@ func TestFailoverHandler_Update_NoEnabledEntries(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -714,7 +714,7 @@ func TestFailoverHandler_Update_InvalidPriorityOrderEntry(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -760,7 +760,7 @@ func TestFailoverHandler_Delete_Success(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -826,7 +826,7 @@ func TestFailoverHandler_List_Success(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	_, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	_, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -908,7 +908,7 @@ func TestFailoverHandler_GetByModelUUID_Found(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	_, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	_, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1015,7 +1015,7 @@ func TestFailoverHandler_List_GetTokenCountsError(t *testing.T) {
 	ctx := context.Background()
 	displayModel := "test-list-tokenerr-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	_, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	_, err := failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1047,7 +1047,7 @@ func TestFailoverHandler_List_BuildGroupResponseError(t *testing.T) {
 	ctx := context.Background()
 	displayModel := "test-list-builderr-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	_, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	_, err := failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1077,7 +1077,7 @@ func TestFailoverHandler_Get_GetTokenCountsError(t *testing.T) {
 	ctx := context.Background()
 	displayModel := "test-get-tokenerr-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	fg, err := failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1109,7 +1109,7 @@ func TestFailoverHandler_Get_BuildGroupResponseError(t *testing.T) {
 	ctx := context.Background()
 	displayModel := "test-get-builderr-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	fg, err := failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1184,7 +1184,7 @@ func TestFailoverHandler_Update_RepoError(t *testing.T) {
 	ctx := context.Background()
 	displayModel := "test-update-repoerr-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	fg, err := failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1223,7 +1223,7 @@ func TestFailoverHandler_Update_BuildGroupResponseError(t *testing.T) {
 	ctx := context.Background()
 	displayModel := "test-update-builderr-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	fg, err := failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1250,7 +1250,7 @@ func TestFailoverHandler_Delete_RepoError(t *testing.T) {
 	ctx := context.Background()
 	displayModel := "test-delete-repoerr-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	fg, err := failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	fg, err := failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1355,7 +1355,7 @@ func TestFailoverHandler_Update_InvalidDisplayName(t *testing.T) {
 
 	displayModel := "test-update-invname-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1380,7 +1380,7 @@ func TestFailoverHandler_Update_InvalidDescription(t *testing.T) {
 
 	displayModel := "test-update-invdesc-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1406,7 +1406,7 @@ func TestFailoverHandler_Update_InvalidEntryEnabled(t *testing.T) {
 
 	displayModel := "test-update-inventry-" + uuid.New().String()[:8]
 	id1, id2 := uuid.New(), uuid.New()
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, []uuid.UUID{id1, id2})
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1520,10 +1520,7 @@ func TestGetTokenCounts(t *testing.T) {
 	})
 
 	// Verify token counts are correct for hotel/ models
-	counts, err := h.getTokenCounts(ctx)
-	if err != nil {
-		t.Fatalf("getTokenCounts failed: %v", err)
-	}
+	counts := h.getTokenCounts(ctx)
 
 	if counts["hotel/gpt-4o"] != 450 {
 		t.Errorf("hotel/gpt-4o count = %d, want 450", counts["hotel/gpt-4o"])
@@ -1544,10 +1541,7 @@ func TestGetTokenCounts(t *testing.T) {
 		t.Fatalf("failed to delete test rows: %v", err)
 	}
 
-	counts, err = h.getTokenCounts(ctx)
-	if err != nil {
-		t.Fatalf("getTokenCounts failed on empty case: %v", err)
-	}
+	counts = h.getTokenCounts(ctx)
 
 	if len(counts) != 0 {
 		t.Errorf("expected empty map when no hotel/ rows exist, got %d entries", len(counts))
@@ -1589,7 +1583,7 @@ func TestFailoverHandler_Update_DisplayModel_Success(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1629,11 +1623,11 @@ func TestFailoverHandler_Update_DisplayModel_Conflict(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg1, err := h.failoverRepo.Upsert(ctx, name1, po)
+	fg1, err := h.failoverRepo.UpsertWithConfig(ctx, name1, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed for first group: %v", err)
 	}
-	_, err = h.failoverRepo.Upsert(ctx, name2, po)
+	_, err = h.failoverRepo.UpsertWithConfig(ctx, name2, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed for second group: %v", err)
 	}
@@ -1665,7 +1659,7 @@ func TestFailoverHandler_Update_DisplayModel_InvalidEmpty(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1695,7 +1689,7 @@ func TestFailoverHandler_Update_DisplayModel_SameName(t *testing.T) {
 	id1, id2 := uuid.New(), uuid.New()
 	po := []uuid.UUID{id1, id2}
 
-	fg, err := h.failoverRepo.Upsert(ctx, displayModel, po)
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}

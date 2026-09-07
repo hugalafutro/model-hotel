@@ -1,7 +1,6 @@
 package api
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 
@@ -34,7 +33,7 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(req.NewPassword) < minPasswordLen {
-		respondBadRequest(w, "password must be at least 8 characters", nil)
+		respondBadRequest(w, errPasswordTooShort.Error(), nil)
 		return
 	}
 	key := id.UserID.String()
@@ -46,11 +45,7 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 	}
 	u, err := h.userRepo.Get(r.Context(), *id.UserID)
 	if err != nil {
-		if errors.Is(err, user.ErrNotFound) {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-		respondError(w, "failed to load user", err, http.StatusInternalServerError)
+		respondLookupError(w, err, user.ErrNotFound, "user not found", "failed to load user")
 		return
 	}
 	match, err := user.VerifyPassword(r.Context(), req.CurrentPassword, u.PasswordHash)

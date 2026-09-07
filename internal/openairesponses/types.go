@@ -139,6 +139,18 @@ type OutputItem struct {
 	Arguments util.ToolArguments `json:"arguments"`
 }
 
+// callID is the id a chat tool_call carries for this function-call item.
+// Responses names the call twice: call_id is the handle a later
+// function_call_output refers to, and id identifies the output item itself.
+// A relay that omits call_id would otherwise leave the client an unaddressable
+// call, so the item id stands in.
+func (it OutputItem) callID() string {
+	if it.CallID != "" {
+		return it.CallID
+	}
+	return it.ID
+}
+
 // OutputContent is one content part of a message output item.
 type OutputContent struct {
 	Type string `json:"type"` // output_text | refusal | ...
@@ -229,22 +241,6 @@ type chatPromptTokensDetails struct {
 
 type chatCompletionTokensDetails struct {
 	ReasoningTokens int `json:"reasoning_tokens"`
-}
-
-// chatChunk is one chat.completion.chunk streaming payload.
-type chatChunk struct {
-	ID      string            `json:"id"`
-	Object  string            `json:"object"`
-	Created int64             `json:"created"`
-	Model   string            `json:"model"`
-	Choices []chatChunkChoice `json:"choices"`
-	Usage   *chatUsage        `json:"usage,omitempty"`
-}
-
-type chatChunkChoice struct {
-	Index        int       `json:"index"`
-	Delta        chatDelta `json:"delta"`
-	FinishReason *string   `json:"finish_reason"`
 }
 
 type chatDelta struct {

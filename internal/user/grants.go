@@ -26,13 +26,9 @@ func AllGrants() []Grant {
 
 // ValidateGrants rejects unknown or duplicate grant keys.
 func ValidateGrants(grants []string) error {
-	valid := make(map[string]bool, 8)
-	for _, g := range AllGrants() {
-		valid[string(g)] = true
-	}
 	seen := make(map[string]bool, len(grants))
 	for _, g := range grants {
-		if !valid[g] {
+		if !slices.Contains(AllGrants(), Grant(g)) {
 			return fmt.Errorf("unknown grant %q", g)
 		}
 		if seen[g] {

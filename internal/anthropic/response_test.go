@@ -321,3 +321,44 @@ func TestBuildMessageResponse_EmptyToolIDSynthesized(t *testing.T) {
 		t.Errorf("unsigned empty id became %q", m.Content[1].ID)
 	}
 }
+
+// Anthropic types tool_use.input as an object, and its SDKs reject anything
+// else on decode. An upstream that answered with a JSON array or scalar in
+// arguments must not reach the client as that shape.
+func TestBuildMessageResponse_ToolUseInputIsAlwaysAnObject(t *testing.T) {
+	cases := []struct {
+		name string
+		args string
+		want string
+	}{
+		{name: "object passes through", args: `"{\"q\":\"x\"}"`, want: `{"q":"x"}`},
+		{name: "array becomes an empty object", args: `"[1,2]"`, want: `{}`},
+		{name: "scalar becomes an empty object", args: `"42"`, want: `{}`},
+		{name: "invalid json becomes an empty object", args: `"{not json"`, want: `{}`},
+		{name: "empty becomes an empty object", args: `""`, want: `{}`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"choices":[{"finish_reason":"tool_calls","message":{"role":"assistant","content":null,` +
+				`"tool_calls":[{"id":"call_1","type":"function","function":{"name":"lookup","arguments":` + tc.args + `}}]}}]}`
+			out, err := BuildMessageResponse([]byte(body), "msg_1", "m")
+			if err != nil {
+				t.Fatalf("BuildMessageResponse: %v", err)
+			}
+			var msg struct {
+				Content []struct {
+					Input json.RawMessage `json:"input"`
+				} `json:"content"`
+			}
+			if err := json.Unmarshal(out, &msg); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if len(msg.Content) != 1 {
+				t.Fatalf("content = %s, want one tool_use block", out)
+			}
+			if got := string(msg.Content[0].Input); got != tc.want {
+				t.Errorf("input = %s, want %s", got, tc.want)
+			}
+		})
+	}
+}

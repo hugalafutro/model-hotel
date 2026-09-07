@@ -1,11 +1,19 @@
 package adminauth
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
+
+// SessionMinter is the slice of webauthn.SessionManager the exchange needs, so
+// a caller that holds the manager behind its own interface can mount the same
+// handler.
+type SessionMinter interface {
+	CreateAuthToken(ctx context.Context, userID, credentialID []byte, meta webauthn.SessionMeta) (string, error)
+}
 
 // TokenExchange trades the raw admin token for an HttpOnly session cookie so
 // the SPA never keeps the raw token in browser storage. It is a login
@@ -17,7 +25,7 @@ import (
 // nil means forwarded headers are never trusted and the peer address is used.
 func TokenExchange(
 	adminMgr AdminAuthenticator,
-	sessionMgr *webauthn.SessionManager,
+	sessionMgr SessionMinter,
 	totpEnabled func() bool,
 	jar authcookie.Jar,
 	cookieSecure string,

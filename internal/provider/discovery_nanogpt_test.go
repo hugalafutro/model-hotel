@@ -47,13 +47,13 @@ func TestGetNanoGPTUsage_Success(t *testing.T) {
 			Period: NanoGPTUsagePeriod{
 				CurrentPeriodEnd: "2024-01-31T23:59:59Z",
 			},
-			DailyInputTokens: &NanoGPTUsageTokenInfo{
+			DailyInputTokens: &NanoGPTUsageCounter{
 				Used:        10000,
 				Remaining:   40000,
 				PercentUsed: 20.0,
 				ResetAt:     1704067200,
 			},
-			WeeklyInputTokens: &NanoGPTUsageTokenInfo{
+			WeeklyInputTokens: &NanoGPTUsageCounter{
 				Used:        50000,
 				Remaining:   150000,
 				PercentUsed: 25.0,

@@ -49,7 +49,7 @@ func TestLoadCatalog_AllCatalogsParse(t *testing.T) {
 		{"xai", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("xai.json")) }, true},
 		{"zai", func() int { return len(loadCatalog[[]ZAICodingModelSpec]("zai.json")) }, true},
 		{"deepseek", func() int { return len(loadCatalog[[]DeepSeekModelSpec]("deepseek.json")) }, true},
-		{"openai", func() int { return len(loadCatalog[[]OpenAIModelSpec]("openai.json")) }, true},
+		{"openai", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("openai.json")) }, true},
 		// Pricing overrides: legitimately empty.
 		// opencode_go has a live /models listing and full models.dev coverage;
 		// its rows exist only to override either of those when they drift.
@@ -92,7 +92,7 @@ func TestLoadCatalog_ModalityStringsParse(t *testing.T) {
 			check(t, file+"/"+e.ModelID, "output_modalities", e.OutputModalities)
 		}
 	}
-	for _, e := range loadCatalog[[]OpenAIModelSpec]("openai.json") {
+	for _, e := range loadCatalog[[]OpenCodeModelSpec]("openai.json") {
 		check(t, "openai.json/"+e.ModelID, "input_modalities", e.InputModalities)
 		check(t, "openai.json/"+e.ModelID, "output_modalities", e.OutputModalities)
 	}
@@ -136,7 +136,7 @@ func TestLoadCatalog_DeepSeekCatalog(t *testing.T) {
 // it meters at zero), no context window, and no vision flag despite being the
 // only DeepSeek model that accepts an image.
 func TestDeepSeekCatalog_VisionModel(t *testing.T) {
-	spec := GetDeepSeekModelSpec("deepseek-v4-flash-vision-exp")
+	spec := deepseekSpec("deepseek-v4-flash-vision-exp")
 	if spec == nil {
 		t.Fatal("deepseek.json must carry deepseek-v4-flash-vision-exp: models.dev has no entry for it")
 	}
@@ -177,7 +177,7 @@ func TestDeepSeekCatalog_Prices(t *testing.T) {
 		t.Errorf("catalog has %d rows, want %d", len(catalog), len(want))
 	}
 	for id, w := range want {
-		spec := GetDeepSeekModelSpec(id)
+		spec := deepseekSpec(id)
 		if spec == nil {
 			t.Errorf("deepseek.json is missing %q", id)
 			continue
@@ -208,7 +208,7 @@ func TestDeepSeekCatalog_ThinkingModes(t *testing.T) {
 		"deepseek-v4-flash-vision-exp": true,
 	}
 	for id, reasoning := range want {
-		spec := GetDeepSeekModelSpec(id)
+		spec := deepseekSpec(id)
 		if spec == nil {
 			t.Errorf("deepseek.json is missing %q", id)
 			continue
@@ -230,7 +230,7 @@ func TestDeepSeekCatalog_ThinkingModes(t *testing.T) {
 // TestDeepSeekCatalog_DefaultsToTextOnly guards the other side of that field:
 // every other DeepSeek model omits input_modalities and must stay text-only.
 func TestDeepSeekCatalog_DefaultsToTextOnly(t *testing.T) {
-	spec := GetDeepSeekModelSpec("deepseek-chat")
+	spec := deepseekSpec("deepseek-chat")
 	if spec == nil {
 		t.Fatal("deepseek.json must keep deepseek-chat: the live listing does not return it")
 	}

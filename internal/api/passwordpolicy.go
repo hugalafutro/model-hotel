@@ -19,7 +19,10 @@ const settingKeyPwnedPasswordCheck = "pwned_password_check_enabled"
 // changing their wording is a frontend-visible contract change.
 var (
 	errPasswordTooShort = errors.New("password must be at least 8 characters")
-	errPasswordBreached = errors.New("this password has appeared in a known data breach; choose a different one")
+	// errEmptyAllowedProviders is shared by the virtual-key and user endpoints,
+	// which offer the same tri-state allow list.
+	errEmptyAllowedProviders = errors.New("allowed_providers must be null or contain at least one provider ID")
+	errPasswordBreached      = errors.New("this password has appeared in a known data breach; choose a different one")
 )
 
 // validateNewPassword enforces the password policy for the admin-driven

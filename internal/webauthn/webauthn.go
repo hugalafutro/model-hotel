@@ -56,12 +56,6 @@ func (r *CredentialRecord) ToWebAuthnCredential() gowa.Credential {
 		transports = append(transports, protocol.AuthenticatorTransport(t))
 	}
 
-	aaguidBytes, err := r.AAGUID.MarshalBinary()
-	if err != nil {
-		debuglog.Error("webauthn: failed to marshal AAGUID", "aaguid", r.AAGUID, "error", err)
-		aaguidBytes = make([]byte, 16)
-	}
-
 	return gowa.Credential{
 		ID:                r.ID,
 		PublicKey:         r.PublicKey,
@@ -70,7 +64,7 @@ func (r *CredentialRecord) ToWebAuthnCredential() gowa.Credential {
 		Transport:         transports,
 		Flags:             gowa.NewCredentialFlags(protocol.AuthenticatorFlags(r.FlagsByte)),
 		Authenticator: gowa.Authenticator{
-			AAGUID:    aaguidBytes,
+			AAGUID:    r.AAGUID[:],
 			SignCount: r.SignCount,
 		},
 		Attestation: gowa.CredentialAttestation{
@@ -180,9 +174,41 @@ func (u *AdminUser) WebAuthnCredentials() []gowa.Credential { return u.credentia
 // Repository
 // ---------------------------------------------------------------------------
 
-// rowsScan allows tests to override rows.Scan for error-path coverage.
-var rowsScan = func(rows pgx.Rows, dest ...any) error {
-	return rows.Scan(dest...)
+// scanner is satisfied by pgx.Row and pgx.Rows.
+type scanner interface{ Scan(dest ...any) error }
+
+// scanCredential reads one webauthn_credentials row in credentialColumns order,
+// translating a miss into ErrNotFound.
+func scanCredential(row scanner) (*CredentialRecord, error) {
+	var cred CredentialRecord
+	err := row.Scan(
+		&cred.ID, &cred.Name, &cred.PublicKey, &cred.AttestationType, &cred.AttestationFormat, &cred.Transport,
+		&cred.FlagsByte, &cred.SignCount, &cred.AAGUID, &cred.AttestationObject, &cred.AttestationClientData,
+		&cred.AttestationClientDataHash, &cred.AttestationPublicKeyAlgo, &cred.AuthenticatorData,
+		&cred.CreatedAt, &cred.UpdatedAt,
+	)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &cred, nil
+}
+
+// scanSession reads one webauthn_sessions row in sessionColumns order,
+// translating a miss into ErrNotFound.
+func scanSession(row scanner) (*SessionRecord, error) {
+	var s SessionRecord
+	err := row.Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID,
+		&s.ExpiresAt, &s.CreatedAt, &s.UserAgent, &s.IP, &s.LastSeenAt)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &s, nil
 }
 
 // Repository provides database access for WebAuthn credentials and sessions.
@@ -240,38 +266,19 @@ func (r *Repository) ListCredentials(ctx context.Context) ([]*CredentialRecord, 
 
 	var creds []*CredentialRecord
 	for rows.Next() {
-		var cred CredentialRecord
-		if err := rowsScan(rows,
-			&cred.ID, &cred.Name, &cred.PublicKey, &cred.AttestationType, &cred.AttestationFormat, &cred.Transport,
-			&cred.FlagsByte, &cred.SignCount, &cred.AAGUID, &cred.AttestationObject, &cred.AttestationClientData,
-			&cred.AttestationClientDataHash, &cred.AttestationPublicKeyAlgo, &cred.AuthenticatorData,
-			&cred.CreatedAt, &cred.UpdatedAt,
-		); err != nil {
+		cred, err := scanCredential(rows)
+		if err != nil {
 			return nil, err
 		}
-		creds = append(creds, &cred)
+		creds = append(creds, cred)
 	}
 	return creds, rows.Err()
 }
 
 // GetCredentialByID retrieves a WebAuthn credential by its ID.
 func (r *Repository) GetCredentialByID(ctx context.Context, id []byte) (*CredentialRecord, error) {
-	var cred CredentialRecord
-	err := r.pool.QueryRow(ctx,
-		`SELECT `+credentialColumns+` FROM webauthn_credentials WHERE id = $1`, id,
-	).Scan(
-		&cred.ID, &cred.Name, &cred.PublicKey, &cred.AttestationType, &cred.AttestationFormat, &cred.Transport,
-		&cred.FlagsByte, &cred.SignCount, &cred.AAGUID, &cred.AttestationObject, &cred.AttestationClientData,
-		&cred.AttestationClientDataHash, &cred.AttestationPublicKeyAlgo, &cred.AuthenticatorData,
-		&cred.CreatedAt, &cred.UpdatedAt,
-	)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	return &cred, nil
+	return scanCredential(r.pool.QueryRow(ctx,
+		`SELECT `+credentialColumns+` FROM webauthn_credentials WHERE id = $1`, id))
 }
 
 // DeleteCredential removes a WebAuthn credential by its ID and revokes any
@@ -360,34 +367,16 @@ func (r *Repository) CreateSession(ctx context.Context, session *SessionRecord) 
 
 // GetSession retrieves a WebAuthn session by its ID.
 func (r *Repository) GetSession(ctx context.Context, id uuid.UUID) (*SessionRecord, error) {
-	var s SessionRecord
-	err := r.pool.QueryRow(ctx,
-		`SELECT `+sessionColumns+` FROM webauthn_sessions WHERE id = $1`, id,
-	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt, &s.UserAgent, &s.IP, &s.LastSeenAt)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	return &s, nil
+	return scanSession(r.pool.QueryRow(ctx,
+		`SELECT `+sessionColumns+` FROM webauthn_sessions WHERE id = $1`, id))
 }
 
 // GetSessionByTokenHash retrieves an auth_token session by its SHA-256 hash.
 // Used by SessionManager.Validate to look up sessions without storing plaintext tokens.
 func (r *Repository) GetSessionByTokenHash(ctx context.Context, tokenHash string) (*SessionRecord, error) {
-	var s SessionRecord
-	err := r.pool.QueryRow(ctx,
+	return scanSession(r.pool.QueryRow(ctx,
 		`SELECT `+sessionColumns+` FROM webauthn_sessions WHERE token_hash = $1 AND type = 'auth_token'`,
-		tokenHash,
-	).Scan(&s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt, &s.UserAgent, &s.IP, &s.LastSeenAt)
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	return &s, nil
+		tokenHash))
 }
 
 // ListAuthSessionsForUser returns the live (non-expired) auth_token sessions
@@ -406,11 +395,11 @@ func (r *Repository) ListAuthSessionsForUser(ctx context.Context, userID []byte)
 
 	var sessions []*SessionRecord
 	for rows.Next() {
-		var s SessionRecord
-		if err := rowsScan(rows, &s.ID, &s.Challenge, &s.SessionData, &s.Type, &s.UserID, &s.TokenHash, &s.CredentialID, &s.ExpiresAt, &s.CreatedAt, &s.UserAgent, &s.IP, &s.LastSeenAt); err != nil {
+		s, err := scanSession(rows)
+		if err != nil {
 			return nil, err
 		}
-		sessions = append(sessions, &s)
+		sessions = append(sessions, s)
 	}
 	return sessions, rows.Err()
 }
@@ -479,17 +468,56 @@ func (r *Repository) DeleteOtherSessionsForUser(ctx context.Context, userID []by
 }
 
 // CleanupExpiredSessions removes sessions that have passed their expiry time.
+// The outcome is reported to the caller, not logged here: SessionCleanupLoop
+// is the one that logs, so a sweep produces a single line whichever store ran it.
 func (r *Repository) CleanupExpiredSessions(ctx context.Context) (int64, error) {
 	tag, err := r.pool.Exec(ctx, `DELETE FROM webauthn_sessions WHERE expires_at < NOW()`)
 	if err != nil {
-		debuglog.Error("webauthn: failed to cleanup expired sessions", "error", err)
 		return 0, err
 	}
-	n := tag.RowsAffected()
-	if n > 0 {
-		debuglog.Info("webauthn: cleaned up expired sessions", "count", n)
+	return tag.RowsAffected(), nil
+}
+
+// SessionCleaner is the slice of a session store SessionCleanupLoop needs. An
+// interface rather than a concrete store because both the gateway's Postgres
+// repository and Front Desk's SQLite store drive the same loop.
+type SessionCleaner interface {
+	CleanupExpiredSessions(ctx context.Context) (int64, error)
+}
+
+// SessionCleanupLoop prunes expired sessions every interval until ctx is done.
+//
+// It matters most on Front Desk, whose OIDC login start is unauthenticated and
+// writes a session row per request, so without the sweep anyone able to reach
+// it can grow the database without limit.
+//
+// The first sweep runs immediately rather than after a full interval, since a
+// process starting up may inherit a backlog. A failed sweep is logged and the
+// loop continues, so a transient error does not disable cleanup for the
+// remaining life of the process. A cancelled sweep is the shutdown path, not a
+// fault, and is not reported as one.
+func SessionCleanupLoop(ctx context.Context, store SessionCleaner, interval time.Duration) {
+	sweep := func() {
+		switch n, err := store.CleanupExpiredSessions(ctx); {
+		case errors.Is(err, context.Canceled):
+		case err != nil:
+			debuglog.Error("webauthn: session cleanup failed", "error", err)
+		case n > 0:
+			debuglog.Info("webauthn: cleaned up expired sessions", "count", n)
+		}
 	}
-	return n, nil
+
+	sweep()
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			sweep()
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------

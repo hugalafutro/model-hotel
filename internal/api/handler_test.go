@@ -59,29 +59,6 @@ func TestAuthMiddleware(t *testing.T) {
 	}
 }
 
-// TestCond tests cond helper
-func TestCond(t *testing.T) {
-	tests := []struct {
-		name     string
-		val      string
-		cond     bool
-		expected string
-	}{
-		{"true_condition", "value", true, "value"},
-		{"false_condition", "value", false, ""},
-		{"empty_value_true", "", true, ""},
-		{"empty_value_false", "", false, ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := cond(tt.val, tt.cond); got != tt.expected {
-				t.Errorf("cond(%q, %v) = %q, want %q", tt.val, tt.cond, got, tt.expected)
-			}
-		})
-	}
-}
-
 // TestVirtualKeyToResponse tests virtualKeyToResponse helper
 func TestVirtualKeyToResponse(t *testing.T) {
 	now := time.Now()

@@ -538,7 +538,7 @@ func TestHandleNonStreamingResponse_TPSFallbackWhenTTFTExceedsDuration(t *testin
 	// triggering the else-if fallback at line 719.
 	startTime := time.Now()
 	time.Sleep(2 * time.Millisecond)
-	h.handleNonStreamingResponse(inner, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 999999.0, "", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, startTime, 0, 0, resolveTimings{}, 999999.0, "", 1)
 
 	if logData.state != "completed" {
 		t.Errorf("expected state=completed, got %q", logData.state)
@@ -598,7 +598,7 @@ func TestHandleNonStreamingResponse_ThinkingTagsAppendToReasoningContent(t *test
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
 
 	var result ChatCompletionResponse
 	if err := json.Unmarshal(inner.Body.Bytes(), &result); err != nil {
@@ -659,7 +659,7 @@ func TestHandleNonStreamingResponse_UpstreamNonJSONResponse(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "", 1)
 
 	if logData.state != "failed" {
 		t.Errorf("expected state=failed, got %q", logData.state)

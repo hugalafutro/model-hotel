@@ -1,9 +1,10 @@
 package proxy
 
 import (
+	"cmp"
 	"encoding/json"
+	"maps"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"unicode/utf8"
@@ -204,20 +205,14 @@ func walkStrings(v any, key string, visit func(string)) {
 }
 
 func orderedKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	sort.Strings(keys)
+	keys := slices.Sorted(maps.Keys(m))
 	rank := func(k string) int {
-		for i, first := range contentFirstKeys {
-			if k == first {
-				return i
-			}
+		if i := slices.Index(contentFirstKeys, k); i >= 0 {
+			return i
 		}
 		return len(contentFirstKeys)
 	}
-	sort.SliceStable(keys, func(i, j int) bool { return rank(keys[i]) < rank(keys[j]) })
+	slices.SortStableFunc(keys, func(a, b string) int { return cmp.Compare(rank(a), rank(b)) })
 	return keys
 }
 
@@ -346,8 +341,8 @@ func radixSort(v []uint64) {
 
 // hasWindow reports whether the sorted set holds a window with this hash.
 func hasWindow(set []uint64, h uint64) bool {
-	i := sort.Search(len(set), func(i int) bool { return set[i] >= h })
-	return i < len(set) && set[i] == h
+	_, found := slices.BinarySearch(set, h)
+	return found
 }
 
 // mask returns texts with every run of contentEchoWindow or more runes that

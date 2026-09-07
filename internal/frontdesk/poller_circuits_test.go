@@ -200,8 +200,8 @@ func TestFetchMemberCircuits_CapAndSizeBound(t *testing.T) {
 		_, _ = w.Write([]byte(`","state":"open"}]}]}`))
 	}))
 	defer huge.Close()
-	if _, err := p.fetchMemberCircuits(context.Background(), huge.URL, "tok"); !errors.Is(err, errCircuitStatusTooLarge) {
-		t.Errorf("oversize response error = %v, want errCircuitStatusTooLarge", err)
+	if _, err := p.fetchMemberCircuits(context.Background(), huge.URL, "tok"); !errors.Is(err, errMemberRespTooLarge) {
+		t.Errorf("oversize response error = %v, want errMemberRespTooLarge", err)
 	}
 }
 

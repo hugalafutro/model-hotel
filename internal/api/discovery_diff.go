@@ -110,12 +110,14 @@ func withinPriceTolerance(oldVal, newVal *float64) bool {
 	if oldVal == nil || newVal == nil {
 		return false
 	}
-	o, n := *oldVal, *newVal
+	return withinRelTolerance(*oldVal, *newVal, priceRelTolerance)
+}
+
+// withinRelTolerance reports whether o and n differ by no more than tol
+// relative to the larger magnitude. Two zeros are within any tolerance.
+func withinRelTolerance(o, n, tol float64) bool {
 	denom := math.Max(math.Abs(o), math.Abs(n))
-	if denom == 0 {
-		return true
-	}
-	return math.Abs(o-n)/denom <= priceRelTolerance
+	return denom == 0 || math.Abs(o-n)/denom <= tol
 }
 
 // FieldChange describes one pricing/context metadata field whose value changed
@@ -297,9 +299,7 @@ func diffContextLength(field string, oldVal, newVal *int, live bool) (FieldChang
 		return FieldChange{}, false
 	}
 	if oldVal != nil {
-		o, n := float64(*oldVal), float64(*newVal)
-		denom := math.Max(math.Abs(o), math.Abs(n))
-		if !live || denom == 0 || math.Abs(o-n)/denom <= contextLengthRelTolerance {
+		if !live || withinRelTolerance(float64(*oldVal), float64(*newVal), contextLengthRelTolerance) {
 			return FieldChange{}, false
 		}
 	}

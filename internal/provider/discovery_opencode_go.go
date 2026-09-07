@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -14,43 +13,26 @@ import (
 
 func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("opencode-go: failed to create request for provider %s: %w", provider.Name, err)
-	}
-
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
-	if err != nil {
-		debuglog.Error("discovery: opencode-go http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("opencode-go: failed to fetch models for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
+	headers := bearerHeader(apiKey)
+	headers.Set("Content-Type", "application/json")
 
 	catalog := opencodeCatalogModels(GetOpenCodeGoCatalog(), provider.ID, "opencode")
 
-	// If the /models endpoint is gone (404), fall back to the catalog. The
-	// catalog is an override channel that is normally empty, so this usually
-	// yields no models — which keeps RecordMissingModels a no-op rather than
-	// disabling anything, at the cost of a discovery.suspect_scan warning per
-	// scan while the 404 persists (an empty result trips the blackout guard in
-	// ConfirmMissingModels). Other non-200s return an error so a transient
-	// outage aborts the scan instead of disabling live-only models.
-	if resp.StatusCode == http.StatusNotFound {
-		debuglog.Warn("discovery: opencode-go /models returned 404, falling back to catalog", "provider", provider.Name, "provider_id", provider.ID)
-		return catalog, nil
-	}
-
-	bodyBytes, err := io.ReadAll(resp.Body)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)
 	if err != nil {
-		return nil, fmt.Errorf("opencode-go: failed to read response for provider %s: %w", provider.Name, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: opencode-go unexpected status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
-		return nil, fmt.Errorf("opencode-go: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
+		// If the /models endpoint is gone (404), fall back to the catalog. The
+		// catalog is an override channel that is normally empty, so this usually
+		// yields no models — which keeps RecordMissingModels a no-op rather than
+		// disabling anything, at the cost of a discovery.suspect_scan warning per
+		// scan while the 404 persists (an empty result trips the blackout guard in
+		// ConfirmMissingModels). Every other failure returns an error so a
+		// transient outage aborts the scan instead of disabling live-only models.
+		if errorStatusCode(err) == http.StatusNotFound {
+			debuglog.Warn("discovery: opencode-go /models returned 404, falling back to catalog", "provider", provider.Name, "provider_id", provider.ID)
+			return catalog, nil
+		}
+		debuglog.Error("discovery: opencode-go http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("opencode-go: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
 
 	var openAIResp OpenAIModelsResponse

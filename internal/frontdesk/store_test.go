@@ -513,6 +513,40 @@ func TestPruneEvents(t *testing.T) {
 	}
 }
 
+// TestPruneEventsKeepsNewestFleetState pins the one row retention may not drop:
+// the newest fleet.state_changed seeds the fleet-state edge detector on restart,
+// so pruning it would re-announce a state the fleet never left.
+func TestPruneEventsKeepsNewestFleetState(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+
+	stale := time.Now().Add(-100 * 24 * time.Hour)
+	for _, e := range []Event{
+		{Type: "fleet.state_changed", Severity: "warning", Source: "x", Message: "older", CreatedAt: stale.Add(-time.Hour)},
+		{Type: "fleet.state_changed", Severity: "warning", Source: "x", Message: "newest", CreatedAt: stale},
+		{Type: "health.down", Severity: "error", Source: "x", Message: "noise", CreatedAt: stale},
+	} {
+		if _, err := s.InsertEvent(ctx, e); err != nil {
+			t.Fatalf("InsertEvent %s: %v", e.Message, err)
+		}
+	}
+
+	n, err := s.PruneEvents(ctx, 90)
+	if err != nil {
+		t.Fatalf("PruneEvents: %v", err)
+	}
+	if n != 2 {
+		t.Errorf("pruned %d, want 2 (both rows except the newest fleet.state_changed)", n)
+	}
+	evs, total, err := s.ListEvents(ctx, EventFilter{})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if total != 1 || evs[0].Message != "newest" {
+		t.Errorf("remaining events = %+v, want only the newest fleet.state_changed", evs)
+	}
+}
+
 func TestEnsureFrontdeskID(t *testing.T) {
 	s := newTestStore(t)
 	ctx := context.Background()

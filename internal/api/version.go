@@ -72,9 +72,9 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 	// GitHub Releases, the endpoint returns 404 — fall back to the tags API
 	// only in that case. For other errors (5xx, timeout) skip the fallback to
 	// avoid doubling worst-case latency.
-	tagName, err := h.fetchLatestTag(r.Context(), h.ghReleasesURL)
+	tagName, err := fetchLatestTag(r.Context(), h.ghReleasesURL)
 	if errors.Is(err, errNotFound) {
-		tagName, err = h.fetchLatestTagFromTags(r.Context(), h.ghTagsURL)
+		tagName, err = fetchLatestTagFromTags(r.Context(), h.ghTagsURL)
 	}
 	if err != nil {
 		debuglog.Error("version: all GitHub lookups failed", "error", err)
@@ -94,17 +94,19 @@ func (h *Handler) GetLatestVersion(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]string{"tag_name": tagName})
 }
 
-// fetchLatestTag fetches the latest release tag from GitHub.
-func (h *Handler) fetchLatestTag(ctx context.Context, url string) (string, error) {
+// githubGetJSON performs one GitHub API GET and decodes the body into out. The
+// HTTP status is returned alongside the error so a caller can tell a missing
+// resource from a failure.
+func githubGetJSON(ctx context.Context, url string, out any) (int, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
-		return "", fmt.Errorf("create request: %w", err)
+		return 0, fmt.Errorf("create request: %w", err)
 	}
 	req.Header.Set("Accept", "application/vnd.github+json")
 
 	resp, err := githubClient.Do(req)
 	if err != nil {
-		return "", fmt.Errorf("request failed: %w", err)
+		return 0, fmt.Errorf("request failed: %w", err)
 	}
 	defer func() {
 		if closeErr := resp.Body.Close(); closeErr != nil {
@@ -112,16 +114,26 @@ func (h *Handler) fetchLatestTag(ctx context.Context, url string) (string, error
 		}
 	}()
 
-	if resp.StatusCode == http.StatusNotFound {
+	if resp.StatusCode != http.StatusOK {
+		return resp.StatusCode, fmt.Errorf("GitHub returned status %d", resp.StatusCode)
+	}
+	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		return resp.StatusCode, fmt.Errorf("decode response: %w", err)
+	}
+	return resp.StatusCode, nil
+}
+
+// fetchLatestTag fetches the latest release tag from GitHub. A repository with
+// no releases answers 404, reported as errNotFound so the caller can fall back
+// to the tags API.
+func fetchLatestTag(ctx context.Context, url string) (string, error) {
+	var release githubRelease
+	status, err := githubGetJSON(ctx, url, &release)
+	if status == http.StatusNotFound {
 		return "", errNotFound
 	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("GitHub returned status %d", resp.StatusCode)
-	}
-
-	var release githubRelease
-	if err := json.NewDecoder(resp.Body).Decode(&release); err != nil {
-		return "", fmt.Errorf("decode response: %w", err)
+	if err != nil {
+		return "", err
 	}
 	if release.TagName == "" {
 		return "", fmt.Errorf("response missing tag_name")
@@ -131,30 +143,10 @@ func (h *Handler) fetchLatestTag(ctx context.Context, url string) (string, error
 
 // fetchLatestTagFromTags falls back to the tags API when no GitHub Releases exist.
 // The tags are returned most-recent-first, so per_page=1 gives us the latest tag.
-func (h *Handler) fetchLatestTagFromTags(ctx context.Context, url string) (string, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
-	if err != nil {
-		return "", fmt.Errorf("create tags request: %w", err)
-	}
-	req.Header.Set("Accept", "application/vnd.github+json")
-
-	resp, err := githubClient.Do(req)
-	if err != nil {
-		return "", fmt.Errorf("tags request failed: %w", err)
-	}
-	defer func() {
-		if closeErr := resp.Body.Close(); closeErr != nil {
-			debuglog.Error("version: failed to close tags response body", "error", closeErr)
-		}
-	}()
-
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("tags API returned status %d", resp.StatusCode)
-	}
-
+func fetchLatestTagFromTags(ctx context.Context, url string) (string, error) {
 	var tags []githubTag
-	if err := json.NewDecoder(resp.Body).Decode(&tags); err != nil {
-		return "", fmt.Errorf("decode tags response: %w", err)
+	if _, err := githubGetJSON(ctx, url, &tags); err != nil {
+		return "", err
 	}
 	if len(tags) == 0 || tags[0].Name == "" {
 		return "", fmt.Errorf("no tags found")

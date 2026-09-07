@@ -1,6 +1,7 @@
 package adminauth
 
 import (
+	"crypto/subtle"
 	"net/http"
 	"time"
 
@@ -138,16 +139,18 @@ func adminCookieSession(r *http.Request, sessionMgr *webauthn.SessionManager, ja
 	if !ok || sessionMgr == nil {
 		return "", webauthn.AuthResult{}, false
 	}
-	res, ok := sessionAuth(r, sessionMgr, tok, use)
+	res, ok := SessionAuth(r, sessionMgr, tok, use)
 	if !ok || string(res.UserID) != "admin" {
 		return "", webauthn.AuthResult{}, false
 	}
 	return tok, res, true
 }
 
-// sessionAuth validates a session token, sliding it when the request is the
-// person's own use and merely verifying it for a server-driven re-check.
-func sessionAuth(r *http.Request, sessionMgr *webauthn.SessionManager, token string, use bool) (webauthn.AuthResult, bool) {
+// SessionAuth validates a session token, sliding it when the request is the
+// person's own use and merely verifying it for a server-driven re-check. It is
+// exported so the dashboard's own auth middleware resolves a session exactly the
+// way this package's gate does.
+func SessionAuth(r *http.Request, sessionMgr *webauthn.SessionManager, token string, use bool) (webauthn.AuthResult, bool) {
 	if use {
 		return sessionMgr.Authenticate(r.Context(), token)
 	}
@@ -175,6 +178,33 @@ func validAdminBearer(
 	if sessionMgr == nil {
 		return false
 	}
-	res, ok := sessionAuth(r, sessionMgr, token, use)
+	res, ok := SessionAuth(r, sessionMgr, token, use)
 	return ok && string(res.UserID) == "admin"
+}
+
+// BearerTokenGate admits a request whose Authorization bearer token equals want
+// and rejects everything else with 401 "invalid <what> token". It backs the
+// dedicated scrape/poll tokens (metrics, Traefik) that stand apart from the
+// admin session: one constant-time compare, one pair of log lines, one message.
+//
+// The two rejections stay distinct in the log (no bearer at all versus one that
+// did not match) and are recorded at warning with the client address, never the
+// token, so repeated attempts are visible to abuse detection. The client sees
+// the same message either way.
+func BearerTokenGate(want, what string, next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		tok, ok := util.ParseBearerToken(r)
+		// want == "" is an unconfigured gate: refuse rather than let a caller
+		// that also sends nothing compare equal and walk through.
+		if want != "" && subtle.ConstantTimeCompare([]byte(tok), []byte(want)) == 1 {
+			next.ServeHTTP(w, r)
+			return
+		}
+		if !ok || tok == "" {
+			debuglog.Warn("auth: "+what+" request missing bearer token", "remote_addr", clientip.From(r))
+		} else {
+			debuglog.Warn("auth: "+what+" request with invalid token", "remote_addr", clientip.From(r))
+		}
+		http.Error(w, "invalid "+what+" token", http.StatusUnauthorized)
+	})
 }

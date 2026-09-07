@@ -7,8 +7,6 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/jackc/pgx/v5"
-
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
@@ -66,7 +64,13 @@ func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provi
 			respondError(w, "failed to persist quota snapshot", uerr, http.StatusInternalServerError)
 			return
 		}
-		snap, _ = h.quotaRepo.Get(ctx, prov.ID, kind)
+		var rerr error
+		if snap, rerr = h.quotaRepo.Get(ctx, prov.ID, kind); rerr != nil {
+			// The row was just written, so a failed read back is a database
+			// fault, not an absent quota.
+			respondError(w, "failed to reload quota snapshot", rerr, http.StatusInternalServerError)
+			return
+		}
 		if snap == nil {
 			http.Error(w, "quota unavailable", http.StatusServiceUnavailable)
 			return
@@ -86,55 +90,17 @@ func (h *Handler) serveQuota(w http.ResponseWriter, r *http.Request, prov *provi
 	}
 }
 
-// GetProviderUsage serves usage/quota information for a provider from the
-// read-through snapshot store (cold-filling on first view).
-func (h *Handler) GetProviderUsage(w http.ResponseWriter, r *http.Request) {
-	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
-	if !ok {
-		return
+// quotaHandler serves one quota kind (usage, balance, account) for the provider
+// named by the {id} route parameter, from the read-through snapshot store
+// (cold-filling on first view).
+func (h *Handler) quotaHandler(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		prov, ok := h.loadProviderParam(w, r)
+		if !ok {
+			return
+		}
+		h.serveQuota(w, r, prov, kind)
 	}
-
-	prov, err := h.providerRepo.Get(r.Context(), providerID)
-	if err != nil {
-		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
-		return
-	}
-
-	h.serveQuota(w, r, prov, "usage")
-}
-
-// GetProviderBalance serves balance information for a provider from the
-// read-through snapshot store (cold-filling on first view).
-func (h *Handler) GetProviderBalance(w http.ResponseWriter, r *http.Request) {
-	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
-	if !ok {
-		return
-	}
-
-	prov, err := h.providerRepo.Get(r.Context(), providerID)
-	if err != nil {
-		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
-		return
-	}
-
-	h.serveQuota(w, r, prov, "balance")
-}
-
-// GetOllamaCloudAccount serves Ollama Cloud account info from the read-through
-// snapshot store (cold-filling on first view).
-func (h *Handler) GetOllamaCloudAccount(w http.ResponseWriter, r *http.Request) {
-	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
-	if !ok {
-		return
-	}
-
-	prov, err := h.providerRepo.Get(r.Context(), providerID)
-	if err != nil {
-		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
-		return
-	}
-
-	h.serveQuota(w, r, prov, "account")
 }
 
 // QuotaRefreshResult holds the result of refreshing quotas for a single provider.
@@ -149,7 +115,7 @@ type QuotaRefreshResult struct {
 func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 	providers, err := h.providerRepo.List(r.Context())
 	if err != nil {
-		respondError(w, "failed to list providers", nil, http.StatusInternalServerError)
+		respondError(w, "failed to list providers", err, http.StatusInternalServerError)
 		return
 	}
 

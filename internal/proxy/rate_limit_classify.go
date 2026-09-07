@@ -155,8 +155,7 @@ type rateLimitPhrase struct {
 // certain 429.
 //
 // The entitled entries double as classifyUpstreamError's provider_not_entitled
-// list (entitledRateLimitPhrases), so a phrase cannot be added to one and not
-// the other.
+// list, so a phrase cannot be added to one and not the other.
 var rateLimitPhrases = []rateLimitPhrase{
 	// Balance / plan: a person fixes these, so the pin holds as long as the
 	// ceiling allows.
@@ -216,18 +215,6 @@ const (
 	miniMaxBalancePhrase = "minimax status_code 1008"
 	miniMaxWindowPhrase  = "minimax status_code 1039"
 )
-
-// entitledRateLimitPhrases is the entitled slice of the phrase table, consumed
-// by classifyUpstreamError for provider_not_entitled.
-func entitledRateLimitPhrases() []string {
-	var out []string
-	for _, p := range rateLimitPhrases {
-		if p.entitled {
-			out = append(out, p.phrase)
-		}
-	}
-	return out
-}
 
 // classifyRateLimit reads the status, headers and sanitized body of a 429 (or
 // a MiniMax remap to 429) and says which claim it makes. maxWait is the
@@ -492,17 +479,10 @@ func (h *Handler) classify429Attempt(ctx context.Context, st *requestState, cand
 	if resp.StatusCode != http.StatusTooManyRequests {
 		return st.rateLimit
 	}
-	if !h.settingsRepo.GetBool(ctx, "rate_limit_classify_enabled", true) {
+	v, body, classified := h.peekRateLimit(ctx, resp)
+	if !classified {
 		return st.rateLimit
 	}
-	maxWait := h.settingsRepo.GetDuration(ctx, "rate_limit_saturation_max_wait", defaultSaturationMaxWait)
-
-	head, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
-	rest := resp.Body
-	resp.Body = rebufferedBody{Reader: io.MultiReader(bytes.NewReader(head), rest), Closer: rest}
-
-	body := util.SanitizeLogBody(string(head), 10000)
-	v := classifyRateLimit(resp.StatusCode, resp.Header, body, maxWait)
 	if v.class == rateLimitUnknown && st.circuitBreakerEnabled {
 		window := h.settingsRepo.GetDuration(ctx, "rate_limit_recent_success_window", defaultRecentSuccessWindow)
 		if h.circuitBreaker.LastSuccessWithin(candidate.provider.ID, candidateModelID(candidate), window) {
@@ -532,10 +512,7 @@ func (h *Handler) failNoAvailableProvider(w http.ResponseWriter, r *http.Request
 		writeOpenAIError(w, msg, http.StatusBadGateway)
 		return
 	}
-	retryIn := max(time.Until(skips.earliestRetry), time.Second)
-	if retryIn > defaultSaturationMaxWait {
-		retryIn = defaultSaturationMaxWait
-	}
+	retryIn := min(max(time.Until(skips.earliestRetry), time.Second), defaultSaturationMaxWait)
 	secs := retryAfterSeconds(retryIn)
 	kind := KindProviderSaturated
 	if skips.allPinned {
@@ -640,14 +617,25 @@ func (h *Handler) judge429AndRecordBreaker(ctx context.Context, st *requestState
 // breaker, and a verdict nothing acts on does not earn the lookup.
 // rate_limit_classify_enabled off classifies nothing.
 func (h *Handler) peekRateLimitVerdict(ctx context.Context, resp *http.Response) rateLimitVerdict {
+	v, _, _ := h.peekRateLimit(ctx, resp)
+	return v
+}
+
+// peekRateLimit reads the head of a 429 body without consuming it: the bytes it
+// takes are put back in front of the rest, so the caller still forwards the
+// whole body. It returns the classifier's verdict and the sanitized head it was
+// read from; classified is false when rate_limit_classify_enabled is off, which
+// has to leave the unclassified labels bit for bit as they were.
+func (h *Handler) peekRateLimit(ctx context.Context, resp *http.Response) (v rateLimitVerdict, body string, classified bool) {
 	if !h.settingsRepo.GetBool(ctx, "rate_limit_classify_enabled", true) {
-		return rateLimitVerdict{}
+		return rateLimitVerdict{}, "", false
 	}
 	head, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
 	rest := resp.Body
 	resp.Body = rebufferedBody{Reader: io.MultiReader(bytes.NewReader(head), rest), Closer: rest}
 	maxWait := h.settingsRepo.GetDuration(ctx, "rate_limit_saturation_max_wait", defaultSaturationMaxWait)
-	return classifyRateLimit(resp.StatusCode, resp.Header, util.SanitizeLogBody(string(head), 10000), maxWait)
+	body = util.SanitizeLogBody(string(head), logBodyCap)
+	return classifyRateLimit(resp.StatusCode, resp.Header, body, maxWait), body, true
 }
 
 // deferSaturatedRetry closes out an attempt whose LAST candidate answered a

@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 // ---------------------------------------------------------------------------
@@ -454,6 +455,22 @@ func (s *Store) MemberToken(ctx context.Context, id string) (token string, ok bo
 		return "", false, fmt.Errorf("frontdesk: decrypt member token: %w", err)
 	}
 	return plain, true, nil
+}
+
+// MemberTokenOf is MemberToken for a caller that already holds the member row.
+// A member flagged as having no token answers without a query, and a load or
+// decrypt failure is reported as "no token" after a Debug line, because every
+// caller treats an unreadable token exactly like an absent one.
+func (s *Store) MemberTokenOf(ctx context.Context, m *Member) (string, bool) {
+	if m == nil || !m.HasToken {
+		return "", false
+	}
+	token, ok, err := s.MemberToken(ctx, m.ID)
+	if err != nil || !ok {
+		debuglog.Debug("frontdesk: member token unavailable", "member", m.ID, "loaded", ok, "error", err)
+		return "", false
+	}
+	return token, true
 }
 
 // touchMember runs an UPDATE that sets one column plus updated_at and maps a

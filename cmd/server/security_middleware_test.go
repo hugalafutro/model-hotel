@@ -1,7 +1,6 @@
 package main
 
 import (
-	"crypto/tls"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -15,50 +14,6 @@ func okHandler() http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-}
-
-func TestSecurityHeadersMiddleware_Default(t *testing.T) {
-	mw := securityHeadersMiddleware(&config.Config{})
-	rec := httptest.NewRecorder()
-	mw(okHandler()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
-
-	if got := rec.Header().Get("X-Frame-Options"); got != "DENY" {
-		t.Errorf("expected X-Frame-Options DENY, got %q", got)
-	}
-	if got := rec.Header().Get("X-Content-Type-Options"); got != "nosniff" {
-		t.Errorf("expected nosniff, got %q", got)
-	}
-	if got := rec.Header().Get("Strict-Transport-Security"); got != "" {
-		t.Errorf("expected no HSTS over plain HTTP, got %q", got)
-	}
-	if csp := rec.Header().Get("Content-Security-Policy"); !strings.Contains(csp, "frame-ancestors 'none'") {
-		t.Errorf("expected frame-ancestors 'none' in CSP, got %q", csp)
-	}
-}
-
-func TestSecurityHeadersMiddleware_AllowEmbed(t *testing.T) {
-	mw := securityHeadersMiddleware(&config.Config{AllowEmbed: true})
-	rec := httptest.NewRecorder()
-	mw(okHandler()).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/", http.NoBody))
-
-	if got := rec.Header().Get("X-Frame-Options"); got != "" {
-		t.Errorf("expected no X-Frame-Options with ALLOW_EMBED, got %q", got)
-	}
-	if csp := rec.Header().Get("Content-Security-Policy"); strings.Contains(csp, "frame-ancestors") {
-		t.Errorf("expected no frame-ancestors in CSP with ALLOW_EMBED, got %q", csp)
-	}
-}
-
-func TestSecurityHeadersMiddleware_HSTSOverTLS(t *testing.T) {
-	mw := securityHeadersMiddleware(&config.Config{})
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "https://example.test/", http.NoBody)
-	req.TLS = &tls.ConnectionState{}
-	mw(okHandler()).ServeHTTP(rec, req)
-
-	if got := rec.Header().Get("Strict-Transport-Security"); got == "" {
-		t.Error("expected HSTS header over TLS")
-	}
 }
 
 func TestCORSMiddleware(t *testing.T) {

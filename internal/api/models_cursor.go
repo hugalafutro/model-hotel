@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ListModelsCursor returns models using keyset (cursor) pagination.
@@ -102,7 +103,7 @@ func buildModelListQuery(p modelListParams, q url.Values) (string, []any) {
 
 	whereClause := ""
 	if len(conditions) > 0 {
-		whereClause = " WHERE " + joinAnd(conditions)
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	fetchSortDir := p.sortDir
@@ -138,7 +139,7 @@ func (h *Handler) countModels(ctx context.Context, q url.Values, providerEnabled
 	conditions, args := buildModelFilterConditions(q, providerEnabled, enabled)
 	whereClause := ""
 	if len(conditions) > 0 {
-		whereClause = " WHERE " + joinAnd(conditions)
+		whereClause = " WHERE " + strings.Join(conditions, " AND ")
 	}
 	var c modelCounts
 	_ = h.dbPool.Pool().QueryRow(ctx,
@@ -176,18 +177,17 @@ func parseModelListParams(w http.ResponseWriter, q url.Values) (modelListParams,
 		sortDir:   "ASC",
 		sortBy:    q.Get("sort_by"),
 	}
-	if v := q.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
-			p.limit = n
-		}
+	if n, err := strconv.Atoi(q.Get("limit")); err == nil {
+		p.limit = n
 	}
+	p.limit = min(max(p.limit, 1), 200)
 	if p.direction != "before" && p.direction != "after" {
 		p.direction = "after"
 	}
 	if q.Get("sort_dir") == "desc" {
 		p.sortDir = "DESC"
 	}
-	providerEnabled, ok := parseProviderEnabledParam(w, q.Get("provider_enabled"))
+	providerEnabled, ok := parseBoolFilterParam(w, "provider_enabled", q.Get("provider_enabled"))
 	if !ok {
 		return p, false
 	}
@@ -272,79 +272,51 @@ func buildModelKeysetPredicate(cursor modelCursor, direction, sortDir string, ar
 		op = "<"
 	}
 
+	// Only the cursor VALUE differs per sort key; the column expression comes
+	// from modelSortColumn, the same one the ORDER BY uses, so a change to how
+	// a column sorts cannot break pagination. A cursor missing its value for
+	// the named key yields no predicate.
+	var value any
 	switch cursor.SortBy {
 	case "discovered":
 		if !cursor.LastSeenAt.IsZero() {
-			pred := fmt.Sprintf("(COALESCE(m.last_seen_at, m.created_at), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
-			*args = append(*args, cursor.LastSeenAt, cursor.ID)
-			*argIdx += 2
-			return pred
+			value = cursor.LastSeenAt
 		}
 	case "context":
 		if cursor.ContextLength != nil {
-			pred := fmt.Sprintf("(COALESCE(m.context_length, 0), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
-			*args = append(*args, *cursor.ContextLength, cursor.ID)
-			*argIdx += 2
-			return pred
+			value = *cursor.ContextLength
 		}
 	case "output":
 		if cursor.MaxOutput != nil {
-			pred := fmt.Sprintf("(COALESCE(m.max_output_tokens, 0), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
-			*args = append(*args, *cursor.MaxOutput, cursor.ID)
-			*argIdx += 2
-			return pred
+			value = *cursor.MaxOutput
 		}
 	case "provider":
 		if cursor.ProviderName != "" {
-			pred := fmt.Sprintf("(COALESCE(p.name, ''), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
-			*args = append(*args, cursor.ProviderName, cursor.ID)
-			*argIdx += 2
-			return pred
+			value = cursor.ProviderName
 		}
 	case "status":
 		if cursor.StatusSort != nil {
-			pred := fmt.Sprintf("(CASE WHEN m.enabled AND NOT m.disabled_manually THEN 0 WHEN m.enabled AND m.disabled_manually THEN 1 ELSE 2 END, m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
-			*args = append(*args, *cursor.StatusSort, cursor.ID)
-			*argIdx += 2
-			return pred
+			value = *cursor.StatusSort
 		}
 	default: // "name"
 		// The sort key is the name with the model id standing in for an absent
-		// or empty one (NULLIF below), so a cursor that carries the stand-in,
-		// as the page's encoders do, and one that carries the bare name agree
-		// on where the page ended.
-		name := cursor.Name
-		if name == "" {
-			name = cursor.ModelID
-		}
-		pred := fmt.Sprintf("(COALESCE(NULLIF(m.name, ''), m.model_id), m.id) %s ($%d, $%d)", op, *argIdx, *argIdx+1)
-		*args = append(*args, name, cursor.ID)
-		*argIdx += 2
-		return pred
-	}
-
-	return ""
-}
-
-// splitComma splits a comma-separated string, trimming whitespace from each element.
-func splitComma(s string) []string {
-	parts := strings.Split(s, ",")
-	result := make([]string, 0, len(parts))
-	for _, p := range parts {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			result = append(result, p)
+		// or empty one (the NULLIF in modelSortColumn), so a cursor that carries
+		// the stand-in, as the page's encoders do, and one that carries the bare
+		// name agree on where the page ended.
+		if cursor.Name != "" {
+			value = cursor.Name
+		} else {
+			value = cursor.ModelID
 		}
 	}
-	return result
-}
-
-// joinAnd joins conditions with AND. Returns empty string for empty slice.
-func joinAnd(conditions []string) string {
-	if len(conditions) == 0 {
+	if value == nil {
 		return ""
 	}
-	return strings.Join(conditions, " AND ")
+
+	pred := fmt.Sprintf("(%s, m.id) %s ($%d, $%d)", modelSortColumn(cursor.SortBy), op, *argIdx, *argIdx+1)
+	*args = append(*args, value, cursor.ID)
+	*argIdx += 2
+	return pred
 }
 
 // buildModelFilterConditions builds the WHERE clause conditions and args for
@@ -365,35 +337,22 @@ func buildModelFilterConditions(q url.Values, providerEnabled, enabled *bool) ([
 		argIdx++
 	}
 	if providerIDs := q.Get("provider_id"); providerIDs != "" {
-		pids := splitComma(providerIDs)
-		if len(pids) > 0 {
-			validPids := make([]uuid.UUID, 0, len(pids))
-			for _, pidStr := range pids {
-				if pid, err := uuid.Parse(pidStr); err == nil {
-					validPids = append(validPids, pid)
-				}
+		validPids := make([]uuid.UUID, 0)
+		for _, pidStr := range util.SplitAndTrim(providerIDs) {
+			if pid, err := uuid.Parse(pidStr); err == nil {
+				validPids = append(validPids, pid)
 			}
-			if len(validPids) == 1 {
-				conditions = append(conditions, fmt.Sprintf("m.provider_id = $%d", argIdx))
-				args = append(args, validPids[0])
-				argIdx++
-			} else if len(validPids) > 1 {
-				placeholders := make([]string, 0, len(validPids))
-				for _, pid := range validPids {
-					placeholders = append(placeholders, fmt.Sprintf("$%d", argIdx))
-					args = append(args, pid)
-					argIdx++
-				}
-				conditions = append(conditions, fmt.Sprintf("m.provider_id IN (%s)", strings.Join(placeholders, ", ")))
-			}
+		}
+		if len(validPids) > 0 {
+			conditions = append(conditions, fmt.Sprintf("m.provider_id = ANY($%d)", argIdx))
+			args = append(args, validPids)
+			argIdx++
 		}
 	}
 	if caps := q.Get("capabilities"); caps != "" {
 		capMap := map[string]bool{}
-		for _, c := range splitComma(caps) {
-			if c != "" {
-				capMap[c] = true
-			}
+		for _, c := range util.SplitAndTrim(caps) {
+			capMap[c] = true
 		}
 		if len(capMap) > 0 {
 			capJSON, _ := json.Marshal(capMap)
@@ -419,7 +378,7 @@ func buildModelFilterConditions(q url.Values, providerEnabled, enabled *bool) ([
 		// modality must be present. Unknown values are ignored (closed
 		// vocabulary, see internal/provider/model_class.go) so a stale or
 		// mistyped filter never empties the listing.
-		for _, o := range splitComma(outputs) {
+		for _, o := range util.SplitAndTrim(outputs) {
 			switch o {
 			case "text", "image", "audio", "video", "embedding", "rerank":
 				conditions = append(conditions, fmt.Sprintf("COALESCE(m.output_modalities, '[]'::jsonb) ? $%d", argIdx))

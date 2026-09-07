@@ -31,8 +31,8 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 		Severity: q.Get("severity"),
 		Since:    parseRFC3339(q.Get("since")),
 		Until:    parseRFC3339(q.Get("until")),
-		Limit:    clampEventsLimit(atoiDefault(q.Get("limit"), defaultEventsLimit)),
-		Offset:   max(atoiDefault(q.Get("offset"), 0), 0),
+		Limit:    clampEventsLimit(util.GetIntQueryParam(r, "limit", defaultEventsLimit)),
+		Offset:   max(util.GetIntQueryParam(r, "offset", 0), 0),
 	}
 	evs, total, err := s.store.ListEvents(r.Context(), f)
 	if err != nil {
@@ -305,17 +305,21 @@ func (c *totpEnabledCache) Refresh(ctx context.Context) {
 	c.val.Store(enabled)
 }
 
-// emit persists a control-plane event and publishes it on the SSE bus. The
+// emit persists a control-plane event and publishes it on the SSE bus.
+func (s *Server) emit(ctx context.Context, e Event) { emitEvent(ctx, s.store, s.bus, e) }
+
+// emitEvent persists a control-plane event and publishes it on the SSE bus. The
 // publish is best-effort on a failed insert; closeSyncHold, whose correctness
-// leans on the persisted log, inserts and publishes by hand instead.
-func (s *Server) emit(ctx context.Context, e Event) {
-	stored, err := s.store.InsertEvent(ctx, e)
+// leans on the persisted log, inserts and publishes by hand instead. Shared by
+// Server.emit and Poller.recordEvent.
+func emitEvent(ctx context.Context, store *Store, bus *events.Bus, e Event) {
+	stored, err := store.InsertEvent(ctx, e)
 	if err != nil {
 		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
 		stored = e
 	}
 	logEvent(stored)
-	s.bus.Publish(busEvent(stored))
+	bus.Publish(busEvent(stored))
 }
 
 // logEvent mirrors a control-plane event into the process log at the level

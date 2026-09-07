@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -156,7 +158,6 @@ type Repository struct {
 type Subscription struct {
 	id    uint64
 	ch    <-chan ChangeEvent
-	repo  *Repository
 	once  sync.Once
 	clean func() // teardown callback, set by Subscribe
 }
@@ -222,7 +223,7 @@ func (r *Repository) Subscribe() *Subscription {
 	r.changeMu.Lock()
 	r.subscriptions = append(r.subscriptions, subscription{id: id, ch: ch})
 	r.changeMu.Unlock()
-	sub := &Subscription{id: id, ch: ch, repo: r}
+	sub := &Subscription{id: id, ch: ch}
 	sub.clean = func() { r.unsubscribe(id) }
 	return sub
 }
@@ -231,15 +232,13 @@ func (r *Repository) Subscribe() *Subscription {
 func (r *Repository) unsubscribe(id uint64) {
 	r.changeMu.Lock()
 	defer r.changeMu.Unlock()
-	for i, sub := range r.subscriptions {
-		if sub.id == id {
-			r.subscriptions = append(r.subscriptions[:i], r.subscriptions[i+1:]...)
-			// Closing under the write lock is safe: notifyChange sends while
-			// holding the read lock, so no publisher can be mid-send here, and
-			// a buffered event stays readable by the subscriber after close.
-			close(sub.ch)
-			return
-		}
+	if i := slices.IndexFunc(r.subscriptions, func(s subscription) bool { return s.id == id }); i >= 0 {
+		sub := r.subscriptions[i]
+		r.subscriptions = slices.Delete(r.subscriptions, i, i+1)
+		// Closing under the write lock is safe: notifyChange sends while
+		// holding the read lock, so no publisher can be mid-send here, and a
+		// buffered event stays readable by the subscriber after close.
+		close(sub.ch)
 	}
 }
 
@@ -268,8 +267,7 @@ func (r *Repository) notifyChange(key, value string) {
 			// Subscriber is too slow; skip to avoid blocking the writer.
 		}
 	}
-	callbacks := make([]func(key, value string), len(r.onChangeCallbacks))
-	copy(callbacks, r.onChangeCallbacks)
+	callbacks := slices.Clone(r.onChangeCallbacks)
 	r.changeMu.RUnlock()
 
 	for _, fn := range callbacks {
@@ -302,33 +300,17 @@ func (r *Repository) IsCached(key string) bool {
 // same TTL, so a setting nobody has overridden costs one SELECT per TTL rather
 // than one per read.
 func (r *Repository) GetWithDefault(ctx context.Context, key, defaultValue string) string {
-	r.mu.RLock()
-	if entry, ok := r.cache[key]; ok && time.Now().Before(entry.expiresAt) {
-		r.mu.RUnlock()
-		if entry.missing {
-			return defaultValue
-		}
-		return entry.value
-	}
-	gen := r.cacheGen[key]
-	r.mu.RUnlock()
-
-	var value string
-	err := r.pool.QueryRow(ctx, "SELECT value FROM settings WHERE key = $1", key).Scan(&value)
+	value, found, err := r.GetChecked(ctx, key)
 	if err != nil {
-		// An unset key (no row) is the normal "use the default" path and must
-		// stay silent; it is cached as such. A real DB error, though, silently
-		// reverts behaviour to defaults (e.g. rate limits) — worth a Warn so
-		// it's not invisible, and never cached: the next read must try again.
-		if errors.Is(err, pgx.ErrNoRows) {
-			r.install(key, gen, cacheEntry{missing: true})
-		} else {
-			debuglog.Warn("settings: DB read failed, falling back to default", "key", key, "error", err)
-		}
+		// A real DB error silently reverts behaviour to defaults (e.g. rate
+		// limits), so it is worth a Warn to keep it visible. GetChecked has
+		// already left it out of the cache: the next read must try again.
+		debuglog.Warn("settings: DB read failed, falling back to default", "key", key, "error", err)
 		return defaultValue
 	}
-
-	r.install(key, gen, cacheEntry{value: value})
+	if !found {
+		return defaultValue
+	}
 	return value
 }
 
@@ -573,10 +555,7 @@ func (r *Repository) WarmCache(ctx context.Context) {
 	// back in. Keys absent from the snapshot are at generation 0. This runs
 	// once at startup, so the copy is not on any hot path.
 	r.mu.RLock()
-	gens := make(map[string]uint64, len(r.cacheGen))
-	for k, v := range r.cacheGen {
-		gens[k] = v
-	}
+	gens := maps.Clone(r.cacheGen)
 	r.mu.RUnlock()
 
 	all, err := r.GetAll(ctx)
@@ -609,14 +588,14 @@ func (r *Repository) GetAll(ctx context.Context) (map[string]string, error) {
 	defer rows.Close()
 
 	result := make(map[string]string)
-	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
-			return nil, fmt.Errorf("settings scan error: %w", err)
-		}
+	var key, value string
+	if _, err := pgx.ForEachRow(rows, []any{&key, &value}, func() error {
 		result[key] = value
+		return nil
+	}); err != nil {
+		return nil, fmt.Errorf("settings scan error: %w", err)
 	}
-	return result, rows.Err()
+	return result, nil
 }
 
 // GetBool retrieves a setting and parses it as a boolean.

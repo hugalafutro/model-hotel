@@ -3,10 +3,10 @@ package api
 import (
 	"context"
 	"fmt"
+	"maps"
 	"net/http"
 	"os"
-	"sort"
-	"strconv"
+	"slices"
 	"strings"
 	"time"
 
@@ -46,7 +46,10 @@ func parseBackupTimestamp(filename string) (time.Time, error) {
 //   - Grandfather: keep the most recent backup from each of the last P months
 //     (excluding months that already have a son or father)
 func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grandfatherRetention int, now time.Time) backupClassification {
-	result := backupClassification{}
+	// Every tier starts as an empty (non-nil) slice so the JSON payload
+	// serializes [] rather than null: the enable-confirm modal reads
+	// prune.length directly and crashes on null.
+	result := backupClassification{Prune: []backupEntry{}}
 
 	// Track which backup filenames are kept in each tier
 	kept := make(map[string]bool)
@@ -100,32 +103,11 @@ func classifyBackups(backups []backupEntry, sonRetention, fatherRetention, grand
 		return ts.Format("2006-01")
 	})
 
-	// ── Prune: everything not kept ──
+	// ── Prune: everything not kept ── (unparseable names were added above)
 	for _, b := range backups {
-		if !kept[b.Filename] && timestamps[b.Filename].IsZero() {
-			// Already added to Prune above (parse error)
-			continue
-		}
-		if !kept[b.Filename] {
+		if !kept[b.Filename] && !timestamps[b.Filename].IsZero() {
 			result.Prune = append(result.Prune, b)
 		}
-	}
-
-	// Coerce every tier to a non-nil slice so the JSON payload serializes []
-	// rather than null. keepMostRecentPerBucket returns nil for empty tiers and
-	// Prune stays nil when nothing is pruned; the enable-confirm modal reads
-	// prune.length directly and crashes on null.
-	if result.Son == nil {
-		result.Son = []backupEntry{}
-	}
-	if result.Father == nil {
-		result.Father = []backupEntry{}
-	}
-	if result.Grandfather == nil {
-		result.Grandfather = []backupEntry{}
-	}
-	if result.Prune == nil {
-		result.Prune = []backupEntry{}
 	}
 
 	return result
@@ -152,13 +134,10 @@ func keepMostRecentPerBucket(backups []backupEntry, timestamps map[string]time.T
 		buckets[key] = append(buckets[key], b)
 	}
 
-	keys := make([]string, 0, len(buckets))
-	for k := range buckets {
-		keys = append(keys, k)
-	}
-	sort.Sort(sort.Reverse(sort.StringSlice(keys)))
+	keys := slices.Sorted(maps.Keys(buckets))
+	slices.Reverse(keys)
 
-	var tier []backupEntry
+	tier := []backupEntry{}
 	for _, k := range keys {
 		picked := mostRecentEntry(buckets[k], timestamps)
 		if picked != nil && !kept[picked.Filename] {
@@ -174,16 +153,10 @@ func mostRecentEntry(entries []backupEntry, timestamps map[string]time.Time) *ba
 	if len(entries) == 0 {
 		return nil
 	}
-	best := &entries[0]
-	bestTS := timestamps[best.Filename]
-	for i := 1; i < len(entries); i++ {
-		ts := timestamps[entries[i].Filename]
-		if ts.After(bestTS) {
-			best = &entries[i]
-			bestTS = ts
-		}
-	}
-	return best
+	best := slices.MaxFunc(entries, func(a, b backupEntry) int {
+		return timestamps[a.Filename].Compare(timestamps[b.Filename])
+	})
+	return &best
 }
 
 // getRetentionSettings returns the current retention settings from the settings store.
@@ -193,13 +166,13 @@ func (h *BackupHandler) getRetentionSettings(ctx context.Context) (son, father, 
 	grandfather = 3
 
 	if h.settingsRepo != nil {
-		if v, err := strconv.Atoi(h.settingsRepo.GetWithDefault(ctx, "backup_son_retention", "7")); err == nil && v > 0 {
+		if v := h.settingsRepo.GetInt(ctx, "backup_son_retention", son); v > 0 {
 			son = v
 		}
-		if v, err := strconv.Atoi(h.settingsRepo.GetWithDefault(ctx, "backup_father_retention", "4")); err == nil && v >= 0 {
+		if v := h.settingsRepo.GetInt(ctx, "backup_father_retention", father); v >= 0 {
 			father = v
 		}
-		if v, err := strconv.Atoi(h.settingsRepo.GetWithDefault(ctx, "backup_grandfather_retention", "3")); err == nil && v >= 0 {
+		if v := h.settingsRepo.GetInt(ctx, "backup_grandfather_retention", grandfather); v >= 0 {
 			grandfather = v
 		}
 	}
@@ -238,8 +211,18 @@ func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
 	son, father, grandfather := h.getRetentionSettings(r.Context())
 	classification := classifyBackups(scheduledBackups(backups), son, father, grandfather, time.Now())
 
+	h.pruneBackups(classification.Prune)
+
+	writeJSON(w, classification)
+}
+
+// pruneBackups deletes each classified-for-prune dump with its signature
+// sidecar and publishes backup.pruned naming what went, returning the
+// filenames actually removed. A dump that fails to delete is logged and left
+// out of the list.
+func (h *BackupHandler) pruneBackups(prune []backupEntry) []string {
 	var pruned []string
-	for _, b := range classification.Prune {
+	for _, b := range prune {
 		absPath := h.validateBackupFilename(b.Filename)
 		if absPath == "" {
 			continue
@@ -261,8 +244,7 @@ func (h *BackupHandler) ApplyPrune(w http.ResponseWriter, r *http.Request) {
 			Metadata: map[string]any{"pruned_count": len(pruned), "filenames": pruned},
 		})
 	}
-
-	writeJSON(w, classification)
+	return pruned
 }
 
 // listBackupFiles reads all backup entries from disk (newest first). A missing
@@ -297,8 +279,8 @@ func (h *BackupHandler) listBackupFiles() ([]backupEntry, error) {
 		})
 	}
 
-	sort.Slice(backups, func(i, j int) bool {
-		return backups[i].modTime.After(backups[j].modTime)
+	slices.SortFunc(backups, func(a, b backupEntry) int {
+		return b.modTime.Compare(a.modTime)
 	})
 
 	if backups == nil {

@@ -2,8 +2,9 @@ package api
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
-	"sort"
+	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -300,11 +301,8 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	// owns them and replaces them on the next sync. Instance-local keys (Apprise,
 	// Observability) are allowed through, mirroring the mixed Alerts section in the
 	// dashboard. Checked after validation so an unknown key still reports 400.
-	reqKeys := make([]string, 0, len(req))
-	for key := range req {
-		reqKeys = append(reqKeys, key)
-	}
-	if managedBlocksSyncableSettings(r.Context(), h.settingsRepo, reqKeys) {
+	keys := slices.Sorted(maps.Keys(req))
+	if managedBlocksSyncableSettings(r.Context(), h.settingsRepo, keys) {
 		respondError(w, managedWriteMsg, nil, http.StatusForbidden)
 		return
 	}
@@ -342,11 +340,6 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	for key := range req {
 		h.settingsRepo.InvalidateCache(key)
 	}
-	keys := make([]string, 0, len(req))
-	for key := range req {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
 	debuglog.Info("settings: updated", "keys", keys)
 
 	all, err := h.settingsRepo.GetAll(r.Context())
@@ -373,9 +366,7 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 	// Empty keys list = reset all known settings.
 	keys := req.Keys
 	if len(keys) == 0 {
-		for k := range allowedSettings {
-			keys = append(keys, k)
-		}
+		keys = slices.Collect(maps.Keys(allowedSettings))
 	} else if len(keys) > 50 {
 		// Guard only user-supplied lists against unbounded input.
 		// The internally-expanded "reset all" list is bounded by allowedSettings.
@@ -427,7 +418,7 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 		h.settingsRepo.NotifyDeleted(key)
 	}
 
-	sort.Strings(keys)
+	slices.Sort(keys)
 	debuglog.Info("settings: reset to defaults", "keys", keys)
 
 	all, err := h.settingsRepo.GetAll(r.Context())

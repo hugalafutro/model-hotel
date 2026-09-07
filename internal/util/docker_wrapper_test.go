@@ -42,15 +42,17 @@ func (t *localhostRedirectTransport) RoundTrip(req *http.Request) (*http.Respons
 
 // resetDockerState resets package-level state for testing
 func resetDockerState() {
-	sharedDockerCli = nil
-	dockerAvailable = false
-	dockerCheckMu = sync.Once{}
-	sharedDockerOnce = sync.Once{}
-	prevDockerNetRx = 0
-	prevDockerNetTx = 0
-	prevDockerBlkRead = 0
-	prevDockerBlkWrite = 0
-	prevDockerTime = time.Time{}
+	dockerHTTPClient = sync.OnceValue(newDockerHTTPClient)
+	IsDockerAvailable = sync.OnceValue(probeDockerAvailable)
+	DetectContainerFilter = sync.OnceValue(detectContainerFilter)
+	dockerRates.reset()
+}
+
+// useDockerClient points the package's memoised Docker client at a test server.
+func useDockerClient(c *http.Client) {
+	dockerHTTPClient = func() *http.Client { return c }
+	IsDockerAvailable = sync.OnceValue(probeDockerAvailable)
+	DetectContainerFilter = sync.OnceValue(detectContainerFilter)
 }
 
 // TestIsDockerAvailable tests the Docker availability check
@@ -72,12 +74,10 @@ func TestIsDockerAvailable(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if !IsDockerAvailable() {
 		t.Error("expected Docker to be available")
@@ -219,35 +219,17 @@ func TestCloseDockerClient(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	// We need to trigger the sharedDockerOnce first, then replace the client
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Should not panic - CloseDockerClient closes idle connections on the transport
 	CloseDockerClient()
 
-	// Verify the client still exists (CloseDockerClient doesn't nil it, just closes connections)
-	if sharedDockerCli == nil {
-		t.Error("CloseDockerClient() should not set sharedDockerCli to nil")
-	}
-}
-
-// TestCloseDockerClient_NilClient tests CloseDockerClient when client is nil
-func TestCloseDockerClient_NilClient(t *testing.T) {
-	resetDockerState()
-
-	// Ensure sharedDockerCli is nil
-	sharedDockerCli = nil
-
-	// Should not panic when client is nil
-	CloseDockerClient()
-
-	// Verify sharedDockerCli is still nil after
-	if sharedDockerCli != nil {
-		t.Error("CloseDockerClient() should leave sharedDockerCli as nil when already nil")
+	// The client survives: CloseDockerClient only closes idle connections.
+	if dockerHTTPClient() == nil {
+		t.Error("CloseDockerClient() dropped the shared client")
 	}
 }
 
@@ -255,20 +237,18 @@ func TestCloseDockerClient_NilClient(t *testing.T) {
 func TestCloseDockerClient_NonTransport(t *testing.T) {
 	resetDockerState()
 
-	// Create client with a custom RoundTripper (not *http.Transport)
-	// so the type assertion in CloseDockerClient fails and the
-	// CloseIdleConnections call is skipped gracefully.
-	sharedDockerCli = &http.Client{
+	// A custom RoundTripper (not *http.Transport) makes the type assertion in
+	// CloseDockerClient fail, so the CloseIdleConnections call is skipped.
+	useDockerClient(&http.Client{
 		Transport: noopRoundTripper{},
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Should not panic - CloseDockerClient handles non-*http.Transport gracefully
 	CloseDockerClient()
 
-	// Verify the client still exists (CloseDockerClient doesn't nil it)
-	if sharedDockerCli == nil {
-		t.Error("CloseDockerClient() should not set sharedDockerCli to nil")
+	if dockerHTTPClient() == nil {
+		t.Error("CloseDockerClient() dropped the shared client")
 	}
 }
 
@@ -339,11 +319,10 @@ func TestIsDockerAvailable_CachedResult(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// First call
 	result1 := IsDockerAvailable()
@@ -351,8 +330,9 @@ func TestIsDockerAvailable_CachedResult(t *testing.T) {
 		t.Fatal("expected Docker to be available on first call")
 	}
 
-	// Second call should return cached result (even if we change the client)
-	sharedDockerCli = nil
+	// Second call returns the cached result even though the client would now
+	// fail the probe.
+	dockerHTTPClient = func() *http.Client { return &http.Client{Transport: errorRoundTripper{}} }
 	result2 := IsDockerAvailable()
 	if !result2 {
 		t.Error("expected cached result to be returned")
@@ -459,11 +439,10 @@ func TestGetOwnContainerID_HostnameNotHex(t *testing.T) {
 func TestCloseDockerClient_WithTransport(t *testing.T) {
 	resetDockerState()
 
-	transport := &http.Transport{}
-	sharedDockerCli = &http.Client{
-		Transport: transport,
+	useDockerClient(&http.Client{
+		Transport: &http.Transport{},
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	// Should not panic and should close idle connections
 	CloseDockerClient()
@@ -499,11 +478,10 @@ func TestIsDockerAvailable_WithSocketOverride(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if !IsDockerAvailable() {
 		t.Error("Expected Docker to be available with socket override")
@@ -533,22 +511,13 @@ func (errorRoundTripper) RoundTrip(*http.Request) (*http.Response, error) {
 // TestIsDockerAvailable_SocketNotExist tests that IsDockerAvailable returns
 // false when the Docker socket doesn't exist.
 func TestIsDockerAvailable_SocketNotExist(t *testing.T) {
-	// Save original values
+	resetDockerState()
+
 	origSocketPath := dockerSocketPath
-	origDockerAvailable := dockerAvailable
-
-	// Reset for test
-	dockerCheckMu = sync.Once{}
-	dockerAvailable = false
-
-	// Override socket path to non-existent location
 	dockerSocketPath = "/nonexistent/docker.sock"
-
-	// Restore original values after test
 	defer func() {
 		dockerSocketPath = origSocketPath
-		dockerCheckMu = sync.Once{}
-		dockerAvailable = origDockerAvailable
+		resetDockerState()
 	}()
 
 	result := IsDockerAvailable()
@@ -586,11 +555,10 @@ func TestIsDockerAvailable_Non200Status(t *testing.T) {
 		backend:   http.DefaultTransport,
 	}
 
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: customTransport,
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if IsDockerAvailable() {
 		t.Error("Expected Docker to be unavailable when /info returns 503")
@@ -613,11 +581,10 @@ func TestIsDockerAvailable_HTTPClientError(t *testing.T) {
 	defer func() { dockerSocketPath = origSocket }()
 
 	// Use a client that always fails
-	sharedDockerOnce.Do(func() {})
-	sharedDockerCli = &http.Client{
+	useDockerClient(&http.Client{
 		Transport: errorRoundTripper{},
 		Timeout:   5 * time.Second,
-	}
+	})
 
 	if IsDockerAvailable() {
 		t.Error("Expected Docker to be unavailable when HTTP client errors")

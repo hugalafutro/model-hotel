@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -34,21 +35,25 @@ func (s *Server) alertStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if st.Configured {
-		if set, gerr := s.store.GetSettings(r.Context()); gerr == nil {
-			switch set.AlertAppriseTargets {
-			case "":
-				// A reachable apprise-api with no target still cannot deliver, so it
-				// must not show a green pill.
-				st.Healthy = false
-				st.Reason = alert.ReasonNotConfigured
-				st.Detail = "no notification target configured"
-			default:
-				if _, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey); derr != nil {
-					st.Healthy = false
-					st.Reason = alert.ReasonUndecryptable
-					st.Detail = "stored target cannot be decrypted (master key rotated?)"
-				}
-			}
+		// A settings read that fails leaves the checks below unrun, and an
+		// unchecked status is exactly the falsely green pill they exist to
+		// prevent, so it fails the request rather than being discarded.
+		set, gerr := s.store.GetSettings(r.Context())
+		if gerr != nil {
+			writeError(w, gerr)
+			return
+		}
+		switch plain, derr := s.alertTargetsPlain(set); {
+		case derr != nil:
+			st.Healthy = false
+			st.Reason = alert.ReasonUndecryptable
+			st.Detail = alert.MsgUndecryptable
+		case plain == "":
+			// A reachable apprise-api with no target still cannot deliver, so it
+			// must not show a green pill.
+			st.Healthy = false
+			st.Reason = alert.ReasonNotConfigured
+			st.Detail = "no notification target configured"
 		}
 	}
 	writeJSON(w, http.StatusOK, st)
@@ -111,15 +116,12 @@ func (s *Server) alertTest(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		cfg.APIBaseURL = set.AlertAppriseAPIURL
-		if set.AlertAppriseTargets != "" {
-			plain, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey)
-			if derr != nil {
-				writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable,
-					"stored target cannot be decrypted (master key rotated?)")
-				return
-			}
-			cfg.Targets = plain
+		plain, derr := s.alertTargetsPlain(set)
+		if derr != nil {
+			writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable, alert.MsgUndecryptable)
+			return
 		}
+		cfg.Targets = plain
 		if req.APIURL != nil {
 			cfg.APIBaseURL = *req.APIURL
 		}
@@ -152,18 +154,35 @@ func (s *Server) alertTargets(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	plain, derr := s.alertTargetsPlain(set)
+	if derr != nil {
+		writeCodedError(w, http.StatusInternalServerError, alert.ReasonUndecryptable, alert.MsgUndecryptable)
+		return
+	}
 	targets := []string{}
-	if set.AlertAppriseTargets != "" {
-		plain, derr := auth.DecryptString(set.AlertAppriseTargets, s.masterKey)
-		if derr != nil {
-			writeCodedError(w, http.StatusInternalServerError, alert.ReasonUndecryptable,
-				"stored target cannot be decrypted (master key rotated?)")
-			return
-		}
+	if plain != "" {
 		targets = alert.SplitTargets(plain)
 	}
 	writeJSON(w, http.StatusOK, map[string]any{"targets": targets})
 }
+
+// alertTargetsPlain decrypts the stored Apprise destinations, returning "" when
+// none are stored and errUndecryptableTarget when the ciphertext cannot be read
+// (a rotated master key, a corrupted value). Each caller keeps its own status
+// mapping; the raw decrypt error is never surfaced.
+func (s *Server) alertTargetsPlain(set Settings) (string, error) {
+	if set.AlertAppriseTargets == "" {
+		return "", nil
+	}
+	plain, err := auth.DecryptString(set.AlertAppriseTargets, s.masterKey)
+	if err != nil {
+		return "", errUndecryptableTarget
+	}
+	return plain, nil
+}
+
+// errUndecryptableTarget is a stored Apprise target that cannot be decrypted.
+var errUndecryptableTarget = errors.New("frontdesk: " + alert.MsgUndecryptable)
 
 // alertEventState is one catalog event plus whether Front Desk currently alerts
 // on it. It is the wire shape for the operator-facing selection endpoints so

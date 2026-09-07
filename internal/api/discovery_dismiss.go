@@ -1,10 +1,11 @@
 package api
 
 import (
+	"context"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // DismissDiscoveryClaimsRequest carries the models to dismiss on the provider
@@ -39,9 +40,26 @@ type DismissDiscoveryClaimsRequest struct {
 // ack it sits beside, this suppresses a real discrepancy from every operator's
 // view, which is a genuine state change.
 func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
-	providerID, err := uuid.Parse(chi.URLParam(r, "provider_id"))
-	if err != nil {
-		http.Error(w, "invalid provider ID", http.StatusBadRequest)
+	// `dismissed` names the models actually stamped, so a partial result is fully
+	// informative: the caller marks exactly those and leaves the rest alone.
+	// `updated` is kept for compatibility and is simply its length.
+	h.bulkModelVerdict(w, r, setModelsDismissed, "failed to dismiss discovery claims", "dismissed",
+		func(out map[string]any, touched []string) { out["updated"] = len(touched) })
+}
+
+// bulkModelVerdict is the shape both operator verdicts on a provider's models
+// share: parse the provider id, read the model_ids body, apply, and answer 404
+// when nothing matched. apply names the rows it actually touched, which become
+// the response under key. extra adds any further response fields.
+func (h *Handler) bulkModelVerdict(
+	w http.ResponseWriter,
+	r *http.Request,
+	apply func(context.Context, *pgxpool.Pool, uuid.UUID, []string) ([]string, error),
+	failMsg, key string,
+	extra func(out map[string]any, touched []string),
+) {
+	providerID, ok := parseUUIDParam(w, r, "provider_id", "provider ID")
+	if !ok {
 		return
 	}
 	var req DismissDiscoveryClaimsRequest
@@ -53,20 +71,21 @@ func (h *Handler) DismissDiscoveryClaims(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	dismissed, err := setModelsDismissed(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs)
+	touched, err := apply(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs)
 	if err != nil {
-		respondError(w, "failed to dismiss discovery claims", err, http.StatusInternalServerError)
+		respondError(w, failMsg, err, http.StatusInternalServerError)
 		return
 	}
-	if len(dismissed) == 0 {
+	if len(touched) == 0 {
 		http.Error(w, "no matching models", http.StatusNotFound)
 		return
 	}
 
-	// `dismissed` names the models actually stamped, so a partial result is fully
-	// informative: the caller marks exactly those and leaves the rest alone.
-	// `updated` is kept for compatibility and is simply its length.
-	writeJSON(w, map[string]any{"dismissed": dismissed, "updated": len(dismissed)})
+	out := map[string]any{key: touched}
+	if extra != nil {
+		extra(out, touched)
+	}
+	writeJSON(w, out)
 }
 
 // UnpinDiscoveryClaimsRequest carries the models to unpin on the provider named
@@ -100,31 +119,7 @@ type UnpinDiscoveryClaimsRequest struct {
 // Deliberately NOT added to httpx.IsReadOnlyExemptPost: it hands a model back to
 // automatic management, which is a genuine state change.
 func (h *Handler) UnpinDiscoveryClaims(w http.ResponseWriter, r *http.Request) {
-	providerID, err := uuid.Parse(chi.URLParam(r, "provider_id"))
-	if err != nil {
-		http.Error(w, "invalid provider ID", http.StatusBadRequest)
-		return
-	}
-	var req UnpinDiscoveryClaimsRequest
-	if !decodeJSON(w, r, &req) {
-		return
-	}
-	if len(req.ModelIDs) == 0 {
-		http.Error(w, "model_ids must not be empty", http.StatusBadRequest)
-		return
-	}
-
-	unpinned, err := setModelsUnpinned(r.Context(), h.dbPool.Pool(), providerID, req.ModelIDs)
-	if err != nil {
-		respondError(w, "failed to unpin discovery claims", err, http.StatusInternalServerError)
-		return
-	}
-	if len(unpinned) == 0 {
-		http.Error(w, "no matching models", http.StatusNotFound)
-		return
-	}
-
 	// `unpinned` names the rows actually cleared, so a partial result is fully
 	// informative: the caller updates exactly those and leaves the rest alone.
-	writeJSON(w, map[string]any{"unpinned": unpinned})
+	h.bulkModelVerdict(w, r, setModelsUnpinned, "failed to unpin discovery claims", "unpinned", nil)
 }

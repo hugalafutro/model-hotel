@@ -57,3 +57,28 @@ func TestIsUniqueViolation(t *testing.T) {
 		})
 	}
 }
+
+func TestIsForeignKeyViolation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil_error", nil, false},
+		{"pg_error_23503_fk_violation", &pgconn.PgError{Code: "23503"}, true},
+		{"pg_error_23505_unique_violation", &pgconn.PgError{Code: "23505"}, false},
+		{"wrapped_pg_error_23503", fmt.Errorf("wrap: %w", &pgconn.PgError{Code: "23503"}), true},
+		{"non_pg_error", errors.New("some other error"), false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := IsForeignKeyViolation(tt.err); got != tt.want {
+				t.Errorf("IsForeignKeyViolation(%v) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}

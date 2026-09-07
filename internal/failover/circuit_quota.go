@@ -57,21 +57,32 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 			source = pinSourceAdvisor
 		}
 	}
-	if d <= 0 {
+	// Floor: pinning must never make the breaker more aggressive.
+	d, ok := clampPin(d, cb.quotaPinMax(), cb.unpinnedCooldownWith(c, cb.cooldowns()))
+	if !ok {
 		return
-	}
-	if maxPin := cb.quotaPinMax(); d > maxPin {
-		d = maxPin
-	}
-	if d <= cb.unpinnedCooldownWith(c, cb.cooldowns()) {
-		return // floor: pinning must never make the breaker more aggressive
-	}
-	if spread := int64(d / 20); spread > 0 {
-		d += time.Duration(rand.Int64N(spread + 1))
 	}
 	c.cooldownOverride = d
 	c.pinSource = source
 	c.probeSeed = rand.Float64()
+}
+
+// clampPin caps a candidate pin at ceiling, rejects it when the capped value
+// does not clear floor, and spreads the survivors by up to 5% so a fleet of
+// circuits pinned by the same reset does not probe in lockstep. The ceiling is
+// applied first, so a clamped value is what gets compared against the floor:
+// capping after the check could shorten a longer wait.
+func clampPin(d, ceiling, floor time.Duration) (time.Duration, bool) {
+	if d > ceiling {
+		d = ceiling
+	}
+	if d <= floor {
+		return 0, false
+	}
+	if spread := int64(d / 20); spread > 0 {
+		d += time.Duration(rand.Int64N(spread + 1))
+	}
+	return d, true
 }
 
 // The pin sources ProviderStatus and the breaker events publish: measured by
@@ -194,20 +205,12 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 			// measured from. openedAt is in the past here, so a pin derived from
 			// time until reset would expire that much too early and probe before
 			// the window rolls over.
-			d := resetsAt.Sub(c.openedAt)
-			// Ceiling first, so a clamped value is compared against the floor:
-			// capping after the check could shorten a longer wait.
-			if d > maxPin {
-				d = maxPin
-			}
 			// One comparison covers every floor: the cooldown in force is never
 			// less than the configured one, is the backoff when one governs, and is
 			// the pin already stamped when that reaches further still.
-			if d <= cb.effectiveCooldownForWith(c, r) {
+			d, ok := clampPin(resetsAt.Sub(c.openedAt), maxPin, cb.effectiveCooldownForWith(c, r))
+			if !ok {
 				continue
-			}
-			if spread := int64(d / 20); spread > 0 {
-				d += time.Duration(rand.Int64N(spread + 1))
 			}
 			c.cooldownOverride = d
 			c.pinSource = pinSourceAdvisor

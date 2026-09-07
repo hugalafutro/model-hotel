@@ -1,6 +1,7 @@
 package provider
 
 import (
+	"cmp"
 	"encoding/json"
 	"slices"
 	"strings"
@@ -51,15 +52,15 @@ var canonicalModalityRank = map[string]int{
 // disappears from pickers.
 func DeriveModelClass(input, output []string, modelID string) string {
 	switch {
-	case containsModality(output, "rerank"):
+	case slices.Contains(output, "rerank"):
 		return "rerank"
-	case containsModality(output, "embedding"):
+	case slices.Contains(output, "embedding"):
 		return "embedding"
 	}
 
 	// "code" counts as text: OpenRouter reports it for coder models, which
 	// serve chat like any text model (mirrors isOpenRouterChatModel).
-	if containsModality(output, "text") || containsModality(output, "code") {
+	if slices.Contains(output, "text") || slices.Contains(output, "code") {
 		// Audio-in/text-out is structurally identical for Whisper-style
 		// transcription and audio chat models; only the name can tell. The
 		// rest of the input array cannot break the tie either: models.dev
@@ -80,7 +81,7 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// LM Studio's llm type) writes the class explicitly and never reaches
 		// this branch.
 		switch class := inferNonChatModality(modelID); {
-		case class == "stt" && containsModality(input, "audio"):
+		case class == "stt" && slices.Contains(input, "audio"):
 			return "stt"
 		case class == "embedding" || class == "rerank":
 			return class
@@ -90,11 +91,11 @@ func DeriveModelClass(input, output []string, modelID string) string {
 
 	if len(output) > 0 {
 		switch {
-		case containsModality(output, "video"):
+		case slices.Contains(output, "video"):
 			return "video"
-		case containsModality(output, "image"):
+		case slices.Contains(output, "image"):
 			return "image"
-		case containsModality(output, "audio"):
+		case slices.Contains(output, "audio"):
 			return "tts"
 		}
 		// Non-empty output of only unknown modalities: default-allow.
@@ -200,7 +201,7 @@ func NormalizeModelClassification(m *model.Model) {
 	// what the endpoint serves.
 	if class == "embedding" || class == "rerank" {
 		output = withoutTextOutputs(output)
-		if !containsModality(output, class) {
+		if !slices.Contains(output, class) {
 			output = append([]string{class}, output...)
 		}
 	}
@@ -271,7 +272,7 @@ func parseCapabilityFlags(raw string) map[string]any {
 // unionCapsIntoInput adds modalities implied by capability flags (fill-only).
 func unionCapsIntoInput(caps map[string]any, input []string) []string {
 	for flag, modality := range capsInputFlags {
-		if truthy, ok := caps[flag].(bool); ok && truthy && !containsModality(input, modality) {
+		if truthy, ok := caps[flag].(bool); ok && truthy && !slices.Contains(input, modality) {
 			if len(input) == 0 {
 				input = []string{"text"}
 			}
@@ -287,7 +288,7 @@ func unionCapsIntoInput(caps map[string]any, input []string) []string {
 func syncCapsFromInput(raw string, caps map[string]any, input []string) string {
 	changed := false
 	for flag, modality := range capsInputFlags {
-		if !containsModality(input, modality) {
+		if !slices.Contains(input, modality) {
 			continue
 		}
 		if truthy, ok := caps[flag].(bool); ok && truthy {
@@ -320,7 +321,7 @@ func syncCapsFromInput(raw string, caps map[string]any, input []string) string {
 func clearCapsNotInInput(raw string, caps map[string]any, input []string) string {
 	changed := false
 	for flag, modality := range capsInputFlags {
-		if containsModality(input, modality) {
+		if slices.Contains(input, modality) {
 			continue
 		}
 		if truthy, ok := caps[flag].(bool); !ok || !truthy {
@@ -342,7 +343,7 @@ func clearCapsNotInInput(raw string, caps map[string]any, input []string) string
 // parseModalityList parses a JSON array of modality strings, tolerating
 // malformed input (returns nil so defaults apply).
 func parseModalityList(raw string) []string {
-	if raw == "" || raw == "[]" {
+	if isEmptyModalities(raw) {
 		return nil
 	}
 	var list []string
@@ -382,8 +383,8 @@ func canonicalizeModalityList(list []string) []string {
 		seen[v] = true
 		cleaned = append(cleaned, v)
 	}
-	// Stable insertion sort by canonical rank; unknowns (no rank) keep
-	// first-seen order after known entries.
+	// Stable sort by canonical rank; unknowns (no rank) keep first-seen order
+	// after known entries.
 	const unknownRank = 100
 	rank := func(v string) int {
 		if r, ok := canonicalModalityRank[v]; ok {
@@ -391,11 +392,7 @@ func canonicalizeModalityList(list []string) []string {
 		}
 		return unknownRank
 	}
-	for i := 1; i < len(cleaned); i++ {
-		for j := i; j > 0 && rank(cleaned[j]) < rank(cleaned[j-1]); j-- {
-			cleaned[j], cleaned[j-1] = cleaned[j-1], cleaned[j]
-		}
-	}
+	slices.SortStableFunc(cleaned, func(a, b string) int { return cmp.Compare(rank(a), rank(b)) })
 	return cleaned
 }
 
@@ -408,8 +405,4 @@ func marshalModalityList(list []string) string {
 		return "[]"
 	}
 	return string(out)
-}
-
-func containsModality(list []string, want string) bool {
-	return slices.Contains(list, want)
 }

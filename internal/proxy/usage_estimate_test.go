@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
@@ -224,6 +225,19 @@ func TestHandleStreamingResponse_NoEstimateWithoutDeliveredContent(t *testing.T)
 	assert.Equal(t, 0, singleAddTokens(t, repo))
 }
 
+// admitTPM runs one request through the per-key TPM middleware, the path
+// production admission takes, and reports whether it was admitted. Admission
+// creates the key's bucket and reserves its 1-token placeholder.
+func admitTPM(h *Handler, vkHash string, tpm int) bool {
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+	ctx := context.WithValue(req.Context(), ctxkeys.VirtualKeyHashKey, vkHash)
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitTPMKey, &tpm)
+	rec := httptest.NewRecorder()
+	h.tpmLimiter.Middleware(true)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {})).
+		ServeHTTP(rec, req.WithContext(ctx))
+	return rec.Code == http.StatusOK
+}
+
 // The security property itself: the estimate reaches the TPM bucket, so a key
 // that disconnects before the usage chunk still burns its budget and the next
 // request is refused once the budget is spent.
@@ -235,7 +249,7 @@ func TestHandleStreamingResponse_EstimateDebitsTPMBudget(t *testing.T) {
 	const tpm = 10
 	// Admission, as the TPM middleware performs it: creates the bucket and
 	// reserves the 1-token placeholder.
-	require.True(t, h.tpmLimiter.Allow("test-hash", tpm))
+	require.True(t, admitTPM(h, "test-hash", tpm))
 
 	ctx, cancel := context.WithCancel(context.Background())
 	t.Cleanup(cancel)
@@ -256,7 +270,7 @@ func TestHandleStreamingResponse_EstimateDebitsTPMBudget(t *testing.T) {
 	<-done
 
 	// 12 estimated tokens against a 10-token budget: the bucket is in debt.
-	assert.False(t, h.tpmLimiter.Allow("test-hash", tpm), "next request must be refused after the estimated debit")
+	assert.False(t, admitTPM(h, "test-hash", tpm), "next request must be refused after the estimated debit")
 }
 
 // Native Anthropic passthrough: message_start reports input_tokens up front, but
@@ -349,7 +363,7 @@ func TestHandleNonStreamingResponse_EstimatesUsageWhenProviderOmitsIt(t *testing
 		state:           "pending",
 		promptTextBytes: 40,
 	}
-	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	// 40 prompt bytes → 10; "Hello, world!" (13) + "hmm" (3) = 16 bytes → 4.
@@ -366,7 +380,7 @@ func TestHandleNonStreamingResponse_NoEstimateForEmptyAnswer(t *testing.T) {
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(`{"id":"x","object":"chat.completion","choices":[]}`)), Header: make(http.Header)}
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 	logData := &requestLogData{modelID: "gpt-test", providerID: uuid.New(), virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "pending", promptTextBytes: 40}
-	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	assert.Equal(t, 0, singleAddTokens(t, vkRepo))
 }

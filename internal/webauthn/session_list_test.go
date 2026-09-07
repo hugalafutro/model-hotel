@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 func sessionByToken(t *testing.T, repo *Repository, token string) *SessionRecord {
@@ -417,30 +416,6 @@ type touchFailingStore struct {
 
 func (s *touchFailingStore) TouchSessionLastSeen(context.Context, uuid.UUID, time.Time) error {
 	return errors.New("simulated touch failure")
-}
-
-// The Postgres list surfaces a row it cannot scan rather than returning a
-// silently truncated list.
-func TestListAuthSessionsForUser_ScanError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-	mgr := NewSessionManager(repo)
-
-	identity := []byte("admin-list-scan-error")
-	if _, err := mgr.CreateAuthToken(ctx, identity, nil, SessionMeta{}); err != nil {
-		t.Fatal(err)
-	}
-
-	// NOTE: mutates a package-level variable; do not use t.Parallel() here.
-	origRowsScan := rowsScan
-	rowsScan = func(pgx.Rows, ...any) error {
-		return errors.New("simulated scan error")
-	}
-	defer func() { rowsScan = origRowsScan }()
-
-	if _, err := repo.ListAuthSessionsForUser(ctx, identity); err == nil {
-		t.Error("a scan failure should surface an error")
-	}
 }
 
 func TestRevokeSessionByID_MissingReadsNotFound(t *testing.T) {

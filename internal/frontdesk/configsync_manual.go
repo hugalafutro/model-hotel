@@ -278,12 +278,12 @@ func (s *Server) runConfigSync(ctx context.Context, primaryID string) configSync
 				"source", primary.Name, "not_attempted", notAttempted)
 			break
 		}
-		if m.ID == primary.ID || !m.HasToken {
-			continue // the source, and token-less members (flagged in preview), are skipped
+		if m.ID == primary.ID {
+			continue // the source is not a target of its own push
 		}
-		token, ok, err := s.store.MemberToken(ctx, m.ID)
-		if err != nil || !ok {
-			continue
+		token, ok := s.store.MemberTokenOf(ctx, m)
+		if !ok {
+			continue // token-less members are flagged in the preview and skipped here
 		}
 		if buildSkew(primaryBuild, s.poller.memberBuildOf(m.ID)) {
 			// This member runs a different build than the primary; pushing could

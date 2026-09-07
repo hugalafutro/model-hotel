@@ -155,15 +155,6 @@ func (r *Repository) GetByUsername(ctx context.Context, username string) (*User,
 	return scanUser(r.pool.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE username = $1`, username))
 }
 
-// GetByEmail retrieves a user by normalized email (SSO mapping path).
-func (r *Repository) GetByEmail(ctx context.Context, email string) (*User, error) {
-	e := NormalizeEmail(&email)
-	if e == nil {
-		return nil, ErrNotFound
-	}
-	return scanUser(r.pool.QueryRow(ctx, `SELECT `+userColumns+` FROM users WHERE email = $1`, *e))
-}
-
 // ResolveSSOIdentity binds an OIDC/GitHub login to a user account by verified
 // email while enforcing exactly one external identity per account. On an
 // account's first SSO login the (provider, subject) is recorded

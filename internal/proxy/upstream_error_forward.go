@@ -2,11 +2,11 @@ package proxy
 
 import (
 	"bytes"
+	"cmp"
 	"encoding/json"
 	"io"
 	"net/http"
 	"slices"
-	"sort"
 	"strconv"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -79,13 +79,12 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 			oversized = true
 			body = body[:forwardableErrorBodyCap]
 		}
-		_, _ = io.Copy(io.Discard, resp.Body)
 	default:
 		body, _ = io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
-		_, _ = io.Copy(io.Discard, resp.Body)
 	}
+	_, _ = io.Copy(io.Discard, resp.Body)
 	_ = resp.Body.Close()
-	errMsg := util.SanitizeLogBody(string(body), 10000)
+	errMsg := util.SanitizeLogBody(string(body), logBodyCap)
 	// Classify for the request log and metrics only: routing is unaffected,
 	// the caller already decided it from the status code.
 	kind, reason := classifyUpstreamError(resp.StatusCode, errMsg, candidate.model.ModelID)
@@ -214,7 +213,7 @@ func (m credentialMasker) maskAll(body []byte) []byte {
 		secrets = append(secrets, string(m.secret))
 	}
 	secrets = append(secrets, held...)
-	sort.SliceStable(secrets, func(i, j int) bool { return len(secrets[i]) > len(secrets[j]) })
+	slices.SortStableFunc(secrets, func(a, b string) int { return cmp.Compare(len(b), len(a)) })
 	for _, secret := range secrets {
 		if bytes.Contains(body, []byte(secret)) {
 			body = bytes.ReplaceAll(body, []byte(secret), []byte("[redacted]"))

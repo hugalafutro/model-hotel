@@ -266,7 +266,7 @@ func TestToolArguments_NonStreamingEmitsTheSpecForm(t *testing.T) {
 	logData.providerName = "tool-shape-provider"
 	h.insertRequestLogAsync(logData)
 
-	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, 0, 0, 0, 0, 0, 0, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", w.Code, w.Body.String())

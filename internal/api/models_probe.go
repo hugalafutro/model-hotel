@@ -54,50 +54,46 @@ func parseTestModelResponse(respBody []byte, duration int64) (content string, tp
 	return content, tps, promptTokens, completionTokens
 }
 
-// logTestModelRequestError records a failed test request (the upstream call
-// never completed) as a 502 "failed" request_logs row.
-func (h *Handler) logTestModelRequestError(ctx context.Context, m *model.Model, reqHash string, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg, clientIP string) {
-	logQuery := `
-		INSERT INTO request_logs (
-			provider_id, model_id, request_hash, status_code,
-			latency_ms, duration_ms, response_header_ms, ttft_ms,
-			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
-			error_message, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, client_ip
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22)
-	`
-	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
-		m.ProviderID, m.ModelID, reqHash, 502,
-		durationMs, durationMs, 0,
-		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-		errMsg, false, "internal", nil, 0, "failed", textOrNull(clientIP),
-	)
-	if logErr != nil {
-		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
-	}
-}
-
-// logTestModelHTTPError records a test request that reached the upstream but
-// returned a non-200 status as a "failed" request_logs row.
-func (h *Handler) logTestModelHTTPError(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg, clientIP string) {
-	logQuery := `
+// insertTestModelLog writes the one request_logs row a model test produces.
+// Every probe outcome shares the same columns; the outcome only picks the
+// values. A nil errMsg / tps / token count writes SQL NULL, which is what an
+// outcome that never produced the figure means.
+func (h *Handler) insertTestModelLog(ctx context.Context, m *model.Model, reqHash string, statusCode int,
+	durationMs, responseHeaderMs, proxyOverheadMs, keyDecryptMs float64,
+	errMsg, tps, promptTokens, completionTokens any, state, clientIP string,
+) {
+	const logQuery = `
 		INSERT INTO request_logs (
 			provider_id, model_id, request_hash, status_code,
 			latency_ms, duration_ms, response_header_ms, ttft_ms,
 			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
 			error_message, tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, client_ip
 		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, 0, 0, 0, 0, $9, 0, 0, $10, $11, $12, $13, false, 'internal', NULL, 0, $14, $15)
 	`
-	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
+	if _, err := h.dbPool.Pool().Exec(ctx, logQuery,
 		m.ProviderID, m.ModelID, reqHash, statusCode,
-		durationMs, durationMs, 0,
-		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-		errMsg, 0, 0, 0, false, "internal", nil, 0, "failed", textOrNull(clientIP),
-	)
-	if logErr != nil {
-		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
+		durationMs, durationMs, responseHeaderMs,
+		proxyOverheadMs, keyDecryptMs,
+		errMsg, tps, promptTokens, completionTokens, state, textOrNull(clientIP),
+	); err != nil {
+		debuglog.Error("admin: TestModel log insert failed", "error", err)
 	}
+}
+
+// logTestModelRequestError records a failed test request (the upstream call
+// never completed) as a 502 "failed" request_logs row. No response arrived, so
+// the token figures stay NULL rather than reading as a measured zero.
+func (h *Handler) logTestModelRequestError(ctx context.Context, m *model.Model, reqHash string, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg, clientIP string) {
+	h.insertTestModelLog(ctx, m, reqHash, 502, durationMs, 0, proxyOverheadMs, keyDecryptMs,
+		errMsg, nil, nil, nil, "failed", clientIP)
+}
+
+// logTestModelHTTPError records a test request that reached the upstream but
+// returned a non-200 status as a "failed" request_logs row.
+func (h *Handler) logTestModelHTTPError(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs float64, errMsg, clientIP string) {
+	h.insertTestModelLog(ctx, m, reqHash, statusCode, durationMs, 0, proxyOverheadMs, keyDecryptMs,
+		errMsg, 0, 0, 0, "failed", clientIP)
 }
 
 // logTestModelCompleted records a successful (HTTP 200) test request as a
@@ -105,24 +101,8 @@ func (h *Handler) logTestModelHTTPError(ctx context.Context, m *model.Model, req
 // equals total duration (no separate streaming phase) and ttft_ms is stored as
 // 0 to indicate non-streaming.
 func (h *Handler) logTestModelCompleted(ctx context.Context, m *model.Model, reqHash string, statusCode int, durationMs, proxyOverheadMs, keyDecryptMs, tps float64, promptTokens, completionTokens int, clientIP string) {
-	logQuery := `
-		INSERT INTO request_logs (
-			provider_id, model_id, request_hash, status_code,
-			latency_ms, duration_ms, response_header_ms, ttft_ms,
-			proxy_overhead_ms, parse_ms, failover_lookup_ms, model_lookup_ms, provider_lookup_ms, key_decrypt_ms, dial_ms, settings_read_ms,
-			tokens_per_second, tokens_prompt, tokens_completion, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, client_ip
-		)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, 0, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
-	`
-	_, logErr := h.dbPool.Pool().Exec(ctx, logQuery,
-		m.ProviderID, m.ModelID, reqHash, statusCode,
-		durationMs, durationMs, durationMs,
-		proxyOverheadMs, 0, 0, 0, 0, keyDecryptMs, 0, 0,
-		tps, promptTokens, completionTokens, false, "internal", nil, 0, "completed", textOrNull(clientIP),
-	)
-	if logErr != nil {
-		debuglog.Error("admin: TestModel log insert failed", "error", logErr)
-	}
+	h.insertTestModelLog(ctx, m, reqHash, statusCode, durationMs, durationMs, proxyOverheadMs, keyDecryptMs,
+		nil, tps, promptTokens, completionTokens, "completed", clientIP)
 }
 
 // textOrNull maps "" to NULL so address-less rows look the same as rows

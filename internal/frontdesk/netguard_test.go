@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -45,7 +46,7 @@ func TestCheckProbeRedirect(t *testing.T) {
 }
 
 // TestProbeClientGuards exercises the live guards on the probe client (which the
-// pure isProbeBlockedIP test does not reach): a dial to a blocked address is
+// pure netguard.BlockedIP test does not reach): a dial to a blocked address is
 // refused at the Control hook, a cross-host redirect is refused by CheckRedirect,
 // and a plain loopback request is allowed through.
 func TestProbeClientGuards(t *testing.T) {
@@ -82,4 +83,27 @@ func TestProbeClientGuards(t *testing.T) {
 		t.Fatalf("loopback request should be allowed: %v", err)
 	}
 	_ = resp.Body.Close()
+}
+
+// TestProbeClientCapsSameHostRedirectLoop pins the redirect-chain cap: a member
+// answering every hop with a same-host 302 must stop the client after a bounded
+// number of hops rather than replay the member's Bearer token until the client
+// timeout expires.
+func TestProbeClientCapsSameHostRedirectLoop(t *testing.T) {
+	var hops atomic.Int64
+	loop := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hops.Add(1)
+		http.Redirect(w, r, "/again", http.StatusFound)
+	}))
+	defer loop.Close()
+
+	c := newProbeClient(30 * time.Second)
+	resp, err := c.Get(loop.URL)
+	if err == nil {
+		_ = resp.Body.Close()
+		t.Fatal("a same-host redirect loop must be stopped, not followed to the client timeout")
+	}
+	if n := hops.Load(); n > 11 {
+		t.Errorf("followed %d hops, want the chain capped near 10", n)
+	}
 }

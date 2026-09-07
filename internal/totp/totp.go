@@ -17,10 +17,8 @@ package totp
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"crypto/subtle"
 	"encoding/base32"
-	"encoding/hex"
 	"fmt"
 	"strings"
 	"time"
@@ -31,6 +29,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // totpPeriodSeconds is the TOTP step size (RFC 6238 default).
@@ -136,6 +135,19 @@ func (r *Repository) Verify(ctx context.Context, code string) (bool, error) {
 	return r.store.RecordUsedStep(ctx, matched)
 }
 
+// VerifyOrRecover accepts a current TOTP code and, when that does not match,
+// falls back to consuming a single-use recovery code. usedRecovery reports
+// which factor was accepted so callers can log the recovery-code use. A
+// storage error is returned as-is: it is not a wrong code.
+func (r *Repository) VerifyOrRecover(ctx context.Context, code string) (ok, usedRecovery bool, err error) {
+	ok, err = r.Verify(ctx, code)
+	if err != nil || ok {
+		return ok, false, err
+	}
+	ok, err = r.ConsumeRecoveryCode(ctx, code)
+	return ok, ok && err == nil, err
+}
+
 // Enable flips the single admin_totp row to enabled=true and stamps confirmed_at.
 // Returns an error if no provisional enrollment exists.
 func (r *Repository) Enable(ctx context.Context) error {
@@ -184,7 +196,7 @@ func (r *Repository) DisableWithCode(ctx context.Context, code string) (bool, er
 			}
 		}
 		if !authorized {
-			return recoveryUnused(sha256hex(normalizeRecoveryCode(code)))
+			return recoveryUnused(util.SHA256Hex(normalizeRecoveryCode(code)))
 		}
 		return true, nil
 	})
@@ -257,7 +269,7 @@ func (r *Repository) GenerateRecoveryCodes(ctx context.Context) ([]string, error
 			return nil, fmt.Errorf("totp: generate recovery code: %w", err)
 		}
 		codes = append(codes, code)
-		hashes = append(hashes, sha256hex(code))
+		hashes = append(hashes, util.SHA256Hex(code))
 	}
 
 	if err := r.store.ReplaceRecoveryCodes(ctx, hashes); err != nil {
@@ -270,7 +282,7 @@ func (r *Repository) GenerateRecoveryCodes(ctx context.Context) ([]string, error
 // Returns ok=true only when exactly one row matched (valid hash, unused).
 // The Store's atomic UPDATE ... WHERE used_at IS NULL makes double-use impossible.
 func (r *Repository) ConsumeRecoveryCode(ctx context.Context, code string) (bool, error) {
-	return r.store.ConsumeRecoveryCode(ctx, sha256hex(normalizeRecoveryCode(code)))
+	return r.store.ConsumeRecoveryCode(ctx, util.SHA256Hex(normalizeRecoveryCode(code)))
 }
 
 // matchStep returns the TOTP step (previous/current/next within skew=1) whose
@@ -295,16 +307,8 @@ func generateRecoveryCode() (string, error) {
 	if _, err := rand.Read(buf); err != nil {
 		return "", err
 	}
-	enc := base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf)
-	enc = strings.ToUpper(enc)
-	// Pad/truncate to exactly 16 chars (10 bytes -> 16 base32 chars by design,
-	// but be defensive in case the encoder ever changes).
-	for len(enc) < 16 {
-		enc += base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString([]byte{0})[:1]
-	}
-	if len(enc) > 16 {
-		enc = enc[:16]
-	}
+	// RFC 4648 base32 of 10 bytes is exactly 16 characters with no padding.
+	enc := strings.ToUpper(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(buf))
 	return enc[0:4] + "-" + enc[4:8] + "-" + enc[8:12] + "-" + enc[12:16], nil
 }
 
@@ -326,10 +330,4 @@ func normalizeRecoveryCode(code string) string {
 		return s[0:4] + "-" + s[4:8] + "-" + s[8:12] + "-" + s[12:16]
 	}
 	return s
-}
-
-// sha256hex returns the lowercase hex SHA-256 digest of s.
-func sha256hex(s string) string {
-	h := sha256.Sum256([]byte(s))
-	return hex.EncodeToString(h[:])
 }

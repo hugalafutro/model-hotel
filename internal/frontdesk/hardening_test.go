@@ -13,6 +13,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"testing/fstest"
+
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 )
 
 // stubTotpReader is a totpStatusReader whose IsEnabled result is fully scripted,
@@ -143,8 +145,8 @@ func TestIsProbeBlockedIP(t *testing.T) {
 		if ip == nil {
 			t.Fatalf("bad test IP %q", c.ip)
 		}
-		if got := isProbeBlockedIP(ip); got != c.blocked {
-			t.Errorf("isProbeBlockedIP(%s) = %v, want %v", c.ip, got, c.blocked)
+		if got := netguard.BlockedIP(ip); got != c.blocked {
+			t.Errorf("netguard.BlockedIP(%s) = %v, want %v", c.ip, got, c.blocked)
 		}
 	}
 }

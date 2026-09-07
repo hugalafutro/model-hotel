@@ -195,3 +195,50 @@ func TestBuildChatCompletion_DecodeErrorOmitsPayload(t *testing.T) {
 		})
 	}
 }
+
+// A tool call with no arguments still reaches the client as a callable one:
+// the empty object is what an argument parser expects, an empty string is not.
+func TestBuildChatCompletion_ToolCallWithoutArgumentsCarriesAnEmptyObject(t *testing.T) {
+	body := `{"candidates":[{"content":{"parts":[{"functionCall":{"name":"lookup"}}]},"finishReason":"STOP"}]}`
+	out, err := BuildChatCompletion([]byte(body), "id1", "m", 1)
+	if err != nil {
+		t.Fatalf("BuildChatCompletion: %v", err)
+	}
+	var resp struct {
+		Choices []struct {
+			Message struct {
+				ToolCalls []struct {
+					Function struct {
+						Arguments string `json:"arguments"`
+					} `json:"function"`
+				} `json:"tool_calls"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.Unmarshal(out, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	calls := resp.Choices[0].Message.ToolCalls
+	if len(calls) != 1 {
+		t.Fatalf("tool_calls = %s, want one", out)
+	}
+	if got := calls[0].Function.Arguments; got != "{}" {
+		t.Errorf("arguments = %q, want %q", got, "{}")
+	}
+}
+
+// compactJSON is reached with bytes an enclosing decode already validated, so
+// the invalid case is a guard rather than a live path; it is exercised here
+// because a tool call whose arguments came back empty must still be callable.
+func TestCompactJSON_EmptyAndInvalidBecomeAnEmptyObject(t *testing.T) {
+	for _, raw := range []string{``, `not json`, `{"a":  1}`} {
+		got := compactJSON(json.RawMessage(raw))
+		want := "{}"
+		if raw == `{"a":  1}` {
+			want = `{"a":1}`
+		}
+		if got != want {
+			t.Errorf("compactJSON(%q) = %q, want %q", raw, got, want)
+		}
+	}
+}

@@ -7,12 +7,12 @@ import (
 
 // TestStreamSink covers the sink's framing, byte accounting, and the
 // swallowBlank separator flag (Phase 5). httptest.NewRecorder implements
-// http.Flusher, so canFlush is true.
+// http.Flusher, so the sink holds a flusher.
 func TestStreamSink(t *testing.T) {
 	t.Parallel()
 	rec := httptest.NewRecorder()
 	s := newStreamSink(rec)
-	if !s.canFlush {
+	if s.flusher == nil {
 		t.Fatal("recorder should support flushing")
 	}
 

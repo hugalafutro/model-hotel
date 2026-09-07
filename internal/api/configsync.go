@@ -163,6 +163,18 @@ var errInvalidSyncedPasswordHash = errors.New("configsync: refusing to apply a m
 // fleet sync on an ordinary provider deletion.
 var errUnresolvableUserProviders = errors.New("configsync: refusing to apply a user whose provider cap does not resolve")
 
+// importRejections are the envelope-content refusals the import answers with a
+// 400 naming the sentinel's own message, as opposed to errStaleSourceGen and
+// errWouldWipeProviders, which carry their own responses.
+var importRejections = []error{
+	errInvalidSyncedURL,
+	errInvalidSyncedSettingBound,
+	errInvalidSyncedPasswordHash,
+	errInvalidSyncedProvider,
+	errInvalidSyncedRateLimit,
+	errUnresolvableUserProviders,
+}
+
 // ConfigSyncHandler serves the member-side config export/import endpoints. It is
 // mounted inside the admin-authenticated /api group, so every call requires the
 // admin token (or a session when TOTP is on): a caller able to import config
@@ -419,38 +431,41 @@ type importResponse struct {
 // querier is the read surface shared by *pgxpool.Pool and pgx.Tx.
 type querier interface {
 	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
 }
 
+// nameSet reads a one-column query into a set.
 func nameSet(ctx context.Context, q querier, sql string) (map[string]struct{}, error) {
 	rows, err := q.Query(ctx, sql)
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
-	out := map[string]struct{}{}
-	for rows.Next() {
-		var s string
-		if err := rows.Scan(&s); err != nil {
-			return nil, err
-		}
-		out[s] = struct{}{}
+	names, err := pgx.CollectRows(rows, pgx.RowTo[string])
+	if err != nil {
+		return nil, err
 	}
-	return out, rows.Err()
+	out := make(map[string]struct{}, len(names))
+	for _, n := range names {
+		out[n] = struct{}{}
+	}
+	return out, nil
 }
 
-func hashToName(ctx context.Context, q querier, sql string) (map[string]string, error) {
-	rows, err := q.Query(ctx, sql)
+// stringMap reads a two-column (key, value) query into a map. Every name/id and
+// hash/name lookup the sync paths need is one of these.
+func stringMap(ctx context.Context, q querier, sql string, args ...any) (map[string]string, error) {
+	rows, err := q.Query(ctx, sql, args...)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 	out := map[string]string{}
 	for rows.Next() {
-		var hash, name string
-		if err := rows.Scan(&hash, &name); err != nil {
+		var k, v string
+		if err := rows.Scan(&k, &v); err != nil {
 			return nil, err
 		}
-		out[hash] = name
+		out[k] = v
 	}
 	return out, rows.Err()
 }
@@ -516,4 +531,30 @@ func syncableSettingKeys() []string {
 		}
 	}
 	return out
+}
+
+// translateIDs maps each entry through lookup, dropping the ones that no longer
+// resolve. It is the one direction the allow-list translation travels on
+// import (names to this member's UUIDs); namesFor is the export direction.
+func translateIDs(ids []string, lookup map[string]string) []string {
+	out := make([]string, 0, len(ids))
+	for _, id := range ids {
+		if v, ok := lookup[id]; ok {
+			out = append(out, v)
+		}
+	}
+	return out
+}
+
+// namesFor translates an allow-list of instance-local ids into names for
+// export, preserving nullness: a nil list stays nil ("no restriction"), while a
+// present list whose ids have all been deleted exports as present-but-empty.
+// The import reads PRESENCE from the pointer, so collapsing the two would widen
+// a restricted key or a capped account.
+func namesFor(ids []string, idToName map[string]string) *[]string {
+	if ids == nil {
+		return nil
+	}
+	names := translateIDs(ids, idToName)
+	return &names
 }

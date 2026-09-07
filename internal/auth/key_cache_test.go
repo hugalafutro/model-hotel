@@ -1,7 +1,6 @@
 package auth
 
 import (
-	"crypto/cipher"
 	"fmt"
 	"sync"
 	"testing"
@@ -381,18 +380,6 @@ func TestDecryptCached_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestStopKeyCacheEviction(t *testing.T) {
-	// Calling Stop should not panic even if called multiple times
-	// (the init() goroutine is already running from package init)
-	StopKeyCacheEviction()
-
-	// Calling Stop again should not panic (nil channel guard)
-	StopKeyCacheEviction()
-
-	// Calling a third time should also not panic (idempotent)
-	StopKeyCacheEviction()
-}
-
 func TestDecryptCached_EmptyCiphertext(t *testing.T) {
 	// Empty ciphertext with a valid-length nonce and salt should fail gracefully
 	// (not panic). AES-GCM will reject the empty ciphertext as a decryption error.
@@ -460,10 +447,6 @@ func TestDecryptCached_CacheExpiryEndToEnd(t *testing.T) {
 
 	// Set a very short TTL
 	SetKeyCacheTTL(100 * time.Millisecond)
-
-	// Restart eviction goroutine
-	startKeyCacheEviction()
-	defer StopKeyCacheEviction()
 
 	// Clear the cache
 	keyCacheMu.Lock()
@@ -534,9 +517,6 @@ func TestDecryptCached_CacheExpiryEndToEnd(t *testing.T) {
 }
 
 func TestStartKeyCacheEviction_FiresPeriodically(t *testing.T) {
-	// Stop any existing eviction goroutine
-	StopKeyCacheEviction()
-
 	// Set very short TTL
 	orig := getKeyCacheTTL()
 	defer SetKeyCacheTTL(orig)
@@ -547,9 +527,9 @@ func TestStartKeyCacheEviction_FiresPeriodically(t *testing.T) {
 	keyCache = make(map[string]cacheEntry)
 	keyCacheMu.Unlock()
 
-	// Start eviction
+	// Start a second eviction loop with the short TTL; the one from init ticks
+	// at the default TTL and would not fire inside this test.
 	startKeyCacheEviction()
-	defer StopKeyCacheEviction()
 
 	// Add an expired entry directly
 	keyCacheMu.Lock()
@@ -728,11 +708,6 @@ func TestDecryptCached_ConcurrentEvictionAndAccess(t *testing.T) {
 	// Set short TTL
 	SetKeyCacheTTL(50 * time.Millisecond)
 
-	// Stop existing eviction, restart with short TTL
-	StopKeyCacheEviction()
-	startKeyCacheEviction()
-	defer StopKeyCacheEviction()
-
 	// Clear cache
 	keyCacheMu.Lock()
 	keyCache = make(map[string]cacheEntry)
@@ -794,30 +769,6 @@ func TestDecryptCached_ConcurrentEvictionAndAccess(t *testing.T) {
 	// Check for errors
 	for err := range errors {
 		t.Errorf("concurrent operation error: %v", err)
-	}
-}
-
-func TestDecryptCached_NewCipherBlockError(t *testing.T) {
-	orig := newCipherBlock
-	defer func() { newCipherBlock = orig }()
-	newCipherBlock = func([]byte) (cipher.Block, error) {
-		return nil, fmt.Errorf("mock cipher error")
-	}
-	_, err := DecryptCached([]byte("ct"), []byte("123456789012"), []byte("12345678901234567890123456789012"), "key")
-	if err == nil {
-		t.Error("expected error when newCipherBlock fails")
-	}
-}
-
-func TestDecryptCached_NewGCMError(t *testing.T) {
-	orig := newGCM
-	defer func() { newGCM = orig }()
-	newGCM = func(cipher.Block) (cipher.AEAD, error) {
-		return nil, fmt.Errorf("mock GCM error")
-	}
-	_, err := DecryptCached([]byte("ct"), []byte("123456789012"), []byte("12345678901234567890123456789012"), "key")
-	if err == nil {
-		t.Error("expected error when newGCM fails")
 	}
 }
 

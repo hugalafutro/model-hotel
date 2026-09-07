@@ -2,6 +2,7 @@ package adminauth
 
 import (
 	"bytes"
+	"context"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -143,25 +144,84 @@ func (h *WebAuthnHandler) adminOrSessionAuth(next http.Handler) http.Handler {
 	return RequireAdminOrSession(h.adminMgr, h.sessionMgr, h.totpEnabled, h.jar, h.cookieSecure, next)
 }
 
-// sessionTTL is the time-to-live for WebAuthn registration/login sessions.
-const sessionTTL = 5 * time.Minute
-
-// RegisterStart begins a WebAuthn credential registration ceremony.
-// POST /webauthn/register/start (admin auth required)
-func (h *WebAuthnHandler) RegisterStart(w http.ResponseWriter, r *http.Request) {
-	creds, err := h.webauthnRepo.ListCredentials(r.Context())
+// adminUserWithCredentials builds the single admin WebAuthn user carrying every
+// stored credential, the shape both registration ceremony halves need.
+func (h *WebAuthnHandler) adminUserWithCredentials(ctx context.Context) (*webauthn.AdminUser, error) {
+	creds, err := h.webauthnRepo.ListCredentials(ctx)
 	if err != nil {
-		debuglog.Error("webauthn: failed to list credentials for registration", "error", err)
-		respondError(w, "failed to list credentials", err, http.StatusInternalServerError)
-		return
+		return nil, err
 	}
-
 	adminUser := webauthn.NewAdminUser()
 	webauthnCreds := make([]webauthnx.Credential, len(creds))
 	for i, c := range creds {
 		webauthnCreds[i] = c.ToWebAuthnCredential()
 	}
 	adminUser.SetCredentials(webauthnCreds)
+	return adminUser, nil
+}
+
+// consumeCeremony claims a registration or login ceremony session exactly once
+// and returns its decoded SessionData. It loads the row, checks the type,
+// deletes it (the atomic single-use claim: a 0-row delete means a concurrent
+// request or replay already took it, mirroring
+// webauthn.SessionManager.ConsumeLoginState), enforces the ceremony TTL at
+// consume time (the hourly cleanup sweep is the only other thing that removes
+// stale rows, and the go-webauthn library only checks SessionData.Expires when
+// Timeouts.*.Enforce is configured), and decodes the blob. Every rejection is
+// answered here as the generic "session not found" so a probing caller cannot
+// tell an expired ceremony from an unknown one; the reason stays in the log.
+func (h *WebAuthnHandler) consumeCeremony(w http.ResponseWriter, r *http.Request, rawID, wantType string) (webauthnx.SessionData, bool) {
+	var session webauthnx.SessionData
+
+	sessionID, err := uuid.Parse(rawID)
+	if err != nil {
+		respondBadRequest(w, "invalid session_id", err)
+		return session, false
+	}
+
+	sessionRec, err := h.webauthnRepo.GetSession(r.Context(), sessionID)
+	if err != nil {
+		debuglog.Error("webauthn: failed to load "+wantType+" session", "session_id", sessionID, "error", err)
+		respondError(w, "session not found", err, http.StatusBadRequest)
+		return session, false
+	}
+	if sessionRec.Type != wantType {
+		http.Error(w, "invalid session type", http.StatusBadRequest)
+		return session, false
+	}
+
+	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
+		debuglog.Info("webauthn: "+wantType+" session already consumed", "session_id", sessionID, "error", err)
+		respondError(w, "session not found", err, http.StatusBadRequest)
+		return session, false
+	}
+
+	if sessionRec.ExpiresAt.Before(time.Now()) {
+		debuglog.Info("webauthn: "+wantType+" session expired", "session_id", sessionID)
+		http.Error(w, "session not found", http.StatusBadRequest)
+		return session, false
+	}
+
+	if err := json.Unmarshal(sessionRec.SessionData, &session); err != nil {
+		debuglog.Error("webauthn: failed to unmarshal "+wantType+" session data", "session_id", sessionID, "error", err)
+		respondError(w, "invalid session data", err, http.StatusInternalServerError)
+		return session, false
+	}
+	return session, true
+}
+
+// sessionTTL is the time-to-live for WebAuthn registration/login sessions.
+const sessionTTL = 5 * time.Minute
+
+// RegisterStart begins a WebAuthn credential registration ceremony.
+// POST /webauthn/register/start (admin auth required)
+func (h *WebAuthnHandler) RegisterStart(w http.ResponseWriter, r *http.Request) {
+	adminUser, err := h.adminUserWithCredentials(r.Context())
+	if err != nil {
+		debuglog.Error("webauthn: failed to list credentials for registration", "error", err)
+		respondError(w, "failed to list credentials", err, http.StatusInternalServerError)
+		return
+	}
 
 	creation, session, err := h.relyingParty.BeginRegistration(
 		adminUser,
@@ -219,50 +279,8 @@ func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	sessionID, err := uuid.Parse(req.SessionID)
-	if err != nil {
-		respondBadRequest(w, "invalid session_id", err)
-		return
-	}
-
-	sessionRec, err := h.webauthnRepo.GetSession(r.Context(), sessionID)
-	if err != nil {
-		debuglog.Error("webauthn: failed to load registration session", "session_id", sessionID, "error", err)
-		respondError(w, "session not found", err, http.StatusBadRequest)
-		return
-	}
-	if sessionRec.Type != "registration" {
-		http.Error(w, "invalid session type", http.StatusBadRequest)
-		return
-	}
-
-	// Consume the session atomically: DeleteSession is the single-use claim. If it
-	// fails (0 rows because a concurrent request or replay already deleted it),
-	// abort instead of continuing to validate the same assertion — mirrors
-	// webauthn.SessionManager.ConsumeLoginState so no ceremony can be replayed.
-	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
-		debuglog.Info("webauthn: registration session already consumed", "session_id", sessionID, "error", err)
-		respondError(w, "session not found", err, http.StatusBadRequest)
-		return
-	}
-
-	// Enforce the ceremony TTL at consume time, as
-	// webauthn.SessionManager.ConsumeLoginState does: the hourly cleanup sweep is
-	// the only other thing that removes stale rows, and the go-webauthn library
-	// only checks SessionData.Expires when Timeouts.*.Enforce is configured.
-	// The response stays the generic "session not found" so a probing caller
-	// cannot tell an expired ceremony from an unknown one; the reason is kept in
-	// the log line.
-	if sessionRec.ExpiresAt.Before(time.Now()) {
-		debuglog.Info("webauthn: registration session expired", "session_id", sessionID)
-		http.Error(w, "session not found", http.StatusBadRequest)
-		return
-	}
-
-	var session webauthnx.SessionData
-	if err := json.Unmarshal(sessionRec.SessionData, &session); err != nil {
-		debuglog.Error("webauthn: failed to unmarshal session data", "session_id", sessionID, "error", err)
-		respondError(w, "invalid session data", err, http.StatusInternalServerError)
+	session, ok := h.consumeCeremony(w, r, req.SessionID, "registration")
+	if !ok {
 		return
 	}
 
@@ -275,19 +293,12 @@ func (h *WebAuthnHandler) RegisterFinish(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	creds, err := h.webauthnRepo.ListCredentials(r.Context())
+	adminUser, err := h.adminUserWithCredentials(r.Context())
 	if err != nil {
 		debuglog.Error("webauthn: failed to list credentials for registration finish", "error", err)
 		respondError(w, "failed to list credentials", err, http.StatusInternalServerError)
 		return
 	}
-
-	adminUser := webauthn.NewAdminUser()
-	webauthnCreds := make([]webauthnx.Credential, len(creds))
-	for i, c := range creds {
-		webauthnCreds[i] = c.ToWebAuthnCredential()
-	}
-	adminUser.SetCredentials(webauthnCreds)
 
 	credential, err := h.relyingParty.CreateCredential(adminUser, session, parsedResponse)
 	if err != nil {
@@ -382,50 +393,8 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionID, err := uuid.Parse(req.SessionID)
-	if err != nil {
-		respondBadRequest(w, "invalid session_id", err)
-		return
-	}
-
-	sessionRec, err := h.webauthnRepo.GetSession(r.Context(), sessionID)
-	if err != nil {
-		debuglog.Error("webauthn: failed to load login session", "session_id", sessionID, "error", err)
-		respondError(w, "session not found", err, http.StatusBadRequest)
-		return
-	}
-	if sessionRec.Type != "login" {
-		http.Error(w, "invalid session type", http.StatusBadRequest)
-		return
-	}
-
-	// Consume the session atomically: DeleteSession is the single-use claim. If it
-	// fails (0 rows because a concurrent request or replay already deleted it),
-	// abort instead of continuing to validate the same assertion — mirrors
-	// webauthn.SessionManager.ConsumeLoginState so no ceremony can be replayed.
-	if err := h.webauthnRepo.DeleteSession(r.Context(), sessionID); err != nil {
-		debuglog.Info("webauthn: login session already consumed", "session_id", sessionID, "error", err)
-		respondError(w, "session not found", err, http.StatusBadRequest)
-		return
-	}
-
-	// Enforce the ceremony TTL at consume time, as
-	// webauthn.SessionManager.ConsumeLoginState does: the hourly cleanup sweep is
-	// the only other thing that removes stale rows, and the go-webauthn library
-	// only checks SessionData.Expires when Timeouts.*.Enforce is configured.
-	// The response stays the generic "session not found" so a probing caller
-	// cannot tell an expired ceremony from an unknown one; the reason is kept in
-	// the log line.
-	if sessionRec.ExpiresAt.Before(time.Now()) {
-		debuglog.Info("webauthn: login session expired", "session_id", sessionID)
-		http.Error(w, "session not found", http.StatusBadRequest)
-		return
-	}
-
-	var session webauthnx.SessionData
-	if err := json.Unmarshal(sessionRec.SessionData, &session); err != nil {
-		debuglog.Error("webauthn: failed to unmarshal login session data", "session_id", sessionID, "error", err)
-		respondError(w, "invalid session data", err, http.StatusInternalServerError)
+	session, ok := h.consumeCeremony(w, r, req.SessionID, "login")
+	if !ok {
 		return
 	}
 

@@ -160,10 +160,10 @@ func TestCalculateStats_Golden(t *testing.T) {
 	}
 }
 
-// TestCalculateStats_CrossFill exercises statTotals' period switch in BOTH
-// directions — the 24h primary path (cross-fills 7d) and the 7d primary path
-// (cross-fills 24h) — with a dataset whose 24h and 7d counts differ, so a
-// swapped cross-fill assignment is caught.
+// TestCalculateStats_CrossFill checks that statTotals reports both windows for
+// every requested period, with a dataset whose 24h and 7d counts differ so a
+// swapped assignment is caught. period=1h is included because that window has
+// no total of its own: it must still report the two figures the dashboard shows.
 func TestCalculateStats_CrossFill(t *testing.T) {
 	handler, pool, cleanup := newStatsHandler(t)
 	defer cleanup()
@@ -185,7 +185,7 @@ func TestCalculateStats_CrossFill(t *testing.T) {
 	mustInsert("1 hour")
 	mustInsert("2 days")
 
-	// period = 24h: primary fills 24h (1 recent), cross-fill fills 7d (both).
+	// period = 24h: 24h counts the recent row, 7d counts both.
 	s24, err := handler.calculateStats(ctx, 24*time.Hour, false, "requests", false, "")
 	if err != nil {
 		t.Fatalf("calculateStats 24h: %v", err)
@@ -194,12 +194,22 @@ func TestCalculateStats_CrossFill(t *testing.T) {
 		t.Errorf("24h period: got 24h=%d 7d=%d, want 24h=1 7d=2", s24.TotalRequestsLast24h, s24.TotalRequestsLast7d)
 	}
 
-	// period = 7d: primary fills 7d (both), cross-fill fills 24h (1 recent).
+	// period = 7d: same two figures.
 	s7, err := handler.calculateStats(ctx, 7*24*time.Hour, false, "requests", false, "")
 	if err != nil {
 		t.Fatalf("calculateStats 7d: %v", err)
 	}
 	if s7.TotalRequestsLast7d != 2 || s7.TotalRequestsLast24h != 1 {
 		t.Errorf("7d period: got 7d=%d 24h=%d, want 7d=2 24h=1", s7.TotalRequestsLast7d, s7.TotalRequestsLast24h)
+	}
+
+	// period = 1h: the 1h window has no total field of its own, so both the 24h
+	// and the 7d figures must still be filled rather than left at zero.
+	s1, err := handler.calculateStats(ctx, time.Hour, false, "requests", false, "")
+	if err != nil {
+		t.Fatalf("calculateStats 1h: %v", err)
+	}
+	if s1.TotalRequestsLast24h != 1 || s1.TotalRequestsLast7d != 2 {
+		t.Errorf("1h period: got 24h=%d 7d=%d, want 24h=1 7d=2", s1.TotalRequestsLast24h, s1.TotalRequestsLast7d)
 	}
 }

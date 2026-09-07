@@ -2,16 +2,12 @@ package api
 
 import (
 	"context"
-	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/events"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ── Scheduler ────────────────────────────────────────────────────────
@@ -168,44 +164,10 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 	}
 	defer h.backupMu.Unlock()
 
-	pgDumpPath, err := exec.LookPath("pg_dump")
-	if err != nil {
-		debuglog.Error("backup: scheduled backup failed, pg_dump not found", "error", err)
+	if _, err := h.createDump(ctx, "auto", scheduledDumpCompression, "Scheduled backup created"); err != nil {
+		debuglog.Error("backup: scheduled backup failed", "error", err)
 		return
 	}
-
-	if err := os.MkdirAll(h.backupDir, 0o750); err != nil {
-		debuglog.Error("backup: scheduled backup failed, mkdir", "error", err)
-		return
-	}
-
-	filename := generateBackupFilename("auto")
-	path := filepath.Join(h.backupDir, filename)
-
-	dumpCtx, cancel := context.WithTimeout(ctx, backupDumpBudget)
-	defer cancel()
-
-	if output, err := h.runDump(dumpCtx, pgDumpPath, path, scheduledDumpCompression); err != nil {
-		debuglog.Error("backup: scheduled pg_dump failed", "output", output, "error", err)
-		return
-	}
-
-	info, err := os.Stat(path)
-	if err != nil {
-		debuglog.Error("backup: scheduled backup stat failed", "error", err)
-		return
-	}
-
-	signed := h.signFinishedDump(path, filename)
-
-	debuglog.Info("backup: scheduled backup created", "filename", filename, "size_bytes", info.Size(), "signed", signed)
-	events.Publish(events.Event{
-		Type:     "backup.created",
-		Severity: "success",
-		Source:   "backup",
-		Message:  fmt.Sprintf("Scheduled backup created: %s (%s)", filename, util.FormatBytes(info.Size())),
-		Metadata: map[string]any{"filename": filename, "size_bytes": info.Size()},
-	})
 
 	// Apply rotation
 	backups, err := h.listBackupFiles()
@@ -215,16 +177,5 @@ func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 	}
 	son, father, grandfather := h.getRetentionSettings(ctx)
 	classification := classifyBackups(scheduledBackups(backups), son, father, grandfather, time.Now())
-
-	for _, b := range classification.Prune {
-		absPath := h.validateBackupFilename(b.Filename)
-		if absPath == "" {
-			continue
-		}
-		if err := removeBackupWithSignature(absPath); err != nil && !os.IsNotExist(err) {
-			debuglog.Error("backup: failed to prune", "filename", b.Filename, "error", err)
-		} else {
-			debuglog.Info("backup: pruned", "filename", b.Filename)
-		}
-	}
+	h.pruneBackups(classification.Prune)
 }

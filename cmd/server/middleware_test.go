@@ -14,6 +14,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 func TestStreamingAwareTimeout_StoresContextValues(t *testing.T) {
@@ -352,242 +353,41 @@ func (h *recordHandler) WithGroup(_ string) slog.Handler {
 	return h
 }
 
-func TestSilentLogger_NoisyEndpointsAtDebugLevel(t *testing.T) {
-	// Capture slog output
-	var mu sync.Mutex
-	var records []slog.Record
-	origDefault := slog.Default()
-	defer slog.SetDefault(origDefault)
-
-	impl := &recordHandler{mu: &mu, records: &records}
-	slog.SetDefault(slog.New(impl))
-
-	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	// Request to noisy endpoint
-	req := httptest.NewRequest(http.MethodGet, "/api/logs/app/cursor", http.NoBody)
-	req.Host = "test"
-	handler.ServeHTTP(httptest.NewRecorder(), req)
-
-	// Request to normal endpoint (not in noisy list). A settings *mutation*
-	// is a real admin action: only GET /api/settings is demoted (the fleet
-	// version poll), so POST stays at Info.
-	req2 := httptest.NewRequest(http.MethodPost, "/api/settings", http.NoBody)
-	req2.Host = "test"
-	handler.ServeHTTP(httptest.NewRecorder(), req2)
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(records) != 2 {
-		t.Fatalf("expected 2 records, got %d", len(records))
-	}
-
-	// First record (noisy endpoint) should be at Debug level
-	if records[0].Level != slog.LevelDebug {
-		t.Errorf("noisy endpoint: expected Debug level, got %v", records[0].Level)
-	}
-	// Second record (normal endpoint) should be at Info level
-	if records[1].Level != slog.LevelInfo {
-		t.Errorf("normal endpoint: expected Info level, got %v", records[1].Level)
-	}
-}
-
-// ---------------------------------------------------------------------------
-// silentLogger additional coverage tests
-// ---------------------------------------------------------------------------
-
-func TestSilentLogger_ServerErrorLogLevel(t *testing.T) {
-	var mu sync.Mutex
-	var records []slog.Record
-	origDefault := slog.Default()
-	defer slog.SetDefault(origDefault)
-
-	impl := &recordHandler{mu: &mu, records: &records}
-	slog.SetDefault(slog.New(impl))
-
-	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusInternalServerError)
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/providers", http.NoBody)
-	req.Host = "test"
-	handler.ServeHTTP(httptest.NewRecorder(), req)
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(records) != 1 {
-		t.Fatalf("expected 1 record, got %d", len(records))
-	}
-	if records[0].Level != slog.LevelError {
-		t.Errorf("500 response: expected Error level, got %v", records[0].Level)
-	}
-}
-
-func TestSilentLogger_ClientErrorLogLevel(t *testing.T) {
-	var mu sync.Mutex
-	var records []slog.Record
-	origDefault := slog.Default()
-	defer slog.SetDefault(origDefault)
-
-	impl := &recordHandler{mu: &mu, records: &records}
-	slog.SetDefault(slog.New(impl))
-
-	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/providers", http.NoBody)
-	req.Host = "test"
-	handler.ServeHTTP(httptest.NewRecorder(), req)
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(records) != 1 {
-		t.Fatalf("expected 1 record, got %d", len(records))
-	}
-	if records[0].Level != slog.LevelWarn {
-		t.Errorf("404 response: expected Warn level, got %v", records[0].Level)
-	}
-}
-
-func TestSilentLogger_StaticAssetsSuppressed(t *testing.T) {
-	var mu sync.Mutex
-	var records []slog.Record
-	origDefault := slog.Default()
-	defer slog.SetDefault(origDefault)
-
-	impl := &recordHandler{mu: &mu, records: &records}
-	slog.SetDefault(slog.New(impl))
-
-	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/assets/main.js", http.NoBody)
-	req.Host = "test"
-	handler.ServeHTTP(httptest.NewRecorder(), req)
-
-	req2 := httptest.NewRequest(http.MethodGet, "/favicon.ico", http.NoBody)
-	req2.Host = "test"
-	handler.ServeHTTP(httptest.NewRecorder(), req2)
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(records) != 0 {
-		t.Errorf("expected 0 records for static assets with 200 status, got %d", len(records))
-	}
-}
-
-func TestSilentLogger_StaticAssetWithErrorCodeNotSuppressed(t *testing.T) {
-	var mu sync.Mutex
-	var records []slog.Record
-	origDefault := slog.Default()
-	defer slog.SetDefault(origDefault)
-
-	impl := &recordHandler{mu: &mu, records: &records}
-	slog.SetDefault(slog.New(impl))
-
-	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusNotFound)
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/assets/missing.js", http.NoBody)
-	req.Host = "test"
-	handler.ServeHTTP(httptest.NewRecorder(), req)
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(records) != 1 {
-		t.Fatalf("expected 1 record for static asset with 404 status, got %d", len(records))
-	}
-	// 404 on static assets should log at Warn level (status >= 400)
-	if records[0].Level != slog.LevelWarn {
-		t.Errorf("static asset 404: expected Warn level, got %v", records[0].Level)
-	}
-}
-
-func TestSilentLogger_NoisyEndpoints(t *testing.T) {
+func TestIsNoisyGatewayPath(t *testing.T) {
 	tests := []struct {
 		name   string
 		path   string
 		method string
+		want   bool
 	}{
-		{"health endpoint", "/health", "GET"},
-		{"app logs endpoint", "/api/logs/app/cursor", "GET"},
-		{"api logs GET", "/api/logs", "GET"},
-		{"api system GET", "/api/system", "GET"},
-		{"api events GET", "/api/events", "GET"},
-		{"api stats GET", "/api/stats", "GET"},
-		{"api stats timeseries GET", "/api/stats/timeseries", "GET"},
-		{"api stats provider-distribution GET", "/api/stats/provider-distribution", "GET"},
-		{"api models GET", "/api/models", "GET"},
-		{"api providers GET", "/api/providers", "GET"},
-		{"fleet announce POST", "/api/fleet/announce", "POST"},
-		{"api settings GET (fleet version poll)", "/api/settings", "GET"},
+		{"health endpoint", "/health", "GET", true},
+		{"app logs endpoint", "/api/logs/app/cursor", "GET", true},
+		{"api logs GET", "/api/logs", "GET", true},
+		{"api system GET", "/api/system", "GET", true},
+		{"api events GET", "/api/events", "GET", true},
+		{"api stats GET", "/api/stats", "GET", true},
+		{"api stats timeseries GET", "/api/stats/timeseries", "GET", true},
+		{"api stats provider-distribution GET", "/api/stats/provider-distribution", "GET", true},
+		{"api models GET", "/api/models", "GET", true},
+		{"api providers GET", "/api/providers", "GET", true},
+		{"fleet announce POST", "/api/fleet/announce", "POST", true},
+		{"api settings GET (fleet version poll)", "/api/settings", "GET", true},
 		// Trailing slashes must not defeat the exact-path noise match.
-		{"fleet announce POST trailing slash", "/api/fleet/announce/", "POST"},
-		{"api settings GET trailing slash", "/api/settings/", "GET"},
+		{"fleet announce POST trailing slash", "/api/fleet/announce/", "POST", true},
+		{"api settings GET trailing slash", "/api/settings/", "GET", true},
+		// A mutation of a polled path is a real admin action, never noise.
+		{"api settings POST", "/api/settings", "POST", false},
+		{"api models POST", "/api/models", "POST", false},
+		{"chat completions", "/v1/chat/completions", "POST", false},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
-			var mu sync.Mutex
-			var records []slog.Record
-			origDefault := slog.Default()
-			defer slog.SetDefault(origDefault)
-
-			impl := &recordHandler{mu: &mu, records: &records}
-			slog.SetDefault(slog.New(impl))
-
-			handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusOK)
-			}))
-
-			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
-			req.Host = "test"
-			handler.ServeHTTP(httptest.NewRecorder(), req)
-
-			mu.Lock()
-			defer mu.Unlock()
-			if len(records) != 1 {
-				t.Fatalf("expected 1 record, got %d", len(records))
-			}
-			if records[0].Level != slog.LevelDebug {
-				t.Errorf("noisy endpoint %s: expected Debug level, got %v", tc.path, records[0].Level)
+			// The access logger hands the predicate a normalized path.
+			if got := isNoisyGatewayPath(tc.method, httpx.NormalizePath(tc.path)); got != tc.want {
+				t.Errorf("isNoisyGatewayPath(%s %s) = %v, want %v", tc.method, tc.path, got, tc.want)
 			}
 		})
-	}
-}
-
-func TestSilentLogger_LogsNonGETNoisyEndpointAtInfo(t *testing.T) {
-	// Non-GET requests to noisy paths should still be logged at Info (not Debug)
-	// because the isNoisy check requires specific method + path combinations
-	var mu sync.Mutex
-	var records []slog.Record
-	origDefault := slog.Default()
-	defer slog.SetDefault(origDefault)
-
-	impl := &recordHandler{mu: &mu, records: &records}
-	slog.SetDefault(slog.New(impl))
-
-	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	// POST /api/models is NOT in the noisy list (only GET is)
-	req := httptest.NewRequest(http.MethodPost, "/api/models", http.NoBody)
-	req.Host = "test"
-	handler.ServeHTTP(httptest.NewRecorder(), req)
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(records) != 1 {
-		t.Fatalf("expected 1 record, got %d", len(records))
-	}
-	if records[0].Level != slog.LevelInfo {
-		t.Errorf("POST /api/models: expected Info level (not noisy for POST), got %v", records[0].Level)
 	}
 }
 
@@ -604,7 +404,7 @@ func logAttr(r slog.Record, key string) string {
 	return v
 }
 
-func TestSilentLogger_RemoteIsResolvedClientIP(t *testing.T) {
+func TestAccessLog_RemoteIsResolvedClientIP(t *testing.T) {
 	// The "remote" field must be the trusted-proxy-resolved client IP from
 	// clientip.Middleware, not the raw socket peer: behind docker's NAT the
 	// peer is always the bridge gateway, which made every access line useless.
@@ -615,7 +415,7 @@ func TestSilentLogger_RemoteIsResolvedClientIP(t *testing.T) {
 	slog.SetDefault(slog.New(&recordHandler{mu: &mu, records: &records}))
 
 	_, cidr, _ := net.ParseCIDR("172.16.0.0/12")
-	chain := clientip.Middleware([]*net.IPNet{cidr})(silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	chain := clientip.Middleware([]*net.IPNet{cidr})(httpx.AccessLogger(isNoisyGatewayPath)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusInternalServerError)
 	})))
 
@@ -635,7 +435,7 @@ func TestSilentLogger_RemoteIsResolvedClientIP(t *testing.T) {
 	}
 }
 
-func TestSilentLogger_RemoteFallsBackToPeerIP(t *testing.T) {
+func TestAccessLog_RemoteFallsBackToPeerIP(t *testing.T) {
 	// Without clientip.Middleware the logged remote is the bare peer address,
 	// port stripped, and forwarded headers are never honored.
 	var mu sync.Mutex
@@ -644,7 +444,7 @@ func TestSilentLogger_RemoteFallsBackToPeerIP(t *testing.T) {
 	defer slog.SetDefault(origDefault)
 	slog.SetDefault(slog.New(&recordHandler{mu: &mu, records: &records}))
 
-	handler := silentLogger(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	handler := httpx.AccessLogger(isNoisyGatewayPath)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusForbidden)
 	}))
 

@@ -113,6 +113,9 @@ func BuildTraefikConfig(members []*Member, set Settings) TraefikConfig {
 		Service:     traefikServiceName,
 		EntryPoints: []string{traefikEntryPoint},
 	}
+	if set.RetryAttempts >= 1 {
+		router.Middlewares = []string{traefikRetryMiddleware}
+	}
 
 	cfg := TraefikConfig{
 		HTTP: TraefikHTTP{
@@ -122,8 +125,6 @@ func BuildTraefikConfig(members []*Member, set Settings) TraefikConfig {
 	}
 
 	if set.RetryAttempts >= 1 {
-		router.Middlewares = []string{traefikRetryMiddleware}
-		cfg.HTTP.Routers[traefikRouterName] = router
 		cfg.HTTP.Middlewares = map[string]TraefikMiddleware{
 			traefikRetryMiddleware: {Retry: &TraefikRetry{Attempts: set.RetryAttempts}},
 		}

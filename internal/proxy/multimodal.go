@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -279,10 +278,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	case answered || !servedSuccessStatus(resp.StatusCode):
 		// The provider answered: with content, or with a definitive non-2xx,
 		// which says it is plainly alive.
-		if st.circuitBreakerEnabled {
-			logData.noteBreaker(breakerSuccess)
-			h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
-		}
+		h.creditBreaker(st, candidate)
 	case bodilessSuccessStatus(resp.StatusCode):
 		// 204/205 legitimately carry no body, so an empty one proves nothing
 		// either way and this is a no-op rather than a credit.
@@ -423,10 +419,7 @@ func (h *Handler) chargePassthroughUsage(st *requestState, promptTokens, complet
 		if !delivered {
 			return 0, false
 		}
-		chargePrompt, estimated = estimateTokens(logData.promptTextBytes), true
-		if chargePrompt < minPassthroughTokens {
-			chargePrompt = minPassthroughTokens
-		}
+		chargePrompt, estimated = max(estimateTokens(logData.promptTextBytes), minPassthroughTokens), true
 	}
 	if chargePrompt > 0 || chargeCompletion > 0 {
 		h.recordTokenUsage(st.vkHash, logData, chargePrompt, chargeCompletion, 0)
@@ -450,9 +443,8 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	n, readErr := resp.Body.Read(firstByte)
 	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
-		if st.circuitBreakerEnabled && r.Context().Err() == nil {
-			logData.noteBreaker(breakerCharge)
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "upstream body read failed"})
+		if r.Context().Err() == nil {
+			h.chargeBreaker(st, candidate, resp.StatusCode, "upstream body read failed")
 		}
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", readErr))
@@ -461,9 +453,8 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	}
 	// Not for a bodiless success: see the buffered twin above for why crediting
 	// an empty 204 erases the chat path's charges on the same model.
-	if st.circuitBreakerEnabled && !bodilessSuccessStatus(resp.StatusCode) {
-		logData.noteBreaker(breakerSuccess)
-		h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
+	if !bodilessSuccessStatus(resp.StatusCode) {
+		h.creditBreaker(st, candidate)
 	}
 	// The streamed commit point, matching the buffered one: a first byte out of
 	// the provider is where a 200 stops being a promise.
@@ -504,10 +495,9 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	var written int64
 	var copyErr error
 	if n > 0 {
-		var writeErr error
-		nw, writeErr := dst.Write(firstByte[:n])
+		nw, err := dst.Write(firstByte[:n])
 		written += int64(nw)
-		copyErr = writeErr
+		copyErr = err
 	}
 	if copyErr == nil && readErr == nil {
 		var nc int64

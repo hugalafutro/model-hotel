@@ -244,11 +244,6 @@ func (s *Server) patchMember(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
-	m, err := s.store.GetMember(r.Context(), id)
-	if err != nil {
-		writeError(w, err)
-		return
-	}
 	// The fleet primary is the config source of truth and cannot be removed here
 	// at all: changing it goes through the Fleet Sync wizard (a token-gated
 	// repoint). A fleet is also never allowed to shrink to a single member:
@@ -277,6 +272,15 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	// The removed roster names the target as the store saw it under the delete's
+	// own transaction, so a rename racing the removal cannot make the
+	// announcement quote a stale name.
+	var targetName string
+	for _, rm := range removed {
+		if rm.ID == id {
+			targetName = rm.Name
+		}
+	}
 	switch outcome {
 	case DeleteRefusedPrimary:
 		http.Error(w, "this host is the fleet primary (the config source of truth); change the primary from the Fleet Sync wizard before removing it", http.StatusConflict)
@@ -293,14 +297,14 @@ func (s *Server) deleteMember(w http.ResponseWriter, r *http.Request) {
 		s.emit(r.Context(), Event{
 			Type: "fleet.disbanded", Severity: "warning", Source: "frontdesk",
 			Message: fmt.Sprintf("%s removed; fleet disbanded (a fleet cannot have fewer than two members): released %s",
-				m.Name, strings.Join(names, ", ")),
-			MemberID: m.ID,
+				targetName, strings.Join(names, ", ")),
+			MemberID: id,
 		})
 	case DeleteApplied:
-		s.forgetMemberState(m.ID)
+		s.forgetMemberState(id)
 		s.emit(r.Context(), Event{
 			Type: "member.removed", Severity: "info", Source: "frontdesk",
-			Message: m.Name + " removed", MemberID: m.ID,
+			Message: targetName + " removed", MemberID: id,
 		})
 	}
 	w.WriteHeader(http.StatusNoContent)

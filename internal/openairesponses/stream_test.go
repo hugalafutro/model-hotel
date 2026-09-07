@@ -179,8 +179,8 @@ func TestStream_UnknownEventsAndTruncation(t *testing.T) {
 	if finish["finish_reason"] != "length" {
 		t.Errorf("finish_reason = %v, want length", finish["finish_reason"])
 	}
-	if !tr.Finished() {
-		t.Error("translator should report finished")
+	if tail, err := tr.Finish(); err != nil || len(tail) != 0 {
+		t.Errorf("Finish() after the terminal event = %q, %v; want nothing", tail, err)
 	}
 }
 

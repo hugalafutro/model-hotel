@@ -40,7 +40,7 @@ var errMemberRespTooLarge = errors.New("frontdesk: member response exceeds the r
 // returns the response status and body (capped). token is sent as the Bearer
 // credential; body may be nil. The caller maps status to its own result.
 func (s *Server) callMember(ctx context.Context, method, baseURL, path, token string, body io.Reader) (int, []byte, error) {
-	return s.callMemberWith(ctx, s.probe, method, baseURL, path, token, body)
+	return callMemberWith(ctx, s.probe, method, baseURL, path, token, body)
 }
 
 // callMemberWith is callMember with an explicit client, so a heavyweight call
@@ -48,9 +48,11 @@ func (s *Server) callMember(ctx context.Context, method, baseURL, path, token st
 // with a longer deadline than the fast health-probe client without that probe
 // timeout mislabeling a slow-but-successful import as "could not reach". Extra
 // request headers (e.g. the fleet source-generation fence) may be passed as
-// (name, value) pairs; an empty value is skipped.
-func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
-	return s.callMemberLimited(ctx, client, maxMemberRespBody, method, baseURL, path, token, body, headers...)
+// (name, value) pairs; an empty value is skipped. An empty token sends no
+// Authorization header, so an unauthenticated call (the Traefik API) shares the
+// same request/read path.
+func callMemberWith(ctx context.Context, client *http.Client, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
+	return callMemberLimited(ctx, client, maxMemberRespBody, method, baseURL, path, token, body, headers...)
 }
 
 // callMemberLimited is callMemberWith with an explicit response-body limit, for a
@@ -58,12 +60,14 @@ func (s *Server) callMemberWith(ctx context.Context, client *http.Client, method
 // fixed-shape document. A body reaching the limit returns errMemberRespTooLarge
 // with no data, never a truncated prefix: a caller handed half a listing would act
 // on a fraction of the member believing it saw all of it.
-func (s *Server) callMemberLimited(ctx context.Context, client *http.Client, limit int64, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
+func callMemberLimited(ctx context.Context, client *http.Client, limit int64, method, baseURL, path, token string, body io.Reader, headers ...[2]string) (int, []byte, error) {
 	req, err := http.NewRequestWithContext(ctx, method, baseURL+path, body)
 	if err != nil {
 		return 0, nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 	if body != nil {
 		req.Header.Set("Content-Type", "application/json")
 	}

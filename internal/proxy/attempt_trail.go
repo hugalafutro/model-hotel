@@ -8,6 +8,8 @@ import (
 	"unicode/utf8"
 
 	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // The per-attempt trail (request_logs.attempts): one element per failover
@@ -97,13 +99,9 @@ func (l *requestLogData) openAttemptRecord(attempt int, candidate modelCandidate
 	if l == nil {
 		return
 	}
-	l.openAttempt = &attemptRecord{
-		Attempt:    attempt,
-		ProviderID: candidate.provider.ID.String(),
-		Provider:   candidate.provider.Name,
-		Model:      candidateModelID(candidate),
-		Hedged:     hedged,
-	}
+	rec := newAttemptRecord(attempt, candidate)
+	rec.Hedged = hedged
+	l.openAttempt = &rec
 	l.attemptStarted = startedAt
 	l.attemptBreaker = ""
 	l.attemptStatus = 0
@@ -205,20 +203,16 @@ func hedgeLoserRecord(res hedgeResult, candidate modelCandidate, launchedAt time
 	if res.rateLimit.detail != "" {
 		detail = res.rateLimit.detail
 	}
-	return attemptRecord{
-		Attempt:    res.idx,
-		ProviderID: candidate.provider.ID.String(),
-		Provider:   candidate.provider.Name,
-		Model:      candidateModelID(candidate),
-		Status:     res.status,
-		ErrorKind:  string(res.reqErr.Kind),
-		Detail:     attemptDetail(newCredentialMasker(candidate.apiKey), detail),
-		Phrase:     res.rateLimit.phrase,
-		DurationMs: float64(time.Since(launchedAt).Microseconds()) / 1000.0,
-		TTFTMs:     res.trueTtftMs,
-		Hedged:     true,
-		Breaker:    res.breaker,
-	}
+	rec := newAttemptRecord(res.idx, candidate)
+	rec.Status = res.status
+	rec.ErrorKind = string(res.reqErr.Kind)
+	rec.Detail = attemptDetail(newCredentialMasker(candidate.apiKey), detail)
+	rec.Phrase = res.rateLimit.phrase
+	rec.DurationMs = util.MillisSince(launchedAt)
+	rec.TTFTMs = res.trueTtftMs
+	rec.Hedged = true
+	rec.Breaker = res.breaker
+	return rec
 }
 
 // hedgeAbandonedRecord is the trail entry for a hedged attempt still in flight
@@ -228,16 +222,12 @@ func hedgeLoserRecord(res hedgeResult, candidate modelCandidate, launchedAt time
 // status, and its breaker verdict, if the cancelled goroutine records one, is
 // not the trail's to claim. The duration is launch to abandonment.
 func hedgeAbandonedRecord(idx int, candidate modelCandidate, launchedAt time.Time, kind ErrorKind, detail string) attemptRecord {
-	return attemptRecord{
-		Attempt:    idx,
-		ProviderID: candidate.provider.ID.String(),
-		Provider:   candidate.provider.Name,
-		Model:      candidateModelID(candidate),
-		ErrorKind:  string(kind),
-		Detail:     detail,
-		DurationMs: float64(time.Since(launchedAt).Microseconds()) / 1000.0,
-		Hedged:     true,
-	}
+	rec := newAttemptRecord(idx, candidate)
+	rec.ErrorKind = string(kind)
+	rec.Detail = detail
+	rec.DurationMs = util.MillisSince(launchedAt)
+	rec.Hedged = true
+	return rec
 }
 
 // appendBreakerSkip records a candidate the circuit breaker refused before any
@@ -294,4 +284,16 @@ func (l *requestLogData) failoverProviders() []string {
 		}
 	}
 	return out
+}
+
+// newAttemptRecord is the identity every trail entry for a candidate carries:
+// which attempt it was and which provider and resolved model it went to. The
+// fate fields are the caller's to fill.
+func newAttemptRecord(attempt int, candidate modelCandidate) attemptRecord {
+	return attemptRecord{
+		Attempt:    attempt,
+		ProviderID: candidate.provider.ID.String(),
+		Provider:   candidate.provider.Name,
+		Model:      candidateModelID(candidate),
+	}
 }

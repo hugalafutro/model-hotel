@@ -595,7 +595,7 @@ func TestAppendAppLogFilters_PreservesExistingConditions(t *testing.T) {
 
 func TestAppendAppLogKeysetPredicate_AfterDesc_ReturnsLessThan(t *testing.T) {
 	ts := time.Now()
-	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
 	conds, args, idx := appendAppLogKeysetPredicate(nil, nil, 1, cursor, "after", "DESC")
 	if len(conds) != 1 {
 		t.Fatalf("expected 1 condition, got %d", len(conds))
@@ -616,7 +616,7 @@ func TestAppendAppLogKeysetPredicate_AfterDesc_ReturnsLessThan(t *testing.T) {
 
 func TestAppendAppLogKeysetPredicate_BeforeAsc_ReturnsLessThan(t *testing.T) {
 	ts := time.Now()
-	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
 	conds, _, _ := appendAppLogKeysetPredicate(nil, nil, 1, cursor, "before", "ASC")
 	if len(conds) != 1 {
 		t.Fatalf("expected 1 condition, got %d", len(conds))
@@ -628,7 +628,7 @@ func TestAppendAppLogKeysetPredicate_BeforeAsc_ReturnsLessThan(t *testing.T) {
 
 func TestAppendAppLogKeysetPredicate_AfterAsc_ReturnsGreaterThan(t *testing.T) {
 	ts := time.Now()
-	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
 	conds, _, _ := appendAppLogKeysetPredicate(nil, nil, 1, cursor, "after", "ASC")
 	if len(conds) != 1 {
 		t.Fatalf("expected 1 condition, got %d", len(conds))
@@ -640,7 +640,7 @@ func TestAppendAppLogKeysetPredicate_AfterAsc_ReturnsGreaterThan(t *testing.T) {
 
 func TestAppendAppLogKeysetPredicate_BeforeDesc_ReturnsGreaterThan(t *testing.T) {
 	ts := time.Now()
-	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
 	conds, _, _ := appendAppLogKeysetPredicate(nil, nil, 1, cursor, "before", "DESC")
 	if len(conds) != 1 {
 		t.Fatalf("expected 1 condition, got %d", len(conds))
@@ -652,7 +652,7 @@ func TestAppendAppLogKeysetPredicate_BeforeDesc_ReturnsGreaterThan(t *testing.T)
 
 func TestAppendAppLogKeysetPredicate_ArgIndexOffset(t *testing.T) {
 	ts := time.Now()
-	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
 	conds, args, idx := appendAppLogKeysetPredicate(nil, nil, 5, cursor, "after", "DESC")
 	if !strings.Contains(conds[0], "< $5") {
 		t.Errorf("expected arg starting at $5, got %q", conds[0])
@@ -670,7 +670,7 @@ func TestAppendAppLogKeysetPredicate_ArgIndexOffset(t *testing.T) {
 
 func TestAppendAppLogKeysetPredicate_PreservesExisting(t *testing.T) {
 	ts := time.Now()
-	cursor := appLogCursor{CreatedAt: ts, ID: "test-id"}
+	cursor := logCursor{CreatedAt: ts, ID: "test-id"}
 	existingConds := []string{"level = $1"}
 	existingArgs := []any{"error"}
 	conds, args, idx := appendAppLogKeysetPredicate(existingConds, existingArgs, 2, cursor, "after", "DESC")

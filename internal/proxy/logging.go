@@ -242,6 +242,11 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 	return tag.RowsAffected(), nil
 }
 
+// logBodyCap is the byte budget SanitizeLogBody gets for an upstream body
+// before it reaches the request log. It matches maxLogMessageRunes, the rune
+// bound the sink applies to what is finally stored.
+const logBodyCap = 10000
+
 // maxLogMessageRunes bounds request_logs.error_message and the
 // request.completed event built from it. The bound lives at the sink so no
 // writer can miss it, and matches the 10,000-character budget SanitizeLogBody
@@ -266,10 +271,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// and pool checks, so a handler with no row to write still reaches the
 	// breaker and builds the same trail.
 	if isTerminalLogState(logEntry.state) {
-		if judge := logEntry.judgeAnswer; judge != nil {
-			logEntry.judgeAnswer = nil
-			judge()
-		}
+		judgeAnswerNow(logEntry)
 		logEntry.closeTerminalAttempt()
 	}
 
@@ -409,8 +411,8 @@ func metricModelLabel(modelID string, kind ErrorKind) string {
 	if kind == KindValidation {
 		return "unresolved"
 	}
-	if group, ok := strings.CutPrefix(modelID, "hotel/"); ok {
-		return "hotel/" + strings.ToLower(group)
+	if strings.HasPrefix(modelID, "hotel/") {
+		return "hotel/" + hotelGroupName(modelID)
 	}
 	return modelID
 }

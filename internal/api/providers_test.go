@@ -1388,24 +1388,3 @@ func TestUpdateProvider_TypeChangeRechecksStoredURL(t *testing.T) {
 		t.Fatalf("expected the HTTPS reason, got %q", w.Body.String())
 	}
 }
-
-func TestIsForeignKeyViolation(t *testing.T) {
-	cases := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"nil", nil, false},
-		{"plain error", errors.New("boom"), false},
-		{"other pg code", &pgconn.PgError{Code: "23505"}, false},
-		{"fk violation", &pgconn.PgError{Code: "23503"}, true},
-		{"wrapped fk violation", fmt.Errorf("delete: %w", &pgconn.PgError{Code: "23503"}), true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := isForeignKeyViolation(tc.err); got != tc.want {
-				t.Fatalf("isForeignKeyViolation(%v) = %v, want %v", tc.err, got, tc.want)
-			}
-		})
-	}
-}
