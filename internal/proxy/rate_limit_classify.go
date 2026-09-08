@@ -121,7 +121,8 @@ const (
 	// no Retry-After. Two seconds is the typical slot-freeing gap.
 	defaultSaturatedRetryAfter = 2 * time.Second
 	// pinHintWindow is the pin for a usage window whose reset the body names
-	// but does not date (Ollama's session cap, generic quota phrases).
+	// but does not date, or dates in a form nothing here parses (Ollama's
+	// session cap, Z.ai's 5-hour window, generic quota phrases).
 	pinHintWindow = 30 * time.Minute
 	// pinHintWeekly is the pin for an explicitly weekly cap. Two hours, not a
 	// week: the pin ceiling (circuit_breaker_quota_pin_max) and the probe on
@@ -181,6 +182,13 @@ var rateLimitPhrases = []rateLimitPhrase{
 	// below. The Z.ai entry pins pinHintWeekly rather than the named reset
 	// instant: nothing here parses that date format.
 	{phrase: "limit exhausted", also: "reset", class: rateLimitExhausted, pinHint: pinHintWeekly, provider: "Z.ai Coding Plan (code 1310, \"Weekly/Monthly Limit Exhausted. Your limit will reset at ...\")", observed: "2026-09-01"},
+	// The 5-hour window uses different words from the weekly one (code 1308).
+	// The generic window pin is enough: the quota advisor retargets it to the
+	// exact reset from the next usage snapshot, and the dated reset in the body
+	// is Beijing time, which nothing here parses. No second substring: the
+	// phrase is not saturation vocabulary, so a reworded or reset-less body
+	// must still land here rather than fall back to unknown.
+	{phrase: "usage limit reached", class: rateLimitExhausted, pinHint: pinHintWindow, provider: "Z.ai Coding Plan (code 1308, \"Usage limit reached for 5 hour. Your limit will reset at ...\")", observed: "2026-09-08"},
 	{phrase: "weekly usage limit", class: rateLimitExhausted, pinHint: pinHintWeekly, provider: "Ollama Cloud", observed: "2026-08-31"},
 	{phrase: "session usage limit", class: rateLimitExhausted, pinHint: pinHintWindow, provider: "Ollama Cloud", observed: "2026-08-31"},
 	{phrase: "usage limit", also: "upgrade", class: rateLimitExhausted, pinHint: pinHintWindow, provider: "Ollama Cloud (\"you have reached your session usage limit, upgrade for higher limits\")", observed: "2026-08-31"},

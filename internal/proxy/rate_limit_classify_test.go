@@ -77,6 +77,17 @@ func TestClassifyRateLimit(t *testing.T) {
 			wantPin:   pinHintWeekly,
 		},
 		{
+			// Verbatim from prod, 2026-09-08 19:11 UTC, glm-5.3 on the Coding Plan
+			// under a Strix run: the 5-hour window spent, worded unlike the
+			// weekly cap. Time fixes it, the generic window pin applies and the
+			// quota advisor retargets it to the snapshot's exact reset.
+			name:      "Z.ai coding plan code 1308 5-hour usage limit reached",
+			status:    429,
+			body:      `{"error":{"code":"1308","message":"Usage limit reached for 5 hour. Your limit will reset at 2026-09-09 05:38:28"}}`,
+			wantClass: rateLimitExhausted,
+			wantPin:   pinHintWindow,
+		},
+		{
 			// Holds the line the entry above could have crossed: "exhausted"
 			// beside a concurrency limit is a busy provider, and it must reach
 			// the saturated entries rather than open a circuit with a 2h pin.
