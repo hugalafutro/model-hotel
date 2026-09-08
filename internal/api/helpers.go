@@ -64,9 +64,9 @@ func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	return httpx.DecodeJSON(w, r, logComponent, httpx.MaxJSONBody, v)
 }
 
-// decodeJSONLimit is decodeJSON with an endpoint-specific ceiling, for the two
+// decodeJSONLimit is decodeJSON with an endpoint-specific ceiling, for the
 // routes whose payload is legitimately larger or smaller than the default: a
-// config-sync import and the fleet announce heartbeat.
+// config-sync import, the fleet announce heartbeat and a quota-snapshot push.
 func decodeJSONLimit(w http.ResponseWriter, r *http.Request, limit int64, v any) bool {
 	return httpx.DecodeJSON(w, r, logComponent, limit, v)
 }
