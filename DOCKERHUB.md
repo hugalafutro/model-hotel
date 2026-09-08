@@ -119,6 +119,20 @@ ADMIN_TOKEN=
                 #     Only enable if you trust the deployment environment.
                 # - /var/run/docker.sock:/var/run/docker.sock:ro
             restart: unless-stopped
+            # Model Hotel winds down in stages on SIGTERM. Worst case, in order:
+            # 10s HTTP drain (open SSE tabs and proxied streams are ended first, so
+            # this is usually quick) + 35s background join (the 30s ceiling of the
+            # scheduled-disable sweep, which deliberately finishes the statement it
+            # has already started, plus a 5s margin; the retention and stale-log
+            # sweeps have no ceiling and the join cancels them instead of waiting)
+            # + 10s audit drain (one record's 5s insert plus the 5s retention prune
+            # it piggybacks) + 5s app-log writer stop + 5s OTLP flush = 65s. The
+            # closes around them (the event bus, the proxy handler, discovery, the
+            # docker client, the rate limiters and the database pool) carry no budget
+            # of their own, so this is a ceiling with headroom over the 65s, not the
+            # sum. Docker's default grace is 10s, which would SIGKILL partway through
+            # the drain and take the audit rows and the last log lines with it.
+            stop_grace_period: 75s
             depends_on:
                 db:
                     condition: service_healthy

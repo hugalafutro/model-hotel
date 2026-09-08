@@ -131,7 +131,7 @@ func (h *appSlogHandler) Handle(_ context.Context, r slog.Record) error {
 	if appLogBuffer != nil {
 		appLogBuffer.writeEntry(entry)
 	}
-	if w := dbWriter; w != nil {
+	if w := dbWriter.Load(); w != nil {
 		w.write(entry)
 	}
 

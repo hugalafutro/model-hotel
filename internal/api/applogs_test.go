@@ -244,12 +244,12 @@ func TestDBLogWriter_BatchSizeFlush(t *testing.T) {
 
 	// Send 50 entries to trigger the batch-size flush path (lines 127-130)
 	for i := range 50 {
-		w.ch <- AppLogEntry{
+		w.ch <- logMsg{entry: AppLogEntry{
 			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			Level:     "info",
 			Source:    "test",
 			Message:   fmt.Sprintf("batch entry %d", i),
-		}
+		}}
 	}
 
 	// Poll until the batch-size flush lands in the DB or we time out. A fixed
@@ -292,12 +292,12 @@ func TestDBLogWriter_TickerFlush(t *testing.T) {
 
 	// Send a few entries (less than 50) and wait for the ticker to flush
 	for i := range 5 {
-		w.ch <- AppLogEntry{
+		w.ch <- logMsg{entry: AppLogEntry{
 			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			Level:     "info",
 			Source:    "ticker-test",
 			Message:   fmt.Sprintf("ticker entry %d", i),
-		}
+		}}
 	}
 
 	// Poll until the ticker flushes the entries or we time out.
@@ -336,12 +336,12 @@ func TestDBLogWriter_FlushDBError(t *testing.T) {
 
 	// Send entries — they'll be flushed but the DB write will fail silently
 	for i := range 5 {
-		w.ch <- AppLogEntry{
+		w.ch <- logMsg{entry: AppLogEntry{
 			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
 			Level:     "info",
 			Source:    "flush-error-test",
 			Message:   fmt.Sprintf("entry %d", i),
-		}
+		}}
 	}
 
 	// Wait for ticker flush (the batch is small, so ticker will flush it)
@@ -362,11 +362,11 @@ func TestRingBuffer_WriteWithDBWriter(t *testing.T) {
 	defer pool.Close()
 
 	// Save and restore global dbWriter
-	origDBWriter := dbWriter
-	dbWriter = newDBLogWriter(pool, 10*time.Millisecond)
+	origDBWriter := dbWriter.Load()
+	dbWriter.Store(newDBLogWriter(pool, 10*time.Millisecond))
 	defer func() {
-		dbWriter.stop()
-		dbWriter = origDBWriter
+		dbWriter.Load().stop()
+		dbWriter.Store(origDBWriter)
 	}()
 
 	rb := &ringBuffer{

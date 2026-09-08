@@ -67,8 +67,15 @@ func main() {
 		log.Fatalf("Failed to load config: %v", err)
 	}
 
+	// The root context of every background loop. Shutdown cancels it explicitly
+	// before joining them, so the deferred cancel here is only the safety net
+	// for the early-exit paths above the shutdown block.
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	// Every process-lifetime loop starts on this group, so shutdown can join
+	// them after the cancel and before the resources they read are released.
+	var background backgroundGroup
 
 	// Initialize the admin manager before the DB connection: it only needs the
 	// data directory and env token, no database.
@@ -189,7 +196,7 @@ func main() {
 	// serving. Runs for the app lifetime (ctx), reading config live so toggles
 	// apply without a restart.
 	alertDispatcher := alert.New(alert.NewSettingsConfigProvider(settingsRepo, cfg.MasterKey), nil)
-	go alertDispatcher.Run(ctx)
+	background.Go("alert-dispatcher", func() { alertDispatcher.Run(ctx) })
 
 	// Prometheus metrics at the conventional /metrics path (root, no IP rate
 	// limiter so scrapers are not throttled). Authenticated via METRICS_TOKEN or
@@ -237,7 +244,7 @@ func main() {
 	})
 	apiHandler.SetAudit(auditRecorder)
 
-	go webauthn.SessionCleanupLoop(ctx, webauthnRepo, time.Hour)
+	background.Go("webauthn-session-cleanup", func() { webauthn.SessionCleanupLoop(ctx, webauthnRepo, time.Hour) })
 
 	// TOTP (RFC 6238) second-factor. Always constructed so the public status
 	// and login endpoints are mounted; enforcement is driven by the cached
@@ -348,7 +355,12 @@ func main() {
 	// is where the BackupHandler is constructed and wired as h.backupScheduler.
 	// Started earlier it silently no-ops on a nil scheduler, so no automatic
 	// (GFS) backups run whatever backup_enabled is set to.
-	apiHandler.StartBackupScheduler(context.Background())
+	//
+	// On the root context and in the group like every other lifetime loop: a
+	// scheduled backup logs and reads the settings store as it runs, so the
+	// shutdown path has to be able to cancel it and then wait for it rather
+	// than close the pool under it.
+	background.Go("backup-scheduler", func() { <-apiHandler.StartBackupScheduler(ctx) })
 
 	// Admin chat routes: an admin-authenticated proxy for the Chat/Arena UI,
 	// with the streaming-aware timeout (as on /v1) and per-IP rate limiting.
@@ -413,7 +425,7 @@ func main() {
 	}
 
 	// Startup: run initial discovery for all enabled providers (if enabled).
-	maybeStartupDiscovery(discDeps, settingsRepo)
+	maybeStartupDiscovery(ctx, &background, discDeps, settingsRepo)
 
 	warmCaches(discDeps, settingsRepo)
 	initKeyCacheTTL(settingsRepo)
@@ -421,14 +433,27 @@ func main() {
 	// Background maintenance loops (see background.go). The discovery scheduler
 	// sleeps a full interval before its first run so it doesn't bypass the
 	// discovery_on_startup setting handled by maybeStartupDiscovery above.
-	go discoverySchedulerLoop(ctx, settingsRepo, func(source string) DiscoveryResult {
-		return runDiscovery(discDeps, source)
+	background.Go("discovery-scheduler", func() {
+		discoverySchedulerLoop(ctx, settingsRepo, func(source string) DiscoveryResult {
+			return runDiscovery(ctx, discDeps, source)
+		})
 	})
-	go staleLogCleanupLoop(ctx, database.Pool(), settingsRepo, serverStartTime)
-	go proxy.PhraseStalenessLoop(ctx, database.Pool())
-	go logRetentionLoop(ctx, database.Pool(), settingsRepo)
-	go quotaPollLoop(ctx, settingsRepo, apiHandler.PollQuotasOnce, apiHandler.DisableQuotaAdvice, time.Minute)
-	go scheduledDisableLoop(ctx, providerRepo, failoverRepo, time.Minute)
+	// The context the detached maintenance passes run their statements on: the
+	// root's values without its cancellation, so a pass that has begun still
+	// finishes what it started when the signal lands, and the join below is the
+	// only thing that ends it.
+	drainCtx := background.drainContext(ctx)
+	background.Go("stale-log-cleanup", func() {
+		staleLogCleanupLoop(ctx, drainCtx, database.Pool(), settingsRepo, serverStartTime)
+	})
+	background.Go("phrase-staleness", func() { proxy.PhraseStalenessLoop(ctx, database.Pool()) })
+	background.Go("log-retention", func() { logRetentionLoop(ctx, drainCtx, database.Pool(), settingsRepo) })
+	background.Go("quota-poll", func() {
+		quotaPollLoop(ctx, settingsRepo, apiHandler.PollQuotasOnce, apiHandler.DisableQuotaAdvice, time.Minute)
+	})
+	background.Go("scheduled-disable", func() {
+		scheduledDisableLoop(ctx, drainCtx, providerRepo, failoverRepo, time.Minute)
+	})
 
 	// Listener posture (header/idle timeouts, per-request body deadline) is
 	// decided once in httpx.NewServer, shared with Front Desk.
@@ -457,37 +482,104 @@ func main() {
 
 	debuglog.Info("server: shutting down gracefully")
 
-	// Release goroutine-leaking resources before draining HTTP connections.
-	proxyHandler.Close()
-	apiHandler.StopBackupScheduler()
-	// Close only drops the shared service's idle pooled connections; a request
-	// the discovery runs or the quota poll loop still hold keeps its own
-	// connection until it returns. Both loops stop on the deferred root cancel,
-	// which runs after this block.
-	discDeps.discovery.Close()
-	util.CloseDockerClient()
+	// The whole block below is budgeted so a container stop can complete it.
+	// Worst case, in order: 10s HTTP drain + 35s background join
+	// (backgroundJoinBudget: the 30s scheduled-disable sweep ceiling plus a 5s
+	// margin, the one detached pass the join actually waits out; the retention
+	// and stale-log passes carry no ceiling and are cancelled by the join rather
+	// than awaited) + 10s audit drain (one record's 5s insert plus the 5s
+	// retention prune it piggybacks, both inside the same WaitGroup member) + 5s
+	// app-log writer stop + 5s OTLP flush = 65s. The closes around them (the
+	// event bus, the proxy handler, discovery, the docker client, the rate
+	// limiters and the database pool) carry no budget of their own, so
+	// stop_grace_period in docker-compose.yml is 75s: a ceiling with headroom
+	// over the 65s, not the sum. Docker's 10s default would SIGKILL the process
+	// partway through the drain instead.
+
+	// Cancel the root context first: every background loop selects on it, so
+	// this is what starts them unwinding while the drain below runs.
+	cancel()
 
 	// End every open /api/events SSE stream. Each one is an in-flight request
 	// that server.Shutdown would otherwise wait on until the deadline, so one
 	// open dashboard tab costs a restart the full 10s.
 	events.DefaultBus.Close()
 
-	// Flush pending app log DB writes before closing the database.
-	api.StopAppLogWriter()
+	// Ahead of the drain, because closing the handler is what tells the streams
+	// it supervises to wind up: each one watches h.shutdown and ends with a
+	// well-formed error frame inside shutdownStreamGrace. Called after
+	// server.Shutdown instead, no stream ever gets the signal, so the drain
+	// burns its whole deadline and the streams die with the process. It aborts
+	// nothing on its own: it closes that signal channel and the idle upstream
+	// connections.
+	proxyHandler.Close()
 
-	shutdownCtx, shutdownCancel := context.WithTimeout(ctx, 10*time.Second)
+	// Stop accepting and drain the HTTP requests still in flight, before the
+	// join rather than after it: the listener has to come down first, or a join
+	// that spends its budget leaves the gateway taking new requests for that
+	// long after the signal. On a budget of its own, because ctx is cancelled
+	// by now and a shutdown context derived from it would give the drain no
+	// time at all.
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer shutdownCancel()
 
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		debuglog.Error("server: error during shutdown", "error", err)
 	}
 
-	// The server has stopped accepting requests, so no new audit goroutines can
-	// spawn; drain the ones already in flight before the deferred database.Close
-	// so their inserts are not lost.
+	// Join the background loops before touching a resource they hold. They have
+	// been unwinding since the cancel above, and the drain may have absorbed
+	// part of the budget on the way: on a busy gateway it takes its whole
+	// deadline, on an idle one server.Shutdown returns as soon as the last
+	// request finishes and the join starts from a standing start. So the budget
+	// has to cover the scheduled-disable sweep in full (see
+	// backgroundJoinBudget), not merely the remainder of one. The retention and
+	// stale-log passes are a different case: they carry no ceiling, so what the
+	// budget gives them is not a wait but an end. Bounded either way: a loop that
+	// has not returned when it expires is named in the log rather than hanging
+	// the process, and the drain context those passes run on is cancelled with
+	// it, cutting whatever statement is still open.
+	if stuck := background.Wait(backgroundJoinBudget); len(stuck) > 0 {
+		debuglog.Warn("server: background loops still running at shutdown", "loops", strings.Join(stuck, ","))
+	}
+
+	// Drain the audit goroutines already in flight before the database closes,
+	// so their inserts are not lost. When the drain above returned nil the
+	// server has stopped serving, so no new ones can spawn and this is a clean
+	// join. When it returned a deadline error the handlers it gave up on are
+	// still live, and a record spawning now Adds to the same WaitGroup this is
+	// waiting on: an Add that lifts the counter off zero concurrently with Wait
+	// is the documented misuse, so what a handler that outlived the drain costs
+	// is a panic on the way out rather than one missing row. The drain deadline
+	// is therefore the thing that keeps this honest, not this wait. Each record
+	// is bounded by its own 5s insert deadline plus the 5s retention prune it
+	// piggybacks, which is the 10s this stage is budgeted at.
 	auditRecorder.Wait()
 
 	debuglog.Info("server: stopped")
+
+	// Nothing is serving any more, so the pooled connections and clients can
+	// go. The backup scheduler was cancelled with the other loops above, and
+	// joined with them unless the join named it as still running; this only
+	// clears the handler's own cancel bookkeeping either way.
+	apiHandler.StopBackupScheduler()
+	discDeps.discovery.Close()
+	util.CloseDockerClient()
+
+	// As late as the writer can go and still have a pool to flush into: the
+	// background loops (backup scheduler included) are joined, the HTTP surface
+	// is drained, and the proxy, discovery and docker closes above have said
+	// what they log. It is not a proof that nothing can log again. A loop the
+	// join just named, or a handler the drain gave up on, is still a producer,
+	// and what it writes from here on still reaches stderr and the ring buffer;
+	// what it no longer reaches is app_logs, because the stopped writer refuses
+	// it and counts it as a drop, reported on stderr once per report interval
+	// rather than lost silently. So
+	// flush what the writer is holding now, before the OTLP exporter below and
+	// before the deferred database close that flush needs. One 5s deadline
+	// covers the whole stop, and whatever the queue still holds when it expires
+	// is counted as dropped rather than flushed past the grace period.
+	api.StopAppLogWriter()
 
 	// Flush and close the OTLP log exporter (if enabled) last, so the shutdown
 	// records above are exported too. Fresh context: the HTTP drain may have
@@ -499,4 +591,10 @@ func main() {
 			debuglog.Error("otel: OTLP log exporter shutdown failed", "error", err)
 		}
 	}
+
+	// The database closes last, on the defer registered right after db.New.
+	// Deferred calls run LIFO after this line, so the rate limiters stop first
+	// and the pool goes after them; nothing above reaches a closed pool. The
+	// deferred root cancel that follows it is a no-op, cancel having already run
+	// at the top of this block.
 }

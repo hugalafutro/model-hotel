@@ -208,7 +208,11 @@ Request body:
 
 **Accepted values:** `1h`, `1d`, `1w`, `1m`, `all`. For `DELETE /api/logs/app` the body is optional; an empty body clears everything.
 
-Response: `204 No Content` on success.
+`DELETE /api/logs/app` purges in a fixed order: it first drains the asynchronous app-log writer, so entries already queued cannot flush back in behind the delete; then it deletes the rows; then it clears the in-memory ring buffer. A delete the database refuses answers `500` and leaves the ring buffer intact, so the live view still matches the rows that are still there. The reported `deleted` count is the number of database rows removed, or the number of ring entries cleared when no database is configured, never the two added together. A ranged purge matches rows on their insert time and ring entries on the entry's own timestamp, so at the cutoff itself the two can disagree by the writer's flush lag.
+
+If that first drain does not finish, `DELETE /api/logs/app` answers `503 Service Unavailable` and nothing is deleted: no rows, no ring entries, no count. A healthy writer clears its queue in milliseconds however busy the gateway is, so a 503 means the writer is stalled behind an unreachable database or the process is shutting down; retry once the log history is moving again. The same answer covers a writer that is shutting down, since its queue is still draining into the database, and one that has already stopped: the stopped writer stays in place for the rest of the process lifetime, so a purge arriving after shutdown is refused rather than run against a queue nothing can confirm was drained. Retry the purge; once the queue is written out it succeeds, and if it keeps answering `503` the database is not keeping up with the log write rate.
+
+Response for `DELETE /api/logs/purge`: `204 No Content` on success. `DELETE /api/logs/app` answers `200 OK` with `{"deleted": N}`.
 
 ## Viewing Logs
 
