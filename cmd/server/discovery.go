@@ -22,7 +22,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
-	"github.com/hugalafutro/model-hotel/internal/proxy"
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -58,7 +57,11 @@ type discoveryDeps struct {
 	providerRepo *provider.Repository
 	modelRepo    *model.Repository
 	failoverRepo *failover.Repository
-	dialer       *proxy.SafeDialer
+	// discovery is the process-wide DiscoveryService, shared with the API
+	// handler and the quota poll loop: one transport pool and one quota circuit
+	// breaker for the life of the process rather than one per run. It carries
+	// the SSRF-protected dial and redirect hooks the handler was built with.
+	discovery *provider.DiscoveryService
 	// settingsRepo carries the outstanding-claim alert's threshold and its
 	// persisted edge latch. Typed as the interface the API package already
 	// defines so this stays a dependency on the two reads and two writes the
@@ -115,13 +118,12 @@ func runDiscovery(deps discoveryDeps, source string) DiscoveryResult {
 		result.Errors = append(result.Errors, fmt.Sprintf("failed to list providers: %v", err))
 		return result
 	}
-	discoverySvc := provider.NewDiscoveryService(deps.dialer.DialContext, deps.dialer.CheckRedirect)
 	var scannedOK []uuid.UUID
 	for _, p := range providers {
 		if !p.Enabled {
 			continue
 		}
-		changed, ok := scanProvider(ctx, deps, discoverySvc, p, source, &result)
+		changed, ok := scanProvider(ctx, deps, deps.discovery, p, source, &result)
 		if changed {
 			changesRecorded = true
 		}

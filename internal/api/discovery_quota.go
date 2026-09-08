@@ -166,6 +166,7 @@ func (h *Handler) RefreshAllQuotas(w http.ResponseWriter, r *http.Request) {
 		provCancel()
 		results = append(results, result)
 	}
+	pruneQuotaBreakersFor(discovery, providers)
 
 	writeJSON(w, map[string]any{
 		"results":   results,

@@ -144,6 +144,8 @@ func (h *Handler) PollQuotasOnce(ctx context.Context) {
 		h.pollQuotaForProvider(ctx, disc, prov, kind)
 	}
 
+	pruneQuotaBreakersFor(disc, providers)
+
 	h.RefreshQuotaAdvice(ctx)
 }
 
@@ -480,4 +482,19 @@ func buildQuotaAdvice(
 		delete(recovered, id)
 	}
 	return advice, recovered
+}
+
+// pruneQuotaBreakersFor drops the quota circuit state of every provider not in
+// providers. The service outlives a pass, which is what lets its breaker count
+// failures across polls; the same longevity would keep a deleted provider's
+// circuit state for the rest of the process without this. providers is the
+// list the pass read at its start, so a provider created during the pass whose
+// circuit a concurrent single-provider poll touched loses that one failure
+// count; the cost is one extra upstream call, not worth a second listing.
+func pruneQuotaBreakersFor(disc *provider.DiscoveryService, providers []*provider.Provider) {
+	live := make(map[string]bool, len(providers))
+	for _, prov := range providers {
+		live[prov.ID.String()] = true
+	}
+	disc.PruneQuotaBreakers(func(providerID string) bool { return live[providerID] })
 }

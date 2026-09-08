@@ -387,7 +387,10 @@ func main() {
 		providerRepo: providerRepo,
 		modelRepo:    modelRepo,
 		failoverRepo: failoverRepo,
-		dialer:       sd,
+		// The handler owns the process's one discovery service, built from the
+		// same SafeDialer hooks it was given; sharing it here is what keeps the
+		// transport pool and the quota circuit breaker alive between runs.
+		discovery:    apiHandler.DiscoveryService(),
 		settingsRepo: settingsRepo,
 	}
 
@@ -457,6 +460,11 @@ func main() {
 	// Release goroutine-leaking resources before draining HTTP connections.
 	proxyHandler.Close()
 	apiHandler.StopBackupScheduler()
+	// Close only drops the shared service's idle pooled connections; a request
+	// the discovery runs or the quota poll loop still hold keeps its own
+	// connection until it returns. Both loops stop on the deferred root cancel,
+	// which runs after this block.
+	discDeps.discovery.Close()
 	util.CloseDockerClient()
 
 	// End every open /api/events SSE stream. Each one is an in-flight request

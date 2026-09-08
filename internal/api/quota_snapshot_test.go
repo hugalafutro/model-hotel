@@ -153,9 +153,18 @@ func insertQuotaPollProvider(t *testing.T, pool *pgxpool.Pool, name, baseURL str
 // nanoGPTPollDiscovery returns a discovery service whose /usage endpoint reports
 // a fresh dailyInputTokens.used value, and 404s everything else.
 func nanoGPTPollDiscovery(used int64) *provider.DiscoveryService {
+	return countingNanoGPTPollDiscovery(used, &atomic.Int64{})
+}
+
+// countingNanoGPTPollDiscovery is nanoGPTPollDiscovery with a tally of the
+// /usage calls it serves. A handler builds its discovery service once and keeps
+// it, so a test that needs to know how many polls actually went upstream counts
+// them here rather than counting factory calls.
+func countingNanoGPTPollDiscovery(used int64, usageCalls *atomic.Int64) *provider.DiscoveryService {
 	ds := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
 		Transport: &mockTransport{roundTripFunc: func(req *http.Request) (*http.Response, error) {
 			if strings.HasSuffix(req.URL.Path, "/usage") {
+				usageCalls.Add(1)
 				body := `{"active":true,"provider":"nanogpt","dailyInputTokens":{"used":` +
 					strconv.FormatInt(used, 10) + `,"limit":100}}`
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
@@ -1045,27 +1054,26 @@ func exhaustedZaiCodingDiscovery(resetsAt time.Time) *provider.DiscoveryService 
 }
 
 // TestNudgeQuotaPoll_DebouncesRepeatOpens verifies a flapping circuit cannot
-// turn into a poll storm against the provider it just gave up on. The discovery
-// service is built on the caller's goroutine before the poll is spawned, so the
-// factory count is a synchronous readout of how many nudges were admitted.
+// turn into a poll storm against the provider it just gave up on. Admitted
+// nudges are counted at the upstream call: the handler keeps one discovery
+// service for its lifetime, so how many times the factory ran says nothing
+// about how many nudges got through. The debounce rejects synchronously,
+// before the poll goroutine is spawned, so the second reading needs no wait.
 func TestNudgeQuotaPoll_DebouncesRepeatOpens(t *testing.T) {
 	h := newTestHandler(t)
 	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "nanogpt-nudge-debounce", "https://api.nano-gpt.com/v1", true)
 
-	var admitted atomic.Int64
-	h.newDiscovery = func() *provider.DiscoveryService {
-		admitted.Add(1)
-		return nanoGPTPollDiscovery(7)
-	}
+	var polled atomic.Int64
+	h.newDiscovery = func() *provider.DiscoveryService { return countingNanoGPTPollDiscovery(7, &polled) }
 
 	h.NudgeQuotaPoll(id)
 	waitForQuotaSnapshot(t, h, id, "usage")
-	if got := admitted.Load(); got != 1 {
+	if got := polled.Load(); got != 1 {
 		t.Fatalf("first nudge: got %d polls, want 1", got)
 	}
 
 	h.NudgeQuotaPoll(id)
-	if got := admitted.Load(); got != 1 {
+	if got := polled.Load(); got != 1 {
 		t.Fatalf("a second open inside the debounce window must not poll again, got %d polls", got)
 	}
 }
