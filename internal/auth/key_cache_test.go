@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -587,6 +588,10 @@ func TestRunKeyCacheEviction_PendingTickAfterCancelSweepsNothing(t *testing.T) {
 		keyCacheMu.Unlock()
 	})
 
+	// The stub records instead of failing directly: a t.Error from the loop
+	// goroutine after the timeout below has ended the test would panic and
+	// mask the real failure.
+	var rearmed atomic.Bool
 	for range 32 {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
@@ -595,12 +600,15 @@ func TestRunKeyCacheEviction_PendingTickAfterCancelSweepsNothing(t *testing.T) {
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			runKeyCacheEviction(ctx, ticks, func() { t.Error("rearm called after cancel") })
+			runKeyCacheEviction(ctx, ticks, func() { rearmed.Store(true) })
 		}()
 		select {
 		case <-done:
 		case <-time.After(time.Second):
 			t.Fatal("loop did not return after cancel")
+		}
+		if rearmed.Load() {
+			t.Fatal("rearm called after cancel")
 		}
 	}
 

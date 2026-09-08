@@ -103,11 +103,14 @@ func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 }
 
 // KeyCacheEvictionLoop sweeps expired entries on a ticker that adopts the
-// current TTL at each tick and returns when ctx is done. Each binary that decrypts keys starts it on
-// its own background group, so the sweep is joined at shutdown instead of
-// running unjoinably for the life of every process that links this package. A
-// tick that lands together with the cancellation starts no sweep, so the join
-// budget is never spent on work begun after the cancel.
+// current TTL at each tick and returns when ctx is done. Each binary that
+// decrypts keys starts it on its own background group, so the sweep is joined
+// at shutdown instead of running unjoinably for the life of every process
+// that links this package. Nothing starts it implicitly: a binary that links
+// this package, decrypts keys and never runs the loop keeps expired plaintext
+// entries in memory for its whole life. A tick that lands together with the
+// cancellation starts no sweep, so the join budget is never spent on work
+// begun after the cancel.
 func KeyCacheEvictionLoop(ctx context.Context) {
 	ticker := time.NewTicker(getKeyCacheTTL())
 	defer ticker.Stop()
