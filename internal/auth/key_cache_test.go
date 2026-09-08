@@ -572,6 +572,46 @@ func TestKeyCacheEvictionLoop_FiresPeriodically(t *testing.T) {
 	}
 }
 
+// A tick that is already pending when the context is cancelled must not start
+// a sweep: whichever select arm wins, the loop returns without touching the
+// cache. Both arms are ready, so the choice is random per run; the repetition
+// makes each arm near certain to be exercised while the assertion holds for
+// either.
+func TestRunKeyCacheEviction_PendingTickAfterCancelSweepsNothing(t *testing.T) {
+	keyCacheMu.Lock()
+	keyCache = map[string]cacheEntry{"expired": {plaintext: "x", expiresAt: time.Now().Add(-time.Hour)}}
+	keyCacheMu.Unlock()
+	t.Cleanup(func() {
+		keyCacheMu.Lock()
+		keyCache = make(map[string]cacheEntry)
+		keyCacheMu.Unlock()
+	})
+
+	for range 32 {
+		ctx, cancel := context.WithCancel(context.Background())
+		cancel()
+		ticks := make(chan time.Time, 1)
+		ticks <- time.Now()
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			runKeyCacheEviction(ctx, ticks, func() { t.Error("rearm called after cancel") })
+		}()
+		select {
+		case <-done:
+		case <-time.After(time.Second):
+			t.Fatal("loop did not return after cancel")
+		}
+	}
+
+	keyCacheMu.RLock()
+	_, exists := keyCache["expired"]
+	keyCacheMu.RUnlock()
+	if !exists {
+		t.Error("a sweep ran after the context was cancelled")
+	}
+}
+
 func TestSetKeyCacheTTL_AffectsNewEntryExpiry(t *testing.T) {
 	// Save original TTL, defer restore
 	orig := getKeyCacheTTL()
