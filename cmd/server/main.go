@@ -5,6 +5,7 @@ package main
 import (
 	"context"
 	"embed"
+	"errors"
 	"log"
 	"net/http"
 	"os"
@@ -78,6 +79,12 @@ func main() {
 
 	database, err := db.New(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {
+		// A migration that refuses is a schema the database would not take, not
+		// a database this process could not reach, and the two need different
+		// things from the operator. The refusal's own message says what to fix.
+		if errors.Is(err, db.ErrMigrations) {
+			debuglog.Fatal("startup: database migration refused", "error", err)
+		}
 		debuglog.Fatal("startup: failed to connect to database", "error", err)
 	}
 	defer database.Close()

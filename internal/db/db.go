@@ -4,6 +4,7 @@ package db
 import (
 	"context"
 	"embed"
+	"errors"
 	"fmt"
 	"io/fs"
 	"time"
@@ -60,6 +61,12 @@ type DB struct {
 	pool *pgxpool.Pool
 }
 
+// ErrMigrations marks a New that reached the database and then would not take
+// its schema. A migration can refuse on purpose (082 refuses an install whose
+// provider names collide once normalized), and that has to read as a schema
+// refusal rather than as a database the process could not reach.
+var ErrMigrations = errors.New("failed to run migrations")
+
 // New creates a new DB instance, runs migrations, and returns the database connection.
 func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB, error) {
 	config, err := pgxpool.ParseConfig(databaseURL)
@@ -86,7 +93,7 @@ func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB
 
 	if err := db.runMigrations(ctx); err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("failed to run migrations: %w", err)
+		return nil, fmt.Errorf("%w: %w", ErrMigrations, err)
 	}
 
 	return db, nil

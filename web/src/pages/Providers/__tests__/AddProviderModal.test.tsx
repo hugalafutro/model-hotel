@@ -1027,6 +1027,35 @@ describe("AddProviderModal", () => {
 			selectTypeSync("openai");
 			expect(nameInput).toHaveValue("OpenAI 3");
 		});
+
+		// The backend takes a name in the form routing uses, where a space and a
+		// hyphen are the same character, so "OpenAI-2" already occupies the name
+		// "OpenAI 2" would ask for.
+		it("skips a suggestion whose hyphenated spelling is taken", () => {
+			const existingProviders = ["OpenAI", "OpenAI-2"].map((name, i) => ({
+				name,
+				base_url: "https://api.openai.com/v1",
+				provider_type: "openai",
+				id: `p${i + 1}`,
+				masked_key: "sk_••••",
+				enabled: true,
+				autodiscovery_enabled: true,
+				scheduled_disable_on: null,
+				max_in_flight: null,
+				last_discovered_at: null,
+				last_used_at: null,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				model_count: 0,
+				total_tokens: 0,
+			}));
+			renderWithProviders(
+				<AddProviderModal {...defaultProps} providers={existingProviders} />,
+			);
+			const nameInput = screen.getByLabelText("Name");
+			selectTypeSync("openai");
+			expect(nameInput).toHaveValue("OpenAI 3");
+		});
 	});
 
 	describe("handleProviderTypeChange with custom", () => {

@@ -89,7 +89,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if h.providerNameTaken(r.Context(), req.Name, uuid.Nil) {
-		http.Error(w, "a provider with this name already exists", http.StatusConflict)
+		http.Error(w, providerNameConflictMsg, http.StatusConflict)
 		return
 	}
 
@@ -123,7 +123,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 	p, err := h.providerRepo.Create(r.Context(), req, encCiphertext, encNonce, encSalt)
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			http.Error(w, "a provider with this name already exists", http.StatusConflict)
+			http.Error(w, providerNameConflictMsg, http.StatusConflict)
 			return
 		}
 		respondError(w, fmt.Sprintf("failed to create provider %q", req.Name), err, http.StatusInternalServerError)
@@ -411,7 +411,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.Name != nil && h.providerNameTaken(r.Context(), *req.Name, id) {
-		http.Error(w, "a provider with this name already exists", http.StatusConflict)
+		http.Error(w, providerNameConflictMsg, http.StatusConflict)
 		return
 	}
 
@@ -447,7 +447,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
 		if db.IsUniqueViolation(err) {
-			http.Error(w, "a provider with this name already exists", http.StatusConflict)
+			http.Error(w, providerNameConflictMsg, http.StatusConflict)
 			return
 		}
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -598,10 +598,19 @@ func providerTypeAllowsEmptyKey(providerType string) bool {
 	return providerType == "opencode-zen" || providerType == "custom" || provider.IsLocalServerType(providerType)
 }
 
+// providerNameConflictMsg is the 409 both provider writes answer with, on the
+// application-level check and on the constraint that backs it. It spells out
+// the comparison because it is not the obvious one: names are unique in the
+// form routing uses (provider.NormalizeName maps spaces to hyphens), so a name
+// that reads as free in the dashboard can still be taken.
+const providerNameConflictMsg = "a provider with this name already exists: names are compared the way routing compares them, with spaces and hyphens treated alike"
+
 // providerNameTaken is the application-level duplicate-name check both writes
-// run before the DB unique constraint sees the row. excludeID is the provider
-// being renamed, so a rename to its own name is not a conflict; pass uuid.Nil
-// on create. A lookup failure looks like "no duplicate" and leaves the
+// run before the DB unique constraint sees the row. GetByName falls back to the
+// normalized form, so this catches a name that is another provider's up to
+// spaces and hyphens as well as an exact one. excludeID is the provider being
+// renamed, so taking its own name, in either spelling, is not a conflict; pass
+// uuid.Nil on create. A lookup failure looks like "no duplicate" and leaves the
 // constraint as the backstop, so it is logged: a flaky database must not
 // quietly admit duplicates.
 func (h *Handler) providerNameTaken(ctx context.Context, name string, excludeID uuid.UUID) bool {

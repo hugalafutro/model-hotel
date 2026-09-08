@@ -68,10 +68,14 @@ function generateProviderName(
 		providerTypeTranslationKeys[type] || "providers.add.providerFallback",
 	);
 	if (!providers) return baseName;
-	const existingNames = new Set(providers.map((p) => p.name));
-	if (!existingNames.has(baseName)) return baseName;
+	// Names are taken in the form routing uses, where a space and a hyphen are
+	// the same character, so a suggestion has to dodge both spellings or the
+	// create it proposes comes back a 409.
+	const routingForm = (name: string) => name.replaceAll(" ", "-");
+	const existingNames = new Set(providers.map((p) => routingForm(p.name)));
+	if (!existingNames.has(routingForm(baseName))) return baseName;
 	let n = 2;
-	while (existingNames.has(`${baseName} ${n}`)) n++;
+	while (existingNames.has(routingForm(`${baseName} ${n}`))) n++;
 	return `${baseName} ${n}`;
 }
 

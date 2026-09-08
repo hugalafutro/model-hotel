@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -92,6 +93,26 @@ func validateSyncedProvider(p ExportProvider) error {
 	return nil
 }
 
+// validateSyncedProviderNames refuses an envelope carrying two providers whose
+// names are the same one once spaces become hyphens. That is the form routing
+// uses (provider.NormalizeName), so such a pair fights over one routing id and
+// one provider cache slot, and the unique index migration 082 installs would
+// refuse the second row anyway. This is the envelope-wide half of the provider
+// validation, so it runs over the whole list once, ahead of the writes, rather
+// than per row inside them.
+func validateSyncedProviderNames(providers []ExportProvider) error {
+	seen := make(map[string]string, len(providers))
+	for _, p := range providers {
+		normalized := provider.NormalizeName(p.Name)
+		if first, ok := seen[normalized]; ok {
+			return fmt.Errorf("%w: providers %q and %q are one name once spaces become hyphens, which is the form routing uses",
+				errInvalidSyncedProvider, first, p.Name)
+		}
+		seen[normalized] = p.Name
+	}
+	return nil
+}
+
 func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider, validateURL func(string) error) error {
 	for _, p := range providers {
 		if err := validateSyncedProvider(p); err != nil {
@@ -129,6 +150,17 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 				updated_at = now()`,
 			p.Name, p.BaseURL, providerTypeForImport(p), p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn, p.MaxInFlight)
 		if err != nil {
+			// The normalized-name index (migration 082) rejecting a name the envelope
+			// carries means this member holds a provider the envelope does not whose
+			// name differs from it only in spaces and hyphens. The declarative delete
+			// that would remove it runs after this upsert, so the insert meets it. Same
+			// refusal class as the field checks above: the envelope carries what the
+			// interactive API would reject, so a 400, not a 500. Named rather than any
+			// 23505, so the explanation cannot end up on another index's failure.
+			if db.IsUniqueViolationOn(err, "providers_name_normalized_unique") {
+				return fmt.Errorf("%w: provider %q is one name with a provider on this member once spaces become hyphens",
+					errInvalidSyncedProvider, p.Name)
+			}
 			return err
 		}
 	}
