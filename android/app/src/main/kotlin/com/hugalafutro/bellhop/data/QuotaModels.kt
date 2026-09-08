@@ -390,6 +390,25 @@ data class OpenCodeGoWindow(
     val resetsAt: String = "",
 )
 
+/**
+ * Whether OpenCode Go is refusing this window. Any non-empty status other than
+ * the documented "ok" counts, so an undocumented value fails closed rather than
+ * reading as healthy; the compare is trimmed and case-insensitive so a casing
+ * drift upstream changes nothing. An absent status decides nothing.
+ */
+fun OpenCodeGoWindow.isRefused(): Boolean {
+    val s = status.trim()
+    return s.isNotEmpty() && !s.equals("ok", ignoreCase = true)
+}
+
+/**
+ * The share of the window to render, clamped to 0-100. A refused window reads
+ * as fully used whatever percent it carries: it serves nothing and counts as
+ * spent, so a bar or a badge showing its raw 0 would contradict the spent
+ * styling.
+ */
+fun OpenCodeGoWindow.usedPercent(): Double = if (isRefused()) 100.0 else percent.coerceIn(0.0, 100.0)
+
 // ── Parsing ──────────────────────────────────────────────────────────────
 
 /**
@@ -537,8 +556,8 @@ fun quotaBadgeLabel(
         // Rolling (5h) over weekly, the two windows a session actually runs
         // into; monthly is a bar and a row in the detail sheet.
         is QuotaData.OpenCodeGo -> {
-            val rolling = applyBarMode(data.usage.rolling.percent, mode)
-            val weekly = applyBarMode(data.usage.weekly.percent, mode)
+            val rolling = applyBarMode(data.usage.rolling.usedPercent(), mode)
+            val weekly = applyBarMode(data.usage.weekly.usedPercent(), mode)
             "${formatPercent(rolling)}/${formatPercent(weekly)}"
         }
     }
@@ -719,9 +738,9 @@ fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
         // the reset times ride alongside as detail rows.
         is QuotaData.OpenCodeGo ->
             listOf(
-                QuotaMeter(QuotaMeterKind.FIVE_HOUR, data.usage.rolling.percent),
-                QuotaMeter(QuotaMeterKind.WEEKLY, data.usage.weekly.percent),
-                QuotaMeter(QuotaMeterKind.MONTHLY, data.usage.monthly.percent),
+                QuotaMeter(QuotaMeterKind.FIVE_HOUR, data.usage.rolling.usedPercent()),
+                QuotaMeter(QuotaMeterKind.WEEKLY, data.usage.weekly.usedPercent()),
+                QuotaMeter(QuotaMeterKind.MONTHLY, data.usage.monthly.usedPercent()),
             )
         // Balance-only and plan-only: no ceiling exists to meter against.
         is QuotaData.DeepSeek, is QuotaData.OllamaCloud -> emptyList()

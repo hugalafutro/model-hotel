@@ -839,6 +839,25 @@ func TestAssess_MiniMax_HealthyModelNotExhausted(t *testing.T) {
 	}
 }
 
+// TestAssess_MiniMax_BusinessErrorEnvelopeIsNoOpinion covers the HTTP 200
+// MiniMax answers business errors with. It carries no windows, so reading it
+// as understood would report health and release the pin of a provider whose
+// payload says nothing about its quota.
+func TestAssess_MiniMax_BusinessErrorEnvelopeIsNoOpinion(t *testing.T) {
+	payload, err := json.Marshal(map[string]any{
+		"base_resp": map[string]any{"status_code": 2062, "status_msg": "no active token plan"},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+
+	got := Assess("minimax", Snapshot{Kind: "usage", Payload: payload})
+
+	if got.OK {
+		t.Error("a base_resp error envelope is not an understood payload")
+	}
+}
+
 func TestAssess_MiniMax_ZeroTotalIsNotExhausted(t *testing.T) {
 	// A zero total means "no limit reported", not "limit fully consumed" —
 	// and on this plan tier the percent fallback is absent from the payload
@@ -1045,6 +1064,23 @@ func TestAssess_OpenCodeGo_NonOKStatusIsExhausted(t *testing.T) {
 	}
 	if got.ResetsAt.Format(time.RFC3339Nano) != weekly {
 		t.Errorf("got ResetsAt=%s, want the refused window's reset %s", got.ResetsAt.Format(time.RFC3339Nano), weekly)
+	}
+}
+
+// TestAssess_OpenCodeGo_PaddedMixedCaseOKIsHealthy holds the status compare
+// insensitive to casing and surrounding space: a drift to "Ok" upstream must
+// not read as OpenCode Go refusing every window.
+func TestAssess_OpenCodeGo_PaddedMixedCaseOKIsHealthy(t *testing.T) {
+	payload := openCodeGoPayload(t,
+		map[string]any{"status": "Ok ", "percent": 5, "resetsAt": time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)},
+		map[string]any{"status": " OK", "percent": 40, "resetsAt": time.Now().Add(50 * time.Hour).UTC().Format(time.RFC3339Nano)},
+		map[string]any{"status": "ok", "percent": 9, "resetsAt": time.Now().Add(600 * time.Hour).UTC().Format(time.RFC3339Nano)},
+	)
+
+	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want OK with nothing exhausted", got.OK, got.Exhausted)
 	}
 }
 

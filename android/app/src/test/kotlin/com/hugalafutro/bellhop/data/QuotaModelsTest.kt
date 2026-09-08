@@ -518,6 +518,33 @@ class QuotaModelsTest {
     }
 
     @Test
+    fun openCodeGoRefusedWindowReadsAsFullyUsed() {
+        // A refused window serves nothing and marks the provider spent, so the
+        // badge must not print the percentage such a payload carries. Only "ok"
+        // is documented, in any casing.
+        val data =
+            QuotaData.OpenCodeGo(
+                usage =
+                    OpenCodeGoWindows(
+                        rolling = OpenCodeGoWindow(status = "exceeded", percent = 10.0),
+                        weekly = OpenCodeGoWindow(status = " Ok ", percent = 15.0),
+                    ),
+            )
+        val wrapped = pq(data, QuotaType.OPENCODE_GO)
+
+        assertEquals("100%/15%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("0%/85%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
+    fun openCodeGoPercentIsClampedToTheBarRange() {
+        // An out-of-range percent would render as "120%" and a negative
+        // remainder, so usedPercent clamps the way the web selector does.
+        assertEquals(100.0, OpenCodeGoWindow(status = "ok", percent = 120.0).usedPercent(), 0.001)
+        assertEquals(0.0, OpenCodeGoWindow(status = "ok", percent = -20.0).usedPercent(), 0.001)
+    }
+
+    @Test
     fun detailBearingTypesMatchTheWebDashboardsModals() {
         // Model Hotel's web dashboard opens a quota modal for seven of the nine
         // types; DeepSeek and Ollama Cloud get a badge that only refreshes,

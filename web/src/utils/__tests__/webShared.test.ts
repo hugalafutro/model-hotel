@@ -229,4 +229,17 @@ describe("getOpenCodeGoWindows", () => {
 		});
 		expect(windows.map((w) => w.percent)).toEqual([0, 0, 42]);
 	});
+
+	// A refused window serves nothing and reads as spent, so it must not render
+	// as room left; only "ok" is documented, in any casing.
+	it("reports a refused window as fully used and an ok one as reported", () => {
+		const windows = getOpenCodeGoWindows({
+			usage: {
+				rolling: { status: "exceeded", percent: 0 },
+				weekly: { status: " Ok ", percent: 12 },
+				monthly: { status: "", percent: 3 },
+			},
+		});
+		expect(windows.map((w) => w.percent)).toEqual([100, 12, 3]);
+	});
 });

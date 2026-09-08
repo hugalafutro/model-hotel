@@ -397,6 +397,11 @@ describe("QuotaBadge", () => {
 		expect(screen.getByTestId("quota-badge-opencode-go:flagged")).toHaveClass(
 			"fd-quota-pill-spent",
 		);
+		// The refused window reads as fully used, so the pill cannot show the
+		// 10% it carries next to the spent styling.
+		expect(
+			screen.getByTestId("quota-badge-opencode-go:flagged"),
+		).toHaveTextContent("100%/-");
 		expect(
 			screen.getByTestId("quota-badge-opencode-go:healthy"),
 		).not.toHaveClass("fd-quota-pill-spent");

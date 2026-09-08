@@ -27,14 +27,22 @@ describe("OpenCodeGoQuotaModal", () => {
 		localStorage.clear();
 	});
 
-	it("renders one bar per window, in report order", () => {
+	it("renders one bar per window, rolling then weekly then monthly", () => {
 		renderWithProviders(<OpenCodeGoQuotaModal {...defaultProps} />);
 		expect(
 			screen.getByRole("heading", { name: "OpenCode Go Plan Quota" }),
 		).toBeInTheDocument();
-		for (const key of ["rolling", "weekly", "monthly"]) {
-			expect(screen.getByTestId(`opencode-go-${key}-bar`)).toBeInTheDocument();
-		}
+		// The modal renders into a portal, so the bars are read from the
+		// document rather than from the render container.
+		expect(
+			[...document.querySelectorAll("[data-testid$='-bar']")].map((el) =>
+				el.getAttribute("data-testid"),
+			),
+		).toEqual([
+			"opencode-go-rolling-bar",
+			"opencode-go-weekly-bar",
+			"opencode-go-monthly-bar",
+		]);
 		expect(screen.getByText("Rolling Quota (5h)")).toBeInTheDocument();
 		expect(screen.getByText("Weekly Quota")).toBeInTheDocument();
 		expect(screen.getByText("Monthly Quota")).toBeInTheDocument();

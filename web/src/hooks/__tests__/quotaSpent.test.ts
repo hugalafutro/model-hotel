@@ -307,6 +307,12 @@ describe("isQuotaPayloadSpent", () => {
 			spent: { usage: { monthly: { status: "exceeded", percent: 0 } } },
 			healthy: { usage: { monthly: { status: "ok", percent: 0 } } },
 		},
+		{
+			type: "opencode-go",
+			why: "the ok status is read past its casing and padding",
+			spent: { usage: { monthly: { status: "Refused", percent: 0 } } },
+			healthy: { usage: { monthly: { status: " Ok ", percent: 0 } } },
+		},
 	];
 
 	for (const c of cases) {

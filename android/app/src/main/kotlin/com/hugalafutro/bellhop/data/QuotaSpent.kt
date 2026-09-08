@@ -132,11 +132,11 @@ private fun isNeuralWattSpent(q: QuotaData.NeuralWatt): Boolean {
     return energySpent && credits < NEURALWATT_CREDITS_SPENT_FLOOR_USD
 }
 
-// percent is the consumed share, so 100 is a full window. Only "ok" is a
-// documented status, so any other non-empty value is OpenCode Go refusing the
-// window; an absent status decodes to "" and decides nothing.
-private fun isOpenCodeGoWindowSpent(w: OpenCodeGoWindow): Boolean =
-    w.percent >= 100.0 || (w.status.isNotEmpty() && w.status != "ok")
+// percent is the consumed share, so 100 is a full window, and a refused window
+// already reads as 100 through usedPercent, which is what the badge and the
+// meters render; one comparison covers both so a provider cannot read as spent
+// while its bars show room left.
+private fun isOpenCodeGoWindowSpent(w: OpenCodeGoWindow): Boolean = w.usedPercent() >= 100.0
 
 // Rolling, weekly and monthly, the same three windows the gateway walks.
 private fun isOpenCodeGoSpent(u: QuotaData.OpenCodeGo): Boolean =
