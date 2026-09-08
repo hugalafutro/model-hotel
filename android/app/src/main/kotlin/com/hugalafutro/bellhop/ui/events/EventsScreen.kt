@@ -49,6 +49,7 @@ import com.hugalafutro.bellhop.ui.theme.MonoFamily
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 import java.util.Locale
 
 /**
@@ -317,6 +318,18 @@ internal fun formatEventTime(
         Instant.parse(createdAt).atZone(ZoneId.systemDefault()).format(format)
     } catch (e: Exception) {
         createdAt
+    }
+
+// formatEventDate renders a day-granular RFC3339 timestamp as a date in the
+// device's zone, so an end-of-period stamp near midnight reads as the local day
+// rather than the UTC one. Same fallback as [formatEventTime]: anything
+// unparseable comes back verbatim instead of blanking the row.
+internal fun formatEventDate(iso: String): String =
+    try {
+        val format = DateTimeFormatter.ofPattern("MMM d, yyyy", Locale.getDefault())
+        Instant.parse(iso).atZone(ZoneId.systemDefault()).format(format)
+    } catch (e: DateTimeParseException) {
+        iso
     }
 
 // eventClipboardText renders one event as a plain-text block for the clipboard:

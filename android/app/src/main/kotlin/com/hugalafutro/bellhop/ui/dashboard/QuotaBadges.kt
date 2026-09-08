@@ -42,6 +42,7 @@ import com.hugalafutro.bellhop.data.quotaBadgeLabel
 import com.hugalafutro.bellhop.data.quotaMeters
 import com.hugalafutro.bellhop.ui.common.LocalTimePattern
 import com.hugalafutro.bellhop.ui.common.TightTouchTarget
+import com.hugalafutro.bellhop.ui.events.formatEventDate
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.SeverityErrorBg
 import com.hugalafutro.bellhop.ui.theme.SeverityWarnBg
@@ -279,7 +280,7 @@ private fun QuotaDetailRows(data: QuotaData) {
             if (data.period.currentPeriodEnd.isNotBlank()) {
                 QuotaDetailRow(
                     stringResource(R.string.quota_field_period_end),
-                    isoDatePart(data.period.currentPeriodEnd),
+                    formatEventDate(data.period.currentPeriodEnd),
                 )
             }
             QuotaDetailRow(stringResource(R.string.quota_field_allow_overage), if (data.allowOverage) yes else no)
@@ -361,11 +362,11 @@ private fun QuotaDetailRows(data: QuotaData) {
             if (data.subscriptionPeriodEnd.valid) {
                 QuotaDetailRow(
                     stringResource(R.string.quota_field_subscription_end),
-                    isoDatePart(data.subscriptionPeriodEnd.time),
+                    formatEventDate(data.subscriptionPeriodEnd.time),
                 )
             }
             if (data.suspendedAt.valid) {
-                QuotaDetailRow(stringResource(R.string.quota_field_suspended), isoDatePart(data.suspendedAt.time))
+                QuotaDetailRow(stringResource(R.string.quota_field_suspended), formatEventDate(data.suspendedAt.time))
             }
         }
         is QuotaData.NeuralWatt -> {
@@ -520,14 +521,6 @@ private fun meterLabel(kind: QuotaMeterKind): Int =
  * ceiling worth drawing a bar against, so a row and a bar never both claim the
  * same reading. */
 private fun isCapped(limit: Long?): Boolean = limit != null && limit > 0L
-
-/** isoDatePart trims an RFC3339 timestamp to its date portion; a value that
- * isn't RFC3339-shaped (no "T") is returned as-is rather than dropped, so a
- * foreign format still shows something instead of going blank. */
-private fun isoDatePart(iso: String): String {
-    val t = iso.indexOf('T')
-    return if (t > 0) iso.substring(0, t) else iso
-}
 
 /** usd formats a dollar amount with a fixed Locale, mirroring
  * [com.hugalafutro.bellhop.data]'s widget-facing formatters, so the sheet

@@ -1,5 +1,6 @@
 package com.hugalafutro.bellhop.ui.dashboard
 
+import com.hugalafutro.bellhop.ui.events.formatEventDate
 import com.hugalafutro.bellhop.ui.events.formatEventTime
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -8,10 +9,11 @@ import java.util.Locale
 import java.util.TimeZone
 
 /**
- * Pins the reset-time rendering the OpenCode Go detail rows use. The gateway
- * sends UTC, so the row has to read at the device's zone and on the clock face
- * Settings chose, and a value that isn't RFC3339-shaped has to survive rather
- * than blank the sheet.
+ * Pins the timestamp rendering the quota detail rows use: the reset time on the
+ * OpenCode Go rows, and the day-granular period ends on the NanoGPT and Ollama
+ * Cloud rows. The gateway sends UTC, so both have to read at the device's zone
+ * (and the time on the clock face Settings chose), and a value that isn't
+ * RFC3339-shaped has to survive rather than blank the sheet.
  */
 class QuotaResetFormatTest {
     // A fixed moment in a fixed zone and locale so the expected reading is not
@@ -42,6 +44,22 @@ class QuotaResetFormatTest {
     fun honoursThe12HourSetting() =
         inPragueEnUs {
             assertEquals("Sep 8, 2026 · 8:25 PM", formatEventTime(resetsAt, "h:mm a"))
+        }
+
+    // 22:30 UTC is already the next day in Prague, the case a UTC-only reading
+    // gets wrong.
+    private val periodEnd = "2026-09-08T22:30:00Z"
+
+    @Test
+    fun readsADayGranularEndAtTheDeviceZone() =
+        inPragueEnUs {
+            assertEquals("Sep 9, 2026", formatEventDate(periodEnd))
+        }
+
+    @Test
+    fun leavesAForeignDateAlone() =
+        inPragueEnUs {
+            assertEquals("soon", formatEventDate("soon"))
         }
 
     @Test
