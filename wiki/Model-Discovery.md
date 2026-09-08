@@ -1479,6 +1479,10 @@ These are exposed via:
 - `GET /api/providers/{id}/account` - for Ollama Cloud
 - `POST /api/providers/refresh-quotas` - refreshes usage/balance for all supported providers
 
+The dashboard renders each of these as a sidebar pill with a detail modal. The OpenCode Go modal shows the three subscription windows the endpoint reports, each with its percent consumed and reset time:
+
+<a href="screenshots/quota_opencodego.png"><img src="screenshots/quota_opencodego.png" width="360" alt="OpenCode Go plan quota modal: rolling 5-hour, weekly and monthly windows with percent used and reset times"></a>
+
 Quota/balance fetches use a circuit breaker with 5 consecutive failure threshold and 5-minute cooldown.
 The gateway keeps one discovery service for the life of the process, so this state persists across
 polls: five failures spread over five separate poll passes open the circuit exactly as five failures
