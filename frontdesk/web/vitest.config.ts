@@ -6,10 +6,10 @@ export default defineConfig({
 	plugins: [react()],
 	resolve: {
 		alias: {
-			"@": path.resolve(__dirname, "./src"),
+			"@": path.resolve(import.meta.dirname, "./src"),
 			// Same prefix alias as vite.config.ts: a vitest config replaces the vite
 			// config wholesale, so the two have to be kept in step.
-			"@web-shared": path.resolve(__dirname, "../../web-shared"),
+			"@web-shared": path.resolve(import.meta.dirname, "../../web-shared"),
 		},
 	},
 	test: {

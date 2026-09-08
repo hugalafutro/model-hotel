@@ -6,7 +6,7 @@ Model Hotel is distributed under the MIT License (see [LICENSE](./LICENSE)).
 It bundles the third-party open-source components listed below; each is the
 property of its respective authors and is used under the terms reproduced here.
 
-_53 Go modules, 237 npm packages (regenerate with `make notices`)._
+_53 Go modules, 238 npm packages (regenerate with `make notices`)._
 
 ## Fonts
 
@@ -20,10 +20,10 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/boombuler/barcode](https://github.com/boombuler/barcode) | v1.0.1-0.20190219062509-6c824513bacc | Go | MIT |
 | [github.com/cenkalti/backoff/v5](https://github.com/cenkalti/backoff/v5) | v5.0.3 | Go | MIT |
 | [github.com/cespare/xxhash/v2](https://github.com/cespare/xxhash/v2) | v2.3.0 | Go | MIT |
-| [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.20.0 | Go | Apache-2.0 |
+| [github.com/coreos/go-oidc/v3](https://github.com/coreos/go-oidc/v3) | v3.21.0 | Go | Apache-2.0 |
 | [github.com/fxamacker/cbor/v2](https://github.com/fxamacker/cbor/v2) | v2.9.3 | Go | MIT |
 | [github.com/go-chi/chi/v5](https://github.com/go-chi/chi/v5) | v5.3.2 | Go | MIT |
-| [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.4 | Go | Apache-2.0 |
+| [github.com/go-jose/go-jose/v4](https://github.com/go-jose/go-jose/v4) | v4.1.5 | Go | Apache-2.0 |
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
 | [github.com/go-logr/stdr](https://github.com/go-logr/stdr) | v1.2.2 | Go | Apache-2.0 |
 | [github.com/go-viper/mapstructure/v2](https://github.com/go-viper/mapstructure/v2) | v2.5.0 | Go | MIT |
@@ -75,7 +75,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@dnd-kit/sortable](https://github.com/clauderic/dnd-kit#readme) | 10.0.0 | npm | MIT |
 | [@dnd-kit/utilities](https://github.com/clauderic/dnd-kit#readme) | 3.2.2 | npm | MIT |
 | [@fontsource-variable/jetbrains-mono](https://fontsource.org/fonts/jetbrains-mono) | 5.3.0 | npm | OFL-1.1 |
-| [@fontsource-variable/onest](https://fontsource.org/fonts/onest) | 5.3.0 | npm | OFL-1.1 |
+| [@fontsource-variable/onest](https://fontsource.org/fonts/onest) | 5.3.1 | npm | OFL-1.1 |
 | [@fontsource-variable/schibsted-grotesk](https://fontsource.org/fonts/schibsted-grotesk) | 5.3.0 | npm | OFL-1.1 |
 | [@phosphor-icons/react](https://phosphoricons.com) | 2.1.10 | npm | MIT |
 | [@reduxjs/toolkit](https://redux-toolkit.js.org) | 2.12.0 | npm | MIT |
@@ -87,7 +87,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@shikijs/themes](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
 | [@shikijs/types](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
 | [@shikijs/vscode-textmate](https://github.com/shikijs/vscode-textmate#readme) | 10.0.2 | npm | MIT |
-| [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 13.3.0 | npm | MIT |
+| [@simplewebauthn/browser](https://github.com/MasterKale/SimpleWebAuthn/tree/master/packages/browser#readme) | 14.0.0 | npm | MIT |
 | [@standard-schema/spec](https://standardschema.dev) | 1.1.0 | npm | MIT |
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
 | [@tanstack/query-core](https://tanstack.com/query) | 5.102.8 | npm | MIT |
@@ -131,6 +131,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [color-convert](https://github.com/Qix-/color-convert#readme) | 2.0.1 | npm | MIT |
 | [color-name](https://github.com/colorjs/color-name) | 1.1.4 | npm | MIT |
 | [comma-separated-tokens](https://github.com/wooorm/comma-separated-tokens#readme) | 2.0.3 | npm | MIT |
+| [commander](https://github.com/tj/commander.js#readme) | 15.0.0 | npm | MIT |
 | [commander](https://github.com/tj/commander.js#readme) | 8.3.0 | npm | MIT |
 | [cookie-es](https://github.com/unjs/cookie-es#readme) | 3.1.1 | npm | MIT |
 | [csstype](https://github.com/frenic/csstype#readme) | 3.2.3 | npm | MIT |
@@ -175,7 +176,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [html-parse-stringify](https://github.com/i18next/html-parse-stringify) | 4.0.1 | npm | MIT |
 | [html-url-attributes](https://github.com/rehypejs/rehype-minify/tree/main#readme) | 3.0.1 | npm | MIT |
 | [html-void-elements](https://github.com/wooorm/html-void-elements#readme) | 3.0.0 | npm | MIT |
-| [i18next](https://www.i18next.com) | 26.4.0 | npm | MIT |
+| [i18next](https://www.i18next.com) | 26.4.2 | npm | MIT |
 | [i18next-browser-languagedetector](https://github.com/i18next/i18next-browser-languageDetector) | 8.2.1 | npm | MIT |
 | [immer](https://github.com/immerjs/immer#readme) | 11.1.18 | npm | MIT |
 | [inline-style-parser](https://github.com/remarkablemark/inline-style-parser#readme) | 0.2.7 | npm | MIT |
@@ -187,7 +188,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [is-hexadecimal](https://github.com/wooorm/is-hexadecimal#readme) | 2.0.1 | npm | MIT |
 | [is-plain-obj](https://github.com/sindresorhus/is-plain-obj#readme) | 4.1.0 | npm | MIT |
 | [katex](https://katex.org) | 0.16.47 | npm | MIT |
-| [katex](https://katex.org) | 0.18.4 | npm | MIT |
+| [katex](https://katex.org) | 0.18.5 | npm | MIT |
 | [locate-path](https://github.com/sindresorhus/locate-path#readme) | 5.0.0 | npm | MIT |
 | [longest-streak](https://github.com/wooorm/longest-streak#readme) | 3.1.0 | npm | MIT |
 | [markdown-table](https://github.com/wooorm/markdown-table#readme) | 3.0.4 | npm | MIT |
@@ -250,9 +251,9 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [property-information](https://github.com/wooorm/property-information#readme) | 7.2.0 | npm | MIT |
 | [qrcode](http://github.com/soldair/node-qrcode) | 1.5.4 | npm | MIT |
 | [react](https://react.dev/) | 19.2.8 | npm | MIT |
-| [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.0 | npm | MIT |
+| [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
 | [react-dom](https://react.dev/) | 19.2.8 | npm | MIT |
-| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.12 | npm | MIT |
+| [react-i18next](https://github.com/i18next/react-i18next) | 17.0.13 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
 | [react-redux](https://github.com/reduxjs/react-redux) | 9.3.0 | npm | MIT |
@@ -758,7 +759,7 @@ SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/go-jose/go-jose/v4@v4.1.4`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260819154853-08b0e4226688`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260819154853-08b0e4226688`
+Applies to: `github.com/go-jose/go-jose/v4@v4.1.5`, `github.com/go-logr/stdr@v1.2.2`, `github.com/google/go-tpm@v0.9.8`, `go.opentelemetry.io/auto/sdk@v1.2.1`, `go.opentelemetry.io/proto/otlp@v1.11.0`, `google.golang.org/genproto/googleapis/api@v0.0.0-20260819154853-08b0e4226688`, `google.golang.org/genproto/googleapis/rpc@v0.0.0-20260819154853-08b0e4226688`
 
 ```
 Apache License
@@ -1283,6 +1284,37 @@ END OF TERMS AND CONDITIONS
 
 ### MIT
 
+Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>
+
+Applies to: `commander@15.0.0`, `commander@8.3.0`
+
+```
+(The MIT License)
+
+Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>
+
+Permission is hereby granted, free of charge, to any person obtaining
+a copy of this software and associated documentation files (the
+'Software'), to deal in the Software without restriction, including
+without limitation the rights to use, copy, modify, merge, publish,
+distribute, sublicense, and/or sell copies of the Software, and to
+permit persons to whom the Software is furnished to do so, subject to
+the following conditions:
+
+The above copyright notice and this permission notice shall be
+included in all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
+EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
+CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
+TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+```
+
+### MIT
+
 Copyright (c) Sindre Sorhus <sindresorhus@gmail.com> (https://sindresorhus.com)
 
 Applies to: `escape-string-regexp@5.0.0`, `is-plain-obj@4.1.0`
@@ -1303,7 +1335,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Copyright (c) 2013-2020 Khan Academy and other contributors
 
-Applies to: `katex@0.16.47`, `katex@0.18.4`
+Applies to: `katex@0.16.47`, `katex@0.18.5`
 
 ```
 The MIT License (MIT)
@@ -1572,7 +1604,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 copyright notice that is included in or attached to the work
 
-Applies to: `github.com/coreos/go-oidc/v3@v3.20.0`
+Applies to: `github.com/coreos/go-oidc/v3@v3.21.0`
 
 ```
 Apache License
@@ -4001,7 +4033,7 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
 
 Copyright 2021 The Onest Project Authors (https://github.com/simpals/onest)
 
-Applies to: `@fontsource-variable/onest@5.3.0`
+Applies to: `@fontsource-variable/onest@5.3.1`
 
 ```
 Copyright 2021 The Onest Project Authors (https://github.com/simpals/onest)
@@ -4295,7 +4327,7 @@ SOFTWARE.
 
 Copyright (c) 2020 Matthew Miller
 
-Applies to: `@simplewebauthn/browser@13.3.0`
+Applies to: `@simplewebauthn/browser@14.0.0`
 
 ```
 MIT License
@@ -4487,37 +4519,6 @@ Permission is hereby granted, free of charge, to any person obtaining a copy of 
 The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
 
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
-```
-
-### MIT
-
-Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>
-
-Applies to: `commander@8.3.0`
-
-```
-(The MIT License)
-
-Copyright (c) 2011 TJ Holowaychuk <tj@vision-media.ca>
-
-Permission is hereby granted, free of charge, to any person obtaining
-a copy of this software and associated documentation files (the
-'Software'), to deal in the Software without restriction, including
-without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to
-permit persons to whom the Software is furnished to do so, subject to
-the following conditions:
-
-The above copyright notice and this permission notice shall be
-included in all copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED 'AS IS', WITHOUT WARRANTY OF ANY KIND,
-EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
-IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY
-CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
-SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 ```
 
 ### MIT
@@ -5203,7 +5204,7 @@ THE SOFTWARE.
 
 Copyright (c) 2011-present i18next
 
-Applies to: `i18next@26.4.0`
+Applies to: `i18next@26.4.2`
 
 ```
 The MIT License (MIT)
@@ -5559,7 +5560,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Copyright (c) 2020-present Vlad Shilov <omgovich@ya.ru>
 
-Applies to: `react-colorful@5.8.0`
+Applies to: `react-colorful@5.8.1`
 
 ```
 MIT License
@@ -5589,7 +5590,7 @@ SOFTWARE.
 
 Copyright (c) 2015-present i18next
 
-Applies to: `react-i18next@17.0.12`
+Applies to: `react-i18next@17.0.13`
 
 ```
 The MIT License (MIT)
