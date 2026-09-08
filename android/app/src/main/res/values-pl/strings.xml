@@ -340,7 +340,11 @@
     <string name="quota_field_mcp_quota">Limit MCP</string>
     <string name="quota_field_five_hour">Limit 5-godzinny</string>
     <string name="quota_field_weekly">Limit tygodniowy</string>
+    <string name="quota_field_monthly">Limit miesięczny</string>
     <string name="quota_field_energy">Energia</string>
+    <string name="quota_field_five_hour_reset">Reset 5-godzinny</string>
+    <string name="quota_field_weekly_reset">Reset tygodniowy</string>
+    <string name="quota_field_monthly_reset">Reset miesięczny</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Odznaki limitów</string>

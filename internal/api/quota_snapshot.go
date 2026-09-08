@@ -19,7 +19,7 @@ import (
 // ok=false when the type exposes no quota/usage/balance/account endpoint.
 func quotaKindFor(providerType string) (string, bool) {
 	switch providerType {
-	case "nanogpt", "zai-coding", "kimi-code", "minimax", "openrouter", "neuralwatt":
+	case "nanogpt", "zai-coding", "kimi-code", "minimax", "openrouter", "neuralwatt", "opencode-go":
 		return "usage", true
 	case "deepseek":
 		return "balance", true
@@ -32,9 +32,10 @@ func quotaKindFor(providerType string) (string, bool) {
 
 // fetchQuotaSnapshot performs the live upstream call for a provider and returns
 // the JSON body, the HTTP status the endpoint would send, and an error only for
-// unexpected failures. A dead credential becomes 424; NeuralWatt free-tier
-// (nil result) becomes 204 with a null payload. This is the single source of
-// truth shared by the poller, manual refresh, and cold lazy-fill.
+// unexpected failures. A dead credential becomes 424; a nil result (NeuralWatt
+// free tier, an OpenCode Go key with no subscription) becomes 204 with a null
+// payload. This is the single source of truth shared by the poller, manual
+// refresh, and cold lazy-fill.
 func fetchQuotaSnapshot(ctx context.Context, disc *provider.DiscoveryService, prov *provider.Provider, masterKey string) (string, json.RawMessage, int, error) {
 	providerType := provider.TypeOf(prov)
 	kind, ok := quotaKindFor(providerType)
@@ -60,6 +61,8 @@ func fetchQuotaSnapshot(ctx context.Context, disc *provider.DiscoveryService, pr
 		payload, status, err = marshalQuota(disc.GetOpenRouterBalance(ctx, prov, masterKey))
 	case "neuralwatt":
 		payload, status, err = marshalQuota(disc.GetNeuralWattQuota(ctx, prov, masterKey))
+	case "opencode-go":
+		payload, status, err = marshalQuota(disc.GetOpenCodeGoUsage(ctx, prov, masterKey))
 	case "deepseek":
 		payload, status, err = marshalQuota(disc.GetDeepSeekBalance(ctx, prov, masterKey))
 	case "ollama-cloud":

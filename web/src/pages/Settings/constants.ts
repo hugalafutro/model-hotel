@@ -20,13 +20,18 @@ export const UI_STYLES = [
 	},
 ];
 
+// Every localStorage key useQuotaData mirrors a provider payload into, so
+// "clear provider cache" leaves none behind and the count is the whole set.
 const PROVIDER_CACHE_KEYS = [
 	"model-hotel:nanogpt-usage",
 	"model-hotel:zai-coding-usage",
 	"model-hotel:kimi-code-usage",
 	"model-hotel:minimax-usage",
 	"model-hotel:deepseek-balance",
+	"model-hotel:openrouter-balance",
 	"model-hotel:ollama-cloud-account",
+	"model-hotel:neuralwatt-quota",
+	"model-hotel:opencode-go-usage",
 ] as const;
 
 function hasCacheKey(key: string): boolean {

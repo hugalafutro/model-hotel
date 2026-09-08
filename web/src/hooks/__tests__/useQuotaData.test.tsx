@@ -738,6 +738,38 @@ describe("useQuotaData", () => {
 		expect(result.current.nanogptUsage?.providerStatus).toBe("cached");
 	});
 
+	// A lapsed OpenCode Go subscription answers 204, so the cache has to be
+	// dropped: otherwise the next reload paints the old percentages from
+	// initialData before the refetch lands.
+	it("drops the cached payload when a provider reports no quota", async () => {
+		localStorage.setItem(
+			"model-hotel:opencode-go-usage",
+			JSON.stringify({ usage: { rolling: { percent: 42 } } }),
+		);
+		server.use(
+			http.get(
+				"/api/providers/:id/usage",
+				() => new HttpResponse(null, { status: 204 }),
+			),
+		);
+		const opencodeGoProvider: Provider = {
+			...mockProviders[0],
+			id: "opencode-go-1",
+			name: "OpenCode Go",
+			base_url: "https://opencode.ai/zen/go/v1",
+			provider_type: "custom",
+		};
+
+		const { result } = renderHook(() => useQuotaData([opencodeGoProvider]), {
+			wrapper: createQueryWrapper(),
+		});
+
+		await waitFor(() => {
+			expect(localStorage.getItem("model-hotel:opencode-go-usage")).toBeNull();
+		});
+		expect(result.current.showOpenCodeGoBadge).toBe(false);
+	});
+
 	it("returns dataUpdatedAt timestamps", async () => {
 		const { result } = renderHook(() => useQuotaData(mockProviders), {
 			wrapper: createQueryWrapper(),
@@ -824,6 +856,30 @@ describe("useQuotaData", () => {
 		it("detects Ollama Cloud provider type", () => {
 			expect(detectQuotaProviderType("https://ollama.com/api/v1")).toBe(
 				"ollama-cloud",
+			);
+		});
+
+		// opencode.ai serves OpenCode Zen and OpenCode Go from the same host, and
+		// only Go has a usage endpoint, so the path is what separates them.
+		it("detects OpenCode Go by its base URL path", () => {
+			expect(detectQuotaProviderType("https://opencode.ai/zen/go/v1")).toBe(
+				"opencode-go",
+			);
+		});
+
+		it("detects OpenCode Go on a subdomain and without a version segment", () => {
+			expect(detectQuotaProviderType("https://www.opencode.ai/zen/go/v1")).toBe(
+				"opencode-go",
+			);
+			expect(detectQuotaProviderType("https://opencode.ai/zen/go")).toBe(
+				"opencode-go",
+			);
+		});
+
+		it("leaves OpenCode Zen on the same host unsupported", () => {
+			expect(detectQuotaProviderType("https://opencode.ai/zen/v1")).toBe(null);
+			expect(detectQuotaProviderType("https://opencode.ai/zen/gold/v1")).toBe(
+				null,
 			);
 		});
 

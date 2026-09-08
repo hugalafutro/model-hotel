@@ -265,6 +265,50 @@ class QuotaSpentTest {
         assertFalse(isQuotaSpent(quota("neuralwatt", """{"subscription":{"in_overage":true},"balance":{}}""")))
     }
 
+    // The live payload's shape, with the rolling window's two deciding fields
+    // left to the caller. percent is the consumed share, so the healthy twin
+    // is the same body one point below the ceiling.
+    private fun openCodeGo(
+        percent: String,
+        status: String = "ok",
+    ) = """{"usage":{"rolling":{"status":"$status","percent":$percent,"resetsAt":"2026-09-08T18:25:46.155Z"},
+        "weekly":{"status":"ok","percent":0,"resetsAt":"2026-09-14T00:00:00.155Z"},
+        "monthly":{"status":"ok","percent":0,"resetsAt":"2026-10-08T13:25:13.155Z"}}}"""
+
+    @Test
+    fun openCodeGoWindowAtFullConsumption() =
+        assertPair(
+            "opencode-go",
+            spent = openCodeGo(percent = "100"),
+            healthy = openCodeGo(percent = "99"),
+        )
+
+    @Test
+    fun openCodeGoStatusOtherThanOkSpendsTheWindow() =
+        assertPair(
+            "opencode-go",
+            spent = openCodeGo(percent = "0", status = "exceeded"),
+            healthy = openCodeGo(percent = "0", status = "ok"),
+        )
+
+    @Test
+    fun openCodeGoAbsentStatusDecidesNothing() {
+        // A payload with no status at all is a fresh subscription, not a
+        // refused one: only percent may call it spent.
+        val body = """{"usage":{"rolling":{"percent":0},"weekly":{"percent":0},"monthly":{"percent":0}}}"""
+        assertFalse(isQuotaSpent(quota("opencode-go", body)))
+    }
+
+    @Test
+    fun openCodeGoMonthlyWindowSpendsTheProviderToo() {
+        // The breaker is per provider, so the window the badge never prints
+        // still has to pin it.
+        val body =
+            """{"usage":{"rolling":{"status":"ok","percent":0},"weekly":{"status":"ok","percent":0},
+            "monthly":{"status":"ok","percent":100}}}"""
+        assertTrue(isQuotaSpent(quota("opencode-go", body)))
+    }
+
     @Test
     fun ollamaCloudNeverReadsAsSpent() {
         assertFalse(isQuotaSpent(quota("ollama-cloud", """{"plan":"pro"}""")))

@@ -1,10 +1,12 @@
 import { getKimiCodeWeeklyLimit, toKimiCodeWindow } from "./kimi";
+import { getOpenCodeGoWindows } from "./opencodeGo";
 import type {
 	DeepSeekBalanceLike,
 	KimiCodeQuotaResponse,
 	MiniMaxQuotaResponse,
 	NanoGptUsageLike,
 	NeuralWattQuotaLike,
+	OpenCodeGoUsageResponse,
 	OpenRouterBalanceLike,
 	QuotaProviderType,
 	ZaiCodingLimitLike,
@@ -147,6 +149,18 @@ export function isNeuralWattQuotaSpent(q: NeuralWattQuotaLike): boolean {
 	);
 }
 
+// Any of the three windows blocks the whole subscription, as assessOpenCodeGo
+// walks them: a window at its ceiling, or one whose status OpenCode Go reports
+// as something other than "ok". An absent status is unknown, never spent.
+export function isOpenCodeGoQuotaSpent(u: OpenCodeGoUsageResponse): boolean {
+	return getOpenCodeGoWindows(u).some((w) => {
+		const status = w.status?.trim();
+		return (
+			w.percent >= 100 || (status != null && status !== "" && status !== "ok")
+		);
+	});
+}
+
 /**
  * Spent-ness for a payload whose provider type is known only as a value. Ollama
  * Cloud's account payload names the plan and never the usage, so it can never
@@ -173,5 +187,7 @@ export function isQuotaPayloadSpent(
 			return false;
 		case "neuralwatt":
 			return isNeuralWattQuotaSpent(payload as NeuralWattQuotaLike);
+		case "opencode-go":
+			return isOpenCodeGoQuotaSpent(payload as OpenCodeGoUsageResponse);
 	}
 }

@@ -22,7 +22,7 @@ import kotlin.math.roundToInt
 /**
  * QuotaType is the badge/payload-shape selector: FD's `type` field, not
  * `kind`. [fromWire] degrades any string it doesn't recognize to [UNKNOWN]
- * rather than throwing, so a Front Desk that has grown a ninth provider never
+ * rather than throwing, so a Front Desk that has grown a tenth provider never
  * crashes an older Bellhop -- the badge for it simply doesn't render.
  */
 enum class QuotaType {
@@ -34,6 +34,7 @@ enum class QuotaType {
     OPENROUTER,
     OLLAMA_CLOUD,
     NEURALWATT,
+    OPENCODE_GO,
     UNKNOWN,
     ;
 
@@ -48,6 +49,7 @@ enum class QuotaType {
                 "openrouter" -> OPENROUTER
                 "ollama-cloud" -> OLLAMA_CLOUD
                 "neuralwatt" -> NEURALWATT
+                "opencode-go" -> OPENCODE_GO
                 else -> UNKNOWN
             }
     }
@@ -179,6 +181,12 @@ sealed interface QuotaData {
         val limits: NeuralWattLimits = NeuralWattLimits(),
         val subscription: NeuralWattSubscription = NeuralWattSubscription(),
         val key: NeuralWattKey = NeuralWattKey(),
+    ) : QuotaData
+
+    /** Mirrors internal/provider/discovery_types.go OpenCodeGoUsageResponse. */
+    @Serializable
+    data class OpenCodeGo(
+        val usage: OpenCodeGoWindows = OpenCodeGoWindows(),
     ) : QuotaData
 }
 
@@ -359,6 +367,29 @@ data class NeuralWattKey(
     val allowance: Double? = null,
 )
 
+// ── OpenCode Go support types ───────────────────────────────────────────
+
+@Serializable
+data class OpenCodeGoWindows(
+    val rolling: OpenCodeGoWindow = OpenCodeGoWindow(),
+    val weekly: OpenCodeGoWindow = OpenCodeGoWindow(),
+    val monthly: OpenCodeGoWindow = OpenCodeGoWindow(),
+)
+
+/**
+ * One OpenCode Go usage window. [percent] is the share of the window consumed
+ * (0-100), so an absent field reads as untouched rather than as spent, which
+ * is the fail-open direction the Go normalizer takes too. Only "ok" is a
+ * documented [status]; anything else is OpenCode Go refusing the window.
+ * [resetsAt] is RFC3339.
+ */
+@Serializable
+data class OpenCodeGoWindow(
+    val status: String = "",
+    val percent: Double = 0.0,
+    val resetsAt: String = "",
+)
+
 // ── Parsing ──────────────────────────────────────────────────────────────
 
 /**
@@ -421,6 +452,7 @@ private fun decodeQuotaPayload(
             QuotaType.OPENROUTER -> quotaPayloadJson.decodeFromJsonElement<QuotaData.OpenRouter>(payload)
             QuotaType.OLLAMA_CLOUD -> quotaPayloadJson.decodeFromJsonElement<QuotaData.OllamaCloud>(payload)
             QuotaType.NEURALWATT -> quotaPayloadJson.decodeFromJsonElement<QuotaData.NeuralWatt>(payload)
+            QuotaType.OPENCODE_GO -> quotaPayloadJson.decodeFromJsonElement<QuotaData.OpenCodeGo>(payload)
             QuotaType.UNKNOWN -> null
         }
     }.getOrNull()
@@ -502,6 +534,13 @@ fun quotaBadgeLabel(
                 "${formatKwhAmount(used)} kWh"
             }
         }
+        // Rolling (5h) over weekly, the two windows a session actually runs
+        // into; monthly is a bar and a row in the detail sheet.
+        is QuotaData.OpenCodeGo -> {
+            val rolling = applyBarMode(data.usage.rolling.percent, mode)
+            val weekly = applyBarMode(data.usage.weekly.percent, mode)
+            "${formatPercent(rolling)}/${formatPercent(weekly)}"
+        }
     }
 }
 
@@ -524,6 +563,7 @@ fun quotaShortCode(type: QuotaType): String =
         QuotaType.OPENROUTER -> "OR"
         QuotaType.OLLAMA_CLOUD -> "OLC"
         QuotaType.NEURALWATT -> "NW"
+        QuotaType.OPENCODE_GO -> "OCG"
         // Unreachable in the widget (unknown types are dropped before a badge is
         // built), but a code is cheaper than making the caller handle a null.
         QuotaType.UNKNOWN -> "?"
@@ -533,13 +573,14 @@ fun quotaShortCode(type: QuotaType): String =
  * quotaHasDetail reports whether a provider has anything worth opening a detail
  * view for, beyond what its badge already says.
  *
- * It follows Model Hotel's web dashboard, which gives six of the eight types a
+ * It follows Model Hotel's web dashboard, which gives seven of the nine types a
  * quota modal and leaves DeepSeek and Ollama Cloud with a badge that only
  * refreshes: DeepSeek's whole reading is its balance, and Ollama Cloud's is its
  * plan name. Both are already printed on the badge, so opening a sheet -- from
  * the widget, possibly through an unlock prompt -- would spend a screen to
- * repeat one word. The six that do have a modal have genuinely more to say
- * (ZAI's 5-hour, weekly and MCP windows; OpenRouter's spend; Kimi's tiers).
+ * repeat one word. The seven that do have a modal have genuinely more to say
+ * (ZAI's 5-hour, weekly and MCP windows; OpenRouter's spend; Kimi's tiers;
+ * OpenCode Go's monthly window and reset times).
  *
  * Keep this in step with `web/src/context/QuotaModalContext.tsx`: a type that
  * gains a modal there should gain a detail view here.
@@ -552,6 +593,7 @@ fun quotaHasDetail(type: QuotaType): Boolean =
         QuotaType.MINIMAX,
         QuotaType.OPENROUTER,
         QuotaType.NEURALWATT,
+        QuotaType.OPENCODE_GO,
         -> true
         // Balance-only and plan-only: the badge is the whole story.
         QuotaType.DEEPSEEK, QuotaType.OLLAMA_CLOUD -> false
@@ -568,6 +610,7 @@ fun quotaHasDetail(type: QuotaType): Boolean =
 enum class QuotaMeterKind {
     FIVE_HOUR,
     WEEKLY,
+    MONTHLY,
     MCP,
     DAILY_INPUT_TOKENS,
     DAILY_IMAGES,
@@ -671,6 +714,14 @@ fun quotaMeters(pq: ProviderQuota): List<QuotaMeter> {
                     format = { formatKwhAmount(it) },
                     suffix = " kWh",
                 ),
+            )
+        // Every window is a percentage of itself, so all three always meter;
+        // the reset times ride alongside as detail rows.
+        is QuotaData.OpenCodeGo ->
+            listOf(
+                QuotaMeter(QuotaMeterKind.FIVE_HOUR, data.usage.rolling.percent),
+                QuotaMeter(QuotaMeterKind.WEEKLY, data.usage.weekly.percent),
+                QuotaMeter(QuotaMeterKind.MONTHLY, data.usage.monthly.percent),
             )
         // Balance-only and plan-only: no ceiling exists to meter against.
         is QuotaData.DeepSeek, is QuotaData.OllamaCloud -> emptyList()

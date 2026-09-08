@@ -875,6 +875,64 @@ describe("QuotaBadge", () => {
 			);
 		});
 	});
+
+	// The pill has room for the two windows a session runs into; the monthly
+	// window only fits in the tooltip, so it is read from there.
+	describe("opencode-go type", () => {
+		const usage = {
+			usage: {
+				rolling: {
+					status: "ok",
+					percent: 12,
+					resetsAt: "2099-09-08T18:00:00Z",
+				},
+				weekly: { status: "ok", percent: 34, resetsAt: "2099-09-14T00:00:00Z" },
+				monthly: {
+					status: "ok",
+					percent: 56,
+					resetsAt: "2099-10-08T13:00:00Z",
+				},
+			},
+		};
+
+		it("shows rolling and weekly used, with monthly in the tooltip", () => {
+			render(
+				<QuotaBadge
+					type="opencode-go"
+					variant="card"
+					barMode="used"
+					opencodeGoUsage={usage}
+				/>,
+			);
+			const badge = screen.getByRole("button");
+			expect(badge).toHaveTextContent("12%/34%");
+			expect(badge.getAttribute("title")).toContain("56%");
+		});
+
+		it("inverts both windows in remaining mode", () => {
+			render(
+				<QuotaBadge
+					type="opencode-go"
+					variant="card"
+					barMode="remaining"
+					opencodeGoUsage={usage}
+				/>,
+			);
+			expect(screen.getByRole("button")).toHaveTextContent("88%/66%");
+		});
+
+		it("renders a dash per window the payload omits", () => {
+			render(
+				<QuotaBadge
+					type="opencode-go"
+					variant="sidebar"
+					barMode="used"
+					opencodeGoUsage={{ usage: {} }}
+				/>,
+			);
+			expect(screen.getByRole("button")).toHaveTextContent("OCG-/-");
+		});
+	});
 });
 
 describe("QuotaBadges", () => {
@@ -969,6 +1027,12 @@ describe("QuotaBadges", () => {
 		openrouterDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,
 		neuralwattDataUpdatedAt: 0,
+		showOpenCodeGoBadge: false,
+		opencodeGoUsage: undefined,
+		opencodeGoProviderId: undefined,
+		refetchOpenCodeGo: vi.fn(),
+		isOpenCodeGoRefetching: false,
+		opencodeGoDataUpdatedAt: 0,
 		invalidateAll: vi.fn(),
 	};
 
@@ -1072,6 +1136,12 @@ describe("QuotaBadges", () => {
 		openrouterDataUpdatedAt: 0,
 		ollamaCloudDataUpdatedAt: 0,
 		neuralwattDataUpdatedAt: 0,
+		showOpenCodeGoBadge: false,
+		opencodeGoUsage: undefined,
+		opencodeGoProviderId: undefined,
+		refetchOpenCodeGo: vi.fn(),
+		isOpenCodeGoRefetching: false,
+		opencodeGoDataUpdatedAt: 0,
 		invalidateAll: vi.fn(),
 	};
 

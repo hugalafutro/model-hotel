@@ -17,11 +17,17 @@ export {
 	getMiniMaxWeeklyLimit,
 } from "./minimax";
 export {
+	getOpenCodeGoWindows,
+	type OpenCodeGoWindow,
+	type OpenCodeGoWindowKey,
+} from "./opencodeGo";
+export {
 	isDeepSeekQuotaSpent,
 	isKimiCodeQuotaSpent,
 	isMiniMaxQuotaSpent,
 	isNanoGptQuotaSpent,
 	isNeuralWattQuotaSpent,
+	isOpenCodeGoQuotaSpent,
 	isOpenRouterQuotaSpent,
 	isQuotaPayloadSpent,
 	isZaiCodingQuotaSpent,
@@ -40,6 +46,8 @@ export type {
 	NanoGptUsageLike,
 	NeuralWattQuotaLike,
 	OllamaCloudAccountLike,
+	OpenCodeGoUsageResponse,
+	OpenCodeGoUsageWindow,
 	OpenRouterBalanceLike,
 	QuotaProviderType,
 	ZaiCodingLimitLike,
@@ -52,6 +60,7 @@ export {
 	isNanoGptQuotaVisible,
 	isNeuralWattQuotaVisible,
 	isOllamaCloudQuotaVisible,
+	isOpenCodeGoQuotaVisible,
 	isOpenRouterQuotaVisible,
 	isQuotaPayloadVisible,
 	isZaiCodingQuotaVisible,

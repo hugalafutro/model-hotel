@@ -1,6 +1,7 @@
 package quota
 
 import (
+	"bytes"
 	"encoding/json"
 	"strconv"
 	"strings"
@@ -53,13 +54,22 @@ func parseResetString(s string) (time.Time, bool) {
 
 // earliestReset accumulates the soonest reset among exhausted windows. Earliest
 // is deliberate: under-pinning costs one extra probe, over-pinning sidelines a
-// usable provider.
+// usable provider. undated records a spent window whose reset the payload does
+// not carry, which is neither a pin nor health.
 type earliestReset struct {
-	at    time.Time
-	found bool
+	at      time.Time
+	found   bool
+	undated bool
 }
 
-func (e *earliestReset) add(t time.Time) {
+// add records one spent window. ok is the verdict of the parse that produced t
+// (parseResetString or epochToTime); false means the window is spent but the
+// payload does not say when it recovers, which result reports as no opinion.
+func (e *earliestReset) add(t time.Time, ok bool) {
+	if !ok {
+		e.undated = true
+		return
+	}
 	if !e.found || t.Before(e.at) {
 		e.at, e.found = t, true
 	}
@@ -67,11 +77,22 @@ func (e *earliestReset) add(t time.Time) {
 
 // result builds the Assessment for a payload that parsed successfully. A reset
 // in the past is treated as no pin: the window has already rolled over.
+//
+// A datable spent window decides first: it names the moment the breaker waits
+// for, and it stands even alongside a sibling window nothing could date. With
+// no such window, an undatable spent one reports no opinion (OK=false) rather
+// than health. Reporting health there would put the provider in
+// buildQuotaAdvice's recovered set, where ReleaseQuotaPins drops its pin and
+// clears the 429-open escalation of every circuit it owns, on every poll pass,
+// for a provider whose own payload says its window is spent.
 func (e *earliestReset) result(now time.Time) Assessment {
-	if !e.found || !e.at.After(now) {
-		return Assessment{OK: true}
+	if e.found && e.at.After(now) {
+		return Assessment{Exhausted: true, ResetsAt: e.at, OK: true}
 	}
-	return Assessment{Exhausted: true, ResetsAt: e.at, OK: true}
+	if e.undated {
+		return Assessment{}
+	}
+	return Assessment{OK: true}
 }
 
 // Assess normalizes a stored quota snapshot for the circuit breaker. Only
@@ -79,7 +100,12 @@ func (e *earliestReset) result(now time.Time) Assessment {
 // unparseable payload, returns OK=false so callers fall back to their default
 // cooldown.
 func Assess(providerType string, s Snapshot) Assessment {
-	if len(s.Payload) == 0 {
+	// A 204 row (a NeuralWatt free tier, an OpenCode Go key with no Go
+	// subscription) stores the literal JSON null marshalQuota writes. It decodes
+	// into every assessor's struct as all zeroes, which reads exactly like a
+	// healthy payload and would land the provider in buildQuotaAdvice's
+	// recovered set. No payload is no opinion, not evidence of health.
+	if len(s.Payload) == 0 || bytes.Equal(bytes.TrimSpace(s.Payload), []byte("null")) {
 		return Assessment{}
 	}
 	switch providerType {
@@ -91,6 +117,8 @@ func Assess(providerType string, s Snapshot) Assessment {
 		return assessMiniMax(s.Payload)
 	case "neuralwatt":
 		return assessNeuralwatt(s.Payload)
+	case "opencode-go":
+		return assessOpenCodeGo(s.Payload)
 	default:
 		return Assessment{}
 	}
@@ -147,9 +175,7 @@ func assessZaiCoding(payload json.RawMessage) Assessment {
 		if !exhausted {
 			continue
 		}
-		if t, ok := epochToTime(l.NextResetTime); ok {
-			e.add(t)
-		}
+		e.add(epochToTime(l.NextResetTime))
 	}
 	return e.result(time.Now())
 }
@@ -203,12 +229,10 @@ const creditsSpentFloorUSD = 0.01
 // next poll via the recovered path in buildQuotaAdvice.
 //
 // That recovery path needs a datable reset to work: an account reporting no
-// usable current_period_end assesses OK=false, which reaches neither advice nor
-// recovered, so nothing releases its pin early and it runs the full ceiling.
-// That is the intended trade. Reporting a spent account healthy because it did
-// not say when it recovers would put it in recovered, where ReleaseQuotaPins
-// drops the pin and clears the 429-open escalation of every circuit it owns, on
-// every poll pass, for an account answering nothing but 402.
+// usable current_period_end assesses OK=false under the shared undatable rule
+// in earliestReset.result, which reaches neither advice nor recovered, so
+// nothing releases its pin early and it runs the full ceiling. That is the
+// intended trade for an account answering nothing but 402.
 func assessNeuralwatt(payload json.RawMessage) Assessment {
 	var res neuralwattQuotaPayload
 	if err := json.Unmarshal(payload, &res); err != nil {
@@ -226,18 +250,9 @@ func assessNeuralwatt(payload json.RawMessage) Assessment {
 
 	var e earliestReset
 	if energySpent && creditsSpent {
-		t, ok := parseResetString(res.Subscription.CurrentPeriodEnd)
-		if !ok {
-			// Spent, but the payload does not say when it recovers. Falling
-			// through to e.result here would report "not exhausted", and
-			// buildQuotaAdvice reads that as affirmative health: the provider
-			// joins `recovered`, and ReleaseQuotaPins then clears the 429-open
-			// escalation of every circuit it owns on every poll pass, for an
-			// account answering nothing but 402. OK=false is the honest answer;
-			// it lands the provider in neither advice nor recovered.
-			return Assessment{}
-		}
-		e.add(t)
+		// A spent account that does not say when it recovers is undatable, which
+		// earliestReset.result reports as no opinion rather than health.
+		e.add(parseResetString(res.Subscription.CurrentPeriodEnd))
 	}
 	return e.result(time.Now())
 }
@@ -286,9 +301,40 @@ func addKimiWindow(e *earliestReset, d provider.KimiCodeQuotaDetail) {
 	if !ok || remaining > 0 {
 		return
 	}
-	if t, ok := parseResetString(d.ResetTime); ok {
-		e.add(t)
+	e.add(parseResetString(d.ResetTime))
+}
+
+// assessOpenCodeGo handles OpenCode Go's three usage windows (rolling, weekly,
+// monthly). The provider struct is decoded directly: percent is consumed share
+// rather than remaining, so an absent field decodes to 0 and reads as untouched,
+// which is the fail-open direction the other parsers reach for with pointers.
+//
+// Only a spent window with a readable future reset dates a pin, and the verdict
+// comes from the shared earliestReset path every other assessor uses: a payload
+// whose only spent windows carry an unreadable resetsAt reports no opinion
+// rather than health, so it neither pins nor releases one. An exhausted verdict
+// always names the moment the breaker waits for.
+func assessOpenCodeGo(payload json.RawMessage) Assessment {
+	var res provider.OpenCodeGoUsageResponse
+	if err := json.Unmarshal(payload, &res); err != nil {
+		return Assessment{}
 	}
+	var e earliestReset
+	for _, w := range []provider.OpenCodeGoUsageWindow{res.Usage.Rolling, res.Usage.Weekly, res.Usage.Monthly} {
+		if !openCodeGoWindowSpent(w) {
+			continue
+		}
+		e.add(parseResetString(w.ResetsAt))
+	}
+	return e.result(time.Now())
+}
+
+// openCodeGoWindowSpent reports whether one OpenCode Go window is spent. The
+// percent is the consumed share, so 100 is a full window. Only "ok" is a
+// documented status, so any other non-empty value is OpenCode Go refusing the
+// window; an absent status decodes to "" and decides nothing.
+func openCodeGoWindowSpent(w provider.OpenCodeGoUsageWindow) bool {
+	return w.Percent >= 100 || (w.Status != "" && w.Status != "ok")
 }
 
 // minimaxModelRemain is the subset of a MiniMax model_remains entry the quota
@@ -361,7 +407,5 @@ func addMiniMaxWindow(e *earliestReset, status int, total, used int64, remaining
 	if !exhausted {
 		return
 	}
-	if t, ok := epochToTime(endTime); ok {
-		e.add(t)
-	}
+	e.add(epochToTime(endTime))
 }

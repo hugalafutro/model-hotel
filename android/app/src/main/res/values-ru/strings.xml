@@ -340,7 +340,11 @@
     <string name="quota_field_mcp_quota">Квота MCP</string>
     <string name="quota_field_five_hour">Квота за 5 ч</string>
     <string name="quota_field_weekly">Недельная квота</string>
+    <string name="quota_field_monthly">Месячная квота</string>
     <string name="quota_field_energy">Энергия</string>
+    <string name="quota_field_five_hour_reset">Сброс за 5 ч</string>
+    <string name="quota_field_weekly_reset">Недельный сброс</string>
+    <string name="quota_field_monthly_reset">Месячный сброс</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Значки квот</string>

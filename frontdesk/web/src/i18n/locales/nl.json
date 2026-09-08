@@ -686,7 +686,9 @@
 			"neuralwattEnergy": "{{provider}}: energieverbruik in deze periode",
 			"unreadable": "{{provider}}: de laatste ophaalpoging van de primaire gaf een onleesbaar antwoord",
 			"noQuota": "{{provider}}: de laatste ophaalpoging van de primaire gaf geen quotum",
-			"neuralwattEnergyOverage": "{{provider}}: boven de limiet, gebruik wordt van het tegoed afgeschreven"
+			"neuralwattEnergyOverage": "{{provider}}: boven de limiet, gebruik wordt van het tegoed afgeschreven",
+			"openCodeGoUsed": "{{provider}}: gebruikt doorlopend en weekquotum, maandelijks {{monthly}}",
+			"openCodeGoRemaining": "{{provider}}: resterend doorlopend en weekquotum, maandelijks {{monthly}}"
 		},
 		"modal": {
 			"toggleBarMode": "Wisselen tussen gebruikt en resterend",
@@ -748,7 +750,11 @@
 			"overageLimit": "Overschrijdingslimiet",
 			"rateLimitTier": "Rate-limitniveau",
 			"allowance": "Budget van de sleutel",
-			"neuralwattOverageNote": "Boven de limiet: de energiemeter stopt bij de inbegrepen hoeveelheid; verder gebruik wordt van het tegoed afgeschreven."
+			"neuralwattOverageNote": "Boven de limiet: de energiemeter stopt bij de inbegrepen hoeveelheid; verder gebruik wordt van het tegoed afgeschreven.",
+			"openCodeGoTitle": "OpenCode Go-quotum ({{provider}})",
+			"openCodeGoRolling": "Doorlopend quotum (5 uur)",
+			"openCodeGoWeekly": "Weekquotum",
+			"openCodeGoMonthly": "Maandquotum"
 		}
 	},
 	"errors": {

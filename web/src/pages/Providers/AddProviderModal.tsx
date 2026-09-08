@@ -143,6 +143,24 @@ export function AddProviderModal({
 					return;
 				}
 				switch (providerType) {
+					// OpenCode Go answers 204 with no body when the key carries no
+					// active Go subscription, so an empty result is a "no plan"
+					// notice rather than a detected quota.
+					case "opencode-go": {
+						const goUsage = await api.providers.getOpenCodeGoUsage(
+							newProvider.id,
+						);
+						onToast(
+							t(
+								goUsage?.usage
+									? "providers.toast_quota_detected_opencode_go"
+									: "providers.toast_no_plan_opencode_go",
+							),
+							"info",
+						);
+						queryClient.invalidateQueries({ queryKey: ["opencode-go-usage"] });
+						break;
+					}
 					case "deepseek": {
 						const balance = await api.providers.getBalance(newProvider.id);
 						const usd = balance.balance_infos.find((b) => b.currency === "USD");

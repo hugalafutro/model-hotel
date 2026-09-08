@@ -137,6 +137,12 @@ describe("isQuotaPayloadVisible", () => {
 				subscription: { plan: "starter" },
 			},
 		},
+		{
+			type: "opencode-go",
+			why: "a key with no active Go subscription reports no windows",
+			visible: { usage: { rolling: { status: "ok", percent: 0 } } },
+			hidden: { usage: {} },
+		},
 	];
 
 	for (const c of cases) {

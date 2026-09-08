@@ -82,6 +82,7 @@ export function ProviderQuotaPanel() {
 		isOrRefetching,
 		isOllamaCloudRefetching,
 		isNeuralwattRefetching,
+		isOpenCodeGoRefetching,
 	} = quotaData;
 
 	const anyRefreshing =
@@ -92,7 +93,8 @@ export function ProviderQuotaPanel() {
 		isDsRefetching ||
 		isOrRefetching ||
 		isOllamaCloudRefetching ||
-		isNeuralwattRefetching;
+		isNeuralwattRefetching ||
+		isOpenCodeGoRefetching;
 
 	const isAutoRefreshing = anyRefreshing && !collapsed;
 
@@ -170,6 +172,7 @@ export function ProviderQuotaPanel() {
 						onOpenRouterClick={() => setOpen("openrouter")}
 						onOllamaCloudClick={handleRefresh}
 						onNeuralwattClick={() => setOpen("neuralwatt")}
+						onOpenCodeGoClick={() => setOpen("opencode-go")}
 					/>
 				</div>
 			</CollapseBody>

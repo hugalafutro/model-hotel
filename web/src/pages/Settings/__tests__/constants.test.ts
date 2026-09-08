@@ -58,13 +58,13 @@ describe("getProviderCacheCount", () => {
 		vi.unstubAllGlobals();
 	});
 
-	it("returns 6 when all cache keys exist", () => {
+	it("returns 9 when all cache keys exist", () => {
 		const getItemSpy = vi.fn().mockReturnValue("some-value");
 		vi.stubGlobal("localStorage", { getItem: getItemSpy });
 
 		const count = getProviderCacheCount();
 
-		expect(count).toBe(6);
+		expect(count).toBe(9);
 
 		vi.unstubAllGlobals();
 	});
@@ -96,9 +96,14 @@ describe("clearProviderCache", () => {
 		expect(removeItemSpy).toHaveBeenCalledWith("model-hotel:minimax-usage");
 		expect(removeItemSpy).toHaveBeenCalledWith("model-hotel:deepseek-balance");
 		expect(removeItemSpy).toHaveBeenCalledWith(
+			"model-hotel:openrouter-balance",
+		);
+		expect(removeItemSpy).toHaveBeenCalledWith(
 			"model-hotel:ollama-cloud-account",
 		);
-		expect(removeItemSpy).toHaveBeenCalledTimes(6);
+		expect(removeItemSpy).toHaveBeenCalledWith("model-hotel:neuralwatt-quota");
+		expect(removeItemSpy).toHaveBeenCalledWith("model-hotel:opencode-go-usage");
+		expect(removeItemSpy).toHaveBeenCalledTimes(9);
 
 		vi.unstubAllGlobals();
 	});
@@ -110,7 +115,7 @@ describe("clearProviderCache", () => {
 		vi.stubGlobal("localStorage", { removeItem: removeItemSpy });
 
 		expect(() => clearProviderCache()).not.toThrow();
-		expect(removeItemSpy).toHaveBeenCalledTimes(6);
+		expect(removeItemSpy).toHaveBeenCalledTimes(9);
 
 		vi.unstubAllGlobals();
 	});

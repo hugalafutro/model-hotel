@@ -69,6 +69,7 @@ const defaultProps = {
 	onSetModalMiniMax: vi.fn(),
 	onSetModalOpenRouter: vi.fn(),
 	onSetModalNeuralwatt: vi.fn(),
+	onSetModalOpenCodeGo: vi.fn(),
 	toast: vi.fn(),
 };
 

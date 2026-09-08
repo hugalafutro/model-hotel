@@ -12,7 +12,7 @@ export * from "./types/quota";
 export * from "./types/settings";
 export * from "./types/stats";
 
-// ── Kimi Code + MiniMax quota ───────────────────────────────────
+// ── Kimi Code, MiniMax and OpenCode Go quota ────────────────────
 // Declared in web-shared/quota, which both this dashboard and Front Desk parse
 // these payloads with, and re-exported here so app code keeps importing every
 // API type from one place.
@@ -27,4 +27,6 @@ export type {
 	MiniMaxModelRemains,
 	MiniMaxQuotaResponse,
 	MiniMaxQuotaWindow,
+	OpenCodeGoUsageResponse,
+	OpenCodeGoUsageWindow,
 } from "@web-shared/quota";

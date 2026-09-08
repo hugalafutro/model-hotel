@@ -243,6 +243,32 @@ class QuotaMetersTest {
     }
 
     @Test
+    fun openCodeGoMetersAllThreeWindows() {
+        // Every window is a percentage of itself, so all three always draw:
+        // there is no ceiling that can be absent the way NanoGPT's can.
+        val meters =
+            quotaMeters(
+                quotaOf(
+                    QuotaType.OPENCODE_GO,
+                    QuotaData.OpenCodeGo(
+                        usage =
+                            OpenCodeGoWindows(
+                                rolling = OpenCodeGoWindow(status = "ok", percent = 42.0),
+                                weekly = OpenCodeGoWindow(status = "ok", percent = 15.0),
+                                monthly = OpenCodeGoWindow(status = "ok", percent = 90.0),
+                            ),
+                    ),
+                ),
+            )
+
+        assertEquals(
+            listOf(QuotaMeterKind.FIVE_HOUR, QuotaMeterKind.WEEKLY, QuotaMeterKind.MONTHLY),
+            meters.map { it.kind },
+        )
+        assertEquals(listOf(42.0, 15.0, 90.0), meters.map { it.usedPercent })
+    }
+
+    @Test
     fun deadKeyHasNoMeters() {
         // available == false is the gate, not data alone: Front Desk can hand
         // back a stale payload alongside a failed re-poll.

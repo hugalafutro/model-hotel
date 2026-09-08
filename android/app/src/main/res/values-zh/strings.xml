@@ -322,7 +322,11 @@
     <string name="quota_field_mcp_quota">MCP 配额</string>
     <string name="quota_field_five_hour">5 小时配额</string>
     <string name="quota_field_weekly">每周配额</string>
+    <string name="quota_field_monthly">每月配额</string>
     <string name="quota_field_energy">能耗</string>
+    <string name="quota_field_five_hour_reset">5 小时配额重置</string>
+    <string name="quota_field_weekly_reset">每周配额重置</string>
+    <string name="quota_field_monthly_reset">每月配额重置</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">配额徽章</string>

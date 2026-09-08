@@ -694,7 +694,9 @@
 			"neuralwattEnergy": "{{provider}}: energía consumida en este periodo",
 			"unreadable": "{{provider}}: la última lectura del principal devolvió una respuesta ilegible",
 			"noQuota": "{{provider}}: la última lectura del principal no devolvió ninguna cuota",
-			"neuralwattEnergyOverage": "{{provider}}: en exceso, el uso se descuenta de los créditos"
+			"neuralwattEnergyOverage": "{{provider}}: en exceso, el uso se descuenta de los créditos",
+			"openCodeGoUsed": "{{provider}}: cuota móvil y semanal usada, mensual {{monthly}}",
+			"openCodeGoRemaining": "{{provider}}: cuota móvil y semanal restante, mensual {{monthly}}"
 		},
 		"modal": {
 			"toggleBarMode": "Cambiar entre usada y restante",
@@ -756,7 +758,11 @@
 			"overageLimit": "Límite de exceso",
 			"rateLimitTier": "Nivel de límite de tasa",
 			"allowance": "Asignación de la clave",
-			"neuralwattOverageNote": "En exceso: el contador de energía se detiene en la cantidad incluida; el uso adicional se descuenta del saldo de créditos."
+			"neuralwattOverageNote": "En exceso: el contador de energía se detiene en la cantidad incluida; el uso adicional se descuenta del saldo de créditos.",
+			"openCodeGoTitle": "Cuota de OpenCode Go ({{provider}})",
+			"openCodeGoRolling": "Cuota móvil (5 h)",
+			"openCodeGoWeekly": "Cuota semanal",
+			"openCodeGoMonthly": "Cuota mensual"
 		}
 	},
 	"errors": {

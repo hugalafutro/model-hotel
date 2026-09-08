@@ -52,7 +52,10 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 		source = pinSourceAccount
 	}
 	if cb.quota != nil {
-		if resetsAt, ok := cb.quota.ResetsAt(providerID); ok {
+		// A zero reset is an advisor entry with no deadline behind it, not a
+		// measurement: adopting it would set d to a large negative duration and
+		// discard the hint the refusal itself supplied, leaving no pin at all.
+		if resetsAt, ok := cb.quota.ResetsAt(providerID); ok && !resetsAt.IsZero() {
 			d = time.Until(resetsAt)
 			source = pinSourceAdvisor
 		}

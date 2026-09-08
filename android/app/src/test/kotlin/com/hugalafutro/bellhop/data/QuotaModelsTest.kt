@@ -274,7 +274,31 @@ class QuotaModelsTest {
     }
 
     @Test
-    fun fromWireCoversAllEightKnownTypes() {
+    fun parsesOpenCodeGoUsagePayload() {
+        // The live 2026-09-08 /zen/go/v1/usage body inside a Front Desk quota envelope.
+        val body =
+            """
+            {"quota":[{"provider_name":"OCG","type":"opencode-go","kind":"usage",
+            "payload":{"usage":{"rolling":{"status":"ok","percent":0,"resetsAt":"2026-09-08T18:25:46.155Z"},
+            "weekly":{"status":"ok","percent":0,"resetsAt":"2026-09-14T00:00:00.155Z"},
+            "monthly":{"status":"ok","percent":0,"resetsAt":"2026-10-08T13:25:13.155Z"}}},
+            "http_status":200,"fetched_at":"2026-09-08T13:30:00Z"}]}
+            """.trimIndent()
+        val env = json.decodeFromString<QuotaEnvelope>(body)
+        val pq = providerQuotaOf(env.quota.single())
+
+        assertEquals(QuotaType.OPENCODE_GO, pq.type)
+        assertTrue(pq.available)
+        val data = pq.data as QuotaData.OpenCodeGo
+        assertEquals("ok", data.usage.rolling.status)
+        assertEquals(0.0, data.usage.rolling.percent, 0.0)
+        assertEquals("2026-09-08T18:25:46.155Z", data.usage.rolling.resetsAt)
+        assertEquals("2026-09-14T00:00:00.155Z", data.usage.weekly.resetsAt)
+        assertEquals("2026-10-08T13:25:13.155Z", data.usage.monthly.resetsAt)
+    }
+
+    @Test
+    fun fromWireCoversAllNineKnownTypes() {
         val known =
             mapOf(
                 "nanogpt" to QuotaType.NANOGPT,
@@ -285,6 +309,7 @@ class QuotaModelsTest {
                 "openrouter" to QuotaType.OPENROUTER,
                 "ollama-cloud" to QuotaType.OLLAMA_CLOUD,
                 "neuralwatt" to QuotaType.NEURALWATT,
+                "opencode-go" to QuotaType.OPENCODE_GO,
             )
         known.forEach { (wire, expected) -> assertEquals(expected, QuotaType.fromWire(wire)) }
         assertEquals(QuotaType.UNKNOWN, QuotaType.fromWire("garbage"))
@@ -474,8 +499,27 @@ class QuotaModelsTest {
     }
 
     @Test
+    fun openCodeGoUsedAndRemainingPercentages() {
+        // Rolling over weekly; the monthly window is a detail-sheet bar and
+        // must not reach the badge, which is what the third percentage tests.
+        val data =
+            QuotaData.OpenCodeGo(
+                usage =
+                    OpenCodeGoWindows(
+                        rolling = OpenCodeGoWindow(status = "ok", percent = 42.0),
+                        weekly = OpenCodeGoWindow(status = "ok", percent = 15.0),
+                        monthly = OpenCodeGoWindow(status = "ok", percent = 90.0),
+                    ),
+            )
+        val wrapped = pq(data, QuotaType.OPENCODE_GO)
+
+        assertEquals("42%/15%", quotaBadgeLabel(wrapped, QuotaBarMode.USED))
+        assertEquals("58%/85%", quotaBadgeLabel(wrapped, QuotaBarMode.REMAINING))
+    }
+
+    @Test
     fun detailBearingTypesMatchTheWebDashboardsModals() {
-        // Model Hotel's web dashboard opens a quota modal for six of the eight
+        // Model Hotel's web dashboard opens a quota modal for seven of the nine
         // types; DeepSeek and Ollama Cloud get a badge that only refreshes,
         // because their whole reading is the balance or plan the badge prints.
         // Bellhop follows that split, which is what decides whether a widget
@@ -490,6 +534,7 @@ class QuotaModelsTest {
                 QuotaType.MINIMAX,
                 QuotaType.OPENROUTER,
                 QuotaType.NEURALWATT,
+                QuotaType.OPENCODE_GO,
             ),
             withDetail,
         )

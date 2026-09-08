@@ -5,14 +5,14 @@ import com.hugalafutro.bellhop.data.QuotaType
 
 /*
  * Provider brand colours for quota badges, so a strip of badges reads as
- * eight providers rather than eight identical pills. Values are lifted from
+ * nine providers rather than nine identical pills. Values are lifted from
  * the Model Hotel dashboard's sidebar quota pills
  * (web/src/utils/providerBrands.ts + the .sidebar-quota-pill-* rules in
  * web/src/index.css), including the web's own light-mode overrides: the near
- * black brands (Z.ai, Kimi, Ollama Cloud) would vanish on the night scheme,
- * so they lighten to the same grey the web uses there. Deliberately outside
- * Color.kt: those are Bellhop's scheme roles, these are third-party brands
- * that must not drift toward the palette.
+ * black brands (Z.ai, Kimi, Ollama Cloud, OpenCode Go) would vanish on the
+ * night scheme, so they lighten to the same grey the web uses there.
+ * Deliberately outside Color.kt: those are Bellhop's scheme roles, these are
+ * third-party brands that must not drift toward the palette.
  */
 
 /** QuotaBrand is one provider's badge colour in each scheme (day = paper, night = ink). */
@@ -29,6 +29,7 @@ private val BrandNeuralWatt = QuotaBrand(day = Color(0xFFAC4324), night = Color(
 private val BrandZaiCoding = QuotaBrand(day = Color(0xFF2D2D2D), night = Color(0xFFC8C8C8))
 private val BrandKimiCode = QuotaBrand(day = Color(0xFF2D2D2D), night = Color(0xFFC8C8C8))
 private val BrandOllamaCloud = QuotaBrand(day = Color(0xFF3D3D3D), night = Color(0xFFC8C8C8))
+private val BrandOpenCodeGo = QuotaBrand(day = Color(0xFF2D2D2D), night = Color(0xFFC8C8C8))
 
 // UNKNOWN never reaches a badge (FrontDeskClient.quota drops unknown types
 // before they render), but the map is total so a future type added upstream
@@ -47,6 +48,7 @@ fun quotaBrand(type: QuotaType): QuotaBrand =
         QuotaType.OPENROUTER -> BrandOpenRouter
         QuotaType.OLLAMA_CLOUD -> BrandOllamaCloud
         QuotaType.NEURALWATT -> BrandNeuralWatt
+        QuotaType.OPENCODE_GO -> BrandOpenCodeGo
         QuotaType.UNKNOWN -> BrandUnknown
     }
 

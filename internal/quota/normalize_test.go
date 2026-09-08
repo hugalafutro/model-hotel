@@ -975,3 +975,168 @@ func TestAssess_MiniMax_CountsWinOverContradictoryPercent(t *testing.T) {
 		t.Error("counts (50/100, not spent) must win over a contradictory 0% remaining")
 	}
 }
+
+// openCodeGoPayload builds a /usage body from three (status, percent, resetsAt)
+// windows, in the shape OpenCode Go actually sends.
+func openCodeGoPayload(t *testing.T, rolling, weekly, monthly map[string]any) []byte {
+	t.Helper()
+	payload, err := json.Marshal(map[string]any{
+		"usage": map[string]any{"rolling": rolling, "weekly": weekly, "monthly": monthly},
+	})
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	return payload
+}
+
+func TestAssess_OpenCodeGo_FreshWindowsNotExhausted(t *testing.T) {
+	rfc := func(d time.Duration) string { return time.Now().Add(d).UTC().Format(time.RFC3339Nano) }
+	payload := openCodeGoPayload(t,
+		map[string]any{"status": "ok", "percent": 12, "resetsAt": rfc(2 * time.Hour)},
+		map[string]any{"status": "ok", "percent": 0, "resetsAt": rfc(72 * time.Hour)},
+		map[string]any{"status": "ok", "percent": 3.5, "resetsAt": rfc(600 * time.Hour)},
+	)
+
+	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a well-formed payload must assess OK")
+	}
+	if got.Exhausted {
+		t.Errorf("windows under 100%% must not be exhausted, got %+v", got)
+	}
+}
+
+func TestAssess_OpenCodeGo_FullRollingWindowPinsItsReset(t *testing.T) {
+	rolling := time.Now().Add(90 * time.Minute).UTC().Format(time.RFC3339Nano)
+	payload := openCodeGoPayload(t,
+		map[string]any{"status": "ok", "percent": 100, "resetsAt": rolling},
+		map[string]any{"status": "ok", "percent": 40, "resetsAt": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339Nano)},
+		map[string]any{"status": "ok", "percent": 8, "resetsAt": time.Now().Add(600 * time.Hour).UTC().Format(time.RFC3339Nano)},
+	)
+
+	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	// Only the spent window dates the pin: the weekly window still has headroom,
+	// so its later reset must not be the one the breaker waits for.
+	if got.ResetsAt.Format(time.RFC3339Nano) != rolling {
+		t.Errorf("got ResetsAt=%s, want the spent rolling window's reset %s", got.ResetsAt.Format(time.RFC3339Nano), rolling)
+	}
+}
+
+// TestAssess_OpenCodeGo_NonOKStatusIsExhausted covers a window OpenCode Go
+// refuses while its percent still reads healthy: only "ok" is documented, so
+// any other status decides on its own.
+func TestAssess_OpenCodeGo_NonOKStatusIsExhausted(t *testing.T) {
+	weekly := time.Now().Add(50 * time.Hour).UTC().Format(time.RFC3339Nano)
+	payload := openCodeGoPayload(t,
+		map[string]any{"status": "ok", "percent": 5, "resetsAt": time.Now().Add(time.Hour).UTC().Format(time.RFC3339Nano)},
+		map[string]any{"status": "exceeded", "percent": 40, "resetsAt": weekly},
+		map[string]any{"status": "ok", "percent": 9, "resetsAt": time.Now().Add(600 * time.Hour).UTC().Format(time.RFC3339Nano)},
+	)
+
+	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if got.ResetsAt.Format(time.RFC3339Nano) != weekly {
+		t.Errorf("got ResetsAt=%s, want the refused window's reset %s", got.ResetsAt.Format(time.RFC3339Nano), weekly)
+	}
+}
+
+// TestAssess_OpenCodeGo_SpentWithUnparseableResetIsNoOpinion holds the assessor
+// to the shape every other one produces: a spent window whose reset cannot be
+// read dates nothing, so there is no deadline to pin to, but neither is the
+// provider healthy. OK=false reaches neither advice nor recovered. An exhausted
+// verdict without a deadline would be adopted by the advisor as a zero reset
+// and read downstream as a measurement; a healthy one would release the
+// provider's pin on every poll pass while its window is spent.
+func TestAssess_OpenCodeGo_SpentWithUnparseableResetIsNoOpinion(t *testing.T) {
+	payload := openCodeGoPayload(t,
+		map[string]any{"status": "ok", "percent": 100, "resetsAt": "soon"},
+		map[string]any{"status": "ok", "percent": 10, "resetsAt": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339Nano)},
+		map[string]any{"status": "ok", "percent": 10, "resetsAt": time.Now().Add(600 * time.Hour).UTC().Format(time.RFC3339Nano)},
+	)
+
+	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: payload})
+
+	if got.OK {
+		t.Error("a spent window with an unreadable reset must report no opinion (OK=false)")
+	}
+	if got.Exhausted || !got.ResetsAt.IsZero() {
+		t.Errorf("got Exhausted=%v ResetsAt=%v, want no claim: there is no reset to pin to", got.Exhausted, got.ResetsAt)
+	}
+}
+
+// TestAssess_NullPayloadIsNoOpinion covers the row a 204 leaves behind: a
+// NeuralWatt free tier and an OpenCode Go key with no Go subscription both
+// store the literal JSON null. It decodes into every assessor as all zeroes,
+// which is indistinguishable from a healthy reading, so without the guard in
+// Assess the provider would enter buildQuotaAdvice's recovered set and have its
+// pin released on a snapshot that says nothing at all.
+func TestAssess_NullPayloadIsNoOpinion(t *testing.T) {
+	for _, providerType := range []string{"opencode-go", "neuralwatt", "zai-coding", "kimi-code", "minimax"} {
+		t.Run(providerType, func(t *testing.T) {
+			got := Assess(providerType, Snapshot{Kind: "usage", Payload: []byte("null")})
+
+			if got.OK {
+				t.Errorf("a null payload must report no opinion (OK=false), got %+v", got)
+			}
+			if got.Exhausted {
+				t.Error("a null payload must never mark a window spent")
+			}
+		})
+	}
+}
+
+// TestAssess_OpenCodeGo_DatedWindowSurvivesAnUndatableOne proves the undatable
+// window is skipped rather than poisoning the verdict: the weekly window is
+// spent with a readable reset and must still date the pin.
+func TestAssess_OpenCodeGo_DatedWindowSurvivesAnUndatableOne(t *testing.T) {
+	weekly := time.Now().Add(40 * time.Hour).UTC().Format(time.RFC3339Nano)
+	payload := openCodeGoPayload(t,
+		map[string]any{"status": "ok", "percent": 100, "resetsAt": "soon"},
+		map[string]any{"status": "ok", "percent": 100, "resetsAt": weekly},
+		map[string]any{"status": "ok", "percent": 10, "resetsAt": time.Now().Add(600 * time.Hour).UTC().Format(time.RFC3339Nano)},
+	)
+
+	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK || !got.Exhausted {
+		t.Fatalf("got OK=%v Exhausted=%v, want both true", got.OK, got.Exhausted)
+	}
+	if got.ResetsAt.Format(time.RFC3339Nano) != weekly {
+		t.Errorf("got ResetsAt=%s, want the readable weekly reset %s", got.ResetsAt.Format(time.RFC3339Nano), weekly)
+	}
+}
+
+// TestAssess_OpenCodeGo_AbsentWindowIsNotExhausted guards the fail-open
+// direction: percent is the consumed share, so a window the payload omits
+// entirely decodes to 0% and must read as untouched, never as spent.
+func TestAssess_OpenCodeGo_AbsentWindowIsNotExhausted(t *testing.T) {
+	payload := []byte(`{"usage":{"rolling":{"status":"ok","percent":20,"resetsAt":"2099-01-01T00:00:00Z"}}}`)
+
+	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: payload})
+
+	if !got.OK {
+		t.Fatal("a payload with only the rolling window must still assess OK")
+	}
+	if got.Exhausted {
+		t.Errorf("omitted windows must not be read as spent, got %+v", got)
+	}
+}
+
+func TestAssess_OpenCodeGo_MalformedBodyFailsOpen(t *testing.T) {
+	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: []byte(`{"usage":`)})
+
+	if got.OK {
+		t.Errorf("a truncated body must not be reported as understood, got %+v", got)
+	}
+	if got.Exhausted {
+		t.Error("a truncated body must never mark a window spent")
+	}
+}

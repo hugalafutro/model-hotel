@@ -17,6 +17,7 @@ import type {
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
+	OpenCodeGoUsageResponse,
 	OpenRouterBalance,
 	Provider,
 	RefreshQuotasResponse,
@@ -118,6 +119,19 @@ export const providers = {
 			},
 			"Failed to fetch usage",
 		);
+	},
+	// OpenCode Go answers 204 with a null payload when the key has no active Go
+	// subscription, which is a hidden badge rather than an error.
+	getOpenCodeGoUsage: async (
+		id: string,
+	): Promise<OpenCodeGoUsageResponse | null> => {
+		const response = await fetchOK(
+			`${API_BASE}/api/providers/${id}/usage`,
+			{ headers: getAuthHeaders() },
+			"Failed to fetch OpenCode Go usage",
+		);
+		if (response.status === 204) return null;
+		return response.json();
 	},
 	getBalance: async (id: string): Promise<DeepSeekBalance> => {
 		return fetchJSON<DeepSeekBalance>(

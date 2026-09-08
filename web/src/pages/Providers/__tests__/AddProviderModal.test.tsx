@@ -27,6 +27,27 @@ function selectTypeSync(value: string): void {
 	fireEvent.click(opt);
 }
 
+// OpenCode Go is created with discovery off so the assertions see only the
+// quota probe, whose 204 answer carries no body to parse.
+function openCodeGoProvider(body: unknown) {
+	return {
+		id: "provider-new",
+		name: (body as { name?: string }).name ?? "OpenCode Go",
+		base_url:
+			(body as { base_url?: string }).base_url ??
+			"https://opencode.ai/zen/go/v1",
+		provider_type: "opencode-go",
+		masked_key: "sk_test_\u2022\u2022\u2022\u2022",
+		enabled: true,
+		last_discovered_at: null,
+		last_used_at: null,
+		created_at: new Date().toISOString(),
+		updated_at: new Date().toISOString(),
+		model_count: 0,
+		total_tokens: 0,
+	};
+}
+
 describe("AddProviderModal", () => {
 	const onClose = vi.fn();
 	const onToast = vi.fn();
@@ -42,6 +63,22 @@ describe("AddProviderModal", () => {
 		vi.clearAllMocks();
 		server.resetHandlers();
 	});
+
+	async function submitOpenCodeGo(): Promise<void> {
+		const { user } = renderWithProviders(
+			<AddProviderModal
+				{...defaultProps}
+				settings={{ discovery_on_provider_create: "false" }}
+			/>,
+		);
+		await user.type(screen.getByLabelText("Name"), "OpenCode Go");
+		await user.type(
+			screen.getByLabelText("Base URL"),
+			"https://opencode.ai/zen/go/v1",
+		);
+		await user.type(screen.getByLabelText("API Key"), "sk-test-key");
+		await user.click(screen.getByRole("button", { name: "Add Provider" }));
+	}
 
 	describe("rendering", () => {
 		it("renders modal title", () => {
@@ -1612,6 +1649,56 @@ describe("AddProviderModal", () => {
 			await waitFor(() => {
 				expect(onToast).toHaveBeenCalledWith("MiniMax quota detected", "info");
 			});
+		});
+
+		it("shows OpenCode Go quota detected toast for an active plan", async () => {
+			server.use(
+				http.post("/api/providers", async ({ request }) => {
+					const body = await request.json();
+					return HttpResponse.json(openCodeGoProvider(body), { status: 201 });
+				}),
+				http.get("/api/providers/:id/usage", () => {
+					return HttpResponse.json({
+						usage: {
+							rolling: {
+								status: "ok",
+								percent: 12,
+								resetsAt: "2026-01-01T00:00:00Z",
+							},
+						},
+					});
+				}),
+			);
+			await submitOpenCodeGo();
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith(
+					"OpenCode Go quota detected",
+					"info",
+				);
+			});
+		});
+
+		it("reports no active plan when OpenCode Go answers 204", async () => {
+			server.use(
+				http.post("/api/providers", async ({ request }) => {
+					const body = await request.json();
+					return HttpResponse.json(openCodeGoProvider(body), { status: 201 });
+				}),
+				http.get("/api/providers/:id/usage", () => {
+					return new HttpResponse(null, { status: 204 });
+				}),
+			);
+			await submitOpenCodeGo();
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith(
+					"No active OpenCode Go plan",
+					"info",
+				);
+			});
+			expect(onToast).not.toHaveBeenCalledWith(
+				"OpenCode Go quota detected",
+				"info",
+			);
 		});
 
 		it("shows DeepSeek balance with USD currency", async () => {

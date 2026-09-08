@@ -251,6 +251,12 @@ func (d *DiscoveryService) doDiscoveryRequest(ctx context.Context, newReq func()
 type httpError struct {
 	StatusCode int
 	Message    string
+	// Body is the capped upstream body, carried only for a status a quota
+	// fetcher listed as expected so that fetcher can branch on what the
+	// upstream actually said. Error() never renders it, so it reaches neither
+	// the logs nor the stored provider error; a caller that logs it must mask
+	// it first.
+	Body []byte
 }
 
 func (e *httpError) Error() string {
@@ -409,6 +415,14 @@ var hostTypeRules = []struct {
 	{"minimax", []string{"minimax.io"}, []string{".minimax.io"}},
 }
 
+// pathHasSegments reports whether path starts with prefix on a segment
+// boundary: /zen/go matches /zen/go and /zen/go/v1, but not the sibling
+// /zen/goose/v1 nor an unrelated /foo/zen/go/v1. Same rule as pathMatches in
+// the dashboard's detectQuotaProviderType, which the operator sees first.
+func pathHasSegments(path, prefix string) bool {
+	return path == prefix || strings.HasPrefix(path, prefix+"/")
+}
+
 // detectByHost resolves a provider type from a lowercased hostname (and URL
 // path, for opencode). Returns "" when no rule matches.
 func detectByHost(host, path string) string {
@@ -444,12 +458,12 @@ func detectByHost(host, path string) string {
 		return "google"
 	}
 	if host == "opencode.ai" || strings.HasSuffix(host, ".opencode.ai") {
-		// Path-based detection: Go URL contains /zen/go/, Zen contains /zen/.
-		// Must check Go before Zen since /zen/go/ is a subpath of /zen/.
-		if strings.Contains(path, "/zen/go") {
+		// Path-based detection: the Go base URL is /zen/go, Zen's is /zen.
+		// Must check Go before Zen since /zen/go is a subpath of /zen.
+		if pathHasSegments(path, "/zen/go") {
 			return "opencode-go"
 		}
-		if strings.Contains(path, "/zen") {
+		if pathHasSegments(path, "/zen") {
 			return "opencode-zen"
 		}
 	}

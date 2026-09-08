@@ -637,7 +637,7 @@ Everything else - context length, pricing, capabilities, reasoning - is backfill
 
 Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMax-M2.5` (+ `MiniMax-M2.5-highspeed`), `MiniMax-M2.1` (+ `MiniMax-M2.1-highspeed`), and `MiniMax-M2`.
 
-**Chat-completion HTTP-200 business errors** (proxy behaviour, documented here because it is MiniMax-specific)**:** MiniMax reports chat-completion failures (rate limit, exhausted Token Plan balance, auth rejection) inside a real HTTP `200` whose JSON body carries `base_resp.status_code != 0` (e.g. `1008` "insufficient balance"). The proxy's failover, circuit-breaker, and error-forwarding paths are all keyed on `resp.StatusCode`, so an unmodified `200` would be treated as success - the client gets an empty completion and no failover fires. For minimax-typed providers, the proxy inspects each non-streaming `200` and remaps the business code to the HTTP status it stands for (`1002`/`1039`/`1008` rate/token/balance to `429`, `1004` auth to `401`, anything else to `502`), restoring the original body so the error message still forwards. Genuine successes (`base_resp.status_code == 0`), streaming SSE responses, and unparseable bodies are passed through untouched. This is a proxy concern only; the quota endpoint (`GetMiniMaxQuota`, below) still passes `base_resp` through to the dashboard as-is.
+**Chat-completion HTTP-200 business errors** (proxy behaviour, documented here because it is MiniMax-specific)**:** MiniMax reports chat-completion failures (rate limit, exhausted Token Plan balance, auth rejection) inside a real HTTP `200` whose JSON body carries `base_resp.status_code != 0` (e.g. `1008` "insufficient balance"). The proxy's failover, circuit-breaker, and error-forwarding paths are all keyed on `resp.StatusCode`, so an unmodified `200` would be treated as success - the client gets an empty completion and no failover fires. For minimax-typed providers, the proxy inspects each non-streaming `200` and remaps the business code to the HTTP status it stands for (`1002`/`1039`/`1008` rate/token/balance to `429`, `1004` auth to `401`, anything else to `502`), restoring the original body so the error message still forwards. Genuine successes (`base_resp.status_code == 0`), streaming SSE responses, and unparseable bodies are passed through untouched. This is a proxy concern only; the quota endpoint (`GetMiniMaxQuota`, below) still re-serializes `base_resp` inside the modelled response for the dashboard.
 
 ### OpenCode Go
 
@@ -1470,10 +1470,11 @@ Some providers offer supplementary APIs that are accessible outside of model dis
 | Ollama Cloud | `POST /api/me` | `GetOllamaCloudAccount` | Account information |
 | NeuralWatt | `GET /quota` | `GetNeuralWattQuota` | Quota/balance (a 404 means a free-tier key with no quota endpoint - treated as "no data", not an error) |
 | Kimi Code | `GET /usages` | `GetKimiCodeQuota` | 5-hour and weekly quota (limit/remaining/reset time), parallel-request limit, and membership tier |
-| MiniMax | `GET /token_plan/remains` | `GetMiniMaxQuota` | 5-hour and weekly Token Plan quota per model class (status and remaining percent), passed through as-is including `base_resp` |
+| MiniMax | `GET /token_plan/remains` | `GetMiniMaxQuota` | 5-hour and weekly Token Plan quota per model class (status and remaining percent), re-serialized from the modelled fields including `base_resp` |
+| OpenCode Go | `GET /usage` | `GetOpenCodeGoUsage` | Rolling (5h), weekly and monthly subscription usage (percent consumed, status, reset time). A `403 EntitlementError` means a key with no active Go subscription, treated as "no data", not an error; any other 403 is a rejected key |
 
 These are exposed via:
-- `GET /api/providers/{id}/usage` - for NanoGPT, Z.AI, OpenRouter, NeuralWatt, Kimi Code, and MiniMax
+- `GET /api/providers/{id}/usage` - for NanoGPT, Z.AI, OpenRouter, NeuralWatt, Kimi Code, MiniMax, and OpenCode Go
 - `GET /api/providers/{id}/balance` - for DeepSeek
 - `GET /api/providers/{id}/account` - for Ollama Cloud
 - `POST /api/providers/refresh-quotas` - refreshes usage/balance for all supported providers

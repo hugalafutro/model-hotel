@@ -333,7 +333,11 @@
     <string name="quota_field_mcp_quota">MCP quota</string>
     <string name="quota_field_five_hour">5h quota</string>
     <string name="quota_field_weekly">Weekly quota</string>
+    <string name="quota_field_monthly">Monthly quota</string>
     <string name="quota_field_energy">Energy</string>
+    <string name="quota_field_five_hour_reset">5h resets</string>
+    <string name="quota_field_weekly_reset">Weekly resets</string>
+    <string name="quota_field_monthly_reset">Monthly resets</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Quota badges</string>

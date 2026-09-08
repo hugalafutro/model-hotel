@@ -702,7 +702,9 @@
 			"neuralwattEnergy": "{{provider}}: energia zużyta w tym okresie",
 			"unreadable": "{{provider}}: ostatnie pobranie przez głównego członka zwróciło nieczytelną odpowiedź",
 			"noQuota": "{{provider}}: ostatnie pobranie przez głównego członka nie zwróciło żadnego przydziału",
-			"neuralwattEnergyOverage": "{{provider}}: powyżej limitu, zużycie jest pobierane z kredytów"
+			"neuralwattEnergyOverage": "{{provider}}: powyżej limitu, zużycie jest pobierane z kredytów",
+			"openCodeGoUsed": "{{provider}}: wykorzystany przydział kroczący i tygodniowy, miesięczny {{monthly}}",
+			"openCodeGoRemaining": "{{provider}}: pozostały przydział kroczący i tygodniowy, miesięczny {{monthly}}"
 		},
 		"modal": {
 			"toggleBarMode": "Przełącz między wykorzystanym a pozostałym",
@@ -764,7 +766,11 @@
 			"overageLimit": "Limit przekroczenia",
 			"rateLimitTier": "Poziom limitu żądań",
 			"allowance": "Budżet klucza",
-			"neuralwattOverageNote": "Powyżej limitu: licznik energii zatrzymuje się na uwzględnionej ilości; dalsze zużycie pomniejsza saldo kredytów."
+			"neuralwattOverageNote": "Powyżej limitu: licznik energii zatrzymuje się na uwzględnionej ilości; dalsze zużycie pomniejsza saldo kredytów.",
+			"openCodeGoTitle": "Przydział OpenCode Go ({{provider}})",
+			"openCodeGoRolling": "Przydział kroczący (5 h)",
+			"openCodeGoWeekly": "Przydział tygodniowy",
+			"openCodeGoMonthly": "Przydział miesięczny"
 		}
 	},
 	"errors": {

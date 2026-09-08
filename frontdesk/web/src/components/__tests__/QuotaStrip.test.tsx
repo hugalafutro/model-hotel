@@ -411,6 +411,25 @@ describe("QuotaStrip", () => {
 		fetched_at: "2026-07-26T10:00:00Z",
 	};
 
+	const opencodeGo: QuotaSnapshot = {
+		provider_name: "ocg",
+		type: "opencode-go",
+		kind: "usage",
+		payload: {
+			usage: {
+				rolling: {
+					status: "ok",
+					percent: 12,
+					resetsAt: "2026-07-26T18:00:00Z",
+				},
+				weekly: { status: "ok", percent: 34 },
+				monthly: { status: "ok", percent: 56 },
+			},
+		},
+		http_status: 200,
+		fetched_at: "2026-07-26T10:00:00Z",
+	};
+
 	const ollamaCloud: QuotaSnapshot = {
 		provider_name: "olc",
 		type: "ollama-cloud",
@@ -426,6 +445,7 @@ describe("QuotaStrip", () => {
 		["minimax", minimax, "minimax-general-5h-fill"],
 		["openrouter", openrouter, "or-credits-fill"],
 		["neuralwatt", neuralwatt, "nw-kwh-fill"],
+		["opencode-go", opencodeGo, "opencode-go-rolling-fill"],
 	] as const)(
 		"opens the %s modal for its badge and no other provider's",
 		async (_label, snapshot, ownTestId) => {

@@ -398,3 +398,24 @@ type MiniMaxQuotaResponse struct {
 	ModelRemains []MiniMaxModelRemain `json:"model_remains"`
 	BaseResp     MiniMaxBaseResp      `json:"base_resp"`
 }
+
+// OpenCodeGoUsageWindow is one usage window of an OpenCode Go subscription.
+// Percent is the share of the window consumed (0..100), ResetsAt is RFC3339.
+// Status is documented only for "ok"; anything else is OpenCode Go saying the
+// window is not usable.
+type OpenCodeGoUsageWindow struct {
+	Status   string  `json:"status"`
+	Percent  float64 `json:"percent"`
+	ResetsAt string  `json:"resetsAt"`
+}
+
+// OpenCodeGoUsageResponse is the OpenCode Go /usage payload: a rolling (5h),
+// a weekly and a monthly window. The stored snapshot is a re-marshal of this
+// struct, so only the fields modelled here reach the dashboards.
+type OpenCodeGoUsageResponse struct {
+	Usage struct {
+		Rolling OpenCodeGoUsageWindow `json:"rolling"`
+		Weekly  OpenCodeGoUsageWindow `json:"weekly"`
+		Monthly OpenCodeGoUsageWindow `json:"monthly"`
+	} `json:"usage"`
+}
