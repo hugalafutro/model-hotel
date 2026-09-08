@@ -1026,6 +1026,8 @@
 			"unpinManagedTooltip": "Закреплениями управляет основной экземпляр флота, и они заменяются при следующей синхронизации конфигурации. Открепите эту модель на основном экземпляре."
 		},
 		"toast_quota_detected_minimax": "Обнаружена квота MiniMax",
+		"toast_quota_detected_opencode_go": "Обнаружена квота OpenCode Go",
+		"toast_no_plan_opencode_go": "Нет активного плана OpenCode Go",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Обновлена {{count}} квота/баланс",
 		"toast_refresh_success_few": "Обновлено {{count}} квоты/баланса",

@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Fästningar hanteras av flottans primära instans och ersätts vid nästa konfigurationssynkronisering. Lossa den här modellen på den primära instansen."
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvot upptäckt",
+		"toast_quota_detected_opencode_go": "OpenCode Go-kvot upptäckt",
+		"toast_no_plan_opencode_go": "Ingen aktiv OpenCode Go-plan",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Uppdaterade {{count}} kvot/saldo",
 		"toast_refresh_success_other": "Uppdaterade {{count}} kvoter/saldon",

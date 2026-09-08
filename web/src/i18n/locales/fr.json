@@ -994,6 +994,8 @@
 			"unpinManagedTooltip": "Les épinglages sont gérés par l'instance principale de la flotte et sont remplacés à la prochaine synchronisation de configuration. Désépinglez ce modèle sur l'instance principale."
 		},
 		"toast_quota_detected_minimax": "Quota MiniMax détecté",
+		"toast_quota_detected_opencode_go": "Quota OpenCode Go détecté",
+		"toast_no_plan_opencode_go": "Aucun forfait OpenCode Go actif",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Quota/Solde {{count}} actualisé",
 		"toast_refresh_success_many": "Quotas/Soldes {{count}} actualisés",

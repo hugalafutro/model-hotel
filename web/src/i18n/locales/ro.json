@@ -994,6 +994,8 @@
 			"unpinManagedTooltip": "Fixările sunt gestionate de instanța primară a flotei și sunt înlocuite la următoarea sincronizare a configurației. Anulați fixarea acestui model pe instanța primară."
 		},
 		"toast_quota_detected_minimax": "Cotă MiniMax detectată",
+		"toast_quota_detected_opencode_go": "Cotă OpenCode Go detectată",
+		"toast_no_plan_opencode_go": "Niciun plan OpenCode Go activ",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Actualizat {{count}} cotă/sold",
 		"toast_refresh_success_few": "Actualizate {{count}} cote/solduri",

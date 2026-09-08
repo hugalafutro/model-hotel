@@ -994,6 +994,8 @@
 			"unpinManagedTooltip": "I fissaggi sono gestiti dall'istanza primaria della flotta e vengono sostituiti alla successiva sincronizzazione della configurazione. Rimuovi il fissaggio di questo modello sull'istanza primaria."
 		},
 		"toast_quota_detected_minimax": "Rilevata quota MiniMax",
+		"toast_quota_detected_opencode_go": "Rilevata quota OpenCode Go",
+		"toast_no_plan_opencode_go": "Nessun piano OpenCode Go attivo",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Aggiornata {{count}} quota/saldo",
 		"toast_refresh_success_many": "Aggiornate {{count}} quote/saldi",

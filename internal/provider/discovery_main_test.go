@@ -211,6 +211,24 @@ func TestDiscoverModels(t *testing.T) {
 		assert.Equal(t, "opencode-zen", providerType)
 	})
 
+	// The opencode arm is the only path-based rule, so it is the only one that
+	// can misread a neighbouring path. The match is on whole segments, the same
+	// rule the dashboard's detector applies: a sibling product under /zen is not
+	// Go, and a /zen/go buried deeper in the path is not opencode at all.
+	t.Run("opencode_path_collisions", func(t *testing.T) {
+		// A sibling under /zen is still in the Zen namespace, but never Go.
+		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/zen/goose/v1"))
+		for _, url := range []string{
+			"https://opencode.ai/foo/zen/go/v1",
+			"https://opencode.ai/zenith/v1",
+		} {
+			assert.Equal(t, "openai", LegacyTypeFromURL(url), url)
+		}
+		// The genuine forms still detect, with and without the version segment.
+		assert.Equal(t, "opencode-go", LegacyTypeFromURL("https://opencode.ai/zen/go/v1"))
+		assert.Equal(t, "opencode-zen", LegacyTypeFromURL("https://opencode.ai/zen/v1"))
+	})
+
 	t.Run("zai_coding", func(t *testing.T) {
 		// Test provider type detection
 		provider := &Provider{

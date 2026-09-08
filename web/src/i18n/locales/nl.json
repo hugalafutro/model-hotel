@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Vastzettingen worden beheerd door de primaire instantie van de vloot en worden bij de volgende configuratiesynchronisatie vervangen. Maak dit model los op de primaire instantie."
 		},
 		"toast_quota_detected_minimax": "MiniMax quotum gedetecteerd",
+		"toast_quota_detected_opencode_go": "OpenCode Go quotum gedetecteerd",
+		"toast_no_plan_opencode_go": "Geen actief OpenCode Go-plan",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "{{count}} quota/saldo vernieuwd",
 		"toast_refresh_success_other": "{{count}} quota/saldi vernieuwd",

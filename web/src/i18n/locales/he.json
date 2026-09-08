@@ -994,6 +994,8 @@
 			"unpinManagedTooltip": "ההצמדות מנוהלות על ידי המופע הראשי של הצי ומוחלפות בסנכרון התצורה הבא. בטל את ההצמדה של המודל הזה במופע הראשי."
 		},
 		"toast_quota_detected_minimax": "זוהתה מכסת MiniMax",
+		"toast_quota_detected_opencode_go": "זוהתה מכסת OpenCode Go",
+		"toast_no_plan_opencode_go": "אין תוכנית OpenCode Go פעילה",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "עודכנה {{count}} מכסה/יתרה",
 		"toast_refresh_success_two": "עודכנו {{count}} מכסות/יתרות",

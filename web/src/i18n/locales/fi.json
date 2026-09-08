@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Kiinnityksiä hallinnoi laivaston ensisijainen ilmentymä, ja ne korvataan seuraavassa kokoonpanon synkronoinnissa. Poista tämän mallin kiinnitys ensisijaisessa ilmentymässä."
 		},
 		"toast_quota_detected_minimax": "MiniMax-kiintiö havaittu",
+		"toast_quota_detected_opencode_go": "OpenCode Go -kiintiö havaittu",
+		"toast_no_plan_opencode_go": "Ei aktiivista OpenCode Go -tilausta",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Päivitetty {{count}} kiintiö/saldo",
 		"toast_refresh_success_other": "Päivitetty {{count}} kiintiötä/saldoa",

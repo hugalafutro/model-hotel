@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Sabitlemeler filo birincil örneği tarafından yönetilir ve sonraki yapılandırma eşitlemesinde değiştirilir. Bu modelin sabitlemesini birincil örnekte kaldırın."
 		},
 		"toast_quota_detected_minimax": "MiniMax kotası tespit edildi",
+		"toast_quota_detected_opencode_go": "OpenCode Go kotası tespit edildi",
+		"toast_no_plan_opencode_go": "Etkin OpenCode Go planı yok",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "{{count}} kota/bakiye güncellendi",
 		"toast_refresh_success_other": "{{count}} kota/bakiye güncellendi",

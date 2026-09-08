@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Τα καρφιτσώματα τα διαχειρίζεται η κύρια παρουσία του στόλου και αντικαθίστανται στον επόμενο συγχρονισμό διαμόρφωσης. Ξεκαρφιτσώστε αυτό το μοντέλο στην κύρια παρουσία."
 		},
 		"toast_quota_detected_minimax": "Ανιχνεύθηκε ποσόστωση MiniMax",
+		"toast_quota_detected_opencode_go": "Ανιχνεύθηκε ποσόστωση OpenCode Go",
+		"toast_no_plan_opencode_go": "Δεν υπάρχει ενεργό πρόγραμμα OpenCode Go",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Ενημέρωση {{count}} ποσόστωσης/υπολοίπου",
 		"toast_refresh_success_other": "Ενημέρωση {{count}} ποσοστώσεων/υπολοίπων",

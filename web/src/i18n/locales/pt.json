@@ -994,6 +994,8 @@
 			"unpinManagedTooltip": "As fixações são geridas pela instância primária da frota e são substituídas na próxima sincronização de configuração. Remova a fixação deste modelo na instância primária."
 		},
 		"toast_quota_detected_minimax": "Cota MiniMax detectada",
+		"toast_quota_detected_opencode_go": "Cota OpenCode Go detectada",
+		"toast_no_plan_opencode_go": "Nenhum plano OpenCode Go ativo",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Atualizada {{count}} cota/saldo",
 		"toast_refresh_success_many": "Atualizadas {{count}} cotas/saldos",

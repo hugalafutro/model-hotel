@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Ghim do phiên bản chính của hạm đội quản lý và sẽ được thay thế trong lần đồng bộ cấu hình tiếp theo. Hãy bỏ ghim mô hình này trên phiên bản chính."
 		},
 		"toast_quota_detected_minimax": "Đã phát hiện hạn ngạch MiniMax",
+		"toast_quota_detected_opencode_go": "Đã phát hiện hạn ngạch OpenCode Go",
+		"toast_no_plan_opencode_go": "Không có gói OpenCode Go đang hoạt động",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Đã cập nhật {{count}} hạn mức/số dư",
 		"toast_refresh_success_other": "Đã cập nhật {{count}} hạn mức/số dư",

@@ -282,6 +282,42 @@ func TestGetOpenCodeGoUsage_NoSubscription403(t *testing.T) {
 	}
 }
 
+// TestGetOpenCodeGoUsage_OtherForbiddenIsRejectedKey: 403 is listed as expected
+// so the EntitlementError body can be read, not so every 403 can be swallowed.
+// Any other 403 is the upstream rejecting the credential and must take the same
+// dead-key path a 401 does, rather than being stored as a plan with no
+// subscription and hiding a broken key behind a missing badge.
+func TestGetOpenCodeGoUsage_OtherForbiddenIsRejectedKey(t *testing.T) {
+	for _, tc := range []struct{ name, body string }{
+		{"another error type", `{"type":"error","error":{"type":"AuthError","message":"Invalid API key."}}`},
+		{"body that is not json", `<html>403 Forbidden</html>`},
+		{"empty body", ``},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = w.Write([]byte(tc.body))
+			}))
+			defer server.Close()
+
+			masterKey := "test-master-key-for-testing-only-32bytes!"
+			prov, err := newQuotaTestProvider(server.URL, "revoked-key", masterKey)
+			if err != nil {
+				t.Fatalf("encrypt: %v", err)
+			}
+			service := &DiscoveryService{httpClient: server.Client()}
+
+			usage, err := service.GetOpenCodeGoUsage(context.Background(), prov, masterKey)
+			if !errors.Is(err, ErrProviderKeyInvalid) {
+				t.Fatalf("expected ErrProviderKeyInvalid, got %v", err)
+			}
+			if usage != nil {
+				t.Error("expected no payload for a rejected key")
+			}
+		})
+	}
+}
+
 func TestGetOpenCodeGoUsage_MalformedJSON(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

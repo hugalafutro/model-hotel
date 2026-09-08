@@ -994,6 +994,8 @@
 			"unpinManagedTooltip": "Les fixacions les gestiona la instància primària de la flota i se substitueixen en la propera sincronització de configuració. Desfixa aquest model a la instància primària."
 		},
 		"toast_quota_detected_minimax": "Detectada quota de MiniMax",
+		"toast_quota_detected_opencode_go": "Detectada quota d'OpenCode Go",
+		"toast_no_plan_opencode_go": "Cap pla d'OpenCode Go actiu",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Quota/saldo de {{count}} actualitzat",
 		"toast_refresh_success_many": "Quotes/saldos de {{count}} actualitzats",

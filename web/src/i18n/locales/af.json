@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Vaspennings word deur die vloot se primêre instansie bestuur en word met die volgende konfigurasiesinkronisasie vervang. Ontspeld hierdie model op die primêre instansie."
 		},
 		"toast_quota_detected_minimax": "MiniMax-kwota opgespoor",
+		"toast_quota_detected_opencode_go": "OpenCode Go-kwota opgespoor",
+		"toast_no_plan_opencode_go": "Geen aktiewe OpenCode Go-plan nie",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Opgedateer {{count}} kwota/balans",
 		"toast_refresh_success_other": "Opgedateer {{count}} kwotas/balanse",

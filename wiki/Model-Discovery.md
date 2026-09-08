@@ -1471,7 +1471,7 @@ Some providers offer supplementary APIs that are accessible outside of model dis
 | NeuralWatt | `GET /quota` | `GetNeuralWattQuota` | Quota/balance (a 404 means a free-tier key with no quota endpoint - treated as "no data", not an error) |
 | Kimi Code | `GET /usages` | `GetKimiCodeQuota` | 5-hour and weekly quota (limit/remaining/reset time), parallel-request limit, and membership tier |
 | MiniMax | `GET /token_plan/remains` | `GetMiniMaxQuota` | 5-hour and weekly Token Plan quota per model class (status and remaining percent), re-serialized from the modelled fields including `base_resp` |
-| OpenCode Go | `GET /usage` | `GetOpenCodeGoUsage` | Rolling (5h), weekly and monthly subscription usage (percent consumed, status, reset time). A 403 means a key with no active Go subscription, treated as "no data", not an error |
+| OpenCode Go | `GET /usage` | `GetOpenCodeGoUsage` | Rolling (5h), weekly and monthly subscription usage (percent consumed, status, reset time). A `403 EntitlementError` means a key with no active Go subscription, treated as "no data", not an error; any other 403 is a rejected key |
 
 These are exposed via:
 - `GET /api/providers/{id}/usage` - for NanoGPT, Z.AI, OpenRouter, NeuralWatt, Kimi Code, MiniMax, and OpenCode Go

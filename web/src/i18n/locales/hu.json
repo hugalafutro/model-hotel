@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "A rögzítéseket a flotta elsődleges példánya kezeli, és a következő konfigurációs szinkronizáláskor lecserélődnek. Az elsődleges példányon oldja fel ennek a modellnek a rögzítését."
 		},
 		"toast_quota_detected_minimax": "MiniMax kvóta észlelve",
+		"toast_quota_detected_opencode_go": "OpenCode Go kvóta észlelve",
+		"toast_no_plan_opencode_go": "Nincs aktív OpenCode Go csomag",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Frissítve: {{count}} kvóta/egyenleg",
 		"toast_refresh_success_other": "Frissítve: {{count}} kvóta/egyenleg",

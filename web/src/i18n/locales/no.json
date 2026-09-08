@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Festinger styres av flåtens primære instans og erstattes ved neste konfigurasjonssynkronisering. Løsne denne modellen på den primære instansen."
 		},
 		"toast_quota_detected_minimax": "MiniMax-kvote oppdaget",
+		"toast_quota_detected_opencode_go": "OpenCode Go-kvote oppdaget",
+		"toast_no_plan_opencode_go": "Ingen aktiv OpenCode Go-plan",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Oppdaterte {{count}} kvote/saldo",
 		"toast_refresh_success_other": "Oppdaterte {{count}} kvoter/saldoer",

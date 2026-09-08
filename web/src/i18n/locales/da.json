@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "Fastgørelser styres af flådens primære instans og erstattes ved næste konfigurationssynkronisering. Frigør denne model på den primære instans."
 		},
 		"toast_quota_detected_minimax": "Opdaget kvote for MiniMax",
+		"toast_quota_detected_opencode_go": "Opdaget kvote for OpenCode Go",
+		"toast_no_plan_opencode_go": "Ingen aktiv OpenCode Go-plan",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Opdaterede {{count}} kvote/saldo",
 		"toast_refresh_success_other": "Opdaterede {{count}} kvoter/saldi",

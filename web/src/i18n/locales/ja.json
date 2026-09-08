@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "ピン留めはフリートのプライマリが管理し、次回の設定同期時に置き換えられます。このモデルのピン留めはプライマリで解除してください。"
 		},
 		"toast_quota_detected_minimax": "MiniMax のクオータを検出しました",
+		"toast_quota_detected_opencode_go": "OpenCode Go のクオータを検出しました",
+		"toast_no_plan_opencode_go": "有効な OpenCode Go プランがありません",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "{{count}} 件のクォータ/残高を更新しました",
 		"toast_refresh_success_other": "{{count}} 件のクォータ/残高を更新しました",

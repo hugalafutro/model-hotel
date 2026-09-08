@@ -90,10 +90,13 @@ func (d *DiscoveryService) fetchQuotaJSONAt(ctx context.Context, provider *Provi
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		if slices.Contains(expected, resp.StatusCode) {
-			return &httpError{StatusCode: resp.StatusCode}
-		}
 		body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
+		if slices.Contains(expected, resp.StatusCode) {
+			// The body travels with the status: an expected status is the
+			// caller's normal case only for the bodies it recognises, and it
+			// cannot tell them apart from the code alone.
+			return &httpError{StatusCode: resp.StatusCode, Body: body}
+		}
 		if authErr := quotaAuthError(label, apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return authErr
 		}

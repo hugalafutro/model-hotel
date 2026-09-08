@@ -1026,6 +1026,8 @@
 			"unpinManagedTooltip": "Закріпленнями керує основний екземпляр флоту, і вони замінюються під час наступної синхронізації конфігурації. Відкріпіть цю модель на основному екземплярі."
 		},
 		"toast_quota_detected_minimax": "MiniMax виявлена квота",
+		"toast_quota_detected_opencode_go": "Виявлено квоту OpenCode Go",
+		"toast_no_plan_opencode_go": "Немає активного плану OpenCode Go",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Оновлено {{count}} квоту/баланс",
 		"toast_refresh_success_few": "Оновлено {{count}} квоти/баланси",

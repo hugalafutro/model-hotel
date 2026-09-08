@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "고정은 플릿 기본 인스턴스가 관리하며 다음 구성 동기화 시 대체됩니다. 이 모델의 고정은 기본 인스턴스에서 해제하세요."
 		},
 		"toast_quota_detected_minimax": "MiniMax 할당량 감지됨",
+		"toast_quota_detected_opencode_go": "OpenCode Go 할당량 감지됨",
+		"toast_no_plan_opencode_go": "활성 OpenCode Go 요금제 없음",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "{{count}}개의 할당량/잔액 업데이트",
 		"toast_refresh_success_other": "{{count}}개의 할당량/잔액 업데이트",

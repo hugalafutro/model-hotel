@@ -111,6 +111,44 @@ func TestFetchQuotaSnapshot_OpenCodeGoNoSubscriptionIs204(t *testing.T) {
 	}
 }
 
+// TestBuildQuotaAdvice_OpenCodeGoUnusableSnapshotsNeitherPinNorRelease walks
+// the whole path the 204 and the undatable window take: through Assess and out
+// of buildQuotaAdvice. Both are unusable readings, and the failure mode they
+// share is the recovered set, not the advice map. A provider that lands in
+// recovered has ReleaseQuotaPins drop its response-driven pin and clear the
+// 429-open escalation of every circuit it owns, on every poll pass, which
+// re-probes a provider the snapshot gives no reason to believe is healthy.
+func TestBuildQuotaAdvice_OpenCodeGoUnusableSnapshotsNeitherPinNorRelease(t *testing.T) {
+	now := time.Now()
+	for _, tc := range []struct {
+		name    string
+		payload string
+	}{
+		// What a 403 EntitlementError persists: no plan, so no reading at all.
+		{"204 null payload", `null`},
+		// A window the provider itself calls spent, with a reset nothing can read.
+		{"spent window with an unreadable reset", `{"usage":{"rolling":{"status":"ok","percent":100,"resetsAt":"soon"}}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			id := uuid.New()
+
+			advice, recovered := buildQuotaAdvice(
+				[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: json.RawMessage(tc.payload), FetchedAt: now.Add(-time.Minute)}},
+				map[uuid.UUID]string{id: "opencode-go"},
+				15*time.Minute,
+				now,
+			)
+
+			if _, ok := advice[id]; ok {
+				t.Error("an unusable snapshot must not pin: there is no reset to pin to")
+			}
+			if _, ok := recovered[id]; ok {
+				t.Error("an unusable snapshot must not count as recovery: it is no evidence of health")
+			}
+		})
+	}
+}
+
 // TestFetchQuotaSnapshot_Success verifies a normal usage fetch marshals the
 // upstream body and reports http_status=200.
 func TestFetchQuotaSnapshot_Success(t *testing.T) {

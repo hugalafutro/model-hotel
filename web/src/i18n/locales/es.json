@@ -994,6 +994,8 @@
 			"unpinManagedTooltip": "Las fijaciones las gestiona la instancia primaria de la flota y se reemplazan en la próxima sincronización de configuración. Quita la fijación de este modelo en la instancia primaria."
 		},
 		"toast_quota_detected_minimax": "Cuota de MiniMax detectada",
+		"toast_quota_detected_opencode_go": "Cuota de OpenCode Go detectada",
+		"toast_no_plan_opencode_go": "Sin plan de OpenCode Go activo",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Actualización de {{count}} cuota/saldo",
 		"toast_refresh_success_many": "Actualización de {{count}} cuotas/saldos",

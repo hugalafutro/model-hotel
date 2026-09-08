@@ -962,6 +962,8 @@
 			"unpinManagedTooltip": "固定由机群主节点管理，将在下次配置同步时被替换。请在主节点上取消固定此模型。"
 		},
 		"toast_quota_detected_minimax": "检测到 MiniMax 配额",
+		"toast_quota_detected_opencode_go": "检测到 OpenCode Go 配额",
+		"toast_no_plan_opencode_go": "没有有效的 OpenCode Go 套餐",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "已刷新 {{count}} 个配额/余额",
 		"toast_refresh_success_other": "已刷新 {{count}} 个配额/余额",

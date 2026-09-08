@@ -387,7 +387,7 @@ Returns usage/quota information for supported providers.
 - `neuralwatt` (NeuralWatt - returns quota; 404 from the upstream quota endpoint means a free-tier key and yields no data)
 - `kimi-code` (Kimi Code - returns 5-hour/weekly quota, parallel-request limit, and membership tier)
 - `minimax` (MiniMax - returns 5-hour/weekly Token Plan quota per model class)
-- `opencode-go` (OpenCode Go - returns rolling/weekly/monthly subscription usage; a 403 from the upstream usage endpoint means a key with no active Go subscription and yields no data)
+- `opencode-go` (OpenCode Go - returns rolling/weekly/monthly subscription usage; a `403 EntitlementError` from the upstream usage endpoint means a key with no active Go subscription and yields no data)
 
 **Response (Z.AI example):**
 ```json
@@ -422,7 +422,7 @@ The service decodes the Kimi Code `/usages` payload into its modelled fields and
   }
 }
 ```
-The service re-serializes the modelled fields of the `/usage` payload; fields not listed here are dropped. `percent` is the share of the window already consumed (0 to 100), `resetsAt` is RFC3339, and `status` is documented only for `"ok"`: any other value is OpenCode Go reporting the window as unusable. A key whose Go subscription has lapsed answers `403 EntitlementError`, which is served as `204` with a `null` body (no badge), while a revoked key answers `401` and is served as `424` like every other dead credential.
+The service re-serializes the modelled fields of the `/usage` payload; fields not listed here are dropped. `percent` is the share of the window already consumed (0 to 100), `resetsAt` is RFC3339, and `status` is documented only for `"ok"`: any other value is OpenCode Go reporting the window as unusable. A key whose Go subscription has lapsed answers `403 EntitlementError`, which is served as `204 No Content` (no response body, no badge); the `null` exists only in the persisted snapshot payload behind it. Any other `403`, and the `401` a revoked key answers, is served as `424` like every other dead credential.
 
 **Response (MiniMax example):**
 ```json

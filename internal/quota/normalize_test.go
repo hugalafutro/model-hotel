@@ -1048,12 +1048,14 @@ func TestAssess_OpenCodeGo_NonOKStatusIsExhausted(t *testing.T) {
 	}
 }
 
-// TestAssess_OpenCodeGo_SpentWithUnparseableResetIsNotExhausted holds the
-// assessor to the shape every other one produces: a spent window whose reset
-// cannot be read dates nothing, so it contributes nothing and the payload
-// reports healthy. An exhausted verdict without a deadline would be adopted by
-// the advisor as a zero reset and read downstream as a measurement.
-func TestAssess_OpenCodeGo_SpentWithUnparseableResetIsNotExhausted(t *testing.T) {
+// TestAssess_OpenCodeGo_SpentWithUnparseableResetIsNoOpinion holds the assessor
+// to the shape every other one produces: a spent window whose reset cannot be
+// read dates nothing, so there is no deadline to pin to, but neither is the
+// provider healthy. OK=false reaches neither advice nor recovered. An exhausted
+// verdict without a deadline would be adopted by the advisor as a zero reset
+// and read downstream as a measurement; a healthy one would release the
+// provider's pin on every poll pass while its window is spent.
+func TestAssess_OpenCodeGo_SpentWithUnparseableResetIsNoOpinion(t *testing.T) {
 	payload := openCodeGoPayload(t,
 		map[string]any{"status": "ok", "percent": 100, "resetsAt": "soon"},
 		map[string]any{"status": "ok", "percent": 10, "resetsAt": time.Now().Add(72 * time.Hour).UTC().Format(time.RFC3339Nano)},
@@ -1062,11 +1064,32 @@ func TestAssess_OpenCodeGo_SpentWithUnparseableResetIsNotExhausted(t *testing.T)
 
 	got := Assess("opencode-go", Snapshot{Kind: "usage", Payload: payload})
 
-	if !got.OK {
-		t.Fatal("a well-formed payload must assess OK")
+	if got.OK {
+		t.Error("a spent window with an unreadable reset must report no opinion (OK=false)")
 	}
 	if got.Exhausted || !got.ResetsAt.IsZero() {
-		t.Errorf("got Exhausted=%v ResetsAt=%v, want a healthy verdict: an undatable window pins nothing", got.Exhausted, got.ResetsAt)
+		t.Errorf("got Exhausted=%v ResetsAt=%v, want no claim: there is no reset to pin to", got.Exhausted, got.ResetsAt)
+	}
+}
+
+// TestAssess_NullPayloadIsNoOpinion covers the row a 204 leaves behind: a
+// NeuralWatt free tier and an OpenCode Go key with no Go subscription both
+// store the literal JSON null. It decodes into every assessor as all zeroes,
+// which is indistinguishable from a healthy reading, so without the guard in
+// Assess the provider would enter buildQuotaAdvice's recovered set and have its
+// pin released on a snapshot that says nothing at all.
+func TestAssess_NullPayloadIsNoOpinion(t *testing.T) {
+	for _, providerType := range []string{"opencode-go", "neuralwatt", "zai-coding", "kimi-code", "minimax"} {
+		t.Run(providerType, func(t *testing.T) {
+			got := Assess(providerType, Snapshot{Kind: "usage", Payload: []byte("null")})
+
+			if got.OK {
+				t.Errorf("a null payload must report no opinion (OK=false), got %+v", got)
+			}
+			if got.Exhausted {
+				t.Error("a null payload must never mark a window spent")
+			}
+		})
 	}
 }
 

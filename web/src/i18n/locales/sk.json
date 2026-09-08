@@ -1026,6 +1026,8 @@
 			"unpinManagedTooltip": "Pripnutia spravuje primárna inštancia flotily a pri ďalšej synchronizácii konfigurácie sa nahradia. Zrušte pripnutie tohto modelu na primárnej inštancii."
 		},
 		"toast_quota_detected_minimax": "Zistená kvóta MiniMax",
+		"toast_quota_detected_opencode_go": "Zistená kvóta OpenCode Go",
+		"toast_no_plan_opencode_go": "Žiadny aktívny plán OpenCode Go",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Aktualizovaná {{count}} kvóta/zostatok",
 		"toast_refresh_success_few": "Aktualizované {{count}} kvóty/zostatky",

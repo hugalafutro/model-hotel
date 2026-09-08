@@ -994,6 +994,8 @@
 			"unpinManagedTooltip": "Закачињањима управља примарна инстанца флоте и замењују се при следећој синхронизацији конфигурације. Откачите овај модел на примарној инстанци."
 		},
 		"toast_quota_detected_minimax": "MiniMax квота откривена",
+		"toast_quota_detected_opencode_go": "OpenCode Go квота откривена",
+		"toast_no_plan_opencode_go": "Нема активног OpenCode Go плана",
 		"type_minimax": "MiniMax",
 		"toast_refresh_success_one": "Ажурирана {{count}} квота/стање",
 		"toast_refresh_success_few": "Ажуриране {{count}} квоте/стања",
