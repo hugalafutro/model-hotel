@@ -1090,10 +1090,14 @@ func TestGetAppLogs_SearchMatchesEscapedSpaces(t *testing.T) {
 // never the raw message text. A raw line through the legacy io.Writer path
 // never went through the encoder and must not claim the flag.
 func TestAppSlogHandler_MarksEntriesEscaped(t *testing.T) {
-	savedBuf, savedWriter := appLogBuffer, dbWriter
+	savedBuf, savedWriter := appLogBuffer, dbWriter.Load()
 	rb := &ringBuffer{entries: make([]AppLogEntry, appLogBufferSize)}
-	appLogBuffer, dbWriter = rb, nil
-	defer func() { appLogBuffer, dbWriter = savedBuf, savedWriter }()
+	appLogBuffer = rb
+	dbWriter.Store(nil)
+	defer func() {
+		appLogBuffer = savedBuf
+		dbWriter.Store(savedWriter)
+	}()
 
 	var buf bytes.Buffer
 	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
@@ -1219,4 +1223,270 @@ func TestGetAppLogs_EscapedFlagProvenance(t *testing.T) {
 	}
 	assertFlags("/logs/app?history=true&source=provtest")
 	assertFlags("/logs/app/cursor?source=provtest")
+}
+
+// withTestRingBuffer installs a fresh ring buffer (and no async writer) for the
+// duration of a test, restoring the package globals afterwards.
+func withTestRingBuffer(t *testing.T) *ringBuffer {
+	t.Helper()
+	savedBuf, savedWriter := appLogBuffer, dbWriter.Load()
+	rb := &ringBuffer{entries: make([]AppLogEntry, appLogBufferSize)}
+	appLogBuffer = rb
+	dbWriter.Store(nil)
+	t.Cleanup(func() {
+		appLogBuffer = savedBuf
+		dbWriter.Store(savedWriter)
+	})
+	return rb
+}
+
+// ringHas reports whether the ring still holds an entry with this message. The
+// ring also collects whatever the server logs while a test runs, so assertions
+// are about the seeded entries, not about the buffer's exact length.
+func ringHas(rb *ringBuffer, message string) bool {
+	for _, e := range rb.GetEntries() {
+		if e.Message == message {
+			return true
+		}
+	}
+	return false
+}
+
+// fillRing writes n entries into the ring buffer.
+func fillRing(rb *ringBuffer, source string, n int) {
+	for i := range n {
+		rb.writeEntry(AppLogEntry{
+			Timestamp: time.Now().UTC().Format(time.RFC3339Nano),
+			Level:     "info",
+			Source:    source,
+			Message:   fmt.Sprintf("ring entry %d", i),
+		})
+	}
+}
+
+// A DELETE the database refused used to answer 200 with a count taken from the
+// ring buffer it had already emptied, so the operator saw a purge that never
+// happened and lost the live view on top of it. The failure is a 500 and the
+// ring is left holding what the rows still hold.
+func TestClearAppLogs_FailedDeleteAnswers500AndKeepsRing(t *testing.T) {
+	h := newTestHandler(t)
+	rb := withTestRingBuffer(t)
+	fillRing(rb, "failed-delete", 4)
+
+	// A cancelled request context is what the pool's Exec refuses on.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rec := httptest.NewRecorder()
+	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody).WithContext(ctx))
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("status = %d, want 500: a refused delete answered success", rec.Code)
+	}
+	for i := range 4 {
+		if !ringHas(rb, fmt.Sprintf("ring entry %d", i)) {
+			t.Fatalf("ring entry %d is gone: the buffer was cleared for a delete that failed", i)
+		}
+	}
+}
+
+// Entries the async writer had already queued used to flush after the DELETE,
+// putting rows back that the operator had just purged. The purge drains the
+// writer first, so nothing lands behind it.
+func TestClearAppLogs_QueuedEntriesDoNotResurface(t *testing.T) {
+	h := newTestHandler(t)
+	withTestRingBuffer(t)
+	pool := h.Pool().Pool()
+
+	// A flush interval that will not fire during the test: only the purge's own
+	// barrier, or the writer's shutdown, can move these entries.
+	w := newDBLogWriter(pool, time.Hour)
+	dbWriter.Store(w)
+	const source = "resurface-test"
+	for i := range 5 {
+		w.write(testEntry(source, fmt.Sprintf("queued %d", i)))
+	}
+
+	rec := httptest.NewRecorder()
+	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clear: status %d: %s", rec.Code, rec.Body.String())
+	}
+
+	// Shutting the writer down flushes anything it is still holding. If the
+	// purge had not drained it first, these rows would reappear now.
+	w.stop()
+	if got := countAppLogs(t, pool, source); got != 0 {
+		t.Fatalf("%d purged rows came back from the writer queue", got)
+	}
+}
+
+// The ring mirrors rows the database already holds, so summing the two reported
+// a purge of twice what existed. With a database configured the count is the
+// rows it deleted.
+func TestClearAppLogs_CountIsNotDoubled(t *testing.T) {
+	h := newTestHandler(t)
+	rb := withTestRingBuffer(t)
+	fillRing(rb, "double-count", 5)
+
+	pool := h.Pool().Pool()
+	for i := range 3 {
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES (gen_random_uuid(), NOW(), 'info', 'double-count', 'msg', NOW())`); err != nil {
+			t.Fatalf("insert row %d: %v", i, err)
+		}
+	}
+
+	rec := httptest.NewRecorder()
+	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clear: status %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]int
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp["deleted"] != 3 {
+		t.Fatalf("deleted = %d, want 3 (the rows), not the ring added on top", resp["deleted"])
+	}
+	if ringHas(rb, "ring entry 0") {
+		t.Fatal("the ring was not cleared after a successful purge")
+	}
+}
+
+// Without a database the ring is all there is, so its own count is the answer.
+func TestClearAppLogs_RingCountWhenNoDB(t *testing.T) {
+	rb := withTestRingBuffer(t)
+	const seeded = 6
+	fillRing(rb, "ring-only", seeded)
+
+	rec := httptest.NewRecorder()
+	(&Handler{}).ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("clear: status %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp map[string]int
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	// The server keeps logging into the swapped-in ring while this test runs, so
+	// the count is at least the six seeded entries, never an exact buffer
+	// length snapshotted before the call.
+	if resp["deleted"] < seeded {
+		t.Fatalf("deleted = %d, want at least the %d seeded: with no database the ring count is the only count", resp["deleted"], seeded)
+	}
+	for i := range seeded {
+		if ringHas(rb, fmt.Sprintf("ring entry %d", i)) {
+			t.Fatalf("seeded entry %d survived the purge", i)
+		}
+	}
+
+	// The ranged purge takes the same route: only the entries past the cutoff go,
+	// and the count is still the ring's own.
+	rb.writeEntry(AppLogEntry{Timestamp: time.Now().UTC().Add(-8 * 24 * time.Hour).Format(time.RFC3339Nano), Level: "info", Source: "ring-only", Message: "stale"})
+	rb.writeEntry(AppLogEntry{Timestamp: time.Now().UTC().Format(time.RFC3339Nano), Level: "info", Source: "ring-only", Message: "fresh"})
+
+	rec = httptest.NewRecorder()
+	(&Handler{}).ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", strings.NewReader(`{"older_than":"1w"}`)))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("ranged clear: status %d: %s", rec.Code, rec.Body.String())
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode ranged: %v", err)
+	}
+	if resp["deleted"] != 1 {
+		t.Fatalf("ranged deleted = %d, want 1 (the stale entry only)", resp["deleted"])
+	}
+	if ringHas(rb, "stale") {
+		t.Fatal("the stale entry survived the ranged purge")
+	}
+	if !ringHas(rb, "fresh") {
+		t.Fatal("the ranged purge took the fresh entry too")
+	}
+}
+
+// A barrier that does not complete means entries are still queued and will
+// flush after the DELETE, reinstating the rows the operator asked to be gone.
+// The purge refuses rather than answer 200 with a count the pending flush is
+// about to undo. The writer here has no run goroutine, so the barrier is
+// accepted and never answered: the deep-queue case, not a dead database.
+func TestClearAppLogs_StalledFlushBarrierRefusesThePurge(t *testing.T) {
+	h := newTestHandler(t)
+	rb := withTestRingBuffer(t)
+	fillRing(rb, "stalled-barrier", 3)
+
+	pool := h.Pool().Pool()
+	const source = "stalled-barrier-rows"
+	for i := range 3 {
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES (gen_random_uuid(), NOW(), 'info', $1, 'msg', NOW())`, source); err != nil {
+			t.Fatalf("insert row %d: %v", i, err)
+		}
+	}
+
+	saved := dbWriter.Load()
+	t.Cleanup(func() { dbWriter.Store(saved) })
+	dbWriter.Store(armed(&dbLogWriter{
+		ch:          make(chan logMsg, 1),
+		done:        make(chan struct{}),
+		sendTimeout: dbLogSendTimeout,
+	}))
+
+	rec := httptest.NewRecorder()
+	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody))
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503: a purge ran under a queue that will reinstate the rows", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "retry") {
+		t.Errorf("body = %q, want a retry message the operator can act on", rec.Body.String())
+	}
+	if got := countAppLogs(t, pool, source); got != 3 {
+		t.Fatalf("%d rows left of 3: the refused purge deleted anyway", got)
+	}
+	for i := range 3 {
+		if !ringHas(rb, fmt.Sprintf("ring entry %d", i)) {
+			t.Fatalf("ring entry %d is gone: the buffer was cleared for a purge that did not happen", i)
+		}
+	}
+}
+
+// A writer that refuses the barrier because it is stopped is refused too. The
+// global still points at it for as long as the stop runs, and during that window
+// the run goroutine is draining what is queued into the pool, so "stopped" read
+// as "stopped and drained" is exactly the flush the barrier exists to prevent.
+// Only a writer that was never configured skips the barrier, and that is a
+// deployment with no database and nothing queued anywhere.
+func TestClearAppLogs_StoppedWriterRefusesThePurge(t *testing.T) {
+	h := newTestHandler(t)
+	rb := withTestRingBuffer(t)
+	fillRing(rb, "stopped-writer", 1)
+
+	pool := h.Pool().Pool()
+	const source = "stopped-writer-rows"
+	if _, err := pool.Exec(context.Background(),
+		`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+		 VALUES (gen_random_uuid(), NOW(), 'info', $1, 'msg', NOW())`, source); err != nil {
+		t.Fatalf("insert: %v", err)
+	}
+
+	saved := dbWriter.Load()
+	t.Cleanup(func() { dbWriter.Store(saved) })
+	w := newDBLogWriter(pool, time.Hour)
+	w.stop()
+	dbWriter.Store(w)
+
+	rec := httptest.NewRecorder()
+	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody))
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503: a purge ran against a writer whose queue it could not confirm drained", rec.Code)
+	}
+	if got := countAppLogs(t, pool, source); got != 1 {
+		t.Fatalf("%d rows left of 1: the refused purge deleted anyway", got)
+	}
+	if !ringHas(rb, "ring entry 0") {
+		t.Fatal("ring entry is gone: the buffer was cleared for a purge that did not happen")
+	}
 }

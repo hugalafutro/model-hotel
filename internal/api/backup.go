@@ -33,6 +33,10 @@ type BackupHandler struct {
 	masterKey         string                 // set via SetSigningKey; empty disables backup signing and verification
 	schedulerCancelMu sync.Mutex
 	schedulerCancel   context.CancelFunc
+	// schedulerStopped is the running scheduler's join channel, so a second
+	// StartScheduler call is handed the goroutine that exists rather than a
+	// closed channel that would tell it there is nothing to wait for.
+	schedulerStopped chan struct{}
 }
 
 // NewBackupHandler creates a new BackupHandler.

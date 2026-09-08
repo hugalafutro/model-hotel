@@ -55,6 +55,79 @@ func TestStartScheduler_DoubleLaunch(t *testing.T) {
 	cancel()
 }
 
+// Shutdown joins the scheduler with the other background loops, which is only
+// possible if the caller is handed something to wait on that actually tracks
+// the goroutine. A cancelled context has to close it; a call that started
+// nothing has to hand back a channel that is already closed, or shutdown would
+// block on a scheduler that never existed.
+func TestStartScheduler_StoppedChannelJoinsTheGoroutine(t *testing.T) {
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, _, defaultValue string) string { return defaultValue },
+		getBoolFn:        func(_ context.Context, _ string, _ bool) bool { return false },
+		getDurationFn: func(_ context.Context, _ string, defaultValue time.Duration) time.Duration {
+			return defaultValue
+		},
+	}
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := h.StartScheduler(ctx)
+	select {
+	case <-stopped:
+		t.Fatal("the scheduler reported itself stopped before it was cancelled")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	cancel()
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("cancelling the context did not release the join; shutdown would close the pool under a running backup")
+	}
+
+	// Nothing started, nothing to wait for.
+	idle := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, nil)
+	select {
+	case <-idle.StartScheduler(context.Background()):
+	default:
+		t.Fatal("a scheduler that never started must hand back a closed channel")
+	}
+}
+
+// A second launch finds a scheduler already running and starts nothing, but a
+// caller holding its channel is joining on the goroutine that does exist. A
+// closed channel there would tell that caller the scheduler has stopped while
+// the first one's goroutine is still writing, and the pool would close under it.
+func TestStartScheduler_DoubleLaunchReturnsTheRunningScheduler(t *testing.T) {
+	ss := &mockSettingsStore{
+		getWithDefaultFn: func(_ context.Context, _, defaultValue string) string { return defaultValue },
+		getBoolFn:        func(_ context.Context, _ string, _ bool) bool { return false },
+		getDurationFn: func(_ context.Context, _ string, defaultValue time.Duration) time.Duration {
+			return defaultValue
+		},
+	}
+	h := NewBackupHandler("postgres://x", t.TempDir(), &mockAdminAuth{}, ss)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	first := h.StartScheduler(ctx)
+	second := h.StartScheduler(ctx)
+
+	select {
+	case <-second:
+		t.Fatal("the second launch reported the scheduler stopped while the first one is still running")
+	case <-time.After(20 * time.Millisecond):
+	}
+
+	cancel()
+	for name, ch := range map[string]<-chan struct{}{"first": first, "second": second} {
+		select {
+		case <-ch:
+		case <-time.After(5 * time.Second):
+			t.Fatalf("the %s caller's channel never closed: it is not joined to the running scheduler", name)
+		}
+	}
+}
+
 func TestStopScheduler(t *testing.T) {
 	ss := &mockSettingsStore{
 		getWithDefaultFn: func(_ context.Context, key, defaultValue string) string {

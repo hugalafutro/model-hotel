@@ -9,6 +9,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"sync"
 	"time"
 
@@ -21,6 +23,125 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
+
+// backgroundJoinBudget is what shutdown gives the join: the sweep ceiling plus
+// a margin. Every loop selects on the root context, but the passes they run
+// deliberately do not — logRetentionPass, staleLogCleanupPass and
+// sweepScheduledDisables all issue their statements on the group's drain
+// context — so a pass already running when the cancel lands ignores it and
+// finishes the statement it started. Of those three only the sweep carries a
+// ceiling of its own (sweepScheduledDisableTimeout), and this budget is derived
+// from it so the sweep is waited out rather than cut a tick short; the margin
+// covers the tick that started it plus the loop wiring around it. The other two
+// carry no ceiling, so the budget does not wait for them, it ENDS them: Wait
+// cancels the drain context on its way out, and a DELETE or UPDATE still
+// running at that point is cancelled, not awaited. A loop still running when
+// the budget expires is named in the log and shutdown proceeds rather than
+// hanging.
+const backgroundJoinBudget = sweepScheduledDisableTimeout + 5*time.Second
+
+// backgroundGroup tracks the process-lifetime loops so shutdown can cancel the
+// root context and then join them before anything they read is released. A
+// loop started with a bare `go` is invisible here, so it would keep running
+// against a pool the shutdown path is closing.
+type backgroundGroup struct {
+	wg sync.WaitGroup
+	// mu guards running, which is read from Wait on the shutdown goroutine
+	// while the loops themselves are removing their own names.
+	mu      sync.Mutex
+	running map[string]bool
+	// joined closes when every member has returned. Created on the first Wait
+	// and reused, because a Wait that times out leaves its joiner parked in
+	// wg.Wait and a fresh one per call would accumulate them.
+	joinOnce sync.Once
+	joined   chan struct{}
+	// drainCtx is what the detached maintenance passes run their statements on,
+	// created on first use and guarded by mu. Wait cancels it.
+	drainCtx    context.Context
+	drainCancel context.CancelFunc
+}
+
+// drainContext returns the context a maintenance pass runs its statements on
+// when it deliberately outlives the loop that called it. It keeps parent's
+// values but not its cancellation, so at runtime a pass that has begun finishes
+// its statement however long the database takes, exactly as it does with no
+// shutdown in sight. Wait is what ends it: a pass stalled on the database is
+// cancelled when the join budget expires, so it cannot outlast the join and
+// write into a pool this shutdown is about to close.
+func (g *backgroundGroup) drainContext(parent context.Context) context.Context {
+	g.mu.Lock()
+	defer g.mu.Unlock()
+	g.initDrain(parent)
+	return g.drainCtx
+}
+
+// initDrain creates the drain context on first use. Callers hold mu.
+func (g *backgroundGroup) initDrain(parent context.Context) {
+	if g.drainCtx == nil {
+		g.drainCtx, g.drainCancel = context.WithCancel(context.WithoutCancel(parent))
+	}
+}
+
+// Go starts f as a named member of the group.
+func (g *backgroundGroup) Go(name string, f func()) {
+	g.mu.Lock()
+	if g.running == nil {
+		g.running = make(map[string]bool)
+	}
+	g.running[name] = true
+	g.mu.Unlock()
+
+	g.wg.Go(func() {
+		defer func() {
+			g.mu.Lock()
+			delete(g.running, name)
+			g.mu.Unlock()
+		}()
+		f()
+	})
+}
+
+// Wait joins every member and returns nil, or gives up after budget and returns
+// the names still running, sorted. The caller logs them: a loop that outlives
+// its cancellation is an operational fact worth seeing, not a reason to block
+// the process from exiting.
+//
+// The joiner is started once and its channel reused, so a Wait that gives up
+// does not leave one goroutine parked in wg.Wait per call.
+func (g *backgroundGroup) Wait(budget time.Duration) []string {
+	g.mu.Lock()
+	g.initDrain(context.Background())
+	cancelDrain := g.drainCancel
+	g.mu.Unlock()
+	// The detached passes end here and not before. While the server is up they
+	// run unbounded, which is what keeps a slow sweep from dropping work. This
+	// is a cut, not a ceiling: a pass still running when the budget expires is
+	// cancelled here rather than awaited, so its statement is rolled back and
+	// the pool it holds is released before the close below it. Cancelled on both
+	// paths, since a join that returned nil has already seen every member out
+	// and there is nothing left to end.
+	defer cancelDrain()
+
+	g.joinOnce.Do(func() {
+		g.joined = make(chan struct{})
+		go func() {
+			g.wg.Wait()
+			close(g.joined)
+		}()
+	})
+	joined := g.joined
+
+	timer := time.NewTimer(budget)
+	defer timer.Stop()
+	select {
+	case <-joined:
+		return nil
+	case <-timer.C:
+		g.mu.Lock()
+		defer g.mu.Unlock()
+		return slices.Sorted(maps.Keys(g.running))
+	}
+}
 
 // settingsIntervalLoop runs tick on a timer whose period comes from a setting,
 // and reacts to changes of that setting immediately via sub rather than waiting
@@ -112,13 +233,20 @@ func settingsIntervalLoop(ctx context.Context, sub *settings.Subscription, readI
 	}
 }
 
-// every runs f on a ticker of period d until ctx is done.
+// every runs f on a ticker of period d until ctx is done. A tick that lands
+// together with the cancellation starts nothing: select picks at random between
+// two ready cases, so without this check a pass could begin AFTER shutdown has
+// cancelled ctx, and the join budget would already be counting down against a
+// ceiling that had not started yet.
 func every(ctx context.Context, d time.Duration, f func()) {
 	ticker := time.NewTicker(d)
 	defer ticker.Stop()
 	for {
 		select {
 		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			f()
 		case <-ctx.Done():
 			return
@@ -183,23 +311,27 @@ func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollO
 //     catches in-process orphans (e.g. a panic skips the final
 //     updateRequestLog). The timeout is generous to avoid killing
 //     legitimate long-running streaming requests.
-func staleLogCleanupLoop(ctx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository, serverStartTime time.Time) {
+func staleLogCleanupLoop(ctx, drainCtx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository, serverStartTime time.Time) {
 	every(ctx, 5*time.Minute, func() {
-		staleLogCleanupPass(pool, settingsRepo, serverStartTime)
+		staleLogCleanupPass(drainCtx, pool, settingsRepo, serverStartTime)
 	})
 }
 
 // staleLogCleanupPass runs one stale-log sweep; a stale_request_timeout of 0
 // disables the age-based check for this cycle.
-func staleLogCleanupPass(pool *pgxpool.Pool, settingsRepo *settings.Repository, serverStartTime time.Time) {
-	staleTimeout := settingsRepo.GetDuration(context.Background(), "stale_request_timeout", 30*time.Minute)
+//
+// drainCtx is the group's drain context rather than the loop's, so a sweep
+// already under way when the server is asked to stop still finishes its UPDATE.
+// The shutdown join is what ends it if the database has stalled.
+func staleLogCleanupPass(drainCtx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository, serverStartTime time.Time) {
+	staleTimeout := settingsRepo.GetDuration(drainCtx, "stale_request_timeout", 30*time.Minute)
 	if staleTimeout <= 0 {
 		return
 	}
 	// The age cutoff is computed here, like the server-start cutoff beside it,
 	// rather than handed to Postgres as an interval string to parse back.
 	cutoff := time.Now().Add(-staleTimeout)
-	tag, err := pool.Exec(context.Background(), `
+	tag, err := pool.Exec(drainCtx, `
 		UPDATE request_logs
 		SET state = 'failed', error_kind = 'internal', error_message = 'request interrupted (stale)'
 		WHERE state IN ('pending', 'streaming')
@@ -220,9 +352,9 @@ func staleLogCleanupPass(pool *pgxpool.Pool, settingsRepo *settings.Repository, 
 
 // logRetentionLoop hourly deletes request_logs and app_logs rows older than
 // the log_retention setting; a disabled or unparseable value skips the cycle.
-func logRetentionLoop(ctx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository) {
+func logRetentionLoop(ctx, drainCtx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 	every(ctx, time.Hour, func() {
-		logRetentionPass(pool, settingsRepo)
+		logRetentionPass(drainCtx, pool, settingsRepo)
 	})
 }
 
@@ -274,8 +406,15 @@ var retentionWarned struct {
 // a value the sweep cannot read skips too, but says so once, because a
 // retention setting that silently never fires is a failure the operator cannot
 // see from the dashboard.
-func logRetentionPass(pool *pgxpool.Pool, settingsRepo *settings.Repository) {
-	retention := settingsRepo.GetWithDefault(context.Background(), "log_retention", "")
+//
+// drainCtx carries no deadline of its own. The first sweep after retention is
+// enabled, or the first after an outage, deletes a whole backlog and takes as
+// long as it takes; a ceiling here would cancel that DELETE, roll it back and
+// leave the pass failing identically every hour while both tables grew. The
+// shutdown join is the only thing that ends it, which is what keeps a stalled
+// database from outliving the join.
+func logRetentionPass(drainCtx context.Context, pool *pgxpool.Pool, settingsRepo *settings.Repository) {
+	retention := settingsRepo.GetWithDefault(drainCtx, "log_retention", "")
 	window, enabled, err := parseLogRetention(retention)
 	if err != nil {
 		retentionWarned.Lock()
@@ -292,7 +431,7 @@ func logRetentionPass(pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 	}
 	cutoff := time.Now().Add(-window)
 	for _, table := range []string{"request_logs", "app_logs"} {
-		tag, err := pool.Exec(context.Background(),
+		tag, err := pool.Exec(drainCtx,
 			`DELETE FROM `+table+` WHERE created_at < $1`, cutoff)
 		if err != nil {
 			debuglog.Error("retention: delete of old entries failed", "table", table, "error", err)
@@ -303,7 +442,14 @@ func logRetentionPass(pool *pgxpool.Pool, settingsRepo *settings.Repository) {
 }
 
 // sweepScheduledDisableTimeout bounds a sweep that outlives its caller's
-// context, so shutdown still terminates promptly.
+// context. A sweep that has begun deliberately ignores the cancellation (see
+// sweepScheduledDisables), so this ceiling is the only thing that ends it, and
+// it is the one ceiling backgroundJoinBudget is derived from: the join waits the
+// sweep out instead of naming it and letting the pool close on the UPDATE it has
+// already committed. The other two detached passes have no ceiling and are not
+// waited out at all, they are cancelled when the budget expires. The work here
+// is one UPDATE over tens of rows plus a failover sync over every enabled model,
+// which on a large fleet is the part that needs the room.
 const sweepScheduledDisableTimeout = 30 * time.Second
 
 // sweepScheduledDisables fires every due scheduled disable and returns how many
@@ -313,15 +459,20 @@ const sweepScheduledDisableTimeout = 30 * time.Second
 // per provider tells the operator what happened.
 //
 // A sweep that has begun finishes even while the server is shutting down, which
-// is why the caller's cancellation is dropped here the way api.UpdateProvider
-// drops the request's. The UPDATE clears scheduled_disable_on as it fires, so
-// the disable is only ever due once: a cancellation landing between that commit
-// and the drained rows would lose the operator's event permanently — no later
-// sweep can re-derive it — and leave the failover groups carrying models of a
-// provider that is already off. scheduledDisableLoop keeps selecting on the
-// original context, so the loop itself still exits at once.
-func sweepScheduledDisables(ctx context.Context, providerRepo *provider.Repository, failoverRepo *failover.Repository) int {
-	sweepCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sweepScheduledDisableTimeout)
+// is why drainCtx is the group's drain context and not the loop's. The UPDATE
+// clears scheduled_disable_on as it fires, so the disable is only ever due once:
+// a cancellation landing between that commit and the sync would leave the
+// failover groups carrying models of a provider that is already off, and no
+// later sweep re-derives them. That committed UPDATE and the sync behind it are
+// what the detachment protects. It does not protect the event: shutdown closes
+// the event bus before it joins this loop, so a sweep firing during shutdown
+// publishes into a closed bus and the operator's notification is lost however
+// long the join waits. Accepted, because the disable itself is persisted and the
+// dashboard shows the provider as disabled on the next start.
+// scheduledDisableLoop keeps selecting on the original context, so the loop
+// itself still exits at once.
+func sweepScheduledDisables(drainCtx context.Context, providerRepo *provider.Repository, failoverRepo *failover.Repository) int {
+	sweepCtx, cancel := context.WithTimeout(drainCtx, sweepScheduledDisableTimeout)
 	defer cancel()
 
 	disabled, err := providerRepo.DisableDueScheduled(sweepCtx)
@@ -338,7 +489,9 @@ func sweepScheduledDisables(ctx context.Context, providerRepo *provider.Reposito
 		})
 	}
 	if _, err := failoverRepo.SyncAllModels(sweepCtx); err != nil {
-		debuglog.Info("scheduled disable: failover sync failed", "error", err)
+		// A permanent desync: the providers are off and no later sweep
+		// re-derives the groups they are still listed in.
+		debuglog.Error("scheduled disable: failover sync failed", "error", err)
 	}
 	return len(disabled)
 }
@@ -347,8 +500,8 @@ func sweepScheduledDisables(ctx context.Context, providerRepo *provider.Reposito
 // that straddled midnight must still fire the disable) and then on every tick.
 // A one-minute tick keeps "as soon as the date flips" honest at negligible cost:
 // the sweep is a single UPDATE on a table of tens of rows.
-func scheduledDisableLoop(ctx context.Context, providerRepo *provider.Repository, failoverRepo *failover.Repository, tick time.Duration) {
-	sweep := func() { sweepScheduledDisables(ctx, providerRepo, failoverRepo) }
+func scheduledDisableLoop(ctx, drainCtx context.Context, providerRepo *provider.Repository, failoverRepo *failover.Repository, tick time.Duration) {
+	sweep := func() { sweepScheduledDisables(drainCtx, providerRepo, failoverRepo) }
 	sweep()
 	every(ctx, tick, sweep)
 }

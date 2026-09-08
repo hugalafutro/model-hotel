@@ -17,7 +17,13 @@ import (
 // runtime takes effect promptly instead of waiting a full backup_interval.
 const backupSchedulerIdlePoll = 1 * time.Minute
 
-// StartScheduler starts the periodic backup scheduler goroutine.
+// StartScheduler starts the periodic backup scheduler goroutine and returns a
+// channel closed once that goroutine has returned, so a caller that owns the
+// process lifetime can join it during shutdown instead of closing the pool
+// under a backup still running. A call that finds a scheduler already running
+// gets that scheduler's channel, so joining on it waits for the goroutine that
+// actually exists; only a call with no settings store, which starts nothing and
+// leaves nothing running, hands back an already-closed channel.
 //
 // The goroutine always runs (regardless of the current backup_enabled
 // value) and re-reads backup_enabled and backup_interval from the settings
@@ -25,23 +31,30 @@ const backupSchedulerIdlePoll = 1 * time.Minute
 // a server restart: when disabled it polls on a short idle interval; when
 // enabled it creates a backup and applies the rotation scheme, then sleeps
 // for backup_interval.
-func (h *BackupHandler) StartScheduler(ctx context.Context) {
+func (h *BackupHandler) StartScheduler(ctx context.Context) <-chan struct{} {
+	stopped := make(chan struct{})
 	if h.settingsRepo == nil {
-		return
+		close(stopped)
+		return stopped
 	}
 	// Guard against double-launch leaking the previous goroutine.
 	h.schedulerCancelMu.Lock()
 	if h.schedulerCancel != nil {
+		running := h.schedulerStopped
 		h.schedulerCancelMu.Unlock()
-		return
+		return running
 	}
 
 	schedCtx, cancel := context.WithCancel(ctx)
 	h.schedulerCancel = cancel
+	h.schedulerStopped = stopped
 	h.schedulerCancelMu.Unlock()
 	debuglog.Info("backup: scheduler started")
 
 	go func() {
+		// Registered first so it runs last: a joiner is released only once the
+		// panic handler below has had its say.
+		defer close(stopped)
 		defer func() {
 			if r := recover(); r != nil {
 				debuglog.Error("backup: scheduler panic recovered", "panic", r)
@@ -70,6 +83,7 @@ func (h *BackupHandler) StartScheduler(ctx context.Context) {
 			}
 		}
 	}()
+	return stopped
 }
 
 // StopScheduler stops the periodic backup scheduler.

@@ -79,7 +79,9 @@ type SettingsStore interface {
 
 // BackupScheduler defines the interface for the periodic backup scheduler.
 type BackupScheduler interface {
-	StartScheduler(ctx context.Context)
+	// StartScheduler returns a channel closed when the scheduler goroutine has
+	// exited, so the process owner can join it during shutdown.
+	StartScheduler(ctx context.Context) <-chan struct{}
 	StopScheduler()
 }
 
@@ -332,12 +334,16 @@ func (h *Handler) SetQuotaAdvisor(a *QuotaAdvisor) {
 // StartBackupScheduler starts the periodic backup scheduler if backup_enabled is true.
 // Call this only after Register, which constructs the BackupHandler and assigns it as
 // h.backupScheduler; calling earlier leaves the scheduler nil and no backups ever run.
-func (h *Handler) StartBackupScheduler(ctx context.Context) {
+// The returned channel closes when the scheduler goroutine has exited, so shutdown can
+// join it; it is already closed when there was no scheduler to start.
+func (h *Handler) StartBackupScheduler(ctx context.Context) <-chan struct{} {
 	if h.backupScheduler == nil {
 		debuglog.Warn("backup: StartBackupScheduler called before the scheduler was wired; no automatic backups will run")
-		return
+		stopped := make(chan struct{})
+		close(stopped)
+		return stopped
 	}
-	h.backupScheduler.StartScheduler(ctx)
+	return h.backupScheduler.StartScheduler(ctx)
 }
 
 // StopBackupScheduler stops the periodic backup scheduler.

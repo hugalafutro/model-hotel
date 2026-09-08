@@ -513,6 +513,7 @@ The `docker-compose.yml` sets up the following services:
 | **Volumes** | `./.data:/data` | Persistent data storage (admin token, etc.) |
 | **Volumes** | `/var/run/docker.sock:/var/run/docker.sock:ro` *(commented out by default)* | Read-only Docker socket access for container stats in sidebar |
 | **Restart** | `unless-stopped` | Auto-restart on failure or daemon restart |
+| **Stop grace period** | `75s` | How long Docker waits after SIGTERM before SIGKILL. See "Graceful shutdown" below |
 | **Depends on** | `db` (healthy) | Waits for PostgreSQL to be ready |
 
 **Environment variables (docker-compose.yml):**
@@ -536,6 +537,27 @@ environment:
   - TRUSTED_PROXIES=
   - KNOWN_PROXIES=
 ```
+
+**Graceful shutdown.** On SIGTERM (`docker compose stop`, `docker compose down`, a container
+restart) the server winds down in stages rather than dropping what is in flight. It cancels the
+background maintenance loops, ends every open SSE stream and proxied stream so they finish with a
+proper terminal frame, then stops accepting and drains the HTTP requests still running, joins the
+background loops, flushes the pending audit rows, flushes the application log writer, flushes the
+OTLP log exporter if one is configured, and closes the database pool last.
+
+Each stage is budgeted. Worst case, in order: 10s HTTP drain + 35s background join + 10s audit
+drain (one record's 5s insert plus the 5s retention prune it piggybacks) + 5s app-log writer stop
++ 5s OTLP flush = 65s. The join budget is the 30s ceiling of the scheduled-disable sweep plus a 5s
+margin: that sweep deliberately finishes the statement it has already started, and the join waits
+it out rather than letting the database pool close underneath it. The retention and stale-log
+sweeps are the other way round. They carry no ceiling at all, so that a first sweep over a large
+backlog runs as long as the database needs, and when the join budget expires they are cancelled
+rather than awaited. The closes around all of this (the event bus, the proxy handler, discovery,
+the docker client, the rate limiters and the database pool) carry no budget of their own, so the
+`stop_grace_period: 75s` on the `app` service is a ceiling with headroom over the 65s, not the sum.
+Docker's default grace is 10s, which would SIGKILL the process partway through the drain and lose
+the audit rows and the last log lines, so the setting is not optional. If you run Model Hotel
+outside this compose file (Kubernetes, systemd, your own compose), give it the same 75s.
 
 #### `db` - PostgreSQL 16
 

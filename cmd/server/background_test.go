@@ -247,7 +247,7 @@ func TestStaleLogCleanupPass(t *testing.T) {
 			t.Fatalf("set failed: %v", err)
 		}
 		defer func() { _ = settingsRepo.Set(ctx, "stale_request_timeout", "30m") }()
-		staleLogCleanupPass(pool, settingsRepo, time.Now())
+		staleLogCleanupPass(ctx, pool, settingsRepo, time.Now())
 	})
 
 	t.Run("marks_stale_rows", func(t *testing.T) {
@@ -261,7 +261,7 @@ func TestStaleLogCleanupPass(t *testing.T) {
 		ch := events.DefaultBus.Subscribe()
 		defer events.DefaultBus.Unsubscribe(ch)
 
-		staleLogCleanupPass(pool, settingsRepo, time.Now())
+		staleLogCleanupPass(ctx, pool, settingsRepo, time.Now())
 
 		var state string
 		if err := pool.QueryRow(ctx, `SELECT state FROM request_logs`).Scan(&state); err != nil {
@@ -275,7 +275,7 @@ func TestStaleLogCleanupPass(t *testing.T) {
 
 	t.Run("db_error_only_logs", func(t *testing.T) {
 		broken := closedTestPool(t)
-		staleLogCleanupPass(broken.Pool(), settingsRepo, time.Now())
+		staleLogCleanupPass(ctx, broken.Pool(), settingsRepo, time.Now())
 	})
 }
 
@@ -296,7 +296,7 @@ func TestLogRetentionPass(t *testing.T) {
 
 	t.Run("unset_skips", func(t *testing.T) {
 		setRetention("")
-		logRetentionPass(pool, settingsRepo)
+		logRetentionPass(ctx, pool, settingsRepo)
 	})
 
 	t.Run("unrecognised_skips", func(t *testing.T) {
@@ -308,7 +308,7 @@ func TestLogRetentionPass(t *testing.T) {
 			t.Fatalf("insert failed: %v", err)
 		}
 		setRetention("0")
-		logRetentionPass(pool, settingsRepo)
+		logRetentionPass(ctx, pool, settingsRepo)
 		var n int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs`).Scan(&n); err != nil {
 			t.Fatalf("count failed: %v", err)
@@ -321,7 +321,7 @@ func TestLogRetentionPass(t *testing.T) {
 	t.Run("deletes_old_rows", func(t *testing.T) {
 		// The 10-day-old row from the previous subtest is older than 1 week.
 		setRetention("1w")
-		logRetentionPass(pool, settingsRepo)
+		logRetentionPass(ctx, pool, settingsRepo)
 		var n int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs`).Scan(&n); err != nil {
 			t.Fatalf("count failed: %v", err)
@@ -349,7 +349,7 @@ func TestLogRetentionPass(t *testing.T) {
 			t.Fatalf("insert failed: %v", err)
 		}
 		setRetention("48h")
-		logRetentionPass(pool, settingsRepo)
+		logRetentionPass(ctx, pool, settingsRepo)
 		for _, table := range []string{"request_logs", "app_logs"} {
 			var n int
 			if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+table).Scan(&n); err != nil {
@@ -373,8 +373,8 @@ func TestLogRetentionPass(t *testing.T) {
 		debuglog.SetHandler(slog.NewTextHandler(&logs, nil))
 		defer debuglog.SetHandler(debuglog.StdoutHandler())
 		setRetention("soon")
-		logRetentionPass(pool, settingsRepo)
-		logRetentionPass(pool, settingsRepo)
+		logRetentionPass(ctx, pool, settingsRepo)
+		logRetentionPass(ctx, pool, settingsRepo)
 		var n int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs`).Scan(&n); err != nil {
 			t.Fatalf("count failed: %v", err)
@@ -399,7 +399,7 @@ func TestLogRetentionPass(t *testing.T) {
 		debuglog.SetHandler(slog.NewTextHandler(&logs, nil))
 		defer debuglog.SetHandler(debuglog.StdoutHandler())
 		setRetention("0s")
-		logRetentionPass(pool, settingsRepo)
+		logRetentionPass(ctx, pool, settingsRepo)
 		var n int
 		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs`).Scan(&n); err != nil {
 			t.Fatalf("count failed: %v", err)
@@ -415,13 +415,13 @@ func TestLogRetentionPass(t *testing.T) {
 	t.Run("other_retention_windows", func(t *testing.T) {
 		for _, v := range []string{"1h", "24h", "720h"} {
 			setRetention(v)
-			logRetentionPass(pool, settingsRepo)
+			logRetentionPass(ctx, pool, settingsRepo)
 		}
 	})
 
 	t.Run("db_error_only_logs", func(t *testing.T) {
 		setRetention("24h")
-		logRetentionPass(closedTestPool(t).Pool(), settingsRepo)
+		logRetentionPass(ctx, closedTestPool(t).Pool(), settingsRepo)
 	})
 }
 
@@ -797,7 +797,7 @@ func TestStaleLogCleanupLoopStopsOnCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		staleLogCleanupLoop(ctx, cmdTestDB.Pool(), newTestSettingsRepo(), time.Now())
+		staleLogCleanupLoop(ctx, context.Background(), cmdTestDB.Pool(), newTestSettingsRepo(), time.Now())
 		close(done)
 	}()
 	cancel()
@@ -815,7 +815,7 @@ func TestLogRetentionLoopStopsOnCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() {
-		logRetentionLoop(ctx, cmdTestDB.Pool(), newTestSettingsRepo())
+		logRetentionLoop(ctx, context.Background(), cmdTestDB.Pool(), newTestSettingsRepo())
 		close(done)
 	}()
 	cancel()
@@ -985,11 +985,12 @@ func TestSweepScheduledDisables_NothingDue(t *testing.T) {
 	assertNoScheduledDisableEvent(t, ch)
 }
 
-// TestSweepScheduledDisables_CompletesOnCancelledContext pins the shutdown
-// behaviour: the sweep drops its caller's cancellation, because the UPDATE
-// clears the schedule as it fires and a sweep abandoned midway would strand the
-// disable with no event and no way for a later sweep to notice.
-func TestSweepScheduledDisables_CompletesOnCancelledContext(t *testing.T) {
+// TestScheduledDisableLoop_SweepsOnACancelledLoopContext pins the shutdown
+// behaviour: the sweep runs on the group's drain context rather than the loop's,
+// so a sweep the shutdown cancel lands on still fires. The UPDATE clears the
+// schedule as it fires, and a sweep abandoned midway would strand the disable
+// with no event and no way for a later sweep to notice.
+func TestScheduledDisableLoop_SweepsOnACancelledLoopContext(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")
 	}
@@ -1003,9 +1004,11 @@ func TestSweepScheduledDisables_CompletesOnCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	if n := sweepScheduledDisables(ctx, provider.NewRepository(pool), failover.NewRepository(pool)); n != 1 {
-		t.Fatalf("disabled %d providers under a cancelled context, want 1", n)
-	}
+	// The loop sweeps once before its first tick and then returns at once on
+	// the cancelled context, so what runs here is exactly that sweep, on a
+	// loop context that is already dead. An hour-long tick rules out a second.
+	scheduledDisableLoop(ctx, context.Background(), provider.NewRepository(pool), failover.NewRepository(pool), time.Hour)
+
 	assertProviderState(t, due, "cancelled-ctx", false, false)
 	if fired := collectScheduledDisableEvents(t, ch, 1); fired["sched-cancelled-ctx"] != due.String() {
 		t.Errorf("event carries provider_id %q, want %s", fired["sched-cancelled-ctx"], due)
@@ -1044,7 +1047,7 @@ func TestScheduledDisableLoop_SweepsAtStartup(t *testing.T) {
 	go func() {
 		// An hour-long tick guarantees the disable below is the startup
 		// sweep's doing rather than a tick's.
-		scheduledDisableLoop(ctx, provider.NewRepository(pool), failover.NewRepository(pool), time.Hour)
+		scheduledDisableLoop(ctx, context.Background(), provider.NewRepository(pool), failover.NewRepository(pool), time.Hour)
 		close(done)
 	}()
 
@@ -1085,7 +1088,7 @@ func TestScheduledDisableLoop_SweepsOnTick(t *testing.T) {
 	defer cancel()
 	done := make(chan struct{})
 	go func() {
-		scheduledDisableLoop(ctx, provider.NewRepository(pool), failover.NewRepository(pool), 10*time.Millisecond)
+		scheduledDisableLoop(ctx, context.Background(), provider.NewRepository(pool), failover.NewRepository(pool), 10*time.Millisecond)
 		close(done)
 	}()
 
@@ -1114,5 +1117,192 @@ func TestScheduledDisableLoop_SweepsOnTick(t *testing.T) {
 	case <-done:
 	case <-time.After(5 * time.Second):
 		t.Fatal("scheduled disable loop did not stop on context cancellation")
+	}
+}
+
+// Shutdown cancels the root context, joins the background loops, and only then
+// releases what they read. This pins that order: the probe standing in for the
+// database must not have closed while a registered loop is still running. A
+// loop started with a bare `go` was invisible to the join, so the deferred
+// database close could run underneath it.
+func TestBackgroundGroup_JoinsLoopsBeforeResourcesClose(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var g backgroundGroup
+
+	var dbClosed atomic.Bool
+	observed := make(chan bool, 1)
+	g.Go("fake-loop", func() {
+		<-ctx.Done()
+		// A loop's last act still reads the pool, the way the retention sweep
+		// does. If the join did not cover it, the close would land here.
+		time.Sleep(20 * time.Millisecond)
+		observed <- dbClosed.Load()
+	})
+
+	cancel()
+	if stuck := g.Wait(5 * time.Second); stuck != nil {
+		t.Fatalf("Wait reported %v still running, want none", stuck)
+	}
+	dbClosed.Store(true)
+
+	if <-observed {
+		t.Fatal("a loop was still running against a closed database: the join returned before it did")
+	}
+}
+
+// The join is bounded: a loop that does not honour its cancellation delays the
+// exit by the budget and is named, instead of hanging the process forever. The
+// loops that did stop are not named.
+func TestBackgroundGroup_WaitNamesALoopThatIgnoresCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var g backgroundGroup
+
+	release := make(chan struct{})
+	g.Go("well-behaved", func() { <-ctx.Done() })
+	g.Go("ignores-ctx", func() { <-release })
+
+	cancel()
+	start := time.Now()
+	stuck := g.Wait(200 * time.Millisecond)
+	elapsed := time.Since(start)
+
+	// One joiner however often Wait gives up: a fresh goroutine per call would
+	// park in wg.Wait and stay there.
+	joiner := g.joined
+	if again := g.Wait(10 * time.Millisecond); !slices.Equal(again, stuck) {
+		t.Fatalf("second Wait returned %v, want the same %v", again, stuck)
+	}
+	if g.joined != joiner {
+		t.Fatal("Wait started a second joiner goroutine instead of reusing the first")
+	}
+
+	close(release)
+	if left := g.Wait(5 * time.Second); left != nil {
+		t.Fatalf("loops still running after release: %v", left)
+	}
+
+	if !slices.Equal(stuck, []string{"ignores-ctx"}) {
+		t.Fatalf("Wait returned %v, want [ignores-ctx]", stuck)
+	}
+	if elapsed > 5*time.Second {
+		t.Fatalf("Wait took %s: an uncooperative loop must delay shutdown, not hang it", elapsed)
+	}
+}
+
+// A tick landing together with the shutdown cancel starts nothing. select picks
+// at random between two ready cases, so without the guard a maintenance pass
+// could begin AFTER the cancel and hold a ceiling the join budget had already
+// started counting down against. Repeated because one run only samples that
+// coin once: without the guard, two hundred of them never all come up
+// "cancelled".
+func TestEveryStartsNoPassAfterTheCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	calls := 0
+	for range 200 {
+		every(ctx, time.Nanosecond, func() { calls++ })
+	}
+	if calls != 0 {
+		t.Fatalf("f ran %d times under a cancelled context: a maintenance pass began after shutdown did", calls)
+	}
+}
+
+// The passes that detached from the root context are bounded by the join and by
+// nothing else: while the server is up they run for as long as the database
+// takes, and Wait's budget expiring is what cancels them.
+func TestBackgroundGroup_WaitCancelsTheDrainContext(t *testing.T) {
+	var g backgroundGroup
+	root, cancelRoot := context.WithCancel(context.Background())
+	drainCtx := g.drainContext(root)
+
+	cancelRoot()
+	if drainCtx.Err() != nil {
+		t.Fatal("the root cancellation ended the drain context: a pass already running would lose the statement it started")
+	}
+
+	release := make(chan struct{})
+	defer close(release)
+	g.Go("ignores-ctx", func() { <-release })
+
+	if stuck := g.Wait(50 * time.Millisecond); !slices.Equal(stuck, []string{"ignores-ctx"}) {
+		t.Fatalf("Wait returned %v, want [ignores-ctx]", stuck)
+	}
+	if drainCtx.Err() == nil {
+		t.Fatal("the join budget expired without cancelling the drain context: a pass stalled on the database would outlive the join and write into a closing pool")
+	}
+}
+
+// The same property at the group: a member that ignores the cancellation and
+// runs to a ceiling of its own is joined, not named, when the budget covers it.
+func TestBackgroundGroup_WaitJoinsAMemberThatIgnoresCancellation(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	var g backgroundGroup
+
+	const memberCeiling = 100 * time.Millisecond
+	g.Go("detached-pass", func() {
+		// context.WithoutCancel + a deadline, the way sweepScheduledDisables
+		// runs: the cancel below is not what ends this.
+		passCtx, passCancel := context.WithTimeout(context.WithoutCancel(ctx), memberCeiling)
+		defer passCancel()
+		<-passCtx.Done()
+	})
+
+	cancel()
+	start := time.Now()
+	if stuck := g.Wait(5 * time.Second); stuck != nil {
+		t.Fatalf("Wait reported %v still running, want none: a budget above the member's ceiling must join it", stuck)
+	}
+	if elapsed := time.Since(start); elapsed < memberCeiling {
+		t.Fatalf("Wait returned after %s, before the member's %s ceiling: it did not wait the detached pass out", elapsed, memberCeiling)
+	}
+}
+
+// A maintenance pass runs its statements on the group's drain context and
+// carries no ceiling of its own: the first sweep after retention is enabled has
+// a whole backlog to delete, and a deadline there would cancel the DELETE, roll
+// it back and leave the pass failing identically every hour. What bounds it is
+// the shutdown join cancelling that context. Here the table is locked out from
+// under the sweep so the DELETE blocks, and the cancellation is the only thing
+// that can end it.
+//
+// The cancel stands in for the join budget expiring and fires in milliseconds,
+// so the ACCESS EXCLUSIVE lock is held for that long rather than for the length
+// of a real budget: the api suite shares this database and this table.
+func TestLogRetentionPassEndsWhenTheDrainContextIsCancelled(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	ctx := context.Background()
+	pool := cmdTestDB.Pool()
+	settingsRepo := newTestSettingsRepo()
+	if err := settingsRepo.Set(ctx, "log_retention", "1w"); err != nil {
+		t.Fatalf("set failed: %v", err)
+	}
+	t.Cleanup(func() { _ = settingsRepo.Set(ctx, "log_retention", "") })
+
+	tx, err := pool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin failed: %v", err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	if _, err := tx.Exec(ctx, `LOCK TABLE app_logs IN ACCESS EXCLUSIVE MODE`); err != nil {
+		t.Fatalf("lock failed: %v", err)
+	}
+
+	const joinExpiry = 100 * time.Millisecond
+	drainCtx, cancelDrain := context.WithCancel(context.Background())
+	defer cancelDrain()
+	time.AfterFunc(joinExpiry, cancelDrain)
+
+	start := time.Now()
+	logRetentionPass(drainCtx, pool, settingsRepo)
+	elapsed := time.Since(start)
+
+	if elapsed < joinExpiry {
+		t.Fatalf("pass returned after %s, before the %s cancel: the DELETE never waited on the lock, so nothing was proved", elapsed, joinExpiry)
+	}
+	if elapsed > 5*time.Second {
+		t.Fatalf("pass took %s: a statement on the drain context must end when the join cancels it, or shutdown closes the pool underneath it", elapsed)
 	}
 }

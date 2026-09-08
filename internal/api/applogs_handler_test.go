@@ -23,7 +23,7 @@ func TestRingBufferWriteEntry(t *testing.T) {
 	InitAppLogBuffer(nil) // Initialize with nil pool for pure tests
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	entry := AppLogEntry{
@@ -47,7 +47,7 @@ func TestRingBufferWriteEntry_WrapAround(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	// Fill the buffer to capacity
@@ -90,7 +90,7 @@ func TestRingBufferGetEntries_Empty(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	entries := appLogBuffer.GetEntries()
@@ -103,7 +103,7 @@ func TestRingBufferGetEntries_Order(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	// Add entries in order
@@ -134,7 +134,7 @@ func TestRingBufferClear(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	// Add some entries
@@ -163,7 +163,7 @@ func TestRingBufferClearOlderThan(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	now := time.Now().UTC()
@@ -203,7 +203,7 @@ func TestRingBufferClearOlderThan_KeepsUnparseable(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	appLogBuffer.writeEntry(AppLogEntry{Timestamp: "not-a-timestamp", Message: "keep me"})
@@ -328,9 +328,13 @@ func splitFlatAttrs(line string) map[string]string {
 // these logs can be steered onto an attacker's chosen values. A CrowdSec or
 // fail2ban style reader taking remote_addr would ban a stranger.
 func TestAppSlogHandlerQuotesInjectedAttrValues(t *testing.T) {
-	savedBuf, savedWriter := appLogBuffer, dbWriter
-	appLogBuffer, dbWriter = nil, nil
-	defer func() { appLogBuffer, dbWriter = savedBuf, savedWriter }()
+	savedBuf, savedWriter := appLogBuffer, dbWriter.Load()
+	appLogBuffer = nil
+	dbWriter.Store(nil)
+	defer func() {
+		appLogBuffer = savedBuf
+		dbWriter.Store(savedWriter)
+	}()
 
 	var buf bytes.Buffer
 	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
@@ -368,9 +372,13 @@ func TestAppSlogHandlerQuotesInjectedAttrValues(t *testing.T) {
 // "auth: key owner disabled" it sits in front of remote_addr. Reading the
 // first key=<ip> token must still find the real client.
 func TestAppSlogHandlerQuotesValuePrecedingTheAddress(t *testing.T) {
-	savedBuf, savedWriter := appLogBuffer, dbWriter
-	appLogBuffer, dbWriter = nil, nil
-	defer func() { appLogBuffer, dbWriter = savedBuf, savedWriter }()
+	savedBuf, savedWriter := appLogBuffer, dbWriter.Load()
+	appLogBuffer = nil
+	dbWriter.Store(nil)
+	defer func() {
+		appLogBuffer = savedBuf
+		dbWriter.Store(savedWriter)
+	}()
 
 	var buf bytes.Buffer
 	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
@@ -396,9 +404,13 @@ func TestAppSlogHandlerQuotesValuePrecedingTheAddress(t *testing.T) {
 // An attribute value that contains a level or a scope marker must not be able
 // to restate either, and every value has to survive the round trip.
 func TestAppSlogHandlerQuotesValuesWithQuotesAndEquals(t *testing.T) {
-	savedBuf, savedWriter := appLogBuffer, dbWriter
-	appLogBuffer, dbWriter = nil, nil
-	defer func() { appLogBuffer, dbWriter = savedBuf, savedWriter }()
+	savedBuf, savedWriter := appLogBuffer, dbWriter.Load()
+	appLogBuffer = nil
+	dbWriter.Store(nil)
+	defer func() {
+		appLogBuffer = savedBuf
+		dbWriter.Store(savedWriter)
+	}()
 
 	var buf bytes.Buffer
 	h := &appSlogHandler{level: slog.LevelInfo, stderr: &stderrLogFilter{dst: &buf}}
@@ -659,11 +671,11 @@ func TestStderrLogFilterWrite_MultiLine(t *testing.T) {
 func TestInitAppLogBuffer(t *testing.T) {
 	// Save original values
 	origBuffer := appLogBuffer
-	origWriter := dbWriter
+	origWriter := dbWriter.Load()
 	origOutput := log.Writer()
 	defer func() {
 		appLogBuffer = origBuffer
-		dbWriter = origWriter
+		dbWriter.Store(origWriter)
 		log.SetOutput(origOutput)
 	}()
 
@@ -672,7 +684,7 @@ func TestInitAppLogBuffer(t *testing.T) {
 	if appLogBuffer == nil {
 		t.Error("InitAppLogBuffer should initialize appLogBuffer")
 	}
-	if dbWriter != nil {
+	if dbWriter.Load() != nil {
 		t.Error("InitAppLogBuffer with nil pool should not initialize dbWriter")
 	}
 
@@ -687,23 +699,31 @@ func TestInitAppLogBuffer(t *testing.T) {
 // StopAppLogWriter tests
 // ---------------------------------------------------------------------------
 
-func TestStopAppLogWriter(t *testing.T) {
-	// Save original values
-	origWriter := dbWriter
+// The stopped writer stays in the global. Clearing it would make every producer
+// skip the writer, so a line logged between here and process exit would be
+// dropped with nothing said about it anywhere; left in place, the writer's own
+// closed state refuses the entry and the drop is counted on stderr.
+func TestStopAppLogWriter_LeavesTheStoppedWriterInPlaceAndCountsWhatFollows(t *testing.T) {
+	origWriter := dbWriter.Load()
 	defer func() {
-		dbWriter = origWriter
+		dbWriter.Store(origWriter)
 	}()
 
-	// Create a writer
 	InitAppLogBuffer(nil)
+	var out syncBuffer
 	writer := newDBLogWriter(nil, dbLogFlushInterval)
-	dbWriter = writer
+	writer.drops = &logDropReporter{dst: &out, interval: time.Hour}
+	dbWriter.Store(writer)
 
-	// Stop it
 	StopAppLogWriter()
 
-	if dbWriter != nil {
-		t.Error("StopAppLogWriter should set dbWriter to nil")
+	w := dbWriter.Load()
+	if w != writer {
+		t.Fatalf("dbWriter = %p, want the stopped writer %p: producers after shutdown must still find it", w, writer)
+	}
+	w.write(AppLogEntry{Level: "info", Source: "test", Message: "logged after the writer stopped"})
+	if got := out.String(); !strings.Contains(got, "1 entries dropped") {
+		t.Errorf("notice = %q, want the post-shutdown entry counted as a drop", got)
 	}
 }
 
@@ -715,7 +735,7 @@ func TestRingBufferWrite_MultiLine(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	input := "2026/04/28 09:55:43 [proxy] INFO first\n2026/04/28 09:55:44 [auth] ERROR second\n"
@@ -737,7 +757,7 @@ func TestRingBufferWrite_EmptyLines(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	input := "\n\n2026/04/28 09:55:43 [proxy] INFO message\n\n"
@@ -798,13 +818,13 @@ func TestGetAppLogCounts_Cache(t *testing.T) {
 func TestGetAppLogs_NilBuffer(t *testing.T) {
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 	// Establish the nil-buffer precondition explicitly: appLogBuffer is a global
 	// that an earlier test may have initialized, so we cannot rely on it already
 	// being nil (the defer above only restores it afterwards).
 	appLogBuffer = nil
-	dbWriter = nil
+	dbWriter.Store(nil)
 	h := &Handler{dbPool: nil}
 	req := httptest.NewRequest(http.MethodGet, "/api/app-logs", http.NoBody)
 	rr := httptest.NewRecorder()
@@ -852,7 +872,7 @@ func TestGetAppLogs_WithLimitAndAfter(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	// Add 15 entries with different timestamps
@@ -915,7 +935,7 @@ func TestClearAppLogs_WithBuffer(t *testing.T) {
 	InitAppLogBuffer(nil)
 	defer func() {
 		appLogBuffer = nil
-		dbWriter = nil
+		dbWriter.Store(nil)
 	}()
 
 	// Add some entries

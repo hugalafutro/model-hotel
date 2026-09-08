@@ -9,6 +9,8 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -139,7 +141,7 @@ func TestRunDiscoveryNoProviders(t *testing.T) {
 	}
 	wipeDiscoveryState(t)
 
-	result := runDiscovery(testDiscoveryDeps(t), "test")
+	result := runDiscovery(context.Background(), testDiscoveryDeps(t), "test")
 	if result.ProvidersScanned != 0 || result.ProvidersFailed != 0 || result.ModelsDiscovered != 0 {
 		t.Errorf("expected empty result, got %+v", result)
 	}
@@ -180,7 +182,7 @@ func TestRunDiscoveryPrunesChangeJournal(t *testing.T) {
 		}
 	}
 
-	runDiscovery(testDiscoveryDeps(t), "test")
+	runDiscovery(context.Background(), testDiscoveryDeps(t), "test")
 
 	rows, err := pool.Query(ctx, `SELECT diff->'added'->0->>'model_id' FROM discovery_changes`)
 	if err != nil {
@@ -246,7 +248,7 @@ func TestRunDiscoveryAlertsOnUnaddressedClaims(t *testing.T) {
 	ch := events.DefaultBus.Subscribe()
 	defer events.DefaultBus.Unsubscribe(ch)
 
-	runDiscovery(testDiscoveryDeps(t), "test")
+	runDiscovery(context.Background(), testDiscoveryDeps(t), "test")
 
 	ev := waitForEvent(t, ch, api.EventTypeClaimsOutstanding)
 	if got := ev.Metadata["claim_count"]; got != 1 {
@@ -284,7 +286,7 @@ func TestRunDiscoveryClaimAlertFailureDoesNotFailRun(t *testing.T) {
 	ch := events.DefaultBus.Subscribe()
 	defer events.DefaultBus.Unsubscribe(ch)
 
-	result := runDiscovery(deps, "test")
+	result := runDiscovery(context.Background(), deps, "test")
 
 	waitForEvent(t, ch, api.EventTypeClaimsOutstanding)
 	if len(result.Errors) != 0 {
@@ -304,9 +306,66 @@ func TestRunDiscoveryListError(t *testing.T) {
 	deps.pool = broken.Pool()
 	deps.providerRepo = provider.NewRepository(broken.Pool())
 
-	result := runDiscovery(deps, "test")
+	result := runDiscovery(context.Background(), deps, "test")
 	if len(result.Errors) == 0 {
 		t.Fatal("expected a list-providers error")
+	}
+}
+
+// A scheduled run carries the server's root context, so shutdown's cancel has
+// to end a scan already in flight instead of leaving it writing into a pool
+// that is about to close. The mock provider cancels the root while the gateway
+// is waiting on its response: the upstream request is aborted and the provider
+// is counted as failed, rather than the scan running to completion.
+func TestRunDiscoveryCancelledRootEndsScanInFlight(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	var reached atomic.Bool
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		reached.Store(true)
+		// The shutdown signal, arriving while this scan waits upstream.
+		cancel()
+		// Hold the response. The client's abort closes the connection, which
+		// ends this wait and leaves the scan with a failed request; a scan that
+		// did not honour the cancellation waits the ceiling out and is served a
+		// perfectly good listing, which is what the assertions below rule out.
+		select {
+		case <-r.Context().Done():
+			return
+		case <-time.After(3 * time.Second):
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"object": "list",
+			"data":   []map[string]any{{"id": "cancel-test-model", "object": "model", "owned_by": "tester"}},
+		})
+	}))
+	defer srv.Close()
+
+	deps := testDiscoveryDeps(t)
+	if _, err := deps.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "cmdserver-discovery-cancel-test",
+		BaseURL: srv.URL + "/v1",
+	}, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	result := runDiscovery(ctx, deps, "test")
+
+	if !reached.Load() {
+		t.Fatal("the provider was never scanned, so nothing was cancelled in flight")
+	}
+	if result.ProvidersFailed != 1 {
+		t.Fatalf("providers failed = %d (%v), want 1: a cancelled root must end the scan", result.ProvidersFailed, result.Errors)
+	}
+	if result.ModelsDiscovered != 0 {
+		t.Fatalf("models discovered = %d, want 0: the cancelled scan returned a listing anyway", result.ModelsDiscovered)
 	}
 }
 
@@ -385,7 +444,7 @@ func TestRunDiscoveryHappyPath(t *testing.T) {
 	ch := events.DefaultBus.Subscribe()
 	defer events.DefaultBus.Unsubscribe(ch)
 
-	result := runDiscovery(deps, "test")
+	result := runDiscovery(context.Background(), deps, "test")
 
 	if result.ProvidersScanned != 2 {
 		t.Errorf("expected 2 providers scanned, got %d", result.ProvidersScanned)
@@ -514,7 +573,8 @@ func TestMaybeStartupDiscovery(t *testing.T) {
 		defer func() { _ = settingsRepo.Set(ctx, "discovery_on_startup", "true") }()
 		// Must return without launching discovery; nothing observable to
 		// assert beyond not panicking and not touching providers.
-		maybeStartupDiscovery(deps, settingsRepo)
+		var group backgroundGroup
+		maybeStartupDiscovery(context.Background(), &group, deps, settingsRepo)
 	})
 
 	t.Run("skips_recently_discovered", func(t *testing.T) {
@@ -529,7 +589,8 @@ func TestMaybeStartupDiscovery(t *testing.T) {
 		touchLastDiscovered(ctx, deps.pool, p)
 		// Recently-discovered guard fires: no background run is launched, so
 		// the unreachable provider is never scanned again.
-		maybeStartupDiscovery(deps, settingsRepo)
+		var group backgroundGroup
+		maybeStartupDiscovery(context.Background(), &group, deps, settingsRepo)
 	})
 
 	t.Run("runs_in_background", func(t *testing.T) {
@@ -537,7 +598,8 @@ func TestMaybeStartupDiscovery(t *testing.T) {
 		ch := events.DefaultBus.Subscribe()
 		defer events.DefaultBus.Unsubscribe(ch)
 
-		maybeStartupDiscovery(deps, settingsRepo)
+		var group backgroundGroup
+		maybeStartupDiscovery(context.Background(), &group, deps, settingsRepo)
 
 		// Zero providers: the background run completes immediately with a
 		// success event.
@@ -546,6 +608,63 @@ func TestMaybeStartupDiscovery(t *testing.T) {
 			t.Errorf("expected success severity, got %q", ev.Severity)
 		}
 	})
+}
+
+// TestMaybeStartupDiscoveryIsJoinedByTheGroup pins the startup run to the
+// background group. Started with a bare `go` it is the one lifetime producer
+// shutdown cannot see, so it keeps scanning, upserting and logging while the
+// discovery service, the app-log writer and the pool are being closed. The
+// provider here holds its listing open until released, so the run is
+// demonstrably still in flight when the group is asked who is running.
+func TestMaybeStartupDiscoveryIsJoinedByTheGroup(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	wipeDiscoveryState(t)
+
+	release := make(chan struct{})
+	scanning := make(chan struct{})
+	var once sync.Once
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		once.Do(func() { close(scanning) })
+		select {
+		case <-release:
+		case <-r.Context().Done():
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"object": "list",
+			"data":   []map[string]any{{"id": "startup-join-model", "object": "model", "owned_by": "tester"}},
+		})
+	}))
+	defer srv.Close()
+
+	deps := testDiscoveryDeps(t)
+	settingsRepo := newTestSettingsRepo()
+	if _, err := deps.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "cmdserver-startup-join-test",
+		BaseURL: srv.URL + "/v1",
+	}, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create provider: %v", err)
+	}
+
+	var group backgroundGroup
+	maybeStartupDiscovery(context.Background(), &group, deps, settingsRepo)
+
+	select {
+	case <-scanning:
+	case <-time.After(10 * time.Second):
+		t.Fatal("the provider was never scanned, so no run was in flight to join")
+	}
+	if stuck := group.Wait(50 * time.Millisecond); len(stuck) != 1 || stuck[0] != "startup-discovery" {
+		t.Fatalf("group members still running = %v, want [startup-discovery]: the run is not registered with the group", stuck)
+	}
+
+	close(release)
+	if stuck := group.Wait(10 * time.Second); len(stuck) != 0 {
+		t.Fatalf("group members still running = %v, want none: the run was not joined", stuck)
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -631,7 +750,7 @@ func TestRunDiscoveryPrunesRetiredModels(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
-	result := runDiscovery(deps, "test")
+	result := runDiscovery(context.Background(), deps, "test")
 
 	if result.ModelsPruned != 1 {
 		t.Errorf("ModelsPruned = %d, want 1 (errors: %v)", result.ModelsPruned, result.Errors)
@@ -674,7 +793,7 @@ func TestRunDiscoveryPrunesWithShortHorizon(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
-	result := runDiscovery(deps, "test")
+	result := runDiscovery(context.Background(), deps, "test")
 
 	if result.ModelsPruned != 1 {
 		t.Errorf("ModelsPruned = %d, want 1 (errors: %v)", result.ModelsPruned, result.Errors)
@@ -703,7 +822,7 @@ func TestRunDiscoveryPruneOffKeepsRows(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
-	result := runDiscovery(deps, "test")
+	result := runDiscovery(context.Background(), deps, "test")
 
 	if result.ModelsPruned != 0 || !modelExists(t, old) {
 		t.Errorf("prune ran with model_prune_days=0: pruned=%d exists=%v", result.ModelsPruned, modelExists(t, old))
@@ -729,7 +848,7 @@ func TestRunDiscoveryPruneSkipsFailedProvider(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
-	result := runDiscovery(deps, "test")
+	result := runDiscovery(context.Background(), deps, "test")
 
 	if result.ProvidersFailed != 1 {
 		t.Fatalf("ProvidersFailed = %d, want 1 (the test needs one failing scan)", result.ProvidersFailed)
@@ -767,7 +886,7 @@ func TestRunDiscoveryPruneSkipsProviderWithUpsertFailure(t *testing.T) {
 	}
 	t.Cleanup(func() { _ = deps.settingsRepo.Set(context.Background(), "model_prune_days", "7") })
 
-	result := runDiscovery(deps, "test")
+	result := runDiscovery(context.Background(), deps, "test")
 
 	if result.ProvidersFailed != 0 {
 		t.Fatalf("ProvidersFailed = %d, want 0 (the listing itself succeeds)", result.ProvidersFailed)
@@ -804,7 +923,7 @@ func TestRunDiscoveryPruneRejectsUnusableHorizon(t *testing.T) {
 				t.Fatalf("set: %v", err)
 			}
 
-			result := runDiscovery(deps, "test")
+			result := runDiscovery(context.Background(), deps, "test")
 
 			if result.ModelsPruned != 0 {
 				t.Errorf("ModelsPruned = %d, want 0 for model_prune_days=%q", result.ModelsPruned, value)

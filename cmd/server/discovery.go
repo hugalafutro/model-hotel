@@ -106,12 +106,16 @@ func publishDiscoveryEvent(source string, result DiscoveryResult) {
 // records confirmed-missing models, and re-syncs failover groups afterwards.
 // source labels the trigger ("startup"/"scheduled") in events and the
 // discovery change feed.
-func runDiscovery(deps discoveryDeps, source string) DiscoveryResult {
+//
+// ctx is the caller's, and every scan and write below hangs off it: a run
+// started by the scheduler carries the server's root context, so shutdown's
+// cancel ends a scan in flight instead of leaving it writing into a pool the
+// shutdown path is about to close.
+func runDiscovery(ctx context.Context, deps discoveryDeps, source string) DiscoveryResult {
 	result := DiscoveryResult{}
 	// Set when any background-discovery change row is recorded, so we can
 	// publish a single live-update event for the Models nav badge.
 	changesRecorded := false
-	ctx := context.Background()
 	providers, err := deps.providerRepo.List(ctx)
 	if err != nil {
 		debuglog.Error("discovery: failed to list providers", "error", err)
@@ -475,12 +479,16 @@ func anyRecentlyDiscovered(providers []*provider.Provider, now time.Time, window
 // maybeStartupDiscovery launches the initial discovery run in the background,
 // unless discovery_on_startup is off or any provider was already discovered
 // within startupDiscoveryWindow (a restart loop must not hammer providers).
-func maybeStartupDiscovery(deps discoveryDeps, settingsRepo *settings.Repository) {
-	if !settingsRepo.GetBool(context.Background(), "discovery_on_startup", true) {
+// The run carries ctx, so a shutdown during startup ends it, and it runs as a
+// member of group so shutdown joins it: started with a bare `go` it would be
+// the one lifetime producer still scanning, upserting and logging while the
+// discovery service, the app-log writer and the pool are being closed.
+func maybeStartupDiscovery(ctx context.Context, group *backgroundGroup, deps discoveryDeps, settingsRepo *settings.Repository) {
+	if !settingsRepo.GetBool(ctx, "discovery_on_startup", true) {
 		return
 	}
 	recentlyDiscovered := false
-	providers, err := deps.providerRepo.List(context.Background())
+	providers, err := deps.providerRepo.List(ctx)
 	if err == nil {
 		recentlyDiscovered = anyRecentlyDiscovered(providers, time.Now(), startupDiscoveryWindow)
 	}
@@ -488,8 +496,7 @@ func maybeStartupDiscovery(deps discoveryDeps, settingsRepo *settings.Repository
 		debuglog.Info("discovery: skipping startup — last discovery within 5 minutes")
 		return
 	}
-	go func() {
-		result := runDiscovery(deps, "startup")
-		publishDiscoveryEvent("Startup", result)
-	}()
+	group.Go("startup-discovery", func() {
+		publishDiscoveryEvent("Startup", runDiscovery(ctx, deps, "startup"))
+	})
 }

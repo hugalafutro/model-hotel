@@ -663,27 +663,64 @@ func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var deleted int
-	if appLogBuffer != nil {
-		if all {
-			deleted = appLogBuffer.Clear()
-		} else {
-			deleted = appLogBuffer.ClearOlderThan(cutoff)
-		}
+	// Entries the writer has already queued would otherwise flush after the
+	// DELETE and reinstate rows the operator just purged, so drain the queue
+	// first. A barrier that does not complete, for any reason, says those
+	// entries may still be queued, which is worse than not deleting at all: it
+	// would answer 200 with a count the pending flush is about to undo. A deep
+	// queue and a fast DELETE are the normal combination under load, so the
+	// purge is refused and the operator is told to retry rather than served a
+	// number that is already wrong. That includes a writer that is stopping:
+	// its run goroutine is still draining thousands of queued entries into the
+	// pool, so "stopped" is not "stopped and drained". The only writer that
+	// skips the barrier is one that was never configured, which is a
+	// deployment with no database and so nothing queued anywhere.
+	if err := flushAppLogWriter(appLogFlushBarrierTimeout); err != nil {
+		respondError(w, "app log writer is still flushing its queue, retry the purge", err, http.StatusServiceUnavailable)
+		return
 	}
-	// Also delete from DB.
+
+	deleted := 0
 	if h.dbPool != nil {
 		query, args := `DELETE FROM app_logs`, []any(nil)
 		if !all {
 			query, args = `DELETE FROM app_logs WHERE created_at < $1`, []any{cutoff}
 		}
 		tag, err := h.dbPool.Pool().Exec(r.Context(), query, args...)
-		if err == nil {
-			deleted += int(tag.RowsAffected())
-			// The unfiltered total is derived from the cached level counts, so
-			// drop the cache now that the rows are gone; otherwise a poll within
-			// appLogCountCacheTTL would report a stale, non-zero total.
-			invalidateAppLogCountCache()
+		if err != nil {
+			// The ring buffer is left alone: it mirrors rows that are still
+			// there, and clearing it would report a purge that did not happen.
+			respondError(w, "failed to clear app logs", err, http.StatusInternalServerError)
+			return
+		}
+		deleted = int(tag.RowsAffected())
+		// The unfiltered total is derived from the cached level counts, so
+		// drop the cache now that the rows are gone; otherwise a poll within
+		// appLogCountCacheTTL would report a stale, non-zero total.
+		invalidateAppLogCountCache()
+	}
+
+	// The ring is cleared only once the rows behind it are gone. Its entries
+	// mirror those rows, so the deleted count stays the database's; the ring's
+	// own count is the answer only when there is no database holding them.
+	//
+	// For a ranged purge the mirror is approximate at the cutoff: the DELETE
+	// above filters on created_at, the row's insert time, while the ring holds
+	// the entry's own Timestamp, and the async writer puts a lag between the
+	// two. An entry logged just before the cutoff and inserted just after it
+	// can therefore survive one and not the other. Both clocks are honest
+	// about the same entry, the reported count is the database's, and the ring
+	// is a live view that ages out on its own, so the disagreement is left
+	// rather than papered over by re-reading one clock through the other.
+	if appLogBuffer != nil {
+		cleared := 0
+		if all {
+			cleared = appLogBuffer.Clear()
+		} else {
+			cleared = appLogBuffer.ClearOlderThan(cutoff)
+		}
+		if h.dbPool == nil {
+			deleted = cleared
 		}
 	}
 	writeJSON(w, map[string]int{"deleted": deleted})
