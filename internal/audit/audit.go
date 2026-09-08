@@ -12,7 +12,9 @@ package audit
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -77,6 +79,20 @@ type Recorder struct {
 	// settings change applies without restart. Nil means DefaultRetentionDays.
 	retentionDays func() int
 	lastPruneUnix atomic.Int64
+	// mu guards closed and every wg.Go, so admission and the close that ends it
+	// are one decision. Without it a handler the HTTP drain gave up on could Add
+	// to wg while Close is inside wg.Wait, which is the documented misuse and
+	// panics at the zero-counter boundary.
+	mu     sync.Mutex
+	closed bool
+	// refused counts the records turned away after Close, so a burst reads as a
+	// number rather than as a run of unexplained lines.
+	refused int
+	// notices is where a refusal is reported: stderr, and never debuglog, for
+	// the same reason the app-log drop reporter bypasses it. This runs after
+	// shutdown has begun, when the log writer may already be stopped and the
+	// pool closed, and the whole point of the line is that a row was lost.
+	notices io.Writer
 	// wg tracks the in-flight background record goroutines so Wait can drain
 	// them (graceful shutdown, deterministic tests).
 	wg sync.WaitGroup
@@ -84,7 +100,7 @@ type Recorder struct {
 
 // New creates a Recorder. retentionDays may be nil (default retention).
 func New(pool *pgxpool.Pool, retentionDays func() int) *Recorder {
-	return &Recorder{pool: pool, retentionDays: retentionDays}
+	return &Recorder{pool: pool, retentionDays: retentionDays, notices: os.Stderr}
 }
 
 // actorOf renders the request identity for the audit row: the username for
@@ -167,7 +183,7 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 		}
 		// Recorded on a background goroutine: the response is already written, so
 		// the insert (up to 5s under DB pressure) must not hold the handler
-		// goroutine. Best-effort, and tracked by rec.wg so Wait can drain it on
+		// goroutine. Best-effort, and tracked by rec.wg so Close can drain it on
 		// shutdown.
 		entry := Entry{
 			// Stamped at request completion so the trail's order reflects when
@@ -188,12 +204,7 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			// reverse proxy this is the operator's real IP, not the proxy's.
 			RemoteAddr: clientip.From(r),
 		}
-		// #nosec G118 -- record deliberately uses a background context so a
-		// client disconnect can never drop the audit row; the request context is
-		// the wrong scope here.
-		rec.wg.Go(func() {
-			rec.record(entry)
-		})
+		rec.spawn(entry)
 	})
 }
 
@@ -272,11 +283,51 @@ func (rec *Recorder) record(e Entry) {
 	rec.maybePrune()
 }
 
+// spawn starts the background insert for one entry, unless the recorder has
+// been closed. Admission is decided under the same lock Close takes, so a
+// handler that outlived the HTTP drain either gets its goroutine tracked by the
+// WaitGroup Close is about to wait on, or is refused outright: it can never Add
+// to a WaitGroup already inside Wait.
+func (rec *Recorder) spawn(e Entry) {
+	rec.mu.Lock()
+	if rec.closed {
+		rec.refused++
+		// Written under the lock so concurrent late handlers print their
+		// running counts in order and never interleave on a plain writer.
+		if rec.notices != nil {
+			_, _ = fmt.Fprintf(rec.notices, "audit: %d record(s) dropped after shutdown, most recent %s %s\n", rec.refused, e.Method, e.Route)
+		}
+		rec.mu.Unlock()
+		return
+	}
+	// #nosec G118 -- record deliberately uses a background context so a client
+	// disconnect can never drop the audit row; the request context is the wrong
+	// scope here.
+	rec.wg.Go(func() {
+		rec.record(e)
+	})
+	rec.mu.Unlock()
+}
+
 // Wait blocks until every background record goroutine spawned so far has
-// finished. Call it during graceful shutdown (after the HTTP server has
-// stopped accepting requests) so pending audit rows are flushed before the
-// pool closes, and in tests to make the async trail deterministic.
+// finished. Use it in tests to make the async trail deterministic. Shutdown
+// calls Close instead: this alone does not stop new records arriving, and a
+// record arriving during it is the Add-during-Wait panic.
 func (rec *Recorder) Wait() {
+	rec.wg.Wait()
+}
+
+// Close stops admitting records and then drains the ones already in flight, so
+// their inserts land before the pool closes. Called during graceful shutdown
+// after the HTTP server has stopped serving; a handler the drain gave up on can
+// still complete afterwards, and what it costs is one refused row reported on
+// stderr rather than a panic or a race with the pool close.
+//
+// Idempotent, and safe to call while requests are still finishing.
+func (rec *Recorder) Close() {
+	rec.mu.Lock()
+	rec.closed = true
+	rec.mu.Unlock()
 	rec.wg.Wait()
 }
 

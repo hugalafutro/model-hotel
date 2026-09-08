@@ -642,3 +642,31 @@ func TestFlushAppLogWriter_NoWriter(t *testing.T) {
 		t.Fatalf("flushAppLogWriter with no writer = %v, want nil", err)
 	}
 }
+
+// The queue carries flush barriers as well as entries, so a drain that measured
+// what was left with len(w.ch) reported an operator's pending purge barrier as a
+// lost log line. Here the deadline has already expired, so nothing is written
+// out and everything still queued is counted: the count has to be the entries
+// alone.
+func TestDBLogWriter_DrainCountsEntriesNotBarriers(t *testing.T) {
+	t.Parallel()
+	var out syncBuffer
+	w := armed(&dbLogWriter{ch: make(chan logMsg, 8), drops: &logDropReporter{dst: &out}})
+	// Expired before the drain starts, which is the case the count covers: the
+	// tail is dropped rather than handed to a pool.
+	w.endLife()
+
+	for i := range 3 {
+		w.ch <- logMsg{entry: AppLogEntry{Level: "info", Source: "test", Message: fmt.Sprintf("queued %d", i)}}
+		w.ch <- logMsg{flushed: make(chan struct{})}
+	}
+	w.drainTail(nil)
+
+	got := out.String()
+	if !strings.Contains(got, "3 entries dropped") {
+		t.Errorf("notice = %q, want %q: three barriers were counted as lost entries", got, "3 entries dropped")
+	}
+	if len(w.ch) != 0 {
+		t.Errorf("%d messages left in the queue: the drain measured it instead of emptying it", len(w.ch))
+	}
+}

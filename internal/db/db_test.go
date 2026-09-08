@@ -496,10 +496,14 @@ func TestRunMigrations_ReadDirError(t *testing.T) {
 	if got := err.Error(); !strings.Contains(got, "failed to read migrations directory") {
 		t.Errorf("error = %q, want substring %q", got, "failed to read migrations directory")
 	}
-	// The caller logs a schema the database refused differently from a database
-	// it could not reach, so the two have to be distinguishable.
-	if !errors.Is(err, ErrMigrations) {
-		t.Errorf("error %v is not an ErrMigrations", err)
+	// The caller logs a migration that failed differently from a database it
+	// could not reach, so the two have to be distinguishable. It is not
+	// ErrMigrations: an unreadable directory is nothing the operator decided.
+	if !errors.Is(err, ErrMigrationFailed) {
+		t.Errorf("error %v is not an ErrMigrationFailed", err)
+	}
+	if errors.Is(err, ErrMigrations) {
+		t.Errorf("error %v is labelled a deliberate refusal", err)
 	}
 }
 

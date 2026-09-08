@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -676,7 +677,17 @@ func (h *Handler) ClearAppLogs(w http.ResponseWriter, r *http.Request) {
 	// skips the barrier is one that was never configured, which is a
 	// deployment with no database and so nothing queued anywhere.
 	if err := flushAppLogWriter(appLogFlushBarrierTimeout); err != nil {
-		respondError(w, "app log writer is still flushing its queue, retry the purge", err, http.StatusServiceUnavailable)
+		// Straight to stderr, not through respondError: this refusal is the app
+		// log writer's own, and logging it would enqueue a line onto the very
+		// queue that just failed to drain, costing the operator another
+		// dbLogSendTimeout on top of the barrier's budget before the 503 is
+		// written. Same reason logDropReporter bypasses debuglog. stderr is the
+		// docker-logs stream, so the line still reaches `docker logs`; only the
+		// ring buffer and the dashboard's app-log view miss it, which is the
+		// trade: a bounded answer over a fully logged one.
+		fmt.Fprintf(os.Stderr, "api: app log purge refused, writer did not drain within %s: %v\n",
+			appLogFlushBarrierTimeout, err)
+		http.Error(w, "app log writer is still flushing its queue, retry the purge", http.StatusServiceUnavailable)
 		return
 	}
 

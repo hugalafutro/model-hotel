@@ -61,11 +61,22 @@ type DB struct {
 	pool *pgxpool.Pool
 }
 
-// ErrMigrations marks a New that reached the database and then would not take
-// its schema. A migration can refuse on purpose (082 refuses an install whose
-// provider names collide once normalized), and that has to read as a schema
-// refusal rather than as a database the process could not reach.
-var ErrMigrations = errors.New("failed to run migrations")
+// ErrMigrations marks the one migration failure that is a deliberate refusal:
+// a migration that raised its own exception rather than a statement the
+// database would not take. Migration 082 refuses an install whose provider
+// names collide once normalized, and that has to read as a schema the operator
+// has to repair, not as anything that went wrong on its own.
+//
+// Reserved for exactly that. A pool that never connected, a statement timeout,
+// a migration file that would not read and an ordinary SQL error are
+// ErrMigrationFailed instead, because labelling them a refusal sends the
+// operator looking for a decision nobody made.
+var ErrMigrations = errors.New("migration refused")
+
+// ErrMigrationFailed marks every other failure to apply the schema, so the
+// caller can say "migration failed" for it rather than reporting a database it
+// reached as one it could not connect to.
+var ErrMigrationFailed = errors.New("failed to run migrations")
 
 // New creates a new DB instance, runs migrations, and returns the database connection.
 func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB, error) {
@@ -93,7 +104,12 @@ func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB
 
 	if err := db.runMigrations(ctx); err != nil {
 		pool.Close()
-		return nil, fmt.Errorf("%w: %w", ErrMigrations, err)
+		// A migration that raised its own exception decided to refuse; anything
+		// else merely failed. Only the first is the operator's to resolve.
+		if IsRaisedException(err) {
+			return nil, fmt.Errorf("%w: %w", ErrMigrations, err)
+		}
+		return nil, fmt.Errorf("%w: %w", ErrMigrationFailed, err)
 	}
 
 	return db, nil

@@ -64,12 +64,14 @@ func TestValidateSyncedProviderNames(t *testing.T) {
 	}
 }
 
-// The collision the envelope cannot see: a provider this member has and the
-// envelope does not, whose name is a twin of one the envelope carries. The
-// declarative delete that would remove it runs after the upsert, so the insert
-// hits the normalized-name index. That is still the envelope carrying what the
-// interactive API would refuse, so it is the same 400, not a 500.
-func TestConfigSync_RefusesTwinOfALocalProviderAsBadRequest(t *testing.T) {
+// The rename the envelope cannot express: the primary renamed "a b" to "a-b",
+// so the member holds a row whose name is a twin of the one the envelope
+// carries and whose raw name matches nothing in it. Keyed on the raw name alone
+// the insert would hit the normalized-name index before the declarative delete
+// could remove the old row, and every later push would be refused the same way,
+// so the upsert renames the member's twin first and the push converges. The row
+// is the same row afterwards: its id, and the models hanging off it, survive.
+func TestConfigSync_ConvergesOnARenamedProviderTwin(t *testing.T) {
 	cleanConfigTables(t)
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 	seedProvider(t, "twin-a", "sk-secret", configSyncMasterKey)
@@ -80,23 +82,39 @@ func TestConfigSync_RefusesTwinOfALocalProviderAsBadRequest(t *testing.T) {
 		`UPDATE providers SET name = 'twin a' WHERE name = 'twin-a'`); err != nil {
 		t.Fatalf("rename the local row: %v", err)
 	}
+	before := providerID(t, "twin a")
 
 	rec := doImport(t, r, env, "")
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("import status = %d, want 400; body %s", rec.Code, rec.Body.String())
+	if rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d, want 200; body %s", rec.Code, rec.Body.String())
 	}
-	body := rec.Body.String()
-	if !strings.Contains(body, errInvalidSyncedProvider.Error()) {
-		t.Errorf("refusal %q does not carry %q", body, errInvalidSyncedProvider.Error())
+	if got := providerNames(t); len(got) != 2 || !got["keep"] || !got["twin-a"] {
+		t.Fatalf("provider set after the push = %v, want keep and twin-a", got)
 	}
-	// The phrase the in-transaction branch uses, so this pins the constraint
-	// path rather than the envelope-wide check that runs before the transaction.
-	if !strings.Contains(body, `"twin-a" is one name with a provider on this member`) {
-		t.Errorf("refusal %q is not the one the normalized-name index produces", body)
+	if after := providerID(t, "twin-a"); after != before {
+		t.Errorf("provider id %s became %s: the row was replaced rather than renamed, so its models went with it", before, after)
 	}
-	if got := providerNames(t); len(got) != 2 || !got["keep"] || !got["twin a"] {
-		t.Errorf("a refused envelope changed the provider set: %v", got)
+
+	// A second push is a no-op rather than the refusal the old row used to
+	// cause: convergence, not a one-time repair.
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("second import status = %d, want 200; body %s", rec.Code, rec.Body.String())
 	}
+	if got := providerNames(t); len(got) != 2 || !got["twin-a"] {
+		t.Errorf("provider set after the second push = %v, want it unchanged", got)
+	}
+}
+
+// providerID reads one provider's row id, so a test can tell a rename from a
+// delete-and-recreate.
+func providerID(t *testing.T, name string) string {
+	t.Helper()
+	var id string
+	if err := apiTestDB.Pool().QueryRow(t.Context(),
+		`SELECT id::text FROM providers WHERE name = $1`, name).Scan(&id); err != nil {
+		t.Fatalf("read provider id for %q: %v", name, err)
+	}
+	return id
 }
 
 // The commit fence answers before the envelope's content is judged. A push a

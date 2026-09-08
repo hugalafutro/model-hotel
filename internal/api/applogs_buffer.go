@@ -379,8 +379,24 @@ drain:
 		}
 	}
 	writeOut()
-	if left := refused + len(batch) + len(w.ch); left > 0 {
-		w.drops.drop(left, reason)
+	// What the queue still holds is drained rather than measured with len(w.ch):
+	// the channel carries flush barriers as well as entries, and counting its
+	// depth would report a queued barrier as a lost log line. A barrier left here
+	// is answered by its own sender's timeout, which is what bounds a purge that
+	// arrives during shutdown.
+	stranded := 0
+	for {
+		select {
+		case msg := <-w.ch:
+			if msg.flushed == nil {
+				stranded++
+			}
+		default:
+			if left := refused + len(batch) + stranded; left > 0 {
+				w.drops.drop(left, reason)
+			}
+			return
+		}
 	}
 }
 
