@@ -686,7 +686,9 @@
 			"neuralwattEnergy": "{{provider}}: energy used this period",
 			"unreadable": "{{provider}}: the primary's last fetch returned an unreadable response",
 			"noQuota": "{{provider}}: the primary's last fetch returned no quota",
-			"neuralwattEnergyOverage": "{{provider}}: in overage, usage draws from credits"
+			"neuralwattEnergyOverage": "{{provider}}: in overage, usage draws from credits",
+			"openCodeGoUsed": "{{provider}}: rolling and weekly quota used, monthly {{monthly}}",
+			"openCodeGoRemaining": "{{provider}}: rolling and weekly quota remaining, monthly {{monthly}}"
 		},
 		"modal": {
 			"toggleBarMode": "Switch between used and remaining",
@@ -748,7 +750,11 @@
 			"overageLimit": "Overage limit",
 			"rateLimitTier": "Rate limit tier",
 			"allowance": "Key allowance",
-			"neuralwattOverageNote": "In overage: the energy meter stops at the included amount; further usage draws down the credit balance."
+			"neuralwattOverageNote": "In overage: the energy meter stops at the included amount; further usage draws down the credit balance.",
+			"openCodeGoTitle": "OpenCode Go quota ({{provider}})",
+			"openCodeGoRolling": "Rolling quota (5h)",
+			"openCodeGoWeekly": "Weekly quota",
+			"openCodeGoMonthly": "Monthly quota"
 		}
 	},
 	"errors": {

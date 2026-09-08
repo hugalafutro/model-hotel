@@ -686,7 +686,9 @@
 			"neuralwattEnergy": "{{provider}}: 今期のエネルギー使用量",
 			"unreadable": "{{provider}}: プライマリの最後の取得で読み取れない応答が返されました",
 			"noQuota": "{{provider}}: プライマリの最後の取得でクォータは返されませんでした",
-			"neuralwattEnergyOverage": "{{provider}}: 超過中、使用分はクレジットから差し引かれます"
+			"neuralwattEnergyOverage": "{{provider}}: 超過中、使用分はクレジットから差し引かれます",
+			"openCodeGoUsed": "{{provider}}: ローリングおよび週間クォータの使用量、月間 {{monthly}}",
+			"openCodeGoRemaining": "{{provider}}: ローリングおよび週間クォータの残量、月間 {{monthly}}"
 		},
 		"modal": {
 			"toggleBarMode": "使用量と残量を切り替える",
@@ -748,7 +750,11 @@
 			"overageLimit": "超過上限",
 			"rateLimitTier": "レート制限ティア",
 			"allowance": "キーの割当額",
-			"neuralwattOverageNote": "超過中: エネルギーメーターは含まれる量で停止し、以降の使用はクレジット残高から差し引かれます。"
+			"neuralwattOverageNote": "超過中: エネルギーメーターは含まれる量で停止し、以降の使用はクレジット残高から差し引かれます。",
+			"openCodeGoTitle": "OpenCode Go クォータ ({{provider}})",
+			"openCodeGoRolling": "ローリングクォータ (5 時間)",
+			"openCodeGoWeekly": "週間クォータ",
+			"openCodeGoMonthly": "月間クォータ"
 		}
 	},
 	"errors": {

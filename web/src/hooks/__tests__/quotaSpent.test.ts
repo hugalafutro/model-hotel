@@ -285,6 +285,28 @@ describe("isQuotaPayloadSpent", () => {
 				balance: { credits_remaining_usd: 0.01 },
 			},
 		},
+		{
+			type: "opencode-go",
+			why: "one window at its ceiling blocks the whole subscription",
+			spent: {
+				usage: {
+					rolling: { status: "ok", percent: 100 },
+					weekly: { status: "ok", percent: 4 },
+				},
+			},
+			healthy: {
+				usage: {
+					rolling: { status: "ok", percent: 99 },
+					weekly: { status: "ok", percent: 4 },
+				},
+			},
+		},
+		{
+			type: "opencode-go",
+			why: "a status other than ok is spent whatever the percent says",
+			spent: { usage: { monthly: { status: "exceeded", percent: 0 } } },
+			healthy: { usage: { monthly: { status: "ok", percent: 0 } } },
+		},
 	];
 
 	for (const c of cases) {

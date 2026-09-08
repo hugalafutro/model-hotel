@@ -340,7 +340,11 @@
     <string name="quota_field_mcp_quota">Kvóta MCP</string>
     <string name="quota_field_five_hour">Kvóta za 5 h</string>
     <string name="quota_field_weekly">Týždenná kvóta</string>
+    <string name="quota_field_monthly">Mesačná kvóta</string>
     <string name="quota_field_energy">Energia</string>
+    <string name="quota_field_five_hour_reset">Obnovenie 5h kvóty</string>
+    <string name="quota_field_weekly_reset">Obnovenie týždennej kvóty</string>
+    <string name="quota_field_monthly_reset">Obnovenie mesačnej kvóty</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Odznaky kvót</string>

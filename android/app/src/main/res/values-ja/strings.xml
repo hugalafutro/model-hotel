@@ -322,7 +322,11 @@
     <string name="quota_field_mcp_quota">MCP クォータ</string>
     <string name="quota_field_five_hour">5時間クォータ</string>
     <string name="quota_field_weekly">週間クォータ</string>
+    <string name="quota_field_monthly">月間クォータ</string>
     <string name="quota_field_energy">電力量</string>
+    <string name="quota_field_five_hour_reset">5時間リセット</string>
+    <string name="quota_field_weekly_reset">週間リセット</string>
+    <string name="quota_field_monthly_reset">月間リセット</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">クォータバッジ</string>

@@ -34,6 +34,7 @@ fun isQuotaSpent(pq: ProviderQuota): Boolean {
         is QuotaData.OpenRouter -> isOpenRouterSpent(data)
         is QuotaData.OllamaCloud -> false
         is QuotaData.NeuralWatt -> isNeuralWattSpent(data)
+        is QuotaData.OpenCodeGo -> isOpenCodeGoSpent(data)
     }
 }
 
@@ -130,3 +131,13 @@ private fun isNeuralWattSpent(q: QuotaData.NeuralWatt): Boolean {
     val credits = q.balance.creditsRemainingUsd ?: return false
     return energySpent && credits < NEURALWATT_CREDITS_SPENT_FLOOR_USD
 }
+
+// percent is the consumed share, so 100 is a full window. Only "ok" is a
+// documented status, so any other non-empty value is OpenCode Go refusing the
+// window; an absent status decodes to "" and decides nothing.
+private fun isOpenCodeGoWindowSpent(w: OpenCodeGoWindow): Boolean =
+    w.percent >= 100.0 || (w.status.isNotEmpty() && w.status != "ok")
+
+// Rolling, weekly and monthly, the same three windows the gateway walks.
+private fun isOpenCodeGoSpent(u: QuotaData.OpenCodeGo): Boolean =
+    listOf(u.usage.rolling, u.usage.weekly, u.usage.monthly).any(::isOpenCodeGoWindowSpent)

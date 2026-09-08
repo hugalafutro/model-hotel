@@ -17,6 +17,7 @@ export {
 	getMiniMaxFiveHourLimit,
 	getMiniMaxGeneralEntry,
 	getMiniMaxWeeklyLimit,
+	getOpenCodeGoWindows,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingMcpLimit,
 	getZaiCodingWeeklyLimit,
@@ -33,6 +34,7 @@ const QUOTA_PROVIDER_TYPES = [
 	"openrouter",
 	"ollama-cloud",
 	"neuralwatt",
+	"opencode-go",
 ] as const satisfies readonly QuotaProviderType[];
 
 const KNOWN_TYPES = new Set<string>(QUOTA_PROVIDER_TYPES);
@@ -52,14 +54,15 @@ export const QUOTA_PREFIXES: Record<QuotaProviderType, string> = {
 	openrouter: "OR",
 	"ollama-cloud": "OLC",
 	neuralwatt: "NW",
+	"opencode-go": "OCG",
 };
 
 /**
  * Pill accent colour per provider, consumed as the `--quota-brand` custom
- * property. Three brands (Z.ai, Kimi, Ollama) are near-black in their own
- * palette, which is invisible on the dark theme, so they take the neutral muted
- * text colour instead. The Model Hotel dashboard makes the same substitution,
- * there by hand-writing a grey Tailwind class for those three.
+ * property. Four brands (Z.ai, Kimi, Ollama, OpenCode) are near-black in their
+ * own palette, which is invisible on the dark theme, so they take the neutral
+ * muted text colour instead. The Model Hotel dashboard makes the same
+ * substitution, there by hand-writing a grey Tailwind class for those four.
  */
 export const QUOTA_BRAND_COLORS: Record<QuotaProviderType, string> = {
 	nanogpt: "#0EA5B0",
@@ -70,6 +73,7 @@ export const QUOTA_BRAND_COLORS: Record<QuotaProviderType, string> = {
 	openrouter: "#6366F1",
 	"ollama-cloud": "var(--text-muted)",
 	neuralwatt: "#AC4324",
+	"opencode-go": "var(--text-muted)",
 };
 
 // ── Payload access ───────────────────────────────────────────────────────

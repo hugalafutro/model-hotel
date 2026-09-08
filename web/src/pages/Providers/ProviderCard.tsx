@@ -34,6 +34,7 @@ interface ProviderCardProps {
 	onSetModalMiniMax: () => void;
 	onSetModalOpenRouter: () => void;
 	onSetModalNeuralwatt: () => void;
+	onSetModalOpenCodeGo: () => void;
 	toast: (msg: string, type: "success" | "error" | "info") => void;
 	/** When true this provider is managed by the fleet primary: edit and delete
 	 * are hidden, since local changes are replaced on the next config sync. */
@@ -57,6 +58,7 @@ export function ProviderCard({
 	onSetModalMiniMax,
 	onSetModalOpenRouter,
 	onSetModalNeuralwatt,
+	onSetModalOpenCodeGo,
 	toast,
 	managed,
 }: ProviderCardProps) {
@@ -176,6 +178,7 @@ export function ProviderCard({
 									}
 								}}
 								onNeuralwattClick={onSetModalNeuralwatt}
+								onOpenCodeGoClick={onSetModalOpenCodeGo}
 							/>
 							{provider.last_cap && capNoteApplies(provider.base_url) && (
 								<CapNoteBadge note={provider.last_cap} />

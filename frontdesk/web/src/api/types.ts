@@ -468,7 +468,7 @@ export interface ZAICodingQuotaResponse {
 	};
 }
 
-// ── Kimi Code + MiniMax quota ───────────────────────────────────
+// ── Kimi Code + MiniMax + OpenCode Go quota ─────────────────────
 // Declared in web-shared/quota, the parser both Front Desk and the Model Hotel
 // dashboard use for these payloads, and re-exported here so app code imports
 // every API type from one place.
@@ -483,6 +483,10 @@ export type {
 	MiniMaxModelRemains,
 	MiniMaxQuotaResponse,
 	MiniMaxQuotaWindow,
+	OpenCodeGoUsageResponse,
+	OpenCodeGoUsageWindow,
+	OpenCodeGoWindow,
+	OpenCodeGoWindowKey,
 } from "@web-shared/quota";
 
 export interface DeepSeekBalanceInfo {

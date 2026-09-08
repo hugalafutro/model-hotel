@@ -328,7 +328,11 @@
     <string name="quota_field_mcp_quota">Quota MCP</string>
     <string name="quota_field_five_hour">Quota sur 5 h</string>
     <string name="quota_field_weekly">Quota hebdomadaire</string>
+    <string name="quota_field_monthly">Quota mensuel</string>
     <string name="quota_field_energy">Énergie</string>
+    <string name="quota_field_five_hour_reset">Réinitialisation 5 h</string>
+    <string name="quota_field_weekly_reset">Réinitialisation hebdomadaire</string>
+    <string name="quota_field_monthly_reset">Réinitialisation mensuelle</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Badges de quota</string>

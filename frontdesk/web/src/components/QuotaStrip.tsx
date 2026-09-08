@@ -10,6 +10,7 @@ import type {
 	MiniMaxQuotaResponse,
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
+	OpenCodeGoUsageResponse,
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -28,6 +29,7 @@ import { KimiCodeQuotaModal } from "./quota/KimiCodeQuotaModal";
 import { MiniMaxQuotaModal } from "./quota/MiniMaxQuotaModal";
 import { NanoGPTQuotaModal } from "./quota/NanoGPTQuotaModal";
 import { NeuralWattQuotaModal } from "./quota/NeuralWattQuotaModal";
+import { OpenCodeGoQuotaModal } from "./quota/OpenCodeGoQuotaModal";
 import { OpenRouterQuotaModal } from "./quota/OpenRouterQuotaModal";
 import type { QuotaModalProps } from "./quota/shared";
 import { ZAICodingQuotaModal } from "./quota/ZAICodingQuotaModal";
@@ -299,6 +301,10 @@ function QuotaModalFor({ model, ...rest }: QuotaModalForProps) {
 		case "neuralwatt": {
 			const p = payloadOf<NeuralWattQuotaResponse>(model.snapshot);
 			return p ? <NeuralWattQuotaModal {...common} payload={p} /> : null;
+		}
+		case "opencode-go": {
+			const p = payloadOf<OpenCodeGoUsageResponse>(model.snapshot);
+			return p ? <OpenCodeGoQuotaModal {...common} payload={p} /> : null;
 		}
 		// DeepSeek and Ollama Cloud never open a modal; onBadgeClick refreshes.
 		case "deepseek":

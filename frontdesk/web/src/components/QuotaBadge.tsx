@@ -8,6 +8,8 @@ import type {
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
+	OpenCodeGoUsageResponse,
+	OpenCodeGoWindowKey,
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -17,6 +19,7 @@ import {
 	getKimiCodeWeeklyLimit,
 	getMiniMaxFiveHourLimit,
 	getMiniMaxWeeklyLimit,
+	getOpenCodeGoWindows,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 	payloadOf,
@@ -160,6 +163,28 @@ function contentFor(
 			return {
 				label: a.plan || "-",
 				title: t("quota.badge.ollamaCloudPlan", { provider }),
+			};
+		}
+		case "opencode-go": {
+			// Rolling and weekly go on the pill, the same two-window reading the
+			// other window providers get; monthly has nowhere to go on a pill
+			// that narrow, so the tooltip carries it.
+			const percentByKey = new Map<OpenCodeGoWindowKey, number>(
+				getOpenCodeGoWindows(payload as OpenCodeGoUsageResponse).map((w) => [
+					w.key,
+					w.percent,
+				]),
+			);
+			const pct = (key: OpenCodeGoWindowKey) =>
+				windowPct(percentByKey.get(key), mode);
+			return {
+				label: `${pct("rolling")}/${pct("weekly")}`,
+				title: t(
+					mode === "remaining"
+						? "quota.badge.openCodeGoRemaining"
+						: "quota.badge.openCodeGoUsed",
+					{ provider, monthly: pct("monthly") },
+				),
 			};
 		}
 		case "neuralwatt": {

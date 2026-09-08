@@ -8,6 +8,7 @@ import type {
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
+	OpenCodeGoUsageResponse,
 	OpenRouterBalance,
 	ZAICodingQuotaResponse,
 } from "../api/types";
@@ -19,6 +20,7 @@ import {
 	getKimiCodeWeeklyLimit,
 	getMiniMaxFiveHourLimit,
 	getMiniMaxWeeklyLimit,
+	getOpenCodeGoWindows,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 } from "../hooks/useQuotaData";
@@ -48,6 +50,7 @@ const TYPE_PREFIX: Record<QuotaProviderType, string> = {
 	openrouter: PROVIDER_PREFIXES.openrouter,
 	"ollama-cloud": PROVIDER_PREFIXES["ollama-cloud"],
 	neuralwatt: PROVIDER_PREFIXES.neuralwatt,
+	"opencode-go": PROVIDER_PREFIXES["opencode-go"],
 };
 
 /** Card variant classes derived from PROVIDER_BRAND_COLORS.
@@ -89,6 +92,10 @@ const TYPE_STYLES: Record<
 	neuralwatt: {
 		sidebar: "sidebar-quota-pill sidebar-quota-pill-neuralwatt",
 		card: "quota-card-neuralwatt bg-[#ac4324]/20 text-[#ac4324] border border-[#ac4324]/50 hover:bg-[#ac4324]/30",
+	},
+	"opencode-go": {
+		sidebar: "sidebar-quota-pill sidebar-quota-pill-opencode-go",
+		card: "quota-card-opencode-go bg-white/10 text-gray-300 border border-gray-400/50 hover:bg-white/15",
 	},
 };
 
@@ -183,6 +190,31 @@ function miniMaxBadgeContent(
 		"components.quotaBadge.miniMaxUsed",
 		"components.quotaBadge.miniMaxRemaining",
 	);
+}
+
+/**
+ * The pill shows the two windows a session runs into, rolling then weekly; the
+ * monthly window only has room in the tooltip.
+ */
+function openCodeGoBadgeContent(
+	usage: OpenCodeGoUsageResponse | null | undefined,
+	barMode: QuotaBarMode,
+): BadgeContent {
+	const windows = getOpenCodeGoWindows(usage);
+	const pct = (key: "rolling" | "weekly" | "monthly") => {
+		const w = windows.find((x) => x.key === key);
+		if (!w) return "-";
+		return `${(barMode === "remaining" ? 100 - w.percent : w.percent).toFixed(0)}%`;
+	};
+	return {
+		label: `${pct("rolling")}/${pct("weekly")}`,
+		title: i18next.t(
+			barMode === "remaining"
+				? "components.quotaBadge.openCodeGoRemaining"
+				: "components.quotaBadge.openCodeGoUsed",
+			{ monthly: pct("monthly") },
+		),
+	};
 }
 
 function deepseekBadgeContent(
@@ -282,6 +314,8 @@ function spentPayload(p: QuotaBadgeProps) {
 			return p.ollamaCloudAccount;
 		case "neuralwatt":
 			return p.neuralwattQuota;
+		case "opencode-go":
+			return p.opencodeGoUsage;
 		default: {
 			const unhandled: never = p.type;
 			return unhandled;
@@ -315,6 +349,8 @@ export interface QuotaBadgeProps {
 	ollamaCloudAccount?: OllamaCloudAccount;
 	/** NeuralWatt props */
 	neuralwattQuota?: NeuralWattQuotaResponse | null;
+	/** OpenCode Go props */
+	opencodeGoUsage?: OpenCodeGoUsageResponse | null;
 	/** When the payload was last fetched, for the "updated HH:MM" tooltip. */
 	dataUpdatedAt?: number;
 }
@@ -335,6 +371,7 @@ export function QuotaBadge(props: QuotaBadgeProps) {
 		openrouterBalance,
 		ollamaCloudAccount,
 		neuralwattQuota,
+		opencodeGoUsage,
 		dataUpdatedAt,
 	} = props;
 	const { label, title: defaultTitle } = (() => {
@@ -385,6 +422,8 @@ export function QuotaBadge(props: QuotaBadgeProps) {
 					};
 				return neuralwattBadgeContent(neuralwattQuota, dataUpdatedAt);
 			}
+			case "opencode-go":
+				return openCodeGoBadgeContent(opencodeGoUsage, barMode);
 		}
 	})();
 
@@ -429,6 +468,7 @@ interface QuotaBadgesProps {
 	onOpenRouterClick?: () => void;
 	onOllamaCloudClick?: () => void;
 	onNeuralwattClick?: () => void;
+	onOpenCodeGoClick?: () => void;
 }
 
 /**
@@ -449,6 +489,7 @@ export function QuotaBadges({
 	onOpenRouterClick,
 	onOllamaCloudClick,
 	onNeuralwattClick,
+	onOpenCodeGoClick,
 }: QuotaBadgesProps) {
 	// The quota modals own this key and write it; the badges only follow it,
 	// re-reading whenever a modal in this tab or another tab changes the mode.
@@ -557,6 +598,17 @@ export function QuotaBadges({
 						neuralwattQuota={quotaData.neuralwattQuota}
 						dataUpdatedAt={quotaData.neuralwattDataUpdatedAt}
 						onClick={onNeuralwattClick}
+					/>
+				)}
+			{quotaData.showOpenCodeGoBadge &&
+				quotaData.opencodeGoUsage &&
+				showForType("opencode-go") && (
+					<QuotaBadge
+						type="opencode-go"
+						variant={variant}
+						barMode={barMode}
+						opencodeGoUsage={quotaData.opencodeGoUsage}
+						onClick={onOpenCodeGoClick}
 					/>
 				)}
 		</>

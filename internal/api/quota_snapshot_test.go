@@ -29,7 +29,8 @@ func TestQuotaKindFor(t *testing.T) {
 	cases := map[string]string{
 		"nanogpt": "usage", "zai-coding": "usage", "kimi-code": "usage",
 		"minimax": "usage", "openrouter": "usage", "neuralwatt": "usage",
-		"deepseek": "balance", "ollama-cloud": "account",
+		"opencode-go": "usage",
+		"deepseek":    "balance", "ollama-cloud": "account",
 	}
 	for pt, want := range cases {
 		got, ok := quotaKindFor(pt)
@@ -69,6 +70,41 @@ func TestFetchQuotaSnapshot_NeuralWattNilIs204(t *testing.T) {
 	}
 	if kind != "usage" {
 		t.Fatalf("want kind=usage, got %q", kind)
+	}
+	if string(payload) != "null" {
+		t.Fatalf("want payload=null, got %q", string(payload))
+	}
+}
+
+// TestFetchQuotaSnapshot_OpenCodeGoNoSubscriptionIs204 verifies the
+// no-subscription path: GetOpenCodeGoUsage returns (nil, nil) on the 403
+// EntitlementError a key without an active Go plan gets, and fetchQuotaSnapshot
+// must translate that to http_status=204 with a null payload rather than the
+// 424 a dead key produces.
+func TestFetchQuotaSnapshot_OpenCodeGoNoSubscriptionIs204(t *testing.T) {
+	disc := provider.NewDiscoveryServiceWithHTTPClient(&http.Client{
+		Transport: &mockTransport{roundTripFunc: func(_ *http.Request) (*http.Response, error) {
+			return &http.Response{
+				StatusCode: http.StatusForbidden,
+				Body:       io.NopCloser(strings.NewReader(`{"type":"error","error":{"type":"EntitlementError","message":"OpenCode Go subscription required."}}`)),
+				Header:     make(http.Header),
+			}, nil
+		}},
+	})
+	disc.SetRetryBaseDelay(time.Millisecond)
+
+	prov := createTestProvider(t, "opencode-go-nosub", "https://opencode.ai/zen/go/v1", testMasterKeyForDiscovery)
+	prov.ProviderType = "opencode-go"
+
+	kind, payload, status, err := fetchQuotaSnapshot(context.Background(), disc, prov, testMasterKeyForDiscovery)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if kind != "usage" {
+		t.Fatalf("want kind=usage, got %q", kind)
+	}
+	if status != http.StatusNoContent {
+		t.Fatalf("want status 204, got %d", status)
 	}
 	if string(payload) != "null" {
 		t.Fatalf("want payload=null, got %q", string(payload))

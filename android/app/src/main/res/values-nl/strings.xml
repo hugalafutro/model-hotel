@@ -328,7 +328,11 @@
     <string name="quota_field_mcp_quota">MCP-quota</string>
     <string name="quota_field_five_hour">Quotum van 5 uur</string>
     <string name="quota_field_weekly">Wekelijks quotum</string>
+    <string name="quota_field_monthly">Maandelijks quotum</string>
     <string name="quota_field_energy">Energie</string>
+    <string name="quota_field_five_hour_reset">5-uursreset</string>
+    <string name="quota_field_weekly_reset">Wekelijkse reset</string>
+    <string name="quota_field_monthly_reset">Maandelijkse reset</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Quotabadges</string>

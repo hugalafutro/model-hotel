@@ -58,3 +58,26 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 	debuglog.Info("discovery: opencode-go discovered models", "provider", provider.Name, "provider_id", provider.ID, "live", len(live), "catalog", len(catalog), "merged", len(merged))
 	return merged, nil
 }
+
+// GetOpenCodeGoUsage retrieves the subscription usage windows for an OpenCode
+// Go provider from its /usage endpoint.
+//
+// 403 EntitlementError means the key is fine but carries no active Go
+// subscription, so it is passed as an expected status: fetchQuotaJSONAt returns
+// an expected status as a bare *httpError before quotaAuthError can classify
+// 401/403 as a dead credential, and reporting no data and no error here makes
+// marshalQuota store 204 with a null payload so the badge stays hidden. A
+// revoked key answers 401, which is not expected and still becomes
+// ErrProviderKeyInvalid (424).
+func (d *DiscoveryService) GetOpenCodeGoUsage(ctx context.Context, provider *Provider, masterKey string) (*OpenCodeGoUsageResponse, error) {
+	var usage OpenCodeGoUsageResponse
+	err := d.fetchQuotaJSON(ctx, provider, masterKey, "/usage", "opencode-go", "usage", &usage, http.StatusForbidden)
+	if errorStatusCode(err) == http.StatusForbidden {
+		debuglog.Info("discovery: opencode-go usage endpoint refused: no active Go subscription", "provider", provider.Name, "provider_id", provider.ID)
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &usage, nil
+}

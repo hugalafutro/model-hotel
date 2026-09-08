@@ -17,6 +17,7 @@ import {
 	isNanoGptQuotaVisible,
 	isNeuralWattQuotaVisible,
 	isOllamaCloudQuotaVisible,
+	isOpenCodeGoQuotaVisible,
 	isOpenRouterQuotaVisible,
 	isZaiCodingQuotaVisible,
 } from "@web-shared/quota";
@@ -32,6 +33,7 @@ import type {
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
+	OpenCodeGoUsageResponse,
 	OpenRouterBalance,
 	Provider,
 	ZAICodingQuotaLimit,
@@ -48,6 +50,7 @@ export {
 	getMiniMaxFiveHourLimit,
 	getMiniMaxGeneralEntry,
 	getMiniMaxWeeklyLimit,
+	getOpenCodeGoWindows,
 	getZaiCodingFiveHourLimit,
 	getZaiCodingWeeklyLimit,
 } from "@web-shared/quota";
@@ -74,6 +77,14 @@ export function setCachedData<T>(key: string, data: T) {
 	}
 }
 
+export function clearCachedData(key: string) {
+	try {
+		localStorage.removeItem(`${CACHE_PREFIX}:${key}`);
+	} catch {
+		/* ignore */
+	}
+}
+
 // ── Provider type detection ──────────────────────────────────────────────
 // The type union is the shared one; sniffing a base URL for it is the
 // dashboard's own job, because only it holds provider records. Front Desk reads
@@ -83,6 +94,24 @@ function hostnameMatches(url: string, suffix: string, exact?: string): boolean {
 	try {
 		const h = new URL(url).hostname;
 		return exact ? h === exact || h.endsWith(suffix) : h.endsWith(suffix);
+	} catch {
+		return false;
+	}
+}
+
+// opencode.ai serves OpenCode Zen and OpenCode Go from one host, so only the
+// base URL path tells them apart. Zen (/zen/v1) has no quota endpoint. The host
+// matches exactly or as a subdomain, the same rule every other arm applies, so
+// a subdomain such as www.opencode.ai is recognised; the path is compared
+// segment-wise so a sibling like /zen/gold/v1 does not read as Go while a base
+// URL typed without the version segment still does.
+function pathMatches(url: string, host: string, prefix: string): boolean {
+	try {
+		const { hostname, pathname } = new URL(url);
+		return (
+			(hostname === host || hostname.endsWith(`.${host}`)) &&
+			(pathname === prefix || pathname.startsWith(`${prefix}/`))
+		);
 	} catch {
 		return false;
 	}
@@ -100,6 +129,7 @@ export function detectQuotaProviderType(
 	if (hostnameMatches(baseUrl, "openrouter.ai")) return "openrouter";
 	if (hostnameMatches(baseUrl, "ollama.com")) return "ollama-cloud";
 	if (hostnameMatches(baseUrl, "neuralwatt.com")) return "neuralwatt";
+	if (pathMatches(baseUrl, "opencode.ai", "/zen/go")) return "opencode-go";
 	return null;
 }
 
@@ -138,6 +168,7 @@ export interface QuotaDataResult {
 	openrouterProviderId: string | undefined;
 	ollamaCloudProviderId: string | undefined;
 	neuralwattProviderId: string | undefined;
+	opencodeGoProviderId: string | undefined;
 
 	/** Raw query data. */
 	nanogptUsage: NanoGPTUsage | undefined;
@@ -148,6 +179,7 @@ export interface QuotaDataResult {
 	openrouterBalance: OpenRouterBalance | undefined;
 	ollamaCloudAccount: OllamaCloudAccount | undefined;
 	neuralwattQuota: NeuralWattQuotaResponse | null | undefined;
+	opencodeGoUsage: OpenCodeGoUsageResponse | null | undefined;
 
 	/** Derived Z.ai limits. */
 	zaiCodingFiveHour: ZAICodingQuotaLimit | undefined;
@@ -174,6 +206,7 @@ export interface QuotaDataResult {
 	showOrBadge: boolean;
 	showOllamaCloudBadge: boolean;
 	showNeuralwattBadge: boolean;
+	showOpenCodeGoBadge: boolean;
 
 	/** Whether any quota-supporting provider exists. */
 	hasAnyProvider: boolean;
@@ -187,6 +220,7 @@ export interface QuotaDataResult {
 	refetchOpenRouter: () => Promise<void>;
 	refetchOllamaCloud: () => Promise<void>;
 	refetchNeuralwatt: () => Promise<void>;
+	refetchOpenCodeGo: () => Promise<void>;
 
 	/** Individual isRefetching flags. */
 	isNanoRefetching: boolean;
@@ -197,6 +231,7 @@ export interface QuotaDataResult {
 	isOrRefetching: boolean;
 	isOllamaCloudRefetching: boolean;
 	isNeuralwattRefetching: boolean;
+	isOpenCodeGoRefetching: boolean;
 
 	/** dataUpdatedAt for modals. */
 	openrouterDataUpdatedAt: number;
@@ -207,6 +242,7 @@ export interface QuotaDataResult {
 	deepseekDataUpdatedAt: number;
 	ollamaCloudDataUpdatedAt: number;
 	neuralwattDataUpdatedAt: number;
+	opencodeGoDataUpdatedAt: number;
 
 	/** Invalidate all quota query keys. */
 	invalidateAll: () => void;
@@ -248,8 +284,12 @@ function useProviderQuota<T>(
 		initialData: () => getCachedData<T>(cacheKey),
 	});
 
+	// A null payload means the provider has no quota to report (a 204: lapsed or
+	// free tier), so the stale cache is dropped rather than repainted as
+	// initialData on the next reload.
 	useEffect(() => {
 		if (data != null) setCachedData(cacheKey, data);
+		else if (data === null) clearCachedData(cacheKey);
 	}, [cacheKey, data]);
 
 	// One toast per healthy-to-failing transition, not one per refetch.
@@ -282,6 +322,7 @@ export const QUOTA_QUERY_KEYS = [
 	"openrouter-balance",
 	"ollama-cloud-account",
 	"neuralwatt-quota",
+	"opencode-go-usage",
 ] as const;
 
 /** Marks every quota query stale, e.g. after a provider is added or removed. */
@@ -377,6 +418,16 @@ export function useQuotaData(
 		interval,
 	);
 
+	const opencodeGo = useProviderQuota<OpenCodeGoUsageResponse | null>(
+		providers,
+		"opencode-go",
+		"opencode-go-usage",
+		(id) => api.providers.getOpenCodeGoUsage(id),
+		"hooks.useQuotaData.openCodeGoError",
+		toastErrors,
+		interval,
+	);
+
 	const {
 		providerId: nanogptProviderId,
 		data: nanogptUsage,
@@ -425,6 +476,12 @@ export function useQuotaData(
 		dataUpdatedAt: neuralwattDataUpdatedAt,
 		isRefetching: isNeuralwattRefetching,
 	} = neuralwatt;
+	const {
+		providerId: opencodeGoProviderId,
+		data: opencodeGoUsage,
+		dataUpdatedAt: opencodeGoDataUpdatedAt,
+		isRefetching: isOpenCodeGoRefetching,
+	} = opencodeGo;
 
 	// ── Derived values ──
 	const zaiCodingFiveHour = getZaiCodingFiveHourLimit(zaiCodingUsage);
@@ -482,6 +539,11 @@ export function useQuotaData(
 		neuralwattQuota != null &&
 		isNeuralWattQuotaVisible(neuralwattQuota);
 
+	const showOpenCodeGoBadge =
+		Boolean(opencodeGoProviderId) &&
+		opencodeGoUsage != null &&
+		isOpenCodeGoQuotaVisible(opencodeGoUsage);
+
 	const hasAnyProvider = Boolean(
 		nanogptProviderId ||
 			zaiCodingProviderId ||
@@ -490,7 +552,8 @@ export function useQuotaData(
 			deepseekProviderId ||
 			openrouterProviderId ||
 			ollamaCloudProviderId ||
-			neuralwattProviderId,
+			neuralwattProviderId ||
+			opencodeGoProviderId,
 	);
 
 	const invalidateAll = useCallback(
@@ -507,6 +570,7 @@ export function useQuotaData(
 		openrouterProviderId,
 		ollamaCloudProviderId,
 		neuralwattProviderId,
+		opencodeGoProviderId,
 		nanogptUsage,
 		zaiCodingUsage,
 		kimiCodeUsage,
@@ -515,6 +579,7 @@ export function useQuotaData(
 		openrouterBalance,
 		ollamaCloudAccount,
 		neuralwattQuota,
+		opencodeGoUsage,
 		zaiCodingFiveHour,
 		zaiCodingWeekly,
 		kimiCodeFiveHour,
@@ -531,6 +596,7 @@ export function useQuotaData(
 		showOrBadge,
 		showOllamaCloudBadge,
 		showNeuralwattBadge,
+		showOpenCodeGoBadge,
 		hasAnyProvider,
 		refetchNano: nano.refetch,
 		refetchZaiCoding: zai.refetch,
@@ -540,6 +606,7 @@ export function useQuotaData(
 		refetchOpenRouter: openrouter.refetch,
 		refetchOllamaCloud: ollamaCloud.refetch,
 		refetchNeuralwatt: neuralwatt.refetch,
+		refetchOpenCodeGo: opencodeGo.refetch,
 		isNanoRefetching,
 		isZaiCodingRefetching,
 		isKimiCodeRefetching,
@@ -548,6 +615,7 @@ export function useQuotaData(
 		isOrRefetching,
 		isOllamaCloudRefetching,
 		isNeuralwattRefetching,
+		isOpenCodeGoRefetching,
 		nanogptDataUpdatedAt,
 		zaiCodingDataUpdatedAt,
 		kimiCodeDataUpdatedAt,
@@ -556,6 +624,7 @@ export function useQuotaData(
 		openrouterDataUpdatedAt,
 		ollamaCloudDataUpdatedAt,
 		neuralwattDataUpdatedAt,
+		opencodeGoDataUpdatedAt,
 		invalidateAll,
 	};
 }

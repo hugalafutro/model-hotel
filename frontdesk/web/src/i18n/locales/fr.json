@@ -694,7 +694,9 @@
 			"neuralwattEnergy": "{{provider}} : énergie consommée sur cette période",
 			"unreadable": "{{provider}} : la dernière récupération du primaire a renvoyé une réponse illisible",
 			"noQuota": "{{provider}} : la dernière récupération du primaire n'a renvoyé aucun quota",
-			"neuralwattEnergyOverage": "{{provider}} : en dépassement, l'utilisation est prélevée sur les crédits"
+			"neuralwattEnergyOverage": "{{provider}} : en dépassement, l'utilisation est prélevée sur les crédits",
+			"openCodeGoUsed": "{{provider}} : quota glissant et hebdomadaire utilisé, mensuel {{monthly}}",
+			"openCodeGoRemaining": "{{provider}} : quota glissant et hebdomadaire restant, mensuel {{monthly}}"
 		},
 		"modal": {
 			"toggleBarMode": "Basculer entre utilisé et restant",
@@ -756,7 +758,11 @@
 			"overageLimit": "Limite de dépassement",
 			"rateLimitTier": "Niveau de limite de débit",
 			"allowance": "Dotation de la clé",
-			"neuralwattOverageNote": "En dépassement : le compteur d'énergie s'arrête à la quantité incluse ; l'utilisation supplémentaire est prélevée sur le solde de crédits."
+			"neuralwattOverageNote": "En dépassement : le compteur d'énergie s'arrête à la quantité incluse ; l'utilisation supplémentaire est prélevée sur le solde de crédits.",
+			"openCodeGoTitle": "Quota OpenCode Go ({{provider}})",
+			"openCodeGoRolling": "Quota glissant (5 h)",
+			"openCodeGoWeekly": "Quota hebdomadaire",
+			"openCodeGoMonthly": "Quota mensuel"
 		}
 	},
 	"errors": {

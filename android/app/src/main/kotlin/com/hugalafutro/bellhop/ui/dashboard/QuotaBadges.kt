@@ -40,7 +40,9 @@ import com.hugalafutro.bellhop.data.QuotaMeterKind
 import com.hugalafutro.bellhop.data.isQuotaSpent
 import com.hugalafutro.bellhop.data.quotaBadgeLabel
 import com.hugalafutro.bellhop.data.quotaMeters
+import com.hugalafutro.bellhop.ui.common.LocalTimePattern
 import com.hugalafutro.bellhop.ui.common.TightTouchTarget
+import com.hugalafutro.bellhop.ui.events.formatEventTime
 import com.hugalafutro.bellhop.ui.theme.SeverityErrorBg
 import com.hugalafutro.bellhop.ui.theme.SeverityWarnBg
 import com.hugalafutro.bellhop.ui.theme.SeverityWarnTextLight
@@ -387,7 +389,31 @@ private fun QuotaDetailRows(data: QuotaData) {
                 QuotaDetailRow(stringResource(R.string.quota_field_status), data.subscription.status)
             }
         }
+        is QuotaData.OpenCodeGo -> {
+            // The three percentages are bars above; what they don't say is when
+            // the window comes back, which is the whole reason to open the sheet
+            // on a spent rolling window.
+            val windows = data.usage
+            ResetRow(R.string.quota_field_five_hour_reset, windows.rolling.resetsAt)
+            ResetRow(R.string.quota_field_weekly_reset, windows.weekly.resetsAt)
+            ResetRow(R.string.quota_field_monthly_reset, windows.monthly.resetsAt)
+        }
     }
+}
+
+/** ResetRow draws one window's reset time, or nothing when the window carries
+ * no timestamp: a blank value row would only widen the sheet to say nothing.
+ * The RFC3339 instant the gateway sends is read at the device's own zone and on
+ * the clock face Settings chose, through the same [formatEventTime] every other
+ * screen stamps a timestamp with, so a rolling window that comes back inside the
+ * day reads as the operator's wall clock rather than UTC. */
+@Composable
+private fun ResetRow(
+    @StringRes label: Int,
+    resetsAt: String,
+) {
+    if (resetsAt.isBlank()) return
+    QuotaDetailRow(stringResource(label), formatEventTime(resetsAt, LocalTimePattern.current))
 }
 
 /**
@@ -482,6 +508,7 @@ private fun meterLabel(kind: QuotaMeterKind): Int =
     when (kind) {
         QuotaMeterKind.FIVE_HOUR -> R.string.quota_field_five_hour
         QuotaMeterKind.WEEKLY -> R.string.quota_field_weekly
+        QuotaMeterKind.MONTHLY -> R.string.quota_field_monthly
         QuotaMeterKind.MCP -> R.string.quota_field_mcp_quota
         QuotaMeterKind.DAILY_INPUT_TOKENS -> R.string.quota_field_daily_input_tokens
         QuotaMeterKind.DAILY_IMAGES -> R.string.quota_field_daily_images

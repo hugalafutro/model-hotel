@@ -365,6 +365,7 @@ export function Providers() {
 						onSetModalMiniMax={() => setOpen("minimax")}
 						onSetModalOpenRouter={() => setOpen("openrouter")}
 						onSetModalNeuralwatt={() => setOpen("neuralwatt")}
+						onSetModalOpenCodeGo={() => setOpen("opencode-go")}
 						toast={toast}
 					/>
 				))}

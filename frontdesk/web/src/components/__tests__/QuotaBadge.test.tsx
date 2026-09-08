@@ -314,6 +314,94 @@ describe("QuotaBadge", () => {
 		);
 	});
 
+	it("renders the OpenCode Go rolling and weekly windows with monthly in the tooltip", () => {
+		// Only two windows fit on a pill, so monthly rides in the tooltip; the
+		// assertion reads both so a rolling/weekly swap cannot pass.
+		const usage = {
+			usage: {
+				rolling: { status: "ok", percent: 12 },
+				weekly: { status: "ok", percent: 34 },
+				monthly: { status: "ok", percent: 56 },
+			},
+		};
+		render(
+			<QuotaBadge
+				model={model({ type: "opencode-go" }, usage)}
+				barMode="used"
+				onClick={vi.fn()}
+			/>,
+		);
+		const badge = screen.getByTestId("quota-badge-opencode-go:p");
+		expect(badge).toHaveTextContent("12%/34%");
+		expect(badge.getAttribute("title")).toContain("56%");
+	});
+
+	it("inverts the OpenCode Go percentages in remaining mode", () => {
+		render(
+			<QuotaBadge
+				model={model(
+					{ type: "opencode-go" },
+					{
+						usage: {
+							rolling: { status: "ok", percent: 12 },
+							monthly: { status: "ok", percent: 56 },
+						},
+					},
+				)}
+				barMode="remaining"
+				onClick={vi.fn()}
+			/>,
+		);
+		const badge = screen.getByTestId("quota-badge-opencode-go:p");
+		// Weekly is absent from the payload, so its half of the pill is a dash
+		// rather than an invented 100%.
+		expect(badge).toHaveTextContent("88%/-");
+		expect(badge.getAttribute("title")).toContain("44%");
+	});
+
+	it("marks an OpenCode Go account spent on a window at its ceiling or off status", () => {
+		const go = (rolling: object) => ({ usage: { rolling } });
+		render(
+			<QuotaBadge
+				model={model(
+					{ type: "opencode-go", providerName: "full" },
+					go({ status: "ok", percent: 100 }),
+				)}
+				barMode="used"
+				onClick={vi.fn()}
+			/>,
+		);
+		render(
+			<QuotaBadge
+				model={model(
+					{ type: "opencode-go", providerName: "flagged" },
+					go({ status: "exceeded", percent: 10 }),
+				)}
+				barMode="used"
+				onClick={vi.fn()}
+			/>,
+		);
+		render(
+			<QuotaBadge
+				model={model(
+					{ type: "opencode-go", providerName: "healthy" },
+					go({ status: "ok", percent: 10 }),
+				)}
+				barMode="used"
+				onClick={vi.fn()}
+			/>,
+		);
+		expect(screen.getByTestId("quota-badge-opencode-go:full")).toHaveClass(
+			"fd-quota-pill-spent",
+		);
+		expect(screen.getByTestId("quota-badge-opencode-go:flagged")).toHaveClass(
+			"fd-quota-pill-spent",
+		);
+		expect(
+			screen.getByTestId("quota-badge-opencode-go:healthy"),
+		).not.toHaveClass("fd-quota-pill-spent");
+	});
+
 	it("renders Ollama Cloud plan", () => {
 		render(
 			<QuotaBadge

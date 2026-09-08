@@ -328,7 +328,11 @@
     <string name="quota_field_mcp_quota">MCP-Kontingent</string>
     <string name="quota_field_five_hour">5-Stunden-Kontingent</string>
     <string name="quota_field_weekly">Wochenkontingent</string>
+    <string name="quota_field_monthly">Monatskontingent</string>
     <string name="quota_field_energy">Energie</string>
+    <string name="quota_field_five_hour_reset">5-Stunden-Reset</string>
+    <string name="quota_field_weekly_reset">Wochen-Reset</string>
+    <string name="quota_field_monthly_reset">Monats-Reset</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Kontingent-Badges</string>

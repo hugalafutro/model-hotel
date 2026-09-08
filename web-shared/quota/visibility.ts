@@ -1,5 +1,6 @@
 import { getKimiCodeFiveHourLimit, getKimiCodeWeeklyLimit } from "./kimi";
 import { getMiniMaxGeneralEntry } from "./minimax";
+import { getOpenCodeGoWindows } from "./opencodeGo";
 import type {
 	DeepSeekBalanceLike,
 	KimiCodeQuotaResponse,
@@ -7,6 +8,7 @@ import type {
 	NanoGptUsageLike,
 	NeuralWattQuotaLike,
 	OllamaCloudAccountLike,
+	OpenCodeGoUsageResponse,
 	OpenRouterBalanceLike,
 	QuotaProviderType,
 	ZaiCodingResponseLike,
@@ -65,6 +67,11 @@ export function isNeuralWattQuotaVisible(q: NeuralWattQuotaLike): boolean {
 	);
 }
 
+/** Visible as soon as the payload carries a window to read. */
+export function isOpenCodeGoQuotaVisible(u: OpenCodeGoUsageResponse): boolean {
+	return getOpenCodeGoWindows(u).length > 0;
+}
+
 /**
  * Visibility for a payload whose provider type is known only as a value, which
  * is how Front Desk receives it: the fleet primary stamps the type on every
@@ -91,5 +98,7 @@ export function isQuotaPayloadVisible(
 			return isOllamaCloudQuotaVisible(payload as OllamaCloudAccountLike);
 		case "neuralwatt":
 			return isNeuralWattQuotaVisible(payload as NeuralWattQuotaLike);
+		case "opencode-go":
+			return isOpenCodeGoQuotaVisible(payload as OpenCodeGoUsageResponse);
 	}
 }

@@ -7,6 +7,7 @@ import {
 	MiniMaxQuotaModal,
 	NanoGPTQuotaModal,
 	NeuralWattQuotaModal,
+	OpenCodeGoQuotaModal,
 	OpenRouterQuotaModal,
 	ZAICodingQuotaModal,
 } from "./ProviderModals";
@@ -110,6 +111,19 @@ export function QuotaModalsHost() {
 						isRefreshing={q.isNeuralwattRefetching}
 						onToast={toast}
 						lastRefreshed={q.neuralwattDataUpdatedAt}
+					/>
+				)
+			);
+		case "opencode-go":
+			return (
+				q.opencodeGoUsage && (
+					<OpenCodeGoQuotaModal
+						usage={q.opencodeGoUsage}
+						onClose={onClose}
+						onRefresh={q.refetchOpenCodeGo}
+						isRefreshing={q.isOpenCodeGoRefetching}
+						onToast={toast}
+						lastRefreshed={q.opencodeGoDataUpdatedAt}
 					/>
 				)
 			);

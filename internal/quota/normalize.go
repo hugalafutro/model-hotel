@@ -91,6 +91,8 @@ func Assess(providerType string, s Snapshot) Assessment {
 		return assessMiniMax(s.Payload)
 	case "neuralwatt":
 		return assessNeuralwatt(s.Payload)
+	case "opencode-go":
+		return assessOpenCodeGo(s.Payload)
 	default:
 		return Assessment{}
 	}
@@ -289,6 +291,41 @@ func addKimiWindow(e *earliestReset, d provider.KimiCodeQuotaDetail) {
 	if t, ok := parseResetString(d.ResetTime); ok {
 		e.add(t)
 	}
+}
+
+// assessOpenCodeGo handles OpenCode Go's three usage windows (rolling, weekly,
+// monthly). The provider struct is decoded directly: percent is consumed share
+// rather than remaining, so an absent field decodes to 0 and reads as untouched,
+// which is the fail-open direction the other parsers reach for with pointers.
+//
+// Only a spent window with a readable future reset dates a pin, and the verdict
+// comes from the shared earliestReset path every other assessor uses: a spent
+// window whose resetsAt cannot be parsed contributes nothing, so a payload
+// carrying only such windows reports healthy rather than exhausted with no
+// deadline. An exhausted verdict always names the moment the breaker waits for.
+func assessOpenCodeGo(payload json.RawMessage) Assessment {
+	var res provider.OpenCodeGoUsageResponse
+	if err := json.Unmarshal(payload, &res); err != nil {
+		return Assessment{}
+	}
+	var e earliestReset
+	for _, w := range []provider.OpenCodeGoUsageWindow{res.Usage.Rolling, res.Usage.Weekly, res.Usage.Monthly} {
+		if !openCodeGoWindowSpent(w) {
+			continue
+		}
+		if t, ok := parseResetString(w.ResetsAt); ok {
+			e.add(t)
+		}
+	}
+	return e.result(time.Now())
+}
+
+// openCodeGoWindowSpent reports whether one OpenCode Go window is spent. The
+// percent is the consumed share, so 100 is a full window. Only "ok" is a
+// documented status, so any other non-empty value is OpenCode Go refusing the
+// window; an absent status decodes to "" and decides nothing.
+func openCodeGoWindowSpent(w provider.OpenCodeGoUsageWindow) bool {
+	return w.Percent >= 100 || (w.Status != "" && w.Status != "ok")
 }
 
 // minimaxModelRemain is the subset of a MiniMax model_remains entry the quota

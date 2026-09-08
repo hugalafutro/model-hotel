@@ -3,11 +3,13 @@ import { describe, expect, it, vi } from "vitest";
 import type {
 	KimiCodeQuotaResponse,
 	MiniMaxQuotaResponse,
+	OpenCodeGoUsageResponse,
 	ZAICodingQuotaResponse,
 } from "../../../api/types";
 import { formatAbsolute } from "../../../utils/time";
 import { KimiCodeQuotaModal } from "../KimiCodeQuotaModal";
 import { MiniMaxQuotaModal } from "../MiniMaxQuotaModal";
+import { OpenCodeGoQuotaModal } from "../OpenCodeGoQuotaModal";
 import { ZAICodingQuotaModal } from "../ZAICodingQuotaModal";
 
 const chrome = {
@@ -286,5 +288,83 @@ describe("MiniMaxQuotaModal", () => {
 			/>,
 		);
 		expect(screen.queryByTestId("minimax-general-5h-fill")).toBeNull();
+	});
+});
+
+describe("OpenCodeGoQuotaModal", () => {
+	const payload: OpenCodeGoUsageResponse = {
+		usage: {
+			rolling: {
+				status: "ok",
+				percent: 12,
+				resetsAt: "2026-07-26T15:00:00Z",
+			},
+			weekly: { status: "ok", percent: 34 },
+			monthly: { status: "ok", percent: 56 },
+		},
+	};
+
+	it("renders all three windows, in the order OpenCode Go reports them", () => {
+		const { container } = render(
+			<OpenCodeGoQuotaModal {...chrome} payload={payload} barMode="used" />,
+		);
+		expect(screen.getByTestId("opencode-go-rolling-fill")).toHaveStyle({
+			width: "12%",
+		});
+		expect(screen.getByTestId("opencode-go-weekly-fill")).toHaveStyle({
+			width: "34%",
+		});
+		expect(screen.getByTestId("opencode-go-monthly-fill")).toHaveStyle({
+			width: "56%",
+		});
+		// Order matters: rolling is the shortest window and reads first.
+		const bars = [...container.querySelectorAll("[data-testid$='-bar']")].map(
+			(el) => el.getAttribute("data-testid"),
+		);
+		expect(bars).toEqual([
+			"opencode-go-rolling-bar",
+			"opencode-go-weekly-bar",
+			"opencode-go-monthly-bar",
+		]);
+	});
+
+	it("inverts the fills in remaining mode", () => {
+		render(
+			<OpenCodeGoQuotaModal
+				{...chrome}
+				payload={payload}
+				barMode="remaining"
+			/>,
+		);
+		expect(screen.getByTestId("opencode-go-rolling-fill")).toHaveStyle({
+			width: "88%",
+		});
+	});
+
+	it("shows the reset time a window reports and a dash for one that omits it", () => {
+		render(
+			<OpenCodeGoQuotaModal {...chrome} payload={payload} barMode="used" />,
+		);
+		expect(
+			screen.getByTestId("opencode-go-rolling-bar").parentElement,
+		).toHaveTextContent(formatAbsolute("2026-07-26T15:00:00Z"));
+		expect(
+			screen.getByTestId("opencode-go-weekly-bar").parentElement,
+		).toHaveTextContent("-");
+	});
+
+	it("omits a window the payload does not carry", () => {
+		render(
+			<OpenCodeGoQuotaModal
+				{...chrome}
+				payload={{ usage: { weekly: { status: "ok", percent: 5 } } }}
+				barMode="used"
+			/>,
+		);
+		expect(screen.queryByTestId("opencode-go-rolling-fill")).toBeNull();
+		expect(screen.queryByTestId("opencode-go-monthly-fill")).toBeNull();
+		expect(screen.getByTestId("opencode-go-weekly-fill")).toHaveStyle({
+			width: "5%",
+		});
 	});
 });

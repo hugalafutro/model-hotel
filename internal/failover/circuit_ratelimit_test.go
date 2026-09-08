@@ -129,6 +129,28 @@ func TestRecordExhausted_AdvisorBeatsHint(t *testing.T) {
 	}
 }
 
+// TestRecordExhausted_ZeroAdvisorResetLeavesHintPin covers an advisor entry
+// carrying the zero time: it names no deadline, so the refusal's own hint must
+// still be the pin in force. Adopting the zero would compute a large negative
+// duration, fail the floor and leave the circuit with no pin at all, which is
+// worse than the hint it had unassessed.
+func TestRecordExhausted_ZeroAdvisorResetLeavesHintPin(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour})
+	cb.SetQuotaAdvisor(stubAdvisor{ok: true})
+	id := uuid.New()
+
+	hint := 30 * time.Minute
+	cb.RecordExhausted(id, "p", "m", 429, hint)
+
+	got := overrideForModel(t, cb, id, "m")
+	if got < hint || got > hint+hint/20 {
+		t.Errorf("override = %v, want the response hint %v (plus jitter), not a pin dropped by the zero advisor reset", got, hint)
+	}
+	if s := onlyStatus(t, cb); s.PinSource != "response" {
+		t.Errorf("pin_source = %q, want %q: a zero advisor reset must not claim the pin", s.PinSource, "response")
+	}
+}
+
 func TestRecordExhausted_ReleaseQuotaPinsLiftsHintPin(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour})
 	id := uuid.New()

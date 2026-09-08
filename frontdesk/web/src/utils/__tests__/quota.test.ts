@@ -40,7 +40,7 @@ function snap(over: Partial<QuotaSnapshot> = {}): QuotaSnapshot {
 }
 
 describe("isQuotaProviderType", () => {
-	it("accepts the eight known types", () => {
+	it("accepts the nine known types", () => {
 		for (const t of [
 			"nanogpt",
 			"zai-coding",
@@ -50,6 +50,7 @@ describe("isQuotaProviderType", () => {
 			"openrouter",
 			"ollama-cloud",
 			"neuralwatt",
+			"opencode-go",
 		]) {
 			expect(isQuotaProviderType(t)).toBe(true);
 		}
@@ -337,6 +338,26 @@ describe("toBadgeModels", () => {
 			}),
 		]);
 		expect(out).toEqual([]);
+	});
+
+	it("hides an OpenCode Go payload that reports no window", () => {
+		// The 403 "no Go subscription" answer arrives as a 204 and is caught by
+		// the degraded path; this is the other empty case, a 200 whose usage
+		// object carries nothing to put on a pill.
+		expect(
+			toBadgeModels([snap({ type: "opencode-go", payload: { usage: {} } })]),
+		).toEqual([]);
+	});
+
+	it("keeps an OpenCode Go payload that reports a window", () => {
+		const out = toBadgeModels([
+			snap({
+				type: "opencode-go",
+				payload: { usage: { rolling: { status: "ok", percent: 12 } } },
+			}),
+		]);
+		expect(out).toHaveLength(1);
+		expect(out[0].type).toBe("opencode-go");
 	});
 
 	it("hides an unavailable DeepSeek balance", () => {

@@ -245,7 +245,7 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
 | `/api/providers/{id}` | PUT | Update provider |
 | `/api/providers/{id}` | DELETE | Delete provider |
 | `/api/providers/{id}/discover` | POST | Trigger manual model discovery |
-| `/api/providers/{id}/usage` | GET | Get usage/quota info (Z.AI, Nano-GPT, OpenRouter, NeuralWatt, Kimi Code, MiniMax) |
+| `/api/providers/{id}/usage` | GET | Get usage/quota info (Z.AI, Nano-GPT, OpenRouter, NeuralWatt, Kimi Code, MiniMax, OpenCode Go) |
 | `/api/providers/{id}/balance` | GET | Get balance info (DeepSeek) |
 | `/api/providers/{id}/account` | GET | Get account info (Ollama Cloud) |
 | `/api/providers/discover-all` | POST | Trigger discovery for all enabled providers |
@@ -387,6 +387,7 @@ Returns usage/quota information for supported providers.
 - `neuralwatt` (NeuralWatt - returns quota; 404 from the upstream quota endpoint means a free-tier key and yields no data)
 - `kimi-code` (Kimi Code - returns 5-hour/weekly quota, parallel-request limit, and membership tier)
 - `minimax` (MiniMax - returns 5-hour/weekly Token Plan quota per model class)
+- `opencode-go` (OpenCode Go - returns rolling/weekly/monthly subscription usage; a 403 from the upstream usage endpoint means a key with no active Go subscription and yields no data)
 
 **Response (Z.AI example):**
 ```json
@@ -409,7 +410,19 @@ Returns usage/quota information for supported providers.
   "subType": "coding"
 }
 ```
-The service passes the Kimi Code `/usages` payload through as-is; the dashboard derives 5-hour and weekly percentages from the `limits` array by matching each window's `duration` (300 minutes = 5h, 10080 minutes = weekly).
+The service decodes the Kimi Code `/usages` payload into its modelled fields and re-serializes them (fields it does not model are dropped); the dashboard derives 5-hour and weekly percentages from the `limits` array by matching each window's `duration` (300 minutes = 5h, 10080 minutes = weekly).
+
+**Response (OpenCode Go example):**
+```json
+{
+  "usage": {
+    "rolling": {"status": "ok", "percent": 12, "resetsAt": "2026-09-08T18:25:46.155Z"},
+    "weekly": {"status": "ok", "percent": 0, "resetsAt": "2026-09-14T00:00:00.155Z"},
+    "monthly": {"status": "ok", "percent": 3.5, "resetsAt": "2026-10-08T13:25:13.155Z"}
+  }
+}
+```
+The service re-serializes the modelled fields of the `/usage` payload; fields not listed here are dropped. `percent` is the share of the window already consumed (0 to 100), `resetsAt` is RFC3339, and `status` is documented only for `"ok"`: any other value is OpenCode Go reporting the window as unusable. A key whose Go subscription has lapsed answers `403 EntitlementError`, which is served as `204` with a `null` body (no badge), while a revoked key answers `401` and is served as `424` like every other dead credential.
 
 **Response (MiniMax example):**
 ```json
@@ -430,7 +443,7 @@ The service passes the Kimi Code `/usages` payload through as-is; the dashboard 
   "base_resp": {"status_code": 0, "status_msg": "success"}
 }
 ```
-The service passes the MiniMax `/token_plan/remains` payload through as-is, including `base_resp`. MiniMax reports business errors (such as `2062` for "no active token plan subscription") inside an HTTP 200 response, so the dashboard checks `base_resp.status_code` rather than the HTTP status to decide whether quota data is available.
+The service decodes the MiniMax `/token_plan/remains` payload into its modelled fields, including `base_resp`, and re-serializes them (fields it does not model are dropped). MiniMax reports business errors (such as `2062` for "no active token plan subscription") inside an HTTP 200 response, so the dashboard checks `base_resp.status_code` rather than the HTTP status to decide whether quota data is available.
 
 #### GET `/api/providers/{id}/balance`
 

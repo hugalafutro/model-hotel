@@ -14,7 +14,8 @@ export type QuotaProviderType =
 	| "deepseek"
 	| "openrouter"
 	| "ollama-cloud"
-	| "neuralwatt";
+	| "neuralwatt"
+	| "opencode-go";
 
 // ── Kimi Code ────────────────────────────────────────────────────────────
 // Kimi's /usages body is proto3 JSON: numbers are string-encoded and a
@@ -168,4 +169,26 @@ export interface NeuralWattQuotaLike {
 		in_overage?: boolean;
 		kwh_remaining?: number | null;
 	} | null;
+}
+
+// ── OpenCode Go ──────────────────────────────────────────────────────────
+// GET /zen/go/v1/usage reports three windows as percent consumed. `status` is
+// "ok" on a healthy window; the other values are undocumented, so anything
+// else reads as spent. A missing subscription answers 403, which the gateway
+// turns into a 204 and a null payload rather than a body to parse.
+
+/** One OpenCode Go window: percent consumed, 0 to 100, and its reset. */
+export interface OpenCodeGoUsageWindow {
+	status?: string;
+	percent?: number;
+	resetsAt?: string;
+}
+
+export interface OpenCodeGoUsageResponse {
+	usage?: {
+		/** The rolling 5-hour window. */
+		rolling?: OpenCodeGoUsageWindow;
+		weekly?: OpenCodeGoUsageWindow;
+		monthly?: OpenCodeGoUsageWindow;
+	};
 }

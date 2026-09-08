@@ -10,7 +10,7 @@ import {
 } from "@web-shared/alerts/wizardState";
 import { clamp, formatCount } from "@web-shared/format";
 import { localeCodes } from "@web-shared/i18n";
-import { getZaiCodingMcpLimit } from "@web-shared/quota";
+import { getOpenCodeGoWindows, getZaiCodingMcpLimit } from "@web-shared/quota";
 import { describe, expect, it } from "vitest";
 
 describe("clamp", () => {
@@ -182,5 +182,51 @@ describe("groupByCategory re-export path", () => {
 		expect(groupByCategory([{ category: "x" }])).toEqual([
 			["x", [{ category: "x" }]],
 		]);
+	});
+});
+
+// The three windows always render in the same order, and a window the payload
+// omits is dropped rather than shown as a zero: a missing window is unknown,
+// not empty.
+describe("getOpenCodeGoWindows", () => {
+	it("returns rolling, weekly then monthly", () => {
+		const windows = getOpenCodeGoWindows({
+			usage: {
+				monthly: { status: "ok", percent: 3, resetsAt: "2026-10-08T13:25:13Z" },
+				rolling: { status: "ok", percent: 1, resetsAt: "2026-09-08T18:25:46Z" },
+				weekly: { status: "ok", percent: 2, resetsAt: "2026-09-14T00:00:00Z" },
+			},
+		});
+		expect(windows.map((w) => w.key)).toEqual(["rolling", "weekly", "monthly"]);
+		expect(windows.map((w) => w.percent)).toEqual([1, 2, 3]);
+		expect(windows[0].resetsAt).toBe("2026-09-08T18:25:46Z");
+	});
+
+	it("drops the windows the payload omits", () => {
+		expect(
+			getOpenCodeGoWindows({ usage: { weekly: { percent: 7 } } }).map(
+				(w) => w.key,
+			),
+		).toEqual(["weekly"]);
+		expect(getOpenCodeGoWindows({ usage: {} })).toEqual([]);
+		expect(getOpenCodeGoWindows(null)).toEqual([]);
+	});
+
+	it("clamps a percent outside the reported range", () => {
+		const windows = getOpenCodeGoWindows({
+			usage: { rolling: { percent: 140 }, weekly: { percent: -5 } },
+		});
+		expect(windows.map((w) => w.percent)).toEqual([100, 0]);
+	});
+
+	it("reads a percent that is not a finite number as 0", () => {
+		const windows = getOpenCodeGoWindows({
+			usage: {
+				rolling: { percent: "oops" as unknown as number },
+				weekly: { percent: Number.NaN },
+				monthly: { percent: "42" as unknown as number },
+			},
+		});
+		expect(windows.map((w) => w.percent)).toEqual([0, 0, 42]);
 	});
 });

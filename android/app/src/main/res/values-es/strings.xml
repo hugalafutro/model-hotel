@@ -328,7 +328,11 @@
     <string name="quota_field_mcp_quota">Cuota de MCP</string>
     <string name="quota_field_five_hour">Cuota de 5 h</string>
     <string name="quota_field_weekly">Cuota semanal</string>
+    <string name="quota_field_monthly">Cuota mensual</string>
     <string name="quota_field_energy">Energía</string>
+    <string name="quota_field_five_hour_reset">Reinicio de 5 h</string>
+    <string name="quota_field_weekly_reset">Reinicio semanal</string>
+    <string name="quota_field_monthly_reset">Reinicio mensual</string>
 
     <!-- Quota badge configurator (dashboard + widget surfaces) -->
     <string name="quota_config_title">Insignias de cuota</string>
