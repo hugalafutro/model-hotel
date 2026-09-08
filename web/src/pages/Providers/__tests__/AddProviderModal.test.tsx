@@ -1701,6 +1701,32 @@ describe("AddProviderModal", () => {
 			);
 		});
 
+		// The toast asks the badge's visibility rule, so a usage object with no
+		// window in it is a "no plan" notice rather than a detected quota: a
+		// badge would have nothing to show for it either.
+		it("shows the OpenCode Go no-plan toast for a payload with no window", async () => {
+			server.use(
+				http.post("/api/providers", async ({ request }) => {
+					const body = await request.json();
+					return HttpResponse.json(openCodeGoProvider(body), { status: 201 });
+				}),
+				http.get("/api/providers/:id/usage", () =>
+					HttpResponse.json({ usage: {} }),
+				),
+			);
+			await submitOpenCodeGo();
+			await waitFor(() => {
+				expect(onToast).toHaveBeenCalledWith(
+					"No active OpenCode Go plan",
+					"info",
+				);
+			});
+			expect(onToast).not.toHaveBeenCalledWith(
+				"OpenCode Go quota detected",
+				"info",
+			);
+		});
+
 		it("shows DeepSeek balance with USD currency", async () => {
 			server.use(
 				http.post("/api/providers", async ({ request }) => {

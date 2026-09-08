@@ -331,10 +331,14 @@ func assessOpenCodeGo(payload json.RawMessage) Assessment {
 
 // openCodeGoWindowSpent reports whether one OpenCode Go window is spent. The
 // percent is the consumed share, so 100 is a full window. Only "ok" is a
-// documented status, so any other non-empty value is OpenCode Go refusing the
-// window; an absent status decodes to "" and decides nothing.
+// documented status, so any other non-empty value counts as OpenCode Go
+// refusing the window: an undocumented status fails closed rather than reading
+// as healthy, since a refused window serves nothing whatever its percent says.
+// The status compare is trimmed and case-insensitive so a casing drift upstream
+// changes nothing. An absent status decodes to "" and decides nothing.
 func openCodeGoWindowSpent(w provider.OpenCodeGoUsageWindow) bool {
-	return w.Percent >= 100 || (w.Status != "" && w.Status != "ok")
+	status := strings.TrimSpace(w.Status)
+	return w.Percent >= 100 || (status != "" && !strings.EqualFold(status, "ok"))
 }
 
 // minimaxModelRemain is the subset of a MiniMax model_remains entry the quota
@@ -358,11 +362,23 @@ type minimaxModelRemain struct {
 
 type minimaxQuotaPayload struct {
 	ModelRemains []minimaxModelRemain `json:"model_remains"`
+	BaseResp     struct {
+		StatusCode int `json:"status_code"`
+	} `json:"base_resp"`
 }
 
 func assessMiniMax(payload json.RawMessage) Assessment {
 	var res minimaxQuotaPayload
 	if err := json.Unmarshal(payload, &res); err != nil {
+		return Assessment{}
+	}
+	// MiniMax answers business errors ("no active token plan subscription" and
+	// the rest) inside an HTTP 200 that the poller stores like any other
+	// snapshot. Such a body carries no windows, so reading it as understood
+	// would report health and put the provider in buildQuotaAdvice's recovered
+	// set, dropping the pin of a provider whose own answer says nothing about
+	// its windows. Only status_code 0 is a payload that was answered.
+	if res.BaseResp.StatusCode != 0 {
 		return Assessment{}
 	}
 	var e earliestReset

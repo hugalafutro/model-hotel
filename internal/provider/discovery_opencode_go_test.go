@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
@@ -249,36 +250,45 @@ func TestGetOpenCodeGoUsage_KeyInvalid401(t *testing.T) {
 // TestGetOpenCodeGoUsage_NoSubscription403 covers a healthy key without an
 // active Go subscription: 403 EntitlementError is the expected answer for that
 // plan, so it reports no data and no error (204 + null payload upstream) and
-// must not reach either the ERROR log or the dead-key path.
+// must not reach either the ERROR log or the dead-key path. The casing of the
+// type name is upstream's to change, and a drift there must not demote every
+// key without a subscription to a dead key.
 func TestGetOpenCodeGoUsage_NoSubscription403(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		w.WriteHeader(http.StatusForbidden)
-		_, _ = w.Write([]byte(`{"type":"error","error":{"type":"EntitlementError","message":"OpenCode Go subscription required."}}`))
-	}))
-	defer server.Close()
+	for _, tc := range []struct{ name, errType string }{
+		{"as observed live", "EntitlementError"},
+		{"cased differently upstream", "entitlementerror"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusForbidden)
+				_, _ = fmt.Fprintf(w, `{"type":"error","error":{"type":%q,"message":"OpenCode Go subscription required."}}`, tc.errType)
+			}))
+			defer server.Close()
 
-	var logged strings.Builder
-	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	t.Cleanup(func() { debuglog.SetHandler(debuglog.StdoutHandler()) })
+			var logged strings.Builder
+			debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+			t.Cleanup(func() { debuglog.SetHandler(debuglog.StdoutHandler()) })
 
-	masterKey := "test-master-key-for-testing-only-32bytes!"
-	prov, err := newQuotaTestProvider(server.URL, "zen-key-without-go", masterKey)
-	if err != nil {
-		t.Fatalf("encrypt: %v", err)
-	}
-	service := &DiscoveryService{httpClient: server.Client()}
+			masterKey := "test-master-key-for-testing-only-32bytes!"
+			prov, err := newQuotaTestProvider(server.URL, "zen-key-without-go", masterKey)
+			if err != nil {
+				t.Fatalf("encrypt: %v", err)
+			}
+			service := &DiscoveryService{httpClient: server.Client()}
 
-	// The nil error is what proves the 403 EntitlementError was not classified
-	// as a dead key: ErrProviderKeyInvalid would surface here.
-	usage, err := service.GetOpenCodeGoUsage(context.Background(), prov, masterKey)
-	if err != nil || usage != nil {
-		t.Fatalf("GetOpenCodeGoUsage = (%v, %v), want (nil, nil)", usage, err)
-	}
-	if strings.Contains(logged.String(), "level=ERROR") || strings.Contains(logged.String(), "level=WARN") {
-		t.Errorf("no-subscription 403 logged above INFO: %s", logged.String())
-	}
-	if !strings.Contains(logged.String(), "no active Go subscription") {
-		t.Errorf("expected the no-subscription INFO line, got: %s", logged.String())
+			// The nil error is what proves the 403 EntitlementError was not
+			// classified as a dead key: ErrProviderKeyInvalid would surface here.
+			usage, err := service.GetOpenCodeGoUsage(context.Background(), prov, masterKey)
+			if err != nil || usage != nil {
+				t.Fatalf("GetOpenCodeGoUsage = (%v, %v), want (nil, nil)", usage, err)
+			}
+			if strings.Contains(logged.String(), "level=ERROR") || strings.Contains(logged.String(), "level=WARN") {
+				t.Errorf("no-subscription 403 logged above INFO: %s", logged.String())
+			}
+			if !strings.Contains(logged.String(), "no active Go subscription") {
+				t.Errorf("expected the no-subscription INFO line, got: %s", logged.String())
+			}
+		})
 	}
 }
 

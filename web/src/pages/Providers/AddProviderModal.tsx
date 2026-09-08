@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { isOpenCodeGoQuotaVisible } from "@web-shared/quota";
 import { type SubmitEvent, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -145,14 +146,16 @@ export function AddProviderModal({
 				switch (providerType) {
 					// OpenCode Go answers 204 with no body when the key carries no
 					// active Go subscription, so an empty result is a "no plan"
-					// notice rather than a detected quota.
+					// notice rather than a detected quota. The toast asks the badge's
+					// own visibility rule, so a payload carrying a usage object with
+					// no window in it reads the same way in both places.
 					case "opencode-go": {
 						const goUsage = await api.providers.getOpenCodeGoUsage(
 							newProvider.id,
 						);
 						onToast(
 							t(
-								goUsage?.usage
+								goUsage && isOpenCodeGoQuotaVisible(goUsage)
 									? "providers.toast_quota_detected_opencode_go"
 									: "providers.toast_no_plan_opencode_go",
 							),

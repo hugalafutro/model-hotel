@@ -12,7 +12,10 @@ import {
 	resetSublabel,
 } from "./shared";
 
-/** The label each window is shown under, in the order OpenCode Go reports. */
+/**
+ * The label each window is shown under, keyed by window. The order the bars
+ * render in comes from getOpenCodeGoWindows, not from this record.
+ */
 const WINDOW_LABEL_KEYS = {
 	rolling: "quota.modal.openCodeGoRolling",
 	weekly: "quota.modal.openCodeGoWeekly",

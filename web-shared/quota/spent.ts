@@ -151,14 +151,12 @@ export function isNeuralWattQuotaSpent(q: NeuralWattQuotaLike): boolean {
 
 // Any of the three windows blocks the whole subscription, as assessOpenCodeGo
 // walks them: a window at its ceiling, or one whose status OpenCode Go reports
-// as something other than "ok". An absent status is unknown, never spent.
+// as something other than "ok". The selector already reports a refused window
+// as 100, so one comparison covers both and the badge cannot read as spent
+// while showing a percentage below its ceiling. An absent status is unknown,
+// never spent.
 export function isOpenCodeGoQuotaSpent(u: OpenCodeGoUsageResponse): boolean {
-	return getOpenCodeGoWindows(u).some((w) => {
-		const status = w.status?.trim();
-		return (
-			w.percent >= 100 || (status != null && status !== "" && status !== "ok")
-		);
-	});
+	return getOpenCodeGoWindows(u).some((w) => w.percent >= 100);
 }
 
 /**

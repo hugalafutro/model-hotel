@@ -932,6 +932,25 @@ describe("QuotaBadge", () => {
 			);
 			expect(screen.getByRole("button")).toHaveTextContent("OCG-/-");
 		});
+
+		// A refused window reads as spent, so the pill must not show the 0
+		// percent such a payload carries beside the spent styling.
+		it("reads a refused window as fully used", () => {
+			render(
+				<QuotaBadge
+					type="opencode-go"
+					variant="card"
+					barMode="used"
+					opencodeGoUsage={{
+						usage: {
+							rolling: { status: "exceeded", percent: 0 },
+							weekly: { status: "ok", percent: 34 },
+						},
+					}}
+				/>,
+			);
+			expect(screen.getByRole("button")).toHaveTextContent("100%/34%");
+		});
 	});
 });
 

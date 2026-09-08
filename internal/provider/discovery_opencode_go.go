@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -96,7 +97,9 @@ func (d *DiscoveryService) GetOpenCodeGoUsage(ctx context.Context, provider *Pro
 // openCodeGoNoSubscription reports whether a 403 body is OpenCode Go saying the
 // key carries no active Go subscription, rather than rejecting the key itself.
 // The shape is {"type":"error","error":{"type":"EntitlementError"}}; anything
-// else, an unparseable body included, is not that claim.
+// else, an unparseable body included, is not that claim. The type name is
+// matched case-insensitively: a casing drift upstream would otherwise turn
+// every key without a subscription into an invalid-key badge.
 func openCodeGoNoSubscription(err error) bool {
 	httpErr := &httpError{}
 	if !errors.As(err, &httpErr) {
@@ -110,5 +113,5 @@ func openCodeGoNoSubscription(err error) bool {
 	if json.Unmarshal(httpErr.Body, &body) != nil {
 		return false
 	}
-	return body.Error.Type == "EntitlementError"
+	return strings.EqualFold(strings.TrimSpace(body.Error.Type), "EntitlementError")
 }
