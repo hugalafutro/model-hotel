@@ -2,8 +2,10 @@ package main
 
 // Background maintenance loops for the server binary: the periodic discovery
 // scheduler, quota polling, stale request-log cleanup, log retention, scheduled
-// provider disables, and WebAuthn session pruning. Each runs for the app
-// lifetime and exits on ctx cancellation.
+// provider disables, WebAuthn session pruning, phrase-staleness checks, the
+// alert dispatcher, the backup scheduler, and the key-cache eviction sweep
+// from internal/auth. Each runs for the app lifetime, exits on ctx
+// cancellation, and joins the shutdown budget through the background group.
 
 import (
 	"context"

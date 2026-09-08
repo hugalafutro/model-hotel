@@ -25,6 +25,7 @@ import (
 	gowa "github.com/go-webauthn/webauthn/webauthn"
 
 	"github.com/hugalafutro/model-hotel/internal/admin"
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -190,6 +191,10 @@ func main() {
 	srv.StartBackground(ctx, srv.RunFleetState)
 	srv.StartBackground(ctx, srv.RunBackupWatch)
 	srv.StartBackground(ctx, srv.RunAlerts)
+	// Member tokens are decrypted through the same key cache the gateway uses,
+	// so Front Desk runs the eviction sweep too; without it expired entries stay
+	// in the map for the life of the process.
+	srv.StartBackground(ctx, auth.KeyCacheEvictionLoop)
 
 	// Listener posture (header/idle timeouts, per-request body deadline) is
 	// decided once in httpx.NewServer, shared with the gateway. Front Desk

@@ -113,9 +113,10 @@ func rightmostUntrustedIP(xff string, trustedProxies []*net.IPNet) string {
 }
 
 // isIPInTrustedNets checks whether a bare IP address string belongs to any
-// trusted proxy CIDR. It takes a bare IP rather than a "host:port" pair
-// because SplitHostPort would break an IPv6 address written with ::
-// zero-compression (e.g. "2001:db8::1" reads as host "2001:db8::1" port "0").
+// trusted proxy CIDR. It takes a bare IP rather than a "host:port" pair because
+// SplitHostPort rejects an unbracketed IPv6 literal outright ("2001:db8::1"
+// fails with "too many colons in address"), so every caller parses the address
+// itself and hands the result straight to net.ParseIP.
 func isIPInTrustedNets(ipStr string, trustedNets []*net.IPNet) bool {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {

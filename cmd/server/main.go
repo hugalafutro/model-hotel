@@ -24,6 +24,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/api"
 	"github.com/hugalafutro/model-hotel/internal/audit"
+	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/config"
@@ -460,6 +461,9 @@ func main() {
 	background.Go("scheduled-disable", func() {
 		scheduledDisableLoop(ctx, drainCtx, providerRepo, failoverRepo, time.Minute)
 	})
+	// Expired decrypted provider keys are swept on the key cache TTL, so a key
+	// removed from a provider stops sitting in memory once its entry lapses.
+	background.Go("key-cache-eviction", func() { auth.KeyCacheEvictionLoop(ctx) })
 
 	// Listener posture (header/idle timeouts, per-request body deadline) is
 	// decided once in httpx.NewServer, shared with Front Desk.

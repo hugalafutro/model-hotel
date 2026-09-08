@@ -591,9 +591,9 @@ func TestMiddleware_PerKeyOverrides(t *testing.T) {
 // Tests moved from limiter_coverage_test.go
 // ---------------------------------------------------------------------------
 
-// TestCleanupLoop_StopsOnChannelClose verifies that Stop() properly closes
+// TestCleanupGoroutine_StopsOnChannelClose verifies that Stop() properly closes
 // the stop channel so the cleanup goroutine exits.
-func TestCleanupLoop_StopsOnChannelClose(t *testing.T) {
+func TestCleanupGoroutine_StopsOnChannelClose(t *testing.T) {
 	lim, _ := newTestLimiter()
 
 	// Stop() should close the channel without panicking
@@ -978,11 +978,11 @@ func TestMiddleware_NonBackpressurePassesContextValues(t *testing.T) {
 	}
 }
 
-// TestCleanupLoop_Integration verifies that the cleanup goroutine started by
+// TestCleanupGoroutine_Integration verifies that the cleanup goroutine started by
 // NewLimiter actually removes stale entries when triggered. It inserts entries
 // with expired lastUsed timestamps, calls cleanup() directly (same function
 // the ticker calls), and verifies removal.
-func TestCleanupLoop_Integration(t *testing.T) {
+func TestCleanupGoroutine_Integration(t *testing.T) {
 	lim, _ := newTestLimiter()
 	defer lim.Stop()
 
@@ -1007,7 +1007,7 @@ func TestCleanupLoop_Integration(t *testing.T) {
 	}
 	lim.mu.Unlock()
 
-	// Call cleanup directly (same code the cleanupLoop ticker invokes)
+	// Call cleanup directly (the same sweep runCleanup invokes on its ticker)
 	lim.cleanup()
 
 	lim.mu.Lock()
@@ -1020,55 +1020,20 @@ func TestCleanupLoop_Integration(t *testing.T) {
 	}
 }
 
-// TestCleanupLoop_TickerFiresCleanup verifies that the cleanupLoop's
-// ticker.C branch calls cleanup(). We insert a stale entry, wait for
-// the ticker to fire, and verify the entry is removed.
-func TestCleanupLoop_TickerFiresCleanup(t *testing.T) {
-	lim := &Limiter{
-		limiters: make(map[string]*bucketEntry),
-		settings: newStubSettings(),
-		stopCh:   make(chan struct{}),
-	}
-
-	// Insert a stale entry (lastUsed well in the past)
-	lim.mu.Lock()
-	lim.limiters["ticker-stale"] = &bucketEntry{
-		prefix:   keyLogPrefix,
-		label:    keyLogLabel,
-		limiter:  rate.NewLimiter(1, 1),
-		lastUsed: time.Now().Add(-2 * time.Hour),
-	}
-	lim.mu.Unlock()
-
-	// Start cleanupLoop in a goroutine; it ticks every 5 minutes in prod.
-	// We can't wait 5 minutes, so we test the cleanup() method directly
-	// (which is what cleanupLoop calls on ticker.C).
-	go runCleanup(lim.stopCh, lim.cleanup)
-
-	// Give the goroutine a moment to start, then stop it.
-	time.Sleep(50 * time.Millisecond)
-	lim.Stop()
-
-	// Verify the stale entry was NOT cleaned up yet (5-min ticker hasn't fired).
-	// The cleanup() method itself is tested in TestCleanup_StaleEntries.
-	// This test confirms cleanupLoop can be started and stopped without panic.
-}
-
-// TestNewLimiter_StartsCleanupLoop verifies that NewLimiter starts the
-// cleanupLoop goroutine (which can be stopped via Stop()).
-func TestNewLimiter_StartsCleanupLoop(t *testing.T) {
+// TestNewLimiter_StartsCleanupGoroutine verifies that NewLimiter starts the
+// cleanup goroutine (which can be stopped via Stop()).
+func TestNewLimiter_StartsCleanupGoroutine(t *testing.T) {
 	lim := NewLimiter(newStubSettings())
-	// Should have a running cleanupLoop goroutine
+	// Should have a running cleanup goroutine
 	time.Sleep(20 * time.Millisecond)
 	lim.Stop()
 	// No panic = success
 }
 
-// TestCleanupLoop_TickerPathRemovesStaleEntries verifies that when the
-// cleanupLoop's ticker fires, it actually removes stale entries from
-// the limiters map. Since the production ticker is 5 minutes, we test
-// by calling cleanup() directly (same function called on ticker.C).
-func TestCleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
+// TestCleanupGoroutine_TickerPathRemovesStaleEntries verifies that the sweep
+// runCleanup invokes on ticker.C removes stale entries from the limiters map.
+// Since the production ticker is 5 minutes, cleanup() is called directly.
+func TestCleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) {
 	lim := &Limiter{
 		limiters: make(map[string]*bucketEntry),
 		settings: newStubSettings(),
@@ -1096,8 +1061,8 @@ func TestCleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 	}
 	lim.mu.Unlock()
 
-	// Start the cleanupLoop goroutine to verify it can start/stop,
-	// then directly call cleanup() to simulate the ticker.C path.
+	// Start the cleanup goroutine to verify it can start and stop, then call
+	// cleanup() directly to stand in for the ticker.C path.
 	go runCleanup(lim.stopCh, lim.cleanup)
 	time.Sleep(20 * time.Millisecond)
 
@@ -1119,9 +1084,9 @@ func TestCleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 	lim.Stop()
 }
 
-// TestCleanupLoop_ConcurrentStopAndTick verifies that cleanupLoop handles
+// TestCleanupGoroutine_ConcurrentStopAndTick verifies that runCleanup handles
 // the race between the stop channel and the ticker gracefully.
-func TestCleanupLoop_ConcurrentStopAndTick(t *testing.T) {
+func TestCleanupGoroutine_ConcurrentStopAndTick(t *testing.T) {
 	for range 10 {
 		lim := &Limiter{
 			limiters: make(map[string]*bucketEntry),
@@ -1135,15 +1100,13 @@ func TestCleanupLoop_ConcurrentStopAndTick(t *testing.T) {
 	}
 }
 
-// TestCleanupLoop_TickerBranch_Unreachable documents that the ticker.C
-// select branch in cleanupLoop (line 258) cannot be directly tested
-// because the production ticker is 5 minutes, and there's no way to
-// inject a shorter ticker without modifying the function signature.
-// The cleanup() function called by the ticker branch IS tested directly
-// via TestCleanup_RemovesStaleEntries, TestCleanupLoop_TickerPathRemovesStaleEntries,
-// and TestCleanupLoop_Integration. Only the select case routing itself
-// (ticker.C vs stopCh) is untested; the actual cleanup logic is fully covered.
-// This is a structural limitation, not a gap in test intent.
+// The ticker.C select branch in runCleanup cannot be exercised directly: the
+// production ticker is 5 minutes and the interval is not injectable. The
+// cleanup() function that branch calls is covered by
+// TestCleanup_RemovesStaleEntries, TestCleanupGoroutine_TickerPathRemovesStaleEntries
+// and TestCleanupGoroutine_Integration, so only the select routing itself
+// (ticker.C vs stopCh) is untested. A structural limitation, not a gap in
+// test intent.
 
 // ---------------------------------------------------------------------------
 // Edge-triggered throttle logging
