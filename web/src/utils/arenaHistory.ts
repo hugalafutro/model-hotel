@@ -273,8 +273,17 @@ export function getArenaHistoryCount(): number {
 	return getArenaHistory().length;
 }
 
+// The suffix comes from the Web Crypto generator rather than Math.random: the
+// id is persisted to localStorage, and a Math.random value stored there makes
+// CodeQL flag every localStorage read in the app as insecure randomness.
+// getRandomValues works in plain-http LAN contexts too, unlike randomUUID.
 export function generateHistoryId(): string {
-	return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+	const bytes = new Uint8Array(4);
+	crypto.getRandomValues(bytes);
+	const suffix = Array.from(bytes, (b) => b.toString(16).padStart(2, "0")).join(
+		"",
+	);
+	return `${Date.now()}-${suffix}`;
 }
 
 // ---------------------------------------------------------------------------
