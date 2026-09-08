@@ -73,9 +73,16 @@ func testDiscoveryDeps(t *testing.T) discoveryDeps {
 		providerRepo: provider.NewRepository(pool),
 		modelRepo:    model.NewRepository(pool),
 		failoverRepo: failover.NewRepository(pool),
-		dialer:       proxy.NewSafeDialer([]string{"127.0.0.1"}, nil),
+		discovery:    newTestDiscoveryService(),
 		settingsRepo: settings.NewRepository(pool),
 	}
+}
+
+// newTestDiscoveryService mirrors the production wiring: one service carrying
+// the SafeDialer's hooks, shared by every run in the test's deps.
+func newTestDiscoveryService() *provider.DiscoveryService {
+	sd := proxy.NewSafeDialer([]string{"127.0.0.1"}, nil)
+	return provider.NewDiscoveryService(sd.DialContext, sd.CheckRedirect)
 }
 
 // wipeDiscoveryState clears the tables discovery writes to so tests don't
@@ -460,9 +467,8 @@ func TestScanProviderUnreachable(t *testing.T) {
 		t.Fatalf("failed to create provider: %v", err)
 	}
 
-	svc := provider.NewDiscoveryService(deps.dialer.DialContext, deps.dialer.CheckRedirect)
 	var result DiscoveryResult
-	changed, ok := scanProvider(ctx, deps, svc, p, "test", &result)
+	changed, ok := scanProvider(ctx, deps, deps.discovery, p, "test", &result)
 	if changed {
 		t.Error("expected no change row for a failed scan")
 	}
@@ -839,11 +845,9 @@ func TestRecordMissingModelsUntrustedWhenSuspect(t *testing.T) {
 	if err != nil {
 		t.Fatalf("snapshot: %v", err)
 	}
-	svc := provider.NewDiscoveryService(deps.dialer.DialContext, deps.dialer.CheckRedirect)
-
 	cancelled, cancel := context.WithCancel(ctx)
 	cancel()
-	disabled, trusted := recordMissingModels(cancelled, deps, svc, p, nil, snapshot)
+	disabled, trusted := recordMissingModels(cancelled, deps, deps.discovery, p, nil, snapshot)
 
 	if trusted {
 		t.Error("a suspect scan reported trusted=true")

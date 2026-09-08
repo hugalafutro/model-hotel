@@ -1479,6 +1479,10 @@ These are exposed via:
 - `POST /api/providers/refresh-quotas` - refreshes usage/balance for all supported providers
 
 Quota/balance fetches use a circuit breaker with 5 consecutive failure threshold and 5-minute cooldown.
+The gateway keeps one discovery service for the life of the process, so this state persists across
+polls: five failures spread over five separate poll passes open the circuit exactly as five failures
+inside one pass would, and the counter only resets on a successful fetch, a restart, or the provider
+being deleted.
 
 ---
 

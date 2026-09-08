@@ -29,15 +29,35 @@ var newDiscoveryService = func() *provider.DiscoveryService {
 	return provider.NewDiscoveryService(nil, nil)
 }
 
-// discoveryService returns this handler's DiscoveryService. Every caller inside
-// the package goes through it rather than the package variable, so a handler's
-// SSRF-protected dial and redirect hooks cannot be swapped out from under it by
-// another handler's construction.
+// discoveryService returns this handler's DiscoveryService, built on first use
+// and never again. Every caller inside the package goes through it rather than
+// the package variable, so a handler's SSRF-protected dial and redirect hooks
+// cannot be swapped out from under it by another handler's construction.
+//
+// One instance per handler is what makes the service's state mean anything: a
+// new one per call would hand back a fresh transport whose idle-connection pool
+// is discarded after a single use, and a fresh quota circuit breaker whose
+// failure counts restart from zero, so consecutive failures across polls could
+// never reach the threshold that opens it.
+//
+// Built lazily rather than in NewHandler so a test that installs its own
+// factory before the first call still gets its fake.
 func (h *Handler) discoveryService() *provider.DiscoveryService {
-	if h.newDiscovery != nil {
-		return h.newDiscovery()
-	}
-	return newDiscoveryService()
+	h.discoveryOnce.Do(func() {
+		if h.newDiscovery != nil {
+			h.discovery = h.newDiscovery()
+			return
+		}
+		h.discovery = newDiscoveryService()
+	})
+	return h.discovery
+}
+
+// DiscoveryService exposes that one instance to the server binary, so the
+// background discovery run and the quota poll loop share the handler's service
+// rather than each building one of their own.
+func (h *Handler) DiscoveryService() *provider.DiscoveryService {
+	return h.discoveryService()
 }
 
 // Injectable variables for test overrides.

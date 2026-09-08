@@ -164,7 +164,12 @@ type Handler struct {
 	// than package-level, so two handlers built concurrently neither race nor
 	// couple to whichever was constructed last. Nil falls back to the package
 	// default.
-	newDiscovery   func() *provider.DiscoveryService
+	newDiscovery func() *provider.DiscoveryService
+	// discovery is the one service that factory ever produces, built on first
+	// use. One per handler keeps the transport's idle-connection pool and the
+	// quota circuit breaker's failure counts alive across calls.
+	discovery      *provider.DiscoveryService
+	discoveryOnce  sync.Once
 	circuitBreaker CircuitBreakerControl
 	capLedger      *provider.CapLedger
 	audit          *audit.Recorder   // nil until SetAudit (audit trail of admin actions)

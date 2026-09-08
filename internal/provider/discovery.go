@@ -70,6 +70,35 @@ func (d *DiscoveryService) SetRetryBaseDelay(dur time.Duration) {
 	d.retryBaseDelay = dur
 }
 
+// Close releases the idle connections the discovery client is holding. One
+// service serves every discovery run and quota poll for the life of the
+// process, so its pool is drained here at shutdown rather than after a pass.
+// Safe to call repeatedly.
+func (d *DiscoveryService) Close() {
+	if d.httpClient != nil {
+		d.httpClient.CloseIdleConnections()
+	}
+}
+
+// PruneQuotaBreakers drops the circuit state of every provider live does not
+// claim. The service outlives any single poll pass, which is what makes the
+// breaker's failure counts add up across polls, and equally what would keep a
+// deleted provider's entry in the map for the rest of the process lifetime.
+// A nil predicate keeps everything: a caller with no provider list to compare
+// against must never be read as "nothing is live".
+func (d *DiscoveryService) PruneQuotaBreakers(live func(providerID string) bool) {
+	if live == nil {
+		return
+	}
+	d.quotaBreaker.Range(func(key, _ any) bool {
+		id, ok := key.(string)
+		if !ok || !live(id) {
+			d.quotaBreaker.Delete(key)
+		}
+		return true
+	})
+}
+
 // maxDiscoveryRetries bounds attempts for a single discovery HTTP call.
 const maxDiscoveryRetries = 3
 
