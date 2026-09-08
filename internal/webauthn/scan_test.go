@@ -24,8 +24,8 @@ var scanHelpers = []struct {
 }
 
 // TestScanHelpers_PropagateScanError pins that only pgx.ErrNoRows becomes
-// ErrNotFound: any other scan failure reaches the caller unchanged, so a
-// corrupt row is never mistaken for a missing one. A helper that translated
+// ErrNotFound: any other scan failure is not translated, so a corrupt row is
+// never mistaken for a missing one. A helper that translated
 // this error would fail the check, since the sentinel it would return does not
 // wrap want.
 func TestScanHelpers_PropagateScanError(t *testing.T) {
