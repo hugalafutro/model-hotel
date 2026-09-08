@@ -9,7 +9,6 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
-	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -133,7 +132,38 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 				return fmt.Errorf("%w: provider %q has an invalid base_url: %w", errInvalidSyncedProvider, p.Name, err)
 			}
 		}
-		_, err := tx.Exec(ctx, `
+		// A primary that renames "a b" to "a-b" sends a name this member does not
+		// have, keyed on a raw name that does not match its old row, and the
+		// normalized index (migration 082) refuses the insert before the
+		// declarative delete could remove the old row. Nothing about that
+		// resolves itself, so every later push is refused too. Rename the local
+		// twin first, in the same transaction: the index guarantees at most one
+		// row normalizes to this name, and the envelope-wide check above
+		// guarantees no two exported names do, so this moves exactly the row the
+		// upsert below is about to collide with, keeping its id and the models
+		// hanging off it. Every other case matches no row and the raw-name
+		// ON CONFLICT below is unchanged.
+		//
+		// The envelope carries no rename intent, so a primary that deleted "a b"
+		// and created an unrelated "a-b" reuses the row rather than the id it
+		// would have got from a fresh insert. The provider set and every synced
+		// field still end up exactly as the envelope describes them, and the
+		// post-import discovery run reconciles the models under the reused row.
+		// The same statement also fires for a local row the envelope never
+		// named, when the primary added a provider whose normalized name matches
+		// it: that row keeps its id and models and takes the envelope's fields,
+		// where the declarative delete used to remove it. Logged, because the
+		// member keeps a row it would otherwise have lost.
+		renamed, err := tx.Exec(ctx,
+			`UPDATE providers SET name = $1, updated_at = now()
+			 WHERE REPLACE(name, ' ', '-') = REPLACE($1, ' ', '-') AND name <> $1`, p.Name)
+		if err != nil {
+			return err
+		}
+		if renamed.RowsAffected() > 0 {
+			debuglog.Info("configsync: renamed a local provider onto the envelope's spelling of the same name", "name", p.Name)
+		}
+		_, err = tx.Exec(ctx, `
 			INSERT INTO providers (name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, max_in_flight, updated_at)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, now())
 			ON CONFLICT (name) DO UPDATE SET
@@ -150,17 +180,11 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 				updated_at = now()`,
 			p.Name, p.BaseURL, providerTypeForImport(p), p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn, p.MaxInFlight)
 		if err != nil {
-			// The normalized-name index (migration 082) rejecting a name the envelope
-			// carries means this member holds a provider the envelope does not whose
-			// name differs from it only in spaces and hyphens. The declarative delete
-			// that would remove it runs after this upsert, so the insert meets it. Same
-			// refusal class as the field checks above: the envelope carries what the
-			// interactive API would reject, so a 400, not a 500. Named rather than any
-			// 23505, so the explanation cannot end up on another index's failure.
-			if db.IsUniqueViolationOn(err, "providers_name_normalized_unique") {
-				return fmt.Errorf("%w: provider %q is one name with a provider on this member once spaces become hyphens",
-					errInvalidSyncedProvider, p.Name)
-			}
+			// No normalized-name refusal to translate here: the rename above has
+			// already moved this member's twin, if it had one, onto the name being
+			// inserted, and the envelope-wide check ahead of the loop rules out two
+			// exported names colliding with each other. What reaches this line is a
+			// database failure, not a name the member could not take.
 			return err
 		}
 	}

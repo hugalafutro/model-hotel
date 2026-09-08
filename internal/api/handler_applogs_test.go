@@ -1433,9 +1433,25 @@ func TestClearAppLogs_StalledFlushBarrierRefusesThePurge(t *testing.T) {
 		sendTimeout: dbLogSendTimeout,
 	}))
 
-	rec := httptest.NewRecorder()
-	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody))
+	// Every debuglog line goes through the writer that is stalled, which is the
+	// whole point of the budget assertion below: reporting this refusal through
+	// the app-log pipeline would queue a line onto the queue that just failed to
+	// drain and cost the operator a second sendTimeout on top of the barrier.
+	prev := slog.Default().Handler()
+	t.Cleanup(func() { debuglog.SetHandler(prev) })
+	debuglog.SetHandler(NewAppSlogHandler(slog.LevelInfo))
 
+	rec := httptest.NewRecorder()
+	start := time.Now()
+	h.ClearAppLogs(rec, httptest.NewRequest(http.MethodDelete, "/logs/app", http.NoBody))
+	elapsed := time.Since(start)
+
+	// The barrier's own budget and a margin, not twice it. The queue holds the
+	// barrier, so a caller that logs its way out parks for the full send timeout
+	// as well.
+	if budget := appLogFlushBarrierTimeout + 2*time.Second; elapsed > budget {
+		t.Errorf("the 503 took %s, want at most %s: the refusal waited on the stalled queue it is reporting", elapsed, budget)
+	}
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503: a purge ran under a queue that will reinstate the rows", rec.Code)
 	}

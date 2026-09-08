@@ -26,6 +26,15 @@ func IsUniqueViolationOn(err error, constraint string) bool {
 	return false
 }
 
+// IsRaisedException reports whether err is an exception a PL/pgSQL block raised
+// on purpose with RAISE EXCEPTION (SQLSTATE P0001), which is how a migration
+// refuses an install it will not upgrade. Everything the database rejects on
+// its own carries its own SQLSTATE, so this is what separates a decision from a
+// failure.
+func IsRaisedException(err error) bool {
+	return pgCode(err, "P0001")
+}
+
 // IsForeignKeyViolation reports whether err is a PostgreSQL foreign-key
 // violation (SQLSTATE 23503). Callers use it to turn a reference to a row that
 // has since been deleted into a 400/404 instead of a 500.

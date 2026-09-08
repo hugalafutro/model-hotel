@@ -402,11 +402,11 @@ What makes this safe to leave running:
   configsync: refusing to apply an invalid provider: provider "x": max_in_flight
   must be ...`), in the sync result, in the failure event and in the readiness
   check, cut to one line of 240 characters; the member's own log carries the
-  full text. The name rule has one refusal an operator has to clear by hand:
-  when the primary renames `a b` to `a-b`, a member still holding the old row
-  refuses every push, because the delete that would remove it runs after the
-  provider write, so rename or delete that stale row on the member and the next
-  push converges.
+  full text. The name rule needs no manual repair on the member: when the
+  primary renames `a b` to `a-b`, the member renames its own row to match inside
+  the same transaction, before the write that would otherwise collide with it,
+  so the push converges on the first attempt and the provider keeps its id and
+  its models.
 - **Newer config always wins.** Each push carries a monotonic source generation,
   and a member refuses any import older than the one it has already applied, so
   repointing the primary while an earlier push is still in flight can never strand a

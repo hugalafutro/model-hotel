@@ -86,13 +86,19 @@ func main() {
 
 	database, err := db.New(ctx, cfg.DatabaseURL, cfg.DBMaxConns, cfg.DBMinConns)
 	if err != nil {
-		// A migration that refuses is a schema the database would not take, not
-		// a database this process could not reach, and the two need different
-		// things from the operator. The refusal's own message says what to fix.
-		if errors.Is(err, db.ErrMigrations) {
+		// Three different things to tell the operator. A migration that REFUSED
+		// decided not to upgrade this install and its own message says what to
+		// rename; a migration that FAILED hit something that went wrong on its
+		// own (a timeout, an unreadable file, a statement the database
+		// rejected); anything else never got a usable pool at all.
+		switch {
+		case errors.Is(err, db.ErrMigrations):
 			debuglog.Fatal("startup: database migration refused", "error", err)
+		case errors.Is(err, db.ErrMigrationFailed):
+			debuglog.Fatal("startup: database migration failed", "error", err)
+		default:
+			debuglog.Fatal("startup: failed to connect to database", "error", err)
 		}
-		debuglog.Fatal("startup: failed to connect to database", "error", err)
 	}
 	defer database.Close()
 
@@ -543,18 +549,18 @@ func main() {
 		debuglog.Warn("server: background loops still running at shutdown", "loops", strings.Join(stuck, ","))
 	}
 
-	// Drain the audit goroutines already in flight before the database closes,
-	// so their inserts are not lost. When the drain above returned nil the
-	// server has stopped serving, so no new ones can spawn and this is a clean
-	// join. When it returned a deadline error the handlers it gave up on are
-	// still live, and a record spawning now Adds to the same WaitGroup this is
-	// waiting on: an Add that lifts the counter off zero concurrently with Wait
-	// is the documented misuse, so what a handler that outlived the drain costs
-	// is a panic on the way out rather than one missing row. The drain deadline
-	// is therefore the thing that keeps this honest, not this wait. Each record
-	// is bounded by its own 5s insert deadline plus the 5s retention prune it
-	// piggybacks, which is the 10s this stage is budgeted at.
-	auditRecorder.Wait()
+	// Stop admitting audit records, then drain the ones already in flight before
+	// the database closes, so their inserts are not lost. When the drain above
+	// returned nil the server has stopped serving and nothing new can arrive
+	// anyway. When it returned a deadline error the handlers it gave up on are
+	// still live, and Close is what makes that survivable: admission and the
+	// drain are one decision under the recorder's own lock, so a record arriving
+	// now is refused and counted on stderr rather than Adding to a WaitGroup
+	// already inside Wait, which panics at the zero-counter boundary. Each
+	// record still in flight is bounded by its own 5s insert deadline plus the
+	// 5s retention prune it piggybacks, which is the 10s this stage is budgeted
+	// at.
+	auditRecorder.Close()
 
 	debuglog.Info("server: stopped")
 

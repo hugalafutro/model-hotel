@@ -2,11 +2,14 @@ package audit
 
 import (
 	"context"
+	"io"
 	"log"
 	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -483,4 +486,74 @@ func TestStatusRecorderUnwrap(t *testing.T) {
 	if sw.status != http.StatusTeapot {
 		t.Errorf("status = %d, want 418", sw.status)
 	}
+}
+
+// The shutdown ordering the server relies on: Close stops admission and then
+// drains, so a handler that outlived the HTTP drain and records afterwards is
+// refused instead of calling wg.Add while wg.Wait is already running, which is
+// the documented misuse and panics at the zero-counter boundary.
+func TestCloseRefusesRecordsAfterShutdown(t *testing.T) {
+	rec := newRecorder(t, nil)
+	var notices strings.Builder
+	rec.notices = &notices
+
+	r := chi.NewRouter()
+	r.Use(rec.Middleware)
+	r.Post("/things", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusCreated)
+	})
+	post := func() {
+		req := httptest.NewRequest(http.MethodPost, "/things", http.NoBody)
+		req = req.WithContext(user.WithIdentity(req.Context(), &user.Identity{Role: user.RoleAdmin}))
+		r.ServeHTTP(httptest.NewRecorder(), req)
+	}
+
+	post()
+	rec.Close()
+	if got := countRows(t, "1=1"); got != 1 {
+		t.Fatalf("after Close: %d rows, want 1: the record in flight was not drained", got)
+	}
+
+	// The late handler. No panic, no row, and the loss is stated rather than
+	// swallowed.
+	post()
+	post()
+	rec.Wait()
+	if got := countRows(t, "1=1"); got != 1 {
+		t.Errorf("after two late records: %d rows, want 1: a closed recorder still wrote", got)
+	}
+	if got := notices.String(); !strings.Contains(got, "audit: 2 record(s) dropped after shutdown") ||
+		!strings.Contains(got, "POST /things") {
+		t.Errorf("refusal notices = %q, want a running count and the route", got)
+	}
+
+	// Shutdown paths may reach it twice.
+	rec.Close()
+}
+
+// Close has to hold against the case it exists for: handlers still completing
+// while it drains. Run under -race, this is the Add-during-Wait window.
+func TestCloseIsSafeAgainstConcurrentRecords(t *testing.T) {
+	rec := newRecorder(t, nil)
+	rec.notices = io.Discard
+
+	r := chi.NewRouter()
+	r.Use(rec.Middleware)
+	r.Post("/things", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+
+	var wg sync.WaitGroup
+	for range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			req := httptest.NewRequest(http.MethodPost, "/things", http.NoBody)
+			req = req.WithContext(user.WithIdentity(req.Context(), &user.Identity{Role: user.RoleAdmin}))
+			r.ServeHTTP(httptest.NewRecorder(), req)
+		}()
+	}
+	rec.Close()
+	wg.Wait()
+	rec.Wait()
 }
