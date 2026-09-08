@@ -82,3 +82,34 @@ func TestIsForeignKeyViolation(t *testing.T) {
 		})
 	}
 }
+
+// IsUniqueViolationOn is the narrow variant: the same 23505, but only from the
+// constraint the caller names, so a message about one index cannot be attached
+// to another index's failure.
+func TestIsUniqueViolationOn(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name       string
+		err        error
+		constraint string
+		want       bool
+	}{
+		{"nil_error", nil, "providers_name_normalized_unique", false},
+		{"matching_constraint", &pgconn.PgError{Code: "23505", ConstraintName: "providers_name_normalized_unique"}, "providers_name_normalized_unique", true},
+		{"other_constraint", &pgconn.PgError{Code: "23505", ConstraintName: "providers_name_unique"}, "providers_name_normalized_unique", false},
+		{"no_constraint_name", &pgconn.PgError{Code: "23505"}, "providers_name_normalized_unique", false},
+		{"other_sqlstate", &pgconn.PgError{Code: "23503", ConstraintName: "providers_name_normalized_unique"}, "providers_name_normalized_unique", false},
+		{"wrapped", fmt.Errorf("wrap: %w", &pgconn.PgError{Code: "23505", ConstraintName: "providers_name_normalized_unique"}), "providers_name_normalized_unique", true},
+		{"non_pg_error", errors.New("some other error"), "providers_name_normalized_unique", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			if got := IsUniqueViolationOn(tt.err, tt.constraint); got != tt.want {
+				t.Errorf("IsUniqueViolationOn(%v, %q) = %v, want %v", tt.err, tt.constraint, got, tt.want)
+			}
+		})
+	}
+}

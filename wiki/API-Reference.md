@@ -95,7 +95,7 @@ This is invisible to the client: ordinary Chat Completions in and out, streaming
 **Model Routing:**
 
 - `hotel/<model>` - Failover routing (tries all providers that offer the model, with automatic failover on 5xx and optionally on 429)
-- `<provider>/<model>` - Direct routing to a specific named provider (no failover)
+- `<provider>/<model>` - Direct routing to a specific named provider (no failover). The provider name is carried in the form routing uses, with every space replaced by a hyphen: a provider named `my provider` is addressed as `my-provider/<model>`
 
 **Streaming Response Format:**
 ```
@@ -299,10 +299,22 @@ The plaintext API key is never returned; `masked_key` is a display-only preview.
 
 | Field | Type | Required | Constraints |
 |-------|------|----------|-------------|
-| `name` | string | Yes | 1-100 characters, unique |
+| `name` | string | Yes | 1-100 characters, unique in the routing form (see below) |
 | `base_url` | string | Yes | 1-500 characters, must use HTTPS unless `ALLOW_HTTP_PROVIDERS=true` |
 | `provider_type` | string | No | One of the known types (see [Model Discovery](Model-Discovery#provider-type)). Omitted, it is derived from the vendor hostname |
 | `api_key` | string | No | 1-500 characters (required for most providers, optional for Ollama, KoboldCPP, LMStudio, OpenCode Zen, custom) |
+
+**Names are unique in the form routing uses.** A `<provider>/<model>` id replaces
+every space in the provider name with a hyphen, so `my provider` and
+`my-provider` are one name: creating the second, or renaming a provider onto it,
+returns `409`. Renaming a provider to its own other spelling is allowed, since
+the name it routes under does not change. An install that already holds such a
+pair, from before the rule existed, refuses to start until one of them is
+renamed, because either name may be the one clients use. The dashboard is down
+at that point, so the rename happens in the database (the startup message names
+the pair): `docker compose exec db psql -U modelhotel -d modelhotel -c "UPDATE
+providers SET name = 'my provider 2' WHERE name = 'my-provider'"`, then start
+again. Restoring a backup taken before the rule is the usual way to reach this.
 
 **Self-hosted providers must name their type.** Omitting `provider_type` derives it
 from the hostname only, so `http://box:11434` becomes a generic OpenAI-compatible

@@ -496,6 +496,11 @@ func TestRunMigrations_ReadDirError(t *testing.T) {
 	if got := err.Error(); !strings.Contains(got, "failed to read migrations directory") {
 		t.Errorf("error = %q, want substring %q", got, "failed to read migrations directory")
 	}
+	// The caller logs a schema the database refused differently from a database
+	// it could not reach, so the two have to be distinguishable.
+	if !errors.Is(err, ErrMigrations) {
+		t.Errorf("error %v is not an ErrMigrations", err)
+	}
 }
 
 // TestRunMigrations_DirEntry tests that directory entries are skipped.

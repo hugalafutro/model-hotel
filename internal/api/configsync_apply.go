@@ -94,6 +94,14 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if err := enforceSourceGenFence(ctx, tx, sourceGen); err != nil {
 		return applyOutcome{}, err
 	}
+	// After the fence, so a push a newer generation already superseded stays the
+	// quiet stale outcome instead of being reported as a bad envelope. Still
+	// ahead of every write, and a check on the envelope as a whole: two providers
+	// whose names are one name once normalized would fight over one routing id,
+	// and nothing about the member's own rows changes the answer.
+	if err := validateSyncedProviderNames(env.Config.Providers); err != nil {
+		return applyOutcome{}, err
+	}
 	if err := guardAgainstProviderWipe(ctx, tx, env.Config.Providers); err != nil {
 		return applyOutcome{}, err
 	}

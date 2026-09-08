@@ -272,6 +272,8 @@ The prefix itself is matched **case-sensitively**: `hotel/` routes through a gro
 
 Three conditions all answer **404**, each with its own reason in the error body: no group exists for that name (`model not found: hotel/<name>`), the group's master toggle is off (`failover group disabled`), or the group has no entries at all (`no entries in failover group`). A group that exists and is enabled but whose every entry was filtered out answers with the no-available-provider error instead, which carries the reason each candidate was skipped.
 
+The other form, `<provider>/<model>`, names one provider directly and carries the provider's name in the form routing uses: every space becomes a hyphen, so a provider named `my provider` is addressed as `my-provider/<model>`. Provider names are unique in that form, so an id names exactly one provider.
+
 ### Model Name Resolution
 
 **Exact Base Name Matching:**
