@@ -496,7 +496,7 @@ jobs:
           merge-multiple: true
 
       - name: Merge shard reports + coverage
-        run: pnpm exec vitest --mergeReports --coverage
+        run: pnpm exec vitest --mergeReports .vitest-reports --coverage
 
       - name: Check frontend coverage (90% threshold)
         run: |
