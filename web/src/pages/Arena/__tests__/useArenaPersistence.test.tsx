@@ -40,18 +40,17 @@ const mockState: ArenaPersistenceState = {
 };
 
 describe("useArenaPersistence", () => {
-	let realStorage: Storage;
 	let storedItems: Record<string, string>;
 
 	beforeEach(() => {
 		vi.clearAllMocks();
 		mockPersistArena.current = true;
 		mockToast.mockClear();
-		realStorage = globalThis.localStorage;
 		storedItems = {};
 
-		// Mock localStorage with quota tracking
-		globalThis.localStorage = {
+		// Mock localStorage with quota tracking. jsdom exposes localStorage as a
+		// getter-only property, so it can only be replaced via stubGlobal.
+		vi.stubGlobal("localStorage", {
 			getItem: (key: string) => storedItems[key] ?? null,
 			setItem: (key: string, value: string) => {
 				const newSize = JSON.stringify(storedItems).length + value.length;
@@ -71,11 +70,11 @@ describe("useArenaPersistence", () => {
 				return Object.keys(storedItems).length;
 			},
 			key: (i: number) => Object.keys(storedItems)[i] ?? null,
-		} as Storage;
+		} as Storage);
 	});
 
 	afterEach(() => {
-		globalThis.localStorage = realStorage;
+		vi.unstubAllGlobals();
 	});
 
 	it("persists arena state to localStorage when persistArena=true", () => {
