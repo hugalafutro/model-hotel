@@ -439,32 +439,6 @@ func TestDiscoverXAI_FallbackToMinimalModels(t *testing.T) {
 	}
 }
 
-// Test discoverXAI with 429 rate limit - should fallback to catalog
-func TestDiscoverXAI_RateLimitFallback(t *testing.T) {
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/language-models" || r.URL.Path == "/models" {
-			http.Error(w, "Rate Limited", http.StatusTooManyRequests)
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	defer server.Close()
-
-	svc := &DiscoveryService{httpClient: server.Client()}
-	provider := &Provider{
-		ID:      uuid.New(),
-		BaseURL: server.URL,
-	}
-
-	ctx := context.Background()
-	_, err := svc.discoverXAI(ctx, provider, "test-api-key")
-	// 429 is not treated as a no-access error (only 403 is), so it returns an error
-	if err == nil {
-		t.Fatal("expected error for 429 status, got nil")
-		return
-	}
-}
-
 // Test discoverXAI with HTTP error (not 403) - should return error
 func TestDiscoverXAI_HttpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -732,9 +706,11 @@ func TestDiscoverXAIMinimalModels_429ReturnsError(t *testing.T) {
 	}
 }
 
+// TestDiscoverXAI_429DoesNotFallbackToCatalog pins retry-then-error: a 429 is a
+// retryable status, so both endpoints exhaust their retries and discovery
+// returns an error. Only a 403 marks an account as having no access and falls
+// back to the catalog.
 func TestDiscoverXAI_429DoesNotFallbackToCatalog(t *testing.T) {
-	// Both endpoints return 429 (rate limit) which is NOT treated as httpError
-	// Only 403 triggers httpError catalog fallback, so 429 returns an error
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/language-models" || r.URL.Path == "/models" {
 			w.WriteHeader(http.StatusTooManyRequests)
@@ -1036,8 +1012,9 @@ func TestDiscoverXAI_LanguageModelsEmpty_MinimalModelsEmpty(t *testing.T) {
 		t.Fatalf("expected no error with empty live, got: %v", err)
 	}
 	// Empty-but-successful endpoints return empty (not the catalog) so
-	// RecordMissingModels stays a no-op; the no-access 403/429 path still
-	// returns the catalog (covered by TestDiscoverXAI_RateLimitFallback).
+	// RecordMissingModels stays a no-op. A 403 is the only status that falls
+	// back to the catalog; a 429 retries and then errors (covered by
+	// TestDiscoverXAI_429DoesNotFallbackToCatalog).
 	if len(models) != 0 {
 		t.Errorf("expected 0 models when live is empty, got %d", len(models))
 	}

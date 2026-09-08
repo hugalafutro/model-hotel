@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"encoding/hex"
 	"fmt"
 	"sync"
@@ -29,7 +30,6 @@ const DefaultKeyCacheTTL = 10 * time.Minute
 
 func init() {
 	keyCacheTTLNanos.Store(int64(DefaultKeyCacheTTL))
-	startKeyCacheEviction()
 }
 
 // getKeyCacheTTL returns the current key cache TTL.
@@ -102,16 +102,28 @@ func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 	}
 }
 
-func startKeyCacheEviction() {
-	go func() {
-		ticker := time.NewTicker(getKeyCacheTTL())
-		defer ticker.Stop()
-		for range ticker.C {
+// KeyCacheEvictionLoop sweeps expired entries on a ticker that adopts the
+// current TTL at each tick and returns when ctx is done. Each binary that decrypts keys starts it on
+// its own background group, so the sweep is joined at shutdown instead of
+// running unjoinably for the life of every process that links this package. A
+// tick that lands together with the cancellation starts no sweep, so the join
+// budget is never spent on work begun after the cancel.
+func KeyCacheEvictionLoop(ctx context.Context) {
+	ticker := time.NewTicker(getKeyCacheTTL())
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			if ctx.Err() != nil {
+				return
+			}
 			evictExpiredKeyCacheEntries()
 			// Reset the ticker to pick up any TTL changes.
 			ticker.Reset(getKeyCacheTTL())
 		}
-	}()
+	}
 }
 
 func evictExpiredKeyCacheEntries() {

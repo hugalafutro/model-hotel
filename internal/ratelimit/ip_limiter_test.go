@@ -537,9 +537,9 @@ func TestIPLimiter_ConcurrentAccess(t *testing.T) {
 // Tests moved from ip_limiter_coverage_test.go
 // ---------------------------------------------------------------------------
 
-// TestIPLimiter_CleanupLoopStop verifies that Stop() closes the channel
+// TestIPLimiter_CleanupGoroutineStop verifies that Stop() closes the channel
 // properly so the cleanup goroutine exits.
-func TestIPLimiter_CleanupLoopStop(t *testing.T) {
+func TestIPLimiter_CleanupGoroutineStop(t *testing.T) {
 	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
 
 	// Stop() should close the channel without panicking
@@ -789,11 +789,11 @@ func TestIPLimiter_MiddlewareReservationNotOK(t *testing.T) {
 	}
 }
 
-// TestIPLimiter_CleanupLoop_Integration verifies that the cleanup goroutine
+// TestIPLimiter_CleanupGoroutine_Integration verifies that the cleanup goroutine
 // started by NewIPLimiter actually removes stale IP entries when triggered.
 // It inserts entries with expired lastUsed timestamps, calls cleanup() directly
 // (same function the ticker calls), and verifies removal.
-func TestIPLimiter_CleanupLoop_Integration(t *testing.T) {
+func TestIPLimiter_CleanupGoroutine_Integration(t *testing.T) {
 	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
 	defer lim.Stop()
 
@@ -818,7 +818,7 @@ func TestIPLimiter_CleanupLoop_Integration(t *testing.T) {
 	}
 	lim.mu.Unlock()
 
-	// Call cleanup directly (same code the cleanupLoop ticker invokes)
+	// Call cleanup directly (the same sweep runCleanup invokes on its ticker)
 	lim.cleanup()
 
 	lim.mu.Lock()
@@ -831,25 +831,24 @@ func TestIPLimiter_CleanupLoop_Integration(t *testing.T) {
 	}
 }
 
-// TestIPLimiter_CleanupLoopTickerStartStop verifies that the IPLimiter's
-// cleanupLoop goroutine can be started and stopped without panic.
-// The ticker fires every 5 minutes in production; we just test start/stop.
-func TestIPLimiter_CleanupLoopTickerStartStop(t *testing.T) {
+// TestIPLimiter_CleanupGoroutineStartStop verifies that the IPLimiter's cleanup
+// goroutine can be started and stopped without panic. The ticker fires every 5
+// minutes in production, so only start and stop are exercised here.
+func TestIPLimiter_CleanupGoroutineStartStop(t *testing.T) {
 	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
 
 	// Give the goroutine a moment to start
 	time.Sleep(20 * time.Millisecond)
 
-	// Stop should close stopCh, causing cleanupLoop to exit
+	// Stop should close stopCh, causing the cleanup goroutine to exit
 	lim.Stop()
 	// No panic = success
 }
 
-// TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries verifies that the
-// cleanup function (called by cleanupLoop on ticker.C) actually removes
-// stale IP entries. Since the production ticker is 5 minutes, we simulate
-// the ticker.C path by calling cleanup() directly.
-func TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
+// TestIPLimiter_CleanupGoroutine_TickerPathRemovesStaleEntries verifies that the
+// sweep runCleanup invokes on ticker.C removes stale IP entries. Since the
+// production ticker is 5 minutes, cleanup() is called directly.
+func TestIPLimiter_CleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) {
 	lim := NewIPLimiter(10, 20, nil, ipSettingsNoBackpressure())
 	defer lim.Stop()
 
@@ -890,13 +889,11 @@ func TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 	}
 }
 
-// TestIPLimiter_CleanupLoop_TickerBranch_Unreachable documents that the
-// ticker.C select branch in IPLimiter.cleanupLoop (line 188) cannot be
-// directly tested because the production ticker is 5 minutes. The cleanup()
-// function called on ticker.C IS tested directly via
-// TestIPLimiter_CleanupRemovesStale and TestIPLimiter_CleanupLoop_TickerPathRemovesStaleEntries.
-// Only the select routing (ticker.C path) is untested; the actual cleanup
-// logic is fully covered. This is a structural limitation.
+// The ticker.C select branch in runCleanup cannot be exercised directly for the
+// IP limiter either: the production ticker is 5 minutes. The cleanup() function
+// that branch calls is covered by TestIPLimiter_CleanupRemovesStale and
+// TestIPLimiter_CleanupGoroutine_TickerPathRemovesStaleEntries, so only the
+// select routing is untested. A structural limitation.
 
 // TestIPEntry_ThrottleEdgeLogging mirrors TestKeyEntry_ThrottleEdgeLogging for
 // the per-IP limiter: one "started" per episode (not per rejection), one

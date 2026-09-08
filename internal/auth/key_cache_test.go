@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"testing"
@@ -516,7 +517,25 @@ func TestDecryptCached_CacheExpiryEndToEnd(t *testing.T) {
 	}
 }
 
-func TestStartKeyCacheEviction_FiresPeriodically(t *testing.T) {
+// startEvictionLoop runs KeyCacheEvictionLoop on its own context and returns a
+// stop function that cancels it and waits for the goroutine to return, so a
+// sweep cannot still be in flight once the caller moves on. Both halves are
+// safe to repeat: cancelling twice is a no-op and a receive on a closed channel
+// returns immediately.
+func startEvictionLoop() func() {
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		defer close(done)
+		KeyCacheEvictionLoop(ctx)
+	}()
+	return func() {
+		cancel()
+		<-done
+	}
+}
+
+func TestKeyCacheEvictionLoop_FiresPeriodically(t *testing.T) {
 	// Set very short TTL
 	orig := getKeyCacheTTL()
 	defer SetKeyCacheTTL(orig)
@@ -527,9 +546,11 @@ func TestStartKeyCacheEviction_FiresPeriodically(t *testing.T) {
 	keyCache = make(map[string]cacheEntry)
 	keyCacheMu.Unlock()
 
-	// Start a second eviction loop with the short TTL; the one from init ticks
-	// at the default TTL and would not fire inside this test.
-	startKeyCacheEviction()
+	// An eviction loop with the short TTL, stopped before the deferred TTL
+	// restore above so no tick can observe the restored value. Deferred rather
+	// than registered on t.Cleanup for that ordering: LIFO runs this stop first.
+	stop := startEvictionLoop()
+	defer stop()
 
 	// Add an expired entry directly
 	keyCacheMu.Lock()

@@ -35,7 +35,7 @@ Decrypted provider keys are held in an in-memory cache to avoid re-deriving the 
 - **TTL**: 10 minutes (configurable via `key_cache_ttl` setting) - cached entries expire and must be re-decrypted
 - **Thread safety**: Protected by `sync.RWMutex` - multiple goroutines can read concurrently; writes are exclusive
 - **Cache key**: Derived from the hex-encoded ciphertext + nonce + salt, so changing a provider's key invalidates the cache entry naturally
-- **Eviction**: A background goroutine runs periodically, purging expired entries
+- **Eviction**: Each server binary runs a sweep on its background group, ticking on the current TTL and purging expired entries; it is joined at shutdown
 - **Warm-up**: On startup, all enabled providers' keys are pre-loaded into the cache (`WarmKeyCache`)
 
 This is a security trade-off: caching reduces Argon2id computation overhead on hot paths, but means decrypted keys exist in memory for up to 10 minutes. In practice, this is acceptable because:

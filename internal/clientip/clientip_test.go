@@ -440,8 +440,9 @@ func TestIsIPInTrustedNets_IPv6ZeroCompression(t *testing.T) {
 	_, cidr, _ := net.ParseCIDR("2001:db8::/32")
 	nets := []*net.IPNet{cidr}
 
-	// :: zero-compression should work correctly (the reason isIPInTrustedNets exists
-	// instead of relying on IsTrustedProxy which requires host:port format)
+	// isIPInTrustedNets takes an address that has already been extracted from any
+	// host:port form, so net.ParseIP sees the whole IPv6 literal and its ::
+	// zero-compression expands before net.IPNet.Contains compares it.
 	if !isIPInTrustedNets("2001:db8::1", nets) {
 		t.Error("2001:db8::1 with zero-compression should be in 2001:db8::/32")
 	}
