@@ -8,8 +8,9 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
-// OpenCodeModelSpec describes a model's capabilities and pricing.
-// Used by both OpenCode Go and OpenCode Zen catalogs.
+// OpenCodeModelSpec describes a model's capabilities and pricing. It is the
+// shape every embedded per-model catalog uses: OpenCode Go and Zen, xAI and
+// OpenAI.
 type OpenCodeModelSpec struct {
 	ModelID                      string  `json:"model_id"`
 	DisplayName                  string  `json:"display_name"`
@@ -42,12 +43,7 @@ func opencodeCatalogModels(catalog []OpenCodeModelSpec, providerID uuid.UUID, ow
 // LookupOpenCodeCatalog finds a spec by model ID in a catalog slice.
 // Returns nil if not found.
 func LookupOpenCodeCatalog(catalog []OpenCodeModelSpec, modelID string) *OpenCodeModelSpec {
-	for i := range catalog {
-		if catalog[i].ModelID == modelID {
-			return &catalog[i]
-		}
-	}
-	return nil
+	return lookupByModelID(catalog, modelID, func(e *OpenCodeModelSpec) string { return e.ModelID })
 }
 
 // OpenCodeCatalogToModel converts an OpenCodeModelSpec into a model.Model

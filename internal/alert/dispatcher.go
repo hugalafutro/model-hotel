@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -92,7 +93,7 @@ func WithTitlePrefix(p string) Option { return func(d *Dispatcher) { d.titlePref
 // WithDebounceKeys sets the metadata keys used to scope per-entity debounce. The
 // slice is copied so a later mutation by the caller cannot change debounce behavior.
 func WithDebounceKeys(keys []string) Option {
-	return func(d *Dispatcher) { d.debounceKeys = append([]string(nil), keys...) }
+	return func(d *Dispatcher) { d.debounceKeys = slices.Clone(keys) }
 }
 
 // WithResultHook observes the outcome of every dispatched notification attempt
@@ -228,6 +229,15 @@ func (d *Dispatcher) suppressed(ev events.Event) bool {
 	now := time.Now()
 	if last, seen := d.lastSent[key]; seen && now.Sub(last) < d.cooldown {
 		return true
+	}
+	// A stamp older than the cooldown suppresses nothing, so drop it rather
+	// than keep a row for every entity that ever alerted: the key carries a
+	// provider or model id and the set of those churns over a process
+	// lifetime.
+	for k, last := range d.lastSent {
+		if now.Sub(last) >= d.cooldown {
+			delete(d.lastSent, k)
+		}
 	}
 	d.lastSent[key] = now
 	return false

@@ -1,4 +1,4 @@
-import { createLocaleBackend } from "@web-shared/i18n";
+import { createLocaleBackend, localeCodes } from "@web-shared/i18n";
 import i18next from "i18next";
 import LanguageDetector from "i18next-browser-languagedetector";
 import { initReactI18next } from "react-i18next";
@@ -28,9 +28,7 @@ const FILE_ALIASES: Record<string, string> = {
 const SUPPORTED_LANGUAGES = [
 	"en",
 	...Object.keys(FILE_ALIASES),
-	...Object.keys(localeLoaders).map((p) =>
-		p.slice("./locales/".length, -".json".length),
-	),
+	...localeCodes(localeLoaders),
 ];
 
 export const lazyLocaleBackend = createLocaleBackend(

@@ -95,15 +95,7 @@ func computeStripReasoning(payload string, lastFinishReason *string, logData *re
 		return stripKeepalive, keepAliveJSON
 	}
 
-	newDelta, _ := json.Marshal(deltaFields)
-	p.choices[0]["delta"] = json.RawMessage(newDelta)
-	// Normalize finish_reason before re-serializing so non-standard values
-	// (e.g. "end_turn", "STOP") map to OpenAI equivalents.
-	normalizeFinishReasonInChoices(p.choices, lastFinishReason, logData.modelID, logData.providerName)
-	newChoices, _ := json.Marshal(p.choices)
-	p.raw["choices"] = json.RawMessage(newChoices)
-	newPayload, _ := json.Marshal(p.raw)
-	return stripForward, newPayload
+	return stripForward, p.reserialize(deltaFields, lastFinishReason, logData)
 }
 
 // finishReasonDecision is what computeFinishReason decided for a chunk.
@@ -206,16 +198,9 @@ func stripEmptyReasoningContent(payload string, lastFinishReason *string, logDat
 		return nil, false
 	}
 	delete(p.delta, "content")
-	newDelta, _ := json.Marshal(p.delta)
-	p.choices[0]["delta"] = json.RawMessage(newDelta)
-	// Normalize finish_reason in-place before re-serializing; the caller sets
-	// written=true after emitting, which would otherwise skip the later
-	// finish_reason normalization block for this chunk.
-	normalizeFinishReasonInChoices(p.choices, lastFinishReason, logData.modelID, logData.providerName)
-	newChoices, _ := json.Marshal(p.choices)
-	p.raw["choices"] = json.RawMessage(newChoices)
-	newPayload, _ := json.Marshal(p.raw)
-	return newPayload, true
+	// The caller sets written=true after emitting, which would otherwise skip
+	// the later finish_reason normalization block for this chunk.
+	return p.reserialize(p.delta, lastFinishReason, logData), true
 }
 
 // normalizeReasoningChunk ensures reasoning_content is populated regardless of
@@ -272,11 +257,5 @@ func normalizeReasoningChunk(content, reasoningContent *string, payload string, 
 			chunkParsed.delta["content"] = json.RawMessage(escaped)
 		}
 	}
-	newDelta, _ := json.Marshal(chunkParsed.delta)
-	chunkParsed.choices[0]["delta"] = json.RawMessage(newDelta)
-	normalizeFinishReasonInChoices(chunkParsed.choices, lastFinishReason, logData.modelID, logData.providerName)
-	newChoices, _ := json.Marshal(chunkParsed.choices)
-	chunkParsed.raw["choices"] = json.RawMessage(newChoices)
-	newPayload, _ := json.Marshal(chunkParsed.raw)
-	return newPayload, true
+	return chunkParsed.reserialize(chunkParsed.delta, lastFinishReason, logData), true
 }

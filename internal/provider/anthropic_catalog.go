@@ -18,40 +18,21 @@ func GetAnthropicPricing() []AnthropicPricingSpec {
 
 // LookupAnthropicPricing finds pricing for a model ID, stripping date suffixes if needed.
 func LookupAnthropicPricing(catalog []AnthropicPricingSpec, modelID string) *AnthropicPricingSpec {
-	for i := range catalog {
-		if catalog[i].ModelID == modelID {
-			return &catalog[i]
-		}
+	id := func(e *AnthropicPricingSpec) string { return e.ModelID }
+	if spec := lookupByModelID(catalog, modelID, id); spec != nil {
+		return spec
 	}
-
-	baseID := stripAnthropicDate(modelID)
-	if baseID != modelID {
-		for i := range catalog {
-			if catalog[i].ModelID == baseID {
-				return &catalog[i]
-			}
-		}
+	if baseID := stripAnthropicDate(modelID); baseID != modelID {
+		return lookupByModelID(catalog, baseID, id)
 	}
-
 	return nil
 }
 
+// stripAnthropicDate drops a trailing "-YYYYMMDD" release stamp, so a dated
+// model ID falls back to the undated catalog row.
 func stripAnthropicDate(modelID string) string {
-	if len(modelID) < 9 {
-		return modelID
-	}
-	suffix := modelID[len(modelID)-9:]
-	if suffix[0] == '-' && len(suffix) == 9 {
-		allDigits := true
-		for _, c := range suffix[1:] {
-			if c < '0' || c > '9' {
-				allDigits = false
-				break
-			}
-		}
-		if allDigits {
-			return modelID[:len(modelID)-9]
-		}
+	if n := len(modelID); n > 9 && modelID[n-9] == '-' && isNumeric(modelID[n-8:]) {
+		return modelID[:n-9]
 	}
 	return modelID
 }

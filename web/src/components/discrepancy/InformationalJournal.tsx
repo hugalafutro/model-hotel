@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { DiscoveryChangeEntry, DiscoveryDiff } from "../../api/types";
-import { ChevronDown, ChevronRight } from "../../lib/icons";
+import { DisclosureChevron } from "../../lib/icons";
 import { formatFieldValue } from "../../pages/Providers/discoveryFormat";
 import {
 	CategoryGroup,
@@ -8,6 +8,7 @@ import {
 	DetailRow,
 } from "../../pages/Providers/discoveryPrimitives";
 import { formatRelativeTime } from "../../utils/format";
+import { CollapseBody } from "../CollapsibleToggle";
 
 /**
  * Zone 2 of the discrepancy modal: the informational journal. Never holds the
@@ -150,11 +151,7 @@ export function InformationalJournal({
 				className="flex w-full items-center gap-2 text-left"
 				data-testid="discrepancy-informational-toggle"
 			>
-				{open ? (
-					<ChevronDown size={14} className="shrink-0" />
-				) : (
-					<ChevronRight size={14} className="shrink-0" />
-				)}
+				<DisclosureChevron open={open} className="shrink-0" />
 				<span className="text-[11px] font-semibold uppercase tracking-wider text-(--text-tertiary)">
 					{t("providers.discrepancies.recentChanges")}
 				</span>
@@ -188,26 +185,19 @@ export function InformationalJournal({
 							})}
 				</p>
 			) : null}
-			<div
-				id={regionId}
-				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-					open ? "grid-rows-[1fr]" : "grid-rows-[0fr]"
-				}`}
-			>
-				{/* Same reason as the stale zone: collapsed here is a visual
-				    state only, so the journal must be made inert or it is read
-				    out in full under an aria-expanded="false" toggle. */}
-				<div className="overflow-hidden" inert={!open}>
-					<div className="space-y-2">
-						{informational.map((entry, i) =>
-							renderEntry(
-								entry,
-								`${entry.provider_name}-${entry.detected_at}-${i}`,
-							),
-						)}
-					</div>
+			{/* Same reason as the stale zone: collapsed here is a visual state
+			    only, so the journal must be made inert or it is read out in full
+			    under an aria-expanded="false" toggle. */}
+			<CollapseBody collapsed={!open} inert id={regionId}>
+				<div className="space-y-2">
+					{informational.map((entry, i) =>
+						renderEntry(
+							entry,
+							`${entry.provider_name}-${entry.detected_at}-${i}`,
+						),
+					)}
 				</div>
-			</div>
+			</CollapseBody>
 		</section>
 	);
 }

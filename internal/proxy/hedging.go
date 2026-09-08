@@ -11,7 +11,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/anthropicegress"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
 	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
@@ -334,7 +333,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		res.reqErr = st.lastReqErr
 		return res
 	}
-	res.respHeaderMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	res.respHeaderMs = util.MillisSince(st.startTime)
 
 	// MiniMax reports business errors (rate limit, exhausted plan balance,
 	// auth failures) inside an HTTP 200 envelope; remap them to an effective
@@ -353,18 +352,9 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	if !servedSuccessStatus(resp.StatusCode) {
 		// Any non-2xx drops this candidate. The orchestrator owns the terminal
 		// write if every candidate fails; drain so the connection can be reused,
-		// keeping only as much as the two readers below can use.
-		//
-		// The cap follows the status because the two readers want different
-		// amounts. classifyUpstreamError never sees past SanitizeLogBody's 10 000
-		// bytes, which failoverErrorClassifyCap is sized against; but a 400 also
-		// goes to learnResponsesRequirement, which json.Unmarshals it, and a
-		// document cut short does not parse at all.
-		readCap := int64(failoverErrorClassifyCap)
-		if resp.StatusCode == http.StatusBadRequest {
-			readCap = responsesLearnBodyCap
-		}
-		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, readCap))
+		// keeping only as much as the two readers below can use, under the same
+		// status-dependent cap the sequential half reads a refusal at.
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, learnableBodyCap(resp.StatusCode)))
 		_, _ = io.Copy(io.Discard, resp.Body)
 		_ = resp.Body.Close()
 		h.learnFromHedgedRefusal(st, candidate, providerType, resp.StatusCode, errBody)
@@ -384,7 +374,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// happens to win, almost never, since a model answering 404 loses the
 		// TTFT contest to anything that works. Same classification the sequential
 		// and pass-through loops do, on a body being discarded either way.
-		errBodyMsg := util.SanitizeLogBody(string(errBody), 10000)
+		errBodyMsg := util.SanitizeLogBody(string(errBody), logBodyCap)
 		kind, _ := classifyUpstreamError(resp.StatusCode, errBodyMsg, candidate.model.ModelID)
 		if kind == KindProviderModelGone {
 			h.noteModelGone(candidate, st.logData.endpointType)
@@ -429,10 +419,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		clientGone := ctx.Err() != nil
 		elapsed := time.Since(st.startTime)
 		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
-		if recordFailure && st.circuitBreakerEnabled {
-			debuglog.Warn("proxy: recording circuit breaker failure", "reason", "hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", st.logData.content.maskOne(re.Underlying))
-			st.logData.noteBreaker(breakerCharge)
-			h.circuitBreaker.RecordFailure(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate), failover.Cause{Status: resp.StatusCode, Reason: "hedged TTFT probe failed"})
+		if recordFailure {
+			// What only this site knows about the probe, beside the charge line
+			// chargeBreaker writes.
+			debuglog.Warn("proxy: hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", st.logData.content.maskOne(re.Underlying))
+			h.chargeBreaker(st, candidate, resp.StatusCode, "hedged TTFT probe failed")
 		}
 		res.reqErr = re
 		return res
@@ -544,12 +535,7 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 		circuitBreakerOn:   st.circuitBreakerEnabled,
 		proxyOverheadMs:    st.proxyOverhead,
 		parseMs:            st.parseMs,
-		failoverLookupMs:   st.timings.failoverLookupMs,
-		modelLookupMs:      st.timings.modelLookupMs,
-		providerLookupMs:   st.timings.providerLookupMs,
-		keyDecryptMs:       st.timings.keyDecryptMs,
-		dialMs:             st.timings.dialMs,
-		settingsReadMs:     st.timings.settingsReadMs,
+		timings:            st.timings,
 		vkHash:             st.vkHash,
 		attempt:            res.idx,
 		cancelOrigin:       "failover_timeout",

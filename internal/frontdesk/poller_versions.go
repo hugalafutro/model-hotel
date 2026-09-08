@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"time"
 
@@ -20,18 +19,12 @@ func (p *Poller) PollVersionsOnce(ctx context.Context) {
 		return
 	}
 	for _, m := range members {
-		if !m.HasToken {
+		token, ok := p.store.MemberTokenOf(ctx, m)
+		if !ok {
 			// A member whose token was removed loses its build with it: the
 			// config-sync gates read an empty version as "cannot confirm", and
 			// a version kept from before the removal would vouch for a build
 			// nothing can read any more.
-			if p.clearBuild(m.ID) {
-				p.publishMemberStatus(m.ID)
-			}
-			continue
-		}
-		token, ok, err := p.store.MemberToken(ctx, m.ID)
-		if err != nil || !ok {
 			if p.clearBuild(m.ID) {
 				p.publishMemberStatus(m.ID)
 			}
@@ -128,22 +121,12 @@ func (p *Poller) noteVersionFetchFailure(ctx context.Context, m *Member, fetchEr
 // fetchMemberBuild reads app_version and app_commit from the member's admin
 // settings API. Both ride in one response, so the commit costs no extra call.
 func (p *Poller) fetchMemberBuild(ctx context.Context, baseURL, token string) (memberBuild, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+memberSettingsPath, http.NoBody)
+	status, body, err := callMemberWith(ctx, p.client, http.MethodGet, baseURL, memberSettingsPath, token, nil)
 	if err != nil {
 		return memberBuild{}, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return memberBuild{}, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return memberBuild{}, fmt.Errorf("settings api returned %d", resp.StatusCode)
-	}
-	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
-	if err != nil {
-		return memberBuild{}, err
+	if status != http.StatusOK {
+		return memberBuild{}, fmt.Errorf("settings api returned %d", status)
 	}
 	var payload map[string]any
 	if err := json.Unmarshal(body, &payload); err != nil {

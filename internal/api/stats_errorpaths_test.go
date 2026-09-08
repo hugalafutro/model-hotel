@@ -30,7 +30,7 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 	since := now.Add(-24 * time.Hour)
 
 	// Fatal helpers must surface the error.
-	if err := handler.statTotals(ctx, newStats(), "", "", nil, 24*time.Hour, since, now); err == nil {
+	if err := handler.statTotals(ctx, newStats(), "", "", nil, now); err == nil {
 		t.Error("statTotals: expected error on cancelled context")
 	}
 	if err := handler.statByModel(ctx, newStats(), "", "", nil, "requests", since); err == nil {
@@ -65,16 +65,14 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 	}
 }
 
-// TestStats_StatTotals7DayPeriod exercises the 7-day period branch in statTotals,
-// which sets TotalRequestsLast7d instead of TotalRequestsLast24h, and also
-// queries TotalRequestsLast24h from the else branch (cross-fill).
-func TestStats_StatTotals7DayPeriod(t *testing.T) {
+// TestStats_StatTotalsFillsBothWindows checks that statTotals answers with both
+// the 24h and the 7d figure on a single call.
+func TestStats_StatTotalsFillsBothWindows(t *testing.T) {
 	handler, _, cleanup := newStatsHandler(t)
 	defer cleanup()
 
 	ctx := context.Background()
 	now := time.Now().UTC()
-	since := now.Add(-7 * 24 * time.Hour)
 
 	stats := &StatsResponse{
 		ByModel:      make(map[string]int64),
@@ -82,40 +80,16 @@ func TestStats_StatTotals7DayPeriod(t *testing.T) {
 		ByVirtualKey: make(map[string]int64),
 	}
 
-	err := handler.statTotals(ctx, stats, "", "", nil, 7*24*time.Hour, since, now)
+	err := handler.statTotals(ctx, stats, "", "", nil, now)
 	if err != nil {
-		t.Fatalf("statTotals with 7-day period: %v", err)
+		t.Fatalf("statTotals: %v", err)
 	}
 
-	// With a 7-day period, TotalRequestsLast7d should be set
-	// and TotalRequestsLast24h should also be cross-filled.
 	if stats.TotalRequestsLast7d < 0 {
 		t.Errorf("TotalRequestsLast7d = %d, want >= 0", stats.TotalRequestsLast7d)
 	}
 	if stats.TotalRequestsLast24h < 0 {
 		t.Errorf("TotalRequestsLast24h = %d, want >= 0", stats.TotalRequestsLast24h)
-	}
-}
-
-// TestStats_StatTotals7DayErrorPath exercises the 7-day period branch
-// with a cancelled context to trigger the secondary query error path.
-func TestStats_StatTotals7DayErrorPath(t *testing.T) {
-	handler, _, cleanup := newStatsHandler(t)
-	defer cleanup()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-
-	stats := &StatsResponse{
-		ByModel:      make(map[string]int64),
-		ByProvider:   make(map[string]int64),
-		ByVirtualKey: make(map[string]int64),
-	}
-	now := time.Now().UTC()
-	since := now.Add(-7 * 24 * time.Hour)
-
-	if err := handler.statTotals(ctx, stats, "", "", nil, 7*24*time.Hour, since, now); err == nil {
-		t.Error("statTotals with 7-day period: expected error on cancelled context")
 	}
 }
 

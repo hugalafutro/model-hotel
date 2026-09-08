@@ -1551,9 +1551,11 @@ describe("DatabaseBackupSettings", () => {
 			await user.click(toggle);
 			// Preview failure surfaces an error toast and does not enable or
 			// open the confirm modal.
+			// The toast carries the server's own message so a 403 reads
+			// differently from a 500.
 			await waitFor(() => {
 				expect(
-					screen.getByText("Failed to preview backup pruning"),
+					screen.getByText(/^Failed to preview backup pruning: /),
 				).toBeInTheDocument();
 			});
 			expect(

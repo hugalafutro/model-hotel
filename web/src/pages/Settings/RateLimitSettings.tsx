@@ -4,6 +4,7 @@ import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { SettingToggleRow } from "../../components/SettingToggleRow";
+import { settingOr } from "./defaults";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface RateLimitSettingsProps {
@@ -24,12 +25,12 @@ export function RateLimitSettings({
 		useSettingsMutations();
 
 	const rateLimitEnabled = settings?.rate_limit_enabled !== "false";
-	const rateLimitRPS = settings?.rate_limit_rps || "10";
-	const rateLimitBurst = settings?.rate_limit_burst || "20";
+	const rateLimitRPS = settingOr(settings, "rate_limit_rps");
+	const rateLimitBurst = settingOr(settings, "rate_limit_burst");
 	const rateLimitIpEnabled = settings?.rate_limit_ip_enabled !== "false";
-	const rateLimitIpRPS = settings?.rate_limit_ip_rps || "30";
-	const rateLimitIpBurst = settings?.rate_limit_ip_burst || "60";
-	const rateLimitMaxWaitMs = settings?.rate_limit_max_wait_ms || "200";
+	const rateLimitIpRPS = settingOr(settings, "rate_limit_ip_rps");
+	const rateLimitIpBurst = settingOr(settings, "rate_limit_ip_burst");
+	const rateLimitMaxWaitMs = settingOr(settings, "rate_limit_max_wait_ms");
 
 	return (
 		<SettingsSection

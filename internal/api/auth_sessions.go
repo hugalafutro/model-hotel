@@ -4,9 +4,6 @@ import (
 	"errors"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
-
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -50,18 +47,29 @@ func sessionCallerContext(r *http.Request) (identity []byte, candidates []string
 	return identity, []string{cookieTok, bearerTok}, true
 }
 
+// sessionCaller is the opening every session-hygiene handler shares: the
+// session manager must be wired, and the request must carry an identity. It
+// writes the 412 / 401 itself and returns ok=false.
+func (h *Handler) sessionCaller(w http.ResponseWriter, r *http.Request) (identity []byte, candidates []string, ok bool) {
+	if h.webauthnSessionMgr == nil {
+		respondError(w, "session management is not configured", nil, http.StatusPreconditionFailed)
+		return nil, nil, false
+	}
+	identity, candidates, ok = sessionCallerContext(r)
+	if !ok {
+		respondError(w, "unauthenticated", nil, http.StatusUnauthorized)
+		return nil, nil, false
+	}
+	return identity, candidates, true
+}
+
 // ListAuthSessions returns the caller's live sessions for the settings panel:
 // device metadata, timestamps, and which row is the calling session. Identity
 // scoping happens in the manager off the middleware-resolved identity, so a
 // caller can only ever see their own sessions.
 func (h *Handler) ListAuthSessions(w http.ResponseWriter, r *http.Request) {
-	if h.webauthnSessionMgr == nil {
-		respondError(w, "session management is not configured", nil, http.StatusPreconditionFailed)
-		return
-	}
-	identity, candidates, ok := sessionCallerContext(r)
+	identity, candidates, ok := h.sessionCaller(w, r)
 	if !ok {
-		respondError(w, "unauthenticated", nil, http.StatusUnauthorized)
 		return
 	}
 
@@ -81,19 +89,13 @@ func (h *Handler) ListAuthSessions(w http.ResponseWriter, r *http.Request) {
 // read as 404 (a distinct answer would confirm the id exists); the session the
 // request rides on is a 409, since ending it is what logout is for.
 func (h *Handler) RevokeAuthSessionByID(w http.ResponseWriter, r *http.Request) {
-	if h.webauthnSessionMgr == nil {
-		respondError(w, "session management is not configured", nil, http.StatusPreconditionFailed)
-		return
-	}
-	identity, candidates, ok := sessionCallerContext(r)
+	identity, candidates, ok := h.sessionCaller(w, r)
 	if !ok {
-		respondError(w, "unauthenticated", nil, http.StatusUnauthorized)
 		return
 	}
 
-	sessionID, err := uuid.Parse(chi.URLParam(r, "id"))
-	if err != nil {
-		respondError(w, "invalid session id", nil, http.StatusBadRequest)
+	sessionID, ok := parseUUIDParam(w, r, "id", "session id")
+	if !ok {
 		return
 	}
 
@@ -144,17 +146,11 @@ func (h *Handler) RevokeAuthSessionByID(w http.ResponseWriter, r *http.Request) 
 // account could have aimed this at the admin handle and signed every admin
 // session out.
 func (h *Handler) RevokeOtherSessions(w http.ResponseWriter, r *http.Request) {
-	if h.webauthnSessionMgr == nil {
-		respondError(w, "session management is not configured", nil, http.StatusPreconditionFailed)
-		return
-	}
-
 	// Both credentials a request can carry. Whichever one belongs to this
 	// identity names the session to spare; one that does not belong to it
 	// spares nothing, so a foreign or junk token can never redirect the revoke.
-	identity, candidates, ok := sessionCallerContext(r)
+	identity, candidates, ok := h.sessionCaller(w, r)
 	if !ok {
-		respondError(w, "unauthenticated", nil, http.StatusUnauthorized)
 		return
 	}
 

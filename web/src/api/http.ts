@@ -1,3 +1,4 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { readCookie } from "@web-shared/cookies";
 
 export const API_BASE = "";
@@ -28,6 +29,11 @@ export class ApiError extends Error {
 		this.code = code;
 		this.details = details;
 	}
+}
+
+/** True when a rejection is a 409 the server raised, whatever it says in words. */
+export function isConflict(err: unknown): boolean {
+	return err instanceof ApiError && err.status === 409;
 }
 
 export async function fetchOK(
@@ -71,7 +77,10 @@ export async function fetchOK(
 		// unchanged bare-text message.
 		let code: string | undefined;
 		let details: Record<string, unknown> | undefined;
-		let message = `${errorPrefix}: ${response.status} ${text}`;
+		// An empty prefix means the caller phrases the failure itself and wants
+		// only the status and body, with no separator in front of it.
+		const prefix = errorPrefix ? `${errorPrefix}: ` : "";
+		let message = `${prefix}${response.status} ${text}`;
 		if (text.startsWith("{")) {
 			try {
 				const body = JSON.parse(text) as {
@@ -81,7 +90,7 @@ export async function fetchOK(
 				if (typeof body.code === "string") {
 					code = body.code;
 					details = body;
-					message = `${errorPrefix}: ${response.status} ${body.error ?? text}`;
+					message = `${prefix}${response.status} ${body.error ?? text}`;
 				}
 			} catch {
 				// Not valid JSON despite the leading brace; keep the raw-text message.
@@ -130,6 +139,7 @@ export function buildQueryString(
 ): string {
 	const sp = new URLSearchParams();
 	for (const [key, value] of Object.entries(params)) {
+		// The null check outlives the type: a runtime caller can still hand one over.
 		if (value !== undefined && value !== null) sp.set(key, String(value));
 	}
 	return sp.toString();
@@ -194,4 +204,16 @@ export function getAuthHeaders(): Record<string, string> {
 	const csrf = getCsrfToken();
 	if (csrf) headers["X-CSRF-Token"] = csrf;
 	return headers;
+}
+
+/**
+ * Drops the client-visible auth signal and reloads into the login screen. The
+ * in-flight queries are cancelled first so none of them settles against a page
+ * that is already tearing down. The one teardown path: manual logout, the SSE
+ * stream's 401, and a password change that invalidated the session all end here.
+ */
+export function resetToLogin(queryClient?: QueryClient): void {
+	clearAuth();
+	queryClient?.cancelQueries();
+	window.location.reload();
 }

@@ -219,7 +219,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 
 	if stats, ok := cachedSystemFor(since); ok {
 		h.attachRequestsToday(r, stats, since)
-		writeSystemJSON(w, stats)
+		writeJSON(w, stats)
 		return
 	}
 
@@ -256,7 +256,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 	// cache, and requests_today is the one field that differs per caller.
 	stats := *v.(*SystemStats)
 	h.attachRequestsToday(r, &stats, since)
-	writeSystemJSON(w, &stats)
+	writeJSON(w, &stats)
 }
 
 // attachRequestsToday fills in the one owner-scoped field on an otherwise shared
@@ -311,10 +311,6 @@ func cachedSystemFor(since string) (*SystemStats, bool) {
 		return &result, true
 	}
 	return nil, false
-}
-
-func writeSystemJSON(w http.ResponseWriter, stats *SystemStats) {
-	writeJSON(w, stats)
 }
 
 // requestsSince returns the number of request_logs rows at or after `since` that

@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Target } from "@/lib/icons";
 import { Spinner } from "../../components/Spinner";
+import { useResizeObserver } from "../../hooks/useResizeObserver";
 import {
 	formatPercent,
 	formatTokens,
@@ -44,30 +44,25 @@ export function TokenSplitBar({
 	// positioning, and so does this bar once measured. Before the first
 	// measurement (and in jsdom, where ResizeObserver is a no-op) the
 	// tiles fall back to the flex layout.
-	const barRef = useRef<HTMLDivElement>(null);
-	const [barWidth, setBarWidth] = useState(0);
-	useEffect(() => {
-		const el = barRef.current;
-		if (!el) return;
-		const ro = new ResizeObserver((entries) => {
-			setBarWidth(Math.floor(entries[0].contentRect.width));
-		});
-		ro.observe(el);
-		return () => ro.disconnect();
-	}, []);
+	const { ref: barRef, width } = useResizeObserver<HTMLDivElement>();
+	const barWidth = Math.floor(width);
+
+	const header = (
+		<div className="flex items-center justify-between mb-1">
+			<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
+				<Target size={18} className="text-(--accent)" />
+				{t("dashboard.tokens.tokenMix")}
+				{loading && <Spinner className="ml-1" />}
+			</h3>
+			<RangeToggle value={range} onChange={onRangeChange} />
+		</div>
+	);
 
 	const totalPC = prompt + completion;
 	if (totalPC === 0) {
 		return (
 			<div className="ui-card p-6">
-				<div className="flex items-center justify-between mb-1">
-					<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
-						<Target size={18} className="text-(--accent)" />
-						{t("dashboard.tokens.tokenMix")}
-						{loading && <Spinner className="ml-1" />}
-					</h3>
-					<RangeToggle value={range} onChange={onRangeChange} />
-				</div>
+				{header}
 				<p className="text-sm text-(--text-muted) text-center py-12">
 					{t("dashboard.tokens.noTokenData")}
 				</p>
@@ -80,7 +75,7 @@ export function TokenSplitBar({
 	const tiles = computeTileSegments(promptPct, completionPct, cacheHitPct);
 
 	const uncachedPrompt = Math.max(0, prompt - cacheHit);
-	const uncachedPct = totalPC > 0 ? (uncachedPrompt / totalPC) * 100 : 0;
+	const uncachedPct = (uncachedPrompt / totalPC) * 100;
 
 	const tileColor = (type: string) => {
 		if (type === "cache_hit") return CACHE_HIT_COLOR;
@@ -107,14 +102,7 @@ export function TokenSplitBar({
 
 	return (
 		<div className="ui-card p-6">
-			<div className="flex items-center justify-between mb-1">
-				<h3 className="text-lg font-semibold text-(--text-primary) flex items-center gap-2">
-					<Target size={18} className="text-(--accent)" />
-					{t("dashboard.tokens.tokenMix")}
-					{loading && <Spinner className="ml-1" />}
-				</h3>
-				<RangeToggle value={range} onChange={onRangeChange} />
-			</div>
+			{header}
 			<p
 				className="text-2xl font-bold text-(--text-primary) mb-4"
 				style={{ textTransform: "none" }}

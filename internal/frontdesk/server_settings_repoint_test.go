@@ -35,7 +35,11 @@ func TestRepointTargetsCurrentPrimary_TokenlessCandidate(t *testing.T) {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
 
-	same, err := srv.repointTargetsCurrentPrimary(ctx, tokenless.ID)
+	cur, err := store.GetAutoSync(ctx)
+	if err != nil {
+		t.Fatalf("GetAutoSync: %v", err)
+	}
+	same, err := srv.repointTargetsCurrentPrimary(ctx, cur, tokenless)
 	if err != nil {
 		t.Fatalf("repointTargetsCurrentPrimary: %v", err)
 	}
@@ -48,7 +52,7 @@ func TestRepointTargetsCurrentPrimary_TokenlessCandidate(t *testing.T) {
 	if err := store.SetMemberToken(ctx, tokenless.ID, "tok-candidate"); err != nil {
 		t.Fatalf("SetMemberToken: %v", err)
 	}
-	same, err = srv.repointTargetsCurrentPrimary(ctx, tokenless.ID)
+	same, err = srv.repointTargetsCurrentPrimary(ctx, cur, tokenless)
 	if err != nil {
 		t.Fatalf("repointTargetsCurrentPrimary after token: %v", err)
 	}
@@ -71,7 +75,7 @@ func TestRepointTargetsCurrentPrimary_NoCollisionToFind(t *testing.T) {
 	}
 
 	// No primary configured yet.
-	if same, err := srv.repointTargetsCurrentPrimary(ctx, m.ID); err != nil || same {
+	if same, err := srv.repointTargetsCurrentPrimary(ctx, AutoSyncConfig{}, m); err != nil || same {
 		t.Fatalf("first designation = (%v, %v), want (false, nil)", same, err)
 	}
 
@@ -79,7 +83,11 @@ func TestRepointTargetsCurrentPrimary_NoCollisionToFind(t *testing.T) {
 	if err := store.SetAutoSync(ctx, true, m.ID); err != nil {
 		t.Fatalf("SetAutoSync: %v", err)
 	}
-	if same, err := srv.repointTargetsCurrentPrimary(ctx, m.ID); err != nil || same {
+	cur, err := store.GetAutoSync(ctx)
+	if err != nil {
+		t.Fatalf("GetAutoSync: %v", err)
+	}
+	if same, err := srv.repointTargetsCurrentPrimary(ctx, cur, m); err != nil || same {
 		t.Fatalf("same-row re-select = (%v, %v), want (false, nil)", same, err)
 	}
 }

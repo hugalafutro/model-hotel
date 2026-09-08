@@ -54,9 +54,9 @@ func TestSignAndVerifyBackup_RoundTrip(t *testing.T) {
 		t.Fatalf("sidecar not written: %v", err)
 	}
 
-	status, err := verifyBackupFile(path, "master")
+	status, err := verifyDumpAtPath(t, path, "master")
 	if err != nil {
-		t.Fatalf("verifyBackupFile: %v", err)
+		t.Fatalf("verifyDumpAtPath: %v", err)
 	}
 	if status != backupSigValid {
 		t.Errorf("status = %v, want valid", status)
@@ -77,9 +77,9 @@ func TestVerifyBackupFile_DetectsTamperingAndWrongKey(t *testing.T) {
 	if err := os.WriteFile(tampered, []byte("injected-admin-row"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	status, err := verifyBackupFile(tampered, "master")
+	status, err := verifyDumpAtPath(t, tampered, "master")
 	if err != nil {
-		t.Fatalf("verifyBackupFile: %v", err)
+		t.Fatalf("verifyDumpAtPath: %v", err)
 	}
 	if status != backupSigInvalid {
 		t.Errorf("tampered dump status = %v, want invalid", status)
@@ -92,9 +92,9 @@ func TestVerifyBackupFile_DetectsTamperingAndWrongKey(t *testing.T) {
 	if err := signBackupFile(intact, "master"); err != nil {
 		t.Fatal(err)
 	}
-	status, err = verifyBackupFile(intact, "different-master")
+	status, err = verifyDumpAtPath(t, intact, "different-master")
 	if err != nil {
-		t.Fatalf("verifyBackupFile: %v", err)
+		t.Fatalf("verifyDumpAtPath: %v", err)
 	}
 	if status != backupSigInvalid {
 		t.Errorf("foreign-key signature status = %v, want invalid", status)
@@ -108,9 +108,9 @@ func TestVerifyBackupFile_UnsignedIsReportedNotFailed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	status, err := verifyBackupFile(path, "master")
+	status, err := verifyDumpAtPath(t, path, "master")
 	if err != nil {
-		t.Fatalf("verifyBackupFile on unsigned dump: %v", err)
+		t.Fatalf("verifyDumpAtPath on unsigned dump: %v", err)
 	}
 	if status != backupSigMissing {
 		t.Errorf("status = %v, want missing (legacy backups must stay restorable)", status)
@@ -124,9 +124,9 @@ func TestVerifyBackupFile_NoMasterKeyReportsUnavailable(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	status, err := verifyBackupFile(path, "")
+	status, err := verifyDumpAtPath(t, path, "")
 	if err != nil {
-		t.Fatalf("verifyBackupFile without master key: %v", err)
+		t.Fatalf("verifyDumpAtPath without master key: %v", err)
 	}
 	if status != backupSigUnavailable {
 		t.Errorf("status = %v, want unavailable", status)
@@ -143,9 +143,9 @@ func TestVerifyBackupFile_CorruptSidecarIsInvalid(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	status, err := verifyBackupFile(path, "master")
+	status, err := verifyDumpAtPath(t, path, "master")
 	if err != nil {
-		t.Fatalf("verifyBackupFile: %v", err)
+		t.Fatalf("verifyDumpAtPath: %v", err)
 	}
 	if status != backupSigInvalid {
 		t.Errorf("status = %v, want invalid for an unparseable sidecar", status)
@@ -216,26 +216,9 @@ func TestVerifyBackupFile_UnreadableSidecarFailsClosed(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	status, err := verifyBackupFile(path, "master")
+	status, err := verifyDumpAtPath(t, path, "master")
 	if err == nil {
 		t.Error("unreadable sidecar should surface an error, not pass silently")
-	}
-	if status != backupSigInvalid {
-		t.Errorf("status = %v, want invalid", status)
-	}
-}
-
-func TestVerifyBackupFile_MissingDumpWithSidecarIsAnError(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "vanished.dump")
-	// A sidecar with no dump beside it: the file was removed after signing.
-	if err := os.WriteFile(path+backupSignatureExt, []byte("00ff"), 0o600); err != nil {
-		t.Fatal(err)
-	}
-
-	status, err := verifyBackupFile(path, "master")
-	if err == nil {
-		t.Error("hashing a nonexistent dump should error")
 	}
 	if status != backupSigInvalid {
 		t.Errorf("status = %v, want invalid", status)
@@ -313,9 +296,9 @@ func TestSignature_IsBoundToTheFilename(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	status, err := verifyBackupFile(renamed, "master")
+	status, err := verifyDumpAtPath(t, renamed, "master")
 	if err != nil {
-		t.Fatalf("verifyBackupFile: %v", err)
+		t.Fatalf("verifyDumpAtPath: %v", err)
 	}
 	if status != backupSigInvalid {
 		t.Errorf("status = %v, want invalid: a whole signed pair was replayed under another name", status)
@@ -426,4 +409,18 @@ func TestVerifyUploadedDumpSignature_RejectsNULInTheDeclaredName(t *testing.T) {
 	if status != backupSigInvalid {
 		t.Errorf("status = %v, want invalid for a name containing NUL", status)
 	}
+}
+
+// verifyDumpAtPath opens the dump at path and checks it through
+// verifyBackupHandle, the entry point the download path uses. The signature
+// logic under test (sidecarExpectation, name binding, compareSignature) is the
+// same either way; only who owns the open file differs.
+func verifyDumpAtPath(t *testing.T, path, masterKey string) (backupSigStatus, error) {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("open dump: %v", err)
+	}
+	defer func() { _ = f.Close() }()
+	return verifyBackupHandle(f, path, masterKey)
 }

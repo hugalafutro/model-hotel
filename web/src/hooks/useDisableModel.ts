@@ -21,8 +21,10 @@ export function useDisableModel(enabledModels: Model[]) {
 				(m) => proxyModelID(m.provider_name, m.model_id) === modelIdentifier,
 			);
 			if (!modelObj) {
+				// Phrased through t(): the message reaches the operator verbatim
+				// inside the error toast below.
 				throw new Error(
-					`Model "${modelIdentifier}" not found in enabled models`,
+					t("hooks.useDisableModel.notFound", { model: modelIdentifier }),
 				);
 			}
 			return api.models.update(modelObj.id, { enabled: false });

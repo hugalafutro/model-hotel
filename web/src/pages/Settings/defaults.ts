@@ -85,7 +85,36 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	// range API, k-anonymity). Default on; matches the Go GetBool fallback in
 	// internal/api/passwordpolicy.go. The env kill-switch can still force it off.
 	pwned_password_check_enabled: "true",
+
+	// Database backup rotation. Matches the Go fallbacks in
+	// internal/api/backup_scheduler.go (enabled, interval) and
+	// getRetentionSettings in internal/api/backup_retention.go.
+	backup_enabled: "false",
+	backup_interval: "24h",
+	backup_son_retention: "7",
+	backup_father_retention: "4",
+	backup_grandfather_retention: "3",
 };
+
+/**
+ * The stored value for a key, or the frontend default when the setting has
+ * never been written (or was reset back to the server-side default).
+ */
+export function settingOr(
+	settings: Record<string, string> | undefined,
+	key: SettingKey,
+): string {
+	return settings?.[key] || SETTING_DEFAULTS[key];
+}
+
+/** The keys the backup card owns, for a whole-section reset. */
+export const BACKUP_KEYS = [
+	"backup_enabled",
+	"backup_interval",
+	"backup_son_retention",
+	"backup_father_retention",
+	"backup_grandfather_retention",
+] as const satisfies readonly SettingKey[];
 
 export type SectionName =
 	| "discovery"
@@ -99,7 +128,7 @@ export type SectionName =
  * Mapping of section names to their contained setting keys.
  * Used for section-level reset.
  */
-export const SECTION_SETTINGS: Record<SectionName, string[]> = {
+export const SECTION_SETTINGS: Record<SectionName, SettingKey[]> = {
 	discovery: [
 		"discovery_interval",
 		"discovery_on_startup",
@@ -193,7 +222,12 @@ export type SettingKey =
 	| "alert_events"
 	| "discovery_claim_alert_days"
 	| "session_idle_timeout_minutes"
-	| "pwned_password_check_enabled";
+	| "pwned_password_check_enabled"
+	| "backup_enabled"
+	| "backup_interval"
+	| "backup_son_retention"
+	| "backup_father_retention"
+	| "backup_grandfather_retention";
 
 /**
  * Mapping from DB setting keys to their human-readable i18n keys.
@@ -244,4 +278,9 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	discovery_claim_alert_days: "settings.alerts.claimAge",
 	session_idle_timeout_minutes: "settings.sessionTimeout.label",
 	pwned_password_check_enabled: "settings.passwordPolicy.breachCheckLabel",
+	backup_enabled: "settings.backup.rotation.enabled",
+	backup_interval: "settings.backup.rotation.interval",
+	backup_son_retention: "settings.backup.rotation.sonRetention",
+	backup_father_retention: "settings.backup.rotation.fatherRetention",
+	backup_grandfather_retention: "settings.backup.rotation.grandfatherRetention",
 };

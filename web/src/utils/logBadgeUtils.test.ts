@@ -204,19 +204,16 @@ describe("getSourceBadgeClasses", () => {
 });
 
 describe("formatLogTimestamp", () => {
-	it("formats valid ISO date string", () => {
-		const result = formatLogTimestamp("2024-01-15T10:30:45Z");
-		expect(result).toBe(
-			new Date("2024-01-15T10:30:45Z").toLocaleString("en-US", {
-				year: "numeric",
-				month: "2-digit",
-				day: "2-digit",
-				hour: "2-digit",
-				minute: "2-digit",
-				second: "2-digit",
-				hour12: false,
-			}),
-		);
+	// The stamp reads in the runner's own date order, so the field order is not
+	// asserted; the values are. vitest pins TZ to UTC, which fixes the clock
+	// reading, and the padded fields plus the 24-hour hour are the format the
+	// log tables line up on.
+	it("formats a valid ISO string as a zero-padded 24-hour stamp", () => {
+		const result = formatLogTimestamp("2024-01-15T22:05:09Z");
+		expect(result).toMatch(/(^|\D)22:05:09$/);
+		expect(result).toMatch(/\b2024\b/);
+		expect(result).toMatch(/\b01\b/);
+		expect(result).toMatch(/\b15\b/);
 	});
 
 	it("returns original string for invalid date", () => {

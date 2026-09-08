@@ -2,9 +2,6 @@ package auth
 
 import (
 	"bytes"
-	"crypto/cipher"
-	"encoding/base64"
-	"fmt"
 	"strings"
 	"testing"
 )
@@ -58,40 +55,6 @@ func TestDifferentMasterKeys(t *testing.T) {
 	_, err = Decrypt(encrypted1.Ciphertext, encrypted1.Nonce, encrypted1.Salt, masterKey2)
 	if err == nil {
 		t.Error("Decrypting with wrong master key should fail")
-	}
-}
-
-func TestGenerateRandomKey(t *testing.T) {
-	key1, err := GenerateRandomKey()
-	if err != nil {
-		t.Fatalf("GenerateRandomKey failed: %v", err)
-	}
-
-	if key1 == "" {
-		t.Fatal("Generated key is empty")
-	}
-
-	key2, err := GenerateRandomKey()
-	if err != nil {
-		t.Fatalf("GenerateRandomKey failed: %v", err)
-	}
-
-	if key1 == key2 {
-		t.Error("Generated keys should be different")
-	}
-}
-
-func TestConstantTimeCompare(t *testing.T) {
-	a := "secret-key"
-	b := "secret-key"
-	c := "different-key"
-
-	if !ConstantTimeCompare(a, b) {
-		t.Error("ConstantTimeCompare should return true for matching strings")
-	}
-
-	if ConstantTimeCompare(a, c) {
-		t.Error("ConstantTimeCompare should return false for different strings")
 	}
 }
 
@@ -244,33 +207,6 @@ func TestDecrypt_MissingSalt(t *testing.T) {
 	_, err = Decrypt(ciphertext, nonce, []byte{}, masterKey)
 	if err == nil {
 		t.Error("Decrypt with empty salt should fail")
-	}
-}
-
-func TestGenerateRandomKey_Length(t *testing.T) {
-	key, err := GenerateRandomKey()
-	if err != nil {
-		t.Fatalf("GenerateRandomKey failed: %v", err)
-	}
-
-	// base64.RawURLEncoding of 32 bytes = 43 characters
-	expectedLen := 43
-	if len(key) != expectedLen {
-		t.Errorf("Expected key length %d, got %d", expectedLen, len(key))
-	}
-}
-
-func TestGenerateRandomKey_Randomness(t *testing.T) {
-	keys := make(map[string]bool)
-	for range 100 {
-		key, err := GenerateRandomKey()
-		if err != nil {
-			t.Fatalf("GenerateRandomKey failed: %v", err)
-		}
-		if keys[key] {
-			t.Fatal("GenerateRandomKey produced duplicate key")
-		}
-		keys[key] = true
 	}
 }
 
@@ -492,33 +428,6 @@ func TestDecrypt_TruncatedCiphertext(t *testing.T) {
 	}
 }
 
-func TestConstantTimeCompare_EdgeCases(t *testing.T) {
-	t.Parallel()
-
-	testCases := []struct {
-		name     string
-		a        string
-		b        string
-		expected bool
-	}{
-		{"empty strings", "", "", true},
-		{"empty vs non-empty", "", "a", false},
-		{"null bytes equal", "a\x00b", "a\x00b", true},
-		{"null bytes different", "a\x00b", "a\x01b", false},
-		{"long strings equal", strings.Repeat("x", 10240), strings.Repeat("x", 10240), true},
-		{"long strings different", strings.Repeat("x", 10240), strings.Repeat("y", 10240), false},
-	}
-
-	for _, tc := range testCases {
-		t.Run(tc.name, func(t *testing.T) {
-			result := ConstantTimeCompare(tc.a, tc.b)
-			if result != tc.expected {
-				t.Errorf("ConstantTimeCompare(%q, %q) = %v, expected %v", tc.a, tc.b, result, tc.expected)
-			}
-		})
-	}
-}
-
 func TestEncryptDecrypt_MasterKeyBoundaryLengths(t *testing.T) {
 	t.Parallel()
 	plaintext := "test-data"
@@ -551,135 +460,10 @@ func TestEncryptDecrypt_MasterKeyBoundaryLengths(t *testing.T) {
 	}
 }
 
-func TestGenerateRandomKey_Base64URLFormat(t *testing.T) {
-	t.Parallel()
-	key, err := GenerateRandomKey()
-	if err != nil {
-		t.Fatalf("GenerateRandomKey failed: %v", err)
-	}
-
-	// Check for base64url characters that should NOT be present
-	if strings.Contains(key, "+") {
-		t.Error("Generated key should not contain '+' (base64url encoding)")
-	}
-	if strings.Contains(key, "/") {
-		t.Error("Generated key should not contain '/' (base64url encoding)")
-	}
-	if strings.Contains(key, "=") {
-		t.Error("Generated key should not contain '=' (base64url encoding)")
-	}
-
-	// Decode and verify length
-	decoded, err := base64.RawURLEncoding.DecodeString(key)
-	if err != nil {
-		t.Fatalf("Failed to decode key: %v", err)
-	}
-	if len(decoded) != 32 {
-		t.Errorf("Expected decoded key length 32, got %d", len(decoded))
-	}
-}
-
-// failAfterReader succeeds for n reads then fails.
-type failAfterReader struct {
-	reads int
-}
-
-func (r *failAfterReader) Read(p []byte) (int, error) {
-	if r.reads <= 0 {
-		return 0, fmt.Errorf("mock rand error")
-	}
-	r.reads--
-	for i := range p {
-		p[i] = 0
-	}
-	return len(p), nil
-}
-
-func TestEncryptWithKey_NewCipherBlockError(t *testing.T) {
-	orig := newCipherBlock
-	defer func() { newCipherBlock = orig }()
-	newCipherBlock = func([]byte) (cipher.Block, error) {
-		return nil, fmt.Errorf("mock cipher block error")
-	}
-	_, err := encryptWithKey("test", make([]byte, 32))
-	if err == nil {
-		t.Error("expected error when newCipherBlock fails")
-	}
-}
-
-func TestEncryptWithKey_NewGCMError(t *testing.T) {
-	orig := newGCM
-	defer func() { newGCM = orig }()
-	newGCM = func(cipher.Block) (cipher.AEAD, error) {
-		return nil, fmt.Errorf("mock GCM error")
-	}
-	_, err := encryptWithKey("test", make([]byte, 32))
-	if err == nil {
-		t.Error("expected error when newGCM fails")
-	}
-}
-
-func TestEncryptWithKey_NonceGenerationError(t *testing.T) {
-	orig := randReader
-	defer func() { randReader = orig }()
-	randReader = &failAfterReader{reads: 0}
-	_, err := encryptWithKey("test", make([]byte, 32))
-	if err == nil {
-		t.Error("expected error when nonce generation fails")
-	}
-}
-
-func TestDecryptWithKey_NewCipherBlockError(t *testing.T) {
-	orig := newCipherBlock
-	defer func() { newCipherBlock = orig }()
-	newCipherBlock = func([]byte) (cipher.Block, error) {
-		return nil, fmt.Errorf("mock cipher block error")
-	}
-	_, err := decryptWithKey([]byte("ct"), []byte("123456789012"), make([]byte, 32))
-	if err == nil {
-		t.Error("expected error when newCipherBlock fails")
-	}
-}
-
-func TestDecryptWithKey_NewGCMError(t *testing.T) {
-	orig := newGCM
-	defer func() { newGCM = orig }()
-	newGCM = func(cipher.Block) (cipher.AEAD, error) {
-		return nil, fmt.Errorf("mock GCM error")
-	}
-	_, err := decryptWithKey([]byte("ct"), []byte("123456789012"), make([]byte, 32))
-	if err == nil {
-		t.Error("expected error when newGCM fails")
-	}
-}
-
-func TestEncrypt_SaltGenerationError(t *testing.T) {
-	orig := randReader
-	defer func() { randReader = orig }()
-	randReader = &failAfterReader{reads: 0}
-	_, err := Encrypt("test", "master")
-	if err == nil {
-		t.Error("expected error when salt generation fails")
-	}
-}
-
-func TestEncrypt_EncryptWithKeyError(t *testing.T) {
-	orig := randReader
-	defer func() { randReader = orig }()
-	// Succeed for salt (1 read), fail for nonce (2nd read)
-	randReader = &failAfterReader{reads: 1}
-	_, err := Encrypt("test", "master")
-	if err == nil {
-		t.Error("expected error when encryptWithKey fails")
-	}
-}
-
-func TestGenerateRandomKey_RandReaderError(t *testing.T) {
-	orig := randReader
-	defer func() { randReader = orig }()
-	randReader = &failAfterReader{reads: 0}
-	_, err := GenerateRandomKey()
-	if err == nil {
-		t.Error("expected error when rand reader fails")
+// TestDecryptWithKey_InvalidKey covers the cipher-construction error branch with
+// a key length AES rejects.
+func TestDecryptWithKey_InvalidKey(t *testing.T) {
+	if _, err := decryptWithKey([]byte("ct"), make([]byte, 12), []byte{1, 2, 3}); err == nil {
+		t.Error("expected error for an invalid AES key length")
 	}
 }

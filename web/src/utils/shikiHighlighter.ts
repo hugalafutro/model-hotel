@@ -120,7 +120,7 @@ function getHighlighterCore(): Promise<HighlighterCore> {
  */
 export async function getSnippetHighlighter(
 	lang: string,
-): Promise<HighlighterCore | null> {
+): Promise<{ highlighter: HighlighterCore; lang: string } | null> {
 	const canonical = resolveShikiLang(lang);
 	if (!canonical) return null;
 	const highlighter = await getHighlighterCore();
@@ -138,5 +138,5 @@ export async function getSnippetHighlighter(
 		loading = started;
 	}
 	await loading;
-	return highlighter;
+	return { highlighter, lang: canonical };
 }

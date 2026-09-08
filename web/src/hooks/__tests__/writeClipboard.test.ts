@@ -28,50 +28,58 @@ describe("writeClipboard", () => {
 		expect(writeText).toHaveBeenCalledWith("hello");
 	});
 
-	it("reports failure when the clipboard refuses", async () => {
+	// A refused write (an unfocused document, a denied permission) is where the
+	// selection copy earns its keep, so it is tried there too and not only where
+	// the Clipboard API is missing entirely.
+	it("falls back to the legacy selection copy when the clipboard refuses", async () => {
 		stubClipboard({
 			writeText: vi.fn().mockRejectedValue(new Error("denied")),
 		});
+		const exec = vi.fn().mockReturnValue(true);
+		document.execCommand = exec;
+
+		await expect(writeClipboard("hello")).resolves.toBe(true);
+		expect(exec).toHaveBeenCalledWith("copy");
+		expect(document.querySelector("textarea")).toBeNull();
+	});
+
+	it("reports failure when both the clipboard and the fallback refuse", async () => {
+		stubClipboard({
+			writeText: vi.fn().mockRejectedValue(new Error("denied")),
+		});
+		document.execCommand = vi.fn().mockReturnValue(false);
 
 		await expect(writeClipboard("hello")).resolves.toBe(false);
 	});
 
-	it("reports failure when there is no Clipboard API at all", async () => {
-		// A non-secure (plain HTTP) context: reading .writeText off undefined
-		// throws synchronously, inside the async body, so it is caught.
+	it("falls back to the legacy selection copy with no Clipboard API", async () => {
+		// A non-secure (plain HTTP) context: a LAN dashboard served over HTTP has
+		// no Clipboard API, so the selection-based copy is the only path left.
 		stubClipboard(undefined);
+		const exec = vi.fn().mockReturnValue(true);
+		document.execCommand = exec;
+
+		await expect(writeClipboard("hello")).resolves.toBe(true);
+		expect(exec).toHaveBeenCalledWith("copy");
+		// The holder textarea is removed whatever the copy reports.
+		expect(document.querySelector("textarea")).toBeNull();
+	});
+
+	it("reports failure when the legacy copy is refused", async () => {
+		stubClipboard(undefined);
+		document.execCommand = vi.fn().mockReturnValue(false);
 
 		await expect(writeClipboard("hello")).resolves.toBe(false);
+		expect(document.querySelector("textarea")).toBeNull();
 	});
 
-	it("uses a caller-supplied writer instead of the Clipboard API", async () => {
-		const writeText = vi.fn().mockResolvedValue(undefined);
-		stubClipboard({ writeText });
-		const writer = vi.fn().mockResolvedValue(undefined);
-
-		await expect(writeClipboard("hello", writer)).resolves.toBe(true);
-		expect(writer).toHaveBeenCalledWith("hello");
-		expect(writeText).not.toHaveBeenCalled();
-	});
-
-	it("accepts a synchronous writer", async () => {
-		const writer = vi.fn(() => {});
-
-		await expect(writeClipboard("hello", writer)).resolves.toBe(true);
-		expect(writer).toHaveBeenCalledWith("hello");
-	});
-
-	it("reports failure when a synchronous writer throws", async () => {
-		const writer = vi.fn(() => {
-			throw new Error("no clipboard");
+	it("reports failure when the legacy copy throws", async () => {
+		stubClipboard(undefined);
+		document.execCommand = vi.fn(() => {
+			throw new Error("unsupported");
 		});
 
-		await expect(writeClipboard("hello", writer)).resolves.toBe(false);
-	});
-
-	it("reports failure when an async writer rejects", async () => {
-		const writer = vi.fn().mockRejectedValue(new Error("no clipboard"));
-
-		await expect(writeClipboard("hello", writer)).resolves.toBe(false);
+		await expect(writeClipboard("hello")).resolves.toBe(false);
+		expect(document.querySelector("textarea")).toBeNull();
 	});
 });

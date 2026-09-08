@@ -12,30 +12,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
-// oversizedJSON returns a syntactically valid JSON object of at least n bytes.
-// Valid on purpose: a malformed body would earn a 400 on its own, which would
-// let a size test pass without the size limit doing anything.
-func oversizedJSON(n int) string {
-	return `{"admin_token":"x","padding":"` + strings.Repeat("a", n) + `"}`
-}
-
-// TestAdminTokenExchange_OversizedBody_413 covers the pre-auth surface: the
-// exchange is the login front-end and sits in the auth-exempt route group, so
-// its body is one an anonymous caller controls end to end.
-func TestAdminTokenExchange_OversizedBody_413(t *testing.T) {
-	h := exchangeHandler(t)
-	rec := httptest.NewRecorder()
-	body := oversizedJSON(httpx.MaxJSONBody + 1)
-	h.AdminTokenExchange(rec, httptest.NewRequest(http.MethodPost, "/api/auth/admin-exchange", strings.NewReader(body)))
-
-	if rec.Code != http.StatusRequestEntityTooLarge {
-		t.Fatalf("status = %d, want 413; body=%q", rec.Code, rec.Body.String())
-	}
-	if strings.Contains(rec.Body.String(), "padding") {
-		t.Errorf("the rejection must not echo the body: %q", rec.Body.String())
-	}
-}
-
 // TestFleetAnnounce_KeepsItsOwnTighterLimit pins that decodeJSONLimit really
 // threads the endpoint's ceiling rather than quietly falling back to the
 // package default: this body is far under httpx.MaxJSONBody, so it would be

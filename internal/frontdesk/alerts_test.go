@@ -15,6 +15,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // TestCatalogTypesAreEmitted enforces fdCatalog's documented invariant: every
@@ -160,7 +161,7 @@ func TestSettingsTargetMaskRoundTrip(t *testing.T) {
 		t.Errorf("stored target decrypts to %q", got)
 	}
 	// GET masks it (never the ciphertext or the plaintext).
-	if m := get().AlertAppriseTargets; m != alertMaskValue {
+	if m := get().AlertAppriseTargets; m != util.SecretMask {
 		t.Errorf("GET target = %q, want mask", m)
 	}
 

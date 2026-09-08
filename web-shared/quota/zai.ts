@@ -20,3 +20,15 @@ export function getZaiCodingWeeklyLimit<L extends ZaiCodingLimitLike>(
 		(l) => l.type === "TOKENS_LIMIT" && l.unit === 6,
 	);
 }
+
+/**
+ * The MCP window, reported as a TIME_LIMIT entry under unit code 5 rather than
+ * a token budget: it counts the calls made in the current window.
+ */
+export function getZaiCodingMcpLimit<L extends ZaiCodingLimitLike>(
+	data: ZaiCodingResponseLike<L> | undefined | null,
+): L | undefined {
+	return data?.data?.limits?.find(
+		(l) => l.type === "TIME_LIMIT" && l.unit === 5,
+	);
+}

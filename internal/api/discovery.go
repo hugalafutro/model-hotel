@@ -69,13 +69,13 @@ func (h *Handler) RegisterProviderDiscovery(r chi.Router) {
 		r.Post("/", h.DiscoverProviderModels)
 	})
 	r.Route("/providers/{id}/usage", func(r chi.Router) {
-		r.Get("/", h.GetProviderUsage)
+		r.Get("/", h.quotaHandler("usage"))
 	})
 	r.Route("/providers/{id}/balance", func(r chi.Router) {
-		r.Get("/", h.GetProviderBalance)
+		r.Get("/", h.quotaHandler("balance"))
 	})
 	r.Route("/providers/{id}/account", func(r chi.Router) {
-		r.Get("/", h.GetOllamaCloudAccount)
+		r.Get("/", h.quotaHandler("account"))
 	})
 	r.Route("/discovery/changes", func(r chi.Router) {
 		r.Post("/ack", h.AckDiscoveryChanges)
@@ -147,17 +147,14 @@ func (h *Handler) GetDiscoveryStatus(w http.ResponseWriter, r *http.Request) {
 	if review {
 		lastReviewed := parseLastReviewed(ctx, h.settingsRepo)
 		switch {
-		case lastReviewed.IsZero():
-			// First ever review: everything in the window is new to this operator.
-			sinceReview = window
-		case lastReviewed.Before(windowStart):
-			// Journal rows are pruned at ClaimWindow (PruneDiscoveryChanges), so a
-			// stamp older than the window would ask flapCounts to look further
-			// back than the surviving journal actually reaches, silently
-			// deriving the number from rows that no longer exist. Clamp the
-			// lookback to the window: past that point the honest answer is
-			// "everything we still know about", which is exactly the window
-			// count already computed above.
+		case lastReviewed.IsZero() || lastReviewed.Before(windowStart):
+			// A first-ever review sees everything in the window as new. So does a
+			// stamp older than the window: journal rows are pruned at ClaimWindow
+			// (PruneDiscoveryChanges), so asking flapCounts to look further back
+			// than the surviving journal reaches would silently derive the number
+			// from rows that no longer exist. Clamping the lookback to the window
+			// gives the honest answer, "everything we still know about", which is
+			// exactly the window count already computed above.
 			sinceReview = window
 		default:
 			if sinceReview, err = flapCounts(ctx, pool, lastReviewed); err != nil {
@@ -256,16 +253,11 @@ func (h *Handler) AckDiscoveryChanges(w http.ResponseWriter, r *http.Request) {
 // discoverOne because every failure here is answered as an HTTP error, while
 // the shared scan records failures and carries on.
 func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request) {
-	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
+	prov, ok := h.loadProviderParam(w, r)
 	if !ok {
 		return
 	}
-
-	prov, err := h.providerRepo.Get(r.Context(), providerID)
-	if err != nil {
-		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
-		return
-	}
+	providerID := prov.ID
 
 	if !prov.Enabled {
 		http.Error(w, "provider is disabled", http.StatusBadRequest)
@@ -285,36 +277,11 @@ func (h *Handler) DiscoverProviderModels(w http.ResponseWriter, r *http.Request)
 	defer provCancel()
 	models, err := discovery.DiscoverModels(provCtx, prov, h.cfg.MasterKey)
 	if err != nil {
-		provCancel()
 		respondError(w, fmt.Sprintf("failed to discover models for provider %s", prov.Name), err, http.StatusInternalServerError)
 		return
 	}
 
-	events.Publish(events.Event{
-		Type:     "discovery.provider_fetched",
-		Severity: "success",
-		Source:   "discovery",
-		Message:  fmt.Sprintf("Fetched %s from %s", util.Count(len(models), "model", "models"), prov.Name),
-		Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
-	})
-
-	// Enrich models with data from models.dev (fills gaps for models not
-	// covered by hardcoded catalogs).
-	if cache := provider.GetModelsDevCache(); cache != nil {
-		enriched := cache.EnrichModels(models, provider.TypeOf(prov))
-		if enriched > 0 {
-			events.Publish(events.Event{
-				Type:     "discovery.enriched",
-				Severity: "info",
-				Source:   "discovery",
-				Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
-				Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
-			})
-		}
-	}
-	// Runs unconditionally: modality arrays and the derived endpoint class
-	// must be consistent even when models.dev is unreachable.
-	provider.NormalizeModels(models)
+	publishFetchedAndEnrich(prov, models)
 
 	modelRepo := newModelRepo(h.dbPool.Pool())
 
@@ -395,7 +362,7 @@ func (h *Handler) DiscoverAllModels(w http.ResponseWriter, r *http.Request) {
 	// cannot overrun this route's 60s timeout. The scheduled sweep disables.
 	results, succeeded, failed, totalDiscovered, err := h.discoverAllProviders(r.Context(), false)
 	if err != nil {
-		respondError(w, "failed to list providers", nil, http.StatusInternalServerError)
+		respondError(w, "failed to list providers", err, http.StatusInternalServerError)
 		return
 	}
 	writeJSON(w, map[string]any{
@@ -486,30 +453,7 @@ func (h *Handler) discoverOne(ctx context.Context, discovery *provider.Discovery
 
 	result.Discovered = len(models)
 
-	events.Publish(events.Event{
-		Type:     "discovery.provider_fetched",
-		Severity: "success",
-		Source:   "discovery",
-		Message:  fmt.Sprintf("Fetched %s from %s", util.Count(len(models), "model", "models"), prov.Name),
-		Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
-	})
-
-	// Enrich models with data from models.dev.
-	if cache := provider.GetModelsDevCache(); cache != nil {
-		enriched := cache.EnrichModels(models, provider.TypeOf(prov))
-		if enriched > 0 {
-			events.Publish(events.Event{
-				Type:     "discovery.enriched",
-				Severity: "info",
-				Source:   "discovery",
-				Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
-				Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
-			})
-		}
-	}
-	// Runs unconditionally: modality arrays and the derived endpoint class
-	// must be consistent even when models.dev is unreachable.
-	provider.NormalizeModels(models)
+	publishFetchedAndEnrich(prov, models)
 
 	snapshot, snapErr := SnapshotProviderModels(provCtx, modelRepo, prov.ID)
 	if snapErr != nil {
@@ -597,4 +541,48 @@ func (h *Handler) discoverOne(ctx context.Context, discovery *provider.Discovery
 		Metadata: map[string]any{"provider_id": prov.ID, "provider": prov.Name, "count": len(models)},
 	})
 	return result
+}
+
+// loadProviderParam resolves the {id} route parameter to a provider, writing the
+// 400 / 404 / 500 response itself and returning ok=false when it cannot.
+func (h *Handler) loadProviderParam(w http.ResponseWriter, r *http.Request) (*provider.Provider, bool) {
+	providerID, ok := parseUUIDParam(w, r, "id", "provider ID")
+	if !ok {
+		return nil, false
+	}
+	prov, err := h.providerRepo.Get(r.Context(), providerID)
+	if err != nil {
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", "failed to load provider")
+		return nil, false
+	}
+	return prov, true
+}
+
+// publishFetchedAndEnrich announces the fetch, fills the gaps hardcoded
+// catalogs leave from the models.dev cache, and normalizes the result. Nothing
+// here can fail, so both discovery paths share it verbatim.
+func publishFetchedAndEnrich(prov *provider.Provider, models []*model.Model) {
+	events.Publish(events.Event{
+		Type:     "discovery.provider_fetched",
+		Severity: "success",
+		Source:   "discovery",
+		Message:  fmt.Sprintf("Fetched %s from %s", util.Count(len(models), "model", "models"), prov.Name),
+		Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
+	})
+
+	if cache := provider.GetModelsDevCache(); cache != nil {
+		enriched := cache.EnrichModels(models, provider.TypeOf(prov))
+		if enriched > 0 {
+			events.Publish(events.Event{
+				Type:     "discovery.enriched",
+				Severity: "info",
+				Source:   "discovery",
+				Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
+				Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
+			})
+		}
+	}
+	// Runs unconditionally: modality arrays and the derived endpoint class
+	// must be consistent even when models.dev is unreachable.
+	provider.NormalizeModels(models)
 }

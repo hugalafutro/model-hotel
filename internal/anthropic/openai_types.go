@@ -67,9 +67,9 @@ func mapStopReason(openaiFinish string) string {
 		return "max_tokens"
 	case "tool_calls", "function_call":
 		return "tool_use"
-	case "stop", "content_filter", "":
-		return "end_turn"
 	default:
+		// stop, content_filter, an absent reason and anything newer: the turn
+		// simply ended.
 		return "end_turn"
 	}
 }

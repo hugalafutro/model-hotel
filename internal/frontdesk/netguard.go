@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"syscall"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/netguard"
@@ -21,23 +20,15 @@ import (
 //     allowed: Front Desk members live on the internal network by design, unlike
 //     the proxy SafeDialer (util.IsBlockedIP) which blocks them for outbound
 //     provider calls.
-//   - a redirect policy that refuses cross-host redirects, so a member endpoint
-//     cannot bounce a probe (carrying the member's admin Bearer token) to a
-//     different host.
+//   - a redirect policy that refuses cross-host redirects, https->http
+//     downgrades, a chain longer than netguard's 10-hop cap, and a hop whose
+//     literal host is a blocked address, so a member endpoint cannot bounce a
+//     probe (carrying the member's admin Bearer token) somewhere else.
 func newProbeClient(timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{
 		Timeout:   timeout,
 		KeepAlive: 30 * time.Second,
-		Control: func(_, address string, _ syscall.RawConn) error {
-			host, _, err := net.SplitHostPort(address)
-			if err != nil {
-				return err
-			}
-			if ip := net.ParseIP(host); ip != nil && isProbeBlockedIP(ip) {
-				return fmt.Errorf("frontdesk: refusing to connect to blocked address %s", host)
-			}
-			return nil
-		},
+		Control:   netguard.DialControl,
 	}
 	return &http.Client{
 		Timeout: timeout,
@@ -54,12 +45,16 @@ func newProbeClient(timeout time.Duration) *http.Client {
 	}
 }
 
-// checkProbeRedirect is the redirect policy for the member probe client. It
-// refuses two ways a redirect could leak the member's admin Bearer token:
+// checkProbeRedirect is the redirect policy for the member probe client. On top
+// of netguard's shared chain cap and blocked-address check it refuses two ways a
+// redirect could leak the member's admin Bearer token:
 //   - a cross-host redirect, which would replay the token to a different host;
 //   - an https->http downgrade, which would replay the token over plaintext even
 //     to the same host.
 func checkProbeRedirect(req *http.Request, via []*http.Request) error {
+	if err := netguard.CheckRedirect(req, via); err != nil {
+		return err
+	}
 	if len(via) == 0 {
 		return nil
 	}
@@ -71,13 +66,4 @@ func checkProbeRedirect(req *http.Request, via []*http.Request) error {
 		return fmt.Errorf("frontdesk: refusing https->%s redirect (token must not transit plaintext)", req.URL.Scheme)
 	}
 	return nil
-}
-
-// isProbeBlockedIP reports addresses that are never a legitimate member and are
-// the classic SSRF targets: the unspecified address, and link-local unicast
-// (which includes the 169.254.169.254 cloud-metadata endpoint) and multicast.
-// Private and loopback ranges are intentionally NOT blocked here. It delegates
-// to netguard.BlockedIP so Front Desk, OIDC, and alerting share one predicate.
-func isProbeBlockedIP(ip net.IP) bool {
-	return netguard.BlockedIP(ip)
 }

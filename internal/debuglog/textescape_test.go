@@ -64,7 +64,7 @@ func addressTokens(line string) []string {
 func TestStdoutHandler_TextEscapesSpacesInAttributeValues(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
-	Init(false)
+	Init()
 
 	out := captureStdout(t, func() {
 		logger := slog.New(StdoutHandler())
@@ -95,7 +95,7 @@ func TestStdoutHandler_TextEscapesSpacesInAttributeValues(t *testing.T) {
 func TestStdoutHandler_TextLeavesTheMessageIntact(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
-	Init(false)
+	Init()
 
 	out := captureStdout(t, func() {
 		slog.New(StdoutHandler()).Warn("auth: admin request with invalid token", "remote_addr", "203.0.113.5")
@@ -111,7 +111,7 @@ func TestStdoutHandler_TextLeavesTheMessageIntact(t *testing.T) {
 func TestStdoutHandler_TextLeavesOrdinaryValuesBare(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
-	Init(false)
+	Init()
 
 	out := captureStdout(t, func() {
 		slog.New(StdoutHandler()).Warn("auth: CSRF check failed", "remote_addr", "203.0.113.5", "path", "/api/members")
@@ -128,7 +128,7 @@ func TestStdoutHandler_TextLeavesOrdinaryValuesBare(t *testing.T) {
 func TestStdoutHandler_TextKeepsGroupsExpanded(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
-	Init(false)
+	Init()
 
 	out := captureStdout(t, func() {
 		slog.New(StdoutHandler()).Warn("access: request", slog.Group("req", "path", "/a b"))
@@ -145,7 +145,7 @@ func TestStdoutHandler_TextKeepsGroupsExpanded(t *testing.T) {
 func TestStdoutHandler_TextLeavesTypedValuesAlone(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
-	Init(false)
+	Init()
 
 	when := time.Date(2026, 8, 18, 4, 15, 2, 123000000, time.UTC)
 	out := captureStdout(t, func() {
@@ -166,7 +166,7 @@ func TestStdoutHandler_TextLeavesTypedValuesAlone(t *testing.T) {
 func TestStdoutHandler_TextEscapesBackslashesInEscapedValues(t *testing.T) {
 	t.Setenv("LOG_FORMAT", "")
 	t.Setenv("DEBUG_LOG", "")
-	Init(false)
+	Init()
 
 	out := captureStdout(t, func() {
 		slog.New(StdoutHandler()).Warn("access: request", "remote", "203.0.113.5", "path", `/a\x20b c`)

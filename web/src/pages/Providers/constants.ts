@@ -85,33 +85,6 @@ export function isKnownProviderUrl(url: string): boolean {
 	return Object.values(baseUrls).includes(url);
 }
 
-/** @deprecated Use providerTypeTranslationKeys + t() instead. Kept for reference only. */
-export const providerTypeDisplayNames: Record<string, string> = {
-	custom: "Custom",
-	nanogpt: "NanoGPT",
-	"zai-coding": "Z.ai Coding Plan",
-	"kimi-code": "Kimi Code",
-	minimax: "MiniMax",
-	openai: "OpenAI",
-	anthropic: "Anthropic",
-	"anthropic-messages": "Anthropic (Messages API)",
-	deepseek: "DeepSeek",
-	"ollama-cloud": "Ollama Cloud",
-	ollama: "Ollama",
-	"opencode-zen": "OpenCode Zen",
-	"opencode-go": "OpenCode Go",
-	xai: "xAI (Grok)",
-	google: "Google AI Studio (Gemini)",
-	cohere: "Cohere",
-	openrouter: "OpenRouter",
-	neuralwatt: "NeuralWatt",
-	koboldcpp: "KoboldCPP",
-	lmstudio: "LM Studio",
-	bedrock: "AWS Bedrock",
-	azure: "Azure AI Foundry",
-	"vertex-express": "Vertex AI (express keys)",
-};
-
 /** Translation keys for provider type display names. Use with t() at consumption sites. */
 export const providerTypeTranslationKeys: Record<string, string> = {
 	custom: "providers.type_custom",
@@ -152,4 +125,21 @@ export function providerTypeAllowsEmptyKey(type: string): boolean {
 /** Returns true for providers that offer free models without requiring a key. */
 export function providerTypeHasFreeModels(type: string): boolean {
 	return type === "opencode-zen";
+}
+
+/**
+ * The provider-type dropdown's options: custom first (the escape hatch every
+ * unknown server goes under), then the rest by translated label.
+ */
+export function providerTypeOptions(
+	t: (key: string) => string,
+): { value: string; label: string }[] {
+	const label = (key: string) => t(providerTypeTranslationKeys[key] || key);
+	return Object.keys(providerTypeTranslationKeys)
+		.sort((a, b) => {
+			if (a === "custom") return -1;
+			if (b === "custom") return 1;
+			return label(a).localeCompare(label(b));
+		})
+		.map((key) => ({ value: key, label: label(key) }));
 }

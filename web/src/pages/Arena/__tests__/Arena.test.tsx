@@ -227,6 +227,7 @@ vi.mock("../../../utils/model", () => ({
 		reasoning: false,
 	}),
 	proxyModelID: (provider: string, modelId: string) => `${provider}/${modelId}`,
+	isReasoningModel: () => false,
 }));
 
 import { Arena } from "../../Arena";
@@ -287,7 +288,8 @@ const baseArena = {
 	setArenaMode: vi.fn(),
 	onPersonaChange: vi.fn(),
 	onModelParamChange: vi.fn(),
-	refs: { abortMapRef: { current: new Map() } },
+	clearResults: vi.fn(),
+	resetAll: vi.fn(),
 	handleRandomBracketModel: vi.fn(),
 	handleRandomCompareModel: vi.fn(),
 	handleRandomComparePersona: vi.fn(),
@@ -322,65 +324,50 @@ function mockArena(overrides: Record<string, unknown> = {}) {
 	} as unknown as ReturnType<typeof useArena>);
 }
 
-describe("Arena - voting message guard", () => {
-	it('shows "Vote on all matchups" when phase is voting and votes are missing', () => {
+const VOTE_TO_CONTINUE = "Vote on all matchups to continue to the next round";
+
+/** One matchup, voted or not, shaped as the bar reads it. */
+function matchup(vote: string | null) {
+	return { slotA: null, slotB: null, responseA: null, responseB: null, vote };
+}
+
+describe("Arena - voting message", () => {
+	it("shows the vote-to-continue reason while votes are missing", () => {
 		mockArena({
 			phase: "voting",
 			currentRound: 0,
-			rounds: [
-				{
-					matchups: [
-						{
-							slotA: null,
-							slotB: null,
-							responseA: null,
-							responseB: null,
-							vote: null,
-						},
-					],
-				},
-			],
+			rounds: [{ matchups: [matchup(null)] }],
+			disabledReason: VOTE_TO_CONTINUE,
 		});
 
 		render(<Arena />);
-		expect(
-			screen.getByText("Vote on all matchups to continue to the next round"),
-		).toBeInTheDocument();
+		expect(screen.getByText(VOTE_TO_CONTINUE)).toBeInTheDocument();
 	});
 
-	it('hides "Vote on all matchups" when phase is voting but all matchups have votes', () => {
+	it("hides it once every matchup in the round is voted", () => {
+		// The phase can stay "voting" with nothing left to vote on, and the
+		// reason string is phase-keyed, so the bar has to make the call itself.
 		mockArena({
 			phase: "voting",
 			currentRound: 0,
-			rounds: [
-				{
-					matchups: [
-						{
-							slotA: {
-								modelId: "model-a",
-								personaId: null,
-								personaPrompt: "",
-								params: {},
-							},
-							slotB: {
-								modelId: "model-b",
-								personaId: null,
-								personaPrompt: "",
-								params: {},
-							},
-							responseA: null,
-							responseB: null,
-							vote: "A" as const,
-						},
-					],
-				},
-			],
+			rounds: [{ matchups: [matchup("A")] }],
+			disabledReason: VOTE_TO_CONTINUE,
 		});
 
 		render(<Arena />);
-		expect(
-			screen.queryByText("Vote on all matchups to continue to the next round"),
-		).not.toBeInTheDocument();
+		expect(screen.queryByText(VOTE_TO_CONTINUE)).not.toBeInTheDocument();
+	});
+
+	it("shows no message while voting once there is no reason left", () => {
+		mockArena({
+			phase: "voting",
+			currentRound: 0,
+			rounds: [{ matchups: [matchup(null)] }],
+			disabledReason: "",
+		});
+
+		render(<Arena />);
+		expect(screen.queryByText(VOTE_TO_CONTINUE)).not.toBeInTheDocument();
 	});
 });
 
@@ -558,47 +545,23 @@ describe("Arena - Controls section", () => {
 		).toBeInTheDocument();
 	});
 
-	it("light reset onClick aborts controllers and resets arena state", async () => {
-		const abortSpy = vi.fn();
-		const setRoundsSpy = vi.fn();
-		const setCurrentRoundSpy = vi.fn();
-		const setPhaseSpy = vi.fn();
-		const setRunningModelsSpy = vi.fn();
-		const setWinnerModalSpy = vi.fn();
-		const setDisabledModelsSpy = vi.fn();
+	it("light reset onClick clears the results and toasts", async () => {
+		const clearResultsSpy = vi.fn();
 		const toastSpy = vi.fn();
-
-		const abortMap = new Map();
-		abortMap.set("key1", { abort: abortSpy });
-		vi.spyOn(abortMap, "clear");
 
 		mockArena({
 			phase: "running",
-			refs: { abortMapRef: { current: abortMap } },
-			setRounds: setRoundsSpy,
-			setCurrentRound: setCurrentRoundSpy,
-			setPhase: setPhaseSpy,
-			setRunningModels: setRunningModelsSpy,
-			setWinnerModal: setWinnerModalSpy,
-			setDisabledModels: setDisabledModelsSpy,
+			clearResults: clearResultsSpy,
 			toast: toastSpy,
 		});
 
 		const user = userEvent.setup();
 		render(<Arena />);
-		const eraserBtn = screen.getByTestId(
-			"action-Clear results (keep models & prompt)",
+		await user.click(
+			screen.getByTestId("action-Clear results (keep models & prompt)"),
 		);
-		await user.click(eraserBtn);
 
-		expect(abortSpy).toHaveBeenCalled();
-		expect(abortMap.clear).toHaveBeenCalled();
-		expect(setRoundsSpy).toHaveBeenCalledWith([]);
-		expect(setCurrentRoundSpy).toHaveBeenCalledWith(0);
-		expect(setPhaseSpy).toHaveBeenCalledWith("setup");
-		expect(setRunningModelsSpy).toHaveBeenCalledWith(new Set());
-		expect(setWinnerModalSpy).toHaveBeenCalledWith(null);
-		expect(setDisabledModelsSpy).toHaveBeenCalledWith(new Set());
+		expect(clearResultsSpy).toHaveBeenCalled();
 		expect(toastSpy).toHaveBeenCalledWith("Arena cleared", "info");
 	});
 
@@ -1108,89 +1071,25 @@ describe("Arena - ConfirmDialog full reset", () => {
 		expect(screen.getByTestId("confirm-dialog")).toBeInTheDocument();
 	});
 
-	it("onConfirm clears all state and localStorage", async () => {
-		const abortMap = new Map();
-		abortMap.set("key1", { abort: vi.fn() });
-		const clearSpy = vi.spyOn(abortMap, "clear");
+	it("onConfirm resets everything, closes the dialog and toasts", async () => {
+		const resetAllSpy = vi.fn();
 		const setPendingFullResetSpy = vi.fn();
 		const toastSpy = vi.fn();
 
-		const arenaReturn = {
-			...baseArena,
+		mockArena({
 			pendingFullReset: true,
-			refs: { abortMapRef: { current: abortMap } },
-			setCompareModels: vi.fn(),
-			setBracketModels: vi.fn(),
-			setCompetitionPrompt: vi.fn(),
-			setComparePrompt: vi.fn(),
-			setSavedPrompt: vi.fn(),
-			setCompetitionActivePromptId: vi.fn(),
-			setCompareActivePromptId: vi.fn(),
-			setComparePersonaId: vi.fn(),
-			setComparePersonaPrompt: vi.fn(),
-			setRounds: vi.fn(),
-			setCurrentRound: vi.fn(),
-			setPhase: vi.fn(),
-			setRunningModels: vi.fn(),
-			setWinnerModal: vi.fn(),
-			setDisabledModels: vi.fn(),
-			setModelParams: vi.fn(),
+			resetAll: resetAllSpy,
 			setPendingFullReset: setPendingFullResetSpy,
 			toast: toastSpy,
-		} as unknown as ReturnType<typeof useArena>;
+		});
 
-		vi.mocked(useArena).mockReturnValue(arenaReturn);
+		const user = userEvent.setup();
+		render(<Arena />);
+		await user.click(screen.getByTestId("confirm-btn"));
 
-		// Set localStorage keys so we can verify they are removed
-		const lsKeys = [
-			"arenaCompetitionPrompt",
-			"arenaComparePrompt",
-			"arenaCompetitionActivePromptId",
-			"arenaCompareActivePromptId",
-			"arenaComparePersonaId",
-			"arenaComparePersonaPrompt",
-		];
-		for (const key of lsKeys) {
-			localStorage.setItem(key, "test");
-		}
-
-		try {
-			const user = userEvent.setup();
-			render(<Arena />);
-			await user.click(screen.getByTestId("confirm-btn"));
-
-			expect(clearSpy).toHaveBeenCalled();
-			expect(arenaReturn.setCompareModels).toHaveBeenCalledWith([]);
-			expect(arenaReturn.setBracketModels).toHaveBeenCalledWith([]);
-			expect(arenaReturn.setCompetitionPrompt).toHaveBeenCalledWith("");
-			expect(arenaReturn.setComparePrompt).toHaveBeenCalledWith("");
-			expect(arenaReturn.setSavedPrompt).toHaveBeenCalledWith("");
-			expect(arenaReturn.setCompetitionActivePromptId).toHaveBeenCalledWith(
-				null,
-			);
-			expect(arenaReturn.setCompareActivePromptId).toHaveBeenCalledWith(null);
-			expect(arenaReturn.setComparePersonaId).toHaveBeenCalledWith(null);
-			expect(arenaReturn.setComparePersonaPrompt).toHaveBeenCalledWith("");
-			expect(arenaReturn.setRounds).toHaveBeenCalledWith([]);
-			expect(arenaReturn.setCurrentRound).toHaveBeenCalledWith(0);
-			expect(arenaReturn.setPhase).toHaveBeenCalledWith("setup");
-			expect(arenaReturn.setRunningModels).toHaveBeenCalledWith(new Set());
-			expect(arenaReturn.setWinnerModal).toHaveBeenCalledWith(null);
-			expect(arenaReturn.setDisabledModels).toHaveBeenCalledWith(new Set());
-			expect(arenaReturn.setModelParams).toHaveBeenCalledWith({});
-			expect(setPendingFullResetSpy).toHaveBeenCalledWith(false);
-			expect(toastSpy).toHaveBeenCalledWith("Reset", "info");
-
-			// Verify localStorage cleanup
-			for (const key of lsKeys) {
-				expect(localStorage.getItem(key)).toBeNull();
-			}
-		} finally {
-			// Clean up localStorage even if assertions fail
-			for (const key of lsKeys) {
-				localStorage.removeItem(key);
-			}
-		}
+		expect(resetAllSpy).toHaveBeenCalled();
+		expect(setPendingFullResetSpy).toHaveBeenCalledWith(false);
+		expect(toastSpy).toHaveBeenCalledWith("Reset", "info");
 	});
 
 	it("onCancel sets pendingFullReset to false", async () => {

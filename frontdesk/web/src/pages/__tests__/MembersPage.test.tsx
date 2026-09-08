@@ -245,13 +245,15 @@ describe("MembersPage", () => {
 	it("surfaces the https-required validation error", async () => {
 		server.use(
 			http.get("/api/members", () => HttpResponse.json([])),
-			http.post(
-				"/api/members",
-				() =>
-					new HttpResponse(
-						"frontdesk: validation failed: url must use https; set FRONTDESK_ALLOW_HTTP_MEMBERS=true",
-						{ status: 400 },
-					),
+			http.post("/api/members", () =>
+				HttpResponse.json(
+					{
+						code: "insecure_url",
+						error:
+							"frontdesk: validation failed: url must use https; set FRONTDESK_ALLOW_HTTP_MEMBERS=true",
+					},
+					{ status: 400 },
+				),
 			),
 		);
 		renderPage();
@@ -261,20 +263,49 @@ describe("MembersPage", () => {
 		await userEvent.type(screen.getByLabelText(/Admin token/i), "tok");
 		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
 		expect(await screen.findByRole("alert")).toHaveTextContent(
-			/must use https/i,
+			/URLs must use https/i,
 		);
 	});
 
-	it("surfaces the already-a-member rejection when adding a duplicate host", async () => {
+	// The only 400 the add form can still get without a code is a plain
+	// validation failure (an ftp:// URL, say). It shows what the server said
+	// rather than being guessed at from its wording, which used to turn any
+	// message mentioning https into "HTTPS required".
+	it("shows an uncoded validation message as the server wrote it", async () => {
 		server.use(
 			http.get("/api/members", () => HttpResponse.json([])),
 			http.post(
 				"/api/members",
 				() =>
 					new HttpResponse(
-						"This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.",
-						{ status: 409 },
+						"frontdesk: validation failed: url must use http or https",
+						{ status: 400 },
 					),
+			),
+		);
+		renderPage();
+		await screen.findByText(/No members yet/i);
+		await userEvent.type(screen.getByLabelText(/Display name/i), "h1");
+		await userEvent.type(screen.getByLabelText(/Base URL/i), "ftp://h1.local");
+		await userEvent.type(screen.getByLabelText(/Admin token/i), "tok");
+		await userEvent.click(screen.getByRole("button", { name: /^Add$/i }));
+		const alert = await screen.findByRole("alert");
+		expect(alert).toHaveTextContent(/url must use http or https/i);
+		expect(alert).not.toHaveTextContent(/FRONTDESK_ALLOW_HTTP_MEMBERS/);
+	});
+
+	it("surfaces the already-a-member rejection when adding a duplicate host", async () => {
+		server.use(
+			http.get("/api/members", () => HttpResponse.json([])),
+			http.post("/api/members", () =>
+				HttpResponse.json(
+					{
+						code: "already_member",
+						error:
+							"This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.",
+					},
+					{ status: 409 },
+				),
 			),
 		);
 		renderPage();
@@ -294,13 +325,15 @@ describe("MembersPage", () => {
 	it("surfaces the already-primary rejection when adding the primary's host", async () => {
 		server.use(
 			http.get("/api/members", () => HttpResponse.json([])),
-			http.post(
-				"/api/members",
-				() =>
-					new HttpResponse(
-						"This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.",
-						{ status: 409 },
-					),
+			http.post("/api/members", () =>
+				HttpResponse.json(
+					{
+						code: "already_primary",
+						error:
+							"This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.",
+					},
+					{ status: 409 },
+				),
 			),
 		);
 		renderPage();

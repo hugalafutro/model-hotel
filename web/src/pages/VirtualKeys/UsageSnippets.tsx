@@ -2,6 +2,8 @@ import { useTranslation } from "react-i18next";
 import { ShikiCode } from "../../components/ShikiCode";
 import { TerminalPreview } from "../../components/TerminalPreview";
 import {
+	KEY_PLACEHOLDER,
+	proxyOrigin,
 	snippetBashText,
 	snippetClaudeCodeText,
 	snippetHermesText,
@@ -13,9 +15,6 @@ import {
 	snippetPythonText,
 	snippetZedVKText,
 } from "../../utils/snippets";
-
-/** Sentinel the snippet templates carry where the virtual key belongs. */
-const KEY_PLACEHOLDER = "YOUR_API_KEY";
 
 /**
  * The grid of copy-paste usage examples. Shown both on the Virtual Keys page
@@ -29,10 +28,7 @@ const KEY_PLACEHOLDER = "YOUR_API_KEY";
  */
 export function UsageSnippets({ apiKey }: { apiKey?: string }) {
 	const { t } = useTranslation();
-	const proxyOrigin =
-		typeof window !== "undefined"
-			? window.location.origin
-			: "http://localhost:8080";
+	const origin = proxyOrigin();
 
 	const withKey = (s: string) =>
 		apiKey ? s.replaceAll(KEY_PLACEHOLDER, apiKey) : s;
@@ -40,22 +36,18 @@ export function UsageSnippets({ apiKey }: { apiKey?: string }) {
 	// Plain-text snippets are the single source of truth: the same string is
 	// copied to the clipboard and syntax-highlighted by ShikiCode, with the
 	// user-replaceable parts emphasized.
-	const snippetHighlights = [
-		proxyOrigin,
-		apiKey || KEY_PLACEHOLDER,
-		"model_name",
-	];
+	const snippetHighlights = [origin, apiKey || KEY_PLACEHOLDER, "model_name"];
 	const snippets = {
-		bash: withKey(snippetBashText({ origin: proxyOrigin })),
-		powershell: withKey(snippetPowershellText({ origin: proxyOrigin })),
-		python: withKey(snippetPythonText({ origin: proxyOrigin })),
-		openclaw: withKey(snippetOpenClawText({ origin: proxyOrigin })),
-		javascript: withKey(snippetJSText({ origin: proxyOrigin })),
-		librechat: withKey(snippetLibreChatText({ origin: proxyOrigin })),
-		claudeCode: withKey(snippetClaudeCodeText({ origin: proxyOrigin })),
-		zed: withKey(snippetZedVKText({ origin: proxyOrigin })),
-		hermes: withKey(snippetHermesText({ origin: proxyOrigin })),
-		opencode: withKey(snippetOpencodeVKText({ origin: proxyOrigin })),
+		bash: withKey(snippetBashText({ origin })),
+		powershell: withKey(snippetPowershellText({ origin })),
+		python: withKey(snippetPythonText({ origin })),
+		openclaw: withKey(snippetOpenClawText({ origin })),
+		javascript: withKey(snippetJSText({ origin })),
+		librechat: withKey(snippetLibreChatText({ origin })),
+		claudeCode: withKey(snippetClaudeCodeText({ origin })),
+		zed: withKey(snippetZedVKText({ origin })),
+		hermes: withKey(snippetHermesText({ origin })),
+		opencode: withKey(snippetOpencodeVKText({ origin })),
 	};
 
 	return (

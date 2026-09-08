@@ -1,8 +1,8 @@
 import { describeTarget } from "@web-shared/alerts/composers";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { ConfirmModal } from "../ConfirmModal";
+import { CopyButton } from "../CopyRow";
 
 // DestinationList renders the saved Apprise targets as one readable row each:
 // which service it points at, which host, and the identifying segment (topic,
@@ -93,7 +93,11 @@ export function DestinationList({
 							className="fd-row"
 							style={{ gap: "0.3rem", marginLeft: "auto" }}
 						>
-							<CopyButton url={url} rowName={rowName} />
+							<CopyButton
+								value={url}
+								name={rowName}
+								testId="alert-destination-copy"
+							/>
 							<button
 								type="button"
 								className="ui-btn ui-btn-sm"
@@ -139,29 +143,5 @@ export function DestinationList({
 				</ConfirmModal>
 			)}
 		</div>
-	);
-}
-
-// CopyButton puts one target URL on the clipboard so it can be pasted into
-// another Front Desk or a service's own UI. A blocked clipboard is silent; the
-// row text stays selectable.
-function CopyButton({ url, rowName }: { url: string; rowName: string }) {
-	const { t } = useTranslation();
-	// The "Copied" label reverts on a timer the hook drops if the row goes first:
-	// removing a destination unmounts it, and firing then would set state on an
-	// unmounted button.
-	const { copy, copied } = useCopyToClipboard();
-	return (
-		<button
-			type="button"
-			className="ui-btn ui-btn-sm"
-			data-testid="alert-destination-copy"
-			aria-label={`${t("common.copy")}: ${rowName}`}
-			onClick={() => {
-				void copy(url);
-			}}
-		>
-			{copied ? t("common.copied") : t("common.copy")}
-		</button>
 	);
 }

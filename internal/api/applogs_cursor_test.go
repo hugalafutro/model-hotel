@@ -251,7 +251,7 @@ func TestGetAppLogsCursor_WithCursor(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to parse cursor created_at: %v", err)
 	}
-	cursor := appLogCursor{
+	cursor := logCursor{
 		CreatedAt: cursorCat,
 		ID:        lastEntry.ID,
 	}
@@ -447,7 +447,7 @@ func TestBuildAppLogCursorQuery_WithFilters(t *testing.T) {
 
 func TestBuildAppCursorQuery_WithCursor(t *testing.T) {
 	ts := time.Now()
-	cursor := appLogCursor{CreatedAt: ts, ID: "cursor-id"}
+	cursor := logCursor{CreatedAt: ts, ID: "cursor-id"}
 	cursorStr := cursor.encode()
 	p := appLogCursorParams{
 		limit:     20,
@@ -543,7 +543,7 @@ func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 	// Page 2
 	page1Last := page1.Entries[len(page1.Entries)-1]
 	cursor1Cat, _ := time.Parse(time.RFC3339Nano, page1Last.CreatedAt)
-	cursor1 := appLogCursor{CreatedAt: cursor1Cat, ID: page1Last.ID}
+	cursor1 := logCursor{CreatedAt: cursor1Cat, ID: page1Last.ID}
 	req = httptest.NewRequest("GET", fmt.Sprintf("/logs/app/cursor?limit=3&sort_dir=desc&cursor=%s&direction=after", url.QueryEscape(cursor1.encode())), http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()
@@ -564,7 +564,7 @@ func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 	// Page 3
 	page2Last := page2.Entries[len(page2.Entries)-1]
 	cursor2Cat, _ := time.Parse(time.RFC3339Nano, page2Last.CreatedAt)
-	cursor2 := appLogCursor{CreatedAt: cursor2Cat, ID: page2Last.ID}
+	cursor2 := logCursor{CreatedAt: cursor2Cat, ID: page2Last.ID}
 	req = httptest.NewRequest("GET", fmt.Sprintf("/logs/app/cursor?limit=3&sort_dir=desc&cursor=%s&direction=after", url.QueryEscape(cursor2.encode())), http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()
@@ -584,7 +584,7 @@ func TestGetAppLogsCursor_BackwardPagination(t *testing.T) {
 
 	// Backward from page3's first entry — should return page2's entries
 	backwardCat, _ := time.Parse(time.RFC3339Nano, page3.Entries[0].CreatedAt)
-	backwardCursor := appLogCursor{CreatedAt: backwardCat, ID: page3.Entries[0].ID}
+	backwardCursor := logCursor{CreatedAt: backwardCat, ID: page3.Entries[0].ID}
 	req = httptest.NewRequest("GET", fmt.Sprintf("/logs/app/cursor?limit=3&sort_dir=desc&cursor=%s&direction=before", url.QueryEscape(backwardCursor.encode())), http.NoBody)
 	req.Header.Set("Authorization", "Bearer test-admin-token")
 	w = httptest.NewRecorder()
@@ -836,7 +836,7 @@ func TestGetAppLogsCursor_CancelledContext(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 // TestGetAppLogsHistory_QueryFailsWithCancelledContext verifies getAppLogsHistory
-// when the DB query fails after countAppLogs succeeds. Uses a cancelled context
+// when the DB query fails after the total count succeeds. Uses a cancelled context
 // to trigger the query failure path.
 func TestGetAppLogsHistory_QueryFailsWithCancelledContext(t *testing.T) {
 	if apiTestDBURL == "" {
@@ -868,15 +868,18 @@ func TestGetAppLogsHistory_QueryFailsWithCancelledContext(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// appLogCursor encode/decode tests
+// logCursor encode/decode tests
 // ---------------------------------------------------------------------------
 
 // TestAppLogCursor_EncodeDecode verifies that encode/decode round-trips correctly.
 func TestAppLogCursor_EncodeDecode(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Millisecond)
-	c := &appLogCursor{
+	// The id is a row id, and every row this cursor points at is keyed by a
+	// uuid, so the decoder requires one.
+	rowID := uuid.NewString()
+	c := &logCursor{
 		CreatedAt: now,
-		ID:        "test-id-123",
+		ID:        rowID,
 	}
 
 	encoded := c.encode()
@@ -884,19 +887,19 @@ func TestAppLogCursor_EncodeDecode(t *testing.T) {
 		t.Error("expected non-empty encoded cursor")
 	}
 
-	decoded := &appLogCursor{}
+	decoded := &logCursor{}
 	if err := decoded.decode(encoded); err != nil {
 		t.Fatalf("decode failed: %v", err)
 	}
 
-	if decoded.ID != "test-id-123" {
-		t.Errorf("expected ID 'test-id-123', got %q", decoded.ID)
+	if decoded.ID != rowID {
+		t.Errorf("expected ID %q, got %q", rowID, decoded.ID)
 	}
 }
 
 // TestAppLogCursor_DecodeInvalidBase64 tests that decode fails for invalid base64.
 func TestAppLogCursor_DecodeInvalidBase64(t *testing.T) {
-	c := &appLogCursor{}
+	c := &logCursor{}
 	if err := c.decode("not-valid-base64!!!"); err == nil {
 		t.Error("expected error for invalid base64")
 	}
@@ -905,7 +908,7 @@ func TestAppLogCursor_DecodeInvalidBase64(t *testing.T) {
 // TestAppLogCursor_DecodeInvalidJSON tests that decode fails for valid base64
 // that doesn't contain valid JSON.
 func TestAppLogCursor_DecodeInvalidJSON(t *testing.T) {
-	c := &appLogCursor{}
+	c := &logCursor{}
 	// base64 of "not-json"
 	if err := c.decode("bm90LWpzb24="); err == nil {
 		t.Error("expected error for invalid JSON in cursor")

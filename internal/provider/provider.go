@@ -3,6 +3,7 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"time"
@@ -289,6 +290,13 @@ func (r *Repository) GetByName(ctx context.Context, name string) (*Provider, err
 	if err == nil {
 		cacheProvider(p)
 		return p, nil
+	}
+	// Only a genuine miss earns the normalized retry. A context, connectivity
+	// or scan failure is returned as itself: retrying it would hide the real
+	// cause behind a second query that can even answer with a different
+	// provider.
+	if !errors.Is(err, pgx.ErrNoRows) {
+		return nil, err
 	}
 
 	normalized := NormalizeName(name)

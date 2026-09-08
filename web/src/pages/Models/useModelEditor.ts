@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
 import { formatPriceInput } from "../../utils/model";
 
@@ -7,27 +8,56 @@ interface UseModelEditorParams {
 	onUpdate: (id: string, updates: Partial<Model>) => void;
 }
 
+/** The five editable fields, as the form holds them: strings, never null. */
+export interface EditData {
+	display_name: string;
+	context_length: string;
+	max_output_tokens: string;
+	input_price_per_million: string;
+	output_price_per_million: string;
+}
+
+type EditSource = Pick<
+	Model,
+	| "context_length"
+	| "max_output_tokens"
+	| "input_price_per_million"
+	| "output_price_per_million"
+> & { display_name?: string | null };
+
+/** Form values for a model or for its discovered defaults. */
+export function editValuesFrom(src: EditSource): EditData {
+	return {
+		display_name: src.display_name || "",
+		context_length: src.context_length?.toString() ?? "",
+		max_output_tokens: src.max_output_tokens?.toString() ?? "",
+		input_price_per_million: formatPriceInput(src.input_price_per_million),
+		output_price_per_million: formatPriceInput(src.output_price_per_million),
+	};
+}
+
+/** i18n keys for the field names the unsaved-changes dialog lists. */
+export const FIELD_LABEL_KEYS: Record<keyof EditData, string> = {
+	display_name: "models.detail.displayName",
+	context_length: "models.detail.contextLength",
+	max_output_tokens: "models.detail.maxOutput",
+	input_price_per_million: "models.detail.inputPrice",
+	output_price_per_million: "models.detail.outputPrice",
+};
+
 export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
+	const { t } = useTranslation();
 	const [editing, setEditing] = useState(false);
 	const [editVersion, setEditVersion] = useState("");
 	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
 
-	const [editData, setEditData] = useState({
-		display_name: model.display_name || "",
-		context_length: model.context_length?.toString() || "",
-		max_output_tokens: model.max_output_tokens?.toString() || "",
-		input_price_per_million: formatPriceInput(model.input_price_per_million),
-		output_price_per_million: formatPriceInput(model.output_price_per_million),
-	});
+	const [editData, setEditData] = useState<EditData>(() =>
+		editValuesFrom(model),
+	);
 
+	// The discovered values a field reverts to, in form (string) shape.
 	const discoveredDefaults = useMemo(
-		() => ({
-			display_name: model.name || "",
-			context_length: model.context_length,
-			max_output_tokens: model.max_output_tokens,
-			input_price_per_million: model.input_price_per_million,
-			output_price_per_million: model.output_price_per_million,
-		}),
+		() => editValuesFrom({ ...model, display_name: model.name }),
 		[model],
 	);
 
@@ -35,27 +65,11 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 	const currentEditVersion = editing ? model.id : "";
 	if (editing && currentEditVersion !== editVersion) {
 		setEditVersion(currentEditVersion);
-		setEditData({
-			display_name: model.display_name || "",
-			context_length: model.context_length?.toString() || "",
-			max_output_tokens: model.max_output_tokens?.toString() || "",
-			input_price_per_million: formatPriceInput(model.input_price_per_million),
-			output_price_per_million: formatPriceInput(
-				model.output_price_per_million,
-			),
-		});
+		setEditData(editValuesFrom(model));
 	}
 
-	const getFieldLabel = (key: string): string => {
-		const labels: Record<string, string> = {
-			display_name: "Display Name",
-			context_length: "Context Length",
-			max_output_tokens: "Max Output Tokens",
-			input_price_per_million: "Input Price",
-			output_price_per_million: "Output Price",
-		};
-		return labels[key] || key;
-	};
+	const getFieldLabel = (key: string): string =>
+		key in FIELD_LABEL_KEYS ? t(FIELD_LABEL_KEYS[key as keyof EditData]) : key;
 
 	const getChangedFields = (): string[] => {
 		const fields: string[] = [];
@@ -101,6 +115,13 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		}
 	};
 
+	/** Drop the pending edits and leave edit mode. */
+	const discardEdit = () => {
+		setConfirmFields(null);
+		setEditing(false);
+		setEditData(editValuesFrom(model));
+	};
+
 	const handleSave = () => {
 		const changed = getChangedFields();
 		if (changed.length === 0) {
@@ -134,38 +155,8 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		setEditing(false);
 	};
 
-	const revertField = (key: keyof typeof discoveredDefaults) => {
-		if (key === "display_name") {
-			setEditData((prev) => ({
-				...prev,
-				display_name: discoveredDefaults.display_name,
-			}));
-		} else if (key === "context_length") {
-			setEditData((prev) => ({
-				...prev,
-				context_length: discoveredDefaults.context_length?.toString() ?? "",
-			}));
-		} else if (key === "max_output_tokens") {
-			setEditData((prev) => ({
-				...prev,
-				max_output_tokens:
-					discoveredDefaults.max_output_tokens?.toString() ?? "",
-			}));
-		} else if (key === "input_price_per_million") {
-			setEditData((prev) => ({
-				...prev,
-				input_price_per_million: formatPriceInput(
-					discoveredDefaults.input_price_per_million,
-				),
-			}));
-		} else if (key === "output_price_per_million") {
-			setEditData((prev) => ({
-				...prev,
-				output_price_per_million: formatPriceInput(
-					discoveredDefaults.output_price_per_million,
-				),
-			}));
-		}
+	const revertField = (key: keyof EditData) => {
+		setEditData((prev) => ({ ...prev, [key]: discoveredDefaults[key] }));
 	};
 
 	return {
@@ -179,6 +170,7 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		getFieldLabel,
 		getChangedFields,
 		handleCancelEdit,
+		discardEdit,
 		handleSave,
 		revertField,
 	};

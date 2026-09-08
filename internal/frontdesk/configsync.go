@@ -1,12 +1,14 @@
 package frontdesk
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -170,17 +172,10 @@ func (s *Server) prepareMemberSync(ctx context.Context, m *Member, token string,
 // failure is non-fatal: the sync itself already succeeded, so it is logged and
 // swallowed rather than surfaced.
 func (s *Server) recordFleetSyncRun(ctx context.Context, primary *Member, results []syncResultItem) {
-	changed := false
-	for _, r := range results {
-		// An incomplete member counts as a config write: it committed the config and
-		// only failed to materialise part of it. Excluding it would freeze the fleet
-		// marker the staleness watchdog reads while one member stays diverged.
-		if r.OK || r.Incomplete {
-			changed = true
-			break
-		}
-	}
-	if !changed {
+	// An incomplete member counts as a config write: it committed the config and
+	// only failed to materialise part of it. Excluding it would freeze the fleet
+	// marker the staleness watchdog reads while one member stays diverged.
+	if !slices.ContainsFunc(results, func(r syncResultItem) bool { return r.OK || r.Incomplete }) {
 		return
 	}
 	if err := s.store.SetFleetSyncState(ctx, primary.ID, primary.Name, time.Now().UTC()); err != nil {
@@ -227,11 +222,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// The member answered, with a status we cannot apply: surface it so a wrong
 		// stored token or a member-side error is not mislabeled "offline", and
 		// carry the member's own reason when it gave one.
-		res.Error = fmt.Sprintf("this member rejected the request (HTTP %d)", status)
-		var refusal *memberRefusal
-		if errors.As(err, &refusal) && refusal.reason != "" {
-			res.Error = fmt.Sprintf("this member rejected the request (HTTP %d): %s", status, refusal.reason)
-		}
+		res.Error = withRefusalReason(fmt.Sprintf("this member rejected the request (HTTP %d)", status), err)
 		if lostAnswer5xx(status, time.Since(pushStart)) {
 			// This 5xx is not proof the import failed: a reverse proxy between Front
 			// Desk and the member answers 502/504 when the import outlives its own
@@ -279,13 +270,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// staleness watchdog raises config.autosync_stale on top of the divergence
 		// alert already naming the real problem. A write failure is logged and
 		// dropped: the member is reported diverged either way.
-		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
-			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
-		} else {
-			// This stamp covers a lost-answer push of this same config; a concurrent
-			// push of newer config keeps its own flag (see clearUnconfirmedPush).
-			s.clearUnconfirmedPush(m.ID, pushedHash)
-		}
+		_ = s.stampMemberSync(ctx, m, reason, pushedHash)
 		// This arm returns before the shared failure branch below, so without this an
 		// incomplete apply would leave no trace in the logs when alerting is off.
 		debuglog.Warn("frontdesk: config sync incomplete", "member", m.Name, "error", res.Error)
@@ -298,14 +283,9 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 	// show the member unsynced, so it must not be marked converged, and neither the
 	// success event nor the verified heartbeat may fire.
 	if res.OK {
-		if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), reason); err != nil {
-			debuglog.Warn("frontdesk: stamp member last-sync", "member", m.Name, "error", err)
+		if err := s.stampMemberSync(ctx, m, reason, pushedHash); err != nil {
 			res.OK = false
 			res.Error = "applied but could not record the sync stamp"
-		} else {
-			// This stamp covers a lost-answer push of this same config; a concurrent
-			// push of newer config keeps its own flag (see clearUnconfirmedPush).
-			s.clearUnconfirmedPush(m.ID, pushedHash)
 		}
 	}
 
@@ -448,7 +428,7 @@ const maxMemberConfigExportBody = 8 << 20
 // fetchMemberExport reads a member's config envelope as raw JSON so it can be
 // re-posted to replicas verbatim (preserving the base64 key ciphertext).
 func (s *Server) fetchMemberExport(ctx context.Context, m *Member, token string) ([]byte, error) {
-	status, body, err := s.callMemberLimited(ctx, s.probe, maxMemberConfigExportBody,
+	status, body, err := callMemberLimited(ctx, s.probe, maxMemberConfigExportBody,
 		http.MethodGet, m.URL, memberConfigExportPath, token, nil)
 	if err != nil {
 		return nil, err
@@ -482,7 +462,7 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 	// import runs model discovery on the member, which routinely exceeds the 4s
 	// probe timeout, and timing out there would mislabel a successful import as
 	// "could not reach this member".
-	status, body, err := s.callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, path, token, strings.NewReader(string(export)), headers...)
+	status, body, err := callMemberWith(ctx, s.syncClient, http.MethodPost, m.URL, path, token, bytes.NewReader(export), headers...)
 	if err != nil {
 		return memberImportResult{}, 0, err
 	}
@@ -506,6 +486,17 @@ func (s *Server) pushMemberImport(ctx context.Context, m *Member, token string, 
 type memberRefusal struct {
 	status int
 	reason string
+}
+
+// withRefusalReason appends the member's own reason to an operator-facing
+// status message when the error carries one, so a refusal reads as the field
+// the member named rather than a bare status.
+func withRefusalReason(msg string, err error) string {
+	var refusal *memberRefusal
+	if errors.As(err, &refusal) && refusal.reason != "" {
+		return msg + ": " + refusal.reason
+	}
+	return msg
 }
 
 func (e *memberRefusal) Error() string {

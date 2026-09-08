@@ -73,6 +73,25 @@ describe("OidcPanel", () => {
 		).toBeInTheDocument();
 	});
 
+	it("calls the pill configured with a blank client secret", async () => {
+		// OIDC builds a usable runtime from issuer, client id and base URL alone
+		// (internal/adminauth/oidc.go), which is what a public/PKCE client sends,
+		// so an empty secret is not an incomplete config here.
+		serveSettings({
+			oidc_enabled: "true",
+			oidc_issuer_url: "https://auth.example.com",
+			oidc_client_id: "model-hotel",
+			oidc_public_base_url: "https://hotel.example.com",
+		});
+		mockOidcStatus(true);
+		renderWithProviders(<OidcPanel />);
+
+		const pill = await screen.findByTestId("oidc-status");
+		await waitFor(() =>
+			expect(pill).toHaveTextContent(i18n.t("settings.oidc.status.configured")),
+		);
+	});
+
 	it("does NOT commit the allowed-emails draft when the blur comes from going managed", async () => {
 		serveSettings({ oidc_enabled: "true" });
 		mockOidcStatus(true);

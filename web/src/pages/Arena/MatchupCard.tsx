@@ -1,10 +1,12 @@
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { AlertCircle, Bot, Trophy } from "@/lib/icons";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { ParamsTooltip } from "../../components/ParamsTooltip";
 import { PresetBar } from "../../components/PresetBar";
-import { CHAT_PERSONAS } from "../../data/presets";
-import { SlotParamsTooltip, VoteThumb } from "./shared";
+import { usePresetText } from "../../components/usePresetText";
+import { CHAT_PERSONAS, type PersonaPreset } from "../../data/presets";
+import { shortModelName } from "../../utils/model";
+import { VoteThumb } from "./shared";
 import type { MatchupCardProps } from "./types";
 
 export function MatchupCard({
@@ -20,9 +22,13 @@ export function MatchupCard({
 	onVote,
 }: MatchupCardProps) {
 	const { t } = useTranslation();
-	const [pendingPersona, setPendingPersona] = useState<
-		import("../../data/presets").PersonaPreset | null
-	>(null);
+	const persona = usePresetText<PersonaPreset>({
+		activeId: slot?.personaId ?? null,
+		text: slot?.personaPrompt ?? "",
+		textOf: (p) => p.systemPrompt,
+		onChange: (id, prompt) =>
+			onPersonaChange(roundIdx, matchupIdx, slotKey, id, prompt),
+	});
 
 	if (!slot) {
 		return (
@@ -56,9 +62,9 @@ export function MatchupCard({
 					className="text-xs font-medium text-(--text-primary) truncate"
 					title={slot.modelId}
 				>
-					{slot.modelId.split("/").pop()}
+					{shortModelName(slot.modelId)}
 				</span>
-				<SlotParamsTooltip params={slot.params} />
+				<ParamsTooltip params={slot.params} />
 				{isRunning && !response?.done && (
 					<span className="w-1.5 h-1.5 rounded-full bg-(--accent) animate-pulse shrink-0" />
 				)}
@@ -100,77 +106,24 @@ export function MatchupCard({
 					<PresetBar
 						items={CHAT_PERSONAS}
 						activeId={slot.personaId}
-						onSelect={(persona) => {
-							if (slot.personaPrompt.trim() && slot.personaId === null) {
-								setPendingPersona(persona);
-								return;
-							}
-							onPersonaChange(
-								roundIdx,
-								matchupIdx,
-								slotKey,
-								persona.id,
-								t(persona.systemPrompt),
-							);
-						}}
-						onCustom={() => {
-							if (slot.personaId !== null) {
-								setPendingPersona({
-									id: "__custom__",
-									icon: "✏️",
-									label: t("common.custom"),
-									systemPrompt: "",
-								} as import("../../data/presets").PersonaPreset);
-								return;
-							}
-						}}
-						onRandom={() => {
-							const available = CHAT_PERSONAS.filter(
-								(p) => p.id !== slot.personaId,
-							);
-							if (available.length === 0) return;
-							const pick =
-								available[Math.floor(Math.random() * available.length)];
-							if (slot.personaPrompt.trim() && slot.personaId === null) {
-								setPendingPersona(pick);
-								return;
-							}
-							onPersonaChange(
-								roundIdx,
-								matchupIdx,
-								slotKey,
-								pick.id,
-								t(pick.systemPrompt),
-							);
-						}}
+						onSelect={persona.select}
+						onCustom={persona.custom}
+						onRandom={() => persona.random(CHAT_PERSONAS)}
 						customLabel="✏️"
 					/>
 				</div>
 			)}
 
-			{pendingPersona && (
+			{persona.pending && (
 				<ConfirmDialog
 					title={
-						pendingPersona.id === "__custom__"
+						persona.isCustomPending
 							? t("arena.persona.switchToCustom")
 							: t("arena.persona.overwrite")
 					}
 					fields={[t("arena.persona.fieldLabel")]}
-					onConfirm={() => {
-						if (pendingPersona.id === "__custom__") {
-							onPersonaChange(roundIdx, matchupIdx, slotKey, null, "");
-						} else {
-							onPersonaChange(
-								roundIdx,
-								matchupIdx,
-								slotKey,
-								pendingPersona.id,
-								t(pendingPersona.systemPrompt),
-							);
-						}
-						setPendingPersona(null);
-					}}
-					onCancel={() => setPendingPersona(null)}
+					onConfirm={persona.confirm}
+					onCancel={persona.cancel}
 				/>
 			)}
 		</div>

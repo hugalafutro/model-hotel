@@ -12,8 +12,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -21,28 +21,17 @@ import (
 func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	apiBase := util.SanitizeAPIURL(provider.BaseURL)
 
-	tagsURL := apiBase + "/api/tags"
-	req, err := http.NewRequestWithContext(ctx, "GET", tagsURL, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("ollama: failed to create request for provider %s: %w", provider.Name, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
+	headers := http.Header{}
+	headers.Set("Authorization", "Bearer "+apiKey)
 
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/tags", headers)
 	if err != nil {
 		debuglog.Error("discovery: ollama http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
-		return nil, fmt.Errorf("ollama: failed to fetch models for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		debuglog.Error("discovery: ollama unexpected status", "provider", provider.Name, "provider_id", provider.ID, "status", resp.StatusCode, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
-		return nil, fmt.Errorf("ollama: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
+		return nil, fmt.Errorf("ollama: failed to fetch models for provider %s: %w", provider.Name, statusOnly(err))
 	}
 
 	var tagsResp OllamaTagsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&tagsResp); err != nil {
+	if err := json.Unmarshal(bodyBytes, &tagsResp); err != nil {
 		debuglog.Error("discovery: ollama json decode failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 		return nil, fmt.Errorf("ollama: failed to decode response for provider %s: %w", provider.Name, err)
 	}
@@ -137,7 +126,7 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
 		// Sanitized like every sibling discovery path: an upstream that quotes
 		// the operator's key back in an auth failure would otherwise put it in
 		// app_logs verbatim, and from there into the OTLP export.
@@ -146,7 +135,7 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 	}
 
 	var showResp OllamaShowResponse
-	if err := json.NewDecoder(resp.Body).Decode(&showResp); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, &showResp); err != nil {
 		return nil, err
 	}
 	return &showResp, nil
@@ -237,42 +226,18 @@ func (d *DiscoveryService) buildOllamaModel(provider *Provider, modelID string, 
 
 // GetOllamaCloudAccount fetches the account info from the Ollama Cloud /api/me endpoint.
 func (d *DiscoveryService) GetOllamaCloudAccount(ctx context.Context, provider *Provider, masterKey string) (*OllamaCloudAccount, error) {
-	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	apiKey, err := decryptProviderKey(provider, masterKey, "ollama-cloud")
 	if err != nil {
-		return nil, fmt.Errorf("ollama-cloud: failed to decrypt API key for provider %s: %w", provider.Name, err)
+		return nil, err
 	}
 
-	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	// Remove /v1 suffix for the account endpoint
-	baseURL = strings.TrimSuffix(baseURL, "/v1")
-	accountURL := baseURL + "/api/me"
-
-	req, err := http.NewRequestWithContext(ctx, "POST", accountURL, http.NoBody)
-	// Ollama Cloud requires POST for /api/me despite being a read operation.
-	if err != nil {
-		return nil, fmt.Errorf("ollama-cloud: failed to create account request for provider %s: %w", provider.Name, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.doQuotaRequestWithRetry(ctx, req, provider.ID.String(), provider.Name, "ollama-cloud")
-	if err != nil {
-		return nil, fmt.Errorf("ollama-cloud: failed to fetch account for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		if authErr := quotaAuthError("ollama-cloud", apiKey, provider, resp.StatusCode, body); authErr != nil {
-			return nil, authErr
-		}
-		debuglog.Error("discovery: ollama cloud account non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
-		return nil, fmt.Errorf("ollama-cloud: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
-	}
+	// The account endpoint is a sibling of the OpenAI-compatible mount, and
+	// Ollama Cloud requires POST for it despite being a read operation.
+	accountURL := strings.TrimSuffix(util.SanitizeBaseURL(provider.BaseURL), "/v1") + "/api/me"
 
 	var account OllamaCloudAccount
-	if err := json.NewDecoder(resp.Body).Decode(&account); err != nil {
-		return nil, fmt.Errorf("ollama-cloud: failed to decode account response for provider %s: %w", provider.Name, err)
+	if err := d.fetchQuotaJSONAt(ctx, provider, apiKey, "POST", accountURL, "ollama-cloud", "account", &account); err != nil {
+		return nil, err
 	}
 
 	debuglog.Info("discovery: ollama cloud account fetched", "provider", provider.Name, "provider_id", provider.ID, "plan", account.Plan)

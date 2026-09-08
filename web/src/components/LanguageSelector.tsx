@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Languages } from "@/lib/icons";
+import { useClickOutside } from "../hooks/useClickOutside";
 import i18next, { LANGUAGE_STORAGE_KEY } from "../i18n";
 import { CountryFlag } from "./CountryFlag";
 
@@ -47,25 +48,15 @@ export function LanguageSelector() {
 	const ref = useRef<HTMLDivElement>(null);
 	const scrollRef = useRef<HTMLDivElement>(null);
 
+	const current = i18n.resolvedLanguage ?? i18n.language;
+
 	// Set document direction for RTL languages
 	useEffect(() => {
 		const rtlLanguages = new Set(["ar", "he"]);
-		const lang = i18n.resolvedLanguage as string;
-		document.documentElement.dir = rtlLanguages.has(lang) ? "rtl" : "ltr";
-	}, [i18n.resolvedLanguage]);
+		document.documentElement.dir = rtlLanguages.has(current) ? "rtl" : "ltr";
+	}, [current]);
 
-	useEffect(() => {
-		function handleClickOutside(e: MouseEvent) {
-			if (ref.current && !ref.current.contains(e.target as Node)) {
-				setOpen(false);
-			}
-		}
-		if (open) {
-			document.addEventListener("mousedown", handleClickOutside);
-			return () =>
-				document.removeEventListener("mousedown", handleClickOutside);
-		}
-	}, [open]);
+	useClickOutside(ref, () => setOpen(false), { enabled: open });
 
 	// Scroll the active language into view when dropdown opens
 	useEffect(() => {
@@ -74,8 +65,6 @@ export function LanguageSelector() {
 			active?.scrollIntoView({ block: "nearest" });
 		}
 	}, [open]);
-
-	if (SUPPORTED_LANGUAGES.length <= 1) return null;
 
 	return (
 		<div ref={ref} className="relative">
@@ -99,37 +88,38 @@ export function LanguageSelector() {
 						className="py-1 max-h-[50vh] overflow-y-auto overscroll-contain"
 						role="listbox"
 					>
-						{SUPPORTED_LANGUAGES.map((lang) => (
-							<button
-								key={lang.code}
-								type="button"
-								role="option"
-								aria-selected={
-									(i18n.resolvedLanguage ?? i18n.language) === lang.code
-								}
-								data-testid={`language-option-${lang.code}`}
-								id={`language-option-${lang.code}`}
-								onClick={() => {
-									i18next.changeLanguage(lang.code);
-									// Persist every deliberate choice — including English —
-									// so the effective priority is strictly
-									// user choice > system locale > English. The browser
-									// locale is never auto-cached (caches: [] in
-									// i18n/index.ts), so an explicit pick always wins on
-									// the next visit until the user changes it again.
-									localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
-									setOpen(false);
-								}}
-								className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-1.5 ${
-									(i18n.resolvedLanguage ?? i18n.language) === lang.code
-										? "text-white bg-white/10"
-										: "text-gray-400 hover:text-white hover:bg-white/5"
-								}`}
-							>
-								<CountryFlag code={lang.code} />
-								{lang.label}
-							</button>
-						))}
+						{SUPPORTED_LANGUAGES.map((lang) => {
+							const active = current === lang.code;
+							return (
+								<button
+									key={lang.code}
+									type="button"
+									role="option"
+									aria-selected={active}
+									data-testid={`language-option-${lang.code}`}
+									id={`language-option-${lang.code}`}
+									onClick={() => {
+										i18next.changeLanguage(lang.code);
+										// Persist every deliberate choice — including English —
+										// so the effective priority is strictly
+										// user choice > system locale > English. The browser
+										// locale is never auto-cached (caches: [] in
+										// i18n/index.ts), so an explicit pick always wins on
+										// the next visit until the user changes it again.
+										localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
+										setOpen(false);
+									}}
+									className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-1.5 ${
+										active
+											? "text-white bg-white/10"
+											: "text-gray-400 hover:text-white hover:bg-white/5"
+									}`}
+								>
+									<CountryFlag code={lang.code} />
+									{lang.label}
+								</button>
+							);
+						})}
 					</div>
 				</div>
 			)}

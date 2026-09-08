@@ -385,24 +385,24 @@ func TestGetOpenAIModels_NoDuplicateModelIDs(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// LookupOpenAICatalog
+// LookupOpenCodeCatalog
 // ---------------------------------------------------------------------------
 
-func TestLookupOpenAICatalog_NotFound(t *testing.T) {
+func TestLookupOpenCodeCatalog_NotFound(t *testing.T) {
 	catalog := GetOpenAIModels()
-	result := LookupOpenAICatalog(catalog, "nonexistent-model-xyz")
+	result := LookupOpenCodeCatalog(catalog, "nonexistent-model-xyz")
 	if result != nil {
 		t.Errorf("expected nil for unknown model, got %+v", result)
 	}
 }
 
-func TestLookupOpenAICatalog_Found(t *testing.T) {
+func TestLookupOpenCodeCatalog_Found(t *testing.T) {
 	catalog := GetOpenAIModels()
 	if len(catalog) == 0 {
 		t.Fatal("catalog is empty")
 	}
 	first := catalog[0]
-	result := LookupOpenAICatalog(catalog, first.ModelID)
+	result := LookupOpenCodeCatalog(catalog, first.ModelID)
 	if result == nil {
 		t.Fatalf("expected non-nil for %q", first.ModelID)
 		return
@@ -415,15 +415,15 @@ func TestLookupOpenAICatalog_Found(t *testing.T) {
 	}
 }
 
-func TestLookupOpenAICatalog_NilSlice(t *testing.T) {
-	result := LookupOpenAICatalog(nil, "gpt-5.5")
+func TestLookupOpenCodeCatalog_NilSlice(t *testing.T) {
+	result := LookupOpenCodeCatalog(nil, "gpt-5.5")
 	if result != nil {
 		t.Error("expected nil when catalog is nil")
 	}
 }
 
-func TestLookupOpenAICatalog_EmptySlice(t *testing.T) {
-	result := LookupOpenAICatalog([]OpenAIModelSpec{}, "gpt-5.5")
+func TestLookupOpenCodeCatalog_EmptySlice(t *testing.T) {
+	result := LookupOpenCodeCatalog([]OpenCodeModelSpec{}, "gpt-5.5")
 	if result != nil {
 		t.Error("expected nil for empty catalog")
 	}
@@ -490,11 +490,11 @@ func TestNewDiscoveryService_NonNil(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// OpenAIModelSpec — struct JSON round-trip
+// OpenCodeModelSpec — struct JSON round-trip
 // ---------------------------------------------------------------------------
 
-func TestOpenAIModelSpec_JSONRoundTrip(t *testing.T) {
-	spec := OpenAIModelSpec{
+func TestOpenCodeModelSpec_JSONRoundTrip(t *testing.T) {
+	spec := OpenCodeModelSpec{
 		ModelID:                      "test-model",
 		DisplayName:                  "Test Model",
 		Description:                  "A test model",
@@ -518,7 +518,7 @@ func TestOpenAIModelSpec_JSONRoundTrip(t *testing.T) {
 		t.Fatalf("marshal: %v", err)
 	}
 
-	var decoded OpenAIModelSpec
+	var decoded OpenCodeModelSpec
 	if err := json.Unmarshal(data, &decoded); err != nil {
 		t.Fatalf("unmarshal: %v", err)
 	}

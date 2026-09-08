@@ -325,7 +325,11 @@
 			"emptyState": "Er zijn nog geen gebruiksgegevens. Het gebruik zal hier verschijnen zodra het verkeer stroomt.",
 			"viewDetailsFor": "Bekijk de details van {{label}}",
 			"deletedModelTooltip": "Dit model is niet meer verkrijgbaar - het is mogelijk verwijderd of de leverancier is geschrapt",
-			"reservedKeyTooltip": "Interne gereserveerde naam, geen sleutel die u zelf hebt aangemaakt – dit gebruik is afkomstig van Model Hotel's eigen \"{{name}}\"-routes"
+			"reservedKeyTooltip": "Interne gereserveerde naam, geen sleutel die u zelf hebt aangemaakt – dit gebruik is afkomstig van Model Hotel's eigen \"{{name}}\"-routes",
+			"tokens_one": "token",
+			"tokens_other": "tokens",
+			"requests_one": "aanvragen",
+			"requests_other": "verzoeken"
 		},
 		"providerLatency": {
 			"title": "Provider-latentie",
@@ -347,10 +351,10 @@
 			"distributionChart": "Grafiek providerverdeling",
 			"emptyState": "Nog geen providergegevens. De provideruitsplitsing verschijnt hier zodra er verkeer is.",
 			"chartAriaLabel": "Grafiek providerverdeling",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokens",
-			"requestUnit": "Aanvragen",
-			"requestsUnit": "Verzoeken"
+			"tokens_one": "Token",
+			"tokens_other": "Tokens",
+			"requests_one": "Aanvragen",
+			"requests_other": "Verzoeken"
 		},
 		"models": {
 			"viewDetails": "Bekijk de details van {{label}}",
@@ -597,7 +601,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modellen worden gegenereerd - klik op \"Alles stoppen\" om te annuleren",
-			"voteToContinue": "Stem over alle wedstrijden om door te gaan naar de volgende ronde",
 			"nextRoundReady": "Begin de volgende ronde wanneer klaar"
 		},
 		"responses": {
@@ -652,13 +655,6 @@
 			"close": "Afsluiten"
 		},
 		"params": {
-			"temperature": "Temperatuur",
-			"maxTokens": "Max Tokens",
-			"topP": "Top P",
-			"minP": "Min. P",
-			"topK": "Top K",
-			"freqPenalty": "Freq Penalty",
-			"presPenalty": "Pres Penalty",
 			"resetAll": "Alles resetten",
 			"done": "Voltooid"
 		},
@@ -844,7 +840,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Er zijn geen geactiveerde providers meer",
-				"onlyOne": "Er is nog maar één ingeschakelde provider over (voor failover zijn er minstens twee nodig)"
+				"onlyOne": "Er is nog maar één ingeschakelde provider over (voor failover zijn er minstens twee nodig)",
+				"noValidProviders": "Na het opschonen blijven er geen geldige providers over",
+				"onlyOneValid": "Na het opschonen blijft er slechts één geldige provider over (failover heeft er minstens twee nodig)"
 			},
 			"error": "Fout",
 			"failover": "Failover-groepen",
@@ -1065,7 +1063,17 @@
 		"scope_all": "Alle providers",
 		"badge_parked": "{{count}} geparkeerd",
 		"status_parked": "Geparkeerd",
-		"status_parked_hint": "De provider is uitgeschakeld; dit model blijft vermeld maar wordt pas weer geserveerd als de provider opnieuw is ingeschakeld."
+		"status_parked_hint": "De provider is uitgeschakeld; dit model blijft vermeld maar wordt pas weer geserveerd als de provider opnieuw is ingeschakeld.",
+		"capPills": {
+			"vision": "Beeld",
+			"reasoning": "Redeneren",
+			"tool_calling": "Gereedschap",
+			"structured_output": "Gestructureerd",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Audio",
+			"parallel_tool_calls": "Parallel"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Terugkeren naar gevonden waarde",
@@ -1267,7 +1275,6 @@
 				"owner": "Eigenaar"
 			},
 			"noProvidersConfigured": "Geen providers geconfigureerd.",
-			"discardChanges": "Wijzigingen niet opslaan?",
 			"loadingProviders": "Leveranciers laden...",
 			"stripReasoningDescriptionText": "Indien ingeschakeld worden redenerings- en denk-tokens uit streaming-antwoorden verwijderd voor clients die er niet mee overweg kunnen.",
 			"providerInstructionsText": "Klik op een provider om de toegang te beperken. Alles is standaard toegankelijk.",
@@ -1408,6 +1415,11 @@
 			"search": "Logbestanden filteren…",
 			"allLevels": "Alle niveaus",
 			"allSources": "Alle bronnen"
+		},
+		"level": {
+			"info": "Info",
+			"warning": "Waarschuwing",
+			"error": "Fout"
 		},
 		"table": {
 			"timeDate": "Tijd/Datum",
@@ -1859,8 +1871,8 @@
 				"confirmEnableTitle": "Periodieke back-up inschakelen?",
 				"confirmEnableDescription": "Het inschakelen van periodieke back-ups verwijdert bestaande back-ups die buiten het rotatievenster zoon/vader/grootvader vallen.",
 				"confirmEnableWouldRemove": "Deze {{count}} back-up(s) vallen buiten het rotatievenster en worden permanent verwijderd:",
-				"prunePreviewFailed": "Voorbeeld van reservekopie verwijderen mislukt",
-				"pruneFailed": "Opschonen van back-ups mislukt",
+				"prunePreviewFailed": "Voorbeeld van reservekopie verwijderen mislukt: {{message}}",
+				"pruneFailed": "Opschonen van back-ups mislukt: {{message}}",
 				"pruneSuccess": "Periodieke back-up ingeschakeld. {{count}} oude back-up(s) verwijderd."
 			},
 			"availableBackupsTitle": "Beschikbare back-ups",
@@ -2170,7 +2182,7 @@
 				"done": "Waarschuwingen staan aan.",
 				"sendAll": "Test naar alle bestemmingen versturen",
 				"sentAll": "Test naar elke bestemming verzonden",
-				"apiChangedDrops": "Als je het adres wijzigt, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn met het oude adres getest.",
+				"apiChangedDrops": "Als je een ander adres verifieert, vervallen de bestemmingen die in deze ronde zijn toegevoegd; ze zijn met het oude adres getest.",
 				"savedNote_one": "{{count}} al opgeslagen bestemming blijft zoals die is.",
 				"savedNote_other": "{{count}} al opgeslagen bestemmingen blijven zoals ze zijn.",
 				"field": {
@@ -2388,16 +2400,10 @@
 			"filter": "Filter…",
 			"clearFilter": "Filter wissen"
 		},
-		"copyButton": {
-			"copy": "Kopiëren",
-			"copiedToClipboard": "Gekopieerd naar klembord",
-			"failedToCopy": "Kopiëren mislukt"
-		},
 		"copyablePill": {
 			"copy": "Kopiëren",
 			"copyToClipboard": "Kopiëren naar klembord",
-			"copied": "Gekopieerd!",
-			"failedToCopy": "Kopiëren mislukt"
+			"copied": "Gekopieerd!"
 		},
 		"collapsibleToggle": {
 			"expand": "Uitklappen",
@@ -2714,11 +2720,6 @@
 			"compare": "Vergelijk",
 			"noMatchHistory": "Nog geen wedstrijdgeschiedenis",
 			"completedSessionsHere": "Voltooide arena en vergelijkingen zullen hier verschijnen",
-			"match": "Wedstrijd",
-			"final": "Finale",
-			"semifinals": "Halffinales",
-			"quarterfinals": "Kwartfinales",
-			"round": "Ronde {{number}}",
 			"winner": "Winnaar: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Fout: {{message}}",
@@ -2826,35 +2827,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Geen logs gevonden",
-			"entries": "vermeldingen",
-			"loadingNewer": "Nieuwere… worden geladen",
-			"loadingOlder": "Oudere berichten laden…",
-			"timeDate": "Tijd/Datum",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Leverancier",
-			"providerDeleted": "Provider is verwijderd",
-			"status": "status",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Kopteksten",
-			"ttft": "TTFT",
-			"duration": "Duur",
-			"overhead": "Overhead",
-			"key": "Sleutel",
-			"interrupted": "Onderbroken",
-			"internal": "Intern",
-			"cacheInflated": "Inflated by prompt cache hits",
-			"deleted": "Verwijderd",
-			"zeroEntries": "0 vermeldingen",
-			"ip": "IP"
+			"zeroEntries": "0 vermeldingen"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Geen logs gevonden",
-			"entries": "vermeldingen",
-			"loadingNewer": "Nieuwere… worden geladen",
-			"loadingOlder": "Oudere berichten laden…",
 			"timeDate": "Tijd/Datum",
 			"level": "Niveau",
 			"source": "Bron",
@@ -3065,7 +3041,8 @@
 		},
 		"useDisableModel": {
 			"success": "Model \"{{model}}\" uitgeschakeld",
-			"error": "Fout bij uitschakelen model: {{error}}"
+			"error": "Fout bij uitschakelen model: {{error}}",
+			"notFound": "Model \"{{model}}\" niet gevonden bij de ingeschakelde modellen"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Ophalen eerste gegevens mislukt",

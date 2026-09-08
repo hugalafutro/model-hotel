@@ -55,8 +55,8 @@ type streamReader struct {
 	body         io.ReadCloser // closed by the watchdog on stall, to unblock the scanner
 	stallTimeout time.Duration
 
-	streamStalledFlag atomic.Int32 // set to 1 by the watchdog on timeout
-	interruptedFlag   atomic.Int32 // set to 1 by the watchdog on process shutdown
+	streamStalledFlag atomic.Bool // set by the watchdog on timeout
+	interruptedFlag   atomic.Bool // set by the watchdog on process shutdown
 	shutdown          <-chan struct{}
 	shutdownGrace     time.Duration // captured from shutdownStreamGrace at construction
 	stallCh           chan time.Duration
@@ -138,7 +138,7 @@ func (r *streamReader) runWatchdog() {
 			}
 			timer.Reset(d)
 		case <-timerC:
-			r.streamStalledFlag.Store(1)
+			r.streamStalledFlag.Store(true)
 			_ = r.body.Close() // unblock scanner
 			return
 		case <-r.shutdown:
@@ -150,7 +150,7 @@ func (r *streamReader) runWatchdog() {
 			grace := time.NewTimer(r.shutdownGrace)
 			select {
 			case <-grace.C:
-				r.interruptedFlag.Store(1)
+				r.interruptedFlag.Store(true)
 				_ = r.body.Close() // unblock scanner
 				return
 			case <-r.watchdogDone:
@@ -221,13 +221,14 @@ func (r *streamReader) Next() (sseEvent, bool) {
 	r.emptyLines = 0
 
 	// Match "data: " (standard) or "data:" (LM Studio and some proxies send
-	// SSE without a space after the colon). Strip leading whitespace from the
-	// payload so both forms yield the same JSON.
-	if strings.HasPrefix(lineStr, "data: ") {
-		return dataEvent(line, lineStr[6:]), true
+	// SSE without a space after the colon). The standard form gives up exactly
+	// its one separator space; the bare form has its leading whitespace
+	// stripped so both yield the same JSON.
+	if rest, ok := strings.CutPrefix(lineStr, "data: "); ok {
+		return dataEvent(line, rest), true
 	}
-	if strings.HasPrefix(lineStr, "data:") && len(lineStr) > 5 {
-		return dataEvent(line, strings.TrimLeft(lineStr[5:], " \t")), true
+	if rest, ok := strings.CutPrefix(lineStr, "data:"); ok && rest != "" {
+		return dataEvent(line, strings.TrimLeft(rest, " \t")), true
 	}
 	// Not a data line — an SSE comment (": ..."), event/id/retry directive, or
 	// other. Carry the cleaned form so the orchestrator can inspect "event:".
@@ -245,13 +246,13 @@ func dataEvent(line []byte, payload string) sseEvent {
 
 // stalled reports whether the watchdog fired. Read after Close().
 func (r *streamReader) stalled() bool {
-	return r.streamStalledFlag.Load() == 1
+	return r.streamStalledFlag.Load()
 }
 
 // interrupted reports whether the watchdog ended the stream because the
 // process is shutting down. Read after Close().
 func (r *streamReader) interrupted() bool {
-	return r.interruptedFlag.Load() == 1
+	return r.interruptedFlag.Load()
 }
 
 // err returns the scanner's terminal error, if any.

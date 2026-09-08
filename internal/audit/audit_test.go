@@ -98,6 +98,22 @@ func TestActorOf(t *testing.T) {
 	}
 }
 
+// TestPageLimit pins the clamp an HTTP caller sizes its has_more lookahead by:
+// it must agree with what List pages by, or the dashboard trims the wrong row.
+func TestPageLimit(t *testing.T) {
+	cases := []struct {
+		limit int
+		want  int
+	}{
+		{0, 50}, {-5, 50}, {1, 1}, {200, 200}, {201, 200}, {10000, 200},
+	}
+	for _, tc := range cases {
+		if got := (ListParams{Limit: tc.limit}).PageLimit(); got != tc.want {
+			t.Errorf("ListParams{Limit: %d}.PageLimit() = %d, want %d", tc.limit, got, tc.want)
+		}
+	}
+}
+
 func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	rec := newRecorder(t, nil)
 	r := chi.NewRouter()
@@ -142,6 +158,26 @@ func TestMiddlewareRecordsThroughChi(t *testing.T) {
 	}
 	if n := countRows(t, `path = '/silent' AND status_code = 200`); n != 1 {
 		t.Errorf("silent-200 row missing")
+	}
+}
+
+// TestMiddlewareNormalizesMethodCase pins that a recorded mutation stores its
+// method upper-cased. The list filter binds strings.ToUpper on the method it is
+// given, so a row spelled any other way could never be matched by the
+// dashboard's method filter.
+func TestMiddlewareNormalizesMethodCase(t *testing.T) {
+	rec := newRecorder(t, nil)
+	r := chi.NewRouter()
+	r.Use(rec.Middleware)
+	r.Post("/lower", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+
+	req := httptest.NewRequest("post", "/lower", http.NoBody)
+	req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
+	r.ServeHTTP(httptest.NewRecorder(), req)
+
+	eventually(t, func() bool { return countRows(t, "path = '/lower'") == 1 })
+	if n := countRows(t, `path = '/lower' AND method = 'POST'`); n != 1 {
+		t.Errorf("method not stored upper-cased: %d rows match method = 'POST'", n)
 	}
 }
 

@@ -3,6 +3,7 @@ package anthropic
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"strings"
 )
 
@@ -32,6 +33,13 @@ const (
 	sigTagBytes = 'b'
 	sigTagText  = 't'
 )
+
+// syntheticToolUseID names a tool_use block the upstream left unnamed.
+// Anthropic requires an id, and n (the call's ordinal within the message)
+// keeps the id stable and unique across a turn that made several calls.
+func syntheticToolUseID(messageID string, n int) string {
+	return fmt.Sprintf("toolu_%s_%d", messageID, n)
+}
 
 // signedToolUseID appends signature to id; id alone when unsigned.
 func signedToolUseID(id, signature string) string {

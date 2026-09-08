@@ -104,7 +104,7 @@ func TestApplyHealthTransitions(t *testing.T) {
 
 	// First observation healthy: silent in the event log, but still nudges the UI
 	// so a freshly added healthy member populates without a manual reload.
-	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true}, thr)
 	_, total, _ := store.ListEvents(ctx, EventFilter{})
 	if total != 0 {
 		t.Fatalf("first healthy should be silent in the log, got %d events", total)
@@ -116,7 +116,7 @@ func TestApplyHealthTransitions(t *testing.T) {
 	// Below-threshold failures are tolerated: no event, no nudge, and the badge
 	// stays healthy (a rebuild blip must not flip the dashboard red).
 	for i := 1; i < thr; i++ {
-		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"})
+		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"}, thr)
 		select {
 		case ev := <-ch:
 			t.Errorf("failure %d below threshold should be silent, got %+v", i, ev)
@@ -129,21 +129,21 @@ func TestApplyHealthTransitions(t *testing.T) {
 
 	// The threshold-th consecutive failure confirms down: one health.down
 	// (preceded by a member.status nudge).
-	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"})
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"}, thr)
 	ev := nextTransition()
 	if ev.Type != "health.down" || ev.Severity != "error" {
 		t.Errorf("down event: %+v", ev)
 	}
 
 	// Recovery is immediate: the first healthy poll emits health.up.
-	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true, LatencyMs: 12})
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true, LatencyMs: 12}, thr)
 	ev = nextTransition()
 	if ev.Type != "health.up" || ev.Severity != "success" {
 		t.Errorf("up event: %+v", ev)
 	}
 
 	// No change: no further event of any kind (no transition, no nudge).
-	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true}, thr)
 	select {
 	case ev := <-ch:
 		t.Errorf("unchanged state should not emit, got %+v", ev)
@@ -177,7 +177,7 @@ func TestApplyHealthFirstObservationDownDebounced(t *testing.T) {
 	// The grace-window polls emit no event (the first observation nudges the
 	// badge to "unknown"; below-threshold failures are otherwise silent).
 	for i := 1; i < thr; i++ {
-		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"})
+		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"}, thr)
 		if _, total, _ := store.ListEvents(ctx, EventFilter{}); total != 0 {
 			t.Fatalf("down before threshold (poll %d) should be silent, got %d events", i, total)
 		}
@@ -186,7 +186,7 @@ func TestApplyHealthFirstObservationDownDebounced(t *testing.T) {
 	// below sees only what the confirming poll emits.
 	sawMemberStatus(ch)
 
-	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"})
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "down at start"}, thr)
 	evs, total, _ := store.ListEvents(ctx, EventFilter{})
 	if total != 1 || evs[0].Type != "health.down" {
 		t.Errorf("threshold-th down should emit health.down, got %d events", total)
@@ -216,11 +216,11 @@ func TestApplyHealthBlipBelowThresholdIsSilent(t *testing.T) {
 		t.Fatalf("expected grace window (threshold >= 2) after configuring, got %d", thr)
 	}
 
-	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true})
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true}, thr)
 	for i := 1; i < thr; i++ { // a rebuild blip, one poll short of the threshold
-		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "rebuild"})
+		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "rebuild"}, thr)
 	}
-	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true}) // back before it counts
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true}, thr) // back before it counts
 
 	if _, total, _ := store.ListEvents(ctx, EventFilter{}); total != 0 {
 		t.Errorf("a sub-threshold blip should persist no events, got %d", total)
@@ -242,7 +242,8 @@ func TestApplyHealthThresholdConfigurable(t *testing.T) {
 	}
 
 	// Threshold 1 restores immediate reporting: the first down emits.
-	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"})
+	thr := p.healthFailThreshold(ctx)
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "boom"}, thr)
 	if _, total, _ := store.ListEvents(ctx, EventFilter{}); total != 1 {
 		t.Errorf("threshold=1 should emit on first down, got %d events", total)
 	}

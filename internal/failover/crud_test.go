@@ -39,7 +39,7 @@ func TestRepository_CreateAndGetByModel(t *testing.T) {
 	displayModel := "test-model-crud-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New(), uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -91,7 +91,7 @@ func TestRepository_Delete(t *testing.T) {
 	displayModel := "test-model-delete-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New(), uuid.New()}
 
-	_, err := repo.Upsert(ctx, displayModel, po)
+	_, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -115,7 +115,7 @@ func TestRepository_DeleteByID(t *testing.T) {
 	displayModel := "test-model-deletebyid-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New(), uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -139,7 +139,7 @@ func TestRepository_List(t *testing.T) {
 	displayModel := "test-model-list-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New(), uuid.New()}
 
-	_, err := repo.Upsert(ctx, displayModel, po)
+	_, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -174,7 +174,7 @@ func TestRepository_GetEnabled(t *testing.T) {
 	displayModel := "test-model-getenabled-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New(), uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -213,7 +213,7 @@ func TestRepository_Update(t *testing.T) {
 	displayModel := "test-model-update-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New(), uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -266,7 +266,7 @@ func TestRepository_DeleteByID_WithModels(t *testing.T) {
 	displayModel := "test-delete-cascade-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New(), uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -316,7 +316,7 @@ func TestRepository_Update_WithNilValues(t *testing.T) {
 	displayModel := "test-update-nil-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New(), uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -349,7 +349,7 @@ func TestRepository_Update_WithDisplayNameAndDescription(t *testing.T) {
 	displayModel := "test-update-display-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -393,7 +393,7 @@ func TestRepository_Update_WithDisplayModel(t *testing.T) {
 	displayModel := "test-update-displaymodel-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -602,7 +602,7 @@ func TestRepository_List_OrderedByDisplayModel(t *testing.T) {
 
 	for i, model := range models {
 		po := []uuid.UUID{uuid.New()}
-		fg, err := repo.Upsert(ctx, model, po)
+		fg, err := upsertGroup(ctx, t, repo, model, po)
 		if err != nil {
 			t.Fatalf("Upsert failed for %s: %v", model, err)
 		}
@@ -720,7 +720,7 @@ func TestRepository_PruneModelUUID_PrunesStaleFromGroup(t *testing.T) {
 		model2ID.String(): true,
 		model3ID.String(): true,
 	}
-	_, err := repo.Upsert(ctx, baseModel, priorityOrder)
+	_, err := upsertGroup(ctx, t, repo, baseModel, priorityOrder)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -811,7 +811,7 @@ func TestRepository_PruneModelUUID_DeletesGroupWithOneEntry(t *testing.T) {
 
 	// Create a custom group with both models
 	priorityOrder := []uuid.UUID{model1ID, model2ID}
-	_, err := repo.Upsert(ctx, baseModel, priorityOrder)
+	_, err := upsertGroup(ctx, t, repo, baseModel, priorityOrder)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -893,7 +893,7 @@ func TestRepository_PruneModelUUID_PreservesValidGroup(t *testing.T) {
 
 	// Create a custom group with all 3 models
 	priorityOrder := []uuid.UUID{model1ID, model2ID, model3ID}
-	_, err := repo.Upsert(ctx, baseModel, priorityOrder)
+	_, err := upsertGroup(ctx, t, repo, baseModel, priorityOrder)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -990,7 +990,7 @@ func TestPruneStaleEntries_NoStaleEntries(t *testing.T) {
 	// Create group
 	priorityOrder := []uuid.UUID{model1ID, model2ID}
 	displayModel := "test-psne-nostale-" + uuid.New().String()[:8]
-	_, err := repo.Upsert(ctx, displayModel, priorityOrder)
+	_, err := upsertGroup(ctx, t, repo, displayModel, priorityOrder)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1063,7 +1063,7 @@ func TestPruneStaleEntries_WithStaleEntriesPrunesGroup(t *testing.T) {
 	// Create group with both models
 	priorityOrder := []uuid.UUID{model1ID, model2ID}
 	displayModel := "test-psne-stale-" + uuid.New().String()[:8]
-	_, err := repo.Upsert(ctx, displayModel, priorityOrder)
+	_, err := upsertGroup(ctx, t, repo, displayModel, priorityOrder)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1154,7 +1154,7 @@ func TestPruneStaleEntries_GroupWithTwoValidAfterPrune(t *testing.T) {
 	// Create group with all 3 models
 	priorityOrder := []uuid.UUID{model1ID, model2ID, model3ID}
 	displayModel := "test-psne-ap-" + uuid.New().String()[:8]
-	_, err := repo.Upsert(ctx, displayModel, priorityOrder)
+	_, err := upsertGroup(ctx, t, repo, displayModel, priorityOrder)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}
@@ -1259,7 +1259,7 @@ func TestPruneStaleEntries_GroupWithNoValidEntries(t *testing.T) {
 	// Create group
 	priorityOrder := []uuid.UUID{model1ID, model2ID}
 	displayModel := "test-psne-nv-" + uuid.New().String()[:8]
-	_, err := repo.Upsert(ctx, displayModel, priorityOrder)
+	_, err := upsertGroup(ctx, t, repo, displayModel, priorityOrder)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}

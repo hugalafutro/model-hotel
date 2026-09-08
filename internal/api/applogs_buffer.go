@@ -358,13 +358,7 @@ func (rb *ringBuffer) Write(p []byte) (n int, err error) {
 			Source:    source,
 			Message:   msg,
 		}
-		rb.mu.Lock()
-		rb.entries[rb.head] = entry
-		rb.head = (rb.head + 1) % appLogBufferSize
-		if rb.count < appLogBufferSize {
-			rb.count++
-		}
-		rb.mu.Unlock()
+		rb.writeEntry(entry)
 		if w := dbWriter; w != nil {
 			w.write(entry)
 		}

@@ -2,7 +2,8 @@ import { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronsDownUp, ChevronsUpDown } from "@/lib/icons";
 import { FilterInput } from "../../components/FilterInput";
-import { proxyModelID } from "../../utils/model";
+import { useProviderGroups } from "../../hooks/useProviderGroups";
+import { matchesModelSearch, proxyModelID } from "../../utils/model";
 import type { SwapPickerProps } from "./types";
 
 export function SwapPicker({
@@ -13,9 +14,6 @@ export function SwapPicker({
 }: SwapPickerProps) {
 	const { t } = useTranslation();
 	const [search, setSearch] = useState("");
-	const [collapsedProviders, setCollapsedProviders] = useState<Set<string>>(
-		new Set(),
-	);
 
 	const available = useMemo(() => {
 		const usedSet = new Set(alreadyUsed);
@@ -23,53 +21,17 @@ export function SwapPicker({
 			const id = proxyModelID(m.provider_name, m.model_id);
 			if (disabledModels.has(id)) return false;
 			if (usedSet.has(id)) return false;
-			if (search.trim()) {
-				const q = search.trim().toLowerCase();
-				const name = (m.display_name || m.model_id).toLowerCase();
-				return name.includes(q) || m.model_id.toLowerCase().includes(q);
-			}
-			return true;
+			return matchesModelSearch(m, search);
 		});
 	}, [enabledModels, disabledModels, alreadyUsed, search]);
 
-	const groupedModels = useMemo(() => {
-		const groups = new Map<string, typeof available>();
-		for (const m of available) {
-			const existing = groups.get(m.provider_name);
-			if (existing) {
-				existing.push(m);
-			} else {
-				groups.set(m.provider_name, [m]);
-			}
-		}
-		return groups;
-	}, [available]);
-
-	// Derive effective collapsed set: only keep entries for providers currently in view
-	const effectiveCollapsed = useMemo(() => {
-		const result = new Set<string>();
-		for (const p of collapsedProviders) {
-			if (groupedModels.has(p)) result.add(p);
-		}
-		return result;
-	}, [collapsedProviders, groupedModels]);
-
-	const toggleCollapse = (provider: string) => {
-		setCollapsedProviders((prev) => {
-			const next = new Set(prev);
-			if (next.has(provider)) next.delete(provider);
-			else next.add(provider);
-			return next;
-		});
-	};
-
-	const collapseAll = () => {
-		setCollapsedProviders(new Set([...groupedModels.keys()]));
-	};
-
-	const expandAll = () => {
-		setCollapsedProviders(new Set());
-	};
+	const {
+		groups: groupedModels,
+		collapsed: effectiveCollapsed,
+		toggleCollapse,
+		collapseAll,
+		expandAll,
+	} = useProviderGroups(available);
 
 	return (
 		<div className="flex flex-col h-full min-h-0">

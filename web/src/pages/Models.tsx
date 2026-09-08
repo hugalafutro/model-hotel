@@ -19,6 +19,7 @@ import {
 	VirtualModelTable,
 } from "../components/VirtualModelTable";
 import { useToast } from "../context/ToastContext";
+import { useBulkDeleteModels } from "../hooks/useBulkDeleteModels";
 import { useLocalStorage } from "../hooks/useLocalStorage";
 import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
 import { countLabel } from "../utils/format";
@@ -207,33 +208,15 @@ export function Models() {
 		},
 	});
 
-	const handleDeleteDisabled = useCallback(
-		async (ids: string[]) => {
-			try {
-				// One atomic request instead of one DELETE per model: a concurrent
-				// burst trips the admin IP rate limiter and reports spurious failures.
-				const { deleted } = await api.models.bulkDelete(ids);
-				queryClient.invalidateQueries({ queryKey: ["models"] });
-				refreshBadge();
-				setModelRefreshTrigger((n) => n + 1);
-				toast(
-					t("models.toast_delete_bulk_success", { count: deleted }),
-					"success",
-				);
-			} catch (err) {
-				// The bulk delete is one request, but a failure does not prove nothing
-				// was deleted, so both paths re-read what the server now has.
-				queryClient.invalidateQueries({ queryKey: ["models"] });
-				refreshBadge();
-				setModelRefreshTrigger((n) => n + 1);
-				toast(
-					t("models.toast_delete_failed", { message: (err as Error).message }),
-					"error",
-				);
-			}
-		},
-		[queryClient, refreshBadge, toast, t],
+	const bumpModelRefresh = useCallback(
+		() => setModelRefreshTrigger((n) => n + 1),
+		[],
 	);
+	const handleDeleteDisabled = useBulkDeleteModels({
+		successKey: "models.toast_delete_bulk_success",
+		errorKey: "models.toast_delete_failed",
+		onDone: bumpModelRefresh,
+	});
 
 	if (isLoading && viewMode === "paginate") {
 		return <LoadingSpinner />;

@@ -3,80 +3,54 @@ import { describe, expect, it, vi } from "vitest";
 import { QuotaModalProvider, useQuotaModal } from "../QuotaModalContext";
 
 describe("QuotaModalContext", () => {
-	it("useQuotaModal returns false defaults", () => {
+	it("opens no modal by default", () => {
 		const { result } = renderHook(() => useQuotaModal(), {
 			wrapper: QuotaModalProvider,
 		});
 
-		expect(result.current.isNanoOpen).toBe(false);
-		expect(result.current.isZaiCodingOpen).toBe(false);
-		expect(result.current.isOpenRouterOpen).toBe(false);
+		expect(result.current.open).toBeNull();
 	});
 
-	it("setNanoOpen sets true", () => {
+	it("setOpen names the provider whose modal shows", () => {
 		const { result } = renderHook(() => useQuotaModal(), {
 			wrapper: QuotaModalProvider,
 		});
 
 		act(() => {
-			result.current.setNanoOpen(true);
+			result.current.setOpen("nanogpt");
 		});
 
-		expect(result.current.isNanoOpen).toBe(true);
+		expect(result.current.open).toBe("nanogpt");
 	});
 
-	it("setNanoOpen sets false", () => {
+	it("setOpen(null) closes", () => {
 		const { result } = renderHook(() => useQuotaModal(), {
 			wrapper: QuotaModalProvider,
 		});
 
 		act(() => {
-			result.current.setNanoOpen(true);
+			result.current.setOpen("nanogpt");
 		});
-
-		expect(result.current.isNanoOpen).toBe(true);
-
 		act(() => {
-			result.current.setNanoOpen(false);
+			result.current.setOpen(null);
 		});
 
-		expect(result.current.isNanoOpen).toBe(false);
+		expect(result.current.open).toBeNull();
 	});
 
-	it("setZaiCodingOpen sets true", () => {
+	it("holds one open provider at a time", () => {
 		const { result } = renderHook(() => useQuotaModal(), {
 			wrapper: QuotaModalProvider,
 		});
 
 		act(() => {
-			result.current.setZaiCodingOpen(true);
+			result.current.setOpen("zai-coding");
 		});
-
-		expect(result.current.isZaiCodingOpen).toBe(true);
-	});
-
-	it("setKimiCodeOpen sets true", () => {
-		const { result } = renderHook(() => useQuotaModal(), {
-			wrapper: QuotaModalProvider,
-		});
-
 		act(() => {
-			result.current.setKimiCodeOpen(true);
+			result.current.setOpen("kimi-code");
 		});
 
-		expect(result.current.isKimiCodeOpen).toBe(true);
-	});
-
-	it("setOpenRouterOpen sets true", () => {
-		const { result } = renderHook(() => useQuotaModal(), {
-			wrapper: QuotaModalProvider,
-		});
-
-		act(() => {
-			result.current.setOpenRouterOpen(true);
-		});
-
-		expect(result.current.isOpenRouterOpen).toBe(true);
+		expect(result.current.open).toBe("kimi-code");
 	});
 
 	it("Throws error when used outside provider", () => {

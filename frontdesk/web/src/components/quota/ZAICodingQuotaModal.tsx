@@ -2,44 +2,28 @@ import { useTranslation } from "react-i18next";
 import type { ZAICodingQuotaResponse } from "../../api/types";
 import {
 	getZaiCodingFiveHourLimit,
+	getZaiCodingMcpLimit,
 	getZaiCodingWeeklyLimit,
-	type QuotaBarMode,
 } from "../../utils/quota";
 import {
 	QuotaBar,
+	type QuotaModalProps,
 	QuotaModalShell,
 	quotaRightText,
 	resetSublabelFromEpoch,
 } from "./shared";
 
-export interface ZAICodingQuotaModalProps {
-	providerName: string;
-	payload: ZAICodingQuotaResponse;
-	fetchedAt: string;
-	barMode: QuotaBarMode;
-	onToggleBarMode: () => void;
-	onRefresh: () => void;
-	isRefreshing: boolean;
-	onClose: () => void;
-}
-
 export function ZAICodingQuotaModal({
 	providerName,
 	payload,
-	fetchedAt,
 	barMode,
-	onToggleBarMode,
-	onRefresh,
-	isRefreshing,
-	onClose,
-}: ZAICodingQuotaModalProps) {
+	...shell
+}: QuotaModalProps<ZAICodingQuotaResponse>) {
 	const { t } = useTranslation();
 
 	const fiveHour = getZaiCodingFiveHourLimit(payload);
 	const weekly = getZaiCodingWeeklyLimit(payload);
-	const mcp = payload.data?.limits?.find(
-		(l) => l.type === "TIME_LIMIT" && l.unit === 5,
-	);
+	const mcp = getZaiCodingMcpLimit(payload);
 
 	// Z.ai reports percent USED directly, which is what QuotaBar wants.
 	const rightText = (used: number) => quotaRightText(used, barMode, t);
@@ -49,11 +33,7 @@ export function ZAICodingQuotaModal({
 			title={t("quota.modal.zaiTitle", { provider: providerName })}
 			subtitle={`${t("quota.modal.plan")}: ${payload.data?.level ?? "-"}`}
 			barMode={barMode}
-			onToggleBarMode={onToggleBarMode}
-			onRefresh={onRefresh}
-			isRefreshing={isRefreshing}
-			fetchedAt={fetchedAt}
-			onClose={onClose}
+			{...shell}
 		>
 			{fiveHour && (
 				<QuotaBar

@@ -13,8 +13,6 @@ import (
 	"net/http"
 	"slices"
 	"strings"
-
-	"github.com/hugalafutro/model-hotel/internal/config"
 )
 
 // ctxKey carries the per-request resolved client IP set by Middleware.
@@ -40,10 +38,7 @@ func From(r *http.Request) string {
 	if ip, ok := r.Context().Value(ctxKey{}).(string); ok {
 		return ip
 	}
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		return host
-	}
-	return r.RemoteAddr
+	return peerHost(r.RemoteAddr)
 }
 
 // Resolve determines the client IP from the request.
@@ -53,27 +48,36 @@ func From(r *http.Request) string {
 // by clients behind a trusted proxy. X-Real-IP is used as a fallback when
 // XFF is absent.
 func Resolve(r *http.Request, trustedProxies []*net.IPNet) string {
-	if len(trustedProxies) > 0 {
-		if config.IsTrustedProxy(r.RemoteAddr, trustedProxies) {
-			if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-				if ip := rightmostUntrustedIP(xff, trustedProxies); ip != "" {
-					return ip
-				}
+	if peerIsTrusted(r.RemoteAddr, trustedProxies) {
+		if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+			if ip := rightmostUntrustedIP(xff, trustedProxies); ip != "" {
+				return ip
 			}
-			if xri := r.Header.Get("X-Real-IP"); xri != "" {
-				candidate := strings.TrimSpace(xri)
-				if net.ParseIP(candidate) != nil {
-					return candidate
-				}
+		}
+		if xri := r.Header.Get("X-Real-IP"); xri != "" {
+			candidate := strings.TrimSpace(xri)
+			if net.ParseIP(candidate) != nil {
+				return candidate
 			}
 		}
 	}
-	// RemoteAddr includes port for TCP connections — strip it.
-	ip, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
-		return r.RemoteAddr
+	return peerHost(r.RemoteAddr)
+}
+
+// peerHost strips the port from a RemoteAddr, returning the value unchanged
+// when it carries none.
+func peerHost(remoteAddr string) string {
+	if host, _, err := net.SplitHostPort(remoteAddr); err == nil {
+		return host
 	}
-	return ip
+	return remoteAddr
+}
+
+// peerIsTrusted reports whether the TCP peer behind remoteAddr ("ip:port", or a
+// bare IP) falls inside one of the trusted proxy CIDRs. An empty net list
+// trusts nobody.
+func peerIsTrusted(remoteAddr string, nets []*net.IPNet) bool {
+	return isIPInTrustedNets(peerHost(remoteAddr), nets)
 }
 
 // rightmostUntrustedIP parses the X-Forwarded-For header and returns the
@@ -109,9 +113,9 @@ func rightmostUntrustedIP(xff string, trustedProxies []*net.IPNet) string {
 }
 
 // isIPInTrustedNets checks whether a bare IP address string belongs to any
-// trusted proxy CIDR. Uses net.ParseIP directly to avoid the host:port
-// format required by IsTrustedProxy, which would break IPv6 addresses
-// that use :: zero-compression (e.g. "2001:db8::1" → "2001:db8::1:0").
+// trusted proxy CIDR. It takes a bare IP rather than a "host:port" pair
+// because SplitHostPort would break an IPv6 address written with ::
+// zero-compression (e.g. "2001:db8::1" reads as host "2001:db8::1" port "0").
 func isIPInTrustedNets(ipStr string, trustedNets []*net.IPNet) bool {
 	ip := net.ParseIP(ipStr)
 	if ip == nil {

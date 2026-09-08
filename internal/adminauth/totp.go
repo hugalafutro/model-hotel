@@ -3,7 +3,6 @@ package adminauth
 import (
 	"context"
 	"net/http"
-	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
@@ -172,9 +172,9 @@ func (h *TotpHandler) Info(w http.ResponseWriter, r *http.Request) {
 
 // cachedEnabledAt returns the RFC3339 confirmation time, reading the DB at most
 // once per enable: the value never changes while TOTP stays enabled, so it is
-// memoized and cleared on enable/disable. Returns "" when unknown (no repo, or a
-// transient read error), in which case the field is omitted and the next call
-// retries rather than caching the miss.
+// memoized and cleared on enable/disable. Returns "" when unknown (no repo, not
+// enabled, or a transient read error), in which case the field is omitted and
+// the next call retries rather than caching the miss.
 func (h *TotpHandler) cachedEnabledAt(ctx context.Context) string {
 	if cached := h.enabledAtCache.Load(); cached != nil {
 		return cached.UTC().Format(time.RFC3339)
@@ -276,31 +276,32 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	// endpoint + a valid TOTP code), so a session is warranted. Best effort:
 	// the recovery codes are the critical payload and are returned even if the
 	// mint fails (the admin can re-login manually).
-	if h.useCookieAuth {
-		resp := map[string]any{"recovery_codes": codes, "success": true}
-		if h.sessionMgr != nil {
-			if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, h.ipLimiter)); err != nil {
-				debuglog.Error("totp: failed to mint post-enroll session token; admin must re-login", "error", err)
-			} else if err := h.jar.SetSession(w, tok, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
+	var tok string
+	if h.sessionMgr != nil {
+		minted, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, h.ipLimiter))
+		if err != nil {
+			debuglog.Error("totp: failed to mint post-enroll session token; admin must re-login", "error", err)
+		} else {
+			tok = minted
+		}
+	}
+	resp := map[string]any{"recovery_codes": codes}
+	switch {
+	case h.useCookieAuth:
+		resp["success"] = true
+		if tok != "" {
+			if err := h.jar.SetSession(w, tok, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
 				// Best effort like the mint above: the recovery codes are the
 				// critical payload and are still returned even if the cookie
 				// write fails (the admin can re-login manually).
 				debuglog.Error("totp: set session cookie failed", "error", err)
 			}
 		}
-		writeJSON(w, resp)
-		return
-	}
-	// Header-bearer mode: the session token rides the JSON body, for clients
-	// that hold it themselves and send it as an Authorization header rather
-	// than letting the browser carry a cookie.
-	resp := map[string]any{"recovery_codes": codes}
-	if h.sessionMgr != nil {
-		if tok, err := h.sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, h.ipLimiter)); err != nil {
-			debuglog.Error("totp: failed to mint post-enroll session token; admin must re-login", "error", err)
-		} else {
-			resp["token"] = tok
-		}
+	case tok != "":
+		// Header-bearer mode: the session token rides the JSON body, for clients
+		// that hold it themselves and send it as an Authorization header rather
+		// than letting the browser carry a cookie.
+		resp["token"] = tok
 	}
 	writeJSON(w, resp)
 }
@@ -343,9 +344,8 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	// refuse before doing any work while this key is locked.
 	throttleKey := h.ipLimiter.ClientIP(r)
 	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
 		debuglog.Warn("totp: login throttled", "remote_addr", clientip.From(r))
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
 	var req struct {
@@ -364,14 +364,14 @@ func (h *TotpHandler) Login(w http.ResponseWriter, r *http.Request) {
 	tokenValid := h.adminMgr.Validate(req.Token)
 	codeValid := false
 	if tokenValid {
-		ok, err := h.totpRepo.Verify(r.Context(), req.Code)
-		if err == nil && !ok {
-			ok, err = h.totpRepo.ConsumeRecoveryCode(r.Context(), req.Code)
-		}
+		ok, usedRecovery, err := h.totpRepo.VerifyOrRecover(r.Context(), req.Code)
 		if err != nil {
 			// A storage failure is not a wrong code: no throttle charge, no 401.
 			respondError(w, "totp: login verify failed", err, http.StatusInternalServerError)
 			return
+		}
+		if usedRecovery {
+			debuglog.Info("totp: recovery code used")
 		}
 		codeValid = ok
 	}

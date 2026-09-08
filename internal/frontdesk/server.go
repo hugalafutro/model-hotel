@@ -1,8 +1,8 @@
 package frontdesk
 
 import (
+	"cmp"
 	"context"
-	"crypto/subtle"
 	"io/fs"
 	"net"
 	"net/http"
@@ -240,43 +240,28 @@ func NewServer(cfg ServerConfig) *Server {
 	sessionMgr := webauthn.NewSessionManager(webAuthnStore)
 	totpRepo := totp.NewRepositoryWithStore(NewTOTPStore(cfg.Store), cfg.MasterKey)
 
-	lbPort := cfg.LBPort
-	if lbPort == "" {
-		lbPort = defaultLBPort
-	}
-
-	version := cfg.Version
-	if version == "" {
-		version = "dev"
-	}
-
-	// Secure-by-default: an unset knob forces Secure on rather than inferring it
-	// from the request, so a deployment that never sets COOKIE_SECURE cannot
-	// silently ship the session cookie over cleartext. cmd/frontdesk normalizes
-	// the env value; this covers programmatic callers.
-	cookieSecure := cfg.CookieSecure
-	if cookieSecure == "" {
-		cookieSecure = "always"
-	}
-
 	s := &Server{
-		store:           cfg.Store,
-		poller:          cfg.Poller,
-		bus:             cfg.Bus,
-		adminMgr:        cfg.AdminMgr,
-		sessionMgr:      sessionMgr,
-		totpRepo:        totpRepo,
-		totpStatus:      newTotpEnabledCache(totpRepo),
-		probe:           newProbeClient(httpProbeTimeout),
-		readClient:      newProbeClient(memberReadTimeout),
-		syncClient:      newProbeClient(memberSyncTimeout),
-		backupClient:    newProbeClient(memberBackupTimeout),
-		lbPort:          lbPort,
-		version:         version,
-		masterKey:       cfg.MasterKey,
-		metricsToken:    strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
-		traefikToken:    strings.TrimSpace(cfg.TraefikToken), // whitespace-only is treated as unset, not a live bearer
-		cookieSecure:    cookieSecure,
+		store:        cfg.Store,
+		poller:       cfg.Poller,
+		bus:          cfg.Bus,
+		adminMgr:     cfg.AdminMgr,
+		sessionMgr:   sessionMgr,
+		totpRepo:     totpRepo,
+		totpStatus:   newTotpEnabledCache(totpRepo),
+		probe:        newProbeClient(httpProbeTimeout),
+		readClient:   newProbeClient(memberReadTimeout),
+		syncClient:   newProbeClient(memberSyncTimeout),
+		backupClient: newProbeClient(memberBackupTimeout),
+		lbPort:       cmp.Or(cfg.LBPort, defaultLBPort),
+		version:      cmp.Or(cfg.Version, "dev"),
+		masterKey:    cfg.MasterKey,
+		metricsToken: strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		traefikToken: strings.TrimSpace(cfg.TraefikToken), // whitespace-only is treated as unset, not a live bearer
+		// Secure-by-default: an unset knob forces Secure on rather than inferring it
+		// from the request, so a deployment that never sets COOKIE_SECURE cannot
+		// silently ship the session cookie over cleartext. cmd/frontdesk normalizes
+		// the env value; this covers programmatic callers.
+		cookieSecure:    cmp.Or(cfg.CookieSecure, "always"),
 		pairing:         newPairingCodes(),
 		ipLimiter:       cfg.IPLimiter,
 		healthzLimiter:  cfg.HealthzLimiter,
@@ -648,17 +633,7 @@ func (s *Server) buildRouter(wa *adminauth.WebAuthnHandler, tp *adminauth.TotpHa
 func (s *Server) metricsAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if s.metricsToken != "" {
-			tok, ok := util.ParseBearerToken(r)
-			if subtle.ConstantTimeCompare([]byte(tok), []byte(s.metricsToken)) == 1 {
-				next.ServeHTTP(w, r)
-				return
-			}
-			if !ok || tok == "" {
-				debuglog.Warn("frontdesk: metrics scrape missing bearer token", "remote_addr", clientip.From(r))
-			} else {
-				debuglog.Warn("frontdesk: metrics scrape with invalid token", "remote_addr", clientip.From(r))
-			}
-			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
+			adminauth.BearerTokenGate(s.metricsToken, "metrics", "frontdesk: metrics scrape", next).ServeHTTP(w, r)
 			return
 		}
 		// No dedicated token configured — fall back to ADMIN auth. requireAuth
@@ -738,17 +713,7 @@ func (s *Server) traefikAuth(next http.HandlerFunc) http.HandlerFunc {
 			next(w, r)
 			return
 		}
-		tok, ok := util.ParseBearerToken(r)
-		if subtle.ConstantTimeCompare([]byte(tok), []byte(s.traefikToken)) == 1 {
-			next(w, r)
-			return
-		}
-		if !ok || tok == "" {
-			debuglog.Warn("frontdesk: traefik config poll missing bearer token", "remote_addr", clientip.From(r))
-		} else {
-			debuglog.Warn("frontdesk: traefik config poll with invalid token", "remote_addr", clientip.From(r))
-		}
-		http.Error(w, "invalid traefik token", http.StatusUnauthorized)
+		adminauth.BearerTokenGate(s.traefikToken, "traefik", "frontdesk: traefik config poll", http.HandlerFunc(next)).ServeHTTP(w, r)
 	}
 }
 

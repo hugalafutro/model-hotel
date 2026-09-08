@@ -2,7 +2,11 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../api/client";
 import { useIdentity } from "../context/IdentityContext";
-import { CollapsibleToggle, useCollapsible } from "./CollapsibleToggle";
+import {
+	CollapseBody,
+	CollapsibleToggle,
+	useCollapsible,
+} from "./CollapsibleToggle";
 import {
 	formatCount,
 	formatMemoryMB,
@@ -142,6 +146,18 @@ export function SystemStatus() {
 
 	const dash = <span className="text-(--text-muted)">-</span>;
 
+	// Read/write throughput pair, shared by the network and disk rows.
+	const throughputPair = (down?: number | null, up?: number | null) => (
+		<span className="text-(--text-secondary) tabular-nums">
+			<span className="text-sky-400/60 inline-block min-w-22 text-right">
+				{typeof down === "number" ? <>↓{formatThroughput(down)}</> : dash}
+			</span>
+			<span className="text-amber-400/60 inline-block min-w-22 text-right">
+				{typeof up === "number" ? <>↑{formatThroughput(up)}</> : dash}
+			</span>
+		</span>
+	);
+
 	return (
 		<div className="sidebar-stats-pill">
 			<div className="sidebar-stats-trigger">
@@ -164,241 +180,204 @@ export function SystemStatus() {
 					</span>
 				</div>
 			</div>
-			<div
-				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"}`}
-			>
-				<div className="overflow-hidden">
-					<div className="sidebar-stats-content space-y-0.5 text-[11px] font-mono system-status">
-						{/* HA fleet membership (only while managed by a Front Desk) */}
-						{fleet && (
-							<div
-								className="flex justify-between items-center text-(--text-tertiary)"
-								title={haTooltip}
-								data-testid="ha-status"
-							>
-								<span>HA</span>
-								<span className={haColor}>{haValue}</span>
-							</div>
-						)}
-
-						{/* Uptime */}
+			<CollapseBody collapsed={collapsed}>
+				<div className="sidebar-stats-content space-y-0.5 text-[11px] font-mono system-status">
+					{/* HA fleet membership (only while managed by a Front Desk) */}
+					{fleet && (
 						<div
 							className="flex justify-between items-center text-(--text-tertiary)"
-							title={t("layout.tooltips.uptime")}
+							title={haTooltip}
+							data-testid="ha-status"
 						>
-							<span>{t("layout.stats.uptime")}</span>
-							<span className="text-(--text-secondary)">
-								{app ? formatUptime(app.uptime_seconds) : dash}
-							</span>
+							<span>HA</span>
+							<span className={haColor}>{haValue}</span>
 						</div>
+					)}
 
-						{/* CPU + Processes */}
-						<div
-							className="flex justify-between items-center text-(--text-tertiary)"
-							title={
-								useDocker
-									? t("layout.stats.aggregateCpu", {
-											count: docker.container_count,
-										})
-									: t("layout.stats.cpu")
-							}
-						>
-							<span>{t("layout.stats.cpu")}</span>
-							<span className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}>
-								{cpuPct != null && cpuPct >= 0 ? (
-									<>
-										<span>
-											{cpuPct.toFixed(1)}
-											<span className={unitClass}>%</span>
-										</span>
-										{procs != null && procs > 0 && (
-											<>
-												<span className="text-(--text-secondary) mx-1">|</span>
-												<span>
-													{procs}
-													<span className={unitClass}>
-														{" "}
-														{t("layout.stats.procs", { count: procs })}
-													</span>
+					{/* Uptime */}
+					<div
+						className="flex justify-between items-center text-(--text-tertiary)"
+						title={t("layout.tooltips.uptime")}
+					>
+						<span>{t("layout.stats.uptime")}</span>
+						<span className="text-(--text-secondary)">
+							{app ? formatUptime(app.uptime_seconds) : dash}
+						</span>
+					</div>
+
+					{/* CPU + Processes */}
+					<div
+						className="flex justify-between items-center text-(--text-tertiary)"
+						title={
+							useDocker
+								? t("layout.stats.aggregateCpu", {
+										count: docker.container_count,
+									})
+								: t("layout.stats.cpu")
+						}
+					>
+						<span>{t("layout.stats.cpu")}</span>
+						<span className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}>
+							{cpuPct != null && cpuPct >= 0 ? (
+								<>
+									<span>
+										{cpuPct.toFixed(1)}
+										<span className={unitClass}>%</span>
+									</span>
+									{procs != null && procs > 0 && (
+										<>
+											<span className="text-(--text-secondary) mx-1">|</span>
+											<span>
+												{procs}
+												<span className={unitClass}>
+													{" "}
+													{t("layout.stats.procs", { count: procs })}
 												</span>
+											</span>
+										</>
+									)}
+								</>
+							) : (
+								dash
+							)}
+						</span>
+					</div>
+
+					{/* Network */}
+					<div
+						className="flex justify-between items-center text-(--text-tertiary)"
+						title={
+							useDocker
+								? t("layout.stats.aggregateNetwork", {
+										count: docker.container_count,
+									})
+								: t("layout.stats.network")
+						}
+					>
+						<span>{t("layout.stats.network")}</span>
+						{throughputPair(netRx, netTx)}
+					</div>
+
+					{/* Disk I/O */}
+					<div
+						className="flex justify-between items-center text-(--text-tertiary)"
+						title={
+							useDocker
+								? t("layout.stats.aggregateDisk", {
+										count: docker.container_count,
+									})
+								: t("layout.stats.disk")
+						}
+					>
+						<span>{t("layout.stats.disk")}</span>
+						{throughputPair(diskRead, diskWrite)}
+					</div>
+
+					{/* Memory */}
+					<div
+						className="flex justify-between items-center text-(--text-tertiary)"
+						title={
+							dockerMem
+								? t("layout.stats.aggregateMemory", {
+										count: docker.container_count,
+									})
+								: t("layout.stats.memory")
+						}
+					>
+						<span>{t("layout.stats.memory")}</span>
+						<span
+							className={`text-(--text-secondary) ${dc(memUsagePct, 75, 90)}`}
+						>
+							{app ? appMem : dash}
+						</span>
+					</div>
+
+					{/* Goroutines */}
+					<div
+						className="flex justify-between items-center text-(--text-tertiary)"
+						title={t("layout.tooltips.goroutines")}
+					>
+						<span>{t("layout.stats.goroutines")}</span>
+						<span
+							className={`text-(--text-secondary) ${dc(app?.goroutines, 300, 1000)}`}
+						>
+							{app ? app.goroutines.toLocaleString() : dash}
+						</span>
+					</div>
+
+					{/* Requests Today */}
+					<div
+						className="flex justify-between items-center text-(--text-tertiary)"
+						title={t(requestsTodayKeys.tooltip)}
+					>
+						<span>{t(requestsTodayKeys.label)}</span>
+						<span className="text-(--text-secondary)">
+							{app && app.requests_today > 0
+								? formatCount(app.requests_today)
+								: dash}
+						</span>
+					</div>
+
+					{/* DB: size & hit ratio / connections & tx/sec */}
+					<div className="flex justify-between items-center text-(--text-tertiary)">
+						<span className="self-center">{t("layout.stats.db")}</span>
+						<span className="grid grid-cols-[1fr_auto_1fr] grid-rows-[auto_auto] gap-x-2 items-center text-right">
+							{stats?.db ? (
+								<>
+									<span
+										className="text-(--text-secondary)"
+										title={t("layout.tooltips.dbSize")}
+									>
+										{formatMemoryMB(stats.db.size_mb)}
+									</span>
+									<span className="text-(--text-secondary)">|</span>
+									<span
+										className={`text-(--text-secondary) ${cacheHitLive ? dc(stats.db.cache_hit_ratio, 90, 80, true) : ""}`}
+										title={t("layout.tooltips.dbHitRatio")}
+									>
+										{t("layout.stats.hit")}{" "}
+										{cacheHitLive ? (
+											<>
+												{stats.db.cache_hit_ratio}
+												<span className={unitClass}>%</span>
 											</>
+										) : (
+											dash
 										)}
-									</>
-								) : (
-									dash
-								)}
-							</span>
-						</div>
-
-						{/* Network */}
-						<div
-							className="flex justify-between items-center text-(--text-tertiary)"
-							title={
-								useDocker
-									? t("layout.stats.aggregateNetwork", {
-											count: docker.container_count,
-										})
-									: t("layout.stats.network")
-							}
-						>
-							<span>{t("layout.stats.network")}</span>
-							<span className="text-(--text-secondary) tabular-nums">
-								<span className="text-sky-400/60 inline-block min-w-22 text-right">
-									{typeof netRx === "number" ? (
-										<>↓{formatThroughput(netRx)}</>
-									) : (
-										dash
-									)}
-								</span>
-								<span className="text-amber-400/60 inline-block min-w-22 text-right">
-									{typeof netTx === "number" ? (
-										<>↑{formatThroughput(netTx)}</>
-									) : (
-										dash
-									)}
-								</span>
-							</span>
-						</div>
-
-						{/* Disk I/O */}
-						<div
-							className="flex justify-between items-center text-(--text-tertiary)"
-							title={
-								useDocker
-									? t("layout.stats.aggregateDisk", {
-											count: docker.container_count,
-										})
-									: t("layout.stats.disk")
-							}
-						>
-							<span>{t("layout.stats.disk")}</span>
-							<span className="text-(--text-secondary) tabular-nums">
-								<span className="text-sky-400/60 inline-block min-w-22 text-right">
-									{typeof diskRead === "number" ? (
-										<>↓{formatThroughput(diskRead)}</>
-									) : (
-										dash
-									)}
-								</span>
-								<span className="text-amber-400/60 inline-block min-w-22 text-right">
-									{typeof diskWrite === "number" ? (
-										<>↑{formatThroughput(diskWrite)}</>
-									) : (
-										dash
-									)}
-								</span>
-							</span>
-						</div>
-
-						{/* Memory */}
-						<div
-							className="flex justify-between items-center text-(--text-tertiary)"
-							title={
-								dockerMem
-									? t("layout.stats.aggregateMemory", {
-											count: docker.container_count,
-										})
-									: t("layout.stats.memory")
-							}
-						>
-							<span>{t("layout.stats.memory")}</span>
-							<span
-								className={`text-(--text-secondary) ${dc(memUsagePct, 75, 90)}`}
-							>
-								{app ? appMem : dash}
-							</span>
-						</div>
-
-						{/* Goroutines */}
-						<div
-							className="flex justify-between items-center text-(--text-tertiary)"
-							title={t("layout.tooltips.goroutines")}
-						>
-							<span>{t("layout.stats.goroutines")}</span>
-							<span
-								className={`text-(--text-secondary) ${dc(app?.goroutines, 300, 1000)}`}
-							>
-								{app ? app.goroutines.toLocaleString() : dash}
-							</span>
-						</div>
-
-						{/* Requests Today */}
-						<div
-							className="flex justify-between items-center text-(--text-tertiary)"
-							title={t(requestsTodayKeys.tooltip)}
-						>
-							<span>{t(requestsTodayKeys.label)}</span>
-							<span className="text-(--text-secondary)">
-								{app && app.requests_today > 0
-									? formatCount(app.requests_today)
-									: dash}
-							</span>
-						</div>
-
-						{/* DB: size & hit ratio / connections & tx/sec */}
-						<div className="flex justify-between items-center text-(--text-tertiary)">
-							<span className="self-center">{t("layout.stats.db")}</span>
-							<span className="grid grid-cols-[1fr_auto_1fr] grid-rows-[auto_auto] gap-x-2 items-center text-right">
-								{stats?.db ? (
-									<>
-										<span
-											className="text-(--text-secondary)"
-											title={t("layout.tooltips.dbSize")}
-										>
-											{formatMemoryMB(stats.db.size_mb)}
+									</span>
+									<span
+										className="text-(--text-secondary)"
+										title={t("layout.tooltips.dbConnections")}
+									>
+										{stats.db.connections}
+										<span className={unitClass}> {t("layout.stats.conn")}</span>
+									</span>
+									<span className="text-(--text-secondary)">|</span>
+									<span
+										className="text-(--text-secondary)"
+										title={t("layout.tooltips.dbTxPerSec")}
+									>
+										{stats.db.tx_per_sec.toFixed(1)}
+										<span className={unitClass}>
+											{" "}
+											{t("layout.stats.txPerSec")}
 										</span>
-										<span className="text-(--text-secondary)">|</span>
-										<span
-											className={`text-(--text-secondary) ${cacheHitLive ? dc(stats.db.cache_hit_ratio, 90, 80, true) : ""}`}
-											title={t("layout.tooltips.dbHitRatio")}
-										>
-											{t("layout.stats.hit")}{" "}
-											{cacheHitLive ? (
-												<>
-													{stats.db.cache_hit_ratio}
-													<span className={unitClass}>%</span>
-												</>
-											) : (
-												dash
-											)}
-										</span>
-										<span
-											className="text-(--text-secondary)"
-											title={t("layout.tooltips.dbConnections")}
-										>
-											{stats.db.connections}
-											<span className={unitClass}>
-												{" "}
-												{t("layout.stats.conn")}
-											</span>
-										</span>
-										<span className="text-(--text-secondary)">|</span>
-										<span
-											className="text-(--text-secondary)"
-											title={t("layout.tooltips.dbTxPerSec")}
-										>
-											{stats.db.tx_per_sec.toFixed(1)}
-											<span className={unitClass}>
-												{" "}
-												{t("layout.stats.txPerSec")}
-											</span>
-										</span>
-									</>
-								) : (
-									<>
-										<span className="text-(--text-muted)">-</span>
-										<span className="text-(--text-secondary)">|</span>
-										<span className="text-(--text-muted)">-</span>
-										<span className="text-(--text-muted)">-</span>
-										<span className="text-(--text-secondary)">|</span>
-										<span className="text-(--text-muted)">-</span>
-									</>
-								)}
-							</span>
-						</div>
+									</span>
+								</>
+							) : (
+								<>
+									{dash}
+									<span className="text-(--text-secondary)">|</span>
+									{dash}
+									{dash}
+									<span className="text-(--text-secondary)">|</span>
+									{dash}
+								</>
+							)}
+						</span>
 					</div>
 				</div>
-			</div>
+			</CollapseBody>
 			<div className="sidebar-stats-footer">
 				<CollapsibleToggle
 					collapsed={collapsed}

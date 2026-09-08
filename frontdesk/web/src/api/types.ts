@@ -203,16 +203,9 @@ export interface AlertEventDef {
 	defaultOn: boolean;
 }
 
-// Reachability of the operator's apprise-api (GET /api/alert/status), mirroring
-// alert.Status.
-export interface AlertStatus {
-	configured: boolean;
-	reachable: boolean;
-	healthy: boolean;
-	/** One of the server's reason codes when not healthy; detail is raw text. */
-	reason?: string;
-	detail?: string;
-}
+// Reachability of the operator's apprise-api (GET /api/alert/status), declared
+// once beside the wizard machine that reads it.
+export type { AlertStatus } from "@web-shared/alerts/status";
 
 /**
  * The saved Apprise destination URLs in plaintext, in the order they are
@@ -221,8 +214,6 @@ export interface AlertStatus {
 export interface AlertTargets {
 	targets: string[];
 }
-
-export type Severity = "info" | "success" | "warning" | "error";
 
 export interface FdEvent {
 	id: string;

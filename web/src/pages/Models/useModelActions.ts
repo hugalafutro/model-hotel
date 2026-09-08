@@ -1,15 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import type { Model } from "../../api/types";
+import type { Model, ModelTestResult } from "../../api/types";
+import { errorMessage } from "../../utils/errors";
 
-export interface ModelTestResult {
-	success: boolean;
-	streaming: boolean;
-	ttft_ms: number;
-	duration_ms: number;
-	response: string;
-	error?: string;
-}
+export type { ModelTestResult };
 
 /**
  * The modal's two provider-facing actions and their transient state: a
@@ -34,13 +28,12 @@ export function useModelActions({
 	const [testing, setTesting] = useState(false);
 	const [testError, setTestError] = useState(false);
 	const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-	const testErrorTimers = useRef<ReturnType<typeof setTimeout>[]>([]);
+	const testErrorTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
 	useEffect(() => {
 		return () => {
 			if (timerRef.current) clearInterval(timerRef.current);
-			// eslint-disable-next-line react-hooks/exhaustive-deps -- cleanup reads ref at unmount time
-			for (const timer of testErrorTimers.current) clearTimeout(timer);
+			if (testErrorTimerRef.current) clearTimeout(testErrorTimerRef.current);
 		};
 	}, []);
 
@@ -59,6 +52,13 @@ export function useModelActions({
 					return prev - 1;
 				});
 			}, 1000);
+		} catch (err) {
+			onToast?.(
+				t("providers.toast_discover_failed", {
+					message: errorMessage(err, t("common.unknownError")),
+				}),
+				"error",
+			);
 		} finally {
 			setDiscovering(false);
 		}
@@ -66,8 +66,8 @@ export function useModelActions({
 
 	const flashTestError = () => {
 		setTestError(true);
-		const timer = setTimeout(() => setTestError(false), 3000);
-		testErrorTimers.current.push(timer);
+		if (testErrorTimerRef.current) clearTimeout(testErrorTimerRef.current);
+		testErrorTimerRef.current = setTimeout(() => setTestError(false), 3000);
 	};
 
 	const handleTest = async () => {
@@ -110,7 +110,7 @@ export function useModelActions({
 			flashTestError();
 			onToast(
 				t("models.detail.testFailed", {
-					error: err instanceof Error ? err.message : t("common.unknownError"),
+					error: errorMessage(err, t("common.unknownError")),
 				}),
 				"error",
 			);

@@ -3,6 +3,8 @@ package openairesponses
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // RequiresResponsesAPI reports whether an upstream 400 error body is the
@@ -12,15 +14,10 @@ import (
 // (the message must mention responses AND reasoning AND tools), so ordinary
 // param-rejection 400s keep flowing to the param-strip self-heal.
 func RequiresResponsesAPI(errBody []byte) bool {
-	var envelope struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if json.Unmarshal(errBody, &envelope) != nil || envelope.Error.Message == "" {
+	m := strings.ToLower(util.ErrorEnvelopeMessage(errBody))
+	if m == "" {
 		return false
 	}
-	m := strings.ToLower(envelope.Error.Message)
 	return strings.Contains(m, "responses") &&
 		strings.Contains(m, "reasoning") &&
 		strings.Contains(m, "tool")
@@ -50,15 +47,7 @@ func NeedsResponsesRouting(chatBody []byte) bool {
 // rather than a 400; unlike the tools+reasoning rejection it applies to
 // every request for the model, tools or not.
 func IsResponsesOnlyRejection(errBody []byte) bool {
-	var envelope struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	if json.Unmarshal(errBody, &envelope) != nil || envelope.Error.Message == "" {
-		return false
-	}
-	m := strings.ToLower(envelope.Error.Message)
+	m := strings.ToLower(util.ErrorEnvelopeMessage(errBody))
 	return strings.Contains(m, "not a chat model") && strings.Contains(m, "chat/completions")
 }
 

@@ -6,12 +6,12 @@ import (
 	"math/rand/v2"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // Confirmation-probe schedule for ConfirmMissingModels: a model absent from
@@ -56,13 +56,12 @@ func shouldEscalateSuspect(streak int) bool {
 // nil on paths that must not touch the counter (unit tests, and any future
 // caller without a pool); ConfirmMissingModels guards every use.
 type SuspectStreak struct {
-	exec func(pool *pgxpool.Pool, ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 	pool *pgxpool.Pool
 }
 
 // NewSuspectStreak builds a pool-backed SuspectStreak for the discovery sweep.
 func NewSuspectStreak(pool *pgxpool.Pool) *SuspectStreak {
-	return &SuspectStreak{exec: dbExec, pool: pool}
+	return &SuspectStreak{pool: pool}
 }
 
 // bump increments the provider's consecutive mass-vanish counter and, every
@@ -101,27 +100,15 @@ func (s *SuspectStreak) reset(ctx context.Context, prov *provider.Provider) {
 	if s == nil {
 		return
 	}
-	if _, err := s.exec(s.pool, ctx,
+	if _, err := s.pool.Exec(ctx,
 		`UPDATE providers SET suspect_scans = 0 WHERE id = $1 AND suspect_scans <> 0`, prov.ID); err != nil {
 		debuglog.Warn("discovery: failed to reset provider suspect streak", "provider", prov.Name, "error", err)
 	}
 }
 
 // confirmProbeSleep waits for the probe backoff, honouring ctx cancellation.
-// Injectable for tests (which also exercise sleepWithContext directly).
-var confirmProbeSleep = sleepWithContext
-
-func sleepWithContext(ctx context.Context, d time.Duration) error {
-	if d <= 0 {
-		return nil
-	}
-	select {
-	case <-ctx.Done():
-		return ctx.Err()
-	case <-time.After(d):
-		return nil
-	}
-}
+// Injectable for tests.
+var confirmProbeSleep = util.SleepContext
 
 // ConfirmMissingModels gives absent models a second opinion before any miss is
 // recorded. presentIDs is the initial listing's membership; every snapshot

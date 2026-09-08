@@ -12,7 +12,8 @@ import {
 import { clearProviderCache, getProviderCacheCount } from "../constants";
 import { DataStorageSettings } from "../DataStorageSettings";
 
-vi.mock("../../../utils/arenaHistory", () => ({
+vi.mock("../../../utils/arenaHistory", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../../../utils/arenaHistory")>()),
 	getArenaHistoryCount: vi.fn(),
 	clearArenaHistory: vi.fn(),
 }));
@@ -750,7 +751,7 @@ describe("Quota Sidebar section", () => {
 		});
 	});
 
-	it("dispatches sidebarQuotaToggle event when quota toggle changes", async () => {
+	it("writes the preference and announces it on localStorageChange", async () => {
 		const user = userEvent.setup();
 		const dispatchSpy = vi.spyOn(window, "dispatchEvent");
 
@@ -761,8 +762,12 @@ describe("Quota Sidebar section", () => {
 		const toggle = getToggleByLabel("Show Quota Panel");
 		await user.click(toggle);
 
+		expect(localStorage.getItem("sidebarQuotaDisabled")).toBe("true");
 		expect(dispatchSpy).toHaveBeenCalledWith(
-			expect.objectContaining({ type: "sidebarQuotaToggle" }),
+			expect.objectContaining({
+				type: "localStorageChange",
+				detail: { key: "sidebarQuotaDisabled" },
+			}),
 		);
 
 		dispatchSpy.mockRestore();

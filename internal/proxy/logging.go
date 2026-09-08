@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // isTerminalLogState reports whether a request-log state is one a row can end
@@ -244,18 +245,13 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 
 // maxLogMessageRunes bounds request_logs.error_message and the
 // request.completed event built from it. The bound lives at the sink so no
-// writer can miss it, and matches the 10,000-character budget SanitizeLogBody
-// gives upstream bodies.
+// writer can miss it.
 const maxLogMessageRunes = 10000
 
-// truncateLogMessage caps s at maxLogMessageRunes runes, cutting on a rune
-// boundary so the stored text stays valid UTF-8, and marks the cut.
-func truncateLogMessage(s string) string {
-	if utf8.RuneCountInString(s) <= maxLogMessageRunes {
-		return s
-	}
-	return string([]rune(s)[:maxLogMessageRunes]) + "…"
-}
+// logBodyCap is the byte budget SanitizeLogBody gets for an upstream body
+// before it reaches the request log. Defined as the sink's own bound so the
+// budget a writer spends and the bound the sink enforces cannot drift apart.
+const logBodyCap = maxLogMessageRunes
 
 func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOption) {
 	// The terminal write closes the attempt in flight from the flat columns, so
@@ -266,10 +262,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// and pool checks, so a handler with no row to write still reaches the
 	// breaker and builds the same trail.
 	if isTerminalLogState(logEntry.state) {
-		if judge := logEntry.judgeAnswer; judge != nil {
-			logEntry.judgeAnswer = nil
-			judge()
-		}
+		judgeAnswerNow(logEntry)
 		logEntry.closeTerminalAttempt()
 	}
 
@@ -286,7 +279,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// paths assign errorMessage directly and call this function themselves (the
 	// native Anthropic and non-streaming readers, the stream finaliser, the
 	// multimodal passthrough), so a clamp there would only cover some callers.
-	logEntry.errorMessage = truncateLogMessage(logEntry.errorMessage)
+	logEntry.errorMessage = util.TruncateRunes(logEntry.errorMessage, maxLogMessageRunes)
 	// Then the content fence, for the same reason and at the same place: the
 	// error message and every attempt detail came from an upstream body that
 	// may quote the prompt back, and this is where all of them are written.
@@ -409,8 +402,8 @@ func metricModelLabel(modelID string, kind ErrorKind) string {
 	if kind == KindValidation {
 		return "unresolved"
 	}
-	if group, ok := strings.CutPrefix(modelID, "hotel/"); ok {
-		return "hotel/" + strings.ToLower(group)
+	if strings.HasPrefix(modelID, "hotel/") {
+		return "hotel/" + hotelGroupName(modelID)
 	}
 	return modelID
 }

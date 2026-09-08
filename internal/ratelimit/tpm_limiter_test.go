@@ -50,7 +50,7 @@ func TestTPMRetryAfter(t *testing.T) {
 func TestTPMLimiter_DebitNonPositiveIsNoop(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	tpm := 600
-	l.Allow("k", tpm) // create a bucket at full budget
+	tpmAdmit(t, l, "k", tpm) // create a bucket at full budget
 
 	tokensOf := func() float64 {
 		l.mu.Lock()
@@ -64,11 +64,11 @@ func TestTPMLimiter_DebitNonPositiveIsNoop(t *testing.T) {
 
 	// A real debit reserves tokens, reducing the count; a non-positive debit must
 	// reserve nothing. The token count only ever rises (refill), so it must not
-	// have dropped — this precisely catches a wrongful debit, unlike a bare Allow.
+	// have dropped — this precisely catches a wrongful debit, unlike a bare admission check.
 	if after := tokensOf(); after < before {
 		t.Fatalf("non-positive Debit reduced the budget: before=%v after=%v", before, after)
 	}
-	if !l.Allow("k", tpm) {
+	if !tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("non-positive Debit must leave the budget admitting requests")
 	}
 }
@@ -101,13 +101,22 @@ func newTestTPMLimiter(t *testing.T) (*TPMLimiter, *stubSettings) {
 	return l, s
 }
 
+// tpmAdmit runs one request through the per-key TPM middleware, the path
+// production admission actually takes, and reports whether it was admitted.
+func tpmAdmit(t *testing.T, l *TPMLimiter, keyHash string, tpm int) bool {
+	t.Helper()
+	rec := httptest.NewRecorder()
+	l.Middleware(true)(okHandler()).ServeHTTP(rec, tpmReq(keyHash, &tpm))
+	return rec.Code == http.StatusOK
+}
+
 func TestTPMLimiter_NoCap(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	// tpm <= 0 means no cap: always admitted and no bucket is created.
-	if !l.Allow("k", 0) {
+	if !tpmAdmit(t, l, "k", 0) {
 		t.Fatal("tpm=0 should always allow")
 	}
-	if !l.Allow("k", -5) {
+	if !tpmAdmit(t, l, "k", -5) {
 		t.Fatal("negative tpm should always allow")
 	}
 	l.mu.Lock()
@@ -122,13 +131,13 @@ func TestTPMLimiter_DrainAndReject(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	const tpm = 1000
 
-	if !l.Allow("k", tpm) {
+	if !tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("fresh budget should admit")
 	}
 	// Debit more than a full minute's budget to drive the budget clearly
 	// negative, then admission must reject.
 	l.Debit("k", 2*tpm)
-	if l.Allow("k", tpm) {
+	if tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("exhausted budget should reject")
 	}
 }
@@ -139,11 +148,11 @@ func TestTPMLimiter_OverCapSingleDebit(t *testing.T) {
 
 	// A single response far larger than the minute budget must still register
 	// as debt (debited in burst-sized chunks), blocking the next request.
-	if !l.Allow("k", tpm) {
+	if !tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("fresh budget should admit")
 	}
 	l.Debit("k", tpm*5)
-	if l.Allow("k", tpm) {
+	if tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("over-cap debit should leave the budget exhausted")
 	}
 }
@@ -152,12 +161,12 @@ func TestTPMLimiter_PerKeyIsolation(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	const tpm = 500
 
-	l.Allow("a", tpm)
+	tpmAdmit(t, l, "a", tpm)
 	l.Debit("a", 2*tpm)
-	if l.Allow("a", tpm) {
+	if tpmAdmit(t, l, "a", tpm) {
 		t.Fatal("key a should be exhausted")
 	}
-	if !l.Allow("b", tpm) {
+	if !tpmAdmit(t, l, "b", tpm) {
 		t.Fatal("key b must be unaffected by key a's spend")
 	}
 }
@@ -168,13 +177,13 @@ func TestTPMLimiter_Refill(t *testing.T) {
 	// refills enough for one token.
 	const tpm = 600
 
-	l.Allow("k", tpm)
+	tpmAdmit(t, l, "k", tpm)
 	l.Debit("k", tpm) // drains a full minute's budget to ~0
-	if l.Allow("k", tpm) {
+	if tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("budget should be exhausted right after draining")
 	}
 	time.Sleep(200 * time.Millisecond) // 10/s * 0.2s = ~2 tokens
-	if !l.Allow("k", tpm) {
+	if !tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("budget should have refilled enough to admit")
 	}
 }
@@ -195,20 +204,20 @@ func TestTPMLimiter_DebitNoBucketIsNoop(t *testing.T) {
 func TestTPMLimiter_TPMChangeReplacesBucket(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 
-	l.Allow("k", 100)
+	tpmAdmit(t, l, "k", 100)
 	l.Debit("k", 500) // exhaust the 100-TPM bucket
-	if l.Allow("k", 100) {
+	if tpmAdmit(t, l, "k", 100) {
 		t.Fatal("100-TPM bucket should be exhausted")
 	}
 	// Raising the key's TPM should replace the bucket with a fresh budget.
-	if !l.Allow("k", 10000) {
+	if !tpmAdmit(t, l, "k", 10000) {
 		t.Fatal("changing TPM should reset the bucket and admit")
 	}
 }
 
 func TestTPMLimiter_IdleEviction(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
-	l.Allow("k", 100)
+	tpmAdmit(t, l, "k", 100)
 
 	// Backdate the bucket past the idle cutoff and run cleanup directly.
 	l.mu.Lock()
@@ -245,7 +254,7 @@ func okHandler() http.Handler {
 func TestTPMMiddleware_EnvDisabledIsNoop(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	tpm := 1
-	l.Allow("k", tpm)
+	tpmAdmit(t, l, "k", tpm)
 	l.Debit("k", 100) // exhaust
 	// enabled=false (env kill-switch) → middleware must pass through regardless.
 	h := l.Middleware(false)(okHandler())
@@ -260,7 +269,7 @@ func TestTPMMiddleware_DBDisabledIsNoop(t *testing.T) {
 	l, s := newTestTPMLimiter(t)
 	s.set(settingsKeyEnabled, "false")
 	tpm := 1
-	l.Allow("k", tpm)
+	tpmAdmit(t, l, "k", tpm)
 	l.Debit("k", 100)
 	h := l.Middleware(true)(okHandler())
 	rec := httptest.NewRecorder()
@@ -284,7 +293,7 @@ func TestTPMMiddleware_NoCapPasses(t *testing.T) {
 func TestTPMMiddleware_RejectsWhenExhausted(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	tpm := 600
-	l.Allow("k", tpm)
+	tpmAdmit(t, l, "k", tpm)
 	l.Debit("k", 2*tpm) // drive negative
 
 	h := l.Middleware(true)(okHandler())
@@ -325,7 +334,7 @@ func TestTPMMiddleware_PerKeyOverridesGlobal(t *testing.T) {
 	s.set(settingsKeyTPM, "1000000") // generous global default
 
 	tpm := 600 // restrictive per-key override
-	l.Allow("k", tpm)
+	tpmAdmit(t, l, "k", tpm)
 	l.Debit("k", 2*tpm)
 
 	h := l.Middleware(true)(okHandler())

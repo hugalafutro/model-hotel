@@ -1,18 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
-	snippetCurl,
+	snippetCurlModelText,
 	snippetLibreChatText,
 	snippetOpenClawText,
-	snippetOpencode,
+	snippetOpencodeModelText,
 	snippetOpencodeVKText,
-	snippetZed,
+	snippetZedModelText,
 	snippetZedVKText,
 } from "../snippets";
 
 describe("snippets", () => {
-	describe("snippetCurl", () => {
+	describe("snippetCurlModelText", () => {
 		it("returns curl command with correct proxyModelId and origin", () => {
-			const result = snippetCurl({
+			const result = snippetCurlModelText({
 				proxyModelId: "provider/model",
 				origin: "https://example.com",
 			});
@@ -21,7 +21,7 @@ describe("snippets", () => {
 		});
 
 		it("includes /v1/chat/completions path and Bearer auth", () => {
-			const result = snippetCurl({
+			const result = snippetCurlModelText({
 				proxyModelId: "test-model",
 				origin: "https://api.example.com",
 			});
@@ -32,9 +32,9 @@ describe("snippets", () => {
 		});
 	});
 
-	describe("snippetZed", () => {
+	describe("snippetZedModelText", () => {
 		it("returns valid JSON with correct structure", () => {
-			const result = snippetZed({
+			const result = snippetZedModelText({
 				proxyModelId: "p/m",
 				displayName: "Model",
 				contextLength: 8192,
@@ -53,7 +53,7 @@ describe("snippets", () => {
 		});
 
 		it("sets tools/images/parallel_tool_calls based on capabilities", () => {
-			const result = snippetZed({
+			const result = snippetZedModelText({
 				proxyModelId: "p/m",
 				displayName: "Model",
 				contextLength: 8192,
@@ -77,7 +77,7 @@ describe("snippets", () => {
 		});
 
 		it("handles null capabilities (all false)", () => {
-			const result = snippetZed({
+			const result = snippetZedModelText({
 				proxyModelId: "p/m",
 				displayName: "Model",
 				contextLength: 8192,
@@ -96,9 +96,9 @@ describe("snippets", () => {
 		});
 	});
 
-	describe("snippetOpencode", () => {
+	describe("snippetOpencodeModelText", () => {
 		it("returns valid JSON with correct provider structure", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "provider/model",
 				displayName: "Test Model",
 				contextLength: 16384,
@@ -121,7 +121,7 @@ describe("snippets", () => {
 		});
 
 		it("sets attachment=true when inputModalities includes non-text", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Vision Model",
 				contextLength: 8192,
@@ -140,7 +140,7 @@ describe("snippets", () => {
 		});
 
 		it("sets attachment=false when inputModalities is only text", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Text Model",
 				contextLength: 8192,
@@ -159,7 +159,7 @@ describe("snippets", () => {
 		});
 
 		it("sets reasoning=true when capabilities has reasoning=true", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Reasoning Model",
 				contextLength: 8192,
@@ -178,7 +178,7 @@ describe("snippets", () => {
 		});
 
 		it("sets tool_call=true when capabilities has tool_calling=true", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Tool Model",
 				contextLength: 8192,
@@ -197,7 +197,7 @@ describe("snippets", () => {
 		});
 
 		it("uses [text] as default when inputModalities is empty", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Model",
 				contextLength: 8192,
@@ -216,7 +216,7 @@ describe("snippets", () => {
 		});
 
 		it("uses [text] as default when outputModalities is empty", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Model",
 				contextLength: 8192,
@@ -235,7 +235,7 @@ describe("snippets", () => {
 		});
 
 		it("includes cost object when both prices are non-null", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Model",
 				contextLength: 8192,
@@ -255,7 +255,7 @@ describe("snippets", () => {
 		});
 
 		it("omits cost object when inputPricePerMillion is null", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Model",
 				contextLength: 8192,
@@ -272,7 +272,7 @@ describe("snippets", () => {
 		});
 
 		it("omits cost object when outputPricePerMillion is null", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "p/m",
 				displayName: "Model",
 				contextLength: 8192,
@@ -289,7 +289,7 @@ describe("snippets", () => {
 		});
 
 		it("uses correct displayName as model key and proxyModelId as id", () => {
-			const result = snippetOpencode({
+			const result = snippetOpencodeModelText({
 				proxyModelId: "provider/actual-model-id",
 				displayName: "My Custom Model Name",
 				contextLength: 8192,

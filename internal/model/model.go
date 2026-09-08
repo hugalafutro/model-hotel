@@ -204,19 +204,29 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	return err
 }
 
+// scanModel reads one modelColumns row. pgx.Rows satisfies pgx.Row, so the
+// multi-row loop scans through here too.
+func scanModel(row pgx.Row) (*Model, error) {
+	var m Model
+	if err := row.Scan(
+		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
+		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
+		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+	); err != nil {
+		return nil, err
+	}
+	return &m, nil
+}
+
 func scanModels(rows pgx.Rows) ([]*Model, error) {
 	var models []*Model
 	for rows.Next() {
-		var m Model
-		if err := rows.Scan(
-			&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
-			&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-			&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-			&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
-		); err != nil {
+		m, err := scanModel(rows)
+		if err != nil {
 			return nil, err
 		}
-		models = append(models, &m)
+		models = append(models, m)
 	}
 	return models, rows.Err()
 }
@@ -304,20 +314,13 @@ func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*Model, error) {
 
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.id = $1`
 
-	var m Model
-	err := r.pool.QueryRow(ctx, query, id).Scan(
-		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
-		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
-	)
-
+	m, err := scanModel(r.pool.QueryRow(ctx, query, id))
 	if err != nil {
 		return nil, err
 	}
 
-	cacheModelByUUID(&m)
-	return &m, nil
+	cacheModelByUUID(m)
+	return m, nil
 }
 
 // GetByIDs retrieves multiple models by their UUIDs.
@@ -394,21 +397,14 @@ func (r *Repository) GetByProviderAndModelID(ctx context.Context, providerID uui
 
 	query := `SELECT ` + modelColumns + ` FROM models m JOIN providers p ON m.provider_id = p.id WHERE m.provider_id = $1 AND m.model_id = $2`
 
-	var m Model
-	err := r.pool.QueryRow(ctx, query, providerID, modelID).Scan(
-		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
-		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
-	)
-
+	m, err := scanModel(r.pool.QueryRow(ctx, query, providerID, modelID))
 	if err != nil {
 		return nil, err
 	}
 
-	cacheModelByCompositeKey(providerID, modelID, &m)
-	cacheModelByUUID(&m)
-	return &m, nil
+	cacheModelByCompositeKey(providerID, modelID, m)
+	cacheModelByUUID(m)
+	return m, nil
 }
 
 // DeleteByID removes a model by its UUID.

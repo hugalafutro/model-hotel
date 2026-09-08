@@ -30,38 +30,30 @@ export function CapFilterRow({
 			<th className="px-4 py-2" />
 			<th className="px-4 py-2">
 				<span className="flex flex-wrap gap-1">
-					{CAP_META.map((m) => {
-						const isActive = capFilter.has(m.key);
-						return (
-							<button
-								key={m.key}
-								type="button"
-								aria-pressed={isActive}
-								onClick={() => onToggleCap(m.key)}
-								className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
-									isActive ? m.style : m.muted
-								}`}
-							>
-								{m.label}
-							</button>
-						);
-					})}
-					{OUTPUT_META.map((m) => {
-						const isActive = outputFilter.has(m.key);
-						return (
-							<button
-								key={m.key}
-								type="button"
-								aria-pressed={isActive}
-								onClick={() => onToggleOutput(m.key)}
-								className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
-									isActive ? m.style : m.muted
-								}`}
-							>
-								{t(m.labelKey)}
-							</button>
-						);
-					})}
+					{[
+						...CAP_META.map((m) => ({
+							pill: m,
+							active: capFilter.has(m.key),
+							onToggle: () => onToggleCap(m.key),
+						})),
+						...OUTPUT_META.map((m) => ({
+							pill: m,
+							active: outputFilter.has(m.key),
+							onToggle: () => onToggleOutput(m.key),
+						})),
+					].map(({ pill, active, onToggle }) => (
+						<button
+							key={pill.labelKey}
+							type="button"
+							aria-pressed={active}
+							onClick={onToggle}
+							className={`ui-badge inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium border transition-colors ${
+								active ? pill.style : pill.muted
+							}`}
+						>
+							{t(pill.labelKey)}
+						</button>
+					))}
 					{(capFilter.size > 0 || outputFilter.size > 0) && (
 						<button
 							type="button"

@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { DashboardUser } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { ErrorCallout } from "../../components/ErrorCallout";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useUserForm } from "./useUserForm";
@@ -71,12 +72,7 @@ export function UserModal({
 		>
 			<div className="space-y-4">
 				{error && (
-					<div
-						className="p-3 bg-red-900/50 border border-red-700 rounded-lg text-red-300 text-sm"
-						data-testid="user-modal-error"
-					>
-						{error}
-					</div>
+					<ErrorCallout testId="user-modal-error">{error}</ErrorCallout>
 				)}
 
 				<div>

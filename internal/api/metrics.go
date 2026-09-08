@@ -1,13 +1,10 @@
 package api
 
 import (
-	"crypto/subtle"
 	"net/http"
 
-	"github.com/hugalafutro/model-hotel/internal/clientip"
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // MetricsHandler returns the authenticated Prometheus /metrics handler and
@@ -56,17 +53,7 @@ func breakerStateCode(state string) int {
 func (h *Handler) metricsAuth(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if h.cfg != nil && h.cfg.MetricsToken != "" {
-			tok, ok := util.ParseBearerToken(r)
-			if subtle.ConstantTimeCompare([]byte(tok), []byte(h.cfg.MetricsToken)) == 1 {
-				next.ServeHTTP(w, r)
-				return
-			}
-			if !ok || tok == "" {
-				debuglog.Warn("auth: metrics scrape missing bearer token", "remote_addr", clientip.From(r))
-			} else {
-				debuglog.Warn("auth: metrics scrape with invalid token", "remote_addr", clientip.From(r))
-			}
-			http.Error(w, "invalid metrics token", http.StatusUnauthorized)
+			adminauth.BearerTokenGate(h.cfg.MetricsToken, "metrics", "auth: metrics scrape", next).ServeHTTP(w, r)
 			return
 		}
 		// No dedicated token configured — fall back to ADMIN auth, which is

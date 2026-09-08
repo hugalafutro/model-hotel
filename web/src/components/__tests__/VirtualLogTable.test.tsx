@@ -1126,7 +1126,7 @@ describe("VirtualLogTable", () => {
 			}
 		});
 
-		it('renders "-" for TTFT on cancelled requests', () => {
+		it("keeps a measured TTFT on cancelled requests", () => {
 			const entries = [
 				createLogTableEntry({
 					error_message: "request cancelled",
@@ -1147,11 +1147,13 @@ describe("VirtualLogTable", () => {
 			if (row) {
 				const cells = row.querySelectorAll("td");
 				const ttftIndex = getColumnIndex("TTFT");
-				expect(cells[ttftIndex].textContent).toBe("-");
+				// The first token arrived before the client went away, so the
+				// measurement is real and the cell shows it.
+				expect(cells[ttftIndex].textContent).toBe("120.5ms");
 			}
 		});
 
-		it('renders "-" for Headers on cancelled requests', () => {
+		it("keeps measured header timing on cancelled requests", () => {
 			const entries = [
 				createLogTableEntry({
 					error_message: "request cancelled",
@@ -1172,7 +1174,8 @@ describe("VirtualLogTable", () => {
 			if (row) {
 				const cells = row.querySelectorAll("td");
 				const headersIndex = getColumnIndex("Headers");
-				expect(cells[headersIndex].textContent).toBe("-");
+				// Same as TTFT: the response headers had already landed.
+				expect(cells[headersIndex].textContent).toBe("150.5ms");
 			}
 		});
 	});

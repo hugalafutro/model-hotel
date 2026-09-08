@@ -11,6 +11,8 @@ package ctxkeys
 import (
 	"context"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 type contextKey string
@@ -156,9 +158,23 @@ const IsStreamingKey contextKey = "is_streaming"
 // Every call site that reads settings calls this, so all reads land in the
 // overhead total.
 func AddSettingsReadMs(ctx context.Context, start time.Time) {
-	if v := ctx.Value(SettingsReadMsKey); v != nil {
-		if p, ok := v.(*float64); ok {
-			*p += float64(time.Since(start).Microseconds()) / 1000.0
-		}
+	AddSettingsMs(ctx, util.MillisSince(start))
+}
+
+// AddSettingsMs adds an already-measured duration (in ms) to the accumulated
+// settings read time. It is what AddSettingsReadMs is built on, for the callers
+// that measured the elapsed time themselves.
+func AddSettingsMs(ctx context.Context, ms float64) {
+	if p, ok := ctx.Value(SettingsReadMsKey).(*float64); ok && p != nil {
+		*p += ms
 	}
+}
+
+// SettingsReadMs reads the accumulated settings read time, returning 0 when the
+// request carries no accumulator.
+func SettingsReadMs(ctx context.Context) float64 {
+	if p, ok := ctx.Value(SettingsReadMsKey).(*float64); ok && p != nil {
+		return *p
+	}
+	return 0
 }

@@ -19,7 +19,7 @@ func captureLogLines(t *testing.T) func() []string {
 	t.Helper()
 	var buf bytes.Buffer
 	debuglog.SetHandler(slog.NewTextHandler(&buf, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	t.Cleanup(func() { debuglog.Init(false) })
+	t.Cleanup(func() { debuglog.Init() })
 	return func() []string {
 		var lines []string
 		for _, l := range strings.Split(buf.String(), "\n") {

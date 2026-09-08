@@ -752,10 +752,27 @@ describe("ModelDetailModal", () => {
 		});
 	});
 
-	// handleTest exception catch - non-Error rejection
-	it("shows Unknown error when onTest rejects with non-Error", async () => {
+	// handleTest exception catch - non-Error rejection carries its own text
+	it("shows the text of a non-Error rejection", async () => {
 		const user = userEvent.setup();
 		onTest.mockRejectedValue("string error");
+
+		renderWithProviders(<ModelDetailModal {...defaultProps} />);
+
+		await user.click(screen.getByText("Test"));
+
+		await waitFor(() => {
+			expect(onToast).toHaveBeenCalledWith(
+				"Test failed: string error",
+				"error",
+			);
+		});
+	});
+
+	// handleTest exception catch - a rejection with nothing to say
+	it("shows Unknown error when the rejection carries no message", async () => {
+		const user = userEvent.setup();
+		onTest.mockRejectedValue(new Error(""));
 
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 

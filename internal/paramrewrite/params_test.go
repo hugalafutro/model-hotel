@@ -51,27 +51,6 @@ func TestParseProviderParamRename_ReadsArrayWrappedBody(t *testing.T) {
 	}
 }
 
-func TestProviderErrorMessage_ObjectAndArrayForms(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-		want string
-	}{
-		{"object", `{"error":{"message":"boom"}}`, "boom"},
-		{"array", `[{"error":{"message":"boom"}}]`, "boom"},
-		{"array skips empty", `[{"error":{}},{"error":{"message":"second"}}]`, "second"},
-		{"not json", `<html>502</html>`, ""},
-		{"empty array", `[]`, ""},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := providerErrorMessage([]byte(tt.body)); got != tt.want {
-				t.Errorf("providerErrorMessage() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
 // TestLearnedCacheKey_ScopedPerProviderNotPerType guards the cross-provider
 // leak: provider.TypeOf falls back to "openai" for every custom
 // OpenAI-compatible endpoint, so keying learned rejections by TYPE lets one

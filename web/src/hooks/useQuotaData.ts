@@ -1,4 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	type QueryClient,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import type { QuotaProviderType } from "@web-shared/quota";
 import {
 	getKimiCodeFiveHourLimit,
@@ -208,330 +212,219 @@ export interface QuotaDataResult {
 	invalidateAll: () => void;
 }
 
+// ── Per-provider query ───────────────────────────────────────────────────
+
+/**
+ * One provider's quota query: find the enabled provider of that type, read its
+ * payload, mirror it into the local cache so a reload paints instantly, and
+ * toast once per error transition. Every provider below is this same block with
+ * a different payload type and endpoint.
+ */
+function useProviderQuota<T>(
+	providers: Provider[] | undefined,
+	type: QuotaProviderType,
+	cacheKey: string,
+	fetchUsage: (providerId: string) => Promise<T>,
+	errorKey: string,
+	toastErrors: ((msg: string, severity: "warning") => void) | undefined,
+	refetchInterval: number | false | undefined,
+) {
+	const { t } = useTranslation();
+	const providerId = useMemo(
+		() => findProviderId(providers, type),
+		[providers, type],
+	);
+
+	const { data, dataUpdatedAt, isRefetching, isError, refetch } = useQuery<T>({
+		queryKey: [cacheKey, providerId],
+		queryFn: () => fetchUsage(providerId as string),
+		enabled: Boolean(providerId),
+		refetchInterval,
+		// Reflect the server's stored snapshot on every mount (reload after a
+		// rebuild shows correct quotas within ~1s), while initialData still paints
+		// the cached value instantly.
+		staleTime: 0,
+		refetchOnMount: "always",
+		initialData: () => getCachedData<T>(cacheKey),
+	});
+
+	useEffect(() => {
+		if (data != null) setCachedData(cacheKey, data);
+	}, [cacheKey, data]);
+
+	// One toast per healthy-to-failing transition, not one per refetch.
+	const toasted = useRef(false);
+	useEffect(() => {
+		if (!toastErrors) return;
+		if (isError && !toasted.current) {
+			toastErrors(t(errorKey), "warning");
+			toasted.current = true;
+		}
+		if (!isError) toasted.current = false;
+	}, [isError, toastErrors, t, errorKey]);
+
+	// Narrowed to Promise<void>: every consumer awaits the refresh for its
+	// spinner and none reads the query result the raw refetch resolves with.
+	const refresh = useCallback(async () => {
+		await refetch();
+	}, [refetch]);
+
+	return { providerId, data, dataUpdatedAt, isRefetching, refetch: refresh };
+}
+
+/** The query keys every quota reader shares, so an invalidation misses none. */
+export const QUOTA_QUERY_KEYS = [
+	"nanogpt-usage",
+	"zai-coding-usage",
+	"kimi-code-usage",
+	"minimax-usage",
+	"deepseek-balance",
+	"openrouter-balance",
+	"ollama-cloud-account",
+	"neuralwatt-quota",
+] as const;
+
+/** Marks every quota query stale, e.g. after a provider is added or removed. */
+export function invalidateQuotaQueries(queryClient: QueryClient): void {
+	for (const key of QUOTA_QUERY_KEYS) {
+		queryClient.invalidateQueries({ queryKey: [key] });
+	}
+}
+
 // ── Hook ─────────────────────────────────────────────────────────────────
 
 export function useQuotaData(
 	providers: Provider[] | undefined,
 	options: UseQuotaDataOptions = {},
 ): QuotaDataResult {
-	const { t } = useTranslation();
 	const queryClient = useQueryClient();
 	const { refetchInterval, collapsed, toastErrors } = options;
 
-	// ── Provider detection ──
-	const nanogptProviderId = useMemo(
-		() => findProviderId(providers, "nanogpt"),
-		[providers],
+	// Auto-refresh is off while the panel is collapsed: nothing is on screen to
+	// keep current.
+	const interval = collapsed === true ? false : refetchInterval;
+
+	const nano = useProviderQuota<NanoGPTUsage>(
+		providers,
+		"nanogpt",
+		"nanogpt-usage",
+		(id) => api.providers.getUsage(id) as Promise<NanoGPTUsage>,
+		"hooks.useQuotaData.nanoGPTError",
+		toastErrors,
+		interval,
 	);
-	const zaiCodingProviderId = useMemo(
-		() => findProviderId(providers, "zai-coding"),
-		[providers],
+	const zai = useProviderQuota<ZAICodingQuotaResponse>(
+		providers,
+		"zai-coding",
+		"zai-coding-usage",
+		(id) => api.providers.getUsage(id) as Promise<ZAICodingQuotaResponse>,
+		"hooks.useQuotaData.zaiError",
+		toastErrors,
+		interval,
 	);
-	const kimiCodeProviderId = useMemo(
-		() => findProviderId(providers, "kimi-code"),
-		[providers],
+	const kimi = useProviderQuota<KimiCodeQuotaResponse>(
+		providers,
+		"kimi-code",
+		"kimi-code-usage",
+		(id) => api.providers.getUsage(id) as Promise<KimiCodeQuotaResponse>,
+		"hooks.useQuotaData.kimiError",
+		toastErrors,
+		interval,
 	);
-	const minimaxProviderId = useMemo(
-		() => findProviderId(providers, "minimax"),
-		[providers],
+	const minimax = useProviderQuota<MiniMaxQuotaResponse>(
+		providers,
+		"minimax",
+		"minimax-usage",
+		(id) => api.providers.getUsage(id) as Promise<MiniMaxQuotaResponse>,
+		"hooks.useQuotaData.miniMaxError",
+		toastErrors,
+		interval,
 	);
-	const deepseekProviderId = useMemo(
-		() => findProviderId(providers, "deepseek"),
-		[providers],
+	const deepseek = useProviderQuota<DeepSeekBalance>(
+		providers,
+		"deepseek",
+		"deepseek-balance",
+		(id) => api.providers.getBalance(id),
+		"hooks.useQuotaData.deepSeekError",
+		toastErrors,
+		interval,
 	);
-	const openrouterProviderId = useMemo(
-		() => findProviderId(providers, "openrouter"),
-		[providers],
+	const openrouter = useProviderQuota<OpenRouterBalance>(
+		providers,
+		"openrouter",
+		"openrouter-balance",
+		(id) => api.providers.getOpenRouterBalance(id),
+		"hooks.useQuotaData.openRouterError",
+		toastErrors,
+		interval,
 	);
-	const ollamaCloudProviderId = useMemo(
-		() => findProviderId(providers, "ollama-cloud"),
-		[providers],
+	const ollamaCloud = useProviderQuota<OllamaCloudAccount>(
+		providers,
+		"ollama-cloud",
+		"ollama-cloud-account",
+		(id) => api.providers.getOllamaCloudAccount(id),
+		"hooks.useQuotaData.ollamaCloudError",
+		toastErrors,
+		interval,
 	);
-	const neuralwattProviderId = useMemo(
-		() => findProviderId(providers, "neuralwatt"),
-		[providers],
+	const neuralwatt = useProviderQuota<NeuralWattQuotaResponse | null>(
+		providers,
+		"neuralwatt",
+		"neuralwatt-quota",
+		(id) => api.providers.getNeuralWattQuota(id),
+		"hooks.useQuotaData.neuralwattError",
+		toastErrors,
+		interval,
 	);
 
-	// Derive effective refetch interval: disabled when collapsed or explicit false
-	const effectiveRefetchInterval =
-		collapsed === true
-			? false
-			: refetchInterval === false
-				? false
-				: refetchInterval;
-
-	// ── NanoGPT query ──
 	const {
+		providerId: nanogptProviderId,
 		data: nanogptUsage,
 		dataUpdatedAt: nanogptDataUpdatedAt,
 		isRefetching: isNanoRefetching,
-		isError: isNanoGPTError,
-		refetch: refetchNanoRaw,
-	} = useQuery({
-		queryKey: ["nanogpt-usage", nanogptProviderId],
-		queryFn: () =>
-			api.providers.getUsage(
-				nanogptProviderId as string,
-			) as Promise<NanoGPTUsage>,
-		enabled: Boolean(nanogptProviderId),
-		refetchInterval: effectiveRefetchInterval,
-		// Reflect the server's stored snapshot on every mount (reload after a
-		// rebuild shows correct quotas within ~1s), while initialData still paints
-		// the cached value instantly.
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () => getCachedData<NanoGPTUsage>("nanogpt-usage"),
-	});
-
-	// Cache writes
-	useEffect(() => {
-		if (nanogptUsage) setCachedData("nanogpt-usage", nanogptUsage);
-	}, [nanogptUsage]);
-
-	// ── Z.ai Coding query ──
+	} = nano;
 	const {
+		providerId: zaiCodingProviderId,
 		data: zaiCodingUsage,
 		dataUpdatedAt: zaiCodingDataUpdatedAt,
 		isRefetching: isZaiCodingRefetching,
-		isError: isZAICodingError,
-		refetch: refetchZaiRaw,
-	} = useQuery({
-		queryKey: ["zai-coding-usage", zaiCodingProviderId],
-		queryFn: () =>
-			api.providers.getUsage(
-				zaiCodingProviderId as string,
-			) as Promise<ZAICodingQuotaResponse>,
-		enabled: Boolean(zaiCodingProviderId),
-		refetchInterval: effectiveRefetchInterval,
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () =>
-			getCachedData<ZAICodingQuotaResponse>("zai-coding-usage"),
-	});
-
-	useEffect(() => {
-		if (zaiCodingUsage) setCachedData("zai-coding-usage", zaiCodingUsage);
-	}, [zaiCodingUsage]);
-
-	// ── Kimi Code query ──
+	} = zai;
 	const {
+		providerId: kimiCodeProviderId,
 		data: kimiCodeUsage,
 		dataUpdatedAt: kimiCodeDataUpdatedAt,
 		isRefetching: isKimiCodeRefetching,
-		isError: isKimiCodeError,
-		refetch: refetchKimiRaw,
-	} = useQuery({
-		queryKey: ["kimi-code-usage", kimiCodeProviderId],
-		queryFn: () =>
-			api.providers.getUsage(
-				kimiCodeProviderId as string,
-			) as Promise<KimiCodeQuotaResponse>,
-		enabled: Boolean(kimiCodeProviderId),
-		refetchInterval: effectiveRefetchInterval,
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () => getCachedData<KimiCodeQuotaResponse>("kimi-code-usage"),
-	});
-
-	useEffect(() => {
-		if (kimiCodeUsage) setCachedData("kimi-code-usage", kimiCodeUsage);
-	}, [kimiCodeUsage]);
-
-	// ── MiniMax query ──
+	} = kimi;
 	const {
+		providerId: minimaxProviderId,
 		data: minimaxUsage,
 		dataUpdatedAt: minimaxDataUpdatedAt,
 		isRefetching: isMiniMaxRefetching,
-		isError: isMiniMaxError,
-		refetch: refetchMiniMaxRaw,
-	} = useQuery({
-		queryKey: ["minimax-usage", minimaxProviderId],
-		queryFn: () =>
-			api.providers.getUsage(
-				minimaxProviderId as string,
-			) as Promise<MiniMaxQuotaResponse>,
-		enabled: Boolean(minimaxProviderId),
-		refetchInterval: effectiveRefetchInterval,
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () => getCachedData<MiniMaxQuotaResponse>("minimax-usage"),
-	});
-
-	useEffect(() => {
-		if (minimaxUsage) setCachedData("minimax-usage", minimaxUsage);
-	}, [minimaxUsage]);
-
-	// ── DeepSeek query ──
+	} = minimax;
 	const {
+		providerId: deepseekProviderId,
 		data: deepseekBalance,
 		dataUpdatedAt: deepseekDataUpdatedAt,
 		isRefetching: isDsRefetching,
-		isError: isDeepseekError,
-		refetch: refetchDsRaw,
-	} = useQuery({
-		queryKey: ["deepseek-balance", deepseekProviderId],
-		queryFn: () => api.providers.getBalance(deepseekProviderId as string),
-		enabled: Boolean(deepseekProviderId),
-		refetchInterval: effectiveRefetchInterval,
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () => getCachedData<DeepSeekBalance>("deepseek-balance"),
-	});
-
-	useEffect(() => {
-		if (deepseekBalance) setCachedData("deepseek-balance", deepseekBalance);
-	}, [deepseekBalance]);
-
-	// ── OpenRouter query ──
+	} = deepseek;
 	const {
+		providerId: openrouterProviderId,
 		data: openrouterBalance,
 		dataUpdatedAt: openrouterDataUpdatedAt,
 		isRefetching: isOrRefetching,
-		isError: isOpenRouterError,
-		refetch: refetchOrRaw,
-	} = useQuery<OpenRouterBalance>({
-		queryKey: ["openrouter-balance", openrouterProviderId],
-		queryFn: () =>
-			api.providers.getOpenRouterBalance(openrouterProviderId as string),
-		enabled: Boolean(openrouterProviderId),
-		refetchInterval: effectiveRefetchInterval,
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () => getCachedData<OpenRouterBalance>("openrouter-balance"),
-	});
-
-	useEffect(() => {
-		if (openrouterBalance !== undefined)
-			setCachedData("openrouter-balance", openrouterBalance);
-	}, [openrouterBalance]);
-
-	// ── Ollama Cloud query ──
+	} = openrouter;
 	const {
+		providerId: ollamaCloudProviderId,
 		data: ollamaCloudAccount,
 		dataUpdatedAt: ollamaCloudDataUpdatedAt,
 		isRefetching: isOllamaCloudRefetching,
-		isError: isOllamaCloudError,
-		refetch: refetchOcRaw,
-	} = useQuery<OllamaCloudAccount>({
-		queryKey: ["ollama-cloud-account", ollamaCloudProviderId],
-		queryFn: () =>
-			api.providers.getOllamaCloudAccount(ollamaCloudProviderId as string),
-		enabled: Boolean(ollamaCloudProviderId),
-		refetchInterval: effectiveRefetchInterval,
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () =>
-			getCachedData<OllamaCloudAccount>("ollama-cloud-account"),
-	});
-
-	useEffect(() => {
-		if (ollamaCloudAccount)
-			setCachedData("ollama-cloud-account", ollamaCloudAccount);
-	}, [ollamaCloudAccount]);
-
-	// ── NeuralWatt query ──
+	} = ollamaCloud;
 	const {
+		providerId: neuralwattProviderId,
 		data: neuralwattQuota,
 		dataUpdatedAt: neuralwattDataUpdatedAt,
 		isRefetching: isNeuralwattRefetching,
-		isError: isNeuralwattError,
-		refetch: refetchNwRaw,
-	} = useQuery<NeuralWattQuotaResponse | null>({
-		queryKey: ["neuralwatt-quota", neuralwattProviderId],
-		queryFn: () =>
-			api.providers.getNeuralWattQuota(neuralwattProviderId as string),
-		enabled: Boolean(neuralwattProviderId),
-		refetchInterval: effectiveRefetchInterval,
-		staleTime: 0,
-		refetchOnMount: "always",
-		initialData: () =>
-			getCachedData<NeuralWattQuotaResponse>("neuralwatt-quota"),
-	});
-
-	useEffect(() => {
-		if (neuralwattQuota) setCachedData("neuralwatt-quota", neuralwattQuota);
-	}, [neuralwattQuota]);
-
-	// ── Error toasting ──
-	const nanoErrorToasted = useRef(false);
-	useEffect(() => {
-		if (!toastErrors) return;
-		if (isNanoGPTError && !nanoErrorToasted.current) {
-			toastErrors(t("hooks.useQuotaData.nanoGPTError"), "warning");
-			nanoErrorToasted.current = true;
-		}
-		if (!isNanoGPTError) nanoErrorToasted.current = false;
-	}, [isNanoGPTError, toastErrors, t]);
-
-	const zaiErrorToasted = useRef(false);
-	useEffect(() => {
-		if (!toastErrors) return;
-		if (isZAICodingError && !zaiErrorToasted.current) {
-			toastErrors(t("hooks.useQuotaData.zaiError"), "warning");
-			zaiErrorToasted.current = true;
-		}
-		if (!isZAICodingError) zaiErrorToasted.current = false;
-	}, [isZAICodingError, toastErrors, t]);
-
-	const kimiErrorToasted = useRef(false);
-	useEffect(() => {
-		if (!toastErrors) return;
-		if (isKimiCodeError && !kimiErrorToasted.current) {
-			toastErrors(t("hooks.useQuotaData.kimiError"), "warning");
-			kimiErrorToasted.current = true;
-		}
-		if (!isKimiCodeError) kimiErrorToasted.current = false;
-	}, [isKimiCodeError, toastErrors, t]);
-
-	const minimaxErrorToasted = useRef(false);
-	useEffect(() => {
-		if (!toastErrors) return;
-		if (isMiniMaxError && !minimaxErrorToasted.current) {
-			toastErrors(t("hooks.useQuotaData.miniMaxError"), "warning");
-			minimaxErrorToasted.current = true;
-		}
-		if (!isMiniMaxError) minimaxErrorToasted.current = false;
-	}, [isMiniMaxError, toastErrors, t]);
-
-	const dsErrorToasted = useRef(false);
-	useEffect(() => {
-		if (!toastErrors) return;
-		if (isDeepseekError && !dsErrorToasted.current) {
-			toastErrors(t("hooks.useQuotaData.deepSeekError"), "warning");
-			dsErrorToasted.current = true;
-		}
-		if (!isDeepseekError) dsErrorToasted.current = false;
-	}, [isDeepseekError, toastErrors, t]);
-
-	const orErrorToasted = useRef(false);
-	useEffect(() => {
-		if (!toastErrors) return;
-		if (isOpenRouterError && !orErrorToasted.current) {
-			toastErrors(t("hooks.useQuotaData.openRouterError"), "warning");
-			orErrorToasted.current = true;
-		}
-		if (!isOpenRouterError) orErrorToasted.current = false;
-	}, [isOpenRouterError, toastErrors, t]);
-
-	const ocErrorToasted = useRef(false);
-	useEffect(() => {
-		if (!toastErrors) return;
-		if (isOllamaCloudError && !ocErrorToasted.current) {
-			toastErrors(t("hooks.useQuotaData.ollamaCloudError"), "warning");
-			ocErrorToasted.current = true;
-		}
-		if (!isOllamaCloudError) ocErrorToasted.current = false;
-	}, [isOllamaCloudError, toastErrors, t]);
-
-	const nwErrorToasted = useRef(false);
-	useEffect(() => {
-		if (!toastErrors) return;
-		if (isNeuralwattError && !nwErrorToasted.current) {
-			toastErrors(t("hooks.useQuotaData.neuralwattError"), "warning");
-			nwErrorToasted.current = true;
-		}
-		if (!isNeuralwattError) nwErrorToasted.current = false;
-	}, [isNeuralwattError, toastErrors, t]);
+	} = neuralwatt;
 
 	// ── Derived values ──
 	const zaiCodingFiveHour = getZaiCodingFiveHourLimit(zaiCodingUsage);
@@ -600,49 +493,10 @@ export function useQuotaData(
 			neuralwattProviderId,
 	);
 
-	// ── Refetch helpers ──
-	const refetchNano = useCallback(async () => {
-		await refetchNanoRaw();
-	}, [refetchNanoRaw]);
-
-	const refetchZaiCoding = useCallback(async () => {
-		await refetchZaiRaw();
-	}, [refetchZaiRaw]);
-
-	const refetchKimiCode = useCallback(async () => {
-		await refetchKimiRaw();
-	}, [refetchKimiRaw]);
-
-	const refetchMiniMax = useCallback(async () => {
-		await refetchMiniMaxRaw();
-	}, [refetchMiniMaxRaw]);
-
-	const refetchDeepseek = useCallback(async () => {
-		await refetchDsRaw();
-	}, [refetchDsRaw]);
-
-	const refetchOpenRouter = useCallback(async () => {
-		await refetchOrRaw();
-	}, [refetchOrRaw]);
-
-	const refetchOllamaCloud = useCallback(async () => {
-		await refetchOcRaw();
-	}, [refetchOcRaw]);
-
-	const refetchNeuralwatt = useCallback(async () => {
-		await refetchNwRaw();
-	}, [refetchNwRaw]);
-
-	const invalidateAll = useCallback(() => {
-		queryClient.invalidateQueries({ queryKey: ["nanogpt-usage"] });
-		queryClient.invalidateQueries({ queryKey: ["zai-coding-usage"] });
-		queryClient.invalidateQueries({ queryKey: ["kimi-code-usage"] });
-		queryClient.invalidateQueries({ queryKey: ["minimax-usage"] });
-		queryClient.invalidateQueries({ queryKey: ["deepseek-balance"] });
-		queryClient.invalidateQueries({ queryKey: ["openrouter-balance"] });
-		queryClient.invalidateQueries({ queryKey: ["ollama-cloud-account"] });
-		queryClient.invalidateQueries({ queryKey: ["neuralwatt-quota"] });
-	}, [queryClient]);
+	const invalidateAll = useCallback(
+		() => invalidateQuotaQueries(queryClient),
+		[queryClient],
+	);
 
 	return {
 		nanogptProviderId,
@@ -678,14 +532,14 @@ export function useQuotaData(
 		showOllamaCloudBadge,
 		showNeuralwattBadge,
 		hasAnyProvider,
-		refetchNano,
-		refetchZaiCoding,
-		refetchKimiCode,
-		refetchMiniMax,
-		refetchDeepseek,
-		refetchOpenRouter,
-		refetchOllamaCloud,
-		refetchNeuralwatt,
+		refetchNano: nano.refetch,
+		refetchZaiCoding: zai.refetch,
+		refetchKimiCode: kimi.refetch,
+		refetchMiniMax: minimax.refetch,
+		refetchDeepseek: deepseek.refetch,
+		refetchOpenRouter: openrouter.refetch,
+		refetchOllamaCloud: ollamaCloud.refetch,
+		refetchNeuralwatt: neuralwatt.refetch,
 		isNanoRefetching,
 		isZaiCodingRefetching,
 		isKimiCodeRefetching,

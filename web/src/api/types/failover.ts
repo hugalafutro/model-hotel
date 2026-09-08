@@ -1,3 +1,6 @@
+/** A provider circuit breaker's three positions. */
+export type CircuitState = "closed" | "open" | "half-open";
+
 export interface FailoverEntry {
 	model_uuid: string;
 	model_id: string;
@@ -52,7 +55,7 @@ export interface CircuitBreakerStatus {
 export interface CircuitBreakerProviderStatus {
 	provider_id: string;
 	provider_name?: string;
-	state: "closed" | "open" | "half-open";
+	state: CircuitState;
 	consecutive_fails: number;
 	opened_at?: string;
 	cooldown_ms?: number;
@@ -92,7 +95,7 @@ export interface CircuitBreakerProviderStatus {
 // the verdict that last landed on the circuit.
 export interface CircuitStatus {
 	model: string;
-	state: "closed" | "open" | "half-open";
+	state: CircuitState;
 	consecutive_fails: number;
 	opened_at?: string;
 	cooldown_ms?: number;
@@ -117,7 +120,7 @@ export interface CircuitStatus {
 // provider), so the UI can report a no-op rather than claim a recovery.
 export interface CircuitBreakerResetResult {
 	provider_id: string;
-	previous_state: "closed" | "open" | "half-open";
+	previous_state: CircuitState;
 	reset: boolean;
 	// The upstream model id when the reset was scoped with ?model=. API only:
 	// the dashboard's per-entry reset button clears the whole provider.

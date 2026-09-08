@@ -1,17 +1,12 @@
 import { ArrowSquareOutIcon, WarningIcon } from "@phosphor-icons/react";
-import {
-	type SyntheticEvent,
-	useCallback,
-	useEffect,
-	useRef,
-	useState,
-} from "react";
+import { type SyntheticEvent, useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../api/client";
 import type { AutoSyncConfig, MemberView } from "../api/types";
 import { ConfirmModal } from "../components/ConfirmModal";
 import { Notice } from "../components/Notice";
 import { useToast } from "../context/ToastContext";
+import { useLatestRequest } from "../hooks/useLatestRequest";
 import { useMembers } from "../hooks/useMembers";
 import type { Build } from "../utils/build";
 import {
@@ -90,8 +85,8 @@ export function MembersPage() {
 	// mount and on SSE events), so only the newest in-flight response is applied.
 	// Without this, a slower earlier request can land after a newer one and, for
 	// example, restore the badge on a primary that was just removed. Mirrors the
-	// seqRef pattern useMembers already uses for its own refetch.
-	const primarySeqRef = useRef(0);
+	// guard useMembers already uses for its own refetch.
+	const latestPrimary = useLatestRequest();
 	// The designated fleet primary (GET /api/fleet/autosync -> primary_id) is the
 	// single source of truth for "who is primary": the same value the backend
 	// delete-guard and the Fleet Sync wizard use. The response also carries the
@@ -100,14 +95,14 @@ export function MembersPage() {
 	// /api/fleet/last-sync, whose primary_id is only a cosmetic "last run" marker
 	// and could name a since-removed host.)
 	const refreshPrimary = useCallback(() => {
-		const seq = ++primarySeqRef.current;
+		const seq = latestPrimary.next();
 		api
 			.getAutoSync()
 			.then((cfg) => {
-				if (seq === primarySeqRef.current) setAutoSync(cfg);
+				if (latestPrimary.isCurrent(seq)) setAutoSync(cfg);
 			})
 			.catch(() => {});
-	}, []);
+	}, [latestPrimary]);
 	const primaryId = autoSync?.primary_id || null;
 	// useMembers owns the page's single SSE subscription; piggyback on it to
 	// refresh the auto-sync status when membership, a sync, health, a fleet /
@@ -227,7 +222,7 @@ export function MembersPage() {
 						{t(`members.fleetState.${autoSync.fleet_state}`)}
 					</span>
 				)}
-				{primaryId && members.find((m) => m.id === primaryId)?.has_token && (
+				{primaryId && primaryMember?.has_token && (
 					<FleetCircuitReset primaryId={primaryId} />
 				)}
 			</div>
@@ -613,28 +608,32 @@ function AddMemberForm({
 				err instanceof ApiError &&
 				(err.status === 400 || err.status === 409)
 			) {
-				// Prefer the stable machine code the backend now sends; fall back to
-				// matching the message text for any response that predates the code.
-				const c = err.code;
-				if (c === "insecure_url" || /https/i.test(err.message))
-					setError(t("members.errHttpsRequired"));
-				else if (c === "duplicate" || /already exists/i.test(err.message))
-					setError(t("members.errDuplicate"));
-				else if (
-					c === "already_primary" ||
-					/already the fleet primary/i.test(err.message)
-				)
-					setError(t("members.errAlreadyPrimary"));
-				else if (
-					c === "already_member" ||
-					/already a member/i.test(err.message)
-				)
-					setError(t("members.errAlreadyMember"));
-				else if (c === "unreachable" || /could not reach/i.test(err.message))
-					setError(t("members.errUnreachable"));
-				else if (c === "identity_unverified")
-					setError(t("members.errIdentityUnverified"));
-				else setError(err.message);
+				// The UI is embedded in the same binary as the backend, so it can
+				// never be newer than the codes that backend sends. Anything else
+				// (a validation 400 with no code of its own) shows the server's own
+				// message rather than being guessed at from its wording.
+				switch (err.code) {
+					case "insecure_url":
+						setError(t("members.errHttpsRequired"));
+						break;
+					case "duplicate":
+						setError(t("members.errDuplicate"));
+						break;
+					case "already_primary":
+						setError(t("members.errAlreadyPrimary"));
+						break;
+					case "already_member":
+						setError(t("members.errAlreadyMember"));
+						break;
+					case "unreachable":
+						setError(t("members.errUnreachable"));
+						break;
+					case "identity_unverified":
+						setError(t("members.errIdentityUnverified"));
+						break;
+					default:
+						setError(err.message);
+				}
 			} else {
 				setError(t("errors.generic"));
 			}

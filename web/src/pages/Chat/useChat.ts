@@ -5,9 +5,13 @@ import type { ChatMessage, GenerationParams } from "../../api/types";
 import { useSidebarMode } from "../../context/SidebarModeContext";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { readJSON, useLocalStorage } from "../../hooks/useLocalStorage";
 import { useChatModels } from "../../hooks/useModels";
-import { parseCapabilities, proxyModelID } from "../../utils/model";
+import {
+	chatModelIdSet,
+	findChatModel,
+	parseCapabilities,
+} from "../../utils/model";
 import {
 	failedConversationModel,
 	lastChatError,
@@ -30,20 +34,17 @@ export function useChat() {
 	const { chatSubMode, setChatSubMode } = useSidebarMode();
 	const { persistChat, persistConversation } = useStorage();
 
+	// Only the current mode's transcript is restored: loading the conversation
+	// into chat mode (or the other way round) shows a history that belongs to
+	// the other mode.
 	const [messages, setMessages] = useState<ChatMessage[]>(() => {
-		try {
-			if (localStorage.getItem("persistChat") === "true") {
-				const stored = localStorage.getItem("chatMessages");
-				if (stored) return JSON.parse(stored);
-			}
-			if (localStorage.getItem("persistConversation") === "true") {
-				const stored = localStorage.getItem("conversationMessages");
-				if (stored) return JSON.parse(stored);
-			}
-		} catch {
-			/* ignore */
-		}
-		return [];
+		const isChat = chatSubMode === "chat";
+		if (!(isChat ? persistChat : persistConversation)) return [];
+		return (
+			readJSON<ChatMessage[]>(
+				isChat ? "chatMessages" : "conversationMessages",
+			) ?? []
+		);
 	});
 
 	useChatPersistence({
@@ -165,12 +166,8 @@ export function useChat() {
 		};
 	}, []);
 
-	const selectedModelObj = enabledModels.find(
-		(m) => proxyModelID(m.provider_name, m.model_id) === selectedModel,
-	);
-	const selectedModelObjB = enabledModels.find(
-		(m) => proxyModelID(m.provider_name, m.model_id) === selectedModelB,
-	);
+	const selectedModelObj = findChatModel(enabledModels, selectedModel);
+	const selectedModelObjB = findChatModel(enabledModels, selectedModelB);
 
 	// Drop persisted selections that are no longer valid chat models (e.g. a
 	// previously-picked model that became an embedding/rerank model, or one
@@ -184,9 +181,7 @@ export function useChat() {
 		// be dispatched to a chat endpoint; the loading window itself is covered by
 		// the modelsReady guards on send/regenerate/conversation start.
 		if (!modelsReady) return;
-		const valid = new Set(
-			enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
-		);
+		const valid = chatModelIdSet(enabledModels);
 		if (chatSelectedModel && !valid.has(chatSelectedModel))
 			setChatSelectedModel("");
 		if (conversationModelA && !valid.has(conversationModelA))
@@ -223,10 +218,7 @@ export function useChat() {
 		handleAudioSelect,
 	} = useMultimodalAttachments(hasVision, toast);
 
-	const { messagesContainerRef, scrollToBottom } = useChatScroll(
-		messages,
-		isStreaming,
-	);
+	const { messagesContainerRef } = useChatScroll(messages, isStreaming);
 
 	const {
 		handleRandomPersona,
@@ -240,7 +232,7 @@ export function useChat() {
 		activePersonaIdB,
 		selectedModel,
 		selectedModelB,
-		enabledModels: enabledModels ?? [],
+		enabledModels,
 		setActivePersonaId,
 		setSystemPrompt,
 		setActivePersonaIdB,
@@ -249,13 +241,7 @@ export function useChat() {
 		setSelectedModelB,
 	});
 
-	const {
-		sendingRef,
-		streamAssistantReply,
-		handleSend,
-		handleStop,
-		handleRegenerate,
-	} = useAssistantStream({
+	const { handleSend, handleStop, handleRegenerate } = useAssistantStream({
 		messages,
 		setMessages,
 		input,
@@ -322,6 +308,23 @@ export function useChat() {
 		toast,
 		t,
 	});
+
+	/**
+	 * Drops the transcript and puts the conversation back at turn zero. The
+	 * prompt that started it is restored to the input by default so the user
+	 * can run it again without retyping. The abort runs whatever sub-mode is
+	 * showing: a conversation left running behind a switch to chat would
+	 * otherwise keep writing turns into the transcript this just emptied.
+	 */
+	const clearMessages = (restorePrompt = true) => {
+		clearConversationAbort();
+		setMessages([]);
+		setInput(restorePrompt ? lastPromptRef.current : "");
+		setConversationState("idle");
+		setCurrentTurn(0);
+		setTurnCountdown(0);
+		setIsStreaming(false);
+	};
 
 	const handleKeyDown = (e: React.KeyboardEvent) => {
 		if (e.key === "Enter" && !e.shiftKey) {
@@ -442,7 +445,6 @@ export function useChat() {
 		setActivePersonaId,
 		messageParams,
 		setMessageParams,
-		modelCaps,
 		hasVision,
 		hasAudioInput,
 		selectedModelObj,
@@ -459,7 +461,6 @@ export function useChat() {
 		// the react-hooks/refs lint from tainting every state access. Internal
 		// refs (abort/cleanup/captured-model) are deliberately not exposed.
 		refs: {
-			sendingRef,
 			lastPromptRef,
 			messagesContainerRef,
 			imageInputRef,
@@ -470,8 +471,6 @@ export function useChat() {
 		handleRandomPersonaB,
 		handleRandomModel,
 		handleRandomModelB,
-		scrollToBottom,
-		streamAssistantReply,
 		handleSend,
 		handlePaste,
 		handleImageSelect,
@@ -483,6 +482,7 @@ export function useChat() {
 		handleRetryConversation,
 		handleDeleteMessage,
 		handleKeyDown,
+		clearMessages,
 		clearConversationAbort,
 	};
 }

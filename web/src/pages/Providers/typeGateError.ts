@@ -1,17 +1,6 @@
 import { ApiError } from "../../api/client";
 import { providerTypeTranslationKeys } from "./constants";
 
-/** Error codes the backend returns when an address cannot be accepted: a
- * self-hosted server that does not answer as the type it was added under, or a
- * URL the SSRF guard refuses outright. */
-export const providerTypeGateCodes = [
-	"provider_type_mismatch",
-	"provider_type_unconfirmed",
-	"provider_unreachable",
-	"provider_url_rejected",
-	"provider_duplicate_address",
-] as const;
-
 function stringField(
 	details: Record<string, unknown> | undefined,
 	key: string,

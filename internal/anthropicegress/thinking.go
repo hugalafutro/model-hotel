@@ -3,6 +3,8 @@ package anthropicegress
 import (
 	"encoding/json"
 	"strings"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // The thinking-dialect self-heal. A model accepts the adaptive thinking shape,
@@ -24,15 +26,6 @@ import (
 // string, so a reworded message keeps working as long as it still says which
 // shape is unsupported.
 
-// anthropicErrorEnvelope is the error body shape both messages arrive in.
-type anthropicErrorEnvelope struct {
-	Type  string `json:"type"`
-	Error struct {
-		Type    string `json:"type"`
-		Message string `json:"message"`
-	} `json:"error"`
-}
-
 // DialectFromError reports the thinking dialect an upstream 400 is asking for.
 // ok is false for any body that is not one of these two complaints, which is
 // almost all of them: a 400 about a document, a bad model id or a malformed
@@ -43,11 +36,7 @@ type anthropicErrorEnvelope struct {
 // happens to contain the word "adaptive" cannot flip a model onto a shape it
 // does not support and cost every later request a wasted round-trip.
 func DialectFromError(body []byte) (dialect ThinkingDialect, ok bool) {
-	var env anthropicErrorEnvelope
-	if json.Unmarshal(body, &env) != nil {
-		return 0, false
-	}
-	msg := strings.ToLower(env.Error.Message)
+	msg := strings.ToLower(util.ErrorEnvelopeMessage(body))
 	if !strings.Contains(msg, "thinking") {
 		return 0, false
 	}
@@ -75,5 +64,5 @@ func RequestAsksForThinking(messagesBody []byte) bool {
 	if json.Unmarshal(messagesBody, &probe) != nil {
 		return false
 	}
-	return len(probe.Thinking) > 0 && string(probe.Thinking) != "null"
+	return util.JSONMemberSet(probe.Thinking)
 }

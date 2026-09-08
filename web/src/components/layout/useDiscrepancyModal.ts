@@ -1,7 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useCallback, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
+import { useServerEvent } from "../../context/EventContext";
 import { useToast } from "../../context/ToastContext";
 import {
 	type MergedProvider,
@@ -11,6 +12,7 @@ import {
 } from "../../hooks/useDiscrepancies";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { useDiscoveryRetest } from "../../pages/Providers/useDiscoveryRetest";
+import { errorMessage } from "../../utils/errors";
 import type { ModelDiscrepancyModalProps } from "../ModelDiscrepancyModal";
 
 /** What the Models nav badge shows, derived from the polled discovery status. */
@@ -52,7 +54,7 @@ export function useDiscrepancyModal() {
 		queryKey: ["discovery-status"],
 		queryFn: () => api.discovery.status(false),
 		refetchInterval: 60_000,
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 	});
 	const claimCount = discoveryStatus?.claim_count ?? 0;
 	const informationalUnseen = discoveryStatus?.informational_unseen ?? 0;
@@ -159,7 +161,7 @@ export function useDiscrepancyModal() {
 				// read, and the section must keep saying why it did not clear.
 				setRetestErrors((prev) => ({
 					...prev,
-					[providerId]: err instanceof Error ? err.message : String(err),
+					[providerId]: errorMessage(err),
 				}));
 				return false;
 			} finally {
@@ -279,7 +281,7 @@ export function useDiscrepancyModal() {
 				// No rollback needed: nothing was claimed before the response.
 				toast(
 					t("providers.discrepancies.dismissFailed", {
-						message: err instanceof Error ? err.message : String(err),
+						message: errorMessage(err),
 					}),
 					"error",
 				);
@@ -374,7 +376,7 @@ export function useDiscrepancyModal() {
 				// No rollback: nothing was claimed before the response.
 				toast(
 					t("providers.discrepancies.dismissFailed", {
-						message: err instanceof Error ? err.message : String(err),
+						message: errorMessage(err),
 					}),
 					"error",
 				);
@@ -413,7 +415,7 @@ export function useDiscrepancyModal() {
 				// No rollback: nothing was claimed before the response.
 				toast(
 					t("providers.discrepancies.unpinFailed", {
-						message: err instanceof Error ? err.message : String(err),
+						message: errorMessage(err),
 					}),
 					"error",
 				);
@@ -440,16 +442,9 @@ export function useDiscrepancyModal() {
 			.finally(refreshBadge);
 	}, [refreshBadge]);
 
-	useEffect(() => {
-		const handler = (e: Event) => {
-			const detail = (e as CustomEvent).detail;
-			if (detail?.type === "discovery.changes_pending") {
-				refreshBadge();
-			}
-		};
-		window.addEventListener("server-event", handler);
-		return () => window.removeEventListener("server-event", handler);
-	}, [refreshBadge]);
+	useServerEvent((event) => {
+		if (event?.type === "discovery.changes_pending") refreshBadge();
+	});
 
 	// A failed fetch must reach the modal: it renders a failure banner and, more
 	// importantly, suppresses the "nothing is wrong" empty state.

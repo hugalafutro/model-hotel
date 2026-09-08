@@ -23,12 +23,23 @@ import (
 type levelCaptureHandler struct {
 	last slog.Level
 	msg  string
+	// status records the "status" attribute of the last record, which the
+	// access-log tests assert on.
+	status int64
 }
 
 func (h *levelCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
 func (h *levelCaptureHandler) Handle(_ context.Context, r slog.Record) error {
 	h.last = r.Level
 	h.msg = r.Message
+	h.status = 0
+	r.Attrs(func(a slog.Attr) bool {
+		if a.Key == "status" {
+			h.status = a.Value.Int64()
+			return false
+		}
+		return true
+	})
 	return nil
 }
 func (h *levelCaptureHandler) WithAttrs([]slog.Attr) slog.Handler { return h }

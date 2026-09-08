@@ -431,11 +431,10 @@ func TestWarmModelCache_FillsAllSubCaches(t *testing.T) {
 	}
 
 	// 2. ModelID string cache: "deepseek-r1" and "gpt-4" should be cached.
-	if !IsCachedByModelID("deepseek-r1") {
-		t.Error("IsCachedByModelID: deepseek-r1 should be cached")
-	}
-	if !IsCachedByModelID("gpt-4") {
-		t.Error("IsCachedByModelID: gpt-4 should be cached")
+	for _, id := range []string{"deepseek-r1", "gpt-4"} {
+		if _, ok := GetCachedByModelID(id); !ok {
+			t.Errorf("GetCachedByModelID: %s should be cached", id)
+		}
 	}
 
 	// 3. Composite key cache: each provider:modelID pair should be cached.

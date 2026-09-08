@@ -134,9 +134,7 @@ func (w *statusRecorder) Unwrap() http.ResponseWriter {
 // never audited; neither are request bodies.
 func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		switch r.Method {
-		case http.MethodPost, http.MethodPut, http.MethodPatch, http.MethodDelete:
-		default:
+		if !isAuditedMethod(r.Method) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -176,10 +174,12 @@ func (rec *Recorder) Middleware(next http.Handler) http.Handler {
 			// actions happened. The insert runs on a background goroutine, so leaving
 			// created_at to the DB default would let two rapid mutations land out of
 			// request order.
-			CreatedAt:  time.Now(),
-			Actor:      actor,
-			ActorRole:  role,
-			Method:     r.Method,
+			CreatedAt: time.Now(),
+			Actor:     actor,
+			ActorRole: role,
+			// Normalized: filter() binds an upper-cased method, so a row stored
+			// with the method spelled any other way could never be matched.
+			Method:     strings.ToUpper(r.Method),
 			Route:      route,
 			Path:       r.URL.Path,
 			EntityID:   entityID,
@@ -311,39 +311,26 @@ func (rec *Recorder) maybePrune() {
 	}
 }
 
+// PageLimit is the page size List actually applies: a limit below 1 becomes 50,
+// anything above 200 is capped there. Exported so an HTTP caller sizing its
+// has_more lookahead reads the same number List paged by instead of restating
+// the clamp.
+func (p ListParams) PageLimit() int {
+	if p.Limit < 1 {
+		return 50
+	}
+	return min(p.Limit, 200)
+}
+
 // List returns entries newest-first with keyset pagination, plus one extra row
 // so the caller can detect has_more.
 func (rec *Recorder) List(ctx context.Context, p ListParams) ([]Entry, error) {
-	if p.Limit < 1 {
-		p.Limit = 50
-	}
-	if p.Limit > 200 {
-		p.Limit = 200
-	}
-	if p.Offset < 0 {
-		p.Offset = 0
-	}
+	p.Limit = p.PageLimit()
+	p.Offset = max(p.Offset, 0)
+	where, args := p.filter()
 	query := `SELECT id, created_at, actor, actor_role, method, route, path, COALESCE(entity_id, ''), status_code, remote_addr
-		FROM audit_log WHERE 1=1`
-	args := []any{}
-	idx := 1
-	add := func(frag string, val any) {
-		query += fmt.Sprintf(frag, idx)
-		args = append(args, val)
-		idx++
-	}
-	if p.Actor != "" {
-		add(" AND actor = $%d", p.Actor)
-	}
-	if p.Method != "" && isAuditedMethod(p.Method) {
-		add(" AND method = $%d", strings.ToUpper(p.Method))
-	}
-	if !p.From.IsZero() {
-		add(" AND created_at >= $%d", p.From)
-	}
-	if !p.To.IsZero() {
-		add(" AND created_at <= $%d", p.To)
-	}
+		FROM audit_log WHERE 1=1` + where
+	idx := len(args) + 1
 	if !p.CursorCreatedAt.IsZero() && p.CursorID != "" {
 		query += fmt.Sprintf(" AND (created_at < $%d OR (created_at = $%d AND id < $%d))", idx, idx+1, idx+2)
 		args = append(args, p.CursorCreatedAt, p.CursorCreatedAt, p.CursorID)
@@ -378,26 +365,8 @@ func (rec *Recorder) List(ctx context.Context, p ListParams) ([]Entry, error) {
 // Count returns the total row count for the same filters (cursor excluded).
 // Best-effort: 0 on error.
 func (rec *Recorder) Count(ctx context.Context, p ListParams) int {
-	query := `SELECT COUNT(*) FROM audit_log WHERE 1=1`
-	args := []any{}
-	idx := 1
-	add := func(frag string, val any) {
-		query += fmt.Sprintf(frag, idx)
-		args = append(args, val)
-		idx++
-	}
-	if p.Actor != "" {
-		add(" AND actor = $%d", p.Actor)
-	}
-	if p.Method != "" && isAuditedMethod(p.Method) {
-		add(" AND method = $%d", strings.ToUpper(p.Method))
-	}
-	if !p.From.IsZero() {
-		add(" AND created_at >= $%d", p.From)
-	}
-	if !p.To.IsZero() {
-		add(" AND created_at <= $%d", p.To)
-	}
+	where, args := p.filter()
+	query := `SELECT COUNT(*) FROM audit_log WHERE 1=1` + where
 	var total int
 	_ = rec.pool.QueryRow(ctx, query, args...).Scan(&total)
 	return total
@@ -415,6 +384,29 @@ func (rec *Recorder) Purge(ctx context.Context, cutoff time.Time, all bool) erro
 		return fmt.Errorf("audit: purge: %w", err)
 	}
 	return nil
+}
+
+// filter renders the shared WHERE fragment for List and Count, numbered from
+// $1. One body so a filter can never reach the page without also reaching the
+// total the dashboard reads beside it.
+func (p ListParams) filter() (where string, args []any) {
+	add := func(frag string, val any) {
+		where += fmt.Sprintf(frag, len(args)+1)
+		args = append(args, val)
+	}
+	if p.Actor != "" {
+		add(" AND actor = $%d", p.Actor)
+	}
+	if p.Method != "" && isAuditedMethod(p.Method) {
+		add(" AND method = $%d", strings.ToUpper(p.Method))
+	}
+	if !p.From.IsZero() {
+		add(" AND created_at >= $%d", p.From)
+	}
+	if !p.To.IsZero() {
+		add(" AND created_at <= $%d", p.To)
+	}
+	return where, args
 }
 
 // isAuditedMethod reports whether m is one of the recorded HTTP methods, so

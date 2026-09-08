@@ -1,14 +1,14 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
-	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -18,19 +18,15 @@ import (
 // translation, so cache_control / thinking / fine-grained tool streaming survive
 // upstream. Auth + anthropic-version headers come from SetProviderAuthHeaders.
 func (h *Handler) buildNativeAnthropicRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/messages")
 	// A Gemini thought signature riding on a tool_use id (see
 	// anthropic.StripSignedToolUseIDs) is dropped: this provider has no use for
 	// it, and it is a kilobyte of prompt per call per turn.
 	body := anthropic.RewriteModel(anthropic.StripSignedToolUseIDs(st.anthropicRawBody), candidate.model.ModelID)
+	proxyReq, targetURL, err := newMessagesRequest(ctx, candidate, providerType, body)
 	debuglog.Debug("proxy: native anthropic passthrough", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name)
-
-	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, providerType, targetURL, err
 	}
-	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
 }
 
@@ -47,7 +43,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		_ = resp.Body.Close()
 	}()
 
-	body, err := io.ReadAll(resp.Body)
+	body, err := httpx.ReadCappedBody(resp.Body, nonStreamingBodyCap)
 	if err != nil {
 		debuglog.Warn("proxy: native anthropic read failed", "error", err, "provider", logData.providerName)
 		// Finalize the log row so it does not orphan in the in-flight state. A
@@ -55,12 +51,18 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		// unless it was interrupted rather than broken, which cancelKind
 		// classifies the same way the translated path does: the identical event
 		// must not log provider_error here and client_disconnect there.
+		// A body past the cap is refused by THIS gateway, so it is reported the
+		// way the translated path reports its own refusal: a bad request the
+		// provider is not charged for, never a provider fault.
 		kind := KindProviderError
-		if cancelled, aborted := cancelKind(r.Context(), err); aborted {
+		switch cancelled, aborted := cancelKind(r.Context(), err); {
+		case aborted:
 			kind = cancelled
+		case errors.Is(err, httpx.ErrBodyTooLarge):
+			kind = KindProviderBadRequest
 		}
 		logData.statusCode = http.StatusBadGateway
-		logData.durationMs = float64(time.Since(st.startTime).Microseconds()) / 1000.0
+		logData.durationMs = util.MillisSince(st.startTime)
 		logData.responseHeaderMs = responseHeaderMs
 		logData.failoverAttempt = attempt
 		logData.errorKind = kind
@@ -80,7 +82,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// writes is clamped, so the log row's five token columns, the estimate and
 	// the charge agree.
 	inputTokens, outputTokens, _ := h.clampReportedUsage(usage.PromptTokens, usage.CompletionTokens, 0, logData)
-	totalDuration := float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	totalDuration := util.MillisSince(st.startTime)
 
 	// The status the provider actually sent, not a flattened 200: a relay may
 	// answer a native message 201, and recording 200 would put a number in the
@@ -89,12 +91,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.durationMs = totalDuration
 	logData.proxyOverheadMs = st.proxyOverhead
 	logData.parseMs = st.parseMs
-	logData.failoverLookupMs = st.timings.failoverLookupMs
-	logData.modelLookupMs = st.timings.modelLookupMs
-	logData.providerLookupMs = st.timings.providerLookupMs
-	logData.keyDecryptMs = st.timings.keyDecryptMs
-	logData.dialMs = st.timings.dialMs
-	logData.settingsReadMs = st.timings.settingsReadMs
+	logData.applyTimings(st.timings)
 	logData.responseHeaderMs = responseHeaderMs
 	logData.tokensPrompt = inputTokens
 	logData.tokensCompletion = outputTokens
@@ -111,12 +108,13 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// would stop the streak ever reaching three consecutive strikes. Tokens
 	// corroborate, for a provider that answers without reporting usage. Same
 	// judgement chatAnswerCarriesContent makes on the OpenAI-shaped path.
-	logData.deliveredContent = outputTokens > 0 || anthropic.ResponseCarriesContent(body)
+	carriesContent := outputTokens > 0 || anthropic.ResponseCarriesContent(body)
+	logData.deliveredContent = carriesContent
 	// The question the breaker asks of the same body: did anything come back.
 	// ResponseCarriesContent reads block PRESENCE, which is the native analogue
 	// of the translated path's "any choice carrying something", so on this path
 	// the two bars coincide and the negation is exact.
-	logData.emptyCompletion = outputTokens == 0 && !anthropic.ResponseCarriesContent(body)
+	logData.emptyCompletion = !carriesContent
 	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 
 	inputTokens, outputTokens, _ = estimateMissingUsage(inputTokens, outputTokens, 0, logData, anthropic.ResponseTextBytes(body))

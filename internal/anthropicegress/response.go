@@ -9,6 +9,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // --- Incoming Anthropic Messages response shape ---
@@ -112,11 +113,7 @@ func BuildChatCompletion(anthropicBody []byte, id, model string, created int64) 
 		return nil, fmt.Errorf("anthropicegress: invalid upstream response: %s", jsonfault.Describe(err, len(anthropicBody)))
 	}
 	if resp.Type == "error" {
-		kind := "unknown"
-		if resp.Error != nil && resp.Error.Type != "" {
-			kind = resp.Error.Type
-		}
-		return nil, fmt.Errorf("anthropicegress: upstream error: %s", kind)
+		return nil, upstreamError(resp.Error)
 	}
 	if resp.Type != "message" {
 		// Anything that is not a Messages response or a recognised error
@@ -186,13 +183,22 @@ func translateContent(blocks []antRespBlock) (text, reasoning string, toolCalls 
 // from the already-validated response document, so it is always
 // syntactically valid JSON here; Compact cannot fail on it.
 func toolArguments(input json.RawMessage) string {
-	trimmed := bytes.TrimSpace(input)
-	if len(trimmed) == 0 || string(trimmed) == "null" {
+	if !util.JSONMemberSet(input) {
 		return "{}"
 	}
 	var buf bytes.Buffer
-	_ = json.Compact(&buf, trimmed)
+	_ = json.Compact(&buf, input)
 	return buf.String()
+}
+
+// upstreamError names the type of an Anthropic error envelope. Only the type
+// is named: error.message can echo request content.
+func upstreamError(e *antRespError) error {
+	kind := "unknown"
+	if e != nil && e.Type != "" {
+		kind = e.Type
+	}
+	return fmt.Errorf("anthropicegress: upstream error: %s", kind)
 }
 
 // mapFinishReason maps an Anthropic stop_reason to an OpenAI finish_reason.

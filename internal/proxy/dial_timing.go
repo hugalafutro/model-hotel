@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // dialTiming is the per-attempt slot the SafeDialer writes DNS+TCP time into
@@ -51,6 +52,6 @@ func withDialTiming(ctx context.Context) (context.Context, *dialTiming) {
 // the request's slot, if the request carries one.
 func recordDialMs(ctx context.Context, start time.Time) {
 	if dt, ok := ctx.Value(ctxkeys.DialMsKey).(*dialTiming); ok {
-		dt.set(float64(time.Since(start).Microseconds()) / 1000.0)
+		dt.set(util.MillisSince(start))
 	}
 }

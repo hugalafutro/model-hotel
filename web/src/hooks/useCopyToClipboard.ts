@@ -1,15 +1,9 @@
-import { type ClipboardWriter, writeClipboard } from "@web-shared/clipboard";
+import { writeClipboard } from "@web-shared/clipboard";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 interface UseCopyToClipboardOptions {
 	/** How long `copied` stays true after a successful write. Defaults to 2000ms. */
 	resetAfterMs?: number;
-	/**
-	 * Writer used instead of `navigator.clipboard.writeText`, for the call sites
-	 * that need their own fallback path (e.g. a dashboard served over plain HTTP,
-	 * where the Clipboard API does not exist).
-	 */
-	write?: ClipboardWriter;
 	/**
 	 * When false, `copied` stays false and no reset timer is scheduled, for
 	 * callers that report the result some other way (a toast) and never render
@@ -30,7 +24,8 @@ interface UseCopyToClipboard {
  *
  * - `copy(text)` resolves false instead of throwing when the clipboard is
  *   missing or refuses, so callers that toast a failure still can. That
- *   never-throw write is shared with Front Desk in web-shared/clipboard.
+ *   never-throw write, and its legacy fallback for plain-HTTP dashboards, is
+ *   shared with Front Desk in web-shared/clipboard.
  * - `copied` flips true on success and reverts on a timer cleared on a re-copy
  *   and on unmount. An unmount while the write is still in flight ends the copy
  *   there: the text reaches the clipboard, but nothing is flagged and no timer
@@ -39,15 +34,8 @@ interface UseCopyToClipboard {
 export function useCopyToClipboard(
 	options: UseCopyToClipboardOptions = {},
 ): UseCopyToClipboard {
-	const { resetAfterMs = 2000, write, trackCopied = true } = options;
+	const { resetAfterMs = 2000, trackCopied = true } = options;
 	const [copied, setCopied] = useState(false);
-
-	// Refs so `copy` keeps one identity across renders even when the caller
-	// passes an inline writer.
-	const writeRef = useRef(write);
-	useEffect(() => {
-		writeRef.current = write;
-	}, [write]);
 
 	const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 	// False from unmount onwards, so work resumed after an awaited write knows
@@ -63,7 +51,7 @@ export function useCopyToClipboard(
 
 	const copy = useCallback(
 		async (text: string): Promise<boolean> => {
-			if (!(await writeClipboard(text, writeRef.current))) return false;
+			if (!(await writeClipboard(text))) return false;
 			if (!alive.current || !trackCopied) return true;
 			setCopied(true);
 			if (timer.current !== null) clearTimeout(timer.current);

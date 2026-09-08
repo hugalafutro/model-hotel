@@ -2,410 +2,56 @@ package failover
 
 import (
 	"context"
-	"fmt"
 	"testing"
 
 	"github.com/google/uuid"
 )
 
-func TestGetByModel_UnmarshalPriorityError(t *testing.T) {
+// TestScanFailoverGroup_MalformedJSON seeds a group whose priority_order (then
+// entry_enabled) is JSON the decoder rejects, and checks every read path
+// surfaces the decode error instead of returning a half-built group.
+func TestScanFailoverGroup_MalformedJSON(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()
 
-	displayModel := "test-unmarshal-priority-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New(), uuid.New()}
+	for _, tc := range []struct {
+		name          string
+		priorityOrder string
+		entryEnabled  string
+		want          string
+	}{
+		{"priority_order", `{"not":"an array"}`, `{}`, "unmarshal priority_order"},
+		{"entry_enabled", `[]`, `["not an object"]`, "unmarshal entry_enabled"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			displayModel := "test-malformed-" + tc.name + "-" + uuid.New().String()[:8]
+			var id uuid.UUID
+			err := testDB.Pool().QueryRow(ctx, `
+				INSERT INTO model_failover_groups (display_model, priority_order, entry_enabled, group_enabled, auto_created, created_at, updated_at)
+				VALUES ($1, $2, $3, true, false, now(), now())
+				RETURNING id
+			`, displayModel, tc.priorityOrder, tc.entryEnabled).Scan(&id)
+			if err != nil {
+				t.Fatalf("seed group: %v", err)
+			}
+			defer func() {
+				_, _ = testDB.Pool().Exec(ctx, "DELETE FROM model_failover_groups WHERE id = $1", id)
+			}()
 
-	_, err := repo.Upsert(ctx, displayModel, po)
-	if err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-
-	origUnmarshal := jsonUnmarshal
-	defer func() { jsonUnmarshal = origUnmarshal }()
-
-	callCount := 0
-	jsonUnmarshal = func(data []byte, v any) error {
-		callCount++
-		if callCount == 1 {
-			return fmt.Errorf("test unmarshal error")
-		}
-		return origUnmarshal(data, v)
-	}
-
-	InvalidateFailoverCache()
-	_, err = repo.GetByModel(ctx, displayModel)
-	if err == nil {
-		t.Error("GetByModel should return error when unmarshal fails")
-	}
-}
-
-func TestGetByModel_UnmarshalEntryEnabledError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-unmarshal-entry-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New(), uuid.New()}
-
-	_, err := repo.Upsert(ctx, displayModel, po)
-	if err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-
-	origUnmarshal := jsonUnmarshal
-	defer func() { jsonUnmarshal = origUnmarshal }()
-
-	callCount := 0
-	jsonUnmarshal = func(data []byte, v any) error {
-		callCount++
-		if callCount == 2 {
-			return fmt.Errorf("test unmarshal error")
-		}
-		return origUnmarshal(data, v)
-	}
-
-	InvalidateFailoverCache()
-	_, err = repo.GetByModel(ctx, displayModel)
-	if err == nil {
-		t.Error("GetByModel should return error when unmarshal entry_enabled fails")
+			InvalidateFailoverCache()
+			if _, err := repo.GetByModel(ctx, displayModel); err == nil || !containsSubstring(err.Error(), tc.want) {
+				t.Errorf("GetByModel error = %v, want one containing %q", err, tc.want)
+			}
+			if _, err := repo.GetByID(ctx, id); err == nil || !containsSubstring(err.Error(), tc.want) {
+				t.Errorf("GetByID error = %v, want one containing %q", err, tc.want)
+			}
+			if _, err := repo.List(ctx); err == nil || !containsSubstring(err.Error(), tc.want) {
+				t.Errorf("List error = %v, want one containing %q", err, tc.want)
+			}
+		})
 	}
 }
 
-// ---------------------------------------------------------------------------
-// json.Unmarshal error paths - UpsertWithConfig
-// ---------------------------------------------------------------------------
-
-func TestUpsertWithConfig_UnmarshalPriorityError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-upsert-unmarshal-priority-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	origUnmarshal := jsonUnmarshal
-	defer func() { jsonUnmarshal = origUnmarshal }()
-
-	callCount := 0
-	jsonUnmarshal = func(data []byte, v any) error {
-		callCount++
-		if callCount == 1 {
-			return fmt.Errorf("test unmarshal error")
-		}
-		return origUnmarshal(data, v)
-	}
-
-	_, err := repo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-	if err == nil {
-		t.Error("UpsertWithConfig should return error when unmarshal priority fails")
-	}
-}
-
-func TestUpsertWithConfig_UnmarshalEntryEnabledError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-upsert-unmarshal-entry-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	origUnmarshal := jsonUnmarshal
-	defer func() { jsonUnmarshal = origUnmarshal }()
-
-	callCount := 0
-	jsonUnmarshal = func(data []byte, v any) error {
-		callCount++
-		if callCount == 2 {
-			return fmt.Errorf("test unmarshal error")
-		}
-		return origUnmarshal(data, v)
-	}
-
-	_, err := repo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-	if err == nil {
-		t.Error("UpsertWithConfig should return error when unmarshal entry_enabled fails")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// json.Unmarshal error paths - GetByID
-// ---------------------------------------------------------------------------
-
-func TestGetByID_UnmarshalPriorityError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-getbyid-unmarshal-priority-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	fg, err := repo.Upsert(ctx, displayModel, po)
-	if err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-
-	origUnmarshal := jsonUnmarshal
-	defer func() { jsonUnmarshal = origUnmarshal }()
-
-	callCount := 0
-	jsonUnmarshal = func(data []byte, v any) error {
-		callCount++
-		if callCount == 1 {
-			return fmt.Errorf("test unmarshal error")
-		}
-		return origUnmarshal(data, v)
-	}
-
-	InvalidateFailoverCache()
-	_, err = repo.GetByID(ctx, fg.ID)
-	if err == nil {
-		t.Error("GetByID should return error when unmarshal priority fails")
-	}
-}
-
-func TestGetByID_UnmarshalEntryEnabledError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-getbyid-unmarshal-entry-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	fg, err := repo.Upsert(ctx, displayModel, po)
-	if err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-
-	origUnmarshal := jsonUnmarshal
-	defer func() { jsonUnmarshal = origUnmarshal }()
-
-	callCount := 0
-	jsonUnmarshal = func(data []byte, v any) error {
-		callCount++
-		if callCount == 2 {
-			return fmt.Errorf("test unmarshal error")
-		}
-		return origUnmarshal(data, v)
-	}
-
-	InvalidateFailoverCache()
-	_, err = repo.GetByID(ctx, fg.ID)
-	if err == nil {
-		t.Error("GetByID should return error when unmarshal entry_enabled fails")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// json.Unmarshal error paths - Update
-// ---------------------------------------------------------------------------
-
-func TestUpdate_UnmarshalPriorityError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-update-unmarshal-priority-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	fg, err := repo.Upsert(ctx, displayModel, po)
-	if err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-
-	origUnmarshal := jsonUnmarshal
-	defer func() { jsonUnmarshal = origUnmarshal }()
-
-	callCount := 0
-	jsonUnmarshal = func(data []byte, v any) error {
-		callCount++
-		if callCount == 1 {
-			return fmt.Errorf("test unmarshal error")
-		}
-		return origUnmarshal(data, v)
-	}
-
-	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil, nil)
-	if err == nil {
-		t.Error("Update should return error when unmarshal priority fails")
-	}
-}
-
-func TestUpdate_UnmarshalEntryEnabledError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-update-unmarshal-entry-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	fg, err := repo.Upsert(ctx, displayModel, po)
-	if err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-
-	origUnmarshal := jsonUnmarshal
-	defer func() { jsonUnmarshal = origUnmarshal }()
-
-	callCount := 0
-	jsonUnmarshal = func(data []byte, v any) error {
-		callCount++
-		if callCount == 2 {
-			return fmt.Errorf("test unmarshal error")
-		}
-		return origUnmarshal(data, v)
-	}
-
-	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil, nil)
-	if err == nil {
-		t.Error("Update should return error when unmarshal entry_enabled fails")
-	}
-}
-func TestUpsertWithConfig_MarshalPriorityError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-upsert-marshal-priority-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	origMarshal := jsonMarshal
-	defer func() { jsonMarshal = origMarshal }()
-
-	callCount := 0
-	jsonMarshal = func(v any) ([]byte, error) {
-		callCount++
-		if callCount == 1 {
-			return nil, fmt.Errorf("test marshal error")
-		}
-		return origMarshal(v)
-	}
-
-	_, err := repo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-	if err == nil {
-		t.Error("UpsertWithConfig should return error when marshal priority fails")
-	}
-}
-
-func TestUpsertWithConfig_MarshalEntryEnabledError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-upsert-marshal-entry-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	origMarshal := jsonMarshal
-	defer func() { jsonMarshal = origMarshal }()
-
-	callCount := 0
-	jsonMarshal = func(v any) ([]byte, error) {
-		callCount++
-		if callCount == 2 {
-			return nil, fmt.Errorf("test marshal error")
-		}
-		return origMarshal(v)
-	}
-
-	_, err := repo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-	if err == nil {
-		t.Error("UpsertWithConfig should return error when marshal entry_enabled fails")
-	}
-}
-
-// ---------------------------------------------------------------------------
-// json.Marshal error paths - Update
-// ---------------------------------------------------------------------------
-
-func TestUpdate_MarshalPriorityError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-update-marshal-priority-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	fg, err := repo.Upsert(ctx, displayModel, po)
-	if err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-
-	origMarshal := jsonMarshal
-	defer func() { jsonMarshal = origMarshal }()
-
-	callCount := 0
-	jsonMarshal = func(v any) ([]byte, error) {
-		callCount++
-		if callCount == 1 {
-			return nil, fmt.Errorf("test marshal error")
-		}
-		return origMarshal(v)
-	}
-
-	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil, nil)
-	if err == nil {
-		t.Error("Update should return error when marshal priority fails")
-	}
-}
-
-func TestUpdate_MarshalEntryEnabledError(t *testing.T) {
-	repo := newTestRepo(t)
-	ctx := context.Background()
-
-	displayModel := "test-update-marshal-entry-" + uuid.New().String()[:8]
-	po := []uuid.UUID{uuid.New()}
-
-	fg, err := repo.Upsert(ctx, displayModel, po)
-	if err != nil {
-		t.Fatalf("Upsert failed: %v", err)
-	}
-	defer func() {
-		_ = repo.Delete(ctx, displayModel)
-	}()
-
-	origMarshal := jsonMarshal
-	defer func() { jsonMarshal = origMarshal }()
-
-	callCount := 0
-	jsonMarshal = func(v any) ([]byte, error) {
-		callCount++
-		if callCount == 2 {
-			return nil, fmt.Errorf("test marshal error")
-		}
-		return origMarshal(v)
-	}
-
-	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(ctx, fg.ID, newPO, nil, nil, nil, nil, nil)
-	if err == nil {
-		t.Error("Update should return error when marshal entry_enabled fails")
-	}
-}
 func TestUpsertWithConfig_DBError(t *testing.T) {
 	repo := newTestRepo(t)
 
@@ -440,7 +86,7 @@ func TestUpdate_DBError(t *testing.T) {
 	displayModel := "test-update-dberror-" + uuid.New().String()[:8]
 	po := []uuid.UUID{uuid.New()}
 
-	fg, err := repo.Upsert(ctx, displayModel, po)
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
 	if err != nil {
 		t.Fatalf("Upsert failed: %v", err)
 	}

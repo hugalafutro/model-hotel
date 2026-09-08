@@ -71,7 +71,7 @@ func TestGetAppLogsCursor_Golden(t *testing.T) {
 		if err != nil {
 			t.Fatalf("parse created_at %q: %v", e.CreatedAt, err)
 		}
-		c := appLogCursor{CreatedAt: ts, ID: e.ID}
+		c := logCursor{CreatedAt: ts, ID: e.ID}
 		return url.QueryEscape(c.encode())
 	}
 

@@ -6,6 +6,7 @@ import type { QuotaDataResult } from "../../hooks/useQuotaData";
 import { server } from "../../test/mocks/server";
 import { renderWithProviders } from "../../test/utils";
 import { ProviderQuotaPanel } from "../ProviderQuotaPanel";
+import { QuotaModalsHost } from "../QuotaModalsHost";
 
 // Mock useQuotaData
 vi.mock("../../hooks/useQuotaData", async (importOriginal) => {
@@ -87,9 +88,17 @@ function createMockQuotaData(
 	};
 }
 
+// The panel opens a modal by naming it in QuotaModalContext; QuotaModalsHost is
+// what renders it, mounted once in Layout. The badge-click tests below need
+// both, as the app has both.
 function setupPanel(overrides?: Partial<QuotaDataResult>) {
 	mockUseQuotaData.mockReturnValue(createMockQuotaData(overrides));
-	return renderWithProviders(<ProviderQuotaPanel />);
+	return renderWithProviders(
+		<>
+			<ProviderQuotaPanel />
+			<QuotaModalsHost />
+		</>,
+	);
 }
 
 describe("ProviderQuotaPanel", () => {
@@ -388,7 +397,7 @@ describe("ProviderQuotaPanel", () => {
 	});
 
 	describe("event listeners", () => {
-		it("sidebarQuotaToggle event hides panel when disabled", async () => {
+		it("hides the panel when the stored show/hide flag turns off", async () => {
 			const { container } = setupPanel();
 
 			// Panel should be visible initially
@@ -399,9 +408,13 @@ describe("ProviderQuotaPanel", () => {
 			// Set disabled in localStorage before dispatching event
 			localStorage.setItem("sidebarQuotaDisabled", "true");
 
-			// Dispatch toggle event
+			// Announce the write the way useLocalStorage's setter does
 			await act(async () => {
-				window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
+				window.dispatchEvent(
+					new CustomEvent("localStorageChange", {
+						detail: { key: "sidebarQuotaDisabled" },
+					}),
+				);
 			});
 
 			// Panel should be hidden when disabled

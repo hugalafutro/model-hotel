@@ -75,20 +75,3 @@ export function useChatModels() {
 	);
 	return { ...rest, data: chatModels };
 }
-
-/**
- * Simplified provider data - just name + base_url.
- * Used by Chat and Arena for ModelPicker grouping.
- */
-export function useProviderData() {
-	const { data: providers, ...rest } = useProviders();
-	const providerData = useMemo(
-		() =>
-			providers?.map((p: { name: string; base_url: string }) => ({
-				name: p.name,
-				base_url: p.base_url,
-			})) ?? [],
-		[providers],
-	);
-	return { ...rest, data: providerData };
-}

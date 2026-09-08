@@ -156,9 +156,9 @@ func TestDiscoverXAIMinimalModels(t *testing.T) {
 		}
 
 		// Mock XAI minimal models response (OpenAI-compatible format)
-		response := XAIModelsResponse{
+		response := OpenAIModelsResponse{
 			Object: "list",
-			Data: []XAIModel{
+			Data: []OpenAIModel{
 				{
 					ID:      "grogu-minimal",
 					Object:  "model",
@@ -399,9 +399,9 @@ func TestDiscoverXAI_FallbackToMinimalModels(t *testing.T) {
 			return
 		}
 		if r.URL.Path == "/models" {
-			response := XAIModelsResponse{
+			response := OpenAIModelsResponse{
 				Object: "list",
-				Data: []XAIModel{
+				Data: []OpenAIModel{
 					{ID: "minimal-model", Object: "model", OwnedBy: "xai"},
 				},
 			}
@@ -465,7 +465,7 @@ func TestDiscoverXAI_RateLimitFallback(t *testing.T) {
 	}
 }
 
-// Test discoverXAI with HTTP error (not 403/429) - should return error
+// Test discoverXAI with HTTP error (not 403) - should return error
 func TestDiscoverXAI_HttpError(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/language-models" || r.URL.Path == "/models" {
@@ -570,7 +570,7 @@ func TestIsNoAccessError(t *testing.T) {
 		{
 			name:       "429 too many requests",
 			err:        &httpError{StatusCode: http.StatusTooManyRequests},
-			wantResult: true,
+			wantResult: false,
 		},
 		{
 			name:       "500 internal server error",
@@ -640,9 +640,9 @@ func TestDiscoverXAIMinimalModels_ServerError(t *testing.T) {
 func TestDiscoverXAIMinimalModels_EmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/models" {
-			response := XAIModelsResponse{
+			response := OpenAIModelsResponse{
 				Object: "list",
-				Data:   []XAIModel{},
+				Data:   []OpenAIModel{},
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
@@ -840,9 +840,9 @@ func TestDiscoverXAIMinimalModels_UnknownModel(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		response := XAIModelsResponse{
+		response := OpenAIModelsResponse{
 			Object: "list",
-			Data: []XAIModel{
+			Data: []OpenAIModel{
 				{
 					ID:      "grok-unknown-future-model",
 					Object:  "model",
@@ -914,9 +914,9 @@ func TestDiscoverXAIMinimalModels_CatalogModelLookup(t *testing.T) {
 			http.NotFound(w, r)
 			return
 		}
-		response := XAIModelsResponse{
+		response := OpenAIModelsResponse{
 			Object: "list",
-			Data: []XAIModel{
+			Data: []OpenAIModel{
 				{ID: catalogModelID, Object: "model", OwnedBy: "xai"},
 			},
 		}
@@ -964,9 +964,9 @@ func TestDiscoverXAI_MinimalModelsFallback(t *testing.T) {
 			return
 		}
 		if r.URL.Path == "/v1/models" || r.URL.Path == "/models" {
-			response := XAIModelsResponse{
+			response := OpenAIModelsResponse{
 				Object: "list",
-				Data: []XAIModel{
+				Data: []OpenAIModel{
 					{ID: "test-minimal-model", Object: "model", OwnedBy: "xai"},
 				},
 			}
@@ -1017,7 +1017,7 @@ func TestDiscoverXAI_LanguageModelsEmpty_MinimalModelsEmpty(t *testing.T) {
 		}
 		if r.URL.Path == "/v1/models" || r.URL.Path == "/models" {
 			w.Header().Set("Content-Type", "application/json")
-			json.NewEncoder(w).Encode(XAIModelsResponse{Object: "list", Data: []XAIModel{}})
+			json.NewEncoder(w).Encode(OpenAIModelsResponse{Object: "list", Data: []OpenAIModel{}})
 			return
 		}
 		http.NotFound(w, r)

@@ -2,7 +2,7 @@ import i18next from "i18next";
 import { useCallback } from "react";
 import type { Model } from "../../api/types";
 import { CHAT_PERSONAS } from "../../data/presets";
-import { proxyModelID } from "../../utils/model";
+import { pickRandom, randomChatModelId } from "../../utils/random";
 
 interface UseChatRandomActionsParams {
 	chatSubMode: "chat" | "conversation";
@@ -40,9 +40,8 @@ export function useChatRandomActions({
 			chatSubMode === "chat"
 				? chatActivePersonaId
 				: conversationActivePersonaIdA;
-		const available = CHAT_PERSONAS.filter((p) => p.id !== currentId);
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
+		const pick = pickRandom(CHAT_PERSONAS.filter((p) => p.id !== currentId));
+		if (!pick) return;
 		setActivePersonaId(pick.id);
 		setSystemPrompt(i18next.t(pick.systemPrompt));
 	}, [
@@ -54,33 +53,22 @@ export function useChatRandomActions({
 	]);
 
 	const handleRandomPersonaB = useCallback(() => {
-		const available = CHAT_PERSONAS.filter((p) => p.id !== activePersonaIdB);
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
+		const pick = pickRandom(
+			CHAT_PERSONAS.filter((p) => p.id !== activePersonaIdB),
+		);
+		if (!pick) return;
 		setActivePersonaIdB(pick.id);
 		setSystemPromptB(i18next.t(pick.systemPrompt));
 	}, [activePersonaIdB, setActivePersonaIdB, setSystemPromptB]);
 
 	const handleRandomModel = useCallback(() => {
-		const available = enabledModels.filter((m) => {
-			const val = proxyModelID(m.provider_name, m.model_id);
-			return val !== selectedModel;
-		});
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
-		const val = proxyModelID(pick.provider_name, pick.model_id);
-		setSelectedModel(val);
+		const val = randomChatModelId(enabledModels, [selectedModel]);
+		if (val) setSelectedModel(val);
 	}, [enabledModels, selectedModel, setSelectedModel]);
 
 	const handleRandomModelB = useCallback(() => {
-		const available = enabledModels.filter((m) => {
-			const val = proxyModelID(m.provider_name, m.model_id);
-			return val !== selectedModelB;
-		});
-		if (available.length === 0) return;
-		const pick = available[Math.floor(Math.random() * available.length)];
-		const val = proxyModelID(pick.provider_name, pick.model_id);
-		setSelectedModelB(val);
+		const val = randomChatModelId(enabledModels, [selectedModelB]);
+		if (val) setSelectedModelB(val);
 	}, [enabledModels, selectedModelB, setSelectedModelB]);
 
 	return {

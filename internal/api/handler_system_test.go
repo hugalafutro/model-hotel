@@ -332,7 +332,7 @@ func TestStreamEvents_WithTypeFilter_Integration(t *testing.T) {
 	}
 }
 
-func TestGetOllamaCloudAccount(t *testing.T) {
+func TestQuotaAccount(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	t.Run("NotFound", func(t *testing.T) {
@@ -381,7 +381,7 @@ func TestGetOllamaCloudAccount(t *testing.T) {
 		}
 	})
 
-	// Note: Success case omitted - GetOllamaCloudAccount requires real network calls
+	// Note: Success case omitted - quotaHandler("account") requires real network calls
 	// to the Ollama Cloud API which would hang tests or require valid credentials.
 	// The negative tests above verify the handler's validation and error paths.
 }

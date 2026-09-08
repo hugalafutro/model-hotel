@@ -7,13 +7,12 @@ describe("CAP_META", () => {
 		expect(CAP_META).toHaveLength(8);
 	});
 
-	it("each entry has key, label, style, muted, disabled strings", () => {
+	it("each entry has key, labelKey, style and muted strings", () => {
 		CAP_META.forEach((meta) => {
 			expect(typeof meta.key).toBe("string");
-			expect(typeof meta.label).toBe("string");
+			expect(meta.labelKey).toBe(`models.capPills.${meta.key}`);
 			expect(typeof meta.style).toBe("string");
 			expect(typeof meta.muted).toBe("string");
-			expect(typeof meta.disabled).toBe("string");
 		});
 	});
 

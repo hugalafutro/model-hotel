@@ -631,7 +631,6 @@ func (cb *CircuitBreaker) status(detail bool) []ProviderStatus {
 		if c == nil {
 			continue
 		}
-		cooldown := cb.effectiveCooldownForWith(c, r)
 		state := cb.logicalStateWith(c, r)
 		// quotaPinned comes from this walk rather than from the dominant circuit:
 		// the verdict's pin arm is "any blocking circuit is pinned", and the
@@ -654,15 +653,7 @@ func (cb *CircuitBreaker) status(detail bool) []ProviderStatus {
 		if detail {
 			s.Circuits = cb.circuitStatuses(models, r)
 		}
-		if state == StateOpen && !c.openedAt.IsZero() {
-			s.OpenedAt = c.openedAt.Format(time.RFC3339)
-			s.CooldownMs = cooldown.Milliseconds()
-			nextRetry := c.openedAt.Add(cooldown)
-			s.NextRetryAt = nextRetry.Format(time.RFC3339)
-		}
-		if state == StateHalfOpen && !c.openedAt.IsZero() {
-			s.OpenedAt = c.openedAt.Format(time.RFC3339)
-		}
+		s.OpenedAt, s.CooldownMs, s.NextRetryAt = cb.waitFields(c, state, r)
 		statuses = append(statuses, s)
 	}
 	return statuses

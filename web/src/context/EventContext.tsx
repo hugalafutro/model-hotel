@@ -1,16 +1,38 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { type ReactNode, useEffect, useRef } from "react";
-import { API_BASE, clearAuth, isAuthenticated } from "../api/client";
+import { API_BASE, isAuthenticated, resetToLogin } from "../api/client";
 import { readSSEStream } from "../utils/sse";
 import { useToast } from "./ToastContext";
 
-interface ServerEvent {
+/** One server-sent event, as it rides on the "server-event" window event. */
+export interface ServerEvent {
 	id: string;
 	type: string;
 	severity: "success" | "info" | "warning" | "error";
 	message: string;
 	metadata?: Record<string, unknown>;
 	timestamp: string;
+}
+
+/**
+ * Subscribes to the server events this provider dispatches. The handler is held
+ * in a ref, so an inline closure does not re-attach the listener on every
+ * render and the subscription lasts as long as the component.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- the consumer hook lives beside its provider
+export function useServerEvent(handler: (event: ServerEvent) => void): void {
+	const handlerRef = useRef(handler);
+	useEffect(() => {
+		handlerRef.current = handler;
+	});
+
+	useEffect(() => {
+		const listener = (e: Event) => {
+			handlerRef.current((e as CustomEvent<ServerEvent>).detail);
+		};
+		window.addEventListener("server-event", listener);
+		return () => window.removeEventListener("server-event", listener);
+	}, []);
 }
 
 export function EventProvider({ children }: { children: ReactNode }) {
@@ -47,8 +69,10 @@ export function EventProvider({ children }: { children: ReactNode }) {
 					if (!response.ok) {
 						if (response.status === 401) {
 							authFailed = true;
-							clearAuth();
-							window.location.reload();
+							// The same teardown the logout button runs, so an expired
+							// session cannot leave a query settling against a page that is
+							// already reloading.
+							resetToLogin(queryClient);
 							return;
 						}
 						throw new Error(`SSE connection failed: ${response.status}`);

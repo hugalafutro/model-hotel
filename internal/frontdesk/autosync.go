@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"slices"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -267,11 +268,7 @@ func (s *Server) convergeFleet(ctx context.Context, primary *Member, primaryToke
 	if len(details) == 0 {
 		return
 	}
-	noun := "members"
-	if len(details) == 1 {
-		noun = "member"
-	}
-	message := fmt.Sprintf("Auto-synced %d %s: %s", len(details), noun, reason)
+	message := fmt.Sprintf("Auto-synced %s: %s", util.Count(len(details), "member", "members"), reason)
 	if d := describeSectionDetails(details); d != "" {
 		message += " (" + d + ")"
 	}
@@ -400,21 +397,13 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 	// fleet would otherwise cost. Memoised, so a pass pushing to several members
 	// still reads the primary once; a failed read is memoised too and aborts the
 	// pass rather than being retried per member.
-	var (
-		export    []byte
-		exportErr error
-		exported  bool
-	)
-	primaryExport := func() ([]byte, error) {
-		if !exported {
-			export, exportErr = s.fetchMemberExport(passCtx, primary, primaryToken)
-			exported = true
-			if exportErr != nil {
-				debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", exportErr)
-			}
+	primaryExport := sync.OnceValues(func() ([]byte, error) {
+		export, err := s.fetchMemberExport(passCtx, primary, primaryToken)
+		if err != nil {
+			debuglog.Warn("frontdesk: auto-sync: read primary export", "member", primary.Name, "error", err)
 		}
-		return export, exportErr
-	}
+		return export, err
+	})
 
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
@@ -462,18 +451,11 @@ func (s *Server) applyAutoSync(ctx context.Context, primary *Member, primaryToke
 			}
 			s.closeSyncHold(ctx, m, message)
 		}
-		if !m.HasToken {
-			// Cannot be authenticated to, so it can be measured in neither direction.
-			// Every pass re-reads the member list, so it is measured like any other from
-			// the moment it has a token.
-			continue
-		}
-		token, ok, err := s.store.MemberToken(ctx, m.ID)
-		if err != nil || !ok {
-			// Token ciphertext exists but could not be loaded or decrypted: a MASTER_KEY
-			// mismatch, a transient DB error, or the token cleared since the snapshot.
-			// Nothing can be measured or pushed, so leave it for the next tick.
-			debuglog.Debug("frontdesk: auto-sync: member token unavailable, will retry", "member", m.Name, "loaded", ok, "error", err)
+		token, ok := s.store.MemberTokenOf(ctx, m)
+		if !ok {
+			// Without a readable token the member cannot be authenticated to, so it can
+			// be measured in neither direction. Every pass re-reads the member list, so
+			// it is measured like any other from the moment it has a usable token.
 			continue
 		}
 		if skewed {
@@ -625,11 +607,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 			// it was proven rather than guessed. An idle converged fleet never gets
 			// here (no push, no flag), so the marker still means a real write. A
 			// failed stamp keeps the flag, and the next converged pass retries it.
-			if err := s.store.SetMemberLastSync(ctx, m.ID, time.Now().UTC(), unconfirmedSyncReason); err != nil {
-				debuglog.Warn("frontdesk: stamp member last-sync on verified convergence", "member", m.Name, "error", err)
-			} else {
-				s.clearUnconfirmedPush(m.ID, hash)
-			}
+			_ = s.stampMemberSync(ctx, m, unconfirmedSyncReason, hash)
 		}
 		s.poller.SetAutoSyncVerified(m.ID, time.Now().UTC())
 		return true, true, nil
@@ -661,7 +639,7 @@ func (s *Server) measureMember(ctx, passCtx context.Context, m *Member, token, h
 // older member answers without it, and the nil map means "no section detail",
 // never "everything differs".
 func (s *Server) fetchMemberConfigVersion(ctx context.Context, m *Member, token string) (string, map[string]string, error) {
-	status, body, err := s.callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberConfigVersionPath, token, nil)
+	status, body, err := callMemberWith(ctx, s.readClient, http.MethodGet, m.URL, memberConfigVersionPath, token, nil)
 	if err != nil {
 		return "", nil, err
 	}

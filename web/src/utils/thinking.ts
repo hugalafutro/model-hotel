@@ -1,19 +1,15 @@
 const THINKING_TAG_NAMES = ["thinking", "thought", "start_thought", "think"];
+// One pattern per tag half, case-insensitive and global, so the search for the
+// first tag and the sweep that strips the strays agree on what a tag is.
+// String#search ignores lastIndex, and String#match with a global pattern still
+// returns the first match at [0], so both uses read the same regex safely.
 const THINKING_OPEN_RE = new RegExp(
 	`<(?:${THINKING_TAG_NAMES.join("|")})>`,
-	"g",
+	"gi",
 );
 const THINKING_CLOSE_RE = new RegExp(
 	`<\\/(?:${THINKING_TAG_NAMES.join("|")})>`,
-	"g",
-);
-const THINKING_TAG_RE = new RegExp(
-	`<(?:${THINKING_TAG_NAMES.join("|")})>`,
-	"i",
-);
-const THINKING_CLOSE_TAG_RE = new RegExp(
-	`<\\/(?:${THINKING_TAG_NAMES.join("|")})>`,
-	"i",
+	"gi",
 );
 
 const PARTIAL_TAG_RE = /<([a-z]*)$/i;
@@ -38,10 +34,10 @@ export function extractThinking(raw: string): {
 		content = content.slice(fenceMatch[0].length);
 	}
 
-	const tagOpen = content.search(THINKING_TAG_RE);
+	const tagOpen = content.search(THINKING_OPEN_RE);
 	if (tagOpen !== -1) {
 		const afterOpen = content.slice(tagOpen);
-		const closeMatch = afterOpen.match(THINKING_CLOSE_TAG_RE);
+		const closeMatch = afterOpen.match(THINKING_CLOSE_RE);
 		if (closeMatch) {
 			const tagLen = afterOpen.indexOf(">");
 			const closeEnd = afterOpen.indexOf(closeMatch[0]) + closeMatch[0].length;

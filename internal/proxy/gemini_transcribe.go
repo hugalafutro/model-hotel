@@ -1,13 +1,10 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
-	"strconv"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -36,11 +33,7 @@ const transcriptionBodyCap = 4 << 20
 // name no audio keeps the pass-through; a model discovery left without
 // modalities is treated as hearing.
 func isGeminiTranscriptionAttempt(st *requestState, providerType, inputModalities string) bool {
-	if st.endpointPath != transcriptionEndpointPath || (providerType != "google" && providerType != "vertex-express") {
-		return false
-	}
-	declared := declaredModalities(inputModalities)
-	return len(declared) == 0 || slices.Contains(declared, "audio")
+	return isGeminiAudioAttempt(st, transcriptionEndpointPath, providerType, inputModalities)
 }
 
 // transcriptionRequestFromParts lifts what the adapter needs off the parsed
@@ -90,19 +83,11 @@ func (h *Handler) buildGeminiTranscriptionRequest(ctx context.Context, st *reque
 		return nil, providerType, "", err
 	}
 	st.transcriptionFormat = format
-	endpoint := geminiEgressEndpoint(providerType, candidate.model.ModelID, false)
-	baseURL := candidate.provider.BaseURL
-	if providerType == "google" {
-		baseURL = provider.GoogleNativeBaseURL(baseURL)
-	}
-	targetURL := util.BuildProviderTargetURL(baseURL, providerType, endpoint)
+	proxyReq, targetURL, err := newGeminiEgressRequest(ctx, candidate, providerType, geminiEgressEndpoint(providerType, candidate.model.ModelID, false), body)
 	debuglog.Info("proxy: routing transcription via gemini egress adapter", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name, "format", format)
-	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, providerType, targetURL, err
 	}
-	setGeminiEgressAuth(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
 }
 
@@ -115,26 +100,7 @@ func (h *Handler) buildGeminiTranscriptionRequest(ctx context.Context, st *reque
 // An answer without text (a blocked prompt, an empty reply) is handed to the
 // loop as an untranslatable body and fails over.
 func (h *Handler) serveGeminiTranscriptionResponse(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64) candidateOutcome {
-	body, readErr := io.ReadAll(io.LimitReader(resp.Body, transcriptionBodyCap+1))
-	_ = resp.Body.Close()
-	if readErr == nil && len(body) > transcriptionBodyCap {
-		readErr = errTranscriptionBodyOversized
-	}
-	if readErr != nil {
-		return h.rejectUntranslatableBody(st, candidate, st.logData, "gemini transcription", resp.StatusCode, readErr, attempt, r)
-	}
-	out, contentType, usage, err := gemini.BuildTranscriptionResponse(body, st.transcriptionFormat)
-	if err != nil {
-		return h.rejectUntranslatableBody(st, candidate, st.logData, "gemini transcription", resp.StatusCode, err, attempt, r)
-	}
-	st.passthroughUsage = &passthroughUsage{prompt: usage.PromptTokens, completion: usage.CompletionTokens}
-	delivered := &http.Response{
-		StatusCode: resp.StatusCode,
-		Header:     http.Header{"Content-Type": {contentType}, "Content-Length": {strconv.Itoa(len(out))}},
-		Body:       io.NopCloser(bytes.NewReader(out)),
-	}
-	h.servePassthroughResponse(w, r, st, candidate, delivered, attempt, responseHeaderMs)
-	return outcomeServed
+	return h.serveGeminiReshaped(w, r, st, candidate, resp, attempt, responseHeaderMs, "gemini transcription", transcriptionBodyCap, errTranscriptionBodyOversized, st.transcriptionFormat, gemini.BuildTranscriptionResponse)
 }
 
 // errTranscriptionBodyOversized reports a generateContent answer past

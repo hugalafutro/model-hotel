@@ -3,9 +3,7 @@ package frontdesk
 import (
 	"context"
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/base32"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/http"
@@ -127,22 +125,14 @@ func (p *pairingCodes) prune() {
 	}
 }
 
-// hashDeviceToken maps a bearer token to its stored hash (SHA-256 hex, the
-// same treatment as the admin token and virtual keys).
-func hashDeviceToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
-}
-
 // mintDeviceToken generates a high-entropy device bearer token (32 bytes =
 // 256 bits, hex-encoded) and its storage hash.
 func mintDeviceToken() (token, tokenHash string, err error) {
-	raw := make([]byte, 32)
-	if _, err := rand.Read(raw); err != nil {
+	token, tokenHash, err = util.MintHexToken(32)
+	if err != nil {
 		return "", "", fmt.Errorf("frontdesk: mint device token: %w", err)
 	}
-	token = hex.EncodeToString(raw)
-	return token, hashDeviceToken(token), nil
+	return token, tokenHash, nil
 }
 
 // ---------------------------------------------------------------------------
@@ -186,7 +176,7 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 	adminGate := adminauth.RequireAdminOrSession(s.adminMgr, s.sessionMgr, s.totpStatus.Enabled, authcookie.FrontDesk, s.cookieSecure, next)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if token, ok := util.ParseBearerToken(r); ok {
-			dev, err := s.store.DeviceByTokenHash(r.Context(), hashDeviceToken(token))
+			dev, err := s.store.DeviceByTokenHash(r.Context(), util.SHA256Hex(token))
 			if err == nil {
 				if terr := s.store.TouchPairedDevice(r.Context(), dev.ID); terr != nil {
 					debuglog.Warn("frontdesk: stamp device last_seen", "device", dev.ID, "error", terr)

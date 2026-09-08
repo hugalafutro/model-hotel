@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strings"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/egress"
@@ -22,11 +19,8 @@ import (
 // loop. Events are dispatched on the JSON "type" field, so SSE "event:" lines
 // can be ignored; unknown event types are dropped silently.
 type StreamTranslator struct {
-	id      string
-	model   string
-	created int64
+	w egress.ChunkWriter
 
-	roleSent bool // first emitted delta carries role:"assistant"
 	finished bool // terminal chunks + [DONE] already emitted
 
 	// Tool-call bookkeeping: Responses items stream under their own
@@ -44,9 +38,12 @@ type StreamTranslator struct {
 // in every chunk (the model string the client requested).
 func NewStreamTranslator(model string) *StreamTranslator {
 	return &StreamTranslator{
-		id:                "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", ""),
-		model:             model,
-		created:           time.Now().Unix(),
+		w: egress.ChunkWriter{
+			Component: "openairesponses",
+			ID:        egress.NewChatCompletionID(),
+			Model:     model,
+			Created:   time.Now().Unix(),
+		},
 		toolIndexByOutput: map[int]int{},
 	}
 }
@@ -103,13 +100,9 @@ func (t *StreamTranslator) TranslateEvent(data []byte) ([]byte, error) {
 			return nil, nil
 		}
 		idx := t.toolIndex(ev.OutputIndex)
-		id := ev.Item.CallID
-		if id == "" {
-			id = ev.Item.ID
-		}
 		return t.deltaChunk(chatDelta{ToolCalls: []chatToolCall{{
 			Index:    &idx,
-			ID:       id,
+			ID:       ev.Item.callID(),
 			Type:     "function",
 			Function: chatToolCallFunc{Name: ev.Item.Name},
 		}}}), nil
@@ -161,17 +154,10 @@ func (t *StreamTranslator) toolIndex(outputIndex int) int {
 // deltaChunk frames one delta as a chat chunk SSE frame, attaching the
 // assistant role to the first emitted delta.
 func (t *StreamTranslator) deltaChunk(delta chatDelta) []byte {
-	if !t.roleSent {
-		t.roleSent = true
-		delta.Role = "assistant"
-	}
-	return t.frame(chatChunk{
-		ID:      t.id,
-		Object:  "chat.completion.chunk",
-		Created: t.created,
-		Model:   t.model,
-		Choices: []chatChunkChoice{{Index: 0, Delta: delta, FinishReason: nil}},
-	})
+	delta.Role = t.w.Role()
+	var buf bytes.Buffer
+	warnFrame(egress.WriteChunk(&buf, &t.w, delta, nil, (*chatUsage)(nil)))
+	return buf.Bytes()
 }
 
 // finishChunks emits the terminal sequence: a finish_reason chunk, a
@@ -191,30 +177,14 @@ func (t *StreamTranslator) finishChunks(resp *Response) []byte {
 	}
 	finish := mapStatusFinishReason(status, details, t.sawToolCall)
 
-	delta := chatDelta{}
-	if !t.roleSent {
-		// Empty completion: the client still gets a well-formed stream.
-		t.roleSent = true
-		delta.Role = "assistant"
-	}
-	buf.Write(t.frame(chatChunk{
-		ID:      t.id,
-		Object:  "chat.completion.chunk",
-		Created: t.created,
-		Model:   t.model,
-		Choices: []chatChunkChoice{{Index: 0, Delta: delta, FinishReason: &finish}},
-	}))
+	// An empty completion still gets the role, on the terminal delta, so the
+	// client sees a well-formed stream.
+	delta := chatDelta{Role: t.w.Role()}
+	warnFrame(egress.WriteChunk(&buf, &t.w, delta, &finish, (*chatUsage)(nil)))
 	if usage != nil {
-		buf.Write(t.frame(chatChunk{
-			ID:      t.id,
-			Object:  "chat.completion.chunk",
-			Created: t.created,
-			Model:   t.model,
-			Choices: []chatChunkChoice{},
-			Usage:   usage,
-		}))
+		warnFrame(egress.WriteUsageChunk[chatDelta](&buf, &t.w, usage))
 	}
-	buf.WriteString("data: [DONE]\n\n")
+	buf.WriteString(egress.Done)
 	return buf.Bytes()
 }
 
@@ -232,28 +202,19 @@ func (t *StreamTranslator) errorChunks(message string) []byte {
 	var buf bytes.Buffer
 	buf.WriteString("data: ")
 	buf.Write(payload)
-	buf.WriteString("\n\ndata: [DONE]\n\n")
-	return buf.Bytes()
-}
-
-// frame marshals one chunk as an SSE data frame.
-func (t *StreamTranslator) frame(chunk chatChunk) []byte {
-	data, err := json.Marshal(chunk)
-	if err != nil {
-		// chatChunk is a fixed, marshalable shape; guard anyway so a failure
-		// degrades to a skipped frame instead of a corrupted stream.
-		debuglog.Warn("openairesponses: marshal chunk failed", "error", err)
-		return nil
-	}
-	var buf bytes.Buffer
-	buf.WriteString("data: ")
-	buf.Write(data)
 	buf.WriteString("\n\n")
+	buf.WriteString(egress.Done)
 	return buf.Bytes()
 }
 
-// Finished reports whether the terminal sequence has been emitted.
-func (t *StreamTranslator) Finished() bool { return t.finished }
+// warnFrame reports a chunk that could not be marshalled. The chunk shape is
+// fixed and marshalable; the guard is here so a failure degrades to a skipped
+// frame instead of a corrupted stream.
+func warnFrame(err error) {
+	if err != nil {
+		debuglog.Warn("openairesponses: marshal chunk failed", "error", err)
+	}
+}
 
 // Translate satisfies egress.Translator, and carries the two dispatch rules
 // that belong to this dialect rather than to the shared adapter. A "[DONE]"

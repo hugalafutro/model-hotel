@@ -3,36 +3,21 @@ import type { KimiCodeQuotaResponse } from "../../api/types";
 import {
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
-	type QuotaBarMode,
 } from "../../utils/quota";
 import {
 	QuotaBar,
+	type QuotaModalProps,
 	QuotaModalShell,
 	quotaRightText,
 	resetSublabel,
 } from "./shared";
 
-export interface KimiCodeQuotaModalProps {
-	providerName: string;
-	payload: KimiCodeQuotaResponse;
-	fetchedAt: string;
-	barMode: QuotaBarMode;
-	onToggleBarMode: () => void;
-	onRefresh: () => void;
-	isRefreshing: boolean;
-	onClose: () => void;
-}
-
 export function KimiCodeQuotaModal({
 	providerName,
 	payload,
-	fetchedAt,
 	barMode,
-	onToggleBarMode,
-	onRefresh,
-	isRefreshing,
-	onClose,
-}: KimiCodeQuotaModalProps) {
+	...shell
+}: QuotaModalProps<KimiCodeQuotaResponse>) {
 	const { t } = useTranslation();
 
 	const fiveHour = getKimiCodeFiveHourLimit(payload);
@@ -48,11 +33,7 @@ export function KimiCodeQuotaModal({
 			title={t("quota.modal.kimiTitle", { provider: providerName })}
 			subtitle={`${t("quota.modal.plan")}: ${payload.user?.membership?.level ?? "-"}`}
 			barMode={barMode}
-			onToggleBarMode={onToggleBarMode}
-			onRefresh={onRefresh}
-			isRefreshing={isRefreshing}
-			fetchedAt={fetchedAt}
-			onClose={onClose}
+			{...shell}
 		>
 			{fiveHour && (
 				<QuotaBar

@@ -49,6 +49,9 @@ export function SettingsSlider({
 	const prevValue = useRef(value);
 	const committed = useRef(value);
 
+	// A new `value` prop is the authoritative one and replaces the local draft.
+	// Kept in an effect rather than adjusted during render: the commit mark is a
+	// ref, and refs may not be written while rendering.
 	useEffect(() => {
 		if (prevValue.current !== value) {
 			prevValue.current = value;
@@ -56,6 +59,24 @@ export function SettingsSlider({
 			setLocal(value);
 		}
 	}, [value]);
+
+	const effStep = clampStep || step;
+	const clamp = useCallback(
+		(v: number) => Math.max(min, Math.min(max, v)),
+		[min, max],
+	);
+	// One write path: the local draft always follows, the parent hears only a
+	// real change.
+	const commit = useCallback(
+		(v: number) => {
+			setLocal(v);
+			if (v !== committed.current) {
+				committed.current = v;
+				onChange(v);
+			}
+		},
+		[onChange],
+	);
 
 	const isInfinity = infinityValue !== undefined && local === infinityValue;
 	const pct = isInfinity
@@ -81,12 +102,9 @@ export function SettingsSlider({
 		) => {
 			const raw = Number(e.currentTarget.value);
 			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
-			if (clamped !== committed.current) {
-				committed.current = clamped;
-				onChange(clamped);
-			}
+			commit(clamped);
 		},
-		[onChange, clampStep],
+		[commit, clampStep],
 	);
 
 	const handleSliderKeyUp = useCallback(
@@ -112,10 +130,9 @@ export function SettingsSlider({
 			const raw = Number(e.target.value);
 			if (Number.isNaN(raw)) return;
 			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
-			const v = Math.max(min, Math.min(max, clamped));
-			setLocal(v);
+			setLocal(clamp(clamped));
 		},
-		[min, max, clampStep],
+		[clamp, clampStep],
 	);
 
 	const handleNumberBlur = useCallback(
@@ -128,14 +145,9 @@ export function SettingsSlider({
 				return;
 			}
 			const clamped = clampStep ? clampToStep(local, clampStep) : local;
-			const v = Math.max(min, Math.min(max, clamped));
-			if (v !== local) setLocal(v);
-			if (v !== committed.current) {
-				committed.current = v;
-				onChange(v);
-			}
+			commit(clamp(clamped));
 		},
-		[local, min, max, clampStep, onChange],
+		[local, clamp, commit, clampStep],
 	);
 
 	const handleNumberKeyDown = useCallback(
@@ -152,40 +164,16 @@ export function SettingsSlider({
 			const firstStep =
 				min > (infinityValue ?? 0)
 					? min
-					: clampToStep(
-							(infinityValue ?? 0) + (clampStep || step),
-							clampStep || step,
-						);
-			const v = Math.min(max, firstStep);
-			setLocal(v);
-			if (v !== committed.current) {
-				committed.current = v;
-				onChange(v);
-			}
+					: clampToStep((infinityValue ?? 0) + effStep, effStep);
+			commit(Math.min(max, firstStep));
 			return;
 		}
-		const next = Math.min(
-			max,
-			clampToStep(local + (clampStep || step), clampStep || step),
-		);
-		setLocal(next);
-		if (next !== committed.current) {
-			committed.current = next;
-			onChange(next);
-		}
-	}, [local, max, min, clampStep, step, onChange, isInfinity, infinityValue]);
+		commit(Math.min(max, clampToStep(local + effStep, effStep)));
+	}, [local, max, min, effStep, commit, isInfinity, infinityValue]);
 
 	const stepDown = useCallback(() => {
-		const next = Math.max(
-			min,
-			clampToStep(local - (clampStep || step), clampStep || step),
-		);
-		setLocal(next);
-		if (next !== committed.current) {
-			committed.current = next;
-			onChange(next);
-		}
-	}, [local, min, clampStep, step, onChange]);
+		commit(Math.max(min, clampToStep(local - effStep, effStep)));
+	}, [local, min, effStep, commit]);
 
 	return (
 		<div className={disabled ? "opacity-50 cursor-not-allowed" : ""}>
@@ -210,7 +198,7 @@ export function SettingsSlider({
 					id={id}
 					min={min}
 					max={max}
-					step={clampStep || step}
+					step={effStep}
 					value={local}
 					onChange={handleSliderChange}
 					onPointerUp={handleSliderCommit}
@@ -256,7 +244,7 @@ export function SettingsSlider({
 							value={local}
 							min={min}
 							max={max}
-							step={clampStep || step}
+							step={effStep}
 							onChange={handleNumberChange}
 							onBlur={handleNumberBlur}
 							onKeyDown={handleNumberKeyDown}

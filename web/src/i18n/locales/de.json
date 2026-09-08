@@ -325,7 +325,11 @@
 			"emptyState": "Noch keine Nutzungsdaten. Die Aufschlüsselung der Nutzung wird hier angezeigt, sobald der Datenverkehr abläuft.",
 			"viewDetailsFor": "Details für {{label}} anzeigen",
 			"deletedModelTooltip": "Modell nicht mehr verfügbar – es wurde möglicherweise entfernt oder der Anbieter wurde gelöscht",
-			"reservedKeyTooltip": "Interner reservierter Name, kein von Ihnen erstellter Schlüssel – diese Verwendung stammt aus den eigenen „{{name}}“-Routen von Model Hotel"
+			"reservedKeyTooltip": "Interner reservierter Name, kein von Ihnen erstellter Schlüssel – diese Verwendung stammt aus den eigenen „{{name}}“-Routen von Model Hotel",
+			"tokens_one": "Token",
+			"tokens_other": "Token",
+			"requests_one": "Anfrage",
+			"requests_other": "Anfragen"
 		},
 		"providerLatency": {
 			"title": "Anbieter-Latenz",
@@ -347,10 +351,10 @@
 			"distributionChart": "Anbieter-Verteilungsdiagramm",
 			"emptyState": "Noch keine Daten des Anbieters. Die Aufschlüsselung des Anbieters wird hier angezeigt, sobald der Datenverkehr abläuft.",
 			"chartAriaLabel": "Anbieter-Verteilungsdiagramm",
-			"tokenUnit": "Token",
-			"tokensUnit": "Token",
-			"requestUnit": "Anfrage",
-			"requestsUnit": "Anfragen"
+			"tokens_one": "Token",
+			"tokens_other": "Token",
+			"requests_one": "Anfrage",
+			"requests_other": "Anfragen"
 		},
 		"models": {
 			"viewDetails": "Details für {{label}} anzeigen",
@@ -597,7 +601,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modelle werden generiert - Klicken Sie auf Alle stoppen, um abzubrechen",
-			"voteToContinue": "Vote über alle Matchups für die nächste Runde",
 			"nextRoundReady": "Die nächste Runde starten, wenn fertig"
 		},
 		"responses": {
@@ -652,13 +655,6 @@
 			"close": "Schließen"
 		},
 		"params": {
-			"temperature": "Temperatur",
-			"maxTokens": "Max. Token",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Freq Strafe",
-			"presPenalty": "Pres Strafe",
 			"resetAll": "Alle zurücksetzen",
 			"done": "Fertig"
 		},
@@ -844,7 +840,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Es sind keine aktivierten Anbieter mehr vorhanden",
-				"onlyOne": "Es ist nur noch ein aktivierter Anbieter vorhanden (für Failover sind mindestens zwei erforderlich)"
+				"onlyOne": "Es ist nur noch ein aktivierter Anbieter vorhanden (für Failover sind mindestens zwei erforderlich)",
+				"noValidProviders": "Nach der Bereinigung bleiben keine gültigen Anbieter übrig",
+				"onlyOneValid": "Nach der Bereinigung bleibt nur ein gültiger Anbieter übrig (Failover benötigt mindestens zwei)"
 			},
 			"error": "Fehler",
 			"failover": "Failover-Gruppen",
@@ -1065,7 +1063,17 @@
 		"scope_all": "Alle Anbieter",
 		"badge_parked": "{{count}} geparkt",
 		"status_parked": "Geparkt",
-		"status_parked_hint": "Der Anbieter ist deaktiviert; dieses Modell bleibt gelistet, wird aber erst wieder bedient, wenn der Anbieter aktiviert wird."
+		"status_parked_hint": "Der Anbieter ist deaktiviert; dieses Modell bleibt gelistet, wird aber erst wieder bedient, wenn der Anbieter aktiviert wird.",
+		"capPills": {
+			"vision": "Bild",
+			"reasoning": "Begründung",
+			"tool_calling": "Werkzeuge",
+			"structured_output": "Strukturiert",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Audio",
+			"parallel_tool_calls": "Parallel"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Auf den entdeckten Wert zurücksetzen",
@@ -1267,7 +1275,6 @@
 				"owner": "Besitzer"
 			},
 			"noProvidersConfigured": "Keine Anbieter konfiguriert.",
-			"discardChanges": "Nicht gespeicherte Änderungen verwerfen?",
 			"loadingProviders": "Anbieter werden geladen...",
 			"stripReasoningDescriptionText": "Wenn aktiviert, werden Reasoning-/Thinking-Token aus Streaming-Antworten für Clients entfernt, die sie nicht verarbeiten können.",
 			"providerInstructionsText": "Klicken Sie auf einen Anbieter, um den Zugriff zu beschränken. Alle sind standardmäßig zugänglich.",
@@ -1408,6 +1415,11 @@
 			"search": "Protokolle… filtern",
 			"allLevels": "Alle Ebenen",
 			"allSources": "Alle Quellen"
+		},
+		"level": {
+			"info": "Info",
+			"warning": "Warnung",
+			"error": "Fehler"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",
@@ -1859,8 +1871,8 @@
 				"confirmEnableTitle": "Periodische Sicherung aktivieren?",
 				"confirmEnableDescription": "Durch das Aktivieren der periodischen Sicherung werden vorhandene Sicherungen gelöscht, die außerhalb des Rotationsfensters Sohn/Vater/Großvater liegen.",
 				"confirmEnableWouldRemove": "Diese {{count}} Sicherung(en) liegen außerhalb des Rotationsfensters und werden dauerhaft gelöscht:",
-				"prunePreviewFailed": "Vorschau der Sicherungsbereinigung fehlgeschlagen",
-				"pruneFailed": "Fehler beim Beschneiden der Backups",
+				"prunePreviewFailed": "Vorschau der Sicherungsbereinigung fehlgeschlagen: {{message}}",
+				"pruneFailed": "Fehler beim Beschneiden der Backups: {{message}}",
 				"pruneSuccess": "Periodische Sicherung aktiviert. {{count}} alte Sicherung(en) entfernt."
 			},
 			"availableBackupsTitle": "Verfügbare Sicherungen",
@@ -2170,7 +2182,7 @@
 				"done": "Alerts sind aktiv.",
 				"sendAll": "Test an alle senden",
 				"sentAll": "Test an jedes Ziel gesendet",
-				"apiChangedDrops": "Beim Ändern der Adresse entfallen die in diesem Durchlauf hinzugefügten Ziele; sie wurden mit der alten Adresse getestet.",
+				"apiChangedDrops": "Beim Verifizieren einer anderen Adresse entfallen die in diesem Durchlauf hinzugefügten Ziele; sie wurden mit der alten Adresse getestet.",
 				"savedNote_one": "{{count}} bereits gespeichertes Ziel bleibt unverändert.",
 				"savedNote_other": "{{count}} bereits gespeicherte Ziele bleiben unverändert.",
 				"field": {
@@ -2388,16 +2400,10 @@
 			"filter": "Filter…",
 			"clearFilter": "Filter löschen"
 		},
-		"copyButton": {
-			"copy": "Kopieren",
-			"copiedToClipboard": "In Zwischenablage kopiert",
-			"failedToCopy": "Fehler beim Kopieren"
-		},
 		"copyablePill": {
 			"copy": "Kopieren",
 			"copyToClipboard": "In Zwischenablage kopieren",
-			"copied": "Kopiert!",
-			"failedToCopy": "Fehler beim Kopieren"
+			"copied": "Kopiert!"
 		},
 		"collapsibleToggle": {
 			"expand": "Erweitern",
@@ -2714,11 +2720,6 @@
 			"compare": "Vergleichen",
 			"noMatchHistory": "Noch kein Match-Verlauf",
 			"completedSessionsHere": "Abgeschlossene Arena- und Vergleichssitzungen erscheinen hier",
-			"match": "Spiel",
-			"final": "Finale",
-			"semifinals": "Halbfinale",
-			"quarterfinals": "Viertelfinale",
-			"round": "Runde {{number}}",
 			"winner": "Sieger: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Fehler: {{message}}",
@@ -2826,35 +2827,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Keine Logs gefunden",
-			"entries": "einträge",
-			"loadingNewer": "Lade neuere…",
-			"loadingOlder": "Lade ältere…",
-			"timeDate": "Zeit/Datum",
-			"hash": "Hash",
-			"model": "Modell",
-			"provider": "Anbieter",
-			"providerDeleted": "Anbieter wurde gelöscht",
-			"status": "Status",
-			"tokens": "Token",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Kopfzeilen",
-			"ttft": "TTFT",
-			"duration": "Dauer",
-			"overhead": "Overhead",
-			"key": "Schlüssel",
-			"interrupted": "Unterbrochen",
-			"internal": "intern",
-			"cacheInflated": "Erhöht durch Prompt-Cache-Treffer",
-			"deleted": "Gelöscht",
-			"zeroEntries": "0 Einträge",
-			"ip": "IP"
+			"zeroEntries": "0 Einträge"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Keine Logeinträge gefunden",
-			"entries": "einträge",
-			"loadingNewer": "Lade neuere…",
-			"loadingOlder": "Lade ältere…",
 			"timeDate": "Zeit/Datum",
 			"level": "Level",
 			"source": "Quelle",
@@ -3065,7 +3041,8 @@
 		},
 		"useDisableModel": {
 			"success": "Modell \"{{model}}\" deaktiviert",
-			"error": "Fehler beim Deaktivieren des Modells: {{error}}"
+			"error": "Fehler beim Deaktivieren des Modells: {{error}}",
+			"notFound": "Modell \"{{model}}\" wurde nicht in den aktivierten Modellen gefunden"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Fehler beim Abrufen der Ausgangsdaten",

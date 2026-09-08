@@ -4,8 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 
 	"github.com/google/uuid"
 
@@ -13,17 +11,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
-
-// LMStudioModelsResponse is the OpenAI-compatible models response from LMStudio.
-type LMStudioModelsResponse struct {
-	Object string `json:"object"`
-	Data   []struct {
-		ID      string `json:"id"`
-		Object  string `json:"object"`
-		Created int64  `json:"created"`
-		OwnedBy string `json:"owned_by"`
-	} `json:"data"`
-}
 
 // LMStudioV0ModelsResponse is LM Studio's native REST API model listing
 // (GET /api/v0/models). Unlike the OpenAI-compatible /v1/models, it reports a
@@ -66,27 +53,13 @@ func (d *DiscoveryService) discoverLMStudioNative(ctx context.Context, provider 
 	apiBase := util.SanitizeAPIURL(provider.BaseURL)
 	url := apiBase + "/api/v0/models"
 
-	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("lmstudio: failed to create native request for provider %s: %w", provider.Name, err)
-	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+	bodyBytes, err := d.fetchURL(ctx, "GET", url, bearerHeader(apiKey))
 	if err != nil {
 		return nil, fmt.Errorf("lmstudio: native request failed for provider %s: %w", provider.Name, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("lmstudio: native endpoint status %d for provider %s: %s", resp.StatusCode, provider.Name, util.MaskCredentialBounded(apiKey, string(body), 2000))
-	}
 
 	var modelsResp LMStudioV0ModelsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
+	if err := json.Unmarshal(bodyBytes, &modelsResp); err != nil {
 		return nil, fmt.Errorf("lmstudio: failed to decode native response for provider %s: %w", provider.Name, err)
 	}
 	// A well-formed but empty payload from a non-LM-Studio server would leave us
@@ -173,29 +146,14 @@ func buildLMStudioNativeModel(provider *Provider, m LMStudioV0Model) *model.Mode
 func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
-	url := baseURL + "/models"
-	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("lmstudio: failed to create request for provider %s: %w", provider.Name, err)
-	}
-	if apiKey != "" {
-		req.Header.Set("Authorization", "Bearer "+apiKey)
-	}
-
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", bearerHeader(apiKey))
 	if err != nil {
 		debuglog.Error("discovery: lmstudio http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 		return nil, fmt.Errorf("lmstudio: failed to fetch models for provider %s: %w", provider.Name, err)
 	}
-	defer func() { _ = resp.Body.Close() }()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return nil, fmt.Errorf("lmstudio: unexpected status %d for provider %s: %s", resp.StatusCode, provider.Name, util.MaskCredentialBounded(apiKey, string(body), 2000))
-	}
-
-	var modelsResp LMStudioModelsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
+	var modelsResp OpenAIModelsResponse
+	if err := json.Unmarshal(bodyBytes, &modelsResp); err != nil {
 		return nil, fmt.Errorf("lmstudio: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
@@ -207,31 +165,27 @@ func (d *DiscoveryService) discoverLMStudioOpenAI(ctx context.Context, provider 
 		}
 		capJSON, _ := json.Marshal(caps)
 
-		// LM Studio model IDs use creator/model-name format
-		displayName := m.ID
 		ownedBy := m.OwnedBy
 		if ownedBy == "" {
 			ownedBy = "lmstudio"
 		}
 
-		// The OpenAI listing has no type; NormalizeModelClassification's name
-		// heuristics keep embedding/reranker models out of the chat picker.
-		// model shadows the imported package for the rest of this block.
-		model := &model.Model{
+		// The OpenAI listing has no type, and the output array is left empty so
+		// NormalizeModelClassification's name heuristics keep embedding and
+		// reranker models out of the chat picker.
+		models = append(models, &model.Model{
 			ID:              uuid.New(),
 			ProviderID:      provider.ID,
 			ModelID:         m.ID,
 			Name:            m.ID,
-			DisplayName:     displayName,
+			DisplayName:     m.ID,
 			Description:     "LM Studio local model",
 			Capabilities:    string(capJSON),
 			Params:          "{}",
 			InputModalities: `["text"]`,
 			OwnedBy:         ownedBy,
 			Enabled:         true,
-		}
-
-		models = append(models, model)
+		})
 	}
 
 	debuglog.Info("discovery: lmstudio discovered models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)

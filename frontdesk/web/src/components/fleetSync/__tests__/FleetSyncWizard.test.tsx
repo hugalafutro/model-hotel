@@ -104,6 +104,18 @@ describe("FleetSyncWizard", () => {
 		).toBeInTheDocument();
 	});
 
+	// The step dots are real navigation, not decoration: they are focusable and
+	// gated on the step being unlocked, so a screen reader must see them rather
+	// than have them hidden behind aria-hidden on their container.
+	it("exposes the step dots to assistive tech", async () => {
+		renderWizard();
+		expect(
+			await screen.findByRole("button", { name: "Step 1" }),
+		).toBeInTheDocument();
+		// Step 3 is locked until the earlier gates pass, and says so.
+		expect(screen.getByRole("button", { name: "Step 3" })).toBeDisabled();
+	});
+
 	it("blocks the config step until MASTER_KEY matches on every member", async () => {
 		server.use(
 			http.get("/api/fleet/status", () =>
@@ -274,6 +286,52 @@ describe("FleetSyncWizard", () => {
 		expect(await screen.findByText("Auto-sync on")).toBeInTheDocument();
 		expect(screen.getByText("http://localhost:9090/v1")).toBeInTheDocument();
 		expect(screen.getByText("https://hotel-2.example.com")).toBeInTheDocument();
+	});
+
+	// The confirm list is what the operator reads before replacing config, so
+	// each member's three counts are all spelled out, zeros included: dropping
+	// them would let a removal-only member read as a bare "-3".
+	it("spells out every count in the overwrite confirmation, zeros included", async () => {
+		server.use(
+			http.get("/api/fleet/status", () =>
+				HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [
+						primaryRow(),
+						{
+							member_id: "2",
+							name: "hotel-2",
+							reachable: true,
+							has_token: true,
+							master_key_matches: true,
+							schema_ok: true,
+							added: 0,
+							updated: 0,
+							removed: 3,
+						},
+					],
+				}),
+			),
+		);
+		renderWizard();
+		await pickPrimary();
+
+		const next = screen.getByRole("button", { name: "Next" });
+		await waitFor(() => expect(next).toBeEnabled());
+		await userEvent.click(next); // -> 2
+		await userEvent.click(screen.getByRole("button", { name: "Next" })); // -> 3
+
+		await userEvent.click(
+			await screen.findByRole("button", { name: /Sync configuration now/i }),
+		);
+		const dialog = await screen.findByRole("dialog");
+		// The legend below the list is a list too, so the member row is picked by
+		// its name rather than by being the only listitem.
+		const row = within(dialog)
+			.getAllByRole("listitem")
+			.find((li) => li.textContent?.startsWith("hotel-2"));
+		expect(row).toHaveTextContent("hotel-2 (+0 ~0 -3)");
 	});
 
 	it("reaches the resting screen through the config step when there is nothing to sync", async () => {

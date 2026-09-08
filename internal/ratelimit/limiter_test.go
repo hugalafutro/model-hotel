@@ -94,7 +94,7 @@ func newTestLimiter() (*Limiter, *stubSettings) {
 	// rejection still pass. Individual tests can override this.
 	repo.set(settingsKeyMaxWaitMs, "0")
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -451,13 +451,17 @@ func TestCleanup_RemovesStaleEntries(t *testing.T) {
 	defer lim.Stop()
 
 	lim.mu.Lock()
-	lim.limiters["stale"] = &keyEntry{
+	lim.limiters["stale"] = &bucketEntry{
+		prefix:   keyLogPrefix,
+		label:    keyLogLabel,
 		limiter:  nil,
 		rps:      10,
 		burst:    20,
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
-	lim.limiters["fresh"] = &keyEntry{
+	lim.limiters["fresh"] = &bucketEntry{
+		prefix:   keyLogPrefix,
+		label:    keyLogLabel,
 		limiter:  nil,
 		rps:      10,
 		burst:    20,
@@ -608,7 +612,7 @@ func TestMiddleware_BackpressureRejectsLongWait(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "5") // 5ms max wait
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -646,7 +650,7 @@ func TestMiddleware_WasDisabledReenableEviction(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "0")
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -698,7 +702,7 @@ func TestMiddleware_PerKeyOverrideNil(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "0")
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -751,7 +755,7 @@ func TestMiddleware_ExtractKeyFallbackToRemoteAddr(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "0")
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -797,7 +801,7 @@ func TestMiddleware_ReservationNotOK(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "0")
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -832,7 +836,7 @@ func TestMiddleware_DisabledViaEnvNoBackpressure(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "0")
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -864,7 +868,7 @@ func TestMiddleware_ExtractKeyEmptyStringContext(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "0")
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -900,7 +904,7 @@ func TestMiddleware_BackpressurePassesContextValues(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "500")
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -946,7 +950,7 @@ func TestMiddleware_NonBackpressurePassesContextValues(t *testing.T) {
 	repo.set(settingsKeyMaxWaitMs, "0")
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: repo,
 		stopCh:   make(chan struct{}),
 	}
@@ -984,14 +988,18 @@ func TestCleanupLoop_Integration(t *testing.T) {
 
 	// Insert a stale entry (last used 15 minutes ago)
 	lim.mu.Lock()
-	lim.limiters["stale-loop-key"] = &keyEntry{
+	lim.limiters["stale-loop-key"] = &bucketEntry{
+		prefix:   keyLogPrefix,
+		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
 		rps:      10,
 		burst:    20,
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh entry
-	lim.limiters["fresh-loop-key"] = &keyEntry{
+	lim.limiters["fresh-loop-key"] = &bucketEntry{
+		prefix:   keyLogPrefix,
+		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
 		rps:      10,
 		burst:    20,
@@ -1017,14 +1025,16 @@ func TestCleanupLoop_Integration(t *testing.T) {
 // the ticker to fire, and verify the entry is removed.
 func TestCleanupLoop_TickerFiresCleanup(t *testing.T) {
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: newStubSettings(),
 		stopCh:   make(chan struct{}),
 	}
 
 	// Insert a stale entry (lastUsed well in the past)
 	lim.mu.Lock()
-	lim.limiters["ticker-stale"] = &keyEntry{
+	lim.limiters["ticker-stale"] = &bucketEntry{
+		prefix:   keyLogPrefix,
+		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(1, 1),
 		lastUsed: time.Now().Add(-2 * time.Hour),
 	}
@@ -1033,7 +1043,7 @@ func TestCleanupLoop_TickerFiresCleanup(t *testing.T) {
 	// Start cleanupLoop in a goroutine; it ticks every 5 minutes in prod.
 	// We can't wait 5 minutes, so we test the cleanup() method directly
 	// (which is what cleanupLoop calls on ticker.C).
-	go lim.cleanupLoop()
+	go runCleanup(lim.stopCh, lim.cleanup)
 
 	// Give the goroutine a moment to start, then stop it.
 	time.Sleep(50 * time.Millisecond)
@@ -1060,21 +1070,25 @@ func TestNewLimiter_StartsCleanupLoop(t *testing.T) {
 // by calling cleanup() directly (same function called on ticker.C).
 func TestCleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: newStubSettings(),
 		stopCh:   make(chan struct{}),
 	}
 
 	// Insert a stale entry (last used 15 minutes ago — beyond the 10-minute cutoff)
 	lim.mu.Lock()
-	lim.limiters["stale-ticker-key"] = &keyEntry{
+	lim.limiters["stale-ticker-key"] = &bucketEntry{
+		prefix:   keyLogPrefix,
+		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
 		rps:      10,
 		burst:    20,
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh entry
-	lim.limiters["fresh-ticker-key"] = &keyEntry{
+	lim.limiters["fresh-ticker-key"] = &bucketEntry{
+		prefix:   keyLogPrefix,
+		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
 		rps:      10,
 		burst:    20,
@@ -1084,7 +1098,7 @@ func TestCleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 
 	// Start the cleanupLoop goroutine to verify it can start/stop,
 	// then directly call cleanup() to simulate the ticker.C path.
-	go lim.cleanupLoop()
+	go runCleanup(lim.stopCh, lim.cleanup)
 	time.Sleep(20 * time.Millisecond)
 
 	// Call cleanup directly (simulating what happens on ticker.C)
@@ -1110,11 +1124,11 @@ func TestCleanupLoop_TickerPathRemovesStaleEntries(t *testing.T) {
 func TestCleanupLoop_ConcurrentStopAndTick(t *testing.T) {
 	for range 10 {
 		lim := &Limiter{
-			limiters: make(map[string]*keyEntry),
+			limiters: make(map[string]*bucketEntry),
 			settings: newStubSettings(),
 			stopCh:   make(chan struct{}),
 		}
-		go lim.cleanupLoop()
+		go runCleanup(lim.stopCh, lim.cleanup)
 		// Immediately stop — races with the initial ticker wait
 		time.Sleep(time.Millisecond)
 		lim.Stop()
@@ -1172,12 +1186,12 @@ func (c *msgCaptureHandler) count(msg string) int {
 func TestKeyEntry_ThrottleEdgeLogging(t *testing.T) {
 	h := &msgCaptureHandler{}
 	debuglog.SetHandler(h)
-	t.Cleanup(func() { debuglog.Init(false) })
+	t.Cleanup(func() { debuglog.Init() })
 
 	const started = "ratelimit: throttling started"
 	const ended = "ratelimit: throttling ended"
 
-	e := &keyEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 
 	// A burst of rejections must produce exactly one "started" line.
 	e.noteRejected("keyhash")
@@ -1215,9 +1229,9 @@ func TestKeyEntry_ThrottleEdgeLogging(t *testing.T) {
 func TestKeyEntry_ConcurrentRejectionsExactCount(t *testing.T) {
 	h := &msgCaptureHandler{}
 	debuglog.SetHandler(h)
-	t.Cleanup(func() { debuglog.Init(false) })
+	t.Cleanup(func() { debuglog.Init() })
 
-	e := &keyEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 	const n = 200
 	var wg sync.WaitGroup
 	wg.Add(n)
@@ -1242,14 +1256,14 @@ func TestKeyEntry_ConcurrentRejectionsExactCount(t *testing.T) {
 func TestKeyEntry_IdleEvictionLogsEnded(t *testing.T) {
 	h := &msgCaptureHandler{}
 	debuglog.SetHandler(h)
-	t.Cleanup(func() { debuglog.Init(false) })
+	t.Cleanup(func() { debuglog.Init() })
 
 	lim := &Limiter{
-		limiters: make(map[string]*keyEntry),
+		limiters: make(map[string]*bucketEntry),
 		settings: newStubSettings(),
 		stopCh:   make(chan struct{}),
 	}
-	e := &keyEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1}
+	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 	e.noteRejected("idlekey") // open an episode
 	e.throttle.throttledAt = time.Now().Add(-25 * time.Minute)
 	e.lastUsed = time.Now().Add(-20 * time.Minute) // idle, past the 10-min cutoff

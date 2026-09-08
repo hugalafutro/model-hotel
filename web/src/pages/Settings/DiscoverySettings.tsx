@@ -12,7 +12,7 @@ import { useToast } from "../../context/ToastContext";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
 import { goDurationToHours, hoursToGoDuration } from "../../utils/duration";
 import { formatDateTimeShort } from "../../utils/format";
-import { SETTING_DEFAULTS } from "./defaults";
+import { settingOr } from "./defaults";
 import { useSettingsMutations } from "./useSettingsMutations";
 
 interface DiscoverySettingsProps {
@@ -87,13 +87,11 @@ export function DiscoverySettings({
 	const isUpdating = updateMutation.isPending || discoverAllMutation.isPending;
 
 	const discoveryIntervalHours = goDurationToHours(
-		settings?.discovery_interval || "6h",
+		settingOr(settings, "discovery_interval"),
 	);
 	const discoveryOnStartup = settings?.discovery_on_startup !== "false";
 	const discoveryOnCreate = settings?.discovery_on_provider_create !== "false";
-	const modelPruneDays = Number(
-		settings?.model_prune_days || SETTING_DEFAULTS.model_prune_days,
-	);
+	const modelPruneDays = Number(settingOr(settings, "model_prune_days"));
 
 	return (
 		<SettingsSection

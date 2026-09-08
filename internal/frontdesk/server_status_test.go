@@ -60,7 +60,7 @@ func captureLogs(t *testing.T) *recordingHandler {
 	t.Helper()
 	h := &recordingHandler{}
 	debuglog.SetHandler(h)
-	t.Cleanup(func() { debuglog.Init(false) })
+	t.Cleanup(func() { debuglog.Init() })
 	return h
 }
 

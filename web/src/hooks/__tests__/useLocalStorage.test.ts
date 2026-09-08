@@ -1,6 +1,12 @@
 import { act, renderHook } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
-import { useLocalStorage, useLocalStorageValue } from "../useLocalStorage";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import {
+	readJSON,
+	storedBool,
+	storedNumber,
+	useLocalStorage,
+	useLocalStorageValue,
+} from "../useLocalStorage";
 
 describe("useLocalStorage", () => {
 	const key = "test-key";
@@ -205,32 +211,6 @@ describe("useLocalStorageValue", () => {
 		expect(result.current).toBe("second");
 	});
 
-	it("re-reads on an extra event the writer announces", () => {
-		localStorage.setItem(key, "first");
-		const { result } = renderHook(() =>
-			useLocalStorageValue(key, "fallback", { events: ["writerToggle"] }),
-		);
-
-		localStorage.setItem(key, "second");
-		act(() => {
-			window.dispatchEvent(new CustomEvent("writerToggle"));
-		});
-		expect(result.current).toBe("second");
-	});
-
-	it("subscribes to an event name containing a space", () => {
-		localStorage.setItem(key, "first");
-		const { result } = renderHook(() =>
-			useLocalStorageValue(key, "fallback", { events: ["writer toggle"] }),
-		);
-
-		localStorage.setItem(key, "second");
-		act(() => {
-			window.dispatchEvent(new CustomEvent("writer toggle"));
-		});
-		expect(result.current).toBe("second");
-	});
-
 	it("ignores changes to other keys", () => {
 		localStorage.setItem(key, "first");
 		const { result } = renderHook(() => useLocalStorageValue(key, "fallback"));
@@ -306,5 +286,52 @@ describe("useLocalStorageValue", () => {
 			);
 		});
 		expect(result.current).toBe("first");
+	});
+});
+
+describe("storedBool", () => {
+	it('reads only the exact string "true" as true', () => {
+		expect(storedBool("true")).toBe(true);
+		expect(storedBool("false")).toBe(false);
+		expect(storedBool("TRUE")).toBe(false);
+		expect(storedBool(null)).toBe(false);
+	});
+});
+
+describe("storedNumber", () => {
+	it("falls back when the stored string is not a number", () => {
+		expect(storedNumber("15", 30)).toBe(15);
+		expect(storedNumber("0", 30)).toBe(0);
+		expect(storedNumber("nonsense", 30)).toBe(30);
+		expect(storedNumber("", 30)).toBe(30);
+		expect(storedNumber(null, 30)).toBe(30);
+	});
+});
+
+describe("readJSON", () => {
+	afterEach(() => {
+		localStorage.clear();
+		vi.restoreAllMocks();
+	});
+
+	it("parses a stored blob", () => {
+		localStorage.setItem("blob", '{"a":1}');
+		expect(readJSON<{ a: number }>("blob")).toEqual({ a: 1 });
+	});
+
+	it("is null for an absent key", () => {
+		expect(readJSON("missing")).toBeNull();
+	});
+
+	it("is null for unparsable content", () => {
+		localStorage.setItem("blob", "not json");
+		expect(readJSON("blob")).toBeNull();
+	});
+
+	it("is null when localStorage throws", () => {
+		vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
+			throw new Error("blocked");
+		});
+		expect(readJSON("blob")).toBeNull();
 	});
 });

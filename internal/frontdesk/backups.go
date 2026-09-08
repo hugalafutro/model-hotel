@@ -68,7 +68,7 @@ type memberBackupEntry struct {
 // a partial set: the watchdog judges a member on its whole listing or not at all,
 // never on a truncated prefix that could hide the actually-newest entry.
 func (s *Server) listMemberBackups(ctx context.Context, m *Member, token string) ([]memberBackupEntry, error) {
-	status, body, err := s.callMemberLimited(ctx, s.backupClient, maxMemberBackupListBody,
+	status, body, err := callMemberLimited(ctx, s.backupClient, maxMemberBackupListBody,
 		http.MethodGet, m.URL, memberBackupsPath, token, nil)
 	if err != nil {
 		return nil, err
@@ -119,8 +119,8 @@ func (s *Server) checkMemberBackups(ctx context.Context) {
 		return
 	}
 	for _, m := range members {
-		token, ok, err := s.store.MemberToken(ctx, m.ID)
-		if err != nil || !ok {
+		token, ok := s.store.MemberTokenOf(ctx, m)
+		if !ok {
 			continue // no stored token: the backup API needs admin auth
 		}
 		entries, err := s.listMemberBackups(ctx, m, token)

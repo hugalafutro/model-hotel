@@ -152,15 +152,9 @@ type SpeechUsage struct {
 // ErrSpeechNoAudio, wrapped with what the answer said instead; a body that
 // is not a generateContent object at all is a plain decode error.
 func BuildSpeechResponse(body []byte, format string) (audio []byte, contentType string, usage SpeechUsage, err error) {
-	var resp genResponse
-	if err := json.Unmarshal(body, &resp); err != nil {
-		return nil, "", usage, fmt.Errorf("gemini: invalid speech response: %s", jsonfault.Describe(err, len(body)))
-	}
-	if u := translateUsage(resp.UsageMetadata); u != nil {
-		usage = SpeechUsage{PromptTokens: u.PromptTokens, CompletionTokens: u.CompletionTokens}
-	}
-	if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
-		return nil, "", usage, fmt.Errorf("%w: prompt blocked (%s)", ErrSpeechNoAudio, resp.PromptFeedback.BlockReason)
+	resp, usage, err := decodeAudioAnswer(body, "speech", ErrSpeechNoAudio)
+	if err != nil {
+		return nil, "", usage, err
 	}
 	for _, c := range resp.Candidates {
 		for _, p := range c.Content.Parts {
@@ -177,11 +171,37 @@ func BuildSpeechResponse(body []byte, format string) (audio []byte, contentType 
 			return wavFromPCM(pcm, sampleRateOf(p.InlineData.MimeType)), "audio/wav", usage, nil
 		}
 	}
-	detail := "no audio part"
+	return nil, "", usage, noContentError(resp, ErrSpeechNoAudio, "no audio part")
+}
+
+// decodeAudioAnswer decodes a generateContent answer for the audio endpoints
+// and reads the usage it carried. what names the endpoint in a decode error
+// ("speech", "transcription"); errNo is the sentinel a refusal wraps, so a
+// blocked prompt reads as "the model declined" rather than as broken bytes.
+// The usage is returned whether or not an error follows, since the request
+// was billed either way.
+func decodeAudioAnswer(body []byte, what string, errNo error) (genResponse, SpeechUsage, error) {
+	var resp genResponse
+	var usage SpeechUsage
+	if err := json.Unmarshal(body, &resp); err != nil {
+		return resp, usage, fmt.Errorf("gemini: invalid %s response: %s", what, jsonfault.Describe(err, len(body)))
+	}
+	if u := translateUsage(resp.UsageMetadata); u != nil {
+		usage = SpeechUsage{PromptTokens: u.PromptTokens, CompletionTokens: u.CompletionTokens}
+	}
+	if resp.PromptFeedback != nil && resp.PromptFeedback.BlockReason != "" {
+		return resp, usage, fmt.Errorf("%w: prompt blocked (%s)", errNo, resp.PromptFeedback.BlockReason)
+	}
+	return resp, usage, nil
+}
+
+// noContentError reports an answer that carried nothing of the kind asked
+// for, naming the finish reason the candidate gave when it gave one.
+func noContentError(resp genResponse, errNo error, detail string) error {
 	if len(resp.Candidates) > 0 && resp.Candidates[0].FinishReason != "" {
 		detail += " (finish reason " + resp.Candidates[0].FinishReason + ")"
 	}
-	return nil, "", usage, fmt.Errorf("%w: %s", ErrSpeechNoAudio, detail)
+	return fmt.Errorf("%w: %s", errNo, detail)
 }
 
 // defaultSampleRate is what Gemini TTS produces, and what a mime type that

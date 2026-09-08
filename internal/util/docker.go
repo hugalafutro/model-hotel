@@ -14,16 +14,10 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 var dockerSocketPath = "/var/run/docker.sock"
-
-var (
-	dockerAvailable  bool
-	dockerCheckMu    sync.Once
-	sharedDockerOnce sync.Once
-	sharedDockerCli  *http.Client
-)
 
 // Overridable in tests for container ID detection.
 var (
@@ -31,28 +25,27 @@ var (
 	osHostname     = os.Hostname
 )
 
-// IsDockerAvailable checks if Docker socket is accessible and responsive.
-func IsDockerAvailable() bool {
-	dockerCheckMu.Do(func() {
-		if _, err := os.Stat(dockerSocketPath); err != nil {
-			dockerAvailable = false
-			return
-		}
-		client := dockerHTTPClient()
-		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/info", http.NoBody)
-		resp, err := client.Do(req)
-		if err != nil {
-			debuglog.Info("docker: failed to connect to Docker API", "error", err)
-			dockerAvailable = false
-			return
-		}
-		_ = resp.Body.Close()
-		dockerAvailable = resp.StatusCode == 200
+// IsDockerAvailable reports whether the Docker socket is accessible and
+// responsive. The answer cannot change for the life of the process, so it is
+// computed once.
+func IsDockerAvailable() bool { return dockerAvailable() }
 
-	})
-	return dockerAvailable
+var dockerAvailable = sync.OnceValue(probeDockerAvailable)
+
+func probeDockerAvailable() bool {
+	if _, err := os.Stat(dockerSocketPath); err != nil {
+		return false
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, "http://localhost/info", http.NoBody)
+	resp, err := dockerHTTPClient().Do(req)
+	if err != nil {
+		debuglog.Info("docker: failed to connect to Docker API", "error", err)
+		return false
+	}
+	_ = resp.Body.Close()
+	return resp.StatusCode == 200
 }
 
 // dockerHTTPClient returns a singleton HTTP client for Docker socket
@@ -61,28 +54,25 @@ func IsDockerAvailable() bool {
 // goroutines per connection that only die after IdleConnTimeout (90 s
 // default).  Reusing a single Transport avoids that unbounded goroutine
 // growth while still pooling connections efficiently.
-func dockerHTTPClient() *http.Client {
-	sharedDockerOnce.Do(func() {
-		sharedDockerCli = &http.Client{
-			Transport: &http.Transport{
-				DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
-					return net.Dial("unix", dockerSocketPath)
-				},
-				IdleConnTimeout: 30 * time.Second,
+var dockerHTTPClient = sync.OnceValue(newDockerHTTPClient)
+
+func newDockerHTTPClient() *http.Client {
+	return &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(_ context.Context, _, _ string) (net.Conn, error) {
+				return net.Dial("unix", dockerSocketPath)
 			},
-			Timeout: 5 * time.Second,
-		}
-	})
-	return sharedDockerCli
+			IdleConnTimeout: 30 * time.Second,
+		},
+		Timeout: 5 * time.Second,
+	}
 }
 
 // CloseDockerClient closes idle connections on the shared Docker HTTP
 // client. Call during server shutdown so Transport goroutines are released.
 func CloseDockerClient() {
-	if sharedDockerCli != nil {
-		if t, ok := sharedDockerCli.Transport.(*http.Transport); ok {
-			t.CloseIdleConnections()
-		}
+	if t, ok := dockerHTTPClient().Transport.(*http.Transport); ok {
+		t.CloseIdleConnections()
 	}
 }
 
@@ -187,7 +177,7 @@ func ListComposeContainers(filter ContainerFilter) ([]DockerContainer, error) {
 	}
 
 	var all []DockerContainer
-	if err := json.NewDecoder(resp.Body).Decode(&all); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, &all); err != nil {
 		return nil, err
 	}
 
@@ -234,13 +224,13 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != 200 {
-		body, _ := io.ReadAll(resp.Body)
-		debuglog.Info("docker: stats API returned non-200", "status", resp.StatusCode, "container", containerID[:12], "body", string(body[:min(len(body), 200)]))
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
+		debuglog.Info("docker: stats API returned non-200", "status", resp.StatusCode, "container", containerID[:min(len(containerID), 12)], "body", string(body[:min(len(body), 200)]))
 		return nil, fmt.Errorf("docker stats API returned %d: %s", resp.StatusCode, string(body))
 	}
 
 	var raw dockerStatsResponse
-	if err := json.NewDecoder(resp.Body).Decode(&raw); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, &raw); err != nil {
 		return nil, err
 	}
 
@@ -253,10 +243,7 @@ func GetContainerStats(containerID string) (*ContainerStats, error) {
 		onlineCPUs = len(raw.CPUStats.CPUUsage.PerCPUUsage)
 	}
 	if onlineCPUs > 0 && systemDelta > 0 && cpuDelta > 0 {
-		stats.CPUPercent = (cpuDelta / systemDelta) * float64(onlineCPUs) * 100.0
-		if stats.CPUPercent > 100.0*float64(onlineCPUs) {
-			stats.CPUPercent = 100.0 * float64(onlineCPUs)
-		}
+		stats.CPUPercent = min((cpuDelta/systemDelta)*float64(onlineCPUs)*100.0, 100.0*float64(onlineCPUs))
 	}
 
 	stats.MemoryUsage = raw.MemoryStats.Usage
@@ -301,25 +288,9 @@ type AggregatedDockerStats struct {
 	ContainerCount    int     `json:"container_count"`
 }
 
-var (
-	prevDockerNetRx    int64
-	prevDockerNetTx    int64
-	prevDockerBlkRead  int64
-	prevDockerBlkWrite int64
-	prevDockerTime     time.Time
-	prevDockerMu       sync.Mutex
-)
-
-// CollectDockerStats aggregates resource usage across containers matching
-// the given filter. It accepts a composeProject string for backward
-// compatibility; prefer CollectDockerStatsWithFilter for new callers.
-//
-// Note: passing an empty string now returns no containers (changed from the
-// previous behaviour of returning all containers with a compose label).
-func CollectDockerStats(composeProject string) AggregatedDockerStats {
-	filter := ContainerFilter{ComposeProject: composeProject}
-	return CollectDockerStatsWithFilter(filter)
-}
+// dockerRates holds the previous fleet-wide network and block-IO totals so the
+// aggregate can be reported as a rate.
+var dockerRates rateSampler
 
 // CollectDockerStatsWithFilter aggregates resource usage across containers
 // matching the provided ContainerFilter.
@@ -393,44 +364,11 @@ func CollectDockerStatsWithFilter(filter ContainerFilter) AggregatedDockerStats 
 	result.MemoryLimit = maxMemLimit
 	result.Procs = totalProcs
 
-	prevDockerMu.Lock()
-	defer prevDockerMu.Unlock()
-
-	if prevDockerTime.IsZero() {
-		prevDockerTime = time.Now()
-		prevDockerNetRx = totalNetRx
-		prevDockerNetTx = totalNetTx
-		prevDockerBlkRead = totalBlkRead
-		prevDockerBlkWrite = totalBlkWrite
-		return result
-	}
-
-	now := time.Now()
-	deltaSec := now.Sub(prevDockerTime).Seconds()
-	deltaRx := totalNetRx - prevDockerNetRx
-	deltaTx := totalNetTx - prevDockerNetTx
-	deltaBlkRead := totalBlkRead - prevDockerBlkRead
-	deltaBlkWrite := totalBlkWrite - prevDockerBlkWrite
-
-	prevDockerTime = now
-	prevDockerNetRx = totalNetRx
-	prevDockerNetTx = totalNetTx
-	prevDockerBlkRead = totalBlkRead
-	prevDockerBlkWrite = totalBlkWrite
-
-	if deltaSec > 0 {
-		if deltaRx > 0 {
-			result.NetRxBytesSec = float64(deltaRx) / deltaSec
-		}
-		if deltaTx > 0 {
-			result.NetTxBytesSec = float64(deltaTx) / deltaSec
-		}
-		if deltaBlkRead > 0 {
-			result.DiskReadBytesSec = float64(deltaBlkRead) / deltaSec
-		}
-		if deltaBlkWrite > 0 {
-			result.DiskWriteBytesSec = float64(deltaBlkWrite) / deltaSec
-		}
+	if rates, ok := dockerRates.Rates(time.Now(), totalNetRx, totalNetTx, totalBlkRead, totalBlkWrite); ok {
+		result.NetRxBytesSec = rates[0]
+		result.NetTxBytesSec = rates[1]
+		result.DiskReadBytesSec = rates[2]
+		result.DiskWriteBytesSec = rates[3]
 	}
 
 	return result
@@ -475,12 +413,18 @@ func isHex(s string) bool {
 	return s != ""
 }
 
-// DetectContainerFilter inspects the current container's labels to
-// determine which other containers belong to the same deployment.
-// It prefers the Docker Compose project label; when absent (e.g. when
-// deployed outside of docker-compose), it falls back to the app.group
-// label.
-func DetectContainerFilter() ContainerFilter {
+// DetectContainerFilter inspects the current container's labels to determine
+// which other containers belong to the same deployment. It prefers the Docker
+// Compose project label; when absent (e.g. when deployed outside of
+// docker-compose), it falls back to the app.group label.
+//
+// The labels cannot change for the life of the process, so the socket inspect
+// runs once rather than on every /api/system read.
+func DetectContainerFilter() ContainerFilter { return containerFilter() }
+
+var containerFilter = sync.OnceValue(detectContainerFilter)
+
+func detectContainerFilter() ContainerFilter {
 	containerID := getOwnContainerID()
 	if containerID == "" || !IsDockerAvailable() {
 		return ContainerFilter{}
@@ -502,7 +446,7 @@ func DetectContainerFilter() ContainerFilter {
 		return ContainerFilter{}
 	}
 
-	body, _ := io.ReadAll(resp.Body)
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxUpstreamBody))
 	var info struct {
 		Config struct {
 			Labels map[string]string `json:"Labels"`
@@ -519,12 +463,4 @@ func DetectContainerFilter() ContainerFilter {
 		return ContainerFilter{AppGroup: group}
 	}
 	return ContainerFilter{}
-}
-
-// DetectComposeProject returns the Docker Compose project name for the
-// current container, or an empty string if unavailable.
-//
-// Deprecated: use DetectContainerFilter instead for broader label support.
-func DetectComposeProject() string {
-	return DetectContainerFilter().ComposeProject
 }

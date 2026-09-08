@@ -4,7 +4,6 @@ package db
 import (
 	"context"
 	"embed"
-	"errors"
 	"fmt"
 	"io/fs"
 	"time"
@@ -13,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 //go:embed migrations/*.sql
@@ -22,13 +22,13 @@ var embeddedMigrations embed.FS
 // It can be overridden in tests to inject errors.
 var migrationsFS fs.FS
 
-// KnownMigrations returns the list of migration filenames embedded
-// in the binary. Used by the backup restore validation to compare a dump's
-// schema_migrations against the app's expected set.
-func KnownMigrations() []string {
+// migrationNames lists the migration filenames embedded in the binary, in the
+// order fs.ReadDir returns them (lexical). Directories, non-regular entries and
+// dotfiles are not migrations.
+func migrationNames() ([]string, error) {
 	entries, err := fs.ReadDir(migrationsFS, "migrations")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var names []string
 	for _, e := range entries {
@@ -36,6 +36,17 @@ func KnownMigrations() []string {
 			continue
 		}
 		names = append(names, e.Name())
+	}
+	return names, nil
+}
+
+// KnownMigrations returns the list of migration filenames embedded
+// in the binary. Used by the backup restore validation to compare a dump's
+// schema_migrations against the app's expected set.
+func KnownMigrations() []string {
+	names, err := migrationNames()
+	if err != nil {
+		return nil
 	}
 	return names
 }
@@ -99,27 +110,27 @@ func (db *DB) Begin(ctx context.Context) (pgx.Tx, error) {
 }
 
 func (db *DB) runMigrations(ctx context.Context) error {
-	entries, err := fs.ReadDir(migrationsFS, "migrations")
+	names, err := migrationNames()
 	if err != nil {
 		return fmt.Errorf("failed to read migrations directory: %w", err)
 	}
 
+	// The ledger is created once, outside the per-migration transactions:
+	// CREATE TABLE IF NOT EXISTS is idempotent, and asking every migration
+	// whether it exists cost one round trip per file at every startup.
+	if _, err := db.pool.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS schema_migrations (
+			id SERIAL PRIMARY KEY,
+			name TEXT NOT NULL UNIQUE,
+			applied_at TIMESTAMPTZ DEFAULT now()
+		)
+	`); err != nil {
+		return fmt.Errorf("failed to create schema_migrations table: %w", err)
+	}
+
 	var applied, skipped int
 
-	for _, entry := range entries {
-		if entry.IsDir() {
-			continue
-		}
-
-		if !entry.Type().IsRegular() {
-			continue
-		}
-
-		filename := entry.Name()
-		if filename[0] == '.' {
-			continue
-		}
-
+	for _, filename := range names {
 		migrationPath := "migrations/" + filename
 		content, err := fs.ReadFile(migrationsFS, migrationPath)
 		if err != nil {
@@ -156,40 +167,14 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	var exists bool
-	err = tx.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM pg_tables
-			WHERE schemaname = 'public'
-			AND tablename = 'schema_migrations'
-		)
-	`).Scan(&exists)
-
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return false, fmt.Errorf("failed to check schema_migrations table: %w", err)
-	}
-
-	if !exists {
-		_, err = tx.Exec(ctx, `
-			CREATE TABLE IF NOT EXISTS schema_migrations (
-				id SERIAL PRIMARY KEY,
-				name TEXT NOT NULL UNIQUE,
-				applied_at TIMESTAMPTZ DEFAULT now()
-			)
-		`)
-		if err != nil {
-			return false, fmt.Errorf("failed to create schema_migrations table: %w", err)
-		}
-	}
-
+	// SELECT EXISTS always returns exactly one row, so a miss is not a
+	// possibility here: any error is a real failure.
 	var applied bool
-	err = tx.QueryRow(ctx, `
+	if err := tx.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1 FROM schema_migrations WHERE name = $1
 		)
-	`, name).Scan(&applied)
-
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+	`, name).Scan(&applied); err != nil {
 		return false, fmt.Errorf("failed to check migration status: %w", err)
 	}
 
@@ -232,10 +217,8 @@ func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {
 		}
 
 		debuglog.Info("db: Database not ready", "attempt", i+1, "max", maxAttempts, "error", err)
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-time.After(waitForReadyInterval):
+		if err := util.SleepContext(ctx, waitForReadyInterval); err != nil {
+			return err
 		}
 	}
 

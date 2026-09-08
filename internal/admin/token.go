@@ -9,11 +9,11 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 const tokenLength = 32
@@ -21,14 +21,12 @@ const sha256Prefix = "sha256:"
 
 // Manager handles admin token authentication and management.
 //
-// tokenHash and plainToken are guarded by mu for safe concurrent reads of the
-// stored hash and the one-boot plaintext.
+// tokenHash and plainToken are set once in New before the Manager escapes and
+// are never written again, so reads need no locking.
 type Manager struct {
-	mu         sync.RWMutex
 	dataDir    string
 	tokenHash  string
 	plainToken string
-	isNew      bool
 }
 
 // New creates a new Manager. If initialToken is non-empty, it is used as the
@@ -49,7 +47,6 @@ func New(dataDir, initialToken string) (*Manager, bool, error) {
 
 	m.tokenHash = tokenHash
 	m.plainToken = plainToken
-	m.isNew = isNew
 
 	if isNew {
 		debuglog.Info("admin: generated new admin token", "data_dir", dataDir)
@@ -60,14 +57,7 @@ func New(dataDir, initialToken string) (*Manager, bool, error) {
 
 // Token returns the plain admin token.
 func (m *Manager) Token() string {
-	m.mu.RLock()
-	defer m.mu.RUnlock()
 	return m.plainToken
-}
-
-// IsNew reports whether a new admin token was generated on this boot.
-func (m *Manager) IsNew() bool {
-	return m.isNew
 }
 
 // Validate checks if the provided token matches the stored admin token hash.
@@ -75,17 +65,8 @@ func (m *Manager) Validate(token string) bool {
 	if token == "" {
 		return false
 	}
-	m.mu.RLock()
-	stored := m.tokenHash
-	m.mu.RUnlock()
-	if stored == "" {
-		return false
-	}
-	hash := sha256.Sum256([]byte(token))
-	hashHex := hex.EncodeToString(hash[:])
-
 	// tokenHash is always stored without the sha256: prefix (see loadOrCreateToken)
-	return subtle.ConstantTimeCompare([]byte(hashHex), []byte(stored)) == 1
+	return subtle.ConstantTimeCompare([]byte(util.SHA256Hex(token)), []byte(m.tokenHash)) == 1
 }
 
 // writeTokenFileAtomic writes the admin-token file via a temp file + fsync +
@@ -120,6 +101,13 @@ func writeTokenFileAtomic(path string, data []byte) error {
 	return nil
 }
 
+// isSHA256Hex reports whether s is a SHA-256 digest in the form this package
+// stores: exactly 64 hex characters, decoding to 32 bytes.
+func isSHA256Hex(s string) bool {
+	raw, err := hex.DecodeString(s)
+	return err == nil && len(raw) == sha256.Size
+}
+
 func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken string, isNew bool, err error) {
 	tokenPath := filepath.Join(m.dataDir, "admin-token")
 
@@ -139,19 +127,28 @@ func (m *Manager) loadOrCreateToken(initialToken string) (tokenHash, plainToken 
 	}
 
 	// sha256: prefix format
-	if strings.HasPrefix(content, sha256Prefix) {
-		return content[len(sha256Prefix):], "", false, nil
+	if stored, ok := strings.CutPrefix(content, sha256Prefix); ok {
+		if !isSHA256Hex(stored) {
+			return "", "", false, fmt.Errorf("token file %s holds a malformed %s hash: expected 64 hex characters, got %d characters", tokenPath, sha256Prefix, len(stored))
+		}
+		return stored, "", false, nil
 	}
 
 	// Legacy: bare 64-char hex hash (no prefix). Not migrated to sha256:
-	// prefix to avoid rewriting a file that already stores a valid hash.
+	// prefix to avoid rewriting a file that already stores a valid hash. A
+	// 64-character value that is not hex cannot be a digest, so it is a
+	// corrupt file rather than a plaintext token to migrate: no caller could
+	// ever authenticate against it, and silently accepting it would lock the
+	// dashboard out with no diagnosis.
 	if len(content) == 64 {
+		if !isSHA256Hex(content) {
+			return "", "", false, fmt.Errorf("token file %s holds a malformed legacy hash: 64 characters that are not hex", tokenPath)
+		}
 		return content, "", false, nil
 	}
 
 	// Plaintext: hash and rewrite with sha256: prefix
-	hash := sha256.Sum256([]byte(content))
-	hashHex := hex.EncodeToString(hash[:])
+	hashHex := util.SHA256Hex(content)
 	prefixed := sha256Prefix + hashHex
 	debuglog.Warn("admin: migrating plaintext token to hashed format")
 	if err := writeTokenFileAtomic(tokenPath, []byte(prefixed)); err != nil {
@@ -173,8 +170,7 @@ func (m *Manager) createAndSaveToken(tokenPath, initialToken string) (tokenHash,
 		plain = generated
 	}
 
-	hash := sha256.Sum256([]byte(plain))
-	hashHex := hex.EncodeToString(hash[:])
+	hashHex := util.SHA256Hex(plain)
 	prefixed := sha256Prefix + hashHex
 
 	if err := writeTokenFileAtomic(tokenPath, []byte(prefixed)); err != nil {

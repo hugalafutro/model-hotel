@@ -6,7 +6,6 @@ import (
 	"net/http/httptest"
 	"reflect"
 	"slices"
-	"sort"
 	"strings"
 	"sync"
 	"testing"
@@ -119,7 +118,9 @@ func TestGetCachedRejectedParams_EmptyCache(t *testing.T) {
 func TestGetCachedRejectedParams_KeyExists(t *testing.T) {
 	var cache sync.Map
 	expected := map[string]bool{"top_p": true, "temperature": true}
-	cache.Store("anthropic:claude-3-opus", expected)
+	// Stored by pointer: sync.Map's CompareAndSwap needs a comparable value,
+	// which a map is not.
+	cache.Store("anthropic:claude-3-opus", &expected)
 
 	got := paramrewrite.CachedRejectedParams(&cache, "anthropic:claude-3-opus")
 	if !reflect.DeepEqual(got, expected) {
@@ -139,7 +140,8 @@ func TestGetCachedRejectedParams_WrongType(t *testing.T) {
 
 func TestGetCachedRejectedParams_NilMapValue(t *testing.T) {
 	var cache sync.Map
-	cache.Store("key", map[string]bool(nil))
+	nilMap := map[string]bool(nil)
+	cache.Store("key", &nilMap)
 
 	got := paramrewrite.CachedRejectedParams(&cache, "key")
 	// A nil map[string]bool passes the type assertion in Load, but the
@@ -152,8 +154,8 @@ func TestGetCachedRejectedParams_NilMapValue(t *testing.T) {
 
 func TestGetCachedRejectedParams_MultipleKeys(t *testing.T) {
 	var cache sync.Map
-	cache.Store("provider-a:model-1", map[string]bool{"top_p": true})
-	cache.Store("provider-b:model-2", map[string]bool{"temperature": true, "top_k": true})
+	cache.Store("provider-a:model-1", &map[string]bool{"top_p": true})
+	cache.Store("provider-b:model-2", &map[string]bool{"temperature": true, "top_k": true})
 
 	got := paramrewrite.CachedRejectedParams(&cache, "provider-b:model-2")
 	expected := map[string]bool{"temperature": true, "top_k": true}
@@ -423,47 +425,6 @@ func TestParseProviderParamRename_Unparseable(t *testing.T) {
 	}
 }
 
-// ---------------------------------------------------------------------------
-// mapKeys
-// ---------------------------------------------------------------------------
-
-func TestMapKeys_Empty(t *testing.T) {
-	got := mapKeys(map[string]bool{})
-	if len(got) != 0 {
-		t.Errorf("expected empty slice, got %v", got)
-	}
-}
-
-func TestMapKeys_OneKey(t *testing.T) {
-	got := mapKeys(map[string]bool{"top_p": true})
-	expected := []string{"top_p"}
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("got %v, want %v", got, expected)
-	}
-}
-
-func TestMapKeys_MultipleKeys(t *testing.T) {
-	input := map[string]bool{"top_p": true, "temperature": true, "top_k": true}
-	got := mapKeys(input)
-	expected := []string{"top_p", "temperature", "top_k"}
-
-	sort.Strings(got)
-	sort.Strings(expected)
-
-	if !reflect.DeepEqual(got, expected) {
-		t.Errorf("got %v, want %v", got, expected)
-	}
-}
-
-func TestMapKeys_NilMap(t *testing.T) {
-	got := mapKeys(nil)
-	if got == nil {
-		t.Error("mapKeys(nil) should return empty slice, not nil")
-	}
-	if len(got) != 0 {
-		t.Errorf("expected empty slice for nil map, got %v", got)
-	}
-}
 func TestWriteOpenAIError(t *testing.T) {
 	rr := httptest.NewRecorder()
 	writeOpenAIError(rr, "model is required", http.StatusBadRequest)

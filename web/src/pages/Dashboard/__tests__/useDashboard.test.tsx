@@ -715,19 +715,16 @@ describe("useDashboard", () => {
 
 			await waitFor(() => {
 				expect(result.current.byModel).toHaveLength(5);
-				// Default globalMetric is "tokens", so suffix is " tokens"
 				// All entries have deleted: true since model keys don't match mockModel
 				expect(result.current.byModel[0]).toEqual({
 					label: "model-e",
 					value: 300,
-					suffix: " tokens",
 					failoverGroup: false,
 					deleted: true,
 				});
 				expect(result.current.byModel[1]).toEqual({
 					label: "model-b",
 					value: 200,
-					suffix: " tokens",
 					failoverGroup: false,
 					deleted: true,
 				});
@@ -766,7 +763,7 @@ describe("useDashboard", () => {
 			expect(regularEntry?.deleted).toBe(true);
 		});
 
-		it("byModel uses 'tokens' suffix when modelsMetric is 'tokens'", async () => {
+		it("byModel follows the models metric toggle", async () => {
 			server.use(
 				http.get("/api/stats", () => {
 					return HttpResponse.json({
@@ -784,8 +781,11 @@ describe("useDashboard", () => {
 				result.current.setModelsMetric("tokens");
 			});
 
+			// The toggle drives the entries; the unit label is UsageBarPanel's,
+			// derived from the same metric rather than carried on each entry.
 			await waitFor(() => {
-				expect(result.current.byModel[0].suffix).toBe(" tokens");
+				expect(result.current.modelsMetric).toBe("tokens");
+				expect(result.current.byModel[0]?.value).toBe(100);
 			});
 		});
 
@@ -891,8 +891,8 @@ describe("useDashboard", () => {
 		});
 	});
 
-	describe("dashboardRefreshChange event", () => {
-		it("dispatching dashboardRefreshChange updates dashboardRefreshMs", () => {
+	describe("dashboardRefreshSec changes", () => {
+		it("a stored change updates dashboardRefreshMs", () => {
 			localStorage.setItem("dashboardRefreshSec", "10");
 
 			const { result } = renderHook(() => useDashboard(), {
@@ -902,10 +902,14 @@ describe("useDashboard", () => {
 			// Initial value
 			expect(result.current.dashboardRefreshMs).toBe(10000);
 
-			// Change localStorage and dispatch event
+			// Change localStorage and announce it the way the setter does
 			localStorage.setItem("dashboardRefreshSec", "60");
 			act(() => {
-				window.dispatchEvent(new Event("dashboardRefreshChange"));
+				window.dispatchEvent(
+					new CustomEvent("localStorageChange", {
+						detail: { key: "dashboardRefreshSec" },
+					}),
+				);
 			});
 
 			expect(result.current.dashboardRefreshMs).toBe(60000);
@@ -922,7 +926,7 @@ describe("useDashboard", () => {
 		});
 	});
 
-	describe("Stats error auth check", () => {
+	describe("Stats error", () => {
 		let reloadSpy: ReturnType<typeof vi.fn>;
 
 		beforeEach(() => {
@@ -937,12 +941,10 @@ describe("useDashboard", () => {
 			vi.unstubAllGlobals();
 		});
 
-		it("401 error removes adminToken", async () => {
-			// Set initial admin token
-			localStorage.setItem("adminToken", "test-token");
-
-			// Mock stats endpoint to return 401 with text response
-			// (matching how the real API returns errors)
+		it("surfaces a 401 as statsError without reloading the page", async () => {
+			// Session handling belongs to the API layer (it clears the auth
+			// signal on any 401) and the SSE stream, which drives the redirect
+			// to the login screen. The dashboard only reports the error.
 			server.use(
 				http.get("/api/stats", () => {
 					return new HttpResponse("Unauthorized", {
@@ -956,22 +958,16 @@ describe("useDashboard", () => {
 				wrapper: AllProviders,
 			});
 
-			// Wait for the error to be set and adminToken to be removed
-			// The effect runs after statsError is populated
 			await waitFor(
 				() => {
 					expect(result.current.statsError).toBeDefined();
-					expect(localStorage.getItem("adminToken")).toBeNull();
 				},
 				{ timeout: 3000 },
 			);
-			expect(reloadSpy).toHaveBeenCalled();
+			expect(reloadSpy).not.toHaveBeenCalled();
 		});
 
-		it("non-auth errors do not remove adminToken", async () => {
-			localStorage.setItem("adminToken", "test-token");
-
-			// Mock stats endpoint to return 500
+		it("surfaces a 500 as statsError", async () => {
 			server.use(
 				http.get("/api/stats", () => {
 					return new HttpResponse("Internal server error", {
@@ -988,9 +984,7 @@ describe("useDashboard", () => {
 			await waitFor(() => {
 				expect(result.current.statsError).toBeDefined();
 			});
-
-			// Admin token should NOT be removed
-			expect(localStorage.getItem("adminToken")).toBe("test-token");
+			expect(reloadSpy).not.toHaveBeenCalled();
 		});
 	});
 

@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+	BACKUP_KEYS,
 	SECTION_SETTINGS,
 	SETTING_DEFAULTS,
 	SETTING_LABELS,
 	type SettingKey,
+	settingOr,
 } from "../defaults";
 
 describe("SETTING_DEFAULTS", () => {
@@ -77,6 +79,35 @@ describe("SETTING_DEFAULTS", () => {
 			expect(label, `${key} label should be a dot-path`).toMatch(
 				/^settings\.[a-zA-Z]+\.[a-zA-Z]+/,
 			);
+		}
+	});
+});
+
+describe("settingOr", () => {
+	it("returns the stored value when there is one", () => {
+		expect(settingOr({ rate_limit_rps: "42" }, "rate_limit_rps")).toBe("42");
+	});
+
+	it("falls back to the default for an absent key", () => {
+		expect(settingOr({}, "rate_limit_rps")).toBe(
+			SETTING_DEFAULTS.rate_limit_rps,
+		);
+		expect(settingOr(undefined, "rate_limit_rps")).toBe(
+			SETTING_DEFAULTS.rate_limit_rps,
+		);
+	});
+
+	it("treats a stored empty string as unset", () => {
+		// A restored backup or a hand-edited row can store "", which must land
+		// on the default rather than on an empty slider.
+		expect(settingOr({ backup_interval: "" }, "backup_interval")).toBe(
+			SETTING_DEFAULTS.backup_interval,
+		);
+	});
+
+	it("has a default for every backup key the card resets", () => {
+		for (const key of BACKUP_KEYS) {
+			expect(SETTING_DEFAULTS[key], `Missing default for ${key}`).toBeDefined();
 		}
 	});
 });

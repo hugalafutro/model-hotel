@@ -2,11 +2,13 @@ import type { Dispatch, RefObject, SetStateAction } from "react";
 import { useCallback } from "react";
 import { useTranslation } from "react-i18next";
 import type { ChatMessage, GenerationParams } from "../../api/types";
-import { hasAnyParam } from "../../utils/params";
 import {
 	type ConversationState,
 	getApiMessagesForModel,
+	newAssistantPlaceholder,
+	patchAssistantAt,
 	streamModelResponse,
+	withStreamResult,
 } from "./chatStreaming";
 
 interface UseConversationRunnerParams {
@@ -144,15 +146,7 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 					persona,
 				);
 
-				const assistantMessage: ChatMessage = {
-					role: "assistant",
-					content: "",
-					rawContent: "",
-					thinkingContent: "",
-					model: modelId,
-					timestamp: Date.now(),
-					params: hasAnyParam(params) ? params : undefined,
-				};
+				const assistantMessage = newAssistantPlaceholder(modelId, params);
 				currentMessages = [...currentMessages, assistantMessage];
 				setMessages(currentMessages);
 				const msgTimestamp = assistantMessage.timestamp;
@@ -163,64 +157,24 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 					params,
 					abortCtrl,
 					(raw, content, thinking) => {
-						setMessages((prev) => {
-							const idx = prev.findIndex(
-								(m) => m.timestamp === msgTimestamp && m.role === "assistant",
-							);
-							if (idx === -1) return prev;
-							const next = [...prev];
-							next[idx] = {
-								...next[idx],
+						setMessages((prev) =>
+							patchAssistantAt(prev, msgTimestamp, {
 								rawContent: raw,
 								content,
 								thinkingContent: thinking,
-							};
-							return next;
-						});
+							}),
+						);
 					},
-					undefined,
 					t,
 				);
-				setMessages((prev) => {
-					const idx = prev.findIndex(
-						(m) => m.timestamp === msgTimestamp && m.role === "assistant",
-					);
-					if (idx === -1) return prev;
-					const next = [...prev];
-					next[idx] = {
-						...next[idx],
-						rawContent: result.rawContent,
-						content: result.content,
-						thinkingContent: result.thinkingContent,
-						error: result.error,
-						aborted: result.aborted || undefined,
-						metrics: {
-							tokensPerSecond: result.tokensPerSecond,
-							durationMs: result.durationMs,
-							promptTokens: result.promptTokens,
-							completionTokens: result.completionTokens,
-						},
-					};
-					return next;
-				});
-
-				currentMessages = currentMessages.map((m) =>
-					m.timestamp === msgTimestamp && m.role === "assistant"
-						? {
-								...m,
-								rawContent: result.rawContent,
-								content: result.content,
-								thinkingContent: result.thinkingContent,
-								error: result.error,
-								aborted: result.aborted || undefined,
-								metrics: {
-									tokensPerSecond: result.tokensPerSecond,
-									durationMs: result.durationMs,
-									promptTokens: result.promptTokens,
-									completionTokens: result.completionTokens,
-								},
-							}
-						: m,
+				const applyResult = (m: ChatMessage) => withStreamResult(m, result);
+				setMessages((prev) =>
+					patchAssistantAt(prev, msgTimestamp, applyResult),
+				);
+				currentMessages = patchAssistantAt(
+					currentMessages,
+					msgTimestamp,
+					applyResult,
 				);
 
 				if (result.error || result.aborted) {

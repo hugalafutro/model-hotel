@@ -18,9 +18,15 @@ export function AnimatedValue({
 	const startRef = useRef<number | null>(null);
 	const fromRef = useRef(0);
 	const toRef = useRef(value);
+	// The last value put on screen, and the point the next animation eases
+	// from. Each frame records it here rather than the effect reading the
+	// `display` state: a `display` dependency would cancel and restart the
+	// ease on every frame, leaving the value creeping towards the target
+	// instead of arriving in `duration` ms.
+	const shownRef = useRef(0);
 
 	useEffect(() => {
-		fromRef.current = display;
+		fromRef.current = shownRef.current;
 		toRef.current = value;
 		startRef.current = null;
 
@@ -34,13 +40,14 @@ export function AnimatedValue({
 			const eased = ease(p);
 			const current =
 				fromRef.current + (toRef.current - fromRef.current) * eased;
+			shownRef.current = current;
 			setDisplay(current);
 			if (p < 1) raf = requestAnimationFrame(tick);
 		};
 
 		raf = requestAnimationFrame(tick);
 		return () => cancelAnimationFrame(raf);
-	}, [value, duration, display]);
+	}, [value, duration]);
 
 	// Unit suffixes (% s ms) should be tight against the number;
 	// word suffixes (T/Rq etc.) get a space.

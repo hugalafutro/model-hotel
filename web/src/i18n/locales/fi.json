@@ -325,7 +325,11 @@
 			"emptyState": "Käyttötietoja ei ole vielä. Käytön jakautuminen näkyy tässä liikennevirtojen jälkeen.",
 			"viewDetailsFor": "Näytä kohteen {{label}} tiedot",
 			"deletedModelTooltip": "Mallia ei ole enää saatavilla – se on mahdollisesti poistettu tai sen tarjoaja on poistettu",
-			"reservedKeyTooltip": "Sisäinen varattu nimi, ei käyttäjän luoma avain – tämä käyttö on peräisin Model Hotelin omista \"{{name}}\"-reiteistä"
+			"reservedKeyTooltip": "Sisäinen varattu nimi, ei käyttäjän luoma avain – tämä käyttö on peräisin Model Hotelin omista \"{{name}}\"-reiteistä",
+			"tokens_one": "token",
+			"tokens_other": "tokenit",
+			"requests_one": "pyyntö",
+			"requests_other": "pyynnöt"
 		},
 		"providerLatency": {
 			"title": "Tarjoajan viive",
@@ -347,10 +351,10 @@
 			"distributionChart": "Tarjoajan jakelukaavio",
 			"emptyState": "Ei vielä toimittajan tietoja. Tarjoajan erittely näkyy tässä liikennevirtojen jälkeen.",
 			"chartAriaLabel": "Tarjoajan jakelukaavio",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokenit",
-			"requestUnit": "Pyyntö",
-			"requestsUnit": "Pyynnöt"
+			"tokens_one": "Token",
+			"tokens_other": "Tokenit",
+			"requests_one": "Pyyntö",
+			"requests_other": "Pyynnöt"
 		},
 		"models": {
 			"viewDetails": "Näytä tiedot {{label}}",
@@ -597,7 +601,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Mallit tuottavat - klikkaa Pysäytä Kaikki peruuttaaksesi",
-			"voteToContinue": "Äänestä kaikista matchups jatkaaksesi seuraavalle kierrokselle",
 			"nextRoundReady": "Aloita seuraava kierros kun valmis"
 		},
 		"responses": {
@@ -652,13 +655,6 @@
 			"close": "Sulje"
 		},
 		"params": {
-			"temperature": "Lämpötila",
-			"maxTokens": "Maksimi Tokenit",
-			"topP": "Top P",
-			"minP": "Minimi P",
-			"topK": "Top K",
-			"freqPenalty": "Freq-rangaistus",
-			"presPenalty": "Pres Rangaistus",
 			"resetAll": "Nollaa kaikki",
 			"done": "Valmis"
 		},
@@ -844,7 +840,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Käytössä olevia palveluntarjoajia ei ole jäljellä",
-				"onlyOne": "Vain yksi käytössä oleva palveluntarjoaja on jäljellä (failover vaatii vähintään kaksi)"
+				"onlyOne": "Vain yksi käytössä oleva palveluntarjoaja on jäljellä (failover vaatii vähintään kaksi)",
+				"noValidProviders": "Karsinnan jälkeen ei jää kelvollisia palveluntarjoajia",
+				"onlyOneValid": "Karsinnan jälkeen jää vain yksi kelvollinen palveluntarjoaja (vikasietoisuus vaatii vähintään kaksi)"
 			},
 			"error": "Virhe",
 			"failover": "Vikasietoryhmät",
@@ -1065,7 +1063,17 @@
 		"scope_all": "Kaikki palveluntarjoajat",
 		"badge_parked": "{{count}} pysäköity",
 		"status_parked": "Pysäköity",
-		"status_parked_hint": "Palveluntarjoaja on poistettu käytöstä; malli pysyy listalla, mutta sitä ei tarjoilla ennen kuin palveluntarjoaja otetaan taas käyttöön."
+		"status_parked_hint": "Palveluntarjoaja on poistettu käytöstä; malli pysyy listalla, mutta sitä ei tarjoilla ennen kuin palveluntarjoaja otetaan taas käyttöön.",
+		"capPills": {
+			"vision": "Näkö",
+			"reasoning": "Päättely",
+			"tool_calling": "Työkalut",
+			"structured_output": "Rakenteinen",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Ääni",
+			"parallel_tool_calls": "Rinnakkain"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Palauta löydettyyn arvoon",
@@ -1267,7 +1275,6 @@
 				"owner": "Omistaja"
 			},
 			"noProvidersConfigured": "Yhtään tarjoajaa ei ole määritetty.",
-			"discardChanges": "Hylätäänkö tallentamattomat muutokset?",
 			"loadingProviders": "Ladataan palveluntarjoajia...",
 			"stripReasoningDescriptionText": "Kun tämä on käytössä, päättely- ja ajattelutokenit poistetaan suoratoistovastauksista asiakkaille, jotka eivät osaa käsitellä niitä.",
 			"providerInstructionsText": "Napsauta tarjoajaa rajoittaaksesi pääsyä. Kaikki ovat oletusarvoisesti käytettävissä.",
@@ -1408,6 +1415,11 @@
 			"search": "Suodata lokit…",
 			"allLevels": "Kaikki tasot",
 			"allSources": "Kaikki lähteet"
+		},
+		"level": {
+			"info": "Tiedot",
+			"warning": "Varoitus",
+			"error": "Virhe"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",
@@ -1859,8 +1871,8 @@
 				"confirmEnableTitle": "Ota Käyttöön Säännöllinen Varmuuskopio?",
 				"confirmEnableDescription": "Säännöllisen varmuuskopioinnin käyttöönotto poistaa olemassa olevat varmuuskopiot, jotka jäävät poika/isä/isoisä-kierron ikkunan ulkopuolelle.",
 				"confirmEnableWouldRemove": "Nämä {{count}} varmuuskopiota jäävät kierron ikkunan ulkopuolelle ja poistetaan pysyvästi:",
-				"prunePreviewFailed": "Karsittavien varmuuskopioiden esikatselu epäonnistui",
-				"pruneFailed": "Vanhojen varmuuskopioiden karsiminen epäonnistui",
+				"prunePreviewFailed": "Karsittavien varmuuskopioiden esikatselu epäonnistui: {{message}}",
+				"pruneFailed": "Vanhojen varmuuskopioiden karsiminen epäonnistui: {{message}}",
 				"pruneSuccess": "Säännöllinen varmuuskopiointi käytössä. Poistettu {{count}} vanhaa varmuuskopiota."
 			},
 			"availableBackupsTitle": "Saatavilla Olevat Varmuuskopiot",
@@ -2199,7 +2211,7 @@
 				"doneManaged": "Kohteet tallennettu. Sitä, mitkä tapahtumat lähettävät hälytyksen, hallitaan edelleen koko laivaston tasolla.",
 				"sendAll": "Lähetä testi kaikkiin",
 				"sentAll": "Testi lähetetty jokaiseen kohteeseen",
-				"apiChangedDrops": "Osoitteen vaihtaminen poistaa tällä kierroksella lisätyt kohteet; ne testattiin vanhaa osoitetta vastaan."
+				"apiChangedDrops": "Toisen osoitteen vahvistaminen poistaa tällä kierroksella lisätyt kohteet; ne testattiin vanhaa osoitetta vastaan."
 			},
 			"category": {
 				"discovery": "Löytäminen",
@@ -2388,16 +2400,10 @@
 			"filter": "Suodata…",
 			"clearFilter": "Tyhjennä suodatin"
 		},
-		"copyButton": {
-			"copy": "Kopioi",
-			"copiedToClipboard": "Kopioitu leikepöydälle",
-			"failedToCopy": "Kopiointi epäonnistui"
-		},
 		"copyablePill": {
 			"copy": "Kopioi",
 			"copyToClipboard": "Kopioi leikepöydälle",
-			"copied": "Kopioitu!",
-			"failedToCopy": "Kopiointi epäonnistui"
+			"copied": "Kopioitu!"
 		},
 		"collapsibleToggle": {
 			"expand": "Laajenna",
@@ -2714,11 +2720,6 @@
 			"compare": "Vertaa",
 			"noMatchHistory": "Ei vielä otteluhistoriaa",
 			"completedSessionsHere": "Valmiit areenat ja vertailevat istunnot näkyvät täällä",
-			"match": "Ottelu",
-			"final": "Lopullinen",
-			"semifinals": "Puolifinaalit",
-			"quarterfinals": "Neljännesfinaalit",
-			"round": "Kierros {{number}}",
 			"winner": "Voittaja: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Virhe: {{message}}",
@@ -2826,35 +2827,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Lokeja ei löytynyt",
-			"entries": "merkinnät",
-			"loadingNewer": "Ladataan uudempaa…",
-			"loadingOlder": "Ladataan vanhempaa…",
-			"timeDate": "Aika/Päivämäärä",
-			"hash": "Hash",
-			"model": "Malli",
-			"provider": "Tarjoaja",
-			"providerDeleted": "Toimittaja on poistettu",
-			"status": "Tila",
-			"tokens": "Tokenit",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Otsikot",
-			"ttft": "TTFT",
-			"duration": "Kesto",
-			"overhead": "Lisäkuorma",
-			"key": "Avain",
-			"interrupted": "Keskeytetty",
-			"internal": "sisäinen",
-			"cacheInflated": "Kasvatettu kehotevälimuistin osumilla",
-			"deleted": "Poistettu",
-			"zeroEntries": "0 merkintää",
-			"ip": "IP"
+			"zeroEntries": "0 merkintää"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Lokitietoja ei löytynyt",
-			"entries": "merkinnät",
-			"loadingNewer": "Ladataan uudempaa…",
-			"loadingOlder": "Ladataan vanhempaa…",
 			"timeDate": "Aika/Päivämäärä",
 			"level": "Taso",
 			"source": "Lähde",
@@ -3065,7 +3041,8 @@
 		},
 		"useDisableModel": {
 			"success": "Malli \"{{model}}\" pois päältä",
-			"error": "Mallin poistaminen käytöstä epäonnistui: {{error}}"
+			"error": "Mallin poistaminen käytöstä epäonnistui: {{error}}",
+			"notFound": "Mallia \"{{model}}\" ei löytynyt käytössä olevista malleista"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Alkuperäisten tietojen noutaminen epäonnistui",

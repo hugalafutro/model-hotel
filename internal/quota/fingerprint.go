@@ -4,7 +4,8 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"sort"
+	"maps"
+	"slices"
 	"strings"
 )
 
@@ -62,12 +63,7 @@ func SchemaPaths(payload json.RawMessage) ([]string, bool) {
 		return nil, false
 	}
 
-	paths := make([]string, 0, len(set))
-	for p := range set {
-		paths = append(paths, p)
-	}
-	sort.Strings(paths)
-	return paths, true
+	return slices.Sorted(maps.Keys(set)), true
 }
 
 // collectSchemaPaths walks one node, recording the path of every member it
@@ -81,12 +77,7 @@ func collectSchemaPaths(node any, prefix string, depth int, set map[string]struc
 	}
 	switch typed := node.(type) {
 	case map[string]any:
-		keys := make([]string, 0, len(typed))
-		for k := range typed {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
+		for _, k := range slices.Sorted(maps.Keys(typed)) {
 			if len(set) >= maxPaths {
 				return
 			}

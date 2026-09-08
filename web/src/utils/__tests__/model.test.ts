@@ -1,14 +1,19 @@
 import { describe, expect, it } from "vitest";
 import {
+	chatModelIdSet,
+	findChatModel,
 	formatPrice,
 	formatPriceInput,
 	is5xxError,
 	isChatModel,
+	isReasoningModel,
+	matchesModelSearch,
 	nonTextOutputs,
 	normalizeProviderName,
 	parseCapabilities,
 	providerFromModelID,
 	proxyModelID,
+	shortModelName,
 } from "../model";
 
 describe("normalizeProviderName", () => {
@@ -373,5 +378,81 @@ describe("nonTextOutputs", () => {
 		expect(nonTextOutputs({ output_modalities: '["TEXT","Image"]' })).toEqual([
 			"image",
 		]);
+	});
+});
+
+describe("shortModelName", () => {
+	it("drops the provider prefix", () => {
+		expect(shortModelName("OpenAI/gpt-4o")).toBe("gpt-4o");
+	});
+
+	it("keeps only the last segment of a nested id", () => {
+		expect(shortModelName("NanoGPT/deepseek-ai/DeepSeek-R1")).toBe(
+			"DeepSeek-R1",
+		);
+	});
+
+	it("returns an unprefixed id unchanged", () => {
+		expect(shortModelName("gpt-4o")).toBe("gpt-4o");
+	});
+});
+
+describe("findChatModel / isReasoningModel / chatModelIdSet", () => {
+	const models = [
+		{
+			provider_name: "OpenAI",
+			model_id: "gpt-4o",
+			capabilities: '{"reasoning":false}',
+		},
+		{
+			provider_name: "Z AI",
+			model_id: "glm-5",
+			capabilities: '{"reasoning":true}',
+		},
+	];
+
+	it("finds a model by its proxy id", () => {
+		expect(findChatModel(models, "Z-AI/glm-5")?.model_id).toBe("glm-5");
+		expect(findChatModel(models, "OpenAI/missing")).toBeUndefined();
+	});
+
+	it("reads the reasoning capability", () => {
+		expect(isReasoningModel(models, "Z-AI/glm-5")).toBe(true);
+		expect(isReasoningModel(models, "OpenAI/gpt-4o")).toBe(false);
+		expect(isReasoningModel(models, "OpenAI/missing")).toBe(false);
+	});
+
+	it("collects the proxy ids", () => {
+		expect([...chatModelIdSet(models)]).toEqual([
+			"OpenAI/gpt-4o",
+			"Z-AI/glm-5",
+		]);
+	});
+});
+
+describe("matchesModelSearch", () => {
+	const model = {
+		display_name: "GPT-4o",
+		model_id: "gpt-4o",
+		provider_name: "OpenAI",
+	};
+
+	it("matches the display name, the id and the provider, case-insensitively", () => {
+		expect(matchesModelSearch(model, "gpt-4")).toBe(true);
+		expect(matchesModelSearch(model, "OPENAI")).toBe(true);
+	});
+
+	it("matches everything on a blank query", () => {
+		expect(matchesModelSearch(model, "   ")).toBe(true);
+	});
+
+	it("rejects a miss", () => {
+		expect(matchesModelSearch(model, "claude")).toBe(false);
+	});
+
+	it("falls back to the model id when there is no display name", () => {
+		expect(matchesModelSearch({ ...model, display_name: "" }, "gpt-4o")).toBe(
+			true,
+		);
 	});
 });

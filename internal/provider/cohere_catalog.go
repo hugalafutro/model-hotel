@@ -19,10 +19,5 @@ func GetCoherePricingCatalog() []CoherePricingEntry {
 
 // LookupCoherePricing finds a pricing entry by model ID.
 func LookupCoherePricing(catalog []CoherePricingEntry, modelID string) *CoherePricingEntry {
-	for i := range catalog {
-		if catalog[i].ModelID == modelID {
-			return &catalog[i]
-		}
-	}
-	return nil
+	return lookupByModelID(catalog, modelID, func(e *CoherePricingEntry) string { return e.ModelID })
 }

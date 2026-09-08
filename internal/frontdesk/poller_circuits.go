@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -74,16 +73,10 @@ func (p *Poller) PollCircuitsOnce(ctx context.Context) {
 		return
 	}
 	for _, m := range members {
-		if !m.HasToken {
+		token, ok := p.store.MemberTokenOf(ctx, m)
+		if !ok {
 			// A member whose token was removed loses its ledger with it: the
 			// last read would otherwise stand in the column indefinitely.
-			if p.clearCircuits(m.ID) {
-				p.publishMemberStatus(m.ID)
-			}
-			continue
-		}
-		token, ok, err := p.store.MemberToken(ctx, m.ID)
-		if err != nil || !ok {
 			if p.clearCircuits(m.ID) {
 				p.publishMemberStatus(m.ID)
 			}
@@ -95,7 +88,7 @@ func (p *Poller) PollCircuitsOnce(ctx context.Context) {
 			// ledger read is only noise beside that, so it is logged at Debug.
 			// The one exception is a response past the size bound, which health
 			// cannot see and which would otherwise blank the column for good.
-			if errors.Is(err, errCircuitStatusTooLarge) {
+			if errors.Is(err, errMemberRespTooLarge) {
 				debuglog.Warn("frontdesk: member circuit status too large to read", "member", m.Name, "limit_bytes", maxCircuitStatusBytes)
 			} else {
 				debuglog.Debug("frontdesk: fetch member circuits", "member", m.Name, "error", err)
@@ -129,11 +122,6 @@ func (p *Poller) clearCircuits(memberID string) bool {
 	p.statuses[memberID] = cur
 	return had
 }
-
-// errCircuitStatusTooLarge is a member response past maxCircuitStatusBytes:
-// kept apart from a parse failure because it names a different problem, and
-// one that persists until the member's catalog shrinks.
-var errCircuitStatusTooLarge = errors.New("frontdesk: circuit status response exceeds the size bound")
 
 // circuitsKey is the identity of a ledger for change detection: which circuits
 // are not closed, in which state and for which cause. The retry instant and
@@ -181,27 +169,12 @@ type memberCircuitStatus struct {
 // provider-wide and would attribute one model's outage to every model of the
 // provider.
 func (p *Poller) fetchMemberCircuits(ctx context.Context, baseURL, token string) (*MemberCircuits, error) {
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+memberCircuitsPath, http.NoBody)
+	status, body, err := callMemberLimited(ctx, p.client, maxCircuitStatusBytes, http.MethodGet, baseURL, memberCircuitsPath, token, nil)
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Set("Authorization", "Bearer "+token)
-	resp, err := p.client.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = resp.Body.Close() }()
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("circuit status api returned %d", resp.StatusCode)
-	}
-	// One byte past the bound tells a body that is too large from one that
-	// fits exactly; a silently truncated body would only ever parse as garbage.
-	body, err := io.ReadAll(io.LimitReader(resp.Body, maxCircuitStatusBytes+1))
-	if err != nil {
-		return nil, err
-	}
-	if len(body) > maxCircuitStatusBytes {
-		return nil, errCircuitStatusTooLarge
+	if status != http.StatusOK {
+		return nil, fmt.Errorf("circuit status api returned %d", status)
 	}
 	var payload memberCircuitStatus
 	if err := json.Unmarshal(body, &payload); err != nil {

@@ -7,6 +7,7 @@ import type {
 	ModelClaim,
 	ProviderClaims,
 } from "../api/types";
+import { asError } from "../utils/errors";
 
 /**
  * `pending` still wrong, `resolved` cleared during this session, `new` appeared
@@ -176,11 +177,7 @@ export function mergeClaims(
 		const empty: ProviderClaims = {
 			provider_id: prev.provider_id,
 			provider_name: prev.provider_name,
-			gone: [],
-			stale: [],
-			suspect: [],
-			retired: [],
-			pinned: [],
+			...emptyBuckets(),
 		};
 		return { ...prev, ...mergeProviderBuckets(prev, now ?? empty) };
 	});
@@ -400,7 +397,7 @@ export function useDiscrepancies(open: boolean) {
 			// Surfaced via state rather than rethrown: callers fire this from a
 			// button handler (typically `void refresh()`), so rethrowing would only
 			// turn into an unhandled rejection instead of a renderable error.
-			setRefreshError(err instanceof Error ? err : new Error(String(err)));
+			setRefreshError(asError(err));
 			return undefined;
 		}
 	}, []);

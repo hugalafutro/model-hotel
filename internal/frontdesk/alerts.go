@@ -3,17 +3,12 @@ package frontdesk
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/auth"
 )
-
-// alertMaskValue is returned to the UI in place of a stored Apprise target so the
-// encrypted secret never leaves the server. A PUT echoing this value preserves
-// the stored ciphertext; any other value is a new secret to encrypt. Matches the
-// main app's secretMaskValue.
-const alertMaskValue = "********"
 
 // fdCatalog is Front Desk's alertable-event registry: the per-event picker and
 // the dispatcher's gate are both built from it. Every Type is grounded in an
@@ -120,12 +115,7 @@ func (p alertConfigProvider) APIBaseURL(ctx context.Context) (string, error) {
 // rejects anything not in the catalog rather than persist config for an event
 // Front Desk never emits.
 func fdCatalogHas(t string) bool {
-	for _, def := range fdCatalog {
-		if def.Type == t {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(fdCatalog, func(def alert.EventDef) bool { return def.Type == t })
 }
 
 // enabledCSV serializes an enabled-event set back to the stored alert_events CSV

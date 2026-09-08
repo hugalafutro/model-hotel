@@ -1,7 +1,6 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"net/http"
 	"net/url"
@@ -115,21 +114,29 @@ func (h *Handler) buildGeminiRequest(ctx context.Context, st *requestState, cand
 		return nil, providerType, "", err
 	}
 
-	endpoint := geminiEgressEndpoint(providerType, model, stream)
-	baseURL := candidate.provider.BaseURL
-	if providerType == "google" {
-		// The provider is configured with the /v1beta/openai compat base;
-		// the native routes live one segment up.
-		baseURL = provider.GoogleNativeBaseURL(baseURL)
-	}
-	targetURL := util.BuildProviderTargetURL(baseURL, providerType, endpoint)
+	proxyReq, targetURL, err := newGeminiEgressRequest(ctx, candidate, providerType, geminiEgressEndpoint(providerType, model, stream), body)
 	debuglog.Info("proxy: routing via gemini egress adapter", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name, "stream", stream)
-
-	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, providerType, targetURL, err
 	}
-	setGeminiEgressAuth(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
+}
+
+// newGeminiEgressRequest builds the POST every Gemini native route makes. The
+// Google base swap is a rule about the provider type rather than the route: the
+// provider is configured with the /v1beta/openai compat base and the native
+// routes live one segment up. The target URL comes back even on failure, since
+// the callers log it either way.
+func newGeminiEgressRequest(ctx context.Context, candidate modelCandidate, providerType, endpoint string, body []byte) (*http.Request, string, error) {
+	baseURL := candidate.provider.BaseURL
+	if providerType == "google" {
+		baseURL = provider.GoogleNativeBaseURL(baseURL)
+	}
+	targetURL := util.BuildProviderTargetURL(baseURL, providerType, endpoint)
+	req, err := newJSONUpstreamRequest(ctx, targetURL, body)
+	if err != nil {
+		return nil, targetURL, err
+	}
+	setGeminiEgressAuth(req, providerType, candidate.apiKey)
+	return req, targetURL, nil
 }

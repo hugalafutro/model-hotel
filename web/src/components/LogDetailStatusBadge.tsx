@@ -24,14 +24,41 @@ interface StatusDisplay {
 	animate: boolean;
 }
 
+/** Badge look for a status class (the code's leading digit). */
+function codeConfig(
+	hundred: number,
+): { variant: BadgeVariant; suffixKey: string; icon: LucideIcon } | null {
+	switch (hundred) {
+		case 2:
+			return {
+				variant: "green",
+				suffixKey: "components.statusBadge.ok",
+				icon: Activity,
+			};
+		case 4:
+			return {
+				variant: "orange",
+				suffixKey: "components.statusBadge.clientError",
+				icon: AlertTriangle,
+			};
+		case 5:
+			return {
+				variant: "red",
+				suffixKey: "components.statusBadge.serverError",
+				icon: AlertTriangle,
+			};
+		default:
+			return null;
+	}
+}
+
 function getStatusDisplay(
 	code: number,
 	state: string,
 	t: (key: string) => string,
 	errorMessage?: string,
 ): StatusDisplay | null {
-	const activeStates = new Set(["pending", "streaming"]);
-	if (activeStates.has(state)) {
+	if (state === "pending" || state === "streaming") {
 		return {
 			variant: "blue",
 			label:
@@ -53,42 +80,11 @@ function getStatusDisplay(
 		};
 	}
 
-	const hundred = Math.floor(code / 100);
-	const codeMap = new Map<
-		number,
-		{ variant: BadgeVariant; suffix: string; icon: LucideIcon }
-	>([
-		[
-			2,
-			{
-				variant: "green",
-				suffix: t("components.statusBadge.ok"),
-				icon: Activity,
-			},
-		],
-		[
-			4,
-			{
-				variant: "orange",
-				suffix: t("components.statusBadge.clientError"),
-				icon: AlertTriangle,
-			},
-		],
-		[
-			5,
-			{
-				variant: "red",
-				suffix: t("components.statusBadge.serverError"),
-				icon: AlertTriangle,
-			},
-		],
-	]);
-
-	const config = codeMap.get(hundred);
+	const config = codeConfig(Math.floor(code / 100));
 	if (config) {
 		return {
 			variant: config.variant,
-			label: `${code} ${config.suffix}`,
+			label: `${code} ${t(config.suffixKey)}`,
 			icon: config.icon,
 			animate: false,
 		};

@@ -331,7 +331,13 @@
 			"emptyState": "Ancora nessun dato di utilizzo. La ripartizione dell'utilizzo apparirà qui una volta che il traffico inizierà a fluire.",
 			"viewDetailsFor": "Visualizza i dettagli per {{label}}",
 			"deletedModelTooltip": "Il modello non è più disponibile: potrebbe essere stato eliminato oppure il fornitore è stato rimosso",
-			"reservedKeyTooltip": "Nome riservato interno, non una chiave creata dall'utente - questo utilizzo deriva dalle rotte \"{{name}}\" di Model Hotel"
+			"reservedKeyTooltip": "Nome riservato interno, non una chiave creata dall'utente - questo utilizzo deriva dalle rotte \"{{name}}\" di Model Hotel",
+			"tokens_one": "token",
+			"tokens_many": "token",
+			"tokens_other": "token",
+			"requests_one": "richiesta",
+			"requests_many": "richieste",
+			"requests_other": "richieste"
 		},
 		"providerLatency": {
 			"title": "Latenza dei provider",
@@ -354,10 +360,12 @@
 			"distributionChart": "Grafico distribuzione provider",
 			"emptyState": "Ancora nessun dato provider. La disaggregazione del provider apparirà qui una volta che i flussi di traffico.",
 			"chartAriaLabel": "Grafico distribuzione provider",
-			"tokenUnit": "Token",
-			"tokensUnit": "Token",
-			"requestUnit": "Richiesta",
-			"requestsUnit": "Richieste"
+			"tokens_one": "Token",
+			"tokens_many": "Token",
+			"tokens_other": "Token",
+			"requests_one": "Richiesta",
+			"requests_many": "Richieste",
+			"requests_other": "Richieste"
 		},
 		"models": {
 			"viewDetails": "Visualizza i dettagli per {{label}}",
@@ -604,7 +612,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "I modelli stanno generando - fare clic su Ferma tutto per annullare",
-			"voteToContinue": "Vota tutti i matchups per continuare al prossimo round",
 			"nextRoundReady": "Inizia il prossimo turno quando è pronto"
 		},
 		"responses": {
@@ -659,13 +666,6 @@
 			"close": "Chiudi"
 		},
 		"params": {
-			"temperature": "Temperatura",
-			"maxTokens": "Max Tokens",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Penalità Freq",
-			"presPenalty": "Pres Penalty",
 			"resetAll": "Reimposta tutto",
 			"done": "Fatto"
 		},
@@ -856,7 +856,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Non ci sono più provider abilitati",
-				"onlyOne": "Rimane un solo provider abilitato (il failover ne richiede almeno due)"
+				"onlyOne": "Rimane un solo provider abilitato (il failover ne richiede almeno due)",
+				"noValidProviders": "Dopo la potatura non resta alcun provider valido",
+				"onlyOneValid": "Dopo la potatura resta un solo provider valido (il failover ne richiede almeno due)"
 			},
 			"error": "Errore",
 			"failover": "Gruppi di failover",
@@ -1097,7 +1099,17 @@
 		"scope_all": "Tutti i provider",
 		"badge_parked": "{{count}} parcheggiati",
 		"status_parked": "Parcheggiato",
-		"status_parked_hint": "Il provider è disattivato; questo modello resta in elenco ma non viene servito finché il provider non viene riattivato."
+		"status_parked_hint": "Il provider è disattivato; questo modello resta in elenco ma non viene servito finché il provider non viene riattivato.",
+		"capPills": {
+			"vision": "Visione",
+			"reasoning": "Ragionamento",
+			"tool_calling": "Strumenti",
+			"structured_output": "Strutturato",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Audio",
+			"parallel_tool_calls": "Parallelo"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Ripristina al valore scoperto",
@@ -1310,7 +1322,6 @@
 				"owner": "Proprietario"
 			},
 			"noProvidersConfigured": "Nessun provider configurato.",
-			"discardChanges": "Scartare le modifiche non salvate?",
 			"loadingProviders": "Caricamento provider...",
 			"stripReasoningDescriptionText": "Se abilitato, i token ragionamento/pensiero vengono rimossi dalle risposte di streaming per i client che non possono gestirli.",
 			"providerInstructionsText": "Fare clic su un provider per limitare l'accesso. Tutti sono accessibili per impostazione predefinita.",
@@ -1451,6 +1462,11 @@
 			"search": "Filtro log…",
 			"allLevels": "Tutti i livelli",
 			"allSources": "Tutte le fonti"
+		},
+		"level": {
+			"info": "Info",
+			"warning": "Avviso",
+			"error": "Errore"
 		},
 		"table": {
 			"timeDate": "Ora/Data",
@@ -1908,8 +1924,8 @@
 				"confirmEnableTitle": "Abilitare Il Backup Periodico?",
 				"confirmEnableDescription": "L'attivazione del backup periodico elimina i backup esistenti che ricadono al di fuori della finestra di rotazione figlio/padre/nonno.",
 				"confirmEnableWouldRemove": "Questi {{count}} backup ricadono al di fuori della finestra di rotazione e saranno eliminati definitivamente:",
-				"prunePreviewFailed": "Impossibile visualizzare l'anteprima della potatura del backup",
-				"pruneFailed": "Potatura backup non riuscita",
+				"prunePreviewFailed": "Impossibile visualizzare l'anteprima della potatura del backup: {{message}}",
+				"pruneFailed": "Potatura backup non riuscita: {{message}}",
 				"pruneSuccess": "Backup periodico attivato. Rimossi {{count}} backup obsoleti."
 			},
 			"availableBackupsTitle": "Backup Disponibili",
@@ -2252,7 +2268,7 @@
 				"doneManaged": "Destinazioni salvate. Quali eventi inviano un avviso resta gestito per l'intera flotta.",
 				"sendAll": "Invia una prova a tutto",
 				"sentAll": "Prova inviata a ogni destinazione",
-				"apiChangedDrops": "Cambiare l'indirizzo rimuove le destinazioni aggiunte in questa sessione; erano state provate con quello vecchio."
+				"apiChangedDrops": "Verificare un indirizzo diverso rimuove le destinazioni aggiunte in questa sessione; erano state provate con quello vecchio."
 			},
 			"category": {
 				"discovery": "Rilevamento",
@@ -2442,16 +2458,10 @@
 			"filter": "Filtro…",
 			"clearFilter": "Cancella filtro"
 		},
-		"copyButton": {
-			"copy": "Copia",
-			"copiedToClipboard": "Copiato negli appunti",
-			"failedToCopy": "Impossibile copiare"
-		},
 		"copyablePill": {
 			"copy": "Copia",
 			"copyToClipboard": "Copia negli appunti",
-			"copied": "Copiato!",
-			"failedToCopy": "Impossibile copiare"
+			"copied": "Copiato!"
 		},
 		"collapsibleToggle": {
 			"expand": "Espandi",
@@ -2773,11 +2783,6 @@
 			"compare": "Confronta",
 			"noMatchHistory": "Ancora nessuna cronologia delle partite",
 			"completedSessionsHere": "L'arena completata e le sessioni di confronto appariranno qui",
-			"match": "Partita",
-			"final": "Finale",
-			"semifinals": "Semifinali",
-			"quarterfinals": "Quarti di finale",
-			"round": "Round {{number}}",
 			"winner": "Vincitore: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Errore: {{message}}",
@@ -2887,35 +2892,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Nessun registro trovato",
-			"entries": "voci",
-			"loadingNewer": "Caricamento più recente…",
-			"loadingOlder": "Caricamento precedente…",
-			"timeDate": "Ora/Data",
-			"hash": "Hash",
-			"model": "Modello",
-			"provider": "Provider",
-			"providerDeleted": "Provider eliminato",
-			"status": "Stato",
-			"tokens": "Token",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Intestazioni",
-			"ttft": "TTFT",
-			"duration": "Durata",
-			"overhead": "Overhead",
-			"key": "Chiave",
-			"interrupted": "Interrotto",
-			"internal": "interno",
-			"cacheInflated": "Gonfiato dagli hit della cache dei prompt",
-			"deleted": "Eliminato",
-			"zeroEntries": "0 voci",
-			"ip": "IP"
+			"zeroEntries": "0 voci"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nessun log trovato",
-			"entries": "voci",
-			"loadingNewer": "Caricamento più recente…",
-			"loadingOlder": "Caricamento precedente…",
 			"timeDate": "Ora/Data",
 			"level": "Livello",
 			"source": "Fonte",
@@ -3129,7 +3109,8 @@
 		},
 		"useDisableModel": {
 			"success": "Modello \"{{model}}\" disabilitato",
-			"error": "Impossibile disattivare il modello: {{error}}"
+			"error": "Impossibile disattivare il modello: {{error}}",
+			"notFound": "Modello \"{{model}}\" non trovato tra i modelli abilitati"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Recupero dei dati iniziali non riuscito",

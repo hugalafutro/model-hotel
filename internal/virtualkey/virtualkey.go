@@ -3,8 +3,6 @@ package virtualkey
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -86,13 +84,22 @@ type scanner interface{ Scan(dest ...any) error }
 const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id`
 
 // scanVirtualKey scans a single row into a VirtualKey using the vkColumns order.
+// A miss becomes ErrNotFound so callers do not repeat the translation.
 func scanVirtualKey(row scanner) (*VirtualKey, error) {
 	var vk VirtualKey
 	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning, &vk.OwnerUserID)
 	if err != nil {
-		return nil, err
+		return nil, notFoundOr(err)
 	}
 	return &vk, nil
+}
+
+// notFoundOr translates a pgx miss into ErrNotFound and passes anything else through.
+func notFoundOr(err error) error {
+	if errors.Is(err, pgx.ErrNoRows) {
+		return ErrNotFound
+	}
+	return err
 }
 
 // Repository provides database access for virtual keys.
@@ -154,15 +161,8 @@ func collectKeys(rows pgx.Rows) ([]*VirtualKey, error) {
 
 // Get retrieves a virtual key by ID.
 func (r *Repository) Get(ctx context.Context, id uuid.UUID) (*VirtualKey, error) {
-	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
+	return scanVirtualKey(r.pool.QueryRow(ctx,
 		`SELECT `+vkColumns+` FROM virtual_keys WHERE id = $1`, id))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	return vk, nil
 }
 
 // Delete removes a virtual key by ID.
@@ -205,45 +205,16 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 }
 
 // Update modifies virtual key fields.
+//
+// Every updatable column is in the SET clause so a nil argument persists as
+// NULL (cleared) rather than being silently ignored: the UI sends null when a
+// user clears a field.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*VirtualKey, error) {
-	// Always include all updatable fields in SET clause so nil/null
-	// values are correctly persisted as NULL (cleared) rather than
-	// silently ignored. The UI sends null when a user clears a field.
-	setClauses := []string{"name = $1"}
-	args := []any{name}
-	argIdx := 2
-
-	setClauses = append(setClauses, "rate_limit_rps = $"+fmt.Sprintf("%d", argIdx))
-	args = append(args, rps)
-	argIdx++
-	setClauses = append(setClauses, "rate_limit_burst = $"+fmt.Sprintf("%d", argIdx))
-	args = append(args, burst)
-	argIdx++
-	setClauses = append(setClauses, "rate_limit_tpm = $"+fmt.Sprintf("%d", argIdx))
-	args = append(args, tpm)
-	argIdx++
-	// allowed_providers and strip_reasoning also always in SET clause.
-	setClauses = append(setClauses, "allowed_providers = $"+fmt.Sprintf("%d", argIdx))
-	args = append(args, allowedProviders)
-	argIdx++
-	setClauses = append(setClauses, "strip_reasoning = COALESCE($"+fmt.Sprintf("%d", argIdx)+", false)")
-	args = append(args, stripReasoning)
-	argIdx++
-	setClauses = append(setClauses, "owner_user_id = $"+fmt.Sprintf("%d", argIdx))
-	args = append(args, ownerUserID)
-	argIdx++
-
-	args = append(args, id)
-	query := `UPDATE virtual_keys SET ` + strings.Join(setClauses, ", ") + ` WHERE id = $` + fmt.Sprintf("%d", argIdx) + ` RETURNING ` + vkColumns
-
-	vk, err := scanVirtualKey(r.pool.QueryRow(ctx, query, args...))
-	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
-	}
-	return vk, nil
+	return scanVirtualKey(r.pool.QueryRow(ctx,
+		`UPDATE virtual_keys SET name = $1, rate_limit_rps = $2, rate_limit_burst = $3, rate_limit_tpm = $4,
+		        allowed_providers = $5, strip_reasoning = COALESCE($6, false), owner_user_id = $7
+		 WHERE id = $8 RETURNING `+vkColumns,
+		name, rps, burst, tpm, allowedProviders, stripReasoning, ownerUserID, id))
 }
 
 // FindByKeyHash looks up a virtual key by its SHA-256 hash. It joins the
@@ -269,10 +240,7 @@ func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*Virtua
 		// Translate a miss into ErrNotFound (like Get/Update) so the proxy returns
 		// a clean "invalid virtual key" 401 instead of surfacing the raw pgx "no
 		// rows in result set" as a 500.
-		if errors.Is(err, pgx.ErrNoRows) {
-			return nil, ErrNotFound
-		}
-		return nil, err
+		return nil, notFoundOr(err)
 	}
 	if vk.OwnerUserID != nil && ownerEnabled != nil {
 		vk.Owner = &Owner{

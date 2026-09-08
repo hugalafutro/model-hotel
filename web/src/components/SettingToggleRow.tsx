@@ -14,6 +14,8 @@ interface SettingToggleRowProps {
 	resetDisabled?: boolean;
 	testId?: string;
 	className?: string;
+	/** Switch size; the compact one suits the dense Settings rows. */
+	size?: "default" | "sm";
 }
 
 // SettingToggleRow is the one shape a boolean setting takes on the Settings
@@ -29,6 +31,7 @@ export function SettingToggleRow({
 	resetDisabled,
 	testId,
 	className,
+	size = "sm",
 }: SettingToggleRowProps) {
 	const { t } = useTranslation();
 	return (
@@ -52,7 +55,7 @@ export function SettingToggleRow({
 			</div>
 			<Toggle
 				checked={checked}
-				size="sm"
+				size={size}
 				disabled={disabled}
 				onChange={onChange}
 				ariaLabel={label}

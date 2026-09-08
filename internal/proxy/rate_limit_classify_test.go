@@ -240,11 +240,13 @@ func TestRateLimitPhrases_EveryEntryHasProvenance(t *testing.T) {
 // provider_not_entitled must classify exhausted here, or the breaker and the
 // error kind would disagree about what a balance error means.
 func TestRateLimitPhrases_EntitledParityWithClassifier(t *testing.T) {
-	entitled := entitledRateLimitPhrases()
-	if len(entitled) == 0 {
-		t.Fatal("no entitled phrases derived from the table")
-	}
-	for _, phrase := range entitled {
+	entitled := 0
+	for _, p := range rateLimitPhrases {
+		if !p.entitled {
+			continue
+		}
+		entitled++
+		phrase := p.phrase
 		v := classifyRateLimit(429, nil, `{"error":{"message":"`+phrase+`"}}`, 0)
 		if v.class != rateLimitExhausted || !v.entitled {
 			t.Errorf("entitled phrase %q: class=%v entitled=%v, want exhausted+entitled", phrase, v.class, v.entitled)
@@ -253,6 +255,9 @@ func TestRateLimitPhrases_EntitledParityWithClassifier(t *testing.T) {
 		if kind != KindProviderNotEntitled {
 			t.Errorf("classifyUpstreamError(%q) = %v, want provider_not_entitled from the shared table", phrase, kind)
 		}
+	}
+	if entitled == 0 {
+		t.Fatal("no entitled phrases in the table")
 	}
 }
 

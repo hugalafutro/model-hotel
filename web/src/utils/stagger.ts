@@ -1,3 +1,5 @@
+import { asError } from "./errors";
+
 /**
  * Stagger utility for provider-aware request spacing and retry-with-backoff.
  *
@@ -49,35 +51,33 @@ export function staggerByProvider<T>(
 	getProvider: (item: T) => string,
 	delayMs: number = 300,
 ): StaggeredItem<T>[] {
-	if (items.length === 0) return [];
-	if (delayMs <= 0) return items.map((item) => ({ item, delayMs: 0 }));
+	// One pass with a per-provider counter: the nth item of a provider waits n
+	// slots, and a provider seen for the first time starts immediately.
+	const seen = new Map<string, number>();
+	return items.map((item) => {
+		const provider = getProvider(item);
+		const slot = seen.get(provider) ?? 0;
+		seen.set(provider, slot + 1);
+		return { item, delayMs: Math.max(0, slot * delayMs) };
+	});
+}
 
-	// Group indices by provider
-	const providerGroups = new Map<string, number[]>();
-	for (let i = 0; i < items.length; i++) {
-		const provider = getProvider(items[i]);
-		const group = providerGroups.get(provider);
-		if (group) {
-			group.push(i);
-		} else {
-			providerGroups.set(provider, [i]);
-		}
-	}
-
-	// Assign delays: first item per provider = 0, second = delayMs, etc.
-	const result: StaggeredItem<T>[] = items.map((item) => ({
-		item,
-		delayMs: 0,
-	}));
-
-	for (const indices of providerGroups.values()) {
-		for (let slotIndex = 0; slotIndex < indices.length; slotIndex++) {
-			const originalIndex = indices[slotIndex];
-			result[originalIndex].delayMs = slotIndex * delayMs;
-		}
-	}
-
-	return result;
+/**
+ * Exponential backoff with +/-25% jitter, capped at `maxDelayMs` and floored at
+ * `floorMs` (a Retry-After the server asked for). Never negative.
+ */
+function backoff(
+	attempt: number,
+	baseDelayMs: number,
+	maxDelayMs: number,
+	floorMs = 0,
+): number {
+	const delayMs = Math.max(
+		Math.min(baseDelayMs * 2 ** attempt, maxDelayMs),
+		floorMs,
+	);
+	const jitter = delayMs * 0.25 * (Math.random() * 2 - 1);
+	return Math.max(0, Math.round(delayMs + jitter));
 }
 
 // ────────────────────────────────────────────────────────────────────────────
@@ -119,8 +119,6 @@ export async function fetchWithRetry(
 		onRetry,
 	} = options;
 
-	let lastError: Error | null = null;
-
 	for (let attempt = 0; attempt <= maxRetries; attempt++) {
 		try {
 			const response = await fetch(url, init);
@@ -135,23 +133,19 @@ export async function fetchWithRetry(
 				return response;
 			}
 
-			// Compute backoff delay
-			let delayMs = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
-
 			// Respect Retry-After header for 429 responses
+			let floorMs = 0;
 			if (response.status === 429) {
 				const retryAfter = response.headers.get("Retry-After");
 				if (retryAfter) {
-					const retryAfterMs = parseFloat(retryAfter) * 1000;
+					const retryAfterMs = Number.parseFloat(retryAfter) * 1000;
 					if (!Number.isNaN(retryAfterMs) && retryAfterMs > 0) {
-						delayMs = Math.max(delayMs, retryAfterMs);
+						floorMs = retryAfterMs;
 					}
 				}
 			}
 
-			// Add jitter (±25%)
-			const jitter = delayMs * 0.25 * (Math.random() * 2 - 1);
-			const totalDelay = Math.max(0, Math.round(delayMs + jitter));
+			const totalDelay = backoff(attempt, baseDelayMs, maxDelayMs, floorMs);
 
 			onRetry?.(attempt + 1, totalDelay, response.status);
 
@@ -169,16 +163,12 @@ export async function fetchWithRetry(
 				throw err;
 			}
 
-			lastError = err instanceof Error ? err : new Error(String(err));
-
 			// Network errors are retryable, but only if we have attempts left
 			if (attempt >= maxRetries) {
-				throw lastError;
+				throw asError(err);
 			}
 
-			const delayMs = Math.min(baseDelayMs * 2 ** attempt, maxDelayMs);
-			const jitter = delayMs * 0.25 * (Math.random() * 2 - 1);
-			const totalDelay = Math.max(0, Math.round(delayMs + jitter));
+			const totalDelay = backoff(attempt, baseDelayMs, maxDelayMs);
 
 			onRetry?.(attempt + 1, totalDelay, 0);
 
@@ -186,8 +176,9 @@ export async function fetchWithRetry(
 		}
 	}
 
-	// Should be unreachable, but just in case
-	throw lastError ?? new Error("All retries exhausted");
+	// Every iteration returns or throws, so the loop cannot fall through; this
+	// statement is what tells the type checker so.
+	throw new Error("All retries exhausted");
 }
 
 function sleep(ms: number): Promise<void> {

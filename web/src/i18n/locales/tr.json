@@ -325,7 +325,11 @@
 			"emptyState": "Henüz kullanım verisi yok. Trafik akışı başladığında kullanım dağılımı burada görünecektir.",
 			"viewDetailsFor": "Ayrıntıları görüntüle {{label}}",
 			"deletedModelTooltip": "Model artık mevcut değil - silinmiş olabilir veya sağlayıcısı kaldırılmış olabilir",
-			"reservedKeyTooltip": "Dahili ayrılmış ad, sizin oluşturduğunuz bir anahtar değil - bu kullanım Model Hotel'in kendi \"{{name}}\" rotalarından gelmektedir"
+			"reservedKeyTooltip": "Dahili ayrılmış ad, sizin oluşturduğunuz bir anahtar değil - bu kullanım Model Hotel'in kendi \"{{name}}\" rotalarından gelmektedir",
+			"tokens_one": "jeton",
+			"tokens_other": "jetonlar",
+			"requests_one": "talep",
+			"requests_other": "istekler"
 		},
 		"providerLatency": {
 			"title": "Sağlayıcı gecikmesi",
@@ -347,10 +351,10 @@
 			"distributionChart": "Sağlayıcı dağılım tablosu",
 			"emptyState": "Henüz sağlayıcı verisi yok. Trafik akışı başladığında sağlayıcı dağılımı burada görünecektir.",
 			"chartAriaLabel": "Sağlayıcı dağılım tablosu",
-			"tokenUnit": "Jeton",
-			"tokensUnit": "Jetonlar",
-			"requestUnit": "Talep",
-			"requestsUnit": "İstekler"
+			"tokens_one": "Jeton",
+			"tokens_other": "Jetonlar",
+			"requests_one": "Talep",
+			"requests_other": "İstekler"
 		},
 		"models": {
 			"viewDetails": "Ayrıntıları görüntüle {{label}}",
@@ -597,7 +601,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modeller oluşturuluyor - iptal etmek için \"Tümünü Durdur\" düğmesine tıklayın",
-			"voteToContinue": "Bir sonraki tura geçmek için tüm eşleşmelerde oy verin",
 			"nextRoundReady": "Hazır olduğunuzda bir sonraki tura başlayın"
 		},
 		"responses": {
@@ -652,13 +655,6 @@
 			"close": "Kapat"
 		},
 		"params": {
-			"temperature": "Sıcaklık",
-			"maxTokens": "Maksimum Jeton",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Frekans Cezası",
-			"presPenalty": "Varlık Cezası",
 			"resetAll": "Tümünü sıfırla",
 			"done": "Tamam"
 		},
@@ -844,7 +840,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Etkin sağlayıcı kalmadı",
-				"onlyOne": "Yalnızca bir etkin sağlayıcı kalmıştır (yedekleme için en az iki sağlayıcı gerekir)"
+				"onlyOne": "Yalnızca bir etkin sağlayıcı kalmıştır (yedekleme için en az iki sağlayıcı gerekir)",
+				"noValidProviders": "Temizlemeden sonra geçerli sağlayıcı kalmadı",
+				"onlyOneValid": "Temizlemeden sonra yalnızca bir geçerli sağlayıcı kaldı (yük devretme en az iki tane gerektirir)"
 			},
 			"error": "Hata",
 			"failover": "Yedekleme grupları",
@@ -1065,7 +1063,17 @@
 		"scope_all": "Tüm sağlayıcılar",
 		"badge_parked": "{{count}} beklemede",
 		"status_parked": "Beklemede",
-		"status_parked_hint": "Sağlayıcı devre dışı; bu model listede kalır ancak sağlayıcı yeniden etkinleştirilene kadar sunulmaz."
+		"status_parked_hint": "Sağlayıcı devre dışı; bu model listede kalır ancak sağlayıcı yeniden etkinleştirilene kadar sunulmaz.",
+		"capPills": {
+			"vision": "Görü",
+			"reasoning": "Akıl yürütme",
+			"tool_calling": "Araçlar",
+			"structured_output": "Yapılandırılmış",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Ses",
+			"parallel_tool_calls": "Paralel"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Tespit edilen değere geri dön",
@@ -1267,7 +1275,6 @@
 				"owner": "Sahip"
 			},
 			"noProvidersConfigured": "Yapılandırılmış sağlayıcı yok.",
-			"discardChanges": "Kaydedilmemiş değişiklikleri silmek istiyor musunuz?",
 			"loadingProviders": "Sağlayıcılar yükleniyor...",
 			"stripReasoningDescriptionText": "Etkinleştirildiğinde, akış yanıtlarından, bunları işleyemeyen istemciler için akıl yürütme/düşünme belirteçleri kaldırılır.",
 			"providerInstructionsText": "Erişimi kısıtlamak için bir sağlayıcıya tıklayın. Varsayılan olarak hepsine erişim açıktır.",
@@ -1408,6 +1415,11 @@
 			"search": "Günlükleri filtrele…",
 			"allLevels": "Tüm Seviyeler",
 			"allSources": "Tüm Kaynaklar"
+		},
+		"level": {
+			"info": "Bilgi",
+			"warning": "Uyarı",
+			"error": "Hata"
 		},
 		"table": {
 			"timeDate": "Saat/Tarih",
@@ -1859,8 +1871,8 @@
 				"confirmEnableTitle": "Periyodik yedeklemeyi etkinleştirmek ister misiniz?",
 				"confirmEnableDescription": "Periyodik yedeklemeyi etkinleştirmek, oğul/baba/dede rotasyon penceresinin dışında kalan mevcut yedekleri siler.",
 				"confirmEnableWouldRemove": "Bu {{count}} yedek rotasyon penceresinin dışında kalıyor ve kalıcı olarak silinecek:",
-				"prunePreviewFailed": "Yedekleme budama işleminin önizlemesi yapılamadı",
-				"pruneFailed": "Yedeklemeler budanamadı",
+				"prunePreviewFailed": "Yedekleme budama işleminin önizlemesi yapılamadı: {{message}}",
+				"pruneFailed": "Yedeklemeler budanamadı: {{message}}",
 				"pruneSuccess": "Periyodik yedekleme etkinleştirildi. {{count}} eski yedek kaldırıldı."
 			},
 			"availableBackupsTitle": "Mevcut Yedeklemeler",
@@ -2199,7 +2211,7 @@
 				"doneManaged": "Hedefler kaydedildi. Hangi olayların uyarı göndereceği filo genelinde yönetilmeye devam eder.",
 				"sendAll": "Her şeye test gönder",
 				"sentAll": "Her hedefe test gönderildi",
-				"apiChangedDrops": "Adresi değiştirmek bu çalıştırmada eklenen hedefleri kaldırır; bunlar eski adrese göre test edilmişti."
+				"apiChangedDrops": "Farklı bir adresi doğrulamak bu çalıştırmada eklenen hedefleri kaldırır; bunlar eski adrese göre test edilmişti."
 			},
 			"category": {
 				"discovery": "Keşif",
@@ -2388,16 +2400,10 @@
 			"filter": "Filtrele…",
 			"clearFilter": "Filtreyi temizle"
 		},
-		"copyButton": {
-			"copy": "Kopyala",
-			"copiedToClipboard": "Panoya kopyalandı",
-			"failedToCopy": "Kopyalama işlemi başarısız oldu"
-		},
 		"copyablePill": {
 			"copy": "Kopyala",
 			"copyToClipboard": "Panoya kopyala",
-			"copied": "Kopyalandı!",
-			"failedToCopy": "Kopyalama işlemi başarısız oldu"
+			"copied": "Kopyalandı!"
 		},
 		"collapsibleToggle": {
 			"expand": "Genişlet",
@@ -2714,11 +2720,6 @@
 			"compare": "Karşılaştır",
 			"noMatchHistory": "Henüz maç geçmişi yok",
 			"completedSessionsHere": "Tamamlanan arena ve karşılaştırma oturumları burada görünecektir",
-			"match": "Maç",
-			"final": "Final",
-			"semifinals": "Yarı finaller",
-			"quarterfinals": "Çeyrek finaller",
-			"round": "Tur {{number}}",
 			"winner": "Kazanan: {{name}}",
 			"responsesAbbrev": "{{count}} yanıt",
 			"error": "Hata: {{message}}",
@@ -2826,35 +2827,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Herhangi bir günlük bulunamadı",
-			"entries": "girişler",
-			"loadingNewer": "Daha yenileri yükleniyor…",
-			"loadingOlder": "Daha eskiler yükleniyor…",
-			"timeDate": "Saat/Tarih",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Sağlayıcı",
-			"providerDeleted": "Sağlayıcı silindi",
-			"status": "Durum",
-			"tokens": "Jetonlar",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Başlıklar",
-			"ttft": "TTFT",
-			"duration": "Süre",
-			"overhead": "Ek yük",
-			"key": "Anahtar",
-			"interrupted": "Kesintiye uğramış",
-			"internal": "iç",
-			"cacheInflated": "Komut istemi önbellek isabetleriyle şişmiş",
-			"deleted": "Silindi",
-			"zeroEntries": "0 kayıt",
-			"ip": "IP"
+			"zeroEntries": "0 kayıt"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Günlük girdisi bulunamadı",
-			"entries": "girişler",
-			"loadingNewer": "Daha yenileri yükleniyor…",
-			"loadingOlder": "Daha eskiler yükleniyor…",
 			"timeDate": "Saat/Tarih",
 			"level": "Seviye",
 			"source": "Kaynak",
@@ -3065,7 +3041,8 @@
 		},
 		"useDisableModel": {
 			"success": "\"{{model}}\" modeli devre dışı bırakıldı",
-			"error": "Model devre dışı bırakılamadı: {{error}}"
+			"error": "Model devre dışı bırakılamadı: {{error}}",
+			"notFound": "\"{{model}}\" modeli etkin modeller arasında bulunamadı"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "İlk veriler alınamadı",

@@ -2,7 +2,7 @@ import { useEffect, useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { ArenaHistoryModal } from "../components/ArenaHistoryModal";
 import { PageHeader } from "../components/PageHeader";
-import { parseCapabilities, proxyModelID } from "../utils/model";
+import { isReasoningModel, proxyModelID } from "../utils/model";
 import { ArenaBracketBar } from "./Arena/ArenaBracketBar";
 import { ArenaControls } from "./Arena/ArenaControls";
 import { ArenaResponseGrid } from "./Arena/ArenaResponseGrid";
@@ -12,12 +12,7 @@ import { WinnerSummaryModal } from "./Arena/WinnerSummaryModal";
 
 export function Arena() {
 	const { t } = useTranslation();
-	// Refs are split off so the ref-free `arena` rest object can be read freely
-	// in the JSX without tripping the react-hooks/refs lint.
-	const {
-		refs: { abortMapRef },
-		...arena
-	} = useArena();
+	const arena = useArena();
 
 	const displayNameMap = useMemo(() => {
 		const map = new Map<string, string>();
@@ -75,11 +70,11 @@ export function Arena() {
 				}
 			/>
 
-			<ArenaControls arena={arena} abortMapRef={abortMapRef} />
+			<ArenaControls arena={arena} />
 
 			<ArenaBracketBar arena={arena} displayNameMap={displayNameMap} />
 
-			<ArenaResponseGrid arena={arena} abortMapRef={abortMapRef} />
+			<ArenaResponseGrid arena={arena} />
 
 			{/* Winner Modal */}
 			{arena.winnerModal && (
@@ -106,15 +101,10 @@ export function Arena() {
 					}}
 					onClose={() => arena.setParamEditorModel(null)}
 					knownProviders={arena.enabledModels.map((m) => m.provider_name)}
-					reasoning={(() => {
-						const model = arena.enabledModels.find(
-							(m) =>
-								`${m.provider_name}/${m.model_id}` === arena.paramEditorModel,
-						);
-						return model
-							? (parseCapabilities(model.capabilities).reasoning ?? false)
-							: false;
-					})()}
+					reasoning={isReasoningModel(
+						arena.enabledModels,
+						arena.paramEditorModel,
+					)}
 				/>
 			)}
 

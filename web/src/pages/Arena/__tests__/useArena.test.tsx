@@ -7,7 +7,8 @@ import type { BracketRound } from "../types";
 import { useArena } from "../useArena";
 
 // Mock the dependencies
-vi.mock("../useArenaState", () => ({
+vi.mock("../useArenaState", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../useArenaState")>()),
 	useArenaState: vi.fn(),
 }));
 
@@ -15,13 +16,14 @@ vi.mock("../useArenaRunner", () => ({
 	useArenaRunner: vi.fn(),
 }));
 
-vi.mock("../../../utils/arenaHistory", () => ({
+vi.mock("../../../utils/arenaHistory", async (importOriginal) => ({
+	...(await importOriginal<typeof import("../../../utils/arenaHistory")>()),
 	getArenaHistoryEnabled: vi.fn(),
 	saveCompetitionToHistory: vi.fn(),
 }));
 
 // Import the mocked modules
-const { useArenaState } = await import("../useArenaState");
+const { ARENA_STORAGE_KEYS, useArenaState } = await import("../useArenaState");
 const { useArenaRunner } = await import("../useArenaRunner");
 const { getArenaHistoryEnabled, saveCompetitionToHistory } = await import(
 	"../../../utils/arenaHistory"
@@ -79,10 +81,7 @@ const createMockArenaState = (
 		arenaMode: "compare" as ArenaSubMode,
 		setArenaMode: vi.fn(),
 		// Refs
-		abortMapRef: { current: new Map() },
-		lastExtractLenRef: { current: new Map() },
 		currentRoundRef: { current: 0 },
-		roundsLengthRef: { current: 0 },
 		roundsRef: { current: [] },
 		activePromptIdRef: { current: null },
 		comparePersonaIdRef: { current: null },
@@ -115,6 +114,7 @@ const createMockArenaRunner = (
 		handleRetry: vi.fn(),
 		handleCancelSlot: vi.fn(),
 		handleSwapComplete: vi.fn(),
+		abortAll: vi.fn(),
 		abortMapRef: { current: new Map() },
 		...overrides,
 	};
@@ -867,7 +867,7 @@ describe("useArena", () => {
 			expect(setPhaseMock).toHaveBeenCalledWith("running");
 		});
 
-		it("handleRunArena sets runningModels with model IDs from first round matchups", () => {
+		it("handleRunArena builds the first round and hands it to runRound", () => {
 			const compareModels = ["model-a", "model-b"];
 			const prompt = "Test prompt";
 			const mockRounds: BracketRound[] = [
@@ -918,9 +918,9 @@ describe("useArena", () => {
 				}),
 			);
 
-			const streamModelMock = vi.fn();
+			const runRoundMock = vi.fn();
 			vi.mocked(useArenaRunner).mockReturnValue(
-				createMockArenaRunner({ streamModel: streamModelMock }),
+				createMockArenaRunner({ runRound: runRoundMock }),
 			);
 
 			const { result } = renderHook(() => useArena(), {
@@ -931,11 +931,12 @@ describe("useArena", () => {
 				result.current.handleRunArena();
 			});
 
-			const runningModels = setRunningModelsMock.mock
-				.calls[0]?.[0] as Set<string>;
-			expect(runningModels).toBeInstanceOf(Set);
-			expect(runningModels.has("model-a")).toBe(true);
-			expect(runningModels.has("model-b")).toBe(true);
+			expect(setRoundsMock).toHaveBeenCalledWith(mockRounds);
+			expect(setCurrentRoundMock).toHaveBeenCalledWith(0);
+			expect(setPhaseMock).toHaveBeenCalledWith("running");
+			// The prompt is passed explicitly: savedPrompt has not re-rendered yet.
+			expect(runRoundMock).toHaveBeenCalledWith(0, prompt);
+			expect(setRunningModelsMock).not.toHaveBeenCalled();
 		});
 	});
 
@@ -1419,6 +1420,97 @@ describe("useArena", () => {
 			// Reset mock to prevent leakage into subsequent tests
 			vi.mocked(getArenaHistoryEnabled).mockReset();
 			vi.mocked(saveCompetitionToHistory).mockClear();
+		});
+	});
+
+	describe("clearResults / resetAll", () => {
+		it("clearResults aborts the run and empties the board", () => {
+			const setRounds = vi.fn();
+			const setCurrentRound = vi.fn();
+			const setPhase = vi.fn();
+			const setRunningModels = vi.fn();
+			const setWinnerModal = vi.fn();
+			const setDisabledModels = vi.fn();
+			const abortAll = vi.fn();
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					setRounds,
+					setCurrentRound,
+					setPhase,
+					setRunningModels,
+					setWinnerModal,
+					setDisabledModels,
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(
+				createMockArenaRunner({ abortAll }),
+			);
+
+			const { result } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.clearResults();
+			});
+
+			expect(abortAll).toHaveBeenCalled();
+			expect(setRounds).toHaveBeenCalledWith([]);
+			expect(setCurrentRound).toHaveBeenCalledWith(0);
+			expect(setPhase).toHaveBeenCalledWith("setup");
+			expect(setRunningModels).toHaveBeenCalledWith(new Set());
+			expect(setWinnerModal).toHaveBeenCalledWith(null);
+			expect(setDisabledModels).toHaveBeenCalledWith(new Set());
+		});
+
+		it("resetAll also clears the set-up and the stored arena keys", () => {
+			const setCompareModels = vi.fn();
+			const setBracketModels = vi.fn();
+			const setCompetitionPrompt = vi.fn();
+			const setComparePrompt = vi.fn();
+			const setSavedPrompt = vi.fn();
+			const setComparePersonaId = vi.fn();
+			const setComparePersonaPrompt = vi.fn();
+			const setModelParams = vi.fn();
+
+			vi.mocked(useArenaState).mockReturnValue(
+				createMockArenaState({
+					setCompareModels,
+					setBracketModels,
+					setCompetitionPrompt,
+					setComparePrompt,
+					setSavedPrompt,
+					setComparePersonaId,
+					setComparePersonaPrompt,
+					setModelParams,
+				}),
+			);
+			vi.mocked(useArenaRunner).mockReturnValue(createMockArenaRunner());
+
+			for (const key of ARENA_STORAGE_KEYS) {
+				localStorage.setItem(key, "stale");
+			}
+
+			const { result } = renderHook(() => useArena(), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.resetAll();
+			});
+
+			expect(setCompareModels).toHaveBeenCalledWith([]);
+			expect(setBracketModels).toHaveBeenCalledWith([]);
+			expect(setCompetitionPrompt).toHaveBeenCalledWith("");
+			expect(setComparePrompt).toHaveBeenCalledWith("");
+			expect(setSavedPrompt).toHaveBeenCalledWith("");
+			expect(setComparePersonaId).toHaveBeenCalledWith(null);
+			expect(setComparePersonaPrompt).toHaveBeenCalledWith("");
+			expect(setModelParams).toHaveBeenCalledWith({});
+			for (const key of ARENA_STORAGE_KEYS) {
+				expect(localStorage.getItem(key)).toBeNull();
+			}
 		});
 	});
 

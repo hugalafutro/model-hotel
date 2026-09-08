@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { CountryFlag } from "../CountryFlag";
 
@@ -18,9 +18,9 @@ describe("CountryFlag", () => {
 		expect(container.querySelector(".ml-1")).toBeTruthy();
 	});
 
-	it("has accessible role and label", () => {
-		render(<CountryFlag code="de" />);
-		expect(screen.getByRole("img", { name: /de flag/i })).toBeTruthy();
+	it("is hidden from assistive tech, since the autonym beside it names the language", () => {
+		const { container } = render(<CountryFlag code="de" />);
+		expect(container.querySelector("span")).toHaveAttribute("aria-hidden");
 	});
 
 	it("all SUPPORTED_LANGUAGES codes have a flag entry", () => {

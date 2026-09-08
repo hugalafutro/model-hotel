@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -22,15 +23,20 @@ func (s *Server) getSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	// Never expose the encrypted Apprise target or OIDC client secret: replace a
-	// stored secret with a mask the UI can echo back unchanged to preserve it.
+	maskSecrets(&set)
+	writeJSON(w, http.StatusOK, set)
+}
+
+// maskSecrets replaces every stored settings secret with a mask the UI can echo
+// back unchanged to preserve it, so the encrypted Apprise target and OIDC client
+// secret never leave the process. One place to extend when a secret is added.
+func maskSecrets(set *Settings) {
 	if set.AlertAppriseTargets != "" {
-		set.AlertAppriseTargets = alertMaskValue
+		set.AlertAppriseTargets = util.SecretMask
 	}
 	if set.OidcClientSecret != "" {
-		set.OidcClientSecret = alertMaskValue
+		set.OidcClientSecret = util.SecretMask
 	}
-	writeJSON(w, http.StatusOK, set)
 }
 
 func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
@@ -53,27 +59,23 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	if set.AlertAppriseTargets != "" {
-		set.AlertAppriseTargets = alertMaskValue
-	}
-	if set.OidcClientSecret != "" {
-		set.OidcClientSecret = alertMaskValue
-	}
+	// The decode overwrites the stored secrets, so keep the row as read to
+	// resolve a masked submission against.
+	stored := set
+	maskSecrets(&set)
 	if !decodeJSON(w, r, &set) {
 		return
 	}
 	// Resolve the Apprise target secret before storing: a masked submission keeps
 	// the existing ciphertext, a new value is encrypted at rest, a blank clears it.
-	resolved, err := s.resolveAlertTarget(r.Context(), set.AlertAppriseTargets)
+	resolved, err := resolveSecret(set.AlertAppriseTargets, stored.AlertAppriseTargets, s.masterKey)
 	if err != nil {
 		writeError(w, err)
 		return
 	}
 	set.AlertAppriseTargets = resolved
 	// The OIDC client secret follows the same mask/encrypt/preserve contract.
-	oidcSecret, err := s.resolveSecret(r.Context(), set.OidcClientSecret, func(cur Settings) string {
-		return cur.OidcClientSecret
-	})
+	oidcSecret, err := resolveSecret(set.OidcClientSecret, stored.OidcClientSecret, s.masterKey)
 	if err != nil {
 		writeError(w, err)
 		return
@@ -89,37 +91,23 @@ func (s *Server) putSettings(w http.ResponseWriter, r *http.Request) {
 		Message: "Settings updated",
 	})
 	// Re-mask before echoing the saved settings back to the client.
-	if set.AlertAppriseTargets != "" {
-		set.AlertAppriseTargets = alertMaskValue
-	}
-	if set.OidcClientSecret != "" {
-		set.OidcClientSecret = alertMaskValue
-	}
+	maskSecrets(&set)
 	writeJSON(w, http.StatusOK, set)
 }
 
 // resolveSecret maps a submitted masked-secret field to the value to store: the
-// mask sentinel preserves the existing stored ciphertext (read back via current),
-// a blank clears it, and any other value is encrypted at rest with the Front Desk
+// mask sentinel preserves the stored ciphertext the caller read alongside it, a
+// blank clears it, and any other value is encrypted at rest with the Front Desk
 // master key. Shared by every settings secret (Apprise target, OIDC client secret).
-func (s *Server) resolveSecret(ctx context.Context, submitted string, current func(Settings) string) (string, error) {
+func resolveSecret(submitted, stored, masterKey string) (string, error) {
 	switch submitted {
-	case alertMaskValue:
-		cur, err := s.store.GetSettings(ctx)
-		if err != nil {
-			return "", err
-		}
-		return current(cur), nil
+	case util.SecretMask:
+		return stored, nil
 	case "":
 		return "", nil
 	default:
-		return auth.EncryptString(submitted, s.masterKey)
+		return auth.EncryptString(submitted, masterKey)
 	}
-}
-
-// resolveAlertTarget resolves the Apprise target secret (see resolveSecret).
-func (s *Server) resolveAlertTarget(ctx context.Context, submitted string) (string, error) {
-	return s.resolveSecret(ctx, submitted, func(cur Settings) string { return cur.AlertAppriseTargets })
 }
 
 // getAutoSync returns the automatic config-propagation setup (enabled + the
@@ -213,20 +201,13 @@ func (s *Server) getAutoSync(w http.ResponseWriter, r *http.Request) {
 // URL string. Returns false on the first designation (no current primary), on a
 // same-member-row re-select (a no-op), and it fails open (false) when the
 // candidate cannot be probed, since the admin-token gate still protects the
-// repoint and blocking a legitimate change on a transient read is worse.
-func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, candidateID string) (bool, error) {
-	cur, err := s.store.GetAutoSync(ctx)
-	if err != nil {
-		return false, err
-	}
-	if cur.PrimaryID == "" || cur.PrimaryID == candidateID {
+// repoint and blocking a legitimate change on a transient read is worse. cur and
+// m are the auto-sync row and candidate member the caller already read.
+func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncConfig, m *Member) (bool, error) {
+	if cur.PrimaryID == "" || cur.PrimaryID == m.ID {
 		return false, nil
 	}
-	m, err := s.store.GetMember(ctx, candidateID)
-	if err != nil {
-		return false, err
-	}
-	token, ok, err := s.store.MemberToken(ctx, candidateID)
+	token, ok, err := s.store.MemberToken(ctx, m.ID)
 	if err != nil {
 		return false, err
 	}
@@ -286,6 +267,8 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	if !decodeJSON(w, r, &req) {
 		return
 	}
+	var primary *Member
+	var cur AutoSyncConfig
 	if req.PrimaryID != "" {
 		m, err := s.store.GetMember(r.Context(), req.PrimaryID)
 		if err != nil {
@@ -310,7 +293,9 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 		// statement, so a disband racing past this read cannot slip a designation
 		// onto an emptied fleet; this handler check exists to give the operator
 		// the specific coded refusal.
-		cur, cerr := s.store.GetAutoSync(r.Context())
+		primary = m
+		var cerr error
+		cur, cerr = s.store.GetAutoSync(r.Context())
 		if cerr != nil {
 			writeError(w, cerr)
 			return
@@ -347,7 +332,7 @@ func (s *Server) putAutoSync(w http.ResponseWriter, r *http.Request) {
 	// the primary. Only checked on an authorised repoint, so no/wrong-token
 	// attempts short-circuit at the token gate below without probing a member.
 	if tokenValid && req.PrimaryID != "" {
-		same, serr := s.repointTargetsCurrentPrimary(r.Context(), req.PrimaryID)
+		same, serr := s.repointTargetsCurrentPrimary(r.Context(), cur, primary)
 		if serr != nil {
 			writeError(w, serr)
 			return

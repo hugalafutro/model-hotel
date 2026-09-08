@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
@@ -99,11 +100,15 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 		s := vk.OwnerUserID.String()
 		ownerID = &s
 	}
+	var key string
+	if includeKey {
+		key = rawKey
+	}
 
 	return virtualkey.VirtualKeyResponse{
 		ID:               vk.ID.String(),
 		Name:             vk.Name,
-		Key:              cond(rawKey, includeKey),
+		Key:              key,
 		KeyPreview:       vk.KeyPreview,
 		TokensUsed:       vk.TokensUsed,
 		LastUsedAt:       lastUsed,
@@ -133,6 +138,8 @@ func (h *Handler) ownerUsername(ctx context.Context, ownerID *uuid.UUID) *string
 }
 
 // ownerLabel names a key owner for an error message, falling back to the id.
+// Called through a closure from enforceOwnerCap so the user lookup happens only
+// on the refusal path, not on every write.
 func (h *Handler) ownerLabel(ctx context.Context, ownerID *uuid.UUID) string {
 	if name := h.ownerUsername(ctx, ownerID); name != nil {
 		return *name
@@ -238,7 +245,7 @@ func (h *Handler) ownerProviderCap(ctx context.Context, ownerID *uuid.UUID) (*[]
 //
 // The parameter is ownerCap, not cap: cap is a Go builtin and shadowing it here
 // would trip revive's redefines-builtin-id rule.
-func enforceOwnerCap(requested, ownerCap *[]string, ownerLabel string, providerName func(string) string) (*[]string, error) {
+func enforceOwnerCap(requested, ownerCap *[]string, ownerLabel func() string, providerName func(string) string) (*[]string, error) {
 	if ownerCap == nil {
 		return requested, nil
 	}
@@ -255,7 +262,7 @@ func enforceOwnerCap(requested, ownerCap *[]string, ownerLabel string, providerN
 			// lowered cap makes an untouched key refuse a plain rename, and
 			// there the fix is to narrow the key, not to widen the account.
 			return nil, fmt.Errorf("%s is outside %s's account provider access. Widen their account access or drop that provider from this key",
-				providerName(id), ownerLabel)
+				providerName(id), ownerLabel())
 		}
 	}
 	return requested, nil
@@ -316,13 +323,6 @@ func canTouchKey(id *user.Identity, vk *virtualkey.VirtualKey) bool {
 	return id.UserID != nil && vk.OwnerUserID != nil && *vk.OwnerUserID == *id.UserID
 }
 
-func cond(val string, condition bool) string {
-	if condition {
-		return val
-	}
-	return ""
-}
-
 // CreateVirtualKey creates a new virtual API key.
 func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	var req CreateVirtualKeyRequest
@@ -330,24 +330,13 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	trimmed, err := validateNameString("name", req.Name, 1, 100)
-	if err != nil {
-		respondBadRequest(w, "invalid name", err)
+	name, ok := validateVirtualKeyName(w, req.Name)
+	if !ok {
 		return
 	}
-	req.Name = trimmed
+	req.Name = name
 
-	for _, reserved := range []string{"chat", "arena", "completions", "admin"} {
-		if strings.EqualFold(req.Name, reserved) {
-			http.Error(w, fmt.Sprintf("name %q is reserved", reserved), http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Reject empty allowed_providers array (non-nil but len==0).
-	// nil means "no restriction", empty slice means "deny all" which is rejected.
-	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
-		http.Error(w, "allowed_providers must be null or contain at least one provider ID", http.StatusBadRequest)
+	if !validateAllowedProvidersShape(w, req.AllowedProviders) {
 		return
 	}
 
@@ -367,7 +356,8 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to create virtual key", err, http.StatusInternalServerError)
 		return
 	}
-	req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap, h.ownerLabel(r.Context(), owner), h.providerNameByID(r.Context()))
+	req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap,
+		func() string { return h.ownerLabel(r.Context(), owner) }, h.providerNameByID(r.Context()))
 	if err != nil {
 		respondBadRequest(w, err.Error(), nil)
 		return
@@ -389,7 +379,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 
 	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner)
 	if err != nil {
-		if isForeignKeyViolation(err) {
+		if db.IsForeignKeyViolation(err) {
 			respondBadRequest(w, "owner_user_id does not match any user", nil)
 			return
 		}
@@ -484,24 +474,13 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	trimmed, err := validateNameString("name", req.Name, 1, 100)
-	if err != nil {
-		respondBadRequest(w, "invalid name", err)
+	name, ok := validateVirtualKeyName(w, req.Name)
+	if !ok {
 		return
 	}
-	req.Name = trimmed
+	req.Name = name
 
-	for _, reserved := range []string{"chat", "arena", "completions", "admin"} {
-		if strings.EqualFold(req.Name, reserved) {
-			http.Error(w, fmt.Sprintf("name %q is reserved", reserved), http.StatusBadRequest)
-			return
-		}
-	}
-
-	// Reject empty allowed_providers array (non-nil but len==0).
-	// nil means "no restriction", empty slice means "deny all" which is rejected.
-	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
-		http.Error(w, "allowed_providers must be null or contain at least one provider ID", http.StatusBadRequest)
+	if !validateAllowedProvidersShape(w, req.AllowedProviders) {
 		return
 	}
 
@@ -515,12 +494,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	// restrictions), and owner preservation when owner_user_id is omitted.
 	existingVK, err := h.virtualKeyRepo.Get(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, virtualkey.ErrNotFound) {
-			http.Error(w, "virtual key not found", http.StatusNotFound)
-			return
-		}
-		debuglog.Error("virtual-keys: failed to fetch key for update", "id", id, "error", err)
-		respondError(w, "failed to update virtual key", err, http.StatusInternalServerError)
+		respondLookupError(w, err, virtualkey.ErrNotFound, "virtual key not found", "failed to update virtual key")
 		return
 	}
 	caller := user.IdentityFrom(r.Context())
@@ -595,7 +569,8 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 			respondError(w, "failed to update virtual key", capErr, http.StatusInternalServerError)
 			return
 		}
-		req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap, h.ownerLabel(r.Context(), owner), h.providerNameByID(r.Context()))
+		req.AllowedProviders, err = enforceOwnerCap(req.AllowedProviders, ownerCap,
+			func() string { return h.ownerLabel(r.Context(), owner) }, h.providerNameByID(r.Context()))
 		if err != nil {
 			respondBadRequest(w, err.Error(), nil)
 			return
@@ -608,7 +583,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)
 			return
 		}
-		if isForeignKeyViolation(err) {
+		if db.IsForeignKeyViolation(err) {
 			respondBadRequest(w, "owner_user_id does not match any user", nil)
 			return
 		}
@@ -644,12 +619,7 @@ func (h *Handler) DeleteVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.virtualKeyRepo.Delete(r.Context(), id); err != nil {
-		if errors.Is(err, virtualkey.ErrNotFound) {
-			http.Error(w, "virtual key not found", http.StatusNotFound)
-			return
-		}
-		debuglog.Error("virtual-keys: failed to delete key", "id", id, "error", err)
-		respondError(w, "failed to delete virtual key", err, http.StatusInternalServerError)
+		respondLookupError(w, err, virtualkey.ErrNotFound, "virtual key not found", "failed to delete virtual key")
 		return
 	}
 
@@ -697,4 +667,38 @@ func validateRateLimits(rps *float64, burst, tpm *int, w http.ResponseWriter) er
 		return fmt.Errorf("invalid rate_limit_tpm")
 	}
 	return nil
+}
+
+// validateVirtualKeyName trims and length-checks a key name and refuses the
+// route names the proxy reserves for itself. It writes the 400 and returns
+// ok=false on rejection.
+func validateVirtualKeyName(w http.ResponseWriter, name string) (string, bool) {
+	trimmed, err := validateNameString("name", name, 1, 100)
+	if err != nil {
+		respondBadRequest(w, "invalid name", err)
+		return "", false
+	}
+	for _, reserved := range []string{"chat", "arena", "completions", "admin"} {
+		if strings.EqualFold(trimmed, reserved) {
+			http.Error(w, fmt.Sprintf("name %q is reserved", reserved), http.StatusBadRequest)
+			return "", false
+		}
+	}
+	return trimmed, true
+}
+
+// errEmptyAllowedProviders is the 400 body text for a present-but-empty allow
+// list. Shared by the virtual-key and user endpoints, which offer the same
+// tri-state list.
+var errEmptyAllowedProviders = errors.New("allowed_providers must be null or contain at least one provider ID")
+
+// validateAllowedProvidersShape rejects a present-but-empty allow list: nil
+// means "no restriction" and a populated list means "only these", so an empty
+// one is an ambiguous third state rather than "deny all".
+func validateAllowedProvidersShape(w http.ResponseWriter, ap *[]string) bool {
+	if ap != nil && len(*ap) == 0 {
+		http.Error(w, errEmptyAllowedProviders.Error(), http.StatusBadRequest)
+		return false
+	}
+	return true
 }

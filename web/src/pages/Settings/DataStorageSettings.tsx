@@ -1,14 +1,19 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Database } from "@/lib/icons";
 import { api } from "../../api/client";
+import { ACKED_KEYS_STORAGE } from "../../components/ErrorShelf/useErrorShelf";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
 import { SettingToggleRow } from "../../components/SettingToggleRow";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
+import {
+	storedBool,
+	storedNumber,
+	useLocalStorage,
+} from "../../hooks/useLocalStorage";
 import {
 	clearArenaHistory,
 	getArenaHistoryCount,
@@ -20,6 +25,7 @@ import {
 	minutesToGoDuration,
 } from "../../utils/duration";
 import { clearProviderCache, getProviderCacheCount } from "./constants";
+import { settingOr } from "./defaults";
 import { PurgeLogsControl } from "./PurgeLogsControl";
 import { usePurgeState } from "./purgeState";
 import { useSettingsMutations } from "./useSettingsMutations";
@@ -43,35 +49,27 @@ export function DataStorageSettings({
 	const { settings, updateMutation, resetSettingMutation } =
 		useSettingsMutations();
 
-	const [quotaDisabled, setQuotaDisabled] = useState(() => {
-		try {
-			return localStorage.getItem("sidebarQuotaDisabled") === "true";
-		} catch {
-			return false;
-		}
-	});
-	const [refreshSec, setRefreshSec] = useState(() => {
-		try {
-			return localStorage.getItem("dashboardRefreshSec") || "30";
-		} catch {
-			return "30";
-		}
-	});
+	// Both are browser-local preferences other screens read with
+	// useLocalStorageValue; the hook's write-through setter announces each
+	// change on "localStorageChange", which is what those readers subscribe to.
+	const [quotaDisabled, setQuotaDisabled] = useLocalStorage(
+		"sidebarQuotaDisabled",
+		false,
+		{ deserialize: storedBool },
+	);
+	const [refreshSec, setRefreshSec] = useLocalStorage(
+		"dashboardRefreshSec",
+		30,
+		{ deserialize: storedNumber },
+	);
 
 	const handleDashboardRefreshChange = (val: number) => {
-		const valStr = String(val);
-		setRefreshSec(valStr);
-		try {
-			localStorage.setItem("dashboardRefreshSec", valStr);
-		} catch {
-			/* ignore */
-		}
-		window.dispatchEvent(new CustomEvent("dashboardRefreshChange"));
+		setRefreshSec(val);
 		toast(
 			val === 0
 				? t("settings.dashboard.disabled")
 				: t("settings.dashboard.intervalSet", {
-						seconds: valStr,
+						seconds: String(val),
 						count: val,
 					}),
 			"success",
@@ -90,6 +88,19 @@ export function DataStorageSettings({
 		arenaHistoryLimit,
 		setArenaHistoryLimit,
 	} = useStorage();
+
+	// The three session-persistence switches differ only in their state pair and
+	// their i18n stem; every suffix (Description/Confirm/Enabled/Disabled) is the
+	// same under each.
+	const persistenceToggles = [
+		{ stem: "persistChat", value: persistChat, set: setPersistChat },
+		{ stem: "persistArena", value: persistArena, set: setPersistArena },
+		{
+			stem: "persistConversation",
+			value: persistConversation,
+			set: setPersistConversation,
+		},
+	];
 
 	const requestsPurge = usePurgeState();
 	const appLogsPurge = usePurgeState();
@@ -126,8 +137,8 @@ export function DataStorageSettings({
 		},
 	});
 
-	const logRetention = settings?.log_retention || "0";
-	const staleRequestTimeout = settings?.stale_request_timeout || "30m0s";
+	const logRetention = settingOr(settings, "log_retention");
+	const staleRequestTimeout = settingOr(settings, "stale_request_timeout");
 	// Quota sidebar refresh interval is a server setting (minutes, 0 = off).
 	const quotaRefreshMin = Number(settings?.quota_refresh_interval_min ?? 5);
 	// The slider is in days; the backend stores a Go duration in hours.
@@ -197,52 +208,15 @@ export function DataStorageSettings({
 
 							<div className="flex items-center gap-2 flex-wrap">
 								<PurgeLogsControl
+									i18nStem="settings.logging.deleteRequests"
 									mutation={purgeMutation}
 									state={requestsPurge}
-									labels={{
-										button: t("settings.logging.deleteRequests"),
-										tooltip: t("settings.logging.deleteRequests.tooltip"),
-										selectRange: t(
-											"settings.logging.deleteRequests.selectRange",
-										),
-										olderThan1d: t(
-											"settings.logging.deleteRequests.olderThan1d",
-										),
-										olderThan1w: t(
-											"settings.logging.deleteRequests.olderThan1w",
-										),
-										olderThan1m: t(
-											"settings.logging.deleteRequests.olderThan1m",
-										),
-										allLogs: t("settings.logging.deleteRequests.allLogs"),
-										confirm: t("settings.logging.deleteRequests.confirm"),
-										cancel: t("settings.logging.deleteRequests.cancel"),
-									}}
 								/>
 
 								<PurgeLogsControl
+									i18nStem="settings.logging.deleteAppLogs"
 									mutation={purgeAppLogsMutation}
 									state={appLogsPurge}
-									labels={{
-										button: t("settings.logging.deleteAppLogs"),
-										tooltip: t("settings.logging.deleteAppLogs.tooltip"),
-										selectRange: t(
-											"settings.logging.deleteAppLogs.selectRange",
-										),
-										olderThan1d: t(
-											"settings.logging.deleteAppLogs.olderThan1d",
-										),
-										olderThan1w: t(
-											"settings.logging.deleteAppLogs.olderThan1w",
-										),
-										olderThan1m: t(
-											"settings.logging.deleteAppLogs.olderThan1m",
-										),
-										allLogs: t("settings.logging.deleteAppLogs.allLogs"),
-										confirm: t("settings.logging.deleteAppLogs.confirm"),
-										cancel: t("settings.logging.deleteAppLogs.cancel"),
-										deleting: t("settings.logging.deleteAppLogs.deleting"),
-									}}
 								/>
 							</div>
 						</SettingsGroup>
@@ -290,7 +264,11 @@ export function DataStorageSettings({
 								<button
 									type="button"
 									onClick={() => {
-										localStorage.removeItem("ackedErrorKeys");
+										try {
+											localStorage.removeItem(ACKED_KEYS_STORAGE);
+										} catch {
+											/* ignore */
+										}
 										window.dispatchEvent(
 											new CustomEvent("dismissedErrorsReset"),
 										);
@@ -315,23 +293,13 @@ export function DataStorageSettings({
 								)}
 								checked={!quotaDisabled}
 								onChange={(v) => {
-									const newVal = !v;
-									setQuotaDisabled(newVal);
-									try {
-										localStorage.setItem(
-											"sidebarQuotaDisabled",
-											String(newVal),
-										);
-									} catch {
-										/* ignore */
-									}
+									setQuotaDisabled(!v);
 									toast(
-										newVal
-											? t("settings.sidebarQuota.disabledQuotas")
-											: t("settings.sidebarQuota.enabledQuotas"),
-										newVal ? "info" : "success",
+										v
+											? t("settings.sidebarQuota.enabledQuotas")
+											: t("settings.sidebarQuota.disabledQuotas"),
+										v ? "success" : "info",
 									);
-									window.dispatchEvent(new CustomEvent("sidebarQuotaToggle"));
 								}}
 							/>
 
@@ -371,72 +339,30 @@ export function DataStorageSettings({
 
 					<div className="space-y-5">
 						<SettingsGroup title={t("settings.dataStorage.sessionPersistence")}>
-							<SettingToggleRow
-								label={t("settings.dataStorage.persistChat")}
-								description={t("settings.dataStorage.persistChatDescription")}
-								checked={persistChat}
-								onChange={(v) => {
-									const next = v;
-									if (
-										!next &&
-										!confirm(t("settings.dataStorage.persistChatConfirm"))
-									)
-										return;
-									setPersistChat(next);
-									toast(
-										next
-											? t("settings.dataStorage.persistChatEnabled")
-											: t("settings.dataStorage.persistChatDisabled"),
-										next ? "success" : "info",
-									);
-								}}
-							/>
-
-							<SettingToggleRow
-								label={t("settings.dataStorage.persistArena")}
-								description={t("settings.dataStorage.persistArenaDescription")}
-								checked={persistArena}
-								onChange={(v) => {
-									const next = v;
-									if (
-										!next &&
-										!confirm(t("settings.dataStorage.persistArenaConfirm"))
-									)
-										return;
-									setPersistArena(next);
-									toast(
-										next
-											? t("settings.dataStorage.persistArenaEnabled")
-											: t("settings.dataStorage.persistArenaDisabled"),
-										next ? "success" : "info",
-									);
-								}}
-							/>
-
-							<SettingToggleRow
-								label={t("settings.dataStorage.persistConversation")}
-								description={t(
-									"settings.dataStorage.persistConversationDescription",
-								)}
-								checked={persistConversation}
-								onChange={(v) => {
-									const next = v;
-									if (
-										!next &&
-										!confirm(
-											t("settings.dataStorage.persistConversationConfirm"),
+							{persistenceToggles.map(({ stem, value, set }) => (
+								<SettingToggleRow
+									key={stem}
+									label={t(`settings.dataStorage.${stem}`)}
+									description={t(`settings.dataStorage.${stem}Description`)}
+									checked={value}
+									onChange={(v) => {
+										// Switching one off drops what is already stored, so the
+										// confirm guards the destructive direction only.
+										if (
+											!v &&
+											!confirm(t(`settings.dataStorage.${stem}Confirm`))
 										)
-									)
-										return;
-									setPersistConversation(next);
-									toast(
-										next
-											? t("settings.dataStorage.persistConversationEnabled")
-											: t("settings.dataStorage.persistConversationDisabled"),
-										next ? "success" : "info",
-									);
-								}}
-							/>
+											return;
+										set(v);
+										toast(
+											t(
+												`settings.dataStorage.${stem}${v ? "Enabled" : "Disabled"}`,
+											),
+											v ? "success" : "info",
+										);
+									}}
+								/>
+							))}
 						</SettingsGroup>
 
 						<SettingsGroup title={t("settings.dataStorage.arenaHistory")}>
@@ -518,7 +444,7 @@ export function DataStorageSettings({
 							<SettingsSlider
 								id="dashboard-refresh-interval"
 								label={t("settings.dashboard.refreshInterval")}
-								value={Number(refreshSec)}
+								value={refreshSec}
 								min={0}
 								max={600}
 								step={10}

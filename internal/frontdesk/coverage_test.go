@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -10,6 +11,8 @@ import (
 	"testing"
 	"testing/fstest"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // TestPollerRunTicksAndStops exercises Run + tickLoop and one tick of every poll
@@ -184,16 +187,6 @@ func TestServerAccessorsAndHelpers(t *testing.T) {
 	// No real SPA is embedded in tests (only the placeholder), so this is nil; the
 	// call still exercises the function.
 	_ = EmbeddedUI()
-
-	if got := atoiDefault("", 5); got != 5 {
-		t.Errorf("atoiDefault(\"\", 5) = %d, want 5", got)
-	}
-	if got := atoiDefault("notanumber", 7); got != 7 {
-		t.Errorf("atoiDefault(invalid, 7) = %d, want 7", got)
-	}
-	if got := atoiDefault("42", 5); got != 42 {
-		t.Errorf("atoiDefault(\"42\", 5) = %d, want 42", got)
-	}
 }
 
 // TestTOTPStoreDisable covers TOTPStore.Disable, which runs its delete
@@ -311,5 +304,76 @@ func TestSPAHandlerServesAssetsAndIndex(t *testing.T) {
 	h.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/some/spa/route", http.NoBody))
 	if rec.Code != http.StatusOK || !strings.Contains(rec.Body.String(), "<title>fd</title>") {
 		t.Errorf("spa fallback = %d body=%q", rec.Code, rec.Body.String())
+	}
+}
+
+// TestWithRefusalReason covers the shared refusal-message helper: a member's own
+// reason is appended when the error carries one, and the base message is left
+// alone otherwise.
+func TestWithRefusalReason(t *testing.T) {
+	base := "this member rejected the request (HTTP 400)"
+	if got := withRefusalReason(base, &memberRefusal{status: 400, reason: "refusing to import an empty config"}); got != base+": refusing to import an empty config" {
+		t.Errorf("with a reason = %q", got)
+	}
+	if got := withRefusalReason(base, &memberRefusal{status: 400}); got != base {
+		t.Errorf("empty reason = %q, want the base message", got)
+	}
+	if got := withRefusalReason(base, errors.New("boom")); got != base {
+		t.Errorf("unrelated error = %q, want the base message", got)
+	}
+}
+
+// TestMaskSecretsAndResolveSecret covers the settings secret round trip: stored
+// secrets are masked on the way out, and an echoed mask preserves the stored
+// ciphertext while a blank clears it.
+func TestMaskSecretsAndResolveSecret(t *testing.T) {
+	set := Settings{AlertAppriseTargets: "cipher-a", OidcClientSecret: "cipher-b"}
+	maskSecrets(&set)
+	if set.AlertAppriseTargets != util.SecretMask || set.OidcClientSecret != util.SecretMask {
+		t.Fatalf("masked settings = %+v", set)
+	}
+	empty := Settings{}
+	maskSecrets(&empty)
+	if empty.AlertAppriseTargets != "" || empty.OidcClientSecret != "" {
+		t.Errorf("an unset secret must stay empty, got %+v", empty)
+	}
+
+	if got, err := resolveSecret(util.SecretMask, "cipher-a", "key"); err != nil || got != "cipher-a" {
+		t.Errorf("echoed mask = (%q, %v), want the stored ciphertext", got, err)
+	}
+	if got, err := resolveSecret("", "cipher-a", "key"); err != nil || got != "" {
+		t.Errorf("blank = (%q, %v), want it cleared", got, err)
+	}
+	enc, err := resolveSecret("tgram://tok/chat", "cipher-a", "key")
+	if err != nil {
+		t.Fatalf("new value: %v", err)
+	}
+	if enc == "" || enc == "tgram://tok/chat" {
+		t.Errorf("a new value must be stored encrypted, got %q", enc)
+	}
+}
+
+// TestMemberTokenOf covers the shared token load: a member flagged as tokenless
+// resolves to "no token" without a query, and a stored token is returned.
+func TestMemberTokenOf(t *testing.T) {
+	store := newTestStore(t)
+	ctx := context.Background()
+
+	none, err := store.CreateMember(ctx, "tokenless", "http://127.0.0.1:9401", "")
+	if err != nil {
+		t.Fatalf("CreateMember(tokenless): %v", err)
+	}
+	if tok, ok := store.MemberTokenOf(ctx, none); ok || tok != "" {
+		t.Errorf("tokenless member = (%q, %v), want (\"\", false)", tok, ok)
+	}
+	withTok, err := store.CreateMember(ctx, "with-token", "http://127.0.0.1:9402", "secret-token")
+	if err != nil {
+		t.Fatalf("CreateMember(with-token): %v", err)
+	}
+	if tok, ok := store.MemberTokenOf(ctx, withTok); !ok || tok != "secret-token" {
+		t.Errorf("stored token = (%q, %v), want (\"secret-token\", true)", tok, ok)
+	}
+	if tok, ok := store.MemberTokenOf(ctx, nil); ok || tok != "" {
+		t.Errorf("nil member = (%q, %v), want (\"\", false)", tok, ok)
 	}
 }

@@ -2,28 +2,23 @@ package adminauth
 
 import (
 	"context"
-	"crypto/subtle"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"golang.org/x/oauth2"
 	githuboauth "golang.org/x/oauth2/github"
 
-	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
-	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/netguard"
-	"github.com/hugalafutro/model-hotel/internal/totp"
+	"github.com/hugalafutro/model-hotel/internal/util"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -82,16 +77,13 @@ type GitHubSettings interface {
 // ID token, and the state parameter + single-use login-state record + the
 // confidential client secret carry the CSRF/replay defense.
 type GitHubHandler struct {
-	settings     GitHubSettings
-	sessionMgr   *webauthn.SessionManager
-	ipLimiter    IPLimiterMiddleware
-	masterKey    string
-	cookieSecure string          // authcookie.Secure mode ("auto"/"always"/"never")
-	users        SSOUserResolver // nil = no user email binding (admin allowlist only)
+	// ssoLogin carries the login-state cookie, per-IP backoff, error redirect
+	// and session hand-off this flow shares with the OIDC handler.
+	ssoLogin
 
-	// loginThrottle applies per-IP exponential backoff to the callback, mirroring
-	// the OIDC/TOTP login defense (5 failures, 1s doubling, capped at 5m).
-	loginThrottle *totp.Throttle
+	settings  GitHubSettings
+	masterKey string
+	users     SSOUserResolver // nil = no user email binding (admin allowlist only)
 
 	// httpClient is an SSRF-guarded client used for every outbound GitHub request
 	// (token exchange, /user, /user/emails). Without it oauth2 falls back to
@@ -125,13 +117,22 @@ func NewGitHubHandler(
 	cookieSecure string,
 ) *GitHubHandler {
 	return &GitHubHandler{
-		settings:      settings,
-		sessionMgr:    sessionMgr,
-		ipLimiter:     ipLimiter,
-		masterKey:     masterKey,
-		cookieSecure:  cookieSecure,
-		loginThrottle: totp.NewThrottle(5, time.Second, 5*time.Minute),
-		httpClient:    netguard.NewClientWithRetry(githubHTTPTimeout),
+		ssoLogin: ssoLogin{
+			name:          "github",
+			cookieName:    githubCookieName,
+			cookiePath:    "/api/auth/github",
+			ttl:           githubLoginTTL,
+			sessionMgr:    sessionMgr,
+			ipLimiter:     ipLimiter,
+			throttle:      newSSOThrottle(),
+			jar:           authcookie.Dashboard,
+			cookieSecure:  cookieSecure,
+			useCookieAuth: true,
+			peerLabel:     "provider",
+		},
+		settings:   settings,
+		masterKey:  masterKey,
+		httpClient: netguard.NewClientWithRetry(githubHTTPTimeout),
 	}
 }
 
@@ -146,7 +147,6 @@ func (h *GitHubHandler) SetUserResolver(users SSOUserResolver) {
 // config fingerprint.
 type githubRuntime struct {
 	enabled      bool
-	redirectURL  string
 	apiBaseURL   string // copied from githubAPIBaseURL in prod; mock URL in tests
 	oauth2Config *oauth2.Config
 	allowed      map[string]bool // lowercased allowlisted emails; empty = deny all
@@ -157,6 +157,8 @@ type githubRuntime struct {
 type githubLoginState struct {
 	State string `json:"state"`
 }
+
+func (st *githubLoginState) stateToken() string { return st.State }
 
 // Register mounts the GitHub OAuth routes. All three are unauthenticated because
 // they ARE the login flow; the allowlist (not a bearer token) gates who may
@@ -210,35 +212,15 @@ func (h *GitHubHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	state, err := randToken()
+	state, err := util.RandomHex(ssoStateBytes)
 	if err != nil {
 		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
 		return
 	}
 
-	blob, err := json.Marshal(githubLoginState{State: state})
-	if err != nil {
-		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
+	if !h.beginState(r.Context(), w, githubLoginState{State: state}) {
 		return
 	}
-	id, err := h.sessionMgr.CreateLoginState(r.Context(), blob, githubLoginTTL)
-	if err != nil {
-		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
-		return
-	}
-
-	http.SetCookie(w, &http.Cookie{
-		Name:     githubCookieName,
-		Value:    id.String(),
-		Path:     "/api/auth/github",
-		MaxAge:   int(githubLoginTTL.Seconds()),
-		HttpOnly: true,
-		Secure:   true,
-		// Lax (not Strict) so the cookie survives the top-level GET redirect back
-		// from GitHub; the single-use state record carries the CSRF/replay
-		// defense, not the cookie's SameSite mode.
-		SameSite: http.SameSiteLaxMode,
-	})
 
 	http.Redirect(w, r, rt.oauth2Config.AuthCodeURL(state), http.StatusFound)
 }
@@ -265,65 +247,23 @@ type githubEmail struct {
 func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
-	// Per-IP backoff (defense in depth atop the /api per-IP rate limit). Redirect
-	// back to the SPA with an error fragment like every other failure (Retry-After
-	// set as a hint) rather than a plaintext 429: the callback is always a browser
-	// navigation, so a raw 429 page would strand the user off the SPA.
-	throttleKey := h.ipLimiter.ClientIP(r)
-	if ok, retry := h.loginThrottle.Allowed(throttleKey); !ok {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		debuglog.Warn("github: callback throttled", "remote_addr", clientip.From(r))
-		h.redirectError(w, r, "throttled")
+	throttleKey, ok := h.throttled(w, r)
+	if !ok {
 		return
 	}
 
-	// Clear the single-use login-state cookie on every callback, including the
+	// The login-state cookie is expired on every callback, including the
 	// disabled-runtime short-circuit below, so a stale cookie never lingers.
-	h.clearCookie(w)
-
 	rt, err := h.runtime(ctx)
 	if err != nil || rt == nil || !rt.enabled {
+		h.clearCookie(w)
 		h.redirectError(w, r, "unavailable")
 		return
 	}
 
-	cookie, err := r.Cookie(githubCookieName)
-	if err != nil {
-		h.fail(w, r, throttleKey, "missing login state", nil)
-		return
-	}
-	id, err := uuid.Parse(cookie.Value)
-	if err != nil {
-		h.fail(w, r, throttleKey, "bad login state", err)
-		return
-	}
-	blob, err := h.sessionMgr.ConsumeLoginState(ctx, id)
-	if err != nil {
-		h.fail(w, r, throttleKey, "expired login state", nil)
-		return
-	}
 	var st githubLoginState
-	if err := json.Unmarshal(blob, &st); err != nil {
-		h.fail(w, r, throttleKey, "corrupt login state", err)
-		return
-	}
-
-	// A GitHub-reported error (e.g. access_denied) short-circuits before any token work.
-	if e := r.URL.Query().Get("error"); e != "" {
-		debuglog.Warn("github: provider returned error", "error", e)
-		h.fail(w, r, throttleKey, "provider declined", nil)
-		return
-	}
-	// CSRF: the returned state must match what we issued. The record is already
-	// single-use so this is defense in depth; constant-time compare for
-	// consistency with the OIDC handler.
-	if subtle.ConstantTimeCompare([]byte(r.URL.Query().Get("state")), []byte(st.State)) != 1 {
-		h.fail(w, r, throttleKey, "state mismatch", nil)
-		return
-	}
-	code := r.URL.Query().Get("code")
-	if code == "" {
-		h.fail(w, r, throttleKey, "missing code", nil)
+	code, ok := h.consumeState(w, r, throttleKey, &st)
+	if !ok {
 		return
 	}
 
@@ -394,33 +334,11 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Mint the same session token as passkey/TOTP/OIDC login, carrying the
-	// resolved identity handle (nil credentialID: no passkey to cascade-revoke).
-	sessionToken, err := h.sessionMgr.CreateAuthToken(ctx, sessionHandle, nil, webauthn.MetaFromRequest(r, h.ipLimiter))
-	if err != nil {
-		h.fail(w, r, throttleKey, "failed to create session", err)
-		return
-	}
-	h.loginThrottle.RecordSuccess(throttleKey)
-	debuglog.Info("github: login success",
+	// GitHub is dashboard-only (Front Desk does not use this handler), so the
+	// session always rides the HttpOnly dashboard cookie: useCookieAuth is fixed
+	// true in the constructor and the fragment delivery never applies here.
+	h.finishLogin(w, r, throttleKey, sessionHandle,
 		"email_masked", maskEmail(matched), "gh_id", user.ID, "gh_login", user.Login)
-
-	// Deliver the session via the HttpOnly mh_session cookie and redirect to a
-	// clean "/": GitHub is dashboard-only (Front Desk does not use this handler),
-	// so there is no legacy fragment-token surface to preserve here. The token
-	// never appears in the URL or this 302's Location response header.
-	//
-	// The `oidc_error` fragment key (used by redirectError below) is the generic
-	// SSO hand-off slot the SPA already consumes for failures, not an
-	// OIDC-specific channel. If a third SSO provider is ever added, rename it to
-	// a neutral `sso_error` across the handlers and the SPA's consume helpers in
-	// lockstep.
-	if err := authcookie.SetSession(w, sessionToken, authcookie.Secure(r, h.cookieSecure), webauthn.AuthTokenTTL); err != nil {
-		debuglog.Error("github: set session cookie failed", "error", err)
-		h.redirectError(w, r, "session_error")
-		return
-	}
-	http.Redirect(w, r, "/", http.StatusFound)
 }
 
 // fetchUser GETs {apiBase}/user and decodes the id + login.
@@ -516,16 +434,9 @@ func (h *GitHubHandler) build(enabled bool, clientID, clientSecretEnc, baseURL, 
 		return &githubRuntime{enabled: false}, nil
 	}
 
-	clientSecret := ""
-	if clientSecretEnc != "" {
-		if h.masterKey == "" {
-			return nil, fmt.Errorf("MASTER_KEY not configured")
-		}
-		dec, err := auth.DecryptString(clientSecretEnc, h.masterKey)
-		if err != nil {
-			return nil, fmt.Errorf("decrypt client secret: %w", err)
-		}
-		clientSecret = dec
+	clientSecret, err := decryptClientSecret(clientSecretEnc, h.masterKey)
+	if err != nil {
+		return nil, err
 	}
 	if clientSecret == "" {
 		// No usable secret: token exchange would fail, so report under-configured.
@@ -534,9 +445,8 @@ func (h *GitHubHandler) build(enabled bool, clientID, clientSecretEnc, baseURL, 
 
 	redirectURL := strings.TrimRight(baseURL, "/") + githubCallbackPath
 	return &githubRuntime{
-		enabled:     true,
-		redirectURL: redirectURL,
-		apiBaseURL:  githubAPIBaseURL,
+		enabled:    true,
+		apiBaseURL: githubAPIBaseURL,
 		oauth2Config: &oauth2.Config{
 			ClientID:     clientID,
 			ClientSecret: clientSecret,
@@ -546,36 +456,4 @@ func (h *GitHubHandler) build(enabled bool, clientID, clientSecretEnc, baseURL, 
 		},
 		allowed: parseAllowlist(allowedRaw),
 	}, nil
-}
-
-// fail records a per-IP failure, logs the reason, and redirects the browser back
-// to the SPA login screen with a generic error marker. err (if any) is logged
-// server-side only; the user-facing reason stays coarse to avoid an oracle.
-func (h *GitHubHandler) fail(w http.ResponseWriter, r *http.Request, throttleKey, reason string, err error) {
-	h.loginThrottle.RecordFailure(throttleKey)
-	if err != nil {
-		debuglog.Warn("github: callback failed", "remote_addr", clientip.From(r), "reason", reason, "error", err)
-	} else {
-		debuglog.Warn("github: callback failed", "remote_addr", clientip.From(r), "reason", reason)
-	}
-	h.redirectError(w, r, "failed")
-}
-
-// redirectError sends the browser back to the SPA with a coarse error code in
-// the fragment (shared #oidc_error= slot the SPA already consumes).
-func (h *GitHubHandler) redirectError(w http.ResponseWriter, r *http.Request, code string) {
-	http.Redirect(w, r, "/#oidc_error="+url.QueryEscape(code), http.StatusFound)
-}
-
-// clearCookie expires the login-state cookie.
-func (h *GitHubHandler) clearCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
-		Name:     githubCookieName,
-		Value:    "",
-		Path:     "/api/auth/github",
-		MaxAge:   -1,
-		HttpOnly: true,
-		Secure:   true,
-		SameSite: http.SameSiteLaxMode,
-	})
 }

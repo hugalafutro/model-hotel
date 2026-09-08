@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -189,11 +190,8 @@ func computeFleetState(in fleetStateInput) (FleetState, []string) {
 	if len(reasons) > 0 {
 		state = FleetDegraded
 	}
-	for _, r := range reasons {
-		if fleetFaultyReasons[r] {
-			state = FleetFaulty
-			break
-		}
+	if slices.ContainsFunc(reasons, func(r string) bool { return fleetFaultyReasons[r] }) {
+		state = FleetFaulty
 	}
 	return state, reasons
 }
@@ -355,9 +353,9 @@ func (s *Server) checkFleetState(ctx context.Context) {
 // lastEmittedFleetState returns the target state of the newest persisted
 // fleet.state_changed event, defaulting to ok when no event exists yet or the
 // row cannot be read back. Only the in-memory edge detector needs this; the
-// state itself is always recomputed from live inputs. Anyone wiring event
-// pruning (PruneEvents currently has no production caller): deleting the
-// newest fleet.state_changed row demotes a restart to the old ok assumption.
+// state itself is always recomputed from live inputs. PruneEvents keeps the
+// newest fleet.state_changed row for exactly this reason: deleting it would
+// demote a restart to the old ok assumption.
 func (s *Server) lastEmittedFleetState(ctx context.Context) FleetState {
 	evs, _, err := s.store.ListEvents(ctx, EventFilter{Type: "fleet.state_changed", Limit: 1})
 	if err != nil {

@@ -18,6 +18,7 @@ import {
 } from "@/lib/icons";
 import type { AlertEventDef } from "../../../api/types";
 import { AlertEventPicker } from "../AlertEventPicker";
+import { reasonText } from "./apiText";
 import { DestinationList } from "./DestinationList";
 import { KIND_HINT, KIND_ICON, KIND_TITLE, KINDS } from "./destinationKinds";
 import {
@@ -30,7 +31,7 @@ import {
 	StepTitle,
 	Summary,
 } from "./stepPrimitives";
-import { K, reasonText, type StepProps } from "./stepShared";
+import { K, type StepProps } from "./stepShared";
 import { isDuplicate } from "./wizardState";
 
 // The seven step bodies of the alerts wizard: prove apprise-api answers, pick

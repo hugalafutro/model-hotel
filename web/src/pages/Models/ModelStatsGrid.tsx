@@ -14,7 +14,7 @@ import type { Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { DetailItem } from "../../components/LogDetailItem";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
-import { formatPrice, formatPriceInput } from "../../utils/model";
+import { formatPrice } from "../../utils/model";
 import type { useModelEditor } from "./useModelEditor";
 
 type Editor = ReturnType<typeof useModelEditor>;
@@ -87,8 +87,30 @@ export function ModelStatsGrid({
 					{t("models.detail.perMillionTokens")}
 				</span>
 			</div>
-			{editData[field] !== formatPriceInput(discoveredDefaults[field]) && (
+			{editData[field] !== discoveredDefaults[field] && (
 				<RevertButton onClick={() => revertField(field)} className="shrink-0" />
+			)}
+		</div>
+	);
+	const numberEditor = (
+		field: "context_length" | "max_output_tokens",
+		min: number,
+		max: number,
+	) => (
+		<div className="flex items-center gap-1">
+			<input
+				type="number"
+				min={min}
+				max={max}
+				value={editData[field]}
+				onChange={(e) =>
+					setEditData((prev) => ({ ...prev, [field]: e.target.value }))
+				}
+				className="ui-input text-sm"
+				placeholder={t("models.detail.tokens")}
+			/>
+			{editData[field] !== discoveredDefaults[field] && (
+				<RevertButton onClick={() => revertField(field)} />
 			)}
 		</div>
 	);
@@ -147,28 +169,7 @@ export function ModelStatsGrid({
 					) : undefined
 				}
 			>
-				{editing ? (
-					<div className="flex items-center gap-1">
-						<input
-							type="number"
-							min={256}
-							max={2000000}
-							value={editData.context_length}
-							onChange={(e) =>
-								setEditData((prev) => ({
-									...prev,
-									context_length: e.target.value,
-								}))
-							}
-							className="ui-input text-sm"
-							placeholder={t("models.detail.tokens")}
-						/>
-						{editData.context_length !==
-							(discoveredDefaults.context_length?.toString() ?? "") && (
-							<RevertButton onClick={() => revertField("context_length")} />
-						)}
-					</div>
-				) : undefined}
+				{editing ? numberEditor("context_length", 256, 2000000) : undefined}
 			</DetailItem>
 			<DetailItem
 				emphasis="stat"
@@ -185,28 +186,7 @@ export function ModelStatsGrid({
 					) : undefined
 				}
 			>
-				{editing ? (
-					<div className="flex items-center gap-1">
-						<input
-							type="number"
-							min={1}
-							max={128000}
-							value={editData.max_output_tokens}
-							onChange={(e) =>
-								setEditData((prev) => ({
-									...prev,
-									max_output_tokens: e.target.value,
-								}))
-							}
-							className="ui-input text-sm"
-							placeholder={t("models.detail.tokens")}
-						/>
-						{editData.max_output_tokens !==
-							(discoveredDefaults.max_output_tokens?.toString() ?? "") && (
-							<RevertButton onClick={() => revertField("max_output_tokens")} />
-						)}
-					</div>
-				) : undefined}
+				{editing ? numberEditor("max_output_tokens", 1, 128000) : undefined}
 			</DetailItem>
 			<DetailItem
 				emphasis="stat"

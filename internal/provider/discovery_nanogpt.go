@@ -4,9 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"net/url"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -142,11 +143,7 @@ func (d *DiscoveryService) discoverNanoGPTImageModels(ctx context.Context, provi
 
 	// Iterate in sorted ID order so discovery output is deterministic (Go map
 	// iteration order is randomised) and the discovery diff stays stable.
-	ids := make([]string, 0, len(resp.Models.Image))
-	for id := range resp.Models.Image {
-		ids = append(ids, id)
-	}
-	sort.Strings(ids)
+	ids := slices.Sorted(maps.Keys(resp.Models.Image))
 
 	models := make([]*model.Model, 0, len(ids))
 	for _, id := range ids {

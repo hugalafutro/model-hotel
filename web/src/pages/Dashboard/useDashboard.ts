@@ -1,4 +1,8 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	keepPreviousData,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
@@ -8,13 +12,13 @@ import type {
 	Provider,
 	ProviderDistributionStats,
 	Stats,
-	TimeSeriesStats,
 } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { useLocalStorageValue } from "../../hooks/useLocalStorage";
 import { proxyModelID } from "../../utils/model";
-import { bucketLabel } from "./bucketLabel";
-import type { Range } from "./types";
+import { toChartPoints } from "./chartPoints";
+import type { ProviderLatencyEntry } from "./ProviderLatencyPanel";
+import type { Range, TimeSeriesDataPoint, UsageEntry } from "./types";
 import { useDashboardRanges } from "./useDashboardRanges";
 
 /** Synthetic virtual_key_name values the backend meters under its own routes
@@ -104,12 +108,7 @@ export interface UseDashboardReturn {
 	stats: Stats | undefined;
 	models: Model[] | undefined;
 	providers: Provider[] | undefined;
-	tsData: TimeSeriesStats | undefined;
-	tokenTsData: TimeSeriesStats | undefined;
 	provDist: ProviderDistributionStats | undefined;
-	modelsUsageStats: Stats | undefined;
-	latencyStats: Stats | undefined;
-	vkeysUsageStats: Stats | undefined;
 	tokenStats: Stats | undefined;
 
 	// Handlers
@@ -121,55 +120,11 @@ export interface UseDashboardReturn {
 	totalTokens: number;
 	rangeLabel: string;
 	gaugeRequestCount: number;
-	acData: Array<{
-		hour: string;
-		rawDate: string;
-		total: number;
-		errors: number;
-		tokens: number;
-		tokens_cache_hit: number;
-		tokens_cache_miss: number;
-		latency: number;
-		overhead_ms: number;
-		provider_latency_ms: number;
-		rate_limit_hits: number;
-		avg_ttft_ms: number;
-	}>;
-	tokenAcData: Array<{
-		hour: string;
-		rawDate: string;
-		total: number;
-		errors: number;
-		tokens: number;
-		tokens_cache_hit: number;
-		tokens_cache_miss: number;
-		latency: number;
-		overhead_ms: number;
-		provider_latency_ms: number;
-		rate_limit_hits: number;
-		avg_ttft_ms: number;
-	}>;
-	byModel: Array<{
-		label: string;
-		value: number;
-		suffix: string;
-		failoverGroup?: boolean;
-		deleted?: boolean;
-	}>;
-	byProviderLatency: Array<{
-		label: string;
-		totalMs: number;
-		overheadMs: number;
-		providerMs: number;
-		requestCount: number;
-	}>;
-	byVK: Array<{
-		label: string;
-		value: number;
-		suffix: string;
-		deleted?: boolean;
-		reserved?: boolean;
-	}>;
+	acData: TimeSeriesDataPoint[];
+	tokenAcData: TimeSeriesDataPoint[];
+	byModel: UsageEntry[];
+	byProviderLatency: ProviderLatencyEntry[];
+	byVK: UsageEntry[];
 	accents: {
 		providers: string;
 		models: string;
@@ -250,9 +205,8 @@ export function useDashboard(): UseDashboardReturn {
 	}, []);
 
 	// Milliseconds derived from the seconds value the Settings page owns and
-	// writes, announcing each change as "dashboardRefreshChange". The dashboard
-	// follows it and never writes it; 0 disables auto-refresh and anything
-	// unparsable means the 30s default.
+	// writes. The dashboard follows it and never writes it; 0 disables
+	// auto-refresh and anything unparsable means the 30s default.
 	const dashboardRefreshMs = useLocalStorageValue(
 		"dashboardRefreshSec",
 		30000,
@@ -264,7 +218,6 @@ export function useDashboard(): UseDashboardReturn {
 				if (sec === 0) return 0;
 				return fallback;
 			},
-			events: ["dashboardRefreshChange"],
 		},
 	);
 
@@ -313,7 +266,7 @@ export function useDashboard(): UseDashboardReturn {
 				excludeDeleted,
 				...scoped,
 			}),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		refetchInterval: dashboardRefreshMs,
 		retry: 1,
 	});
@@ -351,7 +304,7 @@ export function useDashboard(): UseDashboardReturn {
 				excludeDeleted,
 				...scoped,
 			}),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		refetchInterval: dashboardRefreshMs,
 	});
 
@@ -368,7 +321,7 @@ export function useDashboard(): UseDashboardReturn {
 				excludeDeleted,
 				...scoped,
 			}),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		refetchInterval: dashboardRefreshMs,
 	});
 
@@ -387,7 +340,7 @@ export function useDashboard(): UseDashboardReturn {
 				excludeDeleted,
 				...scoped,
 			}),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		refetchInterval: dashboardRefreshMs,
 	});
 
@@ -408,7 +361,7 @@ export function useDashboard(): UseDashboardReturn {
 				excludeDeleted,
 				...scoped,
 			}),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		refetchInterval: dashboardRefreshMs,
 	});
 
@@ -427,7 +380,7 @@ export function useDashboard(): UseDashboardReturn {
 				includeLatency: true,
 				...scoped,
 			}),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		refetchInterval: dashboardRefreshMs,
 	});
 
@@ -446,7 +399,7 @@ export function useDashboard(): UseDashboardReturn {
 				excludeDeleted,
 				...scoped,
 			}),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		refetchInterval: dashboardRefreshMs,
 	});
 
@@ -458,24 +411,9 @@ export function useDashboard(): UseDashboardReturn {
 				excludeDeleted,
 				...scoped,
 			}),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		refetchInterval: dashboardRefreshMs,
 	});
-
-	// Auth check: on stats error, test if token is still valid.
-	// Wrapped in useEffect so window.location.reload() never runs during render.
-	useEffect(() => {
-		if (!statsError) return;
-		const errMsg = statsError.message || "";
-		if (
-			errMsg.includes("401") ||
-			errMsg.includes("Unauthorized") ||
-			errMsg.includes("Admin token")
-		) {
-			localStorage.removeItem("adminToken");
-			window.location.reload();
-		}
-	}, [statsError]);
 
 	const handleModelClick = useCallback(
 		(label: string) => {
@@ -504,47 +442,8 @@ export function useDashboard(): UseDashboardReturn {
 				? stats?.total_requests_last_24h || 0
 				: stats?.total_requests_last_7d || 0;
 
-	const acData = (() => {
-		if (!tsData?.points) return [];
-		return tsData.points.map((p) => {
-			const label = bucketLabel(new Date(p.bucket), requestsChartRange);
-			return {
-				hour: label,
-				rawDate: p.bucket,
-				total: p.count,
-				errors: p.errors,
-				tokens: p.tokens,
-				tokens_cache_hit: p.tokens_cache_hit ?? 0,
-				tokens_cache_miss: p.tokens_cache_miss ?? 0,
-				latency: Math.round(p.latency_ms),
-				overhead_ms: p.overhead_ms,
-				provider_latency_ms: p.provider_latency_ms,
-				rate_limit_hits: p.rate_limit_hits,
-				avg_ttft_ms: p.avg_ttft_ms ?? 0,
-			};
-		});
-	})();
-
-	const tokenAcData = (() => {
-		if (!tokenTsData?.points) return [];
-		return tokenTsData.points.map((p) => {
-			const label = bucketLabel(new Date(p.bucket), tokensChartRange);
-			return {
-				hour: label,
-				rawDate: p.bucket,
-				total: p.count,
-				errors: p.errors,
-				tokens: p.tokens,
-				tokens_cache_hit: p.tokens_cache_hit ?? 0,
-				tokens_cache_miss: p.tokens_cache_miss ?? 0,
-				latency: Math.round(p.latency_ms),
-				overhead_ms: p.overhead_ms,
-				provider_latency_ms: p.provider_latency_ms,
-				rate_limit_hits: p.rate_limit_hits,
-				avg_ttft_ms: p.avg_ttft_ms ?? 0,
-			};
-		});
-	})();
+	const acData = toChartPoints(tsData, requestsChartRange);
+	const tokenAcData = toChartPoints(tokenTsData, tokensChartRange);
 
 	// Format usage panels from their respective range queries.
 	// Filter out zero-value entries so NULL/empty aggregates don't clutter the UI.
@@ -565,7 +464,6 @@ export function useDashboard(): UseDashboardReturn {
 					return {
 						label: k,
 						value: Number(v),
-						suffix: modelsMetric === "tokens" ? " tokens" : " requests",
 						failoverGroup: isFailoverGroup,
 						deleted: !exists,
 					};
@@ -588,7 +486,6 @@ export function useDashboard(): UseDashboardReturn {
 				.map(([k, v]) => ({
 					label: k,
 					value: Number(v),
-					suffix: virtualKeysMetric === "tokens" ? " tokens" : " requests",
 					deleted: k === "Deleted",
 					reserved: RESERVED_VK_NAMES.has(k.toLowerCase()),
 				}))
@@ -680,12 +577,7 @@ export function useDashboard(): UseDashboardReturn {
 		stats,
 		models,
 		providers,
-		tsData,
-		tokenTsData,
 		provDist,
-		modelsUsageStats,
-		latencyStats,
-		vkeysUsageStats,
 		tokenStats,
 
 		// Handlers

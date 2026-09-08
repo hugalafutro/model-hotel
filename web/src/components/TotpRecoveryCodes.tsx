@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { Check, Download } from "@/lib/icons";
+import { downloadBlob } from "../utils/download";
 import { CopyButton } from "./CopyButton";
 
 /**
@@ -23,14 +24,7 @@ export function TotpRecoveryCodes({
 		const blob = new Blob([`${codes.join("\n")}\n`], {
 			type: "text/plain",
 		});
-		const url = URL.createObjectURL(blob);
-		const a = document.createElement("a");
-		a.href = url;
-		a.download = "model-hotel-totp-recovery-codes.txt";
-		document.body.appendChild(a);
-		a.click();
-		a.remove();
-		URL.revokeObjectURL(url);
+		downloadBlob(blob, "model-hotel-totp-recovery-codes.txt");
 	};
 
 	const testId = (name: string) =>

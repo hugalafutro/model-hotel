@@ -23,10 +23,6 @@ export async function isWebAuthnAvailable(): Promise<boolean> {
 	return _serverEnabled;
 }
 
-export function resetWebAuthnCache(): void {
-	_serverEnabled = null;
-}
-
 // canUsePasskeyLogin reports whether the login screen should offer the passkey
 // button: the browser supports WebAuthn, the server is configured, and at least
 // one passkey is registered. has_credentials changes at runtime (register /

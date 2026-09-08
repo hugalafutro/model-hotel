@@ -8,7 +8,7 @@ import {
 	ChevronsUpDown,
 	ChevronUp,
 } from "@/lib/icons";
-import { useLocalStorage } from "../hooks/useLocalStorage";
+import { storedBool, useLocalStorage } from "../hooks/useLocalStorage";
 
 interface CollapsibleToggleProps {
 	collapsed: boolean;
@@ -48,24 +48,70 @@ export function CollapsibleToggle({
 			<ChevronUp size={size} />
 		);
 
+	const label = collapsed
+		? (expandTitle ?? t("common.expand"))
+		: (collapseTitle ?? t("common.collapse"));
+
 	return (
 		<button
 			type="button"
 			onClick={onToggle}
 			className={className}
-			title={
-				collapsed
-					? (expandTitle ?? t("common.expand"))
-					: (collapseTitle ?? t("common.collapse"))
-			}
-			aria-label={
-				collapsed
-					? (expandTitle ?? t("common.expand"))
-					: (collapseTitle ?? t("common.collapse"))
-			}
+			title={label}
+			aria-label={label}
 		>
 			{icons}
 		</button>
+	);
+}
+
+interface CollapseBodyProps {
+	collapsed: boolean;
+	children: React.ReactNode;
+	/**
+	 * While expanded, pads the clip box and pulls the padding back out (layout
+	 * unchanged), so a child's hover glow or focus ring is not clipped. The
+	 * collapsed box stays tight: padding is unsqueezable, so a bleed there
+	 * would leave a visible band.
+	 */
+	bleed?: boolean;
+	/** Makes the collapsed body inert, so it is not read out or focusable. */
+	inert?: boolean;
+	/** Transition length in ms. Default 300. */
+	durationMs?: 200 | 300;
+	/** Extra classes on the inner (clipping) element. */
+	className?: string;
+	/** Id for the animated region, for aria-controls. */
+	id?: string;
+}
+
+/**
+ * The body half of a collapse: a 0fr/1fr grid row that animates its own height
+ * without the caller measuring anything.
+ */
+export function CollapseBody({
+	collapsed,
+	children,
+	bleed = false,
+	inert = false,
+	durationMs = 300,
+	className = "",
+	id,
+}: CollapseBodyProps) {
+	return (
+		<div
+			id={id}
+			className={`grid transition-[grid-template-rows] ${durationMs === 200 ? "duration-200" : "duration-300"} ease-in-out ${
+				collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
+			}`}
+		>
+			<div
+				className={`overflow-hidden${bleed && !collapsed ? " p-4 -m-4" : ""}${className ? ` ${className}` : ""}`}
+				inert={inert && collapsed}
+			>
+				{children}
+			</div>
+		</div>
 	);
 }
 
@@ -84,7 +130,7 @@ export function useCollapsible(
 	const [collapsed, setCollapsed] = useLocalStorage<boolean>(
 		storageKey ?? "",
 		defaultValue,
-		{ enabled: !!storageKey, deserialize: (stored) => stored === "true" },
+		{ enabled: !!storageKey, deserialize: storedBool },
 	);
 
 	const toggle = useCallback(() => {

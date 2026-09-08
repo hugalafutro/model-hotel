@@ -171,9 +171,8 @@ func (req *userRequest) validate() (user.Role, error) {
 		return "", err
 	}
 	// nil means "no cap"; an empty list would be an ambiguous third state.
-	// Same wording as the virtual-key endpoints.
 	if req.AllowedProviders != nil && len(*req.AllowedProviders) == 0 {
-		return "", errors.New("allowed_providers must be null or contain at least one provider ID")
+		return "", errEmptyAllowedProviders
 	}
 	return role, nil
 }
@@ -251,11 +250,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if !req.allowedProvidersPresent {
 		existing, gerr := h.userRepo.Get(r.Context(), id)
 		if gerr != nil {
-			if errors.Is(gerr, user.ErrNotFound) {
-				http.Error(w, "user not found", http.StatusNotFound)
-				return
-			}
-			respondError(w, "failed to update user", gerr, http.StatusInternalServerError)
+			respondLookupError(w, gerr, user.ErrNotFound, "user not found", "failed to update user")
 			return
 		}
 		allowedProviders = existing.AllowedProviders
@@ -303,11 +298,7 @@ func (h *Handler) SetUserPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.userRepo.SetPassword(r.Context(), id, hash); err != nil {
-		if errors.Is(err, user.ErrNotFound) {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-		respondError(w, "failed to set password", err, http.StatusInternalServerError)
+		respondLookupError(w, err, user.ErrNotFound, "user not found", "failed to set password")
 		return
 	}
 	h.revokeUserSessions(r, id.String())
@@ -327,11 +318,7 @@ func (h *Handler) DeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := h.userRepo.Delete(r.Context(), id); err != nil {
-		if errors.Is(err, user.ErrNotFound) {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-		respondError(w, "failed to delete user", err, http.StatusInternalServerError)
+		respondLookupError(w, err, user.ErrNotFound, "user not found", "failed to delete user")
 		return
 	}
 	h.revokeUserSessions(r, id.String())

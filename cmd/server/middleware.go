@@ -11,49 +11,11 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
 
-	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
-	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
-
-// securityHeadersMiddleware sets the standard security headers on every
-// response.
-func securityHeadersMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			w.Header().Set("X-Content-Type-Options", "nosniff")
-			// When ALLOW_EMBED=true, X-Frame-Options and CSP frame-ancestors
-			// are omitted entirely so any origin can embed the page in an
-			// iframe (e.g. workspace browsers, Home Assistant).
-			if !cfg.AllowEmbed {
-				w.Header().Set("X-Frame-Options", "DENY")
-			}
-			w.Header().Set("Referrer-Policy", "strict-origin-when-cross-origin")
-			// HSTS only over TLS. Plain HTTP (e.g. behind a reverse proxy that
-			// terminates TLS) must not set HSTS, or browsers cache a broken
-			// redirect to a non-existent HTTPS listener. The server listens over
-			// plain HTTP (ListenAndServe), so this arm is reached only if TLS is
-			// added via ListenAndServeTLS.
-			if r.TLS != nil {
-				w.Header().Set("Strict-Transport-Security", "max-age=63072000; includeSubDomains; preload")
-			}
-			// CSP allows same-origin scripts/styles (needed for embedded SPA).
-			// Style 'unsafe-inline' is required for Vite's injected style tags (CSS-based
-			// animations and dynamic theme overrides). Script 'unsafe-inline' is NOT
-			// needed: Vite outputs module scripts, not inline ones.
-			if cfg.AllowEmbed {
-				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; base-uri 'self'; form-action 'self'")
-			} else {
-				w.Header().Set("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'")
-			}
-			next.ServeHTTP(w, r)
-		})
-	}
-}
 
 // corsMiddleware allows the configured origins (CORS_ORIGINS) and answers
 // preflight requests.
@@ -98,87 +60,28 @@ func maxRequestSizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 	}
 }
 
-// silentLogger is like chi's middleware.Logger but suppresses request log
-// lines for high-frequency polling endpoints that would flood docker logs.
-func silentLogger(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		ww := middleware.NewWrapResponseWriter(w, r.ProtoMajor)
-		t1 := time.Now()
-		next.ServeHTTP(ww, r)
-		duration := time.Since(t1)
-
-		path := r.URL.Path
-		isStatic := strings.HasPrefix(path, "/assets/") || strings.HasPrefix(path, "/favicon")
-		// Match the noise allowlist against a slash-normalized path so a trailing
-		// slash (from a client or a reverse proxy) can't defeat an exact match and
-		// leak the request back to Info. Root "/" is preserved.
-		np := path
-		if len(np) > 1 {
-			np = strings.TrimRight(np, "/")
-		}
-		isNoisy := np == "/health" ||
-			strings.HasPrefix(np, "/api/logs/app") ||
-			(np == "/api/logs" && r.Method == "GET") ||
-			(np == "/api/system" && r.Method == "GET") ||
-			(np == "/api/events" && r.Method == "GET") ||
-			(np == "/api/stats" && r.Method == "GET") ||
-			(np == "/api/stats/timeseries" && r.Method == "GET") ||
-			(np == "/api/stats/provider-distribution" && r.Method == "GET") ||
-			(np == "/api/models" && r.Method == "GET") ||
-			(np == "/api/providers" && r.Method == "GET") ||
-			// Fleet heartbeat: Front Desk pings every member ~every 2.5s with an
-			// announce POST and polls its version via GET /api/settings. Both are
-			// machine-to-machine liveness traffic, not human activity, and at
-			// ~24/min/member they otherwise flood app_logs (the App Logs page).
-			np == "/api/fleet/announce" ||
-			(np == "/api/settings" && r.Method == "GET")
-		if isStatic && ww.Status() < 400 {
-			return
-		}
-		// The path goes last in every branch below. It is caller-controlled, so
-		// a log reader scanning left to right meets every field the gateway
-		// vouches for before it reaches anything a visitor wrote. Values are
-		// escaped too; see quoteLogValue in internal/api/applogs_slog.go.
-		status := ww.Status()
-		switch {
-		case status >= 500:
-			debuglog.Error("access: request",
-				"method", r.Method,
-				"host", r.Host,
-				"remote", clientip.From(r),
-				"status", status,
-				"bytes", ww.BytesWritten(),
-				"duration", duration,
-				"path", r.URL.Path)
-		case status >= 400:
-			debuglog.Warn("access: request",
-				"method", r.Method,
-				"host", r.Host,
-				"remote", clientip.From(r),
-				"status", status,
-				"bytes", ww.BytesWritten(),
-				"duration", duration,
-				"path", r.URL.Path)
-		case isNoisy:
-			debuglog.Debug("access: request",
-				"method", r.Method,
-				"host", r.Host,
-				"remote", clientip.From(r),
-				"status", status,
-				"bytes", ww.BytesWritten(),
-				"duration", duration,
-				"path", r.URL.Path)
-		default:
-			debuglog.Info("access: request",
-				"method", r.Method,
-				"host", r.Host,
-				"remote", clientip.From(r),
-				"status", status,
-				"bytes", ww.BytesWritten(),
-				"duration", duration,
-				"path", r.URL.Path)
-		}
-	})
+// isNoisyGatewayPath names the traffic whose access-log line drops to debug:
+// health checks, the fleet heartbeat, and the reads an open dashboard repeats
+// on a timer. Front Desk pings every member with an announce POST roughly every
+// 2.5s and polls its version via GET /api/settings, machine-to-machine liveness
+// traffic that at ~24/min/member would otherwise flood app_logs (the App Logs
+// page). A settings mutation is a real admin action, so only the GET is demoted.
+//
+// path arrives slash-normalized from httpx.AccessLogger, so a trailing slash
+// from a client or a reverse proxy cannot defeat an exact match.
+func isNoisyGatewayPath(method, path string) bool {
+	if path == "/health" || path == "/api/fleet/announce" || strings.HasPrefix(path, "/api/logs/app") {
+		return true
+	}
+	if method != http.MethodGet {
+		return false
+	}
+	switch path {
+	case "/api/logs", "/api/system", "/api/events", "/api/stats", "/api/stats/timeseries",
+		"/api/stats/provider-distribution", "/api/models", "/api/providers", "/api/settings":
+		return true
+	}
+	return false
 }
 
 // isLongRunningPath reports whether the request targets a multimodal proxy
@@ -252,7 +155,7 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 				isStreaming = parsed.Stream
 				modelName = parsed.Model
 			}
-			parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
+			parseMs := util.MillisSince(parseStart)
 
 			// Restore the body so downstream handlers can read it
 			r.Body = io.NopCloser(bytes.NewReader(body))

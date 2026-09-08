@@ -179,12 +179,7 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 		// escalation this guards.
 		var allowedProviders *[]string
 		if u.AllowedProviderNames != nil {
-			resolved := []string{}
-			for _, name := range *u.AllowedProviderNames {
-				if id, ok := nameToID[name]; ok {
-					resolved = append(resolved, id)
-				}
-			}
+			resolved := translateIDs(*u.AllowedProviderNames, nameToID)
 			// Two ways a cap resolves to nothing here, and they are NOT the same.
 			//
 			// The wire list is EMPTY: the primary itself resolved nothing, i.e. every
@@ -240,20 +235,7 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 // usernameToID maps this member's usernames to their instance-local user
 // ids, for resolving synced key ownership.
 func usernameToID(ctx context.Context, tx pgx.Tx) (map[string]string, error) {
-	rows, err := tx.Query(ctx, `SELECT username, id::text FROM users`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]string{}
-	for rows.Next() {
-		var name, id string
-		if err := rows.Scan(&name, &id); err != nil {
-			return nil, err
-		}
-		out[name] = id
-	}
-	return out, rows.Err()
+	return stringMap(ctx, tx, `SELECT username, id::text FROM users`)
 }
 
 func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID, userNameToID map[string]string) error {
@@ -263,11 +245,7 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 		}
 		var allowed []string // target provider UUIDs; nil => all allowed
 		if v.AllowedProviderNames != nil {
-			for _, name := range *v.AllowedProviderNames {
-				if id, ok := nameToID[name]; ok {
-					allowed = append(allowed, id)
-				}
-			}
+			allowed = translateIDs(*v.AllowedProviderNames, nameToID)
 		}
 		// Privilege-safety: a key restricted to providers none of which resolve on
 		// this member is NOT imported. A nil allowed_providers means "all providers
@@ -443,18 +421,5 @@ func upsertFailoverGroups(ctx context.Context, tx pgx.Tx, groups []ExportFailove
 }
 
 func providerNameToID(ctx context.Context, q querier) (map[string]string, error) {
-	rows, err := q.Query(ctx, `SELECT name, id FROM providers`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]string{}
-	for rows.Next() {
-		var name, id string
-		if err := rows.Scan(&name, &id); err != nil {
-			return nil, err
-		}
-		out[name] = id
-	}
-	return out, rows.Err()
+	return stringMap(ctx, q, `SELECT name, id FROM providers`)
 }

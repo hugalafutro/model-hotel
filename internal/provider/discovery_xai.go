@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 
@@ -16,6 +15,13 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// xaiHeaders builds the Bearer + JSON headers every xAI listing endpoint takes.
+func xaiHeaders(apiKey string) http.Header {
+	h := bearerHeader(apiKey)
+	h.Set("Content-Type", "application/json")
+	return h
+}
+
 func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 	catalog := d.discoverXAIFromCatalog(provider)
@@ -23,7 +29,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 	// Step 1: Try the rich /language-models endpoint.
 	live, err := d.discoverXAILanguageModels(ctx, provider, apiKey, baseURL)
 	if err != nil {
-		// Step 2: 403/429 (zero-balance or rate-limited account) -> catalog only.
+		// Step 2: 403 (zero-balance account) -> catalog only.
 		if isNoAccessError(err) {
 			debuglog.Warn("discovery: xai /language-models returned no-access, using catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
 			return d.appendXAIImageModels(ctx, provider, apiKey, baseURL, catalog), nil
@@ -31,7 +37,7 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 		// Step 3: Other failure -> try the minimal /models endpoint.
 		live, err = d.discoverXAIMinimalModels(ctx, provider, apiKey, baseURL)
 		if err != nil {
-			// Step 4: /models also no-access -> catalog only.
+			// Step 4: /models also 403 -> catalog only.
 			if isNoAccessError(err) {
 				debuglog.Warn("discovery: xai /models also returned no-access, using catalog", "status", errorStatusCode(err), "provider", provider.Name, "provider_id", provider.ID)
 				return d.appendXAIImageModels(ctx, provider, apiKey, baseURL, catalog), nil
@@ -51,8 +57,8 @@ func (d *DiscoveryService) discoverXAI(ctx context.Context, provider *Provider, 
 		}
 	}
 
-	// Both endpoints succeeded but listed no models (distinct from the no-access
-	// 403/429 path above, which intentionally returns the catalog). Return empty
+	// Both endpoints succeeded but listed no models (distinct from the 403
+	// no-access path above, which intentionally returns the catalog). Return empty
 	// rather than unioning the catalog, so RecordMissingModels stays a no-op
 	// instead of disabling every live-only model.
 	if len(live) == 0 {
@@ -96,30 +102,13 @@ func (d *DiscoveryService) appendXAIImageModels(ctx context.Context, provider *P
 }
 
 func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/language-models", http.NoBody)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/language-models", xaiHeaders(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("xAI: failed to create request for provider %s: %w", provider.Name, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("xAI: failed to read response for provider %s: %w", provider.Name, err)
-	}
-
-	if resp.StatusCode == http.StatusForbidden {
-		return nil, &httpError{StatusCode: resp.StatusCode}
-	}
-	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: xai language-models non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
-		return nil, fmt.Errorf("xAI: unexpected status %d for provider %s", resp.StatusCode, provider.Name)
+		if errorStatusCode(err) == http.StatusForbidden {
+			return nil, statusOnly(err)
+		}
+		debuglog.Error("discovery: xai language-models fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, statusOnly(err))
 	}
 
 	var langResp XAILanguageModelsResponse
@@ -191,25 +180,9 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 // token, so token price fields stay nil and the xAI image price (in xAI's native
 // units) is preserved in params.
 func (d *DiscoveryService) discoverXAIImageModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/image-generation-models", http.NoBody)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/image-generation-models", xaiHeaders(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("xAI: failed to create image-models request for provider %s: %w", provider.Name, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("xAI: image-models request failed for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("xAI: failed to read image-models response for provider %s: %w", provider.Name, err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("xAI: unexpected status %d from image-models for provider %s", resp.StatusCode, provider.Name)
+		return nil, fmt.Errorf("xAI: image-models request failed for provider %s: %w", provider.Name, statusOnly(err))
 	}
 
 	var imgResp XAIImageGenerationModelsResponse
@@ -257,33 +230,16 @@ func (d *DiscoveryService) discoverXAIImageModels(ctx context.Context, provider 
 }
 
 func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provider *Provider, apiKey, baseURL string) ([]*model.Model, error) {
-	req, err := http.NewRequestWithContext(ctx, "GET", baseURL+"/models", http.NoBody)
+	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", xaiHeaders(apiKey))
 	if err != nil {
-		return nil, fmt.Errorf("xAI: failed to create request for provider %s: %w", provider.Name, err)
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("xAI: failed to read response for provider %s: %w", provider.Name, err)
+		if errorStatusCode(err) == http.StatusForbidden {
+			return nil, statusOnly(err)
+		}
+		debuglog.Error("discovery: xai minimal models fetch failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
+		return nil, fmt.Errorf("xAI: http request failed for provider %s: %w", provider.Name, statusOnly(err))
 	}
 
-	if resp.StatusCode == http.StatusForbidden {
-		return nil, &httpError{StatusCode: resp.StatusCode}
-	}
-	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: xai minimal models non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(bodyBytes), 2000))
-		return nil, fmt.Errorf("xAI: unexpected status %d for provider %s", resp.StatusCode, provider.Name)
-	}
-
-	var openAIResp XAIModelsResponse
+	var openAIResp OpenAIModelsResponse
 	if err := json.Unmarshal(bodyBytes, &openAIResp); err != nil {
 		return nil, fmt.Errorf("xAI: failed to decode minimal models response for provider %s: %w", provider.Name, err)
 	}
@@ -293,21 +249,7 @@ func (d *DiscoveryService) discoverXAIMinimalModels(ctx context.Context, provide
 	// The minimal /models endpoint only carries id + owner. Emit those and let
 	// mergeLiveAndCatalog backfill the rest from the catalog and models.dev.
 	for _, m := range openAIResp.Data {
-		capJSON, _ := json.Marshal(model.Capability{Streaming: true})
-		models = append(models, &model.Model{
-			ID:           uuid.New(),
-			ProviderID:   provider.ID,
-			ModelID:      m.ID,
-			Name:         m.ID,
-			DisplayName:  m.ID,
-			Capabilities: string(capJSON),
-			Params:       "{}",
-			// JSONB columns must hold valid JSON even before catalog backfill.
-			InputModalities:  "[]",
-			OutputModalities: "[]",
-			OwnedBy:          m.OwnedBy,
-			Enabled:          true,
-		})
+		models = append(models, liveModelStub(m.ID, m.OwnedBy, provider.ID))
 	}
 
 	debuglog.Info("discovery: xai discovered minimal models", "models", len(models), "provider", provider.Name, "provider_id", provider.ID)
@@ -324,30 +266,17 @@ func (d *DiscoveryService) discoverXAIFromCatalog(provider *Provider) []*model.M
 	return models
 }
 
-// httpError wraps an HTTP status code error for no-access detection.
-//
-// The status is the whole signal: Error() renders only that, and the callers
-// read only StatusCode. It carried the response body too, unsanitized and
-// unread by anything, which is a credential one careless format verb away
-// from a log.
-type httpError struct {
-	StatusCode int
-}
-
-func (e *httpError) Error() string {
-	return fmt.Sprintf("unexpected status %d", e.StatusCode)
-}
-
 // isNoAccessError returns true if the error indicates the account cannot
-// access the API (403 forbidden or 429 rate-limit/quota-exhausted).
-// Both mean we should fall back to the static catalog.
+// access the API (403 forbidden), which means we fall back to the static
+// catalog. A 429 is retried by the shared discovery loop and surfaces as a
+// plain error, so it is not a no-access signal.
 func isNoAccessError(err error) bool {
 	if err == nil {
 		return false
 	}
 	httpErr := &httpError{}
 	if errors.As(err, &httpErr) {
-		return httpErr.StatusCode == http.StatusForbidden || httpErr.StatusCode == http.StatusTooManyRequests
+		return httpErr.StatusCode == http.StatusForbidden
 	}
 	return false
 }

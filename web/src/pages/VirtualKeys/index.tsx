@@ -22,6 +22,7 @@ import { useManaged } from "../../hooks/useManaged";
 import { useReadOnly } from "../../hooks/useReadOnly";
 import { useWheelPaging } from "../../hooks/useWheelPaging";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
+import { proxyOrigin } from "../../utils/snippets";
 import { CreateKeyModal } from "./CreateKeyModal";
 import { KeyDetailModal } from "./KeyDetailModal";
 import { UsageSnippets } from "./UsageSnippets";
@@ -34,6 +35,16 @@ type VKSortField =
 	| "created"
 	| "tokens"
 	| "last_used";
+
+/** A per-key rate limit, or "Global" when the key inherits the setting. */
+function LimitCell({ value }: { value: number | null | undefined }) {
+	const { t } = useTranslation();
+	return value != null ? (
+		<span className="text-gray-200">{value}</span>
+	) : (
+		<span className="text-gray-500">{t("virtualKeys.global")}</span>
+	);
+}
 
 export function VirtualKeys() {
 	const { t } = useTranslation();
@@ -67,11 +78,6 @@ export function VirtualKeys() {
 		setNameFilter(value);
 		setCurrentPage(1);
 	}, []);
-
-	const proxyOrigin =
-		typeof window !== "undefined"
-			? window.location.origin
-			: "http://localhost:8080";
 
 	const sortedKeys = useMemo(() => {
 		if (!keys) return [];
@@ -145,8 +151,7 @@ export function VirtualKeys() {
 					<span>
 						{t("virtualkeys.description")}{" "}
 						<CopyablePill
-							text={`${proxyOrigin}/v1`}
-							displayText={`${proxyOrigin}/v1`}
+							text={`${proxyOrigin()}/v1`}
 							textClassName="text-(--accent) text-sm font-medium"
 							iconClassName="w-3 h-3"
 							className="inline-flex"
@@ -350,33 +355,13 @@ export function VirtualKeys() {
 										{vk.key_preview}
 									</td>
 									<td className="px-4 py-3 text-sm font-mono">
-										{vk.rate_limit_rps != null ? (
-											<span className="text-gray-200">{vk.rate_limit_rps}</span>
-										) : (
-											<span className="text-gray-500">
-												{t("virtualKeys.global")}
-											</span>
-										)}
+										<LimitCell value={vk.rate_limit_rps} />
 									</td>
 									<td className="px-4 py-3 text-sm font-mono">
-										{vk.rate_limit_burst != null ? (
-											<span className="text-gray-200">
-												{vk.rate_limit_burst}
-											</span>
-										) : (
-											<span className="text-gray-500">
-												{t("virtualKeys.global")}
-											</span>
-										)}
+										<LimitCell value={vk.rate_limit_burst} />
 									</td>
 									<td className="px-4 py-3 text-sm font-mono">
-										{vk.rate_limit_tpm != null ? (
-											<span className="text-gray-200">{vk.rate_limit_tpm}</span>
-										) : (
-											<span className="text-gray-500">
-												{t("virtualKeys.global")}
-											</span>
-										)}
+										<LimitCell value={vk.rate_limit_tpm} />
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
 										{new Date(vk.created_at).toLocaleString()}

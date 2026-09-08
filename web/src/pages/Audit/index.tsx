@@ -287,13 +287,7 @@ export function Audit() {
 					<div className="flex items-center justify-between text-sm text-gray-500 shrink-0">
 						<span>{t("audit.showing", { count: entries.length, total })}</span>
 						{isScroll ? (
-							isFetchingNextPage && (
-								<span
-									role="status"
-									aria-label={t("common.loading")}
-									className="animate-spin rounded-full h-4 w-4 border-b-2 border-(--accent)"
-								/>
-							)
+							isFetchingNextPage && <LoadingSpinner inline />
 						) : (
 							<PaginationBar
 								page={page}

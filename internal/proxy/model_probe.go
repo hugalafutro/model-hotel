@@ -310,10 +310,7 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		debuglog.Debug("proxy: retirement probe has no upstream transport to make a guarded request with", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String())
 		return probeInconclusive
 	}
-	client := &http.Client{Transport: h.upstreamTransport}
-	if h.safeDialer != nil {
-		client.CheckRedirect = h.safeDialer.CheckRedirect
-	}
+	client := h.upstreamClient()
 
 	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	resp, err := client.Do(req)
@@ -402,7 +399,7 @@ func judgeProbeFailure(resp *http.Response, candidate modelCandidate, endpointTy
 		debuglog.Debug("proxy: retirement probe answer exceeded the read cap", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "status", resp.StatusCode, "verdict", probeInconclusive.String(), "max_bytes", goneProbeMaxBody)
 		return probeInconclusive
 	}
-	kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(body), 10000), candidate.model.ModelID)
+	kind, _ := classifyUpstreamError(resp.StatusCode, util.SanitizeLogBody(string(body), logBodyCap), candidate.model.ModelID)
 
 	verdict := probeInconclusive
 	if kind == KindProviderModelGone {

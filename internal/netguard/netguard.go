@@ -66,20 +66,28 @@ func BlockedIP(ip net.IP) bool {
 // must not retry it.
 var ErrBlockedAddress = errors.New("netguard: refusing to connect to blocked address")
 
-// dialControl is the net.Dialer.Control hook that rejects a connection whose
+// DialControl is the net.Dialer.Control hook that rejects a connection whose
 // resolved address is a blocked IP. It runs after DNS resolution on the actual
 // dial target, so it also catches DNS rebinding (a hostname that resolves to a
 // metadata address between validation and dial) and, because the follow-up dial
 // of a redirect passes through it too, redirect-to-metadata.
-func dialControl(_, address string, _ syscall.RawConn) error {
+func DialControl(_, address string, _ syscall.RawConn) error {
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
 		return err
 	}
-	if ip := net.ParseIP(host); ip != nil && BlockedIP(ip) {
+	if blockedLiteral(host) {
 		return fmt.Errorf("%w %s", ErrBlockedAddress, host)
 	}
 	return nil
+}
+
+// blockedLiteral reports whether host is written as a literal IP that netguard
+// refuses. A hostname is never resolved here: netguard resolves at dial time on
+// purpose, so a check-then-dial TOCTOU window never opens.
+func blockedLiteral(host string) bool {
+	ip := net.ParseIP(host)
+	return ip != nil && BlockedIP(ip)
 }
 
 // maxRedirects caps redirect chains, matching net/http's own default. A hostile
@@ -87,20 +95,20 @@ func dialControl(_, address string, _ syscall.RawConn) error {
 // unbounded fetch loop.
 const maxRedirects = 10
 
-// checkRedirect is the http.Client.CheckRedirect hook. It rejects a redirect
+// CheckRedirect is the http.Client.CheckRedirect hook. It rejects a redirect
 // whose target host is a literal blocked IP before the connection is attempted,
-// and caps the chain length. This is defense in depth: dialControl already
+// and caps the chain length. This is defense in depth: DialControl already
 // refuses a blocked address at dial time (covering hostnames that resolve to
 // metadata), but rejecting literal-IP metadata targets here gives an earlier,
 // clearer failure and keeps the guard from depending on the dial hook alone.
 // Hostname targets are intentionally NOT resolved here: netguard resolves at
 // dial time on purpose (avoiding a check-then-dial TOCTOU window), and
-// dialControl remains the resolver-based guard for them.
-func checkRedirect(req *http.Request, via []*http.Request) error {
+// DialControl remains the resolver-based guard for them.
+func CheckRedirect(req *http.Request, via []*http.Request) error {
 	if len(via) >= maxRedirects {
 		return fmt.Errorf("netguard: stopped after %d redirects", maxRedirects)
 	}
-	if ip := net.ParseIP(req.URL.Hostname()); ip != nil && BlockedIP(ip) {
+	if blockedLiteral(req.URL.Hostname()) {
 		return fmt.Errorf("netguard: refusing redirect to blocked address %s", req.URL.Hostname())
 	}
 	return nil
@@ -130,14 +138,14 @@ func newGuardedDialer(timeout time.Duration) *net.Dialer {
 	return &net.Dialer{
 		Timeout:   timeout,
 		KeepAlive: 30 * time.Second,
-		Control:   dialControl,
+		Control:   DialControl,
 	}
 }
 
 // NewClient builds an http.Client whose dialer refuses blocked post-resolution
 // IPs. The dial guard also covers redirect targets (each hop is dialled through
 // the same Control hook), so a 3xx to a metadata address fails at connect time;
-// checkRedirect adds an earlier, explicit rejection of literal-IP metadata
+// CheckRedirect adds an earlier, explicit rejection of literal-IP metadata
 // redirects and bounds the redirect chain. timeout bounds the whole request;
 // within it the dial and then the TLS handshake are each bounded by dialTimeout,
 // so connection setup cannot consume more than two of those before the retry.
@@ -145,7 +153,7 @@ func NewClient(timeout time.Duration) *http.Client {
 	dialer := newGuardedDialer(timeout)
 	return &http.Client{
 		Timeout:       timeout,
-		CheckRedirect: checkRedirect,
+		CheckRedirect: CheckRedirect,
 		Transport: &http.Transport{
 			// Honor HTTP(S)_PROXY like http.DefaultTransport so a deployment that
 			// reaches an external IdP through an egress proxy keeps working; the
@@ -178,7 +186,7 @@ func ValidateURL(rawURL string) error {
 	if err != nil {
 		return err
 	}
-	if ip := net.ParseIP(u.Hostname()); ip != nil && BlockedIP(ip) {
+	if blockedLiteral(u.Hostname()) {
 		return fmt.Errorf("host %q is a blocked address (link-local/metadata)", u.Hostname())
 	}
 	return nil

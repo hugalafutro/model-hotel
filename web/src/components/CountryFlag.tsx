@@ -26,8 +26,6 @@ const LANG_FLAGS: Record<string, string> = {
 	sv: "🇸🇪", // Swedish → Sweden
 	tr: "🇹🇷", // Turkish → Turkey
 	ar: "🇸🇦", // Arabic → Saudi Arabia
-	hi: "🇮🇳", // Hindi → India
-	th: "🇹🇭", // Thai → Thailand
 	vi: "🇻🇳", // Vietnamese → Vietnam
 	uk: "🇺🇦", // Ukrainian → Ukraine
 	da: "🇩🇰", // Danish → Denmark
@@ -35,14 +33,12 @@ const LANG_FLAGS: Record<string, string> = {
 	no: "🇳🇴", // Norwegian → Norway
 	el: "🇬🇷", // Greek → Greece
 	he: "🇮🇱", // Hebrew → Israel
-	id: "🇮🇩", // Indonesian → Indonesia
 	ro: "🇷🇴", // Romanian → Romania
 	hu: "🇭🇺", // Hungarian → Hungary
 	ca: "🏴", // Catalan → Catalonia
 	sk: "🇸🇰", // Slovak → Slovakia
 	sr: "🇷🇸", // Serbian → Serbia
 	af: "🇿🇦", // Afrikaans → South Africa
-	eo: "🌍", // Esperanto → globe (no country)
 };
 
 interface CountryFlagProps {
@@ -55,15 +51,15 @@ interface CountryFlagProps {
 /**
  * Renders a country flag emoji for a given language code.
  * Falls back to a globe emoji (🌍) for unknown codes.
+ *
+ * Decorative: every place a flag is shown, the language's autonym is shown
+ * beside it, so a screen reader reading "Deutsch" is already complete and a
+ * label here would only add noise.
  */
 export function CountryFlag({ code, className = "" }: CountryFlagProps) {
 	const flag = LANG_FLAGS[code] ?? "🌍";
 	return (
-		<span
-			className={`inline-block leading-none ${className}`}
-			role="img"
-			aria-label={`${code} flag`}
-		>
+		<span className={`inline-block leading-none ${className}`} aria-hidden>
 			{flag}
 		</span>
 	);

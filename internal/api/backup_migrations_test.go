@@ -409,7 +409,7 @@ func TestExtractMigrationNames_Integration(t *testing.T) {
 	}
 
 	// Now test extractMigrationNames
-	migrations, err := extractMigrationNames(dumpPath, schemaEntry)
+	migrations, err := extractMigrationNames(testPgRestorePath(t), dumpPath, schemaEntry)
 	if err != nil {
 		t.Fatalf("extractMigrationNames failed: %v", err)
 	}
@@ -612,7 +612,7 @@ func TestExtractMigrationNames_FilterFileWriteError(t *testing.T) {
 		t.Setenv("TMPDIR", "/nonexistent/path/that/does/not/exist")
 		dumpPath := "/tmp/test.dump"
 
-		_, err := extractMigrationNames(dumpPath, 100)
+		_, err := extractMigrationNames(testPgRestorePath(t), dumpPath, 100)
 		if err == nil {
 			t.Fatalf("FILTER_WRITE: expected error when filter file cannot be created")
 		}
@@ -624,36 +624,6 @@ func TestExtractMigrationNames_FilterFileWriteError(t *testing.T) {
 
 	cmd := exec.Command(os.Args[0], "-test.run=^TestExtractMigrationNames_FilterFileWriteError$")
 	cmd.Env = append(os.Environ(), "TEST_FILTER_FILE_WRITE_ERROR=1")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
-	}
-}
-
-// TestExtractMigrationNames_PgRestoreNotFound tests extractMigrationNames
-// when pg_restore is not found in PATH.
-func TestExtractMigrationNames_PgRestoreNotFound(t *testing.T) {
-	// This test runs itself as a subprocess to safely manipulate PATH
-	// without affecting other tests running in parallel.
-	if os.Getenv("TEST_PG_RESTORE_NOT_FOUND") == "1" {
-		tmpFile, err := os.CreateTemp(t.TempDir(), "test-dump-*.dump")
-		if err != nil {
-			t.Fatalf("PG_RESTORE_NOT_FOUND: failed to create temp file: %v", err)
-		}
-		tmpFile.Close()
-
-		_, err = extractMigrationNames(tmpFile.Name(), 100)
-		if err == nil {
-			t.Fatalf("PG_RESTORE_NOT_FOUND: expected error when pg_restore not found")
-		}
-		if !strings.Contains(err.Error(), "pg_restore not found") {
-			t.Fatalf("PG_RESTORE_NOT_FOUND: expected 'pg_restore not found', got: %v", err)
-		}
-		return
-	}
-
-	cmd := exec.Command(os.Args[0], "-test.run=^TestExtractMigrationNames_PgRestoreNotFound$")
-	cmd.Env = append(os.Environ(), "TEST_PG_RESTORE_NOT_FOUND=1", "PATH=/nonexistent")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("subprocess failed: %v\noutput: %s", err, output)
@@ -675,7 +645,7 @@ func TestExtractMigrationNames_PgRestoreRunError(t *testing.T) {
 	}
 	tmpFile.Close()
 
-	_, err = extractMigrationNames(tmpFile.Name(), 100)
+	_, err = extractMigrationNames(testPgRestorePath(t), tmpFile.Name(), 100)
 	if err == nil {
 		t.Error("expected error when pg_restore fails")
 	}
@@ -745,7 +715,7 @@ func TestExtractMigrationNames_FilterFileWriteError_Direct(t *testing.T) {
 		// coverage runtime writes its profile through TMPDIR at exit and a
 		// broken value there fails the child with status 2.
 		t.Setenv("TMPDIR", "/proc/1/fd") // not writable on Linux
-		_, err := extractMigrationNames("/tmp/nonexistent.dump", 100)
+		_, err := extractMigrationNames(testPgRestorePath(t), "/tmp/nonexistent.dump", 100)
 		if err == nil {
 			t.Fatalf("FILTER_WRITE_DIRECT: expected error")
 		}
@@ -777,4 +747,16 @@ func TestExtractMigrationNames_FilterFileCloseError(t *testing.T) {
 	//
 	// The write-error path (L443-445) is tested by TestExtractMigrationNames_FilterFileWriteError.
 	// The close-error path is covered indirectly by the integration test.
+}
+
+// testPgRestorePath resolves pg_restore for the tests that drive
+// extractMigrationNames directly, which takes the path the production caller
+// has already resolved.
+func testPgRestorePath(t *testing.T) string {
+	t.Helper()
+	path, err := exec.LookPath("pg_restore")
+	if err != nil {
+		t.Fatalf("pg_restore not available: %v", err)
+	}
+	return path
 }

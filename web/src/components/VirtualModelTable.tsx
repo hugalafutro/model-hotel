@@ -2,10 +2,14 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model, ModelsCursorResponse, Provider } from "../api/types";
 import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
+import { useVirtualRows } from "../hooks/useVirtualRows";
+import { toggleInSet } from "../utils/collections";
 import { formatNumber } from "../utils/format";
 import { proxyModelID } from "../utils/model";
+import { sortByName } from "../utils/sort";
 import { ConfirmDialog } from "./ConfirmDialog";
 import type { CapKey } from "./capMeta";
+import { toggleSort } from "./DataTable";
 import { FilterDropdown } from "./FilterDropdown";
 import { FilterInput } from "./FilterInput";
 import { CapFilterRow } from "./modelTable/CapFilterRow";
@@ -18,11 +22,11 @@ import {
 } from "./modelTable/modelCursor";
 import { MODEL_HEADER_BASE, SortableTh } from "./modelTable/SortableTh";
 import { useDeleteDisabled } from "./modelTable/useDeleteDisabled";
-import { useVirtualRows } from "./modelTable/useVirtualRows";
 import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
+import { VirtualTableFooter } from "./VirtualTableFooter";
 
 interface VirtualModelTableProps {
 	providers?: Provider[];
@@ -75,26 +79,13 @@ export function VirtualModelTable({
 	const showProviderCol = providers !== undefined;
 
 	const toggleCapFilter = useCallback((key: CapKey) => {
-		setCapFilter((prev) => {
-			const next = new Set(prev);
-			if (next.has(key)) next.delete(key);
-			else next.add(key);
-			return next;
-		});
+		setCapFilter((prev) => toggleInSet(prev, key));
 	}, []);
 	const toggleOutputFilter = useCallback((key: string) => {
-		setOutputFilter((prev) => {
-			const next = new Set(prev);
-			if (next.has(key)) next.delete(key);
-			else next.add(key);
-			return next;
-		});
+		setOutputFilter((prev) => toggleInSet(prev, key));
 	}, []);
 	const handleSort = useCallback((field: ModelSortField) => {
-		setSort((prev) => ({
-			field,
-			dir: prev.field === field && prev.dir === "asc" ? "desc" : "asc",
-		}));
+		setSort((prev) => toggleSort(prev, field));
 	}, []);
 
 	const filters = useMemo(() => {
@@ -232,9 +223,10 @@ export function VirtualModelTable({
 							allLabel={t("failover.filter_providers", {
 								count: providers.length,
 							})}
-							options={[...providers]
-								.sort((a, b) => a.name.localeCompare(b.name))
-								.map((p) => ({ value: p.id, label: p.name }))}
+							options={sortByName(providers).map((p) => ({
+								value: p.id,
+								label: p.name,
+							}))}
 							className="w-[220px] shrink-0"
 						/>
 					)}
@@ -368,24 +360,19 @@ export function VirtualModelTable({
 					</tbody>
 				</table>
 			</div>
-			<div className="flex items-center justify-between px-3 py-2 text-xs text-gray-500 border-t border-gray-800">
-				<span>
-					{entries.length > 0
+			<VirtualTableFooter
+				range={
+					entries.length > 0
 						? `${formatNumber(startIndex)}–${formatNumber(endIndex)} / ${formatNumber(total)}`
-						: `0 / ${formatNumber(total)}`}
-				</span>
-				<span className="flex items-center gap-2">
-					{isLoadingBefore && (
-						<span className="text-(--accent)">{t("common.loadingNewer")}</span>
-					)}
-					{isLoadingAfter && (
-						<span className="text-(--accent)">{t("common.loadingOlder")}</span>
-					)}
-					{isLoadingInitial && !isLoadingBefore && !isLoadingAfter && (
-						<span className="text-(--accent)">{t("common.loadingDots")}</span>
-					)}
-				</span>
-			</div>
+						: `0 / ${formatNumber(total)}`
+				}
+				isLoadingBefore={isLoadingBefore}
+				isLoadingAfter={isLoadingAfter}
+			>
+				{isLoadingInitial && !isLoadingBefore && !isLoadingAfter && (
+					<span className="text-(--accent)">{t("common.loadingDots")}</span>
+				)}
+			</VirtualTableFooter>
 			{pendingDisabled && onDeleteDisabled && (
 				<ConfirmDialog
 					title={t("components.virtualModelTable.deleteDisabledModels")}

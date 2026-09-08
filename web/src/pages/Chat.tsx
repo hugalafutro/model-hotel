@@ -13,9 +13,17 @@ export function Chat() {
 	// Refs are split off so the ref-free `chat` rest object can be read freely
 	// in the JSX without tripping the react-hooks/refs lint.
 	const {
-		refs: { lastPromptRef, messagesContainerRef, imageInputRef, audioInputRef },
+		refs: { messagesContainerRef, imageInputRef, audioInputRef },
 		...chat
 	} = useChat();
+
+	/** True while `model` is the one currently streaming the last reply. */
+	const streamingFrom = (model: string | null) => {
+		const last = chat.messages.at(-1);
+		return (
+			chat.isStreaming && last?.role === "assistant" && last.model === model
+		);
+	};
 
 	return (
 		<div
@@ -36,7 +44,7 @@ export function Chat() {
 				}
 			/>
 
-			<ChatControls chat={chat} lastPromptRef={lastPromptRef} />
+			<ChatControls chat={chat} />
 
 			{/* Conversation Config */}
 			{chat.chatSubMode === "conversation" && (
@@ -94,15 +102,7 @@ export function Chat() {
 								model={chat.selectedModelObj}
 								params={chat.messageParams}
 								onParamsChange={chat.setMessageParams}
-								pulseBorder={
-									chat.isStreaming &&
-									chat.chatSubMode === "chat" &&
-									chat.messages.length > 0 &&
-									chat.messages[chat.messages.length - 1].role ===
-										"assistant" &&
-									chat.messages[chat.messages.length - 1].model ===
-										chat.chatSelectedModel
-								}
+								pulseBorder={streamingFrom(chat.chatSelectedModel)}
 							/>
 						) : (
 							<div className="ui-card p-4 flex flex-col items-center justify-center text-(--text-tertiary) text-xs">
@@ -119,14 +119,7 @@ export function Chat() {
 									onParamsChange={chat.setMessageParams}
 									collapsible
 									tint="default"
-									pulseBorder={
-										chat.isStreaming &&
-										chat.messages.length > 0 &&
-										chat.messages[chat.messages.length - 1].role ===
-											"assistant" &&
-										chat.messages[chat.messages.length - 1].model ===
-											chat.selectedModel
-									}
+									pulseBorder={streamingFrom(chat.selectedModel)}
 								/>
 							) : (
 								<div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
@@ -141,14 +134,7 @@ export function Chat() {
 									onParamsChange={chat.setMessageParamsB}
 									collapsible
 									tint="blue"
-									pulseBorder={
-										chat.isStreaming &&
-										chat.messages.length > 0 &&
-										chat.messages[chat.messages.length - 1].role ===
-											"assistant" &&
-										chat.messages[chat.messages.length - 1].model ===
-											chat.selectedModelB
-									}
+									pulseBorder={streamingFrom(chat.selectedModelB)}
 								/>
 							) : (
 								<div className="ui-card p-3 flex items-center justify-center text-(--text-tertiary) text-xs">
@@ -210,7 +196,6 @@ export function Chat() {
 
 			<ChatInputArea
 				chat={chat}
-				lastPromptRef={lastPromptRef}
 				imageInputRef={imageInputRef}
 				audioInputRef={audioInputRef}
 			/>

@@ -1,3 +1,4 @@
+import { clamp } from "@web-shared/format";
 import { useTranslation } from "react-i18next";
 import { dropTrailingZero } from "../../utils/format";
 
@@ -31,7 +32,7 @@ export function Gauge({
 	// For percentage metrics (error rate), cap at 100. For absolute metrics
 	// (requests, ms), scale relative to maxScale so the arc is meaningful.
 	const scaleMax = maxScale ?? 100;
-	const pct = Math.min(Math.max((value / scaleMax) * 100, 0), 100);
+	const pct = clamp((value / scaleMax) * 100, 0, 100);
 	const dashOffset = pathArc - (pathArc * pct) / 100;
 
 	return (

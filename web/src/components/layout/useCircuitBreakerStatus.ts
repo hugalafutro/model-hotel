@@ -1,6 +1,10 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useEffect } from "react";
+import {
+	keepPreviousData,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { api } from "../../api/client";
+import { useServerEvent } from "../../context/EventContext";
 
 /**
  * The aggregate circuit-breaker status behind the Failover nav badge, polled
@@ -17,23 +21,18 @@ export function useCircuitBreakerStatus() {
 		queryKey: ["circuit-breaker-status"],
 		queryFn: () => api.failoverGroups.circuitBreakerStatus(true),
 		refetchInterval: 15_000,
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 	});
 
-	useEffect(() => {
-		const handler = (e: Event) => {
-			const detail = (e as CustomEvent).detail;
-			if (detail?.type?.startsWith("circuit_breaker.")) {
-				queryClient.invalidateQueries({ queryKey: ["circuit-breaker-status"] });
-			}
-			if (detail?.type === "provider.scheduled_disable") {
-				queryClient.invalidateQueries({ queryKey: ["providers"] });
-				queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
-			}
-		};
-		window.addEventListener("server-event", handler);
-		return () => window.removeEventListener("server-event", handler);
-	}, [queryClient]);
+	useServerEvent((event) => {
+		if (event?.type?.startsWith("circuit_breaker.")) {
+			queryClient.invalidateQueries({ queryKey: ["circuit-breaker-status"] });
+		}
+		if (event?.type === "provider.scheduled_disable") {
+			queryClient.invalidateQueries({ queryKey: ["providers"] });
+			queryClient.invalidateQueries({ queryKey: ["failover-groups"] });
+		}
+	});
 
 	return cbStatus;
 }

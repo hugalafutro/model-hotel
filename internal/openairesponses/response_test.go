@@ -196,3 +196,21 @@ func TestTranslateResponsesToChat_DecodeErrorOmitsPayload(t *testing.T) {
 		})
 	}
 }
+
+// A Responses body with a status but no id still gets a chat-completion id:
+// the client's SDK keys the completion on it.
+func TestTranslateResponsesToChat_SynthesizesAnIDWhenUpstreamOmitsIt(t *testing.T) {
+	out, err := TranslateResponsesToChat([]byte(`{"status":"completed","output":[]}`), "m")
+	if err != nil {
+		t.Fatalf("TranslateResponsesToChat: %v", err)
+	}
+	var resp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(out, &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if !strings.HasPrefix(resp.ID, "chatcmpl-") || len(resp.ID) != len("chatcmpl-")+32 {
+		t.Errorf("id = %q, want a synthesized chatcmpl- id", resp.ID)
+	}
+}

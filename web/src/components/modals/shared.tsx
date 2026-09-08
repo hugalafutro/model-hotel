@@ -1,7 +1,83 @@
 /* eslint-disable react-refresh/only-export-components -- bar colour helpers exported beside the quota bar components that use them */
+import { useTranslation } from "react-i18next";
 import { ArrowLeftRight, RefreshCw } from "@/lib/icons";
 import { useTheme } from "../../context/ThemeContext";
+import type { ToastType } from "../../context/ToastContext";
+import { useLocalStorage } from "../../hooks/useLocalStorage";
+import {
+	formatRelativeTime,
+	formatTimestamp,
+	formatTimeUntil,
+} from "../../utils/format";
+import type { QuotaBarMode } from "../QuotaBadge";
 import { Spinner } from "../Spinner";
+
+/** The toast callback every quota modal takes. */
+export type OnToast = (msg: string, type: ToastType) => void;
+
+/**
+ * Whether the bars read as used or as remaining. One stored preference, so
+ * every quota modal and badge flips together.
+ */
+export function useQuotaBarMode(): [QuotaBarMode, () => void] {
+	const [barMode, setBarMode] = useLocalStorage<QuotaBarMode>(
+		"quota-bar-mode",
+		"remaining",
+	);
+	return [
+		barMode,
+		() => setBarMode((prev) => (prev === "remaining" ? "used" : "remaining")),
+	];
+}
+
+/** A refresh that reports its outcome as a toast. */
+export function useQuotaRefreshToast(
+	onRefresh: () => Promise<unknown>,
+	onToast: OnToast,
+) {
+	const { t } = useTranslation();
+	return async () => {
+		try {
+			await onRefresh();
+			onToast(t("components.providerModals.quotaRefreshed"), "success");
+		} catch {
+			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
+		}
+	};
+}
+
+/** "45% used" or "55% left", whichever the bar mode asks for. */
+export function usedLeftText(
+	usedPct: number,
+	barMode: QuotaBarMode,
+	t: (key: string) => string,
+): string {
+	return barMode === "used"
+		? `${usedPct.toFixed(0)}% ${t("components.providerModals.used")}`
+		: `${(100 - usedPct).toFixed(0)}% ${t("components.providerModals.left")}`;
+}
+
+/** "resets <timestamp>\n<time until>" for a window's reset time. */
+export function resetAtLabel(
+	resetTime: string | number | undefined,
+	t: (key: string) => string,
+): string {
+	const ms = resetTime ? new Date(resetTime).getTime() : Number.NaN;
+	if (!Number.isFinite(ms)) return t("common.n_a");
+	return `${t("components.providerModals.resets")} ${formatTimestamp(resetTime as string | number)}\n${formatTimeUntil(ms)}`;
+}
+
+/** When the quota shown was last fetched. */
+export function LastRefreshedRow({ at }: { at?: number }) {
+	const { t } = useTranslation();
+	if (!at) return null;
+	return (
+		<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2">
+			<span>{t("components.providerModals.lastRefreshed")}</span>
+			<span>{formatRelativeTime(new Date(at).toISOString())}</span>
+		</div>
+	);
+}
 
 /** Returns a Tailwind bg-[color] class based on remaining percentage. */
 export function remainingBarColor(remainingPct: number): string {
@@ -22,8 +98,14 @@ interface QuotaBarProps {
 	label: string;
 	/** Already-translated/formatted content for the right side of the header row. */
 	rightText: React.ReactNode;
-	/** Used percentage, 0–100. The component computes remaining as (100 − percentage). */
+	/** Used percentage, 0–100. */
 	percentage: number;
+	/**
+	 * Remaining percentage, 0–100. Defaults to (100 − percentage), which is only
+	 * right when the provider reports used and remaining as one complementary
+	 * pair; a provider that reports the two independently passes its own.
+	 */
+	remainingPercentage?: number;
 	/** Whether to show "used" or "remaining" coloring and width. */
 	barMode: "used" | "remaining";
 	/** Optional data-testid for the bar track div. */
@@ -47,6 +129,7 @@ export function QuotaBar({
 	label,
 	rightText,
 	percentage,
+	remainingPercentage = 100 - percentage,
 	barMode,
 	dataTestId,
 	fillTestId,
@@ -67,9 +150,9 @@ export function QuotaBar({
 			>
 				<div
 					{...(fillTestId ? { "data-testid": fillTestId } : {})}
-					className={`${barMode === "used" ? usedBarColor(percentage) : remainingBarColor(100 - percentage)} h-3 ui-bar transition-all`}
+					className={`${barMode === "used" ? usedBarColor(percentage) : remainingBarColor(remainingPercentage)} h-3 ui-bar transition-all`}
 					style={{
-						width: `${barMode === "used" ? Math.min(percentage, 100) : Math.min(100 - percentage, 100)}%`,
+						width: `${barMode === "used" ? Math.min(percentage, 100) : Math.min(remainingPercentage, 100)}%`,
 					}}
 				/>
 			</div>
@@ -84,20 +167,22 @@ export function QuotaBar({
 }
 
 interface QuotaModalHeaderActionsProps {
+	/** Which way the bars currently read, for the toggle's tooltip. */
+	barMode: QuotaBarMode;
 	/** Toggle between remaining/used display. */
 	onToggleBarMode: () => void;
 	/** Trigger a quota refresh. */
 	onRefresh: () => void;
 	/** Whether a refresh is in progress. */
 	isRefreshing: boolean;
-	/** Already-translated aria-label for the toggle button. */
-	toggleAriaLabel: string;
-	/** Already-translated title (tooltip) for the toggle button. */
-	toggleTitle: string;
-	/** Already-translated aria-label for the refresh button. */
-	refreshAriaLabel: string;
+	/** Overrides the toggle's aria-label, for a modal with its own wording. */
+	toggleAriaLabel?: string;
+	/** Overrides the toggle's tooltip pair, for a modal with its own wording. */
+	toggleTitle?: string;
+	/** Already-translated aria-label for the refresh button. Defaults to "Refresh". */
+	refreshAriaLabel?: string;
 	/** Already-translated title (tooltip) for the refresh button. */
-	refreshTitle: string;
+	refreshTitle?: string;
 }
 
 /**
@@ -106,6 +191,7 @@ interface QuotaModalHeaderActionsProps {
  * exact layout.
  */
 export function QuotaModalHeaderActions({
+	barMode,
 	onToggleBarMode,
 	onRefresh,
 	isRefreshing,
@@ -115,6 +201,11 @@ export function QuotaModalHeaderActions({
 	refreshTitle,
 }: QuotaModalHeaderActionsProps) {
 	const { uiStyle } = useTheme();
+	const { t } = useTranslation();
+	const defaultToggleTitle =
+		barMode === "remaining"
+			? t("components.providerModals.showQuotaUsed")
+			: t("components.providerModals.showQuotaRemaining");
 
 	return (
 		<div className="absolute top-4 right-16 flex items-center gap-1">
@@ -122,8 +213,10 @@ export function QuotaModalHeaderActions({
 				type="button"
 				onClick={() => onToggleBarMode()}
 				className="ui-icon-btn p-1.5"
-				aria-label={toggleAriaLabel}
-				title={toggleTitle}
+				aria-label={
+					toggleAriaLabel ?? t("components.providerModals.toggleRemainingUsed")
+				}
+				title={toggleTitle ?? defaultToggleTitle}
 			>
 				<ArrowLeftRight size={18} />
 			</button>
@@ -132,8 +225,8 @@ export function QuotaModalHeaderActions({
 				onClick={onRefresh}
 				disabled={isRefreshing}
 				className="ui-icon-btn p-1.5"
-				aria-label={refreshAriaLabel}
-				title={refreshTitle}
+				aria-label={refreshAriaLabel ?? t("common.refresh")}
+				title={refreshTitle ?? t("components.providerModals.refreshQuotaInfo")}
 			>
 				{isRefreshing && uiStyle === "cyber-terminal" ? (
 					<Spinner className="w-[18px] h-[18px] text-[18px] leading-[18px]" />

@@ -136,6 +136,10 @@ func TestTranslateChat_ToolChoiceUnion(t *testing.T) {
 			map[string]any{"type": "function", "name": "get_weather"}},
 		{"function without a name", `{"type":"function","function":{}}`, nil},
 		{"non-function object", `{"type":"web_search"}`, nil},
+		// A function member alone does not make a function choice: the object
+		// has to say so, or the choice forwarded is not the one asked for.
+		{"typeless object with a function member", `{"function":{"name":"get_weather"}}`, nil},
+		{"another type carrying a function member", `{"type":"custom","function":{"name":"get_weather"}}`, nil},
 		{"wrong JSON shape", `["auto"]`, nil},
 		{"null", `null`, nil},
 	}

@@ -9,9 +9,9 @@ import { UsageBarPanel } from "../UsageBarPanel";
 
 describe("UsageBarPanel", () => {
 	const mockEntries: UsageEntry[] = [
-		{ label: "Model A", value: 100, suffix: "requests" },
-		{ label: "Model B", value: 50, suffix: "requests" },
-		{ label: "Model C", value: 25, suffix: "requests" },
+		{ label: "Model A", value: 100 },
+		{ label: "Model B", value: 50 },
+		{ label: "Model C", value: 25 },
 	];
 
 	const defaultProps = {
@@ -45,37 +45,34 @@ describe("UsageBarPanel", () => {
 		expect(screen.getByText(/25/)).toBeInTheDocument();
 	});
 
-	it("renders suffixes", () => {
-		renderWithProviders(<UsageBarPanel {...defaultProps} />);
+	it("names the unit from the metric the panel is showing", () => {
+		renderWithProviders(<UsageBarPanel {...defaultProps} metric="requests" />);
 
-		// Suffix text is rendered alongside the value
 		const entryDiv = screen.getByText("Model A").closest("div");
 		expect(entryDiv?.textContent).toContain("requests");
 	});
 
-	it("uses singular suffix when value is 1", () => {
-		const singleEntry: UsageEntry[] = [
-			{ label: "Single", value: 1, suffix: "requests" },
-		];
-
+	it("picks the plural form from the value, not an English suffix rule", () => {
+		// The plural category comes from i18next, so a count of 1 gets the
+		// singular form the catalog defines rather than a trimmed "s".
 		renderWithProviders(
-			<UsageBarPanel {...defaultProps} entries={singleEntry} />,
+			<UsageBarPanel
+				{...defaultProps}
+				metric="tokens"
+				entries={[{ label: "Single", value: 1 }]}
+			/>,
 		);
 
-		// Suffix should be singular when value is 1
 		const entryDiv = screen.getByText("Single").closest("div");
-		expect(entryDiv?.textContent).toContain("request");
+		expect(entryDiv?.textContent).toContain("token");
+		expect(entryDiv?.textContent).not.toContain("tokens");
 	});
 
-	it("does not render suffix when not provided", () => {
-		const noSuffixEntries: UsageEntry[] = [{ label: "No Suffix", value: 100 }];
+	it("names no unit on a panel with no metric toggle", () => {
+		renderWithProviders(<UsageBarPanel {...defaultProps} />);
 
-		renderWithProviders(
-			<UsageBarPanel {...defaultProps} entries={noSuffixEntries} />,
-		);
-
-		const entry = screen.getByText("No Suffix").closest("div");
-		expect(entry?.textContent).not.toMatch(/request/);
+		const entry = screen.getByText("Model A").closest("div");
+		expect(entry?.textContent).not.toMatch(/Request|Token/);
 	});
 
 	it("shows empty state when entries array is empty", () => {

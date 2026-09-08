@@ -142,10 +142,7 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 	// Idempotent and best-effort; an already-disabled group is skipped.
 	h.failoverRepo.RevalidateCustomGroupsIn(r.Context(), groups)
 
-	tokenCounts, err := h.getTokenCounts(r.Context())
-	if err != nil {
-		tokenCounts = make(map[string]int)
-	}
+	tokenCounts := h.getTokenCounts(r.Context())
 
 	responses := make([]FailoverGroupResponse, len(groups))
 	for i, g := range groups {
@@ -171,7 +168,12 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, error) {
+// getTokenCounts totals the last 30 days of proxied tokens per hotel/ group.
+// Best-effort: neither caller can act on a failure, so a broken aggregate
+// yields an empty map and every group reports 0 tokens. It is logged, because
+// a silent 0 across the whole page otherwise looks like idle traffic.
+func (h *FailoverHandler) getTokenCounts(ctx context.Context) map[string]int {
+	counts := make(map[string]int)
 	rows, err := h.dbPool.Query(ctx, `
 		SELECT LOWER(model_id), SUM(COALESCE(tokens_prompt, 0) + COALESCE(tokens_completion, 0)) as total_tokens
 		FROM request_logs
@@ -179,18 +181,21 @@ func (h *FailoverHandler) getTokenCounts(ctx context.Context) (map[string]int, e
 		GROUP BY LOWER(model_id)
 	`)
 	if err != nil {
-		return nil, err
+		debuglog.Warn("failover: token totals unavailable", "error", err)
+		return counts
 	}
 	defer rows.Close()
 
-	counts := make(map[string]int)
 	var modelID string
 	var total int
-	_, err = pgx.ForEachRow(rows, []any{&modelID, &total}, func() error {
+	if _, err := pgx.ForEachRow(rows, []any{&modelID, &total}, func() error {
 		counts[modelID] = total
 		return nil
-	})
-	return counts, err
+	}); err != nil {
+		debuglog.Warn("failover: token totals unavailable", "error", err)
+		return make(map[string]int)
+	}
+	return counts
 }
 
 // Get retrieves a failover group by ID.
@@ -212,11 +217,7 @@ func (h *FailoverHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tokenCounts, err := h.getTokenCounts(r.Context())
-	if err != nil {
-		tokenCounts = make(map[string]int)
-	}
-	resp.TotalTokens = tokenCounts["hotel/"+strings.ToLower(g.DisplayModel)]
+	resp.TotalTokens = h.getTokenCounts(r.Context())["hotel/"+strings.ToLower(g.DisplayModel)]
 
 	writeJSON(w, resp)
 }
@@ -612,18 +613,13 @@ func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.Fa
 			continue
 		}
 
-		enabled := true
-		if val, ok := g.EntryEnabled[modelUUID.String()]; ok {
-			enabled = val
-		}
-
 		entries = append(entries, FailoverEntryResponse{
 			ModelUUID:        modelUUID.String(),
 			ModelID:          m.ModelID,
 			ProviderID:       m.ProviderID.String(),
 			ProviderName:     m.ProviderName,
 			DisplayName:      m.DisplayName,
-			Enabled:          enabled,
+			Enabled:          g.IsEntryEnabled(modelUUID),
 			ModelEnabled:     m.Enabled,
 			ProviderEnabled:  m.ProviderEnabled,
 			DisabledManually: m.DisabledManually,
@@ -634,10 +630,10 @@ func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.Fa
 
 	var createdAt, updatedAt string
 	if !g.CreatedAt.IsZero() {
-		createdAt = g.CreatedAt.Format("2006-01-02T15:04:05Z07:00")
+		createdAt = g.CreatedAt.Format(time.RFC3339)
 	}
 	if !g.UpdatedAt.IsZero() {
-		updatedAt = g.UpdatedAt.Format("2006-01-02T15:04:05Z07:00")
+		updatedAt = g.UpdatedAt.Format(time.RFC3339)
 	}
 
 	return FailoverGroupResponse{

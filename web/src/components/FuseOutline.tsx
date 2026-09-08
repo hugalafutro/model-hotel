@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { useResizeObserver } from "../hooks/useResizeObserver";
 
 interface FuseOutlineProps {
@@ -52,20 +52,23 @@ export function FuseOutline({
 	} = useResizeObserver<SVGSVGElement>();
 	const rectRef = useRef<SVGRectElement>(null);
 
-	// Measure the parent element's actual corner radius once on mount so the
-	// fuse traces the real toast/entry shape per theme. border-radius does not
-	// change on resize, so this deliberately does not depend on width/height
-	// (avoids a forced getComputedStyle reflow every resize). An explicit rx
-	// prop still overrides this.
+	// The parent element's actual corner radius, so the fuse traces the real
+	// toast/entry shape per theme. Measured as the svg is attached rather than
+	// on every resize: border-radius does not change with size, and reading it
+	// forces a reflow. An explicit rx prop still overrides this.
 	const [measuredRx, setMeasuredRx] = useState<number | null>(null);
-	useLayoutEffect(() => {
-		const parent = sizeRef.current?.parentElement;
-		if (!parent) return;
-		const parsed = Number.parseFloat(
-			getComputedStyle(parent).borderTopLeftRadius,
-		);
-		if (!Number.isNaN(parsed)) setMeasuredRx(parsed);
-	}, [sizeRef]);
+	const svgRef = useCallback(
+		(node: SVGSVGElement | null) => {
+			sizeRef(node);
+			const parent = node?.parentElement;
+			if (!parent) return;
+			const parsed = Number.parseFloat(
+				getComputedStyle(parent).borderTopLeftRadius,
+			);
+			if (!Number.isNaN(parsed)) setMeasuredRx(parsed);
+		},
+		[sizeRef],
+	);
 
 	// Track the last animation string we set imperatively so we only
 	// re-set it when durationMs actually changes (which is rare — backed by
@@ -149,7 +152,7 @@ export function FuseOutline({
 
 	return (
 		<svg
-			ref={sizeRef}
+			ref={svgRef}
 			aria-hidden="true"
 			data-testid={dataTestId}
 			className={className}

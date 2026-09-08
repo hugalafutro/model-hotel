@@ -238,12 +238,7 @@ const MaxJSONBody = 1 << 20 // 1 MiB
 // post-handler drain instead. Either way the handler never reads past the
 // limit, which is the property that matters.
 func DecodeJSON(w http.ResponseWriter, r *http.Request, component string, limit int64, v any) bool {
-	r.Body = http.MaxBytesReader(w, r.Body, limit)
-	dec := json.NewDecoder(r.Body)
-	if err := dec.Decode(v); err != nil {
-		return rejectDecode(w, r, component, limit, err)
-	}
-	return checkNothingFollows(w, r, component, limit, dec)
+	return decodeJSON(w, r, component, limit, v, false)
 }
 
 // DecodeJSONOptional is DecodeJSON for an endpoint whose body is optional: no
@@ -258,10 +253,17 @@ func DecodeJSON(w http.ResponseWriter, r *http.Request, component string, limit 
 // was actually asked. On a purge endpoint that is the difference between
 // deleting an hour of logs and deleting all of them.
 func DecodeJSONOptional(w http.ResponseWriter, r *http.Request, component string, limit int64, v any) bool {
+	return decodeJSON(w, r, component, limit, v, true)
+}
+
+// decodeJSON is the body both exported decoders share. allowEmpty is the only
+// difference between them: an absent body leaves v at its zero value and the
+// request continues.
+func decodeJSON(w http.ResponseWriter, r *http.Request, component string, limit int64, v any, allowEmpty bool) bool {
 	r.Body = http.MaxBytesReader(w, r.Body, limit)
 	dec := json.NewDecoder(r.Body)
 	err := dec.Decode(v)
-	if errors.Is(err, io.EOF) {
+	if allowEmpty && errors.Is(err, io.EOF) {
 		return true
 	}
 	if err != nil {

@@ -54,10 +54,10 @@ describe("shikiHighlighter", () => {
 
 	it("loads a grammar and tokenizes", async () => {
 		const { getSnippetHighlighter } = await freshModule();
-		const highlighter = await getSnippetHighlighter("bash");
-		expect(highlighter).not.toBeNull();
-		const tokens = highlighter?.codeToTokensBase('echo "hi"', {
-			lang: "bash",
+		const loaded = await getSnippetHighlighter("bash");
+		expect(loaded?.lang).toBe("bash");
+		const tokens = loaded?.highlighter.codeToTokensBase('echo "hi"', {
+			lang: loaded.lang,
 		});
 		expect(tokens?.length).toBeGreaterThan(0);
 	});
@@ -70,10 +70,10 @@ describe("shikiHighlighter", () => {
 		);
 		// The rejected promise must have been evicted from the grammar cache,
 		// so the next call retries the load and succeeds.
-		const highlighter = await getSnippetHighlighter("bash");
-		expect(highlighter).not.toBeNull();
-		const tokens = highlighter?.codeToTokensBase('echo "hi"', {
-			lang: "bash",
+		const loaded = await getSnippetHighlighter("bash");
+		expect(loaded?.lang).toBe("bash");
+		const tokens = loaded?.highlighter.codeToTokensBase('echo "hi"', {
+			lang: loaded.lang,
 		});
 		expect(tokens?.length).toBeGreaterThan(0);
 	});

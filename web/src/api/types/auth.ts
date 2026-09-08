@@ -1,3 +1,6 @@
+/** The two roles a dashboard account can hold. */
+export type UserRole = "admin" | "user";
+
 export interface VirtualKey {
 	id: string;
 	name: string;
@@ -86,7 +89,7 @@ export interface AuthStatus {
 export interface Me {
 	username: string;
 	display_name?: string;
-	role: "admin" | "user";
+	role: UserRole;
 	grants: string[];
 	/** True for users-row identities (not the env-token admin); gates the Security page. */
 	user_account?: boolean;
@@ -122,7 +125,7 @@ export interface DashboardUser {
 	username: string;
 	display_name: string;
 	email: string | null;
-	role: "admin" | "user";
+	role: UserRole;
 	grants: string[];
 	enabled: boolean;
 	created_at: string;
@@ -154,7 +157,7 @@ export interface UserUpsertRequest {
 	display_name: string;
 	email: string | null;
 	password?: string;
-	role: "admin" | "user";
+	role: UserRole;
 	grants: string[];
 	enabled?: boolean;
 	rate_limit_rps?: number | null;
@@ -167,4 +170,26 @@ export interface UserUpsertRequest {
 	 * empty array is rejected by the API. Advisory only, the server enforces.
 	 */
 	allowed_providers?: string[] | null;
+}
+
+/** The server's half of a WebAuthn ceremony: the session it opened plus the
+ * options the browser's credential API is handed verbatim. */
+export interface WebAuthnCeremonyStart {
+	session_id: string;
+	options: Record<string, unknown>;
+}
+
+/**
+ * The writable half of a virtual key, as POST /api/virtual-keys and
+ * PUT /api/virtual-keys/:id both accept it. On an update, omitting
+ * `owner_user_id` preserves the current owner; null clears it (admin only).
+ */
+export interface VirtualKeyUpsert {
+	name: string;
+	rate_limit_rps?: number | null;
+	rate_limit_burst?: number | null;
+	rate_limit_tpm?: number | null;
+	allowed_providers?: string[] | null;
+	strip_reasoning?: boolean;
+	owner_user_id?: string | null;
 }

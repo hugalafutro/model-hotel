@@ -87,6 +87,7 @@ const mockEditGroup: FailoverGroup = {
 };
 
 const mockOnClose = vi.fn();
+const mockRefreshGroups = vi.fn();
 const mockOnCreated = vi.fn();
 const mockOnUpdated = vi.fn();
 
@@ -100,6 +101,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -112,6 +114,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -125,6 +128,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -142,6 +146,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -159,6 +164,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -171,6 +177,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -186,6 +193,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -202,6 +210,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -214,6 +223,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -226,6 +236,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -240,6 +251,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -254,6 +266,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -270,6 +283,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -285,6 +299,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -300,6 +315,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -315,6 +331,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -334,6 +351,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -354,6 +372,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -369,6 +388,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -391,6 +411,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -406,6 +427,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -422,6 +444,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -438,6 +461,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -457,6 +481,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -485,6 +510,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -508,6 +534,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -540,6 +567,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -569,6 +597,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -605,6 +634,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -622,6 +652,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -664,6 +695,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -677,6 +709,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -690,6 +723,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -703,6 +737,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -716,6 +751,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -729,6 +765,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -744,6 +781,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -760,6 +798,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -782,6 +821,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={candidatesWithEmptyDisplayName}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -816,6 +856,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={candidatesNoDisplay}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -831,6 +872,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -844,6 +886,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -859,6 +902,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -874,6 +918,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -888,6 +933,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -902,6 +948,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -923,6 +970,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -938,6 +986,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -970,6 +1019,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1023,6 +1073,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={groupWithUnavailableEntry}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1065,6 +1116,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={groupWithRenamedEntry}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1081,6 +1133,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1104,6 +1157,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1159,6 +1213,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={groupNoDisplayEntry}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1175,6 +1230,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1227,6 +1283,7 @@ describe("CreateGroupModal", () => {
 			const { unmount } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -1242,6 +1299,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1256,6 +1314,7 @@ describe("CreateGroupModal", () => {
 			renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={groupWithNa}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1292,6 +1351,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={groupWithNa}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1344,6 +1404,7 @@ describe("CreateGroupModal", () => {
 				<Layout>
 					<CreateGroupModal
 						candidates={mockCandidates}
+						refreshGroups={mockRefreshGroups}
 						group={groupWithNa}
 						onClose={mockOnClose}
 						onUpdated={mockOnUpdated}
@@ -1386,6 +1447,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={groupWithNa}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1414,6 +1476,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={groupWithNa}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1442,6 +1505,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={groupOneHealthyPlusNa}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1474,6 +1538,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -1511,6 +1576,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}
@@ -1544,6 +1610,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -1583,6 +1650,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					onClose={mockOnClose}
 					onCreated={mockOnCreated}
 				/>,
@@ -1616,6 +1684,7 @@ describe("CreateGroupModal", () => {
 			const { user } = renderWithProviders(
 				<CreateGroupModal
 					candidates={mockCandidates}
+					refreshGroups={mockRefreshGroups}
 					group={mockEditGroup}
 					onClose={mockOnClose}
 					onUpdated={mockOnUpdated}

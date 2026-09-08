@@ -3,10 +3,13 @@ import { CSS } from "@dnd-kit/utilities";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { RotateCcw } from "@/lib/icons";
-import type { FailoverGroup } from "../../api/types";
+import type {
+	CircuitBreakerProviderStatus,
+	FailoverGroup,
+} from "../../api/types";
 import { FuseOutline } from "../../components/FuseOutline";
 import { Toggle } from "../../components/Toggle";
-import { naReasonKey } from "../../utils/failoverEntry";
+import { isNaEntry, naReasonKey } from "../../utils/failoverEntry";
 import type { EntryCircuitView } from "./entryCircuit";
 
 export interface SortableEntryProps {
@@ -17,28 +20,8 @@ export interface SortableEntryProps {
 	// (entry.enabled) and reordering (priority_order) are synced config that the
 	// next config sync overwrites, so both are locked here.
 	locked?: boolean;
-	cbStatus?: {
-		state: string;
-		cooldown_ms?: number;
-		next_retry_at?: string;
-		opened_at?: string;
-		consecutive_fails: number;
-		// Set when a quota pin is in force: the cooldown is pinned to the
-		// provider's quota reset deadline. next_retry_at is then that deadline
-		// unless a longer backoff is also in force, which is rare (a pin is
-		// floored at the backoff when it is stamped).
-		quota_pinned?: boolean;
-		// Set when a probe backoff is in force: the cooldown doubled once per
-		// failed half-open probe. Says why the wait is longer than the setting;
-		// next_retry_at is the longer of it and any pin.
-		backed_off?: boolean;
-		// The derived verdict that the breaker is skipping this provider for
-		// every model, and the model ids it is blocking. Here so the tooltip can
-		// say whether the whole provider is out and name the models the verdict
-		// rests on.
-		provider_open?: boolean;
-		open_models?: string[];
-	};
+	// The entry's provider circuit as the card reads it (entryCircuitStatus).
+	cbStatus?: CircuitBreakerProviderStatus;
 	// Forces this provider's circuit closed. Omitted when the caller cannot
 	// reset (read-only demo mode), which is what hides the control. Deliberately
 	// NOT gated on `locked`: a breaker is local runtime health, not synced
@@ -121,11 +104,8 @@ export function SortableEntry({
 	const dragProps = draggable ? { ...attributes, ...listeners } : {};
 
 	// The router skips entries whose model or provider is disabled regardless
-	// of the per-entry toggle; reflect that effective state in the UI. Only an
-	// explicit false counts as disabled (the backend always sends real
-	// booleans) so missing/partial data never mislabels an entry as dead.
-	const effectivelyDisabled =
-		entry.model_enabled === false || entry.provider_enabled === false;
+	// of the per-entry toggle; reflect that effective state in the UI.
+	const effectivelyDisabled = isNaEntry(entry);
 
 	// Why the member is N/A, shown on the badge and the locked toggle. The
 	// operator wants the cause (provider off / disabled by hand / dropped by
@@ -240,22 +220,21 @@ export function SortableEntry({
 	);
 
 	const fuseColor = cooldownOver ? "#fde68a" : showFuse ? "#fca5a5" : undefined;
+	const resetTime = nextRetryAt
+		? new Date(nextRetryAt).toLocaleString()
+		: undefined;
 	const baseTitle = !showFuse
 		? undefined
 		: cooldownOver
 			? t("failoverGroups.entry.circuitBreakerReadyToProbe")
-			: quotaPinned && cbStatus.next_retry_at
-				? t("failoverGroups.entry.circuitBreakerQuotaPinned", {
-						resetTime: new Date(cbStatus.next_retry_at).toLocaleString(),
-					})
+			: quotaPinned && resetTime
+				? t("failoverGroups.entry.circuitBreakerQuotaPinned", { resetTime })
 				: providerSkipped
 					? t("failoverGroups.entry.circuitBreakerProviderOpen", {
 							models: openModels?.join(", "),
 						})
-					: backedOff && cbStatus.next_retry_at
-						? t("failoverGroups.entry.circuitBreakerBackedOff", {
-								resetTime: new Date(cbStatus.next_retry_at).toLocaleString(),
-							})
+					: backedOff && resetTime
+						? t("failoverGroups.entry.circuitBreakerBackedOff", { resetTime })
 						: t("failoverGroups.entry.circuitBreakerOpen");
 	// The chip's tooltip: the fuse text, or for a busy entry (which has no fuse,
 	// its circuit being closed) why it is busy, plus the cause line. The row

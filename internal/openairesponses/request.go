@@ -199,7 +199,7 @@ func translateUserContent(raw json.RawMessage) ([]contentPart, error) {
 	if s, ok := egress.AsJSONString(raw); ok {
 		return []contentPart{{Type: "input_text", Text: s}}, nil
 	}
-	if len(raw) == 0 || string(raw) == "null" {
+	if !util.JSONMemberSet(raw) {
 		return nil, nil
 	}
 	var parts []chatContentPart
@@ -224,52 +224,35 @@ func translateUserContent(raw json.RawMessage) ([]contentPart, error) {
 // string verbatim, or the concatenated text parts of an array. ok is false
 // when the field is absent/null.
 func flattenContent(raw json.RawMessage) (string, bool) {
-	if s, ok := egress.AsJSONString(raw); ok {
-		return s, true
-	}
-	if len(raw) == 0 || string(raw) == "null" {
+	if !util.JSONMemberSet(raw) {
 		return "", false
 	}
-	var parts []chatContentPart
-	if json.Unmarshal(raw, &parts) != nil {
-		return "", false
-	}
-	var sb strings.Builder
-	for _, p := range parts {
-		if p.Type == "" || p.Type == "text" {
-			sb.WriteString(p.Text)
-		}
-	}
-	return sb.String(), true
+	return egress.FlattenText(raw)
 }
 
 // translateToolChoice maps the chat tool_choice union onto the Responses one:
 // the string modes are shared verbatim; the named-function object flattens
 // from {type:"function",function:{name}} to {type:"function",name}.
 func translateToolChoice(raw json.RawMessage) (any, bool) {
-	if len(raw) == 0 {
+	mode, name, ok := egress.DecodeToolChoice(raw)
+	switch {
+	case !ok:
 		return nil, false
-	}
-	if s, ok := egress.AsJSONString(raw); ok {
-		switch s {
-		case "auto", "none", "required":
-			return s, true
+	case mode == "function":
+		// Only an object that calls itself a function names one. A tool_choice
+		// of another type that happens to carry a function member states a
+		// choice this dialect cannot make, and forwarding it as a function
+		// choice would pick a tool the caller did not ask for.
+		var tc struct {
+			Type string `json:"type"`
 		}
-		return nil, false
+		if json.Unmarshal(raw, &tc) != nil || tc.Type != "function" {
+			return nil, false
+		}
+		return map[string]string{"type": "function", "name": name}, true
+	default:
+		return mode, true
 	}
-	var tc struct {
-		Type     string `json:"type"`
-		Function struct {
-			Name string `json:"name"`
-		} `json:"function"`
-	}
-	if json.Unmarshal(raw, &tc) != nil {
-		return nil, false
-	}
-	if tc.Type == "function" && tc.Function.Name != "" {
-		return map[string]string{"type": "function", "name": tc.Function.Name}, true
-	}
-	return nil, false
 }
 
 // translateReasoning maps reasoning_effort to the Responses reasoning config.

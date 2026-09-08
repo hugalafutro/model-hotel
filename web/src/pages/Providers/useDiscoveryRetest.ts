@@ -5,11 +5,7 @@ import { api } from "../../api/client";
 import type { DiscoveryDiff } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
-import type { DiscoverySummaryEntry } from "./DiscoverySummaryModal";
-
-/** Stable key for a summary entry, matching the modal's entryKeyOf. */
-const keyOf = (entry: DiscoverySummaryEntry): string =>
-	entry.entryKey ?? entry.providerName;
+import { type DiscoverySummaryEntry, entryKeyOf } from "./discoverySummary";
 
 /**
  * Shared "Retest" behaviour for the discovery summary modal: re-runs discovery
@@ -51,10 +47,10 @@ export function useDiscoveryRetest(
 			return api.providers.discover(entry.providerId);
 		},
 		onMutate: ({ entry }) => {
-			setRetestingKey(keyOf(entry));
+			setRetestingKey(entryKeyOf(entry));
 		},
 		onSuccess: (data, { entry, silent }) => {
-			patchEntry(keyOf(entry), data.diff);
+			patchEntry(entryKeyOf(entry), data.diff);
 			if (silent) return;
 			toast(
 				t("providers.discoverySummary.retestDone", {

@@ -53,23 +53,30 @@ func (r *Repository) Upsert(ctx context.Context, s Snapshot) error {
 	return err
 }
 
+// snapshotColumns is the projection every snapshot read shares, in the order
+// scanSnapshot expects. last_error is COALESCEd so it lands straight in the
+// plain string field.
+const snapshotColumns = "provider_id, kind, payload, http_status, fetched_at, source, COALESCE(last_error, ''), last_attempt_at"
+
+// scanSnapshot reads one snapshotColumns row. pgx.Rows satisfies pgx.Row, so
+// the multi-row loop scans through here too.
+func scanSnapshot(row pgx.Row) (Snapshot, error) {
+	var s Snapshot
+	err := row.Scan(&s.ProviderID, &s.Kind, &s.Payload, &s.HTTPStatus, &s.FetchedAt, &s.Source, &s.LastError, &s.LastAttemptAt)
+	return s, err
+}
+
 // Get returns the snapshot for provider+kind, or (nil, nil) when none exists.
 func (r *Repository) Get(ctx context.Context, providerID uuid.UUID, kind string) (*Snapshot, error) {
-	var s Snapshot
-	var lastErr *string
-	err := r.pool.QueryRow(ctx, `
-		SELECT provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at
+	s, err := scanSnapshot(r.pool.QueryRow(ctx, `
+		SELECT `+snapshotColumns+`
 		FROM provider_quota_snapshots WHERE provider_id = $1 AND kind = $2`,
-		providerID, kind).Scan(
-		&s.ProviderID, &s.Kind, &s.Payload, &s.HTTPStatus, &s.FetchedAt, &s.Source, &lastErr, &s.LastAttemptAt)
+		providerID, kind))
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
 	if err != nil {
 		return nil, err
-	}
-	if lastErr != nil {
-		s.LastError = *lastErr
 	}
 	return &s, nil
 }
@@ -92,7 +99,7 @@ func (r *Repository) RecordFailure(ctx context.Context, providerID uuid.UUID, ki
 // the primary so Front Desk can distribute the primary's snapshots to members.
 func (r *Repository) List(ctx context.Context) ([]Snapshot, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT provider_id, kind, payload, http_status, fetched_at, source, last_error, last_attempt_at
+		SELECT `+snapshotColumns+`
 		FROM provider_quota_snapshots`)
 	if err != nil {
 		return nil, err
@@ -101,13 +108,9 @@ func (r *Repository) List(ctx context.Context) ([]Snapshot, error) {
 
 	var out []Snapshot
 	for rows.Next() {
-		var s Snapshot
-		var lastErr *string
-		if err := rows.Scan(&s.ProviderID, &s.Kind, &s.Payload, &s.HTTPStatus, &s.FetchedAt, &s.Source, &lastErr, &s.LastAttemptAt); err != nil {
+		s, err := scanSnapshot(rows)
+		if err != nil {
 			return nil, err
-		}
-		if lastErr != nil {
-			s.LastError = *lastErr
 		}
 		out = append(out, s)
 	}

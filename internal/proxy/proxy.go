@@ -30,15 +30,10 @@ func (h *Handler) failRequest(logData *requestLogData, statusCode int, kind Erro
 	logData.statusCode = statusCode
 	logData.errorKind = kind
 	logData.errorMessage = errMsg
-	logData.durationMs = float64(time.Since(startTime).Microseconds()) / 1000.0
+	logData.durationMs = util.MillisSince(startTime)
 	logData.proxyOverheadMs = proxyOverhead
 	logData.parseMs = parseMs
-	logData.modelLookupMs = timings.modelLookupMs
-	logData.providerLookupMs = timings.providerLookupMs
-	logData.keyDecryptMs = timings.keyDecryptMs
-	logData.dialMs = timings.dialMs
-	logData.failoverLookupMs = timings.failoverLookupMs
-	logData.settingsReadMs = timings.settingsReadMs
+	logData.applyTimings(timings)
 	logData.cacheHits = cacheHits
 	logData.failoverAttempt = attempt
 	logData.state = "failed"
@@ -252,9 +247,7 @@ func (h *Handler) retrySaturatedCandidate(w http.ResponseWriter, r *http.Request
 	if wait <= 0 {
 		wait = defaultSaturatedRetryAfter
 	}
-	if maxWait := h.settingsRepo.GetDuration(r.Context(), "rate_limit_saturation_max_wait", defaultSaturationMaxWait); wait > maxWait {
-		wait = maxWait
-	}
+	wait = min(wait, h.settingsRepo.GetDuration(r.Context(), "rate_limit_saturation_max_wait", defaultSaturationMaxWait))
 	return h.retryLastCandidate(w, r, st, candidate, attempt, attemptOne, wait, "saturation")
 }
 
@@ -422,7 +415,8 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found bool) {
 	for rawLine := range strings.SplitSeq(bufStr, "\n") {
 		l := strings.TrimSpace(rawLine)
-		if !strings.HasPrefix(l, "data:") {
+		content, isData := strings.CutPrefix(l, "data:")
+		if !isData {
 			continue
 		}
 		// Reject partial lines: a complete SSE line must be followed by \n in
@@ -433,7 +427,7 @@ func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found boo
 		}
 		// Same classifier as the main loop, so a frame recovered from the buffer
 		// is judged exactly as one read straight off the scanner.
-		v, m := classifyProbeFrame(strings.TrimSpace(strings.TrimPrefix(l, "data:")))
+		v, m := classifyProbeFrame(strings.TrimSpace(content))
 		if v == probeFrameNotAToken {
 			// Carries nothing; keep looking for a frame that does.
 			continue
@@ -469,7 +463,7 @@ func recoverFirstToken(buf *bytes.Buffer, startTime time.Time, scanErr error) (p
 		return nil, 0, &upstreamFrameError{msg: msg}, true
 	case probeFrameNotAToken, probeFrameToken:
 	}
-	ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+	ttft := util.MillisSince(startTime)
 	debuglog.Info("proxy: TTFT probe recovered data after scanner error", "ttft_ms", ttft, "scan_error", scanErr)
 	return buf, ttft, nil, true
 }
@@ -550,8 +544,8 @@ func (h *Handler) probeFirstToken(
 		if line == "" || strings.HasPrefix(line, ":") || strings.HasPrefix(line, "event:") || strings.HasPrefix(line, "id:") || strings.HasPrefix(line, "retry:") {
 			continue
 		}
-		if strings.HasPrefix(line, "data:") {
-			content := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
+		if raw, ok := strings.CutPrefix(line, "data:"); ok {
+			content := strings.TrimSpace(raw)
 			verdict, envelopeMsg := classifyProbeFrame(content)
 			if verdict == probeFrameNotAToken {
 				// Carries nothing, so it decides nothing. The watchdog must
@@ -570,7 +564,7 @@ func (h *Handler) probeFirstToken(
 				// the race the way an error frame does: counting it as a win
 				// would cancel every healthy rival still racing and leave the
 				// caller with nothing.
-				debuglog.Warn("proxy: TTFT probe saw [DONE] before any first token", "ttft_ms", float64(time.Since(startTime).Microseconds())/1000.0)
+				debuglog.Warn("proxy: TTFT probe saw [DONE] before any first token", "ttft_ms", util.MillisSince(startTime))
 				closeProbe()
 				return nil, 0, &emptyStreamError{}
 			}
@@ -590,7 +584,7 @@ func (h *Handler) probeFirstToken(
 				return nil, 0, &upstreamFrameError{msg: msg}
 			}
 			// First real data chunk found.
-			ttft := float64(time.Since(startTime).Microseconds()) / 1000.0
+			ttft := util.MillisSince(startTime)
 			debuglog.Info("proxy: TTFT probe found first token", "ttft_ms", ttft)
 			closeProbe()
 			return &buf, ttft, nil
@@ -635,15 +629,6 @@ func failoverBackoff(base, capacity time.Duration, attempt int) time.Duration {
 	exp := min(time.Duration(float64(base)*math.Pow(2, float64(attempt-1))), capacity)
 	jitter := time.Duration(rand.Int64N(int64(base)))
 	return exp + jitter
-}
-
-// mapKeys returns the keys of a map[string]bool for logging.
-func mapKeys(m map[string]bool) []string {
-	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
-	}
-	return keys
 }
 
 // writeOpenAIError writes an OpenAI-compatible JSON error response.

@@ -115,28 +115,21 @@ func (s *WebAuthnStore) GetCredentialByID(ctx context.Context, id []byte) (*weba
 // DeleteCredential removes a credential and revokes its derived auth_token
 // sessions in one transaction, mirroring the Postgres cascade.
 func (s *WebAuthnStore) DeleteCredential(ctx context.Context, id []byte) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("frontdesk: delete credential (begin): %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-
-	if _, err := tx.ExecContext(ctx,
-		`DELETE FROM webauthn_sessions WHERE credential_id = ? AND type = 'auth_token'`, id,
-	); err != nil {
-		return fmt.Errorf("frontdesk: delete credential (revoke sessions): %w", err)
-	}
-	res, err := tx.ExecContext(ctx, `DELETE FROM webauthn_credentials WHERE id = ?`, id)
-	if err != nil {
-		return fmt.Errorf("frontdesk: delete credential: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return webauthn.ErrNotFound
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("frontdesk: delete credential (commit): %w", err)
-	}
-	return nil
+	return inTx(ctx, s.db, "frontdesk: delete credential", func(tx *sql.Tx) error {
+		if _, err := tx.ExecContext(ctx,
+			`DELETE FROM webauthn_sessions WHERE credential_id = ? AND type = 'auth_token'`, id,
+		); err != nil {
+			return fmt.Errorf("frontdesk: delete credential (revoke sessions): %w", err)
+		}
+		res, err := tx.ExecContext(ctx, `DELETE FROM webauthn_credentials WHERE id = ?`, id)
+		if err != nil {
+			return fmt.Errorf("frontdesk: delete credential: %w", err)
+		}
+		if n, _ := res.RowsAffected(); n == 0 {
+			return webauthn.ErrNotFound
+		}
+		return nil
+	})
 }
 
 // RenameCredential updates a credential's display name.
@@ -335,21 +328,12 @@ func scanSessionResult(sc scanner) (*webauthn.SessionRecord, error) {
 	s.ID = parsed
 	s.ExpiresAt = time.Unix(0, expiresAt).UTC()
 	s.CreatedAt = time.Unix(0, createdAt).UTC()
-	if lastSeenAt.Valid {
-		seen := time.Unix(0, lastSeenAt.Int64).UTC()
-		s.LastSeenAt = &seen
-	}
+	s.LastSeenAt = nullTime(lastSeenAt)
 	return &s, nil
 }
 
 func waAffected(res sql.Result, err error) error {
-	if err != nil {
-		return fmt.Errorf("frontdesk: %w", err)
-	}
-	if n, _ := res.RowsAffected(); n == 0 {
-		return webauthn.ErrNotFound
-	}
-	return nil
+	return affectedOr(res, err, webauthn.ErrNotFound)
 }
 
 // ---------------------------------------------------------------------------
@@ -582,16 +566,5 @@ func (s *TOTPStore) ConsumeRecoveryCode(ctx context.Context, codeHash string) (b
 }
 
 func (s *TOTPStore) inTx(ctx context.Context, fn func(*sql.Tx) error) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("totp: begin tx: %w", err)
-	}
-	defer func() { _ = tx.Rollback() }()
-	if err := fn(tx); err != nil {
-		return err
-	}
-	if err := tx.Commit(); err != nil {
-		return fmt.Errorf("totp: commit tx: %w", err)
-	}
-	return nil
+	return inTx(ctx, s.db, "totp: tx", fn)
 }

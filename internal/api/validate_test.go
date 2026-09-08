@@ -452,38 +452,6 @@ func TestValidatePrintable_UnicodeAllowed(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// trimString
-// ---------------------------------------------------------------------------
-
-func TestTrimString_Spaces(t *testing.T) {
-	result := trimString("  hello  ")
-	if result != "hello" {
-		t.Errorf("expected %q, got %q", "hello", result)
-	}
-}
-
-func TestTrimString_NoSpaces(t *testing.T) {
-	result := trimString("hello")
-	if result != "hello" {
-		t.Errorf("expected %q, got %q", "hello", result)
-	}
-}
-
-func TestTrimString_EmptyString(t *testing.T) {
-	result := trimString("")
-	if result != "" {
-		t.Errorf("expected empty string, got %q", result)
-	}
-}
-
-func TestTrimString_OnlySpaces(t *testing.T) {
-	result := trimString("   ")
-	if result != "" {
-		t.Errorf("expected empty string for whitespace-only input, got %q", result)
-	}
-}
-
-// ---------------------------------------------------------------------------
 // validateClearableNamePtr
 // ---------------------------------------------------------------------------
 

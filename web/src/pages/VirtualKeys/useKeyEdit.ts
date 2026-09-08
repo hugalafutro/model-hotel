@@ -1,9 +1,10 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
 import { useIdentity } from "../../context/IdentityContext";
+import { allowedProvidersOf, useProviderCap } from "./useProviderCap";
 
 /**
  * Edit-mode state, the owner-cap derivation and the two mutations behind
@@ -20,81 +21,58 @@ export function useKeyEdit({
 }) {
 	const queryClient = useQueryClient();
 	const { t } = useTranslation();
-	const { isAdmin, me } = useIdentity();
-	const [editing, setEditing] = useState(false);
-	const [editName, setEditName] = useState(vk.name);
-	const [editOwnerId, setEditOwnerId] = useState(vk.owner_user_id ?? "");
-	const [editRps, setEditRps] = useState(vk.rate_limit_rps?.toString() ?? "");
-	const [editBurst, setEditBurst] = useState(
-		vk.rate_limit_burst?.toString() ?? "",
-	);
-	const [editTpm, setEditTpm] = useState(vk.rate_limit_tpm?.toString() ?? "");
-	const [excludedProviders, setExcludedProviders] = useState<string[]>([]);
-	const [originalExcluded, setOriginalExcluded] = useState<string[]>([]);
-	const [providerError, setProviderError] = useState("");
-	const [editStripReasoning, setEditStripReasoning] = useState(
-		vk.strip_reasoning,
-	);
-
-	const { data: providers } = useQuery({
-		queryKey: ["providers"],
-		queryFn: () => api.providers.list(),
-	});
-
-	// Roster for the owner select; admin-only, like the assignment itself.
-	const { data: users } = useQuery({
-		queryKey: ["users"],
-		queryFn: () => api.users.list(),
-		enabled: isAdmin,
-	});
-
-	const sortedProviders = (providers ?? [])
-		.slice()
-		.sort((a, b) => a.name.localeCompare(b.name));
-
-	// A virtual key can never name a provider outside its OWNER's account cap:
-	// the API resolves the write against that cap and the proxy intersects it
-	// again per request. Mirroring it here only saves the user a round trip into
-	// a rejection; it decides nothing.
-	const ownerAccount = editOwnerId
-		? (users ?? []).find((u) => u.id === editOwnerId)
-		: undefined;
-	const ownerCap = ownerAccount?.allowed_providers ?? null;
-	// Non-admins cannot reassign a key (the server writes it to them whatever the
-	// body says), so their own account cap is the one that will apply.
-	const cap = ownerCap ?? (isAdmin ? null : (me?.allowed_providers ?? null));
-	const capIsOtherOwner =
-		ownerCap !== null && ownerAccount?.username !== me?.username;
-	const capNoteId = "vk-detail-provider-cap-note";
-	const capNote = capIsOtherOwner
-		? t("virtualkeys.modal.form.providerOutsideOwnerAccess")
-		: t("virtualkeys.modal.form.providerOutsideAccountAccess");
-	const isOutsideCap = (id: string) => cap !== null && !cap.includes(id);
-	const outsideCapIds = sortedProviders
-		.map((p) => p.id)
-		.filter((id) => isOutsideCap(id));
-	// An out-of-cap provider is always excluded, on top of whatever the user
-	// picked. This is derived rather than seeded into excludedProviders so that
-	// providersChanged keeps tracking user intent alone (an untouched picker
-	// stays untouched) and so a cap that resolves after edit mode opened still
-	// applies.
-	const effectiveExcluded =
-		outsideCapIds.length > 0
-			? Array.from(new Set([...excludedProviders, ...outsideCapIds]))
-			: excludedProviders;
-
-	const toggleProvider = (providerId: string) => {
-		// Out-of-cap chips stay focusable (aria-disabled, not disabled) so their
-		// explanation is reachable, so the choke point on activating them is here.
-		if (isOutsideCap(providerId)) return;
-		setExcludedProviders((prev) =>
-			prev.includes(providerId)
-				? prev.filter((id) => id !== providerId)
-				: [...prev, providerId],
-		);
+	const { isAdmin } = useIdentity();
+	// The stored key as the form spells it: one place the number-to-text and
+	// null-to-empty conversions live, for the initial values, the reset and the
+	// changed check.
+	const stored = {
+		name: vk.name,
+		ownerId: vk.owner_user_id ?? "",
+		rps: vk.rate_limit_rps?.toString() ?? "",
+		burst: vk.rate_limit_burst?.toString() ?? "",
+		tpm: vk.rate_limit_tpm?.toString() ?? "",
+		stripReasoning: vk.strip_reasoning,
 	};
 
-	const resetProviders = () => setExcludedProviders([]);
+	const [editing, setEditing] = useState(false);
+	const [editName, setEditName] = useState(stored.name);
+	const [editOwnerId, setEditOwnerId] = useState(stored.ownerId);
+	const [editRps, setEditRps] = useState(stored.rps);
+	const [editBurst, setEditBurst] = useState(stored.burst);
+	const [editTpm, setEditTpm] = useState(stored.tpm);
+	const [providerError, setProviderError] = useState("");
+	const [editStripReasoning, setEditStripReasoning] = useState(
+		stored.stripReasoning,
+	);
+	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
+
+	const cap = useProviderCap({
+		ownerId: editOwnerId,
+		capNoteId: "vk-detail-provider-cap-note",
+	});
+	const {
+		providers,
+		users,
+		sortedProviders,
+		excludedProviders,
+		setExcludedProviders,
+		effectiveExcluded,
+		resetProviders,
+	} = cap;
+
+	// The key's stored restriction expressed as picker exclusions: every loaded
+	// provider the key does not allow. A snapshot taken when edit mode opens,
+	// not a derivation: `providersChanged` compares the picker against what the
+	// user started from, so a providers refetch mid-edit must not move the
+	// baseline, and outside edit mode there is nothing to compare against.
+	const [originalExcluded, setOriginalExcluded] = useState<string[]>([]);
+
+	/** The exclusions that express the key's stored restriction right now. */
+	const excludedFromStored = () => {
+		if (!vk.allowed_providers || !providers) return [];
+		const allowed = vk.allowed_providers;
+		return providers.map((p) => p.id).filter((id) => !allowed.includes(id));
+	};
 
 	const deleteMutation = useMutation({
 		mutationFn: () => api.virtualKeys.delete(vk.id),
@@ -173,12 +151,8 @@ export function useKeyEdit({
 		// field.
 		let allowedProviders: string[] | null | undefined;
 		if (providersChanged || ownerChanged) {
-			const allProviderIds = sortedProviders.map((p) => p.id);
-			allowedProviders =
-				effectiveExcluded.length > 0
-					? allProviderIds.filter((id) => !effectiveExcluded.includes(id))
-					: // User removed all exclusions → send null (no restriction)
-						null;
+			// No exclusions left means no restriction, which the API reads as null.
+			allowedProviders = allowedProvidersOf(sortedProviders, effectiveExcluded);
 			if (allowedProviders && allowedProviders.length === 0) {
 				setProviderError(t("virtualKeys.create.providerRequired"));
 				return;
@@ -201,50 +175,40 @@ export function useKeyEdit({
 		});
 	};
 
+	// The form fields as the stored key has them.
+	const resetFields = () => {
+		setEditName(stored.name);
+		setEditOwnerId(stored.ownerId);
+		setEditRps(stored.rps);
+		setEditBurst(stored.burst);
+		setEditTpm(stored.tpm);
+		setEditStripReasoning(stored.stripReasoning);
+	};
+
 	const handleCancelEdit = () => {
-		setEditName(vk.name);
-		setEditOwnerId(vk.owner_user_id ?? "");
-		setEditRps(vk.rate_limit_rps?.toString() ?? "");
-		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
-		setEditTpm(vk.rate_limit_tpm?.toString() ?? "");
+		resetFields();
 		setExcludedProviders([]);
 		setOriginalExcluded([]);
-		setEditStripReasoning(vk.strip_reasoning);
 		setEditing(false);
 	};
 
 	const startEditing = () => {
-		setEditName(vk.name);
-		setEditOwnerId(vk.owner_user_id ?? "");
-		setEditRps(vk.rate_limit_rps?.toString() ?? "");
-		setEditBurst(vk.rate_limit_burst?.toString() ?? "");
-		setEditTpm(vk.rate_limit_tpm?.toString() ?? "");
-		setEditStripReasoning(vk.strip_reasoning);
+		resetFields();
 		setProviderError("");
-		// Compute excluded providers from the VK's allowed_providers.
-		// If the key has restrictions but providers haven't loaded yet,
-		// we must not proceed — that would silently clear restrictions.
+		// The key's stored restriction, as picker exclusions: refuse to enter edit
+		// mode until the providers have loaded, since seeding an empty exclusion
+		// set would paint every provider as allowed and the first chip touched
+		// would widen the key.
 		//
 		// The test is the LIST'S PRESENCE, not its length. An EMPTY list is a
 		// restriction (deny everything), and it is an ordinary state: deleting the
-		// last provider a key was scoped to prunes the stored list to `{}`. Length-
-		// gating it let a deny-all key fall to the else-branch below, which clears
-		// excludedProviders and paints every provider as allowed, so the first chip
-		// touched would widen the key.
+		// last provider a key was scoped to prunes the stored list to `{}`.
 		if (vk.allowed_providers && !providers) {
 			return;
 		}
-		if (vk.allowed_providers && providers) {
-			const allIds = providers.map((p) => p.id);
-			const excluded = allIds.filter(
-				(id) => !vk.allowed_providers?.includes(id),
-			);
-			setExcludedProviders(excluded);
-			setOriginalExcluded(excluded);
-		} else {
-			setExcludedProviders([]);
-			setOriginalExcluded([]);
-		}
+		const excluded = excludedFromStored();
+		setExcludedProviders(excluded);
+		setOriginalExcluded(excluded);
 		setEditing(true);
 	};
 
@@ -255,20 +219,31 @@ export function useKeyEdit({
 	// Moving a key to a different account re-opens the provider question even
 	// when the picker was not touched, because the cap that binds the write
 	// changes with it. handleSave uses this to stay in step with the server.
-	const ownerChanged = editOwnerId !== (vk.owner_user_id ?? "");
+	const ownerChanged = editOwnerId !== stored.ownerId;
 
-	const hasChanges =
-		editName !== vk.name ||
-		ownerChanged ||
-		editRps !== (vk.rate_limit_rps?.toString() ?? "") ||
-		editBurst !== (vk.rate_limit_burst?.toString() ?? "") ||
-		editTpm !== (vk.rate_limit_tpm?.toString() ?? "") ||
-		providersChanged ||
-		editStripReasoning !== vk.strip_reasoning;
+	/** The edited fields, named for the unsaved-changes dialog. */
+	const changedFields = (): string[] => {
+		const fields: [boolean, string][] = [
+			[editName !== stored.name, "virtualkeys.modal.form.name"],
+			[ownerChanged, "virtualkeys.modal.labels.owner"],
+			[editRps !== stored.rps, "virtualkeys.modal.form.rateLimitRps"],
+			[editBurst !== stored.burst, "virtualkeys.modal.form.rateLimitBurst"],
+			[editTpm !== stored.tpm, "virtualkeys.modal.form.rateLimitTpm"],
+			[providersChanged, "virtualkeys.modal.sections.providerAccess"],
+			[
+				editStripReasoning !== stored.stripReasoning,
+				"virtualkeys.modal.form.stripReasoning",
+			],
+		];
+		return fields.filter(([changed]) => changed).map(([, key]) => t(key));
+	};
+
+	const hasChanges = changedFields().length > 0;
 
 	const handleClose = () => {
 		if (editing && hasChanges) {
-			if (!window.confirm(t("virtualkeys.modal.discardChanges"))) return;
+			setConfirmFields(changedFields());
+			return;
 		}
 		onClose();
 	};
@@ -285,18 +260,12 @@ export function useKeyEdit({
 		setEditBurst,
 		editTpm,
 		setEditTpm,
-		excludedProviders,
 		providerError,
+		confirmFields,
+		setConfirmFields,
 		editStripReasoning,
 		setEditStripReasoning,
-		sortedProviders,
-		capIsOtherOwner,
-		capNoteId,
-		capNote,
-		isOutsideCap,
-		outsideCapIds,
-		effectiveExcluded,
-		toggleProvider,
+		cap,
 		resetProviders,
 		deleteMutation,
 		updateMutation,

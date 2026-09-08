@@ -337,7 +337,15 @@
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o využívaní. Rozpis využívania sa tu zobrazí, akonáhle začne prúdiť prevádzka.",
 			"viewDetailsFor": "Zobraziť podrobnosti o {{label}}",
 			"deletedModelTooltip": "Tento model už nie je k dispozícii – mohol byť vyradený alebo bol zrušený jeho dodávateľ",
-			"reservedKeyTooltip": "Interné vyhradené meno, nie kľúč, ktorý ste vytvorili – toto použitie pochádza z vlastných smerov „{{name}}“ služby Model Hotel."
+			"reservedKeyTooltip": "Interné vyhradené meno, nie kľúč, ktorý ste vytvorili – toto použitie pochádza z vlastných smerov „{{name}}“ služby Model Hotel.",
+			"tokens_one": "token",
+			"tokens_few": "tokeny",
+			"tokens_many": "tokeny",
+			"tokens_other": "tokeny",
+			"requests_one": "žiadosť",
+			"requests_few": "žiadosti",
+			"requests_many": "žiadosti",
+			"requests_other": "žiadosti"
 		},
 		"providerLatency": {
 			"title": "Latencia poskytovateľov",
@@ -361,10 +369,14 @@
 			"distributionChart": "Graf rozdelenia poskytovateľov",
 			"emptyState": "Zatiaľ nie sú k dispozícii žiadne údaje o poskytovateľoch. Rozpis podľa poskytovateľov sa tu zobrazí, akonáhle začne prúdiť prevádzka.",
 			"chartAriaLabel": "Graf rozdelenia poskytovateľov",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokeny",
-			"requestUnit": "Žiadosť",
-			"requestsUnit": "Žiadosti"
+			"tokens_one": "Token",
+			"tokens_few": "Tokeny",
+			"tokens_many": "Tokeny",
+			"tokens_other": "Tokeny",
+			"requests_one": "Žiadosť",
+			"requests_few": "Žiadosti",
+			"requests_many": "Žiadosti",
+			"requests_other": "Žiadosti"
 		},
 		"models": {
 			"viewDetails": "Zobraziť podrobnosti o {{label}}",
@@ -611,7 +623,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modely sa generujú – kliknutím na „Zastaviť všetko“ môžete proces zrušiť",
-			"voteToContinue": "Hlasujte vo všetkých dvojiciach, aby ste postúpili do ďalšieho kola",
 			"nextRoundReady": "Keď budete pripravení, začnite ďalšie kolo"
 		},
 		"responses": {
@@ -666,13 +677,6 @@
 			"close": "Zatvoriť"
 		},
 		"params": {
-			"temperature": "Teplota",
-			"maxTokens": "Max. tokenov",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Frekv. penalizácia",
-			"presPenalty": "Penal. prítomnosti",
 			"resetAll": "Vynulovať všetko",
 			"done": "Hotovo"
 		},
@@ -868,7 +872,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Nezostali žiadni aktivovaní poskytovatelia",
-				"onlyOne": "Zostáva len jeden povolený poskytovateľ (pre failover sú potrební aspoň dvaja)"
+				"onlyOne": "Zostáva len jeden povolený poskytovateľ (pre failover sú potrební aspoň dvaja)",
+				"noValidProviders": "Po vyčistení nezostal žiadny platný poskytovateľ",
+				"onlyOneValid": "Po vyčistení zostal len jeden platný poskytovateľ (prepnutie pri zlyhaní vyžaduje aspoň dvoch)"
 			},
 			"error": "Chyba",
 			"failover": "Skupiny prechodu na záložný systém",
@@ -1129,7 +1135,17 @@
 		"scope_all": "Všetci poskytovatelia",
 		"badge_parked": "{{count}} odstavených",
 		"status_parked": "Odstavený",
-		"status_parked_hint": "Poskytovateľ je zakázaný; tento model zostáva v zozname, ale neobsluhuje sa, kým poskytovateľ nebude znova povolený."
+		"status_parked_hint": "Poskytovateľ je zakázaný; tento model zostáva v zozname, ale neobsluhuje sa, kým poskytovateľ nebude znova povolený.",
+		"capPills": {
+			"vision": "Videnie",
+			"reasoning": "Uvažovanie",
+			"tool_calling": "Nástroje",
+			"structured_output": "Štruktúrovane",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Zvuk",
+			"parallel_tool_calls": "Paralelne"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Vrátiť sa k zistenej hodnote",
@@ -1353,7 +1369,6 @@
 				"owner": "Vlastník"
 			},
 			"noProvidersConfigured": "Nie sú nakonfigurovaní žiadni poskytovatelia.",
-			"discardChanges": "Zrušiť neuložené zmeny?",
 			"loadingProviders": "Načítavanie poskytovateľov...",
 			"stripReasoningDescriptionText": "Ak je táto funkcia zapnutá, tokeny úvah/myslenia sa odstránia z prúdu odpovedí pre klientov, ktorí ich nedokážu spracovať.",
 			"providerInstructionsText": "Kliknutím na poskytovateľa obmedzíte prístup. Všetci sú štandardne dostupní.",
@@ -1494,6 +1509,11 @@
 			"search": "Filtrovať protokoly…",
 			"allLevels": "Všetky úrovne",
 			"allSources": "Všetky zdroje"
+		},
+		"level": {
+			"info": "Informácia",
+			"warning": "Varovanie",
+			"error": "Chyba"
 		},
 		"table": {
 			"timeDate": "Čas/Dátum",
@@ -1957,8 +1977,8 @@
 				"confirmEnableTitle": "Chcete povoliť pravidelné zálohovanie?",
 				"confirmEnableDescription": "Povolenie pravidelného zálohovania odstráni existujúce zálohy, ktoré sú mimo rotačného okna syn/otec/dedo.",
 				"confirmEnableWouldRemove": "Týchto {{count}} záloh je mimo rotačného okna a budú natrvalo odstránené:",
-				"prunePreviewFailed": "Nepodarilo sa zobraziť náhľad na redukciu zálohy",
-				"pruneFailed": "Nepodarilo sa odstrániť staré zálohy",
+				"prunePreviewFailed": "Nepodarilo sa zobraziť náhľad na redukciu zálohy: {{message}}",
+				"pruneFailed": "Nepodarilo sa odstrániť staré zálohy: {{message}}",
 				"pruneSuccess": "Pravidelné zálohovanie povolené. Odstránených {{count}} starých záloh."
 			},
 			"availableBackupsTitle": "Dostupné zálohy",
@@ -2274,7 +2294,7 @@
 				"done": "Upozornenia sú zapnuté.",
 				"sendAll": "Poslať test na všetko",
 				"sentAll": "Test odoslaný na všetky ciele",
-				"apiChangedDrops": "Zmena adresy odstráni ciele pridané v tomto priechode; testovali sa proti tej starej.",
+				"apiChangedDrops": "Overenie inej adresy odstráni ciele pridané v tomto priechode; testovali sa proti tej starej.",
 				"savedNote_one": "{{count}} už uložený cieľ zostáva bez zmeny.",
 				"savedNote_few": "{{count}} už uložené ciele zostávajú bez zmeny.",
 				"savedNote_many": "{{count}} už uloženého cieľa zostáva bez zmeny.",
@@ -2496,16 +2516,10 @@
 			"filter": "Filtrovanie…",
 			"clearFilter": "Vymazať filter"
 		},
-		"copyButton": {
-			"copy": "Kopírovať",
-			"copiedToClipboard": "Skopírované do schránky",
-			"failedToCopy": "Kopírovanie sa nepodarilo"
-		},
 		"copyablePill": {
 			"copy": "Kopírovať",
 			"copyToClipboard": "Kopírovať do schránky",
-			"copied": "Kopírované!",
-			"failedToCopy": "Kopírovanie sa nepodarilo"
+			"copied": "Kopírované!"
 		},
 		"collapsibleToggle": {
 			"expand": "Rozbaliť",
@@ -2832,11 +2846,6 @@
 			"compare": "Porovnať",
 			"noMatchHistory": "Zatiaľ žiadna história zápasov",
 			"completedSessionsHere": "Tu sa zobrazia dokončené arény a porovnávacie relácie",
-			"match": "Zápas",
-			"final": "Finále",
-			"semifinals": "Semifinále",
-			"quarterfinals": "Štvrťfinále",
-			"round": "Kolo {{number}}",
 			"winner": "Víťaz: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Chyba: {{message}}",
@@ -2948,35 +2957,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Nenašli sa žiadne záznamy",
-			"entries": "záznamy",
-			"loadingNewer": "Načítavajú sa novšie…",
-			"loadingOlder": "Načítavanie starších stránok…",
-			"timeDate": "Čas/Dátum",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Poskytovateľ",
-			"providerDeleted": "Poskytovateľ bol odstránený",
-			"status": "Stav",
-			"tokens": "Tokeny",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Hlavičky",
-			"ttft": "TTFT",
-			"duration": "Trvanie",
-			"overhead": "Réžia",
-			"key": "Kľúč",
-			"interrupted": "Prerušené",
-			"internal": "interný",
-			"cacheInflated": "Navýšené zásahmi do cache výziev",
-			"deleted": "Odstránené",
-			"zeroEntries": "0 záznamov",
-			"ip": "IP"
+			"zeroEntries": "0 záznamov"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nenašli sa žiadne záznamy v protokole",
-			"entries": "záznamy",
-			"loadingNewer": "Načítavajú sa novšie…",
-			"loadingOlder": "Načítavanie starších stránok…",
 			"timeDate": "Čas/Dátum",
 			"level": "Úroveň",
 			"source": "Zdroj",
@@ -3193,7 +3177,8 @@
 		},
 		"useDisableModel": {
 			"success": "Model „{{model}}“ je deaktivovaný",
-			"error": "Nepodarilo sa deaktivovať model: {{error}}"
+			"error": "Nepodarilo sa deaktivovať model: {{error}}",
+			"notFound": "Model \"{{model}}\" sa nenašiel medzi povolenými modelmi"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Nepodarilo sa načítať počiatočné údaje",

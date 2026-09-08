@@ -3,7 +3,6 @@ package anthropic
 import (
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
@@ -43,27 +42,8 @@ type oaiRespMessage struct {
 // message "content": a JSON string (the norm), an array of {type,text} content
 // parts (some providers), or null/absent (-> ""). Non-text parts are ignored.
 func decodeRespContent(raw json.RawMessage) string {
-	if len(raw) == 0 {
-		return ""
-	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s
-	}
-	var parts []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
-	}
-	if json.Unmarshal(raw, &parts) == nil {
-		var b strings.Builder
-		for _, p := range parts {
-			if p.Type == "" || p.Type == "text" {
-				b.WriteString(p.Text)
-			}
-		}
-		return b.String()
-	}
-	return ""
+	s, _ := egress.FlattenText(raw)
+	return s
 }
 
 type oaiRespToolCall struct {
@@ -127,22 +107,21 @@ func BuildMessageResponse(body []byte, messageID, model string) ([]byte, error) 
 			})
 		}
 		for i, tc := range choice.Message.ToolCalls {
-			input := json.RawMessage(tc.Function.Arguments)
-			if len(input) == 0 || !json.Valid(input) {
-				input = json.RawMessage("{}")
-			}
 			id := tc.ID
 			if id == "" {
 				// Anthropic requires a tool_use id; synthesize a stable one,
 				// or a signed empty id passes the wire and comes back as an
 				// empty call id.
-				id = fmt.Sprintf("toolu_%s_%d", messageID, i)
+				id = syntheticToolUseID(messageID, i)
 			}
 			msg.Content = append(msg.Content, contentBlock{
-				Type:  "tool_use",
-				ID:    signedToolUseID(id, egress.ThoughtSignatureIn(tc.ExtraContent)),
-				Name:  tc.Function.Name,
-				Input: input,
+				Type: "tool_use",
+				ID:   signedToolUseID(id, egress.ThoughtSignatureIn(tc.ExtraContent)),
+				Name: tc.Function.Name,
+				// Anthropic types tool_use.input as an object, so anything
+				// else becomes an empty one rather than a block its SDKs
+				// reject on decode.
+				Input: util.ToolArgumentsObject(tc.Function.Arguments),
 			})
 		}
 	}

@@ -1,5 +1,13 @@
 import { createContext, type ReactNode, useContext } from "react";
-import { useLocalStorage } from "../hooks/useLocalStorage";
+import { storedBool, useLocalStorage } from "../hooks/useLocalStorage";
+import {
+	ARENA_HISTORY_ENABLED_KEY,
+	ARENA_HISTORY_KEY,
+	ARENA_HISTORY_LIMIT_KEY,
+	ARENA_STORAGE_KEYS,
+	DEFAULT_ARENA_HISTORY_LIMIT,
+	parseArenaHistoryLimit,
+} from "../utils/arenaHistory";
 
 interface StorageContextType {
 	persistChat: boolean;
@@ -36,31 +44,25 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	const [persistChat, setPersistChatRaw] = useLocalStorage<boolean>(
 		"persistChat",
 		false,
-		{ deserialize: (v) => v === "true" },
+		{ deserialize: storedBool },
 	);
 	const [persistArena, setPersistArenaRaw] = useLocalStorage<boolean>(
 		"persistArena",
 		false,
-		{ deserialize: (v) => v === "true" },
+		{ deserialize: storedBool },
 	);
 	const [persistConversation, setPersistConversationRaw] =
 		useLocalStorage<boolean>("persistConversation", false, {
-			deserialize: (v) => v === "true",
+			deserialize: storedBool,
 		});
 	const [arenaHistoryEnabled, setArenaHistoryEnabledRaw] =
-		useLocalStorage<boolean>("arenaHistoryEnabled", false, {
-			deserialize: (v) => v === "true",
+		useLocalStorage<boolean>(ARENA_HISTORY_ENABLED_KEY, false, {
+			deserialize: storedBool,
 		});
-	const [arenaHistoryLimit, setArenaHistoryLimitRaw] = useLocalStorage<number>(
-		"arenaHistoryLimit",
-		25,
-		{
-			serialize: String,
-			deserialize: (v) => {
-				const parsed = parseInt(v, 10);
-				return !Number.isNaN(parsed) && parsed > 0 ? parsed : 25;
-			},
-		},
+	const [arenaHistoryLimit, setArenaHistoryLimit] = useLocalStorage<number>(
+		ARENA_HISTORY_LIMIT_KEY,
+		DEFAULT_ARENA_HISTORY_LIMIT,
+		{ serialize: String, deserialize: parseArenaHistoryLimit },
 	);
 
 	const setPersistChat = (v: boolean) => {
@@ -75,31 +77,29 @@ export function StorageProvider({ children }: { children: ReactNode }) {
 	const setPersistArena = (v: boolean) => {
 		setPersistArenaRaw(v);
 		if (!v) {
-			localStorage.removeItem("arenaCompetitionPrompt");
-			localStorage.removeItem("arenaComparePrompt");
-			localStorage.removeItem("arenaCompetitionActivePromptId");
-			localStorage.removeItem("arenaCompareActivePromptId");
-			localStorage.removeItem("arenaState");
+			for (const key of ARENA_STORAGE_KEYS) localStorage.removeItem(key);
 		}
 	};
 
 	const setPersistConversation = (v: boolean) => {
 		setPersistConversationRaw(v);
 		if (!v) {
+			// The same content the chat branch drops, for the two-model mode: the
+			// transcript and the prompts driving it. The model picks are settings,
+			// not content, so they stay.
 			localStorage.removeItem("conversationMessages");
-			localStorage.removeItem("conversationState");
+			localStorage.removeItem("conversationSystemPromptA");
+			localStorage.removeItem("conversationSystemPromptB");
+			localStorage.removeItem("conversationActivePersonaIdA");
+			localStorage.removeItem("conversationActivePersonaIdB");
 		}
 	};
 
 	const setArenaHistoryEnabled = (v: boolean) => {
 		setArenaHistoryEnabledRaw(v);
 		if (!v) {
-			localStorage.removeItem("arenaMatchHistory");
+			localStorage.removeItem(ARENA_HISTORY_KEY);
 		}
-	};
-
-	const setArenaHistoryLimit = (n: number) => {
-		setArenaHistoryLimitRaw(n);
 	};
 
 	return (

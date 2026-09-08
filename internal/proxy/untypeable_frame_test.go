@@ -302,7 +302,7 @@ func TestCaptureSSEError_AnthropicErrorEventShapes(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			capture := captureProxyLogs(t)
 			st := &streamState{lastAnthropicEvent: "error"}
-			counted := st.captureSSEError(tc.payload, &st.lastAnthropicEvent, 1, &requestLogData{modelID: "m", providerName: "p"})
+			counted := st.captureSSEError(tc.payload, 1, &requestLogData{modelID: "m", providerName: "p"})
 
 			if counted != tc.isError {
 				t.Errorf("counted an Anthropic error = %v, want %v", counted, tc.isError)

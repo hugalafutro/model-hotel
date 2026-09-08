@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatDurationCell, isCancelled, liveDurationMs } from "../logHelpers";
+import {
+	formatDurationCell,
+	formatMs,
+	formatTPS,
+	isCancelled,
+	liveDurationMs,
+} from "../logHelpers";
 
 describe("liveDurationMs", () => {
 	it("returns the gap between created_at and now", () => {
@@ -38,37 +44,45 @@ describe("isCancelled", () => {
 		expect(isCancelled()).toBe(false);
 	});
 
-	it("returns false for empty string", () => {
-		expect(isCancelled("")).toBe(false);
+	it("returns false for an empty message", () => {
+		expect(isCancelled({ error_message: "" })).toBe(false);
 	});
 
-	it("returns false for unrelated error message", () => {
-		expect(isCancelled("500 Internal Server Error")).toBe(false);
+	it("returns false for an unrelated error message", () => {
+		expect(isCancelled({ error_message: "500 Internal Server Error" })).toBe(
+			false,
+		);
 	});
 
 	it("returns true for message containing cancel", () => {
-		expect(isCancelled("context canceled")).toBe(true);
+		expect(isCancelled({ error_message: "context canceled" })).toBe(true);
 	});
 
 	it("returns true for message containing disconnect", () => {
-		expect(isCancelled("client disconnected")).toBe(true);
+		expect(isCancelled({ error_message: "client disconnected" })).toBe(true);
 	});
 
 	it("returns true for upstream request timed out", () => {
-		expect(isCancelled("upstream request timed out")).toBe(true);
+		expect(isCancelled({ error_message: "upstream request timed out" })).toBe(
+			true,
+		);
 	});
 
 	it("returns true for param-strip retry timed out", () => {
-		expect(isCancelled("param-strip retry timed out")).toBe(true);
+		expect(isCancelled({ error_message: "param-strip retry timed out" })).toBe(
+			true,
+		);
 	});
 
 	it("is case-insensitive", () => {
-		expect(isCancelled("Context CANCELED")).toBe(true);
-		expect(isCancelled("DISCONNECTED")).toBe(true);
+		expect(isCancelled({ error_message: "Context CANCELED" })).toBe(true);
+		expect(isCancelled({ error_message: "DISCONNECTED" })).toBe(true);
 	});
 
 	it("returns true when keyword is part of longer message", () => {
-		expect(isCancelled("the request was cancelled by the user")).toBe(true);
+		expect(
+			isCancelled({ error_message: "the request was cancelled by the user" }),
+		).toBe(true);
 	});
 
 	describe("error_kind (object form)", () => {
@@ -101,5 +115,64 @@ describe("isCancelled", () => {
 			expect(isCancelled({ error_message: "500 server error" })).toBe(false);
 			expect(isCancelled({})).toBe(false);
 		});
+	});
+});
+
+describe("formatTPS", () => {
+	it("returns '-' for null", () => {
+		expect(formatTPS(null)).toBe("-");
+	});
+
+	it("returns '-' for zero", () => {
+		expect(formatTPS(0)).toBe("-");
+	});
+
+	it("formats 45.5 as '45.5'", () => {
+		expect(formatTPS(45.5)).toBe("45.5");
+	});
+
+	it("formats 1000.123 as '1000.1' (1 decimal)", () => {
+		expect(formatTPS(1000.123)).toBe("1000.1");
+	});
+
+	it("returns '-' for undefined", () => {
+		expect(formatTPS(undefined as unknown as null)).toBe("-");
+	});
+});
+
+describe("formatMs", () => {
+	it("returns '-' for null", () => {
+		expect(formatMs(null)).toBe("-");
+	});
+
+	it("returns '-' for undefined", () => {
+		expect(formatMs(undefined)).toBe("-");
+	});
+
+	it("returns '-' for zero", () => {
+		expect(formatMs(0)).toBe("-");
+	});
+
+	it("formats number with 2 decimals by default", () => {
+		expect(formatMs(100)).toBe("100.00ms");
+		expect(formatMs(100.5)).toBe("100.50ms");
+		expect(formatMs(100.123)).toBe("100.12ms");
+	});
+
+	it("respects custom decimals parameter", () => {
+		expect(formatMs(100, 0)).toBe("100ms");
+		expect(formatMs(100, 1)).toBe("100.0ms");
+		expect(formatMs(100, 3)).toBe("100.000ms");
+		expect(formatMs(100.1234, 3)).toBe("100.123ms");
+	});
+
+	it("handles small values", () => {
+		expect(formatMs(0.5)).toBe("0.50ms");
+		expect(formatMs(0.001)).toBe("0.00ms");
+	});
+
+	it("handles large values", () => {
+		expect(formatMs(1000)).toBe("1000.00ms");
+		expect(formatMs(10000.5)).toBe("10000.50ms");
 	});
 });

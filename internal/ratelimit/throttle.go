@@ -1,11 +1,16 @@
 package ratelimit
 
 import (
+	"net/http"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	"golang.org/x/time/rate"
+
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 // throttleState is the shared edge-triggered throttle bookkeeping used by both
@@ -108,4 +113,66 @@ func logThrottlingEnded(c throttleLogCtx, reason string, dur time.Duration, reje
 		"reason", reason,
 		"duration", dur.Round(time.Millisecond).String(),
 		"rejected_requests", rejected)
+}
+
+// bucketEntry is one identity's token bucket plus the edge-triggered throttle
+// state its log lines are driven from. The per-key and per-IP limiters share it;
+// prefix, label and budget are what tell their log lines apart.
+type bucketEntry struct {
+	limiter  *rate.Limiter
+	rps      float64
+	burst    int
+	lastUsed time.Time
+	throttle throttleState
+	prefix   string // message prefix, e.g. "ratelimit-ip"
+	label    string // identity label, e.g. "ip"
+	budget   string // named budget, set only where a deployment runs several limiters
+}
+
+func (e *bucketEntry) throttleCtx(id string) throttleLogCtx {
+	return throttleLogCtx{prefix: e.prefix, label: e.label, id: id, budget: e.budget, rps: e.rps, burst: e.burst}
+}
+
+func (e *bucketEntry) noteRejected(id string) { e.throttle.noteRejected(e.throttleCtx(id)) }
+
+func (e *bucketEntry) noteAllowed(id string) { e.throttle.noteAllowed(e.throttleCtx(id)) }
+
+// bucketRate normalises a configured rate. rps <= 0 means "no cap", expressed
+// as a rate high enough never to block so the request path needs no special
+// case for it.
+func bucketRate(rps float64, burst int) (float64, int) {
+	if rps <= 0 {
+		return 1e6, 1e6
+	}
+	return rps, burst
+}
+
+// runCleanup drives a limiter's idle-entry sweep until its stop channel closes.
+func runCleanup(stopCh <-chan struct{}, sweep func()) {
+	ticker := time.NewTicker(5 * time.Minute)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stopCh:
+			return
+		case <-ticker.C:
+			sweep()
+		}
+	}
+}
+
+// writeRateLimitHeaders adds the standard rate-limit response headers. A
+// non-empty scope names the stage that rejected the request. Retry-After is the
+// wait rounded up rather than truncated-plus-one, so a compliant client retries
+// at the bucket boundary instead of a second past it.
+func writeRateLimitHeaders(w http.ResponseWriter, lim *rate.Limiter, retryAfter time.Duration, scope string) {
+	w.Header().Set("X-RateLimit-Limit", strconv.FormatFloat(float64(lim.Limit()), 'f', -1, 64))
+	w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(int64(lim.Tokens()), 10))
+	w.Header().Set("X-RateLimit-Burst", strconv.Itoa(lim.Burst()))
+	if scope != "" {
+		w.Header().Set("X-RateLimit-Scope", scope)
+	}
+	if retryAfter > 0 {
+		httpx.SetRetryAfter(w, retryAfter)
+	}
 }

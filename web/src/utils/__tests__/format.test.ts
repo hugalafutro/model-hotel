@@ -4,8 +4,10 @@ import {
 	countLabel,
 	dropTrailingZero,
 	encodeCursor,
+	formatBytes,
 	formatCompact,
 	formatDate,
+	formatDateOnly,
 	formatDollars,
 	formatDuration,
 	formatKwh,
@@ -17,6 +19,7 @@ import {
 	formatTimeUntil,
 	formatTokens,
 	formatWithCommas,
+	tokensPerSecond,
 } from "../format";
 
 describe("formatDuration", () => {
@@ -472,5 +475,44 @@ describe("formatTimeUntil", () => {
 
 		const twoDaysOneHour = Date.now() + (2 * 24 + 1) * 1000 * 60 * 60;
 		expect(formatTimeUntil(twoDaysOneHour)).toBe("in 2\u00a0days, 1\u00a0hour");
+	});
+});
+
+describe("formatBytes", () => {
+	it("names the largest unit that keeps the number above 1", () => {
+		expect(formatBytes(0)).toBe("0 B");
+		expect(formatBytes(512)).toBe("512 B");
+		expect(formatBytes(1024)).toBe("1 KB");
+		expect(formatBytes(1536)).toBe("1.5 KB");
+		expect(formatBytes(1024 ** 3)).toBe("1 GB");
+	});
+
+	it("caps at TB", () => {
+		expect(formatBytes(1024 ** 6)).toContain("TB");
+	});
+});
+
+describe("tokensPerSecond", () => {
+	it("divides completion tokens by the elapsed seconds", () => {
+		expect(tokensPerSecond(100, 2000)).toBe(50);
+	});
+
+	it("is null when either half is missing", () => {
+		expect(tokensPerSecond(0, 2000)).toBeNull();
+		expect(tokensPerSecond(100, 0)).toBeNull();
+		expect(tokensPerSecond(-1, 2000)).toBeNull();
+	});
+});
+
+describe("formatDateOnly", () => {
+	it("reads a bare date in local time", () => {
+		expect(formatDateOnly("2026-03-05")).toBe(
+			formatDate(new Date(2026, 2, 5).getTime()),
+		);
+	});
+
+	it("passes a full timestamp through unchanged", () => {
+		const iso = "2026-03-05T18:30:00Z";
+		expect(formatDateOnly(iso)).toBe(formatDate(iso));
 	});
 });

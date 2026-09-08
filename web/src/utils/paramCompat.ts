@@ -91,15 +91,13 @@ export function normalizeToProviderType(providerName: string): string {
 	if (!providerName) return "openai"; // fallback
 
 	// Direct match (already a type key)
-	if (providerName in PROVIDER_PARAM_INCOMPATIBILITY) {
+	if (Object.hasOwn(PROVIDER_PARAM_INCOMPATIBILITY, providerName)) {
 		return providerName;
 	}
 
 	// Case-insensitive match against known type keys
 	const lower = providerName.toLowerCase().replace(/\s+/g, "-");
-	for (const key of Object.keys(PROVIDER_PARAM_INCOMPATIBILITY)) {
-		if (key === lower) return key;
-	}
+	if (Object.hasOwn(PROVIDER_PARAM_INCOMPATIBILITY, lower)) return lower;
 
 	// Substring heuristic: check if the provider name contains a known type
 	const typePatterns: Record<string, string[]> = {
@@ -108,12 +106,13 @@ export function normalizeToProviderType(providerName: string): string {
 		google: ["google", "gemini", "generativelanguage"],
 		deepseek: ["deepseek"],
 		xai: ["xai", "x.ai", "grok"],
-		ollama: ["ollama"],
+		// Before the bare "ollama" row: every cloud name contains "ollama" too.
 		"ollama-cloud": ["ollama-cloud", "ollama cloud"],
+		ollama: ["ollama"],
 		openrouter: ["openrouter"],
 		cohere: ["cohere"],
 		"zai-coding": ["z.ai", "zai", "z-ai"],
-		nanogpt: ["nanogpt", "nano-gpt", "nano-gpt"],
+		nanogpt: ["nanogpt", "nano-gpt"],
 		lmstudio: ["lmstudio", "lm-studio", "lm studio"],
 		koboldcpp: ["koboldcpp", "kobold"],
 		"opencode-zen": ["opencode-zen", "opencode zen"],
@@ -140,7 +139,7 @@ export function getParamIncompatibility(
 ): string | null {
 	const providerType = normalizeToProviderType(providerName);
 	const rules = PROVIDER_PARAM_INCOMPATIBILITY[providerType];
-	if (!rules || !(paramKey in rules)) return null;
+	if (!rules || !Object.hasOwn(rules, paramKey)) return null;
 	const reason = rules[paramKey];
 	return reason || null; // empty string means no incompatibility
 }

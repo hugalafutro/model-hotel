@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
-import { Bell, ChevronDown, ChevronRight } from "@/lib/icons";
+import { Bell, DisclosureChevron } from "@/lib/icons";
 import { ApiError, api } from "../../api/client";
+import { BlurCommitInput } from "../../components/BlurCommitInput";
 import { ResetButton } from "../../components/ResetButton";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
@@ -12,8 +13,13 @@ import { AlertEventPicker } from "./AlertEventPicker";
 import { AlertSnippets } from "./AlertSnippets";
 import { AlertsWizard } from "./alerts/AlertsWizard";
 import { AppriseStatus } from "./alerts/AppriseStatus";
-import { REASON_CODES, stripApiHead } from "./alerts/apiText";
+import {
+	ALERT_TEST_PREFIX,
+	reasonText,
+	safeApiMessage,
+} from "./alerts/apiText";
 import { DestinationList } from "./alerts/DestinationList";
+import { DEFAULT_APPRISE_URL } from "./alerts/wizardState";
 import { SETTING_DEFAULTS } from "./defaults";
 import {
 	invalidateAlertReads,
@@ -50,7 +56,6 @@ export function AlertsSettings({
 	const apiUrl = settings?.alert_apprise_api_url ?? "";
 	const targetConfigured = Boolean(settings?.alert_apprise_targets);
 
-	const [apiUrlDraft, setApiUrlDraft] = useState<string | null>(null);
 	// The typed target list while the operator is editing it, or null when the
 	// field just shows what is stored. The settings row only ever carries the
 	// "********" mask, so the readable value comes from the decrypted read below.
@@ -106,17 +111,13 @@ export function AlertsSettings({
 	// the test endpoint carries a machine-readable reason code; anything else
 	// (network, other 5xx, auth) is shown as a generic string so internals do not
 	// leak. The apprise response body is never surfaced: it can echo target URLs.
+	// The toast supplies the "test failed" head itself from the testFailed
+	// string, so the one fetchOK built is stripped off the sentence.
 	const describeError = (err: unknown) => {
-		if (!(err instanceof ApiError)) return t("common.unknownError");
-		// The toast supplies the "test failed" head itself from the testFailed
-		// string, so the one fetchOK built is stripped off the sentence.
-		if (err.status === 400) {
-			return stripApiHead(err.message, "Test notification failed");
+		if (err instanceof ApiError && err.status === 502 && err.code) {
+			return reasonText(err.code, t, t("common.unknownError"));
 		}
-		if (err.status === 502 && err.code && REASON_CODES.has(err.code)) {
-			return t(`settings.alerts.reason.${err.code}`);
-		}
-		return t("common.unknownError");
+		return safeApiMessage(err, ALERT_TEST_PREFIX, t);
 	};
 
 	const testFailedToast = (err: Error) =>
@@ -148,13 +149,6 @@ export function AlertsSettings({
 		refetchOnWindowFocus: false,
 	});
 
-	const commitApiUrl = () => {
-		if (apiUrlDraft !== null && apiUrlDraft !== apiUrl) {
-			updateMutation.mutate({ alert_apprise_api_url: apiUrlDraft });
-		}
-		setApiUrlDraft(null);
-	};
-
 	// The field is the stored list in plain text, so a blur that changed nothing
 	// writes nothing and an emptied field clears the destinations.
 	const commitTarget = () => {
@@ -180,6 +174,10 @@ export function AlertsSettings({
 		updateMutation.isPending ||
 		testMutation.isPending ||
 		rowTestMutation.isPending;
+
+	// Anything stored turns the guided entry point from "set this up" into
+	// "add another to what is there".
+	const addMode = targets.length > 0;
 
 	// The manual field holds an unsaved edit, so the rows no longer describe what
 	// is stored: testing or removing one would act on the stored list while the
@@ -303,11 +301,7 @@ export function AlertsSettings({
 									disabled={!enabled}
 									data-testid="alert-picker-toggle"
 								>
-									{pickerExpanded ? (
-										<ChevronDown size={14} />
-									) : (
-										<ChevronRight size={14} />
-									)}
+									<DisclosureChevron open={pickerExpanded} />
 									{t("settings.alerts.events.title")}
 								</button>
 								<ResetButton
@@ -417,34 +411,23 @@ export function AlertsSettings({
 				    managed member is the exception, see showDelivery. */}
 				{showDelivery && (
 					<div className="flex flex-wrap items-center gap-3">
-						{targets.length === 0 ? (
-							<button
-								type="button"
-								className="ui-btn ui-btn-primary"
-								data-testid="alert-wizard-open"
-								title={wizardBlocked}
-								disabled={busy || wizardBlocked !== undefined}
-								onClick={() => setWizardStart(1)}
-							>
-								{t("settings.alerts.wizard.open")}
-							</button>
-						) : (
-							<button
-								type="button"
-								className="ui-btn ui-btn-primary"
-								data-testid="alert-wizard-add"
-								title={wizardBlocked}
-								disabled={busy || wizardBlocked !== undefined}
-								onClick={() => setWizardStart(2)}
-							>
-								{t("settings.alerts.wizard.addDestination")}
-							</button>
-						)}
+						<button
+							type="button"
+							className="ui-btn ui-btn-primary"
+							data-testid={addMode ? "alert-wizard-add" : "alert-wizard-open"}
+							title={wizardBlocked}
+							disabled={busy || wizardBlocked !== undefined}
+							onClick={() => setWizardStart(addMode ? 2 : 1)}
+						>
+							{addMode
+								? t("settings.alerts.wizard.addDestination")
+								: t("settings.alerts.wizard.open")}
+						</button>
 						{/* Nothing to probe yet, so the status line above the list has
 					    nothing to say. The hint takes its place and names both ways in:
 					    it points at the manual block, so it waits until that block is
 					    on screen. */}
-						{showDelivery && apiUrl === "" && (
+						{apiUrl === "" && (
 							<p
 								className="text-xs text-(--text-muted)"
 								data-testid="alert-status-hint"
@@ -471,20 +454,14 @@ export function AlertsSettings({
 								>
 									{t("settings.alerts.apiUrl")}
 								</label>
-								<input
+								<BlurCommitInput
 									id="alert-api-url"
-									type="text"
-									value={apiUrlDraft ?? apiUrl}
-									placeholder="http://apprise:8000"
-									spellCheck={false}
-									autoComplete="off"
-									onChange={(e) => setApiUrlDraft(e.target.value)}
-									onBlur={commitApiUrl}
-									onKeyDown={(e) => {
-										if (e.key === "Enter") e.currentTarget.blur();
-									}}
-									className="ui-input text-sm w-full"
-									data-testid="alert-api-url-input"
+									value={apiUrl}
+									onCommit={(next) =>
+										updateMutation.mutate({ alert_apprise_api_url: next })
+									}
+									placeholder={DEFAULT_APPRISE_URL}
+									testId="alert-api-url-input"
 								/>
 								<p className="text-(--text-muted) text-xs">
 									{t("settings.alerts.apiUrlDescription")}

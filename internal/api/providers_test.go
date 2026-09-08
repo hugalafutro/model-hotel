@@ -217,6 +217,11 @@ func TestUpdateProvider_Success(t *testing.T) {
 	id := uuid.New()
 	newName := "updated-name"
 	mockProv := &mockProviderStore{
+		// A save that rotates the key reads the prior row: the enable-state
+		// settlement and the rediscovery decision both need the before state.
+		getFn: func(ctx context.Context, pid uuid.UUID) (*provider.Provider, error) {
+			return &provider.Provider{ID: pid, Name: "old-name", BaseURL: "https://api.example.com", Enabled: true}, nil
+		},
 		updateFn: func(ctx context.Context, pid uuid.UUID, req provider.UpdateProviderRequest, ek, kn, ks []byte) (*provider.Provider, error) {
 			if pid != id {
 				t.Errorf("expected id %s, got %s", id, pid)
@@ -1386,26 +1391,5 @@ func TestUpdateProvider_TypeChangeRechecksStoredURL(t *testing.T) {
 	}
 	if !strings.Contains(w.Body.String(), "HTTPS") {
 		t.Fatalf("expected the HTTPS reason, got %q", w.Body.String())
-	}
-}
-
-func TestIsForeignKeyViolation(t *testing.T) {
-	cases := []struct {
-		name string
-		err  error
-		want bool
-	}{
-		{"nil", nil, false},
-		{"plain error", errors.New("boom"), false},
-		{"other pg code", &pgconn.PgError{Code: "23505"}, false},
-		{"fk violation", &pgconn.PgError{Code: "23503"}, true},
-		{"wrapped fk violation", fmt.Errorf("delete: %w", &pgconn.PgError{Code: "23503"}), true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			if got := isForeignKeyViolation(tc.err); got != tc.want {
-				t.Fatalf("isForeignKeyViolation(%v) = %v, want %v", tc.err, got, tc.want)
-			}
-		})
 	}
 }

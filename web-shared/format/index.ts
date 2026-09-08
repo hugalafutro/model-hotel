@@ -34,3 +34,19 @@ export function formatDollars(v: number): string {
 export function formatKwh(v: number): string {
 	return v.toLocaleString("en-US", { maximumFractionDigits: 2 });
 }
+
+/**
+ * A whole-item count with digit grouping, or "-" when the value is absent.
+ * Unlike formatTokens this does NOT abbreviate: a daily image allowance is a
+ * small number the operator reads exactly, and "1.2K/1.5K" would hide the
+ * difference between 1,200 and 1,249.
+ */
+export function formatCount(n: number | null | undefined): string {
+	if (n == null) return "-";
+	return Math.round(n).toLocaleString("en-US");
+}
+
+/** Confines a value to [lo, hi]. With an inverted range (lo > hi), hi wins. */
+export function clamp(v: number, lo: number, hi: number): number {
+	return Math.min(Math.max(v, lo), hi);
+}

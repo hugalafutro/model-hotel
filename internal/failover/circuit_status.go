@@ -86,6 +86,23 @@ type CircuitStatus struct {
 	LastAt     string `json:"last_at,omitempty"`
 }
 
+// waitFields derives the wait one circuit is serving, for both status builders.
+// The wait is reported only while it is being enforced, and a circuit owed a
+// probe keeps its opened_at so the row can say how long it was dark. Must be
+// called with cb.mu held (read lock suffices).
+func (cb *CircuitBreaker) waitFields(c *circuit, state State, r *cooldownReads) (openedAt string, cooldownMs int64, nextRetryAt string) {
+	if c.openedAt.IsZero() || (state != StateOpen && state != StateHalfOpen) {
+		return "", 0, ""
+	}
+	openedAt = c.openedAt.Format(time.RFC3339)
+	if state == StateOpen {
+		cooldown := cb.effectiveCooldownForWith(c, r)
+		cooldownMs = cooldown.Milliseconds()
+		nextRetryAt = c.openedAt.Add(cooldown).Format(time.RFC3339)
+	}
+	return openedAt, cooldownMs, nextRetryAt
+}
+
 // circuitStatuses lists a provider's circuits for the detail endpoint, sorted
 // by model so a polling UI never sees them reshuffle. r is the walk the caller
 // already started, so every circuit is judged by the same cooldown reads as the
@@ -108,18 +125,7 @@ func (cb *CircuitBreaker) circuitStatuses(models modelCircuits, r *cooldownReads
 		if !c.lastAt.IsZero() {
 			s.LastAt = c.lastAt.Format(time.RFC3339)
 		}
-		// The same rule the provider row applies to its dominant circuit: the
-		// wait is reported only while it is being enforced, and a circuit owed
-		// a probe keeps its opened_at so the row can say how long it was dark.
-		if state == StateOpen && !c.openedAt.IsZero() {
-			cooldown := cb.effectiveCooldownForWith(c, r)
-			s.OpenedAt = c.openedAt.Format(time.RFC3339)
-			s.CooldownMs = cooldown.Milliseconds()
-			s.NextRetryAt = c.openedAt.Add(cooldown).Format(time.RFC3339)
-		}
-		if state == StateHalfOpen && !c.openedAt.IsZero() {
-			s.OpenedAt = c.openedAt.Format(time.RFC3339)
-		}
+		s.OpenedAt, s.CooldownMs, s.NextRetryAt = cb.waitFields(c, state, r)
 		out = append(out, s)
 	}
 	slices.SortFunc(out, func(a, b CircuitStatus) int {

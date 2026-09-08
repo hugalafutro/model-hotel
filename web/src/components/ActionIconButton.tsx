@@ -28,31 +28,25 @@ export function ActionIconButton({
 	withLabel = false,
 }: ActionIconButtonProps) {
 	const iconClasses = colorClasses[color];
-
-	if (withLabel && label) {
-		return (
-			<button
-				type="button"
-				onClick={onClick}
-				className={`ui-btn ${iconClasses}`}
-			>
-				<Icon size={size} />
-				{label}
-			</button>
-		);
-	}
+	const pulseClass = pulse
+		? " animate-[pulse-ring_1.5s_ease-in-out_infinite]"
+		: "";
+	const labelled = withLabel && label;
 
 	return (
 		<button
 			type="button"
 			onClick={onClick}
-			className={`${iconClasses} p-1.5 rounded-md ${
-				pulse ? "animate-[pulse-ring_1.5s_ease-in-out_infinite]" : ""
-			}`}
+			className={
+				labelled
+					? `ui-btn ${iconClasses}${pulseClass}`
+					: `${iconClasses} p-1.5 rounded-md${pulseClass}`
+			}
 			title={title}
 			aria-label={title}
 		>
 			<Icon size={size} />
+			{labelled ? label : null}
 		</button>
 	);
 }

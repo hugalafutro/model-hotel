@@ -325,7 +325,11 @@
 			"emptyState": "Ingen bruksdata enda. Bruk nedbrytning vil vises her når trafikk flyter.",
 			"viewDetailsFor": "Vis detaljer for {{label}}",
 			"deletedModelTooltip": "Modellen er ikke lenger tilgjengelig – den kan ha blitt slettet, eller leverandøren kan ha blitt fjernet",
-			"reservedKeyTooltip": "Internt reservert navn, ikke en nøkkel du har opprettet – denne bruken kommer fra Model Hotels egne «{{name}}»-ruter"
+			"reservedKeyTooltip": "Internt reservert navn, ikke en nøkkel du har opprettet – denne bruken kommer fra Model Hotels egne «{{name}}»-ruter",
+			"tokens_one": "token",
+			"tokens_other": "tokener",
+			"requests_one": "forespørsel",
+			"requests_other": "forespørsler"
 		},
 		"providerLatency": {
 			"title": "Leverandørlatens",
@@ -347,10 +351,10 @@
 			"distributionChart": "Provider distribusjons diagram",
 			"emptyState": "Ingen leverandørdata ennå. Leverandørfordelingen vises her når trafikken kommer i gang.",
 			"chartAriaLabel": "Provider distribusjons diagram",
-			"tokenUnit": "token",
-			"tokensUnit": "Tokener",
-			"requestUnit": "Forespørsel",
-			"requestsUnit": "Forespørsler"
+			"tokens_one": "token",
+			"tokens_other": "Tokener",
+			"requests_one": "Forespørsel",
+			"requests_other": "Forespørsler"
 		},
 		"models": {
 			"viewDetails": "Vis detaljer for {{label}}",
@@ -597,7 +601,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modeller genererer - klikk stopp alle for å avbryte",
-			"voteToContinue": "Stem på alle matchinger for å fortsette til neste runde",
 			"nextRoundReady": "Start neste runde når du er klar"
 		},
 		"responses": {
@@ -652,13 +655,6 @@
 			"close": "Lukk"
 		},
 		"params": {
-			"temperature": "Temperatur",
-			"maxTokens": "Maks tokener",
-			"topP": "Top P",
-			"minP": "Min. P",
-			"topK": "Topp K",
-			"freqPenalty": "Freq straff",
-			"presPenalty": "Pres Penalty",
 			"resetAll": "Tilbakestill alle",
 			"done": "Ferdig"
 		},
@@ -844,7 +840,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Ingen aktiverte leverandører gjenstår",
-				"onlyOne": "Det er bare én aktivert leverandør igjen (failover krever minst to)"
+				"onlyOne": "Det er bare én aktivert leverandør igjen (failover krever minst to)",
+				"noValidProviders": "Ingen gyldige leverandører er igjen etter opprydding",
+				"onlyOneValid": "Bare én gyldig leverandør er igjen etter opprydding (failover krever minst to)"
 			},
 			"error": "Feil",
 			"failover": "Failover-grupper",
@@ -1065,7 +1063,17 @@
 		"scope_all": "Alle leverandører",
 		"badge_parked": "{{count}} parkert",
 		"status_parked": "Parkert",
-		"status_parked_hint": "Leverandøren er deaktivert; denne modellen står fortsatt oppført, men serveres ikke før leverandøren aktiveres igjen."
+		"status_parked_hint": "Leverandøren er deaktivert; denne modellen står fortsatt oppført, men serveres ikke før leverandøren aktiveres igjen.",
+		"capPills": {
+			"vision": "Syn",
+			"reasoning": "Resonnering",
+			"tool_calling": "Verktøy",
+			"structured_output": "Strukturert",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Lyd",
+			"parallel_tool_calls": "Parallell"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Gå tilbake til oppdaget verdi",
@@ -1267,7 +1275,6 @@
 				"owner": "Eier"
 			},
 			"noProvidersConfigured": "Ingen leverandører konfigurert.",
-			"discardChanges": "Forkaste ulagrede endringer?",
 			"loadingProviders": "Laster leverandører...",
 			"stripReasoningDescriptionText": "Når aktivert fjernes begrunning/tenkingstokens fra strømmesvar for klienter som ikke kan håndtere dem.",
 			"providerInstructionsText": "Klikk på en leverandør for å begrense tilgang. Alle er tilgjengelige som standard.",
@@ -1408,6 +1415,11 @@
 			"search": "Filtrer logger…",
 			"allLevels": "Alle nivåer",
 			"allSources": "Alle kilder"
+		},
+		"level": {
+			"info": "Info",
+			"warning": "Advarsel",
+			"error": "Feil"
 		},
 		"table": {
 			"timeDate": "Tid/dato",
@@ -1859,8 +1871,8 @@
 				"confirmEnableTitle": "Aktivere regelmessig sikkerhetskopiering?",
 				"confirmEnableDescription": "Aktivering av periodisk sikkerhetskopiering sletter eksisterende sikkerhetskopier som faller utenfor sønn/far/bestefar-rotasjonsvinduet.",
 				"confirmEnableWouldRemove": "Disse {{count}} sikkerhetskopiene faller utenfor rotasjonsvinduet og slettes permanent:",
-				"prunePreviewFailed": "Kunne ikke forhåndsvise sikkerhetskopiering",
-				"pruneFailed": "Klarte ikke å fjerne gamle sikkerhetskopier",
+				"prunePreviewFailed": "Kunne ikke forhåndsvise sikkerhetskopiering: {{message}}",
+				"pruneFailed": "Klarte ikke å fjerne gamle sikkerhetskopier: {{message}}",
 				"pruneSuccess": "Periodisk sikkerhetskopiering aktivert. Fjernet {{count}} gamle sikkerhetskopier."
 			},
 			"availableBackupsTitle": "Tilgjengelige sikkerhetskopier",
@@ -2199,7 +2211,7 @@
 				"doneManaged": "Destinasjoner lagret. Hvilke hendelser som sender et varsel, styres fortsatt for hele flåten.",
 				"sendAll": "Send test til alt",
 				"sentAll": "Test sendt til hver destinasjon",
-				"apiChangedDrops": "Endrer du adressen, fjernes destinasjonene som er lagt til i denne gjennomgangen; de ble testet mot den gamle."
+				"apiChangedDrops": "Verifiserer du en annen adresse, fjernes destinasjonene som er lagt til i denne gjennomgangen; de ble testet mot den gamle."
 			},
 			"category": {
 				"discovery": "Oppdagelse",
@@ -2388,16 +2400,10 @@
 			"filter": "Filter…",
 			"clearFilter": "Fjern filter"
 		},
-		"copyButton": {
-			"copy": "Kopier",
-			"copiedToClipboard": "Kopiert til utklippstavle",
-			"failedToCopy": "Kunne ikke kopiere"
-		},
 		"copyablePill": {
 			"copy": "Kopier",
 			"copyToClipboard": "Kopier til utklippstavlen",
-			"copied": "Kopiert!",
-			"failedToCopy": "Kunne ikke kopiere"
+			"copied": "Kopiert!"
 		},
 		"collapsibleToggle": {
 			"expand": "Utvid",
@@ -2714,11 +2720,6 @@
 			"compare": "Sammenlign",
 			"noMatchHistory": "Ingen match-historikk ennå",
 			"completedSessionsHere": "Fullførte arena- og sammenligningsøkter vises her",
-			"match": "Kamp",
-			"final": "Finale",
-			"semifinals": "Semifinaler",
-			"quarterfinals": "Kvartfinaler",
-			"round": "Runde {{number}}",
 			"winner": "Vinner: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Feil: {{message}}",
@@ -2826,35 +2827,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Ingen logger funnet",
-			"entries": "oppføringer",
-			"loadingNewer": "Laster inn nyere…",
-			"loadingOlder": "Laster eldre…",
-			"timeDate": "Tid/dato",
-			"hash": "Hash",
-			"model": "Modell",
-			"provider": "Leverandør",
-			"providerDeleted": "Leverandøren ble slettet",
-			"status": "Status:",
-			"tokens": "Tokener",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Headere",
-			"ttft": "TTFT",
-			"duration": "Varighet",
-			"overhead": "Proxy-overhead",
-			"key": "Nøkkel",
-			"interrupted": "Avbrutt",
-			"internal": "intern",
-			"cacheInflated": "Blåst opp av treff i prompt-bufferen",
-			"deleted": "Slettet",
-			"zeroEntries": "0 oppføringer",
-			"ip": "IP"
+			"zeroEntries": "0 oppføringer"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Ingen loggoppføringer funnet",
-			"entries": "oppføringer",
-			"loadingNewer": "Laster inn nyere…",
-			"loadingOlder": "Laster eldre…",
 			"timeDate": "Tid/dato",
 			"level": "Nivå",
 			"source": "Kilde",
@@ -3065,7 +3041,8 @@
 		},
 		"useDisableModel": {
 			"success": "Modell \"{{model}}\" deaktivert",
-			"error": "Kan ikke deaktivere modell: {{error}}"
+			"error": "Kan ikke deaktivere modell: {{error}}",
+			"notFound": "Fant ikke modellen \"{{model}}\" blant aktiverte modeller"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Kunne ikke hente innledende data",

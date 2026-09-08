@@ -12,6 +12,7 @@ import {
 	minutesToGoDuration,
 	secondsToGoDuration,
 } from "../../utils/duration";
+import { SETTING_DEFAULTS, settingOr } from "./defaults";
 import { InflightLimiterGroup } from "./InflightLimiterGroup";
 import { useSettingsMutations } from "./useSettingsMutations";
 
@@ -93,16 +94,17 @@ function RateLimit429Group() {
 	const { settings, updateMutation, resetSettingMutation, isResetting } =
 		useSettingsMutations();
 
-	// Fallbacks mirror the Go defaults (internal/proxy/rate_limit_classify.go:
-	// classification on, 60s for both durations, exhaustion opens at once, the
-	// 429 exhaustion status on). Fallback before clamp, clamp for display only.
+	// SETTING_DEFAULTS mirrors the Go defaults
+	// (internal/proxy/rate_limit_classify.go). Fallback before clamp, clamp for
+	// display only; a duration the parse rejects falls back to the default too.
 	const classifyEnabled = settings?.rate_limit_classify_enabled !== "false";
 	const saturationWaitSeconds = Math.min(
 		SATURATION_WAIT_MAX_SECONDS,
 		Math.max(
 			SATURATION_WAIT_MIN_SECONDS,
-			goDurationToSeconds(settings?.rate_limit_saturation_max_wait || "60s") ||
-				60,
+			goDurationToSeconds(
+				settingOr(settings, "rate_limit_saturation_max_wait"),
+			) || goDurationToSeconds(SETTING_DEFAULTS.rate_limit_saturation_max_wait),
 		),
 	);
 	const successWindowSeconds = Math.min(
@@ -110,8 +112,9 @@ function RateLimit429Group() {
 		Math.max(
 			SUCCESS_WINDOW_MIN_SECONDS,
 			goDurationToSeconds(
-				settings?.rate_limit_recent_success_window || "60s",
-			) || 60,
+				settingOr(settings, "rate_limit_recent_success_window"),
+			) ||
+				goDurationToSeconds(SETTING_DEFAULTS.rate_limit_recent_success_window),
 		),
 	);
 	const openOnExhaustion =
@@ -244,10 +247,17 @@ export function CircuitBreakerSettings({
 		useSettingsMutations();
 
 	const circuitBreakerEnabled = settings?.circuit_breaker_enabled !== "false";
-	const circuitBreakerThreshold = settings?.circuit_breaker_threshold || "5";
-	const circuitBreakerCooldown = settings?.circuit_breaker_cooldown || "1m0s";
+	const circuitBreakerThreshold = settingOr(
+		settings,
+		"circuit_breaker_threshold",
+	);
+	const circuitBreakerCooldown = settingOr(
+		settings,
+		"circuit_breaker_cooldown",
+	);
 	// The fallback mirrors the Go default (defaultSpanModels in
-	// internal/failover/model_circuits.go), so an unset key shows the span
+	// internal/failover/model_circuits.go via SETTING_DEFAULTS), so an unset
+	// key shows the span
 	// actually in force rather than a number nothing obeys. Clamped for display
 	// only, because PUT /api/settings takes any int and the browser sanitizes the
 	// range track against min/max while leaving the number box alone.
@@ -255,7 +265,8 @@ export function CircuitBreakerSettings({
 		SPAN_MODELS_MAX,
 		Math.max(
 			SPAN_MODELS_MIN,
-			Number(settings?.circuit_breaker_span_models) || 2,
+			Number(settingOr(settings, "circuit_breaker_span_models")) ||
+				Number(SETTING_DEFAULTS.circuit_breaker_span_models),
 		),
 	);
 	// The ceilings double as the off switches; see ceilingForSlider for how a
@@ -269,7 +280,7 @@ export function CircuitBreakerSettings({
 		QUOTA_PIN_MAX_MAX_HOURS,
 		ceilingForSlider(
 			settings?.circuit_breaker_quota_pin_max,
-			24,
+			goDurationToHours(SETTING_DEFAULTS.circuit_breaker_quota_pin_max),
 			goDurationToHours,
 		),
 	);
@@ -277,13 +288,13 @@ export function CircuitBreakerSettings({
 		BACKOFF_MAX_MAX_MINUTES,
 		ceilingForSlider(
 			settings?.circuit_breaker_backoff_max,
-			15,
+			goDurationToMinutes(SETTING_DEFAULTS.circuit_breaker_backoff_max),
 			goDurationToMinutes,
 		),
 	);
 	const failoverOnRateLimit = settings?.failover_on_rate_limit === "true";
 	const hedgingEnabled = settings?.hedging_enabled === "true";
-	const hedgeDelay = settings?.hedge_delay || "4s";
+	const hedgeDelay = settingOr(settings, "hedge_delay");
 
 	return (
 		<SettingsSection

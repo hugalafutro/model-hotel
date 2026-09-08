@@ -48,21 +48,17 @@ func (b *Bus) Publish(event Event) {
 		event.Timestamp = time.Now()
 	}
 
+	// No recover around the send: every close happens under the write lock or
+	// after the channel has left the map, and Publish holds the read lock, so
+	// the channel it is sending to cannot be closed underneath it.
 	b.mu.RLock()
 	defer b.mu.RUnlock()
 	for ch := range b.subscribers {
-		func() {
-			defer func() {
-				if r := recover(); r != nil {
-					debuglog.Warn("events: failed to send event", "type", event.Type)
-				}
-			}()
-			select {
-			case ch <- event:
-			default:
-				debuglog.Warn("events: event dropped, subscriber too slow", "type", event.Type)
-			}
-		}()
+		select {
+		case ch <- event:
+		default:
+			debuglog.Warn("events: event dropped, subscriber too slow", "type", event.Type)
+		}
 	}
 }
 

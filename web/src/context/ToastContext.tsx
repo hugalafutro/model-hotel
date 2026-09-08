@@ -60,6 +60,20 @@ export const ToastContext = createContext<ToastContextType>({
 
 let nextId = 0;
 
+const STROKE_COLORS: Record<ToastType, string> = {
+	success: "#6ee7b7",
+	error: "#fca5a5",
+	info: "#cbd5e1",
+	warning: "#fde68a",
+};
+
+const BG_COLORS: Record<ToastType, string> = {
+	success: "bg-emerald-900/70 text-emerald-200",
+	error: "bg-red-900/70 text-red-200",
+	info: "bg-slate-700/80 text-slate-200",
+	warning: "bg-amber-900/70 text-amber-200",
+};
+
 const POSITION_CLASSES: Record<ToastPosition, string> = {
 	"top-left": "fixed top-4 left-4",
 	"top-center": "fixed top-4 left-1/2 -translate-x-1/2",
@@ -84,17 +98,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 		"toastPosition",
 		"bottom-center",
 		{
-			deserialize: (v) => {
-				const valid = [
-					"top-left",
-					"top-center",
-					"top-right",
-					"bottom-left",
-					"bottom-center",
-					"bottom-right",
-				];
-				return valid.includes(v) ? (v as ToastPosition) : "bottom-center";
-			},
+			// POSITION_CLASSES names every valid position, so it is also the
+			// membership test a stored value has to pass.
+			deserialize: (v) =>
+				Object.hasOwn(POSITION_CLASSES, v)
+					? (v as ToastPosition)
+					: "bottom-center",
 		},
 	);
 
@@ -211,30 +220,12 @@ function ToastItem({
 	const remainingRef = useRef(timeout);
 	const timerRef = useRef<ReturnType<typeof setTimeout>>(undefined);
 
-	// Initialize start time on mount (Date.now() is impure during render)
-	useEffect(() => {
-		if (startTimeRef.current === 0) {
-			startTimeRef.current = Date.now();
-		}
+	const startTimer = useCallback((remaining: number) => {
+		clearTimeout(timerRef.current);
+		startTimeRef.current = Date.now();
+		remainingRef.current = remaining;
+		timerRef.current = setTimeout(() => setFading(true), remaining);
 	}, []);
-
-	const triggerDone = useCallback(() => {
-		setFading(true);
-	}, []);
-
-	const handleAnimationEnd = useCallback(() => {
-		onDone();
-	}, [onDone]);
-
-	const startTimer = useCallback(
-		(remaining: number) => {
-			clearTimeout(timerRef.current);
-			startTimeRef.current = Date.now();
-			remainingRef.current = remaining;
-			timerRef.current = setTimeout(triggerDone, remaining);
-		},
-		[triggerDone],
-	);
 
 	useEffect(() => {
 		startTimer(timeout);
@@ -294,20 +285,6 @@ function ToastItem({
 		resume();
 	};
 
-	const strokeColors: Record<ToastType, string> = {
-		success: "#6ee7b7",
-		error: "#fca5a5",
-		info: "#cbd5e1",
-		warning: "#fde68a",
-	};
-
-	const bgColors = {
-		success: "bg-emerald-900/70 text-emerald-200",
-		error: "bg-red-900/70 text-red-200",
-		info: "bg-slate-700/80 text-slate-200",
-		warning: "bg-amber-900/70 text-amber-200",
-	};
-
 	// A blocked clipboard is silent here: a failure toast about a failed copy of
 	// a toast would stack on the very message the user is trying to keep.
 	const handleCopy = () => {
@@ -350,7 +327,7 @@ function ToastItem({
 			// harmless.
 			onFocusCapture={handleFocus}
 			onBlurCapture={handleBlur}
-			className={`relative flex items-start gap-2 px-4 py-2 rounded-(--radius-card) shadow-lg text-sm font-medium whitespace-pre-line break-words max-w-[min(28rem,90vw)] text-left ${bgColors[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
+			className={`relative flex items-start gap-2 px-4 py-2 rounded-(--radius-card) shadow-lg text-sm font-medium whitespace-pre-line break-words max-w-[min(28rem,90vw)] text-left ${BG_COLORS[toast.type]} ${fading ? "opacity-0" : "opacity-100"}`}
 			style={{
 				overflow: "hidden",
 				transition: "opacity 300ms ease",
@@ -358,7 +335,7 @@ function ToastItem({
 			onTransitionEnd={
 				fading
 					? (e: React.TransitionEvent) => {
-							if (e.propertyName === "opacity") handleAnimationEnd();
+							if (e.propertyName === "opacity") onDone();
 						}
 					: undefined
 			}
@@ -407,7 +384,7 @@ function ToastItem({
 			{fuse && (
 				<FuseOutline
 					data-testid="toast-fuse"
-					color={strokeColors[toast.type]}
+					color={STROKE_COLORS[toast.type]}
 					durationMs={timeout}
 					paused={paused}
 				/>

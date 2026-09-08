@@ -47,3 +47,21 @@ export function parseCsv(csv: string): Set<string> {
 			.filter(Boolean),
 	);
 }
+
+/**
+ * The catalog in server order, bucketed by category. Insertion order is kept,
+ * so the groups and the events inside them read in the order the server sent
+ * them. `Map.groupBy` would say this in one line but is ES2024; the lib target
+ * is ES2023.
+ */
+export function groupByCategory<T extends { category: string }>(
+	defs: readonly T[],
+): [string, T[]][] {
+	const groups = new Map<string, T[]>();
+	for (const def of defs) {
+		const bucket = groups.get(def.category);
+		if (bucket) bucket.push(def);
+		else groups.set(def.category, [def]);
+	}
+	return [...groups.entries()];
+}

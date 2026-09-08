@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 	"strings"
@@ -25,29 +24,15 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 	// The key goes in the x-goog-api-key header, never the URL: a transport
 	// failure quotes the whole URL back through *url.Error, and Go redacts only
 	// userinfo passwords, not query parameters.
-	req, err := http.NewRequestWithContext(ctx, "GET", nativeBaseURL+"/models", http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("google: failed to create request for provider %s: %w", provider.Name, err)
-	}
-	req.Header.Set("x-goog-api-key", apiKey)
+	headers := http.Header{}
+	headers.Set("x-goog-api-key", apiKey)
 
-	resp, err := d.doDiscoveryRequestPrebuilt(ctx, req)
+	bodyBytes, err := d.fetchURL(ctx, "GET", nativeBaseURL+"/models", headers)
 	if err != nil {
-		// err is already masked by the shared retry path. %s, not %w: callers
+		// err is already masked by the shared fetch path. %s, not %w: callers
 		// must not unwrap to the raw transport error.
 		debuglog.Error("discovery: google http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err.Error())
-		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, err.Error())
-	}
-	defer func() { _ = resp.Body.Close() }()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("google: failed to read response for provider %s: %w", provider.Name, err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		debuglog.Error("discovery: google non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", maskRequestSecrets(req, string(bodyBytes), 2000))
-		return nil, fmt.Errorf("google: unexpected status code %d for provider %s", resp.StatusCode, provider.Name)
+		return nil, fmt.Errorf("google: failed to fetch models for provider %s: %s", provider.Name, statusOnly(err).Error())
 	}
 
 	var googleResp GoogleModelsResponse
@@ -116,12 +101,16 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 			Enabled:          true,
 		}
 
-		// Enrich with pricing from catalog
+		// Enrich with pricing from catalog. Copy the values rather than
+		// aliasing the shared embedded-catalog spec: a write through one of
+		// these pointers would edit the catalog for every provider for the
+		// life of the process.
 		if pricing != nil {
-			m.InputPricePerMillion = &pricing.InputPricePerMillion
-			m.OutputPricePerMillion = &pricing.OutputPricePerMillion
+			in, out := pricing.InputPricePerMillion, pricing.OutputPricePerMillion
+			m.InputPricePerMillion, m.OutputPricePerMillion = &in, &out
 			if pricing.InputPricePerMillionCacheHit > 0 {
-				m.InputPricePerMillionCacheHit = &pricing.InputPricePerMillionCacheHit
+				cacheHit := pricing.InputPricePerMillionCacheHit
+				m.InputPricePerMillionCacheHit = &cacheHit
 			}
 		}
 
@@ -145,21 +134,16 @@ func GoogleNativeBaseURL(proxyURL string) string {
 }
 
 func isRelevantGoogleModel(gm GoogleModel) bool {
-	for _, method := range gm.SupportedGenerationMethods {
-		if method == "generateContent" || method == "embedContent" {
-			return true
-		}
-	}
-	return false
+	return slices.ContainsFunc(gm.SupportedGenerationMethods, func(method string) bool {
+		return method == "generateContent" || method == "embedContent"
+	})
 }
 
 func isGoogleToolCallingModel(modelID string) bool {
-	excluded := []string{"embedding", "imagen", "veo", "lyria", "aqa", "live"}
 	lower := strings.ToLower(modelID)
-	for _, ex := range excluded {
-		if strings.Contains(lower, ex) {
-			return false
-		}
+	excluded := []string{"embedding", "imagen", "veo", "lyria", "aqa", "live"}
+	if slices.ContainsFunc(excluded, func(ex string) bool { return strings.Contains(lower, ex) }) {
+		return false
 	}
 	return !isGoogleTTSModel(modelID)
 }
@@ -177,10 +161,8 @@ func isGoogleStructuredOutputModel(modelID string) bool {
 func isGoogleVisionModel(modelID string) bool {
 	lower := strings.ToLower(modelID)
 	excluded := []string{"embedding", "live"}
-	for _, ex := range excluded {
-		if strings.Contains(lower, ex) {
-			return false
-		}
+	if slices.ContainsFunc(excluded, func(ex string) bool { return strings.Contains(lower, ex) }) {
+		return false
 	}
 	if isGoogleTTSModel(modelID) {
 		return false

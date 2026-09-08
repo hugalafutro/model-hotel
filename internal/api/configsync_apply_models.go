@@ -45,12 +45,7 @@ func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportM
 	ctx, cancel := context.WithTimeout(ctx, modelStateApplyTimeout)
 	defer cancel()
 
-	providers := make([]string, len(refs))
-	modelIDs := make([]string, len(refs))
-	for i, ref := range refs {
-		providers[i] = ref.ProviderName
-		modelIDs[i] = ref.ModelID
-	}
+	providers, modelIDs := refArrays(refs)
 
 	tx, err := h.db.Pool().Begin(ctx)
 	if err != nil {
@@ -58,43 +53,17 @@ func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportM
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// unnest pairs the two arrays back into the (provider name, model_id) rows the
-	// refs came from, so the match is on the whole pair rather than on either half.
-	const wanted = `SELECT * FROM unnest($1::text[], $2::text[]) AS w(provider_name, model_id)`
-	if err := write(ctx, tx, wanted, providers, modelIDs); err != nil {
+	if err := write(ctx, tx, wantedModelRefs, providers, modelIDs); err != nil {
 		return nil, err
 	}
 
-	// Which of the primary's refs this member actually holds. Read inside the same
-	// transaction as the writes, so the report describes the state that committed.
-	rows, err := tx.Query(ctx, `
-		SELECT p.name, m.model_id
-		  FROM models m JOIN providers p ON m.provider_id = p.id
-		 WHERE EXISTS (`+wanted+` WHERE w.provider_name = p.name AND w.model_id = m.model_id)`,
-		providers, modelIDs)
+	// Acknowledge the refs there is no model here to apply, so this member's own
+	// export carries the primary's full intent and the two hash alike. Read inside
+	// the same transaction as the writes, so the report describes the state that
+	// committed.
+	unappliedRefs, err := absentModelRefs(ctx, tx, refs)
 	if err != nil {
 		return nil, err
-	}
-	present := map[ExportModelRef]bool{}
-	for rows.Next() {
-		var ref ExportModelRef
-		if err := rows.Scan(&ref.ProviderName, &ref.ModelID); err != nil {
-			rows.Close()
-			return nil, err
-		}
-		present[ref] = true
-	}
-	rows.Close()
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	// Acknowledge the refs there is no model here to apply, so this member's own
-	// export carries the primary's full intent and the two hash alike.
-	var unappliedRefs []ExportModelRef
-	for _, ref := range refs {
-		if !present[ref] {
-			unappliedRefs = append(unappliedRefs, ref)
-		}
 	}
 	if err := writeUnappliedModelRefs(ctx, tx, ackKey, unappliedRefs); err != nil {
 		return nil, err
@@ -248,4 +217,55 @@ func writeUnappliedModelRefs(ctx context.Context, tx pgx.Tx, key string, refs []
 		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`,
 		key, string(encoded))
 	return err
+}
+
+// wantedModelRefs pairs the two text arrays back into the (provider name,
+// model_id) rows the refs came from, so a match is on the whole pair rather
+// than on either half.
+const wantedModelRefs = `SELECT * FROM unnest($1::text[], $2::text[]) AS w(provider_name, model_id)`
+
+// refArrays splits refs into the parallel provider-name and model-id arrays the
+// unnest pairing takes.
+func refArrays(refs []ExportModelRef) (providers, modelIDs []string) {
+	providers = make([]string, len(refs))
+	modelIDs = make([]string, len(refs))
+	for i, ref := range refs {
+		providers[i] = ref.ProviderName
+		modelIDs[i] = ref.ModelID
+	}
+	return providers, modelIDs
+}
+
+// absentModelRefs returns the refs that resolve to no model on this member. A
+// ref that does resolve is dropped: whatever its state, the row is what the
+// export must describe.
+func absentModelRefs(ctx context.Context, q querier, refs []ExportModelRef) ([]ExportModelRef, error) {
+	providers, modelIDs := refArrays(refs)
+	rows, err := q.Query(ctx, `
+		SELECT p.name, m.model_id
+		  FROM models m JOIN providers p ON m.provider_id = p.id
+		 WHERE EXISTS (`+wantedModelRefs+` WHERE w.provider_name = p.name AND w.model_id = m.model_id)`,
+		providers, modelIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	present := map[ExportModelRef]bool{}
+	for rows.Next() {
+		var ref ExportModelRef
+		if err := rows.Scan(&ref.ProviderName, &ref.ModelID); err != nil {
+			return nil, err
+		}
+		present[ref] = true
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	out := make([]ExportModelRef, 0, len(refs))
+	for _, ref := range refs {
+		if !present[ref] {
+			out = append(out, ref)
+		}
+	}
+	return out, nil
 }

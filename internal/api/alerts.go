@@ -139,7 +139,7 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 			plain, derr := auth.DecryptString(stored, h.masterKey())
 			if derr != nil {
 				writeCodedError(w, http.StatusBadGateway, alert.ReasonUndecryptable,
-					"stored target cannot be decrypted (master key rotated?)")
+					alert.MsgUndecryptable)
 				return
 			}
 			cfg.Targets = plain
@@ -183,7 +183,7 @@ func (h *Handler) GetAlertTargets(w http.ResponseWriter, r *http.Request) {
 		plain, err := auth.DecryptString(stored, h.masterKey())
 		if err != nil {
 			writeCodedError(w, http.StatusInternalServerError, alert.ReasonUndecryptable,
-				"stored target cannot be decrypted (master key rotated?)")
+				alert.MsgUndecryptable)
 			return
 		}
 		targets = alert.SplitTargets(plain)

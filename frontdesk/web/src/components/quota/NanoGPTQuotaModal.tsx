@@ -1,37 +1,22 @@
 import { useTranslation } from "react-i18next";
 import type { NanoGPTUsage } from "../../api/types";
 import { formatCount, formatTokens } from "../../utils/format";
-import type { QuotaBarMode } from "../../utils/quota";
 import { formatAbsolute } from "../../utils/time";
 import {
 	QuotaBar,
 	QuotaDetailGrid,
 	QuotaDetailItem,
+	type QuotaModalProps,
 	QuotaModalShell,
 	resetSublabelFromEpoch,
 } from "./shared";
 
-export interface NanoGPTQuotaModalProps {
-	providerName: string;
-	payload: NanoGPTUsage;
-	fetchedAt: string;
-	barMode: QuotaBarMode;
-	onToggleBarMode: () => void;
-	onRefresh: () => void;
-	isRefreshing: boolean;
-	onClose: () => void;
-}
-
 export function NanoGPTQuotaModal({
 	providerName,
 	payload,
-	fetchedAt,
 	barMode,
-	onToggleBarMode,
-	onRefresh,
-	isRefreshing,
-	onClose,
-}: NanoGPTQuotaModalProps) {
+	...shell
+}: QuotaModalProps<NanoGPTUsage>) {
 	const { t } = useTranslation();
 
 	const weeklyLimit = payload.limits?.weeklyInputTokens ?? 0;
@@ -57,11 +42,7 @@ export function NanoGPTQuotaModal({
 				)
 			}
 			barMode={barMode}
-			onToggleBarMode={onToggleBarMode}
-			onRefresh={onRefresh}
-			isRefreshing={isRefreshing}
-			fetchedAt={fetchedAt}
-			onClose={onClose}
+			{...shell}
 		>
 			<QuotaBar
 				label={t("quota.modal.weeklyTokenQuota")}

@@ -619,8 +619,8 @@ describe("LogDetailModal", () => {
 				<LogDetailModal log={invalidDateLog} type="app" onClose={onClose} />,
 			);
 
-			// Invalid dates fall back to showing the raw ISO string in the modal
-			// The formatDateTime function returns the original string on error
+			// Invalid dates fall back to showing the raw ISO string in the modal:
+			// formatLogTimestamp returns the original string for an unparsable value
 			expect(screen.getByText(/Timestamp/)).toBeInTheDocument();
 		});
 	});

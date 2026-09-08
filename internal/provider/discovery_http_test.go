@@ -992,7 +992,7 @@ func TestGetZAICodingQuota_InvalidJSON(t *testing.T) {
 		t.Fatal("expected error for invalid JSON response, got nil")
 		return
 	}
-	if !strings.Contains(err.Error(), "failed to decode response") {
+	if !strings.Contains(err.Error(), "failed to decode quota response") {
 		t.Errorf("expected decode error, got: %v", err)
 	}
 }

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/config"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 const secretTestMasterKey = "api-secret-test-master-key-32bytesmin!!"
@@ -29,7 +30,7 @@ func TestEncryptSecretSettings(t *testing.T) {
 	})
 
 	t.Run("masked value is dropped to preserve stored ciphertext", func(t *testing.T) {
-		req := map[string]string{"alert_apprise_targets": secretMaskValue, "alert_enabled": "true"}
+		req := map[string]string{"alert_apprise_targets": util.SecretMask, "alert_enabled": "true"}
 		if err := h.encryptSecretSettings(req); err != nil {
 			t.Fatalf("encryptSecretSettings: %v", err)
 		}
@@ -74,7 +75,7 @@ func TestInjectReadOnlyStatusMasksSecrets(t *testing.T) {
 	h := &Handler{appVersion: "test"}
 
 	masked := h.injectReadOnlyStatus(map[string]string{"alert_apprise_targets": "enc:v1:abc:def:ghi"})
-	if masked["alert_apprise_targets"] != secretMaskValue {
+	if masked["alert_apprise_targets"] != util.SecretMask {
 		t.Errorf("configured secret not masked: %q", masked["alert_apprise_targets"])
 	}
 

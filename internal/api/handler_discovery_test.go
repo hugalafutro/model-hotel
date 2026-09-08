@@ -80,7 +80,7 @@ func TestDiscoverProviderModels_NonExistentProvider(t *testing.T) {
 	}
 }
 
-func TestGetProviderUsageIntegration(t *testing.T) {
+func TestQuotaUsageIntegration(t *testing.T) {
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -116,7 +116,7 @@ func TestGetProviderUsageIntegration(t *testing.T) {
 	}
 }
 
-func TestGetProviderBalanceIntegration(t *testing.T) {
+func TestQuotaBalanceIntegration(t *testing.T) {
 	h := newTestHandler(t)
 	r := chi.NewRouter()
 	h.Register(r)
@@ -290,9 +290,7 @@ func TestDiscoverProviderModels_Success(t *testing.T) {
 	}
 }
 
-// Test for discovery.go - GetProviderUsage_Success
-
-func TestGetProviderUsage_Success(t *testing.T) {
+func TestQuotaUsage_Success(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Point this handler's discovery at a mock transport, so no real API is called.
@@ -454,7 +452,7 @@ func TestDiscoverProviderModels_NotFound(t *testing.T) {
 	}
 }
 
-func TestGetProviderUsage_NanoGPT(t *testing.T) {
+func TestQuotaUsage_NanoGPT(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create provider with NanoGPT base URL
@@ -481,7 +479,7 @@ func TestGetProviderUsage_NanoGPT(t *testing.T) {
 	}
 }
 
-func TestGetProviderUsage_OpenRouter(t *testing.T) {
+func TestQuotaUsage_OpenRouter(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create provider with OpenRouter base URL
@@ -509,7 +507,7 @@ func TestGetProviderUsage_OpenRouter(t *testing.T) {
 	}
 }
 
-func TestGetProviderBalance_DefaultUnsupported(t *testing.T) {
+func TestQuotaBalance_DefaultUnsupported(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create provider with non-DeepSeek URL
@@ -544,7 +542,7 @@ func TestGetProviderBalance_DefaultUnsupported(t *testing.T) {
 	}
 }
 
-func TestGetProviderBalance_DeepSeek(t *testing.T) {
+func TestQuotaBalance_DeepSeek(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create provider with DeepSeek base URL
@@ -891,9 +889,7 @@ func TestDiscoverProviderModels_InvalidProvider(t *testing.T) {
 	}
 }
 
-// Test for discovery.go - GetProviderUsage_UnsupportedProvider
-
-func TestGetProviderUsage_UnsupportedProvider(t *testing.T) {
+func TestQuotaUsage_UnsupportedProvider(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider that doesn't support usage (OpenAI)
@@ -1065,7 +1061,7 @@ func TestDiscoverProviderModels_AutodiscoveryDisabled(t *testing.T) {
 
 // TestListProviders_WithSearchFilter tests the search filter functionality
 
-func TestGetProviderUsage_Error(t *testing.T) {
+func TestQuotaUsage_Error(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 
 	// Point this handler's discovery at a mock transport, so no real API is called.
@@ -1115,9 +1111,9 @@ func TestGetProviderUsage_Error(t *testing.T) {
 	}
 }
 
-// TestGetProviderBalance_Error tests the error path for balance endpoint
+// TestQuotaBalance_Error tests the error path for balance endpoint
 
-func TestGetProviderBalance_Error(t *testing.T) {
+func TestQuotaBalance_Error(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with DeepSeek base URL (supported type)
@@ -1191,9 +1187,9 @@ func TestDiscoverProviderModels_WithInvalidProviderType(t *testing.T) {
 	}
 }
 
-// TestGetProviderBalance_UnsupportedProvider tests balance endpoint for unsupported provider type
+// TestQuotaBalance_UnsupportedProvider tests balance endpoint for unsupported provider type
 
-func TestGetProviderBalance_UnsupportedProvider(t *testing.T) {
+func TestQuotaBalance_UnsupportedProvider(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with OpenAI base URL (not supported for balance)
@@ -1259,9 +1255,9 @@ func TestDiscoverProviderModels_SuccessPath(t *testing.T) {
 	}
 }
 
-// TestGetProviderUsage_ZAICoding tests ZAI Coding provider usage endpoint
+// TestQuotaUsage_ZAICoding tests ZAI Coding provider usage endpoint
 
-func TestGetProviderUsage_ZAICoding(t *testing.T) {
+func TestQuotaUsage_ZAICoding(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with ZAI Coding base URL pattern
@@ -1295,7 +1291,7 @@ func TestGetProviderUsage_ZAICoding(t *testing.T) {
 
 // TestFailoverCandidates_Empty tests the Candidates endpoint with no models
 
-func TestGetProviderBalance_UnsupportedType_Integration(t *testing.T) {
+func TestQuotaBalance_UnsupportedType_Integration(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
 	// Create a provider with a generic URL (not nanogpt/openrouter/deepseek/zai-coding)
@@ -1326,10 +1322,7 @@ func TestGetProviderBalance_UnsupportedType_Integration(t *testing.T) {
 	}
 }
 
-// TestGetProviderBalance_OpenRouterError_Integration tests balance check on OpenRouter provider
-// Note: Current implementation only supports DeepSeek, so OpenRouter returns 400 (unsupported)
-
-func TestGetProviderUsage_OpenRouterError_Integration(t *testing.T) {
+func TestQuotaUsage_OpenRouterError_Integration(t *testing.T) {
 	// OpenRouter maps to the "usage" kind and is served from /usage. An upstream
 	// failure surfaces as a 500 from the read-through cold-fill.
 	h, r := newTestHandlerWithRouter(t)

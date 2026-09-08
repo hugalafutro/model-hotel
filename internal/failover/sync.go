@@ -224,8 +224,9 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 		var id, providerID uuid.UUID
 		var modelID, providerName string
 		if err := rows.Scan(&id, &modelID, &providerID, &providerName); err != nil {
-			debuglog.Warn("failover: skipping unscannable model row during sync", "error", err)
-			continue
+			// A dropped row would look like a model that no longer shares the
+			// base name, and the sync would rebuild the group without it.
+			return nil, fmt.Errorf("SyncAllModels: scan model row: %w", err)
 		}
 		base := normalizeBaseModel(modelID)
 		baseToModels[base] = append(baseToModels[base], modelInfo{
@@ -287,16 +288,13 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	// UUIDs in priority_order/entry_enabled that reference non-existent rows.
 	// Filter out groups already deleted in the loop above to avoid duplicate
 	// DeletedGroups entries.
+	deleted := make(map[string]struct{}, len(result.DeletedGroups))
+	for _, dg := range result.DeletedGroups {
+		deleted[dg.DisplayModel] = struct{}{}
+	}
 	var groupsForPrune []*FailoverGroup
 	for _, g := range allGroups {
-		alreadyDeleted := false
-		for _, dg := range result.DeletedGroups {
-			if dg.DisplayModel == g.DisplayModel {
-				alreadyDeleted = true
-				break
-			}
-		}
-		if !alreadyDeleted {
+		if _, gone := deleted[g.DisplayModel]; !gone {
 			groupsForPrune = append(groupsForPrune, g)
 		}
 	}
@@ -343,8 +341,8 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 	for rows.Next() {
 		var id, providerID uuid.UUID
 		if err := rows.Scan(&id, &providerID); err != nil {
-			debuglog.Warn("failover: skipping unscannable group-member row", "error", err)
-			continue
+			// A dropped row would drop a live member from the rebuilt group.
+			return nil, fmt.Errorf("SyncForModel: scan group-member row: %w", err)
 		}
 		currentIDs = append(currentIDs, id)
 	}
@@ -385,9 +383,7 @@ func (r *Repository) SyncForModel(ctx context.Context, modelID string) (*SyncRes
 // deleted model's base name).
 func (r *Repository) PruneModelUUID(ctx context.Context, modelUUID uuid.UUID) error {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-		       created_at, COALESCE(updated_at, created_at)
+		SELECT `+failoverGroupColumns+`
 		FROM model_failover_groups
 		WHERE priority_order::jsonb @> to_jsonb(ARRAY[$1]::uuid[])
 	`, modelUUID)

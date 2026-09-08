@@ -4,14 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
 
-	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -117,10 +116,10 @@ func (d *DiscoveryService) discoverOpenRouter(ctx context.Context, provider *Pro
 
 // isOpenRouterChatModel returns true if the model can produce text output for chat.
 func isOpenRouterChatModel(orm OpenRouterModel) bool {
-	for _, mod := range orm.Architecture.OutputModalities {
-		if mod == "text" || mod == "code" {
-			return true
-		}
+	if slices.ContainsFunc(orm.Architecture.OutputModalities, func(mod string) bool {
+		return mod == "text" || mod == "code"
+	}) {
+		return true
 	}
 	// Fallback: check modality string
 	m := orm.Architecture.Modality
@@ -149,69 +148,24 @@ func parseOpenRouterPrice(s string) *float64 {
 
 // GetOpenRouterBalance retrieves credits and usage info from OpenRouter.
 func (d *DiscoveryService) GetOpenRouterBalance(ctx context.Context, provider *Provider, masterKey string) (*OpenRouterBalance, error) {
-	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+	// Two endpoints, one key derivation: the decrypt runs an uncached argon2id
+	// pass, so it happens once per poll rather than once per request.
+	apiKey, err := decryptProviderKey(provider, masterKey, "openrouter")
 	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to decrypt API key for provider %s: %w", provider.Name, err)
+		return nil, err
 	}
+	base := util.SanitizeBaseURL(provider.BaseURL)
 
-	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-
-	// Fetch credits (actual account balance) from /api/v1/credits
-	creditsURL := baseURL + "/credits"
-	creditsReq, err := http.NewRequestWithContext(ctx, "GET", creditsURL, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to create credits request for provider %s: %w", provider.Name, err)
-	}
-	creditsReq.Header.Set("Authorization", "Bearer "+apiKey)
-	creditsReq.Header.Set("Content-Type", "application/json")
-
-	creditsResp, err := d.doQuotaRequestWithRetry(ctx, creditsReq, provider.ID.String(), provider.Name, "openrouter")
-	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to fetch credits for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = creditsResp.Body.Close() }()
-
-	if creditsResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(creditsResp.Body)
-		if authErr := quotaAuthError("openrouter", apiKey, provider, creditsResp.StatusCode, body); authErr != nil {
-			return nil, authErr
-		}
-		debuglog.Error("discovery: openrouter credits non-200 status", "status", creditsResp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
-		return nil, fmt.Errorf("openrouter: unexpected status code %d from credits endpoint for provider %s", creditsResp.StatusCode, provider.Name)
-	}
-
+	// Credits are the actual account balance (/api/v1/credits); key info
+	// carries the limits and usage (/api/v1/key).
 	var creditsData OpenRouterCreditsResponse
-	if err := json.NewDecoder(creditsResp.Body).Decode(&creditsData); err != nil {
-		return nil, fmt.Errorf("openrouter: failed to decode credits response for provider %s: %w", provider.Name, err)
-	}
-
-	// Fetch key info (limits, usage) from /api/v1/key
-	keyURL := baseURL + "/key"
-	keyReq, err := http.NewRequestWithContext(ctx, "GET", keyURL, http.NoBody)
-	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to create key request for provider %s: %w", provider.Name, err)
-	}
-	keyReq.Header.Set("Authorization", "Bearer "+apiKey)
-	keyReq.Header.Set("Content-Type", "application/json")
-
-	keyResp, err := d.doQuotaRequestWithRetry(ctx, keyReq, provider.ID.String(), provider.Name, "openrouter")
-	if err != nil {
-		return nil, fmt.Errorf("openrouter: failed to fetch key info for provider %s: %w", provider.Name, err)
-	}
-	defer func() { _ = keyResp.Body.Close() }()
-
-	if keyResp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(keyResp.Body)
-		if authErr := quotaAuthError("openrouter", apiKey, provider, keyResp.StatusCode, body); authErr != nil {
-			return nil, authErr
-		}
-		debuglog.Error("discovery: openrouter key info non-200 status", "status", keyResp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
-		return nil, fmt.Errorf("openrouter: unexpected status code %d from key endpoint for provider %s", keyResp.StatusCode, provider.Name)
+	if err := d.fetchQuotaJSONAt(ctx, provider, apiKey, "GET", base+"/credits", "openrouter", "credits", &creditsData); err != nil {
+		return nil, fmt.Errorf("%w (credits endpoint)", err)
 	}
 
 	var keyData OpenRouterKeyResponse
-	if err := json.NewDecoder(keyResp.Body).Decode(&keyData); err != nil {
-		return nil, fmt.Errorf("openrouter: failed to decode key response for provider %s: %w", provider.Name, err)
+	if err := d.fetchQuotaJSONAt(ctx, provider, apiKey, "GET", base+"/key", "openrouter", "key info", &keyData); err != nil {
+		return nil, fmt.Errorf("%w (key endpoint)", err)
 	}
 
 	remaining := creditsData.Data.TotalCredits - creditsData.Data.TotalUsage

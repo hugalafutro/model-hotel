@@ -1,8 +1,12 @@
 import { act, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { FailoverGroup } from "../../../api/types";
+import type {
+	CircuitBreakerProviderStatus,
+	CircuitState,
+	FailoverGroup,
+} from "../../../api/types";
 import { renderWithProviders } from "../../../test/utils";
-import { SortableEntry, type SortableEntryProps } from "../SortableEntry";
+import { SortableEntry } from "../SortableEntry";
 
 // Mock dnd-kit modules at top level
 vi.mock("@dnd-kit/sortable", () => ({
@@ -23,7 +27,7 @@ vi.mock("@dnd-kit/utilities", () => ({
 // Mock useResizeObserver to return non-zero dimensions for FuseOutline
 vi.mock("../../../hooks/useResizeObserver", () => ({
 	useResizeObserver: vi.fn(() => ({
-		ref: { current: null },
+		ref: vi.fn(),
 		width: 100,
 		height: 40,
 	})),
@@ -42,6 +46,18 @@ const baseEntry: FailoverGroup["entries"][0] = {
 	context_length: 8192,
 	owned_by: "openai",
 };
+
+type CbFields = Omit<Partial<CircuitBreakerProviderStatus>, "state"> & {
+	state: CircuitState;
+};
+
+/** A provider circuit row: the fields a case cares about over the required pair. */
+const cb = (fields: CbFields): CircuitBreakerProviderStatus => ({
+	provider_id: "provider-uuid-1",
+	provider_open: false,
+	consecutive_fails: 0,
+	...fields,
+});
 
 describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 	beforeEach(() => {
@@ -85,10 +101,10 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 	describe("cbStatus with state 'closed'", () => {
 		it("does not render FuseOutline for closed circuit breaker", () => {
-			const cbStatus = {
+			const cbStatus = cb({
 				state: "closed",
 				consecutive_fails: 0,
-			};
+			});
 
 			const { container } = renderWithProviders(
 				<SortableEntry
@@ -109,12 +125,12 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 	describe("cbStatus with state 'open' and consecutive_fails >= 5", () => {
 		it("renders FuseOutline with red color and proper attributes", () => {
-			const cbStatus = {
+			const cbStatus = cb({
 				state: "open",
 				cooldown_ms: 60000,
 				next_retry_at: new Date(Date.now() + 30000).toISOString(),
 				consecutive_fails: 7,
-			};
+			});
 
 			const { container } = renderWithProviders(
 				<SortableEntry
@@ -150,10 +166,10 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 	describe("cbStatus with state 'half-open' and consecutive_fails >= 5", () => {
 		it("renders static amber outline (no SVG fuse animation) for half-open", () => {
-			const cbStatus = {
+			const cbStatus = cb({
 				state: "half-open",
 				consecutive_fails: 5,
-			};
+			});
 
 			const { container, getByTestId, queryByTestId } = renderWithProviders(
 				<SortableEntry
@@ -183,12 +199,12 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 
 	describe("cbStatus with state 'open' but consecutive_fails < 5", () => {
 		it("renders FuseOutline for open state regardless of consecutive_fails count", () => {
-			const cbStatus = {
+			const cbStatus = cb({
 				state: "open",
 				cooldown_ms: 60000,
 				consecutive_fails: 3,
 				next_retry_at: new Date(Date.now() + 60000).toISOString(),
-			};
+			});
 
 			const { container } = renderWithProviders(
 				<SortableEntry
@@ -218,11 +234,11 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 	describe("Disabled entry with open cbStatus", () => {
 		it("does NOT render FuseOutline for disabled entries", () => {
 			const disabledEntry = { ...baseEntry, enabled: false };
-			const cbStatus = {
+			const cbStatus = cb({
 				state: "open",
 				cooldown_ms: 60000,
 				consecutive_fails: 10,
-			};
+			});
 
 			const { container } = renderWithProviders(
 				<SortableEntry
@@ -249,12 +265,12 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 	describe("next_retry_at in the future", () => {
 		it("computes durationMs correctly from remaining time", () => {
 			const futureTime = Date.now() + 45000; // 45 seconds in the future
-			const cbStatus = {
+			const cbStatus = cb({
 				state: "open",
 				cooldown_ms: 60000, // fallback value
 				next_retry_at: new Date(futureTime).toISOString(),
 				consecutive_fails: 8,
-			};
+			});
 
 			const { container } = renderWithProviders(
 				<SortableEntry
@@ -281,13 +297,13 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 	describe("Quota-pinned cooldowns", () => {
 		const HOUR_MS = 60 * 60 * 1000;
 
-		function renderEntry(cbStatus: SortableEntryProps["cbStatus"]) {
+		function renderEntry(fields: CbFields) {
 			return renderWithProviders(
 				<SortableEntry
 					entry={baseEntry}
 					groupEnabled={true}
 					onToggle={vi.fn()}
-					cbStatus={cbStatus}
+					cbStatus={cb(fields)}
 				/>,
 			);
 		}
@@ -439,14 +455,14 @@ describe("SortableEntry - Circuit Breaker Fuse Outline", () => {
 						entry={baseEntry}
 						groupEnabled={true}
 						onToggle={vi.fn()}
-						cbStatus={{
+						cbStatus={cb({
 							state: "open",
 							consecutive_fails: 5,
 							cooldown_ms: 14 * 60 * 1000,
 							next_retry_at: new Date(
 								Date.now() + 14 * 60 * 1000,
 							).toISOString(),
-						}}
+						})}
 					/>,
 				);
 

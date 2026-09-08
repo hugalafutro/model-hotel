@@ -1,11 +1,25 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Provider } from "../../../api/types";
+import { QuotaModalsHost } from "../../../components/QuotaModalsHost";
 import { mockAllDefaults } from "../../../test/helpers";
 import { mockProvider } from "../../../test/mocks/data";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { Providers } from "../../Providers";
+
+/**
+ * The page names which quota modal is open; QuotaModalsHost, mounted once in
+ * Layout, is what renders it. Badge-click tests need both, as the app has both.
+ */
+function renderProvidersWithModalHost() {
+	return renderWithProviders(
+		<>
+			<Providers />
+			<QuotaModalsHost />
+		</>,
+	);
+}
 
 /**
  * Helper to set up baseline MSW handlers for Providers page tests.
@@ -411,7 +425,7 @@ describe("Providers", () => {
 				),
 			);
 
-			const { user } = renderWithProviders(<Providers />);
+			const { user } = renderProvidersWithModalHost();
 
 			// Wait for provider to load
 			await waitFor(() => {
@@ -483,7 +497,7 @@ describe("Providers", () => {
 				),
 			);
 
-			const { user } = renderWithProviders(<Providers />);
+			const { user } = renderProvidersWithModalHost();
 
 			await waitFor(() => {
 				expect(screen.getByText("NanoGPT")).toBeInTheDocument();
@@ -556,7 +570,7 @@ describe("Providers", () => {
 				),
 			);
 
-			const { user } = renderWithProviders(<Providers />);
+			const { user } = renderProvidersWithModalHost();
 
 			await waitFor(() => {
 				expect(screen.getByText("Z.ai Coding")).toBeInTheDocument();
@@ -611,7 +625,7 @@ describe("Providers", () => {
 				),
 			);
 
-			const { user } = renderWithProviders(<Providers />);
+			const { user } = renderProvidersWithModalHost();
 
 			await waitFor(() => {
 				expect(screen.getByText("OpenRouter")).toBeInTheDocument();
@@ -682,7 +696,7 @@ describe("Providers", () => {
 				),
 			);
 
-			const { user } = renderWithProviders(<Providers />);
+			const { user } = renderProvidersWithModalHost();
 
 			await waitFor(() => {
 				expect(screen.getByText("Z.ai Coding")).toBeInTheDocument();
@@ -735,7 +749,7 @@ describe("Providers", () => {
 				),
 			);
 
-			const { user } = renderWithProviders(<Providers />);
+			const { user } = renderProvidersWithModalHost();
 
 			await waitFor(() => {
 				expect(screen.getByText("Kimi Code")).toBeInTheDocument();
@@ -781,7 +795,7 @@ describe("Providers", () => {
 				),
 			);
 
-			const { user } = renderWithProviders(<Providers />);
+			const { user } = renderProvidersWithModalHost();
 
 			await waitFor(() => {
 				expect(screen.getByText("MiniMax")).toBeInTheDocument();
@@ -827,7 +841,7 @@ describe("Providers", () => {
 				),
 			);
 
-			const { user } = renderWithProviders(<Providers />);
+			const { user } = renderProvidersWithModalHost();
 
 			await waitFor(() => {
 				expect(screen.getByText("OpenRouter")).toBeInTheDocument();

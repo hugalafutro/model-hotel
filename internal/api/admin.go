@@ -14,6 +14,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
@@ -417,7 +418,7 @@ func (h *Handler) Register(r chi.Router) {
 	// Usage dashboards are readable with the usage grant.
 	r.Group(func(r chi.Router) {
 		r.Use(requireGrant(user.GrantUsage))
-		NewStatsHandler(h.dbPool.Pool(), h.adminMgr).Register(r)
+		NewStatsHandler(h.dbPool.Pool()).Register(r)
 	})
 
 	// Everything below is admin-only surface: discovery, app logs, settings,
@@ -582,12 +583,7 @@ func (h *Handler) AuthMiddleware(next http.Handler) http.Handler {
 		// The session slid forward on this request: hand the browser the new
 		// lifetime, or it drops the cookie on the original schedule.
 		if refresh != nil {
-			if err := authcookie.Dashboard.RefreshSession(w, r, refresh.token,
-				authcookie.Secure(r, h.cfg.CookieSecure), time.Until(refresh.result.ExpiresAt)); err != nil {
-				// Best-effort: the authentication passed; the browser merely keeps
-				// the older lifetime until the next successful refresh.
-				debuglog.Error("auth: failed to re-issue session cookie", "error", err)
-			}
+			adminauth.RefreshSessionCookies(w, r, authcookie.Dashboard, refresh.token, refresh.result, h.cfg.CookieSecure)
 		}
 
 		next.ServeHTTP(w, r.WithContext(user.WithIdentity(r.Context(), id)))

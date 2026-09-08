@@ -18,14 +18,11 @@ func NeedsProviderInjection(providerType string) bool {
 
 // InjectProviderParams modifies the raw request body map to inject
 // provider-specific parameters required for reasoning/thinking to work.
-// Returns true if any modifications were made.
 //
 // This is necessary because model-hotel acts as a transparent proxy;
 // clients like opencode don't know which upstream provider they're
 // really talking to, so they can't send provider-specific options.
-func InjectProviderParams(raw map[string]any, providerType, modelID string) bool {
-	modified := false
-
+func InjectProviderParams(raw map[string]any, providerType, modelID string) {
 	switch providerType {
 	case "zai-coding":
 		// Z.ai / ZhipuAI requires thinking config for reasoning models.
@@ -35,7 +32,6 @@ func InjectProviderParams(raw map[string]any, providerType, modelID string) bool
 				"type":           "enabled",
 				"clear_thinking": false,
 			}
-			modified = true
 			debuglog.Debug("proxy: injected thinking config for z.ai", "model", modelID)
 		}
 
@@ -56,7 +52,6 @@ func InjectProviderParams(raw map[string]any, providerType, modelID string) bool
 			raw["chat_template_args"] = map[string]any{
 				"enable_thinking": true,
 			}
-			modified = true
 			debuglog.Debug("proxy: injected chat_template_args for opencode provider", "provider_type", providerType, "model", modelID)
 		}
 
@@ -82,15 +77,10 @@ func InjectProviderParams(raw map[string]any, providerType, modelID string) bool
 		isReasoningModel := strings.Contains(modelLower, "v4") ||
 			strings.Contains(modelLower, "r1") ||
 			modelLower == "deepseek-reasoner"
-		if isReasoningModel {
-			if backfillDeepSeekReasoning(raw) {
-				modified = true
-				debuglog.Debug("proxy: backfilled reasoning_content on assistant messages for deepseek", "model", modelID)
-			}
+		if isReasoningModel && backfillDeepSeekReasoning(raw) {
+			debuglog.Debug("proxy: backfilled reasoning_content on assistant messages for deepseek", "model", modelID)
 		}
 	}
-
-	return modified
 }
 
 // backfillDeepSeekReasoning ensures every assistant message in the messages
@@ -103,7 +93,7 @@ func backfillDeepSeekReasoning(raw map[string]any) bool {
 	}
 
 	modified := false
-	for i, msg := range messages {
+	for _, msg := range messages {
 		msgMap, ok := msg.(map[string]any)
 		if !ok {
 			continue
@@ -116,7 +106,6 @@ func backfillDeepSeekReasoning(raw map[string]any) bool {
 		// If it's present (even as empty string), leave it alone.
 		if _, exists := msgMap["reasoning_content"]; !exists {
 			msgMap["reasoning_content"] = ""
-			messages[i] = msgMap
 			modified = true
 		}
 	}

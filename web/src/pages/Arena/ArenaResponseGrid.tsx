@@ -2,16 +2,11 @@ import { useTranslation } from "react-i18next";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ResponseCard } from "./ResponseCard";
 import { SwapPicker } from "./SwapPicker";
-import type { ArenaRefs, ArenaView } from "./useArena";
+import type { ArenaView } from "./useArena";
+import { usedModelIds } from "./utils";
 
 /** The per-round response cards (matchups in competition mode, one card per model in compare mode) and the full-reset confirm dialog. */
-export function ArenaResponseGrid({
-	arena,
-	abortMapRef,
-}: {
-	arena: ArenaView;
-	abortMapRef: ArenaRefs["abortMapRef"];
-}) {
+export function ArenaResponseGrid({ arena }: { arena: ArenaView }) {
 	const { t } = useTranslation();
 	return (
 		<>
@@ -63,12 +58,7 @@ export function ArenaResponseGrid({
 													<SwapPicker
 														enabledModels={arena.enabledModels}
 														disabledModels={arena.disabledModels}
-														alreadyUsed={round.matchups.flatMap((m, mi) => {
-															if (mi === matchupIdx) return [];
-															const ids: string[] = [];
-															if (m.slotA) ids.push(m.slotA.modelId);
-															return ids;
-														})}
+														alreadyUsed={usedModelIds(round, matchupIdx, "A")}
 														onSelect={(modelId) =>
 															arena.handleSwapCompleteAndUpdate(
 																roundIdx,
@@ -118,16 +108,7 @@ export function ArenaResponseGrid({
 													<SwapPicker
 														enabledModels={arena.enabledModels}
 														disabledModels={arena.disabledModels}
-														alreadyUsed={[
-															...round.matchups.flatMap((m, mi) => {
-																if (mi === matchupIdx) return [];
-																const ids: string[] = [];
-																if (m.slotA) ids.push(m.slotA.modelId);
-																if (m.slotB) ids.push(m.slotB.modelId);
-																return ids;
-															}),
-															...(mu.slotB ? [mu.slotB.modelId] : []),
-														]}
+														alreadyUsed={usedModelIds(round, matchupIdx, "A")}
 														onSelect={(modelId) =>
 															arena.handleSwapCompleteAndUpdate(
 																roundIdx,
@@ -164,16 +145,7 @@ export function ArenaResponseGrid({
 													<SwapPicker
 														enabledModels={arena.enabledModels}
 														disabledModels={arena.disabledModels}
-														alreadyUsed={[
-															...round.matchups.flatMap((m, mi) => {
-																if (mi === matchupIdx) return [];
-																const ids: string[] = [];
-																if (m.slotA) ids.push(m.slotA.modelId);
-																if (m.slotB) ids.push(m.slotB.modelId);
-																return ids;
-															}),
-															...(mu.slotA ? [mu.slotA.modelId] : []),
-														]}
+														alreadyUsed={usedModelIds(round, matchupIdx, "B")}
 														onSelect={(modelId) =>
 															arena.handleSwapCompleteAndUpdate(
 																roundIdx,
@@ -221,37 +193,8 @@ export function ArenaResponseGrid({
 					fields={[]}
 					confirmLabel={t("arena.confirmReset.confirmLabel")}
 					onConfirm={() => {
-						for (const [, ctrl] of abortMapRef.current) {
-							ctrl.abort();
-						}
-						abortMapRef.current.clear();
-						arena.setCompareModels([]);
-						arena.setBracketModels([]);
-						arena.setCompetitionPrompt("");
-						arena.setComparePrompt("");
-						arena.setSavedPrompt("");
-						arena.setCompetitionActivePromptId(null);
-						arena.setCompareActivePromptId(null);
-						arena.setComparePersonaId(null);
-						arena.setComparePersonaPrompt("");
-						arena.setRounds([]);
-						arena.setCurrentRound(0);
-						arena.setPhase("setup");
-						arena.setRunningModels(new Set());
-						arena.setWinnerModal(null);
-						arena.setDisabledModels(new Set());
-						arena.setModelParams({});
+						arena.resetAll();
 						arena.setPendingFullReset(false);
-						try {
-							localStorage.removeItem("arenaCompetitionPrompt");
-							localStorage.removeItem("arenaComparePrompt");
-							localStorage.removeItem("arenaCompetitionActivePromptId");
-							localStorage.removeItem("arenaCompareActivePromptId");
-							localStorage.removeItem("arenaComparePersonaId");
-							localStorage.removeItem("arenaComparePersonaPrompt");
-						} catch {
-							/* ignore */
-						}
 						arena.toast(t("arena.toast.reset"), "info");
 					}}
 					onCancel={() => arena.setPendingFullReset(false)}

@@ -14,10 +14,11 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
-var (
-	jsonMarshal   = json.Marshal
-	jsonUnmarshal = json.Unmarshal
-)
+// failoverGroupColumns is the projection every FailoverGroup read shares, in
+// the order scanFailoverGroup expects.
+const failoverGroupColumns = `id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
+	       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
+	       created_at, COALESCE(updated_at, created_at)`
 
 // FailoverGroup represents a configured failover group for a model.
 //
@@ -33,6 +34,34 @@ type FailoverGroup struct {
 	AutoCreated   bool            `json:"auto_created"`
 	CreatedAt     time.Time       `json:"created_at"`
 	UpdatedAt     time.Time       `json:"updated_at"`
+}
+
+// IsEntryEnabled reports whether the given member is enabled inside the group.
+// A member with no entry_enabled key is enabled: the map records deviations from
+// the default, so an absent key means nobody turned the member off.
+func (g *FailoverGroup) IsEntryEnabled(id uuid.UUID) bool {
+	if v, ok := g.EntryEnabled[id.String()]; ok {
+		return v
+	}
+	return true
+}
+
+// scanFailoverGroup reads one failoverGroupColumns row. pgx.Rows satisfies
+// pgx.Row, so the multi-row loop scans through here too.
+func scanFailoverGroup(row pgx.Row) (*FailoverGroup, error) {
+	var fg FailoverGroup
+	var priorityJSON, entryEnabledJSON []byte
+	if err := row.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
+		&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
+		return nil, fmt.Errorf("unmarshal priority_order for %s: %w", fg.DisplayModel, err)
+	}
+	if err := json.Unmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
+		return nil, fmt.Errorf("unmarshal entry_enabled for %s: %w", fg.DisplayModel, err)
+	}
+	return &fg, nil
 }
 
 // Repository provides persistence for failover groups.
@@ -51,48 +80,28 @@ func (r *Repository) GetByModel(ctx context.Context, modelID string) (*FailoverG
 		return fg, nil
 	}
 
-	var fg FailoverGroup
-	var priorityJSON []byte
-	var entryEnabledJSON []byte
-
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-		       created_at, COALESCE(updated_at, created_at)
+	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, `
+		SELECT `+failoverGroupColumns+`
 		FROM model_failover_groups
 		WHERE display_model = $1
-	`, modelID).Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
-		&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt)
+	`, modelID))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := jsonUnmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
-		return nil, err
-	}
-
-	if err := jsonUnmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
-		return nil, err
-	}
-
-	cacheFailoverGroup(&fg)
-	return &fg, nil
-}
-
-// Upsert creates or updates a failover group with the given priority order.
-func (r *Repository) Upsert(ctx context.Context, displayModel string, priorityOrder []uuid.UUID) (*FailoverGroup, error) {
-	return r.UpsertWithConfig(ctx, displayModel, priorityOrder, nil, nil, nil, nil, nil)
+	cacheFailoverGroup(fg)
+	return fg, nil
 }
 
 // UpsertWithConfig creates or updates a failover group with full configuration options.
 func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description *string, autoCreated *bool) (*FailoverGroup, error) {
-	priorityJSON, err := jsonMarshal(priorityOrder)
+	priorityJSON, err := json.Marshal(priorityOrder)
 	if err != nil {
 		return nil, err
 	}
 
-	entryEnabledJSON, err := jsonMarshal(entryEnabled)
+	entryEnabledJSON, err := json.Marshal(entryEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -144,30 +153,16 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 		VALUES ($1, $2, $3, $4, $5, $6, $7)
 		ON CONFLICT (display_model)
 		DO UPDATE SET %s
-		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		          COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-		          created_at, COALESCE(updated_at, created_at)`, strings.Join(doSetClauses, ", "))
+		RETURNING %s`, strings.Join(doSetClauses, ", "), failoverGroupColumns)
 
-	var fg FailoverGroup
-	var rawPriority, rawEntryEnabled []byte
-
-	err = r.pool.QueryRow(ctx, query, displayModel, priorityJSON, entryEnabledJSON, groupEnabledVal, insertDisplayName, description, autoCreatedVal).
-		Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &rawPriority, &rawEntryEnabled,
-			&fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt)
+	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, query, displayModel, priorityJSON, entryEnabledJSON,
+		groupEnabledVal, insertDisplayName, description, autoCreatedVal))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := jsonUnmarshal(rawPriority, &fg.PriorityOrder); err != nil {
-		return nil, err
-	}
-
-	if err := jsonUnmarshal(rawEntryEnabled, &fg.EntryEnabled); err != nil {
-		return nil, err
-	}
-
-	cacheFailoverGroup(&fg)
-	return &fg, nil
+	cacheFailoverGroup(fg)
+	return fg, nil
 }
 
 // Delete removes a failover group by its display model name.
@@ -186,40 +181,23 @@ func (r *Repository) DeleteByID(ctx context.Context, id uuid.UUID) error {
 
 // GetByID retrieves a failover group by its ID.
 func (r *Repository) GetByID(ctx context.Context, id uuid.UUID) (*FailoverGroup, error) {
-	var fg FailoverGroup
-	var priorityJSON []byte
-	var entryEnabledJSON []byte
-
-	err := r.pool.QueryRow(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-		       created_at, COALESCE(updated_at, created_at)
+	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, `
+		SELECT `+failoverGroupColumns+`
 		FROM model_failover_groups
 		WHERE id = $1
-	`, id).Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
-		&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt)
+	`, id))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := jsonUnmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
-		return nil, err
-	}
-
-	if err := jsonUnmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
-		return nil, err
-	}
-
-	cacheFailoverGroup(&fg)
-	return &fg, nil
+	cacheFailoverGroup(fg)
+	return fg, nil
 }
 
 // GetEnabled returns all enabled failover groups.
 func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		       COALESCE(entry_enabled, '{}'), group_enabled, COALESCE(auto_created, false),
-		       created_at, COALESCE(updated_at, created_at)
+		SELECT `+failoverGroupColumns+`
 		FROM model_failover_groups
 		WHERE group_enabled = true
 		ORDER BY display_model
@@ -244,12 +222,12 @@ func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 // that adjusts a group without an operator behind it should do the same.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, displayName, description, displayModel *string) (*FailoverGroup, error) {
-	priorityJSON, err := jsonMarshal(priorityOrder)
+	priorityJSON, err := json.Marshal(priorityOrder)
 	if err != nil {
 		return nil, err
 	}
 
-	entryEnabledJSON, err := jsonMarshal(entryEnabled)
+	entryEnabledJSON, err := json.Marshal(entryEnabled)
 	if err != nil {
 		return nil, err
 	}
@@ -311,38 +289,21 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	args = append([]any{id}, args...)
 
 	query := fmt.Sprintf(`UPDATE model_failover_groups SET %s WHERE id = $1
-		RETURNING id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		          COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-		          created_at, COALESCE(updated_at, created_at)`, strings.Join(setClauses, ", "))
+		RETURNING %s`, strings.Join(setClauses, ", "), failoverGroupColumns)
 
-	var fg FailoverGroup
-	var rawPriority, rawEntryEnabled []byte
-
-	err = r.pool.QueryRow(ctx, query, args...).
-		Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &rawPriority, &rawEntryEnabled,
-			&fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt)
+	fg, err := scanFailoverGroup(r.pool.QueryRow(ctx, query, args...))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := jsonUnmarshal(rawPriority, &fg.PriorityOrder); err != nil {
-		return nil, err
-	}
-
-	if err := jsonUnmarshal(rawEntryEnabled, &fg.EntryEnabled); err != nil {
-		return nil, err
-	}
-
-	cacheFailoverGroup(&fg)
-	return &fg, nil
+	cacheFailoverGroup(fg)
+	return fg, nil
 }
 
 // List returns all failover groups.
 func (r *Repository) List(ctx context.Context) ([]*FailoverGroup, error) {
 	rows, err := r.pool.Query(ctx, `
-		SELECT id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
-		       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-		       created_at, COALESCE(updated_at, created_at)
+		SELECT `+failoverGroupColumns+`
 		FROM model_failover_groups
 		ORDER BY display_model
 	`)
@@ -357,21 +318,12 @@ func (r *Repository) List(ctx context.Context) ([]*FailoverGroup, error) {
 func scanFailoverGroups(rows pgx.Rows) ([]*FailoverGroup, error) {
 	var groups []*FailoverGroup
 	for rows.Next() {
-		var fg FailoverGroup
-		var priorityJSON []byte
-		var entryEnabledJSON []byte
-		if err := rows.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
-			&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
-			debuglog.Warn("failover: row scan failed", "error", err)
-			return nil, fmt.Errorf("scanFailoverGroups: row scan failed: %w", err)
+		fg, err := scanFailoverGroup(rows)
+		if err != nil {
+			debuglog.Warn("failover: row read failed", "error", err)
+			return nil, fmt.Errorf("scanFailoverGroups: %w", err)
 		}
-		if err := jsonUnmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
-			return nil, fmt.Errorf("scanFailoverGroups: unmarshal priority for %s: %w", fg.DisplayModel, err)
-		}
-		if err := jsonUnmarshal(entryEnabledJSON, &fg.EntryEnabled); err != nil {
-			return nil, fmt.Errorf("scanFailoverGroups: unmarshal entry_enabled for %s: %w", fg.DisplayModel, err)
-		}
-		groups = append(groups, &fg)
+		groups = append(groups, fg)
 	}
 	if err := rows.Err(); err != nil {
 		debuglog.Error("failover: error iterating rows in scanFailoverGroups", "error", err)

@@ -1,10 +1,7 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
-	"errors"
-	"io"
 	"net/http"
 	"net/url"
 	"strings"
@@ -41,7 +38,7 @@ func responsesCacheKey(providerType, modelID string) string {
 // path. A model known to live behind /v1/responses alone goes there for every
 // request.
 func (h *Handler) shouldUseResponsesAttempt(st *requestState, candidate modelCandidate, providerType string) bool {
-	if providerType != "openai" || st.endpointPath != "" || st.makeUpstreamBody != nil {
+	if !st.plainOpenAIChat(providerType) {
 		return false
 	}
 	switch h.responsesRequirement(providerType, candidate.model.ModelID, candidate.provider.BaseURL) {
@@ -95,7 +92,7 @@ func isOpenAIHost(baseURL string) bool {
 // so learned param strips and renames (e.g. an unsupported temperature,
 // max_tokens -> max_completion_tokens) apply before translation.
 func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, candidate modelCandidate, providerType string) (*http.Request, string, string, error) {
-	targetURL := util.BuildProviderTargetURL(candidate.provider.BaseURL, providerType, "/responses")
+	targetURL := responsesTargetURL(candidate, providerType)
 	body, err := h.translateResponsesRequestBody(st, candidate, providerType)
 	if err != nil {
 		return nil, providerType, targetURL, err
@@ -103,12 +100,11 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 	debuglog.Info("proxy: routing via responses api", "target_url", targetURL, "model", candidate.model.ModelID, "provider", candidate.provider.Name, "stream", st.isStreaming)
 	metrics.RecordResponsesReroute(candidate.provider.Name, candidate.model.ModelID, "preemptive")
 
-	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(body))
+	proxyReq, err := newJSONUpstreamRequest(ctx, targetURL, body)
 	if err != nil {
 		return nil, providerType, targetURL, err
 	}
 	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
-	proxyReq.Header.Set("Content-Type", "application/json")
 	return proxyReq, providerType, targetURL, nil
 }
 
@@ -141,7 +137,7 @@ func (h *Handler) retryWithResponses(
 	streamCancelOrigin string,
 ) (paramRetryResult, bool) {
 	res := paramRetryResult{resp: resp, streamCancelOrigin: streamCancelOrigin}
-	if providerType != "openai" || st.endpointPath != "" || st.makeUpstreamBody != nil {
+	if !st.plainOpenAIChat(providerType) {
 		return res, false
 	}
 
@@ -175,38 +171,11 @@ func (h *Handler) retryWithResponses(
 		return res, true
 	}
 
-	retryCtx, rc := retryContext(r, st)
-	retryCtx, retryDial := withDialTiming(retryCtx)
 	res.streamCancelOrigin = "retry_timeout"
-	retryReq, retryErr := newRequestWithContext(retryCtx, "POST", targetURL, bytes.NewReader(rebuilt))
-	if retryErr != nil {
-		rc()
-		res.lastReqErr = reqError{Kind: KindInternal, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
-		res.cont = true
-		return res, true
-	}
-	util.SetProviderAuthHeaders(retryReq, providerType, candidate.apiKey)
-	retryReq.Header.Set("Content-Type", "application/json")
-
-	var checkRedirect func(req *http.Request, via []*http.Request) error
-	if h.safeDialer != nil {
-		checkRedirect = h.safeDialer.CheckRedirect
-	}
 	//nolint:bodyclose // retry resp.Body is consumed by the caller's dispatch
-	retryResp, retryErr := (&http.Client{Transport: h.upstreamTransport, CheckRedirect: checkRedirect}).Do(retryReq)
-	*dialMs += retryDial.take()
-	if retryErr != nil {
-		rc()
-		debuglog.Warn("proxy: responses api retry failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", retryErr)
-		if errors.Is(retryErr, context.Canceled) || errors.Is(retryErr, context.DeadlineExceeded) {
-			origin := "retry_timeout"
-			if errors.Is(retryErr, context.Canceled) {
-				origin = "client_disconnect"
-			}
-			res.lastReqErr = reqError{Kind: cancelOriginToKind(origin), Attempt: attempt, Provider: candidate.provider.Name}
-		} else {
-			res.lastReqErr = reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(retryErr)}
-		}
+	retryResp, rc, reqErr, ok := h.issueRetry(r, st, candidate, providerType, targetURL, rebuilt, attempt, dialMs, "proxy: responses api retry failed")
+	if !ok {
+		res.lastReqErr = reqErr
 		res.cont = true
 		return res, true
 	}
@@ -232,7 +201,7 @@ func responsesTargetURL(candidate modelCandidate, providerType string) string {
 // in-race: there the learned flag makes every subsequent request, hedged or
 // sequential, route preemptively instead of 400ing again.
 func (h *Handler) learnResponsesRequirement(st *requestState, candidate modelCandidate, providerType string, errBody []byte) bool {
-	if st.responsesAttempt || providerType != "openai" || st.endpointPath != "" || st.makeUpstreamBody != nil {
+	if st.responsesAttempt || !st.plainOpenAIChat(providerType) {
 		return false
 	}
 	key := responsesCacheKey(providerType, candidate.model.ModelID)
@@ -253,19 +222,21 @@ func (h *Handler) learnResponsesRequirement(st *requestState, candidate modelCan
 
 // translateResponsesResponseBody swaps a non-streaming /v1/responses 200 body
 // for its chat.completion translation so handleNonStreamingResponse can meter
-// and forward it unchanged.
+// and forward it unchanged. It goes through the shared egress read so the
+// Responses route is bounded by nonStreamingBodyCap like every other
+// non-streaming translation; the Responses translator mints its own id, so the
+// id and created arguments go unused.
 func translateResponsesResponseBody(resp *http.Response, model string) error {
-	body, err := io.ReadAll(resp.Body)
-	_ = resp.Body.Close()
-	if err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
-		return err
-	}
-	translated, err := openairesponses.TranslateResponsesToChat(body, model)
-	if err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
-		return err
-	}
-	resp.Body = io.NopCloser(bytes.NewReader(translated))
-	return nil
+	return translateEgressResponseBody(resp, model, func(body []byte, _, model string, _ int64) ([]byte, error) {
+		return openairesponses.TranslateResponsesToChat(body, model)
+	})
+}
+
+// plainOpenAIChat reports an attempt that is a chat-completions call in the
+// OpenAI dialect against an openai-typed provider: not a pass-through endpoint
+// and not a translated dialect. It is the precondition for every part of the
+// Responses reroute, since only such an attempt has a chat body to translate
+// and an answer to translate back.
+func (st *requestState) plainOpenAIChat(providerType string) bool {
+	return providerType == "openai" && st.endpointPath == "" && st.makeUpstreamBody == nil
 }

@@ -10,7 +10,6 @@ import (
 	"sort"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -25,7 +24,6 @@ type ModelsDevCache struct {
 	byID       map[string]*ModelsDevModelSpec            // exact model ID → spec (cross-provider, canonical-first)
 	byProvider map[string]map[string]*ModelsDevModelSpec // models.dev provider ID → model ID → spec
 	loaded     bool
-	loadTime   time.Time
 }
 
 // modelsDevCanonical names the models.dev provider entry that carries a Model
@@ -281,7 +279,6 @@ func (c *ModelsDevCache) load(ctx context.Context, client *http.Client) error {
 	c.byID = index
 	c.byProvider = perProvider
 	c.loaded = true
-	c.loadTime = time.Now()
 	c.mu.Unlock()
 
 	debuglog.Info("modelsdev: loaded models", "models", len(index), "providers", len(providers))
@@ -362,13 +359,13 @@ func lookupFuzzyIn(index map[string]*ModelsDevModelSpec, modelID string) *Models
 		}
 	}
 
-	// 3. Model ID with date suffix: try stripping the date portion.
-	//    e.g. "gpt-4o-2024-08-06" → try "gpt-4o"
+	// 3. Model ID with a trailing date or version segment: try stripping it.
+	//    e.g. "gpt-4o-2024-08-06" → "gpt-4o", "claude-sonnet-4-20250514" →
+	//    "claude-sonnet-4". A 4-digit year and a 6-or-more-digit stamp are both
+	//    strippable; a shorter number is a model version, not a date.
 	if parts := strings.Split(modelID, "-"); len(parts) >= 2 {
-		// Check if last part(s) look like a date (YYYY-MM-DD or YYYYMMDD).
 		last := parts[len(parts)-1]
-		if len(last) == 4 && isNumeric(last) {
-			// Try without the date suffix "-YYYY"
+		if isNumeric(last) && (len(last) == 4 || len(last) >= 6) {
 			candidate := strings.Join(parts[:len(parts)-1], "-")
 			if spec, ok := index[candidate]; ok {
 				return spec
@@ -382,19 +379,6 @@ func lookupFuzzyIn(index map[string]*ModelsDevModelSpec, modelID string) *Models
 				if spec, ok := index[candidate]; ok {
 					return spec
 				}
-			}
-		}
-	}
-
-	// 4. Model ID with version suffix: try stripping last segment.
-	//    e.g. "claude-sonnet-4-20250514" → try "claude-sonnet-4"
-	if parts := strings.Split(modelID, "-"); len(parts) >= 2 {
-		last := parts[len(parts)-1]
-		if isNumeric(last) && len(last) >= 6 {
-			// Strip the trailing numeric date/version segment.
-			candidate := strings.Join(parts[:len(parts)-1], "-")
-			if spec, ok := index[candidate]; ok {
-				return spec
 			}
 		}
 	}
@@ -525,7 +509,7 @@ func attachmentImpliesVision(input []string) bool {
 // fillModalities marshals mods into *dst when *dst is currently empty,
 // reporting whether it did.
 func fillModalities(dst *string, mods []string) bool {
-	if (*dst != "" && *dst != "[]") || len(mods) == 0 {
+	if !isEmptyModalities(*dst) || len(mods) == 0 {
 		return false
 	}
 	b, _ := json.Marshal(mods)

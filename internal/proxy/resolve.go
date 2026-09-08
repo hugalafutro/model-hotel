@@ -4,6 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -92,7 +94,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 		return nil, t, ch, skips, err
 	}
 	ch.Failover = &failoverHit
-	t.failoverLookupMs = float64(time.Since(failoverLookupStart).Microseconds()) / 1000.0
+	t.failoverLookupMs = util.MillisSince(failoverLookupStart)
 	debuglog.Debug("resolve: failover group found", "model", displayModel, "entries", len(fg.PriorityOrder), "enabled", fg.GroupEnabled)
 
 	// B: enabled-model collection and batch model lookup.
@@ -103,7 +105,7 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	if err != nil {
 		return nil, t, ch, skips, err
 	}
-	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	t.modelLookupMs = util.MillisSince(modelLookupStart)
 
 	// C: provider collection and batch provider lookup. providerLookupStart opens
 	// the window that physically contains the settings read (D) and every key
@@ -128,24 +130,20 @@ func (h *Handler) resolveHotelModel(ctx context.Context, displayModel string) ([
 	// checking it here would show a false amber for requests that never 429.
 	cbEnabled, settingsHit, cbElapsed := h.readCircuitBreakerFlag(ctx)
 	settingsReadInWindow += cbElapsed
-	if v := ctx.Value(ctxkeys.SettingsReadMsKey); v != nil {
-		if p, ok := v.(*float64); ok {
-			*p += cbElapsed
-		}
-	}
+	ctxkeys.AddSettingsMs(ctx, cbElapsed)
 	ch.Settings = &settingsHit
 
 	// E: candidate-build loop. No window math inside; it returns only the
 	// running key-decrypt total the caller subtracts.
 	debuglog.Debug("resolve: building candidates from failover group", "model", displayModel, "priority_order_count", len(fg.PriorityOrder))
-	candidates, keyDecryptTotal, decryptFailures, keyHit := h.buildFailoverCandidates(fg, models, providers, cbEnabled, &skips)
+	candidates, keyDecryptTotal, decryptFailures, keyHit := h.buildFailoverCandidates(enabledModelIDs, models, providers, cbEnabled, &skips)
 
 	// F: finalize timings and the terminal error. The key cache hit is recorded
 	// only when there were keys to decrypt.
 	if keyDecryptTotal > 0 {
 		ch.Key = &keyHit
 	}
-	t.providerLookupMs = max(0, float64(time.Since(providerLookupStart).Microseconds())/1000.0-keyDecryptTotal-settingsReadInWindow)
+	t.providerLookupMs = max(0, util.MillisSince(providerLookupStart)-keyDecryptTotal-settingsReadInWindow)
 	t.keyDecryptMs = keyDecryptTotal
 	if len(candidates) == 0 && decryptFailures > 0 {
 		return nil, t, ch, skips, fmt.Errorf("all %d candidate(s) failed key decryption (wrong master key?)", decryptFailures)
@@ -192,11 +190,7 @@ func (h *Handler) lookupFailoverGroup(ctx context.Context, displayModel string) 
 func enabledEntryIDs(fg *failover.FailoverGroup) []uuid.UUID {
 	ids := make([]uuid.UUID, 0, len(fg.PriorityOrder))
 	for _, modelUUID := range fg.PriorityOrder {
-		entryEnabled := true
-		if val, ok := fg.EntryEnabled[modelUUID.String()]; ok {
-			entryEnabled = val
-		}
-		if entryEnabled {
+		if fg.IsEntryEnabled(modelUUID) {
 			ids = append(ids, modelUUID)
 		}
 	}
@@ -212,11 +206,7 @@ func providerIDsFor(ids []uuid.UUID, models map[uuid.UUID]*model.Model) []uuid.U
 			providerIDSet[m.ProviderID] = struct{}{}
 		}
 	}
-	providerIDs := make([]uuid.UUID, 0, len(providerIDSet))
-	for pid := range providerIDSet {
-		providerIDs = append(providerIDs, pid)
-	}
-	return providerIDs
+	return slices.Collect(maps.Keys(providerIDSet))
 }
 
 // batchCacheHit reports whether every id is cached (all-must-hit). It returns
@@ -226,13 +216,7 @@ func batchCacheHit[T comparable](ids []T, cached func(T) bool) *bool {
 	if len(ids) == 0 {
 		return nil
 	}
-	hit := true
-	for _, id := range ids {
-		if !cached(id) {
-			hit = false
-			break
-		}
-	}
+	hit := !slices.ContainsFunc(ids, func(id T) bool { return !cached(id) })
 	return &hit
 }
 
@@ -244,29 +228,22 @@ func (h *Handler) readCircuitBreakerFlag(ctx context.Context) (enabled, hit bool
 	hit = h.settingsRepo.IsCached("circuit_breaker_enabled")
 	cbStart := time.Now()
 	enabled = h.settingsRepo.GetBool(ctx, "circuit_breaker_enabled", true)
-	elapsedMs = float64(time.Since(cbStart).Microseconds()) / 1000.0
+	elapsedMs = util.MillisSince(cbStart)
 	return enabled, hit, elapsedMs
 }
 
-// buildFailoverCandidates performs phase E: walk PriorityOrder, skip disabled,
+// buildFailoverCandidates performs phase E: walk the group's enabled entries in
+// priority order (enabledEntryIDs already dropped the disabled ones), skip
 // missing and circuit-broken entries, decrypt keys (keyless yields ""), and
 // build the candidate list. It owns only the per-key decrypt timing, returning
 // the running total so the caller subtracts it from providerLookupMs; it does
 // no window math itself.
-func (h *Handler) buildFailoverCandidates(fg *failover.FailoverGroup, models map[uuid.UUID]*model.Model,
+func (h *Handler) buildFailoverCandidates(entryIDs []uuid.UUID, models map[uuid.UUID]*model.Model,
 	providers map[uuid.UUID]*provider.Provider, cbEnabled bool, skips *breakerSkipSummary,
 ) (candidates []modelCandidate, keyDecryptTotal float64, decryptFailures int, keyHit bool) {
-	candidates = make([]modelCandidate, 0, len(fg.PriorityOrder))
+	candidates = make([]modelCandidate, 0, len(entryIDs))
 	keyHit = true
-	for _, modelUUID := range fg.PriorityOrder {
-		entryEnabled := true
-		if val, ok := fg.EntryEnabled[modelUUID.String()]; ok {
-			entryEnabled = val
-		}
-		if !entryEnabled {
-			continue
-		}
-
+	for _, modelUUID := range entryIDs {
 		m, ok := models[modelUUID]
 		if !ok {
 			debuglog.Info("resolve: skipping candidate: model not found", "id", modelUUID)
@@ -303,26 +280,14 @@ func (h *Handler) buildFailoverCandidates(fg *failover.FailoverGroup, models map
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
 		}
-		// Keyless providers store nil encrypted key bytes, so skip decryption.
-		var apiKey string
-		if len(prov.EncryptedKey) == 0 {
-			apiKey = ""
-		} else {
-			// Check key cache before the actual decryption call.
-			if !auth.IsKeyCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt) {
-				keyHit = false
-			}
-			var err error
-			kdStart := time.Now()
-			apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-			kdMs := float64(time.Since(kdStart).Microseconds()) / 1000.0
-			keyDecryptTotal += kdMs
-			debuglog.Debug("resolve: key decrypted", "provider", prov.Name, "model", m.ModelID, "decrypt_ms", kdMs)
-			if err != nil {
-				debuglog.Error("resolve: key decryption failed", "provider", prov.Name, "model", m.ModelID, "entry", modelUUID, "error", err)
-				decryptFailures++
-				continue
-			}
+		apiKey, cached, kdMs, err := h.decryptProviderKey(prov, m.ModelID, "entry", modelUUID)
+		keyDecryptTotal += kdMs
+		if cached != nil && !*cached {
+			keyHit = false
+		}
+		if err != nil {
+			decryptFailures++
+			continue
 		}
 		candidates = append(candidates, modelCandidate{model: m, provider: prov, apiKey: apiKey})
 	}
@@ -346,7 +311,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 	debuglog.Debug("resolve: provider found", "provider", prov.Name, "provider_id", prov.ID, "enabled", prov.Enabled)
 
 	ch.Provider = &provHit
-	t.providerLookupMs = float64(time.Since(providerLookupStart).Microseconds()) / 1000.0
+	t.providerLookupMs = util.MillisSince(providerLookupStart)
 
 	modelLookupStart := time.Now()
 
@@ -360,7 +325,7 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 	}
 	debuglog.Debug("resolve: model found", "model", m.ModelID, "provider", prov.Name, "enabled", m.Enabled, "provider_enabled", m.ProviderEnabled)
 	ch.Model = &modelHit
-	t.modelLookupMs = float64(time.Since(modelLookupStart).Microseconds()) / 1000.0
+	t.modelLookupMs = util.MillisSince(modelLookupStart)
 
 	if !m.Enabled {
 		debuglog.Info("resolve: model disabled", "model", modelID, "provider", providerName)
@@ -372,24 +337,11 @@ func (h *Handler) resolveSpecificProvider(ctx context.Context, providerName, mod
 		return nil, t, ch, fmt.Errorf("model or provider disabled")
 	}
 
-	// Keyless providers (OpenCode Zen free models, say) store nil encrypted key
-	// bytes: skip decryption and use the empty string.
-	var apiKey string
-	if len(prov.EncryptedKey) == 0 {
-		apiKey = ""
-	} else {
-		// Check key cache before the actual decryption call.
-		keyHit := auth.IsKeyCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt)
-		ch.Key = &keyHit
-		var err error
-		kdStart := time.Now()
-		apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
-		t.keyDecryptMs = float64(time.Since(kdStart).Microseconds()) / 1000.0
-		debuglog.Debug("resolve: key decrypted", "provider", prov.Name, "model", modelID, "decrypt_ms", t.keyDecryptMs)
-		if err != nil {
-			debuglog.Error("resolve: key decryption failed", "provider", prov.Name, "model", modelID, "error", err)
-			return nil, t, ch, err
-		}
+	apiKey, cached, kdMs, err := h.decryptProviderKey(prov, modelID)
+	ch.Key = cached
+	t.keyDecryptMs = kdMs
+	if err != nil {
+		return nil, t, ch, err
 	}
 
 	debuglog.Debug("resolve: specific provider resolved", "provider", prov.Name, "model", m.ModelID, "id", m.ID, "has_api_key", apiKey != "")
@@ -400,31 +352,44 @@ func (h *Handler) shouldFailover(ctx context.Context, statusCode int) bool {
 	if statusCode >= 500 {
 		return true
 	}
-	if statusCode == 429 {
+	switch statusCode {
+	case 429:
 		sStart := time.Now()
 		enabled := h.settingsRepo.GetBool(ctx, "failover_on_rate_limit", true)
 		ctxkeys.AddSettingsReadMs(ctx, sStart)
 		return enabled
-	}
-	if statusCode == 401 || statusCode == 403 {
-		return true
-	}
-	// 402 Payment Required: the account behind this provider is out of credit.
-	// Unlike other 4xx this is not a problem with the request, so another
-	// provider can serve it.
-	if statusCode == 402 {
-		return true
-	}
-	// 404 from a provider means the model does not exist there (a stale DB
-	// entry, an overloaded provider returning not_found): try the next
-	// candidate.
-	if statusCode == 404 {
-		return true
-	}
-	// 499 Client Closed Request: the upstream provider reported that the
-	// client disconnected mid-stream. Try the next candidate.
-	if statusCode == 499 {
+	// 401/403: the credential is the problem, not the request.
+	// 402 Payment Required: the account behind this provider is out of credit;
+	// unlike other 4xx this is not a problem with the request.
+	// 404: the model does not exist there (a stale DB entry, an overloaded
+	// provider returning not_found).
+	// 499 Client Closed Request: the upstream reported that the client
+	// disconnected mid-stream.
+	// Every one of them another candidate can serve.
+	case 401, 402, 403, 404, 499:
 		return true
 	}
 	return false
+}
+
+// decryptProviderKey turns a provider's stored key into the one an attempt
+// carries. Keyless providers (OpenCode Zen free models, say) store nil
+// encrypted key bytes: nothing is decrypted, cached comes back nil (there was
+// no cache to hit or miss) and the key is the empty string. extra carries any
+// log attributes only the calling resolver has.
+func (h *Handler) decryptProviderKey(prov *provider.Provider, modelID string, extra ...any) (apiKey string, cached *bool, ms float64, err error) {
+	if len(prov.EncryptedKey) == 0 {
+		return "", nil, 0, nil
+	}
+	// Checked before the decryption call, which populates the cache.
+	hit := auth.IsKeyCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt)
+	start := time.Now()
+	apiKey, err = auth.DecryptCached(prov.EncryptedKey, prov.KeyNonce, prov.KeySalt, h.cfg.MasterKey)
+	ms = util.MillisSince(start)
+	debuglog.Debug("resolve: key decrypted", "provider", prov.Name, "model", modelID, "decrypt_ms", ms)
+	if err != nil {
+		debuglog.Error("resolve: key decryption failed", append([]any{"provider", prov.Name, "model", modelID}, append(extra, "error", err)...)...)
+		return "", &hit, ms, err
+	}
+	return apiKey, &hit, ms, nil
 }

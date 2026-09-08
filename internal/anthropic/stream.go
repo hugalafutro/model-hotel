@@ -155,7 +155,7 @@ func (t *StreamTranslator) openToolBlock(buf *bytes.Buffer, oaIndex int, id, nam
 	if id == "" {
 		// Anthropic requires a tool_use id; synthesize a stable one if the
 		// upstream omitted it.
-		id = fmt.Sprintf("toolu_%s_%d", t.messageID, t.curIndex)
+		id = syntheticToolUseID(t.messageID, t.curIndex)
 	}
 	return writeEvent(buf, "content_block_start", contentBlockStartEvent{
 		Type:  "content_block_start",
@@ -214,14 +214,15 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 		if err := t.ensureStarted(&buf); err != nil {
 			return nil, err
 		}
+		sig := egress.ThoughtSignatureIn(tc.ExtraContent)
 		blockIdx, open := t.toolBlockByOAIndex[tc.Index]
 		if !open {
 			// First fragment for this tool call: open the block (carries id/name).
-			if err := t.openToolBlock(&buf, tc.Index, tc.ID, tc.Function.Name, egress.ThoughtSignatureIn(tc.ExtraContent)); err != nil {
+			if err := t.openToolBlock(&buf, tc.Index, tc.ID, tc.Function.Name, sig); err != nil {
 				return nil, err
 			}
 			blockIdx = t.curIndex
-		} else if egress.ThoughtSignatureIn(tc.ExtraContent) != "" {
+		} else if sig != "" {
 			t.lateSignatures++
 		}
 		// Argument fragments stream as input_json_delta partial JSON.

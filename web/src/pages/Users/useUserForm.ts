@@ -4,16 +4,9 @@ import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { DashboardUser, UserUpsertRequest } from "../../api/types";
 import { useIdentity } from "../../context/IdentityContext";
+import { errorMessage } from "../../utils/errors";
 import { isBreachedPasswordError } from "../../utils/passwordPolicy";
-
-/** Duck-typed ApiError body (robust across module boundaries, like App.tsx). */
-function errMessage(err: unknown, fallback: string): string {
-	if (err && typeof err === "object" && "message" in err) {
-		const m = (err as { message?: unknown }).message;
-		if (typeof m === "string" && m) return m;
-	}
-	return fallback;
-}
+import { sortByName } from "../../utils/sort";
 
 /**
  * Form state, save validation and the four mutations behind UserModal. `user`
@@ -81,9 +74,7 @@ export function useUserForm({
 		queryKey: ["providers"],
 		queryFn: () => api.providers.list(),
 	});
-	const sortedProviders = (providers ?? [])
-		.slice()
-		.sort((a, b) => a.name.localeCompare(b.name));
+	const sortedProviders = sortByName(providers);
 
 	// True while an edit leaves the stored cap exactly as it was found. Such a
 	// save OMITS allowed_providers, which the API reads as "preserve" (see
@@ -108,7 +99,7 @@ export function useUserForm({
 	const passwordSaveError = (err: unknown): string =>
 		isBreachedPasswordError(err)
 			? t("users.validation.passwordBreached")
-			: errMessage(err, t("users.toast.saveFailed"));
+			: errorMessage(err, t("users.toast.saveFailed"));
 
 	const buildRequest = (): UserUpsertRequest => ({
 		username: username.trim(),
@@ -154,7 +145,7 @@ export function useUserForm({
 		},
 		onError: (err) => {
 			setConfirmDelete(false);
-			setError(errMessage(err, t("users.toast.deleteFailed")));
+			setError(errorMessage(err, t("users.toast.deleteFailed")));
 		},
 	});
 
@@ -176,7 +167,7 @@ export function useUserForm({
 		},
 		onError: (err) => {
 			setConfirmTotpReset(false);
-			setError(errMessage(err, t("users.toast.saveFailed")));
+			setError(errorMessage(err, t("users.toast.saveFailed")));
 		},
 	});
 

@@ -21,12 +21,7 @@ var googlePricingCatalog = loadCatalog[[]GoogleModelPricing]("google.json")
 
 // LookupGooglePricing finds pricing for a model in the Google catalog.
 func LookupGooglePricing(catalog []GoogleModelPricing, modelID string) *GoogleModelPricing {
-	for i := range catalog {
-		if catalog[i].ModelID == modelID {
-			return &catalog[i]
-		}
-	}
-	return nil
+	return lookupByModelID(catalog, modelID, func(e *GoogleModelPricing) string { return e.ModelID })
 }
 
 // GetGooglePricingCatalog returns the Google model pricing catalog.

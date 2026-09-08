@@ -20,17 +20,3 @@ type GoogleModel struct {
 type GoogleModelsResponse struct {
 	Models []GoogleModel `json:"models"`
 }
-
-// GoogleOpenAIModel is a single model from the OpenAI-compat /v1beta/openai/models response.
-type GoogleOpenAIModel struct {
-	ID          string `json:"id"`
-	Object      string `json:"object"`
-	OwnedBy     string `json:"owned_by"`
-	DisplayName string `json:"display_name"`
-}
-
-// GoogleOpenAIModelsResponse is the response from Google OpenAI-compatible models endpoint.
-type GoogleOpenAIModelsResponse struct {
-	Object string              `json:"object"`
-	Data   []GoogleOpenAIModel `json:"data"`
-}

@@ -19,11 +19,7 @@ import { CircuitBreakerSettings } from "./Settings/CircuitBreakerSettings";
 import { DatabaseBackupSettings } from "./Settings/DatabaseBackupSettings";
 import { DataStorageSettings } from "./Settings/DataStorageSettings";
 import { DiscoverySettings } from "./Settings/DiscoverySettings";
-import {
-	SECTION_SETTINGS,
-	SETTING_LABELS,
-	type SettingKey,
-} from "./Settings/defaults";
+import { SECTION_SETTINGS, SETTING_LABELS } from "./Settings/defaults";
 import { ObservabilitySettings } from "./Settings/ObservabilitySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
@@ -130,41 +126,36 @@ export function Settings() {
 	// --- Reset all settings (double-confirm: type RESET) ---
 	const [resetAllOpen, setResetAllOpen] = useState(false);
 
-	const resetAllMutation = useMutation({
-		mutationFn: () => api.settings.reset(),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			invalidateAlertReads(queryClient);
-			toast(t("settings.common.resetAllDone"), "success");
-			setResetAllOpen(false);
-		},
-		onError: (err: Error) => {
-			toast(
-				t("settings.common.resetFailed", { message: err.message }),
-				"error",
-			);
-			setResetAllOpen(false);
-		},
-	});
-
 	// --- Reset section (single confirm) ---
 	const [resetSection, setResetSection] = useState<
 		keyof typeof SECTION_SETTINGS | null
 	>(null);
 
-	const resetSectionMutation = useMutation({
-		mutationFn: (keys: string[]) => api.settings.reset(keys),
-		onSuccess: () => {
+	// One mutation for both dialogs: no keys resets everything, a key list
+	// resets one section. Only one of the two dialogs can be open at a time,
+	// so closing both on settle closes the one that ran.
+	const resetMutation = useMutation({
+		mutationFn: (keys?: string[]) => api.settings.reset(keys),
+		onSuccess: (_data, keys) => {
 			queryClient.invalidateQueries({ queryKey: ["settings"] });
 			invalidateAlertReads(queryClient);
-			toast(t("settings.common.resetSectionDone"), "success");
-			setResetSection(null);
+			toast(
+				t(
+					keys
+						? "settings.common.resetSectionDone"
+						: "settings.common.resetAllDone",
+				),
+				"success",
+			);
 		},
 		onError: (err: Error) => {
 			toast(
 				t("settings.common.resetFailed", { message: err.message }),
 				"error",
 			);
+		},
+		onSettled: () => {
+			setResetAllOpen(false);
 			setResetSection(null);
 		},
 	});
@@ -272,8 +263,8 @@ export function Settings() {
 			{/* Double-confirm: type RESET to reset all */}
 			{resetAllOpen && (
 				<ResetAllDialog
-					pending={resetAllMutation.isPending}
-					onConfirm={() => resetAllMutation.mutate()}
+					pending={resetMutation.isPending}
+					onConfirm={() => resetMutation.mutate(undefined)}
 					onClose={() => setResetAllOpen(false)}
 				/>
 			)}
@@ -284,12 +275,10 @@ export function Settings() {
 					title={t("settings.common.resetSectionConfirmTitle")}
 					message={t("settings.common.resetSectionConfirmMessage")}
 					fields={SECTION_SETTINGS[resetSection].map((k) =>
-						t(SETTING_LABELS[k as SettingKey] ?? k),
+						t(SETTING_LABELS[k]),
 					)}
 					confirmLabel={t("settings.common.resetToDefaults")}
-					onConfirm={() =>
-						resetSectionMutation.mutate(SECTION_SETTINGS[resetSection])
-					}
+					onConfirm={() => resetMutation.mutate(SECTION_SETTINGS[resetSection])}
 					onCancel={() => setResetSection(null)}
 				/>
 			)}

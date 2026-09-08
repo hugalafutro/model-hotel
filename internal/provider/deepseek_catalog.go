@@ -52,16 +52,6 @@ func GetDeepSeekModels() []DeepSeekModelSpec {
 	return deepseekCatalog
 }
 
-// GetDeepSeekModelSpec returns the spec for a specific DeepSeek model ID.
-func GetDeepSeekModelSpec(modelID string) *DeepSeekModelSpec {
-	for _, spec := range deepseekCatalog {
-		if spec.ModelID == modelID {
-			return &spec
-		}
-	}
-	return nil
-}
-
 // deepseekSpecToModel converts a DeepSeekModelSpec into a model.Model. The
 // catalog's cache-miss price maps to the model's standard input price; cache-hit
 // is carried separately.

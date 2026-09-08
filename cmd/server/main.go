@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"slices"
 	"strings"
 	"syscall"
 	"time"
@@ -58,7 +59,7 @@ func main() {
 	if err := config.LoadEnvFile(); err != nil {
 		log.Fatalf("Failed to load .env: %v", err)
 	}
-	debuglog.Init(false)
+	debuglog.Init()
 
 	cfg, err := config.Load()
 	if err != nil {
@@ -138,11 +139,11 @@ func main() {
 	// logs an address: the access logger, auth warnings, and the audit trail all
 	// read the resolved value via clientip.From.
 	r.Use(clientip.Middleware(cfg.TrustedProxies))
-	r.Use(silentLogger)
+	r.Use(httpx.AccessLogger(isNoisyGatewayPath))
 	r.Use(middleware.Recoverer)
 	r.Use(middleware.Compress(5))
 
-	r.Use(securityHeadersMiddleware(cfg))
+	r.Use(httpx.SecurityHeaders(cfg.AllowEmbed))
 	r.Use(corsMiddleware(cfg))
 	r.Use(maxRequestSizeMiddleware(cfg.MaxRequestSize))
 
@@ -229,7 +230,7 @@ func main() {
 	})
 	apiHandler.SetAudit(auditRecorder)
 
-	go webauthnSessionCleanupLoop(webauthnRepo)
+	go webauthn.SessionCleanupLoop(ctx, webauthnRepo, time.Hour)
 
 	// TOTP (RFC 6238) second-factor. Always constructed so the public status
 	// and login endpoints are mounted; enforcement is driven by the cached
@@ -255,11 +256,9 @@ func main() {
 	githubHandler.SetUserResolver(userRepo)
 
 	if cfg.WebAuthnRPID != "" {
-		rpOrigins := make([]string, len(cfg.WebAuthnRPOrigins))
-		copy(rpOrigins, cfg.WebAuthnRPOrigins)
+		rpOrigins := slices.Clone(cfg.WebAuthnRPOrigins)
 		if len(rpOrigins) == 0 {
-			rpOrigins = make([]string, len(cfg.CORSOrigins))
-			copy(rpOrigins, cfg.CORSOrigins)
+			rpOrigins = slices.Clone(cfg.CORSOrigins)
 		}
 		if len(rpOrigins) == 0 {
 			rpOrigins = []string{"http://localhost:" + strings.TrimPrefix(cfg.Port, ":")}

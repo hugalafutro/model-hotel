@@ -85,10 +85,7 @@ describe("useArenaState", () => {
 			wrapper: createWrapper(),
 		});
 
-		expect(result.current.abortMapRef.current).toEqual(new Map());
-		expect(result.current.lastExtractLenRef.current).toEqual(new Map());
 		expect(result.current.currentRoundRef.current).toBe(0);
-		expect(result.current.roundsLengthRef.current).toBe(0);
 		expect(result.current.roundsRef.current).toEqual([]);
 		expect(result.current.activePromptIdRef.current).toBe(null);
 		expect(result.current.comparePersonaIdRef.current).toBe(null);

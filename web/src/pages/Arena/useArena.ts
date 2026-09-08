@@ -6,15 +6,12 @@ import {
 	getArenaHistoryEnabled,
 	saveCompetitionToHistory,
 } from "../../utils/arenaHistory";
-import { getRoundLabel } from "./builders";
-import type { BracketRound, Matchup, MatchupSlot } from "./types";
+import { getRoundLabel } from "../../utils/arenaRounds";
+import { advanceWinners, roundWinner } from "./builders";
+import type { Matchup, MatchupSlot } from "./types";
 import { useArenaRunner } from "./useArenaRunner";
-import { useArenaState } from "./useArenaState";
-import {
-	collectSlots,
-	initMatchupResponses,
-	staggerAndDispatch,
-} from "./utils";
+import { ARENA_STORAGE_KEYS, useArenaState } from "./useArenaState";
+import { clearSlot } from "./utils";
 
 export function useArena() {
 	const {
@@ -23,13 +20,9 @@ export function useArena() {
 		setCompareModels,
 		bracketModels,
 		setBracketModels,
-		competitionActivePromptId,
 		setCompetitionActivePromptId,
-		compareActivePromptId,
 		setCompareActivePromptId,
-		competitionPrompt,
 		setCompetitionPrompt,
-		comparePrompt,
 		setComparePrompt,
 		prompt,
 		setPrompt,
@@ -67,7 +60,6 @@ export function useArena() {
 		setArenaMode,
 		// Refs
 		currentRoundRef,
-		roundsLengthRef,
 		roundsRef,
 		activePromptIdRef,
 		arenaModeRef,
@@ -87,12 +79,12 @@ export function useArena() {
 	} = useArenaState();
 
 	const {
-		streamModel,
 		runRound,
 		handleStopAll,
 		handleRetry: handleRetrySlot,
 		handleCancelSlot,
 		handleSwapComplete,
+		abortAll,
 		abortMapRef,
 	} = useArenaRunner({
 		arenaModeRef,
@@ -133,9 +125,7 @@ export function useArena() {
 
 		if (currentRound >= rounds.length - 1) {
 			// Last round — declare winner
-			const finalMu = round.matchups[0];
-			const winner =
-				finalMu?.vote === "A" ? finalMu.slotA?.modelId : finalMu.slotB?.modelId;
+			const winner = roundWinner(round);
 			if (winner) {
 				setWinnerModal({ winner, rounds });
 			}
@@ -143,24 +133,7 @@ export function useArena() {
 		} else {
 			// Not last round — build next round matchups and advance
 			const nextRounds = produce(rounds, (draft) => {
-				const winners = draft[currentRound].matchups.map((m: Matchup) =>
-					m.vote === "A" ? m.slotA : m.slotB,
-				);
-				const nextRI = currentRound + 1;
-				if (draft[nextRI]) {
-					for (let i = 0; i < winners.length; i += 2) {
-						const muIdx = i / 2;
-						draft[nextRI].matchups[muIdx] = {
-							slotA: winners[i] ? { ...(winners[i] as MatchupSlot) } : null,
-							slotB: winners[i + 1]
-								? { ...(winners[i + 1] as MatchupSlot) }
-								: null,
-							responseA: null,
-							responseB: null,
-							vote: null,
-						};
-					}
-				}
+				advanceWinners(draft, currentRound);
 			});
 			setRounds(nextRounds);
 			roundsRef.current = nextRounds;
@@ -277,40 +250,15 @@ export function useArena() {
 					)
 				: buildInitialRoundsWithParams(bracketModels);
 		setRounds(initialRounds);
+		roundsRef.current = initialRounds;
 		currentRoundRef.current = 0;
-		roundsLengthRef.current = initialRounds.length;
 		setCurrentRound(0);
+		// Marked running before the round is dispatched so a run started while
+		// the chat model list is still loading is recovered by the deferred-run
+		// effect above once the list settles.
 		setPhase("running");
-
-		const modelSet = new Set<string>();
-		for (const mu of initialRounds[0].matchups) {
-			if (mu.slotA) modelSet.add(mu.slotA.modelId);
-			if (mu.slotB) modelSet.add(mu.slotB.modelId);
-		}
-		setRunningModels(modelSet);
-
-		const now = Date.now();
-		setRounds(
-			produce((draft: BracketRound[]) => {
-				if (draft[0]) {
-					draft[0].matchups = draft[0].matchups.map(initMatchupResponses(now));
-				}
-			}),
-		);
-
-		const slots = collectSlots(initialRounds[0]);
-		const knownProviders = enabledModels.map((m) => m.provider_name);
-		staggerAndDispatch(slots, knownProviders, (item) =>
-			streamModel(
-				item.modelId,
-				item.personaPrompt,
-				currentPrompt,
-				0,
-				item.slotKey,
-				item.matchupIdx,
-				item.params,
-			),
-		);
+		// The prompt is passed explicitly: `savedPrompt` has not re-rendered yet.
+		runRound(0, currentPrompt);
 	}, [
 		canRun,
 		prompt,
@@ -321,15 +269,13 @@ export function useArena() {
 		bracketModels,
 		buildInitialRoundsWithParams,
 		buildCompareRoundWithParams,
-		streamModel,
-		enabledModels,
+		runRound,
 		setSavedPrompt,
 		currentRoundRef,
+		roundsRef,
 		setPhase,
 		setRounds,
-		setRunningModels,
 		setCurrentRound,
-		roundsLengthRef,
 	]);
 
 	const handleVote = useCallback(
@@ -352,25 +298,7 @@ export function useArena() {
 					if (roundIdx < draft.length - 1) {
 						shouldAdvance = true;
 						advanceRoundIdx = roundIdx;
-
-						const winners = draft[roundIdx].matchups.map((m: Matchup) =>
-							m.vote === "A" ? m.slotA : m.slotB,
-						);
-						const nextRoundIdx = roundIdx + 1;
-						if (draft[nextRoundIdx]) {
-							for (let i = 0; i < winners.length; i += 2) {
-								const matchupIdx = i / 2;
-								draft[nextRoundIdx].matchups[matchupIdx] = {
-									slotA: winners[i] ? { ...(winners[i] as MatchupSlot) } : null,
-									slotB: winners[i + 1]
-										? { ...(winners[i + 1] as MatchupSlot) }
-										: null,
-									responseA: null,
-									responseB: null,
-									vote: null,
-								};
-							}
-						}
+						advanceWinners(draft, roundIdx);
 					} else {
 						shouldDeclareWinner = true;
 					}
@@ -390,11 +318,7 @@ export function useArena() {
 
 			if (shouldDeclareWinner) {
 				const finalRound = roundsRef.current[roundIdx];
-				const finalMu = finalRound?.matchups[0];
-				const winner =
-					finalMu?.vote === "A"
-						? finalMu.slotA?.modelId
-						: finalMu.slotB?.modelId;
+				const winner = finalRound ? roundWinner(finalRound) : undefined;
 				if (winner) {
 					setWinnerModal({ winner, rounds: roundsRef.current });
 					setPhase("finished");
@@ -439,12 +363,7 @@ export function useArena() {
 
 			setRounds(
 				produce((draft) => {
-					const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
-					const respKey = slotKey === "A" ? "responseA" : "responseB";
-					if (draft[roundIdx]?.matchups[matchupIdx]) {
-						draft[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
-						draft[roundIdx].matchups[matchupIdx][respKey] = null;
-					}
+					clearSlot(draft, roundIdx, matchupIdx, slotKey);
 				}),
 			);
 		},
@@ -478,6 +397,60 @@ export function useArena() {
 		[setRounds],
 	);
 
+	/** Drops the board and every result, keeping models, prompt and persona. */
+	const clearResults = useCallback(() => {
+		abortAll();
+		setRounds([]);
+		setCurrentRound(0);
+		setPhase("setup");
+		setRunningModels(new Set());
+		setWinnerModal(null);
+		setDisabledModels(new Set());
+	}, [
+		abortAll,
+		setRounds,
+		setCurrentRound,
+		setPhase,
+		setRunningModels,
+		setWinnerModal,
+		setDisabledModels,
+	]);
+
+	/** Clears the board and the whole set-up: models, prompts, persona, params. */
+	const resetAll = useCallback(() => {
+		clearResults();
+		setCompareModels([]);
+		setBracketModels([]);
+		setCompetitionPrompt("");
+		setComparePrompt("");
+		setSavedPrompt("");
+		setCompetitionActivePromptId(null);
+		setCompareActivePromptId(null);
+		setComparePersonaId(null);
+		setComparePersonaPrompt("");
+		setModelParams({});
+		// The write-through setters above only reach disk while persistence is
+		// on, so the keys are removed directly: a reset must not leave a board
+		// that comes back when persistence is switched on again.
+		try {
+			for (const key of ARENA_STORAGE_KEYS) localStorage.removeItem(key);
+		} catch {
+			/* a storage that refuses removal has nothing to resurrect either */
+		}
+	}, [
+		clearResults,
+		setCompareModels,
+		setBracketModels,
+		setCompetitionPrompt,
+		setComparePrompt,
+		setSavedPrompt,
+		setCompetitionActivePromptId,
+		setCompareActivePromptId,
+		setComparePersonaId,
+		setComparePersonaPrompt,
+		setModelParams,
+	]);
+
 	const isRunning = runningModels.size > 0;
 
 	const arenaIcon = arenaMode === "competition" ? Swords : GitCompare;
@@ -497,14 +470,9 @@ export function useArena() {
 		// State values
 		compareModels,
 		bracketModels,
-		competitionActivePromptId,
-		compareActivePromptId,
-		competitionPrompt,
-		comparePrompt,
 		rounds,
 		currentRound,
 		phase,
-		runningModels,
 		winnerModal,
 		disabledModels,
 		arenaCollapsed,
@@ -521,10 +489,6 @@ export function useArena() {
 		// State setters
 		setCompareModels,
 		setBracketModels,
-		setCompetitionActivePromptId,
-		setCompareActivePromptId,
-		setCompetitionPrompt,
-		setComparePrompt,
 		setRounds,
 		setCurrentRound,
 		setPhase,
@@ -560,14 +524,10 @@ export function useArena() {
 		handleRandomComparePersona,
 		handleRandomBracketModel,
 		handleRandomCompareModel,
+		clearResults,
+		resetAll,
 		setPrompt,
 		setActivePromptId,
-		// Refs are grouped in a sub-object so consumers can destructure them away
-		// from render-time state, keeping the react-hooks/refs lint from tainting
-		// state accesses (same pattern as useChat).
-		refs: {
-			abortMapRef,
-		},
 		// Helpers
 		roundLabel,
 		// Internal dependencies exposed for JSX
@@ -576,6 +536,5 @@ export function useArena() {
 	};
 }
 
-/** Everything the Arena page and its sections read, minus the refs. */
-export type ArenaView = Omit<ReturnType<typeof useArena>, "refs">;
-export type ArenaRefs = ReturnType<typeof useArena>["refs"];
+/** Everything the Arena page and its sections read. */
+export type ArenaView = ReturnType<typeof useArena>;

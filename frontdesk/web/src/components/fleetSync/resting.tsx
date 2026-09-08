@@ -128,8 +128,7 @@ function UsageSection({
 	// so pair the port with the host they reached this UI on: in the single-stack
 	// HA compose that is the same machine the load balancer runs on.
 	const port = status.lb_port ?? "8080";
-	const host =
-		typeof window !== "undefined" ? window.location.hostname : "your-host";
+	const host = window.location.hostname;
 	const directURL = `http://${host}:${port}/v1`;
 	const forwardURL = `http://${host}:${port}`;
 

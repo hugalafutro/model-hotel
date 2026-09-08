@@ -3,6 +3,8 @@ package util
 import (
 	"os"
 	"path/filepath"
+	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -33,50 +35,21 @@ func TestFormatBytes(t *testing.T) {
 	}
 }
 
-func TestParseInt(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  int64
-	}{
-		{"zero", "0", 0},
-		{"positive", "12345", 12345},
-		{"empty", "", 0},
-		{"non-numeric", "abc", 0},
-		{"mixed", "123abc", 123},
-		{"leading spaces", "  42", 0},
-		{"negative sign", "-5", 0},
-		{"large number", "9999999999", 9999999999},
-	}
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := ParseInt(tc.input)
-			if err != nil {
-				t.Errorf("ParseInt(%q) returned error: %v", tc.input, err)
-			}
-			if got != tc.want {
-				t.Errorf("ParseInt(%q) = %d, want %d", tc.input, got, tc.want)
-			}
-		})
-	}
-}
+// resetState functions drop the previous sample so a test starts from a known
+// state rather than inheriting whatever an earlier test left behind.
+func resetCPUState() { cpuRates.reset() }
 
-// resetState functions for stateful cgroup/network functions
-func resetCPUState() {
-	CPUPrevTime = time.Time{}
-	CPUPrevUsage = 0
-}
+func resetNetState() { netRates.reset() }
 
-func resetNetState() {
-	NetPrevTime = time.Time{}
-	NetPrevRxBytes = 0
-	NetPrevTxBytes = 0
-}
+func resetDiskState() { diskRates.reset() }
 
-func resetDiskState() {
-	DiskPrevTime = time.Time{}
-	DiskPrevReadBytes = 0
-	DiskPrevWriteBytes = 0
+// seedRates plants a previous sample at a chosen time so the delta guards and
+// the CPU cap can be exercised without waiting for wall time to pass.
+func seedRates(s *rateSampler, at time.Time, totals ...int64) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.at = at
+	s.prev = slices.Clone(totals)
 }
 
 // TestReadCgroupMemory_NoContainer tests behavior when not in a container
@@ -588,75 +561,6 @@ func TestReadNetworkStats_MalformedLines(t *testing.T) {
 	}
 }
 
-// TestParseInt_EdgeCases tests additional edge cases for ParseInt
-func TestParseInt_EdgeCases(t *testing.T) {
-	tests := []struct {
-		name    string
-		input   string
-		want    int64
-		wantErr bool
-	}{
-		{"whitespace only", "   ", 0, false},
-		{"newline", "123\n", 123, false},
-		{"trailing whitespace", "456  ", 456, false},
-		{"max int64", "9223372036854775807", 9223372036854775807, false},
-		{"single digit", "7", 7, false},
-		{"zero with leading zeros", "000", 0, false},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			got, err := ParseInt(tc.input)
-			if tc.wantErr && err == nil {
-				t.Errorf("ParseInt(%q) expected error, got nil", tc.input)
-			}
-			if !tc.wantErr && err != nil {
-				t.Errorf("ParseInt(%q) unexpected error: %v", tc.input, err)
-			}
-			if got != tc.want {
-				t.Errorf("ParseInt(%q) = %d, want %d", tc.input, got, tc.want)
-			}
-		})
-	}
-}
-
-// TestCPUPrevState tests that CPU state is properly maintained between calls
-func TestCPUPrevState(t *testing.T) {
-	resetCPUState()
-
-	// Verify initial state
-	if !CPUPrevTime.IsZero() {
-		t.Error("Expected CPUPrevTime to be zero initially")
-	}
-	if CPUPrevUsage != 0 {
-		t.Errorf("Expected CPUPrevUsage to be 0, got %d", CPUPrevUsage)
-	}
-}
-
-// TestNetPrevState tests that network state is properly maintained
-func TestNetPrevState(t *testing.T) {
-	resetNetState()
-
-	if !NetPrevTime.IsZero() {
-		t.Error("Expected NetPrevTime to be zero initially")
-	}
-	if NetPrevRxBytes != 0 || NetPrevTxBytes != 0 {
-		t.Errorf("Expected NetPrevRx/Tx to be 0, got %d/%d", NetPrevRxBytes, NetPrevTxBytes)
-	}
-}
-
-// TestDiskPrevState tests that disk IO state is properly maintained
-func TestDiskPrevState(t *testing.T) {
-	resetDiskState()
-
-	if !DiskPrevTime.IsZero() {
-		t.Error("Expected DiskPrevTime to be zero initially")
-	}
-	if DiskPrevReadBytes != 0 || DiskPrevWriteBytes != 0 {
-		t.Errorf("Expected DiskPrevRead/Write to be 0, got %d/%d", DiskPrevReadBytes, DiskPrevWriteBytes)
-	}
-}
-
 // TestCgroupParsing_V1 tests parsing logic for cgroup v1 format
 func TestCgroupParsing_V1(t *testing.T) {
 	// Simulate cgroup v1 content: 12:memory:/docker/<container_id>
@@ -799,10 +703,10 @@ func TestNetworkStatsParsing(t *testing.T) {
 		if len(fields) < 10 {
 			continue
 		}
-		if rx, e := ParseInt(fields[0]); e == nil {
+		if rx, e := strconv.ParseInt(fields[0], 10, 64); e == nil {
 			totalRx += rx
 		}
-		if tx, e := ParseInt(fields[8]); e == nil {
+		if tx, e := strconv.ParseInt(fields[8], 10, 64); e == nil {
 			totalTx += tx
 		}
 	}
@@ -827,11 +731,11 @@ func TestCgroupIOStatParsing(t *testing.T) {
 	for line := range strings.SplitSeq(ioStatContent, "\n") {
 		for field := range strings.FieldsSeq(line) {
 			if after, ok := strings.CutPrefix(field, "rbytes="); ok {
-				if v, e := ParseInt(after); e == nil {
+				if v, e := strconv.ParseInt(after, 10, 64); e == nil {
 					totalRead += v
 				}
 			} else if after, ok := strings.CutPrefix(field, "wbytes="); ok {
-				if v, e := ParseInt(after); e == nil {
+				if v, e := strconv.ParseInt(after, 10, 64); e == nil {
 					totalWrite += v
 				}
 			}
@@ -855,11 +759,11 @@ func TestCgroupIOStatParsing_Empty(t *testing.T) {
 	for line := range strings.SplitSeq(ioStatContent, "\n") {
 		for field := range strings.FieldsSeq(line) {
 			if after, ok := strings.CutPrefix(field, "rbytes="); ok {
-				if v, e := ParseInt(after); e == nil {
+				if v, e := strconv.ParseInt(after, 10, 64); e == nil {
 					totalRead += v
 				}
 			} else if after, ok := strings.CutPrefix(field, "wbytes="); ok {
-				if v, e := ParseInt(after); e == nil {
+				if v, e := strconv.ParseInt(after, 10, 64); e == nil {
 					totalWrite += v
 				}
 			}
@@ -888,7 +792,7 @@ throttled_usec 50000`
 	for line := range strings.SplitSeq(cpuStatContent, "\n") {
 		if after, ok := strings.CutPrefix(line, "usage_usec "); ok {
 			val := after
-			if v, e := ParseInt(strings.TrimSpace(val)); e == nil {
+			if v, e := strconv.ParseInt(strings.TrimSpace(val), 10, 64); e == nil {
 				usageUsec = v
 			}
 			break
@@ -922,7 +826,7 @@ func TestCgroupMemoryParsing(t *testing.T) {
 			// Parse current
 			if tc.currentRaw != "" {
 				val := strings.TrimSpace(tc.currentRaw)
-				if v, e := ParseInt(val); e == nil {
+				if v, e := strconv.ParseInt(val, 10, 64); e == nil {
 					current = v
 				}
 			}
@@ -932,7 +836,7 @@ func TestCgroupMemoryParsing(t *testing.T) {
 				val := strings.TrimSpace(tc.maxRaw)
 				if val == "max" {
 					limit = 0
-				} else if v, e := ParseInt(val); e == nil {
+				} else if v, e := strconv.ParseInt(val, 10, 64); e == nil {
 					limit = v
 				}
 			}
@@ -966,8 +870,8 @@ func TestReadCgroupCPU_DeltaGuard(t *testing.T) {
 		t.Errorf("First call: got %f, want 0 (baseline)", result1)
 	}
 
-	// Set CPUPrevTime to the future so deltaTime <= 0
-	CPUPrevTime = time.Now().Add(10 * time.Second)
+	// Plant the previous sample in the future so deltaSec <= 0.
+	seedRates(&cpuRates, time.Now().Add(10*time.Second), 1_000_000)
 
 	result2 := ReadCgroupCPU()
 	if result2 != 0 {
@@ -1023,9 +927,8 @@ func TestReadCgroupCPU_PercentCap999(t *testing.T) {
 	// First call seeds baseline
 	ReadCgroupCPU()
 
-	// Set CPUPrevTime to very recent (tiny deltaTime) and low prev usage
-	CPUPrevTime = time.Now().Add(-1 * time.Microsecond)
-	CPUPrevUsage = 1000
+	// A microsecond of wall time with a huge usage jump exceeds the cap.
+	seedRates(&cpuRates, time.Now().Add(-1*time.Microsecond), 1000)
 
 	// Write huge usage to trigger percent > 999
 	if err := os.WriteFile(cpuStatFile, []byte("usage_usec 999999999999\n"), 0o644); err != nil {
@@ -1062,8 +965,8 @@ func TestReadNetworkStats_DeltaGuard(t *testing.T) {
 		t.Errorf("First call: got (%f, %f), want (0, 0)", rx1, tx1)
 	}
 
-	// Set NetPrevTime to the future so deltaSec <= 0
-	NetPrevTime = time.Now().Add(10 * time.Second)
+	// Plant the previous sample in the future so deltaSec <= 0.
+	seedRates(&netRates, time.Now().Add(10*time.Second), 500000, 250000)
 
 	rx2, tx2 := ReadNetworkStats()
 	if rx2 != 0 || tx2 != 0 {
@@ -1134,8 +1037,8 @@ func TestReadCgroupDiskIO_DeltaGuard(t *testing.T) {
 		t.Errorf("First call: got (%f, %f), want (0, 0)", r1, w1)
 	}
 
-	// Set DiskPrevTime to the future so deltaSec <= 0
-	DiskPrevTime = time.Now().Add(10 * time.Second)
+	// Plant the previous sample in the future so deltaSec <= 0.
+	seedRates(&diskRates, time.Now().Add(10*time.Second), 1234567, 7654321)
 
 	r2, w2 := ReadCgroupDiskIO()
 	if r2 != 0 || w2 != 0 {

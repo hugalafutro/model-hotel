@@ -331,7 +331,13 @@
 			"emptyState": "Aún no hay datos de uso. El desglose de uso aparecerá aquí una vez que fluya el tráfico.",
 			"viewDetailsFor": "Ver detalles de {{label}}",
 			"deletedModelTooltip": "El modelo ya no está disponible; es posible que se haya eliminado o que se haya retirado su proveedor",
-			"reservedKeyTooltip": "Nombre reservado interno, no una clave creada por ti: este uso proviene de las propias rutas «{{name}}» de Model Hotel."
+			"reservedKeyTooltip": "Nombre reservado interno, no una clave creada por ti: este uso proviene de las propias rutas «{{name}}» de Model Hotel.",
+			"tokens_one": "token",
+			"tokens_many": "tokens",
+			"tokens_other": "tokens",
+			"requests_one": "solicitud",
+			"requests_many": "solicitudes",
+			"requests_other": "solicitudes"
 		},
 		"providerLatency": {
 			"title": "Latencia de proveedores",
@@ -354,10 +360,12 @@
 			"distributionChart": "Tabla de distribución de proveedores",
 			"emptyState": "Aún no hay datos de proveedores. El desglose del proveedor aparecerá aquí una vez que fluya el tráfico.",
 			"chartAriaLabel": "Tabla de distribución de proveedores",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokens",
-			"requestUnit": "Solicitud",
-			"requestsUnit": "Solicitudes"
+			"tokens_one": "Token",
+			"tokens_many": "Tokens",
+			"tokens_other": "Tokens",
+			"requests_one": "Solicitud",
+			"requests_many": "Solicitudes",
+			"requests_other": "Solicitudes"
 		},
 		"models": {
 			"viewDetails": "Ver detalles de {{label}}",
@@ -604,7 +612,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Los modelos están generando - haga clic en Parar para cancelar",
-			"voteToContinue": "Votar en todos los partidos para continuar a la siguiente ronda",
 			"nextRoundReady": "Iniciar la siguiente ronda cuando esté lista"
 		},
 		"responses": {
@@ -659,13 +666,6 @@
 			"close": "Cerrar"
 		},
 		"params": {
-			"temperature": "Temperatura",
-			"maxTokens": "Tokens máximos",
-			"topP": "Top P",
-			"minP": "P mínimo",
-			"topK": "Top K",
-			"freqPenalty": "Penalidad Freq",
-			"presPenalty": "Penal. presencia",
 			"resetAll": "Restablecer todo",
 			"done": "Hecho"
 		},
@@ -856,7 +856,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "No queda ningún proveedor habilitado",
-				"onlyOne": "Solo queda un proveedor habilitado (la conmutación por error necesita al menos dos)."
+				"onlyOne": "Solo queda un proveedor habilitado (la conmutación por error necesita al menos dos).",
+				"noValidProviders": "No queda ningún proveedor válido tras la depuración",
+				"onlyOneValid": "Solo queda un proveedor válido tras la depuración (la conmutación por error necesita al menos dos)"
 			},
 			"error": "Error",
 			"failover": "Grupos de conmutación por error",
@@ -1097,7 +1099,17 @@
 		"scope_all": "Todos los proveedores",
 		"badge_parked": "{{count}} aparcados",
 		"status_parked": "Aparcado",
-		"status_parked_hint": "El proveedor está desactivado; este modelo sigue listado pero no se sirve hasta que el proveedor se active de nuevo."
+		"status_parked_hint": "El proveedor está desactivado; este modelo sigue listado pero no se sirve hasta que el proveedor se active de nuevo.",
+		"capPills": {
+			"vision": "Visión",
+			"reasoning": "Razonamiento",
+			"tool_calling": "Herramientas",
+			"structured_output": "Estructurado",
+			"pdf_upload": "PDF",
+			"video_input": "Vídeo",
+			"audio_input": "Audio",
+			"parallel_tool_calls": "Paralelo"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revertir al valor descubierto",
@@ -1310,7 +1322,6 @@
 				"owner": "Propietario"
 			},
 			"noProvidersConfigured": "No hay proveedores configurados.",
-			"discardChanges": "¿Descartar cambios no guardados?",
 			"loadingProviders": "Cargando proveedores...",
 			"stripReasoningDescriptionText": "Cuando está activado, los tokens de razonamiento/pensamiento se eliminan de las respuestas de streaming para los clientes que no pueden manejarlos.",
 			"providerInstructionsText": "Haga clic en un proveedor para restringir el acceso. Todos son accesibles por defecto.",
@@ -1451,6 +1462,11 @@
 			"search": "Filtrar registros…",
 			"allLevels": "Todos los niveles",
 			"allSources": "Todas las fuentes"
+		},
+		"level": {
+			"info": "Información",
+			"warning": "Advertencia",
+			"error": "Error"
 		},
 		"table": {
 			"timeDate": "Hora/Fecha",
@@ -1908,8 +1924,8 @@
 				"confirmEnableTitle": "¿Habilitar copia de seguridad periódica?",
 				"confirmEnableDescription": "Al activar la copia de seguridad periódica se eliminan las copias existentes que quedan fuera de la ventana de rotación hijo/padre/abuelo.",
 				"confirmEnableWouldRemove": "Estas {{count}} copia(s) de seguridad quedan fuera de la ventana de rotación y se eliminarán de forma permanente:",
-				"prunePreviewFailed": "Error al previsualizar la limpieza de copia de seguridad",
-				"pruneFailed": "Error al limpiar las copias de seguridad",
+				"prunePreviewFailed": "Error al previsualizar la limpieza de copia de seguridad: {{message}}",
+				"pruneFailed": "Error al limpiar las copias de seguridad: {{message}}",
 				"pruneSuccess": "Copia de seguridad periódica activada. Se han eliminado {{count}} copia(s) antigua(s)."
 			},
 			"availableBackupsTitle": "Copias de seguridad disponibles",
@@ -2222,7 +2238,7 @@
 				"done": "Las alertas están activas.",
 				"sendAll": "Enviar prueba a todos",
 				"sentAll": "Prueba enviada a todos los destinos",
-				"apiChangedDrops": "Cambiar la dirección elimina los destinos añadidos en esta sesión; se probaron con la dirección anterior.",
+				"apiChangedDrops": "Verificar una dirección diferente elimina los destinos añadidos en esta sesión; se probaron con la dirección anterior.",
 				"savedNote_one": "{{count}} destino ya guardado se mantiene tal cual.",
 				"savedNote_many": "{{count}} destinos ya guardados se mantienen tal cual.",
 				"savedNote_other": "{{count}} destinos ya guardados se mantienen tal cual.",
@@ -2442,16 +2458,10 @@
 			"filter": "Filtrar…",
 			"clearFilter": "Limpiar filtro"
 		},
-		"copyButton": {
-			"copy": "Copiar",
-			"copiedToClipboard": "Copiado al portapapeles",
-			"failedToCopy": "Error al copiar"
-		},
 		"copyablePill": {
 			"copy": "Copiar",
 			"copyToClipboard": "Copiar al portapapeles",
-			"copied": "¡Copiado!",
-			"failedToCopy": "Error al copiar"
+			"copied": "¡Copiado!"
 		},
 		"collapsibleToggle": {
 			"expand": "Expandir",
@@ -2773,11 +2783,6 @@
 			"compare": "Comparar",
 			"noMatchHistory": "Aún no hay historial de partidas",
 			"completedSessionsHere": "La arena completada y las sesiones de comparación aparecerán aquí",
-			"match": "Partida",
-			"final": "Final",
-			"semifinals": "Semifinales",
-			"quarterfinals": "Cuartos de final",
-			"round": "Ronda {{number}}",
 			"winner": "Ganador: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Error: {{message}}",
@@ -2887,35 +2892,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "No se encontraron registros",
-			"entries": "entradas",
-			"loadingNewer": "Cargando nueva…",
-			"loadingOlder": "Cargando antigua…",
-			"timeDate": "Hora/Fecha",
-			"hash": "Hash",
-			"model": "Modelo",
-			"provider": "Proveedor",
-			"providerDeleted": "Proveedor eliminado",
-			"status": "Estado",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Encabezados",
-			"ttft": "TTFT",
-			"duration": "Duración",
-			"overhead": "Sobrecarga",
-			"key": "Clave",
-			"interrupted": "Interrumpido",
-			"internal": "interno",
-			"cacheInflated": "Inflado por aciertos de la caché de prompt",
-			"deleted": "Eliminado",
-			"zeroEntries": "0 entradas",
-			"ip": "IP"
+			"zeroEntries": "0 entradas"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "No se encontraron registros",
-			"entries": "entradas",
-			"loadingNewer": "Cargando nueva…",
-			"loadingOlder": "Cargando antigua…",
 			"timeDate": "Hora/Fecha",
 			"level": "Nivel",
 			"source": "Fuente",
@@ -3129,7 +3109,8 @@
 		},
 		"useDisableModel": {
 			"success": "Modelo \"{{model}}\" deshabilitado",
-			"error": "Error al desactivar el modelo: {{error}}"
+			"error": "Error al desactivar el modelo: {{error}}",
+			"notFound": "No se encontró el modelo \"{{model}}\" entre los modelos habilitados"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Error al recuperar los datos iniciales",

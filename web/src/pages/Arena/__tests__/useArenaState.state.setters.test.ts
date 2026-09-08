@@ -446,31 +446,10 @@ describe("useArenaState", () => {
 		});
 
 		act(() => {
-			result.current.abortMapRef.current.set(
-				"TestProvider/model-1",
-				new AbortController(),
-			);
-		});
-
-		expect(result.current.abortMapRef.current.size).toBe(1);
-
-		act(() => {
-			result.current.lastExtractLenRef.current.set("key-1", 100);
-		});
-
-		expect(result.current.lastExtractLenRef.current.get("key-1")).toBe(100);
-
-		act(() => {
 			result.current.currentRoundRef.current = 3;
 		});
 
 		expect(result.current.currentRoundRef.current).toBe(3);
-
-		act(() => {
-			result.current.roundsLengthRef.current = 5;
-		});
-
-		expect(result.current.roundsLengthRef.current).toBe(5);
 
 		act(() => {
 			result.current.activePromptIdRef.current = "prompt-ref";

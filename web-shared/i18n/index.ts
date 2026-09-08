@@ -43,3 +43,14 @@ export function createLocaleBackend(
 		},
 	};
 }
+
+/**
+ * The language codes a loaders map carries, inverting the `./locales/<lang>.json`
+ * key convention `createLocaleBackend` reads. Both apps build their supported
+ * language list from this, so the convention is stated once.
+ */
+export function localeCodes(loaders: LocaleLoaders): string[] {
+	return Object.keys(loaders).map((p) =>
+		p.slice("./locales/".length, -".json".length),
+	);
+}

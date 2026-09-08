@@ -5,10 +5,9 @@ import (
 	"errors"
 	"io"
 	"net/http"
-	"strings"
 	"time"
 
-	"github.com/google/uuid"
+	"github.com/hugalafutro/model-hotel/internal/egress"
 )
 
 // chatCompletionBuilder turns one egress dialect's non-streaming success body
@@ -34,22 +33,33 @@ func translateEgressResponseBody(resp *http.Response, model string, build chatCo
 	// so one upstream cannot hold more than the cap (twice over, original and
 	// translated) per concurrent request. The refusal is this gateway's policy
 	// and not the provider failing, which translationIsProviderFault knows.
-	body, err := io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap+1))
-	_ = resp.Body.Close()
+	body, err := readCappedBody(resp, nonStreamingBodyCap, errEgressBodyOversized)
 	if err != nil {
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
 		return err
 	}
-	if len(body) > nonStreamingBodyCap {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
-		return errEgressBodyOversized
-	}
-	id := "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	translated, err := build(body, id, model, time.Now().Unix())
+	translated, err := build(body, egress.NewChatCompletionID(), model, time.Now().Unix())
 	if err != nil {
 		resp.Body = io.NopCloser(bytes.NewReader(nil))
 		return err
 	}
 	resp.Body = io.NopCloser(bytes.NewReader(translated))
 	return nil
+}
+
+// readCappedBody reads and closes a response body under a byte cap: cap+1 is
+// read, and a body that reaches it comes back as oversized rather than
+// truncated, so a caller never re-encodes a mutilated payload as a whole one.
+// The oversized error is the caller's own limit, never a provider fault, which
+// translationIsProviderFault knows.
+func readCappedBody(resp *http.Response, limit int, oversized error) ([]byte, error) {
+	body, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
+	_ = resp.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+	if len(body) > limit {
+		return nil, oversized
+	}
+	return body, nil
 }

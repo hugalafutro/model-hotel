@@ -1,153 +1,47 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import QRCode from "qrcode";
-import { useEffect, useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Copy, ShieldCheck, X } from "@/lib/icons";
-import { ApiError, api, clearAuth } from "../../api/client";
+import { ShieldCheck } from "@/lib/icons";
+import { ApiError, api, resetToLogin } from "../../api/client";
 import { PageHeader } from "../../components/PageHeader";
-import { TotpRecoveryCodes } from "../../components/TotpRecoveryCodes";
+import { TotpEnrollmentPanel } from "../../components/totp/TotpEnrollmentPanel";
+import { useTotpEnrollment } from "../../components/totp/useTotpEnrollment";
 import { useToast } from "../../context/ToastContext";
-import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
-import { formatDate } from "../../utils/format";
 import { isBreachedPasswordError } from "../../utils/passwordPolicy";
 
 /**
- * Self-service security page for users-row identities: enroll, inspect, and
- * disable the caller's own TOTP second factor. Mirrors the admin TotpPanel
- * (Settings) against /api/auth/totp/* — no session re-mint is needed here
- * because enabling a user's TOTP changes login requirements only, not the
- * session the caller already holds. Reuses the settings.totp.* strings so the
- * two panels stay word-for-word consistent across locales.
+ * Self-service security page for users-row identities: the shared TOTP
+ * enrolment panel against /api/auth/totp/*, plus a password change. No session
+ * re-mint is needed here because enabling a user's TOTP changes login
+ * requirements only, not the session the caller already holds.
  */
 export function Security() {
 	const { t } = useTranslation();
 	const { toast } = useToast();
-	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const queryClient = useQueryClient();
 
-	const [enrollUri, setEnrollUri] = useState("");
-	const [enrollSecret, setEnrollSecret] = useState("");
-	const [verifyCode, setVerifyCode] = useState("");
-	const [recoveryCodes, setRecoveryCodes] = useState<string[]>([]);
-	const [showRecovery, setShowRecovery] = useState(false);
-	const [disabling, setDisabling] = useState(false);
-	const [disableCode, setDisableCode] = useState("");
-	const [qrDataUrl, setQrDataUrl] = useState("");
 	const [currentPassword, setCurrentPassword] = useState("");
 	const [newPassword, setNewPassword] = useState("");
 	const [confirmPassword, setConfirmPassword] = useState("");
-
-	const { data: status } = useQuery({
-		queryKey: ["user-totp", "status"],
-		queryFn: () => api.userTotp.status(),
-	});
-	const enabled = status?.enabled ?? false;
-
-	useEffect(() => {
-		if (typeof window === "undefined") return;
-		if (!enrollUri) return;
-		let cancelled = false;
-		QRCode.toDataURL(enrollUri, {
-			width: 200,
-			margin: 2,
-			errorCorrectionLevel: "M",
-		})
-			.then((url) => {
-				if (!cancelled) setQrDataUrl(url);
-			})
-			.catch(() => {
-				if (!cancelled) setQrDataUrl("");
-			});
-		return () => {
-			cancelled = true;
-		};
-	}, [enrollUri]);
-
-	const invalidate = () =>
-		queryClient.invalidateQueries({ queryKey: ["user-totp", "status"] });
-
-	const enrollStartMutation = useMutation({
-		mutationFn: () => api.userTotp.enrollStart(),
-		onSuccess: (data) => {
-			setEnrollUri(data.uri);
-			setEnrollSecret(data.secret);
-			setVerifyCode("");
+	const resetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+	useEffect(
+		() => () => {
+			if (resetTimerRef.current) clearTimeout(resetTimerRef.current);
 		},
-		onError: (err: Error) => {
-			toast(
-				t("settings.totp.failedToStart", { message: err.message }),
-				"error",
-			);
-		},
-	});
+		[],
+	);
 
-	const enrollVerifyMutation = useMutation({
-		mutationFn: (code: string) => api.userTotp.enrollVerify(code),
-		onSuccess: (data) => {
-			setRecoveryCodes(data.recovery_codes);
-			setShowRecovery(true);
-			setEnrollUri("");
-			setEnrollSecret("");
-			setVerifyCode("");
-			setQrDataUrl("");
-			invalidate();
-			toast(t("settings.totp.verifiedSuccess"), "success");
-		},
-		onError: () => {
-			toast(t("settings.totp.failedToVerify"), "error");
-		},
-	});
-
-	const disableMutation = useMutation({
-		mutationFn: (code: string) => api.userTotp.disable(code),
-		onSuccess: () => {
-			setDisabling(false);
-			setDisableCode("");
-			invalidate();
-			toast(t("settings.totp.disabled"), "success");
-		},
-		onError: () => {
-			toast(t("settings.totp.failedToDisable"), "error");
-		},
-	});
-
-	const handleVerify = () => {
-		const code = verifyCode.trim();
-		if (!code) return;
-		enrollVerifyMutation.mutate(code);
-	};
-
-	const handleDisable = () => {
-		const code = disableCode.trim();
-		if (!code) return;
-		disableMutation.mutate(code);
-	};
-
-	const handleCancelEnroll = () => {
-		setEnrollUri("");
-		setEnrollSecret("");
-		setVerifyCode("");
-		setQrDataUrl("");
-	};
-
-	const handleCopySecret = async () => {
-		if (await copy(enrollSecret))
-			toast(t("settings.totp.secretCopied"), "success");
-		else toast(t("common.failedToCopy"), "error");
-	};
+	const totp = useTotpEnrollment(api.userTotp, ["user-totp", "status"]);
 
 	const passwordMutation = useMutation({
 		mutationFn: () => api.userTotp.changePassword(currentPassword, newPassword),
 		onSuccess: () => {
 			// The server revoked every session of the account, this one included.
 			// Give the toast a moment, then tear down auth state the same way the
-			// logout button does and land on the login screen.
+			// logout button does and land on the login screen. The timer is held so
+			// navigating away in the meantime does not reload the page underneath.
 			toast(t("security.password.success"), "success");
-			setTimeout(() => {
-				clearAuth();
-				queryClient.cancelQueries();
-				window.location.reload();
-			}, 1500);
+			resetTimerRef.current = setTimeout(() => resetToLogin(queryClient), 1500);
 		},
 		onError: (err: Error) => {
 			if (err instanceof ApiError && err.status === 401) {
@@ -167,214 +61,6 @@ export function Security() {
 		newPassword.length >= 8 &&
 		newPassword === confirmPassword;
 
-	const handleChangePassword = () => {
-		if (newPassword !== confirmPassword) {
-			toast(t("security.password.mismatch"), "error");
-			return;
-		}
-		if (newPassword.length < 8) {
-			toast(t("users.validation.passwordShort"), "error");
-			return;
-		}
-		passwordMutation.mutate();
-	};
-
-	const handleSavedRecoveryCodes = () => {
-		setRecoveryCodes([]);
-		setShowRecovery(false);
-		invalidate();
-	};
-
-	let body: React.ReactNode;
-	if (showRecovery && recoveryCodes.length > 0) {
-		body = (
-			<TotpRecoveryCodes
-				codes={recoveryCodes}
-				onSaved={handleSavedRecoveryCodes}
-				testIdPrefix="security"
-			/>
-		);
-	} else if (enrollUri) {
-		body = (
-			<div className="space-y-4">
-				<p className="text-(--text-secondary) text-sm">
-					{t("settings.totp.enableDescription")}
-				</p>
-				{qrDataUrl && (
-					<div className="flex justify-center">
-						<img
-							src={qrDataUrl}
-							alt={t("settings.totp.qrAlt")}
-							className="rounded-lg"
-						/>
-					</div>
-				)}
-				<div>
-					<label
-						htmlFor="user-totp-secret"
-						className="block text-sm font-medium text-(--text-primary) mb-2"
-					>
-						{t("settings.totp.secret")}
-					</label>
-					<div className="flex items-center gap-2">
-						<code
-							id="user-totp-secret"
-							className="flex-1 p-2 bg-(--surface-elevated) rounded-[var(--radius-card,0.375rem)] border border-(--border-default) font-mono text-sm text-(--text-primary) break-all"
-						>
-							{enrollSecret}
-						</code>
-						<button
-							type="button"
-							onClick={handleCopySecret}
-							className="ui-icon-btn shrink-0"
-							aria-label={t("settings.totp.copySecretAriaLabel")}
-							data-testid="security-copy-secret"
-						>
-							<Copy size={16} />
-						</button>
-					</div>
-				</div>
-				<div>
-					<label
-						htmlFor="user-totp-verify-code"
-						className="block text-sm font-medium text-(--text-primary) mb-2"
-					>
-						{t("settings.totp.enterCode")}
-					</label>
-					<input
-						id="user-totp-verify-code"
-						type="text"
-						value={verifyCode}
-						onChange={(e) => setVerifyCode(e.target.value)}
-						onKeyDown={(e) => {
-							if (e.key === "Enter") handleVerify();
-						}}
-						inputMode="numeric"
-						maxLength={6}
-						autoComplete="one-time-code"
-						pattern="[0-9]*"
-						placeholder={t("settings.totp.codePlaceholder")}
-						className="ui-input"
-						aria-label={t("settings.totp.codeAriaLabel")}
-						data-testid="security-verify-code"
-					/>
-				</div>
-				<div className="flex gap-2">
-					<button
-						type="button"
-						onClick={handleVerify}
-						disabled={enrollVerifyMutation.isPending || !verifyCode.trim()}
-						className="ui-btn ui-btn-primary"
-						aria-label={t("settings.totp.verifyAriaLabel")}
-						data-testid="security-verify-button"
-					>
-						{enrollVerifyMutation.isPending
-							? t("settings.totp.verifying")
-							: t("settings.totp.verify")}
-					</button>
-					<button
-						type="button"
-						onClick={handleCancelEnroll}
-						className="ui-btn ui-btn-secondary"
-						aria-label={t("settings.totp.cancelEnrollAriaLabel")}
-						data-testid="security-cancel-enroll"
-					>
-						<X size={16} />
-						{t("common.cancel")}
-					</button>
-				</div>
-			</div>
-		);
-	} else if (enabled) {
-		body = (
-			<div className="space-y-4">
-				<div className="flex items-center justify-between">
-					<span className="ui-badge ui-badge-success">
-						{t("settings.totp.enabled")}
-					</span>
-					<button
-						type="button"
-						onClick={() => setDisabling(!disabling)}
-						className="ui-btn ui-btn-danger"
-						aria-label={t("settings.totp.disableAriaLabel")}
-						data-testid="security-disable-toggle"
-					>
-						{t("settings.totp.disable")}
-					</button>
-				</div>
-				{status?.enabled_at && (
-					<p className="text-(--text-tertiary) text-sm">
-						{t("settings.totp.enabledOn", {
-							date: formatDate(status.enabled_at),
-						})}
-					</p>
-				)}
-				{status?.recovery_total != null && (
-					<dl className="text-(--text-tertiary) text-sm space-y-1">
-						<div className="flex items-center justify-between gap-2">
-							<dt>{t("settings.totp.recoveryRemaining")}</dt>
-							<dd className="text-(--text-secondary) tabular-nums">
-								{status.recovery_remaining} / {status.recovery_total}
-							</dd>
-						</div>
-					</dl>
-				)}
-				{disabling && (
-					<div className="space-y-3">
-						<p className="text-(--text-secondary) text-sm">
-							{t("settings.totp.disableDescription")}
-						</p>
-						<input
-							type="text"
-							value={disableCode}
-							onChange={(e) => setDisableCode(e.target.value)}
-							onKeyDown={(e) => {
-								if (e.key === "Enter") handleDisable();
-							}}
-							inputMode="text"
-							autoComplete="one-time-code"
-							maxLength={19}
-							placeholder={t("settings.totp.codePlaceholder")}
-							className="ui-input"
-							aria-label={t("settings.totp.disableCodeAriaLabel")}
-							data-testid="security-disable-code"
-						/>
-						<button
-							type="button"
-							onClick={handleDisable}
-							disabled={disableMutation.isPending || !disableCode.trim()}
-							className="ui-btn ui-btn-danger"
-							aria-label={t("settings.totp.confirmDisableAriaLabel")}
-							data-testid="security-disable-confirm"
-						>
-							{disableMutation.isPending
-								? t("settings.totp.disabling")
-								: t("settings.totp.disable")}
-						</button>
-					</div>
-				)}
-			</div>
-		);
-	} else {
-		body = (
-			<div className="space-y-4">
-				<p className="text-(--text-secondary) text-sm">
-					{t("settings.totp.description")}
-				</p>
-				<button
-					type="button"
-					onClick={() => enrollStartMutation.mutate()}
-					disabled={enrollStartMutation.isPending}
-					className="ui-btn ui-btn-primary"
-					aria-label={t("settings.totp.enableAriaLabel")}
-					data-testid="security-enable-button"
-				>
-					{t("settings.totp.enable")}
-				</button>
-			</div>
-		);
-	}
-
 	return (
 		<div className="space-y-6 pb-8">
 			<PageHeader
@@ -386,7 +72,13 @@ export function Security() {
 				<h2 className="text-base font-semibold text-(--text-primary) mb-4">
 					{t("settings.totp.title")}
 				</h2>
-				{body}
+				<TotpEnrollmentPanel
+					totp={totp}
+					idPrefix="user-totp"
+					testIdPrefix="security"
+					recoveryRemaining={totp.status?.recovery_remaining}
+					recoveryTotal={totp.status?.recovery_total}
+				/>
 			</div>
 			<div className="ui-card p-6 max-w-2xl">
 				<h2 className="text-base font-semibold text-(--text-primary) mb-1">
@@ -399,7 +91,7 @@ export function Security() {
 					className="space-y-3"
 					onSubmit={(e) => {
 						e.preventDefault();
-						handleChangePassword();
+						passwordMutation.mutate();
 					}}
 				>
 					{/* Hidden username field helps password managers bind the entry. */}
@@ -445,6 +137,11 @@ export function Security() {
 							className="ui-input"
 							data-testid="security-new-password"
 						/>
+						{newPassword.length > 0 && newPassword.length < 8 && (
+							<p className="text-sm text-red-400 mt-1">
+								{t("users.validation.passwordShort")}
+							</p>
+						)}
 					</div>
 					<div>
 						<label

@@ -17,10 +17,10 @@ func (h *Handler) SetAudit(rec *audit.Recorder) {
 	h.audit = rec
 }
 
-// RegisterAudit mounts the admin-only audit-trail routes.
+// RegisterAudit mounts the audit-trail routes. The parent router must apply
+// admin auth: these routes carry no guard of their own.
 func (h *Handler) RegisterAudit(r chi.Router) {
 	r.Route("/audit", func(r chi.Router) {
-		r.Use(requireAdmin)
 		r.Get("/", h.ListAudit)
 		r.Delete("/purge", h.PurgeAudit)
 	})
@@ -75,13 +75,7 @@ func (h *Handler) ListAudit(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "failed to list audit entries", err, http.StatusInternalServerError)
 		return
 	}
-	limit := p.Limit
-	if limit < 1 {
-		limit = 50
-	}
-	if limit > 200 {
-		limit = 200
-	}
+	limit := p.PageLimit()
 	hasMore := len(entries) > limit
 	if hasMore {
 		entries = entries[:limit]

@@ -325,7 +325,11 @@
 			"emptyState": "Nog geen gebruiksdata nie. 'n Gebruiksopdeling sal hier verskyn sodra verkeer vloei.",
 			"viewDetailsFor": "Beskou besonderhede vir {{label}}",
 			"deletedModelTooltip": "Model nie meer beskikbaar nie - dit is moontlik geskrap of sy verskaffer is verwyder",
-			"reservedKeyTooltip": "Interne voorbehoude naam, nie 'n sleutel wat jy geskep het nie - hierdie gebruik kom van Model Hotel se eie \"{{name}}\"-roetes"
+			"reservedKeyTooltip": "Interne voorbehoude naam, nie 'n sleutel wat jy geskep het nie - hierdie gebruik kom van Model Hotel se eie \"{{name}}\"-roetes",
+			"tokens_one": "token",
+			"tokens_other": "tokens",
+			"requests_one": "versoek",
+			"requests_other": "versoeke"
 		},
 		"providerLatency": {
 			"title": "Verskaffer-latensie",
@@ -347,10 +351,10 @@
 			"distributionChart": "Verskaffer-verspreidingsgrafiek",
 			"emptyState": "Nog geen verskafferinligting nie. 'n Oorsig van die verskaffers sal hier verskyn sodra verkeer vloei.",
 			"chartAriaLabel": "Verskaffer-verspreidingsgrafiek",
-			"tokenUnit": "Token",
-			"tokensUnit": "Tokens",
-			"requestUnit": "Versoek",
-			"requestsUnit": "Versoeke"
+			"tokens_one": "Token",
+			"tokens_other": "Tokens",
+			"requests_one": "Versoek",
+			"requests_other": "Versoeke"
 		},
 		"models": {
 			"viewDetails": "Beskou besonderhede vir {{label}}",
@@ -597,7 +601,6 @@
 		"vs": "teen",
 		"status": {
 			"generating": "Modelle word gegenereer - klik Stop Alles om te kanselleer",
-			"voteToContinue": "Stem op alle wedstryde om na die volgende rondte voort te gaan.",
 			"nextRoundReady": "Begin die volgende rondte wanneer jy gereed is."
 		},
 		"responses": {
@@ -652,13 +655,6 @@
 			"close": "Sluit"
 		},
 		"params": {
-			"temperature": "Temperatuur",
-			"maxTokens": "Max tokens",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Freq Straf",
-			"presPenalty": "Prestraf",
 			"resetAll": "Stel alles terug",
 			"done": "Voltooid"
 		},
@@ -844,7 +840,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Daar is geen geaktiveerde verskaffers oor nie",
-				"onlyOne": "Slegs een geaktiveerde verskaffer bly oor (failover benodig ten minste twee)"
+				"onlyOne": "Slegs een geaktiveerde verskaffer bly oor (failover benodig ten minste twee)",
+				"noValidProviders": "Geen geldige verskaffers bly oor na snoei nie",
+				"onlyOneValid": "Slegs een geldige verskaffer bly oor na snoei (failover benodig ten minste twee)"
 			},
 			"error": "Fout",
 			"failover": "Failover-groepe",
@@ -1065,7 +1063,17 @@
 		"scope_all": "Alle verskaffers",
 		"badge_parked": "{{count}} geparkeer",
 		"status_parked": "Geparkeer",
-		"status_parked_hint": "Die verskaffer is gedeaktiveer; hierdie model bly gelys maar word nie bedien totdat die verskaffer weer geaktiveer word nie."
+		"status_parked_hint": "Die verskaffer is gedeaktiveer; hierdie model bly gelys maar word nie bedien totdat die verskaffer weer geaktiveer word nie.",
+		"capPills": {
+			"vision": "Visie",
+			"reasoning": "Redenering",
+			"tool_calling": "Gereedskap",
+			"structured_output": "Gestruktureer",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Klank",
+			"parallel_tool_calls": "Parallel"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Keer terug na die ontdekte waarde",
@@ -1267,7 +1275,6 @@
 				"owner": "Eienaar"
 			},
 			"noProvidersConfigured": "Geen verskaffers gekonfigureer nie.",
-			"discardChanges": "Verwerp ongespaarde veranderinge?",
 			"loadingProviders": "Laai verskaffers...",
 			"stripReasoningDescriptionText": "Wanneer dit geaktiveer is, word redenerings-/denktokens verwyder uit gestreamde antwoorde vir kliënte wat dit nie kan hanteer nie.",
 			"providerInstructionsText": "Klik op 'n verskaffer om toegang te beperk. Almal is standaard toeganklik.",
@@ -1408,6 +1415,11 @@
 			"search": "Filtreer logboeke…",
 			"allLevels": "Alle vlakke",
 			"allSources": "Alle bronne"
+		},
+		"level": {
+			"info": "Inligting",
+			"warning": "Waarskuwing",
+			"error": "Fout"
 		},
 		"table": {
 			"timeDate": "Tyd/Datum",
@@ -1859,8 +1871,8 @@
 				"confirmEnableTitle": "Aktiveer periodieke rugsteun?",
 				"confirmEnableDescription": "Die aktivering van periodieke rugsteun verwyder bestaande rugsteune wat buite die seun/vader/grootvader-rotasievenster val.",
 				"confirmEnableWouldRemove": "Hierdie {{count}} rugsteun(e) val buite die rotasievenster en sal permanent verwyder word:",
-				"prunePreviewFailed": "Misluk om rugsteun-snoei te voorskou",
-				"pruneFailed": "Misluk om rugsteun uit te snoei",
+				"prunePreviewFailed": "Misluk om rugsteun-snoei te voorskou: {{message}}",
+				"pruneFailed": "Misluk om rugsteun uit te snoei: {{message}}",
 				"pruneSuccess": "Periodieke rugsteun geaktiveer. {{count}} ou rugsteun(e) verwyder."
 			},
 			"availableBackupsTitle": "Beskikbare rugsteun",
@@ -2199,7 +2211,7 @@
 				"doneManaged": "Bestemmings gestoor. Watter gebeure 'n waarskuwing stuur, bly vlootwyd bestuur.",
 				"sendAll": "Stuur toets na alles",
 				"sentAll": "Toets na elke bestemming gestuur",
-				"apiChangedDrops": "As jy die adres verander, word die bestemmings wat in hierdie deurloop bygevoeg is, verwyder; hulle is teen die ou een getoets."
+				"apiChangedDrops": "As jy 'n ander adres verifieer, word die bestemmings wat in hierdie deurloop bygevoeg is, verwyder; hulle is teen die ou een getoets."
 			},
 			"category": {
 				"discovery": "Ontdekking",
@@ -2388,16 +2400,10 @@
 			"filter": "Filter…",
 			"clearFilter": "Maak filter skoon"
 		},
-		"copyButton": {
-			"copy": "Kopieer",
-			"copiedToClipboard": "Na die knipbord gekopieer",
-			"failedToCopy": "Het nie gekopieer nie"
-		},
 		"copyablePill": {
 			"copy": "Kopieer",
 			"copyToClipboard": "Kopieer na knipbord",
-			"copied": "Gekopieer!",
-			"failedToCopy": "Het nie gekopieer nie"
+			"copied": "Gekopieer!"
 		},
 		"collapsibleToggle": {
 			"expand": "Uitbrei",
@@ -2714,11 +2720,6 @@
 			"compare": "Vergelyk",
 			"noMatchHistory": "Nog geen wedstrydgeskiedenis nie",
 			"completedSessionsHere": "Voltooide arena- en vergelykingsessies sal hier verskyn.",
-			"match": "Wedstryd",
-			"final": "Eindstryd",
-			"semifinals": "Halfeindstryde",
-			"quarterfinals": "Kwartfinale",
-			"round": "Rondte {{number}}",
 			"winner": "wenner: {{name}}",
 			"responsesAbbrev": "{{count}} Resp.",
 			"error": "Fout: {{message}}",
@@ -2826,35 +2827,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Geen loglêers gevind nie",
-			"entries": "inskrywings",
-			"loadingNewer": "Laai nuwer…",
-			"loadingOlder": "Laai ouer…",
-			"timeDate": "Tyd/Datum",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Verskaffer",
-			"providerDeleted": "Verskaffer is verwyder",
-			"status": "Status",
-			"tokens": "Tokens",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Opskrifte",
-			"ttft": "TTFT",
-			"duration": "Duur",
-			"overhead": "Bokoste",
-			"key": "Sleutel",
-			"interrupted": "onderbroke",
-			"internal": "intern",
-			"cacheInflated": "Opgeblaas deur opdrag-kastreffers",
-			"deleted": "Verwyder",
-			"zeroEntries": "0 inskrywings",
-			"ip": "IP"
+			"zeroEntries": "0 inskrywings"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Geen loginskrywings gevind nie",
-			"entries": "inskrywings",
-			"loadingNewer": "Laai nuwer…",
-			"loadingOlder": "Laai ouer…",
 			"timeDate": "Tyd/Datum",
 			"level": "Vlak",
 			"source": "Bron",
@@ -3065,7 +3041,8 @@
 		},
 		"useDisableModel": {
 			"success": "Model \"{{model}}\" gedeaktiveer",
-			"error": "Misluk om model te deaktiveer: {{error}}"
+			"error": "Misluk om model te deaktiveer: {{error}}",
+			"notFound": "Model \"{{model}}\" nie in geaktiveerde modelle gevind nie"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Misluk om aanvanklike data op te haal",

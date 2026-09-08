@@ -3,31 +3,22 @@ package api
 import (
 	"context"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // StatsHandler provides statistics and analytics API endpoints.
 type StatsHandler struct {
-	dbPool   *pgxpool.Pool
-	adminMgr interface {
-		Validate(token string) bool
-	}
+	dbPool *pgxpool.Pool
 }
 
 // NewStatsHandler creates a new statistics handler.
-func NewStatsHandler(dbPool *pgxpool.Pool, adminMgr interface {
-	Validate(token string) bool
-}) *StatsHandler {
-	return &StatsHandler{
-		dbPool:   dbPool,
-		adminMgr: adminMgr,
-	}
+func NewStatsHandler(dbPool *pgxpool.Pool) *StatsHandler {
+	return &StatsHandler{dbPool: dbPool}
 }
 
 // ProviderLatencyEntry holds per-provider latency breakdown for the dashboard.
@@ -163,7 +154,7 @@ func ownerFilterFragment(ownerID string, argIdx int) (string, []any) {
 	if err != nil {
 		return " AND 1=0", nil
 	}
-	ph := "$" + util.IntToStr(argIdx)
+	ph := "$" + strconv.Itoa(argIdx)
 	return " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = " + ph + ")" +
 		" OR (rl.virtual_key_id IS NULL AND rl.owner_user_id = " + ph + "))", []any{u}
 }
@@ -211,8 +202,8 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 	now := time.Now().UTC()
 	since := now.Add(-period)
 
-	// Query 1 + cross-fill: total request counts (fatal on error).
-	if err := h.statTotals(ctx, stats, vkJoin, vkFilter, filterArgs, period, since, now); err != nil {
+	// Query 1: the 24h and 7d total request counts (fatal on error).
+	if err := h.statTotals(ctx, stats, vkJoin, vkFilter, filterArgs, now); err != nil {
 		return nil, err
 	}
 

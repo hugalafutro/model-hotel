@@ -2,8 +2,9 @@ package api
 
 import (
 	"fmt"
+	"maps"
 	"net/http"
-	"sort"
+	"slices"
 	"strconv"
 
 	"github.com/go-chi/chi/v5"
@@ -18,7 +19,7 @@ import (
 // secretSettingKeys are settings whose values carry a credential (e.g. an
 // Apprise URL containing a bot token). They are encrypted at rest via
 // auth.EncryptString and masked in every settings response, so the dashboard
-// only ever sees secretMaskValue here. The alert destinations have one
+// only ever sees util.SecretMask here. The alert destinations have one
 // deliberate exception: GET /alert/targets decrypts them for the readable
 // list on the Alerts card (see Handler.GetAlertTargets, which carries its own
 // demo guard for that reason).
@@ -27,10 +28,6 @@ var secretSettingKeys = map[string]bool{
 	"oidc_client_secret":    true,
 	"github_client_secret":  true,
 }
-
-// secretMaskValue is returned to clients in place of a configured secret, and
-// recognised on write to mean "leave the stored ciphertext unchanged".
-const secretMaskValue = "********"
 
 // encryptSecretSettings rewrites secret keys in req in place: a masked
 // (unchanged) value is removed so the existing stored ciphertext is preserved;
@@ -46,7 +43,7 @@ func (h *Handler) encryptSecretSettings(req map[string]string) error {
 			continue
 		}
 		switch value {
-		case secretMaskValue:
+		case util.SecretMask:
 			delete(req, key) // unchanged — keep stored ciphertext
 		case "":
 			// explicit clear — leave empty
@@ -76,13 +73,13 @@ func (h *Handler) RegisterSettings(r chi.Router) {
 // buildCommit is the SHA of the source commit this binary was built from. It is
 // stamped at build time via -ldflags -X (see the Makefile / Dockerfile) and
 // surfaced read-only as app_commit so the dashboard can show which commit a
-// `dev` build corresponds to. Defaults to "unknown" for un-stamped builds.
+// `dev` build corresponds to. Defaults to util.UnstampedCommit for un-stamped builds.
 //
 // Different build paths stamp different SHA lengths (local `make build` derives
 // a full SHA via git, CI passes the full ${{ github.sha }}), so the value is
 // normalized through util.ShortCommit before it reaches the API to keep the
 // app_commit contract identical for the same commit regardless of build path.
-var buildCommit = "unknown"
+var buildCommit = util.UnstampedCommit
 
 // injectReadOnlyStatus adds server-derived, read-only fields to a settings map
 // before it is returned to the client. These keys are deliberately excluded
@@ -116,7 +113,7 @@ func (h *Handler) injectReadOnlyStatus(all map[string]string) map[string]string 
 	// fixed placeholder; an unset one stays empty.
 	for key := range secretSettingKeys {
 		if all[key] != "" {
-			all[key] = secretMaskValue
+			all[key] = util.SecretMask
 		}
 	}
 	return all
@@ -300,10 +297,7 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	// owns them and replaces them on the next sync. Instance-local keys (Apprise,
 	// Observability) are allowed through, mirroring the mixed Alerts section in the
 	// dashboard. Checked after validation so an unknown key still reports 400.
-	reqKeys := make([]string, 0, len(req))
-	for key := range req {
-		reqKeys = append(reqKeys, key)
-	}
+	reqKeys := slices.Sorted(maps.Keys(req))
 	if managedBlocksSyncableSettings(r.Context(), h.settingsRepo, reqKeys) {
 		respondError(w, managedWriteMsg, nil, http.StatusForbidden)
 		return
@@ -342,12 +336,9 @@ func (h *Handler) UpdateSettings(w http.ResponseWriter, r *http.Request) {
 	for key := range req {
 		h.settingsRepo.InvalidateCache(key)
 	}
-	keys := make([]string, 0, len(req))
-	for key := range req {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
-	debuglog.Info("settings: updated", "keys", keys)
+	// Read back from req, not from the request keys: encryptSecretSettings drops
+	// masked secrets, and those keys were never written.
+	debuglog.Info("settings: updated", "keys", slices.Sorted(maps.Keys(req)))
 
 	all, err := h.settingsRepo.GetAll(r.Context())
 	if err != nil {
@@ -373,9 +364,7 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 	// Empty keys list = reset all known settings.
 	keys := req.Keys
 	if len(keys) == 0 {
-		for k := range allowedSettings {
-			keys = append(keys, k)
-		}
+		keys = slices.Collect(maps.Keys(allowedSettings))
 	} else if len(keys) > 50 {
 		// Guard only user-supplied lists against unbounded input.
 		// The internally-expanded "reset all" list is bounded by allowedSettings.
@@ -427,7 +416,7 @@ func (h *Handler) ResetSettings(w http.ResponseWriter, r *http.Request) {
 		h.settingsRepo.NotifyDeleted(key)
 	}
 
-	sort.Strings(keys)
+	slices.Sort(keys)
 	debuglog.Info("settings: reset to defaults", "keys", keys)
 
 	all, err := h.settingsRepo.GetAll(r.Context())

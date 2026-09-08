@@ -2,14 +2,15 @@ package provider
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -35,20 +36,46 @@ func quotaAuthError(label, apiKey string, p *Provider, status int, body []byte) 
 	return fmt.Errorf("%s: %w for provider %s (status %d)", label, ErrProviderKeyInvalid, p.Name, status)
 }
 
+// decryptProviderKey unwraps a provider's stored credential for a quota or
+// usage fetch. label is the provider-family tag used in the error prefix. A
+// provider with no stored key (a local server started without one) yields an
+// empty key rather than a decrypt failure, so the fetch that follows fails on
+// what the upstream says about the missing credential instead of on a crypto
+// error about an empty salt.
+func decryptProviderKey(p *Provider, masterKey, label string) (string, error) {
+	if len(p.EncryptedKey) == 0 {
+		return "", nil
+	}
+	apiKey, err := auth.Decrypt(p.EncryptedKey, p.KeyNonce, p.KeySalt, masterKey)
+	if err != nil {
+		return "", fmt.Errorf("%s: failed to decrypt API key for provider %s: %w", label, p.Name, err)
+	}
+	return apiKey, nil
+}
+
 // fetchQuotaJSON runs the shared decrypt → GET → retry → decode flow used by
 // provider quota/balance endpoints. label is the provider-family tag used in
 // error prefixes, debug logs, and the retry metric (e.g. "deepseek").
 // resource is the human-readable resource name for error messages (e.g. "balance", "usage").
-func (d *DiscoveryService) fetchQuotaJSON(ctx context.Context, provider *Provider, masterKey, path, label, resource string, out any) error {
-	apiKey, err := auth.Decrypt(provider.EncryptedKey, provider.KeyNonce, provider.KeySalt, masterKey)
+// expected lists statuses a caller handles itself, which come back as a plain
+// *httpError with no ERROR log.
+func (d *DiscoveryService) fetchQuotaJSON(ctx context.Context, provider *Provider, masterKey, path, label, resource string, out any, expected ...int) error {
+	apiKey, err := decryptProviderKey(provider, masterKey, label)
 	if err != nil {
-		return fmt.Errorf("%s: failed to decrypt API key for provider %s: %w", label, provider.Name, err)
+		return err
 	}
+	return d.fetchQuotaJSONAt(ctx, provider, apiKey, "GET", util.SanitizeBaseURL(provider.BaseURL)+path, label, resource, out, expected...)
+}
 
-	baseURL := util.SanitizeBaseURL(provider.BaseURL)
-	url := baseURL + path
-
-	req, err := http.NewRequestWithContext(ctx, "GET", url, http.NoBody)
+// fetchQuotaJSONAt is fetchQuotaJSON from the decrypted key onwards, for the
+// fetchers whose URL is not baseURL+path (an absolute vendor URL, a base with
+// the /v1 suffix stripped) or whose method is not GET. A non-200 status comes
+// back as an *httpError, so a caller that treats one status specially reads it
+// with errorStatusCode. A status the caller listed in expected is that caller's
+// normal case, so it is neither logged at ERROR nor classified as an auth
+// rejection: it comes back as a bare *httpError to branch on.
+func (d *DiscoveryService) fetchQuotaJSONAt(ctx context.Context, provider *Provider, apiKey, method, fullURL, label, resource string, out any, expected ...int) error {
+	req, err := http.NewRequestWithContext(ctx, method, fullURL, http.NoBody)
 	if err != nil {
 		return fmt.Errorf("%s: failed to create request for provider %s: %w", label, provider.Name, err)
 	}
@@ -63,15 +90,21 @@ func (d *DiscoveryService) fetchQuotaJSON(ctx context.Context, provider *Provide
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
+		if slices.Contains(expected, resp.StatusCode) {
+			return &httpError{StatusCode: resp.StatusCode}
+		}
+		body, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
 		if authErr := quotaAuthError(label, apiKey, provider, resp.StatusCode, body); authErr != nil {
 			return authErr
 		}
 		debuglog.Error("discovery: "+label+" "+resource+" non-200 status", "status", resp.StatusCode, "provider", provider.Name, "provider_id", provider.ID, "body", util.MaskCredentialBounded(apiKey, string(body), 2000))
-		return fmt.Errorf("%s: unexpected status code %d for provider %s", label, resp.StatusCode, provider.Name)
+		return &httpError{
+			StatusCode: resp.StatusCode,
+			Message:    fmt.Sprintf("%s: unexpected status code %d for provider %s", label, resp.StatusCode, provider.Name),
+		}
 	}
 
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+	if err := httpx.DecodeCappedJSON(resp.Body, httpx.MaxUpstreamBody, out); err != nil {
 		return fmt.Errorf("%s: failed to decode %s response for provider %s: %w", label, resource, provider.Name, err)
 	}
 

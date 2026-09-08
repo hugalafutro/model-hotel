@@ -1,8 +1,8 @@
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { api } from "../../api/client";
 import { Modal } from "../../components/Modal";
-import { bucketLabel } from "./bucketLabel";
+import { toChartPoints } from "./chartPoints";
 import { TimeSeriesChart } from "./TimeSeriesChart";
 import type { GaugeDataKey, Range } from "./types";
 
@@ -39,30 +39,11 @@ export function GaugeModal({
 	const { data: tsData } = useQuery({
 		queryKey: ["stats-timeseries-modal", range],
 		queryFn: () => api.stats.getTimeSeries({ period: range }),
-		placeholderData: (prev) => prev,
+		placeholderData: keepPreviousData,
 		enabled: open,
 	});
 
-	const chartData = (() => {
-		if (!tsData?.points) return [];
-		return tsData.points.map((p) => {
-			const label = bucketLabel(new Date(p.bucket), range);
-			return {
-				hour: label,
-				rawDate: p.bucket,
-				total: p.count,
-				errors: p.errors,
-				tokens: p.tokens,
-				tokens_cache_hit: p.tokens_cache_hit ?? 0,
-				tokens_cache_miss: p.tokens_cache_miss ?? 0,
-				latency: p.latency_ms,
-				overhead_ms: p.overhead_ms,
-				provider_latency_ms: p.provider_latency_ms,
-				rate_limit_hits: p.rate_limit_hits,
-				avg_ttft_ms: p.avg_ttft_ms,
-			};
-		});
-	})();
+	const chartData = toChartPoints(tsData, range, false);
 
 	if (!open) return null;
 

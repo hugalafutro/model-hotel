@@ -325,7 +325,11 @@
 			"emptyState": "利用データはまだありません。トラフィックが流れると、利用状況の内訳がここに表示されます。",
 			"viewDetailsFor": "{{label}} の詳細を表示",
 			"deletedModelTooltip": "このモデルは利用できなくなりました - 削除されたか、プロバイダーが削除された可能性があります",
-			"reservedKeyTooltip": "内部で予約済みの名前であり、ユーザーが作成したキーではありません。この使用量は、Model Hotel 独自の「{{name}}」ルートによるものです。"
+			"reservedKeyTooltip": "内部で予約済みの名前であり、ユーザーが作成したキーではありません。この使用量は、Model Hotel 独自の「{{name}}」ルートによるものです。",
+			"tokens_one": "トークン",
+			"tokens_other": "トークン",
+			"requests_one": "リクエスト",
+			"requests_other": "リクエスト"
 		},
 		"providerLatency": {
 			"title": "プロバイダーのレイテンシ",
@@ -347,10 +351,10 @@
 			"distributionChart": "プロバイダーの分布グラフ",
 			"emptyState": "プロバイダデータがまだありません。トラフィックが流れるとプロバイダの内訳がここに表示されます。",
 			"chartAriaLabel": "プロバイダーの分布グラフ",
-			"tokenUnit": "トークン",
-			"tokensUnit": "トークン",
-			"requestUnit": "リクエスト",
-			"requestsUnit": "リクエスト"
+			"tokens_one": "トークン",
+			"tokens_other": "トークン",
+			"requests_one": "リクエスト",
+			"requests_other": "リクエスト"
 		},
 		"models": {
 			"viewDetails": "{{label}} の詳細を表示",
@@ -597,7 +601,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "モデルが生成されています - キャンセルするには「すべて停止」をクリックします",
-			"voteToContinue": "次のラウンドに進むには、すべてのマッチアップに投票してください",
 			"nextRoundReady": "準備ができたら次のラウンドを開始する"
 		},
 		"responses": {
@@ -652,13 +655,6 @@
 			"close": "閉じる"
 		},
 		"params": {
-			"temperature": "温度",
-			"maxTokens": "最大トークン",
-			"topP": "Top P",
-			"minP": "最小P",
-			"topK": "トップ K",
-			"freqPenalty": "頻度ペナルティ",
-			"presPenalty": "存在ペナルティ",
 			"resetAll": "すべてリセット",
 			"done": "完了"
 		},
@@ -844,7 +840,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "有効なプロバイダーは残っていません",
-				"onlyOne": "有効なプロバイダーが1つしか残っていません（フェイルオーバーには少なくとも2つ必要です）"
+				"onlyOne": "有効なプロバイダーが1つしか残っていません（フェイルオーバーには少なくとも2つ必要です）",
+				"noValidProviders": "整理後に有効なプロバイダーが残っていません",
+				"onlyOneValid": "整理後に有効なプロバイダーが 1 つしか残っていません (フェイルオーバーには 2 つ以上必要です)"
 			},
 			"error": "エラー",
 			"failover": "フェイルオーバーグループ",
@@ -1065,7 +1063,17 @@
 		"scope_all": "すべてのプロバイダー",
 		"badge_parked": "{{count}} 件が保留中",
 		"status_parked": "保留中",
-		"status_parked_hint": "プロバイダーが無効です。このモデルは一覧に残りますが、プロバイダーが再度有効になるまで提供されません。"
+		"status_parked_hint": "プロバイダーが無効です。このモデルは一覧に残りますが、プロバイダーが再度有効になるまで提供されません。",
+		"capPills": {
+			"vision": "画像認識",
+			"reasoning": "推論",
+			"tool_calling": "ツール",
+			"structured_output": "構造化",
+			"pdf_upload": "PDF",
+			"video_input": "動画",
+			"audio_input": "音声",
+			"parallel_tool_calls": "並列"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "発見された値に戻す",
@@ -1267,7 +1275,6 @@
 				"owner": "所有者"
 			},
 			"noProvidersConfigured": "No providers configured.",
-			"discardChanges": "未保存の変更を破棄しますか？",
 			"loadingProviders": "プロバイダーを読み込み中...",
 			"stripReasoningDescriptionText": "有効な場合、推論/思考トークンは、それらを処理できないクライアントのストリーミング応答から削除されます。",
 			"providerInstructionsText": "プロバイダをクリックしてアクセスを制限します。すべてがデフォルトでアクセス可能です。",
@@ -1408,6 +1415,11 @@
 			"search": "ログのフィルタリング…",
 			"allLevels": "全レベル",
 			"allSources": "すべてのソース"
+		},
+		"level": {
+			"info": "情報",
+			"warning": "警告",
+			"error": "エラー"
 		},
 		"table": {
 			"timeDate": "時刻/日付",
@@ -1859,8 +1871,8 @@
 				"confirmEnableTitle": "定期的なバックアップを有効にしますか？",
 				"confirmEnableDescription": "定期バックアップを有効にすると、息子/父/祖父のローテーション期間外にある既存のバックアップが削除されます。",
 				"confirmEnableWouldRemove": "これらの {{count}} 件のバックアップはローテーション期間外にあり、完全に削除されます:",
-				"prunePreviewFailed": "バックアップ削除のプレビューに失敗しました",
-				"pruneFailed": "バックアップの削除に失敗しました",
+				"prunePreviewFailed": "バックアップ削除のプレビューに失敗しました: {{message}}",
+				"pruneFailed": "バックアップの削除に失敗しました: {{message}}",
 				"pruneSuccess": "定期バックアップを有効にしました。{{count}} 件の古いバックアップを削除しました。"
 			},
 			"availableBackupsTitle": "利用可能なバックアップ",
@@ -2170,7 +2182,7 @@
 				"done": "アラートは有効です。",
 				"sendAll": "すべてにテスト送信",
 				"sentAll": "すべての送信先にテストを送信しました",
-				"apiChangedDrops": "アドレスを変更すると、この操作で追加した送信先は取り消されます。古いアドレスでテストされたものだからです。",
+				"apiChangedDrops": "別のアドレスを検証すると、この操作で追加した送信先は取り消されます。古いアドレスでテストされたものだからです。",
 				"savedNote_one": "保存済みの送信先 {{count}} 件はそのまま残ります。",
 				"savedNote_other": "保存済みの送信先 {{count}} 件はそのまま残ります。",
 				"field": {
@@ -2388,16 +2400,10 @@
 			"filter": "フィルター…",
 			"clearFilter": "フィルターをクリア"
 		},
-		"copyButton": {
-			"copy": "コピー",
-			"copiedToClipboard": "クリップボードにコピーしました",
-			"failedToCopy": "コピーに失敗しました"
-		},
 		"copyablePill": {
 			"copy": "コピー",
 			"copyToClipboard": "クリップボードにコピー",
-			"copied": "コピーしました！",
-			"failedToCopy": "コピーに失敗しました"
+			"copied": "コピーしました！"
 		},
 		"collapsibleToggle": {
 			"expand": "展開",
@@ -2714,11 +2720,6 @@
 			"compare": "比較",
 			"noMatchHistory": "対戦履歴はまだありません",
 			"completedSessionsHere": "完了した Arena と Compare のセッションがここに表示されます",
-			"match": "対戦",
-			"final": "Final",
-			"semifinals": "準決勝戦",
-			"quarterfinals": "準々決勝戦",
-			"round": "ラウンド {{number}}",
 			"winner": "勝者： {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "エラー: {{message}}",
@@ -2826,35 +2827,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "ログが見つかりません",
-			"entries": "項目",
-			"loadingNewer": "新しい… を読み込み中",
-			"loadingOlder": "過去のログを読み込み中…",
-			"timeDate": "時刻/日付",
-			"hash": "ハッシュ",
-			"model": "モデル",
-			"provider": "プロバイダー",
-			"providerDeleted": "プロバイダーが削除されました",
-			"status": "ステータス",
-			"tokens": "トークン",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "ヘッダー",
-			"ttft": "TTFT",
-			"duration": "所要時間",
-			"overhead": "オーバーヘッド",
-			"key": "キー",
-			"interrupted": "中断されました",
-			"internal": "内部",
-			"cacheInflated": "プロンプトキャッシュのヒットにより水増しされています",
-			"deleted": "削除しました",
-			"zeroEntries": "0 項目",
-			"ip": "IP"
+			"zeroEntries": "0 項目"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "ログエントリが見つかりません",
-			"entries": "項目",
-			"loadingNewer": "新しい… を読み込み中",
-			"loadingOlder": "過去のログを読み込み中…",
 			"timeDate": "時刻/日付",
 			"level": "レベル",
 			"source": "ソース",
@@ -3065,7 +3041,8 @@
 		},
 		"useDisableModel": {
 			"success": "モデル \"{{model}}\" は無効",
-			"error": "モデルの無効化に失敗しました: {{error}}"
+			"error": "モデルの無効化に失敗しました: {{error}}",
+			"notFound": "有効なモデルに \"{{model}}\" が見つかりません"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "初期データの取得に失敗しました",

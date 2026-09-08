@@ -1,6 +1,7 @@
 package frontdesk
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
@@ -9,6 +10,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/netguard"
 )
 
 // ---------------------------------------------------------------------------
@@ -36,10 +39,7 @@ func scanMember(sc scanner) (*Member, error) {
 	m.HasToken = len(cipher) > 0
 	m.CreatedAt = time.Unix(0, createdAt).UTC()
 	m.UpdatedAt = time.Unix(0, updatedAt).UTC()
-	if lastSyncAt.Valid {
-		t := time.Unix(0, lastSyncAt.Int64).UTC()
-		m.LastConfigSyncAt = &t
-	}
+	m.LastConfigSyncAt = nullTime(lastSyncAt)
 	m.LastConfigSyncReason = syncReason
 	return &m, nil
 }
@@ -107,7 +107,7 @@ func normalizeMemberURL(raw string, allowHTTP bool) (string, error) {
 	// cloud-metadata endpoint, or the unspecified address) at add time for a
 	// clear error. Hostnames that resolve to such an address are caught later at
 	// dial time by the poller's guarded client (see netguard.go).
-	if ip := net.ParseIP(u.Hostname()); ip != nil && isProbeBlockedIP(ip) {
+	if ip := net.ParseIP(u.Hostname()); ip != nil && netguard.BlockedIP(ip) {
 		return "", fmt.Errorf("%w: url host %s is not an allowed address", ErrValidation, u.Hostname())
 	}
 	u.Path = strings.TrimRight(u.Path, "/")
@@ -145,13 +145,46 @@ func redactErrURL(err error) string {
 	return urlUserinfoRE.ReplaceAllString(err.Error(), "$1")
 }
 
-func affectedOrNotFound(res sql.Result, err error) error {
+// nullTime renders a nullable epoch-nanosecond column as an optional UTC time,
+// which is how every optional timestamp reaches an API struct.
+func nullTime(v sql.NullInt64) *time.Time {
+	if !v.Valid {
+		return nil
+	}
+	t := time.Unix(0, v.Int64).UTC()
+	return &t
+}
+
+// affectedOr maps a write that matched no row to notFound, and any driver error
+// to a package-prefixed one, so each store can keep its own "gone" sentinel.
+func affectedOr(res sql.Result, err, notFound error) error {
 	if err != nil {
 		return fmt.Errorf("frontdesk: %w", err)
 	}
-	n, _ := res.RowsAffected()
-	if n == 0 {
-		return ErrNotFound
+	if n, _ := res.RowsAffected(); n == 0 {
+		return notFound
+	}
+	return nil
+}
+
+func affectedOrNotFound(res sql.Result, err error) error {
+	return affectedOr(res, err, ErrNotFound)
+}
+
+// inTx runs fn inside a transaction, rolling back unless fn returns nil and the
+// commit succeeds. prefix names the caller in the begin/commit errors, so a
+// failure says which write broke rather than only that a transaction did.
+func inTx(ctx context.Context, db *sql.DB, prefix string, fn func(*sql.Tx) error) error {
+	tx, err := db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("%s (begin): %w", prefix, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+	if err := fn(tx); err != nil {
+		return err
+	}
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("%s (commit): %w", prefix, err)
 	}
 	return nil
 }

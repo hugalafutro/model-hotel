@@ -8,7 +8,7 @@ interface PresetItem {
 }
 
 interface PresetBarProps<T extends PresetItem> {
-	items: T[];
+	items: readonly T[];
 	activeId: string | null;
 	onSelect: (item: T) => void;
 	onCustom?: () => void;

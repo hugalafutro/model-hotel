@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Settings, ThumbsDown, ThumbsUp } from "@/lib/icons";
-import type { GenerationParams } from "../../api/types";
+import { ThumbsDown, ThumbsUp } from "@/lib/icons";
+import { shortModelName } from "../../utils/model";
 
 export function VoteThumb({
 	size,
@@ -40,23 +40,6 @@ export function VoteThumb({
 	);
 }
 
-export function SlotParamsTooltip({ params }: { params?: GenerationParams }) {
-	if (!params) return null;
-	const entries = Object.entries(params).filter(([, v]) => v !== undefined);
-	if (entries.length === 0) return null;
-	const lines = entries
-		.map(([k, v]) => {
-			const label = k.replace(/_/g, " ").replace(/^\w/, (c) => c.toUpperCase());
-			return `${label}: ${v}`;
-		})
-		.join("\n");
-	return (
-		<span className="shrink-0 text-(--accent) cursor-help" title={lines}>
-			<Settings size={10} />
-		</span>
-	);
-}
-
 export function BracketPreviewPill({
 	modelId,
 	displayName,
@@ -79,7 +62,7 @@ export function BracketPreviewPill({
 			className="px-3 py-2 rounded-lg border bg-(--accent)/15 border-(--accent)/40 text-(--accent) text-xs font-medium truncate max-w-40"
 			title={displayName || modelId}
 		>
-			{displayName || modelId.split("/").pop()}
+			{displayName || shortModelName(modelId)}
 		</div>
 	);
 }

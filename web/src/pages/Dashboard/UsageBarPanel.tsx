@@ -110,11 +110,13 @@ export function UsageBarPanel({
 										{formatValue
 											? formatValue(entry.value)
 											: entry.value.toLocaleString()}
-										{entry.suffix
-											? entry.value === 1
-												? entry.suffix.replace(/s$/, "")
-												: entry.suffix
-											: ""}
+										{metric !== undefined &&
+											` ${t(
+												metric === "tokens"
+													? "dashboard.usage.tokens"
+													: "dashboard.usage.requests",
+												{ count: entry.value },
+											)}`}
 									</span>
 								</div>
 								<div className="h-[4px] rounded-full overflow-hidden bg-(--border-subtle)">

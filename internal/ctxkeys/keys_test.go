@@ -191,3 +191,36 @@ func TestContextKeyStringValues(t *testing.T) {
 		}
 	}
 }
+
+func TestSettingsMsAccumulator(t *testing.T) {
+	// Without an accumulator on the context both accessors are no-ops rather
+	// than panics: not every request carries the overhead breakdown.
+	if got := SettingsReadMs(context.Background()); got != 0 {
+		t.Errorf("SettingsReadMs on a bare context = %v, want 0", got)
+	}
+	AddSettingsMs(context.Background(), 5)
+
+	var total float64
+	ctx := context.WithValue(context.Background(), SettingsReadMsKey, &total)
+	AddSettingsMs(ctx, 1.5)
+	AddSettingsMs(ctx, 2.25)
+	if total != 3.75 {
+		t.Errorf("accumulated = %v, want 3.75", total)
+	}
+	if got := SettingsReadMs(ctx); got != 3.75 {
+		t.Errorf("SettingsReadMs = %v, want 3.75", got)
+	}
+
+	AddSettingsReadMs(ctx, time.Now().Add(-2*time.Millisecond))
+	if total < 5.75 {
+		t.Errorf("AddSettingsReadMs added %v ms, want at least 2", total-3.75)
+	}
+
+	// A key holding a nil pointer is tolerated the same way an absent one is.
+	var nilPtr *float64
+	nilCtx := context.WithValue(context.Background(), SettingsReadMsKey, nilPtr)
+	AddSettingsMs(nilCtx, 1)
+	if got := SettingsReadMs(nilCtx); got != 0 {
+		t.Errorf("SettingsReadMs with a nil pointer = %v, want 0", got)
+	}
+}

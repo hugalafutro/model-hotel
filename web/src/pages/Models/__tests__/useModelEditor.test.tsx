@@ -67,10 +67,10 @@ describe("useModelEditor", () => {
 
 			expect(result.current.discoveredDefaults).toEqual({
 				display_name: "Test Model",
-				context_length: 8192,
-				max_output_tokens: 4096,
-				input_price_per_million: 0.5,
-				output_price_per_million: 1.5,
+				context_length: "8192",
+				max_output_tokens: "4096",
+				input_price_per_million: "0.5",
+				output_price_per_million: "1.5",
 			});
 		});
 
@@ -363,7 +363,7 @@ describe("useModelEditor", () => {
 			);
 
 			expect(result.current.getFieldLabel("max_output_tokens")).toBe(
-				"Max Output Tokens",
+				"Max Output",
 			);
 		});
 

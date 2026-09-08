@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
 // SelfHealChatCompletion sends a non-streaming chat-completions request and,
@@ -53,7 +54,7 @@ func SelfHealChatCompletion(
 	// retry. A read error only leaves errBody empty/partial, which the parsers
 	// below treat as "not a param error" — so we fall through and hand the 400
 	// back rather than masking it.
-	errBody, _ := io.ReadAll(resp.Body)
+	errBody, _ := io.ReadAll(io.LimitReader(resp.Body, httpx.MaxErrorBody))
 	_ = resp.Body.Close()
 
 	rejected := DropSchemaFallbackUnlessRequested(ParseProviderParamError(errBody), baseBody)

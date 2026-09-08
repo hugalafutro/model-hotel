@@ -832,7 +832,7 @@ func TestRefreshAllQuotas_MiniMaxSuccess(t *testing.T) {
 }
 
 // =============================================================================
-// GetProviderUsage Tests (Unit tests with mock transport)
+// quotaHandler("usage") Tests (Unit tests with mock transport)
 // =============================================================================
 
 func TestRefreshAllQuotas_ListError(t *testing.T) {
@@ -1142,7 +1142,7 @@ func TestRefreshAllQuotas_OllamaCloudSuccess(t *testing.T) {
 }
 
 // =============================================================================
-// GetProviderUsage - NeuralWatt Tests
+// quotaHandler("usage") - NeuralWatt Tests
 // =============================================================================
 
 // TestRefreshAllQuotas_MixedResults tests that RefreshAllQuotas continues

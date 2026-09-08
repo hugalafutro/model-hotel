@@ -162,16 +162,9 @@ type NanoGPTUsageLimits struct {
 	DailyImages       *int64 `json:"dailyImages"`
 }
 
-// NanoGPTUsageTokenInfo contains token usage information.
-type NanoGPTUsageTokenInfo struct {
-	Used        int64   `json:"used"`
-	Remaining   int64   `json:"remaining"`
-	PercentUsed float64 `json:"percentUsed"`
-	ResetAt     int64   `json:"resetAt"`
-}
-
-// NanoGPTUsageDailyImages contains daily image generation usage information.
-type NanoGPTUsageDailyImages struct {
+// NanoGPTUsageCounter is one used/remaining counter, reported per token
+// window and for daily images alike.
+type NanoGPTUsageCounter struct {
 	Used        int64   `json:"used"`
 	Remaining   int64   `json:"remaining"`
 	PercentUsed float64 `json:"percentUsed"`
@@ -185,24 +178,24 @@ type NanoGPTUsagePeriod struct {
 
 // NanoGPTUsageResponse is the response from the NanoGPT usage endpoint.
 type NanoGPTUsageResponse struct {
-	Active             bool                     `json:"active"`
-	Provider           string                   `json:"provider"`
-	ProviderStatus     string                   `json:"providerStatus"`
-	ProviderStatusRaw  string                   `json:"providerStatusRaw"`
-	StripeSubscription string                   `json:"stripeSubscriptionId"`
-	CancellationReason *string                  `json:"cancellationReason"`
-	CanceledAt         *string                  `json:"canceledAt"`
-	EndedAt            *string                  `json:"endedAt"`
-	CancelAt           *string                  `json:"cancelAt"`
-	CancelAtPeriodEnd  bool                     `json:"cancelAtPeriodEnd"`
-	Limits             NanoGPTUsageLimits       `json:"limits"`
-	AllowOverage       bool                     `json:"allowOverage"`
-	Period             NanoGPTUsagePeriod       `json:"period"`
-	DailyImages        *NanoGPTUsageDailyImages `json:"dailyImages"`
-	DailyInputTokens   *NanoGPTUsageTokenInfo   `json:"dailyInputTokens"`
-	WeeklyInputTokens  *NanoGPTUsageTokenInfo   `json:"weeklyInputTokens"`
-	State              string                   `json:"state"`
-	GraceUntil         *string                  `json:"graceUntil"`
+	Active             bool                 `json:"active"`
+	Provider           string               `json:"provider"`
+	ProviderStatus     string               `json:"providerStatus"`
+	ProviderStatusRaw  string               `json:"providerStatusRaw"`
+	StripeSubscription string               `json:"stripeSubscriptionId"`
+	CancellationReason *string              `json:"cancellationReason"`
+	CanceledAt         *string              `json:"canceledAt"`
+	EndedAt            *string              `json:"endedAt"`
+	CancelAt           *string              `json:"cancelAt"`
+	CancelAtPeriodEnd  bool                 `json:"cancelAtPeriodEnd"`
+	Limits             NanoGPTUsageLimits   `json:"limits"`
+	AllowOverage       bool                 `json:"allowOverage"`
+	Period             NanoGPTUsagePeriod   `json:"period"`
+	DailyImages        *NanoGPTUsageCounter `json:"dailyImages"`
+	DailyInputTokens   *NanoGPTUsageCounter `json:"dailyInputTokens"`
+	WeeklyInputTokens  *NanoGPTUsageCounter `json:"weeklyInputTokens"`
+	State              string               `json:"state"`
+	GraceUntil         *string              `json:"graceUntil"`
 }
 
 // DeepSeekBalanceInfo contains balance information for a DeepSeek account.
@@ -219,8 +212,9 @@ type DeepSeekBalanceResponse struct {
 	BalanceInfos []DeepSeekBalanceInfo `json:"balance_infos"`
 }
 
-// OllamaTagsModelDetails contains details about an Ollama model.
-type OllamaTagsModelDetails struct {
+// OllamaModelDetails contains details about an Ollama model, as reported by
+// both the tags and the show endpoints.
+type OllamaModelDetails struct {
 	ParentModel       string   `json:"parent_model"`
 	Format            string   `json:"format"`
 	Family            string   `json:"family"`
@@ -231,12 +225,12 @@ type OllamaTagsModelDetails struct {
 
 // OllamaTagsModel represents a model from the Ollama tags endpoint.
 type OllamaTagsModel struct {
-	Name       string                 `json:"name"`
-	Model      string                 `json:"model"`
-	ModifiedAt string                 `json:"modified_at"`
-	Size       int64                  `json:"size"`
-	Digest     string                 `json:"digest"`
-	Details    OllamaTagsModelDetails `json:"details"`
+	Name       string             `json:"name"`
+	Model      string             `json:"model"`
+	ModifiedAt string             `json:"modified_at"`
+	Size       int64              `json:"size"`
+	Digest     string             `json:"digest"`
+	Details    OllamaModelDetails `json:"details"`
 }
 
 // OllamaTagsResponse is the response from the Ollama tags endpoint.
@@ -244,22 +238,12 @@ type OllamaTagsResponse struct {
 	Models []OllamaTagsModel `json:"models"`
 }
 
-// OllamaShowDetails contains detailed information about an Ollama model.
-type OllamaShowDetails struct {
-	ParentModel       string   `json:"parent_model"`
-	Format            string   `json:"format"`
-	Family            string   `json:"family"`
-	Families          []string `json:"families"`
-	ParameterSize     string   `json:"parameter_size"`
-	QuantizationLevel string   `json:"quantization_level"`
-}
-
 // OllamaShowResponse is the response from the Ollama show endpoint.
 type OllamaShowResponse struct {
-	Details      OllamaShowDetails `json:"details"`
-	ModelInfo    map[string]any    `json:"model_info"`
-	Capabilities []string          `json:"capabilities"`
-	ModifiedAt   string            `json:"modified_at"`
+	Details      OllamaModelDetails `json:"details"`
+	ModelInfo    map[string]any     `json:"model_info"`
+	Capabilities []string           `json:"capabilities"`
+	ModifiedAt   string             `json:"modified_at"`
 }
 
 // ZAICodingQuotaUsageDetail contains usage details for a ZAI Coding model.

@@ -6,6 +6,7 @@ import (
 	"net/http/httptest"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/events"
 )
@@ -254,5 +255,42 @@ func TestPollTraefikOnceBlanksStatusAfterAPIFailures(t *testing.T) {
 	p.mu.Unlock()
 	if blanked || fails != 0 {
 		t.Fatalf("after recovery: traefikBlanked=%v traefikAPIFails=%d, want false and 0", blanked, fails)
+	}
+}
+
+// TestPruneEventsOnceAppliesRetention covers the retention tick: events past the
+// configured window are deleted, so the operator-set event_retention_days is
+// actually applied instead of being a stored no-op.
+func TestPruneEventsOnceAppliesRetention(t *testing.T) {
+	p, store, _ := newTestPoller(t, "")
+	ctx := context.Background()
+
+	set, err := store.GetSettings(ctx)
+	if err != nil {
+		t.Fatalf("GetSettings: %v", err)
+	}
+	set.EventRetentionDays = 7
+	if err := store.UpdateSettings(ctx, set); err != nil {
+		t.Fatalf("UpdateSettings: %v", err)
+	}
+
+	if _, err := store.InsertEvent(ctx, Event{
+		Type: "health.down", Severity: "error", Source: "x", Message: "ancient",
+		CreatedAt: time.Now().Add(-30 * 24 * time.Hour),
+	}); err != nil {
+		t.Fatalf("InsertEvent old: %v", err)
+	}
+	if _, err := store.InsertEvent(ctx, Event{Type: "health.up", Severity: "success", Source: "x", Message: "fresh"}); err != nil {
+		t.Fatalf("InsertEvent new: %v", err)
+	}
+
+	p.PruneEventsOnce(ctx)
+
+	evs, total, err := store.ListEvents(ctx, EventFilter{})
+	if err != nil {
+		t.Fatalf("ListEvents: %v", err)
+	}
+	if total != 1 || evs[0].Message != "fresh" {
+		t.Errorf("after the retention tick events = %+v, want only the fresh one", evs)
 	}
 }

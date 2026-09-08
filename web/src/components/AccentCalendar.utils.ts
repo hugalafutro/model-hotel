@@ -1,13 +1,14 @@
 /* =========================================================
    Date helpers for the accent-themed calendar picker
    ===================================================== */
+export function pad(n: number): string {
+	return n.toString().padStart(2, "0");
+}
+
 export function toISODate(d: Date): string {
 	// Use local date components so "today" matches the user's timezone
 	// rather than UTC (which would differ near midnight).
-	const y = d.getFullYear();
-	const m = String(d.getMonth() + 1).padStart(2, "0");
-	const day = String(d.getDate()).padStart(2, "0");
-	return `${y}-${m}-${day}`;
+	return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 export function todayISO(): string {
@@ -20,10 +21,6 @@ export function daysInMonth(year: number, month: number): number {
 
 export function firstDayOfMonth(year: number, month: number): number {
 	return new Date(year, month, 1).getDay();
-}
-
-export function pad(n: number): string {
-	return n.toString().padStart(2, "0");
 }
 
 /* =========================================================

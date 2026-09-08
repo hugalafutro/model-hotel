@@ -1,11 +1,31 @@
 import { describe, expect, it } from "vitest";
 import type { GenerationParams } from "../../../api/types";
 import {
+	advanceWinners,
 	buildCompareRound,
 	buildInitialRounds,
 	getPreviewPairs,
-	getRoundLabel,
+	roundWinner,
 } from "../builders";
+import type { BracketRound, Matchup, MatchupSlot } from "../types";
+
+const mkSlot = (modelId: string): MatchupSlot => ({
+	modelId,
+	personaId: null,
+	personaPrompt: "",
+});
+
+const mkMatchup = (
+	a: string | null,
+	b: string | null,
+	vote: Matchup["vote"] = null,
+): Matchup => ({
+	slotA: a ? mkSlot(a) : null,
+	slotB: b ? mkSlot(b) : null,
+	responseA: null,
+	responseB: null,
+	vote,
+});
 
 describe("buildCompareRound", () => {
 	const modelParams: Record<string, GenerationParams> = {
@@ -146,38 +166,6 @@ describe("buildInitialRounds", () => {
 	});
 });
 
-describe("getRoundLabel", () => {
-	it("returns Generation for compare mode", () => {
-		expect(getRoundLabel(0, 3, "compare")).toBe("Generation");
-		expect(getRoundLabel(1, 3, "compare")).toBe("Generation");
-		expect(getRoundLabel(2, 3, "compare")).toBe("Generation");
-	});
-
-	it("returns Match for single round bracket", () => {
-		expect(getRoundLabel(0, 1, "bracket")).toBe("Match");
-	});
-
-	it("returns Final for last round", () => {
-		expect(getRoundLabel(2, 3, "bracket")).toBe("Final");
-		expect(getRoundLabel(1, 2, "bracket")).toBe("Final");
-	});
-
-	it("returns Semifinals for second-to-last round", () => {
-		expect(getRoundLabel(1, 3, "bracket")).toBe("Semifinals");
-		expect(getRoundLabel(0, 2, "bracket")).toBe("Semifinals");
-	});
-
-	it("returns Quarterfinals for third-to-last round", () => {
-		expect(getRoundLabel(0, 3, "bracket")).toBe("Quarterfinals");
-	});
-
-	it("returns Round N for earlier rounds", () => {
-		expect(getRoundLabel(0, 4, "bracket")).toBe("Round 1");
-		expect(getRoundLabel(1, 4, "bracket")).toBe("Quarterfinals");
-		expect(getRoundLabel(2, 4, "bracket")).toBe("Semifinals");
-	});
-});
-
 describe("getPreviewPairs", () => {
 	it("returns pairs for 2 models", () => {
 		const pairs = getPreviewPairs(["model-1", "model-2"]);
@@ -225,5 +213,40 @@ describe("getPreviewPairs", () => {
 	it("handles empty array", () => {
 		const pairs = getPreviewPairs([]);
 		expect(pairs).toEqual([{ a: "", b: "" }]);
+	});
+});
+
+describe("advanceWinners", () => {
+	it("pairs the voted winners into the next round", () => {
+		const rounds: BracketRound[] = [
+			{
+				matchups: [mkMatchup("m1", "m2", "A"), mkMatchup("m3", "m4", "B")],
+			},
+			{ matchups: [mkMatchup(null, null)] },
+		];
+
+		advanceWinners(rounds, 0);
+
+		expect(rounds[1].matchups[0].slotA?.modelId).toBe("m1");
+		expect(rounds[1].matchups[0].slotB?.modelId).toBe("m4");
+		expect(rounds[1].matchups[0].responseA).toBeNull();
+		expect(rounds[1].matchups[0].vote).toBeNull();
+	});
+
+	it("leaves the board alone when there is no next round", () => {
+		const rounds: BracketRound[] = [{ matchups: [mkMatchup("m1", "m2", "A")] }];
+		expect(() => advanceWinners(rounds, 0)).not.toThrow();
+		expect(rounds).toHaveLength(1);
+	});
+});
+
+describe("roundWinner", () => {
+	it("returns the model the final matchup was voted for", () => {
+		expect(roundWinner({ matchups: [mkMatchup("m1", "m2", "A")] })).toBe("m1");
+		expect(roundWinner({ matchups: [mkMatchup("m1", "m2", "B")] })).toBe("m2");
+	});
+
+	it("returns undefined for an empty round", () => {
+		expect(roundWinner({ matchups: [] })).toBeUndefined();
 	});
 });

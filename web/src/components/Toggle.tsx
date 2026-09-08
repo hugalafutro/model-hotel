@@ -1,4 +1,6 @@
 export interface ToggleProps {
+	/** Forwarded to the button so a <label htmlFor> can activate it. */
+	id?: string;
 	checked: boolean;
 	onChange: (checked: boolean) => void;
 	disabled?: boolean;
@@ -11,6 +13,7 @@ export interface ToggleProps {
 }
 
 export function Toggle({
+	id,
 	checked,
 	onChange,
 	disabled = false,
@@ -34,6 +37,7 @@ export function Toggle({
 
 	return (
 		<button
+			id={id}
 			type="button"
 			role="switch"
 			aria-checked={checked}

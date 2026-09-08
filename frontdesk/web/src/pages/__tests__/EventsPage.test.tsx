@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from "@testing-library/react";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it } from "vitest";
@@ -52,6 +52,23 @@ describe("EventsPage", () => {
 		expect(within(row).getByText("Error")).toBeInTheDocument();
 	});
 
+	// The filter list is hand-kept against what the backend persists; a type the
+	// server writes to the event log but the list omits cannot be filtered for.
+	it("offers every persisted event type as a filter option", async () => {
+		server.use(
+			http.get("/api/events", () =>
+				HttpResponse.json({ events: [], total: 0 }),
+			),
+		);
+		renderPage();
+		const select = await screen.findByLabelText("Type");
+		expect(
+			within(select).getByRole("option", {
+				name: "fleet.circuit_breaker_reset",
+			}),
+		).toBeInTheDocument();
+	});
+
 	it("passes the severity filter to the API", async () => {
 		const seen: string[] = [];
 		server.use(
@@ -101,6 +118,53 @@ describe("EventsPage", () => {
 		expect(screen.getByRole("button", { name: /Previous/i })).toBeDisabled();
 		await userEvent.click(screen.getByRole("button", { name: /Next/i }));
 		await waitFor(() => expect(offsets).toContain(25));
+	});
+
+	// Two page changes in quick succession leave two reads open at once. Applying
+	// whichever lands last would put page 2's rows under a page-1 counter, so a
+	// superseded response is dropped.
+	it("ignores a superseded page response that lands last", async () => {
+		let seen = 0;
+		// The page-2 read is held open by a promise the test releases, and it
+		// reports back once its body has been handed to the client. Both halves
+		// are explicit signals: a wall-clock wait could expire before the held
+		// response existed, and the assertions below would then hold vacuously.
+		let release!: () => void;
+		const held = new Promise<void>((r) => {
+			release = r;
+		});
+		let served!: () => void;
+		const landed = new Promise<void>((r) => {
+			served = r;
+		});
+		server.use(
+			http.get("/api/events", async ({ request }) => {
+				const offset = Number(new URL(request.url).searchParams.get("offset"));
+				seen += 1;
+				const mine = seen;
+				// Hold the second read (page 2) open past the third (back to page 1).
+				if (mine === 2) await held;
+				const events = Array.from({ length: offset === 0 ? 25 : 5 }, (_, i) =>
+					ev(`${offset + i}`),
+				);
+				if (mine === 2) setTimeout(served, 0);
+				return HttpResponse.json({ events, total: 30 });
+			}),
+		);
+		renderPage();
+		await screen.findByText("event 0");
+		await userEvent.click(screen.getByRole("button", { name: /Next/i }));
+		await userEvent.click(screen.getByRole("button", { name: /Previous/i }));
+		await screen.findByText("event 0");
+		release();
+		await landed;
+		// One more turn of the loop, so the superseded response has been through
+		// the client before the rows are read.
+		await act(async () => {
+			await new Promise((r) => setTimeout(r, 0));
+		});
+		expect(screen.getByText("event 0")).toBeInTheDocument();
+		expect(screen.queryByText("event 25")).toBeNull();
 	});
 
 	it("resets to the first page when filters are cleared", async () => {

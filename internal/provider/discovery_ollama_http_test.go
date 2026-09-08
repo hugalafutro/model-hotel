@@ -35,7 +35,7 @@ func TestDiscoverOllama_HTTP(t *testing.T) {
 				ModelInfo: map[string]any{
 					"llama.context_length": float64(8192),
 				},
-				Details: OllamaShowDetails{
+				Details: OllamaModelDetails{
 					Family: "llama",
 				},
 			}
@@ -129,7 +129,7 @@ func TestDiscoverOllama_ContextCancelled(t *testing.T) {
 				ModelInfo: map[string]any{
 					"llama.context_length": float64(8192),
 				},
-				Details: OllamaShowDetails{
+				Details: OllamaModelDetails{
 					Family: "llama",
 				},
 			}
@@ -200,7 +200,7 @@ func TestOllamaShowModel_Success(t *testing.T) {
 			ModelInfo: map[string]any{
 				"llama.context_length": float64(16384),
 			},
-			Details: OllamaShowDetails{
+			Details: OllamaModelDetails{
 				Family: "mistral",
 			},
 		}
@@ -482,7 +482,7 @@ func TestDiscoverOllama_ShowModelFails(t *testing.T) {
 			response := OllamaShowResponse{
 				Capabilities: []string{"tools"},
 				ModelInfo:    map[string]any{"llama.context_length": float64(8192)},
-				Details:      OllamaShowDetails{Family: "llama"},
+				Details:      OllamaModelDetails{Family: "llama"},
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
@@ -543,7 +543,7 @@ func TestDiscoverOllama_VisionCapability(t *testing.T) {
 			response := OllamaShowResponse{
 				Capabilities: []string{"vision", "tools"},
 				ModelInfo:    map[string]any{"llama.context_length": float64(16384)},
-				Details:      OllamaShowDetails{Family: "llama"},
+				Details:      OllamaModelDetails{Family: "llama"},
 			}
 			w.Header().Set("Content-Type", "application/json")
 			json.NewEncoder(w).Encode(response)
@@ -594,7 +594,7 @@ func TestBuildOllamaModel_EmptyFamilyHTTP(t *testing.T) {
 	show := &OllamaShowResponse{
 		Capabilities: []string{},
 		ModelInfo:    map[string]any{},
-		Details:      OllamaShowDetails{Family: ""},
+		Details:      OllamaModelDetails{Family: ""},
 	}
 	provider := &Provider{ID: uuid.New()}
 
@@ -611,7 +611,7 @@ func TestBuildOllamaModel_ContextLengthFromModelInfoHTTP(t *testing.T) {
 		ModelInfo: map[string]any{
 			"llama.context_length": float64(32768),
 		},
-		Details: OllamaShowDetails{Family: "llama"},
+		Details: OllamaModelDetails{Family: "llama"},
 	}
 	provider := &Provider{ID: uuid.New()}
 
@@ -626,7 +626,7 @@ func TestBuildOllamaModel_ThinkingCapabilityHTTP(t *testing.T) {
 	show := &OllamaShowResponse{
 		Capabilities: []string{"thinking"},
 		ModelInfo:    map[string]any{},
-		Details:      OllamaShowDetails{Family: "llama"},
+		Details:      OllamaModelDetails{Family: "llama"},
 	}
 	provider := &Provider{ID: uuid.New()}
 
@@ -648,7 +648,7 @@ func TestBuildOllamaModel_EmbeddingCapabilityHTTP(t *testing.T) {
 	show := &OllamaShowResponse{
 		Capabilities: []string{"embedding"},
 		ModelInfo:    map[string]any{},
-		Details:      OllamaShowDetails{Family: "nomic-bert"},
+		Details:      OllamaModelDetails{Family: "nomic-bert"},
 	}
 	provider := &Provider{ID: uuid.New()}
 
@@ -670,7 +670,7 @@ func TestBuildOllamaModel_CompletionStaysTextHTTP(t *testing.T) {
 	show := &OllamaShowResponse{
 		Capabilities: []string{"completion", "tools"},
 		ModelInfo:    map[string]any{},
-		Details:      OllamaShowDetails{Family: "llama"},
+		Details:      OllamaModelDetails{Family: "llama"},
 	}
 	provider := &Provider{ID: uuid.New()}
 
@@ -686,7 +686,7 @@ func TestBuildOllamaModel_BothCapabilitiesLeaveTheNameToDecideHTTP(t *testing.T)
 	show := &OllamaShowResponse{
 		Capabilities: []string{"completion", "embedding"},
 		ModelInfo:    map[string]any{},
-		Details:      OllamaShowDetails{Family: "bert"},
+		Details:      OllamaModelDetails{Family: "bert"},
 	}
 	provider := &Provider{ID: uuid.New()}
 	m := service.buildOllamaModel(provider, "nomic-embed-text", show)
@@ -706,7 +706,7 @@ func TestBuildOllamaModel_EmbeddingByNameFallbackHTTP(t *testing.T) {
 	show := &OllamaShowResponse{
 		Capabilities: []string{},
 		ModelInfo:    map[string]any{},
-		Details:      OllamaShowDetails{Family: "bert"},
+		Details:      OllamaModelDetails{Family: "bert"},
 	}
 	provider := &Provider{ID: uuid.New()}
 

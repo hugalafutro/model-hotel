@@ -8,6 +8,7 @@ import {
 import type {
 	AppLogEntry,
 	AppLogsCursorResponse,
+	AppLogsHistoryResponse,
 	AuditListResponse,
 	LogEntry,
 	LogsCursorResponse,
@@ -66,18 +67,18 @@ export const logs = {
 		);
 	},
 	purge: async (olderThan: string): Promise<void> => {
-		const response = await fetch(`${API_BASE}/api/logs/purge`, {
-			method: "DELETE",
-			headers: getAuthHeaders(),
-			body: JSON.stringify({ older_than: olderThan }),
-		});
-		if (!response.ok) {
-			const text = await response.text();
+		await fetchOK(
+			`${API_BASE}/api/logs/purge`,
+			{
+				method: "DELETE",
+				headers: getAuthHeaders(),
+				body: JSON.stringify({ older_than: olderThan }),
+			},
 			// Bare status + body: the caller's toast already prefixes "Failed to
 			// delete requests", so an extra "Failed to purge logs" would read as
 			// if app logs were involved.
-			throw new Error(`${response.status} ${text}`);
-		}
+			"",
+		);
 	},
 	cursor: async (params: {
 		cursor?: string;
@@ -158,22 +159,8 @@ export const appLogs = {
 		per_page?: number;
 		sort_by?: string;
 		sort_dir?: string;
-	}): Promise<{
-		entries: AppLogEntry[];
-		total: number;
-		page: number;
-		per_page: number;
-		level_counts?: Record<string, number>;
-		source_counts?: Record<string, number>;
-	}> => {
-		return fetchJSON<{
-			entries: AppLogEntry[];
-			total: number;
-			page: number;
-			per_page: number;
-			level_counts?: Record<string, number>;
-			source_counts?: Record<string, number>;
-		}>(
+	}): Promise<AppLogsHistoryResponse> => {
+		return fetchJSON<AppLogsHistoryResponse>(
 			buildUrl("/api/logs/app", {
 				history: "true",
 				level: params?.level,

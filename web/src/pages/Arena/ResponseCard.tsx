@@ -13,7 +13,7 @@ import type { Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
 import { ModelReplyCard } from "../../components/ModelReplyCard";
 import { useDisableModel } from "../../hooks/useDisableModel";
-import { parseCapabilities, proxyModelID } from "../../utils/model";
+import { findChatModel, parseCapabilities } from "../../utils/model";
 import { ModelDetailModal } from "../Models/ModelDetailModal";
 import { VoteThumb } from "./shared";
 import type { ResponseCardProps } from "./types";
@@ -38,9 +38,7 @@ export function ResponseCard({
 	const isWinner = vote === slotKey;
 	const isLoser = vote !== null && vote !== slotKey;
 
-	const modelObj = enabledModels.find(
-		(m) => proxyModelID(m.provider_name, m.model_id) === response.model,
-	);
+	const modelObj = findChatModel(enabledModels, response.model);
 
 	return (
 		<>

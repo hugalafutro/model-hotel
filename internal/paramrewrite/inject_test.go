@@ -43,10 +43,7 @@ func TestInjectProviderParams_ZaiCoding(t *testing.T) {
 		"model":    "glm-5.1",
 		"messages": []any{},
 	}
-	modified := InjectProviderParams(raw, "zai-coding", "glm-5.1")
-	if !modified {
-		t.Fatal("expected modification for zai-coding")
-	}
+	InjectProviderParams(raw, "zai-coding", "glm-5.1")
 	thinking, ok := raw["thinking"].(map[string]any)
 	if !ok {
 		t.Fatal("expected thinking map to be injected")
@@ -65,9 +62,9 @@ func TestInjectProviderParams_ZaiCoding_AlreadyPresent(t *testing.T) {
 		"thinking": map[string]any{"type": "disabled"},
 		"messages": []any{},
 	}
-	modified := InjectProviderParams(raw, "zai-coding", "glm-5.1")
-	if modified {
-		t.Error("should not modify when thinking already present")
+	InjectProviderParams(raw, "zai-coding", "glm-5.1")
+	if thinking := raw["thinking"].(map[string]any); thinking["type"] != "disabled" {
+		t.Errorf("thinking = %v, want the caller's own config untouched", thinking)
 	}
 }
 
@@ -84,10 +81,7 @@ func TestInjectProviderParams_OpencodeZen_NotInjected(t *testing.T) {
 		"model":    "glm-5.2",
 		"messages": []any{},
 	}
-	modified := InjectProviderParams(raw, "opencode-zen", "glm-5.2")
-	if modified {
-		t.Fatal("opencode-zen must not be modified: Zen rejects chat_template_args")
-	}
+	InjectProviderParams(raw, "opencode-zen", "glm-5.2")
 	if _, present := raw["chat_template_args"]; present {
 		t.Error("chat_template_args must never be injected for opencode-zen")
 	}
@@ -98,10 +92,7 @@ func TestInjectProviderParams_OpencodeGo(t *testing.T) {
 		"model":    "glm-4.6",
 		"messages": []any{},
 	}
-	modified := InjectProviderParams(raw, "opencode-go", "glm-4.6")
-	if !modified {
-		t.Fatal("expected modification for opencode-go")
-	}
+	InjectProviderParams(raw, "opencode-go", "glm-4.6")
 	args, ok := raw["chat_template_args"].(map[string]any)
 	if !ok {
 		t.Fatal("expected chat_template_args map to be injected")
@@ -117,9 +108,9 @@ func TestInjectProviderParams_Opencode_AlreadyPresent(t *testing.T) {
 		"chat_template_args": map[string]any{"enable_thinking": false},
 		"messages":           []any{},
 	}
-	modified := InjectProviderParams(raw, "opencode-zen", "kimi-k2-thinking")
-	if modified {
-		t.Error("should not modify when chat_template_args already present")
+	InjectProviderParams(raw, "opencode-zen", "kimi-k2-thinking")
+	if args := raw["chat_template_args"].(map[string]any); args["enable_thinking"] != false {
+		t.Errorf("chat_template_args = %v, want the caller's own value untouched", args)
 	}
 }
 
@@ -133,10 +124,7 @@ func TestInjectProviderParams_DeepSeekV4(t *testing.T) {
 			map[string]any{"role": "user", "content": "Follow up"},
 		},
 	}
-	modified := InjectProviderParams(raw, "deepseek", "deepseek-v4-pro")
-	if !modified {
-		t.Fatal("expected modification for deepseek v4")
-	}
+	InjectProviderParams(raw, "deepseek", "deepseek-v4-pro")
 	messages := raw["messages"].([]any)
 	// First assistant message should have reasoning_content backfilled
 	first := messages[1].(map[string]any)
@@ -161,9 +149,10 @@ func TestInjectProviderParams_DeepSeekR1(t *testing.T) {
 			map[string]any{"role": "assistant", "content": "Thinking hard"},
 		},
 	}
-	modified := InjectProviderParams(raw, "deepseek", "deepseek-r1")
-	if !modified {
-		t.Fatal("expected modification for deepseek r1")
+	InjectProviderParams(raw, "deepseek", "deepseek-r1")
+	assistant := raw["messages"].([]any)[1].(map[string]any)
+	if _, exists := assistant["reasoning_content"]; !exists {
+		t.Error("assistant message missing reasoning_content")
 	}
 }
 
@@ -172,9 +161,9 @@ func TestInjectProviderParams_DeepSeekNonReasoning(t *testing.T) {
 		"model":    "deepseek-chat",
 		"messages": []any{},
 	}
-	modified := InjectProviderParams(raw, "deepseek", "deepseek-chat")
-	if modified {
-		t.Error("should not modify for non-reasoning deepseek model")
+	InjectProviderParams(raw, "deepseek", "deepseek-chat")
+	if len(raw) != 2 {
+		t.Errorf("raw = %v, want the non-reasoning body untouched", raw)
 	}
 }
 
@@ -191,9 +180,7 @@ func TestInjectProviderParams_DeepSeekReasonerAlias(t *testing.T) {
 			map[string]any{"role": "user", "content": "Q2"},
 		},
 	}
-	if !InjectProviderParams(raw, "deepseek", "deepseek-reasoner") {
-		t.Fatal("expected reasoning_content backfill for deepseek-reasoner")
-	}
+	InjectProviderParams(raw, "deepseek", "deepseek-reasoner")
 	assistant := raw["messages"].([]any)[1].(map[string]any)
 	if _, exists := assistant["reasoning_content"]; !exists {
 		t.Error("assistant message missing reasoning_content")
@@ -212,9 +199,7 @@ func TestInjectProviderParams_DeepSeekChatAliasSkipped(t *testing.T) {
 			map[string]any{"role": "user", "content": "Q2"},
 		},
 	}
-	if InjectProviderParams(raw, "deepseek", "deepseek-chat") {
-		t.Error("deepseek-chat is non-thinking and must not be backfilled")
-	}
+	InjectProviderParams(raw, "deepseek", "deepseek-chat")
 	assistant := raw["messages"].([]any)[1].(map[string]any)
 	if _, exists := assistant["reasoning_content"]; exists {
 		t.Error("deepseek-chat assistant message should not gain reasoning_content")
@@ -232,10 +217,7 @@ func TestInjectProviderParams_DeepSeekV4_AllAssistantBackfilled(t *testing.T) {
 			map[string]any{"role": "user", "content": "Q3"},
 		},
 	}
-	modified := InjectProviderParams(raw, "deepseek", "deepseek-v4-pro")
-	if !modified {
-		t.Fatal("expected modification")
-	}
+	InjectProviderParams(raw, "deepseek", "deepseek-v4-pro")
 	messages := raw["messages"].([]any)
 	for i, msg := range messages {
 		m := msg.(map[string]any)
@@ -252,9 +234,9 @@ func TestInjectProviderParams_UnsupportedProvider(t *testing.T) {
 		"model":    "gpt-4",
 		"messages": []any{},
 	}
-	modified := InjectProviderParams(raw, "openai", "gpt-4")
-	if modified {
-		t.Error("should not modify for unsupported provider type")
+	InjectProviderParams(raw, "openai", "gpt-4")
+	if len(raw) != 2 {
+		t.Errorf("raw = %v, want an unsupported provider type to inject nothing", raw)
 	}
 }
 

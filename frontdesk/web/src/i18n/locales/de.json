@@ -458,7 +458,7 @@
 				"done": "Alerts sind aktiv.",
 				"sendAll": "Test an alle senden",
 				"sentAll": "Test an jedes Ziel gesendet",
-				"apiChangedDrops": "Beim Ändern der Adresse entfallen die in diesem Durchlauf hinzugefügten Ziele; sie wurden mit der alten Adresse getestet.",
+				"apiChangedDrops": "Beim Verifizieren einer anderen Adresse entfallen die in diesem Durchlauf hinzugefügten Ziele; sie wurden mit der alten Adresse getestet.",
 				"backToList": "Zurück zu den Zielen",
 				"nothingAdded": "In diesem Durchlauf wurde noch nichts hinzugefügt.",
 				"alreadySaved": "Dieses Ziel steht bereits auf der Liste. Es kann nicht zweimal hinzugefügt werden."

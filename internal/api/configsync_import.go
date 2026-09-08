@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"slices"
 	"strconv"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
@@ -84,52 +85,13 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		debuglog.Warn("configsync: refused provider-wiping import")
 		http.Error(w, "refusing to import a config that would delete every provider on this member", http.StatusBadRequest)
 		return
-	case errors.Is(err, errInvalidSyncedURL):
-		// A syncable url-typed setting failed the same netguard validation the
-		// interactive settings endpoint enforces. A legitimate primary never exports
-		// such a value, so a 400 surfaces the poisoned or corrupt envelope to Front
-		// Desk rather than applying it.
-		debuglog.Warn("configsync: refused import with invalid URL setting", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	case errors.Is(err, errInvalidSyncedSettingBound):
-		// A syncable numeric setting arrived below the minimum the interactive
-		// settings endpoint enforces. The limiter floors are the dangerous ones: a
-		// negative rate_limit_ip_burst denies every request from every client IP.
-		debuglog.Warn("configsync: refused import with out-of-range setting", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	case errors.Is(err, errInvalidSyncedPasswordHash):
-		// A user in the envelope carries a password_hash login could never verify. A
-		// legitimate primary only exports hashes it computed, so the envelope is
-		// refused rather than writing an account that cannot log in.
-		debuglog.Warn("configsync: refused import with a malformed password hash", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	case errors.Is(err, errInvalidSyncedProvider):
-		// A provider in the envelope carries a value the interactive API rejects (a
-		// max_in_flight the runtime would read as "no ceiling"). A legitimate primary
-		// never exports one, so the whole envelope is refused rather than stored and
-		// shipped on to every member.
-		debuglog.Warn("configsync: refused import with an invalid provider", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	case errors.Is(err, errInvalidSyncedRateLimit):
-		// A virtual key or user in the envelope carries a rate limit the interactive
-		// API rejects: a negative TPM imports as "no cap" and a negative burst
-		// rejects every request on that key. A legitimate primary never exports one,
-		// so the whole envelope is refused.
-		debuglog.Warn("configsync: refused import with invalid rate limit", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	case errors.Is(err, errUnresolvableUserProviders):
-		// A capped account naming providers absent here would import as unrestricted,
-		// so the envelope is refused rather than the account widened. Only the
-		// non-empty-but-unresolvable case reaches this: after the declarative
-		// provider replace every name a legitimate primary exported resolves, so it
-		// means a corrupt or tampered envelope. A cap the primary itself resolves to
-		// nothing rides through as an empty array instead.
-		debuglog.Warn("configsync: refused import with an unresolvable user provider cap", "error", err)
+	case slices.ContainsFunc(importRejections, func(e error) bool { return errors.Is(err, e) }):
+		// Every one of these means the envelope carries a value the interactive
+		// API would reject, which a legitimate primary never exports. The whole
+		// envelope is refused with a 400 rather than applied, and the sentinel's
+		// own message names the rejection. See the declarations for what each
+		// one guards against.
+		debuglog.Warn("configsync: refused import", "error", err)
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	case err != nil:
@@ -236,7 +198,7 @@ func (h *ConfigSyncHandler) computeDiff(ctx context.Context, env ConfigEnvelope)
 	d.Providers = diffKeyed(identLabels(curProviders), env.Config.Providers,
 		func(p ExportProvider) (string, string) { return p.Name, p.Name }, true)
 
-	curVKs, err := hashToName(ctx, pool, `SELECT key_hash, name FROM virtual_keys`)
+	curVKs, err := stringMap(ctx, pool, `SELECT key_hash, name FROM virtual_keys`)
 	if err != nil {
 		return d, err
 	}

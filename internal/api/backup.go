@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -148,60 +149,83 @@ func (h *BackupHandler) CreateBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	defer h.backupMu.Unlock()
 
-	// Ensure backup directory exists
-	if err := os.MkdirAll(h.backupDir, 0o750); err != nil {
-		respondError(w, "failed to create backup directory", err, http.StatusInternalServerError)
+	// A dedicated budget, detached from the chi request timeout (~60s). The
+	// request itself still waits for the dump, which is why this path takes
+	// the cheaper compression level: see buildDumpCommand.
+	entry, err := h.createDump(context.Background(), origin, requestDumpCompression, "Database backup created")
+	if err != nil {
+		status := http.StatusInternalServerError
+		if errors.Is(err, errPgDumpMissing) {
+			status = http.StatusPreconditionFailed
+		}
+		// createDump has already logged the underlying cause with the detail
+		// (pg_dump output, connection URLs) that must not leave the server, so
+		// this writes the client-safe message without respondError's second
+		// log line for the 500s.
+		http.Error(w, err.Error(), status)
 		return
 	}
 
-	// Check that pg_dump is available
+	writeJSONCreated(w, entry)
+}
+
+// errPgDumpMissing marks the one createDump failure the HTTP path answers with
+// 412 rather than 500: the postgresql-client package is not installed.
+var errPgDumpMissing = errors.New("pg_dump not found - install postgresql-client package")
+
+// createDump writes one pg_dump into the backup directory under its own
+// budget, signs the finished file, and publishes backup.created with
+// eventPrefix naming the origin in the dashboard message. Every failure is
+// logged here with its full detail and returned with a message safe to hand a
+// client.
+func (h *BackupHandler) createDump(ctx context.Context, origin, compression, eventPrefix string) (backupEntry, error) {
+	if err := os.MkdirAll(h.backupDir, 0o750); err != nil {
+		debuglog.Error("backup: mkdir failed", "origin", origin, "error", err)
+		return backupEntry{}, errors.New("failed to create backup directory")
+	}
+
 	pgDumpPath, err := exec.LookPath("pg_dump")
 	if err != nil {
-		respondError(w, "pg_dump not found - install postgresql-client package", err, http.StatusPreconditionFailed)
-		return
+		debuglog.Error("backup: pg_dump not found", "origin", origin, "error", err)
+		return backupEntry{}, errPgDumpMissing
 	}
 
 	filename := generateBackupFilename(origin)
 	path := filepath.Join(h.backupDir, filename)
 
-	// A dedicated budget, detached from the chi request timeout (~60s). The
-	// request itself still waits for the dump, which is why this path takes
-	// the cheaper compression level: see buildDumpCommand.
-	ctx, cancel := context.WithTimeout(context.Background(), backupDumpBudget)
+	dumpCtx, cancel := context.WithTimeout(ctx, backupDumpBudget)
 	defer cancel()
 
-	if output, err := h.runDump(ctx, pgDumpPath, path, requestDumpCompression); err != nil {
-		// Log full pg_dump output server-side only (may contain connection details)
-		debuglog.Error("backup: pg_dump failed", "output", output, "error", err)
-		respondError(w, "pg_dump failed - check server logs for details", nil, http.StatusInternalServerError)
-		return
+	if output, err := h.runDump(dumpCtx, pgDumpPath, path, compression); err != nil {
+		// The full pg_dump output stays server-side: it may carry connection details.
+		debuglog.Error("backup: pg_dump failed", "origin", origin, "output", output, "error", err)
+		return backupEntry{}, errors.New("pg_dump failed - check server logs for details")
 	}
 
-	// Stat the file for the response
 	info, err := os.Stat(path)
 	if err != nil {
-		respondError(w, fmt.Sprintf("backup created but failed to stat file %q", filename), err, http.StatusInternalServerError)
-		return
+		debuglog.Error("backup: stat failed", "filename", filename, "error", err)
+		return backupEntry{}, fmt.Errorf("backup created but failed to stat file %q", filename)
 	}
 
 	signed := h.signFinishedDump(path, filename)
 
-	debuglog.Info("backup: created", "filename", filename, "size_bytes", info.Size(), "signed", signed)
+	debuglog.Info("backup: created", "filename", filename, "size_bytes", info.Size(), "signed", signed, "origin", origin)
 	events.Publish(events.Event{
 		Type:     "backup.created",
 		Severity: "success",
 		Source:   "backup",
-		Message:  fmt.Sprintf("Database backup created: %s (%s)", filename, util.FormatBytes(info.Size())),
+		Message:  fmt.Sprintf("%s: %s (%s)", eventPrefix, filename, util.FormatBytes(info.Size())),
 		Metadata: map[string]any{"filename": filename, "size_bytes": info.Size()},
 	})
 
-	writeJSONCreated(w, backupEntry{
+	return backupEntry{
 		Filename:  filename,
 		SizeBytes: info.Size(),
 		CreatedAt: info.ModTime().Format(time.RFC3339),
 		Origin:    backupOrigin(filename),
 		Signed:    signed,
-	})
+	}, nil
 }
 
 // ListBackups returns all backup files sorted by creation time (newest first).
@@ -245,11 +269,8 @@ func (h *BackupHandler) validateBackupFilename(filename string) string {
 // up when busy, so a slow client would silently cancel scheduled backups for
 // the length of its transfer.
 func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
-	filename := chi.URLParam(r, "filename")
-
-	absPath := h.validateBackupFilename(filename)
-	if absPath == "" {
-		http.Error(w, "invalid filename", http.StatusBadRequest)
+	filename, absPath, ok := h.backupPathParam(w, r)
+	if !ok {
 		return
 	}
 
@@ -323,13 +344,11 @@ type backupSignatureResponse struct {
 // restore checks it against the uploaded bytes. Unsigned backups get a 404,
 // which is what the listing's "signed: false" already promises.
 func (h *BackupHandler) BackupSignature(w http.ResponseWriter, r *http.Request) {
-	filename := chi.URLParam(r, "filename")
-
-	absPath := h.validateBackupFilename(filename)
-	if absPath == "" {
-		http.Error(w, "invalid filename", http.StatusBadRequest)
+	filename, absPath, ok := h.backupPathParam(w, r)
+	if !ok {
 		return
 	}
+	//nolint:gosec // G703: absPath comes from backupPathParam, which resolves a bare .dump basename under backupDir
 	if _, err := os.Stat(absPath); os.IsNotExist(err) {
 		http.Error(w, "backup not found", http.StatusNotFound)
 		return
@@ -402,15 +421,7 @@ const (
 // the connection URL and passed via PGPASSWORD instead. The caller is
 // responsible for running the command and handling errors.
 func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePath, compression string) *exec.Cmd {
-	connURL := h.databaseURL
-	var envPassword string
-	if u, err := url.Parse(h.databaseURL); err == nil && u.User != nil {
-		if pass, ok := u.User.Password(); ok && pass != "" {
-			envPassword = pass
-			u.User = url.User(u.User.Username())
-			connURL = u.String()
-		}
-	}
+	connURL, env := pgCommandEnv(h.databaseURL)
 	//nolint:gosec // pgDumpPath is a configured binary path, not arbitrary user input
 	cmd := exec.CommandContext(ctx, pgDumpPath,
 		"--format=custom",
@@ -419,9 +430,7 @@ func (h *BackupHandler) buildDumpCommand(ctx context.Context, pgDumpPath, filePa
 		"--file="+filePath,
 		connURL,
 	)
-	if envPassword != "" {
-		cmd.Env = append(os.Environ(), "PGPASSWORD="+envPassword)
-	}
+	cmd.Env = env
 	return cmd
 }
 
@@ -491,11 +500,8 @@ func (h *BackupHandler) DeleteBackup(w http.ResponseWriter, r *http.Request) {
 	}
 	defer h.backupMu.Unlock()
 
-	filename := chi.URLParam(r, "filename")
-
-	absPath := h.validateBackupFilename(filename)
-	if absPath == "" {
-		http.Error(w, "invalid filename", http.StatusBadRequest)
+	filename, absPath, ok := h.backupPathParam(w, r)
+	if !ok {
 		return
 	}
 
@@ -517,4 +523,35 @@ func (h *BackupHandler) DeleteBackup(w http.ResponseWriter, r *http.Request) {
 	})
 
 	w.WriteHeader(http.StatusNoContent)
+}
+
+// pgCommandEnv splits a connection URL for a pg_dump / pg_restore invocation:
+// the password moves out of the URL (where it would show up in the process
+// list) into PGPASSWORD. env is nil when the URL carries no password, leaving
+// the command on the parent environment.
+func pgCommandEnv(databaseURL string) (connURL string, env []string) {
+	connURL = databaseURL
+	u, err := url.Parse(databaseURL)
+	if err != nil || u.User == nil {
+		return connURL, nil
+	}
+	pass, ok := u.User.Password()
+	if !ok || pass == "" {
+		return connURL, nil
+	}
+	u.User = url.User(u.User.Username())
+	return u.String(), append(os.Environ(), "PGPASSWORD="+pass)
+}
+
+// backupPathParam reads the {filename} route parameter and resolves it under
+// the backup directory, writing a 400 and returning ok=false when the name
+// does not survive validation.
+func (h *BackupHandler) backupPathParam(w http.ResponseWriter, r *http.Request) (filename, absPath string, ok bool) {
+	filename = chi.URLParam(r, "filename")
+	absPath = h.validateBackupFilename(filename)
+	if absPath == "" {
+		http.Error(w, "invalid filename", http.StatusBadRequest)
+		return "", "", false
+	}
+	return filename, absPath, true
 }

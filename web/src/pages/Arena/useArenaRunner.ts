@@ -4,12 +4,15 @@ import { useTranslation } from "react-i18next";
 import type { GenerationParams } from "../../api/types";
 import type { ArenaSubMode } from "../../context/SidebarModeContext";
 import type { useToast } from "../../context/ToastContext";
-import { proxyModelID } from "../../utils/model";
+import { chatModelIdSet } from "../../utils/model";
 import { streamArenaResponse } from "./streamModel";
-import type { BracketRound } from "./types";
+import type { BracketPhase, BracketRound } from "./types";
 import {
+	clearSlot,
 	collectSlots,
 	initMatchupResponses,
+	newArenaResponse,
+	patchSlotResponse,
 	staggerAndDispatch,
 } from "./utils";
 
@@ -18,11 +21,7 @@ export interface ArenaRunnerDeps {
 	savedPrompt: string;
 	prompt: string;
 	setRounds: React.Dispatch<React.SetStateAction<BracketRound[]>>;
-	setPhase: React.Dispatch<
-		React.SetStateAction<
-			"setup" | "running" | "voting" | "next_round_ready" | "finished"
-		>
-	>;
+	setPhase: React.Dispatch<React.SetStateAction<BracketPhase>>;
 	setRunningModels: React.Dispatch<React.SetStateAction<Set<string>>>;
 	rounds: BracketRound[];
 	roundsRef: React.RefObject<BracketRound[]>;
@@ -43,7 +42,7 @@ export interface ArenaRunner {
 		matchupIdx: number,
 		slotParams?: GenerationParams,
 	) => void;
-	runRound: (roundIdx: number) => void;
+	runRound: (roundIdx: number, promptOverride?: string) => void;
 	handleStopAll: () => void;
 	handleRetry: (
 		roundIdx: number,
@@ -62,6 +61,8 @@ export interface ArenaRunner {
 		slotKey: "A" | "B",
 		newModelId: string,
 	) => void;
+	/** Aborts every in-flight stream and drops the slots still waiting to start. */
+	abortAll: () => void;
 	abortMapRef: React.RefObject<Map<string, AbortController>>;
 }
 
@@ -84,6 +85,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	const { t } = useTranslation();
 
 	const abortMapRef = useRef<Map<string, AbortController>>(new Map());
+	// Slots whose staggered dispatch has not fired yet. Without them a stop or
+	// an unmount inside the stagger window would still start those streams.
+	const pendingTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
 	// Once the Arena unmounts, any still-in-flight stream must stop touching
 	// React state: a late setState throws under jsdom teardown ("window is not
@@ -96,10 +100,13 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		// abortMapRef.current is stable for the component's lifetime (the Map is
 		// created once), but capture it so the cleanup reads the same instance.
 		const abortMap = abortMapRef.current;
+		const pendingTimers = pendingTimersRef;
 		return () => {
 			mountedRef.current = false;
 			for (const ctrl of abortMap.values()) ctrl.abort();
 			abortMap.clear();
+			for (const id of pendingTimers.current) clearTimeout(id);
+			pendingTimers.current = [];
 		};
 	}, []);
 
@@ -122,14 +129,37 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		[setRunningModelsRaw],
 	);
 
+	/** Where a run lands once every model is done: compare has nothing to vote on. */
+	const settledPhase = useCallback(
+		(): BracketPhase =>
+			arenaModeRef.current === "compare" ? "finished" : "voting",
+		[arenaModeRef],
+	);
+
+	const finishModel = useCallback(
+		(model: string, settle = true) => {
+			setRunningModels((prev) => {
+				const next = new Set(prev);
+				next.delete(model);
+				if (next.size === 0 && settle) setPhase(settledPhase());
+				return next;
+			});
+		},
+		[setRunningModels, setPhase, settledPhase],
+	);
+
+	const abortAll = useCallback(() => {
+		for (const ctrl of abortMapRef.current.values()) ctrl.abort();
+		abortMapRef.current.clear();
+		for (const id of pendingTimersRef.current) clearTimeout(id);
+		pendingTimersRef.current = [];
+	}, []);
+
 	// The ids the picker/random actions can currently produce. enabledModels is
 	// already the chat-filtered list, so anything outside it is a non-chat model
 	// (reclassified to embedding/rerank, or disabled) that must not be dispatched.
 	const validModelIds = useMemo(
-		() =>
-			new Set(
-				enabledModels.map((m) => proxyModelID(m.provider_name, m.model_id)),
-			),
+		() => chatModelIdSet(enabledModels),
 		[enabledModels],
 	);
 
@@ -149,6 +179,9 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			matchupIdx: number,
 			slotParams?: GenerationParams,
 		) => {
+			// A staggered dispatch can land after the arena unmounted; the request
+			// would be sent and then have nowhere to write.
+			if (!mountedRef.current) return;
 			// A persisted competition can reload (outside setup phase, so array
 			// reconciliation is skipped) with a round slot pointing at a model that
 			// is no longer a valid chat target. Never stream a chat request to a
@@ -160,34 +193,21 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 				if (!hasUsableAllowlist) return;
 				// Genuine non-chat model: stamp the slot errored and clear it from the
 				// run.
-				const respKey = slotKey === "A" ? "responseA" : "responseB";
 				setRounds(
 					produce((draft) => {
-						const mu = draft[roundIdx]?.matchups[matchupIdx];
-						if (mu) {
-							mu[respKey] = {
-								model,
-								rawContent: "",
-								content: "",
-								thinkingContent: "",
-								startTimeMs: Date.now(),
+						patchSlotResponse(
+							draft,
+							roundIdx,
+							matchupIdx,
+							slotKey,
+							newArenaResponse(model, Date.now(), {
 								done: true,
 								error: t("hooks.useArenaRunner.nonChatModel"),
-								metrics: null,
-							};
-						}
+							}),
+						);
 					}),
 				);
-				setRunningModels((prev) => {
-					const next = new Set(prev);
-					next.delete(model);
-					if (next.size === 0) {
-						setPhase(
-							arenaModeRef.current === "compare" ? "finished" : "voting",
-						);
-					}
-					return next;
-				});
+				finishModel(model);
 				return;
 			}
 
@@ -195,16 +215,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			abortMapRef.current.set(model, abortCtrl);
 
 			void streamArenaResponse(
-				{
-					t,
-					toast,
-					setRounds,
-					setPhase,
-					setRunningModels,
-					arenaModeRef,
-					abortMapRef,
-					mountedRef,
-				},
+				{ t, toast, setRounds, finishModel, abortMapRef, mountedRef },
 				{
 					model,
 					personaPrompt,
@@ -217,20 +228,11 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 				},
 			);
 		},
-		[
-			t,
-			toast,
-			setRunningModels,
-			setPhase,
-			setRounds,
-			arenaModeRef,
-			validModelIds,
-			hasUsableAllowlist,
-		],
+		[t, toast, finishModel, setRounds, validModelIds, hasUsableAllowlist],
 	);
 
 	const runRound = useCallback(
-		(roundIdx: number) => {
+		(roundIdx: number, promptOverride?: string) => {
 			const round = roundsRef.current[roundIdx];
 			if (!round) return;
 			// Don't start a round without a usable allowlist: an empty / not-yet-
@@ -238,14 +240,10 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			// state untouched so it can be started once a real list arrives.
 			if (!hasUsableAllowlist) return;
 
-			const currentPrompt = savedPrompt || prompt.trim();
+			const currentPrompt = promptOverride ?? (savedPrompt || prompt.trim());
+			const slots = collectSlots(round);
 
-			const modelSet = new Set<string>();
-			for (const mu of round.matchups) {
-				if (mu.slotA) modelSet.add(mu.slotA.modelId);
-				if (mu.slotB) modelSet.add(mu.slotB.modelId);
-			}
-			setRunningModels(modelSet);
+			setRunningModels(new Set(slots.map((s) => s.modelId)));
 			setPhase("running");
 
 			const now = Date.now();
@@ -259,17 +257,18 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 				}),
 			);
 
-			const slots = collectSlots(round);
 			const knownProviders = enabledModels.map((m) => m.provider_name);
-			staggerAndDispatch(slots, knownProviders, (item) =>
-				streamModel(
-					item.modelId,
-					item.personaPrompt,
-					currentPrompt,
-					roundIdx,
-					item.slotKey,
-					item.matchupIdx,
-					item.params,
+			pendingTimersRef.current.push(
+				...staggerAndDispatch(slots, knownProviders, (item) =>
+					streamModel(
+						item.modelId,
+						item.personaPrompt,
+						currentPrompt,
+						roundIdx,
+						item.slotKey,
+						item.matchupIdx,
+						item.params,
+					),
 				),
 			);
 		},
@@ -287,10 +286,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 	);
 
 	const handleStopAll = useCallback(() => {
-		for (const [, ctrl] of abortMapRef.current) {
-			ctrl.abort();
-		}
-		abortMapRef.current.clear();
+		abortAll();
 
 		// Mark partially streamed responses as done (preserve their content)
 		setRounds(
@@ -309,8 +305,8 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		);
 
 		setRunningModels(new Set());
-		setPhase(arenaModeRef.current === "compare" ? "finished" : "voting");
-	}, [setPhase, setRunningModels, setRounds, arenaModeRef]);
+		setPhase(settledPhase());
+	}, [abortAll, setPhase, setRunningModels, setRounds, settledPhase]);
 
 	const handleRetry = useCallback(
 		(roundIdx: number, matchupIdx: number, slotKey: "A" | "B") => {
@@ -323,21 +319,15 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			// Same as runRound: don't retry a slot without a usable allowlist.
 			if (!hasUsableAllowlist) return;
 
-			const respKey = slotKey === "A" ? "responseA" : "responseB";
 			setRounds(
 				produce((draft) => {
-					if (draft[roundIdx]?.matchups[matchupIdx]) {
-						draft[roundIdx].matchups[matchupIdx][respKey] = {
-							model: slot.modelId,
-							rawContent: "",
-							content: "",
-							thinkingContent: "",
-							startTimeMs: Date.now(),
-							done: false,
-							error: null,
-							metrics: null,
-						};
-					}
+					patchSlotResponse(
+						draft,
+						roundIdx,
+						matchupIdx,
+						slotKey,
+						newArenaResponse(slot.modelId, Date.now()),
+					);
 				}),
 			);
 			setRunningModels((prev) => new Set(prev).add(slot.modelId));
@@ -376,27 +366,14 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 				ctrl.abort();
 				abortMapRef.current.delete(modelId);
 			}
-			setRunningModels((prev) => {
-				const next = new Set(prev);
-				next.delete(modelId);
-				if (next.size === 0) {
-					setPhase(arenaModeRef.current === "compare" ? "finished" : "voting");
-				}
-				return next;
-			});
-
-			const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
-			const respKey = slotKey === "A" ? "responseA" : "responseB";
+			finishModel(modelId);
 			setRounds(
 				produce((draft) => {
-					if (draft[roundIdx]?.matchups[matchupIdx]) {
-						draft[roundIdx].matchups[matchupIdx][slotKeyStr] = null;
-						draft[roundIdx].matchups[matchupIdx][respKey] = null;
-					}
+					clearSlot(draft, roundIdx, matchupIdx, slotKey);
 				}),
 			);
 		},
-		[setRunningModels, setRounds, setPhase, arenaModeRef],
+		[finishModel, setRounds],
 	);
 
 	const handleSwapComplete = useCallback(
@@ -411,26 +388,21 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 			if (!hasUsableAllowlist) return;
 			setRounds(
 				produce((draft) => {
-					const slotKeyStr = slotKey === "A" ? "slotA" : "slotB";
-					const respKey = slotKey === "A" ? "responseA" : "responseB";
-					if (draft[roundIdx]?.matchups[matchupIdx]) {
-						draft[roundIdx].matchups[matchupIdx][slotKeyStr] = {
-							modelId: newModelId,
-							personaId: null,
-							personaPrompt: "",
-							params: modelParams[newModelId],
-						};
-						draft[roundIdx].matchups[matchupIdx][respKey] = {
-							model: newModelId,
-							rawContent: "",
-							content: "",
-							thinkingContent: "",
-							startTimeMs: Date.now(),
-							done: false,
-							error: null,
-							metrics: null,
-						};
-					}
+					const mu = draft[roundIdx]?.matchups[matchupIdx];
+					if (!mu) return;
+					mu[slotKey === "A" ? "slotA" : "slotB"] = {
+						modelId: newModelId,
+						personaId: null,
+						personaPrompt: "",
+						params: modelParams[newModelId],
+					};
+					patchSlotResponse(
+						draft,
+						roundIdx,
+						matchupIdx,
+						slotKey,
+						newArenaResponse(newModelId, Date.now()),
+					);
 				}),
 			);
 			setRunningModels((prev) => new Set(prev).add(newModelId));
@@ -464,6 +436,7 @@ export function useArenaRunner(deps: ArenaRunnerDeps): ArenaRunner {
 		handleRetry,
 		handleCancelSlot,
 		handleSwapComplete,
+		abortAll,
 		abortMapRef,
 	};
 }

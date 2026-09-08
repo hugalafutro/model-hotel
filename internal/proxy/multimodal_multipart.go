@@ -14,6 +14,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // multipartPart is one parsed part of a multipart/form-data body, retained so
@@ -198,16 +199,14 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		debuglog.Warn("proxy: failed to read multipart request body", "error", err)
 		publishRequestStartedEvent(logData)
-		h.failRequest(logData, 400, KindValidation, "failed to read request body", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
-		writeOpenAIError(w, "failed to read request body", http.StatusBadRequest)
+		h.rejectIngest(w, logData, "failed to read request body", startTime, 0)
 		return nil, nil, false
 	}
 
 	mediaType, ctParams, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
 	if err != nil || !strings.HasPrefix(mediaType, "multipart/") || ctParams["boundary"] == "" {
 		publishRequestStartedEvent(logData)
-		h.failRequest(logData, 400, KindValidation, "Content-Type must be multipart/form-data with a boundary", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
-		writeOpenAIError(w, "Content-Type must be multipart/form-data with a boundary", http.StatusBadRequest)
+		h.rejectIngest(w, logData, "Content-Type must be multipart/form-data with a boundary", startTime, 0)
 		return nil, nil, false
 	}
 
@@ -215,11 +214,10 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	if err != nil {
 		debuglog.Warn("proxy: failed to parse multipart form", "error", err)
 		publishRequestStartedEvent(logData)
-		h.failRequest(logData, 400, KindValidation, "invalid multipart form", 0, startTime, 0, resolveTimings{}, resolveCacheHits{}, 0)
-		writeOpenAIError(w, "invalid multipart form", http.StatusBadRequest)
+		h.rejectIngest(w, logData, "invalid multipart form", startTime, 0)
 		return nil, nil, false
 	}
-	parseMs := float64(time.Since(parseStart).Microseconds()) / 1000.0
+	parseMs := util.MillisSince(parseStart)
 
 	// The `model` form field gets the same bound as the JSON ingest paths,
 	// checked before it is assigned to the log entry, published, or logged.
@@ -232,8 +230,7 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	publishRequestStartedEvent(logData)
 
 	if reqModel == "" {
-		h.failRequest(logData, 400, KindValidation, "model is required", 0, startTime, parseMs, resolveTimings{}, resolveCacheHits{}, 0)
-		writeOpenAIError(w, "model is required", http.StatusBadRequest)
+		h.rejectIngest(w, logData, "model is required", startTime, parseMs)
 		return nil, nil, false
 	}
 

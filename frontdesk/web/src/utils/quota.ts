@@ -18,6 +18,7 @@ export {
 	getMiniMaxGeneralEntry,
 	getMiniMaxWeeklyLimit,
 	getZaiCodingFiveHourLimit,
+	getZaiCodingMcpLimit,
 	getZaiCodingWeeklyLimit,
 } from "@web-shared/quota";
 

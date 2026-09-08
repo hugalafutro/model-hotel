@@ -1098,8 +1098,8 @@ func TestConfigSync_HelperDBErrors(t *testing.T) {
 	if _, err := nameSet(cctx, pool, `SELECT name FROM providers`); err == nil {
 		t.Error("nameSet should error on cancelled ctx")
 	}
-	if _, err := hashToName(cctx, pool, `SELECT key_hash, name FROM virtual_keys`); err == nil {
-		t.Error("hashToName should error on cancelled ctx")
+	if _, err := stringMap(cctx, pool, `SELECT key_hash, name FROM virtual_keys`); err == nil {
+		t.Error("stringMap should error on cancelled ctx")
 	}
 	if _, err := h.computeDiff(cctx, env); err == nil {
 		t.Error("computeDiff should error on cancelled ctx")

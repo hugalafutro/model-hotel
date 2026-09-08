@@ -9,12 +9,6 @@ export interface NanoGPTUsageTokenInfo {
 	percentUsed: number;
 	resetAt: number;
 }
-export interface NanoGPTUsageDailyImages {
-	used: number;
-	remaining: number;
-	percentUsed: number;
-	resetAt: number;
-}
 export interface NanoGPTUsagePeriod {
 	currentPeriodEnd: string;
 }
@@ -32,7 +26,7 @@ export interface NanoGPTUsage {
 	limits: NanoGPTUsageLimits;
 	allowOverage: boolean;
 	period: NanoGPTUsagePeriod;
-	dailyImages: NanoGPTUsageDailyImages | null;
+	dailyImages: NanoGPTUsageTokenInfo | null;
 	dailyInputTokens: NanoGPTUsageTokenInfo | null;
 	weeklyInputTokens: NanoGPTUsageTokenInfo | null;
 	state: string;
@@ -142,4 +136,17 @@ export interface NeuralWattQuotaResponse {
 	limits: NeuralWattQuotaLimits;
 	subscription: NeuralWattQuotaSubscription;
 	key: NeuralWattQuotaKey;
+}
+
+/** What POST /api/providers/refresh-quotas reports per provider. */
+export interface RefreshQuotasResponse {
+	refreshed: number;
+	failed: number;
+	skipped: number;
+	results: {
+		provider_name: string;
+		provider_type: string;
+		refreshed: boolean;
+		error?: string;
+	}[];
 }

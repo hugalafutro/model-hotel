@@ -31,8 +31,8 @@ func (s *Server) listEvents(w http.ResponseWriter, r *http.Request) {
 		Severity: q.Get("severity"),
 		Since:    parseRFC3339(q.Get("since")),
 		Until:    parseRFC3339(q.Get("until")),
-		Limit:    clampEventsLimit(atoiDefault(q.Get("limit"), defaultEventsLimit)),
-		Offset:   max(atoiDefault(q.Get("offset"), 0), 0),
+		Limit:    clampEventsLimit(util.GetIntQueryParam(r, "limit", defaultEventsLimit)),
+		Offset:   max(util.GetIntQueryParam(r, "offset", 0), 0),
 	}
 	evs, total, err := s.store.ListEvents(r.Context(), f)
 	if err != nil {
@@ -53,8 +53,9 @@ func (s *Server) traefikStatus(w http.ResponseWriter, _ *http.Request) {
 // buildCommit is the source commit SHA this Front Desk binary was built from,
 // stamped at build time via -ldflags -X (see the Makefile / Dockerfile.frontdesk)
 // and surfaced read-only as app_commit so the UI footer can show which commit a
-// `dev` build corresponds to. Defaults to "unknown" for un-stamped builds.
-var buildCommit = "unknown"
+// `dev` build corresponds to. Defaults to the UnstampedCommit sentinel for
+// un-stamped builds.
+var buildCommit = util.UnstampedCommit
 
 // getVersion returns the running build's version and source commit so the UI
 // footer can show which Front Desk build is deployed (and link a `dev` build to
@@ -128,7 +129,7 @@ func (s *Server) sse(w http.ResponseWriter, r *http.Request) {
 // the request is live; a client hanging up races the tick and is not a fault.
 func (s *Server) revalidate(r *http.Request) bool {
 	if token, ok := util.ParseBearerToken(r); ok {
-		_, err := s.store.DeviceByTokenHash(r.Context(), hashDeviceToken(token))
+		_, err := s.store.DeviceByTokenHash(r.Context(), util.SHA256Hex(token))
 		if err == nil {
 			return true
 		}
@@ -305,17 +306,21 @@ func (c *totpEnabledCache) Refresh(ctx context.Context) {
 	c.val.Store(enabled)
 }
 
-// emit persists a control-plane event and publishes it on the SSE bus. The
+// emit persists a control-plane event and publishes it on the SSE bus.
+func (s *Server) emit(ctx context.Context, e Event) { emitEvent(ctx, s.store, s.bus, e) }
+
+// emitEvent persists a control-plane event and publishes it on the SSE bus. The
 // publish is best-effort on a failed insert; closeSyncHold, whose correctness
-// leans on the persisted log, inserts and publishes by hand instead.
-func (s *Server) emit(ctx context.Context, e Event) {
-	stored, err := s.store.InsertEvent(ctx, e)
+// leans on the persisted log, inserts and publishes by hand instead. Shared by
+// Server.emit and Poller.recordEvent.
+func emitEvent(ctx context.Context, store *Store, bus *events.Bus, e Event) {
+	stored, err := store.InsertEvent(ctx, e)
 	if err != nil {
 		debuglog.Warn("frontdesk: persist event", "type", e.Type, "error", err)
 		stored = e
 	}
 	logEvent(stored)
-	s.bus.Publish(busEvent(stored))
+	bus.Publish(busEvent(stored))
 }
 
 // logEvent mirrors a control-plane event into the process log at the level

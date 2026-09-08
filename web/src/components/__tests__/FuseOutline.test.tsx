@@ -7,7 +7,7 @@ import { FuseOutline } from "../FuseOutline";
 // and restore it to remount the rect.
 const mockSize = { width: 100, height: 40 };
 vi.mock("../../hooks/useResizeObserver", () => ({
-	useResizeObserver: () => ({ ref: { current: null }, ...mockSize }),
+	useResizeObserver: () => ({ ref: () => {}, ...mockSize }),
 }));
 
 function getRect(container: HTMLElement) {

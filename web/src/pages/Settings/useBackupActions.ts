@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api, getAuthHeaders } from "../../api/client";
 import type { BackupClassification } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { downloadBlob } from "../../utils/download";
+import { SETTING_DEFAULTS, settingOr } from "./defaults";
 
 /**
  * Queries, mutations and the clipboard, download and restore state behind
@@ -125,67 +127,26 @@ export function useBackupActions() {
 	const backupEnabled = settings?.backup_enabled === "true";
 	// Parse interval: backend stores as Go duration string (e.g. "86400s" or "24h").
 	// Display and edit in hours.
-	const rawInterval = settings?.backup_interval || "24h";
+	const rawInterval = settingOr(settings, "backup_interval");
 	const intervalHours = (() => {
 		const hMatch = rawInterval.match(/^(\d+(?:\.\d+)?)h$/);
 		if (hMatch) return Number(hMatch[1]);
 		const sMatch = rawInterval.match(/^(\d+(?:\.\d+)?)s$/);
 		if (sMatch) return Math.round((Number(sMatch[1]) / 3600) * 10) / 10;
-		return 24;
+		return Number.parseFloat(SETTING_DEFAULTS.backup_interval);
 	})();
-	const sonRetention = Number(settings?.backup_son_retention || "7");
-	const fatherRetention = Number(settings?.backup_father_retention || "4");
+	const sonRetention = Number(settingOr(settings, "backup_son_retention"));
+	const fatherRetention = Number(
+		settingOr(settings, "backup_father_retention"),
+	);
 	const grandfatherRetention = Number(
-		settings?.backup_grandfather_retention || "3",
+		settingOr(settings, "backup_grandfather_retention"),
 	);
 
-	function formatBytes(bytes: number): string {
-		if (bytes === 0) return "0 B";
-		const k = 1024;
-		const sizes = ["B", "KB", "MB", "GB", "TB"];
-		const i = Math.min(
-			Math.floor(Math.log(bytes) / Math.log(k)),
-			sizes.length - 1,
-		);
-		return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
-	}
-
-	// navigator.clipboard only exists in secure contexts; a dashboard served
-	// over plain HTTP on a LAN (a normal self-hosted setup) has none, so fall
-	// back to the legacy selection-based copy rather than fail on the one
-	// button that exists to unblock a verified restore.
-	const writeClipboard = useCallback(
-		async (text: string) => {
-			if (navigator.clipboard?.writeText) {
-				await navigator.clipboard.writeText(text);
-				return;
-			}
-			const holder = document.createElement("textarea");
-			holder.value = text;
-			holder.setAttribute("readonly", "");
-			holder.style.position = "fixed";
-			holder.style.opacity = "0";
-			document.body.appendChild(holder);
-			holder.select();
-			let copied: boolean;
-			try {
-				copied = document.execCommand("copy");
-			} finally {
-				document.body.removeChild(holder);
-			}
-			if (!copied) {
-				throw new Error(t("common.failedToCopy"));
-			}
-		},
-		[t],
-	);
-	// One clipboard path for the whole dashboard, with this page's fallback
-	// writer in front of it. The button reports through a toast, so the "Copied"
-	// flag is not tracked.
-	const { copy } = useCopyToClipboard({
-		write: writeClipboard,
-		trackCopied: false,
-	});
+	// One clipboard path for the whole dashboard (it carries the plain-HTTP
+	// fallback itself). The button reports through a toast, so the "Copied" flag
+	// is not tracked.
+	const { copy } = useCopyToClipboard({ trackCopied: false });
 
 	// Puts the backup's signature sidecar on the clipboard for the restore form.
 	// The download hands over the dump alone, so without shell access to the
@@ -208,6 +169,27 @@ export function useBackupActions() {
 		}
 	};
 
+	// After a restore the server restarts, so the dashboard polls its own API
+	// until it answers again. api.backups.list() throws on any non-2xx, so a
+	// clean return is the server being back.
+	const waitForServer = async () => {
+		pollingRef.current = true;
+		for (let attempt = 0; pollingRef.current && attempt < 60; attempt++) {
+			try {
+				await api.backups.list();
+				queryClient.invalidateQueries({ queryKey: ["backups"] });
+				toast(t("settings.backup.serverBackOnline"), "success");
+				return;
+			} catch {
+				// Server not up yet.
+			}
+			await new Promise((r) => setTimeout(r, 2000));
+		}
+		if (pollingRef.current) {
+			toast(t("settings.backup.serverRestarting"), "warning");
+		}
+	};
+
 	const downloadBackup = async (filename: string) => {
 		try {
 			const response = await fetch(api.backups.downloadUrl(filename), {
@@ -216,15 +198,7 @@ export function useBackupActions() {
 			if (!response.ok) {
 				throw new Error(`Download failed: ${response.status}`);
 			}
-			const blob = await response.blob();
-			const url = URL.createObjectURL(blob);
-			const a = document.createElement("a");
-			a.href = url;
-			a.download = filename;
-			document.body.appendChild(a);
-			a.click();
-			document.body.removeChild(a);
-			URL.revokeObjectURL(url);
+			downloadBlob(await response.blob(), filename);
 		} catch (err) {
 			toast(
 				t("settings.backup.downloadFailed", {
@@ -251,6 +225,7 @@ export function useBackupActions() {
 		fileInputRef,
 		pollingRef,
 		gfsLabel,
+		waitForServer,
 		createMutation,
 		deleteMutation,
 		settingsUpdateMutation,
@@ -263,7 +238,6 @@ export function useBackupActions() {
 		downloadBackup,
 		backups,
 		isLoading,
-		formatBytes,
 	};
 }
 

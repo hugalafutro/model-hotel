@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -37,7 +36,7 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 		}
 		// Lower-cased like the group lookup: the client's spelling of the
 		// group must not mint a series per casing.
-		metrics.RecordFailoverExhausted(strings.ToLower(strings.TrimPrefix(st.reqModel, "hotel/")), reason)
+		metrics.RecordFailoverExhausted(hotelGroupName(st.reqModel), reason)
 	} else {
 		debuglog.Error("proxy: provider request failed", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "request_timeout", st.failoverTimeout)
 	}

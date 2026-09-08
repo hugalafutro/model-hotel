@@ -181,14 +181,16 @@ func foldJSONSchema(raw map[string]any, modelID string, keepSchema bool) {
 			switch content := first["content"].(type) {
 			case string:
 				first["content"] = content + "\n\n" + instruction
+				return
 			case []any:
 				first["content"] = append(content, map[string]any{"type": "text", "text": instruction})
+				return
 			case nil:
 				first["content"] = instruction
-			default:
-				raw["messages"] = append([]any{map[string]any{"role": "system", "content": instruction}}, messages...)
+				return
 			}
-			return
+			// A content shape no text can be appended to: fall through and
+			// prepend a system turn of its own.
 		}
 	}
 	raw["messages"] = append([]any{map[string]any{"role": "system", "content": instruction}}, messages...)

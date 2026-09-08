@@ -6,15 +6,15 @@ import (
 	"os"
 	"strconv"
 	"strings"
-	"sync"
 	"time"
 )
 
-// CPU tracking state for computing container CPU percentage from cgroup v2.
+// Per-metric rate state. Each holds the previous cumulative reading for its
+// source so a rate can be computed from two samples.
 var (
-	CPUPrevUsage int64
-	CPUPrevTime  time.Time
-	CPUPrevMu    sync.Mutex
+	cpuRates  rateSampler
+	netRates  rateSampler
+	diskRates rateSampler
 )
 
 // File paths for cgroup/network stats (overridable in tests)
@@ -32,10 +32,12 @@ var (
 func ReadCgroupMemory() (current, limit int64, inContainer bool) {
 	currentBytes, err := os.ReadFile(cgroupMemoryCurrentFile)
 	if err == nil {
-		val := strings.TrimSpace(string(currentBytes))
-		if v, e := ParseInt(val); e == nil {
+		// A readable memory.current is what says we are in a cgroup; whether
+		// its contents parse is a separate question, and an unreadable value
+		// leaves the metric at 0 rather than reporting a number nobody wrote.
+		inContainer = true
+		if v, e := strconv.ParseInt(strings.TrimSpace(string(currentBytes)), 10, 64); e == nil {
 			current = v
-			inContainer = true
 		}
 	}
 
@@ -44,7 +46,7 @@ func ReadCgroupMemory() (current, limit int64, inContainer bool) {
 		val := strings.TrimSpace(string(limitBytes))
 		if val == "max" {
 			limit = 0
-		} else if v, e := ParseInt(val); e == nil {
+		} else if v, e := strconv.ParseInt(val, 10, 64); e == nil {
 			limit = v
 		}
 	}
@@ -80,50 +82,15 @@ func ReadCgroupCPU() float64 {
 		return -1
 	}
 
-	CPUPrevMu.Lock()
-	defer CPUPrevMu.Unlock()
-
-	if CPUPrevTime.IsZero() {
-		CPUPrevTime = time.Now()
-		CPUPrevUsage = usageUsec
+	rates, ok := cpuRates.Rates(time.Now(), usageUsec)
+	if !ok {
 		return 0
 	}
-
-	now := time.Now()
-	deltaTime := now.Sub(CPUPrevTime).Seconds()
-	deltaUsage := usageUsec - CPUPrevUsage
-
-	CPUPrevTime = now
-	CPUPrevUsage = usageUsec
-
-	if deltaTime <= 0 || deltaUsage < 0 {
-		return 0
-	}
-
-	// CPU percent = (cpu time used / wall time) * 100
-	// usage_usec is cumulative CPU microseconds across all cores.
-	// On a multi-core system this can exceed 100%.
-	percent := (float64(deltaUsage) / (deltaTime * 1_000_000)) * 100
-	if percent < 0 {
-		percent = 0
-	}
-	if percent > 999 {
-		percent = 999
-	}
-	return percent
+	// CPU percent = (cpu time used / wall time) * 100. usage_usec is cumulative
+	// CPU microseconds across all cores, so on a multi-core system this can
+	// exceed 100%.
+	return min(rates[0]/1_000_000*100, 999)
 }
-
-// NetPrevRxBytes tracks previous network receive bytes for rate calculation.
-var NetPrevRxBytes int64
-
-// NetPrevTxBytes tracks previous network transmit bytes for rate calculation.
-var NetPrevTxBytes int64
-
-// NetPrevTime tracks the previous network stats read time.
-var NetPrevTime time.Time
-
-// NetPrevMu protects network stats delta variables.
-var NetPrevMu sync.Mutex
 
 // ReadNetworkStats calculates network I/O rates from /proc/net/dev.
 func ReadNetworkStats() (rxBytesPerSec, txBytesPerSec float64) {
@@ -149,58 +116,20 @@ func ReadNetworkStats() (rxBytesPerSec, txBytesPerSec float64) {
 		if len(fields) < 10 {
 			continue
 		}
-		if rx, e := ParseInt(fields[0]); e == nil {
+		if rx, e := strconv.ParseInt(fields[0], 10, 64); e == nil {
 			totalRx += rx
 		}
-		if tx, e := ParseInt(fields[8]); e == nil {
+		if tx, e := strconv.ParseInt(fields[8], 10, 64); e == nil {
 			totalTx += tx
 		}
 	}
 
-	NetPrevMu.Lock()
-	defer NetPrevMu.Unlock()
-
-	if NetPrevTime.IsZero() {
-		NetPrevTime = time.Now()
-		NetPrevRxBytes = totalRx
-		NetPrevTxBytes = totalTx
+	rates, ok := netRates.Rates(time.Now(), totalRx, totalTx)
+	if !ok {
 		return 0, 0
 	}
-
-	now := time.Now()
-	deltaSec := now.Sub(NetPrevTime).Seconds()
-	deltaRx := totalRx - NetPrevRxBytes
-	deltaTx := totalTx - NetPrevTxBytes
-
-	NetPrevTime = now
-	NetPrevRxBytes = totalRx
-	NetPrevTxBytes = totalTx
-
-	if deltaSec <= 0 {
-		return 0, 0
-	}
-
-	if deltaRx > 0 {
-		rxBytesPerSec = float64(deltaRx) / deltaSec
-	}
-	if deltaTx > 0 {
-		txBytesPerSec = float64(deltaTx) / deltaSec
-	}
-
-	return rxBytesPerSec, txBytesPerSec
+	return rates[0], rates[1]
 }
-
-// DiskPrevReadBytes tracks previous disk read bytes for rate calculation.
-var DiskPrevReadBytes int64
-
-// DiskPrevWriteBytes tracks previous disk write bytes for rate calculation.
-var DiskPrevWriteBytes int64
-
-// DiskPrevTime tracks the previous disk stats read time.
-var DiskPrevTime time.Time
-
-// DiskPrevMu protects disk stats delta variables.
-var DiskPrevMu sync.Mutex
 
 // ReadCgroupDiskIO calculates disk I/O rates from cgroup io.stat.
 func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
@@ -216,48 +145,22 @@ func ReadCgroupDiskIO() (readBytesPerSec, writeBytesPerSec float64) {
 		line := scanner.Text()
 		for field := range strings.FieldsSeq(line) {
 			if after, ok := strings.CutPrefix(field, "rbytes="); ok {
-				if v, e := ParseInt(after); e == nil {
+				if v, e := strconv.ParseInt(after, 10, 64); e == nil {
 					totalRead += v
 				}
 			} else if after, ok := strings.CutPrefix(field, "wbytes="); ok {
-				if v, e := ParseInt(after); e == nil {
+				if v, e := strconv.ParseInt(after, 10, 64); e == nil {
 					totalWrite += v
 				}
 			}
 		}
 	}
 
-	DiskPrevMu.Lock()
-	defer DiskPrevMu.Unlock()
-
-	if DiskPrevTime.IsZero() {
-		DiskPrevTime = time.Now()
-		DiskPrevReadBytes = totalRead
-		DiskPrevWriteBytes = totalWrite
+	rates, ok := diskRates.Rates(time.Now(), totalRead, totalWrite)
+	if !ok {
 		return 0, 0
 	}
-
-	now := time.Now()
-	deltaSec := now.Sub(DiskPrevTime).Seconds()
-	deltaRead := totalRead - DiskPrevReadBytes
-	deltaWrite := totalWrite - DiskPrevWriteBytes
-
-	DiskPrevTime = now
-	DiskPrevReadBytes = totalRead
-	DiskPrevWriteBytes = totalWrite
-
-	if deltaSec <= 0 {
-		return 0, 0
-	}
-
-	if deltaRead > 0 {
-		readBytesPerSec = float64(deltaRead) / deltaSec
-	}
-	if deltaWrite > 0 {
-		writeBytesPerSec = float64(deltaWrite) / deltaSec
-	}
-
-	return readBytesPerSec, writeBytesPerSec
+	return rates[0], rates[1]
 }
 
 // ReadCgroupProcs counts processes in the current cgroup.
@@ -276,19 +179,6 @@ func ReadCgroupProcs() int {
 		}
 	}
 	return count
-}
-
-// ParseInt parses a string of digits into an int64 without using strconv
-// (useful for cgroup files where strconv may be overkill).
-func ParseInt(s string) (int64, error) {
-	var n int64
-	for _, c := range s {
-		if c < '0' || c > '9' {
-			break
-		}
-		n = n*10 + int64(c-'0')
-	}
-	return n, nil
 }
 
 // FormatBytes formats byte count in human-readable form with 1 decimal place

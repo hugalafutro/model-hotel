@@ -21,6 +21,7 @@ import type {
 } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { onActivateKey } from "../../utils/a11y";
 import { formatTokens } from "../../utils/format";
 import {
 	type EntryCircuitView,
@@ -162,12 +163,7 @@ export function FailoverGroupCard({
 					{/* biome-ignore lint/a11y/useSemanticElements: cannot change to <button> without altering layout */}
 					<div
 						onClick={handleCopyModel}
-						onKeyDown={(e) => {
-							if (e.key === "Enter" || e.key === " ") {
-								e.preventDefault();
-								handleCopyModel();
-							}
-						}}
+						onKeyDown={onActivateKey(handleCopyModel)}
 						role="button"
 						tabIndex={0}
 						className="flex items-center gap-1.5 min-w-0 select-none px-1.5 py-0.5 -mx-1.5 -my-0.5 rounded hover:bg-gray-700 transition-colors group cursor-default"

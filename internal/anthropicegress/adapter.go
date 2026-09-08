@@ -2,10 +2,7 @@ package anthropicegress
 
 import (
 	"io"
-	"strings"
 	"time"
-
-	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 )
@@ -29,6 +26,5 @@ type StreamAdapter = egress.StreamAdapter
 // NewStreamAdapter builds an adapter for one streaming response. model is
 // echoed in every emitted chunk (the model string the client requested).
 func NewStreamAdapter(upstream io.ReadCloser, model string) *StreamAdapter {
-	id := "chatcmpl-" + strings.ReplaceAll(uuid.NewString(), "-", "")
-	return egress.NewStreamAdapter("anthropicegress", upstream, NewStreamTranslator(id, model, time.Now().Unix()))
+	return egress.NewStreamAdapter("anthropicegress", upstream, NewStreamTranslator(egress.NewChatCompletionID(), model, time.Now().Unix()))
 }

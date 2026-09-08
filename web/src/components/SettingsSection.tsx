@@ -1,7 +1,7 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import type { LucideIcon } from "@/lib/icons";
-import { CollapsibleToggle } from "./CollapsibleToggle";
+import { CollapseBody, CollapsibleToggle } from "./CollapsibleToggle";
 import { ResetButton } from "./ResetButton";
 
 export interface SettingsSectionProps {
@@ -74,28 +74,19 @@ export function SettingsSection({
 					/>
 				</div>
 			</div>
-			<div
-				className={`grid transition-[grid-template-rows] duration-300 ease-in-out ${
-					collapsed ? "grid-rows-[0fr]" : "grid-rows-[1fr]"
-				}`}
-			>
-				{/* The clip wrapper the 0fr/1fr trick needs would also clip the
-				    Terminal theme's hover glow on buttons flush with the content
-				    edge, so when expanded the clip box gets a 1rem bleed (p-4
-				    cancelled by -m-4, so layout is unchanged). Collapsed keeps
-				    the tight box: padding is unsqueezable, so a bleed there
-				    would leave a visible band. */}
-				<div className={`overflow-hidden ${collapsed ? "" : "p-4 -m-4"}`}>
-					{managed && (
-						<p
-							id={noteId}
-							data-testid="managed-note"
-							className="mb-4 text-xs text-(--text-muted)"
-						>
-							{t("settings.managed.sectionNote")}
-						</p>
-					)}
-					{/* A disabled fieldset natively disables every form control it
+			{/* Bleed: the Terminal theme's hover glow on buttons flush with the
+			    content edge would otherwise be clipped by the collapse box. */}
+			<CollapseBody collapsed={collapsed} bleed>
+				{managed && (
+					<p
+						id={noteId}
+						data-testid="managed-note"
+						className="mb-4 text-xs text-(--text-muted)"
+					>
+						{t("settings.managed.sectionNote")}
+					</p>
+				)}
+				{/* A disabled fieldset natively disables every form control it
 					    wraps (inputs, toggles, sliders, save buttons), so synced
 					    settings cannot be edited locally while managed. The fieldset
 					    is always in the tree and only its disabled flag follows
@@ -105,16 +96,15 @@ export function SettingsSection({
 					    A legendless fieldset is an unnamed group to assistive tech, so
 					    the section heading names it and, while managed, the note
 					    above describes it. */}
-					<fieldset
-						disabled={managed}
-						aria-labelledby={headingId}
-						aria-describedby={managed ? noteId : undefined}
-						className="m-0 min-w-0 border-0 p-0"
-					>
-						{children}
-					</fieldset>
-				</div>
-			</div>
+				<fieldset
+					disabled={managed}
+					aria-labelledby={headingId}
+					aria-describedby={managed ? noteId : undefined}
+					className="m-0 min-w-0 border-0 p-0"
+				>
+					{children}
+				</fieldset>
+			</CollapseBody>
 		</div>
 	);
 }

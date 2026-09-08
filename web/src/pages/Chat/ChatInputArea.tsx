@@ -13,18 +13,18 @@ import {
 } from "@/lib/icons";
 import { ActionIconButton } from "../../components/ActionIconButton";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
+import { autoExpandTextarea } from "../../utils/dom";
 import { formatTokens } from "../../utils/format";
+import { shortModelName } from "../../utils/model";
 import type { ChatRefs, ChatView } from "./useChat";
 
 /** The chat-mode input bar, the conversation-mode stats panel below the messages, and the full-reset confirm dialog. */
 export function ChatInputArea({
 	chat,
-	lastPromptRef,
 	imageInputRef,
 	audioInputRef,
 }: {
 	chat: ChatView;
-	lastPromptRef: ChatRefs["lastPromptRef"];
 	imageInputRef: ChatRefs["imageInputRef"];
 	audioInputRef: ChatRefs["audioInputRef"];
 }) {
@@ -138,11 +138,7 @@ export function ChatInputArea({
 								value={chat.input}
 								onChange={(e) => {
 									chat.setInput(e.target.value);
-									e.target.style.height = "auto";
-									const el = e.target;
-									requestAnimationFrame(() => {
-										el.style.height = `${el.scrollHeight}px`;
-									});
+									autoExpandTextarea(e.target);
 								}}
 								onKeyDown={chat.handleKeyDown}
 								onPaste={chat.handlePaste}
@@ -213,7 +209,7 @@ export function ChatInputArea({
 							<p className="text-xs text-red-400">
 								{chat.lastChatError.model
 									? t("chat.modelError", {
-											model: chat.lastChatError.model.split("/").pop(),
+											model: shortModelName(chat.lastChatError.model),
 											error: chat.lastChatError.error,
 										})
 									: t("chat.generalError", {
@@ -272,13 +268,7 @@ export function ChatInputArea({
 										<ActionIconButton
 											icon={Eraser}
 											onClick={() => {
-												chat.clearConversationAbort();
-												chat.setMessages([]);
-												chat.setInput(lastPromptRef.current);
-												chat.setConversationState("idle");
-												chat.setCurrentTurn(0);
-												chat.setTurnCountdown(0);
-												chat.setIsStreaming(false);
+												chat.clearMessages();
 												chat.toast(t("chat.toast.conversationCleared"), "info");
 											}}
 											title={t("chat.clearLabel")}
@@ -310,19 +300,11 @@ export function ChatInputArea({
 							{chat.conversationState === "error" && (
 								<div className="flex items-center gap-2 text-xs text-red-400">
 									<span className="w-1.5 h-1.5 rounded-full bg-red-400 shrink-0" />
-									{(() => {
-										const lastErr = [...chat.messages]
-											.reverse()
-											.find((m) => m.error);
-										const modelPart = lastErr?.model
-											? lastErr.model.split("/").pop()
-											: "";
-										return modelPart
-											? t("chat.misc.generationFailed", {
-													model: modelPart,
-												})
-											: t("chat.misc.generationFailedNoModel");
-									})()}
+									{chat.failedConversationModel
+										? t("chat.misc.generationFailed", {
+												model: chat.failedConversationModel,
+											})
+										: t("chat.misc.generationFailedNoModel")}
 								</div>
 							)}
 						</div>
@@ -344,15 +326,8 @@ export function ChatInputArea({
 					fields={[]}
 					confirmLabel={t("chat.misc.resetAllConfirm")}
 					onConfirm={() => {
-						// Abort any running conversation
-						chat.clearConversationAbort();
+						chat.clearMessages(false);
 						chat.setControlsCollapsed(false);
-						chat.setMessages([]);
-						chat.setInput("");
-						chat.setConversationState("idle");
-						chat.setCurrentTurn(0);
-						chat.setTurnCountdown(0);
-						chat.setIsStreaming(false);
 						if (chat.chatSubMode === "chat") {
 							chat.setChatSelectedModel("");
 							chat.setChatSystemPrompt("");

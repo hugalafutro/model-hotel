@@ -2,12 +2,12 @@ package api
 
 import (
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/totp"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
@@ -165,8 +165,7 @@ func (h *Handler) UserTotpDisable(w http.ResponseWriter, r *http.Request) {
 	key := id.UserID.String()
 	if ok, retry := h.pwThrottle.Allowed(key); !ok {
 		debuglog.Warn("usertotp: disable throttled", "username", id.Username)
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
 	authorized, err := repo.DisableWithCode(r.Context(), req.Code)
@@ -197,9 +196,11 @@ func (h *Handler) ResetUserTotp(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "per-user TOTP is not available", http.StatusNotFound)
 		return
 	}
-	// Confirm the target exists so a typo'd id is a 404, not a silent no-op.
+	// Confirm the target exists so a typo'd id is a 404, not a silent no-op. A
+	// database failure stays a 500: reporting it as "user not found" would tell
+	// the operator the account is gone.
 	if _, err := h.userRepo.Get(r.Context(), id); err != nil {
-		http.Error(w, "user not found", http.StatusNotFound)
+		respondLookupError(w, err, user.ErrNotFound, "user not found", "failed to load user")
 		return
 	}
 	if err := h.userTotp(id).Disable(r.Context()); err != nil {

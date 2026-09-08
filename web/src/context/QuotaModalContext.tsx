@@ -1,46 +1,18 @@
+import type { QuotaProviderType } from "@web-shared/quota";
 import { createContext, type ReactNode, useContext, useState } from "react";
 
 interface QuotaModalContextType {
-	isNanoOpen: boolean;
-	setNanoOpen: (open: boolean) => void;
-	isZaiCodingOpen: boolean;
-	setZaiCodingOpen: (open: boolean) => void;
-	isKimiCodeOpen: boolean;
-	setKimiCodeOpen: (open: boolean) => void;
-	isMiniMaxOpen: boolean;
-	setMiniMaxOpen: (open: boolean) => void;
-	isOpenRouterOpen: boolean;
-	setOpenRouterOpen: (open: boolean) => void;
-	isNeuralwattOpen: boolean;
-	setNeuralwattOpen: (open: boolean) => void;
+	/** Which provider's quota modal is showing, or null for none. */
+	open: QuotaProviderType | null;
+	setOpen: (provider: QuotaProviderType | null) => void;
 }
 
 const QuotaModalContext = createContext<QuotaModalContextType | null>(null);
 
 export function QuotaModalProvider({ children }: { children: ReactNode }) {
-	const [isNanoOpen, setNanoOpen] = useState(false);
-	const [isZaiCodingOpen, setZaiCodingOpen] = useState(false);
-	const [isKimiCodeOpen, setKimiCodeOpen] = useState(false);
-	const [isMiniMaxOpen, setMiniMaxOpen] = useState(false);
-	const [isOpenRouterOpen, setOpenRouterOpen] = useState(false);
-	const [isNeuralwattOpen, setNeuralwattOpen] = useState(false);
+	const [open, setOpen] = useState<QuotaProviderType | null>(null);
 	return (
-		<QuotaModalContext.Provider
-			value={{
-				isNanoOpen,
-				setNanoOpen,
-				isZaiCodingOpen,
-				setZaiCodingOpen,
-				isKimiCodeOpen,
-				setKimiCodeOpen,
-				isMiniMaxOpen,
-				setMiniMaxOpen,
-				isOpenRouterOpen,
-				setOpenRouterOpen,
-				isNeuralwattOpen,
-				setNeuralwattOpen,
-			}}
-		>
+		<QuotaModalContext.Provider value={{ open, setOpen }}>
 			{children}
 		</QuotaModalContext.Provider>
 	);

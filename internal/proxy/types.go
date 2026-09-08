@@ -19,11 +19,8 @@ type ModelRepository interface {
 	ListEnabled(ctx context.Context) ([]*model.Model, error)
 	Upsert(ctx context.Context, model *model.Model) error
 	DeleteByID(ctx context.Context, id uuid.UUID) error
-	Get(ctx context.Context, id uuid.UUID) (*model.Model, error)
 	GetByIDs(ctx context.Context, ids []uuid.UUID) (map[uuid.UUID]*model.Model, error)
 	GetByProviderAndModelID(ctx context.Context, providerID uuid.UUID, modelID string) (*model.Model, error)
-	// SetEnabled toggles a model's enabled flag.
-	SetEnabled(ctx context.Context, id uuid.UUID, enabled bool) (*model.Model, error)
 	// AutoRetireIfConfirmed disables a model the provider has reported retired,
 	// staging the write so a model that answers while it is in flight never has
 	// a disabled state other sessions can act on.
@@ -443,17 +440,14 @@ type streamOptions struct {
 	model            string
 	circuitBreakerOn bool
 	// timing fields
-	proxyOverheadMs  float64
-	parseMs          float64
-	failoverLookupMs float64
-	modelLookupMs    float64
-	providerLookupMs float64
-	keyDecryptMs     float64
-	dialMs           float64
-	settingsReadMs   float64
-	vkHash           string
-	attempt          int
-	cancelOrigin     string
+	proxyOverheadMs float64
+	parseMs         float64
+	// timings carries the six resolve-phase measurements the terminal write
+	// stamps onto the row. Both constructors have st.timings in hand.
+	timings      resolveTimings
+	vkHash       string
+	attempt      int
+	cancelOrigin string
 	// rawPassthrough forwards each data chunk verbatim instead of parsing it as
 	// an OpenAI chunk and applying the transforms. Set for the native Anthropic
 	// /v1/messages passthrough path, whose stream is already Anthropic-shaped.
@@ -572,4 +566,15 @@ type Usage struct {
 	// cost and is_byok, provider-specific token breakdowns, ...) so they survive
 	// the non-streaming decode + re-encode.
 	Extra jsonExtras `json:"-"`
+}
+
+// applyTimings stamps the six resolve-phase measurements onto the row. Every
+// terminal write goes through it, so no path can stamp five of six.
+func (d *requestLogData) applyTimings(t resolveTimings) {
+	d.failoverLookupMs = t.failoverLookupMs
+	d.modelLookupMs = t.modelLookupMs
+	d.providerLookupMs = t.providerLookupMs
+	d.keyDecryptMs = t.keyDecryptMs
+	d.dialMs = t.dialMs
+	d.settingsReadMs = t.settingsReadMs
 }

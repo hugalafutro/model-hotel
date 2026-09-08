@@ -160,7 +160,7 @@ func TestHandleNonStreamingResponse_Success(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -220,7 +220,7 @@ func TestHandleNonStreamingResponse_Non200Status(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -277,7 +277,7 @@ func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -334,7 +334,7 @@ func TestHandleNonStreamingResponse_EmptyBody(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -410,7 +410,7 @@ func TestHandleNonStreamingResponse_WithVirtualKeyHash(t *testing.T) {
 
 	vkHash := "test-vk-hash-abc123"
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, vkHash, 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, vkHash, 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -471,7 +471,7 @@ func TestHandleNonStreamingResponse_WithReasoningContent(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -538,7 +538,7 @@ func TestHandleNonStreamingResponse_ReasoningFieldNormalized(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -605,7 +605,7 @@ func TestHandleNonStreamingResponse_ReasoningDetailsNormalized(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -668,7 +668,7 @@ func TestHandleNonStreamingResponse_ThinkingTagsNormalized(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -741,7 +741,7 @@ func TestHandleNonStreamingResponse_EncodeError(t *testing.T) {
 	logData.insertWg.Add(1)
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	// Encode error is logged but not propagated; state was already set to "completed" before the write attempt
 	// State should be completed since JSON parsed successfully
@@ -832,7 +832,7 @@ func TestHandleNonStreamingResponse_AddTokensCalled(t *testing.T) {
 
 	vkHash := "test-vk-hash"
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, vkHash, 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, vkHash, 1)
 
 	if len(mockVKRepo.addTokensCalls) != 1 {
 		t.Errorf("expected AddTokens to be called once, got %d calls", len(mockVKRepo.addTokensCalls))
@@ -916,7 +916,7 @@ func TestHandleNonStreamingResponse_AnthropicCacheTokens(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -991,7 +991,7 @@ func TestHandleNonStreamingResponse_AnthropicCacheNegativeMiss(t *testing.T) {
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -1049,7 +1049,7 @@ func TestHandleNonStreamingResponse_AnthropicCacheOpenAITakesPrecedence(t *testi
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -1136,7 +1136,7 @@ func TestHandleNonStreamingResponse_PromptTokensDetailsCachedTokens(t *testing.T
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()
@@ -1236,7 +1236,7 @@ func TestHandleNonStreamingResponse_PromptTokensDetailsNegativeMiss(t *testing.T
 	}
 
 	startTime := time.Now()
-	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, 0, 0, 0, 0, 0, 0, 0, "", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, startTime, 0, 0, resolveTimings{}, 0, "", 1)
 
 	result := w.Result()
 	defer result.Body.Close()

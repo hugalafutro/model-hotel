@@ -1,4 +1,5 @@
 import { Spinner } from "../../components/Spinner";
+import { onActivateKey } from "../../utils/a11y";
 import { AnimatedValue } from "./AnimatedValue";
 
 export function StatCard({
@@ -32,16 +33,7 @@ export function StatCard({
 			className={`ui-card p-5 group text-left w-full ${onClick ? "cursor-pointer hover:brightness-110 transition-all" : ""}`}
 			role={onClick ? "button" : undefined}
 			tabIndex={onClick ? 0 : undefined}
-			onKeyDown={
-				onClick
-					? (e) => {
-							if (e.key === "Enter" || e.key === " ") {
-								e.preventDefault();
-								onClick();
-							}
-						}
-					: undefined
-			}
+			onKeyDown={onClick ? onActivateKey(onClick) : undefined}
 		>
 			<div className="flex items-center justify-between mb-2">
 				<div

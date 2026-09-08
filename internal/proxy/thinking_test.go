@@ -232,61 +232,6 @@ func TestNormalizeReasoningFields_EmptyDelta(t *testing.T) {
 	}
 }
 
-func TestNormalizeMessageReasoning_ReasoningToReasoningContent(t *testing.T) {
-	msg := map[string]any{
-		"role":      "assistant",
-		"content":   "The answer",
-		"reasoning": "My thought process",
-	}
-
-	changed := NormalizeMessageReasoning(msg)
-	if !changed {
-		t.Error("expected changed=true")
-	}
-	if msg["reasoning_content"] != "My thought process" {
-		t.Errorf("reasoning_content = %v, want 'My thought process'", msg["reasoning_content"])
-	}
-}
-
-func TestNormalizeMessageReasoning_ReasoningDetailsToReasoningContent(t *testing.T) {
-	msg := map[string]any{
-		"role":    "assistant",
-		"content": "",
-		"reasoning_details": []any{
-			map[string]any{
-				"type": "reasoning.text",
-				"text": "Structured reasoning",
-			},
-		},
-	}
-
-	changed := NormalizeMessageReasoning(msg)
-	if !changed {
-		t.Error("expected changed=true")
-	}
-	if msg["reasoning_content"] != "Structured reasoning" {
-		t.Errorf("reasoning_content = %v, want 'Structured reasoning'", msg["reasoning_content"])
-	}
-}
-
-func TestNormalizeMessageReasoning_ThinkingTagsInContent(t *testing.T) {
-	msg := map[string]any{
-		"role":    "assistant",
-		"content": "<thinking>Hidden reasoning</thinking>Visible answer",
-	}
-
-	changed := NormalizeMessageReasoning(msg)
-	if !changed {
-		t.Error("expected changed=true")
-	}
-	if msg["reasoning_content"] != "Hidden reasoning" {
-		t.Errorf("reasoning_content = %v, want 'Hidden reasoning'", msg["reasoning_content"])
-	}
-	if msg["content"] != "Visible answer" {
-		t.Errorf("content = %v, want 'Visible answer'", msg["content"])
-	}
-}
-
 // TestExtractThinking_FenceAndUnclosedTag covers the streaming edge where a
 // fence block is followed by an open thinking tag that has not closed yet: the
 // fence reasoning and the partial tag body are concatenated and the content is

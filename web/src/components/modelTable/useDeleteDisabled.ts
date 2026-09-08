@@ -2,6 +2,7 @@ import { useCallback, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { errorMessage } from "../../utils/errors";
 import { loadAllDisabledModels } from "./modelCursor";
 
 /**
@@ -22,7 +23,7 @@ export function useDeleteDisabled(filters: Record<string, string | undefined>) {
 		} catch (err) {
 			toast(
 				t("components.virtualModelTable.deleteDisabledLoadFailed", {
-					message: err instanceof Error ? err.message : String(err),
+					message: errorMessage(err),
 				}),
 				"error",
 			);

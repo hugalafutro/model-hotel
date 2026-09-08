@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { todayISO, toISODate } from "../components/AccentCalendar.utils";
+import { useClickOutside } from "./useClickOutside";
 
 /* =========================================================
    Shared date range picker state and logic
@@ -12,24 +13,12 @@ export function useDateRangePicker(onFilterChange?: () => void) {
 	const [pendingTo, setPendingTo] = useState("");
 	const datePickerRef = useRef<HTMLDivElement>(null);
 
-	useEffect(() => {
-		function handleClickOutside(e: MouseEvent) {
-			if (
-				datePickerRef.current &&
-				!datePickerRef.current.contains(e.target as Node)
-			) {
-				setShowDatePicker(false);
-			}
-		}
-		if (showDatePicker) {
-			document.addEventListener("mousedown", handleClickOutside);
-			return () =>
-				document.removeEventListener("mousedown", handleClickOutside);
-		}
-	}, [showDatePicker]);
+	useClickOutside(datePickerRef, () => setShowDatePicker(false), {
+		enabled: showDatePicker,
+	});
 
 	const handleCalendarSelect = (dStr: string) => {
-		if (!pendingFrom || (pendingFrom && pendingTo)) {
+		if (!pendingFrom || pendingTo) {
 			setPendingFrom(dStr);
 			setPendingTo("");
 		} else if (dStr < pendingFrom) {
@@ -82,16 +71,14 @@ export function useDateRangePicker(onFilterChange?: () => void) {
 
 	const hasDateFilter = !!dateFrom && !!dateTo;
 
-	const now = new Date();
 	// Append T00:00:00 so the date-only string is parsed as local time
 	// rather than UTC (per ECMAScript spec, bare "YYYY-MM-DD" parses as
 	// UTC midnight, which shifts the month on the 1st in UTC-X offsets).
-	const pickerYear = showDatePicker
-		? new Date(`${pendingFrom || todayISO()}T00:00:00`).getFullYear()
-		: now.getFullYear();
-	const pickerMonth = showDatePicker
-		? new Date(`${pendingFrom || todayISO()}T00:00:00`).getMonth()
-		: now.getMonth();
+	const pickerDate = showDatePicker
+		? new Date(`${pendingFrom || todayISO()}T00:00:00`)
+		: new Date();
+	const pickerYear = pickerDate.getFullYear();
+	const pickerMonth = pickerDate.getMonth();
 
 	return {
 		dateFrom,

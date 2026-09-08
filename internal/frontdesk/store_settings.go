@@ -53,14 +53,6 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 	if set.SessionIdleTimeoutMinutes < 0 || set.SessionIdleTimeoutMinutes > 240 {
 		return fmt.Errorf("%w: session idle timeout must be between 0 and 240 minutes", ErrValidation)
 	}
-	alertEnabled := 0
-	if set.AlertEnabled {
-		alertEnabled = 1
-	}
-	oidcEnabled := 0
-	if set.OidcEnabled {
-		oidcEnabled = 1
-	}
 	// AlertAppriseTargets and OidcClientSecret are written as-is: the HTTP layer has
 	// already encrypted a new value or preserved the existing ciphertext for a
 	// masked submission.
@@ -72,8 +64,8 @@ func (s *Store) UpdateSettings(ctx context.Context, set Settings) error {
 		 oidc_public_base_url = ?, oidc_allowed_emails = ? WHERE id = 1`,
 		set.HealthPollSecs, set.TraefikPollSecs, set.TraefikStaleSecs,
 		set.EventRetentionDays, set.RetryAttempts, set.HealthFailThreshold, set.SessionIdleTimeoutMinutes,
-		alertEnabled, set.AlertAppriseAPIURL, set.AlertAppriseTargets, set.AlertEvents,
-		oidcEnabled, set.OidcIssuerURL, set.OidcClientID, set.OidcClientSecret,
+		boolToInt(set.AlertEnabled), set.AlertAppriseAPIURL, set.AlertAppriseTargets, set.AlertEvents,
+		boolToInt(set.OidcEnabled), set.OidcIssuerURL, set.OidcClientID, set.OidcClientSecret,
 		set.OidcPublicBaseURL, set.OidcAllowedEmails,
 	)
 	if err != nil {
@@ -131,22 +123,6 @@ func (s *Store) GetAutoSync(ctx context.Context) (AutoSyncConfig, error) {
 	}
 	cfg.Enabled = enabled != 0
 	return cfg, nil
-}
-
-// SetAutoSync persists the operator's auto-sync choice (enabled + designated
-// primary) and bumps the rearm generation in the same write: enabling or
-// repointing redefines what the fleet should hold, so a pass in flight for the old
-// primary must abort rather than finish pushing a config just replaced.
-func (s *Store) SetAutoSync(ctx context.Context, enabled bool, primaryID string) error {
-	_, err := s.db.ExecContext(ctx,
-		`UPDATE settings SET auto_sync_enabled = ?, auto_sync_primary_id = ?,
-			auto_sync_gen = auto_sync_gen + 1 WHERE id = 1`,
-		boolToInt(enabled), primaryID,
-	)
-	if err != nil {
-		return fmt.Errorf("frontdesk: set auto-sync: %w", err)
-	}
-	return nil
 }
 
 // SetAutoSyncGuarded persists the auto-sync choice while enforcing the repoint

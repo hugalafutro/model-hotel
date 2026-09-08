@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -156,11 +155,7 @@ func stripLevelPrefix(msg string) string {
 func filterEntriesAfter(entries []AppLogEntry, after string) []AppLogEntry {
 	t, err := time.Parse(time.RFC3339Nano, after)
 	if err != nil {
-		// Try the more common RFC3339 layout as a fallback.
-		t, err = time.Parse(time.RFC3339, after)
-		if err != nil {
-			return entries
-		}
+		return entries
 	}
 	for i, e := range entries {
 		et, err := time.Parse(time.RFC3339Nano, e.Timestamp)
@@ -355,7 +350,7 @@ func appendAppLogFilters(conditions []string, args []any, argIdx int, level, sou
 // app_logs. The operator is "<" when (direction=="after") == (sortDir=="DESC")
 // — scrolling older in desc, or "before" in asc — and ">" otherwise, collapsing
 // the four inlined (direction, sortDir) branches into one template.
-func appendAppLogKeysetPredicate(conditions []string, args []any, argIdx int, cursor appLogCursor, direction, sortDir string) ([]string, []any, int) {
+func appendAppLogKeysetPredicate(conditions []string, args []any, argIdx int, cursor logCursor, direction, sortDir string) ([]string, []any, int) {
 	op := ">"
 	if (direction == "after") == (sortDir == "DESC") {
 		op = "<"
@@ -393,17 +388,6 @@ func scanAppLogRow(rows pgx.CollectableRow) (AppLogEntry, error) {
 	return e, nil
 }
 
-// countAppLogs returns the total app_logs row count for the request's filters
-// (no keyset predicate). The cursor endpoint treats it as best-effort (ignores
-// the error); getAppLogsHistory surfaces the error.
-func (h *Handler) countAppLogs(ctx context.Context, q url.Values) (int, error) {
-	conditions, args, _ := appendAppLogFilters(nil, nil, 1,
-		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
-	var total int
-	err := h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM app_logs"+appLogWhereClause(conditions), args...).Scan(&total)
-	return total, err
-}
-
 // sumAppLogCounts returns the unfiltered app_logs row count as the sum of the
 // per-level counts.
 func sumAppLogCounts(levelCounts map[string]int) int {
@@ -422,51 +406,40 @@ func sumAppLogCounts(levelCounts map[string]int) int {
 // hit ratio. Only a genuinely filtered request runs a (smaller, index-backed)
 // COUNT, where an exact, fresh total still matters.
 func (h *Handler) appLogTotal(ctx context.Context, q url.Values, levelCounts map[string]int) (int, error) {
-	conditions, _, _ := appendAppLogFilters(nil, nil, 1,
+	conditions, args, _ := appendAppLogFilters(nil, nil, 1,
 		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 	if len(conditions) == 0 {
 		return sumAppLogCounts(levelCounts), nil
 	}
-	return h.countAppLogs(ctx, q)
+	var total int
+	err := h.dbPool.Pool().QueryRow(ctx, "SELECT COUNT(*) FROM app_logs"+appLogWhereClause(conditions), args...).Scan(&total)
+	return total, err
 }
 
 // appLogCursorParams holds the parsed, validated inputs for GetAppLogsCursor.
 type appLogCursorParams struct {
 	limit     int
 	cursorStr string
-	cursor    appLogCursor
+	cursor    logCursor
 	direction string
 	sortDir   string
 }
 
-// parseAppLogCursorParams reads and validates the cursor query parameters: limit
-// clamp ([1,200], default 20), direction (after default), sort_dir (DESC
-// default), and the cursor (decode error → 400).
+// parseAppLogCursorParams reads and validates the cursor query parameters:
+// the shared limit/direction/cursor set plus sort_dir (DESC default).
 func parseAppLogCursorParams(w http.ResponseWriter, q url.Values) (appLogCursorParams, bool) {
+	limit, cursorStr, direction, cursor, ok := cursorPageParams(w, q, 20, 200)
 	p := appLogCursorParams{
-		limit:     20,
-		cursorStr: q.Get("cursor"),
-		direction: q.Get("direction"),
+		limit:     limit,
+		cursorStr: cursorStr,
+		cursor:    cursor,
+		direction: direction,
 		sortDir:   "DESC",
-	}
-	if v := q.Get("limit"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= 200 {
-			p.limit = n
-		}
-	}
-	if p.direction != "before" && p.direction != "after" {
-		p.direction = "after"
 	}
 	if q.Get("sort_dir") == "asc" {
 		p.sortDir = "ASC"
 	}
-	if p.cursorStr != "" {
-		if err := p.cursor.decode(p.cursorStr); err != nil {
-			respondBadRequest(w, "invalid cursor", err)
-			return p, false
-		}
-	}
-	return p, true
+	return p, ok
 }
 
 // buildAppLogCursorQuery assembles the cursor data query: shared filters + keyset
@@ -601,25 +574,6 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// appLogCursor is the keyset cursor for cursor-based app log pagination.
-type appLogCursor struct {
-	CreatedAt time.Time `json:"created_at"`
-	ID        string    `json:"id"`
-}
-
-func (c *appLogCursor) encode() string {
-	b, _ := json.Marshal(c)
-	return base64.StdEncoding.EncodeToString(b)
-}
-
-func (c *appLogCursor) decode(s string) error {
-	b, err := base64.StdEncoding.DecodeString(s)
-	if err != nil {
-		return fmt.Errorf("invalid base64: %w", err)
-	}
-	return json.Unmarshal(b, c)
-}
-
 // AppLogsCursorResponse is the cursor-based paginated response for app logs.
 type AppLogsCursorResponse struct {
 	Entries      []AppLogEntry  `json:"entries"`
@@ -635,7 +589,8 @@ type AppLogsCursorResponse struct {
 // Query parameters:
 //   - cursor: encoded cursor from a previous response
 //   - direction: "after" (default) or "before"
-//   - limit: page size (default 20, max 200)
+//   - limit: page size (default 20). A value outside [1, 200] is clamped to the
+//     nearest bound, so limit=0 returns one row and limit=100000 returns 200.
 //   - level, source, search, from, to: same filters as getAppLogsHistory
 //   - sort_dir: "desc" (default) or "asc"
 func (h *Handler) GetAppLogsCursor(w http.ResponseWriter, r *http.Request) {

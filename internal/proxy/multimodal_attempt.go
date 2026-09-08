@@ -2,9 +2,7 @@ package proxy
 
 import (
 	"context"
-	"io"
 	"net/http"
-	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -53,7 +51,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	h.finishAttemptAdmission(st, candidate, resp)
 	logData.noteAttemptStatus(resp.StatusCode)
 
-	responseHeaderMs := float64(time.Since(st.startTime).Microseconds()) / 1000.0
+	responseHeaderMs := util.MillisSince(st.startTime)
 	hasMoreCandidates := attempt < totalCandidates-1
 	isFailoverEligible := h.shouldFailover(r.Context(), resp.StatusCode)
 
@@ -61,25 +59,10 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 
 	if isFailoverEligible {
 		if hasMoreCandidates {
-			// The body is discarded anyway, so classify it on the way out: a
-			// retired model usually answers 404, which is failover-eligible, so
-			// without this the "model gone" signal is lost whenever there is
-			// another candidate to fall back to. The read is capped because on
-			// multimodal endpoints the body behind an error status can be an
-			// image payload rather than a sentence.
-			drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
-			_, _ = io.Copy(io.Discard, resp.Body)
-			_ = resp.Body.Close()
-			drainedMsg := util.SanitizeLogBody(string(drained), 10000)
-			kind, _ := classifyUpstreamError(resp.StatusCode, drainedMsg, candidate.model.ModelID)
-			if kind == KindProviderModelGone {
-				h.noteModelGone(candidate, logData.endpointType)
-			}
-			st.setReqErr(failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode))
-			debuglog.Info("proxy: failover triggered", "endpoint", logData.endpointType, "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "rate_limit_class", rl.class.String())
-			logData.failoverAttempt = attempt
-			logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, drainedMsg, rl.phrase, 0)
-			return outcomeFailover
+			// The read is capped because on multimodal endpoints the body
+			// behind an error status can be an image payload rather than a
+			// sentence.
+			return h.failOverPastCandidate(st, candidate, resp, attempt, rl, "endpoint", logData.endpointType)
 		}
 		// The last candidate's one-shot retries, the same as the chat path.
 		if outcome, ok := h.deferLastCandidateRetry(st, candidate, resp, attempt, rl); ok {

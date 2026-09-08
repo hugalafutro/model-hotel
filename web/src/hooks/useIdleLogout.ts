@@ -1,8 +1,7 @@
-import { useQuery } from "@tanstack/react-query";
 import { startIdleLogout } from "@web-shared/idle-logout";
 import { useEffect, useRef } from "react";
-import { api } from "../api/client";
 import { SETTING_DEFAULTS } from "../pages/Settings/defaults";
+import { useSettingsQuery } from "./useSettingsQuery";
 
 /**
  * useIdleLogout signs the admin out after a configurable period of inactivity.
@@ -15,10 +14,7 @@ import { SETTING_DEFAULTS } from "../pages/Settings/defaults";
  * exists.
  */
 export function useIdleLogout(onLogout: () => void) {
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
+	const { data: settings } = useSettingsQuery();
 
 	const minutes = Number(
 		settings?.session_idle_timeout_minutes ??

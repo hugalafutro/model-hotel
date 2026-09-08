@@ -6,14 +6,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // logEntrySelectColumns is the shared 38-column request_logs projection plus the
@@ -64,7 +63,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 
 	args := []any{}
 	argIndex := 1
-	query, args, argIndex = appendLogFilters(query, args, argIndex, p.modelID, p.providerID, p.virtualKeyID, p.clientIP, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID, p.attemptProviderID, p.attemptStatus)
+	query, args, argIndex = appendLogFilters(query, args, argIndex, p.logFilters)
 	if p.cursorStr != "" {
 		query, args, argIndex = appendKeysetPredicate(query, args, argIndex, p.cursor, p.direction, p.sortDir)
 	}
@@ -78,7 +77,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 		}
 	}
 	query += " ORDER BY rl.created_at " + fetchSortDir + ", rl.id " + fetchSortDir
-	query += " LIMIT $" + util.IntToStr(argIndex)
+	query += " LIMIT $" + strconv.Itoa(argIndex)
 	args = append(args, p.limit+1)
 	return query, args
 }
@@ -89,7 +88,7 @@ func buildLogListQuery(p logListParams) (string, []any) {
 func (h *Handler) countLogs(ctx context.Context, p logListParams) int {
 	query := "SELECT COUNT(*) FROM request_logs rl WHERE 1=1"
 	args := []any{}
-	query, args, _ = appendLogFilters(query, args, 1, p.modelID, p.providerID, p.virtualKeyID, p.clientIP, p.statusCode, p.fromDate, p.toDate, p.endpointType, p.ownerUserID, p.attemptProviderID, p.attemptStatus)
+	query, args, _ = appendLogFilters(query, args, 1, p.logFilters)
 	var total int
 	_ = h.dbPool.Pool().QueryRow(ctx, query, args...).Scan(&total)
 	return total
@@ -172,7 +171,7 @@ func scanLogEntry(rows pgx.CollectableRow) (LogEntry, error) {
 // fragments, returning the extended query, args, and next placeholder index. It
 // is the single source of truth for both the data and count queries in
 // ListLogsCursor, so a negative status_code is ignored uniformly.
-func appendLogFilters(query string, args []any, argIndex int, modelID, providerID, virtualKeyID, clientIP, statusCodeStr, fromDate, toDate, endpointType, ownerUserID, attemptProviderID, attemptStatus string) (string, []any, int) {
+func appendLogFilters(query string, args []any, argIndex int, f logFilters) (string, []any, int) {
 	// Owner scope first: mandatory row-level security for non-admins, an optional
 	// dashboard filter for admins. The two branches cover the two disjoint row
 	// shapes. A KEYED row resolves through the key's CURRENT owner, so reassigning
@@ -180,74 +179,74 @@ func appendLogFilters(query string, args []any, argIndex int, modelID, providerI
 	// which have no key to join through) carries the owner stamped at request time
 	// in request_logs.owner_user_id, written only for that shape. Rows with NULL on
 	// both sides stay admin-only.
-	if ownerUserID != "" {
-		ph := util.IntToStr(argIndex)
+	if f.ownerUserID != "" {
+		ph := strconv.Itoa(argIndex)
 		query += " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $" + ph + ")" +
 			" OR (rl.virtual_key_id IS NULL AND rl.owner_user_id = $" + ph + "))"
-		args = append(args, ownerUserID)
+		args = append(args, f.ownerUserID)
 		argIndex++
 	}
-	if modelID != "" {
-		query += " AND rl.model_id ILIKE $" + util.IntToStr(argIndex)
-		args = append(args, "%"+modelID+"%")
+	if f.modelID != "" {
+		query += " AND rl.model_id ILIKE $" + strconv.Itoa(argIndex)
+		args = append(args, "%"+f.modelID+"%")
 		argIndex++
 	}
-	if isValidEndpointType(endpointType) {
-		query += " AND COALESCE(rl.endpoint_type, 'chat') = $" + util.IntToStr(argIndex)
-		args = append(args, endpointType)
+	if isValidEndpointType(f.endpointType) {
+		query += " AND COALESCE(rl.endpoint_type, 'chat') = $" + strconv.Itoa(argIndex)
+		args = append(args, f.endpointType)
 		argIndex++
 	}
-	if providerID != "" {
-		providerUUID, err := uuid.Parse(providerID)
+	if f.providerID != "" {
+		providerUUID, err := uuid.Parse(f.providerID)
 		if err == nil {
-			query += " AND rl.provider_id = $" + util.IntToStr(argIndex)
+			query += " AND rl.provider_id = $" + strconv.Itoa(argIndex)
 			args = append(args, providerUUID)
 			argIndex++
 		}
 	}
-	if virtualKeyID != "" {
-		vkUUID, err := uuid.Parse(virtualKeyID)
+	if f.virtualKeyID != "" {
+		vkUUID, err := uuid.Parse(f.virtualKeyID)
 		if err == nil {
-			query += " AND rl.virtual_key_id = $" + util.IntToStr(argIndex)
+			query += " AND rl.virtual_key_id = $" + strconv.Itoa(argIndex)
 			args = append(args, vkUUID)
 			argIndex++
 		}
 	}
-	if clientIP != "" {
-		query += " AND rl.client_ip = $" + util.IntToStr(argIndex)
-		args = append(args, clientIP)
+	if f.clientIP != "" {
+		query += " AND rl.client_ip = $" + strconv.Itoa(argIndex)
+		args = append(args, f.clientIP)
 		argIndex++
 	}
-	if statusCodeStr != "" {
-		if statusCodeStr == "4xx" {
+	if f.statusCode != "" {
+		if f.statusCode == "4xx" {
 			query += " AND rl.status_code >= 400 AND rl.status_code < 500"
-		} else if statusCodeStr == "5xx" {
+		} else if f.statusCode == "5xx" {
 			query += " AND rl.status_code >= 500"
-		} else if statusCode, err := strconv.Atoi(statusCodeStr); err == nil && statusCode >= 0 {
+		} else if statusCode, err := strconv.Atoi(f.statusCode); err == nil && statusCode >= 0 {
 			if statusCode == 0 {
 				query += " AND (rl.status_code = 0 OR rl.status_code IS NULL)"
 			} else {
-				query += " AND rl.status_code = $" + util.IntToStr(argIndex)
+				query += " AND rl.status_code = $" + strconv.Itoa(argIndex)
 				args = append(args, statusCode)
 				argIndex++
 			}
 		}
 	}
-	if fromDate != "" {
-		if parsedFrom, err := time.Parse(time.RFC3339, fromDate); err == nil {
-			query += " AND rl.created_at >= $" + util.IntToStr(argIndex)
+	if f.fromDate != "" {
+		if parsedFrom, err := time.Parse(time.RFC3339, f.fromDate); err == nil {
+			query += " AND rl.created_at >= $" + strconv.Itoa(argIndex)
 			args = append(args, parsedFrom)
 			argIndex++
 		}
 	}
-	if toDate != "" {
-		if parsedTo, err := time.Parse(time.RFC3339, toDate); err == nil {
-			query += " AND rl.created_at <= $" + util.IntToStr(argIndex)
+	if f.toDate != "" {
+		if parsedTo, err := time.Parse(time.RFC3339, f.toDate); err == nil {
+			query += " AND rl.created_at <= $" + strconv.Itoa(argIndex)
 			args = append(args, parsedTo)
 			argIndex++
 		}
 	}
-	return appendAttemptFilter(query, args, argIndex, attemptProviderID, attemptStatus)
+	return appendAttemptFilter(query, args, argIndex, f.attemptProviderID, f.attemptStatus)
 }
 
 // appendAttemptFilter adds the per-attempt trail filter: "every request in which
@@ -275,7 +274,7 @@ func appendAttemptFilter(query string, args []any, argIndex int, attemptProvider
 	if err != nil {
 		return query, args, argIndex
 	}
-	query += " AND rl.attempts @> $" + util.IntToStr(argIndex) + "::jsonb"
+	query += " AND rl.attempts @> $" + strconv.Itoa(argIndex) + "::jsonb"
 	args = append(args, string(needle))
 	argIndex++
 	return query, args, argIndex
@@ -302,9 +301,9 @@ func appendKeysetPredicate(query string, args []any, argIndex int, cursor logCur
 	if (direction == "after") == (sortDir == "desc") {
 		op = "<"
 	}
-	query += " AND (rl.created_at " + op + " $" + util.IntToStr(argIndex) +
-		" OR (rl.created_at = $" + util.IntToStr(argIndex+1) +
-		" AND rl.id " + op + " $" + util.IntToStr(argIndex+2) + "))"
+	query += " AND (rl.created_at " + op + " $" + strconv.Itoa(argIndex) +
+		" OR (rl.created_at = $" + strconv.Itoa(argIndex+1) +
+		" AND rl.id " + op + " $" + strconv.Itoa(argIndex+2) + "))"
 	args = append(args, cursor.CreatedAt, cursor.CreatedAt, cursor.ID)
 	argIndex += 3
 	return query, args, argIndex
@@ -314,11 +313,18 @@ func appendKeysetPredicate(query string, args []any, argIndex int, cursor logCur
 // endpoint: limit clamped to [1,200], direction/sortDir defaulted, filters, and
 // the decoded cursor.
 type logListParams struct {
-	limit        int
-	cursorStr    string
-	cursor       logCursor
-	direction    string
-	sortDir      string
+	limit     int
+	cursorStr string
+	cursor    logCursor
+	direction string
+	sortDir   string
+	logFilters
+}
+
+// logFilters is the set of request_logs WHERE fragments both log endpoints
+// accept. It travels as one value so the offset list, the cursor list and the
+// count query cannot drift apart on which filters they honour.
+type logFilters struct {
 	ownerUserID  string
 	modelID      string
 	providerID   string
@@ -334,46 +340,67 @@ type logListParams struct {
 	attemptStatus     string
 }
 
+// parseLogFilters reads every request_logs filter the log endpoints accept,
+// including the mandatory owner scope for non-admins.
+func parseLogFilters(r *http.Request) logFilters {
+	q := r.URL.Query()
+	return logFilters{
+		ownerUserID:       logOwnerScope(r),
+		modelID:           q.Get("model_id"),
+		providerID:        q.Get("provider_id"),
+		virtualKeyID:      q.Get("virtual_key_id"),
+		clientIP:          q.Get("client_ip"),
+		statusCode:        q.Get("status_code"),
+		fromDate:          q.Get("from"),
+		toDate:            q.Get("to"),
+		endpointType:      q.Get("endpoint_type"),
+		attemptProviderID: q.Get("attempt_provider_id"),
+		attemptStatus:     q.Get("attempt_status"),
+	}
+}
+
+// cursorPageParams reads the pagination inputs every keyset endpoint shares:
+// limit clamped to [1, maxLimit] (an absent or unparseable value takes
+// defaultLimit), direction defaulted to "after", and the decoded cursor. An
+// undecodable cursor writes a 400 and returns ok=false.
+func cursorPageParams(w http.ResponseWriter, q url.Values, defaultLimit, maxLimit int) (limit int, cursorStr, direction string, cursor logCursor, ok bool) {
+	limit = defaultLimit
+	if n, err := strconv.Atoi(q.Get("limit")); err == nil {
+		limit = n
+	}
+	limit = min(max(limit, 1), maxLimit)
+
+	direction = q.Get("direction")
+	if direction != "before" {
+		direction = "after"
+	}
+
+	cursorStr = q.Get("cursor")
+	if cursorStr != "" {
+		if err := cursor.decode(cursorStr); err != nil {
+			respondBadRequest(w, "invalid cursor", err)
+			return limit, cursorStr, direction, cursor, false
+		}
+	}
+	return limit, cursorStr, direction, cursor, true
+}
+
 // parseLogListParams reads and validates the pagination/filter query params. On
 // an undecodable cursor it writes a 400 response and returns ok=false.
 func parseLogListParams(w http.ResponseWriter, r *http.Request) (logListParams, bool) {
+	limit, cursorStr, direction, cursor, ok := cursorPageParams(w, r.URL.Query(), 20, 200)
 	p := logListParams{
-		limit:        util.GetIntQueryParam(r, "limit", 20),
-		cursorStr:    r.URL.Query().Get("cursor"),
-		direction:    r.URL.Query().Get("direction"),
-		sortDir:      r.URL.Query().Get("sort_dir"),
-		ownerUserID:  logOwnerScope(r),
-		modelID:      r.URL.Query().Get("model_id"),
-		providerID:   r.URL.Query().Get("provider_id"),
-		virtualKeyID: r.URL.Query().Get("virtual_key_id"),
-		clientIP:     r.URL.Query().Get("client_ip"),
-		statusCode:   r.URL.Query().Get("status_code"),
-		fromDate:     r.URL.Query().Get("from"),
-		toDate:       r.URL.Query().Get("to"),
-		endpointType: r.URL.Query().Get("endpoint_type"),
-
-		attemptProviderID: r.URL.Query().Get("attempt_provider_id"),
-		attemptStatus:     r.URL.Query().Get("attempt_status"),
-	}
-	if p.limit < 1 {
-		p.limit = 1
-	}
-	if p.limit > 200 {
-		p.limit = 200
-	}
-	if p.direction != "before" && p.direction != "after" {
-		p.direction = "after"
+		limit:      limit,
+		cursorStr:  cursorStr,
+		cursor:     cursor,
+		direction:  direction,
+		sortDir:    r.URL.Query().Get("sort_dir"),
+		logFilters: parseLogFilters(r),
 	}
 	if p.sortDir != "asc" && p.sortDir != "desc" {
 		p.sortDir = "desc"
 	}
-	if p.cursorStr != "" {
-		if err := p.cursor.decode(p.cursorStr); err != nil {
-			respondBadRequest(w, "invalid cursor", err)
-			return p, false
-		}
-	}
-	return p, true
+	return p, ok
 }
 
 // logCursor is the keyset cursor for cursor-based log pagination. It encodes the
@@ -394,7 +421,16 @@ func (c *logCursor) decode(s string) error {
 	if err != nil {
 		return fmt.Errorf("invalid base64: %w", err)
 	}
-	return json.Unmarshal(b, c)
+	if err := json.Unmarshal(b, c); err != nil {
+		return err
+	}
+	// The id is compared against a uuid column. A base64-valid cursor carrying
+	// anything else is malformed client input, so it is rejected here as a 400
+	// instead of reaching Postgres as a type error and surfacing as a 500.
+	if _, err := uuid.Parse(c.ID); err != nil {
+		return fmt.Errorf("invalid cursor id: %w", err)
+	}
+	return nil
 }
 
 // logsSortDef resolves a user-supplied sort_by value to its ORDER BY
@@ -402,27 +438,30 @@ func (c *logCursor) decode(s string) error {
 // expression is a fixed compile-time constant; user input only selects a map
 // key and never reaches the SQL.
 func logsSortDef(sortBy string) (string, logSortDef) {
-	sortColumns := map[string]logSortDef{
-		"time":               {"", "rl.created_at"},
-		"model":              {"", "rl.model_id"},
-		"provider":           {"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END", "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END"},
-		"status":             {"", "rl.status_code"},
-		"tokens":             {"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)"},
-		"tps":                {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
-		"ttft":               {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
-		"response_header_ms": {"CASE WHEN rl.response_header_ms = 0 THEN 1 ELSE 0 END", "rl.response_header_ms"},
-		"duration":           {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
-		"overhead":           {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
-		"key":                {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
-		// client_ip is TEXT, so this orders lexicographically (10.* before 9.*),
-		// which is enough for grouping same-address rows. Rows without an address
-		// sort last.
-		"ip": {"CASE WHEN COALESCE(rl.client_ip, '') = '' THEN 1 ELSE 0 END", "COALESCE(rl.client_ip, '')"},
-	}
-	if _, ok := sortColumns[sortBy]; !ok {
+	if _, ok := logSortColumns[sortBy]; !ok {
 		sortBy = "time"
 	}
-	return sortBy, sortColumns[sortBy]
+	return sortBy, logSortColumns[sortBy]
+}
+
+// logSortColumns is the sort_by whitelist: a fixed table of compile-time
+// constant ORDER BY expressions, so user input only ever selects a key.
+var logSortColumns = map[string]logSortDef{
+	"time":               {"", "rl.created_at"},
+	"model":              {"", "rl.model_id"},
+	"provider":           {"CASE WHEN rl.provider_id IS NULL THEN 2 WHEN p.name IS NULL THEN 1 ELSE 0 END", "CASE WHEN rl.provider_id IS NULL THEN '' WHEN p.name IS NOT NULL THEN p.name ELSE 'Deleted' END"},
+	"status":             {"", "rl.status_code"},
+	"tokens":             {"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)"},
+	"tps":                {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
+	"ttft":               {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
+	"response_header_ms": {"CASE WHEN rl.response_header_ms = 0 THEN 1 ELSE 0 END", "rl.response_header_ms"},
+	"duration":           {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
+	"overhead":           {"CASE WHEN rl.proxy_overhead_ms = 0 THEN 1 ELSE 0 END", "rl.proxy_overhead_ms"},
+	"key":                {"", "CASE WHEN rl.virtual_key_id IS NOT NULL AND rl.virtual_key_id::text != '' AND vk.id IS NULL THEN 'zzzzzzzz' ELSE COALESCE(rl.virtual_key_name, '') END"},
+	// client_ip is TEXT, so this orders lexicographically (10.* before 9.*),
+	// which is enough for grouping same-address rows. Rows without an address
+	// sort last.
+	"ip": {"CASE WHEN COALESCE(rl.client_ip, '') = '' THEN 1 ELSE 0 END", "COALESCE(rl.client_ip, '')"},
 }
 
 // logSortDef holds the tier and value ORDER BY expressions for one sort key.

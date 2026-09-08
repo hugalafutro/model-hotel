@@ -13,6 +13,8 @@ import type {
 	TotpLoginResponse,
 	TotpStatus,
 	UserTotpStatus,
+	WebAuthnCeremonyStart,
+	WebAuthnCredential,
 } from "../types";
 
 // Unauthenticated: read before login and inside the dashboard. No auth
@@ -46,10 +48,7 @@ export const webauthn = {
 	}> => {
 		return fetchJSON(`${API_BASE}/api/webauthn/available`);
 	},
-	registerStart: async (): Promise<{
-		session_id: string;
-		options: Record<string, unknown>;
-	}> => {
+	registerStart: async (): Promise<WebAuthnCeremonyStart> => {
 		return fetchJSON(`${API_BASE}/api/webauthn/register/start`, {
 			method: "POST",
 			headers: getAuthHeaders(),
@@ -69,10 +68,7 @@ export const webauthn = {
 			"Passkey registration failed",
 		);
 	},
-	loginStart: async (): Promise<{
-		session_id: string;
-		options: Record<string, unknown>;
-	}> => {
+	loginStart: async (): Promise<WebAuthnCeremonyStart> => {
 		return fetchJSON(`${API_BASE}/api/webauthn/login/start`, {
 			method: "POST",
 			headers: { "Content-Type": "application/json" },
@@ -92,10 +88,8 @@ export const webauthn = {
 			"Passkey login failed",
 		);
 	},
-	listCredentials: async (): Promise<
-		import("../types").WebAuthnCredential[]
-	> => {
-		return fetchJSON<import("../types").WebAuthnCredential[]>(
+	listCredentials: async (): Promise<WebAuthnCredential[]> => {
+		return fetchJSON<WebAuthnCredential[]>(
 			`${API_BASE}/api/webauthn/credentials`,
 			{ headers: getAuthHeaders() },
 		);
@@ -115,7 +109,7 @@ export const webauthn = {
 			`${API_BASE}/api/webauthn/credentials/${encodeURIComponent(id)}`,
 			{
 				method: "PATCH",
-				headers: { ...getAuthHeaders(), "Content-Type": "application/json" },
+				headers: getAuthHeaders(),
 				body: JSON.stringify({ name }),
 			},
 			"Failed to rename passkey",

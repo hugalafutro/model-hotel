@@ -505,6 +505,71 @@ func TestDiscoverGoogleAIStudio_WithoutPricingOverride(t *testing.T) {
 	}
 }
 
+// TestDiscoverGoogleAIStudio_PricingNotAliased pins that an enriched model owns
+// its price pointers. Taking the address of a catalog entry's field instead
+// would let a write through one discovered model's pointer rewrite the shared
+// embedded catalog for every provider, for the life of the process.
+//
+// Deliberately not parallel: it swaps the package catalog for a fixture, and a
+// sequential test body never overlaps a parallel one.
+func TestDiscoverGoogleAIStudio_PricingNotAliased(t *testing.T) {
+	const (
+		wantIn    = 0.30
+		wantOut   = 2.50
+		wantCache = 0.075
+	)
+	orig := googlePricingCatalog
+	googlePricingCatalog = []GoogleModelPricing{{
+		ModelID:                      "models/gemini-2.5-flash",
+		DisplayName:                  "Gemini 2.5 Flash",
+		InputPricePerMillion:         wantIn,
+		InputPricePerMillionCacheHit: wantCache,
+		OutputPricePerMillion:        wantOut,
+	}}
+	t.Cleanup(func() { googlePricingCatalog = orig })
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1beta/models" {
+			http.NotFound(w, r)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(GoogleModelsResponse{Models: []GoogleModel{{
+			Name:                       "models/gemini-2.5-flash",
+			DisplayName:                "Gemini 2.5 Flash",
+			InputTokenLimit:            1000000,
+			OutputTokenLimit:           8192,
+			SupportedGenerationMethods: []string{"generateContent"},
+		}}})
+	}))
+	defer server.Close()
+
+	models, err := (&DiscoveryService{httpClient: server.Client()}).discoverGoogleAIStudio(
+		context.Background(),
+		&Provider{ID: uuid.New(), BaseURL: server.URL + "/v1beta/openai"},
+		"test-api-key",
+	)
+	if err != nil {
+		t.Fatalf("discoverGoogleAIStudio failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("expected 1 model, got %d", len(models))
+	}
+	m := models[0]
+	if m.InputPricePerMillion == nil || m.OutputPricePerMillion == nil || m.InputPricePerMillionCacheHit == nil {
+		t.Fatalf("catalog pricing was not applied: %+v", m)
+	}
+
+	*m.InputPricePerMillion = 999
+	*m.OutputPricePerMillion = 999
+	*m.InputPricePerMillionCacheHit = 999
+
+	got := GetGooglePricingCatalog()[0]
+	if got.InputPricePerMillion != wantIn || got.OutputPricePerMillion != wantOut || got.InputPricePerMillionCacheHit != wantCache {
+		t.Errorf("catalog entry mutated through a discovered model: %+v", got)
+	}
+}
+
 // TestLookupGooglePricing_Fixture covers the lookup itself independently of
 // what google.json currently ships, so the override mechanism stays tested even
 // while the catalog is empty.

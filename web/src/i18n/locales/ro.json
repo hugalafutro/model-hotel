@@ -331,7 +331,13 @@
 			"emptyState": "Nu există încă date de utilizare. Defalcarea utilizării va apărea aici odată cu traficul de trafic.",
 			"viewDetailsFor": "Vezi detalii pentru {{label}}",
 			"deletedModelTooltip": "Modelul nu mai este disponibil - este posibil să fi fost eliminat sau furnizorul său să fi fost eliminat",
-			"reservedKeyTooltip": "Nume rezervat intern, nu o cheie creată de dvs. – această utilizare provine din rutele „{{name}}” proprii ale Model Hotel"
+			"reservedKeyTooltip": "Nume rezervat intern, nu o cheie creată de dvs. – această utilizare provine din rutele „{{name}}” proprii ale Model Hotel",
+			"tokens_one": "token",
+			"tokens_few": "token-uri",
+			"tokens_other": "token-uri",
+			"requests_one": "solicitare",
+			"requests_few": "cereri",
+			"requests_other": "cereri"
 		},
 		"providerLatency": {
 			"title": "Latența furnizorilor",
@@ -354,10 +360,12 @@
 			"distributionChart": "Graficul de distribuție furnizor",
 			"emptyState": "Nu există încă date furnizor. Defalcarea furnizorului va apărea aici odată ce traficul se va schimba.",
 			"chartAriaLabel": "Graficul de distribuție furnizor",
-			"tokenUnit": "Token",
-			"tokensUnit": "Token-uri",
-			"requestUnit": "Solicitare",
-			"requestsUnit": "Cereri"
+			"tokens_one": "Token",
+			"tokens_few": "Token-uri",
+			"tokens_other": "Token-uri",
+			"requests_one": "Solicitare",
+			"requests_few": "Cereri",
+			"requests_other": "Cereri"
 		},
 		"models": {
 			"viewDetails": "Vezi detalii pentru {{label}}",
@@ -604,7 +612,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Modelele generează - clic pe Oprește totul pentru a anula",
-			"voteToContinue": "Votează toate meciurile pentru a continua runda următoare",
 			"nextRoundReady": "Începe următoarea rundă atunci când ești gata"
 		},
 		"responses": {
@@ -659,13 +666,6 @@
 			"close": "Inchide"
 		},
 		"params": {
-			"temperature": "Temperatură",
-			"maxTokens": "Maxim jetoane",
-			"topP": "Top P",
-			"minP": "Minim P",
-			"topK": "Top K",
-			"freqPenalty": "Penalizare Freq",
-			"presPenalty": "Penalizare Pres",
 			"resetAll": "Resetează toate",
 			"done": "Terminat"
 		},
@@ -856,7 +856,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Nu mai există furnizori activați",
-				"onlyOne": "Rămâne un singur furnizor activat (failover-ul necesită cel puțin doi)"
+				"onlyOne": "Rămâne un singur furnizor activat (failover-ul necesită cel puțin doi)",
+				"noValidProviders": "Nu mai rămâne niciun furnizor valid după curățare",
+				"onlyOneValid": "Rămâne un singur furnizor valid după curățare (comutarea la eroare are nevoie de cel puțin doi)"
 			},
 			"error": "Eroare",
 			"failover": "Grupuri de failover",
@@ -1097,7 +1099,17 @@
 		"scope_all": "Toți furnizorii",
 		"badge_parked": "{{count}} în așteptare",
 		"status_parked": "În așteptare",
-		"status_parked_hint": "Furnizorul este dezactivat; acest model rămâne listat, dar nu este servit până când furnizorul este reactivat."
+		"status_parked_hint": "Furnizorul este dezactivat; acest model rămâne listat, dar nu este servit până când furnizorul este reactivat.",
+		"capPills": {
+			"vision": "Viziune",
+			"reasoning": "Raționament",
+			"tool_calling": "Instrumente",
+			"structured_output": "Structurat",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Audio",
+			"parallel_tool_calls": "Paralel"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Revenire la valoarea descoperită",
@@ -1310,7 +1322,6 @@
 				"owner": "Proprietar"
 			},
 			"noProvidersConfigured": "Niciun furnizor configurat.",
-			"discardChanges": "Renunțați la modificările nesalvate?",
 			"loadingProviders": "Se încarcă furnizorii...",
 			"stripReasoningDescriptionText": "Când este activată, token-urile de raționament/gândire sunt eliminate din răspunsurile în flux pentru clienții care nu le pot gestiona.",
 			"providerInstructionsText": "Faceți clic pe un furnizor pentru a restricționa accesul. Toate sunt accesibile în mod implicit.",
@@ -1451,6 +1462,11 @@
 			"search": "Filtrează jurnalele…",
 			"allLevels": "Toate nivelurile",
 			"allSources": "Toate sursele"
+		},
+		"level": {
+			"info": "Informație",
+			"warning": "Avertisment",
+			"error": "Eroare"
 		},
 		"table": {
 			"timeDate": "Ora/Dată",
@@ -1908,8 +1924,8 @@
 				"confirmEnableTitle": "Activați copia de rezervă periodică?",
 				"confirmEnableDescription": "Activarea backupului periodic șterge backupurile existente care se află în afara ferestrei de rotație fiu/tată/bunic.",
 				"confirmEnableWouldRemove": "Aceste {{count}} backupuri se află în afara ferestrei de rotație și vor fi șterse definitiv:",
-				"prunePreviewFailed": "Previzualizarea pruning-ului backup-ului a eșuat",
-				"pruneFailed": "Nu s-a putut curăța copiile de rezervă",
+				"prunePreviewFailed": "Previzualizarea pruning-ului backup-ului a eșuat: {{message}}",
+				"pruneFailed": "Nu s-a putut curăța copiile de rezervă: {{message}}",
 				"pruneSuccess": "Backup periodic activat. Au fost eliminate {{count}} backupuri vechi."
 			},
 			"availableBackupsTitle": "Backup-uri disponibile",
@@ -2252,7 +2268,7 @@
 				"doneManaged": "Destinații salvate. Ce evenimente trimit o alertă rămâne gestionat pentru toată flota.",
 				"sendAll": "Trimiteți test către tot",
 				"sentAll": "Test trimis către fiecare destinație",
-				"apiChangedDrops": "Schimbarea adresei elimină destinațiile adăugate în această rulare; ele au fost testate cu adresa veche."
+				"apiChangedDrops": "Verificarea unei alte adrese elimină destinațiile adăugate în această rulare; ele au fost testate cu adresa veche."
 			},
 			"category": {
 				"discovery": "Descoperire",
@@ -2442,16 +2458,10 @@
 			"filter": "Filtrare…",
 			"clearFilter": "Curăță filtrul"
 		},
-		"copyButton": {
-			"copy": "Copiază",
-			"copiedToClipboard": "Copiat în clipboard",
-			"failedToCopy": "Copierea a eșuat"
-		},
 		"copyablePill": {
 			"copy": "Copiază",
 			"copyToClipboard": "Copiază în clipboard",
-			"copied": "Copiat!",
-			"failedToCopy": "Copierea a eșuat"
+			"copied": "Copiat!"
 		},
 		"collapsibleToggle": {
 			"expand": "Extinde",
@@ -2773,11 +2783,6 @@
 			"compare": "Compară",
 			"noMatchHistory": "Încă nu există istoric al meciurilor",
 			"completedSessionsHere": "Sesiunile de arenă finalizate și de comparare vor apărea aici",
-			"match": "Meci",
-			"final": "Finala",
-			"semifinals": "Semifinale",
-			"quarterfinals": "sferturile finale",
-			"round": "Runda {{number}}",
 			"winner": "Câștigător: {{name}}",
 			"responsesAbbrev": "{{count}} resp.",
 			"error": "Eroare: {{message}}",
@@ -2887,35 +2892,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Niciun jurnal găsit",
-			"entries": "intrări",
-			"loadingNewer": "Se încarcă mai nou…",
-			"loadingOlder": "Se încarcă mai vechi…",
-			"timeDate": "Ora/Dată",
-			"hash": "Hash",
-			"model": "Model",
-			"provider": "Furnizor",
-			"providerDeleted": "Furnizorul a fost șters",
-			"status": "Status",
-			"tokens": "Token-uri",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Antete",
-			"ttft": "TTFT",
-			"duration": "Durată",
-			"overhead": "Overhead",
-			"key": "Cheie",
-			"interrupted": "Întrerupere",
-			"internal": "intern",
-			"cacheInflated": "Umflat de accesările în cache ale promptului",
-			"deleted": "Șters",
-			"zeroEntries": "0 intrări",
-			"ip": "IP"
+			"zeroEntries": "0 intrări"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Nu s-au găsit intrări în jurnal",
-			"entries": "intrări",
-			"loadingNewer": "Se încarcă mai nou…",
-			"loadingOlder": "Se încarcă mai vechi…",
 			"timeDate": "Ora/Dată",
 			"level": "Nivel",
 			"source": "Sursa",
@@ -3129,7 +3109,8 @@
 		},
 		"useDisableModel": {
 			"success": "Modelul \"{{model}}\" dezactivat",
-			"error": "Eroare la dezactivarea modelului: {{error}}"
+			"error": "Eroare la dezactivarea modelului: {{error}}",
+			"notFound": "Modelul \"{{model}}\" nu a fost găsit printre modelele activate"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Obținerea datelor inițiale a eșuat",

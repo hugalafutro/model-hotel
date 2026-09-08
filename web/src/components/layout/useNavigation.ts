@@ -30,8 +30,10 @@ export interface NavSubMode {
 export interface NavItem {
 	name: string;
 	href: string;
-	/** A component, or a picker from the current sub-mode to one. */
-	icon: NavIcon | ((mode: string) => NavIcon);
+	/** The icon shown when `iconFor` is absent, and the fallback for no sub-mode. */
+	icon: NavIcon;
+	/** Picks the icon from the current sub-mode, for items that have sub-modes. */
+	iconFor?: (mode: string) => NavIcon;
 	subModes?: NavSubMode[];
 	access: string;
 }
@@ -73,7 +75,8 @@ export function useNavigation() {
 		{
 			name: t("layout.nav.chat"),
 			href: "/chat",
-			icon: (mode: string) =>
+			icon: MessageSquare,
+			iconFor: (mode) =>
 				mode === "conversation" ? MessagesSquare : MessageSquare,
 			subModes: [
 				{ label: t("layout.nav.chat"), value: "chat" },
@@ -84,7 +87,8 @@ export function useNavigation() {
 		{
 			name: t("layout.nav.arena"),
 			href: "/arena",
-			icon: (mode: string) => (mode === "compare" ? GitCompare : Swords),
+			icon: Swords,
+			iconFor: (mode) => (mode === "compare" ? GitCompare : Swords),
 			subModes: [
 				{ label: t("layout.nav.arena"), value: "competition" },
 				{ label: t("layout.nav.compare"), value: "compare" },
@@ -118,7 +122,8 @@ export function useNavigation() {
 		{
 			name: t("layout.nav.logs"),
 			href: "/logs",
-			icon: (mode: string) => (mode === "app" ? FileText : ScrollText),
+			icon: ScrollText,
+			iconFor: (mode) => (mode === "app" ? FileText : ScrollText),
 			// App logs are admin-only server-side, so the sub-mode toggle only
 			// shows for admins; grant holders get the requests view alone.
 			subModes: isAdmin

@@ -6,7 +6,7 @@ import { ToastProvider, useToast } from "../ToastContext";
 // Mock useResizeObserver so FuseOutline renders in jsdom (no real layout)
 vi.mock("../../hooks/useResizeObserver", () => ({
 	useResizeObserver: vi.fn(() => ({
-		ref: { current: null },
+		ref: vi.fn(),
 		width: 200,
 		height: 40,
 	})),
@@ -136,6 +136,18 @@ describe("Position persistence (useLocalStorage with validation)", () => {
 		const { result } = renderHook(() => useToast(), { wrapper });
 		expect(result.current.position).toBe("bottom-center");
 	});
+
+	// A prototype key is not a position: the membership test has to ask what the
+	// table owns, or "toString" would be accepted and resolve to a function.
+	it.each(["toString", "constructor", "hasOwnProperty"])(
+		"rejects the inherited key %s",
+		(key) => {
+			localStorage.setItem("toastPosition", key);
+
+			const { result } = renderHook(() => useToast(), { wrapper });
+			expect(result.current.position).toBe("bottom-center");
+		},
+	);
 });
 
 describe("Timeout persistence (useLocalStorage with clamping)", () => {

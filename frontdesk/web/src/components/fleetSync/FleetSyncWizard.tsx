@@ -281,9 +281,20 @@ export function FleetSyncWizard({
 		}
 	};
 
-	// Step 3's single "proceed" action. With changes to push (or a primary change
-	// needing a token) it routes through a confirmation; a first, clean setup with
-	// nothing to push commits straight through.
+	// openConfirm asks for whichever confirmation this sync needs: an overwrite
+	// warning when config would be pushed over a member's own, a token when the
+	// primary changes, and neither for a first, clean setup, which commits
+	// straight through. Entered from the proceed action and again from the
+	// dev-fleet acknowledgment, whose only job is to re-enter it.
+	const openConfirm = () => {
+		setCommitToken("");
+		setCommitError("");
+		if (overwrites.length > 0) setConfirm("config");
+		else if (changingPrimary) setConfirm("change");
+		else void commit();
+	};
+
+	// Step 3's single "proceed" action, gated on the checks that must pass first.
 	const proceed = () => {
 		// Re-selecting the current primary is not a valid change (the source of
 		// truth cannot be replaced with itself). The proceed button is disabled in
@@ -297,11 +308,7 @@ export function FleetSyncWizard({
 			setDevAck(true); // open the dev-fleet acknowledgment modal
 			return;
 		}
-		setCommitToken("");
-		setCommitError("");
-		if (overwrites.length > 0) setConfirm("config");
-		else if (changingPrimary) setConfirm("change");
-		else void commit();
+		openConfirm();
 	};
 
 	// Pause / resume auto-sync without touching the primary. Flipping only the
@@ -433,6 +440,10 @@ export function FleetSyncWizard({
 							{t("settings.configSyncRemovalWarning", { count: totalRemoved })}
 						</p>
 					)}
+					{/* Inline faint counts rather than the member table's badges: these
+					    rows read as a sentence about one member, and every count is
+					    shown (including zero) so the three positions stay in the same
+					    place down the list. */}
 					<ul style={{ margin: "0.6rem 0" }}>
 						{overwrites.map((m) => (
 							<li key={m.member_id}>
@@ -505,11 +516,7 @@ export function FleetSyncWizard({
 					onConfirm={() => {
 						setDevAck(false);
 						// Past the dev gate: re-enter the normal confirm/commit path.
-						setCommitToken("");
-						setCommitError("");
-						if (overwrites.length > 0) setConfirm("config");
-						else if (changingPrimary) setConfirm("change");
-						else void commit();
+						openConfirm();
 					}}
 					onClose={() => setDevAck(false)}
 				>
@@ -521,5 +528,3 @@ export function FleetSyncWizard({
 		</div>
 	);
 }
-
-// --- Resting screen ---------------------------------------------------------

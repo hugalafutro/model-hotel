@@ -287,8 +287,7 @@ func foldRetiredBreakerSwitches(want map[string]string) map[string]string {
 			continue
 		}
 		if out == nil {
-			out = make(map[string]string, len(want))
-			maps.Copy(out, want)
+			out = maps.Clone(want)
 		}
 		out[ceiling] = "0s"
 	}

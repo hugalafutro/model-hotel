@@ -92,15 +92,8 @@ export function formatTime(ts: number | string): string {
 	});
 }
 
-export function formatDateTimeShort(ts: number | string): string {
-	return new Date(ts).toLocaleDateString(undefined, {
-		day: "numeric",
-		month: "short",
-		year: "numeric",
-		hour: "2-digit",
-		minute: "2-digit",
-	});
-}
+/** Alias of formatTimestamp; the two names render the same string. */
+export const formatDateTimeShort = formatTimestamp;
 
 export function formatWithCommas(n: number): string {
 	return Math.round(n).toLocaleString();
@@ -199,4 +192,42 @@ export function formatLatency(ms: number): string {
 		return sec >= 10 ? `${Math.round(sec)}s` : `${sec.toFixed(1)}s`;
 	}
 	return `${Math.round(ms)}ms`;
+}
+
+/**
+ * A byte count in the largest unit that keeps it above 1, to one decimal.
+ * Binary units (1 KB is 1024 B), which is what a database file's size on disk
+ * is reported in.
+ */
+export function formatBytes(bytes: number): string {
+	if (bytes === 0) return "0 B";
+	const k = 1024;
+	const sizes = ["B", "KB", "MB", "GB", "TB"];
+	const i = Math.min(
+		Math.floor(Math.log(bytes) / Math.log(k)),
+		sizes.length - 1,
+	);
+	return `${Number.parseFloat((bytes / k ** i).toFixed(1))} ${sizes[i]}`;
+}
+
+/**
+ * Completion throughput, or null when either half is missing: a stream that
+ * produced no tokens, or one whose duration was never measured, has no rate to
+ * report rather than a rate of zero.
+ */
+export function tokensPerSecond(
+	completionTokens: number,
+	durationMs: number,
+): number | null {
+	if (completionTokens <= 0 || durationMs <= 0) return null;
+	return completionTokens / (durationMs / 1000);
+}
+
+/**
+ * A bare "YYYY-MM-DD" as a date. The time is appended so the string parses in
+ * local time: ECMAScript reads a date-only form as UTC, which shows the
+ * previous day west of Greenwich.
+ */
+export function formatDateOnly(iso: string): string {
+	return formatDate(iso.includes("T") ? iso : `${iso}T00:00:00`);
 }

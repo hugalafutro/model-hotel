@@ -5,7 +5,6 @@ import (
 	"context"
 	"net"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -21,28 +20,11 @@ const (
 	defaultIPBurst = 60
 )
 
-// ipEntry tracks a single IP address's rate limiter.
-type ipEntry struct {
-	limiter  *rate.Limiter
-	rps      float64
-	burst    int
-	lastUsed time.Time
-	throttle throttleState // edge-triggered throttle logging (see throttle.go)
-	budget   string        // copied from the owning limiter for the log line
-}
-
-// throttleCtx builds the per-IP logging context for the shared throttleState.
-func (e *ipEntry) throttleCtx(ip string) throttleLogCtx {
-	return throttleLogCtx{prefix: "ratelimit-ip", label: "ip", id: ip, budget: e.budget, rps: e.rps, burst: e.burst}
-}
-
-func (e *ipEntry) noteRejected(ip string) {
-	e.throttle.noteRejected(e.throttleCtx(ip))
-}
-
-func (e *ipEntry) noteAllowed(ip string) {
-	e.throttle.noteAllowed(e.throttleCtx(ip))
-}
+// The prefix and label every per-IP bucket logs under (see bucketEntry).
+const (
+	ipLogPrefix = "ratelimit-ip"
+	ipLogLabel  = "ip"
+)
 
 // settings keys for IP rate limiter (stored in DB)
 const (
@@ -61,7 +43,7 @@ const (
 // unauthenticated floods (brute-force key guessing, etc.).
 type IPLimiter struct {
 	mu             sync.Mutex
-	limiters       map[string]*ipEntry
+	limiters       map[string]*bucketEntry
 	defaultRPS     float64 // fallback when no DB setting
 	defaultBurst   int     // fallback when no DB setting
 	stopCh         chan struct{}
@@ -93,14 +75,14 @@ func NewIPLimiter(rps float64, burst int, trustedProxies []*net.IPNet, settings 
 		burst = defaultIPBurst
 	}
 	l := &IPLimiter{
-		limiters:       make(map[string]*ipEntry),
+		limiters:       make(map[string]*bucketEntry),
 		defaultRPS:     rps,
 		defaultBurst:   burst,
 		stopCh:         make(chan struct{}),
 		trustedProxies: trustedProxies,
 		settings:       settings,
 	}
-	go l.cleanupLoop()
+	go runCleanup(l.stopCh, l.cleanup)
 	return l
 }
 
@@ -153,7 +135,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
 			entry.noteRejected(ip)
-			l.writeHeaders(w, entry.limiter, 0)
+			writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
@@ -174,14 +156,14 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 					reservation.Cancel()
 					return
 				}
-				l.writeHeaders(w, entry.limiter, 0)
+				writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
 				next.ServeHTTP(w, r)
 				return
 			}
 			// Wait exceeds max_wait - cancel the reservation and reject.
 			reservation.Cancel()
 			entry.noteRejected(ip)
-			l.writeHeaders(w, entry.limiter, delay)
+			writeRateLimitHeaders(w, entry.limiter, delay, ipLogLabel)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
 			return
 		}
@@ -189,12 +171,12 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		// Served with no delay — the bucket has recovered, so close any open
 		// throttle episode for this IP.
 		entry.noteAllowed(ip)
-		l.writeHeaders(w, entry.limiter, 0)
+		writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
 		next.ServeHTTP(w, r)
 	})
 }
 
-func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *ipEntry {
+func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -206,19 +188,17 @@ func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *ipEntry {
 		burst = l.settings.GetInt(ctx, settingsKeyIPBurst, l.defaultBurst)
 	}
 
-	// Unlimited (RPS=0) — use an extremely high rate that never blocks.
-	if rps <= 0 {
-		rps = 1e6
-		burst = 1e6
-	}
+	rps, burst = bucketRate(rps, burst)
 
 	entry, ok := l.limiters[ip]
 	if !ok || entry.rps != rps || entry.burst != burst {
-		entry = &ipEntry{
+		entry = &bucketEntry{
 			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
 			rps:      rps,
 			burst:    burst,
 			lastUsed: time.Now(),
+			prefix:   ipLogPrefix,
+			label:    ipLogLabel,
 			budget:   l.budget,
 		}
 		l.limiters[ip] = entry
@@ -226,30 +206,6 @@ func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *ipEntry {
 		entry.lastUsed = time.Now()
 	}
 	return entry
-}
-
-func (l *IPLimiter) writeHeaders(w http.ResponseWriter, lim *rate.Limiter, retryAfter time.Duration) {
-	w.Header().Set("X-RateLimit-Limit", strconv.FormatFloat(float64(lim.Limit()), 'f', -1, 64))
-	w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(int64(lim.Tokens()), 10))
-	w.Header().Set("X-RateLimit-Burst", strconv.Itoa(lim.Burst()))
-	w.Header().Set("X-RateLimit-Scope", "ip")
-
-	if retryAfter > 0 {
-		w.Header().Set("Retry-After", strconv.Itoa(int(retryAfter.Seconds())+1))
-	}
-}
-
-func (l *IPLimiter) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-	for {
-		select {
-		case <-l.stopCh:
-			return
-		case <-ticker.C:
-			l.cleanup()
-		}
-	}
 }
 
 func (l *IPLimiter) cleanup() {

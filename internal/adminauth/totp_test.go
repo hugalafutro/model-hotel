@@ -267,18 +267,11 @@ func TestTotpStatus_EnabledAtCached(t *testing.T) {
 	}
 }
 
-// TestTotpCachedEnabledAt_ReturnsEmptyWhenUnknown covers the two "unknown"
-// branches of cachedEnabledAt: no repository wired, and a repository that reports
-// TOTP as not enabled. Both must return "" without caching, so the field is
-// omitted and a later call retries.
+// TestTotpCachedEnabledAt_ReturnsEmptyWhenUnknown covers the "unknown" branch of
+// cachedEnabledAt: a repository that reports TOTP as not enabled must return ""
+// without caching, so the field is omitted and a later call retries.
 func TestTotpCachedEnabledAt_ReturnsEmptyWhenUnknown(t *testing.T) {
-	// No repository: returns empty without touching the DB or panicking.
-	bare := &TotpHandler{}
-	if got := bare.cachedEnabledAt(context.Background()); got != "" {
-		t.Errorf("expected empty for nil repo, got %q", got)
-	}
-
-	// Repo present but TOTP not enabled: EnabledAt reports ok=false, so the
+	// TOTP not enabled: EnabledAt reports ok=false, so the
 	// helper returns empty and caches nothing (next call retries).
 	_, th := newTotpTestHandler(t)
 	if got := th.cachedEnabledAt(context.Background()); got != "" {
@@ -314,8 +307,9 @@ func TestTotpPublishEnabledAt_GenerationGuard(t *testing.T) {
 
 // --- Info tests ---
 
-// TestTotpInfo_NilRepo covers the guard branch: with no repo wired, Info must
-// return an empty payload rather than panic or error.
+// TestTotpInfo_NilRepo covers the guard branch: NewTotpHandler accepts a nil
+// repository, so with none wired Info must return an empty payload and
+// cachedEnabledAt must report "unknown" rather than panic.
 func TestTotpInfo_NilRepo(t *testing.T) {
 	th := &TotpHandler{}
 	req := httptest.NewRequest(http.MethodGet, "/totp/info", http.NoBody)
@@ -331,6 +325,9 @@ func TestTotpInfo_NilRepo(t *testing.T) {
 	}
 	if resp.RecoveryTotal != 0 || resp.RecoveryRemaining != 0 || resp.LastUsedAt != "" {
 		t.Errorf("expected empty info for nil repo, got %+v", resp)
+	}
+	if got := th.cachedEnabledAt(context.Background()); got != "" {
+		t.Errorf("cachedEnabledAt with no repo = %q, want empty", got)
 	}
 }
 

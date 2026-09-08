@@ -1,11 +1,10 @@
 package api
 
 import (
-	"errors"
 	"net/http"
-	"strconv"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
@@ -34,23 +33,18 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(req.NewPassword) < minPasswordLen {
-		respondBadRequest(w, "password must be at least 8 characters", nil)
+		respondBadRequest(w, errPasswordTooShort.Error(), nil)
 		return
 	}
 	key := id.UserID.String()
 	if ok, retry := h.pwThrottle.Allowed(key); !ok {
 		debuglog.Warn("userpassword: throttled", "username", id.Username)
-		w.Header().Set("Retry-After", strconv.Itoa(int(retry.Seconds())+1))
-		http.Error(w, "too many failed attempts, try again later", http.StatusTooManyRequests)
+		httpx.RespondTooManyAttempts(w, retry)
 		return
 	}
 	u, err := h.userRepo.Get(r.Context(), *id.UserID)
 	if err != nil {
-		if errors.Is(err, user.ErrNotFound) {
-			http.Error(w, "user not found", http.StatusNotFound)
-			return
-		}
-		respondError(w, "failed to load user", err, http.StatusInternalServerError)
+		respondLookupError(w, err, user.ErrNotFound, "user not found", "failed to load user")
 		return
 	}
 	match, err := user.VerifyPassword(r.Context(), req.CurrentPassword, u.PasswordHash)

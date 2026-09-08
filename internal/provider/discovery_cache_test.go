@@ -370,3 +370,66 @@ func TestDoQuotaRequestWithRetry_NonRetryableStatusNoRetry(t *testing.T) {
 // ---------------------------------------------------------------------------
 // DiscoverModels - Additional Tests
 // ---------------------------------------------------------------------------
+
+// TestQuotaCircuitState_HalfOpenAdmitsOneProbe pins the half-open state to a
+// single probe. Clearing openUntil without a probe flag lets every caller
+// arriving after the window expires through at once, which is the burst the
+// breaker exists to prevent.
+func TestQuotaCircuitState_HalfOpenAdmitsOneProbe(t *testing.T) {
+	s := &quotaCircuitState{}
+	for range quotaBreakerThreshold {
+		s.recordFailure()
+	}
+	s.mu.Lock()
+	s.openUntil = time.Now().Add(-1 * time.Second)
+	s.mu.Unlock()
+
+	if s.isCircuitOpen() {
+		t.Fatal("first caller after the open window should get the probe")
+	}
+	for i := range 5 {
+		if !s.isCircuitOpen() {
+			t.Fatalf("caller %d joined the half-open probe instead of waiting", i+2)
+		}
+	}
+
+	// The probe's verdict releases the gate: a success closes the circuit.
+	if recovered := s.recordSuccess(); !recovered {
+		t.Error("a half-open probe that succeeds is a recovery")
+	}
+	if s.isCircuitOpen() {
+		t.Error("circuit should be closed after the probe succeeded")
+	}
+}
+
+// TestQuotaCircuitState_HalfOpenProbeFailureReleasesGate covers the other
+// verdict: a failed probe reopens the circuit rather than leaving it stuck
+// with the probe permanently outstanding.
+func TestQuotaCircuitState_HalfOpenProbeFailureReleasesGate(t *testing.T) {
+	s := &quotaCircuitState{}
+	for range quotaBreakerThreshold {
+		s.recordFailure()
+	}
+	s.mu.Lock()
+	s.openUntil = time.Now().Add(-1 * time.Second)
+	s.mu.Unlock()
+	if s.isCircuitOpen() {
+		t.Fatal("first caller should get the probe")
+	}
+
+	if opened := s.recordFailure(); !opened {
+		t.Error("a failed half-open probe reopens the circuit")
+	}
+	if !s.isCircuitOpen() {
+		t.Error("circuit should be open again after the probe failed")
+	}
+	s.mu.Lock()
+	probing, until := s.probing, s.openUntil
+	s.mu.Unlock()
+	if probing {
+		t.Error("the probe gate must be released once its outcome is recorded")
+	}
+	if until.IsZero() {
+		t.Error("a reopened circuit needs a fresh open window")
+	}
+}

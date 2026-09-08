@@ -1,36 +1,21 @@
 import { useTranslation } from "react-i18next";
 import type { OpenRouterBalance } from "../../api/types";
 import { formatDollars } from "../../utils/format";
-import type { QuotaBarMode } from "../../utils/quota";
 import {
 	QuotaBar,
 	QuotaDetailGrid,
 	QuotaDetailItem,
+	type QuotaModalProps,
 	QuotaModalShell,
 	resetSublabel,
 } from "./shared";
 
-export interface OpenRouterQuotaModalProps {
-	providerName: string;
-	payload: OpenRouterBalance;
-	fetchedAt: string;
-	barMode: QuotaBarMode;
-	onToggleBarMode: () => void;
-	onRefresh: () => void;
-	isRefreshing: boolean;
-	onClose: () => void;
-}
-
 export function OpenRouterQuotaModal({
 	providerName,
 	payload,
-	fetchedAt,
 	barMode,
-	onToggleBarMode,
-	onRefresh,
-	isRefreshing,
-	onClose,
-}: OpenRouterQuotaModalProps) {
+	...shell
+}: QuotaModalProps<OpenRouterBalance>) {
 	const { t } = useTranslation();
 
 	const hasCredits = payload.credits_total > 0;
@@ -59,11 +44,7 @@ export function OpenRouterQuotaModal({
 				)
 			}
 			barMode={barMode}
-			onToggleBarMode={onToggleBarMode}
-			onRefresh={onRefresh}
-			isRefreshing={isRefreshing}
-			fetchedAt={fetchedAt}
-			onClose={onClose}
+			{...shell}
 		>
 			{hasCredits ? (
 				<QuotaBar

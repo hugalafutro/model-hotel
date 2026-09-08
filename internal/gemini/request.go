@@ -347,7 +347,7 @@ func buildGenerationConfig(req *oaiRequest) *genConfig {
 			gc.ResponseJSONSchema = js.Schema
 		}
 	}
-	if budget, ok := reasoningBudgets[strings.ToLower(req.ReasoningEffort)]; ok && req.ReasoningEffort != "" {
+	if budget, ok := reasoningBudgets[strings.ToLower(req.ReasoningEffort)]; ok {
 		gc.ThinkingConfig = &genThinkingConfig{ThinkingBudget: budget}
 	}
 	if wantsImageOutput(req.Modalities) {
@@ -406,11 +406,10 @@ func wantsImageOutput(modalities []string) bool {
 // translateParts converts an OpenAI message content field (string, part array,
 // or null) into Gemini parts.
 func translateParts(raw json.RawMessage) ([]genPart, error) {
-	if len(raw) == 0 || string(raw) == "null" {
+	if !util.JSONMemberSet(raw) {
 		return nil, nil
 	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
+	if s, ok := egress.AsJSONString(raw); ok {
 		if s == "" {
 			return nil, nil
 		}
@@ -477,21 +476,8 @@ func mediaPart(u string) (genPart, bool) {
 
 // decodeTextContent flattens a content field to plain text (for system turns).
 func decodeTextContent(raw json.RawMessage) string {
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		return s
-	}
-	var oaiParts []oaiContentPart
-	if json.Unmarshal(raw, &oaiParts) == nil {
-		var sb strings.Builder
-		for _, p := range oaiParts {
-			if p.Type == "" || p.Type == "text" {
-				sb.WriteString(p.Text)
-			}
-		}
-		return sb.String()
-	}
-	return ""
+	s, _ := egress.FlattenText(raw)
+	return s
 }
 
 // toolResponseValue builds the functionResponse.response object from a tool
@@ -509,28 +495,16 @@ func toolResponseValue(raw json.RawMessage) any {
 // translateToolChoice maps the OpenAI tool_choice union onto Gemini's
 // functionCallingConfig.
 func translateToolChoice(raw json.RawMessage) (genFunctionCallingConfig, bool) {
-	if len(raw) == 0 {
+	switch mode, name, ok := egress.DecodeToolChoice(raw); {
+	case !ok:
 		return genFunctionCallingConfig{}, false
+	case mode == "auto":
+		return genFunctionCallingConfig{Mode: "AUTO"}, true
+	case mode == "none":
+		return genFunctionCallingConfig{Mode: "NONE"}, true
+	case mode == "required":
+		return genFunctionCallingConfig{Mode: "ANY"}, true
+	default:
+		return genFunctionCallingConfig{Mode: "ANY", AllowedFunctionNames: []string{name}}, true
 	}
-	var s string
-	if json.Unmarshal(raw, &s) == nil {
-		switch s {
-		case "auto":
-			return genFunctionCallingConfig{Mode: "AUTO"}, true
-		case "none":
-			return genFunctionCallingConfig{Mode: "NONE"}, true
-		case "required":
-			return genFunctionCallingConfig{Mode: "ANY"}, true
-		}
-		return genFunctionCallingConfig{}, false
-	}
-	var tc struct {
-		Function struct {
-			Name string `json:"name"`
-		} `json:"function"`
-	}
-	if json.Unmarshal(raw, &tc) == nil && tc.Function.Name != "" {
-		return genFunctionCallingConfig{Mode: "ANY", AllowedFunctionNames: []string{tc.Function.Name}}, true
-	}
-	return genFunctionCallingConfig{}, false
 }

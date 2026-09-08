@@ -114,6 +114,14 @@ func closeDeferredAttempt(st *requestState, resp *http.Response, attempt int, re
 	st.logData.closeAttemptRecord(resp.StatusCode, st.lastReqErr.Kind, detail, phrase, 0)
 }
 
+// errorHeadMessage reads only what an error body can be classified from and
+// returns it sanitized for the log, leaving the body open for whoever owns its
+// drain and close. drainErrorHead is the same read for a caller that owns both.
+func errorHeadMessage(body io.Reader) string {
+	head, _ := io.ReadAll(io.LimitReader(body, failoverErrorClassifyCap))
+	return util.SanitizeLogBody(string(head), logBodyCap)
+}
+
 // deferServerErrorRetry ends an attempt whose last candidate answered a
 // retryable 5xx: the body is drained, the attempt is closed on the trail with
 // the provider's sentence (the breaker has already been charged for it), and
@@ -122,9 +130,11 @@ func closeDeferredAttempt(st *requestState, resp *http.Response, attempt int, re
 // attempt's own 429 verdict, handed on the way every failover-shaped close
 // does; a 5xx never reads it, but the request-scoped copy is not reached for.
 func (h *Handler) deferServerErrorRetry(st *requestState, candidate modelCandidate, resp *http.Response, attempt int, rl rateLimitVerdict) candidateOutcome {
-	drained, _ := io.ReadAll(io.LimitReader(resp.Body, failoverErrorClassifyCap))
+	// The head only: closeDeferredAttempt owns the drain and the close, so the
+	// body is left open for it.
+	detail := errorHeadMessage(resp.Body)
 	st.serverErrorRetried = true
-	closeDeferredAttempt(st, resp, attempt, failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode), util.SanitizeLogBody(string(drained), 10000), "")
+	closeDeferredAttempt(st, resp, attempt, failoverReqErr(rl, attempt, candidate.provider.Name, resp.StatusCode), detail, "")
 	debuglog.Info("proxy: last candidate answered a retryable server error, retrying it once", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "status", resp.StatusCode, "attempt", attempt+1)
 	return outcomeRetryServerError
 }

@@ -12,8 +12,14 @@ import type {
 	MessageContent,
 } from "../../api/types";
 import type { useToast } from "../../context/ToastContext";
-import { hasAnyParam } from "../../utils/params";
-import { getApiMessagesForModel, streamModelResponse } from "./chatStreaming";
+import { errorMessage } from "../../utils/errors";
+import {
+	getApiMessagesForModel,
+	newAssistantPlaceholder,
+	patchAssistantAt,
+	streamModelResponse,
+	withStreamResult,
+} from "./chatStreaming";
 import type { useMultimodalAttachments } from "./useMultimodalAttachments";
 
 type Attachments = ReturnType<typeof useMultimodalAttachments>;
@@ -85,16 +91,8 @@ export function useAssistantStream({
 			abortRef.current = abortCtrl;
 			cleanupAbortRef.current = abortCtrl;
 
-			const createdAt = Date.now();
-			const assistantMessage: ChatMessage = {
-				role: "assistant",
-				content: "",
-				rawContent: "",
-				thinkingContent: "",
-				model,
-				timestamp: createdAt,
-				params: hasAnyParam(messageParams) ? messageParams : undefined,
-			};
+			const assistantMessage = newAssistantPlaceholder(model, messageParams);
+			const createdAt = assistantMessage.timestamp;
 			setMessages((prev) => [...prev, assistantMessage]);
 
 			const result = await streamModelResponse(
@@ -103,51 +101,50 @@ export function useAssistantStream({
 				messageParams,
 				abortCtrl,
 				(raw, content, thinking) => {
-					setMessages((prev) => {
-						const idx = prev.findIndex(
-							(m) => m.timestamp === createdAt && m.role === "assistant",
-						);
-						if (idx === -1) return prev;
-						const next = [...prev];
-						next[idx] = {
-							...next[idx],
+					setMessages((prev) =>
+						patchAssistantAt(prev, createdAt, {
 							rawContent: raw,
 							content,
 							thinkingContent: thinking,
-						};
-						return next;
-					});
+						}),
+					);
 				},
-				undefined,
 				t,
 			);
 
-			setMessages((prev) => {
-				const idx = prev.findIndex(
-					(m) => m.timestamp === createdAt && m.role === "assistant",
-				);
-				if (idx === -1) return prev;
-				const next = [...prev];
-				next[idx] = {
-					...next[idx],
-					rawContent: result.rawContent,
-					content: result.content,
-					thinkingContent: result.thinkingContent,
-					error: result.error,
-					aborted: result.aborted || undefined,
-					metrics: {
-						tokensPerSecond: result.tokensPerSecond,
-						durationMs: result.durationMs,
-						promptTokens: result.promptTokens,
-						completionTokens: result.completionTokens,
-					},
-				};
-				return next;
-			});
+			setMessages((prev) =>
+				patchAssistantAt(prev, createdAt, (m) => withStreamResult(m, result)),
+			);
 
 			return result;
 		},
 		[messageParams, setMessages, t],
+	);
+
+	/**
+	 * Streams one reply and reports its outcome: an error the stream captured
+	 * is toasted, a user abort is not, and the streaming flag and abort refs
+	 * are cleared however it ends.
+	 */
+	const runReply = useCallback(
+		async (
+			model: string,
+			chatMessages: Array<{ role: string; content: MessageContent }>,
+		) => {
+			try {
+				const result = await streamAssistantReply(model, chatMessages);
+				if (result.error && !result.aborted) toast(result.error, "error");
+			} catch (err) {
+				if (!(err instanceof Error && err.name === "AbortError")) {
+					toast(errorMessage(err, t("common.unknownError")), "error");
+				}
+			} finally {
+				setIsStreaming(false);
+				abortRef.current = null;
+				cleanupAbortRef.current = null;
+			}
+		},
+		[streamAssistantReply, toast, setIsStreaming, t],
 	);
 
 	const handleSend = useCallback(async () => {
@@ -194,20 +191,8 @@ export function useAssistantStream({
 		);
 
 		try {
-			const result = await streamAssistantReply(selectedModel, chatMessages);
-
-			if (result.error && !result.aborted) toast(result.error, "error");
-		} catch (err) {
-			if (err instanceof Error && err.name === "AbortError") {
-				// User-initiated abort, no toast needed
-			} else {
-				const msg = err instanceof Error ? err.message : "Unknown error";
-				toast(msg, "error");
-			}
+			await runReply(selectedModel, chatMessages);
 		} finally {
-			setIsStreaming(false);
-			abortRef.current = null;
-			cleanupAbortRef.current = null;
 			sendingRef.current = false;
 		}
 	}, [
@@ -217,8 +202,7 @@ export function useAssistantStream({
 		isStreaming,
 		messages,
 		systemPrompt,
-		toast,
-		streamAssistantReply,
+		runReply,
 		pendingImage,
 		pendingAudio,
 		setPendingImage,
@@ -241,34 +225,14 @@ export function useAssistantStream({
 		// reconciled away first; same guard as handleSend: without a selected model
 		// regenerate would stream with an empty model id.
 		if (!modelsReady || !selectedModel) return;
-		let lastUserIdx = -1;
-		for (let i = messages.length - 1; i >= 0; i--) {
-			if (messages[i].role === "user") {
-				lastUserIdx = i;
-				break;
-			}
-		}
+		const lastUserIdx = messages.findLastIndex((m) => m.role === "user");
 		if (lastUserIdx === -1) return;
-		const userContent = messages[lastUserIdx].content;
 		const baseMessages = messages.slice(0, lastUserIdx);
-		setMessages(baseMessages);
-		setInput(userContent);
-
-		const chatMessages: Array<{ role: string; content: string }> = [];
-		if (systemPrompt.trim()) {
-			chatMessages.push({
-				role: "system",
-				content: systemPrompt.trim(),
-			});
-		}
-		for (const m of baseMessages) {
-			chatMessages.push({ role: m.role, content: m.content });
-		}
-		chatMessages.push({ role: "user", content: userContent });
-
+		// The original message object is reused so its attachments are re-sent:
+		// rebuilding it from the text alone drops the image or audio the reply
+		// was about.
 		const userMessage: ChatMessage = {
-			role: "user",
-			content: userContent,
+			...messages[lastUserIdx],
 			timestamp: Date.now(),
 		};
 		const updatedMessages = [...baseMessages, userMessage];
@@ -276,41 +240,26 @@ export function useAssistantStream({
 		setInput("");
 		setIsStreaming(true);
 
-		try {
-			const result = await streamAssistantReply(
-				selectedModel || "",
-				chatMessages,
-			);
+		const chatMessages = getApiMessagesForModel(
+			updatedMessages,
+			selectedModel,
+			systemPrompt,
+		);
 
-			if (result.error && !result.aborted) toast(result.error, "error");
-		} catch (err) {
-			if (err instanceof Error && err.name === "AbortError") {
-				// User-initiated abort, no toast needed
-			} else {
-				const msg = err instanceof Error ? err.message : "Unknown error";
-				toast(msg, "error");
-			}
-		} finally {
-			setIsStreaming(false);
-			abortRef.current = null;
-			cleanupAbortRef.current = null;
-		}
+		await runReply(selectedModel, chatMessages);
 	}, [
 		isStreaming,
 		modelsReady,
 		messages,
 		selectedModel,
 		systemPrompt,
-		toast,
-		streamAssistantReply,
+		runReply,
 		setMessages,
 		setInput,
 		setIsStreaming,
 	]);
 
 	return {
-		sendingRef,
-		streamAssistantReply,
 		handleSend,
 		handleStop,
 		handleRegenerate,

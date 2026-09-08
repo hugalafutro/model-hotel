@@ -4,7 +4,6 @@ import (
 	"context"
 	"math"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
@@ -12,6 +11,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -75,7 +75,7 @@ func NewTPMLimiter(settings SettingsReader) *TPMLimiter {
 		settings: settings,
 		stopCh:   make(chan struct{}),
 	}
-	go l.cleanupLoop()
+	go runCleanup(l.stopCh, l.cleanup)
 	return l
 }
 
@@ -156,7 +156,7 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				if userRes != nil {
 					userRes.CancelAt(now)
 				}
-				w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(entry.limiter)))
+				httpx.SetRetryAfter(w, time.Duration(tpmRetryAfter(entry.limiter))*time.Second)
 				util.WriteOpenAIError(w, "token rate limit exceeded", http.StatusTooManyRequests)
 				return
 			}
@@ -238,24 +238,11 @@ func (l *TPMLimiter) admitUserTPM(ctx context.Context, w http.ResponseWriter, no
 	userRes := userEntry.limiter.ReserveN(now, 1)
 	if !userRes.OK() || userRes.DelayFrom(now) > 0 {
 		userRes.CancelAt(now)
-		w.Header().Set("Retry-After", strconv.Itoa(tpmRetryAfter(userEntry.limiter)))
+		httpx.SetRetryAfter(w, time.Duration(tpmRetryAfter(userEntry.limiter))*time.Second)
 		util.WriteOpenAIError(w, "user token rate limit exceeded", http.StatusTooManyRequests)
 		return nil, false
 	}
 	return userRes, true
-}
-
-// Allow reports whether a request may be admitted for keyHash under the given
-// per-minute token budget, and atomically reserves one admission token when it
-// returns true. tpm <= 0 means no cap (always allowed, no reservation). The
-// reservation is what makes admission race-free: concurrent callers cannot all
-// pass the same non-mutating peek. Exposed for testing and reuse; the
-// Middleware performs the same reserving check inline.
-func (l *TPMLimiter) Allow(keyHash string, tpm int) bool {
-	if tpm <= 0 {
-		return true
-	}
-	return l.getEntry(keyHash, tpm).limiter.Allow()
 }
 
 // Debit removes the actual token total from a key's budget after a request
@@ -419,21 +406,6 @@ func tpmRetryAfter(lim *rate.Limiter) int {
 	}
 	secs := max(int(math.Ceil((1-avail)/perSec)), 1)
 	return secs
-}
-
-// cleanupLoop periodically evicts idle buckets to bound memory.
-func (l *TPMLimiter) cleanupLoop() {
-	ticker := time.NewTicker(5 * time.Minute)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-l.stopCh:
-			return
-		case <-ticker.C:
-			l.cleanup()
-		}
-	}
 }
 
 func (l *TPMLimiter) cleanup() {

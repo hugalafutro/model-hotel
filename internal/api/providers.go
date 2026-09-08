@@ -11,7 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -34,6 +33,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Name = trimmed
+	req.BaseURL = strings.TrimSpace(req.BaseURL)
 
 	if req.BaseURL == "" {
 		http.Error(w, "base_url is required", http.StatusBadRequest)
@@ -88,15 +88,7 @@ func (h *Handler) CreateProvider(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Application-level duplicate name check.
-	existing, err := h.providerRepo.GetByName(r.Context(), req.Name)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		// A DB error here looks like "no duplicate" and bypasses the app-level
-		// guard, leaving the DB unique constraint as the backstop. Surfaced so a
-		// flaky DB does not quietly admit duplicates.
-		debuglog.Warn("provider create: duplicate-name check failed, relying on DB constraint", "name", req.Name, "error", err)
-	}
-	if existing != nil {
+	if h.providerNameTaken(r.Context(), req.Name, uuid.Nil) {
 		http.Error(w, "a provider with this name already exists", http.StatusConflict)
 		return
 	}
@@ -235,11 +227,7 @@ func (h *Handler) GetProvider(w http.ResponseWriter, r *http.Request) {
 
 	p, err := h.providerRepo.Get(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "provider not found", http.StatusNotFound)
-			return
-		}
-		respondError(w, fmt.Sprintf("failed to get provider %s", id), err, http.StatusInternalServerError)
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", fmt.Sprintf("failed to get provider %s", id))
 		return
 	}
 
@@ -275,11 +263,7 @@ func (h *Handler) acceptProviderIdentity(w http.ResponseWriter, r *http.Request,
 
 	current, err := h.providerRepo.Get(r.Context(), id)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "provider not found", http.StatusNotFound)
-			return false
-		}
-		respondError(w, fmt.Sprintf("failed to load provider %s", id), err, http.StatusInternalServerError)
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", fmt.Sprintf("failed to load provider %s", id))
 		return false
 	}
 
@@ -343,7 +327,7 @@ func (h *Handler) acceptProviderIdentity(w http.ResponseWriter, r *http.Request,
 // satisfy before anything is done with it.
 func (h *Handler) acceptProviderURLShape(w http.ResponseWriter, baseURL string) bool {
 	if !h.cfg.AllowHTTPProviders {
-		parsed, err := url.Parse(strings.TrimSpace(baseURL))
+		parsed, err := url.Parse(baseURL)
 		if err != nil || parsed.Scheme != "https" {
 			http.Error(w, "base_url must use HTTPS (set ALLOW_HTTP_PROVIDERS=true for HTTP)", http.StatusBadRequest)
 			return false
@@ -384,7 +368,7 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if req.BaseURL != nil {
-		trimmed := trimString(*req.BaseURL)
+		trimmed := strings.TrimSpace(*req.BaseURL)
 		req.BaseURL = &trimmed
 		if err := validateStringPtrLength("base_url", req.BaseURL, 1, 500); err != nil {
 			respondBadRequest(w, "invalid base URL", err)
@@ -426,13 +410,9 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Application-level duplicate name check when renaming.
-	if req.Name != nil {
-		existing, _ := h.providerRepo.GetByName(r.Context(), *req.Name)
-		if existing != nil && existing.ID != id {
-			http.Error(w, "a provider with this name already exists", http.StatusConflict)
-			return
-		}
+	if req.Name != nil && h.providerNameTaken(r.Context(), *req.Name, id) {
+		http.Error(w, "a provider with this name already exists", http.StatusConflict)
+		return
 	}
 
 	// Validate the address and the type together: either one changing has to
@@ -458,7 +438,11 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		util.HoldSecret(*req.APIKey)
 	}
 
-	prior := h.priorProvider(r.Context(), id, req)
+	prior, err := h.priorProvider(r.Context(), id, req)
+	if err != nil {
+		respondError(w, fmt.Sprintf("failed to load provider %s before update", id), err, http.StatusInternalServerError)
+		return
+	}
 
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
@@ -483,15 +467,23 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 // priorProvider reads the row a save is about to replace, but only when the
 // save touches something whose before-and-after matters: the enabled flag or
 // the provider's identity. A rename never needs it.
-func (h *Handler) priorProvider(ctx context.Context, id uuid.UUID, req provider.UpdateProviderRequest) *provider.Provider {
+//
+// A missing row is (nil, nil): the update below answers that with its own 404.
+// Any other read failure is returned, because a nil prior is indistinguishable
+// from "provider absent" and would make the caller skip the enable-state
+// settlement, rediscovery and failover synchronisation a committed save owes.
+func (h *Handler) priorProvider(ctx context.Context, id uuid.UUID, req provider.UpdateProviderRequest) (*provider.Provider, error) {
 	if req.Enabled == nil && req.AutodiscoveryEnabled == nil && req.BaseURL == nil && req.ProviderType == nil && req.APIKey == nil {
-		return nil
+		return nil, nil
 	}
 	prior, err := h.providerRepo.Get(ctx, id)
 	if err != nil {
-		return nil
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil
+		}
+		return nil, err
 	}
-	return prior
+	return prior, nil
 }
 
 // settleProviderUpdate runs what a committed save owes the rest of the system:
@@ -576,11 +568,7 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := h.providerRepo.Delete(r.Context(), id); err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
-			http.Error(w, "provider not found", http.StatusNotFound)
-			return
-		}
-		respondError(w, fmt.Sprintf("failed to delete provider %s", id), err, http.StatusInternalServerError)
+		respondLookupError(w, err, pgx.ErrNoRows, "provider not found", fmt.Sprintf("failed to delete provider %s", id))
 		return
 	}
 
@@ -607,20 +595,21 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 // access (e.g. OpenCode Zen, and self-hosted servers, which serve their models
 // without an API key).
 func providerTypeAllowsEmptyKey(providerType string) bool {
-	switch providerType {
-	case "opencode-zen", "ollama", "koboldcpp", "lmstudio", "custom":
-		return true
-	default:
-		return false
-	}
+	return providerType == "opencode-zen" || providerType == "custom" || provider.IsLocalServerType(providerType)
 }
 
-// isForeignKeyViolation reports whether err is a PostgreSQL foreign key violation (error code 23503).
-func isForeignKeyViolation(err error) bool {
-	if pgErr, ok := errors.AsType[*pgconn.PgError](err); ok {
-		return pgErr.Code == "23503"
+// providerNameTaken is the application-level duplicate-name check both writes
+// run before the DB unique constraint sees the row. excludeID is the provider
+// being renamed, so a rename to its own name is not a conflict; pass uuid.Nil
+// on create. A lookup failure looks like "no duplicate" and leaves the
+// constraint as the backstop, so it is logged: a flaky database must not
+// quietly admit duplicates.
+func (h *Handler) providerNameTaken(ctx context.Context, name string, excludeID uuid.UUID) bool {
+	existing, err := h.providerRepo.GetByName(ctx, name)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		debuglog.Warn("provider: duplicate-name check failed, relying on DB constraint", "name", name, "error", err)
 	}
-	return false
+	return existing != nil && existing.ID != excludeID
 }
 
 // lastCapFor is the provider's last exhausted 429 from the proxy's ledger, nil

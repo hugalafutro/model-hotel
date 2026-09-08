@@ -1,3 +1,4 @@
+import type { TFunction } from "i18next";
 import { API_BASE, getAuthHeaders } from "../../api/client";
 import type {
 	ChatMessage,
@@ -5,9 +6,10 @@ import type {
 	GenerationParams,
 	MessageContent,
 } from "../../api/types";
+import { tokensPerSecond } from "../../utils/format";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
-import { fetchWithRetry, type RetryOptions } from "../../utils/stagger";
+import { fetchWithRetry } from "../../utils/stagger";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 
 export type ConversationState =
@@ -90,16 +92,71 @@ export interface StreamResult {
 	completionTokens: number;
 }
 
+/** The empty assistant message a reply streams into. */
+export function newAssistantPlaceholder(
+	model: string,
+	params: GenerationParams,
+): ChatMessage {
+	return {
+		role: "assistant",
+		content: "",
+		rawContent: "",
+		thinkingContent: "",
+		model,
+		timestamp: Date.now(),
+		params: hasAnyParam(params) ? params : undefined,
+	};
+}
+
+/** The finished reply: a placeholder with everything the stream produced. */
+export function withStreamResult(
+	message: ChatMessage,
+	result: StreamResult,
+): ChatMessage {
+	return {
+		...message,
+		rawContent: result.rawContent,
+		content: result.content,
+		thinkingContent: result.thinkingContent,
+		error: result.error,
+		aborted: result.aborted || undefined,
+		metrics: {
+			tokensPerSecond: result.tokensPerSecond,
+			durationMs: result.durationMs,
+			promptTokens: result.promptTokens,
+			completionTokens: result.completionTokens,
+		},
+	};
+}
+
+/**
+ * Applies `patch` to the assistant message stamped `timestamp`. The list is
+ * returned unchanged when that message is gone (deleted mid-stream), so the
+ * updater never resurrects it.
+ */
+export function patchAssistantAt(
+	messages: ChatMessage[],
+	timestamp: number,
+	patch: Partial<ChatMessage> | ((m: ChatMessage) => ChatMessage),
+): ChatMessage[] {
+	const idx = messages.findIndex(
+		(m) => m.timestamp === timestamp && m.role === "assistant",
+	);
+	if (idx === -1) return messages;
+	const next = [...messages];
+	next[idx] =
+		typeof patch === "function" ? patch(next[idx]) : { ...next[idx], ...patch };
+	return next;
+}
+
 export async function streamModelResponse(
 	modelId: string,
 	apiMessages: Array<{ role: string; content: MessageContent }>,
 	params: GenerationParams,
 	abortCtrl: AbortController,
 	onDelta: (raw: string, content: string, thinking: string) => void,
-	retryOptions?: RetryOptions,
-	t?: (key: string) => string,
+	t: TFunction,
 ): Promise<StreamResult> {
-	const tx = t ?? ((key: string) => key);
 	const startTime = performance.now();
 	let promptTokens = 0;
 	let completionTokens = 0;
@@ -122,7 +179,7 @@ export async function streamModelResponse(
 				}),
 				signal: abortCtrl.signal,
 			},
-			retryOptions ?? { maxRetries: 2 },
+			{ maxRetries: 2 },
 		);
 
 		if (!resp.ok) {
@@ -161,22 +218,18 @@ export async function streamModelResponse(
 		});
 		if (!completion.sawDone && !completion.aborted) {
 			const durationMs = Math.round(performance.now() - startTime);
-			const tokensPerSecond =
-				completionTokens > 0 && durationMs > 0
-					? completionTokens / (durationMs / 1000)
-					: null;
 			return {
 				rawContent,
 				content,
 				thinkingContent,
 				error: completion.idleTimeout
-					? tx("chat.stream.stalledTimeout")
+					? t("chat.stream.stalledTimeout")
 					: content
-						? tx("chat.stream.endedWithoutSignal")
-						: tx("chat.stream.endedUnexpectedly"),
+						? t("chat.stream.endedWithoutSignal")
+						: t("chat.stream.endedUnexpectedly"),
 				aborted: false,
 				durationMs,
-				tokensPerSecond,
+				tokensPerSecond: tokensPerSecond(completionTokens, durationMs),
 				promptTokens,
 				completionTokens,
 			};
@@ -184,10 +237,10 @@ export async function streamModelResponse(
 	} catch (err) {
 		const isAbort = err instanceof Error && err.name === "AbortError";
 		const errorMsg = isAbort
-			? tx("chat.stream.stoppedByUser")
+			? t("chat.stream.stoppedByUser")
 			: err instanceof Error
 				? err.message
-				: tx("chat.stream.unknownError");
+				: t("chat.stream.unknownError");
 		const errorDurationMs = Math.round(performance.now() - startTime);
 		return {
 			rawContent,
@@ -196,29 +249,22 @@ export async function streamModelResponse(
 			error: errorMsg,
 			aborted: isAbort,
 			durationMs: errorDurationMs,
-			tokensPerSecond:
-				completionTokens > 0 && errorDurationMs > 0
-					? completionTokens / (errorDurationMs / 1000)
-					: null,
+			tokensPerSecond: tokensPerSecond(completionTokens, errorDurationMs),
 			promptTokens,
 			completionTokens,
 		};
 	}
 
 	const durationMs = performance.now() - startTime;
-	const tokensPerSecond =
-		completionTokens > 0 && durationMs > 0
-			? completionTokens / (durationMs / 1000)
-			: null;
 
 	return {
 		rawContent,
 		content,
 		thinkingContent,
-		error: completion.aborted ? tx("chat.stream.stoppedByUser") : null,
+		error: completion.aborted ? t("chat.stream.stoppedByUser") : null,
 		aborted: completion.aborted,
 		durationMs: Math.round(durationMs),
-		tokensPerSecond,
+		tokensPerSecond: tokensPerSecond(completionTokens, durationMs),
 		promptTokens,
 		completionTokens,
 	};

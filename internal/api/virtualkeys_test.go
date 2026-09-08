@@ -278,31 +278,6 @@ func TestVirtualKeyToResponse_WithLastUsedAt(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// cond function tests
-// ---------------------------------------------------------------------------
-
-func TestCond_True(t *testing.T) {
-	result := cond("hello", true)
-	if result != "hello" {
-		t.Errorf("cond(%q, true) = %q, want %q", "hello", result, "hello")
-	}
-}
-
-func TestCond_False(t *testing.T) {
-	result := cond("hello", false)
-	if result != "" {
-		t.Errorf("cond(%q, false) = %q, want empty string", "hello", result)
-	}
-}
-
-func TestCond_EmptyStringTrue(t *testing.T) {
-	result := cond("", true)
-	if result != "" {
-		t.Errorf("cond(%q, true) = %q, want %q", "", result, "")
-	}
-}
-
-// ---------------------------------------------------------------------------
 // validateRateLimits
 // ---------------------------------------------------------------------------
 
@@ -461,13 +436,6 @@ func TestValidateRateLimits_Ceilings(t *testing.T) {
 				t.Fatalf("body %q does not name the ceiling %q", w.Body.String(), tt.wantErr)
 			}
 		})
-	}
-}
-
-func TestCond_EmptyStringFalse(t *testing.T) {
-	result := cond("", false)
-	if result != "" {
-		t.Errorf("cond(%q, false) = %q, want empty string", "", result)
 	}
 }
 

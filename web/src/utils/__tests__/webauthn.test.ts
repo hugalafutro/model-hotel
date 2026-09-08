@@ -2,10 +2,8 @@ import type {
 	PublicKeyCredentialCreationOptionsJSON,
 	PublicKeyCredentialRequestOptionsJSON,
 } from "@simplewebauthn/browser";
-import * as simplewebauthn from "@simplewebauthn/browser";
 import { HttpResponse, http } from "msw";
 import { server } from "../../test/mocks/server";
-import * as webauthn from "../webauthn";
 
 vi.mock("@simplewebauthn/browser", () => ({
 	browserSupportsWebAuthn: vi.fn(() => true),
@@ -23,10 +21,18 @@ class MockDOMError extends Error {
 	}
 }
 
+// isWebAuthnAvailable memoizes the server's "configured" answer for the life of
+// the module, so each test takes a fresh copy of it and of the browser mock it
+// binds instead of inheriting the previous test's cached answer.
+let simplewebauthn: typeof import("@simplewebauthn/browser");
+let webauthn: typeof import("../webauthn");
+
 describe("webauthn utils", () => {
-	beforeEach(() => {
+	beforeEach(async () => {
 		server.resetHandlers();
-		webauthn.resetWebAuthnCache();
+		vi.resetModules();
+		simplewebauthn = await import("@simplewebauthn/browser");
+		webauthn = await import("../webauthn");
 	});
 
 	describe("isWebAuthnAvailable", () => {
@@ -81,23 +87,6 @@ describe("webauthn utils", () => {
 			);
 			const result = await webauthn.isWebAuthnAvailable();
 			expect(result).toBe(false);
-		});
-	});
-
-	describe("resetWebAuthnCache", () => {
-		it("resets the server cache so next call refetches", async () => {
-			vi.spyOn(simplewebauthn, "browserSupportsWebAuthn").mockReturnValue(true);
-			let callCount = 0;
-			server.use(
-				http.get("/api/webauthn/available", () => {
-					callCount++;
-					return HttpResponse.json({ enabled: callCount === 1 });
-				}),
-			);
-			await webauthn.isWebAuthnAvailable();
-			webauthn.resetWebAuthnCache();
-			await webauthn.isWebAuthnAvailable();
-			expect(callCount).toBe(2);
 		});
 	});
 

@@ -18,11 +18,8 @@ import (
 // the proxy's egress loop feeds it one upstream data payload at a time and
 // forwards whatever bytes come back.
 type StreamTranslator struct {
-	id      string
-	model   string
-	created int64
+	w egress.ChunkWriter
 
-	started      bool   // role delta emitted
 	finished     bool   // Finish() already emitted
 	blocked      bool   // promptFeedback.blockReason seen
 	finishReason string // last Gemini finishReason observed
@@ -36,23 +33,7 @@ type StreamTranslator struct {
 // created are echoed in every chunk envelope (the model string the client
 // requested, not Gemini's modelVersion).
 func NewStreamTranslator(id, model string, created int64) *StreamTranslator {
-	return &StreamTranslator{id: id, model: model, created: created}
-}
-
-// oaiChunkOut is one outgoing chat.completion.chunk payload.
-type oaiChunkOut struct {
-	ID      string           `json:"id"`
-	Object  string           `json:"object"`
-	Created int64            `json:"created"`
-	Model   string           `json:"model"`
-	Choices []oaiChunkChoice `json:"choices"`
-	Usage   *oaiUsage        `json:"usage,omitempty"`
-}
-
-type oaiChunkChoice struct {
-	Index        int           `json:"index"`
-	Delta        oaiChunkDelta `json:"delta"`
-	FinishReason *string       `json:"finish_reason"`
+	return &StreamTranslator{w: egress.ChunkWriter{Component: "gemini", ID: id, Model: model, Created: created}}
 }
 
 type oaiChunkDelta struct {
@@ -68,37 +49,14 @@ type oaiChunkDelta struct {
 // functionCall complete in a single part, so the whole call goes out as one
 // delta fragment (index + id + name + full arguments).
 type oaiChunkToolCallOut struct {
-	Index    int    `json:"index"`
-	ID       string `json:"id"`
-	Type     string `json:"type"`
-	Function struct {
-		Name      string `json:"name"`
-		Arguments string `json:"arguments"`
-	} `json:"function"`
-	ExtraContent *egress.ExtraContent `json:"extra_content,omitempty"`
+	Index int `json:"index"`
+	oaiToolCallOut
 }
 
 // writeChunk appends one framed SSE chunk ("data: <json>\n\n").
 func (t *StreamTranslator) writeChunk(buf *bytes.Buffer, delta oaiChunkDelta, finishReason *string, usage *oaiUsage) error {
-	if !t.started {
-		delta.Role = "assistant"
-		t.started = true
-	}
-	payload, err := json.Marshal(oaiChunkOut{
-		ID:      t.id,
-		Object:  "chat.completion.chunk",
-		Created: t.created,
-		Model:   t.model,
-		Choices: []oaiChunkChoice{{Index: 0, Delta: delta, FinishReason: finishReason}},
-		Usage:   usage,
-	})
-	if err != nil {
-		return fmt.Errorf("gemini: marshal stream chunk: %w", err)
-	}
-	buf.WriteString("data: ")
-	buf.Write(payload)
-	buf.WriteString("\n\n")
-	return nil
+	delta.Role = t.w.Role()
+	return egress.WriteChunk(buf, &t.w, delta, finishReason, usage)
 }
 
 // Translate processes one upstream Gemini data payload and returns the SSE
@@ -143,19 +101,10 @@ func (t *StreamTranslator) Translate(chunkJSON []byte) ([]byte, error) {
 		if p.FunctionCall != nil {
 			// Upstreams carry the signature in the same part as the call; the
 			// tool_call delta is emitted here, so a later part could not reach it.
-			args := compactJSON(p.FunctionCall.Args)
-			if args == "" {
-				args = "{}"
-			}
-			tc := oaiChunkToolCallOut{
-				Index:        t.toolCalls,
-				ID:           fmt.Sprintf("call_%s_%d", t.id, t.toolCalls),
-				Type:         "function",
-				ExtraContent: egress.ExtraContentFor(p.signature()),
-			}
-			tc.Function.Name = p.FunctionCall.Name
-			tc.Function.Arguments = args
-			delta.ToolCalls = append(delta.ToolCalls, tc)
+			delta.ToolCalls = append(delta.ToolCalls, oaiChunkToolCallOut{
+				Index:          t.toolCalls,
+				oaiToolCallOut: p.toolCall(t.w.ID, t.toolCalls),
+			})
 			t.toolCalls++
 			continue
 		}
@@ -189,6 +138,6 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	if err := t.writeChunk(&buf, oaiChunkDelta{}, &reason, translateUsage(t.usage)); err != nil {
 		return nil, err
 	}
-	buf.WriteString("data: [DONE]\n\n")
+	buf.WriteString(egress.Done)
 	return buf.Bytes(), nil
 }

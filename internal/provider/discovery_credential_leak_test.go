@@ -411,3 +411,56 @@ func TestQuotaNon200Logs_DoNotCarryTheKey(t *testing.T) {
 		})
 	}
 }
+
+// A failing discovery scan is stored as the provider's last error and rendered
+// on the dashboard, so the upstream's own response body must not travel in it.
+// The body stays in the debug log, where an operator can read it in context.
+func TestDiscoveryErrors_DropUpstreamBody(t *testing.T) {
+	const upstreamBody = "upstream-html-error-page-marker"
+
+	tests := []struct {
+		name           string
+		wantLoggedBody bool
+		invoke         func(*DiscoveryService, *Provider) error
+	}{
+		{"ollama", true, func(d *DiscoveryService, p *Provider) error {
+			_, err := d.discoverOllama(context.Background(), p, leakedKey)
+			return err
+		}},
+		{"koboldcpp-version", false, func(d *DiscoveryService, p *Provider) error {
+			_, err := d.koboldcppVersion(context.Background(), p.BaseURL, leakedKey)
+			return err
+		}},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(http.StatusBadRequest)
+				_, _ = w.Write([]byte(upstreamBody))
+			}))
+			defer server.Close()
+
+			var logged strings.Builder
+			debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+			t.Cleanup(func() { debuglog.SetHandler(debuglog.StdoutHandler()) })
+
+			d := &DiscoveryService{httpClient: server.Client()}
+			p := &Provider{ID: uuid.New(), Name: "leaky", BaseURL: server.URL}
+
+			err := tc.invoke(d, p)
+			if err == nil {
+				t.Fatal("expected an error for a 400 response")
+			}
+			if strings.Contains(err.Error(), upstreamBody) {
+				t.Errorf("upstream body reached the returned error: %v", err)
+			}
+			if !strings.Contains(err.Error(), "400") {
+				t.Errorf("error = %q, want it to carry the status", err)
+			}
+			if tc.wantLoggedBody && !strings.Contains(logged.String(), upstreamBody) {
+				t.Errorf("upstream body missing from the debug log: %s", logged.String())
+			}
+		})
+	}
+}

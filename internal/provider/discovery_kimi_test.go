@@ -360,7 +360,7 @@ func TestGetKimiCodeQuota_DecodeError(t *testing.T) {
 
 	_, err = svc.GetKimiCodeQuota(context.Background(), provider, masterKey)
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to decode response")
+	assert.Contains(t, err.Error(), "failed to decode quota response")
 }
 
 // kimiExhaustedUsagePayload is the real /usages response of an account that has

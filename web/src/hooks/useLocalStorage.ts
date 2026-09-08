@@ -80,11 +80,6 @@ export function useLocalStorage<T>(
 interface UseLocalStorageValueOptions<T> {
 	/** Turns the raw stored string (null when the key is absent) into the value. */
 	deserialize?: (stored: string | null, fallback: T) => T;
-	/**
-	 * Extra window events that also announce a change to this key, for writers
-	 * that dispatch their own (e.g. "sidebarQuotaToggle").
-	 */
-	events?: string[];
 }
 
 /**
@@ -103,11 +98,7 @@ export function useLocalStorageValue<T>(
 	fallback: T,
 	options: UseLocalStorageValueOptions<T> = {},
 ): T {
-	const { deserialize, events } = options;
-
-	// The names ride as JSON so an inline array literal does not resubscribe on
-	// every render, and so a name is restored exactly as given, spaces included.
-	const extraEvents = JSON.stringify(events ?? []);
+	const { deserialize } = options;
 
 	const subscribe = useCallback(
 		(onStoreChange: () => void) => {
@@ -125,17 +116,13 @@ export function useLocalStorageValue<T>(
 				}
 				onStoreChange();
 			};
-			const names = [
-				"storage",
-				"localStorageChange",
-				...(JSON.parse(extraEvents) as string[]),
-			];
+			const names = ["storage", "localStorageChange"];
 			for (const name of names) window.addEventListener(name, handler);
 			return () => {
 				for (const name of names) window.removeEventListener(name, handler);
 			};
 		},
-		[key, extraEvents],
+		[key],
 	);
 
 	// A string or null, never a fresh object, so React can compare snapshots.
@@ -163,4 +150,30 @@ export function useLocalStorageValue<T>(
 			return fallback;
 		}
 	}, [raw, fallback, deserialize]);
+}
+
+/** Deserializer for a boolean stored as "true"/"false" by the write-through setter. */
+export const storedBool = (stored: string | null) => stored === "true";
+
+/**
+ * Deserializer for a number, falling back when the stored string is not one:
+ * a hand-edited or half-written value would otherwise read as NaN.
+ */
+export const storedNumber = (stored: string | null, fallback: number) => {
+	const n = stored?.trim() ? Number(stored) : Number.NaN;
+	return Number.isNaN(n) ? fallback : n;
+};
+
+/**
+ * A JSON blob read straight out of localStorage, or null when the key is
+ * absent, unreadable or not valid JSON. Callers that persist a whole slice of
+ * state read it once at mount rather than parsing the same string per field.
+ */
+export function readJSON<T>(key: string): T | null {
+	try {
+		const raw = localStorage.getItem(key);
+		return raw === null ? null : (JSON.parse(raw) as T);
+	} catch {
+		return null;
+	}
 }

@@ -6,12 +6,16 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
@@ -246,7 +250,7 @@ func exportModelRefs(ctx context.Context, q querier, baseQuery, ackKey string) (
 	// to change. A primary's export is what its own rows say. Demotion restores the
 	// union, and the import that comes with it rewrites the marker anyway.
 	if len(acked) > 0 && !isFleetPrimary(ctx, q) {
-		missing, err := filterModelsAbsentHere(ctx, q, acked)
+		missing, err := absentModelRefs(ctx, q, acked)
 		if err != nil {
 			return nil, err
 		}
@@ -273,61 +277,14 @@ func exportModelRefs(ctx context.Context, q querier, baseQuery, ackKey string) (
 // wrongly treated as a member only keeps exporting what its own import already
 // wrote, which its next import corrects.
 func isFleetPrimary(ctx context.Context, q querier) bool {
-	rows, err := q.Query(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetIsPrimary)
-	if err != nil {
-		debuglog.Warn("configsync: read fleet primary marker", "error", err)
-		return false
-	}
-	defer rows.Close()
-	if !rows.Next() {
-		return false
-	}
 	var v string
-	if err := rows.Scan(&v); err != nil {
+	if err := q.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, keyFleetIsPrimary).Scan(&v); err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			debuglog.Warn("configsync: read fleet primary marker", "error", err)
+		}
 		return false
 	}
 	return v == "true"
-}
-
-// filterModelsAbsentHere returns the refs that resolve to no model on this member.
-// A ref that does resolve is dropped: whatever its state, the row is what the
-// export must describe, either through the list built from this member's own rows
-// or by differing until a sync sets it.
-func filterModelsAbsentHere(ctx context.Context, q querier, refs []ExportModelRef) ([]ExportModelRef, error) {
-	providers := make([]string, len(refs))
-	modelIDs := make([]string, len(refs))
-	for i, ref := range refs {
-		providers[i] = ref.ProviderName
-		modelIDs[i] = ref.ModelID
-	}
-	rows, err := q.Query(ctx, `
-		SELECT p.name, m.model_id
-		  FROM models m JOIN providers p ON m.provider_id = p.id
-		 WHERE EXISTS (SELECT * FROM unnest($1::text[], $2::text[]) AS w(provider_name, model_id)
-		                WHERE w.provider_name = p.name AND w.model_id = m.model_id)`,
-		providers, modelIDs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	present := map[ExportModelRef]bool{}
-	for rows.Next() {
-		var ref ExportModelRef
-		if err := rows.Scan(&ref.ProviderName, &ref.ModelID); err != nil {
-			return nil, err
-		}
-		present[ref] = true
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	out := make([]ExportModelRef, 0, len(refs))
-	for _, ref := range refs {
-		if !present[ref] {
-			out = append(out, ref)
-		}
-	}
-	return out, nil
 }
 
 // readUnappliedModelRefs reads the per-model intent this member acknowledged but
@@ -336,19 +293,11 @@ func filterModelsAbsentHere(ctx context.Context, q querier, refs []ExportModelRe
 // same way rather than failing the export, since a corrupt instance-local marker
 // must not take this member's config sync down. The next import rewrites it.
 func readUnappliedModelRefs(ctx context.Context, q querier, key string) ([]ExportModelRef, error) {
-	rows, err := q.Query(ctx, `SELECT value FROM settings WHERE key = $1`, key)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
 	var raw string
-	if !rows.Next() {
-		return nil, rows.Err() // no marker: nothing outstanding
-	}
-	if err := rows.Scan(&raw); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
+	if err := q.QueryRow(ctx, `SELECT value FROM settings WHERE key = $1`, key).Scan(&raw); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, nil // no marker: nothing outstanding
+		}
 		return nil, err
 	}
 	var refs []ExportModelRef
@@ -359,30 +308,23 @@ func readUnappliedModelRefs(ctx context.Context, q querier, key string) ([]Expor
 	return refs, nil
 }
 
-// modelRef is the stable cross-member identity of a model: the provider's name
-// plus the provider-scoped model_id. (provider_id, model_id) is unique per
-// member, but the UUIDs differ, so failover entries travel by this pair.
-type modelRef struct {
-	provider string
-	modelID  string
-}
-
 // modelRefByUUID maps each local model UUID to its stable (provider, model_id)
 // ref, for translating a failover group's UUID entries out on export.
-func modelRefByUUID(ctx context.Context, q querier) (map[string]modelRef, error) {
+func modelRefByUUID(ctx context.Context, q querier) (map[string]ExportModelRef, error) {
 	rows, err := q.Query(ctx,
 		`SELECT m.id, p.name, m.model_id FROM models m JOIN providers p ON m.provider_id = p.id`)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	out := map[string]modelRef{}
+	out := map[string]ExportModelRef{}
 	for rows.Next() {
-		var id, provider, modelID string
-		if err := rows.Scan(&id, &provider, &modelID); err != nil {
+		var id string
+		var ref ExportModelRef
+		if err := rows.Scan(&id, &ref.ProviderName, &ref.ModelID); err != nil {
 			return nil, err
 		}
-		out[id] = modelRef{provider: provider, modelID: modelID}
+		out[id] = ref
 	}
 	return out, rows.Err()
 }
@@ -392,7 +334,7 @@ func modelRefByUUID(ctx context.Context, q querier) (map[string]modelRef, error)
 // groups are skipped: they regenerate identically on each member. An entry whose
 // model UUID no longer resolves (model deleted) is dropped; the group is still
 // exported so the importer can decide whether enough entries survive.
-func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]modelRef) ([]ExportFailoverGroup, error) {
+func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]ExportModelRef) ([]ExportFailoverGroup, error) {
 	// description is COALESCEd because the main app's failover Upsert lists the
 	// column with a *string value, so a nil description writes a SQL NULL (the
 	// column DEFAULT '' only applies when the column is omitted). Every other read
@@ -437,7 +379,7 @@ func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]m
 				enabled = v
 			}
 			g.Entries = append(g.Entries, ExportFailoverEntry{
-				ProviderName: ref.provider, ModelID: ref.modelID, Enabled: enabled,
+				ProviderName: ref.ProviderName, ModelID: ref.ModelID, Enabled: enabled,
 			})
 		}
 		out = append(out, g)
@@ -448,20 +390,7 @@ func exportFailoverGroups(ctx context.Context, q querier, refByUUID map[string]m
 // providerIDToName maps provider UUID (text) -> name for translating a virtual
 // key's allowed_providers list out of instance-local IDs.
 func (h *ConfigSyncHandler) providerIDToName(ctx context.Context, q querier) (map[string]string, error) {
-	rows, err := q.Query(ctx, `SELECT id, name FROM providers`)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]string{}
-	for rows.Next() {
-		var id, name string
-		if err := rows.Scan(&id, &name); err != nil {
-			return nil, err
-		}
-		out[id] = name
-	}
-	return out, rows.Err()
+	return stringMap(ctx, q, `SELECT id, name FROM providers`)
 }
 
 func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
@@ -525,15 +454,7 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 		// providers were all deleted stays restricted (present but empty) so the
 		// import can tell it apart from an unrestricted key and refuse to widen
 		// it (see upsertVirtualKeys).
-		if allowedIDs != nil {
-			names := []string{}
-			for _, id := range allowedIDs {
-				if name, ok := idToName[id]; ok {
-					names = append(names, name)
-				}
-			}
-			v.AllowedProviderNames = &names
-		}
+		v.AllowedProviderNames = namesFor(allowedIDs, idToName)
 		out = append(out, v)
 	}
 	return out, rows.Err()
@@ -568,15 +489,7 @@ func exportUsers(ctx context.Context, q querier, idToName map[string]string) ([]
 		// translation. An account whose capped providers were all deleted stays
 		// capped (present but empty) so the import can tell it apart from an
 		// uncapped account instead of widening it.
-		if allowedIDs != nil {
-			names := []string{}
-			for _, id := range allowedIDs {
-				if name, ok := idToName[id]; ok {
-					names = append(names, name)
-				}
-			}
-			u.AllowedProviderNames = &names
-		}
+		u.AllowedProviderNames = namesFor(allowedIDs, idToName)
 		// Import refuses an envelope carrying a hash it cannot parse, which
 		// stops a tampered envelope but would also freeze convergence for the
 		// whole fleet over one unusable account. Collect the offenders and
@@ -621,15 +534,7 @@ func reportMalformedPasswordHashes(usernames []string) {
 	}
 
 	malformedHashReport.Lock()
-	changed := len(current) != len(malformedHashReport.reported)
-	if !changed {
-		for name := range current {
-			if _, ok := malformedHashReport.reported[name]; !ok {
-				changed = true
-				break
-			}
-		}
-	}
+	changed := !maps.Equal(current, malformedHashReport.reported)
 	malformedHashReport.reported = current
 	malformedHashReport.Unlock()
 
@@ -651,19 +556,5 @@ func reportMalformedPasswordHashes(usernames []string) {
 }
 
 func exportSettings(ctx context.Context, q querier) (map[string]string, error) {
-	keys := syncableSettingKeys()
-	rows, err := q.Query(ctx, `SELECT key, value FROM settings WHERE key = ANY($1)`, keys)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	out := map[string]string{}
-	for rows.Next() {
-		var k, val string
-		if err := rows.Scan(&k, &val); err != nil {
-			return nil, err
-		}
-		out[k] = val
-	}
-	return out, rows.Err()
+	return stringMap(ctx, q, `SELECT key, value FROM settings WHERE key = ANY($1)`, syncableSettingKeys())
 }

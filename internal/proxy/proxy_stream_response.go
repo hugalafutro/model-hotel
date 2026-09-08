@@ -54,12 +54,7 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 	const chunkLogInterval = 50
 	// The strip_reasoning flag is read from the context once before the scanner
 	// loop: ProxyKeyMiddleware sets it and it never changes mid-stream.
-	stripReasoning := false
-	if v := r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey); v != nil {
-		if sr, ok := v.(bool); ok {
-			stripReasoning = sr
-		}
-	}
+	stripReasoning, _ := r.Context().Value(ctxkeys.VirtualKeyStripReasoningKey).(bool)
 	debuglog.Debug("proxy: strip_reasoning flag", "enabled", stripReasoning, "model", logData.modelID, "provider", logData.providerName)
 
 	for {
@@ -154,12 +149,7 @@ func (h *Handler) initStreamResponse(w http.ResponseWriter, logData *requestLogD
 	logData.statusCode = resp.StatusCode
 	logData.proxyOverheadMs = opts.proxyOverheadMs
 	logData.parseMs = opts.parseMs
-	logData.failoverLookupMs = opts.failoverLookupMs
-	logData.modelLookupMs = opts.modelLookupMs
-	logData.providerLookupMs = opts.providerLookupMs
-	logData.keyDecryptMs = opts.keyDecryptMs
-	logData.dialMs = opts.dialMs
-	logData.settingsReadMs = opts.settingsReadMs
+	logData.applyTimings(opts.timings)
 	logData.responseHeaderMs = opts.responseHeaderMs
 	logData.ttftMs = opts.trueTtftMs
 	logData.failoverAttempt = opts.attempt
@@ -214,8 +204,8 @@ func (h *Handler) emitComment(sink *streamSink, st *streamState, ev sseEvent, ch
 	//   data: {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}
 	// so "event: error" is tracked and the next data line is known to be an
 	// error payload whose message can be extracted for the log.
-	if strings.HasPrefix(lineStr, "event:") {
-		evt := strings.TrimSpace(lineStr[6:])
+	if raw, ok := strings.CutPrefix(lineStr, "event:"); ok {
+		evt := strings.TrimSpace(raw)
 		if evt == "error" {
 			st.lastAnthropicEvent = "error"
 		} else {
@@ -225,18 +215,7 @@ func (h *Handler) emitComment(sink *streamSink, st *streamState, ev sseEvent, ch
 	// Flush any accumulated error when a non-data line arrives: the error
 	// payload was already captured on the data line.
 	st.flushAccumulatedError("proxy: accumulated SSE error", chunkCount, logData)
-	if err := sink.write(line); err != nil {
-		st.clientDisconnected = true
-		debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
-		return true
-	}
-	if err := sink.write([]byte("\n")); err != nil {
-		st.clientDisconnected = true
-		debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
-		return true
-	}
-	sink.flush()
-	return false
+	return !st.emitRaw(sink, line, []byte("\n"), chunkCount, logData)
 }
 
 // emitDone forwards the [DONE] sentinel to the client. st.sawDone is set before
@@ -246,19 +225,30 @@ func (h *Handler) emitComment(sink *streamSink, st *streamState, ev sseEvent, ch
 func (h *Handler) emitDone(sink *streamSink, st *streamState, ev sseEvent, chunkCount int, logData *requestLogData) (stop bool) {
 	line := ev.raw
 	st.sawDone = true
+	if !st.emitRaw(sink, line, []byte("\n\n"), chunkCount, logData) {
+		return true
+	}
+	debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
+	return false
+}
+
+// emitRaw forwards a raw SSE line and its separator verbatim and flushes,
+// returning false on a client write failure (which it records on st). It is the
+// raw-line counterpart to emitData, so comment lines, the [DONE] sentinel and
+// an untransformed chunk all handle a disconnect the same way.
+func (st *streamState) emitRaw(sink *streamSink, line, sep []byte, chunkCount int, logData *requestLogData) bool {
 	if err := sink.write(line); err != nil {
 		st.clientDisconnected = true
 		debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
-		return true
+		return false
 	}
-	if err := sink.write([]byte("\n\n")); err != nil {
+	if err := sink.write(sep); err != nil {
 		st.clientDisconnected = true
 		debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
-		return true
+		return false
 	}
 	sink.flush()
-	debuglog.Debug("proxy: received [DONE] sentinel", "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount)
-	return false
+	return true
 }
 
 // emitData writes payload as an SSE data event and flushes it, returning true
@@ -334,7 +324,7 @@ func (h *Handler) handleDataChunk(sink *streamSink, st *streamState, ev sseEvent
 	// Capture truncated (P1-B) and Anthropic typed (P1-C) SSE errors into
 	// streamState. anthropicErrorCounted keeps the chunk.Error observer from
 	// double-counting.
-	anthropicErrorCounted := st.captureSSEError(payload, &st.lastAnthropicEvent, chunkCount, logData)
+	anthropicErrorCounted := st.captureSSEError(payload, chunkCount, logData)
 
 	var written bool
 	var chunk streamChunk
@@ -569,17 +559,9 @@ forwardUntypeable:
 	if !written {
 		// No transform applied: forward the original line verbatim, which
 		// preserves upstream framing such as LM Studio's no-space "data:".
-		if err := sink.write(line); err != nil {
-			st.clientDisconnected = true
-			debuglog.Warn("proxy: client write failed during stream", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
+		if !st.emitRaw(sink, line, []byte("\n\n"), chunkCount, logData) {
 			return true
 		}
-		if err := sink.write([]byte("\n\n")); err != nil {
-			st.clientDisconnected = true
-			debuglog.Warn("proxy: client write failed during stream (newline)", "error", err, "model", logData.modelID, "provider", logData.providerName, "chunks", chunkCount, "bytes_written", sink.bytesWritten)
-			return true
-		}
-		sink.flush()
 		sink.swallowBlank = true
 	}
 	return false

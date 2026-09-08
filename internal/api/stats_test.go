@@ -11,8 +11,6 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/hugalafutro/model-hotel/internal/admin"
 )
 
 // ---------------------------------------------------------------------------
@@ -240,7 +238,7 @@ func TestFillEmptyBuckets_Hourly_EmptyPoints(t *testing.T) {
 	start := timeMustParse(time.RFC3339, "2026-01-15T10:00:00Z")
 	end := timeMustParse(time.RFC3339, "2026-01-16T09:00:00Z") // 24 hours later
 
-	got := fillEmptyBuckets(nil, start, end, "hour")
+	got := fillEmptyBuckets(nil, start, end, timeSeriesBucket(24*time.Hour))
 
 	if len(got) != 24 {
 		t.Fatalf("expected 24 buckets, got %d", len(got))
@@ -267,7 +265,7 @@ func TestFillEmptyBuckets_Hourly_PartialGaps(t *testing.T) {
 		makePoint(bucketFormat(start.Add(23*time.Hour)), 8, 80, 0), // hour 23
 	}
 
-	got := fillEmptyBuckets(points, start, end, "hour")
+	got := fillEmptyBuckets(points, start, end, timeSeriesBucket(24*time.Hour))
 
 	if len(got) != 24 {
 		t.Fatalf("expected 24 buckets, got %d", len(got))
@@ -310,7 +308,7 @@ func TestFillEmptyBuckets_Hourly_FullCoverage(t *testing.T) {
 		points[i] = makePoint(bucketFormat(start.Add(time.Duration(i)*time.Hour)), i+1, i*10, i%3)
 	}
 
-	got := fillEmptyBuckets(points, start, end, "hour")
+	got := fillEmptyBuckets(points, start, end, timeSeriesBucket(24*time.Hour))
 
 	if len(got) != 24 {
 		t.Fatalf("expected 24 buckets, got %d", len(got))
@@ -332,7 +330,7 @@ func TestFillEmptyBuckets_Hourly_ConsecutiveGaps(t *testing.T) {
 		makePoint(bucketFormat(end), 1, 1, 0),
 	}
 
-	got := fillEmptyBuckets(points, start, end, "hour")
+	got := fillEmptyBuckets(points, start, end, timeSeriesBucket(24*time.Hour))
 
 	if len(got) != 24 {
 		t.Fatalf("expected 24 buckets, got %d", len(got))
@@ -354,7 +352,7 @@ func TestFillEmptyBuckets_Daily_EmptyPoints(t *testing.T) {
 	start := timeMustParse(time.RFC3339, "2026-01-10T00:00:00Z")
 	end := timeMustParse(time.RFC3339, "2026-01-16T00:00:00Z") // 7 days
 
-	got := fillEmptyBuckets(nil, start, end, "day")
+	got := fillEmptyBuckets(nil, start, end, timeSeriesBucket(7*24*time.Hour))
 
 	if len(got) != 7 {
 		t.Fatalf("expected 7 buckets, got %d", len(got))
@@ -381,7 +379,7 @@ func TestFillEmptyBuckets_Daily_PartialGaps(t *testing.T) {
 		makePoint(bucketFormat(start.Add(6*24*time.Hour)), 200, 2000, 0), // day 6
 	}
 
-	got := fillEmptyBuckets(points, start, end, "day")
+	got := fillEmptyBuckets(points, start, end, timeSeriesBucket(7*24*time.Hour))
 
 	if len(got) != 7 {
 		t.Fatalf("expected 7 buckets, got %d", len(got))
@@ -422,7 +420,7 @@ func TestFillEmptyBuckets_Daily_FullCoverage(t *testing.T) {
 		points[i] = makePoint(bucketFormat(start.Add(time.Duration(i)*24*time.Hour)), i*5, i*50, i)
 	}
 
-	got := fillEmptyBuckets(points, start, end, "day")
+	got := fillEmptyBuckets(points, start, end, timeSeriesBucket(7*24*time.Hour))
 
 	if len(got) != 7 {
 		t.Fatalf("expected 7 buckets, got %d", len(got))
@@ -455,7 +453,7 @@ func TestFillEmptyBuckets_PreservesAllFields(t *testing.T) {
 		},
 	}
 
-	got := fillEmptyBuckets(points, start, end, "hour")
+	got := fillEmptyBuckets(points, start, end, timeSeriesBucket(24*time.Hour))
 
 	if len(got) != 24 {
 		t.Fatalf("expected 24 buckets, got %d", len(got))
@@ -528,7 +526,7 @@ func TestFillEmptyBuckets_DailyEndTruncation(t *testing.T) {
 	start := timeMustParse(time.RFC3339, "2026-01-10T00:00:00Z")
 	end := timeMustParse(time.RFC3339, "2026-01-16T15:30:00Z") // mid-day, should truncate
 
-	got := fillEmptyBuckets(nil, start, end, "day")
+	got := fillEmptyBuckets(nil, start, end, timeSeriesBucket(7*24*time.Hour))
 
 	if len(got) != 7 {
 		t.Fatalf("expected 7 buckets, got %d", len(got))
@@ -564,14 +562,7 @@ func newStatsHandler(t *testing.T) (*StatsHandler, *pgxpool.Pool, func()) {
 		TRUNCATE request_logs, providers, models, virtual_keys CASCADE
 	`)
 
-	// Create admin manager
-	tmpDir := t.TempDir()
-	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
-	if err != nil {
-		t.Fatalf("failed to create admin manager: %v", err)
-	}
-
-	handler := NewStatsHandler(pool, adminMgr)
+	handler := NewStatsHandler(pool)
 	if handler == nil {
 		pool.Close()
 		t.Fatal("handler is nil")
@@ -661,14 +652,7 @@ func TestNewStatsHandler_Constructor(t *testing.T) {
 	}
 	defer pool.Close()
 
-	// Create admin manager
-	tmpDir := t.TempDir()
-	adminMgr, _, err := admin.New(tmpDir, "test-admin-token")
-	if err != nil {
-		t.Fatalf("failed to create admin manager: %v", err)
-	}
-
-	handler := NewStatsHandler(pool, adminMgr)
+	handler := NewStatsHandler(pool)
 	if handler == nil {
 		t.Fatal("Expected handler to be non-nil")
 		return

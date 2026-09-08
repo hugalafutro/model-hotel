@@ -6,6 +6,7 @@ import type {
 import type { QuotaBarMode } from "../../utils/quota";
 import {
 	QuotaBar,
+	type QuotaModalProps,
 	QuotaModalShell,
 	quotaRightText,
 	resetSublabelFromEpoch,
@@ -105,27 +106,13 @@ function ModelClassRows({
 	);
 }
 
-export interface MiniMaxQuotaModalProps {
-	providerName: string;
-	payload: MiniMaxQuotaResponse;
-	fetchedAt: string;
-	barMode: QuotaBarMode;
-	onToggleBarMode: () => void;
-	onRefresh: () => void;
-	isRefreshing: boolean;
-	onClose: () => void;
-}
-
 export function MiniMaxQuotaModal({
 	providerName,
 	payload,
-	fetchedAt,
 	barMode,
-	onToggleBarMode,
-	onRefresh,
-	isRefreshing,
-	onClose,
-}: MiniMaxQuotaModalProps) {
+	fetchedAt,
+	...shell
+}: QuotaModalProps<MiniMaxQuotaResponse>) {
 	const { t } = useTranslation();
 	// Unlike getMiniMaxGeneralEntry (web-shared/quota), this does not gate on
 	// base_resp.status_code === 0. That is safe, not an oversight: a non-zero
@@ -138,11 +125,8 @@ export function MiniMaxQuotaModal({
 		<QuotaModalShell
 			title={t("quota.modal.miniMaxTitle", { provider: providerName })}
 			barMode={barMode}
-			onToggleBarMode={onToggleBarMode}
-			onRefresh={onRefresh}
-			isRefreshing={isRefreshing}
 			fetchedAt={fetchedAt}
-			onClose={onClose}
+			{...shell}
 		>
 			{entries.map((entry) => (
 				<ModelClassRows

@@ -9,9 +9,11 @@
 package paramrewrite
 
 import (
-	"encoding/json"
+	"slices"
 	"strings"
 	"sync"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // anthropicUnsupportedParams are the params no Anthropic endpoint accepts as
@@ -27,18 +29,9 @@ var anthropicUnsupportedParams = []string{
 // anthropicMessagesUnsupportedParams is the same list without reasoning_effort,
 // which the Messages type translates rather than forwards. Derived from the list
 // above rather than restated, so a param added there is stripped from both.
-var anthropicMessagesUnsupportedParams = withoutParam(anthropicUnsupportedParams, "reasoning_effort")
-
-// withoutParam copies a strip list minus one entry.
-func withoutParam(params []string, drop string) []string {
-	out := make([]string, 0, len(params))
-	for _, p := range params {
-		if p != drop {
-			out = append(out, p)
-		}
-	}
-	return out
-}
+var anthropicMessagesUnsupportedParams = slices.DeleteFunc(slices.Clone(anthropicUnsupportedParams), func(p string) bool {
+	return p == "reasoning_effort"
+})
 
 // ProviderUnsupportedParams lists OpenAI Chat Completions parameters that are
 // universally unsupported (cause 400 errors) per provider type. These are
@@ -126,10 +119,6 @@ func CachedRejectedParams(cache *sync.Map, cacheKey string) map[string]bool {
 		if ptr, ok := v.(*map[string]bool); ok {
 			return *ptr
 		}
-		// Fallback for legacy map[string]bool values (pre-pointer migration)
-		if m, ok := v.(map[string]bool); ok {
-			return m
-		}
 	}
 	return nil
 }
@@ -148,36 +137,6 @@ func cachedRenames(cache *sync.Map, cacheKey string) map[string]string {
 	return nil
 }
 
-// providerErrorMessage extracts the human-readable message from a provider's
-// error body. Most providers return a bare object ({"error":{"message":...}}),
-// but Google AI Studio wraps the same shape in a one-element array
-// ([{"error":{...}}]). Reading only the object form leaves Google's messages
-// unparsed, so a rejected param it names can never be learned or stripped.
-func providerErrorMessage(body []byte) string {
-	type errEnvelope struct {
-		Error struct {
-			Message string `json:"message"`
-		} `json:"error"`
-	}
-	var obj errEnvelope
-	if json.Unmarshal(body, &obj) == nil {
-		return obj.Error.Message
-	}
-	var arr []errEnvelope
-	if json.Unmarshal(body, &arr) == nil {
-		// Joined, not first-wins: a body naming two rejected fields must teach
-		// both in one pass rather than costing a 400 round-trip each.
-		msgs := make([]string, 0, len(arr))
-		for _, e := range arr {
-			if e.Error.Message != "" {
-				msgs = append(msgs, e.Error.Message)
-			}
-		}
-		return strings.Join(msgs, "; ")
-	}
-	return ""
-}
-
 // ParseProviderParamRename parses 400 error bodies for params the upstream wants
 // renamed rather than dropped. Unlike a rejected param (which we strip), a
 // renamed param carries a value we must preserve under the new name — stripping
@@ -189,7 +148,7 @@ func providerErrorMessage(body []byte) string {
 // 'max_completion_tokens' instead."). These reach model-hotel directly via the
 // openai provider and indirectly via passthrough gateways (e.g. OpenCode Zen).
 func ParseProviderParamRename(body []byte) map[string]string {
-	msg := strings.ToLower(providerErrorMessage(body))
+	msg := strings.ToLower(util.ErrorEnvelopeMessage(body))
 	if msg == "" {
 		return nil
 	}
@@ -241,7 +200,7 @@ func paramIsQuoted(msg, param string) bool {
 // to the request parameter — there is no other meaning in this context.
 // This works universally across all providers, not just Anthropic.
 func ParseProviderParamError(body []byte) map[string]bool {
-	msg := providerErrorMessage(body)
+	msg := util.ErrorEnvelopeMessage(body)
 	if msg == "" {
 		return nil
 	}
@@ -267,15 +226,12 @@ func ParseProviderParamError(body []byte) map[string]bool {
 		// below keeps it from matching "reasoning_effort", which is a
 		// separate param with its own entry.
 		"reasoning",
+		// "stop", "n" and "seed" are too common as substrings to match
+		// loosely; paramIsQuoted is what makes them safe here, as it does for
+		// every name above.
+		"stop", "n", "seed",
 	}
 	for _, p := range matchParams {
-		if paramIsQuoted(msg, p) {
-			rejected[p] = true
-		}
-	}
-	// "stop", "n", "seed" are too common as substrings — only match when
-	// explicitly quoted or backticked in the error message.
-	for _, p := range []string{"stop", "n", "seed"} {
 		if paramIsQuoted(msg, p) {
 			rejected[p] = true
 		}

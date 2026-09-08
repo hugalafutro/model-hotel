@@ -89,21 +89,19 @@ const cbStatusCacheTTL = 5 * time.Second
 func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Request) {
 	wantDetail := r.URL.Query().Get("detail") == "1"
 
-	h.cbStatusMu.Lock()
+	// The detail and summary responses are cached in separate slots: the
+	// summary omits the per-provider list, so one cannot serve the other.
+	slot, stamp := &h.cbStatusCache, &h.cbStatusCacheTime
 	if wantDetail {
-		if time.Since(h.cbDetailCacheTime) < cbStatusCacheTTL {
-			cached := h.cbDetailCache
-			h.cbStatusMu.Unlock()
-			writeJSON(w, cached)
-			return
-		}
-	} else {
-		if time.Since(h.cbStatusCacheTime) < cbStatusCacheTTL {
-			cached := h.cbStatusCache
-			h.cbStatusMu.Unlock()
-			writeJSON(w, cached)
-			return
-		}
+		slot, stamp = &h.cbDetailCache, &h.cbDetailCacheTime
+	}
+
+	h.cbStatusMu.Lock()
+	if time.Since(*stamp) < cbStatusCacheTTL {
+		cached := *slot
+		h.cbStatusMu.Unlock()
+		writeJSON(w, cached)
+		return
 	}
 	h.cbStatusMu.Unlock()
 
@@ -138,56 +136,60 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 	var providerNameMap map[string]string // provider UUID -> name (for detail responses)
 	if h.failoverRepo != nil {
 		groups, err := h.failoverRepo.List(r.Context())
-		if err == nil {
-			tracked := make(map[string]struct{}, len(trackedProviders))
-			for _, p := range trackedProviders {
-				tracked[p.ProviderID] = struct{}{}
-			}
+		if err != nil {
+			respondError(w, "failed to list failover groups", err, http.StatusInternalServerError)
+			return
+		}
+		tracked := make(map[string]struct{}, len(trackedProviders))
+		for _, p := range trackedProviders {
+			tracked[p.ProviderID] = struct{}{}
+		}
 
-			// Collect all model UUIDs across all groups, then resolve them to
-			// provider UUIDs to compare against the tracked map, which is keyed by
-			// provider UUID.
-			var allModelIDs []uuid.UUID
-			seenModel := make(map[string]struct{})
-			for _, g := range groups {
-				for _, mid := range g.PriorityOrder {
-					key := mid.String()
-					if _, ok := seenModel[key]; ok {
-						continue
-					}
-					seenModel[key] = struct{}{}
-					allModelIDs = append(allModelIDs, mid)
+		// Collect all model UUIDs across all groups, then resolve them to
+		// provider UUIDs to compare against the tracked map, which is keyed by
+		// provider UUID.
+		var allModelIDs []uuid.UUID
+		seenModel := make(map[string]struct{})
+		for _, g := range groups {
+			for _, mid := range g.PriorityOrder {
+				key := mid.String()
+				if _, ok := seenModel[key]; ok {
+					continue
+				}
+				seenModel[key] = struct{}{}
+				allModelIDs = append(allModelIDs, mid)
+			}
+		}
+
+		if len(allModelIDs) > 0 {
+			models, err := h.modelRepo.GetByIDs(r.Context(), allModelIDs)
+			if err != nil {
+				respondError(w, "failed to resolve failover group models", err, http.StatusInternalServerError)
+				return
+			}
+			seenProvider := make(map[string]struct{})
+			for _, mid := range allModelIDs {
+				m, ok := models[mid]
+				if !ok {
+					continue
+				}
+				providerID := m.ProviderID.String()
+				if _, ok := seenProvider[providerID]; ok {
+					continue
+				}
+				seenProvider[providerID] = struct{}{}
+				if _, ok := tracked[providerID]; !ok {
+					resp.Closed++
 				}
 			}
 
-			if len(allModelIDs) > 0 {
-				models, err := h.modelRepo.GetByIDs(r.Context(), allModelIDs)
-				if err == nil {
-					seenProvider := make(map[string]struct{})
-					for _, mid := range allModelIDs {
-						m, ok := models[mid]
-						if !ok {
-							continue
-						}
-						providerID := m.ProviderID.String()
-						if _, ok := seenProvider[providerID]; ok {
-							continue
-						}
-						seenProvider[providerID] = struct{}{}
-						if _, ok := tracked[providerID]; !ok {
-							resp.Closed++
-						}
-					}
-
-					// Build provider name map for detail responses.
-					if wantDetail {
-						providerNameMap = make(map[string]string, len(models))
-						for _, m := range models {
-							pid := m.ProviderID.String()
-							if _, exists := providerNameMap[pid]; !exists {
-								providerNameMap[pid] = m.ProviderName
-							}
-						}
+			// Build provider name map for detail responses.
+			if wantDetail {
+				providerNameMap = make(map[string]string, len(models))
+				for _, m := range models {
+					pid := m.ProviderID.String()
+					if _, exists := providerNameMap[pid]; !exists {
+						providerNameMap[pid] = m.ProviderName
 					}
 				}
 			}
@@ -210,13 +212,7 @@ func (h *FailoverHandler) CircuitBreakerStatus(w http.ResponseWriter, r *http.Re
 
 	// Cache the response, after providers are appended for detail requests.
 	h.cbStatusMu.Lock()
-	if wantDetail {
-		h.cbDetailCache = resp
-		h.cbDetailCacheTime = time.Now()
-	} else {
-		h.cbStatusCache = resp
-		h.cbStatusCacheTime = time.Now()
-	}
+	*slot, *stamp = resp, time.Now()
 	h.cbStatusMu.Unlock()
 
 	writeJSON(w, resp)

@@ -11,11 +11,11 @@ import type { LangIconKey } from "../../components/langIcons";
 import { Modal } from "../../components/Modal";
 import { OutputBadges } from "../../components/OutputBadges";
 import {
-	formatPriceInput,
 	nonTextOutputs,
 	parseCapabilities,
 	proxyModelID,
 } from "../../utils/model";
+import { KEY_PLACEHOLDER } from "../../utils/snippets";
 import { ModelActionsFooter } from "./ModelActionsFooter";
 import { ModelSnippetPanel } from "./ModelSnippetPanel";
 import { ModelStatsGrid } from "./ModelStatsGrid";
@@ -65,6 +65,7 @@ export function ModelDetailModal({
 		setConfirmFields,
 		discoveredDefaults,
 		handleCancelEdit,
+		discardEdit,
 		handleSave,
 		revertField,
 	} = useModelEditor({ model, onUpdate: onUpdate ?? (() => {}) });
@@ -220,7 +221,7 @@ export function ModelDetailModal({
 				entries={snippets}
 				activeKey={snippetTab}
 				onSelect={setSnippetTab}
-				highlights={[origin, "YOUR_API_KEY", pMid]}
+				highlights={[origin, KEY_PLACEHOLDER, pMid]}
 			/>
 
 			{manageable && (
@@ -250,21 +251,7 @@ export function ModelDetailModal({
 				<ConfirmDialog
 					title={t("delete_confirm.unsaved_changes")}
 					fields={confirmFields}
-					onConfirm={() => {
-						setConfirmFields(null);
-						setEditing(false);
-						setEditData({
-							display_name: model.display_name || "",
-							context_length: model.context_length?.toString() || "",
-							max_output_tokens: model.max_output_tokens?.toString() || "",
-							input_price_per_million: formatPriceInput(
-								model.input_price_per_million,
-							),
-							output_price_per_million: formatPriceInput(
-								model.output_price_per_million,
-							),
-						});
-					}}
+					onConfirm={discardEdit}
 					onCancel={() => setConfirmFields(null)}
 				/>
 			)}

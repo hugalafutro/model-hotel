@@ -36,6 +36,18 @@ export function TerminalPreview({
 				? t("components.terminalPreview.powershell")
 				: "";
 	const displayTitle = title ?? defaultTitle;
+	const copy = (
+		<div className="ml-auto">
+			<CopyButton
+				text={copyText}
+				size={14}
+				title={t("components.terminalPreview.copySnippet", {
+					variant: displayTitle,
+				})}
+			/>
+		</div>
+	);
+	const fixedHeight = height ? { height: `${height}px` } : undefined;
 
 	if (variant === "code") {
 		return (
@@ -45,19 +57,11 @@ export function TerminalPreview({
 					<span className="text-xs text-gray-200 font-mono">
 						{displayTitle}
 					</span>
-					<div className="ml-auto">
-						<CopyButton
-							text={copyText}
-							size={14}
-							title={t("components.terminalPreview.copySnippet", {
-								variant: displayTitle,
-							})}
-						/>
-					</div>
+					{copy}
 				</div>
 				<pre
 					className={`p-4 pb-6 text-xs text-gray-400 font-mono overflow-x-auto overflow-y-auto whitespace-pre-wrap break-words terminal-body${height ? "" : " overflow-y-hidden"}`}
-					style={height ? { height: `${height}px` } : undefined}
+					style={fixedHeight}
 				>
 					<code className="terminal-code">{children}</code>
 				</pre>
@@ -69,7 +73,7 @@ export function TerminalPreview({
 		return (
 			<div
 				className={`terminal-frame relative rounded-b-lg rounded-tr-lg bg-gray-950 border border-gray-800 overflow-hidden${height ? "" : " min-h-70"}`}
-				style={height ? { height: `${height}px` } : undefined}
+				style={fixedHeight}
 			>
 				<div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-gray-800 terminal-titlebar">
 					<div className="w-2.5 h-2.5 rounded-full bg-red-500" />
@@ -78,15 +82,7 @@ export function TerminalPreview({
 					<span className="text-xs text-gray-600 ml-2 font-mono terminal-titlebar-label">
 						{displayTitle}
 					</span>
-					<div className="ml-auto">
-						<CopyButton
-							text={copyText}
-							size={14}
-							title={t("components.terminalPreview.copySnippet", {
-								variant: displayTitle,
-							})}
-						/>
-					</div>
+					{copy}
 				</div>
 				<pre
 					className={`p-4 text-xs text-gray-400 font-mono overflow-x-auto whitespace-pre-wrap break-words terminal-body${height ? " overflow-y-auto" : ""}`}
@@ -100,7 +96,7 @@ export function TerminalPreview({
 	return (
 		<div
 			className={`terminal-win11 terminal-frame relative rounded-b-lg rounded-tr-lg overflow-hidden border border-[#333]${height ? "" : " min-h-70"}`}
-			style={height ? { height: `${height}px` } : undefined}
+			style={fixedHeight}
 		>
 			<div className="terminal-win11-titlebar flex items-center gap-2 px-3 py-1.5 border-b border-[#333]">
 				<svg
@@ -116,15 +112,7 @@ export function TerminalPreview({
 				<span className="terminal-win11-titlebar-label text-xs font-mono text-[#ccc]">
 					{displayTitle}
 				</span>
-				<div className="ml-auto">
-					<CopyButton
-						text={copyText}
-						size={14}
-						title={t("components.terminalPreview.copySnippet", {
-							variant: displayTitle,
-						})}
-					/>
-				</div>
+				{copy}
 			</div>
 			<pre
 				className={`terminal-win11-body p-4 text-xs font-mono overflow-x-auto whitespace-pre-wrap break-words text-[#ccc] bg-[#0c0c0c]${height ? " overflow-y-auto" : ""}`}

@@ -65,11 +65,11 @@ func TestNewClient_RejectsMetadataLiteral(t *testing.T) {
 // hostname that resolves to a metadata address is refused too (DNS rebinding),
 // while a private address is allowed.
 func TestDialControl(t *testing.T) {
-	if err := dialControl("tcp", "169.254.169.254:80", nil); err == nil {
-		t.Error("dialControl allowed a metadata address")
+	if err := DialControl("tcp", "169.254.169.254:80", nil); err == nil {
+		t.Error("DialControl allowed a metadata address")
 	}
-	if err := dialControl("tcp", "10.0.0.1:80", nil); err != nil {
-		t.Errorf("dialControl blocked a private address: %v", err)
+	if err := DialControl("tcp", "10.0.0.1:80", nil); err != nil {
+		t.Errorf("DialControl blocked a private address: %v", err)
 	}
 }
 
@@ -100,22 +100,22 @@ func TestCheckRedirect(t *testing.T) {
 		return req
 	}
 
-	if err := checkRedirect(mk("http://169.254.169.254/latest/"), nil); err == nil {
-		t.Error("checkRedirect allowed a redirect to a metadata literal")
+	if err := CheckRedirect(mk("http://169.254.169.254/latest/"), nil); err == nil {
+		t.Error("CheckRedirect allowed a redirect to a metadata literal")
 	}
-	if err := checkRedirect(mk("http://0.0.0.0/"), nil); err == nil {
-		t.Error("checkRedirect allowed a redirect to the unspecified address")
+	if err := CheckRedirect(mk("http://0.0.0.0/"), nil); err == nil {
+		t.Error("CheckRedirect allowed a redirect to the unspecified address")
 	}
-	if err := checkRedirect(mk("https://auth.example.com/callback"), nil); err != nil {
-		t.Errorf("checkRedirect blocked a legitimate hostname redirect: %v", err)
+	if err := CheckRedirect(mk("https://auth.example.com/callback"), nil); err != nil {
+		t.Errorf("CheckRedirect blocked a legitimate hostname redirect: %v", err)
 	}
-	if err := checkRedirect(mk("http://10.0.0.5:9091/"), nil); err != nil {
-		t.Errorf("checkRedirect blocked a private-address redirect: %v", err)
+	if err := CheckRedirect(mk("http://10.0.0.5:9091/"), nil); err != nil {
+		t.Errorf("CheckRedirect blocked a private-address redirect: %v", err)
 	}
 
 	via := make([]*http.Request, maxRedirects)
-	if err := checkRedirect(mk("https://auth.example.com/"), via); err == nil {
-		t.Errorf("checkRedirect allowed redirect #%d, want cap at %d", maxRedirects+1, maxRedirects)
+	if err := CheckRedirect(mk("https://auth.example.com/"), via); err == nil {
+		t.Errorf("CheckRedirect allowed redirect #%d, want cap at %d", maxRedirects+1, maxRedirects)
 	}
 }
 

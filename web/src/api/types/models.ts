@@ -185,3 +185,21 @@ export interface DiscoverAllResult {
 	diff?: DiscoveryDiff;
 	error?: string;
 }
+
+/** What POST /api/models/:id/test reports back about one probe. */
+export interface ModelTestResult {
+	success: boolean;
+	streaming: boolean;
+	ttft_ms: number;
+	duration_ms: number;
+	response: string;
+	error?: string;
+}
+
+/** What POST /api/providers/discover-all reports for a fleet-wide scan. */
+export interface DiscoverAllResponse {
+	succeeded: number;
+	failed: number;
+	discovered: number;
+	results: DiscoverAllResult[];
+}

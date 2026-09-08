@@ -1,10 +1,8 @@
 import { useTranslation } from "react-i18next";
 import { DollarSign } from "@/lib/icons";
 import type { OpenRouterBalance } from "../../api/types";
-import { useLocalStorage } from "../../hooks/useLocalStorage";
 import {
 	formatDollars,
-	formatRelativeTime,
 	formatTimestamp,
 	formatTimeUntil,
 } from "../../utils/format";
@@ -12,9 +10,13 @@ import { DetailSectionHeader } from "../DetailSectionHeader";
 import { DetailItem } from "../LogDetailItem";
 import { Modal } from "../Modal";
 import {
+	LastRefreshedRow,
+	type OnToast,
 	QuotaModalHeaderActions,
 	remainingBarColor,
 	usedBarColor,
+	useQuotaBarMode,
+	useQuotaRefreshToast,
 } from "./shared";
 
 export function OpenRouterQuotaModal({
@@ -29,28 +31,25 @@ export function OpenRouterQuotaModal({
 	onClose: () => void;
 	onRefresh: () => Promise<unknown>;
 	isRefreshing: boolean;
-	onToast: (msg: string, type: "success" | "error" | "info") => void;
+	onToast: OnToast;
 	lastRefreshed?: number;
 }) {
 	const { t } = useTranslation();
-	const [barMode, setBarMode] = useLocalStorage<"remaining" | "used">(
-		"quota-bar-mode",
-		"remaining",
-	);
+	const [barMode, toggleBarMode] = useQuotaBarMode();
 
-	const handleRefresh = async () => {
-		try {
-			await onRefresh();
-			onToast(t("components.providerModals.quotaRefreshed"), "success");
-		} catch {
-			onToast(t("components.providerModals.failedToRefreshQuota"), "error");
-		}
-	};
+	const handleRefresh = useQuotaRefreshToast(onRefresh, onToast);
 
 	const creditsRemaining =
 		balance.credits_total > 0
 			? (balance.credits_remaining / balance.credits_total) * 100
 			: 100;
+
+	// Share of the key's spending limit still available, 0 when there is no
+	// limit to divide by.
+	const limitPct =
+		balance.limit && balance.limit > 0
+			? ((balance.limit_remaining ?? 0) / balance.limit) * 100
+			: 0;
 
 	return (
 		<Modal
@@ -75,11 +74,8 @@ export function OpenRouterQuotaModal({
 						</p>
 					</div>
 					<QuotaModalHeaderActions
-						onToggleBarMode={() =>
-							setBarMode((prev) =>
-								prev === "remaining" ? "used" : "remaining",
-							)
-						}
+						barMode={barMode}
+						onToggleBarMode={toggleBarMode}
 						onRefresh={handleRefresh}
 						isRefreshing={isRefreshing}
 						toggleAriaLabel={t("providers.credits.toggleLabel")}
@@ -88,7 +84,6 @@ export function OpenRouterQuotaModal({
 								? t("providers.credits.showUsed")
 								: t("providers.credits.showRemaining")
 						}
-						refreshAriaLabel={t("common.refresh")}
 						refreshTitle={t("components.providerModals.refreshBalanceInfo")}
 					/>
 				</div>
@@ -138,22 +133,14 @@ export function OpenRouterQuotaModal({
 						</div>
 						<div className="w-full bg-(--surface-input) ui-bar h-3">
 							<div
-								className={`${balance.limit > 0 ? (barMode === "used" ? usedBarColor(100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100) : remainingBarColor(((balance.limit_remaining ?? 0) / balance.limit) * 100)) : "bg-amber-500"} h-3 ui-bar transition-all`}
+								className={`${balance.limit > 0 ? (barMode === "used" ? usedBarColor(100 - limitPct) : remainingBarColor(limitPct)) : "bg-amber-500"} h-3 ui-bar transition-all`}
 								style={{
 									width: `${
 										balance.limit > 0
-											? barMode === "used"
-												? Math.min(
-														100 -
-															((balance.limit_remaining ?? 0) / balance.limit) *
-																100,
-														100,
-													)
-												: Math.min(
-														((balance.limit_remaining ?? 0) / balance.limit) *
-															100,
-														100,
-													)
+											? Math.min(
+													barMode === "used" ? 100 - limitPct : limitPct,
+													100,
+												)
 											: 0
 									}%`,
 								}}
@@ -161,7 +148,7 @@ export function OpenRouterQuotaModal({
 						</div>
 						<p className="text-xs text-(--text-muted) mt-1 whitespace-pre-line">
 							{balance.limit > 0
-								? `${barMode === "used" ? (100 - ((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1) : (((balance.limit_remaining ?? 0) / balance.limit) * 100).toFixed(1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
+								? `${(barMode === "used" ? 100 - limitPct : limitPct).toFixed(1)}% ${barMode === "used" ? t("components.providerModals.used") : t("components.providerModals.remaining")}`
 								: balance.limit === 0
 									? `$0 ${t("components.providerModals.limitReset")}`
 									: t("components.providerModals.noLimitSet")}
@@ -207,14 +194,7 @@ export function OpenRouterQuotaModal({
 					</div>
 				</div>
 
-				{lastRefreshed ? (
-					<div className="flex justify-between items-center text-xs text-(--text-muted) pt-2 ">
-						<span>{t("components.providerModals.lastRefreshed")}</span>
-						<span>
-							{formatRelativeTime(new Date(lastRefreshed).toISOString())}
-						</span>
-					</div>
-				) : null}
+				<LastRefreshedRow at={lastRefreshed} />
 			</div>
 		</Modal>
 	);

@@ -30,8 +30,7 @@ export function AccentCalendar({
 	const today = todayISO();
 
 	const days = daysInMonth(year, month);
-	const firstDay = firstDayOfMonth(year, month);
-	const blanks = firstDay;
+	const blanks = firstDayOfMonth(year, month);
 
 	const monthName = useMemo(
 		() => new Date(year, month, 1).toLocaleString(undefined, { month: "long" }),
@@ -68,25 +67,10 @@ export function AccentCalendar({
 		}
 	};
 
-	const isInRange = (day: number): boolean => {
-		if (!from || !to) return false;
-		const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
-		return dStr >= from && dStr <= to;
-	};
+	const isInRange = (dStr: string): boolean =>
+		!!from && !!to && dStr >= from && dStr <= to;
 
-	const isStart = (day: number): boolean => {
-		if (!from) return false;
-		const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
-		return dStr === from;
-	};
-
-	const isEnd = (day: number): boolean => {
-		if (!to) return false;
-		const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
-		return dStr === to;
-	};
-
-	const isSelected = (day: number): boolean => isStart(day) || isEnd(day);
+	const isSelected = (dStr: string): boolean => dStr === from || dStr === to;
 
 	return (
 		<div>
@@ -123,8 +107,8 @@ export function AccentCalendar({
 				{Array.from({ length: days }).map((_, i) => {
 					const day = i + 1;
 					const dStr = `${year}-${pad(month + 1)}-${pad(day)}`;
-					const inRange = isInRange(day);
-					const sel = isSelected(day);
+					const inRange = isInRange(dStr);
+					const sel = isSelected(dStr);
 					const isToday = dStr === today;
 					const belowMin = minDate ? dStr < minDate : false;
 

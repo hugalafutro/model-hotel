@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -562,5 +563,66 @@ func TestBuildNativeAnthropicRequest_StripsSignedToolUseIDs(t *testing.T) {
 	}
 	if strings.Count(string(body), `"toolu_01"`) != 2 || !strings.Contains(string(body), `"claude-opus-4-8"`) {
 		t.Errorf("ids not paired or model not rewritten: %s", body)
+	}
+}
+
+// fillerReader answers every read with content, so a LimitReader over it
+// stands in for a body past the non-streaming cap without the test building
+// one.
+type fillerReader struct{}
+
+func (fillerReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = 'x'
+	}
+	return len(p), nil
+}
+
+// Refusing an oversized body is THIS gateway's policy, not the provider dying,
+// and the native path is judged by the same rule as the translated one: the
+// kind is a bad request, so the deferred answer verdict leaves the provider's
+// circuit alone.
+func TestHandleNativeNonStreaming_AnOversizedBodyIsNotTheProvidersFault(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	withBreakerThresholdOne(t, h)
+
+	providerID := uuid.New()
+	logData := &requestLogData{
+		id:             uuid.New().String(),
+		modelID:        "claude-x",
+		providerName:   "p",
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, circuitBreakerEnabled: true}
+	candidate := modelCandidate{
+		model:    &model.Model{ID: uuid.New(), ModelID: "claude-x"},
+		provider: &provider.Provider{ID: providerID, Name: "p"},
+	}
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(io.LimitReader(fillerReader{}, nonStreamingBodyCap+1)), Header: make(http.Header)}
+	rec := httptest.NewRecorder()
+	native := true
+	aw := newAnthropicResponseWriter(rec, "msg_e", "m")
+	aw.bindNativeFlag(&native)
+	req := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	h.deferAnswerJudgement(st, candidate, logData, http.StatusOK)
+	outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0)
+	judgeAnswerNow(logData)
+	aw.Finalize()
+
+	if outcome != outcomeFatal {
+		t.Errorf("outcome = %v, want outcomeFatal", outcome)
+	}
+	if logData.errorKind != KindProviderBadRequest {
+		t.Errorf("errorKind = %v, want provider_bad_request: refusing a body is this gateway's policy", logData.errorKind)
+	}
+	if h.circuitBreaker.GetState(providerID, "claude-x") == failover.StateOpen {
+		t.Error("a provider was charged for sending too much")
 	}
 }

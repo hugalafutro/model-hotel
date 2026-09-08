@@ -325,7 +325,11 @@
 			"emptyState": "Chưa có dữ liệu sử dụng. Bảng phân tích sử dụng sẽ hiển thị tại đây ngay khi có lưu lượng truy cập.",
 			"viewDetailsFor": "Xem chi tiết về {{label}}",
 			"deletedModelTooltip": "Mô hình không còn khả dụng - có thể đã bị xóa hoặc nhà cung cấp của nó đã bị gỡ bỏ",
-			"reservedKeyTooltip": "Tên được dành riêng nội bộ, không phải là khóa do bạn tạo - cách sử dụng này xuất phát từ các tuyến \"{{name}}\" của chính Model Hotel"
+			"reservedKeyTooltip": "Tên được dành riêng nội bộ, không phải là khóa do bạn tạo - cách sử dụng này xuất phát từ các tuyến \"{{name}}\" của chính Model Hotel",
+			"tokens_one": "token",
+			"tokens_other": "token",
+			"requests_one": "yêu cầu",
+			"requests_other": "yêu cầu"
 		},
 		"providerLatency": {
 			"title": "Độ trễ nhà cung cấp",
@@ -347,10 +351,10 @@
 			"distributionChart": "Biểu đồ phân phối nhà cung cấp",
 			"emptyState": "Chưa có dữ liệu về nhà cung cấp. Thông tin chi tiết về các nhà cung cấp sẽ hiển thị tại đây khi có lưu lượng truy cập.",
 			"chartAriaLabel": "Biểu đồ phân phối nhà cung cấp",
-			"tokenUnit": "Token",
-			"tokensUnit": "Token",
-			"requestUnit": "Yêu cầu",
-			"requestsUnit": "Yêu cầu"
+			"tokens_one": "Token",
+			"tokens_other": "Token",
+			"requests_one": "Yêu cầu",
+			"requests_other": "Yêu cầu"
 		},
 		"models": {
 			"viewDetails": "Xem chi tiết về {{label}}",
@@ -597,7 +601,6 @@
 		"vs": "VS",
 		"status": {
 			"generating": "Các mô hình đang tạo phản hồi - nhấp \"Dừng tất cả\" để hủy",
-			"voteToContinue": "Hãy bình chọn cho tất cả các cặp đấu để tiến vào vòng tiếp theo",
 			"nextRoundReady": "Khi đã sẵn sàng, hãy bắt đầu vòng tiếp theo"
 		},
 		"responses": {
@@ -652,13 +655,6 @@
 			"close": "Đóng"
 		},
 		"params": {
-			"temperature": "Nhiệt độ",
-			"maxTokens": "Token tối đa",
-			"topP": "Top P",
-			"minP": "Min P",
-			"topK": "Top K",
-			"freqPenalty": "Hệ số phạt",
-			"presPenalty": "Phạt hiện diện",
 			"resetAll": "Đặt lại tất cả",
 			"done": "Xong"
 		},
@@ -844,7 +840,9 @@
 			},
 			"failoverReason": {
 				"noProviders": "Không còn nhà cung cấp nào được kích hoạt",
-				"onlyOne": "Chỉ còn lại một nhà cung cấp được kích hoạt (chế độ dự phòng cần ít nhất hai nhà cung cấp)"
+				"onlyOne": "Chỉ còn lại một nhà cung cấp được kích hoạt (chế độ dự phòng cần ít nhất hai nhà cung cấp)",
+				"noValidProviders": "Không còn nhà cung cấp hợp lệ nào sau khi dọn dẹp",
+				"onlyOneValid": "Chỉ còn một nhà cung cấp hợp lệ sau khi dọn dẹp (chuyển đổi dự phòng cần ít nhất hai)"
 			},
 			"error": "Lỗi",
 			"failover": "Nhóm dự phòng",
@@ -1065,7 +1063,17 @@
 		"scope_all": "Tất cả nhà cung cấp",
 		"badge_parked": "{{count}} tạm dừng",
 		"status_parked": "Tạm dừng",
-		"status_parked_hint": "Nhà cung cấp đã bị tắt; mô hình này vẫn được liệt kê nhưng không được phục vụ cho đến khi nhà cung cấp được bật lại."
+		"status_parked_hint": "Nhà cung cấp đã bị tắt; mô hình này vẫn được liệt kê nhưng không được phục vụ cho đến khi nhà cung cấp được bật lại.",
+		"capPills": {
+			"vision": "Thị giác",
+			"reasoning": "Suy luận",
+			"tool_calling": "Công cụ",
+			"structured_output": "Có cấu trúc",
+			"pdf_upload": "PDF",
+			"video_input": "Video",
+			"audio_input": "Âm thanh",
+			"parallel_tool_calls": "Song song"
+		}
 	},
 	"model": {
 		"revertToDiscoveredValue": "Quay lại giá trị đã tìm thấy",
@@ -1267,7 +1275,6 @@
 				"owner": "Chủ sở hữu"
 			},
 			"noProvidersConfigured": "Chưa có nhà cung cấp nào được cấu hình.",
-			"discardChanges": "Bạn có muốn hủy bỏ các thay đổi chưa được lưu không?",
 			"loadingProviders": "Đang tải danh sách nhà cung cấp...",
 			"stripReasoningDescriptionText": "Khi tính năng này được bật, các mã thông báo suy luận/suy nghĩ sẽ bị loại bỏ khỏi các phản hồi truyền trực tiếp dành cho những khách hàng không thể xử lý chúng.",
 			"providerInstructionsText": "Nhấp vào một nhà cung cấp để hạn chế quyền truy cập. Theo mặc định, tất cả đều có thể truy cập được.",
@@ -1408,6 +1415,11 @@
 			"search": "Lọc nhật ký…",
 			"allLevels": "Tất cả các cấp độ",
 			"allSources": "Tất cả các nguồn"
+		},
+		"level": {
+			"info": "Thông tin",
+			"warning": "Cảnh báo",
+			"error": "Lỗi"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",
@@ -1859,8 +1871,8 @@
 				"confirmEnableTitle": "Bật tính năng sao lưu định kỳ?",
 				"confirmEnableDescription": "Bật sao lưu định kỳ sẽ xóa các bản sao lưu hiện có nằm ngoài khung xoay vòng con/cha/ông.",
 				"confirmEnableWouldRemove": "{{count}} bản sao lưu này nằm ngoài khung xoay vòng và sẽ bị xóa vĩnh viễn:",
-				"prunePreviewFailed": "Không thể xem trước quá trình cắt giảm bản sao lưu",
-				"pruneFailed": "Không thể xóa các bản sao lưu",
+				"prunePreviewFailed": "Không thể xem trước quá trình cắt giảm bản sao lưu: {{message}}",
+				"pruneFailed": "Không thể xóa các bản sao lưu: {{message}}",
 				"pruneSuccess": "Đã bật sao lưu định kỳ. Đã xóa {{count}} bản sao lưu cũ."
 			},
 			"availableBackupsTitle": "Các bản sao lưu hiện có",
@@ -2199,7 +2211,7 @@
 				"doneManaged": "Đã lưu các đích đến. Những sự kiện nào gửi cảnh báo vẫn do toàn hạm đội quản lý.",
 				"sendAll": "Gửi thử nghiệm đến tất cả",
 				"sentAll": "Đã gửi thử nghiệm đến mọi đích đến",
-				"apiChangedDrops": "Việc thay đổi địa chỉ sẽ xóa các đích đến đã thêm trong lần chạy này; chúng đã được thử nghiệm với địa chỉ cũ."
+				"apiChangedDrops": "Việc xác minh một địa chỉ khác sẽ xóa các đích đến đã thêm trong lần chạy này; chúng đã được thử nghiệm với địa chỉ cũ."
 			},
 			"category": {
 				"discovery": "Khám phá",
@@ -2388,16 +2400,10 @@
 			"filter": "Lọc theo…",
 			"clearFilter": "Xóa bộ lọc"
 		},
-		"copyButton": {
-			"copy": "Sao chép",
-			"copiedToClipboard": "Đã sao chép vào khay nhớ tạm",
-			"failedToCopy": "Không sao chép được"
-		},
 		"copyablePill": {
 			"copy": "Sao chép",
 			"copyToClipboard": "Sao chép vào khay nhớ tạm",
-			"copied": "Đã sao chép!",
-			"failedToCopy": "Không sao chép được"
+			"copied": "Đã sao chép!"
 		},
 		"collapsibleToggle": {
 			"expand": "Mở rộng",
@@ -2714,11 +2720,6 @@
 			"compare": "So sánh",
 			"noMatchHistory": "Chưa có lịch sử trận đấu",
 			"completedSessionsHere": "Các phiên đã hoàn thành và phiên so sánh sẽ hiển thị tại đây",
-			"match": "Trận đấu",
-			"final": "Chung kết",
-			"semifinals": "Bán kết",
-			"quarterfinals": "Tứ kết",
-			"round": "Vòng {{number}}",
 			"winner": "Người chiến thắng: {{name}}",
 			"responsesAbbrev": "{{count}} p.hồi",
 			"error": "Lỗi: {{message}}",
@@ -2826,35 +2827,10 @@
 		},
 		"virtualLogTable": {
 			"noLogsFound": "Không tìm thấy nhật ký nào",
-			"entries": "các mục",
-			"loadingNewer": "Đang tải mục mới hơn…",
-			"loadingOlder": "Đang tải mục cũ hơn…",
-			"timeDate": "Thời gian/Ngày",
-			"hash": "Hash",
-			"model": "Mô hình",
-			"provider": "Nhà cung cấp",
-			"providerDeleted": "Nhà cung cấp đã bị xóa",
-			"status": "Trạng thái",
-			"tokens": "Token",
-			"tps": "T/s",
-			"tokensPerSecond": "T/s",
-			"headers": "Tiêu đề",
-			"ttft": "TTFT",
-			"duration": "Thời lượng",
-			"overhead": "Chi phí phụ trội",
-			"key": "Khóa",
-			"interrupted": "Bị gián đoạn",
-			"internal": "nội bộ",
-			"cacheInflated": "Tăng do các lần trúng bộ nhớ đệm lời nhắc",
-			"deleted": "Đã xóa",
-			"zeroEntries": "0 kết quả",
-			"ip": "IP"
+			"zeroEntries": "0 kết quả"
 		},
 		"virtualAppLogTable": {
 			"noEntriesFound": "Không tìm thấy mục nhật ký nào",
-			"entries": "các mục",
-			"loadingNewer": "Đang tải mục mới hơn…",
-			"loadingOlder": "Đang tải mục cũ hơn…",
 			"timeDate": "Thời gian/Ngày",
 			"level": "Cấp độ",
 			"source": "Nguồn",
@@ -3065,7 +3041,8 @@
 		},
 		"useDisableModel": {
 			"success": "Đã tắt mô hình \"{{model}}\"",
-			"error": "Không thể tắt mô hình: {{error}}"
+			"error": "Không thể tắt mô hình: {{error}}",
+			"notFound": "Không tìm thấy mô hình \"{{model}}\" trong các mô hình đã bật"
 		},
 		"useBidirectionalFetch": {
 			"initialError": "Không thể lấy dữ liệu ban đầu",

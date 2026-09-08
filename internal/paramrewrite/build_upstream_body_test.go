@@ -2,6 +2,7 @@ package paramrewrite
 
 import (
 	"encoding/json"
+	"strings"
 	"sync"
 	"testing"
 )
@@ -412,6 +413,73 @@ func TestBuildUpstreamBody_StripEmptyToolCallsTolerantOfShapes(t *testing.T) {
 		var raw map[string]any
 		if err := json.Unmarshal(result, &raw); err != nil {
 			t.Fatalf("result is not valid JSON for input %s: %v", body, err)
+		}
+	}
+}
+
+// A body is decoded here only to be re-marshalled, so every number in it must
+// come out as it went in. float64 cannot hold a seed above 2^53, and re-emits
+// a large integer in exponent form.
+func TestBuildUpstreamBody_LargeNumbersSurviveTheRebuild(t *testing.T) {
+	body := `{"model":"m","seed":9007199254740993,"max_tokens":1000000000000000000,"temperature":0.10}`
+	out := BuildUpstreamBody([]byte(body), "openai", "m2", "m", false, &sync.Map{}, &sync.Map{}, nil, "prov")
+	for _, want := range []string{`"seed":9007199254740993`, `"max_tokens":1000000000000000000`, `"temperature":0.10`} {
+		if !strings.Contains(string(out), want) {
+			t.Errorf("rebuilt body %s is missing %s", out, want)
+		}
+	}
+}
+
+func TestNeedsRewrite(t *testing.T) {
+	cases := []struct {
+		name         string
+		providerType string
+		modelID      string
+		want         bool
+	}{
+		{name: "provider with a strip list", providerType: "google", modelID: "gemini-3-pro", want: true},
+		{name: "anthropic strips its own list", providerType: "anthropic", modelID: "claude-4", want: true},
+		{name: "provider that only serves json mode", providerType: "deepseek", modelID: "deepseek-v4", want: true},
+		{name: "provider that wants injection", providerType: "opencode-go", modelID: "glm-4.6", want: true},
+		{name: "model family that ignores json_schema", providerType: "bedrock", modelID: "glm-5.3", want: true},
+		{name: "nothing to do", providerType: "bedrock", modelID: "claude-4", want: false},
+		{name: "unknown provider type", providerType: "made-up", modelID: "m", want: false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := NeedsRewrite(tc.providerType, tc.modelID); got != tc.want {
+				t.Errorf("NeedsRewrite(%q, %q) = %v, want %v", tc.providerType, tc.modelID, got, tc.want)
+			}
+		})
+	}
+}
+
+// A body of "null" decodes into a nil map without error, which every rewrite
+// step would panic writing to. It is forwarded untouched, like any other body
+// this package cannot rewrite.
+func TestBuildUpstreamBody_NullBodyIsForwardedUnchanged(t *testing.T) {
+	for _, body := range []string{`null`, `[]`, `"text"`, `{broken`} {
+		out := BuildUpstreamBody([]byte(body), "openai", "m2", "m", true, &sync.Map{}, &sync.Map{}, nil, "prov")
+		if string(out) != body {
+			t.Errorf("BuildUpstreamBody(%s) = %s, want it forwarded as-is", body, out)
+		}
+	}
+}
+
+// A body that is one JSON object followed by anything else is not rewritable:
+// the rewriters re-marshal the first value, which would drop the rest without
+// saying so. It is forwarded exactly as it arrived, like any other unparseable
+// body, so the provider decides what to make of it.
+func TestBuildUpstreamBody_TrailingContentForwardsVerbatim(t *testing.T) {
+	t.Parallel()
+
+	for _, body := range []string{
+		`{"model":"old","messages":[]} trailing`,
+		`{"model":"old","messages":[]}{"model":"second"}`,
+	} {
+		out := BuildUpstreamBody([]byte(body), "openai", "new", "old", false, &sync.Map{}, &sync.Map{}, nil, "openai")
+		if string(out) != body {
+			t.Errorf("BuildUpstreamBody(%q) = %q, want it forwarded verbatim", body, out)
 		}
 	}
 }

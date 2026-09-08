@@ -52,23 +52,12 @@ export function AlertSnippets() {
 						icon={s.id}
 						copyText={s.url}
 					>
+						{/* The placeholders to highlight are exactly the {…} tokens of
+						    the URL above, so a new service row needs no second list. */}
 						<ShikiCode
 							code={s.url}
 							lang="text"
-							highlights={[
-								"{bot_token}",
-								"{chat_id}",
-								"{webhook_id}",
-								"{webhook_token}",
-								"{tokenA}",
-								"{tokenB}",
-								"{tokenC}",
-								"{user}",
-								"{password}",
-								"{host}",
-								"{room_id}",
-								"{path}",
-							]}
+							highlights={s.url.match(/\{[^}]+\}/g) ?? []}
 						/>
 					</TerminalPreview>
 				))}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
 	AlertTriangle,
@@ -10,6 +10,7 @@ import {
 } from "@/lib/icons";
 import type { AppLogEntry, LogEntry } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
+import { useArmedConfirm } from "../../hooks/useArmedConfirm";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { formatRelativeTime, formatTimestamp } from "../../utils/format";
 import { displayLogMessage } from "../../utils/logText";
@@ -38,18 +39,13 @@ export function ErrorShelf() {
 	const [expanded, setExpanded] = useState(false);
 	// Two-step Clear all: first click arms (shows a confirm hint), second
 	// commits. Auto-disarms after a few seconds so a stray click doesn't linger.
-	const [clearArmed, setClearArmed] = useState(false);
+	const { armed, fire, disarm } = useArmedConfirm<"clear">();
+	const clearArmed = armed === "clear";
 	const [detailEntry, setDetailEntry] = useState<{
 		log: LogEntry | AppLogEntry;
 		type: "request" | "app";
 	} | null>(null);
 	const listId = useId();
-
-	useEffect(() => {
-		if (!clearArmed) return;
-		const id = setTimeout(() => setClearArmed(false), 3000);
-		return () => clearTimeout(id);
-	}, [clearArmed]);
 
 	const handleAck = useCallback(
 		(key: string) => {
@@ -60,14 +56,11 @@ export function ErrorShelf() {
 	);
 
 	const handleClearAll = useCallback(() => {
-		if (!clearArmed) {
-			setClearArmed(true);
-			return;
-		}
-		setClearArmed(false);
-		ackAll();
-		toast(t("layout.toast.errorsCleared"), "info");
-	}, [clearArmed, ackAll, toast, t]);
+		fire("clear", () => {
+			ackAll();
+			toast(t("layout.toast.errorsCleared"), "info");
+		});
+	}, [fire, ackAll, toast, t]);
 
 	const handleCopy = useCallback(
 		async (message: string) => {
@@ -83,26 +76,22 @@ export function ErrorShelf() {
 		setDetailEntry({ log: err.entry, type: err.kind });
 	}, []);
 
+	// The detail modal outlives the shelf: acking the last row hides the shelf
+	// while the modal opened from that row stays on screen.
+	const detail = detailEntry ? (
+		<LogDetailModal
+			log={detailEntry.log}
+			type={detailEntry.type}
+			onClose={() => setDetailEntry(null)}
+		/>
+	) : null;
+
 	// Nothing new to surface: stay out of the way.
-	if (unacked.length === 0) {
-		return detailEntry ? (
-			<LogDetailModal
-				log={detailEntry.log}
-				type={detailEntry.type}
-				onClose={() => setDetailEntry(null)}
-			/>
-		) : null;
-	}
+	if (unacked.length === 0) return detail;
 
 	return (
 		<>
-			{detailEntry && (
-				<LogDetailModal
-					log={detailEntry.log}
-					type={detailEntry.type}
-					onClose={() => setDetailEntry(null)}
-				/>
-			)}
+			{detail}
 			<div
 				className="ui-error-shelf mb-2 overflow-hidden rounded-lg border border-[var(--error-border)] bg-[var(--error-bg)]"
 				data-testid="error-shelf"
@@ -115,7 +104,7 @@ export function ErrorShelf() {
 					type="button"
 					onClick={() => {
 						setExpanded((v) => !v);
-						setClearArmed(false);
+						disarm();
 					}}
 					aria-expanded={expanded}
 					aria-controls={listId}
@@ -257,9 +246,7 @@ export function ErrorShelf() {
 											className="ui-error-shelf-msg mt-0.5 break-words font-mono text-[9.5px] leading-relaxed text-[var(--error-text-muted)]"
 											title={displayMessage}
 										>
-											{displayMessage.length > 200
-												? truncateWithEllipsis(displayMessage, 200)
-												: displayMessage}
+											{truncateWithEllipsis(displayMessage, 200)}
 										</p>
 									</li>
 								);

@@ -3,6 +3,8 @@ import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type {
 	DeepSeekBalance,
+	KimiCodeQuotaResponse,
+	MiniMaxQuotaResponse,
 	NanoGPTUsage,
 	NeuralWattQuotaResponse,
 	OllamaCloudAccount,
@@ -31,18 +33,29 @@ function windowPct(pct: number | undefined, mode: QuotaBarMode): string {
 	return `${(mode === "remaining" ? 100 - pct : pct).toFixed(0)}%`;
 }
 
-/** The "5h/weekly" label shared by Z.ai, Kimi Code and MiniMax. */
-function windowsLabel(
-	fiveHour: number | undefined,
-	weekly: number | undefined,
-	mode: QuotaBarMode,
-): string {
-	return `${windowPct(fiveHour, mode)}/${windowPct(weekly, mode)}`;
-}
-
 interface BadgeContent {
 	label: string;
 	title: string;
+}
+
+// The whole badge for a provider that reports a 5-hour and a weekly window:
+// Z.ai, Kimi Code and MiniMax all read as "5h/weekly" under the same title.
+function windowsContent(
+	fiveHour: number | undefined,
+	weekly: number | undefined,
+	mode: QuotaBarMode,
+	provider: string,
+	t: Translate,
+): BadgeContent {
+	return {
+		label: `${windowPct(fiveHour, mode)}/${windowPct(weekly, mode)}`,
+		title: t(
+			mode === "remaining"
+				? "quota.badge.windowsRemaining"
+				: "quota.badge.windowsUsed",
+			{ provider },
+		),
+	};
 }
 
 function contentFor(
@@ -97,51 +110,33 @@ function contentFor(
 		}
 		case "zai-coding": {
 			const u = payload as ZAICodingQuotaResponse;
-			return {
-				label: windowsLabel(
-					getZaiCodingFiveHourLimit(u)?.percentage,
-					getZaiCodingWeeklyLimit(u)?.percentage,
-					mode,
-				),
-				title: t(
-					mode === "remaining"
-						? "quota.badge.windowsRemaining"
-						: "quota.badge.windowsUsed",
-					{ provider },
-				),
-			};
+			return windowsContent(
+				getZaiCodingFiveHourLimit(u)?.percentage,
+				getZaiCodingWeeklyLimit(u)?.percentage,
+				mode,
+				provider,
+				t,
+			);
 		}
 		case "kimi-code": {
-			const u = payload as Parameters<typeof getKimiCodeFiveHourLimit>[0];
-			return {
-				label: windowsLabel(
-					getKimiCodeFiveHourLimit(u)?.percentage,
-					getKimiCodeWeeklyLimit(u)?.percentage,
-					mode,
-				),
-				title: t(
-					mode === "remaining"
-						? "quota.badge.windowsRemaining"
-						: "quota.badge.windowsUsed",
-					{ provider },
-				),
-			};
+			const u = payload as KimiCodeQuotaResponse;
+			return windowsContent(
+				getKimiCodeFiveHourLimit(u)?.percentage,
+				getKimiCodeWeeklyLimit(u)?.percentage,
+				mode,
+				provider,
+				t,
+			);
 		}
 		case "minimax": {
-			const u = payload as Parameters<typeof getMiniMaxFiveHourLimit>[0];
-			return {
-				label: windowsLabel(
-					getMiniMaxFiveHourLimit(u)?.percentage,
-					getMiniMaxWeeklyLimit(u)?.percentage,
-					mode,
-				),
-				title: t(
-					mode === "remaining"
-						? "quota.badge.windowsRemaining"
-						: "quota.badge.windowsUsed",
-					{ provider },
-				),
-			};
+			const u = payload as MiniMaxQuotaResponse;
+			return windowsContent(
+				getMiniMaxFiveHourLimit(u)?.percentage,
+				getMiniMaxWeeklyLimit(u)?.percentage,
+				mode,
+				provider,
+				t,
+			);
 		}
 		case "deepseek": {
 			const b = payload as DeepSeekBalance;
