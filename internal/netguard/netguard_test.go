@@ -5,10 +5,24 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 	"time"
 )
+
+// TestMain strips the proxy variables before any test runs. NewClient honours
+// HTTP(S)_PROXY on purpose, and behind a proxy the metadata literal is dialled
+// by the proxy, not by the guarded dialer, so every "blocked address" assertion
+// in this package would fail under a sandbox or CI job that exports one.
+// net/http reads these variables once per process, so t.Setenv inside a test
+// would be too late once any earlier test has issued a request.
+func TestMain(m *testing.M) {
+	for _, k := range []string{"HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"} {
+		os.Unsetenv(k)
+	}
+	os.Exit(m.Run())
+}
 
 func TestBlockedIP(t *testing.T) {
 	cases := []struct {
