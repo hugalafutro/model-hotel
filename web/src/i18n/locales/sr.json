@@ -2886,6 +2886,7 @@
 			"failed": "Неуспело",
 			"ok": "У реду",
 			"clientError": "Клијентска грешка",
+			"paymentRequired": "Потребно плаћање",
 			"serverError": "Грешка на серверу"
 		},
 		"logDetailStatusBadge": {

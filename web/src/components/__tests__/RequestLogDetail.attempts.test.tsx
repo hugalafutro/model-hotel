@@ -231,6 +231,158 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(row).not.toHaveTextContent("HTTP 503");
 	});
 
+	it("says each thing once: no kind or detail the badges already carry", () => {
+		// The three rows of a hedged 402 race, as the backend stores them.
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-0",
+							provider: "Z.ai Coding Plan",
+							model: "glm-5.2",
+							status: 200,
+							duration_ms: 13082,
+							hedged: true,
+							breaker: "success",
+						},
+						{
+							attempt: 1,
+							provider_id: "prov-1",
+							provider: "Neuralwatt",
+							model: "glm-5.2",
+							status: 402,
+							error_kind: "provider_error",
+							detail: "HTTP 402",
+							duration_ms: 575.9,
+							hedged: true,
+							breaker: "charge",
+						},
+						{
+							attempt: 2,
+							provider_id: "prov-2",
+							provider: "Ollama Cloud",
+							model: "glm-5.2",
+							error_kind: "hedge_superseded",
+							detail: "superseded by the winner while in flight",
+							duration_ms: 672.2,
+							hedged: true,
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const rows = screen.getAllByTestId("attempt-trail-row");
+		// The status badge is the whole story of the 402: the kind adds nothing
+		// over "the provider errored", and the detail only repeats the code.
+		expect(rows[1]).not.toHaveTextContent("provider_error");
+		expect(rows[1]).not.toHaveTextContent("HTTP 402");
+		// Same for the abandoned hedge: the SUPERSEDED badge says both.
+		expect(rows[2]).toHaveTextContent("Ollama Cloud");
+		expect(rows[2]).not.toHaveTextContent("hedge_superseded");
+		expect(rows[2]).not.toHaveTextContent("while in flight");
+	});
+
+	it("labels 402 apart from the other client errors", () => {
+		// Locale-independent: a payment-required row must not read the same as
+		// any other 4xx, whichever language renders it.
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Neuralwatt",
+							model: "glm-5.2",
+							status: 402,
+							duration_ms: 12,
+							breaker: "charge",
+						},
+						{
+							attempt: 1,
+							provider_id: "prov-2",
+							provider: "Z.ai",
+							model: "glm-5.2",
+							status: 403,
+							duration_ms: 12,
+							breaker: "charge",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const rows = screen.getAllByTestId("attempt-trail-row");
+		// The badge renders "<code> <class>", so the code anchors the lookup in
+		// any language and stripping it leaves the class word to compare.
+		const badgeClass = (row: HTMLElement, code: number) =>
+			within(row)
+				.getByText(new RegExp(`^${code}\\s`))
+				.textContent?.replace(String(code), "")
+				.trim() ?? "";
+		expect(badgeClass(rows[0], 402)).not.toBe("");
+		expect(badgeClass(rows[0], 402)).not.toBe(badgeClass(rows[1], 403));
+	});
+
+	it("keeps a detail the badge does not already say", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Neuralwatt",
+							model: "glm-5.2",
+							status: 429,
+							error_kind: "provider_saturated",
+							detail: "no capacity, retry in 30s",
+							duration_ms: 41,
+							breaker: "charge",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const row = screen.getAllByTestId("attempt-trail-row")[0];
+		expect(row).toHaveTextContent("no capacity, retry in 30s");
+	});
+
+	it("keeps the error kind on a 200 row that failed mid-stream", () => {
+		// The upstream answered 200 and the stream broke afterwards, so the
+		// status badge reads as a success and the kind is the only failure mark.
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Ollama Cloud",
+							model: "glm-5.2",
+							status: 200,
+							error_kind: "provider_error",
+							duration_ms: 8100,
+							breaker: "charge",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		expect(screen.getAllByTestId("attempt-trail-row")[0]).toHaveTextContent(
+			"provider_error",
+		);
+	});
+
 	it("renders nothing for a row without a trail", () => {
 		renderWithProviders(
 			<RequestLogDetail requestLog={baseLog} onClose={onClose} />,

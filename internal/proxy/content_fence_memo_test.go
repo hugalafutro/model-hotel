@@ -7,7 +7,7 @@ import (
 )
 
 // The content's window set is built once per fence and reused, and the
-// content strings are released once it exists: a second mask call, and
+// content strings are released once it exists: a second fenced fragment, and
 // every later one, walks only its own text.
 func TestContentFence_WindowSetIsBuiltOnce(t *testing.T) {
 	t.Parallel()
@@ -27,8 +27,8 @@ func TestContentFence_WindowSetIsBuiltOnce(t *testing.T) {
 	if f.strings() != nil {
 		t.Fatal("the content strings were kept after the set was built")
 	}
-	_ = f.maskOne("echo " + canary)
-	_ = f.maskOne("again " + canary)
+	_ = f.fenceUpstream("echo " + canary)
+	_ = f.fenceUpstream("again " + canary)
 	if second := f.windowSet(); len(second) != len(first) || &second[0] != &first[0] {
 		t.Fatal("the window set was rebuilt")
 	}
@@ -93,18 +93,18 @@ func BenchmarkContentFence_Build(b *testing.B) {
 	body := chatBody(big)
 	b.ReportAllocs()
 	for i := 0; i < b.N; i++ {
-		_ = newContentFence(body).maskOne("frame quoting " + canary)
+		_ = newContentFence(body).fenceUpstream("frame quoting " + canary)
 	}
 }
 
 func BenchmarkContentFence_Frame(b *testing.B) {
 	big := canary + " " + strings.Repeat("a large prompt with plenty of distinct words to index ", 20000)
 	f := newContentFence(chatBody(big))
-	_ = f.maskOne("warm " + canary)
+	_ = f.fenceUpstream("warm " + canary)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if got := f.maskOne("frame quoting " + canary); !strings.Contains(got, "[content]") {
+		if got := f.fenceUpstream("frame quoting " + canary); got != contentWithheld {
 			b.Fatal("not fenced")
 		}
 	}

@@ -3081,6 +3081,7 @@
 			"failed": "فشل",
 			"ok": "ناجح",
 			"clientError": "خطأ في العميل",
+			"paymentRequired": "الدفع مطلوب",
 			"serverError": "خطأ في الخادم"
 		},
 		"logDetailStatusBadge": {

@@ -2951,6 +2951,7 @@
 			"failed": "Niepowodzenie",
 			"ok": "OK",
 			"clientError": "Błąd klienta",
+			"paymentRequired": "Wymagana płatność",
 			"serverError": "Błąd serwera"
 		},
 		"logDetailStatusBadge": {

@@ -486,7 +486,7 @@ func TestErrorEnvelopeMessage_AnthropicWrapper(t *testing.T) {
 func TestClassifyProbeError_MasksTheProvidersMessage(t *testing.T) {
 	const apiKey = "sk-live-abc123def456ghi789"
 	msg := "invalid api key " + apiKey + " for tenant 793ac38b-0211-43e6-baa7-aa7054c39931"
-	re, charged := classifyProbeError(&upstreamFrameError{msg: msg}, "prov-A", newCredentialMasker(apiKey), false, time.Second, 30*time.Second, 60*time.Second, 1)
+	re, charged := classifyProbeError(&upstreamFrameError{msg: msg}, "prov-A", newCredentialMasker(apiKey), nil, false, time.Second, 30*time.Second, 60*time.Second, 1)
 
 	if !charged {
 		t.Error("an error envelope is always the provider's fault and must be charged")
@@ -506,13 +506,13 @@ func TestClassifyProbeError_MasksTheProvidersMessage(t *testing.T) {
 // already answered with a failure, so the charge does not depend on the
 // downstream connection the way a zero-token stall does.
 func TestClassifyProbeError_ChargesEvenWhenTheClientIsGone(t *testing.T) {
-	_, charged := classifyProbeError(&upstreamFrameError{msg: "boom"}, "prov-A", newCredentialMasker("sk-x"), true, time.Millisecond, 30*time.Second, 60*time.Second, 1)
+	_, charged := classifyProbeError(&upstreamFrameError{msg: "boom"}, "prov-A", newCredentialMasker("sk-x"), nil, true, time.Millisecond, 30*time.Second, 60*time.Second, 1)
 	if !charged {
 		t.Error("an error envelope must be charged to the provider even when the client is gone")
 	}
 	// The contrast that makes the case above meaningful: a zero-token stall
 	// with a fast client close is NOT charged.
-	if _, chargedStall := classifyProbeError(errors.New("TTFT timeout"), "prov-A", newCredentialMasker("sk-x"), true, time.Millisecond, 30*time.Second, 60*time.Second, 1); chargedStall {
+	if _, chargedStall := classifyProbeError(errors.New("TTFT timeout"), "prov-A", newCredentialMasker("sk-x"), nil, true, time.Millisecond, 30*time.Second, 60*time.Second, 1); chargedStall {
 		t.Error("a fast client cancel with zero tokens must still not be charged")
 	}
 }
@@ -892,7 +892,7 @@ func TestRecoverFirstToken(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestClassifyProbeError_ChargesAnEmptyStream(t *testing.T) {
-	re, charged := classifyProbeError(&emptyStreamError{}, "prov-A", newCredentialMasker("sk-x"), false, time.Second, 30*time.Second, 60*time.Second, 1)
+	re, charged := classifyProbeError(&emptyStreamError{}, "prov-A", newCredentialMasker("sk-x"), nil, false, time.Second, 30*time.Second, 60*time.Second, 1)
 	if !charged {
 		t.Error("a stream that produced nothing must be charged to the provider")
 	}
@@ -901,7 +901,7 @@ func TestClassifyProbeError_ChargesAnEmptyStream(t *testing.T) {
 	}
 	// A client hanging up cannot excuse it either: the provider had already
 	// finished saying nothing.
-	if _, chargedGone := classifyProbeError(&emptyStreamError{}, "prov-A", newCredentialMasker("sk-x"), true, time.Millisecond, 30*time.Second, 60*time.Second, 1); !chargedGone {
+	if _, chargedGone := classifyProbeError(&emptyStreamError{}, "prov-A", newCredentialMasker("sk-x"), nil, true, time.Millisecond, 30*time.Second, 60*time.Second, 1); !chargedGone {
 		t.Error("an empty stream must be charged even when the client is gone")
 	}
 }

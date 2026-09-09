@@ -2821,6 +2821,7 @@
 			"failed": "Epäonnistui",
 			"ok": "Ok",
 			"clientError": "Asiakkaan Virhe",
+			"paymentRequired": "Maksu Vaaditaan",
 			"serverError": "Palvelin Virhe"
 		},
 		"logDetailStatusBadge": {

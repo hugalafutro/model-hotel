@@ -2886,6 +2886,7 @@
 			"failed": "נכשל",
 			"ok": "בסדר",
 			"clientError": "שגיאה של הלקוח",
+			"paymentRequired": "נדרש תשלום",
 			"serverError": "שגיאת שרת"
 		},
 		"logDetailStatusBadge": {

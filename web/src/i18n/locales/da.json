@@ -2821,6 +2821,7 @@
 			"failed": "Mislykkedes",
 			"ok": "Ok",
 			"clientError": "Klient Fejl",
+			"paymentRequired": "Betaling Kræves",
 			"serverError": "Serverfejl"
 		},
 		"logDetailStatusBadge": {

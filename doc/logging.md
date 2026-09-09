@@ -67,16 +67,21 @@ no-content rule of section 6 applies to it unchanged.
 
 The content fence is what makes that rule true of provider text at all. The
 gateway holds the request body, so an echo of its content is by definition a
-substring of a string the client sent: at the one write boundary every terminal
-update passes through (`updateRequestLog`), `error_message` and every attempt's
-`detail` are checked against the request's own strings (raw and JSON-escaped)
-and any run of 16 or more runes they share becomes `[content]`. Every app-log
-line that carries upstream error text goes through the same fence: the
-non-streaming detail, the streaming error attribute (`errLogAttr`), the TTFT
-probe failure on both the sequential and the hedged path, and the exhaustion
-line, whose rendered message carries the last provider's text. Each string is
-indexed as written, whitespace-collapsed (the trail's detail is collapsed) and
-JSON-escaped (error_message stores the body as sent). An echo shorter than the
+substring of a string the client sent: every fragment of upstream text is
+checked against the request's own strings (raw and JSON-escaped) as it is
+captured, and a fragment sharing a run of 16 or more runes with them is dropped
+whole and replaced by the fixed phrase `provider error text withheld` (an
+attempt's `detail` is left empty instead, since the row already carries the
+status). Only upstream text is fenced: the gateway's own prose, such as "client
+disconnected during attempt 1" or the "all N providers failed; last error: "
+wrapper, is authored here, cannot carry request content, and survives whatever
+the prompt happens to quote. Every app-log line that carries upstream error text
+gets the same treatment: the non-streaming detail, the streaming error attribute
+(`errLogAttr`), and the TTFT probe failure on both the sequential and the hedged
+path. Each string is indexed as written,
+whitespace-collapsed (a provider that reflows the text it echoes, folding an
+indented prompt's runs of spaces, still matches) and JSON-escaped
+(error_message stores the body as sent). An echo shorter than the
 window is not caught, a string under a routing key (`model`, `role`, `type`, ...)
 is not content (the client's own identifiers, `user` and a message `name`, are),
 and encoded payloads (data: URLs, unwrapped base64) are not indexed; each form

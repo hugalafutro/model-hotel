@@ -2821,6 +2821,7 @@
 			"failed": "실패함",
 			"ok": "정상",
 			"clientError": "클라이언트 오류",
+			"paymentRequired": "결제 필요",
 			"serverError": "서버 오류"
 		},
 		"logDetailStatusBadge": {

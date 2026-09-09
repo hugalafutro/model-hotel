@@ -23,7 +23,7 @@ import (
 func TestAttemptDetail_MasksCapsAndCollapses(t *testing.T) {
 	masker := newCredentialMasker("sk-live-secret-12345")
 	body := "  provider said:\n  key sk-live-secret-12345 rejected   " + strings.Repeat("x", 300)
-	got := attemptDetail(masker, body)
+	got := attemptDetail(masker, nil, body)
 	if strings.Contains(got, "sk-live-secret-12345") {
 		t.Fatalf("detail leaked the credential: %q", got)
 	}
@@ -36,10 +36,10 @@ func TestAttemptDetail_MasksCapsAndCollapses(t *testing.T) {
 	if !strings.HasSuffix(got, "…") {
 		t.Errorf("a cut detail must end in an ellipsis: %q", got)
 	}
-	if attemptDetail(masker, "") != "" {
+	if attemptDetail(masker, nil, "") != "" {
 		t.Error("empty in, empty out")
 	}
-	if got := attemptDetail(credentialMasker{}, "sk-abcdefghijklmnopqrstuvwxyz0123456789 in prose"); strings.Contains(got, "sk-abcdefghijklmnopqrstuvwxyz") {
+	if got := attemptDetail(credentialMasker{}, nil, "sk-abcdefghijklmnopqrstuvwxyz0123456789 in prose"); strings.Contains(got, "sk-abcdefghijklmnopqrstuvwxyz") {
 		t.Errorf("a zero masker must still redact key-shaped tokens: %q", got)
 	}
 }
@@ -106,10 +106,10 @@ func TestAttemptRecord_Lifecycle(t *testing.T) {
 	// A hedged loser's detail prefers the classifier's body excerpt for a 429,
 	// then the error's own text, then its detail.
 	loser := hedgeResult{idx: 2, reqErr: reqError{Kind: KindProviderSaturated, Detail: "HTTP 429"}, rateLimit: rateLimitVerdict{detail: "concurrent_budget_exceeded", phrase: "concurrent_budget_exceeded"}, status: 429, breaker: breakerNoop}
-	if rec := hedgeLoserRecord(loser, cand, time.Now()); rec.Detail != "concurrent_budget_exceeded" || rec.Phrase != "concurrent_budget_exceeded" || rec.Status != 429 || !rec.Hedged || rec.Attempt != 2 {
+	if rec := hedgeLoserRecord(loser, cand, time.Now(), nil); rec.Detail != "concurrent_budget_exceeded" || rec.Phrase != "concurrent_budget_exceeded" || rec.Status != 429 || !rec.Hedged || rec.Attempt != 2 {
 		t.Errorf("hedged 429 loser = %+v", rec)
 	}
-	if rec := hedgeLoserRecord(hedgeResult{reqErr: reqError{Kind: KindProviderError, Detail: "HTTP 503"}}, cand, time.Now()); rec.Detail != "HTTP 503" {
+	if rec := hedgeLoserRecord(hedgeResult{reqErr: reqError{Kind: KindProviderError, Detail: "HTTP 503"}}, cand, time.Now(), nil); rec.Detail != "HTTP 503" {
 		t.Errorf("hedged loser without a body falls back to the error detail, got %+v", rec)
 	}
 }

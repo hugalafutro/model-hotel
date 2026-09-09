@@ -368,6 +368,11 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		// provider just handed it. What the provider said about the model does
 		// not depend on what the client did next.
 		logData.upstreamKind = logData.errorKind
+		// Classified first, then fenced: the classification stores nothing, so
+		// it reads the provider's words whether or not they may be kept. Every
+		// message derived below this point is the gateway's own and is never
+		// fenced.
+		errMsg = logData.fence().fenceUpstream(errMsg)
 	}
 	if errMsg == "" && scanErr != nil {
 		switch {

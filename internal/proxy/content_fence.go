@@ -21,33 +21,47 @@ import (
 // that request and prompt content is never logged.
 //
 // The gateway holds the request body, so an echo of its content is by
-// definition a substring of a string the client sent. Every stored fragment is
-// checked against the request's content strings, and any run of
-// contentEchoWindow or more runes that both share is replaced by "[content]".
-// The provider's own words (its error code, its phrase, a reset timestamp) do
-// not come from the request, so they survive and the fragments stay useful for
-// reading an unrecognised 429 body.
+// definition a substring of a string the client sent. Every fragment of
+// upstream text is checked against the request's content strings before it is
+// stored, and a fragment sharing a run of contentEchoWindow or more runes with
+// them is dropped whole (contentWithheld) rather than stored with the run
+// blanked: a stub in the middle of a provider sentence tells a reader nothing
+// and still leaves them guessing what was cut. A fragment sharing nothing is
+// stored as it is, so the provider's own words (its error code, its phrase, a
+// reset timestamp) stay useful for reading an unrecognised 429 body.
+//
+// Only upstream text goes through the fence. The gateway's own prose ("client
+// disconnected during attempt 1 to provider x", "all 3 providers failed") and
+// Go transport errors are authored here and cannot carry request content, so
+// they are never checked and a prompt that quotes gateway wording back does
+// not blank the gateway's own diagnosis. The two are told apart at the point
+// upstream text enters the log: it is exactly what came out of an upstream
+// response body (util.SanitizeLogBody of a non-2xx body, an SSE error frame,
+// a 429 head), and every one of those funnels through fenceUpstream, through
+// attemptDetail for the trail, or through setReqErr for the row's error
+// message.
 //
 // Each content string is indexed in the forms a stored fragment can carry it:
-// as written; whitespace-collapsed, because attemptDetail collapses the
-// trail's detail and a prompt with indented code would otherwise stop matching
-// at every run of spaces; and the JSON-escaped rendering of both, because
-// error_message stores the provider's body as sent and an echo inside a JSON
-// string member carries \" and \n where the request had a quote and a newline.
+// as written; whitespace-collapsed, because a provider that reflows the text
+// it quotes back would otherwise stop matching an indented prompt at every run
+// of spaces; and the JSON-escaped rendering of both, because error_message
+// stores the provider's body as sent and an echo inside a JSON string member
+// carries \" and \n where the request had a quote and a newline.
 //
 // Accepted limits: an echo shorter than the window is not caught (the length
 // cap on every fragment bounds what that can be), a provider that re-cases or
-// otherwise rewrites the text breaks the match at each change (the runs either
-// side still fall), and encoded payloads are not indexed, since a fragment of
-// an image is not a disclosure and indexing megabytes of it would cost seconds
-// per failure. A prompt that quotes a provider's error text back at the
-// gateway ("why do I get 'Rate limit exceeded for ...'") is fenced when the
+// otherwise rewrites the text throughout breaks every window (one surviving
+// window is still enough to drop the fragment), and encoded payloads are not
+// indexed, since a fragment of an image is not a disclosure and indexing
+// megabytes of it would cost seconds per failure. A prompt that quotes a
+// provider's error text back at the gateway ("why do I get 'Rate limit
+// exceeded for ...'") is fenced when the
 // provider says the same words: that is the invariant holding, not a false
 // positive.
 
 const (
 	// contentEchoWindow is the shortest shared run (in runes) the fence
-	// masks. Shorter, and ordinary words the request and the provider both
+	// acts on. Shorter, and ordinary words the request and the provider both
 	// use ("rate limit") would blank the provider's message; longer, and a
 	// quoted sentence fragment would slip through.
 	contentEchoWindow = 16
@@ -65,8 +79,10 @@ const (
 	// contentBlobProbe is how many runes into a long string the walk looks
 	// before deciding it is an encoded payload rather than text.
 	contentBlobProbe = 4096
-	// contentMask replaces a masked run.
-	contentMask = "[content]"
+	// contentWithheld replaces a whole fragment of upstream text the fence
+	// found request content inside. Fixed wording, so nothing about the
+	// request, not even how much of it was echoed, can be read off the row.
+	contentWithheld = "provider error text withheld"
 )
 
 // contentFirstKeys are the members that carry the prompt, visited before any
@@ -102,11 +118,11 @@ type contentFence struct {
 	once  sync.Once
 	strs  [][]rune
 	// windows is the sorted, deduplicated hash of every content window,
-	// built once on the first mask (windowSet) and reused by every later
-	// one: the streaming error attribute fences once per SSE error frame,
-	// and walking the content again for each costs with the prompt rather
-	// than with the frame. Once built, the content strings themselves are
-	// released; nothing on the request path reads them again.
+	// built once on the first fenced fragment (windowSet) and reused by
+	// every later one: the streaming error attribute fences once per SSE
+	// error frame, and walking the content again for each costs with the
+	// prompt rather than with the frame. Once built, the content strings
+	// themselves are released; nothing on the request path reads them again.
 	winOnce sync.Once
 	windows []uint64
 }
@@ -121,17 +137,18 @@ func newContentFence(body []byte, extra ...string) *contentFence {
 }
 
 // strings returns the request's content strings in every indexed form. Valid
-// only before the first mask: windowSet releases the strings once the set is
-// built, and reading them from another goroutine while it does is a race.
+// only before the first fenced fragment: windowSet releases the strings once
+// the set is built, and reading them from another goroutine while it does is
+// a race.
 func (f *contentFence) strings() [][]rune {
 	f.once.Do(f.parse)
 	return f.strs
 }
 
 // The forms a stored fragment can carry a string in: as written (a plain-text
-// body); whitespace-collapsed (the trail's detail of one); JSON-escaped
-// (error_message stores a JSON body as sent); and collapsed after escaping
-// (the trail's detail of a JSON body). Each has its own index budget.
+// body); whitespace-collapsed (a provider that reflowed it); JSON-escaped
+// (error_message stores a JSON body as sent); and collapsed after escaping (a
+// reflowed echo inside a JSON body). Each has its own index budget.
 var contentForms = []func(string) string{
 	func(s string) string { return s },
 	util.CollapseSpace,
@@ -253,7 +270,7 @@ func isBase64Rune(r rune) bool {
 // position without building a string. A hit is taken on the 64-bit hash
 // alone: a lookup against a set of N windows is wrong with probability
 // N/2^64 (2^-42 at the four-million-window ceiling), and a false hit costs a
-// masked run of provider text, never a leak, since a genuine echo has the
+// dropped fragment of provider text, never a leak, since a genuine echo has the
 // same hash by construction and no echo is ever missed.
 func windowHash(r []rune) uint64 {
 	h := uint64(14695981039346656037)
@@ -345,91 +362,26 @@ func hasWindow(set []uint64, h uint64) bool {
 	return found
 }
 
-// mask returns texts with every run of contentEchoWindow or more runes that
-// also appears in the request's content replaced by contentMask. Each text is
-// walked once, window by window, against the content's window set; a nil
-// fence or texts too short to hold a window come back unchanged.
-func (f *contentFence) mask(texts []string) []string {
-	if f == nil {
-		return texts
-	}
-	runes := make([][]rune, len(texts))
-	marks := make([][]bool, len(texts))
-	hit := false
-	var set []uint64
-	for t, s := range texts {
-		if utf8.RuneCountInString(s) < contentEchoWindow {
-			continue
-		}
-		if set == nil {
-			set = f.windowSet()
-		}
-		runes[t] = []rune(s)
-		for i := 0; i+contentEchoWindow <= len(runes[t]); i++ {
-			if !hasWindow(set, windowHash(runes[t][i:i+contentEchoWindow])) {
-				continue
-			}
-			hit = true
-			if marks[t] == nil {
-				marks[t] = make([]bool, len(runes[t]))
-			}
-			for j := i; j < i+contentEchoWindow; j++ {
-				marks[t][j] = true
-			}
-		}
-	}
-	if !hit {
-		return texts
-	}
-	out := make([]string, len(texts))
-	for t, s := range texts {
-		if marks[t] == nil {
-			out[t] = s
-			continue
-		}
-		var b strings.Builder
-		masked := false
-		for i, r := range runes[t] {
-			if marks[t][i] {
-				if !masked {
-					b.WriteString(contentMask)
-					masked = true
-				}
-				continue
-			}
-			masked = false
-			b.WriteRune(r)
-		}
-		out[t] = b.String()
-	}
-	return out
-}
-
-// maskOne is mask for a single text.
-func (f *contentFence) maskOne(text string) string {
-	if f == nil || text == "" {
+// fenceUpstream returns one fragment of upstream error text fit for a log:
+// the text as given when no run of it echoes the request's content, and
+// contentWithheld when any run does. The fragment is walked once, window by
+// window, against the content's window set, and the first hit ends the walk,
+// since the whole fragment goes either way. A nil fence, an empty text and a
+// text too short to hold a window come back unchanged.
+//
+// Only text that came out of an upstream response body may be passed here.
+// Gateway-authored prose is not upstream text and must not be fenced: see the
+// file comment.
+func (f *contentFence) fenceUpstream(text string) string {
+	if f == nil || utf8.RuneCountInString(text) < contentEchoWindow {
 		return text
 	}
-	return f.mask([]string{text})[0]
-}
-
-// fenceContent runs the fence over everything on the row that came from an
-// upstream error body: the error message and every attempt's detail. Called
-// at the one write boundary every terminal update passes through, so no
-// producer of upstream text has to remember it, and idempotent, since the
-// interim and terminal updates both pass.
-func (l *requestLogData) fenceContent() {
-	if l == nil || l.content == nil {
-		return
+	set := f.windowSet()
+	r := []rune(text)
+	for i := 0; i+contentEchoWindow <= len(r); i++ {
+		if hasWindow(set, windowHash(r[i:i+contentEchoWindow])) {
+			return contentWithheld
+		}
 	}
-	texts := make([]string, 0, 1+len(l.attempts))
-	texts = append(texts, l.errorMessage)
-	for _, a := range l.attempts {
-		texts = append(texts, a.Detail)
-	}
-	fenced := l.content.mask(texts)
-	l.errorMessage = fenced[0]
-	for i := range l.attempts {
-		l.attempts[i].Detail = fenced[i+1]
-	}
+	return text
 }

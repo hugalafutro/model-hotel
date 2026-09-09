@@ -2951,6 +2951,7 @@
 			"failed": "Neúspešné",
 			"ok": "OK",
 			"clientError": "Chyba klienta",
+			"paymentRequired": "Vyžaduje sa platba",
 			"serverError": "Chyba servera"
 		},
 		"logDetailStatusBadge": {

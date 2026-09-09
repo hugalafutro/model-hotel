@@ -2886,6 +2886,7 @@
 			"failed": "Echoué",
 			"ok": "Ok",
 			"clientError": "Erreur client",
+			"paymentRequired": "Paiement requis",
 			"serverError": "Erreur serveur"
 		},
 		"logDetailStatusBadge": {

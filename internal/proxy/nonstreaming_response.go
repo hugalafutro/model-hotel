@@ -37,7 +37,7 @@ import (
 //   - A non-2xx carries no completion. Its body is the provider's error
 //     document, and that text is the whole reason such a row is worth reading,
 //     so it is sanitized and kept.
-func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []byte, readErr, decodeErr error, modelID string) (logMsg, detail string, kind ErrorKind, reason string) {
+func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []byte, readErr, decodeErr error, modelID string, fence *contentFence) (logMsg, detail string, kind ErrorKind, reason string) {
 	if servedSuccessStatus(resp.StatusCode) {
 		if readErr != nil {
 			// A read the provider did not break is not the provider failing. The
@@ -65,15 +65,20 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 		// happening.
 		return detail, detail, KindProviderBadRequest, "the provider returned a response the gateway could not decode"
 	}
-	detail = util.SanitizeLogBody(string(body), logBodyCap)
+	// Classify from the provider's own words, before the fence can take them:
+	// the classification decides routing and the breaker and stores nothing,
+	// so it reads the body whether or not the body may be kept.
+	raw := util.SanitizeLogBody(string(body), logBodyCap)
+	kind, reason = classifyUpstreamError(resp.StatusCode, raw, modelID)
+	// The one piece of upstream text on this path. Whatever comes back is
+	// storable, and the gateway's own prefix below is added after it.
+	detail = fence.fenceUpstream(raw)
 	// The prefix names which of the two ways in led here, so the row does not
 	// report a decode failure for a body that decoded.
 	logMsg = fmt.Sprintf("upstream HTTP %d: %s", resp.StatusCode, detail)
 	if decodeErr != nil {
 		logMsg = fmt.Sprintf("response decode error: %s", detail)
 	}
-	// Classify from the body so the row is not left with an empty error_kind.
-	kind, reason = classifyUpstreamError(resp.StatusCode, detail, modelID)
 	return logMsg, detail, kind, reason
 }
 
@@ -263,7 +268,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration
 		logData.responseHeaderMs = responseHeaderMs
-		logMsg, detail, kind, reason := nonStreamingFailureDetail(r.Context(), resp, body, readErr, decodeErr, logData.modelID)
+		logMsg, detail, kind, reason := nonStreamingFailureDetail(r.Context(), resp, body, readErr, decodeErr, logData.modelID, logData.fence())
 		// body is already exact-masked; the log row also gets the key-shape
 		// layer, like every other stored error message.
 		logData.errorMessage = string(maskKeyShapedTokens([]byte(logMsg)))
@@ -274,10 +279,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// blocked.
 		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		if debuglog.Level() <= slog.LevelDebug {
-			// Fenced only when the line will be written: the fence's first
-			// call builds the content's window set, which a discarded line
-			// should not pay for.
-			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", logData.content.maskOne(detail), "duration_ms", totalDuration)
+			// detail left the fence above, so the app log gets the same text
+			// the row does.
+			debuglog.Debug("proxy: non-streaming error details", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "error", detail, "duration_ms", totalDuration)
 		}
 		// The row keeps resp.StatusCode above, since what the upstream said is
 		// the diagnostic. Only what the CLIENT is told changes.

@@ -2821,6 +2821,7 @@
 			"failed": "Başarısız",
 			"ok": "Tamam",
 			"clientError": "İstemci Hatası",
+			"paymentRequired": "Ödeme Gerekli",
 			"serverError": "Sunucu Hatası"
 		},
 		"logDetailStatusBadge": {

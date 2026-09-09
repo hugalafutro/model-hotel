@@ -74,8 +74,10 @@ func TestContentFence_EchoedPromptNeverReachesTheRow(t *testing.T) {
 					t.Fatalf("attempt %d detail carries the prompt: %q", a.Attempt, a.Detail)
 				}
 			}
-			if a := attempts[0]; a.Status != 429 || !strings.Contains(a.Detail, "rate limit exceeded while processing: [content]") {
-				t.Fatalf("attempt 0 = %+v, want the provider's words with the echo fenced", a)
+			// The 429 body was all provider text with the prompt inside it, so
+			// the whole detail goes: the trail shows the status and no stub.
+			if a := attempts[0]; a.Status != 429 || a.Detail != "" {
+				t.Fatalf("attempt 0 = %+v, want the echoing detail dropped whole", a)
 			}
 
 			var errMsg string
@@ -146,7 +148,7 @@ func TestContentFence_StreamErrorFrameAndLogLines(t *testing.T) {
 			t.Fatalf("attempt %d detail carries the prompt: %q", a.Attempt, a.Detail)
 		}
 	}
-	if !strings.Contains(errMsg, "[content]") {
+	if !strings.Contains(errMsg, contentWithheld) {
 		t.Fatalf("the stream's error frame was not stored fenced: %q", errMsg)
 	}
 	sawChunkLine := false
@@ -158,7 +160,7 @@ func TestContentFence_StreamErrorFrameAndLogLines(t *testing.T) {
 		}
 		// The SSE error chunk line is the stream state's own (errLogAttr):
 		// seeing it fenced is what proves the stream wiring, not the probe's.
-		if strings.Contains(rec.msg, "SSE error chunk") && strings.Contains(rec.attrs["error_message"], "cannot continue: [content]") {
+		if strings.Contains(rec.msg, "SSE error chunk") && rec.attrs["error_message"] == contentWithheld {
 			sawChunkLine = true
 		}
 	}
@@ -223,7 +225,7 @@ func TestContentFence_TerminalLogLines(t *testing.T) {
 				}
 				if tc.line != "" && strings.Contains(rec.msg, tc.line) {
 					saw = true
-					if !strings.Contains(rec.attrs["error"], "[content]") {
+					if !strings.Contains(rec.attrs["error"], contentWithheld) {
 						t.Fatalf("%q does not carry the fenced provider text: %q", tc.line, rec.attrs["error"])
 					}
 				}
@@ -274,16 +276,7 @@ func TestContentFence_MultipartPromptEcho(t *testing.T) {
 			t.Fatalf("attempt detail carries the multipart prompt: %q", a.Detail)
 		}
 	}
-	if !strings.Contains(errMsg, "[content]") && !anyDetailContains(attempts, "[content]") {
+	if !strings.Contains(errMsg, contentWithheld) {
 		t.Fatalf("nothing on the row shows the fence ran: error_message %q attempts %+v", errMsg, attempts)
 	}
-}
-
-func anyDetailContains(attempts []attemptRecord, s string) bool {
-	for _, a := range attempts {
-		if strings.Contains(a.Detail, s) {
-			return true
-		}
-	}
-	return false
 }

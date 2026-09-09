@@ -22,9 +22,11 @@ import (
 func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numCandidates int) {
 	last := st.lastReqErr
 	status := last.terminalStatus()
-	// Fenced: the message renders the last provider's own error text, which
-	// may quote the prompt (content_fence.go).
-	logMsg := st.logData.content.maskOne(last.terminalLogMessage(st.isFailover, numCandidates))
+	// Not fenced here: this message is the gateway's own account of the
+	// failure, and the one fragment of provider text it can carry (Underlying)
+	// was fenced when setReqErr recorded it. Fencing the whole sentence would
+	// let a prompt quoting gateway wording blank the diagnosis.
+	logMsg := last.terminalLogMessage(st.isFailover, numCandidates)
 	clientMsg := last.terminalClientMessage(st.reqModel, st.isFailover)
 	if st.isFailover {
 		debuglog.Error("proxy: all providers exhausted", "model", st.logData.modelID, "provider", st.logData.providerName, "error", logMsg, "kind", string(last.Kind), "status", status, "candidates", numCandidates, "failover_timeout", st.failoverTimeout)
