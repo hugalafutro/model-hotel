@@ -2821,6 +2821,7 @@
 			"failed": "失敗しました",
 			"ok": "OK",
 			"clientError": "クライアントエラー",
+			"paymentRequired": "支払いが必要",
 			"serverError": "サーバーエラー"
 		},
 		"logDetailStatusBadge": {

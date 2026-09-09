@@ -2821,6 +2821,7 @@
 			"failed": "Misluk",
 			"ok": "OK",
 			"clientError": "Kliëntfout",
+			"paymentRequired": "Betaling Vereis",
 			"serverError": "Bedienerfout"
 		},
 		"logDetailStatusBadge": {

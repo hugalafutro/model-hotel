@@ -919,7 +919,7 @@ func TestNonStreamingFailureDetail_ClassifiesTheReadFailure(t *testing.T) {
 			if decodeErr == nil {
 				decodeErr = errors.New("invalid character")
 			}
-			_, _, kind, _ := nonStreamingFailureDetail(context.Background(), resp, []byte("{"), tc.readErr, decodeErr, "m")
+			_, _, kind, _ := nonStreamingFailureDetail(context.Background(), resp, []byte("{"), tc.readErr, decodeErr, "m", nil)
 			if kind != tc.want {
 				t.Errorf("kind = %q, want %q", kind, tc.want)
 			}

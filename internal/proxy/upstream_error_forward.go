@@ -103,7 +103,9 @@ func (h *Handler) forwardUpstreamError(w http.ResponseWriter, st *requestState, 
 	debuglog.Warn("proxy: upstream non-200", "status", resp.StatusCode, "error_kind", kind, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID)
 	debuglog.Debug("proxy: upstream error response", "status", resp.StatusCode, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "body_length", len(body), "attempt", attempt+1)
 	logData.responseHeaderMs = responseHeaderMs
-	h.failRequest(logData, resp.StatusCode, kind, string(masker.mask([]byte(errMsg))), attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
+	// errMsg is the provider's error document and nothing else, so the fence
+	// either keeps all of it or the row says only that it was withheld.
+	h.failRequest(logData, resp.StatusCode, kind, logData.fence().fenceUpstream(string(masker.mask([]byte(errMsg)))), attempt, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 
 	if !mayForwardError {
 		// Auth, billing, rate-limit, not-found and server-fault classes,

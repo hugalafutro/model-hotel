@@ -121,7 +121,7 @@ func (st *streamState) flushAccumulatedError(what string, chunkCount int, logDat
 // A zero-value masker (a keyless local provider) masks by shape only, as every
 // other site on those paths does.
 func (st *streamState) errLogAttr(msg string) string {
-	return st.content.maskOne(util.SanitizeLogBody(string(st.masker.mask([]byte(msg))), 500))
+	return st.content.fenceUpstream(util.SanitizeLogBody(string(st.masker.mask([]byte(msg))), 500))
 }
 
 // repeatedContentLimit is the consecutive-identical-content threshold (P2-5) at

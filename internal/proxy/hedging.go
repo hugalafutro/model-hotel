@@ -220,7 +220,7 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				return
 			}
 			st.setReqErr(res.reqErr)
-			st.logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx]))
+			st.logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx], st.logData.fence()))
 			// Carry the loser's 429 verdict onto the shared state beside its
 			// reqError, so a terminal all-busy exhaustion answers with the
 			// provider's own Retry-After rather than the class default.
@@ -229,7 +229,9 @@ func (h *Handler) runHedgedStreaming(w http.ResponseWriter, r *http.Request, st 
 				busyCandidates = append(busyCandidates, candidates[res.idx])
 			}
 			if res.reqErr.Kind == KindProviderTimeout {
-				providerStall = res.reqErr
+				// The fenced copy setReqErr just stored, since the disconnect
+				// terminal renders this error's Underlying into the log row.
+				providerStall = st.lastReqErr
 			}
 			// A slot just freed: launch the next candidate eagerly rather than
 			// waiting for the hedge tick.
@@ -418,11 +420,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		// past the floor is a provider fault. Mirrors dispatchStreaming.
 		clientGone := ctx.Err() != nil
 		elapsed := time.Since(st.startTime)
-		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), st.logData.fence(), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 		if recordFailure {
 			// What only this site knows about the probe, beside the charge line
 			// chargeBreaker writes.
-			debuglog.Warn("proxy: hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", st.logData.content.maskOne(re.Underlying))
+			debuglog.Warn("proxy: hedged TTFT probe failed", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "attempt", attempt, "kind", string(re.Kind), "duration_ms", elapsed.Milliseconds(), "error", re.Underlying)
 			h.chargeBreaker(st, candidate, resp.StatusCode, "hedged TTFT probe failed")
 		}
 		res.reqErr = re
@@ -481,7 +483,7 @@ func settleHedgeLaunches(logData *requestLogData, results <-chan hedgeResult, ca
 			if res.won {
 				logData.appendAttemptRecord(hedgeAbandonedRecord(res.idx, candidates[res.idx], launchedAt[res.idx], kind, detail))
 			} else {
-				logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx]))
+				logData.appendAttemptRecord(hedgeLoserRecord(res, candidates[res.idx], launchedAt[res.idx], logData.fence()))
 			}
 		default:
 			drained = true

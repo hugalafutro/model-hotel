@@ -6,6 +6,12 @@ interface StatusBadgeProps {
 	code: number;
 	state: string;
 	errorMessage?: string;
+	/**
+	 * Renders at the plain `ui-badge` size instead of the roomier default, so
+	 * the badge sits at the same height and text size as the `ui-badge` spans
+	 * beside it (the attempt trail puts several on one line).
+	 */
+	compact?: boolean;
 }
 
 type BadgeVariant = "blue" | "red" | "green" | "orange";
@@ -24,11 +30,22 @@ interface StatusDisplay {
 	animate: boolean;
 }
 
-/** Badge look for a status class (the code's leading digit). */
+/**
+ * Badge look for a status code. Most codes are read by class (the leading
+ * digit); 402 gets its own label because "Client Error" hides the one thing
+ * an operator needs from it, that the account cannot pay for the request.
+ */
 function codeConfig(
-	hundred: number,
+	code: number,
 ): { variant: BadgeVariant; suffixKey: string; icon: LucideIcon } | null {
-	switch (hundred) {
+	if (code === 402) {
+		return {
+			variant: "orange",
+			suffixKey: "components.statusBadge.paymentRequired",
+			icon: AlertTriangle,
+		};
+	}
+	switch (Math.floor(code / 100)) {
 		case 2:
 			return {
 				variant: "green",
@@ -80,7 +97,7 @@ function getStatusDisplay(
 		};
 	}
 
-	const config = codeConfig(Math.floor(code / 100));
+	const config = codeConfig(code);
 	if (config) {
 		return {
 			variant: config.variant,
@@ -93,7 +110,25 @@ function getStatusDisplay(
 	return null;
 }
 
-export function StatusBadge({ code, state, errorMessage }: StatusBadgeProps) {
+/**
+ * statusBadgeLabel is the text the badge renders for a settled status, so a
+ * caller can tell whether another string on the same row only repeats it.
+ * Null when the code has no badge of its own.
+ */
+// eslint-disable-next-line react-refresh/only-export-components -- the label rule belongs beside the badge that renders it
+export function statusBadgeLabel(
+	code: number,
+	t: (key: string) => string,
+): string | null {
+	return getStatusDisplay(code, "completed", t)?.label ?? null;
+}
+
+export function StatusBadge({
+	code,
+	state,
+	errorMessage,
+	compact,
+}: StatusBadgeProps) {
 	const { t } = useTranslation();
 	const display = getStatusDisplay(code, state, t, errorMessage);
 	if (!display) {
@@ -101,14 +136,17 @@ export function StatusBadge({ code, state, errorMessage }: StatusBadgeProps) {
 	}
 
 	const Icon = display.icon;
+	// Compact drops the extra padding and leading so the badge is exactly as
+	// tall as a bare ui-badge span; the icon shrinks to match the smaller box.
+	const sizing = compact ? "gap-1" : "gap-1.5 px-2.5 py-1 leading-[1.6]";
 	return (
 		<span
-			className={`ui-badge inline-flex items-center gap-1.5 px-2.5 py-1 leading-[1.6] text-xs font-medium ${VARIANT_STYLES[display.variant]}`}
+			className={`ui-badge inline-flex items-center ${sizing} text-xs font-medium ${VARIANT_STYLES[display.variant]}`}
 		>
 			{display.animate ? (
 				<span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
 			) : (
-				Icon && <Icon size={12} />
+				Icon && <Icon size={compact ? 11 : 12} />
 			)}
 			<span className="badge-text">{display.label}</span>
 		</span>

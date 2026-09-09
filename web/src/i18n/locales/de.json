@@ -2821,6 +2821,7 @@
 			"failed": "Fehler",
 			"ok": "Ok",
 			"clientError": "Client-Fehler",
+			"paymentRequired": "Zahlung erforderlich",
 			"serverError": "Serverfehler"
 		},
 		"logDetailStatusBadge": {

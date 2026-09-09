@@ -2821,6 +2821,7 @@
 			"failed": "Sikertelen",
 			"ok": "Rendben",
 			"clientError": "Ügyfél hiba",
+			"paymentRequired": "Fizetés szükséges",
 			"serverError": "Szerverhiba"
 		},
 		"logDetailStatusBadge": {

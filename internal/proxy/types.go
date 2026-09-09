@@ -354,7 +354,15 @@ type requestState struct {
 // keeps the rendered lastErr string in sync. Every failover-loop failure goes
 // through here, so the exhaustion path always has a structured error to render
 // and classify.
+//
+// Underlying is the one field that can hold upstream text (an SSE error frame,
+// a provider's sentence), and the exhaustion path renders it into the row's
+// error_message, so it is fenced here, once, before anything reads it. Kind,
+// Detail and Hint are written by this package and are never fenced, which is
+// what keeps a prompt quoting gateway wording from blanking the gateway's own
+// diagnosis of the failure.
 func (st *requestState) setReqErr(e reqError) {
+	e.Underlying = st.logData.fence().fenceUpstream(e.Underlying)
 	st.lastReqErr = e
 	st.lastErr = e.render()
 }

@@ -280,10 +280,6 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// native Anthropic and non-streaming readers, the stream finaliser, the
 	// multimodal passthrough), so a clamp there would only cover some callers.
 	logEntry.errorMessage = util.TruncateRunes(logEntry.errorMessage, maxLogMessageRunes)
-	// Then the content fence, for the same reason and at the same place: the
-	// error message and every attempt detail came from an upstream body that
-	// may quote the prompt back, and this is where all of them are written.
-	logEntry.fenceContent()
 
 	// Skip DB operations when no pool is configured.
 	if h.dbPool == nil {

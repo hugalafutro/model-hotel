@@ -2886,6 +2886,7 @@
 			"failed": "Eșuat",
 			"ok": "Ok",
 			"clientError": "Eroare client",
+			"paymentRequired": "Plată necesară",
 			"serverError": "Eroare server"
 		},
 		"logDetailStatusBadge": {

@@ -2821,6 +2821,7 @@
 			"failed": "Không thành công",
 			"ok": "OK",
 			"clientError": "Lỗi phía client",
+			"paymentRequired": "Yêu cầu thanh toán",
 			"serverError": "Lỗi máy chủ"
 		},
 		"logDetailStatusBadge": {

@@ -2951,6 +2951,7 @@
 			"failed": "Не вдалося",
 			"ok": "Гаразд",
 			"clientError": "Помилка клієнта",
+			"paymentRequired": "Потрібна оплата",
 			"serverError": "Помилка сервера"
 		},
 		"logDetailStatusBadge": {

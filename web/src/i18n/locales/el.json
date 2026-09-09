@@ -2821,6 +2821,7 @@
 			"failed": "Απέτυχε",
 			"ok": "Εντάξει",
 			"clientError": "Σφάλμα Πελάτη",
+			"paymentRequired": "Απαιτείται Πληρωμή",
 			"serverError": "Σφάλμα Διακομιστή"
 		},
 		"logDetailStatusBadge": {

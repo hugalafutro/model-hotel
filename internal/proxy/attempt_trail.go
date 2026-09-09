@@ -69,13 +69,35 @@ const (
 // or first sentence fits; a provider quoting the prompt back does not.
 const maxAttemptDetailRunes = 160
 
+// fence returns the request's content fence, or nil when there is no log
+// entry: an attempt path can run against a bare requestState. The fence's own
+// methods tolerate a nil receiver, so callers need no second check.
+func (l *requestLogData) fence() *contentFence {
+	if l == nil {
+		return nil
+	}
+	return l.content
+}
+
 // attemptDetail reduces an upstream error text to what the trail may carry:
 // credential-masked, whitespace-collapsed and capped at maxAttemptDetailRunes
 // on a rune boundary. The input is expected to be already sanitized
 // (util.SanitizeLogBody or errString); masking here is the fence for a path
 // that forgot.
-func attemptDetail(masker credentialMasker, s string) string {
+//
+// This is the trail's single gate for upstream text, so it is where the
+// content fence runs for a detail: a detail the fence finds request content
+// inside is dropped rather than stored, since a row that cannot show its
+// fragment is better off saying nothing than printing a stub. The gateway's
+// own details (a breaker skip, an abandoned hedge) never come through here;
+// they are written straight onto the record.
+func attemptDetail(masker credentialMasker, fence *contentFence, s string) string {
 	if s == "" {
+		return ""
+	}
+	// Withheld already, or found to echo the request here: either way the
+	// trail shows no fragment it cannot show in full.
+	if s == contentWithheld || fence.fenceUpstream(s) != s {
 		return ""
 	}
 	s = string(masker.mask([]byte(s)))
@@ -163,7 +185,7 @@ func (l *requestLogData) closeAttemptRecord(status int, kind ErrorKind, detail, 
 	l.openAttempt = nil
 	rec.Status = status
 	rec.ErrorKind = string(kind)
-	rec.Detail = attemptDetail(l.masker, detail)
+	rec.Detail = attemptDetail(l.masker, l.fence(), detail)
 	rec.Phrase = phrase
 	rec.TTFTMs = ttftMs
 	rec.Breaker = l.attemptBreaker
@@ -189,7 +211,7 @@ func (l *requestLogData) appendAttemptRecord(rec attemptRecord) {
 // classifier or errString) or, for a 429, the classifier's body excerpt;
 // masked again here with the loser's own credential, since the shared log
 // entry's masker belongs to whichever candidate last ran the sequential path.
-func hedgeLoserRecord(res hedgeResult, candidate modelCandidate, launchedAt time.Time) attemptRecord {
+func hedgeLoserRecord(res hedgeResult, candidate modelCandidate, launchedAt time.Time, fence *contentFence) attemptRecord {
 	detail := res.reqErr.Underlying
 	if detail == "" {
 		detail = res.reqErr.Detail
@@ -200,7 +222,7 @@ func hedgeLoserRecord(res hedgeResult, candidate modelCandidate, launchedAt time
 	rec := newAttemptRecord(res.idx, candidate)
 	rec.Status = res.status
 	rec.ErrorKind = string(res.reqErr.Kind)
-	rec.Detail = attemptDetail(newCredentialMasker(candidate.apiKey), detail)
+	rec.Detail = attemptDetail(newCredentialMasker(candidate.apiKey), fence, detail)
 	rec.Phrase = res.rateLimit.phrase
 	rec.DurationMs = util.MillisSince(launchedAt)
 	rec.TTFTMs = res.trueTtftMs

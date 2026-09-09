@@ -279,7 +279,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 // An error envelope in the first frame, and a stream that ends at that frame,
 // are split out from the zero-token cases classifyProbeFailure handles: the
 // provider did answer, so this is its failure and never the client's.
-func classifyProbeError(probeErr error, providerName string, masker credentialMasker, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
+func classifyProbeError(probeErr error, providerName string, masker credentialMasker, fence *contentFence, clientGone bool, elapsed, stallTimeout, ttftTimeout time.Duration, attempt int) (re reqError, recordFailure bool) {
 	// The provider answered, but with nothing the caller can use: either it
 	// reported an error, or it ended the stream without a single chunk. Neither
 	// is ever the client's doing, so both are charged whatever the downstream
@@ -295,11 +295,11 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 	var frameErr *upstreamFrameError
 	if errors.As(probeErr, &frameErr) {
 		// This text is durable: on the last candidate it becomes the request
-		// log's error_message, which the virtual key's owner can read. Every
-		// other path that moves provider error text into that row masks the
-		// credential first, and a provider is free to quote the key back inside
-		// its error. Same treatment here.
-		return answered(util.SanitizeLogBody(string(masker.mask([]byte(frameErr.msg))), 500))
+		// log's error_message, which the virtual key's owner can read. So it
+		// is masked (a provider is free to quote the key back inside its
+		// error) and fenced (it is also free to quote the request back), the
+		// same treatment every other path gives provider text bound for a row.
+		return answered(fence.fenceUpstream(util.SanitizeLogBody(string(masker.mask([]byte(frameErr.msg))), 500)))
 	}
 	var emptyErr *emptyStreamError
 	if errors.As(probeErr, &emptyErr) {
@@ -379,7 +379,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// fast client cancel that must not penalize the provider.
 			clientGone := r.Context().Err() != nil
 			elapsed := time.Since(st.startTime)
-			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
+			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), logData.fence(), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			if recordFailure {
 				h.chargeBreaker(st, candidate, resp.StatusCode, "TTFT probe failed")
 			}
@@ -391,7 +391,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// provider reported its own error rather than because it went
 			// silent, and calling that a stall sends the operator hunting the
 			// wrong thing. charged says what the breaker was told either way.
-			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", logData.content.maskOne(re.Underlying))
+			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", re.Underlying)
 			return outcomeFailover
 		}
 		// First token confirmed. No breaker success is recorded here: a first

@@ -76,9 +76,15 @@ const (
 // is never silently dropped. Detail carries a short structured fragment such as
 // "HTTP 500".
 type reqError struct {
-	Kind       ErrorKind
-	Attempt    int
-	Provider   string
+	Kind     ErrorKind
+	Attempt  int
+	Provider string
+	// Underlying holds upstream text, so setReqErr fences it in place. That is
+	// safe because nothing client-facing reads it: terminalClientMessage names
+	// the model and the class of failure only, and no classifier re-parses it
+	// (the 400/429 classifiers read the response body, not this field). Its
+	// readers are the rendered log message (render, withUnderlying), the trail
+	// detail, and app-log attributes, all of which must carry the fenced text.
 	Underlying string
 	Detail     string
 	// Hint is an optional, actionable diagnosis appended to the rendered

@@ -2821,6 +2821,7 @@
 			"failed": "Misslyckades",
 			"ok": "Ok",
 			"clientError": "Klient fel",
+			"paymentRequired": "Betalning krävs",
 			"serverError": "Serverfel"
 		},
 		"logDetailStatusBadge": {
