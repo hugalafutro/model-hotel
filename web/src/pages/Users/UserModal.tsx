@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { DashboardUser } from "../../api/types";
+import type { DashboardUser, UserRole } from "../../api/types";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ErrorCallout } from "../../components/ErrorCallout";
 import { Modal } from "../../components/Modal";
@@ -164,7 +164,7 @@ export function UserModal({
 					<select
 						id="user-role"
 						value={role}
-						onChange={(e) => setRole(e.target.value as "admin" | "user")}
+						onChange={(e) => setRole(e.target.value as UserRole)}
 						className="ui-input"
 						disabled={isSelf || managed}
 					>

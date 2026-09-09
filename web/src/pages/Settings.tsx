@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Settings as SettingsIcon } from "@/lib/icons";
@@ -12,6 +12,7 @@ import { PageHeader } from "../components/PageHeader";
 import { ResetButton } from "../components/ResetButton";
 import { useToast } from "../context/ToastContext";
 import { useManaged } from "../hooks/useManaged";
+import { useSettingsQuery } from "../hooks/useSettingsQuery";
 import { AlertsSettings } from "./Settings/AlertsSettings";
 import { AppearanceSettings } from "./Settings/AppearanceSettings";
 import { AuthenticationSettings } from "./Settings/AuthenticationSettings";
@@ -118,10 +119,7 @@ export function Settings() {
 		"settings_alertsCollapsed",
 	);
 
-	const { isLoading } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
+	const { isLoading } = useSettingsQuery();
 
 	// --- Reset all settings (double-confirm: type RESET) ---
 	const [resetAllOpen, setResetAllOpen] = useState(false);

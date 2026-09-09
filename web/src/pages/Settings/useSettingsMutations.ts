@@ -1,12 +1,12 @@
 import {
 	type QueryClient,
 	useMutation,
-	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import { useToast } from "../../context/ToastContext";
+import { useSettingsQuery } from "../../hooks/useSettingsQuery";
 
 // The alert card's two reads describe stored settings from the server's side:
 // the decrypted destination list and the apprise-api reachability probe. Any
@@ -19,9 +19,9 @@ export function invalidateAlertReads(queryClient: QueryClient) {
 }
 
 /**
- * useSettingsMutations provides the shared query + mutation + toast pattern
- * used by all Settings pages. Each page was previously duplicating the same
- * ~40-line block (useQuery, updateMutation, resetSettingMutation, toast calls).
+ * useSettingsMutations is the shared settings read, mutation and toast bundle
+ * every Settings page builds on: the settings query through useSettingsQuery,
+ * the update and reset mutations, and the success and error toasts.
  *
  * Returns:
  * - settings: the current settings object (or undefined while loading)
@@ -34,10 +34,7 @@ export function useSettingsMutations() {
 	const { toast } = useToast();
 	const queryClient = useQueryClient();
 
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
+	const { data: settings } = useSettingsQuery();
 
 	const updateMutation = useMutation({
 		mutationFn: (updates: Record<string, string>) =>

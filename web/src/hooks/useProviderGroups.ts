@@ -4,8 +4,11 @@ import { toggleInSet } from "../utils/collections";
 /**
  * Groups models by provider for the pickers, with the per-provider collapse
  * state beside them. `collapsed` only ever names providers currently in view,
- * so a provider that leaves the list (filtered out) and comes back is expanded
- * rather than remembering a collapse the operator can no longer see.
+ * so a caller never renders a chevron for a provider that is not on screen.
+ * toggleCollapse leaves the absent keys in the underlying state, which costs
+ * a few strings and hands a provider that leaves the list and comes back the
+ * collapse the operator last chose for it; collapseAll and expandAll rewrite
+ * the set from the providers on screen, so they drop that memory.
  */
 export function useProviderGroups<T extends { provider_name: string }>(
 	models: readonly T[],

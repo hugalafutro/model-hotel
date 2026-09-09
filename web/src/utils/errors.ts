@@ -23,7 +23,11 @@ export function errorStatus(err: unknown): number | undefined {
 	return typeof status === "number" ? status : undefined;
 }
 
-/** The value as an Error, wrapping anything that is not already one. */
+/**
+ * The value as an Error, wrapping anything that is not already one. A nullish
+ * rejection keeps its "null"/"undefined" spelling rather than collapsing to an
+ * empty message, so a callout rendering `error.message` is never blank.
+ */
 export function asError(err: unknown): Error {
-	return err instanceof Error ? err : new Error(String(err ?? ""));
+	return err instanceof Error ? err : new Error(String(err));
 }

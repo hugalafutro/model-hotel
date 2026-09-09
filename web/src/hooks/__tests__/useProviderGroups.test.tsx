@@ -32,15 +32,21 @@ describe("useProviderGroups", () => {
 		expect(result.current.collapsed.size).toBe(0);
 	});
 
-	it("forgets a collapse for a provider no longer in view", () => {
+	it("hides a provider no longer in view and restores its collapse on return", () => {
+		const openAIOnly = models.filter((m) => m.provider_name === "OpenAI");
 		const { result, rerender } = renderHook(
 			({ list }) => useProviderGroups(list),
 			{ initialProps: { list: models } },
 		);
 
 		act(() => result.current.collapseAll());
-		rerender({ list: models.filter((m) => m.provider_name === "OpenAI") });
-
+		rerender({ list: openAIOnly });
 		expect([...result.current.collapsed]).toEqual(["OpenAI"]);
+
+		rerender({ list: models });
+		expect([...result.current.collapsed].sort()).toEqual([
+			"Anthropic",
+			"OpenAI",
+		]);
 	});
 });
