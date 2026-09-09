@@ -633,6 +633,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	}
 
 	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
+	util.SetOpenCodeGoSession(proxyReq, providerType, st.opencodeSession)
 	proxyReq.Header.Set("Content-Type", contentType)
 	debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
 	return proxyReq, providerType, targetURL, nil

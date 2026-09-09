@@ -287,3 +287,68 @@ func OpenAIErrorType(code int) string {
 		return "invalid_request_error"
 	}
 }
+
+// OpenCodeGoSessionHeader is the conversation id OpenCode Go wants on every
+// chat request so it can pin the routing and the prompt cache. It is not
+// optional: a request without it is refused with 400 MissingSessionID.
+const OpenCodeGoSessionHeader = "x-opencode-session"
+
+// The session ids the gateway issues itself, and the prefix that reserves them.
+// Traffic with no client and no virtual key gets a fixed id per surface; keyed
+// traffic gets the prefix plus a digest of the key hash. A client-sent id
+// carrying the prefix is refused, so a key holder cannot land its traffic on
+// the admin, probe or Test-button session, or on another key's session.
+const (
+	OpenCodeGoSessionPrefix    = "mh-"
+	OpenCodeGoAdminSession     = "mh-admin"
+	OpenCodeGoProbeSession     = "mh-probe"
+	OpenCodeGoModelTestSession = "mh-model-test"
+)
+
+// maxOpenCodeSessionLen bounds a client-chosen session id. Roomy for a UUID or
+// an opaque agent id, and narrow enough that a client cannot push bulk into an
+// upstream header through the gateway.
+const maxOpenCodeSessionLen = 128
+
+// OpenCodeGoSession picks the session id an upstream OpenCode Go request
+// carries.
+//
+// A client that sent its own id keeps it, so its conversation stays on one
+// route and one prompt cache. Anything a header must not carry (empty,
+// over-long, non-printable or non-ASCII) is treated as absent rather than
+// forwarded, and so is anything in the gateway's own reserved namespace. The
+// fallback is derived from the virtual key hash, so the same key always maps to
+// the same session while neither the key, its hash, nor anything about the
+// request leaves the gateway. Keyless traffic (admin chat) shares one fixed id.
+func OpenCodeGoSession(clientSession, vkHash string) string {
+	s := strings.TrimSpace(clientSession)
+	if s != "" && len(s) <= maxOpenCodeSessionLen && isPrintableASCII(s) &&
+		!strings.HasPrefix(strings.ToLower(s), OpenCodeGoSessionPrefix) {
+		return s
+	}
+	if vkHash == "" {
+		return OpenCodeGoAdminSession
+	}
+	return OpenCodeGoSessionPrefix + SHA256Hex(vkHash)[:32]
+}
+
+// isPrintableASCII reports whether every byte of s is a printable ASCII
+// character, the only bytes an HTTP header value may carry unescaped.
+func isPrintableASCII(s string) bool {
+	for i := 0; i < len(s); i++ {
+		if s[i] < 0x20 || s[i] > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+// SetOpenCodeGoSession stamps the OpenCode Go session header on an upstream
+// request. It is a no-op for every other provider type: no other upstream asks
+// for the header, and the value is meaningless to them.
+func SetOpenCodeGoSession(req *http.Request, providerType, session string) {
+	if providerType != "opencode-go" || session == "" {
+		return
+	}
+	req.Header.Set(OpenCodeGoSessionHeader, session)
+}

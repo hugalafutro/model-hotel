@@ -155,9 +155,12 @@ func (s *SafeDialer) CheckRedirect(req *http.Request, via []*http.Request) error
 	// (x-api-key, x-goog-api-key) verbatim, which would leak the key to the
 	// redirect target. Every provider auth header is stripped on a cross-host
 	// hop, ahead of the allowlist and IP checks below, so it applies whether or
-	// not the target is allowed.
+	// not the target is allowed. The OpenCode Go session id goes with them: it
+	// is a stable per-key identifier the redirect target has no business
+	// correlating on.
 	if len(via) > 0 && !strings.EqualFold(host, via[0].URL.Hostname()) {
 		util.StripProviderAuthHeaders(req)
+		req.Header.Del(util.OpenCodeGoSessionHeader)
 	}
 	// Allowlisted hosts bypass all checks.
 	if s.hosts[strings.ToLower(host)] {

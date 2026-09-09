@@ -217,6 +217,14 @@ type requestState struct {
 	parseMs     float64
 	logData     *requestLogData
 
+	// opencodeSession is the value the x-opencode-session header carries on an
+	// upstream request to an opencode-go provider, which refuses anything
+	// without it. It is resolved once at ingest (the client's own id when it is
+	// safe to forward, otherwise one derived from the virtual key) so every
+	// attempt of the request, hedges and parameter retries included, routes
+	// under the same session.
+	opencodeSession string
+
 	// Multimodal pass-through fields (zero values = chat behavior).
 	// endpointPath is the upstream path suffix ("" = "/chat/completions").
 	// makeUpstreamBody, when set, replaces the chat-specific body rewrite in

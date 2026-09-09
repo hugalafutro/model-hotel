@@ -247,10 +247,11 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 	logData.content = newContentFence(nil, multipartTextFields(parts)...)
 
 	return &requestState{
-		startTime: startTime,
-		reqModel:  reqModel,
-		vkHash:    vkHash,
-		parseMs:   parseMs,
-		logData:   logData,
+		startTime:       startTime,
+		reqModel:        reqModel,
+		vkHash:          vkHash,
+		parseMs:         parseMs,
+		logData:         logData,
+		opencodeSession: util.OpenCodeGoSession(r.Header.Get(util.OpenCodeGoSessionHeader), vkHash),
 	}, parts, true
 }
