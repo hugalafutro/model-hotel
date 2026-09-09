@@ -285,14 +285,21 @@ func TestCircuitBreaker_RetargetedPinIsFlooredAtTheBackoff(t *testing.T) {
 	id := uuid.New()
 	backOffOnce(t, cb, id)
 
-	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(3 * time.Minute)}); n != 0 {
-		t.Errorf("ApplyQuotaPins retargeted %d circuits with advice shorter than the backoff, want 0", n)
+	// One change, and it is the seed: the same advice opens an account circuit
+	// for this exhausted provider. The backed-off circuit is not retargeted.
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(3 * time.Minute)}); n != 1 {
+		t.Errorf("ApplyQuotaPins changed %d circuits with advice shorter than the backoff, want only the seed", n)
 	}
-	if s := onlyStatus(t, cb); s.QuotaPinned || s.CooldownMs != (2*backoffTestBase).Milliseconds() {
-		t.Errorf("quota_pinned=%v cooldown %dms after a too-short retarget, want unpinned/4m", s.QuotaPinned, s.CooldownMs)
+	// Read the circuit itself, not the provider row: the seeded circuit shares
+	// the row, and the row's quota_pinned is "any blocking circuit is pinned".
+	// What this test is about is that the backed-off circuit took no pin shorter
+	// than its backoff.
+	if o := overrideFor(t, cb, id); o != 0 {
+		t.Errorf("got override %v after a too-short retarget, want none: the backoff is the floor", o)
 	}
-	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(10 * time.Hour)}); n != 1 {
-		t.Errorf("ApplyQuotaPins retargeted %d circuits with advice beyond the backoff, want 1", n)
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(10 * time.Hour)})
+	if o := overrideFor(t, cb, id); o < 9*time.Hour {
+		t.Errorf("got override %v with advice beyond the backoff, want roughly 10h", o)
 	}
 }
 

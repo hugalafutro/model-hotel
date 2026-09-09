@@ -456,7 +456,7 @@ func main() {
 	background.Go("phrase-staleness", func() { proxy.PhraseStalenessLoop(ctx, database.Pool()) })
 	background.Go("log-retention", func() { logRetentionLoop(ctx, drainCtx, database.Pool(), settingsRepo) })
 	background.Go("quota-poll", func() {
-		quotaPollLoop(ctx, settingsRepo, apiHandler.PollQuotasOnce, apiHandler.DisableQuotaAdvice, time.Minute)
+		quotaPollLoop(ctx, settingsRepo, apiHandler.PollQuotasOnce, apiHandler.DisableQuotaAdvice, apiHandler.RefreshQuotaAdvice, time.Minute)
 	})
 	background.Go("scheduled-disable", func() {
 		scheduledDisableLoop(ctx, drainCtx, providerRepo, failoverRepo, time.Minute)

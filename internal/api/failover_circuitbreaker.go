@@ -55,11 +55,16 @@ type CircuitBreakerQuotaPinner interface {
 	// circuit's state either.
 	ReleaseAllQuotaPins() int
 	// ApplyQuotaPins retargets the cooldown of every already-open circuit whose
-	// provider appears in advice, returning how many it retargeted. It only
-	// lengthens a wait: it must not change any circuit's state, must leave
-	// closed and half-open circuits alone, and must never shorten a pin already
-	// reaching further than the advice. Implementations may read advice only for
-	// the duration of the call.
+	// provider appears in advice, and opens a seeded circuit for an advised
+	// provider nothing is holding dark yet, returning how many circuits it
+	// changed: retargets and seeds alike, since a seed is a circuit that was
+	// not open before this call. Retargeting only lengthens a wait: it must leave closed and
+	// half-open circuits alone and must never shorten a pin already reaching
+	// further than the advice. Seeding is the one state change permitted here,
+	// and only for a provider carrying no account-wide pin: the breaker is
+	// in-memory, so after a restart an exhausted provider would otherwise be
+	// routed to until real refusals reopened a circuit. Implementations may
+	// read advice only for the duration of the call.
 	ApplyQuotaPins(advice map[uuid.UUID]time.Time) int
 }
 

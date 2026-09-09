@@ -701,6 +701,10 @@ func TestApplyQuotaPins_RetargetsOpenCircuit(t *testing.T) {
 // cooldown to retarget, and a half-open one has a probe out or due, so HTTP is
 // mid-verdict: pushing it back into the dark would overturn a decision the
 // breaker has already handed to the request path.
+//
+// The same pass does seed an account circuit for the provider, which is a
+// separate circuit and does not touch these; the assertions below name the
+// circuit under test rather than the provider row for exactly that reason.
 func TestApplyQuotaPins_LeavesNonOpenCircuitsAlone(t *testing.T) {
 	cases := []struct {
 		name  string
@@ -742,8 +746,10 @@ func TestApplyQuotaPins_LeavesNonOpenCircuitsAlone(t *testing.T) {
 
 			got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)})
 
-			if got != 0 {
-				t.Errorf("got %d circuits retargeted, want 0: %s", got, c.why)
+			// The one change is the provider's seeded account circuit, which is
+			// not the circuit under test.
+			if got != 1 {
+				t.Errorf("got %d circuits changed, want only the seed: %s", got, c.why)
 			}
 			if o := overrideFor(t, cb, id); o != 0 {
 				t.Errorf("got override %v, want none: %s", o, c.why)
