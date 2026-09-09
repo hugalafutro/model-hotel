@@ -1,32 +1,31 @@
 import { renderHook } from "@testing-library/react";
-import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ToastProvider } from "../../context/ToastContext";
 import { usePersistedJSON } from "../usePersistedJSON";
 
-const wrapper = ({ children }: { children: ReactNode }) => (
-	<ToastProvider>{children}</ToastProvider>
-);
+const mockToast = vi.fn();
+
+vi.mock("../../context/ToastContext", () => ({
+	useToast: () => ({ toast: mockToast }),
+}));
 
 describe("usePersistedJSON", () => {
 	afterEach(() => {
 		localStorage.clear();
+		mockToast.mockClear();
 		vi.restoreAllMocks();
 	});
 
 	it("mirrors the value into localStorage", () => {
-		renderHook(
-			() => usePersistedJSON("thing", { a: 1 }, true, "warn.storageFull"),
-			{ wrapper },
+		renderHook(() =>
+			usePersistedJSON("thing", { a: 1 }, true, "warn.storageFull"),
 		);
 
 		expect(localStorage.getItem("thing")).toBe('{"a":1}');
 	});
 
 	it("writes nothing while disabled", () => {
-		renderHook(
-			() => usePersistedJSON("thing", { a: 1 }, false, "warn.storageFull"),
-			{ wrapper },
+		renderHook(() =>
+			usePersistedJSON("thing", { a: 1 }, false, "warn.storageFull"),
 		);
 
 		expect(localStorage.getItem("thing")).toBeNull();
@@ -41,11 +40,13 @@ describe("usePersistedJSON", () => {
 
 		const { rerender } = renderHook(
 			({ value }) => usePersistedJSON("thing", value, true, "warn.storageFull"),
-			{ wrapper, initialProps: { value: { a: 1 } } },
+			{ initialProps: { value: { a: 1 } } },
 		);
 		rerender({ value: { a: 2 } });
 		rerender({ value: { a: 3 } });
 
 		expect(spy).toHaveBeenCalledTimes(3);
+		expect(mockToast).toHaveBeenCalledTimes(1);
+		expect(mockToast).toHaveBeenCalledWith("warn.storageFull", "warning");
 	});
 });

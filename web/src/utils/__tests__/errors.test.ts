@@ -49,6 +49,10 @@ describe("asError", () => {
 
 	it("wraps anything else", () => {
 		expect(asError("boom").message).toBe("boom");
-		expect(asError(undefined).message).toBe("");
+	});
+
+	it("spells a nullish rejection out instead of leaving it blank", () => {
+		expect(asError(undefined).message).toBe("undefined");
+		expect(asError(null).message).toBe("null");
 	});
 });

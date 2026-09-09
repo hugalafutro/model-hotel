@@ -2,7 +2,11 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
-import type { DashboardUser, UserUpsertRequest } from "../../api/types";
+import type {
+	DashboardUser,
+	UserRole,
+	UserUpsertRequest,
+} from "../../api/types";
 import { useIdentity } from "../../context/IdentityContext";
 import { errorMessage } from "../../utils/errors";
 import { isBreachedPasswordError } from "../../utils/passwordPolicy";
@@ -32,7 +36,7 @@ export function useUserForm({
 	const [displayName, setDisplayName] = useState(user?.display_name ?? "");
 	const [email, setEmail] = useState(user?.email ?? "");
 	const [password, setPassword] = useState("");
-	const [role, setRole] = useState<"admin" | "user">(user?.role ?? "user");
+	const [role, setRole] = useState<UserRole>(user?.role ?? "user");
 	const [grants, setGrants] = useState<string[]>(user?.grants ?? []);
 	const [enabled, setEnabled] = useState(user?.enabled ?? true);
 	const [limitRps, setLimitRps] = useState(

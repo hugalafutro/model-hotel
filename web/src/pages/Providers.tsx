@@ -22,6 +22,7 @@ import { useQuotaData } from "../hooks/useQuotaData";
 import { useQuotaRefresh } from "../hooks/useQuotaRefresh";
 import { useReadOnly } from "../hooks/useReadOnly";
 import { useRefreshDiscoveryBadge } from "../hooks/useRefreshDiscoveryBadge";
+import { useSettingsQuery } from "../hooks/useSettingsQuery";
 import { countLabel } from "../utils/format";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
 import { AddProviderModal } from "./Providers/AddProviderModal";
@@ -71,10 +72,7 @@ export function Providers() {
 		staleTime: 60_000,
 	});
 
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
+	const { data: settings } = useSettingsQuery();
 
 	const modelCounts = useMemo(() => {
 		const map = new Map<string, number>();

@@ -5,6 +5,7 @@ import { api, getAuthHeaders } from "../../api/client";
 import type { BackupClassification } from "../../api/types";
 import { useToast } from "../../context/ToastContext";
 import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
+import { useSettingsQuery } from "../../hooks/useSettingsQuery";
 import { downloadBlob } from "../../utils/download";
 import { SETTING_DEFAULTS, settingOr } from "./defaults";
 
@@ -39,10 +40,7 @@ export function useBackupActions() {
 		queryFn: () => api.backups.list(),
 	});
 
-	const { data: settings, isPending: settingsPending } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
+	const { data: settings, isPending: settingsPending } = useSettingsQuery();
 
 	// GFS bucket per backup, so each row can carry a Grandfather/Father/Son tag.
 	// Sourced from the prune-preview classifier, which groups every backup by age

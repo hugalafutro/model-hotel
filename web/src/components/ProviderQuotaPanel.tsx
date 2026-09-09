@@ -12,6 +12,7 @@ import {
 } from "../hooks/useLocalStorage";
 import { useQuotaData } from "../hooks/useQuotaData";
 import { quotaRefreshCooldownMs } from "../hooks/useQuotaRefresh";
+import { useSettingsQuery } from "../hooks/useSettingsQuery";
 import { CollapseBody, CollapsibleToggle } from "./CollapsibleToggle";
 import { QuotaBadges } from "./QuotaBadge";
 
@@ -52,10 +53,7 @@ export function ProviderQuotaPanel() {
 		staleTime: 60_000,
 	});
 
-	const { data: settings } = useQuery({
-		queryKey: ["settings"],
-		queryFn: () => api.settings.get(),
-	});
+	const { data: settings } = useSettingsQuery();
 
 	// Derive the refresh interval from the server setting. Query invalidation
 	// (triggered when the Settings page saves the value) re-runs this without a

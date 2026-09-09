@@ -427,13 +427,6 @@ export interface NanoGPTUsageTokenInfo {
 	resetAt: number;
 }
 
-export interface NanoGPTUsageDailyImages {
-	used: number;
-	remaining: number;
-	percentUsed: number;
-	resetAt: number;
-}
-
 export interface NanoGPTUsage {
 	active: boolean;
 	provider: string;
@@ -442,7 +435,7 @@ export interface NanoGPTUsage {
 	limits: NanoGPTUsageLimits;
 	allowOverage: boolean;
 	period: { currentPeriodEnd: string };
-	dailyImages: NanoGPTUsageDailyImages | null;
+	dailyImages: NanoGPTUsageTokenInfo | null;
 	dailyInputTokens: NanoGPTUsageTokenInfo | null;
 	weeklyInputTokens: NanoGPTUsageTokenInfo | null;
 }
