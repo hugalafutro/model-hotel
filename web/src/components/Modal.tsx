@@ -28,8 +28,8 @@ interface ModalProps {
 	dismissible?: boolean;
 	// Prev/next stepper drawn beside the close button, for a dialog opened from
 	// one row of a list. Absent for dialogs with no list behind them, and not
-	// combined with dismissible={false}: stepping swaps the dialog's subject,
-	// which is the thing that flag exists to prevent.
+	// combined with dismissible={false} by callers: stepping swaps the dialog's
+	// subject, which is the thing that flag exists to prevent.
 	nav?: ModalNavProps;
 	onClose: () => void;
 	maxWidth?: string;
@@ -49,6 +49,28 @@ const FADE_DURATION = 200;
  * decided by what is on screen rather than by who rendered whom.
  */
 const openDialogs: HTMLElement[] = [];
+
+/**
+ * Elements whose own arrow-key behaviour outranks the row stepper: the fields
+ * a caret moves through, and the roles that move a selection.
+ */
+const ARROW_KEY_OWNERS = [
+	"input",
+	"textarea",
+	"select",
+	"[contenteditable='true']",
+	"[role='listbox']",
+	"[role='combobox']",
+	"[role='tablist']",
+	"[role='menu']",
+	"[role='menubar']",
+	"[role='grid']",
+	"[role='tree']",
+	"[role='radiogroup']",
+	"[role='slider']",
+	"[role='spinbutton']",
+	"[role='textbox']",
+].join(", ");
 
 export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	{
@@ -177,15 +199,16 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			// Arrow keys belong to whatever the user is typing in, and to the
 			// widgets that move a selection with them.
 			const target = e.target as HTMLElement | null;
-			if (
-				target?.closest?.(
-					"input, textarea, select, [contenteditable='true']," +
-						" [role='listbox'], [role='tablist'], [role='slider'], [role='menu']",
-				)
-			)
-				return;
-			if (e.key === "ArrowLeft" && nav.index > 0) nav.onPrev();
-			if (e.key === "ArrowRight" && nav.index < nav.total - 1) nav.onNext();
+			if (target?.closest?.(ARROW_KEY_OWNERS)) return;
+			const step =
+				e.key === "ArrowLeft"
+					? nav.index > 0 && nav.onPrev
+					: nav.index < nav.total - 1 && nav.onNext;
+			if (!step) return;
+			// Consumed: the same press must not also scroll the dialog, and a
+			// listener further out can see the key was taken.
+			e.preventDefault();
+			step();
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
@@ -196,6 +219,16 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	}, []);
 
 	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
+
+	// Stepping to another row starts that row at the top: the dialog is one
+	// scroll container reused for every row, so a long row scrolled to its
+	// end would otherwise hand the next row a scroll position it never had.
+	const scrollRef = useRef<HTMLDivElement>(null);
+	const navIndex = nav?.index;
+	// biome-ignore lint/correctness/useExhaustiveDependencies: navIndex is the trigger, the row it names is what changed
+	useEffect(() => {
+		if (scrollRef.current) scrollRef.current.scrollTop = 0;
+	}, [navIndex]);
 
 	// Title and header keep clear of the corner controls: the close button
 	// alone, or the stepper plus the close button. The stepper's readout is
@@ -269,7 +302,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					// data-modal-scroll lets a descendant resolve its own scroll root
 					// (element.closest) without Modal growing a ref prop. Used by the
 					// discrepancy modal's return-to-top IntersectionObserver.
-					<div className="min-h-0 overflow-y-auto pr-2" data-modal-scroll>
+					<div
+						ref={scrollRef}
+						className="min-h-0 overflow-y-auto pr-2"
+						data-modal-scroll
+					>
 						{children}
 					</div>
 				) : (

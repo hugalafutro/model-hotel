@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Linha anterior",
-		"nextRow": "Próxima linha"
+		"nextRow": "Próxima linha",
+		"rowPosition": "Linha {{position}} de {{total}}"
 	},
 	"layout": {
 		"title": "Model Hotel",

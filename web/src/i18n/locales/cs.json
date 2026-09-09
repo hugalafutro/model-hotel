@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Předchozí řádek",
-		"nextRow": "Další řádek"
+		"nextRow": "Další řádek",
+		"rowPosition": "Řádek {{position}} z {{total}}"
 	},
 	"layout": {
 		"title": "Model Hotel",

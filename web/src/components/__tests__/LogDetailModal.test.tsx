@@ -524,6 +524,22 @@ describe("LogDetailModal", () => {
 			).toBeInTheDocument();
 		});
 
+		it("hands the row stepper to the modal", () => {
+			const onNext = vi.fn();
+			renderWithProviders(
+				<LogDetailModal
+					log={mockAppLog}
+					type="app"
+					nav={{ index: 0, total: 9, onPrev: vi.fn(), onNext }}
+					onClose={onClose}
+				/>,
+			);
+
+			expect(screen.getByText("1/9")).toBeInTheDocument();
+			fireEvent.click(screen.getByRole("button", { name: "Next row" }));
+			expect(onNext).toHaveBeenCalledTimes(1);
+		});
+
 		it("displays timestamp", () => {
 			renderWithProviders(
 				<LogDetailModal log={mockAppLog} type="app" onClose={onClose} />,

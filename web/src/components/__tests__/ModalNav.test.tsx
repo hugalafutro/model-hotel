@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
@@ -24,7 +24,7 @@ function Harness({
 	const nav = useModalNav(rows, selected, setSelected, (row) => row.id);
 	if (!selected) return null;
 	return (
-		<Modal title="Row" nav={nav} onClose={() => setSelected(null)}>
+		<Modal title="Row" nav={nav} scrollable onClose={() => setSelected(null)}>
 			<p>row {selected.id}</p>
 		</Modal>
 	);
@@ -70,12 +70,22 @@ describe("ModalNav", () => {
 		expect(screen.getByText("row c")).toBeInTheDocument();
 	});
 
-	it("leaves both arrows inert for a single-row list", () => {
+	it("offers no stepper for a single-row list", () => {
 		renderWithProviders(<Harness rows={[{ id: "a" }]} startId="a" />);
 
-		expect(screen.getByText("1/1")).toBeInTheDocument();
-		expect(prevButton()).toHaveAttribute("aria-disabled", "true");
-		expect(nextButton()).toHaveAttribute("aria-disabled", "true");
+		expect(
+			screen.queryByRole("button", { name: "Next row" }),
+		).not.toBeInTheDocument();
+		expect(screen.getByText("row a")).toBeInTheDocument();
+	});
+
+	it("says where the open row sits, for a reader that cannot see the arrows", () => {
+		renderWithProviders(<Harness />);
+
+		const announced = document
+			.querySelector("[role='dialog'] [aria-live='polite']")
+			?.textContent?.trim();
+		expect(announced).toBe("Row 2 of 3");
 	});
 
 	it("steps with the left and right arrow keys", () => {
@@ -117,11 +127,57 @@ describe("ModalNav", () => {
 		expect(screen.getByText("row b")).toBeInTheDocument();
 	});
 
-	it("leaves Alt+Arrow to the browser's history navigation", () => {
+	// Alt+Arrow is browser history; the rest carry their own shortcut meanings.
+	it.each(["altKey", "ctrlKey", "metaKey", "shiftKey"])(
+		"leaves %s + Arrow to the browser",
+		(modifier) => {
+			renderWithProviders(<Harness />);
+
+			fireEvent.keyDown(document, { key: "ArrowRight", [modifier]: true });
+			expect(screen.getByText("row b")).toBeInTheDocument();
+		},
+	);
+
+	it("ignores a key another handler already took", () => {
+		renderWithProviders(<Harness />);
+		// Capture phase, so it runs before the dialog's own listener.
+		const consume = (e: Event) => e.preventDefault();
+		document.addEventListener("keydown", consume, true);
+
+		fireEvent.keyDown(document, { key: "ArrowRight" });
+
+		document.removeEventListener("keydown", consume, true);
+		expect(screen.getByText("row b")).toBeInTheDocument();
+	});
+
+	it("leaves the arrows alone in a modal with no list behind it", () => {
+		renderWithProviders(
+			<Modal title="Plain" onClose={() => {}}>
+				<p>no list</p>
+			</Modal>,
+		);
+
+		// The bare dialog must not swallow the keys either: nothing to step,
+		// so the press falls through to whatever else is listening.
+		// fireEvent returns false only when a listener called preventDefault.
+		expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
+	});
+
+	it("still closes on Escape while the stepper is present", async () => {
 		renderWithProviders(<Harness />);
 
-		fireEvent.keyDown(document, { key: "ArrowRight", altKey: true });
-		expect(screen.getByText("row b")).toBeInTheDocument();
+		fireEvent.keyDown(document, { key: "Escape" });
+		await waitFor(() =>
+			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+		);
+	});
+
+	it("takes the keypress it acts on", () => {
+		renderWithProviders(<Harness />);
+
+		// Consumed, so the same press cannot also scroll the dialog body.
+		expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(false);
+		expect(screen.getByText("row c")).toBeInTheDocument();
 	});
 
 	it("steps only the topmost dialog", () => {
@@ -146,6 +202,19 @@ describe("ModalNav", () => {
 		rerender(<Harness rows={[{ id: "new" }, ...ROWS]} />);
 		expect(screen.getByText("row b")).toBeInTheDocument();
 		expect(screen.getByText("3/4")).toBeInTheDocument();
+	});
+
+	it("starts each stepped-to row at the top of the dialog", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<Harness />);
+		const body = document.querySelector<HTMLElement>("[data-modal-scroll]");
+		if (!body) throw new Error("scrollable body not rendered");
+		body.scrollTop = 400;
+		expect(body.scrollTop).toBe(400);
+
+		await user.click(nextButton());
+
+		expect(body.scrollTop).toBe(0);
 	});
 
 	it("hides the stepper when the open row left the list", () => {

@@ -3,8 +3,12 @@ import type { ModalNavProps } from "../components/ModalNav";
 
 /**
  * Wires a list and its selected row to {@link ModalNav}. Returns undefined
- * when nothing is open, or when the open row is no longer in the list (a live
- * update dropped it), which hides the stepper rather than stepping blind.
+ * when there is nowhere to step: nothing is open, the list holds one row, or
+ * the open row is no longer in the list (a live update dropped it). That
+ * hides the stepper rather than offering a dead control or stepping blind.
+ *
+ * getKey decides which row is open, so a key two rows can share (app-log rows
+ * arrive without an id) binds the stepper to whichever comes first.
  */
 export function useModalNav<T>(
 	items: T[],
@@ -25,6 +29,6 @@ export function useModalNav<T>(
 		if (index >= 0 && index < items.length - 1) onSelect(items[index + 1]);
 	}, [index, items, onSelect]);
 
-	if (index < 0) return undefined;
+	if (index < 0 || items.length < 2) return undefined;
 	return { index, total: items.length, onPrev, onNext };
 }

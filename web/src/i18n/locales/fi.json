@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Edellinen rivi",
-		"nextRow": "Seuraava rivi"
+		"nextRow": "Seuraava rivi",
+		"rowPosition": "Rivi {{position}}/{{total}}"
 	},
 	"layout": {
 		"title": "Model Hotel",

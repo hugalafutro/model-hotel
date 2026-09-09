@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Rândul anterior",
-		"nextRow": "Rândul următor"
+		"nextRow": "Rândul următor",
+		"rowPosition": "Rândul {{position}} din {{total}}"
 	},
 	"layout": {
 		"title": "Model Hotel",

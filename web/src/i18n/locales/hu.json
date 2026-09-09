@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Előző sor",
-		"nextRow": "Következő sor"
+		"nextRow": "Következő sor",
+		"rowPosition": "{{total}}. sorból a {{position}}."
 	},
 	"layout": {
 		"title": "Model Hotel",

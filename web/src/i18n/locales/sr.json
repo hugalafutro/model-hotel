@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Претходни ред",
-		"nextRow": "Следећи ред"
+		"nextRow": "Следећи ред",
+		"rowPosition": "Ред {{position}} од {{total}}"
 	},
 	"layout": {
 		"title": "Model Hotel",

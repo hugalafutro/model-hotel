@@ -37,13 +37,18 @@ export function ModalNav({ index, total, onPrev, onNext }: ModalNavProps) {
 			>
 				<ChevronLeft size={18} />
 			</button>
-			{/* Announced, because stepping changes which row the dialog shows
-			    while its title stays the same. */}
 			<span
-				aria-live="polite"
+				aria-hidden="true"
 				className="text-xs text-(--text-tertiary) tabular-nums select-none"
 			>
 				{index + 1}/{total}
+			</span>
+			{/* The compact readout above is what there is room for beside the
+			    close button, and it reads as bare digits. This says the same
+			    thing in a sentence, and is announced because stepping changes
+			    which row the dialog shows while its title stays the same. */}
+			<span aria-live="polite" className="sr-only">
+				{t("common.rowPosition", { position: index + 1, total })}
 			</span>
 			<button
 				type="button"

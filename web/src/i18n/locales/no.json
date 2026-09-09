@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Forrige rad",
-		"nextRow": "Neste rad"
+		"nextRow": "Neste rad",
+		"rowPosition": "Rad {{position}} av {{total}}"
 	},
 	"layout": {
 		"title": "Model Hotel",

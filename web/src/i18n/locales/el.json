@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Προηγούμενη γραμμή",
-		"nextRow": "Επόμενη γραμμή"
+		"nextRow": "Επόμενη γραμμή",
+		"rowPosition": "Γραμμή {{position}} από {{total}}"
 	},
 	"layout": {
 		"title": "Model Hotel",

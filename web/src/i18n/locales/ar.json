@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "الصف السابق",
-		"nextRow": "الصف التالي"
+		"nextRow": "الصف التالي",
+		"rowPosition": "الصف {{position}} من {{total}}"
 	},
 	"layout": {
 		"title": "Model Hotel",

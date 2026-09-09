@@ -75,7 +75,8 @@
 			"opencode": "OpenCode"
 		},
 		"prevRow": "Önceki satır",
-		"nextRow": "Sonraki satır"
+		"nextRow": "Sonraki satır",
+		"rowPosition": "{{total}} satırdan {{position}}. satır"
 	},
 	"layout": {
 		"title": "Model Hotel",
