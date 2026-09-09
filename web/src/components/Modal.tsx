@@ -66,6 +66,7 @@ const ARROW_KEY_OWNERS = [
 	"[role='menubar']",
 	"[role='grid']",
 	"[role='tree']",
+	"[role='treegrid']",
 	"[role='radiogroup']",
 	"[role='slider']",
 	"[role='spinbutton']",
@@ -169,6 +170,26 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		navRef.current = nav;
 	}, [nav]);
 
+	const scrollRef = useRef<HTMLDivElement>(null);
+	// What the stepper's live region says. Written here, at the step, rather
+	// than derived from the position: a live update that prepends a newer row
+	// moves the whole list along, and reading the new position out each time
+	// would talk over whoever is listening.
+	const [announcement, setAnnouncement] = useState("");
+
+	// Stepping to another row starts that row at the top: the dialog is one
+	// scroll container reused for every row, so a long row scrolled to its
+	// end would otherwise hand the next row a scroll position it never had.
+	// Set before the new row renders, so it never paints at the old offset.
+	const stepTo = useCallback(
+		(go: () => void, position: number, total: number) => {
+			go();
+			if (scrollRef.current) scrollRef.current.scrollTop = 0;
+			setAnnouncement(t("common.rowPosition", { position, total }));
+		},
+		[t],
+	);
+
 	// Escape and the stepper's arrow keys are handled on the DOCUMENT, not on
 	// the dialog node.
 	//
@@ -180,6 +201,9 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// Topmost only, so a nested confirm closes before the dialog that opened it.
 	// Mount order is the stacking order: modals portal to <body> in the order
 	// they open, and the one opened last is the one drawn on top.
+	//
+	// stepTo is the one dependency, and it never changes identity, so the
+	// listener still registers exactly once per dialog.
 	useEffect(() => {
 		const el = dialogRef.current;
 		if (!el) return;
@@ -208,7 +232,12 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			// Consumed: the same press must not also scroll the dialog, and a
 			// listener further out can see the key was taken.
 			e.preventDefault();
-			step();
+			// The row it lands on, counted from one.
+			stepTo(
+				step,
+				e.key === "ArrowLeft" ? nav.index : nav.index + 2,
+				nav.total,
+			);
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
@@ -216,19 +245,9 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			const i = openDialogs.indexOf(el);
 			if (i !== -1) openDialogs.splice(i, 1);
 		};
-	}, []);
+	}, [stepTo]);
 
 	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
-
-	// Stepping to another row starts that row at the top: the dialog is one
-	// scroll container reused for every row, so a long row scrolled to its
-	// end would otherwise hand the next row a scroll position it never had.
-	const scrollRef = useRef<HTMLDivElement>(null);
-	const navIndex = nav?.index;
-	// biome-ignore lint/correctness/useExhaustiveDependencies: navIndex is the trigger, the row it names is what changed
-	useEffect(() => {
-		if (scrollRef.current) scrollRef.current.scrollTop = 0;
-	}, [navIndex]);
 
 	// Title and header keep clear of the corner controls: the close button
 	// alone, or the stepper plus the close button. The stepper's readout is
@@ -269,7 +288,15 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				onClick={(e) => e.stopPropagation()}
 			>
 				<div className="absolute top-3 right-3 z-10 flex items-center gap-1">
-					{nav && <ModalNav {...nav} />}
+					{nav && (
+						<ModalNav
+							index={nav.index}
+							total={nav.total}
+							announcement={announcement}
+							onPrev={() => stepTo(nav.onPrev, nav.index, nav.total)}
+							onNext={() => stepTo(nav.onNext, nav.index + 2, nav.total)}
+						/>
+					)}
 					<button
 						type="button"
 						onClick={handleClose}

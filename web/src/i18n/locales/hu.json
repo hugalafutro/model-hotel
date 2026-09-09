@@ -76,7 +76,7 @@
 		},
 		"prevRow": "Előző sor",
 		"nextRow": "Következő sor",
-		"rowPosition": "{{total}}. sorból a {{position}}."
+		"rowPosition": "{{position}}. sor a(z) {{total}} sorból"
 	},
 	"layout": {
 		"title": "Model Hotel",

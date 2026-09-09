@@ -76,7 +76,7 @@
 		},
 		"prevRow": "Edellinen rivi",
 		"nextRow": "Seuraava rivi",
-		"rowPosition": "Rivi {{position}}/{{total}}"
+		"rowPosition": "Rivi {{position}}, yhteensä {{total}} riviä"
 	},
 	"layout": {
 		"title": "Model Hotel",

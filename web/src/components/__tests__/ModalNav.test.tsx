@@ -79,13 +79,30 @@ describe("ModalNav", () => {
 		expect(screen.getByText("row a")).toBeInTheDocument();
 	});
 
-	it("says where the open row sits, for a reader that cannot see the arrows", () => {
-		renderWithProviders(<Harness />);
-
-		const announced = document
+	const announced = () =>
+		document
 			.querySelector("[role='dialog'] [aria-live='polite']")
 			?.textContent?.trim();
-		expect(announced).toBe("Row 2 of 3");
+
+	it("says where the open row sits once the reader steps there", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<Harness />);
+		// Nothing to say on open: the dialog title already announced itself.
+		expect(announced()).toBe("");
+
+		await user.click(nextButton());
+
+		expect(announced()).toBe("Row 3 of 3");
+	});
+
+	it("stays quiet when a live update moves the row along", () => {
+		const { rerender } = renderWithProviders(<Harness />);
+
+		rerender(<Harness rows={[{ id: "new" }, ...ROWS]} />);
+
+		// The position changed, but the reader did not ask for it and may be
+		// midway through the row they opened.
+		expect(announced()).toBe("");
 	});
 
 	it("steps with the left and right arrow keys", () => {
@@ -167,17 +184,35 @@ describe("ModalNav", () => {
 		renderWithProviders(<Harness />);
 
 		fireEvent.keyDown(document, { key: "Escape" });
+
+		// Escape closes and nothing else: it must not also step the list on
+		// its way out.
+		expect(screen.getByText("row b")).toBeInTheDocument();
 		await waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 		);
 	});
 
-	it("takes the keypress it acts on", () => {
+	it.each(["a", "Enter", "ArrowDown", "Home", "Tab"])(
+		"leaves the row alone for %s",
+		(key) => {
+			renderWithProviders(<Harness />);
+
+			expect(fireEvent.keyDown(document, { key })).toBe(true);
+			expect(screen.getByText("row b")).toBeInTheDocument();
+		},
+	);
+
+	it("takes the keypress it acts on, and only that one", () => {
 		renderWithProviders(<Harness />);
 
 		// Consumed, so the same press cannot also scroll the dialog body.
 		expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(false);
 		expect(screen.getByText("row c")).toBeInTheDocument();
+
+		// At the end of the list there is no step to take, so the press is
+		// left to whatever else would have used it.
+		expect(fireEvent.keyDown(document, { key: "ArrowRight" })).toBe(true);
 	});
 
 	it("steps only the topmost dialog", () => {
@@ -215,6 +250,18 @@ describe("ModalNav", () => {
 		await user.click(nextButton());
 
 		expect(body.scrollTop).toBe(0);
+	});
+
+	it("leaves the scroll position alone when a live update moves the row along", () => {
+		const { rerender } = renderWithProviders(<Harness />);
+		const body = document.querySelector<HTMLElement>("[data-modal-scroll]");
+		if (!body) throw new Error("scrollable body not rendered");
+		body.scrollTop = 400;
+
+		rerender(<Harness rows={[{ id: "new" }, ...ROWS]} />);
+
+		// Same row, still open, still where the reader had scrolled to.
+		expect(body.scrollTop).toBe(400);
 	});
 
 	it("hides the stepper when the open row left the list", () => {

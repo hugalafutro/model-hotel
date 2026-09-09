@@ -18,7 +18,16 @@ export interface ModalNavProps {
  * window the ends of the walk: the dialog never fetches, so a page or scroll
  * window is stepped through exactly as it is drawn behind the modal.
  */
-export function ModalNav({ index, total, onPrev, onNext }: ModalNavProps) {
+export function ModalNav({
+	index,
+	total,
+	announcement,
+	onPrev,
+	onNext,
+}: ModalNavProps & {
+	/** What to read out, written by Modal when the user steps. */
+	announcement: string;
+}) {
 	const { t } = useTranslation();
 	const canPrev = index > 0;
 	const canNext = index < total - 1;
@@ -48,7 +57,7 @@ export function ModalNav({ index, total, onPrev, onNext }: ModalNavProps) {
 			    thing in a sentence, and is announced because stepping changes
 			    which row the dialog shows while its title stays the same. */}
 			<span aria-live="polite" className="sr-only">
-				{t("common.rowPosition", { position: index + 1, total })}
+				{announcement}
 			</span>
 			<button
 				type="button"
