@@ -88,6 +88,15 @@ func TestClassifyRateLimit(t *testing.T) {
 			wantPin:   pinHintWindow,
 		},
 		{
+			// A weekly body worded with "reached" must keep the weekly pin: the
+			// 1308 entry sits below the weekly ones so the longer window wins.
+			name:      "weekly usage limit reached keeps the weekly pin over the 1308 entry",
+			status:    429,
+			body:      `{"error":"you have reached your weekly usage limit. Weekly usage limit reached, upgrade for higher limits"}`,
+			wantClass: rateLimitExhausted,
+			wantPin:   pinHintWeekly,
+		},
+		{
 			// Holds the line the entry above could have crossed: "exhausted"
 			// beside a concurrency limit is a busy provider, and it must reach
 			// the saturated entries rather than open a circuit with a 2h pin.
