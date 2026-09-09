@@ -33,6 +33,7 @@ import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useDocumentVisible } from "../hooks/useDocumentVisible";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useModalNav } from "../hooks/useModalNav";
 import { useScrollLivePoll } from "../hooks/useScrollLivePoll";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { encodeCursor } from "../utils/format";
@@ -41,7 +42,7 @@ import {
 	getLevelBadgeVariant,
 	getSourceBadgeClasses,
 } from "../utils/logBadgeUtils";
-import { displayLogMessage } from "../utils/logText";
+import { appLogKey, displayLogMessage } from "../utils/logText";
 
 type AppLogSortField = "time" | "level" | "source" | "message";
 
@@ -169,9 +170,7 @@ export function AppLogs() {
 				created_at: entry.created_at ?? "",
 				id: entry.id ?? "",
 			}),
-		getId: (entry) =>
-			entry.id ??
-			`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`,
+		getId: appLogKey,
 	});
 
 	// App logs have no SSE events, so a slow poll plus a refresh on tab focus
@@ -212,6 +211,15 @@ export function AppLogs() {
 		return historyData?.source_counts ?? {};
 	}, [historyData?.source_counts]);
 
+	// The stepper walks whichever list is on screen behind the modal.
+	const navEntries = viewMode === "scroll" ? scrollEntries : entries;
+	const logNav = useModalNav(
+		navEntries,
+		selectedLog,
+		setSelectedLog,
+		appLogKey,
+	);
+
 	const totalPages = Math.max(1, Math.ceil(totalItems / pageSize));
 	const safePage = Math.min(page, totalPages);
 	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
@@ -228,6 +236,7 @@ export function AppLogs() {
 				<LogDetailModal
 					log={selectedLog}
 					type="app"
+					nav={logNav}
 					onClose={() => setSelectedLog(null)}
 				/>
 			)}

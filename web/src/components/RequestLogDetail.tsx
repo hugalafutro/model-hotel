@@ -29,12 +29,15 @@ import { DurationFigure } from "./logDetailUtils";
 import { EndpointTypeBadge } from "./logs";
 import { MaybeJsonBlock } from "./MaybeJsonBlock";
 import { Modal } from "./Modal";
+import type { ModalNavProps } from "./ModalNav";
 
 export function RequestLogDetail({
 	requestLog,
+	nav,
 	onClose,
 }: {
 	requestLog: LogEntry;
+	nav?: ModalNavProps;
 	onClose: () => void;
 }) {
 	const { t } = useTranslation();
@@ -60,6 +63,7 @@ export function RequestLogDetail({
 
 	return (
 		<Modal
+			nav={nav}
 			header={
 				<div className="flex items-center gap-3 flex-wrap mb-4">
 					<h2 className="text-xl font-bold text-(--text-primary)">

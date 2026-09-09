@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "@/lib/icons";
+import { ModalNav, type ModalNavProps } from "./ModalNav";
 
 export interface ModalHandle {
 	close: () => void;
@@ -25,6 +26,9 @@ interface ModalProps {
 	// dialog is doing work that walking out would strand, e.g. a write in flight:
 	// the caller keeps its own explicit buttons and decides when leaving is safe.
 	dismissible?: boolean;
+	// Prev/next stepper drawn beside the close button, for a dialog opened from
+	// one row of a list. Absent for dialogs with no list behind them.
+	nav?: ModalNavProps;
 	onClose: () => void;
 	maxWidth?: string;
 	scrollable?: boolean;
@@ -50,6 +54,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		header,
 		closeOnBackdrop = true,
 		dismissible = true,
+		nav,
 		onClose,
 		maxWidth = "max-w-md",
 		scrollable = false,
@@ -163,6 +168,10 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 
 	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
 
+	// Title and header keep clear of the corner controls: the close button
+	// alone, or the stepper plus the close button.
+	const headerPadding = nav ? "pr-44" : "pr-10";
+
 	// Portal to <body>: pages open modals from inside glassmorphism cards whose
 	// backdrop-filter would otherwise trap the overlay's blur (it could only
 	// sample the card, not the page) and hijack position:fixed (a filtered
@@ -195,24 +204,27 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				}`}
 				onClick={(e) => e.stopPropagation()}
 			>
-				<button
-					type="button"
-					onClick={handleClose}
-					disabled={!dismissible}
-					className="ui-icon-btn absolute top-3 right-3 z-10 p-2"
-					aria-label={t("common.close")}
-				>
-					<X size={20} />
-				</button>
+				<div className="absolute top-3 right-3 z-10 flex items-center gap-1">
+					{nav && <ModalNav {...nav} />}
+					<button
+						type="button"
+						onClick={handleClose}
+						disabled={!dismissible}
+						className="ui-icon-btn p-2"
+						aria-label={t("common.close")}
+					>
+						<X size={20} />
+					</button>
+				</div>
 				{header ? (
-					<div id={headingId} className="shrink-0 pr-10">
+					<div id={headingId} className={`shrink-0 ${headerPadding}`}>
 						{header}
 					</div>
 				) : (
 					title && (
 						<h2
 							id={headingId}
-							className="shrink-0 text-xl font-bold text-white mb-4 pr-10"
+							className={`shrink-0 text-xl font-bold text-white mb-4 ${headerPadding}`}
 						>
 							{title}
 						</h2>

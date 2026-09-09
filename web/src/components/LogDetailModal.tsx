@@ -11,11 +11,13 @@ import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
 import { MaybeJsonBlock } from "./MaybeJsonBlock";
 import { Modal } from "./Modal";
+import type { ModalNavProps } from "./ModalNav";
 import { RequestLogDetail } from "./RequestLogDetail";
 
 interface LogDetailModalProps {
 	log: LogEntry | AppLogEntry | null;
 	type: "request" | "app";
+	nav?: ModalNavProps;
 	onClose: () => void;
 }
 
@@ -25,9 +27,11 @@ function isRequestLog(log: LogEntry | AppLogEntry): log is LogEntry {
 
 function AppLogDetail({
 	log,
+	nav,
 	onClose,
 }: {
 	log: AppLogEntry;
+	nav?: ModalNavProps;
 	onClose: () => void;
 }) {
 	const { t } = useTranslation();
@@ -36,6 +40,7 @@ function AppLogDetail({
 	return (
 		<Modal
 			title={t("components.appLogDetail.title")}
+			nav={nav}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable
@@ -82,12 +87,17 @@ function AppLogDetail({
 	);
 }
 
-export function LogDetailModal({ log, type, onClose }: LogDetailModalProps) {
+export function LogDetailModal({
+	log,
+	type,
+	nav,
+	onClose,
+}: LogDetailModalProps) {
 	if (!log) return null;
 
 	if (type === "request" && isRequestLog(log)) {
-		return <RequestLogDetail requestLog={log} onClose={onClose} />;
+		return <RequestLogDetail requestLog={log} nav={nav} onClose={onClose} />;
 	}
 
-	return <AppLogDetail log={log as AppLogEntry} onClose={onClose} />;
+	return <AppLogDetail log={log as AppLogEntry} nav={nav} onClose={onClose} />;
 }

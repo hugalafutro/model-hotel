@@ -16,9 +16,11 @@ import { Badge } from "./Badge";
 import { CopyablePill } from "./CopyablePill";
 import { DetailItem } from "./LogDetailItem";
 import { Modal } from "./Modal";
+import type { ModalNavProps } from "./ModalNav";
 
 interface AuditDetailModalProps {
 	entry: AuditEntry | null;
+	nav?: ModalNavProps;
 	onClose: () => void;
 }
 
@@ -28,13 +30,18 @@ interface AuditDetailModalProps {
  * CopyablePill; the endpoint pattern stays plain text since the concrete
  * path below it is the copyable form.
  */
-export function AuditDetailModal({ entry, onClose }: AuditDetailModalProps) {
+export function AuditDetailModal({
+	entry,
+	nav,
+	onClose,
+}: AuditDetailModalProps) {
 	const { t } = useTranslation();
 	if (!entry) return null;
 
 	return (
 		<Modal
 			title={t("components.auditDetail.title")}
+			nav={nav}
 			onClose={onClose}
 			maxWidth="max-w-lg"
 			scrollable

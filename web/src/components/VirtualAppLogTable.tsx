@@ -6,7 +6,7 @@ import {
 	getLevelBadgeVariant,
 	getSourceBadgeClasses,
 } from "../utils/logBadgeUtils";
-import { displayLogMessage } from "../utils/logText";
+import { appLogKey, displayLogMessage } from "../utils/logText";
 import { Badge } from "./Badge";
 import { VirtualTableFooter } from "./VirtualTableFooter";
 
@@ -64,11 +64,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 		fetchOlder: onFetchOlder,
 		estimateSize: 48,
 		pinTop: true,
-		// App-log rows can arrive without an id, so fall back to the fields that
-		// together identify one.
-		getItemKey: (entry) =>
-			entry.id ??
-			`${entry.timestamp}-${entry.source}-${entry.message.slice(0, 20)}`,
+		getItemKey: appLogKey,
 	});
 
 	return (

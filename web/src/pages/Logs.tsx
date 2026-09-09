@@ -24,6 +24,7 @@ import { useBidirectionalFetch } from "../hooks/useBidirectionalFetch";
 import { useDateRangePicker } from "../hooks/useDateRangePicker";
 import { useDebounce } from "../hooks/useDebounce";
 import { useLocalStorage } from "../hooks/useLocalStorage";
+import { useModalNav } from "../hooks/useModalNav";
 import { useSettingsQuery } from "../hooks/useSettingsQuery";
 import { useWheelPaging } from "../hooks/useWheelPaging";
 import { encodeCursor } from "../utils/format";
@@ -220,6 +221,15 @@ function RequestLogs() {
 		onNext: () => setPage(logsSafePage + 1),
 	});
 
+	// The stepper walks whichever list is on screen behind the modal.
+	const navEntries = viewMode === "scroll" ? scrollEntries : displayEntries;
+	const logNav = useModalNav(
+		navEntries,
+		selectedLog,
+		setSelectedLog,
+		(entry) => entry.id,
+	);
+
 	const { nowMs, staleThresholdMs } = useStaleClock(
 		settings?.stale_request_timeout,
 		displayEntries,
@@ -232,6 +242,7 @@ function RequestLogs() {
 				<LogDetailModal
 					log={selectedLog}
 					type="request"
+					nav={logNav}
 					onClose={() => setSelectedLog(null)}
 				/>
 			)}
