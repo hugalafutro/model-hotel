@@ -47,6 +47,7 @@ const (
 	causeExhausted        = "exhausted"
 	causeAlive            = "alive"
 	causePinRetargeted    = "quota pin retargeted (advisor)"
+	causeSeeded           = "quota pin seeded (advisor)"
 	causePinReleasedQuota = "quota pin released (provider no longer exhausted)"
 	causePinReleasedOff   = "quota pin released (quota polling disabled)"
 )

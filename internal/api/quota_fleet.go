@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -40,6 +41,16 @@ type QuotaSnapshotWire struct {
 type QuotaFleetHandler struct {
 	quotaRepo    *quota.Repository
 	providerRepo ProviderStore
+	// onApplied rebuilds this node's quota advice from the snapshots just
+	// stored. Wired to Handler.RefreshQuotaAdvice at mount time; nil in tests
+	// that only exercise the wire format.
+	//
+	// Without it a member acts on fleet-distributed snapshots only when its own
+	// quota poll next runs, up to quota_refresh_interval_min later, so the
+	// primary and the members disagree about which providers are pinned for
+	// most of every interval. The pass reads the database and the breaker, never
+	// an upstream.
+	onApplied func(ctx context.Context)
 }
 
 // NewQuotaFleetHandler builds a QuotaFleetHandler.
@@ -174,6 +185,20 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 		} else {
 			skipped++
 		}
+	}
+	// Only when something landed: a distribution that wrote nothing new changed
+	// no evidence, and the pass walks every snapshot and every circuit.
+	if applied > 0 && h.onApplied != nil {
+		// Detached from the pushing peer's request, with a budget of its own,
+		// the same shape runQuotaNudge uses. The rebuild fails closed: a read it
+		// cannot finish clears THIS member's advice for every provider, not just
+		// the pushed one. Tying it to the request would hand a peer that times
+		// out or drops the connection mid-pass the power to wipe the map until
+		// the next background pass, and the pass is long enough (a snapshot list,
+		// a provider list, a walk of every circuit) to make that likely.
+		passCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), quotaNudgeTimeout)
+		defer cancel()
+		h.onApplied(passCtx)
 	}
 	writeJSON(w, map[string]any{"applied": applied, "skipped": skipped})
 }

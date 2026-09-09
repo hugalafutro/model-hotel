@@ -734,6 +734,7 @@ Every circuit remembers its last verdict: the reason it was last charged, credit
 | `success` | A completion the breaker credited |
 | `upstream status 400 (alive)` (any non-eligible status) | A response that proved the provider alive without serving anything |
 | `quota pin retargeted (advisor)`, `quota pin released (...)` | The quota poller changed the wait of an already-open circuit; `status` keeps the value of the response that opened it |
+| `quota pin seeded (advisor)` | The quota poller opened this circuit itself from a measured exhaustion reading, with no request behind it; `status` is 0 because nothing answered |
 
 ### The per-attempt trail
 
@@ -813,7 +814,9 @@ All of these settings are runtime-configurable and take effect immediately. Most
 
 Without pinning, a provider that has exhausted its quota is re-probed every `circuit_breaker_cooldown` until the window resets. On a weekly plan that is thousands of doomed requests, each one a real user request that fails first. Quota pinning stretches an **already-open** circuit's cooldown out to the provider's actual reset deadline, clamped to `circuit_breaker_quota_pin_max` and jittered so a fleet does not stampede the provider at the same instant.
 
-Pinning only ever changes the cooldown of a circuit that has already opened. HTTP responses remain the sole source of truth for whether a circuit opens at all, so a wrong or stale quota reading can delay a retry but can never sideline a healthy provider.
+Pinning normally only changes the cooldown of a circuit that has already opened, and a wrong or stale quota reading can then delay a retry but never sideline a healthy provider. There is one deliberate exception, because circuit state is in-memory and quota readings are not: **a measured exhaustion reading also opens a circuit of its own** (`quota pin seeded (advisor)`). After a restart, on a member that has never served the provider, and for a provider nothing has requested since its window went spent, every circuit starts closed while the stored snapshot already says the account is out, so the quota badge reads spent and the gateway keeps routing there until two real refusals reopen a circuit. The advice pass closes that gap within one poll instead, and spends no request doing it, so a badge that reads spent and a pinned provider now agree.
+
+The seeded circuit is one per provider, listed under the model id `(account quota)`, and it carries the advisor pin, which speaks for the whole account: the derived provider verdict darkens every model of that provider off it, including models nothing has ever routed to. It is bounded exactly as every other pin is, only a reading with a datable future reset seeds anything, `circuit_breaker_quota_pin_max` caps it, `circuit_breaker_cooldown` floors it, and setting the ceiling to `0s` stops seeding along with the rest of pinning. It is skipped entirely when the provider is already held dark account-wide. Releasing the pin retires the circuit with it, since nothing ever routed to it and no probe would ever close it. A reading that stops being usable (the snapshot goes stale, the payload can no longer be assessed, the provider disappears) is not a recovery and does not lift the pin while it is in force, but it is also not evidence the window is still spent: once the pin elapses, the next advice pass retires the circuit and the provider is routed to again.
 
 These behaviors are worth knowing before you reach for these controls:
 

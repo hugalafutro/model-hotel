@@ -461,6 +461,94 @@ func TestParseLogRetention(t *testing.T) {
 	}
 }
 
+// TestQuotaPollLoop_AdvisesBeforeTheFirstInterval pins the restart behaviour:
+// the loop sleeps a full quota_refresh_interval_min before its first poll, and
+// the circuit breaker is in-memory, so without an immediate advice pass a
+// provider whose stored snapshot already says its window is spent is routed to
+// for minutes after every restart while its quota badge reads spent. The pass
+// must run before the first poll.
+//
+// A zero interval skips it instead: the rebuild advises nothing without a poll
+// cadence to bound snapshot age against, so the pass would only spend database
+// round trips at boot to publish the empty map the disabled hook publishes.
+func TestQuotaPollLoop_AdvisesBeforeTheFirstInterval(t *testing.T) {
+	if cmdTestDB == nil {
+		t.Fatal("test DB unavailable")
+	}
+	for _, tc := range []struct {
+		name, interval string
+		wantAdvice     bool
+	}{
+		{"enabled", "20", true},
+		{"disabled", "0", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			settingsRepo := newTestSettingsRepo()
+			if err := settingsRepo.Set(ctx, "quota_refresh_interval_min", tc.interval); err != nil {
+				t.Fatalf("set failed: %v", err)
+			}
+
+			var polls, advises atomic.Int32
+			// Recorded at the moment of the first advice: the pass is worthless if
+			// it lands after a poll has already run.
+			var pollsAtFirstAdvice atomic.Int32
+			done := make(chan struct{})
+			go func() {
+				quotaPollLoop(ctx, settingsRepo,
+					func(context.Context) { polls.Add(1) },
+					func(context.Context) {},
+					func(context.Context) {
+						if advises.Add(1) == 1 {
+							pollsAtFirstAdvice.Store(polls.Load())
+						}
+					},
+					time.Millisecond)
+				close(done)
+			}()
+
+			if !tc.wantAdvice {
+				// Long enough for a loop that was going to advise to have done it:
+				// the pass is the very first statement, before any timer.
+				time.Sleep(50 * time.Millisecond)
+				if got := advises.Load(); got != 0 {
+					t.Errorf("got %d advice passes while polling is disabled, want 0", got)
+				}
+				cancel()
+				select {
+				case <-done:
+				case <-time.After(5 * time.Second):
+					t.Fatal("loop did not exit")
+				}
+				return
+			}
+
+			deadline := time.After(5 * time.Second)
+			for advises.Load() == 0 {
+				select {
+				case <-deadline:
+					t.Fatal("the loop never ran the startup advice pass")
+				case <-time.After(time.Millisecond):
+				}
+			}
+			if got := pollsAtFirstAdvice.Load(); got != 0 {
+				t.Errorf("got %d polls before the first advice pass, want 0", got)
+			}
+			if got := advises.Load(); got != 1 {
+				t.Errorf("got %d advice passes, want exactly the one startup pass", got)
+			}
+
+			cancel()
+			select {
+			case <-done:
+			case <-time.After(5 * time.Second):
+				t.Fatal("loop did not exit")
+			}
+		})
+	}
+}
+
 func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {
 	if cmdTestDB == nil {
 		t.Fatal("test DB unavailable")
@@ -479,7 +567,7 @@ func TestQuotaPollLoop_RunsOnInterval(t *testing.T) {
 	go func() {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {
 			calls.Add(1)
-		}, func(context.Context) {}, time.Millisecond)
+		}, func(context.Context) {}, func(context.Context) {}, time.Millisecond)
 		close(done)
 	}()
 
@@ -542,7 +630,7 @@ func TestQuotaPollLoopDisabledAtStart(t *testing.T) {
 	go func() {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {
 			calls.Add(1)
-		}, func(context.Context) {}, time.Millisecond)
+		}, func(context.Context) {}, func(context.Context) {}, time.Millisecond)
 		close(done)
 	}()
 
@@ -590,7 +678,7 @@ func TestQuotaPollLoop_DisabledAtStartClearsQuotaAdvice(t *testing.T) {
 	go func() {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {}, func(context.Context) {
 			clears.Add(1)
-		}, time.Millisecond)
+		}, func(context.Context) {}, time.Millisecond)
 		close(done)
 	}()
 
@@ -630,7 +718,7 @@ func TestQuotaPollLoop_TransitionToDisabledClearsQuotaAdvice(t *testing.T) {
 	go func() {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {}, func(context.Context) {
 			clears.Add(1)
-		}, time.Millisecond)
+		}, func(context.Context) {}, time.Millisecond)
 		close(done)
 	}()
 
@@ -711,7 +799,7 @@ func TestQuotaPollLoop_DisabledSpanReleasesQuotaPins(t *testing.T) {
 		quotaPollLoop(ctx, settingsRepo, func(context.Context) {}, func(context.Context) {
 			disables.Add(1)
 			cb.ReleaseAllQuotaPins()
-		}, time.Millisecond)
+		}, func(context.Context) {}, time.Millisecond)
 		close(done)
 	}()
 

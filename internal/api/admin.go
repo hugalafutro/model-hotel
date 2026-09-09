@@ -476,7 +476,13 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 	// Fleet quota snapshot export/receive. Same fleet-authed router as
 	// config-sync; snapshots carry no key material, so unlike config import there
 	// is no MASTER_KEY canary.
-	NewQuotaFleetHandler(h.quotaRepo, h.providerRepo).Register(r)
+	fleetQuota := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+	// A member's own poll runs at most every quota_refresh_interval_min, so
+	// without this a fleet-distributed exhaustion reaches this node's breaker
+	// minutes after it reached the primary's. Rebuilding from the rows just
+	// stored converges every member on the same pins.
+	fleetQuota.onApplied = h.RefreshQuotaAdvice
+	fleetQuota.Register(r)
 
 	// HA fleet membership heartbeat. Front Desk POSTs /fleet/announce on its poll;
 	// the member records the contact as instance-local _fleet_* settings and

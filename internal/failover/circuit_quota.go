@@ -10,12 +10,21 @@ import (
 )
 
 // Quota pinning: the one way anything other than an HTTP response chooses how
-// long an open circuit stays dark. It never opens a circuit, never closes one,
-// never blocks a request; it only lengthens (and, on affirmative recovery,
-// shortens back) the cooldown of a circuit that is already open. The open
-// transition stamps a pin (applyQuotaPin), the quota poller retargets and
-// releases them (ApplyQuotaPins, ReleaseQuotaPins, ReleaseAllQuotaPins), and
-// every read goes through quotaPinnedForWith in model_circuits.go.
+// long a circuit stays dark. It never closes a circuit and never blocks a
+// request; it lengthens (and, on affirmative recovery, shortens back) the
+// cooldown of a circuit that is open, and in one narrow case it opens one. The
+// open transition stamps a pin (applyQuotaPin), the quota poller retargets,
+// seeds and releases them (ApplyQuotaPins, ReleaseQuotaPins,
+// ReleaseAllQuotaPins), and every read goes through quotaPinnedForWith in
+// model_circuits.go.
+//
+// The one case that opens a circuit is seedQuotaPin: a measured reading that
+// says the provider's account is spent, against a provider nothing currently
+// holds dark for it. Breaker state is in-memory, so after a restart every
+// circuit starts closed and an exhausted provider is routed to until two real
+// refusals reopen one, with the quota badge already reading spent. Seeding
+// makes the badge and the breaker agree within one poll pass and costs no
+// upstream request.
 
 // applyQuotaPin sets c.cooldownOverride when the provider's quota window is
 // spent and resets further out than the cooldown already in force. Must be
@@ -146,7 +155,8 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 	released := 0
 	for providerID := range recovered {
 		id := providerID.String()
-		for model, c := range cb.circuits[id] {
+		models := cb.circuits[id]
+		for model, c := range models {
 			// An affirmative "not exhausted" reading also clears the 429-open
 			// escalation: it inferred exhaustion from behaviour, and the advisor
 			// measured the opposite. Cleared on every circuit, pinned or not, because
@@ -157,19 +167,33 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 			}
 			cb.releasePin(&after, causePinReleasedQuota, id, model, c, r)
 			released++
+			retireIfSeeded(models, model)
 		}
 	}
 	return released
 }
 
+// retireIfSeeded drops a seeded circuit once its pin is gone. A seeded circuit
+// exists only to carry that pin: no request ever routed to it, so nothing will
+// ever probe it closed, and leaving it behind would park a permanently open row
+// on every status surface. The provider's real circuits are untouched.
+func retireIfSeeded(models modelCircuits, model string) {
+	if model == seededModel {
+		delete(models, model)
+	}
+}
+
 // ApplyQuotaPins retargets the cooldown of every already-open circuit whose
-// provider is known to be exhausted, and reports how many it retargeted. It is
-// the counterpart to applyQuotaPin, which stamps a pin at the instant a circuit
-// opens and so only sees the advice existing by then. A reading that lands
-// moments later (the poll a breaker open triggers) has to reach the circuit that
-// prompted it, or that circuit probes into a certain 429 first.
+// provider is known to be exhausted, seeds one for a provider nothing holds
+// dark yet, retires the seeded circuits whose pin has run out, and reports how
+// many circuits it changed. A seed counts as a change; a retirement does not,
+// since it only takes back a change this pass already reported. It is the counterpart to
+// applyQuotaPin, which stamps a pin at the instant a circuit opens and so only
+// sees the advice existing by then. A reading that lands moments later (the
+// poll a breaker open triggers) has to reach the circuit that prompted it, or
+// that circuit probes into a certain 429 first.
 //
-// It only ever lengthens a wait, and only for circuits open right now:
+// Retargeting only ever lengthens a wait, and only for circuits open right now:
 //
 //   - A closed circuit is serving traffic and has no cooldown to retarget.
 //   - A half-open circuit has a probe out or due, so HTTP is mid-verdict.
@@ -181,12 +205,20 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 //   - A probe backoff already reaching further than the advice stands too: the
 //     floor is the cooldown in force.
 //
+// Seeding is the one exception to "never opens a circuit", and it runs only
+// where retargeting found nothing to change: see seedQuotaPin.
+//
 // advice is read, never retained: the caller may hand the same map to the
 // advisor afterwards.
 func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 	cb.mu.Lock()
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
+
+	// Before the early return, because a provider that dropped out of the advice
+	// is exactly the case that needs sweeping and would otherwise never be
+	// revisited.
+	cb.sweepExpiredSeeds()
 
 	if len(advice) == 0 || !cb.quotaPinEnabled() {
 		return 0
@@ -199,7 +231,7 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 	// Walk the advice rather than every circuit, for the same reason
 	// ReleaseQuotaPins walks the recovered set: it is the smaller side, and the
 	// circuits map is keyed by the provider's UUID string.
-	retargeted := 0
+	changed := 0
 	for providerID, resetsAt := range advice {
 		for model, c := range cb.circuits[providerID.String()] {
 			if cb.logicalStateWith(c, r) != StateOpen {
@@ -222,7 +254,7 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 			// status the open recorded stays, so the row says both what opened the
 			// circuit and what holds it.
 			c.note(time.Now(), Cause{Status: c.lastStatus, Reason: causePinRetargeted})
-			retargeted++
+			changed++
 			// The open transition logged a cooldown_ms this supersedes, and the
 			// corrected one can mean hours of darkness, so it gets the same
 			// Info-level line a release gets. Routing metadata only, never payload
@@ -232,8 +264,139 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 				debuglog.Info("circuit-breaker: quota pin retargeted (fresh exhaustion reading)", "provider_id", providerID, "cooldown_ms", ms, "model", model)
 			})
 		}
+		if cb.seedQuotaPin(&after, providerID, resetsAt, maxPin, r) {
+			changed++
+		}
 	}
-	return retargeted
+	return changed
+}
+
+// sweepExpiredSeeds retires every seeded circuit that has stopped blocking.
+//
+// A seeded circuit carries nothing but its pin, and nothing ever routes to
+// "(account quota)": no probe can close it, and evictIfFull passes over it
+// because it does not read closed. So once its pin elapses without the provider
+// ever affirmatively recovering (a snapshot gone stale, a payload that stopped
+// being assessable, a provider deleted upstream) the release paths never see it
+// either, and the row would sit half-open for the life of the process: counted
+// on every status surface, holding a slot against the per-provider cap, and
+// defeating providerOpen's cheap pre-pass on every request to that provider.
+//
+// The provider's real circuits are untouched: they are charged by requests and
+// recover the ordinary way.
+//
+// Must be called with cb.mu held for write.
+func (cb *CircuitBreaker) sweepExpiredSeeds() {
+	// Lazily, because the settings read behind it is a database round trip on an
+	// unoverridden key and most passes have no seeded circuit at all.
+	var r *cooldownReads
+	for _, models := range cb.circuits {
+		c, ok := models[seededModel]
+		if !ok {
+			continue
+		}
+		if r == nil {
+			r = cb.cooldowns()
+		}
+		if !cb.blocking(c, r) {
+			delete(models, seededModel)
+		}
+	}
+}
+
+// seededModel is the model key of the circuit a quota reading opens on its own,
+// with no request behind it. Parenthesised and spaced so it cannot collide with
+// an upstream model id.
+//
+// One circuit, not one per model, because that is what the existing lookup path
+// already supports: the pin it carries is the advisor's, pinSpeaksForAccount is
+// true of it, and providerReport therefore calls the whole provider down off
+// this single circuit. IsOpen falls through to that derived verdict whenever the
+// model asked for has no circuit of its own, so every model of the provider is
+// skipped, including ones nothing has ever routed to. Opening a circuit per
+// known model would need the catalog, would fight the per-provider circuit cap,
+// and would say nothing the one circuit does not.
+const seededModel = "(account quota)"
+
+// seedQuotaPin opens a provider's seeded circuit on the advisor's reading
+// alone, and reports whether it did.
+//
+// Breaker state is in-memory. After a restart, on a member that has never
+// served this provider, and for a provider nothing has requested since its
+// window went spent, every circuit starts closed: the quota badge reads spent
+// while the breaker still routes traffic there, until enough real refusals
+// reopen a circuit and the advisor retargets it. Seeding reaches the same state
+// within one poll pass and spends no request getting there.
+//
+// It is skipped when the provider is already held dark by a pin that speaks for
+// the account, which is the state it exists to produce: a circuit the loop above
+// just retargeted, or one a response opened against the account. A provider
+// blocked for some other reason (failures spanning models) is still seeded, so
+// the pin outlives those circuits recovering.
+//
+// It is bounded exactly as every other pin is. Only a datable future reset
+// survives clampPin, so an advice entry with no deadline behind it seeds
+// nothing; circuit_breaker_quota_pin_max caps it and the configured cooldown
+// floors it; and ReleaseQuotaPins lifts it, and retires the circuit, the moment
+// a snapshot reads healthy again.
+//
+// The circuit it creates counts toward maxModelCircuitsPerProvider like any
+// other, and is created the same way: getOrCreate calls evictIfFull, which only
+// ever drops a circuit that reads CLOSED (model_circuits.go). A provider at the
+// cap therefore loses at most one closed circuit's partial failure streak on a
+// model nothing has routed to in the longest time, never an open or half-open
+// circuit's verdict, and the seed is never silently refused.
+//
+// Must be called with cb.mu held; the line is handed to after, for the caller to
+// write once the lock is released.
+func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID, resetsAt time.Time, maxPin time.Duration, r *cooldownReads) bool {
+	id := providerID.String()
+	if cb.accountPinned(cb.circuits[id], r) {
+		return false
+	}
+	// A zero or past reset yields a non-positive candidate, which cannot clear
+	// the floor. A fresh circuit carries no backoff, so the floor is the
+	// configured cooldown.
+	d, ok := clampPin(time.Until(resetsAt), maxPin, r.base)
+	if !ok {
+		return false
+	}
+	now := time.Now()
+	c := cb.getOrCreate(id, seededModel)
+	c.state = StateOpen
+	c.openedAt = now
+	// The threshold, so the row reads like any other open circuit rather than
+	// like one open on no failures at all.
+	c.consecutiveFails = cb.effectiveThreshold()
+	c.cooldownOverride = d
+	c.pinSource = pinSourceAdvisor
+	c.probeSeed = rand.Float64()
+	// No upstream status: nothing answered. The cause names the seed, so the row
+	// and the log line say this circuit opened on a reading rather than a reply.
+	c.note(now, Cause{Reason: causeSeeded})
+	// Info, and worded apart from the request-driven open, because this can hold
+	// a provider dark for a day on evidence no request produced. Routing metadata
+	// only, never payload or credentials.
+	ms := d.Milliseconds()
+	after.add(func() {
+		debuglog.Info("circuit-breaker: model state=closed→open (exhausted, seeded from quota advice)", "provider_id", providerID, "cooldown_ms", ms, "model", seededModel)
+	})
+	return true
+}
+
+// accountPinned reports whether one provider already has a circuit blocking
+// under a pin that speaks for the whole account. That is the state seeding
+// produces, so a provider already in it needs no seeded circuit: the derived
+// provider verdict darkens every one of its models off that circuit.
+//
+// Must be called with cb.mu held (read lock suffices).
+func (cb *CircuitBreaker) accountPinned(models modelCircuits, r *cooldownReads) bool {
+	for _, c := range models {
+		if cb.blocking(c, r) && cb.quotaPinnedForWith(c, r) && pinSpeaksForAccount(c.pinSource) {
+			return true
+		}
+	}
+	return false
 }
 
 // ReleaseAllQuotaPins lifts the quota cooldown override from every circuit that
@@ -262,6 +425,7 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 			}
 			cb.releasePin(&after, causePinReleasedOff, id, model, c, r)
 			released++
+			retireIfSeeded(models, model)
 		}
 	}
 	return released

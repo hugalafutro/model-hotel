@@ -278,6 +278,20 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 // quota_refresh_interval_min setting. Like discoverySchedulerLoop, the first
 // run waits a full interval and an interval of 0 disables polling.
 //
+// adviseNow runs once before that first interval elapses, and only while
+// polling is enabled. The circuit breaker is in-memory, so a restart leaves
+// every circuit closed while the stored snapshots may already say a provider's
+// window is spent: without this the quota badge reads spent and the breaker
+// routes traffic there for up to a full interval, until real refusals reopen a
+// circuit. It rebuilds the advice from the rows already in the database
+// (api.Handler.RefreshQuotaAdvice) and makes no upstream call, which is why it
+// is not simply an immediate first poll.
+//
+// A zero interval skips it: with no poll cadence to bound snapshot age against,
+// the rebuild advises nothing by design, so the pass would spend two database
+// round trips at boot to publish an empty map that onDisabled is about to
+// publish anyway.
+//
 // onDisabled is invoked once whenever the loop enters (or starts in) the
 // disabled state. pollOnce — and with it api.Handler.RefreshQuotaAdvice — is
 // never called while disabled, so without this the last computed quota advice
@@ -292,7 +306,10 @@ func discoverySchedulerLoop(ctx context.Context, settingsRepo *settings.Reposito
 // map swap and an in-memory pass over the breaker), so it is cheap enough to
 // call redundantly; it is deliberately not called again for as long as the loop
 // stays disabled.
-func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce, onDisabled func(context.Context), unit time.Duration) {
+func quotaPollLoop(ctx context.Context, settingsRepo *settings.Repository, pollOnce, onDisabled, adviseNow func(context.Context), unit time.Duration) {
+	if settingsRepo.GetInt(ctx, "quota_refresh_interval_min", 5) > 0 {
+		adviseNow(ctx)
+	}
 	settingsIntervalLoop(ctx, settingsRepo.Subscribe(),
 		func() time.Duration {
 			return time.Duration(settingsRepo.GetInt(context.Background(), "quota_refresh_interval_min", 5)) * unit

@@ -100,6 +100,11 @@ func logManualResets(resets []manualReset) {
 // Both counts are circuits, not providers: the map holds one entry per
 // (provider, resolved upstream model). The API hands these numbers to the
 // operator verbatim.
+//
+// A circuit seeded from quota advice counts in both, which is what the
+// definitions above say and what an operator wants: no request ever routed to
+// it, but it was sidelining every model of its provider until this reset
+// discarded it.
 func (cb *CircuitBreaker) ResetAll() (cleared, recovered int) {
 	cleared, recovered, resets := cb.resetAll()
 	logManualResets(resets)
