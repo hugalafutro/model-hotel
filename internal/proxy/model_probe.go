@@ -198,6 +198,10 @@ type probeEmbeddingsRequest struct {
 func newProbeState(candidate modelCandidate, endpointType, endpoint string) *requestState {
 	modelID := candidate.model.ModelID
 	st := &requestState{
+		// A probe has no client and no virtual key, but an opencode-go provider
+		// refuses a request without a session id, and a 400 refusal is not the
+		// evidence of retirement the probe is out to collect.
+		opencodeSession: util.OpenCodeGoProbeSession,
 		logData: &requestLogData{
 			modelID: modelID,
 			// The builder logs the provider on its rewrite-check line; without

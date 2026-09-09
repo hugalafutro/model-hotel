@@ -105,6 +105,9 @@ func (h *Handler) buildResponsesRequest(ctx context.Context, st *requestState, c
 		return nil, providerType, targetURL, err
 	}
 	util.SetProviderAuthHeaders(proxyReq, providerType, candidate.apiKey)
+	// The Responses path is gated to the openai provider type today, so this
+	// call stamps nothing. It is here for the day that gate widens.
+	util.SetOpenCodeGoSession(proxyReq, providerType, st.opencodeSession)
 	return proxyReq, providerType, targetURL, nil
 }
 

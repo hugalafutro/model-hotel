@@ -172,13 +172,14 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 	logData.content = newContentFence(bodyBytes)
 
 	return &requestState{
-		startTime:   startTime,
-		reqModel:    reqModel,
-		isStreaming: isStreaming,
-		vkHash:      vkHash,
-		bodyBytes:   bodyBytes,
-		parseMs:     parseMs,
-		logData:     logData,
+		startTime:       startTime,
+		reqModel:        reqModel,
+		isStreaming:     isStreaming,
+		vkHash:          vkHash,
+		bodyBytes:       bodyBytes,
+		parseMs:         parseMs,
+		logData:         logData,
+		opencodeSession: util.OpenCodeGoSession(r.Header.Get(util.OpenCodeGoSessionHeader), vkHash),
 	}, true
 }
 

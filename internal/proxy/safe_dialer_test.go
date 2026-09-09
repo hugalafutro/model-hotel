@@ -758,6 +758,9 @@ func redirectReq(t *testing.T, providerType, target, apiKey string) *http.Reques
 		t.Fatalf("build original request: %v", err)
 	}
 	util.SetProviderAuthHeaders(orig, providerType, apiKey)
+	// An upstream request to an opencode-go provider always carries the session
+	// id, so the strip table can assert that one does not cross hosts either.
+	orig.Header.Set(util.OpenCodeGoSessionHeader, "mh-0123456789abcdef")
 	redir, err := http.NewRequest(http.MethodPost, target, http.NoBody)
 	if err != nil {
 		t.Fatalf("build redirect request: %v", err)
@@ -777,7 +780,8 @@ func redirectReq(t *testing.T, providerType, target, apiKey string) *http.Reques
 
 // TestCheckRedirect_StripsCustomAuthHeadersCrossHost is the regression test for
 // the provider-key leak: a cross-host redirect must not carry x-api-key /
-// x-goog-api-key to the redirect target.
+// x-goog-api-key to the redirect target. The OpenCode Go session id goes with
+// them: it is a stable per-key identifier, not something to hand a stranger.
 func TestCheckRedirect_StripsCustomAuthHeadersCrossHost(t *testing.T) {
 	// attacker.example resolves to a public IP, so CheckRedirect would otherwise
 	// allow the redirect and forward the credential.
@@ -794,6 +798,7 @@ func TestCheckRedirect_StripsCustomAuthHeadersCrossHost(t *testing.T) {
 	}{
 		{"anthropic", "anthropic", "x-api-key"},
 		{"vertex-express", "vertex-express", "x-goog-api-key"},
+		{"opencode-go session", "anthropic", util.OpenCodeGoSessionHeader},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

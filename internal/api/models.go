@@ -624,6 +624,9 @@ func (h *Handler) doTestModelRequest(ctx context.Context, providerType, targetUR
 	}
 	return paramrewrite.SelfHealChatCompletion(ctx, testClient, targetURL, providerType, modelID, baseBody, func(req *http.Request) {
 		util.SetProviderAuthHeaders(req, providerType, apiKey)
+		// The Test button has no client and no virtual key, and an opencode-go
+		// provider refuses a request that carries no session id.
+		util.SetOpenCodeGoSession(req, providerType, util.OpenCodeGoModelTestSession)
 		req.Header.Set("Content-Type", "application/json")
 	})
 }
