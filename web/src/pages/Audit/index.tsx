@@ -26,6 +26,7 @@ import { ViewModeToggle } from "../../components/ViewModeToggle";
 import { useToast } from "../../context/ToastContext";
 import { useDebounce } from "../../hooks/useDebounce";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
+import { useModalNav } from "../../hooks/useModalNav";
 import { formatRelativeTime } from "../../utils/format";
 
 const METHODS = ["POST", "PUT", "PATCH", "DELETE"] as const;
@@ -99,6 +100,7 @@ export function Audit() {
 		? (scroll.data?.pages[0]?.total ?? 0)
 		: (paginated.data?.total ?? 0);
 	const isLoading = isScroll ? scroll.isLoading : paginated.isLoading;
+	const auditNav = useModalNav(entries, selected, setSelected, (e) => e.id);
 	const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
 	// Any filter change restarts both views: the scroll query re-keys itself, and
@@ -308,7 +310,11 @@ export function Audit() {
 				<EmptyState message={t("audit.emptyState")} />
 			)}
 
-			<AuditDetailModal entry={selected} onClose={() => setSelected(null)} />
+			<AuditDetailModal
+				entry={selected}
+				nav={auditNav}
+				onClose={() => setSelected(null)}
+			/>
 
 			{confirmPurge && (
 				<ConfirmDialog

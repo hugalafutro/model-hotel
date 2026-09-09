@@ -73,7 +73,10 @@
 			"librechat": "LibreChat",
 			"zed": "ZED",
 			"opencode": "OpenCode"
-		}
+		},
+		"prevRow": "Előző sor",
+		"nextRow": "Következő sor",
+		"rowPosition": "{{position}}. sor a(z) {{total}} sorból"
 	},
 	"layout": {
 		"title": "Model Hotel",

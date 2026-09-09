@@ -73,7 +73,10 @@
 			"librechat": "LibreChat",
 			"zed": "ZED",
 			"opencode": "OpenCode"
-		}
+		},
+		"prevRow": "이전 행",
+		"nextRow": "다음 행",
+		"rowPosition": "{{total}}행 중 {{position}}행"
 	},
 	"layout": {
 		"title": "Model Hotel",

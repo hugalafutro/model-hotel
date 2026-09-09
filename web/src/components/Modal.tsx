@@ -12,6 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "@/lib/icons";
+import { ModalNav, type ModalNavProps, type StepPosition } from "./ModalNav";
 
 export interface ModalHandle {
 	close: () => void;
@@ -25,6 +26,11 @@ interface ModalProps {
 	// dialog is doing work that walking out would strand, e.g. a write in flight:
 	// the caller keeps its own explicit buttons and decides when leaving is safe.
 	dismissible?: boolean;
+	// Prev/next stepper drawn beside the close button, for a dialog opened from
+	// one row of a list. Absent for dialogs with no list behind them, and not
+	// combined with dismissible={false} by callers: stepping swaps the dialog's
+	// subject, which is the thing that flag exists to prevent.
+	nav?: ModalNavProps;
 	onClose: () => void;
 	maxWidth?: string;
 	scrollable?: boolean;
@@ -44,12 +50,36 @@ const FADE_DURATION = 200;
  */
 const openDialogs: HTMLElement[] = [];
 
+/**
+ * Elements whose own arrow-key behaviour outranks the row stepper: the fields
+ * a caret moves through, and the roles that move a selection.
+ */
+const ARROW_KEY_OWNERS = [
+	"input",
+	"textarea",
+	"select",
+	"[contenteditable='true']",
+	"[role='listbox']",
+	"[role='combobox']",
+	"[role='tablist']",
+	"[role='menu']",
+	"[role='menubar']",
+	"[role='grid']",
+	"[role='tree']",
+	"[role='treegrid']",
+	"[role='radiogroup']",
+	"[role='slider']",
+	"[role='spinbutton']",
+	"[role='textbox']",
+].join(", ");
+
 export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	{
 		title,
 		header,
 		closeOnBackdrop = true,
 		dismissible = true,
+		nav,
 		onClose,
 		maxWidth = "max-w-md",
 		scrollable = false,
@@ -133,7 +163,35 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		dismissibleRef.current = dismissible;
 	}, [dismissible]);
 
-	// Escape is handled on the DOCUMENT, not on the dialog node.
+	// Ditto for the stepper: a page rebuilds its callbacks whenever the list
+	// behind the dialog is refetched, which is often.
+	const navRef = useRef(nav);
+	useEffect(() => {
+		navRef.current = nav;
+	}, [nav]);
+
+	const scrollRef = useRef<HTMLDivElement>(null);
+	// The row the stepper last moved to. Recorded here, at the step, rather
+	// than derived from the current position: a live update that prepends a
+	// newer row moves the whole list along, and reading the new position out
+	// each time would talk over whoever is listening.
+	const [steppedTo, setSteppedTo] = useState<StepPosition | null>(null);
+
+	// Stepping to another row starts that row at the top: the dialog is one
+	// scroll container reused for every row, so a long row scrolled to its
+	// end would otherwise hand the next row a scroll position it never had.
+	// Set before the new row renders, so it never paints at the old offset.
+	const stepTo = useCallback(
+		(go: () => void, position: number, total: number) => {
+			go();
+			if (scrollRef.current) scrollRef.current.scrollTop = 0;
+			setSteppedTo({ position, total });
+		},
+		[],
+	);
+
+	// Escape and the stepper's arrow keys are handled on the DOCUMENT, not on
+	// the dialog node.
 	//
 	// A control that unmounts while focused — dismissing the row whose button
 	// you just clicked — hands focus back to <body>, which is outside this
@@ -143,15 +201,44 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// Topmost only, so a nested confirm closes before the dialog that opened it.
 	// Mount order is the stacking order: modals portal to <body> in the order
 	// they open, and the one opened last is the one drawn on top.
+	//
+	// stepTo is the one dependency, and it holds no props or state, so it
+	// never changes identity and the listener still registers exactly once
+	// per dialog.
 	useEffect(() => {
 		const el = dialogRef.current;
 		if (!el) return;
 		openDialogs.push(el);
 		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key !== "Escape") return;
-			if (!dismissibleRef.current) return;
 			if (openDialogs[openDialogs.length - 1] !== el) return;
-			closeRef.current();
+			if (e.key === "Escape") {
+				if (dismissibleRef.current) closeRef.current();
+				return;
+			}
+			if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+			const nav = navRef.current;
+			if (!nav || e.defaultPrevented) return;
+			// Alt+Arrow is browser history, and the rest carry their own
+			// meanings in a text field or a shortcut.
+			if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+			// Arrow keys belong to whatever the user is typing in, and to the
+			// widgets that move a selection with them.
+			const target = e.target as HTMLElement | null;
+			if (target?.closest?.(ARROW_KEY_OWNERS)) return;
+			const step =
+				e.key === "ArrowLeft"
+					? nav.index > 0 && nav.onPrev
+					: nav.index < nav.total - 1 && nav.onNext;
+			if (!step) return;
+			// Consumed: the same press must not also scroll the dialog, and a
+			// listener further out can see the key was taken.
+			e.preventDefault();
+			// The row it lands on, counted from one.
+			stepTo(
+				step,
+				e.key === "ArrowLeft" ? nav.index : nav.index + 2,
+				nav.total,
+			);
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
@@ -159,9 +246,15 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 			const i = openDialogs.indexOf(el);
 			if (i !== -1) openDialogs.splice(i, 1);
 		};
-	}, []);
+	}, [stepTo]);
 
 	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
+
+	// Title and header keep clear of the corner controls: the close button
+	// alone, or the stepper plus the close button. The stepper's readout is
+	// the variable part, and pr-48 holds a four-digit count on each side of
+	// its slash.
+	const headerPadding = nav ? "pr-48" : "pr-10";
 
 	// Portal to <body>: pages open modals from inside glassmorphism cards whose
 	// backdrop-filter would otherwise trap the overlay's blur (it could only
@@ -195,24 +288,35 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				}`}
 				onClick={(e) => e.stopPropagation()}
 			>
-				<button
-					type="button"
-					onClick={handleClose}
-					disabled={!dismissible}
-					className="ui-icon-btn absolute top-3 right-3 z-10 p-2"
-					aria-label={t("common.close")}
-				>
-					<X size={20} />
-				</button>
+				<div className="absolute top-3 right-3 z-10 flex items-center gap-1">
+					{nav && (
+						<ModalNav
+							index={nav.index}
+							total={nav.total}
+							steppedTo={steppedTo}
+							onPrev={() => stepTo(nav.onPrev, nav.index, nav.total)}
+							onNext={() => stepTo(nav.onNext, nav.index + 2, nav.total)}
+						/>
+					)}
+					<button
+						type="button"
+						onClick={handleClose}
+						disabled={!dismissible}
+						className="ui-icon-btn p-2"
+						aria-label={t("common.close")}
+					>
+						<X size={20} />
+					</button>
+				</div>
 				{header ? (
-					<div id={headingId} className="shrink-0 pr-10">
+					<div id={headingId} className={`shrink-0 ${headerPadding}`}>
 						{header}
 					</div>
 				) : (
 					title && (
 						<h2
 							id={headingId}
-							className="shrink-0 text-xl font-bold text-white mb-4 pr-10"
+							className={`shrink-0 text-xl font-bold text-white mb-4 ${headerPadding}`}
 						>
 							{title}
 						</h2>
@@ -226,7 +330,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 					// data-modal-scroll lets a descendant resolve its own scroll root
 					// (element.closest) without Modal growing a ref prop. Used by the
 					// discrepancy modal's return-to-top IntersectionObserver.
-					<div className="min-h-0 overflow-y-auto pr-2" data-modal-scroll>
+					<div
+						ref={scrollRef}
+						className="min-h-0 overflow-y-auto pr-2"
+						data-modal-scroll
+					>
 						{children}
 					</div>
 				) : (

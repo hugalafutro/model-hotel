@@ -73,7 +73,10 @@
 			"librechat": "LibreChat",
 			"zed": "ZED",
 			"opencode": "OpenCode"
-		}
+		},
+		"prevRow": "Önceki satır",
+		"nextRow": "Sonraki satır",
+		"rowPosition": "{{total}} satırdan {{position}}. satır"
 	},
 	"layout": {
 		"title": "Model Hotel",
