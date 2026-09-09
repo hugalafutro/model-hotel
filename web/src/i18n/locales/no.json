@@ -73,7 +73,9 @@
 			"librechat": "LibreChat",
 			"zed": "ZED",
 			"opencode": "OpenCode"
-		}
+		},
+		"prevRow": "Forrige rad",
+		"nextRow": "Neste rad"
 	},
 	"layout": {
 		"title": "Model Hotel",

@@ -68,7 +68,10 @@ export function decodeLogEscapes(message: string): string {
 }
 
 /** Stable identity for an app-log row. Rows can arrive without an id (raw
- * io.Writer lines), so the fields that together identify one stand in. */
+ * io.Writer lines), so the fields that together identify one stand in. Two
+ * id-less rows logged in the same instant with the same source and opening
+ * text share a key, which readers should treat as "one of these" rather than
+ * a unique row. */
 export function appLogKey(entry: {
 	id?: string;
 	timestamp: string;

@@ -81,6 +81,25 @@ describe("LogDetailModal", () => {
 			).toBeInTheDocument();
 		});
 
+		it("hands the row stepper to the modal alongside the custom header", () => {
+			const onPrev = vi.fn();
+			renderWithProviders(
+				<LogDetailModal
+					log={mockRequestLog}
+					type="request"
+					nav={{ index: 1, total: 4, onPrev, onNext: vi.fn() }}
+					onClose={onClose}
+				/>,
+			);
+
+			expect(
+				screen.getByRole("heading", { name: "Request Details" }),
+			).toBeInTheDocument();
+			expect(screen.getByText("2/4")).toBeInTheDocument();
+			fireEvent.click(screen.getByRole("button", { name: "Previous row" }));
+			expect(onPrev).toHaveBeenCalledTimes(1);
+		});
+
 		it("displays status code badge for successful response", () => {
 			renderWithProviders(
 				<LogDetailModal

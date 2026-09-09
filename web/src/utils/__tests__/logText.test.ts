@@ -85,3 +85,30 @@ describe("displayLogMessage", () => {
 		expect(displayLogMessage(msg, true, -5)).toBe('a="b c"');
 	});
 });
+
+describe("appLogKey", () => {
+	it("uses the row id when the backend sent one", async () => {
+		const { appLogKey } = await import("../logText");
+		expect(
+			appLogKey({
+				id: "row-7",
+				timestamp: "2026-09-09T12:00:00Z",
+				source: "proxy",
+				message: "anything",
+			}),
+		).toBe("row-7");
+	});
+
+	it("falls back to the fields that identify an id-less row", async () => {
+		const { appLogKey } = await import("../logText");
+		// Raw io.Writer lines arrive without an id, and the message is cut to
+		// its opening 20 characters so a long line cannot bloat the key.
+		expect(
+			appLogKey({
+				timestamp: "2026-09-09T12:00:00Z",
+				source: "access",
+				message: "request method=GET path=/api/logs status=200",
+			}),
+		).toBe("2026-09-09T12:00:00Z-access-request method=GET p");
+	});
+});

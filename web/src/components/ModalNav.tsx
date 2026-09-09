@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
 
@@ -12,7 +11,8 @@ export interface ModalNavProps {
 
 /**
  * Prev/next stepper for a detail modal opened from a list row, so a run of
- * rows can be read without closing the dialog between each one.
+ * rows can be read without closing the dialog between each one. Rendered by
+ * Modal, which also binds the left/right arrow keys that do the same thing.
  *
  * It walks the rows the list has already loaded, which makes the ends of that
  * window the ends of the walk: the dialog never fetches, so a page or scroll
@@ -23,43 +23,34 @@ export function ModalNav({ index, total, onPrev, onNext }: ModalNavProps) {
 	const canPrev = index > 0;
 	const canNext = index < total - 1;
 
-	// Left/right arrows drive the stepper, matching the buttons. Bound on the
-	// document for the same reason Escape is (see Modal): the control that
-	// opened the dialog is gone, so focus can sit on <body>.
-	useEffect(() => {
-		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
-			const el = e.target as HTMLElement | null;
-			// Arrow keys belong to the field being typed in, when there is one.
-			if (el?.closest?.("input, textarea, select, [contenteditable='true']"))
-				return;
-			if (e.key === "ArrowLeft" && canPrev) onPrev();
-			if (e.key === "ArrowRight" && canNext) onNext();
-		};
-		document.addEventListener("keydown", onKeyDown);
-		return () => document.removeEventListener("keydown", onKeyDown);
-	}, [canPrev, canNext, onPrev, onNext]);
-
 	return (
 		<div className="flex items-center gap-0.5">
 			<button
 				type="button"
-				onClick={onPrev}
-				disabled={!canPrev}
+				onClick={canPrev ? onPrev : undefined}
+				// aria-disabled, not disabled: a disabled button drops out of the
+				// tab order, and stepping to an end of the list would throw the
+				// keyboard focus that just pressed it out of the dialog.
+				aria-disabled={!canPrev}
 				className="ui-icon-btn p-2"
-				aria-label={t("common.prev")}
+				aria-label={t("common.prevRow")}
 			>
 				<ChevronLeft size={18} />
 			</button>
-			<span className="text-xs text-(--text-tertiary) tabular-nums select-none">
-				{index + 1} / {total}
+			{/* Announced, because stepping changes which row the dialog shows
+			    while its title stays the same. */}
+			<span
+				aria-live="polite"
+				className="text-xs text-(--text-tertiary) tabular-nums select-none"
+			>
+				{index + 1}/{total}
 			</span>
 			<button
 				type="button"
-				onClick={onNext}
-				disabled={!canNext}
+				onClick={canNext ? onNext : undefined}
+				aria-disabled={!canNext}
 				className="ui-icon-btn p-2"
-				aria-label={t("common.next")}
+				aria-label={t("common.nextRow")}
 			>
 				<ChevronRight size={18} />
 			</button>

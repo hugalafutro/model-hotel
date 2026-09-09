@@ -73,7 +73,9 @@
 			"librechat": "LibreChat",
 			"zed": "ZED",
 			"opencode": "OpenCode"
-		}
+		},
+		"prevRow": "Попередній рядок",
+		"nextRow": "Наступний рядок"
 	},
 	"layout": {
 		"title": "Model Hotel",

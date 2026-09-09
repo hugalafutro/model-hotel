@@ -27,7 +27,9 @@ interface ModalProps {
 	// the caller keeps its own explicit buttons and decides when leaving is safe.
 	dismissible?: boolean;
 	// Prev/next stepper drawn beside the close button, for a dialog opened from
-	// one row of a list. Absent for dialogs with no list behind them.
+	// one row of a list. Absent for dialogs with no list behind them, and not
+	// combined with dismissible={false}: stepping swaps the dialog's subject,
+	// which is the thing that flag exists to prevent.
 	nav?: ModalNavProps;
 	onClose: () => void;
 	maxWidth?: string;
@@ -138,7 +140,15 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		dismissibleRef.current = dismissible;
 	}, [dismissible]);
 
-	// Escape is handled on the DOCUMENT, not on the dialog node.
+	// Ditto for the stepper: a page rebuilds its callbacks whenever the list
+	// behind the dialog is refetched, which is often.
+	const navRef = useRef(nav);
+	useEffect(() => {
+		navRef.current = nav;
+	}, [nav]);
+
+	// Escape and the stepper's arrow keys are handled on the DOCUMENT, not on
+	// the dialog node.
 	//
 	// A control that unmounts while focused — dismissing the row whose button
 	// you just clicked — hands focus back to <body>, which is outside this
@@ -153,10 +163,29 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		if (!el) return;
 		openDialogs.push(el);
 		const onKeyDown = (e: KeyboardEvent) => {
-			if (e.key !== "Escape") return;
-			if (!dismissibleRef.current) return;
 			if (openDialogs[openDialogs.length - 1] !== el) return;
-			closeRef.current();
+			if (e.key === "Escape") {
+				if (dismissibleRef.current) closeRef.current();
+				return;
+			}
+			if (e.key !== "ArrowLeft" && e.key !== "ArrowRight") return;
+			const nav = navRef.current;
+			if (!nav || e.defaultPrevented) return;
+			// Alt+Arrow is browser history, and the rest carry their own
+			// meanings in a text field or a shortcut.
+			if (e.altKey || e.ctrlKey || e.metaKey || e.shiftKey) return;
+			// Arrow keys belong to whatever the user is typing in, and to the
+			// widgets that move a selection with them.
+			const target = e.target as HTMLElement | null;
+			if (
+				target?.closest?.(
+					"input, textarea, select, [contenteditable='true']," +
+						" [role='listbox'], [role='tablist'], [role='slider'], [role='menu']",
+				)
+			)
+				return;
+			if (e.key === "ArrowLeft" && nav.index > 0) nav.onPrev();
+			if (e.key === "ArrowRight" && nav.index < nav.total - 1) nav.onNext();
 		};
 		document.addEventListener("keydown", onKeyDown);
 		return () => {
@@ -169,8 +198,10 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	useImperativeHandle(ref, () => ({ close: handleClose }), [handleClose]);
 
 	// Title and header keep clear of the corner controls: the close button
-	// alone, or the stepper plus the close button.
-	const headerPadding = nav ? "pr-44" : "pr-10";
+	// alone, or the stepper plus the close button. The stepper's readout is
+	// the variable part, and pr-48 holds a four-digit count on each side of
+	// its slash.
+	const headerPadding = nav ? "pr-48" : "pr-10";
 
 	// Portal to <body>: pages open modals from inside glassmorphism cards whose
 	// backdrop-filter would otherwise trap the overlay's blur (it could only
