@@ -87,12 +87,28 @@ describe("ModalNav", () => {
 	it("says where the open row sits once the reader steps there", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(<Harness />);
-		// Nothing to say on open: the dialog title already announced itself.
+		// Nothing to announce on open: the dialog title already spoke, and
+		// the position is there to be read rather than read out.
 		expect(announced()).toBe("");
+		expect(screen.getByText("Row 2 of 3")).toBeInTheDocument();
 
 		await user.click(nextButton());
-
 		expect(announced()).toBe("Row 3 of 3");
+
+		await user.click(prevButton());
+		expect(announced()).toBe("Row 2 of 3");
+	});
+
+	it("says where the arrow keys landed too", () => {
+		renderWithProviders(<Harness />);
+		const body = document.querySelector<HTMLElement>("[data-modal-scroll]");
+		if (!body) throw new Error("scrollable body not rendered");
+		body.scrollTop = 400;
+
+		fireEvent.keyDown(document, { key: "ArrowLeft" });
+
+		expect(announced()).toBe("Row 1 of 3");
+		expect(body.scrollTop).toBe(0);
 	});
 
 	it("stays quiet when a live update moves the row along", () => {
@@ -183,11 +199,10 @@ describe("ModalNav", () => {
 	it("still closes on Escape while the stepper is present", async () => {
 		renderWithProviders(<Harness />);
 
-		fireEvent.keyDown(document, { key: "Escape" });
-
-		// Escape closes and nothing else: it must not also step the list on
-		// its way out.
-		expect(screen.getByText("row b")).toBeInTheDocument();
+		// Escape closes and nothing else: it is not consumed here, and it does
+		// not step the list on its way out.
+		expect(fireEvent.keyDown(document, { key: "Escape" })).toBe(true);
+		expect(announced()).toBe("");
 		await waitFor(() =>
 			expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
 		);

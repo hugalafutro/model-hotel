@@ -12,7 +12,7 @@ import {
 import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { X } from "@/lib/icons";
-import { ModalNav, type ModalNavProps } from "./ModalNav";
+import { ModalNav, type ModalNavProps, type StepPosition } from "./ModalNav";
 
 export interface ModalHandle {
 	close: () => void;
@@ -171,11 +171,11 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	}, [nav]);
 
 	const scrollRef = useRef<HTMLDivElement>(null);
-	// What the stepper's live region says. Written here, at the step, rather
-	// than derived from the position: a live update that prepends a newer row
-	// moves the whole list along, and reading the new position out each time
-	// would talk over whoever is listening.
-	const [announcement, setAnnouncement] = useState("");
+	// The row the stepper last moved to. Recorded here, at the step, rather
+	// than derived from the current position: a live update that prepends a
+	// newer row moves the whole list along, and reading the new position out
+	// each time would talk over whoever is listening.
+	const [steppedTo, setSteppedTo] = useState<StepPosition | null>(null);
 
 	// Stepping to another row starts that row at the top: the dialog is one
 	// scroll container reused for every row, so a long row scrolled to its
@@ -185,9 +185,9 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		(go: () => void, position: number, total: number) => {
 			go();
 			if (scrollRef.current) scrollRef.current.scrollTop = 0;
-			setAnnouncement(t("common.rowPosition", { position, total }));
+			setSteppedTo({ position, total });
 		},
-		[t],
+		[],
 	);
 
 	// Escape and the stepper's arrow keys are handled on the DOCUMENT, not on
@@ -202,8 +202,9 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// Mount order is the stacking order: modals portal to <body> in the order
 	// they open, and the one opened last is the one drawn on top.
 	//
-	// stepTo is the one dependency, and it never changes identity, so the
-	// listener still registers exactly once per dialog.
+	// stepTo is the one dependency, and it holds no props or state, so it
+	// never changes identity and the listener still registers exactly once
+	// per dialog.
 	useEffect(() => {
 		const el = dialogRef.current;
 		if (!el) return;
@@ -292,7 +293,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 						<ModalNav
 							index={nav.index}
 							total={nav.total}
-							announcement={announcement}
+							steppedTo={steppedTo}
 							onPrev={() => stepTo(nav.onPrev, nav.index, nav.total)}
 							onNext={() => stepTo(nav.onNext, nav.index + 2, nav.total)}
 						/>

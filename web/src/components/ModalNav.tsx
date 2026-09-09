@@ -1,6 +1,12 @@
 import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
 
+/** A row the stepper moved to, counted from one. */
+export interface StepPosition {
+	position: number;
+	total: number;
+}
+
 export interface ModalNavProps {
 	/** Zero-based position of the open row inside the list behind the modal. */
 	index: number;
@@ -21,12 +27,14 @@ export interface ModalNavProps {
 export function ModalNav({
 	index,
 	total,
-	announcement,
+	steppedTo,
 	onPrev,
 	onNext,
 }: ModalNavProps & {
-	/** What to read out, written by Modal when the user steps. */
-	announcement: string;
+	/** The row the user last stepped to, from Modal, or null before they do.
+	 * Kept out of this component so a list that shifts underneath an open
+	 * dialog does not read itself out. */
+	steppedTo: StepPosition | null;
 }) {
 	const { t } = useTranslation();
 	const canPrev = index > 0;
@@ -53,11 +61,20 @@ export function ModalNav({
 				{index + 1}/{total}
 			</span>
 			{/* The compact readout above is what there is room for beside the
-			    close button, and it reads as bare digits. This says the same
-			    thing in a sentence, and is announced because stepping changes
-			    which row the dialog shows while its title stays the same. */}
+			    close button, and it reads as bare digits. These say the same
+			    thing in a sentence: the first so the position can be read on
+			    arrival, the second because stepping changes which row the
+			    dialog shows while its title stays the same, and it is only
+			    ever filled in by a step the user took. */}
+			<span className="sr-only">
+				{t("common.rowPosition", { position: index + 1, total })}
+			</span>
 			<span aria-live="polite" className="sr-only">
-				{announcement}
+				{steppedTo &&
+					t("common.rowPosition", {
+						position: steppedTo.position,
+						total: steppedTo.total,
+					})}
 			</span>
 			<button
 				type="button"
