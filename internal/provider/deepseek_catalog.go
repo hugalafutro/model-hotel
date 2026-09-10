@@ -52,10 +52,10 @@ type DeepSeekModelSpec struct {
 // Flash's price. deepseek-chat still selects the non-thinking preset.
 //
 // deepseek-v4-pro is the last row still on its own price, and the only one that
-// answers as itself rather than as deepseek-flash. DeepSeek has announced that
-// it will serve deepseek-flash under the id at Flash's rate; once the id stops
-// echoing itself back, this row over-meters by more than 4x and has to be
-// repriced or dropped. Dropping it does not retire the model on its own:
+// answers as itself rather than as deepseek-flash. Once that id stops echoing
+// itself back, DeepSeek is serving Flash under it at Flash's rate and this row
+// meters every request several times over, so it has to be repriced or dropped
+// then. Dropping it does not retire the model on its own:
 // DiscoverDeepSeek unions the catalog into the live listing, so a catalog row
 // can never be recorded as missing.
 var deepseekCatalog = loadCatalog[[]DeepSeekModelSpec]("deepseek.json")

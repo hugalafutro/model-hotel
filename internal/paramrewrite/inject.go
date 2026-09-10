@@ -68,16 +68,16 @@ func InjectProviderParams(raw map[string]any, providerType, modelID string) {
 		// on the strength of one afternoon's probing, since re-adding it after a
 		// silent upstream change would mean debugging it from a 400 first.
 		//
-		// deepseek-flash (V4.1 Flash) and deepseek-reasoner are matched by name
-		// because neither names a version. Both think, and both reach the same
-		// backend as the v4 ids the substring test already covers: deepseek-flash
-		// is what every legacy Flash-family name now resolves to.
-		// deepseek-chat stays out on purpose — it is the same model with
-		// thinking off, and returns no reasoning_content to echo back.
+		// The flash substring covers deepseek-flash (V4.1 Flash), which names no
+		// version and is what every legacy Flash-family name now resolves to, and
+		// keeps covering whatever DeepSeek calls the next one. deepseek-reasoner
+		// is matched by name because it names neither a version nor a family.
+		// deepseek-chat stays out on purpose: it is the same model with thinking
+		// off, and returns no reasoning_content to echo back.
 		modelLower := strings.ToLower(modelID)
 		isReasoningModel := strings.Contains(modelLower, "v4") ||
 			strings.Contains(modelLower, "r1") ||
-			modelLower == "deepseek-flash" ||
+			strings.Contains(modelLower, "flash") ||
 			modelLower == "deepseek-reasoner"
 		if isReasoningModel && backfillDeepSeekReasoning(raw) {
 			debuglog.Debug("proxy: backfilled reasoning_content on assistant messages for deepseek", "model", modelID)
