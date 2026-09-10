@@ -804,8 +804,8 @@ func TestTPMLimiter_DebitUserIgnoresNonBuckets(t *testing.T) {
 // TestCapMemoTTL covers the horizon arithmetic on its own: every ordinary
 // request_timeout lands on the floor, a long one scales past it, a missing or
 // nonsensical one falls back to the floor, and one too large to scale saturates
-// rather than wrapping to a negative horizon that would sweep every memo on the
-// next pass.
+// rather than wrapping and collapsing onto a floor far shorter than the request
+// it has to outlast.
 func TestCapMemoTTL(t *testing.T) {
 	cases := []struct {
 		name           string
@@ -1001,6 +1001,40 @@ func TestTPMLimiter_CapMemoDeadlineComesBackDown(t *testing.T) {
 	l.getEntry(ctx, "k", 500)
 	if got := memoHorizon(t, l, "k"); got != minCapMemoTTL {
 		t.Errorf("a later admission should carry the memo on the floor again, got %v", got)
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonThroughTheMiddleware pins the wiring the direct
+// getEntry tests cannot see: the admission path itself has to carry a context
+// the settings read can resolve, or every memo would claim the floor whatever
+// request_timeout says.
+func TestTPMLimiter_CapMemoHorizonThroughTheMiddleware(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+
+	if !tpmAdmit(t, l, "k", 500) {
+		t.Fatal("the first request under a fresh budget should be admitted")
+	}
+	if got := memoHorizon(t, l, "k"); got != 40*time.Hour {
+		t.Errorf("admission should claim the horizon the live setting implies, got %v", got)
+	}
+}
+
+// TestTPMLimiter_CapMemoSaturatingTimeoutSurvivesTheSweep drives a
+// request_timeout past the point where the scaling would overflow all the way
+// through admission and a sweep. Without the saturation guard the product wraps,
+// the horizon collapses onto the floor, and this memo is swept while a request
+// under that timeout could still be running.
+func TestTPMLimiter_CapMemoSaturatingTimeoutSurvivesTheSweep(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "100000h") // past math.MaxInt64 / 40
+
+	l.getEntry(context.Background(), "k", 500)
+	ageMemo(t, l, "k", 30*24*time.Hour)
+	l.cleanup()
+
+	if !memoLives(l, "k") {
+		t.Error("a memo under a saturating request_timeout must outlive a month-long sweep")
 	}
 }
 

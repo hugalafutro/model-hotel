@@ -107,8 +107,10 @@ const capMemoTimeoutFactor = 40
 //
 // A request_timeout that is unset or unparseable reads as the proxy's own
 // default and derives the floor. One large enough to overflow the multiplication
-// saturates instead of wrapping negative, since a negative horizon would sweep
-// every memo on the very next pass, the exact failure this guards.
+// saturates, so the horizon stays at least as long as a request under that
+// timeout can live. Letting the product wrap negative would collapse it to the
+// floor instead, which is far shorter than such a request, and the memo would be
+// swept out from under it.
 func capMemoTTL(requestTimeout time.Duration) time.Duration {
 	if requestTimeout <= 0 {
 		return minCapMemoTTL
