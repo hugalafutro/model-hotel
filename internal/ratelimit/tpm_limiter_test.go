@@ -1271,10 +1271,27 @@ func TestTPMLimiter_SweepRefreshesTheHorizonMark(t *testing.T) {
 	l, s := newTestTPMLimiter(t)
 	s.set(settingsKeyRequestTimeout, "4h")
 
+	// Aged past the floor but well inside what a four hour timeout implies, so
+	// the sweep has to keep it and evict the idle bucket beside it.
+	l.getEntry(context.Background(), "k", 500)
+	ageMemo(t, l, "k", minCapMemoTTL+time.Hour)
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+
 	l.sweep()
 
 	if got := time.Duration(l.lastGoodHorizon.Load()); got != 160*time.Hour {
 		t.Errorf("the sweep should record the horizon the setting implies, got %v", got)
+	}
+	if !memoLives(l, "k") {
+		t.Error("the sweep should keep a memo still inside its claimed horizon")
+	}
+	l.mu.Lock()
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if buckets != 0 {
+		t.Errorf("the sweep should still evict the idle bucket, got %d", buckets)
 	}
 }
 
