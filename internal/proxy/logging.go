@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -404,18 +405,35 @@ func metricModelLabel(modelID string, kind ErrorKind) string {
 	return modelID
 }
 
+// upstreamModelLogCap bounds the model name in the debug line. A real model id
+// is a short token; the cap is what stops a caller who sends a megabyte in that
+// field from writing a megabyte to the log.
+const upstreamModelLogCap = 120
+
 // logUpstreamModel logs the model name the upstream body actually carries, for
 // debugging rewrite issues. It decodes that one field rather than slicing the
 // front of the body: a caller controls their own field names, so a nested model
 // key used to put the caller's own text in the log, which is request content
-// this gateway promises never to store. A body that does not decode, or names
-// no model, logs nothing.
+// this gateway promises never to store. A body that does not decode names no
+// model and logs nothing, which is also what keeps a multipart body out of the
+// debug log.
+//
+// The decode runs only when a debug record would actually be emitted. Bodies
+// reach tens of megabytes on the image endpoints, and this sits on the hot path
+// once per candidate and again per retry, so parsing one to discard the result
+// would cost every request what only a debugging session wants.
+//
+// The value is caller-controlled, so it is sanitized and bounded like any other
+// upstream text: nothing says a model field holds a short identifier.
 func logUpstreamModel(upstreamBody []byte) {
+	if !slog.Default().Enabled(context.Background(), slog.LevelDebug) {
+		return
+	}
 	var decoded struct {
 		Model string `json:"model"`
 	}
 	if err := json.Unmarshal(upstreamBody, &decoded); err != nil || decoded.Model == "" {
 		return
 	}
-	debuglog.Debug("proxy: upstream body model", "upstream_model", decoded.Model)
+	debuglog.Debug("proxy: upstream body model", "upstream_model", util.SanitizeLogBody(decoded.Model, upstreamModelLogCap))
 }

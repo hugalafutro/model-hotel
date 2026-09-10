@@ -191,6 +191,13 @@ func TestUserLogin_Failures(t *testing.T) {
 		// with the same 401 an unknown user gets keeps the body-sized string out
 		// of the per-account throttle without telling an attacker anything.
 		{"over-long username", `{"username":"` + strings.Repeat("a", 65) + `","password":"whatever1"}`, http.StatusUnauthorized},
+		// The bound is bytes, the same measure create and update use, so a name
+		// of 64 multibyte characters is over it on both paths and consistently
+		// refused rather than creatable-but-unable-to-log-in.
+		{"64 multibyte characters", `{"username":"` + strings.Repeat("é", 64) + `","password":"whatever1"}`, http.StatusUnauthorized},
+		// The last byte length that can name an account still reaches the normal
+		// unknown-user path rather than the new refusal.
+		{"exactly at the bound", `{"username":"` + strings.Repeat("a", 64) + `","password":"whatever1"}`, http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
