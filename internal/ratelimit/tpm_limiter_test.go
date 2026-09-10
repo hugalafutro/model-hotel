@@ -241,8 +241,8 @@ func TestTPMLimiter_OwnerDebitSurvivesEviction(t *testing.T) {
 	const tpm = 500
 	owner := userBucketKey("owner-1")
 
-	l.getEntry("k", tpm)
-	l.getEntry(owner, tpm)
+	l.getEntry(context.Background(), "k", tpm)
+	l.getEntry(context.Background(), owner, tpm)
 
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
@@ -268,7 +268,7 @@ func TestTPMLimiter_OwnerDebitSurvivesEviction(t *testing.T) {
 // by one entry for every key the process ever admits.
 func TestTPMLimiter_CapMemoIsSwept(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
-	l.getEntry("k", 500)
+	l.getEntry(context.Background(), "k", 500)
 
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
@@ -816,11 +816,13 @@ func TestCapMemoTTL(t *testing.T) {
 	}{
 		{"default one minute floors at a day", time.Minute, minCapMemoTTL},
 		{"half an hour still floors at a day", 30 * time.Minute, minCapMemoTTL},
+		{"the crossover derives exactly the floor", 36 * time.Minute, minCapMemoTTL},
+		{"a minute past the crossover scales", 37 * time.Minute, 24*time.Hour + 40*time.Minute},
 		{"an hour scales past the floor", time.Hour, 40 * time.Hour},
 		{"three hours scales further", 3 * time.Hour, 120 * time.Hour},
 		{"zero falls back to the floor", 0, minCapMemoTTL},
 		{"negative falls back to the floor", -time.Hour, minCapMemoTTL},
-		{"an overflowing timeout falls back to the floor", time.Duration(math.MaxInt64), minCapMemoTTL},
+		{"an overflowing timeout saturates", time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -842,7 +844,7 @@ func TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout(t *testing.T) {
 	// 40x an hour is well past the one-day floor, so a memo aged 25 hours is
 	// inside the horizon here and outside it at the default timeout.
 	s.set(settingsKeyRequestTimeout, "1h")
-	l.getEntry("k", tpm)
+	l.getEntry(context.Background(), "k", tpm)
 
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
@@ -879,7 +881,7 @@ func TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout(t *testing.T) {
 // stopped working.
 func TestTPMLimiter_CapMemoSweptAtTheDefaultTimeout(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
-	l.getEntry("k", 500)
+	l.getEntry(context.Background(), "k", 500)
 
 	l.mu.Lock()
 	l.caps["k"].lastUsed = time.Now().Add(-25 * time.Hour)
@@ -891,5 +893,67 @@ func TestTPMLimiter_CapMemoSweptAtTheDefaultTimeout(t *testing.T) {
 	l.mu.Unlock()
 	if memoLeft {
 		t.Error("at the default request_timeout a memo past the one-day floor must be swept")
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout is the half the live-read
+// form got wrong: the horizon a memo was written under has to outlast a request
+// admitted against it even when the operator lowers request_timeout while that
+// request is still running. Reading the setting at sweep time would shrink the
+// horizon underneath the in-flight request and drop its debit, which is the bug
+// the memo exists to prevent.
+func TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout(t *testing.T) {
+	const tpm = 500
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry(context.Background(), "k", tpm)
+
+	// The operator drops the timeout back to the default after admission.
+	s.set(settingsKeyRequestTimeout, "1m")
+
+	l.mu.Lock()
+	l.caps["k"].lastUsed = time.Now().Add(-25 * time.Hour)
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.mu.Lock()
+	_, memoLeft := l.caps["k"]
+	l.mu.Unlock()
+	if !memoLeft {
+		t.Fatal("lowering request_timeout must not sweep a memo written under the longer one")
+	}
+
+	l.Debit("k", "", 2*tpm)
+	l.mu.Lock()
+	_, rebuilt := l.buckets["k"]
+	l.mu.Unlock()
+	if !rebuilt {
+		t.Error("the surviving memo must still let the late debit rebuild the bucket")
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonWithUnparseableTimeout covers the fallback
+// through the real path rather than the pure function: a request_timeout the
+// settings layer cannot parse reads as the proxy default, so the memo gets the
+// floor and is swept past it.
+func TestTPMLimiter_CapMemoHorizonWithUnparseableTimeout(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "not a duration")
+	l.getEntry(context.Background(), "k", 500)
+
+	l.mu.Lock()
+	if got := l.caps["k"].ttl; got != minCapMemoTTL {
+		l.mu.Unlock()
+		t.Fatalf("an unparseable request_timeout should derive the floor, got %v", got)
+	}
+	l.caps["k"].lastUsed = time.Now().Add(-minCapMemoTTL - time.Minute)
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.mu.Lock()
+	_, memoLeft := l.caps["k"]
+	l.mu.Unlock()
+	if memoLeft {
+		t.Error("a memo past the floor should be swept when the timeout is unparseable")
 	}
 }

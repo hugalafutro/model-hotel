@@ -62,6 +62,13 @@ type TPMLimiter struct {
 type capMemo struct {
 	tpm      int
 	lastUsed time.Time
+	// ttl is how long this memo has to survive past lastUsed, derived from the
+	// request_timeout in force when it was last written. Held per memo rather
+	// than read at sweep time so that lowering request_timeout cannot shrink the
+	// horizon out from under a request already admitted under the old, longer
+	// one. It only ever grows, for the same reason: a short request landing on a
+	// key must not shorten the horizon a long one is still relying on.
+	ttl time.Duration
 }
 
 // settingsKeyRequestTimeout is the per-attempt upstream timeout the proxy reads
@@ -75,10 +82,10 @@ const settingsKeyRequestTimeout = "request_timeout"
 // proxy's own default implies.
 const defaultRequestTimeout = time.Minute
 
-// minCapMemoTTL floors the cap-memo horizon. Every ordinary request_timeout
-// derives something far shorter than this, so the floor is what the fleet
-// actually runs on and the derived value only takes over once an operator sets
-// a timeout long enough to need it.
+// minCapMemoTTL floors the cap-memo horizon. At the factor below the crossover
+// is a 36 minute request_timeout: anything shorter derives less than a day and
+// floors here, which is every ordinary configuration, so the floor is what the
+// fleet actually runs on and the derived value only takes over above that.
 const minCapMemoTTL = 24 * time.Hour
 
 // capMemoTimeoutFactor scales request_timeout into that horizon. A streaming or
@@ -95,13 +102,16 @@ const capMemoTimeoutFactor = 40
 // horizon from the same setting means raising the timeout cannot silently
 // reopen the dropped-debit hole the memo exists to close.
 //
-// A request_timeout that is unset, unparseable or absurd enough to overflow the
-// multiplication falls back to the floor: a horizon that overflowed negative
-// would sweep every memo on the next pass, which is worse than a horizon that is
-// merely too short.
+// A request_timeout that is unset or unparseable reads as the proxy's own
+// default and derives the floor. One large enough to overflow the multiplication
+// saturates instead of wrapping negative, since a negative horizon would sweep
+// every memo on the very next pass, the exact failure this guards.
 func capMemoTTL(requestTimeout time.Duration) time.Duration {
-	if requestTimeout <= 0 || requestTimeout > math.MaxInt64/capMemoTimeoutFactor {
+	if requestTimeout <= 0 {
 		return minCapMemoTTL
+	}
+	if requestTimeout > math.MaxInt64/capMemoTimeoutFactor {
+		return time.Duration(math.MaxInt64)
 	}
 	return max(minCapMemoTTL, capMemoTimeoutFactor*requestTimeout)
 }
@@ -189,7 +199,7 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				return
 			}
 
-			entry := l.getEntry(keyHash, tpm)
+			entry := l.getEntry(r.Context(), keyHash, tpm)
 			// Allow() atomically reserves one admission token under the
 			// limiter's mutex; concurrent requests cannot all pass the same
 			// non-mutating peek. The reserved token is a placeholder that is
@@ -274,7 +284,7 @@ func (l *TPMLimiter) admitUserTPM(ctx context.Context, w http.ResponseWriter, no
 		return nil, true
 	}
 	userTPM = fleetShareTPM(ctx, l.settings, userTPM)
-	userEntry := l.getEntry(userKey, userTPM)
+	userEntry := l.getEntry(ctx, userKey, userTPM)
 	// ReserveN takes one admission token under the limiter's mutex, so
 	// concurrent requests can't all pass the same non-mutating peek and blow
 	// the budget. Unlike Allow() the reservation is cancellable;
@@ -422,7 +432,11 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 // getEntry returns (or creates) the token-budget bucket for keyHash. If the
 // stored bucket's tpm no longer matches (the key's cap changed at runtime) it
 // is replaced so the new budget takes effect immediately.
-func (l *TPMLimiter) getEntry(keyHash string, tpm int) *tpmEntry {
+func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpmEntry {
+	// Read before taking the lock: the settings repository serves this from its
+	// cache, but every admission and debit blocks on this mutex.
+	memoTTL := capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout))
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -440,8 +454,9 @@ func (l *TPMLimiter) getEntry(keyHash string, tpm int) *tpmEntry {
 	if memo, known := l.caps[keyHash]; known {
 		memo.tpm = tpm
 		memo.lastUsed = time.Now()
+		memo.ttl = max(memo.ttl, memoTTL)
 	} else {
-		l.caps[keyHash] = &capMemo{tpm: tpm, lastUsed: time.Now()}
+		l.caps[keyHash] = &capMemo{tpm: tpm, lastUsed: time.Now(), ttl: memoTTL}
 	}
 	return entry
 }
@@ -462,14 +477,6 @@ func tpmRetryAfter(lim *rate.Limiter) int {
 }
 
 func (l *TPMLimiter) cleanup() {
-	// The sweep runs on its own goroutine with no request to inherit from, and
-	// the settings read below is a cached lookup, so a background context is the
-	// whole story here.
-	ctx := context.Background()
-	// Read before taking the lock: the settings repository may hit the database,
-	// and every admission and debit blocks on this mutex.
-	memoTTL := capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout))
-
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -481,14 +488,14 @@ func (l *TPMLimiter) cleanup() {
 		}
 	}
 	// Cap memos are what let a debit rebuild an evicted bucket, so they are held
-	// far longer than the bucket itself. Past this horizon no request that was
-	// admitted against the memo can still be running, and keeping it would grow
-	// the map by one entry for every key the process ever saw. The horizon comes
-	// from the live request_timeout on every sweep, so an operator raising the
-	// timeout moves it too.
-	memoCutoff := now.Add(-memoTTL)
+	// far longer than the bucket itself. Each carries its own horizon, stamped
+	// from the request_timeout in force when it was written, so an operator
+	// changing that setting cannot strand a request that was already admitted.
+	// Past its horizon no request the memo was written for can still be running,
+	// and keeping it would grow the map by one entry for every key the process
+	// ever saw.
 	for key, memo := range l.caps {
-		if memo.lastUsed.Before(memoCutoff) {
+		if now.Sub(memo.lastUsed) > memo.ttl {
 			delete(l.caps, key)
 		}
 	}
