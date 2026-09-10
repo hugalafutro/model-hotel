@@ -1,65 +1,19 @@
 package proxy
 
 import (
-	"context"
 	"encoding/json"
-	"fmt"
-	"log/slog"
 	"strings"
-	"sync"
 	"testing"
 )
 
-// These tests replace the process-wide slog default, so they must not run in
-// parallel with anything else in this package that logs.
-//
-// attrCaptureHandler records the message AND its attributes, which is the whole
-// point here: the leak this guards against travels in an attribute value, so a
-// handler that keeps only the message would assert nothing.
-type attrCaptureHandler struct {
-	mu    *sync.Mutex
-	lines *[]string
-	attrs []slog.Attr
-}
-
-func (h *attrCaptureHandler) Enabled(context.Context, slog.Level) bool { return true }
-
-func (h *attrCaptureHandler) Handle(_ context.Context, r slog.Record) error {
-	var b strings.Builder
-	b.WriteString(r.Message)
-	for _, a := range h.attrs {
-		fmt.Fprintf(&b, " %s=%v", a.Key, a.Value)
-	}
-	r.Attrs(func(a slog.Attr) bool {
-		fmt.Fprintf(&b, " %s=%v", a.Key, a.Value)
-		return true
-	})
-	h.mu.Lock()
-	defer h.mu.Unlock()
-	*h.lines = append(*h.lines, b.String())
-	return nil
-}
-
-func (h *attrCaptureHandler) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &attrCaptureHandler{mu: h.mu, lines: h.lines, attrs: append(append([]slog.Attr{}, h.attrs...), attrs...)}
-}
-
-func (h *attrCaptureHandler) WithGroup(string) slog.Handler { return h }
-
-// TestLogUpstreamModel_LogsTheModelNotTheBody pins the no-content-logging
+// TestUpstreamModelAttr_CarriesTheModelNotTheBody pins the no-content-logging
 // invariant on the one debug line that reads the upstream body. The value used
 // to be the body sliced up to its first comma, logged whenever that slice held
 // the token "model", and a caller controls their own field names: a nested
-// object with a model key put the caller's text in the log verbatim, and a
-// comma-free model value was logged whole.
-func TestLogUpstreamModel_LogsTheModelNotTheBody(t *testing.T) {
-	var logged []string
-	var mu sync.Mutex
-	original := slog.Default()
-	t.Cleanup(func() { slog.SetDefault(original) })
-	slog.SetDefault(slog.New(&attrCaptureHandler{mu: &mu, lines: &logged}))
-
-	// A nested model key before the first comma: this is the shape the old slice
+// object with a model key put the caller's text in the log verbatim.
+func TestUpstreamModelAttr_CarriesTheModelNotTheBody(t *testing.T) {
+	t.Parallel()
+	// A nested model key before the first comma is the shape the old slice
 	// logged, caller text and all. Marshal sorts the keys, so metadata leads.
 	const secret = "caller text with no comma at all"
 	body, err := json.Marshal(map[string]any{
@@ -69,16 +23,13 @@ func TestLogUpstreamModel_LogsTheModelNotTheBody(t *testing.T) {
 	if err != nil {
 		t.Fatalf("marshal body: %v", err)
 	}
-	logUpstreamModel(body)
 
-	mu.Lock()
-	got := strings.Join(logged, "\n")
-	mu.Unlock()
-	if !strings.Contains(got, "upstream body model") {
-		t.Fatalf("expected the model line to be logged, got %q", got)
+	got, ok := upstreamModelAttr(body)
+	if !ok {
+		t.Fatal("a body naming a model should log one")
 	}
-	if !strings.Contains(got, "upstream_model=gpt-5") {
-		t.Errorf("the line should carry the model under upstream_model, got %q", got)
+	if got != "gpt-5" {
+		t.Errorf("logged value = %q, want the model alone", got)
 	}
 	if strings.Contains(got, secret) {
 		t.Errorf("request content reached the log: %q", got)
@@ -86,87 +37,61 @@ func TestLogUpstreamModel_LogsTheModelNotTheBody(t *testing.T) {
 }
 
 // A body carrying no model, or one that does not decode at all, logs nothing
-// rather than falling back to raw bytes.
-func TestLogUpstreamModel_SilentWithoutAModel(t *testing.T) {
-	var logged []string
-	var mu sync.Mutex
-	original := slog.Default()
-	t.Cleanup(func() { slog.SetDefault(original) })
-	slog.SetDefault(slog.New(&attrCaptureHandler{mu: &mu, lines: &logged}))
-
-	logUpstreamModel([]byte(`{"messages":[{"role":"user","content":"secret"}]}`))
-	logUpstreamModel([]byte(`not json at all, secret`))
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(logged) != 0 {
-		t.Errorf("expected no log lines, got %v", logged)
+// rather than falling back to raw bytes. The second case is what keeps a
+// multipart body out of the debug log.
+func TestUpstreamModelAttr_SilentWithoutAModel(t *testing.T) {
+	t.Parallel()
+	for _, body := range []string{
+		`{"messages":[{"role":"user","content":"secret"}]}`,
+		`not json at all, secret`,
+		"--boundary\r\nContent-Disposition: form-data; name=\"model\"\r\n\r\nsecret\r\n",
+	} {
+		if got, ok := upstreamModelAttr([]byte(body)); ok {
+			t.Errorf("body %q logged %q, want nothing", body, got)
+		}
 	}
 }
 
-// The decode is the expensive half, and bodies reach tens of megabytes, so it
-// must not run at all when no debug record would be emitted.
-func TestLogUpstreamModel_SilentWhenDebugIsOff(t *testing.T) {
-	var logged []string
-	var mu sync.Mutex
-	original := slog.Default()
-	t.Cleanup(func() { slog.SetDefault(original) })
-	slog.SetDefault(slog.New(&levelGate{
-		inner: &attrCaptureHandler{mu: &mu, lines: &logged},
-		level: slog.LevelInfo,
-	}))
-
-	logUpstreamModel([]byte(`{"model":"gpt-5"}`))
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(logged) != 0 {
-		t.Errorf("expected nothing logged with debug off, got %v", logged)
-	}
-}
-
-// A model value is caller text, so it is bounded like any other upstream string
-// rather than logged at whatever length the caller chose.
-func TestLogUpstreamModel_BoundsTheValue(t *testing.T) {
-	var logged []string
-	var mu sync.Mutex
-	original := slog.Default()
-	t.Cleanup(func() { slog.SetDefault(original) })
-	slog.SetDefault(slog.New(&attrCaptureHandler{mu: &mu, lines: &logged}))
-
+// A model value is caller text, so it is bounded rather than logged at whatever
+// length the caller chose.
+func TestUpstreamModelAttr_BoundsTheValue(t *testing.T) {
+	t.Parallel()
 	body, err := json.Marshal(map[string]any{"model": strings.Repeat("m", 4096)})
 	if err != nil {
 		t.Fatalf("marshal: %v", err)
 	}
-	logUpstreamModel(body)
-
-	mu.Lock()
-	defer mu.Unlock()
-	if len(logged) != 1 {
-		t.Fatalf("expected one line, got %v", len(logged))
+	got, ok := upstreamModelAttr(body)
+	if !ok {
+		t.Fatal("a body naming a model should log one")
 	}
-	if len(logged[0]) > 512 {
-		t.Errorf("logged line is %d bytes, want the model bounded", len(logged[0]))
+	// The sanitizer marks a value it truncated, so the result is the cap plus
+	// that marker rather than exactly the cap.
+	if len(got) > upstreamModelLogCap+16 {
+		t.Errorf("logged value is %d bytes, want the cap plus a truncation marker", len(got))
+	}
+	if !strings.HasPrefix(got, strings.Repeat("m", 64)) {
+		t.Errorf("logged value = %q, want the head of the model kept", got)
 	}
 }
 
-// levelGate refuses records below its level, the way a production handler
-// configured at Info does.
-type levelGate struct {
-	inner slog.Handler
-	level slog.Level
-}
+// TestLogUpstreamModel_SkipsTheDecodeWhenDebugIsOff proves the gate does the
+// thing it exists for. Asserting that nothing was logged would pass either way,
+// since the handler drops the record anyway; the decode counter is what
+// distinguishes a skipped parse from a parsed-then-dropped one.
+func TestLogUpstreamModel_SkipsTheDecodeWhenDebugIsOff(t *testing.T) {
+	original := debugEnabled
+	t.Cleanup(func() { debugEnabled = original })
 
-func (h *levelGate) Enabled(_ context.Context, l slog.Level) bool { return l >= h.level }
+	debugEnabled = func() bool { return false }
+	before := upstreamModelDecodes.Load()
+	logUpstreamModel([]byte(`{"model":"gpt-5"}`))
+	if after := upstreamModelDecodes.Load(); after != before {
+		t.Errorf("decode ran with debug off: %d -> %d", before, after)
+	}
 
-func (h *levelGate) Handle(ctx context.Context, r slog.Record) error {
-	return h.inner.Handle(ctx, r)
-}
-
-func (h *levelGate) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return &levelGate{inner: h.inner.WithAttrs(attrs), level: h.level}
-}
-
-func (h *levelGate) WithGroup(name string) slog.Handler {
-	return &levelGate{inner: h.inner.WithGroup(name), level: h.level}
+	debugEnabled = func() bool { return true }
+	logUpstreamModel([]byte(`{"model":"gpt-5"}`))
+	if after := upstreamModelDecodes.Load(); after == before {
+		t.Error("decode should run when debug is on")
+	}
 }
