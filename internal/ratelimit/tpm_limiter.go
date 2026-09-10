@@ -65,8 +65,12 @@ type capMemo struct {
 }
 
 // capMemoTTL bounds how long a cap memo outlives its bucket. It has to exceed
-// the longest request the gateway can hold open, which is request_timeout times
-// ten for a stream, so this covers every request_timeout up to two hours.
+// the longest request the gateway can hold open, and that is not a constant:
+// the ceiling is request_timeout (default one minute) times ten for a stream,
+// and request_timeout is an operator-set duration with no upper bound. A day
+// covers every request_timeout up to two hours and twenty-four minutes. Past
+// that a debit can still be dropped, which is the same failure this memo exists
+// to fix, one order of magnitude further out.
 const capMemoTTL = 24 * time.Hour
 
 // tpmEntry is a per-key token-budget bucket. The rate.Limiter is configured as

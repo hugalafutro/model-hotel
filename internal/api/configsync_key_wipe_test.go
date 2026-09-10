@@ -89,6 +89,12 @@ func TestConfigSync_RefusesImportThatLeavesNoKeys(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("import that leaves no keys: code=%d, want 400", rec.Code)
 	}
+	// Named, not just counted: an ingest-side rejection of the unknown provider
+	// restriction would also be a rolled-back 400, and would never reach the
+	// delete this rail exists to catch.
+	if !strings.Contains(rec.Body.String(), "virtual key") {
+		t.Fatalf("refusal body = %q, want the key rail's own message", rec.Body.String())
+	}
 
 	names := map[string]bool{}
 	rows, err := apiTestDB.Pool().Query(context.Background(), `SELECT name FROM virtual_keys`)
@@ -102,6 +108,9 @@ func TestConfigSync_RefusesImportThatLeavesNoKeys(t *testing.T) {
 			t.Fatalf("scan key: %v", err)
 		}
 		names[n] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatalf("iterate keys: %v", err)
 	}
 	if !names["live-key"] {
 		t.Error("the refused import must roll back, leaving the member's own key")

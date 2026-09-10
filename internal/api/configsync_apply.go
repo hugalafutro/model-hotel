@@ -234,6 +234,14 @@ func enforceSourceGenFence(ctx context.Context, tx pgx.Tx, sourceGen *int64) err
 // also has no providers is a harmless no-op and is allowed (fleet bootstrap or
 // keys-only sync onto an empty member).
 func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []ExportProvider) error {
+	// Locked before the count and held to commit, for the same reason the key
+	// rail locks: a provider created between this count and the reconcile would
+	// be deleted for being absent from an envelope written before it existed.
+	// Providers are locked before virtual_keys here and nowhere in the other
+	// order, so two imports cannot deadlock against each other.
+	if _, err := tx.Exec(ctx, `LOCK TABLE providers IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+		return err
+	}
 	if len(providers) == 0 {
 		var existing int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM providers`).Scan(&existing); err != nil {
@@ -261,7 +269,8 @@ func guardAgainstVirtualKeyWipe(ctx context.Context, tx pgx.Tx, keys []ExportVK)
 	// reconcile that follows: a key created in that window would be deleted for
 	// being absent from the envelope, and the survivor check would read a member
 	// that started empty. SHARE ROW EXCLUSIVE blocks writers and other imports
-	// while still allowing plain reads.
+	// while still allowing plain reads. Always taken after the providers lock,
+	// so the two rails cannot deadlock.
 	if _, err := tx.Exec(ctx, `LOCK TABLE virtual_keys IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 		return false, err
 	}
