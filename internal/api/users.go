@@ -154,7 +154,7 @@ func (req *userRequest) limits() user.Limits {
 // validate normalizes and checks the shared create/update fields.
 func (req *userRequest) validate() (user.Role, error) {
 	req.Username = strings.TrimSpace(req.Username)
-	if req.Username == "" || len(req.Username) > 64 {
+	if req.Username == "" || len(req.Username) > user.MaxUsernameBytes {
 		return "", errors.New("username must be 1-64 characters")
 	}
 	if strings.ContainsAny(req.Username, " \t\n") {

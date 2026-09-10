@@ -8,7 +8,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptrace"
-	"strings"
 	"sync/atomic"
 	"time"
 
@@ -620,11 +619,7 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 		if needsRewrite {
 			upstreamBody = paramrewrite.BuildUpstreamBody(st.bodyBytes, providerType, candidate.model.ModelID, st.reqModel, st.isStreaming, &h.deprecationCache, &h.paramRenameCache, nil, learnedScopeFor(candidate))
 		}
-		// Log the actual model name in the upstream body for debugging rewrite
-		// issues. Chat-only: multipart bodies must never reach debug logs.
-		if upstreamModel, _, _ := strings.Cut(string(upstreamBody), ","); strings.Contains(upstreamModel, `"model"`) {
-			debuglog.Debug("proxy: upstream body model", "upstream_model_snippet", upstreamModel)
-		}
+		logUpstreamModel(upstreamBody)
 	}
 
 	proxyReq, err := newRequestWithContext(ctx, "POST", targetURL, bytes.NewReader(upstreamBody))

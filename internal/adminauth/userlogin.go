@@ -128,6 +128,19 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 		respondBadRequest(w, "username and password are required", nil)
 		return
 	}
+	// No account can carry a username this long: create and update cap it at the
+	// same number of bytes. Refusing here keeps a body-sized string from ever
+	// becoming a per-account throttle key or a database query, and answers with
+	// the same 401 an unknown user gets, so it tells an attacker nothing new.
+	// The failure is recorded against the per-IP throttle, which is what
+	// throttleKey holds; the per-account one is never touched, which is the
+	// point.
+	if len(req.Username) > user.MaxUsernameBytes {
+		h.throttle.RecordFailure(throttleKey)
+		debuglog.Warn("userlogin: login failed", "remote_addr", clientip.From(r), "reason", "username too long")
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
+		return
+	}
 
 	// Per-target-account backoff: without this, a brute force spread across
 	// source IPs never trips the per-IP throttle above.

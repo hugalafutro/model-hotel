@@ -16,6 +16,12 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
+// MaxUsernameBytes is the longest username an account can carry, measured in
+// bytes because that is what the create and update handlers check. Login reads
+// it too: a longer string cannot name an account, so it is refused before it
+// becomes a throttle key or a query.
+const MaxUsernameBytes = 64
+
 // Role separates full operators from grant-limited users.
 type Role string
 

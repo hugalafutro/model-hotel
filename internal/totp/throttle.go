@@ -1,6 +1,7 @@
 package totp
 
 import (
+	"crypto/sha256"
 	"sync"
 	"time"
 )
@@ -8,6 +9,17 @@ import (
 // maxThrottleEntries bounds the in-memory key map so a key-rotating attacker
 // cannot grow it without limit; once exceeded, expired entries are swept.
 const maxThrottleEntries = 4096
+
+// digest reduces a caller's key to a fixed 32 bytes. Callers key on values that
+// arrive from the network (a client address, or the username field of an
+// unauthenticated login body, which is only bounded by the JSON body limit), and
+// the map holds an entry until a later failure sweeps it. Hashing means an
+// entry costs the same whatever the caller passed, and keys stay opaque: the map
+// only ever compares them.
+func digest(key string) string {
+	sum := sha256.Sum256([]byte(key))
+	return string(sum[:])
+}
 
 // Throttle applies per-key exponential backoff to repeated failures, layered on
 // top of the per-IP request-rate limiter. It is in-memory and single-instance
@@ -52,7 +64,7 @@ func NewThrottle(maxFailures int, baseDelay, maxDelay time.Duration) *Throttle {
 func (t *Throttle) Allowed(key string) (bool, time.Duration) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	e := t.entries[key]
+	e := t.entries[digest(key)]
 	if e == nil {
 		return true, 0
 	}
@@ -71,10 +83,11 @@ func (t *Throttle) RecordFailure(key string) {
 	if len(t.entries) > maxThrottleEntries {
 		t.sweepLocked(now)
 	}
-	e := t.entries[key]
+	k := digest(key)
+	e := t.entries[k]
 	if e == nil {
 		e = &throttleEntry{}
-		t.entries[key] = e
+		t.entries[k] = e
 	}
 	e.failures++
 	e.lastSeen = now
@@ -87,7 +100,7 @@ func (t *Throttle) RecordFailure(key string) {
 func (t *Throttle) RecordSuccess(key string) {
 	t.mu.Lock()
 	defer t.mu.Unlock()
-	delete(t.entries, key)
+	delete(t.entries, digest(key))
 }
 
 // backoffFor returns the lock duration for a given failure count: 0 until

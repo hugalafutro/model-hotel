@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -186,6 +187,14 @@ func TestUserLogin_Failures(t *testing.T) {
 		{"empty password", `{"username":"alice","password":""}`, http.StatusBadRequest},
 		{"empty username", `{"username":"","password":"x"}`, http.StatusBadRequest},
 		{"malformed body", `{"username":`, http.StatusBadRequest},
+		// No account can be this long: create caps a username at 64. Answering
+		// with the same 401 an unknown user gets keeps the body-sized string out
+		// of the per-account throttle without telling an attacker anything.
+		{"over-long username", `{"username":"` + strings.Repeat("a", 65) + `","password":"whatever1"}`, http.StatusUnauthorized},
+		// The bound is bytes, the same measure create and update use, so a name
+		// of 64 multibyte characters is over it on both paths and consistently
+		// refused rather than creatable-but-unable-to-log-in.
+		{"64 multibyte characters", `{"username":"` + strings.Repeat("é", 64) + `","password":"whatever1"}`, http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -744,5 +753,20 @@ func TestUserLogin_TotpPostgresStoreRoundTrip(t *testing.T) {
 	}
 	if n != 0 {
 		t.Errorf("user_totp rows survived user deletion: %d", n)
+	}
+}
+
+// TestUserLogin_MaxLengthUsernameCanLogIn pins the bound as inclusive, end to
+// end. Asserting a 401 on the over-long case cannot do that: an off-by-one
+// would refuse the longest legal account and still answer 401, which is what
+// an unknown user gets anyway.
+func TestUserLogin_MaxLengthUsernameCanLogIn(t *testing.T) {
+	name := strings.Repeat("a", user.MaxUsernameBytes)
+	u := testUser(t, name, "correct-horse", true)
+	_, _, _, r := newLoginFixture(t, u)
+
+	w := doLogin(t, r, `{"username":"`+name+`","password":"correct-horse"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("login with a %d byte username = %d, want 200 (body %s)", len(name), w.Code, w.Body.String())
 	}
 }
