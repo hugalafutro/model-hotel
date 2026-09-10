@@ -91,11 +91,12 @@ const settingsKeyRequestTimeout = "request_timeout"
 // proxy's own default implies.
 const defaultRequestTimeout = time.Minute
 
-// settingsReadTimeout bounds the horizon lookup. It is generous for one indexed
-// row served mostly from the settings cache, and short enough that a database
-// that has stopped answering costs the lookup the default horizon rather than
-// the wait.
-const settingsReadTimeout = 2 * time.Second
+// settingsReadTimeout bounds the horizon lookup. The value only sizes a
+// retention window measured in days, so it is not worth waiting on: this is
+// generous for one indexed row that the settings cache usually answers outright,
+// and short enough that a database which has stopped answering costs an
+// admission a barely visible pause and the default horizon.
+const settingsReadTimeout = 100 * time.Millisecond
 
 // minCapMemoTTL floors the cap-memo horizon. Against the factor below, the
 // crossover is a 36 minute request_timeout: anything shorter derives less than a
@@ -122,11 +123,12 @@ const capMemoTimeoutFactor = 40
 // A request_timeout that is unset or unparseable reads as the proxy's own
 // default and derives the floor. So does an explicit zero or negative one,
 // which is not "no timeout" on the proxy's side either: it hands the upstream
-// attempt a context that has already expired. One large enough to overflow the multiplication
-// saturates, so the horizon stays at least as long as a request under that
-// timeout can live. Letting the product wrap negative would collapse it to the
-// floor instead, which is far shorter than such a request, and the memo would be
-// swept out from under it.
+// attempt a context that has already expired. One large enough to overflow the
+// multiplication saturates rather than wrapping, since a wrapped product
+// collapses onto the floor, far shorter than the request it has to outlast, and
+// the memo would be swept out from under it. Saturation does not scale with such
+// a timeout, it only stops the arithmetic running backwards, and what it costs
+// is holding those memos for the life of the process.
 func capMemoTTL(requestTimeout time.Duration) time.Duration {
 	if requestTimeout <= 0 {
 		return minCapMemoTTL
@@ -457,10 +459,14 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 // is replaced so the new budget takes effect immediately.
 func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpmEntry {
 	// Resolved before taking the lock, since every admission blocks on this mutex.
-	memoExpiry := time.Now().Add(l.memoHorizon(ctx))
+	// The deadline itself is stamped under the lock, so waiting for it does not
+	// eat into the horizon the request just claimed.
+	horizon := l.memoHorizon(ctx)
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	memoExpiry := time.Now().Add(horizon)
 
 	entry, ok := l.buckets[keyHash]
 	if !ok || entry.tpm != tpm {
@@ -498,7 +504,8 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // claim the floor for a request entitled to much longer. Detaching also drops
 // the caller's deadline, and the settings repository takes its query deadline
 // from the caller and sets none of its own, so the read carries a bound here
-// instead.
+// instead, sized so that waiting one out costs an admission far less than the
+// value being read is worth.
 //
 // Exceeding that bound reads as the default, and so does any other failed read:
 // GetDuration cannot tell a failed read from an unset key. On a gateway running

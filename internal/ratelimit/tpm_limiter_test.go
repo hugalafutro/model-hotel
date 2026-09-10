@@ -1150,6 +1150,36 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_HorizonReadFallsBackWhenSettingsHang is what that bound buys:
+// a settings read that never answers has to end in the default horizon and let
+// admission carry on, rather than holding the request until the client gives up.
+func TestTPMLimiter_HorizonReadFallsBackWhenSettingsHang(t *testing.T) {
+	l := NewTPMLimiter(hangingSettings{SettingsReader: newStubSettings()})
+	t.Cleanup(l.Stop)
+
+	start := time.Now()
+	l.getEntry(context.Background(), "k", 500)
+	elapsed := time.Since(start)
+
+	if got := remainingMemoHorizon(t, l, "k"); got != minCapMemoTTL {
+		t.Errorf("a settings read that hangs should derive the floor, got %v", got)
+	}
+	if elapsed > 5*settingsReadTimeout {
+		t.Errorf("admission waited %v on a hung settings read, bound is %v", elapsed, settingsReadTimeout)
+	}
+}
+
+// hangingSettings stands in for a database that has stopped answering: the read
+// returns only once its own deadline has passed.
+type hangingSettings struct {
+	SettingsReader
+}
+
+func (h hangingSettings) GetDuration(ctx context.Context, _ string, def time.Duration) time.Duration {
+	<-ctx.Done()
+	return def
+}
+
 // deadlineSpy records the deadline the horizon read is handed.
 type deadlineSpy struct {
 	SettingsReader
