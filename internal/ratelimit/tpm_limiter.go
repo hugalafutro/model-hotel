@@ -118,7 +118,9 @@ const capMemoTimeoutFactor = 40
 // reopen the dropped-debit hole the memo exists to close.
 //
 // A request_timeout that is unset or unparseable reads as the proxy's own
-// default and derives the floor. One large enough to overflow the multiplication
+// default and derives the floor. So does an explicit zero or negative one,
+// which is not "no timeout" on the proxy's side either: it hands the upstream
+// attempt a context that has already expired. One large enough to overflow the multiplication
 // saturates, so the horizon stays at least as long as a request under that
 // timeout can live. Letting the product wrap negative would collapse it to the
 // floor instead, which is far shorter than such a request, and the memo would be

@@ -27,7 +27,12 @@ func (s *stubIPSettings) GetBool(_ context.Context, key string, def bool) bool {
 	return def
 }
 
-func (s *stubIPSettings) GetDuration(_ context.Context, key string, def time.Duration) time.Duration {
+func (s *stubIPSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	// Mirrors stubSettings: a cancelled context yields the default, the way the
+	// real repository does when a cache miss has to reach the database.
+	if ctx.Err() != nil {
+		return def
+	}
 	if v, ok := s.values[key]; ok {
 		if d, err := time.ParseDuration(v); err == nil {
 			return d

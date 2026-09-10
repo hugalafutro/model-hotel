@@ -1126,6 +1126,45 @@ func TestTPMLimiter_RejectedRequestStillClaimsTheHorizon(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_HorizonReadCarriesItsOwnDeadline pins the bound on the detached
+// read. Detaching drops the caller's deadline and the settings repository sets
+// none of its own, so without a bound here a database that has stopped
+// answering would hold up admission indefinitely. Asserting the deadline the
+// read is handed proves the bound without waiting for it to expire.
+func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
+	s := newStubSettings()
+	l := NewTPMLimiter(&deadlineSpy{SettingsReader: s})
+	t.Cleanup(l.Stop)
+
+	l.memoHorizon(context.Background())
+
+	spy, ok := l.settings.(*deadlineSpy)
+	if !ok {
+		t.Fatal("the limiter should still hold the spy")
+	}
+	if !spy.sawDeadline {
+		t.Fatal("the horizon read must carry a deadline of its own")
+	}
+	if spy.budget > settingsReadTimeout || spy.budget <= 0 {
+		t.Errorf("the read should be bounded by %v, got %v", settingsReadTimeout, spy.budget)
+	}
+}
+
+// deadlineSpy records the deadline the horizon read is handed.
+type deadlineSpy struct {
+	SettingsReader
+	sawDeadline bool
+	budget      time.Duration
+}
+
+func (d *deadlineSpy) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	if deadline, ok := ctx.Deadline(); ok {
+		d.sawDeadline = true
+		d.budget = time.Until(deadline)
+	}
+	return d.SettingsReader.GetDuration(ctx, key, def)
+}
+
 // ageMemo winds a cap memo's deadline back by d, standing in for d of elapsed
 // time without sleeping. The memo's claimed horizon is unchanged; only how much
 // of it is left moves.
