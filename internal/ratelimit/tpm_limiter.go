@@ -85,10 +85,12 @@ type capMemo struct {
 	// one too, and it only ever pushes the deadline out.
 	//
 	// That is what makes changing request_timeout safe in both directions.
-	// Lowering it cannot pull a deadline back in. Raising it cannot outrun one
+	// Lowering it cannot pull a deadline back in. Raising it does not outrun one
 	// either, because the proxy fixes a request's timeout once, before its first
-	// attempt, so a request already running keeps the timeout its claim was
-	// sized against.
+	// attempt, and every admission after the raise claims against the new
+	// setting. The gap is the request whose own claim was made in the moment
+	// before the raise reached this limiter, which the next admission on that
+	// key repairs.
 	//
 	// The claims are absolute times rather than a duration, so a long timeout
 	// inflates the deadline only until the request it was claimed for could have

@@ -1278,6 +1278,9 @@ func TestTPMLimiter_SweepRefreshesTheHorizonMark(t *testing.T) {
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
 	l.mu.Unlock()
+	// That admission recorded the mark on its way through, so clear it: the
+	// assertion below is about the sweep's own read and would pass without one.
+	l.lastGoodHorizon.Store(0)
 
 	l.sweep()
 
