@@ -82,19 +82,21 @@ type capMemo struct {
 	// expiresAt is when this memo may be swept: the latest horizon any admission
 	// against it has claimed. The claim is made when the bucket is resolved,
 	// before the budget decides, so a request turned away with a 429 has claimed
-	// one too. It only ever pushes the deadline out, so
-	// changing the setting cannot strand a request already admitted under the
-	// old one. Raising it cannot strand one either, because the proxy fixes a
-	// request's timeout once, before its first attempt, so a request already
-	// running keeps the timeout its claim was sized against. Because the claims
-	// are absolute times rather than a duration, a
-	// long timeout inflates the deadline only until the request it was claimed
-	// for could have finished, after which ordinary admissions carry it again.
-	// The exception is a request_timeout large enough to saturate the horizon,
-	// which pushes the deadline centuries out and so holds the memo for the life
-	// of the process. The map is keyed by
-	// virtual key hash and owner id either way, so it is bounded by the rows
-	// those come from rather than by traffic.
+	// one too, and it only ever pushes the deadline out.
+	//
+	// That is what makes changing request_timeout safe in both directions.
+	// Lowering it cannot pull a deadline back in. Raising it cannot outrun one
+	// either, because the proxy fixes a request's timeout once, before its first
+	// attempt, so a request already running keeps the timeout its claim was
+	// sized against.
+	//
+	// The claims are absolute times rather than a duration, so a long timeout
+	// inflates the deadline only until the request it was claimed for could have
+	// finished, after which ordinary admissions carry the memo again. A
+	// request_timeout large enough to saturate the horizon is the exception: it
+	// pushes the deadline centuries out and holds the memo for the life of the
+	// process. Either way the map is keyed by virtual key hash and owner id, so
+	// it is bounded by the rows those come from rather than by traffic.
 	expiresAt time.Time
 }
 
@@ -552,11 +554,16 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	// same instant it expired still counts. The mark only rises, so recording a
 	// genuine timeout's default costs nothing.
 	l.rememberHorizon(horizon)
-	if readCtx.Err() == nil {
+	// Only a value the default itself derives can have come from a read that
+	// gave up: anything else was answered from the setting, whatever the
+	// deadline did in the moment after. That distinction matters because the
+	// deadline can fire between the read returning and this check, and a lowered
+	// request_timeout must not be discarded on the strength of that.
+	if readCtx.Err() == nil || horizon != capMemoTTL(defaultRequestTimeout) {
 		return horizon
 	}
 
-	// The read ran out of time, so what came back may be the default's horizon
+	// The read ran out of time, so what came back is the default's horizon
 	// rather than this gateway's. Keep whichever is longer: too long only costs
 	// retention, too short costs a debit.
 	mark := time.Duration(l.lastGoodHorizon.Load())
@@ -594,7 +601,10 @@ func (l *TPMLimiter) rememberHorizon(horizon time.Duration) {
 func (l *TPMLimiter) warnedSlowRead() bool {
 	now := time.Now()
 	last := l.lastSlowReadWarn.Load()
-	if last != 0 && now.Sub(time.Unix(0, last)) < slowReadWarnInterval {
+	// A negative gap means the wall clock stepped backwards over the stamp.
+	// Treating that as "not yet due" would silence the warning until the clock
+	// caught up, so only a gap that is both forwards and short suppresses it.
+	if gap := now.Sub(time.Unix(0, last)); last != 0 && gap >= 0 && gap < slowReadWarnInterval {
 		return false
 	}
 	return l.lastSlowReadWarn.CompareAndSwap(last, now.UnixNano())

@@ -1192,7 +1192,43 @@ func TestTPMLimiter_HungReadKeepsTheLastKnownHorizon(t *testing.T) {
 
 	hang.hang.Store(true)
 	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
-		t.Errorf("a hung read should keep the last known horizon, got %v", got)
+		t.Fatalf("a hung read should keep the last known horizon, got %v", got)
+	}
+
+	// What that horizon is for: a memo claimed while the database is hanging has
+	// to outlive the sweep by as long as the gateway's real request_timeout
+	// implies, not by the default's day.
+	l.getEntry(context.Background(), "k", 500)
+	ageMemo(t, l, "k", minCapMemoTTL+time.Hour)
+	l.cleanup()
+	if !memoLives(l, "k") {
+		t.Error("a memo claimed during the hang should survive past the default's floor")
+	}
+}
+
+// TestRememberHorizon covers the high-water mark under contention: a mark can
+// only climb, so racing writers below it change nothing and the highest wins.
+func TestRememberHorizon(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	l.rememberHorizon(100 * time.Hour)
+
+	var wg sync.WaitGroup
+	for i := range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// One writer is above the mark, the rest below it.
+			if i == 7 {
+				l.rememberHorizon(200 * time.Hour)
+				return
+			}
+			l.rememberHorizon(time.Duration(i) * time.Hour)
+		}()
+	}
+	wg.Wait()
+
+	if got := time.Duration(l.lastGoodHorizon.Load()); got != 200*time.Hour {
+		t.Errorf("the mark should hold the highest horizon offered, got %v", got)
 	}
 }
 
