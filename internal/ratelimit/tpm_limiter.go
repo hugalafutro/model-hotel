@@ -118,7 +118,9 @@ const defaultRequestTimeout = time.Minute
 // only sizes a retention window measured in days, so it is not worth waiting on:
 // this is generous for one indexed row that the settings cache usually answers
 // outright, and short enough that a database which has stopped answering costs
-// an admission a barely visible pause and whatever horizon is already known.
+// an admission a pause rather than a stall, and leaves it on whatever horizon is
+// already known. Under load that pause is paid per admission, which is the price
+// of not caching a value that has to track the setting.
 const settingsReadTimeout = 100 * time.Millisecond
 
 // markRefreshTimeout bounds the same lookup off the request path, where a slow
@@ -651,7 +653,14 @@ func (l *TPMLimiter) refreshHorizonMark() {
 	ctx, cancel := context.WithTimeout(context.Background(), markRefreshTimeout)
 	defer cancel()
 
-	l.rememberHorizon(capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout)))
+	horizon := capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	l.rememberHorizon(horizon)
+	if ctx.Err() != nil && l.warnedSlowRead() {
+		// Sharing the admission path's rate limit on purpose: both lines report
+		// the same store being too slow to answer, and an operator needs to hear
+		// it once, not from each of them.
+		debuglog.Warn("ratelimit: timed out refreshing the cap memo horizon", "horizon", horizon)
+	}
 }
 
 func (l *TPMLimiter) cleanup() {

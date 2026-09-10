@@ -1231,7 +1231,7 @@ func TestTPMLimiter_HungReadKeepsTheLastKnownHorizon(t *testing.T) {
 }
 
 // TestTPMLimiter_ClaimsAndSweepsRace runs admissions against the sweeper on one
-// key, which is what production does every ten minutes. Under the race detector
+// key, which is what production does on every sweep tick. Under the race detector
 // this is the check that the memo's deadline is claimed and read under the same
 // lock the sweep takes.
 func TestTPMLimiter_ClaimsAndSweepsRace(t *testing.T) {
@@ -1457,6 +1457,21 @@ func (s *switchableSettings) GetDuration(ctx context.Context, key string, def ti
 		return def
 	}
 	return s.SettingsReader.GetDuration(ctx, key, def)
+}
+
+// TestTPMLimiter_AdmissionSurvivesAHangingStore is the contract the bound exists
+// for, seen from outside: a request still gets an answer while the settings
+// store is refusing to, rather than being held until the client gives up.
+func TestTPMLimiter_AdmissionSurvivesAHangingStore(t *testing.T) {
+	l := NewTPMLimiter(hangingSettings{SettingsReader: newStubSettings()})
+	t.Cleanup(l.Stop)
+
+	if !tpmAdmit(t, l, "k", 500) {
+		t.Fatal("a request should still be admitted while the settings store hangs")
+	}
+	if got := remainingMemoHorizon(t, l, "k"); got != minCapMemoTTL {
+		t.Errorf("with nothing known the claim should be the floor, got %v", got)
+	}
 }
 
 // hangingSettings stands in for a database that has stopped answering: the read

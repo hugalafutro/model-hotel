@@ -28,9 +28,11 @@ func (s *stubIPSettings) GetBool(_ context.Context, key string, def bool) bool {
 }
 
 func (s *stubIPSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
-	// A cancelled context yields the default, the way the real repository does
-	// when a cache miss has to reach the database. Like this stub's other
-	// getters it takes no lock, since nothing here reads it concurrently.
+	// The IP limiter reads no durations of its own; this exists because it takes
+	// the same SettingsReader the TPM limiter does. A cancelled context yields
+	// the default, the way the real repository does when a cache miss has to
+	// reach the database. Like this stub's other getters it takes no lock, since
+	// nothing here reads it concurrently.
 	if ctx.Err() != nil {
 		return def
 	}
