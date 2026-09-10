@@ -1020,6 +1020,17 @@ func TestTPMLimiter_CapMemoHorizonThroughTheMiddleware(t *testing.T) {
 	if got := memoHorizon(t, l, "k"); got != 40*time.Hour {
 		t.Errorf("admission should claim the horizon the live setting implies, got %v", got)
 	}
+
+	// A second request on the same key finds a warm bucket. The horizon still has
+	// to be re-claimed there, or a key busy since before the setting was raised
+	// would keep carrying the shorter one.
+	s.set(settingsKeyRequestTimeout, "4h")
+	if !tpmAdmit(t, l, "k", 500) {
+		t.Fatal("the second request should still be inside the budget")
+	}
+	if got := memoHorizon(t, l, "k"); got != 160*time.Hour {
+		t.Errorf("an admission on a warm bucket should re-claim the horizon, got %v", got)
+	}
 }
 
 // TestTPMLimiter_CapMemoSaturatingTimeoutSurvivesTheSweep drives a

@@ -86,6 +86,12 @@ const settingsKeyRequestTimeout = "request_timeout"
 // proxy's own default implies.
 const defaultRequestTimeout = time.Minute
 
+// settingsReadTimeout bounds the horizon lookup on the admission path. It is
+// generous for one indexed row served mostly from the settings cache, and short
+// enough that a database that has stopped answering costs an admission the
+// default horizon rather than the wait.
+const settingsReadTimeout = 2 * time.Second
+
 // minCapMemoTTL floors the cap-memo horizon. Against the factor below, the
 // crossover is a 36 minute request_timeout: anything shorter derives less than a
 // day and lands on this floor, which is every ordinary configuration, so the
@@ -443,14 +449,20 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 // stored bucket's tpm no longer matches (the key's cap changed at runtime) it
 // is replaced so the new budget takes effect immediately.
 func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpmEntry {
-	// Read before taking the lock: every admission and debit blocks on this
-	// mutex. The read is detached from the request's own cancellation because the
+	// Read before taking the lock: every admission blocks on this mutex.
+	//
+	// The read is detached from the request's own cancellation because the
 	// horizon is a property of the setting, not of this request: a client that
 	// disconnects during admission does not stop the proxy completing the
 	// upstream call and debiting it, and a cancelled read would claim the floor
-	// for a request entitled to much longer.
-	memoExpiry := time.Now().Add(capMemoTTL(l.settings.GetDuration(
-		context.WithoutCancel(ctx), settingsKeyRequestTimeout, defaultRequestTimeout)))
+	// for a request entitled to much longer. Detaching also drops the request's
+	// deadline, and the settings repository takes its query deadline from the
+	// caller, so the read carries a bound of its own rather than letting a stuck
+	// database hold up admission. Exceeding it reads as the default, the same as
+	// any other failed read.
+	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
+	memoExpiry := time.Now().Add(capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout)))
+	cancelRead()
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
