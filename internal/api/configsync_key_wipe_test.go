@@ -64,9 +64,10 @@ func TestConfigSync_EmptyKeyListOntoEmptyMemberApplies(t *testing.T) {
 }
 
 // TestConfigSync_RefusesImportThatLeavesNoKeys covers the longer road to the
-// same wipe: the envelope carries keys, so the pre-reconcile rail passes, but
-// every one of them fails to upsert. The delete still removes the member's own
-// keys, and the member ends the transaction with no credentials.
+// same wipe: the envelope carries a key, so the pre-reconcile rail passes, but
+// the key names a provider restriction that does not resolve on this member, so
+// the upsert skips it. The declarative delete still clears the member's own key
+// and the member ends the transaction with no credentials at all.
 func TestConfigSync_RefusesImportThatLeavesNoKeys(t *testing.T) {
 	cleanConfigTables(t)
 	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
@@ -78,22 +79,34 @@ func TestConfigSync_RefusesImportThatLeavesNoKeys(t *testing.T) {
 	r := newConfigSyncRouter(t, configSyncMasterKey)
 
 	env := doExport(t, r)
-	// One key, carrying an owner the envelope's roster cannot resolve, so the
-	// upsert skips it while the delete still clears the member's own key.
-	unresolvable := "nobody"
+	unknownProvider := []string{"a-provider-this-member-does-not-have"}
 	env.Config.VirtualKeys = []ExportVK{{
-		Name: "incoming", KeyHash: "hash-incoming", KeyPreview: "mh-***", OwnerUsername: &unresolvable,
+		Name: "incoming", KeyHash: "hash-incoming", KeyPreview: "mh-***",
+		AllowedProviderNames: &unknownProvider,
 	}}
-	env.Config.Users = nil
 
 	_, rec := doImportGen(t, r, env, nil)
-
-	var keys int
-	if err := apiTestDB.Pool().QueryRow(context.Background(),
-		`SELECT count(*) FROM virtual_keys`).Scan(&keys); err != nil {
-		t.Fatalf("count keys: %v", err)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("import that leaves no keys: code=%d, want 400", rec.Code)
 	}
-	if keys == 0 {
-		t.Fatalf("import left the member with no keys (code=%d body=%q)", rec.Code, rec.Body.String())
+
+	names := map[string]bool{}
+	rows, err := apiTestDB.Pool().Query(context.Background(), `SELECT name FROM virtual_keys`)
+	if err != nil {
+		t.Fatalf("query keys: %v", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var n string
+		if err := rows.Scan(&n); err != nil {
+			t.Fatalf("scan key: %v", err)
+		}
+		names[n] = true
+	}
+	if !names["live-key"] {
+		t.Error("the refused import must roll back, leaving the member's own key")
+	}
+	if names["incoming"] {
+		t.Error("the skipped key must not have landed")
 	}
 }

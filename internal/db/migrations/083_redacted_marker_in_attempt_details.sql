@@ -15,6 +15,11 @@
 -- unlikely such a name is. Only the attempts column is touched, because no
 -- error_message row carries the marker: the fence never ran over the terminal
 -- message.
+--
+-- The column carries no array constraint, and a WHERE clause is not evaluation
+-- order, so every jsonb_array_elements call is fed a value normalized to an
+-- array first. One row holding an object or a scalar would otherwise abort the
+-- migration and with it the startup that runs it.
 UPDATE request_logs AS l
 SET attempts = (
     SELECT jsonb_agg(
@@ -25,12 +30,15 @@ SET attempts = (
         END
         ORDER BY ord
     )
-    FROM jsonb_array_elements(l.attempts) WITH ORDINALITY AS t(a, ord)
+    FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(l.attempts) = 'array' THEN l.attempts ELSE '[]'::jsonb END
+    ) WITH ORDINALITY AS t(a, ord)
 )
-WHERE jsonb_typeof(l.attempts) = 'array'
-  AND EXISTS (
+WHERE EXISTS (
     SELECT 1
-    FROM jsonb_array_elements(l.attempts) AS e
+    FROM jsonb_array_elements(
+        CASE WHEN jsonb_typeof(l.attempts) = 'array' THEN l.attempts ELSE '[]'::jsonb END
+    ) AS e
     WHERE jsonb_typeof(e -> 'detail') = 'string'
       AND e ->> 'detail' LIKE '%[content]%'
-  );
+);

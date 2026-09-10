@@ -44,42 +44,30 @@ const defaultTPM = 0
 type TPMLimiter struct {
 	mu      sync.Mutex
 	buckets map[string]*tpmEntry
-	// assoc maps a key hash to its owner's "user:<uuid>" bucket key so Debit
-	// (which only knows the key hash) can also debit the owner's aggregate
-	// bucket. Refreshed on every admission, evicted alongside idle buckets.
-	assoc map[string]*assocEntry
 	// caps remembers the budget each bucket was last sized to, so a debit that
 	// arrives after the idle sweep evicted the bucket can rebuild it and land
 	// the charge instead of dropping it. A request streaming for longer than
-	// the idle cutoff, on a key with no other traffic, is exactly that case,
-	// and it takes the key's assoc entry with it, so the owner's aggregate
-	// needs the same memory or the owner still gets its minute free.
+	// the idle cutoff, on a key with no other traffic, is exactly that case.
 	//
 	// Entries outlive the buckets and are swept on their own, much longer,
-	// horizon: past capMemoTTL no request can still be in flight, so keeping
-	// them would only grow the map for every key the process ever admitted.
+	// horizon, so the map does not grow by one entry for every key the process
+	// ever admitted.
 	caps     map[string]*capMemo
 	settings SettingsReader
 	stopCh   chan struct{}
 }
 
-// capMemo is the budget (and owner bucket, for a key) a bucket was last built
-// with, kept so an evicted bucket can be rebuilt to take a late debit.
+// capMemo is the budget a bucket was last built with, kept so an evicted bucket
+// can be rebuilt to take a late debit.
 type capMemo struct {
 	tpm      int
-	userKey  string
 	lastUsed time.Time
 }
 
 // capMemoTTL bounds how long a cap memo outlives its bucket. It has to exceed
-// the longest request the gateway will hold open, which the stall watchdog and
-// the upstream timeouts keep far below an hour.
-const capMemoTTL = time.Hour
-
-type assocEntry struct {
-	userKey  string
-	lastUsed time.Time
-}
+// the longest request the gateway can hold open, which is request_timeout times
+// ten for a stream, so this covers every request_timeout up to two hours.
+const capMemoTTL = 24 * time.Hour
 
 // tpmEntry is a per-key token-budget bucket. The rate.Limiter is configured as
 // limit = tpm/60 tokens refilled per second, burst = tpm (a full minute's
@@ -95,7 +83,6 @@ type tpmEntry struct {
 func NewTPMLimiter(settings SettingsReader) *TPMLimiter {
 	l := &TPMLimiter{
 		buckets:  make(map[string]*tpmEntry),
-		assoc:    make(map[string]*assocEntry),
 		caps:     make(map[string]*capMemo),
 		settings: settings,
 		stopCh:   make(chan struct{}),
@@ -137,11 +124,9 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			}
 
 			// User-level aggregate stage: all keys owned by one user share a
-			// "user:<uuid>" budget. The key-to-owner association is recorded
-			// (or cleared) on every admission so Debit, which only sees the
-			// key hash, can debit the owner's bucket too.
-			userKey, _ := userTPMFromCtx(r.Context())
-			l.setAssoc(keyHash, userKey)
+			// "user:<uuid>" budget. Completion passes the same owner back to
+			// Debit, so the charge cannot land on a different owner than the
+			// admission did, however the key is reassigned meanwhile.
 			// The owner token is reserved (not committed) here and only kept
 			// once every later gate passes. A request that clears this stage
 			// but is then rejected by the per-key gate cancels the reservation,
@@ -272,39 +257,29 @@ func (l *TPMLimiter) admitUserTPM(ctx context.Context, w http.ResponseWriter, no
 
 // Debit removes the actual token total from a key's budget after a request
 // completes, driving the budget toward (and past) zero so subsequent requests
-// are throttled. It is a no-op when no bucket exists for the key (no cap in
-// effect, or the bucket was evicted) — admission creates the bucket, so a
-// capped request always has one by completion. Safe for concurrent use.
-func (l *TPMLimiter) Debit(keyHash string, tokens int) {
+// are throttled, and charges the same total to the owner's aggregate bucket
+// when the request carried an owner.
+//
+// The owner comes from the request that is completing, not from a lookup: a key
+// reassigned to another user mid-request would otherwise charge whoever owns it
+// at completion rather than whoever was admitted. It is a no-op for a bucket
+// that neither exists nor has a live cap memo to rebuild from, which is what no
+// cap in effect looks like. Safe for concurrent use.
+func (l *TPMLimiter) Debit(keyHash, ownerUserID string, tokens int) {
 	if tokens <= 0 {
 		return
 	}
 	l.debitBucket(keyHash, tokens)
-	// Also debit the owner's aggregate bucket when the key is associated with
-	// one (recorded at admission). The idle sweep takes the assoc entry at the
-	// same cutoff as the bucket, so a request that outlives it falls back to the
-	// cap memo: without that the key's own budget is charged and the owner's
-	// aggregate is not, which is the same free minute one layer up.
-	l.mu.Lock()
-	userKey := ""
-	if a, ok := l.assoc[keyHash]; ok {
-		a.lastUsed = time.Now()
-		userKey = a.userKey
-	} else if memo, ok := l.caps[keyHash]; ok {
-		memo.lastUsed = time.Now()
-		userKey = memo.userKey
-	}
-	l.mu.Unlock()
-	if userKey != "" {
-		l.debitBucket(userKey, tokens)
+	if ownerUserID != "" {
+		l.debitBucket(userBucketKey(ownerUserID), tokens)
 	}
 }
 
 // DebitUser removes the actual token total from an owner's aggregate bucket
 // directly, for requests that never had a virtual key to debit through (the
 // admin chat surface). Debit already reaches the owner bucket for keyed
-// requests via the association recorded at admission, so the two are mutually
-// exclusive: calling both for one request would charge the owner twice.
+// requests, so the two are mutually exclusive: calling both for one request
+// would charge the owner twice.
 //
 // No-op when the owner has no bucket, which is what "no owner-level TPM cap"
 // looks like — admission creates the bucket, so a capped request always has one
@@ -319,8 +294,9 @@ func (l *TPMLimiter) DebitUser(userID string, tokens int) {
 // debitBucket removes tokens from one bucket. A bucket the idle sweep evicted
 // while the request was still in flight is rebuilt at its remembered budget so
 // the charge still lands: dropping it would let a request that outlives the
-// idle cutoff spend a key's whole minute for free. A key with no remembered
-// budget has no cap in effect, and is a no-op. Safe for concurrent use.
+// idle cutoff spend a key's whole minute for free. A bucket with neither an
+// entry nor a live cap memo has no cap in effect, and is a no-op. Safe for
+// concurrent use.
 func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 	l.mu.Lock()
 	entry, ok := l.buckets[bucketKey]
@@ -360,27 +336,6 @@ func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 		entry.limiter.ReserveN(now, n)
 		remaining -= n
 	}
-}
-
-// setAssoc records (or clears, when userKey is empty) the key-to-owner bucket
-// association consulted by Debit. The owner is mirrored into the key's cap memo,
-// which outlives the assoc entry, so a debit arriving after the sweep still
-// finds the owner bucket to charge.
-func (l *TPMLimiter) setAssoc(keyHash, userKey string) {
-	l.mu.Lock()
-	defer l.mu.Unlock()
-	memo, ok := l.caps[keyHash]
-	if !ok {
-		memo = &capMemo{}
-		l.caps[keyHash] = memo
-	}
-	memo.userKey = userKey
-	memo.lastUsed = time.Now()
-	if userKey == "" {
-		delete(l.assoc, keyHash)
-		return
-	}
-	l.assoc[keyHash] = &assocEntry{userKey: userKey, lastUsed: time.Now()}
 }
 
 // userBucketKey namespaces an owner's aggregate bucket away from the key-hash
@@ -445,13 +400,12 @@ func (l *TPMLimiter) getEntry(keyHash string, tpm int) *tpmEntry {
 	} else {
 		entry.lastUsed = time.Now()
 	}
-	memo, ok := l.caps[keyHash]
-	if !ok {
-		memo = &capMemo{}
-		l.caps[keyHash] = memo
+	if memo, known := l.caps[keyHash]; known {
+		memo.tpm = tpm
+		memo.lastUsed = time.Now()
+	} else {
+		l.caps[keyHash] = &capMemo{tpm: tpm, lastUsed: time.Now()}
 	}
-	memo.tpm = tpm
-	memo.lastUsed = time.Now()
 	return entry
 }
 
@@ -479,11 +433,6 @@ func (l *TPMLimiter) cleanup() {
 	for key, entry := range l.buckets {
 		if entry.lastUsed.Before(cutoff) {
 			delete(l.buckets, key)
-		}
-	}
-	for key, a := range l.assoc {
-		if a.lastUsed.Before(cutoff) {
-			delete(l.assoc, key)
 		}
 	}
 	// Cap memos are what let a debit rebuild an evicted bucket, so they are held

@@ -257,6 +257,14 @@ func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []Export
 // guardKeysSurvived needs to tell a wipe apart from a member that never had
 // keys.
 func guardAgainstVirtualKeyWipe(ctx context.Context, tx pgx.Tx, keys []ExportVK) (hadKeys bool, err error) {
+	// Held to commit, so no interactive create lands between this count and the
+	// reconcile that follows: a key created in that window would be deleted for
+	// being absent from the envelope, and the survivor check would read a member
+	// that started empty. SHARE ROW EXCLUSIVE blocks writers and other imports
+	// while still allowing plain reads.
+	if _, err := tx.Exec(ctx, `LOCK TABLE virtual_keys IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+		return false, err
+	}
 	var existing int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM virtual_keys`).Scan(&existing); err != nil {
 		return false, err

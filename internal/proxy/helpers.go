@@ -272,7 +272,7 @@ func (h *Handler) recordTokenUsage(vkHash string, logData *requestLogData, promp
 	if h.tpmLimiter != nil {
 		switch {
 		case vkHash != "":
-			h.tpmLimiter.Debit(vkHash, totalTokens)
+			h.tpmLimiter.Debit(vkHash, logData.ownerUserID, totalTokens)
 		default:
 			h.tpmLimiter.DebitUser(logData.ownerUserID, totalTokens)
 		}
