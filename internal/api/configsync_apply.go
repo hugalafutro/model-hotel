@@ -105,6 +105,9 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if err := guardAgainstProviderWipe(ctx, tx, env.Config.Providers); err != nil {
 		return applyOutcome{}, err
 	}
+	if err := guardAgainstVirtualKeyWipe(ctx, tx, env.Config.VirtualKeys); err != nil {
+		return applyOutcome{}, err
+	}
 
 	if err := upsertProviders(ctx, tx, env.Config.Providers, h.validateProviderURL); err != nil {
 		return applyOutcome{}, err
@@ -228,6 +231,26 @@ func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []Export
 		}
 		if existing > 0 {
 			return errWouldWipeProviders
+		}
+	}
+	return nil
+}
+
+// guardAgainstVirtualKeyWipe is the same rail for credentials. The delete below
+// removes every key absent from the envelope, so an envelope that carries
+// providers but omits virtual_keys takes every credential off the member and
+// every client loses access at once. Import's structural guard does not catch
+// it: that one only refuses an envelope empty in providers, keys and settings
+// together. An empty key list onto a member that has none is a bootstrap and is
+// allowed, matching the provider rail.
+func guardAgainstVirtualKeyWipe(ctx context.Context, tx pgx.Tx, keys []ExportVK) error {
+	if len(keys) == 0 {
+		var existing int
+		if err := tx.QueryRow(ctx, `SELECT count(*) FROM virtual_keys`).Scan(&existing); err != nil {
+			return err
+		}
+		if existing > 0 {
+			return errWouldWipeVirtualKeys
 		}
 	}
 	return nil

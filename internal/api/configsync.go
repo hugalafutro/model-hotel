@@ -95,6 +95,12 @@ var errStaleSourceGen = errors.New("configsync: import source generation is olde
 // would delete every provider. Import maps it to a 400 refusal.
 var errWouldWipeProviders = errors.New("configsync: refusing to wipe every provider off a populated member")
 
+// errWouldWipeVirtualKeys is the same rail for virtual keys. The structural
+// guard in import only refuses an envelope that is empty in providers, keys AND
+// settings at once, so an envelope carrying providers but omitting the keys
+// reaches the declarative delete and takes every credential off the member.
+var errWouldWipeVirtualKeys = errors.New("configsync: refusing to wipe every virtual key off a populated member")
+
 // errInvalidSyncedURL is returned by apply when a syncable url-typed setting in
 // the envelope fails the same netguard validation the interactive PUT
 // /api/settings handler enforces. Import maps it to a 400 refusal. A standing

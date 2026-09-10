@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"errors"
+	"math"
 	"net/http"
 	"slices"
 	"strconv"
@@ -78,6 +79,13 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		debuglog.Debug("configsync: refused stale import", "source_gen", sourceGenLabel(sourceGen))
 		writeJSON(w, importResponse{SchemaVersionOK: true, MasterKeyOK: true, Applied: false, Stale: true, Diff: diff})
 		return
+	case errors.Is(err, errWouldWipeVirtualKeys):
+		// The envelope carries no virtual keys but this member has some: applying
+		// it would delete every credential the member serves. Same 400 as the
+		// provider rail, for the same reason.
+		debuglog.Warn("configsync: refused key-wiping import")
+		http.Error(w, "refusing to import a config that would delete every virtual key on this member", http.StatusBadRequest)
+		return
 	case errors.Is(err, errWouldWipeProviders):
 		// The envelope carries no providers but this member has some: applying it
 		// would delete every provider. A 400 so the caller sees a deliberate
@@ -107,9 +115,17 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// maxSourceGen bounds the generation a member will fence itself on. Front Desk
+// counts auto_sync_gen up from zero in a 32-bit column, so anything past that
+// range cannot have come from a real primary, and storing it would pin the
+// marker where no genuine push can ever reach it again: every later generation
+// reads as stale and no API call lowers the marker back.
+const maxSourceGen = math.MaxInt32
+
 // parseSourceGen reads the optional fleet source-generation header. It returns
-// nil when the header is absent or unparseable, so a malformed or missing value
-// degrades to an unfenced import rather than rejecting a legitimate push.
+// nil when the header is absent, unparseable, or outside the range a primary
+// can produce, so a malformed value degrades to an unfenced import rather than
+// rejecting a legitimate push.
 func parseSourceGen(raw string) *int64 {
 	if raw == "" {
 		return nil
@@ -117,6 +133,10 @@ func parseSourceGen(raw string) *int64 {
 	n, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil {
 		debuglog.Warn("configsync: ignoring unparseable source-generation header", "value", raw)
+		return nil
+	}
+	if n < 0 || n > maxSourceGen {
+		debuglog.Warn("configsync: ignoring out-of-range source-generation header", "value", raw)
 		return nil
 	}
 	return &n

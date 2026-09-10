@@ -201,6 +201,36 @@ func TestTPMLimiter_DebitNoBucketIsNoop(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_DebitAfterEvictionStillCharges covers a request that outlives
+// the idle sweep: a stream longer than the cutoff, on a key with no other
+// traffic, has its bucket evicted between admission and completion. Dropping
+// that debit would hand the key a whole minute's budget for free.
+func TestTPMLimiter_DebitAfterEvictionStillCharges(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	const tpm = 500
+
+	if !tpmAdmit(t, l, "k", tpm) {
+		t.Fatal("fresh budget should admit")
+	}
+	// Age the bucket past the cutoff and sweep it, as the background cleanup
+	// would while the request is still streaming.
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+	l.cleanup()
+	l.mu.Lock()
+	evicted := len(l.buckets)
+	l.mu.Unlock()
+	if evicted != 0 {
+		t.Fatalf("sweep should have evicted the idle bucket, %d left", evicted)
+	}
+
+	l.Debit("k", 2*tpm)
+	if tpmAdmit(t, l, "k", tpm) {
+		t.Fatal("the debit must land on a rebuilt bucket and exhaust the budget")
+	}
+}
+
 func TestTPMLimiter_TPMChangeReplacesBucket(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 

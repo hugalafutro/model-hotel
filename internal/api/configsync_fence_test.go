@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -236,6 +237,28 @@ func TestConfigSync_CommitFenceUnparseableHeaderIsUnfenced(t *testing.T) {
 	}
 	if got := storedSourceGen(t); got != "" {
 		t.Errorf("marker after unparseable-header import = %q, want still unset", got)
+	}
+}
+
+// TestConfigSync_CommitFenceOutOfRangeGenIsUnfenced pins the bound on the
+// header. Front Desk counts the generation up from zero in a 32-bit column, so
+// a value past that cannot come from a real primary. Storing one would pin the
+// marker where every genuine push afterwards reads as stale, with no API call
+// that lowers it again, so the import applies unfenced and leaves no marker.
+func TestConfigSync_CommitFenceOutOfRangeGenIsUnfenced(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	base := doExport(t, r)
+
+	for _, gen := range []int64{math.MaxInt64, math.MaxInt32 + 1, -1} {
+		resp, rec := doImportGen(t, r, withExtraProvider(base, "extra"), &gen)
+		if rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
+			t.Fatalf("gen %d: code=%d applied=%v stale=%v, want 200 applied not-stale", gen, rec.Code, resp.Applied, resp.Stale)
+		}
+		if got := storedSourceGen(t); got != "" {
+			t.Fatalf("gen %d: marker = %q, want still unset", gen, got)
+		}
 	}
 }
 

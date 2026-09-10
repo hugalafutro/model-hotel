@@ -47,7 +47,14 @@ type TPMLimiter struct {
 	// assoc maps a key hash to its owner's "user:<uuid>" bucket key so Debit
 	// (which only knows the key hash) can also debit the owner's aggregate
 	// bucket. Refreshed on every admission, evicted alongside idle buckets.
-	assoc    map[string]*assocEntry
+	assoc map[string]*assocEntry
+	// caps remembers the budget each bucket was last sized to, so a debit that
+	// arrives after the idle sweep evicted the bucket can rebuild it and land
+	// the charge instead of dropping it. A request streaming for longer than
+	// the idle cutoff, on a key with no other traffic, is exactly that case.
+	// It outlives the buckets on purpose and holds one int per key the process
+	// has admitted, which is bounded by the number of real keys and users.
+	caps     map[string]int
 	settings SettingsReader
 	stopCh   chan struct{}
 }
@@ -72,6 +79,7 @@ func NewTPMLimiter(settings SettingsReader) *TPMLimiter {
 	l := &TPMLimiter{
 		buckets:  make(map[string]*tpmEntry),
 		assoc:    make(map[string]*assocEntry),
+		caps:     make(map[string]int),
 		settings: settings,
 		stopCh:   make(chan struct{}),
 	}
@@ -284,14 +292,27 @@ func (l *TPMLimiter) DebitUser(userID string, tokens int) {
 	l.debitBucket(userBucketKey(userID), tokens)
 }
 
-// debitBucket removes tokens from one bucket. No-op when the bucket does not
-// exist (no cap in effect, or evicted) — admission creates the bucket, so a
-// capped request always has one by completion. Safe for concurrent use.
+// debitBucket removes tokens from one bucket. A bucket the idle sweep evicted
+// while the request was still in flight is rebuilt at its remembered budget so
+// the charge still lands: dropping it would let a request that outlives the
+// idle cutoff spend a key's whole minute for free. A key with no remembered
+// budget has no cap in effect, and is a no-op. Safe for concurrent use.
 func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 	l.mu.Lock()
 	entry, ok := l.buckets[bucketKey]
-	if ok {
+	switch {
+	case ok:
 		entry.lastUsed = time.Now()
+	default:
+		if tpm, known := l.caps[bucketKey]; known && tpm > 0 {
+			entry = &tpmEntry{
+				limiter:  rate.NewLimiter(rate.Limit(float64(tpm)/60.0), tpm),
+				tpm:      tpm,
+				lastUsed: time.Now(),
+			}
+			l.buckets[bucketKey] = entry
+			ok = true
+		}
 	}
 	l.mu.Unlock()
 	if !ok {
@@ -390,6 +411,7 @@ func (l *TPMLimiter) getEntry(keyHash string, tpm int) *tpmEntry {
 	} else {
 		entry.lastUsed = time.Now()
 	}
+	l.caps[keyHash] = tpm
 	return entry
 }
 
