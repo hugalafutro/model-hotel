@@ -114,12 +114,16 @@ const settingsKeyRequestTimeout = "request_timeout"
 // proxy's own default implies.
 const defaultRequestTimeout = time.Minute
 
-// settingsReadTimeout bounds the horizon lookup. The value only sizes a
-// retention window measured in days, so it is not worth waiting on: this is
-// generous for one indexed row that the settings cache usually answers outright,
-// and short enough that a database which has stopped answering costs an
-// admission a barely visible pause and the default horizon.
+// settingsReadTimeout bounds the horizon lookup on the admission path. The value
+// only sizes a retention window measured in days, so it is not worth waiting on:
+// this is generous for one indexed row that the settings cache usually answers
+// outright, and short enough that a database which has stopped answering costs
+// an admission a barely visible pause and whatever horizon is already known.
 const settingsReadTimeout = 100 * time.Millisecond
+
+// markRefreshTimeout bounds the same lookup off the request path, where a slow
+// database can be waited out because nobody is being held up for it.
+const markRefreshTimeout = 5 * time.Second
 
 // minCapMemoTTL floors the cap-memo horizon. Against the factor below, the
 // crossover is a 36 minute request_timeout: anything shorter derives less than a
@@ -180,7 +184,7 @@ func NewTPMLimiter(settings SettingsReader) *TPMLimiter {
 		settings: settings,
 		stopCh:   make(chan struct{}),
 	}
-	go runCleanup(l.stopCh, l.cleanup)
+	go runCleanup(l.stopCh, l.sweep)
 	return l
 }
 
@@ -539,7 +543,9 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // default's floor, which on a gateway running a long request_timeout would be
 // shorter than the requests being admitted. That fallback cannot pin a lowered
 // timeout, because it is consulted only when the read timed out: a read that
-// completes always returns what the setting currently says.
+// completes always returns what the setting currently says. While the database
+// stays slow enough that none of them complete, admissions do keep claiming the
+// remembered horizon, which lengthens retention and nothing else.
 //
 // A read that fails outright is a different matter: GetDuration cannot tell one
 // from an unset key, so it reads as the default and the horizon does drop to the
@@ -625,6 +631,26 @@ func tpmRetryAfter(lim *rate.Limiter) int {
 	}
 	secs := max(int(math.Ceil((1-avail)/perSec)), 1)
 	return secs
+}
+
+// sweep is what the background loop runs: it refreshes the horizon the admission
+// path falls back to, then evicts what has aged out. Kept separate from cleanup
+// so tests can drive the eviction without a settings read.
+func (l *TPMLimiter) sweep() {
+	l.refreshHorizonMark()
+	l.cleanup()
+}
+
+// refreshHorizonMark reads request_timeout with a bound an admission could not
+// afford and records what it implies. Without it a settings store that is
+// consistently slower than settingsReadTimeout would never let a read complete,
+// so the mark could never rise above the default's floor and a raised
+// request_timeout would go unnoticed for the life of the process.
+func (l *TPMLimiter) refreshHorizonMark() {
+	ctx, cancel := context.WithTimeout(context.Background(), markRefreshTimeout)
+	defer cancel()
+
+	l.rememberHorizon(capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout)))
 }
 
 func (l *TPMLimiter) cleanup() {

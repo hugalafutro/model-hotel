@@ -1237,6 +1237,49 @@ func TestTPMLimiter_ClaimsAndSweepsRace(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_SweepRefreshesTheHorizonMark covers the path that keeps the
+// fallback usable on a store that is slow rather than broken. An admission's own
+// read gives up in milliseconds, so if nothing read request_timeout with a
+// longer bound the mark could never rise above the default's floor.
+func TestTPMLimiter_SweepRefreshesTheHorizonMark(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "4h")
+
+	l.sweep()
+
+	if got := time.Duration(l.lastGoodHorizon.Load()); got != 160*time.Hour {
+		t.Errorf("the sweep should record the horizon the setting implies, got %v", got)
+	}
+}
+
+// TestTPMLimiter_LateAnswerIsNotTreatedAsATimeout pins the branch that tells a
+// read which answered from one which gave up. The deadline can fire in the
+// moment after the value comes back, and a lowered request_timeout has to be
+// honoured even then.
+func TestTPMLimiter_LateAnswerIsNotTreatedAsATimeout(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "4h")
+	l := NewTPMLimiter(lateAnswerSettings{SettingsReader: stub})
+	t.Cleanup(l.Stop)
+	l.rememberHorizon(500 * time.Hour)
+
+	if got := l.memoHorizon(context.Background()); got != 160*time.Hour {
+		t.Errorf("a value that came from the setting should stand, got %v", got)
+	}
+}
+
+// lateAnswerSettings answers with the real value but only once the read's own
+// deadline has passed, the race the branch above exists for.
+type lateAnswerSettings struct {
+	SettingsReader
+}
+
+func (a lateAnswerSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	got := a.SettingsReader.GetDuration(ctx, key, def)
+	<-ctx.Done()
+	return got
+}
+
 // TestRememberHorizon covers the high-water mark under contention: a mark can
 // only climb, so racing writers below it change nothing and the highest wins.
 func TestRememberHorizon(t *testing.T) {
@@ -1283,11 +1326,12 @@ func TestTPMLimiter_CompletedReadWinsOverTheRememberedHorizon(t *testing.T) {
 	}
 }
 
-// TestTPMLimiter_RememberedHorizonSurvivesAFailedRead covers the other half: a
-// read that fails without timing out returns the default too, and letting that
-// overwrite the mark would erase the long horizon exactly when a later timeout
-// needs it.
-func TestTPMLimiter_RememberedHorizonSurvivesAFailedRead(t *testing.T) {
+// TestTPMLimiter_RememberedHorizonSurvivesADefaultingRead covers the other half.
+// A read that comes back with the default, whether the key is unset, the value
+// is unusable, or the repository failed, is indistinguishable from any other,
+// and letting it overwrite the mark would erase the long horizon exactly when a
+// later timeout needs it.
+func TestTPMLimiter_RememberedHorizonSurvivesADefaultingRead(t *testing.T) {
 	stub := newStubSettings()
 	stub.set(settingsKeyRequestTimeout, "1h")
 	settings := &switchableSettings{SettingsReader: stub}
@@ -1346,6 +1390,14 @@ func TestWarnedSlowRead(t *testing.T) {
 	wg.Wait()
 	if got := spoke.Load(); got != 1 {
 		t.Errorf("exactly one racing caller should warn, got %d", got)
+	}
+
+	// A wall clock stepped backwards over the stamp leaves the gap negative.
+	// Reading that as "not yet due" would silence the warning until the clock
+	// caught up with itself.
+	l.lastSlowReadWarn.Store(time.Now().Add(time.Hour).UnixNano())
+	if !l.warnedSlowRead() {
+		t.Error("a stamp in the future should not suppress the warning")
 	}
 }
 
