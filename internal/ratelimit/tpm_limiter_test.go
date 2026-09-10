@@ -994,9 +994,11 @@ func TestTPMLimiter_CapMemoDeadlineComesBackDown(t *testing.T) {
 	l.getEntry(ctx, "k", 500)
 
 	// The long request finishes and the operator restores the default. Winding
-	// the deadline back past its own horizon stands in for that time passing.
+	// the deadline back 20 hours stands in for that time passing, leaving the
+	// memo still live with 20 hours of its 40 to run, so what follows is an
+	// ordinary admission against a healthy memo rather than a revival.
 	s.set(settingsKeyRequestTimeout, "1m")
-	ageMemo(t, l, "k", 41*time.Hour)
+	ageMemo(t, l, "k", 20*time.Hour)
 
 	l.getEntry(ctx, "k", 500)
 	if got := memoHorizon(t, l, "k"); got != minCapMemoTTL {
@@ -1035,6 +1037,37 @@ func TestTPMLimiter_CapMemoSaturatingTimeoutSurvivesTheSweep(t *testing.T) {
 
 	if !memoLives(l, "k") {
 		t.Error("a memo under a saturating request_timeout must outlive a month-long sweep")
+	}
+}
+
+// TestTPMLimiter_DebitDoesNotExtendTheMemoDeadline pins the other half of that
+// rule: only admissions claim a horizon. A debit closes the request that already
+// claimed one, so refreshing the deadline there would hold every memo for a
+// further horizon past the last request that needed it.
+func TestTPMLimiter_DebitDoesNotExtendTheMemoDeadline(t *testing.T) {
+	const tpm = 500
+	l, _ := newTestTPMLimiter(t)
+	l.getEntry(context.Background(), "k", tpm)
+
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	before := l.caps["k"].expiresAt
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.mu.Lock()
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if buckets != 0 {
+		t.Fatalf("the idle bucket should have been evicted, got %d", buckets)
+	}
+
+	l.Debit("k", "", 2*tpm)
+	l.mu.Lock()
+	after := l.caps["k"].expiresAt
+	l.mu.Unlock()
+	if !after.Equal(before) {
+		t.Errorf("a debit must leave the memo deadline alone: was %v, now %v", before, after)
 	}
 }
 

@@ -68,6 +68,8 @@ type capMemo struct {
 	// old one. Because the claims are absolute times rather than a duration, a
 	// long timeout inflates the deadline only until the request it was claimed
 	// for could have finished, after which ordinary admissions carry it again.
+	// The exception is a request_timeout large enough to saturate the horizon,
+	// which pins the memo for as long as the process lives.
 	expiresAt time.Time
 }
 
@@ -440,11 +442,14 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 // stored bucket's tpm no longer matches (the key's cap changed at runtime) it
 // is replaced so the new budget takes effect immediately.
 func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpmEntry {
-	// Read before taking the lock: the settings repository serves this from its
-	// cache, but every admission and debit blocks on this mutex. A request whose
-	// context is already cancelled reads the default and claims the floor, which
-	// is still longer than a request that is already over can need.
-	memoExpiry := time.Now().Add(capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout)))
+	// Read before taking the lock: every admission and debit blocks on this
+	// mutex. The read is detached from the request's own cancellation because the
+	// horizon is a property of the setting, not of this request: a client that
+	// disconnects during admission does not stop the proxy completing the
+	// upstream call and debiting it, and a cancelled read would claim the floor
+	// for a request entitled to much longer.
+	memoExpiry := time.Now().Add(capMemoTTL(l.settings.GetDuration(
+		context.WithoutCancel(ctx), settingsKeyRequestTimeout, defaultRequestTimeout)))
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
