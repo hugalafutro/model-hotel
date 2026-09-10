@@ -904,6 +904,7 @@ func TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout(t *testing.T) {
 
 	// The operator drops the timeout back to the default after admission.
 	s.set(settingsKeyRequestTimeout, "1m")
+	forgetHorizon(l)
 
 	// The bucket is aged past the idle cutoff as well, so it is genuinely gone
 	// after the sweep and the rebuild below can only come from the memo.
@@ -968,12 +969,14 @@ func TestTPMLimiter_CapMemoDeadlineOnlyMovesOut(t *testing.T) {
 	}
 
 	s.set(settingsKeyRequestTimeout, "4h")
+	forgetHorizon(l)
 	l.getEntry(ctx, "k", 500)
 	if got := memoHorizon(t, l, "k"); got != 160*time.Hour {
 		t.Errorf("a longer timeout should push the deadline out to 160h, got %v", got)
 	}
 
 	s.set(settingsKeyRequestTimeout, "1m")
+	forgetHorizon(l)
 	l.getEntry(ctx, "k", 500)
 	if got := memoHorizon(t, l, "k"); got != 160*time.Hour {
 		t.Errorf("a shorter timeout must not pull the deadline back in, got %v", got)
@@ -998,6 +1001,7 @@ func TestTPMLimiter_CapMemoDeadlineComesBackDown(t *testing.T) {
 	// memo still live with 20 hours of its 40 to run, so what follows is an
 	// ordinary admission against a healthy memo rather than a revival.
 	s.set(settingsKeyRequestTimeout, "1m")
+	forgetHorizon(l)
 	ageMemo(t, l, "k", 20*time.Hour)
 
 	l.getEntry(ctx, "k", 500)
@@ -1025,6 +1029,7 @@ func TestTPMLimiter_CapMemoHorizonThroughTheMiddleware(t *testing.T) {
 	// to be re-claimed there, or a key busy since before the setting was raised
 	// would keep carrying the shorter one.
 	s.set(settingsKeyRequestTimeout, "4h")
+	forgetHorizon(l)
 	if !tpmAdmit(t, l, "k", 500) {
 		t.Fatal("the second request should still be inside the budget")
 	}
@@ -1099,6 +1104,35 @@ func TestTPMLimiter_CapMemoHorizonIgnoresRequestCancellation(t *testing.T) {
 	if got := memoHorizon(t, l, "k"); got != 40*time.Hour {
 		t.Errorf("a cancelled request must still claim the horizon the setting implies, got %v", got)
 	}
+}
+
+// TestTPMLimiter_HorizonIsReusedBetweenRefreshes pins the memoisation: a change
+// to request_timeout is not read again until the refresh interval has passed, so
+// admission does not go to settings once per request.
+func TestTPMLimiter_HorizonIsReusedBetweenRefreshes(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	ctx := context.Background()
+
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry(ctx, "k", 500)
+
+	s.set(settingsKeyRequestTimeout, "4h")
+	l.getEntry(ctx, "other", 500)
+	if got := memoHorizon(t, l, "other"); got != 40*time.Hour {
+		t.Errorf("within the refresh interval the derived horizon should be reused, got %v", got)
+	}
+
+	forgetHorizon(l)
+	l.getEntry(ctx, "later", 500)
+	if got := memoHorizon(t, l, "later"); got != 160*time.Hour {
+		t.Errorf("after the interval the new setting should be read, got %v", got)
+	}
+}
+
+// forgetHorizon drops the limiter's memoised horizon, standing in for the
+// refresh interval elapsing without waiting for it.
+func forgetHorizon(l *TPMLimiter) {
+	l.horizon.Store(nil)
 }
 
 // ageMemo winds a cap memo's deadline back by d, standing in for d of elapsed

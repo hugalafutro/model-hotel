@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -55,6 +56,18 @@ type TPMLimiter struct {
 	caps     map[string]*capMemo
 	settings SettingsReader
 	stopCh   chan struct{}
+	// horizon is the last derived cap-memo horizon and when it was derived, held
+	// outside the mutex because admission consults it before taking the lock.
+	// Two admissions racing on a stale entry both read the setting and store the
+	// same answer, which costs one extra read and changes nothing.
+	horizon atomic.Pointer[derivedHorizon]
+}
+
+// derivedHorizon is a cap-memo horizon and the moment request_timeout was read
+// to derive it.
+type derivedHorizon struct {
+	value   time.Duration
+	derived time.Time
 }
 
 // capMemo is the budget a bucket was last built with, kept so an evicted bucket
@@ -62,8 +75,8 @@ type TPMLimiter struct {
 type capMemo struct {
 	tpm int
 	// expiresAt is when this memo may be swept: the latest horizon any admission
-	// against it has claimed. Each admission claims now plus the horizon its own
-	// request_timeout implies, and only ever pushes the deadline outwards, so
+	// against it has claimed. Every admitted or rejected request claims now plus
+	// the horizon request_timeout implies, and only pushes the deadline out, so
 	// changing the setting cannot strand a request already admitted under the
 	// old one. Because the claims are absolute times rather than a duration, a
 	// long timeout inflates the deadline only until the request it was claimed
@@ -77,8 +90,9 @@ type capMemo struct {
 // for every request, through the same GetDuration and the same one minute
 // default repeated below. The limiter reads it only to size the cap-memo horizon
 // against the longest request the gateway can hold open, and follows the proxy's
-// reading of it rather than setting one of its own: if the proxy's key or
-// default moves, these follow.
+// reading of it rather than setting one of its own. The two are held in lockstep
+// by hand: moving the proxy's key or default means moving these with it, or the
+// horizon is sized against a timeout the gateway no longer uses.
 const settingsKeyRequestTimeout = "request_timeout"
 
 // defaultRequestTimeout mirrors the proxy's fallback for an unset
@@ -86,11 +100,19 @@ const settingsKeyRequestTimeout = "request_timeout"
 // proxy's own default implies.
 const defaultRequestTimeout = time.Minute
 
-// settingsReadTimeout bounds the horizon lookup on the admission path. It is
-// generous for one indexed row served mostly from the settings cache, and short
-// enough that a database that has stopped answering costs an admission the
-// default horizon rather than the wait.
+// settingsReadTimeout bounds the horizon lookup. It is generous for one indexed
+// row served mostly from the settings cache, and short enough that a database
+// that has stopped answering costs the lookup the default horizon rather than
+// the wait.
 const settingsReadTimeout = 2 * time.Second
+
+// horizonRefreshInterval is how long a derived horizon is reused before the
+// setting is read again. It matches the settings cache's own lifetime, so
+// admission does not read per request, and a database that has stopped
+// answering costs one bounded read per interval rather than one per admission:
+// a failed read is not cached by the settings layer, so every admission would
+// otherwise pay the timeout again.
+const horizonRefreshInterval = 30 * time.Second
 
 // minCapMemoTTL floors the cap-memo horizon. Against the factor below, the
 // crossover is a 36 minute request_timeout: anything shorter derives less than a
@@ -449,20 +471,8 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 // stored bucket's tpm no longer matches (the key's cap changed at runtime) it
 // is replaced so the new budget takes effect immediately.
 func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpmEntry {
-	// Read before taking the lock: every admission blocks on this mutex.
-	//
-	// The read is detached from the request's own cancellation because the
-	// horizon is a property of the setting, not of this request: a client that
-	// disconnects during admission does not stop the proxy completing the
-	// upstream call and debiting it, and a cancelled read would claim the floor
-	// for a request entitled to much longer. Detaching also drops the request's
-	// deadline, and the settings repository takes its query deadline from the
-	// caller, so the read carries a bound of its own rather than letting a stuck
-	// database hold up admission. Exceeding it reads as the default, the same as
-	// any other failed read.
-	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
-	memoExpiry := time.Now().Add(capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout)))
-	cancelRead()
+	// Resolved before taking the lock, since every admission blocks on this mutex.
+	memoExpiry := time.Now().Add(l.memoHorizon(ctx))
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -487,6 +497,29 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 		l.caps[keyHash] = &capMemo{tpm: tpm, expiresAt: memoExpiry}
 	}
 	return entry
+}
+
+// memoHorizon returns the cap-memo horizon request_timeout currently implies,
+// reading the setting at most once per horizonRefreshInterval.
+//
+// The read is detached from the caller's cancellation because the horizon is a
+// property of the setting, not of the request that happened to trigger the
+// refresh: a client that disconnects during admission does not stop the proxy
+// completing the upstream call and debiting it, and a cancelled read would
+// claim the floor for a request entitled to much longer. Detaching also drops
+// the caller's deadline, and the settings repository takes its query deadline
+// from the caller and sets none of its own, so the read carries a bound here
+// instead. Exceeding it reads as the default, the same as any other failed read.
+func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
+	if cached := l.horizon.Load(); cached != nil && time.Since(cached.derived) < horizonRefreshInterval {
+		return cached.value
+	}
+	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
+	defer cancelRead()
+
+	horizon := capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	l.horizon.Store(&derivedHorizon{value: horizon, derived: time.Now()})
+	return horizon
 }
 
 // tpmRetryAfter estimates seconds until at least one token is available again,
