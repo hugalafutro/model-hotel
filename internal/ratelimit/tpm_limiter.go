@@ -60,15 +60,15 @@ type TPMLimiter struct {
 // capMemo is the budget a bucket was last built with, kept so an evicted bucket
 // can be rebuilt to take a late debit.
 type capMemo struct {
-	tpm      int
-	lastUsed time.Time
-	// ttl is how long this memo has to survive past lastUsed, derived from the
-	// request_timeout in force when it was last written. Held per memo rather
-	// than read at sweep time so that lowering request_timeout cannot shrink the
-	// horizon out from under a request already admitted under the old, longer
-	// one. It only ever grows, for the same reason: a short request landing on a
-	// key must not shorten the horizon a long one is still relying on.
-	ttl time.Duration
+	tpm int
+	// expiresAt is when this memo may be swept: the latest horizon any admission
+	// against it has claimed. Each admission claims now plus the horizon its own
+	// request_timeout implies, and only ever pushes the deadline outwards, so
+	// changing the setting cannot strand a request already admitted under the
+	// old one. Because the claims are absolute times rather than a duration, a
+	// long timeout inflates the deadline only until the request it was claimed
+	// for could have finished, after which ordinary admissions carry it again.
+	expiresAt time.Time
 }
 
 // settingsKeyRequestTimeout is the per-attempt upstream timeout the proxy reads
@@ -92,9 +92,10 @@ const minCapMemoTTL = 24 * time.Hour
 
 // capMemoTimeoutFactor scales request_timeout into that horizon. A streaming or
 // long-running request gets ten times request_timeout per attempt, and the
-// overall failover deadline caps a whole request at twice that, so twenty times
-// the setting is the longest a request can live. Doubling it again leaves the
-// memo a full request's worth of margin over the sweep.
+// proxy's overall deadline, itself derived from that same per-attempt budget
+// rather than configured separately, caps a whole request at twice it. So twenty
+// times the setting is the longest a request can live, and doubling that again
+// leaves the memo a full request's worth of margin over the sweep.
 const capMemoTimeoutFactor = 40
 
 // capMemoTTL is how long a cap memo outlives its bucket. The memo is what lets a
@@ -354,7 +355,9 @@ func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 		entry.lastUsed = time.Now()
 	default:
 		if memo, known := l.caps[bucketKey]; known && memo.tpm > 0 {
-			memo.lastUsed = time.Now()
+			// The memo's own deadline is left alone: it was claimed by the
+			// request this debit is closing, and the next admission on this key
+			// claims its own.
 			entry = &tpmEntry{
 				limiter:  rate.NewLimiter(rate.Limit(float64(memo.tpm)/60.0), memo.tpm),
 				tpm:      memo.tpm,
@@ -436,8 +439,10 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 // is replaced so the new budget takes effect immediately.
 func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpmEntry {
 	// Read before taking the lock: the settings repository serves this from its
-	// cache, but every admission and debit blocks on this mutex.
-	memoTTL := capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	// cache, but every admission and debit blocks on this mutex. A request whose
+	// context is already cancelled reads the default and claims the floor, which
+	// is still longer than a request that is already over can need.
+	memoExpiry := time.Now().Add(capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout)))
 
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -455,10 +460,11 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 	}
 	if memo, known := l.caps[keyHash]; known {
 		memo.tpm = tpm
-		memo.lastUsed = time.Now()
-		memo.ttl = max(memo.ttl, memoTTL)
+		if memoExpiry.After(memo.expiresAt) {
+			memo.expiresAt = memoExpiry
+		}
 	} else {
-		l.caps[keyHash] = &capMemo{tpm: tpm, lastUsed: time.Now(), ttl: memoTTL}
+		l.caps[keyHash] = &capMemo{tpm: tpm, expiresAt: memoExpiry}
 	}
 	return entry
 }
@@ -490,14 +496,13 @@ func (l *TPMLimiter) cleanup() {
 		}
 	}
 	// Cap memos are what let a debit rebuild an evicted bucket, so they are held
-	// far longer than the bucket itself. Each carries its own horizon, stamped
-	// from the request_timeout in force when it was written, so an operator
-	// changing that setting cannot strand a request that was already admitted.
-	// Past its horizon no request the memo was written for can still be running,
-	// and keeping it would grow the map by one entry for every key the process
-	// ever saw.
+	// far longer than the bucket itself. Each carries the deadline its own
+	// admissions claimed, so an operator changing request_timeout cannot strand a
+	// request that was already admitted. Past that deadline no request the memo
+	// was written for can still be running, and keeping it would grow the map by
+	// one entry for every key the process ever saw.
 	for key, memo := range l.caps {
-		if now.Sub(memo.lastUsed) > memo.ttl {
+		if now.After(memo.expiresAt) {
 			delete(l.caps, key)
 		}
 	}

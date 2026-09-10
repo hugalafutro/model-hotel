@@ -272,15 +272,12 @@ func TestTPMLimiter_CapMemoIsSwept(t *testing.T) {
 
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
-	l.caps["k"].lastUsed = time.Now().Add(-minCapMemoTTL - time.Minute)
 	l.mu.Unlock()
+	ageMemo(t, l, "k", minCapMemoTTL+time.Minute)
 	l.cleanup()
 
-	l.mu.Lock()
-	_, memoLeft := l.caps["k"]
-	l.mu.Unlock()
-	if memoLeft {
-		t.Error("a memo older than the TTL should be swept")
+	if memoLives(l, "k") {
+		t.Error("a memo past its claimed horizon should be swept")
 	}
 	l.Debit("k", "", 10_000)
 	l.mu.Lock()
@@ -851,15 +848,14 @@ func TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout(t *testing.T) {
 
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
-	l.caps["k"].lastUsed = time.Now().Add(-25 * time.Hour)
 	l.mu.Unlock()
+	ageMemo(t, l, "k", 25*time.Hour)
 	l.cleanup()
 
 	l.mu.Lock()
-	_, memoLeft := l.caps["k"]
 	buckets := len(l.buckets)
 	l.mu.Unlock()
-	if !memoLeft {
+	if !memoLives(l, "k") {
 		t.Fatal("a memo inside the horizon a raised request_timeout implies must survive the sweep")
 	}
 	if buckets != 0 {
@@ -886,15 +882,10 @@ func TestTPMLimiter_CapMemoSweptAtTheDefaultTimeout(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	l.getEntry(context.Background(), "k", 500)
 
-	l.mu.Lock()
-	l.caps["k"].lastUsed = time.Now().Add(-25 * time.Hour)
-	l.mu.Unlock()
+	ageMemo(t, l, "k", 25*time.Hour)
 	l.cleanup()
 
-	l.mu.Lock()
-	_, memoLeft := l.caps["k"]
-	l.mu.Unlock()
-	if memoLeft {
+	if memoLives(l, "k") {
 		t.Error("at the default request_timeout a memo past the one-day floor must be swept")
 	}
 }
@@ -914,16 +905,22 @@ func TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout(t *testing.T) {
 	// The operator drops the timeout back to the default after admission.
 	s.set(settingsKeyRequestTimeout, "1m")
 
+	// The bucket is aged past the idle cutoff as well, so it is genuinely gone
+	// after the sweep and the rebuild below can only come from the memo.
 	l.mu.Lock()
-	l.caps["k"].lastUsed = time.Now().Add(-25 * time.Hour)
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
 	l.mu.Unlock()
+	ageMemo(t, l, "k", 25*time.Hour)
 	l.cleanup()
 
-	l.mu.Lock()
-	_, memoLeft := l.caps["k"]
-	l.mu.Unlock()
-	if !memoLeft {
+	if !memoLives(l, "k") {
 		t.Fatal("lowering request_timeout must not sweep a memo written under the longer one")
+	}
+	l.mu.Lock()
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if buckets != 0 {
+		t.Fatalf("the idle bucket should have been evicted, got %d", buckets)
 	}
 
 	l.Debit("k", "", 2*tpm)
@@ -944,55 +941,100 @@ func TestTPMLimiter_CapMemoHorizonWithUnparseableTimeout(t *testing.T) {
 	s.set(settingsKeyRequestTimeout, "not a duration")
 	l.getEntry(context.Background(), "k", 500)
 
-	l.mu.Lock()
-	if got := l.caps["k"].ttl; got != minCapMemoTTL {
-		l.mu.Unlock()
+	if got := memoHorizon(t, l, "k"); got != minCapMemoTTL {
 		t.Fatalf("an unparseable request_timeout should derive the floor, got %v", got)
 	}
-	l.caps["k"].lastUsed = time.Now().Add(-minCapMemoTTL - time.Minute)
-	l.mu.Unlock()
+	ageMemo(t, l, "k", minCapMemoTTL+time.Minute)
 	l.cleanup()
 
-	l.mu.Lock()
-	_, memoLeft := l.caps["k"]
-	l.mu.Unlock()
-	if memoLeft {
+	if memoLives(l, "k") {
 		t.Error("a memo past the floor should be swept when the timeout is unparseable")
 	}
 }
 
-// TestTPMLimiter_CapMemoHorizonRatchets covers the grow-only rule on the memo
-// itself: a later admission under a longer request_timeout raises the horizon,
-// and one under a shorter timeout leaves it alone. Plain assignment either way
-// would strand a request admitted under the longer setting.
-func TestTPMLimiter_CapMemoHorizonRatchets(t *testing.T) {
+// TestTPMLimiter_CapMemoDeadlineOnlyMovesOut covers the rule that makes the
+// lowering case above safe: a later admission under a longer request_timeout
+// pushes the memo's deadline out, and one under a shorter timeout leaves it
+// where it is. Assigning the new deadline unconditionally would pull it back in
+// and strand the request admitted under the longer setting.
+func TestTPMLimiter_CapMemoDeadlineOnlyMovesOut(t *testing.T) {
 	l, s := newTestTPMLimiter(t)
 	ctx := context.Background()
 
 	s.set(settingsKeyRequestTimeout, "1h")
 	l.getEntry(ctx, "k", 500)
-	l.mu.Lock()
-	first := l.caps["k"].ttl
-	l.mu.Unlock()
-	if first != 40*time.Hour {
-		t.Fatalf("a one hour timeout should stamp a 40 hour horizon, got %v", first)
+	if got := memoHorizon(t, l, "k"); got != 40*time.Hour {
+		t.Fatalf("a one hour timeout should claim a 40 hour horizon, got %v", got)
 	}
 
 	s.set(settingsKeyRequestTimeout, "4h")
 	l.getEntry(ctx, "k", 500)
-	l.mu.Lock()
-	raised := l.caps["k"].ttl
-	l.mu.Unlock()
-	if raised != 160*time.Hour {
-		t.Errorf("a longer timeout should raise the horizon to 160h, got %v", raised)
+	if got := memoHorizon(t, l, "k"); got != 160*time.Hour {
+		t.Errorf("a longer timeout should push the deadline out to 160h, got %v", got)
 	}
 
 	s.set(settingsKeyRequestTimeout, "1m")
 	l.getEntry(ctx, "k", 500)
-	l.mu.Lock()
-	afterDrop := l.caps["k"].ttl
-	l.mu.Unlock()
-	if afterDrop != raised {
-		t.Errorf("a shorter timeout must not lower the horizon: was %v, now %v", raised, afterDrop)
+	if got := memoHorizon(t, l, "k"); got != 160*time.Hour {
+		t.Errorf("a shorter timeout must not pull the deadline back in, got %v", got)
 	}
+}
+
+// TestTPMLimiter_CapMemoDeadlineComesBackDown is the other half of that rule:
+// the deadline is an absolute time, not a duration that ratchets, so once the
+// request a long timeout was claimed for could have finished, ordinary
+// admissions carry the memo again and retention returns to the floor. A memo
+// whose horizon grew could otherwise pin a busy key for as long as the process
+// runs.
+func TestTPMLimiter_CapMemoDeadlineComesBackDown(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	ctx := context.Background()
+
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry(ctx, "k", 500)
+
+	// The long request finishes and the operator restores the default. Winding
+	// the deadline back past its own horizon stands in for that time passing.
+	s.set(settingsKeyRequestTimeout, "1m")
+	ageMemo(t, l, "k", 41*time.Hour)
+
+	l.getEntry(ctx, "k", 500)
+	if got := memoHorizon(t, l, "k"); got != minCapMemoTTL {
+		t.Errorf("a later admission should carry the memo on the floor again, got %v", got)
+	}
+}
+
+// ageMemo winds a cap memo's deadline back by d, standing in for d of elapsed
+// time without sleeping. The memo's claimed horizon is unchanged; only how much
+// of it is left moves.
+func ageMemo(t *testing.T, l *TPMLimiter, key string, d time.Duration) {
+	t.Helper()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	memo, ok := l.caps[key]
+	if !ok {
+		t.Fatalf("no cap memo for %q to age", key)
+	}
+	memo.expiresAt = memo.expiresAt.Add(-d)
+}
+
+// memoHorizon reports the horizon a memo claimed at admission, rounded to the
+// minute so the microseconds between stamping it and reading it do not matter.
+func memoHorizon(t *testing.T, l *TPMLimiter, key string) time.Duration {
+	t.Helper()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	memo, ok := l.caps[key]
+	if !ok {
+		t.Fatalf("no cap memo for %q to measure", key)
+	}
+	return time.Until(memo.expiresAt).Round(time.Minute)
+}
+
+// memoLives reports whether a cap memo is still in the map.
+func memoLives(l *TPMLimiter, key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, ok := l.caps[key]
+	return ok
 }
