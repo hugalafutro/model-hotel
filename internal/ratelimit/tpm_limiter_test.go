@@ -980,13 +980,13 @@ func TestTPMLimiter_CapMemoDeadlineOnlyMovesOut(t *testing.T) {
 	}
 }
 
-// TestTPMLimiter_CapMemoDeadlineComesBackDown is the other half of that rule:
-// the deadline is an absolute time, not a duration that ratchets, so once the
-// request a long timeout was claimed for could have finished, ordinary
-// admissions carry the memo again and retention returns to the floor. A memo
-// whose horizon grew could otherwise pin a busy key for as long as the process
+// TestTPMLimiter_CapMemoDeadlineRestampsAtTheFloor is the other half of that
+// rule. The deadline never descends, but it is an absolute time rather than a
+// duration that ratchets, so a long timeout's claim runs out on its own and
+// ordinary admissions re-stamp the memo at the floor from then on. A horizon
+// held as a duration would instead pin a busy key for as long as the process
 // runs.
-func TestTPMLimiter_CapMemoDeadlineComesBackDown(t *testing.T) {
+func TestTPMLimiter_CapMemoDeadlineRestampsAtTheFloor(t *testing.T) {
 	l, s := newTestTPMLimiter(t)
 	ctx := context.Background()
 
@@ -1147,8 +1147,11 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	if !spy.sawDeadline {
 		t.Fatal("the horizon read must carry a deadline of its own")
 	}
-	if spy.budget > settingsReadTimeout || spy.budget <= 0 {
-		t.Errorf("the read should be bounded by %v, got %v", settingsReadTimeout, spy.budget)
+	// Strictly under the bound, since the clock has already moved by the time
+	// the spy reads it, and not so far under that a much shorter deadline would
+	// pass unnoticed.
+	if spy.budget <= settingsReadTimeout/2 || spy.budget > settingsReadTimeout {
+		t.Errorf("the read should be bounded near %v, got %v", settingsReadTimeout, spy.budget)
 	}
 }
 
@@ -1193,6 +1196,27 @@ func (d *deadlineSpy) GetDuration(ctx context.Context, key string, def time.Dura
 		d.budget = time.Until(deadline)
 	}
 	return d.SettingsReader.GetDuration(ctx, key, def)
+}
+
+// TestTPMLimiter_OwnerAdmissionClaimsTheHorizon covers the other admission
+// surface: the owner's aggregate bucket is resolved through its own call site,
+// with a context assembled from the session rather than a virtual key, and its
+// memo has to claim a horizon the same way.
+func TestTPMLimiter_OwnerAdmissionClaimsTheHorizon(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+	h := l.UserMiddleware(true)(okHandler())
+
+	userTPM := 600
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the first session request should pass, got %d", rec.Code)
+	}
+
+	if got := remainingMemoHorizon(t, l, userBucketKey("uid-1")); got != 40*time.Hour {
+		t.Errorf("an owner admission should claim the horizon the setting implies, got %v", got)
+	}
 }
 
 // ageMemo winds a cap memo's deadline back by d, standing in for d of elapsed

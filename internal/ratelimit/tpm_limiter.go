@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -55,7 +56,16 @@ type TPMLimiter struct {
 	caps     map[string]*capMemo
 	settings SettingsReader
 	stopCh   chan struct{}
+	// lastSlowReadWarn is when the slow-horizon-read warning was last emitted,
+	// in Unix nanoseconds, so a hanging database costs one line per interval
+	// rather than one per admission.
+	lastSlowReadWarn atomic.Int64
 }
+
+// slowReadWarnInterval is the shortest gap between two slow-horizon-read
+// warnings. Long enough that a hanging database cannot crowd the log, short
+// enough that the condition stays visible while it lasts.
+const slowReadWarnInterval = time.Minute
 
 // capMemo is the budget a bucket was last built with, kept so an evicted bucket
 // can be rebuilt to take a late debit.
@@ -457,6 +467,10 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 // getEntry returns (or creates) the token-budget bucket for keyHash. If the
 // stored bucket's tpm no longer matches (the key's cap changed at runtime) it
 // is replaced so the new budget takes effect immediately.
+//
+// It also claims the key's cap-memo horizon, which is why it takes a context:
+// resolving that horizon reads request_timeout, and it does so before taking
+// the lock every admission blocks on.
 func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpmEntry {
 	// Resolved before taking the lock, since every admission blocks on this mutex.
 	// The deadline itself is stamped under the lock, so waiting for it does not
@@ -520,13 +534,29 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	defer cancelRead()
 
 	horizon := capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
-	if readCtx.Err() != nil {
-		// The one degraded case an operator can act on, and the one this can
-		// actually detect: a read that ran out of time returned the default,
-		// whatever request_timeout says.
+	if readCtx.Err() != nil && l.warnedSlowRead() {
+		// A read that ran out of time returned the default, whatever
+		// request_timeout says. It is the only degraded case this can pick out,
+		// since a settings read that fails outright is indistinguishable from an
+		// unset key, and it is worth a line because on a gateway with a long
+		// request_timeout the horizon has quietly dropped to the floor. Rate
+		// limited: a database that hangs does it to every admission at once.
 		debuglog.Warn("ratelimit: timed out reading request_timeout, cap memos fall back to the default horizon", "horizon", horizon)
 	}
 	return horizon
+}
+
+// warnedSlowRead reports whether this slow horizon read is the one that gets to
+// speak, claiming the interval if so. Two racing readers can both see a stale
+// timestamp, and the loser's compare-and-swap fails, so at most one line is
+// emitted per interval.
+func (l *TPMLimiter) warnedSlowRead() bool {
+	now := time.Now()
+	last := l.lastSlowReadWarn.Load()
+	if last != 0 && now.Sub(time.Unix(0, last)) < slowReadWarnInterval {
+		return false
+	}
+	return l.lastSlowReadWarn.CompareAndSwap(last, now.UnixNano())
 }
 
 // tpmRetryAfter estimates seconds until at least one token is available again,
