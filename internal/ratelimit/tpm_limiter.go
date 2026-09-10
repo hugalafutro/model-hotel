@@ -72,7 +72,8 @@ type capMemo struct {
 }
 
 // settingsKeyRequestTimeout is the per-attempt upstream timeout the proxy reads
-// for every request. The limiter reads it only to size the cap-memo horizon
+// for every request, through the same GetDuration and the same one minute
+// default used below. The limiter reads it only to size the cap-memo horizon
 // against the longest request the gateway can hold open. The proxy owns the
 // setting itself; this package must not change how it is interpreted.
 const settingsKeyRequestTimeout = "request_timeout"
@@ -82,10 +83,11 @@ const settingsKeyRequestTimeout = "request_timeout"
 // proxy's own default implies.
 const defaultRequestTimeout = time.Minute
 
-// minCapMemoTTL floors the cap-memo horizon. At the factor below the crossover
-// is a 36 minute request_timeout: anything shorter derives less than a day and
-// floors here, which is every ordinary configuration, so the floor is what the
-// fleet actually runs on and the derived value only takes over above that.
+// minCapMemoTTL floors the cap-memo horizon. Against the factor below, the
+// crossover is a 36 minute request_timeout: anything shorter derives less than a
+// day and lands on this floor, which is every ordinary configuration, so the
+// floor is what the fleet actually runs on and the derived horizon only takes
+// over above that.
 const minCapMemoTTL = 24 * time.Hour
 
 // capMemoTimeoutFactor scales request_timeout into that horizon. A streaming or

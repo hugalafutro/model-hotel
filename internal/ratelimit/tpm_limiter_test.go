@@ -805,9 +805,10 @@ func TestTPMLimiter_DebitUserIgnoresNonBuckets(t *testing.T) {
 }
 
 // TestCapMemoTTL covers the horizon arithmetic on its own: every ordinary
-// request_timeout lands on the floor, a long one scales past it, and a value
-// that cannot be scaled falls back to the floor rather than a negative horizon
-// that would sweep every memo on the next pass.
+// request_timeout lands on the floor, a long one scales past it, a missing or
+// nonsensical one falls back to the floor, and one too large to scale saturates
+// rather than wrapping to a negative horizon that would sweep every memo on the
+// next pass.
 func TestCapMemoTTL(t *testing.T) {
 	cases := []struct {
 		name           string
@@ -822,6 +823,8 @@ func TestCapMemoTTL(t *testing.T) {
 		{"three hours scales further", 3 * time.Hour, 120 * time.Hour},
 		{"zero falls back to the floor", 0, minCapMemoTTL},
 		{"negative falls back to the floor", -time.Hour, minCapMemoTTL},
+		{"the largest scalable timeout still scales", math.MaxInt64 / capMemoTimeoutFactor, (math.MaxInt64 / capMemoTimeoutFactor) * capMemoTimeoutFactor},
+		{"one tick past that saturates", math.MaxInt64/capMemoTimeoutFactor + 1, time.Duration(math.MaxInt64)},
 		{"an overflowing timeout saturates", time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)},
 	}
 	for _, tc := range cases {
@@ -955,5 +958,41 @@ func TestTPMLimiter_CapMemoHorizonWithUnparseableTimeout(t *testing.T) {
 	l.mu.Unlock()
 	if memoLeft {
 		t.Error("a memo past the floor should be swept when the timeout is unparseable")
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonRatchets covers the grow-only rule on the memo
+// itself: a later admission under a longer request_timeout raises the horizon,
+// and one under a shorter timeout leaves it alone. Plain assignment either way
+// would strand a request admitted under the longer setting.
+func TestTPMLimiter_CapMemoHorizonRatchets(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	ctx := context.Background()
+
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry(ctx, "k", 500)
+	l.mu.Lock()
+	first := l.caps["k"].ttl
+	l.mu.Unlock()
+	if first != 40*time.Hour {
+		t.Fatalf("a one hour timeout should stamp a 40 hour horizon, got %v", first)
+	}
+
+	s.set(settingsKeyRequestTimeout, "4h")
+	l.getEntry(ctx, "k", 500)
+	l.mu.Lock()
+	raised := l.caps["k"].ttl
+	l.mu.Unlock()
+	if raised != 160*time.Hour {
+		t.Errorf("a longer timeout should raise the horizon to 160h, got %v", raised)
+	}
+
+	s.set(settingsKeyRequestTimeout, "1m")
+	l.getEntry(ctx, "k", 500)
+	l.mu.Lock()
+	afterDrop := l.caps["k"].ttl
+	l.mu.Unlock()
+	if afterDrop != raised {
+		t.Errorf("a shorter timeout must not lower the horizon: was %v, now %v", raised, afterDrop)
 	}
 }
