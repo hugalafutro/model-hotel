@@ -96,6 +96,12 @@ export function AttemptTrail({
 		if (detail === HEDGE_SUPERSEDED_DETAIL) return false;
 		return a.status ? detail !== statusBadgeLabel(a.status, t) : true;
 	};
+	// A skipped attempt never reached the breaker, so it carries no verdict to
+	// show; the SKIPPED badge on the first line is the whole story.
+	const showsVerdict = (
+		a: AttemptRecord,
+	): a is AttemptRecord & { breaker: string } =>
+		Boolean(a.breaker) && a.breaker !== "skipped";
 	return (
 		<div className="mb-6" data-testid="attempt-trail">
 			<DetailSectionHeader icon={Layers}>
@@ -162,31 +168,34 @@ export function AttemptTrail({
 								{formatMs(a.duration_ms, 1)}
 							</span>
 						)}
-						{a.breaker && a.breaker !== "skipped" && (
-							// The shield marks the verdict as the breaker's, not another
-							// word of the timing beside it.
-							<span
-								className="inline-flex items-center gap-1 text-xs text-(--text-tertiary)"
-								title={t("components.requestLogDetail.attemptBreaker", {
-									verdict: a.breaker,
-								})}
-							>
-								{(() => {
-									const Icon = BREAKER_VERDICT_ICONS[a.breaker] ?? Shield;
-									return <Icon size={11} aria-hidden="true" />;
-								})()}
-								{t(
-									BREAKER_VERDICT_KEYS[a.breaker] ??
-										"components.requestLogDetail.attemptBreaker",
-									{ verdict: a.breaker },
-								)}
-							</span>
-						)}
-						{(kindSaysMore(a) || detailSaysMore(a)) && (
-							// A second line only for what the first one does not already
-							// say; indented past the number column so it lines up with the
-							// provider name.
+						{(showsVerdict(a) || kindSaysMore(a) || detailSaysMore(a)) && (
+							// A second line carrying the breaker verdict and whatever the
+							// first line does not already say, indented past the number
+							// column so it lines up with the provider name. The verdict
+							// lives here rather than beside the timing because a row that
+							// runs long wraps it to its own line anyway, and a wrapped
+							// flex child starts at the left edge, under the number.
 							<span className="basis-full flex items-baseline gap-x-2 pl-8">
+								{showsVerdict(a) && (
+									// The shield marks the verdict as the breaker's, not
+									// another word of the timing above it.
+									<span
+										className="inline-flex items-center gap-1 text-xs text-(--text-tertiary)"
+										title={t("components.requestLogDetail.attemptBreaker", {
+											verdict: a.breaker,
+										})}
+									>
+										{(() => {
+											const Icon = BREAKER_VERDICT_ICONS[a.breaker] ?? Shield;
+											return <Icon size={11} aria-hidden="true" />;
+										})()}
+										{t(
+											BREAKER_VERDICT_KEYS[a.breaker] ??
+												"components.requestLogDetail.attemptBreaker",
+											{ verdict: a.breaker },
+										)}
+									</span>
+								)}
 								{kindSaysMore(a) && (
 									<span className="font-mono text-xs text-(--text-secondary)">
 										{a.error_kind}

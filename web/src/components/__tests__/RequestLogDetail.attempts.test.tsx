@@ -199,6 +199,36 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(row).not.toHaveTextContent("refused connection");
 	});
 
+	it("puts the breaker verdict on the indented line, under the provider", () => {
+		// The verdict used to sit beside the timing, where a long row wrapped it
+		// onto its own line at the left edge, under the attempt number instead of
+		// the provider name.
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Z.ai Coding Plan",
+							model: "glm-5.3",
+							status: 200,
+							duration_ms: 79837,
+							hedged: true,
+							breaker: "success",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const verdict = screen.getByTitle(/breaker/i);
+		const line = verdict.parentElement;
+		expect(line?.className).toContain("pl-8");
+		expect(line?.className).toContain("basis-full");
+	});
+
 	it("leaves out a last detail the terminal message quotes mid-sentence", () => {
 		// A hedged loser with no provider sentence carries the bare status,
 		// which the terminal message embeds rather than ends with.
