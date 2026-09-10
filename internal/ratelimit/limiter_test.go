@@ -50,6 +50,20 @@ func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 	return b
 }
 
+func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Duration) time.Duration {
+	s.mu.Lock()
+	v, ok := s.data[key]
+	s.mu.Unlock()
+	if !ok {
+		return def
+	}
+	d, err := time.ParseDuration(v)
+	if err != nil {
+		return def
+	}
+	return d
+}
+
 func (s *stubSettings) GetFloat(_ context.Context, key string, def float64) float64 {
 	s.mu.Lock()
 	v, ok := s.data[key]

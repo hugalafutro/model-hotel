@@ -27,6 +27,15 @@ func (s *stubIPSettings) GetBool(_ context.Context, key string, def bool) bool {
 	return def
 }
 
+func (s *stubIPSettings) GetDuration(_ context.Context, key string, def time.Duration) time.Duration {
+	if v, ok := s.values[key]; ok {
+		if d, err := time.ParseDuration(v); err == nil {
+			return d
+		}
+	}
+	return def
+}
+
 func (s *stubIPSettings) GetFloat(_ context.Context, key string, def float64) float64 {
 	if v, ok := s.values[key]; ok {
 		if f, err := strconv.ParseFloat(v, 64); err == nil {

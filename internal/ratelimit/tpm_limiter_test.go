@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -271,7 +272,7 @@ func TestTPMLimiter_CapMemoIsSwept(t *testing.T) {
 
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
-	l.caps["k"].lastUsed = time.Now().Add(-capMemoTTL - time.Minute)
+	l.caps["k"].lastUsed = time.Now().Add(-minCapMemoTTL - time.Minute)
 	l.mu.Unlock()
 	l.cleanup()
 
@@ -800,5 +801,95 @@ func TestTPMLimiter_DebitUserIgnoresNonBuckets(t *testing.T) {
 	l.UserMiddleware(true)(okHandler()).ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: no-op debits must not drain the budget", rec.Code)
+	}
+}
+
+// TestCapMemoTTL covers the horizon arithmetic on its own: every ordinary
+// request_timeout lands on the floor, a long one scales past it, and a value
+// that cannot be scaled falls back to the floor rather than a negative horizon
+// that would sweep every memo on the next pass.
+func TestCapMemoTTL(t *testing.T) {
+	cases := []struct {
+		name           string
+		requestTimeout time.Duration
+		want           time.Duration
+	}{
+		{"default one minute floors at a day", time.Minute, minCapMemoTTL},
+		{"half an hour still floors at a day", 30 * time.Minute, minCapMemoTTL},
+		{"an hour scales past the floor", time.Hour, 40 * time.Hour},
+		{"three hours scales further", 3 * time.Hour, 120 * time.Hour},
+		{"zero falls back to the floor", 0, minCapMemoTTL},
+		{"negative falls back to the floor", -time.Hour, minCapMemoTTL},
+		{"an overflowing timeout falls back to the floor", time.Duration(math.MaxInt64), minCapMemoTTL},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := capMemoTTL(tc.requestTimeout); got != tc.want {
+				t.Errorf("capMemoTTL(%v) = %v, want %v", tc.requestTimeout, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout is the wiring half: a memo
+// older than the floor but younger than the horizon a raised request_timeout
+// implies must survive the sweep, and still take a late debit. Under the old
+// constant horizon this memo was swept and the debit was dropped, which is the
+// bug the memo exists to prevent.
+func TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout(t *testing.T) {
+	const tpm = 500
+	l, s := newTestTPMLimiter(t)
+	// 40x an hour is well past the one-day floor, so a memo aged 25 hours is
+	// inside the horizon here and outside it at the default timeout.
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry("k", tpm)
+
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.caps["k"].lastUsed = time.Now().Add(-25 * time.Hour)
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.mu.Lock()
+	_, memoLeft := l.caps["k"]
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if !memoLeft {
+		t.Fatal("a memo inside the horizon a raised request_timeout implies must survive the sweep")
+	}
+	if buckets != 0 {
+		t.Fatalf("the idle bucket should still be evicted, got %d", buckets)
+	}
+
+	l.Debit("k", "", 2*tpm)
+	l.mu.Lock()
+	rebuilt, ok := l.buckets["k"]
+	l.mu.Unlock()
+	if !ok {
+		t.Fatal("the surviving memo must let the late debit rebuild the bucket")
+	}
+	if got := rebuilt.limiter.Tokens(); got > 0 {
+		t.Errorf("the debit must land on the rebuilt bucket, tokens left = %v", got)
+	}
+}
+
+// TestTPMLimiter_CapMemoSweptAtTheDefaultTimeout is the control for the case
+// above: the same 25-hour-old memo is swept when request_timeout is the default,
+// so the test above proves the setting moved the horizon and not that the sweep
+// stopped working.
+func TestTPMLimiter_CapMemoSweptAtTheDefaultTimeout(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	l.getEntry("k", 500)
+
+	l.mu.Lock()
+	l.caps["k"].lastUsed = time.Now().Add(-25 * time.Hour)
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.mu.Lock()
+	_, memoLeft := l.caps["k"]
+	l.mu.Unlock()
+	if memoLeft {
+		t.Error("at the default request_timeout a memo past the one-day floor must be swept")
 	}
 }

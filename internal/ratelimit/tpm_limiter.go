@@ -64,14 +64,47 @@ type capMemo struct {
 	lastUsed time.Time
 }
 
-// capMemoTTL bounds how long a cap memo outlives its bucket. It has to exceed
-// the longest request the gateway can hold open, and that is not a constant:
-// the ceiling is request_timeout (default one minute) times ten for a stream,
-// and request_timeout is an operator-set duration with no upper bound. A day
-// covers every request_timeout up to two hours and twenty-four minutes. Past
-// that a debit can still be dropped, which is the same failure this memo exists
-// to fix, one order of magnitude further out.
-const capMemoTTL = 24 * time.Hour
+// settingsKeyRequestTimeout is the per-attempt upstream timeout the proxy reads
+// for every request. The limiter reads it only to size the cap-memo horizon
+// against the longest request the gateway can hold open. The proxy owns the
+// setting itself; this package must not change how it is interpreted.
+const settingsKeyRequestTimeout = "request_timeout"
+
+// defaultRequestTimeout mirrors the proxy's fallback for an unset
+// request_timeout, so an unconfigured gateway derives the same horizon the
+// proxy's own default implies.
+const defaultRequestTimeout = time.Minute
+
+// minCapMemoTTL floors the cap-memo horizon. Every ordinary request_timeout
+// derives something far shorter than this, so the floor is what the fleet
+// actually runs on and the derived value only takes over once an operator sets
+// a timeout long enough to need it.
+const minCapMemoTTL = 24 * time.Hour
+
+// capMemoTimeoutFactor scales request_timeout into that horizon. A streaming or
+// long-running request gets ten times request_timeout per attempt, and the
+// overall failover deadline caps a whole request at twice that, so twenty times
+// the setting is the longest a request can live. Doubling it again leaves the
+// memo a full request's worth of margin over the sweep.
+const capMemoTimeoutFactor = 40
+
+// capMemoTTL is how long a cap memo outlives its bucket. The memo is what lets a
+// late debit rebuild an evicted bucket, so it has to outlast the longest request
+// the gateway can hold open, and that ceiling is not a constant: it is derived
+// from request_timeout, which an operator sets with no upper bound. Deriving the
+// horizon from the same setting means raising the timeout cannot silently
+// reopen the dropped-debit hole the memo exists to close.
+//
+// A request_timeout that is unset, unparseable or absurd enough to overflow the
+// multiplication falls back to the floor: a horizon that overflowed negative
+// would sweep every memo on the next pass, which is worse than a horizon that is
+// merely too short.
+func capMemoTTL(requestTimeout time.Duration) time.Duration {
+	if requestTimeout <= 0 || requestTimeout > math.MaxInt64/capMemoTimeoutFactor {
+		return minCapMemoTTL
+	}
+	return max(minCapMemoTTL, capMemoTimeoutFactor*requestTimeout)
+}
 
 // tpmEntry is a per-key token-budget bucket. The rate.Limiter is configured as
 // limit = tpm/60 tokens refilled per second, burst = tpm (a full minute's
@@ -429,6 +462,14 @@ func tpmRetryAfter(lim *rate.Limiter) int {
 }
 
 func (l *TPMLimiter) cleanup() {
+	// The sweep runs on its own goroutine with no request to inherit from, and
+	// the settings read below is a cached lookup, so a background context is the
+	// whole story here.
+	ctx := context.Background()
+	// Read before taking the lock: the settings repository may hit the database,
+	// and every admission and debit blocks on this mutex.
+	memoTTL := capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout))
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -442,8 +483,10 @@ func (l *TPMLimiter) cleanup() {
 	// Cap memos are what let a debit rebuild an evicted bucket, so they are held
 	// far longer than the bucket itself. Past this horizon no request that was
 	// admitted against the memo can still be running, and keeping it would grow
-	// the map by one entry for every key the process ever saw.
-	memoCutoff := now.Add(-capMemoTTL)
+	// the map by one entry for every key the process ever saw. The horizon comes
+	// from the live request_timeout on every sweep, so an operator raising the
+	// timeout moves it too.
+	memoCutoff := now.Add(-memoTTL)
 	for key, memo := range l.caps {
 		if memo.lastUsed.Before(memoCutoff) {
 			delete(l.caps, key)
