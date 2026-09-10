@@ -479,9 +479,9 @@ Its quota endpoint is the part that needed code: see [Additional Provider APIs](
 
 **Source files:** `discovery_deepseek.go`, `deepseek_catalog.go`, `catalog_merge.go`
 
-**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in `deepseekCatalog` (5 rows) via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog backfills context length, max output, reasoning flag, input modalities, and pricing (cache-miss maps to the standard input price; cache-hit is carried separately). Uncatalogued models are clean stubs filled by models.dev; there is no hardcoded context default.
+**Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in `deepseekCatalog` (6 rows) via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog backfills context length, max output, reasoning flag, input modalities, and pricing (cache-miss maps to the standard input price; cache-hit is carried separately). Uncatalogued models are clean stubs filled by models.dev; there is no hardcoded context default.
 
-Two of the five rows are not price overrides but the only source of the model at all: `deepseek-chat` and `deepseek-reasoner` are permanent aliases onto `deepseek-v4-flash` (thinking off and on) and are absent from the live listing entirely. The other three exist because models.dev still carries DeepSeek's pre-V4 rates under the V4 IDs. Catalog prices are DeepSeek's **off-peak** rates, which apply for 17 of every 24 hours; peak hours (01:00-04:00 and 06:00-10:00 UTC) bill at exactly double, and a model row holds one figure, so metering under-reports during that window.
+Two of the six rows are not price overrides but the only source of the model at all: `deepseek-chat` and `deepseek-reasoner` are permanent aliases (thinking off and on) and are absent from the live listing entirely. The rest exist because models.dev carries no entry for `deepseek-flash` and still lists DeepSeek's pre-V4 rates under the V4 IDs. `deepseek-flash` is V4.1 Flash and the only Flash id DeepSeek documents; `deepseek-chat`, `deepseek-reasoner`, `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` all resolve to it upstream, so every Flash-family row carries its price. `deepseek-v4-pro` is the one row still on its own rate. Catalog prices are DeepSeek's **off-peak** rates, which apply for 17 of every 24 hours; peak hours (01:00-04:00 and 06:00-10:00 UTC) bill at exactly double, and a model row holds one figure, so metering under-reports during that window.
 
 **Catalog provides:**
 
@@ -899,7 +899,7 @@ The `lookupFuzzyIn` helper implements this logic (the canonical-provider and cro
 | Reasoning capability | Only if false |
 | Tool calling capability | Only if false |
 | Structured output capability | Only if false, and never for an image-output model on a provider that reaches Google's own route (Google AI Studio, Vertex AI express, and OpenCode Zen for its `gemini-*` ids), whose JSON mode the API refuses (google-gemini/cookbook#1028) |
-| Vision capability | Only if false, and only when the `attachment` flag is corroborated by an `image` input modality (or by no input list at all). models.dev sets `attachment` on models whose only input is text, `deepseek-chat` among them, which answer an image with a 400. |
+| Vision capability | Only if false, and only when the `attachment` flag is corroborated by an `image` input modality (or by no input list at all). models.dev sets `attachment` on models whose only input is text, `deepseek-chat` among them. |
 | Input modalities | Only if empty or `"[]"` |
 | Output modalities | Only if empty or `"[]"` |
 | Owned by / family | Only if empty |
@@ -1077,7 +1077,7 @@ Model IDs follow the format provided by each provider:
 |----------|-------------------|
 | OpenAI | `gpt-4o`, `gpt-4o-2024-08-06`, `o1-preview` |
 | Anthropic | `claude-sonnet-4-5-20250514`, `claude-3-5-haiku-20241022` |
-| DeepSeek | `deepseek-chat`, `deepseek-reasoner` |
+| DeepSeek | `deepseek-flash`, `deepseek-chat`, `deepseek-reasoner` |
 | xAI | `grok-4.3`, `grok-4.5` |
 | Google | `gemini-2.5-flash`, `gemini-3.6-flash` (stripped from `models/gemini-3.6-flash`) |
 | Ollama | `llama3.2:3b`, `gemma3:4b` |

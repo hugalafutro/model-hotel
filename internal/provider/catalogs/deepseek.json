@@ -1,33 +1,43 @@
 [
   {
+    "model_id": "deepseek-flash",
+    "description": "DeepSeek V4.1 Flash, the current Flash model and the target every legacy Flash-family name resolves to. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
+    "context_length": 1000000,
+    "max_output_tokens": 384000,
+    "reasoning": true,
+    "input_price_per_million_cache_hit": 0.003,
+    "input_price_per_million_cache_miss": 0.15,
+    "output_price_per_million": 0.6
+  },
+  {
     "model_id": "deepseek-chat",
-    "description": "Alias for deepseek-v4-flash with thinking off. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
+    "description": "Alias onto deepseek-flash with thinking off. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": false,
-    "input_price_per_million_cache_hit": 0.007,
-    "input_price_per_million_cache_miss": 0.22,
-    "output_price_per_million": 0.66
+    "input_price_per_million_cache_hit": 0.003,
+    "input_price_per_million_cache_miss": 0.15,
+    "output_price_per_million": 0.6
   },
   {
     "model_id": "deepseek-reasoner",
-    "description": "Alias for deepseek-v4-flash with thinking on. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
+    "description": "Alias onto deepseek-flash with thinking on. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
-    "input_price_per_million_cache_hit": 0.007,
-    "input_price_per_million_cache_miss": 0.22,
-    "output_price_per_million": 0.66
+    "input_price_per_million_cache_hit": 0.003,
+    "input_price_per_million_cache_miss": 0.15,
+    "output_price_per_million": 0.6
   },
   {
     "model_id": "deepseek-v4-flash",
-    "description": "DeepSeek V4 Flash. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
+    "description": "Legacy name for DeepSeek V4 Flash; the API now serves deepseek-flash under it and bills at that rate. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
-    "input_price_per_million_cache_hit": 0.007,
-    "input_price_per_million_cache_miss": 0.22,
-    "output_price_per_million": 0.66
+    "input_price_per_million_cache_hit": 0.003,
+    "input_price_per_million_cache_miss": 0.15,
+    "output_price_per_million": 0.6
   },
   {
     "model_id": "deepseek-v4-pro",
@@ -41,14 +51,14 @@
   },
   {
     "model_id": "deepseek-v4-flash-vision-exp",
-    "description": "DeepSeek V4 Flash Vision (experimental); accepts image input. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
+    "description": "Legacy name for DeepSeek V4 Flash Vision (experimental); accepts image input and the API now serves deepseek-flash under it. Listed price is DeepSeek's off-peak rate; billing doubles during peak hours (01:00-04:00 and 06:00-10:00 UTC).",
     "context_length": 1000000,
     "max_output_tokens": 384000,
     "reasoning": true,
     "vision": true,
     "input_modalities": "[\"text\",\"image\"]",
-    "input_price_per_million_cache_hit": 0.007,
-    "input_price_per_million_cache_miss": 0.22,
-    "output_price_per_million": 0.66
+    "input_price_per_million_cache_hit": 0.003,
+    "input_price_per_million_cache_miss": 0.15,
+    "output_price_per_million": 0.6
   }
 ]
