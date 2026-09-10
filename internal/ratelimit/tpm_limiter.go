@@ -557,22 +557,12 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // its debit. The same goes for a gateway that has never once read the setting,
 // because every read since it started, the sweep's included, ran out of time.
 func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
-	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
-	defer cancelRead()
-
-	horizon := capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
-	// Recorded before the deadline is examined, so a read that answered in the
+	horizon, timedOut := l.readHorizon(ctx, settingsReadTimeout)
+	// Recorded before the timeout is acted on, so a read that answered in the
 	// same instant it expired still counts. The mark only rises, so recording a
 	// genuine timeout's default costs nothing.
 	l.rememberHorizon(horizon)
-	// Only a value the default itself derives can have come from a read that
-	// gave up: anything else was answered from the setting, whatever the
-	// deadline did in the moment after. That distinction matters because the
-	// deadline can fire between the read returning and this check, and a lowered
-	// request_timeout must not be discarded on the strength of that. A setting
-	// that genuinely derives the floor is the one case still caught by it, and
-	// there the fallback only lengthens retention.
-	if readCtx.Err() == nil || horizon != capMemoTTL(defaultRequestTimeout) {
+	if !timedOut {
 		return horizon
 	}
 
@@ -591,6 +581,24 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 			"horizon", horizon, "remembered", remembered)
 	}
 	return horizon
+}
+
+// readHorizon resolves the horizon request_timeout implies, bounded by the time
+// the caller can spare, and reports whether the read ran out of it.
+//
+// Only a value the default itself derives can have come from a read that gave
+// up: anything else was answered from the setting, whatever the deadline did in
+// the moment after. That distinction matters because the deadline can fire
+// between the read returning and the check, and a lowered request_timeout must
+// not be discarded on the strength of that. A setting that genuinely derives the
+// floor is the one case still reported as a timeout, and there the caller's
+// fallback only lengthens retention.
+func (l *TPMLimiter) readHorizon(ctx context.Context, bound time.Duration) (horizon time.Duration, timedOut bool) {
+	readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), bound)
+	defer cancel()
+
+	horizon = capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	return horizon, readCtx.Err() != nil && horizon == capMemoTTL(defaultRequestTimeout)
 }
 
 // rememberHorizon raises the high-water mark a timed-out read falls back to.
@@ -652,12 +660,9 @@ func (l *TPMLimiter) sweep() {
 // so the mark could never rise above the default's floor and a raised
 // request_timeout would go unnoticed for the life of the process.
 func (l *TPMLimiter) refreshHorizonMark() {
-	ctx, cancel := context.WithTimeout(context.Background(), markRefreshTimeout)
-	defer cancel()
-
-	horizon := capMemoTTL(l.settings.GetDuration(ctx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	horizon, timedOut := l.readHorizon(context.Background(), markRefreshTimeout)
 	l.rememberHorizon(horizon)
-	if ctx.Err() != nil && l.warnedSlowRead() {
+	if timedOut && l.warnedSlowRead() {
 		// Sharing the admission path's rate limit on purpose: both lines report
 		// the same store being too slow to answer, and an operator needs to hear
 		// it once, not from each of them.

@@ -997,8 +997,9 @@ func TestTPMLimiter_CapMemoDeadlineRestampsAtTheFloor(t *testing.T) {
 	// the deadline back 20 hours stands in for that time passing, leaving the
 	// memo still live with 20 hours of its 40 to run, so what follows is an
 	// ordinary admission against a healthy memo rather than a revival. The
-	// deadline is never pulled in, it just stops being extended past the floor
-	// once the old claim has less than a floor's worth left to run.
+	// deadline is never pulled in. Once the old claim has less than a floor's
+	// worth left to run, an ordinary admission re-stamps it at the floor, and
+	// that is as far as it goes from then on.
 	s.set(settingsKeyRequestTimeout, "1m")
 	ageMemo(t, l, "k", 20*time.Hour)
 
@@ -1298,31 +1299,22 @@ func TestTPMLimiter_SweepRefreshesTheHorizonMark(t *testing.T) {
 	}
 }
 
-// TestTPMLimiter_SweepSurvivesAHangingStore covers the sweep's own timeout: it
-// has to give up and get on with the eviction it wraps, or a store that stopped
-// answering would hold every memo and bucket in the process.
-func TestTPMLimiter_SweepSurvivesAHangingStore(t *testing.T) {
-	l := NewTPMLimiter(hangingSettings{SettingsReader: newStubSettings()})
+// TestTPMLimiter_ReadHorizonReportsATimeout covers the shared read giving up on
+// a store that will not answer. It runs against a bound of its own rather than
+// either caller's, so the case is pinned without waiting out the seconds the
+// sweep is willing to spend.
+func TestTPMLimiter_ReadHorizonReportsATimeout(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "4h")
+	l := NewTPMLimiter(hangingSettings{SettingsReader: stub})
 	t.Cleanup(l.Stop)
 
-	l.getEntry(context.Background(), "k", 500)
-	l.mu.Lock()
-	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
-	l.mu.Unlock()
-	// That admission already spoke for this interval, and the sweep shares its
-	// rate limit. Clearing the stamp lets the sweep reach its own warning.
-	l.lastSlowReadWarn.Store(0)
-
-	l.sweep()
-
-	l.mu.Lock()
-	buckets := len(l.buckets)
-	l.mu.Unlock()
-	if buckets != 0 {
-		t.Errorf("the sweep should evict even when it learned nothing, got %d", buckets)
+	horizon, timedOut := l.readHorizon(context.Background(), time.Millisecond)
+	if !timedOut {
+		t.Error("a read that never answers should report a timeout")
 	}
-	if got := time.Duration(l.lastGoodHorizon.Load()); got != minCapMemoTTL {
-		t.Errorf("a sweep that learned nothing should leave the floor on record, got %v", got)
+	if horizon != minCapMemoTTL {
+		t.Errorf("a read that never answers derives the default's horizon, got %v", horizon)
 	}
 }
 
@@ -1352,6 +1344,28 @@ func (a lateAnswerSettings) GetDuration(ctx context.Context, key string, def tim
 	got := a.SettingsReader.GetDuration(ctx, key, def)
 	<-ctx.Done()
 	return got
+}
+
+// TestTPMLimiter_TimeoutPrefersTheMarkOverALoweredSetting is why the mark
+// exists. Once the store stops answering, the horizon has to come from what the
+// gateway was running, not from the default a timed-out read hands back, even
+// though the setting itself has since been lowered.
+func TestTPMLimiter_TimeoutPrefersTheMarkOverALoweredSetting(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "4h")
+	settings := &switchableSettings{SettingsReader: stub}
+	l := NewTPMLimiter(settings)
+	t.Cleanup(l.Stop)
+
+	if got := l.memoHorizon(context.Background()); got != 160*time.Hour {
+		t.Fatalf("the first read should derive the setting's horizon, got %v", got)
+	}
+
+	stub.set(settingsKeyRequestTimeout, "1m")
+	settings.hang.Store(true)
+	if got := l.memoHorizon(context.Background()); got != 160*time.Hour {
+		t.Errorf("a timed-out read should fall back to the mark, not the floor, got %v", got)
+	}
 }
 
 // TestRememberHorizon covers the high-water mark under contention: a mark can
