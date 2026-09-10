@@ -167,9 +167,28 @@ func TestInjectProviderParams_DeepSeekNonReasoning(t *testing.T) {
 	}
 }
 
+// TestInjectProviderParams_DeepSeekFlash covers V4.1 Flash, whose id carries no
+// version either. Every legacy Flash-family name resolves to it, it thinks by
+// default, and the v4/r1 substring test does not match it.
+func TestInjectProviderParams_DeepSeekFlash(t *testing.T) {
+	raw := map[string]any{
+		"model": "deepseek-flash",
+		"messages": []any{
+			map[string]any{"role": "user", "content": "Q1"},
+			map[string]any{"role": "assistant", "content": "A1"},
+			map[string]any{"role": "user", "content": "Q2"},
+		},
+	}
+	InjectProviderParams(raw, "deepseek", "deepseek-flash")
+	assistant := raw["messages"].([]any)[1].(map[string]any)
+	if _, exists := assistant["reasoning_content"]; !exists {
+		t.Error("assistant message missing reasoning_content")
+	}
+}
+
 // TestInjectProviderParams_DeepSeekReasonerAlias covers the alias whose name
 // carries no version. deepseek-reasoner is absent from DeepSeek's /models
-// listing and resolves to deepseek-v4-flash with thinking on, so it needs the
+// listing and resolves to deepseek-flash with thinking on, so it needs the
 // same backfill as the versioned id, which the v4/r1 substring test misses.
 func TestInjectProviderParams_DeepSeekReasonerAlias(t *testing.T) {
 	raw := map[string]any{

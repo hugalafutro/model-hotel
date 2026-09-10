@@ -164,12 +164,16 @@ func TestDeepSeekCatalog_VisionModel(t *testing.T) {
 // else can catch a typo here: models.dev still carries the pre-V4 figures, so a
 // diff against it reports every one of these rows as diverging by design.
 func TestDeepSeekCatalog_Prices(t *testing.T) {
-	// cache-hit / cache-miss / output, dollars per million tokens.
+	// cache-hit / cache-miss / output, dollars per million tokens. Every
+	// Flash-family id resolves to deepseek-flash upstream, so they share its
+	// price; deepseek-v4-pro is the only row still on its own rate, until
+	// DeepSeek reroutes that id to Flash too.
 	want := map[string][3]float64{
-		"deepseek-chat":                {0.007, 0.22, 0.66},
-		"deepseek-reasoner":            {0.007, 0.22, 0.66},
-		"deepseek-v4-flash":            {0.007, 0.22, 0.66},
-		"deepseek-v4-flash-vision-exp": {0.007, 0.22, 0.66},
+		"deepseek-flash":               {0.003, 0.15, 0.6},
+		"deepseek-chat":                {0.003, 0.15, 0.6},
+		"deepseek-reasoner":            {0.003, 0.15, 0.6},
+		"deepseek-v4-flash":            {0.003, 0.15, 0.6},
+		"deepseek-v4-flash-vision-exp": {0.003, 0.15, 0.6},
 		"deepseek-v4-pro":              {0.022, 0.66, 1.98},
 	}
 	catalog := GetDeepSeekModels()
@@ -194,13 +198,13 @@ func TestDeepSeekCatalog_Prices(t *testing.T) {
 }
 
 // TestDeepSeekCatalog_ThinkingModes pins which rows report reasoning. DeepSeek
-// V4 models default to thinking mode, and deepseek-chat is the one alias that
-// selects the non-thinking preset on the same underlying deepseek-v4-flash.
-// Verified against the live API: a bare "say hi" to deepseek-v4-flash returns
-// reasoning_content with 16 reasoning tokens, the same call to deepseek-chat
-// returns none.
+// models default to thinking mode, and deepseek-chat is the one alias that
+// selects the non-thinking preset on the same underlying deepseek-flash.
+// Verified against the live API: a bare "hi" to deepseek-flash bills reasoning
+// tokens, the same call to deepseek-chat bills none.
 func TestDeepSeekCatalog_ThinkingModes(t *testing.T) {
 	want := map[string]bool{
+		"deepseek-flash":               true,
 		"deepseek-chat":                false,
 		"deepseek-reasoner":            true,
 		"deepseek-v4-flash":            true,

@@ -40,11 +40,24 @@ type DeepSeekModelSpec struct {
 
 // deepseekCatalog is not an ordinary price-override channel. models.dev still
 // carries DeepSeek's pre-V4 rates (0.14/0.28) under the V4 model IDs, and knows
-// nothing at all about deepseek-v4-flash-vision-exp, so these rows are the only
-// correct pricing MH has. deepseek-chat and deepseek-reasoner are absent from
-// the live /models listing entirely — they are permanent aliases onto
-// deepseek-v4-flash, non-thinking and thinking respectively — so the catalog is
-// also the only thing surfacing them.
+// nothing about deepseek-flash or deepseek-v4-flash-vision-exp, so these rows
+// are the only correct pricing MH has. deepseek-chat and deepseek-reasoner are
+// absent from the live /models listing entirely, so the catalog is also the only
+// thing surfacing them.
+//
+// deepseek-flash is DeepSeek V4.1 Flash and the only Flash id DeepSeek still
+// documents. deepseek-chat, deepseek-reasoner, deepseek-v4-flash and
+// deepseek-v4-flash-vision-exp all resolve to it upstream (verified by the id
+// each one echoes back in its response), so every Flash-family row carries V4.1
+// Flash's price. deepseek-chat still selects the non-thinking preset.
+//
+// deepseek-v4-pro is the last row still on its own price, and the only one that
+// answers as itself rather than as deepseek-flash. DeepSeek has announced that
+// it will serve deepseek-flash under the id at Flash's rate; once the id stops
+// echoing itself back, this row over-meters by more than 4x and has to be
+// repriced or dropped. Dropping it does not retire the model on its own:
+// DiscoverDeepSeek unions the catalog into the live listing, so a catalog row
+// can never be recorded as missing.
 var deepseekCatalog = loadCatalog[[]DeepSeekModelSpec]("deepseek.json")
 
 // GetDeepSeekModels returns the full DeepSeek model catalog.
