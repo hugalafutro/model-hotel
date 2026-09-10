@@ -28,8 +28,9 @@ func (s *stubIPSettings) GetBool(_ context.Context, key string, def bool) bool {
 }
 
 func (s *stubIPSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
-	// Mirrors stubSettings: a cancelled context yields the default, the way the
-	// real repository does when a cache miss has to reach the database.
+	// A cancelled context yields the default, matching stubSettings and the real
+	// repository, whose cache miss has to reach the database. Like this stub's
+	// other getters it takes no lock, since nothing here reads it concurrently.
 	if ctx.Err() != nil {
 		return def
 	}
