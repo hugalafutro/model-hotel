@@ -586,13 +586,18 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 // readHorizon resolves the horizon request_timeout implies, bounded by the time
 // the caller can spare, and reports whether the read ran out of it.
 //
-// Only a value the default itself derives can have come from a read that gave
-// up: anything else was answered from the setting, whatever the deadline did in
-// the moment after. That distinction matters because the deadline can fire
-// between the read returning and the check, and a lowered request_timeout must
-// not be discarded on the strength of that. A setting that genuinely derives the
-// floor is the one case still reported as a timeout, and there the caller's
-// fallback only lengthens retention.
+// A read is reported as timed out only when the deadline has passed and the
+// value is one the default itself derives. Anything else was answered from the
+// setting whatever the deadline did in the moment after, and a lowered
+// request_timeout must not be discarded on the strength of that, since the
+// deadline can fire between the read returning and this check.
+//
+// The predicate cannot separate the remaining case: a setting that genuinely
+// derives the floor, answered just as the deadline passed, reads as a timeout
+// too, and the caller then prefers a longer remembered horizon over the floor
+// the operator asked for. Nothing here can tell those apart, because a settings
+// read that gives up returns the default rather than saying so, and the cost is
+// retention rather than a dropped debit.
 func (l *TPMLimiter) readHorizon(ctx context.Context, bound time.Duration) (horizon time.Duration, timedOut bool) {
 	readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), bound)
 	defer cancel()

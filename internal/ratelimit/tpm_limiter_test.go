@@ -1334,6 +1334,24 @@ func TestTPMLimiter_LateAnswerIsNotTreatedAsATimeout(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_LateFloorAnswerReadsAsATimeout pins the case the predicate
+// cannot separate, so that nobody simplifies it away believing it does. A
+// setting that genuinely derives the floor, answered as the deadline passes,
+// looks exactly like a read that gave up, and the remembered horizon wins.
+// Nothing can tell the two apart from the value alone, and preferring the longer
+// one lengthens retention rather than dropping a debit.
+func TestTPMLimiter_LateFloorAnswerReadsAsATimeout(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "1m")
+	l := NewTPMLimiter(lateAnswerSettings{SettingsReader: stub})
+	t.Cleanup(l.Stop)
+	l.rememberHorizon(160 * time.Hour)
+
+	if got := l.memoHorizon(context.Background()); got != 160*time.Hour {
+		t.Errorf("a late floor answer should fall back to the mark, got %v", got)
+	}
+}
+
 // lateAnswerSettings answers with the real value but only once the read's own
 // deadline has passed, the race the branch above exists for.
 type lateAnswerSettings struct {
