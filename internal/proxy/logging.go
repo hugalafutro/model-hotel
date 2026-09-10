@@ -403,3 +403,19 @@ func metricModelLabel(modelID string, kind ErrorKind) string {
 	}
 	return modelID
 }
+
+// logUpstreamModel logs the model name the upstream body actually carries, for
+// debugging rewrite issues. It decodes that one field rather than slicing the
+// front of the body: a caller controls their own field names, so a nested model
+// key used to put the caller's own text in the log, which is request content
+// this gateway promises never to store. A body that does not decode, or names
+// no model, logs nothing.
+func logUpstreamModel(upstreamBody []byte) {
+	var decoded struct {
+		Model string `json:"model"`
+	}
+	if err := json.Unmarshal(upstreamBody, &decoded); err != nil || decoded.Model == "" {
+		return
+	}
+	debuglog.Debug("proxy: upstream body model", "upstream_model", decoded.Model)
+}

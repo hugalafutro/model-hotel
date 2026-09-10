@@ -103,6 +103,10 @@ var dummyHash = sync.OnceValue(func() string {
 	return hash
 })
 
+// maxLoginUsername is the longest username a login will consider, matching the
+// 1-64 character bound the user create and update handlers enforce.
+const maxLoginUsername = 64
+
 // Login exchanges username+password for a session token. Uniform 401 for
 // unknown user, wrong password, and disabled account; per-IP and per-username
 // backoff on failures.
@@ -126,6 +130,16 @@ func (h *UserLoginHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 	if req.Username == "" || req.Password == "" {
 		respondBadRequest(w, "username and password are required", nil)
+		return
+	}
+	// No account can carry a username this long: the create path caps it at the
+	// same length. Refusing here keeps a body-sized string out of the per-account
+	// throttle and off the database, and answers with the same 401 an unknown
+	// user gets, so it tells an attacker nothing new.
+	if len(req.Username) > maxLoginUsername {
+		h.throttle.RecordFailure(throttleKey)
+		debuglog.Warn("userlogin: login failed", "remote_addr", clientip.From(r), "reason", "username too long")
+		http.Error(w, "invalid username or password", http.StatusUnauthorized)
 		return
 	}
 

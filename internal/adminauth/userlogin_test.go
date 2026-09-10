@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -186,6 +187,10 @@ func TestUserLogin_Failures(t *testing.T) {
 		{"empty password", `{"username":"alice","password":""}`, http.StatusBadRequest},
 		{"empty username", `{"username":"","password":"x"}`, http.StatusBadRequest},
 		{"malformed body", `{"username":`, http.StatusBadRequest},
+		// No account can be this long: create caps a username at 64. Answering
+		// with the same 401 an unknown user gets keeps the body-sized string out
+		// of the per-account throttle without telling an attacker anything.
+		{"over-long username", `{"username":"` + strings.Repeat("a", 65) + `","password":"whatever1"}`, http.StatusUnauthorized},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
