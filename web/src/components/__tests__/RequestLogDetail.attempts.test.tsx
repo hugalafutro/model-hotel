@@ -200,9 +200,10 @@ describe("RequestLogDetail attempt trail", () => {
 	});
 
 	it("puts the breaker verdict on the indented line, under the provider", () => {
-		// The verdict used to sit beside the timing, where a long row wrapped it
-		// onto its own line at the left edge, under the attempt number instead of
-		// the provider name.
+		// The verdict belongs on the row's own indented line, which carries the
+		// left padding that lines it up with the provider column. Beside the
+		// timing it would wrap to the container's left edge on a long row, under
+		// the attempt number.
 		renderWithProviders(
 			<RequestLogDetail
 				requestLog={{
@@ -223,10 +224,31 @@ describe("RequestLogDetail attempt trail", () => {
 				onClose={onClose}
 			/>,
 		);
-		const verdict = screen.getByTitle(/breaker/i);
-		const line = verdict.parentElement;
-		expect(line?.className).toContain("pl-8");
-		expect(line?.className).toContain("basis-full");
+		const line = screen.getByTestId("attempt-trail-meta");
+		expect(line).toHaveClass("basis-full", "pl-8");
+		expect(line.firstElementChild).toHaveAttribute("title");
+	});
+
+	it("gives a skipped attempt no verdict line: the badge already says it", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: -1,
+							provider_id: "prov-1",
+							provider: "Neuralwatt",
+							model: "glm-5.3",
+							duration_ms: 0,
+							breaker: "skipped",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		expect(screen.queryByTestId("attempt-trail-meta")).toBeNull();
 	});
 
 	it("leaves out a last detail the terminal message quotes mid-sentence", () => {

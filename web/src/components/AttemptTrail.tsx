@@ -96,8 +96,9 @@ export function AttemptTrail({
 		if (detail === HEDGE_SUPERSEDED_DETAIL) return false;
 		return a.status ? detail !== statusBadgeLabel(a.status, t) : true;
 	};
-	// A skipped attempt never reached the breaker, so it carries no verdict to
-	// show; the SKIPPED badge on the first line is the whole story.
+	// A skip IS the breaker's verdict: it refused the candidate before the
+	// request left. The SKIPPED badge on the first line says that already, so
+	// the row does not repeat it as a second-line verdict.
 	const showsVerdict = (
 		a: AttemptRecord,
 	): a is AttemptRecord & { breaker: string } =>
@@ -175,7 +176,10 @@ export function AttemptTrail({
 							// lives here rather than beside the timing because a row that
 							// runs long wraps it to its own line anyway, and a wrapped
 							// flex child starts at the left edge, under the number.
-							<span className="basis-full flex items-baseline gap-x-2 pl-8">
+							<span
+								className="basis-full flex items-baseline gap-x-2 pl-8"
+								data-testid="attempt-trail-meta"
+							>
 								{showsVerdict(a) && (
 									// The shield marks the verdict as the breaker's, not
 									// another word of the timing above it.
