@@ -519,7 +519,14 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
 	defer cancelRead()
 
-	return capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	horizon := capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	if readCtx.Err() != nil {
+		// The one degraded case an operator can act on, and the one this can
+		// actually detect: a read that ran out of time returned the default,
+		// whatever request_timeout says.
+		debuglog.Warn("ratelimit: timed out reading request_timeout, cap memos fall back to the default horizon", "horizon", horizon)
+	}
+	return horizon
 }
 
 // tpmRetryAfter estimates seconds until at least one token is available again,

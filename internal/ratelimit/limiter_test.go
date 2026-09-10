@@ -52,7 +52,10 @@ func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 
 func (s *stubSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
 	// A cancelled context yields the default, the way the real repository does
-	// when a cache miss has to reach the database and the read fails.
+	// when a cache miss has to reach the database and the read fails. Nothing in
+	// production reaches this branch, because the one duration read detaches
+	// itself from the caller's cancellation first. That is the point: it is what
+	// lets a test tell whether that detaching is still happening.
 	if ctx.Err() != nil {
 		return def
 	}
