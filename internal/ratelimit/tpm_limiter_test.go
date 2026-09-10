@@ -1144,16 +1144,15 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	if !ok {
 		t.Fatal("the limiter should still hold the spy")
 	}
-	// Measured from the moment the spy was entered, which is after the deadline
-	// was set, so the budget can only read shorter than the bound and no amount
-	// of stalling can push it over. An unbounded or wildly longer deadline is
-	// what this catches.
-	budget, saw := spy.budget()
-	if !saw {
+	// Measured after the deadline was set, so a budget can only read shorter than
+	// its bound and no amount of stalling can push it over. An unbounded or
+	// wildly longer deadline is what this catches.
+	shortest, _, seen := spy.budgets()
+	if !seen {
 		t.Fatal("the horizon read must carry a deadline of its own")
 	}
-	if budget > settingsReadTimeout {
-		t.Errorf("the read's deadline should be no more than %v out, got %v", settingsReadTimeout, budget)
+	if shortest > settingsReadTimeout {
+		t.Errorf("the read's deadline should be no more than %v out, got %v", settingsReadTimeout, shortest)
 	}
 }
 
@@ -1171,15 +1170,15 @@ func TestTPMLimiter_SweepReadCarriesTheLongerBound(t *testing.T) {
 	if !ok {
 		t.Fatal("the limiter should still hold the spy")
 	}
-	budget, saw := spy.budget()
-	if !saw {
+	_, longest, seen := spy.budgets()
+	if !seen {
 		t.Fatal("the sweep's read must carry a deadline of its own")
 	}
-	if budget > markRefreshTimeout {
-		t.Errorf("the sweep's deadline should be no more than %v out, got %v", markRefreshTimeout, budget)
+	if longest > markRefreshTimeout {
+		t.Errorf("the sweep's deadline should be no more than %v out, got %v", markRefreshTimeout, longest)
 	}
-	if budget <= settingsReadTimeout {
-		t.Errorf("the sweep should wait longer than an admission's %v, got %v", settingsReadTimeout, budget)
+	if longest <= settingsReadTimeout {
+		t.Errorf("the sweep should wait longer than an admission's %v, got %v", settingsReadTimeout, longest)
 	}
 }
 
@@ -1454,33 +1453,41 @@ func (h hangingSettings) GetDuration(ctx context.Context, _ string, def time.Dur
 	return def
 }
 
-// deadlineSpy records the deadline the horizon read is handed. Guarded, because
-// the limiter's own sweep goroutine reads settings too.
+// deadlineSpy records how much time each horizon read was given. It keeps the
+// shortest and the longest rather than the latest, because the limiter's sweep
+// goroutine reads settings through the same instance and its read is meant to be
+// the longer one: an assertion on the most recent read would depend on which of
+// them landed last.
 type deadlineSpy struct {
 	SettingsReader
-	mu          sync.Mutex
-	sawDeadline bool
-	deadline    time.Time
-	entered     time.Time
+	mu       sync.Mutex
+	seen     bool
+	shortest time.Duration
+	longest  time.Duration
 }
 
 func (d *deadlineSpy) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
-	d.mu.Lock()
-	d.entered = time.Now()
 	if deadline, ok := ctx.Deadline(); ok {
-		d.sawDeadline = true
-		d.deadline = deadline
+		budget := time.Until(deadline)
+		d.mu.Lock()
+		if !d.seen || budget < d.shortest {
+			d.shortest = budget
+		}
+		if !d.seen || budget > d.longest {
+			d.longest = budget
+		}
+		d.seen = true
+		d.mu.Unlock()
 	}
-	d.mu.Unlock()
 	return d.SettingsReader.GetDuration(ctx, key, def)
 }
 
-// budget reports how much time the recorded read was given, and whether it was
-// given any at all.
-func (d *deadlineSpy) budget() (time.Duration, bool) {
+// budgets reports the shortest and longest budget any read was given, and
+// whether any read carried a deadline at all.
+func (d *deadlineSpy) budgets() (shortest, longest time.Duration, seen bool) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.deadline.Sub(d.entered), d.sawDeadline
+	return d.shortest, d.longest, d.seen
 }
 
 // TestTPMLimiter_OwnerAdmissionClaimsTheHorizon covers the other admission

@@ -550,7 +550,8 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // A read that fails outright is a different matter: GetDuration cannot tell one
 // from an unset key, so it reads as the default and the horizon does drop to the
 // floor. A request admitted in that window and still running a day later loses
-// its debit.
+// its debit. The same goes for a gateway that has never once read the setting,
+// because every read since it started, the sweep's included, ran out of time.
 func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
 	defer cancelRead()
