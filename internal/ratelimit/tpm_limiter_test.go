@@ -1295,6 +1295,34 @@ func TestTPMLimiter_SweepRefreshesTheHorizonMark(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_SweepSurvivesAHangingStore covers the sweep's own timeout: it
+// has to give up and get on with the eviction it wraps, or a store that stopped
+// answering would hold every memo and bucket in the process.
+func TestTPMLimiter_SweepSurvivesAHangingStore(t *testing.T) {
+	l := NewTPMLimiter(hangingSettings{SettingsReader: newStubSettings()})
+	t.Cleanup(l.Stop)
+
+	l.getEntry(context.Background(), "k", 500)
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+	// That admission already spoke for this interval, and the sweep shares its
+	// rate limit. Clearing the stamp lets the sweep reach its own warning.
+	l.lastSlowReadWarn.Store(0)
+
+	l.sweep()
+
+	l.mu.Lock()
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if buckets != 0 {
+		t.Errorf("the sweep should evict even when it learned nothing, got %d", buckets)
+	}
+	if got := time.Duration(l.lastGoodHorizon.Load()); got != minCapMemoTTL {
+		t.Errorf("a sweep that learned nothing should leave the floor on record, got %v", got)
+	}
+}
+
 // TestTPMLimiter_LateAnswerIsNotTreatedAsATimeout pins the branch that tells a
 // read which answered from one which gave up. The deadline can fire in the
 // moment after the value comes back, and a lowered request_timeout has to be
