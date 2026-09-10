@@ -1410,6 +1410,13 @@ func TestRememberHorizon(t *testing.T) {
 	if got := time.Duration(l.lastGoodHorizon.Load()); got != 200*time.Hour {
 		t.Errorf("the mark should hold the highest horizon offered, got %v", got)
 	}
+
+	// A saturating horizon is the one value the mark refuses, since carrying it
+	// would leave every later timed-out read claiming centuries on every key.
+	l.rememberHorizon(time.Duration(math.MaxInt64))
+	if got := time.Duration(l.lastGoodHorizon.Load()); got != 200*time.Hour {
+		t.Errorf("a saturating horizon should not be remembered, got %v", got)
+	}
 }
 
 // TestTPMLimiter_CompletedReadWinsOverTheRememberedHorizon is the anti-pin rule:

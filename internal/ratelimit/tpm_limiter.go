@@ -126,7 +126,9 @@ const defaultRequestTimeout = time.Minute
 const settingsReadTimeout = 100 * time.Millisecond
 
 // markRefreshTimeout bounds the same lookup off the request path, where a slow
-// database can be waited out because nobody is being held up for it.
+// database can be waited out because nobody is being held up for it. A store
+// that never answers does delay that tick's eviction by this much, which is the
+// price of the sweep being the one reader willing to wait.
 const markRefreshTimeout = 5 * time.Second
 
 // minCapMemoTTL floors the cap-memo horizon. Against the factor below, the
@@ -609,6 +611,13 @@ func (l *TPMLimiter) readHorizon(ctx context.Context, bound time.Duration) (hori
 // rememberHorizon raises the high-water mark a timed-out read falls back to.
 // Racing readers retry rather than clobber, so the mark only ever climbs.
 func (l *TPMLimiter) rememberHorizon(horizon time.Duration) {
+	if horizon == time.Duration(math.MaxInt64) {
+		// A saturating request_timeout is a misconfiguration, not something to
+		// carry forward: remembering it would leave every later timed-out read
+		// claiming a horizon centuries out, on every key, long after the setting
+		// was corrected.
+		return
+	}
 	for {
 		mark := l.lastGoodHorizon.Load()
 		if time.Duration(mark) >= horizon {
