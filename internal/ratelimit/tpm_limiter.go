@@ -66,7 +66,8 @@ type TPMLimiter struct {
 	// mark rather than the latest value because a read that fails without
 	// timing out also returns the default, and letting that overwrite the mark
 	// would erase the long horizon exactly when it is needed. Only the fallback
-	// consults it, so holding it high costs retention and never a debit.
+	// consults it, so holding it high costs retention and never a debit, and
+	// capMemoTTL's ceiling bounds how high it can be held.
 	lastGoodHorizon atomic.Int64
 }
 
@@ -122,11 +123,6 @@ const defaultRequestTimeout = time.Minute
 // of not caching a value that has to track the setting.
 const settingsReadTimeout = 100 * time.Millisecond
 
-// maxRememberedHorizon caps what the fallback will carry between reads. A year
-// is far past any request_timeout a gateway can be run on, and short enough that
-// one absurd setting cannot pin every key's memo for the life of the process.
-const maxRememberedHorizon = 365 * 24 * time.Hour
-
 // markRefreshTimeout bounds the same lookup off the request path, where a slow
 // database can be waited out because nobody is being held up for it. A store
 // that never answers does delay that tick's eviction by this much, which is the
@@ -139,6 +135,12 @@ const markRefreshTimeout = 5 * time.Second
 // floor is what the fleet actually runs on and the derived horizon only takes
 // over above that.
 const minCapMemoTTL = 24 * time.Hour
+
+// maxCapMemoTTL caps it at the other end. A year is far past any request_timeout
+// a gateway can be run on, and capping there keeps one absurd setting from
+// pinning a memo, or the fallback that remembers one, for the life of the
+// process. It also keeps the scaling below the point where it could overflow.
+const maxCapMemoTTL = 365 * 24 * time.Hour
 
 // capMemoTimeoutFactor scales request_timeout into that horizon. A streaming or
 // long-running request gets ten times request_timeout per attempt, and the
@@ -158,20 +160,16 @@ const capMemoTimeoutFactor = 40
 // A request_timeout that is unset or unparseable reads as the proxy's own
 // default and derives the floor. So does an explicit zero or negative one,
 // which is not "no timeout" on the proxy's side either: it hands the upstream
-// attempt a context that has already expired. One large enough to overflow the
-// multiplication saturates rather than wrapping, since a wrapped product
-// collapses onto the floor, far shorter than the request it has to outlast, and
-// the memo would be swept out from under it. Saturation does not scale with such
-// a timeout, it only stops the arithmetic running backwards, and what it costs
-// is holding those memos for the life of the process. The map they sit in is
-// keyed by virtual key hash and owner id, so even then it is bounded by the rows
-// those come from rather than by traffic.
+// attempt a context that has already expired. One long enough to scale past the
+// ceiling stops there, which also keeps the multiplication well clear of
+// overflowing: a wrapped product would collapse onto the floor, far shorter than
+// the request it has to outlast, and the memo would be swept out from under it.
 func capMemoTTL(requestTimeout time.Duration) time.Duration {
 	if requestTimeout <= 0 {
 		return minCapMemoTTL
 	}
-	if requestTimeout > math.MaxInt64/capMemoTimeoutFactor {
-		return time.Duration(math.MaxInt64)
+	if requestTimeout > maxCapMemoTTL/capMemoTimeoutFactor {
+		return maxCapMemoTTL
 	}
 	return max(minCapMemoTTL, capMemoTimeoutFactor*requestTimeout)
 }
@@ -620,14 +618,6 @@ func (l *TPMLimiter) readHorizon(ctx context.Context, bound time.Duration) (hori
 // rememberHorizon raises the high-water mark a timed-out read falls back to.
 // Racing readers retry rather than clobber, so the mark only ever climbs.
 func (l *TPMLimiter) rememberHorizon(horizon time.Duration) {
-	if horizon > maxRememberedHorizon {
-		// A request_timeout this large is a misconfiguration, not something to
-		// carry forward: remembering it would leave every later timed-out read
-		// claiming that horizon, on every key, long after the setting was
-		// corrected. Memos claimed while it is in force still get it; only the
-		// fallback refuses to inherit it.
-		return
-	}
 	for {
 		mark := l.lastGoodHorizon.Load()
 		if time.Duration(mark) >= horizon {
@@ -674,8 +664,10 @@ func tpmRetryAfter(lim *rate.Limiter) int {
 // path falls back to, then evicts what has aged out. Kept separate from cleanup
 // so tests can drive the eviction without a settings read.
 func (l *TPMLimiter) sweep() {
-	l.refreshHorizonMark()
+	// Evicting first, because a store that has stopped answering makes the
+	// refresh wait out its whole bound, and eviction is this loop's real job.
 	l.cleanup()
+	l.refreshHorizonMark()
 }
 
 // refreshHorizonMark reads request_timeout with a bound an admission could not

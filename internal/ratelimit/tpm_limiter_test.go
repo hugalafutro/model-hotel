@@ -803,9 +803,9 @@ func TestTPMLimiter_DebitUserIgnoresNonBuckets(t *testing.T) {
 
 // TestCapMemoTTL covers the horizon arithmetic on its own: every ordinary
 // request_timeout lands on the floor, a long one scales past it, a missing or
-// nonsensical one falls back to the floor, and one too large to scale saturates
-// rather than wrapping and collapsing onto a floor far shorter than the request
-// it has to outlast.
+// nonsensical one falls back to the floor, and one long enough to scale past the
+// ceiling stops there rather than wrapping and collapsing onto a floor far
+// shorter than the request it has to outlast.
 func TestCapMemoTTL(t *testing.T) {
 	cases := []struct {
 		name           string
@@ -820,9 +820,9 @@ func TestCapMemoTTL(t *testing.T) {
 		{"three hours scales further", 3 * time.Hour, 120 * time.Hour},
 		{"zero falls back to the floor", 0, minCapMemoTTL},
 		{"negative falls back to the floor", -time.Hour, minCapMemoTTL},
-		{"the largest scalable timeout still scales", math.MaxInt64 / capMemoTimeoutFactor, (math.MaxInt64 / capMemoTimeoutFactor) * capMemoTimeoutFactor},
-		{"one tick past that saturates", math.MaxInt64/capMemoTimeoutFactor + 1, time.Duration(math.MaxInt64)},
-		{"an overflowing timeout saturates", time.Duration(math.MaxInt64), time.Duration(math.MaxInt64)},
+		{"the largest scalable timeout still scales", maxCapMemoTTL / capMemoTimeoutFactor, maxCapMemoTTL},
+		{"one tick past that stops at the ceiling", maxCapMemoTTL/capMemoTimeoutFactor + 1, maxCapMemoTTL},
+		{"a timeout that would overflow stops there too", time.Duration(math.MaxInt64), maxCapMemoTTL},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -1036,14 +1036,14 @@ func TestTPMLimiter_CapMemoHorizonThroughTheMiddleware(t *testing.T) {
 	}
 }
 
-// TestTPMLimiter_CapMemoSaturatingTimeoutSurvivesTheSweep drives a
-// request_timeout past the point where the scaling would overflow all the way
-// through admission and a sweep. Without the saturation guard the product wraps,
-// the horizon collapses onto the floor, and this memo is swept while a request
-// under that timeout could still be running.
-func TestTPMLimiter_CapMemoSaturatingTimeoutSurvivesTheSweep(t *testing.T) {
+// TestTPMLimiter_CapMemoCappedTimeoutSurvivesTheSweep drives a request_timeout
+// past the point where the scaling stops all the way through admission and a
+// sweep. Without the ceiling the product wraps, the horizon collapses onto the
+// floor, and this memo is swept while a request under that timeout could still
+// be running.
+func TestTPMLimiter_CapMemoCappedTimeoutSurvivesTheSweep(t *testing.T) {
 	l, s := newTestTPMLimiter(t)
-	s.set(settingsKeyRequestTimeout, "100000h") // past math.MaxInt64 / 40
+	s.set(settingsKeyRequestTimeout, "100000h") // well past the ceiling's own scale
 
 	l.getEntry(context.Background(), "k", 500)
 	ageMemo(t, l, "k", 30*24*time.Hour)
@@ -1441,20 +1441,6 @@ func TestRememberHorizon(t *testing.T) {
 		t.Errorf("the mark should hold the highest horizon offered, got %v", got)
 	}
 
-	// An absurd horizon is what the mark refuses, since carrying it would leave
-	// every later timed-out read claiming it on every key. The saturating value
-	// is only the far end of that range, so the refusal is a ceiling rather than
-	// a check for one sentinel.
-	for _, absurd := range []time.Duration{
-		maxRememberedHorizon + time.Hour,
-		time.Duration(math.MaxInt64) / capMemoTimeoutFactor * capMemoTimeoutFactor,
-		time.Duration(math.MaxInt64),
-	} {
-		l.rememberHorizon(absurd)
-		if got := time.Duration(l.lastGoodHorizon.Load()); got != 200*time.Hour {
-			t.Errorf("a horizon of %v should not be remembered, got %v", absurd, got)
-		}
-	}
 }
 
 // TestTPMLimiter_CompletedReadWinsOverTheRememberedHorizon is the anti-pin rule:
