@@ -62,14 +62,16 @@ type TPMLimiter struct {
 type capMemo struct {
 	tpm int
 	// expiresAt is when this memo may be swept: the latest horizon any admission
-	// against it has claimed. Every admitted or rejected request claims now plus
-	// the horizon request_timeout implies, and only pushes the deadline out, so
+	// against it has claimed. The claim is made when the bucket is resolved,
+	// before the budget decides, so a request turned away with a 429 has claimed
+	// one too. It only ever pushes the deadline out, so
 	// changing the setting cannot strand a request already admitted under the
 	// old one. Because the claims are absolute times rather than a duration, a
 	// long timeout inflates the deadline only until the request it was claimed
 	// for could have finished, after which ordinary admissions carry it again.
 	// The exception is a request_timeout large enough to saturate the horizon,
-	// which pins the memo for as long as the process lives. The map is keyed by
+	// which pushes the deadline centuries out and so holds the memo for the life
+	// of the process. The map is keyed by
 	// virtual key hash and owner id either way, so it is bounded by the rows
 	// those come from rather than by traffic.
 	expiresAt time.Time
@@ -496,7 +498,16 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // claim the floor for a request entitled to much longer. Detaching also drops
 // the caller's deadline, and the settings repository takes its query deadline
 // from the caller and sets none of its own, so the read carries a bound here
-// instead. Exceeding it reads as the default, the same as any other failed read.
+// instead.
+//
+// Exceeding that bound reads as the default, and so does any other failed read:
+// GetDuration cannot tell a failed read from an unset key. On a gateway running
+// a long request_timeout, a memo stamped while the database is unreachable
+// therefore claims the floor, and a request that then outlives a day loses its
+// debit. Remembering the last good value instead would pin a genuinely lowered
+// timeout for the life of the process, for an exposure that needs a day-long
+// request during a database outage, so the fallback stays the same one every
+// other setting in the gateway uses.
 func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
 	defer cancelRead()
