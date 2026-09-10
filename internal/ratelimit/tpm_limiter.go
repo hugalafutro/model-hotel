@@ -95,11 +95,7 @@ type capMemo struct {
 	//
 	// The claims are absolute times rather than a duration, so a long timeout
 	// inflates the deadline only until the request it was claimed for could have
-	// finished, after which ordinary admissions carry the memo again. A
-	// request_timeout large enough to saturate the horizon is the exception: it
-	// pushes the deadline centuries out and holds the memo for the life of the
-	// process. Either way the map is keyed by virtual key hash and owner id, so
-	// it is bounded by the rows those come from rather than by traffic.
+	// finished, after which ordinary admissions carry the memo again.
 	expiresAt time.Time
 }
 
@@ -167,7 +163,9 @@ const capMemoTimeoutFactor = 40
 // collapses onto the floor, far shorter than the request it has to outlast, and
 // the memo would be swept out from under it. Saturation does not scale with such
 // a timeout, it only stops the arithmetic running backwards, and what it costs
-// is holding those memos for the life of the process.
+// is holding those memos for the life of the process. The map they sit in is
+// keyed by virtual key hash and owner id, so even then it is bounded by the rows
+// those come from rather than by traffic.
 func capMemoTTL(requestTimeout time.Duration) time.Duration {
 	if requestTimeout <= 0 {
 		return minCapMemoTTL

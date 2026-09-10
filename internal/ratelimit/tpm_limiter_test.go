@@ -1386,7 +1386,10 @@ type lateAnswerSettings struct {
 }
 
 func (a lateAnswerSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
-	got := a.SettingsReader.GetDuration(ctx, key, def)
+	// Read under a context of its own: the wrapped stub answers with the default
+	// once the caller's has expired, which on a stalled runner would turn this
+	// into an ordinary timeout and defeat the point of the stub.
+	got := a.SettingsReader.GetDuration(context.Background(), key, def)
 	<-ctx.Done()
 	return got
 }
