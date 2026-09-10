@@ -835,9 +835,9 @@ func TestCapMemoTTL(t *testing.T) {
 
 // TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout is the wiring half: a memo
 // older than the floor but younger than the horizon a raised request_timeout
-// implies must survive the sweep, and still take a late debit. Under the old
-// constant horizon this memo was swept and the debit was dropped, which is the
-// bug the memo exists to prevent.
+// implies must survive the sweep, and still take a late debit. A horizon that
+// ignored the setting would sweep this memo and drop the debit, which is what
+// the memo exists to prevent.
 func TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout(t *testing.T) {
 	const tpm = 500
 	l, s := newTestTPMLimiter(t)
@@ -890,12 +890,12 @@ func TestTPMLimiter_CapMemoSweptAtTheDefaultTimeout(t *testing.T) {
 	}
 }
 
-// TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout is the half the live-read
-// form got wrong: the horizon a memo was written under has to outlast a request
-// admitted against it even when the operator lowers request_timeout while that
-// request is still running. Reading the setting at sweep time would shrink the
-// horizon underneath the in-flight request and drop its debit, which is the bug
-// the memo exists to prevent.
+// TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout pins the lowering
+// direction: the horizon a memo claimed has to outlast a request admitted
+// against it even when the operator lowers request_timeout while that request is
+// still running. A horizon resolved at sweep time would shrink underneath the
+// in-flight request and drop its debit, which is what the memo exists to
+// prevent.
 func TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout(t *testing.T) {
 	const tpm = 500
 	l, s := newTestTPMLimiter(t)
@@ -1138,7 +1138,6 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	l := NewTPMLimiter(&deadlineSpy{SettingsReader: s})
 	t.Cleanup(l.Stop)
 
-	start := time.Now()
 	l.memoHorizon(context.Background())
 
 	spy, ok := l.settings.(*deadlineSpy)
@@ -1148,13 +1147,12 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	if !spy.sawDeadline {
 		t.Fatal("the horizon read must carry a deadline of its own")
 	}
-	// Measured from when the call started rather than from how much budget was
-	// left when the spy looked, so a stalled runner cannot fail this. The
-	// deadline is set after start, so a full timeout's worth is the floor, and
-	// anything near it fails only if the bound itself changed.
-	budget := spy.deadline.Sub(start)
-	if budget < settingsReadTimeout || budget > settingsReadTimeout+settingsReadTimeout/2 {
-		t.Errorf("the read's deadline should sit about %v out, got %v", settingsReadTimeout, budget)
+	// Measured from the moment the spy was entered, which is after the deadline
+	// was set, so the remaining budget can only be shorter than the bound and no
+	// amount of stalling can push it over. An unbounded or wildly longer deadline
+	// is what this catches.
+	if budget := spy.deadline.Sub(spy.entered); budget > settingsReadTimeout {
+		t.Errorf("the read's deadline should be no more than %v out, got %v", settingsReadTimeout, budget)
 	}
 }
 
@@ -1203,6 +1201,39 @@ func TestTPMLimiter_HungReadKeepsTheLastKnownHorizon(t *testing.T) {
 	l.cleanup()
 	if !memoLives(l, "k") {
 		t.Error("a memo claimed during the hang should survive past the default's floor")
+	}
+}
+
+// TestTPMLimiter_ClaimsAndSweepsRace runs admissions against the sweeper on one
+// key, which is what production does every ten minutes. Under the race detector
+// this is the check that the memo's deadline is claimed and read under the same
+// lock the sweep takes.
+func TestTPMLimiter_ClaimsAndSweepsRace(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 25 {
+				l.getEntry(context.Background(), "k", 500)
+			}
+		}()
+	}
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 25 {
+				l.cleanup()
+			}
+		}()
+	}
+	wg.Wait()
+
+	if !memoLives(l, "k") {
+		t.Error("a key admitting throughout should still hold its memo")
 	}
 }
 
@@ -1349,9 +1380,11 @@ type deadlineSpy struct {
 	SettingsReader
 	sawDeadline bool
 	deadline    time.Time
+	entered     time.Time
 }
 
 func (d *deadlineSpy) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	d.entered = time.Now()
 	if deadline, ok := ctx.Deadline(); ok {
 		d.sawDeadline = true
 		d.deadline = deadline

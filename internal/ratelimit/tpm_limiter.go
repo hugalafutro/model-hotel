@@ -558,7 +558,9 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	// gave up: anything else was answered from the setting, whatever the
 	// deadline did in the moment after. That distinction matters because the
 	// deadline can fire between the read returning and this check, and a lowered
-	// request_timeout must not be discarded on the strength of that.
+	// request_timeout must not be discarded on the strength of that. A setting
+	// that genuinely derives the floor is the one case still caught by it, and
+	// there the fallback only lengthens retention.
 	if readCtx.Err() == nil || horizon != capMemoTTL(defaultRequestTimeout) {
 		return horizon
 	}
