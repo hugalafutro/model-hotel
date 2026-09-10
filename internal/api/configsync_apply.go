@@ -102,6 +102,9 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if err := validateSyncedProviderNames(env.Config.Providers); err != nil {
 		return applyOutcome{}, err
 	}
+	if err := lockReconciledTables(ctx, tx); err != nil {
+		return applyOutcome{}, err
+	}
 	if err := guardAgainstProviderWipe(ctx, tx, env.Config.Providers); err != nil {
 		return applyOutcome{}, err
 	}
@@ -224,6 +227,33 @@ func enforceSourceGenFence(ctx context.Context, tx pgx.Tx, sourceGen *int64) err
 	return nil
 }
 
+// reconcileLockTimeout bounds how long an import waits for the tables it is
+// about to reconcile. Without it a slow import holds dashboard CRUD off those
+// tables for as long as it runs, and a wedged one holds it off forever; with it
+// the import fails and Front Desk retries, which is the recoverable direction.
+const reconcileLockTimeout = "5s"
+
+// lockReconciledTables takes a write lock on every table the import replaces
+// declaratively, before the first count any rail reads. Each of those deletes
+// removes rows absent from the envelope, so a row created between a rail's count
+// and its delete would be destroyed for being missing from an envelope written
+// before it existed.
+//
+// SHARE ROW EXCLUSIVE blocks writers and other imports while still allowing
+// plain reads. The order is fixed here and these are the only LOCK TABLE
+// statements in the codebase, so two imports cannot deadlock against each other.
+func lockReconciledTables(ctx context.Context, tx pgx.Tx) error {
+	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`); err != nil {
+		return err
+	}
+	for _, table := range []string{"providers", "virtual_keys", "users", "model_failover_groups"} {
+		if _, err := tx.Exec(ctx, `LOCK TABLE `+table+` IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // guardAgainstProviderWipe is the destructive-wipe rail. The declarative delete
 // in apply removes every provider absent from the envelope, so an envelope with
 // zero providers would delete the member's entire provider set, cascading to
@@ -234,14 +264,6 @@ func enforceSourceGenFence(ctx context.Context, tx pgx.Tx, sourceGen *int64) err
 // also has no providers is a harmless no-op and is allowed (fleet bootstrap or
 // keys-only sync onto an empty member).
 func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []ExportProvider) error {
-	// Locked before the count and held to commit, for the same reason the key
-	// rail locks: a provider created between this count and the reconcile would
-	// be deleted for being absent from an envelope written before it existed.
-	// Providers are locked before virtual_keys here and nowhere in the other
-	// order, so two imports cannot deadlock against each other.
-	if _, err := tx.Exec(ctx, `LOCK TABLE providers IN SHARE ROW EXCLUSIVE MODE`); err != nil {
-		return err
-	}
 	if len(providers) == 0 {
 		var existing int
 		if err := tx.QueryRow(ctx, `SELECT count(*) FROM providers`).Scan(&existing); err != nil {
@@ -265,15 +287,6 @@ func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []Export
 // guardKeysSurvived needs to tell a wipe apart from a member that never had
 // keys.
 func guardAgainstVirtualKeyWipe(ctx context.Context, tx pgx.Tx, keys []ExportVK) (hadKeys bool, err error) {
-	// Held to commit, so no interactive create lands between this count and the
-	// reconcile that follows: a key created in that window would be deleted for
-	// being absent from the envelope, and the survivor check would read a member
-	// that started empty. SHARE ROW EXCLUSIVE blocks writers and other imports
-	// while still allowing plain reads. Always taken after the providers lock,
-	// so the two rails cannot deadlock.
-	if _, err := tx.Exec(ctx, `LOCK TABLE virtual_keys IN SHARE ROW EXCLUSIVE MODE`); err != nil {
-		return false, err
-	}
 	var existing int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM virtual_keys`).Scan(&existing); err != nil {
 		return false, err

@@ -30,8 +30,8 @@ func TestConfigSync_RefusesKeyWipingImport(t *testing.T) {
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("key-wiping import: code=%d, want 400", rec.Code)
 	}
-	if !strings.Contains(rec.Body.String(), "virtual key") {
-		t.Errorf("refusal body = %q, want it to name the virtual keys", rec.Body.String())
+	if !strings.Contains(rec.Body.String(), "delete every virtual key") {
+		t.Errorf("refusal body = %q, want the key rail's own message", rec.Body.String())
 	}
 
 	var keys int
@@ -92,7 +92,7 @@ func TestConfigSync_RefusesImportThatLeavesNoKeys(t *testing.T) {
 	// Named, not just counted: an ingest-side rejection of the unknown provider
 	// restriction would also be a rolled-back 400, and would never reach the
 	// delete this rail exists to catch.
-	if !strings.Contains(rec.Body.String(), "virtual key") {
+	if !strings.Contains(rec.Body.String(), "delete every virtual key") {
 		t.Fatalf("refusal body = %q, want the key rail's own message", rec.Body.String())
 	}
 
@@ -117,5 +117,31 @@ func TestConfigSync_RefusesImportThatLeavesNoKeys(t *testing.T) {
 	}
 	if names["incoming"] {
 		t.Error("the skipped key must not have landed")
+	}
+}
+
+// TestConfigSync_RefusesProviderWipingImport is the provider half of the same
+// rail, held to the same standard: the refusal has to be the rail's own, and the
+// member's provider has to survive the rollback.
+func TestConfigSync_RefusesProviderWipingImport(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	env := doExport(t, r)
+	env.Config.Providers = nil
+	// Settings keep the envelope past import's structural guard, which refuses
+	// one that is empty in providers, keys and settings together.
+	env.Config.Settings = map[string]string{"request_timeout": "1m0s"}
+
+	_, rec := doImportGen(t, r, env, nil)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("provider-wiping import: code=%d, want 400", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "delete every provider") {
+		t.Errorf("refusal body = %q, want the provider rail's own message", rec.Body.String())
+	}
+	if !providerNames(t)["openai"] {
+		t.Error("the refused import must roll back, leaving the member's provider")
 	}
 }

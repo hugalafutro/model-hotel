@@ -228,6 +228,7 @@ func TestTokenUsage_KeyedCompletionChargesTheOwner(t *testing.T) {
 
 	const ownerID = "11111111-2222-3333-4444-555555555555"
 	userTPM := 600
+	keyTPM := 600
 	ownedReq := func() *http.Request {
 		r := httptest.NewRequest(http.MethodPost, "/api/chat/completions", http.NoBody)
 		c := context.WithValue(r.Context(), ctxkeys.VirtualKeyOwnerIDKey, ownerID)
@@ -242,12 +243,32 @@ func TestTokenUsage_KeyedCompletionChargesTheOwner(t *testing.T) {
 		return rec.Code
 	}
 
+	keyAdmit := func() int {
+		rec := httptest.NewRecorder()
+		r := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
+		c := context.WithValue(r.Context(), ctxkeys.VirtualKeyHashKey, keyHash)
+		c = context.WithValue(c, ctxkeys.VirtualKeyRateLimitTPMKey, &keyTPM)
+		h.tpmLimiter.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusOK)
+		})).ServeHTTP(rec, r.WithContext(c))
+		return rec.Code
+	}
+
 	if code := admit(); code != http.StatusOK {
-		t.Fatalf("first admission = %d, want 200", code)
+		t.Fatalf("first owner admission = %d, want 200", code)
+	}
+	if code := keyAdmit(); code != http.StatusOK {
+		t.Fatalf("first key admission = %d, want 200", code)
 	}
 	h.recordTokenUsage(keyHash, &requestLogData{virtualKeyName: "owner-charge-key", ownerUserID: ownerID}, userTPM*2, 0, 0)
 
 	if code := admit(); code != http.StatusTooManyRequests {
 		t.Errorf("admission after the owner was charged = %d, want 429", code)
+	}
+
+	// The same call charges the key's own bucket, so the other half of the
+	// failure mode (owner limited, key not) cannot pass either.
+	if code := keyAdmit(); code != http.StatusTooManyRequests {
+		t.Errorf("key admission after the key was charged = %d, want 429", code)
 	}
 }
