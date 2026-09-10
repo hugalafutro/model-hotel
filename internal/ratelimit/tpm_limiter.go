@@ -86,11 +86,12 @@ type capMemo struct {
 	//
 	// That is what makes changing request_timeout safe in both directions.
 	// Lowering it cannot pull a deadline back in. Raising it does not outrun one
-	// either, because the proxy fixes a request's timeout once, before its first
-	// attempt, and every admission after the raise claims against the new
-	// setting. The gap is the request whose own claim was made in the moment
-	// before the raise reached this limiter, which the next admission on that
-	// key repairs.
+	// either, because every admission after the raise claims against the new
+	// setting and the proxy fixes a request's timeout once, before its first
+	// attempt. The gap is narrow and one-directional: admission claims before
+	// the proxy reads, so a raise landing between the two hands that one request
+	// a longer life than its own claim was sized for, until the next admission
+	// on the key pushes the deadline out.
 	//
 	// The claims are absolute times rather than a duration, so a long timeout
 	// inflates the deadline only until the request it was claimed for could have
@@ -558,6 +559,10 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // floor. A request admitted in that window and still running a day later loses
 // its debit. The same goes for a gateway that has never once read the setting,
 // because every read since it started, the sweep's included, ran out of time.
+//
+// Neither is warned about, on purpose. A read that failed and an operator who
+// lowered the setting produce the same answer, so the only available signal
+// would fire on every ordinary lowering as well.
 func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	horizon, timedOut := l.readHorizon(ctx, settingsReadTimeout)
 	// Recorded before the timeout is acted on, so a read that answered in the

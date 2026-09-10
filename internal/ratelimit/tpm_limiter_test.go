@@ -841,8 +841,8 @@ func TestCapMemoTTL(t *testing.T) {
 func TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout(t *testing.T) {
 	const tpm = 500
 	l, s := newTestTPMLimiter(t)
-	// 40x an hour is well past the one-day floor, so a memo aged 25 hours is
-	// inside the horizon here and outside it at the default timeout.
+	// Forty times one hour is well past the one-day floor, so a memo aged 25
+	// hours is inside the horizon here and outside it at the default timeout.
 	s.set(settingsKeyRequestTimeout, "1h")
 	l.getEntry(context.Background(), "k", tpm)
 
@@ -1257,8 +1257,35 @@ func TestTPMLimiter_ClaimsAndSweepsRace(t *testing.T) {
 			}
 		}()
 	}
+
+	// Sampled alongside them, because the deadline only ever moving out is the
+	// invariant the whole design rests on and a lost update would break it.
+	var last time.Time
+	var slipped bool
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range 200 {
+			l.mu.Lock()
+			memo, ok := l.caps["k"]
+			var seen time.Time
+			if ok {
+				seen = memo.expiresAt
+			}
+			l.mu.Unlock()
+			if ok {
+				if seen.Before(last) {
+					slipped = true
+				}
+				last = seen
+			}
+		}
+	}()
 	wg.Wait()
 
+	if slipped {
+		t.Error("a memo deadline moved backwards while admissions and sweeps raced")
+	}
 	if !memoLives(l, "k") {
 		t.Error("a key admitting throughout should still hold its memo")
 	}
