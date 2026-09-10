@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -55,23 +56,123 @@ type TPMLimiter struct {
 	caps     map[string]*capMemo
 	settings SettingsReader
 	stopCh   chan struct{}
+	// lastSlowReadWarn is when the slow-horizon-read warning was last emitted,
+	// in Unix nanoseconds, so a hanging database costs one line per interval
+	// rather than one per admission.
+	lastSlowReadWarn atomic.Int64
+	// lastGoodHorizon is the longest horizon any completed settings read has
+	// produced, so a read that times out can fall back to what this gateway was
+	// actually running rather than to the default's floor. It is a high-water
+	// mark rather than the latest value because a read that fails without
+	// timing out also returns the default, and letting that overwrite the mark
+	// would erase the long horizon exactly when it is needed. Only the fallback
+	// consults it, so holding it high costs retention and never a debit, and
+	// capMemoTTL's ceiling bounds how high it can be held.
+	lastGoodHorizon atomic.Int64
 }
+
+// slowReadWarnInterval is the shortest gap between two slow-horizon-read
+// warnings. Long enough that a hanging database cannot crowd the log, short
+// enough that the condition stays visible while it lasts.
+const slowReadWarnInterval = time.Minute
 
 // capMemo is the budget a bucket was last built with, kept so an evicted bucket
 // can be rebuilt to take a late debit.
 type capMemo struct {
-	tpm      int
-	lastUsed time.Time
+	tpm int
+	// expiresAt is when this memo may be swept: the latest horizon any admission
+	// against it has claimed. The claim is made when the bucket is resolved,
+	// before the budget decides, so a request turned away with a 429 has claimed
+	// one too, and it only ever pushes the deadline out.
+	//
+	// That is what makes changing request_timeout safe in both directions.
+	// Lowering it cannot pull a deadline back in. Raising it does not outrun one
+	// either, because every admission after the raise claims against the new
+	// setting and the proxy fixes a request's timeout once, before its first
+	// attempt. The gap is narrow and one-directional: admission claims before
+	// the proxy reads, so a raise landing between the two hands that one request
+	// a longer life than its own claim was sized for, until the next admission
+	// on the key pushes the deadline out.
+	//
+	// The claims are absolute times rather than a duration, so a long timeout
+	// inflates the deadline only until the request it was claimed for could have
+	// finished, after which ordinary admissions carry the memo again.
+	expiresAt time.Time
 }
 
-// capMemoTTL bounds how long a cap memo outlives its bucket. It has to exceed
-// the longest request the gateway can hold open, and that is not a constant:
-// the ceiling is request_timeout (default one minute) times ten for a stream,
-// and request_timeout is an operator-set duration with no upper bound. A day
-// covers every request_timeout up to two hours and twenty-four minutes. Past
-// that a debit can still be dropped, which is the same failure this memo exists
-// to fix, one order of magnitude further out.
-const capMemoTTL = 24 * time.Hour
+// settingsKeyRequestTimeout is the per-attempt upstream timeout the proxy reads
+// for every request, through the same GetDuration and the same one minute
+// default repeated below. The limiter reads it only to size the cap-memo horizon
+// against the longest request the gateway can hold open, and follows the proxy's
+// reading of it rather than setting one of its own. The two are held in lockstep
+// by hand: moving the proxy's key or default means moving these with it, or the
+// horizon is sized against a timeout the gateway no longer uses.
+const settingsKeyRequestTimeout = "request_timeout"
+
+// defaultRequestTimeout mirrors the proxy's fallback for an unset
+// request_timeout, so an unconfigured gateway derives the same horizon the
+// proxy's own default implies.
+const defaultRequestTimeout = time.Minute
+
+// settingsReadTimeout bounds the horizon lookup on the admission path. The value
+// only sizes a retention window measured in days, so it is not worth waiting on:
+// this is generous for one indexed row that the settings cache usually answers
+// outright, and short enough that a database which has stopped answering costs
+// an admission a pause rather than a stall, and leaves it on whatever horizon is
+// already known. Under load that pause is paid per admission, which is the price
+// of not caching a value that has to track the setting.
+const settingsReadTimeout = 100 * time.Millisecond
+
+// markRefreshTimeout bounds the same lookup off the request path, where a slow
+// database can be waited out because nobody is being held up for it. A store
+// that never answers does delay that tick's eviction by this much, which is the
+// price of the sweep being the one reader willing to wait.
+const markRefreshTimeout = 5 * time.Second
+
+// minCapMemoTTL floors the cap-memo horizon. Against the factor below, the
+// crossover is a 36 minute request_timeout: anything shorter derives less than a
+// day and lands on this floor, which is every ordinary configuration, so the
+// floor is what the fleet actually runs on and the derived horizon only takes
+// over above that.
+const minCapMemoTTL = 24 * time.Hour
+
+// maxCapMemoTTL caps it at the other end. A year is far past any request_timeout
+// a gateway can be run on, and capping there keeps one absurd setting from
+// pinning a memo, or the fallback that remembers one, for the life of the
+// process. It also keeps the scaling below the point where it could overflow.
+const maxCapMemoTTL = 365 * 24 * time.Hour
+
+// capMemoTimeoutFactor scales request_timeout into that horizon. A streaming or
+// long-running request gets ten times request_timeout per attempt, and the
+// proxy's overall deadline, itself derived from that same per-attempt budget
+// rather than configured separately, caps a whole request at twice it. So twenty
+// times the setting is the longest a request can live, and doubling that again
+// leaves the memo a full request's worth of margin over the sweep.
+const capMemoTimeoutFactor = 40
+
+// capMemoTTL is how long a cap memo outlives its bucket. The memo is what lets a
+// late debit rebuild an evicted bucket, so it has to outlast the longest request
+// the gateway can hold open, and that ceiling is not a constant: it is derived
+// from request_timeout, which an operator sets with no upper bound. Deriving the
+// horizon from the same setting means raising the timeout cannot silently
+// reopen the dropped-debit hole the memo exists to close.
+//
+// A request_timeout that is unset or unparseable reads as the proxy's own
+// default and derives the floor. So does an explicit zero or negative one,
+// which is not "no timeout" on the proxy's side either: it hands the upstream
+// attempt a context that has already expired. One long enough to scale past the
+// ceiling stops there, which also keeps the multiplication well clear of
+// overflowing: a wrapped product would collapse onto the floor, far shorter than
+// the request it has to outlast, and the memo would be swept out from under it.
+func capMemoTTL(requestTimeout time.Duration) time.Duration {
+	if requestTimeout <= 0 {
+		return minCapMemoTTL
+	}
+	if requestTimeout > maxCapMemoTTL/capMemoTimeoutFactor {
+		return maxCapMemoTTL
+	}
+	return max(minCapMemoTTL, capMemoTimeoutFactor*requestTimeout)
+}
 
 // tpmEntry is a per-key token-budget bucket. The rate.Limiter is configured as
 // limit = tpm/60 tokens refilled per second, burst = tpm (a full minute's
@@ -91,7 +192,7 @@ func NewTPMLimiter(settings SettingsReader) *TPMLimiter {
 		settings: settings,
 		stopCh:   make(chan struct{}),
 	}
-	go runCleanup(l.stopCh, l.cleanup)
+	go runCleanup(l.stopCh, l.sweep)
 	return l
 }
 
@@ -156,7 +257,7 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				return
 			}
 
-			entry := l.getEntry(keyHash, tpm)
+			entry := l.getEntry(r.Context(), keyHash, tpm)
 			// Allow() atomically reserves one admission token under the
 			// limiter's mutex; concurrent requests cannot all pass the same
 			// non-mutating peek. The reserved token is a placeholder that is
@@ -241,7 +342,7 @@ func (l *TPMLimiter) admitUserTPM(ctx context.Context, w http.ResponseWriter, no
 		return nil, true
 	}
 	userTPM = fleetShareTPM(ctx, l.settings, userTPM)
-	userEntry := l.getEntry(userKey, userTPM)
+	userEntry := l.getEntry(ctx, userKey, userTPM)
 	// ReserveN takes one admission token under the limiter's mutex, so
 	// concurrent requests can't all pass the same non-mutating peek and blow
 	// the budget. Unlike Allow() the reservation is cancellable;
@@ -309,7 +410,9 @@ func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 		entry.lastUsed = time.Now()
 	default:
 		if memo, known := l.caps[bucketKey]; known && memo.tpm > 0 {
-			memo.lastUsed = time.Now()
+			// The memo's own deadline is left alone: it was claimed by the
+			// request this debit is closing, and the next admission on this key
+			// claims its own.
 			entry = &tpmEntry{
 				limiter:  rate.NewLimiter(rate.Limit(float64(memo.tpm)/60.0), memo.tpm),
 				tpm:      memo.tpm,
@@ -389,9 +492,20 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 // getEntry returns (or creates) the token-budget bucket for keyHash. If the
 // stored bucket's tpm no longer matches (the key's cap changed at runtime) it
 // is replaced so the new budget takes effect immediately.
-func (l *TPMLimiter) getEntry(keyHash string, tpm int) *tpmEntry {
+//
+// It also claims the key's cap-memo horizon, which is why it takes a context:
+// resolving that horizon reads request_timeout, and it does so before taking
+// the lock every admission blocks on.
+func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpmEntry {
+	// Resolved before taking the lock, since every admission blocks on this mutex.
+	// The deadline itself is stamped under the lock, so waiting for it does not
+	// eat into the horizon the request just claimed.
+	horizon := l.memoHorizon(ctx)
+
 	l.mu.Lock()
 	defer l.mu.Unlock()
+
+	memoExpiry := time.Now().Add(horizon)
 
 	entry, ok := l.buckets[keyHash]
 	if !ok || entry.tpm != tpm {
@@ -406,11 +520,129 @@ func (l *TPMLimiter) getEntry(keyHash string, tpm int) *tpmEntry {
 	}
 	if memo, known := l.caps[keyHash]; known {
 		memo.tpm = tpm
-		memo.lastUsed = time.Now()
+		if memoExpiry.After(memo.expiresAt) {
+			memo.expiresAt = memoExpiry
+		}
 	} else {
-		l.caps[keyHash] = &capMemo{tpm: tpm, lastUsed: time.Now()}
+		l.caps[keyHash] = &capMemo{tpm: tpm, expiresAt: memoExpiry}
 	}
 	return entry
+}
+
+// memoHorizon returns the cap-memo horizon request_timeout currently implies.
+// The settings layer serves it from its own cache, and admission already reads
+// that layer before reaching here, so this is not a new dependency on it. It is
+// deliberately not cached again: a second cache would double how long a raised
+// request_timeout goes unnoticed, and during that window a memo can be stamped
+// shorter than the request it has to outlast, which is the hole this closes.
+//
+// The read is detached from the caller's cancellation because the horizon is a
+// property of the setting, not of the request that happened to trigger the
+// refresh: a client that disconnects during admission does not stop the proxy
+// completing the upstream call and debiting it, and a cancelled read would
+// claim the floor for a request entitled to much longer. Detaching also drops
+// the caller's deadline, and the settings repository takes its query deadline
+// from the caller and sets none of its own, so the read carries a bound here
+// instead, sized so that waiting one out costs an admission far less than the
+// value being read is worth.
+//
+// Exceeding that bound is the one failure this can recognise, and there it falls
+// back to the longest horizon a completed read has produced rather than to the
+// default's floor, which on a gateway running a long request_timeout would be
+// shorter than the requests being admitted. That fallback cannot pin a lowered
+// timeout, because it is consulted only when the read timed out: a read that
+// completes always returns what the setting currently says. While the database
+// stays slow enough that none of them complete, admissions do keep claiming the
+// remembered horizon, which lengthens retention and nothing else.
+//
+// A read that fails outright is a different matter: GetDuration cannot tell one
+// from an unset key, so it reads as the default and the horizon does drop to the
+// floor. A request admitted in that window and still running a day later loses
+// its debit. The same goes for a gateway that has never once read the setting,
+// because every read since it started, the sweep's included, ran out of time.
+//
+// Neither is warned about, on purpose. A read that failed and an operator who
+// lowered the setting produce the same answer, so the only available signal
+// would fire on every ordinary lowering as well.
+func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
+	horizon, timedOut := l.readHorizon(ctx, settingsReadTimeout)
+	// Recorded before the timeout is acted on, so a read that answered in the
+	// same instant it expired still counts. The mark only rises, so recording a
+	// genuine timeout's default costs nothing.
+	l.rememberHorizon(horizon)
+	if !timedOut {
+		return horizon
+	}
+
+	// The read ran out of time, so what came back is the default's horizon
+	// rather than this gateway's. Keep whichever is longer: too long only costs
+	// retention, too short costs a debit.
+	mark := time.Duration(l.lastGoodHorizon.Load())
+	remembered := mark > horizon
+	if remembered {
+		horizon = mark
+	}
+	if l.warnedSlowRead() {
+		// Worth a line, since the horizon is no longer coming from the setting.
+		// Rate limited: a database that hangs does it to every admission at once.
+		debuglog.Warn("ratelimit: timed out reading request_timeout, cap memos fall back",
+			"horizon", horizon, "remembered", remembered)
+	}
+	return horizon
+}
+
+// readHorizon resolves the horizon request_timeout implies within the bound the
+// caller passes, and reports whether the read ran out of it. The two callers
+// differ only in how long they are willing to wait.
+//
+// A read is reported as timed out only when the deadline has passed and the
+// value is one the default itself derives. Anything else was answered from the
+// setting whatever the deadline did in the moment after, and a lowered
+// request_timeout must not be discarded on the strength of that, since the
+// deadline can fire between the read returning and this check.
+//
+// The predicate cannot separate the remaining case: a setting that genuinely
+// derives the floor, answered just as the deadline passed, reads as a timeout
+// too, and the caller then prefers a longer remembered horizon over the floor
+// the operator asked for. Nothing here can tell those apart, because a settings
+// read that gives up returns the default rather than saying so, and the cost is
+// retention rather than a dropped debit.
+func (l *TPMLimiter) readHorizon(ctx context.Context, bound time.Duration) (horizon time.Duration, timedOut bool) {
+	readCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), bound)
+	defer cancel()
+
+	horizon = capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	return horizon, readCtx.Err() != nil && horizon == capMemoTTL(defaultRequestTimeout)
+}
+
+// rememberHorizon raises the high-water mark a timed-out read falls back to.
+// Racing readers retry rather than clobber, so the mark only ever climbs.
+func (l *TPMLimiter) rememberHorizon(horizon time.Duration) {
+	for {
+		mark := l.lastGoodHorizon.Load()
+		if time.Duration(mark) >= horizon {
+			return
+		}
+		if l.lastGoodHorizon.CompareAndSwap(mark, int64(horizon)) {
+			return
+		}
+	}
+}
+
+// warnedSlowRead reports whether this slow horizon read is the one that gets to
+// speak, claiming the interval if so. Two racing readers can both see a stale
+// timestamp, and the loser's compare-and-swap fails, so at most one line is
+// emitted per interval.
+func (l *TPMLimiter) warnedSlowRead() bool {
+	now := time.Now()
+	last := l.lastSlowReadWarn.Load()
+	// A negative gap means the wall clock stepped backwards over the stamp.
+	// Treating that as "not yet due" would silence the warning until the clock
+	// caught up, so only a gap that is both forwards and short suppresses it.
+	if gap := now.Sub(time.Unix(0, last)); last != 0 && gap >= 0 && gap < slowReadWarnInterval {
+		return false
+	}
+	return l.lastSlowReadWarn.CompareAndSwap(last, now.UnixNano())
 }
 
 // tpmRetryAfter estimates seconds until at least one token is available again,
@@ -428,6 +660,32 @@ func tpmRetryAfter(lim *rate.Limiter) int {
 	return secs
 }
 
+// sweep is what the background loop runs: it refreshes the horizon the admission
+// path falls back to, then evicts what has aged out. Kept separate from cleanup
+// so tests can drive the eviction without a settings read.
+func (l *TPMLimiter) sweep() {
+	// Evicting first, because a store that has stopped answering makes the
+	// refresh wait out its whole bound, and eviction is this loop's real job.
+	l.cleanup()
+	l.refreshHorizonMark()
+}
+
+// refreshHorizonMark reads request_timeout with a bound an admission could not
+// afford and records what it implies. Without it a settings store that is
+// consistently slower than settingsReadTimeout would never let a read complete,
+// so the mark could never rise above the default's floor and a raised
+// request_timeout would go unnoticed for the life of the process.
+func (l *TPMLimiter) refreshHorizonMark() {
+	horizon, timedOut := l.readHorizon(context.Background(), markRefreshTimeout)
+	l.rememberHorizon(horizon)
+	if timedOut && l.warnedSlowRead() {
+		// Sharing the admission path's rate limit on purpose: both lines report
+		// the same store being too slow to answer, and an operator needs to hear
+		// it once, not from each of them.
+		debuglog.Warn("ratelimit: timed out refreshing the cap memo horizon", "horizon", horizon)
+	}
+}
+
 func (l *TPMLimiter) cleanup() {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -440,12 +698,13 @@ func (l *TPMLimiter) cleanup() {
 		}
 	}
 	// Cap memos are what let a debit rebuild an evicted bucket, so they are held
-	// far longer than the bucket itself. Past this horizon no request that was
-	// admitted against the memo can still be running, and keeping it would grow
-	// the map by one entry for every key the process ever saw.
-	memoCutoff := now.Add(-capMemoTTL)
+	// far longer than the bucket itself. Each carries the deadline its own
+	// admissions claimed, so an operator changing request_timeout cannot strand a
+	// request that was already admitted. Past that deadline no request the memo
+	// was written for can still be running, and keeping it would grow the map by
+	// one entry for every key the process ever saw.
 	for key, memo := range l.caps {
-		if memo.lastUsed.Before(memoCutoff) {
+		if now.After(memo.expiresAt) {
 			delete(l.caps, key)
 		}
 	}

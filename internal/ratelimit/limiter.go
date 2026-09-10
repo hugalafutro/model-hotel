@@ -20,6 +20,7 @@ import (
 // interface, and tests can provide a lightweight stub instead.
 type SettingsReader interface {
 	GetBool(ctx context.Context, key string, defaultValue bool) bool
+	GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration
 	GetFloat(ctx context.Context, key string, defaultValue float64) float64
 	GetInt(ctx context.Context, key string, defaultValue int) int
 }

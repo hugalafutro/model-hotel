@@ -2,6 +2,7 @@ package ratelimit
 
 import (
 	"context"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"sync"
@@ -240,8 +241,8 @@ func TestTPMLimiter_OwnerDebitSurvivesEviction(t *testing.T) {
 	const tpm = 500
 	owner := userBucketKey("owner-1")
 
-	l.getEntry("k", tpm)
-	l.getEntry(owner, tpm)
+	l.getEntry(context.Background(), "k", tpm)
+	l.getEntry(context.Background(), owner, tpm)
 
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
@@ -267,19 +268,16 @@ func TestTPMLimiter_OwnerDebitSurvivesEviction(t *testing.T) {
 // by one entry for every key the process ever admits.
 func TestTPMLimiter_CapMemoIsSwept(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
-	l.getEntry("k", 500)
+	l.getEntry(context.Background(), "k", 500)
 
 	l.mu.Lock()
 	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
-	l.caps["k"].lastUsed = time.Now().Add(-capMemoTTL - time.Minute)
 	l.mu.Unlock()
+	ageMemo(t, l, "k", minCapMemoTTL+time.Minute)
 	l.cleanup()
 
-	l.mu.Lock()
-	_, memoLeft := l.caps["k"]
-	l.mu.Unlock()
-	if memoLeft {
-		t.Error("a memo older than the TTL should be swept")
+	if memoLives(l, "k") {
+		t.Error("a memo past its claimed horizon should be swept")
 	}
 	l.Debit("k", "", 10_000)
 	l.mu.Lock()
@@ -801,4 +799,875 @@ func TestTPMLimiter_DebitUserIgnoresNonBuckets(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: no-op debits must not drain the budget", rec.Code)
 	}
+}
+
+// TestCapMemoTTL covers the horizon arithmetic on its own: every ordinary
+// request_timeout lands on the floor, a long one scales past it, a missing or
+// nonsensical one falls back to the floor, and one long enough to scale past the
+// ceiling stops there rather than wrapping and collapsing onto a floor far
+// shorter than the request it has to outlast.
+func TestCapMemoTTL(t *testing.T) {
+	cases := []struct {
+		name           string
+		requestTimeout time.Duration
+		want           time.Duration
+	}{
+		{"default one minute floors at a day", time.Minute, minCapMemoTTL},
+		{"half an hour still floors at a day", 30 * time.Minute, minCapMemoTTL},
+		{"the crossover derives exactly the floor", 36 * time.Minute, minCapMemoTTL},
+		{"a minute past the crossover scales", 37 * time.Minute, 24*time.Hour + 40*time.Minute},
+		{"an hour scales past the floor", time.Hour, 40 * time.Hour},
+		{"three hours scales further", 3 * time.Hour, 120 * time.Hour},
+		{"zero falls back to the floor", 0, minCapMemoTTL},
+		{"negative falls back to the floor", -time.Hour, minCapMemoTTL},
+		{"the largest scalable timeout still scales", maxCapMemoTTL / capMemoTimeoutFactor, maxCapMemoTTL},
+		{"one tick past that stops at the ceiling", maxCapMemoTTL/capMemoTimeoutFactor + 1, maxCapMemoTTL},
+		{"a timeout that would overflow stops there too", time.Duration(math.MaxInt64), maxCapMemoTTL},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := capMemoTTL(tc.requestTimeout); got != tc.want {
+				t.Errorf("capMemoTTL(%v) = %v, want %v", tc.requestTimeout, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout is the wiring half: a memo
+// older than the floor but younger than the horizon a raised request_timeout
+// implies must survive the sweep, and still take a late debit. A horizon that
+// ignored the setting would sweep this memo and drop the debit, which is what
+// the memo exists to prevent.
+func TestTPMLimiter_CapMemoHorizonFollowsRequestTimeout(t *testing.T) {
+	const tpm = 500
+	l, s := newTestTPMLimiter(t)
+	// Forty times one hour is well past the one-day floor, so a memo aged 25
+	// hours is inside the horizon here and outside it at the default timeout.
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry(context.Background(), "k", tpm)
+
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+	ageMemo(t, l, "k", 25*time.Hour)
+	l.cleanup()
+
+	l.mu.Lock()
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if !memoLives(l, "k") {
+		t.Fatal("a memo inside the horizon a raised request_timeout implies must survive the sweep")
+	}
+	if buckets != 0 {
+		t.Fatalf("the idle bucket should still be evicted, got %d", buckets)
+	}
+
+	l.Debit("k", "", 2*tpm)
+	l.mu.Lock()
+	rebuilt, ok := l.buckets["k"]
+	l.mu.Unlock()
+	if !ok {
+		t.Fatal("the surviving memo must let the late debit rebuild the bucket")
+	}
+	if got := rebuilt.limiter.Tokens(); got > 0 {
+		t.Errorf("the debit must land on the rebuilt bucket, tokens left = %v", got)
+	}
+}
+
+// TestTPMLimiter_CapMemoSweptAtTheDefaultTimeout is the control for the case
+// above: the same 25-hour-old memo is swept when request_timeout is the default,
+// so the test above proves the setting moved the horizon and not that the sweep
+// stopped working.
+func TestTPMLimiter_CapMemoSweptAtTheDefaultTimeout(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	l.getEntry(context.Background(), "k", 500)
+
+	ageMemo(t, l, "k", 25*time.Hour)
+	l.cleanup()
+
+	if memoLives(l, "k") {
+		t.Error("at the default request_timeout a memo past the one-day floor must be swept")
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout pins the lowering
+// direction: the horizon a memo claimed has to outlast a request admitted
+// against it even when the operator lowers request_timeout while that request is
+// still running. A horizon resolved at sweep time would shrink underneath the
+// in-flight request and drop its debit, which is what the memo exists to
+// prevent.
+func TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout(t *testing.T) {
+	const tpm = 500
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry(context.Background(), "k", tpm)
+
+	// The operator drops the timeout back to the default after admission.
+	s.set(settingsKeyRequestTimeout, "1m")
+
+	// The bucket is aged past the idle cutoff as well, so it is genuinely gone
+	// after the sweep and the rebuild below can only come from the memo.
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+	ageMemo(t, l, "k", 25*time.Hour)
+	l.cleanup()
+
+	if !memoLives(l, "k") {
+		t.Fatal("lowering request_timeout must not sweep a memo written under the longer one")
+	}
+	l.mu.Lock()
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if buckets != 0 {
+		t.Fatalf("the idle bucket should have been evicted, got %d", buckets)
+	}
+
+	l.Debit("k", "", 2*tpm)
+	l.mu.Lock()
+	_, rebuilt := l.buckets["k"]
+	l.mu.Unlock()
+	if !rebuilt {
+		t.Error("the surviving memo must still let the late debit rebuild the bucket")
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonWithUnparseableTimeout covers the fallback
+// through the real path rather than the pure function: a request_timeout the
+// settings layer cannot parse reads as the proxy default, so the memo gets the
+// floor and is swept past it.
+func TestTPMLimiter_CapMemoHorizonWithUnparseableTimeout(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "not a duration")
+	l.getEntry(context.Background(), "k", 500)
+
+	if got := remainingMemoHorizon(t, l, "k"); got != minCapMemoTTL {
+		t.Fatalf("an unparseable request_timeout should derive the floor, got %v", got)
+	}
+	ageMemo(t, l, "k", minCapMemoTTL+time.Minute)
+	l.cleanup()
+
+	if memoLives(l, "k") {
+		t.Error("a memo past the floor should be swept when the timeout is unparseable")
+	}
+}
+
+// TestTPMLimiter_CapMemoDeadlineOnlyMovesOut covers the rule that makes the
+// lowering case above safe: a later admission under a longer request_timeout
+// pushes the memo's deadline out, and one under a shorter timeout leaves it
+// where it is. Assigning the new deadline unconditionally would pull it back in
+// and strand the request admitted under the longer setting.
+func TestTPMLimiter_CapMemoDeadlineOnlyMovesOut(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	ctx := context.Background()
+
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry(ctx, "k", 500)
+	if got := remainingMemoHorizon(t, l, "k"); got != 40*time.Hour {
+		t.Fatalf("a one hour timeout should claim a 40 hour horizon, got %v", got)
+	}
+
+	s.set(settingsKeyRequestTimeout, "4h")
+	l.getEntry(ctx, "k", 500)
+	if got := remainingMemoHorizon(t, l, "k"); got != 160*time.Hour {
+		t.Errorf("a longer timeout should push the deadline out to 160h, got %v", got)
+	}
+
+	s.set(settingsKeyRequestTimeout, "1m")
+	l.getEntry(ctx, "k", 500)
+	if got := remainingMemoHorizon(t, l, "k"); got != 160*time.Hour {
+		t.Errorf("a shorter timeout must not pull the deadline back in, got %v", got)
+	}
+}
+
+// TestTPMLimiter_CapMemoDeadlineRestampsAtTheFloor is the other half of that
+// rule. The deadline never descends, but it is an absolute time rather than a
+// duration that ratchets, so a long timeout's claim runs out on its own and
+// ordinary admissions re-stamp the memo at the floor from then on. A horizon
+// held as a duration would instead pin a busy key for as long as the process
+// runs.
+func TestTPMLimiter_CapMemoDeadlineRestampsAtTheFloor(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	ctx := context.Background()
+
+	s.set(settingsKeyRequestTimeout, "1h")
+	l.getEntry(ctx, "k", 500)
+
+	// The long request finishes and the operator restores the default. Winding
+	// the deadline back 20 hours stands in for that time passing, leaving the
+	// memo still live with 20 hours of its 40 to run, so what follows is an
+	// ordinary admission against a healthy memo rather than a revival. The
+	// deadline is never pulled in. Once the old claim has less than a floor's
+	// worth left to run, an ordinary admission re-stamps it at the floor, and
+	// that is as far as it goes from then on.
+	s.set(settingsKeyRequestTimeout, "1m")
+	ageMemo(t, l, "k", 20*time.Hour)
+
+	l.getEntry(ctx, "k", 500)
+	if got := remainingMemoHorizon(t, l, "k"); got != minCapMemoTTL {
+		t.Errorf("a later admission should carry the memo on the floor again, got %v", got)
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonThroughTheMiddleware pins the wiring the direct
+// getEntry tests cannot see: the admission path itself has to carry a context
+// the settings read can resolve, or every memo would claim the floor whatever
+// request_timeout says.
+func TestTPMLimiter_CapMemoHorizonThroughTheMiddleware(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+
+	if !tpmAdmit(t, l, "k", 500) {
+		t.Fatal("the first request under a fresh budget should be admitted")
+	}
+	if got := remainingMemoHorizon(t, l, "k"); got != 40*time.Hour {
+		t.Errorf("admission should claim the horizon the live setting implies, got %v", got)
+	}
+
+	// A second request on the same key finds a warm bucket. The horizon still has
+	// to be re-claimed there, or a key busy since before the setting was raised
+	// would keep carrying the shorter one.
+	s.set(settingsKeyRequestTimeout, "4h")
+	if !tpmAdmit(t, l, "k", 500) {
+		t.Fatal("the second request should still be inside the budget")
+	}
+	if got := remainingMemoHorizon(t, l, "k"); got != 160*time.Hour {
+		t.Errorf("an admission on a warm bucket should re-claim the horizon, got %v", got)
+	}
+}
+
+// TestTPMLimiter_CapMemoCappedTimeoutSurvivesTheSweep drives a request_timeout
+// past the point where the scaling stops all the way through admission and a
+// sweep. Without the ceiling the product wraps, the horizon collapses onto the
+// floor, and this memo is swept while a request under that timeout could still
+// be running.
+func TestTPMLimiter_CapMemoCappedTimeoutSurvivesTheSweep(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "100000h") // well past the ceiling's own scale
+
+	l.getEntry(context.Background(), "k", 500)
+	ageMemo(t, l, "k", 30*24*time.Hour)
+	l.cleanup()
+
+	if !memoLives(l, "k") {
+		t.Error("a memo under a saturating request_timeout must outlive a month-long sweep")
+	}
+}
+
+// TestTPMLimiter_DebitDoesNotExtendTheMemoDeadline pins the other half of that
+// rule: only admissions claim a horizon. A debit closes the request that already
+// claimed one, so refreshing the deadline there would hold every memo for a
+// further horizon past the last request that needed it.
+func TestTPMLimiter_DebitDoesNotExtendTheMemoDeadline(t *testing.T) {
+	const tpm = 500
+	l, _ := newTestTPMLimiter(t)
+	l.getEntry(context.Background(), "k", tpm)
+
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	before := l.caps["k"].expiresAt
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.mu.Lock()
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if buckets != 0 {
+		t.Fatalf("the idle bucket should have been evicted, got %d", buckets)
+	}
+
+	l.Debit("k", "", 2*tpm)
+	l.mu.Lock()
+	after := l.caps["k"].expiresAt
+	l.mu.Unlock()
+	if !after.Equal(before) {
+		t.Errorf("a debit must leave the memo deadline alone: was %v, now %v", before, after)
+	}
+}
+
+// TestTPMLimiter_CapMemoHorizonIgnoresRequestCancellation pins the detached
+// read: a client that disconnects during admission does not stop the proxy
+// finishing the upstream call and debiting it, so the horizon has to come from
+// the setting even when the request's own context is already gone. Resolving it
+// under that context would claim the floor and sweep the memo out from under a
+// request entitled to far longer.
+func TestTPMLimiter_CapMemoHorizonIgnoresRequestCancellation(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	l.getEntry(ctx, "k", 500)
+
+	if got := remainingMemoHorizon(t, l, "k"); got != 40*time.Hour {
+		t.Errorf("a cancelled request must still claim the horizon the setting implies, got %v", got)
+	}
+}
+
+// TestTPMLimiter_RejectedRequestStillClaimsTheHorizon pins what the memo comment
+// asserts: the claim is made at admission, before the budget decides, so a
+// request turned away with a 429 has still pushed the deadline out. Claiming it
+// only for admitted requests would leave a key whose budget is exhausted
+// carrying a deadline nobody refreshes.
+func TestTPMLimiter_RejectedRequestStillClaimsTheHorizon(t *testing.T) {
+	const tpm = 60
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+
+	if !tpmAdmit(t, l, "k", tpm) {
+		t.Fatal("the first request under a fresh budget should be admitted")
+	}
+	l.Debit("k", "", 10*tpm) // drive the budget well past empty
+	ageMemo(t, l, "k", 10*time.Hour)
+	before := remainingMemoHorizon(t, l, "k")
+
+	if tpmAdmit(t, l, "k", tpm) {
+		t.Fatal("the budget is exhausted, so the next request must be rejected")
+	}
+	if got := remainingMemoHorizon(t, l, "k"); got != 40*time.Hour {
+		t.Errorf("a rejected request should still claim the full horizon, was %v, got %v", before, got)
+	}
+}
+
+// TestTPMLimiter_HorizonReadCarriesItsOwnDeadline pins the bound on the detached
+// read. Detaching drops the caller's deadline and the settings repository sets
+// none of its own, so without a bound here a database that has stopped
+// answering would hold up admission indefinitely. Asserting the deadline the
+// read is handed proves the bound without waiting for it to expire.
+func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
+	s := newStubSettings()
+	l := NewTPMLimiter(&deadlineSpy{SettingsReader: s})
+	t.Cleanup(l.Stop)
+
+	l.memoHorizon(context.Background())
+
+	spy, ok := l.settings.(*deadlineSpy)
+	if !ok {
+		t.Fatal("the limiter should still hold the spy")
+	}
+	// Measured after the deadline was set, so a budget can only read shorter than
+	// its bound and no amount of stalling can push it over. An unbounded or
+	// wildly longer deadline is what this catches.
+	shortest, _, seen := spy.budgets()
+	if !seen {
+		t.Fatal("the horizon read must carry a deadline of its own")
+	}
+	if shortest > settingsReadTimeout {
+		t.Errorf("the read's deadline should be no more than %v out, got %v", settingsReadTimeout, shortest)
+	}
+}
+
+// TestTPMLimiter_SweepReadCarriesTheLongerBound is the same guard for the sweep,
+// which reads off the request path and so waits longer. It still has to carry a
+// bound: without one a hung settings store would hold the sweep goroutine, and
+// with it the limiter's eviction, for as long as the process runs.
+func TestTPMLimiter_SweepReadCarriesTheLongerBound(t *testing.T) {
+	l := NewTPMLimiter(&deadlineSpy{SettingsReader: newStubSettings()})
+	t.Cleanup(l.Stop)
+
+	l.sweep()
+
+	spy, ok := l.settings.(*deadlineSpy)
+	if !ok {
+		t.Fatal("the limiter should still hold the spy")
+	}
+	_, longest, seen := spy.budgets()
+	if !seen {
+		t.Fatal("the sweep's read must carry a deadline of its own")
+	}
+	if longest > markRefreshTimeout {
+		t.Errorf("the sweep's deadline should be no more than %v out, got %v", markRefreshTimeout, longest)
+	}
+	if longest <= settingsReadTimeout {
+		t.Errorf("the sweep should wait longer than an admission's %v, got %v", settingsReadTimeout, longest)
+	}
+}
+
+// TestTPMLimiter_HorizonReadFallsBackWhenSettingsHang is what that bound buys:
+// a settings read that never answers has to end in the default horizon and let
+// admission carry on, rather than holding the request until the client gives up.
+func TestTPMLimiter_HorizonReadFallsBackWhenSettingsHang(t *testing.T) {
+	l := NewTPMLimiter(hangingSettings{SettingsReader: newStubSettings()})
+	t.Cleanup(l.Stop)
+
+	// Returning at all is half the assertion: the stub answers only once the
+	// deadline the read carries has passed, so without that deadline this hangs
+	// until the test binary times out.
+	l.getEntry(context.Background(), "k", 500)
+
+	if got := remainingMemoHorizon(t, l, "k"); got != minCapMemoTTL {
+		t.Errorf("a settings read that hangs should derive the floor, got %v", got)
+	}
+}
+
+// TestTPMLimiter_HungReadKeepsTheLastKnownHorizon covers the fallback that makes
+// a hanging database survivable: a gateway running a long request_timeout keeps
+// the horizon its last completed read produced, instead of dropping to the floor
+// and sweeping memos out from under the requests it is still admitting.
+func TestTPMLimiter_HungReadKeepsTheLastKnownHorizon(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "1h")
+	hang := &switchableSettings{SettingsReader: stub}
+	l := NewTPMLimiter(hang)
+	t.Cleanup(l.Stop)
+
+	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
+		t.Fatalf("the first read should derive the setting's horizon, got %v", got)
+	}
+
+	hang.hang.Store(true)
+	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
+		t.Fatalf("a hung read should keep the last known horizon, got %v", got)
+	}
+
+	// What that horizon is for: a memo claimed while the database is hanging has
+	// to outlive the sweep by as long as the gateway's real request_timeout
+	// implies, not by the default's day.
+	l.getEntry(context.Background(), "k", 500)
+	ageMemo(t, l, "k", minCapMemoTTL+time.Hour)
+	l.cleanup()
+	if !memoLives(l, "k") {
+		t.Error("a memo claimed during the hang should survive past the default's floor")
+	}
+}
+
+// TestTPMLimiter_ClaimsAndSweepsRace runs admissions against the sweeper on one
+// key, which is what production does on every sweep tick. Under the race detector
+// this is the check that the memo's deadline is claimed and read under the same
+// lock the sweep takes.
+func TestTPMLimiter_ClaimsAndSweepsRace(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+
+	var wg sync.WaitGroup
+	for range 16 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 25 {
+				l.getEntry(context.Background(), "k", 500)
+			}
+		}()
+	}
+	for range 4 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for range 25 {
+				l.cleanup()
+			}
+		}()
+	}
+
+	// Sampled alongside them, because the deadline only ever moving out is the
+	// invariant the whole design rests on and a lost update would break it.
+	var last time.Time
+	var slipped bool
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for range 200 {
+			l.mu.Lock()
+			memo, ok := l.caps["k"]
+			var seen time.Time
+			if ok {
+				seen = memo.expiresAt
+			}
+			l.mu.Unlock()
+			if ok {
+				if seen.Before(last) {
+					slipped = true
+				}
+				last = seen
+			}
+		}
+	}()
+	wg.Wait()
+
+	if slipped {
+		t.Error("a memo deadline moved backwards while admissions and sweeps raced")
+	}
+	if !memoLives(l, "k") {
+		t.Error("a key admitting throughout should still hold its memo")
+	}
+}
+
+// TestTPMLimiter_SweepRefreshesTheHorizonMark covers the path that keeps the
+// fallback usable on a store that is slow rather than broken. An admission's own
+// read gives up in milliseconds, so if nothing read request_timeout with a
+// longer bound the mark could never rise above the default's floor.
+func TestTPMLimiter_SweepRefreshesTheHorizonMark(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "4h")
+
+	// Aged past the floor but well inside what a four hour timeout implies, so
+	// the sweep has to keep it and evict the idle bucket beside it.
+	l.getEntry(context.Background(), "k", 500)
+	ageMemo(t, l, "k", minCapMemoTTL+time.Hour)
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+	// That admission recorded the mark on its way through, so clear it: the
+	// assertion below is about the sweep's own read and would pass without one.
+	l.lastGoodHorizon.Store(0)
+
+	l.sweep()
+
+	if got := time.Duration(l.lastGoodHorizon.Load()); got != 160*time.Hour {
+		t.Errorf("the sweep should record the horizon the setting implies, got %v", got)
+	}
+	if !memoLives(l, "k") {
+		t.Error("the sweep should keep a memo still inside its claimed horizon")
+	}
+	l.mu.Lock()
+	buckets := len(l.buckets)
+	l.mu.Unlock()
+	if buckets != 0 {
+		t.Errorf("the sweep should still evict the idle bucket, got %d", buckets)
+	}
+}
+
+// TestTPMLimiter_ReadHorizonReportsATimeout covers the shared read giving up on
+// a store that will not answer. It runs against a bound of its own rather than
+// either caller's, so the case is pinned without waiting out the seconds the
+// sweep is willing to spend.
+func TestTPMLimiter_ReadHorizonReportsATimeout(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "4h")
+	l := NewTPMLimiter(hangingSettings{SettingsReader: stub})
+	t.Cleanup(l.Stop)
+
+	horizon, timedOut := l.readHorizon(context.Background(), time.Millisecond)
+	if !timedOut {
+		t.Error("a read that never answers should report a timeout")
+	}
+	if horizon != minCapMemoTTL {
+		t.Errorf("a read that never answers derives the default's horizon, got %v", horizon)
+	}
+}
+
+// TestTPMLimiter_LateAnswerIsNotTreatedAsATimeout pins the branch that tells a
+// read which answered from one which gave up. The deadline can fire in the
+// moment after the value comes back, and a lowered request_timeout has to be
+// honoured even then.
+func TestTPMLimiter_LateAnswerIsNotTreatedAsATimeout(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "4h")
+	l := NewTPMLimiter(lateAnswerSettings{SettingsReader: stub})
+	t.Cleanup(l.Stop)
+	l.rememberHorizon(500 * time.Hour)
+
+	if got := l.memoHorizon(context.Background()); got != 160*time.Hour {
+		t.Errorf("a value that came from the setting should stand, got %v", got)
+	}
+}
+
+// TestTPMLimiter_LateFloorAnswerReadsAsATimeout pins the case the predicate
+// cannot separate, so that nobody simplifies it away believing it does. A
+// setting that genuinely derives the floor, answered as the deadline passes,
+// looks exactly like a read that gave up, and the remembered horizon wins.
+// Nothing can tell the two apart from the value alone, and preferring the longer
+// one lengthens retention rather than dropping a debit.
+func TestTPMLimiter_LateFloorAnswerReadsAsATimeout(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "1m")
+	l := NewTPMLimiter(lateAnswerSettings{SettingsReader: stub})
+	t.Cleanup(l.Stop)
+	l.rememberHorizon(160 * time.Hour)
+
+	if got := l.memoHorizon(context.Background()); got != 160*time.Hour {
+		t.Errorf("a late floor answer should fall back to the mark, got %v", got)
+	}
+}
+
+// lateAnswerSettings answers with the real value but only once the read's own
+// deadline has passed, the race the branch above exists for.
+type lateAnswerSettings struct {
+	SettingsReader
+}
+
+func (a lateAnswerSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	// Read under a context of its own: the wrapped stub answers with the default
+	// once the caller's has expired, which on a stalled runner would turn this
+	// into an ordinary timeout and defeat the point of the stub.
+	got := a.SettingsReader.GetDuration(context.Background(), key, def)
+	<-ctx.Done()
+	return got
+}
+
+// TestTPMLimiter_TimeoutPrefersTheMarkOverALoweredSetting is why the mark
+// exists. Once the store stops answering, the horizon has to come from what the
+// gateway was running, not from the default a timed-out read hands back, even
+// though the setting itself has since been lowered.
+func TestTPMLimiter_TimeoutPrefersTheMarkOverALoweredSetting(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "4h")
+	settings := &switchableSettings{SettingsReader: stub}
+	l := NewTPMLimiter(settings)
+	t.Cleanup(l.Stop)
+
+	if got := l.memoHorizon(context.Background()); got != 160*time.Hour {
+		t.Fatalf("the first read should derive the setting's horizon, got %v", got)
+	}
+
+	stub.set(settingsKeyRequestTimeout, "1m")
+	settings.hang.Store(true)
+	if got := l.memoHorizon(context.Background()); got != 160*time.Hour {
+		t.Errorf("a timed-out read should fall back to the mark, not the floor, got %v", got)
+	}
+}
+
+// TestRememberHorizon covers the high-water mark under contention: a mark can
+// only climb, so racing writers below it change nothing and the highest wins.
+func TestRememberHorizon(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	l.rememberHorizon(100 * time.Hour)
+
+	var wg sync.WaitGroup
+	for i := range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			// One writer is above the mark, the rest below it.
+			if i == 7 {
+				l.rememberHorizon(200 * time.Hour)
+				return
+			}
+			l.rememberHorizon(time.Duration(i) * time.Hour)
+		}()
+	}
+	wg.Wait()
+
+	if got := time.Duration(l.lastGoodHorizon.Load()); got != 200*time.Hour {
+		t.Errorf("the mark should hold the highest horizon offered, got %v", got)
+	}
+
+}
+
+// TestTPMLimiter_CompletedReadWinsOverTheRememberedHorizon is the anti-pin rule:
+// the remembered horizon exists for reads that time out, so lowering
+// request_timeout has to take effect immediately even though a longer horizon is
+// on record. Taking the longer of the two unconditionally would strand the
+// setting at its highest value for the life of the process.
+func TestTPMLimiter_CompletedReadWinsOverTheRememberedHorizon(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	ctx := context.Background()
+
+	s.set(settingsKeyRequestTimeout, "1h")
+	if got := l.memoHorizon(ctx); got != 40*time.Hour {
+		t.Fatalf("the first read should derive the setting's horizon, got %v", got)
+	}
+
+	s.set(settingsKeyRequestTimeout, "1m")
+	if got := l.memoHorizon(ctx); got != minCapMemoTTL {
+		t.Errorf("a completed read should return the lowered setting's horizon, got %v", got)
+	}
+}
+
+// TestTPMLimiter_RememberedHorizonSurvivesADefaultingRead covers the other half.
+// A read that comes back with the default, whether the key is unset, the value
+// is unusable, or the repository failed, is indistinguishable from any other,
+// and letting it overwrite the mark would erase the long horizon exactly when a
+// later timeout needs it.
+func TestTPMLimiter_RememberedHorizonSurvivesADefaultingRead(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "1h")
+	settings := &switchableSettings{SettingsReader: stub}
+	l := NewTPMLimiter(settings)
+	t.Cleanup(l.Stop)
+
+	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
+		t.Fatalf("the first read should derive the setting's horizon, got %v", got)
+	}
+
+	// A read that fails fast looks exactly like an unset key.
+	stub.set(settingsKeyRequestTimeout, "")
+	if got := l.memoHorizon(context.Background()); got != minCapMemoTTL {
+		t.Fatalf("a failed read reads as the default, got %v", got)
+	}
+
+	settings.hang.Store(true)
+	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
+		t.Error("the failed read should not have erased the horizon a timeout falls back to")
+	}
+}
+
+// TestWarnedSlowRead pins the rate limit on the slow-read warning: one caller
+// per interval speaks and the rest stay quiet, including when they arrive at
+// once, or a hanging database would put a line in the log for every admission it
+// stalls.
+func TestWarnedSlowRead(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+
+	if !l.warnedSlowRead() {
+		t.Fatal("the first slow read in an interval should warn")
+	}
+	if l.warnedSlowRead() {
+		t.Error("a second slow read inside the interval should stay quiet")
+	}
+
+	l.lastSlowReadWarn.Store(time.Now().Add(-slowReadWarnInterval - time.Second).UnixNano())
+	if !l.warnedSlowRead() {
+		t.Error("once the interval has passed the next slow read should warn again")
+	}
+
+	// A hung database stalls every admission at once, so the compare-and-swap
+	// has to hold when they all arrive together and not only in sequence.
+	l.lastSlowReadWarn.Store(time.Now().Add(-slowReadWarnInterval - time.Second).UnixNano())
+	var spoke atomic.Int32
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if l.warnedSlowRead() {
+				spoke.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+	if got := spoke.Load(); got != 1 {
+		t.Errorf("exactly one racing caller should warn, got %d", got)
+	}
+
+	// A wall clock stepped backwards over the stamp leaves the gap negative.
+	// Reading that as "not yet due" would silence the warning until the clock
+	// caught up with itself.
+	l.lastSlowReadWarn.Store(time.Now().Add(time.Hour).UnixNano())
+	if !l.warnedSlowRead() {
+		t.Error("a stamp in the future should not suppress the warning")
+	}
+}
+
+// switchableSettings answers normally until hang is set, after which the read
+// returns only once its own deadline has passed.
+type switchableSettings struct {
+	SettingsReader
+	hang atomic.Bool
+}
+
+func (s *switchableSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	if s.hang.Load() {
+		<-ctx.Done()
+		return def
+	}
+	return s.SettingsReader.GetDuration(ctx, key, def)
+}
+
+// TestTPMLimiter_AdmissionSurvivesAHangingStore is the contract the bound exists
+// for, seen from outside: a request still gets an answer while the settings
+// store is refusing to, rather than being held until the client gives up.
+func TestTPMLimiter_AdmissionSurvivesAHangingStore(t *testing.T) {
+	l := NewTPMLimiter(hangingSettings{SettingsReader: newStubSettings()})
+	t.Cleanup(l.Stop)
+
+	if !tpmAdmit(t, l, "k", 500) {
+		t.Fatal("a request should still be admitted while the settings store hangs")
+	}
+	if got := remainingMemoHorizon(t, l, "k"); got != minCapMemoTTL {
+		t.Errorf("with nothing known the claim should be the floor, got %v", got)
+	}
+}
+
+// hangingSettings stands in for a database that has stopped answering: the read
+// returns only once its own deadline has passed.
+type hangingSettings struct {
+	SettingsReader
+}
+
+func (h hangingSettings) GetDuration(ctx context.Context, _ string, def time.Duration) time.Duration {
+	<-ctx.Done()
+	return def
+}
+
+// deadlineSpy records how much time each horizon read was given. It keeps the
+// shortest and the longest rather than the latest, because the limiter's sweep
+// goroutine reads settings through the same instance and its read is meant to be
+// the longer one: an assertion on the most recent read would depend on which of
+// them landed last.
+type deadlineSpy struct {
+	SettingsReader
+	mu       sync.Mutex
+	seen     bool
+	shortest time.Duration
+	longest  time.Duration
+}
+
+func (d *deadlineSpy) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	if deadline, ok := ctx.Deadline(); ok {
+		budget := time.Until(deadline)
+		d.mu.Lock()
+		if !d.seen || budget < d.shortest {
+			d.shortest = budget
+		}
+		if !d.seen || budget > d.longest {
+			d.longest = budget
+		}
+		d.seen = true
+		d.mu.Unlock()
+	}
+	return d.SettingsReader.GetDuration(ctx, key, def)
+}
+
+// budgets reports the shortest and longest budget any read was given, and
+// whether any read carried a deadline at all.
+func (d *deadlineSpy) budgets() (shortest, longest time.Duration, seen bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.shortest, d.longest, d.seen
+}
+
+// TestTPMLimiter_OwnerAdmissionClaimsTheHorizon covers the other admission
+// surface: the owner's aggregate bucket is resolved through its own call site,
+// with a context assembled from the session rather than a virtual key, and its
+// memo has to claim a horizon the same way.
+func TestTPMLimiter_OwnerAdmissionClaimsTheHorizon(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+	h := l.UserMiddleware(true)(okHandler())
+
+	userTPM := 600
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, sessionTPMReq("uid-1", &userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("the first session request should pass, got %d", rec.Code)
+	}
+
+	if got := remainingMemoHorizon(t, l, userBucketKey("uid-1")); got != 40*time.Hour {
+		t.Errorf("an owner admission should claim the horizon the setting implies, got %v", got)
+	}
+}
+
+// ageMemo winds a cap memo's deadline back by d, standing in for d of elapsed
+// time without sleeping. The memo's claimed horizon is unchanged; only how much
+// of it is left moves.
+func ageMemo(t *testing.T, l *TPMLimiter, key string, d time.Duration) {
+	t.Helper()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	memo, ok := l.caps[key]
+	if !ok {
+		t.Fatalf("no cap memo for %q to age", key)
+	}
+	memo.expiresAt = memo.expiresAt.Add(-d)
+}
+
+// remainingMemoHorizon reports the horizon a memo claimed at admission, rounded to the
+// minute so the microseconds between stamping it and reading it do not matter.
+func remainingMemoHorizon(t *testing.T, l *TPMLimiter, key string) time.Duration {
+	t.Helper()
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	memo, ok := l.caps[key]
+	if !ok {
+		t.Fatalf("no cap memo for %q to measure", key)
+	}
+	return time.Until(memo.expiresAt).Round(time.Minute)
+}
+
+// memoLives reports whether a cap memo is still in the map.
+func memoLives(l *TPMLimiter, key string) bool {
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	_, ok := l.caps[key]
+	return ok
 }
