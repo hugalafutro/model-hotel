@@ -904,7 +904,6 @@ func TestTPMLimiter_CapMemoHorizonSurvivesALoweredTimeout(t *testing.T) {
 
 	// The operator drops the timeout back to the default after admission.
 	s.set(settingsKeyRequestTimeout, "1m")
-	forgetHorizon(l)
 
 	// The bucket is aged past the idle cutoff as well, so it is genuinely gone
 	// after the sweep and the rebuild below can only come from the memo.
@@ -942,7 +941,7 @@ func TestTPMLimiter_CapMemoHorizonWithUnparseableTimeout(t *testing.T) {
 	s.set(settingsKeyRequestTimeout, "not a duration")
 	l.getEntry(context.Background(), "k", 500)
 
-	if got := memoHorizon(t, l, "k"); got != minCapMemoTTL {
+	if got := remainingMemoHorizon(t, l, "k"); got != minCapMemoTTL {
 		t.Fatalf("an unparseable request_timeout should derive the floor, got %v", got)
 	}
 	ageMemo(t, l, "k", minCapMemoTTL+time.Minute)
@@ -964,21 +963,19 @@ func TestTPMLimiter_CapMemoDeadlineOnlyMovesOut(t *testing.T) {
 
 	s.set(settingsKeyRequestTimeout, "1h")
 	l.getEntry(ctx, "k", 500)
-	if got := memoHorizon(t, l, "k"); got != 40*time.Hour {
+	if got := remainingMemoHorizon(t, l, "k"); got != 40*time.Hour {
 		t.Fatalf("a one hour timeout should claim a 40 hour horizon, got %v", got)
 	}
 
 	s.set(settingsKeyRequestTimeout, "4h")
-	forgetHorizon(l)
 	l.getEntry(ctx, "k", 500)
-	if got := memoHorizon(t, l, "k"); got != 160*time.Hour {
+	if got := remainingMemoHorizon(t, l, "k"); got != 160*time.Hour {
 		t.Errorf("a longer timeout should push the deadline out to 160h, got %v", got)
 	}
 
 	s.set(settingsKeyRequestTimeout, "1m")
-	forgetHorizon(l)
 	l.getEntry(ctx, "k", 500)
-	if got := memoHorizon(t, l, "k"); got != 160*time.Hour {
+	if got := remainingMemoHorizon(t, l, "k"); got != 160*time.Hour {
 		t.Errorf("a shorter timeout must not pull the deadline back in, got %v", got)
 	}
 }
@@ -1001,11 +998,10 @@ func TestTPMLimiter_CapMemoDeadlineComesBackDown(t *testing.T) {
 	// memo still live with 20 hours of its 40 to run, so what follows is an
 	// ordinary admission against a healthy memo rather than a revival.
 	s.set(settingsKeyRequestTimeout, "1m")
-	forgetHorizon(l)
 	ageMemo(t, l, "k", 20*time.Hour)
 
 	l.getEntry(ctx, "k", 500)
-	if got := memoHorizon(t, l, "k"); got != minCapMemoTTL {
+	if got := remainingMemoHorizon(t, l, "k"); got != minCapMemoTTL {
 		t.Errorf("a later admission should carry the memo on the floor again, got %v", got)
 	}
 }
@@ -1021,7 +1017,7 @@ func TestTPMLimiter_CapMemoHorizonThroughTheMiddleware(t *testing.T) {
 	if !tpmAdmit(t, l, "k", 500) {
 		t.Fatal("the first request under a fresh budget should be admitted")
 	}
-	if got := memoHorizon(t, l, "k"); got != 40*time.Hour {
+	if got := remainingMemoHorizon(t, l, "k"); got != 40*time.Hour {
 		t.Errorf("admission should claim the horizon the live setting implies, got %v", got)
 	}
 
@@ -1029,11 +1025,10 @@ func TestTPMLimiter_CapMemoHorizonThroughTheMiddleware(t *testing.T) {
 	// to be re-claimed there, or a key busy since before the setting was raised
 	// would keep carrying the shorter one.
 	s.set(settingsKeyRequestTimeout, "4h")
-	forgetHorizon(l)
 	if !tpmAdmit(t, l, "k", 500) {
 		t.Fatal("the second request should still be inside the budget")
 	}
-	if got := memoHorizon(t, l, "k"); got != 160*time.Hour {
+	if got := remainingMemoHorizon(t, l, "k"); got != 160*time.Hour {
 		t.Errorf("an admission on a warm bucket should re-claim the horizon, got %v", got)
 	}
 }
@@ -1101,38 +1096,34 @@ func TestTPMLimiter_CapMemoHorizonIgnoresRequestCancellation(t *testing.T) {
 	cancel()
 	l.getEntry(ctx, "k", 500)
 
-	if got := memoHorizon(t, l, "k"); got != 40*time.Hour {
+	if got := remainingMemoHorizon(t, l, "k"); got != 40*time.Hour {
 		t.Errorf("a cancelled request must still claim the horizon the setting implies, got %v", got)
 	}
 }
 
-// TestTPMLimiter_HorizonIsReusedBetweenRefreshes pins the memoisation: a change
-// to request_timeout is not read again until the refresh interval has passed, so
-// admission does not go to settings once per request.
-func TestTPMLimiter_HorizonIsReusedBetweenRefreshes(t *testing.T) {
+// TestTPMLimiter_RejectedRequestStillClaimsTheHorizon pins what the memo comment
+// asserts: the claim is made at admission, before the budget decides, so a
+// request turned away with a 429 has still pushed the deadline out. Claiming it
+// only for admitted requests would leave a key whose budget is exhausted
+// carrying a deadline nobody refreshes.
+func TestTPMLimiter_RejectedRequestStillClaimsTheHorizon(t *testing.T) {
+	const tpm = 60
 	l, s := newTestTPMLimiter(t)
-	ctx := context.Background()
-
 	s.set(settingsKeyRequestTimeout, "1h")
-	l.getEntry(ctx, "k", 500)
 
-	s.set(settingsKeyRequestTimeout, "4h")
-	l.getEntry(ctx, "other", 500)
-	if got := memoHorizon(t, l, "other"); got != 40*time.Hour {
-		t.Errorf("within the refresh interval the derived horizon should be reused, got %v", got)
+	if !tpmAdmit(t, l, "k", tpm) {
+		t.Fatal("the first request under a fresh budget should be admitted")
 	}
+	l.Debit("k", "", 10*tpm) // drive the budget well past empty
+	ageMemo(t, l, "k", 10*time.Hour)
+	before := remainingMemoHorizon(t, l, "k")
 
-	forgetHorizon(l)
-	l.getEntry(ctx, "later", 500)
-	if got := memoHorizon(t, l, "later"); got != 160*time.Hour {
-		t.Errorf("after the interval the new setting should be read, got %v", got)
+	if tpmAdmit(t, l, "k", tpm) {
+		t.Fatal("the budget is exhausted, so the next request must be rejected")
 	}
-}
-
-// forgetHorizon drops the limiter's memoised horizon, standing in for the
-// refresh interval elapsing without waiting for it.
-func forgetHorizon(l *TPMLimiter) {
-	l.horizon.Store(nil)
+	if got := remainingMemoHorizon(t, l, "k"); got != 40*time.Hour {
+		t.Errorf("a rejected request should still claim the full horizon, was %v, got %v", before, got)
+	}
 }
 
 // ageMemo winds a cap memo's deadline back by d, standing in for d of elapsed
@@ -1149,9 +1140,9 @@ func ageMemo(t *testing.T, l *TPMLimiter, key string, d time.Duration) {
 	memo.expiresAt = memo.expiresAt.Add(-d)
 }
 
-// memoHorizon reports the horizon a memo claimed at admission, rounded to the
+// remainingMemoHorizon reports the horizon a memo claimed at admission, rounded to the
 // minute so the microseconds between stamping it and reading it do not matter.
-func memoHorizon(t *testing.T, l *TPMLimiter, key string) time.Duration {
+func remainingMemoHorizon(t *testing.T, l *TPMLimiter, key string) time.Duration {
 	t.Helper()
 	l.mu.Lock()
 	defer l.mu.Unlock()

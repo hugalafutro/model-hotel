@@ -5,7 +5,6 @@ import (
 	"math"
 	"net/http"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"golang.org/x/time/rate"
@@ -56,18 +55,6 @@ type TPMLimiter struct {
 	caps     map[string]*capMemo
 	settings SettingsReader
 	stopCh   chan struct{}
-	// horizon is the last derived cap-memo horizon and when it was derived, held
-	// outside the mutex because admission consults it before taking the lock.
-	// Two admissions racing on a stale entry both read the setting and store the
-	// same answer, which costs one extra read and changes nothing.
-	horizon atomic.Pointer[derivedHorizon]
-}
-
-// derivedHorizon is a cap-memo horizon and the moment request_timeout was read
-// to derive it.
-type derivedHorizon struct {
-	value   time.Duration
-	derived time.Time
 }
 
 // capMemo is the budget a bucket was last built with, kept so an evicted bucket
@@ -82,7 +69,9 @@ type capMemo struct {
 	// long timeout inflates the deadline only until the request it was claimed
 	// for could have finished, after which ordinary admissions carry it again.
 	// The exception is a request_timeout large enough to saturate the horizon,
-	// which pins the memo for as long as the process lives.
+	// which pins the memo for as long as the process lives. The map is keyed by
+	// virtual key hash and owner id either way, so it is bounded by the rows
+	// those come from rather than by traffic.
 	expiresAt time.Time
 }
 
@@ -105,14 +94,6 @@ const defaultRequestTimeout = time.Minute
 // that has stopped answering costs the lookup the default horizon rather than
 // the wait.
 const settingsReadTimeout = 2 * time.Second
-
-// horizonRefreshInterval is how long a derived horizon is reused before the
-// setting is read again. It matches the settings cache's own lifetime, so
-// admission does not read per request, and a database that has stopped
-// answering costs one bounded read per interval rather than one per admission:
-// a failed read is not cached by the settings layer, so every admission would
-// otherwise pay the timeout again.
-const horizonRefreshInterval = 30 * time.Second
 
 // minCapMemoTTL floors the cap-memo horizon. Against the factor below, the
 // crossover is a 36 minute request_timeout: anything shorter derives less than a
@@ -499,8 +480,12 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 	return entry
 }
 
-// memoHorizon returns the cap-memo horizon request_timeout currently implies,
-// reading the setting at most once per horizonRefreshInterval.
+// memoHorizon returns the cap-memo horizon request_timeout currently implies.
+// The settings layer serves it from its own cache, and admission already reads
+// that layer before reaching here, so this is not a new dependency on it. It is
+// deliberately not cached again: a second cache would double how long a raised
+// request_timeout goes unnoticed, and during that window a memo can be stamped
+// shorter than the request it has to outlast, which is the hole this closes.
 //
 // The read is detached from the caller's cancellation because the horizon is a
 // property of the setting, not of the request that happened to trigger the
@@ -511,15 +496,10 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // from the caller and sets none of its own, so the read carries a bound here
 // instead. Exceeding it reads as the default, the same as any other failed read.
 func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
-	if cached := l.horizon.Load(); cached != nil && time.Since(cached.derived) < horizonRefreshInterval {
-		return cached.value
-	}
 	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
 	defer cancelRead()
 
-	horizon := capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
-	l.horizon.Store(&derivedHorizon{value: horizon, derived: time.Now()})
-	return horizon
+	return capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
 }
 
 // tpmRetryAfter estimates seconds until at least one token is available again,
