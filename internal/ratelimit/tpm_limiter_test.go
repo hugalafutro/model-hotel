@@ -1196,9 +1196,57 @@ func TestTPMLimiter_HungReadKeepsTheLastKnownHorizon(t *testing.T) {
 	}
 }
 
-// TestWarnedSlowRead pins the rate limit on the slow-read warning: the first
-// caller in an interval speaks and the rest stay quiet, or a hanging database
-// would put a line in the log for every admission it stalls.
+// TestTPMLimiter_CompletedReadWinsOverTheRememberedHorizon is the anti-pin rule:
+// the remembered horizon exists for reads that time out, so lowering
+// request_timeout has to take effect immediately even though a longer horizon is
+// on record. Taking the longer of the two unconditionally would strand the
+// setting at its highest value for the life of the process.
+func TestTPMLimiter_CompletedReadWinsOverTheRememberedHorizon(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	ctx := context.Background()
+
+	s.set(settingsKeyRequestTimeout, "1h")
+	if got := l.memoHorizon(ctx); got != 40*time.Hour {
+		t.Fatalf("the first read should derive the setting's horizon, got %v", got)
+	}
+
+	s.set(settingsKeyRequestTimeout, "1m")
+	if got := l.memoHorizon(ctx); got != minCapMemoTTL {
+		t.Errorf("a completed read should return the lowered setting's horizon, got %v", got)
+	}
+}
+
+// TestTPMLimiter_RememberedHorizonSurvivesAFailedRead covers the other half: a
+// read that fails without timing out returns the default too, and letting that
+// overwrite the mark would erase the long horizon exactly when a later timeout
+// needs it.
+func TestTPMLimiter_RememberedHorizonSurvivesAFailedRead(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "1h")
+	settings := &switchableSettings{SettingsReader: stub}
+	l := NewTPMLimiter(settings)
+	t.Cleanup(l.Stop)
+
+	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
+		t.Fatalf("the first read should derive the setting's horizon, got %v", got)
+	}
+
+	// A read that fails fast looks exactly like an unset key.
+	stub.set(settingsKeyRequestTimeout, "")
+	if got := l.memoHorizon(context.Background()); got != minCapMemoTTL {
+		t.Fatalf("a failed read reads as the default, got %v", got)
+	}
+
+	settings.hang.Store(true)
+	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
+		t.Error("the failed read should not have erased the horizon a timeout falls back to")
+	}
+}
+
+// TestWarnedSlowRead pins the rate limit on the slow-read warning: one caller
+// per interval speaks and the rest stay quiet, including when they arrive at
+// once, or a hanging database would put a line in the log for every admission it
+// stalls.
 func TestWarnedSlowRead(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 
@@ -1212,6 +1260,25 @@ func TestWarnedSlowRead(t *testing.T) {
 	l.lastSlowReadWarn.Store(time.Now().Add(-slowReadWarnInterval - time.Second).UnixNano())
 	if !l.warnedSlowRead() {
 		t.Error("once the interval has passed the next slow read should warn again")
+	}
+
+	// A hung database stalls every admission at once, so the compare-and-swap
+	// has to hold when they all arrive together and not only in sequence.
+	l.lastSlowReadWarn.Store(time.Now().Add(-slowReadWarnInterval - time.Second).UnixNano())
+	var spoke atomic.Int32
+	var wg sync.WaitGroup
+	for range 32 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if l.warnedSlowRead() {
+				spoke.Add(1)
+			}
+		}()
+	}
+	wg.Wait()
+	if got := spoke.Load(); got != 1 {
+		t.Errorf("exactly one racing caller should warn, got %d", got)
 	}
 }
 

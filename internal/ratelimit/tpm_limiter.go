@@ -60,9 +60,13 @@ type TPMLimiter struct {
 	// in Unix nanoseconds, so a hanging database costs one line per interval
 	// rather than one per admission.
 	lastSlowReadWarn atomic.Int64
-	// lastGoodHorizon is the horizon the most recent completed settings read
+	// lastGoodHorizon is the longest horizon any completed settings read has
 	// produced, so a read that times out can fall back to what this gateway was
-	// actually running rather than to the default's floor.
+	// actually running rather than to the default's floor. It is a high-water
+	// mark rather than the latest value because a read that fails without
+	// timing out also returns the default, and letting that overwrite the mark
+	// would erase the long horizon exactly when it is needed. Only the fallback
+	// consults it, so holding it high costs retention and never a debit.
 	lastGoodHorizon atomic.Int64
 }
 
@@ -526,10 +530,11 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // value being read is worth.
 //
 // Exceeding that bound is the one failure this can recognise, and there it falls
-// back to the last horizon a completed read produced rather than to the
+// back to the longest horizon a completed read has produced rather than to the
 // default's floor, which on a gateway running a long request_timeout would be
 // shorter than the requests being admitted. That fallback cannot pin a lowered
-// timeout, because a read that completes always wins.
+// timeout, because it is consulted only when the read timed out: a read that
+// completes always returns what the setting currently says.
 //
 // A read that fails outright is a different matter: GetDuration cannot tell one
 // from an unset key, so it reads as the default and the horizon does drop to the
@@ -541,23 +546,38 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 
 	horizon := capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
 	if readCtx.Err() == nil {
-		l.lastGoodHorizon.Store(int64(horizon))
+		l.rememberHorizon(horizon)
 		return horizon
 	}
 
 	// The read ran out of time, so what came back is the default's horizon and
 	// not this gateway's. Keep whichever is longer: too long only costs
 	// retention, too short costs a debit.
-	if last := time.Duration(l.lastGoodHorizon.Load()); last > horizon {
-		horizon = last
+	remembered := time.Duration(l.lastGoodHorizon.Load()) > horizon
+	if remembered {
+		horizon = time.Duration(l.lastGoodHorizon.Load())
 	}
 	if l.warnedSlowRead() {
-		// Worth a line, since the horizon is now running on a remembered value
-		// rather than the setting. Rate limited: a database that hangs does it to
-		// every admission at once.
-		debuglog.Warn("ratelimit: timed out reading request_timeout, cap memos fall back to the last known horizon", "horizon", horizon)
+		// Worth a line, since the horizon is no longer coming from the setting.
+		// Rate limited: a database that hangs does it to every admission at once.
+		debuglog.Warn("ratelimit: timed out reading request_timeout, cap memos fall back",
+			"horizon", horizon, "remembered", remembered)
 	}
 	return horizon
+}
+
+// rememberHorizon raises the high-water mark a timed-out read falls back to.
+// Racing readers retry rather than clobber, so the mark only ever climbs.
+func (l *TPMLimiter) rememberHorizon(horizon time.Duration) {
+	for {
+		mark := l.lastGoodHorizon.Load()
+		if time.Duration(mark) >= horizon {
+			return
+		}
+		if l.lastGoodHorizon.CompareAndSwap(mark, int64(horizon)) {
+			return
+		}
+	}
 }
 
 // warnedSlowRead reports whether this slow horizon read is the one that gets to
