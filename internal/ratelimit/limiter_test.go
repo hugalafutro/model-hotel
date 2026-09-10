@@ -50,7 +50,12 @@ func (s *stubSettings) GetBool(_ context.Context, key string, def bool) bool {
 	return b
 }
 
-func (s *stubSettings) GetDuration(_ context.Context, key string, def time.Duration) time.Duration {
+func (s *stubSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	// A cancelled context yields the default, the way the real repository does
+	// when a cache miss has to reach the database and the read fails.
+	if ctx.Err() != nil {
+		return def
+	}
 	s.mu.Lock()
 	v, ok := s.data[key]
 	s.mu.Unlock()

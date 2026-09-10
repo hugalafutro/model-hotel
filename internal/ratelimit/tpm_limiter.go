@@ -75,9 +75,10 @@ type capMemo struct {
 
 // settingsKeyRequestTimeout is the per-attempt upstream timeout the proxy reads
 // for every request, through the same GetDuration and the same one minute
-// default used below. The limiter reads it only to size the cap-memo horizon
-// against the longest request the gateway can hold open. The proxy owns the
-// setting itself; this package must not change how it is interpreted.
+// default repeated below. The limiter reads it only to size the cap-memo horizon
+// against the longest request the gateway can hold open, and follows the proxy's
+// reading of it rather than setting one of its own: if the proxy's key or
+// default moves, these follow.
 const settingsKeyRequestTimeout = "request_timeout"
 
 // defaultRequestTimeout mirrors the proxy's fallback for an unset

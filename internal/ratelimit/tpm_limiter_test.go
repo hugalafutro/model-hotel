@@ -1071,6 +1071,25 @@ func TestTPMLimiter_DebitDoesNotExtendTheMemoDeadline(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_CapMemoHorizonIgnoresRequestCancellation pins the detached
+// read: a client that disconnects during admission does not stop the proxy
+// finishing the upstream call and debiting it, so the horizon has to come from
+// the setting even when the request's own context is already gone. Resolving it
+// under that context would claim the floor and sweep the memo out from under a
+// request entitled to far longer.
+func TestTPMLimiter_CapMemoHorizonIgnoresRequestCancellation(t *testing.T) {
+	l, s := newTestTPMLimiter(t)
+	s.set(settingsKeyRequestTimeout, "1h")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	l.getEntry(ctx, "k", 500)
+
+	if got := memoHorizon(t, l, "k"); got != 40*time.Hour {
+		t.Errorf("a cancelled request must still claim the horizon the setting implies, got %v", got)
+	}
+}
+
 // ageMemo winds a cap memo's deadline back by d, standing in for d of elapsed
 // time without sleeping. The memo's claimed horizon is unchanged; only how much
 // of it is left moves.
