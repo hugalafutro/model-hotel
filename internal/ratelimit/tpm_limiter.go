@@ -84,7 +84,10 @@ type capMemo struct {
 	// before the budget decides, so a request turned away with a 429 has claimed
 	// one too. It only ever pushes the deadline out, so
 	// changing the setting cannot strand a request already admitted under the
-	// old one. Because the claims are absolute times rather than a duration, a
+	// old one. Raising it cannot strand one either, because the proxy fixes a
+	// request's timeout once, before its first attempt, so a request already
+	// running keeps the timeout its claim was sized against. Because the claims
+	// are absolute times rather than a duration, a
 	// long timeout inflates the deadline only until the request it was claimed
 	// for could have finished, after which ordinary admissions carry it again.
 	// The exception is a request_timeout large enough to saturate the horizon,
@@ -545,17 +548,21 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	defer cancelRead()
 
 	horizon := capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
+	// Recorded before the deadline is examined, so a read that answered in the
+	// same instant it expired still counts. The mark only rises, so recording a
+	// genuine timeout's default costs nothing.
+	l.rememberHorizon(horizon)
 	if readCtx.Err() == nil {
-		l.rememberHorizon(horizon)
 		return horizon
 	}
 
-	// The read ran out of time, so what came back is the default's horizon and
-	// not this gateway's. Keep whichever is longer: too long only costs
+	// The read ran out of time, so what came back may be the default's horizon
+	// rather than this gateway's. Keep whichever is longer: too long only costs
 	// retention, too short costs a debit.
-	remembered := time.Duration(l.lastGoodHorizon.Load()) > horizon
+	mark := time.Duration(l.lastGoodHorizon.Load())
+	remembered := mark > horizon
 	if remembered {
-		horizon = time.Duration(l.lastGoodHorizon.Load())
+		horizon = mark
 	}
 	if l.warnedSlowRead() {
 		// Worth a line, since the horizon is no longer coming from the setting.

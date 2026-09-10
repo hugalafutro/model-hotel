@@ -1153,7 +1153,7 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	// deadline is set after start, so a full timeout's worth is the floor, and
 	// anything near it fails only if the bound itself changed.
 	budget := spy.deadline.Sub(start)
-	if budget < settingsReadTimeout || budget > 4*settingsReadTimeout {
+	if budget < settingsReadTimeout || budget > settingsReadTimeout+settingsReadTimeout/2 {
 		t.Errorf("the read's deadline should sit about %v out, got %v", settingsReadTimeout, budget)
 	}
 }
