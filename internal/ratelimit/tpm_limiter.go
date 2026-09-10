@@ -126,6 +126,11 @@ const defaultRequestTimeout = time.Minute
 // of not caching a value that has to track the setting.
 const settingsReadTimeout = 100 * time.Millisecond
 
+// maxRememberedHorizon caps what the fallback will carry between reads. A year
+// is far past any request_timeout a gateway can be run on, and short enough that
+// one absurd setting cannot pin every key's memo for the life of the process.
+const maxRememberedHorizon = 365 * 24 * time.Hour
+
 // markRefreshTimeout bounds the same lookup off the request path, where a slow
 // database can be waited out because nobody is being held up for it. A store
 // that never answers does delay that tick's eviction by this much, which is the
@@ -590,8 +595,9 @@ func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	return horizon
 }
 
-// readHorizon resolves the horizon request_timeout implies, bounded by the time
-// the caller can spare, and reports whether the read ran out of it.
+// readHorizon resolves the horizon request_timeout implies within the bound the
+// caller passes, and reports whether the read ran out of it. The two callers
+// differ only in how long they are willing to wait.
 //
 // A read is reported as timed out only when the deadline has passed and the
 // value is one the default itself derives. Anything else was answered from the
@@ -616,11 +622,12 @@ func (l *TPMLimiter) readHorizon(ctx context.Context, bound time.Duration) (hori
 // rememberHorizon raises the high-water mark a timed-out read falls back to.
 // Racing readers retry rather than clobber, so the mark only ever climbs.
 func (l *TPMLimiter) rememberHorizon(horizon time.Duration) {
-	if horizon == time.Duration(math.MaxInt64) {
-		// A saturating request_timeout is a misconfiguration, not something to
+	if horizon > maxRememberedHorizon {
+		// A request_timeout this large is a misconfiguration, not something to
 		// carry forward: remembering it would leave every later timed-out read
-		// claiming a horizon centuries out, on every key, long after the setting
-		// was corrected.
+		// claiming that horizon, on every key, long after the setting was
+		// corrected. Memos claimed while it is in force still get it; only the
+		// fallback refuses to inherit it.
 		return
 	}
 	for {

@@ -1438,11 +1438,19 @@ func TestRememberHorizon(t *testing.T) {
 		t.Errorf("the mark should hold the highest horizon offered, got %v", got)
 	}
 
-	// A saturating horizon is the one value the mark refuses, since carrying it
-	// would leave every later timed-out read claiming centuries on every key.
-	l.rememberHorizon(time.Duration(math.MaxInt64))
-	if got := time.Duration(l.lastGoodHorizon.Load()); got != 200*time.Hour {
-		t.Errorf("a saturating horizon should not be remembered, got %v", got)
+	// An absurd horizon is what the mark refuses, since carrying it would leave
+	// every later timed-out read claiming it on every key. The saturating value
+	// is only the far end of that range, so the refusal is a ceiling rather than
+	// a check for one sentinel.
+	for _, absurd := range []time.Duration{
+		maxRememberedHorizon + time.Hour,
+		time.Duration(math.MaxInt64) / capMemoTimeoutFactor * capMemoTimeoutFactor,
+		time.Duration(math.MaxInt64),
+	} {
+		l.rememberHorizon(absurd)
+		if got := time.Duration(l.lastGoodHorizon.Load()); got != 200*time.Hour {
+			t.Errorf("a horizon of %v should not be remembered, got %v", absurd, got)
+		}
 	}
 }
 
