@@ -1138,6 +1138,7 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	l := NewTPMLimiter(&deadlineSpy{SettingsReader: s})
 	t.Cleanup(l.Stop)
 
+	start := time.Now()
 	l.memoHorizon(context.Background())
 
 	spy, ok := l.settings.(*deadlineSpy)
@@ -1147,11 +1148,13 @@ func TestTPMLimiter_HorizonReadCarriesItsOwnDeadline(t *testing.T) {
 	if !spy.sawDeadline {
 		t.Fatal("the horizon read must carry a deadline of its own")
 	}
-	// Strictly under the bound, since the clock has already moved by the time
-	// the spy reads it, and not so far under that a much shorter deadline would
-	// pass unnoticed.
-	if spy.budget <= settingsReadTimeout/2 || spy.budget > settingsReadTimeout {
-		t.Errorf("the read should be bounded near %v, got %v", settingsReadTimeout, spy.budget)
+	// Measured from when the call started rather than from how much budget was
+	// left when the spy looked, so a stalled runner cannot fail this. The
+	// deadline is set after start, so a full timeout's worth is the floor, and
+	// anything near it fails only if the bound itself changed.
+	budget := spy.deadline.Sub(start)
+	if budget < settingsReadTimeout || budget > 4*settingsReadTimeout {
+		t.Errorf("the read's deadline should sit about %v out, got %v", settingsReadTimeout, budget)
 	}
 }
 
@@ -1172,6 +1175,61 @@ func TestTPMLimiter_HorizonReadFallsBackWhenSettingsHang(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_HungReadKeepsTheLastKnownHorizon covers the fallback that makes
+// a hanging database survivable: a gateway running a long request_timeout keeps
+// the horizon its last completed read produced, instead of dropping to the floor
+// and sweeping memos out from under the requests it is still admitting.
+func TestTPMLimiter_HungReadKeepsTheLastKnownHorizon(t *testing.T) {
+	stub := newStubSettings()
+	stub.set(settingsKeyRequestTimeout, "1h")
+	hang := &switchableSettings{SettingsReader: stub}
+	l := NewTPMLimiter(hang)
+	t.Cleanup(l.Stop)
+
+	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
+		t.Fatalf("the first read should derive the setting's horizon, got %v", got)
+	}
+
+	hang.hang.Store(true)
+	if got := l.memoHorizon(context.Background()); got != 40*time.Hour {
+		t.Errorf("a hung read should keep the last known horizon, got %v", got)
+	}
+}
+
+// TestWarnedSlowRead pins the rate limit on the slow-read warning: the first
+// caller in an interval speaks and the rest stay quiet, or a hanging database
+// would put a line in the log for every admission it stalls.
+func TestWarnedSlowRead(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+
+	if !l.warnedSlowRead() {
+		t.Fatal("the first slow read in an interval should warn")
+	}
+	if l.warnedSlowRead() {
+		t.Error("a second slow read inside the interval should stay quiet")
+	}
+
+	l.lastSlowReadWarn.Store(time.Now().Add(-slowReadWarnInterval - time.Second).UnixNano())
+	if !l.warnedSlowRead() {
+		t.Error("once the interval has passed the next slow read should warn again")
+	}
+}
+
+// switchableSettings answers normally until hang is set, after which the read
+// returns only once its own deadline has passed.
+type switchableSettings struct {
+	SettingsReader
+	hang atomic.Bool
+}
+
+func (s *switchableSettings) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
+	if s.hang.Load() {
+		<-ctx.Done()
+		return def
+	}
+	return s.SettingsReader.GetDuration(ctx, key, def)
+}
+
 // hangingSettings stands in for a database that has stopped answering: the read
 // returns only once its own deadline has passed.
 type hangingSettings struct {
@@ -1187,13 +1245,13 @@ func (h hangingSettings) GetDuration(ctx context.Context, _ string, def time.Dur
 type deadlineSpy struct {
 	SettingsReader
 	sawDeadline bool
-	budget      time.Duration
+	deadline    time.Time
 }
 
 func (d *deadlineSpy) GetDuration(ctx context.Context, key string, def time.Duration) time.Duration {
 	if deadline, ok := ctx.Deadline(); ok {
 		d.sawDeadline = true
-		d.budget = time.Until(deadline)
+		d.deadline = deadline
 	}
 	return d.SettingsReader.GetDuration(ctx, key, def)
 }

@@ -60,6 +60,10 @@ type TPMLimiter struct {
 	// in Unix nanoseconds, so a hanging database costs one line per interval
 	// rather than one per admission.
 	lastSlowReadWarn atomic.Int64
+	// lastGoodHorizon is the horizon the most recent completed settings read
+	// produced, so a read that times out can fall back to what this gateway was
+	// actually running rather than to the default's floor.
+	lastGoodHorizon atomic.Int64
 }
 
 // slowReadWarnInterval is the shortest gap between two slow-horizon-read
@@ -521,27 +525,37 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 // instead, sized so that waiting one out costs an admission far less than the
 // value being read is worth.
 //
-// Exceeding that bound reads as the default, and so does any other failed read:
-// GetDuration cannot tell a failed read from an unset key. On a gateway running
-// a long request_timeout, a memo stamped while the database is unreachable
-// therefore claims the floor, and a request that then outlives a day loses its
-// debit. Remembering the last good value instead would pin a genuinely lowered
-// timeout for the life of the process, for an exposure that needs a day-long
-// request during a database outage, so the fallback stays the same one every
-// other setting in the gateway uses.
+// Exceeding that bound is the one failure this can recognise, and there it falls
+// back to the last horizon a completed read produced rather than to the
+// default's floor, which on a gateway running a long request_timeout would be
+// shorter than the requests being admitted. That fallback cannot pin a lowered
+// timeout, because a read that completes always wins.
+//
+// A read that fails outright is a different matter: GetDuration cannot tell one
+// from an unset key, so it reads as the default and the horizon does drop to the
+// floor. A request admitted in that window and still running a day later loses
+// its debit.
 func (l *TPMLimiter) memoHorizon(ctx context.Context) time.Duration {
 	readCtx, cancelRead := context.WithTimeout(context.WithoutCancel(ctx), settingsReadTimeout)
 	defer cancelRead()
 
 	horizon := capMemoTTL(l.settings.GetDuration(readCtx, settingsKeyRequestTimeout, defaultRequestTimeout))
-	if readCtx.Err() != nil && l.warnedSlowRead() {
-		// A read that ran out of time returned the default, whatever
-		// request_timeout says. It is the only degraded case this can pick out,
-		// since a settings read that fails outright is indistinguishable from an
-		// unset key, and it is worth a line because on a gateway with a long
-		// request_timeout the horizon has quietly dropped to the floor. Rate
-		// limited: a database that hangs does it to every admission at once.
-		debuglog.Warn("ratelimit: timed out reading request_timeout, cap memos fall back to the default horizon", "horizon", horizon)
+	if readCtx.Err() == nil {
+		l.lastGoodHorizon.Store(int64(horizon))
+		return horizon
+	}
+
+	// The read ran out of time, so what came back is the default's horizon and
+	// not this gateway's. Keep whichever is longer: too long only costs
+	// retention, too short costs a debit.
+	if last := time.Duration(l.lastGoodHorizon.Load()); last > horizon {
+		horizon = last
+	}
+	if l.warnedSlowRead() {
+		// Worth a line, since the horizon is now running on a remembered value
+		// rather than the setting. Rate limited: a database that hangs does it to
+		// every admission at once.
+		debuglog.Warn("ratelimit: timed out reading request_timeout, cap memos fall back to the last known horizon", "horizon", horizon)
 	}
 	return horizon
 }
