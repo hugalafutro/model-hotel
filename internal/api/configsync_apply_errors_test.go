@@ -100,6 +100,16 @@ func TestConfigSyncApply_FailedStatementAbortsTheApply(t *testing.T) {
 			t.Fatal("expected an error from the cancelled context")
 		}
 	})
+	t.Run("guardAgainstVirtualKeyWipe", func(t *testing.T) {
+		if _, err := guardAgainstVirtualKeyWipe(cctx, beginApplyTx(t), nil); err == nil {
+			t.Fatal("expected an error from the cancelled context")
+		}
+	})
+	t.Run("guardKeysSurvived", func(t *testing.T) {
+		if err := guardKeysSurvived(cctx, beginApplyTx(t), true); err == nil {
+			t.Fatal("expected an error from the cancelled context")
+		}
+	})
 }
 
 // users.grants is TEXT[] NOT NULL, so a synced user whose envelope carried no

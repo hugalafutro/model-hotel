@@ -59,8 +59,8 @@ func TestTPMLimiter_DebitNonPositiveIsNoop(t *testing.T) {
 	}
 	before := tokensOf()
 
-	l.Debit("k", 0)
-	l.Debit("k", -100)
+	l.Debit("k", "", 0)
+	l.Debit("k", "", -100)
 
 	// A real debit reserves tokens, reducing the count; a non-positive debit must
 	// reserve nothing. The token count only ever rises (refill), so it must not
@@ -136,7 +136,7 @@ func TestTPMLimiter_DrainAndReject(t *testing.T) {
 	}
 	// Debit more than a full minute's budget to drive the budget clearly
 	// negative, then admission must reject.
-	l.Debit("k", 2*tpm)
+	l.Debit("k", "", 2*tpm)
 	if tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("exhausted budget should reject")
 	}
@@ -151,7 +151,7 @@ func TestTPMLimiter_OverCapSingleDebit(t *testing.T) {
 	if !tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("fresh budget should admit")
 	}
-	l.Debit("k", tpm*5)
+	l.Debit("k", "", tpm*5)
 	if tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("over-cap debit should leave the budget exhausted")
 	}
@@ -162,7 +162,7 @@ func TestTPMLimiter_PerKeyIsolation(t *testing.T) {
 	const tpm = 500
 
 	tpmAdmit(t, l, "a", tpm)
-	l.Debit("a", 2*tpm)
+	l.Debit("a", "", 2*tpm)
 	if tpmAdmit(t, l, "a", tpm) {
 		t.Fatal("key a should be exhausted")
 	}
@@ -178,7 +178,7 @@ func TestTPMLimiter_Refill(t *testing.T) {
 	const tpm = 600
 
 	tpmAdmit(t, l, "k", tpm)
-	l.Debit("k", tpm) // drains a full minute's budget to ~0
+	l.Debit("k", "", tpm) // drains a full minute's budget to ~0
 	if tpmAdmit(t, l, "k", tpm) {
 		t.Fatal("budget should be exhausted right after draining")
 	}
@@ -192,7 +192,7 @@ func TestTPMLimiter_DebitNoBucketIsNoop(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	// Debiting a key with no active bucket (no cap in effect) must not panic
 	// or create a bucket.
-	l.Debit("ghost", 1000)
+	l.Debit("ghost", "", 1000)
 	l.mu.Lock()
 	n := len(l.buckets)
 	l.mu.Unlock()
@@ -201,11 +201,100 @@ func TestTPMLimiter_DebitNoBucketIsNoop(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_DebitAfterEvictionStillCharges covers a request that outlives
+// the idle sweep: a stream longer than the cutoff, on a key with no other
+// traffic, has its bucket evicted between admission and completion. Dropping
+// that debit would hand the key a whole minute's budget for free.
+func TestTPMLimiter_DebitAfterEvictionStillCharges(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	const tpm = 500
+
+	if !tpmAdmit(t, l, "k", tpm) {
+		t.Fatal("fresh budget should admit")
+	}
+	// Age the bucket past the cutoff and sweep it, as the background cleanup
+	// would while the request is still streaming.
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+	l.cleanup()
+	l.mu.Lock()
+	evicted := len(l.buckets)
+	l.mu.Unlock()
+	if evicted != 0 {
+		t.Fatalf("sweep should have evicted the idle bucket, %d left", evicted)
+	}
+
+	l.Debit("k", "", 2*tpm)
+	if tpmAdmit(t, l, "k", tpm) {
+		t.Fatal("the debit must land on a rebuilt bucket and exhaust the budget")
+	}
+}
+
+// TestTPMLimiter_OwnerDebitSurvivesEviction is the aggregate half of the same
+// case. The sweep takes the key's assoc entry at the same cutoff as its bucket,
+// so a debit landing after it has to find the owner through the cap memo, or
+// the key is charged and the owner it belongs to is not.
+func TestTPMLimiter_OwnerDebitSurvivesEviction(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	const tpm = 500
+	owner := userBucketKey("owner-1")
+
+	l.getEntry("k", tpm)
+	l.getEntry(owner, tpm)
+
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.buckets[owner].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.Debit("k", "owner-1", 2*tpm)
+
+	l.mu.Lock()
+	ownerEntry, ok := l.buckets[owner]
+	l.mu.Unlock()
+	if !ok {
+		t.Fatal("the owner bucket should have been rebuilt to take the debit")
+	}
+	if ownerEntry.limiter.Tokens() > 0 {
+		t.Errorf("owner budget = %v tokens, want it exhausted by the debit", ownerEntry.limiter.Tokens())
+	}
+}
+
+// TestTPMLimiter_CapMemoIsSwept pins the bound on that memory: the memo outlives
+// the bucket so a late debit can rebuild it, but not forever, or the map grows
+// by one entry for every key the process ever admits.
+func TestTPMLimiter_CapMemoIsSwept(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	l.getEntry("k", 500)
+
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.caps["k"].lastUsed = time.Now().Add(-capMemoTTL - time.Minute)
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.mu.Lock()
+	_, memoLeft := l.caps["k"]
+	l.mu.Unlock()
+	if memoLeft {
+		t.Error("a memo older than the TTL should be swept")
+	}
+	l.Debit("k", "", 10_000)
+	l.mu.Lock()
+	n := len(l.buckets)
+	l.mu.Unlock()
+	if n != 0 {
+		t.Errorf("with no memo the debit must not rebuild a bucket, got %d", n)
+	}
+}
+
 func TestTPMLimiter_TPMChangeReplacesBucket(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 
 	tpmAdmit(t, l, "k", 100)
-	l.Debit("k", 500) // exhaust the 100-TPM bucket
+	l.Debit("k", "", 500) // exhaust the 100-TPM bucket
 	if tpmAdmit(t, l, "k", 100) {
 		t.Fatal("100-TPM bucket should be exhausted")
 	}
@@ -255,7 +344,7 @@ func TestTPMMiddleware_EnvDisabledIsNoop(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	tpm := 1
 	tpmAdmit(t, l, "k", tpm)
-	l.Debit("k", 100) // exhaust
+	l.Debit("k", "", 100) // exhaust
 	// enabled=false (env kill-switch) → middleware must pass through regardless.
 	h := l.Middleware(false)(okHandler())
 	rec := httptest.NewRecorder()
@@ -270,7 +359,7 @@ func TestTPMMiddleware_DBDisabledIsNoop(t *testing.T) {
 	s.set(settingsKeyEnabled, "false")
 	tpm := 1
 	tpmAdmit(t, l, "k", tpm)
-	l.Debit("k", 100)
+	l.Debit("k", "", 100)
 	h := l.Middleware(true)(okHandler())
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, tpmReq("k", &tpm))
@@ -294,7 +383,7 @@ func TestTPMMiddleware_RejectsWhenExhausted(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	tpm := 600
 	tpmAdmit(t, l, "k", tpm)
-	l.Debit("k", 2*tpm) // drive negative
+	l.Debit("k", "", 2*tpm) // drive negative
 
 	h := l.Middleware(true)(okHandler())
 	rec := httptest.NewRecorder()
@@ -321,7 +410,7 @@ func TestTPMMiddleware_GlobalDefaultApplies(t *testing.T) {
 	}
 
 	// Exhaust the global-default budget, then the next request is rejected.
-	l.Debit("k", 2*600)
+	l.Debit("k", "", 2*600)
 	rec = httptest.NewRecorder()
 	h.ServeHTTP(rec, tpmReq("k", nil))
 	if rec.Code != http.StatusTooManyRequests {
@@ -335,7 +424,7 @@ func TestTPMMiddleware_PerKeyOverridesGlobal(t *testing.T) {
 
 	tpm := 600 // restrictive per-key override
 	tpmAdmit(t, l, "k", tpm)
-	l.Debit("k", 2*tpm)
+	l.Debit("k", "", 2*tpm)
 
 	h := l.Middleware(true)(okHandler())
 	rec := httptest.NewRecorder()
@@ -371,7 +460,7 @@ func TestTPMMiddleware_UserAggregateBudget(t *testing.T) {
 	}
 
 	// Debit through key A far past the aggregate budget.
-	l.Debit("key-a", userTPM*2)
+	l.Debit("key-a", "uid-1", userTPM*2)
 
 	// Key B, same owner, must now be rejected by the user stage.
 	rec = httptest.NewRecorder()
@@ -467,7 +556,7 @@ func TestTPMLimiter_DebitDebitsOwnerBucket(t *testing.T) {
 	keyBefore := tokensOf("key-a")
 	userBefore := tokensOf("user:uid-1")
 
-	l.Debit("key-a", 300)
+	l.Debit("key-a", "uid-1", 300)
 
 	if after := tokensOf("key-a"); after >= keyBefore {
 		t.Errorf("key bucket not debited: before=%v after=%v", keyBefore, after)
@@ -477,12 +566,13 @@ func TestTPMLimiter_DebitDebitsOwnerBucket(t *testing.T) {
 	}
 }
 
-// TestTPMLimiter_AssocClearedWhenOwnerRemoved verifies that once a key stops
-// carrying owner context (ownership cleared at runtime), its next admission
-// clears the stale association so Debit no longer charges the old owner.
-func TestTPMLimiter_AssocClearedWhenOwnerRemoved(t *testing.T) {
+// TestTPMLimiter_UnownedCompletionLeavesTheOwnerAlone verifies the other half
+// of taking the owner from the completing request: a debit that carries no
+// owner charges the key alone, so a request made while the key was unowned
+// cannot land on whoever owned it before or after.
+func TestTPMLimiter_UnownedCompletionLeavesTheOwnerAlone(t *testing.T) {
 	l, s := newTestTPMLimiter(t)
-	s.set(settingsKeyTPM, "1200")
+	s.set(settingsKeyTPM, "600")
 	h := l.Middleware(true)(okHandler())
 
 	rec := httptest.NewRecorder()
@@ -491,24 +581,15 @@ func TestTPMLimiter_AssocClearedWhenOwnerRemoved(t *testing.T) {
 		t.Fatalf("admission failed: %d", rec.Code)
 	}
 
-	// Re-admit without owner context: association must be cleared.
-	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", http.NoBody)
-	req = req.WithContext(context.WithValue(req.Context(), ctxkeys.VirtualKeyHashKey, "key-a"))
-	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, req)
-	if rec.Code != http.StatusOK {
-		t.Fatalf("re-admission failed: %d", rec.Code)
-	}
-
 	userTokens := func() float64 {
 		l.mu.Lock()
 		defer l.mu.Unlock()
 		return l.buckets["user:uid-1"].limiter.Tokens()
 	}
 	before := userTokens()
-	l.Debit("key-a", 300)
+	l.Debit("key-a", "", 300)
 	if after := userTokens(); after < before {
-		t.Errorf("stale association still debited the old owner: before=%v after=%v", before, after)
+		t.Errorf("an unowned completion debited an owner: before=%v after=%v", before, after)
 	}
 }
 
@@ -638,13 +719,13 @@ func TestTPMUserMiddleware_SharesTheBucketWithKeyedTraffic(t *testing.T) {
 	userTPM := 600
 
 	// Admit an owned key on the /v1 middleware: creates the owner bucket and
-	// the key->owner association Debit follows.
+	// the owner the completion hands back to Debit.
 	rec := httptest.NewRecorder()
 	l.Middleware(true)(okHandler()).ServeHTTP(rec, ownedTPMReq("key-a", "uid-9", userTPM))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("keyed request should pass, got %d", rec.Code)
 	}
-	l.Debit("key-a", userTPM*2)
+	l.Debit("key-a", "uid-9", userTPM*2)
 
 	rec = httptest.NewRecorder()
 	l.UserMiddleware(true)(okHandler()).ServeHTTP(rec, sessionTPMReq("uid-9", &userTPM))
