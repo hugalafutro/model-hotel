@@ -231,6 +231,67 @@ func TestTPMLimiter_DebitAfterEvictionStillCharges(t *testing.T) {
 	}
 }
 
+// TestTPMLimiter_OwnerDebitSurvivesEviction is the aggregate half of the same
+// case. The sweep takes the key's assoc entry at the same cutoff as its bucket,
+// so a debit landing after it has to find the owner through the cap memo, or
+// the key is charged and the owner it belongs to is not.
+func TestTPMLimiter_OwnerDebitSurvivesEviction(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	const tpm = 500
+	owner := userBucketKey("owner-1")
+
+	l.setAssoc("k", owner)
+	l.getEntry("k", tpm)
+	l.getEntry(owner, tpm)
+
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.buckets[owner].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.assoc["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.Debit("k", 2*tpm)
+
+	l.mu.Lock()
+	ownerEntry, ok := l.buckets[owner]
+	l.mu.Unlock()
+	if !ok {
+		t.Fatal("the owner bucket should have been rebuilt to take the debit")
+	}
+	if ownerEntry.limiter.Tokens() > 0 {
+		t.Errorf("owner budget = %v tokens, want it exhausted by the debit", ownerEntry.limiter.Tokens())
+	}
+}
+
+// TestTPMLimiter_CapMemoIsSwept pins the bound on that memory: the memo outlives
+// the bucket so a late debit can rebuild it, but not forever, or the map grows
+// by one entry for every key the process ever admits.
+func TestTPMLimiter_CapMemoIsSwept(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	l.getEntry("k", 500)
+
+	l.mu.Lock()
+	l.buckets["k"].lastUsed = time.Now().Add(-11 * time.Minute)
+	l.caps["k"].lastUsed = time.Now().Add(-capMemoTTL - time.Minute)
+	l.mu.Unlock()
+	l.cleanup()
+
+	l.mu.Lock()
+	_, memoLeft := l.caps["k"]
+	l.mu.Unlock()
+	if memoLeft {
+		t.Error("a memo older than the TTL should be swept")
+	}
+	l.Debit("k", 10_000)
+	l.mu.Lock()
+	n := len(l.buckets)
+	l.mu.Unlock()
+	if n != 0 {
+		t.Errorf("with no memo the debit must not rebuild a bucket, got %d", n)
+	}
+}
+
 func TestTPMLimiter_TPMChangeReplacesBucket(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 

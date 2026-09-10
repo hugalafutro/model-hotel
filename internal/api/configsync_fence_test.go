@@ -260,6 +260,40 @@ func TestConfigSync_CommitFenceOutOfRangeGenIsUnfenced(t *testing.T) {
 			t.Fatalf("gen %d: marker = %q, want still unset", gen, got)
 		}
 	}
+
+	// The top of the range is inclusive and still fences, so an off-by-one in the
+	// bound cannot pass unnoticed.
+	edge := int64(math.MaxInt32)
+	if resp, rec := doImportGen(t, r, base, &edge); rec.Code != http.StatusOK || !resp.Applied {
+		t.Fatalf("gen MaxInt32: code=%d applied=%v, want 200 applied", rec.Code, resp.Applied)
+	}
+	if got := storedSourceGen(t); got != strconv.FormatInt(edge, 10) {
+		t.Errorf("marker after gen MaxInt32 = %q, want %d", got, edge)
+	}
+}
+
+// TestConfigSync_CommitFenceOutOfRangeStoredMarkerUnpins covers a member forged
+// into a corner before the bound existed: its marker holds a value no primary
+// can reach, so every genuine push reads as stale. Flooring an out-of-range
+// stored marker is what lets the next valid push through and rewrites it.
+func TestConfigSync_CommitFenceOutOfRangeStoredMarkerUnpins(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	base := doExport(t, r)
+	setStoredSourceGen(t, strconv.FormatInt(math.MaxInt64, 10))
+
+	gen := int64(7)
+	resp, rec := doImportGen(t, r, withExtraProvider(base, "extra"), &gen)
+	if rec.Code != http.StatusOK || !resp.Applied || resp.Stale {
+		t.Fatalf("import onto a pinned member: code=%d applied=%v stale=%v, want 200 applied not-stale", rec.Code, resp.Applied, resp.Stale)
+	}
+	if !providerNames(t)["extra"] {
+		t.Error("the unpinning import should have applied its config")
+	}
+	if got := storedSourceGen(t); got != "7" {
+		t.Errorf("marker after unpinning import = %q, want 7", got)
+	}
 }
 
 // TestConfigSync_CommitFenceCorruptMarkerStillFences: a corrupt (non-numeric)

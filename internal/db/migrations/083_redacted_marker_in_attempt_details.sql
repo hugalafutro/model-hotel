@@ -10,8 +10,27 @@
 -- happened to contain a matching run. Nothing of the prompt is in there.
 --
 -- Rewrite the marker to "[redacted]", which says what actually happened. Only
--- the attempts column is touched: no error_message row carries the marker,
--- because the fence never ran over the terminal message.
-UPDATE request_logs
-SET attempts = REPLACE(attempts::text, '[content]', '[redacted]')::jsonb
-WHERE attempts::text LIKE '%[content]%';
+-- the detail field of each attempt is rewritten, not the whole JSON text: a
+-- provider or model name is data this migration has no business editing, however
+-- unlikely such a name is. Only the attempts column is touched, because no
+-- error_message row carries the marker: the fence never ran over the terminal
+-- message.
+UPDATE request_logs AS l
+SET attempts = (
+    SELECT jsonb_agg(
+        CASE
+            WHEN jsonb_typeof(a -> 'detail') = 'string' AND a ->> 'detail' LIKE '%[content]%'
+                THEN jsonb_set(a, '{detail}', to_jsonb(REPLACE(a ->> 'detail', '[content]', '[redacted]')))
+            ELSE a
+        END
+        ORDER BY ord
+    )
+    FROM jsonb_array_elements(l.attempts) WITH ORDINALITY AS t(a, ord)
+)
+WHERE jsonb_typeof(l.attempts) = 'array'
+  AND EXISTS (
+    SELECT 1
+    FROM jsonb_array_elements(l.attempts) AS e
+    WHERE jsonb_typeof(e -> 'detail') = 'string'
+      AND e ->> 'detail' LIKE '%[content]%'
+  );

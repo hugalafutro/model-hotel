@@ -105,7 +105,8 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if err := guardAgainstProviderWipe(ctx, tx, env.Config.Providers); err != nil {
 		return applyOutcome{}, err
 	}
-	if err := guardAgainstVirtualKeyWipe(ctx, tx, env.Config.VirtualKeys); err != nil {
+	hadKeys, err := guardAgainstVirtualKeyWipe(ctx, tx, env.Config.VirtualKeys)
+	if err != nil {
 		return applyOutcome{}, err
 	}
 
@@ -155,6 +156,15 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	}
 	vkHashes := names(env.Config.VirtualKeys, func(v ExportVK) string { return v.KeyHash })
 	if _, err := tx.Exec(ctx, `DELETE FROM virtual_keys WHERE key_hash <> ALL($1)`, vkHashes); err != nil {
+		return applyOutcome{}, err
+	}
+	// The rail above reads the count before the reconcile, so it only catches an
+	// envelope that carries no keys at all. An envelope whose keys every one fail
+	// to upsert (an unresolvable provider name on each) reaches here having
+	// deleted the member's own keys and inserted nothing, which is the same
+	// outcome by a longer road. Checking after the delete, inside the same
+	// transaction, catches both and rolls the whole import back.
+	if err := guardKeysSurvived(ctx, tx, hadKeys); err != nil {
 		return applyOutcome{}, err
 	}
 
@@ -243,15 +253,34 @@ func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []Export
 // it: that one only refuses an envelope empty in providers, keys and settings
 // together. An empty key list onto a member that has none is a bootstrap and is
 // allowed, matching the provider rail.
-func guardAgainstVirtualKeyWipe(ctx context.Context, tx pgx.Tx, keys []ExportVK) error {
-	if len(keys) == 0 {
-		var existing int
-		if err := tx.QueryRow(ctx, `SELECT count(*) FROM virtual_keys`).Scan(&existing); err != nil {
-			return err
-		}
-		if existing > 0 {
-			return errWouldWipeVirtualKeys
-		}
+// It reports whether the member held any keys before the reconcile, which
+// guardKeysSurvived needs to tell a wipe apart from a member that never had
+// keys.
+func guardAgainstVirtualKeyWipe(ctx context.Context, tx pgx.Tx, keys []ExportVK) (hadKeys bool, err error) {
+	var existing int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM virtual_keys`).Scan(&existing); err != nil {
+		return false, err
+	}
+	if len(keys) == 0 && existing > 0 {
+		return true, errWouldWipeVirtualKeys
+	}
+	return existing > 0, nil
+}
+
+// guardKeysSurvived is the second half of the credential rail, run after the
+// upsert and the declarative delete. A populated member that comes out of the
+// reconcile with no keys has been wiped whatever route it took there, so the
+// import is refused and the transaction rolls back.
+func guardKeysSurvived(ctx context.Context, tx pgx.Tx, hadKeys bool) error {
+	if !hadKeys {
+		return nil
+	}
+	var remaining int
+	if err := tx.QueryRow(ctx, `SELECT count(*) FROM virtual_keys`).Scan(&remaining); err != nil {
+		return err
+	}
+	if remaining == 0 {
+		return errWouldWipeVirtualKeys
 	}
 	return nil
 }
@@ -572,6 +601,14 @@ func readAppliedSourceGen(ctx context.Context, tx pgx.Tx) (gen int64, present bo
 		// wedging the fence on a 500.
 		debuglog.Warn("configsync: unparseable stored source generation, flooring to 0", "value", raw)
 		return 0, true, nil //nolint:nilerr // intentional: corrupt marker floors but stays present
+	}
+	if n < 0 || n > maxSourceGen {
+		// Outside the range a primary can produce, so it was written by a forged
+		// header before the parse bound existed. Flooring it the same way a corrupt
+		// marker floors is what unpins the member: the next genuine push is no
+		// longer stale against it and rewrites a clean value.
+		debuglog.Warn("configsync: out-of-range stored source generation, flooring to 0", "value", raw)
+		return 0, true, nil
 	}
 	return n, true, nil
 }
