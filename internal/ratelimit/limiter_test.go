@@ -1605,7 +1605,57 @@ func TestMiddleware_PerKeyRejectRefundsOwnerToken(t *testing.T) {
 	if !ok {
 		t.Fatal("owner bucket missing")
 	}
-	if got := entry.limiter.Tokens(); got < 48.5 {
+	if got := entry.limiter.Tokens(); got < 48.9 {
 		t.Errorf("owner bucket = %.2f tokens, want ~49: the %d rejected requests kept their owner tokens", got, rejected)
+	}
+}
+
+// TestMiddleware_ClientLeftDuringWaitRefundsKeyToken covers the other live
+// hand-back: a request that clears both stages and is then abandoned by the
+// client during backpressure. The owner stage is what forces the wait, so the
+// per-key token is the one taken for immediate use, and it is the one a
+// cancellation that reads the clock a second time would silently keep.
+func TestMiddleware_ClientLeftDuringWaitRefundsKeyToken(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	// Per-key stage: 50 tokens that refill by nothing measurable over a test,
+	// so its token count only moves when the middleware moves it.
+	repo.set(settingsKeyRPS, "0.001")
+	repo.set(settingsKeyBurst, "50")
+	repo.set(settingsKeyMaxWaitMs, "5000")
+
+	served := 0
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served++
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Owner stage: one token per second, burst 1, so the second request waits.
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-left", "uid-left", 1, 1))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	userRPS, userBurst := 1.0, 1
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyHashKey, "key-left")
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyOwnerIDKey, "uid-left")
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, &userRPS)
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, &userBurst)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx)
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if served != 1 {
+		t.Fatalf("abandoned request reached the handler (served=%d)", served)
+	}
+
+	entry, ok := lim.limiters["key-left"]
+	if !ok {
+		t.Fatal("key bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got < 48.9 {
+		t.Errorf("key bucket = %.2f tokens, want ~49: the abandoned request kept its key token", got)
 	}
 }

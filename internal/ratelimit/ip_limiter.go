@@ -132,10 +132,12 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		ip := clientip.Resolve(r, l.trustedProxies)
 		entry := l.getLimiter(r.Context(), ip)
 
-		// Pinned instant: CancelAt only restores tokens while the reservation's
-		// timeToAct is not before the cancel time, so a hand-back that reads the
-		// clock again can silently keep the token (see the same pinning in the
-		// key/owner limiter and the TPM limiter).
+		// Pinned instant: a refund is honoured only while the reservation's
+		// activation time has not passed. Both cancellations below sit on a
+		// future-dated reservation, so the plain form returns the token except
+		// when the client leaves at the very end of the wait, where a clock read
+		// taken at cancel time can already be past it. The key/owner and TPM
+		// limiters pin for the same reason.
 		now := time.Now()
 		reservation := entry.limiter.ReserveN(now, 1)
 		if !reservation.OK() {
