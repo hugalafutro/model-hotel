@@ -29,3 +29,5 @@ time=2026-08-18T04:15:29.123Z level=WARN msg="auth: admin request missing bearer
 time=2026-08-18T04:15:30.123Z level=WARN msg="auth: CSRF check failed" remote_addr=203.0.113.25 path=/api/members/abc
 time=2026-08-18T04:15:31.123Z level=WARN msg="webauthn: passkey login failed" remote_addr=203.0.113.26 reason=assertion_rejected error=webauthn:\x20signature\x20is\x20not\x20valid
 time=2026-08-18T04:15:32.123Z level=WARN msg="auth: admin request with invalid token" remote_addr=203.0.113.27 path="/x\\x20remote_addr=203.0.113.77\\x20y"
+time=2026-08-18T04:15:33.123Z level=WARN msg="auth: insufficient permissions" remote_addr=203.0.113.28 device=c1a1bb2c-9770-42da-967e-e75770bf5ab4 role=monitor required=operator path=/api/members/abc/state
+time=2026-08-18T04:15:34.123Z level=WARN msg="frontdesk: traefik config poll with invalid token" remote_addr=203.0.113.29

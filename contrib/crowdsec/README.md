@@ -68,8 +68,9 @@ Two failure kinds are classified by the parser but deliberately have **no** scen
 
 - `sso`: an OIDC or GitHub callback that did not complete. Callbacks fail for benign reasons (a
   stale tab, a user pressing deny, a slow redirect), so this is signal for a dashboard, not a ban.
-- `forbidden`: an already-authenticated user reaching for something their role does not cover.
-  That is a permissions problem, not an intruder.
+- `forbidden`: an already-authenticated caller reaching for something their role does not cover.
+  A dashboard user past their grants on the gateway, or a paired Bellhop device past its role on
+  Front Desk. That is a permissions problem, not an intruder.
 
 They are still in the event stream, so you can write your own scenario over them if your
 deployment warrants it.
@@ -394,18 +395,25 @@ docker restart <crowdsec-container>
   logged at debug on purpose so an idle browser tab does not fill the log. A probe that is
   REFUSED is a different matter: `/healthz` and the ungated `/traefik/config` carry their own
   per-IP budgets, and a 429 is logged at warning like any other 4xx, so a flood of either is
-  visible in the log even though the served polls are not.
+  visible in the log even though the served polls are not. Where `/traefik/config` IS gated by a
+  token, a poll that fails the gate classifies as `admin_token`, like every other bearer-gated
+  machine endpoint on either binary.
 
 - **Front Desk's access log is opt-in like the gateway's.** Front Desk writes the same
   `access: request` line the gateway does, but the parser that maps it onto `http_access-log` is
   the opt-in `hugalafutro/model-hotel-access-logs`, not part of this collection. Without it, the
   authentication lines below are what CrowdSec sees from Front Desk.
 
-- **Front Desk's role refusals are not logged.** A paired Bellhop device reaching above its role
-  (a monitor device on a mutating route, any device on an admin-only route) gets a 403 from
-  `requireOperator` / `requireAdmin` with no line at all, so it produces no `forbidden` event the
-  way the gateway's `auth: insufficient permissions` does. A device holds a token an operator
-  issued, so this is an over-reaching companion app rather than an intruder, but it is a gap.
+- **Front Desk's role refusals are `forbidden` events, like the gateway's.** A paired Bellhop
+  device reaching above its role (a monitor device on a mutating route, any device on an admin-only
+  route) gets a 403 from `requireOperator` / `requireAdmin`, and writes the same
+  `auth: insufficient permissions` line the gateway writes for a user reaching past their grants,
+  so both classify as `forbidden` under one rule. The Front Desk line names the device id, the
+  role it holds and the role the route wanted, never its token and never its label (a label is
+  caller-set text from the public pairing exchange). As on the gateway,
+  `forbidden` has no scenario: a device holds a token an operator issued, so this is an
+  over-reaching companion app rather than an intruder. Write your own scenario over the event if
+  your deployment warrants one.
 
 - **Nothing here reads the database.** The App Logs page holds more than the container log does,
   and it is not an acquisition source. If a failure only appears in App Logs, no scenario will see
@@ -521,7 +529,7 @@ brackets, so `evt.Meta.source_ip` is always a bare address.
 | `evt.Meta.source_ip` | the client address, port and IPv6 brackets stripped |
 | `evt.Meta.log_format` | `text` or `json` |
 | `evt.Meta.http_path` | the request path, where the line carries one |
-| `evt.Meta.target_user` | the username, on `forbidden` |
+| `evt.Meta.target_user` | the username, on a gateway `forbidden`. Absent on Front Desk's, where the caller is a device and the line names its id instead |
 
 Only recognised records advance past `s01-parse`; everything else is dropped there, so the rest of
 the pipeline never sees unrelated gateway chatter. A scenario of your own should filter on

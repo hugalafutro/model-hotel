@@ -14,6 +14,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -202,6 +203,7 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 func (s *Server) requireOperator(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if dev := deviceFromContext(r.Context()); dev != nil && dev.Role != RoleOperator {
+			logRoleRefusal(r, dev, string(RoleOperator))
 			writeCodedError(w, http.StatusForbidden, "device_role_forbidden",
 				"this action needs the operator role; this device was paired as monitor")
 			return
@@ -215,13 +217,46 @@ func (s *Server) requireOperator(next http.Handler) http.Handler {
 // admin/session bearer regardless of device role.
 func (s *Server) requireAdmin(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if deviceFromContext(r.Context()) != nil {
+		if dev := deviceFromContext(r.Context()); dev != nil {
+			logRoleRefusal(r, dev, requiredRoleAdmin)
 			writeCodedError(w, http.StatusForbidden, "device_forbidden",
 				"this action is not available to paired devices")
 			return
 		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// requiredRoleAdmin is what requireAdmin reports it wanted. It is deliberately
+// not a DeviceRole: no pairing can hold it, which is the whole point of that
+// guard, and the field names what the ROUTE wanted rather than a role that
+// exists.
+const requiredRoleAdmin = "admin"
+
+// logRoleRefusal records a paired device reaching above the role it was paired
+// with. Until this existed a device probing the control plane left nothing an
+// operator or CrowdSec could count: the refusal was a 403 body and nothing else.
+//
+// The message is the gateway's own, "auth: insufficient permissions"
+// (internal/api/authz.go), because it is the same event on the other binary and
+// the log parser in contrib/crowdsec classifies that text as `forbidden`.
+// Giving Front Desk its own wording would mean a second classification rule for
+// one meaning, and a deployment reading only the gateway's rules would see
+// nothing here.
+//
+// The device's id and roles are named, never its token and never its label: the
+// label arrives in the body of the PUBLIC pairing exchange, so it is
+// caller-chosen text, and the id is enough to find the pairing in the devices
+// list. The address goes before the caller-controlled
+// path, as it does on the gateway, so a reader scanning left to right meets the
+// real client first.
+func logRoleRefusal(r *http.Request, dev *PairedDevice, required string) {
+	debuglog.Warn("auth: insufficient permissions",
+		"remote_addr", clientip.From(r),
+		"device", dev.ID,
+		"role", string(dev.Role),
+		"required", required,
+		"path", r.URL.Path)
 }
 
 // ---------------------------------------------------------------------------
