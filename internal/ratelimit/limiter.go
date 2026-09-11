@@ -197,7 +197,9 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// slipped-through request reserved in between. So this narrows the
 			// debt to what fits in a window a few instructions wide rather than
 			// abolishing it; what is left no longer grows with the flood.
-			if peeked, by, id := peekAdmission(entry, keyHash, userEntry, userKey, now); peeked > maxWait {
+			// The zero test is what keeps a max_wait that somehow arrived
+			// negative from refusing a request the bucket can serve outright.
+			if peeked, by, id := peekAdmission(entry, keyHash, userEntry, userKey, now); peeked > 0 && peeked > maxWait {
 				reject(by, id, peeked)
 				return
 			}
@@ -288,9 +290,21 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 // peekAdmission reports the longest wait either admission stage still needs
 // before it can hand this request a token, and which stage that is, without
 // taking anything from either bucket.
+//
+// A stage that can never serve, its burst below one, answers no wait at all, so
+// the reservation path refuses the request instead. That keeps the refusal in
+// the name of the stage that can never serve it, rather than handing it to a
+// co-stage that merely happens to be saturated and promising a retry time no
+// amount of waiting can honour.
 func peekAdmission(entry *bucketEntry, keyID string, userEntry *bucketEntry, userID string, now time.Time) (time.Duration, *bucketEntry, string) {
+	if entry.limiter.Burst() < 1 {
+		return 0, entry, keyID
+	}
 	wait := peekWait(entry.limiter, now)
 	if userEntry != nil {
+		if userEntry.limiter.Burst() < 1 {
+			return 0, userEntry, userID
+		}
 		if uw := peekWait(userEntry.limiter, now); uw > wait {
 			return uw, userEntry, userID
 		}

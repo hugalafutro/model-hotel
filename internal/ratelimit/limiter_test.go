@@ -3,6 +3,7 @@ package ratelimit
 import (
 	"context"
 	"log/slog"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -1752,6 +1753,15 @@ func TestPeekWait(t *testing.T) {
 	if got := peekWait(crawling, now); got != rate.InfDuration {
 		t.Errorf("unreachable bucket: peekWait = %v, want InfDuration", got)
 	}
+
+	// The rate whose wait lands exactly on 2^63, one nanosecond past the
+	// largest duration: converting it back wraps to a large negative wait,
+	// which would read as a bucket ready to serve.
+	boundary := rate.NewLimiter(rate.Limit(1e9/math.Pow(2, 63)), 1)
+	boundary.AllowN(now, 1)
+	if got := peekWait(boundary, now); got != rate.InfDuration {
+		t.Errorf("bucket one tick past the longest duration: peekWait = %v, want InfDuration", got)
+	}
 }
 
 // A flood of refused requests must leave the bucket at empty rather than deep in
@@ -1793,7 +1803,41 @@ func TestMiddleware_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
 	// instructions and still reserve and cancel each other's refunds; that
 	// window holds a handful, where refusing by reservation put the whole
 	// refused crowd in debt (measured between -15 and -282 on this flood).
+	// The slack held at every GOMAXPROCS from 1 to 64, worst case -1.
 	if got := entry.limiter.Tokens(); got < -5 {
 		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want no worse than -5: refusals must not scale into debt", got, flood)
+	}
+}
+
+// An owner bucket that can never serve refuses in its own name, with no retry
+// time, even while the key beside it is saturated and would otherwise win the
+// comparison and answer for it.
+func TestMiddleware_ZeroBurstOwnerRefusesInItsOwnName(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "0.001")
+	repo.set(settingsKeyBurst, "1")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-owner-zero", "uid-owner-zero", 0.001, 0))
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("expected 429, got %d", rr.Code)
+	}
+	if body := rr.Body.String(); !strings.Contains(body, "user rate limit") {
+		t.Errorf("expected the owner stage to answer, got %q", body)
+	}
+	if h := rr.Header().Get("Retry-After"); h != "" {
+		t.Errorf("Retry-After = %q, want none: no wait makes a zero-burst owner serve", h)
+	}
+	if entry, ok := lim.limiters["key-owner-zero"]; ok {
+		if got := entry.limiter.Tokens(); got < 0.9 {
+			t.Errorf("key bucket = %.2f tokens, want ~1: the owner refused before the key was charged", got)
+		}
 	}
 }

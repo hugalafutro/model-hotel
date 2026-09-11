@@ -1139,6 +1139,7 @@ func TestIPLimiter_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
 	// instructions and still reserve and cancel each other's refunds; that
 	// window holds a handful, where refusing by reservation put the whole
 	// refused crowd in debt (measured between -15 and -282 on this flood).
+	// The slack held at every GOMAXPROCS from 1 to 64, worst case -1.
 	if got := entry.limiter.Tokens(); got < -5 {
 		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want no worse than -5: refusals must not scale into debt", got, flood)
 	}
