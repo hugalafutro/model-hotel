@@ -1609,6 +1609,17 @@ func TestMiddleware_PerKeyRejectRefundsOwnerToken(t *testing.T) {
 	if got := entry.limiter.Tokens(); got < 48.9 || got > 49.1 {
 		t.Errorf("owner bucket = %.2f tokens, want ~49: the %d rejected requests kept their owner tokens", got, rejected)
 	}
+
+	// The key stage refuses these itself, and hands its own reservation back on
+	// the way out: without that the bucket carries a debt of one token per
+	// refusal while the status codes read exactly the same.
+	key, ok := lim.limiters["key-a"]
+	if !ok {
+		t.Fatal("key bucket missing")
+	}
+	if got := key.limiter.Tokens(); got < -0.5 {
+		t.Errorf("key bucket = %.2f tokens, want about 0: the refusals kept their own key tokens", got)
+	}
 }
 
 // TestMiddleware_AbandonedRequestRefundsTheWaitingStage covers the request
@@ -1622,9 +1633,10 @@ func TestMiddleware_AbandonedRequestRefundsTheWaitingStage(t *testing.T) {
 	lim, repo := newTestLimiter()
 	defer lim.Stop()
 	repo.set("rate_limit_enabled", "true")
-	// Per-key stage: 5 tokens refilling at 10 per second, so a rewound bucket
-	// clock shows up as a measurably fuller bucket.
-	repo.set(settingsKeyRPS, "10")
+	// Per-key stage: 5 tokens refilling at 1 per second, so a rewound bucket
+	// clock shows up as a measurably fuller bucket and half a token of margin
+	// buys half a second of scheduling slack.
+	repo.set(settingsKeyRPS, "1")
 	repo.set(settingsKeyBurst, "5")
 	repo.set(settingsKeyMaxWaitMs, "5000")
 
@@ -1661,19 +1673,19 @@ func TestMiddleware_AbandonedRequestRefundsTheWaitingStage(t *testing.T) {
 	}
 	// The owner reservation is still ahead of the cancellation, so its token
 	// comes back: the bucket is at the 0.1 it refilled, not at -0.9.
-	if got := owner.limiter.Tokens(); got < -0.05 {
+	if got := owner.limiter.Tokens(); got < -0.05 || got > 0.5 {
 		t.Errorf("owner bucket = %.2f tokens, want about 0.1: the abandoned request kept its owner token", got)
 	}
 
 	// The key bucket spent one token on the first request and one on the
-	// abandoned one, and refills 1 token over the 100ms wait. A rewound clock
-	// would re-credit that wait and read 5, the full burst.
+	// abandoned one, leaving about 3. A refund at the pinned instant would
+	// return the second token and rewind the clock on top, reading about 4.
 	entry, ok := lim.limiters["key-left"]
 	if !ok {
 		t.Fatal("key bucket missing")
 	}
-	if got := entry.limiter.Tokens(); got > 4.5 {
-		t.Errorf("key bucket = %.2f tokens, want about 4: the refund rewound the bucket clock", got)
+	if got := entry.limiter.Tokens(); got > 3.6 {
+		t.Errorf("key bucket = %.2f tokens, want about 3: the refund rewound the bucket clock", got)
 	}
 }
 

@@ -226,9 +226,11 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 						// request, and a client that abandons in a loop could
 						// inflate the bucket. The stage that forced the wait
 						// still gets its token back, since its reservation
-						// activates around now. The other stage keeps its one
-						// token: a bounded over-charge, taken deliberately
-						// over an unbounded under-charge.
+						// activates around now. The other stage gets its token
+						// back only while its own reservation is still ahead of
+						// that instant, so a stage that was ready to serve
+						// keeps one token: a bounded over-charge, taken
+						// deliberately over an unbounded under-charge.
 						left := time.Now()
 						reservation.CancelAt(left)
 						if userRes != nil {

@@ -1085,7 +1085,7 @@ func TestIPLimiter_ClientLeftDuringWaitRefundsToken(t *testing.T) {
 	if served != 1 {
 		t.Fatalf("abandoned request reached the handler (served=%d)", served)
 	}
-	if time.Since(start) > time.Second {
+	if time.Since(start) > 500*time.Millisecond {
 		t.Fatal("abandoned request waited out the delay instead of returning")
 	}
 
