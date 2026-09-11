@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 	"sync"
@@ -145,6 +146,33 @@ func bucketRate(rps float64, burst int) (float64, int) {
 		return 1e6, 1e6
 	}
 	return rps, burst
+}
+
+// peekWait reports how long a bucket needs before it can hand out one token,
+// without taking anything. A reservation answers the same question, but it
+// charges for the answer and gives the charge back only while no later
+// reservation has moved the bucket's last event past it: under a flood every
+// refusal reserves and cancels, almost none of the cancels refund, and the
+// bucket sinks far below empty, throttling the identity long after the flood
+// has stopped. A read leaves the bucket where it was.
+//
+// A bucket that can never hand out a token (burst below one) reports no wait,
+// because no amount of waiting would help and the reservation path already
+// refuses it, free of charge and without promising a retry time.
+func peekWait(lim *rate.Limiter, now time.Time) time.Duration {
+	limit := float64(lim.Limit())
+	if lim.Burst() < 1 || limit <= 0 {
+		return 0
+	}
+	deficit := 1 - lim.TokensAt(now)
+	if deficit <= 0 {
+		return 0
+	}
+	wait := deficit / limit * float64(time.Second)
+	if wait > math.MaxInt64 {
+		return rate.InfDuration
+	}
+	return time.Duration(wait)
 }
 
 // runCleanup drives a limiter's idle-entry sweep until its stop channel closes.

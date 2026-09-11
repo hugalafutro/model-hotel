@@ -132,6 +132,19 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		ip := clientip.Resolve(r, l.trustedProxies)
 		entry := l.getLimiter(r.Context(), ip)
 
+		// Refuse before reserving when the bucket already says the wait is past
+		// the ceiling, so a refusal costs the IP nothing: see peekWait for what
+		// the reserve-then-cancel route costs instead. The reading can be stale
+		// by the time the reservation below is taken, which is the case the
+		// cancel on the over-max_wait path still covers. The zero test keeps the
+		// settings read off the path of a request the bucket can serve outright.
+		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > l.maxWait(r.Context()) {
+			entry.noteRejected(ip)
+			writeRateLimitHeaders(w, entry.limiter, wait, ipLogLabel)
+			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
+			return
+		}
+
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
 			entry.noteRejected(ip)
@@ -146,11 +159,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			// sleep and proceed instead of rejecting immediately. The IP is still
 			// under pressure, so an open throttle episode stays open (only a
 			// no-delay serve below closes it).
-			maxWait := time.Duration(defaultMaxWaitMs) * time.Millisecond
-			if l.settings != nil {
-				maxWait = time.Duration(l.settings.GetInt(r.Context(), settingsKeyIPMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
-			}
-			if delay <= maxWait {
+			if delay <= l.maxWait(r.Context()) {
 				if !waitOrCancel(r.Context(), delay) {
 					// Client left during the wait: give the budget back.
 					reservation.Cancel()
@@ -174,6 +183,15 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
 		next.ServeHTTP(w, r)
 	})
+}
+
+// maxWait is how long a request may be held before the limiter gives up on it,
+// shared with the per-key limiter so one setting governs both.
+func (l *IPLimiter) maxWait(ctx context.Context) time.Duration {
+	if l.settings == nil {
+		return time.Duration(defaultMaxWaitMs) * time.Millisecond
+	}
+	return time.Duration(l.settings.GetInt(ctx, settingsKeyIPMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 }
 
 func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {

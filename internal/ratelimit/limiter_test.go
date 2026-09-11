@@ -1723,3 +1723,73 @@ func TestMiddleware_ZeroBurstRejectRefundsOwnerToken(t *testing.T) {
 		t.Errorf("owner bucket = %.2f tokens, want ~50: the rejected request kept its owner token", got)
 	}
 }
+
+func TestPeekWait(t *testing.T) {
+	now := time.Now()
+
+	full := rate.NewLimiter(10, 2)
+	if got := peekWait(full, now); got != 0 {
+		t.Errorf("full bucket: peekWait = %v, want 0", got)
+	}
+
+	full.AllowN(now, 2)
+	got := peekWait(full, now)
+	if got < 95*time.Millisecond || got > 105*time.Millisecond {
+		t.Errorf("empty bucket at 10 rps: peekWait = %v, want ~100ms", got)
+	}
+	if left := full.TokensAt(now); left < -0.001 || left > 0.001 {
+		t.Errorf("bucket = %.4f tokens after the read, want 0: reading must not charge", left)
+	}
+
+	if got := peekWait(rate.NewLimiter(10, 0), now); got != 0 {
+		t.Errorf("zero-burst bucket: peekWait = %v, want 0 so the reservation refuses it", got)
+	}
+
+	// A rate slow enough that the wait overflows a duration reports the
+	// unreachable wait rather than a wrapped negative one.
+	crawling := rate.NewLimiter(1e-300, 1)
+	crawling.AllowN(now, 1)
+	if got := peekWait(crawling, now); got != rate.InfDuration {
+		t.Errorf("unreachable bucket: peekWait = %v, want InfDuration", got)
+	}
+}
+
+// A flood of refused requests must leave the bucket at empty rather than deep in
+// debt. Refusing by reserving and cancelling only looks free: a cancel restores
+// nothing once a later reservation has moved the bucket's last event past it, so
+// every concurrent refusal used to take a token it never gave back and the key
+// stayed throttled long after the flood.
+func TestMiddleware_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "1") // refill is negligible over the flood
+	repo.set(settingsKeyBurst, "5")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	const flood = 200
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range flood {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			handler.ServeHTTP(httptest.NewRecorder(), requestWithKey("flooded-key"))
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	entry, ok := lim.limiters["flooded-key"]
+	if !ok {
+		t.Fatal("key bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got < -1 {
+		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want no worse than -1: a refusal must cost nothing", got, flood)
+	}
+}
