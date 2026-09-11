@@ -174,7 +174,9 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// reading the clock again at cancel time turns the zero-delay
 			// hand-backs into silent no-ops: the owner token next to a per-key
 			// rejection, and whichever stage did not force the wait on the
-			// abandoned and over-max_wait paths. admitUserTPM pins for this.
+			// over-max_wait path. Both reject without waiting, so cancelling at
+			// this instant rewinds the bucket clock by nothing measurable.
+			// admitUserTPM pins for the same reason.
 			now := time.Now()
 
 			var userRes *rate.Reservation
@@ -216,10 +218,21 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				// no-delay serve below closes it).
 				if delay <= maxWait {
 					if !waitOrCancel(ctx, delay) {
-						// Client left during the wait: give the budget back.
-						reservation.CancelAt(now)
+						// Client left during the wait: give the budget back,
+						// at a fresh instant rather than the pinned one. A
+						// refund rewinds the bucket's clock to the instant it
+						// is made, so refunding at the pinned instant would
+						// re-credit the whole elapsed wait to every later
+						// request, and a client that abandons in a loop could
+						// inflate the bucket. The stage that forced the wait
+						// still gets its token back, since its reservation
+						// activates around now. The other stage keeps its one
+						// token: a bounded over-charge, taken deliberately
+						// over an unbounded under-charge.
+						left := time.Now()
+						reservation.CancelAt(left)
 						if userRes != nil {
-							userRes.CancelAt(now)
+							userRes.CancelAt(left)
 						}
 						return
 					}

@@ -1054,7 +1054,8 @@ func TestIPLimiter_BackpressureCancelledRequestReturnsBudget(t *testing.T) {
 // TestIPLimiter_ClientLeftDuringWaitRefundsToken asserts on the IP bucket's
 // token count after a client abandons a request mid-backpressure. Status codes
 // say nothing here: the abandoned request never writes one, so only the token
-// count shows whether its reservation was handed back.
+// count shows that its reservation was handed back, and only this assertion
+// fails if the hand-back is ever dropped.
 func TestIPLimiter_ClientLeftDuringWaitRefundsToken(t *testing.T) {
 	lim := NewIPLimiter(1, 1, nil, ipSettingsWithBackpressure(5000))
 	defer lim.Stop()
@@ -1092,7 +1093,7 @@ func TestIPLimiter_ClientLeftDuringWaitRefundsToken(t *testing.T) {
 	if !ok {
 		t.Fatal("IP bucket missing")
 	}
-	if got := entry.limiter.Tokens(); got < -0.5 {
-		t.Errorf("IP bucket = %.2f tokens, want ~0: the abandoned request kept its token", got)
+	if got := entry.limiter.Tokens(); got < -0.05 || got > 0.5 {
+		t.Errorf("IP bucket = %.2f tokens, want about 0: the abandoned request kept its token", got)
 	}
 }

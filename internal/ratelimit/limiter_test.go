@@ -1611,19 +1611,21 @@ func TestMiddleware_PerKeyRejectRefundsOwnerToken(t *testing.T) {
 	}
 }
 
-// TestMiddleware_ClientLeftDuringWaitRefundsKeyToken covers the other live
-// hand-back: a request that clears both stages and is then abandoned by the
-// client during backpressure. The owner stage is what forces the wait, so the
-// per-key token is the one taken for immediate use, and it is the one a
-// cancellation that reads the clock a second time would silently keep.
-func TestMiddleware_ClientLeftDuringWaitRefundsKeyToken(t *testing.T) {
+// TestMiddleware_AbandonedRequestRefundsTheWaitingStage covers the request
+// that clears both stages and is then abandoned by the client midway through
+// backpressure. The stage that forced the wait gets its token back. The other
+// stage keeps its token on purpose: handing that one back means cancelling at
+// an instant that has already passed, which rewinds the bucket's clock and
+// re-credits the elapsed wait to every later request, so a client abandoning
+// in a loop could inflate the bucket it is supposed to be limited by.
+func TestMiddleware_AbandonedRequestRefundsTheWaitingStage(t *testing.T) {
 	lim, repo := newTestLimiter()
 	defer lim.Stop()
 	repo.set("rate_limit_enabled", "true")
-	// Per-key stage: 50 tokens that refill by nothing measurable over a test,
-	// so its token count only moves when the middleware moves it.
-	repo.set(settingsKeyRPS, "0.001")
-	repo.set(settingsKeyBurst, "50")
+	// Per-key stage: 5 tokens refilling at 10 per second, so a rewound bucket
+	// clock shows up as a measurably fuller bucket.
+	repo.set(settingsKeyRPS, "10")
+	repo.set(settingsKeyBurst, "5")
 	repo.set(settingsKeyMaxWaitMs, "5000")
 
 	served := 0
@@ -1632,15 +1634,16 @@ func TestMiddleware_ClientLeftDuringWaitRefundsKeyToken(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	// Owner stage: one token per second, burst 1, so the second request waits.
+	// Owner stage: one token per second, burst 1, so it is what forces the wait.
 	rr := httptest.NewRecorder()
 	handler.ServeHTTP(rr, ownedRPSReq("key-left", "uid-left", 1, 1))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("first request: expected 200, got %d", rr.Code)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
+	// The client hangs up 100ms into a wait of about a second.
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
 	userRPS, userBurst := 1.0, 1
 	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyHashKey, "key-left")
 	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyOwnerIDKey, "uid-left")
@@ -1652,22 +1655,25 @@ func TestMiddleware_ClientLeftDuringWaitRefundsKeyToken(t *testing.T) {
 		t.Fatalf("abandoned request reached the handler (served=%d)", served)
 	}
 
-	entry, ok := lim.limiters["key-left"]
-	if !ok {
-		t.Fatal("key bucket missing")
-	}
-	if got := entry.limiter.Tokens(); got < 48.9 || got > 49.1 {
-		t.Errorf("key bucket = %.2f tokens, want ~49: the abandoned request kept its key token", got)
-	}
-	// The owner reservation is handed back on the same path. Its bucket refills
-	// at 1 RPS from the token the first request spent, so the assertion only
-	// demands that the abandoned request left something behind.
 	owner, ok := lim.limiters["user:uid-left"]
 	if !ok {
 		t.Fatal("owner bucket missing")
 	}
-	if got := owner.limiter.Tokens(); got < 0 {
-		t.Errorf("owner bucket = %.2f tokens, want no debt: the abandoned request kept its owner token", got)
+	// The owner reservation is still ahead of the cancellation, so its token
+	// comes back: the bucket is at the 0.1 it refilled, not at -0.9.
+	if got := owner.limiter.Tokens(); got < -0.05 {
+		t.Errorf("owner bucket = %.2f tokens, want about 0.1: the abandoned request kept its owner token", got)
+	}
+
+	// The key bucket spent one token on the first request and one on the
+	// abandoned one, and refills 1 token over the 100ms wait. A rewound clock
+	// would re-credit that wait and read 5, the full burst.
+	entry, ok := lim.limiters["key-left"]
+	if !ok {
+		t.Fatal("key bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got > 4.5 {
+		t.Errorf("key bucket = %.2f tokens, want about 4: the refund rewound the bucket clock", got)
 	}
 }
 
