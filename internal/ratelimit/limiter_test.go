@@ -1562,3 +1562,164 @@ func TestMiddleware_BackpressureCancelledRequestReturnsUserBudget(t *testing.T) 
 		t.Fatalf("request after cancel: code=%d served=%d, want 200 and 2", rr.Code, served)
 	}
 }
+
+// TestMiddleware_PerKeyRejectRefundsOwnerToken asserts on the owner bucket's
+// token count, not just on status codes: the cancellation that hands the owner
+// token back is invisible to a code-only assertion until the aggregate bucket
+// runs dry, so a leak there survives every test that only reads 429s.
+//
+// One request is served and eleven are rejected by the per-key stage, which
+// refuses them for wanting a wait longer than max_wait, so the owner's
+// 50-token budget must be down by exactly the one served request.
+func TestMiddleware_PerKeyRejectRefundsOwnerToken(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	// Per-key stage: one token, no refill inside the test, no tolerance to
+	// wait — every request after the first is rejected there.
+	repo.set(settingsKeyRPS, "0.001")
+	repo.set(settingsKeyBurst, "1")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Owner budget far larger than the per-key one and effectively static
+	// (0.001 RPS refills nothing over a test), so the only thing that moves
+	// its token count is the middleware.
+	served, rejected := 0, 0
+	for range 12 {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, ownedRPSReq("key-a", "uid-1", 0.001, 50))
+		if rr.Code == http.StatusOK {
+			served++
+		} else {
+			rejected++
+		}
+	}
+	if served != 1 || rejected != 11 {
+		t.Fatalf("served=%d rejected=%d, want 1 served and 11 rejected by the per-key stage", served, rejected)
+	}
+
+	entry, ok := lim.limiters["user:uid-1"]
+	if !ok {
+		t.Fatal("owner bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got < 48.9 || got > 49.1 {
+		t.Errorf("owner bucket = %.2f tokens, want ~49: the %d rejected requests kept their owner tokens", got, rejected)
+	}
+
+	// The key stage refuses these itself, and hands its own reservation back on
+	// the way out: without that the bucket carries a debt of one token per
+	// refusal while the status codes read exactly the same.
+	key, ok := lim.limiters["key-a"]
+	if !ok {
+		t.Fatal("key bucket missing")
+	}
+	if got := key.limiter.Tokens(); got < -0.5 || got > 0.5 {
+		t.Errorf("key bucket = %.2f tokens, want about 0: the refusals kept their own key tokens", got)
+	}
+}
+
+// TestMiddleware_AbandonedRequestRefundsTheWaitingStage covers the request
+// that clears both stages and is then abandoned by the client midway through
+// backpressure. The stage that forced the wait gets its token back. The other
+// stage keeps its token on purpose: handing that one back means cancelling at
+// an instant that has already passed, which rewinds the bucket's clock and
+// re-credits the elapsed wait to every later request, so a client abandoning
+// in a loop could inflate the bucket it is supposed to be limited by.
+func TestMiddleware_AbandonedRequestRefundsTheWaitingStage(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	// Per-key stage: 5 tokens refilling at 1 per second, so a rewound bucket
+	// clock shows up as a measurably fuller bucket and half a token of margin
+	// buys half a second of scheduling slack.
+	repo.set(settingsKeyRPS, "1")
+	repo.set(settingsKeyBurst, "5")
+	repo.set(settingsKeyMaxWaitMs, "5000")
+
+	served := 0
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served++
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Owner stage: one token per second, burst 1, so it is what forces the wait.
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-left", "uid-left", 1, 1))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	// The client hangs up 100ms into a wait of about a second.
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	userRPS, userBurst := 1.0, 1
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyHashKey, "key-left")
+	ctx = context.WithValue(ctx, ctxkeys.VirtualKeyOwnerIDKey, "uid-left")
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, &userRPS)
+	ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, &userBurst)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx)
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if served != 1 {
+		t.Fatalf("abandoned request reached the handler (served=%d)", served)
+	}
+
+	owner, ok := lim.limiters["user:uid-left"]
+	if !ok {
+		t.Fatal("owner bucket missing")
+	}
+	// The owner reservation is still ahead of the cancellation, so its token
+	// comes back: the bucket is at the 0.1 it refilled, not at -0.9.
+	if got := owner.limiter.Tokens(); got < -0.05 || got > 0.5 {
+		t.Errorf("owner bucket = %.2f tokens, want about 0.1: the abandoned request kept its owner token", got)
+	}
+
+	// The key bucket spent one token on the first request and one on the
+	// abandoned one, leaving about 3. A refund at the pinned instant would
+	// return the second token and rewind the clock on top, reading about 4.
+	entry, ok := lim.limiters["key-left"]
+	if !ok {
+		t.Fatal("key bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got > 3.6 {
+		t.Errorf("key bucket = %.2f tokens, want about 3: the refund rewound the bucket clock", got)
+	}
+}
+
+// TestMiddleware_ZeroBurstRejectRefundsOwnerToken covers the defence-in-depth
+// branch: a per-key bucket whose burst is 0 refuses the reservation outright
+// rather than handing back a wait, and the owner token taken a few lines
+// earlier has to survive that. Every write path enforces a burst of at least
+// one, so only a hand-edited setting reaches this.
+func TestMiddleware_ZeroBurstRejectRefundsOwnerToken(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "0.001")
+	repo.set(settingsKeyBurst, "0")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-zero", "uid-zero", 0.001, 50))
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("zero-burst key: expected 429, got %d", rr.Code)
+	}
+	if body := rr.Body.String(); strings.Contains(body, "user rate limit") {
+		t.Fatalf("expected the per-key stage to reject, got %q", body)
+	}
+
+	entry, ok := lim.limiters["user:uid-zero"]
+	if !ok {
+		t.Fatal("owner bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got < 49.9 || got > 50.1 {
+		t.Errorf("owner bucket = %.2f tokens, want ~50: the rejected request kept its owner token", got)
+	}
+}

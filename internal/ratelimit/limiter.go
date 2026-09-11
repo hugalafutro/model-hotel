@@ -167,9 +167,22 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			maxWait := time.Duration(l.settings.GetInt(r.Context(), settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 
+			// The reservations, the delay reads and the cancellations on the
+			// two reject paths share this one instant. The abandoned path
+			// takes a fresh one, for the reason given there. A refund is honoured only while the
+			// reservation's activation time has not passed, and a reservation
+			// taken for immediate use activates at the instant it was taken, so
+			// reading the clock again at cancel time turns the zero-delay
+			// hand-backs into silent no-ops: the owner token next to a per-key
+			// rejection, and whichever stage did not force the wait on the
+			// over-max_wait path. Both reject without waiting, so cancelling at
+			// this instant rewinds the bucket clock by nothing measurable.
+			// admitUserTPM pins for the same reason.
+			now := time.Now()
+
 			var userRes *rate.Reservation
 			if userEntry != nil {
-				userRes = userEntry.limiter.Reserve()
+				userRes = userEntry.limiter.ReserveN(now, 1)
 				if !userRes.OK() {
 					userEntry.noteRejected(userKey)
 					writeRateLimitHeaders(w, userEntry.limiter, 0, "")
@@ -178,10 +191,10 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				}
 			}
 
-			reservation := entry.limiter.Reserve()
+			reservation := entry.limiter.ReserveN(now, 1)
 			if !reservation.OK() {
 				if userRes != nil {
-					userRes.Cancel()
+					userRes.CancelAt(now)
 				}
 				entry.noteRejected(keyHash)
 				writeRateLimitHeaders(w, entry.limiter, 0, "")
@@ -189,11 +202,11 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				return
 			}
 
-			delay := reservation.Delay()
+			delay := reservation.DelayFrom(now)
 			limitedBy := entry
 			limitedKey := keyHash
 			if userRes != nil {
-				if ud := userRes.Delay(); ud > delay {
+				if ud := userRes.DelayFrom(now); ud > delay {
 					delay = ud
 					limitedBy = userEntry
 					limitedKey = userKey
@@ -206,10 +219,25 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				// no-delay serve below closes it).
 				if delay <= maxWait {
 					if !waitOrCancel(ctx, delay) {
-						// Client left during the wait: give the budget back.
-						reservation.Cancel()
+						// Client left during the wait: give the budget back,
+						// at a fresh instant rather than the pinned one. A
+						// refund rewinds the bucket's clock to the instant it
+						// is made, so refunding at the pinned instant would
+						// re-credit the whole elapsed wait to every later
+						// request, and a client that abandons in a loop could
+						// inflate the bucket. The stage that forced the wait
+						// still gets its token back, since its reservation
+						// activates around now, though a wait that elapsed
+						// before the client's departure was noticed can leave
+						// even that one behind. A stage gets its token back
+						// only while its own reservation is still ahead of this
+						// instant, so a stage that was ready to serve keeps
+						// one: a bounded over-charge, taken deliberately over
+						// an unbounded under-charge.
+						left := time.Now()
+						reservation.CancelAt(left)
 						if userRes != nil {
-							userRes.Cancel()
+							userRes.CancelAt(left)
 						}
 						return
 					}
@@ -219,9 +247,9 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				}
 				// Wait exceeds max_wait — cancel the reservations and reject,
 				// reporting whichever stage forced the longer wait.
-				reservation.Cancel()
+				reservation.CancelAt(now)
 				if userRes != nil {
-					userRes.Cancel()
+					userRes.CancelAt(now)
 				}
 				limitedBy.noteRejected(limitedKey)
 				writeRateLimitHeaders(w, limitedBy.limiter, delay, "")

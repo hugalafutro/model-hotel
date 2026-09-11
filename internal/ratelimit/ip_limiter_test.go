@@ -1050,3 +1050,50 @@ func TestIPLimiter_BackpressureCancelledRequestReturnsBudget(t *testing.T) {
 		t.Fatalf("request after cancel: code=%d served=%d, want 200 and 2", rr.Code, served)
 	}
 }
+
+// TestIPLimiter_ClientLeftDuringWaitRefundsToken asserts on the IP bucket's
+// token count after a client abandons a request mid-backpressure. Status codes
+// say nothing here: the abandoned request never writes one, so only the token
+// count shows that its reservation was handed back, and only this assertion
+// fails if the hand-back is ever dropped.
+func TestIPLimiter_ClientLeftDuringWaitRefundsToken(t *testing.T) {
+	lim := NewIPLimiter(1, 1, nil, ipSettingsWithBackpressure(5000))
+	defer lim.Stop()
+
+	served := 0
+	handler := lim.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		served++
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	req.RemoteAddr = "7.7.7.7:1234"
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, req)
+	if rr.Code != http.StatusOK {
+		t.Fatalf("first request: expected 200, got %d", rr.Code)
+	}
+
+	// The single token is spent, so this one waits a second. Its client is
+	// already gone, so the middleware must give the reservation back.
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	req = httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody).WithContext(ctx)
+	req.RemoteAddr = "7.7.7.7:1234"
+	start := time.Now()
+	handler.ServeHTTP(httptest.NewRecorder(), req)
+	if served != 1 {
+		t.Fatalf("abandoned request reached the handler (served=%d)", served)
+	}
+	if time.Since(start) > 500*time.Millisecond {
+		t.Fatal("abandoned request waited out the delay instead of returning")
+	}
+
+	entry, ok := lim.limiters["7.7.7.7"]
+	if !ok {
+		t.Fatal("IP bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got < -0.05 || got > 0.5 {
+		t.Errorf("IP bucket = %.2f tokens, want about 0: the abandoned request kept its token", got)
+	}
+}
