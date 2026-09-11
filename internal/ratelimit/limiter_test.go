@@ -1617,7 +1617,7 @@ func TestMiddleware_PerKeyRejectRefundsOwnerToken(t *testing.T) {
 	if !ok {
 		t.Fatal("key bucket missing")
 	}
-	if got := key.limiter.Tokens(); got < -0.5 {
+	if got := key.limiter.Tokens(); got < -0.5 || got > 0.5 {
 		t.Errorf("key bucket = %.2f tokens, want about 0: the refusals kept their own key tokens", got)
 	}
 }

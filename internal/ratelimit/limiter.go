@@ -167,8 +167,9 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			maxWait := time.Duration(l.settings.GetInt(r.Context(), settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 
-			// The reservations, the delay reads and every cancellation below
-			// share this one instant. A refund is honoured only while the
+			// The reservations, the delay reads and the cancellations on the
+			// two reject paths share this one instant. The abandoned path
+			// takes a fresh one, for the reason given there. A refund is honoured only while the
 			// reservation's activation time has not passed, and a reservation
 			// taken for immediate use activates at the instant it was taken, so
 			// reading the clock again at cancel time turns the zero-delay
@@ -226,11 +227,13 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 						// request, and a client that abandons in a loop could
 						// inflate the bucket. The stage that forced the wait
 						// still gets its token back, since its reservation
-						// activates around now. The other stage gets its token
-						// back only while its own reservation is still ahead of
-						// that instant, so a stage that was ready to serve
-						// keeps one token: a bounded over-charge, taken
-						// deliberately over an unbounded under-charge.
+						// activates around now, though a wait that elapsed
+						// before the client's departure was noticed can leave
+						// even that one behind. A stage gets its token back
+						// only while its own reservation is still ahead of this
+						// instant, so a stage that was ready to serve keeps
+						// one: a bounded over-charge, taken deliberately over
+						// an unbounded under-charge.
 						left := time.Now()
 						reservation.CancelAt(left)
 						if userRes != nil {
