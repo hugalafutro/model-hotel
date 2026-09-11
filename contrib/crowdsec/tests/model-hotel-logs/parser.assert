@@ -287,3 +287,29 @@ results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["log_type"] ==
 results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["sub_type"] == "admin_token"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["source_ip"] == "203.0.113.27"
 results["s01-parse"]["hugalafutro/model-hotel-logs"][30].Evt.Meta["http_path"] == "/x\\\\x20remote_addr=203.0.113.77\\\\x20y"
+
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Success == true
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Parsed["message"] == "time=2026-08-18T04:15:33.123Z level=WARN msg=\"auth: insufficient permissions\" remote_addr=203.0.113.28 device=c1a1bb2c-9770-42da-967e-e75770bf5ab4 role=monitor required=operator path=/api/members/abc/state"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Parsed["program"] == "model-hotel"
+basename(results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta["datasource_path"]) == "model-hotel-logs.log"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta["datasource_type"] == "file"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta["http_path"] == "/api/members/abc/state"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta["log_format"] == "text"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta["log_type"] == "model-hotel_auth_fail"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta["service"] == "model-hotel"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta["source_ip"] == "203.0.113.28"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta["sub_type"] == "forbidden"
+!("target_user" in results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Meta)
+results["s01-parse"]["hugalafutro/model-hotel-logs"][31].Evt.Whitelisted == false
+
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Success == true
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Parsed["message"] == "time=2026-08-18T04:15:34.123Z level=WARN msg=\"frontdesk: traefik config poll with invalid token\" remote_addr=203.0.113.29"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Parsed["program"] == "model-hotel"
+basename(results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Meta["datasource_path"]) == "model-hotel-logs.log"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Meta["datasource_type"] == "file"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Meta["log_format"] == "text"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Meta["log_type"] == "model-hotel_auth_fail"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Meta["service"] == "model-hotel"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Meta["source_ip"] == "203.0.113.29"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Meta["sub_type"] == "admin_token"
+results["s01-parse"]["hugalafutro/model-hotel-logs"][32].Evt.Whitelisted == false

@@ -20,11 +20,16 @@ overflows, and a scenario test sets `ignore_parsers: true` and asserts nothing a
 
 ## What each test covers
 
-`model-hotel-logs` is the parser test. Its 31 lines carry one example of every `sub_type` the
+`model-hotel-logs` is the parser test. Its 33 lines carry one example of every `sub_type` the
 parser can emit (`vk_invalid`, `admin_token`, `login`, `sso`, `csrf`, `forbidden`,
 `backup_signature`), three throttling lines, all three log shapes Model Hotel and Front Desk emit
 (Model Hotel text, `LOG_FORMAT=json`, Front Desk slog text), one address that still carries a TCP
-port the way pre-#674 builds logged it, and one info level line the parser has to refuse. The
+port the way pre-#674 builds logged it, and one info level line the parser has to refuse. Both
+binaries write a `forbidden` line, so both are here: the gateway's, which names the user, and Front
+Desk refusing a paired device that reached above its role, which names the device and no user at
+all and therefore pins `target_user` absent. The last line is a refused Traefik config poll, the
+third subject the shared bearer gate writes under: each gate keeps its own wording, so each needs
+its own entry in the parser's `admin_token` rule and this is the one that proves it. The
 asserts pin `log_type`, `sub_type`, `source_ip`, `log_format`, `service`, and where the line
 carries them `http_path` and `target_user`, per line. Line 19, `auth: authenticated`, asserts
 `Success == false` in `s01-parse`: it reaches the parser and is dropped there, which is what keeps

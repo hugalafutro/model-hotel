@@ -87,11 +87,17 @@ nodes:
       - meta: sub_type
         value: vk_invalid
 
-  # A request to the admin API, the metrics endpoint or the restore endpoint
-  # with a missing or wrong admin token. The two "auth: admin request …"
-  # messages come from both binaries: the gateway's admin middleware and the
-  # shared admin-or-session gate that fronts Front Desk's whole control plane.
-  - filter: 'evt.Parsed.mh_body startsWith "auth: admin request with invalid token" || evt.Parsed.mh_body startsWith "auth: admin request missing bearer token" || evt.Parsed.mh_body startsWith "auth: metrics scrape with invalid token" || evt.Parsed.mh_body startsWith "auth: metrics scrape missing bearer token" || evt.Parsed.mh_body startsWith "auth: backup restore with invalid admin token" || evt.Parsed.mh_body startsWith "auth: backup restore with missing admin token" || evt.Parsed.mh_body startsWith "frontdesk: metrics scrape with invalid token" || evt.Parsed.mh_body startsWith "frontdesk: metrics scrape missing bearer token"'
+  # A request to the admin API, the metrics endpoint, the restore endpoint or
+  # Front Desk's Traefik config endpoint with a missing or wrong token. The two
+  # "auth: admin request …" messages come from both binaries: the gateway's
+  # admin middleware and the shared admin-or-session gate that fronts Front
+  # Desk's whole control plane. Three of the pairs after them are the shared
+  # bearer gate (adminauth.BearerTokenGate) under its three subjects: the
+  # gateway's metrics scrape, Front Desk's metrics scrape and Front Desk's
+  # Traefik config poll. Each subject keeps its own wording, so a new gate means
+  # a new pair here. The backup restore pair is not that gate; it is the restore
+  # endpoint checking the admin token itself (internal/api/backup_restore.go).
+  - filter: 'evt.Parsed.mh_body startsWith "auth: admin request with invalid token" || evt.Parsed.mh_body startsWith "auth: admin request missing bearer token" || evt.Parsed.mh_body startsWith "auth: metrics scrape with invalid token" || evt.Parsed.mh_body startsWith "auth: metrics scrape missing bearer token" || evt.Parsed.mh_body startsWith "auth: backup restore with invalid admin token" || evt.Parsed.mh_body startsWith "auth: backup restore with missing admin token" || evt.Parsed.mh_body startsWith "frontdesk: metrics scrape with invalid token" || evt.Parsed.mh_body startsWith "frontdesk: metrics scrape missing bearer token" || evt.Parsed.mh_body startsWith "frontdesk: traefik config poll with invalid token" || evt.Parsed.mh_body startsWith "frontdesk: traefik config poll missing bearer token"'
     statics:
       - meta: log_type
         value: model-hotel_auth_fail
