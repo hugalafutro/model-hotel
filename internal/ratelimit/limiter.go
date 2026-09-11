@@ -167,9 +167,19 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			maxWait := time.Duration(l.settings.GetInt(r.Context(), settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 
+			// Every reservation and cancellation below is pinned to this one
+			// instant. x/time/rate's CancelAt only hands tokens back while the
+			// reservation's timeToAct is not before the cancel time, and a
+			// reservation the caller means to act on immediately has
+			// timeToAct == the instant it was taken. Reading the clock again at
+			// cancel time would make that instant earlier than the cancel and
+			// turn every hand-back below into a silent no-op — the same hazard
+			// the TPM limiter pins against.
+			now := time.Now()
+
 			var userRes *rate.Reservation
 			if userEntry != nil {
-				userRes = userEntry.limiter.Reserve()
+				userRes = userEntry.limiter.ReserveN(now, 1)
 				if !userRes.OK() {
 					userEntry.noteRejected(userKey)
 					writeRateLimitHeaders(w, userEntry.limiter, 0, "")
@@ -178,10 +188,10 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				}
 			}
 
-			reservation := entry.limiter.Reserve()
+			reservation := entry.limiter.ReserveN(now, 1)
 			if !reservation.OK() {
 				if userRes != nil {
-					userRes.Cancel()
+					userRes.CancelAt(now)
 				}
 				entry.noteRejected(keyHash)
 				writeRateLimitHeaders(w, entry.limiter, 0, "")
@@ -189,11 +199,11 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				return
 			}
 
-			delay := reservation.Delay()
+			delay := reservation.DelayFrom(now)
 			limitedBy := entry
 			limitedKey := keyHash
 			if userRes != nil {
-				if ud := userRes.Delay(); ud > delay {
+				if ud := userRes.DelayFrom(now); ud > delay {
 					delay = ud
 					limitedBy = userEntry
 					limitedKey = userKey
@@ -207,9 +217,9 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				if delay <= maxWait {
 					if !waitOrCancel(ctx, delay) {
 						// Client left during the wait: give the budget back.
-						reservation.Cancel()
+						reservation.CancelAt(now)
 						if userRes != nil {
-							userRes.Cancel()
+							userRes.CancelAt(now)
 						}
 						return
 					}
@@ -219,9 +229,9 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				}
 				// Wait exceeds max_wait — cancel the reservations and reject,
 				// reporting whichever stage forced the longer wait.
-				reservation.Cancel()
+				reservation.CancelAt(now)
 				if userRes != nil {
-					userRes.Cancel()
+					userRes.CancelAt(now)
 				}
 				limitedBy.noteRejected(limitedKey)
 				writeRateLimitHeaders(w, limitedBy.limiter, delay, "")

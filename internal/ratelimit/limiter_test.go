@@ -1562,3 +1562,50 @@ func TestMiddleware_BackpressureCancelledRequestReturnsUserBudget(t *testing.T) 
 		t.Fatalf("request after cancel: code=%d served=%d, want 200 and 2", rr.Code, served)
 	}
 }
+
+// TestMiddleware_PerKeyRejectRefundsOwnerToken asserts on the owner bucket's
+// token count, not just on status codes: the cancellation that hands the owner
+// token back is invisible to a code-only assertion until the aggregate bucket
+// runs dry, so a leak there survives every test that only reads 429s.
+//
+// One request is served and eleven are rejected by the per-key stage, so the
+// owner's 50-token budget must be down by exactly the one served request.
+func TestMiddleware_PerKeyRejectRefundsOwnerToken(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	// Per-key stage: one token, no refill inside the test, no tolerance to
+	// wait — every request after the first is rejected there.
+	repo.set(settingsKeyRPS, "0.001")
+	repo.set(settingsKeyBurst, "1")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	// Owner budget far larger than the per-key one and effectively static
+	// (0.001 RPS refills nothing over a test), so the only thing that moves
+	// its token count is the middleware.
+	served, rejected := 0, 0
+	for range 12 {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, ownedRPSReq("key-a", "uid-1", 0.001, 50))
+		if rr.Code == http.StatusOK {
+			served++
+		} else {
+			rejected++
+		}
+	}
+	if served != 1 || rejected != 11 {
+		t.Fatalf("served=%d rejected=%d, want 1 served and 11 rejected by the per-key stage", served, rejected)
+	}
+
+	entry, ok := lim.limiters["user:uid-1"]
+	if !ok {
+		t.Fatal("owner bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got < 48.5 {
+		t.Errorf("owner bucket = %.2f tokens, want ~49: the %d rejected requests kept their owner tokens", got, rejected)
+	}
+}

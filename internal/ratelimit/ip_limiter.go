@@ -132,7 +132,12 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		ip := clientip.Resolve(r, l.trustedProxies)
 		entry := l.getLimiter(r.Context(), ip)
 
-		reservation := entry.limiter.Reserve()
+		// Pinned instant: CancelAt only restores tokens while the reservation's
+		// timeToAct is not before the cancel time, so a hand-back that reads the
+		// clock again can silently keep the token (see the same pinning in the
+		// key/owner limiter and the TPM limiter).
+		now := time.Now()
+		reservation := entry.limiter.ReserveN(now, 1)
 		if !reservation.OK() {
 			entry.noteRejected(ip)
 			writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
@@ -140,7 +145,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			return
 		}
 
-		delay := reservation.Delay()
+		delay := reservation.DelayFrom(now)
 		if delay > 0 {
 			// Graceful backpressure: if the wait is within the configured max_wait,
 			// sleep and proceed instead of rejecting immediately. The IP is still
@@ -153,7 +158,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			if delay <= maxWait {
 				if !waitOrCancel(r.Context(), delay) {
 					// Client left during the wait: give the budget back.
-					reservation.Cancel()
+					reservation.CancelAt(now)
 					return
 				}
 				writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
@@ -161,7 +166,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 				return
 			}
 			// Wait exceeds max_wait - cancel the reservation and reject.
-			reservation.Cancel()
+			reservation.CancelAt(now)
 			entry.noteRejected(ip)
 			writeRateLimitHeaders(w, entry.limiter, delay, ipLogLabel)
 			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
