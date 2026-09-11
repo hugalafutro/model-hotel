@@ -134,10 +134,10 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 
 		// Refuse before reserving when the bucket already says the wait is past
 		// the ceiling, so a refusal costs the IP nothing: see peekWait for what
-		// the reserve-then-cancel route costs instead. The reading can be stale
-		// by the time the reservation below is taken, which is the case the
-		// cancel on the over-max_wait path still covers. The zero test keeps the
-		// settings read off the path of a request the bucket can serve outright.
+		// the reserve-then-cancel route costs instead, and for what a reading
+		// that goes stale before the reservation below still leaves behind. The
+		// zero test keeps the settings read off the path of a request the
+		// bucket can serve outright.
 		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > l.maxWait(r.Context()) {
 			entry.noteRejected(ip)
 			writeRateLimitHeaders(w, entry.limiter, wait, ipLogLabel)

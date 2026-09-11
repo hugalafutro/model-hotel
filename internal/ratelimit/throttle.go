@@ -156,6 +156,15 @@ func bucketRate(rps float64, burst int) (float64, int) {
 // bucket sinks far below empty, throttling the identity long after the flood
 // has stopped. A read leaves the bucket where it was.
 //
+// It narrows the debt rather than abolishing it. Requests that read the bucket
+// in the same few instructions all see the same free token, reserve, and cancel
+// each other's refunds as before, so what survives is bounded by that window
+// instead of by the size of the flood.
+//
+// A read can only be more pessimistic than the reservation it stands in for,
+// and only by a token another request handed back in between, so a refusal it
+// decides is one the bucket could not have served an instant earlier.
+//
 // A bucket that can never hand out a token (burst below one) reports no wait,
 // because no amount of waiting would help and the reservation path already
 // refuses it, free of charge and without promising a retry time.

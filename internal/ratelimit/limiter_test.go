@@ -1771,7 +1771,7 @@ func TestMiddleware_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
 		w.WriteHeader(http.StatusOK)
 	}))
 
-	const flood = 200
+	const flood = 2000
 	start := make(chan struct{})
 	var wg sync.WaitGroup
 	for range flood {
@@ -1789,7 +1789,11 @@ func TestMiddleware_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
 	if !ok {
 		t.Fatal("key bucket missing")
 	}
-	if got := entry.limiter.Tokens(); got < -1 {
-		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want no worse than -1: a refusal must cost nothing", got, flood)
+	// The slack is for the requests that read the bucket in the same few
+	// instructions and still reserve and cancel each other's refunds; that
+	// window holds a handful, where refusing by reservation put the whole
+	// refused crowd in debt (measured between -15 and -282 on this flood).
+	if got := entry.limiter.Tokens(); got < -5 {
+		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want no worse than -5: refusals must not scale into debt", got, flood)
 	}
 }

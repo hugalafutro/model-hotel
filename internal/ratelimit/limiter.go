@@ -191,9 +191,12 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// Refuse before reserving when the buckets already say the wait is
 			// past the ceiling, so a refusal costs the identity nothing: see
 			// peekWait for what the reserve-then-cancel route costs instead.
-			// The reading can be stale by the time the reservations below are
-			// taken, which is the case the cancels on the over-max_wait path
-			// still cover.
+			// A reading can go stale before the reservations below are taken,
+			// and a request that slips through then cancels on the
+			// over-max_wait path, which hands its token back only if no other
+			// slipped-through request reserved in between. So this narrows the
+			// debt to what fits in a window a few instructions wide rather than
+			// abolishing it; what is left no longer grows with the flood.
 			if peeked, by, id := peekAdmission(entry, keyHash, userEntry, userKey, now); peeked > maxWait {
 				reject(by, id, peeked)
 				return
