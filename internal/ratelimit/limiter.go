@@ -167,14 +167,14 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 
 			maxWait := time.Duration(l.settings.GetInt(r.Context(), settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 
-			// Every reservation and cancellation below is pinned to this one
-			// instant. x/time/rate's CancelAt only hands tokens back while the
-			// reservation's timeToAct is not before the cancel time, and a
-			// reservation the caller means to act on immediately has
-			// timeToAct == the instant it was taken. Reading the clock again at
-			// cancel time would make that instant earlier than the cancel and
-			// turn every hand-back below into a silent no-op — the same hazard
-			// the TPM limiter pins against.
+			// The reservations, the delay reads and every cancellation below
+			// share this one instant. A refund is honoured only while the
+			// reservation's activation time has not passed, and a reservation
+			// taken for immediate use activates at the instant it was taken, so
+			// reading the clock again at cancel time turns the zero-delay
+			// hand-backs into silent no-ops: the owner token next to a per-key
+			// rejection, and whichever stage did not force the wait on the
+			// abandoned and over-max_wait paths. admitUserTPM pins for this.
 			now := time.Now()
 
 			var userRes *rate.Reservation

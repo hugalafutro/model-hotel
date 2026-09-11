@@ -1568,8 +1568,9 @@ func TestMiddleware_BackpressureCancelledRequestReturnsUserBudget(t *testing.T) 
 // token back is invisible to a code-only assertion until the aggregate bucket
 // runs dry, so a leak there survives every test that only reads 429s.
 //
-// One request is served and eleven are rejected by the per-key stage, so the
-// owner's 50-token budget must be down by exactly the one served request.
+// One request is served and eleven are rejected by the per-key stage, which
+// refuses them for wanting a wait longer than max_wait, so the owner's
+// 50-token budget must be down by exactly the one served request.
 func TestMiddleware_PerKeyRejectRefundsOwnerToken(t *testing.T) {
 	lim, repo := newTestLimiter()
 	defer lim.Stop()
@@ -1605,7 +1606,7 @@ func TestMiddleware_PerKeyRejectRefundsOwnerToken(t *testing.T) {
 	if !ok {
 		t.Fatal("owner bucket missing")
 	}
-	if got := entry.limiter.Tokens(); got < 48.9 {
+	if got := entry.limiter.Tokens(); got < 48.9 || got > 49.1 {
 		t.Errorf("owner bucket = %.2f tokens, want ~49: the %d rejected requests kept their owner tokens", got, rejected)
 	}
 }
@@ -1655,7 +1656,52 @@ func TestMiddleware_ClientLeftDuringWaitRefundsKeyToken(t *testing.T) {
 	if !ok {
 		t.Fatal("key bucket missing")
 	}
-	if got := entry.limiter.Tokens(); got < 48.9 {
+	if got := entry.limiter.Tokens(); got < 48.9 || got > 49.1 {
 		t.Errorf("key bucket = %.2f tokens, want ~49: the abandoned request kept its key token", got)
+	}
+	// The owner reservation is handed back on the same path. Its bucket refills
+	// at 1 RPS from the token the first request spent, so the assertion only
+	// demands that the abandoned request left something behind.
+	owner, ok := lim.limiters["user:uid-left"]
+	if !ok {
+		t.Fatal("owner bucket missing")
+	}
+	if got := owner.limiter.Tokens(); got < 0 {
+		t.Errorf("owner bucket = %.2f tokens, want no debt: the abandoned request kept its owner token", got)
+	}
+}
+
+// TestMiddleware_ZeroBurstRejectRefundsOwnerToken covers the defence-in-depth
+// branch: a per-key bucket whose burst is 0 refuses the reservation outright
+// rather than handing back a wait, and the owner token taken a few lines
+// earlier has to survive that. Every write path enforces a burst of at least
+// one, so only a hand-edited setting reaches this.
+func TestMiddleware_ZeroBurstRejectRefundsOwnerToken(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "0.001")
+	repo.set(settingsKeyBurst, "0")
+	repo.set(settingsKeyMaxWaitMs, "0")
+
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	rr := httptest.NewRecorder()
+	handler.ServeHTTP(rr, ownedRPSReq("key-zero", "uid-zero", 0.001, 50))
+	if rr.Code != http.StatusTooManyRequests {
+		t.Fatalf("zero-burst key: expected 429, got %d", rr.Code)
+	}
+	if body := rr.Body.String(); strings.Contains(body, "user rate limit") {
+		t.Fatalf("expected the per-key stage to reject, got %q", body)
+	}
+
+	entry, ok := lim.limiters["user:uid-zero"]
+	if !ok {
+		t.Fatal("owner bucket missing")
+	}
+	if got := entry.limiter.Tokens(); got < 49.9 || got > 50.1 {
+		t.Errorf("owner bucket = %.2f tokens, want ~50: the rejected request kept its owner token", got)
 	}
 }
