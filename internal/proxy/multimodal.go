@@ -190,7 +190,12 @@ const passthroughSSETailCap = 64 << 10 // 64KB
 // buffered JSON (headers received, body about to be read), and at the first
 // body byte for streamed responses, so a provider that returns 200 and then
 // produces nothing records a breaker failure instead of a success.
-func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64) {
+//
+// That commit point is also the last moment another candidate can be asked, so
+// a 2xx whose body never arrives returns outcomeFailover while hasMoreCandidates
+// holds, exactly as the chat path's does, instead of ending the loop with this
+// gateway's 502 and a healthy sibling never contacted.
+func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64, hasMoreCandidates bool) candidateOutcome {
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection,
 		// unless the client already disconnected.
@@ -216,10 +221,9 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	isJSON := !isSSE && (strings.Contains(contentType, "json") || st.logData.endpointType == endpointTypeEmbeddings)
 
 	if isJSON {
-		h.serveBufferedJSONPassthrough(w, r, st, candidate, resp, contentType, attempt, responseHeaderMs)
-		return
+		return h.serveBufferedJSONPassthrough(w, r, st, candidate, resp, contentType, attempt, responseHeaderMs, hasMoreCandidates)
 	}
-	h.serveStreamedPassthrough(w, r, st, candidate, resp, contentType, isSSE, attempt, responseHeaderMs)
+	return h.serveStreamedPassthrough(w, r, st, candidate, resp, contentType, isSSE, attempt, responseHeaderMs, hasMoreCandidates)
 }
 
 // serveBufferedJSONPassthrough handles the application/json shape: bounded
@@ -227,8 +231,9 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 // circuit breaker commits only once the buffered read succeeds, so a 200 whose
 // body dies mid-read records a failure rather than a success, and response
 // headers are written only after that point, leaving the read-error path free to
-// emit a clean OpenAI error response.
-func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, attempt int, responseHeaderMs float64) {
+// fail over to a sibling, or on the last candidate to emit a clean OpenAI error
+// response.
+func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, attempt int, responseHeaderMs float64, hasMoreCandidates bool) candidateOutcome {
 	logData := st.logData
 
 	body, err := io.ReadAll(io.LimitReader(resp.Body, passthroughJSONBufferCap+1))
@@ -237,13 +242,21 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// under the attempt's context, so a caller hanging up and this gateway's
 		// own request_timeout both surface here as a failed read, and neither is
 		// the provider's doing. cancelKind is the package's classifier for that.
-		if _, aborted := cancelKind(r.Context(), err); !aborted {
+		_, aborted := cancelKind(r.Context(), err)
+		// Nothing has been written to the client yet, so while a sibling remains
+		// this is failed over rather than answered. An interrupted read is
+		// excluded there too: nobody is waiting for the answer a second provider
+		// would produce. Same rule, same shared outcome, as the chat path.
+		if hasMoreCandidates && !aborted {
+			return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", resp.StatusCode, err, attempt, r)
+		}
+		if !aborted {
 			h.chargeBreaker(st, candidate, resp.StatusCode, "upstream body read failed")
 		}
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", err))
 		writeOpenAIError(w, "failed to read upstream response", http.StatusBadGateway)
-		return
+		return outcomeFatal
 	}
 	// The commit point is where the model has proved it is alive, so it is where
 	// its gone-strike streak stops being current. Without it "three CONSECUTIVE
@@ -297,6 +310,15 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// chat completion that answers 204 has by definition produced no
 		// completion.
 	default:
+		// An answer carrying nothing goes to the sibling while there is one, the
+		// rule the chat path applies through completionFault, reached here on the
+		// only pass-through family whose body can be judged (an embeddings `200
+		// {"data":[]}`; passthroughAnswered says why the others cannot be). The
+		// reject path carries the same charge, so this is that verdict reached one
+		// candidate earlier, and nothing has been written to the client yet.
+		if hasMoreCandidates {
+			return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", resp.StatusCode, errEmptyCompletion, attempt, r)
+		}
 		h.chargeBreaker(st, candidate, resp.StatusCode, "response completed without delivering content")
 	}
 	// Oversized is judged on the bytes read, before masking can shrink a
@@ -349,7 +371,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
 		estimated, _ := h.chargePassthroughUsage(st, 0, 0, answered)
 		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "estimated_prompt_tokens", estimated)
-		return
+		return outcomeServed
 	}
 
 	promptTokens, completionTokens := extractPassthroughUsage(body)
@@ -376,6 +398,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	// oversized branch does not size a response of vectors or base64 as text.
 	charged, estimatedPrompt := h.chargePassthroughUsage(st, promptTokens, completionTokens, answered)
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
+	return outcomeServed
 }
 
 // chargePassthroughUsage debits a completed pass-through request, estimating
@@ -427,10 +450,11 @@ func (h *Handler) chargePassthroughUsage(st *requestState, promptTokens, complet
 }
 
 // serveStreamedPassthrough handles SSE and binary shapes: probe the first body
-// byte before committing (a breaker failure on a dead 200, and a clean 502 since
-// no headers have been written), then stream through, flushing per write for SSE
-// only, while retaining an SSE tail for usage metering.
-func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, isSSE bool, attempt int, responseHeaderMs float64) {
+// byte before committing (a breaker failure on a dead 200, and a sibling or, on
+// the last candidate, a clean 502, since no headers have been written), then
+// stream through, flushing per write for SSE only, while retaining an SSE tail
+// for usage metering.
+func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, isSSE bool, attempt int, responseHeaderMs float64, hasMoreCandidates bool) candidateOutcome {
 	logData := st.logData
 
 	// Commit-point probe: a success whose body errors or ends before the first
@@ -442,13 +466,19 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	n, readErr := resp.Body.Read(firstByte)
 	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
+		// No headers have been written, so a sibling can still be asked, unless
+		// the attempt was interrupted rather than broken. Same rule and same
+		// shared outcome as the buffered twin above.
+		if hasMoreCandidates && r.Context().Err() == nil {
+			return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", resp.StatusCode, readErr, attempt, r)
+		}
 		if r.Context().Err() == nil {
 			h.chargeBreaker(st, candidate, resp.StatusCode, "upstream body read failed")
 		}
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
 		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "failed", fmt.Sprintf("upstream body read error: %v", readErr))
 		writeOpenAIError(w, "upstream produced no response data", http.StatusBadGateway)
-		return
+		return outcomeFatal
 	}
 	// Not for a bodiless success: see the buffered twin above for why crediting
 	// an empty 204 erases the chat path's charges on the same model.
@@ -534,11 +564,12 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		// audio/mpeg takes, where the SSE tail that would carry usage is never
 		// allocated, so the report is structurally always absent.
 		h.chargePassthroughUsage(st, promptTokens, completionTokens, written > 0)
-		return
+		return outcomeServed
 	}
 	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
 	charged, estimatedPrompt := h.chargePassthroughUsage(st, promptTokens, completionTokens, written > 0)
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
+	return outcomeServed
 }
 
 // copyPassthroughHeaders sets the upstream Content-Type and (when present)

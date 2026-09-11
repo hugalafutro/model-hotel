@@ -125,7 +125,7 @@ func TestHandleNonStreamingResponse_QuotedUsageStillAnswers(t *testing.T) {
 		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
 		state:          "pending",
 	}
-	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Hello, world!")
@@ -236,7 +236,7 @@ func TestHandleNonStreamingResponse_UnreadableUsageStillAnswers(t *testing.T) {
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 	logData := &requestLogData{modelID: "gpt-test", providerID: uuid.New(), virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "pending"}
 
-	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	assert.Contains(t, w.Body.String(), "Hello, world!")

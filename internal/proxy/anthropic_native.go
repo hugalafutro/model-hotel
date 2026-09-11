@@ -34,7 +34,13 @@ func (h *Handler) buildNativeAnthropicRequest(ctx context.Context, st *requestSt
 // response (any 2xx). The upstream body is already an Anthropic message, so it
 // is forwarded verbatim. Token usage is read from the Anthropic usage block for
 // metering and quota, mirroring handleNonStreamingResponse.
-func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Request, st *requestState, resp *http.Response, attempt int, responseHeaderMs float64) candidateOutcome {
+//
+// canFailOver says whether the group still has a candidate behind this one. A
+// success whose body never arrives is a request this provider did not serve,
+// so while a sibling can still be asked it is failed over to rather than
+// answered with this gateway's 502, the same rule the translated path applies
+// to a 2xx that is not a completion.
+func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64, canFailOver bool) candidateOutcome {
 	logData := st.logData
 	defer func() {
 		if r.Context().Err() == nil {
@@ -46,6 +52,13 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	body, err := httpx.ReadCappedBody(resp.Body, nonStreamingBodyCap)
 	if err != nil {
 		debuglog.Warn("proxy: native anthropic read failed", "error", err, "provider", logData.providerName)
+		// An interrupted read is excluded the same way the translated path
+		// excludes it: nobody is waiting for the answer a second provider would
+		// produce. Everything else goes to the sibling, charged or not by
+		// rejectUntranslatableBody's own rule.
+		if _, aborted := cancelKind(r.Context(), err); canFailOver && !aborted {
+			return h.rejectUntranslatableBody(st, candidate, logData, "native anthropic", resp.StatusCode, err, attempt, r)
+		}
 		// Finalize the log row so it does not orphan in the in-flight state. A
 		// read failure on a success body is a provider or transport fault,
 		// unless it was interrupted rather than broken, which cancelKind
@@ -84,6 +97,22 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	inputTokens, outputTokens, _ := h.clampReportedUsage(usage.PromptTokens, usage.CompletionTokens, 0, logData)
 	totalDuration := util.MillisSince(st.startTime)
 
+	// What clears the model's gone-strike streak (see dispatchNonStreaming), so the
+	// bar is content and not bytes: `200 {"content":[]}` is what an aggregator in
+	// front of a retired model returns between its refusals, and crediting it
+	// would stop the streak ever reaching three consecutive strikes. Tokens
+	// corroborate, for a provider that answers without reporting usage. Same
+	// judgement chatAnswerCarriesContent makes on the OpenAI-shaped path.
+	carriesContent := outputTokens > 0 || anthropic.ResponseCarriesContent(body)
+	// An answer carrying nothing goes to the sibling while there is one, the
+	// same rule and the same bar the translated path applies (completionFault).
+	// Above every stamp below, because a candidate the loop is about to leave
+	// must write neither a completed row nor a token charge for an answer the
+	// client will never see.
+	if canFailOver && !carriesContent {
+		return h.rejectUntranslatableBody(st, candidate, logData, "native anthropic", resp.StatusCode, errEmptyCompletion, attempt, r)
+	}
+
 	// The status the provider actually sent, not a flattened 200: a relay may
 	// answer a native message 201, and recording 200 would put a number in the
 	// request log that no upstream ever returned.
@@ -102,13 +131,6 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.tokensPromptCacheMiss = clampTokenCount(usage.CacheMissTokens)
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
-	// What clears the model's gone-strike streak (see attemptCandidate), so the
-	// bar is content and not bytes: `200 {"content":[]}` is what an aggregator in
-	// front of a retired model returns between its refusals, and crediting it
-	// would stop the streak ever reaching three consecutive strikes. Tokens
-	// corroborate, for a provider that answers without reporting usage. Same
-	// judgement chatAnswerCarriesContent makes on the OpenAI-shaped path.
-	carriesContent := outputTokens > 0 || anthropic.ResponseCarriesContent(body)
 	logData.deliveredContent = carriesContent
 	// The question the breaker asks of the same body: did anything come back.
 	// ResponseCarriesContent reads block PRESENCE, which is the native analogue

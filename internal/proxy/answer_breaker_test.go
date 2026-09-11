@@ -77,7 +77,7 @@ func TestHandleNonStreamingResponse_EmptyAnswerChargesTheBreaker(t *testing.T) {
 			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(tc.body)), Header: make(http.Header)}
 			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 
-			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 			h.recordAnswerOutcome(st, candidate, logData, 200)
 
 			charged := h.circuitBreaker.GetState(providerID, "") == failover.StateOpen
@@ -336,7 +336,7 @@ func TestHandleNonStreamingResponse_AnInterruptedReadIsNotCharged(t *testing.T) 
 			}
 			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)).WithContext(ctx)
 
-			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+			h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 			h.recordAnswerOutcome(st, candidate, logData, 200)
 
 			if logData.errorKind != tc.wantKind {
@@ -503,7 +503,7 @@ func TestHandleNonStreamingResponse_AnOversizedBodyIsNotTheProvidersFault(t *tes
 		strings.Repeat("x", nonStreamingBodyCap) + `"}}]}`
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(huge)), Header: make(http.Header)}
 
-	h.handleNonStreamingResponse(httptest.NewRecorder(), withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if logData.errorKind != KindProviderBadRequest {
@@ -553,7 +553,7 @@ func TestServeBufferedJSONPassthrough_EmptyEmbeddingsChargesTheBreaker(t *testin
 			}
 			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(tc.body)), Header: make(http.Header)}
 
-			h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, candidate, resp, "application/json", 1, 5)
+			h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, candidate, resp, "application/json", 1, 5, false)
 
 			charged := h.circuitBreaker.GetState(providerID, candidate.model.ModelID) == failover.StateOpen
 			if charged != tc.wantCharge {
@@ -591,7 +591,7 @@ func TestServeBufferedJSONPassthrough_AClientHangingUpIsNotCharged(t *testing.T)
 	cancel()
 	req := httptest.NewRequest("POST", "/v1/embeddings", http.NoBody).WithContext(ctx)
 
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5)
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5, false)
 
 	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("an abandoned pass-through read was charged to the provider")
@@ -754,7 +754,7 @@ func TestHandleNonStreamingResponse_ABodyThatDiedOnTheWireIsCharged(t *testing.T
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(body), Header: make(http.Header)}
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 
-	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if logData.errorKind != KindProviderError {
@@ -795,7 +795,7 @@ func TestServeBufferedJSONPassthrough_AnEmptyBodilessSuccessIsANoOp(t *testing.T
 	}
 	resp := &http.Response{StatusCode: http.StatusNoContent, Body: io.NopCloser(bytes.NewBufferString("")), Header: make(http.Header)}
 
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, candidate, resp, "application/json", 1, 5)
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, candidate, resp, "application/json", 1, 5, false)
 
 	// The earlier failure must still be on the clock: at threshold 2 a second
 	// one opens the circuit, which it cannot do if the 204 credited a success.
@@ -825,7 +825,7 @@ func TestServeBufferedJSONPassthrough_AnAbandonedRequestIsNotCharged(t *testing.
 	cancel()
 	req := httptest.NewRequest("POST", "/v1/embeddings", http.NoBody).WithContext(ctx)
 
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5)
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), req, st, candidate, resp, "application/json", 1, 5, false)
 
 	if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
 		t.Error("an abandoned pass-through request was charged to the provider")
@@ -948,7 +948,7 @@ func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t 
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(body), Header: make(http.Header)}
 	w := httptest.NewRecorder()
 
-	h.handleNonStreamingResponse(w, withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(w, withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)), logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 	h.recordAnswerOutcome(st, candidate, logData, 200)
 
 	if !strings.Contains(w.Body.String(), "hello") {
@@ -992,7 +992,7 @@ func TestHandleNativeNonStreaming_AnInterruptedReadIsClassified(t *testing.T) {
 			}
 			req := httptest.NewRequest("POST", "/v1/messages", http.NoBody).WithContext(ctx)
 
-			h.handleNativeNonStreaming(httptest.NewRecorder(), req, st, resp, 1, 5)
+			h.handleNativeNonStreaming(httptest.NewRecorder(), req, st, modelCandidate{}, resp, 1, 5, false)
 
 			if logData.errorKind != tc.wantKind {
 				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
@@ -1055,7 +1055,7 @@ func TestPassthrough_TheCreditLandsOnTheModelItServed(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(embeddingsAnswer)), Header: make(http.Header)}
 			},
 			serve: func(h *Handler, st *requestState, cand modelCandidate, resp *http.Response) {
-				h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, resp, "application/json", 1, 5)
+				h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, resp, "application/json", 1, 5, false)
 			},
 		},
 		{
@@ -1068,7 +1068,7 @@ func TestPassthrough_TheCreditLandsOnTheModelItServed(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusBadRequest, Body: io.NopCloser(bytes.NewBufferString(`{"error":{"message":"bad input"}}`)), Header: make(http.Header)}
 			},
 			serve: func(h *Handler, st *requestState, cand modelCandidate, resp *http.Response) {
-				h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, resp, "application/json", 1, 5)
+				h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, cand, resp, "application/json", 1, 5, false)
 			},
 		},
 		{
@@ -1077,7 +1077,7 @@ func TestPassthrough_TheCreditLandsOnTheModelItServed(t *testing.T) {
 				return &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("data: {\"type\":\"x\"}\n\n")), Header: make(http.Header)}
 			},
 			serve: func(h *Handler, st *requestState, cand modelCandidate, resp *http.Response) {
-				h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody), st, cand, resp, "text/event-stream", true, 1, 5)
+				h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody), st, cand, resp, "text/event-stream", true, 1, 5, false)
 			},
 		},
 	} {
@@ -1127,7 +1127,7 @@ func TestServeStreamedPassthrough_ADeadBodyChargesTheModelItAskedFor(t *testing.
 	}
 
 	h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody),
-		passthroughState(providerID), cand, resp, "audio/mpeg", false, 1, 5)
+		passthroughState(providerID), cand, resp, "audio/mpeg", false, 1, 5, false)
 
 	if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got != failover.StateOpen {
 		t.Errorf("the model's circuit is %v, want open: a dead 200 was charged somewhere else", got)

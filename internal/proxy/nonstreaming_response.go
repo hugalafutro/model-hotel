@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log/slog"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -94,7 +96,7 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 // request and the cap carries that much more headroom.
 const nonStreamingBodyCap = 32 << 20 // 32MB
 
-func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, proxyOverhead, parseMs float64, timings resolveTimings, responseHeaderMs float64, vkHash string, attempt int) {
+func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, ans nonStreamingAnswer, startTime time.Time, proxyOverhead, parseMs float64, timings resolveTimings, responseHeaderMs float64, vkHash string, attempt int) {
 	defer func() {
 		if r.Context().Err() == nil {
 			_, _ = io.Copy(io.Discard, resp.Body)
@@ -105,21 +107,13 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 
 	w.Header().Set("Content-Type", "application/json")
 
-	// The body is read into memory once, up front, because both branches below
-	// want the same bytes: the success branch decodes them, the failure branch
-	// sanitizes them into the request log. resp.Body can only be consumed once,
-	// so whichever branch read it directly would starve the other.
-	//
-	// json.Decoder, not json.Unmarshal: a decoder stops at the end of the first
-	// JSON value, so a completion with trailing bytes after it still decodes,
-	// where an Unmarshal rejects the whole body.
-	//
-	// The read is bounded (nonStreamingBodyCap) so one upstream cannot make the
-	// gateway buffer an arbitrary amount: cap+1 is read, and a body that reaches
-	// cap+1 is refused as oversized rather than decoded, because a truncated
-	// completion re-encoded as a valid one would hand the client silently
-	// mutilated content.
-	body, chatResp, readErr, decodeErr := readNonStreamingBody(resp, logData.masker)
+	// The body was read into memory once, up front, by the caller (see
+	// readNonStreamingBody), because three places want the same bytes: the
+	// success branch decodes them, the failure branch sanitizes them into the
+	// request log, and the caller asks whether this answer is a completion at
+	// all before any of it is written. resp.Body can only be consumed once, so
+	// whichever of them read it directly would starve the others.
+	body, chatResp, readErr, decodeErr := ans.body, ans.chat, ans.readErr, ans.decodeErr
 
 	// Only a 2xx that decodes is a completion. Some upstreams (OpenCode Zen and
 	// OpenCode Go both do this) answer a failed request with a non-2xx carrying
@@ -163,7 +157,7 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.state = "completed"
 		// Whether the model actually answered, judged where the decoded body is
 		// in hand. The failover loop clears the gone-strike streak on it (see
-		// attemptCandidate): a 200 is only a status, and a decodable-but-empty
+		// dispatchNonStreaming): a 200 is only a status, and a decodable-but-empty
 		// completion is what an aggregator in front of a retired model returns,
 		// which would reset the count so the model is never nominated.
 		logData.deliveredContent = chatAnswerCarriesContent(chatResp)
@@ -313,7 +307,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 // production; the other keeps the function total for a handler driven directly.
 //
 // This is not reached for 204/205, which have their own branch, nor for a 2xx
-// that decodes as a completion.
+// that decodes as a completion. Nor for a 2xx that is not a completion while a
+// sibling remains: dispatchNonStreaming asks completionFault before this handler
+// is called and fails over instead, so what is left here is the last candidate's
+// answer, where this gateway owes the client an error it can read.
 func nonCompletionClientStatus(upstreamStatus int) int {
 	if servedSuccessStatus(upstreamStatus) {
 		return http.StatusBadGateway
@@ -328,9 +325,113 @@ func bodilessSuccessStatus(code int) bool {
 	return code == http.StatusNoContent || code == http.StatusResetContent
 }
 
-// readNonStreamingBody reads the upstream body once and decodes it, returning
-// the bytes both branches below need, the decoded completion, and the two
-// failures kept apart: what went wrong on the wire, and what went wrong parsing.
+// errEmptyCompletion is the fault a 2xx that decoded as a completion carrying
+// nothing fails over with. Gateway-authored, so it can be reported as it is:
+// there is no upstream text behind it to mask or fence.
+var errEmptyCompletion = errors.New("upstream answered with a completion carrying no content")
+
+// nonStreamingAnswer is one upstream answer read and decoded once: the bytes,
+// the completion they decoded as, and the two failures kept apart. It is read
+// before anything is written to the client so the caller can decide whether
+// this candidate answered at all (completionFault) while failing over to a
+// sibling is still possible.
+type nonStreamingAnswer struct {
+	body      []byte
+	chat      ChatCompletionResponse
+	readErr   error
+	decodeErr error
+}
+
+// completionFault reports what stopped a success status from being a completion,
+// or nil when the answer can be served. It is the non-streaming twin of the TTFT
+// probe's verdict: an upstream that answers 2xx and then hands over something
+// this gateway cannot turn into a completion has not served the request, and a
+// healthy sibling in the group can.
+//
+// Three exclusions, each of which would otherwise send a good request to another
+// provider:
+//
+//   - A non-2xx is not this question. forwardUpstreamError already owns every
+//     one of them, with the failover rules in shouldFailover.
+//   - 204/205 promise no body, so the empty one they carry is the whole answer
+//     and its decode failure is expected.
+//   - A read this gateway or the caller interrupted is not the provider
+//     failing. Failing over on a cancelled request re-sends the prompt to a
+//     second provider for an answer nobody is waiting for.
+//
+// A body that decoded but carries nothing is a fault too, for the same reason
+// its streaming twin fails over on a stream that ends without a single chunk: a
+// zero-token answer is not a valid one in almost any real use, and the sibling
+// that can serve one is right there. Silence is partly a function of the prompt,
+// so a caller can send every tenant's request down the whole candidate list by
+// coercing a model into saying nothing; that risk is accepted here as the stream
+// probe accepts it, and the breaker charge bounds the provider that does it
+// habitually.
+//
+// The bar for that is completionCarriesAnswer and NOT emptyCompletion's
+// answerCarriesSomething, which is stricter than anything the stream probe
+// applies. The two questions differ: the breaker charges an answer that
+// delivered nothing, while this one asks whether the provider answered at all,
+// and a stated finish_reason is the provider saying how its own generation
+// ended. Routing around that would re-bill a prompt on a sibling for a
+// completion the first provider finished.
+//
+// For a body that did not parse, the decode failure is what decides, and a read
+// error alone never does. A provider that sent the whole document and then
+// dropped the connection without its terminal chunk leaves a body that parses
+// perfectly beside an ErrUnexpectedEOF, and that answer is served
+// (readNonStreamingBody says why). Failing over on it would discard a complete
+// answer and re-bill the prompt. When both are set the read error is the one
+// reported, since the wire is where it started.
+// completionCarriesAnswer reports whether a decoded completion is the provider
+// answering, which is a lower bar than whether it delivered content.
+//
+// Everything answerCarriesSomething counts, plus a choice that states how the
+// generation ended. Its streaming twin sets the bar lower still: any data frame
+// that is neither empty, [DONE] nor an error envelope counts as a token, so a
+// stream carrying one role-only delta is served. This is the closest a decoded
+// body gets to that without letting `{"choices":[]}`, the shape an aggregator in
+// front of a dead model returns, read as an answer.
+func completionCarriesAnswer(out ChatCompletionResponse) bool {
+	if answerCarriesSomething(out) {
+		return true
+	}
+	for _, choice := range out.Choices {
+		if choice.FinishReason != nil && *choice.FinishReason != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func (ans nonStreamingAnswer) completionFault(ctx context.Context, status int) error {
+	if !servedSuccessStatus(status) || bodilessSuccessStatus(status) {
+		return nil
+	}
+	err := ans.decodeErr
+	if ans.readErr != nil {
+		err = ans.readErr
+	}
+	// Above both verdicts, not just the decode one: an attempt this gateway or
+	// the caller ended is nobody's answer to serve, and a cancelled read can
+	// leave a body that parses into an empty completion just as easily as one
+	// that does not parse at all. cancelKind reads the context even when nothing
+	// errored, so the empty-answer arm is covered by the same call.
+	if _, aborted := cancelKind(ctx, err); aborted {
+		return nil
+	}
+	if ans.decodeErr != nil {
+		return err
+	}
+	if completionCarriesAnswer(ans.chat) {
+		return nil
+	}
+	return errEmptyCompletion
+}
+
+// readNonStreamingBody reads the upstream body once and decodes it into the
+// answer every later step reads: the bytes, the decoded completion, and the two
+// failures kept apart (what went wrong on the wire, what went wrong parsing).
 //
 // The read is bounded (nonStreamingBodyCap) so one upstream cannot make the
 // gateway buffer an arbitrary amount: cap+1 is read, and a body that reaches
@@ -350,27 +451,33 @@ func bodilessSuccessStatus(code int) bool {
 // parses perfectly, and discarding that throws away a complete answer and
 // charges the provider for it. If the bytes really were cut short the decode
 // fails too, and the read error is what gets reported.
-func readNonStreamingBody(resp *http.Response, masker credentialMasker) (body []byte, chatResp ChatCompletionResponse, readErr, decodeErr error) {
-	body, readErr = io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap+1))
-	if readErr == nil && len(body) > nonStreamingBodyCap {
-		decodeErr = fmt.Errorf("upstream response exceeds the %d byte non-streaming body cap", nonStreamingBodyCap)
+func readNonStreamingBody(resp *http.Response, masker credentialMasker) nonStreamingAnswer {
+	var ans nonStreamingAnswer
+	ans.body, ans.readErr = io.ReadAll(io.LimitReader(resp.Body, nonStreamingBodyCap+1))
+	if ans.readErr == nil && len(ans.body) > nonStreamingBodyCap {
+		// Wrapping httpx.ErrBodyTooLarge, the sentinel every other capped read
+		// in this codebase refuses with, so the one rule that a body past a cap
+		// is this gateway's limit and never the provider's fault
+		// (translationIsProviderFault) can be written once and hold for all of
+		// them.
+		ans.decodeErr = fmt.Errorf("upstream response exceeds the %d byte non-streaming body cap: %w", nonStreamingBodyCap, httpx.ErrBodyTooLarge)
 	}
 	// Exact-key scrub on the whole body: the client answer and the failure log
 	// message both derive from it, and a success body is content where the
 	// key-shape regex must not run.
-	body = masker.maskExact(body)
-	if decodeErr != nil {
-		return body, chatResp, readErr, decodeErr
+	ans.body = masker.maskExact(ans.body)
+	if ans.decodeErr != nil {
+		return ans
 	}
-	if err := json.NewDecoder(bytes.NewReader(body)).Decode(&chatResp); err != nil {
-		if readErr != nil {
-			return body, chatResp, readErr, readErr
+	if err := json.NewDecoder(bytes.NewReader(ans.body)).Decode(&ans.chat); err != nil {
+		// readErr is left as it was rather than cleared. It is only ever
+		// consulted alongside a decode failure, since a clean decode means the
+		// 2xx branch serves the answer without looking at it, so clearing it
+		// would claim a meaning it does not have.
+		ans.decodeErr = err
+		if ans.readErr != nil {
+			ans.decodeErr = ans.readErr
 		}
-		return body, chatResp, readErr, err
 	}
-	// readErr is returned as it was rather than cleared. It is only ever
-	// consulted alongside a decode failure, since a clean decode means the 2xx
-	// branch serves the answer without looking at it, so clearing it would claim
-	// a meaning it does not have.
-	return body, chatResp, readErr, nil
+	return ans
 }

@@ -74,7 +74,7 @@ func TestHandleNativeNonStreaming(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0)
+	outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false)
 	aw.Finalize()
 
 	if outcome != outcomeServed {
@@ -131,7 +131,7 @@ func TestHandleNativeNonStreaming_JudgesContentNotBytes(t *testing.T) {
 			}
 			st := &requestState{startTime: time.Now(), logData: logData}
 
-			if got := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0); got != outcomeServed {
+			if got := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false); got != outcomeServed {
 				t.Fatalf("outcome = %v, want outcomeServed", got)
 			}
 			aw.Finalize()
@@ -179,7 +179,7 @@ func TestHandleNativeNonStreaming_ReadErrorFinalizesLog(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0)
+	outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false)
 	aw.Finalize()
 
 	if outcome != outcomeFatal {
@@ -445,7 +445,7 @@ func runNativeNonStreamingWith(t *testing.T, anthropicBody string, masker creden
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	if outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0); outcome != outcomeServed {
+	if outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false); outcome != outcomeServed {
 		t.Fatalf("outcome = %v, want outcomeServed", outcome)
 	}
 	aw.Finalize()
@@ -612,7 +612,7 @@ func TestHandleNativeNonStreaming_AnOversizedBodyIsNotTheProvidersFault(t *testi
 	time.Sleep(100 * time.Millisecond)
 
 	h.deferAnswerJudgement(st, candidate, logData, http.StatusOK)
-	outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0)
+	outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false)
 	judgeAnswerNow(logData)
 	aw.Finalize()
 

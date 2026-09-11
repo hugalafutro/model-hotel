@@ -164,7 +164,7 @@ func TestPassthrough_OversizedJSONChargesTheEstimate(t *testing.T) {
 	h.serveBufferedJSONPassthrough(rec, httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "application/json", 1, 10.0)
+	}, resp, "application/json", 1, 10.0, false)
 
 	const wantCharge = 100 // 400 prompt bytes at the conventional 4 bytes per token
 	if got := singleAddTokens(t, vkRepo); got != wantCharge {
@@ -221,7 +221,7 @@ func TestPassthrough_NoUsageBlockStillMeters(t *testing.T) {
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "dall-e-3"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "application/json", 1, 10.0)
+	}, resp, "application/json", 1, 10.0, false)
 
 	const wantCharge = 100 // 400 prompt bytes at 4 bytes per token
 	if got := singleAddTokens(t, vkRepo); got != wantCharge {
@@ -262,7 +262,7 @@ func TestPassthrough_ReportedUsageWinsOverEstimate(t *testing.T) {
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "application/json", 1, 10.0)
+	}, resp, "application/json", 1, 10.0, false)
 
 	if got := singleAddTokens(t, vkRepo); got != 7 {
 		t.Errorf("charged %d, want the provider's reported 7", got)
@@ -314,7 +314,7 @@ func TestStreamedPassthrough_BinaryResponseIsMetered(t *testing.T) {
 	h.serveStreamedPassthrough(httptest.NewRecorder(), req, st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "tts-1"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "audio/mpeg", false, 1, 10.0)
+	}, resp, "audio/mpeg", false, 1, 10.0, false)
 
 	const wantCharge = 100 // 400 prompt bytes at 4 bytes per token
 	if got := singleAddTokens(t, vkRepo); got != wantCharge {
@@ -355,7 +355,7 @@ func TestPassthrough_EmptyAnswerIsNotCharged(t *testing.T) {
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-x"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "application/json", 1, 10.0)
+	}, resp, "application/json", 1, 10.0, false)
 
 	if len(vkRepo.addTokensCalls) != 0 {
 		t.Errorf("charged %d times for an empty answer, want 0", len(vkRepo.addTokensCalls))
@@ -460,7 +460,7 @@ func TestMultipartPassthrough_NoPromptFieldStillMeters(t *testing.T) {
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "application/json", 1, 10.0)
+	}, resp, "application/json", 1, 10.0, false)
 
 	got := singleAddTokens(t, vkRepo)
 	if got == 0 {
@@ -513,7 +513,7 @@ func TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures(t *testing.T) {
 		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 			model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
 			provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-		}, resp, "application/json", 1, 10.0)
+		}, resp, "application/json", 1, 10.0, false)
 
 		if got := singleAddTokens(t, vkRepo); got != 100 {
 			t.Errorf("charged %d, want 100: the floor must not replace a real estimate", got)
@@ -540,7 +540,7 @@ func TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures(t *testing.T) {
 		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 			model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
 			provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-		}, resp, "application/json", 1, 10.0)
+		}, resp, "application/json", 1, 10.0, false)
 
 		if got := singleAddTokens(t, vkRepo); got != 10 {
 			t.Errorf("charged %d, want 10: a reported figure always wins", got)
@@ -587,7 +587,7 @@ func TestPassthroughFloor_StaysBehindTheDeliveryGate(t *testing.T) {
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "application/json", 1, 10.0)
+	}, resp, "application/json", 1, 10.0, false)
 
 	if n := len(vkRepo.addTokensCalls); n != 0 {
 		t.Errorf("charged %d times for an empty answer, want 0: the floor must not defeat the delivery gate", n)
@@ -633,7 +633,7 @@ func TestOversizedPassthrough_ZeroPromptStillMeters(t *testing.T) {
 	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "dall-e-2"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "application/json", 1, 10.0)
+	}, resp, "application/json", 1, 10.0, false)
 
 	got := singleAddTokens(t, vkRepo)
 	if got == 0 {
@@ -678,7 +678,7 @@ func TestStreamedPassthrough_ZeroPromptStillMeters(t *testing.T) {
 		st, modelCandidate{
 			model:    &model.Model{ID: uuid.New(), ModelID: "whisper-1"},
 			provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-		}, resp, "text/plain", false, 1, 10.0)
+		}, resp, "text/plain", false, 1, 10.0, false)
 
 	got := singleAddTokens(t, vkRepo)
 	if got == 0 {

@@ -232,43 +232,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
 	}
 
-	// A non-streaming answer clears any gone-strike streak the model had, judged
-	// after the handler on what the handler decoded rather than on the 200 that
-	// preceded it. Both halves of that placement are load-bearing:
-	//
-	//   - Below the dialect translations, because either of them can read the
-	//     body, fail, and send the attempt to failover. A provider that answered
-	//     200 with something that is not a Responses object or a Gemini answer
-	//     has not served the model.
-	//   - Below the handler, because a status is not an answer. `200
-	//     {"choices":[]}` decodes and is forwarded as a normal completion, and
-	//     is what an aggregator in front of a retired model returns between its
-	//     gone-shaped 404s, resetting the count so three never land
-	//     consecutively and the model is never nominated.
-	//
-	// producedOutput is where that line is drawn. The breaker verdict is
-	// deferred to the handler's terminal write so the attempt trail's record
-	// carries it; judgeAnswerNow is the fallback for a handler exit that wrote
-	// nothing.
-	h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode)
-	if st.anthropicNativeAttempt {
-		outcome := h.handleNativeNonStreaming(w, r.WithContext(failoverCtx), st, resp, attempt, responseHeaderMs)
-		judgeAnswerNow(logData)
-		if producedOutput(logData) {
-			h.noteModelServed(candidate.model, logData.endpointType)
-		}
-		return outcome
-	}
-
-	// The handler reads the upstream body under failoverCtx, so that is the
-	// context it judges an interrupted read by. With the bare client request
-	// instead, this gateway's own request_timeout looks like the provider dying.
-	h.handleNonStreamingResponse(w, r.WithContext(failoverCtx), logData, resp, st.startTime, st.proxyOverhead, st.parseMs, st.timings, responseHeaderMs, st.vkHash, attempt)
-	judgeAnswerNow(logData)
-	if producedOutput(logData) {
-		h.noteModelServed(candidate.model, logData.endpointType)
-	}
-	return outcomeServed
+	return h.dispatchNonStreaming(w, r.WithContext(failoverCtx), st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
 }
 
 // classifyProbeError maps any TTFT probe failure to the error recorded for the

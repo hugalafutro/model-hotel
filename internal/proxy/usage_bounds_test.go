@@ -158,7 +158,7 @@ func nonStreamingUsageFixture(t *testing.T, usage string) (logData *requestLogDa
 	time.Sleep(100 * time.Millisecond)
 
 	rec := httptest.NewRecorder()
-	h.handleNonStreamingResponse(rec, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(rec, req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 	return logData, vkRepo.addTokensCalls, rec.Body.Bytes()
 }
 
@@ -234,7 +234,7 @@ func TestHandleNativeNonStreaming_ClampsUsage(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	if outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0); outcome != outcomeServed {
+	if outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false); outcome != outcomeServed {
 		t.Fatalf("outcome = %v, want outcomeServed", outcome)
 	}
 	aw.Finalize()
@@ -273,7 +273,7 @@ func TestHandleNativeNonStreaming_NegativeUsageNeverCredits(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	if outcome := h.handleNativeNonStreaming(aw, req, st, resp, 1, 10.0); outcome != outcomeServed {
+	if outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false); outcome != outcomeServed {
 		t.Fatalf("outcome = %v, want outcomeServed", outcome)
 	}
 	aw.Finalize()

@@ -230,7 +230,7 @@ func TestTPSThreshold_NonStreaming_MinGenerationMinimum(t *testing.T) {
 	// minGeneration = max(1.0, 12*0.05) = 1.0
 	// 0.5 < 1.0, so fallback to totalDuration
 	startTime := time.Now().Add(-2 * time.Millisecond)
-	h.handleNonStreamingResponse(inner, req, logData, resp, startTime, 0, 0, resolveTimings{}, 1.5, "", 1)
+	h.handleNonStreamingResponse(inner, req, logData, resp, readNonStreamingBody(resp, logData.masker), startTime, 0, 0, resolveTimings{}, 1.5, "", 1)
 
 	// TPS should use fallback (totalDuration)
 	if logData.tokensPerSecond <= 0 {

@@ -94,8 +94,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	if st.transcriptionFormat != "" {
 		return h.serveGeminiTranscriptionResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
 	}
-	h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
-	return outcomeServed
+	return h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
 }
 
 // passthroughAnswered reports whether a buffered pass-through response is the
