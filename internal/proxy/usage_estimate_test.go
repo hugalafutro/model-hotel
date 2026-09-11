@@ -339,7 +339,7 @@ func TestHandleNativeNonStreaming_EstimatesUsageWhenOmitted(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(20 * time.Millisecond)
 
-	h.handleNativeNonStreaming(aw, httptest.NewRequest("POST", "/v1/messages", http.NoBody), st, resp, 1, 5)
+	h.handleNativeNonStreaming(aw, httptest.NewRequest("POST", "/v1/messages", http.NoBody), st, modelCandidate{}, resp, 1, 5, false)
 
 	// 40 prompt bytes → 10; "Hello, world!" (13) + "f" (1) + {"a":1} (7) = 21 bytes → 6.
 	assert.Equal(t, 16, singleAddTokens(t, vkRepo))
@@ -363,7 +363,7 @@ func TestHandleNonStreamingResponse_EstimatesUsageWhenProviderOmitsIt(t *testing
 		state:           "pending",
 		promptTextBytes: 40,
 	}
-	h.handleNonStreamingResponse(w, req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(w, req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	require.Equal(t, http.StatusOK, w.Code)
 	// 40 prompt bytes → 10; "Hello, world!" (13) + "hmm" (3) = 16 bytes → 4.
@@ -380,7 +380,7 @@ func TestHandleNonStreamingResponse_NoEstimateForEmptyAnswer(t *testing.T) {
 	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(`{"id":"x","object":"chat.completion","choices":[]}`)), Header: make(http.Header)}
 	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 	logData := &requestLogData{modelID: "gpt-test", providerID: uuid.New(), virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "pending", promptTextBytes: 40}
-	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
+	h.handleNonStreamingResponse(httptest.NewRecorder(), req, logData, resp, readNonStreamingBody(resp, logData.masker), time.Now(), 0, 0, resolveTimings{}, 0, "test-hash", 1)
 
 	assert.Equal(t, 0, singleAddTokens(t, vkRepo))
 }

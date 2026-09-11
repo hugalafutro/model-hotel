@@ -185,7 +185,7 @@ func TestServeStreamedPassthrough_AdapterUsageWins(t *testing.T) {
 	h.serveStreamedPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/audio/speech", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "gemini-2.5-flash-preview-tts"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "audio/wav", false, 1, 10.0)
+	}, resp, "audio/wav", false, 1, 10.0, false)
 	if got := singleAddTokens(t, vkRepo); got != 261 {
 		t.Errorf("charged %d tokens, want the answer's 11 + 250 rather than the 100-token estimate", got)
 	}

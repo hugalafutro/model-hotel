@@ -8,6 +8,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -282,12 +283,21 @@ func (h *Handler) creditBreaker(st *requestState, candidate modelCandidate) {
 	h.circuitBreaker.RecordSuccess(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 }
 
-// rejectUntranslatableBody is the single outcome all three egress adapters have
-// for a success whose body they cannot turn into a completion.
+// rejectUntranslatableBody is the single outcome every path has for a success
+// whose body it cannot turn into an answer: the three egress adapters and the
+// two Gemini audio ones, the plain chat path whose body would not decode or
+// decoded empty, the native Anthropic path, and the two pass-through halves
+// whose body never arrived.
 //
 // One place because the outcome has four parts (the log, the breaker charge,
-// the request error and the failover), and three copies of it is how the charge
-// comes to be missing from one.
+// the request error and the failover), and a copy of it per call site is how
+// the charge comes to be missing from one.
+//
+// The callers differ in one thing only: whether they ask first. The chat,
+// native and pass-through paths reach here only while a sibling remains, since
+// on the last candidate the client is owed the specific error their handler
+// renders. The egress and audio adapters fail over unconditionally, so on a
+// last candidate their refusal is rendered by failAllExhausted instead.
 //
 // status is the 2xx the upstream answered before its body failed translation;
 // logData has not been stamped with it at this point.
@@ -303,6 +313,12 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 	logData.failoverAttempt = attempt
 	logData.closeAttemptRecord(status, KindProviderError, errString(err), "", 0)
+	// This attempt's breaker verdict is the one just recorded, so a judgement
+	// armed for the handler that never got to write is disarmed here rather than
+	// left to fire on a candidate the loop has already moved past. Only the
+	// native Anthropic path can reach this with one armed, and it is disarmed in
+	// the shared place so a later caller cannot inherit the bug.
+	logData.judgeAnswer = nil
 	return outcomeFailover
 }
 
@@ -318,16 +334,23 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 // The speech and transcription adapters' refusals are the same two shapes:
 // an answer without an audio part or without text (a blocked prompt, a reply
 // of the other kind) is the model answering, and a body past the adapter's
-// cap is this gateway's own limit.
+// cap is this gateway's own limit. httpx.ErrBodyTooLarge is that same limit
+// under the sentinel the capped reads on the chat and native paths refuse
+// with, so an oversized answer fails over without its provider being charged
+// for sending too much.
 func translationIsProviderFault(err error) bool {
 	return !errors.Is(err, gemini.ErrPromptBlocked) && !errors.Is(err, errEgressBodyOversized) &&
+		!errors.Is(err, httpx.ErrBodyTooLarge) &&
 		!errors.Is(err, gemini.ErrSpeechNoAudio) && !errors.Is(err, errSpeechBodyOversized) &&
 		!errors.Is(err, gemini.ErrTranscriptionNoText) && !errors.Is(err, errTranscriptionBodyOversized)
 }
 
 // answerCarriesSomething reports whether a completion carries anything at all
 // from the provider. Its negation is requestLogData.emptyCompletion, the one
-// shape a 200 is charged for.
+// shape a 200 is charged for, and the bar completionFault fails a candidate on
+// while a sibling remains: the same question asked a moment earlier, so an
+// answer that would be charged is offered to the next provider instead of
+// being served.
 //
 // Deliberately NOT chatAnswerCarriesContent, which backs the retirement verdict
 // and stays narrow: `refusal` is the likeliest field for an aggregator to write

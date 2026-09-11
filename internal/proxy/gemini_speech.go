@@ -144,7 +144,9 @@ func (h *Handler) serveGeminiReshaped(w http.ResponseWriter, r *http.Request, st
 		Header:     http.Header{"Content-Type": {contentType}, "Content-Length": {strconv.Itoa(len(out))}},
 		Body:       io.NopCloser(bytes.NewReader(out)),
 	}
-	h.servePassthroughResponse(w, r, st, candidate, delivered, attempt, responseHeaderMs)
+	// false: delivered carries this process's own buffer, so its read cannot
+	// fail and there is nothing here to fail over from.
+	h.servePassthroughResponse(w, r, st, candidate, delivered, attempt, responseHeaderMs, false)
 	return outcomeServed
 }
 

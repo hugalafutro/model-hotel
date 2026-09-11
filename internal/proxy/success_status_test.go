@@ -537,7 +537,7 @@ func TestBreaker_PassthroughDoesNotEraseTheChatChargeForTheSameShape(t *testing.
 		h.insertRequestLogAsync(pst.logData)
 		resp := &http.Response{StatusCode: http.StatusNoContent, Body: io.NopCloser(strings.NewReader("")), Header: make(http.Header)}
 		h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody),
-			pst, modelCandidate{model: m, provider: cand.provider}, resp, "application/json", 1, 5)
+			pst, modelCandidate{model: m, provider: cand.provider}, resp, "application/json", 1, 5, false)
 	}
 
 	chatOnce()
