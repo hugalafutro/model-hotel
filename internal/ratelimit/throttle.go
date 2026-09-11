@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"math"
 	"net/http"
 	"strconv"
 	"sync"
@@ -145,6 +146,50 @@ func bucketRate(rps float64, burst int) (float64, int) {
 		return 1e6, 1e6
 	}
 	return rps, burst
+}
+
+// peekWait reports how long a bucket needs before it can hand out one token,
+// without taking anything. A reservation answers the same question, but it
+// charges for the answer and gives the charge back only while no later
+// reservation has moved the bucket's last event past it: under a flood every
+// refusal reserves and cancels, almost none of the cancels refund, and the
+// bucket sinks far below empty, throttling the identity long after the flood
+// has stopped. A read leaves the bucket where it was.
+//
+// It narrows the debt rather than abolishing it. Requests that read the bucket
+// in the same few instructions all see the same free token, reserve, and cancel
+// each other's refunds as before, so what survives is bounded by that window
+// instead of by the size of the flood.
+//
+// A read can differ from the reservation it stands in for in either direction,
+// by whatever another request took or handed back in between: too optimistic is
+// the window above, too pessimistic refuses a request that a refund had just
+// made servable, which is a refusal the bucket would have given an instant
+// earlier anyway.
+//
+// A bucket that can never hand out a token (burst below one) reports no wait,
+// because no amount of waiting would help and the reservation path already
+// refuses it, free of charge and without promising a retry time. A rate of zero
+// or less cannot reach here, since bucketRate turns "no cap" into a very large
+// rate, but it is guarded anyway: the division would otherwise answer with the
+// sign of the rate rather than with a wait.
+func peekWait(lim *rate.Limiter, now time.Time) time.Duration {
+	limit := float64(lim.Limit())
+	if lim.Burst() < 1 || limit <= 0 {
+		return 0
+	}
+	deficit := 1 - lim.TokensAt(now)
+	if deficit <= 0 {
+		return 0
+	}
+	wait := deficit / limit * float64(time.Second)
+	// Not a strict compare: float64(math.MaxInt64) is 2^63, one past the
+	// largest duration, and converting it back would wrap to a large negative
+	// one that reads as no wait at all.
+	if wait >= math.MaxInt64 {
+		return rate.InfDuration
+	}
+	return time.Duration(wait)
 }
 
 // runCleanup drives a limiter's idle-entry sweep until its stop channel closes.

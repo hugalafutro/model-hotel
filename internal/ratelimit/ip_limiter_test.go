@@ -1097,3 +1097,50 @@ func TestIPLimiter_ClientLeftDuringWaitRefundsToken(t *testing.T) {
 		t.Errorf("IP bucket = %.2f tokens, want about 0: the abandoned request kept its token", got)
 	}
 }
+
+// The per-IP bucket owes the same debt-free refusal as the per-key one: an
+// unauthenticated flood is exactly what this limiter exists for, so its
+// refusals must not leave the address throttled past the flood.
+func TestIPLimiter_RefusedFloodLeavesTheBucketAtEmpty(t *testing.T) {
+	settings := &stubIPSettings{values: map[string]string{
+		"rate_limit_ip_enabled":  "true",
+		"rate_limit_ip_rps":      "1", // refill is negligible over the flood
+		"rate_limit_ip_burst":    "5",
+		"rate_limit_max_wait_ms": "0",
+	}}
+	lim := NewIPLimiter(1, 5, nil, settings)
+	defer lim.Stop()
+
+	handler := lim.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	const flood = 2000
+	start := make(chan struct{})
+	var wg sync.WaitGroup
+	for range flood {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			<-start
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			req.RemoteAddr = "203.0.113.7:1234"
+			handler.ServeHTTP(httptest.NewRecorder(), req)
+		}()
+	}
+	close(start)
+	wg.Wait()
+
+	entry, ok := lim.limiters["203.0.113.7"]
+	if !ok {
+		t.Fatal("IP bucket missing")
+	}
+	// The slack is for the requests that read the bucket in the same few
+	// instructions and still reserve and cancel each other's refunds; that
+	// window holds a handful, where refusing by reservation put the whole
+	// refused crowd in debt (measured between -15 and -282 on this flood).
+	// The slack held at every GOMAXPROCS from 1 to 64, worst case -1.
+	if got := entry.limiter.Tokens(); got < -5 {
+		t.Errorf("bucket = %.2f tokens after %d requests on a burst of 5, want no worse than -5: refusals must not scale into debt", got, flood)
+	}
+}

@@ -180,13 +180,35 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// admitUserTPM pins for the same reason.
 			now := time.Now()
 
+			// reject answers one 429, naming the stage that refused so an
+			// owner-wide refusal reads differently from a per-key one.
+			reject := func(by *bucketEntry, id string, retryAfter time.Duration) {
+				by.noteRejected(id)
+				writeRateLimitHeaders(w, by.limiter, retryAfter, "")
+				util.WriteOpenAIError(w, rejectedBy(by, userEntry), http.StatusTooManyRequests)
+			}
+
+			// Refuse before reserving when the buckets already say the wait is
+			// past the ceiling, so a refusal costs the identity nothing: see
+			// peekWait for what the reserve-then-cancel route costs instead.
+			// A reading can go stale before the reservations below are taken,
+			// and a request that slips through then cancels on the
+			// over-max_wait path, which hands its token back only if no other
+			// slipped-through request reserved in between. So this narrows the
+			// debt to what fits in a window a few instructions wide rather than
+			// abolishing it; what is left no longer grows with the flood.
+			// The zero test is what keeps a max_wait that somehow arrived
+			// negative from refusing a request the bucket can serve outright.
+			if peeked, by, id := peekAdmission(entry, keyHash, userEntry, userKey, now); peeked > 0 && peeked > maxWait {
+				reject(by, id, peeked)
+				return
+			}
+
 			var userRes *rate.Reservation
 			if userEntry != nil {
 				userRes = userEntry.limiter.ReserveN(now, 1)
 				if !userRes.OK() {
-					userEntry.noteRejected(userKey)
-					writeRateLimitHeaders(w, userEntry.limiter, 0, "")
-					util.WriteOpenAIError(w, "user rate limit exceeded", http.StatusTooManyRequests)
+					reject(userEntry, userKey, 0)
 					return
 				}
 			}
@@ -196,9 +218,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				if userRes != nil {
 					userRes.CancelAt(now)
 				}
-				entry.noteRejected(keyHash)
-				writeRateLimitHeaders(w, entry.limiter, 0, "")
-				util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
+				reject(entry, keyHash, 0)
 				return
 			}
 
@@ -251,13 +271,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				if userRes != nil {
 					userRes.CancelAt(now)
 				}
-				limitedBy.noteRejected(limitedKey)
-				writeRateLimitHeaders(w, limitedBy.limiter, delay, "")
-				msg := "rate limit exceeded"
-				if limitedBy == userEntry {
-					msg = "user rate limit exceeded"
-				}
-				util.WriteOpenAIError(w, msg, http.StatusTooManyRequests)
+				reject(limitedBy, limitedKey, delay)
 				return
 			}
 
@@ -271,6 +285,40 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
+}
+
+// peekAdmission reports the longest wait either admission stage still needs
+// before it can hand this request a token, and which stage that is, without
+// taking anything from either bucket.
+//
+// A stage that can never serve, its burst below one, answers no wait at all, so
+// the reservation path refuses the request instead. That keeps the refusal in
+// the name of the stage that can never serve it, rather than handing it to a
+// co-stage that merely happens to be saturated and promising a retry time no
+// amount of waiting can honour.
+func peekAdmission(entry *bucketEntry, keyID string, userEntry *bucketEntry, userID string, now time.Time) (time.Duration, *bucketEntry, string) {
+	if entry.limiter.Burst() < 1 {
+		return 0, entry, keyID
+	}
+	wait := peekWait(entry.limiter, now)
+	if userEntry != nil {
+		if userEntry.limiter.Burst() < 1 {
+			return 0, userEntry, userID
+		}
+		if uw := peekWait(userEntry.limiter, now); uw > wait {
+			return uw, userEntry, userID
+		}
+	}
+	return wait, entry, keyID
+}
+
+// rejectedBy names the stage a 429 came from, so an owner whose whole account
+// is saturated is not told one of their keys is.
+func rejectedBy(by, userEntry *bucketEntry) string {
+	if by == userEntry {
+		return "user rate limit exceeded"
+	}
+	return "rate limit exceeded"
 }
 
 // getLimiter returns (or creates) the rate.Limiter for the given key.
