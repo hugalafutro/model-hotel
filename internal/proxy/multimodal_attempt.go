@@ -105,13 +105,16 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 }
 
 // passthroughAnswered reports whether a buffered pass-through response is the
-// model answering, for the purpose of clearing its gone-strike streak.
+// model answering: what clears its gone-strike streak, credits its circuit,
+// and lets the metering floor charge for it.
 //
-// Embeddings is judged on content, since it is the only pass-through family
-// that can be auto-retired: a provider alternating gone-shaped 404s with
-// 200 {"data":[]} would otherwise reset the count on every empty answer.
-// Everything else is judged on bytes, because image and audio answers are
-// forwarded verbatim and are not parsed here.
+// The families that answer in JSON (embeddings, rerank, image generation) are
+// judged on content, since a 200 carrying `{"data":[]}` or `{"results":[]}` is
+// the provider answering with nothing: crediting it would let a provider that
+// always answers so keep its circuit closed, and reset an embeddings model's
+// gone-strike count on every empty answer. Audio is judged on bytes, because a
+// speech answer is binary and a transcription of silence is legitimately empty
+// text, so neither can be told apart from a failure by its body.
 func passthroughAnswered(endpointType string, body []byte) bool {
 	if len(body) == 0 {
 		return false
@@ -123,8 +126,9 @@ func passthroughAnswered(endpointType string, body []byte) bool {
 	if len(body) > passthroughJSONBufferCap {
 		return true
 	}
-	if endpointType == endpointTypeEmbeddings {
-		return probeDeliveredContent(endpointTypeEmbeddings, body)
+	switch endpointType {
+	case endpointTypeEmbeddings, endpointTypeRerank, endpointTypeImage:
+		return probeDeliveredContent(endpointType, body)
 	}
 	return true
 }

@@ -536,14 +536,23 @@ func TestHandleNonStreamingResponse_AnOversizedBodyIsNotTheProvidersFault(t *tes
 // breaker success was recorded the moment the buffered read succeeded, so an
 // embeddings provider answering nothing to every request recorded a success
 // every time and its circuit could never open.
-func TestServeBufferedJSONPassthrough_EmptyEmbeddingsChargesTheBreaker(t *testing.T) {
+//
+// Rerank and image generation are JSON-bodied too, and were judged on bytes
+// alone: `{"results":[]}` and `{"data":[]}` credited the circuit on every call.
+func TestServeBufferedJSONPassthrough_EmptyJSONAnswerChargesTheBreaker(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
+		endpoint   string
+		path       string
 		body       string
 		wantCharge bool
 	}{
-		{"no data at all", `{"object":"list","data":[]}`, true},
-		{"a real embedding", `{"object":"list","data":[{"object":"embedding","index":0,"embedding":[0.1,0.2]}]}`, false},
+		{"no data at all", endpointTypeEmbeddings, "/v1/embeddings", `{"object":"list","data":[]}`, true},
+		{"a real embedding", endpointTypeEmbeddings, "/v1/embeddings", `{"object":"list","data":[{"object":"embedding","index":0,"embedding":[0.1,0.2]}]}`, false},
+		{"no rerank results", endpointTypeRerank, "/v1/rerank", `{"results":[],"usage":{"total_tokens":3}}`, true},
+		{"a real ranking", endpointTypeRerank, "/v1/rerank", `{"results":[{"index":0,"relevance_score":0.5}],"usage":{"total_tokens":3}}`, false},
+		{"no image data", endpointTypeImage, "/v1/images/generations", `{"created":1,"data":[]}`, true},
+		{"a real image", endpointTypeImage, "/v1/images/generations", `{"created":1,"data":[{"b64_json":"aW1n"}]}`, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newIntegrationHandler()
@@ -555,18 +564,18 @@ func TestServeBufferedJSONPassthrough_EmptyEmbeddingsChargesTheBreaker(t *testin
 				circuitBreakerEnabled: true,
 				startTime:             time.Now(),
 				logData: &requestLogData{
-					modelID: "text-embedding-3-small", providerID: providerID, providerName: "p",
-					endpointType: endpointTypeEmbeddings, state: "pending",
+					modelID: "m", providerID: providerID, providerName: "p",
+					endpointType: tc.endpoint, state: "pending",
 					virtualKeyName: "k", virtualKeyID: "00000000-0000-0000-0000-000000000001",
 				},
 			}
 			candidate := modelCandidate{
-				model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
+				model:    &model.Model{ID: uuid.New(), ModelID: "m"},
 				provider: &provider.Provider{ID: providerID, Name: "p"},
 			}
 			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(bytes.NewBufferString(tc.body)), Header: make(http.Header)}
 
-			h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, candidate, resp, "application/json", 1, 5, false)
+			h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", tc.path, http.NoBody), st, candidate, resp, "application/json", 1, 5, false)
 
 			charged := h.circuitBreaker.GetState(providerID, candidate.model.ModelID) == failover.StateOpen
 			if charged != tc.wantCharge {

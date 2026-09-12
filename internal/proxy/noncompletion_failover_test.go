@@ -334,6 +334,35 @@ func TestPassthrough2xxWithoutABody_FailsOverToTheSibling(t *testing.T) {
 		}
 	})
 
+	// A body that arrives and carries nothing is the same verdict one read
+	// later. Embeddings had this; rerank and image generation are JSON-bodied
+	// too, and an empty ranking or an image call that produced no image used to
+	// be served to the client as a success with a healthy sibling untried.
+	for _, tc := range []struct {
+		name, endpoint, path, body string
+	}{
+		{"buffered json carrying no ranking", endpointTypeRerank, "/v1/rerank", `{"results":[]}`},
+		{"buffered json carrying no image", endpointTypeImage, "/v1/images/generations", `{"created":1,"data":[]}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st, candidate := nonCompletionState(t)
+			st.logData.endpointType = tc.endpoint
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(tc.body)), Header: make(http.Header)}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", tc.path, http.NoBody)
+
+			if outcome := h.serveBufferedJSONPassthrough(w, req, st, candidate, resp, "application/json", 0, 1.0, true); outcome != outcomeFailover {
+				t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+			}
+			if w.Body.Len() != 0 {
+				t.Errorf("the client was written to before the sibling was tried: %s", w.Body.String())
+			}
+			if st.logData.attemptBreaker != breakerCharge {
+				t.Errorf("breaker note = %q, want %q", st.logData.attemptBreaker, breakerCharge)
+			}
+		})
+	}
+
 	t.Run("streamed", func(t *testing.T) {
 		st, candidate := nonCompletionState(t)
 		st.logData.endpointType = endpointTypeTTS

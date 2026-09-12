@@ -212,13 +212,16 @@ func TestPassthrough_NoUsageBlockStillMeters(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(20 * time.Millisecond)
 
-	// A perfectly ordinary provider response with no usage block.
+	// A perfectly ordinary provider response with no usage block. The image
+	// has to be under the key providers use for it: the floor sits behind the
+	// delivery gate, and an entry carrying no image under any real key is not
+	// an image delivered.
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(strings.NewReader(`{"created":1,"data":[{"b64":"AAAA"}]}`)),
+		Body:       io.NopCloser(strings.NewReader(`{"created":1,"data":[{"b64_json":"AAAA"}]}`)),
 	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/images/generations", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "dall-e-3"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0, false)
@@ -554,12 +557,12 @@ func TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures(t *testing.T) {
 // bill the caller on every empty answer — the regression the gate was added to
 // prevent.
 //
-// Embeddings is the endpoint this can be shown on: passthroughAnswered only
-// inspects the body for that type. For the multipart and binary families any
-// non-empty 200 body counts as delivered, so a junk answer there does draw the
-// floor. That is the intended trade — one token is the price of not being able
-// to tell a bad transcription from a good one, and per-key RPS limiting bounds
-// how often it can be paid.
+// Embeddings is the endpoint this is shown on; passthroughAnswered inspects the
+// body for every JSON family (rerank and image generation too). For the audio
+// families any non-empty 200 body counts as delivered, so a junk answer there
+// does draw the floor. That is the intended trade — one token is the price of
+// not being able to tell a bad transcription from a good one, and per-key RPS
+// limiting bounds how often it can be paid.
 func TestPassthroughFloor_StaysBehindTheDeliveryGate(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })

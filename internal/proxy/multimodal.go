@@ -320,11 +320,12 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// completion.
 	default:
 		// An answer carrying nothing goes to the sibling while there is one, the
-		// rule the chat path applies through completionFault, reached here on the
-		// only pass-through family whose body can be judged (an embeddings `200
-		// {"data":[]}`; passthroughAnswered says why the others cannot be). The
-		// reject path carries the same charge, so this is that verdict reached one
-		// candidate earlier, and nothing has been written to the client yet.
+		// rule the chat path applies through completionFault, reached here on
+		// the pass-through families whose body can be judged (an embeddings,
+		// rerank or image `200` carrying an empty list; passthroughAnswered says
+		// why audio cannot be). The reject path carries the same charge, so this
+		// is that verdict reached one candidate earlier, and nothing has been
+		// written to the client yet.
 		if hasMoreCandidates {
 			return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", resp.StatusCode, errEmptyCompletion, attempt, r)
 		}

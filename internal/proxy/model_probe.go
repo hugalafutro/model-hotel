@@ -478,13 +478,16 @@ func translateProbeDialect(resp *http.Response, st *requestState, modelID string
 	}
 }
 
-// probeDeliveredContent reports whether a success probe response actually carried
-// something the model produced.
+// probeDeliveredContent reports whether a success response actually carried
+// something the model produced. The retirement probe asks it of the chat and
+// embeddings families; the pass-through traffic path asks it of every family
+// that answers in JSON (passthroughAnswered).
 //
 // A body that will not parse returns false, which postpones rather than retires:
 // an unreadable answer is not the provider saying the model is gone.
 func probeDeliveredContent(endpointType string, body []byte) bool {
-	if endpointType == endpointTypeEmbeddings {
+	switch endpointType {
+	case endpointTypeEmbeddings:
 		// The vector is left undecoded on purpose. Typing it as []float64 makes
 		// the whole document fail to parse when a provider answers with
 		// base64-encoded embeddings, a JSON string where the struct wants an
@@ -503,6 +506,28 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 			return false
 		}
 		return !jsonValueIsEmpty(out.Data[0].Embedding)
+	case endpointTypeRerank:
+		// A ranking of nothing is nothing produced: every rerank API returns one
+		// result per document it scored, and refuses an empty document list
+		// with a 400 rather than answering it with an empty 200.
+		var out struct {
+			Results []json.RawMessage `json:"results"`
+		}
+		return json.Unmarshal(body, &out) == nil && len(out.Results) > 0
+	case endpointTypeImage:
+		// An image is delivered as a URL or as base64 bytes; an entry carrying
+		// neither (a revised prompt alone, say) is not an image. The same
+		// structural emptiness rule as the vector above, for the same reason.
+		var out struct {
+			Data []struct {
+				URL     json.RawMessage `json:"url"`
+				B64JSON json.RawMessage `json:"b64_json"`
+			} `json:"data"`
+		}
+		if json.Unmarshal(body, &out) != nil || len(out.Data) == 0 {
+			return false
+		}
+		return !jsonValueIsEmpty(out.Data[0].URL) || !jsonValueIsEmpty(out.Data[0].B64JSON)
 	}
 
 	var out ChatCompletionResponse
