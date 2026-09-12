@@ -384,20 +384,22 @@ func TestPassthrough2xxWithoutABody_FailsOverToTheSibling(t *testing.T) {
 		}
 	})
 
-	t.Run("binary image answer stays streamed", func(t *testing.T) {
-		st, candidate := nonCompletionState(t)
-		st.logData.endpointType = endpointTypeImage
-		resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("\x89PNG\r\n")), Header: http.Header{"Content-Type": []string{"image/png"}}}
-		w := httptest.NewRecorder()
-		req := httptest.NewRequest("POST", "/v1/images/generations", http.NoBody)
+	for _, declared := range []string{"image/png", "application/octet-stream"} {
+		t.Run("binary image answer stays streamed as "+declared, func(t *testing.T) {
+			st, candidate := nonCompletionState(t)
+			st.logData.endpointType = endpointTypeImage
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("\x89PNG\r\n")), Header: http.Header{"Content-Type": []string{declared}}}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/images/generations", http.NoBody)
 
-		if outcome := h.servePassthroughResponse(w, req, st, candidate, resp, 0, 1.0, true); outcome != outcomeServed {
-			t.Fatalf("outcome = %v, want outcomeServed", outcome)
-		}
-		if w.Body.String() != "\x89PNG\r\n" {
-			t.Errorf("body = %q, want the image bytes forwarded as they came", w.Body.String())
-		}
-	})
+			if outcome := h.servePassthroughResponse(w, req, st, candidate, resp, 0, 1.0, true); outcome != outcomeServed {
+				t.Fatalf("outcome = %v, want outcomeServed", outcome)
+			}
+			if w.Body.String() != "\x89PNG\r\n" {
+				t.Errorf("body = %q, want the image bytes forwarded as they came", w.Body.String())
+			}
+		})
+	}
 
 	t.Run("streamed", func(t *testing.T) {
 		st, candidate := nonCompletionState(t)

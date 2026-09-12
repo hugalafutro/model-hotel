@@ -539,6 +539,8 @@ func TestProbeDeliveredContent(t *testing.T) {
 		{"no voyage rerank data", endpointTypeRerank, `{"object":"list","data":[]}`, false},
 		{"bare rerank list", endpointTypeRerank, `[{"index":0,"score":0.9}]`, true},
 		{"empty bare rerank list", endpointTypeRerank, `[]`, false},
+		{"truncated bare rerank list", endpointTypeRerank, `[{"index":0`, false},
+		{"null rerank body", endpointTypeRerank, `null`, false},
 		{"rerank dialect not understood", endpointTypeRerank, `{"rankings":[]}`, true},
 		{"unparseable rerank", endpointTypeRerank, `<html>502 Bad Gateway</html>`, false},
 		{"image url", endpointTypeImage, `{"data":[{"url":"https://img/1.png"}]}`, true},

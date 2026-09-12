@@ -205,7 +205,8 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 		_ = resp.Body.Close()
 	}()
 
-	contentType := resp.Header.Get("Content-Type")
+	declared := resp.Header.Get("Content-Type")
+	contentType := declared
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
@@ -218,10 +219,12 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	// clear the streak, credit the circuit and route around the check
 	// passthroughAnswered exists to make. A body the provider itself declared
 	// binary is left to the streamed twin: nothing JSON is expected inside it.
+	// Judged on the header as sent, since a missing one reads as octet-stream
+	// above and is exactly the case the forcing exists for.
 	judged := false
 	switch st.logData.endpointType {
 	case endpointTypeEmbeddings, endpointTypeRerank, endpointTypeImage:
-		judged = !strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(contentType, "audio/")
+		judged = !strings.HasPrefix(declared, "image/") && !strings.HasPrefix(declared, "audio/") && !strings.HasPrefix(declared, "application/octet-stream")
 	}
 	isJSON := !isSSE && (strings.Contains(contentType, "json") || judged)
 

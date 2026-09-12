@@ -538,10 +538,11 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 func listAnswerDelivered(body []byte, keys ...string) bool {
 	trimmed := bytes.TrimSpace(body)
 	if len(trimmed) > 0 && trimmed[0] == '[' {
-		return !jsonValueIsEmpty(trimmed)
+		var list []json.RawMessage
+		return json.Unmarshal(trimmed, &list) == nil && len(list) > 0
 	}
 	var out map[string]json.RawMessage
-	if json.Unmarshal(body, &out) != nil {
+	if json.Unmarshal(body, &out) != nil || out == nil {
 		return false
 	}
 	for _, key := range keys {
