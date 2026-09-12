@@ -118,8 +118,9 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 //
 // A request that asked for nothing (no documents, no input) cannot be told
 // apart here either. Every hosted API refuses one with a 400, which is never
-// charged; a lenient local server answering it with an empty 200 is charged
-// as the embeddings family always was, at a rate the per-key limits bound.
+// charged; a lenient local server answering it with an empty 200 has its
+// circuit charged, as the embeddings family always was, at a rate the per-key
+// limits bound.
 func passthroughAnswered(endpointType string, body []byte) bool {
 	if len(body) == 0 {
 		return false
