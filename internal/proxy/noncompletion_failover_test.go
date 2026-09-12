@@ -884,3 +884,69 @@ func TestStreamedPassthroughDisconnect_IsNotFailedOverOrCharged(t *testing.T) {
 		t.Error("a caller that hung up was charged to the provider")
 	}
 }
+
+// The egress adapters read a whole 200 body before they can tell whether it is
+// the dialect's object at all, and the upstream close is what settles the
+// attempt's in-flight slot. That close has to wait for the verdict, and it has
+// to happen: settling on the read banks a clean completion for an answer nobody
+// could use, which on the grow-threshold run widens the provider's allowance for
+// good, and dropping the close instead leaks the slot and slowly saturates the
+// provider on this gateway's own arithmetic.
+//
+// Driven through the real chat pipeline against an Anthropic-typed provider, so
+// the translator, the reject and the close are the production ones rather than a
+// test's copy of them.
+func TestUntranslatableEgress2xx_NeitherGrowsTheWindowNorLeaksTheSlot(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Valid JSON, and not a Messages object: what a relay in front of
+		// Anthropic answers with, and nothing BuildChatCompletion can turn into
+		// a completion.
+		_, _ = io.WriteString(w, `{"detail":"upstream pool exhausted"}`)
+	}))
+	defer upstream.Close()
+
+	env := newAnthropicEgressEnv(t, upstream)
+	limiter := newInflightLimiter()
+	env.Handler.inflight = limiter
+	pid := env.ProviderID
+	// A capped window one clean completion short of the grow threshold: only a
+	// capped window counts runs, and this is the run where a wrong verdict shows
+	// in the allowance itself rather than only in the counter.
+	limiter.cut(pid, 0)
+	for range defaultInflightGrowAfter - 1 {
+		if !limiter.tryAcquire(pid, 0) {
+			t.Fatal("setup: slot not acquired")
+		}
+		limiter.release(pid, true, 0, 0)
+	}
+	before := *limiter.windowFor(t, pid)
+	if before.goodRuns != defaultInflightGrowAfter-1 {
+		t.Fatalf("setup: clean-run count = %d, want %d", before.goodRuns, defaultInflightGrowAfter-1)
+	}
+
+	// A document part is what routes this provider through the egress adapter
+	// rather than its OpenAI-compatible route.
+	body := fmt.Sprintf(`{"model":"%s/%s","stream":false,"messages":[{"role":"user","content":[{"type":"text","text":"what is the code?"},{"type":"file","file":{"file_data":"%s"}}]}]}`,
+		env.ProviderName, env.ModelName, pdfDataURI)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+	w := httptest.NewRecorder()
+	env.Handler.ChatCompletions(w, req.WithContext(ctx))
+
+	if w.Code == http.StatusOK {
+		t.Fatalf("a body the adapter cannot translate was served to the client: %s", w.Body.String())
+	}
+	after := *limiter.windowFor(t, pid)
+	if after.limit != before.limit {
+		t.Errorf("allowance = %d, want %d: an answer the client never saw was the clean run that widened the window", after.limit, before.limit)
+	}
+	if after.goodRuns != 0 {
+		t.Errorf("clean-run count = %d, want 0: a 2xx that did not translate counted toward widening the window", after.goodRuns)
+	}
+	if after.inflight != 0 {
+		t.Errorf("in-flight count = %d, want 0: the attempt's slot was never settled, so the provider loses it for the life of the process", after.inflight)
+	}
+}

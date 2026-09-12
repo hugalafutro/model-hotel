@@ -292,8 +292,10 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	// 200 {"data":[]} to every request record a success every time, so its
 	// circuit could never open.
 	switch {
-	case r.Context().Err() != nil:
-		// The request was interrupted; nothing here is the provider's doing.
+	case requestAbandoned(r.Context(), nil):
+		// Nobody is waiting for this answer; nothing here is the provider's
+		// doing. This gateway's own per-attempt deadline is not that case: the
+		// read succeeded, so the provider earned its credit.
 	case answered || !servedSuccessStatus(resp.StatusCode):
 		// The provider answered: with content, or with a definitive non-2xx,
 		// which says it is plainly alive.
@@ -564,7 +566,9 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 
 	if copyErr != nil {
 		errMsg := fmt.Sprintf("response copy error: %v", copyErr)
-		if r.Context().Err() != nil {
+		// r carries the attempt's context, so a bare cancel check would call
+		// this gateway's own per-attempt deadline a client leaving.
+		if requestAbandoned(r.Context(), copyErr) {
 			errMsg = "client disconnected during response"
 		}
 		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", copyErr)

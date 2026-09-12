@@ -35,26 +35,34 @@ func translateEgressResponseBody(resp *http.Response, model string, build chatCo
 	// and not the provider failing, which translationIsProviderFault knows.
 	body, err := readCappedBody(resp, nonStreamingBodyCap, errEgressBodyOversized)
 	if err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
+		resp.Body = bodyOver(nil, resp.Body)
 		return err
 	}
 	translated, err := build(body, egress.NewChatCompletionID(), model, time.Now().Unix())
 	if err != nil {
-		resp.Body = io.NopCloser(bytes.NewReader(nil))
+		resp.Body = bodyOver(nil, resp.Body)
 		return err
 	}
-	resp.Body = io.NopCloser(bytes.NewReader(translated))
+	resp.Body = bodyOver(translated, resp.Body)
 	return nil
 }
 
-// readCappedBody reads and closes a response body under a byte cap: cap+1 is
-// read, and a body that reaches it comes back as oversized rather than
-// truncated, so a caller never re-encodes a mutilated payload as a whole one.
-// The oversized error is the caller's own limit, never a provider fault, which
+// readCappedBody reads a response body under a byte cap: cap+1 is read, and a
+// body that reaches it comes back as oversized rather than truncated, so a
+// caller never re-encodes a mutilated payload as a whole one. The oversized
+// error is the caller's own limit, never a provider fault, which
 // translationIsProviderFault knows.
+//
+// It does not close the body. The upstream body is the attempt's in-flight
+// wrapper, and its close is what settles the attempt's slot, so closing here
+// would settle it clean from the 2xx before the caller has judged whether the
+// bytes translate. The slot is held past the read instead (holdSlotForVerdict)
+// and the caller keeps the upstream close: bodyOver carries it onto whatever
+// replaces the body, and a caller that replaces nothing closes resp.Body
+// itself once its verdict is recorded.
 func readCappedBody(resp *http.Response, limit int, oversized error) ([]byte, error) {
+	holdSlotForVerdict(resp)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, int64(limit)+1))
-	_ = resp.Body.Close()
 	if err != nil {
 		return nil, err
 	}
@@ -62,4 +70,14 @@ func readCappedBody(resp *http.Response, limit int, oversized error) ([]byte, er
 		return nil, oversized
 	}
 	return body, nil
+}
+
+// bodyOver puts bytes of this process's own in place of a fully read upstream
+// body while keeping the upstream close, so whoever closes the response still
+// releases the upstream connection and settles the attempt's in-flight slot.
+func bodyOver(b []byte, upstream io.Closer) io.ReadCloser {
+	return struct {
+		io.Reader
+		io.Closer
+	}{bytes.NewReader(b), upstream}
 }

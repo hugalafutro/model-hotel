@@ -206,7 +206,11 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		} else if err := translateResponsesResponseBody(resp, st.reqModel); err != nil {
 			// A 200 whose body cannot be read or is not a Responses object is
 			// a provider fault; fail over like any other malformed upstream.
-			return h.rejectUntranslatableBody(st, candidate, logData, "responses api", resp.StatusCode, err, attempt, r)
+			// Closed after the verdict: readCappedBody left the upstream close,
+			// which settles the in-flight slot, to whoever judges the bytes.
+			outcome := h.rejectUntranslatableBody(st, candidate, logData, "responses api", resp.StatusCode, err, attempt, r)
+			_ = resp.Body.Close()
+			return outcome
 		}
 	}
 	if st.geminiAttempt {
@@ -214,7 +218,9 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, gemini.BuildChatCompletion); err != nil {
-			return h.rejectUntranslatableBody(st, candidate, logData, "gemini", resp.StatusCode, err, attempt, r)
+			outcome := h.rejectUntranslatableBody(st, candidate, logData, "gemini", resp.StatusCode, err, attempt, r)
+			_ = resp.Body.Close()
+			return outcome
 		}
 	}
 	if st.anthropicEgressAttempt {
@@ -222,7 +228,9 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, anthropicegress.BuildChatCompletion); err != nil {
-			return h.rejectUntranslatableBody(st, candidate, logData, "anthropic egress", resp.StatusCode, err, attempt, r)
+			outcome := h.rejectUntranslatableBody(st, candidate, logData, "anthropic egress", resp.StatusCode, err, attempt, r)
+			_ = resp.Body.Close()
+			return outcome
 		}
 	}
 	if st.isStreaming {
