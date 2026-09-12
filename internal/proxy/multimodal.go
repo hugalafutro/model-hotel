@@ -236,6 +236,13 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, attempt int, responseHeaderMs float64, hasMoreCandidates bool) candidateOutcome {
 	logData := st.logData
 
+	// The read below reaches the body's end before the answer has been judged,
+	// so the EOF must not settle the attempt's in-flight slot with only the
+	// status to go on: an embeddings answer carrying no vectors would bank a
+	// clean completion toward widening the provider's window. The close in
+	// servePassthroughResponse settles it after the verdict instead, and a
+	// reject settles it first. Same reason as the chat dispatch.
+	holdSlotForVerdict(resp)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, passthroughJSONBufferCap+1))
 	if err != nil {
 		// Not charged, and not failed over, when there is nobody left waiting for

@@ -256,6 +256,8 @@ const reconcileLockTimeout = "5s"
 // SHARE ROW EXCLUSIVE blocks writers and other imports while still allowing
 // plain reads. The order is fixed here and these are the only LOCK TABLE
 // statements in the codebase, so two imports cannot deadlock against each other.
+// The waits are bounded by the lock_timeout apply sets before its first lock,
+// not here: a caller that takes this outside apply must set it first.
 func lockReconciledTables(ctx context.Context, tx pgx.Tx) error {
 	for _, table := range []string{"providers", "virtual_keys", "users"} {
 		if _, err := tx.Exec(ctx, `LOCK TABLE `+table+` IN SHARE ROW EXCLUSIVE MODE`); err != nil {
@@ -270,6 +272,8 @@ func lockReconciledTables(ctx context.Context, tx pgx.Tx) error {
 // zero providers would delete the member's entire provider set, cascading to
 // discovered models. buildEnvelope always ships the full config, so a
 // functioning primary never pushes zero providers onto a member that has some.
+// Unlike the key rail there is no explicit-empty case to honour: a gateway with
+// no providers routes nothing, so an empty list is never an intent to sync.
 // The check sits inside the transaction and before any delete, so it and the
 // delete it guards are atomic. An empty-provider envelope onto a member that
 // also has no providers is a harmless no-op and is allowed (fleet bootstrap or
@@ -299,6 +303,11 @@ func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []Export
 // that lost it in transit, and neither is an instruction to drop credentials: a
 // populated member refuses. A present but empty list is a primary stating it has
 // zero keys, which is operator intent, so the member reconciles down to zero.
+// That is the one shape this rail lets through on purpose: the exporter never
+// produces it by accident (exportVirtualKeys errors rather than returning a
+// short list), so an explicit empty list reaching a populated member came from
+// a primary with no keys or from an edited envelope pushed with the master key,
+// and both are the operator's hand.
 //
 // It reports whether the reconcile must leave keys behind, which guardKeysSurvived
 // needs to tell a wipe apart from a member that never had keys or was told to

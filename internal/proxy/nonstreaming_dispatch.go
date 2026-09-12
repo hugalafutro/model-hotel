@@ -12,6 +12,12 @@ import "net/http"
 // is one the client or this gateway's own timeout ended, never the provider.
 func (h *Handler) dispatchNonStreaming(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64, hasMoreCandidates bool) candidateOutcome {
 	logData := st.logData
+	// Both dispatches below read the whole body before they can tell a served
+	// answer from a 2xx that carried none, so the body's EOF must not settle the
+	// attempt's in-flight slot on the way past: at that moment the verdict does
+	// not exist yet, and a slot settled clean cannot be taken back. Every exit
+	// from here closes the body, which is what settles it instead.
+	holdSlotForVerdict(resp)
 	// A non-streaming answer clears any gone-strike streak the model had, judged
 	// after the handler on what the handler decoded rather than on the 200 that
 	// preceded it. Both halves of that placement are load-bearing:

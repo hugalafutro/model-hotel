@@ -528,13 +528,23 @@ func TestNativeNonStreaming_ReadFailureFailsOverWhenASiblingRemains(t *testing.T
 func withRequestTimeout(t *testing.T, h *Handler, value string) {
 	t.Helper()
 	ctx := context.Background()
-	previous := h.settingsRepo.GetDuration(ctx, "request_timeout", time.Minute)
+	previous, hadRow, err := h.settingsRepo.GetChecked(ctx, "request_timeout")
+	if err != nil {
+		t.Fatalf("read request_timeout: %v", err)
+	}
 	if err := h.settingsRepo.Set(ctx, "request_timeout", value); err != nil {
 		t.Fatalf("set request_timeout: %v", err)
 	}
 	h.settingsRepo.InvalidateCache("request_timeout")
+	// Put back what was there, including nothing: writing the default in
+	// place of an absent row would leave every later test reading an explicit
+	// value where it expects the built-in one.
 	t.Cleanup(func() {
-		_ = h.settingsRepo.Set(ctx, "request_timeout", previous.String())
+		if hadRow {
+			_ = h.settingsRepo.Set(ctx, "request_timeout", previous)
+		} else {
+			_ = h.settingsRepo.DeleteKey(ctx, "request_timeout")
+		}
 		h.settingsRepo.InvalidateCache("request_timeout")
 	})
 }
@@ -658,16 +668,21 @@ func TestRejected2xx_DoesNotEarnACleanRun(t *testing.T) {
 	st, candidate := nonCompletionState(t)
 	st.inflightEnabled = true
 	pid := candidate.provider.ID
-	// A capped window with one clean completion already banked: only a capped
-	// one counts runs at all, and the second clean completion is the one a
-	// rejected 2xx must not be.
+	// A capped window one clean completion short of the grow threshold: only a
+	// capped window counts runs at all, and this is the run where the difference
+	// shows in the allowance itself rather than just the counter. A correction
+	// applied after the fact cannot reach the allowance, which is why the slot
+	// has to be held until the verdict instead.
 	limiter.cut(pid, 0)
-	if !limiter.tryAcquire(pid, 0) {
-		t.Fatal("setup: slot not acquired")
+	for range defaultInflightGrowAfter - 1 {
+		if !limiter.tryAcquire(pid, 0) {
+			t.Fatal("setup: slot not acquired")
+		}
+		limiter.release(pid, true, 0, 0)
 	}
-	limiter.release(pid, true, 0, 0)
-	if got := limiter.windowFor(t, pid).goodRuns; got != 1 {
-		t.Fatalf("setup: clean-run count = %d, want 1", got)
+	before := *limiter.windowFor(t, pid)
+	if before.goodRuns != defaultInflightGrowAfter-1 {
+		t.Fatalf("setup: clean-run count = %d, want %d", before.goodRuns, defaultInflightGrowAfter-1)
 	}
 
 	if !h.admitCandidate(st, candidate) {
@@ -681,8 +696,12 @@ func TestRejected2xx_DoesNotEarnACleanRun(t *testing.T) {
 		t.Fatalf("outcome = %v, want outcomeFailover", outcome)
 	}
 
-	if got := limiter.windowFor(t, pid).goodRuns; got != 0 {
-		t.Errorf("clean-run count = %d, want 0: a 2xx the client never saw counted toward widening the provider's window", got)
+	after := *limiter.windowFor(t, pid)
+	if after.goodRuns != 0 {
+		t.Errorf("clean-run count = %d, want 0: a 2xx the client never saw counted toward widening the provider's window", after.goodRuns)
+	}
+	if after.limit != before.limit {
+		t.Errorf("allowance = %d, want %d: a 2xx the client never saw was the clean run that widened the window", after.limit, before.limit)
 	}
 }
 
@@ -759,5 +778,109 @@ func TestUndecodable2xx_ChargesTheSameAtEitherPosition(t *testing.T) {
 				t.Errorf("error kind = %q, want %q", kind, KindProviderError)
 			}
 		})
+	}
+}
+
+// streamedPassthroughPair builds a two-provider text-to-speech failover group:
+// the first provider runs firstHandler, the second answers real audio bytes.
+// Text-to-speech is the shape that reaches serveStreamedPassthrough, where the
+// commit point is the first body byte rather than a buffered read.
+func streamedPassthroughPair(t *testing.T, firstHandler http.HandlerFunc) (*multimodalTestEnv, string, *atomic.Int32) {
+	t.Helper()
+	env := newMultimodalEnv(t, firstHandler)
+	var siblingCalls atomic.Int32
+	sibling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		siblingCalls.Add(1)
+		w.Header().Set("Content-Type", "audio/mpeg")
+		_, _ = io.WriteString(w, "ID3 the sibling's audio")
+	}))
+	t.Cleanup(sibling.Close)
+	_, _, siblingModelUUID, _ := createMultimodalProvider(t, sibling.URL)
+
+	group := env.modelName
+	if _, err := failover.NewRepository(testDB.Pool()).UpsertWithConfig(context.Background(), group,
+		[]uuid.UUID{env.modelUUID, siblingModelUUID},
+		map[string]bool{env.modelUUID.String(): true, siblingModelUUID.String(): true},
+		nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	return env, group, &siblingCalls
+}
+
+// speechRequest asks the group for audio, which is what puts the answer on the
+// streamed half of the pass-through.
+func speechRequest(env *multimodalTestEnv, group string) *http.Request {
+	return env.request("/v1/audio/speech", "application/json",
+		strings.NewReader(fmt.Sprintf(`{"model":"hotel/%s","input":"hi","voice":"alloy"}`, group)))
+}
+
+// The pass-through twin of the stalled chat 2xx, and the reason the attempt's
+// own context has to reach these handlers. A provider that answers audio headers
+// and then sends no byte until this gateway's per-attempt deadline has stalled,
+// and the sibling behind it can serve. Handed the bare client request instead,
+// the deadline arrives carrying no cancel origin, resolveCancelOrigin calls it a
+// client disconnect, and the request ends there with the provider uncharged.
+func TestStreamedPassthroughStall_FailsOverToTheSibling(t *testing.T) {
+	env, group, siblingCalls := streamedPassthroughPair(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		// Headers and then silence, until the gateway gives up on the body.
+		<-r.Context().Done()
+	})
+	// Long-running endpoints get ten times the request timeout, so this is a
+	// one-second per-attempt budget and a two-second budget for the request.
+	withRequestTimeout(t, env.handler, "100ms")
+	withBreakerThresholdOne(t, env.handler)
+
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, speechRequest(env, group))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 after failover; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "the sibling's audio") {
+		t.Fatalf("the stall ended the request instead of reaching the sibling: %q", w.Body.String())
+	}
+	if got := siblingCalls.Load(); got != 1 {
+		t.Errorf("sibling called %d times, want 1", got)
+	}
+	if env.handler.circuitBreaker.GetState(env.providerID, env.modelName) != failover.StateOpen {
+		t.Error("the stalled provider was not charged, so a provider that does this on every request stays a candidate")
+	}
+}
+
+// The other half of the same rule on the same path: a caller that hangs up is
+// not a stall. Nobody is waiting for the answer a second provider would produce,
+// so the sibling is not asked and the provider is not charged for someone else's
+// cancellation.
+func TestStreamedPassthroughDisconnect_IsNotFailedOverOrCharged(t *testing.T) {
+	reached := make(chan struct{})
+	env, group, siblingCalls := streamedPassthroughPair(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		close(reached)
+		<-r.Context().Done()
+	})
+	withBreakerThresholdOne(t, env.handler)
+
+	req := speechRequest(env, group)
+	ctx, cancel := context.WithCancel(req.Context())
+	t.Cleanup(cancel)
+	go func() {
+		<-reached
+		// The headers are out and the gateway is on the first-byte read.
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	env.handler.AudioSpeech(httptest.NewRecorder(), req.WithContext(ctx))
+
+	if got := siblingCalls.Load(); got != 0 {
+		t.Errorf("sibling called %d times, want 0: the prompt was re-billed for an answer nobody was waiting for", got)
+	}
+	if env.handler.circuitBreaker.GetState(env.providerID, env.modelName) == failover.StateOpen {
+		t.Error("a caller that hung up was charged to the provider")
 	}
 }

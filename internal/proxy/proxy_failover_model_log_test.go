@@ -170,10 +170,12 @@ func TestLogUpstreamModel_WritesTheModelAtDebug(t *testing.T) {
 	}
 }
 
-// With a handler that refuses Debug records nothing is written, and the body is
-// never parsed: a body that is not JSON at all is handed over, which the decode
-// would have to reach to reject. Bodies are tens of megabytes on the image
-// endpoints, so the parse skipped here is what the gate exists for.
+// With a handler that refuses Debug records nothing is written. The gate also
+// skips the decode on that path, which is what it exists for on bodies that
+// reach tens of megabytes, but that is not observable from outside without a
+// hook production code must not carry; it holds by construction, the gate
+// being the first statement of logUpstreamModel. What this pins is the visible
+// contract: nothing about the body, parseable or not, reaches the log.
 func TestLogUpstreamModel_SilentBelowDebug(t *testing.T) {
 	captured := captureLogsAt(t, slog.LevelInfo)
 

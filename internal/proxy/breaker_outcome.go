@@ -321,7 +321,8 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 			kind = cancelled
 		}
 	}
-	if !requestAbandoned(r.Context(), err) && translationIsProviderFault(err) {
+	abandoned := requestAbandoned(r.Context(), err)
+	if !abandoned && translationIsProviderFault(err) {
 		h.chargeBreaker(st, candidate, status, "upstream body could not be translated")
 	}
 	// The attempt is over and it did not serve, so its in-flight slot settles as
@@ -330,13 +331,19 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// that flag gets wrong: letting it stand grows the provider's learned
 	// in-flight window on the strength of an answer the client never saw.
 	//
-	// Both halves are needed because the paths reaching here differ on when the
-	// body ends. Where the verdict comes first the settle carries it; where the
-	// whole body was buffered to reach the verdict at all, the read's EOF has
-	// already settled the slot clean, and noteUnclean takes that credit back.
-	// Each is a no-op after the other.
-	st.attemptSlot.settle(false)
-	h.inflight.noteUnclean(candidate.provider.ID)
+	// This settle is the one that lands because a path that buffers a whole body
+	// before it can judge it holds the slot past the body's own EOF
+	// (holdSlotForVerdict), leaving the close that follows a no-op. Without that
+	// hold the read's EOF would settle the slot clean while the verdict was
+	// still being formed, and nothing said afterwards could take the credit
+	// back.
+	//
+	// Not for an abandoned request: the caller leaving says nothing about the
+	// provider, so its slot settles from the status as the body close always
+	// has, the same way the breaker leaves it alone above.
+	if !abandoned {
+		st.attemptSlot.settle(false)
+	}
 	st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 	logData.failoverAttempt = attempt
 	logData.closeAttemptRecord(status, kind, errString(err), "", 0)
@@ -368,8 +375,11 @@ func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData,
 	if prompt == 0 {
 		return
 	}
-	// Added, so a later candidate's own stamp does not erase it; every path that
-	// stamps a served prompt onto this row adds to it for the same reason.
+	// Added, so a later candidate's own stamp does not erase it. Only the two
+	// non-streaming chat paths add rather than assign, and only they need to:
+	// they are the paths a rejected 2xx can precede. The pass-through and
+	// streaming stamps still assign, since neither loop can reach them behind
+	// one of these rejects.
 	logData.tokensPrompt += prompt
 	h.recordTokenUsage(st.vkHash, logData, prompt, 0, 0)
 }

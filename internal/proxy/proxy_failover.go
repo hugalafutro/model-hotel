@@ -741,8 +741,16 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		return nil, false
 	}
 
-	// Log upstream response metadata for debugging.
-	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
+	// Log upstream response metadata for debugging. The three header values are
+	// the upstream's own text, so they are bounded and sanitized the way every
+	// other upstream-controlled value a log line carries is: a provider is free
+	// to answer with a megabyte of newlines in a header, and an app log the
+	// dashboard renders is not the place to find that out.
+	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode,
+		"content_type", util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap),
+		"x_request_id", util.SanitizeLogBody(resp.Header.Get("X-Request-Id"), shortLogValueCap),
+		"x_ratelimit_remaining", util.SanitizeLogBody(resp.Header.Get("X-RateLimit-Remaining"), shortLogValueCap),
+		"attempt", attempt+1)
 	return resp, true
 }
 
