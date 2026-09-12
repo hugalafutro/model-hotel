@@ -212,10 +212,8 @@ func TestPassthrough_NoUsageBlockStillMeters(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(20 * time.Millisecond)
 
-	// A perfectly ordinary provider response with no usage block. The image
-	// has to be under the key providers use for it: the floor sits behind the
-	// delivery gate, and an entry carrying no image under any real key is not
-	// an image delivered.
+	// A perfectly ordinary provider response with no usage block, under the
+	// key providers actually use for the image.
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
