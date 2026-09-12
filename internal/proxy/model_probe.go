@@ -347,13 +347,15 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		// twice. The constant promises memory, and that still holds, since this
 		// streams to io.Discard through one 32 KiB buffer.
 		//
-		// Knowingly a no-op on some paths: MiniMax and both dialect translators
-		// read the body to EOF and CLOSE it themselves, so there this copy reads
-		// an already-closed body and discards the error. A body those paths could
-		// finish they already drained, and one they could not finish is past the
-		// cap, where the connection is forfeit either way.
+		// Knowingly a no-op on some paths: MiniMax reads the body to EOF and
+		// closes it itself, so there this copy reads an already-closed body and
+		// discards the error, and both dialect translators read it to EOF and
+		// leave it open at EOF, so there the copy finds nothing left. A body
+		// those paths could finish they already drained, and one they could not
+		// finish is past the cap, where the connection is forfeit either way.
 		_, _ = io.Copy(io.Discard, io.LimitReader(rawBody, goneProbeMaxBody))
-		// Whatever is in the field: the cap above on every path, or the NopCloser
+		// Whatever is in the field: the cap above on every path, the bodyOver
+		// the translators leave with the cap as its closer, or the NopCloser
 		// remapMiniMaxBusinessError leaves behind, and that path has already
 		// closed the cap, and through it the transport's own body. The real body
 		// is closed exactly once either way.

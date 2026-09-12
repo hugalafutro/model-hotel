@@ -295,7 +295,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	case requestAbandoned(r.Context(), nil):
 		// Nobody is waiting for this answer; nothing here is the provider's
 		// doing. This gateway's own per-attempt deadline is not that case: the
-		// read succeeded, so the provider earned its credit.
+		// read succeeded, so the answer is judged on what it carries below.
 	case answered || !servedSuccessStatus(resp.StatusCode):
 		// The provider answered: with content, or with a definitive non-2xx,
 		// which says it is plainly alive.
