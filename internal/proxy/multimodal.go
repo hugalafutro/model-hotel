@@ -210,15 +210,20 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 		contentType = "application/octet-stream"
 	}
 	isSSE := strings.HasPrefix(contentType, "text/event-stream")
-	// An embeddings answer is JSON by definition, so it takes the buffered branch
-	// whatever an aggregator or CDN in front of the provider labelled it.
-	// Letting the content type decide sends an unlabelled one to the streamed
-	// twin, which commits on the first byte and cannot judge what it never
-	// holds, so `{"data":[]}` is eleven bytes that clear the streak and route
-	// around the check passthroughAnswered exists to make. Embeddings is the
-	// only pass-through family that can be auto-retired, hence the only one
-	// named.
-	isJSON := !isSSE && (strings.Contains(contentType, "json") || st.logData.endpointType == endpointTypeEmbeddings)
+	// An embeddings, rerank or image-generation answer is JSON by definition,
+	// so it takes the buffered branch whatever an aggregator or CDN in front of
+	// the provider labelled it. Letting the content type decide sends an
+	// unlabelled one to the streamed twin, which commits on the first byte and
+	// cannot judge what it never holds, so `{"data":[]}` is eleven bytes that
+	// clear the streak, credit the circuit and route around the check
+	// passthroughAnswered exists to make. A body the provider itself declared
+	// binary is left to the streamed twin: nothing JSON is expected inside it.
+	judged := false
+	switch st.logData.endpointType {
+	case endpointTypeEmbeddings, endpointTypeRerank, endpointTypeImage:
+		judged = !strings.HasPrefix(contentType, "image/") && !strings.HasPrefix(contentType, "audio/")
+	}
+	isJSON := !isSSE && (strings.Contains(contentType, "json") || judged)
 
 	if isJSON {
 		return h.serveBufferedJSONPassthrough(w, r, st, candidate, resp, contentType, attempt, responseHeaderMs, hasMoreCandidates)

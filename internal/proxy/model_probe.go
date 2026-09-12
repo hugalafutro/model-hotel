@@ -113,10 +113,11 @@ func (v probeVerdict) String() string {
 // and real seconds per call.
 //
 // Rerank is excluded on weaker grounds: a /rerank call with one document is as
-// cheap as an embeddings call, but it would need its own request body, answer
-// shape and content judgement, and an unexercised third judgement path is a
-// worse trade than leaving rerank models enabled until an operator disables one.
-// Cheap to reverse: add the family here plus a body and a content check.
+// cheap as an embeddings call, and probeDeliveredContent already judges a
+// rerank answer for the traffic path, but the probe would still need its own
+// request body, and an unexercised third probe path is a worse trade than
+// leaving rerank models enabled until an operator disables one. Cheap to
+// reverse: add the family here plus a body.
 //
 // Where a family cannot be probed cheaply, the correct outcome is not to
 // auto-retire that family at all. Falling back to the prose classifier would
@@ -480,8 +481,8 @@ func translateProbeDialect(resp *http.Response, st *requestState, modelID string
 
 // probeDeliveredContent reports whether a success response actually carried
 // something the model produced. The retirement probe asks it of the chat and
-// embeddings families; the pass-through traffic path asks it of every family
-// that answers in JSON (passthroughAnswered).
+// embeddings families; the pass-through traffic path asks it of the JSON
+// families other than audio (passthroughAnswered says why audio is not).
 //
 // A body that will not parse returns false, which postpones rather than retires:
 // an unreadable answer is not the provider saying the model is gone.
@@ -507,27 +508,13 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		}
 		return !jsonValueIsEmpty(out.Data[0].Embedding)
 	case endpointTypeRerank:
-		// A ranking of nothing is nothing produced: every rerank API returns one
-		// result per document it scored, and refuses an empty document list
-		// with a 400 rather than answering it with an empty 200.
-		var out struct {
-			Results []json.RawMessage `json:"results"`
-		}
-		return json.Unmarshal(body, &out) == nil && len(out.Results) > 0
+		// Cohere, Jina and the local rerankers answer under "results", Voyage
+		// under "data", and text-embeddings-inference with the bare list.
+		return listAnswerDelivered(body, "results", "data")
 	case endpointTypeImage:
-		// An image is delivered as a URL or as base64 bytes; an entry carrying
-		// neither (a revised prompt alone, say) is not an image. The same
-		// structural emptiness rule as the vector above, for the same reason.
-		var out struct {
-			Data []struct {
-				URL     json.RawMessage `json:"url"`
-				B64JSON json.RawMessage `json:"b64_json"`
-			} `json:"data"`
-		}
-		if json.Unmarshal(body, &out) != nil || len(out.Data) == 0 {
-			return false
-		}
-		return !jsonValueIsEmpty(out.Data[0].URL) || !jsonValueIsEmpty(out.Data[0].B64JSON)
+		// The OpenAI shape every /v1/images provider this gateway fronts
+		// answers in: the images under "data".
+		return listAnswerDelivered(body, "data")
 	}
 
 	var out ChatCompletionResponse
@@ -535,6 +522,34 @@ func probeDeliveredContent(endpointType string, body []byte) bool {
 		return false
 	}
 	return chatAnswerCarriesContent(out)
+}
+
+// listAnswerDelivered reports whether a JSON answer whose payload is a list
+// under one of the given keys, or is itself that list, carries anything.
+//
+// Only a shape it recognises is ever called empty. A rerank or image provider
+// answering in a dialect this gateway does not translate (an object under
+// "data", the images under a key of its own) is forwarded to the client as it
+// came, and its answer is judged on bytes as before: not understanding a shape
+// is not evidence that it carries nothing, and calling it empty would fail a
+// healthy provider over and charge its circuit on every call. A body that will
+// not parse at all is not an answer on a JSON surface, the verdict the chat
+// path reaches through completionFault.
+func listAnswerDelivered(body []byte, keys ...string) bool {
+	trimmed := bytes.TrimSpace(body)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		return !jsonValueIsEmpty(trimmed)
+	}
+	var out map[string]json.RawMessage
+	if json.Unmarshal(body, &out) != nil {
+		return false
+	}
+	for _, key := range keys {
+		if raw, ok := out[key]; ok {
+			return !jsonValueIsEmpty(raw)
+		}
+	}
+	return true
 }
 
 // jsonValueIsEmpty reports whether a raw JSON value carries nothing: absent,

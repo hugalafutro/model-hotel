@@ -529,16 +529,25 @@ func TestProbeDeliveredContent(t *testing.T) {
 		// Rerank and image generation answer in JSON too, so an empty answer
 		// there is as visible as an empty vector: a rerank that ranked nothing
 		// and an image call that produced no image are the provider answering
-		// with nothing, whatever the status line says.
-		{"rerank results", endpointTypeRerank, `{"results":[{"index":0,"relevance_score":0.5}]}`, true},
+		// with nothing, whatever the status line says. Only a recognised shape
+		// is ever called empty: a dialect this gateway does not translate is
+		// forwarded as it came and judged on bytes, as before.
+		{"cohere rerank results", endpointTypeRerank, `{"results":[{"index":0,"relevance_score":0.5}]}`, true},
 		{"no rerank results", endpointTypeRerank, `{"results":[]}`, false},
-		{"rerank results absent", endpointTypeRerank, `{"model":"r"}`, false},
+		{"null rerank results", endpointTypeRerank, `{"results":null}`, false},
+		{"voyage rerank data", endpointTypeRerank, `{"object":"list","data":[{"index":0,"relevance_score":0.9}]}`, true},
+		{"no voyage rerank data", endpointTypeRerank, `{"object":"list","data":[]}`, false},
+		{"bare rerank list", endpointTypeRerank, `[{"index":0,"score":0.9}]`, true},
+		{"empty bare rerank list", endpointTypeRerank, `[]`, false},
+		{"rerank dialect not understood", endpointTypeRerank, `{"rankings":[]}`, true},
 		{"unparseable rerank", endpointTypeRerank, `<html>502 Bad Gateway</html>`, false},
 		{"image url", endpointTypeImage, `{"data":[{"url":"https://img/1.png"}]}`, true},
 		{"image base64", endpointTypeImage, `{"data":[{"b64_json":"aW1n"}]}`, true},
 		{"no image data", endpointTypeImage, `{"created":1,"data":[]}`, false},
-		{"image with neither url nor bytes", endpointTypeImage, `{"data":[{"revised_prompt":"x"}]}`, false},
-		{"empty image url and bytes", endpointTypeImage, `{"data":[{"url":"","b64_json":""}]}`, false},
+		{"null image data", endpointTypeImage, `{"created":1,"data":null}`, false},
+		{"image entry of unknown shape", endpointTypeImage, `{"data":[{"revised_prompt":"x"}]}`, true},
+		{"image dialect not understood", endpointTypeImage, `{"data":{"image_base64":"aW1n"}}`, true},
+		{"image under a key of its own", endpointTypeImage, `{"image":"aW1n"}`, true},
 		{"unparseable image", endpointTypeImage, `<html>502 Bad Gateway</html>`, false},
 	}
 	for _, tc := range cases {

@@ -557,43 +557,53 @@ func TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures(t *testing.T) {
 // bill the caller on every empty answer — the regression the gate was added to
 // prevent.
 //
-// Embeddings is the endpoint this is shown on; passthroughAnswered inspects the
-// body for every JSON family (rerank and image generation too). For the audio
-// families any non-empty 200 body counts as delivered, so a junk answer there
-// does draw the floor. That is the intended trade — one token is the price of
-// not being able to tell a bad transcription from a good one, and per-key RPS
-// limiting bounds how often it can be paid.
+// passthroughAnswered inspects the body for every JSON family but audio, so
+// rerank and image generation are behind the same gate. For the audio families
+// any non-empty 200 body counts as delivered, so a junk answer there does draw
+// the floor. That is the intended trade — one token is the price of not being
+// able to tell a bad transcription from a good one, and per-key RPS limiting
+// bounds how often it can be paid.
 func TestPassthroughFloor_StaysBehindTheDeliveryGate(t *testing.T) {
-	h := newIntegrationHandler()
-	t.Cleanup(func() { stopUnitHandler(h) })
-	vkRepo := &mockVirtualKeyRepo{}
-	h.virtualKeyRepo = vkRepo
+	for _, tc := range []struct {
+		endpoint, path, body string
+	}{
+		{endpointTypeEmbeddings, "/v1/embeddings", `{"data":[]}`},
+		{endpointTypeRerank, "/v1/rerank", `{"results":[]}`},
+		{endpointTypeImage, "/v1/images/generations", `{"created":1,"data":[]}`},
+	} {
+		t.Run(tc.endpoint, func(t *testing.T) {
+			h := newIntegrationHandler()
+			t.Cleanup(func() { stopUnitHandler(h) })
+			vkRepo := &mockVirtualKeyRepo{}
+			h.virtualKeyRepo = vkRepo
 
-	logData := &requestLogData{
-		id:              uuid.New().String(),
-		modelID:         "text-embedding-3-small",
-		endpointType:    endpointTypeEmbeddings,
-		virtualKeyName:  "test-key",
-		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
-		state:           "streaming",
-		promptTextBytes: 0,
-	}
-	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
-	h.insertRequestLogAsync(logData)
-	time.Sleep(20 * time.Millisecond)
+			logData := &requestLogData{
+				id:              uuid.New().String(),
+				modelID:         "m",
+				endpointType:    tc.endpoint,
+				virtualKeyName:  "test-key",
+				virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+				state:           "streaming",
+				promptTextBytes: 0,
+			}
+			st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+			h.insertRequestLogAsync(logData)
+			time.Sleep(20 * time.Millisecond)
 
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Header:     http.Header{"Content-Type": []string{"application/json"}},
-		Body:       io.NopCloser(strings.NewReader(`{"data":[]}`)),
-	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
-		model:    &model.Model{ID: uuid.New(), ModelID: "text-embedding-3-small"},
-		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
-	}, resp, "application/json", 1, 10.0, false)
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(tc.body)),
+			}
+			h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", tc.path, http.NoBody), st, modelCandidate{
+				model:    &model.Model{ID: uuid.New(), ModelID: "m"},
+				provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
+			}, resp, "application/json", 1, 10.0, false)
 
-	if n := len(vkRepo.addTokensCalls); n != 0 {
-		t.Errorf("charged %d times for an empty answer, want 0: the floor must not defeat the delivery gate", n)
+			if n := len(vkRepo.addTokensCalls); n != 0 {
+				t.Errorf("charged %d times for an empty answer, want 0: the floor must not defeat the delivery gate", n)
+			}
+		})
 	}
 }
 
@@ -633,7 +643,7 @@ func TestOversizedPassthrough_ZeroPromptStillMeters(t *testing.T) {
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
 		Body:       io.NopCloser(strings.NewReader(huge)),
 	}
-	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/embeddings", http.NoBody), st, modelCandidate{
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/images/generations", http.NoBody), st, modelCandidate{
 		model:    &model.Model{ID: uuid.New(), ModelID: "dall-e-2"},
 		provider: &provider.Provider{ID: uuid.New(), Name: "test-provider"},
 	}, resp, "application/json", 1, 10.0, false)
