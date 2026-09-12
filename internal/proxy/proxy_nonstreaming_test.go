@@ -500,8 +500,11 @@ func undecodable2xxDoesNotLogContent(t *testing.T, status int) {
 			t.Errorf("errorMessage missing diagnostic %q: %q", want, logData.errorMessage)
 		}
 	}
-	if logData.errorKind != KindProviderBadRequest {
-		t.Errorf("error kind = %v, want %v", logData.errorKind, KindProviderBadRequest)
+	// The same kind rejectUntranslatableBody records for the identical body one
+	// candidate earlier: which position in the group produced it must not decide
+	// whether its provider is charged.
+	if logData.errorKind != KindProviderError {
+		t.Errorf("error kind = %v, want %v", logData.errorKind, KindProviderError)
 	}
 }
 
@@ -711,8 +714,8 @@ func TestNonStreamingFailureDetail(t *testing.T) {
 				t.Errorf("diagnostics missing: %q", s)
 			}
 		}
-		if kind != KindProviderBadRequest {
-			t.Errorf("kind = %v, want %v", kind, KindProviderBadRequest)
+		if kind != KindProviderError {
+			t.Errorf("kind = %v, want %v", kind, KindProviderError)
 		}
 		if !strings.Contains(reason, "could not decode") || strings.Contains(reason, "200") {
 			t.Errorf("reason = %q", reason)

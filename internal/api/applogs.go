@@ -515,7 +515,7 @@ func buildAppLogHistoryQuery(p appLogHistoryParams, q url.Values) (string, []any
 	conditions, args, argIdx := appendAppLogFilters(nil, nil, 1,
 		q.Get("level"), q.Get("source"), q.Get("search"), q.Get("from"), q.Get("to"))
 	query := fmt.Sprintf(
-		"SELECT timestamp, level, source, message, escaped, attrs_at FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
+		"SELECT id, timestamp, level, source, message, escaped, attrs_at FROM app_logs%s ORDER BY %s %s LIMIT $%d OFFSET $%d",
 		appLogWhereClause(conditions), p.sortCol, p.sortDir, argIdx, argIdx+1,
 	)
 	args = append(args, p.perPage, (p.page-1)*p.perPage)
@@ -556,7 +556,9 @@ func (h *Handler) getAppLogsHistory(w http.ResponseWriter, r *http.Request) {
 	entries := make([]AppLogEntry, 0, 100)
 	var e AppLogEntry
 	var ts time.Time
-	if _, err := pgx.ForEachRow(rows, []any{&ts, &e.Level, &e.Source, &e.Message, &e.Escaped, &e.AttrsAt}, func() error {
+	// id rides along so the dashboard keys rows on it: two rows written in the
+	// same database tick share every other column and would collide otherwise.
+	if _, err := pgx.ForEachRow(rows, []any{&e.ID, &ts, &e.Level, &e.Source, &e.Message, &e.Escaped, &e.AttrsAt}, func() error {
 		e.Timestamp = ts.UTC().Format(time.RFC3339Nano)
 		entries = append(entries, e)
 		return nil

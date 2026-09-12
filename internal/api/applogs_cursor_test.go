@@ -705,6 +705,62 @@ func TestGetAppLogsHistory_SingleEntry(t *testing.T) {
 	}
 }
 
+// TestGetAppLogsHistory_RowsCarryTheirID pins the id on the offset projection.
+// Two rows written in the same database tick differ in nothing else, so the
+// dashboard keys its list and its row stepper on the id; a page served without
+// one collapses the pair into a single key.
+func TestGetAppLogsHistory_RowsCarryTheirID(t *testing.T) {
+	if apiTestDBURL == "" {
+		t.Fatal("apiTestDBURL not set: test database required")
+	}
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.Pool().Pool()
+
+	source := "idsrc-" + uuid.New().String()[:8]
+	defer pool.Exec(context.Background(), "DELETE FROM app_logs WHERE source = $1", source)
+	inserted := make(map[string]bool, 2)
+	for range 2 {
+		id := uuid.New().String()
+		inserted[id] = true
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO app_logs (id, timestamp, level, source, message, created_at)
+			 VALUES ($1, NOW(), 'info', $2, 'same tick', NOW())`,
+			id, source); err != nil {
+			t.Fatalf("insert app log: %v", err)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/logs/app?history=true&source="+source, http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	rec := httptest.NewRecorder()
+	r.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("expected status %d, got %d: %s", http.StatusOK, rec.Code, rec.Body.String())
+	}
+
+	var resp appLogsHistoryResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(resp.Entries) != 2 {
+		t.Fatalf("expected 2 entries, got %d", len(resp.Entries))
+	}
+	seen := make(map[string]bool, 2)
+	for _, e := range resp.Entries {
+		if e.ID == "" {
+			t.Fatal("entry carries no id")
+		}
+		if !inserted[e.ID] {
+			t.Errorf("entry id %q is not one of the inserted rows", e.ID)
+		}
+		if seen[e.ID] {
+			t.Errorf("entry id %q served twice", e.ID)
+		}
+		seen[e.ID] = true
+	}
+}
+
 // TestGetAppLogsHistory_DateRangeBoundary verifies that getAppLogsHistory
 // correctly filters by from/to date range parameters.
 func TestGetAppLogsHistory_DateRangeBoundary(t *testing.T) {

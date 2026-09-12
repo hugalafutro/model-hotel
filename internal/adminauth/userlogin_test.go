@@ -25,6 +25,9 @@ import (
 type fakeUserStore struct {
 	byUsername map[string]*user.User
 	touched    []uuid.UUID
+	// lookups records every name GetByUsername was asked for, so a test can
+	// assert a name the handler must refuse never reached the store at all.
+	lookups    []string
 	hasEnabled bool
 	statusErr  error
 	getErr     error // GetByUsername returns this (non-nil) instead of a lookup
@@ -32,6 +35,7 @@ type fakeUserStore struct {
 }
 
 func (s *fakeUserStore) GetByUsername(_ context.Context, username string) (*user.User, error) {
+	s.lookups = append(s.lookups, username)
 	if s.getErr != nil {
 		return nil, s.getErr
 	}
@@ -204,6 +208,33 @@ func TestUserLogin_Failures(t *testing.T) {
 				t.Errorf("status = %d, want %d (body %s)", w.Code, tc.want, w.Body.String())
 			}
 		})
+	}
+}
+
+// TestUserLogin_OverLongUsernameStopsAtTheGuard pins what the length check is
+// for, which a 401 alone cannot: an unknown user answers 401 too. A name past
+// the bound must never reach the user store, and must never become a
+// per-account throttle key, so repeating it from fresh IPs (which leaves the
+// per-IP throttle one failure each) keeps answering 401 instead of locking an
+// account that cannot exist.
+func TestUserLogin_OverLongUsernameStopsAtTheGuard(t *testing.T) {
+	u := testUser(t, "alice", "correct-horse", true)
+	_, store, _, r := newLoginFixture(t, u)
+
+	body := `{"username":"` + strings.Repeat("a", user.MaxUsernameBytes+1) + `","password":"whatever1"}`
+	// Ten is past the per-account throttle's burst: the same run against a
+	// username the handler accepts is throttled well inside it.
+	for i := range 10 {
+		req := httptest.NewRequest(http.MethodPost, "/auth/login", bytes.NewReader([]byte(body)))
+		req.RemoteAddr = fmt.Sprintf("10.2.%d.1:1234", i)
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusUnauthorized {
+			t.Fatalf("attempt %d = %d, want 401 (%s)", i, w.Code, w.Body.String())
+		}
+	}
+	if len(store.lookups) != 0 {
+		t.Errorf("over-long username reached the user store: %d lookups", len(store.lookups))
 	}
 }
 

@@ -167,6 +167,7 @@ func TestCompletionFault(t *testing.T) {
 	refused := nonStreamingAnswer{chat: ChatCompletionResponse{
 		Choices: []Choice{{Message: Message{Role: "assistant", Extra: jsonExtras{"refusal": json.RawMessage(`"I cannot help with that"`)}}}},
 	}}
+	lengthFinish := "length"
 
 	for _, tc := range []struct {
 		name    string
@@ -185,6 +186,10 @@ func TestCompletionFault(t *testing.T) {
 		// filtered answer and a reported token count are all the model answering.
 		{"a refusal is an answer", context.Background(), http.StatusOK, refused, false},
 		{"reported completion tokens are an answer", context.Background(), http.StatusOK, nonStreamingAnswer{chat: ChatCompletionResponse{Usage: Usage{CompletionTokens: 7}}}, false},
+		// A stated finish_reason is the provider saying how its own generation
+		// ended, so an emptied answer that hit the output ceiling is served. The
+		// native twin reads stop_reason for the same claim.
+		{"a stated finish_reason is an answer", context.Background(), http.StatusOK, nonStreamingAnswer{chat: ChatCompletionResponse{Choices: []Choice{{FinishReason: &lengthFinish}}}}, false},
 		{"an undecodable 200 is a fault", context.Background(), http.StatusOK, nonStreamingAnswer{decodeErr: errors.New("invalid character '<'")}, true},
 		{"a body that died on the wire is a fault", context.Background(), http.StatusOK, nonStreamingAnswer{readErr: io.ErrUnexpectedEOF, decodeErr: io.ErrUnexpectedEOF}, true},
 		// The whole document arrived and parsed, and only then did the
@@ -204,9 +209,9 @@ func TestCompletionFault(t *testing.T) {
 	}
 }
 
-// A body past the gateway's own cap fails over like any other 2xx that is not a
-// completion, but the provider is not charged for it: the limit is this
-// gateway's, not the provider's failure.
+// A body past the gateway's own cap is a fault, but not one a sibling can
+// answer any better, and not one the provider is charged for: the limit is this
+// gateway's, and the size of an answer is a function of the request.
 func TestOversizedBodyIsNotChargedToTheProvider(t *testing.T) {
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -217,10 +222,13 @@ func TestOversizedBodyIsNotChargedToTheProvider(t *testing.T) {
 
 	err := ans.completionFault(context.Background(), http.StatusOK)
 	if err == nil {
-		t.Fatal("an oversized body is not a completion and must fail over")
+		t.Fatal("an oversized body is not a completion")
 	}
 	if !errors.Is(err, httpx.ErrBodyTooLarge) {
 		t.Fatalf("err = %v, want it to wrap httpx.ErrBodyTooLarge", err)
+	}
+	if answerFaultIsRoutable(err) {
+		t.Error("every later candidate regenerates the same oversized answer; the cap refusal must not walk the group")
 	}
 	if translationIsProviderFault(err) {
 		t.Error("the gateway's own body cap must not charge the provider's circuit")
@@ -243,10 +251,12 @@ func nonCompletionState(t *testing.T) (*requestState, modelCandidate) {
 	return st, goneCandidateAt(&model.Model{ID: uuid.New(), ModelID: "shared-model"}, "relay", "http://relay.test")
 }
 
-// A body past the gateway's own cap goes to the sibling like any other answer
-// that is not a completion, and the provider is not charged on the way: the two
-// halves of the oversized rule, proven on the path rather than on the helper.
-func TestOversizedBody_FailsOverUncharged(t *testing.T) {
+// A body past the gateway's own cap ends the request where it stands, even with
+// a sibling waiting, and the provider is not charged for it. The answer's size
+// is a function of the request, so every later candidate would regenerate the
+// same oversized body and be refused for it: failing over re-bills the prompt at
+// every stop to render the 502 the first candidate already owed the client.
+func TestOversizedBody_IsTerminalAndUncharged(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
 	oversized := strings.Repeat("x", nonStreamingBodyCap+1)
@@ -257,11 +267,14 @@ func TestOversizedBody_FailsOverUncharged(t *testing.T) {
 		w := httptest.NewRecorder()
 		req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 
-		if outcome := h.dispatchNonStreaming(w, req, st, candidate, resp, 0, 1.0, true); outcome != outcomeFailover {
-			t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+		if outcome := h.dispatchNonStreaming(w, req, st, candidate, resp, 0, 1.0, true); outcome == outcomeFailover {
+			t.Fatal("the cap refusal walked to the sibling, which would regenerate the same oversized answer")
 		}
-		if w.Body.Len() != 0 {
-			t.Errorf("the client was written to before the sibling was tried: %s", w.Body.String())
+		if w.Code != http.StatusBadGateway {
+			t.Errorf("client status = %d, want 502 rendered on the spot", w.Code)
+		}
+		if st.logData.errorKind != KindProviderBadRequest {
+			t.Errorf("error kind = %q, want %q: the cap is this gateway's limit", st.logData.errorKind, KindProviderBadRequest)
 		}
 		if st.logData.attemptBreaker == breakerCharge {
 			t.Error("the gateway's own body cap charged the provider's circuit")
@@ -278,12 +291,15 @@ func TestOversizedBody_FailsOverUncharged(t *testing.T) {
 		aw.bindNativeFlag(&native)
 		req := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
 
-		if outcome := h.dispatchNonStreaming(aw, req, st, candidate, resp, 0, 1.0, true); outcome != outcomeFailover {
-			t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+		if outcome := h.dispatchNonStreaming(aw, req, st, candidate, resp, 0, 1.0, true); outcome == outcomeFailover {
+			t.Fatal("the cap refusal walked to the sibling, which would regenerate the same oversized answer")
 		}
 		aw.Finalize()
-		if rec.Body.Len() != 0 {
-			t.Errorf("the client was written to before the sibling was tried: %s", rec.Body.String())
+		if rec.Code != http.StatusBadGateway {
+			t.Errorf("client status = %d, want 502 rendered on the spot", rec.Code)
+		}
+		if st.logData.errorKind != KindProviderBadRequest {
+			t.Errorf("error kind = %q, want %q: the cap is this gateway's limit", st.logData.errorKind, KindProviderBadRequest)
 		}
 		if st.logData.attemptBreaker == breakerCharge {
 			t.Error("the gateway's own body cap charged the provider's circuit")
@@ -503,5 +519,245 @@ func TestNativeNonStreaming_ReadFailureFailsOverWhenASiblingRemains(t *testing.T
 	// handler must not still be waiting to fire on a later candidate's row.
 	if logData.judgeAnswer != nil {
 		t.Error("the deferred breaker judgement is still armed after the attempt failed over")
+	}
+}
+
+// withRequestTimeout narrows the per-attempt deadline for one test and puts the
+// setting back afterwards. The cache is invalidated on both edges: the handler
+// reads request_timeout once per request, from the cache.
+func withRequestTimeout(t *testing.T, h *Handler, value string) {
+	t.Helper()
+	ctx := context.Background()
+	previous := h.settingsRepo.GetDuration(ctx, "request_timeout", time.Minute)
+	if err := h.settingsRepo.Set(ctx, "request_timeout", value); err != nil {
+		t.Fatalf("set request_timeout: %v", err)
+	}
+	h.settingsRepo.InvalidateCache("request_timeout")
+	t.Cleanup(func() {
+		_ = h.settingsRepo.Set(ctx, "request_timeout", previous.String())
+		h.settingsRepo.InvalidateCache("request_timeout")
+	})
+}
+
+// A provider that answers 200 headers and then says nothing until this gateway's
+// own per-attempt deadline has stalled; it has not been cancelled by anyone who
+// stopped caring. The streaming half has always sent that event to the sibling
+// from its TTFT probe and charged the provider for it, while the non-streaming
+// half read its own timeout as an interruption and ended the request with a
+// terminal error, siblings untouched.
+func TestStalled2xx_FailsOverToTheSibling(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasPrefix(r.Host, "one-slot") {
+			w.WriteHeader(http.StatusOK)
+			w.(http.Flusher).Flush()
+			// Headers and then silence, until the gateway gives up on the body.
+			<-r.Context().Done()
+			return
+		}
+		_, _ = io.WriteString(w, siblingCompletion)
+	}))
+	t.Cleanup(upstream.Close)
+	env := buildReplayEnv(t, upstream)
+	withRequestTimeout(t, env.h, "500ms")
+
+	w := replayRequest(t, env)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (the sibling can serve this); body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "the sibling answered") {
+		t.Fatalf("the stall ended the request instead of reaching the sibling: %s", w.Body.String())
+	}
+	trail := waitForTrail(t, "hotel/"+env.group, 2)
+	if len(trail) != 2 {
+		t.Fatalf("trail has %d attempts, want 2 (the stall and the sibling): %+v", len(trail), trail)
+	}
+	// Charged exactly as the TTFT probe charges its own stall. A provider that
+	// answers headers and then goes quiet on every request must open its circuit
+	// rather than cost every caller a full deadline before the real answer.
+	if trail[0].Breaker != breakerCharge {
+		t.Errorf("attempt 0 breaker = %q, want %q", trail[0].Breaker, breakerCharge)
+	}
+	// The same kind the last candidate records for a stall, so the trail reads
+	// the event the same way wherever in the group it happened.
+	if trail[0].ErrorKind != string(KindProviderTimeout) {
+		t.Errorf("attempt 0 error_kind = %q, want %q", trail[0].ErrorKind, KindProviderTimeout)
+	}
+	if trail[1].Breaker != breakerSuccess {
+		t.Errorf("attempt 1 breaker = %q, want %q", trail[1].Breaker, breakerSuccess)
+	}
+}
+
+// rowPromptTokens reads the prompt-token column of the request's own row.
+func rowPromptTokens(t *testing.T, modelID string) int {
+	t.Helper()
+	var tokens int
+	if err := testDB.Pool().QueryRow(context.Background(),
+		`SELECT COALESCE(tokens_prompt, 0) FROM request_logs WHERE model_id = $1 ORDER BY created_at DESC LIMIT 1`,
+		modelID).Scan(&tokens); err != nil {
+		t.Fatalf("read tokens_prompt: %v", err)
+	}
+	return tokens
+}
+
+// keyTokensUsed reads the virtual key's own usage counter.
+func keyTokensUsed(t *testing.T, keyHash string) int {
+	t.Helper()
+	var tokens int
+	if err := testDB.Pool().QueryRow(context.Background(),
+		`SELECT tokens_used FROM virtual_keys WHERE key_hash = $1`, keyHash).Scan(&tokens); err != nil {
+		t.Fatalf("read tokens_used: %v", err)
+	}
+	return tokens
+}
+
+// A candidate whose 2xx is rejected still generated that answer, and the
+// provider billed the prompt it read to do so. Only the provider that finally
+// served was metered, so a request that walked the group cost the operator
+// several prompts and charged the tenant for one.
+func TestRejected2xx_ItsPromptIsStillMetered(t *testing.T) {
+	env := replayUpstream(t, http.StatusOK,
+		`{"id":"chatcmpl-empty","object":"chat.completion","created":1,"model":"shared-model",`+
+			`"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":0,"total_tokens":11}}`)
+
+	w := replayRequest(t, env)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+	waitForTrail(t, "hotel/"+env.group, 2)
+	// 11 from the candidate that answered nothing, 1 from the sibling that
+	// answered: the row reports what the request cost, not what its last hop did.
+	if got := rowPromptTokens(t, "hotel/"+env.group); got != 12 {
+		t.Errorf("row tokens_prompt = %d, want 12 (the rejected candidate's 11 plus the sibling's 1)", got)
+	}
+	// The key's counter and the TPM bucket take the same charge through
+	// recordTokenUsage: 11 for the rejected prompt, 3 for the served answer.
+	if got := keyTokensUsed(t, env.keyHash); got != 14 {
+		t.Errorf("virtual key tokens_used = %d, want 14 (11 rejected prompt + 3 served)", got)
+	}
+}
+
+// finishAttemptAdmission fixes the slot's clean flag from the 2xx headers, and a
+// 2xx that carried no answer is precisely where that flag is wrong: counting the
+// attempt toward the consecutive clean completions that widen the provider's
+// learned in-flight window lets a relay answering 200 with nothing earn more
+// concurrency the more often it does it.
+//
+// The clean-run count is what the assertion reads, because the body's own EOF
+// settles the slot before this path can tell a served answer from a rejected
+// one: what matters is the credit the attempt ends up holding, not which of the
+// two writes got there first.
+func TestRejected2xx_DoesNotEarnACleanRun(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	limiter := newInflightLimiter()
+	h.inflight = limiter
+
+	st, candidate := nonCompletionState(t)
+	st.inflightEnabled = true
+	pid := candidate.provider.ID
+	// A capped window with one clean completion already banked: only a capped
+	// one counts runs at all, and the second clean completion is the one a
+	// rejected 2xx must not be.
+	limiter.cut(pid, 0)
+	if !limiter.tryAcquire(pid, 0) {
+		t.Fatal("setup: slot not acquired")
+	}
+	limiter.release(pid, true, 0, 0)
+	if got := limiter.windowFor(t, pid).goodRuns; got != 1 {
+		t.Fatalf("setup: clean-run count = %d, want 1", got)
+	}
+
+	if !h.admitCandidate(st, candidate) {
+		t.Fatal("setup: the candidate was not admitted")
+	}
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"choices":[]}`)), Header: make(http.Header)}
+	h.finishAttemptAdmission(st, candidate, resp)
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+
+	if outcome := h.dispatchNonStreaming(httptest.NewRecorder(), req, st, candidate, resp, 0, 1.0, true); outcome != outcomeFailover {
+		t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+	}
+
+	if got := limiter.windowFor(t, pid).goodRuns; got != 0 {
+		t.Errorf("clean-run count = %d, want 0: a 2xx the client never saw counted toward widening the provider's window", got)
+	}
+}
+
+// The native message bar and the translated completion bar must be the same bar.
+// `content: [], stop_reason: max_tokens` is a generation that finished at the
+// output ceiling, which completionCarriesAnswer serves; rejecting it on
+// /v1/messages alone re-bills the prompt on a sibling for an answer the same
+// upstream already produced, decided by nothing but the caller's dialect.
+func TestNativeStopReason_IsAnAnswer(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	st, candidate := nonCompletionState(t)
+	st.anthropicNativeAttempt = true
+	body := `{"id":"msg_capped","type":"message","role":"assistant","content":[],"stop_reason":"max_tokens","usage":{"input_tokens":9,"output_tokens":0}}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
+	rec := httptest.NewRecorder()
+	native := true
+	aw := newAnthropicResponseWriter(rec, "msg_capped", "m")
+	aw.bindNativeFlag(&native)
+
+	outcome := h.dispatchNonStreaming(aw, httptest.NewRequest("POST", "/v1/messages", http.NoBody), st, candidate, resp, 0, 1.0, true)
+	aw.Finalize()
+
+	if outcome == outcomeFailover {
+		t.Fatal("a message that states how its generation ended was sent to a sibling")
+	}
+	if !strings.Contains(rec.Body.String(), "max_tokens") {
+		t.Errorf("the message was not forwarded to the client: %s", rec.Body.String())
+	}
+	// The content bar is untouched and stays narrow: no block arrived, so the
+	// breaker still charges the emptied answer and the retirement streak is not
+	// cleared by it.
+	if !st.logData.emptyCompletion {
+		t.Error("a message with no content block was recorded as carrying content")
+	}
+}
+
+// The same undecodable 2xx at both positions in the group. With a sibling it
+// goes through rejectUntranslatableBody; on the last candidate the handler
+// renders the client's 502 instead. Both are the same fault, so both report the
+// same kind and both charge: routing order alone must not decide whether a
+// provider's circuit hears about it.
+func TestUndecodable2xx_ChargesTheSameAtEitherPosition(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	for _, tc := range []struct {
+		name    string
+		hasMore bool
+	}{
+		{"a sibling remains", true},
+		{"the last candidate", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st, candidate := nonCompletionState(t)
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("<html>not a completion</html>")),
+				Header:     http.Header{"Content-Type": []string{"text/html"}},
+			}
+			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+
+			h.dispatchNonStreaming(httptest.NewRecorder(), req, st, candidate, resp, 0, 1.0, tc.hasMore)
+
+			if st.logData.attemptBreaker != breakerCharge {
+				t.Errorf("breaker note = %q, want %q", st.logData.attemptBreaker, breakerCharge)
+			}
+			kind := st.lastReqErr.Kind
+			if !tc.hasMore {
+				kind = st.logData.errorKind
+			}
+			if kind != KindProviderError {
+				t.Errorf("error kind = %q, want %q", kind, KindProviderError)
+			}
+		})
 	}
 }

@@ -149,6 +149,25 @@ func (l *inflightLimiter) release(providerID uuid.UUID, clean bool, growAfter in
 	l.mu.Unlock()
 }
 
+// noteUnclean takes back the clean-run credit for an attempt that turned out
+// not to have served, without touching the window or the in-flight count.
+//
+// It exists because the verdict can arrive after the slot has settled. The
+// non-streaming paths buffer the whole upstream body before they can tell a
+// served answer from a 2xx that carried nothing, and the read's own EOF settles
+// the slot on the way past, with only the status to go on. Resetting the
+// clean-run count is the entirety of what an unclean completion does to a
+// window (see release), so applying it a moment later is the same correction,
+// and applying it twice is the same as applying it once.
+func (l *inflightLimiter) noteUnclean(providerID uuid.UUID) {
+	if l == nil {
+		return
+	}
+	l.mu.Lock()
+	defer l.mu.Unlock()
+	l.window(providerID).goodRuns = 0
+}
+
 // cut shrinks the provider's allowance after a SATURATED 429: the pool is
 // provably smaller than the load that included the refused request. The CALLER
 // settles the drawing request's own slot before cutting, so w.inflight here is

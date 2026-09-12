@@ -440,6 +440,10 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 		return nil, err
 	}
 	defer rows.Close()
+	// Non-nil so a member with no keys marshals "virtual_keys": [] rather than
+	// null. The import's wipe rail refuses null (see ConfigPayload) and reconciles
+	// [] to zero, so this is what lets a genuinely keyless primary converge its
+	// members instead of being read as a lost field.
 	out := []ExportVK{}
 	for rows.Next() {
 		var v ExportVK

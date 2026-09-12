@@ -49,11 +49,11 @@ classify. Scan for the first thing that looks like an address instead of taking 
 token and the bare auth line picks the attacker's. Drop the duplicate-address check and the bare
 lines start naming strangers.
 
-Lines 26 to 31, the last six, are Front Desk's own, in its slog framing: an access record, the two
+Lines 26 to 33, the last eight, are Front Desk's own, in its slog framing: an access record, the two
 admin-gate rejections and the CSRF rejection its control plane emits, a rejected passkey assertion,
-and one
-admin rejection whose path carries an injected address. They pin that Front Desk reaches the same
-`admin_token`, `csrf` and `login` buckets as the gateway with the same messages, that its access
+one admin rejection whose path carries an injected address, and the role refusal and the refused
+Traefik config poll described above. They pin that Front Desk reaches the same `admin_token`,
+`csrf`, `login` and `forbidden` buckets as the gateway with the same messages, that its access
 record is refused by the main parser (it belongs to the opt-in access parser instead), and that its
 escaped path still resolves to the real client.
 

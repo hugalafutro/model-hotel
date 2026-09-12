@@ -42,30 +42,49 @@ import (
 func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []byte, readErr, decodeErr error, modelID string, fence *contentFence) (logMsg, detail string, kind ErrorKind, reason string) {
 	if servedSuccessStatus(resp.StatusCode) {
 		if readErr != nil {
-			// A read the provider did not break is not the provider failing. The
-			// body is read under the attempt's context, so a caller hanging up
-			// and this gateway's own request_timeout both arrive here as read
-			// errors, and reporting either as a provider fault puts someone
-			// else's cancellation on the provider's row and on its circuit.
-			// cancelKind is the package's classifier for that.
+			// A read nobody was waiting for is not the provider failing. The body
+			// is read under the attempt's context, so a caller hanging up arrives
+			// here as a read error, and reporting that as a provider fault puts
+			// someone else's cancellation on the provider's row and on its
+			// circuit. requestAbandoned is the package's spelling of which
+			// interruptions those are.
 			if kind, aborted := cancelKind(ctx, readErr); aborted {
-				detail = "the request was interrupted before the response was read"
-				return detail, detail, kind, "the request was interrupted"
+				if requestAbandoned(ctx, readErr) {
+					detail = "the request was interrupted before the response was read"
+					return detail, detail, kind, "the request was interrupted"
+				}
+				// The rest of them are this gateway's own per-attempt deadline
+				// expiring on a provider that answered headers and then said
+				// nothing: a stall, with the caller still waiting for it. The
+				// streaming half classifies the identical event provider_timeout
+				// and charges it (classifyProbeFailure), so this half does too,
+				// and the last candidate in a group records what a candidate with
+				// a sibling behind it would have.
+				detail = fmt.Sprintf("upstream stopped sending before the per-attempt deadline: %s (body_bytes=%d)", errString(readErr), len(body))
+				return detail, detail, KindProviderTimeout, "the provider stopped sending its response"
 			}
-			// A body that died on the wire is not a body this gateway could not
-			// parse. The parse failure is provider_bad_request because the answer
-			// is probably still in there; a transport failure is the provider
-			// breaking after it committed the status, which is what the breaker
-			// exists to catch.
+			// A body that died on the wire is the provider breaking after it
+			// committed the status, which is what the breaker exists to catch.
 			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", errString(readErr), len(body))
 			return detail, detail, KindProviderError, "the provider stopped sending its response"
 		}
 		detail = fmt.Sprintf("response decode error: %s (body_bytes=%d, content_type=%q)",
 			errString(decodeErr), len(body), resp.Header.Get("Content-Type"))
+		// The gateway's own cap is not the provider failing, so it is the one
+		// refusal here that leaves the circuit alone (translationIsProviderFault
+		// draws the same line for the paths that fail over).
+		if errors.Is(decodeErr, httpx.ErrBodyTooLarge) {
+			return detail, detail, KindProviderBadRequest, "the provider returned a response larger than the gateway will read"
+		}
+		// provider_error, the same kind and the same charge rejectUntranslatableBody
+		// records when a sibling is still available. A 2xx whose body is not a
+		// completion is one fault, and which candidate in the group happened to
+		// produce it must not decide whether its provider is charged for it.
+		//
 		// Not "upstream provider returned HTTP 200": reporting the status as the
 		// failure sends operators hunting a provider outage that is not
 		// happening.
-		return detail, detail, KindProviderBadRequest, "the provider returned a response the gateway could not decode"
+		return detail, detail, KindProviderError, "the provider returned a response the gateway could not decode"
 	}
 	// Classify from the provider's own words, before the fence can take them:
 	// the classification decides routing and the breaker and stores nothing,
@@ -149,7 +168,11 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.durationMs = totalDuration
 		logData.responseHeaderMs = responseHeaderMs
 		logData.tokensPerSecond = tps
-		logData.tokensPrompt = promptTokens
+		// Added, not assigned: a candidate that answered 2xx without an answer
+		// and was failed over already billed its prompt, and meterRejectedPrompt
+		// put that charge here. The row reports what the request cost, which on a
+		// walked group is more than the provider that finally served it charged.
+		logData.tokensPrompt += promptTokens
 		logData.tokensCompletion = completionTokens
 		logData.tokensCompletionReasoning = reasoningTokens
 		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
@@ -342,6 +365,27 @@ type nonStreamingAnswer struct {
 	decodeErr error
 }
 
+// completionCarriesAnswer reports whether a decoded completion is the provider
+// answering, which is a lower bar than whether it delivered content.
+//
+// Everything answerCarriesSomething counts, plus a choice that states how the
+// generation ended. Its streaming twin sets the bar lower still: any data frame
+// that is neither empty, [DONE] nor an error envelope counts as a token, so a
+// stream carrying one role-only delta is served. This is the closest a decoded
+// body gets to that without letting `{"choices":[]}`, the shape an aggregator in
+// front of a dead model returns, read as an answer.
+func completionCarriesAnswer(out ChatCompletionResponse) bool {
+	if answerCarriesSomething(out) {
+		return true
+	}
+	for _, choice := range out.Choices {
+		if choice.FinishReason != nil && *choice.FinishReason != "" {
+			return true
+		}
+	}
+	return false
+}
+
 // completionFault reports what stopped a success status from being a completion,
 // or nil when the answer can be served. It is the non-streaming twin of the TTFT
 // probe's verdict: an upstream that answers 2xx and then hands over something
@@ -355,9 +399,10 @@ type nonStreamingAnswer struct {
 //     one of them, with the failover rules in shouldFailover.
 //   - 204/205 promise no body, so the empty one they carry is the whole answer
 //     and its decode failure is expected.
-//   - A read this gateway or the caller interrupted is not the provider
-//     failing. Failing over on a cancelled request re-sends the prompt to a
-//     second provider for an answer nobody is waiting for.
+//   - An attempt nobody is waiting for. requestAbandoned draws that line, and
+//     draws it narrowly: a caller that hung up and a superseded hedge, never
+//     this gateway's own per-attempt deadline, which is a provider that stalled
+//     after its headers and is exactly what the sibling exists for.
 //
 // A body that decoded but carries nothing is a fault too, for the same reason
 // its streaming twin fails over on a stream that ends without a single chunk: a
@@ -383,27 +428,9 @@ type nonStreamingAnswer struct {
 // (readNonStreamingBody says why). Failing over on it would discard a complete
 // answer and re-bill the prompt. When both are set the read error is the one
 // reported, since the wire is where it started.
-// completionCarriesAnswer reports whether a decoded completion is the provider
-// answering, which is a lower bar than whether it delivered content.
 //
-// Everything answerCarriesSomething counts, plus a choice that states how the
-// generation ended. Its streaming twin sets the bar lower still: any data frame
-// that is neither empty, [DONE] nor an error envelope counts as a token, so a
-// stream carrying one role-only delta is served. This is the closest a decoded
-// body gets to that without letting `{"choices":[]}`, the shape an aggregator in
-// front of a dead model returns, read as an answer.
-func completionCarriesAnswer(out ChatCompletionResponse) bool {
-	if answerCarriesSomething(out) {
-		return true
-	}
-	for _, choice := range out.Choices {
-		if choice.FinishReason != nil && *choice.FinishReason != "" {
-			return true
-		}
-	}
-	return false
-}
-
+// A fault is not automatically worth a sibling: answerFaultIsRoutable says which
+// ones are.
 func (ans nonStreamingAnswer) completionFault(ctx context.Context, status int) error {
 	if !servedSuccessStatus(status) || bodilessSuccessStatus(status) {
 		return nil
@@ -412,12 +439,12 @@ func (ans nonStreamingAnswer) completionFault(ctx context.Context, status int) e
 	if ans.readErr != nil {
 		err = ans.readErr
 	}
-	// Above both verdicts, not just the decode one: an attempt this gateway or
-	// the caller ended is nobody's answer to serve, and a cancelled read can
-	// leave a body that parses into an empty completion just as easily as one
-	// that does not parse at all. cancelKind reads the context even when nothing
-	// errored, so the empty-answer arm is covered by the same call.
-	if _, aborted := cancelKind(ctx, err); aborted {
+	// Above both verdicts, not just the decode one: an attempt nobody is waiting
+	// for is nobody's answer to serve, and an abandoned read can leave a body
+	// that parses into an empty completion just as easily as one that does not
+	// parse at all. requestAbandoned reads the context even when nothing errored,
+	// so the empty-answer arm is covered by the same call.
+	if requestAbandoned(ctx, err) {
 		return nil
 	}
 	if ans.decodeErr != nil {
@@ -427,6 +454,23 @@ func (ans nonStreamingAnswer) completionFault(ctx context.Context, status int) e
 		return nil
 	}
 	return errEmptyCompletion
+}
+
+// answerFaultIsRoutable reports whether a 2xx that carried no answer is worth
+// asking a sibling about. Every fault is, except this gateway's own body cap.
+//
+// An answer's size is a function of the request, so a prompt that draws a body
+// past the cap from one provider draws one past it from the next: failing over
+// walks the whole group, re-billing the prompt at every stop, to render the same
+// 502 the first candidate already owed the client. It is also not the provider's
+// failure, which is why translationIsProviderFault leaves the circuit alone for
+// the same sentinel, so a group would burn itself down with nothing recorded
+// anywhere.
+//
+// Shared by the chat dispatch and the native Anthropic handler, the two paths
+// whose reads are capped.
+func answerFaultIsRoutable(err error) bool {
+	return !errors.Is(err, httpx.ErrBodyTooLarge)
 }
 
 // readNonStreamingBody reads the upstream body once and decodes it into the

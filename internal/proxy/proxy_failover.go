@@ -563,7 +563,11 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 			var droppedSize, ratio string
 			upstreamBody, droppedSize, ratio = paramrewrite.RewriteImageRequest(upstreamBody, providerType, candidate.model.ModelID)
 			if droppedSize != "" {
-				debuglog.Debug("proxy: image size rewritten for the provider", "provider_type", providerType, "resolved_model", candidate.model.ModelID, "dropped_size", droppedSize, "aspect_ratio", ratio)
+				// The dropped size is whatever JSON value the caller put under
+				// "size", of any type and any length, so it is bounded and
+				// sanitized like every other caller string that reaches a log.
+				// The ratio beside it comes from this gateway's own table.
+				debuglog.Debug("proxy: image size rewritten for the provider", "provider_type", providerType, "resolved_model", candidate.model.ModelID, "dropped_size", util.SanitizeLogBody(droppedSize, shortLogValueCap), "aspect_ratio", ratio)
 			}
 		}
 	} else {

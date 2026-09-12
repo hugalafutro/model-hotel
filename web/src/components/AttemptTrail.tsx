@@ -175,9 +175,9 @@ export function AttemptTrail({
 							// column so it lines up with the provider name. The verdict
 							// lives here rather than beside the timing because a row that
 							// runs long wraps it to its own line anyway, and a wrapped
-							// flex child starts at the left edge, under the number.
+							// flex child starts at the row's start edge, under the number.
 							<span
-								className="basis-full flex items-baseline gap-x-2 pl-8"
+								className="basis-full flex flex-wrap items-baseline gap-x-2 ps-8"
 								data-testid="attempt-trail-meta"
 							>
 								{showsVerdict(a) && (

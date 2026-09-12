@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -16,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
@@ -303,17 +305,27 @@ func cancelledContext() context.Context {
 	return ctx
 }
 
-// End to end: an interrupted body read must classify as the interruption and
-// must not charge, whichever context went down.
-func TestHandleNonStreamingResponse_AnInterruptedReadIsNotCharged(t *testing.T) {
+// End to end, on the last candidate, where this handler renders the client's own
+// error: which context went down decides both the kind and the charge, and the
+// two answers are not the same answer.
+//
+// A caller that hung up is nobody's fault and pays nothing. This gateway's own
+// per-attempt deadline is the opposite: the caller is still waiting, and the
+// provider answered headers and then stopped sending. That is a stall, which the
+// streaming half has always classified provider_timeout and charged from its
+// TTFT probe, so the non-streaming half charges it too. Leaving it uncharged
+// made the ledger depend on where in the group the stall happened, since a
+// candidate with a sibling behind it is charged for the identical event.
+func TestHandleNonStreamingResponse_AnEndedReadIsChargedOnlyWhenTheProviderStalled(t *testing.T) {
 	for _, tc := range []struct {
-		name     string
-		origin   string
-		readErr  error
-		wantKind ErrorKind
+		name       string
+		origin     string
+		readErr    error
+		wantKind   ErrorKind
+		wantCharge bool
 	}{
-		{"the caller hung up", "", context.Canceled, KindClientDisconnect},
-		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindFailoverTimeout},
+		{"the caller hung up", "", context.Canceled, KindClientDisconnect, false},
+		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindProviderTimeout, true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			h := newIntegrationHandler()
@@ -342,19 +354,20 @@ func TestHandleNonStreamingResponse_AnInterruptedReadIsNotCharged(t *testing.T) 
 			if logData.errorKind != tc.wantKind {
 				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)
 			}
-			if h.circuitBreaker.GetState(providerID, "") == failover.StateOpen {
-				t.Error("an interrupted read was charged to the provider")
+			// The threshold is one, so the circuit's state is the charge.
+			charged := h.circuitBreaker.GetState(providerID, "") == failover.StateOpen
+			if charged != tc.wantCharge {
+				t.Errorf("charged = %v, want %v", charged, tc.wantCharge)
 			}
 		})
 	}
 }
 
-// A 2xx this gateway could not decode says nothing about whether the provider is
-// up: it is classified provider_bad_request and, as nonStreamingFailureDetail
-// says, it still holds the model's generated text — a relay quoting its token
-// counts is the named cause. judgeStreamForBreaker calls recording nothing the
-// honest verdict for its own unreadable frames, and it is the honest verdict
-// here.
+// Which kinds reach the circuit at all. provider_bad_request is the one a 2xx
+// can carry and still leave the circuit alone, and on this path it means the
+// gateway's own body cap: a limit this gateway chose, never the provider
+// failing. A body that simply would not decode is provider_error and is charged,
+// the same verdict the reject path records for it one candidate earlier.
 func TestRecordAnswerOutcome_OnlyAProviderFaultIsCharged(t *testing.T) {
 	t.Parallel()
 	for _, tc := range []struct {
@@ -911,13 +924,22 @@ func TestNonStreamingFailureDetail_ClassifiesTheReadFailure(t *testing.T) {
 	}{
 		{"the client cancelled", context.Canceled, KindClientDisconnect},
 		{"the provider stopped sending", errors.New("connection reset by peer"), KindProviderError},
-		{"a body this gateway could not parse", nil, KindProviderBadRequest},
+		// Charged, and charged as the same kind a sibling-bearing candidate's
+		// reject records for the identical body: the ledger must not depend on
+		// where in the group the answer came from.
+		{"a body this gateway could not parse", nil, KindProviderError},
+		// The one refusal on this path that is the gateway's own limit rather
+		// than the provider's failure, so it stays outside providerAtFault.
+		{"a body past the gateway's cap", nil, KindProviderBadRequest},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			decodeErr := tc.readErr
 			if decodeErr == nil {
 				decodeErr = errors.New("invalid character")
+			}
+			if tc.want == KindProviderBadRequest {
+				decodeErr = fmt.Errorf("upstream response exceeds the cap: %w", httpx.ErrBodyTooLarge)
 			}
 			_, _, kind, _ := nonStreamingFailureDetail(context.Background(), resp, []byte("{"), tc.readErr, decodeErr, "m", nil)
 			if kind != tc.want {
@@ -963,8 +985,10 @@ func TestHandleNonStreamingResponse_ACompleteBodyBehindAnUncleanCloseIsServed(t 
 // failure, so the identical event — a caller hanging up, or this gateway's own
 // request_timeout, mid-read — logged provider_error on /v1/messages and the
 // interruption on /v1/chat/completions, decided by nothing but which dialect the
-// request came in on.
-func TestHandleNativeNonStreaming_AnInterruptedReadIsClassified(t *testing.T) {
+// request came in on. The three kinds below are the ones the OpenAI-shaped twin
+// records for the same three events, deadline included: that one is a stall and
+// is provider_timeout on both.
+func TestHandleNativeNonStreaming_AnEndedReadIsClassified(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		origin   string
@@ -972,7 +996,7 @@ func TestHandleNativeNonStreaming_AnInterruptedReadIsClassified(t *testing.T) {
 		wantKind ErrorKind
 	}{
 		{"the caller hung up", "", context.Canceled, KindClientDisconnect},
-		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindFailoverTimeout},
+		{"this gateway's request_timeout", "failover_timeout", context.DeadlineExceeded, KindProviderTimeout},
 		{"the provider broke", "", errors.New("connection reset by peer"), KindProviderError},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

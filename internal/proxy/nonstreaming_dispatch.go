@@ -55,12 +55,18 @@ func (h *Handler) dispatchNonStreaming(w http.ResponseWriter, r *http.Request, s
 	// read is judged by. With the bare client request instead, this gateway's own
 	// request_timeout looks like the provider dying.
 	ans := readNonStreamingBody(resp, logData.masker)
-	if err := ans.completionFault(r.Context(), resp.StatusCode); err != nil && hasMoreCandidates {
+	if err := ans.completionFault(r.Context(), resp.StatusCode); err != nil && hasMoreCandidates && answerFaultIsRoutable(err) {
+		// The provider generated this answer and billed the prompt for it, so
+		// the charge is recorded before the candidate is left behind.
+		h.meterRejectedPrompt(st, logData, ans.chat.Usage.PromptTokens)
+		outcome := h.rejectUntranslatableBody(st, candidate, logData, "chat completion", resp.StatusCode, err, attempt, r)
 		// Fully read already (or refused past the cap, where the rest is not
 		// worth draining), so the connection is released here rather than by the
-		// handler that normally owns it.
+		// handler that normally owns it. After the reject, which settles the
+		// attempt's in-flight slot as the failure it is before the close can
+		// settle it as a clean success.
 		_ = resp.Body.Close()
-		return h.rejectUntranslatableBody(st, candidate, logData, "chat completion", resp.StatusCode, err, attempt, r)
+		return outcome
 	}
 
 	h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode)

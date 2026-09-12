@@ -303,16 +303,43 @@ func (h *Handler) creditBreaker(st *requestState, candidate modelCandidate) {
 // logData has not been stamped with it at this point.
 func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, status int, err error, attempt int, r *http.Request) candidateOutcome {
 	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter, "error", err, "model", logData.modelID, "provider", logData.providerName)
-	// The translators read the body under the attempt's context, so an
-	// interrupted request arrives here as a translation failure: a caller
-	// hanging up or this gateway's own request_timeout, and neither is the
-	// provider's doing.
-	if _, aborted := cancelKind(r.Context(), err); !aborted && translationIsProviderFault(err) {
+	// The translators read the body under the attempt's context, so a request
+	// nobody is waiting for arrives here as a translation failure and is not the
+	// provider's doing. requestAbandoned is the one place that says which
+	// interruptions those are: this gateway's own per-attempt deadline is not one
+	// of them, and a provider that went silent under it is charged for the stall
+	// exactly as the TTFT probe charges its own.
+	//
+	// The kind follows the same split, and is the kind the last candidate
+	// records for the same event (nonStreamingFailureDetail), so a stall reads
+	// as provider_timeout wherever in the group it happened and an abandoned
+	// read keeps the interruption that ended it.
+	kind := KindProviderError
+	if cancelled, aborted := cancelKind(r.Context(), err); aborted {
+		kind = KindProviderTimeout
+		if requestAbandoned(r.Context(), err) {
+			kind = cancelled
+		}
+	}
+	if !requestAbandoned(r.Context(), err) && translationIsProviderFault(err) {
 		h.chargeBreaker(st, candidate, status, "upstream body could not be translated")
 	}
-	st.setReqErr(reqError{Kind: KindProviderError, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
+	// The attempt is over and it did not serve, so its in-flight slot settles as
+	// the failure it was. finishAttemptAdmission fixed the slot's clean flag
+	// from the 2xx headers, and a 2xx whose body carried no answer is the case
+	// that flag gets wrong: letting it stand grows the provider's learned
+	// in-flight window on the strength of an answer the client never saw.
+	//
+	// Both halves are needed because the paths reaching here differ on when the
+	// body ends. Where the verdict comes first the settle carries it; where the
+	// whole body was buffered to reach the verdict at all, the read's EOF has
+	// already settled the slot clean, and noteUnclean takes that credit back.
+	// Each is a no-op after the other.
+	st.attemptSlot.settle(false)
+	h.inflight.noteUnclean(candidate.provider.ID)
+	st.setReqErr(reqError{Kind: kind, Attempt: attempt, Provider: candidate.provider.Name, Underlying: errString(err)})
 	logData.failoverAttempt = attempt
-	logData.closeAttemptRecord(status, KindProviderError, errString(err), "", 0)
+	logData.closeAttemptRecord(status, kind, errString(err), "", 0)
 	// This attempt's breaker verdict is the one just recorded, so a judgement
 	// armed for the handler that never got to write is disarmed here rather than
 	// left to fire on a candidate the loop has already moved past. Only the
@@ -320,6 +347,31 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// the shared place so a later caller cannot inherit the bug.
 	logData.judgeAnswer = nil
 	return outcomeFailover
+}
+
+// meterRejectedPrompt charges the prompt a candidate reported before its 2xx was
+// rejected and sent to a sibling. The provider generated that answer and billed
+// the operator for reading the prompt, so a request that walks three silent
+// candidates cost three prompts, and metering only the one that finally served
+// hands the tenant two of them free.
+//
+// Prompt only. A completion figure above zero makes the answer an answer
+// (answerCarriesSomething on the chat path, output tokens on the native one), so
+// a rejected attempt reports none by construction.
+//
+// The charge goes everywhere the served path's does: the row's token column, the
+// virtual key's counter and the TPM bucket, through the same recordTokenUsage.
+// Nothing is estimated, unlike the served path: no bytes reached the client, and
+// estimateMissingUsage charges nothing for a delivery that did not happen.
+func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData, promptTokens int) {
+	prompt, _, _ := h.clampReportedUsage(promptTokens, 0, 0, logData)
+	if prompt == 0 {
+		return
+	}
+	// Added, so a later candidate's own stamp does not erase it; every path that
+	// stamps a served prompt onto this row adds to it for the same reason.
+	logData.tokensPrompt += prompt
+	h.recordTokenUsage(st.vkHash, logData, prompt, 0, 0)
 }
 
 // translationIsProviderFault separates "these bytes are not the object this

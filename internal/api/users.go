@@ -155,7 +155,7 @@ func (req *userRequest) limits() user.Limits {
 func (req *userRequest) validate() (user.Role, error) {
 	req.Username = strings.TrimSpace(req.Username)
 	if req.Username == "" || len(req.Username) > user.MaxUsernameBytes {
-		return "", errors.New("username must be 1-64 characters")
+		return "", errors.New("username must be 1-64 bytes")
 	}
 	if strings.ContainsAny(req.Username, " \t\n") {
 		return "", errors.New("username must not contain whitespace")

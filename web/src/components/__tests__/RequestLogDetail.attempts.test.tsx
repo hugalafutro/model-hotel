@@ -225,7 +225,7 @@ describe("RequestLogDetail attempt trail", () => {
 			/>,
 		);
 		const line = screen.getByTestId("attempt-trail-meta");
-		expect(line).toHaveClass("basis-full", "pl-8");
+		expect(line).toHaveClass("basis-full", "ps-8", "flex-wrap");
 		expect(line.firstElementChild).toHaveAttribute("title");
 	});
 
