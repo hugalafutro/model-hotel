@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -10,9 +11,10 @@ import (
 // TestConfigSync_RefusesKeyWipingImport covers the credential half of the
 // destructive-wipe rail. The declarative delete removes every key absent from
 // the envelope, and import's structural guard only refuses an envelope that is
-// empty in providers, keys and settings at once, so an envelope carrying
-// providers but omitting virtual_keys used to reach the delete and take every
-// credential off the member in one push.
+// empty in providers, keys and settings at once, so an envelope whose
+// virtual_keys field is missing used to reach the delete and take every
+// credential off the member in one push. A nil slice is what an absent field
+// decodes to and what it marshals back to (null), so this is that envelope.
 func TestConfigSync_RefusesKeyWipingImport(t *testing.T) {
 	cleanConfigTables(t)
 	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
@@ -60,6 +62,62 @@ func TestConfigSync_EmptyKeyListOntoEmptyMemberApplies(t *testing.T) {
 	}
 	if !providerNames(t)["extra"] {
 		t.Error("a keyless envelope onto a keyless member should apply")
+	}
+}
+
+// TestConfigSync_ExplicitEmptyKeyListReconcilesToZero is the operator-intent
+// side of the rail. A primary that really has zero virtual keys exports
+// "virtual_keys": [], and a member holding keys has to converge to zero on it,
+// or that primary can never sync its fleet. Only the absent field is refused.
+func TestConfigSync_ExplicitEmptyKeyListReconcilesToZero(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	if _, err := apiTestDB.Pool().Exec(context.Background(), `
+		INSERT INTO virtual_keys (name, key_hash, key_preview)
+		VALUES ('live-key', 'hash-live-key', 'mh-***')`); err != nil {
+		t.Fatalf("seed virtual key: %v", err)
+	}
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	env := doExport(t, r)
+	env.Config.VirtualKeys = []ExportVK{}
+
+	resp, rec := doImportGen(t, r, env, nil)
+	if rec.Code != http.StatusOK || !resp.Applied {
+		t.Fatalf("explicit empty key list: code=%d applied=%v body=%s, want 200 applied",
+			rec.Code, resp.Applied, rec.Body.String())
+	}
+	var keys int
+	if err := apiTestDB.Pool().QueryRow(context.Background(),
+		`SELECT count(*) FROM virtual_keys`).Scan(&keys); err != nil {
+		t.Fatalf("count keys: %v", err)
+	}
+	if keys != 0 {
+		t.Errorf("virtual keys after an explicit empty list = %d, want the member reconciled to zero", keys)
+	}
+}
+
+// TestConfigSync_ExportEmitsEmptyKeyListNotNull pins the other end of that
+// contract. The rail can only refuse a null virtual_keys field because a member
+// running this code never sends one: the export of a keyless member has to be
+// [], or every keyless primary would be refused by its own fleet.
+func TestConfigSync_ExportEmitsEmptyKeyListNotNull(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+
+	// doExport decodes the wire bytes, so a non-nil slice here means the wire
+	// carried [] rather than null.
+	env := doExport(t, r)
+	if env.Config.VirtualKeys == nil {
+		t.Fatal("export of a keyless member sent virtual_keys: null, which the import rail refuses")
+	}
+	body, err := json.Marshal(env.Config)
+	if err != nil {
+		t.Fatalf("marshal config: %v", err)
+	}
+	if !strings.Contains(string(body), `"virtual_keys":[]`) {
+		t.Errorf("exported config = %s, want it to carry virtual_keys as []", body)
 	}
 }
 

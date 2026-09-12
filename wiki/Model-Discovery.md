@@ -481,7 +481,7 @@ Its quota endpoint is the part that needed code: see [Additional Provider APIs](
 
 **Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in `deepseekCatalog` (6 rows) via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog backfills context length, max output, reasoning flag, input modalities, and pricing (cache-miss maps to the standard input price; cache-hit is carried separately). Uncatalogued models are clean stubs filled by models.dev; there is no hardcoded context default.
 
-Two of the six rows are not price overrides but the only source of the model at all: `deepseek-chat` and `deepseek-reasoner` are permanent aliases (thinking off and on) and are absent from the live listing entirely. The rest exist because models.dev carries no entry for `deepseek-flash` and still lists DeepSeek's pre-V4 rates under the V4 IDs. `deepseek-flash` is V4.1 Flash and the only Flash id DeepSeek documents; `deepseek-chat`, `deepseek-reasoner`, `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` all resolve to it upstream, so every Flash-family row carries its price. `deepseek-v4-pro` is the one row still on its own rate. Catalog prices are DeepSeek's **off-peak** rates, which apply for 17 of every 24 hours; peak hours (01:00-04:00 and 06:00-10:00 UTC) bill at exactly double, and a model row holds one figure, so metering under-reports during that window.
+Two of the six rows are not price overrides but the only source of the model at all: `deepseek-chat` and `deepseek-reasoner` are permanent aliases (thinking off and on) and are absent from the live listing entirely. The rest exist because models.dev carries no entry for `deepseek-flash` and still lists DeepSeek's pre-V4 rates under the V4 IDs. `deepseek-flash` is V4.1 Flash and the only Flash id DeepSeek documents; `deepseek-chat`, `deepseek-reasoner`, `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` all resolve to it upstream, so every Flash-family row carries its price and its vision flag: the live API answers an image on each of those ids, while models.dev declares the family text-only. `deepseek-v4-pro` is the one row still on its own rate. Catalog prices are DeepSeek's **off-peak** rates, which apply for 17 of every 24 hours; peak hours (01:00-04:00 and 06:00-10:00 UTC) bill at exactly double, and a model row holds one figure, so metering under-reports during that window.
 
 **Catalog provides:**
 
@@ -899,7 +899,7 @@ The `lookupFuzzyIn` helper implements this logic (the canonical-provider and cro
 | Reasoning capability | Only if false |
 | Tool calling capability | Only if false |
 | Structured output capability | Only if false, and never for an image-output model on a provider that reaches Google's own route (Google AI Studio, Vertex AI express, and OpenCode Zen for its `gemini-*` ids), whose JSON mode the API refuses (google-gemini/cookbook#1028) |
-| Vision capability | Only if false, and only when the `attachment` flag is corroborated by an `image` input modality (or by no input list at all). models.dev sets `attachment` on models whose only input is text, `deepseek-chat` among them. |
+| Vision capability | Only if false, and only when the `attachment` flag is corroborated by an `image` input modality (or by no input list at all). models.dev sets `attachment` on models whose only input is text, so the flag on its own would advertise vision a provider can refuse. |
 | Input modalities | Only if empty or `"[]"` |
 | Output modalities | Only if empty or `"[]"` |
 | Owned by / family | Only if empty |
@@ -925,7 +925,7 @@ Models.dev is particularly valuable for providers that lack built-in catalogs or
 | **OpenAI** (generic) | 2 rows (`gpt-5.5-pro`, `gpt-5.4-pro`) | Pricing and specs for older GPT-4.x, the o-series, and any new models |
 | **Anthropic** | Pricing channel, currently empty | Pricing, capabilities, modalities and context limits for Claude models |
 | **Google AI Studio** | Pricing channel, currently empty | Pricing for Gemini models |
-| **DeepSeek** | 5 rows | Specs for older DeepSeek models and any not yet in the catalog |
+| **DeepSeek** | 6 rows | Specs for older DeepSeek models and any not yet in the catalog |
 | **Ollama** | None | Pricing, capabilities for well-known models available through Ollama |
 | **OpenRouter** | None (API-driven) | Pricing and specs for any OpenRouter-hosted model not covered by the API |
 | **Any unknown provider** | None | Full metadata for any model that exists in the models.dev database |

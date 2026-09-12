@@ -302,7 +302,7 @@ func TestHandleNonStreamingResponse_InvalidJSON(t *testing.T) {
 
 	assert.Equal(t, "failed", logData.state)
 	assert.Contains(t, logData.errorMessage, "response decode error")
-	assert.Equal(t, KindProviderBadRequest, logData.errorKind)
+	assert.Equal(t, KindProviderError, logData.errorKind)
 	// Note: "invalid json response" may be truncated/omitted by SanitizeLogBody
 	// depending on the exact error message format
 }

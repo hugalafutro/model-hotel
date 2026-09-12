@@ -442,9 +442,8 @@ func mergeSpecCapabilities(spec *ModelsDevModelSpec, caps *model.Capability) boo
 	}
 	// Attachment → Vision mapping, corroborated by the declared input
 	// modalities. models.dev sets attachment on a number of models whose only
-	// input modality is text, among them deepseek-chat and deepseek-reasoner,
-	// which answer an image with HTTP 400 "This model does not support image".
-	// Attachment alone therefore advertises vision the provider will refuse.
+	// input modality is text, so attachment alone advertises vision the
+	// provider may refuse.
 	if spec.Attachment && attachmentImpliesVision(spec.Modalities.Input) && !caps.Vision {
 		caps.Vision = true
 		merged = true

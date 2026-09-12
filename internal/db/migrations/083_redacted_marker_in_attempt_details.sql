@@ -34,7 +34,17 @@ SET attempts = (
         CASE WHEN jsonb_typeof(l.attempts) = 'array' THEN l.attempts ELSE '[]'::jsonb END
     ) WITH ORDINALITY AS t(a, ord)
 )
-WHERE EXISTS (
+--
+-- The text LIKE is a cheap superset filter that spares the per-row array
+-- expansion below on every row that cannot possibly match: a marker inside a
+-- detail string always shows up verbatim in the row's own text rendering, so a
+-- row failing it has nothing to rewrite. LIKE has no character classes, so the
+-- brackets are literal and need no escape. The expansion still runs on rows that
+-- pass, which is what keeps the semantics exactly as they were: a row carrying
+-- "[content]" only in a provider or model name passes the LIKE and is then
+-- dropped by the EXISTS, untouched.
+WHERE attempts::text LIKE '%[content]%'
+  AND EXISTS (
     SELECT 1
     FROM jsonb_array_elements(
         CASE WHEN jsonb_typeof(l.attempts) = 'array' THEN l.attempts ELSE '[]'::jsonb END

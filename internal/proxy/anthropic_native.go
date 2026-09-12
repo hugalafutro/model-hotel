@@ -52,25 +52,33 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	body, err := httpx.ReadCappedBody(resp.Body, nonStreamingBodyCap)
 	if err != nil {
 		debuglog.Warn("proxy: native anthropic read failed", "error", err, "provider", logData.providerName)
-		// An interrupted read is excluded the same way the translated path
-		// excludes it: nobody is waiting for the answer a second provider would
-		// produce. Everything else goes to the sibling, charged or not by
-		// rejectUntranslatableBody's own rule.
-		if _, aborted := cancelKind(r.Context(), err); canFailOver && !aborted {
+		// The same two gates the translated path applies, from the same two
+		// helpers: an abandoned attempt has nobody waiting for a second answer,
+		// and a body past this gateway's own cap is not something a sibling can
+		// answer any better. Everything else goes to the sibling, charged or not
+		// by rejectUntranslatableBody's own rule.
+		if canFailOver && !requestAbandoned(r.Context(), err) && answerFaultIsRoutable(err) {
 			return h.rejectUntranslatableBody(st, candidate, logData, "native anthropic", resp.StatusCode, err, attempt, r)
 		}
 		// Finalize the log row so it does not orphan in the in-flight state. A
 		// read failure on a success body is a provider or transport fault,
-		// unless it was interrupted rather than broken, which cancelKind
-		// classifies the same way the translated path does: the identical event
-		// must not log provider_error here and client_disconnect there.
+		// unless nobody was waiting for it, which requestAbandoned decides the
+		// same way the translated path does: the identical event must not log
+		// provider_error here and client_disconnect there.
 		// A body past the cap is refused by THIS gateway, so it is reported the
 		// way the translated path reports its own refusal: a bad request the
 		// provider is not charged for, never a provider fault.
 		kind := KindProviderError
 		switch cancelled, aborted := cancelKind(r.Context(), err); {
-		case aborted:
+		case aborted && requestAbandoned(r.Context(), err):
 			kind = cancelled
+		case aborted:
+			// This gateway's own per-attempt deadline, on a provider that
+			// answered headers and then went quiet, with the caller still
+			// waiting: the stall the streaming probe charges as provider_timeout
+			// (nonStreamingFailureDetail draws the same line on the OpenAI-shaped
+			// path).
+			kind = KindProviderTimeout
 		case errors.Is(err, httpx.ErrBodyTooLarge):
 			kind = KindProviderBadRequest
 		}
@@ -104,12 +112,24 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// corroborate, for a provider that answers without reporting usage. Same
 	// judgement chatAnswerCarriesContent makes on the OpenAI-shaped path.
 	carriesContent := outputTokens > 0 || anthropic.ResponseCarriesContent(body)
+	// The failover bar, which is wider than the content one, exactly as
+	// completionCarriesAnswer is wider than answerCarriesSomething on the
+	// translated path. A stated stop_reason is the provider saying how its own
+	// generation ended, and `{"content":[],"stop_reason":"max_tokens"}` is a
+	// finished generation whoever asked for it: without this the same upstream
+	// answer is served through /v1/chat/completions and routed to a sibling
+	// through /v1/messages, deciding a re-billed prompt on nothing but the
+	// dialect the caller used.
+	answered := carriesContent || anthropic.ResponseStopReason(body) != ""
 	// An answer carrying nothing goes to the sibling while there is one, the
 	// same rule and the same bar the translated path applies (completionFault).
 	// Above every stamp below, because a candidate the loop is about to leave
 	// must write neither a completed row nor a token charge for an answer the
 	// client will never see.
-	if canFailOver && !carriesContent {
+	if canFailOver && !answered {
+		// Charged before the candidate is left behind: the provider read this
+		// prompt and billed it, whoever ends up serving the request.
+		h.meterRejectedPrompt(st, logData, inputTokens)
 		return h.rejectUntranslatableBody(st, candidate, logData, "native anthropic", resp.StatusCode, errEmptyCompletion, attempt, r)
 	}
 
@@ -122,7 +142,10 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.parseMs = st.parseMs
 	logData.applyTimings(st.timings)
 	logData.responseHeaderMs = responseHeaderMs
-	logData.tokensPrompt = inputTokens
+	// Added, not assigned: an earlier candidate that answered 2xx without an
+	// answer already billed its prompt onto this row (meterRejectedPrompt), and
+	// the row reports what the request cost rather than what its last hop did.
+	logData.tokensPrompt += inputTokens
 	logData.tokensCompletion = outputTokens
 	// The cache split, not just the total: metering the cache-inclusive prompt
 	// without it prices every cached token at full input rate. The translated

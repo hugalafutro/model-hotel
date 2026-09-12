@@ -111,6 +111,22 @@ func ResponseCarriesContent(body []byte) bool {
 	return len(resp.Content) > 0
 }
 
+// ResponseStopReason is the stop_reason a non-streaming Messages response
+// states, or "" when it states none. It is how the response says its generation
+// ended, so a message carrying no content block but a stop_reason of
+// "max_tokens" or "stop_sequence" is a provider that answered rather than one
+// that went silent. The OpenAI-shaped finish_reason is the same claim, which is
+// why the gateway reads both before deciding a 2xx carried no answer.
+func ResponseStopReason(body []byte) string {
+	var resp struct {
+		StopReason string `json:"stop_reason"`
+	}
+	if json.Unmarshal(body, &resp) != nil {
+		return ""
+	}
+	return resp.StopReason
+}
+
 // ResponseTextBytes is the byte length of the text, thinking, tool name and
 // tool input across a non-streaming Messages response's content blocks, the
 // delivered output a usage estimate works from when the response carries no

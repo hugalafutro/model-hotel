@@ -87,14 +87,21 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	// JSON, the first body byte for SSE/binary), so a provider that returns
 	// 200 headers and then stalls before producing data still accrues breaker
 	// failures.
-	debuglog.Debug("proxy: upstream responded OK, dispatching passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"))
+	debuglog.Debug("proxy: upstream responded OK, dispatching passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "status", resp.StatusCode, "content_type", util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap))
+	// The dispatch reads the upstream body under the ATTEMPT's context, the same
+	// request the chat path hands dispatchNonStreaming. With the bare client
+	// request instead, a read this gateway's own per-attempt deadline ended
+	// carries no cancel origin, so resolveCancelOrigin calls it a client
+	// disconnect: a provider that answered headers and then stalled would look
+	// like a caller who hung up, and the sibling behind it would never be asked.
+	attemptReq := r.WithContext(failoverCtx)
 	if st.speechFormat != "" {
-		return h.serveGeminiSpeechResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
+		return h.serveGeminiSpeechResponse(w, attemptReq, st, candidate, resp, attempt, responseHeaderMs)
 	}
 	if st.transcriptionFormat != "" {
-		return h.serveGeminiTranscriptionResponse(w, r, st, candidate, resp, attempt, responseHeaderMs)
+		return h.serveGeminiTranscriptionResponse(w, attemptReq, st, candidate, resp, attempt, responseHeaderMs)
 	}
-	return h.servePassthroughResponse(w, r, st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
+	return h.servePassthroughResponse(w, attemptReq, st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
 }
 
 // passthroughAnswered reports whether a buffered pass-through response is the

@@ -281,15 +281,37 @@ func (s *attemptSlot) settle(clean bool) {
 // (client disconnect and hedge loss included), so a leaked count, a slow
 // self-inflicted saturation, would need a leaked body, which the bodyclose
 // lint forbids.
+//
+// onEOF is what holdSlotForVerdict turns off. clean is fixed from the response
+// status at header time, which is the whole truth for a stream (its verdict
+// arrives with its last frame, after which the body is closed at once) and not
+// for a path that reads a whole body and only then decides whether the 2xx
+// carried an answer: there the EOF is reached while the verdict is still being
+// formed, so those paths hold the slot until their own close.
 type inflightRelease struct {
 	io.ReadCloser
 	slot  *attemptSlot
 	clean bool
+	onEOF bool
+}
+
+// holdSlotForVerdict stops a body's EOF settling the attempt's in-flight slot,
+// leaving the close to do it. It is for the paths that buffer the whole
+// upstream body before they can tell a served answer from a 2xx that carried
+// none: the reject settles the slot as the failure it was, and a served answer
+// settles it clean on the close its handler already performs.
+//
+// Nothing else changes: the slot still settles exactly once, and still no later
+// than the close every attempt path performs on every exit.
+func holdSlotForVerdict(resp *http.Response) {
+	if rel, ok := resp.Body.(*inflightRelease); ok {
+		rel.onEOF = false
+	}
 }
 
 func (b *inflightRelease) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
-	if err == io.EOF {
+	if err == io.EOF && b.onEOF {
 		b.slot.settle(b.clean)
 	}
 	return n, err
@@ -345,7 +367,7 @@ func (h *Handler) finishAttemptAdmission(st *requestState, candidate modelCandid
 	if remainingBudgetZero(resp.Header) {
 		h.inflight.hintFull(candidate.provider.ID)
 	}
-	resp.Body = &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, clean: servedSuccessStatus(resp.StatusCode)}
+	resp.Body = &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, clean: servedSuccessStatus(resp.StatusCode), onEOF: true}
 }
 
 // remainingBudgetZero reports whether the provider's OpenAI-style rate-limit

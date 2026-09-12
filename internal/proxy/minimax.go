@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // miniMaxStatusToHTTP maps MiniMax base_resp business codes onto the HTTP
@@ -130,11 +131,14 @@ func remapMiniMaxBusinessError(providerType, providerName string, resp *http.Res
 	if !ok {
 		mapped = http.StatusBadGateway
 	}
+	// The status message is upstream text that can quote what the request sent,
+	// and Warn reaches the app log whether or not debug output is on, so it is
+	// bounded and sanitized like every other upstream body in this package.
 	debuglog.Warn("proxy: minimax business error inside HTTP 200",
 		"provider", providerName,
 		"minimax_status", envelope.BaseResp.StatusCode,
 		"mapped_status", mapped,
-		"msg", envelope.BaseResp.StatusMsg)
+		"msg", util.SanitizeLogBody(envelope.BaseResp.StatusMsg, logBodyCap))
 	resp.StatusCode = mapped
 	resp.Status = http.StatusText(mapped)
 	return resp

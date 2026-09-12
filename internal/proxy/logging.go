@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -406,24 +405,12 @@ func metricModelLabel(modelID string, kind ErrorKind) string {
 	return modelID
 }
 
-// upstreamModelLogCap bounds the model name in the debug line. A real model id
-// is a short token; the cap is what stops a caller who sends a megabyte in that
-// field from writing a megabyte to the log.
-const upstreamModelLogCap = 120
-
-// debugEnabled reports whether a Debug record can reach the output at all.
-// debuglog.Init and debuglog.SetHandler both install their handler as the slog
-// default and set its level from DEBUG_LOG and DEBUG_LOG_SCOPES together, so
-// the default logger's own answer is the gate, not a second opinion on it.
-// A var so a test can drive both sides of the branch without touching the
-// process-wide logger that parallel tests in this package share.
-var debugEnabled = func() bool {
-	return slog.Default().Enabled(context.Background(), slog.LevelDebug)
-}
-
-// upstreamModelDecodes counts bodies actually decoded, so a test can prove the
-// gate skipped the expensive half rather than merely that nothing was logged.
-var upstreamModelDecodes atomic.Uint64
+// shortLogValueCap bounds a caller-controlled value that a debug line carries
+// whole: the model name an upstream body names, and the image "size" a provider
+// rewrite dropped. Both are short tokens in a real request; the cap is what
+// stops a caller who sends a megabyte in that field from writing a megabyte to
+// the log.
+const shortLogValueCap = 120
 
 // upstreamModelAttr returns the model name the upstream body carries, sanitized
 // and bounded, and whether there is one to log.
@@ -435,14 +422,13 @@ var upstreamModelDecodes atomic.Uint64
 // what keeps a multipart body out of the debug log. The value is caller text
 // like any other, so nothing says it is a short identifier.
 func upstreamModelAttr(upstreamBody []byte) (string, bool) {
-	upstreamModelDecodes.Add(1)
 	var decoded struct {
 		Model string `json:"model"`
 	}
 	if err := json.Unmarshal(upstreamBody, &decoded); err != nil || decoded.Model == "" {
 		return "", false
 	}
-	return util.SanitizeLogBody(decoded.Model, upstreamModelLogCap), true
+	return util.SanitizeLogBody(decoded.Model, shortLogValueCap), true
 }
 
 // logUpstreamModel logs the model name the upstream body carries, for debugging
@@ -450,8 +436,12 @@ func upstreamModelAttr(upstreamBody []byte) (string, bool) {
 // tens of megabytes on the image endpoints and this sits on the hot path once
 // per candidate and again per retry, so parsing one to discard the result would
 // cost every request what only a debugging session wants.
+//
+// debuglog.Init and debuglog.SetHandler both install their handler as the slog
+// default and set its level from DEBUG_LOG and DEBUG_LOG_SCOPES together, so
+// the default logger's own answer is the gate, not a second opinion on it.
 func logUpstreamModel(upstreamBody []byte) {
-	if !debugEnabled() {
+	if !slog.Default().Enabled(context.Background(), slog.LevelDebug) {
 		return
 	}
 	if model, ok := upstreamModelAttr(upstreamBody); ok {

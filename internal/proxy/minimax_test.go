@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"log/slog"
 	"net"
 	"net/http"
 	"net/http/httptest"
@@ -403,5 +404,36 @@ func TestChatCompletions_MiniMaxBusinessErrorFailsOver(t *testing.T) {
 	}
 	if got := cb.GetState(provider1.ID, "shared-model"); got != failover.StateOpen {
 		t.Errorf("minimax candidate circuit = %v, want open on one exhausted balance error", got)
+	}
+}
+
+// The business-error warning carries upstream text that can quote what the
+// request sent, and a Warn record reaches the app log ring buffer and the
+// database whether or not debug output is on. It is bounded and sanitized like
+// every other upstream body this package logs.
+func TestRemapMiniMaxBusinessError_BoundsTheStatusMessage(t *testing.T) {
+	huge := strings.Repeat("q", 40<<10)
+	envelope, err := json.Marshal(map[string]any{
+		"base_resp": map[string]any{"status_code": 1008, "status_msg": huge},
+	})
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+	resp, _ := minimaxTestResp(http.StatusOK, "application/json", string(envelope))
+	captured := captureLogsAt(t, slog.LevelWarn)
+
+	if got := remapMiniMaxBusinessError("minimax", "mm", resp).StatusCode; got != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429", got)
+	}
+
+	got := captured("proxy: minimax business error inside HTTP 200")
+	if len(got) != 1 {
+		t.Fatalf("expected one warning line, got %d", len(got))
+	}
+	if strings.Contains(got[0], huge) {
+		t.Error("the upstream message reached the log verbatim")
+	}
+	if len(got[0]) > logBodyCap+512 {
+		t.Errorf("warning line is %d bytes, want the message bounded at %d", len(got[0]), logBodyCap)
 	}
 }

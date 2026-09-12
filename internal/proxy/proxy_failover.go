@@ -206,7 +206,11 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		} else if err := translateResponsesResponseBody(resp, st.reqModel); err != nil {
 			// A 200 whose body cannot be read or is not a Responses object is
 			// a provider fault; fail over like any other malformed upstream.
-			return h.rejectUntranslatableBody(st, candidate, logData, "responses api", resp.StatusCode, err, attempt, r)
+			// Closed after the verdict: readCappedBody left the upstream close,
+			// which settles the in-flight slot, to whoever judges the bytes.
+			outcome := h.rejectUntranslatableBody(st, candidate, logData, "responses api", resp.StatusCode, err, attempt, r)
+			_ = resp.Body.Close()
+			return outcome
 		}
 	}
 	if st.geminiAttempt {
@@ -214,7 +218,9 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, gemini.BuildChatCompletion); err != nil {
-			return h.rejectUntranslatableBody(st, candidate, logData, "gemini", resp.StatusCode, err, attempt, r)
+			outcome := h.rejectUntranslatableBody(st, candidate, logData, "gemini", resp.StatusCode, err, attempt, r)
+			_ = resp.Body.Close()
+			return outcome
 		}
 	}
 	if st.anthropicEgressAttempt {
@@ -222,7 +228,9 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, anthropicegress.BuildChatCompletion); err != nil {
-			return h.rejectUntranslatableBody(st, candidate, logData, "anthropic egress", resp.StatusCode, err, attempt, r)
+			outcome := h.rejectUntranslatableBody(st, candidate, logData, "anthropic egress", resp.StatusCode, err, attempt, r)
+			_ = resp.Body.Close()
+			return outcome
 		}
 	}
 	if st.isStreaming {
@@ -563,7 +571,11 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 			var droppedSize, ratio string
 			upstreamBody, droppedSize, ratio = paramrewrite.RewriteImageRequest(upstreamBody, providerType, candidate.model.ModelID)
 			if droppedSize != "" {
-				debuglog.Debug("proxy: image size rewritten for the provider", "provider_type", providerType, "resolved_model", candidate.model.ModelID, "dropped_size", droppedSize, "aspect_ratio", ratio)
+				// The dropped size is whatever JSON value the caller put under
+				// "size", of any type and any length, so it is bounded and
+				// sanitized like every other caller string that reaches a log.
+				// The ratio beside it comes from this gateway's own table.
+				debuglog.Debug("proxy: image size rewritten for the provider", "provider_type", providerType, "resolved_model", candidate.model.ModelID, "dropped_size", util.SanitizeLogBody(droppedSize, shortLogValueCap), "aspect_ratio", ratio)
 			}
 		}
 	} else {
@@ -737,8 +749,16 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 		return nil, false
 	}
 
-	// Log upstream response metadata for debugging.
-	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode, "content_type", resp.Header.Get("Content-Type"), "x_request_id", resp.Header.Get("X-Request-Id"), "x_ratelimit_remaining", resp.Header.Get("X-RateLimit-Remaining"), "attempt", attempt+1)
+	// Log upstream response metadata for debugging. The three header values are
+	// the upstream's own text, so they are bounded and sanitized the way every
+	// other upstream-controlled value a log line carries is: a provider is free
+	// to answer with a megabyte of newlines in a header, and an app log the
+	// dashboard renders is not the place to find that out.
+	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode,
+		"content_type", util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap),
+		"x_request_id", util.SanitizeLogBody(resp.Header.Get("X-Request-Id"), shortLogValueCap),
+		"x_ratelimit_remaining", util.SanitizeLogBody(resp.Header.Get("X-RateLimit-Remaining"), shortLogValueCap),
+		"attempt", attempt+1)
 	return resp, true
 }
 

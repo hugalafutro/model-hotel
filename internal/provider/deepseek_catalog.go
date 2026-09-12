@@ -49,10 +49,13 @@ type DeepSeekModelSpec struct {
 // documents. deepseek-chat, deepseek-reasoner, deepseek-v4-flash and
 // deepseek-v4-flash-vision-exp all resolve to it upstream (verified by the id
 // each one echoes back in its response), so every Flash-family row carries V4.1
-// Flash's price. deepseek-chat still selects the non-thinking preset.
+// Flash's price and its vision flag: the API answers a request carrying an
+// image on each of those ids, and models.dev declares the family text-only.
+// deepseek-chat still selects the non-thinking preset.
 //
-// deepseek-v4-pro is the last row still on its own price, and the only one that
-// answers as itself rather than as deepseek-flash. Once that id stops echoing
+// deepseek-v4-pro is the last row still on its own price, the only one that
+// answers as itself rather than as deepseek-flash, and the only one that drops
+// an image instead of reading it, so it carries no vision flag. Once that id stops echoing
 // itself back, DeepSeek is serving Flash under it at Flash's rate and this row
 // meters every request several times over, so it has to be repriced or dropped
 // then. Dropping it does not retire the model on its own:

@@ -238,7 +238,12 @@ type ConfigEnvelope struct {
 
 // ConfigPayload is the config-only body of the envelope.
 type ConfigPayload struct {
-	Providers   []ExportProvider  `json:"providers"`
+	Providers []ExportProvider `json:"providers"`
+	// Same nil-vs-empty contract as FailoverGroups below: exportVirtualKeys always
+	// returns a non-nil slice, so a member running this code emits [] when it has
+	// no keys and the wipe rail reads that as "the primary has none, reconcile to
+	// zero". Absent (nil) is an older primary or a mangled envelope, and a
+	// populated member refuses it rather than dropping every credential it holds.
 	VirtualKeys []ExportVK        `json:"virtual_keys"`
 	Settings    map[string]string `json:"settings"`
 	// Not omitempty: a member running this code always emits the key, as [] when

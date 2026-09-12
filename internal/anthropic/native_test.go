@@ -137,6 +137,33 @@ func TestResponseCarriesContent(t *testing.T) {
 	}
 }
 
+// ResponseStopReason is the wider bar beside ResponseCarriesContent: a message
+// with no content block but a stated stop_reason is a generation that finished,
+// which the proxy serves rather than routing to a sibling. Its OpenAI-shaped
+// twin, finish_reason, is read the same way.
+func TestResponseStopReason(t *testing.T) {
+	tests := []struct {
+		name string
+		body string
+		want string
+	}{
+		{"capped generation with no content", `{"id":"m","type":"message","content":[],"stop_reason":"max_tokens"}`, "max_tokens"},
+		{"end_turn", `{"id":"m","type":"message","content":[{"type":"text","text":"hi"}],"stop_reason":"end_turn"}`, "end_turn"},
+		{"stop_reason absent", `{"id":"m","type":"message","content":[]}`, ""},
+		{"stop_reason null", `{"id":"m","type":"message","stop_reason":null}`, ""},
+		{"stop_reason empty", `{"id":"m","type":"message","stop_reason":""}`, ""},
+		{"not json", `not json`, ""},
+		{"empty body", ``, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := ResponseStopReason([]byte(tt.body)); got != tt.want {
+				t.Errorf("ResponseStopReason(%s) = %q, want %q", tt.body, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestStreamTranslator_ToolWithoutID_AndIdempotentFinish(t *testing.T) {
 	tr := NewStreamTranslator("msg_t", "m")
 	// A tool-call fragment with no id forces id synthesis; arguments stream as

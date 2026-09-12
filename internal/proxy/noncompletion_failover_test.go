@@ -167,6 +167,7 @@ func TestCompletionFault(t *testing.T) {
 	refused := nonStreamingAnswer{chat: ChatCompletionResponse{
 		Choices: []Choice{{Message: Message{Role: "assistant", Extra: jsonExtras{"refusal": json.RawMessage(`"I cannot help with that"`)}}}},
 	}}
+	lengthFinish := "length"
 
 	for _, tc := range []struct {
 		name    string
@@ -185,6 +186,10 @@ func TestCompletionFault(t *testing.T) {
 		// filtered answer and a reported token count are all the model answering.
 		{"a refusal is an answer", context.Background(), http.StatusOK, refused, false},
 		{"reported completion tokens are an answer", context.Background(), http.StatusOK, nonStreamingAnswer{chat: ChatCompletionResponse{Usage: Usage{CompletionTokens: 7}}}, false},
+		// A stated finish_reason is the provider saying how its own generation
+		// ended, so an emptied answer that hit the output ceiling is served. The
+		// native twin reads stop_reason for the same claim.
+		{"a stated finish_reason is an answer", context.Background(), http.StatusOK, nonStreamingAnswer{chat: ChatCompletionResponse{Choices: []Choice{{FinishReason: &lengthFinish}}}}, false},
 		{"an undecodable 200 is a fault", context.Background(), http.StatusOK, nonStreamingAnswer{decodeErr: errors.New("invalid character '<'")}, true},
 		{"a body that died on the wire is a fault", context.Background(), http.StatusOK, nonStreamingAnswer{readErr: io.ErrUnexpectedEOF, decodeErr: io.ErrUnexpectedEOF}, true},
 		// The whole document arrived and parsed, and only then did the
@@ -204,9 +209,9 @@ func TestCompletionFault(t *testing.T) {
 	}
 }
 
-// A body past the gateway's own cap fails over like any other 2xx that is not a
-// completion, but the provider is not charged for it: the limit is this
-// gateway's, not the provider's failure.
+// A body past the gateway's own cap is a fault, but not one a sibling can
+// answer any better, and not one the provider is charged for: the limit is this
+// gateway's, and the size of an answer is a function of the request.
 func TestOversizedBodyIsNotChargedToTheProvider(t *testing.T) {
 	resp := &http.Response{
 		StatusCode: http.StatusOK,
@@ -217,10 +222,13 @@ func TestOversizedBodyIsNotChargedToTheProvider(t *testing.T) {
 
 	err := ans.completionFault(context.Background(), http.StatusOK)
 	if err == nil {
-		t.Fatal("an oversized body is not a completion and must fail over")
+		t.Fatal("an oversized body is not a completion")
 	}
 	if !errors.Is(err, httpx.ErrBodyTooLarge) {
 		t.Fatalf("err = %v, want it to wrap httpx.ErrBodyTooLarge", err)
+	}
+	if answerFaultIsRoutable(err) {
+		t.Error("every later candidate regenerates the same oversized answer; the cap refusal must not walk the group")
 	}
 	if translationIsProviderFault(err) {
 		t.Error("the gateway's own body cap must not charge the provider's circuit")
@@ -243,10 +251,12 @@ func nonCompletionState(t *testing.T) (*requestState, modelCandidate) {
 	return st, goneCandidateAt(&model.Model{ID: uuid.New(), ModelID: "shared-model"}, "relay", "http://relay.test")
 }
 
-// A body past the gateway's own cap goes to the sibling like any other answer
-// that is not a completion, and the provider is not charged on the way: the two
-// halves of the oversized rule, proven on the path rather than on the helper.
-func TestOversizedBody_FailsOverUncharged(t *testing.T) {
+// A body past the gateway's own cap ends the request where it stands, even with
+// a sibling waiting, and the provider is not charged for it. The answer's size
+// is a function of the request, so every later candidate would regenerate the
+// same oversized body and be refused for it: failing over re-bills the prompt at
+// every stop to render the 502 the first candidate already owed the client.
+func TestOversizedBody_IsTerminalAndUncharged(t *testing.T) {
 	h := newIntegrationHandler()
 	t.Cleanup(func() { stopUnitHandler(h) })
 	oversized := strings.Repeat("x", nonStreamingBodyCap+1)
@@ -257,11 +267,14 @@ func TestOversizedBody_FailsOverUncharged(t *testing.T) {
 		w := httptest.NewRecorder()
 		req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
 
-		if outcome := h.dispatchNonStreaming(w, req, st, candidate, resp, 0, 1.0, true); outcome != outcomeFailover {
-			t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+		if outcome := h.dispatchNonStreaming(w, req, st, candidate, resp, 0, 1.0, true); outcome == outcomeFailover {
+			t.Fatal("the cap refusal walked to the sibling, which would regenerate the same oversized answer")
 		}
-		if w.Body.Len() != 0 {
-			t.Errorf("the client was written to before the sibling was tried: %s", w.Body.String())
+		if w.Code != http.StatusBadGateway {
+			t.Errorf("client status = %d, want 502 rendered on the spot", w.Code)
+		}
+		if st.logData.errorKind != KindProviderBadRequest {
+			t.Errorf("error kind = %q, want %q: the cap is this gateway's limit", st.logData.errorKind, KindProviderBadRequest)
 		}
 		if st.logData.attemptBreaker == breakerCharge {
 			t.Error("the gateway's own body cap charged the provider's circuit")
@@ -278,12 +291,15 @@ func TestOversizedBody_FailsOverUncharged(t *testing.T) {
 		aw.bindNativeFlag(&native)
 		req := httptest.NewRequest("POST", "/v1/messages", http.NoBody)
 
-		if outcome := h.dispatchNonStreaming(aw, req, st, candidate, resp, 0, 1.0, true); outcome != outcomeFailover {
-			t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+		if outcome := h.dispatchNonStreaming(aw, req, st, candidate, resp, 0, 1.0, true); outcome == outcomeFailover {
+			t.Fatal("the cap refusal walked to the sibling, which would regenerate the same oversized answer")
 		}
 		aw.Finalize()
-		if rec.Body.Len() != 0 {
-			t.Errorf("the client was written to before the sibling was tried: %s", rec.Body.String())
+		if rec.Code != http.StatusBadGateway {
+			t.Errorf("client status = %d, want 502 rendered on the spot", rec.Code)
+		}
+		if st.logData.errorKind != KindProviderBadRequest {
+			t.Errorf("error kind = %q, want %q: the cap is this gateway's limit", st.logData.errorKind, KindProviderBadRequest)
 		}
 		if st.logData.attemptBreaker == breakerCharge {
 			t.Error("the gateway's own body cap charged the provider's circuit")
@@ -503,5 +519,434 @@ func TestNativeNonStreaming_ReadFailureFailsOverWhenASiblingRemains(t *testing.T
 	// handler must not still be waiting to fire on a later candidate's row.
 	if logData.judgeAnswer != nil {
 		t.Error("the deferred breaker judgement is still armed after the attempt failed over")
+	}
+}
+
+// withRequestTimeout narrows the per-attempt deadline for one test and puts the
+// setting back afterwards. The cache is invalidated on both edges: the handler
+// reads request_timeout once per request, from the cache.
+func withRequestTimeout(t *testing.T, h *Handler, value string) {
+	t.Helper()
+	ctx := context.Background()
+	previous, hadRow, err := h.settingsRepo.GetChecked(ctx, "request_timeout")
+	if err != nil {
+		t.Fatalf("read request_timeout: %v", err)
+	}
+	if err := h.settingsRepo.Set(ctx, "request_timeout", value); err != nil {
+		t.Fatalf("set request_timeout: %v", err)
+	}
+	h.settingsRepo.InvalidateCache("request_timeout")
+	// Put back what was there, including nothing: writing the default in
+	// place of an absent row would leave every later test reading an explicit
+	// value where it expects the built-in one.
+	t.Cleanup(func() {
+		if hadRow {
+			_ = h.settingsRepo.Set(ctx, "request_timeout", previous)
+		} else {
+			_ = h.settingsRepo.DeleteKey(ctx, "request_timeout")
+		}
+		h.settingsRepo.InvalidateCache("request_timeout")
+	})
+}
+
+// A provider that answers 200 headers and then says nothing until this gateway's
+// own per-attempt deadline has stalled; it has not been cancelled by anyone who
+// stopped caring. The streaming half has always sent that event to the sibling
+// from its TTFT probe and charged the provider for it, while the non-streaming
+// half read its own timeout as an interruption and ended the request with a
+// terminal error, siblings untouched.
+func TestStalled2xx_FailsOverToTheSibling(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		if strings.HasPrefix(r.Host, "one-slot") {
+			w.WriteHeader(http.StatusOK)
+			w.(http.Flusher).Flush()
+			// Headers and then silence, until the gateway gives up on the body.
+			<-r.Context().Done()
+			return
+		}
+		_, _ = io.WriteString(w, siblingCompletion)
+	}))
+	t.Cleanup(upstream.Close)
+	env := buildReplayEnv(t, upstream)
+	withRequestTimeout(t, env.h, "500ms")
+
+	w := replayRequest(t, env)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (the sibling can serve this); body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "the sibling answered") {
+		t.Fatalf("the stall ended the request instead of reaching the sibling: %s", w.Body.String())
+	}
+	trail := waitForTrail(t, "hotel/"+env.group, 2)
+	if len(trail) != 2 {
+		t.Fatalf("trail has %d attempts, want 2 (the stall and the sibling): %+v", len(trail), trail)
+	}
+	// Charged exactly as the TTFT probe charges its own stall. A provider that
+	// answers headers and then goes quiet on every request must open its circuit
+	// rather than cost every caller a full deadline before the real answer.
+	if trail[0].Breaker != breakerCharge {
+		t.Errorf("attempt 0 breaker = %q, want %q", trail[0].Breaker, breakerCharge)
+	}
+	// The same kind the last candidate records for a stall, so the trail reads
+	// the event the same way wherever in the group it happened.
+	if trail[0].ErrorKind != string(KindProviderTimeout) {
+		t.Errorf("attempt 0 error_kind = %q, want %q", trail[0].ErrorKind, KindProviderTimeout)
+	}
+	if trail[1].Breaker != breakerSuccess {
+		t.Errorf("attempt 1 breaker = %q, want %q", trail[1].Breaker, breakerSuccess)
+	}
+}
+
+// rowPromptTokens reads the prompt-token column of the request's own row.
+func rowPromptTokens(t *testing.T, modelID string) int {
+	t.Helper()
+	var tokens int
+	if err := testDB.Pool().QueryRow(context.Background(),
+		`SELECT COALESCE(tokens_prompt, 0) FROM request_logs WHERE model_id = $1 ORDER BY created_at DESC LIMIT 1`,
+		modelID).Scan(&tokens); err != nil {
+		t.Fatalf("read tokens_prompt: %v", err)
+	}
+	return tokens
+}
+
+// keyTokensUsed reads the virtual key's own usage counter.
+func keyTokensUsed(t *testing.T, keyHash string) int {
+	t.Helper()
+	var tokens int
+	if err := testDB.Pool().QueryRow(context.Background(),
+		`SELECT tokens_used FROM virtual_keys WHERE key_hash = $1`, keyHash).Scan(&tokens); err != nil {
+		t.Fatalf("read tokens_used: %v", err)
+	}
+	return tokens
+}
+
+// A candidate whose 2xx is rejected still generated that answer, and the
+// provider billed the prompt it read to do so. Only the provider that finally
+// served was metered, so a request that walked the group cost the operator
+// several prompts and charged the tenant for one.
+func TestRejected2xx_ItsPromptIsStillMetered(t *testing.T) {
+	env := replayUpstream(t, http.StatusOK,
+		`{"id":"chatcmpl-empty","object":"chat.completion","created":1,"model":"shared-model",`+
+			`"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":0,"total_tokens":11}}`)
+
+	w := replayRequest(t, env)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body: %s", w.Code, w.Body.String())
+	}
+	waitForTrail(t, "hotel/"+env.group, 2)
+	// 11 from the candidate that answered nothing, 1 from the sibling that
+	// answered: the row reports what the request cost, not what its last hop did.
+	if got := rowPromptTokens(t, "hotel/"+env.group); got != 12 {
+		t.Errorf("row tokens_prompt = %d, want 12 (the rejected candidate's 11 plus the sibling's 1)", got)
+	}
+	// The key's counter and the TPM bucket take the same charge through
+	// recordTokenUsage: 11 for the rejected prompt, 3 for the served answer.
+	if got := keyTokensUsed(t, env.keyHash); got != 14 {
+		t.Errorf("virtual key tokens_used = %d, want 14 (11 rejected prompt + 3 served)", got)
+	}
+}
+
+// finishAttemptAdmission fixes the slot's clean flag from the 2xx headers, and a
+// 2xx that carried no answer is precisely where that flag is wrong: counting the
+// attempt toward the consecutive clean completions that widen the provider's
+// learned in-flight window lets a relay answering 200 with nothing earn more
+// concurrency the more often it does it.
+//
+// The clean-run count is what the assertion reads, because the body's own EOF
+// settles the slot before this path can tell a served answer from a rejected
+// one: what matters is the credit the attempt ends up holding, not which of the
+// two writes got there first.
+func TestRejected2xx_DoesNotEarnACleanRun(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	limiter := newInflightLimiter()
+	h.inflight = limiter
+
+	st, candidate := nonCompletionState(t)
+	st.inflightEnabled = true
+	pid := candidate.provider.ID
+	// A capped window one clean completion short of the grow threshold: only a
+	// capped window counts runs at all, and this is the run where the difference
+	// shows in the allowance itself rather than just the counter. A correction
+	// applied after the fact cannot reach the allowance, which is why the slot
+	// has to be held until the verdict instead.
+	limiter.cut(pid, 0)
+	for range defaultInflightGrowAfter - 1 {
+		if !limiter.tryAcquire(pid, 0) {
+			t.Fatal("setup: slot not acquired")
+		}
+		limiter.release(pid, true, 0, 0)
+	}
+	before := *limiter.windowFor(t, pid)
+	if before.goodRuns != defaultInflightGrowAfter-1 {
+		t.Fatalf("setup: clean-run count = %d, want %d", before.goodRuns, defaultInflightGrowAfter-1)
+	}
+
+	if !h.admitCandidate(st, candidate) {
+		t.Fatal("setup: the candidate was not admitted")
+	}
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"choices":[]}`)), Header: make(http.Header)}
+	h.finishAttemptAdmission(st, candidate, resp)
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+
+	if outcome := h.dispatchNonStreaming(httptest.NewRecorder(), req, st, candidate, resp, 0, 1.0, true); outcome != outcomeFailover {
+		t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+	}
+
+	after := *limiter.windowFor(t, pid)
+	if after.goodRuns != 0 {
+		t.Errorf("clean-run count = %d, want 0: a 2xx the client never saw counted toward widening the provider's window", after.goodRuns)
+	}
+	if after.limit != before.limit {
+		t.Errorf("allowance = %d, want %d: a 2xx the client never saw was the clean run that widened the window", after.limit, before.limit)
+	}
+}
+
+// The native message bar and the translated completion bar must be the same bar.
+// `content: [], stop_reason: max_tokens` is a generation that finished at the
+// output ceiling, which completionCarriesAnswer serves; rejecting it on
+// /v1/messages alone re-bills the prompt on a sibling for an answer the same
+// upstream already produced, decided by nothing but the caller's dialect.
+func TestNativeStopReason_IsAnAnswer(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	st, candidate := nonCompletionState(t)
+	st.anthropicNativeAttempt = true
+	body := `{"id":"msg_capped","type":"message","role":"assistant","content":[],"stop_reason":"max_tokens","usage":{"input_tokens":9,"output_tokens":0}}`
+	resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}
+	rec := httptest.NewRecorder()
+	native := true
+	aw := newAnthropicResponseWriter(rec, "msg_capped", "m")
+	aw.bindNativeFlag(&native)
+
+	outcome := h.dispatchNonStreaming(aw, httptest.NewRequest("POST", "/v1/messages", http.NoBody), st, candidate, resp, 0, 1.0, true)
+	aw.Finalize()
+
+	if outcome == outcomeFailover {
+		t.Fatal("a message that states how its generation ended was sent to a sibling")
+	}
+	if !strings.Contains(rec.Body.String(), "max_tokens") {
+		t.Errorf("the message was not forwarded to the client: %s", rec.Body.String())
+	}
+	// The content bar is untouched and stays narrow: no block arrived, so the
+	// breaker still charges the emptied answer and the retirement streak is not
+	// cleared by it.
+	if !st.logData.emptyCompletion {
+		t.Error("a message with no content block was recorded as carrying content")
+	}
+}
+
+// The same undecodable 2xx at both positions in the group. With a sibling it
+// goes through rejectUntranslatableBody; on the last candidate the handler
+// renders the client's 502 instead. Both are the same fault, so both report the
+// same kind and both charge: routing order alone must not decide whether a
+// provider's circuit hears about it.
+func TestUndecodable2xx_ChargesTheSameAtEitherPosition(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+
+	for _, tc := range []struct {
+		name    string
+		hasMore bool
+	}{
+		{"a sibling remains", true},
+		{"the last candidate", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st, candidate := nonCompletionState(t)
+			resp := &http.Response{
+				StatusCode: http.StatusOK,
+				Body:       io.NopCloser(strings.NewReader("<html>not a completion</html>")),
+				Header:     http.Header{"Content-Type": []string{"text/html"}},
+			}
+			req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+
+			h.dispatchNonStreaming(httptest.NewRecorder(), req, st, candidate, resp, 0, 1.0, tc.hasMore)
+
+			if st.logData.attemptBreaker != breakerCharge {
+				t.Errorf("breaker note = %q, want %q", st.logData.attemptBreaker, breakerCharge)
+			}
+			kind := st.lastReqErr.Kind
+			if !tc.hasMore {
+				kind = st.logData.errorKind
+			}
+			if kind != KindProviderError {
+				t.Errorf("error kind = %q, want %q", kind, KindProviderError)
+			}
+		})
+	}
+}
+
+// streamedPassthroughPair builds a two-provider text-to-speech failover group:
+// the first provider runs firstHandler, the second answers real audio bytes.
+// Text-to-speech is the shape that reaches serveStreamedPassthrough, where the
+// commit point is the first body byte rather than a buffered read.
+func streamedPassthroughPair(t *testing.T, firstHandler http.HandlerFunc) (*multimodalTestEnv, string, *atomic.Int32) {
+	t.Helper()
+	env := newMultimodalEnv(t, firstHandler)
+	var siblingCalls atomic.Int32
+	sibling := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		siblingCalls.Add(1)
+		w.Header().Set("Content-Type", "audio/mpeg")
+		_, _ = io.WriteString(w, "ID3 the sibling's audio")
+	}))
+	t.Cleanup(sibling.Close)
+	_, _, siblingModelUUID, _ := createMultimodalProvider(t, sibling.URL)
+
+	group := env.modelName
+	if _, err := failover.NewRepository(testDB.Pool()).UpsertWithConfig(context.Background(), group,
+		[]uuid.UUID{env.modelUUID, siblingModelUUID},
+		map[string]bool{env.modelUUID.String(): true, siblingModelUUID.String(): true},
+		nil, nil, nil, nil); err != nil {
+		t.Fatalf("failed to create failover group: %v", err)
+	}
+	return env, group, &siblingCalls
+}
+
+// speechRequest asks the group for audio, which is what puts the answer on the
+// streamed half of the pass-through.
+func speechRequest(env *multimodalTestEnv, group string) *http.Request {
+	return env.request("/v1/audio/speech", "application/json",
+		strings.NewReader(fmt.Sprintf(`{"model":"hotel/%s","input":"hi","voice":"alloy"}`, group)))
+}
+
+// The pass-through twin of the stalled chat 2xx, and the reason the attempt's
+// own context has to reach these handlers. A provider that answers audio headers
+// and then sends no byte until this gateway's per-attempt deadline has stalled,
+// and the sibling behind it can serve. Handed the bare client request instead,
+// the deadline arrives carrying no cancel origin, resolveCancelOrigin calls it a
+// client disconnect, and the request ends there with the provider uncharged.
+func TestStreamedPassthroughStall_FailsOverToTheSibling(t *testing.T) {
+	env, group, siblingCalls := streamedPassthroughPair(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		// Headers and then silence, until the gateway gives up on the body.
+		<-r.Context().Done()
+	})
+	// Long-running endpoints get ten times the request timeout, so this is a
+	// one-second per-attempt budget and a two-second budget for the request.
+	withRequestTimeout(t, env.handler, "100ms")
+	withBreakerThresholdOne(t, env.handler)
+
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, speechRequest(env, group))
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 after failover; body: %s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "the sibling's audio") {
+		t.Fatalf("the stall ended the request instead of reaching the sibling: %q", w.Body.String())
+	}
+	if got := siblingCalls.Load(); got != 1 {
+		t.Errorf("sibling called %d times, want 1", got)
+	}
+	if env.handler.circuitBreaker.GetState(env.providerID, env.modelName) != failover.StateOpen {
+		t.Error("the stalled provider was not charged, so a provider that does this on every request stays a candidate")
+	}
+}
+
+// The other half of the same rule on the same path: a caller that hangs up is
+// not a stall. Nobody is waiting for the answer a second provider would produce,
+// so the sibling is not asked and the provider is not charged for someone else's
+// cancellation.
+func TestStreamedPassthroughDisconnect_IsNotFailedOverOrCharged(t *testing.T) {
+	reached := make(chan struct{})
+	env, group, siblingCalls := streamedPassthroughPair(t, func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/mpeg")
+		w.WriteHeader(http.StatusOK)
+		w.(http.Flusher).Flush()
+		close(reached)
+		<-r.Context().Done()
+	})
+	withBreakerThresholdOne(t, env.handler)
+
+	req := speechRequest(env, group)
+	ctx, cancel := context.WithCancel(req.Context())
+	t.Cleanup(cancel)
+	go func() {
+		<-reached
+		// The headers are out and the gateway is on the first-byte read.
+		time.Sleep(50 * time.Millisecond)
+		cancel()
+	}()
+
+	env.handler.AudioSpeech(httptest.NewRecorder(), req.WithContext(ctx))
+
+	if got := siblingCalls.Load(); got != 0 {
+		t.Errorf("sibling called %d times, want 0: the prompt was re-billed for an answer nobody was waiting for", got)
+	}
+	if env.handler.circuitBreaker.GetState(env.providerID, env.modelName) == failover.StateOpen {
+		t.Error("a caller that hung up was charged to the provider")
+	}
+}
+
+// The egress adapters read a whole 200 body before they can tell whether it is
+// the dialect's object at all, and the upstream close is what settles the
+// attempt's in-flight slot. That close has to wait for the verdict, and it has
+// to happen: settling on the read banks a clean completion for an answer nobody
+// could use, which on the grow-threshold run widens the provider's allowance for
+// good, and dropping the close instead leaks the slot and slowly saturates the
+// provider on this gateway's own arithmetic.
+//
+// Driven through the real chat pipeline against an Anthropic-typed provider, so
+// the translator, the reject and the close are the production ones rather than a
+// test's copy of them.
+func TestUntranslatableEgress2xx_NeitherGrowsTheWindowNorLeaksTheSlot(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		// Valid JSON, and not a Messages object: what a relay in front of
+		// Anthropic answers with, and nothing BuildChatCompletion can turn into
+		// a completion.
+		_, _ = io.WriteString(w, `{"detail":"upstream pool exhausted"}`)
+	}))
+	defer upstream.Close()
+
+	env := newAnthropicEgressEnv(t, upstream)
+	limiter := newInflightLimiter()
+	env.Handler.inflight = limiter
+	pid := env.ProviderID
+	// A capped window one clean completion short of the grow threshold: only a
+	// capped window counts runs, and this is the run where a wrong verdict shows
+	// in the allowance itself rather than only in the counter.
+	limiter.cut(pid, 0)
+	for range defaultInflightGrowAfter - 1 {
+		if !limiter.tryAcquire(pid, 0) {
+			t.Fatal("setup: slot not acquired")
+		}
+		limiter.release(pid, true, 0, 0)
+	}
+	before := *limiter.windowFor(t, pid)
+	if before.goodRuns != defaultInflightGrowAfter-1 {
+		t.Fatalf("setup: clean-run count = %d, want %d", before.goodRuns, defaultInflightGrowAfter-1)
+	}
+
+	// A document part is what routes this provider through the egress adapter
+	// rather than its OpenAI-compatible route.
+	body := fmt.Sprintf(`{"model":"%s/%s","stream":false,"messages":[{"role":"user","content":[{"type":"text","text":"what is the code?"},{"type":"file","file":{"file_data":"%s"}}]}]}`,
+		env.ProviderName, env.ModelName, pdfDataURI)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+	w := httptest.NewRecorder()
+	env.Handler.ChatCompletions(w, req.WithContext(ctx))
+
+	if w.Code == http.StatusOK {
+		t.Fatalf("a body the adapter cannot translate was served to the client: %s", w.Body.String())
+	}
+	after := *limiter.windowFor(t, pid)
+	if after.limit != before.limit {
+		t.Errorf("allowance = %d, want %d: an answer the client never saw was the clean run that widened the window", after.limit, before.limit)
+	}
+	if after.goodRuns != 0 {
+		t.Errorf("clean-run count = %d, want 0: a 2xx that did not translate counted toward widening the window", after.goodRuns)
+	}
+	if after.inflight != 0 {
+		t.Errorf("in-flight count = %d, want 0: the attempt's slot was never settled, so the provider loses it for the life of the process", after.inflight)
 	}
 }

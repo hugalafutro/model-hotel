@@ -236,21 +236,28 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, contentType string, attempt int, responseHeaderMs float64, hasMoreCandidates bool) candidateOutcome {
 	logData := st.logData
 
+	// The read below reaches the body's end before the answer has been judged,
+	// so the EOF must not settle the attempt's in-flight slot with only the
+	// status to go on: an embeddings answer carrying no vectors would bank a
+	// clean completion toward widening the provider's window. The close in
+	// servePassthroughResponse settles it after the verdict instead, and a
+	// reject settles it first. Same reason as the chat dispatch.
+	holdSlotForVerdict(resp)
 	body, err := io.ReadAll(io.LimitReader(resp.Body, passthroughJSONBufferCap+1))
 	if err != nil {
-		// Not charged when the read was interrupted rather than broken: it runs
-		// under the attempt's context, so a caller hanging up and this gateway's
-		// own request_timeout both surface here as a failed read, and neither is
-		// the provider's doing. cancelKind is the package's classifier for that.
-		_, aborted := cancelKind(r.Context(), err)
+		// Not charged, and not failed over, when there is nobody left waiting for
+		// the answer a second provider would produce. requestAbandoned is the
+		// package's one classifier for that, and the streamed twin below asks it
+		// the same way: a caller that hung up, never this gateway's own
+		// per-attempt deadline, which is a provider that stalled.
+		abandoned := requestAbandoned(r.Context(), err)
 		// Nothing has been written to the client yet, so while a sibling remains
-		// this is failed over rather than answered. An interrupted read is
-		// excluded there too: nobody is waiting for the answer a second provider
-		// would produce. Same rule, same shared outcome, as the chat path.
-		if hasMoreCandidates && !aborted {
+		// this is failed over rather than answered. Same rule, same shared
+		// outcome, as the chat path.
+		if hasMoreCandidates && !abandoned {
 			return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", resp.StatusCode, err, attempt, r)
 		}
-		if !aborted {
+		if !abandoned {
 			h.chargeBreaker(st, candidate, resp.StatusCode, "upstream body read failed")
 		}
 		debuglog.Warn("proxy: passthrough body read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", err)
@@ -285,8 +292,10 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	// 200 {"data":[]} to every request record a success every time, so its
 	// circuit could never open.
 	switch {
-	case r.Context().Err() != nil:
-		// The request was interrupted; nothing here is the provider's doing.
+	case requestAbandoned(r.Context(), nil):
+		// Nobody is waiting for this answer; nothing here is the provider's
+		// doing. This gateway's own per-attempt deadline is not that case: the
+		// read succeeded, so the answer is judged on what it carries below.
 	case answered || !servedSuccessStatus(resp.StatusCode):
 		// The provider answered: with content, or with a definitive non-2xx,
 		// which says it is plainly alive.
@@ -467,12 +476,16 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 	emptyBodyIsFailure := !bodilessSuccessStatus(resp.StatusCode) || !errors.Is(readErr, io.EOF)
 	if n == 0 && readErr != nil && emptyBodyIsFailure {
 		// No headers have been written, so a sibling can still be asked, unless
-		// the attempt was interrupted rather than broken. Same rule and same
-		// shared outcome as the buffered twin above.
-		if hasMoreCandidates && r.Context().Err() == nil {
+		// there is nobody left waiting. requestAbandoned, not a bare
+		// r.Context().Err(): the context is also down when this gateway's own
+		// per-attempt deadline expired, and that is a provider that answered
+		// headers and then went silent, which is the case the sibling exists for.
+		// Same rule, same helper, as the buffered twin above.
+		abandoned := requestAbandoned(r.Context(), readErr)
+		if hasMoreCandidates && !abandoned {
 			return h.rejectUntranslatableBody(st, candidate, logData, "passthrough", resp.StatusCode, readErr, attempt, r)
 		}
-		if r.Context().Err() == nil {
+		if !abandoned {
 			h.chargeBreaker(st, candidate, resp.StatusCode, "upstream body read failed")
 		}
 		debuglog.Warn("proxy: passthrough first-byte read failed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", readErr)
@@ -553,7 +566,9 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 
 	if copyErr != nil {
 		errMsg := fmt.Sprintf("response copy error: %v", copyErr)
-		if r.Context().Err() != nil {
+		// r carries the attempt's context, so a bare cancel check would call
+		// this gateway's own per-attempt deadline a client leaving.
+		if requestAbandoned(r.Context(), copyErr) {
 			errMsg = "client disconnected during response"
 		}
 		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", copyErr)

@@ -22,7 +22,7 @@ func TestRedactedMarkerMigrationRewritesStoredAttempts(t *testing.T) {
 
 	t.Cleanup(func() {
 		_, _ = testPool.Exec(context.Background(),
-			`DELETE FROM request_logs WHERE model_id IN ('marker-row', 'name-row', 'clean-row', 'empty-row', 'object-row', 'null-row')`)
+			`DELETE FROM request_logs WHERE model_id IN ('marker-row', 'name-row', 'clean-row', 'quiet-row', 'empty-row', 'object-row', 'null-row')`)
 	})
 
 	if _, err := testPool.Exec(ctx, `
@@ -31,14 +31,39 @@ func TestRedactedMarkerMigrationRewritesStoredAttempts(t *testing.T) {
 		                     {"provider": "Z.ai", "detail": "plain [content] run"}]'::jsonb),
 		('name-row',   200, '[{"provider": "[content] Inc", "model": "m", "detail": "HTTP 503"}]'::jsonb),
 		('clean-row',  200, '[{"provider": "Ollama", "detail": "circuit breaker open"}]'::jsonb),
+		('quiet-row',  200, '[{"provider": "OpenAI", "detail": "HTTP 429"}]'::jsonb),
 		('empty-row',  200, '[]'::jsonb),
 		('object-row', 200, '{"detail": "[content]open"}'::jsonb),
 		('null-row',   200, NULL)`); err != nil {
 		t.Fatalf("seed request logs: %v", err)
 	}
 
+	// xmin changes when a row is rewritten, even to the identical value, so it is
+	// the only way to tell "left alone" from "updated to the same bytes". The
+	// migration's text pre-filter is what has to keep quiet-row out of the
+	// expansion entirely; name-row and object-row pass that filter and have to be
+	// dropped by the array check behind it.
+	xmin := func(model string) string {
+		var v string
+		if err := testPool.QueryRow(ctx,
+			`SELECT xmin::text FROM request_logs WHERE model_id = $1`, model).Scan(&v); err != nil {
+			t.Fatalf("read xmin of %s: %v", model, err)
+		}
+		return v
+	}
+	untouched := map[string]string{}
+	for _, m := range []string{"name-row", "clean-row", "quiet-row", "empty-row", "object-row", "null-row"} {
+		untouched[m] = xmin(m)
+	}
+
 	if _, err := testPool.Exec(ctx, sql); err != nil {
 		t.Fatalf("run migration: %v", err)
+	}
+
+	for m, before := range untouched {
+		if after := xmin(m); after != before {
+			t.Errorf("%s was rewritten (xmin %s -> %s), want the migration to skip it", m, before, after)
+		}
 	}
 
 	for _, tc := range []struct {
@@ -50,6 +75,9 @@ func TestRedactedMarkerMigrationRewritesStoredAttempts(t *testing.T) {
 		// migration has no business editing.
 		{"name-row", `[{"model": "m", "detail": "HTTP 503", "provider": "[content] Inc"}]`},
 		{"clean-row", `[{"detail": "circuit breaker open", "provider": "Ollama"}]`},
+		// Carries the marker nowhere at all, so the text pre-filter drops it before
+		// the array expansion ever runs.
+		{"quiet-row", `[{"detail": "HTTP 429", "provider": "OpenAI"}]`},
 		// A row the column's missing array constraint allows: left alone rather
 		// than aborting the migration, and with it the startup that runs it.
 		{"empty-row", `[]`},

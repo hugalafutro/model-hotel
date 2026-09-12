@@ -1,10 +1,79 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
+	"fmt"
+	"log/slog"
 	"strings"
+	"sync"
 	"testing"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/model"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
+
+// logRecorder keeps every record at or above its level, message and attributes
+// together. The attributes are the point: the leak these tests guard against
+// travels in an attribute value, so a recorder that kept only the message would
+// assert nothing. Enabled answers the level question the same way a production
+// handler configured at that level does, which is what the debug gate reads.
+type logRecorder struct {
+	level slog.Level
+	mu    *sync.Mutex
+	lines *[]string
+	attrs []slog.Attr
+}
+
+func (h *logRecorder) Enabled(_ context.Context, l slog.Level) bool { return l >= h.level }
+
+func (h *logRecorder) Handle(_ context.Context, r slog.Record) error {
+	var b strings.Builder
+	b.WriteString(r.Message)
+	for _, a := range h.attrs {
+		fmt.Fprintf(&b, " %s=%v", a.Key, a.Value)
+	}
+	r.Attrs(func(a slog.Attr) bool {
+		fmt.Fprintf(&b, " %s=%v", a.Key, a.Value)
+		return true
+	})
+	h.mu.Lock()
+	defer h.mu.Unlock()
+	*h.lines = append(*h.lines, b.String())
+	return nil
+}
+
+func (h *logRecorder) WithAttrs(attrs []slog.Attr) slog.Handler {
+	return &logRecorder{level: h.level, mu: h.mu, lines: h.lines, attrs: append(append([]slog.Attr{}, h.attrs...), attrs...)}
+}
+
+func (h *logRecorder) WithGroup(string) slog.Handler { return h }
+
+// captureLogsAt installs a recording handler at the given level through
+// debuglog, the way the binaries install theirs, and returns a lookup for the
+// captured lines whose message starts with the given prefix. The process-wide
+// default logger is restored when the test ends, so a test using this must not
+// run in parallel.
+func captureLogsAt(t *testing.T, level slog.Level) func(prefix string) []string {
+	t.Helper()
+	var lines []string
+	var mu sync.Mutex
+	original := slog.Default()
+	t.Cleanup(func() { slog.SetDefault(original) })
+	debuglog.SetHandler(&logRecorder{level: level, mu: &mu, lines: &lines})
+	return func(prefix string) []string {
+		mu.Lock()
+		defer mu.Unlock()
+		var got []string
+		for _, l := range lines {
+			if strings.HasPrefix(l, prefix) {
+				got = append(got, l)
+			}
+		}
+		return got
+	}
+}
 
 // TestUpstreamModelAttr_CarriesTheModelNotTheBody pins the no-content-logging
 // invariant on the one debug line that reads the upstream body. The value used
@@ -66,7 +135,7 @@ func TestUpstreamModelAttr_BoundsTheValue(t *testing.T) {
 	}
 	// The sanitizer marks a value it truncated, so the result is the cap plus
 	// that marker rather than exactly the cap.
-	if len(got) > upstreamModelLogCap+16 {
+	if len(got) > shortLogValueCap+16 {
 		t.Errorf("logged value is %d bytes, want the cap plus a truncation marker", len(got))
 	}
 	if !strings.HasPrefix(got, strings.Repeat("m", 64)) {
@@ -74,24 +143,89 @@ func TestUpstreamModelAttr_BoundsTheValue(t *testing.T) {
 	}
 }
 
-// TestLogUpstreamModel_SkipsTheDecodeWhenDebugIsOff proves the gate does the
-// thing it exists for. Asserting that nothing was logged would pass either way,
-// since the handler drops the record anyway; the decode counter is what
-// distinguishes a skipped parse from a parsed-then-dropped one.
-func TestLogUpstreamModel_SkipsTheDecodeWhenDebugIsOff(t *testing.T) {
-	original := debugEnabled
-	t.Cleanup(func() { debugEnabled = original })
+// With a handler that accepts Debug records the line is written, and it carries
+// the model alone.
+func TestLogUpstreamModel_WritesTheModelAtDebug(t *testing.T) {
+	const secret = "caller text with no comma at all"
+	body, err := json.Marshal(map[string]any{
+		"metadata": map[string]any{"model": secret},
+		"model":    "gpt-5",
+	})
+	if err != nil {
+		t.Fatalf("marshal body: %v", err)
+	}
+	captured := captureLogsAt(t, slog.LevelDebug)
 
-	debugEnabled = func() bool { return false }
-	before := upstreamModelDecodes.Load()
+	logUpstreamModel(body)
+
+	got := captured("proxy: upstream body model")
+	if len(got) != 1 {
+		t.Fatalf("expected one model line, got %v", got)
+	}
+	if !strings.Contains(got[0], "upstream_model=gpt-5") {
+		t.Errorf("the line should carry the model under upstream_model, got %q", got[0])
+	}
+	if strings.Contains(got[0], secret) {
+		t.Errorf("request content reached the log: %q", got[0])
+	}
+}
+
+// With a handler that refuses Debug records nothing is written. The gate also
+// skips the decode on that path, which is what it exists for on bodies that
+// reach tens of megabytes, but that is not observable from outside without a
+// hook production code must not carry; it holds by construction, the gate
+// being the first statement of logUpstreamModel. What this pins is the visible
+// contract: nothing about the body, parseable or not, reaches the log.
+func TestLogUpstreamModel_SilentBelowDebug(t *testing.T) {
+	captured := captureLogsAt(t, slog.LevelInfo)
+
 	logUpstreamModel([]byte(`{"model":"gpt-5"}`))
-	if after := upstreamModelDecodes.Load(); after != before {
-		t.Errorf("decode ran with debug off: %d -> %d", before, after)
+	logUpstreamModel([]byte(`not json at all, secret`))
+
+	if got := captured("proxy: upstream body model"); len(got) != 0 {
+		t.Errorf("expected nothing logged below debug, got %v", got)
+	}
+}
+
+// The image rewrite reports the "size" it dropped so the change is debuggable,
+// and that value is whatever JSON the caller put under the key: any type, any
+// length. It reaches the log bounded and sanitized, not verbatim.
+func TestBuildCandidateRequest_BoundsTheDroppedImageSize(t *testing.T) {
+	huge := strings.Repeat("z", 100<<10)
+	body, err := json.Marshal(map[string]any{
+		"model":  "grok-imagine",
+		"prompt": "a cat",
+		"size":   huge,
+	})
+	if err != nil {
+		t.Fatalf("marshal body: %v", err)
+	}
+	h := &Handler{}
+	st := &requestState{
+		bodyBytes:        body,
+		reqModel:         "grok-imagine",
+		endpointPath:     "/images/generations",
+		logData:          &requestLogData{endpointType: endpointTypeImage},
+		makeUpstreamBody: func(string) ([]byte, string, error) { return body, "application/json", nil },
+	}
+	candidate := modelCandidate{
+		model:    &model.Model{ModelID: "grok-imagine"},
+		provider: &provider.Provider{Name: "xAI", BaseURL: "https://api.x.ai/v1", ProviderType: "xai"},
+	}
+	captured := captureLogsAt(t, slog.LevelDebug)
+
+	if _, _, _, err := h.buildCandidateRequest(context.Background(), st, candidate); err != nil {
+		t.Fatalf("buildCandidateRequest: %v", err)
 	}
 
-	debugEnabled = func() bool { return true }
-	logUpstreamModel([]byte(`{"model":"gpt-5"}`))
-	if after := upstreamModelDecodes.Load(); after == before {
-		t.Error("decode should run when debug is on")
+	got := captured("proxy: image size rewritten for the provider")
+	if len(got) != 1 {
+		t.Fatalf("expected one rewrite line, got %v lines", len(got))
+	}
+	if strings.Contains(got[0], huge) {
+		t.Error("the caller's size reached the log verbatim")
+	}
+	if len(got[0]) > 1024 {
+		t.Errorf("rewrite line is %d bytes, want the dropped size bounded", len(got[0]))
 	}
 }

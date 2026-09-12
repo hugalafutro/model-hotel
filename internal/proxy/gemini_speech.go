@@ -1,10 +1,8 @@
 package proxy
 
 import (
-	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"net/http"
 	"slices"
 	"strconv"
@@ -130,19 +128,26 @@ func (h *Handler) serveGeminiSpeechResponse(w http.ResponseWriter, r *http.Reque
 // a reply in the wrong modality) is handed to the loop as an untranslatable
 // body and fails over.
 func (h *Handler) serveGeminiReshaped(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64, adapter string, limit int, oversized error, format string, build func([]byte, string) ([]byte, string, gemini.SpeechUsage, error)) candidateOutcome {
+	// readCappedBody leaves the upstream close, which settles the attempt's
+	// in-flight slot, to this function: a reject closes after its verdict, a
+	// served answer carries the close onto the re-shaped body.
 	body, readErr := readCappedBody(resp, limit, oversized)
 	if readErr != nil {
-		return h.rejectUntranslatableBody(st, candidate, st.logData, adapter, resp.StatusCode, readErr, attempt, r)
+		outcome := h.rejectUntranslatableBody(st, candidate, st.logData, adapter, resp.StatusCode, readErr, attempt, r)
+		_ = resp.Body.Close()
+		return outcome
 	}
 	out, contentType, usage, err := build(body, format)
 	if err != nil {
-		return h.rejectUntranslatableBody(st, candidate, st.logData, adapter, resp.StatusCode, err, attempt, r)
+		outcome := h.rejectUntranslatableBody(st, candidate, st.logData, adapter, resp.StatusCode, err, attempt, r)
+		_ = resp.Body.Close()
+		return outcome
 	}
 	st.passthroughUsage = &passthroughUsage{prompt: usage.PromptTokens, completion: usage.CompletionTokens}
 	delivered := &http.Response{
 		StatusCode: resp.StatusCode,
 		Header:     http.Header{"Content-Type": {contentType}, "Content-Length": {strconv.Itoa(len(out))}},
-		Body:       io.NopCloser(bytes.NewReader(out)),
+		Body:       bodyOver(out, resp.Body),
 	}
 	// false: delivered carries this process's own buffer, so its read cannot
 	// fail and there is nothing here to fail over from.

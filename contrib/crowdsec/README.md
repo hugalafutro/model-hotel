@@ -288,6 +288,14 @@ trusted-proxy resolution, so behind a proxy the source address is unusable no ma
 `TRUSTED_PROXIES` says. Update the instance before arming the scenarios. The parser strips the port
 either way, so an old build produces a plausible-looking address that is simply the wrong one.
 
+## Read this before arming: `FRONTDESK_TRAEFIK_TOKEN`
+
+Front Desk refuses a Traefik config poll that carries the wrong token with
+`frontdesk: traefik config poll with invalid token`, which classifies as `admin_token` and fills the
+same admin brute-force bucket as a human guessing a password, and Traefik polls that endpoint every
+5 seconds. A wrong `FRONTDESK_TRAEFIK_TOKEN` therefore overflows the bucket against Traefik's own
+address inside a minute and bans your load balancer, so fix the token before you arm the scenarios.
+
 ## Prove it bans before you trust it
 
 An armed engine and a broken pipeline look identical from the outside: both leave

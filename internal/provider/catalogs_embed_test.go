@@ -131,32 +131,54 @@ func TestLoadCatalog_DeepSeekCatalog(t *testing.T) {
 	}
 }
 
-// TestDeepSeekCatalog_VisionModel covers the one DeepSeek model models.dev has
-// never heard of. Without a row here it discovers as a bare stub: no price (so
-// it meters at zero), no context window, and no vision flag despite being the
-// only DeepSeek model that accepts an image.
+// TestDeepSeekCatalog_VisionModel covers the DeepSeek rows that accept an
+// image. Every Flash-family id resolves to deepseek-flash upstream and the
+// live API answers a content-parts request carrying an image on all of them;
+// deepseek-v4-pro is the one row that does not, it drops the image and answers
+// the text alone. models.dev declares text-only input for the family and has
+// no entry for the vision alias at all, so without these rows they discover
+// with no vision flag, and the alias as a bare stub on top of that: no price
+// (so it meters at zero) and no context window.
 func TestDeepSeekCatalog_VisionModel(t *testing.T) {
-	spec := deepseekSpec("deepseek-v4-flash-vision-exp")
-	if spec == nil {
-		t.Fatal("deepseek.json must carry deepseek-v4-flash-vision-exp: models.dev has no entry for it")
-	}
-	if !spec.Vision {
-		t.Error("the vision model must declare Vision")
-	}
-	if spec.InputPricePerMillionCacheMiss <= 0 || spec.OutputPricePerMillion <= 0 {
-		t.Error("the vision model must carry prices, or it meters at zero")
+	for _, id := range []string{
+		"deepseek-flash",
+		"deepseek-chat",
+		"deepseek-reasoner",
+		"deepseek-v4-flash",
+		"deepseek-v4-flash-vision-exp",
+	} {
+		t.Run(id, func(t *testing.T) {
+			spec := deepseekSpec(id)
+			if spec == nil {
+				t.Fatalf("deepseek.json must carry %s: models.dev does not flag it for vision", id)
+			}
+			if !spec.Vision {
+				t.Error("the vision model must declare Vision")
+			}
+			if spec.InputPricePerMillionCacheMiss <= 0 || spec.OutputPricePerMillion <= 0 {
+				t.Error("the vision model must carry prices, or it meters at zero")
+			}
+
+			m := deepseekSpecToModel(spec, uuid.New())
+			if m.InputModalities != `["text","image"]` {
+				t.Errorf("InputModalities = %s, want [\"text\",\"image\"]", m.InputModalities)
+			}
+			var caps model.Capability
+			if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
+				t.Fatalf("unmarshal capabilities: %v", err)
+			}
+			if !caps.Vision {
+				t.Error("Vision capability should reach the model")
+			}
+		})
 	}
 
-	m := deepseekSpecToModel(spec, uuid.New())
-	if m.InputModalities != `["text","image"]` {
-		t.Errorf("InputModalities = %s, want [\"text\",\"image\"]", m.InputModalities)
-	}
-	var caps model.Capability
-	if err := json.Unmarshal([]byte(m.Capabilities), &caps); err != nil {
-		t.Fatalf("unmarshal capabilities: %v", err)
-	}
-	if !caps.Vision {
-		t.Error("Vision capability should reach the model")
+	// deepseek-v4-pro answers a request carrying an image without seeing it,
+	// so the row must not advertise vision.
+	if spec := deepseekSpec("deepseek-v4-pro"); spec == nil {
+		t.Error("deepseek.json must carry deepseek-v4-pro")
+	} else if spec.Vision {
+		t.Error("deepseek-v4-pro drops the image; it must not declare Vision")
 	}
 }
 
@@ -232,11 +254,13 @@ func TestDeepSeekCatalog_ThinkingModes(t *testing.T) {
 }
 
 // TestDeepSeekCatalog_DefaultsToTextOnly guards the other side of that field:
-// every other DeepSeek model omits input_modalities and must stay text-only.
+// a DeepSeek row that omits input_modalities stays text-only. deepseek-v4-pro
+// is the row that omits it, and the one model that drops an image rather than
+// reading it.
 func TestDeepSeekCatalog_DefaultsToTextOnly(t *testing.T) {
-	spec := deepseekSpec("deepseek-chat")
+	spec := deepseekSpec("deepseek-v4-pro")
 	if spec == nil {
-		t.Fatal("deepseek.json must keep deepseek-chat: the live listing does not return it")
+		t.Fatal("deepseek.json must keep deepseek-v4-pro: it is the last row on its own price")
 	}
 	m := deepseekSpecToModel(spec, uuid.New())
 	if m.InputModalities != `["text"]` {

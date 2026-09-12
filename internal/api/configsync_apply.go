@@ -91,6 +91,13 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// Ahead of the fence, because the fence's advisory lock is the one wait
+	// guaranteed to contend: it is how two concurrent imports serialize. Set
+	// after it, the second import would wait for as long as the first one runs,
+	// bounded by nothing but the request context.
+	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`); err != nil {
+		return applyOutcome{}, err
+	}
 	if err := enforceSourceGenFence(ctx, tx, sourceGen); err != nil {
 		return applyOutcome{}, err
 	}
@@ -108,7 +115,7 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if err := guardAgainstProviderWipe(ctx, tx, env.Config.Providers); err != nil {
 		return applyOutcome{}, err
 	}
-	hadKeys, err := guardAgainstVirtualKeyWipe(ctx, tx, env.Config.VirtualKeys)
+	keysMustSurvive, err := guardAgainstVirtualKeyWipe(ctx, tx, env.Config.VirtualKeys)
 	if err != nil {
 		return applyOutcome{}, err
 	}
@@ -162,12 +169,12 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		return applyOutcome{}, err
 	}
 	// The rail above reads the count before the reconcile, so it only catches an
-	// envelope that carries no keys at all. An envelope whose keys every one fail
-	// to upsert (an unresolvable provider name on each) reaches here having
-	// deleted the member's own keys and inserted nothing, which is the same
-	// outcome by a longer road. Checking after the delete, inside the same
-	// transaction, catches both and rolls the whole import back.
-	if err := guardKeysSurvived(ctx, tx, hadKeys); err != nil {
+	// envelope that omits the key list. An envelope whose keys every one fail to
+	// upsert (an unresolvable provider name on each) reaches here having deleted
+	// the member's own keys and inserted nothing, which is the same outcome by a
+	// longer road. Checking after the delete, inside the same transaction,
+	// catches both and rolls the whole import back.
+	if err := guardKeysSurvived(ctx, tx, keysMustSurvive); err != nil {
 		return applyOutcome{}, err
 	}
 
@@ -227,26 +234,32 @@ func enforceSourceGenFence(ctx context.Context, tx pgx.Tx, sourceGen *int64) err
 	return nil
 }
 
-// reconcileLockTimeout bounds how long an import waits for the tables it is
-// about to reconcile. Without it a slow import holds dashboard CRUD off those
-// tables for as long as it runs, and a wedged one holds it off forever; with it
-// the import fails and Front Desk retries, which is the recoverable direction.
+// reconcileLockTimeout bounds every lock the import transaction waits on: the
+// fence's advisory lock, and the tables the import is about to reconcile.
+// Without it a slow import holds dashboard CRUD off those tables for as long as
+// it runs, and a wedged one holds it off forever; with it the import fails and
+// Front Desk retries, which is the recoverable direction.
 const reconcileLockTimeout = "5s"
 
-// lockReconciledTables takes a write lock on every table the import replaces
-// declaratively, before the first count any rail reads. Each of those deletes
-// removes rows absent from the envelope, so a row created between a rail's count
-// and its delete would be destroyed for being missing from an envelope written
-// before it existed.
+// lockReconciledTables takes a write lock on every table this transaction
+// replaces declaratively, before the first count any rail reads. Each of those
+// deletes removes rows absent from the envelope, so a row created between a
+// rail's count and its delete would be destroyed for being missing from an
+// envelope written before it existed.
+//
+// model_failover_groups is deliberately absent: its reconcile runs in
+// applyFailoverGroups, after this transaction commits and in a transaction of
+// its own, so a lock taken here is long released by the time that delete runs
+// and would do nothing but hold dashboard group edits off for the whole import.
+// There is no count-then-delete rail over groups to protect either.
 //
 // SHARE ROW EXCLUSIVE blocks writers and other imports while still allowing
 // plain reads. The order is fixed here and these are the only LOCK TABLE
 // statements in the codebase, so two imports cannot deadlock against each other.
+// The waits are bounded by the lock_timeout apply sets before its first lock,
+// not here: a caller that takes this outside apply must set it first.
 func lockReconciledTables(ctx context.Context, tx pgx.Tx) error {
-	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`); err != nil {
-		return err
-	}
-	for _, table := range []string{"providers", "virtual_keys", "users", "model_failover_groups"} {
+	for _, table := range []string{"providers", "virtual_keys", "users"} {
 		if _, err := tx.Exec(ctx, `LOCK TABLE `+table+` IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 			return err
 		}
@@ -259,6 +272,8 @@ func lockReconciledTables(ctx context.Context, tx pgx.Tx) error {
 // zero providers would delete the member's entire provider set, cascading to
 // discovered models. buildEnvelope always ships the full config, so a
 // functioning primary never pushes zero providers onto a member that has some.
+// Unlike the key rail there is no explicit-empty case to honour: a gateway with
+// no providers routes nothing, so an empty list is never an intent to sync.
 // The check sits inside the transaction and before any delete, so it and the
 // delete it guards are atomic. An empty-provider envelope onto a member that
 // also has no providers is a harmless no-op and is allowed (fleet bootstrap or
@@ -277,32 +292,49 @@ func guardAgainstProviderWipe(ctx context.Context, tx pgx.Tx, providers []Export
 }
 
 // guardAgainstVirtualKeyWipe is the same rail for credentials. The delete below
-// removes every key absent from the envelope, so an envelope that carries
-// providers but omits virtual_keys takes every credential off the member and
-// every client loses access at once. Import's structural guard does not catch
-// it: that one only refuses an envelope empty in providers, keys and settings
-// together. An empty key list onto a member that has none is a bootstrap and is
-// allowed, matching the provider rail.
-// It reports whether the member held any keys before the reconcile, which
-// guardKeysSurvived needs to tell a wipe apart from a member that never had
-// keys.
-func guardAgainstVirtualKeyWipe(ctx context.Context, tx pgx.Tx, keys []ExportVK) (hadKeys bool, err error) {
+// removes every key absent from the envelope, so an envelope that omits
+// virtual_keys takes every credential off the member and every client loses
+// access at once. Import's structural guard does not catch it: that one only
+// refuses an envelope empty in providers, keys and settings together.
+//
+// The rail turns on nil versus empty, the contract ConfigPayload already holds
+// FailoverGroups, Users and the two model lists to. An absent field decodes to
+// nil, which is either an envelope from a primary too old to send the key or one
+// that lost it in transit, and neither is an instruction to drop credentials: a
+// populated member refuses. A present but empty list is a primary stating it has
+// zero keys, which is operator intent, so the member reconciles down to zero.
+// That is the one shape this rail lets through on purpose: the exporter never
+// produces it by accident (exportVirtualKeys errors rather than returning a
+// short list), so an explicit empty list reaching a populated member came from
+// a primary with no keys or from an edited envelope pushed with the master key,
+// and both are the operator's hand.
+//
+// It reports whether the reconcile must leave keys behind, which guardKeysSurvived
+// needs to tell a wipe apart from a member that never had keys or was told to
+// have none.
+func guardAgainstVirtualKeyWipe(ctx context.Context, tx pgx.Tx, keys []ExportVK) (mustSurvive bool, err error) {
 	var existing int
 	if err := tx.QueryRow(ctx, `SELECT count(*) FROM virtual_keys`).Scan(&existing); err != nil {
 		return false, err
 	}
-	if len(keys) == 0 && existing > 0 {
-		return true, errWouldWipeVirtualKeys
+	if existing == 0 {
+		return false, nil // nothing to lose: bootstrap, matching the provider rail
 	}
-	return existing > 0, nil
+	if keys == nil {
+		return false, errWouldWipeVirtualKeys
+	}
+	// An explicit empty list reconciles to zero, so the second half of the rail
+	// must not then refuse the outcome the envelope asked for.
+	return len(keys) > 0, nil
 }
 
 // guardKeysSurvived is the second half of the credential rail, run after the
 // upsert and the declarative delete. A populated member that comes out of the
-// reconcile with no keys has been wiped whatever route it took there, so the
-// import is refused and the transaction rolls back.
-func guardKeysSurvived(ctx context.Context, tx pgx.Tx, hadKeys bool) error {
-	if !hadKeys {
+// reconcile with no keys, while the envelope carried some, has been wiped
+// whatever route it took there, so the import is refused and the transaction
+// rolls back.
+func guardKeysSurvived(ctx context.Context, tx pgx.Tx, mustSurvive bool) error {
+	if !mustSurvive {
 		return nil
 	}
 	var remaining int
