@@ -334,6 +334,73 @@ func TestPassthrough2xxWithoutABody_FailsOverToTheSibling(t *testing.T) {
 		}
 	})
 
+	// A body that arrives and carries nothing is the same verdict one read
+	// later. Embeddings had this; rerank and image generation are JSON-bodied
+	// too, and an empty ranking or an image call that produced no image used to
+	// be served to the client as a success with a healthy sibling untried.
+	for _, tc := range []struct {
+		name, endpoint, path, body string
+	}{
+		{"buffered json carrying no ranking", endpointTypeRerank, "/v1/rerank", `{"results":[]}`},
+		{"buffered json carrying no image", endpointTypeImage, "/v1/images/generations", `{"created":1,"data":[]}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			st, candidate := nonCompletionState(t)
+			st.logData.endpointType = tc.endpoint
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(tc.body)), Header: make(http.Header)}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", tc.path, http.NoBody)
+
+			if outcome := h.serveBufferedJSONPassthrough(w, req, st, candidate, resp, "application/json", 0, 1.0, true); outcome != outcomeFailover {
+				t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+			}
+			if w.Body.Len() != 0 {
+				t.Errorf("the client was written to before the sibling was tried: %s", w.Body.String())
+			}
+			if st.logData.attemptBreaker != breakerCharge {
+				t.Errorf("breaker note = %q, want %q", st.logData.attemptBreaker, breakerCharge)
+			}
+		})
+	}
+
+	// Which twin serves the answer used to be decided by the content type
+	// alone, with only embeddings forced to the buffered one. An empty rerank
+	// or image answer whose content type a CDN dropped then reached the
+	// streamed twin, which commits on the first byte and cannot judge what it
+	// never holds, so the same eleven bytes were served as a success. A body
+	// the provider itself declared binary still takes the streamed twin.
+	t.Run("unlabelled json carrying no ranking", func(t *testing.T) {
+		st, candidate := nonCompletionState(t)
+		st.logData.endpointType = endpointTypeRerank
+		resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader(`{"results":[]}`)), Header: make(http.Header)}
+		w := httptest.NewRecorder()
+		req := httptest.NewRequest("POST", "/v1/rerank", http.NoBody)
+
+		if outcome := h.servePassthroughResponse(w, req, st, candidate, resp, 0, 1.0, true); outcome != outcomeFailover {
+			t.Fatalf("outcome = %v, want outcomeFailover", outcome)
+		}
+		if w.Body.Len() != 0 {
+			t.Errorf("the client was written to before the sibling was tried: %s", w.Body.String())
+		}
+	})
+
+	for _, declared := range []string{"image/png", "application/octet-stream"} {
+		t.Run("binary image answer stays streamed as "+declared, func(t *testing.T) {
+			st, candidate := nonCompletionState(t)
+			st.logData.endpointType = endpointTypeImage
+			resp := &http.Response{StatusCode: http.StatusOK, Body: io.NopCloser(strings.NewReader("\x89PNG\r\n")), Header: http.Header{"Content-Type": []string{declared}}}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/images/generations", http.NoBody)
+
+			if outcome := h.servePassthroughResponse(w, req, st, candidate, resp, 0, 1.0, true); outcome != outcomeServed {
+				t.Fatalf("outcome = %v, want outcomeServed", outcome)
+			}
+			if w.Body.String() != "\x89PNG\r\n" {
+				t.Errorf("body = %q, want the image bytes forwarded as they came", w.Body.String())
+			}
+		})
+	}
+
 	t.Run("streamed", func(t *testing.T) {
 		st, candidate := nonCompletionState(t)
 		st.logData.endpointType = endpointTypeTTS
