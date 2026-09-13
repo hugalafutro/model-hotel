@@ -523,7 +523,7 @@ func TestGetStats_DeletedVirtualKey(t *testing.T) {
 	}
 
 	if response.ByVirtualKey["Deleted"] != 1 {
-		t.Errorf("Expected ByVirtualKey['Deleted']=1, got %d", response.ByVirtualKey["Deleted"])
+		t.Errorf("Expected ByVirtualKey['Deleted']=1, got %v", response.ByVirtualKey["Deleted"])
 	}
 }
 
@@ -563,10 +563,10 @@ func TestGetStats_ChatArenaKeys(t *testing.T) {
 	}
 
 	if response.ByVirtualKey["chat"] != 1 {
-		t.Errorf("Expected ByVirtualKey['chat']=1, got %d", response.ByVirtualKey["chat"])
+		t.Errorf("Expected ByVirtualKey['chat']=1, got %v", response.ByVirtualKey["chat"])
 	}
 	if response.ByVirtualKey["arena"] != 1 {
-		t.Errorf("Expected ByVirtualKey['arena']=1, got %d", response.ByVirtualKey["arena"])
+		t.Errorf("Expected ByVirtualKey['arena']=1, got %v", response.ByVirtualKey["arena"])
 	}
 }
 
@@ -898,14 +898,14 @@ func TestGetStats_MultipleProviders(t *testing.T) {
 	}
 
 	// Check individual provider counts
-	expectedCounts := map[string]int64{
+	expectedCounts := map[string]float64{
 		"provider-a": 2,
 		"provider-b": 3,
 		"provider-c": 5,
 	}
 	for name, expected := range expectedCounts {
-		if response.ByProvider[name] != int64(expected) {
-			t.Errorf("Expected ByProvider[%q]=%d, got %d", name, expected, response.ByProvider[name])
+		if response.ByProvider[name] != float64(expected) {
+			t.Errorf("Expected ByProvider[%q]=%v, got %v", name, expected, response.ByProvider[name])
 		}
 	}
 }
@@ -1397,10 +1397,10 @@ func TestGetStats_MultipleVirtualKeys(t *testing.T) {
 
 	// Verify both VKs are in ByVirtualKey
 	if response.ByVirtualKey["vk-one"] != 1 {
-		t.Errorf("Expected ByVirtualKey['vk-one']=1, got %d", response.ByVirtualKey["vk-one"])
+		t.Errorf("Expected ByVirtualKey['vk-one']=1, got %v", response.ByVirtualKey["vk-one"])
 	}
 	if response.ByVirtualKey["vk-two"] != 1 {
-		t.Errorf("Expected ByVirtualKey['vk-two']=1, got %d", response.ByVirtualKey["vk-two"])
+		t.Errorf("Expected ByVirtualKey['vk-two']=1, got %v", response.ByVirtualKey["vk-two"])
 	}
 }
 

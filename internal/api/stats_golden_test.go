@@ -56,7 +56,7 @@ func TestCalculateStats_Golden(t *testing.T) {
 
 	type want struct {
 		total24h, total7d                     int
-		byModel, byProvider, byVirtualKey     map[string]int64
+		byModel, byProvider, byVirtualKey     map[string]float64
 		avgLatency, errorRate, avgOverhead    float64
 		tokPrompt, tokCompletion, tokCacheHit int
 		avgTokensPerReq                       float64
@@ -76,9 +76,9 @@ func TestCalculateStats_Golden(t *testing.T) {
 			name: "requests/includeDeleted", metric: "requests", excludeDeleted: false,
 			want: want{
 				total24h: 3, total7d: 3,
-				byModel:      map[string]int64{"pa/m1": 2, "pb/m2": 1},
-				byProvider:   map[string]int64{"pa": 2, "pb": 1},
-				byVirtualKey: map[string]int64{"live": 2, "Deleted": 1},
+				byModel:      map[string]float64{"pa/m1": 2, "pb/m2": 1},
+				byProvider:   map[string]float64{"pa": 2, "pb": 1},
+				byVirtualKey: map[string]float64{"live": 2, "Deleted": 1},
 				avgLatency:   150, // (100 + 200) / 2  (status<400: R1, R3)
 				errorRate:    1.0 / 3.0,
 				avgOverhead:  10,
@@ -93,9 +93,9 @@ func TestCalculateStats_Golden(t *testing.T) {
 			name: "tokens/excludeDeleted", metric: "tokens", excludeDeleted: true,
 			want: want{
 				total24h: 2, total7d: 2, // R3 (deleted vk) filtered out by scope
-				byModel:      map[string]int64{"pa/m1": 30, "pb/m2": 0},
-				byProvider:   map[string]int64{"pa": 30, "pb": 0},
-				byVirtualKey: map[string]int64{"live": 30},
+				byModel:      map[string]float64{"pa/m1": 30, "pb/m2": 0},
+				byProvider:   map[string]float64{"pa": 30, "pb": 0},
+				byVirtualKey: map[string]float64{"live": 30},
 				avgLatency:   100, // status<400 in scope: R1 only
 				errorRate:    0.5, // R2 of {R1,R2}
 				avgOverhead:  10,

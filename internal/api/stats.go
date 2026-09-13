@@ -32,22 +32,30 @@ type ProviderLatencyEntry struct {
 
 // StatsResponse contains aggregated statistics for the dashboard.
 type StatsResponse struct {
-	TotalRequestsLast24h  int                    `json:"total_requests_last_24h"`
-	TotalRequestsLast7d   int                    `json:"total_requests_last_7d"`
-	ByModel               map[string]int64       `json:"by_model"`
-	ByProvider            map[string]int64       `json:"by_provider"`
-	ByVirtualKey          map[string]int64       `json:"by_virtual_key"`
-	AvgLatencyMs          float64                `json:"avg_latency_ms"`
-	ErrorRate             float64                `json:"error_rate"`
-	AvgOverheadMs         float64                `json:"avg_overhead_ms"`
-	TotalTokensPrompt     int                    `json:"total_tokens_prompt"`
-	TotalTokensCompletion int                    `json:"total_tokens_completion"`
-	TotalTokensCacheHit   int                    `json:"total_tokens_cache_hit"`
-	AvgTokensPerRequest   float64                `json:"avg_tokens_per_request"`
-	RateLimitHits         int                    `json:"rate_limit_hits"`
-	AvgTTFTMs             float64                `json:"avg_ttft_ms"`
-	RequestsLast1h        int                    `json:"requests_last_1h"`
-	ByProviderLatency     []ProviderLatencyEntry `json:"by_provider_latency"`
+	TotalRequestsLast24h int `json:"total_requests_last_24h"`
+	TotalRequestsLast7d  int `json:"total_requests_last_7d"`
+	// The three breakdowns carry the requested metric: request counts, token
+	// sums, or dollars, so their values are numbers rather than integers.
+	ByModel               map[string]float64 `json:"by_model"`
+	ByProvider            map[string]float64 `json:"by_provider"`
+	ByVirtualKey          map[string]float64 `json:"by_virtual_key"`
+	AvgLatencyMs          float64            `json:"avg_latency_ms"`
+	ErrorRate             float64            `json:"error_rate"`
+	AvgOverheadMs         float64            `json:"avg_overhead_ms"`
+	TotalTokensPrompt     int                `json:"total_tokens_prompt"`
+	TotalTokensCompletion int                `json:"total_tokens_completion"`
+	TotalTokensCacheHit   int                `json:"total_tokens_cache_hit"`
+	// TotalCostUSD sums request_logs.cost_usd over the period. Rows the proxy
+	// could not price (an unpriced model, a request that never reached a
+	// provider) add nothing, so RequestsUnpriced counts the dispatched ones
+	// among them: the total is a floor by that many requests.
+	TotalCostUSD        float64                `json:"total_cost_usd"`
+	RequestsUnpriced    int                    `json:"requests_unpriced"`
+	AvgTokensPerRequest float64                `json:"avg_tokens_per_request"`
+	RateLimitHits       int                    `json:"rate_limit_hits"`
+	AvgTTFTMs           float64                `json:"avg_ttft_ms"`
+	RequestsLast1h      int                    `json:"requests_last_1h"`
+	ByProviderLatency   []ProviderLatencyEntry `json:"by_provider_latency"`
 }
 
 // TimeSeriesPoint holds a single bucket of time-series data.
@@ -57,6 +65,7 @@ type TimeSeriesPoint struct {
 	Tokens            int     `json:"tokens"`
 	TokensCacheHit    int     `json:"tokens_cache_hit"`
 	TokensCacheMiss   int     `json:"tokens_cache_miss"`
+	CostUSD           float64 `json:"cost_usd"`
 	Errors            int     `json:"errors"`
 	Latency           float64 `json:"latency_ms"`
 	OverheadMs        float64 `json:"overhead_ms"`
@@ -72,10 +81,11 @@ type TimeSeriesStats struct {
 
 // ProviderDistributionItem holds a single slice of the provider breakdown.
 type ProviderDistributionItem struct {
-	Name   string  `json:"name"`
-	Count  int     `json:"count"`
-	Tokens int     `json:"tokens"`
-	Share  float64 `json:"share"`
+	Name    string  `json:"name"`
+	Count   int     `json:"count"`
+	Tokens  int     `json:"tokens"`
+	CostUSD float64 `json:"cost_usd"`
+	Share   float64 `json:"share"`
 }
 
 // ProviderDistributionStats holds the provider share pie data.
@@ -109,9 +119,9 @@ func parseExcludeDeleted(r *http.Request) bool {
 }
 
 func parseMetric(r *http.Request) string {
-	m := r.URL.Query().Get("metric")
-	if m == "tokens" {
-		return "tokens"
+	switch m := r.URL.Query().Get("metric"); m {
+	case "tokens", "cost":
+		return m
 	}
 	return "requests"
 }
@@ -163,10 +173,26 @@ func ownerFilterFragment(ownerID string, argIdx int) (string, []any) {
 // the requested metric: summed tokens vs request count. Single source of truth
 // for the SELECT used by the by-model/provider/virtual-key breakdowns.
 func metricValueSelect(metric string) string {
-	if metric == "tokens" {
+	switch metric {
+	case "tokens":
 		return "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
+	case "cost":
+		return "COALESCE(SUM(rl.cost_usd), 0) as val"
 	}
 	return "COUNT(*) as val"
+}
+
+// metricValueHaving is the HAVING clause that drops zero rows for metrics
+// where a zero means "nothing to show" rather than "no traffic": a provider
+// that served only unpriced or free requests has no spend to chart.
+func metricValueHaving(metric string) string {
+	switch metric {
+	case "tokens":
+		return " HAVING SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) > 0"
+	case "cost":
+		return " HAVING COALESCE(SUM(rl.cost_usd), 0) > 0"
+	}
+	return ""
 }
 
 // GetStats returns aggregated statistics for the specified period.
@@ -186,9 +212,9 @@ func (h *StatsHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 
 func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration, excludeDeleted bool, metric string, includeLatency bool, ownerID string) (*StatsResponse, error) {
 	stats := &StatsResponse{
-		ByModel:      make(map[string]int64),
-		ByProvider:   make(map[string]int64),
-		ByVirtualKey: make(map[string]int64),
+		ByModel:      make(map[string]float64),
+		ByProvider:   make(map[string]float64),
+		ByVirtualKey: make(map[string]float64),
 	}
 
 	vkJoin, vkFilter := vkScope(excludeDeleted)
@@ -220,6 +246,7 @@ func (h *StatsHandler) calculateStats(ctx context.Context, period time.Duration,
 
 	// Queries 5–11 + requests-in-last-1h: scalar aggregates (best-effort).
 	h.statScalars(ctx, stats, vkJoin, vkFilter, filterArgs, since, now)
+	h.statSpend(ctx, stats, vkJoin, vkFilter, filterArgs, since)
 
 	// Queries 12–13: per-model / per-provider latency breakdown (best-effort,
 	// only when the caller requested latency data).

@@ -48,18 +48,21 @@ type LogEntry struct {
 	TokensCompletionReasoning int        `json:"tokens_completion_reasoning"`
 	TokensPromptCacheHit      int        `json:"tokens_prompt_cache_hit"`
 	TokensPromptCacheMiss     int        `json:"tokens_prompt_cache_miss"`
-	Streaming                 bool       `json:"streaming"`
-	VirtualKeyName            string     `json:"virtual_key_name"`
-	VirtualKeyDeleted         bool       `json:"virtual_key_deleted"`
-	VirtualKeyID              string     `json:"virtual_key_id"`
-	ClientIP                  string     `json:"client_ip"` // "" for legacy rows and address-less ingest paths
-	ErrorMessage              string     `json:"error_message"`
-	ErrorKind                 string     `json:"error_kind"` // "" when unclassified; the frontend falls back to substring matching
-	FailoverAttempt           int        `json:"failover_attempt"`
-	State                     string     `json:"state"`
-	CreatedAt                 time.Time  `json:"created_at"`
-	ResolvedModelID           string     `json:"resolved_model_id"`
-	EndpointType              string     `json:"endpoint_type"`
+	// CostUSD is what the request cost at its model's stored prices; nil when
+	// the proxy could not price it (see request_logs.cost_usd).
+	CostUSD           *float64  `json:"cost_usd"`
+	Streaming         bool      `json:"streaming"`
+	VirtualKeyName    string    `json:"virtual_key_name"`
+	VirtualKeyDeleted bool      `json:"virtual_key_deleted"`
+	VirtualKeyID      string    `json:"virtual_key_id"`
+	ClientIP          string    `json:"client_ip"` // "" for legacy rows and address-less ingest paths
+	ErrorMessage      string    `json:"error_message"`
+	ErrorKind         string    `json:"error_kind"` // "" when unclassified; the frontend falls back to substring matching
+	FailoverAttempt   int       `json:"failover_attempt"`
+	State             string    `json:"state"`
+	CreatedAt         time.Time `json:"created_at"`
+	ResolvedModelID   string    `json:"resolved_model_id"`
+	EndpointType      string    `json:"endpoint_type"`
 	// Attempts is the per-attempt trail (request_logs.attempts): one element per
 	// failover attempt, hedged probes and skips included, forwarded verbatim.
 	// Omitted for rows without one.

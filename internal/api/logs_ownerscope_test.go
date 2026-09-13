@@ -280,7 +280,7 @@ func TestStats_OwnerScope(t *testing.T) {
 		t.Error("alice by_virtual_key leaked bob-key")
 	}
 	if s.ByVirtualKey["alice-key"] != 2 {
-		t.Errorf("alice by_virtual_key[alice-key] = %d, want 2", s.ByVirtualKey["alice-key"])
+		t.Errorf("alice by_virtual_key[alice-key] = %v, want 2", s.ByVirtualKey["alice-key"])
 	}
 
 	// Admin is unscoped (6 rows incl. the ownerless keyless one) and can filter.

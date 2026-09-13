@@ -84,7 +84,7 @@ func TestCalculateStats_TokensMetric_ByVirtualKey(t *testing.T) {
 
 	// ByVirtualKey should contain the virtual key name with token count
 	if stats.ByVirtualKey["test-vk-tokens"] != 125 {
-		t.Errorf("Expected ByVirtualKey['test-vk-tokens']=125, got %d", stats.ByVirtualKey["test-vk-tokens"])
+		t.Errorf("Expected ByVirtualKey['test-vk-tokens']=125, got %v", stats.ByVirtualKey["test-vk-tokens"])
 	}
 }
 
@@ -114,7 +114,7 @@ func TestCalculateStats_ExcludeDeletedFalse(t *testing.T) {
 
 	// With excludeDeleted=false, deleted VK requests should appear in ByVirtualKey["Deleted"]
 	if stats.ByVirtualKey["Deleted"] != 1 {
-		t.Errorf("Expected ByVirtualKey['Deleted']=1, got %d", stats.ByVirtualKey["Deleted"])
+		t.Errorf("Expected ByVirtualKey['Deleted']=1, got %v", stats.ByVirtualKey["Deleted"])
 	}
 }
 
@@ -143,7 +143,7 @@ func TestCalculateStats_ExcludeDeletedFalse_Tokens(t *testing.T) {
 
 	// Deleted VK should have token count (30+40=70)
 	if stats.ByVirtualKey["Deleted"] != 70 {
-		t.Errorf("Expected ByVirtualKey['Deleted']=70, got %d", stats.ByVirtualKey["Deleted"])
+		t.Errorf("Expected ByVirtualKey['Deleted']=70, got %v", stats.ByVirtualKey["Deleted"])
 	}
 }
 
@@ -232,11 +232,11 @@ func TestCalculateStats_ChatArenaKeys_Tokens(t *testing.T) {
 
 	// Chat should have token count (100+150=250)
 	if stats.ByVirtualKey["chat"] != 250 {
-		t.Errorf("Expected ByVirtualKey['chat']=250, got %d", stats.ByVirtualKey["chat"])
+		t.Errorf("Expected ByVirtualKey['chat']=250, got %v", stats.ByVirtualKey["chat"])
 	}
 	// Arena should have token count (80+120=200)
 	if stats.ByVirtualKey["arena"] != 200 {
-		t.Errorf("Expected ByVirtualKey['arena']=200, got %d", stats.ByVirtualKey["arena"])
+		t.Errorf("Expected ByVirtualKey['arena']=200, got %v", stats.ByVirtualKey["arena"])
 	}
 }
 
@@ -712,7 +712,7 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 		t.Fatalf("calculateStats failed: %v", err)
 	}
 
-	want := map[string]int64{
+	want := map[string]float64{
 		"Test Provider/zai-org/glm-5.2":      3,
 		"hotel/glm52":                        1,
 		"Test Provider/Test Provider/gpt-4o": 1,
@@ -721,7 +721,7 @@ func TestCalculateStats_ByModel_ProviderPrefix(t *testing.T) {
 	}
 	for key, count := range want {
 		if got := stats.ByModel[key]; got != count {
-			t.Errorf("ByModel[%q] = %d, want %d (full map: %v)", key, got, count, stats.ByModel)
+			t.Errorf("ByModel[%q] = %v, want %v (full map: %v)", key, got, count, stats.ByModel)
 		}
 	}
 	if _, ok := stats.ByModel["zai-org/glm-5.2"]; ok {

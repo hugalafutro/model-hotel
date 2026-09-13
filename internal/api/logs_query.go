@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// logEntrySelectColumns is the shared 38-column request_logs projection plus the
+// logEntrySelectColumns is the shared 39-column request_logs projection plus the
 // FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
 // offset list (ListLogs) prefixes it with the windowed total count. Its column
 // order matches logEntryScanDests exactly.
@@ -36,6 +36,7 @@ const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
             COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
             COALESCE(rl.tokens_completion_reasoning, 0),
             COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
+            rl.cost_usd,
             COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
              CASE
                 WHEN rl.virtual_key_id IS NULL OR rl.virtual_key_id::text = '' THEN false
@@ -132,7 +133,7 @@ func paginateCursor[T any](entries []T, direction string, limit int, hasCursor b
 	return entries, hasAfter, hasBefore
 }
 
-// logEntryScanDests returns the ordered Scan() targets for the shared 38-column
+// logEntryScanDests returns the ordered Scan() targets for the shared 39-column
 // request_logs projection (logEntrySelectColumns). The cursor list scans these
 // directly; the offset list (ListLogs) prepends its windowed total count.
 func logEntryScanDests(entry *LogEntry) []any {
@@ -146,6 +147,7 @@ func logEntryScanDests(entry *LogEntry) []any {
 		&entry.TokensPerSecond,
 		&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
 		&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
+		&entry.CostUSD,
 		&entry.Streaming,
 		&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
 		&entry.ErrorMessage,
@@ -159,7 +161,7 @@ func logEntryScanDests(entry *LogEntry) []any {
 	}
 }
 
-// scanLogEntry scans one request_logs row (the 38-column projection shared by
+// scanLogEntry scans one request_logs row (the 39-column projection shared by
 // ListLogsCursor and ListLogs) into a LogEntry.
 func scanLogEntry(rows pgx.CollectableRow) (LogEntry, error) {
 	var entry LogEntry
@@ -453,6 +455,7 @@ var logSortColumns = map[string]logSortDef{
 	"status":             {"", "rl.status_code"},
 	"tokens":             {"CASE WHEN rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0) = 0 THEN CASE WHEN COALESCE(rl.error_message, '') ILIKE '%cancel%' OR COALESCE(rl.error_message, '') ILIKE '%disconnect%' OR COALESCE(rl.error_message, '') ILIKE '%context canceled%' THEN 1 ELSE 2 END ELSE 0 END", "rl.tokens_prompt + rl.tokens_completion + COALESCE(rl.tokens_completion_reasoning, 0)"},
 	"tps":                {"CASE WHEN rl.tokens_per_second = 0 THEN 1 ELSE 0 END", "rl.tokens_per_second"},
+	"cost":               {"CASE WHEN rl.cost_usd IS NULL THEN 1 ELSE 0 END", "COALESCE(rl.cost_usd, 0)"},
 	"ttft":               {"CASE WHEN rl.ttft_ms = 0 THEN 1 ELSE 0 END", "rl.ttft_ms"},
 	"response_header_ms": {"CASE WHEN rl.response_header_ms = 0 THEN 1 ELSE 0 END", "rl.response_header_ms"},
 	"duration":           {"CASE WHEN rl.duration_ms = 0 THEN 1 ELSE 0 END", "rl.duration_ms"},
