@@ -41,6 +41,10 @@ func TestInferNonChatModality(t *testing.T) {
 		{"dall-e-2", "image"},
 		{"dalle3", "image"},
 
+		// Video generation.
+		{"sora-2", "video"},
+		{"sora-2-pro", "video"},
+
 		// Chat / other models must not be hidden.
 		{"llama-3.1-8b-instruct", ""},
 		{"qwen2.5-coder-7b", ""},
