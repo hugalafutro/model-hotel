@@ -358,14 +358,14 @@ func TestGetOpenAIModels_AllFieldsValid(t *testing.T) {
 		if spec.MaxOutputTokens <= 0 {
 			t.Errorf("catalog[%d] (%s): MaxOutputTokens = %d, want > 0", i, spec.ModelID, spec.MaxOutputTokens)
 		}
-		if spec.InputPricePerMillion < 0 {
-			t.Errorf("catalog[%d] (%s): InputPricePerMillion = %f, want >= 0", i, spec.ModelID, spec.InputPricePerMillion)
-		}
-		if spec.OutputPricePerMillion < 0 {
-			t.Errorf("catalog[%d] (%s): OutputPricePerMillion = %f, want >= 0", i, spec.ModelID, spec.OutputPricePerMillion)
-		}
-		if spec.InputPricePerMillionCacheHit < 0 {
-			t.Errorf("catalog[%d] (%s): InputPricePerMillionCacheHit = %f, want >= 0", i, spec.ModelID, spec.InputPricePerMillionCacheHit)
+		for name, p := range map[string]*float64{
+			"InputPricePerMillion":         spec.InputPricePerMillion,
+			"OutputPricePerMillion":        spec.OutputPricePerMillion,
+			"InputPricePerMillionCacheHit": spec.InputPricePerMillionCacheHit,
+		} {
+			if p != nil && *p < 0 {
+				t.Errorf("catalog[%d] (%s): %s = %f, want >= 0", i, spec.ModelID, name, *p)
+			}
 		}
 		if spec.Modality == "" {
 			t.Errorf("catalog[%d] (%s): Modality is empty", i, spec.ModelID)
@@ -430,51 +430,6 @@ func TestLookupOpenCodeCatalog_EmptySlice(t *testing.T) {
 }
 
 // ---------------------------------------------------------------------------
-// GetAnthropicPricing — catalog validation
-// ---------------------------------------------------------------------------
-
-// anthropic.json is an override channel and is legitimately empty while
-// models.dev is correct about every Claude model; only the shape of whatever
-// rows exist is asserted. The date-stripping lookup is covered against a
-// fixture in TestAnthropicPricingLookupDated.
-func TestGetAnthropicPricing_Loads(t *testing.T) {
-	for i, spec := range GetAnthropicPricing() {
-		if spec.ModelID == "" {
-			t.Errorf("catalog[%d]: ModelID is empty", i)
-		}
-	}
-}
-
-func TestGetAnthropicPricing_AllFieldsValid(t *testing.T) {
-	catalog := GetAnthropicPricing()
-	for i, spec := range catalog {
-		if spec.ModelID == "" {
-			t.Errorf("pricing[%d]: ModelID is empty", i)
-		}
-		if spec.InputPricePerMillion < 0 {
-			t.Errorf("pricing[%d] (%s): InputPricePerMillion = %f, want >= 0", i, spec.ModelID, spec.InputPricePerMillion)
-		}
-		if spec.OutputPricePerMillion < 0 {
-			t.Errorf("pricing[%d] (%s): OutputPricePerMillion = %f, want >= 0", i, spec.ModelID, spec.OutputPricePerMillion)
-		}
-		if spec.InputPricePerMillionCacheHit < 0 {
-			t.Errorf("pricing[%d] (%s): InputPricePerMillionCacheHit = %f, want >= 0", i, spec.ModelID, spec.InputPricePerMillionCacheHit)
-		}
-	}
-}
-
-func TestGetAnthropicPricing_NoDuplicateModelIDs(t *testing.T) {
-	catalog := GetAnthropicPricing()
-	seen := make(map[string]bool)
-	for _, spec := range catalog {
-		if seen[spec.ModelID] {
-			t.Errorf("duplicate ModelID in Anthropic pricing: %s", spec.ModelID)
-		}
-		seen[spec.ModelID] = true
-	}
-}
-
-// ---------------------------------------------------------------------------
 // NewDiscoveryService
 // ---------------------------------------------------------------------------
 
@@ -508,9 +463,9 @@ func TestOpenCodeModelSpec_JSONRoundTrip(t *testing.T) {
 		ToolCalling:                  true,
 		StructuredOutput:             true,
 		Vision:                       false,
-		InputPricePerMillion:         1.5,
-		InputPricePerMillionCacheHit: 0.15,
-		OutputPricePerMillion:        6.0,
+		InputPricePerMillion:         ptrFloat(1.5),
+		InputPricePerMillionCacheHit: ptrFloat(0.15),
+		OutputPricePerMillion:        ptrFloat(6.0),
 	}
 
 	data, err := json.Marshal(spec)
@@ -529,49 +484,11 @@ func TestOpenCodeModelSpec_JSONRoundTrip(t *testing.T) {
 	if decoded.ContextLength != spec.ContextLength {
 		t.Errorf("ContextLength = %d, want %d", decoded.ContextLength, spec.ContextLength)
 	}
-	if decoded.InputPricePerMillion != spec.InputPricePerMillion {
-		t.Errorf("InputPricePerMillion = %f, want %f", decoded.InputPricePerMillion, spec.InputPricePerMillion)
+	if decoded.InputPricePerMillion == nil || *decoded.InputPricePerMillion != *spec.InputPricePerMillion {
+		t.Errorf("InputPricePerMillion = %v, want %f", decoded.InputPricePerMillion, *spec.InputPricePerMillion)
 	}
 }
 
-// ---------------------------------------------------------------------------
-// AnthropicPricingSpec — struct JSON round-trip
-// ---------------------------------------------------------------------------
-
-func TestAnthropicPricingSpec_JSONRoundTrip(t *testing.T) {
-	spec := AnthropicPricingSpec{
-		ModelID:                      "claude-test",
-		InputPricePerMillion:         3.0,
-		InputPricePerMillionCacheHit: 0.3,
-		OutputPricePerMillion:        15.0,
-	}
-
-	data, err := json.Marshal(spec)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-
-	var decoded AnthropicPricingSpec
-	if err := json.Unmarshal(data, &decoded); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
-
-	if decoded.ModelID != spec.ModelID {
-		t.Errorf("ModelID = %q, want %q", decoded.ModelID, spec.ModelID)
-	}
-	if decoded.InputPricePerMillion != spec.InputPricePerMillion {
-		t.Errorf("InputPricePerMillion = %f, want %f", decoded.InputPricePerMillion, spec.InputPricePerMillion)
-	}
-	if decoded.OutputPricePerMillion != spec.OutputPricePerMillion {
-		t.Errorf("OutputPricePerMillion = %f, want %f", decoded.OutputPricePerMillion, spec.OutputPricePerMillion)
-	}
-}
-
-// ===========================================================================
-// Integration tests (require PostgreSQL)
-// ===========================================================================
-
-// uniqueName generates a unique provider name for isolation.
 func uniqueName(t *testing.T) string {
 	t.Helper()
 	return "test-prov-" + uuid.New().String()[:8]
@@ -761,7 +678,7 @@ func TestRepository_GetByName_NotFound(t *testing.T) {
 // are loadable and contain at least one entry each. This exercises the
 // loadCatalog path through the public accessor functions.
 func TestLoadCatalog_ReturnsNonEmpty(t *testing.T) {
-	// GetOpenAIModels and GetAnthropicPricing both use loadCatalog internally.
+	// GetOpenAIModels uses loadCatalog internally.
 	// If loadCatalog failed (invalid JSON or missing file), they would panic
 	// at init time — so simply calling them and verifying non-empty output
 	// confirms loadCatalog works correctly with the embedded FS.
@@ -771,8 +688,6 @@ func TestLoadCatalog_ReturnsNonEmpty(t *testing.T) {
 	}{
 		{"OpenAI", len(GetOpenAIModels())},
 	}
-	// Anthropic is deliberately excluded: its pricing catalog is an override
-	// channel and is empty while models.dev is correct about every Claude model.
 	for _, c := range catalogs {
 		if c.len == 0 {
 			t.Errorf("loadCatalog: %s catalog should not be empty", c.name)

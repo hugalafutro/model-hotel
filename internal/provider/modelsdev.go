@@ -105,7 +105,7 @@ type ModelsDevModelSpec struct {
 	LastUpdated      string               `json:"last_updated,omitempty"`
 	Modalities       ModelsDevModalities  `json:"modalities"`
 	OpenWeights      bool                 `json:"open_weights"`
-	Cost             ModelsDevCost        `json:"cost"`
+	Cost             *ModelsDevCost       `json:"cost"`
 	Limit            ModelsDevLimit       `json:"limit"`
 	Interleaved      ModelsDevInterleaved `json:"interleaved"`
 }
@@ -116,7 +116,8 @@ type ModelsDevModalities struct {
 	Output []string `json:"output"`
 }
 
-// ModelsDevCost contains pricing information for a models.dev model.
+// ModelsDevCost contains pricing information for a models.dev model. It is
+// nil for a model models.dev lists without a cost (its JSON carries `null`).
 type ModelsDevCost struct {
 	Input       float64  `json:"input"`
 	Output      float64  `json:"output"`
@@ -328,6 +329,27 @@ func (c *ModelsDevCache) lookupForProvider(providerType, modelID string) *Models
 		}
 	}
 	return lookupFuzzyIn(c.byID, modelID)
+}
+
+// FreeOnProvider reports whether models.dev's canonical entry for a Model
+// Hotel provider type prices the model at zero. Only that entry is consulted,
+// never the cross-provider index: hundreds of unrelated models are listed at
+// zero somewhere on models.dev, and a bare id colliding with one would price a
+// paid model free. A model the entry does not know, or lists with no cost at
+// all, is not free: nothing says so. A nil cache, or a provider type with no
+// canonical entry, knows no model.
+func (c *ModelsDevCache) FreeOnProvider(providerType, modelID string) bool {
+	if c == nil {
+		return false
+	}
+	canonical, ok := modelsDevProviderForType[providerType]
+	if !ok {
+		return false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	spec := lookupFuzzyIn(c.byProvider[canonical.ID], modelID)
+	return spec != nil && spec.Cost != nil && spec.Cost.Input == 0 && spec.Cost.Output == 0
 }
 
 // lookupFuzzyIn runs the exact-then-fuzzy match against one index map. The
@@ -558,9 +580,11 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	// Numeric fields: only set if nil.
 	enriched = fillIfEmpty(&m.ContextLength, spec.Limit.Context) || enriched
 	enriched = fillIfEmpty(&m.MaxOutputTokens, spec.Limit.Output) || enriched
-	enriched = fillIfEmpty(&m.InputPricePerMillion, spec.Cost.Input) || enriched
-	enriched = fillIfEmpty(&m.OutputPricePerMillion, spec.Cost.Output) || enriched
-	if spec.Cost.CacheRead != nil {
+	if spec.Cost != nil {
+		enriched = fillIfEmpty(&m.InputPricePerMillion, spec.Cost.Input) || enriched
+		enriched = fillIfEmpty(&m.OutputPricePerMillion, spec.Cost.Output) || enriched
+	}
+	if spec.Cost != nil && spec.Cost.CacheRead != nil {
 		enriched = fillIfEmpty(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead) || enriched
 	}
 
@@ -593,7 +617,6 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 // at least one field filled).
 func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string) int {
 	if c == nil {
-		reportUnpricedModels(models)
 		return 0
 	}
 	count := 0
@@ -602,22 +625,34 @@ func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string
 			count++
 		}
 	}
-	reportUnpricedModels(models)
 	return count
 }
 
-// reportUnpricedModels logs any model that finished discovery with no per-token
-// price on either side.
+// ReportUnpricedModels logs any per-token model that finished discovery with
+// no price on either side. It runs after NormalizeModels, so the derived
+// endpoint class is in place.
 //
 // The embedded catalogs hold overrides only, so a model models.dev does not
 // know yields no price at all. Such a model still works; it just meters at
 // zero, which is invisible until someone reconciles a bill. Naming it here
 // turns that into something an operator can see and fix by adding a catalog
 // override.
-func reportUnpricedModels(models []*model.Model) {
+//
+// Only the per-token classes are named: chat, embedding and rerank (Jina and
+// Voyage rerank answers carry a token usage that is metered like any other;
+// Cohere's bills per search and is the acceptable noise). A speech,
+// transcription, image or video model bills per minute, character, image or
+// second, and this gateway meters none of those, so an absent per-token price
+// on one is the expected shape rather than a gap.
+func ReportUnpricedModels(models []*model.Model) {
 	var unpriced []string
 	for _, m := range models {
 		if m == nil || !m.Enabled {
+			continue
+		}
+		switch m.Modality {
+		case "chat", "embedding", "rerank":
+		default:
 			continue
 		}
 		// Free tiers are legitimately zero, so only a wholly absent price counts.

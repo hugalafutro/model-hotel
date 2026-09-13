@@ -13,9 +13,7 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": false,
-    "input_price_per_million": 30,
-    "input_price_per_million_cache_hit": 30,
-    "output_price_per_million": 180
+    "input_price_per_million_cache_hit": 30
   },
   {
     "model_id": "gpt-5.4-pro",
@@ -31,8 +29,6 @@
     "tool_calling": true,
     "structured_output": true,
     "vision": false,
-    "input_price_per_million": 30,
-    "input_price_per_million_cache_hit": 30,
-    "output_price_per_million": 180
+    "input_price_per_million_cache_hit": 30
   }
 ]

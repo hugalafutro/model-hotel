@@ -475,69 +475,6 @@ func TestDiscoverOpenCodeZen_InvalidJSON(t *testing.T) {
 	}
 }
 
-// Test discoverOpenCodeZen with keyless mode filtering paid models
-func TestDiscoverOpenCodeZen_KeylessFiltersPaidModels(t *testing.T) {
-	// Mock response with a paid model (non-zero pricing) and a catalog model
-	// big-pickle is in the OpenCode Zen catalog as a free model
-	mockResponse := `{
-		"data": [
-			{
-				"id": "paid-model",
-				"object": "model",
-				"owned_by": "opencode",
-				"created": 1700000000,
-				"pricing": {
-					"prompt": "0.01",
-					"completion": "0.02"
-				}
-			},
-			{
-				"id": "big-pickle",
-				"object": "model",
-				"owned_by": "opencode",
-				"created": 1700000000,
-				"pricing": {
-					"prompt": "0.00",
-					"completion": "0.00"
-				}
-			}
-		],
-		"object": "list"
-	}`
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/models" {
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(mockResponse))
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	defer server.Close()
-
-	svc := &DiscoveryService{httpClient: server.Client()}
-	provider := &Provider{
-		ID:           uuid.New(),
-		BaseURL:      server.URL,
-		EncryptedKey: []byte{}, // Empty key = keyless mode
-	}
-
-	ctx := context.Background()
-	models, err := svc.discoverOpenCodeZen(ctx, provider, "test-key")
-	if err != nil {
-		t.Fatalf("discoverOpenCodeZen failed: %v", err)
-	}
-
-	// Should only return free catalog models in keyless mode
-	if len(models) != 1 {
-		t.Errorf("expected 1 free model in keyless mode, got %d", len(models))
-	}
-	if len(models) > 0 && models[0].ModelID != "big-pickle" {
-		t.Errorf("expected big-pickle, got %s", models[0].ModelID)
-	}
-}
-
-// Test discoverOpenCodeZen with empty response
 func TestDiscoverOpenCodeZen_EmptyResponse(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/models" {
@@ -566,61 +503,6 @@ func TestDiscoverOpenCodeZen_EmptyResponse(t *testing.T) {
 	}
 }
 
-func TestDiscoverOpenCodeZen(t *testing.T) {
-	mockResponse := `{
-		"data": [
-			{
-				"id": "big-pickle",
-				"object": "model",
-				"owned_by": "opencode",
-				"created": 1700000000,
-				"pricing": {
-					"prompt": "0.00",
-					"completion": "0.00"
-				}
-			}
-		],
-		"object": "list"
-	}`
-
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path == "/models" {
-			w.Header().Set("Content-Type", "application/json")
-			w.Write([]byte(mockResponse))
-			return
-		}
-		http.NotFound(w, r)
-	}))
-	defer server.Close()
-
-	svc := &DiscoveryService{httpClient: server.Client()}
-	provider := &Provider{
-		ID:           uuid.New(),
-		BaseURL:      server.URL,
-		EncryptedKey: []byte{}, // Empty key to trigger keyless mode
-	}
-
-	ctx := context.Background()
-	models, err := svc.discoverOpenCodeZen(ctx, provider, "test-key")
-	if err != nil {
-		t.Fatalf("discoverOpenCodeZen failed: %v", err)
-	}
-
-	if len(models) != 1 {
-		t.Fatalf("expected 1 model, got %d", len(models))
-	}
-
-	m := models[0]
-	if m.ModelID != "big-pickle" {
-		t.Errorf("expected model ID 'big-pickle', got '%s'", m.ModelID)
-	}
-	if m.OwnedBy != "opencode" {
-		t.Errorf("expected OwnedBy 'opencode', got '%s'", m.OwnedBy)
-	}
-}
-
-// Test discoverZAICoding against a mock live /models endpoint: live models are
-// merged with the embedded catalog (live wins, catalog backfills + unions).
 func TestDiscoverZAICoding(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasSuffix(r.URL.Path, "/models") {

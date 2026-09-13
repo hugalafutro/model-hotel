@@ -16,8 +16,6 @@ import (
 func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeAPIURL(provider.BaseURL)
 
-	pricingCatalog := GetAnthropicPricing()
-
 	headers := http.Header{}
 	headers.Set("x-api-key", apiKey)
 	headers.Set("anthropic-version", "2023-06-01")
@@ -104,18 +102,8 @@ func (d *DiscoveryService) discoverAnthropic(ctx context.Context, provider *Prov
 			Enabled: true,
 		}
 
-		if pricing := LookupAnthropicPricing(pricingCatalog, m.ID); pricing != nil {
-			inPrice := pricing.InputPricePerMillion
-			outPrice := pricing.OutputPricePerMillion
-			modelEntry.InputPricePerMillion = &inPrice
-			modelEntry.OutputPricePerMillion = &outPrice
-
-			if pricing.InputPricePerMillionCacheHit > 0 {
-				cacheHitPrice := pricing.InputPricePerMillionCacheHit
-				modelEntry.InputPricePerMillionCacheHit = &cacheHitPrice
-			}
-		}
-
+		// Anthropic's listing carries no prices; models.dev enrichment fills
+		// them, matching dated ids to their undated family row.
 		models = append(models, modelEntry)
 	}
 

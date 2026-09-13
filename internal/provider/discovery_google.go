@@ -41,7 +41,6 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 		return nil, fmt.Errorf("google: failed to decode response for provider %s: %w", provider.Name, err)
 	}
 
-	pricingCatalog := GetGooglePricingCatalog()
 	models := make([]*model.Model, 0, len(googleResp.Models))
 
 	for _, gm := range googleResp.Models {
@@ -61,8 +60,6 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 			debuglog.Info("discovery: google skipping retired model", "model", modelID)
 			continue
 		}
-
-		pricing := LookupGooglePricing(pricingCatalog, gm.Name)
 
 		// Build capabilities from API data
 		hasThinking := gm.Thinking
@@ -101,19 +98,7 @@ func (d *DiscoveryService) discoverGoogleAIStudio(ctx context.Context, provider 
 			Enabled:          true,
 		}
 
-		// Enrich with pricing from catalog. Copy the values rather than
-		// aliasing the shared embedded-catalog spec: a write through one of
-		// these pointers would edit the catalog for every provider for the
-		// life of the process.
-		if pricing != nil {
-			in, out := pricing.InputPricePerMillion, pricing.OutputPricePerMillion
-			m.InputPricePerMillion, m.OutputPricePerMillion = &in, &out
-			if pricing.InputPricePerMillionCacheHit > 0 {
-				cacheHit := pricing.InputPricePerMillionCacheHit
-				m.InputPricePerMillionCacheHit = &cacheHit
-			}
-		}
-
+		// Google's listing carries no prices; models.dev enrichment fills them.
 		models = append(models, m)
 	}
 

@@ -198,9 +198,9 @@ func TestDiscoverXAILanguageModels_CatalogSpecOverride(t *testing.T) {
 				"version": "1.0",
 				"input_modalities": ["text"],
 				"output_modalities": ["text"],
-				"prompt_text_token_price": 200,
-				"cached_prompt_text_token_price": 20,
-				"completion_text_token_price": 600,
+				"prompt_text_token_price": 20000,
+				"cached_prompt_text_token_price": 2000,
+				"completion_text_token_price": 60000,
 				"search_price": 0,
 				"aliases": []
 			}]}`, catalogModelID)
@@ -247,14 +247,19 @@ func TestDiscoverXAILanguageModels_CatalogSpecOverride(t *testing.T) {
 		t.Errorf("MaxOutputTokens = %d, want nil (backfilled later by catalog)", *m.MaxOutputTokens)
 	}
 
-	// Verify pricing was converted correctly from API (cents per 100M -> dollars per 1M)
-	expectedInputPrice := 2.0  // 200 cents / 100 = 2.0 dollars per 1M
-	expectedOutputPrice := 6.0 // 600 cents / 100 = 6.0 dollars per 1M
+	// xAI reports cents per 100M tokens: 20000 is $2 per 1M, the figure xAI
+	// itself lists for the model. A divisor short by a factor of 100 metered
+	// every xAI request at 100x its price.
+	expectedInputPrice := 2.0
+	expectedOutputPrice := 6.0
 	if m.InputPricePerMillion == nil || *m.InputPricePerMillion != expectedInputPrice {
 		t.Errorf("InputPricePerMillion = %v, want %v", m.InputPricePerMillion, expectedInputPrice)
 	}
 	if m.OutputPricePerMillion == nil || *m.OutputPricePerMillion != expectedOutputPrice {
 		t.Errorf("OutputPricePerMillion = %v, want %v", m.OutputPricePerMillion, expectedOutputPrice)
+	}
+	if m.InputPricePerMillionCacheHit == nil || *m.InputPricePerMillionCacheHit != 0.2 {
+		t.Errorf("InputPricePerMillionCacheHit = %v, want 0.2", m.InputPricePerMillionCacheHit)
 	}
 }
 

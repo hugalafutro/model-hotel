@@ -330,7 +330,7 @@ func TestModelsDevCacheEnrichModel_EmptyModel(t *testing.T) {
 			Context: 8192,
 			Output:  4096,
 		},
-		Cost: ModelsDevCost{
+		Cost: &ModelsDevCost{
 			Input:  0.03,
 			Output: 0.06,
 		},
@@ -799,7 +799,7 @@ func TestModelsDevCacheEnrichModel_ExistingDataNotOverwritten(t *testing.T) {
 		Limit: ModelsDevLimit{
 			Context: 8192,
 		},
-		Cost: ModelsDevCost{
+		Cost: &ModelsDevCost{
 			Input:  0.03,
 			Output: 0.06,
 		},
@@ -838,7 +838,7 @@ func TestModelsDevCacheEnrichModel_CacheReadPrice(t *testing.T) {
 	spec := &ModelsDevModelSpec{
 		ID:   "test-model",
 		Name: "Test Model",
-		Cost: ModelsDevCost{
+		Cost: &ModelsDevCost{
 			Input:     0.03,
 			Output:    0.06,
 			CacheRead: &cacheReadPrice,
@@ -890,7 +890,7 @@ func TestModelsDevCacheEnrichModel_Capabilities(t *testing.T) {
 			Input:  []string{"text", "image"},
 			Output: []string{"text"},
 		},
-		Cost:  ModelsDevCost{Input: 1, Output: 2},
+		Cost:  &ModelsDevCost{Input: 1, Output: 2},
 		Limit: ModelsDevLimit{Context: 100, Output: 50},
 	}
 
@@ -958,7 +958,7 @@ func TestModelsDevCacheEnrichModel_AttachmentNeedsImageInput(t *testing.T) {
 				Name:       "Probe Model",
 				Attachment: true,
 				Modalities: ModelsDevModalities{Input: tc.input, Output: []string{"text"}},
-				Cost:       ModelsDevCost{Input: 1, Output: 2},
+				Cost:       &ModelsDevCost{Input: 1, Output: 2},
 				Limit:      ModelsDevLimit{Context: 100, Output: 50},
 			}
 
@@ -1012,7 +1012,7 @@ func TestModelsDevCacheEnrichModel_InvalidCapabilitiesJSON(t *testing.T) {
 			Input:  []string{"text"},
 			Output: []string{"text"},
 		},
-		Cost:  ModelsDevCost{Input: 1, Output: 2},
+		Cost:  &ModelsDevCost{Input: 1, Output: 2},
 		Limit: ModelsDevLimit{Context: 100, Output: 50},
 	}
 
@@ -1046,7 +1046,7 @@ func TestModelsDevCacheEnrichModel_ModalityEnrichment(t *testing.T) {
 			Input:  []string{"text", "image"},
 			Output: []string{"text"},
 		},
-		Cost:  ModelsDevCost{Input: 1, Output: 2},
+		Cost:  &ModelsDevCost{Input: 1, Output: 2},
 		Limit: ModelsDevLimit{Context: 100, Output: 50},
 	}
 
@@ -1095,7 +1095,7 @@ func TestModelsDevCacheEnrichModels_MultipleModels(t *testing.T) {
 			Context: 4096,
 		},
 		Modalities: ModelsDevModalities{Input: []string{"text"}, Output: []string{"text"}},
-		Cost:       ModelsDevCost{Input: 1, Output: 2},
+		Cost:       &ModelsDevCost{Input: 1, Output: 2},
 	}
 
 	cache := &ModelsDevCache{}

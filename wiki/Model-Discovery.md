@@ -327,11 +327,9 @@ not the family you picked".
 
 ### Anthropic
 
-**Source files:** `discovery_anthropic.go`, `anthropic_catalog.go`
+**Source files:** `discovery_anthropic.go`
 
-**Method:** Calls `GET /v1/models?limit=100` with pagination (using an `after_id` cursor) to list all models. The Anthropic API returns rich capability metadata per model. Pricing is then looked up from the built-in `anthropicPricing` catalog. Date-suffixed model IDs (e.g. `claude-sonnet-4-5-20250514`) are stripped to their base ID for that lookup.
-
-That catalog currently ships **empty** (`catalogs/anthropic.json`): models.dev's canonical `anthropic` entry covers Claude pricing, so there is nothing to override. It stays as an override channel for a price models.dev has not caught up with.
+**Method:** Calls `GET /v1/models?limit=100` with pagination (using an `after_id` cursor) to list all models. The Anthropic API returns rich capability metadata per model but no prices; those come from models.dev's canonical `anthropic` entry at enrichment, which matches a date-suffixed id (e.g. `claude-sonnet-4-5-20250514`) to its undated family row. There is no Anthropic price catalog.
 
 **API-provided fields:**
 
@@ -481,7 +479,7 @@ Its quota endpoint is the part that needed code: see [Additional Provider APIs](
 
 **Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in `deepseekCatalog` (6 rows) via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog backfills context length, max output, reasoning flag, input modalities, and pricing (cache-miss maps to the standard input price; cache-hit is carried separately). Uncatalogued models are clean stubs filled by models.dev; there is no hardcoded context default.
 
-Two of the six rows are not price overrides but the only source of the model at all: `deepseek-chat` and `deepseek-reasoner` are permanent aliases (thinking off and on) and are absent from the live listing entirely. The rest exist because models.dev carries no entry for `deepseek-flash` and still lists DeepSeek's pre-V4 rates under the V4 IDs. `deepseek-flash` is V4.1 Flash and the only Flash id DeepSeek documents; `deepseek-chat`, `deepseek-reasoner`, `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` all resolve to it upstream, so every Flash-family row carries its price and its vision flag: the live API answers an image on each of those ids, while models.dev declares the family text-only. `deepseek-v4-pro` is the one row still on its own rate. Catalog prices are DeepSeek's **off-peak** rates, which apply for 17 of every 24 hours; peak hours (01:00-04:00 and 06:00-10:00 UTC) bill at exactly double, and a model row holds one figure, so metering under-reports during that window.
+Two of the six rows are not price overrides but the only source of the model at all: `deepseek-chat` and `deepseek-reasoner` are permanent aliases (thinking off and on) and are absent from the live listing and from models.dev entirely, so their rows also carry the only price they get. `deepseek-flash` is V4.1 Flash and the only Flash id DeepSeek documents; `deepseek-chat`, `deepseek-reasoner`, `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` all resolve to it upstream, so every Flash-family row carries its vision flag: the live API answers an image on each of those ids. The `deepseek-flash`, `deepseek-v4-flash` and `deepseek-v4-flash-vision-exp` rows carry no price, because models.dev prices them correctly and a duplicate could only go stale. `deepseek-v4-pro` keeps its own price because models.dev has that one wrong (0.435/0.87 where DeepSeek's pricing page says 0.66/1.98). Catalog prices are DeepSeek's **off-peak** rates, which apply for 17 of every 24 hours; peak hours (01:00-04:00 and 06:00-10:00 UTC) bill at exactly double, and a model row holds one figure, so metering under-reports during that window.
 
 **Catalog provides:**
 
@@ -645,15 +643,15 @@ Known models: `MiniMax-M3`, `MiniMax-M2.7` (+ `MiniMax-M2.7-highspeed`), `MiniMa
 
 **Method:** Calls `GET /models` (OpenAI-compatible list endpoint), converts the listing to clean stubs, and merges them with the built-in catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). The catalog is an **override channel**, and it currently ships empty (`catalogs/opencode_go.json` has no rows): every live model's metadata and per-token prices come from models.dev's `opencode-go` entry (with the cross-provider index as gap coverage). Those prices are not what a Go subscriber pays per request - they are the shadow cost that Go's dollar-based quotas ($/5h, $/week, $/month) burn, the same convention used for the Z.AI and Kimi coding plans. A `404` (endpoint gone) falls back to the catalog - normally empty, so the scan yields no models and nothing gets disabled; other non-200s abort the scan so a transient outage can't disable live-only models. (Quota overrun does not gate the listing - it still returns `200`.)
 
-**Catalog rows, when present, are overrides:** a row wins over models.dev for every field it sets, and `OpenCodeCatalogToModel` always materializes the price fields - so an override row **must state real prices**, because omitting them pins the model's price at $0 and it meters free.
+**Catalog rows, when present, are overrides:** a row wins over models.dev for every field it sets. The price fields are optional: a row that omits them leaves the model unpriced for models.dev to fill, so a row can fix a context length or a modality list without pinning a price. A row states a price only where models.dev has none or has it wrong, because a duplicated price freezes at the day it was written.
 
 ### OpenCode Zen
 
 **Source files:** `discovery_opencode_zen.go`, `opencode_zen_catalog.go`, `opencode_catalog_types.go`, `catalog_merge.go`
 
-**Method:** For **keyed** providers, same as OpenCode Go - `GET /models` merged with the catalog via [`mergeLiveAndCatalog`](#live--catalog-merge). For **keyless** providers (no API key), the merge is bypassed: only free (zero-priced) catalog models the live listing includes are returned, with no union, since a keyless caller must not be shown models it cannot reach.
+**Method:** `GET /models`, converted to clean stubs that models.dev's `opencode` entry then enriches with metadata and pricing. Nothing is unioned in: a model Zen drops from its listing is gone with it (OpenCode Zen rotates free models aggressively). For **keyless** providers (no API key), only the live models models.dev's `opencode` entry prices at zero are kept, since a keyless caller must not be shown models it cannot reach; that decision consults the canonical entry alone, never the cross-provider index, so an unrelated zero-priced model elsewhere on models.dev cannot make a paid Zen model look free. Without the models.dev cache a keyless provider keeps nothing and logs why. A free model is written with an explicit zero price on both paths, because enrichment reads a models.dev zero as "no figure" (the meaning it has on the subscription entries).
 
-The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. The Zen catalog carries **only the zero-priced free-model rows** (currently 8): they are load-bearing for the keyless path above, which can only surface free models the catalog identifies. Paid models take their metadata and pricing from live + models.dev (`opencode` entry). (OpenCode Zen rotates free models aggressively; stale delisted free/preview entries are pruned from the catalog rather than unioned in as dead models.)
+The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeModelSpec` and `OpenCodeCatalogToModel`. The Zen catalog is a **metadata override channel** that backfills live models and surfaces none: today it holds two rows that restrict the input modalities models.dev over-advertises for free models whose deployment rejects audio or video. Rows carry no price.
 
 ### xAI (Grok)
 
@@ -661,11 +659,11 @@ The catalog and model conversion logic is shared with OpenCode Go via `OpenCodeM
 
 **Method:** Live-plus-catalog merge via [`mergeLiveAndCatalog`](#live--catalog-merge). The live model list is obtained with a tiered strategy, then merged with the catalog:
 
-1. **Funded accounts**: Calls `GET /language-models` - a proprietary endpoint that returns rich data including pricing (cents per 100M tokens, converted to USD/1M) and input/output modalities. These live fields are kept as-is.
+1. **Funded accounts**: Calls `GET /language-models` - a proprietary endpoint that returns rich data including pricing (cents per 100M tokens, converted to USD per 1M) and input/output modalities. These live fields are kept as-is.
 2. **No-access accounts (403/429)**: xAI returns 403 for unauthorized keys and 429 for accounts that have exhausted credits or reached spending limits. Discovery falls back to the pure static catalog in both cases.
 3. **Other failures / empty list**: Falls back to `GET /v1/models` (minimal OpenAI-compatible: id + owner).
 
-The live result is then merged with the catalog. The 6-row catalog **backfills** the fields xAI's API does not report (context window, max output, reasoning flag, friendly display name) and **unions in** catalog grok models the listing endpoints do not advertise but that remain callable (verified: all catalog grok ids return 200). Live values always win: the catalog never overrides live data, and no placeholder description or modality is fabricated, so a real catalog description is never masked.
+The live result is then merged with the catalog. The 6-row catalog **backfills** the fields xAI's API does not report (context window, max output, reasoning flag, friendly display name) and **unions in** catalog grok models the listing endpoints do not advertise but that remain callable (verified: all catalog grok ids return 200). Its rows carry no price: `/language-models` reports prices when the key can list, and models.dev's `xai` entry prices every row otherwise. Live values always win: the catalog never overrides live data, and no placeholder description or modality is fabricated, so a real catalog description is never masked.
 
 Image-generation models come from a separate listing, `GET /image-generation-models`, and are the one place xAI discovery states an endpoint class outright (`image`). Their per-image price, which has no per-token equivalent, is carried in `params.image_price`.
 
@@ -675,7 +673,7 @@ Image-generation models come from a separate listing, `GET /image-generation-mod
 |-------|--------|
 | Input modalities | API (`input_modalities`) |
 | Output modalities | API (`output_modalities`) |
-| Input price | API (`prompt_text_token_price`) - converted from cents/100M to USD/1M, set only when > 0 |
+| Input price | API (`prompt_text_token_price`) - converted from cents per 100M tokens to USD per 1M, set only when > 0 |
 | Cache-hit price | API (`cached_prompt_text_token_price`) - converted |
 | Output price | API (`completion_text_token_price`) - converted, set only when > 0 |
 | Owned by | API (`owned_by`) |
@@ -692,7 +690,7 @@ Image-generation models come from a separate listing, `GET /image-generation-mod
 | Max output tokens | Catalog (API does not report it) |
 | Reasoning | Catalog (OR-merged into live capabilities) |
 
-**Pricing conversion:** xAI reports prices in cents per 100 million tokens. Conversion: `$per_1M = cents_per_100M / 100`.
+**Pricing conversion:** xAI reports prices in cents per 100 million tokens, so `20000` is $2 per 1M. Conversion: `$per_1M = cents_per_100M / 10000` (one factor of 100 for cents, one for the token scale). A conversion short by the second factor once metered every xAI request at 100x its list price.
 
 ### OpenRouter
 
@@ -770,9 +768,9 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 
 **Model filtering:** Only models supporting `generateContent` or `embedContent` are included. AQA-only models are excluded. A shipped retired-model list (`catalogs/google_retired.json`) is filtered out on top of that.
 
-**The retired list.** Google publishes shutdown dates as the *earliest possible* date and does not always prune its own listing on time: it kept `gemini-2.0-flash` listed for two months after retirement. Neither the listing nor the date can be trusted alone, so the file holds ids that were each confirmed to answer a real request with `404 This model is no longer available`. Without the filter those models are upserted as enabled, offered to callers, and fail every request. Dropping only their pricing entry would not help, since an absent pricing entry just skips price enrichment. The list currently holds the four `gemini-2.0-flash` and `gemini-2.0-flash-lite` ids, stored without the `models/` prefix.
+**The retired list.** Google publishes shutdown dates as the *earliest possible* date and does not always prune its own listing on time: it kept `gemini-2.0-flash` listed for two months after retirement. Neither the listing nor the date can be trusted alone, so the file holds ids that were each confirmed to answer a real request with `404 This model is no longer available`. Without the filter those models are upserted as enabled, offered to callers, and fail every request. The list currently holds the four `gemini-2.0-flash` and `gemini-2.0-flash-lite` ids, stored without the `models/` prefix.
 
-**Pricing.** `catalogs/google.json` ships empty. Google prices come from models.dev's canonical `google` entry; the file stays as an override channel for a price models.dev has not caught up with.
+**Pricing.** Google prices come from models.dev's canonical `google` entry; there is no Google price catalog.
 
 **Auth:** Discovery sends the key in the `x-goog-api-key` header (native API). Proxy uses `Authorization: Bearer API_KEY` (OpenAI-compatible endpoint). Google API keys are simple alphanumeric strings starting with `AIzaSy...`.
 

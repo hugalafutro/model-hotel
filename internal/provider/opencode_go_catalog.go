@@ -8,10 +8,8 @@ var opencodeGoCatalog = loadCatalog[[]OpenCodeModelSpec]("opencode_go.json")
 // at models.dev's per-token rates, the shadow cost that Go's dollar-based
 // quotas ($/5h, $/week, $/month) burn per request.
 //
-// Any future override row must state real prices: OpenCodeCatalogToModel
-// materializes the price fields unconditionally, so a row added to fix, say,
-// a context length would silently pin input/output price at $0 and the model
-// would meter free.
+// A future override row for, say, a context length can omit the price fields:
+// OpenCodeCatalogToModel leaves an absent price unset for models.dev to fill.
 func GetOpenCodeGoCatalog() []OpenCodeModelSpec {
 	return opencodeGoCatalog
 }
