@@ -524,3 +524,44 @@ func scheduledDisableLoop(ctx, drainCtx context.Context, providerRepo *provider.
 	sweep()
 	every(ctx, tick, sweep)
 }
+
+// modelsDevRetryDelays paces the retries of a models.dev catalogue load that
+// failed at startup: quick at first, since a resolver hiccup clears in
+// seconds, then backing off so a models.dev outage costs one request every
+// fifteen minutes. The last delay repeats until the load succeeds.
+var modelsDevRetryDelays = []time.Duration{time.Minute, 2 * time.Minute, 4 * time.Minute, 8 * time.Minute, 15 * time.Minute}
+
+// modelsDevLoadTimeout bounds one catalogue fetch, at startup and on retry, so
+// a slow or unreachable models.dev never blocks startup for long.
+const modelsDevLoadTimeout = 15 * time.Second
+
+// modelsDevRetryLoop keeps trying to load the models.dev catalogue until one
+// attempt succeeds or ctx ends. The embedded catalogs are overrides only, so a
+// process whose startup fetch failed would otherwise run without prices or
+// metadata for every uncatalogued model until its next restart; the
+// discovery paths read the cache on each scan, so the first scan after a
+// successful retry is enriched again.
+func modelsDevRetryLoop(ctx context.Context, load func(context.Context) error, delays []time.Duration) {
+	if len(delays) == 0 {
+		return
+	}
+	for attempt := 1; ; attempt++ {
+		delay := delays[min(attempt, len(delays))-1]
+		select {
+		case <-ctx.Done():
+			return
+		case <-time.After(delay):
+		}
+		attemptCtx, cancel := context.WithTimeout(ctx, modelsDevLoadTimeout)
+		err := load(attemptCtx)
+		cancel()
+		if err == nil {
+			debuglog.Info("modelsdev: catalogue loaded on retry", "attempt", attempt)
+			return
+		}
+		if ctx.Err() != nil {
+			return
+		}
+		debuglog.Warn("modelsdev: retry failed to load catalogue", "attempt", attempt, "next_retry", delays[min(attempt+1, len(delays))-1].String(), "error", err)
+	}
+}
