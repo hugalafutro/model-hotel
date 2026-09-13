@@ -990,10 +990,10 @@ func TestRunMigration_InvalidSQL(t *testing.T) {
 	}
 }
 
-// TestRunMigration_RecordInsertError tests that runMigration returns an error
+// TestRunMigration_CancelledContext tests that runMigration returns an error
 // when the transaction cannot proceed after Begin: a cancelled context fails
 // the ledger read, the first statement inside it.
-func TestRunMigration_RecordInsertError(t *testing.T) {
+func TestRunMigration_CancelledContext(t *testing.T) {
 	ctx := context.Background()
 	testURL, err := SetupTestDB("db_record_insert_err")
 	if err != nil {
