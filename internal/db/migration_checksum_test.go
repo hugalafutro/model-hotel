@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"log/slog"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -87,4 +88,91 @@ func TestRunMigration_Checksum(t *testing.T) {
 	if got := stored(); got == nil || *got != migrationChecksum("SELECT 1") {
 		t.Fatalf("checksum after adoption = %v, want the hash of the current text", got)
 	}
+}
+
+// TestRunMigration_ChecksumErrors reaches the three failure exits of the
+// verify path without a production seam: the ledger read times out behind an
+// ACCESS EXCLUSIVE lock held by another transaction, and the checksum write
+// and then its commit fail on a trigger that raises for the probe row only.
+func TestRunMigration_ChecksumErrors(t *testing.T) {
+	ctx := context.Background()
+	const name = "zz_checksum_error_probe.sql"
+	if _, err := testPool.Exec(ctx, `INSERT INTO schema_migrations (name, checksum) VALUES ($1, 'stale')`, name); err != nil {
+		t.Fatalf("seed ledger row: %v", err)
+	}
+	t.Cleanup(func() {
+		for _, stmt := range []string{
+			`DROP TRIGGER IF EXISTS zz_checksum_probe_update ON schema_migrations`,
+			`DROP TRIGGER IF EXISTS zz_checksum_probe_commit ON schema_migrations`,
+			`DROP FUNCTION IF EXISTS zz_checksum_probe_fail()`,
+			`DELETE FROM schema_migrations WHERE name = 'zz_checksum_error_probe.sql'`,
+		} {
+			if _, err := testPool.Exec(context.Background(), stmt); err != nil {
+				t.Errorf("cleanup %q: %v", stmt, err)
+			}
+		}
+	})
+	expect := func(step string, err error, want string) {
+		t.Helper()
+		if err == nil || !strings.Contains(err.Error(), want) {
+			t.Fatalf("%s: err = %v, want one containing %q", step, err, want)
+		}
+	}
+
+	// The ledger read: a one-connection pool with a statement timeout, built
+	// before the lock so its own startup migrations pass, then blocked on the
+	// SELECT by an exclusive lock another transaction holds.
+	u, err := url.Parse(testDBURL)
+	if err != nil {
+		t.Fatalf("parse test URL: %v", err)
+	}
+	q := u.Query()
+	q.Set("statement_timeout", "250")
+	u.RawQuery = q.Encode()
+	timed, err := New(ctx, u.String(), 1, 1)
+	if err != nil {
+		t.Fatalf("open timed pool: %v", err)
+	}
+	defer timed.Close()
+	lock, err := testPool.Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin lock tx: %v", err)
+	}
+	if _, err := lock.Exec(ctx, `LOCK TABLE schema_migrations IN ACCESS EXCLUSIVE MODE`); err != nil {
+		t.Fatalf("lock ledger: %v", err)
+	}
+	_, err = timed.runMigration(ctx, name, "SELECT 1")
+	if rbErr := lock.Rollback(ctx); rbErr != nil {
+		t.Fatalf("release lock: %v", rbErr)
+	}
+	expect("read behind a lock", err, "failed to check migration status")
+
+	// The checksum write: a row trigger that refuses the probe row's UPDATE.
+	if _, err := testPool.Exec(ctx, `
+		CREATE FUNCTION zz_checksum_probe_fail() RETURNS trigger LANGUAGE plpgsql AS $$
+		BEGIN RAISE EXCEPTION 'probe refuses'; END $$`); err != nil {
+		t.Fatalf("create trigger function: %v", err)
+	}
+	if _, err := testPool.Exec(ctx, `
+		CREATE TRIGGER zz_checksum_probe_update BEFORE UPDATE ON schema_migrations
+		FOR EACH ROW WHEN (NEW.name = 'zz_checksum_error_probe.sql')
+		EXECUTE FUNCTION zz_checksum_probe_fail()`); err != nil {
+		t.Fatalf("create update trigger: %v", err)
+	}
+	_, err = testDB.runMigration(ctx, name, "SELECT 1")
+	expect("refused update", err, "failed to record migration checksum")
+	if _, err := testPool.Exec(ctx, `DROP TRIGGER zz_checksum_probe_update ON schema_migrations`); err != nil {
+		t.Fatalf("drop update trigger: %v", err)
+	}
+
+	// The commit: the same refusal deferred to commit time, so the UPDATE
+	// itself succeeds and the transaction fails when it closes.
+	if _, err := testPool.Exec(ctx, `
+		CREATE CONSTRAINT TRIGGER zz_checksum_probe_commit AFTER UPDATE ON schema_migrations
+		DEFERRABLE INITIALLY DEFERRED FOR EACH ROW WHEN (NEW.name = 'zz_checksum_error_probe.sql')
+		EXECUTE FUNCTION zz_checksum_probe_fail()`); err != nil {
+		t.Fatalf("create commit trigger: %v", err)
+	}
+	_, err = testDB.runMigration(ctx, name, "SELECT 1")
+	expect("refused commit", err, "failed to commit migration checksum")
 }

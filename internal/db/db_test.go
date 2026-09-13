@@ -16,6 +16,10 @@ import (
 var testPool *pgxpool.Pool
 var testDB *DB
 
+// testDBURL is the package test database's URL, for tests that need a second
+// pool with different connection settings.
+var testDBURL string
+
 // mockMigrationsFS is a test implementation of fs.FS for testing migration errors.
 type mockMigrationsFS struct {
 	readDirFn  func(name string) ([]fs.DirEntry, error)
@@ -61,6 +65,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	testPool = testDB.Pool()
+	testDBURL = testURL
 	defer testDB.Close()
 
 	os.Exit(m.Run())
