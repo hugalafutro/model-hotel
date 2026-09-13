@@ -25,6 +25,9 @@ func TestCostUSD(t *testing.T) {
 		{"no cache split", priced, Usage{Prompt: 1_000_000, Completion: 500_000}, 1 + 2, true},
 		{"reasoning takes the output price", priced, Usage{Prompt: 1_000_000, Completion: 250_000, Reasoning: 250_000}, 1 + 2, true},
 		{"cache hit takes the cache price", priced, Usage{Prompt: 1_000_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000}, 0.08 + 0.2, true},
+		// A walked group's rejected prompts sit outside the serving candidate's
+		// split; they take the input price rather than pricing to nothing.
+		{"prompt beyond the cache split", priced, Usage{Prompt: 1_500_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000}, 0.08 + 0.2 + 0.5, true},
 		// A split with no cache-hit price falls back to the whole prompt at the
 		// input price rather than pricing the hit tokens at nothing.
 		{"cache hit without a cache price", noCache, Usage{Prompt: 1_000_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000}, 1, true},

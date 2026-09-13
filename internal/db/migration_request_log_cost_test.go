@@ -29,8 +29,13 @@ func TestRequestLogCostMigrationBackfills(t *testing.T) {
 		t.Fatalf("seed provider: %v", err)
 	}
 	t.Cleanup(func() {
-		_, _ = testPool.Exec(context.Background(), `DELETE FROM request_logs WHERE model_id LIKE 'cost-%' OR model_id = 'hotel/cost-group'`)
-		_, _ = testPool.Exec(context.Background(), `DELETE FROM providers WHERE id = $1`, providerID)
+		if _, err := testPool.Exec(context.Background(), `DELETE FROM request_logs WHERE model_id LIKE 'cost-%' OR model_id = 'hotel/cost-group'`); err != nil {
+			t.Errorf("cleanup request logs: %v", err)
+		}
+		// Cascades to the seeded models.
+		if _, err := testPool.Exec(context.Background(), `DELETE FROM providers WHERE id = $1`, providerID); err != nil {
+			t.Errorf("cleanup provider: %v", err)
+		}
 	})
 
 	if _, err := testPool.Exec(ctx, `
@@ -46,6 +51,7 @@ func TestRequestLogCostMigrationBackfills(t *testing.T) {
 		INSERT INTO request_logs (model_id, resolved_model_id, provider_id, tokens_prompt, tokens_prompt_cache_hit, tokens_prompt_cache_miss, tokens_completion, tokens_completion_reasoning, cost_usd) VALUES
 		('cost-cached',       '',            $1,   1000000, 800000, 200000, 250000, 250000, NULL),
 		('cost-plain',        '',            $1,   1000000, 800000, 200000, 500000, 0,      NULL),
+		('cost-walked',       'cost-cached', $1,   1500000, 800000, 200000, 250000, 250000, NULL),
 		('hotel/cost-group',  'cost-cached', $1,   1000000, 0,      0,      500000, 0,      NULL),
 		('cost-free',         '',            $1,   1000000, 0,      0,      500000, 0,      NULL),
 		('cost-unpriced',     '',            $1,   1000000, 0,      0,      500000, 0,      NULL),
@@ -74,6 +80,9 @@ func TestRequestLogCostMigrationBackfills(t *testing.T) {
 		{"cost-cached", 2.28},
 		// No cache-hit price: the whole prompt takes the input price.
 		{"cost-plain", 3},
+		// Prompt beyond the split (a walked group's rejected candidates) takes
+		// the input price: 2.28 + 0.5M at $1.
+		{"cost-walked", 2.78},
 		// The group's resolved member is what gets priced, not the group name.
 		{"hotel/cost-group", 3},
 		{"cost-free", 0},

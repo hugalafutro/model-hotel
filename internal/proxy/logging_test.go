@@ -554,8 +554,9 @@ func TestNewPendingRequestLog_StampsClientIP(t *testing.T) {
 
 // TestUpdateRequestLog_StampsCost covers the cost the terminal write prices
 // from the served model: a priced model yields the row's cost at its prices,
-// while a row with no served model, the shape of an exhausted group, stays
-// NULL rather than reading as free.
+// an unpriced model and a row never dispatched to any candidate stay NULL
+// rather than reading as free, and a dispatched request that charged nothing
+// prices to 0.
 func TestUpdateRequestLog_StampsCost(t *testing.T) {
 	h := newIntegrationHandler()
 	ctx := context.Background()
@@ -607,10 +608,20 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 		t.Errorf("unpriced model cost_usd = %v, want NULL", *got)
 	}
 
-	unserved := newRow()
-	unserved.state = "failed"
-	h.updateRequestLog(unserved)
-	if got := readCost(unserved.id); got != nil {
-		t.Errorf("unserved request cost_usd = %v, want NULL", *got)
+	undispatched := newRow()
+	undispatched.state = "failed"
+	h.updateRequestLog(undispatched)
+	if got := readCost(undispatched.id); got != nil {
+		t.Errorf("undispatched request cost_usd = %v, want NULL", *got)
+	}
+
+	nothingCharged := newRow()
+	nothingCharged.tokensPrompt, nothingCharged.tokensPromptCacheHit, nothingCharged.tokensPromptCacheMiss = 0, 0, 0
+	nothingCharged.tokensCompletion, nothingCharged.tokensCompletionReasoning = 0, 0
+	nothingCharged.servedModel = priced.servedModel
+	nothingCharged.state = "failed"
+	h.updateRequestLog(nothingCharged)
+	if got := readCost(nothingCharged.id); got == nil || *got != 0 {
+		t.Errorf("dispatched request that charged nothing cost_usd = %v, want 0", got)
 	}
 }

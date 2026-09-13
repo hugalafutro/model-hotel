@@ -197,9 +197,12 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 		attempts = json.RawMessage(b)
 	}
 
-	// NULL when no provider served the request or the model is unpriced, so
-	// "unknown" never reads as "free". Priced at what the served model carried
-	// when this row was written; a later price edit leaves history alone.
+	// NULL when the request never reached a provider or the model is unpriced,
+	// so "unknown" never reads as "free". Priced at what the last dispatched
+	// model carried when this row was written; a later price edit leaves
+	// history alone. One model prices the whole row: a prompt a walked group
+	// charged for a rejected earlier candidate takes the final candidate's
+	// prices, not the prices of the member that billed it.
 	var cost any
 	if c, ok := logEntry.servedModel.CostUSD(model.Usage{
 		Prompt:          logEntry.tokensPrompt,

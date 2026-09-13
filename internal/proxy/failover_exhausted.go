@@ -52,7 +52,6 @@ func (h *Handler) failAllExhausted(w http.ResponseWriter, st *requestState, numC
 		w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(st.rateLimit.retryAfter)))
 	}
 	st.logData.providerID = uuid.Nil
-	st.logData.servedModel = nil
 	h.failRequest(st.logData, status, last.Kind, logMsg, numCandidates-1, st.startTime, st.parseMs, st.timings, st.cacheHits, st.proxyOverhead)
 	writeOpenAIError(w, clientMsg, status)
 }
