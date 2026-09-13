@@ -403,6 +403,7 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	logData := st.logData
 	logData.providerID = candidate.provider.ID
 	logData.providerName = candidate.provider.Name
+	logData.servedModel = candidate.model
 	logData.masker = newCredentialMasker(candidate.apiKey)
 	// The attempt trail's record for this candidate opens here, before
 	// admission: a busy skip is an attempt the operator wants to see too.

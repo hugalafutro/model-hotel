@@ -47,6 +47,7 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `tokens_completion_reasoning` | INT | Reasoning tokens (DeepSeek-R1, etc.). Written to DB and exposed in Logs API. |
 | `tokens_prompt_cache_hit` | INT NOT NULL | Prompt cache hit tokens (DeepSeek). Defaults to 0. |
 | `tokens_prompt_cache_miss` | INT NOT NULL | Prompt cache miss tokens (DeepSeek). Defaults to 0. |
+| `cost_usd` | DOUBLE PRECISION | What the request cost in US dollars at the prices the serving model carried when the row was written (migration 085). Cache-hit tokens take the model's cache-hit price when it has one, completion and reasoning tokens the output price. NULL when no provider served the request or the model holds no input or output price; a free model prices to 0. |
 | `owner_user_id` | UUID | Owning dashboard user, stored **only** for keyless rows (dashboard chat/arena); keyed rows resolve their owner through the key's current owner instead (migration 067) |
 | `client_ip` | TEXT | Trusted-proxy-resolved client address, written at INSERT time (migration 073). NULL on rows predating the column. Shown in the dashboard Logs IP column and detail modal; see [Privacy](Privacy#ip-address-handling). |
 | `created_at` | TIMESTAMPTZ | When the request was inserted (defaults to `now()`) |
@@ -427,6 +428,7 @@ The `request_logs` table has evolved through these migrations:
 | `012_add_virtual_key_id_to_request_logs.sql` | Added: `virtual_key_id` |
 | `013_backfill_virtual_key_id.sql` | Backfilled `virtual_key_id` for existing logs with matching `virtual_key_name` |
 | `017_deepseek_pricing.sql` | Added: `tokens_prompt_cache_hit`, `tokens_prompt_cache_miss` (NOT NULL, default 0) |
+| `085_request_log_cost.sql` | Added: `cost_usd`; backfilled existing rows at their serving model's current prices (an estimate, since older prices are not kept) |
 | `020_log_state_column.sql` | Added: `state` with default `'pending'`, backfilled existing rows |
 | `024_cleanup_stale_logs.sql` | One-time cleanup of rows stuck in `pending`/`streaming` state |
 | `027_drop_unused_prompt_column.sql` | Dropped `prompt` column (never written to) |

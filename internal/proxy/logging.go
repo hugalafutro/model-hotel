@@ -14,6 +14,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
+	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -196,6 +197,20 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 		attempts = json.RawMessage(b)
 	}
 
+	// NULL when no provider served the request or the model is unpriced, so
+	// "unknown" never reads as "free". Priced at what the served model carried
+	// when this row was written; a later price edit leaves history alone.
+	var cost any
+	if c, ok := logEntry.servedModel.CostUSD(model.Usage{
+		Prompt:          logEntry.tokensPrompt,
+		PromptCacheHit:  logEntry.tokensPromptCacheHit,
+		PromptCacheMiss: logEntry.tokensPromptCacheMiss,
+		Completion:      logEntry.tokensCompletion,
+		Reasoning:       logEntry.tokensCompletionReasoning,
+	}); ok {
+		cost = c
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
@@ -228,7 +243,8 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 			state = $20,
 			resolved_model_id = $26,
 			error_kind = $28,
-			attempts = $29
+			attempts = $29,
+			cost_usd = $30
 		WHERE id = $1`,
 		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
 		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.failoverLookupMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
@@ -236,7 +252,7 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
 		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
 		logEntry.dialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning, logEntry.ttftMs,
-		logEntry.resolvedModelID, logEntry.cacheHits, errKind, attempts,
+		logEntry.resolvedModelID, logEntry.cacheHits, errKind, attempts, cost,
 	)
 	if err != nil {
 		return 0, err

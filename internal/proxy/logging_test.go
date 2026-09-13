@@ -11,6 +11,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/events"
+	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
@@ -548,5 +549,68 @@ func TestNewPendingRequestLog_StampsClientIP(t *testing.T) {
 	logData, _ := h.newPendingRequestLog(req, endpointTypeChat, "gpt-4", false)
 	if logData.clientIP != "198.51.100.7" {
 		t.Errorf("clientIP = %q, want 198.51.100.7", logData.clientIP)
+	}
+}
+
+// TestUpdateRequestLog_StampsCost covers the cost the terminal write prices
+// from the served model: a priced model yields the row's cost at its prices,
+// while a row with no served model, the shape of an exhausted group, stays
+// NULL rather than reading as free.
+func TestUpdateRequestLog_StampsCost(t *testing.T) {
+	h := newIntegrationHandler()
+	ctx := context.Background()
+	f := func(v float64) *float64 { return &v }
+
+	readCost := func(id string) *float64 {
+		t.Helper()
+		var cost *float64
+		if err := h.dbPool.QueryRow(ctx, `SELECT cost_usd FROM request_logs WHERE id = $1`, id).Scan(&cost); err != nil {
+			t.Fatalf("read cost_usd: %v", err)
+		}
+		return cost
+	}
+	newRow := func() *requestLogData {
+		logEntry := &requestLogData{
+			modelID:               uuid.NewString(),
+			virtualKeyName:        "cost-key",
+			virtualKeyID:          uuid.NewString(),
+			state:                 "pending",
+			tokensPrompt:          1_000_000,
+			tokensPromptCacheHit:  800_000,
+			tokensPromptCacheMiss: 200_000,
+			tokensCompletion:      250_000,
+			// Reasoning is priced as output too, the way tokens_used meters it.
+			tokensCompletionReasoning: 250_000,
+		}
+		h.insertRequestLogAsync(logEntry)
+		h.WaitForInsert(logEntry)
+		t.Cleanup(func() {
+			_, _ = h.dbPool.Exec(context.Background(), `DELETE FROM request_logs WHERE id = $1`, logEntry.id)
+		})
+		return logEntry
+	}
+
+	priced := newRow()
+	priced.servedModel = &model.Model{InputPricePerMillion: f(1), InputPricePerMillionCacheHit: f(0.1), OutputPricePerMillion: f(4)}
+	priced.state = "completed"
+	h.updateRequestLog(priced)
+	// 0.8M hits at $0.1 + 0.2M misses at $1 + 0.5M output at $4.
+	if got := readCost(priced.id); got == nil || *got < 2.28-1e-9 || *got > 2.28+1e-9 {
+		t.Errorf("priced cost_usd = %v, want 2.28", got)
+	}
+
+	unpriced := newRow()
+	unpriced.servedModel = &model.Model{InputPricePerMillion: f(1)}
+	unpriced.state = "completed"
+	h.updateRequestLog(unpriced)
+	if got := readCost(unpriced.id); got != nil {
+		t.Errorf("unpriced model cost_usd = %v, want NULL", *got)
+	}
+
+	unserved := newRow()
+	unserved.state = "failed"
+	h.updateRequestLog(unserved)
+	if got := readCost(unserved.id); got != nil {
+		t.Errorf("unserved request cost_usd = %v, want NULL", *got)
 	}
 }
