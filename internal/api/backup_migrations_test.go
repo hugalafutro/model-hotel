@@ -143,10 +143,10 @@ func TestParseMigrationNamesFromSQL(t *testing.T) {
 -- PostgreSQL database dump
 --
 
-COPY public.schema_migrations (id, name, applied_at) FROM stdin;
-1	001_init.sql	2026-05-09 18:26:13.624791+00
-2	002_model_seen_and_settings.sql	2026-05-09 18:26:13.684247+00
-3	003_model_details.sql	2026-05-09 18:26:13.694107+00
+COPY public.schema_migrations (id, name, applied_at, checksum) FROM stdin;
+1	001_init.sql	2026-05-09 18:26:13.624791+00	\N
+2	002_model_seen_and_settings.sql	2026-05-09 18:26:13.684247+00	\N
+3	003_model_details.sql	2026-05-09 18:26:13.694107+00	9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08
 \.
 
 -- Done

@@ -16,6 +16,10 @@ import (
 var testPool *pgxpool.Pool
 var testDB *DB
 
+// testDBURL is the package test database's URL, for tests that need a second
+// pool with different connection settings.
+var testDBURL string
+
 // mockMigrationsFS is a test implementation of fs.FS for testing migration errors.
 type mockMigrationsFS struct {
 	readDirFn  func(name string) ([]fs.DirEntry, error)
@@ -61,6 +65,7 @@ func TestMain(m *testing.M) {
 		os.Exit(1)
 	}
 	testPool = testDB.Pool()
+	testDBURL = testURL
 	defer testDB.Close()
 
 	os.Exit(m.Run())
@@ -192,6 +197,23 @@ func TestRunMigrationsIdempotent(t *testing.T) {
 	// Run migrations a second time directly; they should all be skipped.
 	if err := d.runMigrations(ctx); err != nil {
 		t.Fatalf("second runMigrations call failed: %v", err)
+	}
+
+	// A ledger from before checksums existed, or restored from a dump of one:
+	// the column comes back on the next run and its rows adopt the current
+	// files without a warning.
+	if _, err := d.pool.Exec(ctx, `ALTER TABLE schema_migrations DROP COLUMN checksum`); err != nil {
+		t.Fatalf("drop checksum column: %v", err)
+	}
+	if err := d.runMigrations(ctx); err != nil {
+		t.Fatalf("runMigrations on a ledger without the checksum column failed: %v", err)
+	}
+	var unhashed int
+	if err := d.pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations WHERE checksum IS NULL`).Scan(&unhashed); err != nil {
+		t.Fatalf("count unhashed rows: %v", err)
+	}
+	if unhashed != 0 {
+		t.Errorf("%d ledger rows still without a checksum after the column was re-added", unhashed)
 	}
 }
 
@@ -968,10 +990,10 @@ func TestRunMigration_InvalidSQL(t *testing.T) {
 	}
 }
 
-// TestRunMigration_RecordInsertError tests that runMigration returns an error
-// when the INSERT INTO schema_migrations fails (e.g., duplicate migration name
-// that wasn't caught by the SELECT EXISTS check due to a race).
-func TestRunMigration_RecordInsertError(t *testing.T) {
+// TestRunMigration_CancelledContext tests that runMigration returns an error
+// when the transaction cannot proceed after Begin: a cancelled context fails
+// the ledger read, the first statement inside it.
+func TestRunMigration_CancelledContext(t *testing.T) {
 	ctx := context.Background()
 	testURL, err := SetupTestDB("db_record_insert_err")
 	if err != nil {

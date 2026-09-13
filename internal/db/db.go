@@ -3,7 +3,9 @@ package db
 
 import (
 	"context"
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -145,10 +147,31 @@ func (db *DB) runMigrations(ctx context.Context) error {
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			id SERIAL PRIMARY KEY,
 			name TEXT NOT NULL UNIQUE,
-			applied_at TIMESTAMPTZ DEFAULT now()
+			applied_at TIMESTAMPTZ DEFAULT now(),
+			checksum TEXT
 		)
 	`); err != nil {
 		return fmt.Errorf("failed to create schema_migrations table: %w", err)
+	}
+	// A ledger created before the checksum column existed, or restored from a
+	// dump of one, gets the column here rather than from a numbered migration:
+	// the ledger has to be complete before any migration runs. Probed before it
+	// is added, because ALTER TABLE takes an exclusive lock before it finds the
+	// column already there, and a start during a running backup would wait on
+	// the dump.
+	var hasChecksum bool
+	if err := db.pool.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM information_schema.columns
+			WHERE table_schema = current_schema() AND table_name = 'schema_migrations' AND column_name = 'checksum'
+		)
+	`).Scan(&hasChecksum); err != nil {
+		return fmt.Errorf("failed to inspect schema_migrations: %w", err)
+	}
+	if !hasChecksum {
+		if _, err := db.pool.Exec(ctx, `ALTER TABLE schema_migrations ADD COLUMN IF NOT EXISTS checksum TEXT`); err != nil {
+			return fmt.Errorf("failed to add schema_migrations.checksum: %w", err)
+		}
 	}
 
 	var applied, skipped int
@@ -183,6 +206,13 @@ func (db *DB) runMigrations(ctx context.Context) error {
 	return nil
 }
 
+// migrationChecksum is the hex SHA-256 of a migration file's text, the form
+// schema_migrations.checksum stores.
+func migrationChecksum(sql string) string {
+	sum := sha256.Sum256([]byte(sql))
+	return hex.EncodeToString(sum[:])
+}
+
 func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) {
 	tx, err := db.pool.Begin(ctx)
 	if err != nil {
@@ -190,20 +220,19 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// SELECT EXISTS always returns exactly one row, so a miss is not a
-	// possibility here: any error is a real failure.
-	var applied bool
-	if err := tx.QueryRow(ctx, `
-		SELECT EXISTS (
-			SELECT 1 FROM schema_migrations WHERE name = $1
-		)
-	`, name).Scan(&applied); err != nil {
-		return false, fmt.Errorf("failed to check migration status: %w", err)
-	}
+	checksum := migrationChecksum(sql)
 
-	if applied {
-		debuglog.Debug("db: Migration already applied, skipping", "name", name)
-		return false, nil
+	// A row means applied; its checksum says which text was applied. NULL is a
+	// row written before checksums were recorded and adopts the current file
+	// silently, since there is nothing to compare it against.
+	var stored *string
+	err = tx.QueryRow(ctx, `SELECT checksum FROM schema_migrations WHERE name = $1`, name).Scan(&stored)
+	switch {
+	case errors.Is(err, pgx.ErrNoRows):
+	case err != nil:
+		return false, fmt.Errorf("failed to check migration status: %w", err)
+	default:
+		return false, verifyAppliedMigration(ctx, tx, name, stored, checksum)
 	}
 
 	debuglog.Info("db: Applying migration", "name", name)
@@ -213,8 +242,8 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) 
 	}
 
 	_, err = tx.Exec(ctx, `
-		INSERT INTO schema_migrations (name) VALUES ($1)
-	`, name)
+		INSERT INTO schema_migrations (name, checksum) VALUES ($1, $2)
+	`, name, checksum)
 	if err != nil {
 		return false, fmt.Errorf("failed to record migration: %w", err)
 	}
@@ -225,6 +254,32 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) 
 
 	debuglog.Info("db: Successfully applied migration", "name", name)
 	return true, nil
+}
+
+// verifyAppliedMigration handles a migration the ledger already holds. The
+// stored checksum stays what was applied: when the file's text no longer
+// matches it, every start warns and none re-runs it, since the database holds
+// the old text's effect and only a new migration can change that. Restoring
+// the file is what ends the warning. A NULL checksum, recorded before
+// checksums existed, adopts the current text without a warning.
+func verifyAppliedMigration(ctx context.Context, tx pgx.Tx, name string, stored *string, checksum string) error {
+	switch {
+	case stored == nil:
+	case *stored == checksum:
+		debuglog.Debug("db: Migration already applied, skipping", "name", name)
+		return nil
+	default:
+		debuglog.Warn("db: migration file changed after it was applied; the database holds the effect of the old text and this start does not re-run it", "name", name, "applied_checksum", *stored, "file_checksum", checksum)
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `UPDATE schema_migrations SET checksum = $2 WHERE name = $1`, name, checksum); err != nil {
+		return fmt.Errorf("failed to record migration checksum: %w", err)
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return fmt.Errorf("failed to commit migration checksum: %w", err)
+	}
+	debuglog.Debug("db: Migration already applied, checksum recorded", "name", name)
+	return nil
 }
 
 // waitForReadyInterval is the time between readiness check attempts.
