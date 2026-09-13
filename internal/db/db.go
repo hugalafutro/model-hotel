@@ -147,22 +147,23 @@ func (db *DB) runMigrations(ctx context.Context) error {
 		CREATE TABLE IF NOT EXISTS schema_migrations (
 			id SERIAL PRIMARY KEY,
 			name TEXT NOT NULL UNIQUE,
-			applied_at TIMESTAMPTZ DEFAULT now()
+			applied_at TIMESTAMPTZ DEFAULT now(),
+			checksum TEXT
 		)
 	`); err != nil {
 		return fmt.Errorf("failed to create schema_migrations table: %w", err)
 	}
-	// The checksum column is the ledger's own and lives here rather than in a
-	// numbered migration: the ledger has to exist before any migration runs,
-	// and a restored dump from a binary that predates the column gets it back
-	// on the next start the same way. Probed before it is added, because ALTER
-	// TABLE takes an exclusive lock before it finds the column already there,
-	// and a start during a running backup would wait on the dump.
+	// A ledger created before the checksum column existed, or restored from a
+	// dump of one, gets the column here rather than from a numbered migration:
+	// the ledger has to be complete before any migration runs. Probed before it
+	// is added, because ALTER TABLE takes an exclusive lock before it finds the
+	// column already there, and a start during a running backup would wait on
+	// the dump.
 	var hasChecksum bool
 	if err := db.pool.QueryRow(ctx, `
 		SELECT EXISTS (
 			SELECT 1 FROM information_schema.columns
-			WHERE table_name = 'schema_migrations' AND column_name = 'checksum'
+			WHERE table_schema = current_schema() AND table_name = 'schema_migrations' AND column_name = 'checksum'
 		)
 	`).Scan(&hasChecksum); err != nil {
 		return fmt.Errorf("failed to inspect schema_migrations: %w", err)
@@ -255,17 +256,20 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) 
 	return true, nil
 }
 
-// verifyAppliedMigration handles a migration the ledger already holds. When
-// the file's text no longer matches what was applied, it records the new
-// checksum and warns, so an edit to a shipped migration is named once per
-// database rather than failing startup: the database holds the old text's
-// effect and only a new migration can change that. Two binaries carrying
-// different texts and sharing one database name it on every alternation. A
-// NULL checksum, recorded before checksums existed, is adopted without a
-// warning.
+// verifyAppliedMigration handles a migration the ledger already holds. The
+// stored checksum stays what was applied: when the file's text no longer
+// matches it, every start warns and none re-runs it, since the database holds
+// the old text's effect and only a new migration can change that. Restoring
+// the file is what ends the warning. A NULL checksum, recorded before
+// checksums existed, adopts the current text without a warning.
 func verifyAppliedMigration(ctx context.Context, tx pgx.Tx, name string, stored *string, checksum string) error {
-	if stored != nil && *stored == checksum {
+	switch {
+	case stored == nil:
+	case *stored == checksum:
 		debuglog.Debug("db: Migration already applied, skipping", "name", name)
+		return nil
+	default:
+		debuglog.Warn("db: migration file changed after it was applied; the database holds the effect of the old text and this start does not re-run it", "name", name, "applied_checksum", *stored, "file_checksum", checksum)
 		return nil
 	}
 	if _, err := tx.Exec(ctx, `UPDATE schema_migrations SET checksum = $2 WHERE name = $1`, name, checksum); err != nil {
@@ -274,13 +278,7 @@ func verifyAppliedMigration(ctx context.Context, tx pgx.Tx, name string, stored 
 	if err := tx.Commit(ctx); err != nil {
 		return fmt.Errorf("failed to commit migration checksum: %w", err)
 	}
-	// Named after the record is durable: a start that fails to record it
-	// fails outright and names the edit again next time.
-	if stored == nil {
-		debuglog.Debug("db: Migration already applied, checksum recorded", "name", name)
-	} else {
-		debuglog.Warn("db: migration file changed after it was applied; the database holds the effect of the old text and this start does not re-run it", "name", name, "applied_checksum", *stored, "file_checksum", checksum)
-	}
+	debuglog.Debug("db: Migration already applied, checksum recorded", "name", name)
 	return nil
 }
 

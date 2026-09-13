@@ -13,9 +13,10 @@ import (
 
 // TestRunMigration_Checksum covers the ledger's checksum: applying a migration
 // records the hash of its text; a re-run with the same text is silent; a
-// re-run with different text is skipped, warned about once, and the new hash
-// recorded so the next start is silent again; a row recorded before checksums
-// existed (NULL) adopts the current text without a warning.
+// re-run with different text is skipped and warned about, on that start and
+// every later one, with the stored hash left as what was applied; a row
+// recorded before checksums existed (NULL) adopts the current text without a
+// warning.
 func TestRunMigration_Checksum(t *testing.T) {
 	ctx := context.Background()
 	const name = "zz_checksum_probe.sql"
@@ -72,12 +73,16 @@ func TestRunMigration_Checksum(t *testing.T) {
 	if !warned() {
 		t.Fatal("a re-run with changed text must warn")
 	}
-	if got := stored(); got == nil || *got != migrationChecksum(edited) {
-		t.Fatalf("checksum after drift = %v, want the hash of the current text", got)
+	if got := stored(); got == nil || *got != migrationChecksum("SELECT 1") {
+		t.Fatalf("checksum after drift = %v, want the hash of the applied text, untouched", got)
 	}
 	run(edited, false)
+	if !warned() {
+		t.Fatal("the drift must be named on every start until the file is restored")
+	}
+	run("SELECT 1", false)
 	if warned() {
-		t.Fatal("the drift must be named once, not on every start")
+		t.Fatal("restoring the file must end the warning")
 	}
 
 	if _, err := testPool.Exec(ctx, `UPDATE schema_migrations SET checksum = NULL WHERE name = $1`, name); err != nil {
@@ -94,12 +99,13 @@ func TestRunMigration_Checksum(t *testing.T) {
 
 // TestRunMigration_ChecksumErrors reaches the three failure exits of the
 // verify path without a production seam: the ledger read times out behind an
-// ACCESS EXCLUSIVE lock held by another transaction, and the checksum write
-// and then its commit fail on a trigger that raises for the probe row only.
+// ACCESS EXCLUSIVE lock held by another transaction, and the adoption write
+// for a NULL checksum, then its commit, fail on a trigger that raises for the
+// probe row only.
 func TestRunMigration_ChecksumErrors(t *testing.T) {
 	ctx := context.Background()
 	const name = "zz_checksum_error_probe.sql"
-	if _, err := testPool.Exec(ctx, `INSERT INTO schema_migrations (name, checksum) VALUES ($1, 'stale')`, name); err != nil {
+	if _, err := testPool.Exec(ctx, `INSERT INTO schema_migrations (name) VALUES ($1)`, name); err != nil {
 		t.Fatalf("seed ledger row: %v", err)
 	}
 	t.Cleanup(func() {
@@ -123,14 +129,14 @@ func TestRunMigration_ChecksumErrors(t *testing.T) {
 
 	// The ledger read: a one-connection pool with a statement timeout, built
 	// before the lock so its own startup migrations pass (the timeout governs
-	// those too, hence a second rather than milliseconds), then blocked on the
+	// those too, hence seconds rather than milliseconds), then blocked on the
 	// SELECT by an exclusive lock another transaction holds.
 	u, err := url.Parse(testDBURL)
 	if err != nil {
 		t.Fatalf("parse test URL: %v", err)
 	}
 	q := u.Query()
-	q.Set("statement_timeout", "1000")
+	q.Set("statement_timeout", "5000")
 	u.RawQuery = q.Encode()
 	timed, err := New(ctx, u.String(), 1, 1)
 	if err != nil {

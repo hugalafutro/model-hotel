@@ -198,6 +198,23 @@ func TestRunMigrationsIdempotent(t *testing.T) {
 	if err := d.runMigrations(ctx); err != nil {
 		t.Fatalf("second runMigrations call failed: %v", err)
 	}
+
+	// A ledger from before checksums existed, or restored from a dump of one:
+	// the column comes back on the next run and its rows adopt the current
+	// files without a warning.
+	if _, err := d.pool.Exec(ctx, `ALTER TABLE schema_migrations DROP COLUMN checksum`); err != nil {
+		t.Fatalf("drop checksum column: %v", err)
+	}
+	if err := d.runMigrations(ctx); err != nil {
+		t.Fatalf("runMigrations on a ledger without the checksum column failed: %v", err)
+	}
+	var unhashed int
+	if err := d.pool.QueryRow(ctx, `SELECT count(*) FROM schema_migrations WHERE checksum IS NULL`).Scan(&unhashed); err != nil {
+		t.Fatalf("count unhashed rows: %v", err)
+	}
+	if unhashed != 0 {
+		t.Errorf("%d ledger rows still without a checksum after the column was re-added", unhashed)
+	}
 }
 
 func TestMigrationSchemaTableExists(t *testing.T) {
@@ -974,8 +991,8 @@ func TestRunMigration_InvalidSQL(t *testing.T) {
 }
 
 // TestRunMigration_RecordInsertError tests that runMigration returns an error
-// when the INSERT INTO schema_migrations fails (e.g., duplicate migration name
-// that the ledger read did not see because of a race).
+// when the transaction cannot proceed after Begin: a cancelled context fails
+// the ledger read, the first statement inside it.
 func TestRunMigration_RecordInsertError(t *testing.T) {
 	ctx := context.Background()
 	testURL, err := SetupTestDB("db_record_insert_err")
