@@ -140,7 +140,7 @@ describe("MetricToggle spend", () => {
 	it("offers spend as a third metric", async () => {
 		const onChange = vi.fn();
 		render(<MetricToggle value="tokens" onChange={onChange} />);
-		await userEvent.click(screen.getByText("S"));
+		await userEvent.click(screen.getByText("$"));
 		expect(onChange).toHaveBeenCalledWith("cost");
 	});
 });

@@ -74,11 +74,12 @@ export function MetricToggle({
 	onChange: (v: MetricType) => void;
 }) {
 	const { t } = useTranslation();
-	// One letter each, the same in every language; the word rides the tooltip.
+	// One character each, the same in every language; the word rides the
+	// tooltip. Spend is the dollar sign because every price is in US dollars.
 	const labels: Record<MetricType, string> = {
 		tokens: "T",
 		requests: "R",
-		cost: "S",
+		cost: "$",
 	};
 	const titles: Record<MetricType, string> = {
 		tokens: t("dashboard.label.tokens"),
