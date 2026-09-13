@@ -518,6 +518,7 @@ func (h *Handler) serveHedgeWinner(w http.ResponseWriter, r *http.Request, st *r
 	logData := st.logData
 	logData.providerID = candidate.provider.ID
 	logData.providerName = candidate.provider.Name
+	logData.servedModel = candidate.model
 	logData.masker = newCredentialMasker(candidate.apiKey)
 	if st.isFailover {
 		logData.resolvedModelID = candidate.model.ModelID

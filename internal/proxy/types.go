@@ -129,6 +129,14 @@ type requestLogData struct {
 	streaming                 bool
 	virtualKeyName            string
 	virtualKeyID              string
+	// servedModel is the model row the request was last dispatched to, held so
+	// the terminal write can price the row at the figures the model carried
+	// then. Nil until a candidate is chosen, and kept through exhaustion: a
+	// walked group may have charged a rejected candidate's prompt onto this
+	// row, and that charge has a price even though no provider served. The
+	// cached row is replaced on invalidation, never edited in place, so the
+	// pointer is a snapshot.
+	servedModel *model.Model
 	// clientIP is the trusted-proxy-aware client address (internal/clientip),
 	// stamped when the pending row is created and persisted to
 	// request_logs.client_ip so key usage stays attributable for the whole

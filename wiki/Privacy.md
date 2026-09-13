@@ -46,6 +46,7 @@ The only information recorded per proxied request is strictly necessary for rout
 | Token counts | `tokens_prompt`, `tokens_completion` | Usage tracking and billing attribution (provider-reported) |
 | Reasoning tokens | `tokens_completion_reasoning` | Thinking tokens, which reasoning models report separately from visible output |
 | Token cache metrics | `tokens_prompt_cache_hit`, `tokens_prompt_cache_miss` | Cache efficiency tracking (provider-reported) |
+| Cost | `cost_usd` | Token counts priced at the serving model's stored prices; derived from the counts above, never from content |
 | Tokens per second | `tokens_per_second` | Performance metric (completion tokens / total duration) |
 | Time-to-first-token | `ttft_ms` | Performance monitoring |
 | Time-to-response-headers | `response_header_ms` | Performance monitoring (upstream HTTP headers received) |

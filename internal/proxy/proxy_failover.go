@@ -423,6 +423,10 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 		logData.closeAttemptRecord(0, KindProviderSaturated, "at in-flight limit", "", 0)
 		return nil, "", "", true, false
 	}
+	// Stamped after admission: a candidate skipped at its in-flight limit was
+	// never dispatched, so a request every candidate skips keeps a NULL cost
+	// rather than pricing to 0.
+	logData.servedModel = candidate.model
 	if attempt == 0 {
 		debuglog.Info("proxy: routing to provider", "endpoint", logData.endpointType, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", totalCandidates)
 	} else {

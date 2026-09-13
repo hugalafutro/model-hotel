@@ -44,9 +44,10 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `tokens_per_second` | DOUBLE PRECISION | Streaming throughput (`completion_tokens / generation_duration × 1000`) |
 | `tokens_prompt` | INT | Number of prompt tokens reported by the provider |
 | `tokens_completion` | INT | Number of completion tokens reported by the provider |
-| `tokens_completion_reasoning` | INT | Reasoning tokens (DeepSeek-R1, etc.). Written to DB and exposed in Logs API. |
+| `tokens_completion_reasoning` | INT NOT NULL | Reasoning tokens (DeepSeek-R1, etc.). Written to DB and exposed in Logs API. |
 | `tokens_prompt_cache_hit` | INT NOT NULL | Prompt cache hit tokens (DeepSeek). Defaults to 0. |
 | `tokens_prompt_cache_miss` | INT NOT NULL | Prompt cache miss tokens (DeepSeek). Defaults to 0. |
+| `cost_usd` | DOUBLE PRECISION | What the request cost in US dollars at the prices the last model it was dispatched to carried when the row was written (migration 085). Cache-hit tokens take the model's cache-hit price when it has one, prompt tokens beyond the cache split (a failover group's rejected earlier candidates) the input price, completion and reasoning tokens the output price. One model prices the whole row, even when a walked group's members charge differently, and Anthropic cache writes are priced as plain input (there is no cache-write price column; Anthropic bills them at 1.25x). NULL when the request never reached a provider or the model holds no input or output price; a dispatched request that charged nothing, and a free model, price to 0. |
 | `owner_user_id` | UUID | Owning dashboard user, stored **only** for keyless rows (dashboard chat/arena); keyed rows resolve their owner through the key's current owner instead (migration 067) |
 | `client_ip` | TEXT | Trusted-proxy-resolved client address, written at INSERT time (migration 073). NULL on rows predating the column. Shown in the dashboard Logs IP column and detail modal; see [Privacy](Privacy#ip-address-handling). |
 | `created_at` | TIMESTAMPTZ | When the request was inserted (defaults to `now()`) |
@@ -443,6 +444,7 @@ The `request_logs` table has evolved through these migrations:
 | `073_request_log_client_ip.sql` | Added: `client_ip` (trusted-proxy-resolved client address; no backfill) |
 | `074_request_log_vk_index.sql` | Added a partial index on `virtual_key_id` for the Logs page's virtual-key filter |
 | `078_request_log_attempts.sql` | Added: `attempts` JSONB (per-attempt trail) + a GIN index serving the `attempt_provider_id` / `attempt_status` filters; no backfill |
+| `085_request_log_cost.sql` | Added: `cost_usd`; backfilled existing rows at their serving model's current prices (an estimate, since older prices are not kept) |
 
 ## Implementation Details
 
