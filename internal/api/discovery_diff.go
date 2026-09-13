@@ -70,21 +70,30 @@ func DampenOpenRouterPriceJitter(providerType string, snapshot map[string]ModelS
 			continue
 		}
 		// A damped price is the stored one, so its source is the stored one's
-		// too: the scan's label must not land on a figure it did not write.
+		// too: the scan's label must not land on a figure it did not write. A
+		// stored price with no source (written before sources were recorded)
+		// keeps the scan's label instead, since the scan reported the same
+		// figure within tolerance and a blank would never be filled otherwise.
 		if withinPriceTolerance(prev.inputPrice, m.InputPricePerMillion) {
 			logPriceDamped(m.ModelID, "input_price", prev.inputPrice, m.InputPricePerMillion)
 			m.InputPricePerMillion = prev.inputPrice
-			m.PriceSources.Input = prev.priceSources.Input
+			if prev.priceSources.Input != "" {
+				m.PriceSources.Input = prev.priceSources.Input
+			}
 		}
 		if withinPriceTolerance(prev.outputPrice, m.OutputPricePerMillion) {
 			logPriceDamped(m.ModelID, "output_price", prev.outputPrice, m.OutputPricePerMillion)
 			m.OutputPricePerMillion = prev.outputPrice
-			m.PriceSources.Output = prev.priceSources.Output
+			if prev.priceSources.Output != "" {
+				m.PriceSources.Output = prev.priceSources.Output
+			}
 		}
 		if withinPriceTolerance(prev.inputPriceCache, m.InputPricePerMillionCacheHit) {
 			logPriceDamped(m.ModelID, "input_price_cache", prev.inputPriceCache, m.InputPricePerMillionCacheHit)
 			m.InputPricePerMillionCacheHit = prev.inputPriceCache
-			m.PriceSources.CacheHit = prev.priceSources.CacheHit
+			if prev.priceSources.CacheHit != "" {
+				m.PriceSources.CacheHit = prev.priceSources.CacheHit
+			}
 		}
 	}
 }

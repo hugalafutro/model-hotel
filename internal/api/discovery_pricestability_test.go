@@ -228,6 +228,16 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 		}
 	})
 
+	t.Run("a damped price with no stored source keeps the scan's label", func(t *testing.T) {
+		snap := map[string]ModelSnapshot{"m": {inputPrice: new(1.00)}}
+		m := &model.Model{ModelID: "m", InputPricePerMillion: new(1.03), PriceSources: model.PriceSources{Input: model.PriceSourceProvider}}
+		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
+		wantPrice(t, "input_price", m.InputPricePerMillion, 1.00)
+		if m.PriceSources.Input != model.PriceSourceProvider {
+			t.Fatalf("source = %q, want the scan's provider label kept over a blank", m.PriceSources.Input)
+		}
+	})
+
 	t.Run("beyond tolerance passes through", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.49)}}
 		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.182)} // 63% drop, real upstream switch
