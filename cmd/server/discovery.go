@@ -219,6 +219,7 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 	// Runs unconditionally: modality arrays and the derived endpoint
 	// class must be consistent even when models.dev is unreachable.
 	provider.NormalizeModels(models)
+	provider.ReportUnpricedModels(models)
 	result.ModelsDiscovered += len(models)
 
 	// Snapshot pre-scan state so background metadata/membership changes

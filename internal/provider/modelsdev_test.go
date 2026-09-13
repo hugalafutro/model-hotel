@@ -3,10 +3,13 @@ package provider
 import (
 	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
@@ -754,5 +757,43 @@ func TestLoadModelsDev_ContextCancelled(t *testing.T) {
 
 	if err := LoadModelsDevWithClient(ctx, http.DefaultClient); err == nil {
 		t.Error("expected error from LoadModelsDevWithClient with a cancelled context")
+	}
+}
+
+// ReportUnpricedModels names a per-token model (chat, embedding, rerank) that
+// nothing priced, and only those: a speech or image model has no per-token
+// price to miss, a free tier is a known zero, and a disabled model meters
+// nothing.
+func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
+	var logged strings.Builder
+	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	t.Cleanup(func() { debuglog.SetHandler(debuglog.StdoutHandler()) })
+
+	zero := 0.0
+	ReportUnpricedModels([]*model.Model{
+		{ModelID: "gpt-5-search-api", Modality: "chat", Enabled: true},
+		{ModelID: "text-embedding-x", Modality: "embedding", Enabled: true},
+		{ModelID: "rerank-x", Modality: "rerank", Enabled: true},
+		{ModelID: "whisper-1", Modality: "stt", Enabled: true},
+		{ModelID: "tts-1", Modality: "tts", Enabled: true},
+		{ModelID: "gpt-image-2.5", Modality: "image", Enabled: true},
+		{ModelID: "sora-2", Modality: "video", Enabled: true},
+		{ModelID: "big-pickle", Modality: "chat", Enabled: true, InputPricePerMillion: &zero, OutputPricePerMillion: &zero},
+		{ModelID: "retired-chat", Modality: "chat", Enabled: false},
+		nil,
+	})
+
+	got := logged.String()
+	if !strings.Contains(got, "level=WARN") {
+		t.Fatalf("expected a warning, got: %s", got)
+	}
+	if !strings.Contains(got, "count=3") || !strings.Contains(got, "models=gpt-5-search-api,text-embedding-x,rerank-x") {
+		t.Errorf("expected exactly the three per-token models named, got: %s", got)
+	}
+
+	logged.Reset()
+	ReportUnpricedModels([]*model.Model{{ModelID: "whisper-1", Modality: "stt", Enabled: true}})
+	if logged.Len() != 0 {
+		t.Errorf("a listing of non-token models alone must log nothing, got: %s", logged.String())
 	}
 }

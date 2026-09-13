@@ -617,7 +617,6 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 // at least one field filled).
 func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string) int {
 	if c == nil {
-		reportUnpricedModels(models)
 		return 0
 	}
 	count := 0
@@ -626,22 +625,34 @@ func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string
 			count++
 		}
 	}
-	reportUnpricedModels(models)
 	return count
 }
 
-// reportUnpricedModels logs any model that finished discovery with no per-token
-// price on either side.
+// ReportUnpricedModels logs any per-token model that finished discovery with
+// no price on either side. It runs after NormalizeModels, so the derived
+// endpoint class is in place.
 //
 // The embedded catalogs hold overrides only, so a model models.dev does not
 // know yields no price at all. Such a model still works; it just meters at
 // zero, which is invisible until someone reconciles a bill. Naming it here
 // turns that into something an operator can see and fix by adding a catalog
 // override.
-func reportUnpricedModels(models []*model.Model) {
+//
+// Only the per-token classes are named: chat, embedding and rerank (Jina and
+// Voyage rerank answers carry a token usage that is metered like any other;
+// Cohere's bills per search and is the acceptable noise). A speech,
+// transcription, image or video model bills per minute, character, image or
+// second, and this gateway meters none of those, so an absent per-token price
+// on one is the expected shape rather than a gap.
+func ReportUnpricedModels(models []*model.Model) {
 	var unpriced []string
 	for _, m := range models {
 		if m == nil || !m.Enabled {
+			continue
+		}
+		switch m.Modality {
+		case "chat", "embedding", "rerank":
+		default:
 			continue
 		}
 		// Free tiers are legitimately zero, so only a wholly absent price counts.
