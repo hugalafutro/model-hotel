@@ -9,6 +9,8 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
+
+	"github.com/hugalafutro/model-hotel/internal/auth"
 )
 
 func TestDiscoverModels(t *testing.T) {
@@ -577,10 +579,18 @@ func TestDiscoverModels_OpenCodeZenDispatch(t *testing.T) {
 	}))
 	defer server.Close()
 
+	// Keyed: a keyless provider needs the models.dev cache to tell the free
+	// models apart, which this dispatch test does not seed.
+	kp, err := auth.Encrypt("test-api-key", masterKey)
+	if err != nil {
+		t.Fatalf("Encrypt failed: %v", err)
+	}
 	provider := &Provider{
 		ID:           uuid.New(),
 		BaseURL:      "https://opencode.ai/zen",
-		EncryptedKey: []byte{}, // Keyless
+		EncryptedKey: kp.Ciphertext,
+		KeyNonce:     kp.Nonce,
+		KeySalt:      kp.Salt,
 	}
 
 	svc := &DiscoveryService{

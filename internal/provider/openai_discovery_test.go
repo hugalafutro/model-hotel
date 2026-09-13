@@ -45,61 +45,10 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 
 	result := make([]*model.Model, 0, len(apiModels))
 	for _, m := range apiModels {
-		spec := LookupOpenCodeCatalog(catalog, m.ID)
-		if spec != nil {
-			caps := model.Capability{
-				Streaming:        spec.Streaming,
-				Reasoning:        spec.Reasoning,
-				ToolCalling:      spec.ToolCalling,
-				StructuredOutput: spec.StructuredOutput,
-				Vision:           spec.Vision,
-			}
-			capJSON, _ := json.Marshal(caps)
-			contextLen := spec.ContextLength
-			maxOutput := spec.MaxOutputTokens
-			inPrice := spec.InputPricePerMillion
-			outPrice := spec.OutputPricePerMillion
-
-			entry := &model.Model{
-				ID:                    uuid.New(),
-				ProviderID:            uuid.UUID{},
-				ModelID:               m.ID,
-				Name:                  m.ID,
-				DisplayName:           spec.DisplayName,
-				Description:           spec.Description,
-				Capabilities:          string(capJSON),
-				Params:                "{}",
-				Modality:              spec.Modality,
-				InputModalities:       spec.InputModalities,
-				OutputModalities:      spec.OutputModalities,
-				ContextLength:         &contextLen,
-				MaxOutputTokens:       &maxOutput,
-				InputPricePerMillion:  &inPrice,
-				OutputPricePerMillion: &outPrice,
-				OwnedBy:               m.OwnedBy,
-				Enabled:               true,
-			}
-			if spec.InputPricePerMillionCacheHit > 0 {
-				cacheHitPrice := spec.InputPricePerMillionCacheHit
-				entry.InputPricePerMillionCacheHit = &cacheHitPrice
-			}
-			result = append(result, entry)
+		if spec := LookupOpenCodeCatalog(catalog, m.ID); spec != nil {
+			result = append(result, OpenCodeCatalogToModel(spec, uuid.UUID{}, m.OwnedBy))
 		} else {
-			capJSON, _ := json.Marshal(model.Capability{Streaming: true})
-			result = append(result, &model.Model{
-				ID:               uuid.New(),
-				ProviderID:       uuid.UUID{},
-				ModelID:          m.ID,
-				Name:             m.ID,
-				DisplayName:      m.ID,
-				Capabilities:     string(capJSON),
-				Params:           "{}",
-				Modality:         "text",
-				InputModalities:  "[]",
-				OutputModalities: "[]",
-				OwnedBy:          m.OwnedBy,
-				Enabled:          true,
-			})
+			result = append(result, liveModelStub(m.ID, m.OwnedBy, uuid.UUID{}))
 		}
 	}
 
@@ -107,9 +56,10 @@ func TestOpenAIDiscoveryHybrid(t *testing.T) {
 		t.Fatalf("expected 4 models, got %d", len(result))
 	}
 
-	// Check catalog-matched model has pricing
-	if result[0].InputPricePerMillion == nil || *result[0].InputPricePerMillion != 30.00 {
-		t.Errorf("gpt-5.5-pro input price wrong: got %v", result[0].InputPricePerMillion)
+	// The catalog row states only what models.dev omits: the pro tiers get no
+	// cache discount. Input and output prices are models.dev's to fill.
+	if result[0].InputPricePerMillion != nil || result[0].OutputPricePerMillion != nil {
+		t.Errorf("gpt-5.5-pro restates a models.dev price: got %v/%v", result[0].InputPricePerMillion, result[0].OutputPricePerMillion)
 	}
 	if result[0].DisplayName != "GPT 5.5 Pro" {
 		t.Errorf("gpt-5.5-pro display name wrong: got %s", result[0].DisplayName)
@@ -184,11 +134,10 @@ func TestOpenAIDiscoveryWithMockServer(t *testing.T) {
 	if m1.DisplayName != "GPT 5.5 Pro" {
 		t.Errorf("expected 'GPT 5.5 Pro', got '%s'", m1.DisplayName)
 	}
-	if m1.InputPricePerMillion == nil || *m1.InputPricePerMillion != 30.00 {
-		t.Errorf("expected input price 30.00, got %v", m1.InputPricePerMillion)
-	}
-	if m1.OutputPricePerMillion == nil || *m1.OutputPricePerMillion != 180.00 {
-		t.Errorf("expected output price 180.00, got %v", m1.OutputPricePerMillion)
+	// Input and output prices are models.dev's to fill; the row restates
+	// neither.
+	if m1.InputPricePerMillion != nil || m1.OutputPricePerMillion != nil {
+		t.Errorf("expected no catalog input/output price, got %v/%v", m1.InputPricePerMillion, m1.OutputPricePerMillion)
 	}
 	// Pro tiers get no cache discount, which is exactly what models.dev does not
 	// record and why this row survives the shrink.

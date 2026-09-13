@@ -39,9 +39,9 @@ func TestDiscoverXAILanguageModels(t *testing.T) {
 					Version:                    "1.0",
 					InputModalities:            []string{"text"},
 					OutputModalities:           []string{"text"},
-					PromptTextTokenPrice:       50,  // cents per 100M tokens
-					CachedPromptTextTokenPrice: 25,  // cents per 100M tokens
-					CompletionTextTokenPrice:   150, // cents per 100M tokens
+					PromptTextTokenPrice:       5000,  // cents per 100M tokens
+					CachedPromptTextTokenPrice: 2500,  // cents per 100M tokens
+					CompletionTextTokenPrice:   15000, // cents per 100M tokens
 				},
 				{
 					ID:                         "grogu-2",
@@ -50,9 +50,9 @@ func TestDiscoverXAILanguageModels(t *testing.T) {
 					Version:                    "2.0",
 					InputModalities:            []string{"text", "image"},
 					OutputModalities:           []string{"text"},
-					PromptTextTokenPrice:       100, // cents per 100M tokens
-					CachedPromptTextTokenPrice: 50,  // cents per 100M tokens
-					CompletionTextTokenPrice:   300, // cents per 100M tokens
+					PromptTextTokenPrice:       10000, // cents per 100M tokens
+					CachedPromptTextTokenPrice: 5000,  // cents per 100M tokens
+					CompletionTextTokenPrice:   30000, // cents per 100M tokens
 				},
 			},
 		}
@@ -93,18 +93,18 @@ func TestDiscoverXAILanguageModels(t *testing.T) {
 		t.Errorf("Expected ownedBy 'xai', got '%s'", models[0].OwnedBy)
 	}
 
-	// Check pricing conversion: cents per 100M -> dollars per 1M
-	// 50 cents per 100M = $0.50 per 1M = $0.50
+	// Check pricing conversion: cents per 100M tokens -> dollars per 1M.
+	// 5000 cents per 100M = $50 per 100M = $0.50 per 1M
 	if *models[0].InputPricePerMillion != 0.50 {
 		t.Errorf("Expected input price 0.50, got %f", *models[0].InputPricePerMillion)
 	}
 
-	// 25 cents per 100M = $0.25 per 1M = $0.25
+	// 2500 cents per 100M = $0.25 per 1M
 	if models[0].InputPricePerMillionCacheHit == nil || *models[0].InputPricePerMillionCacheHit != 0.25 {
 		t.Errorf("Expected cache input price 0.25, got %v", models[0].InputPricePerMillionCacheHit)
 	}
 
-	// 150 cents per 100M = $1.50 per 1M = $1.50
+	// 15000 cents per 100M = $1.50 per 1M
 	if *models[0].OutputPricePerMillion != 1.50 {
 		t.Errorf("Expected output price 1.50, got %f", *models[0].OutputPricePerMillion)
 	}

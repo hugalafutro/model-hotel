@@ -12,10 +12,7 @@
     "reasoning": true,
     "tool_calling": true,
     "structured_output": true,
-    "vision": true,
-    "input_price_per_million": 2,
-    "input_price_per_million_cache_hit": 0.3,
-    "output_price_per_million": 6
+    "vision": true
   },
   {
     "model_id": "grok-4.3",
@@ -30,10 +27,7 @@
     "reasoning": true,
     "tool_calling": true,
     "structured_output": true,
-    "vision": true,
-    "input_price_per_million": 1.25,
-    "input_price_per_million_cache_hit": 0.2,
-    "output_price_per_million": 2.5
+    "vision": true
   },
   {
     "model_id": "grok-4.20-0309-reasoning",
@@ -48,10 +42,7 @@
     "reasoning": true,
     "tool_calling": true,
     "structured_output": true,
-    "vision": true,
-    "input_price_per_million": 1.25,
-    "input_price_per_million_cache_hit": 0.2,
-    "output_price_per_million": 2.5
+    "vision": true
   },
   {
     "model_id": "grok-4.20-0309-non-reasoning",
@@ -66,10 +57,7 @@
     "reasoning": false,
     "tool_calling": true,
     "structured_output": true,
-    "vision": true,
-    "input_price_per_million": 1.25,
-    "input_price_per_million_cache_hit": 0.2,
-    "output_price_per_million": 2.5
+    "vision": true
   },
   {
     "model_id": "grok-4.20-multi-agent-0309",
@@ -84,10 +72,7 @@
     "reasoning": true,
     "tool_calling": true,
     "structured_output": true,
-    "vision": true,
-    "input_price_per_million": 1.25,
-    "input_price_per_million_cache_hit": 0.2,
-    "output_price_per_million": 2.5
+    "vision": true
   },
   {
     "model_id": "grok-build-0.1",
@@ -102,9 +87,6 @@
     "reasoning": true,
     "tool_calling": true,
     "structured_output": true,
-    "vision": true,
-    "input_price_per_million": 1,
-    "input_price_per_million_cache_hit": 0.2,
-    "output_price_per_million": 2
+    "vision": true
   }
 ]

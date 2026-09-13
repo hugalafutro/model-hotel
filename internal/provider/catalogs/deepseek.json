@@ -6,10 +6,7 @@
     "max_output_tokens": 384000,
     "reasoning": true,
     "vision": true,
-    "input_modalities": "[\"text\",\"image\"]",
-    "input_price_per_million_cache_hit": 0.003,
-    "input_price_per_million_cache_miss": 0.15,
-    "output_price_per_million": 0.6
+    "input_modalities": "[\"text\",\"image\"]"
   },
   {
     "model_id": "deepseek-chat",
@@ -42,10 +39,7 @@
     "max_output_tokens": 384000,
     "reasoning": true,
     "vision": true,
-    "input_modalities": "[\"text\",\"image\"]",
-    "input_price_per_million_cache_hit": 0.003,
-    "input_price_per_million_cache_miss": 0.15,
-    "output_price_per_million": 0.6
+    "input_modalities": "[\"text\",\"image\"]"
   },
   {
     "model_id": "deepseek-v4-pro",
@@ -64,9 +58,6 @@
     "max_output_tokens": 384000,
     "reasoning": true,
     "vision": true,
-    "input_modalities": "[\"text\",\"image\"]",
-    "input_price_per_million_cache_hit": 0.003,
-    "input_price_per_million_cache_miss": 0.15,
-    "output_price_per_million": 0.6
+    "input_modalities": "[\"text\",\"image\"]"
   }
 ]

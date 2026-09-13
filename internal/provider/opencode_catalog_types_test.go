@@ -65,8 +65,8 @@ func TestOpenCodeCatalogToModel(t *testing.T) {
 		Modality:              "text",
 		InputModalities:       "text,image",
 		OutputModalities:      "text",
-		InputPricePerMillion:  3.0,
-		OutputPricePerMillion: 15.0,
+		InputPricePerMillion:  ptrFloat(3.0),
+		OutputPricePerMillion: ptrFloat(15.0),
 	}
 
 	m := OpenCodeCatalogToModel(spec, pid, "opencode")
@@ -133,9 +133,9 @@ func TestOpenCodeCatalogToModelWithCacheHitPrice(t *testing.T) {
 	spec := &OpenCodeModelSpec{
 		ModelID:                      "cached-model",
 		DisplayName:                  "Cached",
-		InputPricePerMillion:         1.0,
-		InputPricePerMillionCacheHit: 0.5,
-		OutputPricePerMillion:        2.0,
+		InputPricePerMillion:         ptrFloat(1.0),
+		InputPricePerMillionCacheHit: ptrFloat(0.5),
+		OutputPricePerMillion:        ptrFloat(2.0),
 	}
 
 	m := OpenCodeCatalogToModel(spec, pid, "xai")
@@ -150,8 +150,8 @@ func TestOpenCodeCatalogToModelNoCacheHitPrice(t *testing.T) {
 	spec := &OpenCodeModelSpec{
 		ModelID:               "no-cache-model",
 		DisplayName:           "No Cache",
-		InputPricePerMillion:  1.0,
-		OutputPricePerMillion: 2.0,
+		InputPricePerMillion:  ptrFloat(1.0),
+		OutputPricePerMillion: ptrFloat(2.0),
 	}
 
 	m := OpenCodeCatalogToModel(spec, pid, "opencode")
@@ -160,3 +160,35 @@ func TestOpenCodeCatalogToModelNoCacheHitPrice(t *testing.T) {
 		t.Errorf("InputPricePerMillionCacheHit = %v, want nil", m.InputPricePerMillionCacheHit)
 	}
 }
+
+// A row that states no price is a metadata override: the model leaves the
+// converter unpriced, so models.dev fills the price instead of the row
+// pinning it at $0.
+func TestOpenCodeCatalogToModel_NoPriceStaysUnpriced(t *testing.T) {
+	spec := &OpenCodeModelSpec{ModelID: "metadata-only", DisplayName: "Metadata", ContextLength: 1000, MaxOutputTokens: 100}
+
+	m := OpenCodeCatalogToModel(spec, uuid.New(), "xai")
+
+	if m.InputPricePerMillion != nil || m.OutputPricePerMillion != nil || m.InputPricePerMillionCacheHit != nil {
+		t.Errorf("prices = %v/%v/%v, want all nil", m.InputPricePerMillion, m.OutputPricePerMillion, m.InputPricePerMillionCacheHit)
+	}
+	if m.ContextLength == nil || *m.ContextLength != 1000 {
+		t.Errorf("ContextLength = %v, want 1000", m.ContextLength)
+	}
+}
+
+// A converted model owns its price pointers. Aliasing the row's fields would
+// let a write through one discovered model rewrite the embedded catalog for
+// every provider, for the life of the process.
+func TestOpenCodeCatalogToModel_PricesNotAliased(t *testing.T) {
+	spec := &OpenCodeModelSpec{ModelID: "m", InputPricePerMillion: ptrFloat(1), InputPricePerMillionCacheHit: ptrFloat(0.1), OutputPricePerMillion: ptrFloat(2)}
+
+	m := OpenCodeCatalogToModel(spec, uuid.New(), "xai")
+	*m.InputPricePerMillion, *m.InputPricePerMillionCacheHit, *m.OutputPricePerMillion = 999, 999, 999
+
+	if *spec.InputPricePerMillion != 1 || *spec.InputPricePerMillionCacheHit != 0.1 || *spec.OutputPricePerMillion != 2 {
+		t.Errorf("catalog row mutated through a discovered model: %v/%v/%v", *spec.InputPricePerMillion, *spec.InputPricePerMillionCacheHit, *spec.OutputPricePerMillion)
+	}
+}
+
+func ptrFloat(v float64) *float64 { return &v }

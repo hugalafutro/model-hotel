@@ -14,8 +14,11 @@ import (
 // Peak hours (01:00-04:00 and 06:00-10:00 UTC) bill at exactly double, and a
 // model row holds one figure, so metering under-reports during that window.
 // This matches how the other catalogs store a base rate rather than a
-// conditional surcharge (openai.json carries gpt-5.x-pro at its standard rate,
-// not the >200K-context tier).
+// conditional surcharge.
+//
+// The price fields are overrides, absent from any row whose price models.dev
+// already carries correctly; deepseekSpecToModel leaves an absent price unset
+// for models.dev to fill.
 type DeepSeekModelSpec struct {
 	ModelID string `json:"model_id"`
 	// Description reaches the dashboard, and is the only place an operator can
@@ -32,33 +35,37 @@ type DeepSeekModelSpec struct {
 	// derives "image" from the flag and the flag back from the array, so
 	// setting either alone reaches the same end state. Set both, so a reader of
 	// the row does not have to know that.
-	InputModalities               string  `json:"input_modalities,omitempty"`
-	InputPricePerMillionCacheHit  float64 `json:"input_price_per_million_cache_hit,omitempty"`
-	InputPricePerMillionCacheMiss float64 `json:"input_price_per_million_cache_miss"`
-	OutputPricePerMillion         float64 `json:"output_price_per_million"`
+	InputModalities               string   `json:"input_modalities,omitempty"`
+	InputPricePerMillionCacheHit  *float64 `json:"input_price_per_million_cache_hit,omitempty"`
+	InputPricePerMillionCacheMiss *float64 `json:"input_price_per_million_cache_miss,omitempty"`
+	OutputPricePerMillion         *float64 `json:"output_price_per_million,omitempty"`
 }
 
-// deepseekCatalog is not an ordinary price-override channel. models.dev still
-// carries DeepSeek's pre-V4 rates (0.14/0.28) under the V4 model IDs, and knows
-// nothing about deepseek-flash or deepseek-v4-flash-vision-exp, so these rows
-// are the only correct pricing MH has. deepseek-chat and deepseek-reasoner are
-// absent from the live /models listing entirely, so the catalog is also the only
-// thing surfacing them.
+// deepseekCatalog surfaces the Flash family under every id DeepSeek still
+// answers to, with the vision flag models.dev leaves off, and prices the rows
+// models.dev cannot.
 //
 // deepseek-flash is DeepSeek V4.1 Flash and the only Flash id DeepSeek still
 // documents. deepseek-chat, deepseek-reasoner, deepseek-v4-flash and
 // deepseek-v4-flash-vision-exp all resolve to it upstream (verified by the id
-// each one echoes back in its response), so every Flash-family row carries V4.1
-// Flash's price and its vision flag: the API answers a request carrying an
-// image on each of those ids, and models.dev declares the family text-only.
-// deepseek-chat still selects the non-thinking preset.
+// each one echoes back in its response), so every Flash-family row carries
+// its vision flag: the API answers a request carrying an image on each of
+// those ids. deepseek-chat still selects the non-thinking preset.
 //
-// deepseek-v4-pro is the last row still on its own price, the only one that
-// answers as itself rather than as deepseek-flash, and the only one that drops
-// an image instead of reading it, so it carries no vision flag. Once that id stops echoing
-// itself back, DeepSeek is serving Flash under it at Flash's rate and this row
-// meters every request several times over, so it has to be repriced or dropped
-// then. Dropping it does not retire the model on its own:
+// models.dev prices deepseek-flash, deepseek-v4-flash and
+// deepseek-v4-flash-vision-exp at DeepSeek's published Flash rate, so those
+// rows carry no price. deepseek-chat and deepseek-reasoner are absent from
+// models.dev and from the live /models listing both, so their rows are the
+// only thing surfacing or pricing them, at Flash's rate.
+//
+// deepseek-v4-pro is the last row on its own price, and models.dev has that
+// price wrong (it lists 0.435/0.87 where DeepSeek's pricing page says 0.66/1.98
+// off-peak), so the row keeps it. It is also the only id that answers as
+// itself rather than as deepseek-flash, and the only one that drops an image
+// instead of reading it, so it carries no vision flag. Once that id stops
+// echoing itself back, DeepSeek is serving Flash under it at Flash's rate and
+// this row meters every request several times over, so it has to be repriced
+// or dropped then. Dropping it does not retire the model on its own:
 // DiscoverDeepSeek unions the catalog into the live listing, so a catalog row
 // can never be recorded as missing.
 var deepseekCatalog = loadCatalog[[]DeepSeekModelSpec]("deepseek.json")
@@ -70,7 +77,8 @@ func GetDeepSeekModels() []DeepSeekModelSpec {
 
 // deepseekSpecToModel converts a DeepSeekModelSpec into a model.Model. The
 // catalog's cache-miss price maps to the model's standard input price; cache-hit
-// is carried separately.
+// is carried separately. A row without prices yields an unpriced model for
+// models.dev to fill.
 func deepseekSpecToModel(spec *DeepSeekModelSpec, providerID uuid.UUID) *model.Model {
 	caps := model.Capability{
 		Streaming:   true,
@@ -87,9 +95,6 @@ func deepseekSpecToModel(spec *DeepSeekModelSpec, providerID uuid.UUID) *model.M
 
 	contextLen := spec.ContextLength
 	maxOutput := spec.MaxOutputTokens
-	inPriceCacheHit := spec.InputPricePerMillionCacheHit
-	inPriceCacheMiss := spec.InputPricePerMillionCacheMiss
-	outPrice := spec.OutputPricePerMillion
 
 	return &model.Model{
 		ID:                           uuid.New(),
@@ -104,9 +109,9 @@ func deepseekSpecToModel(spec *DeepSeekModelSpec, providerID uuid.UUID) *model.M
 		OutputModalities:             `["text"]`,
 		ContextLength:                &contextLen,
 		MaxOutputTokens:              &maxOutput,
-		InputPricePerMillion:         &inPriceCacheMiss,
-		InputPricePerMillionCacheHit: &inPriceCacheHit,
-		OutputPricePerMillion:        &outPrice,
+		InputPricePerMillion:         copyPrice(spec.InputPricePerMillionCacheMiss),
+		InputPricePerMillionCacheHit: copyPrice(spec.InputPricePerMillionCacheHit),
+		OutputPricePerMillion:        copyPrice(spec.OutputPricePerMillion),
 		OwnedBy:                      "deepseek",
 		Enabled:                      true,
 	}

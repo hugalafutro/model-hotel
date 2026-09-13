@@ -15,6 +15,10 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
+// xaiPriceUnitsPerDollarPerMillion converts xAI's token price unit (cents per
+// 100M tokens) to dollars per 1M tokens.
+const xaiPriceUnitsPerDollarPerMillion = 10000.0
+
 // xaiHeaders builds the Bearer + JSON headers every xAI listing endpoint takes.
 func xaiHeaders(apiKey string) http.Header {
 	h := bearerHeader(apiKey)
@@ -119,10 +123,12 @@ func (d *DiscoveryService) discoverXAILanguageModels(ctx context.Context, provid
 	models := make([]*model.Model, 0, len(langResp.Models))
 
 	for _, lm := range langResp.Models {
-		// Convert xAI pricing: cents per 100M tokens -> dollars per 1M tokens.
-		inputPrice := float64(lm.PromptTextTokenPrice) / 100.0
-		cachePrice := float64(lm.CachedPromptTextTokenPrice) / 100.0
-		outputPrice := float64(lm.CompletionTextTokenPrice) / 100.0
+		// xAI reports token prices in cents per 100M tokens: 20000 is $2 per
+		// 1M. Dollars per 1M is therefore the figure over 10000, one factor of
+		// 100 for cents and one for the token scale.
+		inputPrice := float64(lm.PromptTextTokenPrice) / xaiPriceUnitsPerDollarPerMillion
+		cachePrice := float64(lm.CachedPromptTextTokenPrice) / xaiPriceUnitsPerDollarPerMillion
+		outputPrice := float64(lm.CompletionTextTokenPrice) / xaiPriceUnitsPerDollarPerMillion
 
 		// Capabilities the xAI API guarantees for language models. Reasoning is
 		// left to the catalog (the API does not report it); mergeLiveAndCatalog

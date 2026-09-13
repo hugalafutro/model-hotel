@@ -105,7 +105,7 @@ type ModelsDevModelSpec struct {
 	LastUpdated      string               `json:"last_updated,omitempty"`
 	Modalities       ModelsDevModalities  `json:"modalities"`
 	OpenWeights      bool                 `json:"open_weights"`
-	Cost             ModelsDevCost        `json:"cost"`
+	Cost             *ModelsDevCost       `json:"cost"`
 	Limit            ModelsDevLimit       `json:"limit"`
 	Interleaved      ModelsDevInterleaved `json:"interleaved"`
 }
@@ -116,7 +116,8 @@ type ModelsDevModalities struct {
 	Output []string `json:"output"`
 }
 
-// ModelsDevCost contains pricing information for a models.dev model.
+// ModelsDevCost contains pricing information for a models.dev model. It is
+// nil for a model models.dev lists without a cost (its JSON carries `null`).
 type ModelsDevCost struct {
 	Input       float64  `json:"input"`
 	Output      float64  `json:"output"`
@@ -328,6 +329,27 @@ func (c *ModelsDevCache) lookupForProvider(providerType, modelID string) *Models
 		}
 	}
 	return lookupFuzzyIn(c.byID, modelID)
+}
+
+// FreeOnProvider reports whether models.dev's canonical entry for a Model
+// Hotel provider type prices the model at zero. Only that entry is consulted,
+// never the cross-provider index: hundreds of unrelated models are listed at
+// zero somewhere on models.dev, and a bare id colliding with one would price a
+// paid model free. A model the entry does not know, or lists with no cost at
+// all, is not free: nothing says so. A nil cache, or a provider type with no
+// canonical entry, knows no model.
+func (c *ModelsDevCache) FreeOnProvider(providerType, modelID string) bool {
+	if c == nil {
+		return false
+	}
+	canonical, ok := modelsDevProviderForType[providerType]
+	if !ok {
+		return false
+	}
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	spec := lookupFuzzyIn(c.byProvider[canonical.ID], modelID)
+	return spec != nil && spec.Cost != nil && spec.Cost.Input == 0 && spec.Cost.Output == 0
 }
 
 // lookupFuzzyIn runs the exact-then-fuzzy match against one index map. The
@@ -558,9 +580,11 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	// Numeric fields: only set if nil.
 	enriched = fillIfEmpty(&m.ContextLength, spec.Limit.Context) || enriched
 	enriched = fillIfEmpty(&m.MaxOutputTokens, spec.Limit.Output) || enriched
-	enriched = fillIfEmpty(&m.InputPricePerMillion, spec.Cost.Input) || enriched
-	enriched = fillIfEmpty(&m.OutputPricePerMillion, spec.Cost.Output) || enriched
-	if spec.Cost.CacheRead != nil {
+	if spec.Cost != nil {
+		enriched = fillIfEmpty(&m.InputPricePerMillion, spec.Cost.Input) || enriched
+		enriched = fillIfEmpty(&m.OutputPricePerMillion, spec.Cost.Output) || enriched
+	}
+	if spec.Cost != nil && spec.Cost.CacheRead != nil {
 		enriched = fillIfEmpty(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead) || enriched
 	}
 

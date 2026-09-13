@@ -188,22 +188,30 @@ func TestDiscoverDeepSeek_CatalogOverride(t *testing.T) {
 	if m == nil {
 		t.Fatal("expected deepseek-v4-flash in merged results")
 	}
-	// deepseek-v4-flash should have catalog values for context length and pricing
+	// deepseek-v4-flash takes its context window from the catalog and leaves
+	// its price to models.dev, which has that one right.
 	if m.ContextLength == nil {
-		t.Error("Expected ContextLength to be set from catalog for deepseek-chat")
+		t.Error("Expected ContextLength to be set from catalog for deepseek-v4-flash")
 	}
 	if m.MaxOutputTokens == nil {
-		t.Error("Expected MaxOutputTokens to be set from catalog for deepseek-chat")
+		t.Error("Expected MaxOutputTokens to be set from catalog for deepseek-v4-flash")
 	}
-	if m.InputPricePerMillion == nil {
-		t.Error("Expected InputPricePerMillion to be set from catalog for deepseek-chat")
+	if m.InputPricePerMillion != nil || m.OutputPricePerMillion != nil || m.InputPricePerMillionCacheHit != nil {
+		t.Error("deepseek-v4-flash must leave its price to models.dev, not restate it")
 	}
-	if m.OutputPricePerMillion == nil {
-		t.Error("Expected OutputPricePerMillion to be set from catalog for deepseek-chat")
+	// deepseek-chat is unknown to models.dev, so its catalog row is the only
+	// price it gets.
+	var chat *model.Model
+	for _, mm := range models {
+		if mm.ModelID == "deepseek-chat" {
+			chat = mm
+		}
 	}
-	// Catalog should provide InputPricePerMillionCacheHit
-	if m.InputPricePerMillionCacheHit == nil {
-		t.Error("Expected InputPricePerMillionCacheHit to be set from catalog for deepseek-chat")
+	if chat == nil {
+		t.Fatal("expected deepseek-chat unioned in from the catalog")
+	}
+	if chat.InputPricePerMillion == nil || chat.OutputPricePerMillion == nil || chat.InputPricePerMillionCacheHit == nil {
+		t.Error("Expected all three prices to be set from catalog for deepseek-chat")
 	}
 }
 

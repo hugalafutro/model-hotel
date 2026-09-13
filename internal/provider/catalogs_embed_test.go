@@ -12,9 +12,9 @@ import (
 // TestLoadCatalog_ValidJSON verifies that loadCatalog successfully parses
 // a known embedded JSON file into the expected Go type.
 func TestLoadCatalog_ValidJSON(t *testing.T) {
-	catalog := loadCatalog[[]OpenCodeModelSpec]("opencode_zen.json")
+	catalog := loadCatalog[[]OpenCodeModelSpec]("xai.json")
 	if len(catalog) == 0 {
-		t.Error("opencode_zen.json should contain at least one entry")
+		t.Error("xai.json should contain at least one entry")
 	}
 	first := catalog[0]
 	if first.ModelID == "" {
@@ -29,12 +29,12 @@ func TestLoadCatalog_ValidJSON(t *testing.T) {
 // without panicking.
 //
 // Only the catalogs that carry models the live listing cannot supply on its own
-// are required to be non-empty. The pricing catalogs are OVERRIDE channels: a
-// row that merely restated models.dev has been deleted, because the catalog
+// are required to be non-empty. Prices everywhere are OVERRIDES: a row states a
+// price only where models.dev has none or has it wrong, because the catalog
 // wins over models.dev and so a stale duplicate silently overrides correct data
-// (xAI's retired models metered 6x wrong that way until an audit caught it). An
-// empty pricing catalog therefore means "models.dev is right about everything
-// here", which is the healthy state, not a missing file.
+// (xAI's retired models metered 6x wrong that way until an audit caught it). A
+// row that states no price is a metadata or surfacing override, priced by
+// models.dev at enrichment.
 func TestLoadCatalog_AllCatalogsParse(t *testing.T) {
 	type testCase struct {
 		name         string
@@ -43,9 +43,7 @@ func TestLoadCatalog_AllCatalogsParse(t *testing.T) {
 	}
 	cases := []testCase{
 		// Union / probe catalogs: emptying these would lose models outright.
-		// opencode_zen must keep its zero-priced free-model rows — the keyless
-		// discovery path can only surface free models the catalog identifies.
-		{"opencode_zen", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_zen.json")) }, true},
+		// xai is the whole model list when the key cannot list (403).
 		{"xai", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("xai.json")) }, true},
 		{"zai", func() int { return len(loadCatalog[[]ZAICodingModelSpec]("zai.json")) }, true},
 		{"deepseek", func() int { return len(loadCatalog[[]DeepSeekModelSpec]("deepseek.json")) }, true},
@@ -54,8 +52,10 @@ func TestLoadCatalog_AllCatalogsParse(t *testing.T) {
 		// opencode_go has a live /models listing and full models.dev coverage;
 		// its rows exist only to override either of those when they drift.
 		{"opencode_go", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_go.json")) }, false},
-		{"anthropic", func() int { return len(loadCatalog[[]AnthropicPricingSpec]("anthropic.json")) }, false},
-		{"google", func() int { return len(loadCatalog[[]GoogleModelPricing]("google.json")) }, false},
+		// opencode_zen holds metadata overrides only (see
+		// TestOpenCodeZenCatalog_MetadataOnly); it is empty whenever
+		// models.dev is right about every free model.
+		{"opencode_zen", func() int { return len(loadCatalog[[]OpenCodeModelSpec]("opencode_zen.json")) }, false},
 		{"cohere", func() int { return len(loadCatalog[[]CoherePricingEntry]("cohere.json")) }, false},
 	}
 	for _, tc := range cases {
@@ -101,6 +101,22 @@ func TestLoadCatalog_ModalityStringsParse(t *testing.T) {
 	}
 }
 
+// TestOpenCodeZenCatalog_MetadataOnly pins what a Zen catalog row is for: it
+// restricts the input modalities models.dev over-advertises for a free model
+// whose deployment rejects them. It carries no price, because models.dev's
+// opencode entry prices every Zen model and a duplicate could only go stale,
+// and discovery never unions it in, so a row cannot resurrect a dropped model.
+func TestOpenCodeZenCatalog_MetadataOnly(t *testing.T) {
+	for _, e := range GetOpenCodeZenCatalog() {
+		if e.InputPricePerMillion != nil || e.OutputPricePerMillion != nil || e.InputPricePerMillionCacheHit != nil {
+			t.Errorf("%s carries a price; models.dev prices every Zen model", e.ModelID)
+		}
+		if e.InputModalities == "" {
+			t.Errorf("%s states no input modalities, the one thing a Zen row is for", e.ModelID)
+		}
+	}
+}
+
 // TestLoadCatalog_InvalidPath panics on missing file.
 func TestLoadCatalog_InvalidPath(t *testing.T) {
 	defer func() {
@@ -135,10 +151,10 @@ func TestLoadCatalog_DeepSeekCatalog(t *testing.T) {
 // image. Every Flash-family id resolves to deepseek-flash upstream and the
 // live API answers a content-parts request carrying an image on all of them;
 // deepseek-v4-pro is the one row that does not, it drops the image and answers
-// the text alone. models.dev declares text-only input for the family and has
-// no entry for the vision alias at all, so without these rows they discover
-// with no vision flag, and the alias as a bare stub on top of that: no price
-// (so it meters at zero) and no context window.
+// the text alone. models.dev has no entry for deepseek-chat or
+// deepseek-reasoner, so without these rows they discover with no vision flag,
+// no price and no context window; the other Flash ids take their vision flag
+// from the row as well, so every row in the family states it.
 func TestDeepSeekCatalog_VisionModel(t *testing.T) {
 	for _, id := range []string{
 		"deepseek-flash",
@@ -155,10 +171,6 @@ func TestDeepSeekCatalog_VisionModel(t *testing.T) {
 			if !spec.Vision {
 				t.Error("the vision model must declare Vision")
 			}
-			if spec.InputPricePerMillionCacheMiss <= 0 || spec.OutputPricePerMillion <= 0 {
-				t.Error("the vision model must carry prices, or it meters at zero")
-			}
-
 			m := deepseekSpecToModel(spec, uuid.New())
 			if m.InputModalities != `["text","image"]` {
 				t.Errorf("InputModalities = %s, want [\"text\",\"image\"]", m.InputModalities)
@@ -182,20 +194,20 @@ func TestDeepSeekCatalog_VisionModel(t *testing.T) {
 	}
 }
 
-// TestDeepSeekCatalog_Prices pins DeepSeek's published off-peak rates. Nothing
-// else can catch a typo here: models.dev still carries the pre-V4 figures, so a
-// diff against it reports every one of these rows as diverging by design.
+// TestDeepSeekCatalog_Prices pins which rows price themselves and at what.
+// deepseek-chat and deepseek-reasoner are unknown to models.dev, so their rows
+// are the only price they get, at Flash's rate since both resolve to
+// deepseek-flash upstream. deepseek-v4-pro keeps its own rate because
+// models.dev has that one wrong. The other Flash ids carry no price: models.dev
+// prices them correctly, and a duplicated price would only go stale.
 func TestDeepSeekCatalog_Prices(t *testing.T) {
-	// cache-hit / cache-miss / output, dollars per million tokens. Every
-	// Flash-family id resolves to deepseek-flash upstream, so they share its
-	// price; deepseek-v4-pro is the only row still on its own rate, until
-	// DeepSeek reroutes that id to Flash too.
-	want := map[string][3]float64{
-		"deepseek-flash":               {0.003, 0.15, 0.6},
+	// cache-hit / cache-miss / output, dollars per million tokens.
+	want := map[string]*[3]float64{
+		"deepseek-flash":               nil,
 		"deepseek-chat":                {0.003, 0.15, 0.6},
 		"deepseek-reasoner":            {0.003, 0.15, 0.6},
-		"deepseek-v4-flash":            {0.003, 0.15, 0.6},
-		"deepseek-v4-flash-vision-exp": {0.003, 0.15, 0.6},
+		"deepseek-v4-flash":            nil,
+		"deepseek-v4-flash-vision-exp": nil,
 		"deepseek-v4-pro":              {0.022, 0.66, 1.98},
 	}
 	catalog := GetDeepSeekModels()
@@ -208,22 +220,24 @@ func TestDeepSeekCatalog_Prices(t *testing.T) {
 			t.Errorf("deepseek.json is missing %q", id)
 			continue
 		}
-		got := [3]float64{
-			spec.InputPricePerMillionCacheHit,
-			spec.InputPricePerMillionCacheMiss,
-			spec.OutputPricePerMillion,
+		m := deepseekSpecToModel(spec, uuid.New())
+		if w == nil {
+			if m.InputPricePerMillion != nil || m.InputPricePerMillionCacheHit != nil || m.OutputPricePerMillion != nil {
+				t.Errorf("%s carries a price models.dev already has; it can only go stale", id)
+			}
+			continue
 		}
-		if got != w {
-			t.Errorf("%s prices = %v, want %v (cache-hit/cache-miss/output)", id, got, w)
+		if m.InputPricePerMillion == nil || m.InputPricePerMillionCacheHit == nil || m.OutputPricePerMillion == nil {
+			t.Errorf("%s must carry all three prices: nothing else prices it", id)
+			continue
+		}
+		got := [3]float64{*m.InputPricePerMillionCacheHit, *m.InputPricePerMillion, *m.OutputPricePerMillion}
+		if got != *w {
+			t.Errorf("%s prices = %v, want %v (cache-hit/cache-miss/output)", id, got, *w)
 		}
 	}
 }
 
-// TestDeepSeekCatalog_ThinkingModes pins which rows report reasoning. DeepSeek
-// models default to thinking mode, and deepseek-chat is the one alias that
-// selects the non-thinking preset on the same underlying deepseek-flash.
-// Verified against the live API: a bare "hi" to deepseek-flash bills reasoning
-// tokens, the same call to deepseek-chat bills none.
 func TestDeepSeekCatalog_ThinkingModes(t *testing.T) {
 	want := map[string]bool{
 		"deepseek-flash":               true,
@@ -260,7 +274,7 @@ func TestDeepSeekCatalog_ThinkingModes(t *testing.T) {
 func TestDeepSeekCatalog_DefaultsToTextOnly(t *testing.T) {
 	spec := deepseekSpec("deepseek-v4-pro")
 	if spec == nil {
-		t.Fatal("deepseek.json must keep deepseek-v4-pro: it is the last row on its own price")
+		t.Fatal("deepseek.json must keep deepseek-v4-pro: it is the row that drops the image")
 	}
 	m := deepseekSpecToModel(spec, uuid.New())
 	if m.InputModalities != `["text"]` {
@@ -298,27 +312,6 @@ func TestLoadCatalog_ZAICatalog(t *testing.T) {
 	}
 }
 
-// google.json is an override channel and is legitimately empty while models.dev
-// is correct about every Google model, so this validates the shape of whatever
-// rows exist rather than demanding rows exist.
-func TestLoadCatalog_GooglePricingCatalog(t *testing.T) {
-	for _, e := range loadCatalog[[]GoogleModelPricing]("google.json") {
-		if e.ModelID == "" {
-			t.Error("every entry should have a non-empty ModelID")
-		}
-	}
-}
-
-// anthropic.json is an override channel; see TestLoadCatalog_GooglePricingCatalog.
-func TestLoadCatalog_AnthropicPricingCatalog(t *testing.T) {
-	for _, e := range loadCatalog[[]AnthropicPricingSpec]("anthropic.json") {
-		if e.ModelID == "" {
-			t.Error("every entry should have a non-empty ModelID")
-		}
-	}
-}
-
-// cohere.json keeps only the models models.dev has no price for.
 func TestLoadCatalog_CoherePricingCatalog(t *testing.T) {
 	for _, e := range loadCatalog[[]CoherePricingEntry]("cohere.json") {
 		if e.ModelID == "" {

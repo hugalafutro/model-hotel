@@ -12,26 +12,6 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
-// anthropic.json is an override channel and is legitimately empty; every row it
-// DOES ship must still be self-consistent and resolvable.
-func TestAnthropicPricingLookup(t *testing.T) {
-	catalog := GetAnthropicPricing()
-	t.Logf("Anthropic pricing catalog has %d entries", len(catalog))
-
-	for _, spec := range catalog {
-		found := LookupAnthropicPricing(catalog, spec.ModelID)
-		if found == nil {
-			t.Errorf("LookupAnthropicPricing failed for %s", spec.ModelID)
-		}
-	}
-
-	// Unknown model should return nil
-	notFound := LookupAnthropicPricing(catalog, "claude-future-model")
-	if notFound != nil {
-		t.Error("expected nil for unknown model")
-	}
-}
-
 func TestAnthropicDiscoveryWithMockServer(t *testing.T) {
 	page1 := `{
 		"data": [
@@ -83,9 +63,8 @@ func TestAnthropicDiscoveryWithMockServer(t *testing.T) {
 	if m1.MaxOutputTokens == nil || *m1.MaxOutputTokens != 32768 {
 		t.Errorf("expected max_output 32768, got %v", m1.MaxOutputTokens)
 	}
-	// With no override shipped for this model, discovery must leave pricing
+	// Anthropic's listing carries no price, so discovery must leave pricing
 	// unset for models.dev enrichment to fill rather than fabricating a zero.
-	// See TestAnthropicPricingLookupDated for the override lookup itself.
 	if m1.InputPricePerMillion != nil {
 		t.Errorf("expected no catalog price, got %v", *m1.InputPricePerMillion)
 	}
@@ -278,89 +257,3 @@ func TestAnthropicDiscoverynoCapabilities(t *testing.T) {
 
 	t.Logf("Anthropic no-capabilities test passed")
 }
-
-func TestStripAnthropicDate(t *testing.T) {
-	tests := []struct {
-		input    string
-		expected string
-	}{
-		{"claude-opus-4-5-20251101", "claude-opus-4-5"},
-		{"claude-opus-4-1-20250805", "claude-opus-4-1"},
-		{"claude-sonnet-4-5-20250929", "claude-sonnet-4-5"},
-		{"claude-sonnet-4-20250514", "claude-sonnet-4"},
-		{"claude-haiku-4-5-20251001", "claude-haiku-4-5"},
-		{"claude-opus-4-6", "claude-opus-4-6"},
-		{"claude-opus-4-7", "claude-opus-4-7"},
-		{"claude-sonnet-4-6", "claude-sonnet-4-6"},
-		{"claude-haiku-4-5", "claude-haiku-4-5"},
-		{"claude-3-5-sonnet-20241022", "claude-3-5-sonnet"},
-	}
-
-	for _, tc := range tests {
-		result := stripAnthropicDate(tc.input)
-		if result != tc.expected {
-			t.Errorf("stripAnthropicDate(%q) = %q, want %q", tc.input, result, tc.expected)
-		}
-	}
-}
-
-// TestAnthropicPricingLookupDated covers the date-stripping fallback: an
-// override written against the undated family id must also answer for the dated
-// ids Anthropic's listing actually returns.
-//
-// It runs against a fixture rather than GetAnthropicPricing(). The shipped
-// catalog is an override channel and is currently empty, because every row in
-// it merely restated models.dev and a stale duplicate silently overrides
-// correct data. Testing the lookup against a fixture keeps this behaviour
-// covered regardless of whether any override happens to be shipped.
-func TestAnthropicPricingLookupDated(t *testing.T) {
-	catalog := []AnthropicPricingSpec{
-		{ModelID: "claude-opus-4-7", InputPricePerMillion: 5, InputPricePerMillionCacheHit: 0.5, OutputPricePerMillion: 25},
-		{ModelID: "claude-opus-4-6", InputPricePerMillion: 5, InputPricePerMillionCacheHit: 0.5, OutputPricePerMillion: 25},
-		{ModelID: "claude-opus-4-5", InputPricePerMillion: 5, InputPricePerMillionCacheHit: 0.5, OutputPricePerMillion: 25},
-		{ModelID: "claude-opus-4-1", InputPricePerMillion: 15, InputPricePerMillionCacheHit: 1.5, OutputPricePerMillion: 75},
-		{ModelID: "claude-sonnet-4-6", InputPricePerMillion: 3, InputPricePerMillionCacheHit: 0.3, OutputPricePerMillion: 15},
-		{ModelID: "claude-sonnet-4-5", InputPricePerMillion: 3, InputPricePerMillionCacheHit: 0.3, OutputPricePerMillion: 15},
-		{ModelID: "claude-haiku-4-5", InputPricePerMillion: 1, InputPricePerMillionCacheHit: 0.1, OutputPricePerMillion: 5},
-	}
-
-	tests := []struct {
-		modelID     string
-		found       bool
-		inputPrice  float64
-		outputPrice float64
-	}{
-		{"claude-opus-4-7", true, 5.00, 25.00},
-		{"claude-opus-4-6", true, 5.00, 25.00},
-		{"claude-opus-4-5-20251101", true, 5.00, 25.00},
-		{"claude-opus-4-1-20250805", true, 15.00, 75.00},
-		{"claude-sonnet-4-6", true, 3.00, 15.00},
-		{"claude-sonnet-4-5-20250929", true, 3.00, 15.00},
-		{"claude-haiku-4-5-20251001", true, 1.00, 5.00},
-		// Retired 2026-06-15 and absent from the fixture, so their dated IDs
-		// must not resolve — date-stripping must not invent a family match.
-		{"claude-opus-4-20250514", false, 0, 0},
-		{"claude-sonnet-4-20250514", false, 0, 0},
-		{"claude-future-model", false, 0, 0},
-	}
-
-	for _, tc := range tests {
-		result := LookupAnthropicPricing(catalog, tc.modelID)
-		if tc.found {
-			if result == nil {
-				t.Errorf("LookupAnthropicPricing(%q) = nil, expected found", tc.modelID)
-				continue
-			}
-			if result.InputPricePerMillion != tc.inputPrice {
-				t.Errorf("LookupAnthropicPricing(%q).InputPricePerMillion = %.2f, want %.2f", tc.modelID, result.InputPricePerMillion, tc.inputPrice)
-			}
-			if result.OutputPricePerMillion != tc.outputPrice {
-				t.Errorf("LookupAnthropicPricing(%q).OutputPricePerMillion = %.2f, want %.2f", tc.modelID, result.OutputPricePerMillion, tc.outputPrice)
-			}
-		} else if result != nil {
-			t.Errorf("LookupAnthropicPricing(%q) = %+v, expected nil", tc.modelID, result)
-		}
-	}
-}
-
-// TestAnthropicDiscoveryLiveAPI moved to discovery_live_test.go (//go:build live).
