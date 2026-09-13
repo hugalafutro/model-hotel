@@ -80,10 +80,19 @@ func DeriveModelClass(input, output []string, modelID string) string {
 		// whose listing states a chat model (Ollama's completion capability,
 		// LM Studio's llm type) writes the class explicitly and never reaches
 		// this branch.
+		//
+		// An image-generation family (gpt-image, dall-e) is read the same
+		// way when its output lists an image: models.dev describes
+		// gpt-image-1-mini as text and image out, but the model serves only
+		// the images endpoint and can never answer a chat request. A chat
+		// model that also draws (gemini-2.5-flash-image) carries no such
+		// name and stays chat.
 		switch class := inferNonChatModality(modelID); {
 		case class == "stt" && slices.Contains(input, "audio"):
 			return "stt"
 		case class == "embedding" || class == "rerank":
+			return class
+		case (class == "image" || class == "video") && slices.Contains(output, class):
 			return class
 		}
 		return "chat"
@@ -191,15 +200,17 @@ func NormalizeModelClassification(m *model.Model) {
 		input = []string{"audio"}
 		m.Capabilities = clearCapsNotInInput(m.Capabilities, caps, input)
 	}
-	// An embedding or reranking endpoint produces vectors or scores, so a text
-	// output enrichment handed it is rewritten too: the output array is what
-	// the outputs filter, the produces badge and the retirement evidence read,
-	// and left at text they would all describe a chat model, and the model
-	// could never be retired on evidence from its own endpoint. Only the text
-	// entries go; any other output the array names is a discovery's own claim
-	// and is kept, with the class named ahead of it so the array always says
-	// what the endpoint serves.
-	if class == "embedding" || class == "rerank" {
+	// An embedding, reranking, image or video endpoint produces vectors,
+	// scores, images or clips, so a text output enrichment handed it is
+	// rewritten too: the output array is what the outputs filter, the
+	// produces badge and the retirement evidence read, and left at text they
+	// would all describe a chat model, and the model could never be retired
+	// on evidence from its own endpoint. Only the text entries go; any other
+	// output the array names is a discovery's own claim and is kept, with the
+	// class named ahead of it so the array always says what the endpoint
+	// serves.
+	switch class {
+	case "embedding", "rerank", "image", "video":
 		output = withoutTextOutputs(output)
 		if !slices.Contains(output, class) {
 			output = append([]string{class}, output...)

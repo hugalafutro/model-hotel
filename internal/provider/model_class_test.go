@@ -23,6 +23,11 @@ func TestDeriveModelClass(t *testing.T) {
 		{"video gen by output", []string{"text", "image"}, []string{"video"}, "sora-like", "video"},
 		{"tts by output", []string{"text"}, []string{"audio"}, "some-voice", "tts"},
 		{"text plus image output stays chat", []string{"text"}, []string{"text", "image"}, "gemini-image", "chat"},
+		// models.dev lists the gpt-image family as text and image out; the
+		// name says images endpoint only, so it must not sit in the chat pickers.
+		{"gpt-image with text output is image gen", []string{"text", "image"}, []string{"text", "image"}, "gpt-image-1-mini", "image"},
+		{"chatgpt-image with text output is image gen", []string{"text", "image"}, []string{"text", "image"}, "chatgpt-image-latest", "image"},
+		{"gpt-image name without image output stays chat", []string{"text"}, []string{"text"}, "gpt-image-1-mini", "chat"},
 		{"code-only output is chat", []string{"text"}, []string{"code"}, "deepseek-coder", "chat"},
 		{"code plus image output stays chat", []string{"text"}, []string{"code", "image"}, "coder-with-diagrams", "chat"},
 		{"mixed media without text prefers video", nil, []string{"image", "video"}, "media-gen", "video"},
@@ -36,6 +41,8 @@ func TestDeriveModelClass(t *testing.T) {
 		{"empty arrays tts segment", nil, nil, "tts-1", "tts"},
 		{"empty arrays gpt tts segment", nil, nil, "gpt-4o-mini-tts", "tts"},
 		{"empty arrays whisper name", nil, nil, "whisper-1", "stt"},
+		{"empty arrays sora name", nil, nil, "sora-2-pro", "video"},
+		{"sora with text output is video gen", []string{"text"}, []string{"text", "video"}, "sora-2", "video"},
 		{"empty arrays unknown defaults chat", nil, nil, "llama-3.3-70b", "chat"},
 	}
 	for _, tt := range tests {
@@ -441,6 +448,22 @@ func TestDeriveModelClass_TextOutputYieldsToAnEmbeddingOrRerankName(t *testing.T
 	NormalizeModelClassification(odd)
 	if odd.OutputModalities != `["embedding","image"]` {
 		t.Errorf("odd output = %s, want the class named ahead of the kept entry", odd.OutputModalities)
+	}
+	// An images-endpoint model models.dev describes as text and image out
+	// keeps only the image: the text entry would let the retirement probe and
+	// the outputs filter read it as chat-capable. Image input stays, since the
+	// endpoint takes one for edits.
+	img := &model.Model{ModelID: "gpt-image-1-mini", InputModalities: `["text","image"]`, OutputModalities: `["text","image"]`, Capabilities: "{}"}
+	NormalizeModelClassification(img)
+	if img.Modality != "image" || img.OutputModalities != `["image"]` || img.InputModalities != `["text","image"]` {
+		t.Errorf("gpt-image normalized modality=%q in=%s out=%s, want image with an image-only output", img.Modality, img.InputModalities, img.OutputModalities)
+	}
+	// A video family with no arrays at all derives its class from the name
+	// and takes the class's default arrays.
+	vid := &model.Model{ModelID: "sora-2-pro", Capabilities: "{}"}
+	NormalizeModelClassification(vid)
+	if vid.Modality != "video" || vid.OutputModalities != `["video"]` {
+		t.Errorf("sora normalized modality=%q outputs=%s, want video with a video output", vid.Modality, vid.OutputModalities)
 	}
 	// An explicit chat model still takes the input its capability flags imply.
 	flagged := &model.Model{ModelID: "llava-embed", Modality: "chat", InputModalities: `["text"]`, OutputModalities: `["text"]`, Capabilities: `{"vision":true}`}

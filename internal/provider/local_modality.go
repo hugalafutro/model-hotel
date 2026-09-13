@@ -6,8 +6,9 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
-// inferNonChatModality guesses a non-chat modality ("embedding", "rerank" or
-// "image") from a model ID when the provider does not report one.
+// inferNonChatModality guesses a non-chat modality ("embedding", "rerank",
+// "image", "video", "tts" or "stt") from a model ID when the provider does not
+// report one.
 //
 // Self-hosted OpenAI-compatible servers (LM Studio's /v1/models, KoboldCPP,
 // llama.cpp, vLLM, LocalAI, text-generation-webui, ...) list embedding and
@@ -44,8 +45,10 @@ func inferNonChatModality(modelID string) string {
 		return "image"
 	}
 
-	// Well-known embedding families that don't spell out "embed", plus
-	// speech endpoints (tts-1, gpt-4o-mini-tts, whisper-1, gpt-4o-transcribe).
+	// Well-known embedding families that don't spell out "embed", speech
+	// endpoints (tts-1, gpt-4o-mini-tts, whisper-1, gpt-4o-transcribe) and
+	// OpenAI's video generation family (sora-2, sora-2-pro), which the plain
+	// /models listing carries with no type and models.dev does not list.
 	// Match them as whole segments (split on the usual id separators) so a
 	// substring can't trip a chat model that merely contains these letters.
 	for _, seg := range util.ModelIDSegments(id) {
@@ -56,6 +59,8 @@ func inferNonChatModality(modelID string) string {
 			return "tts"
 		case "whisper", "transcribe":
 			return "stt"
+		case "sora":
+			return "video"
 		}
 	}
 
