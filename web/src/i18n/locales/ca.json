@@ -1114,6 +1114,13 @@
 			"video_input": "Vídeo",
 			"audio_input": "Àudio",
 			"parallel_tool_calls": "Paral·lel"
+		},
+		"priceSource": {
+			"provider": "Informat per la llista de models del mateix proveïdor.",
+			"catalog": "Del catàleg integrat de Model Hotel, una sobreescriptura que només es manté on models.dev no té preu per a aquest model o el té malament.",
+			"modelsdev": "De models.dev, el catàleg públic de models.",
+			"manual": "Establert a mà en aquest tauler.",
+			"unknown": "Origen encara no registrat; la propera exploració de descobriment registrarà d'on ve aquest preu."
 		}
 	},
 	"model": {

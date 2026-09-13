@@ -79,7 +79,7 @@ func OpenCodeCatalogToModel(spec *OpenCodeModelSpec, providerID uuid.UUID, owned
 	contextLen := spec.ContextLength
 	maxOutput := spec.MaxOutputTokens
 
-	return &model.Model{
+	m := &model.Model{
 		ID:                           uuid.New(),
 		ProviderID:                   providerID,
 		ModelID:                      spec.ModelID,
@@ -99,4 +99,6 @@ func OpenCodeCatalogToModel(spec *OpenCodeModelSpec, providerID uuid.UUID, owned
 		OwnedBy:                      ownedBy,
 		Enabled:                      true,
 	}
+	m.StampPriceSources(model.PriceSourceCatalog)
+	return m
 }

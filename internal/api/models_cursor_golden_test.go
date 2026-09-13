@@ -103,4 +103,21 @@ func TestListModelsCursor_Golden(t *testing.T) {
 	if got := namesOf(before); !slices.Equal(got, names[0:3]) {
 		t.Errorf("before-cursor names = %v, want %v", got, names[0:3])
 	}
+
+	// price_sources rides the cursor projection: a stored source reaches the
+	// entry the dashboard reads.
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE models SET input_price_per_million = 1.5, price_sources = '{"input":"catalog"}'::jsonb WHERE provider_id = $1 AND model_id = 'gm0'`,
+		pr.ID); err != nil {
+		t.Fatalf("stamp gm0: %v", err)
+	}
+	for _, e := range doReq("provider_id=" + pr.ID + "&sort_by=name&sort_dir=asc&per_page=10").Entries {
+		if e.ModelID != "gm0" {
+			continue
+		}
+		if e.PriceSources.Input != "catalog" || e.PriceSources.Output != "" {
+			t.Errorf("gm0 price_sources = %+v, want input catalog only", e.PriceSources)
+		}
+	}
+
 }

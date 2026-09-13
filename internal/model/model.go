@@ -36,10 +36,13 @@ type Model struct {
 	DisabledManually             bool      `json:"disabled_manually"`
 	DisplayNameCustomized        bool      `json:"display_name_customized"`
 	PriceCustomized              bool      `json:"price_customized"`
-	CreatedAt                    time.Time `json:"created_at"`
-	LastSeenAt                   time.Time `json:"last_seen_at"`
-	ProviderName                 string    `json:"provider_name"`
-	ProviderEnabled              bool      `json:"provider_enabled"`
+	// PriceSources records where each stored price came from; see
+	// PriceSources for the vocabulary.
+	PriceSources    PriceSources `json:"price_sources"`
+	CreatedAt       time.Time    `json:"created_at"`
+	LastSeenAt      time.Time    `json:"last_seen_at"`
+	ProviderName    string       `json:"provider_name"`
+	ProviderEnabled bool         `json:"provider_enabled"`
 
 	// LiveMeta marks which context-limit fields on THIS in-memory model were
 	// populated directly from the provider's live API during the current scan
@@ -95,15 +98,49 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)`
+// Where a model's price came from. Every price a row holds carries one, set
+// by whatever wrote the price: discovery for a provider's own listing, the
+// embedded catalog converters, models.dev enrichment, or an operator edit.
+const (
+	PriceSourceProvider  = "provider"
+	PriceSourceCatalog   = "catalog"
+	PriceSourceModelsDev = "modelsdev"
+	PriceSourceManual    = "manual"
+)
 
-const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, created_at, COALESCE(last_seen_at, created_at)`
+// PriceSources names the source of each price field, keyed the way the
+// price_sources JSONB column stores them. A field is empty when that price is
+// unset, or when the row was last written before sources were recorded.
+type PriceSources struct {
+	Input    string `json:"input,omitempty"`
+	CacheHit string `json:"cache_hit,omitempty"`
+	Output   string `json:"output,omitempty"`
+}
+
+// StampPriceSources records source for every price the model holds that has
+// no source yet. Callers that set prices call it right after, so a price
+// filled later by another source keeps that source's name.
+func (m *Model) StampPriceSources(source string) {
+	if m.InputPricePerMillion != nil && m.PriceSources.Input == "" {
+		m.PriceSources.Input = source
+	}
+	if m.InputPricePerMillionCacheHit != nil && m.PriceSources.CacheHit == "" {
+		m.PriceSources.CacheHit = source
+	}
+	if m.OutputPricePerMillion != nil && m.PriceSources.Output == "" {
+		m.PriceSources.Output = source
+	}
+}
+
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, COALESCE(m.price_sources, '{}'::jsonb), m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)`
+
+const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, COALESCE(price_sources, '{}'::jsonb), created_at, COALESCE(last_seen_at, created_at)`
 
 // Upsert inserts or updates a model based on provider_id and model_id.
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	query := `
-		INSERT INTO models (id, provider_id, model_id, name, description, display_name, capabilities, params, modality, input_modalities, output_modalities, context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, owned_by, enabled, last_seen_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now())
+		INSERT INTO models (id, provider_id, model_id, name, description, display_name, capabilities, params, modality, input_modalities, output_modalities, context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, owned_by, enabled, last_seen_at, price_sources)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now(), $21)
 		ON CONFLICT (provider_id, model_id)
 		DO UPDATE SET
 			name = EXCLUDED.name,
@@ -139,6 +176,10 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			input_price_per_million = CASE WHEN models.price_customized THEN COALESCE(models.input_price_per_million, EXCLUDED.input_price_per_million) ELSE COALESCE(EXCLUDED.input_price_per_million, models.input_price_per_million) END,
 			input_price_per_million_cache_hit = CASE WHEN models.price_customized THEN COALESCE(models.input_price_per_million_cache_hit, EXCLUDED.input_price_per_million_cache_hit) ELSE COALESCE(EXCLUDED.input_price_per_million_cache_hit, models.input_price_per_million_cache_hit) END,
 			output_price_per_million = CASE WHEN models.price_customized THEN COALESCE(models.output_price_per_million, EXCLUDED.output_price_per_million) ELSE COALESCE(EXCLUDED.output_price_per_million, models.output_price_per_million) END,
+			-- The sources merge key by key in the same direction as the prices:
+			-- a key is present exactly when its price is, so whichever side's
+			-- price wins above, its source wins here.
+			price_sources = CASE WHEN models.price_customized THEN EXCLUDED.price_sources || models.price_sources ELSE models.price_sources || EXCLUDED.price_sources END,
 			owned_by = EXCLUDED.owned_by,
 			-- A sighting re-enables a model that discovery disabled for going
 			-- missing, because reappearing in the listing is genuine new
@@ -190,11 +231,14 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		// take flags: they follow the incoming value unless price_customized,
 		// judged entirely inside the query.
 		m.LiveMeta.ContextLength, m.LiveMeta.MaxOutputTokens,
+		// $21: the sources the scan stamped on its prices, merged in the
+		// price_sources clause and written whole on insert.
+		m.PriceSources,
 	).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt,
 	)
 
 	if err != nil {
@@ -212,7 +256,7 @@ func scanModel(row pgx.Row) (*Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	); err != nil {
 		return nil, err
 	}
@@ -493,30 +537,44 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 	// same column twice in one UPDATE).
 	unpin := req.PriceCustomized != nil && !*req.PriceCustomized
 	priceEdited := false
+	edited := PriceSources{}
 	if !unpin {
 		if req.InputPricePerMillion != nil {
 			setClauses = append(setClauses, fmt.Sprintf("input_price_per_million = $%d", argIdx))
 			args = append(args, *req.InputPricePerMillion)
 			argIdx++
 			priceEdited = true
+			edited.Input = PriceSourceManual
 		}
 		if req.InputPricePerMillionCacheHit != nil {
 			setClauses = append(setClauses, fmt.Sprintf("input_price_per_million_cache_hit = $%d", argIdx))
 			args = append(args, *req.InputPricePerMillionCacheHit)
 			argIdx++
 			priceEdited = true
+			edited.CacheHit = PriceSourceManual
 		}
 		if req.OutputPricePerMillion != nil {
 			setClauses = append(setClauses, fmt.Sprintf("output_price_per_million = $%d", argIdx))
 			args = append(args, *req.OutputPricePerMillion)
 			argIdx++
 			priceEdited = true
+			edited.Output = PriceSourceManual
 		}
 	}
 	if unpin {
+		// The prices go with the pin, and so do their sources: the next scan
+		// writes both afresh.
 		setClauses = append(setClauses, "price_customized = false",
-			"input_price_per_million = NULL", "input_price_per_million_cache_hit = NULL", "output_price_per_million = NULL")
-	} else if req.PriceCustomized != nil || priceEdited {
+			"input_price_per_million = NULL", "input_price_per_million_cache_hit = NULL", "output_price_per_million = NULL",
+			"price_sources = '{}'::jsonb")
+	} else if priceEdited {
+		// Only the edited prices become the operator's; the others keep the
+		// source that wrote them.
+		setClauses = append(setClauses, fmt.Sprintf("price_sources = price_sources || $%d", argIdx))
+		args = append(args, edited)
+		argIdx++
+	}
+	if req.PriceCustomized != nil && !unpin || priceEdited {
 		setClauses = append(setClauses, "price_customized = true")
 	}
 	if req.Enabled != nil {

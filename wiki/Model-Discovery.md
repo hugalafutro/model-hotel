@@ -95,7 +95,7 @@ The diff also reports `updated` models whose pricing or context-length metadata 
 
 What the diff reports is what actually persisted:
 
-- Price moves are reported from any source (live API, catalog, models.dev), because prices follow their source on unpinned rows, but suppressed on operator-pinned rows, where the upsert keeps the stored values.
+- Price moves are reported from any source (live API, catalog, models.dev), because prices follow their source on unpinned rows, but suppressed on operator-pinned rows, where the upsert keeps the stored values. Whichever source wrote a price is recorded beside it in `price_sources` (see the schema table), which is what the dashboard's price hints show.
 - Context-length moves are reported only when the provider's own live API supplied the value (tracked via transient per-field live provenance), since a non-live context value is fill-only.
 - OpenRouter's sub-tolerance price jitter is damped to the stored value before the upsert, so it neither persists nor reports.
 
@@ -957,6 +957,7 @@ Each discovered model is stored in the `models` database table with the followin
 | `disabled_manually` | bool | Whether the model was disabled by a user (not discovery) |
 | `display_name_customized` | bool | The operator renamed it, so discovery leaves `display_name` alone (migration `033`) |
 | `price_customized` | bool | The operator pinned the prices, so no source overwrites them (`071`) |
+| `price_sources` | jsonb | Where each stored price came from, keyed `input` / `cache_hit` / `output`, one of `provider` (the provider's own listing), `catalog` (an embedded override), `modelsdev` (enrichment) or `manual` (an operator edit); a key is absent while that price is unset or was stored before `084`. Merged key by key in the same direction as the prices, so a kept price keeps its source. The dashboard shows it as a hint next to each price. |
 | `missing_scans` | int | Consecutive confirmed-missing scans; 2 disables the model (`054`) |
 | `discovery_dismissed_at` | timestamptz (nullable) | The operator dismissed this model's discrepancy claim (`061`) |
 | `auto_retired_at` | timestamptz (nullable) | The proxy retired it from traffic after a verifying probe (`063`) |

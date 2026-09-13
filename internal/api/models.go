@@ -34,30 +34,31 @@ import (
 
 // ModelResponse is the JSON response format for model API endpoints.
 type ModelResponse struct {
-	ID                           string   `json:"id"`
-	ModelID                      string   `json:"model_id"`
-	Name                         string   `json:"name"`
-	Description                  string   `json:"description"`
-	DisplayName                  string   `json:"display_name"`
-	ProviderID                   string   `json:"provider_id"`
-	ProviderName                 string   `json:"provider_name"`
-	ProviderEnabled              bool     `json:"provider_enabled"`
-	Capabilities                 string   `json:"capabilities"`
-	Params                       string   `json:"params"`
-	Modality                     string   `json:"modality"`
-	InputModalities              string   `json:"input_modalities"`
-	OutputModalities             string   `json:"output_modalities"`
-	ContextLength                *int     `json:"context_length"`
-	MaxOutputTokens              *int     `json:"max_output_tokens"`
-	InputPricePerMillion         *float64 `json:"input_price_per_million"`
-	InputPricePerMillionCacheHit *float64 `json:"input_price_per_million_cache_hit"`
-	OutputPricePerMillion        *float64 `json:"output_price_per_million"`
-	OwnedBy                      string   `json:"owned_by"`
-	Enabled                      bool     `json:"enabled"`
-	DisabledManually             bool     `json:"disabled_manually"`
-	PriceCustomized              bool     `json:"price_customized"`
-	CreatedAt                    string   `json:"created_at"`
-	LastSeenAt                   string   `json:"last_seen_at"`
+	ID                           string             `json:"id"`
+	ModelID                      string             `json:"model_id"`
+	Name                         string             `json:"name"`
+	Description                  string             `json:"description"`
+	DisplayName                  string             `json:"display_name"`
+	ProviderID                   string             `json:"provider_id"`
+	ProviderName                 string             `json:"provider_name"`
+	ProviderEnabled              bool               `json:"provider_enabled"`
+	Capabilities                 string             `json:"capabilities"`
+	Params                       string             `json:"params"`
+	Modality                     string             `json:"modality"`
+	InputModalities              string             `json:"input_modalities"`
+	OutputModalities             string             `json:"output_modalities"`
+	ContextLength                *int               `json:"context_length"`
+	MaxOutputTokens              *int               `json:"max_output_tokens"`
+	InputPricePerMillion         *float64           `json:"input_price_per_million"`
+	InputPricePerMillionCacheHit *float64           `json:"input_price_per_million_cache_hit"`
+	OutputPricePerMillion        *float64           `json:"output_price_per_million"`
+	OwnedBy                      string             `json:"owned_by"`
+	Enabled                      bool               `json:"enabled"`
+	DisabledManually             bool               `json:"disabled_manually"`
+	PriceCustomized              bool               `json:"price_customized"`
+	PriceSources                 model.PriceSources `json:"price_sources"`
+	CreatedAt                    string             `json:"created_at"`
+	LastSeenAt                   string             `json:"last_seen_at"`
 }
 
 func modelToResponse(m model.Model) ModelResponse {
@@ -84,6 +85,7 @@ func modelToResponse(m model.Model) ModelResponse {
 		Enabled:                      m.Enabled,
 		DisabledManually:             m.DisabledManually,
 		PriceCustomized:              m.PriceCustomized,
+		PriceSources:                 m.PriceSources,
 		CreatedAt:                    m.CreatedAt.Format(time.RFC3339),
 		LastSeenAt:                   m.LastSeenAt.Format(time.RFC3339),
 	}

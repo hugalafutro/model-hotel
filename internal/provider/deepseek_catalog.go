@@ -96,7 +96,7 @@ func deepseekSpecToModel(spec *DeepSeekModelSpec, providerID uuid.UUID) *model.M
 	contextLen := spec.ContextLength
 	maxOutput := spec.MaxOutputTokens
 
-	return &model.Model{
+	m := &model.Model{
 		ID:                           uuid.New(),
 		ProviderID:                   providerID,
 		ModelID:                      spec.ModelID,
@@ -115,6 +115,8 @@ func deepseekSpecToModel(spec *DeepSeekModelSpec, providerID uuid.UUID) *model.M
 		OwnedBy:                      "deepseek",
 		Enabled:                      true,
 	}
+	m.StampPriceSources(model.PriceSourceCatalog)
+	return m
 }
 
 // deepseekCatalogModels converts the whole DeepSeek catalog into models, ready

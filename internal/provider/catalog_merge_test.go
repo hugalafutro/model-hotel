@@ -281,3 +281,17 @@ func TestIsEmptyModalities(t *testing.T) {
 		t.Error(`isEmptyModalities(["text","image"]) = true, want false`)
 	}
 }
+
+// A price the catalog backfills brings its source along; a live price the
+// catalog cannot override keeps its own.
+func TestBackfillFromCatalog_CopiesPriceSources(t *testing.T) {
+	live := &model.Model{ModelID: "m", InputPricePerMillion: new(1.0), PriceSources: model.PriceSources{Input: model.PriceSourceProvider}}
+	cat := &model.Model{ModelID: "m", InputPricePerMillion: new(5.0), OutputPricePerMillion: new(2.0), PriceSources: model.PriceSources{Input: model.PriceSourceCatalog, Output: model.PriceSourceCatalog}}
+
+	backfillFromCatalog(live, cat)
+
+	want := model.PriceSources{Input: model.PriceSourceProvider, Output: model.PriceSourceCatalog}
+	if live.PriceSources != want || *live.InputPricePerMillion != 1.0 || *live.OutputPricePerMillion != 2.0 {
+		t.Errorf("sources = %+v (in %v, out %v), want %+v with the live input kept", live.PriceSources, *live.InputPricePerMillion, *live.OutputPricePerMillion, want)
+	}
+}

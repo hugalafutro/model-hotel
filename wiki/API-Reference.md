@@ -556,6 +556,7 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
     "input_price_per_million": 5.0,
     "output_price_per_million": 15.0,
     "input_price_per_million_cache_hit": 2.5,
+    "price_sources": {"input": "provider", "cache_hit": "modelsdev", "output": "provider"},
     "owned_by": "openai",
     "description": "Most capable model",
     "params": {"temperature": 0.7},
@@ -568,6 +569,8 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
   }
 ]
 ```
+
+`price_sources` says where each stored price came from, keyed by price field: `provider` (the provider's own listing), `catalog` (Model Hotel's embedded override), `modelsdev` (enrichment) or `manual` (an operator edit). A key is absent while that price is unset or was stored before sources were recorded.
 
 ![Models Page](screenshots/models.png)
 
@@ -594,7 +597,7 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 - `input_price_per_million`: 0-1000
 - `input_price_per_million_cache_hit`: 0-1000
 - `output_price_per_million`: 0-1000
-- `price_customized`: boolean; marks the prices as operator-set so discovery enrichment leaves them alone
+- `price_customized`: boolean; marks the prices as operator-set so discovery enrichment leaves them alone. An edited price is recorded as `manual` in the model's `price_sources`; unpinning clears the prices and their sources so the next scan writes both afresh.
 
 #### DELETE `/api/models/{id}`
 

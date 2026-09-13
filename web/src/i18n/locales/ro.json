@@ -1114,6 +1114,13 @@
 			"video_input": "Video",
 			"audio_input": "Audio",
 			"parallel_tool_calls": "Paralel"
+		},
+		"priceSource": {
+			"provider": "Raportat de lista de modele a furnizorului însuși.",
+			"catalog": "Din catalogul integrat al Model Hotel, o suprascriere păstrată doar acolo unde models.dev nu are preț pentru acest model sau îl are greșit.",
+			"modelsdev": "De la models.dev, catalogul public de modele.",
+			"manual": "Setat manual în acest panou.",
+			"unknown": "Sursa nu este încă înregistrată; următoarea scanare de descoperire înregistrează de unde vine acest preț."
 		}
 	},
 	"model": {

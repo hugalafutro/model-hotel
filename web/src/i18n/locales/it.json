@@ -1114,6 +1114,13 @@
 			"video_input": "Video",
 			"audio_input": "Audio",
 			"parallel_tool_calls": "Parallelo"
+		},
+		"priceSource": {
+			"provider": "Riportato dall'elenco modelli del fornitore stesso.",
+			"catalog": "Dal catalogo integrato di Model Hotel, un override mantenuto solo dove models.dev non ha un prezzo per questo modello o lo ha sbagliato.",
+			"modelsdev": "Da models.dev, il catalogo pubblico dei modelli.",
+			"manual": "Impostato a mano in questa dashboard.",
+			"unknown": "Origine non ancora registrata; la prossima scansione di scoperta registrerà da dove viene questo prezzo."
 		}
 	},
 	"model": {

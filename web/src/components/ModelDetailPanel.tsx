@@ -6,6 +6,7 @@ import {
 	formatPrice,
 	nonTextOutputs,
 	parseCapabilities,
+	priceSourceKey,
 	proxyModelID,
 } from "../utils/model";
 import { hasAnyParam } from "../utils/params";
@@ -15,6 +16,7 @@ import { CopyablePill } from "./CopyablePill";
 import { CAP_META } from "./capMeta";
 import { CARD_TINT_CLASS, type CardTint } from "./cardTint";
 import { GenerationParamSliders } from "./GenerationParamSliders";
+import { InfoHint } from "./InfoHint";
 import { OutputBadges } from "./OutputBadges";
 
 interface ModelDetailPanelProps {
@@ -194,16 +196,30 @@ export function ModelDetailPanel({
 								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
 									{t("components.modelDetailPanel.inputPricePerMillion")}
 								</span>
-								<div className="text-(--text-primary) font-medium">
+								<div className="text-(--text-primary) font-medium flex items-center gap-1">
 									${formatPrice(model.input_price_per_million)}
+									{model.input_price_per_million != null && (
+										<InfoHint
+											tooltip={t(
+												`models.priceSource.${priceSourceKey(model.price_sources?.input)}`,
+											)}
+										/>
+									)}
 								</div>
 							</div>
 							<div>
 								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
 									{t("components.modelDetailPanel.outputPricePerMillion")}
 								</span>
-								<div className="text-(--text-primary) font-medium">
+								<div className="text-(--text-primary) font-medium flex items-center gap-1">
 									${formatPrice(model.output_price_per_million)}
+									{model.output_price_per_million != null && (
+										<InfoHint
+											tooltip={t(
+												`models.priceSource.${priceSourceKey(model.price_sources?.output)}`,
+											)}
+										/>
+									)}
 								</div>
 							</div>
 						</div>

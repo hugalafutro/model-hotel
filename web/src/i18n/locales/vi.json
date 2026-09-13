@@ -1078,6 +1078,13 @@
 			"video_input": "Video",
 			"audio_input": "Âm thanh",
 			"parallel_tool_calls": "Song song"
+		},
+		"priceSource": {
+			"provider": "Do chính danh sách mô hình của nhà cung cấp báo cáo.",
+			"catalog": "Từ danh mục tích hợp của Model Hotel, một ghi đè chỉ được giữ ở nơi models.dev không có giá cho mô hình này hoặc có giá sai.",
+			"modelsdev": "Từ models.dev, danh mục mô hình công khai.",
+			"manual": "Đặt thủ công trên bảng điều khiển này.",
+			"unknown": "Nguồn chưa được ghi lại; lần quét khám phá tiếp theo sẽ ghi lại giá này đến từ đâu."
 		}
 	},
 	"model": {

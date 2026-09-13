@@ -1150,6 +1150,13 @@
 			"video_input": "Video",
 			"audio_input": "Zvuk",
 			"parallel_tool_calls": "Paralelne"
+		},
+		"priceSource": {
+			"provider": "Nahlásené vlastným zoznamom modelov poskytovateľa.",
+			"catalog": "Zo vstavaného katalógu Model Hotelu, prepis udržiavaný len tam, kde models.dev pre tento model cenu nemá alebo ju má nesprávne.",
+			"modelsdev": "Z models.dev, verejného katalógu modelov.",
+			"manual": "Nastavené ručne v tomto dashboarde.",
+			"unknown": "Zdroj zatiaľ nie je zaznamenaný; ďalší sken objavovania zaznamená, odkiaľ táto cena pochádza."
 		}
 	},
 	"model": {

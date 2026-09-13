@@ -1078,6 +1078,13 @@
 			"video_input": "Video",
 			"audio_input": "Lyd",
 			"parallel_tool_calls": "Parallel"
+		},
+		"priceSource": {
+			"provider": "Rapporteret af udbyderens egen modelliste.",
+			"catalog": "Fra Model Hotels indbyggede katalog, en tilsidesættelse der kun beholdes hvor models.dev ikke har en pris for denne model eller har den forkert.",
+			"modelsdev": "Fra models.dev, det offentlige modelkatalog.",
+			"manual": "Sat manuelt på dette dashboard.",
+			"unknown": "Kilden er ikke registreret endnu; den næste opdagelsesscanning registrerer hvor denne pris kommer fra."
 		}
 	},
 	"model": {

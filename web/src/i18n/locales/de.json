@@ -1078,6 +1078,13 @@
 			"video_input": "Video",
 			"audio_input": "Audio",
 			"parallel_tool_calls": "Parallel"
+		},
+		"priceSource": {
+			"provider": "Aus der eigenen Modellliste des Anbieters.",
+			"catalog": "Aus dem eingebauten Katalog von Model Hotel, eine Überschreibung, die nur dort bleibt, wo models.dev für dieses Modell keinen oder einen falschen Preis führt.",
+			"modelsdev": "Von models.dev, dem öffentlichen Modellkatalog.",
+			"manual": "Von Hand in diesem Dashboard gesetzt.",
+			"unknown": "Quelle noch nicht erfasst; der nächste Discovery-Scan hält fest, woher dieser Preis stammt."
 		}
 	},
 	"model": {

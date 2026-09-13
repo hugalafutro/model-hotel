@@ -218,6 +218,30 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.50)
 	})
 
+	t.Run("a damped price keeps the stored source", func(t *testing.T) {
+		stored := model.PriceSources{Input: model.PriceSourceModelsDev, CacheHit: model.PriceSourceCatalog, Output: model.PriceSourceManual}
+		snap := map[string]ModelSnapshot{"m": {inputPrice: new(1.00), inputPriceCache: new(0.10), outputPrice: new(2.00), priceSources: stored}}
+		scanned := model.PriceSources{Input: model.PriceSourceProvider, CacheHit: model.PriceSourceProvider, Output: model.PriceSourceProvider}
+		m := &model.Model{ModelID: "m", InputPricePerMillion: new(1.03), InputPricePerMillionCacheHit: new(0.103), OutputPricePerMillion: new(2.06), PriceSources: scanned}
+		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
+		wantPrice(t, "input_price", m.InputPricePerMillion, 1.00)
+		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.10)
+		wantPrice(t, "output_price", m.OutputPricePerMillion, 2.00)
+		if m.PriceSources != stored {
+			t.Fatalf("sources = %+v, want the stored labels %+v on the stored prices", m.PriceSources, stored)
+		}
+	})
+
+	t.Run("a damped price with no stored source keeps the scan's label", func(t *testing.T) {
+		snap := map[string]ModelSnapshot{"m": {inputPrice: new(1.00)}}
+		m := &model.Model{ModelID: "m", InputPricePerMillion: new(1.03), PriceSources: model.PriceSources{Input: model.PriceSourceProvider}}
+		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
+		wantPrice(t, "input_price", m.InputPricePerMillion, 1.00)
+		if m.PriceSources.Input != model.PriceSourceProvider {
+			t.Fatalf("source = %q, want the scan's provider label kept over a blank", m.PriceSources.Input)
+		}
+	})
+
 	t.Run("beyond tolerance passes through", func(t *testing.T) {
 		snap := map[string]ModelSnapshot{"m": {inputPriceCache: new(0.49)}}
 		m := &model.Model{ModelID: "m", InputPricePerMillionCacheHit: new(0.182)} // 63% drop, real upstream switch

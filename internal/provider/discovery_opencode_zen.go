@@ -53,6 +53,7 @@ func (d *DiscoveryService) discoverOpenCodeZen(ctx context.Context, provider *Pr
 			// means free, so the price is written here as a known zero rather
 			// than left absent and reported as unpriced on every scan.
 			stub.InputPricePerMillion, stub.OutputPricePerMillion = new(float64), new(float64)
+			stub.StampPriceSources(model.PriceSourceModelsDev)
 		}
 		live = append(live, stub)
 	}

@@ -105,6 +105,25 @@ export function formatPrice(n: number | null | undefined): string {
 	return String(Math.round(n * 10000) / 10000);
 }
 
+/**
+ * The i18n key (under models.priceSource) explaining where a price came from.
+ * An unrecorded source reads as "unknown": the row was stored before sources
+ * were tracked, and the next discovery scan records one.
+ */
+export function priceSourceKey(
+	source: string | undefined,
+): "provider" | "catalog" | "modelsdev" | "manual" | "unknown" {
+	switch (source) {
+		case "provider":
+		case "catalog":
+		case "modelsdev":
+		case "manual":
+			return source;
+		default:
+			return "unknown";
+	}
+}
+
 /** The same price for a text input, where absent reads as an empty field. */
 export function formatPriceInput(n: number | null | undefined): string {
 	return n == null ? "" : formatPrice(n);

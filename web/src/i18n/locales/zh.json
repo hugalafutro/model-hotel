@@ -1078,6 +1078,13 @@
 			"video_input": "视频",
 			"audio_input": "音频",
 			"parallel_tool_calls": "并行"
+		},
+		"priceSource": {
+			"provider": "由提供商自己的模型列表报告。",
+			"catalog": "来自 Model Hotel 的内置目录，仅在 models.dev 没有此模型价格或价格有误时保留的覆盖值。",
+			"modelsdev": "来自公开模型目录 models.dev。",
+			"manual": "在此仪表板上手动设置。",
+			"unknown": "来源尚未记录；下一次发现扫描会记录此价格的来源。"
 		}
 	},
 	"model": {

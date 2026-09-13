@@ -581,11 +581,20 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	enriched = fillIfEmpty(&m.ContextLength, spec.Limit.Context) || enriched
 	enriched = fillIfEmpty(&m.MaxOutputTokens, spec.Limit.Output) || enriched
 	if spec.Cost != nil {
-		enriched = fillIfEmpty(&m.InputPricePerMillion, spec.Cost.Input) || enriched
-		enriched = fillIfEmpty(&m.OutputPricePerMillion, spec.Cost.Output) || enriched
+		if fillIfEmpty(&m.InputPricePerMillion, spec.Cost.Input) {
+			m.PriceSources.Input = model.PriceSourceModelsDev
+			enriched = true
+		}
+		if fillIfEmpty(&m.OutputPricePerMillion, spec.Cost.Output) {
+			m.PriceSources.Output = model.PriceSourceModelsDev
+			enriched = true
+		}
 	}
 	if spec.Cost != nil && spec.Cost.CacheRead != nil {
-		enriched = fillIfEmpty(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead) || enriched
+		if fillIfEmpty(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead) {
+			m.PriceSources.CacheHit = model.PriceSourceModelsDev
+			enriched = true
+		}
 	}
 
 	// Capabilities: only set individual fields if they're currently false.

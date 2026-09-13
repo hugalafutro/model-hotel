@@ -1078,6 +1078,13 @@
 			"video_input": "Video",
 			"audio_input": "Ääni",
 			"parallel_tool_calls": "Rinnakkain"
+		},
+		"priceSource": {
+			"provider": "Palveluntarjoajan oman mallilistauksen ilmoittama.",
+			"catalog": "Model Hotelin sisäänrakennetusta luettelosta, ohitus jota pidetään vain siellä, missä models.dev:llä ei ole tälle mallille hintaa tai se on väärin.",
+			"modelsdev": "models.dev:stä, julkisesta malliluettelosta.",
+			"manual": "Asetettu käsin tässä hallintapaneelissa.",
+			"unknown": "Lähdettä ei ole vielä tallennettu; seuraava löytöskannaus tallentaa, mistä tämä hinta tulee."
 		}
 	},
 	"model": {

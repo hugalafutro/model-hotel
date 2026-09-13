@@ -137,6 +137,7 @@ func buildCohereModel(provider *Provider, pricingCatalog []CoherePricingEntry, c
 		outPrice := pricing.OutputPricePerMillion
 		modelEntry.InputPricePerMillion = &inPrice
 		modelEntry.OutputPricePerMillion = &outPrice
+		modelEntry.StampPriceSources(model.PriceSourceCatalog)
 	} else {
 		// Minimal entry for models not in pricing catalog. Expected for
 		// rerank models (search-unit billing has no per-token price).

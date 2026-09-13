@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 func TestDiscoverModels(t *testing.T) {
@@ -649,7 +650,7 @@ func TestDiscoverModels_XAIDispatch(t *testing.T) {
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path == "/language-models" {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte(`{"models": [{"id": "grok-2", "name": "Grok 2", "capabilities": {"chat": true}}]}`))
+			w.Write([]byte(`{"models": [{"id": "grok-2", "name": "Grok 2", "capabilities": {"chat": true}, "prompt_text_token_price": 20000, "completion_text_token_price": 60000}]}`))
 			return
 		}
 		w.WriteHeader(http.StatusNotFound)
@@ -670,6 +671,9 @@ func TestDiscoverModels_XAIDispatch(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotEmpty(t, models)
 	assert.Contains(t, models[0].Name, "grok")
+	// A price the listing reported is the provider's; the cache-hit price it
+	// did not report stays unsourced.
+	assert.Equal(t, model.PriceSources{Input: model.PriceSourceProvider, Output: model.PriceSourceProvider}, models[0].PriceSources)
 }
 
 func TestDiscoverModels_GoogleDispatch(t *testing.T) {

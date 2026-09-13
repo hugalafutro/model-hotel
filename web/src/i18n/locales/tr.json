@@ -1078,6 +1078,13 @@
 			"video_input": "Video",
 			"audio_input": "Ses",
 			"parallel_tool_calls": "Paralel"
+		},
+		"priceSource": {
+			"provider": "Sağlayıcının kendi model listesi tarafından bildirildi.",
+			"catalog": "Model Hotel'in yerleşik kataloğundan; yalnızca models.dev'in bu model için fiyatı olmadığı veya yanlış olduğu yerde tutulan bir geçersiz kılma.",
+			"modelsdev": "Herkese açık model kataloğu models.dev'den.",
+			"manual": "Bu panoda elle ayarlandı.",
+			"unknown": "Kaynak henüz kaydedilmedi; bir sonraki keşif taraması bu fiyatın nereden geldiğini kaydeder."
 		}
 	},
 	"model": {

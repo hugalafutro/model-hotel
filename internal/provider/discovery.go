@@ -609,6 +609,14 @@ func (d *DiscoveryService) DiscoverModels(ctx context.Context, provider *Provide
 		return nil, err
 	}
 
+	// Every price still unsourced here was reported by the provider's own
+	// listing: the catalog converters stamp theirs, and models.dev
+	// enrichment, which runs after this, stamps what it fills.
+	for _, m := range models {
+		if m != nil {
+			m.StampPriceSources(model.PriceSourceProvider)
+		}
+	}
 	debuglog.Info("discovery: completed", "provider", provider.Name, "provider_id", provider.ID, "models", len(models))
 	return models, nil
 }

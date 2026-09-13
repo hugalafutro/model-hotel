@@ -1078,6 +1078,13 @@
 			"video_input": "動画",
 			"audio_input": "音声",
 			"parallel_tool_calls": "並列"
+		},
+		"priceSource": {
+			"provider": "プロバイダー自身のモデル一覧が報告した価格です。",
+			"catalog": "Model Hotel の組み込みカタログからの価格です。models.dev にこのモデルの価格がない、または誤っている場合にだけ保持される上書きです。",
+			"modelsdev": "公開モデルカタログ models.dev からの価格です。",
+			"manual": "このダッシュボードで手動設定された価格です。",
+			"unknown": "出所はまだ記録されていません。次回の検出スキャンでこの価格の出所が記録されます。"
 		}
 	},
 	"model": {
