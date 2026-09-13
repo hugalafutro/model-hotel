@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../../api/types";
-import { formatNumber } from "../../utils/format";
+import { formatNumber, formatSpend } from "../../utils/format";
 import {
 	formatDurationCell,
 	formatMs,
@@ -138,6 +138,9 @@ export function RequestLogCells({
 						{formatTPS(log.tokens_per_second)}
 					</span>
 				)}
+			</td>
+			<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+				{log.cost_usd == null ? "-" : formatSpend(log.cost_usd)}
 			</td>
 			{/* Headers and TTFT are real measurements even on a cancelled request:
 			    the response had begun before the client went away. */}

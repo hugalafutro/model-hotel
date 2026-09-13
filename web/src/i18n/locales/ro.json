@@ -268,7 +268,9 @@
 			"errorRate": "Rată eroare/{{range}}",
 			"avgDuration": "Durată medie/{{range}}",
 			"totalTokens": "Total Tokenuri/{{range}}",
-			"avgTokensPerReq": "Token-uri Medii/Req"
+			"avgTokensPerReq": "Token-uri Medii/Req",
+			"spend": "Cheltuieli/{{range}}",
+			"unpriced": "+{{n}} fără preț"
 		},
 		"gauge": {
 			"requestsPerRange": "Cereri/{{range}}",
@@ -405,17 +407,15 @@
 			"24h": "1Z",
 			"1w": "1S"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Cereri",
 			"tokens": "Token-uri",
 			"errors": "erori",
 			"seconds": "secunde",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Cheltuieli"
+		},
+		"metricSpend": "Cheltuieli"
 	},
 	"chat": {
 		"chat": "Chat",
@@ -1412,7 +1412,8 @@
 			"interrupted": "Întrerupere",
 			"cacheInflated": "Umflat de accesările în cache ale promptului",
 			"keyDeleted": "Șters",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Cost"
 		},
 		"tooltip": {
 			"timeDate": "Momentul cererii",
@@ -1437,7 +1438,8 @@
 			"dial": "Apelare (DNS+TCP)",
 			"settingsReads": "Setări Lecturi",
 			"reused": "reutilizat",
-			"ip": "Adresa IP a clientului de la care a venit cererea"
+			"ip": "Adresa IP a clientului de la care a venit cererea",
+			"cost": "Cât a costat cererea la prețurile stocate ale modelului"
 		},
 		"status": {
 			"interrupted": "Întrerupere"
@@ -2888,7 +2890,9 @@
 			"attemptBreakerAlive": "activ",
 			"attemptBreakerSkipped": "sărit",
 			"attemptBreakerDisabled": "dezactivat",
-			"attemptSuperseded": "depășit"
+			"attemptSuperseded": "depășit",
+			"cost": "Cost",
+			"unpriced": "Fără preț"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

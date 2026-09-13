@@ -20,10 +20,13 @@ export interface Stats {
 	total_tokens_prompt: number;
 	total_tokens_completion: number;
 	total_tokens_cache_hit: number;
+	/** Spend over the period; a floor when requests_unpriced is above zero. */
+	total_cost_usd?: number;
+	requests_unpriced?: number;
 	avg_tokens_per_request: number;
 	by_provider_latency?: ProviderLatencyEntry[];
 }
-export type MetricType = "requests" | "tokens";
+export type MetricType = "requests" | "tokens" | "cost";
 export type Range = "24h" | "7d";
 export interface TimeSeriesPoint {
 	bucket: string;
@@ -31,6 +34,7 @@ export interface TimeSeriesPoint {
 	tokens: number;
 	tokens_cache_hit: number;
 	tokens_cache_miss: number;
+	cost_usd?: number;
 	errors: number;
 	latency_ms: number;
 	overhead_ms: number;
@@ -45,6 +49,7 @@ export interface ProviderDistributionItem {
 	name: string;
 	count: number;
 	tokens: number;
+	cost_usd?: number;
 	share: number;
 }
 export interface ProviderDistributionStats {

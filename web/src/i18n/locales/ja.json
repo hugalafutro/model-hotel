@@ -262,7 +262,9 @@
 			"errorRate": "エラー率/{{range}}",
 			"avgDuration": "平均持続時間/{{range}}",
 			"totalTokens": "合計トークン/{{range}}",
-			"avgTokensPerReq": "Avg Tokens/Req"
+			"avgTokensPerReq": "Avg Tokens/Req",
+			"spend": "支出/{{range}}",
+			"unpriced": "+{{n}} 件は価格なし"
 		},
 		"gauge": {
 			"requestsPerRange": "リクエスト/{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1日",
 			"1w": "1週"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "リクエスト",
 			"tokens": "トークン",
 			"errors": "エラー",
 			"seconds": "秒",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "支出"
+		},
+		"metricSpend": "支出"
 	},
 	"chat": {
 		"chat": "チャット",
@@ -1365,7 +1365,8 @@
 			"interrupted": "中断されました",
 			"cacheInflated": "プロンプトキャッシュのヒットにより水増しされています",
 			"keyDeleted": "削除しました",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "コスト"
 		},
 		"tooltip": {
 			"timeDate": "リクエストのタイムスタンプ",
@@ -1390,7 +1391,8 @@
 			"dial": "ダイヤル (DNS+TCP)",
 			"settingsReads": "設定を読み込みます",
 			"reused": "再利用しました",
-			"ip": "リクエスト元のクライアントIPアドレス"
+			"ip": "リクエスト元のクライアントIPアドレス",
+			"cost": "モデルに保存された価格でのこのリクエストのコスト"
 		},
 		"status": {
 			"interrupted": "中断されました"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "稼働中",
 			"attemptBreakerSkipped": "スキップ",
 			"attemptBreakerDisabled": "無効",
-			"attemptSuperseded": "追い越し"
+			"attemptSuperseded": "追い越し",
+			"cost": "コスト",
+			"unpriced": "価格なし"
 		},
 		"statusBadge": {
 			"streaming": "ストリーミング",

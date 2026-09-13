@@ -262,7 +262,9 @@
 			"errorRate": "Foutpercentage/{{range}}",
 			"avgDuration": "Gem. tijdsduur /{{range}}",
 			"totalTokens": "Totaal aantal Tokens /{{range}}",
-			"avgTokensPerReq": "Gemiddelde Tokens/Req"
+			"avgTokensPerReq": "Gemiddelde Tokens/Req",
+			"spend": "Uitgaven/{{range}}",
+			"unpriced": "+{{n}} zonder prijs"
 		},
 		"gauge": {
 			"requestsPerRange": "Aanvragen/{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1D",
 			"1w": "1W"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Verzoeken",
 			"tokens": "Tokens",
 			"errors": "fouten",
 			"seconds": "seconden",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Uitgaven"
+		},
+		"metricSpend": "Uitgaven"
 	},
 	"chat": {
 		"chat": "Chatten",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Onderbroken",
 			"cacheInflated": "Inflated by prompt cache hits",
 			"keyDeleted": "Verwijderd",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Kosten"
 		},
 		"tooltip": {
 			"timeDate": "Tijdstempel van de aanvraag",
@@ -1390,7 +1391,8 @@
 			"dial": "Verbinden (DNS+TCP)",
 			"settingsReads": "Instellingen Lezen",
 			"reused": "hergebruikt",
-			"ip": "IP-adres van de client waarvan het verzoek kwam"
+			"ip": "IP-adres van de client waarvan het verzoek kwam",
+			"cost": "Wat het verzoek kostte tegen de opgeslagen prijzen van het model"
 		},
 		"status": {
 			"interrupted": "Onderbroken"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "actief",
 			"attemptBreakerSkipped": "overgeslagen",
 			"attemptBreakerDisabled": "uitgeschakeld",
-			"attemptSuperseded": "achterhaald"
+			"attemptSuperseded": "achterhaald",
+			"cost": "Kosten",
+			"unpriced": "Zonder prijs"
 		},
 		"statusBadge": {
 			"streaming": "Streamen",

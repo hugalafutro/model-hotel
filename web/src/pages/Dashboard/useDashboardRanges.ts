@@ -4,7 +4,11 @@ import { useLocalStorage } from "../../hooks/useLocalStorage";
 import type { Range } from "./types";
 
 const VALID_RANGES: ReadonlySet<Range> = new Set(["1h", "24h", "1w"]);
-const VALID_METRICS: ReadonlySet<MetricType> = new Set(["tokens", "requests"]);
+const VALID_METRICS: ReadonlySet<MetricType> = new Set([
+	"tokens",
+	"requests",
+	"cost",
+]);
 
 const deserializeRange = (stored: string, fallback: Range): Range =>
 	VALID_RANGES.has(stored as Range) ? (stored as Range) : fallback;

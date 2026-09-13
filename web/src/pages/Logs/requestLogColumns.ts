@@ -7,6 +7,7 @@ export type LogSortField =
 	| "status"
 	| "tokens"
 	| "tps"
+	| "cost"
 	| "response_header_ms"
 	| "ttft"
 	| "duration"
@@ -56,6 +57,11 @@ export function requestLogColumns(t: TFunction): RequestLogColumn[] {
 			field: "tps",
 			label: t("logs.table.tps"),
 			tooltip: t("logs.tooltip.tps"),
+		},
+		{
+			field: "cost",
+			label: t("logs.table.cost"),
+			tooltip: t("logs.tooltip.cost"),
 		},
 		{
 			field: "response_header_ms",

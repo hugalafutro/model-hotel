@@ -286,7 +286,9 @@
 			"errorRate": "معدل الخطأ/{{range}}",
 			"avgDuration": "متوسط المدة/{{range}}",
 			"totalTokens": "مجموع الرموز /{{range}}",
-			"avgTokensPerReq": "متوسط الرموز/الطلب"
+			"avgTokensPerReq": "متوسط الرموز/الطلب",
+			"spend": "الإنفاق/{{range}}",
+			"unpriced": "+{{n}} بدون سعر"
 		},
 		"gauge": {
 			"requestsPerRange": "الطلبات/{{range}}",
@@ -438,17 +440,15 @@
 			"24h": "1ي",
 			"1w": "1أ"
 		},
-		"metric": {
-			"tokens": "توك",
-			"requests": "طلب"
-		},
 		"label": {
 			"requests": "الطلبات",
 			"tokens": "الرموز",
 			"errors": "أخطاء",
 			"seconds": "ثواني",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "الإنفاق"
+		},
+		"metricSpend": "الإنفاق"
 	},
 	"chat": {
 		"chat": "الدردشة",
@@ -1553,7 +1553,8 @@
 			"interrupted": "مقطوع",
 			"cacheInflated": "متضخم بسبب إصابات ذاكرة الموجّهات المؤقتة",
 			"keyDeleted": "محذوف",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "التكلفة"
 		},
 		"tooltip": {
 			"timeDate": "الطابع الزمني للطلب",
@@ -1578,7 +1579,8 @@
 			"dial": "الاتصال (DNS+TCP)",
 			"settingsReads": "قراءة الإعدادات",
 			"reused": "إعادة الاستخدام",
-			"ip": "عنوان IP للعميل الذي جاء منه الطلب"
+			"ip": "عنوان IP للعميل الذي جاء منه الطلب",
+			"cost": "تكلفة الطلب وفق أسعار النموذج المخزنة"
 		},
 		"status": {
 			"interrupted": "مقطوع"
@@ -3083,7 +3085,9 @@
 			"attemptBreakerAlive": "حي",
 			"attemptBreakerSkipped": "متخطّى",
 			"attemptBreakerDisabled": "معطّل",
-			"attemptSuperseded": "تم تجاوزه"
+			"attemptSuperseded": "تم تجاوزه",
+			"cost": "التكلفة",
+			"unpriced": "بدون سعر"
 		},
 		"statusBadge": {
 			"streaming": "البث",

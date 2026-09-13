@@ -268,7 +268,9 @@
 			"errorRate": "שיעור השגיאות /{{range}}",
 			"avgDuration": "משך ממוצע/{{range}}",
 			"totalTokens": "סה\"כ אסימונים /{{range}}",
-			"avgTokensPerReq": "ממוצע אסימונים לבקשה"
+			"avgTokensPerReq": "ממוצע אסימונים לבקשה",
+			"spend": "הוצאה/{{range}}",
+			"unpriced": "+{{n}} ללא מחיר"
 		},
 		"gauge": {
 			"requestsPerRange": "בקשות /{{range}}",
@@ -405,17 +407,15 @@
 			"24h": "1י",
 			"1w": "1שב"
 		},
-		"metric": {
-			"tokens": "טוק",
-			"requests": "בקש"
-		},
 		"label": {
 			"requests": "בקשות",
 			"tokens": "אסימונים",
 			"errors": "שגיאות",
 			"seconds": "שניות",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "הוצאה"
+		},
+		"metricSpend": "הוצאה"
 	},
 	"chat": {
 		"chat": "צ'אט",
@@ -1412,7 +1412,8 @@
 			"interrupted": "נקטע",
 			"cacheInflated": "מוגדל עקב פגיעות במטמון ההנחיות",
 			"keyDeleted": "נמחק",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "עלות"
 		},
 		"tooltip": {
 			"timeDate": "תאריך ושעה של הבקשה",
@@ -1437,7 +1438,8 @@
 			"dial": "חיוג (DNS+TCP)",
 			"settingsReads": "הגדרות קריאה",
 			"reused": "בשימוש חוזר",
-			"ip": "כתובת ה-IP של הלקוח שממנה הגיעה הבקשה"
+			"ip": "כתובת ה-IP של הלקוח שממנה הגיעה הבקשה",
+			"cost": "כמה עלתה הבקשה לפי המחירים השמורים של המודל"
 		},
 		"status": {
 			"interrupted": "נקטע"
@@ -2888,7 +2890,9 @@
 			"attemptBreakerAlive": "פעיל",
 			"attemptBreakerSkipped": "דולג",
 			"attemptBreakerDisabled": "מושבת",
-			"attemptSuperseded": "נדחק"
+			"attemptSuperseded": "נדחק",
+			"cost": "עלות",
+			"unpriced": "ללא מחיר"
 		},
 		"statusBadge": {
 			"streaming": "סטרימינג",

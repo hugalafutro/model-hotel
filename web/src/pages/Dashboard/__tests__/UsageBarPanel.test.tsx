@@ -136,15 +136,15 @@ describe("UsageBarPanel", () => {
 			/>,
 		);
 
-		expect(screen.getByText("Tok")).toBeInTheDocument();
-		expect(screen.getByText("Req")).toBeInTheDocument();
+		expect(screen.getByText("T")).toBeInTheDocument();
+		expect(screen.getByText("R")).toBeInTheDocument();
 	});
 
 	it("does not render MetricToggle when metric is not provided", () => {
 		renderWithProviders(<UsageBarPanel {...defaultProps} />);
 
-		expect(screen.queryByText("Tok")).not.toBeInTheDocument();
-		expect(screen.queryByText("Req")).not.toBeInTheDocument();
+		expect(screen.queryByText("T")).not.toBeInTheDocument();
+		expect(screen.queryByText("R")).not.toBeInTheDocument();
 	});
 
 	it("calls onMetricChange when metric button is clicked", async () => {
@@ -159,7 +159,7 @@ describe("UsageBarPanel", () => {
 			/>,
 		);
 
-		const reqButton = screen.getByText("Req");
+		const reqButton = screen.getByText("R");
 		await user.click(reqButton);
 
 		expect(onMetricChangeMock).toHaveBeenCalledWith("requests");

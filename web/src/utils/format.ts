@@ -8,6 +8,7 @@ export {
 	formatCompact,
 	formatDollars,
 	formatKwh,
+	formatSpend,
 	formatTokens,
 } from "@web-shared/format";
 /** Encode a value as base64, handling Unicode characters safely. */

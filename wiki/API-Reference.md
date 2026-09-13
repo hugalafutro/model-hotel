@@ -972,7 +972,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `to` | RFC3339 | - | End timestamp |
 | `attempt_provider_id` | UUID | - | Select requests whose per-attempt trail names this provider on ANY attempt, whoever served the request in the end ("every request in which Neuralwatt answered") |
 | `attempt_status` | positive integer | - | Select requests with an attempt that reached this upstream status (`0`, "no response seen", cannot be selected: such attempts carry no status). Combined with `attempt_provider_id`, both must hold on the same attempt ("every request in which Neuralwatt returned 429") |
-| `sort_by` | string | `time` | Sort column: `time`, `model`, `provider`, `status`, `tokens`, `tps`, `ttft`, `response_header_ms`, `duration`, `overhead`, `key`, `ip`. Anything else falls back to `time` |
+| `sort_by` | string | `time` | Sort column: `time`, `model`, `provider`, `status`, `tokens`, `tps`, `cost`, `ttft`, `response_header_ms`, `duration`, `overhead`, `key`, `ip`. Anything else falls back to `time`. `cost` puts unpriced rows last |
 | `sort_dir` | string | `desc` | Sort direction: `asc` or `desc` |
 
 **Response:**
@@ -1005,6 +1005,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
       "tokens_completion_reasoning": 0,
       "tokens_prompt_cache_hit": 0,
       "tokens_prompt_cache_miss": 0,
+      "cost_usd": 0.0039,
       "streaming": true,
       "virtual_key_name": "Production Key",
       "virtual_key_deleted": false,
@@ -1408,7 +1409,7 @@ A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a
 |-----------|------|---------|-------------|
 | `period` | string | `24h` | Time period: `1h`, `24h`, `7d` (anything else is read as `24h`) |
 | `exclude_deleted` | boolean | `false` | Set `true` to exclude rows whose virtual key has been deleted |
-| `metric` | string | `requests` | Metric for aggregation: `requests` or `tokens` |
+| `metric` | string | `requests` | Metric for aggregation: `requests`, `tokens` or `cost` (US dollars from `cost_usd`; see [Request Logging](Request-Logging)) |
 | `include_latency` | boolean | `false` | Set `true` to add the latency breakdown to the response |
 
 **Response:**
@@ -1434,12 +1435,16 @@ A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a
   "avg_overhead_ms": 1.2,
   "total_tokens_prompt": 500000,
   "total_tokens_completion": 750000,
+  "total_cost_usd": 12.34,
+  "requests_unpriced": 3,
   "avg_tokens_per_request": 101.2,
   "rate_limit_hits": 15,
   "avg_ttft_ms": 123.4,
   "requests_last_1h": 500
 }
 ```
+
+`total_cost_usd` sums `request_logs.cost_usd` over the period. Requests the proxy could not price (an unpriced model, or one that never reached a provider) add nothing, and `requests_unpriced` counts the dispatched ones among them, so the total is a floor by that many requests. The `by_*` maps carry whichever metric was asked for, so under `metric=cost` their values are dollars.
 
 #### GET `/api/stats/timeseries`
 
@@ -1453,6 +1458,7 @@ A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a
       "bucket": "2024-01-01T00:00:00Z",
       "count": 100,
       "tokens": 50000,
+      "cost_usd": 0.42,
       "errors": 2,
       "latency_ms": 234.5,
       "overhead_ms": 1.2,
@@ -1474,7 +1480,7 @@ Returns hourly buckets for `1h` and `24h` periods, daily buckets for `7d`. Empty
 |-----------|------|---------|-------------|
 | `period` | string | `24h` | Time period: `1h`, `24h`, `7d` (anything else is read as `24h`) |
 | `exclude_deleted` | boolean | `false` | Set `true` to exclude rows whose virtual key has been deleted |
-| `metric` | string | `requests` | Distribution metric: `requests` or `tokens` |
+| `metric` | string | `requests` | Distribution metric: `requests`, `tokens` or `cost`. Providers with nothing to show under the metric (no tokens, or only unpriced or free requests) are left out |
 
 **Response:**
 ```json
@@ -1484,12 +1490,14 @@ Returns hourly buckets for `1h` and `24h` periods, daily buckets for `7d`. Empty
       "name": "OpenAI",
       "count": 8000,
       "tokens": 0,
+      "cost_usd": 0,
       "share": 66.7
     },
     {
       "name": "Anthropic",
       "count": 4000,
       "tokens": 0,
+      "cost_usd": 0,
       "share": 33.3
     }
   ]

@@ -23,6 +23,7 @@ export function toChartPoints(
 		tokens: p.tokens,
 		tokens_cache_hit: p.tokens_cache_hit ?? 0,
 		tokens_cache_miss: p.tokens_cache_miss ?? 0,
+		cost_usd: p.cost_usd ?? 0,
 		latency: roundLatency ? Math.round(p.latency_ms) : p.latency_ms,
 		overhead_ms: p.overhead_ms,
 		provider_latency_ms: p.provider_latency_ms,

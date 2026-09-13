@@ -30,6 +30,19 @@ export function formatDollars(v: number): string {
 	return v.toLocaleString("en-US", { style: "currency", currency: "USD" });
 }
 
+/**
+ * A USD spend figure: cents when the amount has them, otherwise its two
+ * leading significant digits, so a $0.0000039 request does not read as $0.00.
+ */
+export function formatSpend(v: number): string {
+	if (v === 0 || Math.abs(v) >= 0.01) return formatDollars(v);
+	return v.toLocaleString("en-US", {
+		style: "currency",
+		currency: "USD",
+		maximumSignificantDigits: 2,
+	});
+}
+
 /** A kWh magnitude, at most two decimals. The unit is appended by the caller. */
 export function formatKwh(v: number): string {
 	return v.toLocaleString("en-US", { maximumFractionDigits: 2 });

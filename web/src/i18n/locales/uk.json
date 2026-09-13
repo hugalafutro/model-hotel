@@ -274,7 +274,9 @@
 			"errorRate": "Частота помилок/{{range}}",
 			"avgDuration": "Середня тривалість/{{range}}",
 			"totalTokens": "Загальна кількість токенів /{{range}}",
-			"avgTokensPerReq": "Сер. токенів/запит"
+			"avgTokensPerReq": "Сер. токенів/запит",
+			"spend": "Витрати/{{range}}",
+			"unpriced": "+{{n}} без ціни"
 		},
 		"gauge": {
 			"requestsPerRange": "Запити /{{range}}",
@@ -416,17 +418,15 @@
 			"24h": "1Д",
 			"1w": "1Т"
 		},
-		"metric": {
-			"tokens": "Ток",
-			"requests": "Зап"
-		},
 		"label": {
 			"requests": "Запити",
 			"tokens": "Токени",
 			"errors": "помилки",
 			"seconds": "секунди",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Витрати"
+		},
+		"metricSpend": "Витрати"
 	},
 	"chat": {
 		"chat": "Чат",
@@ -1459,7 +1459,8 @@
 			"interrupted": "Перервано",
 			"cacheInflated": "Завищено через влучання в кеш промптів",
 			"keyDeleted": "Видалено",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Вартість"
 		},
 		"tooltip": {
 			"timeDate": "Часова відмітка запиту",
@@ -1484,7 +1485,8 @@
 			"dial": "Набрати (DNS+TCP)",
 			"settingsReads": "Налаштування прочитань",
 			"reused": "повторно використовується",
-			"ip": "IP-адреса клієнта, з якої надійшов запит"
+			"ip": "IP-адреса клієнта, з якої надійшов запит",
+			"cost": "Скільки коштував запит за збереженими цінами моделі"
 		},
 		"status": {
 			"interrupted": "Перервано"
@@ -2953,7 +2955,9 @@
 			"attemptBreakerAlive": "живий",
 			"attemptBreakerSkipped": "пропущено",
 			"attemptBreakerDisabled": "вимкнено",
-			"attemptSuperseded": "випереджено"
+			"attemptSuperseded": "випереджено",
+			"cost": "Вартість",
+			"unpriced": "Без ціни"
 		},
 		"statusBadge": {
 			"streaming": "Трансляція",

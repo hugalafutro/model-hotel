@@ -262,7 +262,9 @@
 			"errorRate": "Feilrate /{{range}}",
 			"avgDuration": "Snitt varighet/{{range}}",
 			"totalTokens": "Total Tokens/{{range}}",
-			"avgTokensPerReq": "Snitt tokener/Req"
+			"avgTokensPerReq": "Snitt tokener/Req",
+			"spend": "Forbruk/{{range}}",
+			"unpriced": "+{{n}} uten pris"
 		},
 		"gauge": {
 			"requestsPerRange": "Forespørsler /{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1D",
 			"1w": "1U"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Forespørsler",
 			"tokens": "Tokener",
 			"errors": "feil",
 			"seconds": "sekunder",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Forbruk"
+		},
+		"metricSpend": "Forbruk"
 	},
 	"chat": {
 		"chat": "Samtale",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Avbrutt",
 			"cacheInflated": "Blåst opp av treff i prompt-bufferen",
 			"keyDeleted": "Slettet",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Kostnad"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstempel for anmodningen",
@@ -1390,7 +1391,8 @@
 			"dial": "Dial (DNS+TCP)",
 			"settingsReads": "Innstillinger Leser",
 			"reused": "gjenbrukt",
-			"ip": "Klientens IP-adresse som forespørselen kom fra"
+			"ip": "Klientens IP-adresse som forespørselen kom fra",
+			"cost": "Hva forespørselen kostet til modellens lagrede priser"
 		},
 		"status": {
 			"interrupted": "Avbrutt"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "i live",
 			"attemptBreakerSkipped": "hoppet over",
 			"attemptBreakerDisabled": "deaktivert",
-			"attemptSuperseded": "forbigått"
+			"attemptSuperseded": "forbigått",
+			"cost": "Kostnad",
+			"unpriced": "Uten pris"
 		},
 		"statusBadge": {
 			"streaming": "Strømming",

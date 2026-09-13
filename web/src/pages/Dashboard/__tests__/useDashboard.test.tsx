@@ -1044,6 +1044,7 @@ describe("useDashboard", () => {
 				overhead: "#f472b6",
 				errors: "#ef4444",
 				tokens: "#22c55e",
+				spend: "#84cc16",
 				rateLimit: "#a855f7",
 			});
 		});

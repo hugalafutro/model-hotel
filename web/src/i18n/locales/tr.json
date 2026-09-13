@@ -262,7 +262,9 @@
 			"errorRate": "Hata Oranı /{{range}}",
 			"avgDuration": "Ortalama Süre /{{range}}",
 			"totalTokens": "Toplam Jeton /{{range}}",
-			"avgTokensPerReq": "Talep Başına Ortalama Jeton Sayısı"
+			"avgTokensPerReq": "Talep Başına Ortalama Jeton Sayısı",
+			"spend": "Harcama/{{range}}",
+			"unpriced": "+{{n}} fiyatsız"
 		},
 		"gauge": {
 			"requestsPerRange": "İstekler /{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1G",
 			"1w": "1H"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "İstekler",
 			"tokens": "Jetonlar",
 			"errors": "hatalar",
 			"seconds": "saniye",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Harcama"
+		},
+		"metricSpend": "Harcama"
 	},
 	"chat": {
 		"chat": "Sohbet",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Kesintiye uğramış",
 			"cacheInflated": "Komut istemi önbellek isabetleriyle şişmiş",
 			"keyDeleted": "Silindi",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Maliyet"
 		},
 		"tooltip": {
 			"timeDate": "İsteğin zaman damgası",
@@ -1390,7 +1391,8 @@
 			"dial": "Arama (DNS+TCP)",
 			"settingsReads": "Ayar Okumaları",
 			"reused": "yeniden kullanılmış",
-			"ip": "İsteğin geldiği istemci IP adresi"
+			"ip": "İsteğin geldiği istemci IP adresi",
+			"cost": "İsteğin modelin kayıtlı fiyatlarıyla maliyeti"
 		},
 		"status": {
 			"interrupted": "Kesintiye uğramış"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "canlı",
 			"attemptBreakerSkipped": "atlandı",
 			"attemptBreakerDisabled": "devre dışı",
-			"attemptSuperseded": "geçildi"
+			"attemptSuperseded": "geçildi",
+			"cost": "Maliyet",
+			"unpriced": "Fiyatsız"
 		},
 		"statusBadge": {
 			"streaming": "Akış",

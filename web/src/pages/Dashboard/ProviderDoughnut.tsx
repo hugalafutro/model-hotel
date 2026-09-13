@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next";
 import { TrendingUp } from "@/lib/icons";
 import type { ProviderDistributionItem } from "../../api/types";
 import { Spinner } from "../../components/Spinner";
-import { formatCompact, formatPercent } from "../../utils/format";
+import { formatCompact, formatPercent, formatSpend } from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
 import type { MetricType, Range } from "./types";
 
@@ -29,7 +29,12 @@ function buildCells(items: ProviderDistributionItem[]) {
 	// Guarantee 1 cell for any provider present in the data (share may be 0
 	// after backend rounding of <0.1% values, but count/tokens prove existence)
 	for (let i = 0; i < counts.length; i++) {
-		if (counts[i] === 0 && (items[i].count > 0 || items[i].tokens > 0)) {
+		if (
+			counts[i] === 0 &&
+			(items[i].count > 0 ||
+				items[i].tokens > 0 ||
+				(items[i].cost_usd ?? 0) > 0)
+		) {
 			counts[i] = 1;
 		}
 	}
@@ -195,7 +200,9 @@ export function ProviderDoughnut({
 										(
 										{metric === "tokens"
 											? `${formatCompact(it.tokens)} ${t("dashboard.providers.tokens", { count: it.tokens })}`
-											: `${it.count} ${t("dashboard.providers.requests", { count: it.count })}`}
+											: metric === "cost"
+												? formatSpend(it.cost_usd ?? 0)
+												: `${it.count} ${t("dashboard.providers.requests", { count: it.count })}`}
 										)
 									</span>
 								</li>

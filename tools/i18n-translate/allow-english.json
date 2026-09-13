@@ -1625,6 +1625,10 @@
 	"components.requestLogDetail.cacheMiss": [
 		"it"
 	],
+	"components.requestLogDetail.cost": [
+		"ca",
+		"ro"
+	],
 	"components.requestLogDetail.dialDnsTcp": [
 		"af",
 		"no"
@@ -2159,55 +2163,6 @@
 		"nl",
 		"pt",
 		"sv"
-	],
-	"dashboard.metric.requests": [
-		"af",
-		"ca",
-		"cs",
-		"da",
-		"de",
-		"el",
-		"es",
-		"fi",
-		"fr",
-		"it",
-		"ja",
-		"nl",
-		"no",
-		"pl",
-		"pt",
-		"ro",
-		"sk",
-		"sv",
-		"tr",
-		"vi"
-	],
-	"dashboard.metric.tokens": [
-		"af",
-		"ar",
-		"ca",
-		"cs",
-		"da",
-		"de",
-		"el",
-		"es",
-		"fi",
-		"fr",
-		"hu",
-		"it",
-		"ja",
-		"nl",
-		"no",
-		"pl",
-		"pt",
-		"ro",
-		"ru",
-		"sk",
-		"sv",
-		"tr",
-		"uk",
-		"vi",
-		"zh"
 	],
 	"dashboard.metricErrors": [
 		"ca"
@@ -2902,6 +2857,9 @@
 	"logs.endpoint.image": [
 		"fr"
 	],
+	"logs.endpoint.messages": [
+		"fr"
+	],
 	"logs.endpoint.rerank": [
 		"cs"
 	],
@@ -2954,6 +2912,10 @@
 	"logs.table.cacheInflated": [
 		"nl",
 		"sv"
+	],
+	"logs.table.cost": [
+		"ca",
+		"ro"
 	],
 	"logs.table.hash": [
 		"af",
@@ -6172,6 +6134,23 @@
 		"sr",
 		"zh"
 	],
+	"settings.alerts.category.failover": [
+		"cs",
+		"da",
+		"de",
+		"it",
+		"nl",
+		"no",
+		"pt",
+		"ro",
+		"sk",
+		"sv"
+	],
+	"settings.alerts.category.quota": [
+		"ca",
+		"fr",
+		"it"
+	],
 	"settings.alerts.destinations.title": [
 		"fr"
 	],
@@ -7244,25 +7223,5 @@
 		"nl",
 		"pt",
 		"sv"
-	],
-	"logs.endpoint.messages": [
-		"fr"
-	],
-	"settings.alerts.category.failover": [
-		"cs",
-		"da",
-		"de",
-		"it",
-		"nl",
-		"no",
-		"pt",
-		"ro",
-		"sk",
-		"sv"
-	],
-	"settings.alerts.category.quota": [
-		"ca",
-		"fr",
-		"it"
 	]
 }

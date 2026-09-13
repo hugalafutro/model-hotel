@@ -10,6 +10,7 @@ export type TimeSeriesDataPoint = {
 	tokens: number;
 	tokens_cache_hit: number;
 	tokens_cache_miss: number;
+	cost_usd?: number;
 	latency: number;
 	overhead_ms: number;
 	provider_latency_ms: number;
@@ -21,6 +22,7 @@ export type GaugeDataKey =
 	| "total"
 	| "tokens"
 	| "tokens_cache_hit"
+	| "cost_usd"
 	| "errors"
 	| "latency"
 	| "overhead_ms"

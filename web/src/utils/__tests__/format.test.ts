@@ -14,6 +14,7 @@ import {
 	formatNumber,
 	formatPercent,
 	formatRelativeTime,
+	formatSpend,
 	formatTime,
 	formatTimestamp,
 	formatTimeUntil,
@@ -360,6 +361,17 @@ describe("formatCompact", () => {
 describe("formatDollars", () => {
 	it("renders a USD amount", () => {
 		expect(formatDollars(12.5)).toBe("$12.50");
+	});
+});
+
+describe("formatSpend", () => {
+	it("renders cents when the amount has them", () => {
+		expect(formatSpend(12.5)).toBe("$12.50");
+		expect(formatSpend(0)).toBe("$0.00");
+	});
+	it("keeps a sub-cent request from reading as free", () => {
+		expect(formatSpend(0.0000039)).toBe("$0.0000039");
+		expect(formatSpend(0.005)).toBe("$0.005");
 	});
 });
 

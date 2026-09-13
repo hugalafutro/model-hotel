@@ -262,7 +262,9 @@
 			"errorRate": "Fehlerrate/{{range}}",
 			"avgDuration": "Durchschnittsdauer /{{range}}",
 			"totalTokens": "Tokens gesamt/{{range}}",
-			"avgTokensPerReq": "Mittlere Token/Req"
+			"avgTokensPerReq": "Mittlere Token/Req",
+			"spend": "Ausgaben/{{range}}",
+			"unpriced": "+{{n}} ohne Preis"
 		},
 		"gauge": {
 			"requestsPerRange": "Anfragen/{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1T",
 			"1w": "1W"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Anfragen",
 			"tokens": "Token",
 			"errors": "Fehler",
 			"seconds": "Sekunden",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Ausgaben"
+		},
+		"metricSpend": "Ausgaben"
 	},
 	"chat": {
 		"chat": "Chat",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Unterbrochen",
 			"cacheInflated": "Erhöht durch Prompt-Cache-Treffer",
 			"keyDeleted": "Gelöscht",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Kosten"
 		},
 		"tooltip": {
 			"timeDate": "Zeitstempel der Anfrage",
@@ -1390,7 +1391,8 @@
 			"dial": "Wählen (DNS+TCP)",
 			"settingsReads": "Einstellungs-Lesezugriffe",
 			"reused": "wiederverwendet",
-			"ip": "Client-IP-Adresse, von der die Anfrage kam"
+			"ip": "Client-IP-Adresse, von der die Anfrage kam",
+			"cost": "Was die Anfrage zu den gespeicherten Preisen des Modells gekostet hat"
 		},
 		"status": {
 			"interrupted": "Unterbrochen"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "erreichbar",
 			"attemptBreakerSkipped": "übersprungen",
 			"attemptBreakerDisabled": "deaktiviert",
-			"attemptSuperseded": "überholt"
+			"attemptSuperseded": "überholt",
+			"cost": "Kosten",
+			"unpriced": "Ohne Preis"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

@@ -83,30 +83,30 @@ describe("MetricToggle", () => {
 	it("renders all metric options", () => {
 		render(<MetricToggle value="tokens" onChange={vi.fn()} />);
 
-		expect(screen.getByText("Tok")).toBeInTheDocument();
-		expect(screen.getByText("Req")).toBeInTheDocument();
+		expect(screen.getByText("T")).toBeInTheDocument();
+		expect(screen.getByText("R")).toBeInTheDocument();
 	});
 
-	it("calls onChange with 'tokens' when Tok clicked", async () => {
+	it("calls onChange with 'tokens' when T clicked", async () => {
 		const onChange = vi.fn();
 		const user = userEvent.setup();
 
 		render(<MetricToggle value="requests" onChange={onChange} />);
 
-		const tokButton = screen.getByText("Tok");
+		const tokButton = screen.getByText("T");
 		await user.click(tokButton);
 
 		expect(onChange).toHaveBeenCalledWith("tokens");
 		expect(onChange).toHaveBeenCalledTimes(1);
 	});
 
-	it("calls onChange with 'requests' when Req clicked", async () => {
+	it("calls onChange with 'requests' when R clicked", async () => {
 		const onChange = vi.fn();
 		const user = userEvent.setup();
 
 		render(<MetricToggle value="tokens" onChange={onChange} />);
 
-		const reqButton = screen.getByText("Req");
+		const reqButton = screen.getByText("R");
 		await user.click(reqButton);
 
 		expect(onChange).toHaveBeenCalledWith("requests");
@@ -116,14 +116,14 @@ describe("MetricToggle", () => {
 	it("applies active style to selected value", () => {
 		render(<MetricToggle value="requests" onChange={vi.fn()} />);
 
-		const activeButton = screen.getByText("Req").closest("button");
+		const activeButton = screen.getByText("R").closest("button");
 		expect(activeButton).toHaveClass("ui-tab-active");
 	});
 
 	it("applies inactive style to non-selected values", () => {
 		render(<MetricToggle value="requests" onChange={vi.fn()} />);
 
-		const inactiveButton = screen.getByText("Tok").closest("button");
+		const inactiveButton = screen.getByText("T").closest("button");
 		expect(inactiveButton).not.toHaveClass("ui-tab-active");
 		expect(inactiveButton).toHaveClass("text-(--text-muted)");
 	});
@@ -131,7 +131,16 @@ describe("MetricToggle", () => {
 	it("has hover style on inactive buttons", () => {
 		render(<MetricToggle value="requests" onChange={vi.fn()} />);
 
-		const inactiveButton = screen.getByText("Tok").closest("button");
+		const inactiveButton = screen.getByText("T").closest("button");
 		expect(inactiveButton).toHaveClass("hover:text-(--text-secondary)");
+	});
+});
+
+describe("MetricToggle spend", () => {
+	it("offers spend as a third metric", async () => {
+		const onChange = vi.fn();
+		render(<MetricToggle value="tokens" onChange={onChange} />);
+		await userEvent.click(screen.getByText("S"));
+		expect(onChange).toHaveBeenCalledWith("cost");
 	});
 });

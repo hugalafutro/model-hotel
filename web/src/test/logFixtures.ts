@@ -114,6 +114,7 @@ export function createLogTableEntry(
 		tokens_completion: 50,
 		tokens_prompt_cache_hit: 0,
 		tokens_prompt_cache_miss: 100,
+		cost_usd: 0.001,
 		tokens_completion_reasoning: 0,
 		streaming: true,
 		state: "completed",

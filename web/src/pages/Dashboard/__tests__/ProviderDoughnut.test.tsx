@@ -282,7 +282,7 @@ describe("ProviderDoughnut", () => {
 			/>,
 		);
 
-		const reqButton = screen.getByText("Req");
+		const reqButton = screen.getByText("R");
 		await user.click(reqButton);
 
 		expect(onMetricChangeMock).toHaveBeenCalledWith("requests");
@@ -291,8 +291,8 @@ describe("ProviderDoughnut", () => {
 	it("renders MetricToggle component", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} />);
 
-		expect(screen.getByText("Tok")).toBeInTheDocument();
-		expect(screen.getByText("Req")).toBeInTheDocument();
+		expect(screen.getByText("T")).toBeInTheDocument();
+		expect(screen.getByText("R")).toBeInTheDocument();
 	});
 
 	it("renders RangeToggle component", () => {
@@ -313,7 +313,7 @@ describe("ProviderDoughnut", () => {
 	it("highlights active metric button", () => {
 		renderWithProviders(<ProviderDoughnut {...defaultProps} metric="tokens" />);
 
-		const tokButton = screen.getByText("Tok").closest("button");
+		const tokButton = screen.getByText("T").closest("button");
 		expect(tokButton).toHaveClass("ui-tab-active");
 	});
 

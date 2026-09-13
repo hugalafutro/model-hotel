@@ -4,11 +4,16 @@ import {
 	AlertTriangle,
 	Bot,
 	Clock,
+	DollarSign,
 	Hash,
 	PlugZap,
 	Target,
 } from "@/lib/icons";
-import { formatCompact, formatWithCommas } from "../../utils/format";
+import {
+	formatCompact,
+	formatSpend,
+	formatWithCommas,
+} from "../../utils/format";
 import { StatCard } from "./StatCard";
 import type { UseDashboardReturn } from "./useDashboard";
 
@@ -100,27 +105,47 @@ export function StatCardsRow({
 				onClick={() => setLatencyModalOpen(true)}
 				tooltip={t("dashboard.gauge.viewDurationHistory")}
 			/>
-			<StatCard
-				label={
-					globalMetric === "tokens"
-						? t("dashboard.stats.totalTokens", { range: rangeLabel })
-						: t("dashboard.stats.avgTokensPerReq")
-				}
-				value={
-					globalMetric === "tokens"
-						? totalTokens
-						: stats?.avg_tokens_per_request || 0
-				}
-				decimals={0}
-				suffix={
-					globalMetric === "tokens" ? "" : t("dashboard.label.requestsPerQuery")
-				}
-				icon={globalMetric === "tokens" ? Hash : Target}
-				accent={accents.tokens}
-				formatter={globalMetric === "tokens" ? formatCompact : undefined}
-				onClick={() => setTokensModalOpen(true)}
-				tooltip={t("dashboard.gauge.viewTokenHistory")}
-			/>
+			{globalMetric === "cost" ? (
+				// Spend over the range. Unpriced requests add nothing to the
+				// figure, so their count rides the tooltip: the total is a floor.
+				<StatCard
+					label={t("dashboard.stats.spend", { range: rangeLabel })}
+					value={stats?.total_cost_usd ?? 0}
+					decimals={2}
+					icon={DollarSign}
+					accent={accents.spend}
+					formatter={formatSpend}
+					tooltip={
+						stats?.requests_unpriced
+							? t("dashboard.stats.unpriced", { n: stats.requests_unpriced })
+							: undefined
+					}
+				/>
+			) : (
+				<StatCard
+					label={
+						globalMetric === "tokens"
+							? t("dashboard.stats.totalTokens", { range: rangeLabel })
+							: t("dashboard.stats.avgTokensPerReq")
+					}
+					value={
+						globalMetric === "tokens"
+							? totalTokens
+							: stats?.avg_tokens_per_request || 0
+					}
+					decimals={0}
+					suffix={
+						globalMetric === "tokens"
+							? ""
+							: t("dashboard.label.requestsPerQuery")
+					}
+					icon={globalMetric === "tokens" ? Hash : Target}
+					accent={accents.tokens}
+					formatter={globalMetric === "tokens" ? formatCompact : undefined}
+					onClick={() => setTokensModalOpen(true)}
+					tooltip={t("dashboard.gauge.viewTokenHistory")}
+				/>
+			)}
 		</div>
 	);
 }

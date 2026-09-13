@@ -16,6 +16,7 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { LogEntry } from "../api/types";
+import { formatSpend } from "../utils/format";
 import { formatLogTimestamp } from "../utils/logBadgeUtils";
 import { formatMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
@@ -260,6 +261,16 @@ export function RequestLogDetail({
 							</div>
 							<div className="text-sm font-mono text-(--text-primary)">
 								{requestLog.tokens_completion.toLocaleString()}
+							</div>
+						</div>
+						<div>
+							<div className="text-[11px] uppercase text-(--text-tertiary)">
+								{t("components.requestLogDetail.cost")}
+							</div>
+							<div className="text-sm font-mono text-(--text-primary)">
+								{requestLog.cost_usd == null
+									? t("components.requestLogDetail.unpriced")
+									: formatSpend(requestLog.cost_usd)}
 							</div>
 						</div>
 						{hasReasoning && (

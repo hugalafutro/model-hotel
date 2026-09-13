@@ -274,7 +274,9 @@
 			"errorRate": "Частота ошибок /{{range}}",
 			"avgDuration": "Средняя длительность /{{range}}",
 			"totalTokens": "Всего токенов /{{range}}",
-			"avgTokensPerReq": "Ср. токенов / запрос"
+			"avgTokensPerReq": "Ср. токенов / запрос",
+			"spend": "Расходы/{{range}}",
+			"unpriced": "+{{n}} без цены"
 		},
 		"gauge": {
 			"requestsPerRange": "Запросы /{{range}}",
@@ -416,17 +418,15 @@
 			"24h": "1Д",
 			"1w": "1Н"
 		},
-		"metric": {
-			"tokens": "Ток.",
-			"requests": "Зап"
-		},
 		"label": {
 			"requests": "Запросы",
 			"tokens": "Токены",
 			"errors": "ошибки",
 			"seconds": "секунд",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Расходы"
+		},
+		"metricSpend": "Расходы"
 	},
 	"chat": {
 		"chat": "Чат",
@@ -1459,7 +1459,8 @@
 			"interrupted": "Прервано",
 			"cacheInflated": "Завышено попаданиями в кэш промптов",
 			"keyDeleted": "Удалено",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Стоимость"
 		},
 		"tooltip": {
 			"timeDate": "Отметка времени для запроса",
@@ -1484,7 +1485,8 @@
 			"dial": "Набор (DNS+TCP)",
 			"settingsReads": "Чтения настроек",
 			"reused": "повторно использовано",
-			"ip": "IP-адрес клиента, с которого пришёл запрос"
+			"ip": "IP-адрес клиента, с которого пришёл запрос",
+			"cost": "Сколько стоил запрос по сохранённым ценам модели"
 		},
 		"status": {
 			"interrupted": "Прервано"
@@ -2953,7 +2955,9 @@
 			"attemptBreakerAlive": "жив",
 			"attemptBreakerSkipped": "пропущено",
 			"attemptBreakerDisabled": "отключено",
-			"attemptSuperseded": "опережён"
+			"attemptSuperseded": "опережён",
+			"cost": "Стоимость",
+			"unpriced": "Без цены"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",
