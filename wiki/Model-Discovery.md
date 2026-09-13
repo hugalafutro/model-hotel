@@ -862,7 +862,7 @@ In addition to provider-specific discovery and built-in catalogs, Model Hotel ca
 2. The response is parsed into two in-memory indexes: a per-provider index (models.dev provider ID → model ID → spec) and a cross-provider index keyed by bare model ID.
 3. During **every** discovery run (after the provider-specific discovery function returns its model list), each model is passed through the enrichment layer along with the provider's detected type.
 4. `EnrichModel` fills **only empty or zero-value fields**: it never overwrites data already populated by the provider API or built-in catalog. Capability flags are OR-merged, never cleared, with one exception noted in the table below.
-5. If the models.dev fetch fails (network error, timeout, invalid JSON), enrichment is silently disabled. Existing catalogue data is never at risk.
+5. If the models.dev fetch fails (network error, timeout, invalid JSON), the failure is logged and a background loop retries it after 1, 2, 4 and 8 minutes, then every 15 minutes, until one load succeeds. Discovery reads the cache on every scan, so the first scan after a successful retry is enriched again; until then a scan runs without enrichment and the stored prices survive (the upsert keeps a stored price when the incoming one is absent). Existing catalogue data is never at risk.
 
 ### Canonical Provider Preference
 

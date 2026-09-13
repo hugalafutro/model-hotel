@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"slices"
 	"strings"
@@ -1392,5 +1393,49 @@ func TestLogRetentionPassEndsWhenTheDrainContextIsCancelled(t *testing.T) {
 	}
 	if elapsed > 5*time.Second {
 		t.Fatalf("pass took %s: a statement on the drain context must end when the join cancels it, or shutdown closes the pool underneath it", elapsed)
+	}
+}
+
+// The retry loop keeps calling the loader on its schedule until one call
+// succeeds, then stops; a cancelled context stops it between attempts.
+func TestModelsDevRetryLoop(t *testing.T) {
+	var calls atomic.Int32
+	done := make(chan struct{})
+	go func() {
+		modelsDevRetryLoop(context.Background(), func(context.Context) error {
+			if calls.Add(1) < 3 {
+				return errors.New("proxy: no allowed IP found for host models.dev")
+			}
+			return nil
+		}, []time.Duration{time.Millisecond, 2 * time.Millisecond})
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("loop did not stop after the load succeeded")
+	}
+	if got := calls.Load(); got != 3 {
+		t.Errorf("loader called %d times, want 3 (two failures, then success)", got)
+	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	stopped := make(chan struct{})
+	var afterCancel atomic.Int32
+	go func() {
+		modelsDevRetryLoop(ctx, func(context.Context) error {
+			afterCancel.Add(1)
+			return errors.New("still down")
+		}, []time.Duration{time.Hour})
+		close(stopped)
+	}()
+	cancel()
+	select {
+	case <-stopped:
+	case <-time.After(5 * time.Second):
+		t.Fatal("loop did not stop on context cancellation")
+	}
+	if afterCancel.Load() != 0 {
+		t.Error("a cancelled loop must not attempt a load")
 	}
 }

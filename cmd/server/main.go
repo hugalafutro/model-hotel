@@ -414,11 +414,10 @@ func main() {
 	}
 
 	// Load models.dev catalogue synchronously before startup discovery so
-	// enrichment data is available for the first discovery run. Uses a short
-	// timeout so a slow/unreachable API doesn't block startup for long.
+	// enrichment data is available for the first discovery run. A failed load
+	// is retried in the background, since the embedded catalogs carry no
+	// prices for the models models.dev already covers.
 	if cfg.ModelsDevEnabled {
-		loadCtx, loadCancel := context.WithTimeout(context.Background(), 15*time.Second)
-		defer loadCancel()
 		// Route the catalogue fetch through the SafeDialer so a redirect from
 		// models.dev to a private/reserved address can't be turned into an SSRF,
 		// even though the request URL itself is a fixed constant.
@@ -426,8 +425,15 @@ func main() {
 			Transport:     &http.Transport{DialContext: sd.DialContext},
 			CheckRedirect: sd.CheckRedirect,
 		}
-		if err := provider.LoadModelsDevWithClient(loadCtx, modelsDevClient); err != nil {
-			debuglog.Warn("modelsdev: failed to load catalogue", "error", err)
+		loadModelsDev := func(ctx context.Context) error {
+			return provider.LoadModelsDevWithClient(ctx, modelsDevClient)
+		}
+		loadCtx, loadCancel := context.WithTimeout(ctx, modelsDevLoadTimeout)
+		err := loadModelsDev(loadCtx)
+		loadCancel()
+		if err != nil {
+			debuglog.Warn("modelsdev: failed to load catalogue, retrying in the background", "error", err, "next_retry", modelsDevRetryDelays[0].String())
+			background.Go("modelsdev-retry", func() { modelsDevRetryLoop(ctx, loadModelsDev, modelsDevRetryDelays) })
 		}
 	}
 
