@@ -219,12 +219,16 @@ func TestDampenOpenRouterPriceJitter(t *testing.T) {
 	})
 
 	t.Run("a damped price keeps the stored source", func(t *testing.T) {
-		snap := map[string]ModelSnapshot{"m": {inputPrice: new(1.00), priceSources: model.PriceSources{Input: model.PriceSourceModelsDev}}}
-		m := &model.Model{ModelID: "m", InputPricePerMillion: new(1.03), PriceSources: model.PriceSources{Input: model.PriceSourceProvider}}
+		stored := model.PriceSources{Input: model.PriceSourceModelsDev, CacheHit: model.PriceSourceCatalog, Output: model.PriceSourceManual}
+		snap := map[string]ModelSnapshot{"m": {inputPrice: new(1.00), inputPriceCache: new(0.10), outputPrice: new(2.00), priceSources: stored}}
+		scanned := model.PriceSources{Input: model.PriceSourceProvider, CacheHit: model.PriceSourceProvider, Output: model.PriceSourceProvider}
+		m := &model.Model{ModelID: "m", InputPricePerMillion: new(1.03), InputPricePerMillionCacheHit: new(0.103), OutputPricePerMillion: new(2.06), PriceSources: scanned}
 		DampenOpenRouterPriceJitter(orType, snap, []*model.Model{m})
 		wantPrice(t, "input_price", m.InputPricePerMillion, 1.00)
-		if m.PriceSources.Input != model.PriceSourceModelsDev {
-			t.Fatalf("source = %q, want the stored models.dev label on the stored price", m.PriceSources.Input)
+		wantPrice(t, "input_price_cache", m.InputPricePerMillionCacheHit, 0.10)
+		wantPrice(t, "output_price", m.OutputPricePerMillion, 2.00)
+		if m.PriceSources != stored {
+			t.Fatalf("sources = %+v, want the stored labels %+v on the stored prices", m.PriceSources, stored)
 		}
 	})
 

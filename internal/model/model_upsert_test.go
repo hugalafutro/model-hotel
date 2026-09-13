@@ -326,4 +326,32 @@ func TestStampPriceSources_OnlyPricedAndUnsourced(t *testing.T) {
 	if m.PriceSources != want {
 		t.Errorf("sources = %+v, want %+v: the unset cache-hit price gets none, the catalog output keeps its source", m.PriceSources, want)
 	}
+
+	all := &Model{InputPricePerMillion: new(1.0), InputPricePerMillionCacheHit: new(0.1), OutputPricePerMillion: new(2.0)}
+	all.StampPriceSources(PriceSourceModelsDev)
+	if want := (PriceSources{Input: PriceSourceModelsDev, CacheHit: PriceSourceModelsDev, Output: PriceSourceModelsDev}); all.PriceSources != want {
+		t.Errorf("sources = %+v, want every priced field stamped %+v", all.PriceSources, want)
+	}
+}
+
+// Editing the cache-hit price alone marks that price manual and nothing else.
+func TestUpdate_CacheHitEditStampsOnlyItself(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	providerID := insertTestProvider(ctx, t, "test-update-cache-hit-source")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	base := newBareModel(providerID, "cache-edit")
+	base.InputPricePerMillion = new(1.0)
+	base.PriceSources = PriceSources{Input: PriceSourceProvider}
+	if err := repo.Upsert(ctx, base); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	got, err := repo.Update(ctx, base.ID, UpdateModelRequest{InputPricePerMillionCacheHit: new(0.2)})
+	if err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if want := (PriceSources{Input: PriceSourceProvider, CacheHit: PriceSourceManual}); got.PriceSources != want || !got.PriceCustomized {
+		t.Errorf("sources = %+v pinned=%v, want %+v and pinned", got.PriceSources, got.PriceCustomized, want)
+	}
 }
