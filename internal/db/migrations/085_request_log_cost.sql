@@ -16,7 +16,10 @@ ALTER TABLE request_logs ADD COLUMN IF NOT EXISTS cost_usd DOUBLE PRECISION;
 -- resolved member when there was one, else the requested model. Only rows
 -- with no cost yet are touched, so a re-run prices nothing twice. The price
 -- columns are REAL; widened first so the sum accumulates the way the proxy's
--- float64 arithmetic does.
+-- float64 arithmetic does. An old exhausted-group row stays NULL even when a
+-- rejected candidate's prompt was charged onto it: exhaustion nulls
+-- provider_id, so nothing says which member to price it at. The live path
+-- keeps the last candidate and prices such a row; the estimate does not.
 UPDATE request_logs rl SET cost_usd = (
       (CASE WHEN rl.tokens_prompt_cache_hit > 0 AND m.input_price_per_million_cache_hit IS NOT NULL
             THEN rl.tokens_prompt_cache_hit * m.input_price_per_million_cache_hit::double precision

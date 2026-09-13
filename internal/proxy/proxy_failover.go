@@ -403,7 +403,6 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 	logData := st.logData
 	logData.providerID = candidate.provider.ID
 	logData.providerName = candidate.provider.Name
-	logData.servedModel = candidate.model
 	logData.masker = newCredentialMasker(candidate.apiKey)
 	// The attempt trail's record for this candidate opens here, before
 	// admission: a busy skip is an attempt the operator wants to see too.
@@ -424,6 +423,10 @@ func (h *Handler) beginAttempt(failoverCtx context.Context, st *requestState, ca
 		logData.closeAttemptRecord(0, KindProviderSaturated, "at in-flight limit", "", 0)
 		return nil, "", "", true, false
 	}
+	// Stamped after admission: a candidate skipped at its in-flight limit was
+	// never dispatched, so a request every candidate skips keeps a NULL cost
+	// rather than pricing to 0.
+	logData.servedModel = candidate.model
 	if attempt == 0 {
 		debuglog.Info("proxy: routing to provider", "endpoint", logData.endpointType, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "total_candidates", totalCandidates)
 	} else {
