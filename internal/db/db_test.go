@@ -975,7 +975,7 @@ func TestRunMigration_InvalidSQL(t *testing.T) {
 
 // TestRunMigration_RecordInsertError tests that runMigration returns an error
 // when the INSERT INTO schema_migrations fails (e.g., duplicate migration name
-// that wasn't caught by the SELECT EXISTS check due to a race).
+// that the ledger read did not see because of a race).
 func TestRunMigration_RecordInsertError(t *testing.T) {
 	ctx := context.Background()
 	testURL, err := SetupTestDB("db_record_insert_err")

@@ -65,15 +65,17 @@ func TestRunMigration_Checksum(t *testing.T) {
 		t.Fatal("a re-run with the same text must not warn")
 	}
 
-	// The edit is not executed (a run would fail on the syntax), only named.
-	run("SELECT 1 -- edited after shipping", false)
+	// The edit is named, never executed: this text divides by zero, so a run
+	// would fail rather than return applied=false.
+	const edited = "SELECT 1/0"
+	run(edited, false)
 	if !warned() {
 		t.Fatal("a re-run with changed text must warn")
 	}
-	if got := stored(); got == nil || *got != migrationChecksum("SELECT 1 -- edited after shipping") {
+	if got := stored(); got == nil || *got != migrationChecksum(edited) {
 		t.Fatalf("checksum after drift = %v, want the hash of the current text", got)
 	}
-	run("SELECT 1 -- edited after shipping", false)
+	run(edited, false)
 	if warned() {
 		t.Fatal("the drift must be named once, not on every start")
 	}
@@ -120,14 +122,15 @@ func TestRunMigration_ChecksumErrors(t *testing.T) {
 	}
 
 	// The ledger read: a one-connection pool with a statement timeout, built
-	// before the lock so its own startup migrations pass, then blocked on the
+	// before the lock so its own startup migrations pass (the timeout governs
+	// those too, hence a second rather than milliseconds), then blocked on the
 	// SELECT by an exclusive lock another transaction holds.
 	u, err := url.Parse(testDBURL)
 	if err != nil {
 		t.Fatalf("parse test URL: %v", err)
 	}
 	q := u.Query()
-	q.Set("statement_timeout", "250")
+	q.Set("statement_timeout", "1000")
 	u.RawQuery = q.Encode()
 	timed, err := New(ctx, u.String(), 1, 1)
 	if err != nil {
