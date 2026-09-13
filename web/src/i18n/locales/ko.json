@@ -1078,6 +1078,13 @@
 			"video_input": "비디오",
 			"audio_input": "오디오",
 			"parallel_tool_calls": "병렬"
+		},
+		"priceSource": {
+			"provider": "제공자 자체 모델 목록이 보고한 가격입니다.",
+			"catalog": "Model Hotel 내장 카탈로그의 가격입니다. models.dev에 이 모델의 가격이 없거나 잘못된 경우에만 유지되는 재정의입니다.",
+			"modelsdev": "공개 모델 카탈로그 models.dev의 가격입니다.",
+			"manual": "이 대시보드에서 수동으로 설정한 가격입니다.",
+			"unknown": "출처가 아직 기록되지 않았습니다. 다음 검색 스캔에서 이 가격의 출처를 기록합니다."
 		}
 	},
 	"model": {

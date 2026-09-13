@@ -1150,6 +1150,13 @@
 			"video_input": "Wideo",
 			"audio_input": "Dźwięk",
 			"parallel_tool_calls": "Równolegle"
+		},
+		"priceSource": {
+			"provider": "Zgłoszona przez własną listę modeli dostawcy.",
+			"catalog": "Z wbudowanego katalogu Model Hotel, nadpisanie utrzymywane tylko tam, gdzie models.dev nie ma ceny dla tego modelu lub ma ją błędną.",
+			"modelsdev": "Z models.dev, publicznego katalogu modeli.",
+			"manual": "Ustawiona ręcznie w tym panelu.",
+			"unknown": "Źródło jeszcze nie zapisane; następne skanowanie wykrywania zapisze, skąd pochodzi ta cena."
 		}
 	},
 	"model": {

@@ -1078,6 +1078,13 @@
 			"video_input": "Video",
 			"audio_input": "Audio",
 			"parallel_tool_calls": "Parallel"
+		},
+		"priceSource": {
+			"provider": "Gemeld door de modellenlijst van de aanbieder zelf.",
+			"catalog": "Uit de ingebouwde catalogus van Model Hotel, een overschrijving die alleen wordt bewaard waar models.dev geen prijs voor dit model heeft of een verkeerde.",
+			"modelsdev": "Van models.dev, de openbare modelcatalogus.",
+			"manual": "Handmatig ingesteld op dit dashboard.",
+			"unknown": "Bron nog niet vastgelegd; de volgende discovery-scan legt vast waar deze prijs vandaan komt."
 		}
 	},
 	"model": {

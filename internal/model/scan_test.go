@@ -77,6 +77,10 @@ func (m *mockModelRows) Conn() *pgx.Conn {
 
 func assignToDest(dest, val any) {
 	switch d := dest.(type) {
+	case *PriceSources:
+		if v, ok := val.(PriceSources); ok {
+			*d = v
+		}
 	case *uuid.UUID:
 		if v, ok := val.(uuid.UUID); ok {
 			*d = v
@@ -156,10 +160,11 @@ func buildRow(t *testing.T, m *Model) []any {
 		m.DisabledManually,             // 18 - DisabledManually
 		m.DisplayNameCustomized,        // 19 - DisplayNameCustomized
 		m.PriceCustomized,              // 20 - PriceCustomized
-		m.CreatedAt,                    // 21 - CreatedAt
-		m.LastSeenAt,                   // 22 - LastSeenAt
-		m.ProviderName,                 // 23 - ProviderName
-		m.ProviderEnabled,              // 24 - ProviderEnabled
+		m.PriceSources,                 // 21 - PriceSources (jsonb)
+		m.CreatedAt,                    // 22 - CreatedAt
+		m.LastSeenAt,                   // 23 - LastSeenAt
+		m.ProviderName,                 // 24 - ProviderName
+		m.ProviderEnabled,              // 25 - ProviderEnabled
 	}
 }
 

@@ -1078,6 +1078,13 @@
 			"video_input": "Video",
 			"audio_input": "Klank",
 			"parallel_tool_calls": "Parallel"
+		},
+		"priceSource": {
+			"provider": "Gerapporteer deur die verskaffer se eie modellys.",
+			"catalog": "Uit Model Hotel se ingeboude katalogus, 'n oorskrywing wat net gehou word waar models.dev geen prys vir hierdie model het of dit verkeerd het nie.",
+			"modelsdev": "Van models.dev, die openbare modelkatalogus.",
+			"manual": "Met die hand op hierdie dashboard gestel.",
+			"unknown": "Bron nog nie aangeteken nie; die volgende ontdekkingskandering teken aan waar hierdie prys vandaan kom."
 		}
 	},
 	"model": {

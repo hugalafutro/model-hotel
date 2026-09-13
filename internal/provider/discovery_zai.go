@@ -147,6 +147,7 @@ func zaiCodingSpecToModel(spec ZAICodingModelSpec, providerID uuid.UUID) *model.
 		v := *spec.OutputPricePerMillion
 		m.OutputPricePerMillion = &v
 	}
+	m.StampPriceSources(model.PriceSourceCatalog)
 	return m
 }
 

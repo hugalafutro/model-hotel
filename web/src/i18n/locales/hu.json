@@ -1078,6 +1078,13 @@
 			"video_input": "Videó",
 			"audio_input": "Hang",
 			"parallel_tool_calls": "Párhuzamos"
+		},
+		"priceSource": {
+			"provider": "A szolgáltató saját modell-listája jelentette.",
+			"catalog": "A Model Hotel beépített katalógusából, egy felülírás, amit csak ott tartunk meg, ahol a models.dev-nek nincs ára erre a modellre, vagy rossz az ára.",
+			"modelsdev": "A models.dev-ről, a nyilvános modellkatalógusból.",
+			"manual": "Kézzel beállítva ezen a műszerfalon.",
+			"unknown": "A forrás még nincs rögzítve; a következő felderítési ellenőrzés rögzíti, honnan származik ez az ár."
 		}
 	},
 	"model": {

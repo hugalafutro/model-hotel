@@ -797,3 +797,24 @@ func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 		t.Errorf("a listing of non-token models alone must log nothing, got: %s", logged.String())
 	}
 }
+
+// A price models.dev fills is recorded as models.dev's; one the row already
+// had keeps the source that wrote it.
+func TestEnrichModel_StampsModelsDevSource(t *testing.T) {
+	cache := &ModelsDevCache{}
+	cache.mu.Lock()
+	cache.byID = map[string]*ModelsDevModelSpec{"m": {ID: "m", Cost: &ModelsDevCost{Input: 1, Output: 2, CacheRead: new(0.1)}}}
+	cache.loaded = true
+	cache.mu.Unlock()
+
+	m := &model.Model{ModelID: "m", Capabilities: "{}", OutputPricePerMillion: new(9.0), PriceSources: model.PriceSources{Output: model.PriceSourceCatalog}}
+	cache.EnrichModel(m, "")
+
+	want := model.PriceSources{Input: model.PriceSourceModelsDev, CacheHit: model.PriceSourceModelsDev, Output: model.PriceSourceCatalog}
+	if m.PriceSources != want {
+		t.Errorf("PriceSources = %+v, want %+v", m.PriceSources, want)
+	}
+	if *m.OutputPricePerMillion != 9.0 {
+		t.Errorf("catalog output price overwritten: %v", *m.OutputPricePerMillion)
+	}
+}

@@ -69,17 +69,22 @@ func DampenOpenRouterPriceJitter(providerType string, snapshot map[string]ModelS
 		if !ok {
 			continue
 		}
+		// A damped price is the stored one, so its source is the stored one's
+		// too: the scan's label must not land on a figure it did not write.
 		if withinPriceTolerance(prev.inputPrice, m.InputPricePerMillion) {
 			logPriceDamped(m.ModelID, "input_price", prev.inputPrice, m.InputPricePerMillion)
 			m.InputPricePerMillion = prev.inputPrice
+			m.PriceSources.Input = prev.priceSources.Input
 		}
 		if withinPriceTolerance(prev.outputPrice, m.OutputPricePerMillion) {
 			logPriceDamped(m.ModelID, "output_price", prev.outputPrice, m.OutputPricePerMillion)
 			m.OutputPricePerMillion = prev.outputPrice
+			m.PriceSources.Output = prev.priceSources.Output
 		}
 		if withinPriceTolerance(prev.inputPriceCache, m.InputPricePerMillionCacheHit) {
 			logPriceDamped(m.ModelID, "input_price_cache", prev.inputPriceCache, m.InputPricePerMillionCacheHit)
 			m.InputPricePerMillionCacheHit = prev.inputPriceCache
+			m.PriceSources.CacheHit = prev.priceSources.CacheHit
 		}
 	}
 }
@@ -167,6 +172,7 @@ type ModelSnapshot struct {
 	inputPrice      *float64
 	inputPriceCache *float64
 	outputPrice     *float64
+	priceSources    model.PriceSources
 	contextLength   *int
 }
 
@@ -190,6 +196,7 @@ func SnapshotProviderModels(ctx context.Context, repo *model.Repository, provide
 			inputPrice:      m.InputPricePerMillion,
 			inputPriceCache: m.InputPricePerMillionCacheHit,
 			outputPrice:     m.OutputPricePerMillion,
+			priceSources:    m.PriceSources,
 			contextLength:   m.ContextLength,
 		}
 	}

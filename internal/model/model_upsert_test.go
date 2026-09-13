@@ -228,3 +228,102 @@ func assertFloatPtr(t *testing.T, field string, got *float64, want float64) {
 		t.Errorf("%s: got %g, want %g", field, *got, want)
 	}
 }
+
+// TestUpsert_PriceSourcesFollowThePrices pins that a source travels with its
+// price through the upsert's merge: a rescan that keeps a stored price keeps
+// its source, one that replaces a price replaces the source, and a pinned
+// row keeps the operator's sources for the prices it keeps.
+func TestUpsert_PriceSourcesFollowThePrices(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	providerID := insertTestProvider(ctx, t, "test-upsert-price-sources")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	base := newBareModel(providerID, "sourced")
+	base.InputPricePerMillion = new(1.0)
+	base.OutputPricePerMillion = new(2.0)
+	base.PriceSources = PriceSources{Input: PriceSourceProvider, Output: PriceSourceProvider}
+	if err := repo.Upsert(ctx, base); err != nil {
+		t.Fatalf("initial upsert: %v", err)
+	}
+	get := func() *Model {
+		t.Helper()
+		got, err := repo.Get(ctx, base.ID)
+		if err != nil {
+			t.Fatalf("get: %v", err)
+		}
+		return got
+	}
+	got := get()
+	if got.PriceSources != (PriceSources{Input: PriceSourceProvider, Output: PriceSourceProvider}) {
+		t.Fatalf("stored sources = %+v, want provider/provider", got.PriceSources)
+	}
+
+	// A rescan carrying only a models.dev cache-hit price and no input or
+	// output price: the two stored prices keep their provider source, the
+	// new one arrives with its own.
+	rescan := newBareModel(providerID, "sourced")
+	rescan.InputPricePerMillionCacheHit = new(0.1)
+	rescan.PriceSources = PriceSources{CacheHit: PriceSourceModelsDev}
+	if err := repo.Upsert(ctx, rescan); err != nil {
+		t.Fatalf("rescan upsert: %v", err)
+	}
+	got = get()
+	want := PriceSources{Input: PriceSourceProvider, CacheHit: PriceSourceModelsDev, Output: PriceSourceProvider}
+	if got.PriceSources != want {
+		t.Errorf("after fill-only rescan sources = %+v, want %+v", got.PriceSources, want)
+	}
+
+	// A rescan that reprices the input from the catalog replaces the source
+	// with the price.
+	reprice := newBareModel(providerID, "sourced")
+	reprice.InputPricePerMillion = new(5.0)
+	reprice.PriceSources = PriceSources{Input: PriceSourceCatalog}
+	if err := repo.Upsert(ctx, reprice); err != nil {
+		t.Fatalf("reprice upsert: %v", err)
+	}
+	got = get()
+	want.Input = PriceSourceCatalog
+	if got.PriceSources != want || *got.InputPricePerMillion != 5.0 {
+		t.Errorf("after reprice sources = %+v price=%v, want %+v and 5", got.PriceSources, *got.InputPricePerMillion, want)
+	}
+
+	// An operator edit of the output price pins the row: the edited price is
+	// theirs and stays so through a rescan that would have repriced it.
+	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{OutputPricePerMillion: new(9.0)}); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	got = get()
+	want.Output = PriceSourceManual
+	if got.PriceSources != want {
+		t.Errorf("after manual edit sources = %+v, want %+v (only the edited price becomes manual)", got.PriceSources, want)
+	}
+	pinnedScan := newBareModel(providerID, "sourced")
+	pinnedScan.OutputPricePerMillion = new(3.0)
+	pinnedScan.PriceSources = PriceSources{Output: PriceSourceProvider}
+	if err := repo.Upsert(ctx, pinnedScan); err != nil {
+		t.Fatalf("pinned rescan upsert: %v", err)
+	}
+	got = get()
+	if got.PriceSources != want || *got.OutputPricePerMillion != 9.0 {
+		t.Errorf("pinned row sources = %+v price=%v, want %+v and 9", got.PriceSources, *got.OutputPricePerMillion, want)
+	}
+
+	// Unpinning drops the prices and their sources together.
+	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{PriceCustomized: new(false)}); err != nil {
+		t.Fatalf("unpin: %v", err)
+	}
+	got = get()
+	if got.PriceSources != (PriceSources{}) || got.InputPricePerMillion != nil {
+		t.Errorf("after unpin sources = %+v price=%v, want none", got.PriceSources, got.InputPricePerMillion)
+	}
+}
+
+func TestStampPriceSources_OnlyPricedAndUnsourced(t *testing.T) {
+	m := &Model{InputPricePerMillion: new(1.0), OutputPricePerMillion: new(2.0), PriceSources: PriceSources{Output: PriceSourceCatalog}}
+	m.StampPriceSources(PriceSourceProvider)
+	want := PriceSources{Input: PriceSourceProvider, Output: PriceSourceCatalog}
+	if m.PriceSources != want {
+		t.Errorf("sources = %+v, want %+v: the unset cache-hit price gets none, the catalog output keeps its source", m.PriceSources, want)
+	}
+}

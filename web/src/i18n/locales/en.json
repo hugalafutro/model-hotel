@@ -1078,6 +1078,13 @@
 			"video_input": "Video",
 			"audio_input": "Audio",
 			"parallel_tool_calls": "Parallel"
+		},
+		"priceSource": {
+			"provider": "Reported by the provider's own model listing.",
+			"catalog": "From Model Hotel's built-in catalog, an override kept only where models.dev has no price for this model or has it wrong.",
+			"modelsdev": "From models.dev, the public model catalog.",
+			"manual": "Set by hand on this dashboard.",
+			"unknown": "Source not recorded yet; the next discovery scan records where this price comes from."
 		}
 	},
 	"model": {

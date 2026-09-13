@@ -175,6 +175,21 @@ func TestOpenCodeCatalogToModel_NoPriceStaysUnpriced(t *testing.T) {
 	if m.ContextLength == nil || *m.ContextLength != 1000 {
 		t.Errorf("ContextLength = %v, want 1000", m.ContextLength)
 	}
+	if m.PriceSources != (model.PriceSources{}) {
+		t.Errorf("PriceSources = %+v, want none for a row that states no price", m.PriceSources)
+	}
+}
+
+// A price a catalog row states is recorded as the catalog's, and only that
+// price: an absent one stays unsourced for models.dev to fill and stamp.
+func TestOpenCodeCatalogToModel_StampsCatalogSource(t *testing.T) {
+	spec := &OpenCodeModelSpec{ModelID: "m", InputPricePerMillionCacheHit: ptrFloat(30)}
+
+	m := OpenCodeCatalogToModel(spec, uuid.New(), "openai")
+
+	if want := (model.PriceSources{CacheHit: model.PriceSourceCatalog}); m.PriceSources != want {
+		t.Errorf("PriceSources = %+v, want %+v", m.PriceSources, want)
+	}
 }
 
 // A converted model owns its price pointers. Aliasing the row's fields would

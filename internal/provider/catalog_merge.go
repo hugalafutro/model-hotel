@@ -163,14 +163,19 @@ func backfillFromCatalog(dst, src *model.Model) {
 	if dst.MaxOutputTokens == nil {
 		dst.MaxOutputTokens = src.MaxOutputTokens
 	}
+	// A price copied from the catalog brings its source along, so the row
+	// says catalog rather than whatever the live path is stamped with later.
 	if dst.InputPricePerMillion == nil {
 		dst.InputPricePerMillion = src.InputPricePerMillion
+		dst.PriceSources.Input = src.PriceSources.Input
 	}
 	if dst.InputPricePerMillionCacheHit == nil {
 		dst.InputPricePerMillionCacheHit = src.InputPricePerMillionCacheHit
+		dst.PriceSources.CacheHit = src.PriceSources.CacheHit
 	}
 	if dst.OutputPricePerMillion == nil {
 		dst.OutputPricePerMillion = src.OutputPricePerMillion
+		dst.PriceSources.Output = src.PriceSources.Output
 	}
 	if dst.OwnedBy == "" {
 		dst.OwnedBy = src.OwnedBy

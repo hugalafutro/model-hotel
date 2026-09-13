@@ -60,6 +60,36 @@ describe("ModelDetailPanel", () => {
 		expect(screen.getByText("$1.5")).toBeInTheDocument();
 	});
 
+	it("says where each shown price came from", () => {
+		renderWithProviders(<ModelDetailPanel {...defaultProps} />);
+
+		// mockModel: input from the provider, output from the catalog.
+		expect(
+			screen.getByTitle("Reported by the provider's own model listing."),
+		).toBeInTheDocument();
+		expect(
+			screen.getByTitle(/From Model Hotel's built-in catalog/),
+		).toBeInTheDocument();
+	});
+
+	it("reads an unrecorded source as not recorded yet, and shows no hint for an absent price", () => {
+		renderWithProviders(
+			<ModelDetailPanel
+				{...defaultProps}
+				model={{
+					...defaultProps.model,
+					price_sources: {},
+					output_price_per_million: null,
+				}}
+			/>,
+		);
+
+		expect(screen.getByTitle(/Source not recorded yet/)).toBeInTheDocument();
+		expect(
+			screen.queryByTitle(/From Model Hotel's built-in catalog/),
+		).not.toBeInTheDocument();
+	});
+
 	it("displays capabilities section", () => {
 		renderWithProviders(<ModelDetailPanel {...defaultProps} />);
 

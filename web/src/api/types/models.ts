@@ -39,8 +39,21 @@ export interface Model {
 	enabled: boolean;
 	disabled_manually: boolean;
 	price_customized: boolean;
+	/**
+	 * Where each stored price came from, keyed by price field; a key is absent
+	 * when that price is unset or was stored before sources were recorded.
+	 */
+	price_sources?: PriceSources;
 	created_at: string;
 	last_seen_at: string;
+}
+
+export type PriceSource = "provider" | "catalog" | "modelsdev" | "manual";
+
+export interface PriceSources {
+	input?: PriceSource;
+	cache_hit?: PriceSource;
+	output?: PriceSource;
 }
 export interface ModelsCursorResponse {
 	entries: Model[];

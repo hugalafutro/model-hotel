@@ -122,6 +122,17 @@ describe("ModelDetailModal", () => {
 			});
 		});
 
+		it("says where each shown price came from", () => {
+			renderWithProviders(<ModelDetailModal {...defaultProps} />);
+			// mockModel: input from the provider, output from the catalog.
+			expect(
+				screen.getByTitle("Reported by the provider's own model listing."),
+			).toBeInTheDocument();
+			expect(
+				screen.getByTitle(/From Model Hotel's built-in catalog/),
+			).toBeInTheDocument();
+		});
+
 		it("shows the banner without the reset action in read-only mode", () => {
 			renderWithProviders(
 				<ModelDetailModal
