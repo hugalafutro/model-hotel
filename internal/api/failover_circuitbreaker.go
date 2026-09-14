@@ -64,9 +64,9 @@ type CircuitBreakerQuotaPinner interface {
 	// and only for a provider carrying no account-wide pin: the breaker is
 	// in-memory, so after a restart an exhausted provider would otherwise be
 	// routed to until real refusals reopened a circuit. Implementations may
-	// read advice only for the duration of the call. names gives the display
-	// name of each advised provider, so a seeded circuit is reported by name
-	// rather than as unknown.
+	// read advice and names only for the duration of the call. names gives the
+	// display name of each advised provider, so a seeded circuit is reported by
+	// name rather than as unknown.
 	ApplyQuotaPins(advice map[uuid.UUID]time.Time, names map[uuid.UUID]string) int
 }
 

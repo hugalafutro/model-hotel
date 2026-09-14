@@ -167,7 +167,7 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 			}
 			cb.releasePin(&after, causePinReleasedQuota, id, model, c, r)
 			released++
-			retireIfSeeded(models, model)
+			cb.retireIfSeeded(id, models, model)
 		}
 	}
 	return released
@@ -176,10 +176,20 @@ func (cb *CircuitBreaker) ReleaseQuotaPins(recovered map[uuid.UUID]struct{}) int
 // retireIfSeeded drops a seeded circuit once its pin is gone. A seeded circuit
 // exists only to carry that pin: no request ever routed to it, so nothing will
 // ever probe it closed, and leaving it behind would park a permanently open row
-// on every status surface. The provider's real circuits are untouched.
-func retireIfSeeded(models modelCircuits, model string) {
-	if model == seededModel {
-		delete(models, model)
+// on every status surface. The provider's real circuits are untouched. When the
+// seed was the provider's only circuit, its bucket and name go with it, the
+// same way a reset takes them, so nothing lingers for a provider the breaker
+// no longer tracks.
+//
+// Must be called with cb.mu held for write.
+func (cb *CircuitBreaker) retireIfSeeded(id string, models modelCircuits, model string) {
+	if model != seededModel {
+		return
+	}
+	delete(models, model)
+	if len(models) == 0 {
+		delete(cb.circuits, id)
+		delete(cb.names, id)
 	}
 }
 
@@ -236,9 +246,6 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time, names m
 	// circuits map is keyed by the provider's UUID string.
 	changed := 0
 	for providerID, resetsAt := range advice {
-		if name := names[providerID]; name != "" {
-			cb.names[providerID.String()] = name
-		}
 		for model, c := range cb.circuits[providerID.String()] {
 			if cb.logicalStateWith(c, r) != StateOpen {
 				continue
@@ -273,6 +280,11 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time, names m
 		if cb.seedQuotaPin(&after, providerID, resetsAt, maxPin, r) {
 			changed++
 		}
+		// After the seed, and only for a provider that now has a circuit, so the
+		// map stays scoped to circuits and a reset takes the name with them.
+		if name := names[providerID]; name != "" && len(cb.circuits[providerID.String()]) > 0 {
+			cb.names[providerID.String()] = name
+		}
 	}
 	return changed
 }
@@ -296,7 +308,7 @@ func (cb *CircuitBreaker) sweepExpiredSeeds() {
 	// Lazily, because the settings read behind it is a database round trip on an
 	// unoverridden key and most passes have no seeded circuit at all.
 	var r *cooldownReads
-	for _, models := range cb.circuits {
+	for id, models := range cb.circuits {
 		c, ok := models[seededModel]
 		if !ok {
 			continue
@@ -305,7 +317,7 @@ func (cb *CircuitBreaker) sweepExpiredSeeds() {
 			r = cb.cooldowns()
 		}
 		if !cb.blocking(c, r) {
-			delete(models, seededModel)
+			cb.retireIfSeeded(id, models, seededModel)
 		}
 	}
 }
@@ -355,8 +367,8 @@ const seededModel = "(account quota)"
 //
 // Must be called with cb.mu held; the line is handed to after, for the caller to
 // write once the lock is released.
-// The provider name comes from the names map ApplyQuotaPins stamps before
-// seeding, since no request has recorded one for a circuit opened on a reading.
+// The provider name comes from the names map ApplyQuotaPins stamps once the
+// seed exists, since no request has recorded one for a circuit opened on a reading.
 func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID, resetsAt time.Time, maxPin time.Duration, r *cooldownReads) bool {
 	id := providerID.String()
 	if cb.accountPinned(cb.circuits[id], r) {
@@ -433,7 +445,7 @@ func (cb *CircuitBreaker) ReleaseAllQuotaPins() int {
 			}
 			cb.releasePin(&after, causePinReleasedOff, id, model, c, r)
 			released++
-			retireIfSeeded(models, model)
+			cb.retireIfSeeded(id, models, model)
 		}
 	}
 	return released

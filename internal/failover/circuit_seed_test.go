@@ -178,7 +178,7 @@ func TestSeedQuotaPin_ReleasedOnRecovery(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, map[uuid.UUID]string{id: "Seeded Co"})
 	if !cb.IsOpen(id, "test-provider", "any-model") {
 		t.Fatal("setup: seeded provider must be open")
 	}
@@ -191,6 +191,16 @@ func TestSeedQuotaPin_ReleasedOnRecovery(t *testing.T) {
 	}
 	if seededCircuit(cb, id) != nil {
 		t.Error("a seeded circuit exists only to carry its pin: releasing it must retire the circuit")
+	}
+	// The seed was the provider's only circuit, so nothing should be left
+	// behind for it: an empty bucket would still be walked, and a name with no
+	// circuit is never read but never freed either.
+	cb.mu.RLock()
+	_, bucket := cb.circuits[id.String()]
+	_, name := cb.names[id.String()]
+	cb.mu.RUnlock()
+	if bucket || name {
+		t.Errorf("got bucket=%v name=%v after retiring the only circuit, want neither", bucket, name)
 	}
 }
 
