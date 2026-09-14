@@ -56,6 +56,9 @@ func TestRefreshQuotaAdvice_SeedsAPinOnAClosedCircuit(t *testing.T) {
 	if !statuses[0].QuotaPinned || !statuses[0].ProviderOpen {
 		t.Errorf("got quota_pinned=%v provider_open=%v, want both true", statuses[0].QuotaPinned, statuses[0].ProviderOpen)
 	}
+	if statuses[0].ProviderName != "zai-spent" {
+		t.Errorf("got provider_name=%q, want the provider's name: no request has named a seeded circuit, the advice pass must", statuses[0].ProviderName)
+	}
 	// Roughly the snapshot's own reset, not the configured cooldown.
 	if statuses[0].CooldownMs < (3 * time.Hour).Milliseconds() {
 		t.Errorf("got CooldownMs=%d, want the snapshot's 4h reset", statuses[0].CooldownMs)
