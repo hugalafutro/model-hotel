@@ -498,7 +498,7 @@
       "type": "stat",
       "id": 7,
       "title": "Breakers",
-      "description": "Selected providers with a breaker not closed on any member. Zero is the healthy state; red means at least one of them is being routed around somewhere in the fleet. Providers the request path has not named yet (a seeded quota pin) share one unknown entry.",
+      "description": "Selected providers with a breaker not closed on any member. Zero is the healthy state; red means at least one of them is being routed around somewhere in the fleet. Providers the request path has not named yet (a seeded quota pin) share one unknown entry; series scraped before the gauge carried a provider name are left out.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -550,7 +550,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(max by (provider) (modelhotel_circuit_breaker_state{provider=~\"$provider\"}) > 0) or on() vector(0)",
+          "expr": "count(max by (provider) (modelhotel_circuit_breaker_state{provider!=\"\", provider=~\"$provider\"}) > 0) or on() vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1716,7 +1716,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (provider) (modelhotel_circuit_breaker_state{provider=~\"$provider\"})",
+          "expr": "max by (provider) (modelhotel_circuit_breaker_state{provider!=\"\", provider=~\"$provider\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
