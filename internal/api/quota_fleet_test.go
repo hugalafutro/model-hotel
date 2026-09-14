@@ -388,7 +388,7 @@ func TestQuotaFleetReceiveSnapshots_UpsertsAsFleet(t *testing.T) {
 
 // TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs503 pins that a push
 // whose sender hung up before the store completed (the request context is
-// cancelled underneath the upsert) answers 503 with a warning, not the 500 a
+// cancelled underneath the store) answers 503 with a warning, not the 500 a
 // failure on this member would earn.
 func TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs503(t *testing.T) {
 	h := newTestHandler(t)

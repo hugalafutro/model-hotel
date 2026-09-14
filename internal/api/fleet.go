@@ -356,8 +356,8 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 	if err := h.settings.SetMany(ctx, writes); err != nil {
-		// Front Desk gave up waiting (its timeout is shorter than a busy disk
-		// on the member takes to commit): the next announce lands.
+		// Front Desk gave up waiting (a write on a busy member disk takes
+		// longer to commit than its timeout allows): the next announce lands.
 		if respondAbandoned(w, "fleet announce", err) {
 			return
 		}

@@ -120,10 +120,13 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		bus = events.DefaultBus
 	}
 	return &Poller{
-		store:            store,
-		bus:              bus,
-		client:           newProbeClient(httpProbeTimeout),
-		announceClient:   newProbeClient(httpAnnounceTimeout),
+		store:  store,
+		bus:    bus,
+		client: newProbeClient(httpProbeTimeout),
+		// A member that does not pick up within the probe budget is unreachable
+		// whatever the announce budget is; a longer dial would only stretch the
+		// sequential announce round across dead members.
+		announceClient:   newProbeClientDial(httpProbeTimeout, httpAnnounceTimeout),
 		traefikAPI:       strings.TrimRight(traefikAPI, "/"),
 		now:              time.Now,
 		statuses:         make(map[string]MemberStatus),

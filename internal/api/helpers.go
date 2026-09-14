@@ -87,7 +87,9 @@ func decodeJSONOptional(w http.ResponseWriter, r *http.Request, v any) bool {
 // and the caller retries on its own schedule, so it is a warning and a 503
 // rather than the error a failed write earns. Only the caller's cancel counts:
 // this member's own route timeout surfaces as context.DeadlineExceeded and is
-// a failure here. Reports whether it answered.
+// a failure here. This server's shutdown cancels in-flight requests the same
+// way and is reported as abandoned too; the status is right for that case and
+// the label is a known conflation. Reports whether it answered.
 func respondAbandoned(w http.ResponseWriter, what string, err error) bool {
 	if !errors.Is(err, context.Canceled) {
 		return false

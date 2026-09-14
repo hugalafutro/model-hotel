@@ -8,6 +8,8 @@ VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --di
 # on the make command line replaces both this default and the local append.
 COMPOSE_FILES ?= -f docker-compose.yml -f compose.dev.yml
 -include Makefile.local
+# Pinned so a rule a Makefile.local grows never becomes the default goal.
+.DEFAULT_GOAL := build
 # Full SHA of the commit this binary is built from, stamped into the API package
 # so the dashboard can show exactly which commit a `dev` build corresponds to.
 # CI passes the full ${{ github.sha }} too; the backend shortens it for display,

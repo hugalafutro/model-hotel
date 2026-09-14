@@ -89,7 +89,9 @@ func (s *Server) DistributeQuotaOnce(ctx context.Context) {
 			debuglog.Debug("frontdesk: quota distribute: member token", "member", m.Name, "error", err)
 			continue
 		}
-		if status, _, err := s.callMember(ctx, http.MethodPost, m.URL, memberQuotaSnapshotsPath, token, bytes.NewReader(body)); err != nil || status != http.StatusOK {
+		// The member rebuilds its quota advice before it answers a push that
+		// landed rows, so the push gets the admin-read budget, not the probe's.
+		if status, _, err := callMemberWith(ctx, s.readClient, http.MethodPost, m.URL, memberQuotaSnapshotsPath, token, bytes.NewReader(body)); err != nil || status != http.StatusOK {
 			debuglog.Debug("frontdesk: quota distribute: push to member",
 				"member", m.Name, "status", status, "error", err)
 		}
