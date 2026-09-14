@@ -44,13 +44,22 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Every keyed provider costs one key derivation below, so the envelope's
+	// size is bounded first: a legitimate fleet is nowhere near this, and an
+	// 8 MB body of duplicated providers must not buy minutes of CPU.
+	if len(env.Config.Providers) > maxImportProviders {
+		msg := fmt.Sprintf("configsync: refusing to import %d providers (limit %d)", len(env.Config.Providers), maxImportProviders)
+		debuglog.Warn("configsync: refused import", "error", msg)
+		http.Error(w, msg, http.StatusBadRequest)
+		return
+	}
+
 	// MASTER_KEY guard: prove this member can decrypt every incoming provider key
-	// before writing anything. The first key failing means the fleet's keys
-	// differ, which Front Desk reports as a MASTER_KEY mismatch; a later key
-	// failing after a good one is a corrupt envelope, refused with its own
-	// message so the operator is not sent after a mismatch that does not exist.
-	// Either way, storing undecryptable ciphertext would silently break the
-	// data plane.
+	// before writing anything. No key decrypting means the fleet's keys differ,
+	// which Front Desk reports as a MASTER_KEY mismatch; some decrypting and
+	// some not is a corrupt envelope, refused with its own message so the
+	// operator is not sent after a mismatch that does not exist. Either way,
+	// storing undecryptable ciphertext would silently break the data plane.
 	if mismatch, corrupt := h.undecryptableKeys(env.Config.Providers); mismatch {
 		writeJSONStatus(w, http.StatusConflict, importResponse{SchemaVersionOK: true, MasterKeyOK: false})
 		return
@@ -165,29 +174,38 @@ func sourceGenLabel(gen *int64) string {
 	return strconv.FormatInt(*gen, 10)
 }
 
+// maxImportProviders bounds the providers one envelope may carry. Each keyed
+// provider costs an Argon2id derivation in the MASTER_KEY guard, so the count
+// is capped before that work rather than by the body size alone.
+const maxImportProviders = 256
+
 // undecryptableKeys checks every encrypted provider key in the envelope against
-// this member's MASTER_KEY. mismatch is set when the first keyed provider fails,
+// this member's MASTER_KEY. mismatch is set when no keyed provider decrypts,
 // the shape of a fleet whose members hold different keys. corrupt names the
-// first provider that fails after another decrypted: one good decrypt proves
-// the shared key but not the rest of the envelope, and a payload mixing one
-// sound key with corrupt ciphertext used to pass on the first and land
-// undecryptable rows that failed at request time and rode this member's own
-// export onward. A keyless envelope has nothing to verify.
+// first provider that fails while another decrypted, whichever order they
+// arrive in: one good decrypt proves the shared key but not the rest of the
+// envelope, and a payload mixing one sound key with corrupt ciphertext used
+// to pass on the first and land undecryptable rows that failed at request
+// time and rode this member's own export onward. A keyless envelope has
+// nothing to verify.
 func (h *ConfigSyncHandler) undecryptableKeys(providers []ExportProvider) (mismatch bool, corrupt string) {
-	checked := 0
+	decrypted := 0
 	for _, p := range providers {
 		if len(p.EncryptedKey) == 0 {
 			continue
 		}
 		if _, err := auth.Decrypt(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.masterKey); err != nil {
-			if checked == 0 {
-				return true, ""
+			if corrupt == "" {
+				corrupt = p.Name
 			}
-			return false, p.Name
+			continue
 		}
-		checked++
+		decrypted++
 	}
-	return false, ""
+	if corrupt != "" && decrypted == 0 {
+		return true, ""
+	}
+	return false, corrupt
 }
 
 // diffKeyed classifies items against the member's current rows: a key present on

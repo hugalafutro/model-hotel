@@ -42,8 +42,11 @@ func SplitAndTrim(value string) []string {
 // only the last one separates it from the host. Group 1 is the scheme prefix,
 // so a caller can keep or drop the "@". Only the scheme form is recognised: a
 // bare "user:pw@host" is not a URL to the parsers whose errors this redacts.
-// Shared by the gateway and Front Desk so the two cannot drift.
-var URLUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/?\s",;<>]*@`)
+// The class stays wide on purpose (commas and semicolons are legal in a
+// userinfo): swallowing a bystander word is the safe failure, emitting a
+// credential is not. Shared by the gateway and Front Desk so the two cannot
+// drift.
+var URLUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/?\s"]*@`)
 
 // RedactURLUserinfo replaces the credential part of every URL found in text
 // with "***@", for error strings and log lines that quote a URL a caller

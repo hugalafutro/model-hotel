@@ -81,6 +81,7 @@ func TestRedactURLUserinfo(t *testing.T) {
 		`https://user%40mail.com:pw@host.example/v1 and https://x:y@b/`: `https://***@host.example/v1 and https://***@b/`,
 		`https://host.example/v1?token=abc`:                             `https://host.example/v1?token=abc`,
 		`no url here`:                                                   `no url here`,
+		`https://us,er;x:pw@host.example/`:                              `https://***@host.example/`,
 	} {
 		if got := RedactURLUserinfo(in); got != want {
 			t.Errorf("RedactURLUserinfo(%q) = %q, want %q", in, got, want)

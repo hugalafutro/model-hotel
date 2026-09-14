@@ -129,12 +129,10 @@ func stripUserinfo(raw string) string {
 	return u.String()
 }
 
-// urlUserinfoRE matches the userinfo component of a URL rendered inside free
-// text (everything between "scheme://" and the last @ before the host), so
+// urlUserinfoRE is the gateway-shared pattern for the userinfo component of a
+// URL rendered inside free text (see util.URLUserinfoRE for the rules), so
 // error strings can be redacted without reconstructing the wrapped error
-// chain. The class allows @ and matches greedily: net/http renders the
-// username percent-decoded, so an email-style username carries a literal @
-// inside the userinfo and only the last @ separates it from the host.
+// chain. Front Desk drops the "@" along with the credential.
 var urlUserinfoRE = util.URLUserinfoRE
 
 // redactErrURL renders err for a monitor-readable field, removing any userinfo
