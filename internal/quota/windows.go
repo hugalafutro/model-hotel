@@ -27,7 +27,7 @@ type Window struct {
 // figure the payload states and skips only what it cannot read. Provider types
 // without windows (a plain balance, an unknown type) report nothing.
 func Windows(providerType string, s Snapshot) []Window {
-	if len(s.Payload) == 0 {
+	if noPayload(s) {
 		return nil
 	}
 	switch providerType {
@@ -48,7 +48,9 @@ func Windows(providerType string, s Snapshot) []Window {
 
 // zaiCodingWindows reports the 5-hour and weekly token windows. Only the
 // percentage is trusted, for the reason assessZaiCoding gives: the live API
-// sends remaining: 0 on windows that are only partly used.
+// sends remaining: 0 on windows that are only partly used. A percentage outside
+// [0, 100] is nonsense rather than overage (Z.ai has no overage mode) and is
+// skipped under the assessor's bound, so a junk figure cannot flatten the axis.
 func zaiCodingWindows(payload json.RawMessage) []Window {
 	var res zaiCodingQuotaPayload
 	if err := json.Unmarshal(payload, &res); err != nil {
@@ -56,7 +58,7 @@ func zaiCodingWindows(payload json.RawMessage) []Window {
 	}
 	var out []Window
 	for _, l := range res.Data.Limits {
-		if l.Type != "TOKENS_LIMIT" || l.Percentage == nil || *l.Percentage < 0 {
+		if l.Type != "TOKENS_LIMIT" || l.Percentage == nil || *l.Percentage < 0 || *l.Percentage > 100 {
 			continue
 		}
 		var name string
@@ -79,8 +81,8 @@ func zaiCodingWindows(payload json.RawMessage) []Window {
 
 // kimiCodeWindows reports the subscription cycle counter and every rolling
 // limit, named by its span (5h, 7d). Kimi's figures are decimal strings and a
-// spent window omits remaining while a fresh one omits used, so the share is
-// derived from whichever pair the payload states.
+// spent window omits remaining while a fresh one omits used, so the share
+// comes from kimiRemaining, the same read the assessor makes.
 func kimiCodeWindows(payload json.RawMessage) []Window {
 	var res provider.KimiCodeQuotaResponse
 	if err := json.Unmarshal(payload, &res); err != nil {
@@ -103,15 +105,11 @@ func kimiWindow(name string, d provider.KimiCodeQuotaDetail) (Window, bool) {
 	if err != nil || limit <= 0 {
 		return Window{}, false
 	}
-	var used float64
-	if u, err := strconv.ParseInt(strings.TrimSpace(d.Used), 10, 64); err == nil {
-		used = float64(u) / float64(limit)
-	} else if r, err := strconv.ParseInt(strings.TrimSpace(d.Remaining), 10, 64); err == nil {
-		used = 1 - float64(r)/float64(limit)
-	} else {
+	remaining, ok := kimiRemaining(d)
+	if !ok {
 		return Window{}, false
 	}
-	w := Window{Name: name, Used: used}
+	w := Window{Name: name, Used: 1 - float64(remaining)/float64(limit)}
 	if t, ok := parseResetString(d.ResetTime); ok {
 		w.ResetsAt = t
 	}

@@ -95,17 +95,22 @@ func (e *earliestReset) result(now time.Time) Assessment {
 	return Assessment{OK: true}
 }
 
+// noPayload reports a snapshot with nothing to read. A 204 row (a NeuralWatt
+// free tier, an OpenCode Go key with no Go subscription) stores the literal
+// JSON null marshalQuota writes. It decodes into every assessor's struct as all
+// zeroes, which reads exactly like a healthy payload and would land the
+// provider in buildQuotaAdvice's recovered set. No payload is no opinion, not
+// evidence of health, and no window either.
+func noPayload(s Snapshot) bool {
+	return len(s.Payload) == 0 || bytes.Equal(bytes.TrimSpace(s.Payload), []byte("null"))
+}
+
 // Assess normalizes a stored quota snapshot for the circuit breaker. Only
 // window-quota provider types are supported; every other type, and every
 // unparseable payload, returns OK=false so callers fall back to their default
 // cooldown.
 func Assess(providerType string, s Snapshot) Assessment {
-	// A 204 row (a NeuralWatt free tier, an OpenCode Go key with no Go
-	// subscription) stores the literal JSON null marshalQuota writes. It decodes
-	// into every assessor's struct as all zeroes, which reads exactly like a
-	// healthy payload and would land the provider in buildQuotaAdvice's
-	// recovered set. No payload is no opinion, not evidence of health.
-	if len(s.Payload) == 0 || bytes.Equal(bytes.TrimSpace(s.Payload), []byte("null")) {
+	if noPayload(s) {
 		return Assessment{}
 	}
 	switch providerType {

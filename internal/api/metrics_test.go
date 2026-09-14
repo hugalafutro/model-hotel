@@ -211,3 +211,30 @@ func TestCollectQuotaWindows_NoReposReportsNothing(t *testing.T) {
 		t.Errorf("got %+v, want nil", got)
 	}
 }
+
+// TestCollectQuotaWindows_SkipsUnconfirmedAndForeignKinds: a row whose latest
+// poll failed keeps its last good payload, and a row of a kind this provider
+// type no longer polls can linger after a type change; neither belongs on a
+// gauge that claims to show the current reading.
+func TestCollectQuotaWindows_SkipsUnconfirmedAndForeignKinds(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+	payload := json.RawMessage(fmt.Sprintf(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"percentage":40,"nextResetTime":%d}]}}`, time.Now().Add(time.Hour).UnixMilli()))
+	failed := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-failed", "https://api.z.ai", true)
+	foreign := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-foreign", "https://api.z.ai", true)
+	for _, s := range []quota.Snapshot{
+		{ProviderID: failed, Kind: "usage", HTTPStatus: 200, Source: "poll", Payload: payload, FetchedAt: time.Now()},
+		{ProviderID: foreign, Kind: "balance", HTTPStatus: 200, Source: "poll", Payload: payload, FetchedAt: time.Now()},
+	} {
+		if err := h.quotaRepo.Upsert(ctx, s); err != nil {
+			t.Fatalf("seed snapshot: %v", err)
+		}
+	}
+	if err := h.quotaRepo.RecordFailure(ctx, failed, "usage", "upstream 503"); err != nil {
+		t.Fatalf("record failure: %v", err)
+	}
+
+	if got := h.collectQuotaWindows(); len(got) != 0 {
+		t.Errorf("got %+v, want nothing: one row is unconfirmed, the other is a kind zai-coding does not poll", got)
+	}
+}

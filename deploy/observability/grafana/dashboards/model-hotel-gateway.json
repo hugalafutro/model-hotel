@@ -2181,7 +2181,7 @@
       "type": "bargauge",
       "id": 44,
       "title": "Quota used",
-      "description": "Share of each subscription window consumed, from the latest quota poll (the same figures the provider's quota modal shows). 100% is spent: the breaker pins the provider until the window rolls over. Above 100% is a balance provider serving into overage. Only providers whose quota endpoint states a measurable window appear.",
+      "description": "Share of each subscription window consumed, from the latest successful quota poll (the same figures the provider's quota modal shows). 100% is spent: the breaker pins the provider until the window rolls over. The bar caps at 100%; the number keeps counting for a balance provider serving into overage. Only providers whose quota endpoint states a measurable window appear.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

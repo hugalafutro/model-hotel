@@ -50,7 +50,14 @@ const quotaScrapeTimeout = 3 * time.Second
 // collectQuotaWindows reads every provider's latest stored quota snapshot and
 // turns it into the windows the quota gauges report. It runs at scrape time so
 // the gauges follow the poller's last write without a second cache to keep in
-// step; both tables are small. A read failure reports nothing for this scrape.
+// step; both tables are small. A read failure reports nothing for this scrape,
+// at debug level since a down database is already the story in the log.
+//
+// A row whose latest refresh failed is left out: RecordFailure keeps the last
+// good payload under it, and a figure the poller could not confirm would sit
+// on the dashboard looking current for as long as the provider stays down.
+// Only the kind this provider type polls is read, so a row left by an earlier
+// type cannot compete with the live one.
 func (h *Handler) collectQuotaWindows() []metrics.QuotaWindow {
 	if h.quotaRepo == nil || h.providerRepo == nil {
 		return nil
@@ -59,12 +66,12 @@ func (h *Handler) collectQuotaWindows() []metrics.QuotaWindow {
 	defer cancel()
 	providers, err := h.providerRepo.List(ctx)
 	if err != nil {
-		debuglog.Warn("metrics: quota gauges skipped, provider list failed", "error", err)
+		debuglog.Debug("metrics: quota gauges skipped, provider list failed", "error", err)
 		return nil
 	}
 	snaps, err := h.quotaRepo.List(ctx)
 	if err != nil {
-		debuglog.Warn("metrics: quota gauges skipped, snapshot list failed", "error", err)
+		debuglog.Debug("metrics: quota gauges skipped, snapshot list failed", "error", err)
 		return nil
 	}
 	byID := make(map[uuid.UUID]*provider.Provider, len(providers))
@@ -72,16 +79,20 @@ func (h *Handler) collectQuotaWindows() []metrics.QuotaWindow {
 		byID[p.ID] = p
 	}
 	var out []metrics.QuotaWindow
-	// One series per provider and window: the poller keeps one row per provider
-	// and kind, and every supported type polls one kind, but a duplicate label
-	// set would fail the whole scrape, so the guard is cheap insurance.
+	// One series per provider and window: with one row per provider and kind
+	// and one kind per type, only a payload naming a window twice could repeat
+	// a label set, and that would fail the whole scrape.
 	seen := make(map[string]struct{})
 	for _, s := range snaps {
 		p, ok := byID[s.ProviderID]
-		if !ok {
+		if !ok || s.LastError != "" {
 			continue
 		}
-		for _, w := range quota.Windows(provider.TypeOf(p), s) {
+		typ := provider.TypeOf(p)
+		if kind, polls := quotaKindFor(typ); !polls || s.Kind != kind {
+			continue
+		}
+		for _, w := range quota.Windows(typ, s) {
 			key := s.ProviderID.String() + "\x00" + w.Name
 			if _, dup := seen[key]; dup {
 				continue

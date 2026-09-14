@@ -178,3 +178,13 @@ func TestWindows_GarbagePayloadReportsNothingForEveryType(t *testing.T) {
 		}
 	}
 }
+
+func TestWindows_ZaiCoding_PercentageAbove100IsNonsense(t *testing.T) {
+	payload := []byte(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"percentage":5000}]}}`)
+	if got := Windows("zai-coding", Snapshot{Payload: payload}); got != nil {
+		t.Errorf("Z.ai has no overage mode, a percentage past 100 is junk, got %+v", got)
+	}
+	if got := Windows("zai-coding", Snapshot{Payload: []byte(`null`)}); got != nil {
+		t.Errorf("a 204 row stores null and states no window, got %+v", got)
+	}
+}
