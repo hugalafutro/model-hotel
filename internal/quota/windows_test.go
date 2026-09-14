@@ -27,17 +27,21 @@ func TestWindows_ZaiCoding_PercentageDecidesAndRemainingIsIgnored(t *testing.T) 
 	payload, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
 		{"type": "TOKENS_LIMIT", "unit": 3, "remaining": 0, "percentage": 37.5, "nextResetTime": reset.UnixMilli()},
 		{"type": "TOKENS_LIMIT", "unit": 6, "remaining": 0, "nextResetTime": reset.UnixMilli()},
+		{"type": "TIME_LIMIT", "unit": 5, "percentage": 10, "remaining": 900},
 		{"type": "TIME_LIMIT", "unit": 3, "percentage": 10},
 	}}})
 
 	ws := Windows("zai-coding", Snapshot{Payload: payload})
 
-	if len(ws) != 1 {
-		t.Fatalf("got %d windows, want only the 5h one (weekly states no percentage, TIME_LIMIT is not a token window): %+v", len(ws), ws)
+	if len(ws) != 2 {
+		t.Fatalf("got %d windows, want 5h and mcp (weekly states no percentage, a TIME_LIMIT on unit 3 is not a window the modal shows): %+v", len(ws), ws)
 	}
 	w := window(t, ws, "5h")
 	if !near(w.Used, 0.375) || !w.ResetsAt.Equal(reset) {
 		t.Errorf("got used=%v resets=%v, want 0.375 at %v", w.Used, w.ResetsAt, reset)
+	}
+	if m := window(t, ws, "mcp"); !near(m.Used, 0.1) {
+		t.Errorf("mcp: got used=%v, want 0.1", m.Used)
 	}
 }
 
@@ -53,10 +57,10 @@ func TestWindows_KimiCode_NamesSpansAndDerivesShareFromEitherPair(t *testing.T) 
 	ws := Windows("kimi-code", Snapshot{Payload: payload})
 
 	if len(ws) != 2 {
-		t.Fatalf("got %d windows, want cycle and 5h (a zero limit and a window stating neither used nor remaining are unreadable): %+v", len(ws), ws)
+		t.Fatalf("got %d windows, want weekly and 5h (a zero limit and a window stating neither used nor remaining are unreadable): %+v", len(ws), ws)
 	}
-	if c := window(t, ws, "cycle"); !near(c.Used, 0.25) || c.ResetsAt.IsZero() {
-		t.Errorf("cycle: got %+v, want used 0.25 with a dated reset", c)
+	if c := window(t, ws, "weekly"); !near(c.Used, 0.25) || c.ResetsAt.IsZero() {
+		t.Errorf("weekly (the top-level usage block): got %+v, want used 0.25 with a dated reset", c)
 	}
 	if h := window(t, ws, "5h"); !near(h.Used, 0.58) || !h.ResetsAt.IsZero() {
 		t.Errorf("5h: got %+v, want used 0.58 from remaining and no reset", h)
@@ -66,7 +70,7 @@ func TestWindows_KimiCode_NamesSpansAndDerivesShareFromEitherPair(t *testing.T) 
 func TestWindows_OpenCodeGo_SkipsWindowsThePayloadDoesNotCarry(t *testing.T) {
 	payload := []byte(`{"usage": {
 		"rolling": {"status": "ok", "percent": 80, "resetsAt": "2026-07-19T17:10:02Z"},
-		"weekly": {"status": "exceeded", "percent": 100, "resetsAt": "bad"}}}`)
+		"weekly": {"status": "exceeded", "resetsAt": "bad"}}}`)
 
 	ws := Windows("opencode-go", Snapshot{Payload: payload})
 
@@ -77,7 +81,7 @@ func TestWindows_OpenCodeGo_SkipsWindowsThePayloadDoesNotCarry(t *testing.T) {
 		t.Errorf("rolling: got %+v", r)
 	}
 	if w := window(t, ws, "weekly"); !near(w.Used, 1) || !w.ResetsAt.IsZero() {
-		t.Errorf("weekly: got %+v, want spent with an undatable reset left zero", w)
+		t.Errorf("weekly: got %+v, want spent on the refused status alone, with an undatable reset left zero", w)
 	}
 }
 

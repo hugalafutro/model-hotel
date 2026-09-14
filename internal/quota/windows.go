@@ -46,7 +46,9 @@ func Windows(providerType string, s Snapshot) []Window {
 	}
 }
 
-// zaiCodingWindows reports the 5-hour and weekly token windows. Only the
+// zaiCodingWindows reports the 5-hour and weekly token windows and the MCP
+// call window, the three the quota modal shows (getZaiCodingFiveHourLimit and
+// its siblings in web-shared/quota/zai.ts). Only the
 // percentage is trusted, for the reason assessZaiCoding gives: the live API
 // sends remaining: 0 on windows that are only partly used. A percentage outside
 // [0, 100] is nonsense rather than overage (Z.ai has no overage mode) and is
@@ -58,15 +60,17 @@ func zaiCodingWindows(payload json.RawMessage) []Window {
 	}
 	var out []Window
 	for _, l := range res.Data.Limits {
-		if l.Type != "TOKENS_LIMIT" || l.Percentage == nil || *l.Percentage < 0 || *l.Percentage > 100 {
+		if l.Percentage == nil || *l.Percentage < 0 || *l.Percentage > 100 {
 			continue
 		}
 		var name string
-		switch l.Unit {
-		case 3:
+		switch {
+		case l.Type == "TOKENS_LIMIT" && l.Unit == 3:
 			name = "5h"
-		case 6:
+		case l.Type == "TOKENS_LIMIT" && l.Unit == 6:
 			name = "weekly"
+		case l.Type == "TIME_LIMIT" && l.Unit == 5:
+			name = "mcp"
 		default:
 			continue
 		}
@@ -79,8 +83,9 @@ func zaiCodingWindows(payload json.RawMessage) []Window {
 	return out
 }
 
-// kimiCodeWindows reports the subscription cycle counter and every rolling
-// limit, named by its span (5h, 7d). Kimi's figures are decimal strings and a
+// kimiCodeWindows reports the top-level usage block, which is the weekly
+// window (getKimiCodeWeeklyLimit in web-shared/quota/kimi.ts reads it so), and
+// every rolling limit named by its span (5h, 7d). Kimi's figures are decimal strings and a
 // spent window omits remaining while a fresh one omits used, so the share
 // comes from kimiRemaining, the same read the assessor makes.
 func kimiCodeWindows(payload json.RawMessage) []Window {
@@ -89,7 +94,7 @@ func kimiCodeWindows(payload json.RawMessage) []Window {
 		return nil
 	}
 	var out []Window
-	if w, ok := kimiWindow("cycle", res.Usage); ok {
+	if w, ok := kimiWindow("weekly", res.Usage); ok {
 		out = append(out, w)
 	}
 	for _, l := range res.Limits {
@@ -140,7 +145,9 @@ func kimiWindowName(w provider.KimiCodeQuotaWindow) string {
 
 // openCodeGoWindows reports the rolling, weekly and monthly windows. A window
 // the payload does not carry decodes to zeroes; its empty resetsAt tells it
-// apart from a fresh one, and it is skipped rather than reported untouched.
+// apart from a fresh one, and it is skipped rather than reported untouched. A
+// window OpenCode Go refuses (any status but ok) reads as spent whatever its
+// percent says, the same verdict openCodeGoWindowSpent reaches.
 func openCodeGoWindows(payload json.RawMessage) []Window {
 	var res provider.OpenCodeGoUsageResponse
 	if err := json.Unmarshal(payload, &res); err != nil {
@@ -155,6 +162,9 @@ func openCodeGoWindows(payload json.RawMessage) []Window {
 			continue
 		}
 		w := Window{Name: x.name, Used: x.w.Percent / 100}
+		if openCodeGoWindowSpent(x.w) && w.Used < 1 {
+			w.Used = 1
+		}
 		if t, ok := parseResetString(x.w.ResetsAt); ok {
 			w.ResetsAt = t
 		}

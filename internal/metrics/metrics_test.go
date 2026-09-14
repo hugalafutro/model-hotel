@@ -283,6 +283,7 @@ func TestLatencyBucketsReachGenerationLengths(t *testing.T) {
 	for _, want := range []string{
 		`modelhotel_request_duration_seconds_bucket{model="m",provider="p-long",le="180"} 1`,
 		`modelhotel_request_duration_seconds_bucket{model="m",provider="p-long",le="120"} 0`,
+		`modelhotel_request_duration_seconds_bucket{model="m",provider="p-long",le="0.005"} 0`,
 		`modelhotel_ttft_seconds_bucket{model="m",provider="p-long",le="60"} 1`,
 		`modelhotel_ttft_seconds_bucket{model="m",provider="p-long",le="30"} 0`,
 	} {

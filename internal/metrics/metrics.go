@@ -29,11 +29,13 @@ var (
 	// A generation runs for tens of seconds to minutes, so the buckets reach the
 	// stall watchdog's range rather than stopping at the 10 s the Prometheus
 	// defaults end at, where histogram_quantile would clamp every quantile to
-	// 10 s once most requests take longer.
-	requestDurationBuckets = []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30, 60, 120, 180, 300, 600}
+	// 10 s once most requests take longer. The defaults stay as the lower
+	// edges so every le series that existed before keeps its meaning across a
+	// rolling upgrade.
+	requestDurationBuckets = append(append([]float64{}, prometheus.DefBuckets...), 20, 30, 60, 120, 180, 300, 600)
 	// First token lands within seconds when the provider is healthy and within
 	// a minute or two when it queues; the top bucket marks a stall.
-	ttftBuckets = []float64{0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30, 60, 120}
+	ttftBuckets = append(append([]float64{}, prometheus.DefBuckets...), 20, 30, 60, 120)
 
 	requestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "modelhotel_request_duration_seconds",
@@ -343,7 +345,7 @@ type quotaCollector struct {
 var (
 	quotaUsedDesc = prometheus.NewDesc(
 		"modelhotel_provider_quota_used_ratio",
-		"Share of a provider quota window consumed, from the latest stored quota snapshot: 0 untouched, 1 spent, above 1 in overage. window names the window as the quota modal does (5h, weekly, cycle, energy, credits, or a MiniMax model class with its span). Only providers whose quota endpoint states a measurable window appear.",
+		"Share of a provider quota window consumed, from the latest stored quota snapshot: 0 untouched, 1 spent, above 1 in overage. window names the window as the quota modal does (5h, weekly, mcp, rolling, monthly, energy, credits, a Kimi span such as 5h, or a MiniMax model class with its span). Only providers whose quota endpoint states a measurable window appear.",
 		[]string{"provider_id", "provider", "window"}, nil,
 	)
 	quotaResetDesc = prometheus.NewDesc(
