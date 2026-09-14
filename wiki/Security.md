@@ -167,6 +167,8 @@ Time-based one-time passwords (RFC 6238) add a second factor to admin login, ind
 
 **Enforcement (first-factor downgrade):** When TOTP is enabled, the raw admin token stops being a standalone bearer. It becomes a first factor that, combined with a valid 6-digit code, is exchanged on the login screen for a session token (the same DB-backed session infrastructure passkeys use). Only the session token then authorizes `/api/*` calls, which closes the static-token replay a bare bearer would otherwise allow. The same gate covers passkey management and backup restore.
 
+**Scope:** TOTP guards the admin token and nothing else. A passkey login and an SSO login (OIDC or GitHub) mint the same admin session without asking for a code: a passkey is a phishing-resistant factor on its own, and an IdP login carries whatever second factor the IdP enforces, so a code on top would prompt twice for the same assurance. Sessions minted before TOTP was enabled stay valid too; revoke them from the active-session list if the enablement was a response to a suspected theft. This is by design, not an oversight.
+
 **Single-use codes:** Each accepted 30-second step is recorded (`admin_totp.last_used_step`, migration 049), so a code cannot be replayed within the validation skew window (enforced by an atomic conditional UPDATE). Verification uses constant-time comparison.
 
 **Recovery codes:** 10 single-use codes are shown once at enable time and stored only as SHA-256 hashes. A recovery code signs you in once so you can disable or re-enroll. Disable is gated on a current TOTP code or an unused recovery code, and the authorize-plus-delete runs in a single transaction so a recovery code is never spent without the disable completing.
