@@ -474,7 +474,7 @@ func TestCleanup_RemovesStaleEntries(t *testing.T) {
 	defer lim.Stop()
 
 	lim.mu.Lock()
-	lim.limiters["stale"] = &bucketEntry{
+	lim.limiters["stale"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  nil,
@@ -482,7 +482,7 @@ func TestCleanup_RemovesStaleEntries(t *testing.T) {
 		burst:    20,
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
-	lim.limiters["fresh"] = &bucketEntry{
+	lim.limiters["fresh"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  nil,
@@ -1011,7 +1011,7 @@ func TestCleanupGoroutine_Integration(t *testing.T) {
 
 	// Insert a stale entry (last used 15 minutes ago)
 	lim.mu.Lock()
-	lim.limiters["stale-loop-key"] = &bucketEntry{
+	lim.limiters["stale-loop-key"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -1020,7 +1020,7 @@ func TestCleanupGoroutine_Integration(t *testing.T) {
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh entry
-	lim.limiters["fresh-loop-key"] = &bucketEntry{
+	lim.limiters["fresh-loop-key"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -1065,7 +1065,7 @@ func TestCleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) {
 
 	// Insert a stale entry (last used 15 minutes ago — beyond the 10-minute cutoff)
 	lim.mu.Lock()
-	lim.limiters["stale-ticker-key"] = &bucketEntry{
+	lim.limiters["stale-ticker-key"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -1074,7 +1074,7 @@ func TestCleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) {
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh entry
-	lim.limiters["fresh-ticker-key"] = &bucketEntry{
+	lim.limiters["fresh-ticker-key"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   keyLogPrefix,
 		label:    keyLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -1177,7 +1177,7 @@ func TestKeyEntry_ThrottleEdgeLogging(t *testing.T) {
 	const started = "ratelimit: throttling started"
 	const ended = "ratelimit: throttling ended"
 
-	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
+	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 
 	// A burst of rejections must produce exactly one "started" line.
 	e.noteRejected("keyhash")
@@ -1217,7 +1217,7 @@ func TestKeyEntry_ConcurrentRejectionsExactCount(t *testing.T) {
 	debuglog.SetHandler(h)
 	t.Cleanup(func() { debuglog.Init() })
 
-	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
+	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 	const n = 200
 	var wg sync.WaitGroup
 	wg.Add(n)
@@ -1249,7 +1249,7 @@ func TestKeyEntry_IdleEvictionLogsEnded(t *testing.T) {
 		settings: newStubSettings(),
 		stopCh:   make(chan struct{}),
 	}
-	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
+	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: keyLogPrefix, label: keyLogLabel}
 	e.noteRejected("idlekey") // open an episode
 	e.throttle.throttledAt = time.Now().Add(-25 * time.Minute)
 	e.lastUsed = time.Now().Add(-20 * time.Minute) // idle, past the 10-min cutoff
@@ -1839,5 +1839,62 @@ func TestMiddleware_ZeroBurstOwnerRefusesInItsOwnName(t *testing.T) {
 		if got := entry.limiter.Tokens(); got < 0.9 {
 			t.Errorf("key bucket = %.2f tokens, want ~1: the owner refused before the key was charged", got)
 		}
+	}
+}
+
+// TestMiddleware_RewrittenCapKeepsDrainedBucket pins that changing a key's cap
+// adjusts its live bucket instead of minting a full one: a key that spent its
+// burst stays refused after its owner rewrites the cap, in either direction.
+func TestMiddleware_RewrittenCapKeepsDrainedBucket(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "0.01") // refills far slower than the test runs
+	repo.set(settingsKeyBurst, "1")
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	withCap := func(rps float64, burst int) *http.Request {
+		r := requestWithKey("key-rewrite")
+		ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyRateLimitRPSKey, &rps)
+		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, &burst)
+		return r.WithContext(ctx)
+	}
+	serve := func(r *http.Request) int {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, r)
+		return rr.Code
+	}
+
+	if code := serve(withCap(0.01, 1)); code != http.StatusOK {
+		t.Fatalf("first request = %d, want 200", code)
+	}
+	if code := serve(withCap(0.01, 1)); code != http.StatusTooManyRequests {
+		t.Fatalf("second request at the same cap = %d, want 429", code)
+	}
+	for _, c := range []struct {
+		rps   float64
+		burst int
+	}{{0.02, 2}, {0.01, 1}, {0.02, 2}} {
+		if code := serve(withCap(c.rps, c.burst)); code != http.StatusTooManyRequests {
+			t.Fatalf("request after rewriting the cap to %v/%d = %d, want 429: the drained bucket was refilled", c.rps, c.burst, code)
+		}
+	}
+
+	// The other direction binds at once too: a full bucket under a generous
+	// burst holds no more than the new, smaller burst after the rewrite.
+	lowered := func(r *http.Request) *http.Request {
+		ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyHashKey, "key-lowered")
+		return r.WithContext(ctx)
+	}
+	if code := serve(lowered(withCap(0.01, 5))); code != http.StatusOK {
+		t.Fatalf("first request under burst 5 = %d, want 200", code)
+	}
+	// Four unspent under the old burst; the new burst of one admits one.
+	if code := serve(lowered(withCap(0.01, 1))); code != http.StatusOK {
+		t.Fatalf("first request after lowering burst 5 to 1 = %d, want 200", code)
+	}
+	if code := serve(lowered(withCap(0.01, 1))); code != http.StatusTooManyRequests {
+		t.Fatalf("second request after lowering burst 5 to 1 = %d, want 429: the surplus above the new burst was kept", code)
 	}
 }

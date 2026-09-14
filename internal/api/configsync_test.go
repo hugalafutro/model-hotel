@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -1339,5 +1341,81 @@ func TestFoldRetiredBreakerSwitches(t *testing.T) {
 	plain := map[string]string{"discovery_interval": "1h"}
 	if got := foldRetiredBreakerSwitches(plain); len(got) != 1 || got["discovery_interval"] != "1h" {
 		t.Errorf("got %v for an envelope without retired switches, want it unchanged", got)
+	}
+}
+
+// TestConfigSync_ImportRefusesOneCorruptKeyAmongGood pins that the MASTER_KEY
+// guard checks every provider key: an envelope whose first key decrypts and
+// whose second is arbitrary ciphertext is refused whole, with nothing written,
+// rather than landing an undecryptable row this member would re-export.
+func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-good", configSyncMasterKey)
+	seedProvider(t, "anthropic", "sk-also-good", configSyncMasterKey)
+	env := doExport(t, exportRouter)
+	if len(env.Config.Providers) != 2 {
+		t.Fatalf("exported %d providers, want 2", len(env.Config.Providers))
+	}
+	envAgain := doExport(t, exportRouter) // the second case below, taken before the tables are cleaned
+	// Corrupt the second key only; the first still proves the shared key.
+	corrupt := env.Config.Providers[1].Name
+	env.Config.Providers[1].EncryptedKey = make([]byte, 32)
+	env.Config.Providers[1].KeyNonce = make([]byte, 12)
+
+	cleanConfigTables(t)
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	// A 400 naming the provider, not the 409 a MASTER_KEY mismatch answers:
+	// the first key proved the shared key, so this is a corrupt envelope.
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"`+corrupt+`"`) {
+		t.Fatalf("status = %d, body %q; want 400 naming %s", rec.Code, rec.Body.String(), corrupt)
+	}
+	var n int
+	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("providers written despite a corrupt key: %d", n)
+	}
+
+	// Order does not decide the diagnosis: corrupting the FIRST key while the
+	// second decrypts is the same corrupt envelope, not a MASTER_KEY mismatch.
+	env = envAgain
+	first := env.Config.Providers[0].Name
+	env.Config.Providers[0].EncryptedKey = make([]byte, 32)
+	env.Config.Providers[0].KeyNonce = make([]byte, 12)
+	cleanConfigTables(t)
+	rec = doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"`+first+`"`) {
+		t.Fatalf("corrupt first key: status = %d, body %q; want 400 naming %s", rec.Code, rec.Body.String(), first)
+	}
+
+	// The verdict rests on counts, not names: a corrupt key on a nameless
+	// provider is refused all the same.
+	env.Config.Providers[0].Name = ""
+	rec = doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "does not decrypt") {
+		t.Fatalf("nameless corrupt key: status = %d, body %q; want 400", rec.Code, rec.Body.String())
+	}
+	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("providers written despite a nameless corrupt key: %d", n)
+	}
+}
+
+// TestConfigSync_ImportRefusesOversizedProviderList pins the provider-count
+// ceiling that bounds the per-key derivations of the MASTER_KEY guard.
+func TestConfigSync_ImportRefusesOversizedProviderList(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-good", configSyncMasterKey)
+	env := doExport(t, exportRouter)
+	one := env.Config.Providers[0]
+	for i := len(env.Config.Providers); i <= maxImportProviders; i++ {
+		dup := one
+		dup.Name = fmt.Sprintf("dup-%d", i)
+		env.Config.Providers = append(env.Config.Providers, dup)
+	}
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "limit 256") {
+		t.Fatalf("status = %d, body %q; want 400 naming the limit", rec.Code, rec.Body.String())
 	}
 }
