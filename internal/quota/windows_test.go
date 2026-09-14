@@ -216,6 +216,10 @@ func TestAssessWithReserve(t *testing.T) {
 	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(90)}, 0.1, now); !a.OK || !a.Exhausted || !a.ResetsAt.Equal(reset) {
 		t.Errorf("90%% used with 10%% reserve: got %+v, want exhausted until %v", a, reset)
 	}
+	// Exactly on a line float64 renders a hair apart (70/100 vs 1 - 0.3): still pinned.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(70)}, 0.3, now); !a.Exhausted {
+		t.Errorf("70%% used with 30%% reserve: got %+v, want exhausted", a)
+	}
 	// No reserve: 90% is just usage.
 	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(90)}, 0, now); a.Exhausted {
 		t.Errorf("no reserve: got %+v, want healthy", a)

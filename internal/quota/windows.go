@@ -254,9 +254,13 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 	if reserve <= 0 || !a.OK || a.Exhausted {
 		return a
 	}
+	// The line is 1 - reserve, compared with a little slack: a share built as
+	// 70/100 sits a hair under 1 - 0.3 in float64, and the operator's 30% must
+	// pin at exactly 70% however the provider stated it.
+	line := 1 - reserve - 1e-9
 	var e earliestReset
 	for _, w := range Windows(providerType, s) {
-		if w.Used < 1-reserve || w.ResetsAt.IsZero() {
+		if w.Used < line || w.ResetsAt.IsZero() {
 			continue
 		}
 		e.add(w.ResetsAt, true)

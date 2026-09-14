@@ -34,7 +34,6 @@ row ignore it):
   same figures as the provider's quota modal), the same over time, and how long until each
   dated window rolls over. Only providers with a readable quota endpoint appear: Z.ai Coding
   Plan, Kimi Code, OpenCode Go, MiniMax and NeuralWatt. A provider with a quota reserve draws
-  its line on the over-time panel as a dashed series, so a window pinned early reads as such. A provider with a quota reserve draws
   its line on the over-time panel as a dashed series, so a window pinned early reads as such.
 - **Process**: goroutines, resident memory, CPU.
 
