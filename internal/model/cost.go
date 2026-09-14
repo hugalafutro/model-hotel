@@ -3,10 +3,10 @@ package model
 // Usage is the token breakdown a served request charged, as the request log
 // stores it: cache-hit and cache-miss prompt tokens sum to the prompt when a
 // provider reported a cache split, and both read 0 when it did not. Reasoning
-// tokens are not a member: providers report them inside completion_tokens
-// (OpenAI's own fixture in this repository has total = prompt + completion
-// with reasoning nested under completion_tokens_details), so pricing them
-// again would charge a reasoning model's thinking twice.
+// tokens are not a member: in the normalized usage the log stores they are
+// inside completion (OpenAI-compatible providers report them that way, and
+// the Gemini adapter folds thoughts into completion), so pricing them again
+// would charge a reasoning model's thinking twice.
 type Usage struct {
 	Prompt          int
 	PromptCacheHit  int

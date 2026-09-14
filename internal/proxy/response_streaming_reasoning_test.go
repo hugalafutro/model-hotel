@@ -109,7 +109,7 @@ func TestHandleStreamingResponse_ReasoningTokensCaptured(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
-	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":50,"total_tokens":800,"completion_tokens_details":{"reasoning_tokens":650}}}
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hi"}}],"usage":{"prompt_tokens":100,"completion_tokens":700,"total_tokens":800,"completion_tokens_details":{"reasoning_tokens":650}}}
 data: [DONE]
 
 `
@@ -137,8 +137,8 @@ data: [DONE]
 	startTime := time.Now()
 	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
-	if logData.tokensCompletion != 50 {
-		t.Errorf("expected completion_tokens=50, got %d", logData.tokensCompletion)
+	if logData.tokensCompletion != 700 {
+		t.Errorf("expected completion_tokens=700, got %d", logData.tokensCompletion)
 	}
 	if logData.tokensCompletionReasoning != 650 {
 		t.Errorf("expected reasoning_tokens=650, got %d", logData.tokensCompletionReasoning)

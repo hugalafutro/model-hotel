@@ -44,7 +44,7 @@ The only information recorded per proxied request is strictly necessary for rout
 | Virtual key name | `virtual_key_name` | Usage attribution per client |
 | Virtual key ID | `virtual_key_id` | Stable key reference (persists even if key is revoked) |
 | Token counts | `tokens_prompt`, `tokens_completion` | Usage tracking and billing attribution (provider-reported) |
-| Reasoning tokens | `tokens_completion_reasoning` | Thinking tokens, which reasoning models report separately from visible output |
+| Reasoning tokens | `tokens_completion_reasoning` | The share of completion tokens a reasoning model spent thinking (a breakdown, not an extra count) |
 | Token cache metrics | `tokens_prompt_cache_hit`, `tokens_prompt_cache_miss` | Cache efficiency tracking (provider-reported) |
 | Cost | `cost_usd` | Token counts priced at the serving model's stored prices; derived from the counts above, never from content |
 | Tokens per second | `tokens_per_second` | Performance metric (completion tokens / total duration) |

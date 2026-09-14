@@ -9,8 +9,9 @@ import (
 
 // TestRequestLogCostReasoningMigration covers migration 086: a terminal row
 // whose cost counted reasoning on top of completion is repriced at completion
-// alone, a row without reasoning is left as it was, and a row not yet
-// terminal loses the zero the interim write stamped.
+// alone, a row without reasoning is left as it was, a reasoning row with no
+// model to reprice against becomes NULL, and a row not yet terminal loses the
+// zero the interim write stamped.
 func TestRequestLogCostReasoningMigration(t *testing.T) {
 	ctx := context.Background()
 	b, err := fs.ReadFile(embeddedMigrations, "migrations/086_request_log_cost_reasoning.sql")
@@ -32,14 +33,20 @@ func TestRequestLogCostReasoningMigration(t *testing.T) {
 		}
 	})
 	if _, err := testPool.Exec(ctx, `
-		INSERT INTO models (provider_id, model_id, input_price_per_million, output_price_per_million) VALUES ($1, 'reason-m', 1, 4)`, providerID); err != nil {
-		t.Fatalf("seed model: %v", err)
+		INSERT INTO models (provider_id, model_id, input_price_per_million, output_price_per_million) VALUES
+		($1, 'reason-m', 1, 4),
+		($1, 'reason-p', 1, 4)`, providerID); err != nil {
+		t.Fatalf("seed models: %v", err)
 	}
+	// reason-p is priced and would reprice to 3 if the reasoning predicate
+	// were missing; its sentinel 9.9 proves the row was left alone.
+	// reason-gone has reasoning tokens but no model row to reprice against.
 	if _, err := testPool.Exec(ctx, `
 		INSERT INTO request_logs (model_id, provider_id, state, tokens_prompt, tokens_completion, tokens_completion_reasoning, cost_usd) VALUES
-		('reason-m',        $1, 'completed', 1000000, 500000, 250000, 4),
-		('reason-plain',    $1, 'completed', 1000000, 500000, 0,      3),
-		('reason-streaming', $1, 'streaming', 0,      0,      0,      0)`, providerID); err != nil {
+		('reason-m',         $1, 'completed', 1000000, 500000, 250000, 4),
+		('reason-p',         $1, 'completed', 1000000, 500000, 0,      9.9),
+		('reason-gone',      $1, 'completed', 1000000, 500000, 250000, 4),
+		('reason-streaming', $1, 'streaming', 0,       0,      0,      0)`, providerID); err != nil {
 		t.Fatalf("seed request logs: %v", err)
 	}
 	if _, err := testPool.Exec(ctx, string(b)); err != nil {
@@ -57,10 +64,12 @@ func TestRequestLogCostReasoningMigration(t *testing.T) {
 	if got := read("reason-m"); got == nil || math.Abs(*got-3) > 1e-6 {
 		t.Errorf("reasoning row cost_usd = %v, want 3", got)
 	}
-	// No reasoning: not touched (it would have priced to the same 3 anyway,
-	// but the row's own model has no row here to reprice against).
-	if got := read("reason-plain"); got == nil || *got != 3 {
-		t.Errorf("plain row cost_usd = %v, want 3 untouched", got)
+	if got := read("reason-p"); got == nil || math.Abs(*got-9.9) > 1e-9 {
+		t.Errorf("row without reasoning cost_usd = %v, want the 9.9 sentinel untouched", got)
+	}
+	// Doubled and unrepairable: unknown is more honest than inflated.
+	if got := read("reason-gone"); got != nil {
+		t.Errorf("reasoning row without a model cost_usd = %v, want NULL", *got)
 	}
 	if got := read("reason-streaming"); got != nil {
 		t.Errorf("streaming row cost_usd = %v, want NULL", *got)

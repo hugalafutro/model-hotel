@@ -376,7 +376,7 @@ per minute** via `rate_limit_tpm` (a separate token-budget bucket, refilled at
 - **`null`**: No per-key override, so the global `rate_limit_tpm` setting applies
   (default `0` = no cap). That global default is API-only; there is no
   Settings-UI control for it (per-VK is the primary surface).
-- **`≥ 1`**: Cap the key's combined prompt + completion + reasoning tokens per
+- **`≥ 1`**: Cap the key's combined prompt + completion tokens (reasoning is part of completion) per
   minute. `0` is rejected on create/update (use `null` for no cap).
 
 Because a request's token cost is unknown until it finishes, enforcement is
@@ -520,7 +520,7 @@ A completed request adds its token total to the key's `tokens_used` and stamps
 debited by.
 
 - **When**: After proxy request completion
-- **What**: `prompt_tokens + completion_tokens + reasoning_tokens` from the provider response. Each figure is clamped to a sane bound before it is charged, so a nonsense count from an upstream cannot poison the tally, and a total of zero or less is not written at all
+- **What**: `prompt_tokens + completion_tokens` from the provider response (`reasoning_tokens` is a breakdown of completion, never added on top). Each figure is clamped to a sane bound before it is charged, so a nonsense count from an upstream cannot poison the tally, and a total of zero or less is not written at all
 - **How**: Async fire-and-forget with 5-second timeout
 - **Accuracy**: Best-effort tally - may lag behind actual usage
 - **Keyless requests**: Admin chat has no virtual key, so it updates no key row. Its tokens are still debited from the owner's TPM budget

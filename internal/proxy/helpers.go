@@ -510,7 +510,9 @@ func estimateMissingUsage(promptTokens, completionTokens, reasoningTokens int, l
 		promptTokens = estimateTokens(logData.promptTextBytes)
 	}
 	if completionEstimated {
-		completionTokens = estimateTokens(deliveredBytes)
+		// Never below the reasoning the provider did report: reasoning is a
+		// share of completion, and an estimate under it would break that.
+		completionTokens = max(estimateTokens(deliveredBytes), reasoningTokens)
 	}
 	debuglog.Info("proxy: charging estimated tokens for usage the provider did not report", "model", logData.modelID, "provider", logData.providerName, "prompt_estimated", promptEstimated, "completion_estimated", completionEstimated, "prompt_text_bytes", logData.promptTextBytes, "delivered_bytes", deliveredBytes, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "reasoning_tokens", reasoningTokens)
 	return promptTokens, completionTokens, reasoningTokens
