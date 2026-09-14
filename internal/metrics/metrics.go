@@ -387,7 +387,7 @@ func reportableQuotaUsed(used float64) bool {
 
 // reportableQuotaReset reports whether a reset is fit for the gauge: dated,
 // and within the horizon of now on either side.
-func reportableQuotaReset(at time.Time, now time.Time) bool {
+func reportableQuotaReset(at, now time.Time) bool {
 	if at.IsZero() {
 		return false
 	}
