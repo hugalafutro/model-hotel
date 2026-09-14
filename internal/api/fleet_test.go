@@ -182,21 +182,34 @@ func TestFleetAnnounce_WriteFailureIs500(t *testing.T) {
 	}
 }
 
-// TestFleetAnnounce_AbandonedByCallerIs503 pins that a write cancelled by the
-// caller hanging up (Front Desk's timeout) answers 503 with a warning rather
-// than a 500: nothing on this member failed.
+// TestFleetAnnounce_AbandonedByCallerIs503 pins that an announce cancelled by
+// the caller hanging up (Front Desk's timeout) answers 503 with a warning
+// rather than a 500, whichever of its store touches sees the cancel: nothing
+// on this member failed.
 func TestFleetAnnounce_AbandonedByCallerIs503(t *testing.T) {
-	fs := newFakeFleetSettings()
-	fs.setErr = fmt.Errorf("write: %w", context.Canceled)
-	h := NewFleetHandler(fs)
+	abandoned := fmt.Errorf("store: %w", context.Canceled)
+	for name, arm := range map[string]func(fs *fakeFleetSettings){
+		"ownership read": func(fs *fakeFleetSettings) { fs.getErr = map[string]error{keyFleetFrontdeskID: abandoned} },
+		"heartbeat read": func(fs *fakeFleetSettings) {
+			fs.values[keyFleetFrontdeskID] = "fd-other"
+			fs.getErr = map[string]error{keyFleetManagedSeenAt: abandoned}
+		},
+		"write": func(fs *fakeFleetSettings) { fs.setErr = abandoned },
+	} {
+		t.Run(name, func(t *testing.T) {
+			fs := newFakeFleetSettings()
+			arm(fs)
+			h := NewFleetHandler(fs)
 
-	req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
-		strings.NewReader(`{"is_primary":true,"frontdesk_id":"fd-1"}`))
-	rec := httptest.NewRecorder()
-	h.Announce(rec, req)
+			req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
+				strings.NewReader(`{"is_primary":true,"frontdesk_id":"fd-1"}`))
+			rec := httptest.NewRecorder()
+			h.Announce(rec, req)
 
-	if rec.Code != http.StatusServiceUnavailable {
-		t.Fatalf("status = %d, want 503", rec.Code)
+			if rec.Code != http.StatusServiceUnavailable {
+				t.Fatalf("status = %d, want 503: %s", rec.Code, rec.Body.String())
+			}
+		})
 	}
 }
 
