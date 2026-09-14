@@ -44,7 +44,7 @@ var (
 
 	costUSDTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_cost_usd_total",
-		Help: "Dollars spent on proxied requests by provider and model, priced from the serving model's per-token prices as each terminal request is logged (the same figure request_logs.cost_usd and the dashboard's $ view carry). A request whose model has no known price adds nothing and no series, so a sum is a floor where any model is unpriced; a free model adds 0.",
+		Help: "Dollars spent on proxied requests by provider and model, the figure request_logs.cost_usd stores for the row, booked once the row has landed. A request whose model has no known price adds nothing and no series, so a sum is a floor where any model is unpriced; a free model adds 0. model is the name the client asked for (hotel/<group> for group traffic, priced from the member that served it), as modelhotel_requests_total carries it.",
 	}, []string{"provider", "model"})
 
 	failoverAttemptsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -138,7 +138,9 @@ func Record(o Observation) {
 	if o.ReasoningTokens > 0 {
 		tokensTotal.WithLabelValues(provider, model, "reasoning").Add(float64(o.ReasoningTokens))
 	}
-	if o.Priced {
+	// A counter refuses a negative add with a panic, and a price is only range
+	// checked on the admin API, not on catalog imports.
+	if o.Priced && o.CostUSD >= 0 {
 		costUSDTotal.WithLabelValues(provider, model).Add(o.CostUSD)
 	}
 	for _, p := range o.FailoverProviders {

@@ -112,8 +112,14 @@ func TestRecordEmitsMetrics(t *testing.T) {
 	// cost nothing, which is not the same as not knowing.
 	free := uniqueLabel("test-prov-free")
 	Record(Observation{Provider: free, Model: mdl, StatusCode: 200, PromptTokens: 3, CompletionTokens: 4, Priced: true})
-	if !strings.Contains(scrape(t), fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q} 0`, mdl, free)) {
+	if !strings.Contains(scrape(t), fmt.Sprintf("modelhotel_cost_usd_total{model=%q,provider=%q} 0\n", mdl, free)) {
 		t.Errorf("a free model's request must create a zero cost series")
+	}
+	// A negative price (a bad catalog import) must not panic the request path.
+	bad := uniqueLabel("test-prov-negative")
+	Record(Observation{Provider: bad, Model: mdl, StatusCode: 200, Priced: true, CostUSD: -1})
+	if strings.Contains(scrape(t), fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q}`, mdl, bad)) {
+		t.Errorf("a negative cost must be dropped, not counted")
 	}
 }
 
