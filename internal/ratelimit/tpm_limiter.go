@@ -648,10 +648,13 @@ func (l *TPMLimiter) rememberHorizon(horizon time.Duration) {
 // warnedSlowRead reports whether this slow horizon read is the one that gets to
 // speak, claiming the interval if so. Two racing readers can both see a stale
 // timestamp, and the loser's compare-and-swap fails, so at most one line is
-// emitted per interval.
+// emitted per interval. The stamp is loaded before the clock is read: a caller
+// that read the clock first and loaded the stamp after a racing winner stored
+// its own later instant would see a negative gap, take the clock-stepped-back
+// path below, and speak a second time.
 func (l *TPMLimiter) warnedSlowRead() bool {
-	now := time.Now()
 	last := l.lastSlowReadWarn.Load()
+	now := time.Now()
 	// A negative gap means the wall clock stepped backwards over the stamp.
 	// Treating that as "not yet due" would silence the warning until the clock
 	// caught up, so only a gap that is both forwards and short suppresses it.
