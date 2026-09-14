@@ -7,6 +7,7 @@
 package metrics
 
 import (
+	"math"
 	"net/http"
 	"sync"
 	"time"
@@ -367,12 +368,43 @@ func (c *quotaCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- quotaReserveDesc
 }
 
+// Bounds on what a quota window may put on the gauge. The figures come from a
+// provider's HTTP response, stored as it arrived, so a corrupt or hostile
+// upstream could hand the scrape a negative share, a share of 1e300 or a reset
+// centuries away, and one such sample flattens every quota panel. A share
+// past quotaUsedCeiling is nonsense rather than overage (the deepest overage
+// seen is a few times the window); a reset outside quotaResetHorizon on either
+// side dates nothing.
+const (
+	quotaUsedCeiling  = 1e6
+	quotaResetHorizon = 10 * 365 * 24 * time.Hour
+)
+
+// reportableQuotaUsed reports whether a share is fit for the gauge.
+func reportableQuotaUsed(used float64) bool {
+	return !math.IsNaN(used) && !math.IsInf(used, 0) && used >= 0 && used <= quotaUsedCeiling
+}
+
+// reportableQuotaReset reports whether a reset is fit for the gauge: dated,
+// and within the horizon of now on either side.
+func reportableQuotaReset(at time.Time, now time.Time) bool {
+	if at.IsZero() {
+		return false
+	}
+	d := at.Sub(now)
+	return d > -quotaResetHorizon && d < quotaResetHorizon
+}
+
 func (c *quotaCollector) Collect(ch chan<- prometheus.Metric) {
 	reserved := make(map[string]struct{})
+	now := time.Now()
 	for _, w := range c.collect() {
+		if !reportableQuotaUsed(w.Used) {
+			continue
+		}
 		labels := []string{w.ProviderID, labelOrUnknown(w.ProviderName), labelOrUnknown(w.Window)}
 		ch <- prometheus.MustNewConstMetric(quotaUsedDesc, prometheus.GaugeValue, w.Used, labels...)
-		if !w.ResetsAt.IsZero() {
+		if reportableQuotaReset(w.ResetsAt, now) {
 			ch <- prometheus.MustNewConstMetric(quotaResetDesc, prometheus.GaugeValue, float64(w.ResetsAt.Unix()), labels...)
 		}
 		if _, done := reserved[w.ProviderID]; w.Reserve > 0 && !done {

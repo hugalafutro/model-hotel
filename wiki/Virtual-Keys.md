@@ -514,6 +514,12 @@ account through the Users page, and by config sync. Both fields travel
 together: a budget without a period, or a period without a budget, is refused
 with `400`, and so is an amount at or below zero, or above 10,000,000.
 
+**Who sets it.** A key's budget belongs to whoever may edit the key: an admin, or the
+owner through the `virtual_keys` grant, who can raise, lower or clear it on their own
+keys and mint keys without one. It is a self-service cap, not a limit the owner cannot
+cross. The durable cap on a user is the account budget, which only an admin sets; it sums
+every key the user owns, so a cleared key budget still spends against it.
+
 **What counts.** Spend is the sum of `cost_usd` over the period's request logs,
 the same figure the Dashboard's `$` view and the request log's Cost column
 show. Rows the gateway could not price (a model with no known prices) count as

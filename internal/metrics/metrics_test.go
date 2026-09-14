@@ -3,6 +3,7 @@ package metrics
 import (
 	"fmt"
 	"io"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"strconv"
@@ -273,6 +274,34 @@ func TestQuotaCollector(t *testing.T) {
 	// One reserve series per provider, not per window, and none without a reserve.
 	if strings.Count(out, `modelhotel_provider_quota_reserve_ratio{`) != 1 {
 		t.Errorf("want exactly one reserve series:\n%s", out)
+	}
+}
+
+// TestQuotaCollector_DropsCorruptWindows: the figures are a provider's own
+// HTTP response, so a negative share, an absurd one or a reset centuries out
+// stays off the gauge, while genuine overage above 1 passes.
+func TestQuotaCollector_DropsCorruptWindows(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		used float64
+		ok   bool
+	}{
+		{"overage", 3.5, true},
+		{"negative", -0.1, false},
+		{"absurd", 1e300, false},
+		{"nan", math.NaN(), false},
+		{"inf", math.Inf(1), false},
+	} {
+		if got := reportableQuotaUsed(tc.used); got != tc.ok {
+			t.Errorf("%s: reportable=%v, want %v", tc.name, got, tc.ok)
+		}
+	}
+	now := time.Now()
+	if reportableQuotaReset(time.Time{}, now) || reportableQuotaReset(now.Add(11*365*24*time.Hour), now) || reportableQuotaReset(now.Add(-11*365*24*time.Hour), now) {
+		t.Error("an undated reset or one outside the ten-year horizon must not reach the gauge")
+	}
+	if !reportableQuotaReset(now.Add(48*time.Hour), now) {
+		t.Error("a reset two days out is fit for the gauge")
 	}
 }
 
