@@ -590,7 +590,9 @@ func (p *pinReleaseRecorder) ReleaseAllQuotaPins() int {
 // ApplyQuotaPins records nothing: these tests are about the release half of the
 // contract, and returning 0 keeps a refresh that retargets pins from disturbing
 // the release assertions.
-func (p *pinReleaseRecorder) ApplyQuotaPins(map[uuid.UUID]time.Time) int { return 0 }
+func (p *pinReleaseRecorder) ApplyQuotaPins(map[uuid.UUID]time.Time, map[uuid.UUID]string) int {
+	return 0
+}
 
 func (p *pinReleaseRecorder) recorded() []map[uuid.UUID]struct{} {
 	p.mu.Lock()

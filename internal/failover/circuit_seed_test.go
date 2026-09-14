@@ -30,7 +30,7 @@ func TestSeedQuotaPin_OpensClosedCircuitAndDarkensEveryModel(t *testing.T) {
 	id := uuid.New()
 	reset := time.Now().Add(6 * time.Hour)
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: reset})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: reset}, map[uuid.UUID]string{id: "Seeded Co"})
 
 	// Never requested, never failed: the derived provider verdict is the only
 	// thing that can be skipping it.
@@ -45,6 +45,9 @@ func TestSeedQuotaPin_OpensClosedCircuitAndDarkensEveryModel(t *testing.T) {
 	s := statuses[0]
 	if !s.QuotaPinned || s.PinSource != pinSourceAdvisor {
 		t.Errorf("got quota_pinned=%v pin_source=%q, want true/advisor", s.QuotaPinned, s.PinSource)
+	}
+	if s.ProviderName != "Seeded Co" {
+		t.Errorf("got provider_name=%q, want the advised name: nothing else names a circuit no request opened", s.ProviderName)
 	}
 	if !s.ProviderOpen {
 		t.Error("a seeded pin speaks for the account, so the provider verdict must be open")
@@ -71,7 +74,7 @@ func TestSeedQuotaPin_CeilingApplies(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{cooldown: time.Minute, pinMax: 2 * time.Hour})
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(7 * 24 * time.Hour)})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(7 * 24 * time.Hour)}, nil)
 
 	s := cb.Status()[0]
 	// The ceiling is a pre-jitter cap, so up to 5% above it is expected.
@@ -90,7 +93,7 @@ func TestSeedQuotaPin_PinningOffSeedsNothing(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{cooldown: time.Minute, pinOff: true})
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
 	if seededCircuit(cb, id) != nil {
 		t.Fatal("pinning is off: no circuit may be seeded")
 	}
@@ -115,7 +118,7 @@ func TestSeedQuotaPin_UndatableAdviceSeedsNothing(t *testing.T) {
 			cb := newTestCB(3, time.Minute)
 			id := uuid.New()
 
-			cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: tc.reset})
+			cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: tc.reset}, nil)
 			if seededCircuit(cb, id) != nil {
 				t.Error("no measurable window: nothing may be seeded")
 			}
@@ -134,7 +137,7 @@ func TestSeedQuotaPin_AlreadyPinnedProviderIsRetargetedNotSeeded(t *testing.T) {
 	// pin that already darkens the provider.
 	cb.RecordExhaustedAccount(id, "test-provider", "gemma-4-31b", 402, time.Hour)
 
-	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}); n != 1 {
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil); n != 1 {
 		t.Fatalf("got %d circuits changed, want 1 retarget", n)
 	}
 	if seededCircuit(cb, id) != nil {
@@ -157,8 +160,8 @@ func TestSeedQuotaPin_SecondPassDoesNotReseed(t *testing.T) {
 	id := uuid.New()
 	advice := map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}
 
-	cb.ApplyQuotaPins(advice)
-	cb.ApplyQuotaPins(advice)
+	cb.ApplyQuotaPins(advice, nil)
+	cb.ApplyQuotaPins(advice, nil)
 	cb.mu.RLock()
 	got := len(cb.circuits[id.String()])
 	cb.mu.RUnlock()
@@ -175,7 +178,7 @@ func TestSeedQuotaPin_ReleasedOnRecovery(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
 	if !cb.IsOpen(id, "test-provider", "any-model") {
 		t.Fatal("setup: seeded provider must be open")
 	}
@@ -198,7 +201,7 @@ func TestSeedQuotaPin_ReleasedWhenPollingSwitchedOff(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
 	if n := cb.ReleaseAllQuotaPins(); n != 1 {
 		t.Fatalf("got %d pins released, want 1", n)
 	}
@@ -216,7 +219,7 @@ func TestSeedQuotaPin_LeavesOtherProvidersAlone(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	spent, healthy := uuid.New(), uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{spent: time.Now().Add(6 * time.Hour)})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{spent: time.Now().Add(6 * time.Hour)}, nil)
 
 	if cb.IsOpen(healthy, "other-provider", "some-model") {
 		t.Error("an unadvised provider must not be darkened")
@@ -238,7 +241,7 @@ func TestSeedQuotaPin_ExpiredSeedIsRetired(t *testing.T) {
 	cb := newTestCB(3, time.Minute)
 	id := uuid.New()
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
 	c := seededCircuit(cb, id)
 	if c == nil {
 		t.Fatal("setup: the reading must seed a circuit")
@@ -252,7 +255,7 @@ func TestSeedQuotaPin_ExpiredSeedIsRetired(t *testing.T) {
 	// No advice for this provider at all, which is also the pass that would
 	// otherwise return early: the sweep runs before that return or a provider
 	// that dropped out of the advice is never revisited.
-	cb.ApplyQuotaPins(nil)
+	cb.ApplyQuotaPins(nil, nil)
 
 	if seededCircuit(cb, id) != nil {
 		t.Error("an elapsed seeded pin must retire its circuit: nothing else ever can")

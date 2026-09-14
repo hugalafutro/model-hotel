@@ -209,8 +209,11 @@ func retireIfSeeded(models modelCircuits, model string) {
 // where retargeting found nothing to change: see seedQuotaPin.
 //
 // advice is read, never retained: the caller may hand the same map to the
-// advisor afterwards.
-func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
+// advisor afterwards. names carries the display name of each advised provider
+// so a seeded circuit, which no request has named yet, still reports one in its
+// status row and on the state gauge; a missing entry leaves whatever name the
+// request path recorded.
+func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time, names map[uuid.UUID]string) int {
 	cb.mu.Lock()
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
@@ -233,6 +236,9 @@ func (cb *CircuitBreaker) ApplyQuotaPins(advice map[uuid.UUID]time.Time) int {
 	// circuits map is keyed by the provider's UUID string.
 	changed := 0
 	for providerID, resetsAt := range advice {
+		if name := names[providerID]; name != "" {
+			cb.names[providerID.String()] = name
+		}
 		for model, c := range cb.circuits[providerID.String()] {
 			if cb.logicalStateWith(c, r) != StateOpen {
 				continue
@@ -349,9 +355,8 @@ const seededModel = "(account quota)"
 //
 // Must be called with cb.mu held; the line is handed to after, for the caller to
 // write once the lock is released.
-// A seeded circuit carries no provider name: the advice is keyed by id alone,
-// and the status row names the provider once the request path first touches
-// it. Until then the state gauge labels it unknown.
+// The provider name comes from the names map ApplyQuotaPins stamps before
+// seeding, since no request has recorded one for a circuit opened on a reading.
 func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID, resetsAt time.Time, maxPin time.Duration, r *cooldownReads) bool {
 	id := providerID.String()
 	if cb.accountPinned(cb.circuits[id], r) {
