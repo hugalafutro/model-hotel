@@ -118,7 +118,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(up{job=\"model-hotel\"}) / count(up{job=\"model-hotel\"})",
+          "expr": "(sum(up{job=\"model-hotel\"}) / count(up{job=\"model-hotel\"})) or on() vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -498,7 +498,7 @@
       "type": "stat",
       "id": 7,
       "title": "Breakers",
-      "description": "Providers with a breaker not closed on any member. Zero is the healthy state; red means at least one provider is being routed around somewhere in the fleet.",
+      "description": "Selected providers with a breaker not closed on any member. Zero is the healthy state; red means at least one of them is being routed around somewhere in the fleet. Providers the request path has not named yet (a seeded quota pin) share one unknown entry.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -550,7 +550,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(max by (provider) (modelhotel_circuit_breaker_state{provider!=\"\", provider=~\"$provider\"}) > 0) or on() vector(0)",
+          "expr": "count(max by (provider) (modelhotel_circuit_breaker_state{provider=~\"$provider\"}) > 0) or on() vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1716,7 +1716,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (provider) (modelhotel_circuit_breaker_state{provider!=\"\", provider=~\"$provider\"})",
+          "expr": "max by (provider) (modelhotel_circuit_breaker_state{provider=~\"$provider\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

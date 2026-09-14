@@ -14,7 +14,8 @@ dashboard over the metrics.
 ## What the dashboard shows
 
 One dashboard, provisioned into the folder "Model Hotel", with a `provider` variable that
-narrows every panel:
+narrows the traffic, latency, spend and breaker panels (the fleet-wide tiles and the process
+row ignore it):
 
 - **Overview**: members up (the Up tile), requests/s, error share, p95 latency and TTFT, tokens/s, spend
   over the selected range (approximate at the range edges), providers with a breaker not
