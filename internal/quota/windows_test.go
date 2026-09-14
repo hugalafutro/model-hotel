@@ -51,13 +51,19 @@ func TestWindows_KimiCode_NamesSpansAndDerivesShareFromEitherPair(t *testing.T) 
 		"limits": [
 			{"window": {"duration": 300, "timeUnit": "TIME_UNIT_MINUTE"}, "detail": {"limit": "100", "remaining": "42"}},
 			{"window": {"duration": 7, "timeUnit": "DAY"}, "detail": {"limit": "0", "used": "5"}},
-			{"window": {"duration": 90, "timeUnit": "MINUTE"}, "detail": {"limit": "10"}}
+			{"window": {"duration": 90, "timeUnit": "MINUTE"}, "detail": {"limit": "10"}},
+			{"window": {"duration": 1, "timeUnit": "DAY"}, "detail": {"limit": "100", "used": "10", "remaining": "20"}}
 		]}`)
 
 	ws := Windows("kimi-code", Snapshot{Payload: payload})
 
-	if len(ws) != 2 {
-		t.Fatalf("got %d windows, want weekly and 5h (a zero limit and a window stating neither used nor remaining are unreadable): %+v", len(ws), ws)
+	if len(ws) != 3 {
+		t.Fatalf("got %d windows, want weekly, 5h and 1d (a zero limit and a window stating neither used nor remaining are unreadable): %+v", len(ws), ws)
+	}
+	// Both fields stated and disagreeing: remaining decides, as it does for the
+	// assessor, so the two never read one payload differently.
+	if d := window(t, ws, "1d"); !near(d.Used, 0.8) {
+		t.Errorf("1d: got used=%v, want 0.8 from remaining, not 0.1 from used", d.Used)
 	}
 	if c := window(t, ws, "weekly"); !near(c.Used, 0.25) || c.ResetsAt.IsZero() {
 		t.Errorf("weekly (the top-level usage block): got %+v, want used 0.25 with a dated reset", c)

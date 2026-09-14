@@ -55,7 +55,9 @@ const quotaScrapeTimeout = 3 * time.Second
 //
 // A row whose latest refresh failed is left out: RecordFailure keeps the last
 // good payload under it, and a figure the poller could not confirm would sit
-// on the dashboard looking current for as long as the provider stays down.
+// on the dashboard looking current for as long as the provider stays down. A
+// disabled provider is left out for the same reason: the poller skips it, so
+// its row only ages.
 // Only the kind this provider type polls is read, so a row left by an earlier
 // type cannot compete with the live one.
 func (h *Handler) collectQuotaWindows() []metrics.QuotaWindow {
@@ -85,7 +87,7 @@ func (h *Handler) collectQuotaWindows() []metrics.QuotaWindow {
 	seen := make(map[string]struct{})
 	for _, s := range snaps {
 		p, ok := byID[s.ProviderID]
-		if !ok || s.LastError != "" {
+		if !ok || !p.Enabled || s.LastError != "" {
 			continue
 		}
 		typ := provider.TypeOf(p)

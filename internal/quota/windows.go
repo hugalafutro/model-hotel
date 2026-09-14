@@ -85,7 +85,9 @@ func zaiCodingWindows(payload json.RawMessage) []Window {
 
 // kimiCodeWindows reports the top-level usage block, which is the weekly
 // window (getKimiCodeWeeklyLimit in web-shared/quota/kimi.ts reads it so), and
-// every rolling limit named by its span (5h, 7d). Kimi's figures are decimal strings and a
+// every rolling limit named by its span (5h, 7d). Kimi refuses at the limit,
+// so its share stops at 1: kimiRemaining reports zero left once used reaches
+// the limit. Kimi's figures are decimal strings and a
 // spent window omits remaining while a fresh one omits used, so the share
 // comes from kimiRemaining, the same read the assessor makes.
 func kimiCodeWindows(payload json.RawMessage) []Window {
