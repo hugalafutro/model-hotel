@@ -333,8 +333,10 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 	}
 }
 
-// statSpend fills TotalCostUSD and RequestsUnpriced for the period. Best-effort
-// like the other scalars: a failure logs and leaves both at zero. Unpriced is
+// statSpend fills TotalCostUSD and RequestsUnpriced for the period, whatever
+// metric the breakdowns were asked for: the dashboard's spend tile reads them
+// from the same response as the token tile. Best-effort like the other
+// scalars: a failure logs and leaves both at zero. Unpriced is
 // judged by the status, not the provider column: deleting a provider nulls
 // provider_id on its rows (ON DELETE SET NULL), which would hide them.
 func (h *StatsHandler) statSpend(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, since time.Time) {

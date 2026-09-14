@@ -85,7 +85,9 @@ export function MetricToggle({
 	const titles: Record<MetricType, string> = {
 		tokens: t("dashboard.label.tokens"),
 		requests: t("dashboard.label.requests"),
-		cost: t("dashboard.label.spend"),
+		// The visible "$" is not part of the word, so the name carries both:
+		// voice control can then say either.
+		cost: `${t("dashboard.label.spend")} ($)`,
 	};
 	return (
 		<ToggleGroup

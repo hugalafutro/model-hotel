@@ -351,6 +351,16 @@ describe("Layout", () => {
 			expect(contentDiv).toHaveClass("max-w-7xl");
 		});
 
+		it("widens the content column on the request log route", () => {
+			renderWithProviders(<Layout>{mockChildren}</Layout>, {
+				initialEntries: ["/logs"],
+			});
+
+			const contentDiv = screen.getByRole("main").querySelector("div");
+			expect(contentDiv).toHaveClass("max-w-[88rem]");
+			expect(contentDiv).not.toHaveClass("max-w-7xl");
+		});
+
 		it("has proper main landmark", () => {
 			renderWithProviders(<Layout>{mockChildren}</Layout>);
 

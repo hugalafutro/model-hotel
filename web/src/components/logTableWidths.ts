@@ -40,8 +40,8 @@ export const LOG_COL_WIDTHS = [
 	{ key: "ip", width: "w-[8rem]" }, // full IPv4 (15ch mono); IPv6 truncates with tooltip
 ] as const;
 
-/** Fitted columns sum to 77.5rem; the rest is the Model floor. Deliberately
- *  above the 62.5rem the other tables use: the fitted columns cannot shrink,
- *  so a smaller minimum would only starve Model, and the dashboard's 80rem
- *  content column fits this at both the 1080p and 1440p root font sizes. */
+/** Fitted columns sum to 77.5rem; the rest is the Model floor. Above the
+ *  80rem content column the other pages use, so Layout gives the request log
+ *  route a wider one (88rem); below this width the table scrolls horizontally
+ *  rather than starving Model, since the fitted columns cannot shrink. */
 export const LOG_TABLE_MIN_W = "min-w-[83.5rem]";
