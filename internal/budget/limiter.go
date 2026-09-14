@@ -288,7 +288,7 @@ func (l *Limiter) reload(s *Subject, e *entry, start time.Time, seq uint64) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if !e.periodStart.Equal(start) {
-		e.reloading, e.overlapped = false, 0
+		e.reloading, e.overlapped, e.chargedSince = false, 0, 0
 		return
 	}
 	switch {
