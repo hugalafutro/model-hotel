@@ -108,6 +108,13 @@ func TestRecordEmitsMetrics(t *testing.T) {
 	if strings.Contains(scrape(t), fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q}`, mdl, unpriced)) {
 		t.Errorf("an unpriced request must not create a cost series")
 	}
+	// A free model is priced at zero and does get a series: it is known to
+	// cost nothing, which is not the same as not knowing.
+	free := uniqueLabel("test-prov-free")
+	Record(Observation{Provider: free, Model: mdl, StatusCode: 200, PromptTokens: 3, CompletionTokens: 4, Priced: true})
+	if !strings.Contains(scrape(t), fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q} 0`, mdl, free)) {
+		t.Errorf("a free model's request must create a zero cost series")
+	}
 }
 
 // The failover observability counters: one increment per event, labels as the
