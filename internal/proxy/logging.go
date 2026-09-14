@@ -339,6 +339,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 
 	logEntry.latencyMs = logEntry.durationMs - logEntry.proxyOverheadMs
 	rows, err := h.execRequestLogUpdate(logEntry)
+	chargedNow := false // this write is the one that booked the row's cost
 
 	// Nothing touches the row after a terminal update, so one that loses the race
 	// with its own INSERT hits 0 rows and leaves the request at 'pending': no
@@ -377,14 +378,17 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		// path above runs the update twice, a write that failed is not a row
 		// the budget can sum, and the flag holds against a second terminal
 		// write for the same request.
-		logEntry.charged = true
+		logEntry.charged, chargedNow = true, true
 		h.budgetLimiter.Charge(logEntry.virtualKeyID, logEntry.ownerUserID, c)
 	}
 
 	// Publish the request lifecycle event for terminal states.
 	if isTerminalLogState(logEntry.state) {
 		// The single Prometheus recording seam: every terminal request passes
-		// through here exactly once with its provider/model/status/tokens.
+		// through here exactly once with its provider/model/status/tokens. The
+		// cost is booked only by the write that stored it, so the counter and
+		// request_logs.cost_usd agree row for row.
+		cost, priced := logEntry.terminalCost()
 		metrics.Record(metrics.Observation{
 			Provider:          logEntry.providerName,
 			Model:             metricModelLabel(logEntry.modelID, logEntry.errorKind),
@@ -396,6 +400,8 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			PromptTokens:      logEntry.tokensPrompt,
 			CompletionTokens:  logEntry.tokensCompletion,
 			ReasoningTokens:   logEntry.tokensCompletionReasoning,
+			CostUSD:           cost,
+			Priced:            priced && chargedNow,
 			FailoverProviders: logEntry.failoverProviders(),
 		})
 

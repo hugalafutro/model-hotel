@@ -73,6 +73,8 @@ func TestRecordEmitsMetrics(t *testing.T) {
 		PromptTokens:     10,
 		CompletionTokens: 20,
 		ReasoningTokens:  5,
+		CostUSD:          0.0025,
+		Priced:           true,
 		// Two attempts after the first: a hedge to the fallback that lost, and
 		// the fallback again, which served. One increment each, per provider.
 		FailoverProviders: []string{fallback, fallback},
@@ -86,6 +88,7 @@ func TestRecordEmitsMetrics(t *testing.T) {
 		fmt.Sprintf(`modelhotel_tokens_total{kind="completion",model=%q,provider=%q} 20`, mdl, prov),
 		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt",model=%q,provider=%q} 10`, mdl, prov),
 		fmt.Sprintf(`modelhotel_tokens_total{kind="reasoning",model=%q,provider=%q} 5`, mdl, prov),
+		fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q} 0.0025`, mdl, prov),
 		fmt.Sprintf(`modelhotel_failover_attempts_total{model=%q,provider=%q} 2`, mdl, fallback),
 		`go_goroutines`, // Go runtime collector is registered
 	}
@@ -96,6 +99,27 @@ func TestRecordEmitsMetrics(t *testing.T) {
 	}
 	if strings.Contains(out, fmt.Sprintf(`modelhotel_failover_attempts_total{model=%q,provider=%q}`, mdl, prov)) {
 		t.Errorf("the first attempt's provider was counted as a failover attempt")
+	}
+
+	// An unpriced request leaves no cost series at all: a sum that read it as
+	// $0 would look like a total when it is a floor.
+	unpriced := uniqueLabel("test-prov-unpriced")
+	Record(Observation{Provider: unpriced, Model: mdl, StatusCode: 200, PromptTokens: 3, CompletionTokens: 4})
+	if strings.Contains(scrape(t), fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q}`, mdl, unpriced)) {
+		t.Errorf("an unpriced request must not create a cost series")
+	}
+	// A free model is priced at zero and does get a series: it is known to
+	// cost nothing, which is not the same as not knowing.
+	free := uniqueLabel("test-prov-free")
+	Record(Observation{Provider: free, Model: mdl, StatusCode: 200, PromptTokens: 3, CompletionTokens: 4, Priced: true})
+	if !strings.Contains(scrape(t), fmt.Sprintf("modelhotel_cost_usd_total{model=%q,provider=%q} 0\n", mdl, free)) {
+		t.Errorf("a free model's request must create a zero cost series")
+	}
+	// A negative price (a bad catalog import) must not panic the request path.
+	bad := uniqueLabel("test-prov-negative")
+	Record(Observation{Provider: bad, Model: mdl, StatusCode: 200, Priced: true, CostUSD: -1})
+	if strings.Contains(scrape(t), fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q}`, mdl, bad)) {
+		t.Errorf("a negative cost must be dropped, not counted")
 	}
 }
 

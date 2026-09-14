@@ -42,6 +42,11 @@ var (
 		Help: "Total tokens metered by provider, model, and kind. Reasoning is the share of completion a reasoning model spent thinking, not an extra count: sum prompt and completion for a total, never add reasoning to them.",
 	}, []string{"provider", "model", "kind"})
 
+	costUSDTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
+		Name: "modelhotel_cost_usd_total",
+		Help: "Dollars spent on proxied requests by provider and model, the figure request_logs.cost_usd stores for the row, booked once the row has landed. A request whose model has no known price adds nothing and no series, so a sum is a floor where any model is unpriced; a free model adds 0. model is the name the client asked for (hotel/<group> for group traffic, priced from the member that served it), as modelhotel_requests_total carries it.",
+	}, []string{"provider", "model"})
+
 	failoverAttemptsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_failover_attempts_total",
 		Help: "Failover attempts beyond the first try, by model (or hotel group) and the provider the attempt went to, hedged launches included. The fan-out to fallback entries per provider, not only per group.",
@@ -79,6 +84,7 @@ func init() {
 		requestDuration,
 		ttftSeconds,
 		tokensTotal,
+		costUSDTotal,
 		failoverAttemptsTotal,
 		upstreamRateLimitTotal,
 		circuitBreakerOpensTotal,
@@ -103,6 +109,11 @@ type Observation struct {
 	PromptTokens     int
 	CompletionTokens int
 	ReasoningTokens  int
+	// CostUSD is what the request cost when Priced; a request the gateway could
+	// not price (no provider served it, or the model has no prices) is not
+	// counted at all rather than counted as free.
+	CostUSD float64
+	Priced  bool
 	// FailoverProviders names the provider of every attempt after the first
 	// (hedged launches included), in attempt order, one failover attempt each.
 	FailoverProviders []string
@@ -126,6 +137,11 @@ func Record(o Observation) {
 	}
 	if o.ReasoningTokens > 0 {
 		tokensTotal.WithLabelValues(provider, model, "reasoning").Add(float64(o.ReasoningTokens))
+	}
+	// A counter refuses a negative add with a panic, and a price is only range
+	// checked on the admin API, not on catalog imports.
+	if o.Priced && o.CostUSD >= 0 {
+		costUSDTotal.WithLabelValues(provider, model).Add(o.CostUSD)
 	}
 	for _, p := range o.FailoverProviders {
 		failoverAttemptsTotal.WithLabelValues(model, labelOrUnknown(p)).Inc()
