@@ -246,8 +246,9 @@ func labelOrUnknown(s string) string {
 // BreakerState is one provider's circuit-breaker state for the gauge: the
 // provider identifier and the numeric state (0 closed / 1 half-open / 2 open).
 type BreakerState struct {
-	ProviderID string
-	State      int
+	ProviderID   string
+	ProviderName string // the operator's name for the provider; "" when unknown
+	State        int
 }
 
 // Numeric state encoding for modelhotel_circuit_breaker_state.
@@ -281,8 +282,8 @@ type breakerCollector struct {
 
 var breakerDesc = prometheus.NewDesc(
 	"modelhotel_circuit_breaker_state",
-	"Circuit breaker state per provider (0 closed, 1 half-open, 2 open).",
-	[]string{"provider_id"}, nil,
+	"Circuit breaker state per provider (0 closed, 1 half-open, 2 open). provider is the operator's name, as the other series carry it; provider_id is the row's id, stable across a rename.",
+	[]string{"provider_id", "provider"}, nil,
 )
 
 func (c *breakerCollector) Describe(ch chan<- *prometheus.Desc) {
@@ -291,7 +292,7 @@ func (c *breakerCollector) Describe(ch chan<- *prometheus.Desc) {
 
 func (c *breakerCollector) Collect(ch chan<- prometheus.Metric) {
 	for _, s := range c.collect() {
-		ch <- prometheus.MustNewConstMetric(breakerDesc, prometheus.GaugeValue, float64(s.State), s.ProviderID)
+		ch <- prometheus.MustNewConstMetric(breakerDesc, prometheus.GaugeValue, float64(s.State), s.ProviderID, labelOrUnknown(s.ProviderName))
 	}
 }
 
