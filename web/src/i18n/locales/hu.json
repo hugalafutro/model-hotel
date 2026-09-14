@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "token/mp",
 			"outputTokensPerSecond": "A generálási fázisban másodpercenként kibocsátott tokenek száma (az első token megjelenéséig eltelt időt nem számítva). Ha a generálási idő elhanyagolható, akkor „-” jelzés jelenik meg.",
 			"sumOfTokens": "A prompt- és a kiegészítés-tokenek összege (a gondolkodás a kiegészítés része)",
-			"requestHash": "Kérés hash-értéke",
 			"model": "Modell",
 			"copyModelId": "Modellazonosító másolása",
 			"resolved": "feloldva",

@@ -2840,7 +2840,6 @@
 			"tokensPerSecond": "Token/s",
 			"outputTokensPerSecond": "Tokeni de ieșire pe secundă în timpul fazei de generare (exclude timpul până la primul token). Afișați ca \"-\" atunci când timpul de generare este neglijabil.",
 			"sumOfTokens": "Suma tokenilor de prompt și de completare (raționamentul face parte din completare)",
-			"requestHash": "Hash-ul cererii",
 			"model": "Model",
 			"copyModelId": "Copiază ID-ul modelului",
 			"resolved": "rezolvat",

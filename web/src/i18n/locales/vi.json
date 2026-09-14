@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "Token/giây",
 			"outputTokensPerSecond": "Số token được tạo ra mỗi giây trong giai đoạn tạo (không tính thời gian để tạo ra token đầu tiên). Được hiển thị dưới dạng '-' khi thời gian tạo là không đáng kể.",
 			"sumOfTokens": "Tổng số token của lời nhắc và phần hoàn thành (suy luận nằm trong phần hoàn thành)",
-			"requestHash": "Băm yêu cầu",
 			"model": "Mô hình",
 			"copyModelId": "Sao chép ID mô hình",
 			"resolved": "đã được giải quyết",

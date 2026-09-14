@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Utdata-tokener per sekund i genereringsfasen (ekskluderer tid til første token). Vises som '-' når genereringstiden er ubetydelig.",
 			"sumOfTokens": "Sum av prompt- og completion-tokens (resonnering er en del av completion)",
-			"requestHash": "Forespørsels-hash",
 			"model": "Modell",
 			"copyModelId": "Kopier modell-ID",
 			"resolved": "løst",

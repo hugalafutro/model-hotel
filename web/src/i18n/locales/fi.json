@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "Tunnukset/s",
 			"outputTokensPerSecond": "Ulostulotokeneita sekunnissa generointivaiheen aikana (ei sisällä aikaa ensimmäiseen tokeniin). Näytetään ’-’, kun generointiaika on merkityksettömän lyhyt.",
 			"sumOfTokens": "Kehotteen ja täydennyksen tokenien summa (päättely sisältyy täydennykseen)",
-			"requestHash": "Pyynnön tiiviste",
 			"model": "Malli",
 			"copyModelId": "Kopioi mallin ID",
 			"resolved": "ratkaistu",

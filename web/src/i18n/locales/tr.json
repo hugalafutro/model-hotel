@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "Token/saniye",
 			"outputTokensPerSecond": "Oluşturma aşamasında saniye başına üretilen token sayısı (ilk tokenin üretilme süresi hariç). Oluşturma süresi önemsiz düzeyde olduğunda '-' olarak gösterilir.",
 			"sumOfTokens": "İstem ve tamamlama jetonlarının toplamı (akıl yürütme tamamlamaya dahildir)",
-			"requestHash": "İstek Hash'i",
 			"model": "Model",
 			"copyModelId": "Model kimliğini kopyala",
 			"resolved": "çözümlendi",

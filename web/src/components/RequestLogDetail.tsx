@@ -9,7 +9,6 @@ import {
 	DollarSign,
 	Gauge,
 	Globe,
-	Hash,
 	Key,
 	Layers,
 	Server,
@@ -185,12 +184,6 @@ export function RequestLogDetail({
 					icon={Calendar}
 					label={t("components.requestLogDetail.timestamp")}
 					value={formatLogTimestamp(requestLog.created_at)}
-				/>
-				<DetailItem
-					icon={Hash}
-					label={t("components.requestLogDetail.requestHash")}
-					value={requestLog.request_hash}
-					mono
 				/>
 				<DetailItem icon={Box} label={t("components.requestLogDetail.model")}>
 					<CopyablePill

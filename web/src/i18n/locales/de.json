@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "Token/s",
 			"outputTokensPerSecond": "Ausgabe-Token pro Sekunde während der Generierungsphase (ausgenommen Zeit-zu-Erste-Token). Wird als '-' angezeigt, wenn die Erstellungszeit vernachlässigbar ist.",
 			"sumOfTokens": "Summe aus Prompt- und Completion-Token (Reasoning ist Teil der Completion)",
-			"requestHash": "Anfrage-Hash",
 			"model": "Modell",
 			"copyModelId": "Model-ID kopieren",
 			"resolved": "aufgelöst",

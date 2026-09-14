@@ -2905,7 +2905,6 @@
 			"tokensPerSecond": "Tokenov za sekundu",
 			"outputTokensPerSecond": "Počet vygenerovaných tokenov za sekundu počas fázy generovania (nezahŕňa čas potrebný na vygenerovanie prvého tokenu). Ak je čas generovania zanedbateľný, zobrazuje sa ako „-“.",
 			"sumOfTokens": "Súčet tokenov promptu a dokončenia (uvažovanie je súčasťou dokončenia)",
-			"requestHash": "Hash požiadavky",
 			"model": "Model",
 			"copyModelId": "Skopírovať ID modelu",
 			"resolved": "vyriešené",
