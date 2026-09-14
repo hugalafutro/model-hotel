@@ -74,10 +74,10 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		outPricePerMill := m.Pricing.Completion
 		// A negative figure is not a price; JSON cannot carry NaN or Inf, but the
 		// same guard keeps every path to a stored price honest.
-		if !model.PricedAt(inPricePerMill) {
+		if !model.Priceable(inPricePerMill) {
 			inPricePerMill = nil
 		}
-		if !model.PricedAt(outPricePerMill) {
+		if !model.Priceable(outPricePerMill) {
 			outPricePerMill = nil
 		}
 

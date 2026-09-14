@@ -16,35 +16,35 @@ type Usage struct {
 	Completion      int
 }
 
-// PricedAt reports whether a stored price can price anything: present, finite
-// and not negative. A listing can state "NaN", "Inf" or a negative figure and
-// a parser that only checks for a parse error stores it as a real price; a
-// row priced from one would carry a cost the budget cannot compare (NaN is
-// never at or above a cap) or one that pays the spender. Such a model is
-// unpriced, and its rows stay NULL, the state every reader already handles.
-func PricedAt(p *float64) bool {
-	return p != nil && !math.IsNaN(*p) && !math.IsInf(*p, 0) && *p >= 0
+// Priceable reports whether a stored price can price anything: present,
+// finite and not negative. A listing can state "NaN", "Inf" or a negative
+// figure and a parser that only checks for a parse error stores it as a real
+// price; a row priced from one would carry a cost the budget cannot compare
+// (NaN is never at or above a cap) or one that pays the spender. Such a price
+// counts as absent: the model is unpriced and its rows stay NULL, the state
+// every reader already handles. NaN fails the comparison on its own; only
+// +Inf needs naming.
+func Priceable(p *float64) bool {
+	return p != nil && !math.IsInf(*p, 0) && *p >= 0
 }
 
 // CostUSD prices usage at the model's stored per-million prices. ok is false
-// when the model holds no input or output price, in which case the cost is
-// unknown rather than zero. Cache-hit tokens take the cache-hit price when the
-// model has one and the input price otherwise; completion tokens, reasoning
-// included, take the output price.
+// when the model holds no priceable input or output price (absent, or a figure
+// Priceable refuses), in which case the cost is unknown rather than zero.
+// Cache-hit tokens take the cache-hit price when the model has a priceable
+// one and the input price otherwise; completion tokens, reasoning included,
+// take the output price.
 //
 // The prompt can exceed the cache split: a failover group that rejected an
 // earlier candidate's 2xx adds that candidate's prompt to the row, while the
 // split is the serving candidate's alone. The excess takes the input price,
 // so every prompt token the row carries is priced.
 func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
-	if m == nil || !PricedAt(m.InputPricePerMillion) || !PricedAt(m.OutputPricePerMillion) {
-		return 0, false
-	}
-	if u.PromptCacheHit > 0 && m.InputPricePerMillionCacheHit != nil && !PricedAt(m.InputPricePerMillionCacheHit) {
+	if m == nil || !Priceable(m.InputPricePerMillion) || !Priceable(m.OutputPricePerMillion) {
 		return 0, false
 	}
 	prompt := float64(u.Prompt) * *m.InputPricePerMillion
-	if u.PromptCacheHit > 0 && m.InputPricePerMillionCacheHit != nil {
+	if u.PromptCacheHit > 0 && Priceable(m.InputPricePerMillionCacheHit) {
 		prompt = float64(u.PromptCacheHit)**m.InputPricePerMillionCacheHit +
 			float64(u.PromptCacheMiss)**m.InputPricePerMillion +
 			float64(max(0, u.Prompt-u.PromptCacheHit-u.PromptCacheMiss))**m.InputPricePerMillion

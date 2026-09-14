@@ -55,11 +55,15 @@ func TestCostUSD_RefusesUnpriceablePrices(t *testing.T) {
 		for _, m := range []*Model{
 			{InputPricePerMillion: &b, OutputPricePerMillion: &one},
 			{InputPricePerMillion: &one, OutputPricePerMillion: &b},
-			{InputPricePerMillion: &one, OutputPricePerMillion: &one, InputPricePerMillionCacheHit: &b},
 		} {
 			if _, ok := m.CostUSD(Usage{Prompt: 10, PromptCacheHit: 4, PromptCacheMiss: 6, Completion: 5}); ok {
 				t.Errorf("%s price on %+v: priced, want unpriced", name, m)
 			}
+		}
+		// A bad cache-hit price counts as absent: the hits take the input price.
+		m := &Model{InputPricePerMillion: &one, OutputPricePerMillion: &one, InputPricePerMillionCacheHit: &b}
+		if cost, ok := m.CostUSD(Usage{Prompt: 10, PromptCacheHit: 4, PromptCacheMiss: 6, Completion: 5}); !ok || cost != 15/1e6 {
+			t.Errorf("%s cache-hit price: got cost=%v ok=%v, want 15e-6 priced at the input price", name, cost, ok)
 		}
 	}
 	if _, ok := (&Model{InputPricePerMillion: &one, OutputPricePerMillion: &one}).CostUSD(Usage{Prompt: 1, Completion: 1}); !ok {
