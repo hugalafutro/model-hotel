@@ -1,6 +1,12 @@
 .PHONY: build run clean test test-parallel lint fmt size-check deps docker-up docker-build docker-down docker-logs totp-disable test-db-up test-db-down setup notices frontdesk-build ha-up ha-down ha-logs android-build android-test android-lint android-install
 
 VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --dirty 2>/dev/null || echo dev)
+
+# The compose files every docker-* target loads. A gitignored Makefile.local can
+# append to it (COMPOSE_FILES += -f tools/observability/compose.yml) so a
+# rebuild keeps a local overlay instead of silently dropping it.
+COMPOSE_FILES ?= -f docker-compose.yml -f compose.dev.yml
+-include Makefile.local
 # Full SHA of the commit this binary is built from, stamped into the API package
 # so the dashboard can show exactly which commit a `dev` build corresponds to.
 # CI passes the full ${{ github.sha }} too; the backend shortens it for display,
@@ -53,17 +59,20 @@ deps:
 	go mod tidy
 
 docker-up:
-	docker compose -f docker-compose.yml -f compose.dev.yml up -d
+	docker compose $(COMPOSE_FILES) up -d
 
 docker-build:
-	docker compose -f docker-compose.yml -f compose.dev.yml down
-	VERSION=dev COMMIT=$(COMMIT) docker compose -f docker-compose.yml -f compose.dev.yml up -d --build
+	docker compose $(COMPOSE_FILES) down
+	VERSION=dev COMMIT=$(COMMIT) docker compose $(COMPOSE_FILES) up -d --build
+	@# BuildKit keeps every layer of every rebuild (about 5 GB each) unless told
+	@# otherwise; a day of rebuilds filled 84 GB. Trim to the newest 20 GB.
+	@docker builder prune -f --keep-storage 20GB >/dev/null
 
 docker-down:
-	docker compose -f docker-compose.yml -f compose.dev.yml down
+	docker compose $(COMPOSE_FILES) down
 
 docker-logs:
-	docker compose -f docker-compose.yml -f compose.dev.yml logs -f
+	docker compose $(COMPOSE_FILES) logs -f
 
 # -- Front Desk control plane + HA stack --
 # frontdesk-build mirrors Dockerfile.frontdesk for a local binary: build the SPA,
@@ -112,7 +121,7 @@ android-install: android-build
 # -- TOTP 2FA emergency escape hatch (operator; deletes the admin_totp row) --
 
 totp-disable:
-	@docker compose -f docker-compose.yml -f compose.dev.yml exec -T db psql -U "$${POSTGRES_USER:-modelhotel}" -d "$${POSTGRES_DB:-modelhotel}" -c "DELETE FROM admin_totp_recovery; DELETE FROM admin_totp;"
+	@docker compose $(COMPOSE_FILES) exec -T db psql -U "$${POSTGRES_USER:-modelhotel}" -d "$${POSTGRES_DB:-modelhotel}" -c "DELETE FROM admin_totp_recovery; DELETE FROM admin_totp;"
 
 # -- Test database (ephemeral, no persistent volume) --
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"maps"
 	"net/http"
 	"net/http/httptest"
@@ -178,6 +179,27 @@ func TestFleetAnnounce_WriteFailureIs500(t *testing.T) {
 	// The batch is all-or-nothing: a failed write leaves nothing persisted.
 	if len(fs.written) != 0 {
 		t.Errorf("persisted %v on failed write; want none", fs.written)
+	}
+}
+
+// TestFleetAnnounce_AbandonedByCallerIs503 pins that a write cancelled by the
+// caller hanging up (Front Desk's timeout) answers 503 with a warning rather
+// than a 500: nothing on this member failed.
+func TestFleetAnnounce_AbandonedByCallerIs503(t *testing.T) {
+	fs := newFakeFleetSettings()
+	fs.setErr = fmt.Errorf("write: %w", context.Canceled)
+	h := NewFleetHandler(fs)
+
+	req := httptest.NewRequest(http.MethodPost, "/fleet/announce",
+		strings.NewReader(`{"is_primary":true,"frontdesk_id":"fd-1"}`))
+	rec := httptest.NewRecorder()
+	h.Announce(rec, req)
+
+	if rec.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503", rec.Code)
+	}
+	if len(fs.written) != 0 {
+		t.Errorf("persisted %v on an abandoned write; want none", fs.written)
 	}
 }
 

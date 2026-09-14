@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -350,6 +351,14 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 		)
 	}
 	if err := h.settings.SetMany(ctx, writes); err != nil {
+		// Front Desk gave up waiting (its timeout is shorter than a busy disk
+		// on the member takes to commit): nothing this member did went wrong,
+		// and the next announce lands, so a warning rather than an error.
+		if errors.Is(err, context.Canceled) {
+			debuglog.Warn("fleet: announce abandoned by Front Desk before it was recorded", "error", err)
+			http.Error(w, "announce abandoned by caller", http.StatusServiceUnavailable)
+			return
+		}
 		respondError(w, "failed to record fleet announce", err, http.StatusInternalServerError)
 		return
 	}

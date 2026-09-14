@@ -3,12 +3,14 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
@@ -177,6 +179,14 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 			LastError: s.LastError,
 		})
 		if err != nil {
+			// The sender hung up mid-batch (a Front Desk restart or its own
+			// timeout); nothing on this member failed and the next push
+			// carries the same snapshots, so a warning rather than an error.
+			if errors.Is(err, context.Canceled) {
+				debuglog.Warn("quota: snapshot push abandoned by sender before it was stored", "error", err)
+				http.Error(w, "snapshot push abandoned by caller", http.StatusServiceUnavailable)
+				return
+			}
 			respondError(w, "failed to store snapshot", err, http.StatusInternalServerError)
 			return
 		}

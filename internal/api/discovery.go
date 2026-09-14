@@ -605,5 +605,5 @@ func publishFetchedAndEnrich(prov *provider.Provider, models []*model.Model) {
 	// Runs unconditionally: modality arrays and the derived endpoint class
 	// must be consistent even when models.dev is unreachable.
 	provider.NormalizeModels(models)
-	provider.ReportUnpricedModels(models)
+	provider.ReportUnpricedModels(prov.Name, models)
 }

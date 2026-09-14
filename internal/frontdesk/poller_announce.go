@@ -167,15 +167,16 @@ func (p *Poller) PollAnnounceOnce(ctx context.Context) {
 	}
 }
 
-// announceToMember POSTs one heartbeat through the guarded probe client (the
-// same SSRF-protected client the health poll uses), carrying the member's admin
-// Bearer token. A non-204 reply is an error so the caller can log-and-continue.
+// announceToMember POSTs one heartbeat through the guarded announce client
+// (the health poll's SSRF-protected client, with the longer announce timeout),
+// carrying the member's admin Bearer token. A non-204 reply is an error so the
+// caller can log-and-continue.
 func (p *Poller) announceToMember(ctx context.Context, baseURL, token string, ann memberAnnounce) error {
 	body, err := json.Marshal(ann)
 	if err != nil {
 		return err
 	}
-	status, _, err := callMemberWith(ctx, p.client, http.MethodPost, baseURL, memberAnnouncePath, token, bytes.NewReader(body))
+	status, _, err := callMemberWith(ctx, p.announceClient, http.MethodPost, baseURL, memberAnnouncePath, token, bytes.NewReader(body))
 	if err != nil {
 		return err
 	}

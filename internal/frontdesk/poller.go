@@ -34,6 +34,12 @@ const (
 
 	// httpProbeTimeout bounds a single member or Traefik HTTP probe.
 	httpProbeTimeout = 4 * time.Second
+	// httpAnnounceTimeout bounds one fleet announce. An announce is a write
+	// the member persists, and a member on a busy disk (a NAS at its nightly
+	// maintenance) needs longer than a health probe to commit it; at the probe
+	// timeout Front Desk hung up first and the member logged a 500 for a
+	// write the caller had abandoned.
+	httpAnnounceTimeout = 10 * time.Second
 
 	// versionFetchFailThreshold is the number of consecutive version-fetch
 	// failures for a member before a single visible warning + event is raised.
@@ -79,11 +85,13 @@ type MemberStatus struct {
 
 // Poller probes members and Traefik on intervals taken from settings.
 type Poller struct {
-	store      *Store
-	bus        *events.Bus
-	client     *http.Client
-	traefikAPI string
-	now        func() time.Time
+	store  *Store
+	bus    *events.Bus
+	client *http.Client
+	// announceClient is the same guarded client with the announce timeout.
+	announceClient *http.Client
+	traefikAPI     string
+	now            func() time.Time
 
 	// frontdeskID is this Front Desk's persistent identity, stamped onto every
 	// announce so a member can tell which Front Desk owns its fleet role. Set
@@ -115,6 +123,7 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		store:            store,
 		bus:              bus,
 		client:           newProbeClient(httpProbeTimeout),
+		announceClient:   newProbeClient(httpAnnounceTimeout),
 		traefikAPI:       strings.TrimRight(traefikAPI, "/"),
 		now:              time.Now,
 		statuses:         make(map[string]MemberStatus),
