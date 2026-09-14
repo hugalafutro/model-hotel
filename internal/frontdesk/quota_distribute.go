@@ -96,7 +96,7 @@ func (s *Server) DistributeQuotaOnce(ctx context.Context) {
 			debuglog.Debug("frontdesk: quota distribute: member token", "member", m.Name, "error", err)
 			continue
 		}
-		if status, _, err := callMemberWith(ctx, s.quotaPushClient, http.MethodPost, m.URL, memberQuotaSnapshotsPath, token, bytes.NewReader(body)); err != nil || status != http.StatusOK {
+		if status, _, err := callMemberWith(ctx, s.pushClient, http.MethodPost, m.URL, memberQuotaSnapshotsPath, token, bytes.NewReader(body)); err != nil || status != http.StatusOK {
 			debuglog.Debug("frontdesk: quota distribute: push to member",
 				"member", m.Name, "status", status, "error", err)
 		}
