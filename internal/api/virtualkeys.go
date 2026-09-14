@@ -44,10 +44,14 @@ type UpdateVirtualKeyRequest struct {
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
 	OwnerUserID      *string   `json:"owner_user_id,omitempty"`
-	// BudgetUSD and BudgetPeriod are written on every update like the rate
-	// limits: null clears the budget.
+	// BudgetUSD and BudgetPeriod: OMITTED preserves the stored budget (a
+	// spending guard is not dropped by a caller that never heard of it), an
+	// explicit null pair clears it. Presence is tracked like allowed_providers.
 	BudgetUSD    *float64 `json:"budget_usd"`
 	BudgetPeriod *string  `json:"budget_period"`
+	// budgetPresent tracks whether either budget field was in the JSON.
+	// Set by UnmarshalJSON; do not set manually.
+	budgetPresent bool
 	// allowedProvidersPresent tracks whether allowed_providers was in the JSON.
 	// Set by UnmarshalJSON; do not set manually.
 	allowedProvidersPresent bool
@@ -75,6 +79,9 @@ func (r *UpdateVirtualKeyRequest) UnmarshalJSON(data []byte) error {
 	r.allowedProvidersPresent = raw["allowed_providers"] != nil
 	r.stripReasoningPresent = raw["strip_reasoning"] != nil
 	_, r.ownerUserIDPresent = raw["owner_user_id"]
+	_, usdPresent := raw["budget_usd"]
+	_, periodPresent := raw["budget_period"]
+	r.budgetPresent = usdPresent || periodPresent
 	return nil
 }
 
@@ -139,8 +146,9 @@ func (h *Handler) withBudgetSpent(ctx context.Context, vk *virtualkey.VirtualKey
 	if b == nil || h.budgetLimiter == nil {
 		return resp
 	}
-	spent := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindKey, ID: vk.ID.String(), Name: vk.Name, Budget: *b})
-	resp.BudgetSpentUSD = &spent
+	if spent, known := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindKey, ID: vk.ID.String(), Name: vk.Name, Budget: *b}); known {
+		resp.BudgetSpentUSD = &spent
+	}
 	return resp
 }
 
@@ -512,9 +520,11 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
-	if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
-		respondBadRequest(w, err.Error(), nil)
-		return
+	if req.budgetPresent {
+		if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
+			respondBadRequest(w, err.Error(), nil)
+			return
+		}
 	}
 
 	// The existing row is always fetched: it backs the ownership check, the
@@ -606,7 +616,11 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner, budget.From(req.BudgetUSD, req.BudgetPeriod))
+	b := budget.From(req.BudgetUSD, req.BudgetPeriod)
+	if !req.budgetPresent {
+		b = budget.From(existingVK.BudgetUSD, existingVK.BudgetPeriod)
+	}
+	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner, b)
 	if err != nil {
 		if errors.Is(err, virtualkey.ErrNotFound) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)

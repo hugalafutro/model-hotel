@@ -3314,6 +3314,7 @@
 			"day": "vandaag",
 			"week": "deze week",
 			"month": "deze maand"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, uitgaven nog niet opgeteld"
 	}
 }

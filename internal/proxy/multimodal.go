@@ -386,8 +386,10 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// under which the zero-prompt families pay nothing, and
 		// /images/variations has no prompt field at all while four b64_json
 		// images clear the 8 MiB cap routinely.
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
+		// The charge runs first: its estimate prices the row the terminal
+		// write stamps.
 		estimated, _ := h.chargePassthroughUsage(st, 0, 0, answered)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
 		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "estimated_prompt_tokens", estimated)
 		return outcomeServed
 	}
@@ -404,9 +406,6 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	if _, writeErr := w.Write(body); writeErr != nil {
 		debuglog.Warn("proxy: client write failed during passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "error", writeErr)
 	}
-	// The log records what the provider measured, which may be nothing.
-	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
-
 	// Charge the quota even when the provider reported no usage at all. Image
 	// generation and text-to-speech routinely omit the usage block, so guarding
 	// the debit on "did it report something" would leave those families
@@ -414,7 +413,11 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	// sibling branch above handles. Reported figures always win; the estimate
 	// fills a total absence, and only for the prompt, for the same reason the
 	// oversized branch does not size a response of vectors or base64 as text.
+	// The charge runs before the terminal write so its estimate prices the
+	// row too; the log records what the provider measured, which may be
+	// nothing.
 	charged, estimatedPrompt := h.chargePassthroughUsage(st, promptTokens, completionTokens, answered)
+	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
 	return outcomeServed
 }
@@ -460,6 +463,7 @@ func (h *Handler) chargePassthroughUsage(st *requestState, promptTokens, complet
 			return 0, false
 		}
 		chargePrompt, estimated = max(estimateTokens(logData.promptTextBytes), minPassthroughTokens), true
+		logData.estimatedPrompt = chargePrompt // priced by the terminal write that follows
 	}
 	if chargePrompt > 0 || chargeCompletion > 0 {
 		h.recordTokenUsage(st.vkHash, logData, chargePrompt, chargeCompletion, 0)

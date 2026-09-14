@@ -498,8 +498,13 @@ const minPassthroughTokens = 1
 // so a truncated one keeps its reported prompt and estimates only the output.
 // Nothing is estimated when no output was delivered (an error before the first
 // token costs nothing), and the request log keeps the provider's figures:
-// estimates charge the quota, they are not reported as measured usage.
+// estimates charge the quota, they are not reported as measured usage, and
+// the row's price carries them as an increment (see estimatedPrompt).
 func estimateMissingUsage(promptTokens, completionTokens, reasoningTokens int, logData *requestLogData, deliveredBytes int) (prompt, completion, reasoning int) {
+	reportedPrompt, reportedCompletion := promptTokens, completionTokens
+	defer func() {
+		logData.estimatedPrompt, logData.estimatedCompletion = prompt-reportedPrompt, completion-reportedCompletion
+	}()
 	// Reasoning is part of completion, so completion alone says whether the
 	// provider reported any output.
 	if deliveredBytes == 0 || (promptTokens > 0 && completionTokens > 0) {

@@ -202,6 +202,7 @@ func (h *Handler) newPendingRequestLog(r *http.Request, endpointType, modelID st
 	ownerUserID, _ := r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string)
 
 	logData = &requestLogData{
+		startedAt:       time.Now(),
 		modelID:         modelID,
 		streaming:       isStreaming,
 		virtualKeyName:  vkName,

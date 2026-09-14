@@ -3450,6 +3450,7 @@
 			"day": "dzisiaj",
 			"week": "w tym tygodniu",
 			"month": "w tym miesiącu"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, wydatki jeszcze niezsumowane"
 	}
 }
