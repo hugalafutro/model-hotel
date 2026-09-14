@@ -1,10 +1,13 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
 
@@ -76,4 +79,18 @@ func decodeJSONLimit(w http.ResponseWriter, r *http.Request, limit int64, v any)
 // oversized one is still refused.
 func decodeJSONOptional(w http.ResponseWriter, r *http.Request, v any) bool {
 	return httpx.DecodeJSONOptional(w, r, logComponent, httpx.MaxJSONBody, v)
+}
+
+// respondAbandoned answers a fleet write whose caller stopped waiting: the
+// request context is cancelled underneath the store, which surfaces as
+// context.Canceled from the database driver. Nothing on this member failed,
+// and the caller retries on its own schedule, so it is a warning and a 503
+// rather than the error a failed write earns. Reports whether it answered.
+func respondAbandoned(w http.ResponseWriter, what string, err error) bool {
+	if !errors.Is(err, context.Canceled) {
+		return false
+	}
+	debuglog.Warn(logComponent+": "+what+" abandoned by the caller before it completed", "error", err)
+	http.Error(w, what+" abandoned by caller", http.StatusServiceUnavailable)
+	return true
 }

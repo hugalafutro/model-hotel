@@ -386,6 +386,37 @@ func TestQuotaFleetReceiveSnapshots_UpsertsAsFleet(t *testing.T) {
 	}
 }
 
+// TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs503 pins that a push
+// whose sender hung up before the store completed (the request context is
+// cancelled underneath the upsert) answers 503 with a warning, not the 500 a
+// failure on this member would earn.
+func TestQuotaFleetReceiveSnapshots_AbandonedByCallerIs503(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	prov, err := h.providerRepo.Create(context.Background(), provider.CreateProviderRequest{
+		Name:    "nano-abandoned",
+		BaseURL: "https://api.nano-gpt.com",
+	}, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("create provider: %v", err)
+	}
+
+	body := `{"snapshots":[{"provider_name":"` + prov.Name + `","kind":"usage","payload":{"used":8},"http_status":200,"fetched_at":"` + time.Now().UTC().Format(time.RFC3339) + `"}]}`
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", strings.NewReader(body)).WithContext(ctx)
+	fleet.ReceiveSnapshots(rr, req)
+
+	if rr.Code != http.StatusServiceUnavailable {
+		t.Fatalf("want 503 for a push the sender abandoned, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if snap, _ := h.quotaRepo.Get(context.Background(), prov.ID, "usage"); snap != nil {
+		t.Fatalf("nothing should be stored for an abandoned push, got %+v", snap)
+	}
+}
+
 func TestQuotaFleetReceiveSnapshots_SkipsOlder(t *testing.T) {
 	h := newTestHandler(t)
 	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
