@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -216,6 +217,9 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 		if err := validateSyncedRateLimits("user "+strconv.Quote(u.Username), u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM); err != nil {
 			return err
 		}
+		if err := budget.Validate(u.BudgetUSD, u.BudgetPeriod); err != nil {
+			return fmt.Errorf("%w: user %s: %w", errInvalidSyncedBudget, strconv.Quote(u.Username), err)
+		}
 		// The interactive API only stores hashes it computed itself; this path takes
 		// them off the wire, so it checks the encoding. Login already fails closed
 		// on a malformed hash, so this is not an authentication fix: it stops an
@@ -266,8 +270,8 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 		}
 		if _, err := tx.Exec(ctx, `
 			INSERT INTO users (username, display_name, email, password_hash, role, grants, enabled,
-			                   rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+			                   rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, budget_usd, budget_period)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
 			ON CONFLICT (username) DO UPDATE SET
 				display_name = EXCLUDED.display_name,
 				email = EXCLUDED.email,
@@ -279,9 +283,11 @@ func applyUsers(ctx context.Context, tx pgx.Tx, users []ExportUser, nameToID map
 				rate_limit_burst = EXCLUDED.rate_limit_burst,
 				rate_limit_tpm = EXCLUDED.rate_limit_tpm,
 				allowed_providers = EXCLUDED.allowed_providers,
+				budget_usd = EXCLUDED.budget_usd,
+				budget_period = EXCLUDED.budget_period,
 				updated_at = now()`,
 			u.Username, u.DisplayName, u.Email, u.PasswordHash, u.Role, grants, u.Enabled,
-			u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM, allowedProviders); err != nil {
+			u.RateLimitRPS, u.RateLimitBurst, u.RateLimitTPM, allowedProviders, u.BudgetUSD, u.BudgetPeriod); err != nil {
 			return err
 		}
 	}
@@ -298,6 +304,9 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 	for _, v := range vks {
 		if err := validateSyncedRateLimits("virtual key "+strconv.Quote(v.Name), v.RateLimitRPS, v.RateLimitBurst, v.RateLimitTPM); err != nil {
 			return err
+		}
+		if err := budget.Validate(v.BudgetUSD, v.BudgetPeriod); err != nil {
+			return fmt.Errorf("%w: virtual key %s: %w", errInvalidSyncedBudget, strconv.Quote(v.Name), err)
 		}
 		var allowed []string // target provider UUIDs; nil => all allowed
 		if v.AllowedProviderNames != nil {
@@ -340,8 +349,8 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 			}
 		}
 		_, err := tx.Exec(ctx, `
-			INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+			INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id, budget_usd, budget_period)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
 			ON CONFLICT (key_hash) DO UPDATE SET
 				name = EXCLUDED.name,
 				key_preview = EXCLUDED.key_preview,
@@ -350,8 +359,10 @@ func upsertVirtualKeys(ctx context.Context, tx pgx.Tx, vks []ExportVK, nameToID,
 				rate_limit_tpm = EXCLUDED.rate_limit_tpm,
 				allowed_providers = EXCLUDED.allowed_providers,
 				strip_reasoning = EXCLUDED.strip_reasoning,
-				owner_user_id = EXCLUDED.owner_user_id`,
-			v.Name, v.KeyHash, v.KeyPreview, v.RateLimitRPS, v.RateLimitBurst, v.RateLimitTPM, allowed, v.StripReasoning, ownerID)
+				owner_user_id = EXCLUDED.owner_user_id,
+				budget_usd = EXCLUDED.budget_usd,
+				budget_period = EXCLUDED.budget_period`,
+			v.Name, v.KeyHash, v.KeyPreview, v.RateLimitRPS, v.RateLimitBurst, v.RateLimitTPM, allowed, v.StripReasoning, ownerID, v.BudgetUSD, v.BudgetPeriod)
 		if err != nil {
 			return err
 		}

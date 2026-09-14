@@ -18,6 +18,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -83,7 +84,7 @@ type mockVirtualKeyStore struct {
 	updateFn func(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error)
 }
 
-func (m *mockVirtualKeyStore) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
+func (m *mockVirtualKeyStore) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID, b *budget.Budget) (*virtualkey.VirtualKey, error) {
 	if m.createFn != nil {
 		return m.createFn(ctx, name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning, owner)
 	}
@@ -114,7 +115,7 @@ func (m *mockVirtualKeyStore) Delete(ctx context.Context, id uuid.UUID) error {
 	}
 	return errors.New("mock: Delete not implemented")
 }
-func (m *mockVirtualKeyStore) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID) (*virtualkey.VirtualKey, error) {
+func (m *mockVirtualKeyStore) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, owner *uuid.UUID, b *budget.Budget) (*virtualkey.VirtualKey, error) {
 	if m.updateFn != nil {
 		return m.updateFn(ctx, id, name, rps, burst, tpm, allowedProviders, stripReasoning, owner)
 	}

@@ -2135,7 +2135,9 @@
 				"discovery_claims_outstanding": "Discrepancias de modelos sin atender",
 				"model_auto_disabled_gone": "Modelo desactivado (el proveedor ya no lo ofrece)",
 				"provider_scheduled_disable": "Proveedor desactivado según lo programado",
-				"circuit_breaker_unstable": "El modelo falla repetidamente (disyuntor abierto varias veces)"
+				"circuit_breaker_unstable": "El modelo falla repetidamente (disyuntor abierto varias veces)",
+				"budget_warning": "Aviso de presupuesto (80 % gastado)",
+				"budget_exceeded": "Presupuesto superado (solicitudes rechazadas)"
 			},
 			"events": {
 				"all": "Seleccionar todo",
@@ -2289,7 +2291,8 @@
 				"failover": "Conmutación por error",
 				"high_availability": "Alta disponibilidad",
 				"quota": "Cuota",
-				"security": "Seguridad"
+				"security": "Seguridad",
+				"budgets": "Presupuestos"
 			}
 		},
 		"totp": {
@@ -3360,6 +3363,25 @@
 		"toast": {
 			"purged": "Registro de auditoría vaciado",
 			"purgeFailed": "No se pudo vaciar el registro de auditoría"
+		}
+	},
+	"budget": {
+		"label": "Presupuesto",
+		"amount": "Presupuesto (USD)",
+		"period": "Período",
+		"none": "Sin presupuesto",
+		"hint": "Las solicitudes se rechazan con 429 cuando el gasto valorado del período alcanza el presupuesto. Déjalo vacío para no tener presupuesto.",
+		"tooltip": "Gasto valorado de este período frente al presupuesto en dólares; las solicitudes se rechazan con 429 al alcanzarlo",
+		"spent": "{{spent}} de {{budget}} {{period}}",
+		"periods": {
+			"day": "Por día (UTC)",
+			"week": "Por semana (de lunes a domingo, UTC)",
+			"month": "Por mes (UTC)"
+		},
+		"periodNow": {
+			"day": "hoy",
+			"week": "esta semana",
+			"month": "este mes"
 		}
 	}
 }

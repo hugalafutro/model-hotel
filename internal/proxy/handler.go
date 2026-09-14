@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
@@ -36,6 +37,7 @@ type Handler struct {
 	settingsRepo   *settings.Repository
 	rateLimiter    *ratelimit.Limiter
 	tpmLimiter     *ratelimit.TPMLimiter
+	budgetLimiter  *budget.Limiter
 	ipLimiter      *ratelimit.IPLimiter
 	circuitBreaker *failover.CircuitBreaker
 	// capLedger remembers each provider's last exhausted 429 for the quota
@@ -139,10 +141,12 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 	if vk.Owner != nil && vk.OwnerUserID != nil {
 		info.Owner = &OwnerInfo{
 			ID:               vk.OwnerUserID.String(),
+			Name:             vk.Owner.Username,
 			Enabled:          vk.Owner.Enabled,
 			RateLimitRPS:     vk.Owner.RateLimitRPS,
 			RateLimitBurst:   vk.Owner.RateLimitBurst,
 			RateLimitTPM:     vk.Owner.RateLimitTPM,
+			Budget:           budget.From(vk.Owner.BudgetUSD, vk.Owner.BudgetPeriod),
 			AllowedProviders: vk.Owner.AllowedProviders,
 		}
 	}
@@ -151,7 +155,7 @@ func (a *virtualKeyRepoAdapter) FindByKeyHash(ctx context.Context, keyHash strin
 
 func (a *virtualKeyRepoAdapter) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool) (*VirtualKeyInfo, error) {
 	// The proxy never creates owned keys; ownership is a dashboard concern.
-	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning, nil)
+	vk, err := a.repo.Create(ctx, name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning, nil, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -180,6 +184,7 @@ func vkInfoFrom(vk *virtualkey.VirtualKey) *VirtualKeyInfo {
 		RateLimitTPM:     vk.RateLimitTPM,
 		AllowedProviders: vk.AllowedProviders,
 		StripReasoning:   vk.StripReasoning,
+		Budget:           budget.From(vk.BudgetUSD, vk.BudgetPeriod),
 	}
 }
 
@@ -209,6 +214,7 @@ func NewHandler(
 		settingsRepo:   settingsRepo,
 		rateLimiter:    rateLimiter,
 		tpmLimiter:     tpmLimiter,
+		budgetLimiter:  newBudgetLimiter(dbPool),
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		inflight:       inflight,
@@ -223,6 +229,19 @@ func NewHandler(
 		safeDialer: sd,
 	}
 }
+
+// newBudgetLimiter builds the dollar-budget stage over the store, or none at
+// all when there is no store to sum (a handler built without a pool).
+func newBudgetLimiter(pool *pgxpool.Pool) *budget.Limiter {
+	if pool == nil {
+		return nil
+	}
+	return budget.NewLimiter(budget.PGSource{Pool: pool})
+}
+
+// BudgetLimiter exposes the dollar-budget stage so the API can show a key's
+// or a user's spend in the current period.
+func (h *Handler) BudgetLimiter() *budget.Limiter { return h.budgetLimiter }
 
 // safeDialFunc returns sd.DialContext if sd is non-nil, otherwise nil
 // (which makes http.Transport use the default dialer).
@@ -265,6 +284,9 @@ func (h *Handler) Register(r chi.Router, afterAuth ...func(http.Handler) http.Ha
 	// its token budget is checked. This is the full two-stage gate: the per-key
 	// budget, plus the owner's aggregate budget when the key is owned.
 	r.Use(h.tpmLimiter.Middleware(h.cfg.RateLimitEnabled))
+	// Dollar budgets last: a request must clear both rate gates before its
+	// period spend is checked, and this stage answers from a cached sum.
+	r.Use(h.budgetLimiter.Middleware)
 
 	r.Get("/models", h.ListModels)
 	r.Post("/chat/completions", h.ChatCompletions)
@@ -304,6 +326,9 @@ func (h *Handler) RegisterAdminChat(r chi.Router) {
 	// of this group; without both middlewares a user with a TPM cap meters
 	// nothing here while their /v1 traffic is capped.
 	r.Use(h.tpmLimiter.UserMiddleware(h.cfg.RateLimitEnabled))
+	// The user's dollar budget covers their dashboard chat too; the key
+	// subject is simply absent here.
+	r.Use(h.budgetLimiter.Middleware)
 
 	r.Post("/chat", h.ChatCompletions)
 	r.Post("/arena", h.ChatCompletions)
@@ -382,12 +407,18 @@ func (h *Handler) ProxyKeyMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitTPMKey, vk.RateLimitTPM)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyAllowedProvidersKey, vk.AllowedProviders)
 		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyStripReasoningKey, vk.StripReasoning)
+		if vk.Budget != nil {
+			ctx = context.WithValue(ctx, ctxkeys.KeyBudgetKey, &budget.Subject{Kind: budget.KindKey, ID: vk.ID, Name: vk.Name, Budget: *vk.Budget})
+		}
 		if vk.Owner != nil {
 			ctx = context.WithValue(ctx, ctxkeys.VirtualKeyOwnerIDKey, vk.Owner.ID)
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, vk.Owner.RateLimitRPS)
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, vk.Owner.RateLimitBurst)
 			ctx = context.WithValue(ctx, ctxkeys.UserRateLimitTPMKey, vk.Owner.RateLimitTPM)
 			ctx = context.WithValue(ctx, ctxkeys.UserAllowedProvidersKey, vk.Owner.AllowedProviders)
+			if vk.Owner.Budget != nil {
+				ctx = context.WithValue(ctx, ctxkeys.UserBudgetKey, &budget.Subject{Kind: budget.KindUser, ID: vk.Owner.ID, Name: vk.Owner.Name, Budget: *vk.Owner.Budget})
+			}
 		}
 		debuglog.Debug("proxy: virtual key auth", "key", vk.Name, "strip_reasoning", vk.StripReasoning)
 		// Fire-and-forget touch with a timeout so the goroutine cannot

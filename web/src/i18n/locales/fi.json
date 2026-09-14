@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Mallien poikkeamat jääneet käsittelemättä",
 				"model_auto_disabled_gone": "Malli poistettu käytöstä (palveluntarjoaja ei enää tarjoa sitä)",
 				"provider_scheduled_disable": "Palveluntarjoaja poistettu käytöstä ajastuksen mukaisesti",
-				"circuit_breaker_unstable": "Malli vikaantuu toistuvasti (katkaisija auennut useita kertoja)"
+				"circuit_breaker_unstable": "Malli vikaantuu toistuvasti (katkaisija auennut useita kertoja)",
+				"budget_warning": "Budjettivaroitus (80 % käytetty)",
+				"budget_exceeded": "Budjetti ylitetty (pyynnöt hylätty)"
 			},
 			"events": {
 				"all": "Valitse kaikki",
@@ -2232,7 +2234,8 @@
 				"failover": "Vikasieto",
 				"high_availability": "Korkea käytettävyys",
 				"quota": "Kiintiö",
-				"security": "Turvallisuus"
+				"security": "Turvallisuus",
+				"budgets": "Budjetit"
 			}
 		},
 		"totp": {
@@ -3292,6 +3295,25 @@
 		"toast": {
 			"purged": "Auditointijälki tyhjennetty",
 			"purgeFailed": "Auditointijäljen tyhjennys epäonnistui"
+		}
+	},
+	"budget": {
+		"label": "Budjetti",
+		"amount": "Budjetti (USD)",
+		"period": "Jakso",
+		"none": "Ei budjettia",
+		"hint": "Pyynnöt hylätään koodilla 429, kun jakson hinnoiteltu kulutus saavuttaa budjetin. Jätä tyhjäksi, jos budjettia ei ole.",
+		"tooltip": "Tämän jakson hinnoiteltu kulutus suhteessa dollaribudjettiin; pyynnöt hylätään koodilla 429, kun se täyttyy",
+		"spent": "{{spent}} / {{budget}} {{period}}",
+		"periods": {
+			"day": "Päivässä (UTC)",
+			"week": "Viikossa (maanantaista sunnuntaihin, UTC)",
+			"month": "Kuukaudessa (UTC)"
+		},
+		"periodNow": {
+			"day": "tänään",
+			"week": "tällä viikolla",
+			"month": "tässä kuussa"
 		}
 	}
 }

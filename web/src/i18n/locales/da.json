@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Modeluoverensstemmelser efterladt uadresseret",
 				"model_auto_disabled_gone": "Model deaktiveret (udbyderen leverer den ikke længere)",
 				"provider_scheduled_disable": "Udbyder deaktiveret som planlagt",
-				"circuit_breaker_unstable": "Modellen fejler gentagne gange (afbryder udløst flere gange)"
+				"circuit_breaker_unstable": "Modellen fejler gentagne gange (afbryder udløst flere gange)",
+				"budget_warning": "Budgetadvarsel (80 % brugt)",
+				"budget_exceeded": "Budget overskredet (forespørgsler afvist)"
 			},
 			"events": {
 				"all": "Vælg alt",
@@ -2232,7 +2234,8 @@
 				"failover": "Failover",
 				"high_availability": "Høj tilgængelighed",
 				"quota": "Kvote",
-				"security": "Sikkerhed"
+				"security": "Sikkerhed",
+				"budgets": "Budgetter"
 			}
 		},
 		"totp": {
@@ -3292,6 +3295,25 @@
 		"toast": {
 			"purged": "Revisionsspor ryddet",
 			"purgeFailed": "Kunne ikke rydde revisionssporet"
+		}
+	},
+	"budget": {
+		"label": "Budget",
+		"amount": "Budget (USD)",
+		"period": "Periode",
+		"none": "Intet budget",
+		"hint": "Forespørgsler afvises med 429, når periodens prissatte forbrug når budgettet. Lad feltet stå tomt for intet budget.",
+		"tooltip": "Prissat forbrug i denne periode i forhold til dollarbudgettet; forespørgsler afvises med 429, når det er nået",
+		"spent": "{{spent}} af {{budget}} {{period}}",
+		"periods": {
+			"day": "Pr. dag (UTC)",
+			"week": "Pr. uge (mandag til søndag, UTC)",
+			"month": "Pr. måned (UTC)"
+		},
+		"periodNow": {
+			"day": "i dag",
+			"week": "denne uge",
+			"month": "denne måned"
 		}
 	}
 }

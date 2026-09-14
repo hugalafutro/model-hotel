@@ -124,6 +124,12 @@ var errInvalidSyncedSettingBound = errors.New("configsync: refusing to apply a s
 // request. Import maps it to a 400 refusal.
 var errInvalidSyncedRateLimit = errors.New("configsync: refusing to apply an invalid rate limit")
 
+// errInvalidSyncedBudget is its dollar-budget twin: a key or user whose budget
+// pair the interactive API would reject (half a pair, a non-positive amount, an
+// unknown period) is refused as a whole envelope, since the row's CHECK would
+// fail the transaction anyway. Import maps it to a 400 refusal.
+var errInvalidSyncedBudget = errors.New("configsync: refusing to apply an invalid budget")
+
 // errInvalidSyncedProvider is returned by apply when a provider in the envelope
 // carries a field the interactive API would reject: a max_in_flight outside
 // 1..10000, which the runtime reads as "no ceiling" (zero or less) rather than
@@ -178,6 +184,7 @@ var importRejections = []error{
 	errInvalidSyncedPasswordHash,
 	errInvalidSyncedProvider,
 	errInvalidSyncedRateLimit,
+	errInvalidSyncedBudget,
 	errUnresolvableUserProviders,
 }
 
@@ -307,6 +314,8 @@ type ExportVK struct {
 	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm,omitempty"`
+	BudgetUSD      *float64 `json:"budget_usd,omitempty"`
+	BudgetPeriod   *string  `json:"budget_period,omitempty"`
 	// AllowedProviderNames carries the key's provider restriction by NAME (UUIDs
 	// are instance-local). Three distinct states:
 	//   nil            - no restriction, every provider
@@ -369,6 +378,8 @@ type ExportUser struct {
 	RateLimitRPS   *float64 `json:"rate_limit_rps,omitempty"`
 	RateLimitBurst *int     `json:"rate_limit_burst,omitempty"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm,omitempty"`
+	BudgetUSD      *float64 `json:"budget_usd,omitempty"`
+	BudgetPeriod   *string  `json:"budget_period,omitempty"`
 	// AllowedProviderNames carries the account provider cap by NAME, with the same
 	// three-state contract as ExportVK.AllowedProviderNames (nil = no cap,
 	// non-empty = capped and resolves, present-but-empty = capped with nothing

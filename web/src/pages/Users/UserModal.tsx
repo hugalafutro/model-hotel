@@ -4,6 +4,8 @@ import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ErrorCallout } from "../../components/ErrorCallout";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
+import { BudgetField } from "../VirtualKeys/BudgetField";
+import { budgetText } from "../VirtualKeys/budget";
 import { useUserForm } from "./useUserForm";
 
 export function UserModal({
@@ -39,6 +41,10 @@ export function UserModal({
 		setLimitBurst,
 		limitTpm,
 		setLimitTpm,
+		budgetUsd,
+		setBudgetUsd,
+		budgetPeriod,
+		setBudgetPeriod,
 		providerMode,
 		selectedProviders,
 		providerError,
@@ -337,6 +343,25 @@ export function UserModal({
 								data-testid="user-limit-tpm"
 							/>
 						</div>
+					</div>
+					<div className="mt-3">
+						<BudgetField
+							idPrefix="user"
+							amount={budgetUsd}
+							period={budgetPeriod}
+							onAmountChange={setBudgetUsd}
+							onPeriodChange={setBudgetPeriod}
+							disabled={managed}
+							labelClassName="block text-xs text-gray-400 mb-1"
+						/>
+						{user?.budget_usd != null && (
+							<p
+								className="text-xs text-gray-400 mt-1"
+								data-testid="user-budget-spent"
+							>
+								{budgetText(t, user)}
+							</p>
+						)}
 					</div>
 				</fieldset>
 

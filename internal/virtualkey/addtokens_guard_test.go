@@ -14,7 +14,7 @@ func TestRepository_AddTokens_RefusesNonPositive(t *testing.T) {
 	ctx := context.Background()
 	repo := NewRepository(testDB.Pool())
 	suffix := uuid.New().String()[:8]
-	created, err := repo.Create(ctx, "integration-addtokens-guard-"+suffix, "hash-addtokens-guard-"+suffix, "sk-...ag", nil, nil, nil, nil, nil, nil)
+	created, err := repo.Create(ctx, "integration-addtokens-guard-"+suffix, "hash-addtokens-guard-"+suffix, "sk-...ag", nil, nil, nil, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Create() setup failed: %v", err)
 	}

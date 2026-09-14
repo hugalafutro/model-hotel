@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -57,6 +58,22 @@ func (h *Handler) ListGrantCatalog(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, map[string][]string{"grants": keys})
 }
 
+// fillBudgetSpent adds each budgeted account's current-period spend when the
+// limiter is wired.
+func (h *Handler) fillBudgetSpent(ctx context.Context, users []*user.User) {
+	if h.budgetLimiter == nil {
+		return
+	}
+	for _, u := range users {
+		b := budget.From(u.BudgetUSD, u.BudgetPeriod)
+		if b == nil {
+			continue
+		}
+		spent := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindUser, ID: u.ID.String(), Name: u.Username, Budget: *b})
+		u.BudgetSpentUSD = &spent
+	}
+}
+
 // ListUsers returns all users (password hashes never serialize).
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.userRepo.List(r.Context())
@@ -68,6 +85,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		users = []*user.User{}
 	}
 	h.fillTotpEnabled(r.Context(), users)
+	h.fillBudgetSpent(r.Context(), users)
 	writeJSON(w, users)
 }
 
@@ -120,6 +138,10 @@ type userRequest struct {
 	RateLimitRPS   *float64 `json:"rate_limit_rps"`
 	RateLimitBurst *int     `json:"rate_limit_burst"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm"`
+	// BudgetUSD and BudgetPeriod cap what the account spends per calendar
+	// period; written on every create and update like the rate limits.
+	BudgetUSD    *float64 `json:"budget_usd"`
+	BudgetPeriod *string  `json:"budget_period"`
 	// AllowedProviders caps every key this user owns. Null (or omitted on
 	// create) means no cap. On update, OMITTED preserves the stored value and
 	// an explicit null clears it, which is why presence is tracked separately.
@@ -149,7 +171,7 @@ func (req *userRequest) UnmarshalJSON(data []byte) error {
 }
 
 func (req *userRequest) limits() user.Limits {
-	return user.Limits{RPS: req.RateLimitRPS, Burst: req.RateLimitBurst, TPM: req.RateLimitTPM}
+	return user.Limits{RPS: req.RateLimitRPS, Burst: req.RateLimitBurst, TPM: req.RateLimitTPM, Budget: budget.From(req.BudgetUSD, req.BudgetPeriod)}
 }
 
 // validate normalizes and checks the shared create/update fields.
@@ -192,6 +214,10 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
+	if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
+		respondBadRequest(w, err.Error(), nil)
+		return
+	}
 	if err := h.validateNewPassword(r.Context(), req.Password); err != nil {
 		respondBadRequest(w, err.Error(), nil)
 		return
@@ -232,6 +258,10 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
+		return
+	}
+	if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
+		respondBadRequest(w, err.Error(), nil)
 		return
 	}
 	enabled := true

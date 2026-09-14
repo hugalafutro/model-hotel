@@ -25,6 +25,22 @@ func isTerminalLogState(state string) bool {
 	return state == "completed" || state == "failed"
 }
 
+// terminalCost prices a finished request from the model that served it. Not
+// ok when the request never reached a provider, the model is unpriced, or
+// the row is not terminal yet (the interim streaming write runs before usage
+// arrives, and a zero stamped there would outlive a crash).
+func (logEntry *requestLogData) terminalCost() (float64, bool) {
+	if !isTerminalLogState(logEntry.state) {
+		return 0, false
+	}
+	return logEntry.servedModel.CostUSD(model.Usage{
+		Prompt:          logEntry.tokensPrompt,
+		PromptCacheHit:  logEntry.tokensPromptCacheHit,
+		PromptCacheMiss: logEntry.tokensPromptCacheMiss,
+		Completion:      logEntry.tokensCompletion,
+	})
+}
+
 // updateLogOption configures updateRequestLog behavior.
 type updateLogOption struct {
 	// skipWaitForInsert skips the WaitForInsert call before the UPDATE, for the
@@ -90,12 +106,14 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		if virtualKeyID != "" {
 			vkID = virtualKeyID
 		}
-		// owner_user_id is stored ONLY for keyless rows (dashboard chat/arena,
-		// which authenticate a session instead of a virtual key). A keyed row
-		// leaves it NULL and keeps resolving through the key's current owner, so
-		// reassigning a key moves its whole log history with it.
+		// owner_user_id is the owner at request time, on keyless rows (dashboard
+		// chat/arena, which authenticate a session instead of a virtual key) and
+		// keyed rows alike. The log and stats views still resolve a keyed row
+		// through the key's CURRENT owner, so reassigning a key moves its log
+		// history with it; the stamped column is what a user's dollar budget
+		// sums, so what they spent stays theirs when the key moves or goes.
 		var ownerID any
-		if vkID == nil && ownerUserID != "" {
+		if ownerUserID != "" {
 			ownerID = ownerUserID
 		}
 		// NULL (not "") when the ingest path had no client address, so
@@ -207,15 +225,8 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 	// candidate takes the final candidate's prices, not the prices of the
 	// member that billed it.
 	var cost any
-	if isTerminalLogState(logEntry.state) {
-		if c, ok := logEntry.servedModel.CostUSD(model.Usage{
-			Prompt:          logEntry.tokensPrompt,
-			PromptCacheHit:  logEntry.tokensPromptCacheHit,
-			PromptCacheMiss: logEntry.tokensPromptCacheMiss,
-			Completion:      logEntry.tokensCompletion,
-		}); ok {
-			cost = c
-		}
+	if c, ok := logEntry.terminalCost(); ok {
+		cost = c
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -361,6 +372,13 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)
 	} else if rows == 0 {
 		debuglog.Warn("proxy: updateRequestLog no rows affected", "request_id", logEntry.id)
+	} else if c, ok := logEntry.terminalCost(); ok && !logEntry.charged {
+		// Charged once, after the row it is the price of has landed: the repair
+		// path above runs the update twice, a write that failed is not a row
+		// the budget can sum, and the flag holds against a second terminal
+		// write for the same request.
+		logEntry.charged = true
+		h.budgetLimiter.Charge(logEntry.virtualKeyID, logEntry.ownerUserID, c)
 	}
 
 	// Publish the request lifecycle event for terminal states.

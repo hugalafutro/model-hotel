@@ -76,9 +76,10 @@ const VirtualKeyAllowedProvidersKey contextKey = "virtual_key_allowed_providers"
 // rate-limit middlewares derive the shared "user:<uuid>" bucket key from it so
 // one user's traffic aggregates across every surface and key they use, and the
 // proxy stamps it on request lifecycle SSE events so a non-admin's live log feed
-// can be scoped to their own activity. On surfaces with no virtual key it is
-// also persisted to request_logs.owner_user_id, the only owner a keyless row can
-// have.
+// can be scoped to their own activity. It is also persisted to
+// request_logs.owner_user_id, on keyless and keyed rows alike: the log views
+// resolve a keyed row through its key's current owner, while a user's dollar
+// budget sums the stamp.
 //
 // Written by the same two middlewares as UserAllowedProvidersKey below: the
 // proxy's ProxyKeyMiddleware (from the virtual key's OWNER, absent when the key
@@ -101,6 +102,15 @@ const UserRateLimitBurstKey contextKey = "user_rate_limit_burst"
 // tokens-per-minute cap is published (*int, nil when unset). No global
 // fallback, same as the RPS cap. Same two writers as VirtualKeyOwnerIDKey.
 const UserRateLimitTPMKey contextKey = "user_rate_limit_tpm"
+
+// KeyBudgetKey is the context key under which the proxy's ProxyKeyMiddleware
+// publishes the virtual key's dollar budget (*budget.Subject, absent when the
+// key has none). UserBudgetKey carries the owning account's, published by the
+// same writers as VirtualKeyOwnerIDKey. budget.Limiter.Middleware reads both.
+const KeyBudgetKey contextKey = "key_budget"
+
+// UserBudgetKey is the account-level twin of KeyBudgetKey.
+const UserBudgetKey contextKey = "user_budget"
 
 // UserAllowedProvidersKey is the context key under which an account's provider
 // cap is published (*[]string, nil when there is no cap). Intersected with the

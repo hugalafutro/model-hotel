@@ -129,6 +129,8 @@ Each surface has its own catalog, because each emits its own events: the gateway
 | Model disabled (provider no longer serves it) | Discovery | ✅ on | the retirement probe confirms a provider has stopped serving a model, so the gateway disables it |
 | Front Desk ownership conflict | High Availability | ✅ on | a second Front Desk tries to claim a member that another Front Desk already owns (debounced to once/hour per rejected Front Desk id) |
 | SSO identity bound to an account | Security | ⬜ off | an external identity is bound to an admin account for the first time |
+| Budget warning | Budgets | ✅ on | a virtual key or a user reaches 80% of its dollar budget for the period. Once per period per key or user |
+| Budget exceeded | Budgets | ✅ on | a virtual key or a user has spent its dollar budget and its next request was refused with `429`. Once per period per key or user; the text says when the period ends |
 | Provider changed its quota response shape | Quota | ✅ on | a provider changes the *shape* of its quota response (a key path appears or disappears). Carries the added and removed paths. Alert-only: nothing about routing or failover changes, but a normalizer written against the old shape may now be reporting the wrong numbers silently, which is why it defaults on |
 
 ### Front Desk events

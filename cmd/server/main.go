@@ -183,6 +183,7 @@ func main() {
 	proxyHandler := proxy.NewHandler(cfg, providerRepo, modelRepo, database.Pool(), virtualKeyRepo, failoverRepo, settingsRepo, rateLimiter, tpmLimiter, ipLimiter, sd)
 	apiHandler.SetCircuitBreaker(proxyHandler.CircuitBreaker())
 	apiHandler.SetCapLedger(proxyHandler.CapLedger())
+	apiHandler.SetBudgetLimiter(proxyHandler.BudgetLimiter())
 
 	// Quota advisor: feeds per-provider quota reset deadlines to the circuit
 	// breaker so an open circuit's cooldown can be pinned to the real reset

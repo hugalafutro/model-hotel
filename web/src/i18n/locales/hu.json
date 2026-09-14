@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Kezeletlenül hagyott modelleltérések",
 				"model_auto_disabled_gone": "Modell letiltva (a szolgáltató már nem kínálja)",
 				"provider_scheduled_disable": "Szolgáltató letiltva az ütemezés szerint",
-				"circuit_breaker_unstable": "A modell ismételten hibázik (áramkör-megszakító többször nyitva)"
+				"circuit_breaker_unstable": "A modell ismételten hibázik (áramkör-megszakító többször nyitva)",
+				"budget_warning": "Keretfigyelmeztetés (80% elköltve)",
+				"budget_exceeded": "Keret túllépve (kérések elutasítva)"
 			},
 			"events": {
 				"all": "Összes kijelölése",
@@ -2232,7 +2234,8 @@
 				"failover": "Átállás",
 				"high_availability": "Magas rendelkezésre állás",
 				"quota": "Kvóta",
-				"security": "Biztonság"
+				"security": "Biztonság",
+				"budgets": "Keretek"
 			}
 		},
 		"totp": {
@@ -3292,6 +3295,25 @@
 		"toast": {
 			"purged": "Auditnapló törölve",
 			"purgeFailed": "Az auditnapló törlése nem sikerült"
+		}
+	},
+	"budget": {
+		"label": "Keret",
+		"amount": "Keret (USD)",
+		"period": "Időszak",
+		"none": "Nincs keret",
+		"hint": "A kérések 429-cel elutasításra kerülnek, amint az időszak beárazott költése eléri a keretet. Hagyja üresen, ha nincs keret.",
+		"tooltip": "Beárazott költés ebben az időszakban a dollárkerethez képest; a kérések 429-cel elutasításra kerülnek, amint eléri",
+		"spent": "{{spent}} / {{budget}} {{period}}",
+		"periods": {
+			"day": "Naponta (UTC)",
+			"week": "Hetente (hétfőtől vasárnapig, UTC)",
+			"month": "Havonta (UTC)"
+		},
+		"periodNow": {
+			"day": "ma",
+			"week": "ezen a héten",
+			"month": "ebben a hónapban"
 		}
 	}
 }

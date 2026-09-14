@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "처리되지 않은 모델 불일치",
 				"model_auto_disabled_gone": "모델 비활성화됨 (프로바이더가 더 이상 제공하지 않음)",
 				"provider_scheduled_disable": "프로바이더가 예약대로 비활성화됨",
-				"circuit_breaker_unstable": "모델이 반복적으로 실패함 (서킷 브레이커가 여러 번 개방됨)"
+				"circuit_breaker_unstable": "모델이 반복적으로 실패함 (서킷 브레이커가 여러 번 개방됨)",
+				"budget_warning": "예산 경고 (80% 사용)",
+				"budget_exceeded": "예산 초과 (요청 거부됨)"
 			},
 			"events": {
 				"all": "모두 선택",
@@ -2232,7 +2234,8 @@
 				"failover": "장애 조치",
 				"high_availability": "고가용성",
 				"quota": "할당량",
-				"security": "보안"
+				"security": "보안",
+				"budgets": "예산"
 			}
 		},
 		"totp": {
@@ -3292,6 +3295,25 @@
 		"toast": {
 			"purged": "감사 기록이 삭제되었습니다",
 			"purgeFailed": "감사 기록을 삭제하지 못했습니다"
+		}
+	},
+	"budget": {
+		"label": "예산",
+		"amount": "예산 (USD)",
+		"period": "기간",
+		"none": "예산 없음",
+		"hint": "기간의 가격 책정된 지출이 예산에 도달하면 요청이 429로 거부됩니다. 예산을 두지 않으려면 비워 두세요.",
+		"tooltip": "이 기간의 달러 예산 대비 가격 책정된 지출. 예산에 도달하면 요청이 429로 거부됩니다",
+		"spent": "{{period}} {{budget}} 중 {{spent}}",
+		"periods": {
+			"day": "일별 (UTC)",
+			"week": "주별 (월요일~일요일, UTC)",
+			"month": "월별 (UTC)"
+		},
+		"periodNow": {
+			"day": "오늘",
+			"week": "이번 주",
+			"month": "이번 달"
 		}
 	}
 }

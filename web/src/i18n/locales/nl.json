@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Modelafwijkingen blijven onopgelost",
 				"model_auto_disabled_gone": "Model uitgeschakeld (provider biedt het niet meer aan)",
 				"provider_scheduled_disable": "Provider uitgeschakeld volgens planning",
-				"circuit_breaker_unstable": "Model blijft uitvallen (circuitbreaker meermaals geopend)"
+				"circuit_breaker_unstable": "Model blijft uitvallen (circuitbreaker meermaals geopend)",
+				"budget_warning": "Budgetwaarschuwing (80% besteed)",
+				"budget_exceeded": "Budget overschreden (verzoeken geweigerd)"
 			},
 			"events": {
 				"all": "Alles selecteren",
@@ -2232,7 +2234,8 @@
 				"failover": "Failover",
 				"high_availability": "Hoge beschikbaarheid",
 				"quota": "Quotum",
-				"security": "Beveiliging"
+				"security": "Beveiliging",
+				"budgets": "Budgetten"
 			}
 		},
 		"totp": {
@@ -3292,6 +3295,25 @@
 		"toast": {
 			"purged": "Auditlogboek gewist",
 			"purgeFailed": "Kon het auditlogboek niet wissen"
+		}
+	},
+	"budget": {
+		"label": "Budget",
+		"amount": "Budget (USD)",
+		"period": "Periode",
+		"none": "Geen budget",
+		"hint": "Verzoeken worden met 429 geweigerd zodra de geprijsde uitgaven van de periode het budget bereiken. Laat leeg voor geen budget.",
+		"tooltip": "Geprijsde uitgaven in deze periode ten opzichte van het dollarbudget; verzoeken worden met 429 geweigerd zodra het is bereikt",
+		"spent": "{{spent}} van {{budget}} {{period}}",
+		"periods": {
+			"day": "Per dag (UTC)",
+			"week": "Per week (maandag tot en met zondag, UTC)",
+			"month": "Per maand (UTC)"
+		},
+		"periodNow": {
+			"day": "vandaag",
+			"week": "deze week",
+			"month": "deze maand"
 		}
 	}
 }

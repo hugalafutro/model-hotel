@@ -1,3 +1,6 @@
+/** The calendar window a dollar budget runs over (UTC). */
+export type BudgetPeriod = "day" | "week" | "month";
+
 /** The two roles a dashboard account can hold. */
 export type UserRole = "admin" | "user";
 
@@ -15,6 +18,11 @@ export interface VirtualKey {
 	allowed_providers?: string[] | null;
 	strip_reasoning: boolean;
 	owner_user_id?: string | null;
+	/** Dollar budget per calendar period; both null when the key has none. */
+	budget_usd?: number | null;
+	budget_period?: BudgetPeriod | null;
+	/** Priced spend in the current budget period on this member; absent without a budget. */
+	budget_spent_usd?: number | null;
 	owner_username?: string | null;
 }
 export interface WebAuthnCredential {
@@ -135,6 +143,11 @@ export interface DashboardUser {
 	rate_limit_rps?: number | null;
 	rate_limit_burst?: number | null;
 	rate_limit_tpm?: number | null;
+	/** Dollar budget per calendar period across the account's keys and chat. */
+	budget_usd?: number | null;
+	budget_period?: BudgetPeriod | null;
+	/** Priced spend in the current budget period on this member; absent without a budget. */
+	budget_spent_usd?: number | null;
 	/** Whether the account has a confirmed TOTP second factor. */
 	totp_enabled?: boolean;
 	/**
@@ -163,6 +176,8 @@ export interface UserUpsertRequest {
 	rate_limit_rps?: number | null;
 	rate_limit_burst?: number | null;
 	rate_limit_tpm?: number | null;
+	budget_usd?: number | null;
+	budget_period?: BudgetPeriod | null;
 	/**
 	 * Account provider cap. Omit to leave the stored cap unchanged (update
 	 * only); send null to clear it (every provider); send a non-empty array
@@ -189,6 +204,8 @@ export interface VirtualKeyUpsert {
 	rate_limit_rps?: number | null;
 	rate_limit_burst?: number | null;
 	rate_limit_tpm?: number | null;
+	budget_usd?: number | null;
+	budget_period?: BudgetPeriod | null;
 	allowed_providers?: string[] | null;
 	strip_reasoning?: boolean;
 	owner_user_id?: string | null;

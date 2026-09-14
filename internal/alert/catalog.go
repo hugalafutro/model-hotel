@@ -68,6 +68,12 @@ var catalog = []EventDef{
 	// — and default-on because the date is typically set weeks ahead of the day
 	// it fires, so the firing itself is the only reminder routing just changed.
 	{Type: "provider.scheduled_disable", Category: "Failover", Severity: "warning", DefaultOn: true},
+	// A key or a user reached 80% of its dollar budget, then all of it. Each
+	// fires once per budget period per subject; on by default because the
+	// exceeded case is a refusal the caller sees as 429 and the operator
+	// otherwise learns about from them.
+	{Type: "budget.warning", Category: "Budgets", Severity: "warning", DefaultOn: true},
+	{Type: "budget.exceeded", Category: "Budgets", Severity: "error", DefaultOn: true},
 }
 
 // Catalog returns a copy of the event registry, safe for the caller to mutate.

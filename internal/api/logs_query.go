@@ -179,8 +179,9 @@ func appendLogFilters(query string, args []any, argIndex int, f logFilters) (str
 	// shapes. A KEYED row resolves through the key's CURRENT owner, so reassigning
 	// a key moves its whole history with it. A KEYLESS row (dashboard chat/arena,
 	// which have no key to join through) carries the owner stamped at request time
-	// in request_logs.owner_user_id, written only for that shape. Rows with NULL on
-	// both sides stay admin-only.
+	// in request_logs.owner_user_id. Keyed rows carry that stamp too (it is what
+	// a user's dollar budget sums), but this view reads them through the key on
+	// purpose. Rows with NULL on both sides stay admin-only.
 	if f.ownerUserID != "" {
 		ph := strconv.Itoa(argIndex)
 		query += " AND (rl.virtual_key_id IN (SELECT vko.id FROM virtual_keys vko WHERE vko.owner_user_id = $" + ph + ")" +

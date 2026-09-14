@@ -433,7 +433,7 @@ func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]string) ([]ExportVK, error) {
 	rows, err := q.Query(ctx, `
 		SELECT vk.name, vk.key_hash, vk.key_preview, vk.rate_limit_rps, vk.rate_limit_burst, vk.rate_limit_tpm,
-		       vk.allowed_providers, vk.strip_reasoning, u.username
+		       vk.allowed_providers, vk.strip_reasoning, u.username, vk.budget_usd, vk.budget_period
 		FROM virtual_keys vk LEFT JOIN users u ON u.id = vk.owner_user_id
 		ORDER BY vk.key_hash`)
 	if err != nil {
@@ -449,7 +449,7 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 		var v ExportVK
 		var allowedIDs []string
 		if err := rows.Scan(&v.Name, &v.KeyHash, &v.KeyPreview, &v.RateLimitRPS, &v.RateLimitBurst,
-			&v.RateLimitTPM, &allowedIDs, &v.StripReasoning, &v.OwnerUsername); err != nil {
+			&v.RateLimitTPM, &allowedIDs, &v.StripReasoning, &v.OwnerUsername, &v.BudgetUSD, &v.BudgetPeriod); err != nil {
 			return nil, err
 		}
 		// Translate instance-local provider UUIDs to names, dropping any that no
@@ -472,7 +472,7 @@ func exportVirtualKeys(ctx context.Context, q querier, idToName map[string]strin
 func exportUsers(ctx context.Context, q querier, idToName map[string]string) ([]ExportUser, error) {
 	rows, err := q.Query(ctx, `
 		SELECT username, display_name, email, password_hash, role, grants, enabled,
-		       rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers
+		       rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, budget_usd, budget_period
 		FROM users ORDER BY username`)
 	if err != nil {
 		return nil, err
@@ -485,7 +485,7 @@ func exportUsers(ctx context.Context, q querier, idToName map[string]string) ([]
 		var allowedIDs []string
 		if err := rows.Scan(&u.Username, &u.DisplayName, &u.Email, &u.PasswordHash,
 			&u.Role, &u.Grants, &u.Enabled,
-			&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM, &allowedIDs); err != nil {
+			&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM, &allowedIDs, &u.BudgetUSD, &u.BudgetPeriod); err != nil {
 			return nil, err
 		}
 		// Same nullness-driven rule as exportVirtualKeys: cap PRESENCE comes from

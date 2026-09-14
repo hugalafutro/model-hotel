@@ -2,7 +2,7 @@ import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
-import type { VirtualKey } from "../../api/types";
+import type { BudgetPeriod, VirtualKey } from "../../api/types";
 import { useIdentity } from "../../context/IdentityContext";
 import { allowedProvidersOf, useProviderCap } from "./useProviderCap";
 
@@ -31,6 +31,8 @@ export function useKeyEdit({
 		rps: vk.rate_limit_rps?.toString() ?? "",
 		burst: vk.rate_limit_burst?.toString() ?? "",
 		tpm: vk.rate_limit_tpm?.toString() ?? "",
+		budgetUsd: vk.budget_usd?.toString() ?? "",
+		budgetPeriod: vk.budget_period ?? "month",
 		stripReasoning: vk.strip_reasoning,
 	};
 
@@ -40,6 +42,10 @@ export function useKeyEdit({
 	const [editRps, setEditRps] = useState(stored.rps);
 	const [editBurst, setEditBurst] = useState(stored.burst);
 	const [editTpm, setEditTpm] = useState(stored.tpm);
+	const [editBudgetUsd, setEditBudgetUsd] = useState(stored.budgetUsd);
+	const [editBudgetPeriod, setEditBudgetPeriod] = useState<BudgetPeriod>(
+		stored.budgetPeriod,
+	);
 	const [providerError, setProviderError] = useState("");
 	const [editStripReasoning, setEditStripReasoning] = useState(
 		stored.stripReasoning,
@@ -92,6 +98,8 @@ export function useKeyEdit({
 			rate_limit_rps,
 			rate_limit_burst,
 			rate_limit_tpm,
+			budget_usd,
+			budget_period,
 			allowed_providers,
 			strip_reasoning,
 			owner_user_id,
@@ -100,6 +108,8 @@ export function useKeyEdit({
 			rate_limit_rps?: number | null;
 			rate_limit_burst?: number | null;
 			rate_limit_tpm?: number | null;
+			budget_usd?: number | null;
+			budget_period?: BudgetPeriod | null;
 			allowed_providers?: string[] | null;
 			strip_reasoning?: boolean;
 			owner_user_id?: string | null;
@@ -109,6 +119,8 @@ export function useKeyEdit({
 				rate_limit_rps,
 				rate_limit_burst,
 				rate_limit_tpm,
+				budget_usd,
+				budget_period,
 				// Both are omitted-means-preserve on the API; keep them off the
 				// wire entirely rather than sending an explicit undefined.
 				...(allowed_providers !== undefined ? { allowed_providers } : {}),
@@ -163,6 +175,8 @@ export function useKeyEdit({
 			rate_limit_rps: editRps !== "" ? parseFloat(editRps) : null,
 			rate_limit_burst: editBurst !== "" ? parseInt(editBurst, 10) : null,
 			rate_limit_tpm: editTpm !== "" ? parseInt(editTpm, 10) : null,
+			budget_usd: editBudgetUsd !== "" ? parseFloat(editBudgetUsd) : null,
+			budget_period: editBudgetUsd !== "" ? editBudgetPeriod : null,
 			...(allowedProviders !== undefined
 				? { allowed_providers: allowedProviders }
 				: {}),
@@ -182,6 +196,8 @@ export function useKeyEdit({
 		setEditRps(stored.rps);
 		setEditBurst(stored.burst);
 		setEditTpm(stored.tpm);
+		setEditBudgetUsd(stored.budgetUsd);
+		setEditBudgetPeriod(stored.budgetPeriod);
 		setEditStripReasoning(stored.stripReasoning);
 	};
 
@@ -229,6 +245,11 @@ export function useKeyEdit({
 			[editRps !== stored.rps, "virtualkeys.modal.form.rateLimitRps"],
 			[editBurst !== stored.burst, "virtualkeys.modal.form.rateLimitBurst"],
 			[editTpm !== stored.tpm, "virtualkeys.modal.form.rateLimitTpm"],
+			[
+				editBudgetUsd !== stored.budgetUsd ||
+					(editBudgetUsd !== "" && editBudgetPeriod !== stored.budgetPeriod),
+				"budget.label",
+			],
 			[providersChanged, "virtualkeys.modal.sections.providerAccess"],
 			[
 				editStripReasoning !== stored.stripReasoning,
@@ -260,6 +281,10 @@ export function useKeyEdit({
 		setEditBurst,
 		editTpm,
 		setEditTpm,
+		editBudgetUsd,
+		setEditBudgetUsd,
+		editBudgetPeriod,
+		setEditBudgetPeriod,
 		providerError,
 		confirmFields,
 		setConfirmFields,

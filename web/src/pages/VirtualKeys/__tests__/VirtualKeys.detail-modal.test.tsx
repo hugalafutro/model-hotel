@@ -671,6 +671,60 @@ describe("VirtualKeys", () => {
 			).toBe(30000);
 		});
 
+		it("shows the period spend against the budget and clears it on save", async () => {
+			let updateBody: unknown;
+			const budgeted = {
+				...mockVirtualKey,
+				budget_usd: 25,
+				budget_period: "month" as const,
+				budget_spent_usd: 3.25,
+			};
+			server.use(
+				http.get("/api/virtual-keys", () => HttpResponse.json([budgeted])),
+				http.put("/api/virtual-keys/vk-001", async ({ request }) => {
+					updateBody = await request.json();
+					return HttpResponse.json({
+						...mockVirtualKey,
+						budget_usd: null,
+						budget_period: null,
+					});
+				}),
+			);
+
+			const { user } = renderWithProviders(<VirtualKeys />);
+			await waitFor(() => {
+				expect(screen.getByText("Test API Key")).toBeInTheDocument();
+			});
+			// The list and the detail grid both read the same figure.
+			expect(
+				screen.getByText("$3.25 of $25.00 this month"),
+			).toBeInTheDocument();
+
+			await user.click(screen.getByText("Test API Key"));
+			const dialog = await screen.findByRole("dialog", {
+				name: "Virtual Key Details",
+			});
+			expect(
+				within(dialog).getByText("$3.25 of $25.00 this month"),
+			).toBeInTheDocument();
+
+			await user.click(within(dialog).getByRole("button", { name: "Edit" }));
+			const amount = within(dialog).getByLabelText("Budget (USD)");
+			expect(amount).toHaveValue(25);
+			expect(within(dialog).getByLabelText("Period")).toHaveValue("month");
+			await user.clear(amount);
+			await user.click(
+				within(dialog).getByRole("button", { name: "Save Changes" }),
+			);
+			await waitFor(() => {
+				expect(screen.getByText("Virtual key updated")).toBeInTheDocument();
+			});
+			expect(updateBody).toMatchObject({
+				budget_usd: null,
+				budget_period: null,
+			});
+		});
+
 		it("cancels edit and reverts to view mode", async () => {
 			server.use(
 				http.get("/api/virtual-keys", () =>

@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Sai lệch mô hình chưa được xử lý",
 				"model_auto_disabled_gone": "Đã tắt mô hình (nhà cung cấp không còn phục vụ)",
 				"provider_scheduled_disable": "Nhà cung cấp đã bị tắt theo lịch",
-				"circuit_breaker_unstable": "Mô hình liên tục lỗi (cầu dao ngắt mạch mở nhiều lần)"
+				"circuit_breaker_unstable": "Mô hình liên tục lỗi (cầu dao ngắt mạch mở nhiều lần)",
+				"budget_warning": "Cảnh báo ngân sách (đã dùng 80%)",
+				"budget_exceeded": "Vượt ngân sách (yêu cầu bị từ chối)"
 			},
 			"events": {
 				"all": "Chọn tất cả",
@@ -2232,7 +2234,8 @@
 				"failover": "Chuyển đổi dự phòng",
 				"high_availability": "Tính sẵn sàng cao",
 				"quota": "Hạn mức",
-				"security": "Bảo mật"
+				"security": "Bảo mật",
+				"budgets": "Ngân sách"
 			}
 		},
 		"totp": {
@@ -3292,6 +3295,25 @@
 		"toast": {
 			"purged": "Đã xóa nhật ký kiểm tra",
 			"purgeFailed": "Không thể xóa nhật ký kiểm tra"
+		}
+	},
+	"budget": {
+		"label": "Ngân sách",
+		"amount": "Ngân sách (USD)",
+		"period": "Kỳ",
+		"none": "Không có ngân sách",
+		"hint": "Yêu cầu bị từ chối với mã 429 khi chi tiêu đã định giá trong kỳ đạt đến ngân sách. Để trống nếu không đặt ngân sách.",
+		"tooltip": "Chi tiêu đã định giá trong kỳ này so với ngân sách đô la; yêu cầu bị từ chối với mã 429 khi đạt đến",
+		"spent": "{{spent}} trên {{budget}} {{period}}",
+		"periods": {
+			"day": "Mỗi ngày (UTC)",
+			"week": "Mỗi tuần (thứ Hai đến Chủ nhật, UTC)",
+			"month": "Mỗi tháng (UTC)"
+		},
+		"periodNow": {
+			"day": "hôm nay",
+			"week": "tuần này",
+			"month": "tháng này"
 		}
 	}
 }

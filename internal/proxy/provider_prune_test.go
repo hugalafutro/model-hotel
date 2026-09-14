@@ -47,7 +47,7 @@ func TestChatCompletions_KeyPrunedToNothingStaysDenied(t *testing.T) {
 	repo := virtualkey.NewRepository(pool)
 	plaintext := "prune-key-" + uuid.New().String()[:8]
 	allowed := []string{doomedID.String()}
-	created, err := repo.Create(ctx, plaintext, virtualkey.Hash(plaintext), "sk-...pr", nil, nil, nil, &allowed, nil, nil)
+	created, err := repo.Create(ctx, plaintext, virtualkey.Hash(plaintext), "sk-...pr", nil, nil, nil, &allowed, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("seed restricted key: %v", err)
 	}

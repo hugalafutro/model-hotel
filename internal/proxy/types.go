@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/provider"
@@ -51,6 +52,7 @@ type VirtualKeyInfo struct {
 	RateLimitTPM     *int
 	AllowedProviders *[]string
 	StripReasoning   bool
+	Budget           *budget.Budget // nil when the key has no spending cap
 	// Owner is set when the key belongs to a dashboard user; nil for unowned
 	// keys. Populated only on the FindByKeyHash auth path.
 	Owner *OwnerInfo
@@ -61,10 +63,12 @@ type VirtualKeyInfo struct {
 // aggregate per-user limits, and the account provider cap.
 type OwnerInfo struct {
 	ID             string
+	Name           string // username, for the budget alert text
 	Enabled        bool
 	RateLimitRPS   *float64
 	RateLimitBurst *int
 	RateLimitTPM   *int
+	Budget         *budget.Budget // nil when the account has no spending cap
 	// AllowedProviders is the owner's account-level provider cap (nil = no
 	// cap), intersected with the key's own list by effectiveAllowedProviders.
 	AllowedProviders *[]string
@@ -142,10 +146,13 @@ type requestLogData struct {
 	// request_logs.client_ip so key usage stays attributable for the whole
 	// log-retention window.
 	clientIP string
+	// charged records that the row's cost reached the budget stage, so a
+	// second terminal write for the same request cannot charge it again.
+	charged bool
 	// ownerUserID is the owning dashboard user's UUID; "" for unowned keys
-	// (admin-only visibility). Persisted to request_logs.owner_user_id only when
-	// there is no virtual key; keyed rows resolve their owner through the key
-	// instead.
+	// (admin-only visibility). Persisted to request_logs.owner_user_id on every
+	// row that has one: the log views resolve a keyed row through the key's
+	// current owner, the user's dollar budget sums the stamp.
 	ownerUserID  string
 	errorMessage string
 	errorKind    ErrorKind // machine-readable classification; "" = unclassified (NULL in DB)

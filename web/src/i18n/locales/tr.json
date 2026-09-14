@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Ele alınmamış model tutarsızlıkları",
 				"model_auto_disabled_gone": "Model devre dışı bırakıldı (sağlayıcı artık sunmuyor)",
 				"provider_scheduled_disable": "Sağlayıcı zamanlandığı gibi devre dışı bırakıldı",
-				"circuit_breaker_unstable": "Model tekrar tekrar başarısız oluyor (devre kesici defalarca açıldı)"
+				"circuit_breaker_unstable": "Model tekrar tekrar başarısız oluyor (devre kesici defalarca açıldı)",
+				"budget_warning": "Bütçe uyarısı (%80 harcandı)",
+				"budget_exceeded": "Bütçe aşıldı (istekler reddedildi)"
 			},
 			"events": {
 				"all": "Tümünü seç",
@@ -2232,7 +2234,8 @@
 				"failover": "Yük devretme",
 				"high_availability": "Yüksek erişilebilirlik",
 				"quota": "Kota",
-				"security": "Güvenlik"
+				"security": "Güvenlik",
+				"budgets": "Bütçeler"
 			}
 		},
 		"totp": {
@@ -3292,6 +3295,25 @@
 		"toast": {
 			"purged": "Denetim kaydı temizlendi",
 			"purgeFailed": "Denetim kaydı temizlenemedi"
+		}
+	},
+	"budget": {
+		"label": "Bütçe",
+		"amount": "Bütçe (USD)",
+		"period": "Dönem",
+		"none": "Bütçe yok",
+		"hint": "Dönemin fiyatlandırılmış harcaması bütçeye ulaştığında istekler 429 ile reddedilir. Bütçe istemiyorsanız boş bırakın.",
+		"tooltip": "Bu dönemdeki fiyatlandırılmış harcamanın dolar bütçesine oranı; bütçeye ulaşıldığında istekler 429 ile reddedilir",
+		"spent": "{{period}} {{budget}} içinden {{spent}}",
+		"periods": {
+			"day": "Günlük (UTC)",
+			"week": "Haftalık (Pazartesi–Pazar, UTC)",
+			"month": "Aylık (UTC)"
+		},
+		"periodNow": {
+			"day": "bugün",
+			"week": "bu hafta",
+			"month": "bu ay"
 		}
 	}
 }

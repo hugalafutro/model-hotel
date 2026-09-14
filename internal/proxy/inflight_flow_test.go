@@ -374,7 +374,7 @@ func buildReplayEnv(t *testing.T, upstream *httptest.Server) *replayEnv {
 
 	keyName := "replay-key-" + suffix
 	keyHash := virtualkey.Hash(keyName)
-	if _, err := virtualKeyRepo.Create(context.Background(), keyName, keyHash, "sk-rep...", nil, nil, nil, nil, nil, nil); err != nil {
+	if _, err := virtualKeyRepo.Create(context.Background(), keyName, keyHash, "sk-rep...", nil, nil, nil, nil, nil, nil, nil); err != nil {
 		t.Fatalf("create vk: %v", err)
 	}
 

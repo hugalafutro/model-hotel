@@ -18,6 +18,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/alert"
 	"github.com/hugalafutro/model-hotel/internal/audit"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/db"
@@ -52,12 +53,12 @@ type ProviderStore interface {
 
 // VirtualKeyStore defines the virtual key repository methods used by the API.
 type VirtualKeyStore interface {
-	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*virtualkey.VirtualKey, error)
+	Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID, b *budget.Budget) (*virtualkey.VirtualKey, error)
 	List(ctx context.Context) ([]*virtualkey.VirtualKey, error)
 	ListByOwner(ctx context.Context, ownerUserID uuid.UUID) ([]*virtualkey.VirtualKey, error)
 	Get(ctx context.Context, id uuid.UUID) (*virtualkey.VirtualKey, error)
 	Delete(ctx context.Context, id uuid.UUID) error
-	Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*virtualkey.VirtualKey, error)
+	Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID, b *budget.Budget) (*virtualkey.VirtualKey, error)
 }
 
 // SettingsStore defines the settings repository methods used by the API.
@@ -179,6 +180,7 @@ type Handler struct {
 	totpEnabled    atomic.Bool       // cached IsEnabled result; refreshed by enroll-verify/disable handlers after DB mutations
 	quotaRepo      *quota.Repository // read-through store for polled provider quota snapshots
 	quotaAdvisor   *QuotaAdvisor     // nil until SetQuotaAdvisor; populated by RefreshQuotaAdvice
+	budgetLimiter  *budget.Limiter   // nil until SetBudgetLimiter; shows period spend on keys and users
 	pwnedChecker   PwnedChecker      // nil until SetPwnedChecker (breached-password check on create/reset/change)
 
 	// Debounce state for the quota schema-drift watch: a per-provider shape that
@@ -329,6 +331,12 @@ func (h *Handler) SetCapLedger(l *provider.CapLedger) {
 // leaving it unset makes RefreshQuotaAdvice a no-op.
 func (h *Handler) SetQuotaAdvisor(a *QuotaAdvisor) {
 	h.quotaAdvisor = a
+}
+
+// SetBudgetLimiter shares the proxy's dollar-budget stage so key and user
+// responses can carry what was spent in the current period.
+func (h *Handler) SetBudgetLimiter(l *budget.Limiter) {
+	h.budgetLimiter = l
 }
 
 // StartBackupScheduler starts the periodic backup scheduler if backup_enabled is true.

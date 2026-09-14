@@ -86,6 +86,55 @@ describe("UserModal", () => {
 		expect(onClose).toHaveBeenCalled();
 	});
 
+	it("sends the account budget pair with the limits", async () => {
+		mockGrants();
+		let body: UserUpsertRequest | undefined;
+		server.use(
+			http.post("/api/users", async ({ request }) => {
+				body = (await request.json()) as UserUpsertRequest;
+				return HttpResponse.json({ ...existing, ...body }, { status: 201 });
+			}),
+		);
+		const { user } = renderWithProviders(
+			<UserModal user={null} onClose={onClose} onToast={onToast} />,
+		);
+		await user.click(chooseAllProviders());
+		await user.type(screen.getByLabelText("Username"), "dave");
+		await user.type(screen.getByLabelText("Password"), "password123");
+		await user.type(screen.getByTestId("user-budget"), "12.5");
+		await user.selectOptions(screen.getByTestId("user-budget-period"), "day");
+		await user.click(screen.getByTestId("user-modal-save"));
+		await waitFor(() => {
+			expect(onToast).toHaveBeenCalledWith("User created", "success");
+		});
+		expect(body).toMatchObject({
+			username: "dave",
+			budget_usd: 12.5,
+			budget_period: "day",
+		});
+	});
+
+	it("shows an existing account's spend against its budget", async () => {
+		mockGrants();
+		renderWithProviders(
+			<UserModal
+				user={{
+					...existing,
+					budget_usd: 20,
+					budget_period: "month",
+					budget_spent_usd: 4.5,
+				}}
+				onClose={onClose}
+				onToast={onToast}
+			/>,
+		);
+		expect(screen.getByTestId("user-budget")).toHaveValue(20);
+		expect(screen.getByTestId("user-budget-period")).toHaveValue("month");
+		expect(screen.getByTestId("user-budget-spent")).toHaveTextContent(
+			"$4.50 of $20.00 this month",
+		);
+	});
+
 	it("rejects a short password client-side", async () => {
 		mockGrants();
 		const { user } = renderWithProviders(
