@@ -237,4 +237,19 @@ func TestAssessWithReserve(t *testing.T) {
 	if a := AssessWithReserve("neuralwatt", Snapshot{Payload: undated}, 0.1, now); !a.OK || a.Exhausted {
 		t.Errorf("undated credits past the line: got %+v, want the assessor's healthy verdict", a)
 	}
+	// A window the assessor never judges alone does not pin under a reserve
+	// either: Z.ai's MCP calls at 95% with a 10% reserve leave the tokens alone.
+	mcp, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
+		{"type": "TIME_LIMIT", "unit": 5, "percentage": 95, "nextResetTime": reset.UnixMilli()},
+		{"type": "TOKENS_LIMIT", "unit": 3, "percentage": 10, "nextResetTime": reset.UnixMilli()},
+	}}})
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: mcp}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("mcp window past the line: got %+v, want healthy", a)
+	}
+	// NeuralWatt's energy at 95% with a 10% reserve: the account still serves
+	// into overage, so no pin.
+	energy := []byte(`{"balance":{"total_credits_usd":10,"credits_used_usd":1},"subscription":{"kwh_included":4,"kwh_used":3.8,"current_period_end":"2030-01-01T00:00:00Z"}}`)
+	if a := AssessWithReserve("neuralwatt", Snapshot{Payload: energy}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("energy past the line: got %+v, want healthy", a)
+	}
 }

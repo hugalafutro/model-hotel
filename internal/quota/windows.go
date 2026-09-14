@@ -18,6 +18,11 @@ type Window struct {
 	Name     string
 	Used     float64
 	ResetsAt time.Time
+	// Governs marks a window the assessor judges on its own: spent means the
+	// provider is exhausted. Z.ai's MCP call window and NeuralWatt's two
+	// balances are shown but do not govern (NeuralWatt refuses only once both
+	// are gone), so a reserve leaves them alone too.
+	Governs bool
 }
 
 // Windows reads every quota window a stored snapshot carries, for the Prometheus
@@ -74,7 +79,7 @@ func zaiCodingWindows(payload json.RawMessage) []Window {
 		default:
 			continue
 		}
-		w := Window{Name: name, Used: *l.Percentage / 100}
+		w := Window{Name: name, Used: *l.Percentage / 100, Governs: l.Type == "TOKENS_LIMIT"}
 		if t, ok := epochToTime(l.NextResetTime); ok {
 			w.ResetsAt = t
 		}
@@ -116,7 +121,7 @@ func kimiWindow(name string, d provider.KimiCodeQuotaDetail) (Window, bool) {
 	if !ok {
 		return Window{}, false
 	}
-	w := Window{Name: name, Used: 1 - float64(remaining)/float64(limit)}
+	w := Window{Name: name, Used: 1 - float64(remaining)/float64(limit), Governs: true}
 	if t, ok := parseResetString(d.ResetTime); ok {
 		w.ResetsAt = t
 	}
@@ -163,7 +168,7 @@ func openCodeGoWindows(payload json.RawMessage) []Window {
 		if x.w.ResetsAt == "" && x.w.Status == "" {
 			continue
 		}
-		w := Window{Name: x.name, Used: x.w.Percent / 100}
+		w := Window{Name: x.name, Used: x.w.Percent / 100, Governs: true}
 		if openCodeGoWindowSpent(x.w) && w.Used < 1 {
 			w.Used = 1
 		}
@@ -200,7 +205,7 @@ func miniMaxWindow(name string, status int, total, used int64, remainingPercent 
 	if status != 1 {
 		return Window{}, false
 	}
-	w := Window{Name: name}
+	w := Window{Name: name, Governs: true}
 	switch {
 	case total > 0:
 		w.Used = float64(used) / float64(total)
@@ -243,12 +248,13 @@ func neuralwattWindows(payload json.RawMessage) []Window {
 // AssessWithReserve is Assess with the operator's reserve applied: a share of
 // every window kept back for use outside the gateway. reserve is that share,
 // 0 for none, up to 0.9. A provider whose payload reports no exhaustion is
-// still treated as exhausted once any dated window has consumed 1 - reserve of
-// itself, and the pin targets the earliest such reset, the same rule the
-// assessors apply to a spent window. An undated window past the line cannot
-// place a pin and is ignored, as an undated spent window is. A payload the
-// assessor already reads as exhausted, or cannot read at all, is returned as
-// it stands.
+// still treated as exhausted once any dated governing window has consumed
+// 1 - reserve of itself, and the pin targets the earliest such reset, the same
+// rule the assessors apply to a spent window. A window the assessor does not
+// judge on its own (Z.ai's MCP calls, a NeuralWatt balance) is left alone, an
+// undated window past the line cannot place a pin and is ignored, as an
+// undated spent window is, and a payload the assessor already reads as
+// exhausted, or cannot read at all, is returned as it stands.
 func AssessWithReserve(providerType string, s Snapshot, reserve float64, now time.Time) Assessment {
 	a := Assess(providerType, s)
 	if reserve <= 0 || !a.OK || a.Exhausted {
@@ -260,7 +266,7 @@ func AssessWithReserve(providerType string, s Snapshot, reserve float64, now tim
 	line := 1 - reserve - 1e-9
 	var e earliestReset
 	for _, w := range Windows(providerType, s) {
-		if w.Used < line || w.ResetsAt.IsZero() {
+		if !w.Governs || w.Used < line || w.ResetsAt.IsZero() {
 			continue
 		}
 		e.add(w.ResetsAt, true)

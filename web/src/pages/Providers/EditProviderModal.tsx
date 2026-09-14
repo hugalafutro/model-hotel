@@ -423,6 +423,11 @@ export function EditProviderModal({
 							max={90}
 							step={10}
 							value={formData.quota_reserve_percent}
+							aria-valuetext={
+								formData.quota_reserve_percent === 0
+									? t("providers.edit.quotaReserveDrain")
+									: `${formData.quota_reserve_percent}%`
+							}
 							onChange={(e) =>
 								setFormData({
 									...formData,

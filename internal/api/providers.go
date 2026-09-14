@@ -506,7 +506,9 @@ func (h *Handler) settleProviderUpdate(ctx context.Context, prior, p *provider.P
 	// wait for the next poll. The prior row is only read for a key rotation, so
 	// presence in the request is the signal. An enable already refreshed above.
 	if !enabling && p.Enabled && req.QuotaReservePercent.Set {
-		h.RefreshQuotaAdvice(ctx)
+		refreshCtx, cancel := context.WithTimeout(ctx, enableQuotaRefreshTimeout)
+		defer cancel()
+		h.RefreshQuotaAdvice(refreshCtx)
 	}
 	if shouldRediscover(prior, p, req.APIKey != nil) {
 		h.rediscoverInBackground(ctx, p)
