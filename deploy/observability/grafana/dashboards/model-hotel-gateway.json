@@ -439,7 +439,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Dollars spent on proxied requests over the selected range, from modelhotel_cost_usd_total (the same figure request_logs.cost_usd carries). Approximate: increase() interpolates to the range edges. A model with no known price adds nothing, so this is a floor wherever a model is unpriced.",
+      "description": "Priced spend over the selected range, summed from modelhotel_cost_usd_total across members (an instant query at the range end, so 6h and 24h are computed at the same moment). Subscription providers are priced at their catalogue list price, so this is what the traffic would have cost, not what was billed. Approximate at the range edges and across member restarts, where the counter resets; a model with no known price adds nothing.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -488,7 +488,9 @@
             "uid": "prometheus"
           },
           "expr": "sum(increase(modelhotel_cost_usd_total{provider=~\"$provider\"}[$__range]))",
-          "refId": "A"
+          "refId": "A",
+          "instant": true,
+          "range": false
         }
       ],
       "title": "Spend",
@@ -635,7 +637,7 @@
       "type": "timeseries",
       "id": 11,
       "title": "Requests/s by status class",
-      "description": "Request rate split by HTTP status class, stacked: total height is all traffic, the 4xx/5xx bands are the part that failed.",
+      "description": "Requests per second by status class, one line per class in a fixed colour: 2xx green, 3xx blue, 4xx yellow, 499 grey (the client went away), 5xx red, unknown purple. Not stacked, so the colour on top is the class that dominates.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -653,14 +655,14 @@
             "drawStyle": "line",
             "lineInterpolation": "linear",
             "lineWidth": 1,
-            "fillOpacity": 12,
+            "fillOpacity": 8,
             "showPoints": "auto",
             "pointSize": 5,
             "spanNulls": false,
             "axisPlacement": "auto",
             "gradientMode": "opacity",
             "stacking": {
-              "mode": "normal",
+              "mode": "none",
               "group": "A"
             }
           },
@@ -669,7 +671,98 @@
           },
           "min": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "2xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "3xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "4xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "499"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "#9fa7b3"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "unknown"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -769,7 +862,7 @@
       "type": "timeseries",
       "id": 13,
       "title": "Errors/s by kind",
-      "description": "Failed requests per second by the gateway's own classification (validation, provider_error, timeout, ...), not by HTTP status.",
+      "description": "Failed requests per second by the gateway's own classification (validation, provider_error, timeout, ...), not by HTTP status. Stacked: the total height is the error rate, each band one kind.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1285,7 +1378,7 @@
       "type": "timeseries",
       "id": 21,
       "title": "Tokens/s by kind",
-      "description": "Prompt and completion tokens per second, stacked: total height is the whole token throughput.",
+      "description": "Tokens per second by kind. reasoning is the share of completion the provider reported as thinking, not a third bucket, so the lines are not stacked: prompt and completion are the whole throughput, reasoning sits inside completion.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1310,7 +1403,7 @@
             "axisPlacement": "auto",
             "gradientMode": "opacity",
             "stacking": {
-              "mode": "normal",
+              "mode": "none",
               "group": "A"
             }
           },
