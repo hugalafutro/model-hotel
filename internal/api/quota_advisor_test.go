@@ -96,7 +96,7 @@ func TestBuildQuotaAdvice_DropsStaleUnassessableAndHealthy(t *testing.T) {
 		notExhausted: "zai-coding",
 	}
 
-	got, _ := buildQuotaAdvice(snaps, typeByID, 15*time.Minute, now)
+	got, _ := buildQuotaAdvice(snaps, typeByID, nil, 15*time.Minute, now)
 
 	if len(got) != 1 {
 		t.Fatalf("got %d advised providers, want 1: %v", len(got), got)
@@ -133,9 +133,9 @@ func TestBuildQuotaAdvice_AgeEqualToMaxAgeIsKept(t *testing.T) {
 	id := uuid.New()
 	const maxAge = 15 * time.Minute
 
-	got, _ := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(-maxAge)}},
+	got, _ := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(-maxAge)}},
 		map[uuid.UUID]string{id: "zai-coding"},
+		nil,
 		maxAge,
 		now,
 	)
@@ -158,9 +158,9 @@ func TestBuildQuotaAdvice_AgeOneNanosecondPastMaxAgeIsDropped(t *testing.T) {
 	id := uuid.New()
 	const maxAge = 15 * time.Minute
 
-	got, _ := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(-maxAge - time.Nanosecond)}},
+	got, _ := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(-maxAge - time.Nanosecond)}},
 		map[uuid.UUID]string{id: "zai-coding"},
+		nil,
 		maxAge,
 		now,
 	)
@@ -188,9 +188,9 @@ func TestBuildQuotaAdvice_ZeroMaxAgeAdvisesNothing(t *testing.T) {
 	}
 	id := uuid.New()
 
-	got, _ := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now}},
+	got, _ := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now}},
 		map[uuid.UUID]string{id: "zai-coding"},
+		nil,
 		0,
 		now,
 	)
@@ -240,7 +240,7 @@ func TestBuildQuotaAdvice_RecoveredSetIsAffirmativeOnly(t *testing.T) {
 		unassessable: "zai-coding", spent: "zai-coding",
 	}
 
-	_, recovered := buildQuotaAdvice(snaps, typeByID, 15*time.Minute, now)
+	_, recovered := buildQuotaAdvice(snaps, typeByID, nil, 15*time.Minute, now)
 
 	if len(recovered) != 1 {
 		t.Fatalf("got %d recovered providers, want 1: %v", len(recovered), recovered)
@@ -284,9 +284,9 @@ func TestBuildQuotaAdvice_ZeroMaxAgeRecoversNothing(t *testing.T) {
 	}
 	id := uuid.New()
 
-	_, recovered := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now}},
+	_, recovered := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now}},
 		map[uuid.UUID]string{id: "zai-coding"},
+		nil,
 		0,
 		now,
 	)
@@ -314,9 +314,8 @@ func TestBuildQuotaAdvice_FailedRefreshIsNotRecoveryEvidence(t *testing.T) {
 	id := uuid.New()
 	typeByID := map[uuid.UUID]string{id: "zai-coding"}
 
-	_, recovered := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: healthy, FetchedAt: now, LastError: "upstream 500"}},
-		typeByID, 15*time.Minute, now,
+	_, recovered := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: healthy, FetchedAt: now, LastError: "upstream 500"}},
+		typeByID, nil, 15*time.Minute, now,
 	)
 
 	if _, ok := recovered[id]; ok {
@@ -342,9 +341,8 @@ func TestBuildQuotaAdvice_FailedRefreshGuardIsWhatMakesTheDifference(t *testing.
 	id := uuid.New()
 	typeByID := map[uuid.UUID]string{id: "zai-coding"}
 
-	_, recovered := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: healthy, FetchedAt: now, LastError: ""}},
-		typeByID, 15*time.Minute, now,
+	_, recovered := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: healthy, FetchedAt: now, LastError: ""}},
+		typeByID, nil, 15*time.Minute, now,
 	)
 
 	if _, ok := recovered[id]; !ok {
@@ -373,9 +371,8 @@ func TestBuildQuotaAdvice_FailedRefreshStillAdvisesExhaustion(t *testing.T) {
 	id := uuid.New()
 	typeByID := map[uuid.UUID]string{id: "zai-coding"}
 
-	advice, _ := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: exhausted, FetchedAt: now, LastError: "upstream 500"}},
-		typeByID, 15*time.Minute, now,
+	advice, _ := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: exhausted, FetchedAt: now, LastError: "upstream 500"}},
+		typeByID, nil, 15*time.Minute, now,
 	)
 
 	if _, ok := advice[id]; !ok {
@@ -399,7 +396,7 @@ func TestBuildQuotaAdvice_ExhaustionWinsOverRecoveryForTheSameProvider(t *testin
 				strconv.FormatInt(now.Add(4*time.Hour).UnixMilli(), 10) + `}]}}`)},
 	}
 
-	advice, recovered := buildQuotaAdvice(snaps, map[uuid.UUID]string{id: "zai-coding"}, 15*time.Minute, now)
+	advice, recovered := buildQuotaAdvice(snaps, map[uuid.UUID]string{id: "zai-coding"}, nil, 15*time.Minute, now)
 
 	if _, ok := advice[id]; !ok {
 		t.Fatal("setup: the exhausted row must be advised")

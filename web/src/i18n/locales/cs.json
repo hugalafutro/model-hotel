@@ -845,7 +845,10 @@
 			"autodiscoveryHelper": "Řídí automatické vyhledávání modelů. Vypnutím této funkce můžete ručně spravovat katalog modelů tohoto poskytovatele.",
 			"maxInFlightLabel": "Max. souběžných požadavků",
 			"maxInFlightPlaceholder": "Bez stropu",
-			"maxInFlightHelper": "Pevný strop souběžných požadavků na tohoto poskytovatele. Prázdné pole znamená žádný strop; adaptivní učení běží dál pod ním."
+			"maxInFlightHelper": "Pevný strop souběžných požadavků na tohoto poskytovatele. Prázdné pole znamená žádný strop; adaptivní učení běží dál pod ním.",
+			"quotaReserveLabel": "Rezerva kvóty",
+			"quotaReserveDrain": "Vyčerpat úplně",
+			"quotaReserveHelper": "Podíl každého okna předplatného ponechaný pro použití mimo Model Hotel. Směrování sem skončí, jakmile oknu zbývá jen tolik, a obnoví se po jeho resetu. Reagují jen poskytovatelé s okny předplatného, ne poskytovatelé se zůstatkem."
 		},
 		"quotas": {
 			"expand": "Rozbalit kvóty"
@@ -1046,7 +1049,8 @@
 		"scheduled_disable_card_tooltip": "Naplánováno k deaktivaci dne {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Otevřít web poskytovatele",
-		"card_tokens_tooltip": "Tokeny směrované přes tohoto poskytovatele od {{date}}, prompt a dokončení dohromady"
+		"card_tokens_tooltip": "Tokeny směrované přes tohoto poskytovatele od {{date}}, prompt a dokončení dohromady",
+		"quota_reserve_card_tooltip": "V rezervě zůstává {{percent}}% každého okna kvóty"
 	},
 	"models": {
 		"page_title_one": "Model",

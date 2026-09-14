@@ -819,7 +819,10 @@
 			"autodiscoveryHelper": "Controls automatic model discovery. Disable to manually curate this provider's model catalogue.",
 			"maxInFlightLabel": "Max Concurrent Requests",
 			"maxInFlightPlaceholder": "No ceiling",
-			"maxInFlightHelper": "Hard ceiling on simultaneous requests to this provider. Leave empty for no ceiling; the adaptive learner still adjusts underneath it."
+			"maxInFlightHelper": "Hard ceiling on simultaneous requests to this provider. Leave empty for no ceiling; the adaptive learner still adjusts underneath it.",
+			"quotaReserveLabel": "Quota Reserve",
+			"quotaReserveDrain": "Drain fully",
+			"quotaReserveHelper": "Share of every subscription window kept for use outside Model Hotel. Routing stops here once a window has only this much left and resumes when it resets. Only subscription window providers respond, not balance providers."
 		},
 		"quotas": {
 			"expand": "Expand quotas"
@@ -978,7 +981,8 @@
 		"schedule_disable_hint": "The provider will be disabled as soon as the server's date reaches the chosen day.",
 		"schedule_disable_cancel": "Cancel schedule",
 		"scheduled_disable_card_tooltip": "Scheduled to be disabled on {{date}}",
-		"type_anthropic_messages": "Anthropic (Messages API)"
+		"type_anthropic_messages": "Anthropic (Messages API)",
+		"quota_reserve_card_tooltip": "Keeping {{percent}}% of every quota window in reserve"
 	},
 	"models": {
 		"page_title_one": "Model",

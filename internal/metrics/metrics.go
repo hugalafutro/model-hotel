@@ -320,6 +320,7 @@ type QuotaWindow struct {
 	Window       string // the window's name as the quota modal shows it (5h, weekly, energy)
 	Used         float64
 	ResetsAt     time.Time // zero when the payload does not date the reset
+	Reserve      float64   // the provider's quota reserve as a share, 0 for none; the same on every window of a provider
 }
 
 // RegisterQuotaCollector registers a scrape-time collector that reports each
@@ -348,6 +349,11 @@ var (
 		"Share of a provider quota window consumed, from the latest stored quota snapshot: 0 untouched, 1 spent, above 1 where the provider serves into overage (NeuralWatt). window names the window as the quota modal does (5h, weekly, mcp, rolling, monthly, energy, credits, a Kimi span such as 5h, or a MiniMax model class with its span). Only providers whose quota endpoint states a measurable window appear.",
 		[]string{"provider_id", "provider", "window"}, nil,
 	)
+	quotaReserveDesc = prometheus.NewDesc(
+		"modelhotel_provider_quota_reserve_ratio",
+		"Share of every quota window the operator keeps back for use outside the gateway (quota_reserve_percent / 100). A window the breaker judges on its own pins the provider once its used ratio reaches 1 minus this (never a NeuralWatt balance or Z.ai's MCP calls). Present for a provider with a reserve set and at least one readable window.",
+		[]string{"provider_id", "provider"}, nil,
+	)
 	quotaResetDesc = prometheus.NewDesc(
 		"modelhotel_provider_quota_resets_at_seconds",
 		"Unix time at which a provider quota window rolls over, from the latest stored quota snapshot. Absent for a window the provider does not date (a prepaid balance).",
@@ -358,14 +364,20 @@ var (
 func (c *quotaCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- quotaUsedDesc
 	ch <- quotaResetDesc
+	ch <- quotaReserveDesc
 }
 
 func (c *quotaCollector) Collect(ch chan<- prometheus.Metric) {
+	reserved := make(map[string]struct{})
 	for _, w := range c.collect() {
 		labels := []string{w.ProviderID, labelOrUnknown(w.ProviderName), labelOrUnknown(w.Window)}
 		ch <- prometheus.MustNewConstMetric(quotaUsedDesc, prometheus.GaugeValue, w.Used, labels...)
 		if !w.ResetsAt.IsZero() {
 			ch <- prometheus.MustNewConstMetric(quotaResetDesc, prometheus.GaugeValue, float64(w.ResetsAt.Unix()), labels...)
+		}
+		if _, done := reserved[w.ProviderID]; w.Reserve > 0 && !done {
+			reserved[w.ProviderID] = struct{}{}
+			ch <- prometheus.MustNewConstMetric(quotaReserveDesc, prometheus.GaugeValue, w.Reserve, w.ProviderID, labelOrUnknown(w.ProviderName))
 		}
 	}
 }

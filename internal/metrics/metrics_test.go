@@ -249,7 +249,8 @@ func TestQuotaCollector(t *testing.T) {
 	reset := time.Unix(1_800_000_000, 0)
 	RegisterQuotaCollector(func() []QuotaWindow {
 		return []QuotaWindow{
-			{ProviderID: "prov-zai", ProviderName: "Z.ai", Window: "5h", Used: 0.42, ResetsAt: reset},
+			{ProviderID: "prov-zai", ProviderName: "Z.ai", Window: "5h", Used: 0.42, ResetsAt: reset, Reserve: 0.2},
+			{ProviderID: "prov-zai", ProviderName: "Z.ai", Window: "weekly", Used: 0.1, Reserve: 0.2},
 			{ProviderID: "prov-nw", ProviderName: "NeuralWatt", Window: "credits", Used: 1.5},
 		}
 	})
@@ -258,6 +259,7 @@ func TestQuotaCollector(t *testing.T) {
 		`modelhotel_provider_quota_used_ratio{provider="Z.ai",provider_id="prov-zai",window="5h"} 0.42`,
 		`modelhotel_provider_quota_resets_at_seconds{provider="Z.ai",provider_id="prov-zai",window="5h"} 1.8e+09`,
 		`modelhotel_provider_quota_used_ratio{provider="NeuralWatt",provider_id="prov-nw",window="credits"} 1.5`,
+		`modelhotel_provider_quota_reserve_ratio{provider="Z.ai",provider_id="prov-zai"} 0.2`,
 	} {
 		if !strings.Contains(out, want) {
 			t.Errorf("missing %s in:\n%s", want, out)
@@ -267,6 +269,10 @@ func TestQuotaCollector(t *testing.T) {
 	// a countdown panel would read as a rollover in 1970.
 	if strings.Contains(out, `modelhotel_provider_quota_resets_at_seconds{provider="NeuralWatt"`) {
 		t.Errorf("undated window must not emit a reset:\n%s", out)
+	}
+	// One reserve series per provider, not per window, and none without a reserve.
+	if strings.Count(out, `modelhotel_provider_quota_reserve_ratio{`) != 1 {
+		t.Errorf("want exactly one reserve series:\n%s", out)
 	}
 }
 

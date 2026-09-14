@@ -198,3 +198,59 @@ func TestWindows_ZaiCoding_PercentageAbove100IsNonsense(t *testing.T) {
 		t.Errorf("a 204 row stores null and states no window, got %+v", got)
 	}
 }
+func TestAssessWithReserve(t *testing.T) {
+	reset := time.Now().Add(3 * time.Hour).Truncate(time.Millisecond)
+	payload := func(pct float64) []byte {
+		b, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "percentage": pct, "nextResetTime": reset.UnixMilli()},
+		}}})
+		return b
+	}
+	now := time.Now()
+
+	// Below the line: the assessor's verdict stands.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(85)}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("85%% used with 10%% reserve: got %+v, want healthy", a)
+	}
+	// On the line: pinned to the window's own reset.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(90)}, 0.1, now); !a.OK || !a.Exhausted || !a.ResetsAt.Equal(reset) {
+		t.Errorf("90%% used with 10%% reserve: got %+v, want exhausted until %v", a, reset)
+	}
+	// Exactly on a line float64 renders a hair apart (30/100 is 0.3, 1 - 0.7
+	// is 0.30000000000000004): still pinned.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(30)}, 0.7, now); !a.Exhausted {
+		t.Errorf("30%% used with 70%% reserve: got %+v, want exhausted", a)
+	}
+	// No reserve: 90% is just usage.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(90)}, 0, now); a.Exhausted {
+		t.Errorf("no reserve: got %+v, want healthy", a)
+	}
+	// Spent outright: the assessor's own verdict, reserve or not.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(100)}, 0.5, now); !a.Exhausted {
+		t.Errorf("100%% used: got %+v, want exhausted", a)
+	}
+	// Unreadable stays unreadable: a reserve never invents an opinion.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: []byte(`null`)}, 0.5, now); a.OK {
+		t.Errorf("null payload: got %+v, want no opinion", a)
+	}
+	// An undated window past the line places no pin.
+	undated := []byte(`{"balance":{"total_credits_usd":10,"credits_used_usd":9.5},"subscription":{}}`)
+	if a := AssessWithReserve("neuralwatt", Snapshot{Payload: undated}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("undated credits past the line: got %+v, want the assessor's healthy verdict", a)
+	}
+	// A window the assessor never judges alone does not pin under a reserve
+	// either: Z.ai's MCP calls at 95% with a 10% reserve leave the tokens alone.
+	mcp, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
+		{"type": "TIME_LIMIT", "unit": 5, "percentage": 95, "nextResetTime": reset.UnixMilli()},
+		{"type": "TOKENS_LIMIT", "unit": 3, "percentage": 10, "nextResetTime": reset.UnixMilli()},
+	}}})
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: mcp}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("mcp window past the line: got %+v, want healthy", a)
+	}
+	// NeuralWatt's energy at 95% with a 10% reserve: the account still serves
+	// into overage, so no pin.
+	energy := []byte(`{"balance":{"total_credits_usd":10,"credits_used_usd":1},"subscription":{"kwh_included":4,"kwh_used":3.8,"current_period_end":"2030-01-01T00:00:00Z"}}`)
+	if a := AssessWithReserve("neuralwatt", Snapshot{Payload: energy}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("energy past the line: got %+v, want healthy", a)
+	}
+}

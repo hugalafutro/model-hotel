@@ -829,7 +829,10 @@
 			"autodiscoveryHelper": "Controlează descoperirea automată a modelelor. Dezactivează pentru a gestiona manual catalogul de modele al acestui furnizor.",
 			"maxInFlightLabel": "Cereri simultane maxime",
 			"maxInFlightPlaceholder": "Fără plafon",
-			"maxInFlightHelper": "Plafon strict pentru cererile simultane către acest furnizor. Lasă gol pentru niciun plafon; învățarea adaptivă continuă să se ajusteze dedesubt."
+			"maxInFlightHelper": "Plafon strict pentru cererile simultane către acest furnizor. Lasă gol pentru niciun plafon; învățarea adaptivă continuă să se ajusteze dedesubt.",
+			"quotaReserveLabel": "Rezervă de cotă",
+			"quotaReserveDrain": "Epuizează complet",
+			"quotaReserveHelper": "Partea din fiecare fereastră de abonament păstrată pentru utilizare în afara Model Hotel. Rutarea aici se oprește când într-o fereastră rămâne doar atât și se reia când aceasta se resetează. Răspund doar furnizorii cu ferestre de abonament, nu cei cu sold."
 		},
 		"quotas": {
 			"expand": "Extinderea cotelor"
@@ -1012,7 +1015,8 @@
 		"scheduled_disable_card_tooltip": "Dezactivare programată pentru {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Deschide site-ul furnizorului",
-		"card_tokens_tooltip": "Tokeni rutați prin acest furnizor din {{date}}, prompt și răspuns împreună"
+		"card_tokens_tooltip": "Tokeni rutați prin acest furnizor din {{date}}, prompt și răspuns împreună",
+		"quota_reserve_card_tooltip": "Se păstrează {{percent}}% din fiecare fereastră de cotă în rezervă"
 	},
 	"models": {
 		"page_title_one": "Model",

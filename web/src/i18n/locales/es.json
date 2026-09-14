@@ -829,7 +829,10 @@
 			"autodiscoveryHelper": "Controla la detección automática del modelo. Deshabilita para curar manualmente el catálogo de modelos de este proveedor.",
 			"maxInFlightLabel": "Máx. de peticiones simultáneas",
 			"maxInFlightPlaceholder": "Sin tope",
-			"maxInFlightHelper": "Tope estricto de peticiones simultáneas a este proveedor. Déjalo vacío para no aplicar tope; el aprendizaje adaptativo sigue ajustándose por debajo."
+			"maxInFlightHelper": "Tope estricto de peticiones simultáneas a este proveedor. Déjalo vacío para no aplicar tope; el aprendizaje adaptativo sigue ajustándose por debajo.",
+			"quotaReserveLabel": "Reserva de cuota",
+			"quotaReserveDrain": "Agotar por completo",
+			"quotaReserveHelper": "Parte de cada ventana de suscripción que se reserva para uso fuera de Model Hotel. El enrutamiento se detiene aquí cuando a una ventana solo le queda eso y se reanuda cuando se reinicia. Solo responden los proveedores con ventanas de suscripción, no los de saldo."
 		},
 		"quotas": {
 			"expand": "Expandir cuotas"
@@ -1012,7 +1015,8 @@
 		"scheduled_disable_card_tooltip": "Programado para desactivarse el {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Abrir el sitio web del proveedor",
-		"card_tokens_tooltip": "Tokens enrutados a través de este proveedor desde {{date}}, prompt y respuesta combinados"
+		"card_tokens_tooltip": "Tokens enrutados a través de este proveedor desde {{date}}, prompt y respuesta combinados",
+		"quota_reserve_card_tooltip": "Se reserva el {{percent}}% de cada ventana de cuota"
 	},
 	"models": {
 		"page_title_one": "Modelo",

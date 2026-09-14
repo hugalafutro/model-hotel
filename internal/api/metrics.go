@@ -106,6 +106,7 @@ func (h *Handler) collectQuotaWindows() []metrics.QuotaWindow {
 				Window:       w.Name,
 				Used:         w.Used,
 				ResetsAt:     w.ResetsAt,
+				Reserve:      float64(p.QuotaReservePercent) / 100,
 			})
 		}
 	}

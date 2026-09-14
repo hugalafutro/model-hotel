@@ -315,16 +315,20 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	}
 	typeByID := make(map[uuid.UUID]string, len(providers))
 	nameByID := make(map[uuid.UUID]string, len(providers))
+	reserveByID := make(map[uuid.UUID]float64, len(providers))
 	for _, p := range providers {
 		typeByID[p.ID] = provider.TypeOf(p)
 		nameByID[p.ID] = p.Name
+		if p.QuotaReservePercent > 0 {
+			reserveByID[p.ID] = float64(p.QuotaReservePercent) / 100
+		}
 	}
 
 	// recovered is computed in the same pass as the advice, over the same
 	// snapshots, so it costs no extra query. It is a separate map that is never
 	// handed to the advisor, so Replace taking ownership of the advice below
 	// cannot touch it.
-	advice, recovered := buildQuotaAdvice(snaps, typeByID, maxAge, time.Now())
+	advice, recovered := buildQuotaAdvice(snaps, typeByID, reserveByID, maxAge, time.Now())
 	advised := len(advice)
 
 	// Retarget the circuits that are already open before handing the map over:
@@ -428,9 +432,16 @@ func (h *Handler) DisableQuotaAdvice(ctx context.Context) {
 //     healthy) are all simply absent from both sets: they are unknowns, not
 //     recoveries, and the pin they would otherwise release is most likely still
 //     deserved.
+//
+// reserveByID carries each provider's quota reserve as a share (0.1 for 10%);
+// a provider absent from it drains fully. A window past its reserve line is
+// advised exactly like a spent one, so the same pin holds the provider dark
+// until the window resets, and the same recovered path releases it once the
+// reading drops back under the line.
 func buildQuotaAdvice(
 	snaps []quota.Snapshot,
 	typeByID map[uuid.UUID]string,
+	reserveByID map[uuid.UUID]float64,
 	maxAge time.Duration,
 	now time.Time,
 ) (advice map[uuid.UUID]time.Time, recovered map[uuid.UUID]struct{}) {
@@ -451,7 +462,7 @@ func buildQuotaAdvice(
 		if age, ok := util.TrustedAge(now, s.FetchedAt); !ok || age > maxAge {
 			continue
 		}
-		a := quota.Assess(typeByID[s.ProviderID], s)
+		a := quota.AssessWithReserve(typeByID[s.ProviderID], s, reserveByID[s.ProviderID], now)
 		if !a.OK {
 			continue
 		}

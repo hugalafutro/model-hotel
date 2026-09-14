@@ -90,6 +90,9 @@ func validateSyncedProvider(p ExportProvider) error {
 			return fmt.Errorf("%w: provider %q: scheduled_disable_on must be a YYYY-MM-DD date", errInvalidSyncedProvider, p.Name)
 		}
 	}
+	if r := p.QuotaReservePercent; r < 0 || r > 90 || r%10 != 0 {
+		return fmt.Errorf("%w: provider %q: quota_reserve_percent must be 0 or a multiple of 10 up to 90", errInvalidSyncedProvider, p.Name)
+	}
 	return nil
 }
 
@@ -165,8 +168,8 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 			debuglog.Info("configsync: renamed a local provider onto the envelope's spelling of the same name", "name", p.Name)
 		}
 		_, err = tx.Exec(ctx, `
-			INSERT INTO providers (name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, max_in_flight, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, now())
+			INSERT INTO providers (name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, max_in_flight, quota_reserve_percent, updated_at)
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, $12, now())
 			ON CONFLICT (name) DO UPDATE SET
 				base_url = EXCLUDED.base_url,
 				provider_type = EXCLUDED.provider_type,
@@ -178,8 +181,9 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 				autodiscovery_enabled = EXCLUDED.autodiscovery_enabled,
 				scheduled_disable_on = EXCLUDED.scheduled_disable_on,
 				max_in_flight = EXCLUDED.max_in_flight,
+				quota_reserve_percent = EXCLUDED.quota_reserve_percent,
 				updated_at = now()`,
-			p.Name, p.BaseURL, providerTypeForImport(p), p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn, p.MaxInFlight)
+			p.Name, p.BaseURL, providerTypeForImport(p), p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn, p.MaxInFlight, p.QuotaReservePercent)
 		if err != nil {
 			// No normalized-name refusal to translate here: the rename above has
 			// already moved this member's twin, if it had one, onto the name being

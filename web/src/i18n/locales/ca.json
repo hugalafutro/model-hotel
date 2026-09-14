@@ -829,7 +829,10 @@
 			"autodiscoveryHelper": "Controla el descobriment automàtic de models. Desactiva-ho per gestionar manualment el catàleg de models d'aquest proveïdor.",
 			"maxInFlightLabel": "Màx. de peticions simultànies",
 			"maxInFlightPlaceholder": "Sense sostre",
-			"maxInFlightHelper": "Sostre estricte de peticions simultànies a aquest proveïdor. Deixa-ho buit per no aplicar sostre; l'aprenentatge adaptatiu continua ajustant-se per sota."
+			"maxInFlightHelper": "Sostre estricte de peticions simultànies a aquest proveïdor. Deixa-ho buit per no aplicar sostre; l'aprenentatge adaptatiu continua ajustant-se per sota.",
+			"quotaReserveLabel": "Reserva de quota",
+			"quotaReserveDrain": "Esgotar del tot",
+			"quotaReserveHelper": "Part de cada finestra de subscripció que es reserva per a ús fora de Model Hotel. L'encaminament s'atura aquí quan a una finestra només li queda això i es reprèn quan es reinicia. Només hi responen els proveïdors amb finestres de subscripció, no els de saldo."
 		},
 		"quotas": {
 			"expand": "Ampliar les quotes"
@@ -1012,7 +1015,8 @@
 		"scheduled_disable_card_tooltip": "Programat per desactivar-se el {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Obre el lloc web del proveïdor",
-		"card_tokens_tooltip": "Tokens encaminats a través d'aquest proveïdor des de {{date}}, prompt i compleció combinats"
+		"card_tokens_tooltip": "Tokens encaminats a través d'aquest proveïdor des de {{date}}, prompt i compleció combinats",
+		"quota_reserve_card_tooltip": "Es reserva el {{percent}}% de cada finestra de quota"
 	},
 	"models": {
 		"page_title_one": "Model",

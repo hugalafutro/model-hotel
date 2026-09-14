@@ -383,6 +383,13 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	if req.QuotaReservePercent.Set && req.QuotaReservePercent.Value != nil {
+		if v := *req.QuotaReservePercent.Value; v < 0 || v > 90 || v%10 != 0 {
+			http.Error(w, "quota_reserve_percent must be 0 or a multiple of 10 up to 90", http.StatusBadRequest)
+			return
+		}
+	}
+
 	if req.ScheduledDisableOn.Set && req.ScheduledDisableOn.Value != nil {
 		v := *req.ScheduledDisableOn.Value
 		if _, err := time.Parse("2006-01-02", v); err != nil {
@@ -493,6 +500,16 @@ func (h *Handler) settleProviderUpdate(ctx context.Context, prior, p *provider.P
 	disabling := req.Enabled != nil && !*req.Enabled
 	enabling := prior != nil && !prior.Enabled && p.Enabled
 	h.settleProviderToggle(ctx, p, disabling, enabling)
+	// A stated reserve changes where the stored reading pins, so the advice is
+	// rebuilt from the snapshot on hand: raising it can pin the provider on the
+	// spot, lowering it releases a pin the old line placed, and neither should
+	// wait for the next poll. The prior row is only read for a key rotation, so
+	// presence in the request is the signal. An enable already refreshed above.
+	if !enabling && p.Enabled && req.QuotaReservePercent.Set {
+		refreshCtx, cancel := context.WithTimeout(ctx, enableQuotaRefreshTimeout)
+		defer cancel()
+		h.RefreshQuotaAdvice(refreshCtx)
+	}
 	if shouldRediscover(prior, p, req.APIKey != nil) {
 		h.rediscoverInBackground(ctx, p)
 	}

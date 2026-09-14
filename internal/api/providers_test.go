@@ -1393,3 +1393,47 @@ func TestUpdateProvider_TypeChangeRechecksStoredURL(t *testing.T) {
 		t.Fatalf("expected the HTTPS reason, got %q", w.Body.String())
 	}
 }
+
+// TestUpdateProvider_QuotaReserveBounds: the reserve is a slider in 10% steps
+// from 0 (drain) to 90, and the column's CHECK agrees, so anything else is a
+// 400 before the store is asked.
+func TestUpdateProvider_QuotaReserveBounds(t *testing.T) {
+	for _, tc := range []struct {
+		body string
+		want int
+	}{
+		{`{"quota_reserve_percent":0}`, http.StatusOK},
+		{`{"quota_reserve_percent":30}`, http.StatusOK},
+		{`{"quota_reserve_percent":90}`, http.StatusOK},
+		{`{"quota_reserve_percent":null}`, http.StatusOK},
+		{`{"quota_reserve_percent":15}`, http.StatusBadRequest},
+		{`{"quota_reserve_percent":100}`, http.StatusBadRequest},
+		{`{"quota_reserve_percent":-10}`, http.StatusBadRequest},
+	} {
+		t.Run(tc.body, func(t *testing.T) {
+			id := uuid.New()
+			var got provider.OptionalInt
+			mockProv := &mockProviderStore{
+				getFn: func(ctx context.Context, pid uuid.UUID) (*provider.Provider, error) {
+					return &provider.Provider{ID: pid, Name: "p", BaseURL: "https://api.example.com", Enabled: true}, nil
+				},
+				updateFn: func(ctx context.Context, pid uuid.UUID, req provider.UpdateProviderRequest, ek, kn, ks []byte) (*provider.Provider, error) {
+					got = req.QuotaReservePercent
+					return &provider.Provider{ID: pid, Name: "p", BaseURL: "https://api.example.com", Enabled: true}, nil
+				},
+			}
+			h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+			req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), bytes.NewReader([]byte(tc.body)))
+			req = setChiURLParam(req, "id", id.String())
+
+			h.UpdateProvider(w, req)
+
+			if w.Code != tc.want {
+				t.Fatalf("got %d, want %d: %s", w.Code, tc.want, w.Body.String())
+			}
+			if tc.want == http.StatusOK && !got.Set {
+				t.Error("a stated reserve must reach the store with its presence flag")
+			}
+		})
+	}
+}

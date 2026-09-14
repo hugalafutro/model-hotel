@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { CalendarDays, Globe } from "@/lib/icons";
+import { CalendarDays, Globe, PiggyBank } from "@/lib/icons";
 import type { Provider } from "../../api/types";
 import { CapNoteBadge } from "../../components/CapNoteBadge";
 import { CopyablePill } from "../../components/CopyablePill";
@@ -89,6 +89,17 @@ export function ProviderCard({
 								})}
 							>
 								<CalendarDays size={16} />
+							</span>
+						)}
+						{provider.enabled && provider.quota_reserve_percent > 0 && (
+							<span
+								data-testid="quota-reserve-icon"
+								className="text-yellow-400 shrink-0 inline-flex"
+								title={t("providers.quota_reserve_card_tooltip", {
+									percent: provider.quota_reserve_percent,
+								})}
+							>
+								<PiggyBank size={16} />
 							</span>
 						)}
 						<span className="text-lg font-semibold text-white truncate">

@@ -829,7 +829,10 @@
 			"autodiscoveryHelper": "Controla a descoberta automática do modelo. Desative para curadoria manual do catálogo de modelo do provedor.",
 			"maxInFlightLabel": "Máx. de pedidos simultâneos",
 			"maxInFlightPlaceholder": "Sem teto",
-			"maxInFlightHelper": "Teto rígido de pedidos simultâneos a este fornecedor. Deixe vazio para nenhum teto; a aprendizagem adaptativa continua a ajustar-se por baixo."
+			"maxInFlightHelper": "Teto rígido de pedidos simultâneos a este fornecedor. Deixe vazio para nenhum teto; a aprendizagem adaptativa continua a ajustar-se por baixo.",
+			"quotaReserveLabel": "Reserva de cota",
+			"quotaReserveDrain": "Esgotar por completo",
+			"quotaReserveHelper": "Parte de cada janela de assinatura mantida para uso fora do Model Hotel. O roteamento para aqui quando resta só isso em uma janela e recomeça quando ela é redefinida. Só respondem provedores com janelas de assinatura, não os de saldo."
 		},
 		"quotas": {
 			"expand": "Expandir quotas"
@@ -1012,7 +1015,8 @@
 		"scheduled_disable_card_tooltip": "Desativação agendada para {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Abrir o site do provedor",
-		"card_tokens_tooltip": "Tokens roteados por este provedor desde {{date}}, prompt e resposta somados"
+		"card_tokens_tooltip": "Tokens roteados por este provedor desde {{date}}, prompt e resposta somados",
+		"quota_reserve_card_tooltip": "Mantendo {{percent}}% de cada janela de cota em reserva"
 	},
 	"models": {
 		"page_title_one": "Modelo",

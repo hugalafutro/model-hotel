@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "Otomatik model keşfini kontrol eder. Bu sağlayıcının model kataloğunu manuel olarak düzenlemek için devre dışı bırakın.",
 			"maxInFlightLabel": "Maks. eşzamanlı istek",
 			"maxInFlightPlaceholder": "Tavan yok",
-			"maxInFlightHelper": "Bu sağlayıcıya eşzamanlı istekler için katı tavan. Tavan istemiyorsanız boş bırakın; uyarlanabilir öğrenme altında ayarlanmaya devam eder."
+			"maxInFlightHelper": "Bu sağlayıcıya eşzamanlı istekler için katı tavan. Tavan istemiyorsanız boş bırakın; uyarlanabilir öğrenme altında ayarlanmaya devam eder.",
+			"quotaReserveLabel": "Kota rezervi",
+			"quotaReserveDrain": "Tamamen tüket",
+			"quotaReserveHelper": "Her abonelik penceresinin Model Hotel dışında kullanım için ayrılan payı. Bir pencerede yalnızca bu kadar kaldığında buraya yönlendirme durur, pencere sıfırlanınca yeniden başlar. Yalnızca abonelik pencereli sağlayıcılar tepki verir, bakiye sağlayıcıları vermez."
 		},
 		"quotas": {
 			"expand": "Kotaları genişlet"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "{{date}} tarihinde devre dışı bırakılmak üzere zamanlandı",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Sağlayıcının web sitesini aç",
-		"card_tokens_tooltip": "{{date}} tarihinden bu yana bu sağlayıcı üzerinden yönlendirilen tokenlar, istem ve yanıt toplamı"
+		"card_tokens_tooltip": "{{date}} tarihinden bu yana bu sağlayıcı üzerinden yönlendirilen tokenlar, istem ve yanıt toplamı",
+		"quota_reserve_card_tooltip": "Her kota penceresinin {{percent}}%'i rezervde tutuluyor"
 	},
 	"models": {
 		"page_title_one": "Model",

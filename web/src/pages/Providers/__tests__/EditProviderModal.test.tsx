@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Provider } from "../../../api/types";
 import { pad } from "../../../components/AccentCalendar.utils";
@@ -18,6 +18,7 @@ describe("EditProviderModal", () => {
 		autodiscovery_enabled: true,
 		scheduled_disable_on: null,
 		max_in_flight: null,
+		quota_reserve_percent: 0,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2024-01-01T00:00:00Z",
@@ -884,6 +885,26 @@ describe("EditProviderModal", () => {
 			);
 			const inputs = document.querySelectorAll("#edit-provider-max-in-flight");
 			expect((inputs[inputs.length - 1] as HTMLInputElement).value).toBe("3");
+		});
+
+		it("sends a moved quota reserve slider and nothing when it stays put", async () => {
+			const captured = capturePut();
+			const { user } = renderWithProviders(
+				<EditProviderModal {...defaultProps} />,
+			);
+			const slider = document.getElementById(
+				"edit-provider-quota-reserve",
+			) as HTMLInputElement;
+			expect(slider.value).toBe("0");
+			expect(screen.getByTestId("quota-reserve-value").textContent).toBe(
+				"Drain fully",
+			);
+			fireEvent.change(slider, { target: { value: "30" } });
+			expect(screen.getByTestId("quota-reserve-value").textContent).toBe("30%");
+			await user.click(screen.getByRole("button", { name: "Save Changes" }));
+			await waitFor(() => {
+				expect(captured.payload).toEqual({ quota_reserve_percent: 30 });
+			});
 		});
 
 		it("sends the entered ceiling as a number", async () => {

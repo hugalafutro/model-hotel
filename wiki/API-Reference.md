@@ -271,6 +271,7 @@ The admin token is generated on first startup and saved to `.data/admin-token`. 
     "enabled": true,
     "autodiscovery_enabled": true,
     "scheduled_disable_on": null,
+    "quota_reserve_percent": 0,
     "max_in_flight": null,
     "last_discovered_at": "2024-01-01T00:00:00Z",
     "last_used_at": "2024-01-01T00:00:00Z",
@@ -343,9 +344,9 @@ in `ALLOWED_PROVIDER_HOSTS` before the provider can be created.
 
 #### PUT `/api/providers/{id}`
 
-**Request Body:** all fields optional for partial update. Accepts `name`, `base_url`, `provider_type`, `api_key`, `enabled`, `autodiscovery_enabled`, `scheduled_disable_on` and `max_in_flight`; POST accepts only the first four of those.
+**Request Body:** all fields optional for partial update. Accepts `name`, `base_url`, `provider_type`, `api_key`, `enabled`, `autodiscovery_enabled`, `scheduled_disable_on`, `max_in_flight` and `quota_reserve_percent`; POST accepts only the first four of those.
 
-`provider_type` can be corrected here, which matters for a row the legacy hostname rules filed under the wrong type: re-adding the provider instead would cascade its models away. A new self-hosted type is probed exactly as on create, as is a changed `base_url`. `scheduled_disable_on` is an ISO date (`YYYY-MM-DD`) that must not be in the past, or `null` to clear it. `max_in_flight` caps the provider's concurrent upstream requests: `null` means no ceiling, and any number outside 1-10000 is a `400`.
+`provider_type` can be corrected here, which matters for a row the legacy hostname rules filed under the wrong type: re-adding the provider instead would cascade its models away. A new self-hosted type is probed exactly as on create, as is a changed `base_url`. `scheduled_disable_on` is an ISO date (`YYYY-MM-DD`) that must not be in the past, or `null` to clear it. `max_in_flight` caps the provider's concurrent upstream requests: `null` means no ceiling, and any number outside 1-10000 is a `400`. `quota_reserve_percent` is the share of every quota window kept back for use outside the gateway: `0` (the default) drains a window fully, `10` to `90` in steps of ten pins the provider once that much is left; `null` reads as `0`, anything else is a `400`. See [Quota reserve](Failover-and-Hotel-Routing#quota-reserve).
 
 #### DELETE `/api/providers/{id}`
 

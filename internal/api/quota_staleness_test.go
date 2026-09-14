@@ -58,9 +58,9 @@ func TestBuildQuotaAdvice_FutureStampIsNotEvidence(t *testing.T) {
 	}
 	id := uuid.New()
 
-	got, _ := buildQuotaAdvice(
-		[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(48 * time.Hour)}},
+	got, _ := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: payload, FetchedAt: now.Add(48 * time.Hour)}},
 		map[uuid.UUID]string{id: "zai-coding"},
+		nil,
 		15*time.Minute,
 		now,
 	)
