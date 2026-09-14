@@ -262,7 +262,9 @@
 			"errorRate": "Felfrekvens/{{range}}",
 			"avgDuration": "Genomsnittlig varaktighet/{{range}}",
 			"totalTokens": "Totala Tokens/{{range}}",
-			"avgTokensPerReq": "Avg Tokens/Req"
+			"avgTokensPerReq": "Avg Tokens/Req",
+			"spend": "Förbrukning/{{range}}",
+			"unpriced": "+{{n}} utan pris"
 		},
 		"gauge": {
 			"requestsPerRange": "Begäran/{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1D",
 			"1w": "1V"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Förfrågningar",
 			"tokens": "Tokens",
 			"errors": "fel",
 			"seconds": "sekunder",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Förbrukning"
+		},
+		"metricSpend": "Förbrukning"
 	},
 	"chat": {
 		"chat": "Chatt",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Avbruten",
 			"cacheInflated": "Inflated by prompt cache hits",
 			"keyDeleted": "Borttagen",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Kostnad"
 		},
 		"tooltip": {
 			"timeDate": "Tidsstämpel för begäran",
@@ -1390,7 +1391,8 @@
 			"dial": "Uppkoppling (DNS+TCP)",
 			"settingsReads": "Läser inställningar",
 			"reused": "återanvänd",
-			"ip": "Klientens IP-adress som begäran kom från"
+			"ip": "Klientens IP-adress som begäran kom från",
+			"cost": "Vad begäran kostade till modellens sparade priser"
 		},
 		"status": {
 			"interrupted": "Avbruten"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "vid liv",
 			"attemptBreakerSkipped": "överhoppad",
 			"attemptBreakerDisabled": "inaktiverad",
-			"attemptSuperseded": "omsprungen"
+			"attemptSuperseded": "omsprungen",
+			"cost": "Kostnad",
+			"unpriced": "Utan pris"
 		},
 		"statusBadge": {
 			"streaming": "Strömning",

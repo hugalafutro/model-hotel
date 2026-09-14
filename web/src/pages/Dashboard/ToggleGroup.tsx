@@ -10,11 +10,14 @@ function ToggleGroup<T extends string>({
 	value,
 	onChange,
 	getLabel,
+	getTitle,
 }: {
 	options: readonly T[];
 	value: T;
 	onChange: (v: T) => void;
 	getLabel: (v: T) => string;
+	/** The full word behind an abbreviated label: hover text and accessible name. */
+	getTitle?: (v: T) => string;
 }) {
 	return (
 		<div className="flex items-center gap-px">
@@ -25,6 +28,8 @@ function ToggleGroup<T extends string>({
 						type="button"
 						key={opt}
 						onClick={() => onChange(opt)}
+						title={getTitle?.(opt)}
+						aria-label={getTitle?.(opt)}
 						className={`ui-tab px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors ${
 							active
 								? "ui-tab-active"
@@ -70,16 +75,27 @@ export function MetricToggle({
 	onChange: (v: MetricType) => void;
 }) {
 	const { t } = useTranslation();
+	// One character each, the same in every language; the word rides the
+	// tooltip. Spend is the dollar sign because every price is in US dollars.
 	const labels: Record<MetricType, string> = {
-		tokens: t("dashboard.metric.tokens"),
-		requests: t("dashboard.metric.requests"),
+		tokens: "T",
+		requests: "R",
+		cost: "$",
+	};
+	const titles: Record<MetricType, string> = {
+		tokens: t("dashboard.label.tokens"),
+		requests: t("dashboard.label.requests"),
+		// The visible "$" is not part of the word, so the name carries both:
+		// voice control can then say either.
+		cost: `${t("dashboard.label.spend")} ($)`,
 	};
 	return (
 		<ToggleGroup
-			options={["tokens", "requests"] as const}
+			options={["tokens", "requests", "cost"] as const}
 			value={value}
 			onChange={onChange}
 			getLabel={(m) => labels[m]}
+			getTitle={(m) => titles[m]}
 		/>
 	);
 }

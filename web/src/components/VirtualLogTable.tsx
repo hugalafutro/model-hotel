@@ -121,6 +121,9 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 								<th className={HEADER_BASE} title={t("logs.table.tps")}>
 									{t("logs.table.tps")}
 								</th>
+								<th className={HEADER_BASE} title={t("logs.table.cost")}>
+									{t("logs.table.cost")}
+								</th>
 								<th className={HEADER_BASE} title={t("logs.table.headers")}>
 									{t("logs.table.headers")}
 								</th>

@@ -33,6 +33,7 @@ export function TimeSeriesChart({
 	showToggle = true,
 	scale = 1,
 	loading,
+	formatValue,
 }: {
 	data: TimeSeriesDataPoint[];
 	range: Range;
@@ -50,6 +51,8 @@ export function TimeSeriesChart({
 	showToggle?: boolean;
 	scale?: number;
 	loading?: boolean;
+	/** Renders axis ticks and tooltip values; defaults to the compact number form. */
+	formatValue?: (v: number) => string;
 }) {
 	const { t } = useTranslation();
 	const { grid, text } = useMemo(() => {
@@ -292,7 +295,9 @@ export function TimeSeriesChart({
 							tickFormatter={(v: number) => {
 								const raw = Number(v) * scale;
 								const val = allowDecimals ? raw : Math.round(raw);
-								return formatAxisTick(val, allowDecimals);
+								return formatValue
+									? formatValue(val)
+									: formatAxisTick(val, allowDecimals);
 							}}
 						/>
 						<Tooltip
@@ -348,9 +353,11 @@ export function TimeSeriesChart({
 														{displayLabel}:
 													</span>
 													<span style={{ fontWeight: 600 }}>
-														{val.toLocaleString(undefined, {
-															maximumFractionDigits: allowDecimals ? 2 : 0,
-														})}
+														{formatValue
+															? formatValue(val)
+															: val.toLocaleString(undefined, {
+																	maximumFractionDigits: allowDecimals ? 2 : 0,
+																})}
 													</span>
 												</div>
 											);

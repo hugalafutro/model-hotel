@@ -268,7 +268,9 @@
 			"errorRate": "Taxa d'errors /{{range}}",
 			"avgDuration": "Durada mitjana /{{range}}",
 			"totalTokens": "Tokens totals/{{range}}",
-			"avgTokensPerReq": "Mitjana de tokens per sol·licitud"
+			"avgTokensPerReq": "Mitjana de tokens per sol·licitud",
+			"spend": "Despesa/{{range}}",
+			"unpriced": "+{{n}} sense preu"
 		},
 		"gauge": {
 			"requestsPerRange": "Sol·licituds/{{range}}",
@@ -405,17 +407,15 @@
 			"24h": "1D",
 			"1w": "1S"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Sol·licituds",
 			"tokens": "Tokens",
 			"errors": "errors",
 			"seconds": "segons",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Despesa"
+		},
+		"metricSpend": "Despesa"
 	},
 	"chat": {
 		"chat": "Xat",
@@ -1412,7 +1412,8 @@
 			"interrupted": "Interromput",
 			"cacheInflated": "Inflat pels encerts de memòria cau del prompt",
 			"keyDeleted": "Eliminat",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Cost"
 		},
 		"tooltip": {
 			"timeDate": "Segell de temps de la sol·licitud",
@@ -1437,7 +1438,8 @@
 			"dial": "Connexió (DNS+TCP)",
 			"settingsReads": "Lectures de configuració",
 			"reused": "reutilitzat",
-			"ip": "Adreça IP del client des d'on va arribar la sol·licitud"
+			"ip": "Adreça IP del client des d'on va arribar la sol·licitud",
+			"cost": "Què ha costat la sol·licitud segons els preus desats del model"
 		},
 		"status": {
 			"interrupted": "Interromput"
@@ -2888,7 +2890,9 @@
 			"attemptBreakerAlive": "actiu",
 			"attemptBreakerSkipped": "omès",
 			"attemptBreakerDisabled": "desactivat",
-			"attemptSuperseded": "substituït"
+			"attemptSuperseded": "substituït",
+			"cost": "Cost",
+			"unpriced": "Sense preu"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

@@ -44,7 +44,7 @@ func (h *StatsHandler) statByModel(ctx context.Context, stats *StatsResponse, vk
 		return err
 	}
 	var modelID string
-	var val int64
+	var val float64
 	_, err = pgx.ForEachRow(rows, []any{&modelID, &val}, func() error {
 		stats.ByModel[modelID] = val
 		return nil
@@ -70,7 +70,7 @@ func (h *StatsHandler) statByProvider(ctx context.Context, stats *StatsResponse,
 		return err
 	}
 	var providerName string
-	var val int64
+	var val float64
 	_, err = pgx.ForEachRow(rows, []any{&providerName, &val}, func() error {
 		stats.ByProvider[providerName] = val
 		return nil
@@ -100,7 +100,7 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 		return err
 	}
 	var name string
-	var val int64
+	var val float64
 	if _, err := pgx.ForEachRow(rows, []any{&name, &val}, func() error {
 		stats.ByVirtualKey[name] = val
 		return nil
@@ -126,7 +126,7 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 			  AND rl.virtual_key_id IS NOT NULL
 			  AND NOT EXISTS (SELECT 1 FROM virtual_keys vk WHERE vk.id = rl.virtual_key_id)`
 
-		var deletedVal int64
+		var deletedVal float64
 		err = h.dbPool.QueryRow(ctx, deletedKeyQuery, since).Scan(&deletedVal)
 		if err == nil && deletedVal > 0 {
 			stats.ByVirtualKey["Deleted"] = deletedVal
@@ -135,7 +135,7 @@ func (h *StatsHandler) statByVirtualKey(ctx context.Context, stats *StatsRespons
 
 	// Query 4c: Chat and Arena -- stored via virtual_key_name for admin chat/arena routes
 	for _, keyName := range []string{"chat", "arena"} {
-		var val int64
+		var val float64
 		err = h.dbPool.QueryRow(ctx,
 			"SELECT "+metricValueSelect(metric)+
 				" FROM request_logs rl WHERE rl.created_at >= $1 AND rl.virtual_key_name = $2",
@@ -330,5 +330,23 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 		}); err != nil {
 			debuglog.Error("stats: read failed", "query", "by_provider_latency", "error", err)
 		}
+	}
+}
+
+// statSpend fills TotalCostUSD and RequestsUnpriced for the period, whatever
+// metric the breakdowns were asked for: the dashboard's spend tile reads them
+// from the same response as the token tile. Best-effort like the other
+// scalars: a failure logs and leaves both at zero. Unpriced is
+// judged by the status, not the provider column: deleting a provider nulls
+// provider_id on its rows (ON DELETE SET NULL), which would hide them.
+func (h *StatsHandler) statSpend(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, since time.Time) {
+	query := `
+		SELECT COALESCE(SUM(rl.cost_usd), 0),
+		       COUNT(*) FILTER (WHERE rl.cost_usd IS NULL AND rl.status_code >= 200 AND rl.status_code < 300)
+		FROM request_logs rl` + vkJoin + `
+		WHERE rl.created_at >= $1` + vkFilter
+	if err := h.dbPool.QueryRow(ctx, query, append([]any{since}, filterArgs...)...).Scan(&stats.TotalCostUSD, &stats.RequestsUnpriced); err != nil {
+		debuglog.Error("stats: query failed", "query", "spend", "error", err)
+		stats.TotalCostUSD, stats.RequestsUnpriced = 0, 0
 	}
 }

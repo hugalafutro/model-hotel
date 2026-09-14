@@ -268,7 +268,9 @@
 			"errorRate": "Стопа грешака /{{range}}",
 			"avgDuration": "Просечно трајање /{{range}}",
 			"totalTokens": "Укупно токена /{{range}}",
-			"avgTokensPerReq": "Просечан број токена по захтеву"
+			"avgTokensPerReq": "Просечан број токена по захтеву",
+			"spend": "Потрошња/{{range}}",
+			"unpriced": "+{{n}} без цене"
 		},
 		"gauge": {
 			"requestsPerRange": "Захтеви /{{range}}",
@@ -405,17 +407,15 @@
 			"24h": "1Д",
 			"1w": "1Н"
 		},
-		"metric": {
-			"tokens": "Ток",
-			"requests": "Зах"
-		},
 		"label": {
 			"requests": "Захтеви",
 			"tokens": "Токени",
 			"errors": "грешке",
 			"seconds": "секунде",
-			"requestsPerQuery": "Т/Рк"
-		}
+			"requestsPerQuery": "Т/Рк",
+			"spend": "Потрошња"
+		},
+		"metricSpend": "Потрошња"
 	},
 	"chat": {
 		"chat": "Чет",
@@ -1412,7 +1412,8 @@
 			"interrupted": "Прекинуто",
 			"cacheInflated": "Увећано погоцима кеша упита",
 			"keyDeleted": "Избрисано",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Трошак"
 		},
 		"tooltip": {
 			"timeDate": "Временски печат захтева",
@@ -1437,7 +1438,8 @@
 			"dial": "Дијал (DNS+TCP)",
 			"settingsReads": "Читања подешавања",
 			"reused": "поново искоришћено",
-			"ip": "IP адреса клијента са које је захтев стигао"
+			"ip": "IP адреса клијента са које је захтев стигао",
+			"cost": "Колико је захтев коштао по сачуваним ценама модела"
 		},
 		"status": {
 			"interrupted": "Прекинуто"
@@ -2888,7 +2890,9 @@
 			"attemptBreakerAlive": "активан",
 			"attemptBreakerSkipped": "прескочено",
 			"attemptBreakerDisabled": "искључено",
-			"attemptSuperseded": "престигнут"
+			"attemptSuperseded": "престигнут",
+			"cost": "Трошак",
+			"unpriced": "Без цене"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",

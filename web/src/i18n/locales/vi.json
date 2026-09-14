@@ -262,7 +262,9 @@
 			"errorRate": "Tỷ lệ lỗi/{{range}}",
 			"avgDuration": "Thời lượng trung bình/{{range}}",
 			"totalTokens": "Tổng số token/{{range}}",
-			"avgTokensPerReq": "Số token trung bình trên mỗi yêu cầu"
+			"avgTokensPerReq": "Số token trung bình trên mỗi yêu cầu",
+			"spend": "Chi tiêu/{{range}}",
+			"unpriced": "+{{n}} chưa định giá"
 		},
 		"gauge": {
 			"requestsPerRange": "Yêu cầu /{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1N",
 			"1w": "1T"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Yêu cầu",
 			"tokens": "Token",
 			"errors": "lỗi",
 			"seconds": "giây",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Chi tiêu"
+		},
+		"metricSpend": "Chi tiêu"
 	},
 	"chat": {
 		"chat": "Trò chuyện",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Bị gián đoạn",
 			"cacheInflated": "Tăng do các lần trúng bộ nhớ đệm lời nhắc",
 			"keyDeleted": "Đã xóa",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Chi phí"
 		},
 		"tooltip": {
 			"timeDate": "Dấu thời gian của yêu cầu",
@@ -1390,7 +1391,8 @@
 			"dial": "Quay số (DNS+TCP)",
 			"settingsReads": "Lượt đọc cài đặt",
 			"reused": "đã được tái sử dụng",
-			"ip": "Địa chỉ IP của máy khách gửi yêu cầu"
+			"ip": "Địa chỉ IP của máy khách gửi yêu cầu",
+			"cost": "Chi phí của yêu cầu theo giá đã lưu của mô hình"
 		},
 		"status": {
 			"interrupted": "Bị gián đoạn"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "hoạt động",
 			"attemptBreakerSkipped": "bỏ qua",
 			"attemptBreakerDisabled": "đã tắt",
-			"attemptSuperseded": "bị vượt"
+			"attemptSuperseded": "bị vượt",
+			"cost": "Chi phí",
+			"unpriced": "Chưa định giá"
 		},
 		"statusBadge": {
 			"streaming": "Phát trực tuyến",

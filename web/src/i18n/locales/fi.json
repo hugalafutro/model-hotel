@@ -262,7 +262,9 @@
 			"errorRate": "Virheprosentti/{{range}}",
 			"avgDuration": "Kesto /{{range}}",
 			"totalTokens": "Tokeneita/{{range}}",
-			"avgTokensPerReq": "Keskim. Tokeneita/Req"
+			"avgTokensPerReq": "Keskim. Tokeneita/Req",
+			"spend": "Kulutus/{{range}}",
+			"unpriced": "+{{n}} hinnoittelematta"
 		},
 		"gauge": {
 			"requestsPerRange": "Pyynnöt/{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1P",
 			"1w": "1V"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Pyynnöt",
 			"tokens": "Tokenit",
 			"errors": "virheet",
 			"seconds": "sekuntia",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Kulutus"
+		},
+		"metricSpend": "Kulutus"
 	},
 	"chat": {
 		"chat": "Keskustelu",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Keskeytetty",
 			"cacheInflated": "Kasvatettu kehotevälimuistin osumilla",
 			"keyDeleted": "Poistettu",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Hinta"
 		},
 		"tooltip": {
 			"timeDate": "Pyyntöön liittyvä aikaleima",
@@ -1390,7 +1391,8 @@
 			"dial": "Yhteydenotto (DNS+TCP)",
 			"settingsReads": "Asetukset Lukemat",
 			"reused": "uudelleenkäytetty",
-			"ip": "Asiakkaan IP-osoite, josta pyyntö tuli"
+			"ip": "Asiakkaan IP-osoite, josta pyyntö tuli",
+			"cost": "Mitä pyyntö maksoi mallin tallennetuilla hinnoilla"
 		},
 		"status": {
 			"interrupted": "Keskeytetty"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "elossa",
 			"attemptBreakerSkipped": "ohitettu",
 			"attemptBreakerDisabled": "pois käytöstä",
-			"attemptSuperseded": "ohitettu"
+			"attemptSuperseded": "ohitettu",
+			"cost": "Hinta",
+			"unpriced": "Hinnoittelematon"
 		},
 		"statusBadge": {
 			"streaming": "Suoratoistaminen",

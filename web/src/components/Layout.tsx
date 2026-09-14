@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { AlertTriangle } from "@/lib/icons";
 import { useTheme } from "../context/ThemeContext";
 import { useManaged } from "../hooks/useManaged";
@@ -38,6 +38,7 @@ function ReadOnlyBanner() {
 
 export function Layout({ children }: LayoutProps) {
 	const { t } = useTranslation();
+	const wideContent = useLocation().pathname.startsWith("/logs");
 	const { uiStyle } = useTheme();
 	// Separator between paired labels/counts in the sidebar. The terminal theme
 	// keeps a literal "/" (fits its monospace aesthetic); other themes use a
@@ -81,7 +82,12 @@ export function Layout({ children }: LayoutProps) {
 			</aside>
 
 			<main className="flex-1 ui-main overflow-auto">
-				<div className="p-2 max-w-7xl mx-auto h-full">
+				{/* The request log's thirteen fitted columns need more than the
+				    80rem every other page reads well at, so that route alone gets
+				    a wider column instead of a horizontal scrollbar. */}
+				<div
+					className={`p-2 mx-auto h-full ${wideContent ? "max-w-[88rem]" : "max-w-7xl"}`}
+				>
 					<ReadOnlyBanner />
 					{children}
 				</div>

@@ -112,7 +112,7 @@ func TestStatsQueries_ReadFailurePropagates(t *testing.T) {
 	ctx := context.Background()
 	since := time.Now().Add(-24 * time.Hour)
 
-	warm := &StatsResponse{ByVirtualKey: map[string]int64{}}
+	warm := &StatsResponse{ByVirtualKey: map[string]float64{}}
 	if err := h.statByVirtualKey(ctx, warm, "requests", since, true, ""); err != nil {
 		t.Fatalf("warm-up statByVirtualKey: %v", err)
 	}
@@ -120,7 +120,7 @@ func TestStatsQueries_ReadFailurePropagates(t *testing.T) {
 
 	unlock := lock()
 	defer unlock()
-	stats := &StatsResponse{ByVirtualKey: map[string]int64{}}
+	stats := &StatsResponse{ByVirtualKey: map[string]float64{}}
 	if err := h.statByVirtualKey(ctx, stats, "requests", since, true, ""); err == nil {
 		t.Error("statByVirtualKey: want read error under lock, got nil")
 	}

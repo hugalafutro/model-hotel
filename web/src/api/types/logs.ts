@@ -30,6 +30,8 @@ export interface LogEntry {
 	tokens_completion: number;
 	tokens_prompt_cache_hit: number;
 	tokens_prompt_cache_miss: number;
+	/** What the request cost at its model's stored prices; null when unpriced. */
+	cost_usd?: number | null;
 	tokens_completion_reasoning: number;
 	streaming: boolean;
 	state: string;

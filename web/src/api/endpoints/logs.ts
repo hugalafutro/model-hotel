@@ -13,6 +13,7 @@ import type {
 	LogEntry,
 	LogsCursorResponse,
 	LogsResponse,
+	MetricType,
 	ProviderDistributionStats,
 	Stats,
 	TimeSeriesStats,
@@ -210,7 +211,7 @@ export const stats = {
 	get: async (opts?: {
 		period?: string;
 		excludeDeleted?: boolean;
-		metric?: "requests" | "tokens";
+		metric?: MetricType;
 		includeLatency?: boolean;
 		/** Admin-only filter: scope to keys owned by this user. */
 		ownerUserID?: string;

@@ -274,7 +274,9 @@
 			"errorRate": "Wskaźnik błędu/{{range}}",
 			"avgDuration": "Średni czas trwania /{{range}}",
 			"totalTokens": "Wszystkie tokeny /{{range}}",
-			"avgTokensPerReq": "Śr. tokeny / Req"
+			"avgTokensPerReq": "Śr. tokeny / Req",
+			"spend": "Wydatki/{{range}}",
+			"unpriced": "+{{n}} bez ceny"
 		},
 		"gauge": {
 			"requestsPerRange": "Żądania /{{range}}",
@@ -416,17 +418,15 @@
 			"24h": "1D",
 			"1w": "1T"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Żądania",
 			"tokens": "Tokeny",
 			"errors": "błędy",
 			"seconds": "sekundy",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Wydatki"
+		},
+		"metricSpend": "Wydatki"
 	},
 	"chat": {
 		"chat": "Czat",
@@ -1459,7 +1459,8 @@
 			"interrupted": "Przerwane",
 			"cacheInflated": "Zawyżone przez trafienia w pamięci podręcznej promptu",
 			"keyDeleted": "Usunięto",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Koszt"
 		},
 		"tooltip": {
 			"timeDate": "Znacznik czasu wniosku",
@@ -1484,7 +1485,8 @@
 			"dial": "Wybieranie (DNS+TCP)",
 			"settingsReads": "Odczyty ustawień",
 			"reused": "ponownie wykorzystane",
-			"ip": "Adres IP klienta, z którego przyszło żądanie"
+			"ip": "Adres IP klienta, z którego przyszło żądanie",
+			"cost": "Ile kosztowało żądanie według zapisanych cen modelu"
 		},
 		"status": {
 			"interrupted": "Przerwane"
@@ -2953,7 +2955,9 @@
 			"attemptBreakerAlive": "aktywny",
 			"attemptBreakerSkipped": "pominięto",
 			"attemptBreakerDisabled": "wyłączony",
-			"attemptSuperseded": "wyprzedzony"
+			"attemptSuperseded": "wyprzedzony",
+			"cost": "Koszt",
+			"unpriced": "Bez ceny"
 		},
 		"statusBadge": {
 			"streaming": "Strumieniowanie",

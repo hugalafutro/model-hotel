@@ -501,10 +501,10 @@ describe("Dashboard", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// Metric toggle buttons should be present (abbreviated as Tok/Req)
-			const tokButtons = screen.getAllByText("Tok");
+			// Metric toggle buttons should be present (single-character labels)
+			const tokButtons = screen.getAllByText("T");
 			expect(tokButtons.length).toBeGreaterThan(0);
-			const reqButtons = screen.getAllByText("Req");
+			const reqButtons = screen.getAllByText("R");
 			expect(reqButtons.length).toBeGreaterThan(0);
 		});
 	});
@@ -640,8 +640,8 @@ describe("Dashboard", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// Tokens should be selected by default (shown as "Tok")
-			const tokButtons = screen.getAllByText("Tok");
+			// Tokens should be selected by default (shown as "T")
+			const tokButtons = screen.getAllByText("T");
 			expect(tokButtons.length).toBeGreaterThan(0);
 		});
 	});
@@ -1141,8 +1141,8 @@ describe("Dashboard filter persistence", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Dashboard")).toBeInTheDocument();
 		});
-		// "Req" toggle should be active (accent-styled)
-		const allReq = screen.getAllByText("Req");
+		// "R" toggle should be active (accent-styled)
+		const allReq = screen.getAllByText("R");
 		const activeReq = allReq.find((el) =>
 			el.closest("button")?.classList.contains("ui-tab-active"),
 		);
@@ -1173,8 +1173,8 @@ describe("Dashboard filter persistence", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Dashboard")).toBeInTheDocument();
 		});
-		// "Req" should be active in the doughnut section
-		const allReq = screen.getAllByText("Req");
+		// "R" should be active in the doughnut section
+		const allReq = screen.getAllByText("R");
 		const activeReq = allReq.find((el) =>
 			el.closest("button")?.classList.contains("ui-tab-active"),
 		);
@@ -1212,8 +1212,8 @@ describe("Dashboard filter persistence", () => {
 			el.closest("button")?.classList.contains("ui-tab-active"),
 		);
 		expect(active1D).toBeTruthy();
-		// Default metric is "tokens" which shows as "Tok" - should be active
-		const allTok = screen.getAllByText("Tok");
+		// Default metric is "tokens" which shows as "T" - should be active
+		const allTok = screen.getAllByText("T");
 		const activeTok = allTok.find((el) =>
 			el.closest("button")?.classList.contains("ui-tab-active"),
 		);
@@ -1246,7 +1246,7 @@ describe("Dashboard filter persistence", () => {
 			expect(screen.getByText("Dashboard")).toBeInTheDocument();
 		});
 		// Should fall back to default "tokens" (Tok) instead of invalid value
-		const allTok = screen.getAllByText("Tok");
+		const allTok = screen.getAllByText("T");
 		const activeTok = allTok.find((el) =>
 			el.closest("button")?.classList.contains("ui-tab-active"),
 		);

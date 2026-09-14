@@ -103,14 +103,20 @@ export function UsageBarPanel({
 									)}
 									<span
 										className="font-semibold text-(--text-primary) ml-2 shrink-0"
+										// The hover carries the exact count behind a compact token
+										// figure; a spend figure is already exact, and rounding it
+										// to whole dollars would read as 0.
 										title={
-											formatValue ? formatWithCommas(entry.value) : undefined
+											formatValue && metric !== "cost"
+												? formatWithCommas(entry.value)
+												: undefined
 										}
 									>
 										{formatValue
 											? formatValue(entry.value)
 											: entry.value.toLocaleString()}
 										{metric !== undefined &&
+											metric !== "cost" &&
 											` ${t(
 												metric === "tokens"
 													? "dashboard.usage.tokens"

@@ -262,7 +262,9 @@
 			"errorRate": "Ποσοστό σφαλμάτων /{{range}}",
 			"avgDuration": "Μέση διάρκεια/{{range}}",
 			"totalTokens": "Σύνολο Tokens/{{range}}",
-			"avgTokensPerReq": "Μ.Ο. διακριτικών/αίτημα"
+			"avgTokensPerReq": "Μ.Ο. διακριτικών/αίτημα",
+			"spend": "Δαπάνη/{{range}}",
+			"unpriced": "+{{n}} χωρίς τιμή"
 		},
 		"gauge": {
 			"requestsPerRange": "Αιτήματα /{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1Η",
 			"1w": "1Ε"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Αιτήματα",
 			"tokens": "Διακριτικά",
 			"errors": "σφάλματα",
 			"seconds": "δευτερόλεπτα",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Δαπάνη"
+		},
+		"metricSpend": "Δαπάνη"
 	},
 	"chat": {
 		"chat": "Συνομιλία",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Διακόπηκε",
 			"cacheInflated": "Διογκωμένο από επιτυχίες προσωρινής μνήμης προτροπής",
 			"keyDeleted": "Διαγράφηκε",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Κόστος"
 		},
 		"tooltip": {
 			"timeDate": "Χρονοσήμανση της αίτησης",
@@ -1390,7 +1391,8 @@
 			"dial": "Κλήση (DNS+TCP)",
 			"settingsReads": "Ανάγνωση Ρυθμίσεων",
 			"reused": "επαναχρησιμοποίηση",
-			"ip": "Διεύθυνση IP του πελάτη από την οποία ήρθε το αίτημα"
+			"ip": "Διεύθυνση IP του πελάτη από την οποία ήρθε το αίτημα",
+			"cost": "Πόσο κόστισε το αίτημα με τις αποθηκευμένες τιμές του μοντέλου"
 		},
 		"status": {
 			"interrupted": "Διακόπηκε"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "ενεργός",
 			"attemptBreakerSkipped": "παραλείφθηκε",
 			"attemptBreakerDisabled": "απενεργοποιημένο",
-			"attemptSuperseded": "ξεπεράστηκε"
+			"attemptSuperseded": "ξεπεράστηκε",
+			"cost": "Κόστος",
+			"unpriced": "Χωρίς τιμή"
 		},
 		"statusBadge": {
 			"streaming": "Ροή",

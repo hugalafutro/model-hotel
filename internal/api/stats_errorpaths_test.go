@@ -21,9 +21,9 @@ func TestStats_QueryErrorPaths(t *testing.T) {
 
 	newStats := func() *StatsResponse {
 		return &StatsResponse{
-			ByModel:      make(map[string]int64),
-			ByProvider:   make(map[string]int64),
-			ByVirtualKey: make(map[string]int64),
+			ByModel:      make(map[string]float64),
+			ByProvider:   make(map[string]float64),
+			ByVirtualKey: make(map[string]float64),
 		}
 	}
 	now := time.Now().UTC()
@@ -75,9 +75,9 @@ func TestStats_StatTotalsFillsBothWindows(t *testing.T) {
 	now := time.Now().UTC()
 
 	stats := &StatsResponse{
-		ByModel:      make(map[string]int64),
-		ByProvider:   make(map[string]int64),
-		ByVirtualKey: make(map[string]int64),
+		ByModel:      make(map[string]float64),
+		ByProvider:   make(map[string]float64),
+		ByVirtualKey: make(map[string]float64),
 	}
 
 	err := handler.statTotals(ctx, stats, "", "", nil, now)

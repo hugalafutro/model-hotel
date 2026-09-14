@@ -262,7 +262,9 @@
 			"errorRate": "Error Rate/{{range}}",
 			"avgDuration": "Avg Duration/{{range}}",
 			"totalTokens": "Total Tokens/{{range}}",
-			"avgTokensPerReq": "Avg Tokens/Req"
+			"avgTokensPerReq": "Avg Tokens/Req",
+			"spend": "Spend/{{range}}",
+			"unpriced": "+{{n}} unpriced"
 		},
 		"gauge": {
 			"requestsPerRange": "Requests/{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1D",
 			"1w": "1W"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Requests",
 			"tokens": "Tokens",
 			"errors": "errors",
 			"seconds": "seconds",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Spend"
+		},
+		"metricSpend": "Spend"
 	},
 	"chat": {
 		"chat": "Chat",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Interrupted",
 			"cacheInflated": "Inflated by prompt cache hits",
 			"keyDeleted": "Deleted",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Cost"
 		},
 		"tooltip": {
 			"timeDate": "Timestamp of the request",
@@ -1390,7 +1391,8 @@
 			"dial": "Dial (DNS+TCP)",
 			"settingsReads": "Settings Reads",
 			"reused": "reused",
-			"ip": "Client IP address the request came from"
+			"ip": "Client IP address the request came from",
+			"cost": "What the request cost at the model's stored prices"
 		},
 		"status": {
 			"interrupted": "Interrupted"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "alive",
 			"attemptBreakerSkipped": "skipped",
 			"attemptBreakerDisabled": "disabled",
-			"attemptSuperseded": "superseded"
+			"attemptSuperseded": "superseded",
+			"cost": "Cost",
+			"unpriced": "Unpriced"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

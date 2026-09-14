@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../../api/types";
-import { formatNumber } from "../../utils/format";
+import { formatNumber, formatSpend } from "../../utils/format";
 import {
 	formatDurationCell,
 	formatMs,
@@ -15,7 +15,7 @@ import { Badge } from "../Badge";
 import { EndpointTypeBadge } from "./EndpointTypeBadge";
 
 /**
- * The twelve request-log cells, in LOG_COL_WIDTHS order. Both request-log
+ * The thirteen request-log cells, in LOG_COL_WIDTHS order. Both request-log
  * tables render them: the paginated row inside a `<Row>`, the virtual table
  * inside its measured `<tr>`.
  */
@@ -138,6 +138,9 @@ export function RequestLogCells({
 						{formatTPS(log.tokens_per_second)}
 					</span>
 				)}
+			</td>
+			<td className="px-2 py-1 whitespace-nowrap text-xs text-gray-400 font-mono">
+				{log.cost_usd == null ? "-" : formatSpend(log.cost_usd)}
 			</td>
 			{/* Headers and TTFT are real measurements even on a cancelled request:
 			    the response had begun before the client went away. */}

@@ -262,7 +262,9 @@
 			"errorRate": "错误率/{{range}}",
 			"avgDuration": "平均时长/{{range}}",
 			"totalTokens": "Token 总数/{{range}}",
-			"avgTokensPerReq": "平均 Token/请求"
+			"avgTokensPerReq": "平均 Token/请求",
+			"spend": "支出/{{range}}",
+			"unpriced": "+{{n}} 条未定价"
 		},
 		"gauge": {
 			"requestsPerRange": "请求/{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1天",
 			"1w": "1周"
 		},
-		"metric": {
-			"tokens": "令牌",
-			"requests": "请求"
-		},
 		"label": {
 			"requests": "请求",
 			"tokens": "令牌",
 			"errors": "错误",
 			"seconds": "秒",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "支出"
+		},
+		"metricSpend": "支出"
 	},
 	"chat": {
 		"chat": "聊天",
@@ -1365,7 +1365,8 @@
 			"interrupted": "已中断",
 			"cacheInflated": "因提示缓存命中而偏高",
 			"keyDeleted": "已删除",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "费用"
 		},
 		"tooltip": {
 			"timeDate": "请求的时间戳",
@@ -1390,7 +1391,8 @@
 			"dial": "拨号 (DNS+TCP)",
 			"settingsReads": "设置读取",
 			"reused": "已重新使用",
-			"ip": "请求来源的客户端 IP 地址"
+			"ip": "请求来源的客户端 IP 地址",
+			"cost": "按模型保存的价格计算的请求费用"
 		},
 		"status": {
 			"interrupted": "已中断"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "在线",
 			"attemptBreakerSkipped": "已跳过",
 			"attemptBreakerDisabled": "已禁用",
-			"attemptSuperseded": "已被取代"
+			"attemptSuperseded": "已被取代",
+			"cost": "费用",
+			"unpriced": "未定价"
 		},
 		"statusBadge": {
 			"streaming": "流式传输",

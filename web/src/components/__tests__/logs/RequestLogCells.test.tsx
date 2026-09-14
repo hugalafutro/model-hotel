@@ -53,16 +53,16 @@ function renderCells(overrides: Partial<LogEntry> = {}) {
 describe("RequestLogCells", () => {
 	it("renders one cell per log column", () => {
 		const { container } = renderCells();
-		expect(container.querySelectorAll("td")).toHaveLength(12);
+		expect(container.querySelectorAll("td")).toHaveLength(13);
 	});
 
 	it("tints the overhead only when a phase breakdown backs it", () => {
 		const { container } = renderCells({ parse_ms: 3 });
 		expect(
-			container.querySelectorAll("td")[9].querySelector("span")?.className,
+			container.querySelectorAll("td")[10].querySelector("span")?.className,
 		).toContain("text-(--accent)");
 
-		const plain = renderCells().container.querySelectorAll("td")[9];
+		const plain = renderCells().container.querySelectorAll("td")[10];
 		expect(plain.querySelector("span")?.className).toContain("text-gray-400");
 	});
 
@@ -71,8 +71,8 @@ describe("RequestLogCells", () => {
 		// throw away a real number.
 		const { container } = renderCells({ error_message: "request cancelled" });
 		const cells = container.querySelectorAll("td");
-		expect(cells[6].textContent).toBe("12.0ms");
-		expect(cells[7].textContent).toBe("34.0ms");
+		expect(cells[7].textContent).toBe("12.0ms");
+		expect(cells[8].textContent).toBe("34.0ms");
 		// Tokens and throughput, which the cancel does invalidate, still collapse.
 		expect(cells[4].textContent).toBe("Interrupted");
 		expect(cells[5].textContent).toBe("-");
@@ -82,5 +82,16 @@ describe("RequestLogCells", () => {
 		renderCells({ provider_name: "Deleted", virtual_key_deleted: true });
 		expect(screen.getByTitle("Provider was deleted")).toBeInTheDocument();
 		expect(screen.getAllByText("Deleted")).toHaveLength(2);
+	});
+
+	it("shows the request's cost, and a dash when it was not priced", () => {
+		const priced = renderCells({ cost_usd: 0.0039 }).container.querySelectorAll(
+			"td",
+		);
+		expect(priced[6].textContent).toBe("$0.0039");
+		const unpriced = renderCells({ cost_usd: null }).container.querySelectorAll(
+			"td",
+		);
+		expect(unpriced[6].textContent).toBe("-");
 	});
 });

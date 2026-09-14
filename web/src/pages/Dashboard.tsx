@@ -5,6 +5,7 @@ import {
 	AlertTriangle,
 	ArrowUpRight,
 	Clock,
+	DollarSign,
 	Gauge as GaugeIcon,
 	Hash,
 	LayoutDashboard,
@@ -18,7 +19,7 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
 import { useIdentity } from "../context/IdentityContext";
-import { formatCompact, formatTokens } from "../utils/format";
+import { formatCompact, formatSpend, formatTokens } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
@@ -186,6 +187,23 @@ export function Dashboard() {
 			overlayDataKey="tokens_cache_hit"
 			overlayColor="var(--accent)"
 			overlayLabel={t("dashboard.chart.cacheHit")}
+			loading={tokenTsDataLoading}
+		/>
+	);
+	// Spend rides the token time series: the same buckets carry cost_usd.
+	const spendChart = (
+		<TimeSeriesChart
+			key="spend"
+			data={tokenAcData}
+			range={tokensChartRange}
+			onRangeChange={setTokensChartRange}
+			metric={t("dashboard.metricSpend")}
+			icon={DollarSign}
+			color={accents.spend}
+			label={t("dashboard.label.spend")}
+			dataKey="cost_usd"
+			allowDecimals
+			formatValue={formatSpend}
 			loading={tokenTsDataLoading}
 		/>
 	);
@@ -362,7 +380,9 @@ export function Dashboard() {
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 				{globalMetric === "requests"
 					? [requestsChart, tokensChart]
-					: [tokensChart, requestsChart]}
+					: globalMetric === "cost"
+						? [spendChart, requestsChart]
+						: [tokensChart, requestsChart]}
 			</div>
 
 			{/* Charts row: doughnut + token split */}
@@ -401,7 +421,13 @@ export function Dashboard() {
 					onMetricChange={setModelsMetric}
 					loading={modelsUsageLoading}
 					onEntryClick={handleModelClick}
-					formatValue={modelsMetric === "tokens" ? formatTokens : undefined}
+					formatValue={
+						modelsMetric === "tokens"
+							? formatTokens
+							: modelsMetric === "cost"
+								? formatSpend
+								: undefined
+					}
 				/>
 				<ProviderLatencyPanel
 					title={t("dashboard.providerLatency.title")}
@@ -421,7 +447,11 @@ export function Dashboard() {
 					onMetricChange={setVirtualKeysMetric}
 					loading={vkeysUsageLoading}
 					formatValue={
-						virtualKeysMetric === "tokens" ? formatTokens : undefined
+						virtualKeysMetric === "tokens"
+							? formatTokens
+							: virtualKeysMetric === "cost"
+								? formatSpend
+								: undefined
 					}
 				/>
 			</div>

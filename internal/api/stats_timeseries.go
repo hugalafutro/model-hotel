@@ -29,6 +29,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as tokens,
 			SUM(COALESCE(rl.tokens_prompt_cache_hit, 0)) as tokens_cache_hit,
 			SUM(COALESCE(rl.tokens_prompt_cache_miss, 0)) as tokens_cache_miss,
+			COALESCE(SUM(rl.cost_usd), 0) as cost_usd,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
 			COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as overhead_ms,
@@ -51,7 +52,7 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 	var p TimeSeriesPoint
 	var latency, overheadMs, providerLatencyMs, avgTTFTMs float64
 	var cacheHit, cacheMiss int
-	if _, err := pgx.ForEachRow(rows, []any{&p.Bucket, &p.Count, &p.Tokens, &cacheHit, &cacheMiss, &p.Errors, &latency, &overheadMs, &providerLatencyMs, &p.RateLimitHits, &avgTTFTMs}, func() error {
+	if _, err := pgx.ForEachRow(rows, []any{&p.Bucket, &p.Count, &p.Tokens, &cacheHit, &cacheMiss, &p.CostUSD, &p.Errors, &latency, &overheadMs, &providerLatencyMs, &p.RateLimitHits, &avgTTFTMs}, func() error {
 		p.Latency = latency
 		p.OverheadMs = overheadMs
 		p.ProviderLatencyMs = providerLatencyMs
@@ -131,10 +132,7 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 	vkFilter += ownerFrag
 
 	selectCol := metricValueSelect(metric)
-	havingClause := ""
-	if metric == "tokens" {
-		havingClause = " HAVING SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) > 0"
-	}
+	havingClause := metricValueHaving(metric)
 
 	query := `
 		SELECT p.name, ` + selectCol + `
@@ -154,10 +152,10 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 
 	type item struct {
 		Name string
-		Val  int
+		Val  float64
 	}
 	var items []item
-	total := 0
+	var total float64
 	var i item
 	if _, err := pgx.ForEachRow(rows, []any{&i.Name, &i.Val}, func() error {
 		total += i.Val
@@ -172,13 +170,16 @@ func (h *StatsHandler) GetProviderDistribution(w http.ResponseWriter, r *http.Re
 	rawShares := make([]float64, len(items))
 	for i, it := range items {
 		if total > 0 {
-			rawShares[i] = float64(it.Val) / float64(total) * 100
+			rawShares[i] = it.Val / total * 100
 		}
 		item := ProviderDistributionItem{Name: it.Name, Share: math.Round(rawShares[i]*10) / 10}
-		if metric == "tokens" {
-			item.Tokens = it.Val
-		} else {
-			item.Count = it.Val
+		switch metric {
+		case "tokens":
+			item.Tokens = int(it.Val)
+		case "cost":
+			item.CostUSD = it.Val
+		default:
+			item.Count = int(it.Val)
 		}
 		result.Items[i] = item
 	}

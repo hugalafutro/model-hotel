@@ -262,7 +262,9 @@
 			"errorRate": "Hibaarány /{{range}}",
 			"avgDuration": "Átlagos időtartam/{{range}}",
 			"totalTokens": "Összes token /{{range}}",
-			"avgTokensPerReq": "Átlagos tokenek/kérés"
+			"avgTokensPerReq": "Átlagos tokenek/kérés",
+			"spend": "Költés/{{range}}",
+			"unpriced": "+{{n}} ár nélkül"
 		},
 		"gauge": {
 			"requestsPerRange": "Kérések /{{range}}",
@@ -394,17 +396,15 @@
 			"24h": "1N",
 			"1w": "1H"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Kér"
-		},
 		"label": {
 			"requests": "Kérések",
 			"tokens": "Tokenek",
 			"errors": "hibák",
 			"seconds": "másodperc",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Költés"
+		},
+		"metricSpend": "Költés"
 	},
 	"chat": {
 		"chat": "Csevegés",
@@ -1365,7 +1365,8 @@
 			"interrupted": "Megszakítva",
 			"cacheInflated": "A prompt-cache találatai miatt megnövelt",
 			"keyDeleted": "Törölve",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Költség"
 		},
 		"tooltip": {
 			"timeDate": "A kérés időbélyege",
@@ -1390,7 +1391,8 @@
 			"dial": "Kapcsolódás (DNS+TCP)",
 			"settingsReads": "Beállítások megtekintése",
 			"reused": "újrahasznosított",
-			"ip": "A kliens IP-címe, ahonnan a kérés érkezett"
+			"ip": "A kliens IP-címe, ahonnan a kérés érkezett",
+			"cost": "Mennyibe került a kérés a modell tárolt árai szerint"
 		},
 		"status": {
 			"interrupted": "Megszakítva"
@@ -2823,7 +2825,9 @@
 			"attemptBreakerAlive": "él",
 			"attemptBreakerSkipped": "kihagyva",
 			"attemptBreakerDisabled": "letiltva",
-			"attemptSuperseded": "megelőzve"
+			"attemptSuperseded": "megelőzve",
+			"cost": "Költség",
+			"unpriced": "Ár nélkül"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

@@ -274,7 +274,9 @@
 			"errorRate": "Miera chýb/{{range}}",
 			"avgDuration": "Priemerná dĺžka trvania/{{range}}",
 			"totalTokens": "Celkový počet tokenov/{{range}}",
-			"avgTokensPerReq": "Priemerný počet tokenov na požiadavku"
+			"avgTokensPerReq": "Priemerný počet tokenov na požiadavku",
+			"spend": "Útrata/{{range}}",
+			"unpriced": "+{{n}} bez ceny"
 		},
 		"gauge": {
 			"requestsPerRange": "Žiadosti /{{range}}",
@@ -416,17 +418,15 @@
 			"24h": "1D",
 			"1w": "1T"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Žiadosti",
 			"tokens": "Tokeny",
 			"errors": "chyby",
 			"seconds": "sekúnd",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Útrata"
+		},
+		"metricSpend": "Útrata"
 	},
 	"chat": {
 		"chat": "Chat",
@@ -1459,7 +1459,8 @@
 			"interrupted": "Prerušené",
 			"cacheInflated": "Navýšené zásahmi do cache výziev",
 			"keyDeleted": "Odstránené",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Cena"
 		},
 		"tooltip": {
 			"timeDate": "Časová pečiatka požiadavky",
@@ -1484,7 +1485,8 @@
 			"dial": "Vytočenie (DNS+TCP)",
 			"settingsReads": "Čítania nastavení",
 			"reused": "opätovne použitý",
-			"ip": "IP adresa klienta, z ktorej požiadavka prišla"
+			"ip": "IP adresa klienta, z ktorej požiadavka prišla",
+			"cost": "Koľko požiadavka stála podľa uložených cien modelu"
 		},
 		"status": {
 			"interrupted": "Prerušené"
@@ -2953,7 +2955,9 @@
 			"attemptBreakerAlive": "živý",
 			"attemptBreakerSkipped": "preskočené",
 			"attemptBreakerDisabled": "vypnuté",
-			"attemptSuperseded": "predstihnutý"
+			"attemptSuperseded": "predstihnutý",
+			"cost": "Cena",
+			"unpriced": "Bez ceny"
 		},
 		"statusBadge": {
 			"streaming": "Streamovanie",

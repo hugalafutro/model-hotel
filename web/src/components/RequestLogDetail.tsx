@@ -6,6 +6,7 @@ import {
 	Calendar,
 	Clock,
 	DisclosureChevron,
+	DollarSign,
 	Gauge,
 	Globe,
 	Hash,
@@ -16,6 +17,7 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { LogEntry } from "../api/types";
+import { formatSpend } from "../utils/format";
 import { formatLogTimestamp } from "../utils/logBadgeUtils";
 import { formatMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
@@ -234,6 +236,15 @@ export function RequestLogDetail({
 					label={t("components.requestLogDetail.virtualKey")}
 					value={
 						requestLog.virtual_key_name || requestLog.virtual_key_id || "-"
+					}
+				/>
+				<DetailItem
+					icon={DollarSign}
+					label={t("components.requestLogDetail.cost")}
+					value={
+						requestLog.cost_usd == null
+							? t("components.requestLogDetail.unpriced")
+							: formatSpend(requestLog.cost_usd)
 					}
 				/>
 			</div>

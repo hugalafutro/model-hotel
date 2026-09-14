@@ -1076,9 +1076,9 @@ func TestStats_StatTotalsWithExcludeDeleted(t *testing.T) {
 	insertTestRequestLog(t, pool, uuid.New(), providerID, "test-model", 200, 100, 10, 20)
 
 	stats := &StatsResponse{
-		ByModel:      make(map[string]int64),
-		ByProvider:   make(map[string]int64),
-		ByVirtualKey: make(map[string]int64),
+		ByModel:      make(map[string]float64),
+		ByProvider:   make(map[string]float64),
+		ByVirtualKey: make(map[string]float64),
 	}
 	now := time.Now().UTC()
 

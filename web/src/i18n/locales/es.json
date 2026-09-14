@@ -268,7 +268,9 @@
 			"errorRate": "Tasa de error/{{range}}",
 			"avgDuration": "Duración media/{{range}}",
 			"totalTokens": "Total tokens/{{range}}",
-			"avgTokensPerReq": "Tokens medios/Req"
+			"avgTokensPerReq": "Tokens medios/Req",
+			"spend": "Gasto/{{range}}",
+			"unpriced": "+{{n}} sin precio"
 		},
 		"gauge": {
 			"requestsPerRange": "Solicitudes/{{range}}",
@@ -405,17 +407,15 @@
 			"24h": "1D",
 			"1w": "1S"
 		},
-		"metric": {
-			"tokens": "Tok",
-			"requests": "Req"
-		},
 		"label": {
 			"requests": "Solicitudes",
 			"tokens": "Tokens",
 			"errors": "errores",
 			"seconds": "segundos",
-			"requestsPerQuery": "T/Rq"
-		}
+			"requestsPerQuery": "T/Rq",
+			"spend": "Gasto"
+		},
+		"metricSpend": "Gasto"
 	},
 	"chat": {
 		"chat": "Chatear",
@@ -1412,7 +1412,8 @@
 			"interrupted": "Interrumpido",
 			"cacheInflated": "Inflado por aciertos de la caché de prompt",
 			"keyDeleted": "Eliminado",
-			"ip": "IP"
+			"ip": "IP",
+			"cost": "Coste"
 		},
 		"tooltip": {
 			"timeDate": "Marca de tiempo de la solicitud",
@@ -1437,7 +1438,8 @@
 			"dial": "Marcar (DNS+TCP)",
 			"settingsReads": "Lecturas de ajustes",
 			"reused": "reutilizado",
-			"ip": "Dirección IP del cliente desde la que llegó la solicitud"
+			"ip": "Dirección IP del cliente desde la que llegó la solicitud",
+			"cost": "Lo que costó la solicitud según los precios guardados del modelo"
 		},
 		"status": {
 			"interrupted": "Interrumpido"
@@ -2888,7 +2890,9 @@
 			"attemptBreakerAlive": "activo",
 			"attemptBreakerSkipped": "omitido",
 			"attemptBreakerDisabled": "desactivado",
-			"attemptSuperseded": "superado"
+			"attemptSuperseded": "superado",
+			"cost": "Coste",
+			"unpriced": "Sin precio"
 		},
 		"statusBadge": {
 			"streaming": "Transmisión",
