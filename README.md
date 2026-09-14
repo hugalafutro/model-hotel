@@ -161,7 +161,7 @@ Every request is logged with full latency decomposition:
 - **Total duration** (end-to-end wall time)
 - **Proxy overhead** split into request parsing, model/failover lookup, provider lookup, and key decryption
 - **Tokens per second**, prompt / completion counts
-- **Cost** in dollars, priced from the serving model's per-token prices (cache-hit tokens at the cache-hit price where the provider has one)
+- **Cost** in dollars, priced from the serving model's per-token prices (cache-hit tokens at the cache-hit price where the model has one)
 
 <p align="center">
  <img src="docs/screenshots/logs.png" alt="Requests" width="720">
@@ -171,12 +171,12 @@ Every request is logged with full latency decomposition:
 
 Streaming requests are captured as they start and updated as they finish, so you can see in-flight requests in the Logs view. The overhead breakdown helps you determine whether latency is coming from your provider or from the proxy itself.
 
-The Dashboard reads the same prices: its header toggles between tokens, requests and dollars (**T / R / $**), and in the `$` state the spend tile, the spend chart and the per-provider, per-model and per-key panels all show what the period cost. A model with no known prices meters at zero; the spend tile says how many requests went unpriced.
+The Dashboard reads the same prices: its header toggles between tokens, requests and dollars (**T / R / $**), and in the `$` state the spend tile, the spend chart and the per-provider, per-model and per-key panels all show what the period cost. A model with no known prices meters at zero; hovering the spend tile shows how many served requests went unpriced.
 
 <p align="center">
  <img src="docs/screenshots/dashboard_spend.png" alt="Dashboard in its spend view" width="720">
  <br>
- <sub>Dashboard in the `$` state: spend per week, per provider, per model and per key</sub>
+ <sub>Dashboard in the $ state: spend per week, per provider, per model and per key</sub>
 </p>
 
 ### [<img src="docs/icons/discovery.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Built-In Model Discovery](#-built-in-model-discovery)
@@ -211,10 +211,10 @@ Models that aren't covered by any built-in catalog are automatically enriched fr
 Every discovered model carries three classification fields with closed vocabularies. `input_modalities` lists what the model accepts (`text`, `image`, `audio`, `video`, `pdf`); `output_modalities` lists what it produces (`text`, `image`, `audio`, `video`, plus `embedding` and `rerank` for those endpoint families); and `modality` is an *endpoint class* derived from the arrays (`chat`, `embedding`, `rerank`, `image`, `video`, `tts`, or `stt`). The class is never hand-set per provider: one central deriver computes it after enrichment, so a vision chat model ("understands images") can't be confused with an image-generation model ("produces images"), and non-chat models are reliably kept out of the chat and arena pickers while remaining visible on `/v1/models` and in failover groups.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Model Health at a Glance](#-model-health-at-a-glance)
-Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT, Z.AI, Kimi Code, MiniMax and OpenCode Go providers show quota and usage data. All fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
+Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT, Z.AI, Kimi Code, MiniMax and OpenCode Go providers show quota and usage data; NeuralWatt providers show energy quota and credit balance (Standard plan or higher). All fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Provider Quotas & Usage](#-provider-quotas--usage)
-For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown - no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **Kimi Code** shows its 5-hour and weekly quotas plus parallel-request limit and membership tier; **MiniMax** shows its 5-hour and weekly Token Plan quotas by model class; **NanoGPT** shows weekly token and daily image quotas with subscription details; **OpenCode Go** shows its rolling 5-hour, weekly and monthly plan quotas with their reset times. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal - **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
+For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown - no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **Kimi Code** shows its 5-hour and weekly quotas plus parallel-request limit and membership tier; **MiniMax** shows its 5-hour and weekly Token Plan quotas by model class; **NanoGPT** shows weekly token and daily image quotas with subscription details; **OpenCode Go** shows its rolling 5-hour, weekly and monthly plan quotas with their reset times; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal - **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
 
 <p align="center">
   <a href="docs/screenshots/quota_openrouter.png"><img src="docs/screenshots/quota_openrouter.png" height="200" alt="OpenRouter credits & usage"></a>
