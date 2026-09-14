@@ -22,8 +22,9 @@ func (h *Handler) MetricsHandler() http.Handler {
 			out := make([]metrics.BreakerState, 0, len(statuses))
 			for _, s := range statuses {
 				out = append(out, metrics.BreakerState{
-					ProviderID: s.ProviderID,
-					State:      breakerStateCode(s.State),
+					ProviderID:   s.ProviderID,
+					ProviderName: s.ProviderName,
+					State:        breakerStateCode(s.State),
 				})
 			}
 			return out

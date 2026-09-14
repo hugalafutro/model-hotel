@@ -135,7 +135,7 @@ func (h *Handler) recordRateLimitOutcome(ctx context.Context, st *requestState, 
 		// "busy" about a closed circuit whose last answers were all 429s.
 		debuglog.Info("proxy: 429 classified saturated, circuit breaker not charged", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "retry_after", rl.retryAfter, "model", candidateModelID(candidate))
 		st.logData.noteBreaker(breakerNoop)
-		h.circuitBreaker.RecordSaturated(candidate.provider.ID, candidateModelID(candidate))
+		h.circuitBreaker.RecordSaturated(candidate.provider.ID, candidate.provider.Name, candidateModelID(candidate))
 	case rateLimitExhausted:
 		st.logData.noteBreaker(breakerCharge)
 		if !h.settingsRepo.GetBool(ctx, "circuit_breaker_open_on_exhaustion", true) {

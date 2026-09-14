@@ -349,6 +349,9 @@ const seededModel = "(account quota)"
 //
 // Must be called with cb.mu held; the line is handed to after, for the caller to
 // write once the lock is released.
+// A seeded circuit carries no provider name: the advice is keyed by id alone,
+// and the status row names the provider once the request path first touches
+// it. Until then the state gauge labels it unknown.
 func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID, resetsAt time.Time, maxPin time.Duration, r *cooldownReads) bool {
 	id := providerID.String()
 	if cb.accountPinned(cb.circuits[id], r) {

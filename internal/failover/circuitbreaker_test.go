@@ -213,6 +213,52 @@ func TestCircuitBreaker_ResetAllCountsOnlyBlockingCircuitsAsRecovered(t *testing
 	}
 }
 
+// TestCircuitBreaker_StatusCarriesTheProviderName pins that a status row names
+// the provider as the request path last reported it, and forgets the name with
+// the provider's circuits on a reset, so the metrics gauge and the dashboard
+// show a name rather than an id.
+func TestCircuitBreaker_StatusCarriesTheProviderName(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	cb.RecordFailure(id, "Provider X", "m1", Cause{Status: 503})
+	cb.RecordSuccess(id, "Provider X renamed", "m1")
+	var got string
+	for _, s := range cb.Status() {
+		if s.ProviderID == id.String() {
+			got = s.ProviderName
+		}
+	}
+	if got != "Provider X renamed" {
+		t.Fatalf("ProviderName = %q, want the name the last record carried", got)
+	}
+	cb.Reset(id)
+	for _, s := range cb.Status() {
+		if s.ProviderID == id.String() {
+			t.Fatalf("a reset provider still reported: %+v", s)
+		}
+	}
+	// The paths that open or hold a circuit on the first answer name it too:
+	// an exhaustion opens on its first event and a saturation creates the
+	// circuit without a charge, and both are what an operator looks up.
+	nameAfter := func(record func(cb *CircuitBreaker, id uuid.UUID)) string {
+		cb := NewCircuitBreaker(nil)
+		id := uuid.New()
+		record(cb, id)
+		for _, s := range cb.Status() {
+			if s.ProviderID == id.String() {
+				return s.ProviderName
+			}
+		}
+		return "<no row>"
+	}
+	if got := nameAfter(func(cb *CircuitBreaker, id uuid.UUID) { cb.RecordExhausted(id, "Quota Provider", "m1", 429, time.Hour) }); got != "Quota Provider" {
+		t.Errorf("name after an exhaustion = %q", got)
+	}
+	if got := nameAfter(func(cb *CircuitBreaker, id uuid.UUID) { cb.RecordSaturated(id, "Busy Provider", "m1") }); got != "Busy Provider" {
+		t.Errorf("name after a saturation = %q", got)
+	}
+}
+
 func TestCircuitBreaker_Status(t *testing.T) {
 	cb := newTestCB(1, 30*time.Second)
 	pid := uuid.New()

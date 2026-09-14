@@ -112,7 +112,7 @@ func TestMetricsHandler_ServesBreakerGauge(t *testing.T) {
 	h := &Handler{
 		cfg: &config.Config{MetricsToken: "tok"},
 		circuitBreaker: fakeBreakerReader{statuses: []failover.ProviderStatus{
-			{ProviderID: "prov-x", State: "open"},
+			{ProviderID: "prov-x", ProviderName: "Provider X", State: "open"},
 		}},
 	}
 	srv := h.MetricsHandler()
@@ -126,7 +126,7 @@ func TestMetricsHandler_ServesBreakerGauge(t *testing.T) {
 		t.Fatalf("status = %d, want 200", rr.Code)
 	}
 	body := rr.Body.String()
-	if !strings.Contains(body, `modelhotel_circuit_breaker_state{provider_id="prov-x"} 2`) {
+	if !strings.Contains(body, `modelhotel_circuit_breaker_state{provider="Provider X",provider_id="prov-x"} 2`) {
 		t.Errorf("expected open breaker gauge for prov-x, got:\n%s", body)
 	}
 }

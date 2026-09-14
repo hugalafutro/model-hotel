@@ -229,15 +229,17 @@ func TestRecordRetirementProbe(t *testing.T) {
 func TestBreakerCollector(t *testing.T) {
 	RegisterBreakerCollector(func() []BreakerState {
 		return []BreakerState{
-			{ProviderID: "prov-open", State: BreakerOpen},
+			{ProviderID: "prov-open", ProviderName: "Open Provider", State: BreakerOpen},
 			{ProviderID: "prov-closed", State: BreakerClosed},
 		}
 	})
 	out := scrape(t)
-	if !strings.Contains(out, `modelhotel_circuit_breaker_state{provider_id="prov-open"} 2`) {
+	if !strings.Contains(out, `modelhotel_circuit_breaker_state{provider="Open Provider",provider_id="prov-open"} 2`) {
 		t.Errorf("missing open breaker gauge:\n%s", out)
 	}
-	if !strings.Contains(out, `modelhotel_circuit_breaker_state{provider_id="prov-closed"} 0`) {
+	// A state with no name (a breaker that has not been told one) is labelled
+	// unknown, never dropped.
+	if !strings.Contains(out, `modelhotel_circuit_breaker_state{provider="unknown",provider_id="prov-closed"} 0`) {
 		t.Errorf("missing closed breaker gauge:\n%s", out)
 	}
 }
