@@ -599,6 +599,13 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 	if got := readCost(priced.id); got == nil || *got < 1.28-1e-9 || *got > 1.28+1e-9 {
 		t.Errorf("priced cost_usd = %v, want 1.28", got)
 	}
+	var reasoning int
+	if err := h.dbPool.QueryRow(ctx, `SELECT tokens_completion_reasoning FROM request_logs WHERE id = $1`, priced.id).Scan(&reasoning); err != nil {
+		t.Fatalf("read reasoning tokens: %v", err)
+	}
+	if reasoning != 200_000 {
+		t.Errorf("tokens_completion_reasoning = %d, want 200000 recorded as the breakdown", reasoning)
+	}
 
 	// An interim streaming write stamps nothing: usage is not in yet.
 	streaming := newRow()
