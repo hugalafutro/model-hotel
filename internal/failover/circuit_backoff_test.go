@@ -287,7 +287,7 @@ func TestCircuitBreaker_RetargetedPinIsFlooredAtTheBackoff(t *testing.T) {
 
 	// One change, and it is the seed: the same advice opens an account circuit
 	// for this exhausted provider. The backed-off circuit is not retargeted.
-	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(3 * time.Minute)}); n != 1 {
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(3 * time.Minute)}, nil); n != 1 {
 		t.Errorf("ApplyQuotaPins changed %d circuits with advice shorter than the backoff, want only the seed", n)
 	}
 	// Read the circuit itself, not the provider row: the seeded circuit shares
@@ -297,7 +297,7 @@ func TestCircuitBreaker_RetargetedPinIsFlooredAtTheBackoff(t *testing.T) {
 	if o := overrideFor(t, cb, id); o != 0 {
 		t.Errorf("got override %v after a too-short retarget, want none: the backoff is the floor", o)
 	}
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(10 * time.Hour)})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(10 * time.Hour)}, nil)
 	if o := overrideFor(t, cb, id); o < 9*time.Hour {
 		t.Errorf("got override %v with advice beyond the backoff, want roughly 10h", o)
 	}
@@ -396,7 +396,7 @@ func TestCircuitBreaker_RetargetedPinIsFlooredAtARaisedBase(t *testing.T) {
 	backOffOnce(t, cb, id)
 	settings.cooldown = 10 * time.Minute
 
-	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Minute)}); n != 0 {
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Minute)}, nil); n != 0 {
 		t.Errorf("ApplyQuotaPins retargeted %d circuits with advice below the raised base, want 0", n)
 	}
 	if s := onlyStatus(t, cb); s.QuotaPinned || s.CooldownMs != (10*time.Minute).Milliseconds() {

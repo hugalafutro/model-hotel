@@ -42,7 +42,7 @@ func (f fakeBreakerReader) ReleaseAllQuotaPins() int {
 	panic("metrics must never mutate quota pins")
 }
 
-func (f fakeBreakerReader) ApplyQuotaPins(map[uuid.UUID]time.Time) int {
+func (f fakeBreakerReader) ApplyQuotaPins(map[uuid.UUID]time.Time, map[uuid.UUID]string) int {
 	panic("metrics must never mutate quota pins")
 }
 
