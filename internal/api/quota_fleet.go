@@ -148,17 +148,10 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 	}
 
 	applied, skipped, err := h.storeSnapshots(r.Context(), in.Snapshots)
-	if err != nil {
-		// The sender hung up mid-batch (a Front Desk restart or its own
-		// timeout); the next push carries the same snapshots.
-		if respondAbandoned(w, "snapshot push", err) {
-			return
-		}
-		respondError(w, "failed to store snapshots", err, http.StatusInternalServerError)
-		return
-	}
 	// Only when something landed: a distribution that wrote nothing new changed
-	// no evidence, and the pass walks every snapshot and every circuit.
+	// no evidence, and the pass walks every snapshot and every circuit. Rows
+	// that landed before a later one failed are evidence too, so the pass runs
+	// ahead of the error answer.
 	if applied > 0 && h.onApplied != nil {
 		// Detached from the pushing peer's request, with a budget of its own,
 		// the same shape runQuotaNudge uses. The rebuild fails closed: a read it
@@ -170,6 +163,15 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 		passCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), quotaNudgeTimeout)
 		defer cancel()
 		h.onApplied(passCtx)
+	}
+	if err != nil {
+		// The sender hung up mid-batch (a Front Desk restart or its own
+		// timeout); the next push carries the same snapshots.
+		if respondAbandoned(w, "snapshot push", err) {
+			return
+		}
+		respondError(w, "failed to store snapshots", err, http.StatusInternalServerError)
+		return
 	}
 	writeJSON(w, map[string]any{"applied": applied, "skipped": skipped})
 }

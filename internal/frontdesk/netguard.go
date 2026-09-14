@@ -26,7 +26,11 @@ import (
 //     probe (carrying the member's admin Bearer token) somewhere else.
 func newProbeClient(timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{
-		Timeout:   timeout,
+		// A member that does not answer a connection attempt within the probe
+		// budget is unreachable whatever the request's own budget is; a longer
+		// dial would only stretch a sequential round (announce, sync) across
+		// dead members. The request timeout still governs the response.
+		Timeout:   min(timeout, httpProbeTimeout),
 		KeepAlive: 30 * time.Second,
 		Control:   netguard.DialControl,
 	}

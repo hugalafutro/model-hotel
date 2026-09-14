@@ -303,6 +303,9 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	// touches nothing.
 	storedID, _, err := h.settings.GetChecked(ctx, keyFleetFrontdeskID)
 	if err != nil {
+		if respondAbandoned(w, "fleet announce", err) {
+			return
+		}
 		respondError(w, "failed to read fleet ownership", err, http.StatusInternalServerError)
 		return
 	}
@@ -313,6 +316,9 @@ func (h *FleetHandler) Announce(w http.ResponseWriter, r *http.Request) {
 	if storedID != "" && storedID != req.FrontdeskID {
 		seen, _, serr := h.settings.GetChecked(ctx, keyFleetManagedSeenAt)
 		if serr != nil {
+			if respondAbandoned(w, "fleet announce", serr) {
+				return
+			}
 			respondError(w, "failed to read fleet heartbeat", serr, http.StatusInternalServerError)
 			return
 		}

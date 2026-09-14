@@ -510,6 +510,26 @@ func TestQuotaFleetReceiveInvalidBody(t *testing.T) {
 	}
 }
 
+// TestQuotaFleetReceiveStoreErrorIs500: a store failure that is this member's
+// own (here its route budget already spent, so the provider list fails on
+// context.DeadlineExceeded, not the caller's cancel) surfaces a 500.
+func TestQuotaFleetReceiveStoreErrorIs500(t *testing.T) {
+	h := newTestHandler(t)
+	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
+
+	ctx, cancel := context.WithDeadline(context.Background(), time.Now().Add(-time.Second))
+	defer cancel()
+	rr := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/config/quota-snapshots", strings.NewReader(`{"snapshots":[]}`)).WithContext(ctx)
+	fleet.ReceiveSnapshots(rr, req)
+	if rr.Code != http.StatusInternalServerError {
+		t.Fatalf("want 500 on a store error of this member's own, got %d: %s", rr.Code, rr.Body.String())
+	}
+	if !strings.Contains(rr.Body.String(), "failed to store snapshots") {
+		t.Fatalf("want the store error named, got %s", rr.Body.String())
+	}
+}
+
 // TestQuotaFleetReceiveSkipsUnknownProvider: a snapshot for a provider name not
 // present on this member is skipped, not applied.
 func TestQuotaFleetReceiveSkipsUnknownProvider(t *testing.T) {

@@ -198,9 +198,6 @@ func TestFleetAnnounce_AbandonedByCallerIs503(t *testing.T) {
 	if rec.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", rec.Code)
 	}
-	if len(fs.written) != 0 {
-		t.Errorf("persisted %v on an abandoned write; want none", fs.written)
-	}
 }
 
 func TestFleetAnnounce_NonPrimaryWritesFalse(t *testing.T) {

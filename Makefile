@@ -4,7 +4,8 @@ VERSION := $(shell cat .version 2>/dev/null || git describe --tags --always --di
 
 # The compose files every docker-* target loads. A gitignored Makefile.local can
 # append to it (COMPOSE_FILES += -f tools/observability/compose.yml) so a
-# rebuild keeps a local overlay instead of silently dropping it.
+# rebuild keeps a local overlay instead of silently dropping it. A value given
+# on the make command line replaces both this default and the local append.
 COMPOSE_FILES ?= -f docker-compose.yml -f compose.dev.yml
 -include Makefile.local
 # Full SHA of the commit this binary is built from, stamped into the API package
@@ -65,8 +66,10 @@ docker-build:
 	docker compose $(COMPOSE_FILES) down
 	VERSION=dev COMMIT=$(COMMIT) docker compose $(COMPOSE_FILES) up -d --build
 	@# BuildKit keeps every layer of every rebuild (about 5 GB each) unless told
-	@# otherwise; a day of rebuilds filled 84 GB. Trim to the newest 20 GB.
-	@docker builder prune -f --keep-storage 20GB >/dev/null
+	@# otherwise; a day of rebuilds filled 84 GB. Trim the daemon's whole build
+	@# cache (it is not per project) to its newest 20 GB; a failed trim does not
+	@# fail a rebuild that already succeeded.
+	-@docker builder prune -f --max-used-space 20GB >/dev/null
 
 docker-down:
 	docker compose $(COMPOSE_FILES) down
