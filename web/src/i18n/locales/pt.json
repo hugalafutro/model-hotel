@@ -3361,5 +3361,24 @@
 			"purged": "Registro de auditoria limpo",
 			"purgeFailed": "Não foi possível limpar o registro de auditoria"
 		}
+	},
+	"budget": {
+		"label": "Orçamento",
+		"amount": "Orçamento (USD)",
+		"period": "Período",
+		"none": "Sem orçamento",
+		"hint": "As solicitações são recusadas com 429 quando o gasto precificado do período atinge o orçamento. Deixe em branco para não ter orçamento.",
+		"tooltip": "Gasto precificado deste período em relação ao orçamento em dólares; as solicitações são recusadas com 429 ao atingi-lo",
+		"spent": "{{spent}} de {{budget}} {{period}}",
+		"periods": {
+			"day": "Por dia (UTC)",
+			"week": "Por semana (de segunda a domingo, UTC)",
+			"month": "Por mês (UTC)"
+		},
+		"periodNow": {
+			"day": "hoje",
+			"week": "esta semana",
+			"month": "este mês"
+		}
 	}
 }

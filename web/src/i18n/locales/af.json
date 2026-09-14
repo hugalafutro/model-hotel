@@ -3293,5 +3293,24 @@
 			"purged": "Ouditspoor uitgevee",
 			"purgeFailed": "Kon nie die ouditspoor uitvee nie"
 		}
+	},
+	"budget": {
+		"label": "Begroting",
+		"amount": "Begroting (USD)",
+		"period": "Tydperk",
+		"none": "Geen begroting",
+		"hint": "Versoeke word met 429 geweier sodra die geprysde besteding van die tydperk die begroting bereik. Laat leeg vir geen begroting.",
+		"tooltip": "Geprysde besteding hierdie tydperk teenoor die dollarbegroting; versoeke word met 429 geweier sodra dit bereik is",
+		"spent": "{{spent}} van {{budget}} {{period}}",
+		"periods": {
+			"day": "Per dag (UTC)",
+			"week": "Per week (Maandag tot Sondag, UTC)",
+			"month": "Per maand (UTC)"
+		},
+		"periodNow": {
+			"day": "vandag",
+			"week": "hierdie week",
+			"month": "hierdie maand"
+		}
 	}
 }

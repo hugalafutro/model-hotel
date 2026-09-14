@@ -4,6 +4,7 @@ import {
 	CalendarPlus,
 	Clock,
 	Coins,
+	DollarSign,
 	Fingerprint,
 	Gauge,
 	Key,
@@ -21,6 +22,8 @@ import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { formatNumber } from "../../utils/format";
+import { BudgetField } from "./BudgetField";
+import { budgetText } from "./budget";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
 import { RateLimitField } from "./RateLimitField";
 import { SectionHeader } from "./SectionHeader";
@@ -55,6 +58,10 @@ export function KeyDetailModal({
 		setEditBurst,
 		editTpm,
 		setEditTpm,
+		editBudgetUsd,
+		setEditBudgetUsd,
+		editBudgetPeriod,
+		setEditBudgetPeriod,
 		providerError,
 		confirmFields,
 		setConfirmFields,
@@ -172,6 +179,13 @@ export function KeyDetailModal({
 								value={editTpm}
 								onChange={setEditTpm}
 							/>
+							<BudgetField
+								idPrefix="vk-detail"
+								amount={editBudgetUsd}
+								period={editBudgetPeriod}
+								onAmountChange={setEditBudgetUsd}
+								onPeriodChange={setEditBudgetPeriod}
+							/>
 							<ProviderAccessPicker
 								cap={cap}
 								headingKey="virtualkeys.modal.sections.providerAccess"
@@ -268,6 +282,14 @@ export function KeyDetailModal({
 								label={t("virtualKeys.detail.tpm")}
 								labelExtra={<InfoHint tooltip={t("virtualkeys.tooltip.tpm")} />}
 								value={limitText(vk.rate_limit_tpm)}
+								mono
+							/>
+							<DetailItem
+								emphasis="stat"
+								icon={DollarSign}
+								label={t("budget.label")}
+								labelExtra={<InfoHint tooltip={t("budget.tooltip")} />}
+								value={budgetText(t, vk)}
 								mono
 							/>
 							<DetailItem

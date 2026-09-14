@@ -3429,5 +3429,24 @@
 			"purged": "Dziennik audytu wyczyszczony",
 			"purgeFailed": "Nie udało się wyczyścić dziennika audytu"
 		}
+	},
+	"budget": {
+		"label": "Budżet",
+		"amount": "Budżet (USD)",
+		"period": "Okres",
+		"none": "Brak budżetu",
+		"hint": "Żądania są odrzucane z kodem 429, gdy wycenione wydatki w okresie osiągną budżet. Pozostaw puste, aby nie ustawiać budżetu.",
+		"tooltip": "Wycenione wydatki w tym okresie względem budżetu w dolarach; po jego osiągnięciu żądania są odrzucane z kodem 429",
+		"spent": "{{spent}} z {{budget}} {{period}}",
+		"periods": {
+			"day": "Dziennie (UTC)",
+			"week": "Tygodniowo (od poniedziałku do niedzieli, UTC)",
+			"month": "Miesięcznie (UTC)"
+		},
+		"periodNow": {
+			"day": "dzisiaj",
+			"week": "w tym tygodniu",
+			"month": "w tym miesiącu"
+		}
 	}
 }

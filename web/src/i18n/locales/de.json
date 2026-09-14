@@ -3293,5 +3293,24 @@
 			"purged": "Audit-Protokoll gelöscht",
 			"purgeFailed": "Audit-Protokoll konnte nicht gelöscht werden"
 		}
+	},
+	"budget": {
+		"label": "Budget",
+		"amount": "Budget (USD)",
+		"period": "Zeitraum",
+		"none": "Kein Budget",
+		"hint": "Anfragen werden mit 429 abgelehnt, sobald die bepreisten Ausgaben des Zeitraums das Budget erreichen. Leer lassen für kein Budget.",
+		"tooltip": "Bepreiste Ausgaben in diesem Zeitraum gegenüber dem Dollar-Budget; Anfragen werden mit 429 abgelehnt, sobald es erreicht ist",
+		"spent": "{{spent}} von {{budget}} {{period}}",
+		"periods": {
+			"day": "Pro Tag (UTC)",
+			"week": "Pro Woche (Montag bis Sonntag, UTC)",
+			"month": "Pro Monat (UTC)"
+		},
+		"periodNow": {
+			"day": "heute",
+			"week": "diese Woche",
+			"month": "diesen Monat"
+		}
 	}
 }

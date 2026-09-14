@@ -3293,5 +3293,24 @@
 			"purged": "Auditointijälki tyhjennetty",
 			"purgeFailed": "Auditointijäljen tyhjennys epäonnistui"
 		}
+	},
+	"budget": {
+		"label": "Budjetti",
+		"amount": "Budjetti (USD)",
+		"period": "Jakso",
+		"none": "Ei budjettia",
+		"hint": "Pyynnöt hylätään koodilla 429, kun jakson hinnoiteltu kulutus saavuttaa budjetin. Jätä tyhjäksi, jos budjettia ei ole.",
+		"tooltip": "Tämän jakson hinnoiteltu kulutus suhteessa dollaribudjettiin; pyynnöt hylätään koodilla 429, kun se täyttyy",
+		"spent": "{{spent}} / {{budget}} {{period}}",
+		"periods": {
+			"day": "Päivässä (UTC)",
+			"week": "Viikossa (maanantaista sunnuntaihin, UTC)",
+			"month": "Kuukaudessa (UTC)"
+		},
+		"periodNow": {
+			"day": "tänään",
+			"week": "tällä viikolla",
+			"month": "tässä kuussa"
+		}
 	}
 }

@@ -23,6 +23,7 @@ import { useReadOnly } from "../../hooks/useReadOnly";
 import { useWheelPaging } from "../../hooks/useWheelPaging";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
 import { proxyOrigin } from "../../utils/snippets";
+import { budgetText } from "./budget";
 import { CreateKeyModal } from "./CreateKeyModal";
 import { KeyDetailModal } from "./KeyDetailModal";
 import { UsageSnippets } from "./UsageSnippets";
@@ -37,6 +38,16 @@ type VKSortField =
 	| "last_used";
 
 /** A per-key rate limit, or "Global" when the key inherits the setting. */
+/** Spend against the key's budget, or a muted "no budget". */
+function BudgetCell({ vk }: { vk: VirtualKey }) {
+	const { t } = useTranslation();
+	return vk.budget_usd != null ? (
+		<span className="text-gray-200">{budgetText(t, vk)}</span>
+	) : (
+		<span className="text-gray-500">{t("budget.none")}</span>
+	);
+}
+
 function LimitCell({ value }: { value: number | null | undefined }) {
 	const { t } = useTranslation();
 	return value != null ? (
@@ -246,6 +257,9 @@ export function VirtualKeys() {
 									onSort={handleSort}
 									tooltip={t("virtualkeys.tooltip.tpm")}
 								/>
+								<StaticHeader tooltip={t("budget.tooltip")}>
+									{t("budget.label")}
+								</StaticHeader>
 								<SortableHeader
 									label={t("virtualkeys.table.created")}
 									field="created"
@@ -362,6 +376,9 @@ export function VirtualKeys() {
 									</td>
 									<td className="px-4 py-3 text-sm font-mono">
 										<LimitCell value={vk.rate_limit_tpm} />
+									</td>
+									<td className="px-4 py-3 text-sm font-mono">
+										<BudgetCell vk={vk} />
 									</td>
 									<td className="px-4 py-3 text-sm text-gray-400">
 										{new Date(vk.created_at).toLocaleString()}

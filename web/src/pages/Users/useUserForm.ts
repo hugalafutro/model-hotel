@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type {
+	BudgetPeriod,
 	DashboardUser,
 	UserRole,
 	UserUpsertRequest,
@@ -47,6 +48,12 @@ export function useUserForm({
 	);
 	const [limitTpm, setLimitTpm] = useState(
 		user?.rate_limit_tpm?.toString() ?? "",
+	);
+	const [budgetUsd, setBudgetUsd] = useState(
+		user?.budget_usd?.toString() ?? "",
+	);
+	const [budgetPeriod, setBudgetPeriod] = useState<BudgetPeriod>(
+		user?.budget_period ?? "month",
 	);
 	// A stored cap is an explicit array; null/absent means "every provider".
 	// On create neither mode is preselected: capping a new account has to be a
@@ -114,6 +121,8 @@ export function useUserForm({
 		rate_limit_rps: limitRps !== "" ? parseFloat(limitRps) : null,
 		rate_limit_burst: limitBurst !== "" ? parseInt(limitBurst, 10) : null,
 		rate_limit_tpm: limitTpm !== "" ? parseInt(limitTpm, 10) : null,
+		budget_usd: budgetUsd !== "" ? parseFloat(budgetUsd) : null,
+		budget_period: budgetUsd !== "" ? budgetPeriod : null,
 		// Omitted when untouched (preserve), explicit null clears the cap.
 		// handleSave guarantees a mode was picked before anything is sent.
 		...(capUnchanged
@@ -241,6 +250,10 @@ export function useUserForm({
 		setLimitBurst,
 		limitTpm,
 		setLimitTpm,
+		budgetUsd,
+		setBudgetUsd,
+		budgetPeriod,
+		setBudgetPeriod,
 		providerMode,
 		selectedProviders,
 		providerError,

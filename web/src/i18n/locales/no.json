@@ -3293,5 +3293,24 @@
 			"purged": "Revisjonsspor tømt",
 			"purgeFailed": "Kunne ikke tømme revisjonssporet"
 		}
+	},
+	"budget": {
+		"label": "Budsjett",
+		"amount": "Budsjett (USD)",
+		"period": "Periode",
+		"none": "Ingen budsjett",
+		"hint": "Forespørsler avvises med 429 når periodens prissatte forbruk når budsjettet. La feltet stå tomt for ingen budsjett.",
+		"tooltip": "Prissatt forbruk i denne perioden mot dollarbudsjettet; forespørsler avvises med 429 når det er nådd",
+		"spent": "{{spent}} av {{budget}} {{period}}",
+		"periods": {
+			"day": "Per dag (UTC)",
+			"week": "Per uke (mandag til søndag, UTC)",
+			"month": "Per måned (UTC)"
+		},
+		"periodNow": {
+			"day": "i dag",
+			"week": "denne uken",
+			"month": "denne måneden"
+		}
 	}
 }

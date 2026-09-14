@@ -3293,5 +3293,24 @@
 			"purged": "Auditnapló törölve",
 			"purgeFailed": "Az auditnapló törlése nem sikerült"
 		}
+	},
+	"budget": {
+		"label": "Keret",
+		"amount": "Keret (USD)",
+		"period": "Időszak",
+		"none": "Nincs keret",
+		"hint": "A kérések 429-cel elutasításra kerülnek, amint az időszak beárazott költése eléri a keretet. Hagyja üresen, ha nincs keret.",
+		"tooltip": "Beárazott költés ebben az időszakban a dollárkerethez képest; a kérések 429-cel elutasításra kerülnek, amint eléri",
+		"spent": "{{spent}} / {{budget}} {{period}}",
+		"periods": {
+			"day": "Naponta (UTC)",
+			"week": "Hetente (hétfőtől vasárnapig, UTC)",
+			"month": "Havonta (UTC)"
+		},
+		"periodNow": {
+			"day": "ma",
+			"week": "ezen a héten",
+			"month": "ebben a hónapban"
+		}
 	}
 }

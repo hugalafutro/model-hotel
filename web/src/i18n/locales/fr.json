@@ -3361,5 +3361,24 @@
 			"purged": "Journal d'audit purgé",
 			"purgeFailed": "Impossible de purger le journal d'audit"
 		}
+	},
+	"budget": {
+		"label": "Budget",
+		"amount": "Budget (USD)",
+		"period": "Période",
+		"none": "Aucun budget",
+		"hint": "Les requêtes sont refusées avec 429 dès que la dépense tarifée de la période atteint le budget. Laissez vide pour aucun budget.",
+		"tooltip": "Dépense tarifée de cette période par rapport au budget en dollars ; les requêtes sont refusées avec 429 une fois qu'il est atteint",
+		"spent": "{{spent}} sur {{budget}} {{period}}",
+		"periods": {
+			"day": "Par jour (UTC)",
+			"week": "Par semaine (du lundi au dimanche, UTC)",
+			"month": "Par mois (UTC)"
+		},
+		"periodNow": {
+			"day": "aujourd'hui",
+			"week": "cette semaine",
+			"month": "ce mois-ci"
+		}
 	}
 }

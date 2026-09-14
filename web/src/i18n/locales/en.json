@@ -3293,5 +3293,24 @@
 			"purged": "Audit trail purged",
 			"purgeFailed": "Could not purge the audit trail"
 		}
+	},
+	"budget": {
+		"label": "Budget",
+		"amount": "Budget (USD)",
+		"period": "Period",
+		"none": "No budget",
+		"hint": "Requests are refused with 429 once the period's priced spend reaches the budget. Leave empty for no budget.",
+		"tooltip": "Priced spend this period against the dollar budget; requests are refused with 429 once it is reached",
+		"spent": "{{spent}} of {{budget}} {{period}}",
+		"periods": {
+			"day": "Per day (UTC)",
+			"week": "Per week (Monday to Sunday, UTC)",
+			"month": "Per month (UTC)"
+		},
+		"periodNow": {
+			"day": "today",
+			"week": "this week",
+			"month": "this month"
+		}
 	}
 }

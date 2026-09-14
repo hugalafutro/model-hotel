@@ -306,6 +306,25 @@
 		"ro",
 		"sk"
 	],
+	"budget.amount": [
+		"da",
+		"de",
+		"fr",
+		"it",
+		"nl",
+		"sv"
+	],
+	"budget.label": [
+		"da",
+		"de",
+		"fr",
+		"it",
+		"nl",
+		"sv"
+	],
+	"budget.period": [
+		"sv"
+	],
 	"chat.aria.removeImage": [
 		"ar",
 		"da",

@@ -3361,5 +3361,24 @@
 			"purged": "Registre d'auditoria buidat",
 			"purgeFailed": "No s'ha pogut buidar el registre d'auditoria"
 		}
+	},
+	"budget": {
+		"label": "Pressupost",
+		"amount": "Pressupost (USD)",
+		"period": "Període",
+		"none": "Sense pressupost",
+		"hint": "Les peticions es rebutgen amb 429 quan la despesa valorada del període arriba al pressupost. Deixa-ho buit per no tenir pressupost.",
+		"tooltip": "Despesa valorada d'aquest període respecte al pressupost en dòlars; les peticions es rebutgen amb 429 quan s'hi arriba",
+		"spent": "{{spent}} de {{budget}} {{period}}",
+		"periods": {
+			"day": "Per dia (UTC)",
+			"week": "Per setmana (de dilluns a diumenge, UTC)",
+			"month": "Per mes (UTC)"
+		},
+		"periodNow": {
+			"day": "avui",
+			"week": "aquesta setmana",
+			"month": "aquest mes"
+		}
 	}
 }

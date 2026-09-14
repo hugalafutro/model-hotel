@@ -3293,5 +3293,24 @@
 			"purged": "Granskningsspår rensat",
 			"purgeFailed": "Kunde inte rensa granskningsspåret"
 		}
+	},
+	"budget": {
+		"label": "Budget",
+		"amount": "Budget (USD)",
+		"period": "Period",
+		"none": "Ingen budget",
+		"hint": "Förfrågningar avvisas med 429 när periodens prissatta förbrukning når budgeten. Lämna tomt för ingen budget.",
+		"tooltip": "Prissatt förbrukning under denna period mot dollarbudgeten; förfrågningar avvisas med 429 när den är nådd",
+		"spent": "{{spent}} av {{budget}} {{period}}",
+		"periods": {
+			"day": "Per dag (UTC)",
+			"week": "Per vecka (måndag till söndag, UTC)",
+			"month": "Per månad (UTC)"
+		},
+		"periodNow": {
+			"day": "i dag",
+			"week": "den här veckan",
+			"month": "den här månaden"
+		}
 	}
 }

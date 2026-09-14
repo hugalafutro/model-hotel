@@ -3361,5 +3361,24 @@
 			"purged": "Registro di audit svuotato",
 			"purgeFailed": "Impossibile svuotare il registro di audit"
 		}
+	},
+	"budget": {
+		"label": "Budget",
+		"amount": "Budget (USD)",
+		"period": "Periodo",
+		"none": "Nessun budget",
+		"hint": "Le richieste vengono rifiutate con 429 quando la spesa prezzata del periodo raggiunge il budget. Lascia vuoto per nessun budget.",
+		"tooltip": "Spesa prezzata di questo periodo rispetto al budget in dollari; le richieste vengono rifiutate con 429 una volta raggiunto",
+		"spent": "{{spent}} di {{budget}} {{period}}",
+		"periods": {
+			"day": "Al giorno (UTC)",
+			"week": "A settimana (da lunedì a domenica, UTC)",
+			"month": "Al mese (UTC)"
+		},
+		"periodNow": {
+			"day": "oggi",
+			"week": "questa settimana",
+			"month": "questo mese"
+		}
 	}
 }

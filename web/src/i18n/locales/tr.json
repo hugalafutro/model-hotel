@@ -3293,5 +3293,24 @@
 			"purged": "Denetim kaydı temizlendi",
 			"purgeFailed": "Denetim kaydı temizlenemedi"
 		}
+	},
+	"budget": {
+		"label": "Bütçe",
+		"amount": "Bütçe (USD)",
+		"period": "Dönem",
+		"none": "Bütçe yok",
+		"hint": "Dönemin fiyatlandırılmış harcaması bütçeye ulaştığında istekler 429 ile reddedilir. Bütçe istemiyorsanız boş bırakın.",
+		"tooltip": "Bu dönemdeki fiyatlandırılmış harcamanın dolar bütçesine oranı; bütçeye ulaşıldığında istekler 429 ile reddedilir",
+		"spent": "{{period}} {{budget}} içinden {{spent}}",
+		"periods": {
+			"day": "Günlük (UTC)",
+			"week": "Haftalık (Pazartesi–Pazar, UTC)",
+			"month": "Aylık (UTC)"
+		},
+		"periodNow": {
+			"day": "bugün",
+			"week": "bu hafta",
+			"month": "bu ay"
+		}
 	}
 }

@@ -3293,5 +3293,24 @@
 			"purged": "审计记录已清除",
 			"purgeFailed": "无法清除审计记录"
 		}
+	},
+	"budget": {
+		"label": "预算",
+		"amount": "预算（美元）",
+		"period": "周期",
+		"none": "无预算",
+		"hint": "当本周期的计价支出达到预算时，请求将以 429 被拒绝。留空表示不设预算。",
+		"tooltip": "本周期的计价支出相对于美元预算；达到预算后请求将以 429 被拒绝",
+		"spent": "{{period}}已用 {{spent}}，预算 {{budget}}",
+		"periods": {
+			"day": "每天（UTC）",
+			"week": "每周（周一至周日，UTC）",
+			"month": "每月（UTC）"
+		},
+		"periodNow": {
+			"day": "今天",
+			"week": "本周",
+			"month": "本月"
+		}
 	}
 }

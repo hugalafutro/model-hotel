@@ -3,11 +3,12 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BrainSlashIcon, ChevronRight } from "@/lib/icons";
 import { api } from "../../api/client";
-import type { VirtualKey } from "../../api/types";
+import type { BudgetPeriod, VirtualKey } from "../../api/types";
 import { CopyablePill } from "../../components/CopyablePill";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useIdentity } from "../../context/IdentityContext";
+import { BudgetField } from "./BudgetField";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
 import { RateLimitField } from "./RateLimitField";
 import { SectionHeader } from "./SectionHeader";
@@ -29,6 +30,8 @@ export function CreateKeyModal({
 	const [rateLimitRps, setRateLimitRps] = useState<string>("");
 	const [rateLimitBurst, setRateLimitBurst] = useState<string>("");
 	const [rateLimitTpm, setRateLimitTpm] = useState<string>("");
+	const [budgetUsd, setBudgetUsd] = useState<string>("");
+	const [budgetPeriod, setBudgetPeriod] = useState<BudgetPeriod>("month");
 	const [stripReasoning, setStripReasoning] = useState(false);
 	const [createdKey, setCreatedKey] = useState<VirtualKey | null>(null);
 	const [showExamples, setShowExamples] = useState(false);
@@ -73,6 +76,8 @@ export function CreateKeyModal({
 			rate_limit_burst:
 				rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
 			rate_limit_tpm: rateLimitTpm !== "" ? parseInt(rateLimitTpm, 10) : null,
+			budget_usd: budgetUsd !== "" ? parseFloat(budgetUsd) : null,
+			budget_period: budgetUsd !== "" ? budgetPeriod : null,
 			allowed_providers: allowedProviders,
 			strip_reasoning: stripReasoning,
 			owner_user_id: isAdmin && ownerId !== "" ? ownerId : null,
@@ -212,6 +217,13 @@ export function CreateKeyModal({
 						field="tpm"
 						value={rateLimitTpm}
 						onChange={setRateLimitTpm}
+					/>
+					<BudgetField
+						idPrefix="vk-create"
+						amount={budgetUsd}
+						period={budgetPeriod}
+						onAmountChange={setBudgetUsd}
+						onPeriodChange={setBudgetPeriod}
 					/>
 					<ProviderAccessPicker
 						cap={cap}

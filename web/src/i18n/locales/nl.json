@@ -3293,5 +3293,24 @@
 			"purged": "Auditlogboek gewist",
 			"purgeFailed": "Kon het auditlogboek niet wissen"
 		}
+	},
+	"budget": {
+		"label": "Budget",
+		"amount": "Budget (USD)",
+		"period": "Periode",
+		"none": "Geen budget",
+		"hint": "Verzoeken worden met 429 geweigerd zodra de geprijsde uitgaven van de periode het budget bereiken. Laat leeg voor geen budget.",
+		"tooltip": "Geprijsde uitgaven in deze periode ten opzichte van het dollarbudget; verzoeken worden met 429 geweigerd zodra het is bereikt",
+		"spent": "{{spent}} van {{budget}} {{period}}",
+		"periods": {
+			"day": "Per dag (UTC)",
+			"week": "Per week (maandag tot en met zondag, UTC)",
+			"month": "Per maand (UTC)"
+		},
+		"periodNow": {
+			"day": "vandaag",
+			"week": "deze week",
+			"month": "deze maand"
+		}
 	}
 }

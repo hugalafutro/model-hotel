@@ -3429,5 +3429,24 @@
 			"purged": "Auditný záznam vymazaný",
 			"purgeFailed": "Auditný záznam sa nepodarilo vymazať"
 		}
+	},
+	"budget": {
+		"label": "Rozpočet",
+		"amount": "Rozpočet (USD)",
+		"period": "Obdobie",
+		"none": "Bez rozpočtu",
+		"hint": "Keď ocenené výdavky za obdobie dosiahnu rozpočet, požiadavky sú odmietané s kódom 429. Pre žiadny rozpočet nechajte prázdne.",
+		"tooltip": "Ocenené výdavky v tomto období voči dolárovému rozpočtu; po jeho dosiahnutí sú požiadavky odmietané s kódom 429",
+		"spent": "{{spent}} z {{budget}} {{period}}",
+		"periods": {
+			"day": "Za deň (UTC)",
+			"week": "Za týždeň (pondelok až nedeľa, UTC)",
+			"month": "Za mesiac (UTC)"
+		},
+		"periodNow": {
+			"day": "dnes",
+			"week": "tento týždeň",
+			"month": "tento mesiac"
+		}
 	}
 }

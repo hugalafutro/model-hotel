@@ -3361,5 +3361,24 @@
 			"purged": "Istoric de audit șters",
 			"purgeFailed": "Istoricul de audit nu a putut fi șters"
 		}
+	},
+	"budget": {
+		"label": "Buget",
+		"amount": "Buget (USD)",
+		"period": "Perioadă",
+		"none": "Fără buget",
+		"hint": "Cererile sunt refuzate cu 429 de îndată ce cheltuiala tarifată a perioadei atinge bugetul. Lăsați gol pentru niciun buget.",
+		"tooltip": "Cheltuiala tarifată din această perioadă față de bugetul în dolari; cererile sunt refuzate cu 429 odată atins",
+		"spent": "{{spent}} din {{budget}} {{period}}",
+		"periods": {
+			"day": "Pe zi (UTC)",
+			"week": "Pe săptămână (de luni până duminică, UTC)",
+			"month": "Pe lună (UTC)"
+		},
+		"periodNow": {
+			"day": "astăzi",
+			"week": "săptămâna aceasta",
+			"month": "luna aceasta"
+		}
 	}
 }
