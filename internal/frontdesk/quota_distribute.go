@@ -14,6 +14,13 @@ import (
 // internal/api QuotaFleetHandler.Register), so it lives under /api/config.
 const memberQuotaSnapshotsPath = "/api/config/quota-snapshots"
 
+// memberQuotaPushTimeout bounds one snapshot push. The member rebuilds its
+// quota advice before it answers a push that landed rows, and that rebuild
+// has a 30 second cap of its own (quotaNudgeTimeout on the member), so the
+// push waits past that cap; a member that does not pick up is still given
+// only the probe's dial budget, so a dead member cannot stretch the walk.
+const memberQuotaPushTimeout = 35 * time.Second
+
 // quotaDistributeInterval is how often Front Desk redistributes the primary's
 // quota snapshots to the fleet. It is kept well under the member's quota-poll
 // interval (default 5 min) so a member Front Desk feeds always has a fresh fleet
@@ -89,9 +96,7 @@ func (s *Server) DistributeQuotaOnce(ctx context.Context) {
 			debuglog.Debug("frontdesk: quota distribute: member token", "member", m.Name, "error", err)
 			continue
 		}
-		// The member rebuilds its quota advice before it answers a push that
-		// landed rows, so the push gets the admin-read budget, not the probe's.
-		if status, _, err := callMemberWith(ctx, s.readClient, http.MethodPost, m.URL, memberQuotaSnapshotsPath, token, bytes.NewReader(body)); err != nil || status != http.StatusOK {
+		if status, _, err := callMemberWith(ctx, s.quotaPushClient, http.MethodPost, m.URL, memberQuotaSnapshotsPath, token, bytes.NewReader(body)); err != nil || status != http.StatusOK {
 			debuglog.Debug("frontdesk: quota distribute: push to member",
 				"member", m.Name, "status", status, "error", err)
 		}

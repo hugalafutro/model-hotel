@@ -84,30 +84,31 @@ type ServerConfig struct {
 
 // Server is the Front Desk HTTP server.
 type Server struct {
-	store          *Store
-	poller         *Poller
-	bus            *events.Bus
-	adminMgr       *admin.Manager
-	sessionMgr     *webauthn.SessionManager
-	totpRepo       *totp.Repository
-	totpStatus     *totpEnabledCache
-	probe          *http.Client // guarded client for proxying member admin APIs
-	readClient     *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
-	syncClient     *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
-	backupClient   *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
-	lbPort         string       // host port of the data-plane load balancer, surfaced to the wizard
-	version        string       // running build, surfaced read-only over GET /api/version
-	masterKey      string       // encrypts the Apprise target secret at rest
-	metricsToken   string       // dedicated bearer for Prometheus /metrics scrapes; empty falls back to admin auth
-	traefikToken   string       // dedicated bearer for Traefik's /traefik/config polls; empty keeps the endpoint open (Traefik cannot log in, so admin auth is no fallback here)
-	cookieSecure   string       // Secure-attribute mode for the fd_session/fd_csrf pair: "always", "auto", or "never"
-	alertDisp      *alert.Dispatcher
-	pairing        *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
-	ipLimiter      adminauth.IPLimiterMiddleware // per-IP limit reused on the public /api/pair exchange
-	healthzLimiter adminauth.IPLimiterMiddleware // separate budget for the unauthenticated liveness probe
-	traefikLimiter adminauth.IPLimiterMiddleware // separate budget for /traefik/config while it is ungated
-	trustedProxies []*net.IPNet                  // gates XFF trust for logged/stored client addresses
-	settingsMu     sync.Mutex                    // serializes the settings-row read-merge-write
+	store           *Store
+	poller          *Poller
+	bus             *events.Bus
+	adminMgr        *admin.Manager
+	sessionMgr      *webauthn.SessionManager
+	totpRepo        *totp.Repository
+	totpStatus      *totpEnabledCache
+	probe           *http.Client // guarded client for proxying member admin APIs
+	readClient      *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
+	syncClient      *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
+	backupClient    *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
+	quotaPushClient *http.Client // guarded client for the quota snapshot push (see memberQuotaPushTimeout)
+	lbPort          string       // host port of the data-plane load balancer, surfaced to the wizard
+	version         string       // running build, surfaced read-only over GET /api/version
+	masterKey       string       // encrypts the Apprise target secret at rest
+	metricsToken    string       // dedicated bearer for Prometheus /metrics scrapes; empty falls back to admin auth
+	traefikToken    string       // dedicated bearer for Traefik's /traefik/config polls; empty keeps the endpoint open (Traefik cannot log in, so admin auth is no fallback here)
+	cookieSecure    string       // Secure-attribute mode for the fd_session/fd_csrf pair: "always", "auto", or "never"
+	alertDisp       *alert.Dispatcher
+	pairing         *pairingCodes                 // one-time Bellhop pairing codes (in-memory)
+	ipLimiter       adminauth.IPLimiterMiddleware // per-IP limit reused on the public /api/pair exchange
+	healthzLimiter  adminauth.IPLimiterMiddleware // separate budget for the unauthenticated liveness probe
+	traefikLimiter  adminauth.IPLimiterMiddleware // separate budget for /traefik/config while it is ungated
+	trustedProxies  []*net.IPNet                  // gates XFF trust for logged/stored client addresses
+	settingsMu      sync.Mutex                    // serializes the settings-row read-merge-write
 	// rearmMu guards rearmCh, the in-process rearm broadcast. rearmCh is closed (and
 	// replaced) whenever a rearm/repoint bumps the auto-sync generation, so an
 	// in-flight convergence pass cancels synchronously instead of waiting on a poll.
@@ -241,22 +242,23 @@ func NewServer(cfg ServerConfig) *Server {
 	totpRepo := totp.NewRepositoryWithStore(NewTOTPStore(cfg.Store), cfg.MasterKey)
 
 	s := &Server{
-		store:        cfg.Store,
-		poller:       cfg.Poller,
-		bus:          cfg.Bus,
-		adminMgr:     cfg.AdminMgr,
-		sessionMgr:   sessionMgr,
-		totpRepo:     totpRepo,
-		totpStatus:   newTotpEnabledCache(totpRepo),
-		probe:        newProbeClient(httpProbeTimeout),
-		readClient:   newProbeClient(memberReadTimeout),
-		syncClient:   newProbeClient(memberSyncTimeout),
-		backupClient: newProbeClient(memberBackupTimeout),
-		lbPort:       cmp.Or(cfg.LBPort, defaultLBPort),
-		version:      cmp.Or(cfg.Version, "dev"),
-		masterKey:    cfg.MasterKey,
-		metricsToken: strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
-		traefikToken: strings.TrimSpace(cfg.TraefikToken), // whitespace-only is treated as unset, not a live bearer
+		store:           cfg.Store,
+		poller:          cfg.Poller,
+		bus:             cfg.Bus,
+		adminMgr:        cfg.AdminMgr,
+		sessionMgr:      sessionMgr,
+		totpRepo:        totpRepo,
+		totpStatus:      newTotpEnabledCache(totpRepo),
+		probe:           newProbeClient(httpProbeTimeout),
+		readClient:      newProbeClient(memberReadTimeout),
+		syncClient:      newProbeClient(memberSyncTimeout),
+		backupClient:    newProbeClient(memberBackupTimeout),
+		quotaPushClient: newProbeClientDial(httpProbeTimeout, memberQuotaPushTimeout),
+		lbPort:          cmp.Or(cfg.LBPort, defaultLBPort),
+		version:         cmp.Or(cfg.Version, "dev"),
+		masterKey:       cfg.MasterKey,
+		metricsToken:    strings.TrimSpace(cfg.MetricsToken), // whitespace-only is treated as unset, not a live bearer
+		traefikToken:    strings.TrimSpace(cfg.TraefikToken), // whitespace-only is treated as unset, not a live bearer
 		// Secure-by-default: an unset knob forces Secure on rather than inferring it
 		// from the request, so a deployment that never sets COOKIE_SECURE cannot
 		// silently ship the session cookie over cleartext. cmd/frontdesk normalizes
