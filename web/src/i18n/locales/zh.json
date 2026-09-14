@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "令牌/秒",
 			"outputTokensPerSecond": "生成阶段每秒输出的 Token 数（不含首个 token 的等待时间）。生成时间极短时显示为“-”。",
 			"sumOfTokens": "提示与补全 token 之和（推理包含在补全中）",
-			"requestHash": "请求哈希值",
 			"model": "模型",
 			"copyModelId": "复制模型ID",
 			"resolved": "已解决",

@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Uitgangstokens per seconde tijdens de generatiefase (exclusief tijd tot eerste token). Wordt weergegeven als '-' wanneer de generatietijd verwaarloosbaar is.",
 			"sumOfTokens": "Som van prompt- en completion-tokens (redenering maakt deel uit van completion)",
-			"requestHash": "Hash verzoek",
 			"model": "Model",
 			"copyModelId": "model-ID kopiëren",
 			"resolved": "opgelost",

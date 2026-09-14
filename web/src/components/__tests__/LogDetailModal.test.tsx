@@ -292,7 +292,7 @@ describe("LogDetailModal", () => {
 			expect(screen.getByText(/2025/)).toBeInTheDocument();
 		});
 
-		it("displays request hash with copy button", () => {
+		it("does not display the request hash", () => {
 			renderWithProviders(
 				<LogDetailModal
 					log={mockRequestLog}
@@ -301,8 +301,10 @@ describe("LogDetailModal", () => {
 				/>,
 			);
 
-			expect(screen.getByText("Request Hash")).toBeInTheDocument();
-			expect(screen.getByText("abc123def456")).toBeInTheDocument();
+			// The request hash is not shown: it identifies nothing an operator
+			// acts on, and the detail grid reads better without it.
+			expect(screen.queryByText("Request Hash")).not.toBeInTheDocument();
+			expect(screen.queryByText("abc123def456")).not.toBeInTheDocument();
 		});
 
 		it("displays model with copy button", () => {

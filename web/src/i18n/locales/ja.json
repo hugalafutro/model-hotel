@@ -2775,7 +2775,6 @@
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "生成フェーズ中の毎秒の出力トークン（最初のトークンまでの時間を除く）。生成時間が無視できるほど短い場合は「-」と表示されます。",
 			"sumOfTokens": "プロンプトと補完のトークンの合計（推論は補完に含まれます）",
-			"requestHash": "要求ハッシュ",
 			"model": "モデル",
 			"copyModelId": "モデル ID をコピー",
 			"resolved": "解決済み",

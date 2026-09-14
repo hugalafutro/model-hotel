@@ -2840,7 +2840,6 @@
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Tokens generats per segon durant la fase de generació (no inclou el temps fins al primer token). S'indica com a '-' quan el temps de generació és negligible.",
 			"sumOfTokens": "Suma de tokens de prompt i de compleció (el raonament forma part de la compleció)",
-			"requestHash": "Hash de la sol·licitud",
 			"model": "Model",
 			"copyModelId": "Copia l'ID del model",
 			"resolved": "resolt",

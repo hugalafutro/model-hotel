@@ -2905,7 +2905,6 @@
 			"tokensPerSecond": "Tokeny/s",
 			"outputTokensPerSecond": "Tokeny wyjściowe na sekundę podczas fazy generowania (wyłącza czas do pierwszego tokenu). Pokazane jako '-', gdy czas generowania jest nieistotny.",
 			"sumOfTokens": "Suma tokenów promptu i uzupełnienia (rozumowanie jest częścią uzupełnienia)",
-			"requestHash": "Żądanie hash",
 			"model": "Model",
 			"copyModelId": "Kopiuj ID modelu",
 			"resolved": "rozwiązane",

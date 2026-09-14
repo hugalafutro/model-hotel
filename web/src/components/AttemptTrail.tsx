@@ -134,41 +134,46 @@ export function AttemptTrail({
 						>
 							{a.model}
 						</span>
-						{a.breaker === "skipped" ? (
-							<span className="ui-badge ui-badge-amber text-xs">
-								{t("components.requestLogDetail.attemptSkipped")}
-							</span>
-						) : a.error_kind === "hedge_superseded" ? (
-							// Abandoned because another candidate won: not a failure,
-							// the client was served, so the badge is neutral.
-							<span
-								className="ui-badge ui-badge-neutral text-xs"
-								data-testid="attempt-superseded"
-							>
-								{t("components.requestLogDetail.attemptSuperseded")}
-							</span>
-						) : a.status ? (
-							<StatusBadge
-								code={a.status}
-								state="completed"
-								errorMessage=""
-								compact
-							/>
-						) : (
-							<span className="ui-badge ui-badge-red text-xs">
-								{t("components.requestLogDetail.attemptNoStatus")}
-							</span>
-						)}
-						{a.hedged && (
-							<span className="ui-badge ui-badge-purple text-xs">
-								{t("components.requestLogDetail.attemptHedged")}
-							</span>
-						)}
-						{a.breaker !== "skipped" && (
-							<span className="font-mono text-xs text-(--text-tertiary)">
-								{formatMs(a.duration_ms, 1)}
-							</span>
-						)}
+						{/* Verdict badges and the timing travel as one non-wrapping
+						    cluster: when the row runs out of width the whole cluster
+						    drops to the next line together, never the timing alone. */}
+						<span className="flex items-center gap-x-2 whitespace-nowrap">
+							{a.breaker === "skipped" ? (
+								<span className="ui-badge ui-badge-amber text-xs">
+									{t("components.requestLogDetail.attemptSkipped")}
+								</span>
+							) : a.error_kind === "hedge_superseded" ? (
+								// Abandoned because another candidate won: not a failure,
+								// the client was served, so the badge is neutral.
+								<span
+									className="ui-badge ui-badge-neutral text-xs"
+									data-testid="attempt-superseded"
+								>
+									{t("components.requestLogDetail.attemptSuperseded")}
+								</span>
+							) : a.status ? (
+								<StatusBadge
+									code={a.status}
+									state="completed"
+									errorMessage=""
+									compact
+								/>
+							) : (
+								<span className="ui-badge ui-badge-red text-xs">
+									{t("components.requestLogDetail.attemptNoStatus")}
+								</span>
+							)}
+							{a.hedged && (
+								<span className="ui-badge ui-badge-purple text-xs">
+									{t("components.requestLogDetail.attemptHedged")}
+								</span>
+							)}
+							{a.breaker !== "skipped" && (
+								<span className="font-mono text-xs text-(--text-tertiary)">
+									{formatMs(a.duration_ms, 1)}
+								</span>
+							)}
+						</span>
 						{(showsVerdict(a) || kindSaysMore(a) || detailSaysMore(a)) && (
 							// A second line carrying the breaker verdict and whatever the
 							// first line does not already say, indented past the number

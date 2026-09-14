@@ -2840,7 +2840,6 @@
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Tokens de salida por segundo durante la fase de generación (excluye el tiempo hasta el primer token). Se muestra como '-' cuando el tiempo de generación es insignificante.",
 			"sumOfTokens": "Suma de tokens de prompt y de completado (el razonamiento forma parte del completado)",
-			"requestHash": "Hash de la solicitud",
 			"model": "Modelo",
 			"copyModelId": "Copiar ID del modelo",
 			"resolved": "resuelto",
