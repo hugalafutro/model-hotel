@@ -366,3 +366,16 @@ func TestCohereFeaturesToCapabilities(t *testing.T) {
 		})
 	}
 }
+
+// TestParseOpenRouterPrice_RejectsWhatParsesButIsNoPrice: strconv accepts
+// "NaN", "Inf" and negatives without error; none is a price.
+func TestParseOpenRouterPrice_RejectsWhatParsesButIsNoPrice(t *testing.T) {
+	for _, s := range []string{"NaN", "Inf", "-Inf", "-0.000001"} {
+		if got := parseOpenRouterPrice(s); got != nil {
+			t.Errorf("%q: got %v, want nil", s, *got)
+		}
+	}
+	if got := parseOpenRouterPrice("0.000002"); got == nil || *got != 2 {
+		t.Errorf("a real price must parse to $/1M, got %v", got)
+	}
+}

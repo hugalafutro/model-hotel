@@ -405,10 +405,12 @@ func exportProviders(ctx context.Context, q querier) ([]ExportProvider, error) {
 	out := []ExportProvider{}
 	for rows.Next() {
 		var p ExportProvider
+		var reserve int
 		if err := rows.Scan(&p.Name, &p.BaseURL, &p.ProviderType, &p.EncryptedKey, &p.KeyNonce, &p.KeySalt,
-			&p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled, &p.ScheduledDisableOn, &p.MaxInFlight, &p.QuotaReservePercent); err != nil {
+			&p.MaskedKey, &p.Enabled, &p.AutodiscoveryEnabled, &p.ScheduledDisableOn, &p.MaxInFlight, &reserve); err != nil {
 			return nil, err
 		}
+		p.QuotaReservePercent = &reserve
 		// A row the startup backfill has not reached yet exports the type it
 		// would be given, which is the same value the importer derives. Without
 		// this, a primary whose backfill has not run and a member whose has

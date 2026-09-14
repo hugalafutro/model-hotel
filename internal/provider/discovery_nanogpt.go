@@ -72,6 +72,14 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		// response; a present value (including a real 0) is taken as authoritative.
 		inPricePerMill := m.Pricing.Prompt
 		outPricePerMill := m.Pricing.Completion
+		// A negative figure is not a price; JSON cannot carry NaN or Inf, but the
+		// same guard keeps every path to a stored price honest.
+		if !model.Priceable(inPricePerMill) {
+			inPricePerMill = nil
+		}
+		if !model.Priceable(outPricePerMill) {
+			outPricePerMill = nil
+		}
 
 		models = append(models, &model.Model{
 			ID:                    uuid.New(),

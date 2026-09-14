@@ -68,8 +68,9 @@ const (
 	// guard silently removed by a sync. The bump refuses that envelope until
 	// the primary is upgraded too.
 	//
-	// v4 adds quota_reserve_percent to providers, for the same reason: a v3
-	// envelope would write the 0 default over every reserve.
+	// v4 adds quota_reserve_percent to providers. The field carries presence,
+	// so an envelope without it leaves each reserve alone; the bump marks the
+	// shape so both sides agree on what a stated value means.
 	configSchemaVersion = 4
 
 	// maxConfigImportBody bounds an import payload. Fleet config is small (a
@@ -311,7 +312,11 @@ type ExportProvider struct {
 	MaskedKey            *string `json:"masked_key,omitempty"`
 	ScheduledDisableOn   *string `json:"scheduled_disable_on,omitempty"`
 	MaxInFlight          *int    `json:"max_in_flight,omitempty"`
-	QuotaReservePercent  int     `json:"quota_reserve_percent"`
+	// QuotaReservePercent is a pointer so an envelope that never states it
+	// (hand-built, or from a tool that predates the field) leaves each
+	// member's reserve alone instead of writing the default over it, the
+	// same way the interactive update does. The export always states it.
+	QuotaReservePercent *int `json:"quota_reserve_percent,omitempty"`
 }
 
 // ExportVK is a virtual key carried by its hash (the plaintext never existed

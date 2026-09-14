@@ -153,7 +153,7 @@ func TestConfigSync_RefusesOutOfStepQuotaReserve(t *testing.T) {
 			if len(env.Config.Providers) != 1 {
 				t.Fatalf("export carries %d providers, want 1", len(env.Config.Providers))
 			}
-			env.Config.Providers[0].QuotaReservePercent = tc.value
+			env.Config.Providers[0].QuotaReservePercent = &tc.value
 
 			rec := doImport(t, r, env, "")
 			if rec.Code != tc.want {
@@ -176,5 +176,34 @@ func TestConfigSync_RefusesOutOfStepQuotaReserve(t *testing.T) {
 				t.Fatalf("refusal body = %q, want it to carry %q and the provider's name", body, errInvalidSyncedProvider.Error())
 			}
 		})
+	}
+}
+
+// TestConfigSync_EnvelopeWithoutReserveLeavesItAlone: the reserve carries
+// presence on the wire, so a v4 envelope that never states it (hand-built,
+// or from a tool that predates the field) leaves each member's reserve as
+// it stands instead of writing the default over it.
+func TestConfigSync_EnvelopeWithoutReserveLeavesItAlone(t *testing.T) {
+	cleanConfigTables(t)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "prov-a", "sk-secret", configSyncMasterKey)
+	if _, err := apiTestDB.Pool().Exec(t.Context(), `UPDATE providers SET quota_reserve_percent = 30 WHERE name = 'prov-a'`); err != nil {
+		t.Fatalf("seed reserve: %v", err)
+	}
+	env := doExport(t, r)
+	if got := env.Config.Providers[0].QuotaReservePercent; got == nil || *got != 30 {
+		t.Fatalf("export carries reserve %v, want 30", got)
+	}
+	env.Config.Providers[0].QuotaReservePercent = nil
+
+	if rec := doImport(t, r, env, ""); rec.Code != http.StatusOK {
+		t.Fatalf("import status = %d; body %s", rec.Code, rec.Body.String())
+	}
+	var stored int
+	if err := apiTestDB.Pool().QueryRow(t.Context(), `SELECT quota_reserve_percent FROM providers WHERE name = 'prov-a'`).Scan(&stored); err != nil {
+		t.Fatalf("read row: %v", err)
+	}
+	if stored != 30 {
+		t.Fatalf("stored quota_reserve_percent = %d after an envelope that never stated it, want 30", stored)
 	}
 }

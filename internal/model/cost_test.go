@@ -43,3 +43,34 @@ func TestCostUSD(t *testing.T) {
 		})
 	}
 }
+
+// TestCostUSD_RefusesUnpriceablePrices: a listing can state "NaN", "Inf" or a
+// negative price and a parser that only checks for a parse error stores it.
+// Such a model is unpriced, so the row stays NULL rather than carrying a cost
+// the budget cannot compare or one that pays the spender.
+func TestCostUSD_RefusesUnpriceablePrices(t *testing.T) {
+	one := 1.0
+	for name, bad := range map[string]float64{"nan": math.NaN(), "inf": math.Inf(1), "negative": -0.5} {
+		b := bad
+		for _, m := range []*Model{
+			{InputPricePerMillion: &b, OutputPricePerMillion: &one},
+			{InputPricePerMillion: &one, OutputPricePerMillion: &b},
+		} {
+			if _, ok := m.CostUSD(Usage{Prompt: 10, PromptCacheHit: 4, PromptCacheMiss: 6, Completion: 5}); ok {
+				t.Errorf("%s price on %+v: priced, want unpriced", name, m)
+			}
+		}
+		// A bad cache-hit price counts as absent: the hits take the input price.
+		m := &Model{InputPricePerMillion: &one, OutputPricePerMillion: &one, InputPricePerMillionCacheHit: &b}
+		if cost, ok := m.CostUSD(Usage{Prompt: 10, PromptCacheHit: 4, PromptCacheMiss: 6, Completion: 5}); !ok || cost != 15/1e6 {
+			t.Errorf("%s cache-hit price: got cost=%v ok=%v, want 15e-6 priced at the input price", name, cost, ok)
+		}
+	}
+	if _, ok := (&Model{InputPricePerMillion: &one, OutputPricePerMillion: &one}).CostUSD(Usage{Prompt: 1, Completion: 1}); !ok {
+		t.Error("a finite non-negative price must still price")
+	}
+	huge := math.MaxFloat64
+	if _, ok := (&Model{InputPricePerMillion: &huge, OutputPricePerMillion: &one}).CostUSD(Usage{Prompt: 2, Completion: 1}); ok {
+		t.Error("a product that overflows to Inf must read as unpriced")
+	}
+}
