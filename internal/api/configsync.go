@@ -311,7 +311,11 @@ type ExportProvider struct {
 	MaskedKey            *string `json:"masked_key,omitempty"`
 	ScheduledDisableOn   *string `json:"scheduled_disable_on,omitempty"`
 	MaxInFlight          *int    `json:"max_in_flight,omitempty"`
-	QuotaReservePercent  int     `json:"quota_reserve_percent"`
+	// QuotaReservePercent is a pointer so an envelope that never states it
+	// (hand-built, or from a tool that predates the field) leaves each
+	// member's reserve alone instead of writing the default over it, the
+	// same way the interactive update does. The export always states it.
+	QuotaReservePercent *int `json:"quota_reserve_percent,omitempty"`
 }
 
 // ExportVK is a virtual key carried by its hash (the plaintext never existed

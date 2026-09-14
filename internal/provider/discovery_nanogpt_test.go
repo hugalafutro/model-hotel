@@ -758,3 +758,47 @@ func TestNanoGPTImageCatalogURL(t *testing.T) {
 		})
 	}
 }
+
+// TestDiscoverNanoGPT_NegativePriceStaysNil: a negative figure is not a price,
+// so it is stored as unknown rather than as a price that would pay the spender.
+func TestDiscoverNanoGPT_NegativePriceStaysNil(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		response := NanoGPTDetailedResponse{
+			Object: "list",
+			Data: []NanoGPTModel{{
+				ID:      "hostile",
+				Name:    "Hostile",
+				OwnedBy: "test",
+				Architecture: NanoGPTArchitecture{
+					Modality:         "text",
+					InputModalities:  []string{"text"},
+					OutputModalities: []string{"text"},
+				},
+				ContextLength: new(128000),
+				Pricing: NanoGPTPricing{
+					Prompt:     new(float64(-1)),
+					Completion: new(float64(2)),
+				},
+			}},
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(response)
+	}))
+	defer server.Close()
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), Name: "nanogpt-test", BaseURL: server.URL}
+
+	models, err := service.discoverNanoGPT(context.Background(), provider, "test-api-key")
+	if err != nil {
+		t.Fatalf("discoverNanoGPT failed: %v", err)
+	}
+	if len(models) != 1 {
+		t.Fatalf("got %d models, want 1", len(models))
+	}
+	if models[0].InputPricePerMillion != nil {
+		t.Errorf("negative prompt price stored as %v, want nil", *models[0].InputPricePerMillion)
+	}
+	if models[0].OutputPricePerMillion == nil || *models[0].OutputPricePerMillion != 2 {
+		t.Errorf("the sane completion price must survive, got %v", models[0].OutputPricePerMillion)
+	}
+}

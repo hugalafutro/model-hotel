@@ -90,8 +90,10 @@ func validateSyncedProvider(p ExportProvider) error {
 			return fmt.Errorf("%w: provider %q: scheduled_disable_on must be a YYYY-MM-DD date", errInvalidSyncedProvider, p.Name)
 		}
 	}
-	if r := p.QuotaReservePercent; r < 0 || r > 90 || r%10 != 0 {
-		return fmt.Errorf("%w: provider %q: quota_reserve_percent must be 0 or a multiple of 10 up to 90", errInvalidSyncedProvider, p.Name)
+	if p.QuotaReservePercent != nil {
+		if r := *p.QuotaReservePercent; r < 0 || r > 90 || r%10 != 0 {
+			return fmt.Errorf("%w: provider %q: quota_reserve_percent must be 0 or a multiple of 10 up to 90", errInvalidSyncedProvider, p.Name)
+		}
 	}
 	return nil
 }
@@ -169,7 +171,7 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 		}
 		_, err = tx.Exec(ctx, `
 			INSERT INTO providers (name, base_url, provider_type, encrypted_key, key_nonce, key_salt, masked_key, enabled, autodiscovery_enabled, scheduled_disable_on, max_in_flight, quota_reserve_percent, updated_at)
-			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, $12, now())
+			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::date, $11, COALESCE($12::smallint, 0), now())
 			ON CONFLICT (name) DO UPDATE SET
 				base_url = EXCLUDED.base_url,
 				provider_type = EXCLUDED.provider_type,
@@ -181,7 +183,7 @@ func upsertProviders(ctx context.Context, tx pgx.Tx, providers []ExportProvider,
 				autodiscovery_enabled = EXCLUDED.autodiscovery_enabled,
 				scheduled_disable_on = EXCLUDED.scheduled_disable_on,
 				max_in_flight = EXCLUDED.max_in_flight,
-				quota_reserve_percent = EXCLUDED.quota_reserve_percent,
+				quota_reserve_percent = COALESCE($12::smallint, providers.quota_reserve_percent),
 				updated_at = now()`,
 			p.Name, p.BaseURL, providerTypeForImport(p), p.EncryptedKey, p.KeyNonce, p.KeySalt, p.MaskedKey, p.Enabled, p.AutodiscoveryEnabled, p.ScheduledDisableOn, p.MaxInFlight, p.QuotaReservePercent)
 		if err != nil {

@@ -143,6 +143,10 @@ func parseOpenRouterPrice(s string) *float64 {
 		return nil
 	}
 	perMil := v * 1_000_000
+	// "NaN", "Inf" and negatives parse without error and are not prices.
+	if !model.PricedAt(&perMil) {
+		return nil
+	}
 	return &perMil
 }
 
