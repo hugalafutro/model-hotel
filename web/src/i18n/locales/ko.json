@@ -3314,6 +3314,7 @@
 			"day": "오늘",
 			"week": "이번 주",
 			"month": "이번 달"
-		}
+		},
+		"spentUnknown": "{{period}} {{budget}}, 지출 미집계"
 	}
 }

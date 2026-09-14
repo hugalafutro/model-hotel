@@ -3314,6 +3314,7 @@
 			"day": "今日",
 			"week": "今週",
 			"month": "今月"
-		}
+		},
+		"spentUnknown": "{{period}} {{budget}}、支出は未集計"
 	}
 }

@@ -180,15 +180,18 @@ func TestHandleStreamingResponse_EstimatesUsageWhenProviderOmitsUsageChunk(t *te
 	assert.Equal(t, 0, logData.tokensPrompt)
 	assert.Equal(t, 0, logData.tokensCompletion)
 	// The price, though, follows what was billed: a response the provider
-	// left uncounted is not free against a budget.
-	assert.True(t, logData.billed)
-	assert.Equal(t, 10, logData.billedPrompt)
-	assert.Equal(t, 4, logData.billedCompletion)
+	// left uncounted is not free against a budget. The estimate rides as an
+	// increment on top of the row's counts, so the prompt a walked group's
+	// rejected earlier candidate billed (accumulated into tokensPrompt) is
+	// still priced.
+	assert.Equal(t, 10, logData.estimatedPrompt)
+	assert.Equal(t, 4, logData.estimatedCompletion)
 	in, out := 1.0, 2.0
 	logData.servedModel = &model.Model{InputPricePerMillion: &in, OutputPricePerMillion: &out}
+	logData.tokensPrompt = 30 // a rejected earlier candidate's prompt, metered before this hop
 	cost, ok := logData.terminalCost()
 	require.True(t, ok)
-	assert.InDelta(t, (10*1.0+4*2.0)/1e6, cost, 1e-12)
+	assert.InDelta(t, ((30+10)*1.0+4*2.0)/1e6, cost, 1e-12)
 }
 
 // Agent traffic is mostly tool calls, whose output lives in

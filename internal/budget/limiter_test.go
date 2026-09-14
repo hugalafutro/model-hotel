@@ -409,6 +409,48 @@ func TestLimiter_ReloadRunsAgainWhenAChargeOverlappedIt(t *testing.T) {
 	}
 }
 
+func TestLimiter_ReloadGivesUpOnAnOverlappedSumAndKeepsTheCharges(t *testing.T) {
+	src := &fakeSource{spent: map[string]float64{"key:k1": 4}}
+	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l, clk := newTestLimiter(src, at)
+	collectEvents(t)
+	sub := &Subject{Kind: KindKey, ID: "k1", Name: "ci", Budget: Budget{USD: 100, Period: PeriodDay}}
+	serve(l, keyed(sub))
+
+	// A charge lands during every re-run: after maxOverlappedReloads the
+	// figure installed is the last sum plus what was charged while it was in
+	// flight, never less than either.
+	src.mu.Lock()
+	src.block = make(chan struct{})
+	src.mu.Unlock()
+	clk.add(refreshInterval + time.Second)
+	serve(l, keyed(sub))
+	for i := range maxOverlappedReloads + 1 {
+		src.waitReads(t, 2+i)
+		l.Charge("k1", "", 1, time.Time{})
+		src.mu.Lock()
+		src.spent["key:k1"] = 10 + float64(i) // the store holds the charged rows too
+		old := src.block
+		src.block = make(chan struct{})
+		src.mu.Unlock()
+		close(old)
+	}
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		got, _ := l.Spent(context.Background(), sub)
+		if got == 10+float64(maxOverlappedReloads)+1 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Spent = %v, want the last sum plus the charge that overlapped it", got)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+	if src.readCount() != 2+maxOverlappedReloads {
+		t.Errorf("source reads = %d, want %d (no further re-run after giving up)", src.readCount(), 2+maxOverlappedReloads)
+	}
+}
+
 func TestLimiter_ChargeFromThePreviousPeriodIsNotCountedHere(t *testing.T) {
 	src := &fakeSource{spent: map[string]float64{"key:k1": 1}}
 	at := time.Date(2026, 9, 17, 0, 0, 30, 0, time.UTC)

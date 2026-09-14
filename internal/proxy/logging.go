@@ -34,15 +34,11 @@ func (logEntry *requestLogData) terminalCost() (float64, bool) {
 	if !isTerminalLogState(logEntry.state) {
 		return 0, false
 	}
-	prompt, completion := logEntry.tokensPrompt, logEntry.tokensCompletion
-	if logEntry.billed {
-		prompt, completion = logEntry.billedPrompt, logEntry.billedCompletion
-	}
 	return logEntry.servedModel.CostUSD(model.Usage{
-		Prompt:          prompt,
+		Prompt:          logEntry.tokensPrompt + logEntry.estimatedPrompt,
 		PromptCacheHit:  logEntry.tokensPromptCacheHit,
 		PromptCacheMiss: logEntry.tokensPromptCacheMiss,
-		Completion:      completion,
+		Completion:      logEntry.tokensCompletion + logEntry.estimatedCompletion,
 	})
 }
 

@@ -3314,6 +3314,7 @@
 			"day": "vandag",
 			"week": "hierdie week",
 			"month": "hierdie maand"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, besteding nog nie opgesom nie"
 	}
 }

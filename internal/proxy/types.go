@@ -149,14 +149,14 @@ type requestLogData struct {
 	// charged records that the row's cost reached the budget stage, so a
 	// second terminal write for the same request cannot charge it again.
 	charged bool
-	// billedPrompt and billedCompletion are the figures the request is priced
-	// and metered by: the provider's when it reported usage, an estimate from
-	// the delivered bytes when it did not (estimateMissingUsage). The token
-	// columns keep the provider's figures; the price does not, since a
-	// response the provider billed and did not count would otherwise cost
-	// nothing against a budget. Set by noteBilled before the terminal write.
-	billedPrompt, billedCompletion int
-	billed                         bool
+	// estimatedPrompt and estimatedCompletion are what estimateMissingUsage
+	// added on top of the provider's figures for the serving hop when it
+	// reported none: the row is priced by the provider's counts plus these,
+	// since a response the provider billed and did not count would otherwise
+	// cost nothing against a budget. Increments, not totals, because
+	// tokensPrompt also carries the prompt a walked group's rejected earlier
+	// candidate billed. The token columns keep the provider's figures.
+	estimatedPrompt, estimatedCompletion int
 	// startedAt is when the request arrived, the period its row belongs to
 	// for the budget charge (request_logs.created_at is stamped on insert).
 	startedAt time.Time

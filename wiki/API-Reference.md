@@ -935,7 +935,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 }
 ```
 
-`budget_spent_usd` is the key's priced spend in the current period on the answering member; it is present only when the key has a budget. User accounts (`/api/users`) take and return the same `budget_usd` + `budget_period` pair.
+`budget_spent_usd` is the key's priced spend in the current period on the answering member; it is absent when the key has no budget, and also while the period's spend could not be summed yet (the proxy then refuses the key's requests with `503` until the store answers). User accounts (`/api/users`) take and return the same `budget_usd` + `budget_period` pair.
 
 > ⚠️ **Important:** The full key is shown only once at creation time and cannot be retrieved later.
 

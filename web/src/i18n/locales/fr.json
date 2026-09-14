@@ -3382,6 +3382,7 @@
 			"day": "aujourd'hui",
 			"week": "cette semaine",
 			"month": "ce mois-ci"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, dépense pas encore totalisée"
 	}
 }

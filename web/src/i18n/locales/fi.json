@@ -3314,6 +3314,7 @@
 			"day": "tänään",
 			"week": "tällä viikolla",
 			"month": "tässä kuussa"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, kulutusta ei ole vielä laskettu"
 	}
 }

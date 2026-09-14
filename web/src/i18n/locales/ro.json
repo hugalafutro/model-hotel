@@ -3382,6 +3382,7 @@
 			"day": "astăzi",
 			"week": "săptămâna aceasta",
 			"month": "luna aceasta"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, cheltuiala nu a fost încă însumată"
 	}
 }
