@@ -635,7 +635,7 @@
       "type": "timeseries",
       "id": 11,
       "title": "Requests/s by status class",
-      "description": "Request rate split by HTTP status class, stacked: total height is all traffic, the 4xx/5xx bands are the part that failed.",
+      "description": "Request rate split by HTTP status class, stacked: total height is all traffic, the 4xx/5xx bands are the part that failed. Classes are drawn as separate lines in fixed colours (2xx green, 4xx yellow, 499 grey, 5xx red), not stacked, so the outline colour says which class dominates.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -653,14 +653,14 @@
             "drawStyle": "line",
             "lineInterpolation": "linear",
             "lineWidth": 1,
-            "fillOpacity": 12,
+            "fillOpacity": 8,
             "showPoints": "auto",
             "pointSize": 5,
             "spanNulls": false,
             "axisPlacement": "auto",
             "gradientMode": "opacity",
             "stacking": {
-              "mode": "normal",
+              "mode": "none",
               "group": "A"
             }
           },
@@ -669,7 +669,68 @@
           },
           "min": 0
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "2xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "4xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "499"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "5xx"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
