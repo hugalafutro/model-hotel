@@ -832,7 +832,7 @@
 			"maxInFlightHelper": "Sostre estricte de peticions simultànies a aquest proveïdor. Deixa-ho buit per no aplicar sostre; l'aprenentatge adaptatiu continua ajustant-se per sota.",
 			"quotaReserveLabel": "Reserva de quota",
 			"quotaReserveDrain": "Esgotar del tot",
-			"quotaReserveHelper": "Part de cada finestra de subscripció que es reserva per a ús fora de Model Hotel. L'encaminament s'atura aquí quan a una finestra només li queda això i es reprèn quan es reinicia. Només hi responen els proveïdors amb una quota llegible."
+			"quotaReserveHelper": "Part de cada finestra de subscripció que es reserva per a ús fora de Model Hotel. L'encaminament s'atura aquí quan a una finestra només li queda això i es reprèn quan es reinicia. Només hi responen els proveïdors amb finestres de subscripció, no els de saldo."
 		},
 		"quotas": {
 			"expand": "Ampliar les quotes"

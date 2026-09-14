@@ -832,7 +832,7 @@
 			"maxInFlightHelper": "Tope estricto de peticiones simultáneas a este proveedor. Déjalo vacío para no aplicar tope; el aprendizaje adaptativo sigue ajustándose por debajo.",
 			"quotaReserveLabel": "Reserva de cuota",
 			"quotaReserveDrain": "Agotar por completo",
-			"quotaReserveHelper": "Parte de cada ventana de suscripción que se reserva para uso fuera de Model Hotel. El enrutamiento se detiene aquí cuando a una ventana solo le queda eso y se reanuda cuando se reinicia. Solo responden los proveedores con una cuota legible."
+			"quotaReserveHelper": "Parte de cada ventana de suscripción que se reserva para uso fuera de Model Hotel. El enrutamiento se detiene aquí cuando a una ventana solo le queda eso y se reanuda cuando se reinicia. Solo responden los proveedores con ventanas de suscripción, no los de saldo."
 		},
 		"quotas": {
 			"expand": "Expandir cuotas"

@@ -816,7 +816,7 @@
 			"maxInFlightHelper": "Harte Obergrenze für gleichzeitige Anfragen an diesen Anbieter. Leer lassen für keine Obergrenze; der adaptive Lerner passt sich darunter weiter an.",
 			"quotaReserveLabel": "Kontingentreserve",
 			"quotaReserveDrain": "Vollständig aufbrauchen",
-			"quotaReserveHelper": "Anteil jedes Abonnementfensters, der für die Nutzung außerhalb von Model Hotel zurückgehalten wird. Das Routing hierher endet, sobald einem Fenster nur noch so viel bleibt, und läuft nach dem Zurücksetzen weiter. Nur Anbieter mit lesbarem Kontingent reagieren."
+			"quotaReserveHelper": "Anteil jedes Abonnementfensters, der für die Nutzung außerhalb von Model Hotel zurückgehalten wird. Das Routing hierher endet, sobald einem Fenster nur noch so viel bleibt, und läuft nach dem Zurücksetzen weiter. Nur Anbieter mit Abonnementfenstern reagieren, keine Guthabenanbieter."
 		},
 		"quotas": {
 			"expand": "Quoten erweitern"

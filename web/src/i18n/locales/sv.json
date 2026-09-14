@@ -816,7 +816,7 @@
 			"maxInFlightHelper": "Hårt tak för samtidiga förfrågningar till denna leverantör. Lämna tomt för inget tak; den adaptiva inlärningen justerar fortfarande under det.",
 			"quotaReserveLabel": "Kvotreserv",
 			"quotaReserveDrain": "Använd helt",
-			"quotaReserveHelper": "Andel av varje prenumerationsfönster som hålls undan för användning utanför Model Hotel. Routning hit upphör när ett fönster bara har så mycket kvar och återupptas när det återställs. Endast leverantörer med läsbar kvot reagerar."
+			"quotaReserveHelper": "Andel av varje prenumerationsfönster som hålls undan för användning utanför Model Hotel. Routning hit upphör när ett fönster bara har så mycket kvar och återupptas när det återställs. Endast leverantörer med prenumerationsfönster reagerar, inte saldoleverantörer."
 		},
 		"quotas": {
 			"expand": "Expandera kvoter"

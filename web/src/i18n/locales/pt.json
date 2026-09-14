@@ -832,7 +832,7 @@
 			"maxInFlightHelper": "Teto rígido de pedidos simultâneos a este fornecedor. Deixe vazio para nenhum teto; a aprendizagem adaptativa continua a ajustar-se por baixo.",
 			"quotaReserveLabel": "Reserva de cota",
 			"quotaReserveDrain": "Esgotar por completo",
-			"quotaReserveHelper": "Parte de cada janela de assinatura mantida para uso fora do Model Hotel. O roteamento para aqui quando resta só isso em uma janela e recomeça quando ela é redefinida. Só respondem provedores com cota legível."
+			"quotaReserveHelper": "Parte de cada janela de assinatura mantida para uso fora do Model Hotel. O roteamento para aqui quando resta só isso em uma janela e recomeça quando ela é redefinida. Só respondem provedores com janelas de assinatura, não os de saldo."
 		},
 		"quotas": {
 			"expand": "Expandir quotas"

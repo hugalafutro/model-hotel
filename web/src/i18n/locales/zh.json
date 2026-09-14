@@ -816,7 +816,7 @@
 			"maxInFlightHelper": "对该提供商同时请求数的硬性上限。留空表示无上限;自适应学习仍在其下继续调整。",
 			"quotaReserveLabel": "配额预留",
 			"quotaReserveDrain": "完全用尽",
-			"quotaReserveHelper": "每个订阅窗口中留给 Model Hotel 之外使用的份额。窗口仅剩这么多时停止路由到此提供商，窗口重置后恢复。仅对配额可读取的提供商生效。"
+			"quotaReserveHelper": "每个订阅窗口中留给 Model Hotel 之外使用的份额。窗口仅剩这么多时停止路由到此提供商，窗口重置后恢复。仅对有订阅窗口的提供商生效，余额型提供商不受影响。"
 		},
 		"quotas": {
 			"expand": "展开配额"

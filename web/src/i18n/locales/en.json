@@ -822,7 +822,7 @@
 			"maxInFlightHelper": "Hard ceiling on simultaneous requests to this provider. Leave empty for no ceiling; the adaptive learner still adjusts underneath it.",
 			"quotaReserveLabel": "Quota Reserve",
 			"quotaReserveDrain": "Drain fully",
-			"quotaReserveHelper": "Share of every subscription window kept for use outside Model Hotel. Routing stops here once a window has only this much left and resumes when it resets. Only providers with a readable quota respond."
+			"quotaReserveHelper": "Share of every subscription window kept for use outside Model Hotel. Routing stops here once a window has only this much left and resumes when it resets. Only subscription window providers respond, not balance providers."
 		},
 		"quotas": {
 			"expand": "Expand quotas"

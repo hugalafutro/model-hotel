@@ -816,7 +816,7 @@
 			"maxInFlightHelper": "Harde plafon vir gelyktydige versoeke aan hierdie verskaffer. Laat leeg vir geen plafon; die aanpasbare leerder stel steeds daaronder aan.",
 			"quotaReserveLabel": "Kwotareserwe",
 			"quotaReserveDrain": "Volledig opgebruik",
-			"quotaReserveHelper": "Deel van elke intekenvenster wat vir gebruik buite Model Hotel gehou word. Roetering stop hier sodra 'n venster net soveel oor het en hervat wanneer dit herstel. Slegs verskaffers met 'n leesbare kwota reageer."
+			"quotaReserveHelper": "Deel van elke intekenvenster wat vir gebruik buite Model Hotel gehou word. Roetering stop hier sodra 'n venster net soveel oor het en hervat wanneer dit herstel. Slegs verskaffers met intekenvensters reageer, nie saldo-verskaffers nie."
 		},
 		"quotas": {
 			"expand": "Brei kwotas uit"

@@ -832,7 +832,7 @@
 			"maxInFlightHelper": "Plafon strict pentru cererile simultane către acest furnizor. Lasă gol pentru niciun plafon; învățarea adaptivă continuă să se ajusteze dedesubt.",
 			"quotaReserveLabel": "Rezervă de cotă",
 			"quotaReserveDrain": "Epuizează complet",
-			"quotaReserveHelper": "Partea din fiecare fereastră de abonament păstrată pentru utilizare în afara Model Hotel. Rutarea aici se oprește când într-o fereastră rămâne doar atât și se reia când aceasta se resetează. Răspund doar furnizorii cu o cotă lizibilă."
+			"quotaReserveHelper": "Partea din fiecare fereastră de abonament păstrată pentru utilizare în afara Model Hotel. Rutarea aici se oprește când într-o fereastră rămâne doar atât și se reia când aceasta se resetează. Răspund doar furnizorii cu ferestre de abonament, nu cei cu sold."
 		},
 		"quotas": {
 			"expand": "Extinderea cotelor"

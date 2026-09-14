@@ -816,7 +816,7 @@
 			"maxInFlightHelper": "Trần cứng cho các yêu cầu đồng thời tới nhà cung cấp này. Để trống nếu không muốn trần; bộ học thích ứng vẫn tự điều chỉnh bên dưới.",
 			"quotaReserveLabel": "Dự trữ hạn mức",
 			"quotaReserveDrain": "Dùng cạn",
-			"quotaReserveHelper": "Phần của mỗi cửa sổ đăng ký được giữ lại để dùng ngoài Model Hotel. Việc định tuyến tới đây dừng khi một cửa sổ chỉ còn chừng này và tiếp tục khi cửa sổ đặt lại. Chỉ các nhà cung cấp có hạn mức đọc được mới phản hồi."
+			"quotaReserveHelper": "Phần của mỗi cửa sổ đăng ký được giữ lại để dùng ngoài Model Hotel. Việc định tuyến tới đây dừng khi một cửa sổ chỉ còn chừng này và tiếp tục khi cửa sổ đặt lại. Chỉ các nhà cung cấp có cửa sổ đăng ký mới phản hồi, không phải nhà cung cấp theo số dư."
 		},
 		"quotas": {
 			"expand": "Mở rộng hạn ngạch"

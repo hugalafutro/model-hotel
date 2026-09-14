@@ -816,7 +816,7 @@
 			"maxInFlightHelper": "Kova katto tälle palveluntarjoajalle lähetettäville samanaikaisille pyynnöille. Jätä tyhjäksi, jos kattoa ei ole; mukautuva oppija säätää silti sen alla.",
 			"quotaReserveLabel": "Kiintiövaranto",
 			"quotaReserveDrain": "Käytä kokonaan",
-			"quotaReserveHelper": "Osuus jokaisesta tilausikkunasta, joka pidetään Model Hotelin ulkopuolista käyttöä varten. Reititys tänne loppuu, kun ikkunasta on jäljellä vain tämän verran, ja jatkuu, kun ikkuna nollautuu. Vain palveluntarjoajat, joiden kiintiö on luettavissa, reagoivat."
+			"quotaReserveHelper": "Osuus jokaisesta tilausikkunasta, joka pidetään Model Hotelin ulkopuolista käyttöä varten. Reititys tänne loppuu, kun ikkunasta on jäljellä vain tämän verran, ja jatkuu, kun ikkuna nollautuu. Vain tilausikkunoita käyttävät palveluntarjoajat reagoivat, eivät saldopohjaiset."
 		},
 		"quotas": {
 			"expand": "Kiintiöiden laajentaminen"

@@ -816,7 +816,7 @@
 			"maxInFlightHelper": "Szigorú plafon az ehhez a szolgáltatóhoz menő egyidejű kérésekre. Hagyd üresen, ha nincs plafon; az adaptív tanulás alatta továbbra is igazodik.",
 			"quotaReserveLabel": "Kvótatartalék",
 			"quotaReserveDrain": "Teljes felhasználás",
-			"quotaReserveHelper": "Minden előfizetési ablaknak az a része, amelyet a Model Hotelen kívüli használatra tartunk fenn. Az irányítás ide leáll, amint egy ablakból csak ennyi marad, és az ablak visszaállásakor folytatódik. Csak az olvasható kvótájú szolgáltatók reagálnak."
+			"quotaReserveHelper": "Minden előfizetési ablaknak az a része, amelyet a Model Hotelen kívüli használatra tartunk fenn. Az irányítás ide leáll, amint egy ablakból csak ennyi marad, és az ablak visszaállásakor folytatódik. Csak az előfizetési ablakokkal rendelkező szolgáltatók reagálnak, az egyenlegalapúak nem."
 		},
 		"quotas": {
 			"expand": "Kvóták kibontása"

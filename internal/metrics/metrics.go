@@ -351,7 +351,7 @@ var (
 	)
 	quotaReserveDesc = prometheus.NewDesc(
 		"modelhotel_provider_quota_reserve_ratio",
-		"Share of every quota window the operator keeps back for use outside the gateway (quota_reserve_percent / 100). The breaker pins the provider once a window's used ratio reaches 1 minus this. Present for a provider with a reserve set and at least one readable window.",
+		"Share of every quota window the operator keeps back for use outside the gateway (quota_reserve_percent / 100). A window the breaker judges on its own pins the provider once its used ratio reaches 1 minus this (never a NeuralWatt balance or Z.ai's MCP calls). Present for a provider with a reserve set and at least one readable window.",
 		[]string{"provider_id", "provider"}, nil,
 	)
 	quotaResetDesc = prometheus.NewDesc(
