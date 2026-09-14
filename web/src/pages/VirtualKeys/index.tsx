@@ -214,15 +214,19 @@ export function VirtualKeys() {
 			{sortedKeys.length > 0 ? (
 				<div ref={wheelPagingRef} className="ui-card overflow-hidden">
 					<table className="w-full table-fixed ui-table">
+						{/* One col per header, summing to 100%: the table is fixed-layout
+						    inside an overflow-hidden card, so a column without a col
+						    is squeezed off the right edge rather than scrolled to. */}
 						<colgroup>
-							<col className="w-[20%]" />
-							<col className="w-[14%]" />
-							<col className="w-[8%]" />
-							<col className="w-[8%]" />
-							<col className="w-[8%]" />
-							<col className="w-[16%]" />
-							<col className="w-[14%]" />
+							<col className="w-[18%]" />
 							<col className="w-[12%]" />
+							<col className="w-[7%]" />
+							<col className="w-[7%]" />
+							<col className="w-[7%]" />
+							<col className="w-[14%]" />
+							<col className="w-[13%]" />
+							<col className="w-[11%]" />
+							<col className="w-[11%]" />
 						</colgroup>
 						<thead>
 							<tr>

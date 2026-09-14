@@ -132,7 +132,7 @@ Provider health is tracked with a **circuit breaker**, keyed per (provider, mode
 After a cooldown period (default 60s), a single **HalfOpen** probe is allowed; if it succeeds the circuit closes. If it fails, the circuit re-opens with the cooldown doubled for every probe that has failed since it last closed, up to a ceiling (default 15 minutes; set the backoff limit to `0` to switch the doubling off). A circuit blocked by an exhausted provider quota is instead pinned until the quota window resets, up to a separate quota pin limit (default 24 hours, `0` to switch pinning off). State transitions are broadcast as SSE events, and the breaker can be disabled entirely in Settings. See [Failover and Hotel Routing](https://github.com/hugalafutro/model-hotel/wiki/Failover-and-Hotel-Routing) for the full breakdown.
 
 ### [<img src="docs/icons/virtualkeys.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Per-Client Virtual Keys](#-per-client-virtual-keys)
-Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, set per-key rate limits (requests/sec and burst) plus an optional tokens-per-minute (TPM) cap, restrict which providers a key may reach, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
+Issue separate API keys for different users or services. Each key is SHA-256 hashed before storage, so raw keys are never persisted. Track token usage per key, set per-key rate limits (requests/sec and burst) plus an optional tokens-per-minute (TPM) cap, give a key a dollar budget per day, week or month (requests are refused with `429` once the period's spend reaches it, and the key shows how much of it is used), restrict which providers a key may reach, delete a key to immediately cut off access, and never expose your real provider credentials. Keys can be created and deleted from the dashboard or the admin API.
 
 <p align="center">
  <img src="docs/screenshots/virtual_keys.png" alt="Virtual Keys" width="720">
@@ -161,6 +161,7 @@ Every request is logged with full latency decomposition:
 - **Total duration** (end-to-end wall time)
 - **Proxy overhead** split into request parsing, model/failover lookup, provider lookup, and key decryption
 - **Tokens per second**, prompt / completion counts
+- **Cost** in dollars, priced from the serving model's per-token prices (cache-hit tokens at the cache-hit price where the model has one)
 
 <p align="center">
  <img src="docs/screenshots/logs.png" alt="Requests" width="720">
@@ -169,6 +170,14 @@ Every request is logged with full latency decomposition:
 </p>
 
 Streaming requests are captured as they start and updated as they finish, so you can see in-flight requests in the Logs view. The overhead breakdown helps you determine whether latency is coming from your provider or from the proxy itself.
+
+The Dashboard reads the same prices: its header toggles between tokens, requests and dollars (**T / R / $**), and in the `$` state the spend tile, the spend chart and the per-provider, per-model and per-key panels all show what the period cost. A model with no known prices meters at zero; hovering the spend tile shows how many served requests went unpriced.
+
+<p align="center">
+ <img src="docs/screenshots/dashboard_spend.png" alt="Dashboard in its spend view" width="720">
+ <br>
+ <sub>Dashboard in the $ state: spend per week, per provider, per model and per key</sub>
+</p>
 
 ### [<img src="docs/icons/discovery.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Built-In Model Discovery](#-built-in-model-discovery)
 Add a provider and the service pulls the model list automatically via the provider's own API. Models are kept in sync on a schedule you control (default every 6 hours, configurable). Models that disappear from a provider's listing are disabled (never deleted) and come back automatically if the provider lists them again; manual disables are always respected. After a manual scan, a summary modal shows exactly what changed: models added, re-enabled, or disabled, any live pricing or context-length changes on existing models, plus any failover groups that were updated or deleted as a result. Changes detected by scheduled/startup background discovery instead surface as a count badge on the Models nav item; clicking the badge opens a summary of those changes and clears it. Discovery-disabled models carry a "not listed by the provider since…" tooltip on the Models page so they're easy to tell apart from manual disables. The following providers get enriched metadata beyond what the generic OpenAI-compatible endpoint returns:
@@ -202,10 +211,10 @@ Models that aren't covered by any built-in catalog are automatically enriched fr
 Every discovered model carries three classification fields with closed vocabularies. `input_modalities` lists what the model accepts (`text`, `image`, `audio`, `video`, `pdf`); `output_modalities` lists what it produces (`text`, `image`, `audio`, `video`, plus `embedding` and `rerank` for those endpoint families); and `modality` is an *endpoint class* derived from the arrays (`chat`, `embedding`, `rerank`, `image`, `video`, `tts`, or `stt`). The class is never hand-set per provider: one central deriver computes it after enrichment, so a vision chat model ("understands images") can't be confused with an image-generation model ("produces images"), and non-chat models are reliably kept out of the chat and arena pickers while remaining visible on `/v1/models` and in failover groups.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Model Health at a Glance](#-model-health-at-a-glance)
-Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT, Z.AI, Kimi Code, and MiniMax providers show quota and usage data; NeuralWatt providers show energy quota and credit balance (Standard plan or higher). All fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
+Test any model from the Models page with a single click. The test sends a minimal chat completion directly to the provider and reports total duration and the actual model response, so you know the provider is alive and responsive. DeepSeek providers show live account balance; NanoGPT, Z.AI, Kimi Code, MiniMax and OpenCode Go providers show quota and usage data; NeuralWatt providers show energy quota and credit balance (Standard plan or higher). All fetched from their respective APIs and displayed on both the provider cards and the sidebar quota panel.
 
 ### [<img src="docs/icons/health.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Provider Quotas & Usage](#-provider-quotas--usage)
-For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown - no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **Kimi Code** shows its 5-hour and weekly quotas plus parallel-request limit and membership tier; **MiniMax** shows its 5-hour and weekly Token Plan quotas by model class; **NanoGPT** shows weekly token and daily image quotas with subscription details; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal - **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
+For providers that expose it, click a provider's quota badge (on its card or in the sidebar panel) to open a live usage breakdown - no need to leave the dashboard for the provider's billing page. **OpenRouter** shows credit balance and per-key spend; **Z.ai Coding Plan** shows its 5-hour, weekly, and MCP token quotas; **Kimi Code** shows its 5-hour and weekly quotas plus parallel-request limit and membership tier; **MiniMax** shows its 5-hour and weekly Token Plan quotas by model class; **NanoGPT** shows weekly token and daily image quotas with subscription details; **OpenCode Go** shows its rolling 5-hour, weekly and monthly plan quotas with their reset times; **NeuralWatt** shows energy-based quota with subscription and lifetime usage. Each modal toggles between **quota used** and **quota remaining**, and refreshes on demand. Some providers surface usage without a dedicated modal - **DeepSeek** shows account balance and **Ollama Cloud** shows plan status on their cards and sidebar badges.
 
 <p align="center">
   <a href="docs/screenshots/quota_openrouter.png"><img src="docs/screenshots/quota_openrouter.png" height="200" alt="OpenRouter credits & usage"></a>
@@ -214,7 +223,7 @@ For providers that expose it, click a provider's quota badge (on its card or in 
   &nbsp;&nbsp;
   <a href="docs/screenshots/quota_nanogpt.png"><img src="docs/screenshots/quota_nanogpt.png" height="200" alt="NanoGPT weekly token & image quotas"></a>
   &nbsp;&nbsp;
-  <a href="docs/screenshots/quota_neuralwatt.png"><img src="docs/screenshots/quota_neuralwatt_thumb.png" height="200" alt="NeuralWatt energy quota - click for full"></a>
+  <a href="docs/screenshots/quota_opencodego.png"><img src="docs/screenshots/quota_opencodego.png" height="200" alt="OpenCode Go plan quotas"></a>
   <br>
   <sub>Quota limits/balance/spend modals for supported providers</sub>
 </p>
@@ -299,7 +308,7 @@ Because it is self-hosted, there is no turnkey "Google login": each operator reg
 GitHub works the same way as a separate option. GitHub is OAuth2 only (no OpenID Connect, no ID token), so instead of verifying an ID token it reads the account's verified emails from the GitHub API and matches them against the same kind of allowlist: an unverified address never counts, and the account's stable numeric id and login are logged on each sign-in (source `github`). Register a GitHub OAuth App, set its Authorization callback URL to `<public base URL>/api/auth/github/callback`, and paste the Client ID and secret into Settings. A "Sign in with GitHub" button then appears alongside the SSO button. As with OIDC, the session is delivered over an HttpOnly cookie, and local login always keeps working.
 
 ### [<img src="docs/icons/users.svg" width="20" height="20" style="vertical-align:middle;margin-right:6px;" alt=""> Multi-User Access](#-multi-user-access)
-Beyond the shared admin token, you can provision named dashboard accounts that sign in with a username and password (plus their own optional TOTP second factor) on the same login screen. Two roles: **admin** sees and does everything, while **user** accounts are scoped by granular grants (Chat/Arena, Usage dashboards, Request Logs, Models, Virtual Keys) so a teammate gets exactly the access they need and nothing more. Virtual keys belong to a user, and per-account rate limits (RPS/burst/TPM) aggregate across the keys that user owns.
+Beyond the shared admin token, you can provision named dashboard accounts that sign in with a username and password (plus their own optional TOTP second factor) on the same login screen. Two roles: **admin** sees and does everything, while **user** accounts are scoped by granular grants (Chat/Arena, Usage dashboards, Request Logs, Models, Virtual Keys) so a teammate gets exactly the access they need and nothing more. Virtual keys belong to a user, and per-account rate limits (RPS/burst/TPM) and a per-account dollar budget aggregate across the keys that user owns.
 
 <p align="center">
  <img src="docs/screenshots/users.png" alt="Users page" width="720">

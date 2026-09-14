@@ -233,6 +233,18 @@ Shows all proxy requests with:
 
 ![Request Logs](screenshots/logs.png)
 
+### Spend
+
+Every row carries a `cost_usd` column (see the schema above), filled on terminal rows from the serving model's per-token prices at the time the row was written. Three places read it:
+
+- **The Requests table and detail modal.** A `Cost` column on the row and a `Cost` item in the detail grid, `$0.000093` for a small request. `sort_by=cost` orders the listing by it. A row with no price shows a dash in the table and "Unpriced" in the modal: the request never reached a provider, or the model it was served by has no known input or output price.
+- **The Dashboard.** The header toggles between tokens, requests and dollars (`T` / `R` / `$`). In the `$` state the spend tile sums the period, the spend chart plots it, and the provider, model and virtual-key panels show dollars instead of tokens. Hovering the spend tile says how many served requests went unpriced in the period, since those meter at zero and the total is a floor when the count is not.
+- **Budgets.** A virtual key or a user account can carry a dollar budget per calendar period; the proxy sums these rows for it and refuses with `429` once the period's spend reaches the cap. See [Dollar Budgets](Virtual-Keys#dollar-budgets).
+
+![Dashboard in the spend state](screenshots/dashboard_spend.png)
+
+Prices come from the models.dev catalog or a per-model override (see [[Model-Discovery]]); a price edited later leaves history alone, so a row's cost is what it cost then.
+
 ### App Logs
 
 **API endpoints:** `GET /api/logs/app` (ring buffer or history), `GET /api/logs/app/cursor` (keyset scrolling), `DELETE /api/logs/app` (purge).
