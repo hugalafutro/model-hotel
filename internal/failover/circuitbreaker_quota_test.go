@@ -674,7 +674,7 @@ func TestApplyQuotaPins_RetargetsOpenCircuit(t *testing.T) {
 	backdateOpen(t, cb, id, 2*time.Hour)
 
 	resetsAt := time.Now().Add(6 * time.Hour).Truncate(time.Second)
-	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: resetsAt}); got != 1 {
+	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: resetsAt}, nil); got != 1 {
 		t.Fatalf("got %d circuits retargeted, want 1", got)
 	}
 
@@ -744,7 +744,7 @@ func TestApplyQuotaPins_LeavesNonOpenCircuitsAlone(t *testing.T) {
 			id := uuid.New()
 			c.setup(t, cb, id)
 
-			got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)})
+			got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil)
 
 			// The one change is the provider's seeded account circuit, which is
 			// not the circuit under test.
@@ -773,7 +773,7 @@ func TestApplyQuotaPins_NeverShortensExistingPin(t *testing.T) {
 		t.Fatal("setup: expected the open transition to pin the circuit")
 	}
 
-	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(time.Hour)}); got != 0 {
+	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(time.Hour)}, nil); got != 0 {
 		t.Errorf("got %d circuits retargeted, want 0 for a nearer deadline", got)
 	}
 	if after := overrideFor(t, cb, id); after != before {
@@ -791,7 +791,7 @@ func TestApplyQuotaPins_SkipsWhenPinDisabled(t *testing.T) {
 
 	cb.RecordFailure(id, "test-provider", "", Cause{})
 
-	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}); got != 0 {
+	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(6 * time.Hour)}, nil); got != 0 {
 		t.Errorf("got %d circuits retargeted, want 0 while quota pinning is disabled", got)
 	}
 	if o := overrideFor(t, cb, id); o != 0 {
@@ -811,7 +811,7 @@ func TestApplyQuotaPins_CeilingCapsRunawayDeadline(t *testing.T) {
 
 	cb.RecordFailure(id, "test-provider", "", Cause{})
 
-	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(500 * 24 * time.Hour)}); got != 1 {
+	if got := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(500 * 24 * time.Hour)}, nil); got != 1 {
 		t.Fatalf("got %d circuits retargeted, want 1", got)
 	}
 	ceiling := time.Hour

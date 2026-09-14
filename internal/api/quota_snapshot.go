@@ -334,7 +334,7 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 	// circuit fails a probe and opens again — which is most of what the poll a
 	// breaker open triggers exists to prevent.
 	if h.circuitBreaker != nil {
-		h.circuitBreaker.ApplyQuotaPins(advice)
+		h.circuitBreaker.ApplyQuotaPins(advice, nameByID)
 	}
 
 	h.quotaAdvisor.Replace(advice)

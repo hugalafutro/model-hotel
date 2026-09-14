@@ -142,7 +142,7 @@ func TestQuotaPinTransitionsRecordTheirCause(t *testing.T) {
 		t.Fatal("setup: circuit not open")
 	}
 
-	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)}); n != 1 {
+	if n := cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)}, nil); n != 1 {
 		t.Fatalf("retargeted %d, want 1", n)
 	}
 	if cause, status, _ := lastVerdict(t, cb, id, "m"); cause != causePinRetargeted || status != 429 {
@@ -156,7 +156,7 @@ func TestQuotaPinTransitionsRecordTheirCause(t *testing.T) {
 		t.Errorf("after release: cause=%q status=%d", cause, status)
 	}
 
-	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)})
+	cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)}, nil)
 	if n := cb.ReleaseAllQuotaPins(); n != 1 {
 		t.Fatalf("released all %d, want 1", n)
 	}
@@ -454,7 +454,7 @@ func TestBreakerLogsWithTheLockReleased(t *testing.T) {
 		// An exhausted open with a response pin, retargeted and released by the
 		// poller's paths, then one released by switching the poller off.
 		cb.RecordExhausted(id, "p", "b", 429, time.Hour)
-		cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)})
+		cb.ApplyQuotaPins(map[uuid.UUID]time.Time{id: time.Now().Add(2 * time.Hour)}, nil)
 		cb.ReleaseQuotaPins(map[uuid.UUID]struct{}{id: {}})
 		cb.RecordExhausted(id, "p", "c", 429, time.Hour)
 		cb.ReleaseAllQuotaPins()
