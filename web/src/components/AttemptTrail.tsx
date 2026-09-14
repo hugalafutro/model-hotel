@@ -137,7 +137,7 @@ export function AttemptTrail({
 						{/* Verdict badges and the timing travel as one non-wrapping
 						    cluster: when the row runs out of width the whole cluster
 						    drops to the next line together, never the timing alone. */}
-						<span className="inline-flex items-center gap-2 whitespace-nowrap">
+						<span className="flex items-center gap-x-2 whitespace-nowrap">
 							{a.breaker === "skipped" ? (
 								<span className="ui-badge ui-badge-amber text-xs">
 									{t("components.requestLogDetail.attemptSkipped")}

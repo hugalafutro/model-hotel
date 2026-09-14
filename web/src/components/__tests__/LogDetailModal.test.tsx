@@ -292,7 +292,7 @@ describe("LogDetailModal", () => {
 			expect(screen.getByText(/2025/)).toBeInTheDocument();
 		});
 
-		it("displays request hash with copy button", () => {
+		it("does not display the request hash", () => {
 			renderWithProviders(
 				<LogDetailModal
 					log={mockRequestLog}
