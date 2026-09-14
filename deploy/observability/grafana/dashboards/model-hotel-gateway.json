@@ -561,7 +561,7 @@
     {
       "type": "stat",
       "id": 9,
-      "title": "Restarted",
+      "title": "Uptime",
       "description": "Time since the most recently restarted member came up (the youngest process in the fleet). A small number after nothing was deployed is a crash.",
       "datasource": {
         "type": "prometheus",
