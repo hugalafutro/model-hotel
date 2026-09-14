@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -15,6 +16,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
@@ -270,5 +272,23 @@ func TestCollectBreakerStates_UntouchedEnabledProvidersReadClosed(t *testing.T) 
 	}
 	if len(got) != 2 {
 		t.Errorf("got %d states, want exactly the two enabled providers: %+v", len(got), got)
+	}
+}
+
+// TestCollectBreakerStates_WithoutAProviderListReportsTrackedOnly: a handler
+// with no provider repository, or one whose list fails at scrape time, still
+// reports the circuits the breaker tracks; the fill-in is best effort.
+func TestCollectBreakerStates_WithoutAProviderListReportsTrackedOnly(t *testing.T) {
+	tracked := []failover.ProviderStatus{{ProviderID: "prov-a", ProviderName: "A", State: "half-open"}}
+	bare := &Handler{circuitBreaker: fakeBreakerReader{statuses: tracked}}
+	if got := bare.collectBreakerStates(); len(got) != 1 || got[0].State != metrics.BreakerHalfOpen {
+		t.Errorf("no repository: got %+v, want the one tracked half-open state", got)
+	}
+	failing := testHandler(&mockProviderStore{listFn: func(context.Context) ([]*provider.Provider, error) {
+		return nil, errors.New("connection refused")
+	}}, nil, nil, &mockAdminAuth{}, nil)
+	failing.circuitBreaker = fakeBreakerReader{statuses: tracked}
+	if got := failing.collectBreakerStates(); len(got) != 1 || got[0].ProviderID != "prov-a" {
+		t.Errorf("list failure: got %+v, want the tracked state alone", got)
 	}
 }
