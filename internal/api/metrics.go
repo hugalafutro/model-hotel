@@ -1,10 +1,17 @@
 package api
 
 import (
+	"context"
 	"net/http"
+	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
+	"github.com/hugalafutro/model-hotel/internal/provider"
+	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
 // MetricsHandler returns the authenticated Prometheus /metrics handler and
@@ -30,7 +37,79 @@ func (h *Handler) MetricsHandler() http.Handler {
 			return out
 		})
 	}
+	metrics.RegisterQuotaCollector(h.collectQuotaWindows)
 	return h.metricsAuth(metrics.Handler())
+}
+
+// quotaScrapeTimeout bounds the two reads a scrape makes for the quota gauges.
+// A scrape that waits on a slow database would hold Prometheus past its own
+// deadline and fail the whole page, breaker gauge included, so the quota
+// series drop out for that scrape instead.
+const quotaScrapeTimeout = 3 * time.Second
+
+// collectQuotaWindows reads every provider's latest stored quota snapshot and
+// turns it into the windows the quota gauges report. It runs at scrape time so
+// the gauges follow the poller's last write without a second cache to keep in
+// step; both tables are small. A read failure reports nothing for this scrape,
+// at debug level since a down database is already the story in the log.
+//
+// A row whose latest refresh failed is left out: RecordFailure keeps the last
+// good payload under it, and a figure the poller could not confirm would sit
+// on the dashboard looking current for as long as the provider stays down. A
+// disabled provider is left out for the same reason: the poller skips it, so
+// its row only ages.
+// Only the kind this provider type polls is read, so a row left by an earlier
+// type cannot compete with the live one.
+func (h *Handler) collectQuotaWindows() []metrics.QuotaWindow {
+	if h.quotaRepo == nil || h.providerRepo == nil {
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), quotaScrapeTimeout)
+	defer cancel()
+	providers, err := h.providerRepo.List(ctx)
+	if err != nil {
+		debuglog.Debug("metrics: quota gauges skipped, provider list failed", "error", err)
+		return nil
+	}
+	snaps, err := h.quotaRepo.List(ctx)
+	if err != nil {
+		debuglog.Debug("metrics: quota gauges skipped, snapshot list failed", "error", err)
+		return nil
+	}
+	byID := make(map[uuid.UUID]*provider.Provider, len(providers))
+	for _, p := range providers {
+		byID[p.ID] = p
+	}
+	var out []metrics.QuotaWindow
+	// One series per provider and window: with one row per provider and kind
+	// and one kind per type, only a payload naming a window twice could repeat
+	// a label set, and that would fail the whole scrape.
+	seen := make(map[string]struct{})
+	for _, s := range snaps {
+		p, ok := byID[s.ProviderID]
+		if !ok || !p.Enabled || s.LastError != "" {
+			continue
+		}
+		typ := provider.TypeOf(p)
+		if kind, polls := quotaKindFor(typ); !polls || s.Kind != kind {
+			continue
+		}
+		for _, w := range quota.Windows(typ, s) {
+			key := s.ProviderID.String() + "\x00" + w.Name
+			if _, dup := seen[key]; dup {
+				continue
+			}
+			seen[key] = struct{}{}
+			out = append(out, metrics.QuotaWindow{
+				ProviderID:   s.ProviderID.String(),
+				ProviderName: p.Name,
+				Window:       w.Name,
+				Used:         w.Used,
+				ResetsAt:     w.ResetsAt,
+			})
+		}
+	}
+	return out
 }
 
 // breakerStateCode maps the circuit breaker's state string to the gauge's

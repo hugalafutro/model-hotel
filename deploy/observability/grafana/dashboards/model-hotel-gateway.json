@@ -1530,7 +1530,7 @@
       "type": "table",
       "id": 41,
       "title": "Spend by model",
-      "description": "Top 20 provider / model pairs by dollars billed over the dashboard time range.",
+      "description": "Top 20 provider / model pairs by dollars billed over the dashboard time range. Models that added nothing over the range (unpriced, or idle) are left out.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1613,7 +1613,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "topk(20, sum by (provider, model) (increase(modelhotel_cost_usd_total{provider=~\"$provider\"}[$__range])))",
+          "expr": "topk(20, sum by (provider, model) (increase(modelhotel_cost_usd_total{provider=~\"$provider\"}[$__range])) > 0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -2166,6 +2166,305 @@
     },
     {
       "type": "row",
+      "id": 43,
+      "title": "Quota",
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 81
+      },
+      "panels": []
+    },
+    {
+      "type": "bargauge",
+      "id": 44,
+      "title": "Quota used",
+      "description": "Share of each subscription window consumed, from the latest successful quota poll (the same figures the provider's quota modal shows). 100% is spent: the breaker pins the provider until the window rolls over. The bar caps at 100%; the number keeps counting for a balance provider serving into overage. Only providers whose quota endpoint states a measurable window appear.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 9,
+        "x": 0,
+        "y": 82
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "max": 1,
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.7
+              },
+              {
+                "color": "red",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "lcd",
+        "valueMode": "color",
+        "namePlacement": "auto",
+        "showUnfilled": true,
+        "sizing": "auto",
+        "minVizHeight": 16,
+        "minVizWidth": 8,
+        "maxVizHeight": 300,
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "text": {}
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (provider, window) (modelhotel_provider_quota_used_ratio{provider=~\"$provider\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{provider}} {{window}}",
+          "instant": true,
+          "range": false,
+          "format": "time_series"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 45,
+      "title": "Quota used over time",
+      "description": "The same windows over the selected range: the slope is the burn rate, a drop is a rollover. A line that reaches 1 and stays there is a window the fleet is routing around until it resets.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 9,
+        "x": 9,
+        "y": 82
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "decimals": 0,
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "stepAfter",
+            "lineWidth": 1,
+            "fillOpacity": 8,
+            "showPoints": "never",
+            "spanNulls": true,
+            "axisPlacement": "auto",
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "none",
+              "group": "A"
+            },
+            "axisSoftMax": 1,
+            "thresholdsStyle": {
+              "mode": "line"
+            }
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "desc"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (provider, window) (modelhotel_provider_quota_used_ratio{provider=~\"$provider\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{provider}} {{window}}",
+          "instant": false,
+          "range": true
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "id": 46,
+      "title": "Resets in",
+      "description": "Time until each dated window rolls over. A balance with no reset (prepaid credits) is not listed. Negative means the poll has not run since the rollover.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 6,
+        "x": 18,
+        "y": 82
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "dtdurations",
+          "decimals": 0,
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": false
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "resets in"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "text",
+                      "value": 0
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "resets in",
+            "desc": false
+          }
+        ],
+        "footer": {
+          "show": false,
+          "reducer": [
+            "sum"
+          ],
+          "countRows": false,
+          "fields": ""
+        }
+      },
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true
+            },
+            "indexByName": {
+              "provider": 0,
+              "window": 1,
+              "Value": 2
+            },
+            "renameByName": {
+              "Value": "resets in"
+            }
+          }
+        }
+      ],
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "max by (provider, window) (modelhotel_provider_quota_resets_at_seconds{provider=~\"$provider\"}) - time()",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "",
+          "instant": true,
+          "range": false,
+          "format": "table"
+        }
+      ]
+    },
+    {
+      "type": "row",
       "id": 28,
       "title": "Process",
       "collapsed": false,
@@ -2173,7 +2472,7 @@
         "h": 1,
         "w": 24,
         "x": 0,
-        "y": 81
+        "y": 91
       },
       "panels": []
     },
@@ -2190,7 +2489,7 @@
         "h": 6,
         "w": 8,
         "x": 0,
-        "y": 82
+        "y": 92
       },
       "fieldConfig": {
         "defaults": {
@@ -2254,7 +2553,7 @@
         "h": 6,
         "w": 8,
         "x": 8,
-        "y": 82
+        "y": 92
       },
       "fieldConfig": {
         "defaults": {
@@ -2318,7 +2617,7 @@
         "h": 6,
         "w": 8,
         "x": 16,
-        "y": 82
+        "y": 92
       },
       "fieldConfig": {
         "defaults": {
