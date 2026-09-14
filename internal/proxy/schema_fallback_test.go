@@ -93,7 +93,7 @@ func TestChatCompletions_JSONSchemaRefusalFallsBackToJSONMode(t *testing.T) {
 		Capabilities: "{}", Params: "{}", Modality: "chat", InputModalities: `["text"]`, OutputModalities: `["text"]`,
 		Enabled: true, ProviderName: providerName, ProviderEnabled: true,
 	})
-	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-schema"), "sk-tes...", nil, nil, nil, nil, nil, nil)
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("test-vk-schema"), "sk-tes...", nil, nil, nil, nil, nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
 	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)

@@ -102,6 +102,15 @@ const UserRateLimitBurstKey contextKey = "user_rate_limit_burst"
 // fallback, same as the RPS cap. Same two writers as VirtualKeyOwnerIDKey.
 const UserRateLimitTPMKey contextKey = "user_rate_limit_tpm"
 
+// KeyBudgetKey is the context key under which the proxy's ProxyKeyMiddleware
+// publishes the virtual key's dollar budget (*budget.Subject, absent when the
+// key has none). UserBudgetKey carries the owning account's, published by the
+// same writers as VirtualKeyOwnerIDKey. budget.Limiter.Middleware reads both.
+const KeyBudgetKey contextKey = "key_budget"
+
+// UserBudgetKey is the account-level twin of KeyBudgetKey.
+const UserBudgetKey contextKey = "user_budget"
+
 // UserAllowedProvidersKey is the context key under which an account's provider
 // cap is published (*[]string, nil when there is no cap). Intersected with the
 // key's own list at candidate resolution. Two middlewares write it, for the two

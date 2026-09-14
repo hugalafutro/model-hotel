@@ -80,7 +80,7 @@ func seedOwnedCappedKey(t *testing.T, ownerCap, keyAllowed []string) string {
 	if keyAllowed != nil {
 		allowed = &keyAllowed
 	}
-	created, err := repo.Create(ctx, plaintext, keyHash, "sk-...cp", nil, nil, nil, allowed, nil, &ownerID)
+	created, err := repo.Create(ctx, plaintext, keyHash, "sk-...cp", nil, nil, nil, allowed, nil, &ownerID, nil)
 	if err != nil {
 		t.Fatalf("seed owned key: %v", err)
 	}

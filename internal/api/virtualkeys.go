@@ -12,6 +12,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -26,6 +27,8 @@ type CreateVirtualKeyRequest struct {
 	RateLimitTPM     *int      `json:"rate_limit_tpm,omitempty"`
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
+	BudgetUSD        *float64  `json:"budget_usd,omitempty"`
+	BudgetPeriod     *string   `json:"budget_period,omitempty"`
 	// OwnerUserID assigns the key to a dashboard user (admin callers only;
 	// for non-admins the key is always created as their own). Empty string or
 	// null means unowned.
@@ -41,6 +44,10 @@ type UpdateVirtualKeyRequest struct {
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
 	OwnerUserID      *string   `json:"owner_user_id,omitempty"`
+	// BudgetUSD and BudgetPeriod are written on every update like the rate
+	// limits: null clears the budget.
+	BudgetUSD    *float64 `json:"budget_usd"`
+	BudgetPeriod *string  `json:"budget_period"`
 	// allowedProvidersPresent tracks whether allowed_providers was in the JSON.
 	// Set by UnmarshalJSON; do not set manually.
 	allowedProvidersPresent bool
@@ -120,7 +127,21 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 		StripReasoning:   vk.StripReasoning,
 		OwnerUserID:      ownerID,
 		OwnerUsername:    ownerUsername,
+		BudgetUSD:        vk.BudgetUSD,
+		BudgetPeriod:     vk.BudgetPeriod,
 	}
+}
+
+// withBudgetSpent adds the key's current-period spend to a response when the
+// key has a budget and the limiter is wired.
+func (h *Handler) withBudgetSpent(ctx context.Context, vk *virtualkey.VirtualKey, resp virtualkey.VirtualKeyResponse) virtualkey.VirtualKeyResponse {
+	b := budget.From(vk.BudgetUSD, vk.BudgetPeriod)
+	if b == nil || h.budgetLimiter == nil {
+		return resp
+	}
+	spent := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindKey, ID: vk.ID.String(), Name: vk.Name, Budget: *b})
+	resp.BudgetSpentUSD = &spent
+	return resp
 }
 
 // ownerUsername resolves a key owner's username for display. Best-effort:
@@ -343,6 +364,10 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
+	if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
+		respondBadRequest(w, err.Error(), nil)
+		return
+	}
 
 	caller := user.IdentityFrom(r.Context())
 	owner, err := resolveWriteOwner(caller, req.OwnerUserID)
@@ -377,7 +402,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	// so a key issued before the tail widened keeps its old preview.
 	keyPreview := rawKey[:3] + "..." + rawKey[len(rawKey)-4:]
 
-	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner)
+	vk, err := h.virtualKeyRepo.Create(r.Context(), req.Name, keyHash, keyPreview, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner, budget.From(req.BudgetUSD, req.BudgetPeriod))
 	if err != nil {
 		if db.IsForeignKeyViolation(err) {
 			respondBadRequest(w, "owner_user_id does not match any user", nil)
@@ -435,7 +460,7 @@ func (h *Handler) ListVirtualKeys(w http.ResponseWriter, r *http.Request) {
 				ownerName = &name
 			}
 		}
-		responses[i] = virtualKeyToResponse(vk, false, "", ownerName)
+		responses[i] = h.withBudgetSpent(r.Context(), vk, virtualKeyToResponse(vk, false, "", ownerName))
 	}
 
 	writeJSON(w, responses)
@@ -458,7 +483,7 @@ func (h *Handler) GetVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := virtualKeyToResponse(vk, false, "", h.ownerUsername(r.Context(), vk.OwnerUserID))
+	resp := h.withBudgetSpent(r.Context(), vk, virtualKeyToResponse(vk, false, "", h.ownerUsername(r.Context(), vk.OwnerUserID)))
 	writeJSON(w, resp)
 }
 
@@ -485,6 +510,10 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
+		return
+	}
+	if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
+		respondBadRequest(w, err.Error(), nil)
 		return
 	}
 
@@ -577,7 +606,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner)
+	vk, err := h.virtualKeyRepo.Update(r.Context(), id, req.Name, req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, req.AllowedProviders, req.StripReasoning, owner, budget.From(req.BudgetUSD, req.BudgetPeriod))
 	if err != nil {
 		if errors.Is(err, virtualkey.ErrNotFound) {
 			http.Error(w, "virtual key not found", http.StatusNotFound)
@@ -592,7 +621,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp := virtualKeyToResponse(vk, false, "", h.ownerUsername(r.Context(), vk.OwnerUserID))
+	resp := h.withBudgetSpent(r.Context(), vk, virtualKeyToResponse(vk, false, "", h.ownerUsername(r.Context(), vk.OwnerUserID)))
 	writeJSON(w, resp)
 }
 

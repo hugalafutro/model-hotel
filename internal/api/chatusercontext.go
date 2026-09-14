@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/user"
@@ -114,6 +115,9 @@ func (h *Handler) ChatUserContextMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxkeys.UserRateLimitRPSKey, u.RateLimitRPS)
 		ctx = context.WithValue(ctx, ctxkeys.UserRateLimitBurstKey, u.RateLimitBurst)
 		ctx = context.WithValue(ctx, ctxkeys.UserRateLimitTPMKey, u.RateLimitTPM)
+		if b := budget.From(u.BudgetUSD, u.BudgetPeriod); b != nil {
+			ctx = context.WithValue(ctx, ctxkeys.UserBudgetKey, &budget.Subject{Kind: budget.KindUser, ID: u.ID.String(), Name: u.Username, Budget: *b})
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

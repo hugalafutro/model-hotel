@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/db"
 )
 
@@ -59,6 +60,10 @@ type User struct {
 	RateLimitRPS   *float64 `json:"rate_limit_rps"`
 	RateLimitBurst *int     `json:"rate_limit_burst"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm"`
+	// BudgetUSD and BudgetPeriod cap what every key this user owns, plus their
+	// dashboard chat, may spend per calendar period (budget.From pairs them).
+	BudgetUSD    *float64 `json:"budget_usd"`
+	BudgetPeriod *string  `json:"budget_period"`
 	// TotpEnabled reports whether the user has a confirmed second factor.
 	// Derived from user_totp by the API layer (ListUsers), never scanned from
 	// the users table; false in Create/Update responses (the UI refetches).
@@ -88,14 +93,14 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const userColumns = `id, username, display_name, email, password_hash, role, grants, enabled, created_at, updated_at, last_login_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, sso_provider, sso_subject, allowed_providers`
+const userColumns = `id, username, display_name, email, password_hash, role, grants, enabled, created_at, updated_at, last_login_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, sso_provider, sso_subject, allowed_providers, budget_usd, budget_period`
 
 func scanUser(row pgx.Row) (*User, error) {
 	var u User
 	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Email, &u.PasswordHash,
 		&u.Role, &u.Grants, &u.Enabled, &u.CreatedAt, &u.UpdatedAt, &u.LastLoginAt,
 		&u.RateLimitRPS, &u.RateLimitBurst, &u.RateLimitTPM, &u.SSOProvider, &u.SSOSubject,
-		&u.AllowedProviders)
+		&u.AllowedProviders, &u.BudgetUSD, &u.BudgetPeriod)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, ErrNotFound
 	}
@@ -124,12 +129,13 @@ func (r *Repository) Create(ctx context.Context, username, displayName string, e
 	if grants == nil {
 		grants = []string{}
 	}
+	budgetUSD, budgetPeriod := limits.Budget.Columns()
 	return scanUser(r.pool.QueryRow(ctx,
-		`INSERT INTO users (username, display_name, email, password_hash, role, grants, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers)
-		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+		`INSERT INTO users (username, display_name, email, password_hash, role, grants, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, budget_usd, budget_period)
+		 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 		 RETURNING `+userColumns,
 		username, displayName, NormalizeEmail(email), passwordHash, role, grants,
-		limits.RPS, limits.Burst, limits.TPM, allowedProviders))
+		limits.RPS, limits.Burst, limits.TPM, allowedProviders, budgetUSD, budgetPeriod))
 }
 
 // List returns all users, newest first.
@@ -235,21 +241,24 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, username, display
 	if grants == nil {
 		grants = []string{}
 	}
+	budgetUSD, budgetPeriod := limits.Budget.Columns()
 	return scanUser(r.pool.QueryRow(ctx,
 		`UPDATE users
 		 SET username = $2, display_name = $3, email = $4, role = $5, grants = $6, enabled = $7,
-		     rate_limit_rps = $8, rate_limit_burst = $9, rate_limit_tpm = $10, allowed_providers = $11, updated_at = NOW()
+		     rate_limit_rps = $8, rate_limit_burst = $9, rate_limit_tpm = $10, allowed_providers = $11,
+		     budget_usd = $12, budget_period = $13, updated_at = NOW()
 		 WHERE id = $1
 		 RETURNING `+userColumns,
 		id, username, displayName, NormalizeEmail(email), role, grants, enabled,
-		limits.RPS, limits.Burst, limits.TPM, allowedProviders))
+		limits.RPS, limits.Burst, limits.TPM, allowedProviders, budgetUSD, budgetPeriod))
 }
 
 // Limits bundles the per-user aggregate limit fields for Create/Update.
 type Limits struct {
-	RPS   *float64
-	Burst *int
-	TPM   *int
+	RPS    *float64
+	Burst  *int
+	TPM    *int
+	Budget *budget.Budget
 }
 
 // SetPassword replaces the stored hash (admin reset or user change).

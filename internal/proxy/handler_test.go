@@ -16,6 +16,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -1693,14 +1694,18 @@ func TestProxyKeyMiddleware_OwnerContextPropagated(t *testing.T) {
 	ownerCap := []string{"prov-a"}
 	h.virtualKeyRepo = &ownerAwareVKRepo{vk: &VirtualKeyInfo{
 		ID: "vk-1", Name: "owned", KeyHash: "hash-1",
-		Owner: &OwnerInfo{ID: "uid-1", Enabled: true, RateLimitRPS: &rps, RateLimitBurst: &burst, RateLimitTPM: &tpm, AllowedProviders: &ownerCap},
+		Budget: &budget.Budget{USD: 5, Period: budget.PeriodDay},
+		Owner:  &OwnerInfo{ID: "uid-1", Name: "alice", Enabled: true, RateLimitRPS: &rps, RateLimitBurst: &burst, RateLimitTPM: &tpm, AllowedProviders: &ownerCap, Budget: &budget.Budget{USD: 50, Period: budget.PeriodMonth}},
 	}}
 
 	var gotUID string
 	var gotRPS *float64
 	var gotBurst, gotTPM *int
 	var gotCap *[]string
+	var gotKeyBudget, gotUserBudget *budget.Subject
 	handler := h.ProxyKeyMiddleware(http.HandlerFunc(func(_ http.ResponseWriter, r *http.Request) {
+		gotKeyBudget, _ = r.Context().Value(ctxkeys.KeyBudgetKey).(*budget.Subject)
+		gotUserBudget, _ = r.Context().Value(ctxkeys.UserBudgetKey).(*budget.Subject)
 		gotUID, _ = r.Context().Value(ctxkeys.VirtualKeyOwnerIDKey).(string)
 		gotRPS, _ = r.Context().Value(ctxkeys.UserRateLimitRPSKey).(*float64)
 		gotBurst, _ = r.Context().Value(ctxkeys.UserRateLimitBurstKey).(*int)
@@ -1726,6 +1731,12 @@ func TestProxyKeyMiddleware_OwnerContextPropagated(t *testing.T) {
 	}
 	if gotTPM == nil || *gotTPM != tpm {
 		t.Errorf("user tpm = %v, want %v", gotTPM, tpm)
+	}
+	if gotKeyBudget == nil || gotKeyBudget.Kind != budget.KindKey || gotKeyBudget.ID != "vk-1" || gotKeyBudget.Name != "owned" || gotKeyBudget.Budget.USD != 5 {
+		t.Errorf("key budget subject = %+v", gotKeyBudget)
+	}
+	if gotUserBudget == nil || gotUserBudget.Kind != budget.KindUser || gotUserBudget.ID != "uid-1" || gotUserBudget.Name != "alice" || gotUserBudget.Budget.Period != budget.PeriodMonth {
+		t.Errorf("user budget subject = %+v", gotUserBudget)
 	}
 	// The cap must reach the context, not just OwnerInfo: candidate filtering
 	// reads it from there and has no other route to the owner's row.
@@ -1771,8 +1782,8 @@ func TestVirtualKeyRepoAdapter_FindByKeyHashMapsOwner(t *testing.T) {
 	var ownerID uuid.UUID
 	ownerCap := []string{uuid.New().String()}
 	if err := pool.QueryRow(ctx,
-		`INSERT INTO users (username, password_hash, enabled, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers)
-		 VALUES ($1, 'x', true, $2, $3, $4, $5) RETURNING id`,
+		`INSERT INTO users (username, password_hash, enabled, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, budget_usd, budget_period)
+		 VALUES ($1, 'x', true, $2, $3, $4, $5, 40, 'month') RETURNING id`,
 		"adapter-owner-"+suffix, rps, burst, tpm, ownerCap).Scan(&ownerID); err != nil {
 		t.Fatalf("seed owner: %v", err)
 	}
@@ -1781,7 +1792,7 @@ func TestVirtualKeyRepoAdapter_FindByKeyHashMapsOwner(t *testing.T) {
 	repo := virtualkey.NewRepository(pool)
 	created, err := repo.Create(ctx,
 		"adapter-owned-"+suffix, "hash-adapter-"+suffix, "sk-...ad",
-		nil, nil, nil, nil, nil, &ownerID)
+		nil, nil, nil, nil, nil, &ownerID, &budget.Budget{USD: 2.5, Period: budget.PeriodDay})
 	if err != nil {
 		t.Fatalf("create owned key: %v", err)
 	}
@@ -1811,5 +1822,16 @@ func TestVirtualKeyRepoAdapter_FindByKeyHashMapsOwner(t *testing.T) {
 	if info.Owner.AllowedProviders == nil || len(*info.Owner.AllowedProviders) != 1 ||
 		(*info.Owner.AllowedProviders)[0] != ownerCap[0] {
 		t.Errorf("owner allowed_providers = %v, want %v", info.Owner.AllowedProviders, ownerCap)
+	}
+	// Both budgets and the owner's name ride the join too: the budget stage
+	// keys on them and names the owner in its alert.
+	if info.Budget == nil || info.Budget.USD != 2.5 || info.Budget.Period != budget.PeriodDay {
+		t.Errorf("key budget = %+v, want $2.5/day", info.Budget)
+	}
+	if info.Owner.Budget == nil || info.Owner.Budget.USD != 40 || info.Owner.Budget.Period != budget.PeriodMonth {
+		t.Errorf("owner budget = %+v, want $40/month", info.Owner.Budget)
+	}
+	if info.Owner.Name != "adapter-owner-"+suffix {
+		t.Errorf("owner name = %q", info.Owner.Name)
 	}
 }

@@ -215,6 +215,7 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 			Completion:      logEntry.tokensCompletion,
 		}); ok {
 			cost = c
+			h.budgetLimiter.Charge(logEntry.virtualKeyID, logEntry.ownerUserID, c)
 		}
 	}
 

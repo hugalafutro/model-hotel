@@ -350,7 +350,7 @@ func TestChatCompletions_MiniMaxBusinessErrorFailsOver(t *testing.T) {
 		t.Fatalf("create failover group: %v", err)
 	}
 
-	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("mm-vk-failover"), "sk-tes...", nil, nil, nil, nil, nil, nil)
+	virtualKey, _ := virtualKeyRepo.Create(context.Background(), "test-key", virtualkey.Hash("mm-vk-failover"), "sk-tes...", nil, nil, nil, nil, nil, nil, nil)
 	defer func() { _ = virtualKeyRepo.Delete(context.Background(), virtualKey.ID) }()
 
 	handler := newCanonicalHandler(t, "test-master-key-for-integration", pool, settingsRepo, failoverRepo, modelRepo, providerRepo, virtualKeyRepo, limiter, ipLimiter)

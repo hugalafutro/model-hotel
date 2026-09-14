@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
@@ -27,6 +28,10 @@ type VirtualKey struct {
 	AllowedProviders *[]string  `json:"allowed_providers"`
 	StripReasoning   bool       `json:"strip_reasoning"`
 	OwnerUserID      *uuid.UUID `json:"owner_user_id"`
+	// BudgetUSD and BudgetPeriod are the key's spending cap (budget.From pairs
+	// them); both NULL when the key has none.
+	BudgetUSD    *float64 `json:"budget_usd"`
+	BudgetPeriod *string  `json:"budget_period"`
 	// Owner carries the owning user's proxy-relevant state. Populated only by
 	// FindByKeyHash (the proxy auth path); nil everywhere else and always nil
 	// for unowned keys.
@@ -36,10 +41,13 @@ type VirtualKey struct {
 // Owner is the slice of the owning users row the proxy needs: whether the
 // account is enabled, its aggregate per-user limits, and its provider cap.
 type Owner struct {
+	Username       string
 	Enabled        bool
 	RateLimitRPS   *float64
 	RateLimitBurst *int
 	RateLimitTPM   *int
+	BudgetUSD      *float64
+	BudgetPeriod   *string
 	// AllowedProviders is the account-level provider cap (nil = no cap). The
 	// proxy intersects it with the key's own list, so it must come from the
 	// live row here rather than from anything copied onto the key at write time.
@@ -55,6 +63,8 @@ type CreateVirtualKeyRequest struct {
 	AllowedProviders *[]string `json:"allowed_providers,omitempty"`
 	StripReasoning   *bool     `json:"strip_reasoning,omitempty"`
 	OwnerUserID      *string   `json:"owner_user_id,omitempty"`
+	BudgetUSD        *float64  `json:"budget_usd,omitempty"`
+	BudgetPeriod     *string   `json:"budget_period,omitempty"`
 }
 
 // VirtualKeyResponse is the API response for a virtual key.
@@ -75,19 +85,24 @@ type VirtualKeyResponse struct {
 	StripReasoning   bool      `json:"strip_reasoning"`
 	OwnerUserID      *string   `json:"owner_user_id"`
 	OwnerUsername    *string   `json:"owner_username,omitempty"`
+	BudgetUSD        *float64  `json:"budget_usd"`
+	BudgetPeriod     *string   `json:"budget_period"`
+	// BudgetSpentUSD is what the key spent in the current budget period on this
+	// member; absent when the key has no budget.
+	BudgetSpentUSD *float64 `json:"budget_spent_usd,omitempty"`
 }
 
 // scanner is satisfied by pgx.Row and pgx.Rows.
 type scanner interface{ Scan(dest ...any) error }
 
 // vkColumns is the column list for SELECT queries on virtual_keys.
-const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id`
+const vkColumns = `id, name, key_hash, key_preview, tokens_used, last_used_at, created_at, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id, budget_usd, budget_period`
 
 // scanVirtualKey scans a single row into a VirtualKey using the vkColumns order.
 // A miss becomes ErrNotFound so callers do not repeat the translation.
 func scanVirtualKey(row scanner) (*VirtualKey, error) {
 	var vk VirtualKey
-	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning, &vk.OwnerUserID)
+	err := row.Scan(&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt, &vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning, &vk.OwnerUserID, &vk.BudgetUSD, &vk.BudgetPeriod)
 	if err != nil {
 		return nil, notFoundOr(err)
 	}
@@ -113,10 +128,11 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 }
 
 // Create inserts a new virtual key.
-func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*VirtualKey, error) {
+func (r *Repository) Create(ctx context.Context, name, keyHash, keyPreview string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID, b *budget.Budget) (*VirtualKey, error) {
+	budgetUSD, budgetPeriod := b.Columns()
 	vk, err := scanVirtualKey(r.pool.QueryRow(ctx,
-		`INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, false), $9) RETURNING `+vkColumns,
-		name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning, ownerUserID))
+		`INSERT INTO virtual_keys (name, key_hash, key_preview, rate_limit_rps, rate_limit_burst, rate_limit_tpm, allowed_providers, strip_reasoning, owner_user_id, budget_usd, budget_period) VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, false), $9, $10, $11) RETURNING `+vkColumns,
+		name, keyHash, keyPreview, rps, burst, tpm, allowedProviders, stripReasoning, ownerUserID, budgetUSD, budgetPeriod))
 	if err != nil {
 		return nil, err
 	}
@@ -209,12 +225,14 @@ func (r *Repository) TouchLastUsed(ctx context.Context, keyHash string) error {
 // Every updatable column is in the SET clause so a nil argument persists as
 // NULL (cleared) rather than being silently ignored: the UI sends null when a
 // user clears a field.
-func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID) (*VirtualKey, error) {
+func (r *Repository) Update(ctx context.Context, id uuid.UUID, name string, rps *float64, burst, tpm *int, allowedProviders *[]string, stripReasoning *bool, ownerUserID *uuid.UUID, b *budget.Budget) (*VirtualKey, error) {
+	budgetUSD, budgetPeriod := b.Columns()
 	return scanVirtualKey(r.pool.QueryRow(ctx,
 		`UPDATE virtual_keys SET name = $1, rate_limit_rps = $2, rate_limit_burst = $3, rate_limit_tpm = $4,
-		        allowed_providers = $5, strip_reasoning = COALESCE($6, false), owner_user_id = $7
+		        allowed_providers = $5, strip_reasoning = COALESCE($6, false), owner_user_id = $7,
+		        budget_usd = $9, budget_period = $10
 		 WHERE id = $8 RETURNING `+vkColumns,
-		name, rps, burst, tpm, allowedProviders, stripReasoning, ownerUserID, id))
+		name, rps, burst, tpm, allowedProviders, stripReasoning, ownerUserID, id, budgetUSD, budgetPeriod))
 }
 
 // FindByKeyHash looks up a virtual key by its SHA-256 hash. It joins the
@@ -227,15 +245,21 @@ func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*Virtua
 	var ownerRPS *float64
 	var ownerBurst, ownerTPM *int
 	var ownerAllowed *[]string
+	var ownerBudgetUSD *float64
+	var ownerBudgetPeriod *string
+	var ownerUsername *string
 	err := r.pool.QueryRow(ctx,
 		`SELECT vk.id, vk.name, vk.key_hash, vk.key_preview, vk.tokens_used, vk.last_used_at, vk.created_at,
 		        vk.rate_limit_rps, vk.rate_limit_burst, vk.rate_limit_tpm, vk.allowed_providers, vk.strip_reasoning,
-		        vk.owner_user_id, u.enabled, u.rate_limit_rps, u.rate_limit_burst, u.rate_limit_tpm, u.allowed_providers
+		        vk.owner_user_id, vk.budget_usd, vk.budget_period,
+		        u.enabled, u.rate_limit_rps, u.rate_limit_burst, u.rate_limit_tpm, u.allowed_providers,
+		        u.budget_usd, u.budget_period, u.username
 		 FROM virtual_keys vk LEFT JOIN users u ON u.id = vk.owner_user_id
 		 WHERE vk.key_hash = $1`, keyHash).Scan(
 		&vk.ID, &vk.Name, &vk.KeyHash, &vk.KeyPreview, &vk.TokensUsed, &vk.LastUsedAt, &vk.CreatedAt,
 		&vk.RateLimitRPS, &vk.RateLimitBurst, &vk.RateLimitTPM, &vk.AllowedProviders, &vk.StripReasoning,
-		&vk.OwnerUserID, &ownerEnabled, &ownerRPS, &ownerBurst, &ownerTPM, &ownerAllowed)
+		&vk.OwnerUserID, &vk.BudgetUSD, &vk.BudgetPeriod,
+		&ownerEnabled, &ownerRPS, &ownerBurst, &ownerTPM, &ownerAllowed, &ownerBudgetUSD, &ownerBudgetPeriod, &ownerUsername)
 	if err != nil {
 		// Translate a miss into ErrNotFound (like Get/Update) so the proxy returns
 		// a clean "invalid virtual key" 401 instead of surfacing the raw pgx "no
@@ -248,7 +272,12 @@ func (r *Repository) FindByKeyHash(ctx context.Context, keyHash string) (*Virtua
 			RateLimitRPS:     ownerRPS,
 			RateLimitBurst:   ownerBurst,
 			RateLimitTPM:     ownerTPM,
+			BudgetUSD:        ownerBudgetUSD,
+			BudgetPeriod:     ownerBudgetPeriod,
 			AllowedProviders: ownerAllowed,
+		}
+		if ownerUsername != nil {
+			vk.Owner.Username = *ownerUsername
 		}
 	}
 	return &vk, nil
