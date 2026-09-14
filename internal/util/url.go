@@ -36,15 +36,18 @@ func SplitAndTrim(value string) []string {
 	return result
 }
 
-// urlUserinfoRE matches the userinfo of a URL rendered inside free text:
+// URLUserinfoRE matches the userinfo of a URL rendered inside free text:
 // everything between "scheme://" and the last @ before the host. Greedy on
 // purpose, since a percent-decoded email-style username carries its own @ and
-// only the last one separates it from the host.
-var urlUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/?\s"]*@`)
+// only the last one separates it from the host. Group 1 is the scheme prefix,
+// so a caller can keep or drop the "@". Only the scheme form is recognised: a
+// bare "user:pw@host" is not a URL to the parsers whose errors this redacts.
+// Shared by the gateway and Front Desk so the two cannot drift.
+var URLUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/?\s",;<>]*@`)
 
 // RedactURLUserinfo replaces the credential part of every URL found in text
 // with "***@", for error strings and log lines that quote a URL a caller
 // supplied. Text without a URL credential is returned unchanged.
 func RedactURLUserinfo(text string) string {
-	return urlUserinfoRE.ReplaceAllString(text, "${1}***@")
+	return URLUserinfoRE.ReplaceAllString(text, "${1}***@")
 }

@@ -432,16 +432,21 @@ func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 	// burst-sized chunks; each chunk succeeds and accumulates "debt" (negative
 	// tokens) that refills at tpm/60 per second. This is what makes an
 	// over-budget request block the next one until the window recovers.
+	// The burst is read per chunk and a chunk counts only once reserved: a cap
+	// edit can shrink the live limiter's burst between two chunks, and a chunk
+	// larger than the burst reserves nothing, which would forgive that much
+	// spend.
 	remaining := tokens
-	burst := entry.limiter.Burst()
-	if burst <= 0 {
-		return
-	}
 	now := time.Now()
 	for remaining > 0 {
+		burst := entry.limiter.Burst()
+		if burst <= 0 {
+			return
+		}
 		n := min(remaining, burst)
-		entry.limiter.ReserveN(now, n)
-		remaining -= n
+		if entry.limiter.ReserveN(now, n).OK() {
+			remaining -= n
+		}
 	}
 }
 

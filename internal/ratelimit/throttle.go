@@ -119,12 +119,15 @@ func logThrottlingEnded(c throttleLogCtx, reason string, dur time.Duration, reje
 // bucketEntry is one identity's token bucket plus the edge-triggered throttle
 // state its log lines are driven from. The per-key and per-IP limiters share it;
 // prefix, label and budget are what tell their log lines apart.
+// The entry is immutable once published, apart from lastUsed under the owning
+// limiter's mutex: request paths read rps and burst without a lock, so a cap
+// change publishes a fresh entry (see withCap) rather than editing this one.
 type bucketEntry struct {
 	limiter  *rate.Limiter
 	rps      float64
 	burst    int
 	lastUsed time.Time
-	throttle throttleState
+	throttle *throttleState
 	prefix   string // message prefix, e.g. "ratelimit-ip"
 	label    string // identity label, e.g. "ip"
 	budget   string // named budget, set only where a deployment runs several limiters
@@ -132,6 +135,26 @@ type bucketEntry struct {
 
 func (e *bucketEntry) throttleCtx(id string) throttleLogCtx {
 	return throttleLogCtx{prefix: e.prefix, label: e.label, id: id, budget: e.budget, rps: e.rps, burst: e.burst}
+}
+
+// withCap returns the entry to publish after the identity's cap changed: the
+// same bucket, adjusted in place so what it holds (tokens or debt) carries
+// over, and the same throttle state, under the new rate. A fresh limiter would
+// start full, which let a key owner refill a drained bucket by rewriting their
+// own cap; a mutated entry would race the lock-free readers of rps and burst.
+func (e *bucketEntry) withCap(rps float64, burst int) *bucketEntry {
+	e.limiter.SetLimit(rate.Limit(rps))
+	e.limiter.SetBurst(burst)
+	return &bucketEntry{
+		limiter:  e.limiter,
+		rps:      rps,
+		burst:    burst,
+		lastUsed: time.Now(),
+		throttle: e.throttle,
+		prefix:   e.prefix,
+		label:    e.label,
+		budget:   e.budget,
+	}
 }
 
 func (e *bucketEntry) noteRejected(id string) { e.throttle.noteRejected(e.throttleCtx(id)) }

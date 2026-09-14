@@ -301,13 +301,13 @@ func TestIPLimiter_CleanupRemovesStale(t *testing.T) {
 	defer lim.Stop()
 
 	lim.mu.Lock()
-	lim.limiters["stale-ip"] = &bucketEntry{
+	lim.limiters["stale-ip"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
-	lim.limiters["fresh-ip"] = &bucketEntry{
+	lim.limiters["fresh-ip"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -816,7 +816,7 @@ func TestIPLimiter_CleanupGoroutine_Integration(t *testing.T) {
 
 	// Insert a stale entry (last used 15 minutes ago)
 	lim.mu.Lock()
-	lim.limiters["10.0.0.1"] = &bucketEntry{
+	lim.limiters["10.0.0.1"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -825,7 +825,7 @@ func TestIPLimiter_CleanupGoroutine_Integration(t *testing.T) {
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh entry
-	lim.limiters["10.0.0.2"] = &bucketEntry{
+	lim.limiters["10.0.0.2"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -871,7 +871,7 @@ func TestIPLimiter_CleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) 
 
 	// Insert a stale IP entry (last used 15 minutes ago — beyond the 10-minute cutoff)
 	lim.mu.Lock()
-	lim.limiters["192.168.1.100"] = &bucketEntry{
+	lim.limiters["192.168.1.100"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -880,7 +880,7 @@ func TestIPLimiter_CleanupGoroutine_TickerPathRemovesStaleEntries(t *testing.T) 
 		lastUsed: time.Now().Add(-15 * time.Minute),
 	}
 	// And a fresh IP entry
-	lim.limiters["192.168.1.200"] = &bucketEntry{
+	lim.limiters["192.168.1.200"] = &bucketEntry{throttle: &throttleState{},
 		prefix:   ipLogPrefix,
 		label:    ipLogLabel,
 		limiter:  rate.NewLimiter(10, 20),
@@ -923,7 +923,7 @@ func TestIPEntry_ThrottleEdgeLogging(t *testing.T) {
 	const started = "ratelimit-ip: throttling started"
 	const ended = "ratelimit-ip: throttling ended"
 
-	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
+	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
 
 	e.noteRejected("1.2.3.4")
 	e.noteRejected("1.2.3.4")
@@ -954,7 +954,7 @@ func TestIPEntry_ConcurrentRejectionsExactCount(t *testing.T) {
 	debuglog.SetHandler(h)
 	t.Cleanup(func() { debuglog.Init() })
 
-	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
+	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
 	const n = 200
 	var wg sync.WaitGroup
 	wg.Add(n)
@@ -983,7 +983,7 @@ func TestIPEntry_IdleEvictionLogsEnded(t *testing.T) {
 
 	lim := NewIPLimiter(1, 1, nil, nil)
 	defer lim.Stop()
-	e := &bucketEntry{limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
+	e := &bucketEntry{throttle: &throttleState{}, limiter: rate.NewLimiter(1, 1), rps: 1, burst: 1, prefix: ipLogPrefix, label: ipLogLabel}
 	e.noteRejected("9.9.9.9") // open an episode
 	e.throttle.throttledAt = time.Now().Add(-25 * time.Minute)
 	e.lastUsed = time.Now().Add(-20 * time.Minute) // idle, past the 10-min cutoff

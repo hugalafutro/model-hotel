@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
@@ -1356,18 +1357,16 @@ func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
 		t.Fatalf("exported %d providers, want 2", len(env.Config.Providers))
 	}
 	// Corrupt the second key only; the first still proves the shared key.
+	corrupt := env.Config.Providers[1].Name
 	env.Config.Providers[1].EncryptedKey = make([]byte, 32)
 	env.Config.Providers[1].KeyNonce = make([]byte, 12)
 
 	cleanConfigTables(t)
 	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
-	if rec.Code != http.StatusConflict {
-		t.Fatalf("status = %d, want 409; body %s", rec.Code, rec.Body.String())
-	}
-	var resp importResponse
-	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
-	if resp.MasterKeyOK || resp.Applied {
-		t.Fatalf("response = %+v, want master_key_ok=false, applied=false", resp)
+	// A 400 naming the provider, not the 409 a MASTER_KEY mismatch answers:
+	// the first key proved the shared key, so this is a corrupt envelope.
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"`+corrupt+`"`) {
+		t.Fatalf("status = %d, body %q; want 400 naming %s", rec.Code, rec.Body.String(), corrupt)
 	}
 	var n int
 	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)

@@ -7,11 +7,11 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"regexp"
 	"strings"
 	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/netguard"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -135,7 +135,7 @@ func stripUserinfo(raw string) string {
 // chain. The class allows @ and matches greedily: net/http renders the
 // username percent-decoded, so an email-style username carries a literal @
 // inside the userinfo and only the last @ separates it from the host.
-var urlUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/?\s"]*@`)
+var urlUserinfoRE = util.URLUserinfoRE
 
 // redactErrURL renders err for a monitor-readable field, removing any userinfo
 // embedded in a URL inside the message. net/http already masks the password in

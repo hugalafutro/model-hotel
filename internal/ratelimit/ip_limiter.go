@@ -209,18 +209,25 @@ func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
 	rps, burst = bucketRate(rps, burst)
 
 	entry, ok := l.limiters[ip]
-	if !ok || entry.rps != rps || entry.burst != burst {
+	switch {
+	case !ok:
 		entry = &bucketEntry{
 			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
 			rps:      rps,
 			burst:    burst,
 			lastUsed: time.Now(),
+			throttle: &throttleState{},
 			prefix:   ipLogPrefix,
 			label:    ipLogLabel,
 			budget:   l.budget,
 		}
 		l.limiters[ip] = entry
-	} else {
+	case entry.rps != rps || entry.burst != burst:
+		// An edit to the global IP caps used to hand every throttled address a
+		// full bucket; the bucket now carries over, see withCap.
+		entry = entry.withCap(rps, burst)
+		l.limiters[ip] = entry
+	default:
 		entry.lastUsed = time.Now()
 	}
 	return entry

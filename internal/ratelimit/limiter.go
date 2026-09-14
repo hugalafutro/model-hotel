@@ -366,19 +366,14 @@ func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *flo
 			rps:      rps,
 			burst:    burst,
 			lastUsed: time.Now(),
+			throttle: &throttleState{},
 			prefix:   keyLogPrefix,
 			label:    keyLogLabel,
 		}
 		l.limiters[keyHash] = entry
 	case entry.rps != rps || entry.burst != burst:
-		// Adjust the live bucket rather than replace it: a fresh limiter starts
-		// full, so a key owner who rewrote their own cap between requests would
-		// refill a drained bucket on every edit. SetLimit and SetBurst keep the
-		// tokens the bucket holds and only change how it refills from here.
-		entry.limiter.SetLimit(rate.Limit(rps))
-		entry.limiter.SetBurst(burst)
-		entry.rps, entry.burst = rps, burst
-		entry.lastUsed = time.Now()
+		entry = entry.withCap(rps, burst)
+		l.limiters[keyHash] = entry
 	default:
 		entry.lastUsed = time.Now()
 	}

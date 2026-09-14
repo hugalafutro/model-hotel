@@ -1676,4 +1676,17 @@ func TestTPMLimiter_RewrittenCapKeepsDebt(t *testing.T) {
 			t.Fatalf("admitted after rewriting the cap to %d: the spent budget was refilled", tpm)
 		}
 	}
+
+	// Lowering binds at once as well: an unspent 10000 budget shrinks to the
+	// new 100 ceiling, so a 150-token debit leaves it exhausted.
+	if !tpmAdmit(t, l, "wide", 10000) {
+		t.Fatal("fresh wide budget should admit")
+	}
+	if !tpmAdmit(t, l, "wide", 100) {
+		t.Fatal("the lowered cap still holds a full 100")
+	}
+	l.Debit("wide", "", 150)
+	if tpmAdmit(t, l, "wide", 100) {
+		t.Fatal("admitted past the lowered cap: the surplus above the new ceiling was kept")
+	}
 }
