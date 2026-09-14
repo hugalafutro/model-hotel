@@ -149,9 +149,10 @@ func TestHandleStreamingResponse_TPSWithReasoningTokens(t *testing.T) {
 	h := newUnitHandler()
 	defer stopUnitHandler(h)
 
-	// Simulate a thinking model: 650 reasoning + 50 completion = 700 total output
-	// TTFT includes reasoning time, generationDuration = totalDuration - ttft
-	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hello world"}}],"usage":{"prompt_tokens":89000,"completion_tokens":50,"total_tokens":89700,"completion_tokens_details":{"reasoning_tokens":650}}}
+	// A thinking model in the shape providers actually report: 700 completion
+	// tokens of which 650 were reasoning (completion_tokens_details is a
+	// breakdown of completion_tokens, so total = prompt + completion).
+	streamData := `data: {"id":"1","choices":[{"index":0,"delta":{"content":"hello world"}}],"usage":{"prompt_tokens":89000,"completion_tokens":700,"total_tokens":89700,"completion_tokens_details":{"reasoning_tokens":650}}}
 data: [DONE]
 
 `
@@ -181,14 +182,13 @@ data: [DONE]
 	startTime := time.Now().Add(-19 * time.Second)
 	h.handleStreamingResponse(w, req, logData, resp, startTime, streamOptions{cancelOrigin: "failover_timeout"})
 
-	// TPS should use (50 + 650) / totalDuration * 1000 since no TTFT was measured
-	if logData.tokensPerSecond <= 0 {
-		t.Errorf("expected positive TPS, got %f", logData.tokensPerSecond)
+	// Reasoning counts toward throughput exactly once, as part of completion:
+	// 700/19 ≈ 36.8. Adding the breakdown on top would read 1350/19 ≈ 71.
+	if logData.tokensPerSecond < 30 || logData.tokensPerSecond > 45 {
+		t.Errorf("TPS = %.1f, want about 36.8 (700 completion tokens over 19s, reasoning counted once)", logData.tokensPerSecond)
 	}
-	// The old (buggy) formula would give: 50/19000*1000 ≈ 2.6 TPS
-	// The new formula includes reasoning tokens (700 total output vs 50)
-	if logData.tokensPerSecond < 10 {
-		t.Errorf("TPS seems too low (%.1f), reasoning tokens may not be included in calculation", logData.tokensPerSecond)
+	if logData.tokensCompletionReasoning != 650 {
+		t.Errorf("reasoning tokens = %d, want 650 recorded as the breakdown", logData.tokensCompletionReasoning)
 	}
 }
 

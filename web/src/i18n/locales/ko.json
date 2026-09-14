@@ -2774,7 +2774,7 @@
 			"timeToFirstToken": "첫 토큰 수신까지 걸리는 시간: 요청 시작 시점부터 응답 본문의 첫 토큰(스트리밍) 또는 전체 응답(비스트리밍)이 수신되기까지의 지연 시간",
 			"tokensPerSecond": "토큰/초",
 			"outputTokensPerSecond": "생성 단계 동안 초당 출력되는 토큰 수(첫 번째 토큰이 생성되기까지의 시간은 제외). 생성 시간이 미미한 경우 '-'로 표시됩니다.",
-			"sumOfTokens": "프롬프트 + 완성 + 추론 토큰의 합계",
+			"sumOfTokens": "프롬프트와 완성 토큰의 합계 (추론은 완성에 포함됨)",
 			"requestHash": "요청 해시",
 			"model": "모델",
 			"copyModelId": "모델 ID 복사",

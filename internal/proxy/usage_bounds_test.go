@@ -93,9 +93,10 @@ func TestRecordTokenUsage_ClampsTheCharge(t *testing.T) {
 	}
 
 	vkRepo.addTokensCalls = nil
+	// Reasoning is inside completion, so the charge is prompt + completion.
 	h.recordTokenUsage("test-hash", logData, 50, 25, 5)
-	if vkRepo.addTokensCalls[0].tokens != 80 {
-		t.Errorf("a real charge changed: %d, want 80", vkRepo.addTokensCalls[0].tokens)
+	if vkRepo.addTokensCalls[0].tokens != 75 {
+		t.Errorf("a real charge changed: %d, want 75", vkRepo.addTokensCalls[0].tokens)
 	}
 }
 

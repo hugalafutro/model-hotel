@@ -2774,7 +2774,7 @@
 			"timeToFirstToken": "Tijd tot eerste token: vertraging tussen het begin van het verzoek en het eerste token van de response body (streaming) of het volledige antwoord (niet-streaming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Uitgangstokens per seconde tijdens de generatiefase (exclusief tijd tot eerste token). Wordt weergegeven als '-' wanneer de generatietijd verwaarloosbaar is.",
-			"sumOfTokens": "Som van prompt-, completion- en redeneringstokens",
+			"sumOfTokens": "Som van prompt- en completion-tokens (redenering maakt deel uit van completion)",
 			"requestHash": "Hash verzoek",
 			"model": "Model",
 			"copyModelId": "model-ID kopiëren",

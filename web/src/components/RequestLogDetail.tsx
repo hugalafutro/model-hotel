@@ -54,10 +54,8 @@ export function RequestLogDetail({
 		(requestLog.key_decrypt_ms || 0) +
 		(requestLog.dial_ms || 0) +
 		(requestLog.settings_read_ms || 0);
-	const totalTokens =
-		requestLog.tokens_prompt +
-		requestLog.tokens_completion +
-		requestLog.tokens_completion_reasoning;
+	// Reasoning is part of completion, not on top of it.
+	const totalTokens = requestLog.tokens_prompt + requestLog.tokens_completion;
 	const hasCache =
 		requestLog.tokens_prompt_cache_hit > 0 ||
 		requestLog.tokens_prompt_cache_miss > 0;

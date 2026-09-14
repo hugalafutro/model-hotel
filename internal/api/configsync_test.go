@@ -1371,7 +1371,9 @@ func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
 		t.Fatalf("status = %d, body %q; want 400 naming %s", rec.Code, rec.Body.String(), corrupt)
 	}
 	var n int
-	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)
+	if err := apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n); err != nil {
+		t.Fatalf("count providers: %v", err)
+	}
 	if n != 0 {
 		t.Fatalf("providers written despite a corrupt key: %d", n)
 	}
@@ -1395,7 +1397,9 @@ func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "does not decrypt") {
 		t.Fatalf("nameless corrupt key: status = %d, body %q; want 400", rec.Code, rec.Body.String())
 	}
-	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)
+	if err := apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n); err != nil {
+		t.Fatalf("count providers: %v", err)
+	}
 	if n != 0 {
 		t.Fatalf("providers written despite a nameless corrupt key: %d", n)
 	}

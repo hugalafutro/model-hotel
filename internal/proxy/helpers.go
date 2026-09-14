@@ -267,8 +267,11 @@ func (h *Handler) recordTokenUsage(vkHash string, logData *requestLogData, promp
 	// reader cannot skip. The total is capped as well: three clamped members
 	// cannot wrap, but the cap keeps one response's charge inside the bound
 	// the members were held to.
-	promptTokens, completionTokens, reasoningTokens = sanitizeUsageCounts(promptTokens, completionTokens, reasoningTokens)
-	totalTokens := min(promptTokens+completionTokens+reasoningTokens, maxSaneTokenCount)
+	// Reasoning is not added: providers report it inside completion_tokens
+	// (completion_tokens_details.reasoning_tokens is a breakdown, not an extra
+	// count), so adding it charged a reasoning model's thinking twice.
+	promptTokens, completionTokens, _ = sanitizeUsageCounts(promptTokens, completionTokens, reasoningTokens)
+	totalTokens := min(promptTokens+completionTokens, maxSaneTokenCount)
 	if h.tpmLimiter != nil {
 		switch {
 		case vkHash != "":
@@ -497,11 +500,12 @@ const minPassthroughTokens = 1
 // token costs nothing), and the request log keeps the provider's figures:
 // estimates charge the quota, they are not reported as measured usage.
 func estimateMissingUsage(promptTokens, completionTokens, reasoningTokens int, logData *requestLogData, deliveredBytes int) (prompt, completion, reasoning int) {
-	outputTokens := completionTokens + reasoningTokens
-	if deliveredBytes == 0 || (promptTokens > 0 && outputTokens > 0) {
+	// Reasoning is part of completion, so completion alone says whether the
+	// provider reported any output.
+	if deliveredBytes == 0 || (promptTokens > 0 && completionTokens > 0) {
 		return promptTokens, completionTokens, reasoningTokens
 	}
-	promptEstimated, completionEstimated := promptTokens == 0, outputTokens == 0
+	promptEstimated, completionEstimated := promptTokens == 0, completionTokens == 0
 	if promptEstimated {
 		promptTokens = estimateTokens(logData.promptTextBytes)
 	}

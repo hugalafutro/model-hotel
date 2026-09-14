@@ -2904,7 +2904,7 @@
 			"timeToFirstToken": "Czas do pierwszego tokena: opóźnienie między początkiem żądania a pierwszym tokenem treści odpowiedzi (streaming) lub pełną odpowiedzią (bez streamingu)",
 			"tokensPerSecond": "Tokeny/s",
 			"outputTokensPerSecond": "Tokeny wyjściowe na sekundę podczas fazy generowania (wyłącza czas do pierwszego tokenu). Pokazane jako '-', gdy czas generowania jest nieistotny.",
-			"sumOfTokens": "Suma tokenów promptu + uzupełnienia + rozumowania",
+			"sumOfTokens": "Suma tokenów promptu i uzupełnienia (rozumowanie jest częścią uzupełnienia)",
 			"requestHash": "Żądanie hash",
 			"model": "Model",
 			"copyModelId": "Kopiuj ID modelu",
