@@ -2135,7 +2135,9 @@
 				"discovery_claims_outstanding": "Écarts de modèles non traités",
 				"model_auto_disabled_gone": "Modèle désactivé (le fournisseur ne le propose plus)",
 				"provider_scheduled_disable": "Fournisseur désactivé comme planifié",
-				"circuit_breaker_unstable": "Le modèle échoue à répétition (disjoncteur ouvert plusieurs fois)"
+				"circuit_breaker_unstable": "Le modèle échoue à répétition (disjoncteur ouvert plusieurs fois)",
+				"budget_warning": "Alerte budget (80 % dépensés)",
+				"budget_exceeded": "Budget dépassé (requêtes refusées)"
 			},
 			"events": {
 				"all": "Tout sélectionner",
@@ -2289,7 +2291,8 @@
 				"failover": "Basculement",
 				"high_availability": "Haute disponibilité",
 				"quota": "Quota",
-				"security": "Sécurité"
+				"security": "Sécurité",
+				"budgets": "Budgets"
 			}
 		},
 		"totp": {

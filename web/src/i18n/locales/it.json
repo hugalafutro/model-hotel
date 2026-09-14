@@ -2135,7 +2135,9 @@
 				"discovery_claims_outstanding": "Discrepanze dei modelli non gestite",
 				"model_auto_disabled_gone": "Modello disattivato (il provider non lo fornisce più)",
 				"provider_scheduled_disable": "Provider disabilitato come programmato",
-				"circuit_breaker_unstable": "Il modello continua a fallire (interruttore di sicurezza riaperto più volte)"
+				"circuit_breaker_unstable": "Il modello continua a fallire (interruttore di sicurezza riaperto più volte)",
+				"budget_warning": "Avviso budget (80% speso)",
+				"budget_exceeded": "Budget superato (richieste rifiutate)"
 			},
 			"events": {
 				"all": "Seleziona tutto",
@@ -2289,7 +2291,8 @@
 				"failover": "Failover",
 				"high_availability": "Alta disponibilità",
 				"quota": "Quota",
-				"security": "Sicurezza"
+				"security": "Sicurezza",
+				"budgets": "Budget"
 			}
 		},
 		"totp": {

@@ -2191,7 +2191,9 @@
 				"discovery_claims_outstanding": "Nesrovnalosti modelů ponechané bez řešení",
 				"model_auto_disabled_gone": "Model deaktivován (poskytovatel jej již neposkytuje)",
 				"provider_scheduled_disable": "Poskytovatel deaktivován podle plánu",
-				"circuit_breaker_unstable": "Model opakovaně selhává (jistič se opakovaně otevřel)"
+				"circuit_breaker_unstable": "Model opakovaně selhává (jistič se opakovaně otevřel)",
+				"budget_warning": "Varování rozpočtu (utraceno 80 %)",
+				"budget_exceeded": "Rozpočet překročen (požadavky odmítnuty)"
 			},
 			"events": {
 				"all": "Vybrat vše",
@@ -2346,7 +2348,8 @@
 				"failover": "Failover",
 				"high_availability": "Vysoká dostupnost",
 				"quota": "Kvóta",
-				"security": "Zabezpečení"
+				"security": "Zabezpečení",
+				"budgets": "Rozpočty"
 			}
 		},
 		"totp": {

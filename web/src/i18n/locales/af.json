@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Modelafwykings wat onaangespreek bly",
 				"model_auto_disabled_gone": "Model gedeaktiveer (verskaffer bied dit nie meer aan nie)",
 				"provider_scheduled_disable": "Verskaffer gedeaktiveer soos geskeduleer",
-				"circuit_breaker_unstable": "Model bly breek (kringbreker herhaaldelik oopgemaak)"
+				"circuit_breaker_unstable": "Model bly breek (kringbreker herhaaldelik oopgemaak)",
+				"budget_warning": "Begrotingswaarskuwing (80% bestee)",
+				"budget_exceeded": "Begroting oorskry (versoeke geweier)"
 			},
 			"events": {
 				"all": "Kies alles",
@@ -2232,7 +2234,8 @@
 				"failover": "Oorskakeling",
 				"high_availability": "Hoë beskikbaarheid",
 				"quota": "Kwota",
-				"security": "Sekuriteit"
+				"security": "Sekuriteit",
+				"budgets": "Begrotings"
 			}
 		},
 		"totp": {

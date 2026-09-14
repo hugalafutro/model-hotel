@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Modellavvikelser förblir oåtgärdade",
 				"model_auto_disabled_gone": "Modellen inaktiverad (leverantören tillhandahåller den inte längre)",
 				"provider_scheduled_disable": "Leverantören inaktiverad enligt schema",
-				"circuit_breaker_unstable": "Modellen fallerar upprepade gånger (strömavbrytaren har löst ut flera gånger)"
+				"circuit_breaker_unstable": "Modellen fallerar upprepade gånger (strömavbrytaren har löst ut flera gånger)",
+				"budget_warning": "Budgetvarning (80 % förbrukat)",
+				"budget_exceeded": "Budget överskriden (förfrågningar avvisade)"
 			},
 			"events": {
 				"all": "Markera allt",
@@ -2232,7 +2234,8 @@
 				"failover": "Failover",
 				"high_availability": "Hög tillgänglighet",
 				"quota": "Kvot",
-				"security": "Säkerhet"
+				"security": "Säkerhet",
+				"budgets": "Budgetar"
 			}
 		},
 		"totp": {

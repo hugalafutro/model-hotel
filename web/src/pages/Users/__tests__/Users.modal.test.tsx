@@ -114,6 +114,27 @@ describe("UserModal", () => {
 		});
 	});
 
+	it("shows an existing account's spend against its budget", async () => {
+		mockGrants();
+		renderWithProviders(
+			<UserModal
+				user={{
+					...existing,
+					budget_usd: 20,
+					budget_period: "month",
+					budget_spent_usd: 4.5,
+				}}
+				onClose={onClose}
+				onToast={onToast}
+			/>,
+		);
+		expect(screen.getByTestId("user-budget")).toHaveValue(20);
+		expect(screen.getByTestId("user-budget-period")).toHaveValue("month");
+		expect(screen.getByTestId("user-budget-spent")).toHaveTextContent(
+			"$4.50 of $20.00 this month",
+		);
+	});
+
 	it("rejects a short password client-side", async () => {
 		mockGrants();
 		const { user } = renderWithProviders(

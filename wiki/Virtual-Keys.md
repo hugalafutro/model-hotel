@@ -519,7 +519,12 @@ the same figure the Dashboard's `$` view and the request log's Cost column
 show. Rows the gateway could not price (a model with no known prices) count as
 nothing: a budget cannot police what has no price, and the spend tile's
 unpriced count says how much that is. A key's spend is its own rows; a user's
-spend is every row their keys wrote plus their dashboard chat.
+spend is every row written while they owned the key that wrote it, plus their
+dashboard chat, so handing a key to someone else or deleting it leaves what
+was spent with whoever spent it. The sum is read from the request logs, so a
+log retention shorter than the budget period (Settings, Data & Storage) drops
+the purged spend from the budget as well; keep retention at least as long as
+the longest period in use.
 
 **How it refuses.** Once the period's spend reaches the budget, the next
 request answers `429` with `key budget exceeded` (or `user budget exceeded`)
@@ -537,8 +542,10 @@ by it, so a fleet-wide cap is the sum of each member's.
 
 **What it tells you.** Two alert events fire once per period per key or user:
 `budget.warning` at 80% of the budget and `budget.exceeded` at the first
-refusal (see [[Alerting]]). The key's row and detail modal show
-`$3.25 of $25.00 this month`; the user's budget shows in the Users form.
+refusal (see [[Alerting]]). A subject already past a threshold when a member
+first sums it after a restart is not reported again. The key's row and detail
+modal show `$3.25 of $25.00 this month`; the user's budget and its spend show
+in the Users form.
 
 ## Provider Access Control and Reasoning Stripping
 

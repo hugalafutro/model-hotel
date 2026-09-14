@@ -37,7 +37,6 @@ type VKSortField =
 	| "tokens"
 	| "last_used";
 
-/** A per-key rate limit, or "Global" when the key inherits the setting. */
 /** Spend against the key's budget, or a muted "no budget". */
 function BudgetCell({ vk }: { vk: VirtualKey }) {
 	const { t } = useTranslation();
@@ -48,6 +47,7 @@ function BudgetCell({ vk }: { vk: VirtualKey }) {
 	);
 }
 
+/** A per-key rate limit, or "Global" when the key inherits the setting. */
 function LimitCell({ value }: { value: number | null | undefined }) {
 	const { t } = useTranslation();
 	return value != null ? (

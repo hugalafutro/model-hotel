@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Modelafwijkingen blijven onopgelost",
 				"model_auto_disabled_gone": "Model uitgeschakeld (provider biedt het niet meer aan)",
 				"provider_scheduled_disable": "Provider uitgeschakeld volgens planning",
-				"circuit_breaker_unstable": "Model blijft uitvallen (circuitbreaker meermaals geopend)"
+				"circuit_breaker_unstable": "Model blijft uitvallen (circuitbreaker meermaals geopend)",
+				"budget_warning": "Budgetwaarschuwing (80% besteed)",
+				"budget_exceeded": "Budget overschreden (verzoeken geweigerd)"
 			},
 			"events": {
 				"all": "Alles selecteren",
@@ -2232,7 +2234,8 @@
 				"failover": "Failover",
 				"high_availability": "Hoge beschikbaarheid",
 				"quota": "Quotum",
-				"security": "Beveiliging"
+				"security": "Beveiliging",
+				"budgets": "Budgetten"
 			}
 		},
 		"totp": {

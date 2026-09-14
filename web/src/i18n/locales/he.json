@@ -2135,7 +2135,9 @@
 				"discovery_claims_outstanding": "אי-התאמות במודלים שנותרו ללא טיפול",
 				"model_auto_disabled_gone": "הדגם הושבת (הספק כבר אינו מספק אותו)",
 				"provider_scheduled_disable": "הספק הושבת לפי התזמון",
-				"circuit_breaker_unstable": "המודל נכשל שוב ושוב (מפסק הזרם נפתח פעמים רבות)"
+				"circuit_breaker_unstable": "המודל נכשל שוב ושוב (מפסק הזרם נפתח פעמים רבות)",
+				"budget_warning": "אזהרת תקציב (נוצלו 80%)",
+				"budget_exceeded": "חריגה מהתקציב (בקשות נדחו)"
 			},
 			"events": {
 				"all": "בחר הכל",
@@ -2289,7 +2291,8 @@
 				"failover": "מעבר בכשל",
 				"high_availability": "זמינות גבוהה",
 				"quota": "מכסה",
-				"security": "אבטחה"
+				"security": "אבטחה",
+				"budgets": "תקציבים"
 			}
 		},
 		"totp": {

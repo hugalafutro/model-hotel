@@ -58,6 +58,22 @@ func (h *Handler) ListGrantCatalog(w http.ResponseWriter, _ *http.Request) {
 	writeJSON(w, map[string][]string{"grants": keys})
 }
 
+// fillBudgetSpent adds each budgeted account's current-period spend when the
+// limiter is wired.
+func (h *Handler) fillBudgetSpent(ctx context.Context, users []*user.User) {
+	if h.budgetLimiter == nil {
+		return
+	}
+	for _, u := range users {
+		b := budget.From(u.BudgetUSD, u.BudgetPeriod)
+		if b == nil {
+			continue
+		}
+		spent := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindUser, ID: u.ID.String(), Name: u.Username, Budget: *b})
+		u.BudgetSpentUSD = &spent
+	}
+}
+
 // ListUsers returns all users (password hashes never serialize).
 func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := h.userRepo.List(r.Context())
@@ -69,6 +85,7 @@ func (h *Handler) ListUsers(w http.ResponseWriter, r *http.Request) {
 		users = []*user.User{}
 	}
 	h.fillTotpEnabled(r.Context(), users)
+	h.fillBudgetSpent(r.Context(), users)
 	writeJSON(w, users)
 }
 

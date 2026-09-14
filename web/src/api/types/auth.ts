@@ -146,6 +146,8 @@ export interface DashboardUser {
 	/** Dollar budget per calendar period across the account's keys and chat. */
 	budget_usd?: number | null;
 	budget_period?: BudgetPeriod | null;
+	/** Priced spend in the current budget period on this member; absent without a budget. */
+	budget_spent_usd?: number | null;
 	/** Whether the account has a confirmed TOTP second factor. */
 	totp_enabled?: boolean;
 	/**

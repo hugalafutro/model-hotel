@@ -1698,7 +1698,9 @@
 				"discovery_claims_outstanding": "Model discrepancies left unaddressed",
 				"model_auto_disabled_gone": "Model disabled (provider no longer serves it)",
 				"provider_scheduled_disable": "Provider disabled as scheduled",
-				"circuit_breaker_unstable": "Model keeps breaking (circuit reopened repeatedly)"
+				"circuit_breaker_unstable": "Model keeps breaking (circuit reopened repeatedly)",
+				"budget_warning": "Budget warning (80% spent)",
+				"budget_exceeded": "Budget exceeded (requests refused)"
 			},
 			"events": {
 				"title": "Events to notify on",
@@ -1843,7 +1845,8 @@
 				"failover": "Failover",
 				"high_availability": "High Availability",
 				"quota": "Quota",
-				"security": "Security"
+				"security": "Security",
+				"budgets": "Budgets"
 			}
 		},
 		"circuitBreaker": {

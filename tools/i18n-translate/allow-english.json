@@ -6153,6 +6153,11 @@
 		"sr",
 		"zh"
 	],
+	"settings.alerts.category.budgets": [
+		"de",
+		"fr",
+		"it"
+	],
 	"settings.alerts.category.failover": [
 		"cs",
 		"da",

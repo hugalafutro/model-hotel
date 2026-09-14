@@ -214,7 +214,7 @@ func NewHandler(
 		settingsRepo:   settingsRepo,
 		rateLimiter:    rateLimiter,
 		tpmLimiter:     tpmLimiter,
-		budgetLimiter:  budget.NewLimiter(budget.PGSource{Pool: dbPool}),
+		budgetLimiter:  newBudgetLimiter(dbPool),
 		ipLimiter:      ipLimiter,
 		circuitBreaker: failover.NewCircuitBreaker(settingsRepo),
 		inflight:       inflight,
@@ -228,6 +228,15 @@ func NewHandler(
 		},
 		safeDialer: sd,
 	}
+}
+
+// newBudgetLimiter builds the dollar-budget stage over the store, or none at
+// all when there is no store to sum (a handler built without a pool).
+func newBudgetLimiter(pool *pgxpool.Pool) *budget.Limiter {
+	if pool == nil {
+		return nil
+	}
+	return budget.NewLimiter(budget.PGSource{Pool: pool})
 }
 
 // BudgetLimiter exposes the dollar-budget stage so the API can show a key's

@@ -5,7 +5,7 @@ import { formatSpend } from "../../utils/format";
 /** The calendar windows a budget can run over, as the API spells them. */
 export const BUDGET_PERIODS: BudgetPeriod[] = ["day", "week", "month"];
 
-/** "$3.25 of $25.00 this month", for a key that has a budget. */
+/** "$3.25 of $25.00 this month", for a key or a user that has a budget. */
 export function budgetText(
 	t: TFunction,
 	vk: Pick<VirtualKey, "budget_usd" | "budget_period" | "budget_spent_usd">,

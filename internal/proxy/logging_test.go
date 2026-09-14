@@ -154,13 +154,13 @@ func TestInsertRequestLogAsync_EmptyVirtualKeyID(t *testing.T) {
 	// No panic = pass
 }
 
-// TestInsertRequestLogAsync_OwnerStoredOnlyForKeylessRows pins the attribution
-// split introduced by migration 067: a keyless row (dashboard chat/arena) is the
-// only shape that stores the request-time owner, because it has no virtual key
-// to resolve one through. A keyed row must leave the column NULL so its owner
-// keeps being read from the key's CURRENT owner and reassigning the key still
-// moves its whole log history.
-func TestInsertRequestLogAsync_OwnerStoredOnlyForKeylessRows(t *testing.T) {
+// TestInsertRequestLogAsync_OwnerStoredOnEveryOwnedRow pins the request-time
+// owner stamp: a keyless row (dashboard chat/arena) carries it because it has
+// no virtual key to resolve one through, and a keyed row carries it because a
+// user's dollar budget sums the column (the log views still read a keyed row
+// through the key's CURRENT owner, so reassigning a key moves its history). A
+// row with no owner in context stays NULL.
+func TestInsertRequestLogAsync_OwnerStoredOnEveryOwnedRow(t *testing.T) {
 	h := newIntegrationHandler()
 	pool := testDB.Pool()
 	ctx := context.Background()
@@ -202,8 +202,10 @@ func TestInsertRequestLogAsync_OwnerStoredOnlyForKeylessRows(t *testing.T) {
 		ownerUserID:    ownerID,
 		state:          "pending",
 	})
-	if keyed != nil {
-		t.Errorf("keyed row owner_user_id = %q, want NULL", *keyed)
+	// A keyed row carries the owner too: the log views still resolve it
+	// through the key, but a user's dollar budget sums the stamp.
+	if keyed == nil || *keyed != ownerID {
+		t.Errorf("keyed row owner_user_id = %v, want %q", keyed, ownerID)
 	}
 
 	// No owner in context at all (env admin token, unowned key): still NULL.

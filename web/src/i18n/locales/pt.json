@@ -2135,7 +2135,9 @@
 				"discovery_claims_outstanding": "Divergências de modelos não tratadas",
 				"model_auto_disabled_gone": "Modelo desativado (o provedor já não o disponibiliza)",
 				"provider_scheduled_disable": "Provedor desativado conforme agendado",
-				"circuit_breaker_unstable": "O modelo falha repetidamente (disjuntor aberto várias vezes)"
+				"circuit_breaker_unstable": "O modelo falha repetidamente (disjuntor aberto várias vezes)",
+				"budget_warning": "Aviso de orçamento (80% gasto)",
+				"budget_exceeded": "Orçamento excedido (solicitações recusadas)"
 			},
 			"events": {
 				"all": "Selecionar tudo",
@@ -2289,7 +2291,8 @@
 				"failover": "Failover",
 				"high_availability": "Alta disponibilidade",
 				"quota": "Cota",
-				"security": "Segurança"
+				"security": "Segurança",
+				"budgets": "Orçamentos"
 			}
 		},
 		"totp": {

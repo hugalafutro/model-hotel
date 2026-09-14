@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Modeluoverensstemmelser efterladt uadresseret",
 				"model_auto_disabled_gone": "Model deaktiveret (udbyderen leverer den ikke længere)",
 				"provider_scheduled_disable": "Udbyder deaktiveret som planlagt",
-				"circuit_breaker_unstable": "Modellen fejler gentagne gange (afbryder udløst flere gange)"
+				"circuit_breaker_unstable": "Modellen fejler gentagne gange (afbryder udløst flere gange)",
+				"budget_warning": "Budgetadvarsel (80 % brugt)",
+				"budget_exceeded": "Budget overskredet (forespørgsler afvist)"
 			},
 			"events": {
 				"all": "Vælg alt",
@@ -2232,7 +2234,8 @@
 				"failover": "Failover",
 				"high_availability": "Høj tilgængelighed",
 				"quota": "Kvote",
-				"security": "Sikkerhed"
+				"security": "Sikkerhed",
+				"budgets": "Budgetter"
 			}
 		},
 		"totp": {

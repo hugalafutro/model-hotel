@@ -2303,7 +2303,9 @@
 				"discovery_claims_outstanding": "تباينات النماذج التي تُركت دون معالجة",
 				"model_auto_disabled_gone": "تم تعطيل النموذج (المزود لم يعد يقدمه)",
 				"provider_scheduled_disable": "تم تعطيل المزود حسب الجدولة",
-				"circuit_breaker_unstable": "النموذج يتعطل باستمرار (فُتح قاطع الدائرة مرارًا)"
+				"circuit_breaker_unstable": "النموذج يتعطل باستمرار (فُتح قاطع الدائرة مرارًا)",
+				"budget_warning": "تحذير الميزانية (تم إنفاق 80%)",
+				"budget_exceeded": "تجاوز الميزانية (رُفضت الطلبات)"
 			},
 			"events": {
 				"all": "تحديد الكل",
@@ -2460,7 +2462,8 @@
 				"failover": "التبديل عند الفشل",
 				"high_availability": "التوافر العالي",
 				"quota": "الحصة",
-				"security": "الأمان"
+				"security": "الأمان",
+				"budgets": "الميزانيات"
 			}
 		},
 		"totp": {

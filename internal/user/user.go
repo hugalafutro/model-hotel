@@ -64,6 +64,10 @@ type User struct {
 	// dashboard chat, may spend per calendar period (budget.From pairs them).
 	BudgetUSD    *float64 `json:"budget_usd"`
 	BudgetPeriod *string  `json:"budget_period"`
+	// BudgetSpentUSD is the account's priced spend in the current budget
+	// period on this member. Derived by the API layer (ListUsers), never
+	// scanned; absent without a budget.
+	BudgetSpentUSD *float64 `json:"budget_spent_usd,omitempty"`
 	// TotpEnabled reports whether the user has a confirmed second factor.
 	// Derived from user_totp by the API layer (ListUsers), never scanned from
 	// the users table; false in Create/Update responses (the UI refetches).

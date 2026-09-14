@@ -2135,7 +2135,9 @@
 				"discovery_claims_outstanding": "Discrepàncies de models sense atendre",
 				"model_auto_disabled_gone": "Model desactivat (el proveïdor ja no l'ofereix)",
 				"provider_scheduled_disable": "Proveïdor desactivat segons la programació",
-				"circuit_breaker_unstable": "El model falla repetidament (disjuntor obert diverses vegades)"
+				"circuit_breaker_unstable": "El model falla repetidament (disjuntor obert diverses vegades)",
+				"budget_warning": "Avís de pressupost (80% gastat)",
+				"budget_exceeded": "Pressupost superat (peticions rebutjades)"
 			},
 			"events": {
 				"all": "Selecciona-ho tot",
@@ -2289,7 +2291,8 @@
 				"failover": "Commutació per error",
 				"high_availability": "Alta disponibilitat",
 				"quota": "Quota",
-				"security": "Seguretat"
+				"security": "Seguretat",
+				"budgets": "Pressupostos"
 			}
 		},
 		"totp": {

@@ -5,6 +5,7 @@ import { ErrorCallout } from "../../components/ErrorCallout";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { BudgetField } from "../VirtualKeys/BudgetField";
+import { budgetText } from "../VirtualKeys/budget";
 import { useUserForm } from "./useUserForm";
 
 export function UserModal({
@@ -353,6 +354,14 @@ export function UserModal({
 							disabled={managed}
 							labelClassName="block text-xs text-gray-400 mb-1"
 						/>
+						{user?.budget_usd != null && (
+							<p
+								className="text-xs text-gray-400 mt-1"
+								data-testid="user-budget-spent"
+							>
+								{budgetText(t, user)}
+							</p>
+						)}
 					</div>
 				</fieldset>
 

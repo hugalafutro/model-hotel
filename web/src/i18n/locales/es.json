@@ -2135,7 +2135,9 @@
 				"discovery_claims_outstanding": "Discrepancias de modelos sin atender",
 				"model_auto_disabled_gone": "Modelo desactivado (el proveedor ya no lo ofrece)",
 				"provider_scheduled_disable": "Proveedor desactivado según lo programado",
-				"circuit_breaker_unstable": "El modelo falla repetidamente (disyuntor abierto varias veces)"
+				"circuit_breaker_unstable": "El modelo falla repetidamente (disyuntor abierto varias veces)",
+				"budget_warning": "Aviso de presupuesto (80 % gastado)",
+				"budget_exceeded": "Presupuesto superado (solicitudes rechazadas)"
 			},
 			"events": {
 				"all": "Seleccionar todo",
@@ -2289,7 +2291,8 @@
 				"failover": "Conmutación por error",
 				"high_availability": "Alta disponibilidad",
 				"quota": "Cuota",
-				"security": "Seguridad"
+				"security": "Seguridad",
+				"budgets": "Presupuestos"
 			}
 		},
 		"totp": {

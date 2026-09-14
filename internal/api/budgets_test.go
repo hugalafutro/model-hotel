@@ -34,10 +34,10 @@ func TestPGSource_SumsKeyRowsAndOwnerRowsSincePeriodStart(t *testing.T) {
 	vk := decodeVK(t, w.Body.Bytes())
 	f := func(v float64) *float64 { return &v }
 	now := time.Now().UTC()
-	seedCostRow(t, &vk.ID, nil, f(1.5), now)                    // the key's own row
-	seedCostRow(t, nil, &ownerID, f(2), now)                    // keyless dashboard chat by the owner
-	seedCostRow(t, &vk.ID, nil, nil, now)                       // unpriced: counts as nothing
-	seedCostRow(t, &vk.ID, nil, f(100), now.Add(-48*time.Hour)) // last period
+	seedCostRow(t, &vk.ID, &ownerID, f(1.5), now)                    // the key's own row, stamped with its owner
+	seedCostRow(t, nil, &ownerID, f(2), now)                         // keyless dashboard chat by the owner
+	seedCostRow(t, &vk.ID, &ownerID, nil, now)                       // unpriced: counts as nothing
+	seedCostRow(t, &vk.ID, &ownerID, f(100), now.Add(-48*time.Hour)) // last period
 
 	src := budget.PGSource{Pool: pool}
 	since := now.Add(-time.Hour)
@@ -47,6 +47,48 @@ func TestPGSource_SumsKeyRowsAndOwnerRowsSincePeriodStart(t *testing.T) {
 	if got, err := src.Spend(context.Background(), budget.KindUser, ownerID, since); err != nil || got != 3.5 {
 		t.Fatalf("user spend = %v, %v; want 3.5 (own row and the key's)", got, err)
 	}
+	// The stamp is what keeps the spend with who spent it: deleting the key
+	// (a user with the virtual_keys grant can, and recreate it) changes
+	// nothing about the owner's sum.
+	if w := doJSON(t, router, http.MethodDelete, "/virtual-keys/"+vk.ID, envAdminToken, ""); w.Code != http.StatusNoContent {
+		t.Fatalf("delete key: %d", w.Code)
+	}
+	if got, err := src.Spend(context.Background(), budget.KindUser, ownerID, since); err != nil || got != 3.5 {
+		t.Fatalf("user spend after deleting the key = %v, %v; want 3.5", got, err)
+	}
+}
+
+func TestUsersAPI_ListCarriesBudgetSpent(t *testing.T) {
+	h, router, _, mkUser := setupOwnershipHandler(t)
+	pool := apiTestDB.Pool()
+	if _, err := pool.Exec(context.Background(), `TRUNCATE request_logs`); err != nil {
+		t.Fatal(err)
+	}
+	h.SetBudgetLimiter(budget.NewLimiter(budget.PGSource{Pool: pool}))
+	id := mkUser("spender", []string{"chat"})
+	if _, err := pool.Exec(context.Background(), `UPDATE users SET budget_usd = 20, budget_period = 'month' WHERE id = $1`, id); err != nil {
+		t.Fatal(err)
+	}
+	f := func(v float64) *float64 { return &v }
+	seedCostRow(t, nil, &id, f(4.5), time.Now().UTC())
+
+	w := doJSON(t, router, http.MethodGet, "/users", envAdminToken, "")
+	if w.Code != http.StatusOK {
+		t.Fatalf("list: %d %s", w.Code, w.Body.String())
+	}
+	var users []map[string]any
+	if err := json.Unmarshal(w.Body.Bytes(), &users); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	for _, u := range users {
+		if u["username"] == "spender" {
+			if u["budget_spent_usd"] != 4.5 {
+				t.Fatalf("budget_spent_usd = %v, want 4.5", u["budget_spent_usd"])
+			}
+			return
+		}
+	}
+	t.Fatal("spender not listed")
 }
 
 func TestVirtualKeysAPI_BudgetFields(t *testing.T) {

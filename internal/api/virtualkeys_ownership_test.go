@@ -20,7 +20,15 @@ import (
 // helpers.
 func setupOwnershipTest(t *testing.T) (router chi.Router, loginAs func(id string) string, mkUser func(name string, grants []string) string) {
 	t.Helper()
-	h, router := newTestHandlerWithRouter(t)
+	_, router, loginAs, mkUser = setupOwnershipHandler(t)
+	return router, loginAs, mkUser
+}
+
+// setupOwnershipHandler is setupOwnershipTest with the Handler exposed, for a
+// test that wires an optional stage onto it (SetBudgetLimiter).
+func setupOwnershipHandler(t *testing.T) (h *Handler, router chi.Router, loginAs func(id string) string, mkUser func(name string, grants []string) string) {
+	t.Helper()
+	h, router = newTestHandlerWithRouter(t)
 	pool := h.Pool().Pool()
 	if _, err := pool.Exec(context.Background(), `TRUNCATE users, webauthn_sessions, virtual_keys CASCADE`); err != nil {
 		t.Fatalf("truncate: %v", err)
@@ -52,7 +60,7 @@ func setupOwnershipTest(t *testing.T) (router chi.Router, loginAs func(id string
 		}
 		return resp.ID
 	}
-	return router, loginAs, mkUser
+	return h, router, loginAs, mkUser
 }
 
 // doJSONAs performs a request as a specific non-admin user, minting them a

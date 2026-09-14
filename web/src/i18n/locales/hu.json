@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "Kezeletlenül hagyott modelleltérések",
 				"model_auto_disabled_gone": "Modell letiltva (a szolgáltató már nem kínálja)",
 				"provider_scheduled_disable": "Szolgáltató letiltva az ütemezés szerint",
-				"circuit_breaker_unstable": "A modell ismételten hibázik (áramkör-megszakító többször nyitva)"
+				"circuit_breaker_unstable": "A modell ismételten hibázik (áramkör-megszakító többször nyitva)",
+				"budget_warning": "Keretfigyelmeztetés (80% elköltve)",
+				"budget_exceeded": "Keret túllépve (kérések elutasítva)"
 			},
 			"events": {
 				"all": "Összes kijelölése",
@@ -2232,7 +2234,8 @@
 				"failover": "Átállás",
 				"high_availability": "Magas rendelkezésre állás",
 				"quota": "Kvóta",
-				"security": "Biztonság"
+				"security": "Biztonság",
+				"budgets": "Keretek"
 			}
 		},
 		"totp": {

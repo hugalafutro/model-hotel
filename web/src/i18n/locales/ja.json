@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "未対応のモデルの不一致",
 				"model_auto_disabled_gone": "モデルを無効化（プロバイダーが提供を終了）",
 				"provider_scheduled_disable": "プロバイダーをスケジュールどおり無効化",
-				"circuit_breaker_unstable": "モデルが繰り返し停止（サーキットブレーカーが何度も作動）"
+				"circuit_breaker_unstable": "モデルが繰り返し停止（サーキットブレーカーが何度も作動）",
+				"budget_warning": "予算警告（80% 消費）",
+				"budget_exceeded": "予算超過（リクエスト拒否）"
 			},
 			"events": {
 				"all": "すべて選択",
@@ -2232,7 +2234,8 @@
 				"failover": "フェイルオーバー",
 				"high_availability": "高可用性",
 				"quota": "クォータ",
-				"security": "セキュリティ"
+				"security": "セキュリティ",
+				"budgets": "予算"
 			}
 		},
 		"totp": {

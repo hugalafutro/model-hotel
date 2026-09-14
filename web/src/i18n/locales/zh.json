@@ -2079,7 +2079,9 @@
 				"discovery_claims_outstanding": "未处理的模型差异",
 				"model_auto_disabled_gone": "模型已禁用（提供商不再提供）",
 				"provider_scheduled_disable": "提供商已按计划禁用",
-				"circuit_breaker_unstable": "模型反复故障（断路器多次打开）"
+				"circuit_breaker_unstable": "模型反复故障（断路器多次打开）",
+				"budget_warning": "预算警告（已用 80%）",
+				"budget_exceeded": "预算超支（请求被拒绝）"
 			},
 			"events": {
 				"all": "全选",
@@ -2232,7 +2234,8 @@
 				"failover": "故障转移",
 				"high_availability": "高可用",
 				"quota": "配额",
-				"security": "安全"
+				"security": "安全",
+				"budgets": "预算"
 			}
 		},
 		"totp": {
