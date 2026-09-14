@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/db"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/metrics"
@@ -33,11 +34,15 @@ func (logEntry *requestLogData) terminalCost() (float64, bool) {
 	if !isTerminalLogState(logEntry.state) {
 		return 0, false
 	}
+	prompt, completion := logEntry.tokensPrompt, logEntry.tokensCompletion
+	if logEntry.billed {
+		prompt, completion = logEntry.billedPrompt, logEntry.billedCompletion
+	}
 	return logEntry.servedModel.CostUSD(model.Usage{
-		Prompt:          logEntry.tokensPrompt,
+		Prompt:          prompt,
 		PromptCacheHit:  logEntry.tokensPromptCacheHit,
 		PromptCacheMiss: logEntry.tokensPromptCacheMiss,
-		Completion:      logEntry.tokensCompletion,
+		Completion:      completion,
 	})
 }
 
@@ -122,11 +127,21 @@ func (h *Handler) insertRequestLogAsync(logEntry *requestLogData) {
 		if clientIP != "" {
 			ip = clientIP
 		}
-		_, err := h.dbPool.Exec(ctx, `
+		insert := func(owner any) error {
+			_, err := h.dbPool.Exec(ctx, `
 			INSERT INTO request_logs (id, model_id, request_hash, streaming, virtual_key_name, virtual_key_id, failover_attempt, state, endpoint_type, owner_user_id, client_ip)
 			VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-			id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state, endpointType, ownerID, ip,
-		)
+				id, modelID, requestHash, streaming, virtualKeyName, vkID, failoverAttempt, state, endpointType, owner, ip,
+			)
+			return err
+		}
+		err := insert(ownerID)
+		if ownerID != nil && db.IsForeignKeyViolation(err) {
+			// The owner was deleted between the request's auth and this write.
+			// The row is worth more than its owner stamp: keep it, unowned.
+			debuglog.Warn("proxy: request log owner no longer exists, storing the row unowned", "request_id", id)
+			err = insert(nil)
+		}
 		if err != nil {
 			debuglog.Error("proxy: failed to insert initial request log", "request_id", id, "error", err)
 		}
@@ -379,7 +394,7 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		// the budget can sum, and the flag holds against a second terminal
 		// write for the same request.
 		logEntry.charged, chargedNow = true, true
-		h.budgetLimiter.Charge(logEntry.virtualKeyID, logEntry.ownerUserID, c)
+		h.budgetLimiter.Charge(logEntry.virtualKeyID, logEntry.ownerUserID, c, logEntry.startedAt)
 	}
 
 	// Publish the request lifecycle event for terminal states.

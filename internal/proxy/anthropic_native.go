@@ -160,9 +160,10 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	// of the translated path's "any choice carrying something", so on this path
 	// the two bars coincide and the negation is exact.
 	logData.emptyCompletion = !carriesContent
-	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-
+	// The estimate runs before the terminal write so the row is priced by
+	// what the provider billed, not by the usage it left out.
 	inputTokens, outputTokens, _ = estimateMissingUsage(inputTokens, outputTokens, 0, logData, anthropic.ResponseTextBytes(body))
+	h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 	h.recordTokenUsage(st.vkHash, logData, inputTokens, outputTokens, 0)
 
 	debuglog.Info("proxy: native anthropic non-streaming completed", "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "duration_ms", totalDuration, "input_tokens", inputTokens, "output_tokens", outputTokens)

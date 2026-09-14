@@ -149,6 +149,17 @@ type requestLogData struct {
 	// charged records that the row's cost reached the budget stage, so a
 	// second terminal write for the same request cannot charge it again.
 	charged bool
+	// billedPrompt and billedCompletion are the figures the request is priced
+	// and metered by: the provider's when it reported usage, an estimate from
+	// the delivered bytes when it did not (estimateMissingUsage). The token
+	// columns keep the provider's figures; the price does not, since a
+	// response the provider billed and did not count would otherwise cost
+	// nothing against a budget. Set by noteBilled before the terminal write.
+	billedPrompt, billedCompletion int
+	billed                         bool
+	// startedAt is when the request arrived, the period its row belongs to
+	// for the budget charge (request_logs.created_at is stamped on insert).
+	startedAt time.Time
 	// ownerUserID is the owning dashboard user's UUID; "" for unowned keys
 	// (admin-only visibility). Persisted to request_logs.owner_user_id on every
 	// row that has one: the log views resolve a keyed row through the key's

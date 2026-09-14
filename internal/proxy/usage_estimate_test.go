@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/virtualkey"
 )
 
@@ -178,6 +179,16 @@ func TestHandleStreamingResponse_EstimatesUsageWhenProviderOmitsUsageChunk(t *te
 	// the quota, they are not reported as measured usage.
 	assert.Equal(t, 0, logData.tokensPrompt)
 	assert.Equal(t, 0, logData.tokensCompletion)
+	// The price, though, follows what was billed: a response the provider
+	// left uncounted is not free against a budget.
+	assert.True(t, logData.billed)
+	assert.Equal(t, 10, logData.billedPrompt)
+	assert.Equal(t, 4, logData.billedCompletion)
+	in, out := 1.0, 2.0
+	logData.servedModel = &model.Model{InputPricePerMillion: &in, OutputPricePerMillion: &out}
+	cost, ok := logData.terminalCost()
+	require.True(t, ok)
+	assert.InDelta(t, (10*1.0+4*2.0)/1e6, cost, 1e-12)
 }
 
 // Agent traffic is mostly tool calls, whose output lives in

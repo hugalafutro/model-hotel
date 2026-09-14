@@ -499,7 +499,13 @@ const minPassthroughTokens = 1
 // Nothing is estimated when no output was delivered (an error before the first
 // token costs nothing), and the request log keeps the provider's figures:
 // estimates charge the quota, they are not reported as measured usage.
+// noteBilled records the figures the request is priced by (see billedPrompt).
+func (logData *requestLogData) noteBilled(prompt, completion int) {
+	logData.billedPrompt, logData.billedCompletion, logData.billed = prompt, completion, true
+}
+
 func estimateMissingUsage(promptTokens, completionTokens, reasoningTokens int, logData *requestLogData, deliveredBytes int) (prompt, completion, reasoning int) {
+	defer func() { logData.noteBilled(prompt, completion) }()
 	// Reasoning is part of completion, so completion alone says whether the
 	// provider reported any output.
 	if deliveredBytes == 0 || (promptTokens > 0 && completionTokens > 0) {

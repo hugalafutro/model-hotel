@@ -21,12 +21,19 @@ type fakeSource struct {
 	spent map[string]float64
 	err   error
 	reads int
+	block chan struct{} // when set, a read waits on it after counting itself
 }
 
 func (f *fakeSource) Spend(_ context.Context, kind, id string, _ time.Time) (float64, error) {
 	f.mu.Lock()
-	defer f.mu.Unlock()
 	f.reads++
+	block := f.block
+	f.mu.Unlock()
+	if block != nil {
+		<-block
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.err != nil {
 		return 0, f.err
 	}
@@ -121,7 +128,7 @@ func TestMiddleware_RefusesAtBudgetWithRetryAfterToPeriodEnd(t *testing.T) {
 	if rr := serve(l, keyed(sub)); rr.Code != http.StatusNoContent {
 		t.Fatalf("under budget status = %d", rr.Code)
 	}
-	l.Charge("k1", "", 5)
+	l.Charge("k1", "", 5, time.Time{})
 	rr := serve(l, keyed(sub))
 	if rr.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want 429: %s", rr.Code, rr.Body.String())
@@ -161,7 +168,7 @@ func TestMiddleware_FirstSightPastAThresholdRefusesWithoutReporting(t *testing.T
 		t.Fatalf("a restart inside the period must not re-report: %+v", evs)
 	}
 	// Crossing the NEXT threshold in this process is reported.
-	l.Charge("", "u1", 2)
+	l.Charge("", "u1", 2, time.Time{})
 	serve(l, keyed(user))
 	if evs := drain(); len(evs) != 1 || evs[0].Type != "budget.exceeded" {
 		t.Fatalf("events = %+v, want one budget.exceeded", evs)
@@ -175,7 +182,7 @@ func TestMiddleware_WarnsOnceAtEightyPercentThenAdmits(t *testing.T) {
 	sub := &Subject{Kind: KindUser, ID: "u1", Name: "alice", Budget: Budget{USD: 10, Period: PeriodMonth}}
 
 	serve(l, keyed(sub))
-	l.Charge("", "u1", 1)
+	l.Charge("", "u1", 1, time.Time{})
 	for range 2 {
 		if rr := serve(l, keyed(sub)); rr.Code != http.StatusNoContent {
 			t.Fatalf("status = %d, want admitted", rr.Code)
@@ -196,7 +203,7 @@ func TestMiddleware_BudgetEditedMidPeriodIsJudgedAfresh(t *testing.T) {
 	drain := collectEvents(t)
 	sub := &Subject{Kind: KindKey, ID: "k1", Name: "ci", Budget: Budget{USD: 10, Period: PeriodDay}}
 	serve(l, keyed(sub))
-	l.Charge("k1", "", 1)
+	l.Charge("k1", "", 1, time.Time{})
 	if rr := serve(l, keyed(sub)); rr.Code != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want 429", rr.Code)
 	}
@@ -259,7 +266,7 @@ func TestLimiter_ChargeCountsBetweenReloadsAndPeriodRollResets(t *testing.T) {
 		t.Fatalf("first request status = %d", rr.Code)
 	}
 	// A charge inside the refresh window counts without another read.
-	l.Charge("k1", "", 1.5)
+	l.Charge("k1", "", 1.5, time.Time{})
 	if rr := serve(l, keyed(sub)); rr.Code != http.StatusTooManyRequests {
 		t.Fatalf("after the charge status = %d, want 429", rr.Code)
 	}
@@ -267,7 +274,7 @@ func TestLimiter_ChargeCountsBetweenReloadsAndPeriodRollResets(t *testing.T) {
 		t.Fatalf("source reads = %d, want 1 (the charge must not trigger a reload)", src.readCount())
 	}
 	// A charge for a subject never admitted is dropped, not stored.
-	l.Charge("k-unknown", "u-unknown", 100)
+	l.Charge("k-unknown", "u-unknown", 100, time.Time{})
 	if _, ok := l.entries.Load("key:k-unknown"); ok {
 		t.Fatal("a charge must not create an entry")
 	}
@@ -306,9 +313,13 @@ func TestLimiter_StaleFigureServedWhileOneReloadReplacesIt(t *testing.T) {
 	}
 	src.waitReads(t, 2)
 	deadline := time.Now().Add(2 * time.Second)
-	for l.Spent(context.Background(), sub) != 40 {
+	for {
+		got, _ := l.Spent(context.Background(), sub)
+		if got == 40 {
+			break
+		}
 		if time.Now().After(deadline) {
-			t.Fatalf("Spent = %v, want the reloaded 40", l.Spent(context.Background(), sub))
+			t.Fatalf("Spent = %v, want the reloaded 40", got)
 		}
 		time.Sleep(5 * time.Millisecond)
 	}
@@ -317,7 +328,7 @@ func TestLimiter_StaleFigureServedWhileOneReloadReplacesIt(t *testing.T) {
 	}
 }
 
-func TestLimiter_SourceFailureAdmitsOnLastKnownFigure(t *testing.T) {
+func TestLimiter_SourceFailureAdmitsOnLastKnownFigureButRefusesTheUnknown(t *testing.T) {
 	src := &fakeSource{spent: map[string]float64{"key:k1": 4}}
 	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
 	l, clk := newTestLimiter(src, at)
@@ -331,25 +342,92 @@ func TestLimiter_SourceFailureAdmitsOnLastKnownFigure(t *testing.T) {
 		t.Fatalf("status = %d, want admitted on the last known $4", rr.Code)
 	}
 	src.waitReads(t, 2)
-	if got := l.Spent(context.Background(), sub); got != 4 {
-		t.Fatalf("Spent = %v, want the last known 4", got)
+	if got, known := l.Spent(context.Background(), sub); !known || got != 4 {
+		t.Fatalf("Spent = %v/%v, want the last known 4", got, known)
 	}
-	// A subject first seen while the store is down is admitted at zero and
-	// not asked for again inside the interval.
+	// A subject first seen while the store is down cannot be judged: it is
+	// refused with 503, and the store is asked again only after the retry
+	// interval, not on every request.
 	fresh := &Subject{Kind: KindKey, ID: "k2", Name: "new", Budget: Budget{USD: 1, Period: PeriodDay}}
-	if rr := serve(l, keyed(fresh)); rr.Code != http.StatusNoContent {
-		t.Fatalf("first-sight failure status = %d, want admitted", rr.Code)
+	rr := serve(l, keyed(fresh))
+	if rr.Code != http.StatusServiceUnavailable || rr.Header().Get("Retry-After") != "5" {
+		t.Fatalf("first-sight failure status = %d Retry-After %q, want 503 in 5s", rr.Code, rr.Header().Get("Retry-After"))
+	}
+	if !strings.Contains(rr.Body.String(), "key budget spend unavailable") {
+		t.Errorf("body = %s", rr.Body.String())
 	}
 	reads := src.readCount()
 	serve(l, keyed(fresh))
 	if src.readCount() != reads {
 		t.Fatalf("source reads = %d, want %d (no retry inside the interval)", src.readCount(), reads)
 	}
+	if _, known := l.Spent(context.Background(), fresh); known {
+		t.Fatal("Spent must report an unknown figure while the store is down")
+	}
+	// Once the store answers, the retry judges the subject.
+	src.set("key:k2", 0.5, nil)
+	clk.add(retryInterval)
+	if rr := serve(l, keyed(fresh)); rr.Code != http.StatusNoContent {
+		t.Fatalf("after the store recovered status = %d, want admitted", rr.Code)
+	}
+}
+
+func TestLimiter_ReloadRunsAgainWhenAChargeOverlappedIt(t *testing.T) {
+	src := &fakeSource{spent: map[string]float64{"key:k1": 4}}
+	at := time.Date(2026, 9, 16, 12, 0, 0, 0, time.UTC)
+	l, clk := newTestLimiter(src, at)
+	collectEvents(t)
+	sub := &Subject{Kind: KindKey, ID: "k1", Name: "ci", Budget: Budget{USD: 100, Period: PeriodDay}}
+	serve(l, keyed(sub))
+
+	// Hold the source's answer until a charge has landed during the read:
+	// the reload must not install a sum that may or may not hold that row.
+	src.mu.Lock()
+	src.block = make(chan struct{})
+	src.mu.Unlock()
+	clk.add(refreshInterval + time.Second)
+	serve(l, keyed(sub)) // schedules the reload, which now blocks in Spend
+	src.waitReads(t, 2)
+	l.Charge("k1", "", 3, time.Time{})
+	src.set("key:k1", 7, nil) // the store now holds the charged row
+	src.mu.Lock()
+	close(src.block)
+	src.block = nil
+	src.mu.Unlock()
+	// The overlapped reload re-runs and lands the exact 7, not 7+3 and not 4.
+	src.waitReads(t, 3)
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		got, _ := l.Spent(context.Background(), sub)
+		if got == 7 {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("Spent = %v, want the exact re-summed 7", got)
+		}
+		time.Sleep(5 * time.Millisecond)
+	}
+}
+
+func TestLimiter_ChargeFromThePreviousPeriodIsNotCountedHere(t *testing.T) {
+	src := &fakeSource{spent: map[string]float64{"key:k1": 1}}
+	at := time.Date(2026, 9, 17, 0, 0, 30, 0, time.UTC)
+	l, _ := newTestLimiter(src, at)
+	collectEvents(t)
+	sub := &Subject{Kind: KindKey, ID: "k1", Name: "ci", Budget: Budget{USD: 10, Period: PeriodDay}}
+	serve(l, keyed(sub))
+	// A request that arrived before midnight and finished after it belongs
+	// to yesterday's sum; one with no arrival time counts as now.
+	l.Charge("k1", "", 5, at.Add(-time.Minute))
+	l.Charge("k1", "", 2, time.Time{})
+	if got, _ := l.Spent(context.Background(), sub); got != 3 {
+		t.Fatalf("Spent = %v, want 1 + 2", got)
+	}
 }
 
 func TestLimiter_NilIsInert(t *testing.T) {
 	var l *Limiter
-	l.Charge("k", "u", 1)
+	l.Charge("k", "u", 1, time.Time{})
 	rr := httptest.NewRecorder()
 	l.Middleware(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })).
 		ServeHTTP(rr, httptest.NewRequest(http.MethodGet, "/", http.NoBody))

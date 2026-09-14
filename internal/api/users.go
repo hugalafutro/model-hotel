@@ -69,8 +69,9 @@ func (h *Handler) fillBudgetSpent(ctx context.Context, users []*user.User) {
 		if b == nil {
 			continue
 		}
-		spent := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindUser, ID: u.ID.String(), Name: u.Username, Budget: *b})
-		u.BudgetSpentUSD = &spent
+		if spent, known := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindUser, ID: u.ID.String(), Name: u.Username, Budget: *b}); known {
+			u.BudgetSpentUSD = &spent
+		}
 	}
 }
 
@@ -139,9 +140,14 @@ type userRequest struct {
 	RateLimitBurst *int     `json:"rate_limit_burst"`
 	RateLimitTPM   *int     `json:"rate_limit_tpm"`
 	// BudgetUSD and BudgetPeriod cap what the account spends per calendar
-	// period; written on every create and update like the rate limits.
+	// period. On update, OMITTED preserves the stored budget (a spending
+	// guard is not dropped by a caller that never heard of it) and an
+	// explicit null pair clears it, which is why presence is tracked.
 	BudgetUSD    *float64 `json:"budget_usd"`
 	BudgetPeriod *string  `json:"budget_period"`
+	// budgetPresent tracks whether either budget field was in the JSON.
+	// Set by UnmarshalJSON; do not set manually.
+	budgetPresent bool
 	// AllowedProviders caps every key this user owns. Null (or omitted on
 	// create) means no cap. On update, OMITTED preserves the stored value and
 	// an explicit null clears it, which is why presence is tracked separately.
@@ -167,6 +173,9 @@ func (req *userRequest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	_, req.allowedProvidersPresent = raw["allowed_providers"]
+	_, usdPresent := raw["budget_usd"]
+	_, periodPresent := raw["budget_period"]
+	req.budgetPresent = usdPresent || periodPresent
 	return nil
 }
 
@@ -260,9 +269,11 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
-	if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
-		respondBadRequest(w, err.Error(), nil)
-		return
+	if req.budgetPresent {
+		if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
+			respondBadRequest(w, err.Error(), nil)
+			return
+		}
 	}
 	enabled := true
 	if req.Enabled != nil {
@@ -276,18 +287,25 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Omitted preserves the stored cap; an explicit null clears it.
+	// Omitted preserves the stored cap and the stored budget; an explicit
+	// null clears either.
 	allowedProviders := req.AllowedProviders
-	if !req.allowedProvidersPresent {
+	limits := req.limits()
+	if !req.allowedProvidersPresent || !req.budgetPresent {
 		existing, gerr := h.userRepo.Get(r.Context(), id)
 		if gerr != nil {
 			respondLookupError(w, gerr, user.ErrNotFound, "user not found", "failed to update user")
 			return
 		}
-		allowedProviders = existing.AllowedProviders
+		if !req.allowedProvidersPresent {
+			allowedProviders = existing.AllowedProviders
+		}
+		if !req.budgetPresent {
+			limits.Budget = budget.From(existing.BudgetUSD, existing.BudgetPeriod)
+		}
 	}
 
-	u, err := h.userRepo.Update(r.Context(), id, req.Username, req.DisplayName, req.Email, role, req.Grants, enabled, req.limits(), allowedProviders)
+	u, err := h.userRepo.Update(r.Context(), id, req.Username, req.DisplayName, req.Email, role, req.Grants, enabled, limits, allowedProviders)
 	if err != nil {
 		if errors.Is(err, user.ErrNotFound) {
 			http.Error(w, "user not found", http.StatusNotFound)

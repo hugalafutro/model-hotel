@@ -192,9 +192,10 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// Fire-and-forget: skip WaitForInsert so TTFB is not blocked. The async
 		// INSERT is very likely complete by now; if not, the UPDATE affects 0
 		// rows and is logged as a warning.
-		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
-
+		// The estimate runs before the terminal write so the row is priced by
+		// what the provider billed, not by the usage it left out.
 		promptTokens, completionTokens, reasoningTokens = estimateMissingUsage(promptTokens, completionTokens, reasoningTokens, logData, chatAnswerBytes(chatResp))
+		h.updateRequestLog(logData, updateLogOption{skipWaitForInsert: true})
 		h.recordTokenUsage(vkHash, logData, promptTokens, completionTokens, reasoningTokens)
 
 		// Normalize the reasoning fields in the response message so
