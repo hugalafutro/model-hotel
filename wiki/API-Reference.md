@@ -221,7 +221,7 @@ Per-key rate limiting applies based on virtual key configuration. Returns `429 T
 }
 ```
 
-The message names the limiter that refused: `rate limit exceeded` for a per-key or per-IP request cap, `user rate limit exceeded` for the caller's account-wide request cap, `token rate limit exceeded` and `user token rate limit exceeded` for the tokens-per-minute equivalents.
+The message names the limiter that refused: `rate limit exceeded` for a per-key or per-IP request cap, `user rate limit exceeded` for the caller's account-wide request cap, `token rate limit exceeded` and `user token rate limit exceeded` for the tokens-per-minute equivalents, and `key budget exceeded` or `user budget exceeded` (with the spend and the budget in the text) for a dollar budget, whose `Retry-After` runs to the end of the budget period.
 
 ---
 
@@ -911,6 +911,8 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `rate_limit_rps` | number | No | Requests per second, 0 to 10000 (null = use global default) |
 | `rate_limit_burst` | integer | No | Burst capacity, 1 to 10000 (null = use global default) |
 | `rate_limit_tpm` | integer | No | Tokens-per-minute cap, 1 to 100000000 (null = no cap / global default). Counts prompt + completion (reasoning is part of completion); over-budget keys get `429 token rate limit exceeded` with `Retry-After` |
+| `budget_usd` | number | No | Dollar budget per calendar period, above 0 and at most 10000000; null = no budget. Must be sent together with `budget_period`. Once the period's priced spend reaches it, requests get `429 key budget exceeded` with `Retry-After` set to the period's end |
+| `budget_period` | string | No | `day`, `week` (Monday to Sunday) or `month`, all UTC; null when `budget_usd` is null |
 | `allowed_providers` | array of UUID strings | No | Restrict this key to the listed provider IDs (null = all providers accessible; an empty array is rejected) |
 | `strip_reasoning` | boolean | No | Strip `reasoning`/`reasoning_content` fields from streaming output for this key |
 
@@ -926,9 +928,14 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
   "created_at": "2024-01-01T00:00:00Z",
   "rate_limit_rps": 10.0,
   "rate_limit_burst": 20,
-  "rate_limit_tpm": 50000
+  "rate_limit_tpm": 50000,
+  "budget_usd": 25,
+  "budget_period": "month",
+  "budget_spent_usd": 0
 }
 ```
+
+`budget_spent_usd` is the key's priced spend in the current period on the answering member; it is present only when the key has a budget. User accounts (`/api/users`) take and return the same `budget_usd` + `budget_period` pair.
 
 > ⚠️ **Important:** The full key is shown only once at creation time and cannot be retrieved later.
 

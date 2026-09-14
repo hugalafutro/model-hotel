@@ -4,7 +4,7 @@ Virtual keys are client-facing API keys that provide authenticated access to the
 
 <p align="center">
 <img src="screenshots/virtual_keys.png" alt="Virtual Keys List" width="700"><br>
-<em>Virtual Keys page: name, key preview, RPS, burst, TPM, created, tokens used, and last used, with a name filter above the table. Clicking a row opens the key detail modal, which is where editing and deletion live.</em>
+<em>Virtual Keys page: name, key preview, RPS, burst, TPM, budget, created, tokens used, and last used, with a name filter above the table. Clicking a row opens the key detail modal, which is where editing and deletion live.</em>
 </p>
 
 <p align="center">
@@ -429,7 +429,10 @@ Four messages come out of this family, and the wording says which limit was hit:
 | `user token rate limit exceeded` | The owner's aggregate TPM budget |
 
 Both request-rate stages are checked together, and the reported one is
-whichever forced the longer wait.
+whichever forced the longer wait. A dollar budget refuses with the same status
+and its own wording, `key budget exceeded: $25.00 of $25.00 spent this month`
+(or `user budget exceeded`), with `Retry-After` set to the end of the period;
+see [Dollar Budgets](#dollar-budgets).
 
 ### The Per-IP Limiter
 
@@ -501,6 +504,41 @@ neither an account switch nor account limits.
 
 Owned keys show the owner's username as a chip next to the key name on the
 Virtual Keys page. See [[Multi-User]] for accounts, roles, and grants.
+
+## Dollar Budgets
+
+A key can carry a spending cap in dollars, and so can a user account. The pair
+`budget_usd` + `budget_period` (`day`, `week` or `month`, calendar periods in
+UTC; a week runs Monday to Sunday) is set on key creation and update, on the
+account through the Users page, and by config sync. Both fields travel
+together: a budget without a period, or a period without a budget, is refused
+with `400`, and so is an amount that is not above zero or above 10,000,000.
+
+**What counts.** Spend is the sum of `cost_usd` over the period's request logs,
+the same figure the Dashboard's `$` view and the request log's Cost column
+show. Rows the gateway could not price (a model with no known prices) count as
+nothing: a budget cannot police what has no price, and the spend tile's
+unpriced count says how much that is. A key's spend is its own rows; a user's
+spend is every row their keys wrote plus their dashboard chat.
+
+**How it refuses.** Once the period's spend reaches the budget, the next
+request answers `429` with `key budget exceeded` (or `user budget exceeded`)
+and a `Retry-After` set to the seconds left in the period. The request that
+crosses the line is served, since its cost is known only once the provider
+reports usage. Both budgets apply when a key is owned: the key's own, then the
+account's. The account budget also covers the owner's dashboard chat, which has
+no key.
+
+**Where it is counted.** Per member, like the token limits: each Model Hotel
+sums its own request logs, caches the figure for a minute and adds each priced
+request to it as it lands, so a burst inside that minute still counts. Spend
+metered on another fleet member is not seen until that member's rows are read
+by it, so a fleet-wide cap is the sum of each member's.
+
+**What it tells you.** Two alert events fire once per period per key or user:
+`budget.warning` at 80% of the budget and `budget.exceeded` at the first
+refusal (see [[Alerting]]). The key's row and detail modal show
+`$3.25 of $25.00 this month`; the user's budget shows in the Users form.
 
 ## Provider Access Control and Reasoning Stripping
 
