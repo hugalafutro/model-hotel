@@ -27,8 +27,8 @@ row ignore it):
   model. Spend is `modelhotel_cost_usd_total`, the same dollars the dashboard's `$` view and
   `request_logs.cost_usd` carry; a model with no known price adds nothing, so a sum is a floor
   wherever a model is unpriced.
-- **Reliability**: breaker state per provider, the worst state any member reports for it
-  (named since the gauge carries `provider` next to `provider_id`), failover attempts, Responses API reroutes, retirement probes, upstream 429s
+- **Reliability**: breaker state per enabled provider, the worst state any member reports for it
+  (a provider nothing has routed to yet reads closed; a blank lane is a provider that is disabled or gone), failover attempts, Responses API reroutes, retirement probes, upstream 429s
   by class, breaker opens by cause, failover exhaustion by reason.
 - **Quota**: how much of each subscription window is used, from the latest quota poll (the
   same figures as the provider's quota modal), the same over time, and how long until each

@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,8 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/metrics"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
@@ -239,5 +242,59 @@ func TestCollectQuotaWindows_SkipsUnconfirmedAndForeignKinds(t *testing.T) {
 
 	if got := h.collectQuotaWindows(); len(got) != 0 {
 		t.Errorf("got %+v, want nothing: one row is unconfirmed, one is a kind zai-coding does not poll, one belongs to a disabled provider the poller skips", got)
+	}
+}
+
+// TestCollectBreakerStates_UntouchedEnabledProvidersReadClosed: the breaker
+// tracks a provider only once a request has routed to it, and an untracked
+// provider is served like a closed one, so the gauge must say closed for it
+// rather than leave the lane blank; a disabled or deleted provider stays off
+// the gauge even while the breaker still holds its circuit.
+func TestCollectBreakerStates_UntouchedEnabledProvidersReadClosed(t *testing.T) {
+	h := newTestHandler(t)
+	touched := insertQuotaPollProvider(t, h.dbPool.Pool(), "touched", "https://api.example.com", true)
+	untouched := insertQuotaPollProvider(t, h.dbPool.Pool(), "untouched", "https://api.example.com", true)
+	off := insertQuotaPollProvider(t, h.dbPool.Pool(), "switched-off", "https://api.example.com", false)
+	// The disabled provider still holds an open circuit: the breaker keeps it
+	// until a reset, but the provider is off the routing pool. The deleted one
+	// has no row at all.
+	h.circuitBreaker = fakeBreakerReader{statuses: []failover.ProviderStatus{
+		{ProviderID: touched.String(), ProviderName: "touched", State: "open"},
+		{ProviderID: off.String(), ProviderName: "switched-off", State: "open"},
+		{ProviderID: uuid.NewString(), ProviderName: "deleted", State: "open"},
+	}}
+
+	got := h.collectBreakerStates()
+
+	byID := make(map[string]metrics.BreakerState, len(got))
+	for _, s := range got {
+		byID[s.ProviderID] = s
+	}
+	if s, ok := byID[touched.String()]; !ok || s.State != metrics.BreakerOpen {
+		t.Errorf("touched: got %+v, want the tracked open state", s)
+	}
+	if s, ok := byID[untouched.String()]; !ok || s.State != metrics.BreakerClosed || s.ProviderName != "untouched" {
+		t.Errorf("untouched: got %+v, want closed under its own name", s)
+	}
+	if len(got) != 2 {
+		t.Errorf("got %d states, want exactly the two enabled providers (the disabled and deleted circuits stay off): %+v", len(got), got)
+	}
+}
+
+// TestCollectBreakerStates_WithoutAProviderListReportsTrackedOnly: a handler
+// with no provider repository, or one whose list fails at scrape time, still
+// reports the circuits the breaker tracks; the fill-in is best effort.
+func TestCollectBreakerStates_WithoutAProviderListReportsTrackedOnly(t *testing.T) {
+	tracked := []failover.ProviderStatus{{ProviderID: "prov-a", ProviderName: "A", State: "half-open"}}
+	bare := &Handler{circuitBreaker: fakeBreakerReader{statuses: tracked}}
+	if got := bare.collectBreakerStates(); len(got) != 1 || got[0].State != metrics.BreakerHalfOpen {
+		t.Errorf("no repository: got %+v, want the one tracked half-open state", got)
+	}
+	failing := testHandler(&mockProviderStore{listFn: func(context.Context) ([]*provider.Provider, error) {
+		return nil, errors.New("connection refused")
+	}}, nil, nil, &mockAdminAuth{}, nil)
+	failing.circuitBreaker = fakeBreakerReader{statuses: tracked}
+	if got := failing.collectBreakerStates(); len(got) != 1 || got[0].ProviderID != "prov-a" {
+		t.Errorf("list failure: got %+v, want the tracked state alone", got)
 	}
 }

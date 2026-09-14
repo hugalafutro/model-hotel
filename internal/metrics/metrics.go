@@ -294,7 +294,7 @@ type breakerCollector struct {
 
 var breakerDesc = prometheus.NewDesc(
 	"modelhotel_circuit_breaker_state",
-	"Circuit breaker state per provider (0 closed, 1 half-open, 2 open). provider is the operator's name, as the other series carry it; provider_id is the row's id, stable across a rename.",
+	"Circuit breaker state per enabled provider (0 closed, 1 half-open, 2 open). A provider the breaker has not routed to yet reads closed, since it is served as one. provider is the operator's name, as the other series carry it; provider_id is the row's id, stable across a rename.",
 	[]string{"provider_id", "provider"}, nil,
 )
 
@@ -367,12 +367,45 @@ func (c *quotaCollector) Describe(ch chan<- *prometheus.Desc) {
 	ch <- quotaReserveDesc
 }
 
+// Bounds on what a quota window may put on the gauge. The figures come from a
+// provider's HTTP response, stored as it arrived, so a corrupt or hostile
+// upstream could hand the scrape a negative share, a share of 1e300 or a reset
+// centuries away, and one such sample flattens every quota panel. A share
+// past quotaUsedCeiling is nonsense rather than overage (the deepest overage
+// seen is a few times the window); a reset outside quotaResetHorizon on either
+// side dates nothing.
+const (
+	quotaUsedCeiling  = 1e6
+	quotaResetHorizon = 10 * 365 * 24 * time.Hour
+)
+
+// reportableQuotaUsed reports whether a share is fit for the gauge. The two
+// comparisons are false for NaN and reject both infinities, so nothing more
+// is needed.
+func reportableQuotaUsed(used float64) bool {
+	return used >= 0 && used <= quotaUsedCeiling
+}
+
+// reportableQuotaReset reports whether a reset is fit for the gauge: dated,
+// and within the horizon of now on either side.
+func reportableQuotaReset(at, now time.Time) bool {
+	if at.IsZero() {
+		return false
+	}
+	d := at.Sub(now)
+	return d > -quotaResetHorizon && d < quotaResetHorizon
+}
+
 func (c *quotaCollector) Collect(ch chan<- prometheus.Metric) {
 	reserved := make(map[string]struct{})
+	now := time.Now()
 	for _, w := range c.collect() {
+		if !reportableQuotaUsed(w.Used) {
+			continue
+		}
 		labels := []string{w.ProviderID, labelOrUnknown(w.ProviderName), labelOrUnknown(w.Window)}
 		ch <- prometheus.MustNewConstMetric(quotaUsedDesc, prometheus.GaugeValue, w.Used, labels...)
-		if !w.ResetsAt.IsZero() {
+		if reportableQuotaReset(w.ResetsAt, now) {
 			ch <- prometheus.MustNewConstMetric(quotaResetDesc, prometheus.GaugeValue, float64(w.ResetsAt.Unix()), labels...)
 		}
 		if _, done := reserved[w.ProviderID]; w.Reserve > 0 && !done {
