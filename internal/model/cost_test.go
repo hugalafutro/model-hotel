@@ -69,4 +69,8 @@ func TestCostUSD_RefusesUnpriceablePrices(t *testing.T) {
 	if _, ok := (&Model{InputPricePerMillion: &one, OutputPricePerMillion: &one}).CostUSD(Usage{Prompt: 1, Completion: 1}); !ok {
 		t.Error("a finite non-negative price must still price")
 	}
+	huge := math.MaxFloat64
+	if _, ok := (&Model{InputPricePerMillion: &huge, OutputPricePerMillion: &one}).CostUSD(Usage{Prompt: 2, Completion: 1}); ok {
+		t.Error("a product that overflows to Inf must read as unpriced")
+	}
 }

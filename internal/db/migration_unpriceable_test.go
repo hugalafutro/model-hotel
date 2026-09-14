@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"io/fs"
+	"strings"
 	"testing"
 
 	"github.com/google/uuid"
@@ -38,8 +39,8 @@ func TestUnpriceablePricesMigration(t *testing.T) {
 		{"sane", "1.5", "2.5", "0"},
 	}
 	for _, r := range rows {
-		if _, err := testPool.Exec(ctx, `INSERT INTO models (id, provider_id, model_id, name, input_price_per_million, output_price_per_million, input_price_per_million_cache_hit)
-			VALUES (gen_random_uuid(), $1, $2, $2, `+r.in+`::double precision, `+r.out+`::double precision, `+r.hit+`::double precision)`, providerID, "unpriceable-"+suffix+"-"+r.name); err != nil {
+		if _, err := testPool.Exec(ctx, `INSERT INTO models (id, provider_id, model_id, name, input_price_per_million, output_price_per_million, input_price_per_million_cache_hit, price_sources)
+			VALUES (gen_random_uuid(), $1, $2, $2, `+r.in+`::double precision, `+r.out+`::double precision, `+r.hit+`::double precision, '{"input":"models.dev","output":"models.dev","cache_hit":"models.dev"}'::jsonb)`, providerID, "unpriceable-"+suffix+"-"+r.name); err != nil {
 			t.Fatalf("insert model %s: %v", r.name, err)
 		}
 	}
@@ -68,6 +69,17 @@ func TestUnpriceablePricesMigration(t *testing.T) {
 	}
 	if hitNull != 1 || saneHit != 1 {
 		t.Errorf("cache-hit prices: inf nulled=%d sane zero kept=%d, want 1 and 1", hitNull, saneHit)
+	}
+	// The source label leaves with the price and stays with a kept one.
+	var srcNan, srcSane string
+	if err := testPool.QueryRow(ctx, `SELECT (SELECT price_sources::text FROM models WHERE model_id = $1), (SELECT price_sources::text FROM models WHERE model_id = $2)`, "unpriceable-"+suffix+"-nan", "unpriceable-"+suffix+"-sane").Scan(&srcNan, &srcSane); err != nil {
+		t.Fatalf("read sources: %v", err)
+	}
+	if strings.Contains(srcNan, `"input"`) || !strings.Contains(srcNan, `"output"`) {
+		t.Errorf("nan row sources = %s, want input dropped and output kept", srcNan)
+	}
+	if !strings.Contains(srcSane, `"input"`) || !strings.Contains(srcSane, `"cache_hit"`) {
+		t.Errorf("sane row sources = %s, want all kept", srcSane)
 	}
 	var costNulls, costKept int
 	if err := testPool.QueryRow(ctx, `SELECT count(*) FILTER (WHERE cost_usd IS NULL), count(*) FILTER (WHERE cost_usd = 0.25) FROM request_logs WHERE model_id = $1`, "unpriceable-"+suffix+"-log").Scan(&costNulls, &costKept); err != nil {

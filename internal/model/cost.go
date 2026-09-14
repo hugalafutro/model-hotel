@@ -50,5 +50,11 @@ func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
 			float64(max(0, u.Prompt-u.PromptCacheHit-u.PromptCacheMiss))**m.InputPricePerMillion
 	}
 	output := float64(u.Completion) * *m.OutputPricePerMillion
-	return (prompt + output) / 1e6, true
+	cost = (prompt + output) / 1e6
+	// A finite price a listing stated as 1e308 still overflows the product; an
+	// infinite cost is as unusable as no cost.
+	if math.IsInf(cost, 0) {
+		return 0, false
+	}
+	return cost, true
 }
