@@ -9,6 +9,7 @@ package metrics
 import (
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/collectors"
@@ -298,6 +299,67 @@ func (c *breakerCollector) Collect(ch chan<- prometheus.Metric) {
 
 // Compile-time guard: the collector implements prometheus.Collector.
 var _ prometheus.Collector = (*breakerCollector)(nil)
+
+// QuotaWindow is one provider quota window for the quota gauges: the share of
+// the window consumed (0 untouched, 1 spent, above 1 in overage) and, when the
+// provider dates it, the moment it rolls over.
+type QuotaWindow struct {
+	ProviderID   string
+	ProviderName string // the operator's name for the provider; "" when unknown
+	Window       string // the window's name as the quota modal shows it (5h, weekly, energy)
+	Used         float64
+	ResetsAt     time.Time // zero when the payload does not date the reset
+}
+
+// RegisterQuotaCollector registers a scrape-time collector that reports each
+// provider's quota windows from its latest stored snapshot. collect runs on
+// every scrape and must stay cheap; it may read the database, since the
+// snapshots are what the poller last wrote. Passing nil, or calling more than
+// once, is a no-op after the first registration.
+func RegisterQuotaCollector(collect func() []QuotaWindow) {
+	if collect == nil {
+		return
+	}
+	registerQuotaOnce.Do(func() {
+		registry.MustRegister(&quotaCollector{collect: collect})
+	})
+}
+
+var registerQuotaOnce sync.Once
+
+type quotaCollector struct {
+	collect func() []QuotaWindow
+}
+
+var (
+	quotaUsedDesc = prometheus.NewDesc(
+		"modelhotel_provider_quota_used_ratio",
+		"Share of a provider quota window consumed, from the latest stored quota snapshot: 0 untouched, 1 spent, above 1 in overage. window names the window as the quota modal does (5h, weekly, cycle, energy, credits, or a MiniMax model class with its span). Only providers whose quota endpoint states a measurable window appear.",
+		[]string{"provider_id", "provider", "window"}, nil,
+	)
+	quotaResetDesc = prometheus.NewDesc(
+		"modelhotel_provider_quota_resets_at_seconds",
+		"Unix time at which a provider quota window rolls over, from the latest stored quota snapshot. Absent for a window the provider does not date (a prepaid balance).",
+		[]string{"provider_id", "provider", "window"}, nil,
+	)
+)
+
+func (c *quotaCollector) Describe(ch chan<- *prometheus.Desc) {
+	ch <- quotaUsedDesc
+	ch <- quotaResetDesc
+}
+
+func (c *quotaCollector) Collect(ch chan<- prometheus.Metric) {
+	for _, w := range c.collect() {
+		labels := []string{w.ProviderID, labelOrUnknown(w.ProviderName), labelOrUnknown(w.Window)}
+		ch <- prometheus.MustNewConstMetric(quotaUsedDesc, prometheus.GaugeValue, w.Used, labels...)
+		if !w.ResetsAt.IsZero() {
+			ch <- prometheus.MustNewConstMetric(quotaResetDesc, prometheus.GaugeValue, float64(w.ResetsAt.Unix()), labels...)
+		}
+	}
+}
+
+var _ prometheus.Collector = (*quotaCollector)(nil)
 
 // InflightState is one provider's adaptive in-flight window for the gauges:
 // the learned allowance (0 = uncapped) and the requests currently in flight.

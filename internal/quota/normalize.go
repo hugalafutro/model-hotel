@@ -348,6 +348,7 @@ func openCodeGoWindowSpent(w provider.OpenCodeGoUsageWindow) bool {
 // float64 cannot tell "field absent" apart from an explicit 0, and treating
 // an absent percent as 0% remaining would pin a healthy provider shut.
 type minimaxModelRemain struct {
+	ModelName                       string   `json:"model_name"`
 	EndTime                         int64    `json:"end_time"`
 	CurrentIntervalStatus           int      `json:"current_interval_status"`
 	CurrentIntervalTotalCount       int64    `json:"current_interval_total_count"`

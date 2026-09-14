@@ -30,6 +30,10 @@ row ignore it):
 - **Reliability**: breaker state per provider, the worst state any member reports for it
   (named since the gauge carries `provider` next to `provider_id`), failover attempts, Responses API reroutes, retirement probes, upstream 429s
   by class, breaker opens by cause, failover exhaustion by reason.
+- **Quota**: how much of each subscription window is used, from the latest quota poll (the
+  same figures as the provider's quota modal), the same over time, and how long until each
+  dated window rolls over. Only providers with a readable quota endpoint appear: Z.ai Coding
+  Plan, Kimi Code, OpenCode Go, MiniMax and NeuralWatt.
 - **Process**: goroutines, resident memory, CPU.
 
 Every panel carries a description on hover. The full list of series and their labels is in

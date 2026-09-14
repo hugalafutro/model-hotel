@@ -1,6 +1,9 @@
 package api
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -11,6 +14,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/config"
 	"github.com/hugalafutro/model-hotel/internal/failover"
+	"github.com/hugalafutro/model-hotel/internal/quota"
 )
 
 // fakeBreakerReader is a CircuitBreakerControl stub for the metrics handler
@@ -163,5 +167,38 @@ func TestMetricsAuth_LogLinesFeedTheCrowdSecParser(t *testing.T) {
 				t.Errorf("log message = %q, want %q", capt.msg, tc.want)
 			}
 		})
+	}
+}
+
+// TestCollectQuotaWindows_ReadsStoredSnapshots is the scrape-time read behind
+// the quota gauges: a provider's latest snapshot, assessed by its type, named
+// by the operator's name.
+func TestCollectQuotaWindows_ReadsStoredSnapshots(t *testing.T) {
+	h := newTestHandler(t)
+	ctx := context.Background()
+	reset := time.Now().Add(4 * time.Hour).Truncate(time.Millisecond)
+	id := insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-main", "https://api.z.ai", true)
+	if err := h.quotaRepo.Upsert(ctx, quota.Snapshot{
+		ProviderID: id, Kind: "usage", HTTPStatus: 200, Source: "poll",
+		Payload:   json.RawMessage(fmt.Sprintf(`{"data":{"limits":[{"type":"TOKENS_LIMIT","unit":3,"percentage":100,"nextResetTime":%d}]}}`, reset.UnixMilli())),
+		FetchedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("seed snapshot: %v", err)
+	}
+	// A second provider with no snapshot contributes nothing.
+	insertQuotaPollProvider(t, h.dbPool.Pool(), "zai-idle", "https://api.z.ai", true)
+
+	got := h.collectQuotaWindows()
+
+	if len(got) == 0 {
+		t.Fatal("got no windows from a stored exhausted snapshot")
+	}
+	for _, w := range got {
+		if w.ProviderID != id.String() || w.ProviderName != "zai-main" {
+			t.Errorf("got window %+v, want it attributed to zai-main %s", w, id)
+		}
+		if w.Used < 1 {
+			t.Errorf("window %s: got used=%v, want spent (>= 1)", w.Window, w.Used)
+		}
 	}
 }
