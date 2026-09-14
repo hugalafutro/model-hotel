@@ -288,20 +288,6 @@ func TestTPMLimiter_CapMemoIsSwept(t *testing.T) {
 	}
 }
 
-func TestTPMLimiter_TPMChangeReplacesBucket(t *testing.T) {
-	l, _ := newTestTPMLimiter(t)
-
-	tpmAdmit(t, l, "k", 100)
-	l.Debit("k", "", 500) // exhaust the 100-TPM bucket
-	if tpmAdmit(t, l, "k", 100) {
-		t.Fatal("100-TPM bucket should be exhausted")
-	}
-	// Raising the key's TPM should replace the bucket with a fresh budget.
-	if !tpmAdmit(t, l, "k", 10000) {
-		t.Fatal("changing TPM should reset the bucket and admit")
-	}
-}
-
 func TestTPMLimiter_IdleEviction(t *testing.T) {
 	l, _ := newTestTPMLimiter(t)
 	tpmAdmit(t, l, "k", 100)
@@ -1670,4 +1656,24 @@ func memoLives(l *TPMLimiter, key string) bool {
 	defer l.mu.Unlock()
 	_, ok := l.caps[key]
 	return ok
+}
+
+// TestTPMLimiter_RewrittenCapKeepsDebt pins that changing a key's TPM cap
+// carries its spent budget over: a key in debt stays refused after its owner
+// rewrites the cap, in either direction, rather than starting a full minute
+// fresh on every edit.
+func TestTPMLimiter_RewrittenCapKeepsDebt(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	if !tpmAdmit(t, l, "k", 1000) {
+		t.Fatal("fresh budget should admit")
+	}
+	l.Debit("k", "", 3000)
+	if tpmAdmit(t, l, "k", 1000) {
+		t.Fatal("exhausted budget should reject")
+	}
+	for _, tpm := range []int{2000, 1000, 2000} {
+		if tpmAdmit(t, l, "k", tpm) {
+			t.Fatalf("admitted after rewriting the cap to %d: the spent budget was refilled", tpm)
+		}
+	}
 }

@@ -1,6 +1,9 @@
 package util
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 // SanitizeBaseURL removes trailing slashes from a base URL.
 func SanitizeBaseURL(raw string) string {
@@ -31,4 +34,17 @@ func SplitAndTrim(value string) []string {
 		}
 	}
 	return result
+}
+
+// urlUserinfoRE matches the userinfo of a URL rendered inside free text:
+// everything between "scheme://" and the last @ before the host. Greedy on
+// purpose, since a percent-decoded email-style username carries its own @ and
+// only the last one separates it from the host.
+var urlUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/?\s"]*@`)
+
+// RedactURLUserinfo replaces the credential part of every URL found in text
+// with "***@", for error strings and log lines that quote a URL a caller
+// supplied. Text without a URL credential is returned unchanged.
+func RedactURLUserinfo(text string) string {
+	return urlUserinfoRE.ReplaceAllString(text, "${1}***@")
 }

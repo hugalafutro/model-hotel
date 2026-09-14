@@ -324,7 +324,8 @@ func rejectedBy(by, userEntry *bucketEntry) string {
 // getLimiter returns (or creates) the rate.Limiter for the given key.
 // If per-key overrides are provided (non-nil), they take precedence over
 // global settings. If the stored limiter's RPS or burst no longer matches,
-// it is replaced so runtime changes take effect immediately.
+// its rate is adjusted in place so runtime changes take effect immediately
+// without handing the key a fresh, full bucket.
 func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *float64, perKeyBurst *int) *bucketEntry {
 	l.mu.Lock()
 	defer l.mu.Unlock()
@@ -358,7 +359,8 @@ func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *flo
 	rps, burst = bucketRate(rps, burst)
 
 	entry, ok := l.limiters[keyHash]
-	if !ok || entry.rps != rps || entry.burst != burst {
+	switch {
+	case !ok:
 		entry = &bucketEntry{
 			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
 			rps:      rps,
@@ -368,7 +370,16 @@ func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *flo
 			label:    keyLogLabel,
 		}
 		l.limiters[keyHash] = entry
-	} else {
+	case entry.rps != rps || entry.burst != burst:
+		// Adjust the live bucket rather than replace it: a fresh limiter starts
+		// full, so a key owner who rewrote their own cap between requests would
+		// refill a drained bucket on every edit. SetLimit and SetBurst keep the
+		// tokens the bucket holds and only change how it refills from here.
+		entry.limiter.SetLimit(rate.Limit(rps))
+		entry.limiter.SetBurst(burst)
+		entry.rps, entry.burst = rps, burst
+		entry.lastUsed = time.Now()
+	default:
 		entry.lastUsed = time.Now()
 	}
 	return entry

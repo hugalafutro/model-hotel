@@ -491,7 +491,8 @@ func (l *TPMLimiter) effectiveTPM(ctx context.Context) int {
 
 // getEntry returns (or creates) the token-budget bucket for keyHash. If the
 // stored bucket's tpm no longer matches (the key's cap changed at runtime) it
-// is replaced so the new budget takes effect immediately.
+// is adjusted in place so the new budget takes effect immediately without
+// refilling what the key already spent.
 //
 // It also claims the key's cap-memo horizon, which is why it takes a context:
 // resolving that horizon reads request_timeout, and it does so before taking
@@ -508,14 +509,24 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 	memoExpiry := time.Now().Add(horizon)
 
 	entry, ok := l.buckets[keyHash]
-	if !ok || entry.tpm != tpm {
+	switch {
+	case !ok:
 		entry = &tpmEntry{
 			limiter:  rate.NewLimiter(rate.Limit(float64(tpm)/60.0), tpm),
 			tpm:      tpm,
 			lastUsed: time.Now(),
 		}
 		l.buckets[keyHash] = entry
-	} else {
+	case entry.tpm != tpm:
+		// Adjusted in place, not replaced: a fresh limiter starts with a full
+		// minute's budget, so a key owner alternating their own cap between two
+		// values would refill a spent budget on every edit. The debt the bucket
+		// carries survives the change; only the refill rate and ceiling move.
+		entry.limiter.SetLimit(rate.Limit(float64(tpm) / 60.0))
+		entry.limiter.SetBurst(tpm)
+		entry.tpm = tpm
+		entry.lastUsed = time.Now()
+	default:
 		entry.lastUsed = time.Now()
 	}
 	if memo, known := l.caps[keyHash]; known {

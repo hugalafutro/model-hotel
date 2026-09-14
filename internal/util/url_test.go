@@ -74,3 +74,16 @@ func TestSanitizeAPIURL(t *testing.T) {
 		})
 	}
 }
+
+func TestRedactURLUserinfo(t *testing.T) {
+	for in, want := range map[string]string{
+		`parse "http://u:SUPERSECRET@[::1": missing ']' in host`:        `parse "http://***@[::1": missing ']' in host`,
+		`https://user%40mail.com:pw@host.example/v1 and https://x:y@b/`: `https://***@host.example/v1 and https://***@b/`,
+		`https://host.example/v1?token=abc`:                             `https://host.example/v1?token=abc`,
+		`no url here`:                                                   `no url here`,
+	} {
+		if got := RedactURLUserinfo(in); got != want {
+			t.Errorf("RedactURLUserinfo(%q) = %q, want %q", in, got, want)
+		}
+	}
+}

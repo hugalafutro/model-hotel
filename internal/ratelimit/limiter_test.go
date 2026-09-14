@@ -1841,3 +1841,43 @@ func TestMiddleware_ZeroBurstOwnerRefusesInItsOwnName(t *testing.T) {
 		}
 	}
 }
+
+// TestMiddleware_RewrittenCapKeepsDrainedBucket pins that changing a key's cap
+// adjusts its live bucket instead of minting a full one: a key that spent its
+// burst stays refused after its owner rewrites the cap, in either direction.
+func TestMiddleware_RewrittenCapKeepsDrainedBucket(t *testing.T) {
+	lim, repo := newTestLimiter()
+	defer lim.Stop()
+	repo.set("rate_limit_enabled", "true")
+	repo.set(settingsKeyRPS, "0.01") // refills far slower than the test runs
+	repo.set(settingsKeyBurst, "1")
+	handler := lim.Middleware(true)(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+	withCap := func(rps float64, burst int) *http.Request {
+		r := requestWithKey("key-rewrite")
+		ctx := context.WithValue(r.Context(), ctxkeys.VirtualKeyRateLimitRPSKey, &rps)
+		ctx = context.WithValue(ctx, ctxkeys.VirtualKeyRateLimitBurstKey, &burst)
+		return r.WithContext(ctx)
+	}
+	serve := func(r *http.Request) int {
+		rr := httptest.NewRecorder()
+		handler.ServeHTTP(rr, r)
+		return rr.Code
+	}
+
+	if code := serve(withCap(0.01, 1)); code != http.StatusOK {
+		t.Fatalf("first request = %d, want 200", code)
+	}
+	if code := serve(withCap(0.01, 1)); code != http.StatusTooManyRequests {
+		t.Fatalf("second request at the same cap = %d, want 429", code)
+	}
+	for _, c := range []struct {
+		rps   float64
+		burst int
+	}{{0.02, 2}, {0.01, 1}, {0.02, 2}} {
+		if code := serve(withCap(c.rps, c.burst)); code != http.StatusTooManyRequests {
+			t.Fatalf("request after rewriting the cap to %v/%d = %d, want 429: the drained bucket was refilled", c.rps, c.burst, code)
+		}
+	}
+}

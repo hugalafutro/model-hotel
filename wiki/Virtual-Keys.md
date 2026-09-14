@@ -463,6 +463,7 @@ N instances behind a plain load balancer enforce roughly N times the cap.
 
 - **Stale buckets**: Automatically removed after 10 minutes of inactivity
 - **Disable → Re-enable**: All buckets reset when rate limiting is re-enabled at runtime
+- **Limit change**: Editing a key's RPS, burst or TPM adjusts its live bucket (refill rate and ceiling) and keeps what the key has already spent, so rewriting a cap never refills a drained bucket; a raised cap relieves a throttled key at the new refill rate rather than at once
 
 ## Ownership and Per-User Limits
 

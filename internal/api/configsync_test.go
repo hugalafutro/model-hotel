@@ -1341,3 +1341,37 @@ func TestFoldRetiredBreakerSwitches(t *testing.T) {
 		t.Errorf("got %v for an envelope without retired switches, want it unchanged", got)
 	}
 }
+
+// TestConfigSync_ImportRefusesOneCorruptKeyAmongGood pins that the MASTER_KEY
+// guard checks every provider key: an envelope whose first key decrypts and
+// whose second is arbitrary ciphertext is refused whole, with nothing written,
+// rather than landing an undecryptable row this member would re-export.
+func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
+	cleanConfigTables(t)
+	exportRouter := newConfigSyncRouter(t, configSyncMasterKey)
+	seedProvider(t, "openai", "sk-good", configSyncMasterKey)
+	seedProvider(t, "anthropic", "sk-also-good", configSyncMasterKey)
+	env := doExport(t, exportRouter)
+	if len(env.Config.Providers) != 2 {
+		t.Fatalf("exported %d providers, want 2", len(env.Config.Providers))
+	}
+	// Corrupt the second key only; the first still proves the shared key.
+	env.Config.Providers[1].EncryptedKey = make([]byte, 32)
+	env.Config.Providers[1].KeyNonce = make([]byte, 12)
+
+	cleanConfigTables(t)
+	rec := doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("status = %d, want 409; body %s", rec.Code, rec.Body.String())
+	}
+	var resp importResponse
+	_ = json.Unmarshal(rec.Body.Bytes(), &resp)
+	if resp.MasterKeyOK || resp.Applied {
+		t.Fatalf("response = %+v, want master_key_ok=false, applied=false", resp)
+	}
+	var n int
+	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("providers written despite a corrupt key: %d", n)
+	}
+}

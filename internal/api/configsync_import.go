@@ -10,6 +10,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // ---------------------------------------------------------------------------
@@ -42,10 +43,10 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// MASTER_KEY guard: prove this member can decrypt an incoming provider key
+	// MASTER_KEY guard: prove this member can decrypt every incoming provider key
 	// before writing anything. A mismatch means the fleet's keys differ; storing
 	// undecryptable ciphertext would silently break the data plane.
-	if !h.canDecryptSample(env.Config.Providers) {
+	if !h.canDecryptAll(env.Config.Providers) {
 		writeJSONStatus(w, http.StatusConflict, importResponse{SchemaVersionOK: true, MasterKeyOK: false})
 		return
 	}
@@ -99,8 +100,11 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		// envelope is refused with a 400 rather than applied, and the sentinel's
 		// own message names the rejection. See the declarations for what each
 		// one guards against.
-		debuglog.Warn("configsync: refused import", "error", err)
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		// A refused base_url is quoted in the error, and a URL can carry a
+		// credential in its userinfo; neither the log nor the 400 body gets it.
+		msg := util.RedactURLUserinfo(err.Error())
+		debuglog.Warn("configsync: refused import", "error", msg)
+		http.Error(w, msg, http.StatusBadRequest)
 		return
 	case err != nil:
 		debuglog.Error("configsync: apply import", "error", err)
@@ -151,9 +155,13 @@ func sourceGenLabel(gen *int64) string {
 	return strconv.FormatInt(*gen, 10)
 }
 
-// canDecryptSample returns true when there is no encrypted key to check, or the
-// first one decrypts under this member's MASTER_KEY.
-func (h *ConfigSyncHandler) canDecryptSample(providers []ExportProvider) bool {
+// canDecryptAll returns true when every encrypted provider key in the envelope
+// decrypts under this member's MASTER_KEY. One good decrypt proves the shared
+// key, but not the rest of the envelope: a payload mixing one sound key with
+// corrupt ciphertext used to pass on the first and land undecryptable rows
+// that failed at request time and rode this member's own export onward. A
+// keyless envelope has nothing to verify.
+func (h *ConfigSyncHandler) canDecryptAll(providers []ExportProvider) bool {
 	for _, p := range providers {
 		if len(p.EncryptedKey) == 0 {
 			continue
@@ -161,9 +169,8 @@ func (h *ConfigSyncHandler) canDecryptSample(providers []ExportProvider) bool {
 		if _, err := auth.Decrypt(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.masterKey); err != nil {
 			return false
 		}
-		return true // one good decrypt proves the shared key
 	}
-	return true // keyless fleet: nothing to verify
+	return true
 }
 
 // diffKeyed classifies items against the member's current rows: a key present on
