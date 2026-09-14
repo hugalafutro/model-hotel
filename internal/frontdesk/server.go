@@ -95,6 +95,7 @@ type Server struct {
 	readClient     *http.Client // guarded client for interactive member admin reads (e.g. Traffic timeseries); longer deadline than the health probe, shorter than the import relay
 	syncClient     *http.Client // guarded client for the config-import relay (longer deadline; import runs member-side discovery)
 	backupClient   *http.Client // guarded client for a member's backup listing/delete calls (see memberBackupTimeout)
+	pushClient     *http.Client // guarded client for the quota snapshot push (see memberQuotaPushTimeout)
 	lbPort         string       // host port of the data-plane load balancer, surfaced to the wizard
 	version        string       // running build, surfaced read-only over GET /api/version
 	masterKey      string       // encrypts the Apprise target secret at rest
@@ -252,6 +253,7 @@ func NewServer(cfg ServerConfig) *Server {
 		readClient:   newProbeClient(memberReadTimeout),
 		syncClient:   newProbeClient(memberSyncTimeout),
 		backupClient: newProbeClient(memberBackupTimeout),
+		pushClient:   newProbeClientDial(httpProbeTimeout, memberQuotaPushTimeout),
 		lbPort:       cmp.Or(cfg.LBPort, defaultLBPort),
 		version:      cmp.Or(cfg.Version, "dev"),
 		masterKey:    cfg.MasterKey,

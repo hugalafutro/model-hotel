@@ -767,10 +767,13 @@ func TestLoadModelsDev_ContextCancelled(t *testing.T) {
 func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 	var logged strings.Builder
 	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	t.Cleanup(func() { debuglog.SetHandler(debuglog.StdoutHandler()) })
+	t.Cleanup(func() {
+		debuglog.SetHandler(debuglog.StdoutHandler())
+		lastUnpriced.Clear()
+	})
 
 	zero := 0.0
-	ReportUnpricedModels([]*model.Model{
+	ReportUnpricedModels("unit-a", []*model.Model{
 		{ModelID: "gpt-5-search-api", Modality: "chat", Enabled: true},
 		{ModelID: "text-embedding-x", Modality: "embedding", Enabled: true},
 		{ModelID: "rerank-x", Modality: "rerank", Enabled: true},
@@ -787,14 +790,60 @@ func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 	if !strings.Contains(got, "level=WARN") {
 		t.Fatalf("expected a warning, got: %s", got)
 	}
-	if !strings.Contains(got, "count=3") || !strings.Contains(got, "models=gpt-5-search-api,text-embedding-x,rerank-x") {
+	if !strings.Contains(got, "count=3") || !strings.Contains(got, "models=gpt-5-search-api,rerank-x,text-embedding-x") {
 		t.Errorf("expected exactly the three per-token models named, got: %s", got)
 	}
 
 	logged.Reset()
-	ReportUnpricedModels([]*model.Model{{ModelID: "whisper-1", Modality: "stt", Enabled: true}})
+	ReportUnpricedModels("unit-b", []*model.Model{{ModelID: "whisper-1", Modality: "stt", Enabled: true}})
 	if logged.Len() != 0 {
 		t.Errorf("a listing of non-token models alone must log nothing, got: %s", logged.String())
+	}
+}
+
+// TestReportUnpricedModels_OncePerProviderUntilTheSetChanges pins the dedupe:
+// the same unpriced set on the next discovery cycle is silent, a changed set
+// (a model gained, a model lost) is named again, and another provider with
+// the same set is its own report.
+func TestReportUnpricedModels_OncePerProviderUntilTheSetChanges(t *testing.T) {
+	var logged strings.Builder
+	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	t.Cleanup(func() {
+		debuglog.SetHandler(debuglog.StdoutHandler())
+		lastUnpriced.Clear()
+	})
+	set := func(ids ...string) []*model.Model {
+		out := make([]*model.Model, 0, len(ids))
+		for _, id := range ids {
+			out = append(out, &model.Model{ModelID: id, Modality: "chat", Enabled: true})
+		}
+		return out
+	}
+	warns := func() int { n := strings.Count(logged.String(), "level=WARN"); logged.Reset(); return n }
+
+	ReportUnpricedModels("dedupe-a", set("m1", "m2"))
+	if warns() != 1 {
+		t.Fatal("first report must warn")
+	}
+	ReportUnpricedModels("dedupe-a", set("m1", "m2"))
+	if warns() != 0 {
+		t.Fatal("the same set on the next cycle must be silent")
+	}
+	ReportUnpricedModels("dedupe-a", set("m1", "m2", "m3"))
+	if warns() != 1 {
+		t.Fatal("a changed set must warn again")
+	}
+	ReportUnpricedModels("dedupe-b", set("m1", "m2", "m3"))
+	if warns() != 1 {
+		t.Fatal("another provider with the same set is its own report")
+	}
+	ReportUnpricedModels("dedupe-a", set())
+	if warns() != 0 {
+		t.Fatal("a provider that became fully priced logs nothing")
+	}
+	ReportUnpricedModels("dedupe-a", set("m1"))
+	if warns() != 1 {
+		t.Fatal("unpriced again after being priced must warn")
 	}
 }
 

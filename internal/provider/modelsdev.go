@@ -653,7 +653,11 @@ func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string
 // transcription, image or video model bills per minute, character, image or
 // second, and this gateway meters none of those, so an absent per-token price
 // on one is the expected shape rather than a gap.
-func ReportUnpricedModels(models []*model.Model) {
+//
+// Named once per provider until the set changes: discovery runs every cycle,
+// and a subscription provider whose models legitimately carry no per-token
+// price (Ollama Cloud) repeated the same line hundreds of times a week.
+func ReportUnpricedModels(providerName string, models []*model.Model) {
 	var unpriced []string
 	for _, m := range models {
 		if m == nil || !m.Enabled {
@@ -669,12 +673,22 @@ func ReportUnpricedModels(models []*model.Model) {
 			unpriced = append(unpriced, m.ModelID)
 		}
 	}
+	// Sorted so the same set in a different discovery order is the same line.
+	sort.Strings(unpriced)
+	joined := strings.Join(unpriced, ",")
+	if prev, seen := lastUnpriced.Swap(providerName, joined); seen && prev == joined {
+		return
+	}
 	if len(unpriced) == 0 {
 		return
 	}
 	debuglog.Warn("discovery: models have no pricing from catalog or models.dev; they will meter at zero",
-		"count", len(unpriced), "models", strings.Join(unpriced, ","))
+		"provider", providerName, "count", len(unpriced), "models", joined)
 }
+
+// lastUnpriced remembers the unpriced set last reported per provider, so a
+// repeat of the same set is not logged again.
+var lastUnpriced sync.Map
 
 func isNumeric(s string) bool {
 	for _, c := range s {

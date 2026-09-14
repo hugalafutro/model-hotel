@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -146,24 +147,54 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	provs, err := h.providerRepo.List(r.Context())
+	applied, skipped, err := h.storeSnapshots(r.Context(), in.Snapshots)
+	// Only when something landed: a distribution that wrote nothing new changed
+	// no evidence, and the pass walks every snapshot and every circuit. Rows
+	// that landed before a later one failed are evidence too, so the pass runs
+	// ahead of the error answer.
+	if applied > 0 && h.onApplied != nil {
+		// Detached from the pushing peer's request, with a budget of its own,
+		// the same shape runQuotaNudge uses. The rebuild fails closed: a read it
+		// cannot finish clears THIS member's advice for every provider, not just
+		// the pushed one. Tying it to the request would hand a peer that times
+		// out or drops the connection mid-pass the power to wipe the map until
+		// the next background pass, and the pass is long enough (a snapshot list,
+		// a provider list, a walk of every circuit) to make that likely.
+		passCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), quotaNudgeTimeout)
+		defer cancel()
+		h.onApplied(passCtx)
+	}
 	if err != nil {
-		respondError(w, "failed to list providers", err, http.StatusInternalServerError)
+		// The sender hung up mid-batch (a Front Desk restart or its own
+		// timeout); the next push carries the same snapshots.
+		if respondAbandoned(w, "snapshot push", err) {
+			return
+		}
+		respondError(w, "failed to store snapshots", err, http.StatusInternalServerError)
 		return
+	}
+	writeJSON(w, map[string]any{"applied": applied, "skipped": skipped})
+}
+
+// storeSnapshots maps each snapshot by provider name onto this member's own
+// provider IDs and writes it with UpsertIfNewer. It reports how many rows
+// landed and how many were skipped (unknown provider, or an older write).
+func (h *QuotaFleetHandler) storeSnapshots(ctx context.Context, snaps []QuotaSnapshotWire) (applied, skipped int, err error) {
+	provs, err := h.providerRepo.List(ctx)
+	if err != nil {
+		return 0, 0, fmt.Errorf("list providers: %w", err)
 	}
 	nameToID := make(map[string]uuid.UUID, len(provs))
 	for _, p := range provs {
 		nameToID[p.Name] = p.ID
 	}
-
-	applied, skipped := 0, 0
-	for _, s := range in.Snapshots {
+	for _, s := range snaps {
 		pid, ok := nameToID[s.ProviderName]
 		if !ok {
 			skipped++ // provider not present on this member
 			continue
 		}
-		wrote, err := h.quotaRepo.UpsertIfNewer(r.Context(), quota.Snapshot{
+		wrote, err := h.quotaRepo.UpsertIfNewer(ctx, quota.Snapshot{
 			ProviderID: pid,
 			Kind:       s.Kind,
 			Payload:    s.Payload,
@@ -177,8 +208,7 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 			LastError: s.LastError,
 		})
 		if err != nil {
-			respondError(w, "failed to store snapshot", err, http.StatusInternalServerError)
-			return
+			return applied, skipped, err
 		}
 		if wrote {
 			applied++
@@ -186,19 +216,5 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 			skipped++
 		}
 	}
-	// Only when something landed: a distribution that wrote nothing new changed
-	// no evidence, and the pass walks every snapshot and every circuit.
-	if applied > 0 && h.onApplied != nil {
-		// Detached from the pushing peer's request, with a budget of its own,
-		// the same shape runQuotaNudge uses. The rebuild fails closed: a read it
-		// cannot finish clears THIS member's advice for every provider, not just
-		// the pushed one. Tying it to the request would hand a peer that times
-		// out or drops the connection mid-pass the power to wipe the map until
-		// the next background pass, and the pass is long enough (a snapshot list,
-		// a provider list, a walk of every circuit) to make that likely.
-		passCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), quotaNudgeTimeout)
-		defer cancel()
-		h.onApplied(passCtx)
-	}
-	writeJSON(w, map[string]any{"applied": applied, "skipped": skipped})
+	return applied, skipped, nil
 }

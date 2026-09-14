@@ -34,6 +34,12 @@ const (
 
 	// httpProbeTimeout bounds a single member or Traefik HTTP probe.
 	httpProbeTimeout = 4 * time.Second
+	// httpAnnounceTimeout bounds one fleet announce. An announce is a write
+	// the member persists, and a member on a busy disk (a NAS at its nightly
+	// maintenance) needs longer than a health probe to commit it. At the probe
+	// timeout Front Desk gave up first, and the member logged a 500 for a
+	// write its caller had already abandoned.
+	httpAnnounceTimeout = 10 * time.Second
 
 	// versionFetchFailThreshold is the number of consecutive version-fetch
 	// failures for a member before a single visible warning + event is raised.
@@ -79,11 +85,13 @@ type MemberStatus struct {
 
 // Poller probes members and Traefik on intervals taken from settings.
 type Poller struct {
-	store      *Store
-	bus        *events.Bus
-	client     *http.Client
-	traefikAPI string
-	now        func() time.Time
+	store  *Store
+	bus    *events.Bus
+	client *http.Client
+	// announceClient is the same guarded client with the announce timeout.
+	announceClient *http.Client
+	traefikAPI     string
+	now            func() time.Time
 
 	// frontdeskID is this Front Desk's persistent identity, stamped onto every
 	// announce so a member can tell which Front Desk owns its fleet role. Set
@@ -112,9 +120,13 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		bus = events.DefaultBus
 	}
 	return &Poller{
-		store:            store,
-		bus:              bus,
-		client:           newProbeClient(httpProbeTimeout),
+		store:  store,
+		bus:    bus,
+		client: newProbeClient(httpProbeTimeout),
+		// A member that does not pick up within the probe budget is unreachable
+		// whatever the announce budget is; a longer dial would only stretch the
+		// sequential announce round across dead members.
+		announceClient:   newProbeClientDial(httpProbeTimeout, httpAnnounceTimeout),
 		traefikAPI:       strings.TrimRight(traefikAPI, "/"),
 		now:              time.Now,
 		statuses:         make(map[string]MemberStatus),

@@ -25,8 +25,15 @@ import (
 //     literal host is a blocked address, so a member endpoint cannot bounce a
 //     probe (carrying the member's admin Bearer token) somewhere else.
 func newProbeClient(timeout time.Duration) *http.Client {
+	return newProbeClientDial(timeout, timeout)
+}
+
+// newProbeClientDial is newProbeClient with the connection budget (name
+// resolution and connect, before any request) set apart from the request
+// budget, for a call that gives the member longer to answer than to pick up.
+func newProbeClientDial(dial, timeout time.Duration) *http.Client {
 	dialer := &net.Dialer{
-		Timeout:   timeout,
+		Timeout:   dial,
 		KeepAlive: 30 * time.Second,
 		Control:   netguard.DialControl,
 	}

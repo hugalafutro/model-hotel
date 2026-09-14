@@ -101,3 +101,6 @@ __pycache__/
 # Local agent tooling (skills, lockfile); never published
 /.agents/
 /skills-lock.json
+
+# Per-machine make overrides (compose overlays); see the Makefile header.
+Makefile.local

@@ -446,6 +446,8 @@ on a `ui-*` class cannot be overridden with `px-*`/`text-*`.
 
 ## Docker Workflow
 
+Every `docker-*` make target loads the compose files in `COMPOSE_FILES`. A gitignored `Makefile.local` can append to it (for example `COMPOSE_FILES += -f tools/observability/compose.yml`) so a local overlay survives `make docker-build`. `docker-build` also trims the Docker daemon's BuildKit cache (all projects on that daemon, not just this one) to its newest 20 GB, since each rebuild leaves about 5 GB behind otherwise.
+
 ### Docker Compose Services
 
 `docker-compose.yml` defines two services, plus an optional commented-out `apprise` container for
