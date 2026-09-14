@@ -2774,7 +2774,7 @@
 			"timeToFirstToken": "Zeit bis zum ersten Token: Verzögerung zwischen Start der Anfrage und dem ersten Token des Antwortkörpers (Streaming) oder vollständige Antwort (non-streaming)",
 			"tokensPerSecond": "Token/s",
 			"outputTokensPerSecond": "Ausgabe-Token pro Sekunde während der Generierungsphase (ausgenommen Zeit-zu-Erste-Token). Wird als '-' angezeigt, wenn die Erstellungszeit vernachlässigbar ist.",
-			"sumOfTokens": "Summe aus Prompt-, Completion- und Reasoning-Token",
+			"sumOfTokens": "Summe aus Prompt- und Completion-Token (Reasoning ist Teil der Completion)",
 			"requestHash": "Anfrage-Hash",
 			"model": "Modell",
 			"copyModelId": "Model-ID kopieren",

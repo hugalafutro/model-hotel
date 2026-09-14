@@ -2775,7 +2775,7 @@
 			"timeToFirstToken": "Time to First Token: delay between request start and the first token of the response body (streaming) or full response (non-streaming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Output tokens per second during the generation phase (excludes time-to-first-token). Shown as '-' when generation time is negligible.",
-			"sumOfTokens": "Sum of prompt + completion + reasoning tokens",
+			"sumOfTokens": "Sum of prompt and completion tokens (reasoning is part of completion)",
 			"requestHash": "Request Hash",
 			"model": "Model",
 			"copyModelId": "Copy model ID",

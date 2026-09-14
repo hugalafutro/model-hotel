@@ -1371,7 +1371,9 @@ func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
 		t.Fatalf("status = %d, body %q; want 400 naming %s", rec.Code, rec.Body.String(), corrupt)
 	}
 	var n int
-	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)
+	if err := apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n); err != nil {
+		t.Fatalf("count providers: %v", err)
+	}
 	if n != 0 {
 		t.Fatalf("providers written despite a corrupt key: %d", n)
 	}
@@ -1388,6 +1390,14 @@ func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
 		t.Fatalf("corrupt first key: status = %d, body %q; want 400 naming %s", rec.Code, rec.Body.String(), first)
 	}
 
+	// The refusal quotes the envelope's name, so a name shaped like a URL with
+	// a credential is redacted before it reaches the log line or the body.
+	env.Config.Providers[0].Name = "https://svc:SUPERSECRET@corrupt.example/v1"
+	rec = doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusBadRequest || strings.Contains(rec.Body.String(), "SUPERSECRET") || !strings.Contains(rec.Body.String(), "***@") {
+		t.Fatalf("credential-shaped name: status = %d, body %q; want 400 with the credential redacted", rec.Code, rec.Body.String())
+	}
+
 	// The verdict rests on counts, not names: a corrupt key on a nameless
 	// provider is refused all the same.
 	env.Config.Providers[0].Name = ""
@@ -1395,7 +1405,9 @@ func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "does not decrypt") {
 		t.Fatalf("nameless corrupt key: status = %d, body %q; want 400", rec.Code, rec.Body.String())
 	}
-	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)
+	if err := apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n); err != nil {
+		t.Fatalf("count providers: %v", err)
+	}
 	if n != 0 {
 		t.Fatalf("providers written despite a nameless corrupt key: %d", n)
 	}

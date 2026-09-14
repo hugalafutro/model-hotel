@@ -580,8 +580,8 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 			tokensPromptCacheHit:  800_000,
 			tokensPromptCacheMiss: 200_000,
 			tokensCompletion:      250_000,
-			// Reasoning is priced as output too, the way tokens_used meters it.
-			tokensCompletionReasoning: 250_000,
+			// Reasoning is a breakdown of completion: recorded, never priced again.
+			tokensCompletionReasoning: 200_000,
 		}
 		h.insertRequestLogAsync(logEntry)
 		h.WaitForInsert(logEntry)
@@ -595,9 +595,25 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 	priced.servedModel = &model.Model{InputPricePerMillion: f(1), InputPricePerMillionCacheHit: f(0.1), OutputPricePerMillion: f(4)}
 	priced.state = "completed"
 	h.updateRequestLog(priced)
-	// 0.8M hits at $0.1 + 0.2M misses at $1 + 0.5M output at $4.
-	if got := readCost(priced.id); got == nil || *got < 2.28-1e-9 || *got > 2.28+1e-9 {
-		t.Errorf("priced cost_usd = %v, want 2.28", got)
+	// 0.8M hits at $0.1 + 0.2M misses at $1 + 0.25M completion at $4.
+	if got := readCost(priced.id); got == nil || *got < 1.28-1e-9 || *got > 1.28+1e-9 {
+		t.Errorf("priced cost_usd = %v, want 1.28", got)
+	}
+	var reasoning int
+	if err := h.dbPool.QueryRow(ctx, `SELECT tokens_completion_reasoning FROM request_logs WHERE id = $1`, priced.id).Scan(&reasoning); err != nil {
+		t.Fatalf("read reasoning tokens: %v", err)
+	}
+	if reasoning != 200_000 {
+		t.Errorf("tokens_completion_reasoning = %d, want 200000 recorded as the breakdown", reasoning)
+	}
+
+	// An interim streaming write stamps nothing: usage is not in yet.
+	streaming := newRow()
+	streaming.servedModel = priced.servedModel
+	streaming.state = "streaming"
+	h.updateRequestLog(streaming, updateLogOption{skipWaitForInsert: true})
+	if got := readCost(streaming.id); got != nil {
+		t.Errorf("streaming row cost_usd = %v, want NULL until terminal", *got)
 	}
 
 	unpriced := newRow()

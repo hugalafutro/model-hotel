@@ -2774,7 +2774,7 @@
 			"timeToFirstToken": "Az első token megjelenéséig eltelt idő: a kérés kezdete és a válasz testének első tokenje (streaming esetén) vagy a teljes válasz (nem streaming esetén) közötti késleltetés",
 			"tokensPerSecond": "token/mp",
 			"outputTokensPerSecond": "A generálási fázisban másodpercenként kibocsátott tokenek száma (az első token megjelenéséig eltelt időt nem számítva). Ha a generálási idő elhanyagolható, akkor „-” jelzés jelenik meg.",
-			"sumOfTokens": "A prompt, a kiegészítés és az érvelés tokenjeinek összege",
+			"sumOfTokens": "A prompt- és a kiegészítés-tokenek összege (a gondolkodás a kiegészítés része)",
 			"requestHash": "Kérés hash-értéke",
 			"model": "Modell",
 			"copyModelId": "Modellazonosító másolása",

@@ -162,7 +162,9 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		// owns its OWN state, so the bound applies to the log row, the TPS math
 		// and the charge below, all of which read these locals.
 		promptTokens, completionTokens, reasoningTokens := h.clampReportedUsage(chatResp.Usage.PromptTokens, chatResp.Usage.CompletionTokens, reasoningTokens, logData)
-		tps := tokensPerSecond(completionTokens+reasoningTokens, totalDuration, responseHeaderMs)
+		// Completion already includes reasoning; adding it again overstated
+		// a reasoning model's throughput.
+		tps := tokensPerSecond(completionTokens, totalDuration, responseHeaderMs)
 
 		logData.statusCode = resp.StatusCode
 		logData.durationMs = totalDuration

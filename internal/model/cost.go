@@ -2,20 +2,23 @@ package model
 
 // Usage is the token breakdown a served request charged, as the request log
 // stores it: cache-hit and cache-miss prompt tokens sum to the prompt when a
-// provider reported a cache split, and both read 0 when it did not.
+// provider reported a cache split, and both read 0 when it did not. Reasoning
+// tokens are not a member: in the normalized usage the log stores they are
+// inside completion (OpenAI-compatible providers report them that way, and
+// the Gemini adapter folds thoughts into completion), so pricing them again
+// would charge a reasoning model's thinking twice.
 type Usage struct {
 	Prompt          int
 	PromptCacheHit  int
 	PromptCacheMiss int
 	Completion      int
-	Reasoning       int
 }
 
 // CostUSD prices usage at the model's stored per-million prices. ok is false
 // when the model holds no input or output price, in which case the cost is
 // unknown rather than zero. Cache-hit tokens take the cache-hit price when the
-// model has one and the input price otherwise; completion and reasoning
-// tokens both take the output price, the way tokens_used meters them.
+// model has one and the input price otherwise; completion tokens, reasoning
+// included, take the output price.
 //
 // The prompt can exceed the cache split: a failover group that rejected an
 // earlier candidate's 2xx adds that candidate's prompt to the row, while the
@@ -31,6 +34,6 @@ func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
 			float64(u.PromptCacheMiss)**m.InputPricePerMillion +
 			float64(max(0, u.Prompt-u.PromptCacheHit-u.PromptCacheMiss))**m.InputPricePerMillion
 	}
-	output := float64(u.Completion+u.Reasoning) * *m.OutputPricePerMillion
+	output := float64(u.Completion) * *m.OutputPricePerMillion
 	return (prompt + output) / 1e6, true
 }

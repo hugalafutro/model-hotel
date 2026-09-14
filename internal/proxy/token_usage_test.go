@@ -137,7 +137,7 @@ func TestTokenUsage_RecordedOnClientDisconnect(t *testing.T) {
 
 	// The critical assertion: tokens_used should have been incremented
 	// despite the disconnect. Usage was: prompt_tokens=10, completion_tokens=5.
-	// recordTokenUsage adds prompt+completion+reasoning tokens.
+	// recordTokenUsage adds prompt+completion tokens (reasoning is inside completion).
 	refreshed, err := vkRepo.FindByKeyHash(ctx, keyHash)
 	if err != nil {
 		t.Fatalf("failed to find VK after stream: %v", err)
@@ -145,7 +145,7 @@ func TestTokenUsage_RecordedOnClientDisconnect(t *testing.T) {
 	if refreshed.TokensUsed == 0 {
 		t.Error("tokens_used should be > 0 — token usage must be recorded even on client disconnect")
 	}
-	// prompt_tokens=10 + completion_tokens=5 + reasoning_tokens=0 = 15
+	// prompt_tokens=10 + completion_tokens=5 = 15
 	if refreshed.TokensUsed != 15 {
 		t.Errorf("expected tokens_used=15 (10 prompt + 5 completion), got %d", refreshed.TokensUsed)
 	}

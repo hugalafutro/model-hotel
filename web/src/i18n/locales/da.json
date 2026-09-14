@@ -2774,7 +2774,7 @@
 			"timeToFirstToken": "Tid til første Token: forsinkelse mellem anmodning start og den første token af respons kroppen (streaming) eller fuld respons (ikke-streaming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Output tokens pr. sekund i generationsfasen (udelukker tid til første token). Vises som '-' når generationstiden er ubetydelig.",
-			"sumOfTokens": "Summen af prompt + færdiggørelse + ræsonnement tokens",
+			"sumOfTokens": "Sum af prompt- og completion-tokens (ræsonnement er en del af completion)",
 			"requestHash": "Hash for anmodning",
 			"model": "Model",
 			"copyModelId": "Kopier model ID",

@@ -64,7 +64,9 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		writeJSONStatus(w, http.StatusConflict, importResponse{SchemaVersionOK: true, MasterKeyOK: false})
 		return
 	} else if corrupt != nil {
-		msg := fmt.Sprintf("configsync: refusing to import: the key of provider %q does not decrypt under this MASTER_KEY while others do", corrupt.Name)
+		// The name is envelope-supplied: redacted like every other refusal, in
+		// case it carries a URL with a credential.
+		msg := util.RedactURLUserinfo(fmt.Sprintf("configsync: refusing to import: the key of provider %q does not decrypt under this MASTER_KEY while others do", corrupt.Name))
 		debuglog.Warn("configsync: refused import", "error", msg)
 		http.Error(w, msg, http.StatusBadRequest)
 		return

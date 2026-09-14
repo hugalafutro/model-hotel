@@ -2904,7 +2904,7 @@
 			"timeToFirstToken": "Čas do prvého tokenu: oneskorenie medzi začiatkom požiadavky a prvým tokenom tela odpovede (prúdové prenosy) alebo úplnej odpovede (neprúdové prenosy)",
 			"tokensPerSecond": "Tokenov za sekundu",
 			"outputTokensPerSecond": "Počet vygenerovaných tokenov za sekundu počas fázy generovania (nezahŕňa čas potrebný na vygenerovanie prvého tokenu). Ak je čas generovania zanedbateľný, zobrazuje sa ako „-“.",
-			"sumOfTokens": "Súčet tokenov výzvy + dokončenia + odôvodnenia",
+			"sumOfTokens": "Súčet tokenov promptu a dokončenia (uvažovanie je súčasťou dokončenia)",
 			"requestHash": "Hash požiadavky",
 			"model": "Model",
 			"copyModelId": "Skopírovať ID modelu",

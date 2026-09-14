@@ -2839,7 +2839,7 @@
 			"timeToFirstToken": "Tempo para o Primeiro Token: atraso entre o início da solicitação e o primeiro token do corpo da resposta (streaming) ou resposta completa (não-transmissão)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Output tokens por segundo durante a fase de geração (exclui time-to-first-token). Exibido como '-' quando o tempo de geração é insignificante.",
-			"sumOfTokens": "Soma de prompt + conclusão + raciocínio tokens",
+			"sumOfTokens": "Soma dos tokens de prompt e de conclusão (o raciocínio faz parte da conclusão)",
 			"requestHash": "Hash da solicitação",
 			"model": "Modelo",
 			"copyModelId": "Copiar modelo ID",

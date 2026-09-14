@@ -44,10 +44,10 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `tokens_per_second` | DOUBLE PRECISION | Streaming throughput (`completion_tokens / generation_duration × 1000`) |
 | `tokens_prompt` | INT | Number of prompt tokens reported by the provider |
 | `tokens_completion` | INT | Number of completion tokens reported by the provider |
-| `tokens_completion_reasoning` | INT NOT NULL | Reasoning tokens (DeepSeek-R1, etc.). Written to DB and exposed in Logs API. |
+| `tokens_completion_reasoning` | INT NOT NULL | Reasoning tokens (DeepSeek-R1, etc.), the part of `tokens_completion` a reasoning model spent thinking. A breakdown, not an extra count: never add it to completion. Written to DB and exposed in Logs API. |
 | `tokens_prompt_cache_hit` | INT NOT NULL | Prompt cache hit tokens (DeepSeek). Defaults to 0. |
 | `tokens_prompt_cache_miss` | INT NOT NULL | Prompt cache miss tokens (DeepSeek). Defaults to 0. |
-| `cost_usd` | DOUBLE PRECISION | What the request cost in US dollars at the prices the last model it was dispatched to carried when the row was written (migration 085). Cache-hit tokens take the model's cache-hit price when it has one, prompt tokens beyond the cache split (a failover group's rejected earlier candidates) the input price, completion and reasoning tokens the output price. One model prices the whole row, even when a walked group's members charge differently, and Anthropic cache writes are priced as plain input (there is no cache-write price column; Anthropic bills them at 1.25x). NULL when the request never reached a provider or the model holds no input or output price; a dispatched request that charged nothing, and a free model, price to 0. |
+| `cost_usd` | DOUBLE PRECISION | What the request cost in US dollars at the prices the last model it was dispatched to carried when the row was written (migration 085). Cache-hit tokens take the model's cache-hit price when it has one, prompt tokens beyond the cache split (a failover group's rejected earlier candidates) the input price, completion tokens (reasoning included) the output price. One model prices the whole row, even when a walked group's members charge differently, and Anthropic cache writes are priced as plain input (there is no cache-write price column; Anthropic bills them at 1.25x). NULL when the request never reached a provider or the model holds no input or output price; a dispatched request that charged nothing, and a free model, price to 0. |
 | `owner_user_id` | UUID | Owning dashboard user, stored **only** for keyless rows (dashboard chat/arena); keyed rows resolve their owner through the key's current owner instead (migration 067) |
 | `client_ip` | TEXT | Trusted-proxy-resolved client address, written at INSERT time (migration 073). NULL on rows predating the column. Shown in the dashboard Logs IP column and detail modal; see [Privacy](Privacy#ip-address-handling). |
 | `created_at` | TIMESTAMPTZ | When the request was inserted (defaults to `now()`) |
@@ -431,7 +431,7 @@ The `request_logs` table has evolved through these migrations:
 | `027_drop_unused_prompt_column.sql` | Dropped `prompt` column (never written to) |
 | `028_add_timing_columns.sql` | Added: `safe_dial_ms`, `settings_read_ms` (DOUBLE PRECISION) |
 | `030_drop_request_id.sql` | Dropped `request_id` column (never populated) |
-| `031_reasoning_tokens.sql` | Added: `tokens_completion_reasoning` (reasoning/thinking models report these separately) |
+| `031_reasoning_tokens.sql` | Added: `tokens_completion_reasoning` (the reasoning share of completion, reported as a breakdown) |
 | `032_rename_dial_add_failover_lookup.sql` | Renamed `safe_dial_ms` → `dial_ms` (now full DNS+TCP dial); added `failover_lookup_ms` |
 | `035_rename_ttft_to_response_header_ms.sql` | Renamed old `ttft_ms` → `response_header_ms` (it measured time-to-headers); added new true `ttft_ms` |
 | `036_resolved_model_id.sql` | Added: `resolved_model_id` (actual model that served a `hotel/` request) |
@@ -443,6 +443,7 @@ The `request_logs` table has evolved through these migrations:
 | `074_request_log_vk_index.sql` | Added a partial index on `virtual_key_id` for the Logs page's virtual-key filter |
 | `078_request_log_attempts.sql` | Added: `attempts` JSONB (per-attempt trail) + a GIN index serving the `attempt_provider_id` / `attempt_status` filters; no backfill |
 | `085_request_log_cost.sql` | Added: `cost_usd`; backfilled existing rows at their serving model's current prices (an estimate, since older prices are not kept) |
+| `086_request_log_cost_reasoning.sql` | Repriced rows with reasoning tokens at current prices (085 and the first proxy build charged reasoning on top of completion, which already contains it); a reasoning row whose model is gone or unpriced becomes NULL, and rows not yet terminal lose their cost |
 
 ## Implementation Details
 

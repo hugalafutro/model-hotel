@@ -2774,7 +2774,7 @@
 			"timeToFirstToken": "首个 Token 时间：请求开始到响应正文首个 Token 之间的延迟（流式）或到完整响应的延迟（非流式）",
 			"tokensPerSecond": "令牌/秒",
 			"outputTokensPerSecond": "生成阶段每秒输出的 Token 数（不含首个 token 的等待时间）。生成时间极短时显示为“-”。",
-			"sumOfTokens": "提示+补全+推理令牌",
+			"sumOfTokens": "提示与补全 token 之和（推理包含在补全中）",
 			"requestHash": "请求哈希值",
 			"model": "模型",
 			"copyModelId": "复制模型ID",

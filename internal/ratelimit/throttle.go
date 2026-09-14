@@ -143,6 +143,8 @@ func (e *bucketEntry) throttleCtx(id string) throttleLogCtx {
 // start full, which let a key owner refill a drained bucket by rewriting their
 // own cap; a mutated entry would race the lock-free readers of rps and burst.
 func (e *bucketEntry) withCap(rps float64, burst int) *bucketEntry {
+	// Two calls, each atomic on its own: a reservation between them sees the
+	// new rate with the old burst, one admission at most, on an admin edit.
 	e.limiter.SetLimit(rate.Limit(rps))
 	e.limiter.SetBurst(burst)
 	return &bucketEntry{

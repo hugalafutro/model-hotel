@@ -2839,7 +2839,7 @@
 			"timeToFirstToken": "Temps avant premier jeton : délai entre le début de la requête et le premier jeton du corps de la réponse (streaming) ou la réponse complète (non-streaming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Jetons de sortie par seconde durant la phase de génération (exclut le temps de création du premier jeton). Affichés comme '-' lorsque le temps de génération est négligeable.",
-			"sumOfTokens": "Somme des prompt + achèvement + jetons de raisonnement",
+			"sumOfTokens": "Somme des jetons de prompt et de complétion (le raisonnement fait partie de la complétion)",
 			"requestHash": "Hachage de la requête",
 			"model": "Modèle",
 			"copyModelId": "Copier l'ID du modèle",

@@ -23,7 +23,6 @@ func TestCostUSD(t *testing.T) {
 		{"no output price", &Model{InputPricePerMillion: f(1)}, Usage{Prompt: 10}, 0, false},
 		{"free model prices to zero", free, Usage{Prompt: 1000, Completion: 1000}, 0, true},
 		{"no cache split", priced, Usage{Prompt: 1_000_000, Completion: 500_000}, 1 + 2, true},
-		{"reasoning takes the output price", priced, Usage{Prompt: 1_000_000, Completion: 250_000, Reasoning: 250_000}, 1 + 2, true},
 		{"cache hit takes the cache price", priced, Usage{Prompt: 1_000_000, PromptCacheHit: 800_000, PromptCacheMiss: 200_000}, 0.08 + 0.2, true},
 		// A walked group's rejected prompts sit outside the serving candidate's
 		// split; they take the input price rather than pricing to nothing.

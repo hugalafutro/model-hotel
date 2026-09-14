@@ -2774,7 +2774,7 @@
 			"timeToFirstToken": "İlk Jetonun Alınma Süresi: İsteğin başlaması ile yanıt gövdesindeki ilk jeton (akış) veya tam yanıt (akış dışı) arasındaki gecikme süresi",
 			"tokensPerSecond": "Token/saniye",
 			"outputTokensPerSecond": "Oluşturma aşamasında saniye başına üretilen token sayısı (ilk tokenin üretilme süresi hariç). Oluşturma süresi önemsiz düzeyde olduğunda '-' olarak gösterilir.",
-			"sumOfTokens": "Komut istemi + tamamlama + gerekçe belirteçlerinin toplamı",
+			"sumOfTokens": "İstem ve tamamlama jetonlarının toplamı (akıl yürütme tamamlamaya dahildir)",
 			"requestHash": "İstek Hash'i",
 			"model": "Model",
 			"copyModelId": "Model kimliğini kopyala",

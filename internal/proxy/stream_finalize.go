@@ -233,7 +233,9 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	if opts.trueTtftMs > 0 {
 		ttftForTPS = opts.trueTtftMs
 	}
-	tps := tokensPerSecond(st.completionTokens+st.reasoningTokens, totalDuration, ttftForTPS)
+	// Completion already includes reasoning; adding it again overstated a
+	// reasoning model's throughput.
+	tps := tokensPerSecond(st.completionTokens, totalDuration, ttftForTPS)
 
 	errMsg := deriveStreamError(st, scanErr, opts, logData)
 	if errMsg == "" && !st.sawDone && opts.rawPassthrough {

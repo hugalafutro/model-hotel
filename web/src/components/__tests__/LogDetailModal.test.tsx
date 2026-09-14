@@ -882,7 +882,7 @@ describe("LogDetailModal", () => {
 			);
 
 			const tooltip = screen.getByTitle(
-				"Sum of prompt + completion + reasoning tokens",
+				"Sum of prompt and completion tokens (reasoning is part of completion)",
 			);
 			expect(tooltip).toBeInTheDocument();
 			expect(tooltip.querySelector("svg")).toBeInTheDocument();

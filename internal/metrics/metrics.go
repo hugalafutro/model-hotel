@@ -39,7 +39,7 @@ var (
 
 	tokensTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_tokens_total",
-		Help: "Total tokens metered by provider, model, and kind (prompt/completion/reasoning).",
+		Help: "Total tokens metered by provider, model, and kind. Reasoning is the share of completion a reasoning model spent thinking, not an extra count: sum prompt and completion for a total, never add reasoning to them.",
 	}, []string{"provider", "model", "kind"})
 
 	failoverAttemptsTotal = prometheus.NewCounterVec(prometheus.CounterOpts{

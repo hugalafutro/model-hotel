@@ -568,9 +568,9 @@ type PromptTokensDetails struct {
 	CachedTokens int `json:"cached_tokens"`
 }
 
-// CompletionTokensDetails breaks down completion tokens into sub-categories
-// (e.g. reasoning vs text). Providers like Anthropic report reasoning tokens
-// separately from visible text tokens in this nested object.
+// CompletionTokensDetails breaks down completion tokens into sub-categories:
+// OpenAI-compatible providers report the reasoning share of completion_tokens
+// here. It is a breakdown of completion, never an amount on top of it.
 type CompletionTokensDetails struct {
 	ReasoningTokens int `json:"reasoning_tokens"`
 }

@@ -2839,7 +2839,7 @@
 			"timeToFirstToken": "Timpul până la primul Token: întârzierea între începerea solicitării și primul token al corpului de răspuns (streaming) sau răspuns complet (non-streaming)",
 			"tokensPerSecond": "Token/s",
 			"outputTokensPerSecond": "Tokeni de ieșire pe secundă în timpul fazei de generare (exclude timpul până la primul token). Afișați ca \"-\" atunci când timpul de generare este neglijabil.",
-			"sumOfTokens": "Suma token-urilor de prompt + completare + raționament",
+			"sumOfTokens": "Suma tokenilor de prompt și de completare (raționamentul face parte din completare)",
 			"requestHash": "Hash-ul cererii",
 			"model": "Model",
 			"copyModelId": "Copiază ID-ul modelului",

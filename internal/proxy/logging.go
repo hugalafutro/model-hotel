@@ -198,20 +198,24 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 	}
 
 	// NULL when the request never reached a provider or the model is unpriced,
-	// so "unknown" never reads as "free". Priced at what the last dispatched
-	// model carried when this row was written; a later price edit leaves
-	// history alone. One model prices the whole row: a prompt a walked group
-	// charged for a rejected earlier candidate takes the final candidate's
-	// prices, not the prices of the member that billed it.
+	// so "unknown" never reads as "free", and NULL until the row is terminal:
+	// the interim streaming write runs before usage arrives, and a zero it
+	// stamped would outlive a crash, since stale cleanup rewrites only the
+	// state. Priced at what the last dispatched model carried when this row
+	// was written; a later price edit leaves history alone. One model prices
+	// the whole row: a prompt a walked group charged for a rejected earlier
+	// candidate takes the final candidate's prices, not the prices of the
+	// member that billed it.
 	var cost any
-	if c, ok := logEntry.servedModel.CostUSD(model.Usage{
-		Prompt:          logEntry.tokensPrompt,
-		PromptCacheHit:  logEntry.tokensPromptCacheHit,
-		PromptCacheMiss: logEntry.tokensPromptCacheMiss,
-		Completion:      logEntry.tokensCompletion,
-		Reasoning:       logEntry.tokensCompletionReasoning,
-	}); ok {
-		cost = c
+	if isTerminalLogState(logEntry.state) {
+		if c, ok := logEntry.servedModel.CostUSD(model.Usage{
+			Prompt:          logEntry.tokensPrompt,
+			PromptCacheHit:  logEntry.tokensPromptCacheHit,
+			PromptCacheMiss: logEntry.tokensPromptCacheMiss,
+			Completion:      logEntry.tokensCompletion,
+		}); ok {
+			cost = c
+		}
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

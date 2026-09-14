@@ -2839,7 +2839,7 @@
 			"timeToFirstToken": "Temps fins al primer token: retard entre l'inici de la sol·licitud i el primer token del cos de la resposta (streaming) o de la resposta completa (no streaming)",
 			"tokensPerSecond": "Tokens/s",
 			"outputTokensPerSecond": "Tokens generats per segon durant la fase de generació (no inclou el temps fins al primer token). S'indica com a '-' quan el temps de generació és negligible.",
-			"sumOfTokens": "Suma de tokens de prompt + de compleció + de raonament",
+			"sumOfTokens": "Suma de tokens de prompt i de compleció (el raonament forma part de la compleció)",
 			"requestHash": "Hash de la sol·licitud",
 			"model": "Model",
 			"copyModelId": "Copia l'ID del model",

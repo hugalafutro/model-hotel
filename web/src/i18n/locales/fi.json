@@ -2774,7 +2774,7 @@
 			"timeToFirstToken": "Aika ensimmäiseen tokeniin: viive pyynnön alkamisesta vastauksen rungon ensimmäiseen tokeniin (suoratoisto) tai koko vastaukseen (ei-suoratoisto)",
 			"tokensPerSecond": "Tunnukset/s",
 			"outputTokensPerSecond": "Ulostulotokeneita sekunnissa generointivaiheen aikana (ei sisällä aikaa ensimmäiseen tokeniin). Näytetään ’-’, kun generointiaika on merkityksettömän lyhyt.",
-			"sumOfTokens": "Kehote- + täydennys- + päättelytokenien summa",
+			"sumOfTokens": "Kehotteen ja täydennyksen tokenien summa (päättely sisältyy täydennykseen)",
 			"requestHash": "Pyynnön tiiviste",
 			"model": "Malli",
 			"copyModelId": "Kopioi mallin ID",
