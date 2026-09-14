@@ -132,9 +132,9 @@ func TestBuildQuotaAdvice_OpenCodeGoUnusableSnapshotsNeitherPinNorRelease(t *tes
 		t.Run(tc.name, func(t *testing.T) {
 			id := uuid.New()
 
-			advice, recovered := buildQuotaAdvice(
-				[]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: json.RawMessage(tc.payload), FetchedAt: now.Add(-time.Minute)}},
+			advice, recovered := buildQuotaAdvice([]quota.Snapshot{{ProviderID: id, Kind: "usage", Payload: json.RawMessage(tc.payload), FetchedAt: now.Add(-time.Minute)}},
 				map[uuid.UUID]string{id: "opencode-go"},
+				nil,
 				15*time.Minute,
 				now,
 			)

@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "Beheer outomatiese modelontdekking. Skakel uit om die verskaffer se modelkatalogus handmatig te versorg.",
 			"maxInFlightLabel": "Maks gelyktydige versoeke",
 			"maxInFlightPlaceholder": "Geen plafon",
-			"maxInFlightHelper": "Harde plafon vir gelyktydige versoeke aan hierdie verskaffer. Laat leeg vir geen plafon; die aanpasbare leerder stel steeds daaronder aan."
+			"maxInFlightHelper": "Harde plafon vir gelyktydige versoeke aan hierdie verskaffer. Laat leeg vir geen plafon; die aanpasbare leerder stel steeds daaronder aan.",
+			"quotaReserveLabel": "Kwotareserwe",
+			"quotaReserveDrain": "Volledig opgebruik",
+			"quotaReserveHelper": "Deel van elke intekenvenster wat vir gebruik buite Model Hotel gehou word. Roetering stop hier sodra 'n venster net soveel oor het en hervat wanneer dit herstel. Slegs verskaffers met 'n leesbare kwota reageer."
 		},
 		"quotas": {
 			"expand": "Brei kwotas uit"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "Geskeduleer om op {{date}} gedeaktiveer te word",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Open die verskaffer se webwerf",
-		"card_tokens_tooltip": "Tokens wat sedert {{date}} deur hierdie verskaffer gestuur is, prompt en voltooiing saam"
+		"card_tokens_tooltip": "Tokens wat sedert {{date}} deur hierdie verskaffer gestuur is, prompt en voltooiing saam",
+		"quota_reserve_card_tooltip": "Hou {{percent}}% van elke kwotavenster in reserwe"
 	},
 	"models": {
 		"page_title_one": "Model",

@@ -198,3 +198,39 @@ func TestWindows_ZaiCoding_PercentageAbove100IsNonsense(t *testing.T) {
 		t.Errorf("a 204 row stores null and states no window, got %+v", got)
 	}
 }
+func TestAssessWithReserve(t *testing.T) {
+	reset := time.Now().Add(3 * time.Hour).Truncate(time.Millisecond)
+	payload := func(pct float64) []byte {
+		b, _ := json.Marshal(map[string]any{"data": map[string]any{"limits": []map[string]any{
+			{"type": "TOKENS_LIMIT", "unit": 3, "percentage": pct, "nextResetTime": reset.UnixMilli()},
+		}}})
+		return b
+	}
+	now := time.Now()
+
+	// Below the line: the assessor's verdict stands.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(85)}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("85%% used with 10%% reserve: got %+v, want healthy", a)
+	}
+	// On the line: pinned to the window's own reset.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(90)}, 0.1, now); !a.OK || !a.Exhausted || !a.ResetsAt.Equal(reset) {
+		t.Errorf("90%% used with 10%% reserve: got %+v, want exhausted until %v", a, reset)
+	}
+	// No reserve: 90% is just usage.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(90)}, 0, now); a.Exhausted {
+		t.Errorf("no reserve: got %+v, want healthy", a)
+	}
+	// Spent outright: the assessor's own verdict, reserve or not.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: payload(100)}, 0.5, now); !a.Exhausted {
+		t.Errorf("100%% used: got %+v, want exhausted", a)
+	}
+	// Unreadable stays unreadable: a reserve never invents an opinion.
+	if a := AssessWithReserve("zai-coding", Snapshot{Payload: []byte(`null`)}, 0.5, now); a.OK {
+		t.Errorf("null payload: got %+v, want no opinion", a)
+	}
+	// An undated window past the line places no pin.
+	undated := []byte(`{"balance":{"total_credits_usd":10,"credits_used_usd":9.5},"subscription":{}}`)
+	if a := AssessWithReserve("neuralwatt", Snapshot{Payload: undated}, 0.1, now); !a.OK || a.Exhausted {
+		t.Errorf("undated credits past the line: got %+v, want the assessor's healthy verdict", a)
+	}
+}

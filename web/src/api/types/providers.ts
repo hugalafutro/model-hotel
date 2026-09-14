@@ -10,6 +10,8 @@ export interface Provider {
 	scheduled_disable_on: string | null;
 	/** Operator's hard ceiling on concurrent requests; null = no ceiling. */
 	max_in_flight: number | null;
+	/** Share of every quota window kept back, in 10% steps; 0 drains fully. */
+	quota_reserve_percent: number;
 	last_discovered_at: string | null;
 	last_used_at: string | null;
 	created_at: string;
@@ -50,4 +52,6 @@ export interface UpdateProviderRequest {
 	scheduled_disable_on?: string | null;
 	/** A number sets the ceiling, null clears it, absent keeps it. */
 	max_in_flight?: number | null;
+	/** 0 or a multiple of 10 up to 90; absent keeps it. */
+	quota_reserve_percent?: number;
 }

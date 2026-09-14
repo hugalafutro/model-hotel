@@ -845,7 +845,10 @@
 			"autodiscoveryHelper": "Kontroluje wykrywanie modelu automatycznego. Wyłącz, aby ręcznie ograniczyć katalog modeli tego dostawcy.",
 			"maxInFlightLabel": "Maks. równoczesnych żądań",
 			"maxInFlightPlaceholder": "Bez limitu",
-			"maxInFlightHelper": "Twardy limit równoczesnych żądań do tego dostawcy. Pozostaw puste, aby nie stosować limitu; adaptacyjne uczenie nadal działa poniżej niego."
+			"maxInFlightHelper": "Twardy limit równoczesnych żądań do tego dostawcy. Pozostaw puste, aby nie stosować limitu; adaptacyjne uczenie nadal działa poniżej niego.",
+			"quotaReserveLabel": "Rezerwa limitu",
+			"quotaReserveDrain": "Wyczerpać całkowicie",
+			"quotaReserveHelper": "Część każdego okna subskrypcji zachowana do użytku poza Model Hotel. Kierowanie tutaj ustaje, gdy w oknie zostaje tylko tyle, i wznawia się po jego zresetowaniu. Reagują tylko dostawcy z odczytywalnym limitem."
 		},
 		"quotas": {
 			"expand": "Rozwiń kontyngenty"
@@ -1046,7 +1049,8 @@
 		"scheduled_disable_card_tooltip": "Zaplanowane wyłączenie: {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Otwórz stronę dostawcy",
-		"card_tokens_tooltip": "Tokeny przekierowane przez tego dostawcę od {{date}}, prompt i odpowiedź łącznie"
+		"card_tokens_tooltip": "Tokeny przekierowane przez tego dostawcę od {{date}}, prompt i odpowiedź łącznie",
+		"quota_reserve_card_tooltip": "W rezerwie pozostaje {{percent}}% każdego okna limitu"
 	},
 	"models": {
 		"page_title_one": "Model",

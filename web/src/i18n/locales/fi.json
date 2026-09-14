@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "Ohjaa automaattista mallien tunnistusta. Poista käytöstä, jos haluat kuratoida tämän palveluntarjoajan mallikatalogin käsin.",
 			"maxInFlightLabel": "Samanaikaisten pyyntöjen enimmäismäärä",
 			"maxInFlightPlaceholder": "Ei kattoa",
-			"maxInFlightHelper": "Kova katto tälle palveluntarjoajalle lähetettäville samanaikaisille pyynnöille. Jätä tyhjäksi, jos kattoa ei ole; mukautuva oppija säätää silti sen alla."
+			"maxInFlightHelper": "Kova katto tälle palveluntarjoajalle lähetettäville samanaikaisille pyynnöille. Jätä tyhjäksi, jos kattoa ei ole; mukautuva oppija säätää silti sen alla.",
+			"quotaReserveLabel": "Kiintiövaranto",
+			"quotaReserveDrain": "Käytä kokonaan",
+			"quotaReserveHelper": "Osuus jokaisesta tilausikkunasta, joka pidetään Model Hotelin ulkopuolista käyttöä varten. Reititys tänne loppuu, kun ikkunasta on jäljellä vain tämän verran, ja jatkuu, kun ikkuna nollautuu. Vain palveluntarjoajat, joiden kiintiö on luettavissa, reagoivat."
 		},
 		"quotas": {
 			"expand": "Kiintiöiden laajentaminen"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "Ajastettu poistettavaksi käytöstä {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Avaa palveluntarjoajan verkkosivusto",
-		"card_tokens_tooltip": "Tämän palveluntarjoajan kautta reititetyt tokenit {{date}} alkaen, kehote ja vastaus yhteensä"
+		"card_tokens_tooltip": "Tämän palveluntarjoajan kautta reititetyt tokenit {{date}} alkaen, kehote ja vastaus yhteensä",
+		"quota_reserve_card_tooltip": "{{percent}}% jokaisesta kiintiöikkunasta pidetään varannossa"
 	},
 	"models": {
 		"page_title_one": "Malli",

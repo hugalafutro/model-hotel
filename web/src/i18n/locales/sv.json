@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "Kontrollerar automatisk upptäckt av modellen. Inaktivera för att manuellt kurera leverantörens modellkatalog.",
 			"maxInFlightLabel": "Max samtidiga förfrågningar",
 			"maxInFlightPlaceholder": "Inget tak",
-			"maxInFlightHelper": "Hårt tak för samtidiga förfrågningar till denna leverantör. Lämna tomt för inget tak; den adaptiva inlärningen justerar fortfarande under det."
+			"maxInFlightHelper": "Hårt tak för samtidiga förfrågningar till denna leverantör. Lämna tomt för inget tak; den adaptiva inlärningen justerar fortfarande under det.",
+			"quotaReserveLabel": "Kvotreserv",
+			"quotaReserveDrain": "Använd helt",
+			"quotaReserveHelper": "Andel av varje prenumerationsfönster som hålls undan för användning utanför Model Hotel. Routning hit upphör när ett fönster bara har så mycket kvar och återupptas när det återställs. Endast leverantörer med läsbar kvot reagerar."
 		},
 		"quotas": {
 			"expand": "Expandera kvoter"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "Schemalagd för inaktivering den {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Öppna leverantörens webbplats",
-		"card_tokens_tooltip": "Tokens som skickats via denna leverantör sedan {{date}}, prompt och svar sammanlagt"
+		"card_tokens_tooltip": "Tokens som skickats via denna leverantör sedan {{date}}, prompt och svar sammanlagt",
+		"quota_reserve_card_tooltip": "Håller {{percent}}% av varje kvotfönster i reserv"
 	},
 	"models": {
 		"page_title_one": "Modell",

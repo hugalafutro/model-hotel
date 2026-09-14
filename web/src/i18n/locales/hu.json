@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "Ezzel az automatikus modellfelismerés működését szabályozhatja. Ha letiltja, akkor a szolgáltató modellkatalógusát manuálisan állíthatja össze.",
 			"maxInFlightLabel": "Egyidejű kérések maximuma",
 			"maxInFlightPlaceholder": "Nincs plafon",
-			"maxInFlightHelper": "Szigorú plafon az ehhez a szolgáltatóhoz menő egyidejű kérésekre. Hagyd üresen, ha nincs plafon; az adaptív tanulás alatta továbbra is igazodik."
+			"maxInFlightHelper": "Szigorú plafon az ehhez a szolgáltatóhoz menő egyidejű kérésekre. Hagyd üresen, ha nincs plafon; az adaptív tanulás alatta továbbra is igazodik.",
+			"quotaReserveLabel": "Kvótatartalék",
+			"quotaReserveDrain": "Teljes felhasználás",
+			"quotaReserveHelper": "Minden előfizetési ablaknak az a része, amelyet a Model Hotelen kívüli használatra tartunk fenn. Az irányítás ide leáll, amint egy ablakból csak ennyi marad, és az ablak visszaállásakor folytatódik. Csak az olvasható kvótájú szolgáltatók reagálnak."
 		},
 		"quotas": {
 			"expand": "Kvóták kibontása"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "Letiltás ütemezve erre a napra: {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "A szolgáltató webhelyének megnyitása",
-		"card_tokens_tooltip": "{{date}} óta ezen a szolgáltatón át továbbított tokenek, prompt és válasz együtt"
+		"card_tokens_tooltip": "{{date}} óta ezen a szolgáltatón át továbbított tokenek, prompt és válasz együtt",
+		"quota_reserve_card_tooltip": "Minden kvótaablak {{percent}}%-a tartalékban marad"
 	},
 	"models": {
 		"page_title_one": "Modell",

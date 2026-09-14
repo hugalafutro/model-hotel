@@ -64,6 +64,7 @@ func TestScanProvider_Success(t *testing.T) {
 			true,                      // AutodiscoveryEnabled
 			(*time.Time)(nil),         // ScheduledDisableOn
 			(*int)(nil),               // MaxInFlight
+			0,                         // QuotaReservePercent
 			(*time.Time)(nil),         // LastDiscoveredAt
 			(*time.Time)(nil),         // LastUsedAt
 			now,                       // CreatedAt

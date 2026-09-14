@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "控制模型的自动发现。禁用后可手动管理该提供商的模型目录。",
 			"maxInFlightLabel": "最大并发请求数",
 			"maxInFlightPlaceholder": "无上限",
-			"maxInFlightHelper": "对该提供商同时请求数的硬性上限。留空表示无上限;自适应学习仍在其下继续调整。"
+			"maxInFlightHelper": "对该提供商同时请求数的硬性上限。留空表示无上限;自适应学习仍在其下继续调整。",
+			"quotaReserveLabel": "配额预留",
+			"quotaReserveDrain": "完全用尽",
+			"quotaReserveHelper": "每个订阅窗口中留给 Model Hotel 之外使用的份额。窗口仅剩这么多时停止路由到此提供商，窗口重置后恢复。仅对配额可读取的提供商生效。"
 		},
 		"quotas": {
 			"expand": "展开配额"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "计划于 {{date}} 禁用",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "打开提供商网站",
-		"card_tokens_tooltip": "自 {{date}} 起经此提供商路由的 token 数，提示与回复合计"
+		"card_tokens_tooltip": "自 {{date}} 起经此提供商路由的 token 数，提示与回复合计",
+		"quota_reserve_card_tooltip": "每个配额窗口预留 {{percent}}%"
 	},
 	"models": {
 		"page_title_one": "模型",

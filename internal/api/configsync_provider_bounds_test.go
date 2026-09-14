@@ -128,3 +128,53 @@ func newConfigSyncRouterWithURLCheck(t *testing.T, masterKey string) chi.Router 
 	h.Register(r)
 	return r
 }
+
+// TestConfigSync_RefusesOutOfStepQuotaReserve mirrors the ceiling test for the
+// quota reserve: the import writes the column outright, so anything the API
+// would refuse on a PUT has to be refused here too.
+func TestConfigSync_RefusesOutOfStepQuotaReserve(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		value int
+		want  int
+	}{
+		{"drain", 0, http.StatusOK},
+		{"floor", 10, http.StatusOK},
+		{"ceiling", 90, http.StatusOK},
+		{"off step", 15, http.StatusBadRequest},
+		{"negative", -10, http.StatusBadRequest},
+		{"everything", 100, http.StatusBadRequest},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			cleanConfigTables(t)
+			r := newConfigSyncRouter(t, configSyncMasterKey)
+			seedProvider(t, "prov-a", "sk-secret", configSyncMasterKey)
+			env := doExport(t, r)
+			if len(env.Config.Providers) != 1 {
+				t.Fatalf("export carries %d providers, want 1", len(env.Config.Providers))
+			}
+			env.Config.Providers[0].QuotaReservePercent = tc.value
+
+			rec := doImport(t, r, env, "")
+			if rec.Code != tc.want {
+				t.Fatalf("import status = %d, want %d; body %s", rec.Code, tc.want, rec.Body.String())
+			}
+			var stored int
+			if err := apiTestDB.Pool().QueryRow(t.Context(), `SELECT quota_reserve_percent FROM providers WHERE name = 'prov-a'`).Scan(&stored); err != nil {
+				t.Fatalf("read row: %v", err)
+			}
+			if tc.want == http.StatusOK {
+				if stored != tc.value {
+					t.Fatalf("stored quota_reserve_percent = %d, want %d", stored, tc.value)
+				}
+				return
+			}
+			if stored != 0 {
+				t.Fatalf("a refused envelope wrote quota_reserve_percent = %d", stored)
+			}
+			if body := rec.Body.String(); !strings.Contains(body, errInvalidSyncedProvider.Error()) || !strings.Contains(body, "prov-a") {
+				t.Fatalf("refusal body = %q, want it to carry %q and the provider's name", body, errInvalidSyncedProvider.Error())
+			}
+		})
+	}
+}

@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "Steuert die automatische Modellerkennung. Deaktivieren, um den Modellkatalog dieses Anbieters manuell zu pflegen.",
 			"maxInFlightLabel": "Maximale gleichzeitige Anfragen",
 			"maxInFlightPlaceholder": "Keine Obergrenze",
-			"maxInFlightHelper": "Harte Obergrenze für gleichzeitige Anfragen an diesen Anbieter. Leer lassen für keine Obergrenze; der adaptive Lerner passt sich darunter weiter an."
+			"maxInFlightHelper": "Harte Obergrenze für gleichzeitige Anfragen an diesen Anbieter. Leer lassen für keine Obergrenze; der adaptive Lerner passt sich darunter weiter an.",
+			"quotaReserveLabel": "Kontingentreserve",
+			"quotaReserveDrain": "Vollständig aufbrauchen",
+			"quotaReserveHelper": "Anteil jedes Abonnementfensters, der für die Nutzung außerhalb von Model Hotel zurückgehalten wird. Das Routing hierher endet, sobald einem Fenster nur noch so viel bleibt, und läuft nach dem Zurücksetzen weiter. Nur Anbieter mit lesbarem Kontingent reagieren."
 		},
 		"quotas": {
 			"expand": "Quoten erweitern"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "Geplante Deaktivierung am {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Website des Providers öffnen",
-		"card_tokens_tooltip": "Seit {{date}} über diesen Provider geleitete Tokens, Prompt und Antwort zusammen"
+		"card_tokens_tooltip": "Seit {{date}} über diesen Provider geleitete Tokens, Prompt und Antwort zusammen",
+		"quota_reserve_card_tooltip": "{{percent}}% jedes Kontingentfensters werden als Reserve gehalten"
 	},
 	"models": {
 		"page_title_one": "Modell",

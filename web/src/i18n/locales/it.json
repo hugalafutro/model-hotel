@@ -829,7 +829,10 @@
 			"autodiscoveryHelper": "Controlla la scoperta automatica del modello. Disabilita per curare manualmente il catalogo dei modelli di questo provider.",
 			"maxInFlightLabel": "Max richieste simultanee",
 			"maxInFlightPlaceholder": "Nessun tetto",
-			"maxInFlightHelper": "Tetto rigido di richieste simultanee verso questo provider. Lascia vuoto per nessun tetto; l'apprendimento adattivo continua a regolarsi al di sotto."
+			"maxInFlightHelper": "Tetto rigido di richieste simultanee verso questo provider. Lascia vuoto per nessun tetto; l'apprendimento adattivo continua a regolarsi al di sotto.",
+			"quotaReserveLabel": "Riserva di quota",
+			"quotaReserveDrain": "Esaurire del tutto",
+			"quotaReserveHelper": "Quota di ogni finestra di abbonamento tenuta per l'uso al di fuori di Model Hotel. L'instradamento qui si ferma quando a una finestra resta solo questo e riprende quando si azzera. Rispondono solo i provider con una quota leggibile."
 		},
 		"quotas": {
 			"expand": "Espandi le quote"
@@ -1012,7 +1015,8 @@
 		"scheduled_disable_card_tooltip": "Disabilitazione programmata per il {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Apri il sito web del provider",
-		"card_tokens_tooltip": "Token instradati tramite questo provider dal {{date}}, prompt e completamento insieme"
+		"card_tokens_tooltip": "Token instradati tramite questo provider dal {{date}}, prompt e completamento insieme",
+		"quota_reserve_card_tooltip": "Il {{percent}}% di ogni finestra di quota è tenuto di riserva"
 	},
 	"models": {
 		"page_title_one": "Modello",

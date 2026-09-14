@@ -61,6 +61,7 @@ export function EditProviderModal({
 		// Held as the input's text; "" means no ceiling.
 		max_in_flight:
 			provider.max_in_flight == null ? "" : String(provider.max_in_flight),
+		quota_reserve_percent: provider.quota_reserve_percent,
 	});
 	const [error, setError] = useState<string | null>(null);
 	const [confirmFields, setConfirmFields] = useState<string[] | null>(null);
@@ -127,6 +128,8 @@ export function EditProviderModal({
 			payload.scheduled_disable_on = formData.scheduled_disable_on ?? null;
 		if (parsedMaxInFlight(formData.max_in_flight) !== provider.max_in_flight)
 			payload.max_in_flight = parsedMaxInFlight(formData.max_in_flight);
+		if (formData.quota_reserve_percent !== provider.quota_reserve_percent)
+			payload.quota_reserve_percent = formData.quota_reserve_percent;
 		return payload;
 	};
 
@@ -395,6 +398,41 @@ export function EditProviderModal({
 						/>
 						<p className="text-gray-500 text-xs mt-1">
 							{t("providers.edit.maxInFlightHelper")}
+						</p>
+					</div>
+
+					<div>
+						<label
+							htmlFor="edit-provider-quota-reserve"
+							className="block text-sm font-medium text-gray-300 mb-1"
+						>
+							{t("providers.edit.quotaReserveLabel")}
+							<span
+								className="ml-2 text-yellow-400"
+								data-testid="quota-reserve-value"
+							>
+								{formData.quota_reserve_percent === 0
+									? t("providers.edit.quotaReserveDrain")
+									: `${formData.quota_reserve_percent}%`}
+							</span>
+						</label>
+						<input
+							id="edit-provider-quota-reserve"
+							type="range"
+							min={0}
+							max={90}
+							step={10}
+							value={formData.quota_reserve_percent}
+							onChange={(e) =>
+								setFormData({
+									...formData,
+									quota_reserve_percent: Number(e.target.value),
+								})
+							}
+							className="w-full accent-yellow-400"
+						/>
+						<p className="text-gray-500 text-xs mt-1">
+							{t("providers.edit.quotaReserveHelper")}
 						</p>
 					</div>
 

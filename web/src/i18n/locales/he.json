@@ -829,7 +829,10 @@
 			"autodiscoveryHelper": "שולט בזיהוי אוטומטי של מודלים. השבת אפשרות זו כדי לנהל באופן ידני את קטלוג המודלים של ספק זה.",
 			"maxInFlightLabel": "מקסימום בקשות בו-זמניות",
 			"maxInFlightPlaceholder": "ללא תקרה",
-			"maxInFlightHelper": "תקרה קשיחה לבקשות בו-זמניות לספק זה. השאירו ריק ללא תקרה; הלמידה המסתגלת ממשיכה להתכוונן מתחתיה."
+			"maxInFlightHelper": "תקרה קשיחה לבקשות בו-זמניות לספק זה. השאירו ריק ללא תקרה; הלמידה המסתגלת ממשיכה להתכוונן מתחתיה.",
+			"quotaReserveLabel": "רזרבת מכסה",
+			"quotaReserveDrain": "לנצל עד הסוף",
+			"quotaReserveHelper": "חלק מכל חלון מנוי שנשמר לשימוש מחוץ ל-Model Hotel. הניתוב לכאן נעצר כשבחלון נותר רק זה ומתחדש כשהוא מתאפס. רק ספקים עם מכסה קריאה מגיבים."
 		},
 		"quotas": {
 			"expand": "הרחב מכסות"
@@ -1012,7 +1015,8 @@
 		"scheduled_disable_card_tooltip": "מתוזמן להשבתה בתאריך {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "פתח את אתר הספק",
-		"card_tokens_tooltip": "טוקנים שנותבו דרך ספק זה מאז {{date}}, פרומפט והשלמה יחד"
+		"card_tokens_tooltip": "טוקנים שנותבו דרך ספק זה מאז {{date}}, פרומפט והשלמה יחד",
+		"quota_reserve_card_tooltip": "{{percent}}% מכל חלון מכסה נשמרים ברזרבה"
 	},
 	"models": {
 		"page_title_one": "מודל",

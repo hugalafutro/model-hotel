@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "Styrer automatisk modelopdagelse. Slå fra for manuelt at kuratere denne udbyders modelkatalog.",
 			"maxInFlightLabel": "Maks. samtidige forespørgsler",
 			"maxInFlightPlaceholder": "Intet loft",
-			"maxInFlightHelper": "Hårdt loft over samtidige forespørgsler til denne udbyder. Lad stå tomt for intet loft; den adaptive læring justerer stadig nedenunder."
+			"maxInFlightHelper": "Hårdt loft over samtidige forespørgsler til denne udbyder. Lad stå tomt for intet loft; den adaptive læring justerer stadig nedenunder.",
+			"quotaReserveLabel": "Kvotereserve",
+			"quotaReserveDrain": "Brug helt op",
+			"quotaReserveHelper": "Andel af hvert abonnementsvindue, der holdes tilbage til brug uden for Model Hotel. Routing hertil stopper, når et vindue kun har så meget tilbage, og genoptages, når det nulstilles. Kun udbydere med en læsbar kvote reagerer."
 		},
 		"quotas": {
 			"expand": "Udvid kvoter"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "Planlagt til deaktivering den {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Åbn udbyderens websted",
-		"card_tokens_tooltip": "Tokens sendt gennem denne udbyder siden {{date}}, prompt og fuldførelse tilsammen"
+		"card_tokens_tooltip": "Tokens sendt gennem denne udbyder siden {{date}}, prompt og fuldførelse tilsammen",
+		"quota_reserve_card_tooltip": "Holder {{percent}}% af hvert kvotevindue i reserve"
 	},
 	"models": {
 		"page_title_one": "Model",

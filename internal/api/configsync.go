@@ -67,7 +67,10 @@ const (
 	// upgraded) would land NULL budgets on every upgraded member: a spending
 	// guard silently removed by a sync. The bump refuses that envelope until
 	// the primary is upgraded too.
-	configSchemaVersion = 3
+	//
+	// v4 adds quota_reserve_percent to providers, for the same reason: a v3
+	// envelope would write the 0 default over every reserve.
+	configSchemaVersion = 4
 
 	// maxConfigImportBody bounds an import payload. Fleet config is small (a
 	// handful of providers + keys); 8 MiB is generous and caps a hostile body.
@@ -308,6 +311,7 @@ type ExportProvider struct {
 	MaskedKey            *string `json:"masked_key,omitempty"`
 	ScheduledDisableOn   *string `json:"scheduled_disable_on,omitempty"`
 	MaxInFlight          *int    `json:"max_in_flight,omitempty"`
+	QuotaReservePercent  int     `json:"quota_reserve_percent"`
 }
 
 // ExportVK is a virtual key carried by its hash (the plaintext never existed

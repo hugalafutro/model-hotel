@@ -239,3 +239,30 @@ func neuralwattWindows(payload json.RawMessage) []Window {
 	}
 	return out
 }
+
+// AssessWithReserve is Assess with the operator's reserve applied: a share of
+// every window kept back for use outside the gateway. reserve is that share,
+// 0 for none, up to 0.9. A provider whose payload reports no exhaustion is
+// still treated as exhausted once any dated window has consumed 1 - reserve of
+// itself, and the pin targets the earliest such reset, the same rule the
+// assessors apply to a spent window. An undated window past the line cannot
+// place a pin and is ignored, as an undated spent window is. A payload the
+// assessor already reads as exhausted, or cannot read at all, is returned as
+// it stands.
+func AssessWithReserve(providerType string, s Snapshot, reserve float64, now time.Time) Assessment {
+	a := Assess(providerType, s)
+	if reserve <= 0 || !a.OK || a.Exhausted {
+		return a
+	}
+	var e earliestReset
+	for _, w := range Windows(providerType, s) {
+		if w.Used < 1-reserve || w.ResetsAt.IsZero() {
+			continue
+		}
+		e.add(w.ResetsAt, true)
+	}
+	if !e.found {
+		return a
+	}
+	return e.result(now)
+}

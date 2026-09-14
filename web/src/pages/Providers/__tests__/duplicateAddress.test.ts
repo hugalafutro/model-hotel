@@ -17,6 +17,7 @@ function providerAt(
 		autodiscovery_enabled: true,
 		scheduled_disable_on: null,
 		max_in_flight: null,
+		quota_reserve_percent: 0,
 		last_discovered_at: null,
 		last_used_at: null,
 		created_at: "2026-08-17T00:00:00Z",

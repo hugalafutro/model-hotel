@@ -113,6 +113,7 @@ export const Box = withId(Ph.PackageIcon, "Box");
 export const Palette = withId(Ph.PaletteIcon, "Palette");
 export const Send = withId(Ph.PaperPlaneTiltIcon, "Send");
 export const Pencil = withId(Ph.PencilIcon, "Pencil");
+export const PiggyBank = withId(Ph.PiggyBankIcon, "PiggyBank");
 export const Pin = withId(Ph.PushPinIcon, "Pin");
 export const Play = withId(Ph.PlayIcon, "Play");
 export const PlugZap = withId(Ph.PlugsConnectedIcon, "PlugZap");

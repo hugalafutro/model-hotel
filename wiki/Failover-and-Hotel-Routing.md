@@ -834,6 +834,21 @@ These behaviors are worth knowing before you reach for these controls:
 
 Between them, these give you three ways out of a long pin, from least to most blunt: wait for the poller to notice (automatic, up to one poll interval), reset the one provider whose circuit you want back (immediate, see [Resetting a circuit](#resetting-a-circuit)), or turn pinning off fleet-wide (releases every pin at once). Only the reset also clears a [probe backoff](#probe-backoff); the other two release the pin into whatever backoff the circuit had earned. Disabling quota polling altogether releases every pin as well, but it also blinds the quota dashboard, so zero `circuit_breaker_quota_pin_max` when pinning is the only thing you want stopped.
 
+#### Quota reserve
+
+By default a provider is routed to until its window is spent and the provider says so. A
+**quota reserve** on the provider (edit modal, a slider in 10% steps from 10 to 90; the
+providers list shows a yellow piggy-bank icon while one is set) keeps that share of every
+window back for use outside the gateway: an IDE plugin or a chat client on the same
+subscription. Once any dated window has consumed `100 - reserve` percent of itself, the quota
+refresh advises the provider as exhausted exactly as a spent window would, so the same pin holds
+it dark until that window resets and the same refresh releases it once the reading drops back
+under the line. Only provider types whose quota endpoint states a measurable window respond
+(Z.ai Coding Plan, Kimi Code, OpenCode Go, MiniMax, NeuralWatt); an undated window (a prepaid
+balance) never places a pin. `0` is the default and drains fully. The value rides config sync
+like every other provider field, and `modelhotel_provider_quota_reserve_ratio` carries it to
+Prometheus.
+
 #### Probe backoff
 
 The half-open probe is not a synthetic health check: `IsOpen` hands it to the next real request for that model, and if the model is still broken that request fails before failover moves on (or, when the model has no healthy sibling in its group, fails outright). At the default 60s cooldown a model that stays broken all day therefore wastes about 1,440 real requests, one per cooldown, and `circuit_breaker.unstable` only reports that waste. Probe backoff removes most of it: every probe that fails doubles the cooldown before the next one, and a probe that succeeds closes the circuit and resets the count. At the defaults the waits run 1, 2, 4, 8 minutes and then hold at the `circuit_breaker_backoff_max` ceiling of 15 minutes, so the same broken model wastes a hundred or so requests a day, and a model fixed upstream is back in rotation within a quarter of an hour with nobody touching anything.
@@ -1316,6 +1331,8 @@ The `/metrics` endpoint carries the failover story as counters, so a rerun of a 
 | `modelhotel_failover_attempts_total` | `model`, `provider` | Attempts after the first, one per attempt, labeled with the provider it went to (hedged launches included). The fan-out to fallback entries per provider, not only per group. |
 | `modelhotel_circuit_breaker_state` | `provider_id`, `provider` | The state gauge: 0 closed, 1 half-open, 2 open, read at scrape time. `provider` is the operator's name, as the counters carry it; `provider_id` stays stable across a rename. |
 | `modelhotel_provider_quota_used_ratio` | `provider_id`, `provider`, `window` | Share of a subscription window consumed, from the provider's latest stored quota snapshot: 0 untouched, 1 spent, above 1 where the provider serves into overage (NeuralWatt). `window` is the window's name as the quota modal shows it (`5h`, `weekly`, `mcp`, `rolling`, `monthly`, `energy`, `credits`, or a MiniMax model class with its span). Read at scrape time; only provider types with a readable quota endpoint appear. |
+| `modelhotel_provider_quota_reserve_ratio` | `provider_id`, `provider` | The provider's quota reserve as a share (`quota_reserve_percent` / 100); only providers with a reserve set appear. The breaker pins the provider once a window's used ratio reaches 1 minus this. |
+| `modelhotel_provider_quota_reserve_ratio` | `provider_id`, `provider` | The provider's quota reserve as a share (`quota_reserve_percent` / 100); only providers with a reserve set appear. The breaker pins the provider once a window's used ratio reaches 1 minus this. |
 | `modelhotel_provider_quota_resets_at_seconds` | `provider_id`, `provider`, `window` | Unix time at which that window rolls over. Absent for a window the provider does not date (a prepaid balance). |
 | `modelhotel_provider_inflight_limit`, `modelhotel_provider_inflight` | `provider_id` | The adaptive in-flight limiter's learned allowance (0 = uncapped) and current load. |
 

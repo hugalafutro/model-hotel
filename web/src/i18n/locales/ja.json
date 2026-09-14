@@ -813,7 +813,10 @@
 			"autodiscoveryHelper": "モデルの自動検出を制御します。このプロバイダーのモデルカタログを手動でキュレートするには無効にします。",
 			"maxInFlightLabel": "最大同時リクエスト数",
 			"maxInFlightPlaceholder": "上限なし",
-			"maxInFlightHelper": "このプロバイダーへの同時リクエストの厳格な上限です。空欄で上限なし。適応学習はその下で引き続き調整します。"
+			"maxInFlightHelper": "このプロバイダーへの同時リクエストの厳格な上限です。空欄で上限なし。適応学習はその下で引き続き調整します。",
+			"quotaReserveLabel": "クォータ予備",
+			"quotaReserveDrain": "使い切る",
+			"quotaReserveHelper": "各サブスクリプション枠のうち Model Hotel 以外での利用のために残しておく割合です。枠の残りがこの量になるとルーティングを止め、枠がリセットされると再開します。クォータを読み取れるプロバイダーのみ対象です。"
 		},
 		"quotas": {
 			"expand": "クォータを展開"
@@ -978,7 +981,8 @@
 		"scheduled_disable_card_tooltip": "{{date}} に無効化予定",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "プロバイダーのウェブサイトを開く",
-		"card_tokens_tooltip": "{{date}}以降にこのプロバイダー経由で送られたトークン数、プロンプトと応答の合計"
+		"card_tokens_tooltip": "{{date}}以降にこのプロバイダー経由で送られたトークン数、プロンプトと応答の合計",
+		"quota_reserve_card_tooltip": "各クォータ枠の {{percent}}% を予備として確保中"
 	},
 	"models": {
 		"page_title_one": "モデル",

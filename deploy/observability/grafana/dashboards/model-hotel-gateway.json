@@ -2259,7 +2259,7 @@
       "type": "timeseries",
       "id": 45,
       "title": "Quota used over time",
-      "description": "The same windows over the selected range: the slope is the burn rate, a drop is a rollover. A line that reaches 1 and stays there is a window the fleet is routing around until it resets.",
+      "description": "The same windows over the selected range: the slope is the burn rate, a drop is a rollover. A line that reaches 1 and stays there is a window the fleet is routing around until it resets. A dashed yellow line is a provider's quota reserve: routing stops once a window climbs past it.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2310,7 +2310,37 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".* reserve line"
+            },
+            "properties": [
+              {
+                "id": "custom.lineStyle",
+                "value": {
+                  "fill": "dash",
+                  "dash": [
+                    6,
+                    4
+                  ]
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "yellow"
+                }
+              }
+            ]
+          }
+        ]
       },
       "options": {
         "legend": {
@@ -2335,6 +2365,17 @@
             "uid": "prometheus"
           },
           "legendFormat": "{{provider}} {{window}}",
+          "instant": false,
+          "range": true
+        },
+        {
+          "refId": "B",
+          "expr": "1 - max by (provider) (modelhotel_provider_quota_reserve_ratio{provider=~\"$provider\"})",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "legendFormat": "{{provider}} reserve line",
           "instant": false,
           "range": true
         }

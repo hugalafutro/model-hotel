@@ -845,7 +845,10 @@
 			"autodiscoveryHelper": "Ovláda automatické vyhľadávanie modelov. Vypnutím tejto funkcie môžete ručne spravovať katalóg modelov tohto poskytovateľa.",
 			"maxInFlightLabel": "Max. súbežných požiadaviek",
 			"maxInFlightPlaceholder": "Bez stropu",
-			"maxInFlightHelper": "Pevný strop súbežných požiadaviek na tohto poskytovateľa. Prázdne pole znamená žiadny strop; adaptívne učenie beží ďalej pod ním."
+			"maxInFlightHelper": "Pevný strop súbežných požiadaviek na tohto poskytovateľa. Prázdne pole znamená žiadny strop; adaptívne učenie beží ďalej pod ním.",
+			"quotaReserveLabel": "Rezerva kvóty",
+			"quotaReserveDrain": "Vyčerpať úplne",
+			"quotaReserveHelper": "Podiel každého okna predplatného ponechaný na použitie mimo Model Hotel. Smerovanie sem skončí, keď oknu zostane už len toľko, a obnoví sa po jeho resete. Reagujú len poskytovatelia s čitateľnou kvótou."
 		},
 		"quotas": {
 			"expand": "Rozbaliť kvóty"
@@ -1046,7 +1049,8 @@
 		"scheduled_disable_card_tooltip": "Naplánované na deaktiváciu dňa {{date}}",
 		"type_anthropic_messages": "Anthropic (Messages API)",
 		"card_website": "Otvoriť web poskytovateľa",
-		"card_tokens_tooltip": "Tokeny smerované cez tohto poskytovateľa od {{date}}, prompt a dokončenie spolu"
+		"card_tokens_tooltip": "Tokeny smerované cez tohto poskytovateľa od {{date}}, prompt a dokončenie spolu",
+		"quota_reserve_card_tooltip": "V rezerve zostáva {{percent}}% každého okna kvóty"
 	},
 	"models": {
 		"page_title_one": "Model",

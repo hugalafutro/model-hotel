@@ -38,6 +38,7 @@ const mockProvider: Provider = {
 	autodiscovery_enabled: true,
 	scheduled_disable_on: null,
 	max_in_flight: null,
+	quota_reserve_percent: 0,
 	last_discovered_at: "2026-05-10T12:00:00Z",
 	last_used_at: "2026-05-11T08:30:00Z",
 	created_at: "2026-01-15T10:00:00Z",
@@ -1086,5 +1087,38 @@ describe("ProviderCard", () => {
 				"https://api.test-provider.com/v1",
 			);
 		});
+	});
+});
+
+describe("ProviderCard quota reserve icon", () => {
+	it("shows the reserve icon with the percentage when a reserve is set", () => {
+		render(
+			<ProviderCard
+				{...defaultProps}
+				provider={{ ...mockProvider, quota_reserve_percent: 20 }}
+			/>,
+			{ wrapper: AllProviders },
+		);
+		expect(
+			screen.getByTestId("quota-reserve-icon").getAttribute("title"),
+		).toContain("20%");
+	});
+
+	it("shows no reserve icon when draining fully or when disabled", () => {
+		render(<ProviderCard {...defaultProps} />, { wrapper: AllProviders });
+		expect(screen.queryByTestId("quota-reserve-icon")).toBeNull();
+		render(
+			<ProviderCard
+				{...defaultProps}
+				provider={{
+					...mockProvider,
+					id: "p-off",
+					enabled: false,
+					quota_reserve_percent: 20,
+				}}
+			/>,
+			{ wrapper: AllProviders },
+		);
+		expect(screen.queryByTestId("quota-reserve-icon")).toBeNull();
 	});
 });
