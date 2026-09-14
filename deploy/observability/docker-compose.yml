@@ -1,0 +1,43 @@
+# Prometheus + Grafana for a Model Hotel fleet: scrapes every member's /metrics
+# and provisions the "Model Hotel gateway" dashboard. Copy this directory next
+# to your other stacks, fill tokens/<member> and .env, edit prometheus.yml,
+# then `docker compose up -d`. Grafana answers on :3000 with the admin
+# password from .env; put it behind your reverse proxy if it leaves the LAN.
+services:
+    prometheus:
+        image: prom/prometheus:latest
+        # Runs as the user that owns tokens/ so 0600 token files stay readable
+        # by Prometheus and nobody else; set OBS_UID/OBS_GID in .env.
+        user: "${OBS_UID:-65534}:${OBS_GID:-65534}"
+        command:
+            - --config.file=/etc/prometheus/prometheus.yml
+            - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+        volumes:
+            - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+            - ./tokens:/etc/prometheus/tokens:ro
+            # A bind, not a named volume: Prometheus runs as OBS_UID, and a named
+            # volume is created owned by the image's user. Create the directory
+            # before the first start (mkdir -p data/prometheus).
+            - ./data/prometheus:/prometheus
+        restart: unless-stopped
+
+    grafana:
+        image: grafana/grafana:latest
+        environment:
+            - GF_SECURITY_ADMIN_USER=${GRAFANA_ADMIN_USER:-admin}
+            - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_ADMIN_PASSWORD:?set GRAFANA_ADMIN_PASSWORD in .env}
+            - GF_USERS_ALLOW_SIGN_UP=false
+            - GF_ANALYTICS_REPORTING_ENABLED=false
+            - GF_ANALYTICS_CHECK_FOR_UPDATES=false
+        volumes:
+            - ./grafana/provisioning:/etc/grafana/provisioning:ro
+            - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+            - grafana-data:/var/lib/grafana
+        ports:
+            - "${GRAFANA_PORT:-3000}:3000"
+        depends_on:
+            - prometheus
+        restart: unless-stopped
+
+volumes:
+    grafana-data:
