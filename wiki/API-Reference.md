@@ -1444,7 +1444,7 @@ A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a
 }
 ```
 
-`total_cost_usd` sums `request_logs.cost_usd` over the period. Requests the proxy could not price (an unpriced model, or one that never reached a provider) add nothing, and `requests_unpriced` counts the dispatched ones among them, so the total is a floor by that many requests. The `by_*` maps carry whichever metric was asked for, so under `metric=cost` their values are dollars.
+`total_cost_usd` sums `request_logs.cost_usd` over the period. Requests the proxy could not price add nothing, and `requests_unpriced` counts the served (2xx) ones among them, so the total is a floor by that many requests. The `by_*` maps carry whichever metric was asked for, so under `metric=cost` their values are dollars.
 
 #### GET `/api/stats/timeseries`
 

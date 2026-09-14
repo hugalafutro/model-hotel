@@ -15,7 +15,7 @@ import { Badge } from "../Badge";
 import { EndpointTypeBadge } from "./EndpointTypeBadge";
 
 /**
- * The twelve request-log cells, in LOG_COL_WIDTHS order. Both request-log
+ * The thirteen request-log cells, in LOG_COL_WIDTHS order. Both request-log
  * tables render them: the paginated row inside a `<Row>`, the virtual table
  * inside its measured `<tr>`.
  */

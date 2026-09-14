@@ -385,7 +385,7 @@ describe("Dashboard.coverage", () => {
 			});
 
 			// Click the metric toggle to switch to requests - find the first Req button in gauge section
-			const metricButtons = screen.getAllByRole("button", { name: /^R$/ });
+			const metricButtons = screen.getAllByRole("button", { name: "Requests" });
 			await user.click(metricButtons[0]);
 
 			// Should now show Avg Tokens/Req

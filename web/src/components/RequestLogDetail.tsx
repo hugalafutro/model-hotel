@@ -6,6 +6,7 @@ import {
 	Calendar,
 	Clock,
 	DisclosureChevron,
+	DollarSign,
 	Gauge,
 	Globe,
 	Hash,
@@ -237,6 +238,15 @@ export function RequestLogDetail({
 						requestLog.virtual_key_name || requestLog.virtual_key_id || "-"
 					}
 				/>
+				<DetailItem
+					icon={DollarSign}
+					label={t("components.requestLogDetail.cost")}
+					value={
+						requestLog.cost_usd == null
+							? t("components.requestLogDetail.unpriced")
+							: formatSpend(requestLog.cost_usd)
+					}
+				/>
 			</div>
 
 			{/* Token Breakdown */}
@@ -261,16 +271,6 @@ export function RequestLogDetail({
 							</div>
 							<div className="text-sm font-mono text-(--text-primary)">
 								{requestLog.tokens_completion.toLocaleString()}
-							</div>
-						</div>
-						<div>
-							<div className="text-[11px] uppercase text-(--text-tertiary)">
-								{t("components.requestLogDetail.cost")}
-							</div>
-							<div className="text-sm font-mono text-(--text-primary)">
-								{requestLog.cost_usd == null
-									? t("components.requestLogDetail.unpriced")
-									: formatSpend(requestLog.cost_usd)}
 							</div>
 						</div>
 						{hasReasoning && (

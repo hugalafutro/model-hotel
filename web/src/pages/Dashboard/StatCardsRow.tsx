@@ -111,7 +111,6 @@ export function StatCardsRow({
 				<StatCard
 					label={t("dashboard.stats.spend", { range: rangeLabel })}
 					value={stats?.total_cost_usd ?? 0}
-					decimals={2}
 					icon={DollarSign}
 					accent={accents.spend}
 					formatter={formatSpend}

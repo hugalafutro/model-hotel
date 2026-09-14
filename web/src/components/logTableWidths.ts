@@ -31,7 +31,7 @@ export const LOG_COL_WIDTHS = [
 	{ key: "status", width: "w-[5.25rem]" }, // "STATUS" header + arrow slot (wider than the [Live] badge)
 	{ key: "tokens", width: "w-[7.25rem]" }, // "154,304+3,796" (13ch mono)
 	{ key: "tps", width: "w-[4rem]" }, // "1234.5" (6ch mono)
-	{ key: "cost", width: "w-[5.5rem]" }, // "$0.0039" / "$123.45" (7ch mono)
+	{ key: "cost", width: "w-[6.5rem]" }, // "$0.000001" (9ch mono); "$123.45" fits with room
 	{ key: "headers", width: "w-[5.75rem]" }, // "99999.9ms" (9ch mono) vs "HEADERS" header + arrow slot
 	{ key: "ttft", width: "w-[5.75rem]" }, // same as Headers; same value shape
 	{ key: "duration", width: "w-[6.125rem]" }, // "DURATION" header + arrow slot; long durations may overflow
@@ -40,8 +40,8 @@ export const LOG_COL_WIDTHS = [
 	{ key: "ip", width: "w-[8rem]" }, // full IPv4 (15ch mono); IPv6 truncates with tooltip
 ] as const;
 
-/** Fitted columns sum to 76.5rem; the rest is the Model floor. Deliberately
+/** Fitted columns sum to 77.5rem; the rest is the Model floor. Deliberately
  *  above the 62.5rem the other tables use: the fitted columns cannot shrink,
  *  so a smaller minimum would only starve Model, and the dashboard's 80rem
  *  content column fits this at both the 1080p and 1440p root font sizes. */
-export const LOG_TABLE_MIN_W = "min-w-[82.5rem]";
+export const LOG_TABLE_MIN_W = "min-w-[83.5rem]";

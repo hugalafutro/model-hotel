@@ -16,7 +16,7 @@ function ToggleGroup<T extends string>({
 	value: T;
 	onChange: (v: T) => void;
 	getLabel: (v: T) => string;
-	/** Hover text for an option whose label is an abbreviation. */
+	/** The full word behind an abbreviated label: hover text and accessible name. */
 	getTitle?: (v: T) => string;
 }) {
 	return (
@@ -29,6 +29,7 @@ function ToggleGroup<T extends string>({
 						key={opt}
 						onClick={() => onChange(opt)}
 						title={getTitle?.(opt)}
+						aria-label={getTitle?.(opt)}
 						className={`ui-tab px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors ${
 							active
 								? "ui-tab-active"

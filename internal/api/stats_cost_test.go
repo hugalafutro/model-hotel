@@ -10,41 +10,45 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// seedCostRows inserts four rows under two providers, all created now:
+// seedCostRows inserts six rows, all created now:
 //
-//	R1: pa / m1, priced $0.50
-//	R2: pa / m1, dispatched but unpriced (cost NULL)
-//	R3: pa / m2, priced $0.25
-//	R4: pb / m3, dispatched but unpriced
-//	R5: no provider (never dispatched), unpriced
+//	R1: pa / m1, 200, priced $0.50
+//	R2: pa / m1, 200, served but unpriced (cost NULL)
+//	R3: pa / m2, 200, priced $0.25
+//	R4: pb / m3, 200, served but unpriced
+//	R5: no provider, 502, never dispatched
+//	R6: provider since deleted (provider_id NULL), 200, served but unpriced
 //
-// so pa's spend is $0.75, pb has none to show, and two dispatched rows are
+// so pa's spend is $0.75, pb has none to show, and three served rows are
 // unpriced.
-func seedCostRows(t *testing.T, exec func(ctx context.Context, sql string, args ...any) error, provA, provB uuid.UUID) {
+func seedCostRows(t *testing.T, pool *pgxpool.Pool, provA, provB uuid.UUID) {
 	t.Helper()
 	ctx := context.Background()
 	rows := []struct {
-		prov  *uuid.UUID
-		model string
-		cost  *float64
+		prov   *uuid.UUID
+		model  string
+		status int
+		cost   *float64
 	}{
-		{&provA, "m1", ptr(0.5)},
-		{&provA, "m1", nil},
-		{&provA, "m2", ptr(0.25)},
-		{&provB, "m3", nil},
-		{nil, "m1", nil},
+		{&provA, "m1", 200, f64(0.5)},
+		{&provA, "m1", 200, nil},
+		{&provA, "m2", 200, f64(0.25)},
+		{&provB, "m3", 200, nil},
+		{nil, "m1", 502, nil},
+		{nil, "m9", 200, nil},
 	}
 	for _, r := range rows {
-		if err := exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, cost_usd, created_at)
-			VALUES (gen_random_uuid(), $1, $2, 200, 10, 5, 5, $3, NOW())`, r.prov, r.model, r.cost); err != nil {
+		if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, tokens_prompt, tokens_completion, cost_usd, created_at)
+			VALUES (gen_random_uuid(), $1, $2, $3, 10, 5, 5, $4, NOW())`, r.prov, r.model, r.status, r.cost); err != nil {
 			t.Fatalf("seed cost row: %v", err)
 		}
 	}
 }
 
-func ptr(v float64) *float64 { return &v }
+func f64(v float64) *float64 { return &v }
 
 // TestStats_CostMetric covers the dollar side of the stats API: the cost
 // metric on the three breakdowns and the provider distribution, the spend
@@ -58,10 +62,7 @@ func TestStats_CostMetric(t *testing.T) {
 	provA, provB := uuid.New(), uuid.New()
 	insertTestProvider(t, pool, provA, "pa", "https://a.example/v1")
 	insertTestProvider(t, pool, provB, "pb", "https://b.example/v1")
-	seedCostRows(t, func(ctx context.Context, sql string, args ...any) error {
-		_, err := pool.Exec(ctx, sql, args...)
-		return err
-	}, provA, provB)
+	seedCostRows(t, pool, provA, provB)
 
 	approx := func(name string, got, want float64) {
 		t.Helper()
@@ -77,10 +78,14 @@ func TestStats_CostMetric(t *testing.T) {
 	approx("ByModel[pa/m1]", s.ByModel["pa/m1"], 0.5)
 	approx("ByModel[pa/m2]", s.ByModel["pa/m2"], 0.25)
 	approx("ByProvider[pa]", s.ByProvider["pa"], 0.75)
-	approx("ByProvider[pb]", s.ByProvider["pb"], 0)
+	// The breakdowns carry every provider with traffic, priced or not: pb is
+	// present at zero rather than missing (the distribution below drops it).
+	if v, ok := s.ByProvider["pb"]; !ok || v != 0 {
+		t.Errorf("ByProvider[pb] = %v (present %v), want 0 and present", v, ok)
+	}
 	approx("TotalCostUSD", s.TotalCostUSD, 0.75)
-	if s.RequestsUnpriced != 2 {
-		t.Errorf("RequestsUnpriced = %d, want 2 (the never-dispatched row does not count)", s.RequestsUnpriced)
+	if s.RequestsUnpriced != 3 {
+		t.Errorf("RequestsUnpriced = %d, want 3 (served rows only, a deleted provider's row included)", s.RequestsUnpriced)
 	}
 
 	// The request metric still counts unpriced rows: pricing is orthogonal.
@@ -135,7 +140,7 @@ func TestListLogs_Cost(t *testing.T) {
 	for _, c := range []struct {
 		model string
 		cost  *float64
-	}{{"cheap", ptr(0.01)}, {"unpriced", nil}, {"dear", ptr(2)}} {
+	}{{"cheap", f64(0.01)}, {"unpriced", nil}, {"dear", f64(2)}} {
 		if _, err := pool.Exec(ctx, `INSERT INTO request_logs (id, provider_id, model_id, status_code, duration_ms, cost_usd, created_at)
 			VALUES (gen_random_uuid(), $1, $2, 200, 50, $3, now())`, providerID, c.model, c.cost); err != nil {
 			t.Fatalf("insert %s: %v", c.model, err)

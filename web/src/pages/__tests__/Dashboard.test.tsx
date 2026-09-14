@@ -501,7 +501,7 @@ describe("Dashboard", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// Metric toggle buttons should be present (abbreviated as Tok/Req)
+			// Metric toggle buttons should be present (single-character labels)
 			const tokButtons = screen.getAllByText("T");
 			expect(tokButtons.length).toBeGreaterThan(0);
 			const reqButtons = screen.getAllByText("R");

@@ -46,9 +46,9 @@ type StatsResponse struct {
 	TotalTokensCompletion int                `json:"total_tokens_completion"`
 	TotalTokensCacheHit   int                `json:"total_tokens_cache_hit"`
 	// TotalCostUSD sums request_logs.cost_usd over the period. Rows the proxy
-	// could not price (an unpriced model, a request that never reached a
-	// provider) add nothing, so RequestsUnpriced counts the dispatched ones
-	// among them: the total is a floor by that many requests.
+	// could not price add nothing, so RequestsUnpriced counts the served (2xx)
+	// ones among them: the total is a floor by that many requests. Failed
+	// requests are left out of the count; they charged little or nothing.
 	TotalCostUSD        float64                `json:"total_cost_usd"`
 	RequestsUnpriced    int                    `json:"requests_unpriced"`
 	AvgTokensPerRequest float64                `json:"avg_tokens_per_request"`

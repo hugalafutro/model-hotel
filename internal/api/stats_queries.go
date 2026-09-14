@@ -334,11 +334,13 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 }
 
 // statSpend fills TotalCostUSD and RequestsUnpriced for the period. Best-effort
-// like the other scalars: a failure logs and leaves both at zero.
+// like the other scalars: a failure logs and leaves both at zero. Unpriced is
+// judged by the status, not the provider column: deleting a provider nulls
+// provider_id on its rows (ON DELETE SET NULL), which would hide them.
 func (h *StatsHandler) statSpend(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, since time.Time) {
 	query := `
 		SELECT COALESCE(SUM(rl.cost_usd), 0),
-		       COUNT(*) FILTER (WHERE rl.cost_usd IS NULL AND rl.provider_id IS NOT NULL)
+		       COUNT(*) FILTER (WHERE rl.cost_usd IS NULL AND rl.status_code >= 200 AND rl.status_code < 300)
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter
 	if err := h.dbPool.QueryRow(ctx, query, append([]any{since}, filterArgs...)...).Scan(&stats.TotalCostUSD, &stats.RequestsUnpriced); err != nil {

@@ -52,8 +52,6 @@ All fields are written to the `request_logs` PostgreSQL table.
 | `client_ip` | TEXT | Trusted-proxy-resolved client address, written at INSERT time (migration 073). NULL on rows predating the column. Shown in the dashboard Logs IP column and detail modal; see [Privacy](Privacy#ip-address-handling). |
 | `created_at` | TIMESTAMPTZ | When the request was inserted (defaults to `now()`) |
 
-There is no cost column. The row stores token counts and the model's identity; money is worked out afterwards from the model's per-million prices, so re-pricing a model changes what past requests are shown to have cost.
-
 ### Status code and error kind over a request's life
 
 `status_code` is nullable and starts empty. The initial INSERT omits it, so a request that never received upstream headers stays NULL. Once headers arrive the row is updated with the upstream status (typically `200`) and moves to `state='streaming'`, so a long-lived stream reads `200` *while still in flight*.
