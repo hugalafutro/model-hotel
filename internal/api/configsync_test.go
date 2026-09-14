@@ -1387,6 +1387,18 @@ func TestConfigSync_ImportRefusesOneCorruptKeyAmongGood(t *testing.T) {
 	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), `"`+first+`"`) {
 		t.Fatalf("corrupt first key: status = %d, body %q; want 400 naming %s", rec.Code, rec.Body.String(), first)
 	}
+
+	// The verdict rests on counts, not names: a corrupt key on a nameless
+	// provider is refused all the same.
+	env.Config.Providers[0].Name = ""
+	rec = doImport(t, newConfigSyncRouter(t, configSyncMasterKey), env, "")
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "does not decrypt") {
+		t.Fatalf("nameless corrupt key: status = %d, body %q; want 400", rec.Code, rec.Body.String())
+	}
+	_ = apiTestDB.Pool().QueryRow(context.Background(), `SELECT count(*) FROM providers`).Scan(&n)
+	if n != 0 {
+		t.Fatalf("providers written despite a nameless corrupt key: %d", n)
+	}
 }
 
 // TestConfigSync_ImportRefusesOversizedProviderList pins the provider-count

@@ -63,8 +63,8 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 	if mismatch, corrupt := h.undecryptableKeys(env.Config.Providers); mismatch {
 		writeJSONStatus(w, http.StatusConflict, importResponse{SchemaVersionOK: true, MasterKeyOK: false})
 		return
-	} else if corrupt != "" {
-		msg := fmt.Sprintf("configsync: refusing to import: the key of provider %q does not decrypt under this MASTER_KEY while others do", corrupt)
+	} else if corrupt != nil {
+		msg := fmt.Sprintf("configsync: refusing to import: the key of provider %q does not decrypt under this MASTER_KEY while others do", corrupt.Name)
 		debuglog.Warn("configsync: refused import", "error", msg)
 		http.Error(w, msg, http.StatusBadRequest)
 		return
@@ -181,29 +181,32 @@ const maxImportProviders = 256
 
 // undecryptableKeys checks every encrypted provider key in the envelope against
 // this member's MASTER_KEY. mismatch is set when no keyed provider decrypts,
-// the shape of a fleet whose members hold different keys. corrupt names the
-// first provider that fails while another decrypted, whichever order they
-// arrive in: one good decrypt proves the shared key but not the rest of the
-// envelope, and a payload mixing one sound key with corrupt ciphertext used
-// to pass on the first and land undecryptable rows that failed at request
-// time and rode this member's own export onward. A keyless envelope has
+// the shape of a fleet whose members hold different keys. corrupt is the first
+// provider that fails while another decrypted, whichever order they arrive
+// in: one good decrypt proves the shared key but not the rest of the envelope,
+// and a payload mixing one sound key with corrupt ciphertext used to pass on
+// the first and land undecryptable rows that failed at request time and rode
+// this member's own export onward. The verdict rests on counts, never on the
+// provider's name, which the envelope may leave empty. A keyless envelope has
 // nothing to verify.
-func (h *ConfigSyncHandler) undecryptableKeys(providers []ExportProvider) (mismatch bool, corrupt string) {
-	decrypted := 0
-	for _, p := range providers {
+func (h *ConfigSyncHandler) undecryptableKeys(providers []ExportProvider) (mismatch bool, corrupt *ExportProvider) {
+	decrypted, failed := 0, 0
+	for i := range providers {
+		p := &providers[i]
 		if len(p.EncryptedKey) == 0 {
 			continue
 		}
 		if _, err := auth.Decrypt(p.EncryptedKey, p.KeyNonce, p.KeySalt, h.masterKey); err != nil {
-			if corrupt == "" {
-				corrupt = p.Name
+			failed++
+			if corrupt == nil {
+				corrupt = p
 			}
 			continue
 		}
 		decrypted++
 	}
-	if corrupt != "" && decrypted == 0 {
-		return true, ""
+	if failed > 0 && decrypted == 0 {
+		return true, nil
 	}
 	return false, corrupt
 }

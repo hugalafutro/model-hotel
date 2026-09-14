@@ -44,8 +44,9 @@ func SplitAndTrim(value string) []string {
 // bare "user:pw@host" is not a URL to the parsers whose errors this redacts.
 // The class stays wide on purpose (commas and semicolons are legal in a
 // userinfo): swallowing a bystander word is the safe failure, emitting a
-// credential is not. Shared by the gateway and Front Desk so the two cannot
-// drift.
+// credential is not. One pattern for the gateway and Front Desk, which
+// render the match differently (this keeps "***@", Front Desk drops the
+// credential and the "@").
 var URLUserinfoRE = regexp.MustCompile(`([a-zA-Z][a-zA-Z0-9+.-]*://)[^/?\s"]*@`)
 
 // RedactURLUserinfo replaces the credential part of every URL found in text
