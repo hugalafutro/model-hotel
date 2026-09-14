@@ -146,10 +146,13 @@ type requestLogData struct {
 	// request_logs.client_ip so key usage stays attributable for the whole
 	// log-retention window.
 	clientIP string
+	// charged records that the row's cost reached the budget stage, so a
+	// second terminal write for the same request cannot charge it again.
+	charged bool
 	// ownerUserID is the owning dashboard user's UUID; "" for unowned keys
-	// (admin-only visibility). Persisted to request_logs.owner_user_id only when
-	// there is no virtual key; keyed rows resolve their owner through the key
-	// instead.
+	// (admin-only visibility). Persisted to request_logs.owner_user_id on every
+	// row that has one: the log views resolve a keyed row through the key's
+	// current owner, the user's dollar budget sums the stamp.
 	ownerUserID  string
 	errorMessage string
 	errorKind    ErrorKind // machine-readable classification; "" = unclassified (NULL in DB)

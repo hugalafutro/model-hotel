@@ -73,7 +73,7 @@ const sourceTimeout = 3 * time.Second
 type entry struct {
 	mu          sync.Mutex
 	periodStart time.Time
-	budgetUSD   float64 // the cap the flags were judged against
+	judged      Budget // the budget the flags were judged against
 	spent       float64
 	loadedAt    time.Time
 	reloading   bool // a background reload is in flight
@@ -146,20 +146,11 @@ func (l *Limiter) admit(ctx context.Context, s *Subject) (float64, bool) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	now := l.now()
-	firstSight := e.loadedAt.IsZero()
 	l.refresh(ctx, s, e, now)
-	if e.budgetUSD != s.Budget.USD {
+	if e.judged != s.Budget {
 		// A budget edited mid-period is judged afresh: raising it above the
 		// spend re-arms both events for the next crossing.
-		e.budgetUSD, e.warned, e.exceeded = s.Budget.USD, false, false
-	}
-	if firstSight {
-		// A subject found already past a threshold when this process first
-		// sums it was reported by the process that watched it cross (or a
-		// restart landed inside the period); it is not reported again.
-		e.warned = e.spent >= warnFraction*s.Budget.USD
-		e.exceeded = e.spent >= s.Budget.USD
-		return e.spent, e.spent < s.Budget.USD
+		e.judged, e.warned, e.exceeded = s.Budget, false, false
 	}
 	if e.spent >= s.Budget.USD {
 		if !e.exceeded {
@@ -178,6 +169,9 @@ func (l *Limiter) admit(ctx context.Context, s *Subject) (float64, bool) {
 // Spent reports a subject's spend in the current period for display. It reads
 // the source when the figure is stale, the same way admission does.
 func (l *Limiter) Spent(ctx context.Context, s *Subject) float64 {
+	if l == nil {
+		return 0
+	}
 	e := l.entry(s.Kind, s.ID)
 	e.mu.Lock()
 	defer e.mu.Unlock()
@@ -189,7 +183,9 @@ func (l *Limiter) Spent(ctx context.Context, s *Subject) float64 {
 // starts from zero and is summed before the answer, and so is a subject seen
 // for the first time; a figure that merely aged out is served as it stands
 // while one background reload replaces it, so a slow store never holds the
-// request path. Called with e.mu held.
+// request path. Called with e.mu held; the first-sight read releases it for
+// the length of the query so a charge for the subject is not held behind
+// the store, and takes it back before it writes.
 func (l *Limiter) refresh(ctx context.Context, s *Subject, e *entry, now time.Time) {
 	start := PeriodStart(s.Budget.Period, now)
 	if !e.periodStart.Equal(start) {
@@ -198,9 +194,14 @@ func (l *Limiter) refresh(ctx context.Context, s *Subject, e *entry, now time.Ti
 		e.periodStart, e.spent, e.loadedAt, e.reloading, e.warned, e.exceeded = start, 0, time.Time{}, false, false, false
 	}
 	if e.loadedAt.IsZero() {
+		e.mu.Unlock()
 		qctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sourceTimeout)
 		spent, err := l.source.Spend(qctx, s.Kind, s.ID, start)
 		cancel()
+		e.mu.Lock()
+		if !e.periodStart.Equal(start) || !e.loadedAt.IsZero() {
+			return // rolled, or summed by a concurrent first sight, meanwhile
+		}
 		if err != nil {
 			// A budget is a spending cap, and a store that cannot be summed is
 			// also one that records nothing to sum: the subject is admitted at
@@ -209,7 +210,13 @@ func (l *Limiter) refresh(ctx context.Context, s *Subject, e *entry, now time.Ti
 			debuglog.Warn(logComponent+": could not sum spend, admitting unmetered until the next read",
 				"kind", s.Kind, "name", s.Name, "error", err)
 		}
-		e.spent, e.loadedAt = spent, now
+		// A subject found already past a threshold when this process first
+		// sums it (a restart inside the period, or the dashboard asking before
+		// the first request) was reported by the process that watched it
+		// cross; it is not reported again.
+		e.spent, e.loadedAt, e.judged = spent, now, s.Budget
+		e.warned = spent >= warnFraction*s.Budget.USD
+		e.exceeded = spent >= s.Budget.USD
 		return
 	}
 	if now.Sub(e.loadedAt) < refreshInterval || e.reloading {
@@ -218,13 +225,18 @@ func (l *Limiter) refresh(ctx context.Context, s *Subject, e *entry, now time.Ti
 	e.reloading = true
 	// #nosec G118 -- intentional: the reload outlives the request that noticed
 	// the figure was stale; it serves every later request for the subject.
-	go l.reload(s, e, start, now)
+	go l.reload(s, e, start)
 }
 
 // reload sums the subject again and replaces the cached figure, unless the
 // period rolled meanwhile (the roll starts a fresh sum of its own). A failed
-// read keeps the last known figure for another interval.
-func (l *Limiter) reload(s *Subject, e *entry, start, at time.Time) {
+// read keeps the last known figure for another interval; either way the
+// figure dates from when the read landed. Charges that land
+// while the read is in flight are folded into the old figure and then
+// replaced by the sum, which holds their rows if they were written before
+// the read's snapshot and otherwise catches them next interval: the window
+// is one query long and the miss is an undercount, the safe direction.
+func (l *Limiter) reload(s *Subject, e *entry, start time.Time) {
 	qctx, cancel := context.WithTimeout(context.Background(), sourceTimeout)
 	spent, err := l.source.Spend(qctx, s.Kind, s.ID, start)
 	cancel()
@@ -240,7 +252,7 @@ func (l *Limiter) reload(s *Subject, e *entry, start, at time.Time) {
 	} else {
 		e.spent = spent
 	}
-	e.loadedAt = at
+	e.loadedAt = l.now()
 }
 
 // Charge adds a priced request to the key's and the owner's period spend so

@@ -76,9 +76,10 @@ const VirtualKeyAllowedProvidersKey contextKey = "virtual_key_allowed_providers"
 // rate-limit middlewares derive the shared "user:<uuid>" bucket key from it so
 // one user's traffic aggregates across every surface and key they use, and the
 // proxy stamps it on request lifecycle SSE events so a non-admin's live log feed
-// can be scoped to their own activity. On surfaces with no virtual key it is
-// also persisted to request_logs.owner_user_id, the only owner a keyless row can
-// have.
+// can be scoped to their own activity. It is also persisted to
+// request_logs.owner_user_id, on keyless and keyed rows alike: the log views
+// resolve a keyed row through its key's current owner, while a user's dollar
+// budget sums the stamp.
 //
 // Written by the same two middlewares as UserAllowedProvidersKey below: the
 // proxy's ProxyKeyMiddleware (from the virtual key's OWNER, absent when the key

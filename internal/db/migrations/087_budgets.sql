@@ -21,15 +21,3 @@ ALTER TABLE users ADD CONSTRAINT users_budget_check CHECK (
     AND (budget_usd IS NULL OR (budget_usd > 0 AND budget_usd <= 10000000))
     AND (budget_period IS NULL OR budget_period IN ('day', 'week', 'month'))
 );
-
--- A user's spend is summed by request_logs.owner_user_id alone, so that
--- reassigning or deleting a key leaves what was spent with whoever spent it.
--- Keyed rows carried no owner until now (the log views resolve them through
--- the key's current owner, and still do); stamp the current owner onto the
--- history once so the first period after the upgrade is not undercounted.
-UPDATE request_logs rl
-SET owner_user_id = vk.owner_user_id
-FROM virtual_keys vk
-WHERE rl.virtual_key_id = vk.id
-  AND rl.owner_user_id IS NULL
-  AND vk.owner_user_id IS NOT NULL;

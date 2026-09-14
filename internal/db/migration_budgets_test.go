@@ -8,13 +8,13 @@ import (
 	"github.com/google/uuid"
 )
 
-// TestBudgetsMigration pins the one data step in 087: a keyed request-log row
+// TestBudgetsMigration pins the data step in 088: a keyed request-log row
 // written before the upgrade carried no owner, and the migration stamps the
 // key's current owner onto it so a user's first budget period is not
 // undercounted. A row whose key has no owner, and one already stamped, are
-// left alone. The schema steps are idempotent, so the file re-runs cleanly.
+// left alone. The index steps are idempotent, so the file re-runs cleanly.
 func TestBudgetsMigration(t *testing.T) {
-	b, err := fs.ReadFile(embeddedMigrations, "migrations/087_budgets.sql")
+	b, err := fs.ReadFile(embeddedMigrations, "migrations/088_request_log_owner_stamp.sql")
 	if err != nil {
 		t.Fatalf("read migration: %v", err)
 	}

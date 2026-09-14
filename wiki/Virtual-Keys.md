@@ -512,7 +512,7 @@ A key can carry a spending cap in dollars, and so can a user account. The pair
 UTC; a week runs Monday to Sunday) is set on key creation and update, on the
 account through the Users page, and by config sync. Both fields travel
 together: a budget without a period, or a period without a budget, is refused
-with `400`, and so is an amount that is not above zero or above 10,000,000.
+with `400`, and so is an amount at or below zero, or above 10,000,000.
 
 **What counts.** Spend is the sum of `cost_usd` over the period's request logs,
 the same figure the Dashboard's `$` view and the request log's Cost column

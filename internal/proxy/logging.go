@@ -372,10 +372,12 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)
 	} else if rows == 0 {
 		debuglog.Warn("proxy: updateRequestLog no rows affected", "request_id", logEntry.id)
-	} else if c, ok := logEntry.terminalCost(); ok {
+	} else if c, ok := logEntry.terminalCost(); ok && !logEntry.charged {
 		// Charged once, after the row it is the price of has landed: the repair
-		// path above runs the update twice, and a write that failed is not a
-		// row the budget can sum.
+		// path above runs the update twice, a write that failed is not a row
+		// the budget can sum, and the flag holds against a second terminal
+		// write for the same request.
+		logEntry.charged = true
 		h.budgetLimiter.Charge(logEntry.virtualKeyID, logEntry.ownerUserID, c)
 	}
 

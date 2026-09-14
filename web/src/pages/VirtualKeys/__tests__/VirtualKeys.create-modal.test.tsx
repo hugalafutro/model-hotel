@@ -267,6 +267,25 @@ describe("VirtualKeys", () => {
 				budget_usd: 25.5,
 				budget_period: "week",
 			});
+
+			// A second key with the amount left empty sends the pair as nulls,
+			// whatever the period select holds.
+			await user.click(screen.getByRole("button", { name: "Done" }));
+			await user.click(screen.getByRole("button", { name: "Create Key" }));
+			const again = await screen.findByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+			await user.type(within(again).getByLabelText("Name"), "Plain Key");
+			await user.click(
+				within(again).getByRole("button", { name: "Create Key" }),
+			);
+			await waitFor(() => {
+				expect(bodies).toHaveLength(2);
+			});
+			expect(bodies[1]).toMatchObject({
+				budget_usd: null,
+				budget_period: null,
+			});
 		});
 
 		it("shows key only once after creation with copy functionality", async () => {
