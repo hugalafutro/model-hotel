@@ -74,9 +74,6 @@ func (h *QuotaFleetHandler) ExportSnapshots(w http.ResponseWriter, r *http.Reque
 	}
 	provs, err := h.providerRepo.List(r.Context())
 	if err != nil {
-		if respondAbandoned(w, "snapshot push", err) {
-			return
-		}
 		respondError(w, "failed to list providers", err, http.StatusInternalServerError)
 		return
 	}
@@ -151,6 +148,9 @@ func (h *QuotaFleetHandler) ReceiveSnapshots(w http.ResponseWriter, r *http.Requ
 
 	provs, err := h.providerRepo.List(r.Context())
 	if err != nil {
+		if respondAbandoned(w, "snapshot push", err) {
+			return
+		}
 		respondError(w, "failed to list providers", err, http.StatusInternalServerError)
 		return
 	}
