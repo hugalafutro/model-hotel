@@ -1,0 +1,36 @@
+# Scrapes every Model Hotel member's /metrics. One scrape block per member,
+# because the bearer token is per block: put each member's METRICS_TOKEN (or,
+# until one is set, its admin token) in tokens/<member>, mode 0600. Every block
+# labels its targets job="model-hotel" (overriding the block's name) and tags
+# its member, so the dashboard's queries fit any fleet size unchanged. Members
+# are scraped by their public name so the file works from any host; a
+# Prometheus on the same Docker host as a member may target the container
+# instead (model-hotel-app-1:8080 on the model-hotel_default network, with
+# scheme: http and the compose network joined).
+global:
+  scrape_interval: 15s
+
+scrape_configs:
+  - job_name: mh1
+    scheme: https
+    metrics_path: /metrics
+    authorization:
+      type: Bearer
+      credentials_file: /etc/prometheus/tokens/mh1
+    static_configs:
+      - targets: ["model-hotel1.example.com"]
+        labels:
+          job: model-hotel
+          member: mh1
+  # Add one block per further member; the dashboard sums across them.
+  # - job_name: mh2
+  #   scheme: https
+  #   metrics_path: /metrics
+  #   authorization:
+  #     type: Bearer
+  #     credentials_file: /etc/prometheus/tokens/mh2
+  #   static_configs:
+  #     - targets: ["model-hotel2.example.com"]
+  #       labels:
+  #         job: model-hotel
+  #         member: mh2

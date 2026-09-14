@@ -519,7 +519,9 @@ latency and TTFT histograms, token counters, a dollar spend counter per provider
 class, circuit-breaker opens by cause and state, failover exhaustion by reason, plus Go runtime
 metrics; see the wiki's Failover page for the failover series). It is authenticated - set a dedicated `METRICS_TOKEN` so your
 scrape config need not carry the admin token (the admin token also works). No prompt content is
-ever exposed.
+ever exposed. `deploy/observability/` ships a Prometheus + Grafana compose stack with a provisioned
+fleet dashboard (traffic, latency, tokens, spend, breakers); see the wiki's
+[Observability](https://github.com/hugalafutro/model-hotel/wiki/Observability) page.
 
 ```yaml
 # prometheus.yml
@@ -529,6 +531,8 @@ scrape_configs:
       credentials: "${METRICS_TOKEN}"
     static_configs:
       - targets: ["model-hotel:8080"]
+        labels:
+          member: mh1
 ```
 
 For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on stdout for
