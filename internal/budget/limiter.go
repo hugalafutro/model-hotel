@@ -185,7 +185,9 @@ func (l *Limiter) Spent(ctx context.Context, s *Subject) float64 {
 // while one background reload replaces it, so a slow store never holds the
 // request path. Called with e.mu held; the first-sight read releases it for
 // the length of the query so a charge for the subject is not held behind
-// the store, and takes it back before it writes.
+// the store (such a charge is dropped, since the sum in flight may or may
+// not hold its row: an undercount of at most one interval, the safe
+// direction), and takes it back before it writes.
 func (l *Limiter) refresh(ctx context.Context, s *Subject, e *entry, now time.Time) {
 	start := PeriodStart(s.Budget.Period, now)
 	if !e.periodStart.Equal(start) {
@@ -194,11 +196,7 @@ func (l *Limiter) refresh(ctx context.Context, s *Subject, e *entry, now time.Ti
 		e.periodStart, e.spent, e.loadedAt, e.reloading, e.warned, e.exceeded = start, 0, time.Time{}, false, false, false
 	}
 	if e.loadedAt.IsZero() {
-		e.mu.Unlock()
-		qctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sourceTimeout)
-		spent, err := l.source.Spend(qctx, s.Kind, s.ID, start)
-		cancel()
-		e.mu.Lock()
+		spent, err := l.readUnlocked(ctx, s, e, start)
 		if !e.periodStart.Equal(start) || !e.loadedAt.IsZero() {
 			return // rolled, or summed by a concurrent first sight, meanwhile
 		}
@@ -226,6 +224,17 @@ func (l *Limiter) refresh(ctx context.Context, s *Subject, e *entry, now time.Ti
 	// #nosec G118 -- intentional: the reload outlives the request that noticed
 	// the figure was stale; it serves every later request for the subject.
 	go l.reload(s, e, start)
+}
+
+// readUnlocked sums the subject with e.mu released for the length of the
+// query and taken again before it returns, on a panic too, so the callers'
+// deferred unlocks stay paired.
+func (l *Limiter) readUnlocked(ctx context.Context, s *Subject, e *entry, start time.Time) (float64, error) {
+	e.mu.Unlock()
+	defer e.mu.Lock()
+	qctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), sourceTimeout)
+	defer cancel()
+	return l.source.Spend(qctx, s.Kind, s.ID, start)
 }
 
 // reload sums the subject again and replaces the cached figure, unless the

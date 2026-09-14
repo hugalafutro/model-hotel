@@ -19,10 +19,14 @@ WHERE rl.virtual_key_id = vk.id
 -- 2. The spend sums are range reads (one subject, this period). The two
 --    single-column partial indexes from 067 and 074 answered a membership
 --    test; each becomes a (subject, created_at) index so a sum reads the
---    period's rows and no more. Same partial predicates, same writers.
-DROP INDEX IF EXISTS idx_request_logs_owner;
+--    period's rows and no more. The owner index keeps 067's partial clause
+--    but no longer covers a minority: with the stamp on keyed rows it holds
+--    every owned row, which is what both the budget sum and the owner-scoped
+--    log views want. The new indexes are built before the old ones go, so
+--    the exclusive lock the drops take is held for the drops alone.
 CREATE INDEX IF NOT EXISTS idx_request_logs_owner_created
     ON request_logs (owner_user_id, created_at) WHERE owner_user_id IS NOT NULL;
-DROP INDEX IF EXISTS idx_request_logs_virtual_key_id;
 CREATE INDEX IF NOT EXISTS idx_request_logs_virtual_key_created
     ON request_logs (virtual_key_id, created_at) WHERE virtual_key_id IS NOT NULL;
+DROP INDEX IF EXISTS idx_request_logs_owner;
+DROP INDEX IF EXISTS idx_request_logs_virtual_key_id;

@@ -275,7 +275,7 @@ func (h *SystemHandler) GetSystem(w http.ResponseWriter, r *http.Request) {
 //     the payload collect. Without this a burst of pollers sharing an identity
 //     each issued their own COUNT, and the scoped predicate is DEARER than the
 //     unscoped one it replaced: a correlated subquery over virtual_keys, whose
-//     request_logs.virtual_key_id is deliberately unindexed (migration 067).
+//     request_logs.virtual_key_id carries a (key, created_at) index since 088.
 //   - Detached and bounded, for the reason collect states above: a caller that
 //     gives up early must not abort the query, or the entry is never cached and
 //     the next caller pays for the same seq-scan again. A cancelled query also
