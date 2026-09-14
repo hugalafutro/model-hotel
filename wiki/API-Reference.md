@@ -911,7 +911,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 | `rate_limit_rps` | number | No | Requests per second, 0 to 10000 (null = use global default) |
 | `rate_limit_burst` | integer | No | Burst capacity, 1 to 10000 (null = use global default) |
 | `rate_limit_tpm` | integer | No | Tokens-per-minute cap, 1 to 100000000 (null = no cap / global default). Counts prompt + completion (reasoning is part of completion); over-budget keys get `429 token rate limit exceeded` with `Retry-After` |
-| `budget_usd` | number | No | Dollar budget per calendar period, above 0 and at most 10000000; null = no budget. Must be sent together with `budget_period`. Once the period's priced spend reaches it, requests get `429 key budget exceeded` with `Retry-After` set to the period's end |
+| `budget_usd` | number | No | Dollar budget per calendar period, above 0 and at most 10000000; null = no budget. Must be sent together with `budget_period`. Once the period's priced spend reaches it, requests get `429 key budget exceeded` with `Retry-After` set to the period's end. On update, omitting both fields preserves the stored budget; sending both as null clears it |
 | `budget_period` | string | No | `day`, `week` (Monday to Sunday) or `month`, all UTC; null when `budget_usd` is null |
 | `allowed_providers` | array of UUID strings | No | Restrict this key to the listed provider IDs (null = all providers accessible; an empty array is rejected) |
 | `strip_reasoning` | boolean | No | Strip `reasoning`/`reasoning_content` fields from streaming output for this key |
@@ -935,7 +935,7 @@ This endpoint is **deliberately API only: there is no UI control for it, by deci
 }
 ```
 
-`budget_spent_usd` is the key's priced spend in the current period on the answering member; it is present only when the key has a budget. User accounts (`/api/users`) take and return the same `budget_usd` + `budget_period` pair.
+`budget_spent_usd` is the key's priced spend in the current period on the answering member; it is absent when the key has no budget, and also while the period's spend could not be summed yet (the proxy then refuses the key's requests with `503` until the store answers). User accounts (`/api/users`) take and return the same `budget_usd` + `budget_period` pair.
 
 > ⚠️ **Important:** The full key is shown only once at creation time and cannot be retrieved later.
 

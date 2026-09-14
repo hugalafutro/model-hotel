@@ -3314,6 +3314,7 @@
 			"day": "ma",
 			"week": "ezen a héten",
 			"month": "ebben a hónapban"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, a költés még nincs összesítve"
 	}
 }

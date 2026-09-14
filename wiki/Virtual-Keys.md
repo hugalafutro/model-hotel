@@ -532,7 +532,20 @@ and a `Retry-After` set to the seconds left in the period. The request that
 crosses the line is served, since its cost is known only once the provider
 reports usage. Both budgets apply when a key is owned: the key's own, then the
 account's. The account budget also covers the owner's dashboard chat, which has
-no key.
+no key. A budgeted subject whose period has not been summed yet because the
+database did not answer is refused with `503` (`Retry-After: 5`) rather than
+admitted blind; once a period has been summed, a later failed refresh serves
+the last known figure.
+
+**What a request costs.** The row is priced by what the provider billed: its
+reported usage, or, when it reported none (some streams end without a usage
+chunk), the same estimate from the delivered bytes that charges the token
+limits. The row's token columns keep the provider's figures either way.
+
+**Editing.** A key or account update that does not mention the budget keeps
+it: an integration written before budgets existed cannot drop a spending
+guard by resubmitting the fields it knows. Sending both fields as `null`
+clears it.
 
 **Where it is counted.** Per member, like the token limits: each Model Hotel
 sums its own request logs, caches the figure for a minute and adds each priced

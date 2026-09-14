@@ -154,6 +154,33 @@ func TestInsertRequestLogAsync_EmptyVirtualKeyID(t *testing.T) {
 	// No panic = pass
 }
 
+// TestInsertRequestLogAsync_VanishedOwnerKeepsTheRow pins that a row whose
+// owner was deleted between the request's auth and the asynchronous insert
+// still lands, unowned, rather than failing its foreign key and vanishing
+// with the request's cost and audit trail.
+func TestInsertRequestLogAsync_VanishedOwnerKeepsTheRow(t *testing.T) {
+	h := newIntegrationHandler()
+	pool := testDB.Pool()
+	ctx := context.Background()
+	logEntry := &requestLogData{
+		modelID:        uuid.NewString(),
+		virtualKeyName: "gone-owner-key",
+		virtualKeyID:   uuid.NewString(),
+		ownerUserID:    uuid.NewString(), // no such user
+		state:          "pending",
+	}
+	h.insertRequestLogAsync(logEntry)
+	h.WaitForInsert(logEntry)
+	t.Cleanup(func() { _, _ = pool.Exec(context.Background(), `DELETE FROM request_logs WHERE id = $1`, logEntry.id) })
+	var owner *string
+	if err := pool.QueryRow(ctx, `SELECT owner_user_id::text FROM request_logs WHERE id = $1`, logEntry.id).Scan(&owner); err != nil {
+		t.Fatalf("the row must exist without its owner: %v", err)
+	}
+	if owner != nil {
+		t.Errorf("owner_user_id = %q, want NULL", *owner)
+	}
+}
+
 // TestInsertRequestLogAsync_OwnerStoredOnEveryOwnedRow pins the request-time
 // owner stamp: a keyless row (dashboard chat/arena) carries it because it has
 // no virtual key to resolve one through, and a keyed row carries it because a

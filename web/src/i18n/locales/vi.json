@@ -3314,6 +3314,7 @@
 			"day": "hôm nay",
 			"week": "tuần này",
 			"month": "tháng này"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, chi tiêu chưa được tổng hợp"
 	}
 }

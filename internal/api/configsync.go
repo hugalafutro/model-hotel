@@ -61,7 +61,13 @@ const (
 	// is SQL NULL and reads as every provider, landing a restricted key wide open.
 	// Refusing the envelope outright is the only defence, and
 	// configsync_import.go does it with 422 + SchemaVersionOK: false.
-	configSchemaVersion = 2
+	//
+	// v3 adds budget_usd and budget_period to virtual keys and users. The
+	// import writes every field, so a v2 envelope (a primary that has not been
+	// upgraded) would land NULL budgets on every upgraded member: a spending
+	// guard silently removed by a sync. The bump refuses that envelope until
+	// the primary is upgraded too.
+	configSchemaVersion = 3
 
 	// maxConfigImportBody bounds an import payload. Fleet config is small (a
 	// handful of providers + keys); 8 MiB is generous and caps a hostile body.

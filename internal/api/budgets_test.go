@@ -127,7 +127,16 @@ func TestVirtualKeysAPI_BudgetFields(t *testing.T) {
 		t.Errorf("list budget_spent_usd = %v, want 3.25", list[0]["budget_spent_usd"])
 	}
 
-	// Update with nulls clears the budget; the spend field goes with it.
+	// An update that never mentions the budget keeps it (a caller that
+	// predates the field must not drop a spending guard); an explicit null
+	// pair clears it, and the spend field goes with it.
+	w = doJSON(t, router, http.MethodPut, "/virtual-keys/"+created.ID, envAdminToken, `{"name":"k-budget-renamed"}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("rename: %d %s", w.Code, w.Body.String())
+	}
+	if kept := decodeVK(t, w.Body.Bytes()); kept.BudgetUSD == nil || *kept.BudgetUSD != 25 || kept.BudgetPeriod == nil || *kept.BudgetPeriod != "month" {
+		t.Errorf("an omitted budget must be preserved: %+v", kept)
+	}
 	w = doJSON(t, router, http.MethodPut, "/virtual-keys/"+created.ID, envAdminToken, `{"name":"k-budget","budget_usd":null,"budget_period":null}`)
 	if w.Code != http.StatusOK {
 		t.Fatalf("update: %d %s", w.Code, w.Body.String())
@@ -168,6 +177,9 @@ func TestUsersAPI_BudgetFields(t *testing.T) {
 	if created.BudgetUSD == nil || *created.BudgetUSD != 12.5 || created.BudgetPeriod == nil || *created.BudgetPeriod != "week" {
 		t.Fatalf("budget not persisted: %+v", created)
 	}
+	// An update that never mentions the budget keeps it: a caller that
+	// predates the field must not drop a spending guard. An explicit null
+	// pair clears it.
 	w = doJSON(t, router, http.MethodPut, "/users/"+created.ID.String(), envAdminToken,
 		`{"username":"budgeted","role":"user","grants":[],"enabled":true}`)
 	if w.Code != http.StatusOK {
@@ -177,8 +189,19 @@ func TestUsersAPI_BudgetFields(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil {
 		t.Fatalf("decode: %v", err)
 	}
+	if updated.BudgetUSD == nil || *updated.BudgetUSD != 12.5 || updated.BudgetPeriod == nil || *updated.BudgetPeriod != "week" {
+		t.Errorf("an omitted budget must be preserved: %+v", updated)
+	}
+	w = doJSON(t, router, http.MethodPut, "/users/"+created.ID.String(), envAdminToken,
+		`{"username":"budgeted","role":"user","grants":[],"enabled":true,"budget_usd":null,"budget_period":null}`)
+	if w.Code != http.StatusOK {
+		t.Fatalf("clear: %d %s", w.Code, w.Body.String())
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &updated); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
 	if updated.BudgetUSD != nil || updated.BudgetPeriod != nil {
-		t.Errorf("an omitted budget must clear like the rate limits: %+v", updated)
+		t.Errorf("an explicit null pair must clear the budget: %+v", updated)
 	}
 	w = doJSON(t, router, http.MethodPut, "/users/"+created.ID.String(), envAdminToken,
 		`{"username":"budgeted","role":"user","grants":[],"enabled":true,"budget_usd":-1,"budget_period":"day"}`)

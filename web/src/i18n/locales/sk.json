@@ -3450,6 +3450,7 @@
 			"day": "dnes",
 			"week": "tento týždeň",
 			"month": "tento mesiac"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, výdavky zatiaľ nespočítané"
 	}
 }

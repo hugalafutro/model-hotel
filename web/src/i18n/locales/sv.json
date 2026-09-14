@@ -3314,6 +3314,7 @@
 			"day": "i dag",
 			"week": "den här veckan",
 			"month": "den här månaden"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, förbrukning ännu inte summerad"
 	}
 }

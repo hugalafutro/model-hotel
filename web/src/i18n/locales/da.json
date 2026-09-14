@@ -3314,6 +3314,7 @@
 			"day": "i dag",
 			"week": "denne uge",
 			"month": "denne måned"
-		}
+		},
+		"spentUnknown": "{{budget}} {{period}}, forbrug endnu ikke opgjort"
 	}
 }

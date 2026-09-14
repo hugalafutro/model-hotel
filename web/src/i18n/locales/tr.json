@@ -3314,6 +3314,7 @@
 			"day": "bugün",
 			"week": "bu hafta",
 			"month": "bu ay"
-		}
+		},
+		"spentUnknown": "{{period}} {{budget}}, harcama henüz toplanmadı"
 	}
 }

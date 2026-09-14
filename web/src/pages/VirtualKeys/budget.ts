@@ -11,8 +11,16 @@ export function budgetText(
 	vk: Pick<VirtualKey, "budget_usd" | "budget_period" | "budget_spent_usd">,
 ): string {
 	if (vk.budget_usd == null) return t("budget.none");
+	if (vk.budget_spent_usd == null) {
+		// The member could not sum the period yet (its store did not answer);
+		// the proxy refuses the subject's requests until it can.
+		return t("budget.spentUnknown", {
+			budget: formatSpend(vk.budget_usd),
+			period: t(`budget.periodNow.${vk.budget_period ?? "month"}`),
+		});
+	}
 	return t("budget.spent", {
-		spent: formatSpend(vk.budget_spent_usd ?? 0),
+		spent: formatSpend(vk.budget_spent_usd),
 		budget: formatSpend(vk.budget_usd),
 		period: t(`budget.periodNow.${vk.budget_period ?? "month"}`),
 	});

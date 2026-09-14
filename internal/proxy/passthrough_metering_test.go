@@ -477,6 +477,11 @@ func TestMultipartPassthrough_NoPromptFieldStillMeters(t *testing.T) {
 	if logData.tokensPrompt != 0 {
 		t.Errorf("request log prompt = %d, want 0: a floor is not measured usage", logData.tokensPrompt)
 	}
+	// The floor does price the row, though: the charge ran before the terminal
+	// write, so a budget sees what the provider billed and did not count.
+	if logData.estimatedPrompt != 1 {
+		t.Errorf("estimatedPrompt = %d, want 1: the floor must reach the row's price", logData.estimatedPrompt)
+	}
 }
 
 // TestMultipartPassthrough_FloorDoesNotDisplaceRealFigures keeps the floor from

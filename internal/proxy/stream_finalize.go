@@ -318,6 +318,13 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 		logData.noteBreaker(breakerSuccess)
 		h.circuitBreaker.RecordSuccess(opts.providerID, opts.providerName, opts.model)
 	}
+	// The estimate applies on failed streams too (an SSE error after some
+	// output, a truncation): the provider billed whatever was produced before
+	// the failure. The non-streaming path meters only a decoded 2xx, which is
+	// the same rule, since nothing was produced for the client otherwise. It
+	// runs before the terminal write so the row is priced by what the
+	// provider billed, not by the usage it left out.
+	promptTokens, completionTokens, reasoningTokens := estimateMissingUsage(st.promptTokens, st.completionTokens, st.reasoningTokens, logData, st.deliveredBytes)
 	h.updateRequestLog(logData)
 
 	debuglog.Info("proxy: streaming finished", "model", logData.modelID, "provider", logData.providerName, "attempt", opts.attempt, "response_header_ms", opts.responseHeaderMs, "true_ttft_ms", opts.trueTtftMs, "duration_ms", totalDuration, "chunks", st.chunkCount, "bytes_written", sink.bytesWritten, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens, "error_chunks", st.errorChunkCount, "has_error", errMsg != "")
@@ -338,11 +345,6 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	if st.clientDisconnected && (st.promptTokens > 0 || st.completionTokens > 0) {
 		debuglog.Info("proxy: recording token usage despite client disconnect", "model", logData.modelID, "provider", logData.providerName, "prompt_tokens", st.promptTokens, "completion_tokens", st.completionTokens)
 	}
-	// The estimate applies on failed streams too (an SSE error after some
-	// output, a truncation): the provider billed whatever was produced before
-	// the failure. The non-streaming path meters only a decoded 2xx, which is
-	// the same rule, since nothing was produced for the client otherwise.
-	promptTokens, completionTokens, reasoningTokens := estimateMissingUsage(st.promptTokens, st.completionTokens, st.reasoningTokens, logData, st.deliveredBytes)
 	h.recordTokenUsage(opts.vkHash, logData, promptTokens, completionTokens, reasoningTokens)
 }
 

@@ -3314,6 +3314,7 @@
 			"day": "今天",
 			"week": "本周",
 			"month": "本月"
-		}
+		},
+		"spentUnknown": "{{period}}预算 {{budget}}，支出尚未汇总"
 	}
 }
