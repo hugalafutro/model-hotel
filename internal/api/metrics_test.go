@@ -248,14 +248,20 @@ func TestCollectQuotaWindows_SkipsUnconfirmedAndForeignKinds(t *testing.T) {
 // TestCollectBreakerStates_UntouchedEnabledProvidersReadClosed: the breaker
 // tracks a provider only once a request has routed to it, and an untracked
 // provider is served like a closed one, so the gauge must say closed for it
-// rather than leave the lane blank; a disabled provider stays off the gauge.
+// rather than leave the lane blank; a disabled or deleted provider stays off
+// the gauge even while the breaker still holds its circuit.
 func TestCollectBreakerStates_UntouchedEnabledProvidersReadClosed(t *testing.T) {
 	h := newTestHandler(t)
 	touched := insertQuotaPollProvider(t, h.dbPool.Pool(), "touched", "https://api.example.com", true)
 	untouched := insertQuotaPollProvider(t, h.dbPool.Pool(), "untouched", "https://api.example.com", true)
-	insertQuotaPollProvider(t, h.dbPool.Pool(), "switched-off", "https://api.example.com", false)
+	off := insertQuotaPollProvider(t, h.dbPool.Pool(), "switched-off", "https://api.example.com", false)
+	// The disabled provider still holds an open circuit: the breaker keeps it
+	// until a reset, but the provider is off the routing pool. The deleted one
+	// has no row at all.
 	h.circuitBreaker = fakeBreakerReader{statuses: []failover.ProviderStatus{
 		{ProviderID: touched.String(), ProviderName: "touched", State: "open"},
+		{ProviderID: off.String(), ProviderName: "switched-off", State: "open"},
+		{ProviderID: uuid.NewString(), ProviderName: "deleted", State: "open"},
 	}}
 
 	got := h.collectBreakerStates()
@@ -271,7 +277,7 @@ func TestCollectBreakerStates_UntouchedEnabledProvidersReadClosed(t *testing.T) 
 		t.Errorf("untouched: got %+v, want closed under its own name", s)
 	}
 	if len(got) != 2 {
-		t.Errorf("got %d states, want exactly the two enabled providers: %+v", len(got), got)
+		t.Errorf("got %d states, want exactly the two enabled providers (the disabled and deleted circuits stay off): %+v", len(got), got)
 	}
 }
 

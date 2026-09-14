@@ -7,7 +7,6 @@
 package metrics
 
 import (
-	"math"
 	"net/http"
 	"sync"
 	"time"
@@ -380,9 +379,11 @@ const (
 	quotaResetHorizon = 10 * 365 * 24 * time.Hour
 )
 
-// reportableQuotaUsed reports whether a share is fit for the gauge.
+// reportableQuotaUsed reports whether a share is fit for the gauge. The two
+// comparisons are false for NaN and reject both infinities, so nothing more
+// is needed.
 func reportableQuotaUsed(used float64) bool {
-	return !math.IsNaN(used) && !math.IsInf(used, 0) && used >= 0 && used <= quotaUsedCeiling
+	return used >= 0 && used <= quotaUsedCeiling
 }
 
 // reportableQuotaReset reports whether a reset is fit for the gauge: dated,

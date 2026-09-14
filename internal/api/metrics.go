@@ -34,34 +34,45 @@ func (h *Handler) MetricsHandler() http.Handler {
 // untracked provider is served exactly like a closed one, so the gauge says
 // closed for it rather than nothing: a lane that is blank after a restart
 // would otherwise read as a state of its own. Disabled providers stay off the
-// gauge, as they are off the routing pool. The provider list is read under the
-// same timeout as the quota gauges; when it cannot be read, the tracked
-// circuits alone are reported.
+// gauge, as they are off the routing pool, even while the breaker still holds
+// a circuit for them, and so does a deleted one. The provider list is read
+// under the same timeout as the quota gauges; when it cannot be read, the
+// tracked circuits alone are reported, whatever their provider's state.
 func (h *Handler) collectBreakerStates() []metrics.BreakerState {
 	statuses := h.circuitBreaker.Status()
-	out := make([]metrics.BreakerState, 0, len(statuses))
-	seen := make(map[string]struct{}, len(statuses))
+	tracked := make(map[string]metrics.BreakerState, len(statuses))
 	for _, s := range statuses {
-		seen[s.ProviderID] = struct{}{}
-		out = append(out, metrics.BreakerState{
+		tracked[s.ProviderID] = metrics.BreakerState{
 			ProviderID:   s.ProviderID,
 			ProviderName: s.ProviderName,
 			State:        breakerStateCode(s.State),
-		})
+		}
+	}
+	trackedOnly := func() []metrics.BreakerState {
+		out := make([]metrics.BreakerState, 0, len(statuses))
+		for _, s := range statuses {
+			out = append(out, tracked[s.ProviderID])
+		}
+		return out
 	}
 	if h.providerRepo == nil {
-		return out
+		return trackedOnly()
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), quotaScrapeTimeout)
 	defer cancel()
 	providers, err := h.providerRepo.List(ctx)
 	if err != nil {
-		debuglog.Debug("metrics: untouched providers left off the breaker gauge, provider list failed", "error", err)
-		return out
+		debuglog.Debug("metrics: breaker gauge reporting tracked circuits only, provider list failed", "error", err)
+		return trackedOnly()
 	}
+	out := make([]metrics.BreakerState, 0, len(providers))
 	for _, p := range providers {
+		if !p.Enabled {
+			continue
+		}
 		id := p.ID.String()
-		if _, tracked := seen[id]; tracked || !p.Enabled {
+		if s, ok := tracked[id]; ok {
+			out = append(out, s)
 			continue
 		}
 		out = append(out, metrics.BreakerState{ProviderID: id, ProviderName: p.Name, State: metrics.BreakerClosed})
@@ -69,7 +80,8 @@ func (h *Handler) collectBreakerStates() []metrics.BreakerState {
 	return out
 }
 
-// quotaScrapeTimeout bounds the two reads a scrape makes for the quota gauges.
+// quotaScrapeTimeout bounds each read a scrape makes for the breaker and quota
+// gauges: a provider list for each and the snapshot list, three in all.
 // A scrape that waits on a slow database would hold Prometheus past its own
 // deadline and fail the whole page, breaker gauge included, so the quota
 // series drop out for that scrape instead.

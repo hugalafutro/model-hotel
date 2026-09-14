@@ -518,7 +518,8 @@ with `400`, and so is an amount at or below zero, or above 10,000,000.
 owner through the `virtual_keys` grant, who can raise, lower or clear it on their own
 keys and mint keys without one. It is a self-service cap, not a limit the owner cannot
 cross. The durable cap on a user is the account budget, which only an admin sets; it sums
-every key the user owns, so a cleared key budget still spends against it.
+every request stamped to the user, whichever key wrote it, so a cleared key budget still
+spends against it.
 
 **What counts.** Spend is the sum of `cost_usd` over the period's request logs,
 the same figure the Dashboard's `$` view and the request log's Cost column
