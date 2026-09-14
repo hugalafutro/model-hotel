@@ -1641,7 +1641,7 @@
       "type": "state-timeline",
       "id": 24,
       "title": "Breaker state by provider",
-      "description": "Circuit-breaker state per provider, the worst state any member reports for it: closed (green) is serving, half-open (orange) is probing after a cooldown, open (red) is refused traffic until the cooldown or quota pin ends. A lane that stays open across a scrape interval is a provider the fleet is routing around.",
+      "description": "Circuit-breaker state per enabled provider, the worst state any member reports for it: closed (green) is serving, half-open (orange) is probing after a cooldown, open (red) is refused traffic until the cooldown or quota pin ends. A provider nothing has routed to yet reads closed, since it is served as one; a blank stretch is a provider that was disabled or did not exist then. A lane that stays open across a scrape interval is a provider the fleet is routing around.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"

@@ -294,7 +294,7 @@ type breakerCollector struct {
 
 var breakerDesc = prometheus.NewDesc(
 	"modelhotel_circuit_breaker_state",
-	"Circuit breaker state per provider (0 closed, 1 half-open, 2 open). provider is the operator's name, as the other series carry it; provider_id is the row's id, stable across a rename.",
+	"Circuit breaker state per enabled provider (0 closed, 1 half-open, 2 open). A provider the breaker has not routed to yet reads closed, since it is served as one. provider is the operator's name, as the other series carry it; provider_id is the row's id, stable across a rename.",
 	[]string{"provider_id", "provider"}, nil,
 )
 
