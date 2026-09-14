@@ -110,6 +110,10 @@ type CircuitBreaker struct {
 	// circuits holds every provider's model circuits, keyed by provider UUID
 	// string and then by resolved upstream model id.
 	circuits map[string]modelCircuits
+	// names is the operator's name for each provider id the breaker has seen,
+	// as the request path last reported it, so a status row can carry the
+	// name without a store read. Guarded by mu with circuits.
+	names map[string]string
 
 	// settings provides runtime-configurable threshold and cooldown.
 	settings SettingsReader
@@ -155,6 +159,7 @@ type CircuitBreaker struct {
 func NewCircuitBreaker(settings SettingsReader) *CircuitBreaker {
 	return &CircuitBreaker{
 		circuits:          make(map[string]modelCircuits),
+		names:             make(map[string]string),
 		settings:          settings,
 		Threshold:         5,
 		SpanModels:        defaultSpanModels,
@@ -292,6 +297,7 @@ func (cb *CircuitBreaker) recordFailure(providerID uuid.UUID, providerName, mode
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
 
+	cb.names[providerID.String()] = providerName
 	c := cb.getOrCreate(providerID.String(), model)
 	c.lastCharged = time.Now()
 	// Stamped before the switch so an open transition logs and publishes the
@@ -566,6 +572,7 @@ func (cb *CircuitBreaker) RecordAlive(providerID uuid.UUID, providerName, model 
 
 func (cb *CircuitBreaker) recordSuccess(providerID uuid.UUID, providerName, model string, served bool, cause Cause) {
 	cb.mu.Lock()
+	cb.names[providerID.String()] = providerName
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
 
@@ -639,6 +646,7 @@ func (cb *CircuitBreaker) status(detail bool) []ProviderStatus {
 		providerOpen, openModels, quotaPinned := cb.providerReport(models, r)
 		s := ProviderStatus{
 			ProviderID:       id,
+			ProviderName:     cb.names[id],
 			State:            state.String(),
 			ConsecutiveFails: c.consecutiveFails,
 			QuotaPinned:      quotaPinned,

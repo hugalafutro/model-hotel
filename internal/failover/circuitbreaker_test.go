@@ -213,6 +213,32 @@ func TestCircuitBreaker_ResetAllCountsOnlyBlockingCircuitsAsRecovered(t *testing
 	}
 }
 
+// TestCircuitBreaker_StatusCarriesTheProviderName pins that a status row names
+// the provider as the request path last reported it, and forgets the name with
+// the provider's circuits on a reset, so the metrics gauge and the dashboard
+// show a name rather than an id.
+func TestCircuitBreaker_StatusCarriesTheProviderName(t *testing.T) {
+	cb := NewCircuitBreaker(nil)
+	id := uuid.New()
+	cb.RecordFailure(id, "Provider X", "m1", Cause{Status: 503})
+	cb.RecordSuccess(id, "Provider X renamed", "m1")
+	var got string
+	for _, s := range cb.Status() {
+		if s.ProviderID == id.String() {
+			got = s.ProviderName
+		}
+	}
+	if got != "Provider X renamed" {
+		t.Fatalf("ProviderName = %q, want the name the last record carried", got)
+	}
+	cb.Reset(id)
+	for _, s := range cb.Status() {
+		if s.ProviderID == id.String() {
+			t.Fatalf("a reset provider still reported: %+v", s)
+		}
+	}
+}
+
 func TestCircuitBreaker_Status(t *testing.T) {
 	cb := newTestCB(1, 30*time.Second)
 	pid := uuid.New()

@@ -39,6 +39,7 @@ func (cb *CircuitBreaker) resetProvider(providerID uuid.UUID) (State, []manualRe
 		resets = append(resets, manualReset{providerID.String(), model, cb.logicalStateWith(mc, r)})
 	}
 	delete(cb.circuits, providerID.String())
+	delete(cb.names, providerID.String())
 	return prev, resets
 }
 
@@ -71,6 +72,7 @@ func (cb *CircuitBreaker) resetModel(providerID uuid.UUID, model string) (State,
 	delete(models, model)
 	if len(models) == 0 {
 		delete(cb.circuits, providerID.String())
+		delete(cb.names, providerID.String())
 	}
 	return prev, true
 }
@@ -131,5 +133,6 @@ func (cb *CircuitBreaker) resetAll() (cleared, recovered int, resets []manualRes
 		}
 	}
 	cb.circuits = make(map[string]modelCircuits)
+	cb.names = make(map[string]string)
 	return cleared, recovered, resets
 }

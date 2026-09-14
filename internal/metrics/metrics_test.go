@@ -237,8 +237,8 @@ func TestBreakerCollector(t *testing.T) {
 	if !strings.Contains(out, `modelhotel_circuit_breaker_state{provider="Open Provider",provider_id="prov-open"} 2`) {
 		t.Errorf("missing open breaker gauge:\n%s", out)
 	}
-	// A state with no name (a provider row gone between snapshot and scrape)
-	// is labelled unknown, never dropped.
+	// A state with no name (a breaker that has not been told one) is labelled
+	// unknown, never dropped.
 	if !strings.Contains(out, `modelhotel_circuit_breaker_state{provider="unknown",provider_id="prov-closed"} 0`) {
 		t.Errorf("missing closed breaker gauge:\n%s", out)
 	}
