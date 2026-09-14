@@ -100,7 +100,7 @@ func TestRecordSaturated_RemembersWithoutCharging(t *testing.T) {
 	cb.RecordFailure(id, "p", "m", UpstreamStatus(503, ""))
 	cb.RecordFailure(id, "p", "m", UpstreamStatus(503, ""))
 
-	cb.RecordSaturated(id, "m")
+	cb.RecordSaturated(id, "prov", "m")
 
 	cause, status, _ := lastVerdict(t, cb, id, "m")
 	if cause != "upstream status 429 (saturated)" || status != 429 {
@@ -117,7 +117,7 @@ func TestRecordSaturated_RemembersWithoutCharging(t *testing.T) {
 	}
 	// And a fresh pair gets a circuit, so the verdict has somewhere to live.
 	other := uuid.New()
-	cb.RecordSaturated(other, "m")
+	cb.RecordSaturated(other, "other", "m")
 	if cause, _, _ := lastVerdict(t, cb, other, "m"); cause != "upstream status 429 (saturated)" {
 		t.Errorf("untracked pair after RecordSaturated: cause=%q", cause)
 	}

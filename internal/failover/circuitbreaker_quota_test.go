@@ -1025,7 +1025,7 @@ func TestQuotaPin_AccountProbeAnsweredSaturatedLeavesTheProviderOpen(t *testing.
 	if cb.IsOpen(id, "p", "o1") {
 		t.Fatal("interval elapsed: the refused model must let a probe through")
 	}
-	cb.RecordSaturated(id, "o1")
+	cb.RecordSaturated(id, "prov", "o1")
 	if cb.IsOpen(id, "p", "o1") || cb.IsOpen(id, "p", "gpt-4o") {
 		t.Error("a busy answer to the probe must not darken the provider")
 	}

@@ -237,6 +237,26 @@ func TestCircuitBreaker_StatusCarriesTheProviderName(t *testing.T) {
 			t.Fatalf("a reset provider still reported: %+v", s)
 		}
 	}
+	// The paths that open or hold a circuit on the first answer name it too:
+	// an exhaustion opens on its first event and a saturation creates the
+	// circuit without a charge, and both are what an operator looks up.
+	nameAfter := func(record func(cb *CircuitBreaker, id uuid.UUID)) string {
+		cb := NewCircuitBreaker(nil)
+		id := uuid.New()
+		record(cb, id)
+		for _, s := range cb.Status() {
+			if s.ProviderID == id.String() {
+				return s.ProviderName
+			}
+		}
+		return "<no row>"
+	}
+	if got := nameAfter(func(cb *CircuitBreaker, id uuid.UUID) { cb.RecordExhausted(id, "Quota Provider", "m1", 429, time.Hour) }); got != "Quota Provider" {
+		t.Errorf("name after an exhaustion = %q", got)
+	}
+	if got := nameAfter(func(cb *CircuitBreaker, id uuid.UUID) { cb.RecordSaturated(id, "Busy Provider", "m1") }); got != "Busy Provider" {
+		t.Errorf("name after a saturation = %q", got)
+	}
 }
 
 func TestCircuitBreaker_Status(t *testing.T) {

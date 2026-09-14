@@ -357,6 +357,7 @@ func (cb *CircuitBreaker) RecordExhaustedAccount(providerID uuid.UUID, providerN
 
 func (cb *CircuitBreaker) recordExhausted(providerID uuid.UUID, providerName, model string, status int, pinHint time.Duration, account bool) {
 	cb.mu.Lock()
+	cb.names[providerID.String()] = providerName
 	var after afterUnlock
 	defer func() { cb.mu.Unlock(); after.run() }()
 
@@ -403,8 +404,9 @@ func (cb *CircuitBreaker) recordExhausted(providerID uuid.UUID, providerName, mo
 // It does not touch lastCharged, so a circuit that exists only because of this
 // stamp ranks first for eviction, behind every circuit a charge or credit
 // reached.
-func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, model string) {
+func (cb *CircuitBreaker) RecordSaturated(providerID uuid.UUID, providerName, model string) {
 	cb.mu.Lock()
+	cb.names[providerID.String()] = providerName
 	defer cb.mu.Unlock()
 
 	cb.getOrCreate(providerID.String(), model).note(time.Now(), UpstreamStatus(429, causeSaturated))
