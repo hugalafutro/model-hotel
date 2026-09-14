@@ -26,16 +26,25 @@ var (
 		Help: "Total proxied requests by provider, model, status class, and error kind.",
 	}, []string{"provider", "model", "status_class", "error_kind"})
 
+	// A generation runs for tens of seconds to minutes, so the buckets reach the
+	// stall watchdog's range rather than stopping at the 10 s the Prometheus
+	// defaults end at, where histogram_quantile would clamp every quantile to
+	// 10 s once most requests take longer.
+	requestDurationBuckets = []float64{0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30, 60, 120, 180, 300, 600}
+	// First token lands within seconds when the provider is healthy and within
+	// a minute or two when it queues; the top bucket marks a stall.
+	ttftBuckets = []float64{0.05, 0.1, 0.25, 0.5, 1, 2, 5, 10, 20, 30, 60, 120}
+
 	requestDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "modelhotel_request_duration_seconds",
 		Help:    "End-to-end proxied request duration in seconds.",
-		Buckets: prometheus.DefBuckets,
+		Buckets: requestDurationBuckets,
 	}, []string{"provider", "model"})
 
 	ttftSeconds = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Name:    "modelhotel_ttft_seconds",
 		Help:    "Time to first token for streaming requests, in seconds.",
-		Buckets: prometheus.DefBuckets,
+		Buckets: ttftBuckets,
 	}, []string{"provider", "model"})
 
 	tokensTotal = prometheus.NewCounterVec(prometheus.CounterOpts{

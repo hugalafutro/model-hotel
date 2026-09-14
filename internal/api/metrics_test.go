@@ -202,3 +202,12 @@ func TestCollectQuotaWindows_ReadsStoredSnapshots(t *testing.T) {
 		}
 	}
 }
+
+// TestCollectQuotaWindows_NoReposReportsNothing: a handler wired without the
+// quota or provider repository (a test harness, a partial boot) must scrape
+// clean rather than panic on a nil repository.
+func TestCollectQuotaWindows_NoReposReportsNothing(t *testing.T) {
+	if got := (&Handler{}).collectQuotaWindows(); got != nil {
+		t.Errorf("got %+v, want nil", got)
+	}
+}

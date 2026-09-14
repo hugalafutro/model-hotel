@@ -270,6 +270,28 @@ func TestQuotaCollector(t *testing.T) {
 	}
 }
 
+func TestRegisterQuotaCollector_NilIsNoop(t *testing.T) {
+	RegisterQuotaCollector(nil)
+}
+
+// TestLatencyBucketsReachGenerationLengths pins the histogram range: a request
+// that runs for minutes must land in a finite bucket, or every quantile above
+// the median clamps to the top edge.
+func TestLatencyBucketsReachGenerationLengths(t *testing.T) {
+	Record(Observation{Provider: "p-long", Model: "m", StatusCode: 200, DurationSeconds: 150, TTFTSeconds: 45, Streaming: true})
+	out := scrape(t)
+	for _, want := range []string{
+		`modelhotel_request_duration_seconds_bucket{model="m",provider="p-long",le="180"} 1`,
+		`modelhotel_request_duration_seconds_bucket{model="m",provider="p-long",le="120"} 0`,
+		`modelhotel_ttft_seconds_bucket{model="m",provider="p-long",le="60"} 1`,
+		`modelhotel_ttft_seconds_bucket{model="m",provider="p-long",le="30"} 0`,
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("missing %s in:\n%s", want, out)
+		}
+	}
+}
+
 // TestLabelOrUnknown verifies the empty-label fallback used for the provider and
 // model metric labels: an empty value becomes "unknown" so a series is never
 // emitted with a blank label, while a real value passes through untouched.

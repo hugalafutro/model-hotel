@@ -5,6 +5,8 @@ import (
 	"math"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 func window(t *testing.T, ws []Window, name string) Window {
@@ -129,5 +131,50 @@ func TestWindows_UnknownTypeOrEmptyPayloadReportsNothing(t *testing.T) {
 	}
 	if got := Windows("zai-coding", Snapshot{Payload: []byte(`not json`)}); got != nil {
 		t.Errorf("garbage: got %+v", got)
+	}
+}
+
+func TestWindows_ZaiCoding_WeeklyNamedAndOtherUnitsSkipped(t *testing.T) {
+	payload := []byte(`{"data":{"limits":[
+		{"type":"TOKENS_LIMIT","unit":6,"percentage":50},
+		{"type":"TOKENS_LIMIT","unit":9,"percentage":50}]}}`)
+	ws := Windows("zai-coding", Snapshot{Payload: payload})
+	if len(ws) != 1 || ws[0].Name != "weekly" || !near(ws[0].Used, 0.5) || !ws[0].ResetsAt.IsZero() {
+		t.Errorf("got %+v, want one weekly window at 0.5 with no reset", ws)
+	}
+}
+
+func TestKimiWindowName(t *testing.T) {
+	for _, tc := range []struct {
+		dur  int
+		unit string
+		want string
+	}{
+		{300, "TIME_UNIT_MINUTE", "5h"},
+		{90, "MINUTE", "90m"},
+		{3, "TIME_UNIT_HOUR", "3h"},
+		{7, "DAY", "7d"},
+		{2, "WEEK", "2w"},
+		{4, "FORTNIGHT", "4 fortnight"},
+	} {
+		if got := kimiWindowName(provider.KimiCodeQuotaWindow{Duration: tc.dur, TimeUnit: tc.unit}); got != tc.want {
+			t.Errorf("%d %s: got %q, want %q", tc.dur, tc.unit, got, tc.want)
+		}
+	}
+}
+
+func TestWindows_MiniMax_ActiveWindowWithNoFigureIsSkipped(t *testing.T) {
+	payload := []byte(`{"base_resp":{"status_code":0},"model_remains":[
+		{"model_name":"M2","current_interval_status":1,"current_interval_total_count":0}]}`)
+	if got := Windows("minimax", Snapshot{Payload: payload}); got != nil {
+		t.Errorf("no counts and no percent is nothing to report, got %+v", got)
+	}
+}
+
+func TestWindows_GarbagePayloadReportsNothingForEveryType(t *testing.T) {
+	for _, typ := range []string{"zai-coding", "kimi-code", "minimax", "neuralwatt", "opencode-go"} {
+		if got := Windows(typ, Snapshot{Payload: []byte(`[1,2`)}); got != nil {
+			t.Errorf("%s: got %+v from unparseable JSON", typ, got)
+		}
 	}
 }
