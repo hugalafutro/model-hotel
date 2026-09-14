@@ -276,6 +276,9 @@ describe("VirtualKeys", () => {
 				name: "Create Virtual Key",
 			});
 			await user.type(within(again).getByLabelText("Name"), "Plain Key");
+			await user.type(within(again).getByLabelText("Budget (USD)"), "3");
+			await user.selectOptions(within(again).getByLabelText("Period"), "day");
+			await user.clear(within(again).getByLabelText("Budget (USD)"));
 			await user.click(
 				within(again).getByRole("button", { name: "Create Key" }),
 			);

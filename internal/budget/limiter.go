@@ -237,14 +237,14 @@ func (l *Limiter) readUnlocked(ctx context.Context, s *Subject, e *entry, start 
 	return l.source.Spend(qctx, s.Kind, s.ID, start)
 }
 
-// reload sums the subject again and replaces the cached figure, unless the
-// period rolled meanwhile (the roll starts a fresh sum of its own). A failed
-// read keeps the last known figure for another interval; either way the
-// figure dates from when the read landed. Charges that land
-// while the read is in flight are folded into the old figure and then
-// replaced by the sum, which holds their rows if they were written before
-// the read's snapshot and otherwise catches them next interval: the window
-// is one query long and the miss is an undercount, the safe direction.
+// reload sums the subject again and raises the cached figure to it, unless
+// the period rolled meanwhile (the roll starts a fresh sum of its own). A
+// failed read keeps the last known figure for another interval; either way
+// the figure dates from when the read landed. The figure only ever rises
+// inside a period: a charge that landed while the read was in flight stays
+// counted whether or not the sum's snapshot held its row, at the price of
+// counting it twice until the next interval when it did. Nothing spent is
+// ever dropped, which is what a spending cap owes its operator.
 func (l *Limiter) reload(s *Subject, e *entry, start time.Time) {
 	qctx, cancel := context.WithTimeout(context.Background(), sourceTimeout)
 	spent, err := l.source.Spend(qctx, s.Kind, s.ID, start)
@@ -258,7 +258,7 @@ func (l *Limiter) reload(s *Subject, e *entry, start time.Time) {
 	if err != nil {
 		debuglog.Warn(logComponent+": could not sum spend, admitting on the last known figure",
 			"kind", s.Kind, "name", s.Name, "error", err)
-	} else {
+	} else if spent > e.spent {
 		e.spent = spent
 	}
 	e.loadedAt = l.now()
