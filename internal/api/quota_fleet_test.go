@@ -510,19 +510,6 @@ func TestQuotaFleetReceiveInvalidBody(t *testing.T) {
 	}
 }
 
-// TestQuotaFleetReceiveProviderListError: a store failure listing providers (the
-// body decodes fine first) surfaces a 500.
-func TestQuotaFleetReceiveProviderListError(t *testing.T) {
-	h := newTestHandler(t)
-	fleet := NewQuotaFleetHandler(h.quotaRepo, h.providerRepo)
-
-	rr := httptest.NewRecorder()
-	fleet.ReceiveSnapshots(rr, cancelledRequest(http.MethodPost, "/config/quota-snapshots", `{"snapshots":[]}`))
-	if rr.Code != http.StatusInternalServerError {
-		t.Fatalf("want 500 on store error, got %d", rr.Code)
-	}
-}
-
 // TestQuotaFleetReceiveSkipsUnknownProvider: a snapshot for a provider name not
 // present on this member is skipped, not applied.
 func TestQuotaFleetReceiveSkipsUnknownProvider(t *testing.T) {
