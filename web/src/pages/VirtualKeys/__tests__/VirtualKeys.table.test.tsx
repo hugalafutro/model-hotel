@@ -740,6 +740,26 @@ describe("VirtualKeys", () => {
 });
 
 describe("Sort resets page", () => {
+	it("sizes every column, so none is squeezed off the fixed-layout table", async () => {
+		server.use(
+			http.get("/api/virtual-keys", () => HttpResponse.json([mockVirtualKey])),
+		);
+		renderWithProviders(<VirtualKeys />);
+		await waitFor(() => {
+			expect(screen.getByText("Test API Key")).toBeInTheDocument();
+		});
+		const table = screen.getByRole("table");
+		const cols = table.querySelectorAll("colgroup col");
+		const headers = table.querySelectorAll("thead th");
+		expect(cols).toHaveLength(headers.length);
+		const total = [...cols]
+			.map((c) =>
+				Number.parseFloat(c.className.match(/w-\[(\d+)%\]/)?.[1] ?? "0"),
+			)
+			.reduce((a, b) => a + b, 0);
+		expect(total).toBe(100);
+	});
+
 	it("resets to page 1 when sorting from page 2", async () => {
 		const keys = Array.from({ length: 25 }, (_, i) => ({
 			...mockVirtualKey,
