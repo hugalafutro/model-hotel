@@ -515,7 +515,7 @@ endpoint with OpenAI's "not a chat model" 404 is learned and re-routed the same 
 ### Metrics & log shipping
 
 A Prometheus endpoint is exposed at `/metrics` (request rates by provider/model/status,
-latency and TTFT histograms, token counters, failover attempts per provider, upstream 429s by
+latency and TTFT histograms, token counters, a dollar spend counter per provider and model, failover attempts per provider, upstream 429s by
 class, circuit-breaker opens by cause and state, failover exhaustion by reason, plus Go runtime
 metrics; see the wiki's Failover page for the failover series). It is authenticated - set a dedicated `METRICS_TOKEN` so your
 scrape config need not carry the admin token (the admin token also works). No prompt content is

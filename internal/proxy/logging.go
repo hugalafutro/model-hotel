@@ -384,7 +384,8 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 	// Publish the request lifecycle event for terminal states.
 	if isTerminalLogState(logEntry.state) {
 		// The single Prometheus recording seam: every terminal request passes
-		// through here exactly once with its provider/model/status/tokens.
+		// through here exactly once with its provider/model/status/tokens/cost.
+		cost, priced := logEntry.terminalCost()
 		metrics.Record(metrics.Observation{
 			Provider:          logEntry.providerName,
 			Model:             metricModelLabel(logEntry.modelID, logEntry.errorKind),
@@ -396,6 +397,8 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 			PromptTokens:      logEntry.tokensPrompt,
 			CompletionTokens:  logEntry.tokensCompletion,
 			ReasoningTokens:   logEntry.tokensCompletionReasoning,
+			CostUSD:           cost,
+			Priced:            priced,
 			FailoverProviders: logEntry.failoverProviders(),
 		})
 
