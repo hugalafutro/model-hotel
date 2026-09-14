@@ -264,7 +264,7 @@ func (h *Handler) recordTokenUsage(vkHash string, logData *requestLogData, promp
 	// The charge is where provider figures become gateway state, so it is
 	// where they are policed, whatever path decoded them. The readers clamp
 	// too, so the log row and the charge agree; this is the fence a future
-	// reader cannot skip. The total is capped as well: three clamped members
+	// reader cannot skip. The total is capped as well: two clamped members
 	// cannot wrap, but the cap keeps one response's charge inside the bound
 	// the members were held to.
 	// Reasoning is not added: providers report it inside completion_tokens
