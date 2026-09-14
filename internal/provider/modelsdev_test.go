@@ -767,7 +767,10 @@ func TestLoadModelsDev_ContextCancelled(t *testing.T) {
 func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 	var logged strings.Builder
 	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	t.Cleanup(func() { debuglog.SetHandler(debuglog.StdoutHandler()) })
+	t.Cleanup(func() {
+		debuglog.SetHandler(debuglog.StdoutHandler())
+		lastUnpriced.Clear()
+	})
 
 	zero := 0.0
 	ReportUnpricedModels("unit-a", []*model.Model{
@@ -787,7 +790,7 @@ func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 	if !strings.Contains(got, "level=WARN") {
 		t.Fatalf("expected a warning, got: %s", got)
 	}
-	if !strings.Contains(got, "count=3") || !strings.Contains(got, "models=gpt-5-search-api,text-embedding-x,rerank-x") {
+	if !strings.Contains(got, "count=3") || !strings.Contains(got, "models=gpt-5-search-api,rerank-x,text-embedding-x") {
 		t.Errorf("expected exactly the three per-token models named, got: %s", got)
 	}
 
@@ -805,7 +808,10 @@ func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 func TestReportUnpricedModels_OncePerProviderUntilTheSetChanges(t *testing.T) {
 	var logged strings.Builder
 	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
-	t.Cleanup(func() { debuglog.SetHandler(debuglog.StdoutHandler()) })
+	t.Cleanup(func() {
+		debuglog.SetHandler(debuglog.StdoutHandler())
+		lastUnpriced.Clear()
+	})
 	set := func(ids ...string) []*model.Model {
 		out := make([]*model.Model, 0, len(ids))
 		for _, id := range ids {

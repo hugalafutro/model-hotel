@@ -85,7 +85,9 @@ func decodeJSONOptional(w http.ResponseWriter, r *http.Request, v any) bool {
 // request context is cancelled underneath the store, which surfaces as
 // context.Canceled from the database driver. Nothing on this member failed,
 // and the caller retries on its own schedule, so it is a warning and a 503
-// rather than the error a failed write earns. Reports whether it answered.
+// rather than the error a failed write earns. Only the caller's cancel counts:
+// this member's own route timeout surfaces as context.DeadlineExceeded and is
+// a failure here. Reports whether it answered.
 func respondAbandoned(w http.ResponseWriter, what string, err error) bool {
 	if !errors.Is(err, context.Canceled) {
 		return false

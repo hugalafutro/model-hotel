@@ -673,6 +673,8 @@ func ReportUnpricedModels(providerName string, models []*model.Model) {
 			unpriced = append(unpriced, m.ModelID)
 		}
 	}
+	// Sorted so the same set in a different discovery order is the same line.
+	sort.Strings(unpriced)
 	joined := strings.Join(unpriced, ",")
 	if prev, seen := lastUnpriced.Swap(providerName, joined); seen && prev == joined {
 		return

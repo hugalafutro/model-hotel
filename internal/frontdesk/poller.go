@@ -36,9 +36,9 @@ const (
 	httpProbeTimeout = 4 * time.Second
 	// httpAnnounceTimeout bounds one fleet announce. An announce is a write
 	// the member persists, and a member on a busy disk (a NAS at its nightly
-	// maintenance) needs longer than a health probe to commit it; at the probe
-	// timeout Front Desk hung up first and the member logged a 500 for a
-	// write the caller had abandoned.
+	// maintenance) needs longer than a health probe to commit it. At the probe
+	// timeout Front Desk gave up first, and the member logged a 500 for a
+	// write its caller had already abandoned.
 	httpAnnounceTimeout = 10 * time.Second
 
 	// versionFetchFailThreshold is the number of consecutive version-fetch
