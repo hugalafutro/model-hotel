@@ -8,7 +8,7 @@ services:
         image: prom/prometheus:latest
         # Runs as the user that owns tokens/ so 0600 token files stay readable
         # by Prometheus and nobody else; set OBS_UID/OBS_GID in .env.
-        user: "${OBS_UID:-65534}:${OBS_GID:-65534}"
+        user: "${OBS_UID:-1000}:${OBS_GID:-1000}"
         command:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}

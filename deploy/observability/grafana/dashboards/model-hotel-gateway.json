@@ -1,7 +1,7 @@
 {
   "uid": "model-hotel-gateway",
   "title": "Model Hotel gateway",
-  "description": "Proxy traffic, latency, tokens, and failover health for the Model Hotel gateway, plus its log streams.",
+  "description": "Model Hotel fleet: traffic, latency, tokens and spend, reliability and process from every member's /metrics.",
   "tags": [
     "model-hotel"
   ],
@@ -65,8 +65,8 @@
     {
       "type": "stat",
       "id": 2,
-      "title": "Scrape",
-      "description": "Is Prometheus scraping the gateway's /metrics endpoint? DOWN means every panel here is stale, not that the gateway is healthy.",
+      "title": "Up",
+      "description": "Share of scrape targets answering. 100% is every member up; anything less means a member is down or unreachable and the fleet totals below are missing its share.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -79,24 +79,8 @@
       },
       "fieldConfig": {
         "defaults": {
-          "unit": "none",
-          "mappings": [
-            {
-              "type": "value",
-              "options": {
-                "0": {
-                  "text": "DOWN",
-                  "color": "red",
-                  "index": 0
-                },
-                "1": {
-                  "text": "UP",
-                  "color": "green",
-                  "index": 1
-                }
-              }
-            }
-          ],
+          "unit": "percentunit",
+          "mappings": [],
           "color": {
             "mode": "thresholds"
           },
@@ -104,11 +88,16 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "text",
+                "color": "red",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 0.999
               }
             ]
-          }
+          },
+          "decimals": 0
         },
         "overrides": []
       },
@@ -129,7 +118,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "min(up{job=\"model-hotel\"})",
+          "expr": "sum(up{job=\"model-hotel\"}) / count(up{job=\"model-hotel\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -450,7 +439,7 @@
         "type": "prometheus",
         "uid": "prometheus"
       },
-      "description": "Dollars billed by upstream providers over the dashboard time range, priced from the gateway's own price table.",
+      "description": "Dollars spent on proxied requests over the selected range, from modelhotel_cost_usd_total (the same figure request_logs.cost_usd carries). Approximate: increase() interpolates to the range edges. A model with no known price adds nothing, so this is a floor wherever a model is unpriced.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -509,7 +498,7 @@
       "type": "stat",
       "id": 7,
       "title": "Breakers",
-      "description": "Provider circuit breakers that are open or half-open right now. Anything above zero means traffic is being steered away from a provider.",
+      "description": "Providers with a breaker not closed on any member. Zero is the healthy state; red means at least one provider is being routed around somewhere in the fleet.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -561,7 +550,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "count(modelhotel_circuit_breaker_state > 0) or on() vector(0)",
+          "expr": "count(max by (provider) (modelhotel_circuit_breaker_state{provider!=\"\", provider=~\"$provider\"}) > 0) or on() vector(0)",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -572,8 +561,8 @@
     {
       "type": "stat",
       "id": 9,
-      "title": "Uptime",
-      "description": "How long the gateway process has been running. A reset here explains gaps in every other panel.",
+      "title": "Restarted",
+      "description": "Time since the most recently restarted member came up (the youngest process in the fleet). A small number after nothing was deployed is a crash.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1652,7 +1641,7 @@
       "type": "state-timeline",
       "id": 24,
       "title": "Breaker state by provider",
-      "description": "One lane per provider: closed (healthy), half-open (probing), open (traffic steered away). The label is the provider UUID \u2014 the gauge deliberately carries no provider name.",
+      "description": "Circuit-breaker state per provider, the worst state any member reports for it: closed (green) is serving, half-open (orange) is probing after a cooldown, open (red) is refused traffic until the cooldown or quota pin ends. A lane that stays open across a scrape interval is a provider the fleet is routing around.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1727,7 +1716,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "modelhotel_circuit_breaker_state",
+          "expr": "max by (provider) (modelhotel_circuit_breaker_state{provider!=\"\", provider=~\"$provider\"})",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1797,7 +1786,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum by (model, provider) (rate(modelhotel_failover_attempts_total[$__rate_interval]))",
+          "expr": "sum by (model, provider) (rate(modelhotel_failover_attempts_total{provider=~\"$provider\"}[$__rate_interval]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"

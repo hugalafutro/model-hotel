@@ -16,17 +16,18 @@ dashboard over the metrics.
 One dashboard, provisioned into the folder "Model Hotel", with a `provider` variable that
 narrows every panel:
 
-- **Overview**: scrape health, requests/s, error share, p95 latency and TTFT, tokens/s, spend
-  over the selected range, breakers not closed, uptime. Red means look here: only the error
-  share and open breakers carry thresholds.
+- **Overview**: members up (the Up tile), requests/s, error share, p95 latency and TTFT, tokens/s, spend
+  over the selected range (approximate at the range edges), providers with a breaker not
+  closed anywhere in the fleet, time since the most recent member restart. Red means look
+  here: only members up, error share and open breakers carry thresholds.
 - **Traffic**: requests/s by status class and by provider, errors/s by kind, requests by model.
 - **Latency**: duration and TTFT quantiles, p95 by provider.
 - **Tokens & Spend**: tokens/s by kind, tokens by model, spend per hour by provider, spend by
   model. Spend is `modelhotel_cost_usd_total`, the same dollars the dashboard's `$` view and
   `request_logs.cost_usd` carry; a model with no known price adds nothing, so a sum is a floor
   wherever a model is unpriced.
-- **Reliability**: breaker state per provider (named since the gauge carries `provider` next
-  to `provider_id`), failover attempts, Responses API reroutes, retirement probes, upstream 429s
+- **Reliability**: breaker state per provider, the worst state any member reports for it
+  (named since the gauge carries `provider` next to `provider_id`), failover attempts, Responses API reroutes, retirement probes, upstream 429s
   by class, breaker opens by cause, failover exhaustion by reason.
 - **Process**: goroutines, resident memory, CPU.
 
@@ -42,7 +43,7 @@ that can reach the members over HTTPS; on a fleet, one copy next to any member i
 the dashboard sums across members.
 
 1. Copy the directory to the host, for example `/home/you/docker/observability`.
-2. Put each member's token in `tokens/<job>` (`tokens/mh1`, `tokens/mh2`, ...), one line, mode
+2. Put each member's token in `tokens/<member>` (`tokens/mh1`, `tokens/mh2`, ...), one line, mode
    `0600`. Set a dedicated `METRICS_TOKEN` on each member for this (see [[Configuration]]);
    until one is set, the member's admin token opens `/metrics` and works here too.
 3. Edit `prometheus.yml`: one `scrape_config` block per member, with its public hostname as the
@@ -54,8 +55,9 @@ the dashboard sums across members.
    without one. Set `OBS_UID`/`OBS_GID` to the uid and gid that own `tokens/` (`id -u`,
    `id -g`), so Prometheus runs as that user and can read the `0600` token files.
    `GRAFANA_PORT` (3000) and `PROMETHEUS_RETENTION` (30d) are optional.
-5. `mkdir -p data/prometheus` (Prometheus stores its series there, as your user), then
-   `docker compose up -d` and open `http://<host>:3000`, sign in as `admin`, and find the
+5. `mkdir -p data/prometheus` before the first start (Prometheus stores its series there, as
+   your user; if the stack was started first, Docker created that directory as root, so
+   `sudo chown -R $(id -u):$(id -g) data` once), then `docker compose up -d` and open `http://<host>:3000`, sign in as `admin`, and find the
    dashboard under Dashboards → Model Hotel. Prometheus itself is not published; Grafana reaches
    it on the compose network.
 
@@ -70,6 +72,6 @@ container output to your own collector with `LOG_FORMAT=json` or `OTEL_EXPORTER_
 ## Editing the dashboard
 
 The dashboard is a plain Grafana JSON model, `grafana/dashboards/model-hotel-gateway.json`.
-Grafana re-reads the provisioned file every 30 seconds, so an edit lands without a restart.
-Edits made in the Grafana UI are allowed (`allowUiUpdates`) but are overwritten by the file on
-the next re-read; export the JSON model and commit it to keep them.
+Grafana re-reads the provisioned file every 30 seconds, so an edit to the file lands without a
+restart. Edits made in the Grafana UI are allowed (`allowUiUpdates`) and persist until the file
+itself next changes, which overwrites them; export the JSON model and commit it to keep them.

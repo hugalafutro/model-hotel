@@ -531,6 +531,8 @@ scrape_configs:
       credentials: "${METRICS_TOKEN}"
     static_configs:
       - targets: ["model-hotel:8080"]
+        labels:
+          member: mh1
 ```
 
 For logs, set `LOG_FORMAT=json` to emit one structured JSON object per line on stdout for
