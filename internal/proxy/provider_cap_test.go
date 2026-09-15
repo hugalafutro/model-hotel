@@ -2,6 +2,8 @@ package proxy
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -158,4 +160,34 @@ func doCappedRequest(t *testing.T, env *testProxyEnv, plaintext string) *httptes
 	w := httptest.NewRecorder()
 	env.Handler.ProxyKeyMiddleware(http.HandlerFunc(env.Handler.ChatCompletions)).ServeHTTP(w, req)
 	return w
+}
+
+// A key allowed only the provider the breaker skipped. That is not a key that
+// lacks access: it is a provider waiting out a cooldown or a spent quota window,
+// and the caller gets the same answer an unrestricted caller gets when every
+// candidate is skipped, not a 403 blaming the key.
+func TestChatCompletions_AllowedProviderSkippedByBreakerIsNotAKeyRefusal(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var reqBody map[string]any
+		_ = json.NewDecoder(r.Body).Decode(&reqBody)
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, chatCompletionJSON(reqBody["model"].(string)))
+	}))
+	defer upstream.Close()
+	env := buildReplayEnv(t, upstream)
+	env.h.circuitBreaker.RecordExhausted(env.p1ID, "one-slot", "shared-model", 429, 0)
+	plaintext := seedOwnedCappedKey(t, nil, []string{env.p1ID.String()})
+
+	body := `{"model": "hotel/` + env.group + `", "messages": [{"role": "user", "content": "hello"}], "stream": false}`
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+plaintext)
+	w := httptest.NewRecorder()
+	env.h.ProxyKeyMiddleware(http.HandlerFunc(env.h.ChatCompletions)).ServeHTTP(w, req)
+
+	if w.Code == http.StatusForbidden || strings.Contains(w.Body.String(), "does not have access") {
+		t.Fatalf("status = %d, body %s: the key allows the provider, the breaker skipped it", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "no available provider for hotel/"+env.group) {
+		t.Fatalf("status = %d, body %s: want the no-available-provider answer", w.Code, w.Body.String())
+	}
 }

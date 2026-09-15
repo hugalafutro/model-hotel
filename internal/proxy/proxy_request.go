@@ -236,13 +236,17 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 	timings.settingsReadMs = ctxkeys.SettingsReadMs(r.Context())
 
 	isFailover := false
+	// A hotel/ group's name and breaker skips outlive the switch: the allow-list
+	// below has to know whether the candidates it emptied were refused by the
+	// breaker rather than by the key.
+	var displayModel string
+	var skips breakerSkipSummary
 
 	switch {
 	case strings.HasPrefix(st.reqModel, "hotel/"):
 		isFailover = true
 		debuglog.Debug("proxy: model resolution path", "type", "hotel", "model", st.reqModel)
-		displayModel := hotelGroupName(st.reqModel)
-		var skips breakerSkipSummary
+		displayModel = hotelGroupName(st.reqModel)
 		candidates, timings, cacheHits, skips, err = h.resolveHotelModel(r.Context(), displayModel)
 		if err != nil {
 			h.failRequest(st.logData, 404, KindValidation, err.Error(), 0, st.startTime, st.parseMs, timings, cacheHits, 0)
@@ -303,6 +307,14 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 			}
 		}
 		if len(filtered) == 0 {
+			// A key allowed the provider the breaker skipped: the key has access,
+			// the provider is waiting out a cooldown or a spent window, and the
+			// answer is the same one an unrestricted caller gets when every
+			// candidate is skipped, dated from the skips this key could have used.
+			if allowedSkips := skips.only(providerAllowed); allowedSkips.skips > 0 {
+				h.failNoAvailableProvider(w, r, st, displayModel, timings, cacheHits, allowedSkips)
+				return nil, false
+			}
 			h.failRequest(st.logData, 403, KindAuth, "virtual key does not have access to any provider for this model", 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 			writeOpenAIError(w, "virtual key does not have access to any provider for this model", http.StatusForbidden)
 			return nil, false
