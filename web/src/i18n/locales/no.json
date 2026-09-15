@@ -816,7 +816,8 @@
 			"maxInFlightHelper": "Hard grense for samtidige forespørsler til denne leverandøren. La stå tomt for ingen grense; den adaptive læringen justerer fortsatt under den.",
 			"quotaReserveLabel": "Kvotereserve",
 			"quotaReserveDrain": "Bruk helt opp",
-			"quotaReserveHelper": "Andel av hvert abonnementsvindu som holdes tilbake for bruk utenfor Model Hotel. Ruting hit stopper når et vindu bare har så mye igjen, og gjenopptas når det nullstilles. Bare leverandører med abonnementsvinduer reagerer, ikke saldoleverandører."
+			"quotaReserveHelper": "Andel av hvert abonnementsvindu som holdes tilbake for bruk utenfor Model Hotel. Ruting hit stopper når et vindu bare har så mye igjen, og gjenopptas når det nullstilles.",
+			"quotaReserveHelperScope": "Bare leverandører med abonnementsvinduer reagerer, ikke saldoleverandører."
 		},
 		"quotas": {
 			"expand": "Utvid kvoter"

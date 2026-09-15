@@ -832,7 +832,8 @@
 			"maxInFlightHelper": "Plafond strict de requêtes simultanées vers ce fournisseur. Laisser vide pour aucun plafond ; l'apprentissage adaptatif continue de s'ajuster en dessous.",
 			"quotaReserveLabel": "Réserve de quota",
 			"quotaReserveDrain": "Épuiser entièrement",
-			"quotaReserveHelper": "Part de chaque fenêtre d'abonnement conservée pour un usage hors de Model Hotel. Le routage s'arrête ici dès qu'il ne reste que cela dans une fenêtre et reprend à sa réinitialisation. Seuls les fournisseurs à fenêtres d'abonnement réagissent, pas ceux à solde."
+			"quotaReserveHelper": "Part de chaque fenêtre d'abonnement conservée pour un usage hors de Model Hotel. Le routage s'arrête ici dès qu'il ne reste que cela dans une fenêtre et reprend à sa réinitialisation.",
+			"quotaReserveHelperScope": "Seuls les fournisseurs à fenêtres d'abonnement réagissent, pas ceux à solde."
 		},
 		"quotas": {
 			"expand": "Développer les quotas"
