@@ -212,6 +212,7 @@ func TestTransportFor_FailedReadKeepsCurrent(t *testing.T) {
 	if err != nil {
 		t.Fatalf("second pool: %v", err)
 	}
+	t.Cleanup(pool.Close)
 	repo := settings.NewRepository(pool)
 	t.Cleanup(func() {
 		live := settings.NewRepository(testDB.Pool())
