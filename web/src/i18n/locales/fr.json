@@ -1669,6 +1669,8 @@
 			"ttftTimeout.description": "Temps d'attente maximal du premier jeton de diffusion avant le basculement. 0 désactive la vérification : le fournisseur est retenu dès l'arrivée de ses en-têtes, si bien que celui qui répond par une erreur, ou par rien du tout, ne déclenche plus de basculement.",
 			"streamStallTimeout": "Délai d’arrêt du flux",
 			"streamStallTimeout.description": "Silence maximum pendant le streaming avant que la connexion ne soit coupée. 0 pour désactiver. Après 50 chunks, le délai d'attente est automatiquement étendu de 3 × pour tolérer les appels d'outils et le raisonnement long.",
+			"upstreamHeaderTimeout": "Délai des en-têtes du fournisseur",
+			"upstreamHeaderTimeout.description": "Attente maximale avant qu'un fournisseur n'envoie ses en-têtes de réponse. Plafonne une requête sans streaming dont le délai de requête est plus long, et un fournisseur en streaming qui réfléchit avant l'arrivée de ses en-têtes. 0 pour aucune limite.",
 			"timeout": {
 				"30s": "30 secondes",
 				"1m0s": "1 minute (par défaut)",

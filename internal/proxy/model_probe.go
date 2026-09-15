@@ -315,7 +315,7 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 		debuglog.Debug("proxy: retirement probe has no upstream transport to make a guarded request with", "endpoint", endpointType, "provider", candidate.provider.Name, "model", candidate.model.ModelID, "verdict", probeInconclusive.String())
 		return probeInconclusive
 	}
-	client := h.upstreamClient()
+	client := h.upstreamClient(ctx)
 
 	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
 	resp, err := client.Do(req)

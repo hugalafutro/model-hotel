@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Maksimum tyd om vir die eerste stroomtoken te wag voordat oorgeskakel word. 0 skakel die kontrole af: die verskaffer word aanvaar sodra sy opskrifte aankom, dus word een wat met 'n fout antwoord, of met niks nie, nie meer oorgeskakel nie.",
 			"streamStallTimeout": "Stroomstal-tydverstryking",
 			"streamStallTimeout.description": "Maksimum stilte tydens stroomvoorsiening voordat die verbinding verbreek word. 0 om dit uit te skakel. Na 50 blokkies word die tydsbeperking outomaties 3 keer verleng om gereedskapoproepe en lang beredenering te verdra.",
+			"upstreamHeaderTimeout": "Stroomop-kopstuk-tydverstryking",
+			"upstreamHeaderTimeout.description": "Maksimum wagtyd vir 'n verskaffer om sy antwoordkopstukke te stuur. Beperk 'n nie-stroomversoek waarvan die versoek-tydverstryking langer is, en 'n stroomverskaffer wat dink voordat sy kopstukke aankom. 0 vir geen limiet.",
 			"timeout": {
 				"30s": "30 sekondes",
 				"1m0s": "1 minuut (standaard)",

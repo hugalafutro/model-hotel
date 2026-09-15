@@ -1669,6 +1669,8 @@
 			"ttftTimeout.description": "Temps màxim d'espera del primer testimoni de reproducció en temps real abans de fer la commutació. 0 desactiva la comprovació: el proveïdor s'accepta tan bon punt arriben les seves capçaleres, de manera que un que respongui amb un error, o sense res, ja no provoca la commutació.",
 			"streamStallTimeout": "Temps d'espera de parada del flux",
 			"streamStallTimeout.description": "Silenci màxim durant l'emissió en directe abans que es talli la connexió. 0 per desactivar. Després de 50 trossos, el temps d'espera s'allarga automàticament 3× per tolerar crides d'eines i raonaments llargs.",
+			"upstreamHeaderTimeout": "Temps d'espera de capçaleres del proveïdor",
+			"upstreamHeaderTimeout.description": "Espera màxima perquè un proveïdor enviï les capçaleres de resposta. Limita una petició sense flux amb un temps d'espera de petició més llarg, i un proveïdor en flux que pensa abans que arribin les capçaleres. 0 per no limitar.",
 			"timeout": {
 				"30s": "30 segons",
 				"1m0s": "1 minut (per defecte)",

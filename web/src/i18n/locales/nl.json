@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Maximale wachttijd op het eerste streamingtoken vóór failover. 0 schakelt de controle uit: de provider wordt vastgelegd zodra zijn headers binnenkomen, dus een provider die met een fout of met helemaal niets antwoordt, veroorzaakt geen failover meer.",
 			"streamStallTimeout": "Stream Stall Time-out",
 			"streamStallTimeout.description": "Maximale stilte tijdens het streamen voordat de verbinding wordt verbroken. 0 om uit te schakelen. Na 50 chunks wordt de time-out automatisch 3× verlengd om tool calls en lange redeneringen te tolereren.",
+			"upstreamHeaderTimeout": "Time-out voor upstream-headers",
+			"upstreamHeaderTimeout.description": "Maximale wachttijd tot een provider zijn antwoordheaders stuurt. Begrenst een niet-streamend verzoek met een langere verzoek-time-out en een streamende provider die nadenkt voordat zijn headers aankomen. 0 voor geen limiet.",
 			"timeout": {
 				"30s": "30 seconden",
 				"1m0s": "1 minuut (standaard)",

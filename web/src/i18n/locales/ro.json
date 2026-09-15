@@ -1669,6 +1669,8 @@
 			"ttftTimeout.description": "Timpul maxim de așteptare a primului token de flux înainte de comutare. Valoarea 0 dezactivează verificarea: furnizorul este confirmat imediat ce sosesc anteturile sale, deci unul care răspunde cu o eroare sau cu nimic nu mai declanșează comutarea.",
 			"streamStallTimeout": "Timp oprire stream",
 			"streamStallTimeout.description": "Liniște maximă în timpul redării înainte ca conexiunea să fie tăiată. 0 pentru dezactivare. După 50 de bucăți, timpul de expirare este automat prelungit 3× pentru a tolera apelurile de unelte și raționamentul lung.",
+			"upstreamHeaderTimeout": "Timeout anteturi furnizor",
+			"upstreamHeaderTimeout.description": "Așteptarea maximă până când un furnizor trimite anteturile răspunsului. Limitează o cerere fără streaming al cărei timeout de cerere este mai lung și un furnizor în streaming care gândește înainte să sosească anteturile. 0 pentru fără limită.",
 			"timeout": {
 				"30s": "30 secunde",
 				"1m0s": "1 minut (implicit)",

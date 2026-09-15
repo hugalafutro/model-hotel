@@ -176,6 +176,7 @@ var allowedSettings = map[string]struct {
 	"key_cache_ttl":                      {typeName: "string"},                                       // duration (e.g. "10m0s")
 	"ttft_timeout":                       {typeName: "string"},                                       // duration (e.g. "1m0s", "0s" = disabled)
 	"stream_stall_timeout":               {typeName: "string"},                                       // duration (e.g. "30s", "0s" = disabled)
+	"upstream_header_timeout":            {typeName: "string"},                                       // duration (e.g. "2m0s", "0s" = no limit) to wait for a provider's response headers
 	"hedging_enabled":                    {typeName: "string"},                                       // bool as string
 	"hedge_delay":                        {typeName: "string"},                                       // duration (e.g. "4s") before racing a backup provider
 	"backup_enabled":                     {typeName: "string"},                                       // bool as string

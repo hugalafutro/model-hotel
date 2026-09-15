@@ -54,6 +54,13 @@ type Handler struct {
 	// requests.  Reusing one Transport avoids creating a fresh Transport
 	// (and its persistent readLoop/writeLoop goroutines) per request.
 	upstreamTransport *http.Transport
+	// headerTransport is upstreamTransport re-cut with the operator's
+	// upstream_header_timeout when that differs from the compiled-in default,
+	// built by transportFor and replaced whenever the setting changes. Guarded
+	// by headerMu so a burst of requests after a change builds one clone, not
+	// one per request (each clone owns a connection pool).
+	headerMu        sync.Mutex
+	headerTransport *http.Transport
 	// shutdown is closed by Close so in-flight streams can end with a
 	// well-formed error frame instead of a cut connection when the process
 	// is stopping; a nil channel never fires.
@@ -221,7 +228,7 @@ func NewHandler(
 		shutdown:       make(chan struct{}),
 		upstreamTransport: &http.Transport{
 			DialContext:           safeDialFunc(sd),
-			ResponseHeaderTimeout: 120 * time.Second,
+			ResponseHeaderTimeout: defaultUpstreamHeaderTimeout,
 			IdleConnTimeout:       120 * time.Second,
 			MaxIdleConns:          200,
 			MaxIdleConnsPerHost:   20,
@@ -263,6 +270,11 @@ func (h *Handler) Close() {
 		h.upstreamTransport.CloseIdleConnections()
 		debuglog.Info("proxy: closed upstream transport")
 	}
+	h.headerMu.Lock()
+	if h.headerTransport != nil {
+		h.headerTransport.CloseIdleConnections()
+	}
+	h.headerMu.Unlock()
 }
 
 // Register mounts the OpenAI-compatible surface. afterAuth are the caller's
@@ -460,10 +472,53 @@ func (h *Handler) CapLedger() *provider.CapLedger {
 // A nil upstreamTransport is not filled in here: an unset Transport IS
 // http.DefaultTransport, which carries no DialContext and so no dial-time
 // guard. Callers that can be constructed without one check for it themselves.
-func (h *Handler) upstreamClient() *http.Client {
-	c := &http.Client{Transport: h.upstreamTransport}
+func (h *Handler) upstreamClient(ctx context.Context) *http.Client {
+	c := &http.Client{Transport: h.transportFor(ctx)}
 	if h.safeDialer != nil {
 		c.CheckRedirect = h.safeDialer.CheckRedirect
 	}
 	return c
+}
+
+// defaultUpstreamHeaderTimeout bounds the wait for a provider's response
+// headers when upstream_header_timeout is unset. It caps a non-streaming
+// request whose request_timeout is longer, and a streaming provider that
+// thinks before it sends headers, at the same two minutes the shared
+// Transport was compiled with before the setting existed.
+const defaultUpstreamHeaderTimeout = 2 * time.Minute
+
+// transportFor returns the shared Transport carrying the current
+// upstream_header_timeout. http.Transport reads ResponseHeaderTimeout on every
+// round trip but offers no way to change it under load, so a value other than
+// the compiled-in default lives on a clone of the base Transport (same guarded
+// dialer, same pool limits), rebuilt when the setting changes. Requests in
+// flight on a superseded clone finish on it; only its idle connections are
+// released. A handler built without a Transport or a settings repository
+// (test literals) gets the base back untouched.
+func (h *Handler) transportFor(ctx context.Context) *http.Transport {
+	base := h.upstreamTransport
+	if base == nil || h.settingsRepo == nil {
+		return base
+	}
+	want := h.settingsRepo.GetDuration(ctx, "upstream_header_timeout", defaultUpstreamHeaderTimeout)
+	if want < 0 {
+		want = 0
+	}
+	h.headerMu.Lock()
+	defer h.headerMu.Unlock()
+	cur := h.headerTransport
+	if cur != nil && cur.ResponseHeaderTimeout == want {
+		return cur
+	}
+	if cur != nil {
+		cur.CloseIdleConnections()
+		h.headerTransport = nil
+	}
+	if base.ResponseHeaderTimeout == want {
+		return base
+	}
+	next := base.Clone()
+	next.ResponseHeaderTimeout = want
+	h.headerTransport = next
+	return next
 }

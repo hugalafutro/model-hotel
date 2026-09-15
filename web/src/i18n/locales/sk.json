@@ -1720,6 +1720,8 @@
 			"ttftTimeout.description": "Maximálny čas čakania na prvý streamovaný token pred prevzatím pri výpadku. Hodnota 0 kontrolu vypne: poskytovateľ sa potvrdí hneď po prijatí hlavičiek, takže ten, ktorý odpovie chybou alebo vôbec ničím, už prevzatie nespustí.",
 			"streamStallTimeout": "Časový limit prenosu",
 			"streamStallTimeout.description": "Maximálna dĺžka ticha počas streamovania pred prerušením spojenia. Hodnota 0 znamená vypnutie. Po 50 blokoch sa časový limit automaticky predĺži trojnásobne, aby sa zohľadnili volania nástrojov a dlhé výpočty.",
+			"upstreamHeaderTimeout": "Časový limit hlavičiek poskytovateľa",
+			"upstreamHeaderTimeout.description": "Maximálne čakanie, kým poskytovateľ odošle hlavičky odpovede. Obmedzuje nestreamovanú požiadavku s dlhším časovým limitom požiadavky aj streamujúceho poskytovateľa, ktorý premýšľa, kým hlavičky dorazia. 0 = bez limitu.",
 			"timeout": {
 				"30s": "30 sekúnd",
 				"1m0s": "1 minúta (predvolené nastavenie)",

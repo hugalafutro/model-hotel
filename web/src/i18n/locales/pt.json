@@ -1669,6 +1669,8 @@
 			"ttftTimeout.description": "Tempo máximo de espera pelo primeiro token de streaming antes do failover. 0 desativa a verificação: o provedor é confirmado assim que os cabeçalhos chegam, portanto um que responda com erro, ou com nada, deixa de acionar o failover.",
 			"streamStallTimeout": "Tempo limite de estagnação do stream",
 			"streamStallTimeout.description": "Silêncio máximo durante transmissão antes da conexão ser cortada. 0 para desativar. Após 50 chunks, o tempo limite é automaticamente prolongado 3 × para tolerar chamadas de ferramenta e raciocínio longo.",
+			"upstreamHeaderTimeout": "Tempo limite de cabeçalhos do provedor",
+			"upstreamHeaderTimeout.description": "Espera máxima para o provedor enviar os cabeçalhos da resposta. Limita uma requisição sem streaming cujo tempo limite de requisição seja maior e um provedor em streaming que pensa antes de os cabeçalhos chegarem. 0 para sem limite.",
 			"timeout": {
 				"30s": "30 segundos",
 				"1m0s": "1 minuto (padrão)",

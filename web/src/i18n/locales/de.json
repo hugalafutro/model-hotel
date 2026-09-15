@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Maximale Wartezeit auf das erste Streaming-Token vor dem Failover. 0 deaktiviert die Prüfung: Der Anbieter wird übernommen, sobald seine Header eintreffen, sodass ein Anbieter, der mit einem Fehler oder mit gar nichts antwortet, kein Failover mehr auslöst.",
 			"streamStallTimeout": "Stream-Stall-Timeout",
 			"streamStallTimeout.description": "Maximale Stille beim Streaming, bevor die Verbindung getrennt wird. 0 zum Deaktivieren. Nach 50 Chunks wird das Timeout automatisch um das 3-Fache verlängert, um Tool-Aufrufe und langes Reasoning zu tolerieren.",
+			"upstreamHeaderTimeout": "Upstream-Header-Timeout",
+			"upstreamHeaderTimeout.description": "Maximale Wartezeit, bis ein Anbieter seine Antwort-Header sendet. Begrenzt eine Nicht-Streaming-Anfrage mit längerem Request-Timeout und einen Streaming-Anbieter, der nachdenkt, bevor seine Header eintreffen. 0 für keine Grenze.",
 			"timeout": {
 				"30s": "30 Sekunden",
 				"1m0s": "1 Minute (Standard)",

@@ -538,3 +538,40 @@ describe("ProxySettings TTFT slider", () => {
 		expect(row?.querySelector(".settings-slider-infinity")).toBeNull();
 	});
 });
+
+describe("ProxySettings upstream header timeout slider", () => {
+	// The slider reads the stored Go duration back as seconds, and 0 shows as ∞
+	// because 0 lifts the header wait entirely (http.Transport semantics), unlike
+	// the TTFT slider's 0, which switches a probe off.
+	it("shows the stored duration in seconds and 0 as no limit", async () => {
+		let stored = "5m0s";
+		server.use(
+			http.get("/api/settings", ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				return HttpResponse.json({ upstream_header_timeout: stored });
+			}),
+		);
+
+		const { container, unmount } = renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() => {
+			const slider = container.querySelector("#upstream-header-timeout");
+			expect((slider as HTMLInputElement | null)?.value).toBe("300");
+		});
+		unmount();
+
+		stored = "0s";
+		const second = renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() => {
+			const row = second.container
+				.querySelector("#upstream-header-timeout")
+				?.closest("div")?.parentElement;
+			expect(row?.querySelector(".settings-slider-infinity")).not.toBeNull();
+		});
+	});
+});

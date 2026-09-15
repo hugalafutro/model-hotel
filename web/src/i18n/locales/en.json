@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Maximum time to wait for the first streaming token before failing over. 0 disables the check: the provider is committed to as soon as its headers arrive, so one that answers with an error, or with nothing at all, is no longer failed over.",
 			"streamStallTimeout": "Stream Stall Timeout",
 			"streamStallTimeout.description": "Maximum silence during streaming before the connection is cut. 0 to disable. After 50 chunks, the timeout is automatically extended 3× to tolerate tool calls and long reasoning.",
+			"upstreamHeaderTimeout": "Upstream Header Timeout",
+			"upstreamHeaderTimeout.description": "Maximum wait for a provider to send its response headers. Caps a non-streaming request whose Request Timeout is longer, and a streaming provider that thinks before its headers arrive. 0 for no limit.",
 			"timeout": {
 				"30s": "30 seconds",
 				"1m0s": "1 minute (default)",

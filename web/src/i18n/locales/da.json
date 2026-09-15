@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Maksimal ventetid på det første streamingtoken før failover. 0 slår kontrollen fra: udbyderen accepteres, så snart dens headere ankommer, så en udbyder der svarer med en fejl eller med ingenting, udløser ikke længere failover.",
 			"streamStallTimeout": "Stream Stall Timeout",
 			"streamStallTimeout.description": "Maksimal stilhed under streaming før forbindelsen klippes. 0 for at deaktivere. Efter 50 bidder forlænges timeout automatisk 3 × til at tolerere værktøjsopkald og lang ræsonnement.",
+			"upstreamHeaderTimeout": "Timeout for udbyderens headers",
+			"upstreamHeaderTimeout.description": "Maksimal ventetid på at en udbyder sender sine svar-headers. Begrænser en ikke-streamet forespørgsel med længere forespørgsels-timeout og en streaming-udbyder, der tænker, før dens headers ankommer. 0 for ingen grænse.",
 			"timeout": {
 				"30s": "30 sekunder",
 				"1m0s": "1 minut (standard)",
