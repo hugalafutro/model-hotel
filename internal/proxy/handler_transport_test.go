@@ -4,6 +4,9 @@ import (
 	"context"
 	"net"
 	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -95,5 +98,95 @@ func TestTransportFor_FollowsUpstreamHeaderTimeout(t *testing.T) {
 	noRepo := &Handler{upstreamTransport: base}
 	if got := noRepo.transportFor(ctx); got != base {
 		t.Fatal("no settings repository: want the shared Transport untouched")
+	}
+}
+
+// TestUpstreamClient_HeaderTimeoutCutsSlowHeaders is the end-to-end half: the
+// setting has to reach the wire. A provider that sits on its headers longer
+// than upstream_header_timeout fails the round trip; lifting the limit with 0s
+// lets the same provider answer.
+func TestUpstreamClient_HeaderTimeoutCutsSlowHeaders(t *testing.T) {
+	ctx := context.Background()
+	repo := settings.NewRepository(testDB.Pool())
+	t.Cleanup(func() {
+		_ = repo.DeleteKey(ctx, "upstream_header_timeout")
+		repo.InvalidateCache("upstream_header_timeout")
+	})
+	set := func(v string) {
+		t.Helper()
+		if err := repo.Set(ctx, "upstream_header_timeout", v); err != nil {
+			t.Fatalf("set: %v", err)
+		}
+		repo.InvalidateCache("upstream_header_timeout")
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		time.Sleep(300 * time.Millisecond)
+		w.WriteHeader(http.StatusOK)
+	}))
+	t.Cleanup(srv.Close)
+	h := &Handler{settingsRepo: repo, upstreamTransport: dialToTestServer(t, srv)}
+	t.Cleanup(h.Close)
+
+	set("50ms")
+	req, _ := http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, http.NoBody)
+	if resp, err := h.upstreamClient(ctx).Do(req); err == nil {
+		resp.Body.Close()
+		t.Fatal("50ms header timeout: want the slow provider cut off, got a response")
+	} else if !strings.Contains(err.Error(), "timeout awaiting response headers") {
+		t.Fatalf("50ms header timeout: want the header-timeout error, got %v", err)
+	}
+
+	set("0s")
+	req, _ = http.NewRequestWithContext(ctx, http.MethodGet, srv.URL, http.NoBody)
+	resp, err := h.upstreamClient(ctx).Do(req)
+	if err != nil {
+		t.Fatalf("no header timeout: want the slow provider to answer, got %v", err)
+	}
+	resp.Body.Close()
+}
+
+// TestTransportFor_ConcurrentSettingChanges runs readers against a setting
+// that keeps moving, under -race in CI: every reader must get a Transport
+// carrying a value the setting held, and the handler ends with one clone.
+func TestTransportFor_ConcurrentSettingChanges(t *testing.T) {
+	ctx := context.Background()
+	repo := settings.NewRepository(testDB.Pool())
+	t.Cleanup(func() {
+		_ = repo.DeleteKey(ctx, "upstream_header_timeout")
+		repo.InvalidateCache("upstream_header_timeout")
+	})
+	base := &http.Transport{ResponseHeaderTimeout: defaultUpstreamHeaderTimeout}
+	h := &Handler{settingsRepo: repo, upstreamTransport: base}
+	t.Cleanup(h.Close)
+
+	values := []string{"1m", "3m", "0s", "2m", "4m"}
+	allowed := map[time.Duration]bool{time.Minute: true, 3 * time.Minute: true, 0: true, 2 * time.Minute: true, 4 * time.Minute: true}
+	var wg sync.WaitGroup
+	for i := 0; i < 8; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			for j := 0; j < 200; j++ {
+				tr := h.transportFor(ctx)
+				if tr == nil || !allowed[tr.ResponseHeaderTimeout] {
+					t.Errorf("reader got a Transport at %v, not a value the setting held", tr.ResponseHeaderTimeout)
+					return
+				}
+			}
+		}()
+	}
+	for _, v := range values {
+		if err := repo.Set(ctx, "upstream_header_timeout", v); err != nil {
+			t.Fatalf("set: %v", err)
+		}
+		repo.InvalidateCache("upstream_header_timeout")
+		time.Sleep(5 * time.Millisecond)
+	}
+	wg.Wait()
+	last := h.transportFor(ctx)
+	h.headerMu.Lock()
+	defer h.headerMu.Unlock()
+	if last != h.headerTransport || last.ResponseHeaderTimeout != 4*time.Minute {
+		t.Fatalf("after the last change: want the one clone at 4m, got %v", last.ResponseHeaderTimeout)
 	}
 }
