@@ -440,11 +440,12 @@ the allowance when one arrives and growing it back on clean completions. See
 [Adaptive in-flight limiter](Failover-and-Hotel-Routing#adaptive-in-flight-limiter).
 
 #### Proxy
-Backend settings: `request_timeout`, `key_cache_ttl`, `ttft_timeout`, `stream_stall_timeout`
+Backend settings: `request_timeout`, `key_cache_ttl`, `ttft_timeout`, `stream_stall_timeout`, `upstream_header_timeout`
 - **Request Timeout:** Base per-request timeout (default `1m0s`). Streaming requests get 10x this.
 - **Key Cache TTL:** How long a decrypted provider key stays in memory (default `10m0s`).
 - **TTFT Timeout:** Time-to-first-token probe timeout for streaming requests (default `1m0s`). Set to `0s` to disable.
 - **Stream Stall Timeout:** Maximum silence during streaming before termination (default `30s`). After 50 chunks the effective timeout is multiplied by 3.
+- **Upstream Header Timeout:** Maximum wait for a provider to send its response headers (default `2m0s`). Caps a non-streaming request whose Request Timeout is longer, and a streaming provider that thinks before its headers arrive. Set to `0s` for no limit.
 
 ### Screenshots
 

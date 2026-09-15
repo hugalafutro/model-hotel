@@ -571,6 +571,7 @@ describe("ProxySettings upstream header timeout slider", () => {
 			const row = second.container
 				.querySelector("#upstream-header-timeout")
 				?.closest("div")?.parentElement;
+			expect(row).not.toBeNull();
 			expect(row?.querySelector(".settings-slider-infinity")).not.toBeNull();
 		});
 	});

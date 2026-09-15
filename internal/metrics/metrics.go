@@ -346,7 +346,7 @@ type quotaCollector struct {
 var (
 	quotaUsedDesc = prometheus.NewDesc(
 		"modelhotel_provider_quota_used_ratio",
-		"Share of a provider quota window consumed, from the latest stored quota snapshot: 0 untouched, 1 spent, above 1 where the provider serves into overage (NeuralWatt). window names the window as the quota modal does (5h, weekly, mcp, monthly, energy, credits, or a MiniMax model class with its span). Only providers whose quota endpoint states a measurable window appear.",
+		"Share of a provider quota window consumed, from the latest stored quota snapshot: 0 untouched, 1 spent, above 1 where the provider serves into overage (NeuralWatt). window names the window as the quota modal does (5h, weekly, mcp, monthly, energy, credits, a Kimi span such as 5h or 7d, or a MiniMax model class with its span). Only providers whose quota endpoint states a measurable window appear.",
 		[]string{"provider_id", "provider", "window"}, nil,
 	)
 	quotaReserveDesc = prometheus.NewDesc(

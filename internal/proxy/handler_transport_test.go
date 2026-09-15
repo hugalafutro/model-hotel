@@ -69,12 +69,6 @@ func TestTransportFor_FollowsUpstreamHeaderTimeout(t *testing.T) {
 	if got := h.transportFor(ctx); got.ResponseHeaderTimeout != 0 {
 		t.Fatalf("negative: want clamped to no limit, got %v", got.ResponseHeaderTimeout)
 	}
-	// Close releases the clone's idle connections along with the base's; it
-	// must not need a clone to exist either.
-	h.Close()
-	noClone := &Handler{settingsRepo: repo, upstreamTransport: base}
-	noClone.Close()
-
 	set("2m")
 	if got := h.transportFor(ctx); got != base {
 		t.Fatalf("back at the default: want the shared Transport, got a clone")
@@ -82,6 +76,17 @@ func TestTransportFor_FollowsUpstreamHeaderTimeout(t *testing.T) {
 	if h.headerTransport != nil {
 		t.Fatal("back at the default: the superseded clone should be dropped, not kept")
 	}
+
+	// Close releases the clone's idle connections along with the base's, and
+	// must cope without a clone; the next read after Close still serves.
+	set("3m")
+	withClone := h.transportFor(ctx)
+	h.Close()
+	if got := h.transportFor(ctx); got != withClone {
+		t.Fatal("after Close: the clone is still the current Transport until the setting moves")
+	}
+	noClone := &Handler{settingsRepo: repo, upstreamTransport: base}
+	noClone.Close()
 
 	bare := &Handler{settingsRepo: repo}
 	if got := bare.upstreamClient(ctx).Transport; got != (*http.Transport)(nil) {
