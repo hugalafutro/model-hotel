@@ -657,7 +657,7 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	// swapped out into *dialMs once Do has returned.
 	dialCtx, dialTimer := withDialTiming(ctx)
 
-	upstreamClient := h.upstreamClient()
+	upstreamClient := h.upstreamClient(ctx)
 
 	var resp *http.Response
 	var err error

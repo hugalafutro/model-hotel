@@ -81,10 +81,10 @@ func TestWindows_OpenCodeGo_SkipsWindowsThePayloadDoesNotCarry(t *testing.T) {
 	ws := Windows("opencode-go", Snapshot{Payload: payload})
 
 	if len(ws) != 2 {
-		t.Fatalf("got %d windows, want rolling and weekly (monthly is absent, not untouched): %+v", len(ws), ws)
+		t.Fatalf("got %d windows, want 5h and weekly (monthly is absent, not untouched): %+v", len(ws), ws)
 	}
-	if r := window(t, ws, "rolling"); !near(r.Used, 0.8) || r.ResetsAt.IsZero() {
-		t.Errorf("rolling: got %+v", r)
+	if r := window(t, ws, "5h"); !near(r.Used, 0.8) || r.ResetsAt.IsZero() {
+		t.Errorf("5h: got %+v", r)
 	}
 	if w := window(t, ws, "weekly"); !near(w.Used, 1) || !w.ResetsAt.IsZero() {
 		t.Errorf("weekly: got %+v, want spent on the refused status alone, with an undatable reset left zero", w)

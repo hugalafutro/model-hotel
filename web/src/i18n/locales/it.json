@@ -1669,6 +1669,8 @@
 			"ttftTimeout.description": "Tempo massimo di attesa del primo token in streaming prima del failover. 0 disattiva il controllo: il provider viene confermato appena arrivano le sue intestazioni, quindi uno che risponde con un errore, o con nulla, non provoca più il failover.",
 			"streamStallTimeout": "Timeout Stall Stream",
 			"streamStallTimeout.description": "Silenzio massimo durante lo streaming prima che la connessione venga tagliata. 0 per disabilitare. Dopo 50 chunk, il timeout viene automaticamente esteso 3× per tollerare le chiamate degli strumenti e il ragionamento lungo.",
+			"upstreamHeaderTimeout": "Timeout header del provider",
+			"upstreamHeaderTimeout.description": "Attesa massima perché un provider invii le intestazioni di risposta. Limita una richiesta non in streaming con un timeout di richiesta più lungo e un provider in streaming che ragiona prima dell'arrivo delle intestazioni. 0 per nessun limite.",
 			"timeout": {
 				"30s": "30 secondi",
 				"1m0s": "1 minuto (predefinito)",

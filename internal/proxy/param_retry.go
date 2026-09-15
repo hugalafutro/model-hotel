@@ -265,7 +265,7 @@ func (h *Handler) issueRetry(r *http.Request, st *requestState, candidate modelC
 	util.SetProviderAuthHeaders(req, providerType, candidate.apiKey)
 	util.SetOpenCodeGoSession(req, providerType, st.opencodeSession)
 	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
-	resp, doErr := h.upstreamClient().Do(req)
+	resp, doErr := h.upstreamClient(req.Context()).Do(req)
 	*dialMs += retryDial.take()
 	if doErr != nil {
 		rc() // no body to consume on retry error

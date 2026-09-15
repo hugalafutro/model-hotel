@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Yük devretmeden önce ilk akış belirtecinin beklenmesi için azami süre. 0 denetimi kapatır: başlıkları ulaşır ulaşmaz sağlayıcıya bağlanılır, dolayısıyla hatayla ya da hiçbir şeyle yanıt veren bir sağlayıcı artık yük devretmeye yol açmaz.",
 			"streamStallTimeout": "Akış Durma Zaman Aşımı",
 			"streamStallTimeout.description": "Bağlantı kesilmeden önce akış sırasında izin verilen maksimum sessizlik süresi. 0 değeri ile devre dışı bırakılabilir. 50 bloktan sonra, araç çağrılarını ve uzun mantık işlemlerini hesaba katmak için zaman aşımı süresi otomatik olarak 3 katına çıkarılır.",
+			"upstreamHeaderTimeout": "Sağlayıcı başlık zaman aşımı",
+			"upstreamHeaderTimeout.description": "Bir sağlayıcının yanıt başlıklarını göndermesi için azami bekleme. İstek zaman aşımı daha uzun olan akışsız bir isteği ve başlıkları gelmeden önce düşünen akışlı bir sağlayıcıyı sınırlar. Sınırsız için 0.",
 			"timeout": {
 				"30s": "30 saniye",
 				"1m0s": "1 dakika (varsayılan)",

@@ -231,7 +231,7 @@ func TestUpdateSettings_RateLimit(t *testing.T) {
 func TestUpdateSettings_TimeoutDurations(t *testing.T) {
 	_, r := newTestHandlerWithRouter(t)
 
-	body := `{"ttft_timeout": "1m0s", "stream_stall_timeout": "30s"}`
+	body := `{"ttft_timeout": "1m0s", "stream_stall_timeout": "30s", "upstream_header_timeout": "5m0s"}`
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest("PUT", "/settings", strings.NewReader(body))
 	req.Header.Set("Authorization", "Bearer test-admin-token")
@@ -251,6 +251,9 @@ func TestUpdateSettings_TimeoutDurations(t *testing.T) {
 	}
 	if response["stream_stall_timeout"] != "30s" {
 		t.Errorf("Expected stream_stall_timeout='30s', got %q", response["stream_stall_timeout"])
+	}
+	if response["upstream_header_timeout"] != "5m0s" {
+		t.Errorf("Expected upstream_header_timeout='5m0s', got %q", response["upstream_header_timeout"])
 	}
 }
 

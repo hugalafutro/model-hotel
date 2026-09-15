@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Thời gian tối đa chờ token phát trực tuyến đầu tiên trước khi chuyển đổi dự phòng. Giá trị 0 tắt việc kiểm tra: nhà cung cấp được chốt ngay khi tiêu đề của nó đến, nên nhà cung cấp trả về lỗi, hoặc không trả về gì cả, sẽ không còn được chuyển đổi dự phòng.",
 			"streamStallTimeout": "Thời gian chờ của luồng",
 			"streamStallTimeout.description": "Thời gian im lặng tối đa trong quá trình phát trực tuyến trước khi ngắt kết nối. Đặt giá trị 0 để tắt tính năng này. Sau 50 khối, thời gian chờ sẽ tự động được kéo dài gấp 3 lần để cho phép thực hiện các lệnh công cụ và các quá trình suy luận kéo dài.",
+			"upstreamHeaderTimeout": "Thời gian chờ tiêu đề nhà cung cấp",
+			"upstreamHeaderTimeout.description": "Thời gian chờ tối đa để nhà cung cấp gửi tiêu đề phản hồi. Giới hạn yêu cầu không truyền phát có thời gian chờ yêu cầu dài hơn và nhà cung cấp truyền phát suy nghĩ trước khi tiêu đề đến. 0 để không giới hạn.",
 			"timeout": {
 				"30s": "30 giây",
 				"1m0s": "1 phút (mặc định)",

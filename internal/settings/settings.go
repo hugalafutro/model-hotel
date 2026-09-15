@@ -59,6 +59,7 @@ var AllowedSettings = map[string]bool{
 	"key_cache_ttl":                      true,
 	"ttft_timeout":                       true,
 	"stream_stall_timeout":               true,
+	"upstream_header_timeout":            true,
 	"hedging_enabled":                    true,
 	"hedge_delay":                        true,
 	"backup_enabled":                     true,
@@ -613,13 +614,30 @@ func (r *Repository) GetBool(ctx context.Context, key string, defaultValue bool)
 // Handles Go-compatible durations and the "d" suffix (e.g. "1d" = 24h)
 // which may be present from older frontend code.
 func (r *Repository) GetDuration(ctx context.Context, key string, defaultValue time.Duration) time.Duration {
-	val := r.GetWithDefault(ctx, key, defaultValue.String())
-	d, err := parseDuration(val)
-	if err != nil {
-		debuglog.Warn("settings: failed to parse as duration, using default", "key", key, "default", defaultValue, "error", err)
-		return defaultValue
-	}
+	d, _ := r.GetDurationChecked(ctx, key, defaultValue)
 	return d
+}
+
+// GetDurationChecked is GetDuration for a caller that must not mistake a
+// failed read for the default: the duration is the default alongside a
+// non-nil error when the store could not be read (a cancelled context, a
+// database error). An unparseable stored value is not a read failure; it
+// yields the default with a nil error, as GetDuration always has.
+func (r *Repository) GetDurationChecked(ctx context.Context, key string, defaultValue time.Duration) (time.Duration, error) {
+	val, found, err := r.GetChecked(ctx, key)
+	if err != nil {
+		debuglog.Warn("settings: DB read failed, falling back to default", "key", key, "error", err)
+		return defaultValue, err
+	}
+	if !found {
+		return defaultValue, nil
+	}
+	d, perr := parseDuration(val)
+	if perr != nil {
+		debuglog.Warn("settings: failed to parse as duration, using default", "key", key, "default", defaultValue, "error", perr)
+		return defaultValue, nil
+	}
+	return d, nil
 }
 
 // parseDuration parses a Go time.Duration string and also accepts the "d" suffix

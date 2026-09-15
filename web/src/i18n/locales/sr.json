@@ -1669,6 +1669,8 @@
 			"ttftTimeout.description": "Максимално време чекања на први ток токена пре преласка на другог добављача. Вредност 0 искључује проверу: добављач се потврђује чим стигну његова заглавља, па онај који одговори грешком, или ничим, више не изазива прелазак.",
 			"streamStallTimeout": "Време истека стрима",
 			"streamStallTimeout.description": "Максимална тишина током стримовања пре прекида везе. 0 за онемогућавање. Након 50 chunk-ова, временско ограничење се аутоматски продужава три пута како би се поднели позиви алата и дуга размишљања.",
+			"upstreamHeaderTimeout": "Vremensko ograničenje zaglavlja provajdera",
+			"upstreamHeaderTimeout.description": "Najduže čekanje da provajder pošalje zaglavlja odgovora. Ograničava zahtev bez strimovanja čije je vremensko ograničenje zahteva duže i strimujućeg provajdera koji razmišlja pre nego što zaglavlja stignu. 0 za bez ograničenja.",
 			"timeout": {
 				"30s": "30 секунди",
 				"1m0s": "1 минут (подразумевано)",

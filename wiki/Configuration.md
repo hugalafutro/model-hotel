@@ -150,6 +150,7 @@ one-line row here and their full treatment there. This table is also the referen
 | `key_cache_ttl` | duration string | `10m0s` | How long a decrypted provider API key is held in memory before it must be derived again. | `1m`, `10m`, `1h`, etc. |
 | `ttft_timeout` | duration string | `1m0s` | Time-to-first-token probe timeout for streaming requests. After the upstream answers 200, the proxy reads ahead to confirm the first token arrives before committing the stream to the client. A provider that produces no token in time is failed over. `0s` disables the probe (immediate stream commit). | `0s`, `30s`, `1m0s`, etc. |
 | `stream_stall_timeout` | duration string | `30s` | Maximum silence during streaming before the connection is terminated and the circuit breaker records a failure. After 50 chunks the effective timeout is multiplied by 3 to tolerate tool-call pauses and long reasoning chains. `0s` disables the watchdog. | `0s`, `10s`, `30s`, `1m0s`, etc. |
+| `upstream_header_timeout` | duration string | `2m0s` | Maximum wait for a provider to send its response headers. Caps a non-streaming request whose `request_timeout` is longer, and a streaming provider that thinks before its headers arrive. `0s` removes the limit. | `0s`, `2m0s`, `5m0s`, etc. |
 | `failover_on_rate_limit` | bool string | `true` | Fail over to the next provider when an upstream returns HTTP 429. 5xx errors always trigger failover. | `true`, `false` |
 | `circuit_breaker_enabled` | bool string | `true` | Enable the per-model circuit breaker for `hotel/` failover routes. A model whose circuit is open is skipped during failover selection. | `true`, `false` |
 | `circuit_breaker_threshold` | int | `5` | Consecutive failures before a model's circuit opens. | 1–100 |
@@ -439,11 +440,12 @@ the allowance when one arrives and growing it back on clean completions. See
 [Adaptive in-flight limiter](Failover-and-Hotel-Routing#adaptive-in-flight-limiter).
 
 #### Proxy
-Backend settings: `request_timeout`, `key_cache_ttl`, `ttft_timeout`, `stream_stall_timeout`
+Backend settings: `request_timeout`, `key_cache_ttl`, `ttft_timeout`, `stream_stall_timeout`, `upstream_header_timeout`
 - **Request Timeout:** Base per-request timeout (default `1m0s`). Streaming requests get 10x this.
 - **Key Cache TTL:** How long a decrypted provider key stays in memory (default `10m0s`).
 - **TTFT Timeout:** Time-to-first-token probe timeout for streaming requests (default `1m0s`). Set to `0s` to disable.
 - **Stream Stall Timeout:** Maximum silence during streaming before termination (default `30s`). After 50 chunks the effective timeout is multiplied by 3.
+- **Upstream Header Timeout:** Maximum wait for a provider to send its response headers (default `2m0s`). Caps a non-streaming request whose Request Timeout is longer, and a streaming provider that thinks before its headers arrive. Set to `0s` for no limit.
 
 ### Screenshots
 

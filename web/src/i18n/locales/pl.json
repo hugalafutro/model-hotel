@@ -1720,6 +1720,8 @@
 			"ttftTimeout.description": "Maksymalny czas oczekiwania na pierwszy token strumienia przed przełączeniem awaryjnym. 0 wyłącza sprawdzanie: dostawca jest zatwierdzany zaraz po nadejściu nagłówków, więc ten, który odpowie błędem lub niczym, nie powoduje już przełączenia.",
 			"streamStallTimeout": "Limit czasu zastoju strumienia",
 			"streamStallTimeout.description": "Maksymalna cisza podczas przesyłania strumieniowego przed przerwaniem połączenia. 0 aby wyłączyć. Po 50 chunkach limit czasu jest automatycznie przedłużany 3× aby tolerować połączenia narzędzi i długie rozumowanie.",
+			"upstreamHeaderTimeout": "Limit czasu nagłówków dostawcy",
+			"upstreamHeaderTimeout.description": "Maksymalny czas oczekiwania, aż dostawca wyśle nagłówki odpowiedzi. Ogranicza żądanie bez strumieniowania o dłuższym limicie czasu żądania oraz dostawcę strumieniującego, który myśli, zanim nadejdą jego nagłówki. 0 = bez limitu.",
 			"timeout": {
 				"30s": "30 sekund",
 				"1m0s": "1 minuta (domyślnie)",

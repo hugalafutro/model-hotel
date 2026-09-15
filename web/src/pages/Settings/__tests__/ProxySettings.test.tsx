@@ -538,3 +538,78 @@ describe("ProxySettings TTFT slider", () => {
 		expect(row?.querySelector(".settings-slider-infinity")).toBeNull();
 	});
 });
+
+describe("ProxySettings upstream header timeout slider", () => {
+	// The slider reads the stored Go duration back as seconds, and 0 shows as ∞
+	// because 0 lifts the header wait entirely (http.Transport semantics), unlike
+	// the TTFT slider's 0, which switches a probe off.
+	it("shows the stored duration in seconds and 0 as no limit", async () => {
+		let stored = "5m0s";
+		server.use(
+			http.get("/api/settings", ({ request }) => {
+				if (!request.headers.get("Cookie")?.includes("mh_csrf=")) {
+					return HttpResponse.json({ error: "Unauthorized" }, { status: 401 });
+				}
+				return HttpResponse.json({ upstream_header_timeout: stored });
+			}),
+		);
+
+		const { container, unmount } = renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() => {
+			const slider = container.querySelector("#upstream-header-timeout");
+			expect((slider as HTMLInputElement | null)?.value).toBe("300");
+		});
+		unmount();
+
+		stored = "0s";
+		const second = renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() => {
+			const row = second.container
+				.querySelector("#upstream-header-timeout")
+				?.closest("div")?.parentElement;
+			expect(row).not.toBeNull();
+			expect(row?.querySelector(".settings-slider-infinity")).not.toBeNull();
+		});
+	});
+
+	it("writes the new value as a Go duration and resets its own key", async () => {
+		let written: unknown;
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				written = await request.json();
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+		const resetSpy = vi.spyOn(api.settings, "reset").mockResolvedValue({});
+
+		const { container } = renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() => {
+			expect(
+				container.querySelector("#upstream-header-timeout"),
+			).not.toBeNull();
+		});
+		const slider = container.querySelector(
+			"#upstream-header-timeout",
+		) as HTMLInputElement;
+		fireEvent.change(slider, { target: { value: "300" } });
+		fireEvent.pointerUp(slider);
+		await waitFor(() => {
+			expect(written).toEqual({ upstream_header_timeout: "5m" });
+		});
+
+		const row = slider.closest("div")?.parentElement;
+		const resetBtn = row?.querySelector("button");
+		expect(resetBtn).not.toBeNull();
+		await userEvent.setup().click(resetBtn as HTMLButtonElement);
+		await waitFor(() => {
+			expect(resetSpy).toHaveBeenCalledWith(["upstream_header_timeout"]);
+		});
+		resetSpy.mockRestore();
+	});
+});

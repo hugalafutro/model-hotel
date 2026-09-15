@@ -1371,6 +1371,7 @@ A key outside the allowlist below is a `400` (`unknown setting: <key>`), as is a
 | `key_cache_ttl` | string | Duration (e.g. `"10m0s"`) |
 | `ttft_timeout` | string | Duration; time-to-first-token probe timeout for streaming (`"0s"` disables) |
 | `stream_stall_timeout` | string | Duration; max silence during streaming before termination (`"0s"` disables) |
+| `upstream_header_timeout` | string | Duration; max wait for a provider's response headers (`"0s"` lifts the limit) |
 | `hedging_enabled` | string | `"true"` or `"false"` |
 | `hedge_delay` | string | Duration before a backup provider is raced (default `"4s"`) |
 | `backup_enabled` | string | `"true"` or `"false"` (periodic backup with rotation) |

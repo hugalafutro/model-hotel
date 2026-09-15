@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Maksimal ventetid på det første strømmetokenet før failover. 0 slår av kontrollen: leverandøren bekreftes så snart hodene ankommer, så en som svarer med en feil, eller med ingenting, utløser ikke lenger failover.",
 			"streamStallTimeout": "Tidsavbrudd for stoppet strøm",
 			"streamStallTimeout.description": "Maksimal stillhet under strømming før tilkoblingen kuttes. 0 for å deaktivere. Etter 50 biter utvides tidsavbruddet automatisk 3× for å tåle verktøykall og lang resonnering.",
+			"upstreamHeaderTimeout": "Tidsavbrudd for leverandørens headere",
+			"upstreamHeaderTimeout.description": "Maksimal ventetid på at en leverandør sender svar-headerne sine. Begrenser en ikke-strømmet forespørsel med lengre forespørselstidsavbrudd og en strømmende leverandør som tenker før headerne kommer. 0 for ingen grense.",
 			"timeout": {
 				"30s": "30 sekunder",
 				"1m0s": "1 minutt (standard)",

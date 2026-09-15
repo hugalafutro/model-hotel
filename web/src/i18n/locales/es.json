@@ -1669,6 +1669,8 @@
 			"ttftTimeout.description": "Tiempo máximo de espera del primer token de streaming antes de conmutar. 0 desactiva la comprobación: el proveedor se acepta en cuanto llegan sus cabeceras, así que uno que responda con un error, o con nada en absoluto, ya no provoca la conmutación.",
 			"streamStallTimeout": "Tiempo de espera por estancamiento del stream",
 			"streamStallTimeout.description": "Máximo silencio durante la transmisión antes de que la conexión sea cortada. 0 para desactivar. Después de 50 chunks, el tiempo de espera se extiende automáticamente 3× para tolerar llamadas de herramientas y razonamiento largo.",
+			"upstreamHeaderTimeout": "Tiempo de espera de cabeceras del proveedor",
+			"upstreamHeaderTimeout.description": "Espera máxima para que un proveedor envíe las cabeceras de respuesta. Limita una petición sin streaming cuyo tiempo de espera de petición sea mayor, y a un proveedor en streaming que piensa antes de que lleguen sus cabeceras. 0 para no limitar.",
 			"timeout": {
 				"30s": "30 segundos",
 				"1m0s": "1 minuto (por defecto)",

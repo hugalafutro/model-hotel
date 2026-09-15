@@ -1618,6 +1618,8 @@
 			"ttftTimeout.description": "Enimmäisaika, joka odotetaan ensimmäistä suoratoistotokenia ennen vikasietosiirtoa. 0 poistaa tarkistuksen käytöstä: palveluntarjoaja hyväksytään heti otsakkeiden saavuttua, joten virheellä tai tyhjällä vastaava ei enää aiheuta vikasietosiirtoa.",
 			"streamStallTimeout": "Stream Stall Aikakatkaisu",
 			"streamStallTimeout.description": "Suurin sallittu hiljaisuus suoratoiston aikana ennen yhteyden katkaisua. 0 poistaa käytöstä. 50 lohkon jälkeen aikakatkaisua pidennetään automaattisesti 3-kertaiseksi, jotta työkalukutsut ja pitkä päättely mahtuvat.",
+			"upstreamHeaderTimeout": "Palveluntarjoajan otsakkeiden aikakatkaisu",
+			"upstreamHeaderTimeout.description": "Enimmäisodotus, että palveluntarjoaja lähettää vastausotsakkeensa. Rajoittaa suoratoistotonta pyyntöä, jonka pyynnön aikakatkaisu on pidempi, sekä suoratoistavaa tarjoajaa, joka miettii ennen otsakkeiden saapumista. 0 = ei rajaa.",
 			"timeout": {
 				"30s": "30 sekuntia",
 				"1m0s": "1 minuutti (oletus)",

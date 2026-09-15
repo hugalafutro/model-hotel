@@ -28,6 +28,7 @@ export function ProxySettings({
 	const keyCacheTTL = settingOr(settings, "key_cache_ttl");
 	const ttftTimeout = settingOr(settings, "ttft_timeout");
 	const streamStallTimeout = settingOr(settings, "stream_stall_timeout");
+	const upstreamHeaderTimeout = settingOr(settings, "upstream_header_timeout");
 
 	return (
 		<SettingsSection
@@ -125,6 +126,29 @@ export function ProxySettings({
 							description={t("settings.proxy.streamStallTimeout.description")}
 							onReset={() =>
 								resetSettingMutation.mutate(["stream_stall_timeout"])
+							}
+							resetTooltip={t("settings.common.resetSetting")}
+						/>
+						<SettingsSlider
+							id="upstream-header-timeout"
+							label={t("settings.proxy.upstreamHeaderTimeout")}
+							value={goDurationToSeconds(upstreamHeaderTimeout)}
+							min={0}
+							max={600}
+							step={10}
+							clampStep={10}
+							unit="s"
+							infinityValue={0}
+							onChange={(v) =>
+								updateMutation.mutate({
+									upstream_header_timeout: secondsToGoDuration(v),
+								})
+							}
+							description={t(
+								"settings.proxy.upstreamHeaderTimeout.description",
+							)}
+							onReset={() =>
+								resetSettingMutation.mutate(["upstream_header_timeout"])
 							}
 							resetTooltip={t("settings.common.resetSetting")}
 						/>

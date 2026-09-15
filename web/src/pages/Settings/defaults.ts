@@ -23,6 +23,7 @@ export const SETTING_DEFAULTS: Record<SettingKey, string> = {
 	key_cache_ttl: "10m0s",
 	ttft_timeout: "1m0s",
 	stream_stall_timeout: "30s",
+	upstream_header_timeout: "2m0s",
 
 	// Rate limiting
 	rate_limit_enabled: "true",
@@ -140,6 +141,7 @@ export const SECTION_SETTINGS: Record<SectionName, SettingKey[]> = {
 		"key_cache_ttl",
 		"ttft_timeout",
 		"stream_stall_timeout",
+		"upstream_header_timeout",
 	],
 	rateLimit: [
 		"rate_limit_enabled",
@@ -189,6 +191,7 @@ export type SettingKey =
 	| "key_cache_ttl"
 	| "ttft_timeout"
 	| "stream_stall_timeout"
+	| "upstream_header_timeout"
 	| "rate_limit_enabled"
 	| "rate_limit_ip_enabled"
 	| "rate_limit_rps"
@@ -242,6 +245,7 @@ export const SETTING_LABELS: Record<SettingKey, string> = {
 	key_cache_ttl: "settings.proxy.keyCacheTtl",
 	ttft_timeout: "settings.proxy.ttftTimeout",
 	stream_stall_timeout: "settings.proxy.streamStallTimeout",
+	upstream_header_timeout: "settings.proxy.upstreamHeaderTimeout",
 	rate_limit_enabled: "settings.rateLimit.enable",
 	rate_limit_ip_enabled: "settings.rateLimit.ipRateLimiting",
 	rate_limit_rps: "settings.rateLimit.requestsPerSecond",
