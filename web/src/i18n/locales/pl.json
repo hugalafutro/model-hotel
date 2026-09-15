@@ -848,7 +848,8 @@
 			"maxInFlightHelper": "Twardy limit równoczesnych żądań do tego dostawcy. Pozostaw puste, aby nie stosować limitu; adaptacyjne uczenie nadal działa poniżej niego.",
 			"quotaReserveLabel": "Rezerwa limitu",
 			"quotaReserveDrain": "Wyczerpać całkowicie",
-			"quotaReserveHelper": "Część każdego okna subskrypcji zachowana do użytku poza Model Hotel. Kierowanie tutaj ustaje, gdy w oknie zostaje tylko tyle, i wznawia się po jego zresetowaniu. Reagują tylko dostawcy z oknami subskrypcji, nie dostawcy z saldem."
+			"quotaReserveHelper": "Część każdego okna subskrypcji zachowana do użytku poza Model Hotel. Kierowanie tutaj ustaje, gdy w oknie zostaje tylko tyle, i wznawia się po jego zresetowaniu.",
+			"quotaReserveHelperScope": "Reagują tylko dostawcy z oknami subskrypcji, nie dostawcy z saldem."
 		},
 		"quotas": {
 			"expand": "Rozwiń kontyngenty"

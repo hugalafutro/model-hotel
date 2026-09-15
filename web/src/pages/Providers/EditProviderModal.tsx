@@ -439,6 +439,12 @@ export function EditProviderModal({
 						<p className="text-gray-500 text-xs mt-1">
 							{t("providers.edit.quotaReserveHelper")}
 						</p>
+						<p
+							className="text-yellow-400 text-xs mt-1"
+							data-testid="quota-reserve-scope"
+						>
+							{t("providers.edit.quotaReserveHelperScope")}
+						</p>
 					</div>
 
 					<div className="flex space-x-3 justify-end pt-4">

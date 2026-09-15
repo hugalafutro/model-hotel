@@ -816,7 +816,8 @@
 			"maxInFlightHelper": "Bu sağlayıcıya eşzamanlı istekler için katı tavan. Tavan istemiyorsanız boş bırakın; uyarlanabilir öğrenme altında ayarlanmaya devam eder.",
 			"quotaReserveLabel": "Kota rezervi",
 			"quotaReserveDrain": "Tamamen tüket",
-			"quotaReserveHelper": "Her abonelik penceresinin Model Hotel dışında kullanım için ayrılan payı. Bir pencerede yalnızca bu kadar kaldığında buraya yönlendirme durur, pencere sıfırlanınca yeniden başlar. Yalnızca abonelik pencereli sağlayıcılar tepki verir, bakiye sağlayıcıları vermez."
+			"quotaReserveHelper": "Her abonelik penceresinin Model Hotel dışında kullanım için ayrılan payı. Bir pencerede yalnızca bu kadar kaldığında buraya yönlendirme durur, pencere sıfırlanınca yeniden başlar.",
+			"quotaReserveHelperScope": "Yalnızca abonelik pencereli sağlayıcılar tepki verir, bakiye sağlayıcıları vermez."
 		},
 		"quotas": {
 			"expand": "Kotaları genişlet"

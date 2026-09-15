@@ -816,7 +816,8 @@
 			"maxInFlightHelper": "Hårdt loft over samtidige forespørgsler til denne udbyder. Lad stå tomt for intet loft; den adaptive læring justerer stadig nedenunder.",
 			"quotaReserveLabel": "Kvotereserve",
 			"quotaReserveDrain": "Brug helt op",
-			"quotaReserveHelper": "Andel af hvert abonnementsvindue, der holdes tilbage til brug uden for Model Hotel. Routing hertil stopper, når et vindue kun har så meget tilbage, og genoptages, når det nulstilles. Kun udbydere med abonnementsvinduer reagerer, ikke saldoudbydere."
+			"quotaReserveHelper": "Andel af hvert abonnementsvindue, der holdes tilbage til brug uden for Model Hotel. Routing hertil stopper, når et vindue kun har så meget tilbage, og genoptages, når det nulstilles.",
+			"quotaReserveHelperScope": "Kun udbydere med abonnementsvinduer reagerer, ikke saldoudbydere."
 		},
 		"quotas": {
 			"expand": "Udvid kvoter"
