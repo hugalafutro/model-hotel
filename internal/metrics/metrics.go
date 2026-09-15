@@ -76,7 +76,7 @@ var (
 
 	failoverExhaustedTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_failover_exhausted_total",
-		Help: "Requests to a failover group that no entry served, by group and reason. no_available_provider = the group resolved to zero candidates (every entry disabled, missing or skipped by the breaker); all_busy = the last candidate answered a saturated 429 or was at its in-flight limit; all_failed = it failed some other way, or the failover deadline passed.",
+		Help: "Requests to a failover group that no entry served, by group and reason. no_available_provider = the group resolved to zero candidates (every entry disabled, missing or skipped by the breaker); no_allowed_provider = the group had candidates but the key's allow-list left only breaker-skipped ones; all_busy = the last candidate answered a saturated 429 or was at its in-flight limit; all_failed = it failed some other way, or the failover deadline passed.",
 	}, []string{"group", "reason"})
 
 	responsesRerouteTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -179,7 +179,7 @@ func RecordBreakerOpen(provider, model, cause string) {
 
 // RecordFailoverExhausted counts one request a failover group could not serve,
 // by group (the display model, without the hotel/ prefix) and reason
-// ("no_available_provider", "all_busy", "all_failed").
+// ("no_available_provider", "no_allowed_provider", "all_busy", "all_failed").
 func RecordFailoverExhausted(group, reason string) {
 	failoverExhaustedTotal.WithLabelValues(labelOrUnknown(group), reason).Inc()
 }

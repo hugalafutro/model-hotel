@@ -66,13 +66,15 @@ type skippedCandidate struct {
 	dated   bool
 }
 
-// only keeps the skips whose provider passes keep, dated as they were.
+// only is the summary of the skips whose provider passes keep, dated as they
+// were: what a caller restricted to those providers is actually waiting on.
+// Every skip is both noted and listed in skipped (one call site, resolve's
+// candidate walk), which is what lets the subset be rebuilt from the list.
 func (s breakerSkipSummary) only(keep func(uuid.UUID) bool) breakerSkipSummary {
 	var out breakerSkipSummary
 	for _, c := range s.skipped {
 		if keep(c.providerID) {
 			out.note(c.retryAt, c.pinned, c.dated)
-			out.skipped = append(out.skipped, c)
 		}
 	}
 	return out

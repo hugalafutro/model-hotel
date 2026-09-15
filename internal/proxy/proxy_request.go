@@ -260,7 +260,7 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 			st.logData.appendBreakerSkip(s.providerID, s.providerName, s.model)
 		}
 		if len(candidates) == 0 {
-			h.failNoAvailableProvider(w, r, st, displayModel, timings, cacheHits, skips)
+			h.failNoAvailableProvider(w, r, st, displayModel, "no_available_provider", timings, cacheHits, skips)
 			return nil, false
 		}
 	// The hotel/ arm above already took every group model, so a remaining "/"
@@ -312,7 +312,7 @@ func (h *Handler) resolveCandidates(w http.ResponseWriter, r *http.Request, st *
 			// answer is the same one an unrestricted caller gets when every
 			// candidate is skipped, dated from the skips this key could have used.
 			if allowedSkips := skips.only(providerAllowed); allowedSkips.skips > 0 {
-				h.failNoAvailableProvider(w, r, st, displayModel, timings, cacheHits, allowedSkips)
+				h.failNoAvailableProvider(w, r, st, displayModel, "no_allowed_provider", timings, cacheHits, allowedSkips)
 				return nil, false
 			}
 			h.failRequest(st.logData, 403, KindAuth, "virtual key does not have access to any provider for this model", 0, st.startTime, st.parseMs, timings, cacheHits, 0)

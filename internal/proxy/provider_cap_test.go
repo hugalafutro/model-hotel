@@ -2,12 +2,11 @@ package proxy
 
 import (
 	"context"
-	"encoding/json"
-	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -167,12 +166,8 @@ func doCappedRequest(t *testing.T, env *testProxyEnv, plaintext string) *httptes
 // and the caller gets the same answer an unrestricted caller gets when every
 // candidate is skipped, not a 403 blaming the key.
 func TestChatCompletions_AllowedProviderSkippedByBreakerIsNotAKeyRefusal(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var reqBody map[string]any
-		_ = json.NewDecoder(r.Body).Decode(&reqBody)
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = io.WriteString(w, chatCompletionJSON(reqBody["model"].(string)))
-	}))
+	// Never reached: every candidate is filtered before a dial.
+	upstream := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {}))
 	defer upstream.Close()
 	env := buildReplayEnv(t, upstream)
 	env.h.circuitBreaker.RecordExhausted(env.p1ID, "one-slot", "shared-model", 429, 0)
@@ -187,7 +182,33 @@ func TestChatCompletions_AllowedProviderSkippedByBreakerIsNotAKeyRefusal(t *test
 	if w.Code == http.StatusForbidden || strings.Contains(w.Body.String(), "does not have access") {
 		t.Fatalf("status = %d, body %s: the key allows the provider, the breaker skipped it", w.Code, w.Body.String())
 	}
-	if !strings.Contains(w.Body.String(), "no available provider for hotel/"+env.group) {
-		t.Fatalf("status = %d, body %s: want the no-available-provider answer", w.Code, w.Body.String())
+	if w.Code != http.StatusTooManyRequests || !strings.Contains(w.Body.String(), "no available provider for hotel/"+env.group) {
+		t.Fatalf("status = %d, body %s: want the dated 429 an unrestricted caller gets", w.Code, w.Body.String())
+	}
+	if ra := w.Header().Get("Retry-After"); ra == "" {
+		t.Fatal("Retry-After missing: the answer is dated from the skipped provider the key allows")
+	}
+}
+
+// only rebuilds the summary from the allowed subset alone: the disallowed
+// skip's nearer retry and unpinned state must not leak into the answer.
+func TestBreakerSkipSummary_OnlyKeepsTheSubsetsDating(t *testing.T) {
+	allowed, denied := uuid.New(), uuid.New()
+	far, near := time.Now().Add(time.Hour), time.Now().Add(time.Second)
+	var all breakerSkipSummary
+	all.note(near, false, true)
+	all.skipped = append(all.skipped, skippedCandidate{providerID: denied, retryAt: near, pinned: false, dated: true})
+	all.note(far, true, true)
+	all.skipped = append(all.skipped, skippedCandidate{providerID: allowed, retryAt: far, pinned: true, dated: true})
+	if all.allPinned || !all.earliestRetry.Equal(near) {
+		t.Fatalf("full summary = %+v, want unpinned with the near retry", all)
+	}
+
+	sub := all.only(func(id uuid.UUID) bool { return id == allowed })
+	if sub.skips != 1 || !sub.allPinned || !sub.earliestRetry.Equal(far) {
+		t.Fatalf("subset = %+v, want one pinned skip dated at the far retry", sub)
+	}
+	if none := all.only(func(uuid.UUID) bool { return false }); none.skips != 0 {
+		t.Fatalf("empty subset = %+v, want no skips", none)
 	}
 }
