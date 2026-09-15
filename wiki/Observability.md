@@ -61,7 +61,10 @@ the dashboard sums across members.
 4. Copy `.env.example` to `.env` and set `GRAFANA_ADMIN_PASSWORD`; Grafana refuses to start
    without one. Set `OBS_UID`/`OBS_GID` to the uid and gid that own `tokens/` (`id -u`,
    `id -g`), so Prometheus runs as that user and can read the `0600` token files.
-   `GRAFANA_PORT` (3000) and `PROMETHEUS_RETENTION` (30d) are optional.
+   `GRAFANA_PORT` (3000) and `PROMETHEUS_RETENTION` (30d) are optional. The compose file
+   starts Prometheus with `--enable-feature=promql-experimental-functions`; the "Quota used"
+   panel sorts its bars with `sort_by_label`, which Prometheus 3.x keeps behind that flag, so
+   a Prometheus of your own that scrapes the members needs the same flag or that panel is empty.
 5. `mkdir -p data/prometheus` before the first start (Prometheus stores its series there, as
    your user; if the stack was started first, Docker created that directory as root, so
    `sudo chown -R $(id -u):$(id -g) data` once), then `docker compose up -d` and open `http://<host>:3000`, sign in as `admin`, and find the
