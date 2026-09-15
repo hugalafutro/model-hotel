@@ -143,6 +143,7 @@
     <string name="alerts_category_backups">Back-ups</string>
     <string name="alerts_event_health_down">Lid ging offline</string>
     <string name="alerts_event_health_up">Lid hersteld</string>
+    <string name="alerts_event_health_maintenance">Gedraineerd lid: status gewijzigd (onderhoud)</string>
     <string name="alerts_event_config_sync_failed">Configuratiesynchronisatie mislukt</string>
     <string name="alerts_event_config_synced">Configuratie gesynchroniseerd</string>
     <string name="alerts_event_config_auto_synced">Configuratie automatisch gesynchroniseerd</string>

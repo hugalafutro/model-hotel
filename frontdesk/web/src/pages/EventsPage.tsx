@@ -21,6 +21,7 @@ const EVENT_TYPES = [
 	"fleet.circuit_breaker_reset",
 	"health.up",
 	"health.down",
+	"health.maintenance",
 	"version.fetch_failed",
 	"version.fetch_recovered",
 	"traefik.stale",

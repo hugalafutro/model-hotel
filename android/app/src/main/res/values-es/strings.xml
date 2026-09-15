@@ -143,6 +143,7 @@
     <string name="alerts_category_backups">Copias de seguridad</string>
     <string name="alerts_event_health_down">Miembro caído</string>
     <string name="alerts_event_health_up">Miembro recuperado</string>
+    <string name="alerts_event_health_maintenance">Cambio de estado de un miembro drenado (mantenimiento)</string>
     <string name="alerts_event_config_sync_failed">Fallo al sincronizar la configuración</string>
     <string name="alerts_event_config_synced">Configuración sincronizada</string>
     <string name="alerts_event_config_auto_synced">Configuración sincronizada automáticamente</string>

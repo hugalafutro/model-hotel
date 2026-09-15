@@ -149,6 +149,7 @@
     <string name="alerts_category_backups">Kopie zapasowe</string>
     <string name="alerts_event_health_down">Węzeł przestał działać</string>
     <string name="alerts_event_health_up">Węzeł przywrócony</string>
+    <string name="alerts_event_health_maintenance">Zmiana stanu odłączonego węzła (konserwacja)</string>
     <string name="alerts_event_config_sync_failed">Synchronizacja konfiguracji nie powiodła się</string>
     <string name="alerts_event_config_synced">Konfiguracja zsynchronizowana</string>
     <string name="alerts_event_config_auto_synced">Konfiguracja zsynchronizowana automatycznie</string>

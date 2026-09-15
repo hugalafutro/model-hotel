@@ -312,6 +312,7 @@
 			"event": {
 				"health_down": "Member went down",
 				"health_up": "Member recovered",
+				"health_maintenance": "Drained member health change (maintenance)",
 				"config_sync_failed": "Config sync failed",
 				"config_synced": "Config synced to a member",
 				"config_auto_synced": "Auto-sync applied to the fleet",

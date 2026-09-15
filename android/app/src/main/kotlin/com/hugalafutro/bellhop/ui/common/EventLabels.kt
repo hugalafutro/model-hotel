@@ -16,6 +16,7 @@ internal fun eventTypeLabelRes(type: String): Int? =
     when (type) {
         "health.down" -> R.string.alerts_event_health_down
         "health.up" -> R.string.alerts_event_health_up
+        "health.maintenance" -> R.string.alerts_event_health_maintenance
         "config.sync_failed" -> R.string.alerts_event_config_sync_failed
         "config.synced" -> R.string.alerts_event_config_synced
         "config.auto_synced" -> R.string.alerts_event_config_auto_synced

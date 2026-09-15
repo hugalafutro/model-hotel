@@ -605,9 +605,17 @@ func TestBellhopLabelsCoverEveryWireCode(t *testing.T) {
 	}
 
 	eventLabels := read("kotlin/com/hugalafutro/bellhop/ui/common/EventLabels.kt")
+	// The Front Desk web event log offers the same codes as exact-match filters.
+	eventsPage, err := os.ReadFile(filepath.Clean("../../frontdesk/web/src/pages/EventsPage.tsx"))
+	if err != nil {
+		t.Fatalf("read EventsPage.tsx: %v", err)
+	}
 	for _, def := range fdCatalog {
 		if !strings.Contains(eventLabels, `"`+def.Type+`"`) {
 			t.Errorf("event %q has no Bellhop label; the app would render the raw wire code", def.Type)
+		}
+		if !strings.Contains(string(eventsPage), `"`+def.Type+`"`) {
+			t.Errorf("event %q is missing from EventsPage.tsx EVENT_TYPES; the web log cannot filter on it", def.Type)
 		}
 	}
 

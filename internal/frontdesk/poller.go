@@ -104,12 +104,16 @@ type Poller struct {
 	lastConfigPollAt      time.Time
 	staleNotified         bool
 	autoSyncStaleNotified bool
-	versionFailures       map[string]int  // consecutive version-fetch failures, keyed by member ID
-	healthFailures        map[string]int  // consecutive failed health polls, keyed by member ID
-	traefikNonUp          map[string]int  // consecutive non-UP Traefik observations, keyed by member ID
-	traefikAPIFails       int             // consecutive failed Traefik API polls (whole-API, not per member)
-	traefikBlanked        bool            // true once a Traefik outage has blanked all badges; skips re-blank + member re-reads until recovery
-	conflictNotified      map[string]bool // members that rejected our announce (409), keyed by member ID
+	versionFailures       map[string]int // consecutive version-fetch failures, keyed by member ID
+	healthFailures        map[string]int // consecutive failed health polls, keyed by member ID
+	// maintenanceDown marks a member whose confirmed-down was recorded as
+	// health.maintenance (it was drained at the time), so its recovery ends the
+	// episode on the same type, and re-activating it while still down pages.
+	maintenanceDown  map[string]bool
+	traefikNonUp     map[string]int  // consecutive non-UP Traefik observations, keyed by member ID
+	traefikAPIFails  int             // consecutive failed Traefik API polls (whole-API, not per member)
+	traefikBlanked   bool            // true once a Traefik outage has blanked all badges; skips re-blank + member re-reads until recovery
+	conflictNotified map[string]bool // members that rejected our announce (409), keyed by member ID
 }
 
 // NewPoller builds a Poller. traefikAPI is the base URL of the Traefik API
@@ -132,6 +136,7 @@ func NewPoller(store *Store, bus *events.Bus, traefikAPI string) *Poller {
 		statuses:         make(map[string]MemberStatus),
 		versionFailures:  make(map[string]int),
 		healthFailures:   make(map[string]int),
+		maintenanceDown:  make(map[string]bool),
 		traefikNonUp:     make(map[string]int),
 		conflictNotified: make(map[string]bool),
 	}
@@ -351,21 +356,63 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 		p.publishMemberStatus(m.ID)
 	}
 
-	switch {
-	case hs.Healthy && priorFails >= threshold:
-		// Recovered from a state we had actually reported down.
-		p.recordEvent(ctx, Event{
-			Type: "health.up", Severity: "success", Source: "frontdesk-poller",
-			Message: fmt.Sprintf("%s is healthy", m.Name), MemberID: m.ID,
-			Metadata: map[string]any{"latency_ms": hs.LatencyMs},
-		})
-	case !hs.Healthy && fails == threshold:
-		// Crossed into confirmed-down: emit exactly once, not on every later poll.
-		p.recordEvent(ctx, Event{
+	// A drained member is out of the routing pool on purpose: the operator (or
+	// the fleet rebuild tool, which drains before it recreates) is working on
+	// it, so its flips are maintenance, not an outage. They land in the event
+	// log under their own type, off by default in the picker, so a planned
+	// rebuild does not page anyone while an active member's flips still do.
+	//
+	// The type is decided when the down is recorded and kept for the episode:
+	// an outage that paged gets its all-clear as health.up even if the member
+	// was drained meanwhile, and a maintenance note is closed as one. A member
+	// re-activated while still down turns its maintenance note into the page
+	// it now deserves: the pool is routing to it again.
+	p.mu.Lock()
+	wasMaintenance := p.maintenanceDown[m.ID]
+	p.mu.Unlock()
+	down := func(maintenance bool) {
+		ev := Event{
 			Type: "health.down", Severity: "error", Source: "frontdesk-poller",
 			Message: fmt.Sprintf("%s is unreachable after %d %s", m.Name, fails, util.Plural(fails, "check", "checks")), MemberID: m.ID,
 			Metadata: map[string]any{"error": hs.Error, "consecutive_failures": fails},
-		})
+		}
+		if maintenance {
+			ev.Type, ev.Severity = "health.maintenance", "info"
+			ev.Message = fmt.Sprintf("%s is unreachable while drained (%d %s)", m.Name, fails, util.Plural(fails, "check", "checks"))
+		}
+		p.mu.Lock()
+		if maintenance {
+			p.maintenanceDown[m.ID] = true
+		} else {
+			delete(p.maintenanceDown, m.ID)
+		}
+		p.mu.Unlock()
+		p.recordEvent(ctx, ev)
+	}
+	switch {
+	case hs.Healthy && priorFails >= threshold:
+		// Recovered from a state we had actually reported down.
+		ev := Event{
+			Type: "health.up", Severity: "success", Source: "frontdesk-poller",
+			Message: fmt.Sprintf("%s is healthy", m.Name), MemberID: m.ID,
+			Metadata: map[string]any{"latency_ms": hs.LatencyMs},
+		}
+		if wasMaintenance {
+			// Worded off the episode, not the current state: the rebuild tool
+			// re-activates a member the moment it answers again.
+			ev.Type = "health.maintenance"
+			ev.Message = fmt.Sprintf("maintenance over: %s is healthy", m.Name)
+		}
+		p.mu.Lock()
+		delete(p.maintenanceDown, m.ID)
+		p.mu.Unlock()
+		p.recordEvent(ctx, ev)
+	case !hs.Healthy && fails == threshold:
+		// Crossed into confirmed-down: emit exactly once, not on every later poll.
+		down(m.State == StateDrained)
+	case !hs.Healthy && fails > threshold && wasMaintenance && m.State != StateDrained:
+		// Still down, but back in the pool: the maintenance note becomes a page.
+		down(false)
 	}
 }
 
