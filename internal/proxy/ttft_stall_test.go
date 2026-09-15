@@ -402,76 +402,11 @@ func TestStallWatchdog_Reset(t *testing.T) {
 	}
 }
 
-// TestStallWatchdog_KeepaliveIsNotLife is the OpenCode Go case seen on prod
-// (2026-09-15): a 200 stream that opens with a role-only delta and then sends
-// a keepalive comment every few seconds, never a token. Every line used to
-// ping the watchdog, so the stream outlived stream_stall_timeout many times
-// over and the client's own timeout ended it. The watchdog now counts only
-// output-carrying frames, so the keepalives here (every 50ms, well inside the
-// 200ms stall window) must not keep it alive.
-func TestStallWatchdog_KeepaliveIsNotLife(t *testing.T) {
-	h := newIntegrationHandler()
-	defer stopUnitHandler(h)
-
-	closeCh := make(chan struct{})
-	pr, pw := io.Pipe()
-	go func() {
-		defer pw.Close()
-		if _, err := pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":\"\"}}]}\n\n")); err != nil {
-			return
-		}
-		for {
-			select {
-			case <-closeCh:
-				return
-			case <-time.After(50 * time.Millisecond):
-			}
-			if _, err := pw.Write([]byte(": keep-alive\n\n")); err != nil {
-				return
-			}
-		}
-	}()
-
-	resp := &http.Response{StatusCode: http.StatusOK, Body: pr}
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
-	logData := &requestLogData{
-		id:             uuid.New().String(),
-		modelID:        "test-model",
-		streaming:      true,
-		virtualKeyName: "test-key",
-		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
-		state:          "streaming",
-	}
-	h.insertRequestLogAsync(logData)
-	time.Sleep(100 * time.Millisecond)
-
-	opts := streamOptions{
-		responseHeaderMs:   10.0,
-		streamStallTimeout: 200 * time.Millisecond,
-		vkHash:             "test-hash",
-		attempt:            1,
-		cancelOrigin:       "failover_timeout",
-	}
-	h.handleStreamingResponse(w, req, logData, resp, time.Now(), opts)
-	close(closeCh)
-
-	if logData.state != "failed" {
-		t.Fatalf("expected state=failed after a keepalive-only stream, got %q", logData.state)
-	}
-	if !strings.Contains(logData.errorMessage, "stream stalled: no output for 200ms") {
-		t.Errorf("error = %q, want the stall verdict", logData.errorMessage)
-	}
-	// Four keepalives fit in the window; the writer's loop would run forever
-	// if the watchdog waited for it, so an early cut is the whole proof.
-	if logData.durationMs > 1500 {
-		t.Errorf("expected the watchdog to cut the stream near 200ms, got %.1fms", logData.durationMs)
-	}
-}
-
-// The probe half of the same case: a role opener behind keepalives is not a
-// first token, so ttft_timeout fails the probe and the request fails over
-// before any byte reached the client.
+// A role opener followed by keepalives is a stream that stays open without
+// producing: the opener is not a first token, so ttft_timeout fails the probe
+// and the request fails over before any byte reaches the client. (A provider
+// held a hotel/ stream open this way for 180 s on prod until the client's own
+// timeout ended it.)
 func TestProbeFirstToken_KeepaliveAfterRoleOpenerTimesOut(t *testing.T) {
 	h := &Handler{}
 	pr, pw := io.Pipe()
@@ -1250,12 +1185,13 @@ func TestProbeFirstToken_DoneWithDataAfter(t *testing.T) {
 	// [DONE] first, then data (shouldn't happen normally but tests the
 	// short-circuit): the terminator still decides, and it decides against the
 	// provider. Anything after a [DONE] is past the end of the stream.
-	body := makeSSEBody(t, "data: [DONE]\n\ndata: {\"choices\":[]}\n\n")
+	body := makeSSEBody(t, "data: [DONE]\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 
 	_, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, time.Now())
 
-	if err == nil {
-		t.Fatalf("expected [DONE]-first to fail the probe, got ttft=%f", trueTtftMs)
+	var emptyErr *emptyStreamError
+	if !errors.As(err, &emptyErr) {
+		t.Fatalf("expected [DONE]-first to fail the probe as an empty stream, got err=%v ttft=%f", err, trueTtftMs)
 	}
 }
 

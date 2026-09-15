@@ -15,6 +15,7 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
@@ -334,8 +335,11 @@ func (e *upstreamFrameError) Error() string { return e.msg }
 // Like upstreamFrameError it means the provider answered, so it is charged to
 // the provider rather than blamed on the client.
 //
-// The bar is "no chunks whatever": a provider that sends any real frame and
-// then finishes has answered, even if the answer is empty, and keeps its win.
+// The bar is "no chunks whatever": a provider that sends any data frame, even
+// one carrying no output, and then finishes has answered with an empty
+// completion. That stream is committed and forwarded with its own finish
+// reason, and the finalizer charges it once as a completion with nothing in
+// it, the same as the non-streaming path treats an empty choice.
 type emptyStreamError struct{}
 
 func (e *emptyStreamError) Error() string {
@@ -375,20 +379,24 @@ type probeFrame int
 
 const (
 	// probeFrameNotAToken is a data line carrying no output: an empty or
-	// whitespace-only field, or a frame that frameCarriesOutput rejects (a
+	// whitespace-only field, or a frame frameCarriesOutput rejects (a
 	// role-only opener, a usage-only chunk, an Anthropic message_start or
 	// ping). Skipped exactly like a keepalive comment: it is not a token, but
 	// it is not a verdict either, so a real frame after it wins.
 	//
-	// It keeps the probe agreeing with the stall watchdog, which pings on the
-	// same predicate. Counting such a frame as a token would commit the
-	// stream to the client on a role opener and let a provider that then
-	// sends keepalives for minutes without a token hold the client until the
-	// client's own timeout, past every failover this gateway could have made.
+	// Counting such a frame as a token would commit the stream to the client
+	// on a role opener, and a provider that then sends keepalives for minutes
+	// without a token holds the client until the client's own timeout, past
+	// every failover this gateway could have made. The probe's caller still
+	// remembers that a frame was seen: a stream that ENDS behind one is an
+	// empty answer and commits (see probeFirstToken), only a stream that
+	// stays open behind one times out.
 	probeFrameNotAToken probeFrame = iota
 	// probeFrameToken is a real first token: the provider is answering.
 	probeFrameToken
-	// probeFrameEmptyStream is the [DONE] terminator with no chunk before it.
+	// probeFrameEmptyStream is the [DONE] terminator. Whether it means an
+	// empty stream or an empty answer depends on what came before it, which
+	// the caller knows and this classifier does not.
 	probeFrameEmptyStream
 	// probeFrameError is an error envelope: the provider reported its failure.
 	probeFrameError
@@ -421,56 +429,69 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 // calls, a generated image, audio, and a refusal.
 var outputMembers = []string{"content", "reasoning_content", "reasoning", "reasoning_details", "tool_calls", "function_call", "images", "audio", "refusal"}
 
-// frameCarriesOutput reports whether a "data:" payload carries model output.
-// It is the one reading of "did the model say something" shared by the TTFT
-// probe (which commits the stream on the first such frame) and the stall
-// watchdog (which counts only such frames as life), so the two cannot drift.
+// frameCarriesOutput reports whether a "data:" payload carries model output,
+// which is what the TTFT probe waits for before committing a stream to the
+// client.
 //
 // On the OpenAI chunk shape a frame carries output when any choice's delta
 // carries one of outputMembers, or the choice carries a legacy completion
 // text; a role-only opener, an empty choices list and a usage-only chunk do
-// not. On the Anthropic event shape content_block_start and
-// content_block_delta carry output; message_start, ping, message_delta and
-// message_stop do not. Presence is read with util.ValueCarries, the same
-// emptiness rule the observers meter delivery with, so "content":"" and
-// "reasoning_details":[] are the nothing they are.
+// not. On the Anthropic event shape a content block start or delta with
+// text, thinking, tool input or a tool name carries output; message_start,
+// ping, an empty text block opener, block stops and message_delta/stop do
+// not. Presence is read with outputCarries, not util.ValueCarries: a
+// whitespace-only token is output where an all-whitespace error member is
+// not.
 //
 // A payload of a shape this gateway does not model (not JSON, no choices
-// member, an event type it does not know) counts as output: an unknown
-// dialect must never be cut for being unknown. Without this reading a relay
-// that answers 200, sends a role opener and then keepalives every few seconds
-// while its model produces nothing looks alive to both probe and watchdog,
-// and the client waits on it until its own timeout.
+// member, a delta that is not an object, an event type it does not know)
+// counts as output: an unknown dialect must never be cut for being unknown.
+// Without this reading a relay that answers 200, sends a role opener and
+// then keepalives every few seconds while its model produces nothing looks
+// alive to the probe, and the client waits on it until its own timeout.
 func frameCarriesOutput(payload string) bool {
 	var frame struct {
-		Type    string `json:"type"`
-		Choices []struct {
-			Delta json.RawMessage `json:"delta"`
-			Text  json.RawMessage `json:"text"`
-		} `json:"choices"`
+		Type    string                       `json:"type"`
+		Choices []map[string]json.RawMessage `json:"choices"`
+		Usage   json.RawMessage              `json:"usage"`
 	}
 	if json.Unmarshal([]byte(payload), &frame) != nil {
 		return true
 	}
 	switch frame.Type {
 	case "content_block_start", "content_block_delta":
-		return true
-	case "message_start", "ping", "message_delta", "message_stop":
+		return anthropic.InspectStreamEvent([]byte(payload)).TextBytes > 0
+	case "message_start", "ping", "message_delta", "message_stop", "content_block_stop":
 		return false
 	}
 	if frame.Choices == nil {
-		return true
+		// A usage-only frame spelled without a choices member is the same
+		// accounting update as one with "choices":[]; anything else without
+		// choices is a shape this gateway does not model.
+		return !util.ValueCarries(frame.Usage)
 	}
 	for _, choice := range frame.Choices {
-		if util.ValueCarries(choice.Text) {
+		rawDelta, hasDelta := choice["delta"]
+		if !hasDelta {
+			if text, ok := choice["text"]; ok {
+				var v any
+				_ = json.Unmarshal(text, &v)
+				if outputCarries(v) {
+					return true
+				}
+				continue
+			}
+			// Neither a delta nor a legacy text: a choice shape this gateway
+			// does not model.
 			return true
 		}
-		var delta map[string]json.RawMessage
-		if json.Unmarshal(choice.Delta, &delta) != nil {
-			continue
+		var delta map[string]any
+		if err := json.Unmarshal(rawDelta, &delta); err != nil {
+			// A delta that is not an object: unmodelled, so never cut.
+			return true
 		}
 		for _, member := range outputMembers {
-			if util.ValueCarries(delta[member]) {
+			if outputCarries(delta[member]) {
 				return true
 			}
 		}
@@ -478,9 +499,46 @@ func frameCarriesOutput(payload string) bool {
 	return false
 }
 
+// outputCarries reports whether a decoded delta member holds model output. It
+// reads like util.valueCarries with two differences that matter for tokens
+// rather than error members: a string counts by presence, not by trimmed
+// length, since a whitespace-only token (a leading newline, indentation in
+// generated code) is ordinary output; and the keys that only label a part
+// (type, index, id) never make a part output on their own, so a
+// content-as-parts opener ({"type":"text","text":""}) and a tool-call header
+// with no name yet carry nothing.
+func outputCarries(v any) bool {
+	switch v := v.(type) {
+	case string:
+		return v != ""
+	case map[string]any:
+		for k, val := range v {
+			if k == "type" || k == "index" || k == "id" {
+				continue
+			}
+			if outputCarries(val) {
+				return true
+			}
+		}
+		return false
+	case []any:
+		for _, val := range v {
+			if outputCarries(val) {
+				return true
+			}
+		}
+		return false
+	case nil, bool, float64:
+		return false
+	default:
+		return true
+	}
+}
+
 // recoverProbeFrame finds the first complete, meaningful SSE data line in a
 // probe buffer and classifies it. found is false when the buffer holds none.
 func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found bool) {
+	sawFrame := false
 	for rawLine := range strings.SplitSeq(bufStr, "\n") {
 		l := strings.TrimSpace(rawLine)
 		content, isData := strings.CutPrefix(l, "data:")
@@ -495,10 +553,17 @@ func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found boo
 		}
 		// Same classifier as the main loop, so a frame recovered from the buffer
 		// is judged exactly as one read straight off the scanner.
-		v, m := classifyProbeFrame(strings.TrimSpace(content))
+		content = strings.TrimSpace(content)
+		v, m := classifyProbeFrame(content)
 		if v == probeFrameNotAToken {
 			// Carries nothing; keep looking for a frame that does.
+			sawFrame = sawFrame || content != ""
 			continue
+		}
+		if v == probeFrameEmptyStream && sawFrame {
+			// Same reading as the main loop: a terminator behind a frame is an
+			// empty answer, which commits.
+			v = probeFrameToken
 		}
 		return v, m, true
 	}
@@ -606,6 +671,22 @@ func (h *Handler) probeFirstToken(
 	scanner := bufio.NewScanner(tee)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
 
+	// sawFrame records a data frame that carried no output (a role opener, a
+	// usage-only chunk, an Anthropic message_start). Such a frame is not a
+	// token, but it makes the stream's end an empty ANSWER rather than an
+	// empty stream: the provider completed having said nothing, which is
+	// committed and forwarded with its own finish reason and charged once by
+	// the finalizer, the way the non-streaming path treats an empty choice.
+	// Only a stream that stays open behind such frames, pinging without ever
+	// producing, runs into the timeout and fails over.
+	sawFrame := false
+	emptyAnswer := func() (*bytes.Buffer, float64, error) {
+		ttft := util.MillisSince(startTime)
+		debuglog.Info("proxy: TTFT probe saw the stream end behind frames carrying no output; committing an empty answer", "ttft_ms", ttft)
+		closeProbe()
+		return &buf, ttft, nil
+	}
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		// Skip empty lines, keepalive comments, and non-data directives.
@@ -619,6 +700,7 @@ func (h *Handler) probeFirstToken(
 				// Carries nothing, so it decides nothing. The watchdog must
 				// stay armed across it, which is why probeSucceeded is set
 				// below rather than on any "data:" prefix.
+				sawFrame = sawFrame || content != ""
 				continue
 			}
 			// Signal the goroutine that a meaningful frame was found, so the
@@ -627,6 +709,9 @@ func (h *Handler) probeFirstToken(
 			// instant; the scanner-error recovery below covers the rest of
 			// that window.
 			probeSucceeded.Store(true)
+			if verdict == probeFrameEmptyStream && sawFrame {
+				return emptyAnswer()
+			}
 			if verdict == probeFrameEmptyStream {
 				// The stream ended before producing a single chunk, so it loses
 				// the race the way an error frame does: counting it as a win
@@ -685,7 +770,12 @@ func (h *Handler) probeFirstToken(
 		return nil, 0, fmt.Errorf("TTFT probe read error: %w", scanErr)
 	}
 
-	// Scanner finished without error and without finding data: body EOF.
+	// Scanner finished without error and without finding a token: body EOF.
+	// Behind a frame that is an empty answer (the native Anthropic stream ends
+	// on message_stop with no [DONE]); with no frame at all it is nothing.
+	if sawFrame {
+		return emptyAnswer()
+	}
 	return nil, 0, fmt.Errorf("TTFT probe: body closed before first data chunk")
 }
 

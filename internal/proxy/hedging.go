@@ -414,10 +414,18 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	probeBuf, trueTtftMs, probeErr := h.probeFirstToken(ctx, resp.Body, ttftTimeout, st.startTime)
 	if probeErr != nil {
 		_ = resp.Body.Close()
-		// clientGone uses the attempt context: a loser the orchestrator cancelled
-		// (because another candidate won) reads as a fast cancel and is correctly
-		// NOT charged to the breaker, while our own TTFT timer firing or a stall
-		// past the floor is a provider fault. Mirrors dispatchStreaming.
+		if ctx.Err() != nil && hedgeAbandonKind(ctx) == KindHedgeSuperseded {
+			// The orchestrator cancelled this attempt because another
+			// candidate won. Its probe was still valid when it was cut, so
+			// there is nothing to charge: a healthy provider that is merely
+			// slower than the winner past the stall floor is not at fault.
+			res.reqErr = reqError{Kind: KindHedgeSuperseded, Attempt: attempt, Provider: candidate.provider.Name}
+			return res
+		}
+		// clientGone uses the attempt context: a fast cancel with zero tokens
+		// is the client going away and is correctly NOT charged to the
+		// breaker, while our own TTFT timer firing or a stall past the floor
+		// is a provider fault. Mirrors dispatchStreaming.
 		clientGone := ctx.Err() != nil
 		elapsed := time.Since(st.startTime)
 		re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), st.logData.fence(), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)

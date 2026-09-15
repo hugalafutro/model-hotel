@@ -62,9 +62,8 @@ type streamReader struct {
 	stallCh           chan time.Duration
 	watchdogDone      chan struct{}
 
-	chunkCount   int
-	outputChunks int // data frames that carried model output; the watchdog's count
-	emptyLines   int
+	chunkCount int
+	emptyLines int
 
 	// disconnected is set when the client's context is cancelled between
 	// iterations; abortErrMsg is set when the empty-line limit is exceeded.
@@ -168,40 +167,26 @@ func (r *streamReader) runWatchdog() {
 // when the scanner is exhausted, the client disconnected (r.disconnected), or
 // the empty-line limit was hit (r.abortErrMsg). The returned event's raw bytes
 // are valid only until the following Next() call.
-//
-// The stall watchdog is pinged here, and only for a data frame that carries
-// model output (frameCarriesOutput, the TTFT probe's reading too). A keepalive
-// comment, a blank line, a role-only or usage-only frame keeps the connection
-// open without answering, and a provider can send those for minutes while its
-// model produces nothing; counting them as life left the client waiting on
-// such a stream until its own timeout. After progressiveChunkThreshold output
-// frames the stream is clearly alive, so the timeout extends to tolerate
-// tool-call pauses and long reasoning.
 func (r *streamReader) Next() (sseEvent, bool) {
-	ev, ok := r.next()
-	if ok && ev.kind == sseData && frameCarriesOutput(ev.payload) {
-		r.outputChunks++
-		if r.stallCh != nil {
-			effectiveStall := r.stallTimeout
-			if r.outputChunks > progressiveChunkThreshold {
-				effectiveStall = r.stallTimeout * progressiveStallMultiplier
-			}
-			select {
-			case r.stallCh <- effectiveStall:
-			default:
-			}
-		}
-	}
-	return ev, ok
-}
-
-// next is the scan-and-classify half of Next, without the watchdog ping.
-func (r *streamReader) next() (sseEvent, bool) {
 	if !r.scanner.Scan() {
 		return sseEvent{}, false
 	}
 	line := r.scanner.Bytes()
 	r.chunkCount++
+
+	// Ping stall watchdog after each successful scan. After
+	// progressiveChunkThreshold chunks the stream is clearly alive — extend
+	// the timeout to tolerate tool-call pauses and long reasoning.
+	if r.stallCh != nil {
+		effectiveStall := r.stallTimeout
+		if r.chunkCount > progressiveChunkThreshold {
+			effectiveStall = r.stallTimeout * progressiveStallMultiplier
+		}
+		select {
+		case r.stallCh <- effectiveStall:
+		default:
+		}
+	}
 
 	// Client-disconnect check between iterations: abandon the scanned line.
 	select {

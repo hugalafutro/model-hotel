@@ -544,7 +544,7 @@ Note: failover only proceeds if there are remaining candidates. If the last cand
 The proxy uses the `request_timeout` setting (default: `1m`) for all upstream requests:
 
 - **Non-streaming requests**: Uses the setting value directly
-- **Streaming requests**: Uses 10× the timeout value (10 minutes by default), to accommodate reasoning models that can take minutes before the first token
+- **Streaming requests**: Uses 10× the timeout value (10 minutes by default), to accommodate reasoning models that can take minutes before the first token. The TTFT probe still expects a frame carrying output within `ttft_timeout`, so a model that thinks for minutes without streaming its reasoning needs that setting raised too
 - **Long-running multimodal requests** (image generation, audio): the same 10× value, since their legitimate latencies run just as long without carrying a stream flag
 
 The value is read once before the failover loop, so every attempt in one request uses the same timeout even if the setting changes mid-request.
@@ -559,7 +559,7 @@ The request body is cached in the context at the start of the failover loop. Thi
 
 For streaming requests, the proxy reads ahead to confirm the first token arrives before committing the stream to the client. This prevents the client from receiving a broken or partial stream from a provider that responded 200 but fails to produce content.
 
-- **Timeout**: Configurable via `ttft_timeout` setting (default: `1m0s`). If the provider fails to produce a token within this timeout, the request fails over to the next provider. A token is a frame carrying model output (content, reasoning, a tool call, an Anthropic content block); a role-only opener, a usage-only chunk, an Anthropic `message_start` or a keepalive comment does not satisfy the probe, so a provider that answers 200 and then pings for minutes without producing anything is failed over before any byte reaches the client.
+- **Timeout**: Configurable via `ttft_timeout` setting (default: `1m0s`). If the provider fails to produce a token within this timeout, the request fails over to the next provider. A token is a frame carrying model output (content, reasoning, a tool call, an Anthropic content block); a role-only opener, a usage-only chunk, an Anthropic `message_start` or a keepalive comment does not satisfy the probe, so a provider that answers 200 and then pings for minutes without producing anything is failed over before any byte reaches the client. A stream that ends behind such frames is an empty answer: it is committed, forwarded with its own finish reason, and charged to the breaker once. The window also covers prompt processing on the native Anthropic and Anthropic-translated paths, whose `message_start` arrives before the prompt is read; raise `ttft_timeout` where very large prompts are routine.
 - **Measurement**: The actual TTFT measured during the probe is stored in `logEntry.ttftMs` for request logging.
 - **Disable**: Set `ttft_timeout` to `0s` to disable the probe (immediate stream commit, backward-compatible behavior).
 
@@ -604,8 +604,8 @@ first tokens hurt more than the extra load.
 
 Once streaming begins, a **stall watchdog** monitors for silence in the SSE stream:
 
-- **Timeout**: Configurable via `stream_stall_timeout` setting (default: `30s`). If no frame carrying model output arrives within this window, the connection is terminated and the circuit breaker records a failure. Keepalive comments and empty deltas are forwarded but do not reset the watchdog: the same reading of output the TTFT probe uses.
-- **Progressive extension**: After 50 output frames, the effective stall timeout is multiplied by 3 (default: 30s × 3 = 90s) to tolerate tool-call pauses and long reasoning chains.
+- **Timeout**: Configurable via `stream_stall_timeout` setting (default: `30s`). If no data arrives within this window, the connection is terminated and the circuit breaker records a failure.
+- **Progressive extension**: After 50 chunks, the effective stall timeout is multiplied by 3 (default: 30s × 3 = 90s) to tolerate tool-call pauses and long reasoning chains.
 - **Disable**: Set `stream_stall_timeout` to `0s` to disable the watchdog.
 
 #### resolved_model_id
