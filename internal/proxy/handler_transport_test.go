@@ -65,6 +65,16 @@ func TestTransportFor_FollowsUpstreamHeaderTimeout(t *testing.T) {
 		t.Fatalf("0s: want a fresh clone with no header timeout, got shared=%v old=%v timeout=%v", got == base, got == clone, got.ResponseHeaderTimeout)
 	}
 
+	set("-1s")
+	if got := h.transportFor(ctx); got.ResponseHeaderTimeout != 0 {
+		t.Fatalf("negative: want clamped to no limit, got %v", got.ResponseHeaderTimeout)
+	}
+	// Close releases the clone's idle connections along with the base's; it
+	// must not need a clone to exist either.
+	h.Close()
+	noClone := &Handler{settingsRepo: repo, upstreamTransport: base}
+	noClone.Close()
+
 	set("2m")
 	if got := h.transportFor(ctx); got != base {
 		t.Fatalf("back at the default: want the shared Transport, got a clone")

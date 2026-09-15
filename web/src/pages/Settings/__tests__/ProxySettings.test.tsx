@@ -574,4 +574,41 @@ describe("ProxySettings upstream header timeout slider", () => {
 			expect(row?.querySelector(".settings-slider-infinity")).not.toBeNull();
 		});
 	});
+
+	it("writes the new value as a Go duration and resets its own key", async () => {
+		let written: unknown;
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				written = await request.json();
+				return HttpResponse.json({ ok: true });
+			}),
+		);
+		const resetSpy = vi.spyOn(api.settings, "reset").mockResolvedValue({});
+
+		const { container } = renderWithProviders(
+			<ProxySettings collapsed={false} onToggle={() => {}} />,
+		);
+		await waitFor(() => {
+			expect(
+				container.querySelector("#upstream-header-timeout"),
+			).not.toBeNull();
+		});
+		const slider = container.querySelector(
+			"#upstream-header-timeout",
+		) as HTMLInputElement;
+		fireEvent.change(slider, { target: { value: "300" } });
+		fireEvent.pointerUp(slider);
+		await waitFor(() => {
+			expect(written).toEqual({ upstream_header_timeout: "5m" });
+		});
+
+		const row = slider.closest("div")?.parentElement;
+		const resetBtn = row?.querySelector("button");
+		expect(resetBtn).not.toBeNull();
+		await userEvent.setup().click(resetBtn as HTMLButtonElement);
+		await waitFor(() => {
+			expect(resetSpy).toHaveBeenCalledWith(["upstream_header_timeout"]);
+		});
+		resetSpy.mockRestore();
+	});
 });
