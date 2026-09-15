@@ -437,7 +437,13 @@ export function EditProviderModal({
 							className="w-full accent-yellow-400"
 						/>
 						<p className="text-gray-500 text-xs mt-1">
-							{t("providers.edit.quotaReserveHelper")}
+							{t("providers.edit.quotaReserveHelper")}{" "}
+							<span
+								className="text-yellow-400"
+								data-testid="quota-reserve-scope"
+							>
+								{t("providers.edit.quotaReserveHelperScope")}
+							</span>
 						</p>
 					</div>
 

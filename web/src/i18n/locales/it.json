@@ -832,7 +832,8 @@
 			"maxInFlightHelper": "Tetto rigido di richieste simultanee verso questo provider. Lascia vuoto per nessun tetto; l'apprendimento adattivo continua a regolarsi al di sotto.",
 			"quotaReserveLabel": "Riserva di quota",
 			"quotaReserveDrain": "Esaurire del tutto",
-			"quotaReserveHelper": "Quota di ogni finestra di abbonamento tenuta per l'uso al di fuori di Model Hotel. L'instradamento qui si ferma quando a una finestra resta solo questo e riprende quando si azzera. Rispondono solo i provider con finestre di abbonamento, non quelli a saldo."
+			"quotaReserveHelper": "Quota di ogni finestra di abbonamento tenuta per l'uso al di fuori di Model Hotel. L'instradamento qui si ferma quando a una finestra resta solo questo e riprende quando si azzera.",
+			"quotaReserveHelperScope": "Rispondono solo i provider con finestre di abbonamento, non quelli a saldo."
 		},
 		"quotas": {
 			"expand": "Espandi le quote"

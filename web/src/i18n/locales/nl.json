@@ -816,7 +816,8 @@
 			"maxInFlightHelper": "Hard plafond voor gelijktijdige verzoeken aan deze provider. Leeg laten voor geen plafond; de adaptieve leerling blijft zich eronder aanpassen.",
 			"quotaReserveLabel": "Quotareserve",
 			"quotaReserveDrain": "Volledig opgebruiken",
-			"quotaReserveHelper": "Deel van elk abonnementsvenster dat wordt achtergehouden voor gebruik buiten Model Hotel. Routering hierheen stopt zodra een venster nog maar zoveel over heeft en gaat verder zodra het wordt gereset. Alleen providers met abonnementsvensters reageren, geen saldoproviders."
+			"quotaReserveHelper": "Deel van elk abonnementsvenster dat wordt achtergehouden voor gebruik buiten Model Hotel. Routering hierheen stopt zodra een venster nog maar zoveel over heeft en gaat verder zodra het wordt gereset.",
+			"quotaReserveHelperScope": "Alleen providers met abonnementsvensters reageren, geen saldoproviders."
 		},
 		"quotas": {
 			"expand": "Quota tonen"

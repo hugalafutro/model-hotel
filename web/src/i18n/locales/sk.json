@@ -848,7 +848,8 @@
 			"maxInFlightHelper": "Pevný strop súbežných požiadaviek na tohto poskytovateľa. Prázdne pole znamená žiadny strop; adaptívne učenie beží ďalej pod ním.",
 			"quotaReserveLabel": "Rezerva kvóty",
 			"quotaReserveDrain": "Vyčerpať úplne",
-			"quotaReserveHelper": "Podiel každého okna predplatného ponechaný na použitie mimo Model Hotel. Smerovanie sem skončí, keď oknu zostane už len toľko, a obnoví sa po jeho resete. Reagujú len poskytovatelia s oknami predplatného, nie poskytovatelia so zostatkom."
+			"quotaReserveHelper": "Podiel každého okna predplatného ponechaný na použitie mimo Model Hotel. Smerovanie sem skončí, keď oknu zostane už len toľko, a obnoví sa po jeho resete.",
+			"quotaReserveHelperScope": "Reagujú len poskytovatelia s oknami predplatného, nie poskytovatelia so zostatkom."
 		},
 		"quotas": {
 			"expand": "Rozbaliť kvóty"
