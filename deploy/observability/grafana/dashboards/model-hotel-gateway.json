@@ -637,7 +637,7 @@
       "type": "timeseries",
       "id": 11,
       "title": "Requests/s by status class",
-      "description": "Requests per second by status class, one line per class in a fixed colour: 2xx green, 3xx blue, 4xx yellow, 499 grey (the client went away), 5xx red, unknown purple. Not stacked, so the colour on top is the class that dominates. A series sits out while it is zero, so a class or kind that has not happened in the range does not draw a flat line.",
+      "description": "Requests per second by status class, one line per class in a fixed colour: 2xx green, 3xx blue, 4xx yellow, 499 grey (the client went away), 5xx red, unknown purple. Not stacked, so the colour on top is the class that dominates. A series sits out while it is zero, so a class that has not happened in the range does not draw a flat line; the legend shows its peak, not a last value that would outlive the burst.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -658,7 +658,7 @@
             "fillOpacity": 8,
             "showPoints": "auto",
             "pointSize": 5,
-            "spanNulls": true,
+            "spanNulls": false,
             "axisPlacement": "auto",
             "gradientMode": "opacity",
             "stacking": {
@@ -767,7 +767,6 @@
       "options": {
         "legend": {
           "calcs": [
-            "lastNotNull",
             "max"
           ],
           "displayMode": "table",
@@ -862,7 +861,7 @@
       "type": "timeseries",
       "id": 13,
       "title": "Errors/s by kind",
-      "description": "Failed requests per second by the gateway's own classification (validation, provider_error, timeout, ...), not by HTTP status. Stacked: the total height is the error rate, each band one kind. A series sits out while it is zero, so a class or kind that has not happened in the range does not draw a flat line.",
+      "description": "Failed requests per second by the gateway's own classification (validation, provider_error, timeout, ...), not by HTTP status. Stacked: the total height is the error rate, each band one kind. A series sits out while it is zero, so a kind that has not happened in the range does not draw a flat line; the legend shows its peak, not a last value that would outlive the burst.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -883,7 +882,7 @@
             "fillOpacity": 12,
             "showPoints": "auto",
             "pointSize": 5,
-            "spanNulls": true,
+            "spanNulls": false,
             "axisPlacement": "auto",
             "gradientMode": "opacity",
             "stacking": {
@@ -901,7 +900,6 @@
       "options": {
         "legend": {
           "calcs": [
-            "lastNotNull",
             "max"
           ],
           "displayMode": "table",
