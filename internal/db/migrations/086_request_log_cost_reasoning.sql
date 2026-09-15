@@ -7,6 +7,9 @@
 -- the prompt priced exactly as the proxy prices it now. Rows the proxy priced
 -- exactly at the time are re-estimated too: a day of price drift is smaller
 -- than the reasoning term being removed.
+-- A stored price that is negative, NaN or infinite multiplies into a cost of
+-- the same kind here; migration 090 NULLs such prices and the costs derived
+-- from them, so keep 090 after this one if the sequence is ever reordered.
 UPDATE request_logs rl SET cost_usd = (
       (CASE WHEN rl.tokens_prompt_cache_hit > 0 AND m.input_price_per_million_cache_hit IS NOT NULL
             THEN rl.tokens_prompt_cache_hit * m.input_price_per_million_cache_hit::double precision
