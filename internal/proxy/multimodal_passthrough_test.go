@@ -1777,9 +1777,28 @@ func TestImageGenerations_XAISizeBecomesAspectRatio(t *testing.T) {
 // or the row is priced from the provider's zero counts, and the dollar budget,
 // which sums that column, never sees the request.
 func TestAudioSpeech_BinaryPassthroughPricesTheRow(t *testing.T) {
+	t.Run("completed", func(t *testing.T) {
+		assertSpeechRowPriced(t, "completed", func(w http.ResponseWriter) {
+			_, _ = w.Write([]byte{0xFF, 0xFB, 0x90, 0x00})
+		})
+	})
+	// The provider hangs up mid-body: it declares more than it sends, so the
+	// copy ends in an error and the row fails. Bytes reached the client, so
+	// the provider billed the request and the failed row carries the price.
+	t.Run("interrupted", func(t *testing.T) {
+		assertSpeechRowPriced(t, "failed", func(w http.ResponseWriter) {
+			w.Header().Set("Content-Length", "4096")
+			_, _ = w.Write([]byte{0xFF, 0xFB, 0x90, 0x00})
+			w.(http.Flusher).Flush()
+		})
+	})
+}
+
+func assertSpeechRowPriced(t *testing.T, wantState string, answer func(w http.ResponseWriter)) {
+	t.Helper()
 	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "audio/mpeg")
-		_, _ = w.Write([]byte{0xFF, 0xFB, 0x90, 0x00})
+		answer(w)
 	}))
 	if _, err := testDB.Pool().Exec(context.Background(),
 		`UPDATE models SET input_price_per_million = 10, output_price_per_million = 20 WHERE id = $1`, env.modelUUID); err != nil {
@@ -1800,11 +1819,11 @@ func TestAudioSpeech_BinaryPassthroughPricesTheRow(t *testing.T) {
 	for {
 		err := testDB.Pool().QueryRow(context.Background(),
 			`SELECT state, cost_usd FROM request_logs WHERE provider_id = $1 ORDER BY created_at DESC LIMIT 1`, env.providerID).Scan(&state, &cost)
-		if err == nil && state == "completed" {
+		if err == nil && state == wantState {
 			break
 		}
 		if time.Now().After(deadline) {
-			t.Fatalf("row never completed: state=%q err=%v", state, err)
+			t.Fatalf("row never reached %q: state=%q err=%v", wantState, state, err)
 		}
 		time.Sleep(20 * time.Millisecond)
 	}
