@@ -262,7 +262,7 @@ func TestFailNoAvailableProvider(t *testing.T) {
 		logData, _ := h.newPendingRequestLog(req, endpointTypeChat, "hotel/g", false)
 		st := &requestState{startTime: time.Now(), reqModel: "hotel/g", isFailover: true, logData: logData}
 		w := httptest.NewRecorder()
-		h.failNoAvailableProvider(w, req, st, "g", resolveTimings{}, resolveCacheHits{}, skips)
+		h.failNoAvailableProvider(w, req, st, "g", "no_available_provider", resolveTimings{}, resolveCacheHits{}, skips)
 		return w
 	}
 

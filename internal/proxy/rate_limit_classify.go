@@ -514,9 +514,13 @@ func (h *Handler) classify429Attempt(ctx context.Context, st *requestState, cand
 // only when every skipped candidate is waiting out a quota pin; a genuine
 // upstream fault (no breaker skips at all: everything disabled or missing)
 // answers 502, and so does switching failover_exhaustion_status_429 off.
-func (h *Handler) failNoAvailableProvider(w http.ResponseWriter, r *http.Request, st *requestState, displayModel string, timings resolveTimings, cacheHits resolveCacheHits, skips breakerSkipSummary) {
+//
+// reason is the exhaustion metric's label: "no_available_provider" when the
+// group itself is empty, "no_allowed_provider" when only this key's allow-list
+// left it so, which a healthy group must not be charted as.
+func (h *Handler) failNoAvailableProvider(w http.ResponseWriter, r *http.Request, st *requestState, displayModel, reason string, timings resolveTimings, cacheHits resolveCacheHits, skips breakerSkipSummary) {
 	msg := "no available provider for hotel/" + displayModel
-	metrics.RecordFailoverExhausted(displayModel, "no_available_provider")
+	metrics.RecordFailoverExhausted(displayModel, reason)
 	if skips.skips == 0 || !h.settingsRepo.GetBool(r.Context(), "failover_exhaustion_status_429", true) {
 		h.failRequest(st.logData, http.StatusBadGateway, KindProviderError, msg, 0, st.startTime, st.parseMs, timings, cacheHits, 0)
 		writeOpenAIError(w, msg, http.StatusBadGateway)

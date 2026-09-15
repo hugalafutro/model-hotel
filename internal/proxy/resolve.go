@@ -59,6 +59,25 @@ type skippedCandidate struct {
 	providerID   uuid.UUID
 	providerName string
 	model        string
+	// The skip's dating, kept so a summary narrowed to a subset of the skips
+	// (the ones a key's allow-list would have let through) is rebuilt exactly.
+	retryAt time.Time
+	pinned  bool
+	dated   bool
+}
+
+// only is the summary of the skips whose provider passes keep, dated as they
+// were: what a caller restricted to those providers is actually waiting on.
+// Every skip is both noted and listed in skipped (one call site, resolve's
+// candidate walk), which is what lets the subset be rebuilt from the list.
+func (s breakerSkipSummary) only(keep func(uuid.UUID) bool) breakerSkipSummary {
+	var out breakerSkipSummary
+	for _, c := range s.skipped {
+		if keep(c.providerID) {
+			out.note(c.retryAt, c.pinned, c.dated)
+		}
+	}
+	return out
 }
 
 func (s *breakerSkipSummary) note(retryAt time.Time, pinned, ok bool) {
@@ -275,8 +294,9 @@ func (h *Handler) buildFailoverCandidates(entryIDs []uuid.UUID, models map[uuid.
 			// The skip is dated so an all-skipped group can answer with when a
 			// retry becomes worth making, and with whether it is waiting out
 			// spent quota windows or mere cooldowns.
-			skips.note(h.circuitBreaker.BlockedUntil(prov.ID, m.ModelID))
-			skips.skipped = append(skips.skipped, skippedCandidate{providerID: prov.ID, providerName: prov.Name, model: m.ModelID})
+			retryAt, pinned, dated := h.circuitBreaker.BlockedUntil(prov.ID, m.ModelID)
+			skips.note(retryAt, pinned, dated)
+			skips.skipped = append(skips.skipped, skippedCandidate{providerID: prov.ID, providerName: prov.Name, model: m.ModelID, retryAt: retryAt, pinned: pinned, dated: dated})
 			debuglog.Info("resolve: skipping candidate: circuit breaker open", "provider", prov.Name, "model", m.ModelID)
 			continue
 		}

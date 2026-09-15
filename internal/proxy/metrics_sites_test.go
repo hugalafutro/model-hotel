@@ -86,7 +86,7 @@ func TestMetrics_FailoverExhaustedByReason(t *testing.T) {
 	}
 
 	st, req := newState(reqError{})
-	h.failNoAvailableProvider(httptest.NewRecorder(), req, st, strings.ToLower(group), resolveTimings{}, resolveCacheHits{}, breakerSkipSummary{skips: 1, earliestRetry: time.Now().Add(time.Minute)})
+	h.failNoAvailableProvider(httptest.NewRecorder(), req, st, strings.ToLower(group), "no_available_provider", resolveTimings{}, resolveCacheHits{}, breakerSkipSummary{skips: 1, earliestRetry: time.Now().Add(time.Minute)})
 	if got := metricValue(t, series("no_available_provider")); got != 1 {
 		t.Errorf("no_available_provider = %v, want 1", got)
 	}
