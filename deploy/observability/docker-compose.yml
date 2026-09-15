@@ -12,6 +12,9 @@ services:
         command:
             - --config.file=/etc/prometheus/prometheus.yml
             - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-30d}
+            # sort_by_label orders the quota bars by provider then window;
+            # experimental in Prometheus 3.x, hence the flag.
+            - --enable-feature=promql-experimental-functions
         volumes:
             - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
             - ./tokens:/etc/prometheus/tokens:ro

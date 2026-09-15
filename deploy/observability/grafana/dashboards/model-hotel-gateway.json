@@ -2340,7 +2340,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "max by (provider, window) (modelhotel_provider_quota_used_ratio{provider=~\"$provider\"})",
+          "expr": "sort_by_label(max by (provider, window) (modelhotel_provider_quota_used_ratio{provider=~\"$provider\"}), \"provider\", \"window\")",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -2441,9 +2441,6 @@
       },
       "options": {
         "legend": {
-          "calcs": [
-            "lastNotNull"
-          ],
           "displayMode": "list",
           "placement": "bottom",
           "showLegend": true
