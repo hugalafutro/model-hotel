@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 	"net/http"
 	"sync/atomic"
@@ -414,11 +415,17 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	probeBuf, trueTtftMs, probeErr := h.probeFirstToken(ctx, resp.Body, ttftTimeout, st.startTime)
 	if probeErr != nil {
 		_ = resp.Body.Close()
-		if ctx.Err() != nil && hedgeAbandonKind(ctx) == KindHedgeSuperseded {
+		var frameErr *upstreamFrameError
+		var emptyErr *emptyStreamError
+		answered := errors.As(probeErr, &frameErr) || errors.As(probeErr, &emptyErr)
+		if !answered && ctx.Err() != nil && hedgeAbandonKind(ctx) == KindHedgeSuperseded {
 			// The orchestrator cancelled this attempt because another
 			// candidate won. Its probe was still valid when it was cut, so
 			// there is nothing to charge: a healthy provider that is merely
-			// slower than the winner past the stall floor is not at fault.
+			// slower than the winner past the stall floor is not at fault. A
+			// provider that answered with its own error or an empty stream
+			// before the cut is still charged below, as classifyProbeError
+			// promises.
 			res.reqErr = reqError{Kind: KindHedgeSuperseded, Attempt: attempt, Provider: candidate.provider.Name}
 			return res
 		}

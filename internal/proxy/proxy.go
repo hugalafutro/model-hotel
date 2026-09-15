@@ -452,6 +452,7 @@ var outputMembers = []string{"content", "reasoning_content", "reasoning", "reaso
 func frameCarriesOutput(payload string) bool {
 	var frame struct {
 		Type    string                       `json:"type"`
+		Object  string                       `json:"object"`
 		Choices []map[string]json.RawMessage `json:"choices"`
 		Usage   json.RawMessage              `json:"usage"`
 	}
@@ -465,9 +466,13 @@ func frameCarriesOutput(payload string) bool {
 		return false
 	}
 	if frame.Choices == nil {
-		// A usage-only frame spelled without a choices member is the same
-		// accounting update as one with "choices":[]; anything else without
-		// choices is a shape this gateway does not model.
+		// A chunk that says what it is and carries no choices (a relay's
+		// metadata opener, a usage-only frame spelled without the member) is
+		// the same nothing as "choices":[]; anything else without choices is
+		// a shape this gateway does not model.
+		if frame.Object == "chat.completion.chunk" || frame.Object == "text_completion" {
+			return false
+		}
 		return !util.ValueCarries(frame.Usage)
 	}
 	for _, choice := range frame.Choices {
@@ -481,9 +486,17 @@ func frameCarriesOutput(payload string) bool {
 				}
 				continue
 			}
-			// Neither a delta nor a legacy text: a choice shape this gateway
-			// does not model.
-			return true
+			// Neither a delta nor a legacy text. A terminal chunk spelled
+			// without a delta member carries only its bookkeeping; a choice
+			// with any other member is a shape this gateway does not model.
+			for k := range choice {
+				switch k {
+				case "index", "finish_reason", "native_finish_reason", "logprobs":
+				default:
+					return true
+				}
+			}
+			continue
 		}
 		var delta map[string]any
 		if err := json.Unmarshal(rawDelta, &delta); err != nil {
@@ -681,6 +694,9 @@ func (h *Handler) probeFirstToken(
 	// producing, runs into the timeout and fails over.
 	sawFrame := false
 	emptyAnswer := func() (*bytes.Buffer, float64, error) {
+		// Stored first, as on every other success return: the deadline
+		// goroutine must not close a body that is about to be replayed.
+		probeSucceeded.Store(true)
 		ttft := util.MillisSince(startTime)
 		debuglog.Info("proxy: TTFT probe saw the stream end behind frames carrying no output; committing an empty answer", "ttft_ms", ttft)
 		closeProbe()

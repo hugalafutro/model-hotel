@@ -427,7 +427,9 @@ func TestProbeFirstToken_KeepaliveAfterRoleOpenerTimesOut(t *testing.T) {
 	}()
 	defer close(done)
 
-	_, _, err := h.probeFirstToken(context.Background(), pr, 300*time.Millisecond, time.Now())
+	// A second, so the opener has landed long before the deadline: a stream
+	// that sent nothing at all times out too, and would not prove this.
+	_, _, err := h.probeFirstToken(context.Background(), pr, time.Second, time.Now())
 	if err == nil || !strings.Contains(err.Error(), "TTFT timeout") {
 		t.Fatalf("a role opener followed by keepalives must time the probe out, got %v", err)
 	}

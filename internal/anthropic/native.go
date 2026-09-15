@@ -207,6 +207,11 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 		} `json:"delta"`
 		ContentBlock *struct {
 			Name string `json:"name"`
+			// Off-spec for Anthropic itself, which opens a text block empty,
+			// but an Anthropic-compatible relay may put the block's text on
+			// its opener; that text is output.
+			Text     string `json:"text"`
+			Thinking string `json:"thinking"`
 		} `json:"content_block"`
 	}
 	if json.Unmarshal(payload, &ev) != nil {
@@ -250,7 +255,7 @@ func InspectStreamEvent(payload []byte) StreamEvent {
 		}
 	case "content_block_start":
 		if ev.ContentBlock != nil {
-			info.TextBytes = len(ev.ContentBlock.Name)
+			info.TextBytes = len(ev.ContentBlock.Name) + len(ev.ContentBlock.Text) + len(ev.ContentBlock.Thinking)
 		}
 	}
 	return info

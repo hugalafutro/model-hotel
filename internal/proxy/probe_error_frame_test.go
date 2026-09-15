@@ -193,24 +193,21 @@ func TestDispatchStreaming_EmptyAnswerAfterCommitOpensTheCircuit(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
 
-	// Two things about this test are load-bearing, and an earlier version of it
-	// had neither.
+	// Two things about this test are load-bearing.
 	//
 	// It goes through dispatchStreaming, NOT straight to handleStreamingResponse,
-	// so the TTFT probe really runs. The bug being pinned lives in what the probe
-	// tells the breaker, so a test that skips the probe cannot see it — the first
-	// version of this test passed with the bug fully restored.
+	// so the TTFT probe really runs: the charge being pinned depends on what the
+	// probe tells the breaker, and a test that skips the probe cannot see it.
 	//
-	// And it runs at the PRODUCTION default threshold of 5. The bug is that a
-	// probe success zeroes consecutiveFails on every request, so each failure can
-	// only bring the count back to 1. A threshold of 1 is the single value at
-	// which that is invisible.
+	// And it runs at the PRODUCTION default threshold of 5. A probe success that
+	// zeroed consecutiveFails on every request would let each failure bring the
+	// count back only to 1, which a threshold of 1 cannot tell from working.
 	providerID := uuid.New()
 	// Hoisted so the assertion below can name the very model the charges were
 	// routed to, rather than a second copy of the id that could drift from it.
 	cand := modelCandidate{
 		model:    &model.Model{ModelID: "test-model"},
-		provider: &provider.Provider{ID: providerID, Name: "error-frame-provider"},
+		provider: &provider.Provider{ID: providerID, Name: "empty-answer-provider"},
 		apiKey:   "sk-test",
 	}
 	const attempts = 5
@@ -225,7 +222,7 @@ func TestDispatchStreaming_EmptyAnswerAfterCommitOpensTheCircuit(t *testing.T) {
 		// providerID is deliberately left off logData: the request-log row has a
 		// foreign key to providers and this provider exists only in the breaker.
 		logData := streamingLog()
-		logData.providerName = "error-frame-provider"
+		logData.providerName = "empty-answer-provider"
 		h.insertRequestLogAsync(logData)
 
 		st := &requestState{
@@ -637,10 +634,10 @@ func TestProbeFirstToken_EmptyAnswerCommits(t *testing.T) {
 	}
 }
 
-// The guard stays narrow: a real frame before the [DONE] still wins, and the
-// bytes the probe read ahead of it (keepalives, the role opener) are all in
-// the replay buffer so the client loses nothing.
-func TestProbeFirstToken_DoneAfterAFrameStillWins(t *testing.T) {
+// The guard stays narrow: a token behind frames carrying no output still wins,
+// and the bytes the probe read ahead of it (keepalives, the role opener) are
+// all in the replay buffer so the client loses nothing.
+func TestProbeFirstToken_TokenBehindNonOutputFramesWins(t *testing.T) {
 	h := &Handler{}
 	for name, body := range map[string]string{
 		"keepalive then frame":   ": ping\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" + emptyStreamSSE,
@@ -809,9 +806,10 @@ func TestClassifyProbeFrame(t *testing.T) {
 	}
 }
 
-// frameCarriesOutput is the one reading of "did the model say something"
-// the probe and the stall watchdog share, so every shape it must accept and
-// every shape it must reject is pinned here.
+// frameCarriesOutput is the probe's reading of "did the model say something"
+// (the stall watchdog deliberately counts bytes, not output: an Anthropic
+// keepalive across a tool pause must keep a committed stream alive), so every
+// shape it must accept and every shape it must reject is pinned here.
 func TestFrameCarriesOutput(t *testing.T) {
 	tests := []struct {
 		name    string
@@ -847,10 +845,13 @@ func TestFrameCarriesOutput(t *testing.T) {
 		{"anthropic message_delta", `{"type":"message_delta","usage":{"output_tokens":3}}`, false},
 		{"anthropic message_stop", `{"type":"message_stop"}`, false},
 		{"usage only without a choices member", `{"id":"x","usage":{"prompt_tokens":3,"completion_tokens":0}}`, false},
+		{"metadata-only chunk opener", `{"id":"x","object":"chat.completion.chunk","model":"m","created":1}`, false},
+		{"terminal chunk without a delta member", `{"choices":[{"index":0,"finish_reason":"stop","logprobs":null}]}`, false},
+		{"anthropic relay text on the block opener", `{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"Hello"}}`, true},
 		{"usage only with null choices", `{"choices":null,"usage":{"prompt_tokens":3}}`, false},
 		// Shapes this gateway does not model are never cut for being unknown.
 		{"not json", `{not json`, true},
-		{"no choices member", `{"id":"x","object":"chat.completion.chunk"}`, true},
+		{"no choices member, unknown object", `{"id":"x","result":{"text":"hi"}}`, true},
 		{"unknown event type", `{"type":"response.output_text.delta","delta":"hi"}`, true},
 		{"choice without a delta", `{"choices":[{"index":0,"message":{"role":"assistant","content":"hi"}}]}`, true},
 		{"delta that is not an object", `{"choices":[{"index":0,"delta":"hi"}]}`, true},

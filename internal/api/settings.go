@@ -174,7 +174,7 @@ var allowedSettings = map[string]struct {
 	"log_retention":                      {typeName: "string"},                                       // predefined option
 	"stale_request_timeout":              {typeName: "string"},                                       // predefined option
 	"key_cache_ttl":                      {typeName: "string"},                                       // duration (e.g. "10m0s")
-	"ttft_timeout":                       {typeName: "string"},                                       // duration (e.g. "1m0s", "0s" = disabled) to the first frame carrying model output
+	"ttft_timeout":                       {typeName: "string"},                                       // duration to the first frame carrying model output (e.g. "1m0s", "0s" = disabled)
 	"stream_stall_timeout":               {typeName: "string"},                                       // duration (e.g. "30s", "0s" = disabled)
 	"upstream_header_timeout":            {typeName: "string"},                                       // duration (e.g. "2m0s", "0s" = no limit) to wait for a provider's response headers
 	"hedging_enabled":                    {typeName: "string"},                                       // bool as string

@@ -308,13 +308,13 @@ func TestProbeStreamingCandidate_SupersededLoserIsNotCharged(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
 
-	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.WriteHeader(http.StatusOK)
 		if f, ok := w.(http.Flusher); ok {
 			f.Flush()
 		}
-		time.Sleep(400 * time.Millisecond) // accepts the connection, never sends a token
+		<-r.Context().Done() // accepts the connection, never sends a token, outlives the probe
 	}))
 	defer srv.Close()
 
