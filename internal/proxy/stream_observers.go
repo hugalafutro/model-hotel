@@ -158,7 +158,17 @@ type streamChunk struct {
 			// gemini egress adapter emits too): the whole answer of an image
 			// model, read for the breaker's bar alone.
 			Images json.RawMessage `json:"images"`
+			// The remaining output shapes the probe commits a stream on
+			// (frameCarriesOutput): a safety refusal, an audio answer and the
+			// legacy function_call. Delivery must count what the probe
+			// accepts, or a stream whose whole answer is one of these is
+			// charged as a completion with nothing in it.
+			Refusal      *string         `json:"refusal"`
+			Audio        json.RawMessage `json:"audio"`
+			FunctionCall json.RawMessage `json:"function_call"`
 		} `json:"delta"`
+		// Text is the legacy completions stream's output, on the choice itself.
+		Text               *string `json:"text"`
 		FinishReason       *string `json:"finish_reason"`
 		NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
 	} `json:"choices"`
@@ -235,8 +245,20 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 	// n>1 stream is billed for every choice), unlike the observers below, which
 	// watch choices[0] only.
 	for _, choice := range chunk.Choices {
+		if choice.Text != nil {
+			st.deliveredBytes += len(*choice.Text)
+		}
 		if choice.Delta == nil {
 			continue
+		}
+		if choice.Delta.Refusal != nil {
+			st.deliveredBytes += len(*choice.Delta.Refusal)
+		}
+		if util.ValueCarries(choice.Delta.Audio) {
+			st.deliveredBytes += len(choice.Delta.Audio)
+		}
+		if util.ValueCarries(choice.Delta.FunctionCall) {
+			st.deliveredBytes += len(choice.Delta.FunctionCall)
 		}
 		if choice.Delta.Content != nil {
 			st.deliveredBytes += len(*choice.Delta.Content)

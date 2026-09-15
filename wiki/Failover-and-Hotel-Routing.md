@@ -574,7 +574,7 @@ passes with no first token launches the next candidate in parallel. A slot freed
 an attempt that failed launches the next candidate at once rather than waiting out
 the delay.
 
-The first attempt to confirm a first token wins. The orchestrator cancels every
+The first attempt to confirm a first token (or to complete as an empty answer) wins. The orchestrator cancels every
 other attempt still in flight, stamps the winner's provider and model onto the
 request log, and streams the winner to the client. Nothing a loser produced ever
 reaches the client.

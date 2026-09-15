@@ -418,11 +418,33 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 	if msg, isErr := errorEnvelopeMessage(content); isErr {
 		return probeFrameError, msg
 	}
+	if isAnthropicMessageStop(content) {
+		// The native stream's terminator, which carries no [DONE]: the
+		// caller reads it like one, an empty answer behind frames and an
+		// empty stream with none. Without this a relay that holds the body
+		// open after message_stop would run an empty answer into the timeout.
+		return probeFrameEmptyStream, ""
+	}
 	if !frameCarriesOutput(content) {
 		return probeFrameNotAToken, ""
 	}
 	return probeFrameToken, ""
 }
+
+// isAnthropicMessageStop reports whether a payload is the native Anthropic
+// stream's terminal event.
+func isAnthropicMessageStop(payload string) bool {
+	var ev struct {
+		Type string `json:"type"`
+	}
+	return json.Unmarshal([]byte(payload), &ev) == nil && ev.Type == "message_stop"
+}
+
+// chunkMetadata are the members of an OpenAI-shaped chunk that describe the
+// chunk rather than carry output. A frame with no choices whose members are
+// all of these (a relay's metadata opener, a usage-only frame spelled
+// without the choices member) carries nothing.
+var chunkMetadata = map[string]bool{"id": true, "object": true, "created": true, "model": true, "system_fingerprint": true, "service_tier": true, "usage": true, "choices": true}
 
 // outputMembers are the delta members that carry model output on the OpenAI
 // chunk shape: text, the three spellings of reasoning, tool and function
@@ -452,9 +474,7 @@ var outputMembers = []string{"content", "reasoning_content", "reasoning", "reaso
 func frameCarriesOutput(payload string) bool {
 	var frame struct {
 		Type    string                       `json:"type"`
-		Object  string                       `json:"object"`
 		Choices []map[string]json.RawMessage `json:"choices"`
-		Usage   json.RawMessage              `json:"usage"`
 	}
 	if json.Unmarshal([]byte(payload), &frame) != nil {
 		return true
@@ -466,14 +486,18 @@ func frameCarriesOutput(payload string) bool {
 		return false
 	}
 	if frame.Choices == nil {
-		// A chunk that says what it is and carries no choices (a relay's
-		// metadata opener, a usage-only frame spelled without the member) is
-		// the same nothing as "choices":[]; anything else without choices is
-		// a shape this gateway does not model.
-		if frame.Object == "chat.completion.chunk" || frame.Object == "text_completion" {
-			return false
+		// No choices: the same nothing as "choices":[] when every member is
+		// chunk metadata (a relay's opener, a usage-only frame spelled
+		// without the choices member), otherwise a shape this gateway does
+		// not model.
+		var members map[string]json.RawMessage
+		_ = json.Unmarshal([]byte(payload), &members)
+		for k := range members {
+			if !chunkMetadata[k] {
+				return true
+			}
 		}
-		return !util.ValueCarries(frame.Usage)
+		return false
 	}
 	for _, choice := range frame.Choices {
 		rawDelta, hasDelta := choice["delta"]

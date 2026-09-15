@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -785,6 +786,7 @@ func TestClassifyProbeFrame(t *testing.T) {
 		{"role only", `{"choices":[{"delta":{"role":"assistant"}}]}`, probeFrameNotAToken, ""},
 		{"empty choices", `{"choices":[]}`, probeFrameNotAToken, ""},
 		{"anthropic message_start", `{"type":"message_start"}`, probeFrameNotAToken, ""},
+		{"anthropic message_stop is the terminator", `{"type":"message_stop"}`, probeFrameEmptyStream, ""},
 		{"anthropic content_block_delta", `{"type":"content_block_delta","delta":{"text":"hi"}}`, probeFrameToken, ""},
 		{"unparseable is still a token", `{not json`, probeFrameToken, ""},
 		{"terminator", "[DONE]", probeFrameEmptyStream, ""},
@@ -846,6 +848,9 @@ func TestFrameCarriesOutput(t *testing.T) {
 		{"anthropic message_stop", `{"type":"message_stop"}`, false},
 		{"usage only without a choices member", `{"id":"x","usage":{"prompt_tokens":3,"completion_tokens":0}}`, false},
 		{"metadata-only chunk opener", `{"id":"x","object":"chat.completion.chunk","model":"m","created":1}`, false},
+		{"null usage and nothing else", `{"usage":null}`, false},
+		{"unknown dialect beside a usage member", `{"usage":{"prompt_tokens":3},"result":{"text":"hi"}}`, true},
+		{"anthropic redacted thinking opener", `{"type":"content_block_start","index":0,"content_block":{"type":"redacted_thinking","data":"EmwKAhgB"}}`, true},
 		{"terminal chunk without a delta member", `{"choices":[{"index":0,"finish_reason":"stop","logprobs":null}]}`, false},
 		{"anthropic relay text on the block opener", `{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"Hello"}}`, true},
 		{"usage only with null choices", `{"choices":null,"usage":{"prompt_tokens":3}}`, false},
@@ -860,6 +865,37 @@ func TestFrameCarriesOutput(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			if got := frameCarriesOutput(tc.payload); got != tc.want {
 				t.Errorf("frameCarriesOutput(%s) = %v, want %v", tc.payload, got, tc.want)
+			}
+		})
+	}
+}
+
+// Every OpenAI-shaped output the probe commits a stream on must also count as
+// delivery once the stream is committed, or a stream whose whole answer is
+// that output is charged as a completion with nothing in it.
+func TestStreamDelivery_CountsEveryOutputTheProbeAccepts(t *testing.T) {
+	for name, payload := range map[string]string{
+		"content":       `{"choices":[{"delta":{"content":"hi"}}]}`,
+		"reasoning":     `{"choices":[{"delta":{"reasoning":"hmm"}}]}`,
+		"tool call":     `{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"f","arguments":""}}]}}]}`,
+		"function_call": `{"choices":[{"delta":{"function_call":{"name":"f","arguments":"{}"}}}]}`,
+		"refusal":       `{"choices":[{"delta":{"refusal":"no"}}]}`,
+		"audio":         `{"choices":[{"delta":{"audio":{"id":"a","data":"UklGRg==","transcript":"hi"}}}]}`,
+		"legacy text":   `{"choices":[{"text":"hi","index":0}]}`,
+		"image":         `{"choices":[{"delta":{"images":[{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgo="}}]}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if !frameCarriesOutput(payload) {
+				t.Fatalf("test assumption broken: the probe must accept %s", payload)
+			}
+			var chunk streamChunk
+			if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			st := &streamState{}
+			st.observeDataChunk(chunk, false, 1, &requestLogData{})
+			if !streamDeliveredOutput(st) {
+				t.Errorf("the probe commits on %s but the finalizer would charge it as empty", payload)
 			}
 		})
 	}
