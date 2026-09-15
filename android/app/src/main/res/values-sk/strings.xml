@@ -149,6 +149,7 @@
     <string name="alerts_category_backups">Zálohy</string>
     <string name="alerts_event_health_down">Člen spadol</string>
     <string name="alerts_event_health_up">Člen obnovený</string>
+    <string name="alerts_event_health_maintenance">Odpojený člen reštartovaný (údržba)</string>
     <string name="alerts_event_config_sync_failed">Synchronizácia konfigurácie zlyhala</string>
     <string name="alerts_event_config_synced">Konfigurácia synchronizovaná</string>
     <string name="alerts_event_config_auto_synced">Konfigurácia automaticky synchronizovaná</string>

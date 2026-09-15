@@ -317,6 +317,7 @@
 			"event": {
 				"health_down": "Membre hors ligne",
 				"health_up": "Membre récupéré",
+				"health_maintenance": "Membre drainé redémarré (maintenance)",
 				"config_sync_failed": "Échec de la synchronisation de configuration",
 				"config_synced": "Configuration synchronisée vers un membre",
 				"config_auto_synced": "Synchronisation automatique appliquée à la flotte",

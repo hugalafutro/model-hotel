@@ -312,6 +312,7 @@
 			"event": {
 				"health_down": "メンバーが停止しました",
 				"health_up": "メンバーが復旧しました",
+				"health_maintenance": "ドレイン中のメンバーが再起動（メンテナンス）",
 				"config_sync_failed": "設定同期が失敗しました",
 				"config_synced": "メンバーに設定を同期しました",
 				"config_auto_synced": "自動同期がフリートに適用されました",

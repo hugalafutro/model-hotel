@@ -633,3 +633,59 @@ func TestTraefikStalenessInputsKeepMonotonicReadings(t *testing.T) {
 		t.Error("Server.startedAt lost its monotonic reading; ConfigPollWarm now compares wall clocks")
 	}
 }
+
+// A drained member's flips are maintenance, not an outage: the rebuild tool
+// drains before it recreates, so its down and up land as health.maintenance
+// (info, off by default in the picker) rather than health.down / health.up.
+// The same flips on an active member keep paging, which the test above pins.
+func TestApplyHealthDrainedMemberFlipsAreMaintenance(t *testing.T) {
+	p, store, bus := newTestPoller(t, "")
+	ctx := context.Background()
+	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
+	if _, err := store.CreateMember(ctx, "other", "http://o:8081", ""); err != nil {
+		t.Fatal(err)
+	}
+	if err := store.SetMemberState(ctx, m.ID, StateDrained); err != nil {
+		t.Fatalf("drain: %v", err)
+	}
+	m.State = StateDrained
+	thr := p.healthFailThreshold(ctx)
+
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+	next := func() events.Event {
+		t.Helper()
+		for {
+			select {
+			case ev := <-ch:
+				if ev.Type == "member.status" {
+					continue
+				}
+				return ev
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for a transition event")
+			}
+		}
+	}
+
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true}, thr)
+	for i := 0; i < thr; i++ {
+		p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: false, Error: "recreating"}, thr)
+	}
+	if ev := next(); ev.Type != "health.maintenance" || ev.Severity != "info" {
+		t.Errorf("drained member down: got %+v, want health.maintenance at info", ev)
+	}
+	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true, LatencyMs: 9}, thr)
+	if ev := next(); ev.Type != "health.maintenance" || ev.Severity != "info" {
+		t.Errorf("drained member up: got %+v, want health.maintenance at info", ev)
+	}
+	evs, total, _ := store.ListEvents(ctx, EventFilter{})
+	if total != 2 {
+		t.Fatalf("persisted events = %d, want the two maintenance notes", total)
+	}
+	for _, ev := range evs {
+		if ev.Type != "health.maintenance" || ev.MemberID != m.ID {
+			t.Errorf("a drained member must not page: %+v", ev)
+		}
+	}
+}

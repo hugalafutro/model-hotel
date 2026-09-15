@@ -312,6 +312,7 @@
 			"event": {
 				"health_down": "Member ging down",
 				"health_up": "Member herstelde",
+				"health_maintenance": "Gedraineerd lid herstart (onderhoud)",
 				"config_sync_failed": "Config-sync mislukt",
 				"config_synced": "Configuratie gesynchroniseerd naar een member",
 				"config_auto_synced": "Auto-sync toegepast op de vloot",

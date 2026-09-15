@@ -312,6 +312,7 @@
 			"event": {
 				"health_down": "成员离线",
 				"health_up": "成员恢复",
+				"health_maintenance": "已排空成员重启（维护）",
 				"config_sync_failed": "配置同步失败",
 				"config_synced": "配置已同步到成员",
 				"config_auto_synced": "自动同步已应用到集群",

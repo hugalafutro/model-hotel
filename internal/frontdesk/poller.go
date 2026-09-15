@@ -351,21 +351,37 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 		p.publishMemberStatus(m.ID)
 	}
 
+	// A drained member is out of the routing pool on purpose: the operator (or
+	// the fleet rebuild tool, which drains before it recreates) is working on
+	// it, so its flips are maintenance, not an outage. They land in the event
+	// log under their own type, off by default in the picker, so a planned
+	// rebuild does not page anyone while an active member's flips still do.
+	maintenance := m.State == StateDrained
 	switch {
 	case hs.Healthy && priorFails >= threshold:
 		// Recovered from a state we had actually reported down.
-		p.recordEvent(ctx, Event{
+		ev := Event{
 			Type: "health.up", Severity: "success", Source: "frontdesk-poller",
 			Message: fmt.Sprintf("%s is healthy", m.Name), MemberID: m.ID,
 			Metadata: map[string]any{"latency_ms": hs.LatencyMs},
-		})
+		}
+		if maintenance {
+			ev.Type, ev.Severity = "health.maintenance", "info"
+			ev.Message = fmt.Sprintf("%s is healthy again while drained", m.Name)
+		}
+		p.recordEvent(ctx, ev)
 	case !hs.Healthy && fails == threshold:
 		// Crossed into confirmed-down: emit exactly once, not on every later poll.
-		p.recordEvent(ctx, Event{
+		ev := Event{
 			Type: "health.down", Severity: "error", Source: "frontdesk-poller",
 			Message: fmt.Sprintf("%s is unreachable after %d %s", m.Name, fails, util.Plural(fails, "check", "checks")), MemberID: m.ID,
 			Metadata: map[string]any{"error": hs.Error, "consecutive_failures": fails},
-		})
+		}
+		if maintenance {
+			ev.Type, ev.Severity = "health.maintenance", "info"
+			ev.Message = fmt.Sprintf("%s is unreachable while drained (%d %s)", m.Name, fails, util.Plural(fails, "check", "checks"))
+		}
+		p.recordEvent(ctx, ev)
 	}
 }
 

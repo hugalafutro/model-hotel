@@ -317,6 +317,7 @@
 			"event": {
 				"health_down": "Miembro caído",
 				"health_up": "Miembro recuperado",
+				"health_maintenance": "Miembro drenado reiniciado (mantenimiento)",
 				"config_sync_failed": "Sincronización de configuración fallida",
 				"config_synced": "Configuración sincronizada con un miembro",
 				"config_auto_synced": "Sincronización automática aplicada a la flota",
