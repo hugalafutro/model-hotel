@@ -8,6 +8,7 @@ package budget
 import (
 	"errors"
 	"fmt"
+	"math"
 	"time"
 )
 
@@ -52,6 +53,13 @@ func Validate(usd *float64, period *string) error {
 	}
 	if usd == nil {
 		return nil
+	}
+	// NaN fails neither bound below (every comparison with it is false), so it
+	// is named; an infinity fails one of them already. The JSON decoder and
+	// the row's CHECK refuse NaN upstream and downstream, and this keeps the
+	// contract whole without either.
+	if math.IsNaN(*usd) {
+		return errors.New("budget_usd must be a number")
 	}
 	if *usd <= 0 {
 		return errors.New("budget_usd must be > 0 (use null for no budget)")
