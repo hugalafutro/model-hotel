@@ -2354,7 +2354,7 @@
       "type": "timeseries",
       "id": 45,
       "title": "Quota used over time",
-      "description": "The same windows over the selected range: the slope is the burn rate, a drop is a rollover. A line that reaches 1 and stays there is a window the fleet is routing around until it resets. A dashed yellow line is a provider's quota reserve: routing stops once a window climbs past it.",
+      "description": "The same windows over the selected range: the slope is the burn rate, a drop is a rollover. A line that reaches 1 and stays there is a window the fleet is routing around until it resets. A dashed yellow line is a provider's quota reserve: routing stops once a window climbs past it. The axis stops at 125%: a provider serving into overage still shows above 100%, and a larger overage reads from the Quota used gauge beside this panel and from the tooltip rather than stretching the scale.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -2383,7 +2383,6 @@
               "mode": "none",
               "group": "A"
             },
-            "axisSoftMax": 1.25,
             "thresholdsStyle": {
               "mode": "line"
             }
@@ -2403,7 +2402,8 @@
                 "value": 1
               }
             ]
-          }
+          },
+          "max": 1.25
         },
         "overrides": [
           {
