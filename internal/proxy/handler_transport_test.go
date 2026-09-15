@@ -2,13 +2,15 @@ package proxy
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/hugalafutro/model-hotel/internal/settings"
 )
@@ -120,7 +122,7 @@ func TestUpstreamClient_HeaderTimeoutCutsSlowHeaders(t *testing.T) {
 		repo.InvalidateCache("upstream_header_timeout")
 	}
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		time.Sleep(300 * time.Millisecond)
+		time.Sleep(500 * time.Millisecond)
 		w.WriteHeader(http.StatusOK)
 	}))
 	t.Cleanup(srv.Close)
@@ -132,8 +134,8 @@ func TestUpstreamClient_HeaderTimeoutCutsSlowHeaders(t *testing.T) {
 	if resp, err := h.upstreamClient(ctx).Do(req); err == nil {
 		resp.Body.Close()
 		t.Fatal("50ms header timeout: want the slow provider cut off, got a response")
-	} else if !strings.Contains(err.Error(), "timeout awaiting response headers") {
-		t.Fatalf("50ms header timeout: want the header-timeout error, got %v", err)
+	} else if ne := net.Error(nil); !errors.As(err, &ne) || !ne.Timeout() {
+		t.Fatalf("50ms header timeout: want a timeout error, got %v", err)
 	}
 
 	set("0s")
@@ -161,14 +163,21 @@ func TestTransportFor_ConcurrentSettingChanges(t *testing.T) {
 
 	values := []string{"1m", "3m", "0s", "2m", "4m"}
 	allowed := map[time.Duration]bool{time.Minute: true, 3 * time.Minute: true, 0: true, 2 * time.Minute: true, 4 * time.Minute: true}
+	// Readers spin until the writer is done, so every change lands while
+	// they are inside transportFor and the swap under headerMu is contended.
+	done := make(chan struct{})
 	var wg sync.WaitGroup
 	for i := 0; i < 8; i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < 200; j++ {
-				tr := h.transportFor(ctx)
-				if tr == nil || !allowed[tr.ResponseHeaderTimeout] {
+			for {
+				select {
+				case <-done:
+					return
+				default:
+				}
+				if tr := h.transportFor(ctx); !allowed[tr.ResponseHeaderTimeout] {
 					t.Errorf("reader got a Transport at %v, not a value the setting held", tr.ResponseHeaderTimeout)
 					return
 				}
@@ -177,16 +186,58 @@ func TestTransportFor_ConcurrentSettingChanges(t *testing.T) {
 	}
 	for _, v := range values {
 		if err := repo.Set(ctx, "upstream_header_timeout", v); err != nil {
-			t.Fatalf("set: %v", err)
+			t.Errorf("set: %v", err)
+			break
 		}
 		repo.InvalidateCache("upstream_header_timeout")
 		time.Sleep(5 * time.Millisecond)
 	}
+	close(done)
 	wg.Wait()
 	last := h.transportFor(ctx)
 	h.headerMu.Lock()
 	defer h.headerMu.Unlock()
 	if last != h.headerTransport || last.ResponseHeaderTimeout != 4*time.Minute {
 		t.Fatalf("after the last change: want the one clone at 4m, got %v", last.ResponseHeaderTimeout)
+	}
+}
+
+// TestTransportFor_FailedReadKeepsCurrent: a settings read that fails (here
+// the pool behind the repository is closed after the cache is evicted) is not
+// an operator change. The live clone stays, its pool with it, instead of the
+// fallback default evicting it; a handler with no clone yet serves the base.
+func TestTransportFor_FailedReadKeepsCurrent(t *testing.T) {
+	ctx := context.Background()
+	pool, err := pgxpool.NewWithConfig(ctx, testDB.Pool().Config())
+	if err != nil {
+		t.Fatalf("second pool: %v", err)
+	}
+	repo := settings.NewRepository(pool)
+	t.Cleanup(func() {
+		live := settings.NewRepository(testDB.Pool())
+		_ = live.DeleteKey(ctx, "upstream_header_timeout")
+	})
+	if err := repo.Set(ctx, "upstream_header_timeout", "5m"); err != nil {
+		t.Fatalf("set: %v", err)
+	}
+	repo.InvalidateCache("upstream_header_timeout")
+	base := &http.Transport{ResponseHeaderTimeout: defaultUpstreamHeaderTimeout}
+	h := &Handler{settingsRepo: repo, upstreamTransport: base}
+	t.Cleanup(h.Close)
+
+	clone := h.transportFor(ctx)
+	if clone == base || clone.ResponseHeaderTimeout != 5*time.Minute {
+		t.Fatalf("want a 5m clone first, got shared=%v timeout=%v", clone == base, clone.ResponseHeaderTimeout)
+	}
+	// Close first: InvalidateCache re-reads the key after evicting it, so the
+	// eviction only sticks once the read behind it fails.
+	pool.Close()
+	repo.InvalidateCache("upstream_header_timeout")
+	if got := h.transportFor(ctx); got != clone {
+		t.Fatalf("failed read: want the live clone kept, got shared=%v timeout=%v", got == base, got.ResponseHeaderTimeout)
+	}
+	fresh := &Handler{settingsRepo: repo, upstreamTransport: base}
+	if got := fresh.transportFor(ctx); got != base {
+		t.Fatal("failed read with no clone yet: want the shared Transport")
 	}
 }

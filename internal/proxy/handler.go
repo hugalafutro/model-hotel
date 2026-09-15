@@ -500,13 +500,23 @@ func (h *Handler) transportFor(ctx context.Context) *http.Transport {
 	if base == nil || h.settingsRepo == nil {
 		return base
 	}
-	want := h.settingsRepo.GetDuration(ctx, "upstream_header_timeout", defaultUpstreamHeaderTimeout)
+	want, err := h.settingsRepo.GetDurationChecked(ctx, "upstream_header_timeout", defaultUpstreamHeaderTimeout)
 	if want < 0 {
 		want = 0
 	}
 	h.headerMu.Lock()
 	defer h.headerMu.Unlock()
 	cur := h.headerTransport
+	if err != nil {
+		// A read that failed (the caller's context expired mid-miss, the
+		// database was away) says nothing about the setting: serve what is
+		// current rather than mistake the fallback default for an operator
+		// change and drop the live clone's pool over it.
+		if cur != nil {
+			return cur
+		}
+		return base
+	}
 	if cur != nil && cur.ResponseHeaderTimeout == want {
 		return cur
 	}
