@@ -174,8 +174,8 @@ var allowedSettings = map[string]struct {
 	"log_retention":                      {typeName: "string"},                                       // predefined option
 	"stale_request_timeout":              {typeName: "string"},                                       // predefined option
 	"key_cache_ttl":                      {typeName: "string"},                                       // duration (e.g. "10m0s")
-	"ttft_timeout":                       {typeName: "string"},                                       // duration (e.g. "1m0s", "0s" = disabled)
-	"stream_stall_timeout":               {typeName: "string"},                                       // duration (e.g. "30s", "0s" = disabled)
+	"ttft_timeout":                       {typeName: "string"},                                       // duration (e.g. "1m0s", "0s" = disabled) to the first frame carrying model output
+	"stream_stall_timeout":               {typeName: "string"},                                       // duration (e.g. "30s", "0s" = disabled) without a frame carrying model output; keepalives do not count
 	"upstream_header_timeout":            {typeName: "string"},                                       // duration (e.g. "2m0s", "0s" = no limit) to wait for a provider's response headers
 	"hedging_enabled":                    {typeName: "string"},                                       // bool as string
 	"hedge_delay":                        {typeName: "string"},                                       // duration (e.g. "4s") before racing a backup provider

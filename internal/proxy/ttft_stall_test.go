@@ -29,7 +29,7 @@ func makeSSEBody(t *testing.T, s string) io.ReadCloser {
 
 func TestProbeFirstToken_DataChunk(t *testing.T) {
 	h := &Handler{}
-	body := makeSSEBody(t, "data: {\"choices\":[]}\n\ndata: [DONE]\n\n")
+	body := makeSSEBody(t, "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
@@ -46,14 +46,14 @@ func TestProbeFirstToken_DataChunk(t *testing.T) {
 	}
 	// probeBuf should contain the bytes read up to and including the first data line
 	got := probeBuf.String()
-	if !strings.Contains(got, `data: {"choices":[]}`) {
+	if !strings.Contains(got, `data: {"choices":[{"delta":{"content":"hi"}}]}`) {
 		t.Errorf("probeBuf should contain first data line, got: %q", got)
 	}
 }
 
 func TestProbeFirstToken_KeepaliveThenData(t *testing.T) {
 	h := &Handler{}
-	body := makeSSEBody(t, ": keepalive\n\nevent: message_start\ndata: {\"choices\":[]}\n\n")
+	body := makeSSEBody(t, ": keepalive\n\nevent: message_start\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
@@ -66,7 +66,7 @@ func TestProbeFirstToken_KeepaliveThenData(t *testing.T) {
 	}
 	got := probeBuf.String()
 	// Should have skipped keepalive and event line, found data line
-	if !strings.Contains(got, "data: {\"choices\":[]}") {
+	if !strings.Contains(got, "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}") {
 		t.Errorf("probeBuf should contain data line, got: %q", got)
 	}
 	// Keepalive and event lines should also be in the buffer (captured by TeeReader)
@@ -399,6 +399,102 @@ func TestStallWatchdog_Reset(t *testing.T) {
 	}
 	if logData.errorMessage != "" {
 		t.Errorf("expected no error message, got: %q", logData.errorMessage)
+	}
+}
+
+// TestStallWatchdog_KeepaliveIsNotLife is the OpenCode Go case seen on prod
+// (2026-09-15): a 200 stream that opens with a role-only delta and then sends
+// a keepalive comment every few seconds, never a token. Every line used to
+// ping the watchdog, so the stream outlived stream_stall_timeout many times
+// over and the client's own timeout ended it. The watchdog now counts only
+// output-carrying frames, so the keepalives here (every 50ms, well inside the
+// 200ms stall window) must not keep it alive.
+func TestStallWatchdog_KeepaliveIsNotLife(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	closeCh := make(chan struct{})
+	pr, pw := io.Pipe()
+	go func() {
+		defer pw.Close()
+		if _, err := pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":\"\"}}]}\n\n")); err != nil {
+			return
+		}
+		for {
+			select {
+			case <-closeCh:
+				return
+			case <-time.After(50 * time.Millisecond):
+			}
+			if _, err := pw.Write([]byte(": keep-alive\n\n")); err != nil {
+				return
+			}
+		}
+	}()
+
+	resp := &http.Response{StatusCode: http.StatusOK, Body: pr}
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+	logData := &requestLogData{
+		id:             uuid.New().String(),
+		modelID:        "test-model",
+		streaming:      true,
+		virtualKeyName: "test-key",
+		virtualKeyID:   "00000000-0000-0000-0000-000000000001",
+		state:          "streaming",
+	}
+	h.insertRequestLogAsync(logData)
+	time.Sleep(100 * time.Millisecond)
+
+	opts := streamOptions{
+		responseHeaderMs:   10.0,
+		streamStallTimeout: 200 * time.Millisecond,
+		vkHash:             "test-hash",
+		attempt:            1,
+		cancelOrigin:       "failover_timeout",
+	}
+	h.handleStreamingResponse(w, req, logData, resp, time.Now(), opts)
+	close(closeCh)
+
+	if logData.state != "failed" {
+		t.Fatalf("expected state=failed after a keepalive-only stream, got %q", logData.state)
+	}
+	if !strings.Contains(logData.errorMessage, "stream stalled: no output for 200ms") {
+		t.Errorf("error = %q, want the stall verdict", logData.errorMessage)
+	}
+	// Four keepalives fit in the window; the writer's loop would run forever
+	// if the watchdog waited for it, so an early cut is the whole proof.
+	if logData.durationMs > 1500 {
+		t.Errorf("expected the watchdog to cut the stream near 200ms, got %.1fms", logData.durationMs)
+	}
+}
+
+// The probe half of the same case: a role opener behind keepalives is not a
+// first token, so ttft_timeout fails the probe and the request fails over
+// before any byte reached the client.
+func TestProbeFirstToken_KeepaliveAfterRoleOpenerTimesOut(t *testing.T) {
+	h := &Handler{}
+	pr, pw := io.Pipe()
+	done := make(chan struct{})
+	go func() {
+		defer pw.Close()
+		_, _ = pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":\"\"}}]}\n\n"))
+		for {
+			select {
+			case <-done:
+				return
+			case <-time.After(50 * time.Millisecond):
+			}
+			if _, err := pw.Write([]byte(": keep-alive\n\n")); err != nil {
+				return
+			}
+		}
+	}()
+	defer close(done)
+
+	_, _, err := h.probeFirstToken(context.Background(), pr, 300*time.Millisecond, time.Now())
+	if err == nil || !strings.Contains(err.Error(), "TTFT timeout") {
+		t.Fatalf("a role opener followed by keepalives must time the probe out, got %v", err)
 	}
 }
 
@@ -1112,7 +1208,7 @@ func TestStallWatchdog_ProgressiveTimeout_Boundary50(t *testing.T) {
 func TestProbeFirstToken_DataNoSpaceAfterColon(t *testing.T) {
 	h := &Handler{}
 	// Some providers send "data:" without a space after the colon
-	body := makeSSEBody(t, "data:{\"choices\":[]}\n\n")
+	body := makeSSEBody(t, "data:{\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
@@ -1132,7 +1228,7 @@ func TestProbeFirstToken_DataNoSpaceAfterColon(t *testing.T) {
 func TestProbeFirstToken_DataWithSpaces(t *testing.T) {
 	h := &Handler{}
 	// Standard "data: " with space
-	body := makeSSEBody(t, "data:   {\"choices\":[]}\n\n")
+	body := makeSSEBody(t, "data:   {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
@@ -1166,7 +1262,7 @@ func TestProbeFirstToken_DoneWithDataAfter(t *testing.T) {
 func TestProbeFirstToken_UnknownLineFormat(t *testing.T) {
 	h := &Handler{}
 	// Unknown line format (not data:, not a comment, not empty) — should be skipped
-	body := makeSSEBody(t, "some-random-text\ndata: {\"choices\":[]}\n\n")
+	body := makeSSEBody(t, "some-random-text\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)

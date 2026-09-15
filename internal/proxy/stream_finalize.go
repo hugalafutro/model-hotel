@@ -71,8 +71,12 @@ type streamState struct {
 	// unmetered while the provider still bills for it.
 	deliveredBytes     int
 	clientDisconnected bool
-	stalled            bool
-	interrupted        bool // the process is shutting down; set from the reader
+	// outputChunks counts the data frames that carried model output, the
+	// watchdog's own count (streamReader.outputChunks), so the effective stall
+	// window reconstructed for diagnostics is the one the watchdog ran.
+	outputChunks int
+	stalled      bool
+	interrupted  bool // the process is shutting down; set from the reader
 	// clientErrMsg overrides the client-facing terminal frame message when the
 	// derived errMsg carries provider/transport detail that must not leave the
 	// gateway (a raw scanner error can embed internal IPs and the upstream
@@ -433,12 +437,12 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 		debuglog.Warn("proxy: stream interrupted by shutdown", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
 	case st.stalled && cutShort:
 		effectiveStall := opts.streamStallTimeout
-		if st.chunkCount > progressiveChunkThreshold {
+		if st.outputChunks > progressiveChunkThreshold {
 			effectiveStall = opts.streamStallTimeout * progressiveStallMultiplier
 		}
-		errMsg = fmt.Sprintf("stream stalled: no data for %s", effectiveStall)
+		errMsg = fmt.Sprintf("stream stalled: no output for %s", effectiveStall)
 		logData.errorKind = KindProviderTimeout
-		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", st.chunkCount)
+		debuglog.Warn("proxy: stream stall detected", "model", logData.modelID, "provider", logData.providerName, "stall_timeout", effectiveStall, "base_timeout", opts.streamStallTimeout, "chunks", st.chunkCount, "output_chunks", st.outputChunks)
 	}
 	return errMsg
 }

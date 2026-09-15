@@ -16,9 +16,9 @@ import (
 func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request, logData *requestLogData, resp *http.Response, startTime time.Time, opts streamOptions) {
 
 	// Progressive stall timeout (progressiveChunkThreshold and
-	// progressiveStallMultiplier): past that many chunks the stream is clearly
-	// alive, so the watchdog timeout extends to tolerate tool-call pauses and
-	// long reasoning chains.
+	// progressiveStallMultiplier): past that many output-carrying chunks the
+	// stream is clearly alive, so the watchdog timeout extends to tolerate
+	// tool-call pauses and long reasoning chains.
 
 	defer func() {
 		// Drain remaining bytes so the Transport reuses the connection, unless
@@ -122,6 +122,7 @@ logUpdate:
 	// it could not (the final chunk count and the stall flag, read after
 	// watchdog teardown), then finalize.
 	st.chunkCount = reader.chunkCount
+	st.outputChunks = reader.outputChunks
 	st.stalled = reader.stalled()
 	st.interrupted = reader.interrupted()
 	h.finalizeStream(st, sink, reader.err(), logData, opts, resp.StatusCode, startTime)

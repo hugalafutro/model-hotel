@@ -374,14 +374,17 @@ func errorEnvelopeMessage(content string) (msg string, ok bool) {
 type probeFrame int
 
 const (
-	// probeFrameNotAToken is a data line carrying nothing: an empty or
-	// whitespace-only field. Skipped exactly like a keepalive comment: it is not
-	// a token, but it is not a verdict either, so a real frame after it wins.
+	// probeFrameNotAToken is a data line carrying no output: an empty or
+	// whitespace-only field, or a frame that frameCarriesOutput rejects (a
+	// role-only opener, a usage-only chunk, an Anthropic message_start or
+	// ping). Skipped exactly like a keepalive comment: it is not a token, but
+	// it is not a verdict either, so a real frame after it wins.
 	//
-	// It keeps the probe agreeing with streamReader.classify, which treats a
-	// bare "data:" as a comment and an empty payload as delivering nothing.
-	// Counting such a frame as a token would let a stream of "data:" then
-	// "data: [DONE]" win a hedged race while producing zero chunks downstream.
+	// It keeps the probe agreeing with the stall watchdog, which pings on the
+	// same predicate. Counting such a frame as a token would commit the
+	// stream to the client on a role opener and let a provider that then
+	// sends keepalives for minutes without a token hold the client until the
+	// client's own timeout, past every failover this gateway could have made.
 	probeFrameNotAToken probeFrame = iota
 	// probeFrameToken is a real first token: the provider is answering.
 	probeFrameToken
@@ -407,7 +410,72 @@ func classifyProbeFrame(content string) (probeFrame, string) {
 	if msg, isErr := errorEnvelopeMessage(content); isErr {
 		return probeFrameError, msg
 	}
+	if !frameCarriesOutput(content) {
+		return probeFrameNotAToken, ""
+	}
 	return probeFrameToken, ""
+}
+
+// outputMembers are the delta members that carry model output on the OpenAI
+// chunk shape: text, the three spellings of reasoning, tool and function
+// calls, a generated image, audio, and a refusal.
+var outputMembers = []string{"content", "reasoning_content", "reasoning", "reasoning_details", "tool_calls", "function_call", "images", "audio", "refusal"}
+
+// frameCarriesOutput reports whether a "data:" payload carries model output.
+// It is the one reading of "did the model say something" shared by the TTFT
+// probe (which commits the stream on the first such frame) and the stall
+// watchdog (which counts only such frames as life), so the two cannot drift.
+//
+// On the OpenAI chunk shape a frame carries output when any choice's delta
+// carries one of outputMembers, or the choice carries a legacy completion
+// text; a role-only opener, an empty choices list and a usage-only chunk do
+// not. On the Anthropic event shape content_block_start and
+// content_block_delta carry output; message_start, ping, message_delta and
+// message_stop do not. Presence is read with util.ValueCarries, the same
+// emptiness rule the observers meter delivery with, so "content":"" and
+// "reasoning_details":[] are the nothing they are.
+//
+// A payload of a shape this gateway does not model (not JSON, no choices
+// member, an event type it does not know) counts as output: an unknown
+// dialect must never be cut for being unknown. Without this reading a relay
+// that answers 200, sends a role opener and then keepalives every few seconds
+// while its model produces nothing looks alive to both probe and watchdog,
+// and the client waits on it until its own timeout.
+func frameCarriesOutput(payload string) bool {
+	var frame struct {
+		Type    string `json:"type"`
+		Choices []struct {
+			Delta json.RawMessage `json:"delta"`
+			Text  json.RawMessage `json:"text"`
+		} `json:"choices"`
+	}
+	if json.Unmarshal([]byte(payload), &frame) != nil {
+		return true
+	}
+	switch frame.Type {
+	case "content_block_start", "content_block_delta":
+		return true
+	case "message_start", "ping", "message_delta", "message_stop":
+		return false
+	}
+	if frame.Choices == nil {
+		return true
+	}
+	for _, choice := range frame.Choices {
+		if util.ValueCarries(choice.Text) {
+			return true
+		}
+		var delta map[string]json.RawMessage
+		if json.Unmarshal(choice.Delta, &delta) != nil {
+			continue
+		}
+		for _, member := range outputMembers {
+			if util.ValueCarries(delta[member]) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // recoverProbeFrame finds the first complete, meaningful SSE data line in a
