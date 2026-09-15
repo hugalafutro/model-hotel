@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"math"
@@ -334,107 +333,15 @@ func (e *upstreamFrameError) Error() string { return e.msg }
 // Like upstreamFrameError it means the provider answered, so it is charged to
 // the provider rather than blamed on the client.
 //
-// The bar is "no chunks whatever": a provider that sends any real frame and
-// then finishes has answered, even if the answer is empty, and keeps its win.
+// The bar is "no chunks whatever": a provider that sends any data frame, even
+// one carrying no output, and then finishes has answered with an empty
+// completion. That stream is committed and forwarded with its own finish
+// reason, and the finalizer charges it once as a completion with nothing in
+// it, the same as the non-streaming path treats an empty choice.
 type emptyStreamError struct{}
 
 func (e *emptyStreamError) Error() string {
 	return "provider ended the stream without producing any content"
-}
-
-// errorEnvelopeMessage reports the provider's own message when an SSE data frame
-// is an error envelope instead of a token, and ok == false for every ordinary
-// frame.
-//
-// Whether the frame is an error is util.ValueCarries' decision alone (a
-// populated error member of any shape, including Ollama's bare string; not
-// null/{}/""/[]/false/0, which leave a caller nothing to read). Deciding it a
-// second time here is how the two drift, and either direction is a bug: a miss
-// lets a broken provider win a hedged race, a false positive fails over a
-// healthy stream.
-//
-// Only the message is extracted here, by util.ErrorMemberMessage, which renders
-// shapes wider than {"error":{"message":...}}.
-func errorEnvelopeMessage(content string) (msg string, ok bool) {
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(content), &envelope); err != nil {
-		return "", false
-	}
-	raw := envelope["error"]
-	if !util.ValueCarries(raw) {
-		return "", false
-	}
-	// A bare string, a list, a number, or an object without a "message": render
-	// what the provider put there rather than dropping a frame already judged to
-	// be an error. Bounded by the caller's sanitizer.
-	return util.ErrorMemberMessage(raw), true
-}
-
-// probeFrame is what one SSE data payload means to the first-token probe.
-type probeFrame int
-
-const (
-	// probeFrameNotAToken is a data line carrying nothing: an empty or
-	// whitespace-only field. Skipped exactly like a keepalive comment: it is not
-	// a token, but it is not a verdict either, so a real frame after it wins.
-	//
-	// It keeps the probe agreeing with streamReader.classify, which treats a
-	// bare "data:" as a comment and an empty payload as delivering nothing.
-	// Counting such a frame as a token would let a stream of "data:" then
-	// "data: [DONE]" win a hedged race while producing zero chunks downstream.
-	probeFrameNotAToken probeFrame = iota
-	// probeFrameToken is a real first token: the provider is answering.
-	probeFrameToken
-	// probeFrameEmptyStream is the [DONE] terminator with no chunk before it.
-	probeFrameEmptyStream
-	// probeFrameError is an error envelope: the provider reported its failure.
-	probeFrameError
-)
-
-// classifyProbeFrame decides what a "data:" payload tells the probe. content is
-// expected already trimmed. The returned message is the provider's own text, and
-// is only populated for probeFrameError.
-//
-// One classifier, used by both the main scanner loop and the scanner-error
-// recovery branch, so the two cannot drift.
-func classifyProbeFrame(content string) (probeFrame, string) {
-	switch content {
-	case "":
-		return probeFrameNotAToken, ""
-	case "[DONE]":
-		return probeFrameEmptyStream, ""
-	}
-	if msg, isErr := errorEnvelopeMessage(content); isErr {
-		return probeFrameError, msg
-	}
-	return probeFrameToken, ""
-}
-
-// recoverProbeFrame finds the first complete, meaningful SSE data line in a
-// probe buffer and classifies it. found is false when the buffer holds none.
-func recoverProbeFrame(bufStr string) (verdict probeFrame, msg string, found bool) {
-	for rawLine := range strings.SplitSeq(bufStr, "\n") {
-		l := strings.TrimSpace(rawLine)
-		content, isData := strings.CutPrefix(l, "data:")
-		if !isData {
-			continue
-		}
-		// Reject partial lines: a complete SSE line must be followed by \n in
-		// the buffer. Without this guard a mid-line network fragment like
-		// "data: hel" (no \n) would pass HasPrefix but represent malformed data.
-		if !strings.Contains(bufStr, rawLine+"\n") {
-			continue
-		}
-		// Same classifier as the main loop, so a frame recovered from the buffer
-		// is judged exactly as one read straight off the scanner.
-		v, m := classifyProbeFrame(strings.TrimSpace(content))
-		if v == probeFrameNotAToken {
-			// Carries nothing; keep looking for a frame that does.
-			continue
-		}
-		return v, m, true
-	}
-	return probeFrameNotAToken, "", false
 }
 
 // recoverFirstToken turns a scanner-error recovery buffer into probeFirstToken's
@@ -538,6 +445,25 @@ func (h *Handler) probeFirstToken(
 	scanner := bufio.NewScanner(tee)
 	scanner.Buffer(make([]byte, 64*1024), 4*1024*1024)
 
+	// sawFrame records a data frame that carried no output (a role opener, a
+	// usage-only chunk, an Anthropic message_start). Such a frame is not a
+	// token, but it makes the stream's end an empty ANSWER rather than an
+	// empty stream: the provider completed having said nothing, which is
+	// committed and forwarded with its own finish reason and charged once by
+	// the finalizer, the way the non-streaming path treats an empty choice.
+	// Only a stream that stays open behind such frames, pinging without ever
+	// producing, runs into the timeout and fails over.
+	sawFrame := false
+	emptyAnswer := func() (*bytes.Buffer, float64, error) {
+		// Stored first, as on every other success return: the deadline
+		// goroutine must not close a body that is about to be replayed.
+		probeSucceeded.Store(true)
+		ttft := util.MillisSince(startTime)
+		debuglog.Info("proxy: TTFT probe saw the stream end behind frames carrying no output; committing an empty answer", "ttft_ms", ttft)
+		closeProbe()
+		return &buf, ttft, nil
+	}
+
 	for scanner.Scan() {
 		line := strings.TrimSpace(scanner.Text())
 		// Skip empty lines, keepalive comments, and non-data directives.
@@ -551,6 +477,7 @@ func (h *Handler) probeFirstToken(
 				// Carries nothing, so it decides nothing. The watchdog must
 				// stay armed across it, which is why probeSucceeded is set
 				// below rather than on any "data:" prefix.
+				sawFrame = sawFrame || content != ""
 				continue
 			}
 			// Signal the goroutine that a meaningful frame was found, so the
@@ -559,6 +486,9 @@ func (h *Handler) probeFirstToken(
 			// instant; the scanner-error recovery below covers the rest of
 			// that window.
 			probeSucceeded.Store(true)
+			if verdict == probeFrameEmptyStream && sawFrame {
+				return emptyAnswer()
+			}
 			if verdict == probeFrameEmptyStream {
 				// The stream ended before producing a single chunk, so it loses
 				// the race the way an error frame does: counting it as a win
@@ -617,7 +547,12 @@ func (h *Handler) probeFirstToken(
 		return nil, 0, fmt.Errorf("TTFT probe read error: %w", scanErr)
 	}
 
-	// Scanner finished without error and without finding data: body EOF.
+	// Scanner finished without error and without finding a token: body EOF.
+	// Behind a frame that is an empty answer (the native Anthropic stream ends
+	// on message_stop with no [DONE]); with no frame at all it is nothing.
+	if sawFrame {
+		return emptyAnswer()
+	}
 	return nil, 0, fmt.Errorf("TTFT probe: body closed before first data chunk")
 }
 

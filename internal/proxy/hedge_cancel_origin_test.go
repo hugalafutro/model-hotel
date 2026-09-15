@@ -297,6 +297,51 @@ func TestProbeStreamingCandidate_LogsTheBreakerFailureItRecords(t *testing.T) {
 	}
 }
 
+// TestProbeStreamingCandidate_SupersededLoserIsNotCharged: a candidate whose
+// probe is still valid when the orchestrator cancels it because another
+// candidate won is not at fault, however long it has been waiting. Without
+// this, a healthy provider slower than the winner past the stall floor was
+// charged a provider timeout on every race it lost, and probes now wait for a
+// frame carrying output, so losing after the floor is ordinary.
+func TestProbeStreamingCandidate_SupersededLoserIsNotCharged(t *testing.T) {
+	logs := captureProxyLogs(t)
+	h := newIntegrationHandler()
+	defer stopUnitHandler(h)
+
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/event-stream")
+		w.WriteHeader(http.StatusOK)
+		if f, ok := w.(http.Flusher); ok {
+			f.Flush()
+		}
+		<-r.Context().Done() // accepts the connection, never sends a token, outlives the probe
+	}))
+	defer srv.Close()
+
+	superseded := &atomic.Bool{}
+	ctx, cancel := context.WithCancel(context.WithValue(context.Background(), ctxkeys.HedgeSupersededKey, superseded))
+	defer cancel()
+	go func() {
+		// The rival wins after the 30ms stall floor has passed.
+		time.Sleep(80 * time.Millisecond)
+		superseded.Store(true)
+		cancel()
+	}()
+
+	st, cand := probeStateForServer(srv.URL)
+	st.circuitBreakerEnabled = true
+	res := h.probeStreamingCandidate(ctx, st, cand, 0, time.Second, 30*time.Millisecond)
+	if res.won {
+		t.Fatal("a cancelled probe must not win")
+	}
+	if res.reqErr.Kind != KindHedgeSuperseded {
+		t.Errorf("kind = %v, want %v", res.reqErr.Kind, KindHedgeSuperseded)
+	}
+	if recorded := logs.find("recording circuit breaker failure"); len(recorded) != 0 {
+		t.Errorf("a superseded loser was charged to the breaker: %v", recorded[0].attrs)
+	}
+}
+
 // TestRunHedgedStreaming_DeadlineDoesNotLookLikeASupersededLoss guards the
 // inverse of the bug this file exists for. The deferred safety-net cancellation
 // runs on every return path, so flagging attempts there unconditionally would

@@ -544,7 +544,7 @@ Note: failover only proceeds if there are remaining candidates. If the last cand
 The proxy uses the `request_timeout` setting (default: `1m`) for all upstream requests:
 
 - **Non-streaming requests**: Uses the setting value directly
-- **Streaming requests**: Uses 10× the timeout value (10 minutes by default), to accommodate reasoning models that can take minutes before the first token
+- **Streaming requests**: Uses 10× the timeout value (10 minutes by default), to accommodate reasoning models that can take minutes before the first token. The TTFT probe still expects a frame carrying output within `ttft_timeout`, so a model that thinks for minutes without streaming its reasoning needs that setting raised too
 - **Long-running multimodal requests** (image generation, audio): the same 10× value, since their legitimate latencies run just as long without carrying a stream flag
 
 The value is read once before the failover loop, so every attempt in one request uses the same timeout even if the setting changes mid-request.
@@ -559,7 +559,7 @@ The request body is cached in the context at the start of the failover loop. Thi
 
 For streaming requests, the proxy reads ahead to confirm the first token arrives before committing the stream to the client. This prevents the client from receiving a broken or partial stream from a provider that responded 200 but fails to produce content.
 
-- **Timeout**: Configurable via `ttft_timeout` setting (default: `1m0s`). If the provider fails to produce a token within this timeout, the request fails over to the next provider.
+- **Timeout**: Configurable via `ttft_timeout` setting (default: `1m0s`). If the provider fails to produce a token within this timeout, the request fails over to the next provider. A token is a frame carrying model output (content, reasoning, a tool call, an Anthropic content block carrying text, thinking, tool input or a tool name); a role-only opener, a usage-only chunk, an Anthropic `message_start` or a keepalive comment does not satisfy the probe, so a provider that answers 200 and then pings for minutes without producing anything is failed over before any byte reaches the client. A stream that ends behind such frames is an empty answer: it is committed, forwarded with its own finish reason, and charged to the breaker once. The window also covers prompt processing on the native Anthropic and Anthropic-translated paths, whose `message_start` arrives before the prompt is read; raise `ttft_timeout` where very large prompts are routine.
 - **Measurement**: The actual TTFT measured during the probe is stored in `logEntry.ttftMs` for request logging.
 - **Disable**: Set `ttft_timeout` to `0s` to disable the probe (immediate stream commit, backward-compatible behavior).
 
@@ -574,7 +574,7 @@ passes with no first token launches the next candidate in parallel. A slot freed
 an attempt that failed launches the next candidate at once rather than waiting out
 the delay.
 
-The first attempt to confirm a first token wins. The orchestrator cancels every
+The first attempt to confirm a first token (or to complete as an empty answer) wins. The orchestrator cancels every
 other attempt still in flight, stamps the winner's provider and model onto the
 request log, and streams the winner to the client. Nothing a loser produced ever
 reaches the client.

@@ -29,7 +29,7 @@ func makeSSEBody(t *testing.T, s string) io.ReadCloser {
 
 func TestProbeFirstToken_DataChunk(t *testing.T) {
 	h := &Handler{}
-	body := makeSSEBody(t, "data: {\"choices\":[]}\n\ndata: [DONE]\n\n")
+	body := makeSSEBody(t, "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\ndata: [DONE]\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
@@ -46,14 +46,14 @@ func TestProbeFirstToken_DataChunk(t *testing.T) {
 	}
 	// probeBuf should contain the bytes read up to and including the first data line
 	got := probeBuf.String()
-	if !strings.Contains(got, `data: {"choices":[]}`) {
+	if !strings.Contains(got, `data: {"choices":[{"delta":{"content":"hi"}}]}`) {
 		t.Errorf("probeBuf should contain first data line, got: %q", got)
 	}
 }
 
 func TestProbeFirstToken_KeepaliveThenData(t *testing.T) {
 	h := &Handler{}
-	body := makeSSEBody(t, ": keepalive\n\nevent: message_start\ndata: {\"choices\":[]}\n\n")
+	body := makeSSEBody(t, ": keepalive\n\nevent: message_start\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
@@ -66,7 +66,7 @@ func TestProbeFirstToken_KeepaliveThenData(t *testing.T) {
 	}
 	got := probeBuf.String()
 	// Should have skipped keepalive and event line, found data line
-	if !strings.Contains(got, "data: {\"choices\":[]}") {
+	if !strings.Contains(got, "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}") {
 		t.Errorf("probeBuf should contain data line, got: %q", got)
 	}
 	// Keepalive and event lines should also be in the buffer (captured by TeeReader)
@@ -399,6 +399,39 @@ func TestStallWatchdog_Reset(t *testing.T) {
 	}
 	if logData.errorMessage != "" {
 		t.Errorf("expected no error message, got: %q", logData.errorMessage)
+	}
+}
+
+// A role opener followed by keepalives is a stream that stays open without
+// producing: the opener is not a first token, so ttft_timeout fails the probe
+// and the request fails over before any byte reaches the client. (A provider
+// held a hotel/ stream open this way for 180 s on prod until the client's own
+// timeout ended it.)
+func TestProbeFirstToken_KeepaliveAfterRoleOpenerTimesOut(t *testing.T) {
+	h := &Handler{}
+	pr, pw := io.Pipe()
+	done := make(chan struct{})
+	go func() {
+		defer pw.Close()
+		_, _ = pw.Write([]byte("data: {\"choices\":[{\"delta\":{\"role\":\"assistant\",\"content\":\"\"}}]}\n\n"))
+		for {
+			select {
+			case <-done:
+				return
+			case <-time.After(50 * time.Millisecond):
+			}
+			if _, err := pw.Write([]byte(": keep-alive\n\n")); err != nil {
+				return
+			}
+		}
+	}()
+	defer close(done)
+
+	// A second, so the opener has landed long before the deadline: a stream
+	// that sent nothing at all times out too, and would not prove this.
+	_, _, err := h.probeFirstToken(context.Background(), pr, time.Second, time.Now())
+	if err == nil || !strings.Contains(err.Error(), "TTFT timeout") {
+		t.Fatalf("a role opener followed by keepalives must time the probe out, got %v", err)
 	}
 }
 
@@ -1112,7 +1145,7 @@ func TestStallWatchdog_ProgressiveTimeout_Boundary50(t *testing.T) {
 func TestProbeFirstToken_DataNoSpaceAfterColon(t *testing.T) {
 	h := &Handler{}
 	// Some providers send "data:" without a space after the colon
-	body := makeSSEBody(t, "data:{\"choices\":[]}\n\n")
+	body := makeSSEBody(t, "data:{\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
@@ -1132,7 +1165,7 @@ func TestProbeFirstToken_DataNoSpaceAfterColon(t *testing.T) {
 func TestProbeFirstToken_DataWithSpaces(t *testing.T) {
 	h := &Handler{}
 	// Standard "data: " with space
-	body := makeSSEBody(t, "data:   {\"choices\":[]}\n\n")
+	body := makeSSEBody(t, "data:   {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)
@@ -1154,19 +1187,20 @@ func TestProbeFirstToken_DoneWithDataAfter(t *testing.T) {
 	// [DONE] first, then data (shouldn't happen normally but tests the
 	// short-circuit): the terminator still decides, and it decides against the
 	// provider. Anything after a [DONE] is past the end of the stream.
-	body := makeSSEBody(t, "data: [DONE]\n\ndata: {\"choices\":[]}\n\n")
+	body := makeSSEBody(t, "data: [DONE]\n\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 
 	_, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, time.Now())
 
-	if err == nil {
-		t.Fatalf("expected [DONE]-first to fail the probe, got ttft=%f", trueTtftMs)
+	var emptyErr *emptyStreamError
+	if !errors.As(err, &emptyErr) {
+		t.Fatalf("expected [DONE]-first to fail the probe as an empty stream, got err=%v ttft=%f", err, trueTtftMs)
 	}
 }
 
 func TestProbeFirstToken_UnknownLineFormat(t *testing.T) {
 	h := &Handler{}
 	// Unknown line format (not data:, not a comment, not empty) — should be skipped
-	body := makeSSEBody(t, "some-random-text\ndata: {\"choices\":[]}\n\n")
+	body := makeSSEBody(t, "some-random-text\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n\n")
 	startTime := time.Now()
 
 	probeBuf, trueTtftMs, err := h.probeFirstToken(context.Background(), body, 5*time.Second, startTime)

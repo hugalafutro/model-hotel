@@ -3,6 +3,7 @@ package proxy
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -61,17 +62,17 @@ func TestProbeFirstToken_ContentFrameStillWins(t *testing.T) {
 	h := &Handler{}
 	for name, frame := range map[string]string{
 		"content delta":     "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
-		"empty choices":     "data: {\"choices\":[]}\n\n",
-		"role-only delta":   "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n",
+		"reasoning delta":   "data: {\"choices\":[{\"index\":0,\"delta\":{\"reasoning_content\":\"hmm\"}}]}\n\n",
+		"tool call delta":   "data: {\"choices\":[{\"index\":0,\"delta\":{\"tool_calls\":[{\"index\":0,\"function\":{\"name\":\"f\"}}]}}]}\n\n",
 		"explicit null err": "data: {\"error\":null,\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
 		// An empty boilerplate error member alongside a real token: the frame
 		// delivered content, so failing it over would throw away an answer.
 		"empty err + content": "data: {\"error\":{},\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n",
 		// The native Anthropic passthrough is probed like any other stream, and
-		// its first frame must keep winning.
-		"anthropic message_start": "data: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"usage\":{\"input_tokens\":10}}}\n\n",
-		"unparseable json":        "data: {not json at all\n\n",
-		"word error inside":       "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"the error was mine\"}}]}\n\n",
+		// its first content block must keep winning.
+		"anthropic content_block_delta": "data: {\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"hi\"}}\n\n",
+		"unparseable json":              "data: {not json at all\n\n",
+		"word error inside":             "data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"the error was mine\"}}]}\n\n",
 	} {
 		t.Run(name, func(t *testing.T) {
 			h2 := h
@@ -182,49 +183,47 @@ func TestRunHedgedStreaming_HealthyCandidateBeatsAFasterErrorFrame(t *testing.T)
 }
 
 // ---------------------------------------------------------------------------
-// A stream that commits and THEN fails without delivering anything is still a
-// provider failure. The probe guard above only covers the first frame; an error
-// on a later frame arrives after the rivals are already cancelled, so the
-// breaker is the only thing left that can keep the next request away.
+// A stream that commits and THEN delivers nothing is still a provider failure.
+// The probe guard above only covers the first frame; an empty answer (a role
+// opener and then [DONE]) passes the probe as a completion, is forwarded with
+// its own finish reason, and arrives once the rivals are already cancelled, so
+// the breaker is the only thing left that can keep the next request away.
 // ---------------------------------------------------------------------------
 
-func TestDispatchStreaming_ErrorAfterTheFirstFrameOpensTheCircuit(t *testing.T) {
+func TestDispatchStreaming_EmptyAnswerAfterCommitOpensTheCircuit(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
 
-	// Two things about this test are load-bearing, and an earlier version of it
-	// had neither.
+	// Two things about this test are load-bearing.
 	//
 	// It goes through dispatchStreaming, NOT straight to handleStreamingResponse,
-	// so the TTFT probe really runs. The bug being pinned lives in what the probe
-	// tells the breaker, so a test that skips the probe cannot see it — the first
-	// version of this test passed with the bug fully restored.
+	// so the TTFT probe really runs: the charge being pinned depends on what the
+	// probe tells the breaker, and a test that skips the probe cannot see it.
 	//
-	// And it runs at the PRODUCTION default threshold of 5. The bug is that a
-	// probe success zeroes consecutiveFails on every request, so each failure can
-	// only bring the count back to 1. A threshold of 1 is the single value at
-	// which that is invisible.
+	// And it runs at the PRODUCTION default threshold of 5. A probe success that
+	// zeroed consecutiveFails on every request would let each failure bring the
+	// count back only to 1, which a threshold of 1 cannot tell from working.
 	providerID := uuid.New()
 	// Hoisted so the assertion below can name the very model the charges were
 	// routed to, rather than a second copy of the id that could drift from it.
 	cand := modelCandidate{
 		model:    &model.Model{ModelID: "test-model"},
-		provider: &provider.Provider{ID: providerID, Name: "error-frame-provider"},
+		provider: &provider.Provider{ID: providerID, Name: "empty-answer-provider"},
 		apiKey:   "sk-test",
 	}
 	const attempts = 5
 	for i := range attempts {
-		// A valid opening frame, so the probe passes and the provider is
-		// committed to; then the error. Nothing reaches the caller.
+		// A role opener and then the terminator: the probe commits it as an
+		// empty answer, and the caller receives exactly that.
 		resp := &http.Response{
 			StatusCode: http.StatusOK,
 			Body: io.NopCloser(strings.NewReader(
-				"data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" + errorFrameSSE)),
+				"data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" + emptyStreamSSE)),
 		}
 		// providerID is deliberately left off logData: the request-log row has a
 		// foreign key to providers and this provider exists only in the breaker.
 		logData := streamingLog()
-		logData.providerName = "error-frame-provider"
+		logData.providerName = "empty-answer-provider"
 		h.insertRequestLogAsync(logData)
 
 		st := &requestState{
@@ -237,15 +236,15 @@ func TestDispatchStreaming_ErrorAfterTheFirstFrameOpensTheCircuit(t *testing.T) 
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
 		if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeServed {
-			t.Fatalf("attempt %d: outcome = %v, want served (the probe must pass on a healthy first frame)", i, got)
+			t.Fatalf("attempt %d: outcome = %v, want served (an empty answer commits, it does not fail over)", i, got)
 		}
-		if logData.state != "failed" {
-			t.Fatalf("attempt %d: state = %q, want failed", i, logData.state)
+		if body := w.Body.String(); !strings.Contains(body, "\"role\":\"assistant\"") || !strings.Contains(body, "[DONE]") {
+			t.Fatalf("attempt %d: the caller must receive the empty answer as the provider sent it, got %q", i, body)
 		}
 	}
 
 	if got := h.circuitBreaker.GetState(providerID, cand.model.ModelID); got != failover.StateOpen {
-		t.Errorf("circuit = %s after %d committed-then-failed streams, want open", got, attempts)
+		t.Errorf("circuit = %s after %d empty answers, want open", got, attempts)
 	}
 }
 
@@ -601,19 +600,57 @@ func TestProbeFirstToken_ImmediateDoneIsNotAToken(t *testing.T) {
 	}
 }
 
-// The guard stays narrow. Only a BARE first [DONE] means "no chunks at all" —
-// a provider that sends any real frame first and then finishes has answered,
-// even if the answer is empty, and must keep winning.
-func TestProbeFirstToken_DoneAfterAFrameStillWins(t *testing.T) {
+// A frame that carries no output is not a first token, but a stream that ENDS
+// behind one is an empty answer: the provider completed having said nothing,
+// which commits and is forwarded whole (every byte is in the replay buffer)
+// with its own finish reason, and the finalizer charges it once. Only a
+// stream that stays open behind such frames fails the probe, by timeout.
+func TestProbeFirstToken_EmptyAnswerCommits(t *testing.T) {
 	h := &Handler{}
 	for name, body := range map[string]string{
-		"role delta then done":    "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" + emptyStreamSSE,
-		"empty choices then done": "data: {\"choices\":[]}\n\n" + emptyStreamSSE,
-		"keepalive then frame":    ": ping\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" + emptyStreamSSE,
+		"role delta then done":     "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\n" + emptyStreamSSE,
+		"empty choices then done":  "data: {\"choices\":[]}\n\n" + emptyStreamSSE,
+		"usage-only then done":     "data: {\"choices\":[],\"usage\":{\"prompt_tokens\":3}}\n\n" + emptyStreamSSE,
+		"finish only then done":    "data: {\"choices\":[{\"index\":0,\"delta\":{},\"finish_reason\":\"content_filter\"}]}\n\n" + emptyStreamSSE,
+		"role delta then body end": "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\",\"content\":\"\"}}]}\n\n",
+		// The native Anthropic stream ends on message_stop with no [DONE].
+		"anthropic empty answer": "event: message_start\ndata: {\"type\":\"message_start\",\"message\":{\"id\":\"msg_1\",\"usage\":{\"input_tokens\":10}}}\n\n" +
+			"event: content_block_start\ndata: {\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}}\n\n" +
+			"event: content_block_stop\ndata: {\"type\":\"content_block_stop\",\"index\":0}\n\n" +
+			"event: message_delta\ndata: {\"type\":\"message_delta\",\"delta\":{\"stop_reason\":\"end_turn\"},\"usage\":{\"output_tokens\":0}}\n\n" +
+			"event: message_stop\ndata: {\"type\":\"message_stop\"}\n\n",
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, _, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now()); err != nil {
+			probeBuf, ttft, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now())
+			if err != nil {
+				t.Fatalf("an empty answer must commit, got %v", err)
+			}
+			if ttft <= 0 {
+				t.Errorf("ttft = %.1f, want > 0", ttft)
+			}
+			if got := bufString(probeBuf); got != body {
+				t.Errorf("replay buffer must hold the whole stream, got %q", got)
+			}
+		})
+	}
+}
+
+// The guard stays narrow: a token behind frames carrying no output still wins,
+// and the bytes the probe read ahead of it (keepalives, the role opener) are
+// all in the replay buffer so the client loses nothing.
+func TestProbeFirstToken_TokenBehindNonOutputFramesWins(t *testing.T) {
+	h := &Handler{}
+	for name, body := range map[string]string{
+		"keepalive then frame":   ": ping\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" + emptyStreamSSE,
+		"role opener then frame": "data: {\"choices\":[{\"index\":0,\"delta\":{\"role\":\"assistant\"}}]}\n\ndata: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n" + emptyStreamSSE,
+	} {
+		t.Run(name, func(t *testing.T) {
+			probeBuf, _, err := h.probeFirstToken(context.Background(), makeSSEBody(t, body), 5*time.Second, time.Now())
+			if err != nil {
 				t.Fatalf("a stream that produced a frame must win the probe, got %v", err)
+			}
+			if got := bufString(probeBuf); !strings.HasPrefix(body, got) || !strings.Contains(got, "\"content\":\"hi\"") {
+				t.Errorf("replay buffer must hold every byte up to the first token, got %q", got)
 			}
 		})
 	}
@@ -746,9 +783,11 @@ func TestClassifyProbeFrame(t *testing.T) {
 		wantMsg string
 	}{
 		{"real token", `{"choices":[{"delta":{"content":"hi"}}]}`, probeFrameToken, ""},
-		{"role only", `{"choices":[{"delta":{"role":"assistant"}}]}`, probeFrameToken, ""},
-		{"empty choices", `{"choices":[]}`, probeFrameToken, ""},
-		{"anthropic message_start", `{"type":"message_start"}`, probeFrameToken, ""},
+		{"role only", `{"choices":[{"delta":{"role":"assistant"}}]}`, probeFrameNotAToken, ""},
+		{"empty choices", `{"choices":[]}`, probeFrameNotAToken, ""},
+		{"anthropic message_start", `{"type":"message_start"}`, probeFrameNotAToken, ""},
+		{"anthropic message_stop is the terminator", `{"type":"message_stop"}`, probeFrameEmptyStream, ""},
+		{"anthropic content_block_delta", `{"type":"content_block_delta","delta":{"text":"hi"}}`, probeFrameToken, ""},
 		{"unparseable is still a token", `{not json`, probeFrameToken, ""},
 		{"terminator", "[DONE]", probeFrameEmptyStream, ""},
 		{"empty field", "", probeFrameNotAToken, ""},
@@ -764,6 +803,99 @@ func TestClassifyProbeFrame(t *testing.T) {
 			}
 			if msg != tc.wantMsg {
 				t.Errorf("msg = %q, want %q", msg, tc.wantMsg)
+			}
+		})
+	}
+}
+
+// frameCarriesOutput is the probe's reading of "did the model say something"
+// (the stall watchdog deliberately counts bytes, not output: an Anthropic
+// keepalive across a tool pause must keep a committed stream alive), so every
+// shape it must accept and every shape it must reject is pinned here.
+func TestFrameCarriesOutput(t *testing.T) {
+	tests := []struct {
+		name    string
+		payload string
+		want    bool
+	}{
+		{"content", `{"choices":[{"delta":{"content":"hi"}}]}`, true},
+		{"content as parts", `{"choices":[{"delta":{"content":[{"type":"text","text":"hi"}]}}]}`, true},
+		{"reasoning_content", `{"choices":[{"delta":{"reasoning_content":"hmm"}}]}`, true},
+		{"reasoning (ollama)", `{"choices":[{"delta":{"reasoning":"hmm"}}]}`, true},
+		{"reasoning_details", `{"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.text","text":"hmm"}]}}]}`, true},
+		{"tool_calls", `{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"f","arguments":""}}]}}]}`, true},
+		{"function_call", `{"choices":[{"delta":{"function_call":{"name":"f"}}}]}`, true},
+		{"images", `{"choices":[{"delta":{"images":[{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgo="}}]}}]}`, true},
+		{"refusal", `{"choices":[{"delta":{"refusal":"no"}}]}`, true},
+		{"second choice only", `{"choices":[{"delta":{"role":"assistant"}},{"delta":{"content":"hi"}}]}`, true},
+		{"legacy completion text", `{"choices":[{"text":"hi","index":0}]}`, true},
+		{"whitespace token", `{"choices":[{"delta":{"content":"\n"}}]}`, true},
+		{"tool call header without a name yet", `{"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","type":"function"}]}}]}`, false},
+		{"content-as-parts opener", `{"choices":[{"delta":{"content":[{"type":"text","text":""}]}}]}`, false},
+		{"role opener", `{"choices":[{"delta":{"role":"assistant","content":""}}]}`, false},
+		{"empty markers", `{"choices":[{"delta":{"content":"","reasoning":"","reasoning_details":[],"tool_calls":null}}]}`, false},
+		{"empty choices", `{"choices":[]}`, false},
+		{"usage only", `{"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":0}}`, false},
+		{"finish only", `{"choices":[{"delta":{},"finish_reason":"stop"}]}`, false},
+		{"null delta", `{"choices":[{"delta":null}]}`, false},
+		{"anthropic empty text block opener", `{"type":"content_block_start","index":0,"content_block":{"type":"text","text":""}}`, false},
+		{"anthropic tool_use block opener", `{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_1","name":"get_weather","input":{}}}`, true},
+		{"anthropic content_block_stop", `{"type":"content_block_stop","index":0}`, false},
+		{"anthropic content_block_delta", `{"type":"content_block_delta","delta":{"type":"thinking_delta","thinking":"hmm"}}`, true},
+		{"anthropic message_start", `{"type":"message_start","message":{"usage":{"input_tokens":3}}}`, false},
+		{"anthropic ping", `{"type":"ping"}`, false},
+		{"anthropic message_delta", `{"type":"message_delta","usage":{"output_tokens":3}}`, false},
+		{"anthropic message_stop", `{"type":"message_stop"}`, false},
+		{"usage only without a choices member", `{"id":"x","usage":{"prompt_tokens":3,"completion_tokens":0}}`, false},
+		{"metadata-only chunk opener", `{"id":"x","object":"chat.completion.chunk","model":"m","created":1}`, false},
+		{"null usage and nothing else", `{"usage":null}`, false},
+		{"unknown dialect beside a usage member", `{"usage":{"prompt_tokens":3},"result":{"text":"hi"}}`, true},
+		{"anthropic redacted thinking opener", `{"type":"content_block_start","index":0,"content_block":{"type":"redacted_thinking","data":"EmwKAhgB"}}`, true},
+		{"terminal chunk without a delta member", `{"choices":[{"index":0,"finish_reason":"stop","logprobs":null}]}`, false},
+		{"anthropic relay text on the block opener", `{"type":"content_block_start","index":0,"content_block":{"type":"text","text":"Hello"}}`, true},
+		{"usage only with null choices", `{"choices":null,"usage":{"prompt_tokens":3}}`, false},
+		// Shapes this gateway does not model are never cut for being unknown.
+		{"not json", `{not json`, true},
+		{"no choices member, unknown object", `{"id":"x","result":{"text":"hi"}}`, true},
+		{"unknown event type", `{"type":"response.output_text.delta","delta":"hi"}`, true},
+		{"choice without a delta", `{"choices":[{"index":0,"message":{"role":"assistant","content":"hi"}}]}`, true},
+		{"delta that is not an object", `{"choices":[{"index":0,"delta":"hi"}]}`, true},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := frameCarriesOutput(tc.payload); got != tc.want {
+				t.Errorf("frameCarriesOutput(%s) = %v, want %v", tc.payload, got, tc.want)
+			}
+		})
+	}
+}
+
+// Every OpenAI-shaped output the probe commits a stream on must also count as
+// delivery once the stream is committed, or a stream whose whole answer is
+// that output is charged as a completion with nothing in it.
+func TestStreamDelivery_CountsEveryOutputTheProbeAccepts(t *testing.T) {
+	for name, payload := range map[string]string{
+		"content":       `{"choices":[{"delta":{"content":"hi"}}]}`,
+		"reasoning":     `{"choices":[{"delta":{"reasoning":"hmm"}}]}`,
+		"tool call":     `{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"f","arguments":""}}]}}]}`,
+		"function_call": `{"choices":[{"delta":{"function_call":{"name":"f","arguments":"{}"}}}]}`,
+		"refusal":       `{"choices":[{"delta":{"refusal":"no"}}]}`,
+		"audio":         `{"choices":[{"delta":{"audio":{"id":"a","data":"UklGRg==","transcript":"hi"}}}]}`,
+		"legacy text":   `{"choices":[{"text":"hi","index":0}]}`,
+		"image":         `{"choices":[{"delta":{"images":[{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgo="}}]}}]}`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			if !frameCarriesOutput(payload) {
+				t.Fatalf("test assumption broken: the probe must accept %s", payload)
+			}
+			var chunk streamChunk
+			if err := json.Unmarshal([]byte(payload), &chunk); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			st := &streamState{}
+			st.observeDataChunk(chunk, false, 1, &requestLogData{})
+			if !streamDeliveredOutput(st) {
+				t.Errorf("the probe commits on %s but the finalizer would charge it as empty", payload)
 			}
 		})
 	}
@@ -786,16 +918,20 @@ func TestRecoverProbeFrame(t *testing.T) {
 		{"a real token", "data: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n", probeFrameToken, "", true},
 		{"terminator only", "data: [DONE]\n", probeFrameEmptyStream, "", true},
 		{"error envelope", "data: {\"error\":{\"message\":\"boom\"}}\n", probeFrameError, "boom", true},
-		{"empty field then token", "data:\ndata: {\"choices\":[]}\n", probeFrameToken, "", true},
+		{"empty field then token", "data:\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n", probeFrameToken, "", true},
+		{"role opener then token", "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n", probeFrameToken, "", true},
+		{"role opener only", "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\n", probeFrameNotAToken, "", false},
+		// An empty answer: the terminator behind a frame commits, as in the main loop.
+		{"role opener then terminator", "data: {\"choices\":[{\"delta\":{\"role\":\"assistant\"}}]}\ndata: [DONE]\n", probeFrameToken, "", true},
 		{"empty field then terminator", "data:\ndata: [DONE]\n", probeFrameEmptyStream, "", true},
-		{"keepalive then token", ": ping\ndata: {\"choices\":[]}\n", probeFrameToken, "", true},
+		{"keepalive then token", ": ping\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n", probeFrameToken, "", true},
 		// A mid-line network fragment has no trailing newline in the buffer and
 		// must not be mistaken for a complete frame.
 		{"partial line rejected", "data: {\"choices\":[{\"delta\":", probeFrameNotAToken, "", false},
 		{"nothing usable", ": ping\nevent: message\n", probeFrameNotAToken, "", false},
 		{"empty buffer", "", probeFrameNotAToken, "", false},
 		// The first meaningful frame decides, not the last.
-		{"first frame wins", "data: [DONE]\ndata: {\"choices\":[]}\n", probeFrameEmptyStream, "", true},
+		{"first frame wins", "data: [DONE]\ndata: {\"choices\":[{\"delta\":{\"content\":\"hi\"}}]}\n", probeFrameEmptyStream, "", true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
