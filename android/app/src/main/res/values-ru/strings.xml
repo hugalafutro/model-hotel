@@ -149,7 +149,7 @@
     <string name="alerts_category_backups">Резервные копии</string>
     <string name="alerts_event_health_down">Узел недоступен</string>
     <string name="alerts_event_health_up">Узел восстановлен</string>
-    <string name="alerts_event_health_maintenance">Выведенный узел перезапущен (обслуживание)</string>
+    <string name="alerts_event_health_maintenance">Изменение состояния выведенного узла (обслуживание)</string>
     <string name="alerts_event_config_sync_failed">Сбой синхронизации конфигурации</string>
     <string name="alerts_event_config_synced">Конфигурация синхронизирована</string>
     <string name="alerts_event_config_auto_synced">Конфигурация синхронизирована автоматически</string>

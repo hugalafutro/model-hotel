@@ -322,7 +322,7 @@
 			"event": {
 				"health_down": "Członek przestał działać",
 				"health_up": "Członek odzyskał sprawność",
-				"health_maintenance": "Odłączony węzeł zrestartowany (konserwacja)",
+				"health_maintenance": "Zmiana stanu odłączonego członka (konserwacja)",
 				"config_sync_failed": "Synchronizacja konfiguracji nie powiodła się",
 				"config_synced": "Synchronizacja konfiguracji do członka",
 				"config_auto_synced": "Auto-synchronizacja zastosowana we flocie",

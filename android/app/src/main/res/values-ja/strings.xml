@@ -140,7 +140,7 @@
     <string name="alerts_category_backups">バックアップ</string>
     <string name="alerts_event_health_down">メンバーがダウン</string>
     <string name="alerts_event_health_up">メンバーが復旧</string>
-    <string name="alerts_event_health_maintenance">ドレイン中のメンバーが再起動（メンテナンス）</string>
+    <string name="alerts_event_health_maintenance">ドレイン中メンバーの状態変化（メンテナンス）</string>
     <string name="alerts_event_config_sync_failed">設定の同期に失敗</string>
     <string name="alerts_event_config_synced">設定を同期</string>
     <string name="alerts_event_config_auto_synced">設定を自動同期</string>

@@ -141,7 +141,7 @@ Front Desk's picker carries its own set, about the fleet rather than about routi
 |---|---|---|---|
 | Member went down | Health | ✅ on | a member stops answering its health check |
 | Member recovered | Health | ✅ on | it answers again |
-| Drained member restarted (maintenance) | Health | ⬜ off | a member that is drained (out of the routing pool, as the fleet rebuild tool does before recreating one) stops answering or answers again; its flips are maintenance notes, not an outage, so a planned rebuild pages nobody while an active member still does |
+| Drained member health change (maintenance) | Health | ⬜ off | a member that is drained (out of the routing pool, as the fleet rebuild tool does before recreating one) stops answering or answers again; its flips are maintenance notes, not an outage, so a planned rebuild pages nobody while an active member still does |
 | Fleet state changed | Health | ✅ on | the fleet crosses an ok/degraded/faulty boundary, including a forgotten drain |
 | Config sync failed | Config Sync | ✅ on | a push to a member is refused |
 | Config synced to a member | Config Sync | ⬜ off | a manual push lands |

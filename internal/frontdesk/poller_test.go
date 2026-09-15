@@ -641,13 +641,12 @@ func TestTraefikStalenessInputsKeepMonotonicReadings(t *testing.T) {
 func TestApplyHealthDrainedMemberFlipsAreMaintenance(t *testing.T) {
 	p, store, bus := newTestPoller(t, "")
 	ctx := context.Background()
-	m, _ := store.CreateMember(ctx, "h", "http://h:8081", "")
-	if _, err := store.CreateMember(ctx, "other", "http://o:8081", ""); err != nil {
+	m, err := store.CreateMember(ctx, "h", "http://h:8081", "")
+	if err != nil {
 		t.Fatal(err)
 	}
-	if err := store.SetMemberState(ctx, m.ID, StateDrained); err != nil {
-		t.Fatalf("drain: %v", err)
-	}
+	// applyHealth reads the state off the member it is handed, as the poll pass
+	// hands it the freshly listed row.
 	m.State = StateDrained
 	thr := p.healthFailThreshold(ctx)
 
@@ -675,11 +674,16 @@ func TestApplyHealthDrainedMemberFlipsAreMaintenance(t *testing.T) {
 	if ev := next(); ev.Type != "health.maintenance" || ev.Severity != "info" {
 		t.Errorf("drained member down: got %+v, want health.maintenance at info", ev)
 	}
+	// The note closes at success: a different severity from the down note, so a
+	// notifier that keys its rows on type and severity shows both ends.
 	p.applyHealth(ctx, m, HealthStatus{Known: true, Healthy: true, LatencyMs: 9}, thr)
-	if ev := next(); ev.Type != "health.maintenance" || ev.Severity != "info" {
-		t.Errorf("drained member up: got %+v, want health.maintenance at info", ev)
+	if ev := next(); ev.Type != "health.maintenance" || ev.Severity != "success" {
+		t.Errorf("drained member up: got %+v, want health.maintenance at success", ev)
 	}
-	evs, total, _ := store.ListEvents(ctx, EventFilter{})
+	evs, total, err := store.ListEvents(ctx, EventFilter{})
+	if err != nil {
+		t.Fatal(err)
+	}
 	if total != 2 {
 		t.Fatalf("persisted events = %d, want the two maintenance notes", total)
 	}
@@ -687,5 +691,88 @@ func TestApplyHealthDrainedMemberFlipsAreMaintenance(t *testing.T) {
 		if ev.Type != "health.maintenance" || ev.MemberID != m.ID {
 			t.Errorf("a drained member must not page: %+v", ev)
 		}
+	}
+}
+
+// The type is an episode's, decided when the down is recorded: an outage that
+// paged closes as health.up even if the member was drained meanwhile, and a
+// member re-activated while still down turns its maintenance note into the
+// page it now deserves, then closes as health.up.
+func TestApplyHealthEpisodeKeepsItsType(t *testing.T) {
+	p, store, bus := newTestPoller(t, "")
+	ctx := context.Background()
+	thr := p.healthFailThreshold(ctx)
+	ch := bus.Subscribe()
+	defer bus.Unsubscribe(ch)
+	next := func() events.Event {
+		t.Helper()
+		for {
+			select {
+			case ev := <-ch:
+				if ev.Type == "member.status" {
+					continue
+				}
+				return ev
+			case <-time.After(time.Second):
+				t.Fatal("timed out waiting for a transition event")
+			}
+		}
+	}
+	nothing := func(what string) {
+		t.Helper()
+		select {
+		case ev := <-ch:
+			if ev.Type != "member.status" {
+				t.Errorf("%s: got %+v, want no event", what, ev)
+			}
+		default:
+		}
+	}
+
+	// Paged while active, drained during the outage: the all-clear still pages.
+	a, err := store.CreateMember(ctx, "a", "http://a:8081", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	p.applyHealth(ctx, a, HealthStatus{Known: true, Healthy: true}, thr)
+	for i := 0; i < thr; i++ {
+		p.applyHealth(ctx, a, HealthStatus{Known: true, Healthy: false, Error: "gone"}, thr)
+	}
+	if ev := next(); ev.Type != "health.down" {
+		t.Fatalf("active down: %+v", ev)
+	}
+	a.State = StateDrained
+	p.applyHealth(ctx, a, HealthStatus{Known: true, Healthy: false, Error: "gone"}, thr)
+	nothing("drained while paged")
+	p.applyHealth(ctx, a, HealthStatus{Known: true, Healthy: true}, thr)
+	if ev := next(); ev.Type != "health.up" {
+		t.Errorf("recovery of a paged outage: %+v, want health.up", ev)
+	}
+
+	// Down while drained, re-activated still down: the note becomes a page.
+	b, err := store.CreateMember(ctx, "b", "http://b:8081", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	b.State = StateDrained
+	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: true}, thr)
+	for i := 0; i < thr; i++ {
+		p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: false, Error: "recreating"}, thr)
+	}
+	if ev := next(); ev.Type != "health.maintenance" {
+		t.Fatalf("drained down: %+v", ev)
+	}
+	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: false, Error: "recreating"}, thr)
+	nothing("still drained, still down")
+	b.State = StateActive
+	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: false, Error: "still dead"}, thr)
+	if ev := next(); ev.Type != "health.down" || ev.Severity != "error" {
+		t.Errorf("re-activated while down: %+v, want health.down", ev)
+	}
+	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: false, Error: "still dead"}, thr)
+	nothing("paged once")
+	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: true}, thr)
+	if ev := next(); ev.Type != "health.up" {
+		t.Errorf("recovery after the page: %+v, want health.up", ev)
 	}
 }
