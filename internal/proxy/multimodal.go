@@ -585,17 +585,20 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 			errMsg = "client disconnected during response"
 		}
 		debuglog.Warn("proxy: passthrough copy interrupted", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "bytes", written, "error", copyErr)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "failed", errMsg)
 		// The provider billed whatever it produced, whether or not the client
 		// stayed to receive it. Bytes reached the client, so an absent usage
 		// report is estimated rather than treated as free. This is the path
 		// audio/mpeg takes, where the SSE tail that would carry usage is never
-		// allocated, so the report is structurally always absent.
+		// allocated, so the report is structurally always absent. The charge
+		// runs first, as on the buffered path: its estimate is what prices the
+		// row the terminal write stamps, and the dollar budget is charged from
+		// that price.
 		h.chargePassthroughUsage(st, promptTokens, completionTokens, written > 0)
+		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "failed", errMsg)
 		return outcomeServed
 	}
-	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
 	charged, estimatedPrompt := h.chargePassthroughUsage(st, promptTokens, completionTokens, written > 0)
+	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
 	return outcomeServed
 }
