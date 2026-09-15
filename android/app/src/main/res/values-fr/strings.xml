@@ -143,7 +143,7 @@
     <string name="alerts_category_backups">Sauvegardes</string>
     <string name="alerts_event_health_down">Membre hors service</string>
     <string name="alerts_event_health_up">Membre rétabli</string>
-    <string name="alerts_event_health_maintenance">Changement d'état d'un membre drainé (maintenance)</string>
+    <string name="alerts_event_health_maintenance">Changement d\'état d\'un membre drainé (maintenance)</string>
     <string name="alerts_event_config_sync_failed">Échec de la synchro de config</string>
     <string name="alerts_event_config_synced">Config synchronisée</string>
     <string name="alerts_event_config_auto_synced">Config synchronisée automatiquement</string>
