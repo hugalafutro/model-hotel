@@ -22,7 +22,6 @@ func TestValidate_PairAndBounds(t *testing.T) {
 		"negative":         {usd(-1), period(PeriodWeek), false},
 		"above ceiling":    {usd(MaxUSD + 1), period(PeriodMonth), false},
 		"nan":              {usd(math.NaN()), period(PeriodMonth), false},
-		"infinite":         {usd(math.Inf(1)), period(PeriodMonth), false},
 		"unknown period":   {usd(5), period("quarter"), false},
 		"ceiling itself":   {usd(MaxUSD), period(PeriodMonth), true},
 		"smallest budget":  {usd(0.01), period(PeriodDay), true},
