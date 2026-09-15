@@ -381,7 +381,11 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 			ev.Message = fmt.Sprintf("%s is unreachable while drained (%d %s)", m.Name, fails, util.Plural(fails, "check", "checks"))
 		}
 		p.mu.Lock()
-		p.maintenanceDown[m.ID] = maintenance
+		if maintenance {
+			p.maintenanceDown[m.ID] = true
+		} else {
+			delete(p.maintenanceDown, m.ID)
+		}
 		p.mu.Unlock()
 		p.recordEvent(ctx, ev)
 	}
@@ -394,8 +398,10 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 			Metadata: map[string]any{"latency_ms": hs.LatencyMs},
 		}
 		if wasMaintenance {
+			// Worded off the episode, not the current state: the rebuild tool
+			// re-activates a member the moment it answers again.
 			ev.Type = "health.maintenance"
-			ev.Message = fmt.Sprintf("%s is healthy again while drained", m.Name)
+			ev.Message = fmt.Sprintf("maintenance over: %s is healthy", m.Name)
 		}
 		p.mu.Lock()
 		delete(p.maintenanceDown, m.ID)

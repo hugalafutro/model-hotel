@@ -720,12 +720,15 @@ func TestApplyHealthEpisodeKeepsItsType(t *testing.T) {
 	}
 	nothing := func(what string) {
 		t.Helper()
-		select {
-		case ev := <-ch:
-			if ev.Type != "member.status" {
-				t.Errorf("%s: got %+v, want no event", what, ev)
+		for {
+			select {
+			case ev := <-ch:
+				if ev.Type != "member.status" {
+					t.Errorf("%s: got %+v, want no event", what, ev)
+				}
+			default:
+				return
 			}
-		default:
 		}
 	}
 
@@ -771,6 +774,11 @@ func TestApplyHealthEpisodeKeepsItsType(t *testing.T) {
 	}
 	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: false, Error: "still dead"}, thr)
 	nothing("paged once")
+	// Drained again while still down: the page stands, nothing more is said.
+	b.State = StateDrained
+	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: false, Error: "still dead"}, thr)
+	nothing("re-drained after the page")
+	b.State = StateActive
 	p.applyHealth(ctx, b, HealthStatus{Known: true, Healthy: true}, thr)
 	if ev := next(); ev.Type != "health.up" {
 		t.Errorf("recovery after the page: %+v, want health.up", ev)
