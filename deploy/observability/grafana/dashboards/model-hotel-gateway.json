@@ -2385,7 +2385,7 @@
               "mode": "none",
               "group": "A"
             },
-            "axisSoftMax": 1,
+            "axisSoftMax": 1.25,
             "thresholdsStyle": {
               "mode": "line"
             }
@@ -2405,8 +2405,7 @@
                 "value": 1
               }
             ]
-          },
-          "max": 1.25
+          }
         },
         "overrides": [
           {
