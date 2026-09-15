@@ -904,6 +904,9 @@ describe("EditProviderModal", () => {
 			expect(screen.getByTestId("quota-reserve-scope")).toHaveClass(
 				"text-yellow-400",
 			);
+			expect(screen.getByTestId("quota-reserve-scope").textContent).toBe(
+				"Only subscription window providers respond, not balance providers.",
+			);
 			fireEvent.change(slider, { target: { value: "30" } });
 			expect(screen.getByTestId("quota-reserve-value").textContent).toBe("30%");
 			await user.click(screen.getByRole("button", { name: "Save Changes" }));
