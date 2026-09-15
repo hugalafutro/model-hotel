@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ---------------------------------------------------------------------------
@@ -75,6 +76,8 @@ func (m *mockFailoverRows) Values() ([]any, error) { return nil, nil }
 func (m *mockFailoverRows) RawValues() [][]byte { return nil }
 
 func (m *mockFailoverRows) Conn() *pgx.Conn { return nil }
+
+func (m *mockFailoverRows) TypeMap() *pgtype.Map { return nil }
 
 // ---------------------------------------------------------------------------
 // helpers

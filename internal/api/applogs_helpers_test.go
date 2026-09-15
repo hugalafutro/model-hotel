@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // The pure log-line helpers: level-prefix stripping, timestamp stripping,
@@ -302,3 +303,4 @@ func (m *mockAppLogRows) Scan(dest ...any) error { return m.scanFn(dest...) }
 func (m *mockAppLogRows) Values() ([]any, error) { return nil, nil }
 func (m *mockAppLogRows) RawValues() [][]byte    { return nil }
 func (m *mockAppLogRows) Conn() *pgx.Conn        { return nil }
+func (m *mockAppLogRows) TypeMap() *pgtype.Map   { return nil }
