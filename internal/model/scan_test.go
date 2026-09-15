@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ---------------------------------------------------------------------------
@@ -72,6 +73,10 @@ func (m *mockModelRows) RawValues() [][]byte {
 }
 
 func (m *mockModelRows) Conn() *pgx.Conn {
+	return nil
+}
+
+func (m *mockModelRows) TypeMap() *pgtype.Map {
 	return nil
 }
 

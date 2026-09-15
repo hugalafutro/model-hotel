@@ -27,15 +27,15 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [github.com/go-logr/logr](https://github.com/go-logr/logr) | v1.4.4 | Go | Apache-2.0 |
 | [github.com/go-logr/stdr](https://github.com/go-logr/stdr) | v1.2.2 | Go | Apache-2.0 |
 | [github.com/go-viper/mapstructure/v2](https://github.com/go-viper/mapstructure/v2) | v2.5.0 | Go | MIT |
-| [github.com/go-webauthn/webauthn](https://github.com/go-webauthn/webauthn) | v0.18.0 | Go | BSD-3-Clause |
-| [github.com/go-webauthn/x](https://github.com/go-webauthn/x) | v0.3.0 | Go | BSD-3-Clause |
+| [github.com/go-webauthn/webauthn](https://github.com/go-webauthn/webauthn) | v0.18.1 | Go | BSD-3-Clause |
+| [github.com/go-webauthn/x](https://github.com/go-webauthn/x) | v0.3.1 | Go | BSD-3-Clause |
 | [github.com/golang-jwt/jwt/v5](https://github.com/golang-jwt/jwt/v5) | v5.3.1 | Go | MIT |
 | [github.com/google/go-tpm](https://github.com/google/go-tpm) | v0.9.8 | Go | Apache-2.0 |
 | [github.com/google/uuid](https://github.com/google/uuid) | v1.6.0 | Go | BSD-3-Clause |
 | [github.com/grpc-ecosystem/grpc-gateway/v2](https://github.com/grpc-ecosystem/grpc-gateway/v2) | v2.30.0 | Go | BSD-3-Clause |
 | [github.com/jackc/pgpassfile](https://github.com/jackc/pgpassfile) | v1.0.0 | Go | MIT |
 | [github.com/jackc/pgservicefile](https://github.com/jackc/pgservicefile) | v0.0.0-20240606120523-5a60cdf6a761 | Go | MIT |
-| [github.com/jackc/pgx/v5](https://github.com/jackc/pgx/v5) | v5.10.0 | Go | MIT |
+| [github.com/jackc/pgx/v5](https://github.com/jackc/pgx/v5) | v5.11.0 | Go | MIT |
 | [github.com/jackc/puddle/v2](https://github.com/jackc/puddle/v2) | v2.2.2 | Go | MIT |
 | [github.com/joho/godotenv](https://github.com/joho/godotenv) | v1.5.1 | Go | MIT |
 | [github.com/munnerz/goautoneg](https://github.com/munnerz/goautoneg) | v0.0.0-20191010083416-a7dc8b61c822 | Go | BSD-3-Clause |
@@ -58,13 +58,13 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [go.opentelemetry.io/otel/sdk/log](https://go.opentelemetry.io/otel/sdk/log) | v0.22.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/otel/trace](https://go.opentelemetry.io/otel/trace) | v1.46.0 | Go | Apache-2.0 |
 | [go.opentelemetry.io/proto/otlp](https://go.opentelemetry.io/proto/otlp) | v1.11.0 | Go | Apache-2.0 |
-| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.56.0 | Go | BSD-3-Clause |
+| [golang.org/x/crypto](https://golang.org/x/crypto) | v0.57.0 | Go | BSD-3-Clause |
 | [golang.org/x/net](https://golang.org/x/net) | v0.58.0 | Go | BSD-3-Clause |
-| [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.36.0 | Go | BSD-3-Clause |
-| [golang.org/x/sync](https://golang.org/x/sync) | v0.22.0 | Go | BSD-3-Clause |
-| [golang.org/x/sys](https://golang.org/x/sys) | v0.47.0 | Go | BSD-3-Clause |
-| [golang.org/x/text](https://golang.org/x/text) | v0.41.0 | Go | BSD-3-Clause |
-| [golang.org/x/time](https://golang.org/x/time) | v0.15.0 | Go | BSD-3-Clause |
+| [golang.org/x/oauth2](https://golang.org/x/oauth2) | v0.37.0 | Go | BSD-3-Clause |
+| [golang.org/x/sync](https://golang.org/x/sync) | v0.23.0 | Go | BSD-3-Clause |
+| [golang.org/x/sys](https://golang.org/x/sys) | v0.48.0 | Go | BSD-3-Clause |
+| [golang.org/x/text](https://golang.org/x/text) | v0.42.0 | Go | BSD-3-Clause |
+| [golang.org/x/time](https://golang.org/x/time) | v0.16.0 | Go | BSD-3-Clause |
 | [google.golang.org/genproto/googleapis/api](https://google.golang.org/genproto/googleapis/api) | v0.0.0-20260819154853-08b0e4226688 | Go | Apache-2.0 |
 | [google.golang.org/genproto/googleapis/rpc](https://google.golang.org/genproto/googleapis/rpc) | v0.0.0-20260819154853-08b0e4226688 | Go | Apache-2.0 |
 | [google.golang.org/grpc](https://google.golang.org/grpc) | v1.83.2 | Go | Apache-2.0 |
@@ -92,8 +92,8 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@standard-schema/utils](https://github.com/standard-schema/standard-schema#readme) | 0.3.0 | npm | MIT |
 | [@tanstack/query-core](https://tanstack.com/query) | 5.102.8 | npm | MIT |
 | [@tanstack/react-query](https://tanstack.com/query) | 5.102.8 | npm | MIT |
-| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.10 | npm | MIT |
-| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.8 | npm | MIT |
+| [@tanstack/react-virtual](https://tanstack.com/virtual) | 3.14.12 | npm | MIT |
+| [@tanstack/virtual-core](https://tanstack.com/virtual) | 3.17.10 | npm | MIT |
 | [@types/d3-array](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-array) | 3.2.2 | npm | MIT |
 | [@types/d3-color](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-color) | 3.1.3 | npm | MIT |
 | [@types/d3-ease](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/d3-ease) | 3.0.2 | npm | MIT |
@@ -111,7 +111,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [@types/katex](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/katex) | 0.16.8 | npm | MIT |
 | [@types/mdast](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/mdast) | 4.0.4 | npm | MIT |
 | [@types/ms](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/ms) | 2.1.0 | npm | MIT |
-| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react) | 19.2.18 | npm | MIT |
+| [@types/react](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/react) | 19.3.0 | npm | MIT |
 | [@types/unist](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/unist) | 2.0.11 | npm | MIT |
 | [@types/unist](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/unist) | 3.0.3 | npm | MIT |
 | [@types/use-sync-external-store](https://github.com/DefinitelyTyped/DefinitelyTyped/tree/master/types/use-sync-external-store) | 0.0.6 | npm | MIT |
@@ -188,7 +188,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [is-hexadecimal](https://github.com/wooorm/is-hexadecimal#readme) | 2.0.1 | npm | MIT |
 | [is-plain-obj](https://github.com/sindresorhus/is-plain-obj#readme) | 4.1.0 | npm | MIT |
 | [katex](https://katex.org) | 0.16.47 | npm | MIT |
-| [katex](https://katex.org) | 0.18.5 | npm | MIT |
+| [katex](https://katex.org) | 0.18.7 | npm | MIT |
 | [locate-path](https://github.com/sindresorhus/locate-path#readme) | 5.0.0 | npm | MIT |
 | [longest-streak](https://github.com/wooorm/longest-streak#readme) | 3.1.0 | npm | MIT |
 | [markdown-table](https://github.com/wooorm/markdown-table#readme) | 3.0.4 | npm | MIT |
@@ -250,9 +250,9 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [property-information](https://github.com/wooorm/property-information#readme) | 7.1.0 | npm | MIT |
 | [property-information](https://github.com/wooorm/property-information#readme) | 7.2.0 | npm | MIT |
 | [qrcode](http://github.com/soldair/node-qrcode) | 1.5.4 | npm | MIT |
-| [react](https://react.dev/) | 19.2.8 | npm | MIT |
+| [react](https://react.dev/) | 19.3.0 | npm | MIT |
 | [react-colorful](https://omgovich.github.io/react-colorful) | 5.8.1 | npm | MIT |
-| [react-dom](https://react.dev/) | 19.2.8 | npm | MIT |
+| [react-dom](https://react.dev/) | 19.3.0 | npm | MIT |
 | [react-i18next](https://github.com/i18next/react-i18next) | 17.0.13 | npm | MIT |
 | [react-is](https://react.dev/) | 19.2.6 | npm | MIT |
 | [react-markdown](https://github.com/remarkjs/react-markdown#readme) | 10.1.0 | npm | MIT |
@@ -273,7 +273,7 @@ The web UI embeds the JetBrains Mono, Onest, and Schibsted Grotesk typefaces, an
 | [require-directory](https://github.com/troygoode/node-require-directory/) | 2.1.1 | npm | MIT |
 | [require-main-filename](https://github.com/yargs/require-main-filename#readme) | 2.0.0 | npm | ISC |
 | [reselect](https://github.com/reduxjs/reselect#readme) | 5.2.0 | npm | MIT |
-| [scheduler](https://react.dev/) | 0.27.0 | npm | MIT |
+| [scheduler](https://react.dev/) | 0.28.0 | npm | MIT |
 | [set-blocking](https://github.com/yargs/set-blocking#readme) | 2.0.0 | npm | ISC |
 | [shiki](https://github.com/shikijs/shiki#readme) | 4.4.3 | npm | MIT |
 | [space-separated-tokens](https://github.com/wooorm/space-separated-tokens#readme) | 2.0.2 | npm | MIT |
@@ -347,7 +347,7 @@ SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Copyright (c) Microsoft Corporation.
 
-Applies to: `@types/d3-array@3.2.2`, `@types/d3-color@3.1.3`, `@types/d3-ease@3.0.2`, `@types/d3-interpolate@3.0.4`, `@types/d3-path@3.1.1`, `@types/d3-scale@4.0.9`, `@types/d3-shape@3.1.8`, `@types/d3-time@3.0.4`, `@types/d3-timer@3.0.2`, `@types/debug@4.1.13`, `@types/estree@1.0.9`, `@types/estree-jsx@1.0.5`, `@types/hast@3.0.4`, `@types/hast@3.0.5`, `@types/katex@0.16.8`, `@types/mdast@4.0.4`, `@types/ms@2.1.0`, `@types/react@19.2.18`, `@types/unist@2.0.11`, `@types/unist@3.0.3`, `@types/use-sync-external-store@0.0.6`
+Applies to: `@types/d3-array@3.2.2`, `@types/d3-color@3.1.3`, `@types/d3-ease@3.0.2`, `@types/d3-interpolate@3.0.4`, `@types/d3-path@3.1.1`, `@types/d3-scale@4.0.9`, `@types/d3-shape@3.1.8`, `@types/d3-time@3.0.4`, `@types/d3-timer@3.0.2`, `@types/debug@4.1.13`, `@types/estree@1.0.9`, `@types/estree-jsx@1.0.5`, `@types/hast@3.0.4`, `@types/hast@3.0.5`, `@types/katex@0.16.8`, `@types/mdast@4.0.4`, `@types/ms@2.1.0`, `@types/react@19.3.0`, `@types/unist@2.0.11`, `@types/unist@3.0.3`, `@types/use-sync-external-store@0.0.6`
 
 ```
 MIT License
@@ -969,7 +969,7 @@ Apache License
 
 Copyright 2009 The Go Authors.
 
-Applies to: `golang.org/x/crypto@v0.56.0`, `golang.org/x/net@v0.58.0`, `golang.org/x/oauth2@v0.36.0`, `golang.org/x/sync@v0.22.0`, `golang.org/x/sys@v0.47.0`, `golang.org/x/text@v0.41.0`, `golang.org/x/time@v0.15.0`
+Applies to: `golang.org/x/crypto@v0.57.0`, `golang.org/x/net@v0.58.0`, `golang.org/x/oauth2@v0.37.0`, `golang.org/x/sync@v0.23.0`, `golang.org/x/sys@v0.48.0`, `golang.org/x/text@v0.42.0`, `golang.org/x/time@v0.16.0`
 
 ```
 Copyright 2009 The Go Authors.
@@ -1005,7 +1005,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) Meta Platforms, Inc. and affiliates.
 
-Applies to: `react@19.2.8`, `react-dom@19.2.8`, `react-is@19.2.6`, `scheduler@0.27.0`, `use-sync-external-store@1.6.0`
+Applies to: `react@19.3.0`, `react-dom@19.3.0`, `react-is@19.2.6`, `scheduler@0.28.0`, `use-sync-external-store@1.6.0`
 
 ```
 MIT License
@@ -1065,7 +1065,7 @@ SOFTWARE.
 
 Copyright (c) 2021-present Tanner Linsley
 
-Applies to: `@tanstack/query-core@5.102.8`, `@tanstack/react-query@5.102.8`, `@tanstack/react-virtual@3.14.10`, `@tanstack/virtual-core@3.17.8`
+Applies to: `@tanstack/query-core@5.102.8`, `@tanstack/react-query@5.102.8`, `@tanstack/react-virtual@3.14.12`, `@tanstack/virtual-core@3.17.10`
 
 ```
 MIT License
@@ -1335,7 +1335,7 @@ THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLI
 
 Copyright (c) 2013-2020 Khan Academy and other contributors
 
-Applies to: `katex@0.16.47`, `katex@0.18.5`
+Applies to: `katex@0.16.47`, `katex@0.18.7`
 
 ```
 The MIT License (MIT)
@@ -2121,7 +2121,7 @@ THE SOFTWARE.
 
 Copyright (c) 2025 github.com/go-webauthn/webauthn authors.
 
-Applies to: `github.com/go-webauthn/webauthn@v0.18.0`
+Applies to: `github.com/go-webauthn/webauthn@v0.18.1`
 
 ```
 Copyright (c) 2025 github.com/go-webauthn/webauthn authors.
@@ -2156,7 +2156,7 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 Copyright (c) 2021-2023 github.com/go-webauthn authors.
 
-Applies to: `github.com/go-webauthn/x@v0.3.0`
+Applies to: `github.com/go-webauthn/x@v0.3.1`
 
 ```
 Copyright (c) 2021-2023 github.com/go-webauthn authors.
@@ -2337,7 +2337,7 @@ WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 Copyright (c) 2013-2021 Jack Christensen
 
-Applies to: `github.com/jackc/pgx/v5@v5.10.0`
+Applies to: `github.com/jackc/pgx/v5@v5.11.0`
 
 ```
 Copyright (c) 2013-2021 Jack Christensen
