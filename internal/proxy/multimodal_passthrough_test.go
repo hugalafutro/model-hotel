@@ -1770,3 +1770,48 @@ func TestImageGenerations_XAISizeBecomesAspectRatio(t *testing.T) {
 		})
 	}
 }
+
+// TestAudioSpeech_BinaryPassthroughPricesTheRow pins the order of the streamed
+// pass-through's two terminal calls. audio/mpeg carries no usage report, so
+// the prompt is estimated by the charge; the terminal write must run after it
+// or the row is priced from the provider's zero counts, and the dollar budget,
+// which sums that column, never sees the request.
+func TestAudioSpeech_BinaryPassthroughPricesTheRow(t *testing.T) {
+	env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "audio/mpeg")
+		_, _ = w.Write([]byte{0xFF, 0xFB, 0x90, 0x00})
+	}))
+	if _, err := testDB.Pool().Exec(context.Background(),
+		`UPDATE models SET input_price_per_million = 10, output_price_per_million = 20 WHERE id = $1`, env.modelUUID); err != nil {
+		t.Fatalf("price the model: %v", err)
+	}
+
+	body := fmt.Sprintf(`{"model":"%s/%s","input":"hello there","voice":"alloy"}`, env.providerName, env.modelName)
+	w := httptest.NewRecorder()
+	env.handler.AudioSpeech(w, env.request("/v1/audio/speech", "application/json", strings.NewReader(body)))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200 (body: %s)", w.Code, w.Body.String())
+	}
+
+	// The terminal write is fire-and-forget; poll for the completed row.
+	var cost *float64
+	var state string
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		err := testDB.Pool().QueryRow(context.Background(),
+			`SELECT state, cost_usd FROM request_logs WHERE provider_id = $1 ORDER BY created_at DESC LIMIT 1`, env.providerID).Scan(&state, &cost)
+		if err == nil && state == "completed" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("row never completed: state=%q err=%v", state, err)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	if cost == nil {
+		t.Fatal("cost_usd = NULL, want the estimated prompt priced on the row")
+	}
+	if *cost <= 0 {
+		t.Fatalf("cost_usd = %v, want the estimated prompt priced on the row", *cost)
+	}
+}
