@@ -150,7 +150,8 @@ func kimiWindowName(w provider.KimiCodeQuotaWindow) string {
 	}
 }
 
-// openCodeGoWindows reports the rolling, weekly and monthly windows. A window
+// openCodeGoWindows reports the rolling (named 5h, its span, as the Z.ai and
+// Kimi windows are), weekly and monthly windows. A window
 // the payload does not carry decodes to zeroes; its empty resetsAt tells it
 // apart from a fresh one, and it is skipped rather than reported untouched. A
 // window OpenCode Go refuses (any status but ok) reads as spent whatever its
@@ -164,7 +165,7 @@ func openCodeGoWindows(payload json.RawMessage) []Window {
 	for _, x := range []struct {
 		name string
 		w    provider.OpenCodeGoUsageWindow
-	}{{"rolling", res.Usage.Rolling}, {"weekly", res.Usage.Weekly}, {"monthly", res.Usage.Monthly}} {
+	}{{"5h", res.Usage.Rolling}, {"weekly", res.Usage.Weekly}, {"monthly", res.Usage.Monthly}} {
 		if x.w.ResetsAt == "" && x.w.Status == "" {
 			continue
 		}
