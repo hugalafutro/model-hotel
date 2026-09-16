@@ -395,9 +395,13 @@ func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData,
 	// they are the paths a rejected 2xx can precede. The pass-through and
 	// streaming stamps still assign, since neither loop can reach them behind
 	// one of these rejects.
+	// The split is capped by the clamped total, so a provider reporting more
+	// cached tokens than prompt tokens cannot price more input than was metered.
+	hit := min(max(clampTokenCount(cacheHit), 0), prompt)
+	miss := min(max(clampTokenCount(cacheMiss), 0), prompt-hit)
 	logData.tokensPrompt += prompt
-	logData.tokensPromptCacheHit += clampTokenCount(cacheHit)
-	logData.tokensPromptCacheMiss += clampTokenCount(cacheMiss)
+	logData.tokensPromptCacheHit += hit
+	logData.tokensPromptCacheMiss += miss
 	h.recordTokenUsage(st.vkHash, logData, prompt, 0, 0)
 }
 

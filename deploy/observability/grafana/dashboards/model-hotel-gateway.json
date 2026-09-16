@@ -1432,7 +1432,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "(sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt_cached\"}[$__range])) or vector(0)) / clamp_min(sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt\"}[$__range])), 1)"
+          "expr": "((sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt_cached\"}[$__range])) or vector(0)) / clamp_min(sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt\"}[$__range])), 1)) or vector(0)"
         }
       ]
     },
