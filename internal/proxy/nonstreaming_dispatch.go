@@ -70,7 +70,8 @@ func (h *Handler) dispatchNonStreaming(w http.ResponseWriter, r *http.Request, s
 	if err := ans.completionFault(r.Context(), resp.StatusCode); err != nil && hasMoreCandidates && answerFaultIsRoutable(err) {
 		// The provider generated this answer and billed the prompt for it, so
 		// the charge is recorded before the candidate is left behind.
-		h.meterRejectedPrompt(st, logData, ans.chat.Usage.PromptTokens)
+		hit, miss := extractCacheTokens(ans.chat.Usage)
+		h.meterRejectedPrompt(st, logData, ans.chat.Usage.PromptTokens, hit, miss)
 		// Fully read already (or refused past the cap, where the rest is not
 		// worth draining), so rejectAndClose releases the connection here rather
 		// than the handler that normally owns it.

@@ -382,7 +382,10 @@ func (h *Handler) rejectAndClose(st *requestState, candidate modelCandidate, log
 // virtual key's counter and the TPM bucket, through the same recordTokenUsage.
 // Nothing is estimated, unlike the served path: no bytes reached the client, and
 // estimateMissingUsage charges nothing for a delivery that did not happen.
-func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData, promptTokens int) {
+// cacheHit and cacheMiss are the provider's split of that prompt, carried
+// along so the rejected read is priced at its cached rate and the
+// prompt_cached metric counts it.
+func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData, promptTokens, cacheHit, cacheMiss int) {
 	prompt, _, _ := h.clampReportedUsage(promptTokens, 0, 0, logData)
 	if prompt == 0 {
 		return
@@ -392,7 +395,13 @@ func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData,
 	// they are the paths a rejected 2xx can precede. The pass-through and
 	// streaming stamps still assign, since neither loop can reach them behind
 	// one of these rejects.
+	// The split is capped by the clamped total, so a provider reporting more
+	// cached tokens than prompt tokens cannot price more input than was metered.
+	hit := min(max(clampTokenCount(cacheHit), 0), prompt)
+	miss := min(max(clampTokenCount(cacheMiss), 0), prompt-hit)
 	logData.tokensPrompt += prompt
+	logData.tokensPromptCacheHit += hit
+	logData.tokensPromptCacheMiss += miss
 	h.recordTokenUsage(st.vkHash, logData, prompt, 0, 0)
 }
 

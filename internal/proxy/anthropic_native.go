@@ -121,7 +121,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if canFailOver && !answered {
 		// Charged before the candidate is left behind: the provider read this
 		// prompt and billed it, whoever ends up serving the request.
-		h.meterRejectedPrompt(st, logData, inputTokens)
+		h.meterRejectedPrompt(st, logData, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens)
 		return h.rejectUntranslatableBody(st, candidate, logData, "native anthropic", resp.StatusCode, errEmptyCompletion, attempt, r)
 	}
 
@@ -141,9 +141,10 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	logData.tokensCompletion = outputTokens
 	// The cache split, not just the total: metering the cache-inclusive prompt
 	// without it prices every cached token at full input rate. The translated
-	// path reaches the same two fields through extractCacheTokens.
-	logData.tokensPromptCacheHit = clampTokenCount(usage.CacheHitTokens)
-	logData.tokensPromptCacheMiss = clampTokenCount(usage.CacheMissTokens)
+	// path reaches the same two fields through extractCacheTokens. Added like
+	// the prompt total, so a rejected earlier candidate's split survives.
+	logData.tokensPromptCacheHit += clampTokenCount(usage.CacheHitTokens)
+	logData.tokensPromptCacheMiss += clampTokenCount(usage.CacheMissTokens)
 	logData.failoverAttempt = attempt
 	logData.state = "completed"
 	logData.deliveredContent = carriesContent

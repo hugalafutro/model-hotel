@@ -51,7 +51,7 @@ var (
 
 	tokensTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Name: "modelhotel_tokens_total",
-		Help: "Total tokens metered by provider, model, and kind. Reasoning is the share of completion a reasoning model spent thinking, not an extra count: sum prompt and completion for a total, never add reasoning to them.",
+		Help: "Total tokens metered by provider, model, and kind. reasoning is the share of completion a reasoning model spent thinking and prompt_cached the share of prompt the provider served from its cache, not extra counts: sum prompt and completion for a total, never add the other two to them.",
 	}, []string{"provider", "model", "kind"})
 
 	costUSDTotal = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -121,6 +121,10 @@ type Observation struct {
 	PromptTokens     int
 	CompletionTokens int
 	ReasoningTokens  int
+	// PromptCachedTokens is the share of PromptTokens the provider served from
+	// its prompt cache, a subset like ReasoningTokens is of CompletionTokens,
+	// so the kinds prompt and completion are the whole throughput.
+	PromptCachedTokens int
 	// CostUSD is what the request cost when Priced; a request the gateway could
 	// not price (no provider served it, or the model has no prices) is not
 	// counted at all rather than counted as free.
@@ -149,6 +153,9 @@ func Record(o Observation) {
 	}
 	if o.ReasoningTokens > 0 {
 		tokensTotal.WithLabelValues(provider, model, "reasoning").Add(float64(o.ReasoningTokens))
+	}
+	if o.PromptCachedTokens > 0 {
+		tokensTotal.WithLabelValues(provider, model, "prompt_cached").Add(float64(o.PromptCachedTokens))
 	}
 	// A counter refuses a negative add with a panic, and a price is only range
 	// checked on the admin API, not on catalog imports.
