@@ -666,16 +666,15 @@ func TestStalled2xx_FailsOverToTheSibling(t *testing.T) {
 	}
 }
 
-// rowPromptTokens reads the prompt-token column of the request's own row.
-func rowPromptTokens(t *testing.T, modelID string) int {
+// rowPromptSplit reads the newest row's prompt total and its cached share.
+func rowPromptSplit(t *testing.T, modelID string) (prompt, cacheHit int) {
 	t.Helper()
-	var tokens int
 	if err := testDB.Pool().QueryRow(context.Background(),
-		`SELECT COALESCE(tokens_prompt, 0) FROM request_logs WHERE model_id = $1 ORDER BY created_at DESC LIMIT 1`,
-		modelID).Scan(&tokens); err != nil {
-		t.Fatalf("read tokens_prompt: %v", err)
+		`SELECT COALESCE(tokens_prompt, 0), COALESCE(tokens_prompt_cache_hit, 0) FROM request_logs WHERE model_id = $1 ORDER BY created_at DESC LIMIT 1`,
+		modelID).Scan(&prompt, &cacheHit); err != nil {
+		t.Fatalf("read prompt split: %v", err)
 	}
-	return tokens
+	return prompt, cacheHit
 }
 
 // keyTokensUsed reads the virtual key's own usage counter.
@@ -696,7 +695,7 @@ func keyTokensUsed(t *testing.T, keyHash string) int {
 func TestRejected2xx_ItsPromptIsStillMetered(t *testing.T) {
 	env := replayUpstream(t, http.StatusOK,
 		`{"id":"chatcmpl-empty","object":"chat.completion","created":1,"model":"shared-model",`+
-			`"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":0,"total_tokens":11}}`)
+			`"choices":[],"usage":{"prompt_tokens":11,"completion_tokens":0,"total_tokens":11,"prompt_tokens_details":{"cached_tokens":8}}}`)
 
 	w := replayRequest(t, env)
 
@@ -706,8 +705,10 @@ func TestRejected2xx_ItsPromptIsStillMetered(t *testing.T) {
 	waitForTrail(t, "hotel/"+env.group, 2)
 	// 11 from the candidate that answered nothing, 1 from the sibling that
 	// answered: the row reports what the request cost, not what its last hop did.
-	if got := rowPromptTokens(t, "hotel/"+env.group); got != 12 {
-		t.Errorf("row tokens_prompt = %d, want 12 (the rejected candidate's 11 plus the sibling's 1)", got)
+	// The rejected candidate's 8 cached tokens ride along, so the row prices
+	// that read at its cached rate and the prompt_cached metric counts it.
+	if prompt, cached := rowPromptSplit(t, "hotel/"+env.group); prompt != 12 || cached != 8 {
+		t.Errorf("row prompt/cached = %d/%d, want 12/8 (the rejected candidate's 11 with 8 cached, plus the sibling's 1)", prompt, cached)
 	}
 	// The key's counter and the TPM bucket take the same charge through
 	// recordTokenUsage: 11 for the rejected prompt, 3 for the served answer.

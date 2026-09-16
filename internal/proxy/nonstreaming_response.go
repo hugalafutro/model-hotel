@@ -180,7 +180,11 @@ func (h *Handler) handleNonStreamingResponse(w http.ResponseWriter, r *http.Requ
 		logData.tokensPrompt += promptTokens
 		logData.tokensCompletion = completionTokens
 		logData.tokensCompletionReasoning = reasoningTokens
-		logData.tokensPromptCacheHit, logData.tokensPromptCacheMiss = extractCacheTokens(chatResp.Usage)
+		// Added like the prompt total, so a rejected earlier candidate's split
+		// survives (meterRejectedPrompt).
+		hit, miss := extractCacheTokens(chatResp.Usage)
+		logData.tokensPromptCacheHit += hit
+		logData.tokensPromptCacheMiss += miss
 		logData.failoverAttempt = attempt
 		logData.state = "completed"
 		// Whether the model actually answered, judged where the decoded body is
