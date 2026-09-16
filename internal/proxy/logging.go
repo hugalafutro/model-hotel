@@ -404,19 +404,20 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		// cost is booked only by the write that stored it, so the counter and
 		// request_logs.cost_usd agree row for row.
 		metrics.Record(metrics.Observation{
-			Provider:          logEntry.providerName,
-			Model:             metricModelLabel(logEntry.modelID, logEntry.errorKind),
-			StatusCode:        logEntry.statusCode,
-			ErrorKind:         string(logEntry.errorKind),
-			DurationSeconds:   logEntry.durationMs / 1000.0,
-			TTFTSeconds:       logEntry.ttftMs / 1000.0,
-			Streaming:         logEntry.streaming,
-			PromptTokens:      logEntry.tokensPrompt,
-			CompletionTokens:  logEntry.tokensCompletion,
-			ReasoningTokens:   logEntry.tokensCompletionReasoning,
-			CostUSD:           cost,
-			Priced:            priced && chargedNow,
-			FailoverProviders: logEntry.failoverProviders(),
+			Provider:           logEntry.providerName,
+			Model:              metricModelLabel(logEntry.modelID, logEntry.errorKind),
+			StatusCode:         logEntry.statusCode,
+			ErrorKind:          string(logEntry.errorKind),
+			DurationSeconds:    logEntry.durationMs / 1000.0,
+			TTFTSeconds:        logEntry.ttftMs / 1000.0,
+			Streaming:          logEntry.streaming,
+			PromptTokens:       logEntry.tokensPrompt,
+			CompletionTokens:   logEntry.tokensCompletion,
+			ReasoningTokens:    logEntry.tokensCompletionReasoning,
+			PromptCachedTokens: logEntry.tokensPromptCacheHit,
+			CostUSD:            cost,
+			Priced:             priced && chargedNow,
+			FailoverProviders:  logEntry.failoverProviders(),
 		})
 
 		severity := "success"

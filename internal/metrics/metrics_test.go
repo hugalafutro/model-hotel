@@ -66,17 +66,18 @@ func TestRecordEmitsMetrics(t *testing.T) {
 	mdl := uniqueLabel("llama-3")
 	fallback := uniqueLabel("test-prov-fallback")
 	Record(Observation{
-		Provider:         prov,
-		Model:            mdl,
-		StatusCode:       200,
-		DurationSeconds:  0.5,
-		Streaming:        true,
-		TTFTSeconds:      0.1,
-		PromptTokens:     10,
-		CompletionTokens: 20,
-		ReasoningTokens:  5,
-		CostUSD:          0.0025,
-		Priced:           true,
+		Provider:           prov,
+		Model:              mdl,
+		StatusCode:         200,
+		DurationSeconds:    0.5,
+		Streaming:          true,
+		TTFTSeconds:        0.1,
+		PromptTokens:       10,
+		CompletionTokens:   20,
+		ReasoningTokens:    5,
+		PromptCachedTokens: 4,
+		CostUSD:            0.0025,
+		Priced:             true,
 		// Two attempts after the first: a hedge to the fallback that lost, and
 		// the fallback again, which served. One increment each, per provider.
 		FailoverProviders: []string{fallback, fallback},
@@ -90,6 +91,7 @@ func TestRecordEmitsMetrics(t *testing.T) {
 		fmt.Sprintf(`modelhotel_tokens_total{kind="completion",model=%q,provider=%q} 20`, mdl, prov),
 		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt",model=%q,provider=%q} 10`, mdl, prov),
 		fmt.Sprintf(`modelhotel_tokens_total{kind="reasoning",model=%q,provider=%q} 5`, mdl, prov),
+		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt_cached",model=%q,provider=%q} 4`, mdl, prov),
 		fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q} 0.0025`, mdl, prov),
 		fmt.Sprintf(`modelhotel_failover_attempts_total{model=%q,provider=%q} 2`, mdl, fallback),
 		`go_goroutines`, // Go runtime collector is registered

@@ -378,7 +378,7 @@
       "type": "stat",
       "id": 8,
       "title": "Tokens/s",
-      "description": "Prompt plus completion tokens per second across the selected providers.",
+      "description": "Prompt plus completion tokens per second across the selected providers. reasoning and prompt_cached are subsets of those two kinds and are not added again.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -426,7 +426,7 @@
       "targets": [
         {
           "refId": "A",
-          "expr": "sum(rate(modelhotel_tokens_total{provider=~\"$provider\"}[$__rate_interval]))",
+          "expr": "sum(rate(modelhotel_tokens_total{provider=~\"$provider\",kind=~\"prompt|completion\"}[$__rate_interval]))",
           "datasource": {
             "type": "prometheus",
             "uid": "prometheus"
@@ -1377,18 +1377,78 @@
       "panels": []
     },
     {
-      "type": "timeseries",
-      "id": 21,
-      "title": "Tokens/s by kind",
-      "description": "Tokens per second by kind. reasoning is the share of completion the provider reported as thinking, not a third bucket, so the lines are not stacked: prompt and completion are the whole throughput, reasoning sits inside completion. Logarithmic Y axis: prompt tokens run one to three orders of magnitude above completion and reasoning tokens, which would otherwise draw as flat lines.",
+      "type": "stat",
+      "id": 47,
+      "title": "Prompt cache hit share",
+      "description": "Share of prompt tokens the providers served from their prompt cache over the dashboard time range (kind prompt_cached over kind prompt). Cached input is billed at a fraction of the fresh rate, so this is the difference between the token volume and the bill.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
       },
       "gridPos": {
         "h": 8,
-        "w": 12,
+        "w": 3,
         "x": 0,
+        "y": 41
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt_cached\"}[$__range])) / sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt\"}[$__range]))"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "id": 21,
+      "title": "Tokens/s by kind",
+      "description": "Tokens per second by kind. reasoning is the share of completion the provider reported as thinking, not a third bucket, so the lines are not stacked: prompt and completion are the whole throughput, reasoning sits inside completion, and prompt_cached is the share of prompt the provider served from its cache. Logarithmic Y axis: prompt tokens run one to three orders of magnitude above completion and reasoning tokens, which would otherwise draw as flat lines.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 9,
+        "x": 3,
         "y": 41
       },
       "fieldConfig": {
