@@ -143,7 +143,7 @@
     <string name="alerts_category_backups">Sicherungen</string>
     <string name="alerts_event_health_down">Mitglied ausgefallen</string>
     <string name="alerts_event_health_up">Mitglied wiederhergestellt</string>
-    <string name="alerts_event_health_maintenance">Zustandswechsel eines entleerten Mitglieds (Wartung)</string>
+    <string name="alerts_event_health_maintenance">Wartung: Zustand eines entleerten Mitglieds oder geplante Entleerung</string>
     <string name="alerts_event_config_sync_failed">Konfigurationssynchronisierung fehlgeschlagen</string>
     <string name="alerts_event_config_synced">Konfiguration synchronisiert</string>
     <string name="alerts_event_config_auto_synced">Konfiguration automatisch synchronisiert</string>

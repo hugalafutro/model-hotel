@@ -322,7 +322,7 @@
 			"event": {
 				"health_down": "Člen vypadl",
 				"health_up": "Člen se zotavil",
-				"health_maintenance": "Změna stavu odpojeného člena (údržba)",
+				"health_maintenance": "Údržba: stav odpojeného člena nebo plánované odpojení",
 				"config_sync_failed": "Synchronizace konfigurace selhala",
 				"config_synced": "Konfigurace synchronizována na člena",
 				"config_auto_synced": "Automatická synchronizace aplikována na flotilu",
