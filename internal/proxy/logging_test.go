@@ -653,6 +653,47 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 		t.Errorf("unpriced model cost_usd = %v, want NULL", *got)
 	}
 
+	// A walked group: an earlier candidate answered 2xx with nothing and billed
+	// 100k prompt tokens at its own $10/M (priced when it was rejected, 1.00);
+	// the serving candidate's share is the rest of the columns at ITS prices:
+	// 0.8M hits at $0.1 + 0.1M misses at $1 + 0.25M completion at $4 = 1.18.
+	walked := newRow()
+	walked.servedModel = priced.servedModel
+	walked.rejected = []rejectedAttempt{{providerName: "walked-away", prompt: 100_000, cacheMiss: 100_000, costUSD: 1.0, priced: true}}
+	walked.state = "completed"
+	h.updateRequestLog(walked)
+	if got := readCost(walked.id); got == nil || *got < 2.18-1e-9 || *got > 2.18+1e-9 {
+		t.Errorf("walked cost_usd = %v, want 2.18 (rejected hop 1.00 at its own price + serving share 1.18)", got)
+	}
+
+	// A rejected hop whose model carries no prices stays in the serving share
+	// and is priced at the serving model, so the row is still charged: the
+	// whole 1M prompt at the serving prices, 1.28 as in the priced case.
+	walkedUnpriced := newRow()
+	walkedUnpriced.servedModel = priced.servedModel
+	walkedUnpriced.rejected = []rejectedAttempt{{providerName: "walked-away", prompt: 100_000, cacheMiss: 100_000}}
+	walkedUnpriced.state = "completed"
+	h.updateRequestLog(walkedUnpriced)
+	if got := readCost(walkedUnpriced.id); got == nil || *got < 1.28-1e-9 || *got > 1.28+1e-9 {
+		t.Errorf("walked-unpriced cost_usd = %v, want 1.28 (the unpriced hop priced at the serving model)", got)
+	}
+
+	// Every candidate rejected: servedModel is the last one dispatched, the
+	// serving share is zero tokens, and the row costs what the rejected reads
+	// did at their own prices.
+	exhausted := newRow()
+	exhausted.servedModel = priced.servedModel
+	exhausted.tokensPrompt, exhausted.tokensPromptCacheHit, exhausted.tokensPromptCacheMiss, exhausted.tokensCompletion, exhausted.tokensCompletionReasoning = 300_000, 0, 300_000, 0, 0
+	exhausted.rejected = []rejectedAttempt{
+		{providerName: "first", prompt: 100_000, cacheMiss: 100_000, costUSD: 1.0, priced: true},
+		{providerName: "second", prompt: 200_000, cacheMiss: 200_000, costUSD: 0.5, priced: true},
+	}
+	exhausted.state = "failed"
+	h.updateRequestLog(exhausted)
+	if got := readCost(exhausted.id); got == nil || *got < 1.5-1e-9 || *got > 1.5+1e-9 {
+		t.Errorf("exhausted cost_usd = %v, want 1.50 (both rejected hops at their own prices, nothing served)", got)
+	}
+
 	undispatched := newRow()
 	undispatched.state = "failed"
 	h.updateRequestLog(undispatched)
