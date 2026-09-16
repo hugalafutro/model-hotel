@@ -378,3 +378,25 @@ func TestInflightCollector(t *testing.T) {
 func TestRegisterInflightCollector_NilIsNoop(t *testing.T) {
 	RegisterInflightCollector(nil)
 }
+
+// A rejected candidate's charge is booked under its own provider: prompt and
+// cached tokens always, the cost only when priced, and no request or latency
+// series at all (the request is counted once, by the terminal Record).
+func TestRecordRejectedAttempt(t *testing.T) {
+	prov, mdl := "rejected-"+t.Name(), "hotel/group"
+	RecordRejectedAttempt(RejectedAttempt{Provider: prov, Model: mdl, PromptTokens: 11, PromptCachedTokens: 8, CostUSD: 0.5, Priced: true})
+	RecordRejectedAttempt(RejectedAttempt{Provider: prov, Model: mdl, PromptTokens: 4, PromptCachedTokens: 1, CostUSD: 9, Priced: false})
+	out := scrape(t)
+	for _, w := range []string{
+		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt",model=%q,provider=%q} 15`, mdl, prov),
+		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt_cached",model=%q,provider=%q} 9`, mdl, prov),
+		fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q} 0.5`, mdl, prov),
+	} {
+		if !strings.Contains(out, w) {
+			t.Errorf("scrape output missing %q", w)
+		}
+	}
+	if strings.Contains(out, fmt.Sprintf(`modelhotel_requests_total{error_kind="",model=%q,provider=%q`, mdl, prov)) {
+		t.Error("a rejected attempt must not count as a request")
+	}
+}
