@@ -369,9 +369,9 @@ func hasWindow(set []uint64, h uint64) bool {
 // since the whole fragment goes either way. A nil fence, an empty text and a
 // text too short to hold a window come back unchanged.
 //
-// Only text that came out of an upstream response body may be passed here.
-// Gateway-authored prose is not upstream text and must not be fenced: see the
-// file comment.
+// Only upstream-controlled response text may be passed here: a body fragment,
+// a response header, a finish reason the provider chose. Gateway-authored
+// prose is not upstream text and must not be fenced: see the file comment.
 func (f *contentFence) fenceUpstream(text string) string {
 	if f == nil || utf8.RuneCountInString(text) < contentEchoWindow {
 		return text

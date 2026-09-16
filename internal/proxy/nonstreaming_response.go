@@ -68,8 +68,11 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 			detail = fmt.Sprintf("upstream body read error: %s (body_bytes=%d)", errString(readErr), len(body))
 			return detail, detail, KindProviderError, "the provider stopped sending its response"
 		}
+		// The content type is the upstream's own text on a detail that is stored
+		// (request_logs.error_message, the attempt trail), so it is bounded,
+		// sanitized and fenced like the body it describes.
 		detail = fmt.Sprintf("response decode error: %s (body_bytes=%d, content_type=%q)",
-			errString(decodeErr), len(body), resp.Header.Get("Content-Type"))
+			errString(decodeErr), len(body), fence.fenceUpstream(util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap)))
 		// The gateway's own cap is not the provider failing, so it is the one
 		// refusal here that leaves the circuit alone (translationIsProviderFault
 		// draws the same line for the paths that fail over).

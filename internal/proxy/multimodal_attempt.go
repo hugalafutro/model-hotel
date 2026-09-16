@@ -47,7 +47,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	// MiniMax reports business errors (rate limit, exhausted plan balance, auth
 	// failures) inside an HTTP 200 envelope, so the status is normalised before
 	// anything is judged from it.
-	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
+	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp, logData.fence())
 	h.finishAttemptAdmission(st, candidate, resp)
 	logData.noteAttemptStatus(resp.StatusCode)
 
@@ -87,7 +87,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	// JSON, the first body byte for SSE/binary), so a provider that returns
 	// 200 headers and then stalls before producing data still accrues breaker
 	// failures.
-	debuglog.Debug("proxy: upstream responded OK, dispatching passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "status", resp.StatusCode, "content_type", util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap))
+	debuglog.Debug("proxy: upstream responded OK, dispatching passthrough", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "status", resp.StatusCode, "content_type", fencedDebugText(resp.Header.Get("Content-Type"), logData))
 	// The dispatch reads the upstream body under the ATTEMPT's context, the same
 	// request the chat path hands dispatchNonStreaming. With the bare client
 	// request instead, a read this gateway's own per-attempt deadline ended

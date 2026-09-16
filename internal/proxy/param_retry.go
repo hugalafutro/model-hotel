@@ -183,6 +183,10 @@ func responsesRejectedParams(body []byte) map[string]bool {
 
 // mergeLearnedParams is the caching half of the param learner, shared by the
 // dialect-specific readers.
+// The names logged below are safe to store as they are: learnableRejections
+// and responsesRejectedParams only ever yield names from a fixed allowlist or
+// the top_[a-z] shape, and ParseProviderParamRename one fixed pair, so no
+// upstream text reaches this line.
 func (h *Handler) mergeLearnedParams(candidate modelCandidate, rejected map[string]bool, renames map[string]string) {
 	if rejected == nil && renames == nil {
 		return

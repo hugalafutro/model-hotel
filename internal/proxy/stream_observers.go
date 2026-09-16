@@ -1,7 +1,9 @@
 package proxy
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -227,7 +229,7 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 	if len(chunk.Choices) > 0 && chunk.Choices[0].NativeFinishReason != nil {
 		if *chunk.Choices[0].NativeFinishReason != st.lastNativeFinishReason {
 			st.lastNativeFinishReason = *chunk.Choices[0].NativeFinishReason
-			debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", st.lastNativeFinishReason, "model", logData.modelID, "provider", logData.providerName)
+			debuglog.Debug("proxy: native_finish_reason", "native_finish_reason", fencedDebugText(st.lastNativeFinishReason, logData), "model", logData.modelID, "provider", logData.providerName)
 		}
 	}
 	// P2-5: detect repeated identical content. Some models (notably xAI Grok
@@ -318,4 +320,17 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 		// re-count it.
 		st.errAccum = nil
 	}
+}
+
+// fencedDebugText is an upstream-controlled short value (a response header, a
+// native finish reason) as a Debug log line in the proxy scope may carry it:
+// bounded, sanitized and fenced against the request. The fence's first use
+// parses the request body, which the package reserves for failed attempts, so
+// on the success path the value is only built when the line would actually be
+// written: the handler takes Debug and the proxy scope is not filtered out.
+func fencedDebugText(text string, logData *requestLogData) string {
+	if !slog.Default().Enabled(context.Background(), slog.LevelDebug) || !debuglog.ScopeEnabled("proxy") {
+		return ""
+	}
+	return logData.fence().fenceUpstream(util.SanitizeLogBody(text, shortLogValueCap))
 }

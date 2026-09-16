@@ -157,7 +157,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// effective status and the breaker, failover and error paths below, all
 	// keyed on status codes, see the failure. The in-flight slot rides the body
 	// only from here, with the remapped status deciding the clean flag.
-	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
+	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp, logData.fence())
 	h.finishAttemptAdmission(st, candidate, resp)
 	logData.noteAttemptStatus(resp.StatusCode)
 
@@ -747,14 +747,14 @@ func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *request
 	}
 
 	// Log upstream response metadata for debugging. The three header values are
-	// the upstream's own text, so they are bounded and sanitized the way every
-	// other upstream-controlled value a log line carries is: a provider is free
-	// to answer with a megabyte of newlines in a header, and an app log the
-	// dashboard renders is not the place to find that out.
+	// the upstream's own text, so they are bounded, sanitized and fenced the way
+	// every other upstream-controlled value a log line carries is, and only
+	// when Debug is on: this is the success path of every request, and the
+	// fence's first use parses the request body.
 	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode,
-		"content_type", util.SanitizeLogBody(resp.Header.Get("Content-Type"), shortLogValueCap),
-		"x_request_id", util.SanitizeLogBody(resp.Header.Get("X-Request-Id"), shortLogValueCap),
-		"x_ratelimit_remaining", util.SanitizeLogBody(resp.Header.Get("X-RateLimit-Remaining"), shortLogValueCap),
+		"content_type", fencedDebugText(resp.Header.Get("Content-Type"), logData),
+		"x_request_id", fencedDebugText(resp.Header.Get("X-Request-Id"), logData),
+		"x_ratelimit_remaining", fencedDebugText(resp.Header.Get("X-RateLimit-Remaining"), logData),
 		"attempt", attempt+1)
 	return resp, true
 }

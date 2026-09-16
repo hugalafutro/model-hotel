@@ -345,7 +345,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 	// remapped status deciding the clean flag: losers are drained and closed
 	// by the orchestrator, the winner's stream closes at its end, and either
 	// settles it.
-	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
+	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp, st.logData.fence())
 	h.finishAttemptAdmission(st, candidate, resp)
 	res.status = resp.StatusCode
 

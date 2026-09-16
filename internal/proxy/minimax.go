@@ -78,7 +78,11 @@ func bodyMayCarryJSON(contentType string) bool {
 // as are genuine successes (base_resp.status_code == 0) and any body that fails
 // to parse — all with their bytes restored so downstream forwarding sees the
 // original response.
-func remapMiniMaxBusinessError(providerType, providerName string, resp *http.Response) *http.Response {
+// fence is the request's content fence, so a status message that quotes the
+// prompt back is withheld from the app log; a caller with no request body to
+// compare against (the discovery probe) passes nil and the message is stored
+// sanitized only.
+func remapMiniMaxBusinessError(providerType, providerName string, resp *http.Response, fence *contentFence) *http.Response {
 	// Any success status, not a bare 200: a business error hidden inside a 2xx
 	// envelope is exactly as invisible to the status-keyed paths downstream
 	// whichever 2xx carries it, and since those paths now serve and meter every
@@ -133,13 +137,15 @@ func remapMiniMaxBusinessError(providerType, providerName string, resp *http.Res
 		mapped = http.StatusBadGateway
 	}
 	// The status message is upstream text that can quote what the request sent,
-	// and Warn reaches the app log whether or not debug output is on, so it is
-	// bounded and sanitized like every other upstream body in this package.
+	// and Warn reaches the app log (ring buffer, app_logs table, OTLP export)
+	// whether or not debug output is on, so it is bounded, sanitized and fenced
+	// like every other upstream text this package stores: sanitize first, so
+	// the fence compares the text that would be written.
 	debuglog.Warn("proxy: minimax business error inside HTTP 200",
 		"provider", providerName,
 		"minimax_status", envelope.BaseResp.StatusCode,
 		"mapped_status", mapped,
-		"msg", util.SanitizeLogBody(envelope.BaseResp.StatusMsg, logBodyCap))
+		"msg", fence.fenceUpstream(util.SanitizeLogBody(envelope.BaseResp.StatusMsg, logBodyCap)))
 	resp.StatusCode = mapped
 	resp.Status = http.StatusText(mapped)
 	return resp

@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"encoding/json"
+	"log/slog"
 	"strings"
 	"testing"
 )
@@ -254,5 +255,26 @@ func TestObserveDataChunk_EmptyReasoningMarkersDeliverNothing(t *testing.T) {
 	st.observeDataChunk(parseStreamChunk(t, `{"choices":[{"delta":{"role":"assistant","content":"","reasoning":"","reasoning_details":[],"function_call":{},"audio":null}}]}`), false, 1, &requestLogData{})
 	if st.deliveredBytes != 0 || streamDeliveredOutput(st) {
 		t.Fatalf("deliveredBytes=%d delivered=%v, want 0/false", st.deliveredBytes, streamDeliveredOutput(st))
+	}
+}
+
+// The native_finish_reason debug value is upstream text: fenced against the
+// request when Debug is on, so a provider that echoes the prompt into it does
+// not land the prompt in the app log.
+func TestObserveDataChunk_NativeFinishReasonIsFenced(t *testing.T) {
+	captured := captureLogsAt(t, slog.LevelDebug)
+	st := &streamState{}
+	ld := &requestLogData{modelID: "m", providerName: "p", content: newContentFence(chatBody(canary))}
+	chunk, err := json.Marshal(map[string]any{"choices": []any{map[string]any{"native_finish_reason": "stopped on: " + canary}}})
+	if err != nil {
+		t.Fatalf("marshal chunk: %v", err)
+	}
+	st.observeDataChunk(parseStreamChunk(t, string(chunk)), false, 1, ld)
+	got := captured("proxy: native_finish_reason")
+	if len(got) != 1 {
+		t.Fatalf("expected one debug line, got %d", len(got))
+	}
+	if strings.Contains(got[0], canary) || !strings.Contains(got[0], contentWithheld) {
+		t.Errorf("the prompt reached the log or was not withheld: %s", got[0])
 	}
 }
