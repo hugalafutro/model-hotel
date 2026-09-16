@@ -575,6 +575,10 @@ func TestConfigSyncApplyStampsFleetMarker(t *testing.T) {
 			Providers: []ExportProvider{
 				{Name: "p1", BaseURL: "https://p1.example", Enabled: true, AutodiscoveryEnabled: true},
 			},
+			// Present and empty: the primary runs on defaults, so the member's
+			// syncable override is reconciled away. An absent map is refused by
+			// the settings wipe rail instead.
+			Settings: map[string]string{},
 		},
 	}
 	if _, err := h.apply(ctx, env, nil); err != nil {

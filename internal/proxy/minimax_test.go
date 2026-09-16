@@ -53,7 +53,7 @@ func minimaxTestResp(status int, contentType, body string) (*http.Response, *rea
 func TestRemapMiniMaxBusinessError_NonMiniMaxUntouched(t *testing.T) {
 	resp, rr := minimaxTestResp(http.StatusOK, "application/json",
 		`{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`)
-	out := remapMiniMaxBusinessError("openai", "some-provider", resp)
+	out := remapMiniMaxBusinessError("openai", "some-provider", resp, nil)
 	if out != resp {
 		t.Fatalf("expected same response pointer returned")
 	}
@@ -70,7 +70,7 @@ func TestRemapMiniMaxBusinessError_NonMiniMaxUntouched(t *testing.T) {
 func TestRemapMiniMaxBusinessError_StreamingUntouched(t *testing.T) {
 	resp, rr := minimaxTestResp(http.StatusOK, "text/event-stream",
 		`data: {"choices":[{"delta":{"content":"hi"}}]}`)
-	out := remapMiniMaxBusinessError("minimax", "mm", resp)
+	out := remapMiniMaxBusinessError("minimax", "mm", resp, nil)
 	if out.StatusCode != http.StatusOK {
 		t.Errorf("status = %d, want 200 (SSE untouched)", out.StatusCode)
 	}
@@ -85,7 +85,7 @@ func TestRemapMiniMaxBusinessError_StreamingUntouched(t *testing.T) {
 func TestRemapMiniMaxBusinessError_InsufficientBalanceTo429(t *testing.T) {
 	resp, _ := minimaxTestResp(http.StatusOK, "application/json",
 		`{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`)
-	out := remapMiniMaxBusinessError("minimax", "mm", resp)
+	out := remapMiniMaxBusinessError("minimax", "mm", resp, nil)
 	if out.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want 429", out.StatusCode)
 	}
@@ -103,13 +103,13 @@ func TestRemapMiniMaxBusinessError_InsufficientBalanceTo429(t *testing.T) {
 func TestRemapMiniMaxBusinessError_AuthAndUnmapped(t *testing.T) {
 	authResp, _ := minimaxTestResp(http.StatusOK, "application/json",
 		`{"base_resp":{"status_code":1004,"status_msg":"invalid api key"}}`)
-	if got := remapMiniMaxBusinessError("minimax", "mm", authResp).StatusCode; got != http.StatusUnauthorized {
+	if got := remapMiniMaxBusinessError("minimax", "mm", authResp, nil).StatusCode; got != http.StatusUnauthorized {
 		t.Errorf("1004 -> %d, want 401", got)
 	}
 
 	unmappedResp, _ := minimaxTestResp(http.StatusOK, "application/json",
 		`{"base_resp":{"status_code":1013,"status_msg":"internal error"}}`)
-	if got := remapMiniMaxBusinessError("minimax", "mm", unmappedResp).StatusCode; got != http.StatusBadGateway {
+	if got := remapMiniMaxBusinessError("minimax", "mm", unmappedResp, nil).StatusCode; got != http.StatusBadGateway {
 		t.Errorf("1013 -> %d, want 502", got)
 	}
 }
@@ -119,7 +119,7 @@ func TestRemapMiniMaxBusinessError_AuthAndUnmapped(t *testing.T) {
 func TestRemapMiniMaxBusinessError_SuccessPassthrough(t *testing.T) {
 	payload := `{"id":"x","choices":[{"message":{"content":"ok"}}],"base_resp":{"status_code":0,"status_msg":""}}`
 	resp, _ := minimaxTestResp(http.StatusOK, "application/json", payload)
-	out := remapMiniMaxBusinessError("minimax", "mm", resp)
+	out := remapMiniMaxBusinessError("minimax", "mm", resp, nil)
 	if out.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (success)", out.StatusCode)
 	}
@@ -135,7 +135,7 @@ func TestRemapMiniMaxBusinessError_SuccessPassthrough(t *testing.T) {
 // 6. An unparseable body leaves the status at 200 and restores the bytes.
 func TestRemapMiniMaxBusinessError_InvalidJSONPassthrough(t *testing.T) {
 	resp, _ := minimaxTestResp(http.StatusOK, "application/json", `not json`)
-	out := remapMiniMaxBusinessError("minimax", "mm", resp)
+	out := remapMiniMaxBusinessError("minimax", "mm", resp, nil)
 	if out.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (invalid JSON)", out.StatusCode)
 	}
@@ -159,7 +159,7 @@ func TestRemapMiniMaxBusinessError_BinaryUntouched(t *testing.T) {
 	for _, contentType := range []string{"audio/mpeg", "image/png", "video/mp4", "application/octet-stream", "AUDIO/MPEG"} {
 		resp, rr := minimaxTestResp(http.StatusOK, contentType,
 			`{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`)
-		out := remapMiniMaxBusinessError("minimax", "mm", resp)
+		out := remapMiniMaxBusinessError("minimax", "mm", resp, nil)
 		if out.StatusCode != http.StatusOK {
 			t.Errorf("content type %q: status = %d, want 200 (untouched)", contentType, out.StatusCode)
 		}
@@ -180,7 +180,7 @@ func TestRemapMiniMaxBusinessError_UnlabelledEnvelopeStillRemapped(t *testing.T)
 	for _, contentType := range []string{"", "text/plain", "application/json; charset=utf-8"} {
 		resp, _ := minimaxTestResp(http.StatusOK, contentType,
 			`{"base_resp":{"status_code":1008,"status_msg":"insufficient balance"}}`)
-		if got := remapMiniMaxBusinessError("minimax", "mm", resp).StatusCode; got != http.StatusTooManyRequests {
+		if got := remapMiniMaxBusinessError("minimax", "mm", resp, nil).StatusCode; got != http.StatusTooManyRequests {
 			t.Errorf("content type %q: status = %d, want 429", contentType, got)
 		}
 	}
@@ -196,7 +196,7 @@ func TestRemapMiniMaxBusinessError_UnlabelledEnvelopeStillRemapped(t *testing.T)
 func TestRemapMiniMaxBusinessError_OversizedJSONStreamsThrough(t *testing.T) {
 	payload := `{"data":[{"b64_json":"` + strings.Repeat("A", 2*miniMaxEnvelopeCap) + `"}]}`
 	resp, _ := minimaxTestResp(http.StatusOK, "application/json", payload)
-	out := remapMiniMaxBusinessError("minimax", "mm", resp)
+	out := remapMiniMaxBusinessError("minimax", "mm", resp, nil)
 	if out.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", out.StatusCode)
 	}
@@ -243,7 +243,7 @@ func TestRemapMiniMaxBusinessError_MidBodyFailureSurfaces(t *testing.T) {
 		Body:       &failAfterReader{head: strings.NewReader(`{"data":[`), err: wantErr},
 	}
 
-	out := remapMiniMaxBusinessError("minimax", "mm", resp)
+	out := remapMiniMaxBusinessError("minimax", "mm", resp, nil)
 	if _, err := io.ReadAll(out.Body); !errors.Is(err, wantErr) {
 		t.Fatalf("downstream read error = %v, want %v: a truncated body must not read as a complete one", err, wantErr)
 	}
@@ -422,7 +422,7 @@ func TestRemapMiniMaxBusinessError_BoundsTheStatusMessage(t *testing.T) {
 	resp, _ := minimaxTestResp(http.StatusOK, "application/json", string(envelope))
 	captured := captureLogsAt(t, slog.LevelWarn)
 
-	if got := remapMiniMaxBusinessError("minimax", "mm", resp).StatusCode; got != http.StatusTooManyRequests {
+	if got := remapMiniMaxBusinessError("minimax", "mm", resp, nil).StatusCode; got != http.StatusTooManyRequests {
 		t.Fatalf("status = %d, want 429", got)
 	}
 
@@ -458,5 +458,46 @@ func TestBodyMayCarryJSON(t *testing.T) {
 		if got := bodyMayCarryJSON(ct); got != want {
 			t.Errorf("bodyMayCarryJSON(%q) = %v, want %v", ct, got, want)
 		}
+	}
+}
+
+// The status message is fenced against the request: a refusal that quotes the
+// prompt back is withheld from the app log, a refusal that does not is kept
+// verbatim, and the mapped status is the same either way.
+func TestRemapMiniMaxBusinessError_FencesAnEchoedPrompt(t *testing.T) {
+	fence := newContentFence(chatBody(canary))
+	for _, tc := range []struct {
+		name, msg string
+		withheld  bool
+	}{
+		{"echo", "invalid params: messages[0].content = " + canary, true},
+		{"no echo", "insufficient balance for this plan", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			envelope, err := json.Marshal(map[string]any{
+				"base_resp": map[string]any{"status_code": 1008, "status_msg": tc.msg},
+			})
+			if err != nil {
+				t.Fatalf("marshal envelope: %v", err)
+			}
+			resp, _ := minimaxTestResp(http.StatusOK, "application/json", string(envelope))
+			captured := captureLogsAt(t, slog.LevelWarn)
+			if got := remapMiniMaxBusinessError("minimax", "mm", resp, fence).StatusCode; got != http.StatusTooManyRequests {
+				t.Fatalf("status = %d, want 429", got)
+			}
+			got := captured("proxy: minimax business error inside HTTP 200")
+			if len(got) != 1 {
+				t.Fatalf("expected one warning line, got %d", len(got))
+			}
+			if strings.Contains(got[0], canary) {
+				t.Errorf("the prompt reached the log: %s", got[0])
+			}
+			if strings.Contains(got[0], contentWithheld) != tc.withheld {
+				t.Errorf("withheld marker present = %v, want %v: %s", !tc.withheld, tc.withheld, got[0])
+			}
+			if !tc.withheld && !strings.Contains(got[0], tc.msg) {
+				t.Errorf("a non-echoing refusal must be logged verbatim: %s", got[0])
+			}
+		})
 	}
 }

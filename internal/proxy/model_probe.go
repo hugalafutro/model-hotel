@@ -365,7 +365,7 @@ func (h *Handler) probeModel(ctx context.Context, candidate modelCandidate, endp
 
 	// MiniMax reports refusals inside a 200 envelope, so the status has to be
 	// normalised before it is judged, exactly as attemptCandidate does.
-	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp)
+	resp = remapMiniMaxBusinessError(providerType, candidate.provider.Name, resp, nil)
 
 	// Any 2xx is an answer, so the model is plainly still served. Reading a 201
 	// as a probe failure would let a relay that answers 201 push a live model

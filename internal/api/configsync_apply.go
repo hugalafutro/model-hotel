@@ -119,6 +119,9 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if err != nil {
 		return applyOutcome{}, err
 	}
+	if err := h.guardAgainstSettingsWipe(ctx, tx, env.Config.Settings); err != nil {
+		return applyOutcome{}, err
+	}
 
 	if err := upsertProviders(ctx, tx, env.Config.Providers, h.validateProviderURL); err != nil {
 		return applyOutcome{}, err
@@ -259,7 +262,7 @@ const reconcileLockTimeout = "5s"
 // The waits are bounded by the lock_timeout apply sets before its first lock,
 // not here: a caller that takes this outside apply must set it first.
 func lockReconciledTables(ctx context.Context, tx pgx.Tx) error {
-	for _, table := range []string{"providers", "virtual_keys", "users"} {
+	for _, table := range []string{"providers", "virtual_keys", "users", "settings"} {
 		if _, err := tx.Exec(ctx, `LOCK TABLE `+table+` IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 			return err
 		}
@@ -620,6 +623,26 @@ func (h *ConfigSyncHandler) postImportRefresh(ctx context.Context, env ConfigEnv
 
 	failover.InvalidateFailoverCache()
 	return out
+}
+
+// guardAgainstSettingsWipe is the settings half of the wipe rails, on the same
+// nil-versus-empty contract as the virtual-key rail: an absent settings map on
+// a member that holds syncable settings is refused, an explicit empty map is
+// the primary running on defaults and reconciles the member down to them. The
+// exporter always writes the map (exportSettings answers an empty one, never
+// nil), so nil on the wire is an old or truncated envelope, not an intent.
+func (h *ConfigSyncHandler) guardAgainstSettingsWipe(ctx context.Context, tx pgx.Tx, want map[string]string) error {
+	if want != nil {
+		return nil
+	}
+	held, err := h.syncableSettingsToDelete(ctx, tx, nil)
+	if err != nil {
+		return err
+	}
+	if len(held) > 0 {
+		return errWouldWipeSettings
+	}
+	return nil
 }
 
 // syncableSettingsToDelete returns the syncable settings keys present on this

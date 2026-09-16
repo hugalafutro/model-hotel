@@ -111,6 +111,14 @@ var errWouldWipeProviders = errors.New("configsync: refusing to wipe every provi
 // reaches the declarative delete and takes every credential off the member.
 var errWouldWipeVirtualKeys = errors.New("configsync: refusing to wipe every virtual key off a populated member")
 
+// errWouldWipeSettings is the same rail for syncable settings. An envelope
+// with no settings map at all (a primary too old to send it, or one that lost
+// it in transit) would otherwise delete every operator setting the member
+// holds: alerting off, log retention off, the IP rate-limit budget back to the
+// compiled default, fleet-wide and silently. A present but empty map is the
+// primary stating it runs on defaults, which reconciles as before.
+var errWouldWipeSettings = errors.New("configsync: refusing to wipe every syncable setting off a populated member")
+
 // errInvalidSyncedURL is returned by apply when a syncable url-typed setting in
 // the envelope fails the same netguard validation the interactive PUT
 // /api/settings handler enforces. Import maps it to a 400 refusal. A standing
@@ -187,7 +195,8 @@ var errUnresolvableUserProviders = errors.New("configsync: refusing to apply a u
 
 // importRejections are the envelope-content refusals the import answers with a
 // 400 naming the sentinel's own message, as opposed to errStaleSourceGen and
-// errWouldWipeProviders, which carry their own responses.
+// the three wipe rails (errWouldWipeProviders, errWouldWipeVirtualKeys,
+// errWouldWipeSettings), which carry their own responses.
 var importRejections = []error{
 	errInvalidSyncedURL,
 	errInvalidSyncedSettingBound,

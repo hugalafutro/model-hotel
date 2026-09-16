@@ -108,6 +108,13 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 		debuglog.Warn("configsync: refused key-wiping import")
 		http.Error(w, "refusing to import a config that would delete every virtual key on this member", http.StatusBadRequest)
 		return
+	case errors.Is(err, errWouldWipeSettings):
+		// The envelope carries no settings map but this member holds syncable
+		// settings: applying it would reset every one of them. Same 400 as the
+		// other two rails.
+		debuglog.Warn("configsync: refused settings-wiping import")
+		http.Error(w, "refusing to import a config that would delete every syncable setting on this member", http.StatusBadRequest)
+		return
 	case errors.Is(err, errWouldWipeProviders):
 		// The envelope carries no providers but this member has some: applying it
 		// would delete every provider. A 400 so the caller sees a deliberate
