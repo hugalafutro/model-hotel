@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // TestRunMigration_Checksum covers the ledger's checksum: applying a migration
@@ -54,7 +55,7 @@ func TestRunMigration_Checksum(t *testing.T) {
 	}
 
 	run("SELECT 1", true)
-	if got := stored(); got == nil || *got != migrationChecksum("SELECT 1") {
+	if got := stored(); got == nil || *got != util.SHA256Hex("SELECT 1") {
 		t.Fatalf("checksum after apply = %v, want the hash of the applied text", got)
 	}
 	if warned() {
@@ -73,7 +74,7 @@ func TestRunMigration_Checksum(t *testing.T) {
 	if !warned() {
 		t.Fatal("a re-run with changed text must warn")
 	}
-	if got := stored(); got == nil || *got != migrationChecksum("SELECT 1") {
+	if got := stored(); got == nil || *got != util.SHA256Hex("SELECT 1") {
 		t.Fatalf("checksum after drift = %v, want the hash of the applied text, untouched", got)
 	}
 	run(edited, false)
@@ -92,7 +93,7 @@ func TestRunMigration_Checksum(t *testing.T) {
 	if warned() {
 		t.Fatal("a row recorded before checksums existed must adopt the file silently")
 	}
-	if got := stored(); got == nil || *got != migrationChecksum("SELECT 1") {
+	if got := stored(); got == nil || *got != util.SHA256Hex("SELECT 1") {
 		t.Fatalf("checksum after adoption = %v, want the hash of the current text", got)
 	}
 }

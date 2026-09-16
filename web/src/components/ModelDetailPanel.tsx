@@ -6,7 +6,6 @@ import {
 	formatPrice,
 	nonTextOutputs,
 	parseCapabilities,
-	priceSourceKey,
 	proxyModelID,
 } from "../utils/model";
 import { hasAnyParam } from "../utils/params";
@@ -16,8 +15,32 @@ import { CopyablePill } from "./CopyablePill";
 import { CAP_META } from "./capMeta";
 import { CARD_TINT_CLASS, type CardTint } from "./cardTint";
 import { GenerationParamSliders } from "./GenerationParamSliders";
-import { InfoHint } from "./InfoHint";
+import { PriceSourceHint } from "./InfoHint";
 import { OutputBadges } from "./OutputBadges";
+
+/** One price in the facts grid: the price, and the hint naming its source. */
+function PriceCell({
+	labelKey,
+	price,
+	source,
+}: {
+	labelKey: "inputPricePerMillion" | "outputPricePerMillion";
+	price: number | null | undefined;
+	source: string | undefined;
+}) {
+	const { t } = useTranslation();
+	return (
+		<div>
+			<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
+				{t(`components.modelDetailPanel.${labelKey}`)}
+			</span>
+			<div className="text-(--text-primary) font-medium flex items-center gap-1">
+				${formatPrice(price)}
+				{price != null && <PriceSourceHint source={source} />}
+			</div>
+		</div>
+	);
+}
 
 interface ModelDetailPanelProps {
 	model: Model;
@@ -192,36 +215,16 @@ export function ModelDetailPanel({
 							</div>
 						</div>
 						<div className="grid grid-cols-2 gap-2">
-							<div>
-								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-									{t("components.modelDetailPanel.inputPricePerMillion")}
-								</span>
-								<div className="text-(--text-primary) font-medium flex items-center gap-1">
-									${formatPrice(model.input_price_per_million)}
-									{model.input_price_per_million != null && (
-										<InfoHint
-											tooltip={t(
-												`models.priceSource.${priceSourceKey(model.price_sources?.input)}`,
-											)}
-										/>
-									)}
-								</div>
-							</div>
-							<div>
-								<span className="text-[10px] text-(--text-tertiary) uppercase tracking-wider">
-									{t("components.modelDetailPanel.outputPricePerMillion")}
-								</span>
-								<div className="text-(--text-primary) font-medium flex items-center gap-1">
-									${formatPrice(model.output_price_per_million)}
-									{model.output_price_per_million != null && (
-										<InfoHint
-											tooltip={t(
-												`models.priceSource.${priceSourceKey(model.price_sources?.output)}`,
-											)}
-										/>
-									)}
-								</div>
-							</div>
+							<PriceCell
+								labelKey="inputPricePerMillion"
+								price={model.input_price_per_million}
+								source={model.price_sources?.input}
+							/>
+							<PriceCell
+								labelKey="outputPricePerMillion"
+								price={model.output_price_per_million}
+								source={model.price_sources?.output}
+							/>
 						</div>
 					</div>
 

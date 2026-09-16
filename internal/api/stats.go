@@ -169,15 +169,23 @@ func ownerFilterFragment(ownerID string, argIdx int) (string, []any) {
 		" OR (rl.virtual_key_id IS NULL AND rl.owner_user_id = " + ph + "))", []any{u}
 }
 
+// The two aggregate expressions every stats query sums over, in one place so a
+// column added to either (reasoning tokens, a second cost column) reaches the
+// breakdowns, the totals and the time series together.
+const (
+	tokenSumSQL = "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0))"
+	costSumSQL  = "COALESCE(SUM(rl.cost_usd), 0)"
+)
+
 // metricValueSelect returns the aggregate column expression (aliased "val") for
 // the requested metric: summed tokens vs request count. Single source of truth
 // for the SELECT used by the by-model/provider/virtual-key breakdowns.
 func metricValueSelect(metric string) string {
 	switch metric {
 	case "tokens":
-		return "SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as val"
+		return tokenSumSQL + " as val"
 	case "cost":
-		return "COALESCE(SUM(rl.cost_usd), 0) as val"
+		return costSumSQL + " as val"
 	}
 	return "COUNT(*) as val"
 }
@@ -188,9 +196,9 @@ func metricValueSelect(metric string) string {
 func metricValueHaving(metric string) string {
 	switch metric {
 	case "tokens":
-		return " HAVING SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) > 0"
+		return " HAVING " + tokenSumSQL + " > 0"
 	case "cost":
-		return " HAVING COALESCE(SUM(rl.cost_usd), 0) > 0"
+		return " HAVING " + costSumSQL + " > 0"
 	}
 	return ""
 }

@@ -12,10 +12,10 @@ import {
 } from "@/lib/icons";
 import type { Model } from "../../api/types";
 import { CopyButton } from "../../components/CopyButton";
-import { InfoHint } from "../../components/InfoHint";
+import { PriceSourceHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
-import { formatPrice, priceSourceKey } from "../../utils/model";
+import { formatPrice } from "../../utils/model";
 import type { useModelEditor } from "./useModelEditor";
 
 type Editor = ReturnType<typeof useModelEditor>;
@@ -67,14 +67,6 @@ export function ModelStatsGrid({
 	revertField: Editor["revertField"];
 }) {
 	const { t } = useTranslation();
-	// Every shown price says where it came from: the hint carries the source
-	// the backend recorded when it wrote the price.
-	const priceSourceHint = (source: string | undefined) => (
-		<InfoHint
-			tooltip={t(`models.priceSource.${priceSourceKey(source)}`)}
-			className="shrink-0"
-		/>
-	);
 	const priceEditor = (
 		field: "input_price_per_million" | "output_price_per_million",
 	) => (
@@ -208,9 +200,12 @@ export function ModelStatsGrid({
 				}
 				mono
 				labelExtra={
-					model.input_price_per_million != null
-						? priceSourceHint(model.price_sources?.input)
-						: undefined
+					model.input_price_per_million != null ? (
+						<PriceSourceHint
+							source={model.price_sources?.input}
+							className="shrink-0"
+						/>
+					) : undefined
 				}
 			>
 				{editing ? priceEditor("input_price_per_million") : undefined}
@@ -226,9 +221,12 @@ export function ModelStatsGrid({
 				}
 				mono
 				labelExtra={
-					model.output_price_per_million != null
-						? priceSourceHint(model.price_sources?.output)
-						: undefined
+					model.output_price_per_million != null ? (
+						<PriceSourceHint
+							source={model.price_sources?.output}
+							className="shrink-0"
+						/>
+					) : undefined
 				}
 			>
 				{editing ? priceEditor("output_price_per_million") : undefined}

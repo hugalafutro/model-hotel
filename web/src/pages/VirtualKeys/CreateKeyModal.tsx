@@ -4,11 +4,13 @@ import { useTranslation } from "react-i18next";
 import { BrainSlashIcon, ChevronRight } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { BudgetPeriod, VirtualKey } from "../../api/types";
+import { BudgetField } from "../../components/BudgetField";
+import { budgetPayload } from "../../components/budget";
 import { CopyablePill } from "../../components/CopyablePill";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { useIdentity } from "../../context/IdentityContext";
-import { BudgetField } from "./BudgetField";
+import { intOrNull, numOrNull } from "../../utils/format";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
 import { RateLimitField } from "./RateLimitField";
 import { SectionHeader } from "./SectionHeader";
@@ -72,12 +74,10 @@ export function CreateKeyModal({
 		}
 		createMutation.mutate({
 			name: name.trim(),
-			rate_limit_rps: rateLimitRps !== "" ? parseFloat(rateLimitRps) : null,
-			rate_limit_burst:
-				rateLimitBurst !== "" ? parseInt(rateLimitBurst, 10) : null,
-			rate_limit_tpm: rateLimitTpm !== "" ? parseInt(rateLimitTpm, 10) : null,
-			budget_usd: budgetUsd !== "" ? parseFloat(budgetUsd) : null,
-			budget_period: budgetUsd !== "" ? budgetPeriod : null,
+			rate_limit_rps: numOrNull(rateLimitRps),
+			rate_limit_burst: intOrNull(rateLimitBurst),
+			rate_limit_tpm: intOrNull(rateLimitTpm),
+			...budgetPayload(budgetUsd, budgetPeriod),
 			allowed_providers: allowedProviders,
 			strip_reasoning: stripReasoning,
 			owner_user_id: isAdmin && ownerId !== "" ? ownerId : null,

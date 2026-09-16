@@ -144,10 +144,7 @@ func parseOpenRouterPrice(s string) *float64 {
 	}
 	perMil := v * 1_000_000
 	// "NaN", "Inf" and negatives parse without error and are not prices.
-	if !model.Priceable(&perMil) {
-		return nil
-	}
-	return &perMil
+	return model.PriceOrNil(&perMil)
 }
 
 // GetOpenRouterBalance retrieves credits and usage info from OpenRouter.

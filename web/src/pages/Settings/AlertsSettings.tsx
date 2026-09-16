@@ -22,7 +22,7 @@ import { DestinationList } from "./alerts/DestinationList";
 import { DEFAULT_APPRISE_URL } from "./alerts/wizardState";
 import { SETTING_DEFAULTS } from "./defaults";
 import {
-	invalidateAlertReads,
+	invalidateSettings,
 	useSettingsMutations,
 } from "./useSettingsMutations";
 
@@ -567,8 +567,7 @@ export function AlertsSettings({
 							setWizardStart(null);
 							// The run wrote settings behind this card's back, so both its
 							// own copy and the reads derived from it are stale.
-							queryClient.invalidateQueries({ queryKey: ["settings"] });
-							invalidateAlertReads(queryClient);
+							invalidateSettings(queryClient);
 							toast(t("settings.common.settingsSaved"), "success");
 						}}
 					/>

@@ -69,6 +69,15 @@ export function getCachedData<T>(key: string): T | undefined {
 	return undefined;
 }
 
+/** Whether a payload is cached under the key, without parsing it. */
+export function hasCachedData(key: string): boolean {
+	try {
+		return localStorage.getItem(`${CACHE_PREFIX}:${key}`) !== null;
+	} catch {
+		return false;
+	}
+}
+
 export function setCachedData<T>(key: string, data: T) {
 	try {
 		localStorage.setItem(`${CACHE_PREFIX}:${key}`, JSON.stringify(data));

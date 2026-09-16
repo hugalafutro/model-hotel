@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -100,19 +101,16 @@ type capMemo struct {
 	expiresAt time.Time
 }
 
-// settingsKeyRequestTimeout is the per-attempt upstream timeout the proxy reads
-// for every request, through the same GetDuration and the same one minute
-// default repeated below. The limiter reads it only to size the cap-memo horizon
-// against the longest request the gateway can hold open, and follows the proxy's
-// reading of it rather than setting one of its own. The two are held in lockstep
-// by hand: moving the proxy's key or default means moving these with it, or the
-// horizon is sized against a timeout the gateway no longer uses.
-const settingsKeyRequestTimeout = "request_timeout"
-
-// defaultRequestTimeout mirrors the proxy's fallback for an unset
-// request_timeout, so an unconfigured gateway derives the same horizon the
-// proxy's own default implies.
-const defaultRequestTimeout = time.Minute
+// settingsKeyRequestTimeout and defaultRequestTimeout are the per-attempt
+// upstream timeout the proxy applies to every request. The limiter reads the
+// setting only to size the cap-memo horizon against the longest request the
+// gateway can hold open, and follows the proxy's reading of it rather than
+// setting one of its own, so both take the key and the fallback from the
+// settings package instead of restating them.
+const (
+	settingsKeyRequestTimeout = settings.KeyRequestTimeout
+	defaultRequestTimeout     = settings.DefaultRequestTimeout
+)
 
 // settingsReadTimeout bounds the horizon lookup on the admission path. The value
 // only sizes a retention window measured in days, so it is not worth waiting on:
@@ -183,13 +181,25 @@ type tpmEntry struct {
 	lastUsed time.Time
 }
 
+// tpmRate is the per-second refill a tokens-per-minute budget implies.
+func tpmRate(tpm int) rate.Limit { return rate.Limit(float64(tpm) / 60.0) }
+
+// newTPMEntry builds a bucket holding one minute of tpm tokens.
+func newTPMEntry(tpm int) *tpmEntry {
+	return &tpmEntry{
+		limiter:  rate.NewLimiter(tpmRate(tpm), tpm),
+		tpm:      tpm,
+		lastUsed: time.Now(),
+	}
+}
+
 // NewTPMLimiter creates a TPMLimiter reading configuration from the provided
 // SettingsReader. A background goroutine evicts buckets idle for >10 minutes.
-func NewTPMLimiter(settings SettingsReader) *TPMLimiter {
+func NewTPMLimiter(s SettingsReader) *TPMLimiter {
 	l := &TPMLimiter{
 		buckets:  make(map[string]*tpmEntry),
 		caps:     make(map[string]*capMemo),
-		settings: settings,
+		settings: s,
 		stopCh:   make(chan struct{}),
 	}
 	go runCleanup(l.stopCh, l.sweep)
@@ -413,11 +423,7 @@ func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 			// The memo's own deadline is left alone: it was claimed by the
 			// request this debit is closing, and the next admission on this key
 			// claims its own.
-			entry = &tpmEntry{
-				limiter:  rate.NewLimiter(rate.Limit(float64(memo.tpm)/60.0), memo.tpm),
-				tpm:      memo.tpm,
-				lastUsed: time.Now(),
-			}
+			entry = newTPMEntry(memo.tpm)
 			l.buckets[bucketKey] = entry
 			ok = true
 		}
@@ -516,18 +522,14 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 	entry, ok := l.buckets[keyHash]
 	switch {
 	case !ok:
-		entry = &tpmEntry{
-			limiter:  rate.NewLimiter(rate.Limit(float64(tpm)/60.0), tpm),
-			tpm:      tpm,
-			lastUsed: time.Now(),
-		}
+		entry = newTPMEntry(tpm)
 		l.buckets[keyHash] = entry
 	case entry.tpm != tpm:
 		// Adjusted in place, not replaced: a fresh limiter starts with a full
 		// minute's budget, so a key owner alternating their own cap between two
 		// values would refill a spent budget on every edit. The debt the bucket
 		// carries survives the change; only the refill rate and ceiling move.
-		entry.limiter.SetLimit(rate.Limit(float64(tpm) / 60.0))
+		entry.limiter.SetLimit(tpmRate(tpm))
 		entry.limiter.SetBurst(tpm)
 		entry.tpm = tpm
 		entry.lastUsed = time.Now()
@@ -665,18 +667,11 @@ func (l *TPMLimiter) warnedSlowRead() bool {
 }
 
 // tpmRetryAfter estimates seconds until at least one token is available again,
-// for the Retry-After header. Always >= 1.
+// for the Retry-After header. Always >= 1, so a client that honours it always
+// backs off: peekWait answers zero both for a budget that can already serve and
+// for one that never can, and neither is a reason to retry instantly.
 func tpmRetryAfter(lim *rate.Limiter) int {
-	avail := lim.Tokens()
-	if avail >= 1 {
-		return 1
-	}
-	perSec := float64(lim.Limit())
-	if perSec <= 0 {
-		return 1
-	}
-	secs := max(int(math.Ceil((1-avail)/perSec)), 1)
-	return secs
+	return max(int(math.Ceil(peekWait(lim, time.Now()).Seconds())), 1)
 }
 
 // sweep is what the background loop runs: it refreshes the horizon the admission

@@ -1,11 +1,11 @@
 import { useTranslation } from "react-i18next";
 import type { DashboardUser, UserRole } from "../../api/types";
+import { BudgetField } from "../../components/BudgetField";
+import { budgetText } from "../../components/budget";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { ErrorCallout } from "../../components/ErrorCallout";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
-import { BudgetField } from "../VirtualKeys/BudgetField";
-import { budgetText } from "../VirtualKeys/budget";
 import { useUserForm } from "./useUserForm";
 
 export function UserModal({

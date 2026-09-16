@@ -252,6 +252,6 @@ func (h *Handler) ingestMultipartRequest(w http.ResponseWriter, r *http.Request,
 		vkHash:          vkHash,
 		parseMs:         parseMs,
 		logData:         logData,
-		opencodeSession: util.OpenCodeGoSession(r.Header.Get(util.OpenCodeGoSessionHeader), vkHash),
+		opencodeSession: util.OpenCodeGoSessionFor(r, vkHash),
 	}, parts, true
 }

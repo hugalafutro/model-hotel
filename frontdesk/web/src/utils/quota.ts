@@ -9,8 +9,8 @@ import type { QuotaProviderType, QuotaSnapshot } from "../api/types";
 // equivalent of detectQuotaProviderType: the member export stamps `type` on
 // every snapshot, so Front Desk never sniffs a base URL.
 
-// The parsing helpers are re-exported because Front Desk components have always
-// reached them through this module.
+// The parsing helpers and the shared pill prefixes are re-exported because Front
+// Desk components have always reached them through this module.
 export {
 	getKimiCodeFiveHourLimit,
 	getKimiCodeWeeklyLimit,
@@ -21,6 +21,7 @@ export {
 	getZaiCodingFiveHourLimit,
 	getZaiCodingMcpLimit,
 	getZaiCodingWeeklyLimit,
+	QUOTA_PREFIXES,
 } from "@web-shared/quota";
 
 // ── Provider type ────────────────────────────────────────────────────────
@@ -43,19 +44,6 @@ const KNOWN_TYPES = new Set<string>(QUOTA_PROVIDER_TYPES);
 export function isQuotaProviderType(v: string): v is QuotaProviderType {
 	return KNOWN_TYPES.has(v);
 }
-
-/** Short pill prefixes, matching the Model Hotel sidebar. */
-export const QUOTA_PREFIXES: Record<QuotaProviderType, string> = {
-	nanogpt: "NG",
-	"zai-coding": "ZAI",
-	"kimi-code": "KIMI",
-	minimax: "MMX",
-	deepseek: "DS",
-	openrouter: "OR",
-	"ollama-cloud": "OLC",
-	neuralwatt: "NW",
-	"opencode-go": "OCG",
-};
 
 /**
  * Pill accent colour per provider, consumed as the `--quota-brand` custom

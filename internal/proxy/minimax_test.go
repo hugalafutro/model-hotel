@@ -437,3 +437,26 @@ func TestRemapMiniMaxBusinessError_BoundsTheStatusMessage(t *testing.T) {
 		t.Errorf("warning line is %d bytes, want the message bounded at %d", len(got[0]), logBodyCap)
 	}
 }
+
+// bodyMayCarryJSON is the one spelling of "nothing JSON is expected inside a
+// body declared like this", read case-insensitively; a missing header is not
+// a declaration.
+func TestBodyMayCarryJSON(t *testing.T) {
+	t.Parallel()
+	for ct, want := range map[string]bool{
+		"":                          true,
+		"application/json":          true,
+		"APPLICATION/JSON; charset": true,
+		"text/plain":                true,
+		"image/png":                 false,
+		"Image/PNG":                 false,
+		"video/mp4":                 false,
+		"audio/mpeg":                false,
+		" Application/Octet-Stream": false,
+		"text/event-stream":         false,
+	} {
+		if got := bodyMayCarryJSON(ct); got != want {
+			t.Errorf("bodyMayCarryJSON(%q) = %v, want %v", ct, got, want)
+		}
+	}
+}

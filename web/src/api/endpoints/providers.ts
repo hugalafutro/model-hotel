@@ -2,6 +2,7 @@ import {
 	API_BASE,
 	buildUrl,
 	fetchJSON,
+	fetchJSONOrNull,
 	fetchOK,
 	getAuthHeaders,
 } from "../http";
@@ -124,15 +125,12 @@ export const providers = {
 	// subscription, which is a hidden badge rather than an error.
 	getOpenCodeGoUsage: async (
 		id: string,
-	): Promise<OpenCodeGoUsageResponse | null> => {
-		const response = await fetchOK(
+	): Promise<OpenCodeGoUsageResponse | null> =>
+		fetchJSONOrNull<OpenCodeGoUsageResponse>(
 			`${API_BASE}/api/providers/${id}/usage`,
 			{ headers: getAuthHeaders() },
 			"Failed to fetch OpenCode Go usage",
-		);
-		if (response.status === 204) return null;
-		return response.json();
-	},
+		),
 	getBalance: async (id: string): Promise<DeepSeekBalance> => {
 		return fetchJSON<DeepSeekBalance>(
 			`${API_BASE}/api/providers/${id}/balance`,
@@ -153,15 +151,12 @@ export const providers = {
 	},
 	getNeuralWattQuota: async (
 		id: string,
-	): Promise<NeuralWattQuotaResponse | null> => {
-		const response = await fetchOK(
+	): Promise<NeuralWattQuotaResponse | null> =>
+		fetchJSONOrNull<NeuralWattQuotaResponse>(
 			`${API_BASE}/api/providers/${id}/usage`,
 			{ headers: getAuthHeaders() },
 			"Failed to fetch NeuralWatt quota",
-		);
-		if (response.status === 204) return null;
-		return response.json();
-	},
+		),
 	getOllamaCloudAccount: async (id: string): Promise<OllamaCloudAccount> => {
 		return fetchJSON<OllamaCloudAccount>(
 			`${API_BASE}/api/providers/${id}/account`,

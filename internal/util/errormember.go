@@ -1,6 +1,7 @@
 package util
 
 import (
+	"bytes"
 	"encoding/json"
 	"strings"
 )
@@ -43,7 +44,10 @@ import (
 // rule, deliberately: a second reading of "is there anything here" is only ever
 // a way for two callers to disagree.
 func ValueCarries(raw json.RawMessage) bool {
-	if len(raw) == 0 {
+	// The empty literals a relay stamps on every frame are answered without a
+	// parse: this runs per delta member on the streaming path.
+	switch string(bytes.TrimSpace(raw)) {
+	case "", "null", "[]", "{}", `""`:
 		return false
 	}
 	var content any

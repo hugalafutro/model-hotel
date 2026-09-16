@@ -8,8 +8,10 @@ import type {
 	UserRole,
 	UserUpsertRequest,
 } from "../../api/types";
+import { budgetPayload } from "../../components/budget";
 import { useIdentity } from "../../context/IdentityContext";
 import { errorMessage } from "../../utils/errors";
+import { intOrNull, numOrNull } from "../../utils/format";
 import { isBreachedPasswordError } from "../../utils/passwordPolicy";
 import { sortByName } from "../../utils/sort";
 
@@ -118,11 +120,10 @@ export function useUserForm({
 		email: email.trim() ? email.trim() : null,
 		role,
 		grants: role === "admin" ? [] : grants,
-		rate_limit_rps: limitRps !== "" ? parseFloat(limitRps) : null,
-		rate_limit_burst: limitBurst !== "" ? parseInt(limitBurst, 10) : null,
-		rate_limit_tpm: limitTpm !== "" ? parseInt(limitTpm, 10) : null,
-		budget_usd: budgetUsd !== "" ? parseFloat(budgetUsd) : null,
-		budget_period: budgetUsd !== "" ? budgetPeriod : null,
+		rate_limit_rps: numOrNull(limitRps),
+		rate_limit_burst: intOrNull(limitBurst),
+		rate_limit_tpm: intOrNull(limitTpm),
+		...budgetPayload(budgetUsd, budgetPeriod),
 		// Omitted when untouched (preserve), explicit null clears the cap.
 		// handleSave guarantees a mode was picked before anything is sent.
 		...(capUnchanged

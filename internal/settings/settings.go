@@ -19,6 +19,15 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
+// KeyRequestTimeout is the per-attempt upstream timeout the proxy applies to a
+// request, and DefaultRequestTimeout is what an unset one reads as. The rate
+// limiter sizes its cap-memo retention against the same pair, so the two read
+// the setting identically without either restating it.
+const (
+	KeyRequestTimeout     = "request_timeout"
+	DefaultRequestTimeout = time.Minute
+)
+
 // AllowedSettings is the allowlist of keys the API will accept.
 // The key set MUST be kept in sync with api.allowedSettings — add a
 // key to both or neither. TestAllowedSettingsSync enforces this at CI time.

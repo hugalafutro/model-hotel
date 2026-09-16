@@ -62,24 +62,16 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 		}
 		// Finalize the log row so it does not orphan in the in-flight state. A
 		// read failure on a success body is a provider or transport fault,
-		// unless nobody was waiting for it, which requestAbandoned decides the
-		// same way the translated path does: the identical event must not log
-		// provider_error here and client_disconnect there.
+		// unless it was interrupted, which abortKind decides the same way the
+		// translated path does: the identical event must not log provider_error
+		// here and client_disconnect there.
 		// A body past the cap is refused by THIS gateway, so it is reported the
 		// way the translated path reports its own refusal: a bad request the
 		// provider is not charged for, never a provider fault.
 		kind := KindProviderError
-		switch cancelled, aborted := cancelKind(r.Context(), err); {
-		case aborted && requestAbandoned(r.Context(), err):
-			kind = cancelled
-		case aborted:
-			// This gateway's own per-attempt deadline, on a provider that
-			// answered headers and then went quiet, with the caller still
-			// waiting: the stall the streaming probe charges as provider_timeout
-			// (nonStreamingFailureDetail draws the same line on the OpenAI-shaped
-			// path).
-			kind = KindProviderTimeout
-		case errors.Is(err, httpx.ErrBodyTooLarge):
+		if aborted, isAbort, _ := abortKind(r.Context(), err); isAbort {
+			kind = aborted
+		} else if errors.Is(err, httpx.ErrBodyTooLarge) {
 			kind = KindProviderBadRequest
 		}
 		logData.statusCode = http.StatusBadGateway

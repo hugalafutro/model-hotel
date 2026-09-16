@@ -4,7 +4,18 @@ export type BudgetPeriod = "day" | "week" | "month";
 /** The two roles a dashboard account can hold. */
 export type UserRole = "admin" | "user";
 
-export interface VirtualKey {
+/** The rate and spend caps an account or a key carries. The four read and write
+ * shapes below all spell the same fields, so adding a cap is one edit here. */
+export interface AccountLimits {
+	rate_limit_rps?: number | null;
+	rate_limit_burst?: number | null;
+	rate_limit_tpm?: number | null;
+	/** Dollar budget per calendar period; both null when there is none. */
+	budget_usd?: number | null;
+	budget_period?: BudgetPeriod | null;
+}
+
+export interface VirtualKey extends AccountLimits {
 	id: string;
 	name: string;
 	key?: string;
@@ -12,15 +23,9 @@ export interface VirtualKey {
 	tokens_used: number;
 	last_used_at: string | null;
 	created_at: string;
-	rate_limit_rps?: number | null;
-	rate_limit_burst?: number | null;
-	rate_limit_tpm?: number | null;
 	allowed_providers?: string[] | null;
 	strip_reasoning: boolean;
 	owner_user_id?: string | null;
-	/** Dollar budget per calendar period; both null when the key has none. */
-	budget_usd?: number | null;
-	budget_period?: BudgetPeriod | null;
 	/** Priced spend in the current budget period on this member; absent without a budget. */
 	budget_spent_usd?: number | null;
 	owner_username?: string | null;
@@ -128,7 +133,9 @@ export interface AuthSession {
 }
 // DashboardUser is a managed user account (admin-only Users page). The
 // password hash never leaves the backend.
-export interface DashboardUser {
+// The AccountLimits fields are aggregate proxy limits across the user's owned
+// virtual keys and chat (null = no cap).
+export interface DashboardUser extends AccountLimits {
 	id: string;
 	username: string;
 	display_name: string;
@@ -139,13 +146,6 @@ export interface DashboardUser {
 	created_at: string;
 	updated_at: string;
 	last_login_at: string | null;
-	// Aggregate proxy limits across the user's owned virtual keys (null = no cap).
-	rate_limit_rps?: number | null;
-	rate_limit_burst?: number | null;
-	rate_limit_tpm?: number | null;
-	/** Dollar budget per calendar period across the account's keys and chat. */
-	budget_usd?: number | null;
-	budget_period?: BudgetPeriod | null;
 	/** Priced spend in the current budget period on this member; absent without a budget. */
 	budget_spent_usd?: number | null;
 	/** Whether the account has a confirmed TOTP second factor. */
@@ -165,7 +165,7 @@ export interface DashboardUser {
 }
 // UserUpsertRequest is the create/update body for POST/PUT /api/users.
 // password is create-only; enabled is update-only.
-export interface UserUpsertRequest {
+export interface UserUpsertRequest extends AccountLimits {
 	username: string;
 	display_name: string;
 	email: string | null;
@@ -173,11 +173,6 @@ export interface UserUpsertRequest {
 	role: UserRole;
 	grants: string[];
 	enabled?: boolean;
-	rate_limit_rps?: number | null;
-	rate_limit_burst?: number | null;
-	rate_limit_tpm?: number | null;
-	budget_usd?: number | null;
-	budget_period?: BudgetPeriod | null;
 	/**
 	 * Account provider cap. Omit to leave the stored cap unchanged (update
 	 * only); send null to clear it (every provider); send a non-empty array
@@ -199,13 +194,8 @@ export interface WebAuthnCeremonyStart {
  * PUT /api/virtual-keys/:id both accept it. On an update, omitting
  * `owner_user_id` preserves the current owner; null clears it (admin only).
  */
-export interface VirtualKeyUpsert {
+export interface VirtualKeyUpsert extends AccountLimits {
 	name: string;
-	rate_limit_rps?: number | null;
-	rate_limit_burst?: number | null;
-	rate_limit_tpm?: number | null;
-	budget_usd?: number | null;
-	budget_period?: BudgetPeriod | null;
 	allowed_providers?: string[] | null;
 	strip_reasoning?: boolean;
 	owner_user_id?: string | null;

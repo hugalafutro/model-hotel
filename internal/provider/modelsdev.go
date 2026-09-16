@@ -580,20 +580,19 @@ func (c *ModelsDevCache) EnrichModel(m *model.Model, providerType string) bool {
 	// Numeric fields: only set if nil.
 	enriched = fillIfEmpty(&m.ContextLength, spec.Limit.Context) || enriched
 	enriched = fillIfEmpty(&m.MaxOutputTokens, spec.Limit.Output) || enriched
-	if spec.Cost != nil {
-		if fillIfEmpty(&m.InputPricePerMillion, spec.Cost.Input) {
-			m.PriceSources.Input = model.PriceSourceModelsDev
-			enriched = true
-		}
-		if fillIfEmpty(&m.OutputPricePerMillion, spec.Cost.Output) {
-			m.PriceSources.Output = model.PriceSourceModelsDev
+	// fillPrice fills one price and stamps models.dev beside it, so the price
+	// and the provenance the dashboard shows cannot be set apart.
+	fillPrice := func(dst **float64, v float64, src *string) {
+		if fillIfEmpty(dst, v) {
+			*src = model.PriceSourceModelsDev
 			enriched = true
 		}
 	}
-	if spec.Cost != nil && spec.Cost.CacheRead != nil {
-		if fillIfEmpty(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead) {
-			m.PriceSources.CacheHit = model.PriceSourceModelsDev
-			enriched = true
+	if spec.Cost != nil {
+		fillPrice(&m.InputPricePerMillion, spec.Cost.Input, &m.PriceSources.Input)
+		fillPrice(&m.OutputPricePerMillion, spec.Cost.Output, &m.PriceSources.Output)
+		if spec.Cost.CacheRead != nil {
+			fillPrice(&m.InputPricePerMillionCacheHit, *spec.Cost.CacheRead, &m.PriceSources.CacheHit)
 		}
 	}
 
@@ -689,6 +688,25 @@ func ReportUnpricedModels(providerName string, models []*model.Model) {
 // lastUnpriced remembers the unpriced set last reported per provider, so a
 // repeat of the same set is not logged again.
 var lastUnpriced sync.Map
+
+// EnrichAndNormalize is everything a freshly discovered batch goes through
+// before it is written: models.dev fills the gaps a hardcoded catalog leaves,
+// classification is normalized, and whatever still has no price is named. It
+// returns how many models enrichment touched, which is the only part of the
+// pipeline a driver announces differently.
+//
+// Normalization runs whether or not the cache is loaded: modality arrays and
+// the derived endpoint class must be consistent even when models.dev is
+// unreachable.
+func EnrichAndNormalize(p *Provider, models []*model.Model) int {
+	enriched := 0
+	if cache := GetModelsDevCache(); cache != nil {
+		enriched = cache.EnrichModels(models, TypeOf(p))
+	}
+	NormalizeModels(models)
+	ReportUnpricedModels(p.Name, models)
+	return enriched
+}
 
 func isNumeric(s string) bool {
 	for _, c := range s {

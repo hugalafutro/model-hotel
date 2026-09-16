@@ -76,8 +76,5 @@ func readCappedBody(resp *http.Response, limit int, oversized error) ([]byte, er
 // body while keeping the upstream close, so whoever closes the response still
 // releases the upstream connection and settles the attempt's in-flight slot.
 func bodyOver(b []byte, upstream io.Closer) io.ReadCloser {
-	return struct {
-		io.Reader
-		io.Closer
-	}{bytes.NewReader(b), upstream}
+	return cappedBody{bytes.NewReader(b), upstream}
 }

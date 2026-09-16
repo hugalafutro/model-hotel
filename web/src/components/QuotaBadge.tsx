@@ -1,4 +1,4 @@
-import { isQuotaPayloadSpent } from "@web-shared/quota";
+import { isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
 import i18next from "i18next";
 import type {
 	DeepSeekBalance,
@@ -38,19 +38,6 @@ export type QuotaBadgeVariant = "sidebar" | "card";
 const VARIANT_CLASSES: Record<QuotaBadgeVariant, string> = {
 	sidebar: "",
 	card: "px-2 py-px leading-[1.6] text-xs font-medium cursor-pointer transition-colors ui-badge",
-};
-
-/** Type-safe prefix lookup - backed by the central brand map. */
-const TYPE_PREFIX: Record<QuotaProviderType, string> = {
-	nanogpt: PROVIDER_PREFIXES.nanogpt,
-	"zai-coding": PROVIDER_PREFIXES["zai-coding"],
-	"kimi-code": PROVIDER_PREFIXES["kimi-code"],
-	minimax: PROVIDER_PREFIXES.minimax,
-	deepseek: PROVIDER_PREFIXES.deepseek,
-	openrouter: PROVIDER_PREFIXES.openrouter,
-	"ollama-cloud": PROVIDER_PREFIXES["ollama-cloud"],
-	neuralwatt: PROVIDER_PREFIXES.neuralwatt,
-	"opencode-go": PROVIDER_PREFIXES["opencode-go"],
 };
 
 /** Card variant classes derived from PROVIDER_BRAND_COLORS.
@@ -134,12 +121,8 @@ function percentPairContent(
 	usedKey: string,
 	remainingKey: string,
 ): BadgeContent {
-	const pct = (w: { percentage: number } | undefined) =>
-		w
-			? `${(barMode === "remaining" ? 100 - w.percentage : w.percentage).toFixed(0)}%`
-			: "-";
 	return {
-		label: `${pct(fiveHour)}/${pct(weekly)}`,
+		label: `${windowPct(fiveHour?.percentage, barMode)}/${windowPct(weekly?.percentage, barMode)}`,
 		title: i18next.t(barMode === "remaining" ? remainingKey : usedKey),
 	};
 }
@@ -201,11 +184,8 @@ function openCodeGoBadgeContent(
 	barMode: QuotaBarMode,
 ): BadgeContent {
 	const windows = getOpenCodeGoWindows(usage);
-	const pct = (key: "rolling" | "weekly" | "monthly") => {
-		const w = windows.find((x) => x.key === key);
-		if (!w) return "-";
-		return `${(barMode === "remaining" ? 100 - w.percent : w.percent).toFixed(0)}%`;
-	};
+	const pct = (key: "rolling" | "weekly" | "monthly") =>
+		windowPct(windows.find((x) => x.key === key)?.percent, barMode);
 	return {
 		label: `${pct("rolling")}/${pct("weekly")}`,
 		title: i18next.t(
@@ -442,7 +422,9 @@ export function QuotaBadge(props: QuotaBadgeProps) {
 			title={title ?? defaultTitle}
 		>
 			{variant === "sidebar" && (
-				<span className="sidebar-quota-pill-prefix">{TYPE_PREFIX[type]}</span>
+				<span className="sidebar-quota-pill-prefix">
+					{PROVIDER_PREFIXES[type]}
+				</span>
 			)}
 			{label}
 		</button>

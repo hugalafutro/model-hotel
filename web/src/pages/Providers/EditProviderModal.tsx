@@ -148,6 +148,13 @@ export function EditProviderModal({
 		updateMutation.mutate(buildPayload());
 	};
 
+	// The slider's value as words: zero reserves nothing, which is the drain
+	// wording rather than "0%". Read by both the label and the accessible name.
+	const reserveText =
+		formData.quota_reserve_percent === 0
+			? t("providers.edit.quotaReserveDrain")
+			: `${formData.quota_reserve_percent}%`;
+
 	return (
 		<>
 			<Modal title={t("providers.edit_modal_title")} onClose={handleClose}>
@@ -411,9 +418,7 @@ export function EditProviderModal({
 								className="ml-2 text-yellow-400"
 								data-testid="quota-reserve-value"
 							>
-								{formData.quota_reserve_percent === 0
-									? t("providers.edit.quotaReserveDrain")
-									: `${formData.quota_reserve_percent}%`}
+								{reserveText}
 							</span>
 						</label>
 						<input
@@ -423,11 +428,7 @@ export function EditProviderModal({
 							max={90}
 							step={10}
 							value={formData.quota_reserve_percent}
-							aria-valuetext={
-								formData.quota_reserve_percent === 0
-									? t("providers.edit.quotaReserveDrain")
-									: `${formData.quota_reserve_percent}%`
-							}
+							aria-valuetext={reserveText}
 							onChange={(e) =>
 								setFormData({
 									...formData,

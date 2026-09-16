@@ -19,7 +19,7 @@ import { FilterDropdown } from "../components/FilterDropdown";
 import { LoadingSpinner } from "../components/LoadingSpinner";
 import { PageHeader } from "../components/PageHeader";
 import { useIdentity } from "../context/IdentityContext";
-import { formatCompact, formatSpend, formatTokens } from "../utils/format";
+import { formatCompact, formatSpend } from "../utils/format";
 import { Gauge } from "./Dashboard/Gauge";
 import { GaugeModal } from "./Dashboard/GaugeModal";
 import { ProviderDoughnut } from "./Dashboard/ProviderDoughnut";
@@ -421,13 +421,6 @@ export function Dashboard() {
 					onMetricChange={setModelsMetric}
 					loading={modelsUsageLoading}
 					onEntryClick={handleModelClick}
-					formatValue={
-						modelsMetric === "tokens"
-							? formatTokens
-							: modelsMetric === "cost"
-								? formatSpend
-								: undefined
-					}
 				/>
 				<ProviderLatencyPanel
 					title={t("dashboard.providerLatency.title")}
@@ -446,13 +439,6 @@ export function Dashboard() {
 					metric={virtualKeysMetric}
 					onMetricChange={setVirtualKeysMetric}
 					loading={vkeysUsageLoading}
-					formatValue={
-						virtualKeysMetric === "tokens"
-							? formatTokens
-							: virtualKeysMetric === "cost"
-								? formatSpend
-								: undefined
-					}
 				/>
 			</div>
 

@@ -18,6 +18,12 @@ export function invalidateAlertReads(queryClient: QueryClient) {
 	queryClient.invalidateQueries({ queryKey: ["alert-status"] });
 }
 
+/** Drops the settings read and everything derived from it, after a write. */
+export function invalidateSettings(queryClient: QueryClient) {
+	queryClient.invalidateQueries({ queryKey: ["settings"] });
+	invalidateAlertReads(queryClient);
+}
+
 /**
  * useSettingsMutations is the shared settings read, mutation and toast bundle
  * every Settings page builds on: the settings query through useSettingsQuery,
@@ -40,8 +46,7 @@ export function useSettingsMutations() {
 		mutationFn: (updates: Record<string, string>) =>
 			api.settings.update(updates),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			invalidateAlertReads(queryClient);
+			invalidateSettings(queryClient);
 			toast(t("settings.common.settingsSaved"), "success");
 		},
 		onError: (err: Error) => {
@@ -55,8 +60,7 @@ export function useSettingsMutations() {
 	const resetSettingMutation = useMutation({
 		mutationFn: (keys: string[]) => api.settings.reset(keys),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			invalidateAlertReads(queryClient);
+			invalidateSettings(queryClient);
 			toast(t("settings.common.resetSettingDone"), "success");
 		},
 		onError: (err: Error) => {

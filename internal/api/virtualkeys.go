@@ -79,9 +79,7 @@ func (r *UpdateVirtualKeyRequest) UnmarshalJSON(data []byte) error {
 	r.allowedProvidersPresent = raw["allowed_providers"] != nil
 	r.stripReasoningPresent = raw["strip_reasoning"] != nil
 	_, r.ownerUserIDPresent = raw["owner_user_id"]
-	_, usdPresent := raw["budget_usd"]
-	_, periodPresent := raw["budget_period"]
-	r.budgetPresent = usdPresent || periodPresent
+	r.budgetPresent = budgetFieldsPresent(raw)
 	return nil
 }
 
@@ -142,12 +140,11 @@ func virtualKeyToResponse(vk *virtualkey.VirtualKey, includeKey bool, rawKey str
 // withBudgetSpent adds the key's current-period spend to a response when the
 // key has a budget and the limiter is wired.
 func (h *Handler) withBudgetSpent(ctx context.Context, vk *virtualkey.VirtualKey, resp virtualkey.VirtualKeyResponse) virtualkey.VirtualKeyResponse {
-	b := budget.From(vk.BudgetUSD, vk.BudgetPeriod)
-	if b == nil || h.budgetLimiter == nil {
+	if h.budgetLimiter == nil {
 		return resp
 	}
-	if spent, known := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindKey, ID: vk.ID.String(), Name: vk.Name, Budget: *b}); known {
-		resp.BudgetSpentUSD = &spent
+	if spent := h.spentFor(ctx, vk.BudgetSubject()); spent != nil {
+		resp.BudgetSpentUSD = spent
 	}
 	return resp
 }
@@ -372,8 +369,7 @@ func (h *Handler) CreateVirtualKey(w http.ResponseWriter, r *http.Request) {
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
-	if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
-		respondBadRequest(w, err.Error(), nil)
+	if err := validateBudget(req.BudgetUSD, req.BudgetPeriod, w); err != nil {
 		return
 	}
 
@@ -521,8 +517,7 @@ func (h *Handler) UpdateVirtualKey(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.budgetPresent {
-		if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
-			respondBadRequest(w, err.Error(), nil)
+		if err := validateBudget(req.BudgetUSD, req.BudgetPeriod, w); err != nil {
 			return
 		}
 	}
@@ -708,6 +703,17 @@ func validateRateLimits(rps *float64, burst, tpm *int, w http.ResponseWriter) er
 	if maxTPM := int(allowedSettings["rate_limit_tpm"].max); tpm != nil && *tpm > maxTPM {
 		respondBadRequest(w, fmt.Sprintf("rate_limit_tpm must be <= %d", maxTPM), fmt.Errorf("got %d", *tpm))
 		return fmt.Errorf("invalid rate_limit_tpm")
+	}
+	return nil
+}
+
+// validateBudget checks the budget pair the key and user write handlers both
+// accept, writing the 400 itself the way validateRateLimits does. Returns a
+// non-nil error (already written to w) if validation fails.
+func validateBudget(usd *float64, period *string, w http.ResponseWriter) error {
+	if err := budget.Validate(usd, period); err != nil {
+		respondBadRequest(w, err.Error(), nil)
+		return err
 	}
 	return nil
 }

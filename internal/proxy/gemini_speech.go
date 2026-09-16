@@ -129,19 +129,16 @@ func (h *Handler) serveGeminiSpeechResponse(w http.ResponseWriter, r *http.Reque
 // body and fails over.
 func (h *Handler) serveGeminiReshaped(w http.ResponseWriter, r *http.Request, st *requestState, candidate modelCandidate, resp *http.Response, attempt int, responseHeaderMs float64, adapter string, limit int, oversized error, format string, build func([]byte, string) ([]byte, string, gemini.SpeechUsage, error)) candidateOutcome {
 	// readCappedBody leaves the upstream close, which settles the attempt's
-	// in-flight slot, to this function: a reject closes after its verdict, a
-	// served answer carries the close onto the re-shaped body.
+	// in-flight slot, to this function: a reject closes after its verdict
+	// (rejectAndClose), a served answer carries the close onto the re-shaped
+	// body.
 	body, readErr := readCappedBody(resp, limit, oversized)
 	if readErr != nil {
-		outcome := h.rejectUntranslatableBody(st, candidate, st.logData, adapter, resp.StatusCode, readErr, attempt, r)
-		_ = resp.Body.Close()
-		return outcome
+		return h.rejectAndClose(st, candidate, st.logData, adapter, resp, readErr, attempt, r)
 	}
 	out, contentType, usage, err := build(body, format)
 	if err != nil {
-		outcome := h.rejectUntranslatableBody(st, candidate, st.logData, adapter, resp.StatusCode, err, attempt, r)
-		_ = resp.Body.Close()
-		return outcome
+		return h.rejectAndClose(st, candidate, st.logData, adapter, resp, err, attempt, r)
 	}
 	st.passthroughUsage = &passthroughUsage{prompt: usage.PromptTokens, completion: usage.CompletionTokens}
 	delivered := &http.Response{

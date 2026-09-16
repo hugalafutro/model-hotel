@@ -165,7 +165,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			var settingsReadMsVal = settingsReadMs
 			ctx := context.WithValue(r.Context(), ctxkeys.SettingsReadMsKey, &settingsReadMsVal)
 
-			maxWait := time.Duration(l.settings.GetInt(r.Context(), settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
+			maxWait := maxWaitFor(r.Context(), l.settings)
 
 			// The reservations, the delay reads and the cancellations on the
 			// two reject paths share this one instant. The abandoned path
@@ -183,9 +183,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			// reject answers one 429, naming the stage that refused so an
 			// owner-wide refusal reads differently from a per-key one.
 			reject := func(by *bucketEntry, id string, retryAfter time.Duration) {
-				by.noteRejected(id)
-				writeRateLimitHeaders(w, by.limiter, retryAfter, "")
-				util.WriteOpenAIError(w, rejectedBy(by, userEntry), http.StatusTooManyRequests)
+				reject429(w, by, id, retryAfter, "", rejectedBy(by, userEntry))
 			}
 
 			// Refuse before reserving when the buckets already say the wait is
@@ -358,26 +356,7 @@ func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *flo
 
 	rps, burst = bucketRate(rps, burst)
 
-	entry, ok := l.limiters[keyHash]
-	switch {
-	case !ok:
-		entry = &bucketEntry{
-			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
-			rps:      rps,
-			burst:    burst,
-			lastUsed: time.Now(),
-			throttle: &throttleState{},
-			prefix:   keyLogPrefix,
-			label:    keyLogLabel,
-		}
-		l.limiters[keyHash] = entry
-	case entry.rps != rps || entry.burst != burst:
-		entry = entry.withCap(rps, burst)
-		l.limiters[keyHash] = entry
-	default:
-		entry.lastUsed = time.Now()
-	}
-	return entry
+	return upsertEntry(l.limiters, keyHash, rps, burst, keyLogPrefix, keyLogLabel, "")
 }
 
 // extractKey reads the virtual key hash from the request context.

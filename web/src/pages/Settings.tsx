@@ -24,7 +24,7 @@ import { SECTION_SETTINGS, SETTING_LABELS } from "./Settings/defaults";
 import { ObservabilitySettings } from "./Settings/ObservabilitySettings";
 import { ProxySettings } from "./Settings/ProxySettings";
 import { RateLimitSettings } from "./Settings/RateLimitSettings";
-import { invalidateAlertReads } from "./Settings/useSettingsMutations";
+import { invalidateSettings } from "./Settings/useSettingsMutations";
 
 /**
  * Double-confirm dialog for "reset every setting": the operator has to type
@@ -135,8 +135,7 @@ export function Settings() {
 	const resetMutation = useMutation({
 		mutationFn: (keys?: string[]) => api.settings.reset(keys),
 		onSuccess: (_data, keys) => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
-			invalidateAlertReads(queryClient);
+			invalidateSettings(queryClient);
 			toast(
 				t(
 					keys

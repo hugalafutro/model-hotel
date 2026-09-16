@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Brain, KeyRound, ShieldCheck, ShieldOff } from "@/lib/icons";
 import { api } from "../../api/client";
 import type { VirtualKey } from "../../api/types";
+import { budgetText } from "../../components/budget";
 import { CopyablePill } from "../../components/CopyablePill";
 import type { SortState } from "../../components/DataTable";
 import {
@@ -23,7 +24,6 @@ import { useReadOnly } from "../../hooks/useReadOnly";
 import { useWheelPaging } from "../../hooks/useWheelPaging";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
 import { proxyOrigin } from "../../utils/snippets";
-import { budgetText } from "./budget";
 import { CreateKeyModal } from "./CreateKeyModal";
 import { KeyDetailModal } from "./KeyDetailModal";
 import { UsageSnippets } from "./UsageSnippets";
@@ -40,10 +40,10 @@ type VKSortField =
 /** Spend against the key's budget, or a muted "no budget". */
 function BudgetCell({ vk }: { vk: VirtualKey }) {
 	const { t } = useTranslation();
-	return vk.budget_usd != null ? (
-		<span className="text-gray-200">{budgetText(t, vk)}</span>
-	) : (
-		<span className="text-gray-500">{t("budget.none")}</span>
+	return (
+		<span className={vk.budget_usd != null ? "text-gray-200" : "text-gray-500"}>
+			{budgetText(t, vk)}
+		</span>
 	);
 }
 

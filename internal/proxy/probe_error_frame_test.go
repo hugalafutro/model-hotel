@@ -875,14 +875,15 @@ func TestFrameCarriesOutput(t *testing.T) {
 // that output is charged as a completion with nothing in it.
 func TestStreamDelivery_CountsEveryOutputTheProbeAccepts(t *testing.T) {
 	for name, payload := range map[string]string{
-		"content":       `{"choices":[{"delta":{"content":"hi"}}]}`,
-		"reasoning":     `{"choices":[{"delta":{"reasoning":"hmm"}}]}`,
-		"tool call":     `{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"f","arguments":""}}]}}]}`,
-		"function_call": `{"choices":[{"delta":{"function_call":{"name":"f","arguments":"{}"}}}]}`,
-		"refusal":       `{"choices":[{"delta":{"refusal":"no"}}]}`,
-		"audio":         `{"choices":[{"delta":{"audio":{"id":"a","data":"UklGRg==","transcript":"hi"}}}]}`,
-		"legacy text":   `{"choices":[{"text":"hi","index":0}]}`,
-		"image":         `{"choices":[{"delta":{"images":[{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgo="}}]}}]}`,
+		"content":           `{"choices":[{"delta":{"content":"hi"}}]}`,
+		"reasoning":         `{"choices":[{"delta":{"reasoning":"hmm"}}]}`,
+		"reasoning_details": `{"choices":[{"delta":{"reasoning_details":[{"type":"reasoning.text","text":"hmm"}]}}]}`,
+		"tool call":         `{"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"name":"f","arguments":""}}]}}]}`,
+		"function_call":     `{"choices":[{"delta":{"function_call":{"name":"f","arguments":"{}"}}}]}`,
+		"refusal":           `{"choices":[{"delta":{"refusal":"no"}}]}`,
+		"audio":             `{"choices":[{"delta":{"audio":{"id":"a","data":"UklGRg==","transcript":"hi"}}}]}`,
+		"legacy text":       `{"choices":[{"text":"hi","index":0}]}`,
+		"image":             `{"choices":[{"delta":{"images":[{"type":"image_url","image_url":{"url":"data:image/png;base64,iVBORw0KGgo="}}]}}]}`,
 	} {
 		t.Run(name, func(t *testing.T) {
 			if !frameCarriesOutput(payload) {

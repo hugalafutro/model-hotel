@@ -13,6 +13,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/clientip"
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
+	"github.com/hugalafutro/model-hotel/internal/settings"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -179,7 +180,7 @@ func (h *Handler) ingestRequest(w http.ResponseWriter, r *http.Request, endpoint
 		bodyBytes:       bodyBytes,
 		parseMs:         parseMs,
 		logData:         logData,
-		opencodeSession: util.OpenCodeGoSession(r.Header.Get(util.OpenCodeGoSessionHeader), vkHash),
+		opencodeSession: util.OpenCodeGoSessionFor(r, vkHash),
 	}, true
 }
 
@@ -417,7 +418,7 @@ func (h *Handler) loadFailoverConfig(r *http.Request, st *requestState) {
 	// Read once before the loop so every attempt in a request uses the same
 	// timeout even if the setting changes mid-request.
 	rtStart := time.Now()
-	baseTimeout := h.settingsRepo.GetDuration(r.Context(), "request_timeout", time.Minute)
+	baseTimeout := h.settingsRepo.GetDuration(r.Context(), settings.KeyRequestTimeout, settings.DefaultRequestTimeout)
 	ctxkeys.AddSettingsReadMs(r.Context(), rtStart)
 	st.failoverTimeout = baseTimeout
 	if st.isStreaming || st.longRunning {

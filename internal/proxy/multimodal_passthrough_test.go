@@ -1834,3 +1834,41 @@ func assertSpeechRowPriced(t *testing.T, wantState string, answer func(w http.Re
 		t.Fatalf("cost_usd = %v, want the estimated prompt priced on the row", *cost)
 	}
 }
+
+// The buffered-or-streamed choice reads the upstream content type
+// case-insensitively: a header spelled in capitals still lands a JSON answer
+// in the buffered branch (no flush) and an SSE stream in the streamed one.
+func TestImageGenerations_ContentTypeJudgedCaseInsensitively(t *testing.T) {
+	t.Run("json", func(t *testing.T) {
+		upstreamBody := `{"created":1,"data":[{"b64_json":"aW1n"}]}`
+		env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "Application/JSON")
+			_, _ = io.WriteString(w, upstreamBody)
+		}))
+		body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat"}`, env.providerName, env.modelName)
+		w := httptest.NewRecorder()
+		env.handler.ImageGenerations(w, env.request("/v1/images/generations", "application/json", strings.NewReader(body)))
+		if w.Code != http.StatusOK || strings.TrimSpace(w.Body.String()) != upstreamBody {
+			t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+		}
+		if w.Flushed {
+			t.Error("an upper-cased JSON answer took the streamed branch")
+		}
+	})
+	t.Run("sse", func(t *testing.T) {
+		sse := "event: image_generation.completed\ndata: {\"type\":\"image_generation.completed\",\"b64_json\":\"ZnVsbA==\"}\n\n"
+		env := newMultimodalEnv(t, http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.Header().Set("Content-Type", "TEXT/EVENT-STREAM")
+			_, _ = io.WriteString(w, sse)
+		}))
+		body := fmt.Sprintf(`{"model":"%s/%s","prompt":"a cat","stream":true}`, env.providerName, env.modelName)
+		w := httptest.NewRecorder()
+		env.handler.ImageGenerations(w, env.request("/v1/images/generations", "application/json", strings.NewReader(body)))
+		if w.Code != http.StatusOK || w.Body.String() != sse {
+			t.Fatalf("status = %d body = %q", w.Code, w.Body.String())
+		}
+		if !w.Flushed {
+			t.Error("an upper-cased SSE stream was not streamed")
+		}
+	})
+}

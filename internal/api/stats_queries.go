@@ -212,7 +212,7 @@ func (h *StatsHandler) statScalars(ctx context.Context, stats *StatsResponse, vk
 	// Query 9: Avg tokens per request
 	query = `
 		SELECT COALESCE(
-			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0))::float / NULLIF(COUNT(*), 0),
+			` + tokenSumSQL + `::float / NULLIF(COUNT(*), 0),
 			0
 		) as avg_tokens
 		FROM request_logs rl` + vkJoin + `
@@ -341,7 +341,7 @@ func (h *StatsHandler) statLatencyBreakdown(ctx context.Context, stats *StatsRes
 // provider_id on its rows (ON DELETE SET NULL), which would hide them.
 func (h *StatsHandler) statSpend(ctx context.Context, stats *StatsResponse, vkJoin, vkFilter string, filterArgs []any, since time.Time) {
 	query := `
-		SELECT COALESCE(SUM(rl.cost_usd), 0),
+		SELECT ` + costSumSQL + `,
 		       COUNT(*) FILTER (WHERE rl.cost_usd IS NULL AND rl.status_code >= 200 AND rl.status_code < 300)
 		FROM request_logs rl` + vkJoin + `
 		WHERE rl.created_at >= $1` + vkFilter

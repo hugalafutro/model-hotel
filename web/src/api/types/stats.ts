@@ -26,7 +26,10 @@ export interface Stats {
 	avg_tokens_per_request: number;
 	by_provider_latency?: ProviderLatencyEntry[];
 }
-export type MetricType = "requests" | "tokens" | "cost";
+/** The usage axes a panel can show, in the order its toggle offers them. */
+export const METRIC_TYPES = ["tokens", "requests", "cost"] as const;
+
+export type MetricType = (typeof METRIC_TYPES)[number];
 export type Range = "24h" | "7d";
 export interface TimeSeriesPoint {
 	bucket: string;

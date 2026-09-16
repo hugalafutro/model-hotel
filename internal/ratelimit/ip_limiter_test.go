@@ -66,8 +66,8 @@ func (s *stubIPSettings) GetInt(_ context.Context, key string, def int) int {
 // backpressure, so requests beyond burst get immediate 429s.
 func ipSettingsNoBackpressure() *stubIPSettings {
 	return &stubIPSettings{values: map[string]string{
-		settingsKeyIPEnabled:   "true",
-		settingsKeyIPMaxWaitMs: "0",
+		settingsKeyIPEnabled: "true",
+		settingsKeyMaxWaitMs: "0",
 	}}
 }
 
@@ -334,8 +334,8 @@ func TestIPLimiter_CleanupRemovesStale(t *testing.T) {
 // ipSettingsDisabled returns settings with IP limiting disabled.
 func ipSettingsDisabled() *stubIPSettings {
 	return &stubIPSettings{values: map[string]string{
-		settingsKeyIPEnabled:   "false",
-		settingsKeyIPMaxWaitMs: "200",
+		settingsKeyIPEnabled: "false",
+		settingsKeyMaxWaitMs: "200",
 	}}
 }
 
@@ -343,8 +343,8 @@ func ipSettingsDisabled() *stubIPSettings {
 // a configurable max wait time for backpressure.
 func ipSettingsWithBackpressure(maxWaitMs int) *stubIPSettings {
 	return &stubIPSettings{values: map[string]string{
-		settingsKeyIPEnabled:   "true",
-		settingsKeyIPMaxWaitMs: strconv.Itoa(maxWaitMs),
+		settingsKeyIPEnabled: "true",
+		settingsKeyMaxWaitMs: strconv.Itoa(maxWaitMs),
 	}}
 }
 
@@ -449,10 +449,10 @@ func TestIPLimiter_RuntimeSettingsOverrideRPS(t *testing.T) {
 	// Constructor defaults: RPS=1, burst=1 (very restrictive).
 	// Override via settings: RPS=1000, burst=1000 (effectively unlimited).
 	settings := &stubIPSettings{values: map[string]string{
-		settingsKeyIPEnabled:   "true",
-		settingsKeyIPRPS:       "1000",
-		settingsKeyIPBurst:     "1000",
-		settingsKeyIPMaxWaitMs: "200",
+		settingsKeyIPEnabled: "true",
+		settingsKeyIPRPS:     "1000",
+		settingsKeyIPBurst:   "1000",
+		settingsKeyMaxWaitMs: "200",
 	}}
 	lim := NewIPLimiter(1, 1, nil, settings)
 	defer lim.Stop()
@@ -567,10 +567,10 @@ func TestIPLimiter_CleanupGoroutineStop(t *testing.T) {
 // the getLimiter uses extremely high RPS (1e6). Many requests should all succeed.
 func TestIPLimiter_UnlimitedRPS(t *testing.T) {
 	settings := &stubIPSettings{values: map[string]string{
-		settingsKeyIPEnabled:   "true",
-		settingsKeyIPRPS:       "0", // 0 = unlimited
-		settingsKeyIPBurst:     "0",
-		settingsKeyIPMaxWaitMs: "200",
+		settingsKeyIPEnabled: "true",
+		settingsKeyIPRPS:     "0", // 0 = unlimited
+		settingsKeyIPBurst:   "0",
+		settingsKeyMaxWaitMs: "200",
 	}}
 	lim := NewIPLimiter(1, 1, nil, settings)
 	defer lim.Stop()
@@ -597,10 +597,10 @@ func TestIPLimiter_UnlimitedRPS(t *testing.T) {
 func TestIPLimiter_SettingsChangeRPS(t *testing.T) {
 	// Start with settings that limit to RPS=1, burst=1
 	settings := &stubIPSettings{values: map[string]string{
-		settingsKeyIPEnabled:   "true",
-		settingsKeyIPRPS:       "1",
-		settingsKeyIPBurst:     "1",
-		settingsKeyIPMaxWaitMs: "0",
+		settingsKeyIPEnabled: "true",
+		settingsKeyIPRPS:     "1",
+		settingsKeyIPBurst:   "1",
+		settingsKeyMaxWaitMs: "0",
 	}}
 	lim := NewIPLimiter(1, 1, nil, settings)
 	defer lim.Stop()
@@ -654,10 +654,10 @@ func TestIPLimiter_SettingsChangeRPS(t *testing.T) {
 // is reused (lastUsed updated).
 func TestIPLimiter_ExistingEntryReuse(t *testing.T) {
 	settings := &stubIPSettings{values: map[string]string{
-		settingsKeyIPEnabled:   "true",
-		settingsKeyIPRPS:       "10",
-		settingsKeyIPBurst:     "5",
-		settingsKeyIPMaxWaitMs: "0",
+		settingsKeyIPEnabled: "true",
+		settingsKeyIPRPS:     "10",
+		settingsKeyIPBurst:   "5",
+		settingsKeyMaxWaitMs: "0",
 	}}
 	lim := NewIPLimiter(10, 5, nil, settings)
 	defer lim.Stop()
@@ -779,10 +779,10 @@ func TestIPLimiter_MiddlewareReservationNotOK(t *testing.T) {
 	// reservation fails (no tokens available). We use settings to set burst=0
 	// and RPS=0.1 so that even after waiting, no tokens are available.
 	settings := &stubIPSettings{values: map[string]string{
-		settingsKeyIPEnabled:   "true",
-		settingsKeyIPRPS:       "0.1",
-		settingsKeyIPBurst:     "0", // burst=0 means no tokens, reservation fails
-		settingsKeyIPMaxWaitMs: "0",
+		settingsKeyIPEnabled: "true",
+		settingsKeyIPRPS:     "0.1",
+		settingsKeyIPBurst:   "0", // burst=0 means no tokens, reservation fails
+		settingsKeyMaxWaitMs: "0",
 	}}
 	lim := NewIPLimiter(0.1, 0, nil, settings)
 	defer lim.Stop()

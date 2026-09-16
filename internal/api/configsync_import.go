@@ -147,6 +147,13 @@ func (h *ConfigSyncHandler) Import(w http.ResponseWriter, r *http.Request) {
 // reads as stale and no API call lowers the marker back.
 const maxSourceGen = math.MaxInt32
 
+// sourceGenInRange reports whether a generation is one a primary can produce.
+// The header parser and the stored-marker reader share it so a value a member
+// accepts off the wire can never be one it later refuses to trust.
+func sourceGenInRange(n int64) bool {
+	return n >= 0 && n <= maxSourceGen
+}
+
 // parseSourceGen reads the optional fleet source-generation header. It returns
 // nil when the header is absent, unparseable, or outside the range a primary
 // can produce, so a malformed value degrades to an unfenced import rather than
@@ -160,7 +167,7 @@ func parseSourceGen(raw string) *int64 {
 		debuglog.Warn("configsync: ignoring unparseable source-generation header", "value", raw)
 		return nil
 	}
-	if n < 0 || n > maxSourceGen {
+	if !sourceGenInRange(n) {
 		debuglog.Warn("configsync: ignoring out-of-range source-generation header", "value", raw)
 		return nil
 	}

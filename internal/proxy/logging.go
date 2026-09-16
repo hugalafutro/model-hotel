@@ -380,17 +380,21 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		rows, err = h.execRequestLogUpdate(logEntry)
 	}
 
-	if err != nil {
+	// One pricing, read by the budget charge and the metrics observation below.
+	// Nothing between them touches a field terminalCost reads.
+	cost, priced := logEntry.terminalCost()
+	switch {
+	case err != nil:
 		debuglog.Error("proxy: failed to update request log", "request_id", logEntry.id, "error", err)
-	} else if rows == 0 {
+	case rows == 0:
 		debuglog.Warn("proxy: updateRequestLog no rows affected", "request_id", logEntry.id)
-	} else if c, ok := logEntry.terminalCost(); ok && !logEntry.charged {
+	case priced && !logEntry.charged:
 		// Charged once, after the row it is the price of has landed: the repair
 		// path above runs the update twice, a write that failed is not a row
 		// the budget can sum, and the flag holds against a second terminal
 		// write for the same request.
 		logEntry.charged, chargedNow = true, true
-		h.budgetLimiter.Charge(logEntry.virtualKeyID, logEntry.ownerUserID, c, logEntry.startedAt)
+		h.budgetLimiter.Charge(logEntry.virtualKeyID, logEntry.ownerUserID, cost, logEntry.startedAt)
 	}
 
 	// Publish the request lifecycle event for terminal states.
@@ -399,7 +403,6 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 		// through here exactly once with its provider/model/status/tokens. The
 		// cost is booked only by the write that stored it, so the counter and
 		// request_logs.cost_usd agree row for row.
-		cost, priced := logEntry.terminalCost()
 		metrics.Record(metrics.Observation{
 			Provider:          logEntry.providerName,
 			Model:             metricModelLabel(logEntry.modelID, logEntry.errorKind),

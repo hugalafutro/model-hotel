@@ -320,7 +320,7 @@ func (h *Handler) RefreshQuotaAdvice(ctx context.Context) {
 		typeByID[p.ID] = provider.TypeOf(p)
 		nameByID[p.ID] = p.Name
 		if p.QuotaReservePercent > 0 {
-			reserveByID[p.ID] = float64(p.QuotaReservePercent) / 100
+			reserveByID[p.ID] = p.ReserveShare()
 		}
 	}
 

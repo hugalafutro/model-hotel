@@ -1,3 +1,5 @@
+import { PRICE_SOURCES, type PriceSource } from "../api/types";
+
 export function normalizeProviderName(name: string): string {
 	return name.replace(/ /g, "-");
 }
@@ -112,16 +114,10 @@ export function formatPrice(n: number | null | undefined): string {
  */
 export function priceSourceKey(
 	source: string | undefined,
-): "provider" | "catalog" | "modelsdev" | "manual" | "unknown" {
-	switch (source) {
-		case "provider":
-		case "catalog":
-		case "modelsdev":
-		case "manual":
-			return source;
-		default:
-			return "unknown";
-	}
+): PriceSource | "unknown" {
+	return PRICE_SOURCES.includes(source as PriceSource)
+		? (source as PriceSource)
+		: "unknown";
 }
 
 /** The same price for a text input, where absent reads as an empty field. */

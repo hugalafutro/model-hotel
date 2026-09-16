@@ -8,7 +8,7 @@
  * There is no automated cross-language sync test: when changing a Go default,
  * update the corresponding entry here (and in en.json labels).
  */
-export const SETTING_DEFAULTS: Record<SettingKey, string> = {
+export const SETTING_DEFAULTS = {
 	// Discovery
 	discovery_interval: "6h",
 	discovery_on_startup: "true",
@@ -182,55 +182,8 @@ export const SECTION_SETTINGS: Record<SectionName, SettingKey[]> = {
 	],
 };
 
-export type SettingKey =
-	| "discovery_interval"
-	| "discovery_on_startup"
-	| "discovery_on_provider_create"
-	| "model_prune_days"
-	| "request_timeout"
-	| "key_cache_ttl"
-	| "ttft_timeout"
-	| "stream_stall_timeout"
-	| "upstream_header_timeout"
-	| "rate_limit_enabled"
-	| "rate_limit_ip_enabled"
-	| "rate_limit_rps"
-	| "rate_limit_burst"
-	| "rate_limit_ip_rps"
-	| "rate_limit_ip_burst"
-	| "rate_limit_max_wait_ms"
-	| "circuit_breaker_enabled"
-	| "circuit_breaker_threshold"
-	| "circuit_breaker_span_models"
-	| "circuit_breaker_cooldown"
-	| "circuit_breaker_quota_pin_max"
-	| "circuit_breaker_backoff_max"
-	| "failover_on_rate_limit"
-	| "rate_limit_classify_enabled"
-	| "rate_limit_saturation_max_wait"
-	| "rate_limit_recent_success_window"
-	| "circuit_breaker_open_on_exhaustion"
-	| "failover_exhaustion_status_429"
-	| "server_error_retry_enabled"
-	| "inflight_limiter_enabled"
-	| "inflight_grow_after"
-	| "inflight_forget_after"
-	| "hedging_enabled"
-	| "hedge_delay"
-	| "log_retention"
-	| "stale_request_timeout"
-	| "alert_enabled"
-	| "alert_apprise_api_url"
-	| "alert_apprise_targets"
-	| "alert_events"
-	| "discovery_claim_alert_days"
-	| "session_idle_timeout_minutes"
-	| "pwned_password_check_enabled"
-	| "backup_enabled"
-	| "backup_interval"
-	| "backup_son_retention"
-	| "backup_father_retention"
-	| "backup_grandfather_retention";
+/** Every setting the dashboard knows, named by the defaults table above. */
+export type SettingKey = keyof typeof SETTING_DEFAULTS;
 
 /**
  * Mapping from DB setting keys to their human-readable i18n keys.

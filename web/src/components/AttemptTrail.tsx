@@ -23,6 +23,11 @@ const BREAKER_VERDICT_KEYS: Record<string, string> = {
 	disabled: "components.requestLogDetail.attemptBreakerDisabled",
 };
 
+/** The breaker refused this candidate before the request left. */
+function isSkipped(a: AttemptRecord): boolean {
+	return a.breaker === "skipped";
+}
+
 // collapseWhitespace renders text the way the backend stores a trail detail
 // (runs of whitespace folded to one space), so a stored detail can be looked
 // for inside the row's error_message.
@@ -102,7 +107,7 @@ export function AttemptTrail({
 	const showsVerdict = (
 		a: AttemptRecord,
 	): a is AttemptRecord & { breaker: string } =>
-		Boolean(a.breaker) && a.breaker !== "skipped";
+		Boolean(a.breaker) && !isSkipped(a);
 	return (
 		<div className="mb-6" data-testid="attempt-trail">
 			<DetailSectionHeader icon={Layers}>
@@ -138,7 +143,7 @@ export function AttemptTrail({
 						    cluster: when the row runs out of width the whole cluster
 						    drops to the next line together, never the timing alone. */}
 						<span className="flex items-center gap-x-2 whitespace-nowrap">
-							{a.breaker === "skipped" ? (
+							{isSkipped(a) ? (
 								<span className="ui-badge ui-badge-amber text-xs">
 									{t("components.requestLogDetail.attemptSkipped")}
 								</span>
@@ -168,7 +173,7 @@ export function AttemptTrail({
 									{t("components.requestLogDetail.attemptHedged")}
 								</span>
 							)}
-							{a.breaker !== "skipped" && (
+							{!isSkipped(a) && (
 								<span className="font-mono text-xs text-(--text-tertiary)">
 									{formatMs(a.duration_ms, 1)}
 								</span>

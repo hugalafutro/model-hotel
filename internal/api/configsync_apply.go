@@ -664,7 +664,7 @@ func readAppliedSourceGen(ctx context.Context, tx pgx.Tx) (gen int64, present bo
 		debuglog.Warn("configsync: unparseable stored source generation, flooring to 0", "value", raw)
 		return 0, true, nil //nolint:nilerr // intentional: corrupt marker floors but stays present
 	}
-	if n < 0 || n > maxSourceGen {
+	if !sourceGenInRange(n) {
 		// Outside the range a primary can produce, so it was written by a forged
 		// header before the parse bound existed. Flooring it the same way a corrupt
 		// marker floors is what unpins the member: the next genuine push is no

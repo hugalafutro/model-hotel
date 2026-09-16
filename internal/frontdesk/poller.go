@@ -367,9 +367,7 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 	// was drained meanwhile, and a maintenance note is closed as one. A member
 	// re-activated while still down turns its maintenance note into the page
 	// it now deserves: the pool is routing to it again.
-	p.mu.Lock()
-	wasMaintenance := p.maintenanceDown[m.ID]
-	p.mu.Unlock()
+	wasMaintenance := p.wasMaintenanceDown(m.ID)
 	down := func(maintenance bool) {
 		ev := Event{
 			Type: "health.down", Severity: "error", Source: "frontdesk-poller",
@@ -380,13 +378,7 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 			ev.Type, ev.Severity = "health.maintenance", "info"
 			ev.Message = fmt.Sprintf("%s is unreachable while drained (%d %s)", m.Name, fails, util.Plural(fails, "check", "checks"))
 		}
-		p.mu.Lock()
-		if maintenance {
-			p.maintenanceDown[m.ID] = true
-		} else {
-			delete(p.maintenanceDown, m.ID)
-		}
-		p.mu.Unlock()
+		p.setMaintenanceDown(m.ID, maintenance)
 		p.recordEvent(ctx, ev)
 	}
 	switch {
@@ -403,9 +395,7 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 			ev.Type = "health.maintenance"
 			ev.Message = fmt.Sprintf("maintenance over: %s is healthy", m.Name)
 		}
-		p.mu.Lock()
-		delete(p.maintenanceDown, m.ID)
-		p.mu.Unlock()
+		p.setMaintenanceDown(m.ID, false)
 		p.recordEvent(ctx, ev)
 	case !hs.Healthy && fails == threshold:
 		// Crossed into confirmed-down: emit exactly once, not on every later poll.
@@ -414,6 +404,26 @@ func (p *Poller) applyHealth(ctx context.Context, m *Member, hs HealthStatus, th
 		// Still down, but back in the pool: the maintenance note becomes a page.
 		down(false)
 	}
+}
+
+// wasMaintenanceDown reports whether the member's open down episode was
+// recorded as maintenance.
+func (p *Poller) wasMaintenanceDown(memberID string) bool {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	return p.maintenanceDown[memberID]
+}
+
+// setMaintenanceDown marks the member's down episode as maintenance, or clears
+// the mark when the episode ends or becomes a page.
+func (p *Poller) setMaintenanceDown(memberID string, on bool) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if on {
+		p.maintenanceDown[memberID] = true
+		return
+	}
+	delete(p.maintenanceDown, memberID)
 }
 
 // recordEvent persists a control-plane event and publishes it on the SSE bus.

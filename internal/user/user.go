@@ -87,6 +87,18 @@ type User struct {
 	AllowedProviders *[]string `json:"allowed_providers"`
 }
 
+// BudgetSubject is the account as the budget limiter identifies it, or nil
+// when the account carries no budget. Every caller that meters or reports a
+// user's spend builds the subject here, so the kind, id and display name it
+// keys and logs on cannot drift between them.
+func (u *User) BudgetSubject() *budget.Subject {
+	b := budget.From(u.BudgetUSD, u.BudgetPeriod)
+	if b == nil {
+		return nil
+	}
+	return &budget.Subject{Kind: budget.KindUser, ID: u.ID.String(), Name: u.Username, Budget: *b}
+}
+
 // Repository provides CRUD over the users table.
 type Repository struct {
 	pool *pgxpool.Pool

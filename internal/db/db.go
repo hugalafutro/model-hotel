@@ -3,9 +3,7 @@ package db
 
 import (
 	"context"
-	"crypto/sha256"
 	"embed"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"io/fs"
@@ -206,13 +204,6 @@ func (db *DB) runMigrations(ctx context.Context) error {
 	return nil
 }
 
-// migrationChecksum is the hex SHA-256 of a migration file's text, the form
-// schema_migrations.checksum stores.
-func migrationChecksum(sql string) string {
-	sum := sha256.Sum256([]byte(sql))
-	return hex.EncodeToString(sum[:])
-}
-
 func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) {
 	tx, err := db.pool.Begin(ctx)
 	if err != nil {
@@ -220,7 +211,9 @@ func (db *DB) runMigration(ctx context.Context, name, sql string) (bool, error) 
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	checksum := migrationChecksum(sql)
+	// The hex SHA-256 of the file's text is the form schema_migrations.checksum
+	// stores.
+	checksum := util.SHA256Hex(sql)
 
 	// A row means applied; its checksum says which text was applied. NULL is a
 	// row written before checksums were recorded and adopts the current file
