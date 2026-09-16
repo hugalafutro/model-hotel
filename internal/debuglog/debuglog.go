@@ -138,6 +138,15 @@ func escapeAttrSpaces(groups []string, a slog.Attr) slog.Attr {
 	return a
 }
 
+// ScopeEnabled reports whether a Debug record in the given scope (the prefix
+// before the first ':' in a message) would survive the per-scope filter: true
+// under global Debug or when no scopes are configured, and otherwise only for
+// a listed scope. Callers building an expensive Debug value ask this first so
+// an unrelated scope does not pay for a record that is dropped.
+func ScopeEnabled(scope string) bool {
+	return globalDebug || len(enabledScopes) == 0 || enabledScopes[strings.ToLower(scope)]
+}
+
 // maybeScopeFilter wraps h with per-scope Debug filtering, but only when
 // DEBUG_LOG_SCOPES is active and global Debug is off (the one case where some
 // Debug records must be dropped). Otherwise h is returned unchanged, so the

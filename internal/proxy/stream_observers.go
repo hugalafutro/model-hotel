@@ -323,12 +323,13 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 }
 
 // fencedDebugText is an upstream-controlled short value (a response header, a
-// native finish reason) as a Debug log line may carry it: bounded, sanitized
-// and fenced against the request. The fence's first use parses the request
-// body, which the package reserves for failed attempts, so on the success path
-// the value is only built when a Debug line is emitted at all.
+// native finish reason) as a Debug log line in the proxy scope may carry it:
+// bounded, sanitized and fenced against the request. The fence's first use
+// parses the request body, which the package reserves for failed attempts, so
+// on the success path the value is only built when the line would actually be
+// written: the handler takes Debug and the proxy scope is not filtered out.
 func fencedDebugText(text string, logData *requestLogData) string {
-	if !slog.Default().Enabled(context.Background(), slog.LevelDebug) {
+	if !slog.Default().Enabled(context.Background(), slog.LevelDebug) || !debuglog.ScopeEnabled("proxy") {
 		return ""
 	}
 	return logData.fence().fenceUpstream(util.SanitizeLogBody(text, shortLogValueCap))

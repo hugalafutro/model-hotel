@@ -61,7 +61,7 @@ func TestLockReconciledTables_CoversTheTablesThisTransactionReplaces(t *testing.
 	for _, name := range held {
 		got[name] = true
 	}
-	for _, table := range []string{"providers", "virtual_keys", "users"} {
+	for _, table := range []string{"providers", "virtual_keys", "users", "settings"} {
 		if !got[table] {
 			t.Errorf("%s is reconciled in this transaction but not locked (held: %v)", table, held)
 		}
