@@ -1380,7 +1380,7 @@
       "type": "timeseries",
       "id": 21,
       "title": "Tokens/s by kind",
-      "description": "Tokens per second by kind. reasoning is the share of completion the provider reported as thinking, not a third bucket, so the lines are not stacked: prompt and completion are the whole throughput, reasoning sits inside completion.",
+      "description": "Tokens per second by kind. reasoning is the share of completion the provider reported as thinking, not a third bucket, so the lines are not stacked: prompt and completion are the whole throughput, reasoning sits inside completion. Logarithmic Y axis: prompt tokens run one to three orders of magnitude above completion and reasoning tokens, which would otherwise draw as flat lines.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1407,6 +1407,10 @@
             "stacking": {
               "mode": "none",
               "group": "A"
+            },
+            "scaleDistribution": {
+              "type": "log",
+              "log": 10
             }
           },
           "color": {
