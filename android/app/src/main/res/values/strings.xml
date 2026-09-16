@@ -159,7 +159,7 @@
     <string name="alerts_category_backups">Backups</string>
     <string name="alerts_event_health_down">Member went down</string>
     <string name="alerts_event_health_up">Member recovered</string>
-    <string name="alerts_event_health_maintenance">Drained member health change (maintenance)</string>
+    <string name="alerts_event_health_maintenance">Maintenance: drained member health or planned drain</string>
     <string name="alerts_event_config_sync_failed">Config sync failed</string>
     <string name="alerts_event_config_synced">Config synced</string>
     <string name="alerts_event_config_auto_synced">Config auto-synced</string>

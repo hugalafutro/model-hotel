@@ -24,10 +24,12 @@ var fdCatalog = []alert.EventDef{
 	// Member health: the core "is my fleet alive" signal.
 	{Type: "health.down", Category: "Health", Severity: "error", DefaultOn: true},
 	{Type: "health.up", Category: "Health", Severity: "success", DefaultOn: true},
-	// A drained member's flips: it is out of the pool on purpose (a rebuild, a
-	// hand drain), so these are maintenance notes, off by default. The down
-	// end publishes at info and the recovery at success (two ends, two rows in
-	// a notifier keyed on severity); the dot here is the opening note.
+	// Maintenance notes, off by default: a drained member's health flips (it is
+	// out of the pool on purpose) and the planned drain and re-activation a
+	// tool sends with reason=maintenance. The health pair publishes its down
+	// end at info and its recovery at success (two ends, two rows in a
+	// notifier keyed on severity); the planned flips are the operator's own
+	// actions and both stay at info. The dot here is the opening note.
 	{Type: "health.maintenance", Category: "Health", Severity: "info", DefaultOn: false},
 	// Config sync (manual wizard + auto-sync). A failed push is the headline alert.
 	// Published at info instead when the push merely timed out, which is a member

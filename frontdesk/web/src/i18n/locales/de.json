@@ -312,7 +312,7 @@
 			"event": {
 				"health_down": "Mitglied ausgefallen",
 				"health_up": "Mitglied wiederhergestellt",
-				"health_maintenance": "Zustandswechsel eines entleerten Mitglieds (Wartung)",
+				"health_maintenance": "Wartung: Zustand eines entleerten Mitglieds oder geplante Entleerung",
 				"config_sync_failed": "Config-Sync fehlgeschlagen",
 				"config_synced": "Konfiguration an ein Mitglied synchronisiert",
 				"config_auto_synced": "Auto-Sync auf die Flotte angewendet",

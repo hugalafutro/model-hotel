@@ -136,7 +136,15 @@ You have one instance at `ip1:8080`. Move it aside and let the HA stack take ove
    then converge its config from the primary via **Settings → Fleet sync wizard**.
 6. **Repeat steps 4-5 for each additional member.** Same secrets, add it with its
    admin token, run the config sync.
-7. Maintenance: drain a member in Front Desk, rebuild it, re-activate. Re-run the
+7. Maintenance: drain a member in Front Desk, rebuild it, re-activate.
+   A tool doing this on your behalf can send `{"state":"drained","reason":"maintenance"}`
+   (and the same reason on re-activation) to `POST /api/members/{id}/state`. The flips are
+   then recorded under the maintenance event type instead of "Member activated or drained",
+   so a picker that pages on hand-made drains stays quiet for planned ones; any other reason
+   is refused with a 400 carrying the code `invalid_reason`. The fleet state still reads
+   degraded while a member is drained, since routing capacity really is reduced, so "Fleet
+   state changed" fires once when the first member leaves the pool and once when the last
+   one is back. Re-run the
    config sync after any provider/key/settings change on the primary. Two floors
    guard the routing pool. The last active member cannot be drained: Front Desk
    refuses rather than empty Traefik's backend pool, so on a two-member fleet

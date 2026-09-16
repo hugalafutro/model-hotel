@@ -333,12 +333,27 @@ func (s *Server) forgetMemberState(id string) {
 
 type memberStateRequest struct {
 	State MemberState `json:"state"`
+	// Reason is why the state changes. "maintenance" marks a planned drain (the
+	// fleet rebuild tool pulls a member before recreating it and puts it back
+	// after), which is recorded as health.maintenance instead of
+	// member.state_changed, so a picker that pages on that row stays quiet for
+	// planned flips (the fleet-state row still notes the pool shrinking, since
+	// it did). Empty is recorded as member.state_changed, as before.
+	Reason string `json:"reason"`
 }
+
+// stateReasonMaintenance is the one reason a state change may carry.
+const stateReasonMaintenance = "maintenance"
 
 func (s *Server) setMemberState(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 	var req memberStateRequest
 	if !decodeJSON(w, r, &req) {
+		return
+	}
+	if req.Reason != "" && req.Reason != stateReasonMaintenance {
+		writeCodedError(w, http.StatusBadRequest, "invalid_reason",
+			"reason must be omitted or \"maintenance\"")
 		return
 	}
 	if err := s.store.SetMemberState(r.Context(), id, req.State); err != nil {
@@ -357,14 +372,24 @@ func (s *Server) setMemberState(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
-	severity := "info"
-	if req.State == StateDrained {
-		severity = "warning"
-	}
-	s.emit(r.Context(), Event{
-		Type: "member.state_changed", Severity: severity, Source: "frontdesk",
+	ev := Event{
+		Type: "member.state_changed", Severity: "info", Source: "frontdesk",
 		Message: m.Name + " set to " + string(req.State), MemberID: m.ID,
 		Metadata: map[string]any{"state": string(req.State), "initiated_by": actorFromContext(r.Context())},
-	})
+	}
+	switch {
+	case req.Reason == stateReasonMaintenance:
+		// A planned drain is a maintenance note, like the health flips the
+		// poller records for a drained member, so the same type carries it.
+		// Both halves stay at info: this is the operator's action, not an
+		// observed recovery, and the poller's own "maintenance over" note
+		// reports the member answering again.
+		ev.Type = "health.maintenance"
+		ev.Message += " for maintenance"
+		ev.Metadata["reason"] = stateReasonMaintenance
+	case req.State == StateDrained:
+		ev.Severity = "warning"
+	}
+	s.emit(r.Context(), ev)
 	writeJSON(w, http.StatusOK, m)
 }

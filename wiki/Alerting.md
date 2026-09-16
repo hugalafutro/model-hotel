@@ -141,7 +141,7 @@ Front Desk's picker carries its own set, about the fleet rather than about routi
 |---|---|---|---|
 | Member went down | Health | ✅ on | a member stops answering its health check |
 | Member recovered | Health | ✅ on | it answers again |
-| Drained member health change (maintenance) | Health | ⬜ off | a member that is drained (out of the routing pool, as the fleet rebuild tool does before recreating one) stops answering or answers again; its flips are maintenance notes, not an outage, so a planned rebuild pages nobody while an active member still does |
+| Drained member health change (maintenance) | Health | ⬜ off | a member that is drained (out of the routing pool, as the fleet rebuild tool does before recreating one) stops answering or answers again, or is drained and re-activated with the `maintenance` reason the rebuild tool sends; these are maintenance notes, not an outage, so a planned rebuild pages nobody through this row or the membership row, while an active member going down still does. "Fleet state changed" below still notes the pool shrinking and refilling once each, since routing capacity really is reduced while a member is out |
 | Fleet state changed | Health | ✅ on | the fleet crosses an ok/degraded/faulty boundary, including a forgotten drain |
 | Config sync failed | Config Sync | ✅ on | a push to a member is refused |
 | Config synced to a member | Config Sync | ⬜ off | a manual push lands |
@@ -155,7 +155,7 @@ Front Desk's picker carries its own set, about the fleet rather than about routi
 | Traefik config stale | Routing | ⬜ off | the Traefik dynamic config is out of date |
 | Member added | Membership | ⬜ off | a member joins the fleet |
 | Member removed | Membership | ⬜ off | a member leaves |
-| Member activated or drained | Membership | ⬜ off | a member is drained or brought back |
+| Member activated or drained | Membership | ⬜ off | a member is drained or brought back by hand (from the dashboard or Bellhop); a drain the rebuild tool marks as `maintenance` is recorded under the maintenance row above instead |
 | Fleet disbanded | Membership | ⬜ off | removing a member of a two-member fleet disbands the fleet (a fleet below two members cannot exist) and switches auto-sync off fleet-wide |
 | Member has no recent backup | Backups | ✅ on | a member has no database dump from the last day. Front Desk takes no snapshot of its own, so a member's scheduled dumps are the only copy of its config |
 | Member backups healthy again | Backups | ⬜ off | a fresh dump appears |
