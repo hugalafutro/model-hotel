@@ -716,9 +716,9 @@ func TestRejected2xx_ItsPromptIsStillMetered(t *testing.T) {
 	suffix := strings.TrimPrefix(env.group, "replay-")
 	scraped := scrapeMetrics(t)
 	for _, want := range []string{
-		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt",model="hotel/%s",provider="one-slot-%s"} 11`, env.group, suffix),
-		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt_cached",model="hotel/%s",provider="one-slot-%s"} 8`, env.group, suffix),
-		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt",model="hotel/%s",provider="healthy-%s"} 1`, env.group, suffix),
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt\",model=\"hotel/%s\",provider=\"one-slot-%s\"} 11\n", env.group, suffix),
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt_cached\",model=\"hotel/%s\",provider=\"one-slot-%s\"} 8\n", env.group, suffix),
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt\",model=\"hotel/%s\",provider=\"healthy-%s\"} 1\n", env.group, suffix),
 	} {
 		if !strings.Contains(scraped, want) {
 			t.Errorf("scrape missing %s", want)

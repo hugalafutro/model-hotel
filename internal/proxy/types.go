@@ -273,6 +273,17 @@ func (d *requestLogData) rejectedTotals() (prompt, cacheHit, cacheMiss int, cost
 	return prompt, cacheHit, cacheMiss, costUSD
 }
 
+// rejectedTokens sums EVERY rejected candidate's prompt figures, priced or
+// not: the metrics seam books each of them under its own provider, so the
+// serving observation must carry none of them, whichever model priced them.
+func (d *requestLogData) rejectedTokens() (prompt, cacheHit int) {
+	for _, a := range d.rejected {
+		prompt += a.prompt
+		cacheHit += a.cacheHit
+	}
+	return prompt, cacheHit
+}
+
 // requestState is the per-request scratch threaded through the ChatCompletions
 // phases (ingest, resolve, config, failover loop). It is built by ingestRequest
 // and augmented by later phases. Helpers mutate the shared pointer instance,
