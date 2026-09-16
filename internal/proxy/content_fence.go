@@ -385,3 +385,18 @@ func (f *contentFence) fenceUpstream(text string) string {
 	}
 	return text
 }
+
+// maxFrameMessageBytes bounds an SSE error frame's text. A byte count, so CJK
+// error text from MiniMax or Z.ai is cut at roughly a third of that in
+// characters. Narrower than the request log's own cap: what a frame's text is
+// for is recognising the failure.
+const maxFrameMessageBytes = 500
+
+// fencedFrameMessage prepares an SSE error frame's message for a durable
+// record: masked with the attempt's own credential, bounded and UUID-redacted
+// by SanitizeLogBody, then fenced. A provider is free to quote the operator's
+// key back inside an error, and equally free to quote the request back, so both
+// passes run wherever that text lands, on the row or in the app log.
+func fencedFrameMessage(fence *contentFence, masker credentialMasker, msg string) string {
+	return fence.fenceUpstream(util.SanitizeLogBody(string(masker.mask([]byte(msg))), maxFrameMessageBytes))
+}

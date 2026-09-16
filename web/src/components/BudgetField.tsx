@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import type { BudgetPeriod } from "../../api/types";
+import type { BudgetPeriod } from "../api/types";
 import { BUDGET_PERIODS } from "./budget";
 
 /** The bounds the amount input accepts, matching the API's. */

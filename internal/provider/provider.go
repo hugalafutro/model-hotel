@@ -44,6 +44,13 @@ type Provider struct {
 	UpdatedAt           time.Time  `json:"updated_at"`
 }
 
+// ReserveShare is QuotaReservePercent as the 0..1 fraction the reserve's
+// consumers work in (the quota gauge and the advice builder), so the two
+// cannot disagree on the unit.
+func (p *Provider) ReserveShare() float64 {
+	return float64(p.QuotaReservePercent) / 100
+}
+
 // CreateProviderRequest is the request body for creating a provider.
 type CreateProviderRequest struct {
 	Name    string `json:"name"`
@@ -671,6 +678,19 @@ func ValidateMaxInFlight(v *int) error {
 	}
 	if *v < 1 || *v > MaxInFlightCeiling {
 		return fmt.Errorf("max_in_flight must be between 1 and %d, or null for no ceiling, got %d", MaxInFlightCeiling, *v)
+	}
+	return nil
+}
+
+// ValidateQuotaReservePercent is the reserve share's rule as an error, shared
+// by every write path (the admin API and the config import) so none can admit
+// what another rejects. nil leaves the stored value alone and is fine.
+func ValidateQuotaReservePercent(v *int) error {
+	if v == nil {
+		return nil
+	}
+	if *v < 0 || *v > 90 || *v%10 != 0 {
+		return errors.New("quota_reserve_percent must be 0 or a multiple of 10 up to 90")
 	}
 	return nil
 }

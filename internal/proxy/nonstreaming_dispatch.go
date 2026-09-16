@@ -40,14 +40,20 @@ func (h *Handler) dispatchNonStreaming(w http.ResponseWriter, r *http.Request, s
 	// them, because the read between them can still fail over, and a verdict
 	// left armed on a candidate the loop has moved past would fire on the
 	// terminal row of a different one.
-	if st.anthropicNativeAttempt {
-		h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode)
-		outcome := h.handleNativeNonStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
+	//
+	// served is that tail, run by whichever handler below wrote. Not a defer:
+	// the reject between the two must not run it, since the candidate it would
+	// credit is the one the loop is leaving.
+	served := func(outcome candidateOutcome) candidateOutcome {
 		judgeAnswerNow(logData)
 		if producedOutput(logData) {
 			h.noteModelServed(candidate.model, logData.endpointType)
 		}
 		return outcome
+	}
+	if st.anthropicNativeAttempt {
+		h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode)
+		return served(h.handleNativeNonStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates))
 	}
 
 	// The body is read here rather than inside the handler, and read before
@@ -65,21 +71,13 @@ func (h *Handler) dispatchNonStreaming(w http.ResponseWriter, r *http.Request, s
 		// The provider generated this answer and billed the prompt for it, so
 		// the charge is recorded before the candidate is left behind.
 		h.meterRejectedPrompt(st, logData, ans.chat.Usage.PromptTokens)
-		outcome := h.rejectUntranslatableBody(st, candidate, logData, "chat completion", resp.StatusCode, err, attempt, r)
 		// Fully read already (or refused past the cap, where the rest is not
-		// worth draining), so the connection is released here rather than by the
-		// handler that normally owns it. After the reject, which settles the
-		// attempt's in-flight slot as the failure it is before the close can
-		// settle it as a clean success.
-		_ = resp.Body.Close()
-		return outcome
+		// worth draining), so rejectAndClose releases the connection here rather
+		// than the handler that normally owns it.
+		return h.rejectAndClose(st, candidate, logData, "chat completion", resp, err, attempt, r)
 	}
 
 	h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode)
 	h.handleNonStreamingResponse(w, r, logData, resp, ans, st.startTime, st.proxyOverhead, st.parseMs, st.timings, responseHeaderMs, st.vkHash, attempt)
-	judgeAnswerNow(logData)
-	if producedOutput(logData) {
-		h.noteModelServed(candidate.model, logData.endpointType)
-	}
-	return outcomeServed
+	return served(outcomeServed)
 }

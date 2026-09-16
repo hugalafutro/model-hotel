@@ -110,6 +110,19 @@ export async function fetchJSON<T>(
 	return response.json();
 }
 
+/** Like fetchJSON, but maps a 204 to null. The quota endpoints answer 204 with
+ * an empty body when the provider has nothing to report, which is a hidden
+ * badge rather than a failure, and `response.json()` on an empty body throws. */
+export async function fetchJSONOrNull<T>(
+	url: string,
+	options?: RequestInit,
+	errorPrefix = "Request failed",
+): Promise<T | null> {
+	const response = await fetchOK(url, options, errorPrefix);
+	if (response.status === 204) return null;
+	return response.json();
+}
+
 /** Server wall-clock (epoch ms) parsed from a response's `Date` header, or null
  * when it is absent or unparseable. The embedded dashboard is same-origin, so
  * every response exposes `Date`; it lets time-sensitive UI reason on the

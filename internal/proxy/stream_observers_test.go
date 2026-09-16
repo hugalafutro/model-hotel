@@ -244,3 +244,15 @@ func TestObserveDataChunk_ImageDeltaIsDeliveryForTheBreakerOnly(t *testing.T) {
 		t.Fatal("an empty images list counted as delivery")
 	}
 }
+
+// A relay that stamps empty reasoning markers on every frame delivers nothing
+// by them: the same emptiness rule the probe applies (util.ValueCarries), so
+// an otherwise empty stream is not committed and charged on two bytes of `[]`.
+func TestObserveDataChunk_EmptyReasoningMarkersDeliverNothing(t *testing.T) {
+	t.Parallel()
+	st := &streamState{}
+	st.observeDataChunk(parseStreamChunk(t, `{"choices":[{"delta":{"role":"assistant","content":"","reasoning":"","reasoning_details":[],"function_call":{},"audio":null}}]}`), false, 1, &requestLogData{})
+	if st.deliveredBytes != 0 || streamDeliveredOutput(st) {
+		t.Fatalf("deliveredBytes=%d delivered=%v, want 0/false", st.deliveredBytes, streamDeliveredOutput(st))
+	}
+}

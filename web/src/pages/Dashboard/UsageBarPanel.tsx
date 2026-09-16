@@ -1,6 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { Spinner } from "../../components/Spinner";
-import { formatWithCommas } from "../../utils/format";
+import {
+	formatSpend,
+	formatTokens,
+	formatWithCommas,
+} from "../../utils/format";
 import { MetricToggle, RangeToggle } from "./ToggleGroup";
 import type { MetricType, Range, UsageEntry } from "./types";
 
@@ -14,7 +18,6 @@ export function UsageBarPanel({
 	onMetricChange,
 	loading,
 	onEntryClick,
-	formatValue,
 }: {
 	title: string;
 	icon: React.ElementType;
@@ -26,12 +29,16 @@ export function UsageBarPanel({
 	loading?: boolean;
 	/** When provided, entry labels become clickable buttons that invoke this callback */
 	onEntryClick?: (label: string) => void;
-	/** Optional formatter for displayed values (e.g. formatTokens for large token counts).
-	 * When provided, the formatted value is shown in the bar, and the full value
-	 * appears in a title tooltip. */
-	formatValue?: (v: number) => string;
 }) {
 	const { t } = useTranslation();
+	// Token counts read compactly ("2B") and spend reads as money; a request
+	// count is short enough to print in full.
+	const formatValue =
+		metric === "tokens"
+			? formatTokens
+			: metric === "cost"
+				? formatSpend
+				: undefined;
 	const max = entries.length > 0 ? Math.max(...entries.map((e) => e.value)) : 0;
 
 	return (

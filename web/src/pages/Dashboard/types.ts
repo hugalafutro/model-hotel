@@ -1,6 +1,9 @@
-import type { MetricType } from "../../api/types";
+import { METRIC_TYPES, type MetricType } from "../../api/types";
 
-export type Range = "1h" | "24h" | "1w";
+/** The time windows the dashboard offers, in the order its toggle shows them. */
+export const DASHBOARD_RANGES = ["1h", "24h", "1w"] as const;
+
+export type Range = (typeof DASHBOARD_RANGES)[number];
 
 export type TimeSeriesDataPoint = {
 	hour: string;
@@ -42,3 +45,4 @@ export type UsageEntry = {
 };
 
 export type { MetricType };
+export { METRIC_TYPES };

@@ -8,6 +8,7 @@ import { useCopyToClipboard } from "../../hooks/useCopyToClipboard";
 import { useSettingsQuery } from "../../hooks/useSettingsQuery";
 import { downloadBlob } from "../../utils/download";
 import { SETTING_DEFAULTS, settingOr } from "./defaults";
+import { invalidateSettings } from "./useSettingsMutations";
 
 /**
  * Queries, mutations and the clipboard, download and restore state behind
@@ -112,7 +113,7 @@ export function useBackupActions() {
 		mutationFn: (updates: Record<string, string>) =>
 			api.settings.update(updates),
 		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ["settings"] });
+			invalidateSettings(queryClient);
 		},
 		onError: (err: Error) => {
 			toast(

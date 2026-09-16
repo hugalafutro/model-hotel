@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -575,10 +574,15 @@ func TestKeyCacheEvictionLoop_FiresPeriodically(t *testing.T) {
 
 // A tick that is already pending when the context is cancelled must not start
 // a sweep: whichever select arm wins, the loop returns without touching the
-// cache. Both arms are ready, so the choice is random per run; the repetition
-// makes each arm near certain to be exercised while the assertion holds for
-// either.
-func TestRunKeyCacheEviction_PendingTickAfterCancelSweepsNothing(t *testing.T) {
+// cache. A nanosecond TTL leaves a tick waiting by the time the loop reaches
+// its select, so both arms are ready and the choice is random per run; the
+// repetition makes each arm near certain to be exercised while the assertion
+// holds for either.
+func TestKeyCacheEvictionLoop_PendingTickAfterCancelSweepsNothing(t *testing.T) {
+	orig := getKeyCacheTTL()
+	defer SetKeyCacheTTL(orig)
+	SetKeyCacheTTL(time.Nanosecond)
+
 	keyCacheMu.Lock()
 	keyCache = map[string]cacheEntry{"expired": {plaintext: "x", expiresAt: time.Now().Add(-time.Hour)}}
 	keyCacheMu.Unlock()
@@ -588,27 +592,18 @@ func TestRunKeyCacheEviction_PendingTickAfterCancelSweepsNothing(t *testing.T) {
 		keyCacheMu.Unlock()
 	})
 
-	// The stub records instead of failing directly: a t.Error from the loop
-	// goroutine after the timeout below has ended the test would panic and
-	// mask the real failure.
-	var rearmed atomic.Bool
 	for range 32 {
 		ctx, cancel := context.WithCancel(context.Background())
 		cancel()
-		ticks := make(chan time.Time, 1)
-		ticks <- time.Now()
 		done := make(chan struct{})
 		go func() {
 			defer close(done)
-			runKeyCacheEviction(ctx, ticks, func() { rearmed.Store(true) })
+			KeyCacheEvictionLoop(ctx)
 		}()
 		select {
 		case <-done:
 		case <-time.After(time.Second):
 			t.Fatal("loop did not return after cancel")
-		}
-		if rearmed.Load() {
-			t.Fatal("rearm called after cancel")
 		}
 	}
 

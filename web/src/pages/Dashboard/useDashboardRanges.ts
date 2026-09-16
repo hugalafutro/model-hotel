@@ -1,14 +1,10 @@
 import { useEffect, useRef } from "react";
-import type { MetricType } from "../../api/types";
+import { METRIC_TYPES, type MetricType } from "../../api/types";
 import { useLocalStorage } from "../../hooks/useLocalStorage";
-import type { Range } from "./types";
+import { DASHBOARD_RANGES, type Range } from "./types";
 
-const VALID_RANGES: ReadonlySet<Range> = new Set(["1h", "24h", "1w"]);
-const VALID_METRICS: ReadonlySet<MetricType> = new Set([
-	"tokens",
-	"requests",
-	"cost",
-]);
+const VALID_RANGES: ReadonlySet<Range> = new Set(DASHBOARD_RANGES);
+const VALID_METRICS: ReadonlySet<MetricType> = new Set(METRIC_TYPES);
 
 const deserializeRange = (stored: string, fallback: Range): Range =>
 	VALID_RANGES.has(stored as Range) ? (stored as Range) : fallback;

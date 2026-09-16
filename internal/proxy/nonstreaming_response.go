@@ -46,10 +46,10 @@ func nonStreamingFailureDetail(ctx context.Context, resp *http.Response, body []
 			// is read under the attempt's context, so a caller hanging up arrives
 			// here as a read error, and reporting that as a provider fault puts
 			// someone else's cancellation on the provider's row and on its
-			// circuit. requestAbandoned is the package's spelling of which
+			// circuit. abortKind is the package's spelling of which
 			// interruptions those are.
-			if kind, aborted := cancelKind(ctx, readErr); aborted {
-				if requestAbandoned(ctx, readErr) {
+			if kind, aborted, abandoned := abortKind(ctx, readErr); aborted {
+				if abandoned {
 					detail = "the request was interrupted before the response was read"
 					return detail, detail, kind, "the request was interrupted"
 				}

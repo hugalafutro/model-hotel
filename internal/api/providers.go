@@ -177,7 +177,7 @@ func (h *Handler) ListProviders(w http.ResponseWriter, r *http.Request) {
 	// predicate the logs and stats surfaces apply, so a usage-granted user cannot
 	// read other tenants' aggregate volume off the provider list.
 	ownerFrag, ownerArgs := ownerFilterFragment(ownerScopeFromIdentity(r), 1)
-	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT rl.provider_id, SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)), MIN(rl.created_at) FROM request_logs rl WHERE rl.provider_id IS NOT NULL"+ownerFrag+" GROUP BY rl.provider_id", ownerArgs...)
+	tokenRows, err := h.dbPool.Pool().Query(r.Context(), "SELECT rl.provider_id, "+tokenSumSQL+", MIN(rl.created_at) FROM request_logs rl WHERE rl.provider_id IS NOT NULL"+ownerFrag+" GROUP BY rl.provider_id", ownerArgs...)
 	if err != nil {
 		respondError(w, "failed to query token counts", err, http.StatusInternalServerError)
 		return
@@ -383,9 +383,9 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if req.QuotaReservePercent.Set && req.QuotaReservePercent.Value != nil {
-		if v := *req.QuotaReservePercent.Value; v < 0 || v > 90 || v%10 != 0 {
-			http.Error(w, "quota_reserve_percent must be 0 or a multiple of 10 up to 90", http.StatusBadRequest)
+	if req.QuotaReservePercent.Set {
+		if err := provider.ValidateQuotaReservePercent(req.QuotaReservePercent.Value); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 	}

@@ -2,11 +2,13 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
 )
@@ -79,6 +81,29 @@ func decodeJSONLimit(w http.ResponseWriter, r *http.Request, limit int64, v any)
 // oversized one is still refused.
 func decodeJSONOptional(w http.ResponseWriter, r *http.Request, v any) bool {
 	return httpx.DecodeJSONOptional(w, r, logComponent, httpx.MaxJSONBody, v)
+}
+
+// budgetFieldsPresent reports whether a decoded body carries either half of
+// the budget pair, which is how the update handlers tell "leave the budget
+// alone" from "clear it": both keys absent means untouched.
+func budgetFieldsPresent(raw map[string]json.RawMessage) bool {
+	_, usd := raw["budget_usd"]
+	_, period := raw["budget_period"]
+	return usd || period
+}
+
+// spentFor reports a subject's spend so far in its current budget period, or
+// nil when the limiter is not wired, the account carries no budget, or the
+// figure is not known yet.
+func (h *Handler) spentFor(ctx context.Context, s *budget.Subject) *float64 {
+	if h.budgetLimiter == nil || s == nil {
+		return nil
+	}
+	spent, known := h.budgetLimiter.Spent(ctx, s)
+	if !known {
+		return nil
+	}
+	return &spent
 }
 
 // respondAbandoned answers a fleet write whose caller stopped waiting: the

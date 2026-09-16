@@ -90,10 +90,8 @@ func validateSyncedProvider(p ExportProvider) error {
 			return fmt.Errorf("%w: provider %q: scheduled_disable_on must be a YYYY-MM-DD date", errInvalidSyncedProvider, p.Name)
 		}
 	}
-	if p.QuotaReservePercent != nil {
-		if r := *p.QuotaReservePercent; r < 0 || r > 90 || r%10 != 0 {
-			return fmt.Errorf("%w: provider %q: quota_reserve_percent must be 0 or a multiple of 10 up to 90", errInvalidSyncedProvider, p.Name)
-		}
+	if err := provider.ValidateQuotaReservePercent(p.QuotaReservePercent); err != nil {
+		return fmt.Errorf("%w: provider %q: %w", errInvalidSyncedProvider, p.Name, err)
 	}
 	return nil
 }

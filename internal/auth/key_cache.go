@@ -114,23 +114,19 @@ func WarmKeyCache(encryptedKey, keyNonce, keySalt []byte, masterKey string) {
 func KeyCacheEvictionLoop(ctx context.Context) {
 	ticker := time.NewTicker(getKeyCacheTTL())
 	defer ticker.Stop()
-	runKeyCacheEviction(ctx, ticker.C, func() { ticker.Reset(getKeyCacheTTL()) })
-}
-
-// runKeyCacheEviction is the loop body behind KeyCacheEvictionLoop with the
-// tick source and the TTL re-arm injected, so a test can hand it a cancelled
-// context together with a pending tick and prove that no sweep starts.
-func runKeyCacheEviction(ctx context.Context, ticks <-chan time.Time, rearm func()) {
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticks:
+		case <-ticker.C:
+			// A tick and the cancellation can both be ready, and the select
+			// picks at random between them. Re-checking here is what makes the
+			// cancel win either way.
 			if ctx.Err() != nil {
 				return
 			}
 			evictExpiredKeyCacheEntries()
-			rearm()
+			ticker.Reset(getKeyCacheTTL())
 		}
 	}
 }

@@ -249,21 +249,25 @@ func SetProviderAuthHeaders(req *http.Request, providerType, apiKey string) {
 	}
 }
 
-// providerAuthHeaders lists every header SetProviderAuthHeaders may set. It is
-// the single source of truth for StripProviderAuthHeaders, so the two stay in
-// sync as provider auth schemes are added.
+// providerAuthHeaders lists every header this package stamps on an upstream
+// request that identifies the gateway's tenant to that upstream: everything
+// SetProviderAuthHeaders may set, plus the OpenCode Go session id, a stable
+// per-key identifier a third party has no business correlating on. It is the
+// single source of truth for StripProviderAuthHeaders, so the two stay in sync
+// as provider auth schemes are added.
 var providerAuthHeaders = []string{
 	"Authorization",
 	"anthropic-version",
 	"x-api-key",
 	"x-goog-api-key",
+	OpenCodeGoSessionHeader,
 }
 
-// StripProviderAuthHeaders removes any provider authentication headers set by
-// SetProviderAuthHeaders from req. Go's http.Client strips the standard
-// Authorization header on cross-host redirects but forwards custom headers such
-// as x-api-key and x-goog-api-key verbatim, so this must be called explicitly to
-// keep a provider credential from leaking to a redirect target.
+// StripProviderAuthHeaders removes every header in providerAuthHeaders from
+// req. Go's http.Client strips the standard Authorization header on cross-host
+// redirects but forwards custom headers such as x-api-key and x-goog-api-key
+// verbatim, so this must be called explicitly to keep a provider credential
+// from leaking to a redirect target.
 func StripProviderAuthHeaders(req *http.Request) {
 	for _, h := range providerAuthHeaders {
 		req.Header.Del(h)
@@ -330,6 +334,13 @@ func OpenCodeGoSession(clientSession, vkHash string) string {
 		return OpenCodeGoAdminSession
 	}
 	return OpenCodeGoSessionPrefix + SHA256Hex(vkHash)[:32]
+}
+
+// OpenCodeGoSessionFor is OpenCodeGoSession read off an inbound request, for
+// the ingest paths. It keeps the header's name beside the rule that validates
+// what it carries, so a caller cannot read one header and validate another.
+func OpenCodeGoSessionFor(r *http.Request, vkHash string) string {
+	return OpenCodeGoSession(r.Header.Get(OpenCodeGoSessionHeader), vkHash)
 }
 
 // isPrintableASCII reports whether every byte of s is a printable ASCII

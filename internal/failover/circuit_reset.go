@@ -69,11 +69,7 @@ func (cb *CircuitBreaker) resetModel(providerID uuid.UUID, model string) (State,
 		return StateClosed, false
 	}
 	prev := cb.logicalStateWith(c, cb.cooldowns())
-	delete(models, model)
-	if len(models) == 0 {
-		delete(cb.circuits, providerID.String())
-		delete(cb.names, providerID.String())
-	}
+	cb.dropCircuit(providerID.String(), models, model)
 	return prev, true
 }
 

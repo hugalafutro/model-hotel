@@ -139,13 +139,14 @@ func cancelOriginToKind(origin string) ErrorKind {
 	}
 }
 
-// requestAbandoned reports whether an interruption means there is nobody left to
-// serve, which is the one reason a 2xx that carried no answer is not offered to
-// a sibling. It is the single spelling of that rule, asked by every path that
-// judges an upstream body: the chat dispatch, the native Anthropic handler and
-// both pass-through halves.
+// abortKind judges an interrupted attempt once, for every path that reads an
+// upstream body: the chat dispatch, the native Anthropic handler, the
+// translation reject and both pass-through halves. aborted says the
+// interruption happened at all; abandoned says there is nobody left to serve,
+// which is the one reason a 2xx that carried no answer is not offered to a
+// sibling; kind is what the row records.
 //
-// Only two of cancelKind's kinds qualify. A caller that hung up
+// Only two of cancelKind's kinds are abandonment. A caller that hung up
 // (client_disconnect) and a hedge the winning branch superseded
 // (hedge_superseded) leave an answer nobody would read, so asking a second
 // provider would re-bill the prompt for nothing.
@@ -153,12 +154,26 @@ func cancelOriginToKind(origin string) ErrorKind {
 // This gateway's OWN per-attempt deadlines (failover_timeout, retry_timeout) are
 // the opposite case: the caller is still waiting, and a provider that answered
 // 2xx headers and then went silent until the deadline is a provider that
-// stalled. The streaming twin has always read it that way, failing the TTFT
-// probe over to the sibling and charging the stall, and a stalled body read is
-// the same event on the non-streaming side.
+// stalled, so they collapse to provider_timeout. The streaming twin reads it
+// that way, failing the TTFT probe over to the sibling and charging the stall,
+// and a stalled body read is the same event on the non-streaming side.
+func abortKind(ctx context.Context, err error) (kind ErrorKind, aborted, abandoned bool) {
+	kind, aborted = cancelKind(ctx, err)
+	switch {
+	case !aborted:
+		return "", false, false
+	case kind == KindClientDisconnect || kind == KindHedgeSuperseded:
+		return kind, true, true
+	default:
+		return KindProviderTimeout, true, false
+	}
+}
+
+// requestAbandoned is abortKind's abandonment half, for the callers that need
+// nothing else from the judgement.
 func requestAbandoned(ctx context.Context, err error) bool {
-	kind, aborted := cancelKind(ctx, err)
-	return aborted && (kind == KindClientDisconnect || kind == KindHedgeSuperseded)
+	_, _, abandoned := abortKind(ctx, err)
+	return abandoned
 }
 
 // providerLabel renders the provider name for prose, falling back to a generic

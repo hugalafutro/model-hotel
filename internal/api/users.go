@@ -65,12 +65,8 @@ func (h *Handler) fillBudgetSpent(ctx context.Context, users []*user.User) {
 		return
 	}
 	for _, u := range users {
-		b := budget.From(u.BudgetUSD, u.BudgetPeriod)
-		if b == nil {
-			continue
-		}
-		if spent, known := h.budgetLimiter.Spent(ctx, &budget.Subject{Kind: budget.KindUser, ID: u.ID.String(), Name: u.Username, Budget: *b}); known {
-			u.BudgetSpentUSD = &spent
+		if spent := h.spentFor(ctx, u.BudgetSubject()); spent != nil {
+			u.BudgetSpentUSD = spent
 		}
 	}
 }
@@ -173,9 +169,7 @@ func (req *userRequest) UnmarshalJSON(data []byte) error {
 		return err
 	}
 	_, req.allowedProvidersPresent = raw["allowed_providers"]
-	_, usdPresent := raw["budget_usd"]
-	_, periodPresent := raw["budget_period"]
-	req.budgetPresent = usdPresent || periodPresent
+	req.budgetPresent = budgetFieldsPresent(raw)
 	return nil
 }
 
@@ -223,8 +217,7 @@ func (h *Handler) CreateUser(w http.ResponseWriter, r *http.Request) {
 	if err := validateRateLimits(req.RateLimitRPS, req.RateLimitBurst, req.RateLimitTPM, w); err != nil {
 		return
 	}
-	if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
-		respondBadRequest(w, err.Error(), nil)
+	if err := validateBudget(req.BudgetUSD, req.BudgetPeriod, w); err != nil {
 		return
 	}
 	if err := h.validateNewPassword(r.Context(), req.Password); err != nil {
@@ -270,8 +263,7 @@ func (h *Handler) UpdateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if req.budgetPresent {
-		if err := budget.Validate(req.BudgetUSD, req.BudgetPeriod); err != nil {
-			respondBadRequest(w, err.Error(), nil)
+		if err := validateBudget(req.BudgetUSD, req.BudgetPeriod, w); err != nil {
 			return
 		}
 	}

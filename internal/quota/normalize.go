@@ -105,28 +105,31 @@ func noPayload(s Snapshot) bool {
 	return len(s.Payload) == 0 || bytes.Equal(bytes.TrimSpace(s.Payload), []byte("null"))
 }
 
+// quotaReaders is every window-quota provider type, each with the pair of
+// readers that speaks for it. Holding both in one entry is what keeps Assess
+// and Windows over the same set of types: a provider gains or loses quota
+// support in one place rather than in two switches that can drift apart.
+var quotaReaders = map[string]struct {
+	assess  func(json.RawMessage) Assessment
+	windows func(json.RawMessage) []Window
+}{
+	"zai-coding":  {assessZaiCoding, zaiCodingWindows},
+	"kimi-code":   {assessKimiCode, kimiCodeWindows},
+	"minimax":     {assessMiniMax, miniMaxWindows},
+	"neuralwatt":  {assessNeuralwatt, neuralwattWindows},
+	"opencode-go": {assessOpenCodeGo, openCodeGoWindows},
+}
+
 // Assess normalizes a stored quota snapshot for the circuit breaker. Only
 // window-quota provider types are supported; every other type, and every
 // unparseable payload, returns OK=false so callers fall back to their default
 // cooldown.
 func Assess(providerType string, s Snapshot) Assessment {
-	if noPayload(s) {
+	r, ok := quotaReaders[providerType]
+	if !ok || noPayload(s) {
 		return Assessment{}
 	}
-	switch providerType {
-	case "zai-coding":
-		return assessZaiCoding(s.Payload)
-	case "kimi-code":
-		return assessKimiCode(s.Payload)
-	case "minimax":
-		return assessMiniMax(s.Payload)
-	case "neuralwatt":
-		return assessNeuralwatt(s.Payload)
-	case "opencode-go":
-		return assessOpenCodeGo(s.Payload)
-	default:
-		return Assessment{}
-	}
+	return r.assess(s.Payload)
 }
 
 // zaiCodingQuotaLimit is the subset of a zai-coding limit entry the quota

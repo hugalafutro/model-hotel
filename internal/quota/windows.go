@@ -32,23 +32,11 @@ type Window struct {
 // figure the payload states and skips only what it cannot read. Provider types
 // without windows (a plain balance, an unknown type) report nothing.
 func Windows(providerType string, s Snapshot) []Window {
-	if noPayload(s) {
+	r, ok := quotaReaders[providerType]
+	if !ok || noPayload(s) {
 		return nil
 	}
-	switch providerType {
-	case "zai-coding":
-		return zaiCodingWindows(s.Payload)
-	case "kimi-code":
-		return kimiCodeWindows(s.Payload)
-	case "minimax":
-		return miniMaxWindows(s.Payload)
-	case "neuralwatt":
-		return neuralwattWindows(s.Payload)
-	case "opencode-go":
-		return openCodeGoWindows(s.Payload)
-	default:
-		return nil
-	}
+	return r.windows(s.Payload)
 }
 
 // zaiCodingWindows reports the 5-hour and weekly token windows and the MCP

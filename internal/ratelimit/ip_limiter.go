@@ -8,10 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"golang.org/x/time/rate"
-
 	"github.com/hugalafutro/model-hotel/internal/clientip"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // default IP-based rate limit values (used when no DB setting is present)
@@ -28,10 +25,9 @@ const (
 
 // settings keys for IP rate limiter (stored in DB)
 const (
-	settingsKeyIPEnabled   = "rate_limit_ip_enabled"
-	settingsKeyIPRPS       = "rate_limit_ip_rps"
-	settingsKeyIPBurst     = "rate_limit_ip_burst"
-	settingsKeyIPMaxWaitMs = "rate_limit_max_wait_ms" // shared with per-key limiter
+	settingsKeyIPEnabled = "rate_limit_ip_enabled"
+	settingsKeyIPRPS     = "rate_limit_ip_rps"
+	settingsKeyIPBurst   = "rate_limit_ip_burst"
 )
 
 // IPLimiter provides per-IP rate limiting as a DoS safety net.
@@ -138,18 +134,14 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		// that goes stale before the reservation below still leaves behind. The
 		// zero test keeps the settings read off the path of a request the
 		// bucket can serve outright.
-		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > l.maxWait(r.Context()) {
-			entry.noteRejected(ip)
-			writeRateLimitHeaders(w, entry.limiter, wait, ipLogLabel)
-			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
+		if wait := peekWait(entry.limiter, time.Now()); wait > 0 && wait > maxWaitFor(r.Context(), l.settings) {
+			reject429(w, entry, ip, wait, ipLogLabel, "rate limit exceeded")
 			return
 		}
 
 		reservation := entry.limiter.Reserve()
 		if !reservation.OK() {
-			entry.noteRejected(ip)
-			writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
-			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
+			reject429(w, entry, ip, 0, ipLogLabel, "rate limit exceeded")
 			return
 		}
 
@@ -159,7 +151,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			// sleep and proceed instead of rejecting immediately. The IP is still
 			// under pressure, so an open throttle episode stays open (only a
 			// no-delay serve below closes it).
-			if delay <= l.maxWait(r.Context()) {
+			if delay <= maxWaitFor(r.Context(), l.settings) {
 				if !waitOrCancel(r.Context(), delay) {
 					// Client left during the wait: give the budget back.
 					reservation.Cancel()
@@ -171,9 +163,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 			}
 			// Wait exceeds max_wait - cancel the reservation and reject.
 			reservation.Cancel()
-			entry.noteRejected(ip)
-			writeRateLimitHeaders(w, entry.limiter, delay, ipLogLabel)
-			util.WriteOpenAIError(w, "rate limit exceeded", http.StatusTooManyRequests)
+			reject429(w, entry, ip, delay, ipLogLabel, "rate limit exceeded")
 			return
 		}
 
@@ -183,15 +173,6 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
 		next.ServeHTTP(w, r)
 	})
-}
-
-// maxWait is how long a request may be held before the limiter gives up on it,
-// shared with the per-key limiter so one setting governs both.
-func (l *IPLimiter) maxWait(ctx context.Context) time.Duration {
-	if l.settings == nil {
-		return time.Duration(defaultMaxWaitMs) * time.Millisecond
-	}
-	return time.Duration(l.settings.GetInt(ctx, settingsKeyIPMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
 }
 
 func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
@@ -208,29 +189,7 @@ func (l *IPLimiter) getLimiter(ctx context.Context, ip string) *bucketEntry {
 
 	rps, burst = bucketRate(rps, burst)
 
-	entry, ok := l.limiters[ip]
-	switch {
-	case !ok:
-		entry = &bucketEntry{
-			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
-			rps:      rps,
-			burst:    burst,
-			lastUsed: time.Now(),
-			throttle: &throttleState{},
-			prefix:   ipLogPrefix,
-			label:    ipLogLabel,
-			budget:   l.budget,
-		}
-		l.limiters[ip] = entry
-	case entry.rps != rps || entry.burst != burst:
-		// An edit to the global IP caps used to hand every throttled address a
-		// full bucket; the bucket now carries over, see withCap.
-		entry = entry.withCap(rps, burst)
-		l.limiters[ip] = entry
-	default:
-		entry.lastUsed = time.Now()
-	}
-	return entry
+	return upsertEntry(l.limiters, ip, rps, burst, ipLogPrefix, ipLogLabel, l.budget)
 }
 
 func (l *IPLimiter) cleanup() {

@@ -232,3 +232,16 @@ export function tokensPerSecond(
 export function formatDateOnly(iso: string): string {
 	return formatDate(iso.includes("T") ? iso : `${iso}T00:00:00`);
 }
+
+/**
+ * A numeric form field as the API takes it: an empty box is the absent value,
+ * which every optional numeric field sends as null.
+ */
+export function numOrNull(value: string): number | null {
+	return value !== "" ? Number.parseFloat(value) : null;
+}
+
+/** The same for a field the API takes as a whole number. */
+export function intOrNull(value: string): number | null {
+	return value !== "" ? Number.parseInt(value, 10) : null;
+}

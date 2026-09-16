@@ -230,6 +230,19 @@ func (cb *CircuitBreaker) evictIfFull(models modelCircuits) {
 	}
 }
 
+// dropCircuit removes one model circuit from a provider's bucket and, when that
+// was the provider's last circuit, the bucket and the provider's name with it,
+// so nothing lingers for a provider the breaker no longer tracks.
+//
+// Must be called with cb.mu held for write.
+func (cb *CircuitBreaker) dropCircuit(id string, models modelCircuits, model string) {
+	delete(models, model)
+	if len(models) == 0 {
+		delete(cb.circuits, id)
+		delete(cb.names, id)
+	}
+}
+
 // cooldownReads is everything a walk over circuits needs from settings, read at
 // most once per walk. An unoverridden key has no settings row to serve from
 // cache, so each read is a DB round trip, and every walk here runs under cb.mu:

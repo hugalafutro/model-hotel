@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -76,8 +75,8 @@ func (d *DiscoveryService) discoverOpenCodeGo(ctx context.Context, provider *Pro
 func (d *DiscoveryService) GetOpenCodeGoUsage(ctx context.Context, provider *Provider, masterKey string) (*OpenCodeGoUsageResponse, error) {
 	var usage OpenCodeGoUsageResponse
 	err := d.fetchQuotaJSON(ctx, provider, masterKey, "/usage", "opencode-go", "usage", &usage, http.StatusForbidden)
-	if errorStatusCode(err) == http.StatusForbidden {
-		if openCodeGoNoSubscription(err) {
+	if httpErr := httpErrorFrom(err); httpErr != nil && httpErr.StatusCode == http.StatusForbidden {
+		if openCodeGoNoSubscription(httpErr.Body) {
 			debuglog.Info("discovery: opencode-go usage endpoint refused: no active Go subscription", "provider", provider.Name, "provider_id", provider.ID)
 			return nil, nil
 		}
@@ -100,18 +99,14 @@ func (d *DiscoveryService) GetOpenCodeGoUsage(ctx context.Context, provider *Pro
 // else, an unparseable body included, is not that claim. The type name is
 // matched case-insensitively: a casing drift upstream would otherwise turn
 // every key without a subscription into an invalid-key badge.
-func openCodeGoNoSubscription(err error) bool {
-	httpErr := &httpError{}
-	if !errors.As(err, &httpErr) {
-		return false
-	}
-	var body struct {
+func openCodeGoNoSubscription(body []byte) bool {
+	var parsed struct {
 		Error struct {
 			Type string `json:"type"`
 		} `json:"error"`
 	}
-	if json.Unmarshal(httpErr.Body, &body) != nil {
+	if json.Unmarshal(body, &parsed) != nil {
 		return false
 	}
-	return strings.EqualFold(strings.TrimSpace(body.Error.Type), "EntitlementError")
+	return strings.EqualFold(strings.TrimSpace(parsed.Error.Type), "EntitlementError")
 }

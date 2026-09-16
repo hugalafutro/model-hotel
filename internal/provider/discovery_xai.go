@@ -3,7 +3,6 @@ package provider
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"slices"
@@ -277,20 +276,13 @@ func (d *DiscoveryService) discoverXAIFromCatalog(provider *Provider) []*model.M
 // catalog. A 429 is retried by the shared discovery loop and surfaces as a
 // plain error, so it is not a no-access signal.
 func isNoAccessError(err error) bool {
-	if err == nil {
-		return false
-	}
-	httpErr := &httpError{}
-	if errors.As(err, &httpErr) {
-		return httpErr.StatusCode == http.StatusForbidden
-	}
-	return false
+	httpErr := httpErrorFrom(err)
+	return httpErr != nil && httpErr.StatusCode == http.StatusForbidden
 }
 
 // errorStatusCode extracts the HTTP status code from an httpError, or 0.
 func errorStatusCode(err error) int {
-	httpErr := &httpError{}
-	if errors.As(err, &httpErr) {
+	if httpErr := httpErrorFrom(err); httpErr != nil {
 		return httpErr.StatusCode
 	}
 	return 0

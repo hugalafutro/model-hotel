@@ -172,6 +172,11 @@ func (h *FailoverHandler) List(w http.ResponseWriter, r *http.Request) {
 // Best-effort: neither caller can act on a failure, so a broken aggregate
 // yields an empty map and every group reports 0 tokens. It is logged, because
 // a silent 0 across the whole page otherwise looks like idle traffic.
+//
+// The aggregate is unscoped by owner on purpose: every failover route is
+// mounted inside requireAdmin, and admin sees all traffic. Should a failover
+// read ever become grant-reachable, this query must adopt ownerFilterFragment
+// like the other request_logs aggregates.
 func (h *FailoverHandler) getTokenCounts(ctx context.Context) map[string]int {
 	counts := make(map[string]int)
 	rows, err := h.dbPool.Query(ctx, `

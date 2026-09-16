@@ -1,4 +1,4 @@
-import { isQuotaPayloadSpent } from "@web-shared/quota";
+import { isQuotaPayloadSpent, windowPct } from "@web-shared/quota";
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import type {
@@ -29,12 +29,6 @@ import {
 	type QuotaBarMode,
 } from "../utils/quota";
 import type { Translate } from "./quota/shared";
-
-/** Renders one window percentage, or "-" when that window is not reported. */
-function windowPct(pct: number | undefined, mode: QuotaBarMode): string {
-	if (pct == null) return "-";
-	return `${(mode === "remaining" ? 100 - pct : pct).toFixed(0)}%`;
-}
 
 interface BadgeContent {
 	label: string;

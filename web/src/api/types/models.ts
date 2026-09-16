@@ -48,7 +48,15 @@ export interface Model {
 	last_seen_at: string;
 }
 
-export type PriceSource = "provider" | "catalog" | "modelsdev" | "manual";
+/** Every provenance a stored price can carry. */
+export const PRICE_SOURCES = [
+	"provider",
+	"catalog",
+	"modelsdev",
+	"manual",
+] as const;
+
+export type PriceSource = (typeof PRICE_SOURCES)[number];
 
 export interface PriceSources {
 	input?: PriceSource;

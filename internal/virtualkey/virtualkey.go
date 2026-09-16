@@ -38,6 +38,18 @@ type VirtualKey struct {
 	Owner *Owner `json:"-"`
 }
 
+// BudgetSubject is the key as the budget limiter identifies it, or nil when
+// the key carries no budget. Every caller that meters or reports a key's spend
+// builds the subject here, so the kind, id and display name it keys and logs
+// on cannot drift between them.
+func (k *VirtualKey) BudgetSubject() *budget.Subject {
+	b := budget.From(k.BudgetUSD, k.BudgetPeriod)
+	if b == nil {
+		return nil
+	}
+	return &budget.Subject{Kind: budget.KindKey, ID: k.ID.String(), Name: k.Name, Budget: *b}
+}
+
 // Owner is the slice of the owning users row the proxy needs: whether the
 // account is enabled, its aggregate per-user limits, and its provider cap.
 type Owner struct {

@@ -208,9 +208,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			// a provider fault; fail over like any other malformed upstream.
 			// Closed after the verdict: readCappedBody left the upstream close,
 			// which settles the in-flight slot, to whoever judges the bytes.
-			outcome := h.rejectUntranslatableBody(st, candidate, logData, "responses api", resp.StatusCode, err, attempt, r)
-			_ = resp.Body.Close()
-			return outcome
+			return h.rejectAndClose(st, candidate, logData, "responses api", resp, err, attempt, r)
 		}
 	}
 	if st.geminiAttempt {
@@ -218,9 +216,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = gemini.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, gemini.BuildChatCompletion); err != nil {
-			outcome := h.rejectUntranslatableBody(st, candidate, logData, "gemini", resp.StatusCode, err, attempt, r)
-			_ = resp.Body.Close()
-			return outcome
+			return h.rejectAndClose(st, candidate, logData, "gemini", resp, err, attempt, r)
 		}
 	}
 	if st.anthropicEgressAttempt {
@@ -228,9 +224,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		if st.isStreaming {
 			resp.Body = anthropicegress.NewStreamAdapter(resp.Body, st.reqModel)
 		} else if err := translateEgressResponseBody(resp, st.reqModel, anthropicegress.BuildChatCompletion); err != nil {
-			outcome := h.rejectUntranslatableBody(st, candidate, logData, "anthropic egress", resp.StatusCode, err, attempt, r)
-			_ = resp.Body.Close()
-			return outcome
+			return h.rejectAndClose(st, candidate, logData, "anthropic egress", resp, err, attempt, r)
 		}
 	}
 	if st.isStreaming {
@@ -266,11 +260,10 @@ func classifyProbeError(probeErr error, providerName string, masker credentialMa
 	var frameErr *upstreamFrameError
 	if errors.As(probeErr, &frameErr) {
 		// This text is durable: on the last candidate it becomes the request
-		// log's error_message, which the virtual key's owner can read. So it
-		// is masked (a provider is free to quote the key back inside its
-		// error) and fenced (it is also free to quote the request back), the
-		// same treatment every other path gives provider text bound for a row.
-		return answered(fence.fenceUpstream(util.SanitizeLogBody(string(masker.mask([]byte(frameErr.msg))), 500)))
+		// log's error_message, which the virtual key's owner can read, and it
+		// reaches the app log as this attempt's "error" attribute. Both are why
+		// fencedFrameMessage runs here rather than at the row's own write.
+		return answered(fencedFrameMessage(fence, masker, frameErr.msg))
 	}
 	var emptyErr *emptyStreamError
 	if errors.As(probeErr, &emptyErr) {

@@ -210,7 +210,10 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	if contentType == "" {
 		contentType = "application/octet-stream"
 	}
-	isSSE := strings.HasPrefix(contentType, "text/event-stream")
+	// Judged case-insensitively, as bodyMayCarryJSON judges below; the header
+	// itself is echoed to the client as sent.
+	ct := strings.ToLower(contentType)
+	isSSE := strings.HasPrefix(ct, "text/event-stream")
 	// An embeddings, rerank or image-generation answer is JSON by definition,
 	// so it takes the buffered branch whatever an aggregator or CDN in front of
 	// the provider labelled it. Letting the content type decide sends an
@@ -218,15 +221,16 @@ func (h *Handler) servePassthroughResponse(w http.ResponseWriter, r *http.Reques
 	// cannot judge what it never holds, so `{"data":[]}` is eleven bytes that
 	// clear the streak, credit the circuit and route around the check
 	// passthroughAnswered exists to make. A body the provider itself declared
-	// binary is left to the streamed twin: nothing JSON is expected inside it.
-	// Judged on the header as sent, since a missing one reads as octet-stream
-	// above and is exactly the case the forcing exists for.
+	// binary is left to the streamed twin: nothing JSON is expected inside it,
+	// which is bodyMayCarryJSON's question. Judged on the header as sent, since
+	// a missing one reads as octet-stream above and is exactly the case the
+	// forcing exists for.
 	judged := false
 	switch st.logData.endpointType {
 	case endpointTypeEmbeddings, endpointTypeRerank, endpointTypeImage:
-		judged = !strings.HasPrefix(declared, "image/") && !strings.HasPrefix(declared, "audio/") && !strings.HasPrefix(declared, "application/octet-stream")
+		judged = bodyMayCarryJSON(declared)
 	}
-	isJSON := !isSSE && (strings.Contains(contentType, "json") || judged)
+	isJSON := !isSSE && (strings.Contains(ct, "json") || judged)
 
 	if isJSON {
 		return h.serveBufferedJSONPassthrough(w, r, st, candidate, resp, contentType, attempt, responseHeaderMs, hasMoreCandidates)
@@ -386,10 +390,7 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// under which the zero-prompt families pay nothing, and
 		// /images/variations has no prompt field at all while four b64_json
 		// images clear the 8 MiB cap routinely.
-		// The charge runs first: its estimate prices the row the terminal
-		// write stamps.
-		estimated, _ := h.chargePassthroughUsage(st, 0, 0, answered)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, "completed", "")
+		estimated, _ := h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, 0, 0, answered, "completed", "")
 		debuglog.Info("proxy: passthrough completed (oversized json)", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "estimated_prompt_tokens", estimated)
 		return outcomeServed
 	}
@@ -413,11 +414,8 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	// sibling branch above handles. Reported figures always win; the estimate
 	// fills a total absence, and only for the prompt, for the same reason the
 	// oversized branch does not size a response of vectors or base64 as text.
-	// The charge runs before the terminal write so its estimate prices the
-	// row too; the log records what the provider measured, which may be
-	// nothing.
-	charged, estimatedPrompt := h.chargePassthroughUsage(st, promptTokens, completionTokens, answered)
-	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
+	// The log records what the provider measured, which may be nothing.
+	charged, estimatedPrompt := h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, answered, "completed", "")
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", len(body), "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
 	return outcomeServed
 }
@@ -469,6 +467,23 @@ func (h *Handler) chargePassthroughUsage(st *requestState, promptTokens, complet
 		h.recordTokenUsage(st.vkHash, logData, chargePrompt, chargeCompletion, 0)
 	}
 	return chargePrompt + chargeCompletion, estimated
+}
+
+// completePassthrough ends a pass-through request: the quota charge, then the
+// terminal request-log write. Every pass-through branch finishes through here,
+// so the order is stated once instead of at each of them.
+//
+// The order is the point. chargePassthroughUsage estimates a prompt the
+// provider did not report and stores it on the log entry, and the terminal
+// write is what prices the row from it, so a write that ran first would stamp a
+// row the dollar budget then charges against nothing.
+//
+// Returns what was charged and whether the prompt was estimated, for the log
+// line the caller writes.
+func (h *Handler) completePassthrough(st *requestState, statusCode, attempt int, responseHeaderMs float64, promptTokens, completionTokens int, delivered bool, state, errMsg string) (charged int, estimated bool) {
+	charged, estimated = h.chargePassthroughUsage(st, promptTokens, completionTokens, delivered)
+	h.finalizePassthroughLog(st, statusCode, attempt, responseHeaderMs, promptTokens, completionTokens, state, errMsg)
+	return charged, estimated
 }
 
 // serveStreamedPassthrough handles SSE and binary shapes: probe the first body
@@ -589,16 +604,11 @@ func (h *Handler) serveStreamedPassthrough(w http.ResponseWriter, r *http.Reques
 		// stayed to receive it. Bytes reached the client, so an absent usage
 		// report is estimated rather than treated as free. This is the path
 		// audio/mpeg takes, where the SSE tail that would carry usage is never
-		// allocated, so the report is structurally always absent. The charge
-		// runs first, as on the buffered path: its estimate is what prices the
-		// row the terminal write stamps, and the dollar budget is charged from
-		// that price.
-		h.chargePassthroughUsage(st, promptTokens, completionTokens, written > 0)
-		h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "failed", errMsg)
+		// allocated, so the report is structurally always absent.
+		h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, written > 0, "failed", errMsg)
 		return outcomeServed
 	}
-	charged, estimatedPrompt := h.chargePassthroughUsage(st, promptTokens, completionTokens, written > 0)
-	h.finalizePassthroughLog(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, "completed", "")
+	charged, estimatedPrompt := h.completePassthrough(st, resp.StatusCode, attempt, responseHeaderMs, promptTokens, completionTokens, written > 0, "completed", "")
 	debuglog.Info("proxy: passthrough completed", "endpoint", logData.endpointType, "model", logData.modelID, "provider", logData.providerName, "attempt", attempt, "status", resp.StatusCode, "bytes", written, "sse", isSSE, "prompt_tokens", promptTokens, "completion_tokens", completionTokens, "charged_tokens", charged, "prompt_estimated", estimatedPrompt)
 	return outcomeServed
 }

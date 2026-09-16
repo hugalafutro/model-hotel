@@ -4,6 +4,7 @@ import {
 	XIcon,
 } from "@phosphor-icons/react";
 import { clamp } from "@web-shared/format";
+import { windowPct } from "@web-shared/quota";
 import type { ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { barTone, type QuotaBarMode } from "../../utils/quota";
@@ -265,7 +266,5 @@ export function quotaRightText(
 	barMode: QuotaBarMode,
 	t: Translate,
 ): string {
-	return barMode === "used"
-		? `${used.toFixed(0)}% ${t("quota.modal.used")}`
-		: `${(100 - used).toFixed(0)}% ${t("quota.modal.left")}`;
+	return `${windowPct(used, barMode)} ${t(barMode === "used" ? "quota.modal.used" : "quota.modal.left")}`;
 }

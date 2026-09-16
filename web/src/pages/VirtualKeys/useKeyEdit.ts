@@ -3,7 +3,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { api } from "../../api/client";
 import type { BudgetPeriod, VirtualKey } from "../../api/types";
+import { budgetPayload } from "../../components/budget";
 import { useIdentity } from "../../context/IdentityContext";
+import { intOrNull, numOrNull } from "../../utils/format";
 import { allowedProvidersOf, useProviderCap } from "./useProviderCap";
 
 /**
@@ -172,11 +174,10 @@ export function useKeyEdit({
 		}
 		updateMutation.mutate({
 			name: editName.trim(),
-			rate_limit_rps: editRps !== "" ? parseFloat(editRps) : null,
-			rate_limit_burst: editBurst !== "" ? parseInt(editBurst, 10) : null,
-			rate_limit_tpm: editTpm !== "" ? parseInt(editTpm, 10) : null,
-			budget_usd: editBudgetUsd !== "" ? parseFloat(editBudgetUsd) : null,
-			budget_period: editBudgetUsd !== "" ? editBudgetPeriod : null,
+			rate_limit_rps: numOrNull(editRps),
+			rate_limit_burst: intOrNull(editBurst),
+			rate_limit_tpm: intOrNull(editTpm),
+			...budgetPayload(editBudgetUsd, editBudgetPeriod),
 			...(allowedProviders !== undefined
 				? { allowed_providers: allowedProviders }
 				: {}),

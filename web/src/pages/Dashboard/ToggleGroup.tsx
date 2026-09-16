@@ -1,5 +1,10 @@
 import { useTranslation } from "react-i18next";
-import type { MetricType, Range } from "./types";
+import {
+	DASHBOARD_RANGES,
+	METRIC_TYPES,
+	type MetricType,
+	type Range,
+} from "./types";
 
 // ToggleGroup is the shared button-group shell behind the dashboard's small
 // segmented toggles. It is generic over the option type so each toggle only has
@@ -59,7 +64,7 @@ export function RangeToggle({
 	};
 	return (
 		<ToggleGroup
-			options={["1h", "24h", "1w"] as const}
+			options={DASHBOARD_RANGES}
 			value={value}
 			onChange={onChange}
 			getLabel={(r) => labels[r]}
@@ -91,7 +96,7 @@ export function MetricToggle({
 	};
 	return (
 		<ToggleGroup
-			options={["tokens", "requests", "cost"] as const}
+			options={METRIC_TYPES}
 			value={value}
 			onChange={onChange}
 			getLabel={(m) => labels[m]}

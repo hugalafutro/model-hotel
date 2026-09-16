@@ -80,9 +80,9 @@ func (h *Handler) collectBreakerStates() []metrics.BreakerState {
 	return out
 }
 
-// quotaScrapeTimeout bounds each read a scrape makes for the breaker and quota
-// gauges: a provider list for each and the snapshot list, three in all.
-// A scrape that waits on a slow database would hold Prometheus past its own
+// quotaScrapeTimeout bounds each gauge collector's database work: one deadline
+// for the breaker collector's provider list, one shared by the quota
+// collector's provider list and snapshot list. A scrape that waits on a slow database would hold Prometheus past its own
 // deadline and fail the whole page, breaker gauge included, so the quota
 // series drop out for that scrape instead.
 const quotaScrapeTimeout = 3 * time.Second
@@ -146,7 +146,7 @@ func (h *Handler) collectQuotaWindows() []metrics.QuotaWindow {
 				Window:       w.Name,
 				Used:         w.Used,
 				ResetsAt:     w.ResetsAt,
-				Reserve:      float64(p.QuotaReservePercent) / 100,
+				Reserve:      p.ReserveShare(),
 			})
 		}
 	}

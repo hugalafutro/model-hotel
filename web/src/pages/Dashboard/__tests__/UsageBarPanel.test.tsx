@@ -3,7 +3,6 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { Users } from "@/lib/icons";
 import { renderWithProviders } from "../../../test/utils";
-import { formatTokens } from "../../../utils/format";
 import type { Range, UsageEntry } from "../types";
 import { UsageBarPanel } from "../UsageBarPanel";
 
@@ -350,7 +349,7 @@ describe("UsageBarPanel", () => {
 		expect(screen.getByText("1,000,000")).toBeInTheDocument();
 	});
 
-	it("uses formatValue formatter when provided", () => {
+	it("shortens a token count and keeps the exact figure in its title", () => {
 		const largeEntries: UsageEntry[] = [
 			{ label: "Tokens", value: 2_036_596_592 },
 		];
@@ -359,31 +358,28 @@ describe("UsageBarPanel", () => {
 			<UsageBarPanel
 				{...defaultProps}
 				entries={largeEntries}
-				formatValue={formatTokens}
+				metric="tokens"
 			/>,
 		);
 
-		expect(screen.getByText("2B")).toBeInTheDocument();
+		const valueElement = screen.getByTitle("2,036,596,592");
+		expect(valueElement.textContent).toContain("2B");
 	});
 
-	it("shows full value in title attribute when formatValue is provided", () => {
-		const largeEntries: UsageEntry[] = [
-			{ label: "Tokens", value: 2_036_596_592 },
-		];
-
+	it("shows spend in full, with no title, because a rounded price reads as 0", () => {
 		renderWithProviders(
 			<UsageBarPanel
 				{...defaultProps}
-				entries={largeEntries}
-				formatValue={formatTokens}
+				entries={[{ label: "Spend", value: 12.5 }]}
+				metric="cost"
 			/>,
 		);
 
-		const valueElement = screen.getByText("2B");
-		expect(valueElement).toHaveAttribute("title", "2,036,596,592");
+		const valueElement = screen.getByText("$12.50");
+		expect(valueElement).not.toHaveAttribute("title");
 	});
 
-	it("does not show title attribute when formatValue is not provided", () => {
+	it("does not show title attribute on a panel with no metric", () => {
 		const entries: UsageEntry[] = [{ label: "Requests", value: 100 }];
 
 		renderWithProviders(<UsageBarPanel {...defaultProps} entries={entries} />);
@@ -392,7 +388,7 @@ describe("UsageBarPanel", () => {
 		expect(valueElement).not.toHaveAttribute("title");
 	});
 
-	it("uses formatValue for multiple entries with different magnitudes", () => {
+	it("shortens every entry and titles each with its exact figure", () => {
 		const entries: UsageEntry[] = [
 			{ label: "Small", value: 500 },
 			{ label: "Medium", value: 15000 },
@@ -400,36 +396,12 @@ describe("UsageBarPanel", () => {
 		];
 
 		renderWithProviders(
-			<UsageBarPanel
-				{...defaultProps}
-				entries={entries}
-				formatValue={formatTokens}
-			/>,
+			<UsageBarPanel {...defaultProps} entries={entries} metric="tokens" />,
 		);
 
-		expect(screen.getByText("500")).toBeInTheDocument();
-		expect(screen.getByText("15K")).toBeInTheDocument();
-		expect(screen.getByText("3.5M")).toBeInTheDocument();
-	});
-
-	it("shows full comma-separated values in title for all entries when formatValue is provided", () => {
-		const entries: UsageEntry[] = [
-			{ label: "Small", value: 500 },
-			{ label: "Medium", value: 15000 },
-			{ label: "Large", value: 3_500_000 },
-		];
-
-		renderWithProviders(
-			<UsageBarPanel
-				{...defaultProps}
-				entries={entries}
-				formatValue={formatTokens}
-			/>,
-		);
-
-		expect(screen.getByText("500")).toHaveAttribute("title", "500");
-		expect(screen.getByText("15K")).toHaveAttribute("title", "15,000");
-		expect(screen.getByText("3.5M")).toHaveAttribute("title", "3,500,000");
+		expect(screen.getByTitle("500").textContent).toContain("500");
+		expect(screen.getByTitle("15,000").textContent).toContain("15K");
+		expect(screen.getByTitle("3,500,000").textContent).toContain("3.5M");
 	});
 
 	it("renders RangeToggle component", () => {

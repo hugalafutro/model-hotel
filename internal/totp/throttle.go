@@ -1,24 +1,24 @@
 package totp
 
 import (
-	"crypto/sha256"
 	"sync"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // maxThrottleEntries bounds the in-memory key map so a key-rotating attacker
 // cannot grow it without limit; once exceeded, expired entries are swept.
 const maxThrottleEntries = 4096
 
-// digest reduces a caller's key to a fixed 32 bytes. Callers key on values that
-// arrive from the network (a client address, or the username field of an
+// digest reduces a caller's key to a fixed-width hash. Callers key on values
+// that arrive from the network (a client address, or the username field of an
 // unauthenticated login body, which is only bounded by the JSON body limit), and
 // the map holds an entry until a later failure sweeps it. Hashing means an
 // entry costs the same whatever the caller passed, and keys stay opaque: the map
 // only ever compares them.
 func digest(key string) string {
-	sum := sha256.Sum256([]byte(key))
-	return string(sum[:])
+	return util.SHA256Hex(key)
 }
 
 // Throttle applies per-key exponential backoff to repeated failures, layered on

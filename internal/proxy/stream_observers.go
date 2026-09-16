@@ -102,8 +102,9 @@ func (st *streamState) flushAccumulatedError(what string, chunkCount int, logDat
 	st.errAccum = nil
 }
 
-// errLogAttr prepares provider error text for an application-log attribute:
-// masked, then bounded.
+// errLogAttr prepares provider error text for an application-log attribute,
+// through the same mask, bound and fence the probe's classifier gives the
+// identical text bound for a row.
 //
 // The app log is a different audience and a different store from the request log
 // (the live log viewer, the app-logs API, the OTLP export), and provider error
@@ -111,17 +112,10 @@ func (st *streamState) flushAccumulatedError(what string, chunkCount int, logDat
 // to whatever length it likes. The observers also run BEFORE the stream's
 // masking block, so the text they hold is otherwise unscrubbed.
 //
-// 500 bytes, matching the probe's error sanitizer rather than the request log's
-// 10000: a log attribute is for recognising the failure, and the full text is
-// already on the row. SanitizeLogBody's limit is a byte count, so CJK error text
-// from MiniMax or Z.ai is cut at roughly a third of that in characters. It also
-// redacts UUIDs, so a provider echoing a request id back inside its error does
-// not put one in the app log.
-//
 // A zero-value masker (a keyless local provider) masks by shape only, as every
 // other site on those paths does.
 func (st *streamState) errLogAttr(msg string) string {
-	return st.content.fenceUpstream(util.SanitizeLogBody(string(st.masker.mask([]byte(msg))), 500))
+	return fencedFrameMessage(st.content, st.masker, msg)
 }
 
 // repeatedContentLimit is the consecutive-identical-content threshold (P2-5) at
@@ -244,34 +238,36 @@ func (st *streamState) observeDataChunk(chunk streamChunk, anthropicErrorCounted
 	// Every choice is delivered output, so the byte count covers all of them (an
 	// n>1 stream is billed for every choice), unlike the observers below, which
 	// watch choices[0] only.
-	for _, choice := range chunk.Choices {
-		if choice.Text != nil {
-			st.deliveredBytes += len(*choice.Text)
+	//
+	// countStr takes the output shapes modelled as a string pointer, where the
+	// member being present at all is the delivery. countRaw takes the ones left
+	// as raw JSON, where it is not: util.ValueCarries is the package's reading
+	// of an empty member, shared with the probe so delivery counts what the
+	// probe commits the stream on (a relay's `"reasoning_details":[]` on every
+	// frame is presence, not delivery, and would otherwise commit an empty
+	// stream; ValueCarries answers the empty literals without a parse).
+	countStr := func(s *string) {
+		if s != nil {
+			st.deliveredBytes += len(*s)
 		}
+	}
+	countRaw := func(raw json.RawMessage) {
+		if util.ValueCarries(raw) {
+			st.deliveredBytes += len(raw)
+		}
+	}
+	for _, choice := range chunk.Choices {
+		countStr(choice.Text)
 		if choice.Delta == nil {
 			continue
 		}
-		if choice.Delta.Refusal != nil {
-			st.deliveredBytes += len(*choice.Delta.Refusal)
-		}
-		if util.ValueCarries(choice.Delta.Audio) {
-			st.deliveredBytes += len(choice.Delta.Audio)
-		}
-		if util.ValueCarries(choice.Delta.FunctionCall) {
-			st.deliveredBytes += len(choice.Delta.FunctionCall)
-		}
-		if choice.Delta.Content != nil {
-			st.deliveredBytes += len(*choice.Delta.Content)
-		}
-		if choice.Delta.ReasoningContent != nil {
-			st.deliveredBytes += len(*choice.Delta.ReasoningContent)
-		}
-		if choice.Delta.Reasoning != nil {
-			st.deliveredBytes += len(*choice.Delta.Reasoning)
-		}
-		if rd := choice.Delta.ReasoningDetails; len(rd) > 0 && string(rd) != "null" {
-			st.deliveredBytes += len(rd)
-		}
+		countStr(choice.Delta.Refusal)
+		countStr(choice.Delta.Content)
+		countStr(choice.Delta.ReasoningContent)
+		countStr(choice.Delta.Reasoning)
+		countRaw(choice.Delta.Audio)
+		countRaw(choice.Delta.FunctionCall)
+		countRaw(choice.Delta.ReasoningDetails)
 		for _, tc := range choice.Delta.ToolCalls {
 			if tc.Function != nil {
 				st.deliveredBytes += len(tc.Function.Name) + len(tc.Function.Arguments)

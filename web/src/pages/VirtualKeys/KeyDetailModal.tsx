@@ -14,6 +14,8 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { VirtualKey } from "../../api/types";
+import { BudgetField } from "../../components/BudgetField";
+import { budgetText } from "../../components/budget";
 import { ConfirmDeleteButton } from "../../components/ConfirmDeleteButton";
 import { ConfirmDialog } from "../../components/ConfirmDialog";
 import { CopyablePill } from "../../components/CopyablePill";
@@ -22,8 +24,6 @@ import { DetailItem } from "../../components/LogDetailItem";
 import { Modal } from "../../components/Modal";
 import { Toggle } from "../../components/Toggle";
 import { formatNumber } from "../../utils/format";
-import { BudgetField } from "./BudgetField";
-import { budgetText } from "./budget";
 import { ProviderAccessPicker } from "./ProviderAccessPicker";
 import { RateLimitField } from "./RateLimitField";
 import { SectionHeader } from "./SectionHeader";

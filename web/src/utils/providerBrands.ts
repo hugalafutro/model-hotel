@@ -1,3 +1,5 @@
+import { QUOTA_PREFIXES } from "@web-shared/quota";
+
 /** Provider brand keys - union type for compile-time safety. */
 export type ProviderBrand =
 	| "anthropic"
@@ -55,26 +57,20 @@ export const PROVIDER_BRAND_COLORS: Record<ProviderBrand, string> = {
 	"vertex-express": "#4285F4",
 } as const;
 
-/** Short display prefixes for quota badges in the sidebar. */
+/** Short display prefixes, one per brand. The quota providers take theirs from
+ *  the shared map Front Desk renders its pills from, so the same provider keeps
+ *  the same prefix in both apps; the rest are dashboard-only. */
 export const PROVIDER_PREFIXES: Record<ProviderBrand, string> = {
-	nanogpt: "NG",
-	"zai-coding": "ZAI",
-	"kimi-code": "KIMI",
-	minimax: "MMX",
-	deepseek: "DS",
-	openrouter: "OR",
+	...QUOTA_PREFIXES,
 	anthropic: "AC",
 	openai: "OA",
 	google: "GEM",
 	xai: "XAI",
 	ollama: "OLL",
-	"ollama-cloud": "OLC",
 	cohere: "COH",
 	lmstudio: "LM",
 	koboldcpp: "KC",
 	opencode: "OC",
-	"opencode-go": "OCG",
-	neuralwatt: "NW",
 	bedrock: "AWS",
 	azure: "AZ",
 	"vertex-express": "VX",

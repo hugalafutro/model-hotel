@@ -186,11 +186,7 @@ func (cb *CircuitBreaker) retireIfSeeded(id string, models modelCircuits, model 
 	if model != seededModel {
 		return
 	}
-	delete(models, model)
-	if len(models) == 0 {
-		delete(cb.circuits, id)
-		delete(cb.names, id)
-	}
+	cb.dropCircuit(id, models, model)
 }
 
 // ApplyQuotaPins retargets the cooldown of every already-open circuit whose
@@ -408,6 +404,11 @@ func (cb *CircuitBreaker) seedQuotaPin(after *afterUnlock, providerID uuid.UUID,
 // under a pin that speaks for the whole account. That is the state seeding
 // produces, so a provider already in it needs no seeded circuit: the derived
 // provider verdict darkens every one of its models off that circuit.
+//
+// Deliberately not derived from providerReport: that walk ends in a span
+// settings read, and this one runs inside ApplyQuotaPins' per-provider loop
+// under cb.mu held for write, where a cold cache turns a settings read into a
+// DB round trip (the same reason quotaPinMax is hoisted out of that loop).
 //
 // Must be called with cb.mu held (read lock suffices).
 func (cb *CircuitBreaker) accountPinned(models modelCircuits, r *cooldownReads) bool {

@@ -1,6 +1,7 @@
 package ratelimit
 
 import (
+	"context"
 	"math"
 	"net/http"
 	"strconv"
@@ -12,6 +13,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
+	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // throttleState is the shared edge-triggered throttle bookkeeping used by both
@@ -173,6 +175,44 @@ func bucketRate(rps float64, burst int) (float64, int) {
 	return rps, burst
 }
 
+// upsertEntry returns the bucket id holds in entries: a new one under the given
+// identity when there is none, the stored one republished under the new cap when
+// it no longer matches, and otherwise the stored one with its idle clock reset.
+// A cap change carries the bucket over rather than handing the identity a fresh
+// full one, see withCap. The caller holds the owning limiter's mutex.
+func upsertEntry(entries map[string]*bucketEntry, id string, rps float64, burst int, prefix, label, budget string) *bucketEntry {
+	entry, ok := entries[id]
+	switch {
+	case !ok:
+		entry = &bucketEntry{
+			limiter:  rate.NewLimiter(rate.Limit(rps), burst),
+			rps:      rps,
+			burst:    burst,
+			lastUsed: time.Now(),
+			throttle: &throttleState{},
+			prefix:   prefix,
+			label:    label,
+			budget:   budget,
+		}
+		entries[id] = entry
+	case entry.rps != rps || entry.burst != burst:
+		entry = entry.withCap(rps, burst)
+		entries[id] = entry
+	default:
+		entry.lastUsed = time.Now()
+	}
+	return entry
+}
+
+// maxWaitFor is how long a request may be held before a limiter gives up on it.
+// One setting governs the per-key and the per-IP stage.
+func maxWaitFor(ctx context.Context, s SettingsReader) time.Duration {
+	if s == nil {
+		return time.Duration(defaultMaxWaitMs) * time.Millisecond
+	}
+	return time.Duration(s.GetInt(ctx, settingsKeyMaxWaitMs, defaultMaxWaitMs)) * time.Millisecond
+}
+
 // peekWait reports how long a bucket needs before it can hand out one token,
 // without taking anything. A reservation answers the same question, but it
 // charges for the answer and gives the charge back only while no later
@@ -245,4 +285,14 @@ func writeRateLimitHeaders(w http.ResponseWriter, lim *rate.Limiter, retryAfter 
 	if retryAfter > 0 {
 		httpx.SetRetryAfter(w, retryAfter)
 	}
+}
+
+// reject429 answers one request in the name of the bucket that could not serve
+// it: the throttle episode is noted, the rate-limit headers carry the retry
+// hint, and msg is the body. scope names the stage that refused, empty on a
+// surface that has only one.
+func reject429(w http.ResponseWriter, by *bucketEntry, id string, retryAfter time.Duration, scope, msg string) {
+	by.noteRejected(id)
+	writeRateLimitHeaders(w, by.limiter, retryAfter, scope)
+	util.WriteOpenAIError(w, msg, http.StatusTooManyRequests)
 }

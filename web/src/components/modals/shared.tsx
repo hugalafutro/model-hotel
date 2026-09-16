@@ -1,4 +1,5 @@
 /* eslint-disable react-refresh/only-export-components -- bar colour helpers exported beside the quota bar components that use them */
+import { windowPct } from "@web-shared/quota";
 import { useTranslation } from "react-i18next";
 import { ArrowLeftRight, RefreshCw } from "@/lib/icons";
 import { useTheme } from "../../context/ThemeContext";
@@ -52,9 +53,7 @@ export function usedLeftText(
 	barMode: QuotaBarMode,
 	t: (key: string) => string,
 ): string {
-	return barMode === "used"
-		? `${usedPct.toFixed(0)}% ${t("components.providerModals.used")}`
-		: `${(100 - usedPct).toFixed(0)}% ${t("components.providerModals.left")}`;
+	return `${windowPct(usedPct, barMode)} ${t(barMode === "used" ? "components.providerModals.used" : "components.providerModals.left")}`;
 }
 
 /** "resets <timestamp>\n<time until>" for a window's reset time. */

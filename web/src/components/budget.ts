@@ -1,9 +1,20 @@
 import type { TFunction } from "i18next";
-import type { BudgetPeriod, VirtualKey } from "../../api/types";
-import { formatSpend } from "../../utils/format";
+import type { BudgetPeriod, VirtualKey } from "../api/types";
+import { formatSpend, numOrNull } from "../utils/format";
 
 /** The calendar windows a budget can run over, as the API spells them. */
 export const BUDGET_PERIODS: BudgetPeriod[] = ["day", "week", "month"];
+
+/** The budget half of a key or user payload; no amount means no budget. */
+export function budgetPayload(
+	amount: string,
+	period: BudgetPeriod,
+): { budget_usd: number | null; budget_period: BudgetPeriod | null } {
+	return {
+		budget_usd: numOrNull(amount),
+		budget_period: amount !== "" ? period : null,
+	};
+}
 
 /** "$3.25 of $25.00 this month", for a key or a user that has a budget. */
 export function budgetText(

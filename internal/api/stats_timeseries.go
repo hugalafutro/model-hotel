@@ -26,10 +26,10 @@ func (h *StatsHandler) GetTimeSeries(w http.ResponseWriter, r *http.Request) {
 		SELECT
 			to_char(` + spec.expr + `, 'YYYY-MM-DD"T"HH24:MI:SS') || 'Z' as bucket,
 			COUNT(*) as count,
-			SUM(COALESCE(rl.tokens_prompt, 0) + COALESCE(rl.tokens_completion, 0)) as tokens,
+			` + tokenSumSQL + ` as tokens,
 			SUM(COALESCE(rl.tokens_prompt_cache_hit, 0)) as tokens_cache_hit,
 			SUM(COALESCE(rl.tokens_prompt_cache_miss, 0)) as tokens_cache_miss,
-			COALESCE(SUM(rl.cost_usd), 0) as cost_usd,
+			` + costSumSQL + ` as cost_usd,
 			COUNT(*) FILTER (WHERE rl.status_code >= 400 OR rl.status_code = 0) as errors,
 			COALESCE(AVG(rl.duration_ms) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as latency,
 			COALESCE(AVG(COALESCE(rl.proxy_overhead_ms, 0)) FILTER (WHERE rl.status_code > 0 AND rl.status_code < 400), 0) as overhead_ms,

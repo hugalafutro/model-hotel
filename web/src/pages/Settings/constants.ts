@@ -1,3 +1,8 @@
+import {
+	clearCachedData,
+	hasCachedData,
+	QUOTA_QUERY_KEYS,
+} from "@/hooks/useQuotaData";
 import { Monitor, Sparkles, Terminal } from "@/lib/icons";
 
 // The three UI styles the Appearance card offers. i18nKey is the stem under
@@ -20,38 +25,15 @@ export const UI_STYLES = [
 	},
 ];
 
-// Every localStorage key useQuotaData mirrors a provider payload into, so
-// "clear provider cache" leaves none behind and the count is the whole set.
-const PROVIDER_CACHE_KEYS = [
-	"model-hotel:nanogpt-usage",
-	"model-hotel:zai-coding-usage",
-	"model-hotel:kimi-code-usage",
-	"model-hotel:minimax-usage",
-	"model-hotel:deepseek-balance",
-	"model-hotel:openrouter-balance",
-	"model-hotel:ollama-cloud-account",
-	"model-hotel:neuralwatt-quota",
-	"model-hotel:opencode-go-usage",
-] as const;
-
-function hasCacheKey(key: string): boolean {
-	try {
-		return localStorage.getItem(key) !== null;
-	} catch {
-		return false;
-	}
-}
-
+// Every provider payload useQuotaData mirrors into localStorage lives under
+// one of its query keys, so "clear provider cache" leaves none behind and the
+// count is the whole set.
 export function getProviderCacheCount(): number {
-	return PROVIDER_CACHE_KEYS.filter(hasCacheKey).length;
+	return QUOTA_QUERY_KEYS.filter((key) => hasCachedData(key)).length;
 }
 
 export function clearProviderCache() {
-	for (const key of PROVIDER_CACHE_KEYS) {
-		try {
-			localStorage.removeItem(key);
-		} catch {
-			/* ignore */
-		}
+	for (const key of QUOTA_QUERY_KEYS) {
+		clearCachedData(key);
 	}
 }

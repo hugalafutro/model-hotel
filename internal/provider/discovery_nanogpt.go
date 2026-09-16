@@ -70,16 +70,10 @@ func (d *DiscoveryService) discoverNanoGPT(ctx context.Context, provider *Provid
 		// Pricing fields are optional: a nil (omitted) price stays nil so it is not
 		// marked live and can't overwrite a stored value with 0 on a partial
 		// response; a present value (including a real 0) is taken as authoritative.
-		inPricePerMill := m.Pricing.Prompt
-		outPricePerMill := m.Pricing.Completion
 		// A negative figure is not a price; JSON cannot carry NaN or Inf, but the
 		// same guard keeps every path to a stored price honest.
-		if !model.Priceable(inPricePerMill) {
-			inPricePerMill = nil
-		}
-		if !model.Priceable(outPricePerMill) {
-			outPricePerMill = nil
-		}
+		inPricePerMill := model.PriceOrNil(m.Pricing.Prompt)
+		outPricePerMill := model.PriceOrNil(m.Pricing.Completion)
 
 		models = append(models, &model.Model{
 			ID:                    uuid.New(),

@@ -273,11 +273,21 @@ func (e *httpError) Error() string {
 // view; the full masked body stays in the debuglog line at the call site.
 // Anything that is not an *httpError passes through unchanged.
 func statusOnly(err error) error {
-	httpErr := &httpError{}
-	if errors.As(err, &httpErr) {
+	if httpErr := httpErrorFrom(err); httpErr != nil {
 		return &httpError{StatusCode: httpErr.StatusCode}
 	}
 	return err
+}
+
+// httpErrorFrom reaches the *httpError in a chain, or nil when there is none.
+// Every caller that branches on an upstream status walks the chain through it,
+// so one that wants both the status and the body unwraps once.
+func httpErrorFrom(err error) *httpError {
+	httpErr := &httpError{}
+	if errors.As(err, &httpErr) {
+		return httpErr
+	}
+	return nil
 }
 
 // maskedError is a transport error whose text has been scrubbed of what the

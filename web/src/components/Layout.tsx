@@ -11,6 +11,7 @@ import { useCircuitBreakerStatus } from "./layout/useCircuitBreakerStatus";
 import { useDiscrepancyModal } from "./layout/useDiscrepancyModal";
 import { useLogout } from "./layout/useLogout";
 import { useNavigation } from "./layout/useNavigation";
+import { LOG_PAGE_MAX_W } from "./logTableWidths";
 import { ModelDiscrepancyModal } from "./ModelDiscrepancyModal";
 import { QuotaModalsHost } from "./QuotaModalsHost";
 
@@ -84,9 +85,10 @@ export function Layout({ children }: LayoutProps) {
 			<main className="flex-1 ui-main overflow-auto">
 				{/* The request log's thirteen fitted columns need more than the
 				    80rem every other page reads well at, so that route alone gets
-				    a wider column instead of a horizontal scrollbar. */}
+				    a wider column instead of a horizontal scrollbar. The width
+				    lives beside the column widths it has to clear. */}
 				<div
-					className={`p-2 mx-auto h-full ${wideContent ? "max-w-[88rem]" : "max-w-7xl"}`}
+					className={`p-2 mx-auto h-full ${wideContent ? LOG_PAGE_MAX_W : "max-w-7xl"}`}
 				>
 					<ReadOnlyBanner />
 					{children}

@@ -210,16 +210,9 @@ func scanProvider(ctx context.Context, deps discoveryDeps, discoverySvc *provide
 		return false, false
 	}
 
-	// Enrich models with data from models.dev.
-	if cache := provider.GetModelsDevCache(); cache != nil {
-		if enriched := cache.EnrichModels(models, provider.TypeOf(p)); enriched > 0 {
-			debuglog.Info("discovery: enriched models from models.dev", "enriched", enriched, "total", len(models), "provider", p.Name)
-		}
+	if enriched := provider.EnrichAndNormalize(p, models); enriched > 0 {
+		debuglog.Info("discovery: enriched models from models.dev", "enriched", enriched, "total", len(models), "provider", p.Name)
 	}
-	// Runs unconditionally: modality arrays and the derived endpoint
-	// class must be consistent even when models.dev is unreachable.
-	provider.NormalizeModels(models)
-	provider.ReportUnpricedModels(p.Name, models)
 	result.ModelsDiscovered += len(models)
 
 	// Snapshot pre-scan state so background metadata/membership changes

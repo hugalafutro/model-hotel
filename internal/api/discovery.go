@@ -590,20 +590,13 @@ func publishFetchedAndEnrich(prov *provider.Provider, models []*model.Model) {
 		Metadata: map[string]any{"provider": prov.Name, "count": len(models)},
 	})
 
-	if cache := provider.GetModelsDevCache(); cache != nil {
-		enriched := cache.EnrichModels(models, provider.TypeOf(prov))
-		if enriched > 0 {
-			events.Publish(events.Event{
-				Type:     "discovery.enriched",
-				Severity: "info",
-				Source:   "discovery",
-				Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
-				Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
-			})
-		}
+	if enriched := provider.EnrichAndNormalize(prov, models); enriched > 0 {
+		events.Publish(events.Event{
+			Type:     "discovery.enriched",
+			Severity: "info",
+			Source:   "discovery",
+			Message:  fmt.Sprintf("Enriched %d/%d models from models.dev catalogue", enriched, len(models)),
+			Metadata: map[string]any{"provider": prov.Name, "enriched": enriched, "total": len(models)},
+		})
 	}
-	// Runs unconditionally: modality arrays and the derived endpoint class
-	// must be consistent even when models.dev is unreachable.
-	provider.NormalizeModels(models)
-	provider.ReportUnpricedModels(prov.Name, models)
 }

@@ -1,4 +1,6 @@
+import { useTranslation } from "react-i18next";
 import { Info } from "@/lib/icons";
+import { priceSourceKey } from "../utils/model";
 
 interface InfoHintProps {
 	/** Tooltip text shown on hover (native title attribute). */
@@ -30,5 +32,26 @@ export function InfoHint({
 		>
 			<Info size={size} />
 		</span>
+	);
+}
+
+/**
+ * The "(i)" beside a price, naming where the backend got that price from.
+ * Every price the dashboard shows says its source, so the
+ * `models.priceSource.*` key prefix is spelled here and nowhere else.
+ */
+export function PriceSourceHint({
+	source,
+	className,
+}: {
+	source: string | undefined;
+	className?: string;
+}) {
+	const { t } = useTranslation();
+	return (
+		<InfoHint
+			tooltip={t(`models.priceSource.${priceSourceKey(source)}`)}
+			className={className}
+		/>
 	);
 }

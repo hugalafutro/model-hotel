@@ -305,23 +305,19 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	debuglog.Warn("proxy: upstream body translation failed", "adapter", adapter, "error", err, "model", logData.modelID, "provider", logData.providerName)
 	// The translators read the body under the attempt's context, so a request
 	// nobody is waiting for arrives here as a translation failure and is not the
-	// provider's doing. requestAbandoned is the one place that says which
-	// interruptions those are: this gateway's own per-attempt deadline is not one
-	// of them, and a provider that went silent under it is charged for the stall
-	// exactly as the TTFT probe charges its own.
+	// provider's doing. abortKind is the one place that says which interruptions
+	// those are: this gateway's own per-attempt deadline is not one of them, and
+	// a provider that went silent under it is charged for the stall exactly as
+	// the TTFT probe charges its own.
 	//
 	// The kind follows the same split, and is the kind the last candidate
 	// records for the same event (nonStreamingFailureDetail), so a stall reads
 	// as provider_timeout wherever in the group it happened and an abandoned
 	// read keeps the interruption that ended it.
-	kind := KindProviderError
-	if cancelled, aborted := cancelKind(r.Context(), err); aborted {
-		kind = KindProviderTimeout
-		if requestAbandoned(r.Context(), err) {
-			kind = cancelled
-		}
+	kind, aborted, abandoned := abortKind(r.Context(), err)
+	if !aborted {
+		kind = KindProviderError
 	}
-	abandoned := requestAbandoned(r.Context(), err)
 	if !abandoned && translationIsProviderFault(err) {
 		h.chargeBreaker(st, candidate, status, "upstream body could not be translated")
 	}
@@ -355,6 +351,21 @@ func (h *Handler) rejectUntranslatableBody(st *requestState, candidate modelCand
 	// the shared place so a later caller cannot inherit the bug.
 	logData.judgeAnswer = nil
 	return outcomeFailover
+}
+
+// rejectAndClose is rejectUntranslatableBody for the callers that have already
+// finished with the upstream body, which is every caller that read it whole:
+// the responses, gemini and anthropic egress translations, the gemini reshaped
+// answers, and the chat dispatch.
+//
+// The order is the point. The reject settles the attempt's in-flight slot as
+// the failure it is, and only then is the body closed; a close that lands first
+// settles the slot clean off the 2xx and grows the provider's learned in-flight
+// window on the strength of an answer the client never saw.
+func (h *Handler) rejectAndClose(st *requestState, candidate modelCandidate, logData *requestLogData, adapter string, resp *http.Response, err error, attempt int, r *http.Request) candidateOutcome {
+	outcome := h.rejectUntranslatableBody(st, candidate, logData, adapter, resp.StatusCode, err, attempt, r)
+	_ = resp.Body.Close()
+	return outcome
 }
 
 // meterRejectedPrompt charges the prompt a candidate reported before its 2xx was

@@ -37,21 +37,22 @@ type miniMaxRestoredBody struct {
 	io.Closer
 }
 
-// miniMaxEnvelopePossible reports whether a 200 with this content type could
-// carry a base_resp envelope, and so whether it is worth reading any of it.
+// bodyMayCarryJSON reports whether a 200 with this content type could hold a
+// JSON document worth reading: a MiniMax base_resp envelope, or the embeddings,
+// rerank and image answers the pass-through buffers to judge and to meter.
 //
 // A deny-list rather than a "must say json" allow-list. The types below cannot
-// contain an envelope and must not be read: SSE carries none by protocol, and
-// the multimodal pass-through routes audio, image and octet-stream answers
+// hold one and must not be read: SSE carries none by protocol, and the
+// multimodal pass-through routes audio, image, video and octet-stream answers
 // through here, where buffering to look for a field the content type says is not
 // there would defeat the streaming that path exists to do. A missing, empty or
 // text/plain content type says nothing about the body, and an intermediary
-// returning the envelope under one of those is the empty-200-forwarded-as-success
-// bug this function exists to fix — an allow-list would quietly restore it.
+// returning JSON under one of those is the empty-200-forwarded-as-success bug
+// this function exists to fix; an allow-list would quietly restore it.
 //
 // Reading a little of an unlabelled body is cheap because the read is bounded
 // and prepended back: the worst case is 64 KiB held for one envelope check.
-func miniMaxEnvelopePossible(contentType string) bool {
+func bodyMayCarryJSON(contentType string) bool {
 	ct := strings.ToLower(strings.TrimSpace(contentType))
 	switch {
 	case strings.Contains(ct, "text/event-stream"),
@@ -86,7 +87,7 @@ func remapMiniMaxBusinessError(providerType, providerName string, resp *http.Res
 	if resp == nil || providerType != "minimax" || !servedSuccessStatus(resp.StatusCode) {
 		return resp
 	}
-	if !miniMaxEnvelopePossible(resp.Header.Get("Content-Type")) {
+	if !bodyMayCarryJSON(resp.Header.Get("Content-Type")) {
 		return resp
 	}
 

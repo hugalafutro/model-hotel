@@ -69,43 +69,34 @@ func DampenOpenRouterPriceJitter(providerType string, snapshot map[string]ModelS
 		if !ok {
 			continue
 		}
-		// A damped price is the stored one, so its source is the stored one's
-		// too: the scan's label must not land on a figure it did not write. A
-		// stored price with no source (written before sources were recorded)
-		// keeps the scan's label instead, since the scan reported the same
-		// figure within tolerance and a blank would never be filled otherwise.
-		if withinPriceTolerance(prev.inputPrice, m.InputPricePerMillion) {
-			logPriceDamped(m.ModelID, "input_price", prev.inputPrice, m.InputPricePerMillion)
-			m.InputPricePerMillion = prev.inputPrice
-			if prev.priceSources.Input != "" {
-				m.PriceSources.Input = prev.priceSources.Input
-			}
-		}
-		if withinPriceTolerance(prev.outputPrice, m.OutputPricePerMillion) {
-			logPriceDamped(m.ModelID, "output_price", prev.outputPrice, m.OutputPricePerMillion)
-			m.OutputPricePerMillion = prev.outputPrice
-			if prev.priceSources.Output != "" {
-				m.PriceSources.Output = prev.priceSources.Output
-			}
-		}
-		if withinPriceTolerance(prev.inputPriceCache, m.InputPricePerMillionCacheHit) {
-			logPriceDamped(m.ModelID, "input_price_cache", prev.inputPriceCache, m.InputPricePerMillionCacheHit)
-			m.InputPricePerMillionCacheHit = prev.inputPriceCache
-			if prev.priceSources.CacheHit != "" {
-				m.PriceSources.CacheHit = prev.priceSources.CacheHit
-			}
-		}
+		dampPrice(m.ModelID, "input_price", prev.inputPrice, &m.InputPricePerMillion, prev.priceSources.Input, &m.PriceSources.Input)
+		dampPrice(m.ModelID, "output_price", prev.outputPrice, &m.OutputPricePerMillion, prev.priceSources.Output, &m.PriceSources.Output)
+		dampPrice(m.ModelID, "input_price_cache", prev.inputPriceCache, &m.InputPricePerMillionCacheHit, prev.priceSources.CacheHit, &m.PriceSources.CacheHit)
 	}
 }
 
-// logPriceDamped records (at debug level, so it is silent unless DEBUG_LOG is on)
-// that a sub-tolerance OpenRouter price wiggle was kept fill-only, so an operator
-// can see why a freshly discovered price did not overwrite the stored one.
-func logPriceDamped(modelID, field string, stored, fresh *float64) {
+// dampPrice replaces one freshly discovered price with the stored value when
+// the two sit within priceRelTolerance, and logs it at debug level (silent
+// unless DEBUG_LOG is on) so an operator can see why the fresh figure did not
+// land.
+//
+// A damped price is the stored one, so its source is the stored one's too: the
+// scan's label must not land on a figure it did not write. A stored price with
+// no source (written before sources were recorded) keeps the scan's label
+// instead, since the scan reported the same figure within tolerance and a
+// blank would never be filled otherwise.
+func dampPrice(modelID, field string, stored *float64, fresh **float64, storedSrc string, freshSrc *string) {
+	if !withinPriceTolerance(stored, *fresh) {
+		return
+	}
 	debuglog.Debug("discovery: openrouter price within tolerance, kept stored value",
 		"model_id", modelID, "field", field,
-		"stored", floatPtrVal(stored), "discovered", floatPtrVal(fresh),
+		"stored", floatPtrVal(stored), "discovered", floatPtrVal(*fresh),
 		"tolerance", priceRelTolerance)
+	*fresh = stored
+	if storedSrc != "" {
+		*freshSrc = storedSrc
+	}
 }
 
 // floatPtrVal dereferences a price pointer for logging, reporting nil as -1 (no

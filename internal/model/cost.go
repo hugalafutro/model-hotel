@@ -28,6 +28,16 @@ func Priceable(p *float64) bool {
 	return p != nil && !math.IsInf(*p, 0) && *p >= 0
 }
 
+// PriceOrNil passes a priceable figure through and turns anything else into the
+// absent price it counts as, so a discovery driver stores "no price" rather
+// than a figure no reader can use.
+func PriceOrNil(p *float64) *float64 {
+	if !Priceable(p) {
+		return nil
+	}
+	return p
+}
+
 // CostUSD prices usage at the model's stored per-million prices. ok is false
 // when the model holds no priceable input or output price (absent, or a figure
 // Priceable refuses), in which case the cost is unknown rather than zero.

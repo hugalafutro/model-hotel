@@ -23,8 +23,8 @@ func TestThrottle_KeysAreBounded(t *testing.T) {
 		t.Fatalf("entries = %d, want 1", len(th.entries))
 	}
 	for k := range th.entries {
-		if len(k) != 32 {
-			t.Errorf("stored key is %d bytes, want the 32 byte digest", len(k))
+		if len(k) != 64 {
+			t.Errorf("stored key is %d bytes, want the 64 character digest", len(k))
 		}
 	}
 }
