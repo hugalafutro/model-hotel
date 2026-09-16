@@ -149,6 +149,10 @@ type requestLogData struct {
 	// charged records that the row's cost reached the budget stage, so a
 	// second terminal write for the same request cannot charge it again.
 	charged bool
+	// metricsBooked records that the row's tokens and request reached the
+	// Prometheus seam, so the repair path's second terminal write does not
+	// count them again.
+	metricsBooked bool
 	// estimatedPrompt and estimatedCompletion are what estimateMissingUsage
 	// added on top of the provider's figures for the serving hop when it
 	// reported none: the row is priced by the provider's counts plus these,
@@ -157,6 +161,16 @@ type requestLogData struct {
 	// tokensPrompt also carries the prompt a walked group's rejected earlier
 	// candidate billed. The token columns keep the provider's figures.
 	estimatedPrompt, estimatedCompletion int
+	// rejected holds every earlier candidate that answered 2xx without an
+	// answer and was failed over, with the prompt it billed and that prompt
+	// priced at ITS model's rates. Their tokens are also folded into the token
+	// columns above (the row reports what the request cost), so the serving
+	// candidate's own share is the column total minus rejectedTotals() (the
+	// priced ones; an unpriced hop stays in the serving share), the terminal
+	// write prices that share at the serving model and adds the rejected
+	// costs (terminalCostParts), and the metrics seam books each rejected
+	// attempt under its own provider, with the row's model label, once per row.
+	rejected []rejectedAttempt
 	// startedAt is when the request arrived, the period its row belongs to
 	// for the budget charge (request_logs.created_at is stamped on insert).
 	startedAt time.Time
@@ -227,6 +241,47 @@ type modelCandidate struct {
 	model    *model.Model
 	provider *provider.Provider
 	apiKey   string
+}
+
+// rejectedAttempt is one failed-over 2xx candidate's charge: what it billed and
+// what that costs at its own model's prices. priced is false when that model
+// carries no usable prices; that prompt is then priced with the serving
+// share instead (rejectedTotals).
+type rejectedAttempt struct {
+	providerName                string
+	prompt, cacheHit, cacheMiss int
+	costUSD                     float64
+	priced                      bool
+}
+
+// rejectedTotals sums the PRICED rejected candidates' prompt figures and
+// costs: the part of the token columns priced at its own model. A rejected
+// candidate whose model carries no prices is left out, so its prompt stays in
+// the serving share and is priced at the serving model, the rate every walked
+// prompt took before per-candidate pricing; dropping the row's whole cost for
+// one unpriced hop would let a walked group spend against a budget for free.
+func (d *requestLogData) rejectedTotals() (prompt, cacheHit, cacheMiss int, costUSD float64) {
+	for _, a := range d.rejected {
+		if !a.priced {
+			continue
+		}
+		prompt += a.prompt
+		cacheHit += a.cacheHit
+		cacheMiss += a.cacheMiss
+		costUSD += a.costUSD
+	}
+	return prompt, cacheHit, cacheMiss, costUSD
+}
+
+// rejectedTokens sums EVERY rejected candidate's prompt figures, priced or
+// not: the metrics seam books each of them under its own provider, so the
+// serving observation must carry none of them, whichever model priced them.
+func (d *requestLogData) rejectedTokens() (prompt, cacheHit int) {
+	for _, a := range d.rejected {
+		prompt += a.prompt
+		cacheHit += a.cacheHit
+	}
+	return prompt, cacheHit
 }
 
 // requestState is the per-request scratch threaded through the ChatCompletions

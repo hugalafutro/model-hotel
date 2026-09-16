@@ -121,7 +121,7 @@ func (h *Handler) handleNativeNonStreaming(w http.ResponseWriter, r *http.Reques
 	if canFailOver && !answered {
 		// Charged before the candidate is left behind: the provider read this
 		// prompt and billed it, whoever ends up serving the request.
-		h.meterRejectedPrompt(st, logData, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens)
+		h.meterRejectedPrompt(st, logData, candidate, inputTokens, usage.CacheHitTokens, usage.CacheMissTokens)
 		return h.rejectUntranslatableBody(st, candidate, logData, "native anthropic", resp.StatusCode, errEmptyCompletion, attempt, r)
 	}
 

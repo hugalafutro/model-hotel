@@ -710,6 +710,20 @@ func TestRejected2xx_ItsPromptIsStillMetered(t *testing.T) {
 	if prompt, cached := rowPromptSplit(t, "hotel/"+env.group); prompt != 12 || cached != 8 {
 		t.Errorf("row prompt/cached = %d/%d, want 12/8 (the rejected candidate's 11 with 8 cached, plus the sibling's 1)", prompt, cached)
 	}
+	// The metrics seam books each hop under the provider that billed it, with
+	// the row's model label: 11 (8 cached) under the rejected one-slot
+	// provider, 1 under the sibling that served.
+	suffix := strings.TrimPrefix(env.group, "replay-")
+	scraped := scrapeMetrics(t)
+	for _, want := range []string{
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt\",model=\"hotel/%s\",provider=\"one-slot-%s\"} 11\n", env.group, suffix),
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt_cached\",model=\"hotel/%s\",provider=\"one-slot-%s\"} 8\n", env.group, suffix),
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt\",model=\"hotel/%s\",provider=\"healthy-%s\"} 1\n", env.group, suffix),
+	} {
+		if !strings.Contains(scraped, want) {
+			t.Errorf("scrape missing %s", want)
+		}
+	}
 	// The key's counter and the TPM bucket take the same charge through
 	// recordTokenUsage: 11 for the rejected prompt, 3 for the served answer.
 	if got := keyTokensUsed(t, env.keyHash); got != 14 {

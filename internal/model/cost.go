@@ -45,10 +45,9 @@ func PriceOrNil(p *float64) *float64 {
 // one and the input price otherwise; completion tokens, reasoning included,
 // take the output price.
 //
-// The prompt can exceed the cache split: a failover group that rejected an
-// earlier candidate's 2xx adds that candidate's prompt to the row, while the
-// split is the serving candidate's alone. The excess takes the input price,
-// so every prompt token the row carries is priced.
+// The prompt can exceed the cache split (a provider that reports a total but
+// no split, or only part of one). The excess takes the input price, so every
+// prompt token the caller passes is priced.
 func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
 	if m == nil || !Priceable(m.InputPricePerMillion) || !Priceable(m.OutputPricePerMillion) {
 		return 0, false

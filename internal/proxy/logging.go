@@ -26,20 +26,39 @@ func isTerminalLogState(state string) bool {
 	return state == "completed" || state == "failed"
 }
 
-// terminalCost prices a finished request from the model that served it. Not
-// ok when the request never reached a provider, the model is unpriced, or
-// the row is not terminal yet (the interim streaming write runs before usage
-// arrives, and a zero stamped there would outlive a crash).
+// terminalCost prices a finished request: the serving candidate's share at
+// the model that served it plus the priced rejected candidates' prompts at
+// their own models (terminalCostParts).
 func (logEntry *requestLogData) terminalCost() (float64, bool) {
+	serving, rejected, ok := logEntry.terminalCostParts()
+	return serving + rejected, ok
+}
+
+// terminalCostParts prices a finished request in its two halves: the serving
+// candidate's own share of the token columns (the columns minus what priced
+// rejected candidates billed) at the model that served it, and what each
+// priced rejected earlier candidate's prompt cost at its own model. Not ok
+// when the request never reached a provider, the serving model is unpriced,
+// or the row is not terminal yet (the interim streaming write runs before
+// usage arrives, and a zero stamped there would outlive a crash). servedModel
+// is kept through exhaustion, so a group that rejected every candidate still
+// prices here: the serving share is then zero tokens and the row costs what
+// the rejected reads did.
+func (logEntry *requestLogData) terminalCostParts() (serving, rejected float64, ok bool) {
 	if !isTerminalLogState(logEntry.state) {
-		return 0, false
+		return 0, 0, false
 	}
-	return logEntry.servedModel.CostUSD(model.Usage{
-		Prompt:          logEntry.tokensPrompt + logEntry.estimatedPrompt,
-		PromptCacheHit:  logEntry.tokensPromptCacheHit,
-		PromptCacheMiss: logEntry.tokensPromptCacheMiss,
+	rPrompt, rHit, rMiss, rCost := logEntry.rejectedTotals()
+	serving, ok = logEntry.servedModel.CostUSD(model.Usage{
+		Prompt:          logEntry.tokensPrompt - rPrompt + logEntry.estimatedPrompt,
+		PromptCacheHit:  logEntry.tokensPromptCacheHit - rHit,
+		PromptCacheMiss: logEntry.tokensPromptCacheMiss - rMiss,
 		Completion:      logEntry.tokensCompletion + logEntry.estimatedCompletion,
 	})
+	if !ok {
+		return 0, 0, false
+	}
+	return serving, rCost, true
 }
 
 // updateLogOption configures updateRequestLog behavior.
@@ -230,11 +249,11 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 	// so "unknown" never reads as "free", and NULL until the row is terminal:
 	// the interim streaming write runs before usage arrives, and a zero it
 	// stamped would outlive a crash, since stale cleanup rewrites only the
-	// state. Priced at what the last dispatched model carried when this row
-	// was written; a later price edit leaves history alone. One model prices
-	// the whole row: a prompt a walked group charged for a rejected earlier
-	// candidate takes the final candidate's prices, not the prices of the
-	// member that billed it.
+	// state. Priced at what the models carried when this row was written; a
+	// later price edit leaves history alone. The serving model prices its own
+	// share; a prompt a walked group charged for a rejected earlier candidate
+	// takes that candidate's own prices when it has them and the serving
+	// model's otherwise (terminalCostParts).
 	var cost any
 	if c, ok := logEntry.terminalCost(); ok {
 		cost = c
@@ -399,26 +418,54 @@ func (h *Handler) updateRequestLog(logEntry *requestLogData, opts ...updateLogOp
 
 	// Publish the request lifecycle event for terminal states.
 	if isTerminalLogState(logEntry.state) {
-		// The single Prometheus recording seam: every terminal request passes
-		// through here exactly once with its provider/model/status/tokens. The
-		// cost is booked only by the write that stored it, so the counter and
-		// request_logs.cost_usd agree row for row.
-		metrics.Record(metrics.Observation{
-			Provider:           logEntry.providerName,
-			Model:              metricModelLabel(logEntry.modelID, logEntry.errorKind),
-			StatusCode:         logEntry.statusCode,
-			ErrorKind:          string(logEntry.errorKind),
-			DurationSeconds:    logEntry.durationMs / 1000.0,
-			TTFTSeconds:        logEntry.ttftMs / 1000.0,
-			Streaming:          logEntry.streaming,
-			PromptTokens:       logEntry.tokensPrompt,
-			CompletionTokens:   logEntry.tokensCompletion,
-			ReasoningTokens:    logEntry.tokensCompletionReasoning,
-			PromptCachedTokens: logEntry.tokensPromptCacheHit,
-			CostUSD:            cost,
-			Priced:             priced && chargedNow,
-			FailoverProviders:  logEntry.failoverProviders(),
-		})
+		// The single Prometheus recording seam: every stored terminal row
+		// passes through here once with its provider/model/status/tokens. Once,
+		// and only for a write that landed: the repair path runs the update
+		// twice and a second terminal write for the same request can follow a
+		// failed one, and the counters are meant to agree with request_logs
+		// row for row (a write that stored nothing counts nothing, the same
+		// row later stored counts once). The cost is booked by the write that
+		// charged it: a priced rejected earlier candidate's prompt goes under
+		// the provider that billed it at the price it was rejected at, and the
+		// terminal observation carries the serving share, the two halves
+		// terminalCostParts priced.
+		booked := err == nil && rows > 0 && !logEntry.metricsBooked
+		if booked {
+			logEntry.metricsBooked = true
+		}
+		if booked {
+			servingCost, _, _ := logEntry.terminalCostParts()
+			// Every rejected hop's tokens leave the serving observation, priced or
+			// not; an unpriced hop's COST stays in servingCost, priced at the
+			// serving model, under the serving provider.
+			rPrompt, rHit := logEntry.rejectedTokens()
+			for _, a := range logEntry.rejected {
+				metrics.RecordRejectedAttempt(metrics.RejectedAttempt{
+					Provider: a.providerName, Model: metricModelLabel(logEntry.modelID, logEntry.errorKind),
+					PromptTokens: a.prompt, PromptCachedTokens: a.cacheHit,
+					CostUSD: a.costUSD, Priced: a.priced && priced && chargedNow,
+				})
+			}
+			servingPrompt := logEntry.tokensPrompt - rPrompt
+			metrics.Record(metrics.Observation{
+				Provider:         logEntry.providerName,
+				Model:            metricModelLabel(logEntry.modelID, logEntry.errorKind),
+				StatusCode:       logEntry.statusCode,
+				ErrorKind:        string(logEntry.errorKind),
+				DurationSeconds:  logEntry.durationMs / 1000.0,
+				TTFTSeconds:      logEntry.ttftMs / 1000.0,
+				Streaming:        logEntry.streaming,
+				PromptTokens:     servingPrompt,
+				CompletionTokens: logEntry.tokensCompletion,
+				ReasoningTokens:  logEntry.tokensCompletionReasoning,
+				// A provider can report a cache split without a prompt total, and
+				// prompt_cached is documented as a subset of prompt.
+				PromptCachedTokens: min(logEntry.tokensPromptCacheHit-rHit, servingPrompt),
+				CostUSD:            servingCost,
+				Priced:             priced && chargedNow,
+				FailoverProviders:  logEntry.failoverProviders(),
+			})
+		}
 
 		severity := "success"
 		if logEntry.state == "failed" {

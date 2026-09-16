@@ -9,6 +9,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/gemini"
 	"github.com/hugalafutro/model-hotel/internal/httpx"
+	"github.com/hugalafutro/model-hotel/internal/model"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -384,21 +385,29 @@ func (h *Handler) rejectAndClose(st *requestState, candidate modelCandidate, log
 // estimateMissingUsage charges nothing for a delivery that did not happen.
 // cacheHit and cacheMiss are the provider's split of that prompt, carried
 // along so the rejected read is priced at its cached rate and the
-// prompt_cached metric counts it.
-func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData, promptTokens, cacheHit, cacheMiss int) {
+// prompt_cached metric counts it. The charge is priced here, at the rejected
+// candidate's own model, and remembered on the row: a walked group can cross
+// models with different prices, and the serving candidate's rates are not
+// what this provider billed.
+func (h *Handler) meterRejectedPrompt(st *requestState, logData *requestLogData, candidate modelCandidate, promptTokens, cacheHit, cacheMiss int) {
 	prompt, _, _ := h.clampReportedUsage(promptTokens, 0, 0, logData)
 	if prompt == 0 {
 		return
 	}
+	// The split is capped by the clamped total, so a provider reporting more
+	// cached tokens than prompt tokens cannot price more input than was metered.
+	hit := min(clampTokenCount(cacheHit), prompt)
+	miss := min(clampTokenCount(cacheMiss), prompt-hit)
+	cost, priced := candidate.model.CostUSD(model.Usage{Prompt: prompt, PromptCacheHit: hit, PromptCacheMiss: miss})
+	logData.rejected = append(logData.rejected, rejectedAttempt{
+		providerName: candidate.provider.Name,
+		prompt:       prompt, cacheHit: hit, cacheMiss: miss, costUSD: cost, priced: priced,
+	})
 	// Added, so a later candidate's own stamp does not erase it. Only the two
 	// non-streaming chat paths add rather than assign, and only they need to:
 	// they are the paths a rejected 2xx can precede. The pass-through and
 	// streaming stamps still assign, since neither loop can reach them behind
 	// one of these rejects.
-	// The split is capped by the clamped total, so a provider reporting more
-	// cached tokens than prompt tokens cannot price more input than was metered.
-	hit := min(max(clampTokenCount(cacheHit), 0), prompt)
-	miss := min(max(clampTokenCount(cacheMiss), 0), prompt-hit)
 	logData.tokensPrompt += prompt
 	logData.tokensPromptCacheHit += hit
 	logData.tokensPromptCacheMiss += miss

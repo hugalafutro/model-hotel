@@ -135,6 +135,36 @@ type Observation struct {
 	FailoverProviders []string
 }
 
+// RejectedAttempt is a failed-over 2xx candidate's charge: the prompt it
+// billed and what that cost at its own model, booked under its own labels so
+// the serving candidate is not credited with tokens another provider read.
+type RejectedAttempt struct {
+	Provider, Model    string
+	PromptTokens       int
+	PromptCachedTokens int
+	CostUSD            float64
+	Priced             bool
+}
+
+// RecordRejectedAttempt books a rejected candidate's tokens, and its cost when
+// Priced (the tokens are known either way, the price is not). No request,
+// latency or status series: the request is counted once, by the terminal
+// Record.
+func RecordRejectedAttempt(a RejectedAttempt) {
+	provider := labelOrUnknown(a.Provider)
+	model := labelOrUnknown(a.Model)
+	if a.PromptTokens > 0 {
+		tokensTotal.WithLabelValues(provider, model, "prompt").Add(float64(a.PromptTokens))
+	}
+	if a.PromptCachedTokens > 0 {
+		tokensTotal.WithLabelValues(provider, model, "prompt_cached").Add(float64(a.PromptCachedTokens))
+	}
+	// Same guard as Record: a counter panics on a negative add.
+	if a.Priced && a.CostUSD >= 0 {
+		costUSDTotal.WithLabelValues(provider, model).Add(a.CostUSD)
+	}
+}
+
 // Record updates the request-outcome metrics from one completed request.
 func Record(o Observation) {
 	provider := labelOrUnknown(o.Provider)
