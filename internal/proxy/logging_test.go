@@ -2,8 +2,10 @@ package proxy
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -709,5 +711,54 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 	h.updateRequestLog(nothingCharged)
 	if got := readCost(nothingCharged.id); got == nil || *got != 0 {
 		t.Errorf("dispatched request that charged nothing cost_usd = %v, want 0", got)
+	}
+}
+
+// The Prometheus seam books a terminal row once, and only for a write that
+// landed: a terminal update that finds no row (the request's INSERT never
+// happened) books nothing, and the same request's later terminal write, once
+// its row exists, books the request, its tokens and its cost exactly once.
+func TestUpdateRequestLog_BooksMetricsOnceForAStoredRow(t *testing.T) {
+	h := newIntegrationHandler()
+	f := func(v float64) *float64 { return &v }
+	prov := "once-" + uuid.NewString()[:8]
+	logEntry := &requestLogData{
+		id:               uuid.NewString(),
+		modelID:          "once-model",
+		providerName:     prov,
+		virtualKeyName:   "once-key",
+		virtualKeyID:     uuid.NewString(),
+		statusCode:       200,
+		state:            "completed",
+		tokensPrompt:     10,
+		tokensCompletion: 5,
+		servedModel:      &model.Model{InputPricePerMillion: f(1), OutputPricePerMillion: f(1)},
+	}
+	requestLine := fmt.Sprintf("modelhotel_requests_total{error_kind=\"\",model=\"once-model\",provider=%q,status_class=\"2xx\"} ", prov)
+
+	// No row yet: the update affects nothing and the seam stays quiet.
+	h.updateRequestLog(logEntry)
+	if out := scrapeMetrics(t); strings.Contains(out, requestLine) {
+		t.Fatalf("a terminal write that stored nothing was booked: %s", out)
+	}
+
+	// The row lands, the same request's terminal write runs again, and once
+	// more after that: one booking in total.
+	h.insertRequestLogAsync(logEntry)
+	h.WaitForInsert(logEntry)
+	t.Cleanup(func() {
+		_, _ = h.dbPool.Exec(context.Background(), `DELETE FROM request_logs WHERE id = $1`, logEntry.id)
+	})
+	h.updateRequestLog(logEntry)
+	h.updateRequestLog(logEntry)
+	out := scrapeMetrics(t)
+	for _, want := range []string{
+		requestLine + "1\n",
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt\",model=\"once-model\",provider=%q} 10\n", prov),
+		fmt.Sprintf("modelhotel_cost_usd_total{model=\"once-model\",provider=%q} 1.5e-05\n", prov),
+	} {
+		if !strings.Contains(out, want) {
+			t.Errorf("scrape missing %q", want)
+		}
 	}
 }

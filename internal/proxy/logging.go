@@ -249,11 +249,11 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 	// so "unknown" never reads as "free", and NULL until the row is terminal:
 	// the interim streaming write runs before usage arrives, and a zero it
 	// stamped would outlive a crash, since stale cleanup rewrites only the
-	// state. Priced at what the last dispatched model carried when this row
-	// was written; a later price edit leaves history alone. One model prices
-	// the whole row: a prompt a walked group charged for a rejected earlier
-	// candidate takes the final candidate's prices, not the prices of the
-	// member that billed it.
+	// state. Priced at what the models carried when this row was written; a
+	// later price edit leaves history alone. The serving model prices its own
+	// share; a prompt a walked group charged for a rejected earlier candidate
+	// takes that candidate's own prices when it has them and the serving
+	// model's otherwise (terminalCostParts).
 	var cost any
 	if c, ok := logEntry.terminalCost(); ok {
 		cost = c

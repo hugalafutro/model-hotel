@@ -388,9 +388,9 @@ func TestRecordRejectedAttempt(t *testing.T) {
 	RecordRejectedAttempt(RejectedAttempt{Provider: prov, Model: mdl, PromptTokens: 4, PromptCachedTokens: 1, CostUSD: 9, Priced: false})
 	out := scrape(t)
 	for _, w := range []string{
-		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt",model=%q,provider=%q} 15`, mdl, prov),
-		fmt.Sprintf(`modelhotel_tokens_total{kind="prompt_cached",model=%q,provider=%q} 9`, mdl, prov),
-		fmt.Sprintf(`modelhotel_cost_usd_total{model=%q,provider=%q} 0.5`, mdl, prov),
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt\",model=%q,provider=%q} 15\n", mdl, prov),
+		fmt.Sprintf("modelhotel_tokens_total{kind=\"prompt_cached\",model=%q,provider=%q} 9\n", mdl, prov),
+		fmt.Sprintf("modelhotel_cost_usd_total{model=%q,provider=%q} 0.5\n", mdl, prov),
 	} {
 		if !strings.Contains(out, w) {
 			t.Errorf("scrape output missing %q", w)
