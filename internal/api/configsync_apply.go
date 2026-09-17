@@ -271,9 +271,10 @@ const reconcileLockTimeout = "5s"
 //
 // SHARE ROW EXCLUSIVE blocks writers and other imports while still allowing
 // plain reads. apply is the only caller and takes the tables in one fixed
-// order, so two imports cannot deadlock against each other. The waits are
-// bounded by the lock_timeout apply sets before its first lock, not here: a
-// caller that takes this outside apply must set it first.
+// order, and these are the only LOCK TABLE statements in the codebase, so two
+// imports cannot deadlock against each other. The waits are bounded by the
+// lock_timeout apply sets before its first lock, not here: a caller that takes
+// this outside apply must set it first.
 func lockTables(ctx context.Context, tx pgx.Tx, tables ...string) error {
 	for _, table := range tables {
 		if _, err := tx.Exec(ctx, `LOCK TABLE `+table+` IN SHARE ROW EXCLUSIVE MODE`); err != nil {
