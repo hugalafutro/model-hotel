@@ -60,8 +60,11 @@ func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportM
 	// one statement while the writes below take them in two, and two
 	// multi-row statements taking the same rows in different orders can
 	// deadlock whatever order the tables are locked in. Waiting here instead
-	// costs the reconcile at most lock_timeout on a running import; past that
-	// it fails and the next push retries it, the same as any other Incomplete.
+	// costs the reconcile at most lock_timeout per section on a running
+	// import, and a push landing while a section runs waits on its fence the
+	// same way, under the same timeout. Past it the section fails and the
+	// import answers Incomplete, which Front Desk re-pushes once its
+	// incomplete retry interval has passed, the same as any other Incomplete.
 	_, err = tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`)
 	if err == nil {
 		_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock)

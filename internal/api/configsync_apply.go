@@ -180,12 +180,12 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 
 	// The settings lock is taken here, after the provider delete, and not with
 	// the other three above: that delete cascades into models, and the
-	// per-model reconcile a previous import's post-commit phase may still be
-	// running (applyModelIntent) holds models rows first and writes settings
-	// second. Taking settings before reaching models would put the two
-	// transactions on opposite lock orders, and Postgres resolves that by
-	// aborting one of them. Same order here, so the later one waits instead.
-	// The rail's count and the delete it guards still share the lock.
+	// per-model reconcile (applyModelIntent) holds models rows first and
+	// writes settings second. That reconcile now waits behind this
+	// transaction's fence lock, so the two no longer overlap; the order is
+	// kept so this transaction's own path is models-then-settings for any
+	// writer that takes those two without the fence. The rail's count and the
+	// delete it guards still share the lock.
 	if err := lockTables(ctx, tx, "settings"); err != nil {
 		return applyOutcome{}, err
 	}
@@ -270,9 +270,9 @@ const reconcileLockTimeout = "5s"
 // There is no count-then-delete rail over groups to protect either.
 //
 // SHARE ROW EXCLUSIVE blocks writers and other imports while still allowing
-// plain reads. apply is the only caller and takes the tables in one fixed
-// order, and these are the only LOCK TABLE statements in the codebase, so two
-// imports cannot deadlock against each other. The waits are bounded by the
+// plain reads. apply is the only production caller and takes the tables in
+// one fixed order, and these are the only LOCK TABLE statements in production
+// code, so two imports cannot deadlock against each other. The waits are bounded by the
 // lock_timeout apply sets before its first lock, not here: a caller that takes
 // this outside apply must set it first.
 func lockTables(ctx context.Context, tx pgx.Tx, tables ...string) error {
