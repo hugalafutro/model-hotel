@@ -53,6 +53,26 @@ func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportM
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
+	// Serialized behind the import's own fence lock, which apply holds for its
+	// whole transaction. This runs detached after an import commits, so the
+	// next push can land while it is still going, and the two then contend for
+	// the same models rows: the import's provider delete cascades into them in
+	// one statement while the writes below take them in two, and two
+	// multi-row statements taking the same rows in different orders can
+	// deadlock whatever order the tables are locked in. Waiting here instead
+	// costs the reconcile at most lock_timeout per section on a running
+	// import, and a push landing while a section runs waits on its fence the
+	// same way, under the same timeout. Past it the section fails and the
+	// import answers Incomplete, which Front Desk re-pushes once its
+	// incomplete retry interval has passed, the same as any other Incomplete.
+	_, err = tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`)
+	if err == nil {
+		_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock)
+	}
+	if err != nil {
+		return nil, err
+	}
+
 	if err := write(ctx, tx, wantedModelRefs, providers, modelIDs); err != nil {
 		return nil, err
 	}

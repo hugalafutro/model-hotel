@@ -109,7 +109,7 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	if err := validateSyncedProviderNames(env.Config.Providers); err != nil {
 		return applyOutcome{}, err
 	}
-	if err := lockReconciledTables(ctx, tx); err != nil {
+	if err := lockTables(ctx, tx, "providers", "virtual_keys", "users"); err != nil {
 		return applyOutcome{}, err
 	}
 	if err := guardAgainstProviderWipe(ctx, tx, env.Config.Providers); err != nil {
@@ -117,9 +117,6 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 	}
 	keysMustSurvive, err := guardAgainstVirtualKeyWipe(ctx, tx, env.Config.VirtualKeys)
 	if err != nil {
-		return applyOutcome{}, err
-	}
-	if err := h.guardAgainstSettingsWipe(ctx, tx, env.Config.Settings); err != nil {
 		return applyOutcome{}, err
 	}
 
@@ -181,6 +178,20 @@ func (h *ConfigSyncHandler) apply(ctx context.Context, env ConfigEnvelope, sourc
 		return applyOutcome{}, err
 	}
 
+	// The settings lock is taken here, after the provider delete, and not with
+	// the other three above: that delete cascades into models, and the
+	// per-model reconcile (applyModelIntent) holds models rows first and
+	// writes settings second. That reconcile now waits behind this
+	// transaction's fence lock, so the two no longer overlap; the order is
+	// kept so this transaction's own path is models-then-settings for any
+	// writer that takes those two without the fence. The rail's count and the
+	// delete it guards still share the lock.
+	if err := lockTables(ctx, tx, "settings"); err != nil {
+		return applyOutcome{}, err
+	}
+	if err := h.guardAgainstSettingsWipe(ctx, tx, env.Config.Settings); err != nil {
+		return applyOutcome{}, err
+	}
 	// Folded once, here, and handed on to postImportRefresh so the cache
 	// invalidation walks the same keys the transaction wrote: a ceiling the fold
 	// produced must not stay a cached absence for the TTL.
@@ -244,11 +255,13 @@ func enforceSourceGenFence(ctx context.Context, tx pgx.Tx, sourceGen *int64) err
 // Front Desk retries, which is the recoverable direction.
 const reconcileLockTimeout = "5s"
 
-// lockReconciledTables takes a write lock on every table this transaction
-// replaces declaratively, before the first count any rail reads. Each of those
+// lockTables takes a write lock on the tables this transaction replaces
+// declaratively, before the first count any rail over them reads. Each of those
 // deletes removes rows absent from the envelope, so a row created between a
 // rail's count and its delete would be destroyed for being missing from an
-// envelope written before it existed.
+// envelope written before it existed. apply calls it twice: providers,
+// virtual_keys and users ahead of every write, settings only after the
+// provider delete has reached models (see the call site for why).
 //
 // model_failover_groups is deliberately absent: its reconcile runs in
 // applyFailoverGroups, after this transaction commits and in a transaction of
@@ -257,12 +270,13 @@ const reconcileLockTimeout = "5s"
 // There is no count-then-delete rail over groups to protect either.
 //
 // SHARE ROW EXCLUSIVE blocks writers and other imports while still allowing
-// plain reads. The order is fixed here and these are the only LOCK TABLE
-// statements in the codebase, so two imports cannot deadlock against each other.
-// The waits are bounded by the lock_timeout apply sets before its first lock,
-// not here: a caller that takes this outside apply must set it first.
-func lockReconciledTables(ctx context.Context, tx pgx.Tx) error {
-	for _, table := range []string{"providers", "virtual_keys", "users", "settings"} {
+// plain reads. apply is the only production caller and takes the tables in
+// one fixed order, and these are the only LOCK TABLE statements in production
+// code, so two imports cannot deadlock against each other. The waits are bounded by the
+// lock_timeout apply sets before its first lock, not here: a caller that takes
+// this outside apply must set it first.
+func lockTables(ctx context.Context, tx pgx.Tx, tables ...string) error {
+	for _, table := range tables {
 		if _, err := tx.Exec(ctx, `LOCK TABLE `+table+` IN SHARE ROW EXCLUSIVE MODE`); err != nil {
 			return err
 		}
