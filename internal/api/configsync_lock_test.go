@@ -200,3 +200,55 @@ func TestConfigSync_ImportTakesSettingsAfterModels(t *testing.T) {
 		t.Error("the import committed but did not drop the provider the envelope omits")
 	}
 }
+
+// TestConfigSync_SettingsLockWaitRollsBackTheImport holds the settings table
+// from another session. The import takes that lock only after its provider
+// delete has run, so giving up on it has to roll that delete back with the
+// rest of the transaction: the member keeps the provider the envelope omitted,
+// and the wait is bounded by lock_timeout, not the request deadline.
+func TestConfigSync_SettingsLockWaitRollsBackTheImport(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "dropme", "sk-drop-value", configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	env := doExport(t, r)
+	kept := env.Config.Providers[:0:0]
+	for _, p := range env.Config.Providers {
+		if p.Name != "dropme" {
+			kept = append(kept, p)
+		}
+	}
+	env.Config.Providers = kept
+
+	ctx := context.Background()
+	holder, err := apiTestDB.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin holder: %v", err)
+	}
+	defer func() { _ = holder.Rollback(ctx) }()
+	if _, err := holder.Exec(ctx, `LOCK TABLE settings IN SHARE ROW EXCLUSIVE MODE`); err != nil {
+		t.Fatalf("hold settings: %v", err)
+	}
+
+	deadline := 30 * time.Second
+	reqCtx, cancel := context.WithTimeout(ctx, deadline)
+	defer cancel()
+	body, err := json.Marshal(env)
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+	rec := httptest.NewRecorder()
+	start := time.Now()
+	r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/config/import", bytes.NewReader(body)).WithContext(reqCtx))
+	elapsed := time.Since(start)
+
+	if rec.Code != http.StatusInternalServerError {
+		t.Fatalf("import blocked on the settings lock = %d, want 500 (failed closed)", rec.Code)
+	}
+	if elapsed > deadline/2 {
+		t.Errorf("import waited %v on the settings lock, want it bounded by lock_timeout (%s)", elapsed, reconcileLockTimeout)
+	}
+	if !providerNames(t)["dropme"] {
+		t.Error("an import that gave up on the settings lock must roll back the provider delete it already ran")
+	}
+}
