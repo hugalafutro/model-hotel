@@ -12,15 +12,15 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// TestLockReconciledTables_CoversTheTablesThisTransactionReplaces runs the lock
-// step the way apply runs it and reads back what the transaction actually holds.
+// TestLockTables_CoversTheTablesThisTransactionReplaces runs the lock
+// steps the way apply runs them and reads back what the transaction actually holds.
 // Two things matter and neither shows up in the call: that the statements name
 // tables Postgres accepts, and that the set is exactly the tables this
 // transaction reconciles. model_failover_groups is reconciled after the commit,
 // in applyFailoverGroups' own transaction, so locking it here would block
 // dashboard group edits for the length of the import and be released before the
 // delete it looks like it guards.
-func TestLockReconciledTables_CoversTheTablesThisTransactionReplaces(t *testing.T) {
+func TestLockTables_CoversTheTablesThisTransactionReplaces(t *testing.T) {
 	ctx := context.Background()
 	tx, err := apiTestDB.Pool().Begin(ctx)
 	if err != nil {
@@ -33,8 +33,13 @@ func TestLockReconciledTables_CoversTheTablesThisTransactionReplaces(t *testing.
 	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`); err != nil {
 		t.Fatalf("set lock_timeout: %v", err)
 	}
-	if err := lockReconciledTables(ctx, tx); err != nil {
-		t.Fatalf("lockReconciledTables: %v", err)
+	// Both stages apply takes, so the set read back is the one the transaction
+	// holds by the time its last rail runs.
+	if err := lockTables(ctx, tx, "providers", "virtual_keys", "users"); err != nil {
+		t.Fatalf("lockTables: %v", err)
+	}
+	if err := lockTables(ctx, tx, "settings"); err != nil {
+		t.Fatalf("lockTables(settings): %v", err)
 	}
 
 	var timeout string
@@ -114,5 +119,84 @@ func TestConfigSync_AdvisoryLockWaitIsBounded(t *testing.T) {
 	}
 	if providerNames(t)["extra"] {
 		t.Error("an import that gave up on the fence lock must not apply its config")
+	}
+}
+
+// TestConfigSync_ImportTakesSettingsAfterModels pins the lock order between the
+// import and the per-model reconcile (applyModelIntent), which a previous
+// import's post-commit phase can still be running when the next push lands.
+// That reconcile holds models rows first and writes settings second. An import
+// that removes a provider reaches models through the delete's cascade, so it
+// must take the settings lock only after that point: taken first, the two
+// transactions hold what the other needs and Postgres aborts one (SQLSTATE
+// 40P01), failing the push for nothing but its own ordering.
+//
+// The reconcile is stood in for by a raw transaction taking the same two steps,
+// released once the import is parked on the row it holds; both must then
+// finish, which neither does when the orders oppose.
+func TestConfigSync_ImportTakesSettingsAfterModels(t *testing.T) {
+	cleanConfigTables(t)
+	dropID := seedProvider(t, "dropme", "sk-drop-value", configSyncMasterKey)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	seedModel(t, dropID, "m1")
+	r := newConfigSyncRouter(t, configSyncMasterKey)
+	env := doExport(t, r)
+	kept := env.Config.Providers[:0:0]
+	for _, p := range env.Config.Providers {
+		if p.Name != "dropme" {
+			kept = append(kept, p)
+		}
+	}
+	env.Config.Providers = kept
+	body, err := json.Marshal(env)
+	if err != nil {
+		t.Fatalf("marshal envelope: %v", err)
+	}
+
+	ctx := context.Background()
+	reconcile, err := apiTestDB.Pool().Begin(ctx)
+	if err != nil {
+		t.Fatalf("begin reconcile: %v", err)
+	}
+	defer func() { _ = reconcile.Rollback(ctx) }()
+	if _, err := reconcile.Exec(ctx, `UPDATE models SET enabled = false WHERE model_id = 'm1'`); err != nil {
+		t.Fatalf("reconcile holds the models row: %v", err)
+	}
+
+	done := make(chan int, 1)
+	go func() {
+		rec := httptest.NewRecorder()
+		r.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/config/import", bytes.NewReader(body)))
+		done <- rec.Code
+	}()
+
+	// The import's provider delete cascades into the row the reconcile holds.
+	parked := false
+	for deadline := time.Now().Add(10 * time.Second); time.Now().Before(deadline) && !parked; time.Sleep(20 * time.Millisecond) {
+		var n int
+		err := apiTestDB.Pool().QueryRow(ctx, `
+			SELECT count(*) FROM pg_stat_activity
+			WHERE pid <> pg_backend_pid() AND wait_event_type = 'Lock' AND query LIKE 'DELETE FROM providers%'`).Scan(&n)
+		parked = err == nil && n > 0
+	}
+	if !parked {
+		t.Fatalf("import never parked on the models row the reconcile holds")
+	}
+
+	// The reconcile's second step. Under the opposite order the import already
+	// holds settings while waiting on models, and this is where the cycle closes.
+	if _, err := reconcile.Exec(ctx, `
+		INSERT INTO settings (key, value, updated_at) VALUES ('_test_model_reconcile', '[]', now())
+		ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now()`); err != nil {
+		t.Fatalf("reconcile's settings write against a parked import: %v", err)
+	}
+	if err := reconcile.Commit(ctx); err != nil {
+		t.Fatalf("commit reconcile: %v", err)
+	}
+	if code := <-done; code != http.StatusOK {
+		t.Fatalf("import after the reconcile released its row = %d, want 200", code)
+	}
+	if providerNames(t)["dropme"] {
+		t.Error("the import committed but did not drop the provider the envelope omits")
 	}
 }
