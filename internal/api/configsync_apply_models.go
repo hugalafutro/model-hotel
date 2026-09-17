@@ -62,10 +62,11 @@ func (h *ConfigSyncHandler) applyModelIntent(ctx context.Context, refs []ExportM
 	// deadlock whatever order the tables are locked in. Waiting here instead
 	// costs the reconcile at most lock_timeout on a running import; past that
 	// it fails and the next push retries it, the same as any other Incomplete.
-	if _, err := tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`); err != nil {
-		return nil, err
+	_, err = tx.Exec(ctx, `SET LOCAL lock_timeout = '`+reconcileLockTimeout+`'`)
+	if err == nil {
+		_, err = tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock)
 	}
-	if _, err := tx.Exec(ctx, `SELECT pg_advisory_xact_lock($1)`, fleetSourceGenLock); err != nil {
+	if err != nil {
 		return nil, err
 	}
 
