@@ -692,7 +692,7 @@ func TestLogTestModelCompleted(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-completed")
 
-	h.logTestModelCompleted(ctx, m, "reqhash003", 200, 2500, 100, 40, 8.5, 10, 3, "192.0.2.10")
+	h.logTestModelCompleted(ctx, m, "reqhash003", 200, 2500, 100, 40, 8.5, 10, 3, "192.0.2.10", 0, nil)
 
 	var count int
 	err := h.dbPool.Pool().QueryRow(ctx,
@@ -795,7 +795,7 @@ func TestLogTestModelCompleted_InsertError(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-completed-fail")
 
-	h.logTestModelCompleted(ctx, m, "reqhash-err-003", 200, 2500, 100, 40, 8.5, 10, 3, "")
+	h.logTestModelCompleted(ctx, m, "reqhash-err-003", 200, 2500, 100, 40, 8.5, 10, 3, "", 0, nil)
 
 	// Verify no row was inserted.
 	var count int

@@ -644,7 +644,7 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 
 #### POST `/api/models/{id}/test`
 
-Tests a model by sending a minimal prompt and measuring response.
+Tests a model by sending a minimal prompt and measuring response. A rerank model is probed on its own route instead (one document, `top_n: 1`), and the answer reports `ranked_results` in place of `response`; a 200 that ranks nothing is reported as a failure, the verdict the proxy reaches for the same body. Every probe writes one request log row under `virtual_key_name: internal`, with the family it was sent on in `endpoint_type`, and priced like live traffic (`cost_usd`; a rerank probe also records its `search_units`).
 
 **Response:**
 ```json
@@ -653,6 +653,16 @@ Tests a model by sending a minimal prompt and measuring response.
   "duration_ms": 234,
   "ttft_ms": 123,
   "response": "Hi"
+}
+```
+
+For a rerank model:
+```json
+{
+  "success": true,
+  "duration_ms": 296,
+  "response": "",
+  "ranked_results": 1
 }
 ```
 

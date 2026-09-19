@@ -1368,7 +1368,7 @@ Removes the model record entirely from the database. Deleted models are not trac
 POST /api/models/{id}/test
 ```
 
-Tests a model by making a minimal chat completion request (`"Respond only with 'Hi'"`) and returns latency metrics.
+Tests a model by making a minimal chat completion request (`"Respond only with 'Hi'"`) and returns latency metrics. A rerank model is sent a one-document rerank request on its own route instead and answers with `ranked_results` (see the [API Reference](API-Reference#post-apimodelsidtest)); zero ranked results counts as a failure.
 
 **Request:** No body required.
 

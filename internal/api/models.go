@@ -516,11 +516,23 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 
 	content, tps, promptTokens, completionTokens := parseTestModelResponse(respBody, duration)
 	var ranked *int
+	var searchUnits int
 	if m.Modality == "rerank" {
 		n := countRankedResults(respBody)
 		ranked = &n
+		searchUnits = billedSearchUnits(respBody)
 	}
-	h.logTestModelCompleted(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, tps, promptTokens, completionTokens, clientip.From(r))
+	cost := probeCost(m, searchUnits, promptTokens, completionTokens)
+	if ranked != nil && *ranked == 0 {
+		// A 200 with nothing ranked is what the live path rejects as an empty
+		// answer; reporting it as healthy would route traffic to a model that
+		// returns no rankings.
+		const errMsg = "upstream returned no ranked results"
+		h.logTestModelEmptyAnswer(r.Context(), m, reqHash, float64(duration), proxyOverheadMs, keyDecryptMs, errMsg, clientip.From(r), searchUnits, cost)
+		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
+		return
+	}
+	h.logTestModelCompleted(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, tps, promptTokens, completionTokens, clientip.From(r), searchUnits, cost)
 	writeJSON(w, TestModelResponse{
 		Success:          true,
 		Streaming:        false,

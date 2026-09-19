@@ -1481,7 +1481,7 @@ func TestTestModel_RerankRowProbesTheRerankRoute(t *testing.T) {
 
 	modelID := uuid.New().String()
 	_, err := h.Pool().Pool().Exec(context.Background(),
-		`INSERT INTO models (id, provider_id, model_id, name, enabled, modality, output_modalities) VALUES ($1, $2, $3, $4, true, 'rerank', '["rerank"]')`,
+		`INSERT INTO models (id, provider_id, model_id, name, enabled, modality, output_modalities, search_price_per_thousand) VALUES ($1, $2, $3, $4, true, 'rerank', '["rerank"]', 2.0)`,
 		modelID, providerResp.ID, "rerank-v3.5", "Rerank v3.5")
 	if err != nil {
 		t.Fatalf("Failed to insert model: %v", err)
@@ -1511,6 +1511,80 @@ func TestTestModel_RerankRowProbesTheRerankRoute(t *testing.T) {
 	}
 	if gotBody["model"] != "rerank-v3.5" || gotBody["query"] == nil || gotBody["documents"] == nil || gotBody["messages"] != nil {
 		t.Errorf("probe body = %v, want a rerank body (model, query, documents) and no chat messages", gotBody)
+	}
+	// The probe was billed one search unit; its row says so and is priced
+	// like live traffic (1 unit at $2 per thousand).
+	var endpointType, state string
+	var units int
+	var cost *float64
+	if err := h.Pool().Pool().QueryRow(context.Background(),
+		`SELECT COALESCE(endpoint_type, ''), state, search_units, cost_usd FROM request_logs WHERE model_id = $1 ORDER BY created_at DESC LIMIT 1`, "rerank-v3.5",
+	).Scan(&endpointType, &state, &units, &cost); err != nil {
+		t.Fatalf("read probe row: %v", err)
+	}
+	if endpointType != "rerank" || state != "completed" || units != 1 || cost == nil || *cost < 0.002-1e-12 || *cost > 0.002+1e-12 {
+		t.Errorf("probe row = %s/%s units=%d cost=%v, want rerank/completed/1/0.002", endpointType, state, units, cost)
+	}
+}
+
+// TestTestModel_RerankRowWithNoRankedResultsFails: a 200 carrying no ranked
+// results is the empty answer the live path rejects, so the probe reports a
+// failure and the row is stored as failed, still charged for its unit.
+func TestTestModel_RerankRowWithNoRankedResultsFails(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"results":[],"meta":{"billed_units":{"search_units":1}}}`))
+	}))
+	defer mockServer.Close()
+
+	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "%s", "api_key": "test-key"}`, uuid.New().String()[:8], mockServer.URL)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+	modelID := uuid.New().String()
+	if _, err := h.Pool().Pool().Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled, modality, output_modalities, search_price_per_thousand) VALUES ($1, $2, $3, $4, true, 'rerank', '["rerank"]', 2.0)`,
+		modelID, providerResp.ID, "rerank-empty", "Rerank empty"); err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	var testResp struct {
+		Success bool   `json:"success"`
+		Error   string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	if testResp.Success || !strings.Contains(testResp.Error, "no ranked results") {
+		t.Errorf("response = %+v, want a failure naming the empty answer", testResp)
+	}
+	var state string
+	var units int
+	var cost *float64
+	if err := h.Pool().Pool().QueryRow(context.Background(),
+		`SELECT state, search_units, cost_usd FROM request_logs WHERE model_id = $1 ORDER BY created_at DESC LIMIT 1`, "rerank-empty",
+	).Scan(&state, &units, &cost); err != nil {
+		t.Fatalf("read probe row: %v", err)
+	}
+	if state != "failed" || units != 1 || cost == nil {
+		t.Errorf("probe row = %s units=%d cost=%v, want failed, 1 unit, priced", state, units, cost)
 	}
 }
 
