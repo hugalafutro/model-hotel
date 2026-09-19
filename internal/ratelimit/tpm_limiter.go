@@ -184,11 +184,25 @@ func capMemoTTL(requestTimeout time.Duration) time.Duration {
 // tpmEntry is a per-key token-budget bucket. The rate.Limiter is configured as
 // limit = tpm/60 tokens refilled per second, burst = tpm (a full minute's
 // budget available at once), giving a smooth sliding budget.
+// tpmEntry is one identity's token budget. Like bucketEntry it is immutable
+// once published apart from lastUsed under the limiter's mutex: the 429 path
+// reads tpm without a lock for its headers and log line, so a cap change
+// publishes a fresh entry around the same bucket and throttle state (withCap)
+// rather than editing this one.
 type tpmEntry struct {
 	limiter  *rate.Limiter
 	tpm      int
 	lastUsed time.Time
 	throttle *throttleState
+}
+
+// withCap returns the entry to publish after the identity's cap changed: the
+// same bucket adjusted in place, so a spent budget is not refilled by the
+// edit and the debt it carries survives, under the new rate and ceiling.
+func (e *tpmEntry) withCap(tpm int) *tpmEntry {
+	e.limiter.SetLimit(tpmRate(tpm))
+	e.limiter.SetBurst(tpm)
+	return &tpmEntry{limiter: e.limiter, tpm: tpm, lastUsed: time.Now(), throttle: e.throttle}
 }
 
 // throttleCtx describes this bucket for the shared throttle logger. The prefix
@@ -573,14 +587,8 @@ func (l *TPMLimiter) getEntry(ctx context.Context, keyHash string, tpm int) *tpm
 		entry = newTPMEntry(tpm)
 		l.buckets[keyHash] = entry
 	case entry.tpm != tpm:
-		// Adjusted in place, not replaced: a fresh limiter starts with a full
-		// minute's budget, so a key owner alternating their own cap between two
-		// values would refill a spent budget on every edit. The debt the bucket
-		// carries survives the change; only the refill rate and ceiling move.
-		entry.limiter.SetLimit(tpmRate(tpm))
-		entry.limiter.SetBurst(tpm)
-		entry.tpm = tpm
-		entry.lastUsed = time.Now()
+		entry = entry.withCap(tpm)
+		l.buckets[keyHash] = entry
 	default:
 		entry.lastUsed = time.Now()
 	}

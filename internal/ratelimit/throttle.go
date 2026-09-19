@@ -30,7 +30,12 @@ type throttleState struct {
 	mu          sync.Mutex
 	throttled   atomic.Bool
 	throttledAt time.Time
-	rejectedN   int64
+	// lastRejectedAt is the newest refusal of the open episode. The owning
+	// bucket stamps lastUsed on admission, before the refusal is noted, so an
+	// identity refused once and then silent has a lastUsed older than its
+	// throttledAt; the eviction summary ends the episode at whichever is later.
+	lastRejectedAt time.Time
+	rejectedN      int64
 }
 
 // throttleLogCtx carries the bits that differ between the key and IP limiters
@@ -63,9 +68,11 @@ func (c throttleLogCtx) logAttrs() []any {
 // so a sustained burst stays quiet in the log.
 func (s *throttleState) noteRejected(c throttleLogCtx) {
 	s.mu.Lock()
+	now := time.Now()
+	s.lastRejectedAt = now
 	if !s.throttled.Load() {
 		s.throttled.Store(true)
-		s.throttledAt = time.Now()
+		s.throttledAt = now
 		s.rejectedN = 1
 		s.mu.Unlock()
 		debuglog.Warn(c.prefix+": throttling started", c.logAttrs()...)
@@ -96,12 +103,23 @@ func (s *throttleState) noteAllowed(c throttleLogCtx) {
 
 // endIfThrottled closes a still-open episode at eviction time (traffic stopped
 // while the identity was rate-limited, so no later serve closed it). end is the
-// identity's last activity. No-op when not throttled.
+// identity's last admission; the episode's last refusal wins when it is newer.
+// The episode is closed, not just summarised: a request still holding the
+// evicted entry must not report the same episode ended a second time.
+// No-op when not throttled.
 func (s *throttleState) endIfThrottled(c throttleLogCtx, end time.Time, reason string) {
 	if !s.throttled.Load() {
 		return
 	}
 	s.mu.Lock()
+	if !s.throttled.Load() {
+		s.mu.Unlock()
+		return
+	}
+	s.throttled.Store(false)
+	if s.lastRejectedAt.After(end) {
+		end = s.lastRejectedAt
+	}
 	dur := end.Sub(s.throttledAt)
 	n := s.rejectedN
 	s.mu.Unlock()

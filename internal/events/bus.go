@@ -72,7 +72,10 @@ func (b *Bus) Publish(event Event) {
 			// log record (and an app_logs row) per event for as long as it stays
 			// stalled. The first drop is the one that tells an operator
 			// something is wrong; after that the running total every dropLogEvery
-			// says the same thing at a bounded rate.
+			// says the same thing at a bounded rate. The count is the
+			// subscriber's lifetime total, not reset by a delivery in between:
+			// a consumer flapping between full and drained would otherwise log
+			// on every first drop, the amplification this exists to stop.
 			if n := drops.Add(1); n == 1 || n%dropLogEvery == 0 {
 				debuglog.Warn("events: event dropped, subscriber too slow", "type", event.Type, "dropped", n)
 			}
