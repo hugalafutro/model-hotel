@@ -50,6 +50,11 @@ export interface UseDashboardReturn {
 	setRequestsChartRange: (range: Range) => void;
 	tokensChartRange: Range;
 	setTokensChartRange: (range: Range) => void;
+	/** Metric of each time-series chart; the two never show the same one. */
+	leftChartMetric: MetricType;
+	setLeftChartMetric: (metric: MetricType) => void;
+	rightChartMetric: MetricType;
+	setRightChartMetric: (metric: MetricType) => void;
 	doughnutRange: Range;
 	setDoughnutRange: (range: Range) => void;
 	doughnutMetric: MetricType;
@@ -152,6 +157,10 @@ export function useDashboard(): UseDashboardReturn {
 		setRequestsChartRange,
 		tokensChartRange,
 		setTokensChartRange,
+		leftChartMetric,
+		setLeftChartMetric,
+		rightChartMetric,
+		setRightChartMetric,
 		doughnutRange,
 		setDoughnutRange,
 		doughnutMetric,
@@ -521,6 +530,10 @@ export function useDashboard(): UseDashboardReturn {
 		setRequestsChartRange,
 		tokensChartRange,
 		setTokensChartRange,
+		leftChartMetric,
+		setLeftChartMetric,
+		rightChartMetric,
+		setRightChartMetric,
 		doughnutRange,
 		setDoughnutRange,
 		doughnutMetric,

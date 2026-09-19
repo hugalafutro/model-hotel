@@ -1068,3 +1068,42 @@ describe("Overlay Area with custom styling", () => {
 		expect(areas[1]).toHaveAttribute("data-datakey", "tokens");
 	});
 });
+
+describe("TimeSeriesChart metric toggle", () => {
+	const base = {
+		data: mockData,
+		range: "24h" as Range,
+		onRangeChange: vi.fn(),
+		metric: "Requests",
+		icon: TrendingUp,
+		color: "#3b82f6",
+		label: "Requests",
+		dataKey: "total" as const,
+	};
+
+	it("shows no metric toggle unless the chart is given one", () => {
+		renderWithProviders(<TimeSeriesChart {...base} />);
+		expect(screen.queryByText("T")).not.toBeInTheDocument();
+		expect(screen.queryByText("$")).not.toBeInTheDocument();
+	});
+
+	it("offers every metric but the sibling chart's and reports the pick", async () => {
+		const onMetricTypeChange = vi.fn();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<TimeSeriesChart
+				{...base}
+				metricType="requests"
+				onMetricTypeChange={onMetricTypeChange}
+				excludeMetricType="tokens"
+			/>,
+		);
+
+		expect(screen.getByText("R")).toBeInTheDocument();
+		expect(screen.getByText("$")).toBeInTheDocument();
+		expect(screen.queryByText("T")).not.toBeInTheDocument();
+
+		await user.click(screen.getByText("$"));
+		expect(onMetricTypeChange).toHaveBeenCalledWith("cost");
+	});
+});

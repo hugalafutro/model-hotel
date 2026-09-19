@@ -140,7 +140,7 @@ export function StatCardsRow({
 					}
 					icon={globalMetric === "tokens" ? Hash : Target}
 					accent={accents.tokens}
-					formatter={globalMetric === "tokens" ? formatCompact : undefined}
+					formatter={formatCompact}
 					onClick={() => setTokensModalOpen(true)}
 					tooltip={t("dashboard.gauge.viewTokenHistory")}
 				/>

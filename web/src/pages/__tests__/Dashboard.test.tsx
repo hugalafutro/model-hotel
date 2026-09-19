@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -715,9 +715,67 @@ describe("Dashboard", () => {
 		});
 	});
 
-	describe("Chart Order by Metric", () => {
+	describe("Chart metric toggles", () => {
 		afterEach(() => {
 			localStorage.removeItem("dashboardMetric");
+		});
+
+		it("withholds each chart's metric from the other chart's toggle", async () => {
+			localStorage.setItem("dashboardMetric", "cost");
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(mockStats)),
+				http.get("/api/stats/timeseries", () =>
+					HttpResponse.json({ points: [] }),
+				),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			const spendHeading = await screen.findByRole("heading", {
+				level: 3,
+				name: /Spend\s*\/\s*Day/i,
+			});
+			const requestsHeading = screen.getByRole("heading", {
+				level: 3,
+				name: /Requests\s*\/\s*Day/i,
+			});
+			const spendCard = spendHeading.closest(".ui-card") as HTMLElement;
+			const requestsCard = requestsHeading.closest(".ui-card") as HTMLElement;
+
+			// Left chart shows spend: its toggle offers T and $, not R.
+			expect(within(spendCard).getByText("$")).toBeInTheDocument();
+			expect(within(spendCard).getByText("T")).toBeInTheDocument();
+			expect(within(spendCard).queryByText("R")).not.toBeInTheDocument();
+			// Right chart shows requests: its toggle offers T and R, not $.
+			expect(within(requestsCard).getByText("R")).toBeInTheDocument();
+			expect(within(requestsCard).getByText("T")).toBeInTheDocument();
+			expect(within(requestsCard).queryByText("$")).not.toBeInTheDocument();
+
+			// Switching the left chart to tokens moves only that chart, and the
+			// right chart's toggle now withholds tokens instead of spend.
+			await userEvent.setup().click(within(spendCard).getByText("T"));
+			await screen.findByRole("heading", {
+				level: 3,
+				name: /Tokens\s*\/\s*Day/i,
+			});
+			expect(
+				screen.queryByRole("heading", { level: 3, name: /Spend\s*\/\s*Day/i }),
+			).not.toBeInTheDocument();
+			expect(
+				screen.getByRole("heading", { level: 3, name: /Requests\s*\/\s*Day/i }),
+			).toBeInTheDocument();
+			expect(within(requestsCard).getByText("$")).toBeInTheDocument();
+			expect(within(requestsCard).queryByText("T")).not.toBeInTheDocument();
+		});
+	});
+
+	describe("Chart Order by Metric", () => {
+		afterEach(() => {
+			// The per-chart metrics persist like every other per-section pick;
+			// drop them too so one case's charts do not seed the next.
+			localStorage.removeItem("dashboardMetric");
+			localStorage.removeItem("dashboard.leftChartMetric");
+			localStorage.removeItem("dashboard.rightChartMetric");
 		});
 
 		it("renders Tokens chart before Requests chart when metric is tokens", async () => {
@@ -1141,12 +1199,11 @@ describe("Dashboard filter persistence", () => {
 		await waitFor(() => {
 			expect(screen.getByText("Dashboard")).toBeInTheDocument();
 		});
-		// "R" toggle should be active (accent-styled)
-		const allReq = screen.getAllByText("R");
-		const activeReq = allReq.find((el) =>
-			el.closest("button")?.classList.contains("ui-tab-active"),
-		);
-		expect(activeReq).toBeTruthy();
+		// The page-header "R" toggle (outside any chart card) should be active
+		const headerReq = screen
+			.getAllByText("R")
+			.find((el) => !el.closest(".ui-card"));
+		expect(headerReq?.closest("button")).toHaveClass("ui-tab-active");
 	});
 
 	it("restores per-section doughnut range from localStorage", async () => {
@@ -1212,12 +1269,12 @@ describe("Dashboard filter persistence", () => {
 			el.closest("button")?.classList.contains("ui-tab-active"),
 		);
 		expect(active1D).toBeTruthy();
-		// Default metric is "tokens" which shows as "T" - should be active
-		const allTok = screen.getAllByText("T");
-		const activeTok = allTok.find((el) =>
-			el.closest("button")?.classList.contains("ui-tab-active"),
-		);
-		expect(activeTok).toBeTruthy();
+		// Default metric is "tokens": the page-header "T" (outside any chart
+		// card) should be active
+		const headerTok = screen
+			.getAllByText("T")
+			.find((el) => !el.closest(".ui-card"));
+		expect(headerTok?.closest("button")).toHaveClass("ui-tab-active");
 	});
 
 	it("falls back to defaults when localStorage has invalid range", async () => {

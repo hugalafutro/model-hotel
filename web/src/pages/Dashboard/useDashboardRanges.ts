@@ -12,6 +12,14 @@ const deserializeMetric = (stored: string, fallback: MetricType): MetricType =>
 	VALID_METRICS.has(stored as MetricType) ? (stored as MetricType) : fallback;
 
 /**
+ * The metric the second time-series chart shows next to a given first one:
+ * requests beside anything else, tokens beside requests. The two charts never
+ * show the same metric.
+ */
+export const companionMetric = (m: MetricType): MetricType =>
+	m === "requests" ? "tokens" : "requests";
+
+/**
  * The dashboard's time-range and metric selections: a global pair driven by
  * the page header plus a persisted range per section, and a metric for the
  * sections that have one. Sections follow the header whenever it changes and
@@ -41,6 +49,31 @@ export function useDashboardRanges() {
 		globalRange,
 		{ deserialize: deserializeRange },
 	);
+	// The two time-series charts each pick a metric; the header metric lands in
+	// the left chart and its companion in the right one. A stored pair that
+	// collides (edited storage) resolves at read time, so the charts never agree.
+	const [leftChartMetric, setLeftChartMetric] = useLocalStorage<MetricType>(
+		"dashboard.leftChartMetric",
+		globalMetric,
+		{ deserialize: deserializeMetric },
+	);
+	const [storedRightChartMetric, setRightChartMetric] =
+		useLocalStorage<MetricType>(
+			"dashboard.rightChartMetric",
+			companionMetric(globalMetric),
+			{ deserialize: deserializeMetric },
+		);
+	const rightChartMetric =
+		storedRightChartMetric === leftChartMetric
+			? companionMetric(leftChartMetric)
+			: storedRightChartMetric;
+	// Write the resolution back, or the stale stored value would resurface as
+	// soon as the left chart moved off it.
+	useEffect(() => {
+		if (storedRightChartMetric === leftChartMetric) {
+			setRightChartMetric(companionMetric(leftChartMetric));
+		}
+	}, [storedRightChartMetric, leftChartMetric, setRightChartMetric]);
 	const [doughnutRange, setDoughnutRange] = useLocalStorage<Range>(
 		"dashboard.doughnutRange",
 		globalRange,
@@ -109,11 +142,20 @@ export function useDashboardRanges() {
 	useEffect(() => {
 		if (prevGlobalMetricRef.current !== globalMetric) {
 			prevGlobalMetricRef.current = globalMetric;
+			setLeftChartMetric(globalMetric);
+			setRightChartMetric(companionMetric(globalMetric));
 			setDoughnutMetric(globalMetric);
 			setModelsMetric(globalMetric);
 			setVirtualKeysMetric(globalMetric);
 		}
-	}, [globalMetric, setDoughnutMetric, setModelsMetric, setVirtualKeysMetric]);
+	}, [
+		globalMetric,
+		setLeftChartMetric,
+		setRightChartMetric,
+		setDoughnutMetric,
+		setModelsMetric,
+		setVirtualKeysMetric,
+	]);
 
 	return {
 		globalRange,
@@ -124,6 +166,10 @@ export function useDashboardRanges() {
 		setRequestsChartRange,
 		tokensChartRange,
 		setTokensChartRange,
+		leftChartMetric,
+		setLeftChartMetric,
+		rightChartMetric,
+		setRightChartMetric,
 		doughnutRange,
 		setDoughnutRange,
 		doughnutMetric,

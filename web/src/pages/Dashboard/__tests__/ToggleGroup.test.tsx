@@ -56,6 +56,11 @@ describe("RangeToggle", () => {
 		// the parent element which is the button with styling
 		const activeButton = screen.getByText("1D").closest("button");
 		expect(activeButton).toHaveClass("ui-tab-active");
+		expect(activeButton).toHaveAttribute("aria-pressed", "true");
+		expect(screen.getByText("1H").closest("button")).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
 	});
 
 	it("applies inactive style to non-selected values", () => {
@@ -142,5 +147,15 @@ describe("MetricToggle spend", () => {
 		render(<MetricToggle value="tokens" onChange={onChange} />);
 		await userEvent.click(screen.getByText("$"));
 		expect(onChange).toHaveBeenCalledWith("cost");
+	});
+});
+
+describe("MetricToggle exclude", () => {
+	it("leaves the excluded metric out of the group", () => {
+		render(<MetricToggle value="tokens" onChange={vi.fn()} exclude="cost" />);
+
+		expect(screen.getByText("T")).toBeInTheDocument();
+		expect(screen.getByText("R")).toBeInTheDocument();
+		expect(screen.queryByText("$")).not.toBeInTheDocument();
 	});
 });
