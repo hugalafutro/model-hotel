@@ -1133,3 +1133,48 @@ describe("useDashboard", () => {
 		});
 	});
 });
+
+describe("useDashboard chart metrics", () => {
+	beforeEach(() => {
+		localStorage.clear();
+		server.resetHandlers();
+	});
+
+	it("seeds the left chart from the header metric and the right chart from its companion", () => {
+		localStorage.setItem("dashboardMetric", "cost");
+
+		const { result } = renderHook(() => useDashboard(), {
+			wrapper: AllProviders,
+		});
+
+		expect(result.current.leftChartMetric).toBe("cost");
+		expect(result.current.rightChartMetric).toBe("requests");
+	});
+
+	it("never lets a stored pair collide", () => {
+		localStorage.setItem("dashboard.leftChartMetric", "requests");
+		localStorage.setItem("dashboard.rightChartMetric", "requests");
+
+		const { result } = renderHook(() => useDashboard(), {
+			wrapper: AllProviders,
+		});
+
+		expect(result.current.leftChartMetric).toBe("requests");
+		expect(result.current.rightChartMetric).toBe("tokens");
+	});
+
+	it("re-seeds both charts when the header metric changes", async () => {
+		const { result } = renderHook(() => useDashboard(), {
+			wrapper: AllProviders,
+		});
+		act(() => result.current.setRightChartMetric("cost"));
+		await waitFor(() => expect(result.current.rightChartMetric).toBe("cost"));
+
+		act(() => result.current.setGlobalMetric("requests"));
+
+		await waitFor(() => {
+			expect(result.current.leftChartMetric).toBe("requests");
+			expect(result.current.rightChartMetric).toBe("tokens");
+		});
+	});
+});

@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -712,6 +712,44 @@ describe("Dashboard", () => {
 			await waitFor(() => {
 				expect(apiCalled).toBe(true);
 			});
+		});
+	});
+
+	describe("Chart metric toggles", () => {
+		afterEach(() => {
+			localStorage.removeItem("dashboardMetric");
+		});
+
+		it("withholds each chart's metric from the other chart's toggle", async () => {
+			localStorage.setItem("dashboardMetric", "cost");
+			server.use(
+				http.get("/api/stats", () => HttpResponse.json(mockStats)),
+				http.get("/api/stats/timeseries", () =>
+					HttpResponse.json({ points: [] }),
+				),
+			);
+
+			renderWithProviders(<Dashboard />);
+
+			const spendHeading = await screen.findByRole("heading", {
+				level: 3,
+				name: /Spend\s*\/\s*Day/i,
+			});
+			const requestsHeading = screen.getByRole("heading", {
+				level: 3,
+				name: /Requests\s*\/\s*Day/i,
+			});
+			const spendCard = spendHeading.closest(".ui-card") as HTMLElement;
+			const requestsCard = requestsHeading.closest(".ui-card") as HTMLElement;
+
+			// Left chart shows spend: its toggle offers T and $, not R.
+			expect(within(spendCard).getByText("$")).toBeInTheDocument();
+			expect(within(spendCard).getByText("T")).toBeInTheDocument();
+			expect(within(spendCard).queryByText("R")).not.toBeInTheDocument();
+			// Right chart shows requests: its toggle offers T and R, not $.
+			expect(within(requestsCard).getByText("R")).toBeInTheDocument();
+			expect(within(requestsCard).getByText("T")).toBeInTheDocument();
+			expect(within(requestsCard).queryByText("$")).not.toBeInTheDocument();
 		});
 	});
 

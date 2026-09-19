@@ -75,9 +75,15 @@ export function RangeToggle({
 export function MetricToggle({
 	value,
 	onChange,
+	exclude,
 }: {
 	value: MetricType;
 	onChange: (v: MetricType) => void;
+	/**
+	 * A metric this toggle must not offer, for two toggles that share one
+	 * space: the option leaves the group instead of rendering disabled.
+	 */
+	exclude?: MetricType;
 }) {
 	const { t } = useTranslation();
 	// One character each, the same in every language; the word rides the
@@ -96,7 +102,11 @@ export function MetricToggle({
 	};
 	return (
 		<ToggleGroup
-			options={METRIC_TYPES}
+			options={
+				exclude === undefined
+					? METRIC_TYPES
+					: METRIC_TYPES.filter((m) => m !== exclude)
+			}
 			value={value}
 			onChange={onChange}
 			getLabel={(m) => labels[m]}

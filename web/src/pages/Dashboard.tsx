@@ -28,6 +28,7 @@ import { StatCardsRow } from "./Dashboard/StatCardsRow";
 import { TimeSeriesChart } from "./Dashboard/TimeSeriesChart";
 import { MetricToggle, RangeToggle } from "./Dashboard/ToggleGroup";
 import { TokenSplitBar } from "./Dashboard/TokenSplitBar";
+import type { MetricType } from "./Dashboard/types";
 import { UsageBarPanel } from "./Dashboard/UsageBarPanel";
 import { useDashboard } from "./Dashboard/useDashboard";
 import { ModelDetailModal } from "./Models/ModelDetailModal";
@@ -62,6 +63,10 @@ export function Dashboard() {
 		setRequestsChartRange,
 		tokensChartRange,
 		setTokensChartRange,
+		leftChartMetric,
+		setLeftChartMetric,
+		rightChartMetric,
+		setRightChartMetric,
 		doughnutRange,
 		setDoughnutRange,
 		doughnutMetric,
@@ -159,54 +164,75 @@ export function Dashboard() {
 		);
 	}
 
-	const requestsChart = (
-		<TimeSeriesChart
-			key="total"
-			data={acData}
-			range={requestsChartRange}
-			onRangeChange={setRequestsChartRange}
-			metric={t("dashboard.metricRequests")}
-			icon={Activity}
-			color={accents.requests}
-			label={t("dashboard.label.requests")}
-			dataKey="total"
-			loading={tsDataLoading}
-		/>
-	);
-	const tokensChart = (
-		<TimeSeriesChart
-			key="tokens"
-			data={tokenAcData}
-			range={tokensChartRange}
-			onRangeChange={setTokensChartRange}
-			metric={t("dashboard.metricTokens")}
-			icon={Hash}
-			color={accents.tokens}
-			label={t("dashboard.label.tokens")}
-			dataKey="tokens"
-			overlayDataKey="tokens_cache_hit"
-			overlayColor="var(--accent)"
-			overlayLabel={t("dashboard.chart.cacheHit")}
-			loading={tokenTsDataLoading}
-		/>
-	);
-	// Spend rides the token time series: the same buckets carry cost_usd.
-	const spendChart = (
-		<TimeSeriesChart
-			key="spend"
-			data={tokenAcData}
-			range={tokensChartRange}
-			onRangeChange={setTokensChartRange}
-			metric={t("dashboard.metricSpend")}
-			icon={DollarSign}
-			color={accents.spend}
-			label={t("dashboard.label.spend")}
-			dataKey="cost_usd"
-			allowDecimals
-			formatValue={formatSpend}
-			loading={tokenTsDataLoading}
-		/>
-	);
+	// Each time-series chart picks its own metric; the other chart's metric is
+	// withheld from its toggle so the pair never shows the same thing twice.
+	// Spend rides the token time series (the same buckets carry cost_usd), so
+	// tokens and spend share one range.
+	const chartFor = (
+		metric: MetricType,
+		onMetricChange: (m: MetricType) => void,
+		exclude: MetricType,
+	) => {
+		const toggle = {
+			metricType: metric,
+			onMetricTypeChange: onMetricChange,
+			excludeMetricType: exclude,
+		};
+		if (metric === "requests") {
+			return (
+				<TimeSeriesChart
+					key="total"
+					data={acData}
+					range={requestsChartRange}
+					onRangeChange={setRequestsChartRange}
+					metric={t("dashboard.metricRequests")}
+					icon={Activity}
+					color={accents.requests}
+					label={t("dashboard.label.requests")}
+					dataKey="total"
+					loading={tsDataLoading}
+					{...toggle}
+				/>
+			);
+		}
+		if (metric === "cost") {
+			return (
+				<TimeSeriesChart
+					key="spend"
+					data={tokenAcData}
+					range={tokensChartRange}
+					onRangeChange={setTokensChartRange}
+					metric={t("dashboard.metricSpend")}
+					icon={DollarSign}
+					color={accents.spend}
+					label={t("dashboard.label.spend")}
+					dataKey="cost_usd"
+					allowDecimals
+					formatValue={formatSpend}
+					loading={tokenTsDataLoading}
+					{...toggle}
+				/>
+			);
+		}
+		return (
+			<TimeSeriesChart
+				key="tokens"
+				data={tokenAcData}
+				range={tokensChartRange}
+				onRangeChange={setTokensChartRange}
+				metric={t("dashboard.metricTokens")}
+				icon={Hash}
+				color={accents.tokens}
+				label={t("dashboard.label.tokens")}
+				dataKey="tokens"
+				overlayDataKey="tokens_cache_hit"
+				overlayColor="var(--accent)"
+				overlayLabel={t("dashboard.chart.cacheHit")}
+				loading={tokenTsDataLoading}
+				{...toggle}
+			/>
+		);
+	};
 
 	return (
 		<div className="space-y-6 pb-8">
@@ -376,13 +402,10 @@ export function Dashboard() {
 				setTokensModalOpen={setTokensModalOpen}
 			/>
 
-			{/* Time-series charts row - selected metric renders first */}
+			{/* Time-series charts row: the header metric lands on the left */}
 			<div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-				{globalMetric === "requests"
-					? [requestsChart, tokensChart]
-					: globalMetric === "cost"
-						? [spendChart, requestsChart]
-						: [tokensChart, requestsChart]}
+				{chartFor(leftChartMetric, setLeftChartMetric, rightChartMetric)}
+				{chartFor(rightChartMetric, setRightChartMetric, leftChartMetric)}
 			</div>
 
 			{/* Charts row: doughnut + token split */}

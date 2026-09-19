@@ -144,3 +144,13 @@ describe("MetricToggle spend", () => {
 		expect(onChange).toHaveBeenCalledWith("cost");
 	});
 });
+
+describe("MetricToggle exclude", () => {
+	it("leaves the excluded metric out of the group", () => {
+		render(<MetricToggle value="tokens" onChange={vi.fn()} exclude="cost" />);
+
+		expect(screen.getByText("T")).toBeInTheDocument();
+		expect(screen.getByText("R")).toBeInTheDocument();
+		expect(screen.queryByText("$")).not.toBeInTheDocument();
+	});
+});

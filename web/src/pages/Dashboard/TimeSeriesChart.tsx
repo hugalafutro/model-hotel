@@ -13,8 +13,13 @@ import {
 } from "recharts";
 import { Spinner } from "../../components/Spinner";
 import { formatAxisTick } from "./axisFormat";
-import { RangeToggle } from "./ToggleGroup";
-import type { GaugeDataKey, Range, TimeSeriesDataPoint } from "./types";
+import { MetricToggle, RangeToggle } from "./ToggleGroup";
+import type {
+	GaugeDataKey,
+	MetricType,
+	Range,
+	TimeSeriesDataPoint,
+} from "./types";
 
 export function TimeSeriesChart({
 	data,
@@ -34,6 +39,9 @@ export function TimeSeriesChart({
 	scale = 1,
 	loading,
 	formatValue,
+	metricType,
+	onMetricTypeChange,
+	excludeMetricType,
 }: {
 	data: TimeSeriesDataPoint[];
 	range: Range;
@@ -53,6 +61,14 @@ export function TimeSeriesChart({
 	loading?: boolean;
 	/** Renders axis ticks and tooltip values; defaults to the compact number form. */
 	formatValue?: (v: number) => string;
+	/**
+	 * The metric this chart shows, when the chart lets the user pick one: a
+	 * metric toggle joins the range toggle in the header. excludeMetricType is
+	 * the metric a sibling chart already shows, so it is not offered here.
+	 */
+	metricType?: MetricType;
+	onMetricTypeChange?: (m: MetricType) => void;
+	excludeMetricType?: MetricType;
 }) {
 	const { t } = useTranslation();
 	const { grid, text } = useMemo(() => {
@@ -210,7 +226,16 @@ export function TimeSeriesChart({
 						: t("dashboard.chart.day")}
 				{loading && <Spinner className="ml-1" />}
 			</h3>
-			{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
+			<div className="flex items-center gap-1">
+				{metricType !== undefined && onMetricTypeChange !== undefined && (
+					<MetricToggle
+						value={metricType}
+						onChange={onMetricTypeChange}
+						exclude={excludeMetricType}
+					/>
+				)}
+				{showToggle && <RangeToggle value={range} onChange={onRangeChange} />}
+			</div>
 		</div>
 	);
 
