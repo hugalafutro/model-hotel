@@ -54,11 +54,18 @@ type chatReqToolFunc struct {
 
 // chatContentPart is one part of an array-form message content.
 type chatContentPart struct {
-	Type     string `json:"type"` // text | image_url
+	Type     string `json:"type"` // text | image_url | file
 	Text     string `json:"text"`
 	ImageURL *struct {
 		URL string `json:"url"`
 	} `json:"image_url"`
+	// File carries a document as a data: URI in file_data, the form the
+	// /v1/messages ingress translator emits for an Anthropic document block.
+	// The Responses input_file part takes the same data: URI plus a filename.
+	File *struct {
+		Filename string `json:"filename"`
+		FileData string `json:"file_data"`
+	} `json:"file"`
 }
 
 // TranslateChatToResponses converts an OpenAI chat-completions request body
@@ -214,6 +221,14 @@ func translateUserContent(raw json.RawMessage) ([]contentPart, error) {
 		case "image_url":
 			if p.ImageURL != nil && p.ImageURL.URL != "" {
 				out = append(out, contentPart{Type: "input_image", ImageURL: p.ImageURL.URL})
+			}
+		case "file":
+			// A file part with no inline data (file_id, file_url) has nothing this
+			// stateless gateway can forward, so it is skipped like a malformed
+			// image part; one with file_data is the document itself and dropping
+			// it would answer about content the model never saw.
+			if p.File != nil && p.File.FileData != "" {
+				out = append(out, contentPart{Type: "input_file", Filename: p.File.Filename, FileData: p.File.FileData})
 			}
 		}
 	}

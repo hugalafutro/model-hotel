@@ -69,9 +69,11 @@ type messageItem struct {
 
 // contentPart is one typed part inside a message item.
 type contentPart struct {
-	Type     string `json:"type"` // input_text | output_text | input_image
+	Type     string `json:"type"` // input_text | output_text | input_image | input_file
 	Text     string `json:"text,omitempty"`
 	ImageURL string `json:"image_url,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	FileData string `json:"file_data,omitempty"` // data: URI, input_file only
 }
 
 // functionCallItem replays a prior assistant tool call from the transcript.

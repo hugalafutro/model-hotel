@@ -133,6 +133,30 @@ func TestTranslateChat_ImageContent(t *testing.T) {
 	}
 }
 
+// A file part carrying a data: URI (what the /v1/messages ingress translator
+// emits for an Anthropic document) maps to input_file; one with no inline data
+// is skipped rather than sent as a part the API rejects.
+func TestTranslateChat_FileContent(t *testing.T) {
+	body := `{"model":"m","messages":[{"role":"user","content":[
+		{"type":"text","text":"summarise"},
+		{"type":"file","file":{"filename":"report.pdf","file_data":"data:application/pdf;base64,JVBERi0="}},
+		{"type":"file","file":{"file_id":"file-123"}}
+	]}]}`
+	m := mustTranslate(t, body, "m")
+	items := inputItems(t, m)
+	content := items[0]["content"].([]any)
+	if len(content) != 2 {
+		t.Fatalf("content = %v", content)
+	}
+	f := content[1].(map[string]any)
+	if f["type"] != "input_file" || f["filename"] != "report.pdf" || f["file_data"] != "data:application/pdf;base64,JVBERi0=" {
+		t.Errorf("file part = %v", f)
+	}
+	if _, has := f["image_url"]; has {
+		t.Errorf("file part must not carry image_url: %v", f)
+	}
+}
+
 // Absent reasoning_effort still requests a summary (these models reason by
 // default); explicit "none" keeps reasoning off and asks for no summary.
 func TestTranslateChat_ReasoningDefaults(t *testing.T) {

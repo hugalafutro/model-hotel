@@ -325,12 +325,16 @@ func rejectedBy(by, userEntry *bucketEntry) string {
 // its rate is adjusted in place so runtime changes take effect immediately
 // without handing the key a fresh, full bucket.
 func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *float64, perKeyBurst *int) *bucketEntry {
-	// Resolved before taking the lock, since every admission blocks on this
-	// mutex and these are settings reads: the cache serves them for free until
-	// its TTL lapses, and then one request pays a database round trip. Under the
-	// lock that round trip stalled every other admission behind it. Nothing here
-	// touches limiter state, so only the upsert below needs the mutex.
-	// tpm_limiter.go's getEntry resolves its own settings read the same way.
+	// The settings snapshot is taken under the admission mutex on purpose. Read
+	// outside it, a request could resolve the old cap, lose the lock to one that
+	// installed a newly lowered cap, and then upsert its stale, higher values
+	// back over it: a runtime reduction bypassed for as long as such requests
+	// keep arriving. The cost is one database round trip under the lock when
+	// the settings cache TTL lapses; serialising admissions for that beat is
+	// the price of a cap change taking effect in order.
+	l.mu.Lock()
+	defer l.mu.Unlock()
+
 	rps := l.settings.GetFloat(ctx, settingsKeyRPS, defaultRPS)
 	burst := l.settings.GetInt(ctx, settingsKeyBurst, defaultBurst)
 
@@ -358,9 +362,6 @@ func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *flo
 	}
 
 	rps, burst = bucketRate(rps, burst)
-
-	l.mu.Lock()
-	defer l.mu.Unlock()
 
 	return upsertEntry(l.limiters, keyHash, rps, burst, keyLogPrefix, keyLogLabel, "")
 }
