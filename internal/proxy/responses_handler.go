@@ -10,6 +10,7 @@ import (
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/openairesponses"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // Responses serves the OpenAI Responses API surface (POST /v1/responses), the
@@ -69,6 +70,15 @@ func (h *Handler) Responses(w http.ResponseWriter, r *http.Request) {
 		aw.Finalize()
 		return
 	}
+	// A member only OpenAI's own endpoint can serve (a hosted or custom tool, a
+	// file id) is fine when every candidate is that endpoint, and a 400 naming
+	// the member when any candidate would get the chat translation without it.
+	// Decided here, after resolution, because the mode is per candidate.
+	if tr.NativeOnly != nil && !allNativeResponses(candidates) {
+		h.rejectIngest(aw, st.logData, tr.NativeOnly.Error(), st.startTime, st.parseMs)
+		aw.Finalize()
+		return
+	}
 	h.loadFailoverConfig(r, st)
 
 	debuglog.Debug("responses: resolved (pre-loop)", "model", st.logData.modelID, "provider", st.logData.providerName, "candidates", len(candidates), "stream", st.isStreaming)
@@ -98,4 +108,15 @@ func (h *Handler) readRawBody(w http.ResponseWriter, r *http.Request) ([]byte, b
 		return nil, false
 	}
 	return body, true
+}
+
+// allNativeResponses reports whether every candidate would be served the
+// native Responses passthrough (the gate buildCandidateRequest applies).
+func allNativeResponses(candidates []modelCandidate) bool {
+	for _, c := range candidates {
+		if provider.TypeOf(c.provider) != "openai" || !isOpenAIHost(c.provider.BaseURL) {
+			return false
+		}
+	}
+	return len(candidates) > 0
 }

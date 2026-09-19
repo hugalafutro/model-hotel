@@ -287,10 +287,12 @@ func translateChatUsage(raw json.RawMessage) *Usage {
 	if err := util.DecodeCounts(raw, &u); err != nil && util.ShapeError(raw, err) == nil {
 		return nil
 	}
-	if len(util.UnreadableCounts(raw, "prompt_tokens")) > 0 {
+	lostPrompt := len(util.UnreadableCounts(raw, "prompt_tokens")) > 0
+	lostCompletion := len(util.UnreadableCounts(raw, "completion_tokens")) > 0
+	if lostPrompt {
 		u.PromptTokens = 0
 	}
-	if len(util.UnreadableCounts(raw, "completion_tokens")) > 0 {
+	if lostCompletion {
 		u.CompletionTokens = 0
 	}
 	if len(util.UnreadableCounts(raw, "total_tokens")) > 0 {
@@ -303,7 +305,10 @@ func translateChatUsage(raw json.RawMessage) *Usage {
 		InputTokensDetails:  &InputTokensDetails{},
 		OutputTokensDetails: &OutputTokensDetails{},
 	}
-	if out.TotalTokens == 0 {
+	// The fallback total is a sum, so a lost addend takes it down rather than
+	// publishing a partial figure as the whole: the rule translateUsage reads
+	// the other direction by.
+	if out.TotalTokens == 0 && !lostPrompt && !lostCompletion {
 		out.TotalTokens = u.PromptTokens + u.CompletionTokens
 	}
 	if u.PromptTokensDetails != nil {

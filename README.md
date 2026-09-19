@@ -513,9 +513,9 @@ A request routed to OpenAI itself is forwarded verbatim to OpenAI's own `/v1/res
 tools, encrypted reasoning and prompt caching survive); every other candidate gets the request
 translated to Chat Completions and the answer, stream or error rendered back as Responses events
 (text and image input, function tools in and out, reasoning summaries, usage). The gateway is
-stateless: `store` must be false, and `previous_response_id`, `conversation`, hosted tools other
-than `web_search` (which is dropped on translated routes) and custom tools are refused with a 400
-naming the field. Point Codex at it with a `model_providers` entry whose `base_url` is
+stateless: `store` must be false, and `previous_response_id` and `conversation` are refused with a
+400 naming the field; hosted tools other than `web_search` (dropped on translated routes) and custom
+tools are accepted only when every candidate is OpenAI itself. Point Codex at it with a `model_providers` entry whose `base_url` is
 `http://<gateway>/v1` and `wire_api = "responses"`.
 
 OpenAI's newest models (the gpt-5.4+ and gpt-5.6 families) reject tool calling combined with

@@ -16,6 +16,7 @@ import (
 	"github.com/openai/openai-go/v3/responses"
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
+	"github.com/hugalafutro/model-hotel/internal/provider"
 )
 
 // doResponsesRequest sends a /v1/responses request through the proxy with the
@@ -49,7 +50,7 @@ func TestResponses_RejectionsAreOpenAI400s(t *testing.T) {
 	h := &Handler{}
 	for _, tc := range []struct{ body, field string }{
 		{`{"model":"p/m","input":"x","previous_response_id":"resp_1"}`, "previous_response_id"},
-		{`{"model":"p/m","input":"x","tools":[{"type":"custom","name":"apply_patch"}]}`, "tools[0]"},
+		{`{"model":"p/m","input":"x","tools":[{"type":"function","name":"a"},{"type":"function","name":"a"}]}`, "tools[1]"},
 		{`{"input":"x"}`, "model"},
 		{`{not json`, ""},
 	} {
@@ -219,5 +220,34 @@ func TestResponses_E2E_UpstreamErrorEnvelope(t *testing.T) {
 	}
 	if msg := openAIErrorMessage(t, w.Body.Bytes()); msg != "bad prompt" {
 		t.Errorf("message = %q", msg)
+	}
+}
+
+// A member only OpenAI's own endpoint serves is refused once resolution shows
+// a candidate that would be translated, after the pending row exists, so the
+// refusal is logged like any other validation failure.
+func TestResponses_NativeOnlyMemberRefusedOnTranslatedRoute(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		t.Error("the upstream must not be called")
+	}))
+	defer upstream.Close()
+	env := newTestProxyEnvWithUpstream(t, upstream)
+	w := doResponsesRequest(env, `{"model":"`+env.ProviderName+`/`+env.ModelName+`","input":"x","tools":[{"type":"custom","name":"apply_patch"}]}`)
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("code = %d, body = %s", w.Code, w.Body.String())
+	}
+	if msg := openAIErrorMessage(t, w.Body.Bytes()); !strings.Contains(msg, "tools[0]") || !strings.Contains(msg, "custom") {
+		t.Errorf("message = %q", msg)
+	}
+}
+
+func TestAllNativeResponses(t *testing.T) {
+	openai := modelCandidate{provider: &provider.Provider{BaseURL: "https://api.openai.com/v1", ProviderType: "openai"}}
+	relay := modelCandidate{provider: &provider.Provider{BaseURL: "https://llm.corp.internal/v1", ProviderType: "openai"}}
+	if !allNativeResponses([]modelCandidate{openai, openai}) {
+		t.Error("OpenAI-only candidates are all native")
+	}
+	if allNativeResponses([]modelCandidate{openai, relay}) || allNativeResponses(nil) {
+		t.Error("a translated candidate, or none, is not all native")
 	}
 }

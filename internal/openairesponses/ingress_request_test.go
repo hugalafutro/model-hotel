@@ -187,17 +187,6 @@ func TestTranslateRequestToChat_Rejections(t *testing.T) {
 		{"background", `{"model":"m","input":"x","background":true}`, "background"},
 		{"item_reference", `{"model":"m","input":[{"type":"item_reference","id":"msg_1"}]}`, "input[0]"},
 		{"compaction", `{"model":"m","input":[{"type":"compaction","encrypted_content":"x"}]}`, "input[0]"},
-		{"custom tool call item", `{"model":"m","input":[{"type":"custom_tool_call","call_id":"c","name":"apply_patch","input":"x"}]}`, "input[0]"},
-		{"image by file id", `{"model":"m","input":[{"role":"user","content":[{"type":"input_image","file_id":"file_1"}]}]}`, "input[0].content[0]"},
-		{"file by url", `{"model":"m","input":[{"role":"user","content":[{"type":"input_file","file_url":"https://x/y.pdf"}]}]}`, "input[0].content[0]"},
-		{"audio part", `{"model":"m","input":[{"role":"user","content":[{"type":"input_audio","input_audio":{}}]}]}`, "input[0].content[0]"},
-		{"custom tool", `{"model":"m","input":"x","tools":[{"type":"custom","name":"apply_patch"}]}`, "tools[0]"},
-		{"file_search", `{"model":"m","input":"x","tools":[{"type":"function","name":"f"},{"type":"file_search"}]}`, "tools[1]"},
-		{"code_interpreter", `{"model":"m","input":"x","tools":[{"type":"code_interpreter"}]}`, "tools[0]"},
-		{"image_generation", `{"model":"m","input":"x","tools":[{"type":"image_generation"}]}`, "tools[0]"},
-		{"mcp", `{"model":"m","input":"x","tools":[{"type":"mcp","server_label":"x"}]}`, "tools[0]"},
-		{"hosted tool_choice", `{"model":"m","input":"x","tool_choice":{"type":"web_search"}}`, "tool_choice"},
-		{"allowed_tools", `{"model":"m","input":"x","tool_choice":{"type":"allowed_tools","mode":"auto","tools":[]}}`, "tool_choice"},
 		{"model missing", `{"input":"x"}`, "model"},
 	}
 	for _, tc := range cases {
@@ -287,8 +276,8 @@ func TestTranslateRequestToChat_NamespaceToolsFlatten(t *testing.T) {
 	if call := msgs[0]["tool_calls"].([]any)[0].(map[string]any)["function"].(map[string]any); call["name"] != "mcp__fs__list" {
 		t.Errorf("replayed namespaced call = %v", call)
 	}
-	if _, err := TranslateRequestToChat([]byte(`{"model":"m","input":"x","tools":[{"type":"namespace","name":"n","tools":[{"type":"custom","name":"c"}]}]}`)); err == nil {
-		t.Error("a non-function tool inside a namespace must be refused")
+	if tr, err := TranslateRequestToChat([]byte(`{"model":"m","input":"x","tools":[{"type":"namespace","name":"n","tools":[{"type":"custom","name":"c"}]}]}`)); err != nil || tr.NativeOnly == nil {
+		t.Errorf("a non-function tool inside a namespace is native-only: %v %+v", err, tr)
 	}
 	if tr, _ := TranslateRequestToChat([]byte(`{"model":"m","input":"x","tools":[{"type":"function","name":"f"}]}`)); tr.Facts.ToolNames != nil {
 		t.Error("no namespaces: the map must be nil")
@@ -347,5 +336,50 @@ func TestTranslateRequestToChat_PartsJoinAndRoleWhitelist(t *testing.T) {
 	var rej *RejectedRequest
 	if !errors.As(err, &rej) || rej.Field != "input[0]" {
 		t.Errorf("unknown role must be refused, got %v", err)
+	}
+}
+
+// Members only OpenAI's own endpoint serves do not fail the translation: they
+// are left out of the chat body and reported as native-only, naming the first,
+// for the handler to refuse once it knows a candidate would be translated.
+func TestTranslateRequestToChat_NativeOnlyMembers(t *testing.T) {
+	cases := []struct {
+		name, body, field string
+		wantTools         int // function tools that must survive beside the member
+	}{
+		{"custom tool call item", `{"model":"m","input":[{"type":"custom_tool_call","call_id":"c","name":"apply_patch","input":"x"},{"role":"user","content":"hi"}]}`, "input[0]", 0},
+		{"image by file id", `{"model":"m","input":[{"role":"user","content":[{"type":"input_image","file_id":"file_1"},{"type":"input_text","text":"hi"}]}]}`, "input[0].content[0]", 0},
+		{"file by url", `{"model":"m","input":[{"role":"user","content":[{"type":"input_file","file_url":"https://x/y.pdf"}]}]}`, "input[0].content[0]", 0},
+		{"audio part", `{"model":"m","input":[{"role":"user","content":[{"type":"input_audio","input_audio":{}}]}]}`, "input[0].content[0]", 0},
+		{"custom tool", `{"model":"m","input":"x","tools":[{"type":"custom","name":"apply_patch"},{"type":"function","name":"f"}]}`, "tools[0]", 1},
+		{"file_search", `{"model":"m","input":"x","tools":[{"type":"function","name":"f"},{"type":"file_search"}]}`, "tools[1]", 1},
+		{"custom inside namespace", `{"model":"m","input":"x","tools":[{"type":"namespace","name":"n","tools":[{"type":"custom","name":"c"},{"type":"function","name":"f"}]}]}`, "tools[0].tools[0]", 1},
+		{"hosted tool_choice", `{"model":"m","input":"x","tool_choice":{"type":"web_search"}}`, "tool_choice", 0},
+		{"allowed_tools", `{"model":"m","input":"x","tool_choice":{"type":"allowed_tools","mode":"auto","tools":[]}}`, "tool_choice", 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			tr, err := TranslateRequestToChat([]byte(tc.body))
+			if err != nil {
+				t.Fatalf("native-only members must not fail the translation: %v", err)
+			}
+			if tr.NativeOnly == nil || tr.NativeOnly.Field != tc.field {
+				t.Fatalf("NativeOnly = %+v, want field %s", tr.NativeOnly, tc.field)
+			}
+			m := decodeChat(t, tr.ChatBody)
+			body := string(tr.ChatBody)
+			for _, leaked := range []string{"custom", "file_search", "file_1", "input_audio", "web_search", "allowed_tools", "y.pdf"} {
+				if strings.Contains(body, leaked) {
+					t.Errorf("%s must not reach the chat body: %s", leaked, body)
+				}
+			}
+			if tools, _ := m["tools"].([]any); len(tools) != tc.wantTools {
+				t.Errorf("function tools beside it = %v, want %d", m["tools"], tc.wantTools)
+			}
+		})
+	}
+	plain, err := TranslateRequestToChat([]byte(`{"model":"m","input":"x","tools":[{"type":"function","name":"f"}]}`))
+	if err != nil || plain.NativeOnly != nil {
+		t.Errorf("a plain request has no native-only member: %v %+v", err, plain.NativeOnly)
 	}
 }

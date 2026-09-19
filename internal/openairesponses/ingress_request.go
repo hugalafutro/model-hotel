@@ -137,6 +137,26 @@ type TranslatedRequest struct {
 	Stream bool
 	// Facts is what the answer's Response object needs from the request.
 	Facts *RequestFacts
+	// NativeOnly is set when the request carries something only OpenAI's own
+	// /v1/responses can serve (a hosted or custom tool, a file id, an audio
+	// part): the chat translation left it out, so the request may only be
+	// served natively. The handler refuses it once it knows a candidate would
+	// be translated. It names the first such member.
+	NativeOnly *RejectedRequest
+}
+
+// translation is the state of one request's translation: the first
+// native-only member seen, if any.
+type translation struct {
+	nativeOnly *RejectedRequest
+}
+
+// deferNative records a member the chat translation cannot carry but OpenAI's
+// own endpoint can, and lets the translation go on without it.
+func (t *translation) deferNative(field, reason string) {
+	if t.nativeOnly == nil {
+		t.nativeOnly = &RejectedRequest{Field: field, Reason: reason}
+	}
 }
 
 // RequestFacts is what the response side needs from the request: the tool
@@ -186,6 +206,7 @@ func TranslateRequestToChat(body []byte) (*TranslatedRequest, error) {
 	if err := rejectStateful(&req); err != nil {
 		return nil, err
 	}
+	var tr translation
 
 	out := chatOutRequest{
 		Model:             req.Model,
@@ -206,7 +227,7 @@ func TranslateRequestToChat(body []byte) (*TranslatedRequest, error) {
 	if text := flattenItemText(req.Instructions); text != "" {
 		out.Messages = append(out.Messages, chatOutMessage{Role: "system", Content: text})
 	}
-	msgs, err := translateInput(req.Input)
+	msgs, err := tr.translateInput(req.Input)
 	if err != nil {
 		return nil, err
 	}
@@ -215,12 +236,12 @@ func TranslateRequestToChat(body []byte) (*TranslatedRequest, error) {
 		out.Messages = []chatOutMessage{}
 	}
 
-	tools, names, plain, err := translateIngressTools(req.Tools)
+	tools, names, plain, err := tr.translateIngressTools(req.Tools)
 	if err != nil {
 		return nil, err
 	}
 	out.Tools = tools
-	tc, err := translateIngressToolChoice(req.ToolChoice, names, plain)
+	tc, err := tr.translateIngressToolChoice(req.ToolChoice, names, plain)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +264,7 @@ func TranslateRequestToChat(body []byte) (*TranslatedRequest, error) {
 	if req.Text != nil {
 		facts.TextFormat = req.Text.Format
 	}
-	return &TranslatedRequest{ChatBody: chatBody, Model: req.Model, Stream: req.Stream, Facts: facts}, nil
+	return &TranslatedRequest{ChatBody: chatBody, Model: req.Model, Stream: req.Stream, Facts: facts, NativeOnly: tr.nativeOnly}, nil
 }
 
 // rejectStateful refuses the members that need state this gateway does not
@@ -270,7 +291,7 @@ func rejectStateful(req *ingressRequest) error {
 // into chat messages. Consecutive function_call items, and an assistant text
 // that precedes them, fold into one assistant message carrying tool_calls, the
 // way chat-completions expresses a tool-calling turn.
-func translateInput(raw json.RawMessage) ([]chatOutMessage, error) {
+func (t *translation) translateInput(raw json.RawMessage) ([]chatOutMessage, error) {
 	if s, ok := egress.AsJSONString(raw); ok {
 		return []chatOutMessage{{Role: "user", Content: s}}, nil
 	}
@@ -290,7 +311,7 @@ func translateInput(raw json.RawMessage) ([]chatOutMessage, error) {
 		}
 		switch kind {
 		case "message":
-			m, err := translateInputMessage(it, field)
+			m, err := t.translateInputMessage(it, field)
 			if err != nil {
 				return nil, err
 			}
@@ -321,7 +342,9 @@ func translateInput(raw json.RawMessage) ([]chatOutMessage, error) {
 		case "item_reference", "compaction", "context_compaction":
 			return nil, reject(field, kind+" refers to server-side state this gateway does not keep")
 		default:
-			return nil, reject(field, "item type "+kind+" is not supported on this route")
+			// A hosted tool's call or output from an earlier turn: only the
+			// endpoint that ran the tool can read it back.
+			t.deferNative(field, "item type "+kind+" is served by OpenAI's /v1/responses only")
 		}
 	}
 	return out, nil
@@ -331,7 +354,7 @@ func translateInput(raw json.RawMessage) ([]chatOutMessage, error) {
 // plain text (refusals dropped); user, system and developer content keeps its
 // text, image and inline file parts. developer becomes system: the OpenAI-only
 // role is what the chat providers behind a hotel/ group reject.
-func translateInputMessage(it inputItem, field string) (*chatOutMessage, error) {
+func (t *translation) translateInputMessage(it inputItem, field string) (*chatOutMessage, error) {
 	role := it.Role
 	switch role {
 	case "developer":
@@ -365,16 +388,18 @@ func translateInputMessage(it inputItem, field string) (*chatOutMessage, error) 
 			out = append(out, chatOutPart{Type: "text", Text: p.Text})
 		case "input_image":
 			if p.ImageURL == "" {
-				return nil, reject(partField, "input_image needs an inline image_url: file ids are server-side state this gateway does not keep")
+				t.deferNative(partField, "input_image by file id is served by OpenAI's /v1/responses only; other routes need an inline image_url")
+				continue
 			}
 			out = append(out, chatOutPart{Type: "image_url", ImageURL: &chatOutImageURL{URL: p.ImageURL, Detail: p.Detail}})
 		case "input_file":
 			if p.FileData == "" {
-				return nil, reject(partField, "input_file needs inline file_data: file ids and urls cannot be fetched by this gateway")
+				t.deferNative(partField, "input_file by file id or url is served by OpenAI's /v1/responses only; other routes need inline file_data")
+				continue
 			}
 			out = append(out, chatOutPart{Type: "file", File: &chatOutFile{Filename: p.Filename, FileData: p.FileData}})
 		default:
-			return nil, reject(partField, "content part type "+p.Type+" is not supported on this route")
+			t.deferNative(partField, "content part type "+p.Type+" is served by OpenAI's /v1/responses only")
 		}
 	}
 	if len(out) == 0 {
@@ -456,9 +481,10 @@ func (t ingressTool) chatTool(name string) chatReqTool {
 // one to every custom provider by default, and a provider behind a hotel/
 // group simply has no search, as it would not on any other gateway. Every
 // other hosted or custom tool needs execution or state this route does not
-// have. plain is the set of top-level function names; every chat name, plain
-// or generated, must be unique, or a call could not be mapped back.
-func translateIngressTools(raw []json.RawMessage) (out []chatReqTool, names ToolNames, plain map[string]bool, err error) {
+// have, so it is recorded as native-only and left out of the chat request.
+// plain is the set of top-level function names; every chat name, plain or
+// generated, must be unique, or a call could not be mapped back.
+func (t *translation) translateIngressTools(raw []json.RawMessage) (out []chatReqTool, names ToolNames, plain map[string]bool, err error) {
 	names = ToolNames{}
 	plain = map[string]bool{}
 	seen := map[string]string{} // chat name -> the tools[...] field that claimed it
@@ -471,38 +497,39 @@ func translateIngressTools(raw []json.RawMessage) (out []chatReqTool, names Tool
 	}
 	for i, r := range raw {
 		field := fmt.Sprintf("tools[%d]", i)
-		var t ingressTool
-		if err := json.Unmarshal(r, &t); err != nil {
+		var tool ingressTool
+		if err := json.Unmarshal(r, &tool); err != nil {
 			return nil, nil, nil, fmt.Errorf("openairesponses: invalid %s: %s", field, jsonfault.Describe(err, len(r)))
 		}
 		switch {
-		case t.Type == "function":
-			if err := claim(field, t.Name); err != nil {
+		case tool.Type == "function":
+			if err := claim(field, tool.Name); err != nil {
 				return nil, nil, nil, err
 			}
-			plain[t.Name] = true
-			out = append(out, t.chatTool(t.Name))
-		case t.Type == "namespace":
-			for j, ir := range t.Tools {
+			plain[tool.Name] = true
+			out = append(out, tool.chatTool(tool.Name))
+		case tool.Type == "namespace":
+			for j, ir := range tool.Tools {
 				innerField := fmt.Sprintf("%s.tools[%d]", field, j)
 				var inner ingressTool
 				if err := json.Unmarshal(ir, &inner); err != nil {
 					return nil, nil, nil, fmt.Errorf("openairesponses: invalid %s: %s", innerField, jsonfault.Describe(err, len(ir)))
 				}
 				if inner.Type != "function" {
-					return nil, nil, nil, reject(innerField, "tool type "+inner.Type+" is not supported on this route: only function tools are")
+					t.deferNative(innerField, "tool type "+inner.Type+" is served by OpenAI's /v1/responses only; other routes take function tools")
+					continue
 				}
-				nt := NamespacedTool{Namespace: t.Name, Name: inner.Name}
+				nt := NamespacedTool{Namespace: tool.Name, Name: inner.Name}
 				if err := claim(innerField, nt.chatName()); err != nil {
 					return nil, nil, nil, err
 				}
 				names[nt.chatName()] = nt
 				out = append(out, inner.chatTool(nt.chatName()))
 			}
-		case strings.HasPrefix(t.Type, "web_search"):
+		case strings.HasPrefix(tool.Type, "web_search"):
 			// dropped
 		default:
-			return nil, nil, nil, reject(field, "tool type "+t.Type+" is not supported on this route: only function tools are")
+			t.deferNative(field, "tool type "+tool.Type+" is served by OpenAI's /v1/responses only; other routes take function tools")
 		}
 	}
 	if len(names) == 0 {
@@ -517,7 +544,7 @@ func translateIngressTools(raw []json.RawMessage) (out []chatReqTool, names Tool
 // that tool's chat name, so the provider is asked for a tool it was given; a
 // name that matches nothing, or several namespaces, is refused here rather
 // than as the provider's 400 for a tool it never received.
-func translateIngressToolChoice(raw json.RawMessage, names ToolNames, plain map[string]bool) (any, error) {
+func (t *translation) translateIngressToolChoice(raw json.RawMessage, names ToolNames, plain map[string]bool) (any, error) {
 	if !util.JSONMemberSet(raw) {
 		return nil, nil
 	}
@@ -532,7 +559,8 @@ func translateIngressToolChoice(raw json.RawMessage, names ToolNames, plain map[
 		return nil, fmt.Errorf("openairesponses: invalid tool_choice: %s", jsonfault.Describe(err, len(raw)))
 	}
 	if tc.Type != "function" || tc.Name == "" {
-		return nil, reject("tool_choice", "type "+tc.Type+" is not supported on this route: use a mode string or a named function")
+		t.deferNative("tool_choice", "type "+tc.Type+" is served by OpenAI's /v1/responses only; other routes take a mode string or a named function")
+		return nil, nil
 	}
 	name := tc.Name
 	if !plain[name] {

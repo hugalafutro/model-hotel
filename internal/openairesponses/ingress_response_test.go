@@ -92,8 +92,14 @@ func TestBuildResponse_NotAChatCompletion(t *testing.T) {
 
 func TestTranslateChatUsage_PerFigure(t *testing.T) {
 	u := translateChatUsage([]byte(`{"prompt_tokens":"x","completion_tokens":5}`))
-	if u == nil || u.InputTokens != 0 || u.OutputTokens != 5 || u.TotalTokens != 5 {
-		t.Errorf("unreadable prompt must cost only the prompt: %+v", u)
+	if u == nil || u.InputTokens != 0 || u.OutputTokens != 5 || u.TotalTokens != 0 {
+		t.Errorf("unreadable prompt must cost the prompt and the summed total, never publish a partial total: %+v", u)
+	}
+	if u := translateChatUsage([]byte(`{"prompt_tokens":5,"completion_tokens":"x","total_tokens":9}`)); u == nil || u.TotalTokens != 9 || u.OutputTokens != 0 {
+		t.Errorf("a stated total survives a lost addend: %+v", u)
+	}
+	if u := translateChatUsage([]byte(`{"prompt_tokens":5,"completion_tokens":3}`)); u == nil || u.TotalTokens != 8 {
+		t.Errorf("both addends read: total is their sum: %+v", u)
 	}
 	if translateChatUsage([]byte(`null`)) != nil || translateChatUsage(nil) != nil || translateChatUsage([]byte(`"x"`)) != nil {
 		t.Error("absent, null and non-object usage must be nil")
