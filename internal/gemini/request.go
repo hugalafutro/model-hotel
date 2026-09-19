@@ -380,6 +380,32 @@ func RequestWantsImage(body []byte) bool {
 	return wantsImageOutput(req.Modalities)
 }
 
+// RequestCarriesFile reports whether a chat request carries a file part with
+// inline data (a data: URI in file_data) in any message; the proxy uses it to
+// pick the native route for a provider whose OpenAI-compatibility layer
+// rejects file parts outright. A part with no inline data is not a reason to
+// reroute: neither route can fetch it, and the native translator drops it.
+func RequestCarriesFile(body []byte) bool {
+	var req struct {
+		Messages []oaiMessage `json:"messages"`
+	}
+	if json.Unmarshal(body, &req) != nil {
+		return false
+	}
+	for _, m := range req.Messages {
+		var parts []oaiContentPart
+		if len(m.Content) == 0 || m.Content[0] != '[' || json.Unmarshal(m.Content, &parts) != nil {
+			continue
+		}
+		for _, p := range parts {
+			if p.Type == "file" && p.File != nil && strings.HasPrefix(p.File.FileData, "data:") {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // responseModalities maps an OpenAI modalities list that names image onto
 // Gemini's response modalities, keeping text only when the client asked for
 // it.
