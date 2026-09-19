@@ -2,6 +2,10 @@ package provider
 
 import (
 	"testing"
+
+	"github.com/google/uuid"
+
+	"github.com/hugalafutro/model-hotel/internal/model"
 )
 
 // deepseekSpec finds a DeepSeek catalog row by model ID.
@@ -80,15 +84,43 @@ func TestGetCoherePricingCatalog_AllFieldsValid(t *testing.T) {
 		if spec.DisplayName == "" {
 			t.Errorf("catalog[%d] (%s): DisplayName is empty", i, spec.ModelID)
 		}
-		if spec.MaxOutputTokens <= 0 {
-			t.Errorf("catalog[%d] (%s): MaxOutputTokens = %d, want > 0", i, spec.ModelID, spec.MaxOutputTokens)
+		if spec.MaxOutputTokens != nil && *spec.MaxOutputTokens <= 0 {
+			t.Errorf("catalog[%d] (%s): MaxOutputTokens = %d, want > 0", i, spec.ModelID, *spec.MaxOutputTokens)
 		}
-		if spec.InputPricePerMillion < 0 {
-			t.Errorf("catalog[%d] (%s): InputPricePerMillion = %f, want >= 0", i, spec.ModelID, spec.InputPricePerMillion)
+		for name, p := range map[string]*float64{
+			"InputPricePerMillion":   spec.InputPricePerMillion,
+			"OutputPricePerMillion":  spec.OutputPricePerMillion,
+			"SearchPricePerThousand": spec.SearchPricePerThousand,
+		} {
+			if p != nil && *p < 0 {
+				t.Errorf("catalog[%d] (%s): %s = %f, want >= 0", i, spec.ModelID, name, *p)
+			}
 		}
-		if spec.OutputPricePerMillion < 0 {
-			t.Errorf("catalog[%d] (%s): OutputPricePerMillion = %f, want >= 0", i, spec.ModelID, spec.OutputPricePerMillion)
+		// A row states one billing unit: per token or per search, never both.
+		perToken := spec.InputPricePerMillion != nil || spec.OutputPricePerMillion != nil
+		if perToken && spec.SearchPricePerThousand != nil {
+			t.Errorf("catalog[%d] (%s): carries both per-token and per-search prices", i, spec.ModelID)
 		}
+	}
+}
+
+// TestBuildCohereModel_RerankRowTakesTheSearchPrice: a rerank row prices per
+// search unit from the catalog and carries no per-token price, so the proxy
+// can price its rows and the dashboard shows one search price.
+func TestBuildCohereModel_RerankRowTakesTheSearchPrice(t *testing.T) {
+	prov := &Provider{ID: uuid.New()}
+	m := buildCohereModel(prov, GetCoherePricingCatalog(), CohereNativeModel{Name: "rerank-v4.0-pro", ContextLength: 32768}, "rerank")
+	if m.SearchPricePerThousand == nil || *m.SearchPricePerThousand != 2.5 {
+		t.Fatalf("search price = %v, want 2.5", m.SearchPricePerThousand)
+	}
+	if m.InputPricePerMillion != nil || m.OutputPricePerMillion != nil {
+		t.Errorf("rerank row carries per-token prices %v/%v, want none", m.InputPricePerMillion, m.OutputPricePerMillion)
+	}
+	if m.PriceSources.Search != model.PriceSourceCatalog || m.PriceSources.Input != "" {
+		t.Errorf("sources = %+v, want search=catalog only", m.PriceSources)
+	}
+	if m.OutputModalities != `["rerank"]` || m.DisplayName != "Rerank v4.0 Pro" {
+		t.Errorf("output=%s display=%q", m.OutputModalities, m.DisplayName)
 	}
 }
 

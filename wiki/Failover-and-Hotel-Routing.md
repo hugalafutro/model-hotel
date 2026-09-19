@@ -110,6 +110,8 @@ Failover groups are automatically created during model discovery sync (`SyncAllM
 4. **Require 2+ providers** - an auto-created group whose base name no longer has two enabled providers is **deleted**, not disabled
 5. Set `auto_created = true`
 
+Groups are modality-agnostic: an embedding, rerank, image or audio model forms a group by the same rule and is reached through the same `hotel/<name>` on its own endpoint (`hotel/rerank-v3.5` on `/v1/rerank`). A model only one provider lists gets no group, whatever its modality; that request is `404 model not found: hotel/<name>` until a second provider lists the same id.
+
 ```go
 // internal/failover/sync.go:SyncAllModels
 func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {

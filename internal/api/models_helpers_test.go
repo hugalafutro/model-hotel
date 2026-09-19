@@ -692,7 +692,7 @@ func TestLogTestModelCompleted(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-completed")
 
-	h.logTestModelCompleted(ctx, m, "reqhash003", 200, 2500, 100, 40, 8.5, 10, 3, "192.0.2.10")
+	h.logTestModelCompleted(ctx, m, "reqhash003", 200, 2500, 100, 40, 8.5, 10, 3, "192.0.2.10", 0, nil)
 
 	var count int
 	err := h.dbPool.Pool().QueryRow(ctx,
@@ -795,7 +795,7 @@ func TestLogTestModelCompleted_InsertError(t *testing.T) {
 
 	m := insertTestModelForLog(t, h, "test-log-completed-fail")
 
-	h.logTestModelCompleted(ctx, m, "reqhash-err-003", 200, 2500, 100, 40, 8.5, 10, 3, "")
+	h.logTestModelCompleted(ctx, m, "reqhash-err-003", 200, 2500, 100, 40, 8.5, 10, 3, "", 0, nil)
 
 	// Verify no row was inserted.
 	var count int
@@ -827,5 +827,21 @@ func TestParseTestModelResponse_ReadsASpelledCount(t *testing.T) {
 	}
 	if tps == 0 {
 		t.Error("tps was 0 for a model that answered")
+	}
+}
+
+// TestCountRankedResults covers the three shapes a rerank answer arrives in.
+func TestCountRankedResults(t *testing.T) {
+	for body, want := range map[string]int{
+		`{"results":[{"index":0},{"index":1}],"meta":{}}`: 2,
+		`{"object":"list","data":[{"index":0}]}`:          1,
+		`[{"index":0},{"index":1},{"index":2}]`:           3,
+		`{"results":[]}`:                                  0,
+		`{"choices":[{"message":{"content":"hi"}}]}`:      0,
+		`{nope`: 0,
+	} {
+		if got := countRankedResults([]byte(body)); got != want {
+			t.Errorf("countRankedResults(%s) = %d, want %d", body, got, want)
+		}
 	}
 }

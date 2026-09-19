@@ -857,7 +857,8 @@
 				"context_length": "上下文长度",
 				"input_price": "输入价格",
 				"input_price_cache": "缓存的输入价格",
-				"output_price": "输出价格"
+				"output_price": "输出价格",
+				"search_price": "搜索单价"
 			},
 			"unset": "—",
 			"updated": "元数据已更新",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "成功{{ttftPart}} | 时长： {{duration}}秒",
 			"copyRawValue": "复制原始值",
 			"pricePinned": "价格已被操作员固定",
-			"resetPricesToSource": "重置为来源值"
+			"resetPricesToSource": "重置为来源值",
+			"searchPrice": "搜索单价",
+			"perThousandSearches": "/1K 次搜索",
+			"testSuccessRanked": "成功 | 排序结果：{{count}}{{ttftPart}} | 时长： {{duration}}秒"
 		},
 		"table": {
 			"sortByModelName": "按模型名称排序",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "已禁用",
 			"attemptSuperseded": "已被取代",
 			"cost": "费用",
-			"unpriced": "未定价"
+			"unpriced": "未定价",
+			"searchUnits": "搜索单位"
 		},
 		"statusBadge": {
 			"streaming": "流式传输",

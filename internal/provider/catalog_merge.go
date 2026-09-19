@@ -177,6 +177,10 @@ func backfillFromCatalog(dst, src *model.Model) {
 		dst.OutputPricePerMillion = src.OutputPricePerMillion
 		dst.PriceSources.Output = src.PriceSources.Output
 	}
+	if dst.SearchPricePerThousand == nil {
+		dst.SearchPricePerThousand = src.SearchPricePerThousand
+		dst.PriceSources.Search = src.PriceSources.Search
+	}
 	if dst.OwnedBy == "" {
 		dst.OwnedBy = src.OwnedBy
 	}

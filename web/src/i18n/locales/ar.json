@@ -897,7 +897,8 @@
 				"context_length": "طول السياق",
 				"input_price": "سعر الإدخال",
 				"input_price_cache": "سعر الإدخال المخزن مؤقتًا",
-				"output_price": "سعر المخرجات"
+				"output_price": "سعر المخرجات",
+				"search_price": "سعر البحث"
 			},
 			"unset": "—",
 			"updated": "تم تحديث البيانات الوصفية",
@@ -1175,7 +1176,10 @@
 			"testSuccessNoResponse": "النجاح{{ttftPart}} | المدة: {{duration}}s",
 			"copyRawValue": "نسخ القيمة الخام",
 			"pricePinned": "الأسعار مثبتة بواسطة المشغّل",
-			"resetPricesToSource": "إعادة التعيين إلى المصدر"
+			"resetPricesToSource": "إعادة التعيين إلى المصدر",
+			"searchPrice": "سعر البحث",
+			"perThousandSearches": "/1K عملية بحث",
+			"testSuccessRanked": "النجاح | النتائج المرتبة: {{count}}{{ttftPart}} | المدة: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "الترتيب حسب اسم النموذج",
@@ -3097,7 +3101,8 @@
 			"attemptBreakerDisabled": "معطّل",
 			"attemptSuperseded": "تم تجاوزه",
 			"cost": "التكلفة",
-			"unpriced": "بدون سعر"
+			"unpriced": "بدون سعر",
+			"searchUnits": "وحدات البحث"
 		},
 		"statusBadge": {
 			"streaming": "البث",

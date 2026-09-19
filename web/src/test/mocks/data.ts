@@ -66,6 +66,7 @@ export const mockModel: Model = {
 	input_price_per_million: 0.5,
 	input_price_per_million_cache_hit: 0.1,
 	output_price_per_million: 1.5,
+	search_price_per_thousand: null,
 	owned_by: "test-provider",
 	enabled: true,
 	disabled_manually: false,

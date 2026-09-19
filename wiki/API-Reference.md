@@ -193,7 +193,9 @@ curl -X POST http://localhost:8081/v1/rerank \
   -d '{"model": "Cohere/rerank-v3.5", "query": "what is a capybara", "documents": ["The capybara is a giant rodent.", "Paris is the capital of France."], "top_n": 2}'
 ```
 
-Cohere-style rerank body (`query`, `documents`, `top_n`), the de-facto standard shape also served by Jina, Voyage, and local TEI servers; the response (`results` with `index` and `relevance_score`) is returned verbatim. Cohere providers are routed to the native `https://api.cohere.com/v2/rerank` endpoint automatically (rerank is not part of Cohere's OpenAI-compatibility surface); any other provider receives the request at `<base URL>/rerank`. Cohere rerank models are auto-discovered alongside chat models. Token metering is best-effort: providers reporting `usage.total_tokens` (Jina, Voyage) are metered, Cohere's search-unit billing meters as zero tokens.
+Cohere-style rerank body (`query`, `documents`, `top_n`), the de-facto standard shape also served by Jina, Voyage, and local TEI servers; the response (`results` with `index` and `relevance_score`) is returned verbatim. Cohere providers are routed to the native `https://api.cohere.com/v2/rerank` endpoint automatically (rerank is not part of Cohere's OpenAI-compatibility surface); any other provider receives the request at `<base URL>/rerank`. Cohere rerank models are auto-discovered alongside chat models, and `hotel/<name>` routes through a failover group like any other model once two providers list the same rerank id (see [Failover and Hotel Routing](Failover-and-Hotel-Routing#failover-groups)).
+
+Metering follows the provider's billing unit. Cohere bills per **search unit** (one query against up to 100 documents; a document over 500 tokens counts as several) and reports it as `meta.billed_units.search_units`: the proxy reads that figure, stores it on the request log row (`search_units`) and prices the row at the model's `search_price_per_thousand` (USD per 1,000 searches, from the built-in Cohere catalog or set by hand on the model), so rerank spend reaches the dashboard spend views and dollar budgets. Providers reporting `usage.total_tokens` (Jina, Voyage) are metered and priced per token as before. The virtual key's token limits are charged an estimate from the query and documents in either case, since a rerank answer carries no token usage.
 
 #### POST `/v1/images/generations`
 
@@ -642,7 +644,7 @@ Cursor (keyset) pagination walks the list by passing the previous response's `ne
 
 #### POST `/api/models/{id}/test`
 
-Tests a model by sending a minimal prompt and measuring response.
+Tests a model by sending a minimal prompt and measuring response. A rerank model is probed on its own route instead (one document, `top_n: 1`), and the answer reports `ranked_results` in place of `response`; a 200 that ranks nothing is reported as a failure, the verdict the proxy reaches for the same body. Every probe writes one request log row under `virtual_key_name: internal`, with the family it was sent on in `endpoint_type`, and priced like live traffic (`cost_usd`; a rerank probe also records its `search_units`).
 
 **Response:**
 ```json
@@ -651,6 +653,16 @@ Tests a model by sending a minimal prompt and measuring response.
   "duration_ms": 234,
   "ttft_ms": 123,
   "response": "Hi"
+}
+```
+
+For a rerank model:
+```json
+{
+  "success": true,
+  "duration_ms": 296,
+  "response": "",
+  "ranked_results": 1
 }
 ```
 

@@ -646,9 +646,9 @@ func (c *ModelsDevCache) EnrichModels(models []*model.Model, providerType string
 // turns that into something an operator can see and fix by adding a catalog
 // override.
 //
-// Only the per-token classes are named: chat, embedding and rerank (Jina and
+// Only the metered classes are named: chat, embedding and rerank (Jina and
 // Voyage rerank answers carry a token usage that is metered like any other;
-// Cohere's bills per search and is the acceptable noise). A speech,
+// Cohere's bills per search unit and is priced by its search price). A speech,
 // transcription, image or video model bills per minute, character, image or
 // second, and this gateway meters none of those, so an absent per-token price
 // on one is the expected shape rather than a gap.
@@ -668,7 +668,7 @@ func ReportUnpricedModels(providerName string, models []*model.Model) {
 			continue
 		}
 		// Free tiers are legitimately zero, so only a wholly absent price counts.
-		if m.InputPricePerMillion == nil && m.OutputPricePerMillion == nil {
+		if m.InputPricePerMillion == nil && m.OutputPricePerMillion == nil && m.SearchPricePerThousand == nil {
 			unpriced = append(unpriced, m.ModelID)
 		}
 	}

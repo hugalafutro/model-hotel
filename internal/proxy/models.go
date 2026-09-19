@@ -152,6 +152,9 @@ func modelToOpenAIItem(m *model.Model, id, providerName string) map[string]any {
 	if m.OutputPricePerMillion != nil {
 		item["output_price_per_million"] = *m.OutputPricePerMillion
 	}
+	if m.SearchPricePerThousand != nil {
+		item["search_price_per_thousand"] = *m.SearchPricePerThousand
+	}
 
 	return item
 }

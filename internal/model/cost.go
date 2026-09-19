@@ -67,3 +67,17 @@ func (m *Model) CostUSD(u Usage) (cost float64, ok bool) {
 	}
 	return cost, true
 }
+
+// SearchCostUSD prices search units at the model's stored per-thousand search
+// price, the unit a rerank model bills in. ok is false when the model holds no
+// priceable search price, in which case the cost is unknown rather than zero.
+func (m *Model) SearchCostUSD(units int) (cost float64, ok bool) {
+	if m == nil || !Priceable(m.SearchPricePerThousand) {
+		return 0, false
+	}
+	cost = float64(units) * *m.SearchPricePerThousand / 1000
+	if math.IsInf(cost, 0) {
+		return 0, false
+	}
+	return cost, true
+}

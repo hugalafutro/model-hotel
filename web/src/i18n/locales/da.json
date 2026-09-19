@@ -857,7 +857,8 @@
 				"context_length": "Kontekstlængde",
 				"input_price": "Inputpris",
 				"input_price_cache": "Cachelagret inputpris",
-				"output_price": "Output-pris"
+				"output_price": "Output-pris",
+				"search_price": "Søgepris"
 			},
 			"unset": "—",
 			"updated": "Metadata opdateret",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Succes{{ttftPart}} | Varighed: {{duration}}s",
 			"copyRawValue": "Kopiér rå værdi",
 			"pricePinned": "Priser fastgjort af operatøren",
-			"resetPricesToSource": "Nulstil til kilden"
+			"resetPricesToSource": "Nulstil til kilden",
+			"searchPrice": "Søgepris",
+			"perThousandSearches": "/1K søgninger",
+			"testSuccessRanked": "Succes | Rangerede resultater: {{count}}{{ttftPart}} | Varighed: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorter efter modelnavn",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "deaktiveret",
 			"attemptSuperseded": "overhalet",
 			"cost": "Pris",
-			"unpriced": "Uden pris"
+			"unpriced": "Uden pris",
+			"searchUnits": "Søgeenheder"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

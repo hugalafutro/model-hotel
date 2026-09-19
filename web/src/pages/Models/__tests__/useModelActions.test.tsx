@@ -177,4 +177,24 @@ describe("useModelActions", () => {
 		expect(onToast).toHaveBeenLastCalledWith(expect.any(String), "success");
 		expect(state()).toBe("0|-|-|-");
 	});
+
+	it("words a rerank probe's ranked result count", async () => {
+		const onToast = vi.fn();
+		const onTest = vi.fn().mockResolvedValue({
+			success: true,
+			streaming: false,
+			ttft_ms: 0,
+			duration_ms: 300,
+			response: "",
+			ranked_results: 1,
+		});
+		render(<Harness model={model} onTest={onTest} onToast={onToast} />);
+		await act(async () => {
+			screen.getByText("test").click();
+		});
+		expect(onToast).toHaveBeenLastCalledWith(
+			"Success | Ranked results: 1 | Duration: 0.3s",
+			"success",
+		);
+	});
 });

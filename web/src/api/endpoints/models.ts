@@ -76,6 +76,7 @@ export const models = {
 			input_price_per_million?: number | null;
 			input_price_per_million_cache_hit?: number | null;
 			output_price_per_million?: number | null;
+			search_price_per_thousand?: number | null;
 			/** false clears the operator price pin and nulls the prices so the
 			 *  next discovery scan re-derives them from source. */
 			price_customized?: boolean;

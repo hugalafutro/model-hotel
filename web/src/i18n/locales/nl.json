@@ -857,7 +857,8 @@
 				"context_length": "Lengte van de context",
 				"input_price": "Invoerprijs",
 				"input_price_cache": "Gecachte invoerprijs",
-				"output_price": "Uitvoerprijs"
+				"output_price": "Uitvoerprijs",
+				"search_price": "Zoekprijs"
 			},
 			"unset": "—",
 			"updated": "Metadata bijgewerkt",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Succes{{ttftPart}} | Duur: {{duration}}s",
 			"copyRawValue": "Onbewerkte waarde kopiëren",
 			"pricePinned": "Prijzen vastgezet door operator",
-			"resetPricesToSource": "Terugzetten naar bron"
+			"resetPricesToSource": "Terugzetten naar bron",
+			"searchPrice": "Zoekprijs",
+			"perThousandSearches": "/1K zoekopdrachten",
+			"testSuccessRanked": "Succes | Gerangschikte resultaten: {{count}}{{ttftPart}} | Duur: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorteren op modelnaam",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "uitgeschakeld",
 			"attemptSuperseded": "achterhaald",
 			"cost": "Kosten",
-			"unpriced": "Zonder prijs"
+			"unpriced": "Zonder prijs",
+			"searchUnits": "Zoekeenheden"
 		},
 		"statusBadge": {
 			"streaming": "Streamen",

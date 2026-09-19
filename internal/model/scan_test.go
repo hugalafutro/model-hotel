@@ -160,16 +160,17 @@ func buildRow(t *testing.T, m *Model) []any {
 		m.InputPricePerMillion,         // 13 - InputPricePerMillion (*float64)
 		m.InputPricePerMillionCacheHit, // 14 - InputPricePerMillionCacheHit (*float64)
 		m.OutputPricePerMillion,        // 15 - OutputPricePerMillion (*float64)
-		m.OwnedBy,                      // 16 - OwnedBy
-		m.Enabled,                      // 17 - Enabled
-		m.DisabledManually,             // 18 - DisabledManually
-		m.DisplayNameCustomized,        // 19 - DisplayNameCustomized
-		m.PriceCustomized,              // 20 - PriceCustomized
-		m.PriceSources,                 // 21 - PriceSources (jsonb)
-		m.CreatedAt,                    // 22 - CreatedAt
-		m.LastSeenAt,                   // 23 - LastSeenAt
-		m.ProviderName,                 // 24 - ProviderName
-		m.ProviderEnabled,              // 25 - ProviderEnabled
+		m.SearchPricePerThousand,       // 16 - SearchPricePerThousand (*float64)
+		m.OwnedBy,                      // 17 - OwnedBy
+		m.Enabled,                      // 18 - Enabled
+		m.DisabledManually,             // 19 - DisabledManually
+		m.DisplayNameCustomized,        // 20 - DisplayNameCustomized
+		m.PriceCustomized,              // 21 - PriceCustomized
+		m.PriceSources,                 // 22 - PriceSources (jsonb)
+		m.CreatedAt,                    // 23 - CreatedAt
+		m.LastSeenAt,                   // 24 - LastSeenAt
+		m.ProviderName,                 // 25 - ProviderName
+		m.ProviderEnabled,              // 26 - ProviderEnabled
 	}
 }
 
@@ -199,6 +200,7 @@ func TestScanModels_SingleRow(t *testing.T) {
 		InputPricePerMillion:         new(10.0),
 		InputPricePerMillionCacheHit: new(5.0),
 		OutputPricePerMillion:        new(30.0),
+		SearchPricePerThousand:       new(2.0),
 		OwnedBy:                      "openai",
 		Enabled:                      true,
 		DisabledManually:             false,
@@ -474,6 +476,7 @@ func assertModelEqual(t *testing.T, expected, got *Model) {
 	assertFloat64PtrEqual(t, "InputPricePerMillion", expected.InputPricePerMillion, got.InputPricePerMillion)
 	assertFloat64PtrEqual(t, "InputPricePerMillionCacheHit", expected.InputPricePerMillionCacheHit, got.InputPricePerMillionCacheHit)
 	assertFloat64PtrEqual(t, "OutputPricePerMillion", expected.OutputPricePerMillion, got.OutputPricePerMillion)
+	assertFloat64PtrEqual(t, "SearchPricePerThousand", expected.SearchPricePerThousand, got.SearchPricePerThousand)
 }
 
 func assertIntPtrEqual(t *testing.T, name string, expected, got *int) {

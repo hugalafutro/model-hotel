@@ -857,7 +857,8 @@
 				"context_length": "Độ dài bối cảnh",
 				"input_price": "Giá đầu vào",
 				"input_price_cache": "Giá đầu vào được lưu trong bộ nhớ đệm",
-				"output_price": "Giá đầu ra"
+				"output_price": "Giá đầu ra",
+				"search_price": "Giá tìm kiếm"
 			},
 			"unset": "—",
 			"updated": "Siêu dữ liệu được cập nhật",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Thành công{{ttftPart}} | Thời lượng: {{duration}}giây",
 			"copyRawValue": "Sao chép giá trị thô",
 			"pricePinned": "Giá đã được người vận hành ghim",
-			"resetPricesToSource": "Đặt lại theo nguồn"
+			"resetPricesToSource": "Đặt lại theo nguồn",
+			"searchPrice": "Giá tìm kiếm",
+			"perThousandSearches": "/1K lượt tìm kiếm",
+			"testSuccessRanked": "Thành công | Kết quả xếp hạng: {{count}}{{ttftPart}} | Thời lượng: {{duration}}giây"
 		},
 		"table": {
 			"sortByModelName": "Sắp xếp theo tên mô hình",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "đã tắt",
 			"attemptSuperseded": "bị vượt",
 			"cost": "Chi phí",
-			"unpriced": "Chưa định giá"
+			"unpriced": "Chưa định giá",
+			"searchUnits": "Đơn vị tìm kiếm"
 		},
 		"statusBadge": {
 			"streaming": "Phát trực tuyến",

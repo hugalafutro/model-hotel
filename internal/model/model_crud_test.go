@@ -487,15 +487,30 @@ func TestUpdate_AllFields(t *testing.T) {
 
 	// Update all fields
 	updated, err := repo.Update(ctx, modelID, UpdateModelRequest{
-		DisplayName:           new("Updated Display Name"),
-		ContextLength:         new(8192),
-		MaxOutputTokens:       new(1024),
-		InputPricePerMillion:  new(0.5),
-		OutputPricePerMillion: new(1.5),
-		Enabled:               new(true),
+		DisplayName:            new("Updated Display Name"),
+		ContextLength:          new(8192),
+		MaxOutputTokens:        new(1024),
+		InputPricePerMillion:   new(0.5),
+		OutputPricePerMillion:  new(1.5),
+		SearchPricePerThousand: new(2.0),
+		Enabled:                new(true),
 	})
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
+	}
+	if updated.SearchPricePerThousand == nil || *updated.SearchPricePerThousand != 2.0 {
+		t.Errorf("SearchPricePerThousand: expected 2.0, got %v", updated.SearchPricePerThousand)
+	}
+	if updated.PriceSources.Search != PriceSourceManual || !updated.PriceCustomized {
+		t.Errorf("search price edit: sources=%+v pinned=%v, want manual source and pin", updated.PriceSources, updated.PriceCustomized)
+	}
+	// Unpinning drops the search price with the per-token ones.
+	unpinned, err := repo.Update(ctx, modelID, UpdateModelRequest{PriceCustomized: new(false)})
+	if err != nil {
+		t.Fatalf("unpin: %v", err)
+	}
+	if unpinned.SearchPricePerThousand != nil || unpinned.PriceSources.Search != "" {
+		t.Errorf("unpinned search price = %v sources=%+v, want nil and no source", unpinned.SearchPricePerThousand, unpinned.PriceSources)
 	}
 
 	// Verify all fields were updated

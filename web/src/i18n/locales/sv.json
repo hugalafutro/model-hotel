@@ -857,7 +857,8 @@
 				"context_length": "Kontextlängd",
 				"input_price": "Inmatningspris",
 				"input_price_cache": "Cachad ingångspris",
-				"output_price": "Utdatapris"
+				"output_price": "Utdatapris",
+				"search_price": "Sökpris"
 			},
 			"unset": "—",
 			"updated": "Metadata uppdaterad",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Lyckad{{ttftPart}} | Varaktighet: {{duration}}s",
 			"copyRawValue": "Kopiera råvärde",
 			"pricePinned": "Priser fästa av operatören",
-			"resetPricesToSource": "Återställ till källan"
+			"resetPricesToSource": "Återställ till källan",
+			"searchPrice": "Sökpris",
+			"perThousandSearches": "/1K sökningar",
+			"testSuccessRanked": "Lyckad | Rankade resultat: {{count}}{{ttftPart}} | Varaktighet: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sortera efter modellnamn",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "inaktiverad",
 			"attemptSuperseded": "omsprungen",
 			"cost": "Kostnad",
-			"unpriced": "Utan pris"
+			"unpriced": "Utan pris",
+			"searchUnits": "Sökenheter"
 		},
 		"statusBadge": {
 			"streaming": "Strömning",

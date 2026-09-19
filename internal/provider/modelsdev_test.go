@@ -777,6 +777,7 @@ func TestReportUnpricedModels_NamesOnlyPerTokenModels(t *testing.T) {
 		{ModelID: "gpt-5-search-api", Modality: "chat", Enabled: true},
 		{ModelID: "text-embedding-x", Modality: "embedding", Enabled: true},
 		{ModelID: "rerank-x", Modality: "rerank", Enabled: true},
+		{ModelID: "rerank-priced", Modality: "rerank", Enabled: true, SearchPricePerThousand: &zero},
 		{ModelID: "whisper-1", Modality: "stt", Enabled: true},
 		{ModelID: "tts-1", Modality: "tts", Enabled: true},
 		{ModelID: "gpt-image-2.5", Modality: "image", Enabled: true},

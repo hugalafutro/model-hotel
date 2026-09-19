@@ -889,7 +889,8 @@
 				"context_length": "Довжина контексту",
 				"input_price": "Ціна введення",
 				"input_price_cache": "Ціна вхідних даних у кеші",
-				"output_price": "Ціна виведення"
+				"output_price": "Ціна виведення",
+				"search_price": "Ціна пошуку"
 			},
 			"unset": "—",
 			"updated": "Оновлено метадані",
@@ -1115,7 +1116,10 @@
 			"testSuccessNoResponse": "Успіх{{ttftPart}} | Тривалість: {{duration}}с",
 			"copyRawValue": "Копіювати необроблене значення",
 			"pricePinned": "Ціни закріплені оператором",
-			"resetPricesToSource": "Скинути до джерела"
+			"resetPricesToSource": "Скинути до джерела",
+			"searchPrice": "Ціна пошуку",
+			"perThousandSearches": "/1K пошуків",
+			"testSuccessRanked": "Успіх | Ранжовані результати: {{count}}{{ttftPart}} | Тривалість: {{duration}}с"
 		},
 		"table": {
 			"sortByModelName": "Сортувати за назвою моделі",
@@ -2967,7 +2971,8 @@
 			"attemptBreakerDisabled": "вимкнено",
 			"attemptSuperseded": "випереджено",
 			"cost": "Вартість",
-			"unpriced": "Без ціни"
+			"unpriced": "Без ціни",
+			"searchUnits": "Одиниці пошуку"
 		},
 		"statusBadge": {
 			"streaming": "Трансляція",

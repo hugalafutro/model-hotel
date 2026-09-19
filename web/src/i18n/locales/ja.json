@@ -857,7 +857,8 @@
 				"context_length": "コンテキストの長さ",
 				"input_price": "入力価格",
 				"input_price_cache": "キャッシュされた入力価格",
-				"output_price": "出力価格"
+				"output_price": "出力価格",
+				"search_price": "検索単価"
 			},
 			"unset": "—",
 			"updated": "メタデータが更新されました",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "成功{{ttftPart}} | 期間: {{duration}}s",
 			"copyRawValue": "生の値をコピー",
 			"pricePinned": "価格はオペレーターによって固定されています",
-			"resetPricesToSource": "ソースにリセット"
+			"resetPricesToSource": "ソースにリセット",
+			"searchPrice": "検索単価",
+			"perThousandSearches": "/1K 検索",
+			"testSuccessRanked": "成功 | ランク付け結果: {{count}}{{ttftPart}} | 期間: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "モデル名でソート",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "無効",
 			"attemptSuperseded": "追い越し",
 			"cost": "コスト",
-			"unpriced": "価格なし"
+			"unpriced": "価格なし",
+			"searchUnits": "検索ユニット"
 		},
 		"statusBadge": {
 			"streaming": "ストリーミング",

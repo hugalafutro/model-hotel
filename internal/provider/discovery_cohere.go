@@ -94,7 +94,8 @@ func (d *DiscoveryService) fetchCohereModels(ctx context.Context, provider *Prov
 
 // buildCohereModel converts one Cohere API model entry into a model row.
 // Rerank models carry no chat capabilities and are billed per search rather
-// than per token, so their price pointers stay nil (unknown).
+// than per token, so their per-token price pointers stay nil and the catalog
+// supplies the per-search price instead.
 func buildCohereModel(provider *Provider, pricingCatalog []CoherePricingEntry, cm CohereNativeModel, endpoint string) *model.Model {
 	caps := model.Capability{}
 	inputMods := `["text"]`
@@ -131,16 +132,18 @@ func buildCohereModel(provider *Provider, pricingCatalog []CoherePricingEntry, c
 	if pricing != nil {
 		modelEntry.DisplayName = pricing.DisplayName
 		modelEntry.Description = pricing.Description
-		maxOutput := pricing.MaxOutputTokens
-		modelEntry.MaxOutputTokens = &maxOutput
-		inPrice := pricing.InputPricePerMillion
-		outPrice := pricing.OutputPricePerMillion
-		modelEntry.InputPricePerMillion = &inPrice
-		modelEntry.OutputPricePerMillion = &outPrice
+		// Copied, not aliased: the entry is the package-global catalog row and
+		// every Cohere provider's models are built from it.
+		modelEntry.MaxOutputTokens = copyInt(pricing.MaxOutputTokens)
+		modelEntry.InputPricePerMillion = copyFloat(model.PriceOrNil(pricing.InputPricePerMillion))
+		modelEntry.OutputPricePerMillion = copyFloat(model.PriceOrNil(pricing.OutputPricePerMillion))
+		modelEntry.SearchPricePerThousand = copyFloat(model.PriceOrNil(pricing.SearchPricePerThousand))
 		modelEntry.StampPriceSources(model.PriceSourceCatalog)
 	} else {
-		// Minimal entry for models not in pricing catalog. Expected for
-		// rerank models (search-unit billing has no per-token price).
+		// Minimal entry for models not in pricing catalog; models.dev fills
+		// the per-token prices where it can. A rerank model it cannot price
+		// at all, and ReportUnpricedModels names that once per provider, so
+		// the per-scan warning stays on the chat side.
 		modelEntry.DisplayName = cm.Name
 		if endpoint != "rerank" {
 			debuglog.Warn("discovery: cohere model not in pricing catalog", "model", cm.Name)
@@ -168,4 +171,20 @@ func cohereFeaturesToCapabilities(features []string) model.Capability {
 		}
 	}
 	return caps
+}
+
+func copyInt(p *int) *int {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
+}
+
+func copyFloat(p *float64) *float64 {
+	if p == nil {
+		return nil
+	}
+	v := *p
+	return &v
 }

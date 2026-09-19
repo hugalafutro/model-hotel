@@ -873,7 +873,8 @@
 				"context_length": "Lungimea contextului",
 				"input_price": "Preț de intrare",
 				"input_price_cache": "Preț de intrare stocat în cache",
-				"output_price": "Preț de ieșire"
+				"output_price": "Preț de ieșire",
+				"search_price": "Preț per căutare"
 			},
 			"unset": "—",
 			"updated": "Metadate actualizate",
@@ -1079,7 +1080,10 @@
 			"testSuccessNoResponse": "Succes{{ttftPart}} | Durată: {{duration}}s",
 			"copyRawValue": "Copiază valoarea brută",
 			"pricePinned": "Prețuri fixate de operator",
-			"resetPricesToSource": "Resetare la sursă"
+			"resetPricesToSource": "Resetare la sursă",
+			"searchPrice": "Preț per căutare",
+			"perThousandSearches": "/1K căutări",
+			"testSuccessRanked": "Succes | Rezultate clasate: {{count}}{{ttftPart}} | Durată: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",
@@ -2902,7 +2906,8 @@
 			"attemptBreakerDisabled": "dezactivat",
 			"attemptSuperseded": "depășit",
 			"cost": "Cost",
-			"unpriced": "Fără preț"
+			"unpriced": "Fără preț",
+			"searchUnits": "Unități de căutare"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

@@ -52,6 +52,7 @@ type ModelResponse struct {
 	InputPricePerMillion         *float64           `json:"input_price_per_million"`
 	InputPricePerMillionCacheHit *float64           `json:"input_price_per_million_cache_hit"`
 	OutputPricePerMillion        *float64           `json:"output_price_per_million"`
+	SearchPricePerThousand       *float64           `json:"search_price_per_thousand"`
 	OwnedBy                      string             `json:"owned_by"`
 	Enabled                      bool               `json:"enabled"`
 	DisabledManually             bool               `json:"disabled_manually"`
@@ -81,6 +82,7 @@ func modelToResponse(m model.Model) ModelResponse {
 		InputPricePerMillion:         m.InputPricePerMillion,
 		InputPricePerMillionCacheHit: m.InputPricePerMillionCacheHit,
 		OutputPricePerMillion:        m.OutputPricePerMillion,
+		SearchPricePerThousand:       m.SearchPricePerThousand,
 		OwnedBy:                      m.OwnedBy,
 		Enabled:                      m.Enabled,
 		DisabledManually:             m.DisabledManually,
@@ -241,7 +243,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 
-	hasChanges := req.DisplayName != nil || req.ContextLength != nil || req.MaxOutputTokens != nil || req.InputPricePerMillion != nil || req.InputPricePerMillionCacheHit != nil || req.OutputPricePerMillion != nil || req.PriceCustomized != nil || req.Enabled != nil
+	hasChanges := req.DisplayName != nil || req.ContextLength != nil || req.MaxOutputTokens != nil || req.InputPricePerMillion != nil || req.InputPricePerMillionCacheHit != nil || req.OutputPricePerMillion != nil || req.SearchPricePerThousand != nil || req.PriceCustomized != nil || req.Enabled != nil
 	if !hasChanges {
 		http.Error(w, "no fields to update", http.StatusBadRequest)
 		return
@@ -277,6 +279,11 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	if err := validateFloatPtrRange("output_price_per_million", req.OutputPricePerMillion, 0, 1000); err != nil {
 		respondBadRequest(w, "invalid output price", err)
+		return
+	}
+
+	if err := validateFloatPtrRange("search_price_per_thousand", req.SearchPricePerThousand, 0, 1000); err != nil {
+		respondBadRequest(w, "invalid search price", err)
 		return
 	}
 
@@ -438,7 +445,10 @@ type TestModelResponse struct {
 	ResponseHeaderMs *int64 `json:"response_header_ms,omitempty"`
 	DurationMs       int64  `json:"duration_ms"`
 	Response         string `json:"response"`
-	Error            string `json:"error,omitempty"`
+	// RankedResults is how many documents a rerank probe got back; the
+	// dashboard words it, so no English is built here. Absent on chat probes.
+	RankedResults *int   `json:"ranked_results,omitempty"`
+	Error         string `json:"error,omitempty"`
 }
 
 // TestModel tests a model by making a test request and returning latency metrics.
@@ -460,7 +470,13 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	baseBody, providerType, targetURL, reqHash := buildTestModelRequest(m, prov)
 
 	startRequest := time.Now()
-	resp, err := h.doTestModelRequest(r.Context(), providerType, targetURL, m.ModelID, apiKey, baseBody)
+	var resp *http.Response
+	var err error
+	if m.Modality == "rerank" {
+		resp, err = h.doTestRerankRequest(r.Context(), providerType, targetURL, apiKey, baseBody)
+	} else {
+		resp, err = h.doTestModelRequest(r.Context(), providerType, targetURL, m.ModelID, apiKey, baseBody)
+	}
 	if err != nil {
 		durationMs := float64(time.Since(start).Milliseconds())
 		h.logTestModelRequestError(r.Context(), m, reqHash, durationMs, proxyOverheadMs, keyDecryptMs, err.Error(), clientip.From(r))
@@ -499,13 +515,31 @@ func (h *Handler) TestModel(w http.ResponseWriter, r *http.Request) {
 	}
 
 	content, tps, promptTokens, completionTokens := parseTestModelResponse(respBody, duration)
-	h.logTestModelCompleted(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, tps, promptTokens, completionTokens, clientip.From(r))
+	var ranked *int
+	var searchUnits int
+	if m.Modality == "rerank" {
+		n := countRankedResults(respBody)
+		ranked = &n
+		searchUnits = billedSearchUnits(respBody)
+	}
+	cost := probeCost(m, searchUnits, promptTokens, completionTokens)
+	if ranked != nil && *ranked == 0 {
+		// A 200 with nothing ranked is what the live path rejects as an empty
+		// answer; reporting it as healthy would route traffic to a model that
+		// returns no rankings.
+		const errMsg = "upstream returned no ranked results"
+		h.logTestModelEmptyAnswer(r.Context(), m, reqHash, float64(duration), proxyOverheadMs, keyDecryptMs, errMsg, clientip.From(r), searchUnits, cost)
+		writeJSON(w, TestModelResponse{DurationMs: duration, Error: errMsg})
+		return
+	}
+	h.logTestModelCompleted(r.Context(), m, reqHash, resp.StatusCode, float64(duration), proxyOverheadMs, keyDecryptMs, tps, promptTokens, completionTokens, clientip.From(r), searchUnits, cost)
 	writeJSON(w, TestModelResponse{
 		Success:          true,
 		Streaming:        false,
 		ResponseHeaderMs: &duration,
 		DurationMs:       duration,
 		Response:         content,
+		RankedResults:    ranked,
 	})
 }
 
@@ -562,7 +596,9 @@ func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Prov
 // buildTestModelRequest constructs the OpenAI-shaped chat-completions probe
 // body (a short "Respond only with `Hi`" prompt) and resolves the provider type
 // and target URL, returning them alongside a fresh random request hash for
-// logging. The body is left un-rewritten here: doTestModelRequest sends it
+// logging. A rerank model gets the rerank probe instead (buildTestRerankRequest),
+// which doTestRerankRequest sends as a plain POST with none of the rewrites
+// below. The body is left un-rewritten here: doTestModelRequest sends it
 // through paramrewrite.BuildUpstreamBody so the probe applies the exact same
 // provider rewrites (param injection/stripping, learned renames) as live proxy
 // traffic instead of maintaining a second, drift-prone body.
@@ -574,6 +610,19 @@ func (h *Handler) decryptTestModelKey(w http.ResponseWriter, prov *provider.Prov
 // OpenAI gpt-5/o-series models that reject max_tokens, the shared self-heal
 // renames it to max_completion_tokens and retries, so the probe succeeds.
 func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []byte, providerType, targetURL, reqHash string) {
+	reqHashBytes := make([]byte, 8)
+	rand.Read(reqHashBytes)
+	reqHash = hex.EncodeToString(reqHashBytes)
+	providerType = provider.TypeOf(prov)
+
+	// A rerank model has no chat surface, so a chat probe would only prove the
+	// provider refuses chat on it. It is probed on the route it serves, with
+	// the smallest body that route accepts (one document, one result).
+	if m.Modality == "rerank" {
+		baseBody, targetURL = buildTestRerankRequest(m.ModelID, prov.BaseURL, providerType)
+		return baseBody, providerType, targetURL, reqHash
+	}
+
 	body := map[string]any{
 		"model": m.ModelID,
 		"messages": []map[string]string{
@@ -583,7 +632,6 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 	}
 	baseBody, _ = json.Marshal(body)
 
-	providerType = provider.TypeOf(prov)
 	targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/chat/completions")
 	switch providerType {
 	case "vertex-express":
@@ -595,10 +643,6 @@ func buildTestModelRequest(m *model.Model, prov *provider.Provider) (baseBody []
 		// The Messages API is the only chat route this type serves.
 		targetURL = util.BuildProviderTargetURL(prov.BaseURL, providerType, "/messages")
 	}
-
-	reqHashBytes := make([]byte, 8)
-	rand.Read(reqHashBytes)
-	reqHash = hex.EncodeToString(reqHashBytes)
 
 	return baseBody, providerType, targetURL, reqHash
 }

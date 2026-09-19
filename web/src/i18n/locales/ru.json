@@ -889,7 +889,8 @@
 				"context_length": "Длина контекста",
 				"input_price": "Цена ввода",
 				"input_price_cache": "Кэшированная цена ввода",
-				"output_price": "Цена на выходе"
+				"output_price": "Цена на выходе",
+				"search_price": "Цена поиска"
 			},
 			"unset": "—",
 			"updated": "Метаданные обновлены",
@@ -1115,7 +1116,10 @@
 			"testSuccessNoResponse": "Успех{{ttftPart}} | Продолжительность: {{duration}}с",
 			"copyRawValue": "Копировать необработанное значение",
 			"pricePinned": "Цены закреплены оператором",
-			"resetPricesToSource": "Сбросить к источнику"
+			"resetPricesToSource": "Сбросить к источнику",
+			"searchPrice": "Цена поиска",
+			"perThousandSearches": "/1K поисков",
+			"testSuccessRanked": "Успех | Ранжированные результаты: {{count}}{{ttftPart}} | Продолжительность: {{duration}}с"
 		},
 		"table": {
 			"sortByModelName": "Сортировать по названию модели",
@@ -2967,7 +2971,8 @@
 			"attemptBreakerDisabled": "отключено",
 			"attemptSuperseded": "опережён",
 			"cost": "Стоимость",
-			"unpriced": "Без цены"
+			"unpriced": "Без цены",
+			"searchUnits": "Единицы поиска"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",

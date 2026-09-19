@@ -15,7 +15,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// logEntrySelectColumns is the shared 39-column request_logs projection plus the
+// logEntrySelectColumns is the shared 40-column request_logs projection plus the
 // FROM/JOIN/WHERE 1=1 tail. The cursor list prefixes it with "SELECT "; the
 // offset list (ListLogs) prefixes it with the windowed total count. Its column
 // order matches logEntryScanDests exactly.
@@ -36,6 +36,7 @@ const logEntrySelectColumns = `rl.id, COALESCE(rl.provider_id::text, ''),
             COALESCE(rl.tokens_prompt, 0), COALESCE(rl.tokens_completion, 0),
             COALESCE(rl.tokens_completion_reasoning, 0),
             COALESCE(rl.tokens_prompt_cache_hit, 0), COALESCE(rl.tokens_prompt_cache_miss, 0),
+            COALESCE(rl.search_units, 0),
             rl.cost_usd,
             COALESCE(rl.streaming, false), COALESCE(rl.virtual_key_name, ''), COALESCE(rl.virtual_key_id::text, ''),
              CASE
@@ -133,7 +134,7 @@ func paginateCursor[T any](entries []T, direction string, limit int, hasCursor b
 	return entries, hasAfter, hasBefore
 }
 
-// logEntryScanDests returns the ordered Scan() targets for the shared 39-column
+// logEntryScanDests returns the ordered Scan() targets for the shared 40-column
 // request_logs projection (logEntrySelectColumns). The cursor list scans these
 // directly; the offset list (ListLogs) prepends its windowed total count.
 func logEntryScanDests(entry *LogEntry) []any {
@@ -146,7 +147,7 @@ func logEntryScanDests(entry *LogEntry) []any {
 		&entry.CacheHits,
 		&entry.TokensPerSecond,
 		&entry.TokensPrompt, &entry.TokensCompletion, &entry.TokensCompletionReasoning,
-		&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss,
+		&entry.TokensPromptCacheHit, &entry.TokensPromptCacheMiss, &entry.SearchUnits,
 		&entry.CostUSD,
 		&entry.Streaming,
 		&entry.VirtualKeyName, &entry.VirtualKeyID, &entry.VirtualKeyDeleted,
@@ -161,7 +162,7 @@ func logEntryScanDests(entry *LogEntry) []any {
 	}
 }
 
-// scanLogEntry scans one request_logs row (the 39-column projection shared by
+// scanLogEntry scans one request_logs row (the 40-column projection shared by
 // ListLogsCursor and ListLogs) into a LogEntry.
 func scanLogEntry(rows pgx.CollectableRow) (LogEntry, error) {
 	var entry LogEntry

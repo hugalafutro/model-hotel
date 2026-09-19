@@ -227,6 +227,15 @@ func TestBuildDiscoveryDiff_MetadataChanges(t *testing.T) {
 			},
 		},
 		{
+			// A rerank model's per-search price moves like any other price.
+			name:  "search price moves",
+			prev:  ModelSnapshot{enabled: true, searchPrice: new(float64(2))},
+			model: &model.Model{ModelID: "m", Enabled: true, SearchPricePerThousand: new(float64(2.5))},
+			wantChanges: []FieldChange{
+				{Field: changeFieldSearchPrice, Old: new(float64(2)), New: new(float64(2.5))},
+			},
+		},
+		{
 			name: "multiple live fields change at once",
 			prev: ModelSnapshot{
 				enabled:         true,

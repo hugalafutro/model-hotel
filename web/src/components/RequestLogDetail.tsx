@@ -16,7 +16,7 @@ import {
 	Zap,
 } from "@/lib/icons";
 import type { LogEntry } from "../api/types";
-import { formatSpend } from "../utils/format";
+import { formatNumber, formatSpend } from "../utils/format";
 import { formatLogTimestamp } from "../utils/logBadgeUtils";
 import { formatMs } from "../utils/logHelpers";
 import { AttemptTrail } from "./AttemptTrail";
@@ -59,6 +59,7 @@ export function RequestLogDetail({
 		requestLog.tokens_prompt_cache_hit > 0 ||
 		requestLog.tokens_prompt_cache_miss > 0;
 	const hasReasoning = requestLog.tokens_completion_reasoning > 0;
+	const searchUnits = requestLog.search_units ?? 0;
 
 	return (
 		<Modal
@@ -238,6 +239,13 @@ export function RequestLogDetail({
 							: formatSpend(requestLog.cost_usd)
 					}
 				/>
+				{searchUnits > 0 && (
+					<DetailItem
+						icon={Layers}
+						label={t("components.requestLogDetail.searchUnits")}
+						value={formatNumber(searchUnits)}
+					/>
+				)}
 			</div>
 
 			{/* Token Breakdown */}

@@ -86,11 +86,14 @@ export function useModelActions({
 					t(
 						// Reasoning models can succeed with empty content (the budget
 						// went to reasoning); omit the "Response:" part in that case.
-						content
-							? "models.detail.testSuccess"
-							: "models.detail.testSuccessNoResponse",
+						result.ranked_results != null
+							? "models.detail.testSuccessRanked"
+							: content
+								? "models.detail.testSuccess"
+								: "models.detail.testSuccessNoResponse",
 						{
 							content,
+							count: result.ranked_results,
 							ttftPart,
 							duration: (result.duration_ms / 1000).toFixed(1),
 						},

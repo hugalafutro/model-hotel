@@ -11,6 +11,7 @@ const PRICE_FIELDS = new Set([
 	"input_price",
 	"output_price",
 	"input_price_cache",
+	"search_price",
 ]);
 
 // formatFieldValue renders a metadata value for the Updated section, using the

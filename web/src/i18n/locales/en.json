@@ -859,7 +859,8 @@
 				"input_price": "Input price",
 				"output_price": "Output price",
 				"input_price_cache": "Cached input price",
-				"context_length": "Context length"
+				"context_length": "Context length",
+				"search_price": "Search price"
 			},
 			"failoverReason": {
 				"noProviders": "No enabled providers remain",
@@ -1043,7 +1044,10 @@
 			"testFailed": "Test failed: {{error}}",
 			"copyRawValue": "Copy raw value",
 			"pricePinned": "Prices pinned by operator",
-			"resetPricesToSource": "Reset to source"
+			"resetPricesToSource": "Reset to source",
+			"searchPrice": "Search Price",
+			"perThousandSearches": "/1K searches",
+			"testSuccessRanked": "Success | Ranked results: {{count}}{{ttftPart}} | Duration: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sort by model name",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "disabled",
 			"attemptSuperseded": "superseded",
 			"cost": "Cost",
-			"unpriced": "Unpriced"
+			"unpriced": "Unpriced",
+			"searchUnits": "Search Units"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

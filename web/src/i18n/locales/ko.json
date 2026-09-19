@@ -857,7 +857,8 @@
 				"context_length": "문맥 길이",
 				"input_price": "입력 가격",
 				"input_price_cache": "캐시된 입력 가격",
-				"output_price": "출력 가격"
+				"output_price": "출력 가격",
+				"search_price": "검색 단가"
 			},
 			"unset": "—",
 			"updated": "메타데이터 업데이트됨",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "성공{{ttftPart}} | 소요 시간: {{duration}}초",
 			"copyRawValue": "원시 값 복사",
 			"pricePinned": "운영자가 가격을 고정했습니다",
-			"resetPricesToSource": "소스로 재설정"
+			"resetPricesToSource": "소스로 재설정",
+			"searchPrice": "검색 단가",
+			"perThousandSearches": "/1K 검색",
+			"testSuccessRanked": "성공 | 순위 결과: {{count}}{{ttftPart}} | 소요 시간: {{duration}}초"
 		},
 		"table": {
 			"sortByModelName": "모델명 순으로 정렬",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "비활성화됨",
 			"attemptSuperseded": "추월됨",
 			"cost": "비용",
-			"unpriced": "가격 없음"
+			"unpriced": "가격 없음",
+			"searchUnits": "검색 단위"
 		},
 		"statusBadge": {
 			"streaming": "스트리밍",

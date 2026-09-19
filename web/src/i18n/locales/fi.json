@@ -857,7 +857,8 @@
 				"context_length": "Kontekstin pituus",
 				"input_price": "Syötteen hinta",
 				"input_price_cache": "Välimuistissa oleva syöttöhinta",
-				"output_price": "Lähtöhinta"
+				"output_price": "Lähtöhinta",
+				"search_price": "Hakuhinta"
 			},
 			"unset": "—",
 			"updated": "Metatiedot päivitetty",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Onnistui{{ttftPart}} | Kesto: {{duration}}s",
 			"copyRawValue": "Kopioi raaka-arvo",
 			"pricePinned": "Hinnat operaattorin kiinnittämiä",
-			"resetPricesToSource": "Palauta lähteestä"
+			"resetPricesToSource": "Palauta lähteestä",
+			"searchPrice": "Hakuhinta",
+			"perThousandSearches": "/1K hakua",
+			"testSuccessRanked": "Onnistui | Järjestetyt tulokset: {{count}}{{ttftPart}} | Kesto: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Järjestä mallin nimen mukaan",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "pois käytöstä",
 			"attemptSuperseded": "ohitettu",
 			"cost": "Hinta",
-			"unpriced": "Hinnoittelematon"
+			"unpriced": "Hinnoittelematon",
+			"searchUnits": "Hakuyksiköt"
 		},
 		"statusBadge": {
 			"streaming": "Suoratoistaminen",

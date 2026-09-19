@@ -31,11 +31,15 @@ type Model struct {
 	InputPricePerMillion         *float64  `json:"input_price_per_million"`
 	InputPricePerMillionCacheHit *float64  `json:"input_price_per_million_cache_hit"`
 	OutputPricePerMillion        *float64  `json:"output_price_per_million"`
-	OwnedBy                      string    `json:"owned_by"`
-	Enabled                      bool      `json:"enabled"`
-	DisabledManually             bool      `json:"disabled_manually"`
-	DisplayNameCustomized        bool      `json:"display_name_customized"`
-	PriceCustomized              bool      `json:"price_customized"`
+	// SearchPricePerThousand is what a thousand search units cost, the unit a
+	// rerank model bills in (one query against up to 100 documents); nil for
+	// every token-billed model.
+	SearchPricePerThousand *float64 `json:"search_price_per_thousand"`
+	OwnedBy                string   `json:"owned_by"`
+	Enabled                bool     `json:"enabled"`
+	DisabledManually       bool     `json:"disabled_manually"`
+	DisplayNameCustomized  bool     `json:"display_name_customized"`
+	PriceCustomized        bool     `json:"price_customized"`
 	// PriceSources records where each stored price came from; see
 	// PriceSources for the vocabulary.
 	PriceSources    PriceSources `json:"price_sources"`
@@ -115,6 +119,7 @@ type PriceSources struct {
 	Input    string `json:"input,omitempty"`
 	CacheHit string `json:"cache_hit,omitempty"`
 	Output   string `json:"output,omitempty"`
+	Search   string `json:"search,omitempty"`
 }
 
 // StampPriceSources records source for every price the model holds that has
@@ -130,17 +135,20 @@ func (m *Model) StampPriceSources(source string) {
 	if m.OutputPricePerMillion != nil && m.PriceSources.Output == "" {
 		m.PriceSources.Output = source
 	}
+	if m.SearchPricePerThousand != nil && m.PriceSources.Search == "" {
+		m.PriceSources.Search = source
+	}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, COALESCE(m.price_sources, '{}'::jsonb), m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, m.search_price_per_thousand, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, COALESCE(m.price_sources, '{}'::jsonb), m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)`
 
-const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, COALESCE(price_sources, '{}'::jsonb), created_at, COALESCE(last_seen_at, created_at)`
+const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, search_price_per_thousand, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, COALESCE(price_sources, '{}'::jsonb), created_at, COALESCE(last_seen_at, created_at)`
 
 // Upsert inserts or updates a model based on provider_id and model_id.
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 	query := `
-		INSERT INTO models (id, provider_id, model_id, name, description, display_name, capabilities, params, modality, input_modalities, output_modalities, context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, owned_by, enabled, last_seen_at, price_sources)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now(), $21)
+		INSERT INTO models (id, provider_id, model_id, name, description, display_name, capabilities, params, modality, input_modalities, output_modalities, context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, search_price_per_thousand, owned_by, enabled, last_seen_at, price_sources)
+		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $22, $17, $18, now(), $21)
 		ON CONFLICT (provider_id, model_id)
 		DO UPDATE SET
 			name = EXCLUDED.name,
@@ -176,6 +184,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			input_price_per_million = CASE WHEN models.price_customized THEN COALESCE(models.input_price_per_million, EXCLUDED.input_price_per_million) ELSE COALESCE(EXCLUDED.input_price_per_million, models.input_price_per_million) END,
 			input_price_per_million_cache_hit = CASE WHEN models.price_customized THEN COALESCE(models.input_price_per_million_cache_hit, EXCLUDED.input_price_per_million_cache_hit) ELSE COALESCE(EXCLUDED.input_price_per_million_cache_hit, models.input_price_per_million_cache_hit) END,
 			output_price_per_million = CASE WHEN models.price_customized THEN COALESCE(models.output_price_per_million, EXCLUDED.output_price_per_million) ELSE COALESCE(EXCLUDED.output_price_per_million, models.output_price_per_million) END,
+			search_price_per_thousand = CASE WHEN models.price_customized THEN COALESCE(models.search_price_per_thousand, EXCLUDED.search_price_per_thousand) ELSE COALESCE(EXCLUDED.search_price_per_thousand, models.search_price_per_thousand) END,
 			-- The sources merge key by key in the same direction as the prices:
 			-- a key is present exactly when its price is, so whichever side's
 			-- price wins above, its source wins here.
@@ -234,10 +243,12 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		// $21: the sources the scan stamped on its prices, merged in the
 		// price_sources clause and written whole on insert.
 		m.PriceSources,
+		// $22: the per-search price, merged like the per-million ones.
+		m.SearchPricePerThousand,
 	).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
+		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion, &m.SearchPricePerThousand,
 		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt,
 	)
 
@@ -255,7 +266,7 @@ func scanModel(row pgx.Row) (*Model, error) {
 	if err := row.Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
-		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion,
+		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion, &m.SearchPricePerThousand,
 		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	); err != nil {
 		return nil, err
@@ -484,7 +495,7 @@ func (r *Repository) DeleteByIDs(ctx context.Context, ids []uuid.UUID) (int64, e
 //
 // Editing any price implicitly sets the price_customized pin, so discovery
 // stops refreshing that model's prices from live/catalog/models.dev.
-// PriceCustomized set to false explicitly clears the pin AND nulls all three
+// PriceCustomized set to false explicitly clears the pin AND nulls every
 // price columns, so the next scan re-derives them from source; set to true it
 // pins the currently stored prices without editing them. An explicit
 // PriceCustomized wins over the implicit pin when both appear in one request.
@@ -495,6 +506,7 @@ type UpdateModelRequest struct {
 	InputPricePerMillion         *float64 `json:"input_price_per_million"`
 	InputPricePerMillionCacheHit *float64 `json:"input_price_per_million_cache_hit"`
 	OutputPricePerMillion        *float64 `json:"output_price_per_million"`
+	SearchPricePerThousand       *float64 `json:"search_price_per_thousand"`
 	PriceCustomized              *bool    `json:"price_customized"`
 	Enabled                      *bool    `json:"enabled"`
 }
@@ -560,12 +572,19 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 			priceEdited = true
 			edited.Output = PriceSourceManual
 		}
+		if req.SearchPricePerThousand != nil {
+			setClauses = append(setClauses, fmt.Sprintf("search_price_per_thousand = $%d", argIdx))
+			args = append(args, *req.SearchPricePerThousand)
+			argIdx++
+			priceEdited = true
+			edited.Search = PriceSourceManual
+		}
 	}
 	if unpin {
 		// The prices go with the pin, and so do their sources: the next scan
 		// writes both afresh.
 		setClauses = append(setClauses, "price_customized = false",
-			"input_price_per_million = NULL", "input_price_per_million_cache_hit = NULL", "output_price_per_million = NULL",
+			"input_price_per_million = NULL", "input_price_per_million_cache_hit = NULL", "output_price_per_million = NULL", "search_price_per_thousand = NULL",
 			"price_sources = '{}'::jsonb")
 	} else if priceEdited {
 		// Only the edited prices become the operator's; the others keep the

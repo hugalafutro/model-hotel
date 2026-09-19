@@ -477,3 +477,21 @@ func TestLimiter_NilIsInert(t *testing.T) {
 		t.Fatalf("status = %d", rr.Code)
 	}
 }
+
+// TestFormatUSD: a sub-cent spend or cap is shown as the figure it is, so a
+// refusal on a $0.005 budget does not read "$0.01 of $0.01".
+func TestFormatUSD(t *testing.T) {
+	for v, want := range map[float64]string{10: "10.00", 0.5: "0.50", 0: "0.00", 0.01: "0.01", 0.006: "0.006", 0.0025: "0.0025", 1e-9: "1e-09"} {
+		if got := formatUSD(v); got != want {
+			t.Errorf("formatUSD(%v) = %q, want %q", v, got, want)
+		}
+	}
+	// A spend summed from three $0.002 rows is not exactly 0.006 in binary.
+	summed := 0.0
+	for range 3 {
+		summed += 0.002
+	}
+	if got := formatUSD(summed); got != "0.006" {
+		t.Errorf("formatUSD(summed 3 x 0.002) = %q, want 0.006", got)
+	}
+}
