@@ -129,7 +129,7 @@
     {
       "type": "stat",
       "id": 3,
-      "title": "Requests/s",
+      "title": "Req/s",
       "description": "Proxied requests per second across the selected providers.",
       "datasource": {
         "type": "prometheus",
@@ -137,7 +137,7 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 3,
+        "w": 2,
         "x": 2,
         "y": 1
       },
@@ -188,8 +188,76 @@
     },
     {
       "type": "stat",
+      "id": 47,
+      "title": "Cached",
+      "description": "Share of prompt tokens the providers served from their prompt cache over the dashboard time range (kind prompt_cached over kind prompt). Cached input is billed at a fraction of the fresh rate, so this is the difference between the token volume and the bill.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 2,
+        "x": 4,
+        "y": 1
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 0,
+          "mappings": [],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.75
+              },
+              {
+                "color": "green",
+                "value": 0.9
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "textMode": "auto",
+        "orientation": "auto"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "((sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt_cached\"}[$__range])) or vector(0)) / clamp_min(sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt\"}[$__range])), 1)) or vector(0)"
+        }
+      ]
+    },
+    {
+      "type": "stat",
       "id": 4,
-      "title": "Error share",
+      "title": "Errors",
       "description": "Share of requests ending 4xx or 5xx. Client disconnects (499) are counted separately and excluded. Orange above 5%, red above 20%.",
       "datasource": {
         "type": "prometheus",
@@ -197,8 +265,8 @@
       },
       "gridPos": {
         "h": 5,
-        "w": 3,
-        "x": 5,
+        "w": 2,
+        "x": 6,
         "y": 1
       },
       "fieldConfig": {
@@ -318,7 +386,7 @@
       "type": "stat",
       "id": 6,
       "title": "p95 TTFT",
-      "description": "95th percentile time to first token, streaming requests only. This is what a user feels as \u201cit started answering\u201d.",
+      "description": "95th percentile time to first token, streaming requests only. This is what a user feels as “it started answering”.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -838,7 +906,9 @@
           ],
           "displayMode": "table",
           "placement": "right",
-          "showLegend": true
+          "showLegend": true,
+          "sortBy": "Last *",
+          "sortDesc": true
         },
         "tooltip": {
           "mode": "multi",
@@ -927,7 +997,7 @@
       "type": "table",
       "id": 14,
       "title": "Requests by model",
-      "description": "Top 20 provider / model / status combinations by request count over the dashboard time range. \u201cmodel\u201d is the name the CLIENT asked for; hotel/<group> means the request went through a failover group.",
+      "description": "Top 20 provider / model / status combinations by request count over the dashboard time range. “model” is the name the CLIENT asked for; hotel/<group> means the request went through a failover group.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1377,66 +1447,6 @@
       "panels": []
     },
     {
-      "type": "stat",
-      "id": 47,
-      "title": "Prompt cache hit share",
-      "description": "Share of prompt tokens the providers served from their prompt cache over the dashboard time range (kind prompt_cached over kind prompt). Cached input is billed at a fraction of the fresh rate, so this is the difference between the token volume and the bill.",
-      "datasource": {
-        "type": "prometheus",
-        "uid": "prometheus"
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 3,
-        "x": 0,
-        "y": 41
-      },
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percentunit",
-          "decimals": 0,
-          "mappings": [],
-          "color": {
-            "mode": "thresholds"
-          },
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "text",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "justifyMode": "auto",
-        "textMode": "auto",
-        "orientation": "auto"
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "prometheus",
-            "uid": "prometheus"
-          },
-          "expr": "((sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt_cached\"}[$__range])) or vector(0)) / clamp_min(sum(increase(modelhotel_tokens_total{provider=~\"$provider\",kind=\"prompt\"}[$__range])), 1)) or vector(0)"
-        }
-      ]
-    },
-    {
       "type": "timeseries",
       "id": 21,
       "title": "Tokens/s by kind",
@@ -1447,8 +1457,8 @@
       },
       "gridPos": {
         "h": 8,
-        "w": 9,
-        "x": 3,
+        "w": 12,
+        "x": 0,
         "y": 41
       },
       "fieldConfig": {
@@ -1952,7 +1962,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{model}} \u2192 {{provider}}"
+          "legendFormat": "{{model}} → {{provider}}"
         }
       ]
     },

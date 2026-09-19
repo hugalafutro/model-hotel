@@ -17,10 +17,12 @@ One dashboard, provisioned into the folder "Model Hotel", with a `provider` vari
 narrows the traffic, latency, spend and breaker panels (the fleet-wide tiles and the process
 row ignore it):
 
-- **Overview**: members up (the Up tile), requests/s, error share, p95 latency and TTFT, tokens/s, spend
-  over the selected range (approximate at the range edges), providers with a breaker not
-  closed anywhere in the fleet, time since the most recent member restart. Red means look
-  here: only members up, error share and open breakers carry thresholds.
+- **Overview**: members up (the Up tile), requests/s, prompt cache hit share over the selected
+  range (the Cached tile: cached prompt tokens over all prompt tokens), error share, p95 latency
+  and TTFT, tokens/s, spend over the selected range (approximate at the range edges), providers
+  with a breaker not closed anywhere in the fleet, time since the most recent member restart.
+  Red means look here: only members up, cache hit share, error share and open breakers carry
+  thresholds. The cache tile is green from 90% up, orange from 75%, red below.
 - **Traffic**: requests/s by status class and by provider, errors/s by kind, requests by model.
 - **Latency**: duration and TTFT quantiles, p95 by provider.
 - **Tokens & Spend**: tokens/s by kind, tokens by model, spend per hour by provider, spend by
