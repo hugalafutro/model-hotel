@@ -196,7 +196,7 @@ type appLogsHistoryResponse struct {
 //   - ?search=text — text search in message (ILIKE)
 //   - ?from=<RFC3339> — start timestamp
 //   - ?to=<RFC3339> — end timestamp
-//   - ?page=N — page number (default 1)
+//   - ?page=N, page number (default 1, max 10000)
 //   - ?per_page=N — page size (default 20, max 100)
 //   - ?sort_by=time|level|source|message — sort column (default: time)
 //   - ?sort_dir=asc|desc — sort direction (default: desc)
@@ -469,19 +469,28 @@ func buildAppLogCursorQuery(p appLogCursorParams, q url.Values) (string, []any) 
 	return query, args
 }
 
+// maxAppLogPage caps the offset endpoint's page number. At the 100-row per_page
+// ceiling that still reaches a million rows, far past any retention window.
+const maxAppLogPage = 10000
+
 // appLogHistoryParams holds the parsed inputs for the offset getAppLogsHistory.
 type appLogHistoryParams struct {
 	page, perPage    int
 	sortCol, sortDir string
 }
 
-// parseAppLogHistoryParams reads page (default 1), per_page (clamp [1,100],
-// default 20), the sort_by column (whitelist, "time" -> created_at), and sort_dir
-// (DESC default).
+// parseAppLogHistoryParams reads page (clamp [1,maxAppLogPage], default 1),
+// per_page (clamp [1,100], default 20), the sort_by column (whitelist, "time"
+// -> created_at), and sort_dir (DESC default).
+//
+// page is bounded for the same reason per_page is: the offset query sorts
+// before it skips, so an absurd page number (page=1000000000) buys nothing but
+// a full sort of app_logs. Out-of-range values fall back to the default rather
+// than paging somewhere the caller did not ask for.
 func parseAppLogHistoryParams(q url.Values) appLogHistoryParams {
 	p := appLogHistoryParams{page: 1, perPage: 20, sortCol: "created_at", sortDir: "DESC"}
 	if v := q.Get("page"); v != "" {
-		if n, err := strconv.Atoi(v); err == nil && n >= 1 {
+		if n, err := strconv.Atoi(v); err == nil && n >= 1 && n <= maxAppLogPage {
 			p.page = n
 		}
 	}

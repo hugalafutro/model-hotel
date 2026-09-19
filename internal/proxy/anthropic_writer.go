@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"bytes"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -172,6 +173,9 @@ func (a *anthropicResponseWriter) handleStreamLine(line []byte) {
 		a.finishStream()
 		return
 	}
+	if a.emitStreamError(payload) {
+		return
+	}
 	var chunk anthropic.OAStreamChunk
 	// A shape this gateway has no struct for is not broken bytes, and the frame
 	// may carry the model's answer: the streaming path forwards payloads
@@ -196,6 +200,41 @@ func (a *anthropicResponseWriter) handleStreamLine(line []byte) {
 		_, _ = a.w.Write(out)
 		a.Flush()
 	}
+}
+
+// emitStreamError turns a frame carrying a top-level "error" member into the
+// Anthropic `event: error` the SDKs surface as an API error, and ends the
+// stream. Reports whether it handled the frame.
+//
+// Both the gateway's own terminal frame (writeTerminalError ->
+// buildOpenAIStreamError, `data: {"error":…}` followed by `data: [DONE]`) and a
+// provider's in-stream error object arrive here. OAStreamChunk has no Error
+// member, so without this they decoded to an empty chunk, Translate emitted
+// nothing, and the [DONE] behind them closed the stream with a clean
+// message_delta/message_stop: an Anthropic client saw a normal end_turn for a
+// failed request. Marking the stream done also swallows that [DONE], an error
+// event is terminal, and a message_stop after it would contradict it.
+//
+// The message is already masked: the gateway's frame is masked by
+// opts.masker in writeTerminalError, and a provider frame by
+// st.masker before it is forwarded (proxy_stream_response.go). Emptiness and
+// message rendering use the shared util rules, the same pair captureSSEError
+// reads on the OpenAI-shaped path, so the two cannot disagree about what counts
+// as an error.
+func (a *anthropicResponseWriter) emitStreamError(payload []byte) bool {
+	var env struct {
+		Error json.RawMessage `json:"error"`
+	}
+	if json.Unmarshal(payload, &env) != nil || !util.ValueCarries(env.Error) {
+		return false
+	}
+	a.streamDone = true
+	frame := append([]byte("event: error\ndata: "), anthropic.BuildErrorResponseFromMessage(util.ErrorMemberMessage(env.Error), http.StatusBadGateway)...)
+	frame = append(frame, "\n\n"...)
+	// #nosec G705 -- Anthropic SSE event body, not HTML; Content-Type is text/event-stream
+	_, _ = a.w.Write(frame)
+	a.Flush()
+	return true
 }
 
 // finishStream emits the terminal Anthropic events once.

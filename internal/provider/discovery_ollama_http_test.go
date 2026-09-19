@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -831,5 +832,47 @@ func TestGetOllamaCloudAccount_403Status(t *testing.T) {
 	_, err = service.GetOllamaCloudAccount(context.Background(), provider, masterKey)
 	if err == nil {
 		t.Error("Expected error for 403 response, got nil")
+	}
+}
+
+// A local Ollama started without a key must be sent no Authorization header at
+// all. Sending "Bearer " with nothing behind it is a malformed credential that
+// some keyless servers reject outright, so both the tags fetch and the per-model
+// show call go through bearerHeader.
+func TestDiscoverOllama_NoAuthHeaderWithoutKey(t *testing.T) {
+	seen := map[string]string{}
+	var mu sync.Mutex
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		mu.Lock()
+		seen[r.URL.Path] = r.Header.Get("Authorization")
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		switch r.URL.Path {
+		case "/api/tags":
+			_ = json.NewEncoder(w).Encode(OllamaTagsResponse{Models: []OllamaTagsModel{{Name: "llama3.2"}}})
+		case "/api/show":
+			_ = json.NewEncoder(w).Encode(OllamaShowResponse{Details: OllamaModelDetails{Family: "llama"}})
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer server.Close()
+
+	svc := &DiscoveryService{httpClient: server.Client()}
+	if _, err := svc.discoverOllama(context.Background(), &Provider{ID: uuid.New(), BaseURL: server.URL}, ""); err != nil {
+		t.Fatalf("discoverOllama failed: %v", err)
+	}
+
+	mu.Lock()
+	defer mu.Unlock()
+	for _, path := range []string{"/api/tags", "/api/show"} {
+		got, ok := seen[path]
+		if !ok {
+			t.Errorf("%s was never requested", path)
+			continue
+		}
+		if got != "" {
+			t.Errorf("%s got Authorization=%q, want no header for a keyless server", path, got)
+		}
 	}
 }

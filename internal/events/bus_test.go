@@ -1,9 +1,15 @@
 package events
 
 import (
+	"bytes"
+	"log/slog"
+	"strings"
 	"sync"
+	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/hugalafutro/model-hotel/internal/debuglog"
 )
 
 func TestSubscribePublishUnsubscribe(t *testing.T) {
@@ -63,7 +69,7 @@ func TestDropIfFull(t *testing.T) {
 	ch := make(chan Event, 1) // small buffer
 
 	b.mu.Lock()
-	b.subscribers[ch] = struct{}{}
+	b.subscribers[ch] = &atomic.Uint64{}
 	b.mu.Unlock()
 
 	// Publish more than buffer size
@@ -303,5 +309,53 @@ func TestUnsubscribeAndPublishAfterClose_NoPanic(t *testing.T) {
 
 	if _, ok := <-ch; ok {
 		t.Fatal("expected channel closed by Close()")
+	}
+}
+
+// A subscriber that stops reading must not turn every published event into a
+// log line (and an app_logs row): the first drop is logged, then one line per
+// dropLogEvery, each carrying the running total.
+func TestPublish_DropLoggingIsRateLimited(t *testing.T) {
+	var logged bytes.Buffer
+	prev := debuglog.StdoutHandler()
+	debuglog.SetHandler(slog.NewTextHandler(&logged, &slog.HandlerOptions{Level: slog.LevelDebug}))
+	t.Cleanup(func() { debuglog.SetHandler(prev) })
+
+	b := NewBus()
+	ch := b.Subscribe()
+	defer b.Unsubscribe(ch)
+
+	// Fill the buffer, then drop 2*dropLogEvery more without ever reading.
+	drops := 2 * dropLogEvery
+	for i := 0; i < cap(ch)+drops; i++ {
+		b.Publish(Event{Type: "flood"})
+	}
+
+	lines := strings.Count(logged.String(), "event dropped")
+	if want := 1 + drops/dropLogEvery; lines != want {
+		t.Errorf("got %d drop log lines for %d drops, want %d (first + every %d)", lines, drops, want, dropLogEvery)
+	}
+	if !strings.Contains(logged.String(), "dropped=200") {
+		t.Errorf("the rate-limited line must carry the running total; log was:\n%s", logged.String())
+	}
+}
+
+// The drop counter lives on the subscriber entry, so unsubscribing retires it:
+// a fresh subscription starts counting from zero and logs its first drop again.
+func TestUnsubscribe_ClearsDropCount(t *testing.T) {
+	b := NewBus()
+	ch := b.Subscribe()
+	for i := 0; i < cap(ch)+5; i++ {
+		b.Publish(Event{Type: "flood"})
+	}
+	if got := b.subscribers[ch].Load(); got != 5 {
+		t.Fatalf("setup: drop count = %d, want 5", got)
+	}
+	b.Unsubscribe(ch)
+
+	next := b.Subscribe()
+	defer b.Unsubscribe(next)
+	if got := b.subscribers[next].Load(); got != 0 {
+		t.Errorf("a new subscriber inherited %d drops; the counter must retire with the channel", got)
 	}
 }

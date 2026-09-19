@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/http"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -14,8 +13,10 @@ import (
 func (d *DiscoveryService) discoverOpenAI(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	baseURL := util.SanitizeBaseURL(provider.BaseURL)
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+apiKey)
+	// bearerHeader, not a bare Set: an OpenAI-compatible local server (LM
+	// Studio, KoboldCPP started without --password) would otherwise be sent a
+	// literal "Bearer " with nothing behind it.
+	headers := bearerHeader(apiKey)
 	headers.Set("Content-Type", "application/json")
 
 	bodyBytes, err := d.fetchURL(ctx, "GET", baseURL+"/models", headers)

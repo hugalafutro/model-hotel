@@ -21,10 +21,9 @@ import (
 func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provider, apiKey string) ([]*model.Model, error) {
 	apiBase := util.SanitizeAPIURL(provider.BaseURL)
 
-	headers := http.Header{}
-	headers.Set("Authorization", "Bearer "+apiKey)
-
-	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/tags", headers)
+	// bearerHeader, not a bare Set: a local Ollama started without a key would
+	// otherwise be sent a literal "Bearer " with nothing behind it.
+	bodyBytes, err := d.fetchURL(ctx, "GET", apiBase+"/api/tags", bearerHeader(apiKey))
 	if err != nil {
 		debuglog.Error("discovery: ollama http request failed", "provider", provider.Name, "provider_id", provider.ID, "error", err)
 		return nil, fmt.Errorf("ollama: failed to fetch models for provider %s: %w", provider.Name, statusOnly(err))
@@ -116,7 +115,10 @@ func (d *DiscoveryService) ollamaShowModel(ctx context.Context, apiBase, apiKey,
 		if err != nil {
 			return nil, err
 		}
-		req.Header.Set("Authorization", "Bearer "+apiKey)
+		// Same reason as the tags fetch: a keyless local Ollama must not be
+		// sent a literal "Bearer " with nothing behind it. A fresh request's
+		// headers are empty, so the helper's map can simply replace them.
+		req.Header = bearerHeader(apiKey)
 		req.Header.Set("Content-Type", "application/json")
 		return req, nil
 	})

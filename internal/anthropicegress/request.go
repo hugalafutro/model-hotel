@@ -17,6 +17,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
+	"github.com/hugalafutro/model-hotel/internal/paramrewrite"
 	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
@@ -94,8 +95,11 @@ func (d ThinkingDialect) String() string {
 // --- Incoming OpenAI chat-completions request shape ---
 //
 // Only the fields the translation needs are decoded. Params with no Anthropic
-// equivalent (frequency_penalty, presence_penalty, n, seed, response_format,
-// logprobs, stream_options, ...) are dropped by omission.
+// equivalent (frequency_penalty, presence_penalty, n, seed, logprobs,
+// stream_options, ...) are dropped by omission. response_format is the
+// exception: Messages has no such field either, but dropping it would answer a
+// caller who asked for JSON with prose, so it is folded into the system prompt
+// (see foldResponseFormat).
 
 type oaiRequest struct {
 	Model               string          `json:"model"`
@@ -110,6 +114,7 @@ type oaiRequest struct {
 	Tools               []oaiTool       `json:"tools"`
 	ToolChoice          json.RawMessage `json:"tool_choice"`
 	ReasoningEffort     string          `json:"reasoning_effort"`
+	ResponseFormat      json.RawMessage `json:"response_format"`
 }
 
 type oaiMessage struct {
@@ -266,7 +271,7 @@ func TranslateRequestWithDialect(chatBody []byte, dialect ThinkingDialect) (body
 	if len(messages) == 0 {
 		return nil, "", false, errors.New("anthropicegress: at least one user or assistant message with content is required")
 	}
-	out.System = system
+	out.System = foldResponseFormat(system, req.ResponseFormat)
 	out.Messages = messages
 
 	// tool_choice "none" has no Anthropic equivalent; the tools array goes with
@@ -296,6 +301,28 @@ func TranslateRequestWithDialect(chatBody []byte, dialect ThinkingDialect) (body
 		return nil, "", false, fmt.Errorf("anthropicegress: marshal messages request: %w", err)
 	}
 	return body, req.Model, req.Stream, nil
+}
+
+// foldResponseFormat folds an OpenAI response_format into the system prompt.
+// The Messages API has no such field and no structured-output mode of its own,
+// so a json_schema or json_object request that is merely dropped comes back as
+// prose; the instruction the chat route folds in for a provider that will not
+// enforce the schema (paramrewrite.SchemaPromptInstruction) asks for the same
+// shape here. Nothing validates the answer against the schema, exactly as on
+// that route. A response_format of any other shape is still dropped.
+func foldResponseFormat(system string, raw json.RawMessage) string {
+	var rf map[string]any
+	if len(raw) == 0 || json.Unmarshal(raw, &rf) != nil {
+		return system
+	}
+	instruction, _, ok := paramrewrite.SchemaPromptInstruction(rf)
+	if !ok {
+		return system
+	}
+	if system == "" {
+		return instruction
+	}
+	return system + "\n\n" + instruction
 }
 
 // applyThinking turns an OpenAI reasoning_effort into the Anthropic thinking

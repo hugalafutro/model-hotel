@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -377,6 +378,57 @@ func TestTPMMiddleware_RejectsWhenExhausted(t *testing.T) {
 	}
 	if rec.Header().Get("Retry-After") == "" {
 		t.Fatal("429 response must set Retry-After")
+	}
+	// Same rate-limit headers the RPS limiter gives its own 429s: without them a
+	// client has no budget to pace itself by and cannot tell which stage refused.
+	// The trio speaks tokens per minute, the unit the caller configured, not the
+	// bucket's per-second refill; a bucket driven negative by a reservation
+	// reports nothing left rather than a negative count.
+	want := map[string]string{
+		"X-RateLimit-Limit":     strconv.Itoa(tpm),
+		"X-RateLimit-Remaining": "0",
+		"X-RateLimit-Burst":     strconv.Itoa(tpm),
+	}
+	for h, v := range want {
+		if got := rec.Header().Get(h); got != v {
+			t.Errorf("%s = %q, want %q", h, got, v)
+		}
+	}
+	if got := rec.Header().Get("X-RateLimit-Scope"); got != tpmLogPrefix {
+		t.Errorf("X-RateLimit-Scope = %q, want %q", got, tpmLogPrefix)
+	}
+	// The throttle episode is recorded, which is what drives the app-log line.
+	entry := l.buckets["k"]
+	if entry == nil || !entry.throttle.throttled.Load() {
+		t.Error("a TPM 429 must open a throttle episode")
+	}
+}
+
+// The owner-level stage refuses with the same headers as the per-key one.
+func TestTPMUserMiddleware_RejectionCarriesRateLimitHeaders(t *testing.T) {
+	l, _ := newTestTPMLimiter(t)
+	userTPM := 600
+	h := l.UserMiddleware(true)(okHandler())
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("", "uid-1", userTPM))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first request should pass, got %d", rec.Code)
+	}
+	l.DebitUser("uid-1", userTPM*2) // drive the owner bucket negative
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, ownedTPMReq("", "uid-1", userTPM))
+	if rec.Code != http.StatusTooManyRequests {
+		t.Fatalf("exhausted owner budget should 429, got %d", rec.Code)
+	}
+	for _, name := range []string{"Retry-After", "X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Burst"} {
+		if rec.Header().Get(name) == "" {
+			t.Errorf("429 response must set %s", name)
+		}
+	}
+	if entry := l.buckets[userBucketKey("uid-1")]; entry == nil || !entry.throttle.throttled.Load() {
+		t.Error("an owner-level TPM 429 must open a throttle episode")
 	}
 }
 

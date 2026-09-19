@@ -10,6 +10,7 @@ package egress
 
 import (
 	"encoding/json"
+	"slices"
 	"strings"
 
 	"github.com/google/uuid"
@@ -33,7 +34,10 @@ func AsJSONString(raw json.RawMessage) (string, bool) {
 
 // DecodeStop accepts OpenAI's string-or-array stop field. An empty string is
 // not a stop sequence, so it decodes to nil rather than to a one-element list
-// that would truncate the completion immediately.
+// that would truncate the completion immediately, and an empty element inside
+// a list is no more a stop sequence than a bare one, so it is dropped too
+// (several vendors 400 on it). A list left with nothing usable decodes to nil,
+// the same as no stop field at all.
 func DecodeStop(raw json.RawMessage) []string {
 	if len(raw) == 0 {
 		return nil
@@ -45,10 +49,14 @@ func DecodeStop(raw json.RawMessage) []string {
 		return []string{s}
 	}
 	var list []string
-	if json.Unmarshal(raw, &list) == nil {
-		return list
+	if json.Unmarshal(raw, &list) != nil {
+		return nil
 	}
-	return nil
+	list = slices.DeleteFunc(list, func(s string) bool { return s == "" })
+	if len(list) == 0 {
+		return nil
+	}
+	return list
 }
 
 // FlattenText reduces an OpenAI content field to plain text: a JSON string

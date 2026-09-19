@@ -259,7 +259,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 						}
 						return
 					}
-					writeRateLimitHeaders(w, entry.limiter, 0, "")
+					writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, "")
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
@@ -279,7 +279,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			if userEntry != nil {
 				userEntry.noteAllowed(userKey)
 			}
-			writeRateLimitHeaders(w, entry.limiter, 0, "")
+			writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, "")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}
@@ -325,6 +325,13 @@ func rejectedBy(by, userEntry *bucketEntry) string {
 // its rate is adjusted in place so runtime changes take effect immediately
 // without handing the key a fresh, full bucket.
 func (l *Limiter) getLimiter(ctx context.Context, keyHash string, perKeyRPS *float64, perKeyBurst *int) *bucketEntry {
+	// The settings snapshot is taken under the admission mutex on purpose. Read
+	// outside it, a request could resolve the old cap, lose the lock to one that
+	// installed a newly lowered cap, and then upsert its stale, higher values
+	// back over it: a runtime reduction bypassed for as long as such requests
+	// keep arriving. The cost is one database round trip under the lock when
+	// the settings cache TTL lapses; serialising admissions for that beat is
+	// the price of a cap change taking effect in order.
 	l.mu.Lock()
 	defer l.mu.Unlock()
 

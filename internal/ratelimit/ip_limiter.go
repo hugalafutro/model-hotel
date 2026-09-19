@@ -157,7 +157,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 					reservation.Cancel()
 					return
 				}
-				writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
+				writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, ipLogLabel)
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -170,7 +170,7 @@ func (l *IPLimiter) Middleware(next http.Handler) http.Handler {
 		// Served with no delay — the bucket has recovered, so close any open
 		// throttle episode for this IP.
 		entry.noteAllowed(ip)
-		writeRateLimitHeaders(w, entry.limiter, 0, ipLogLabel)
+		writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, ipLogLabel)
 		next.ServeHTTP(w, r)
 	})
 }

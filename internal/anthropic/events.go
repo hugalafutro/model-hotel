@@ -105,9 +105,13 @@ type messageDeltaBody struct {
 	StopSequence *string `json:"stop_sequence"`
 }
 
-// messageDeltaUsage is the cumulative output-token count reported on
-// message_delta. Best-effort: 0 when the upstream provider volunteered nothing.
+// messageDeltaUsage is the cumulative token count reported on message_delta.
+// Both figures are best-effort: 0 when the upstream provider volunteered
+// nothing. input_tokens lives here rather than on message_start because OpenAI
+// streaming usually reveals the prompt count only in the terminal usage chunk,
+// long after message_start has gone out.
 type messageDeltaUsage struct {
+	InputTokens  int `json:"input_tokens"`
 	OutputTokens int `json:"output_tokens"`
 }
 
