@@ -1442,7 +1442,8 @@
 			"image": "Obrázek",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Zprávy"
+			"messages": "Zprávy",
+			"responses": "Odpovědi"
 		},
 		"table": {
 			"timeDate": "Čas/Datum",

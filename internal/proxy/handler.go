@@ -302,7 +302,8 @@ func (h *Handler) Register(r chi.Router, afterAuth ...func(http.Handler) http.Ha
 
 	r.Get("/models", h.ListModels)
 	r.Post("/chat/completions", h.ChatCompletions)
-	r.Post("/messages", h.Messages) // native Anthropic Messages API surface
+	r.Post("/messages", h.Messages)   // native Anthropic Messages API surface
+	r.Post("/responses", h.Responses) // OpenAI Responses API surface
 	r.Post("/embeddings", h.Embeddings)
 	r.Post("/rerank", h.Rerank)
 	r.Post("/images/generations", h.ImageGenerations)

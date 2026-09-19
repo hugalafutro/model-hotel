@@ -1442,7 +1442,8 @@
 			"image": "Изображение",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Сообщения"
+			"messages": "Сообщения",
+			"responses": "Ответы"
 		},
 		"table": {
 			"timeDate": "Время/Дата",

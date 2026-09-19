@@ -1442,7 +1442,8 @@
 			"image": "Obraz",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Wiadomości"
+			"messages": "Wiadomości",
+			"responses": "Odpowiedzi"
 		},
 		"table": {
 			"timeDate": "Czas/Data",

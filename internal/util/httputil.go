@@ -363,3 +363,25 @@ func SetOpenCodeGoSession(req *http.Request, providerType, session string) {
 	}
 	req.Header.Set(OpenCodeGoSessionHeader, session)
 }
+
+// RewriteJSONModel rewrites the top-level "model" member of a JSON request
+// body to the resolved upstream model id, leaving every other member intact:
+// what a native passthrough (Anthropic Messages, OpenAI Responses) does to the
+// client's body before forwarding it. On any parse failure the original body
+// is returned unchanged.
+func RewriteJSONModel(body []byte, model string) []byte {
+	var m map[string]json.RawMessage
+	if err := json.Unmarshal(body, &m); err != nil {
+		return body
+	}
+	mb, err := json.Marshal(model)
+	if err != nil {
+		return body
+	}
+	m["model"] = mb
+	out, err := json.Marshal(m)
+	if err != nil {
+		return body
+	}
+	return out
+}

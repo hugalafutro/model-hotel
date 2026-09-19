@@ -1536,7 +1536,8 @@
 			"image": "صورة",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "الرسائل"
+			"messages": "الرسائل",
+			"responses": "الردود"
 		},
 		"table": {
 			"timeDate": "الوقت/التاريخ",

@@ -23,6 +23,7 @@ The `x-api-key` header (what the Anthropic SDKs send) carries the virtual key ju
 | `/v1/models` | GET | Virtual Key | List available models (OpenAI-compatible format) |
 | `/v1/chat/completions` | POST | Virtual Key | Chat completion (streaming and non-streaming) |
 | `/v1/messages` | POST | Virtual Key | Anthropic Messages API (translation + native passthrough) |
+| `/v1/responses` | POST | Virtual Key | OpenAI Responses API (translation + native passthrough to OpenAI) |
 | `/v1/embeddings` | POST | Virtual Key | Embeddings (JSON pass-through) |
 | `/v1/rerank` | POST | Virtual Key | Document rerank (JSON pass-through, Cohere-style body) |
 | `/v1/images/generations` | POST | Virtual Key | Image generation (JSON; SSE streaming via `partial_images`) |
@@ -130,6 +131,41 @@ Two serving modes are chosen automatically, per failover attempt:
 - **Translation** for every other provider: the request is converted to the OpenAI Chat Completions shape (system prompt, text, vision, `tools`, `tool_choice`, and multi-turn `tool_use`/`tool_result`), run through the same pipeline, and the OpenAI response, SSE stream, or error is converted back to the Anthropic wire format on the way out. A Gemini 3 candidate signs each tool call and refuses the next turn without the signature; the `tool_use` block has no member for it, so the translation carries it inside the block's `id` as an opaque suffix in the id alphabet (around a kilobyte), the client echoes the id back on the `tool_use` block and the `tool_result` as it does any id, and the translation recovers the signature on the way in. A later attempt served natively by an Anthropic provider gets the ids with the suffix stripped. Treat `tool_use` ids as opaque strings of any length.
 
 Because the choice is per attempt, a single `hotel/claude-*` request served natively by Anthropic transparently fails over to a translated provider (e.g. another vendor offering the same model) if Anthropic is unavailable. The translated path drops `thinking` output (v1); use a provider that serves the model natively to preserve it. Streaming, tool use, multi-turn tool results, vision, `document` blocks (base64 documents become OpenAI file parts, text documents become text parts; a document behind a remote URL is dropped), and Anthropic-shaped errors are all supported. A file part carrying its document inline (a `data:` URI in `file.file_data`) and bound for Google AI Studio is served through the native `generateContent` route, since Google's OpenAI-compatibility layer rejects file parts; a `file_id` or a remote URL in `file.file_data` is not rerouted, because neither route can fetch it. Token usage is metered the same way as chat and **request/response content is never logged**.
+
+### POST `/v1/responses`
+
+The [OpenAI Responses API](https://platform.openai.com/docs/api-reference/responses) surface, so Responses-only clients (Codex CLI, the openai SDKs' `responses` client) can drive the gateway directly and fail over across every provider in a `hotel/` group. Model routing is identical to the rest of the proxy: send `hotel/<group>` or `<provider>/<model>` in the `model` field.
+
+```bash
+curl -X POST http://localhost:8081/v1/responses \
+  -H "Authorization: Bearer $PROXY_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "hotel/gpt-5.6-sol",
+    "instructions": "Be terse.",
+    "input": [{"role": "user", "content": "Hello!"}],
+    "stream": true
+  }'
+```
+
+Codex CLI configuration (`~/.codex/config.toml`):
+
+```toml
+[model_providers.hotel]
+name = "Model Hotel"
+base_url = "http://localhost:8081/v1"
+env_key = "MODEL_HOTEL_KEY"
+wire_api = "responses"
+```
+
+Then `codex -c model_provider=hotel -m hotel/<group>` (or `-m <provider>/<model>`), with the virtual key in `MODEL_HOTEL_KEY`.
+
+Two serving modes are chosen automatically, per failover attempt:
+
+- **Native passthrough** when the resolved candidate is OpenAI itself (`api.openai.com`): the original Responses body is forwarded to OpenAI's own `/v1/responses` with only `model` rewritten, and the response or event stream comes back verbatim, so hosted tools (`web_search` and the rest), `include: ["reasoning.encrypted_content"]`, `prompt_cache_key`, `text.verbosity` and every other knob survive end to end.
+- **Translation** for every other provider (an OpenAI-compatible relay of the `openai` type included): the request is converted to Chat Completions (`instructions` and `developer` turns become system messages, `input` messages with `input_text` / `input_image` / inline `input_file` parts, `function_call` / `function_call_output` history, function `tools`, `tool_choice`, `max_output_tokens`, `reasoning.effort`, `text.format`), run through the same pipeline, and the answer is rendered back as a Response object or as the Responses event stream (`response.created` ... `response.output_item.added` / `response.output_text.delta` / `response.output_item.done` ... `response.completed`, every event carrying a `sequence_number`). A function call closes with its full `arguments` on `response.output_item.done`, reasoning summaries stream as `response.reasoning_summary_text.delta`, a refusal streams as a `refusal` content part, a `length` or `content_filter` stop becomes `response.incomplete` with the matching `incomplete_details.reason`, and a failure ends the stream with `response.failed`. The Response object echoes the request's `instructions`, `temperature`, `top_p`, `parallel_tool_calls`, `tool_choice` and `metadata`; `tools` is reported empty. A tool inside a `namespace` tool is offered to the provider as `<namespace>__<name>` and comes back as a `function_call` item with `namespace` and the bare `name`; every tool name, namespaced or not, must be distinct. Non-streaming and streaming errors keep the OpenAI error envelope, which the Responses API shares.
+
+The gateway keeps no conversation state, so every turn re-sends the transcript (what Codex does with `store: false`). Refused with a 400 naming the field, on both modes: `previous_response_id`, `conversation`, `store: true`, `background: true`, `item_reference` and `compaction` input items. On translated routes, hosted tools other than `web_search` (`file_search`, `code_interpreter`, `image_generation`, `computer`, `mcp`, `shell`, `apply_patch`, `local_shell`) and `custom` tools are refused too, since no chat provider can execute them; a `web_search` tool is dropped, because Codex advertises one to every provider by default and a provider behind a `hotel/` group simply has no search. Prior `reasoning` items in `input` (encrypted reasoning from OpenAI) are dropped on translated routes: the model reasons fresh from the transcript. Because the mode is chosen per attempt, a `hotel/` request served natively by OpenAI fails over to a translated provider when OpenAI is unavailable. Requests never hedge on this endpoint. Token usage is metered the same way as chat (the native mode reads the Responses `usage` block, cached tokens included) and **request/response content is never logged**.
 
 ### Multimodal Endpoints
 

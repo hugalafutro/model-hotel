@@ -5,6 +5,7 @@ import {
 	ListOrdered,
 	MessageSquare,
 	Mic,
+	Terminal,
 	Volume2,
 } from "@/lib/icons";
 
@@ -14,6 +15,7 @@ import {
 export const ENDPOINT_LABEL_KEYS: Record<string, string> = {
 	chat: "logs.endpoint.chat",
 	messages: "logs.endpoint.messages",
+	responses: "logs.endpoint.responses",
 	embeddings: "logs.endpoint.embeddings",
 	rerank: "logs.endpoint.rerank",
 	image: "logs.endpoint.image",
@@ -23,6 +25,7 @@ export const ENDPOINT_LABEL_KEYS: Record<string, string> = {
 
 export const ENDPOINT_ICONS: Record<string, LucideIcon> = {
 	messages: MessageSquare,
+	responses: Terminal,
 	embeddings: Braces,
 	rerank: ListOrdered,
 	image: Image,

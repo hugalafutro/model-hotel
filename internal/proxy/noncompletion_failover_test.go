@@ -568,7 +568,7 @@ func TestNativeNonStreaming_ReadFailureFailsOverWhenASiblingRemains(t *testing.T
 	candidate := goneCandidateAt(&model.Model{ID: uuid.New(), ModelID: "claude-x"}, "Anthropic", "http://api.anthropic.test")
 	h.deferAnswerJudgement(st, candidate, logData, http.StatusOK)
 
-	outcome := h.handleNativeNonStreaming(aw, req, st, candidate, resp, 1, 10.0, true)
+	outcome := h.handleNativeNonStreaming(aw, req, st, candidate, anthropicNative, resp, 1, 10.0, true)
 
 	if outcome != outcomeFailover {
 		t.Fatalf("outcome = %v, want outcomeFailover", outcome)

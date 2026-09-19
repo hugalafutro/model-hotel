@@ -195,7 +195,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return h.forwardUpstreamError(w, st, candidate, resp, attempt, isFailoverEligible, responseHeaderMs)
 	}
 
-	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
+	debuglog.Debug("proxy: upstream responded OK, dispatching to handler", "stream", st.isStreaming, "native_anthropic", st.anthropicNativeAttempt, "native_responses", st.responsesNativeAttempt, "responses_api", st.responsesAttempt, "model", logData.modelID, "provider", logData.providerName, "provider_id", candidate.provider.ID, "status", resp.StatusCode)
 	if st.responsesAttempt {
 		// Translate the /v1/responses answer back to the chat-completions
 		// shape on the upstream side, so the streaming pipeline (TTFT probe,
@@ -325,7 +325,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 		vkHash:             st.vkHash,
 		attempt:            attempt,
 		cancelOrigin:       streamCancelOrigin,
-		rawPassthrough:     st.anthropicNativeAttempt,
+		rawPassthrough:     st.nativeAttempt(),
 		masker:             logData.masker,
 	}
 
@@ -492,6 +492,13 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	// hotel/claude-* request can fail over from native to translated. The flag
 	// is read by the response dispatch and writer.
 	st.anthropicNativeAttempt = st.anthropicIn && isAnthropicFamily(providerType)
+	// The Responses twin: a Responses-in request resolved to OpenAI itself
+	// forwards the original body to OpenAI's own /v1/responses, so hosted
+	// tools, encrypted reasoning and every knob this gateway does not
+	// translate survive. Only api.openai.com: "openai" is also the type of
+	// every unrecognised OpenAI-compatible host, and a relay without
+	// /v1/responses would 404 a direct route with no sibling to fall back to.
+	st.responsesNativeAttempt = st.responsesIn && providerType == "openai" && isOpenAIHost(candidate.provider.BaseURL)
 	// Per-attempt flags: a failover group can mix an OpenAI candidate that
 	// needs /v1/responses (or a vertex-express one) with providers that
 	// don't, so all dialect flags reset on every candidate.
@@ -510,6 +517,9 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	st.lastMessagesBody = nil
 	if st.anthropicNativeAttempt {
 		return h.buildNativeAnthropicRequest(ctx, st, candidate, providerType)
+	}
+	if st.responsesNativeAttempt {
+		return h.buildNativeResponsesRequest(ctx, st, candidate, providerType)
 	}
 	if isGeminiSpeechAttempt(st, providerType, candidate.model.OutputModalities) { // Gemini TTS via generateContent
 		return h.buildGeminiSpeechRequest(ctx, st, candidate, providerType)

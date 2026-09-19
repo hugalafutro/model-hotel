@@ -9,22 +9,7 @@ import (
 // RewriteModel rewrites the top-level "model" field of an Anthropic Messages
 // request body to the resolved upstream model id, leaving every other field
 // intact. On any parse failure the original body is returned unchanged.
-func RewriteModel(body []byte, model string) []byte {
-	var m map[string]json.RawMessage
-	if err := json.Unmarshal(body, &m); err != nil {
-		return body
-	}
-	mb, err := json.Marshal(model)
-	if err != nil {
-		return body
-	}
-	m["model"] = mb
-	out, err := json.Marshal(m)
-	if err != nil {
-		return body
-	}
-	return out
-}
+func RewriteModel(body []byte, model string) []byte { return util.RewriteJSONModel(body, model) }
 
 // ResponseUsage is the metering summary of one Anthropic Messages response.
 // PromptTokens is the whole prompt. CacheHit and CacheMiss split it by how the

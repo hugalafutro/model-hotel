@@ -1348,7 +1348,8 @@
 			"image": "Bild",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Nachrichten"
+			"messages": "Nachrichten",
+			"responses": "Antworten"
 		},
 		"table": {
 			"timeDate": "Zeit/Datum",

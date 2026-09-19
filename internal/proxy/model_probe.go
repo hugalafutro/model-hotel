@@ -127,7 +127,7 @@ func (v probeVerdict) String() string {
 // nothing can be substantiated about them, so nothing is claimed.
 func probeEndpointForFamily(endpointType string) (endpoint string, ok bool) {
 	switch endpointType {
-	case endpointTypeChat, endpointTypeMessages:
+	case endpointTypeChat, endpointTypeMessages, endpointTypeResponses:
 		return probeChatEndpoint, true
 	case endpointTypeEmbeddings:
 		return probeEmbeddingsEndpoint, true

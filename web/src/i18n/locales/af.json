@@ -1348,7 +1348,8 @@
 			"image": "Beeld",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Boodskappe"
+			"messages": "Boodskappe",
+			"responses": "Antwoorde"
 		},
 		"table": {
 			"timeDate": "Tyd/Datum",

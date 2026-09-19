@@ -1395,7 +1395,8 @@
 			"image": "תמונה",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "הודעות"
+			"messages": "הודעות",
+			"responses": "תגובות"
 		},
 		"table": {
 			"timeDate": "שעה/תאריך",

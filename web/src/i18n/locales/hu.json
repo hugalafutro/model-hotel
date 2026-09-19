@@ -1348,7 +1348,8 @@
 			"image": "Kép",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Üzenetek"
+			"messages": "Üzenetek",
+			"responses": "Válaszok"
 		},
 		"table": {
 			"timeDate": "Idő/Dátum",

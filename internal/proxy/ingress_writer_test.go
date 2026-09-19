@@ -10,6 +10,8 @@ import (
 
 	sdk "github.com/anthropics/anthropic-sdk-go"
 	"github.com/anthropics/anthropic-sdk-go/packages/ssestream"
+	oaistream "github.com/openai/openai-go/v3/packages/ssestream"
+	"github.com/openai/openai-go/v3/responses"
 )
 
 // writeOpenAISSE mimics how the streaming pipeline emits OpenAI chunks through
@@ -239,5 +241,115 @@ func TestAnthropicWriter_Error(t *testing.T) {
 	}
 	if e["message"] != "slow down" {
 		t.Errorf("message = %v", e["message"])
+	}
+}
+
+// The Responses dialect through the same writer: streaming translation, the
+// buffered non-streaming answer, a verbatim native 2xx, and errors that keep
+// the OpenAI envelope (or gain one when the upstream sent none).
+func TestResponsesWriter_Streaming(t *testing.T) {
+	rec := httptest.NewRecorder()
+	aw := newResponsesResponseWriter(rec, "resp_s", "hotel/g", nil)
+	aw.Header().Set("Content-Type", "text/event-stream")
+	aw.WriteHeader(http.StatusOK)
+	writeOpenAISSE(aw, `{"choices":[{"delta":{"content":"Hello"}}]}`)
+	writeOpenAISSE(aw, `{"choices":[{"delta":{"content":" world"},"finish_reason":"stop"}]}`)
+	writeOpenAISSE(aw, `{"choices":[],"usage":{"prompt_tokens":3,"completion_tokens":2}}`)
+	writeOpenAISSE(aw, "[DONE]")
+	aw.Finalize()
+	stream := oaistream.NewStream[responses.ResponseStreamEventUnion](oaistream.NewDecoder(&http.Response{Header: http.Header{}, Body: io.NopCloser(strings.NewReader(rec.Body.String()))}), nil)
+	var text string
+	var final responses.Response
+	for stream.Next() {
+		ev := stream.Current()
+		if ev.Type == "response.output_text.delta" {
+			text += ev.Delta
+		}
+		if ev.Type == "response.completed" {
+			final = ev.Response
+		}
+	}
+	if err := stream.Err(); err != nil {
+		t.Fatalf("openai-go decode: %v\n%s", err, rec.Body.String())
+	}
+	if text != "Hello world" || final.ID != "resp_s" || final.Model != "hotel/g" || final.Usage.InputTokens != 3 {
+		t.Errorf("text=%q final=%+v", text, final)
+	}
+}
+
+func TestResponsesWriter_StreamingTerminalError(t *testing.T) {
+	rec := httptest.NewRecorder()
+	aw := newResponsesResponseWriter(rec, "resp_e", "m", nil)
+	aw.Header().Set("Content-Type", "text/event-stream")
+	aw.WriteHeader(http.StatusOK)
+	writeOpenAISSE(aw, `{"choices":[{"delta":{"content":"par"}}]}`)
+	_, _ = aw.Write(buildOpenAIStreamError("provider stalled", "provider_timeout"))
+	aw.Finalize()
+	out := rec.Body.String()
+	if strings.Count(out, "event: response.failed") != 1 || strings.Contains(out, "response.completed") {
+		t.Fatalf("stream must end in one response.failed:\n%s", out)
+	}
+	if !strings.Contains(out, `"code":"provider_timeout"`) || !strings.Contains(out, "provider stalled") {
+		t.Errorf("failure must carry the kind and message:\n%s", out)
+	}
+}
+
+func TestResponsesWriter_NonStreamingAndErrors(t *testing.T) {
+	rec := httptest.NewRecorder()
+	aw := newResponsesResponseWriter(rec, "resp_n", "m", nil)
+	aw.Header().Set("Content-Type", "application/json")
+	aw.WriteHeader(http.StatusOK)
+	_, _ = aw.Write([]byte(`{"id":"c","object":"chat.completion","choices":[{"index":0,"message":{"role":"assistant","content":"Hi"},"finish_reason":"stop"}]}`))
+	aw.Finalize()
+	var r responses.Response
+	if err := json.Unmarshal(rec.Body.Bytes(), &r); err != nil || r.OutputText() != "Hi" || r.ID != "resp_n" {
+		t.Errorf("non-streaming: %v %s", err, rec.Body.String())
+	}
+
+	// An OpenAI envelope is forwarded as it is, status preserved.
+	rec = httptest.NewRecorder()
+	aw = newResponsesResponseWriter(rec, "resp_n", "m", nil)
+	aw.WriteHeader(http.StatusTooManyRequests)
+	_, _ = aw.Write([]byte(`{"error":{"message":"slow down","type":"rate_limit_error"}}`))
+	aw.Finalize()
+	if rec.Code != http.StatusTooManyRequests || rec.Body.String() != `{"error":{"message":"slow down","type":"rate_limit_error"}}` {
+		t.Errorf("envelope error: %d %s", rec.Code, rec.Body.String())
+	}
+
+	// A raw upstream body gains the envelope.
+	rec = httptest.NewRecorder()
+	aw = newResponsesResponseWriter(rec, "resp_n", "m", nil)
+	aw.WriteHeader(http.StatusBadGateway)
+	_, _ = aw.Write([]byte(`upstream said no`))
+	aw.Finalize()
+	var env map[string]map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil || env["error"]["message"] != "upstream said no" || env["error"]["type"] != "server_error" {
+		t.Errorf("raw error: %s", rec.Body.String())
+	}
+
+	// A 2xx that is not a chat completion becomes a 502 envelope.
+	rec = httptest.NewRecorder()
+	aw = newResponsesResponseWriter(rec, "resp_n", "m", nil)
+	aw.WriteHeader(http.StatusOK)
+	_, _ = aw.Write([]byte(`{"object":"list"}`))
+	aw.Finalize()
+	if rec.Code != http.StatusBadGateway {
+		t.Errorf("untranslatable success = %d %s", rec.Code, rec.Body.String())
+	}
+	if _, ok := env["error"]; !ok {
+		t.Error("502 must carry an envelope")
+	}
+
+	// Native verbatim on a 2xx.
+	rec = httptest.NewRecorder()
+	aw = newResponsesResponseWriter(rec, "resp_ignored", "m", nil)
+	native := true
+	aw.bindNativeFlag(&native)
+	aw.Header().Set("Content-Type", "application/json")
+	aw.WriteHeader(http.StatusOK)
+	_, _ = aw.Write([]byte(`{"id":"resp_up","object":"response"}`))
+	aw.Finalize()
+	if rec.Body.String() != `{"id":"resp_up","object":"response"}` {
+		t.Errorf("verbatim = %s", rec.Body.String())
 	}
 }

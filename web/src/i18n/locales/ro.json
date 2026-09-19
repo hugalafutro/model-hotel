@@ -1395,7 +1395,8 @@
 			"image": "Imagine",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Mesaje"
+			"messages": "Mesaje",
+			"responses": "Răspunsuri"
 		},
 		"table": {
 			"timeDate": "Ora/Dată",

@@ -417,7 +417,7 @@ func TestHandleStreamingResponse_NativeAnthropicBareStringError(t *testing.T) {
 	h.handleStreamingResponse(w, req, logData, resp, time.Now(), streamOptions{
 		cancelOrigin:   "failover_timeout",
 		masker:         logData.masker,
-		rawPassthrough: true,
+		rawPassthrough: anthropicNative,
 	})
 
 	if strings.Contains(w.Body.String(), quoted) {
