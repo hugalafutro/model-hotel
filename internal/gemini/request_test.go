@@ -674,7 +674,13 @@ func TestRequestCarriesFile(t *testing.T) {
 		"file in later message": {`{"messages":[{"role":"user","content":"hi"},{"role":"user","content":[{"type":"file","file":{"file_data":"data:text/plain;base64,aGk="}}]}]}`, true},
 		"file_id only":          {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_id":"file-1"}}]}]}`, false},
 		"remote file_data":      {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"https://x/y.pdf"}}]}]}`, false},
-		"not json":              {`{`, false},
+		// Roles and payloads the translator drops are not a reason to reroute.
+		"file in system turn":    {`{"messages":[{"role":"system","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]},{"role":"user","content":"hi"}]}`, false},
+		"file in tool turn":      {`{"messages":[{"role":"tool","tool_call_id":"c1","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, false},
+		"data URI, no base64":    {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:text/plain,hello"}}]}]}`, false},
+		"data URI, empty data":   {`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,"}}]}]}`, false},
+		"file in assistant turn": {`{"messages":[{"role":"assistant","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}}]}]}`, true},
+		"not json":               {`{`, false},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

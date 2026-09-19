@@ -5,6 +5,7 @@
 package gemini
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"strings"
@@ -380,12 +381,20 @@ func RequestWantsImage(body []byte) bool {
 	return wantsImageOutput(req.Modalities)
 }
 
-// RequestCarriesFile reports whether a chat request carries a file part with
-// inline data (a data: URI in file_data) in any message; the proxy uses it to
-// pick the native route for a provider whose OpenAI-compatibility layer
-// rejects file parts outright. A part with no inline data is not a reason to
-// reroute: neither route can fetch it, and the native translator drops it.
+// RequestCarriesFile reports whether a chat request carries a file part the
+// native translator would forward: a user or assistant turn (the roles
+// translateParts serves; system and tool turns are flattened to text) with a
+// file part whose file_data is a data: URI mediaPart accepts. The proxy uses
+// it to pick the native route for a provider whose OpenAI-compatibility layer
+// rejects file parts outright. A part the translator would drop is not a
+// reason to reroute: the request would arrive without its file either way.
+//
+// The byte prefilter keeps the common no-file request from paying a full
+// body decode on every candidate; only a body naming file_data is parsed.
 func RequestCarriesFile(body []byte) bool {
+	if !bytes.Contains(body, []byte(`"file_data"`)) {
+		return false
+	}
 	var req struct {
 		Messages []oaiMessage `json:"messages"`
 	}
@@ -393,12 +402,18 @@ func RequestCarriesFile(body []byte) bool {
 		return false
 	}
 	for _, m := range req.Messages {
+		if m.Role != "user" && m.Role != "assistant" {
+			continue
+		}
 		var parts []oaiContentPart
 		if len(m.Content) == 0 || m.Content[0] != '[' || json.Unmarshal(m.Content, &parts) != nil {
 			continue
 		}
 		for _, p := range parts {
-			if p.Type == "file" && p.File != nil && strings.HasPrefix(p.File.FileData, "data:") {
+			if p.Type != "file" || p.File == nil || !strings.HasPrefix(p.File.FileData, "data:") {
+				continue
+			}
+			if _, ok := mediaPart(p.File.FileData); ok {
 				return true
 			}
 		}

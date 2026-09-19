@@ -32,41 +32,39 @@ import (
 // Google, so an OpenAI-shaped body sent to Zen's /chat/completions comes back
 // with Google's own `Invalid JSON request body: Missing key at ["contents"]`.
 // Every other Zen family stays on chat-completions. Google AI Studio speaks it
-// for image output (see isGoogleImageEgress) and for a request carrying a
-// document (see isGoogleFileEgress).
+// for image output and for a request carrying a document (see
+// isGoogleNativeEgress).
 func isGeminiEgressAttempt(st *requestState, providerType, modelID, outputModalities string) bool {
 	if st.endpointPath != "" || st.makeUpstreamBody != nil {
 		return false
 	}
 	return providerType == "vertex-express" || isZenGeminiModel(providerType, modelID) ||
-		isGoogleImageEgress(providerType, outputModalities, st.bodyBytes) ||
-		isGoogleFileEgress(providerType, st.bodyBytes)
+		isGoogleNativeEgress(providerType, outputModalities, st.bodyBytes)
 }
 
-// isGoogleFileEgress reports a Google AI Studio candidate whose request
-// carries a document as a file part. Google's OpenAI-compatibility layer
-// answers such a part with `400 Invalid content part type: file`, while the
-// native generateContent route takes the same document as inlineData (the
-// translator in internal/gemini already maps it). Without this the document
-// an Anthropic-shaped /v1/messages request had just been translated into was
-// a hard 400 on every AI Studio candidate, a payload-class error that never
-// fails over, so a hotel/ group with a capable second candidate still refused
-// the request.
-func isGoogleFileEgress(providerType string, body []byte) bool {
-	return providerType == "google" && gemini.RequestCarriesFile(body)
-}
-
-// isGoogleImageEgress reports a Google AI Studio candidate that has to speak
-// the native dialect. Google's OpenAI-compatibility layer produces images
-// only on its own /images/generations route: a chat request to an image
-// model there is answered with a 400 whether or not it names an image
-// modality, while the native generateContent route serves it and returns the
-// image as an inlineData part. The model's discovered output modalities
-// decide. A request naming an image modality is a second trigger only for a
-// model whose modalities discovery left empty: a model declared text-only
-// stays on the compat route, since a client could otherwise steer it onto
-// the native one and have Google's refusal read as the model's retirement.
-func isGoogleImageEgress(providerType, outputModalities string, body []byte) bool {
+// isGoogleNativeEgress reports a Google AI Studio candidate that has to speak
+// the native dialect, for one of two reasons.
+//
+// Image output: Google's OpenAI-compatibility layer produces images only on
+// its own /images/generations route, so a chat request to an image model
+// there is answered with a 400 whether or not it names an image modality,
+// while the native generateContent route serves it and returns the image as
+// an inlineData part. The model's discovered output modalities decide. A
+// request naming an image modality is a second trigger only for a model whose
+// modalities discovery left empty: a model declared text-only stays on the
+// compat route, since a client could otherwise steer it onto the native one
+// and have Google's refusal read as the model's retirement. That guard
+// dominates: a text-only model asked for an image stays put even when the
+// request also carries a document.
+//
+// A document: the compat layer answers a file content part with `400 Invalid
+// content part type: file`, while the native route takes the same document
+// as inlineData (the translator in internal/gemini already maps it). Without
+// this the document an Anthropic-shaped /v1/messages request had just been
+// translated into was a hard 400 on every AI Studio candidate, a
+// payload-class error that never fails over, so a hotel/ group with a capable
+// second candidate still refused the request.
+func isGoogleNativeEgress(providerType, outputModalities string, body []byte) bool {
 	if providerType != "google" {
 		return false
 	}
@@ -74,7 +72,10 @@ func isGoogleImageEgress(providerType, outputModalities string, body []byte) boo
 	if slices.Contains(declared, "image") {
 		return true
 	}
-	return len(declared) == 0 && gemini.RequestWantsImage(body)
+	if gemini.RequestWantsImage(body) {
+		return len(declared) == 0
+	}
+	return gemini.RequestCarriesFile(body)
 }
 
 // isZenGeminiModel reports whether this is an OpenCode Zen candidate for a

@@ -28,6 +28,7 @@ func TestIsGeminiEgressAttempt_GoogleImage(t *testing.T) {
 	wantsImage := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":"draw"}],"modalities":["image","text"]}`)}
 	carriesFile := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":[{"type":"file","file":{"filename":"m.pdf","file_data":"data:application/pdf;base64,JVBERi0="}},{"type":"text","text":"summarise"}]}]}`)}
 	fileNoData := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_id":"file-1"}},{"type":"text","text":"summarise"}]}]}`)}
+	fileWantsImage := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}},{"type":"text","text":"draw this"}]}],"modalities":["image","text"]}`)}
 	cases := []struct {
 		name         string
 		st           *requestState
@@ -47,6 +48,8 @@ func TestIsGeminiEgressAttempt_GoogleImage(t *testing.T) {
 		{"chat model, request carries a file", carriesFile, "google", `["text"]`, true},
 		{"file part with no inline data", fileNoData, "google", `["text"]`, false},
 		{"file on another compat provider", carriesFile, "openai", `["text"]`, false},
+		{"text-only model, file plus image request", fileWantsImage, "google", `["text"]`, false},
+		{"empty modalities, file plus image request", fileWantsImage, "google", "", true},
 	}
 	// A client naming an image modality must not be able to steer a model
 	// discovery declared text-only onto the native route: Google's refusal
