@@ -102,9 +102,20 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 		// ev.kind == sseData. Native Anthropic passthrough forwards the chunk
 		// verbatim (it is already Anthropic-shaped); the translated/OpenAI path
 		// parses, transforms, observes, and forwards.
-		if opts.rawPassthrough {
-			if h.emitRawData(sink, st, ev, chunkCount, logData) {
+		if opts.rawPassthrough != nil {
+			if h.emitRawData(sink, st, opts.rawPassthrough, ev, chunkCount, logData) {
 				goto logUpdate
+			}
+			// The dialect's terminal event ends the stream the way [DONE] ends
+			// an OpenAI one. Reading on for the upstream's EOF let a client
+			// that hangs up on the terminal event (Codex does) be logged as a
+			// disconnect on a request it was fully served. The body is closed
+			// here rather than drained for reuse: the upstream said it was
+			// done, and one that lingers past its own terminal event would
+			// hold this goroutine until the stall watchdog fired.
+			if st.sawTerminalEvent {
+				_ = resp.Body.Close()
+				break
 			}
 		} else if h.handleDataChunk(sink, st, ev, stripReasoning, chunkCount, logData) {
 			goto logUpdate

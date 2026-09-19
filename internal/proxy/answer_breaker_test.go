@@ -1025,7 +1025,7 @@ func TestHandleNativeNonStreaming_AnEndedReadIsClassified(t *testing.T) {
 			}
 			req := httptest.NewRequest("POST", "/v1/messages", http.NoBody).WithContext(ctx)
 
-			h.handleNativeNonStreaming(httptest.NewRecorder(), req, st, modelCandidate{}, resp, 1, 5, false)
+			h.handleNativeNonStreaming(httptest.NewRecorder(), req, st, modelCandidate{}, anthropicNative, resp, 1, 5, false)
 
 			if logData.errorKind != tc.wantKind {
 				t.Errorf("errorKind = %q, want %q", logData.errorKind, tc.wantKind)

@@ -5,10 +5,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/http"
 	"time"
 
-	"github.com/hugalafutro/model-hotel/internal/anthropic"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/failover"
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -48,10 +46,15 @@ type streamState struct {
 	// from here, so they are neither evidence of emptiness nor evidence against
 	// it: judgeStreamForBreaker reads delivery FIRST and falls back to this only
 	// when nothing typed reached the caller.
-	unparsedChunks int
-	lastErrMsg     string
-	sawDone        bool
-	sawMessageStop bool // native Anthropic passthrough: terminal message_stop event seen
+	unparsedChunks   int
+	lastErrMsg       string
+	sawDone          bool
+	sawTerminalEvent bool // native passthrough: the dialect's terminal event seen
+	// nativeSequence is the next sequence_number a gateway-appended frame
+	// takes on a native stream that numbers its events (one past the last
+	// forwarded), and nativeResponseID the response id those events named.
+	nativeSequence   int
+	nativeResponseID string
 	// sawContent records that at least one non-empty content or reasoning delta
 	// reached the client. It is the only signal that a stream actually answered
 	// which does not depend on optional behaviour: usage chunks are omitted by
@@ -124,7 +127,7 @@ func providerAtFault(kind ErrorKind) bool {
 //     never parsed content out of the deltas.
 //
 // Deliberately NOT logData.deliveredContent, and deliberately NOT
-// st.sawMessageStop. deliveredContent is derived as sawContent||sawMessageStop
+// st.sawTerminalEvent. deliveredContent is derived as sawContent||sawTerminalEvent
 // for the RETIREMENT verdict, where a terminal message_stop may stand in for
 // "the model answered". Here it cannot: message_stop is a TERMINATION signal,
 // present on every native stream that ends cleanly, including one that produced
@@ -204,10 +207,10 @@ func judgeStreamForBreaker(st *streamState, logData *requestLogData, errMsg stri
 	if !providerAtFault(logData.errorKind) {
 		return streamBreakerVerdict{}
 	}
-	// !sawDone/!sawMessageStop avoids penalising a provider whose stream
+	// !sawDone/!sawTerminalEvent avoids penalising a provider whose stream
 	// completed normally but whose stall timer fired concurrently with the
 	// terminal frame.
-	if st.stalled && !st.sawDone && !st.sawMessageStop {
+	if st.stalled && !st.sawDone && !st.sawTerminalEvent {
 		return streamBreakerVerdict{failureReason: "stream stalled"}
 	}
 	if !streamDeliveredOutput(st) {
@@ -238,19 +241,21 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	tps := tokensPerSecond(st.completionTokens, totalDuration, ttftForTPS)
 
 	errMsg := deriveStreamError(st, scanErr, opts, logData)
-	if errMsg == "" && !st.sawDone && opts.rawPassthrough {
-		// Native Anthropic passthrough: the Messages stream ends with a
-		// message_stop event plus EOF and never sends a [DONE] sentinel. A clean
-		// EOF with message_stop is a real completion; a clean EOF without it
-		// means the upstream dropped mid-stream, which logs as truncated and must
-		// NOT bill the partial output as a complete response. No [DONE] is
-		// injected here: Anthropic clients do not expect one.
-		if st.sawMessageStop {
-			debuglog.Debug("proxy: native anthropic stream completed (message_stop seen)", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
+	if errMsg == "" && !st.sawDone && opts.rawPassthrough != nil {
+		// Native passthrough: a Messages stream ends with a message_stop event
+		// and a Responses stream with response.completed, plus EOF, and neither
+		// sends a [DONE] sentinel. A clean EOF with the terminal event is a real
+		// completion; a clean EOF without it means the upstream dropped
+		// mid-stream, which logs as truncated and must NOT bill the partial
+		// output as a complete response. No [DONE] is injected here: native
+		// clients do not expect one.
+		native := opts.rawPassthrough
+		if st.sawTerminalEvent {
+			debuglog.Debug("proxy: "+native.label()+" stream completed", "terminal_event", native.terminalEvent(), "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
 		} else {
-			errMsg = "stream truncated: upstream closed before message_stop"
+			errMsg = "stream truncated: upstream closed before " + native.terminalEvent()
 			logData.errorKind = KindProviderError
-			debuglog.Warn("proxy: native anthropic stream ended without message_stop", "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
+			debuglog.Warn("proxy: "+native.label()+" stream ended without its terminal event", "terminal_event", native.terminalEvent(), "model", logData.modelID, "provider", logData.providerName, "chunks", st.chunkCount)
 		}
 	} else if errMsg == "" && !st.sawDone {
 		// Upstream closed without a [DONE] sentinel. When content arrived and the
@@ -295,7 +300,7 @@ func (h *Handler) finalizeStream(st *streamState, sink *streamSink, scanErr erro
 	// breaker uses (streamDeliveredOutput), and can only turn an inconclusive
 	// verdict into a served one: verdictForStream decides gone from the error
 	// kind before it looks at this at all.
-	logData.deliveredContent = st.sawContent || st.sawMessageStop || st.deliveredBytes > 0
+	logData.deliveredContent = st.sawContent || st.sawTerminalEvent || st.deliveredBytes > 0
 	logData.errorMessage = string(opts.masker.mask([]byte(errMsg)))
 	logData.failoverAttempt = opts.attempt
 	if errMsg != "" {
@@ -425,7 +430,7 @@ func deriveStreamError(st *streamState, scanErr error, opts streamOptions, logDa
 	// stall so a restart never reads as a provider fault.
 	// Either verdict needs the stream to have ended without a terminal sentinel
 	// and without the client leaving.
-	cutShort := !st.sawDone && !st.sawMessageStop && !st.clientDisconnected
+	cutShort := !st.sawDone && !st.sawTerminalEvent && !st.clientDisconnected
 	switch {
 	case st.interrupted && cutShort:
 		errMsg = "stream interrupted: gateway restarting"
@@ -476,7 +481,7 @@ func upstreamModelID(logData *requestLogData) string {
 // speaks OpenAI (error object, then [DONE]); the native Anthropic passthrough
 // speaks Messages (an error event, no sentinel).
 func (h *Handler) writeTerminalError(sink *streamSink, st *streamState, opts streamOptions, logData *requestLogData, errMsg string) {
-	if st.clientDisconnected || st.sawDone || st.sawMessageStop || st.errorChunkCount > 0 {
+	if st.clientDisconnected || st.sawDone || st.sawTerminalEvent || st.errorChunkCount > 0 {
 		return
 	}
 	clientMsg := errMsg
@@ -485,9 +490,8 @@ func (h *Handler) writeTerminalError(sink *streamSink, st *streamState, opts str
 	}
 	msg := string(opts.masker.mask([]byte(clientMsg)))
 	var frame []byte
-	if opts.rawPassthrough {
-		frame = append([]byte("event: error\ndata: "), anthropic.BuildErrorResponseFromMessage(msg, http.StatusBadGateway)...)
-		frame = append(frame, "\n\n"...)
+	if opts.rawPassthrough != nil {
+		frame = opts.rawPassthrough.streamFailure(msg, string(logData.errorKind), st.nativeResponseID, st.nativeSequence)
 	} else {
 		frame = buildOpenAIStreamError(msg, string(logData.errorKind))
 	}

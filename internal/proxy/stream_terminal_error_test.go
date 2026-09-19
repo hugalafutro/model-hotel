@@ -247,7 +247,7 @@ func TestNativeStream_MessageStopThenStallNoErrorFrame(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(20 * time.Millisecond)
 
-	opts := streamOptions{responseHeaderMs: 10, streamStallTimeout: 30 * time.Millisecond, vkHash: "test-hash", attempt: 1, rawPassthrough: true, circuitBreakerOn: true}
+	opts := streamOptions{responseHeaderMs: 10, streamStallTimeout: 30 * time.Millisecond, vkHash: "test-hash", attempt: 1, rawPassthrough: anthropicNative, circuitBreakerOn: true}
 	h.handleStreamingResponse(w, req, logData, resp, time.Now(), opts)
 
 	if strings.Contains(w.Body.String(), "\"type\":\"error\"") {

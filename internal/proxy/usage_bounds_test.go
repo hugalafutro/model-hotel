@@ -235,7 +235,7 @@ func TestHandleNativeNonStreaming_ClampsUsage(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	if outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false); outcome != outcomeServed {
+	if outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, anthropicNative, resp, 1, 10.0, false); outcome != outcomeServed {
 		t.Fatalf("outcome = %v, want outcomeServed", outcome)
 	}
 	aw.Finalize()
@@ -274,7 +274,7 @@ func TestHandleNativeNonStreaming_NegativeUsageNeverCredits(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(100 * time.Millisecond)
 
-	if outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, resp, 1, 10.0, false); outcome != outcomeServed {
+	if outcome := h.handleNativeNonStreaming(aw, req, st, modelCandidate{}, anthropicNative, resp, 1, 10.0, false); outcome != outcomeServed {
 		t.Fatalf("outcome = %v, want outcomeServed", outcome)
 	}
 	aw.Finalize()
@@ -314,7 +314,7 @@ func TestEmitRawData_RefusesOutOfRangeNativeStreamFigures(t *testing.T) {
 	logData := &requestLogData{}
 	emit := func(payload string) {
 		t.Helper()
-		if stop := h.emitRawData(sink, st, sseEvent{raw: []byte("data: " + payload), payload: payload}, 1, logData); stop {
+		if stop := h.emitRawData(sink, st, anthropicNative, sseEvent{raw: []byte("data: " + payload), payload: payload}, 1, logData); stop {
 			t.Fatalf("emitRawData stopped on %s", payload)
 		}
 	}

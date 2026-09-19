@@ -1348,7 +1348,8 @@
 			"image": "Kuva",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Viestit"
+			"messages": "Viestit",
+			"responses": "Vastaukset"
 		},
 		"table": {
 			"timeDate": "Aika/Päivämäärä",

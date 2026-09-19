@@ -475,6 +475,12 @@ curl -X POST http://localhost:8081/v1/messages \
   -H "Content-Type: application/json" \
   -d '{"model": "hotel/claude-sonnet-4-6", "max_tokens": 1024, "messages": [{"role": "user", "content": "Hello!"}]}'
 
+# OpenAI Responses API (point Codex CLI or the openai SDK's Responses client at the gateway)
+curl -X POST http://localhost:8081/v1/responses \
+  -H "Authorization: Bearer $VIRTUAL_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "hotel/gpt-5.6-sol", "input": "Hello!", "stream": true}'
+
 # Embeddings (multimodal endpoints support the same provider/model and hotel/ routing)
 curl -X POST http://localhost:8081/v1/embeddings \
   -H "Authorization: Bearer $VIRTUAL_KEY" \
@@ -500,6 +506,17 @@ group, not just Claude. Requests routed to a non-Anthropic provider are translat
 OpenAI shape (text, vision, tools, and tool results); requests routed to an Anthropic-family provider
 are forwarded natively, so extended-thinking blocks and prompt caching survive end to end. Auth
 accepts `x-api-key` (what Anthropic clients send) as well as `Authorization: Bearer`.
+
+The **OpenAI Responses API** (`POST /v1/responses`) is served the same way, so Responses-only
+clients such as Codex CLI drive the gateway directly and fail over across a `hotel/` group.
+A request routed to OpenAI itself is forwarded verbatim to OpenAI's own `/v1/responses` (hosted
+tools, encrypted reasoning and prompt caching survive); every other candidate gets the request
+translated to Chat Completions and the answer, stream or error rendered back as Responses events
+(text and image input, function tools in and out, reasoning summaries, usage). The gateway is
+stateless: `store` must be false, and `previous_response_id` and `conversation` are refused with a
+400 naming the field; hosted tools other than `web_search` (dropped on translated routes) and custom
+tools are accepted only when every candidate is OpenAI itself. Point Codex at it with a `model_providers` entry whose `base_url` is
+`http://<gateway>/v1` and `wire_api = "responses"`.
 
 OpenAI's newest models (the gpt-5.4+ and gpt-5.6 families) reject tool calling combined with
 reasoning on `/v1/chat/completions` and demand OpenAI's Responses API instead. The gateway heals

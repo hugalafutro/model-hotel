@@ -1395,7 +1395,8 @@
 			"image": "Imagen",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Mensajes"
+			"messages": "Mensajes",
+			"responses": "Respuestas"
 		},
 		"table": {
 			"timeDate": "Hora/Fecha",

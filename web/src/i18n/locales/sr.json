@@ -1395,7 +1395,8 @@
 			"image": "Слика",
 			"tts": "ТТС",
 			"stt": "СТТ",
-			"messages": "Поруке"
+			"messages": "Поруке",
+			"responses": "Одговори"
 		},
 		"table": {
 			"timeDate": "Време/Датум",

@@ -1348,7 +1348,8 @@
 			"image": "画像",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "メッセージ"
+			"messages": "メッセージ",
+			"responses": "レスポンス"
 		},
 		"table": {
 			"timeDate": "時刻/日付",

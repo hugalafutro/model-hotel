@@ -1348,7 +1348,8 @@
 			"image": "Bilde",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Meldinger"
+			"messages": "Meldinger",
+			"responses": "Svar"
 		},
 		"table": {
 			"timeDate": "Tid/dato",

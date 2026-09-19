@@ -51,9 +51,9 @@ func (h *Handler) dispatchNonStreaming(w http.ResponseWriter, r *http.Request, s
 		}
 		return outcome
 	}
-	if st.anthropicNativeAttempt {
+	if native := st.nativeAttempt(); native != nil {
 		h.deferAnswerJudgement(st, candidate, logData, resp.StatusCode)
-		return served(h.handleNativeNonStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates))
+		return served(h.handleNativeNonStreaming(w, r, st, candidate, native, resp, attempt, responseHeaderMs, hasMoreCandidates))
 	}
 
 	// The body is read here rather than inside the handler, and read before

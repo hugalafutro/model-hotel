@@ -89,6 +89,7 @@ const VirtualKeyHashKey = ctxkeys.VirtualKeyHashKey
 const (
 	endpointTypeChat       = "chat"
 	endpointTypeMessages   = "messages"
+	endpointTypeResponses  = "responses"
 	endpointTypeEmbeddings = "embeddings"
 	endpointTypeRerank     = "rerank"
 	endpointTypeImage      = "image"
@@ -331,6 +332,15 @@ type requestState struct {
 	anthropicRawBody       []byte
 	anthropicNativeAttempt bool
 
+	// Native OpenAI Responses /v1/responses passthrough, the same shape:
+	// responsesIn marks a request that arrived on /v1/responses,
+	// responsesRawBody is its original body, and responsesNativeAttempt is set
+	// per failover attempt when the candidate is OpenAI itself, which is served
+	// the original body on its own /v1/responses and answers verbatim.
+	responsesIn            bool
+	responsesRawBody       []byte
+	responsesNativeAttempt bool
+
 	// OpenAI Responses re-route (zero value = plain chat-completions).
 	// responsesAttempt is set per failover attempt by buildCandidateRequest
 	// (preemptive, cache-driven) or retryWithResponses (learn-from-400): true
@@ -466,7 +476,7 @@ func (st *requestState) setReqErr(e reqError) {
 // whose flags its own buildCandidateRequest set, so there is no shared-state
 // race.
 func (st *requestState) sentChatCompletionsBody() bool {
-	return !st.anthropicNativeAttempt && !st.responsesAttempt && !st.geminiAttempt && !st.anthropicEgressAttempt
+	return !st.anthropicNativeAttempt && !st.responsesNativeAttempt && !st.responsesAttempt && !st.geminiAttempt && !st.anthropicEgressAttempt
 }
 
 // retryBudgetLeft reports whether a self-heal round may still be issued: at
@@ -546,9 +556,10 @@ type streamOptions struct {
 	attempt      int
 	cancelOrigin string
 	// rawPassthrough forwards each data chunk verbatim instead of parsing it as
-	// an OpenAI chunk and applying the transforms. Set for the native Anthropic
-	// /v1/messages passthrough path, whose stream is already Anthropic-shaped.
-	rawPassthrough bool
+	// an OpenAI chunk and applying the transforms: the dialect of a native
+	// passthrough stream (Anthropic Messages, OpenAI Responses), which reads
+	// usage and the terminal event from the bytes it forwards. nil translates.
+	rawPassthrough nativeDialect
 	// masker scrubs the candidate's credential from the stream and the log's
 	// error message. Copied from requestLogData.masker, the per-attempt stamp;
 	// the zero value masks by shape only.

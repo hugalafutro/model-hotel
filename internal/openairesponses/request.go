@@ -45,11 +45,13 @@ type chatReqTool struct {
 	Function chatReqToolFunc `json:"function"`
 }
 
+// chatReqToolFunc is read by the egress translation and written by the
+// ingress one, so the optional members omit when empty.
 type chatReqToolFunc struct {
 	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	Parameters  json.RawMessage `json:"parameters"`
-	Strict      *bool           `json:"strict"`
+	Description string          `json:"description,omitempty"`
+	Parameters  json.RawMessage `json:"parameters,omitempty"`
+	Strict      *bool           `json:"strict,omitempty"`
 }
 
 // chatContentPart is one part of an array-form message content.

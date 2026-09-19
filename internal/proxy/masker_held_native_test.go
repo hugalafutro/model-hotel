@@ -29,7 +29,7 @@ func TestEmitRawData_HeldKeyInEveryErrorShape(t *testing.T) {
 			rec := httptest.NewRecorder()
 			sink := newStreamSink(rec)
 			st := &streamState{masker: newCredentialMasker(own)}
-			if stop := h.emitRawData(sink, st, sseEvent{raw: []byte("data: " + tc.payload + "\n\n"), payload: tc.payload}, 1, &requestLogData{}); stop {
+			if stop := h.emitRawData(sink, st, anthropicNative, sseEvent{raw: []byte("data: " + tc.payload + "\n\n"), payload: tc.payload}, 1, &requestLogData{}); stop {
 				t.Fatalf("emitRawData stopped")
 			}
 			out := rec.Body.String()

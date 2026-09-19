@@ -311,7 +311,7 @@ func TestNativeStream_EstimatesOutputWhenTruncatedBeforeMessageDelta(t *testing.
 	}
 	h.insertRequestLogAsync(logData)
 	time.Sleep(20 * time.Millisecond)
-	h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, rawPassthrough: true})
+	h.handleStreamingResponse(httptest.NewRecorder(), req, logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, rawPassthrough: anthropicNative})
 
 	// input_tokens 12 reported by message_start; "Hello" (5 bytes) → 2 estimated.
 	assert.Equal(t, 14, singleAddTokens(t, vkRepo))
@@ -331,7 +331,7 @@ func TestNativeStream_EstimatesOutputFromToolStartName(t *testing.T) {
 	logData := &requestLogData{id: uuid.New().String(), modelID: "claude-test", streaming: true, virtualKeyName: "test-key", virtualKeyID: "00000000-0000-0000-0000-000000000001", state: "streaming", promptTextBytes: 40}
 	h.insertRequestLogAsync(logData)
 	time.Sleep(20 * time.Millisecond)
-	h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/messages", http.NoBody), logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, rawPassthrough: true})
+	h.handleStreamingResponse(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/messages", http.NoBody), logData, resp, time.Now(), streamOptions{vkHash: "test-hash", attempt: 1, rawPassthrough: anthropicNative})
 
 	// input_tokens 12 reported by message_start; "lookup" (6 bytes) → 2 estimated.
 	assert.Equal(t, 14, singleAddTokens(t, vkRepo))
@@ -353,7 +353,7 @@ func TestHandleNativeNonStreaming_EstimatesUsageWhenOmitted(t *testing.T) {
 	h.insertRequestLogAsync(logData)
 	time.Sleep(20 * time.Millisecond)
 
-	h.handleNativeNonStreaming(aw, httptest.NewRequest("POST", "/v1/messages", http.NoBody), st, modelCandidate{}, resp, 1, 5, false)
+	h.handleNativeNonStreaming(aw, httptest.NewRequest("POST", "/v1/messages", http.NoBody), st, modelCandidate{}, anthropicNative, resp, 1, 5, false)
 
 	// 40 prompt bytes → 10; "Hello, world!" (13) + "f" (1) + {"a":1} (7) = 21 bytes → 6.
 	assert.Equal(t, 16, singleAddTokens(t, vkRepo))

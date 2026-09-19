@@ -1348,7 +1348,8 @@
 			"image": "Hình ảnh",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "Tin nhắn"
+			"messages": "Tin nhắn",
+			"responses": "Phản hồi"
 		},
 		"table": {
 			"timeDate": "Thời gian/Ngày",

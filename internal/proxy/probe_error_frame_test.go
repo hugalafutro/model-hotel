@@ -1072,7 +1072,7 @@ func TestJudgeStreamForBreaker_DeliveredStreamsStillSucceed(t *testing.T) {
 		// The native Anthropic path never runs observeDataChunk, so sawContent
 		// is unreachable there; deliveredBytes (from the event's TextBytes) is
 		// what proves it answered.
-		"anthropic delivered": {&streamState{sawMessageStop: true, deliveredBytes: 120}, &requestLogData{deliveredContent: true}},
+		"anthropic delivered": {&streamState{sawTerminalEvent: true, deliveredBytes: 120}, &requestLogData{deliveredContent: true}},
 	} {
 		t.Run(name, func(t *testing.T) {
 			v := judgeStreamForBreaker(tc.st, tc.logData, "", true)
@@ -1235,7 +1235,7 @@ func TestHandleStreamingResponse_FramesWithNoOutputAreCharged(t *testing.T) {
 // produced nothing. Treating it as delivery let a completely empty
 // /v1/messages response escape the charge entirely.
 func TestJudgeStreamForBreaker_EmptyNativeStreamIsCharged(t *testing.T) {
-	st := &streamState{sawMessageStop: true}
+	st := &streamState{sawTerminalEvent: true}
 	// What finalizeStream derives for the retirement verdict, where
 	// message_stop IS allowed to stand in for "the model answered". The breaker
 	// verdict must not inherit that.

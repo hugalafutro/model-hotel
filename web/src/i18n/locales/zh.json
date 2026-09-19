@@ -1348,7 +1348,8 @@
 			"image": "图片",
 			"tts": "TTS",
 			"stt": "STT",
-			"messages": "消息"
+			"messages": "消息",
+			"responses": "响应"
 		},
 		"table": {
 			"timeDate": "时间/日期",
