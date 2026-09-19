@@ -386,7 +386,7 @@
       "type": "stat",
       "id": 6,
       "title": "p95 TTFT",
-      "description": "95th percentile time to first token, streaming requests only. This is what a user feels as “it started answering”.",
+      "description": "95th percentile time to first token, streaming requests only. This is what a user feels as \u201cit started answering\u201d.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -997,7 +997,7 @@
       "type": "table",
       "id": 14,
       "title": "Requests by model",
-      "description": "Top 20 provider / model / status combinations by request count over the dashboard time range. “model” is the name the CLIENT asked for; hotel/<group> means the request went through a failover group.",
+      "description": "Top 20 provider / model / status combinations by request count over the dashboard time range. \u201cmodel\u201d is the name the CLIENT asked for; hotel/<group> means the request went through a failover group.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -1962,7 +1962,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "legendFormat": "{{model}} → {{provider}}"
+          "legendFormat": "{{model}} \u2192 {{provider}}"
         }
       ]
     },
