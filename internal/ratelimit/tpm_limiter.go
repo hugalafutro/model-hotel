@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"net/http"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -12,9 +13,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/ctxkeys"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
-	"github.com/hugalafutro/model-hotel/internal/httpx"
 	"github.com/hugalafutro/model-hotel/internal/settings"
-	"github.com/hugalafutro/model-hotel/internal/util"
 )
 
 // settingsKeyTPM is the optional global default tokens-per-minute cap. 0 (the
@@ -23,6 +22,15 @@ const settingsKeyTPM = "rate_limit_tpm"
 
 // defaultTPM is the fallback when no DB setting is present: no global cap.
 const defaultTPM = 0
+
+// tpmLogPrefix is this limiter's log source and its X-RateLimit-Scope, so a
+// refusal over a spent token budget reads differently from one over requests
+// per second. userLogLabel names the owner-level stage; the per-key stage
+// reuses keyLogLabel.
+const (
+	tpmLogPrefix = "ratelimit-tpm"
+	userLogLabel = "user"
+)
 
 // TPMLimiter enforces a per-virtual-key tokens-per-minute budget, separate
 // from the requests/sec Limiter. It is a consumer-side control: when a key's
@@ -179,6 +187,25 @@ type tpmEntry struct {
 	limiter  *rate.Limiter
 	tpm      int
 	lastUsed time.Time
+	throttle *throttleState
+}
+
+// throttleCtx describes this bucket for the shared throttle logger. The prefix
+// and the "tpm" budget are what tell its lines apart from the RPS limiters',
+// which log the same identities; rps and burst are the bucket's real limiter
+// settings, which for a token budget are tpm/60 refilled per second with a full
+// minute's worth as the ceiling. label is "key" or "user", one getEntry serves
+// both, so the caller says which it asked for.
+func (e *tpmEntry) throttleCtx(label, id string) throttleLogCtx {
+	return throttleLogCtx{prefix: tpmLogPrefix, label: label, id: id, budget: "tpm", rps: float64(tpmRate(e.tpm)), burst: e.tpm}
+}
+
+// rejectTPM429 refuses one request in the name of a token budget that is spent,
+// with the same headers, throttle bookkeeping and log line the RPS limiters give
+// their own refusals.
+func rejectTPM429(w http.ResponseWriter, e *tpmEntry, label, id, msg string) {
+	retryAfter := time.Duration(tpmRetryAfter(e.limiter)) * time.Second
+	reject429From(w, e.limiter, e.throttle, e.throttleCtx(label, id), retryAfter, tpmLogPrefix, msg)
 }
 
 // tpmRate is the per-second refill a tokens-per-minute budget implies.
@@ -190,6 +217,7 @@ func newTPMEntry(tpm int) *tpmEntry {
 		limiter:  rate.NewLimiter(tpmRate(tpm), tpm),
 		tpm:      tpm,
 		lastUsed: time.Now(),
+		throttle: &throttleState{},
 	}
 }
 
@@ -281,10 +309,12 @@ func (l *TPMLimiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 				if userRes != nil {
 					userRes.CancelAt(now)
 				}
-				httpx.SetRetryAfter(w, time.Duration(tpmRetryAfter(entry.limiter))*time.Second)
-				util.WriteOpenAIError(w, "token rate limit exceeded", http.StatusTooManyRequests)
+				rejectTPM429(w, entry, keyLogLabel, keyHash, "token rate limit exceeded")
 				return
 			}
+			// Served with a token to spare, the budget has recovered, so close
+			// any open throttle episode for this key.
+			entry.throttle.noteAllowed(entry.throttleCtx(keyLogLabel, keyHash))
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -363,10 +393,10 @@ func (l *TPMLimiter) admitUserTPM(ctx context.Context, w http.ResponseWriter, no
 	userRes := userEntry.limiter.ReserveN(now, 1)
 	if !userRes.OK() || userRes.DelayFrom(now) > 0 {
 		userRes.CancelAt(now)
-		httpx.SetRetryAfter(w, time.Duration(tpmRetryAfter(userEntry.limiter))*time.Second)
-		util.WriteOpenAIError(w, "user token rate limit exceeded", http.StatusTooManyRequests)
+		rejectTPM429(w, userEntry, userLogLabel, userKey, "user token rate limit exceeded")
 		return nil, false
 	}
+	userEntry.throttle.noteAllowed(userEntry.throttleCtx(userLogLabel, userKey))
 	return userRes, true
 }
 
@@ -467,6 +497,16 @@ func (l *TPMLimiter) debitBucket(bucketKey string, tokens int) {
 // could not cross-fault a bucket, but the spellings must stay identical.
 func userBucketKey(userID string) string {
 	return "user:" + userID
+}
+
+// tpmBucketLabel says which admission stage a bucket key belongs to, for the
+// eviction sweep, which sees only the key. Every other site knows which stage it
+// asked for and passes the label directly.
+func tpmBucketLabel(bucketKey string) string {
+	if strings.HasPrefix(bucketKey, "user:") {
+		return userLogLabel
+	}
+	return keyLogLabel
 }
 
 // userTPMFromCtx resolves the owner's aggregate bucket key and TPM cap from
@@ -708,6 +748,11 @@ func (l *TPMLimiter) cleanup() {
 	cutoff := now.Add(-10 * time.Minute)
 	for key, entry := range l.buckets {
 		if entry.lastUsed.Before(cutoff) {
+			// Close any still-open throttle episode: traffic stopped while the
+			// budget was spent, so no later admission closed it. The label is
+			// read off the bucket key, which is the only thing left saying which
+			// stage it belonged to.
+			entry.throttle.endIfThrottled(entry.throttleCtx(tpmBucketLabel(key), key), entry.lastUsed, "idle")
 			delete(l.buckets, key)
 		}
 	}

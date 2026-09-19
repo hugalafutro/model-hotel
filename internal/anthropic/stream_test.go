@@ -21,6 +21,7 @@ type decoded struct {
 	toolJSONByIx map[int]string
 	toolNameByIx map[int]string
 	stopReason   string
+	inputTokens  int64
 	outputTokens int64
 	model        string
 	msgID        string
@@ -59,6 +60,7 @@ func decodeWithSDK(t *testing.T, sse []byte) decoded {
 		case "message_delta":
 			md := ev.AsMessageDelta()
 			out.stopReason = string(md.Delta.StopReason)
+			out.inputTokens = md.Usage.InputTokens
 			out.outputTokens = md.Usage.OutputTokens
 		}
 	}
@@ -107,6 +109,12 @@ func TestStreamTranslator_TextOnly_AcceptedBySDK(t *testing.T) {
 	}
 	if got.outputTokens != 3 {
 		t.Errorf("output_tokens = %d, want 3", got.outputTokens)
+	}
+	// The prompt count only shows up in the terminal OpenAI usage chunk, so
+	// message_delta is where it has to surface; reporting 0 here made every
+	// streamed Messages response look like it had no prompt at all.
+	if got.inputTokens != 9 {
+		t.Errorf("input_tokens = %d, want 9", got.inputTokens)
 	}
 	if got.model != "claude-sonnet-4-6" {
 		t.Errorf("model = %q, want claude-sonnet-4-6", got.model)

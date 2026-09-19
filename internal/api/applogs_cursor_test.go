@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -1024,6 +1025,32 @@ func TestParseAppLogHistoryParams_ZeroPageNumber(t *testing.T) {
 
 	if p.page != 1 {
 		t.Errorf("expected page=1 for zero input, got %d", p.page)
+	}
+}
+
+// TestParseAppLogHistoryParams_PageClamping verifies that page must be in
+// [1, maxAppLogPage]. An absurd page number would otherwise force a full sort
+// of app_logs to skip rows that cannot exist, so out-of-range values fall back
+// to page 1 exactly as a negative or zero one does.
+func TestParseAppLogHistoryParams_PageClamping(t *testing.T) {
+	cases := []struct {
+		name     string
+		page     string
+		expected int
+	}{
+		{"boundary max", strconv.Itoa(maxAppLogPage), maxAppLogPage},
+		{"one past max falls back to default", strconv.Itoa(maxAppLogPage + 1), 1},
+		{"absurd page falls back to default", "1000000000", 1},
+		{"overflowing int falls back to default", "99999999999999999999", 1},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			q := url.Values{"page": {tc.page}}
+			if p := parseAppLogHistoryParams(q); p.page != tc.expected {
+				t.Errorf("expected page=%d, got %d", tc.expected, p.page)
+			}
+		})
 	}
 }
 

@@ -50,6 +50,8 @@ type reqBlock struct {
 	Text string `json:"text"`
 	// image / document source
 	Source *blockSource `json:"source"`
+	// document
+	Title string `json:"title"`
 	// tool_use
 	ID    string          `json:"id"`
 	Name  string          `json:"name"`
@@ -61,9 +63,9 @@ type reqBlock struct {
 }
 
 type blockSource struct {
-	Type      string `json:"type"`       // "base64" | "url"
-	MediaType string `json:"media_type"` // for base64
-	Data      string `json:"data"`       // for base64
+	Type      string `json:"type"`       // "base64" | "url" | "text"
+	MediaType string `json:"media_type"` // for base64 / text
+	Data      string `json:"data"`       // for base64, or the text of a text source
 	URL       string `json:"url"`        // for url
 }
 
@@ -93,13 +95,22 @@ type oaiMessage struct {
 }
 
 type oaiContentPart struct {
-	Type     string       `json:"type"` // "text" | "image_url"
+	Type     string       `json:"type"` // "text" | "image_url" | "file"
 	Text     string       `json:"text,omitempty"`
 	ImageURL *oaiImageURL `json:"image_url,omitempty"`
+	File     *oaiFile     `json:"file,omitempty"`
 }
 
 type oaiImageURL struct {
 	URL string `json:"url"`
+}
+
+// oaiFile is the OpenAI file content part. The field names are the ones
+// internal/anthropicegress reads on the way back, so a document survives the
+// round trip through both translators.
+type oaiFile struct {
+	Filename string `json:"filename,omitempty"`
+	FileData string `json:"file_data,omitempty"` // data: URI
 }
 
 type oaiToolCall struct {
@@ -255,9 +266,12 @@ func translateMessage(m ReqMessage) ([]oaiMessage, error) {
 				ToolCallID: toolCallID,
 				Content:    content,
 			})
-		case "document", "thinking", "redacted_thinking":
-			// Dropped: documents have no clean OpenAI equivalent, and thinking
-			// is preserved only on the native passthrough path.
+		case "document":
+			if part, ok := documentPart(b); ok {
+				parts = append(parts, part)
+			}
+		case "thinking", "redacted_thinking":
+			// Dropped: thinking is preserved only on the native passthrough path.
 		}
 	}
 
@@ -331,6 +345,32 @@ func imageURL(src *blockSource) (string, bool) {
 		return src.URL, true
 	}
 	return "", false
+}
+
+// documentPart maps an Anthropic document block onto an OpenAI content part: a
+// text source becomes a plain text part, and a base64 source a file part whose
+// file_data is the data: URI imageURL already knows how to build. A url source
+// only survives when the URL is itself a data: URI, OpenAI's file part takes a
+// data: URI, not an arbitrary document URL, so a remote one is dropped.
+func documentPart(b reqBlock) (oaiContentPart, bool) {
+	if b.Source == nil {
+		return oaiContentPart{}, false
+	}
+	if b.Source.Type == "text" {
+		if b.Source.Data == "" {
+			return oaiContentPart{}, false
+		}
+		return oaiContentPart{Type: "text", Text: b.Source.Data}, true
+	}
+	uri, ok := imageURL(b.Source)
+	if !ok || !strings.HasPrefix(uri, "data:") {
+		return oaiContentPart{}, false
+	}
+	filename := b.Title
+	if filename == "" {
+		filename = "document.pdf"
+	}
+	return oaiContentPart{Type: "file", File: &oaiFile{Filename: filename, FileData: uri}}, true
 }
 
 // translateToolChoice maps the Anthropic tool_choice union to the OpenAI form.

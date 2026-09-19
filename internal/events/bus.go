@@ -3,6 +3,7 @@ package events
 
 import (
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -22,11 +23,21 @@ type Event struct {
 }
 
 // Bus is an event bus for distributing events to SSE subscribers.
+//
+// Each subscriber carries its own drop counter rather than a plain presence
+// marker: Publish runs under the read lock, so the counter has to be an atomic
+// the send path can bump without upgrading to a write lock, and hanging it off
+// the map value means Unsubscribe and Close retire it with the channel instead
+// of leaking a per-subscriber entry in a side map.
 type Bus struct {
 	mu          sync.RWMutex
-	subscribers map[chan Event]struct{}
+	subscribers map[chan Event]*atomic.Uint64
 	closed      bool
 }
+
+// dropLogEvery is how often a still-stalled subscriber gets another dropped
+// event logged, after the first one.
+const dropLogEvery = 100
 
 // DefaultBus is the global default event bus.
 var DefaultBus = NewBus()
@@ -34,7 +45,7 @@ var DefaultBus = NewBus()
 // NewBus creates a new event bus instance.
 func NewBus() *Bus {
 	return &Bus{
-		subscribers: make(map[chan Event]struct{}),
+		subscribers: make(map[chan Event]*atomic.Uint64),
 	}
 }
 
@@ -53,11 +64,18 @@ func (b *Bus) Publish(event Event) {
 	// the channel it is sending to cannot be closed underneath it.
 	b.mu.RLock()
 	defer b.mu.RUnlock()
-	for ch := range b.subscribers {
+	for ch, drops := range b.subscribers {
 		select {
 		case ch <- event:
 		default:
-			debuglog.Warn("events: event dropped, subscriber too slow", "type", event.Type)
+			// One line per drop would amplify a single stalled consumer into a
+			// log record (and an app_logs row) per event for as long as it stays
+			// stalled. The first drop is the one that tells an operator
+			// something is wrong; after that the running total every dropLogEvery
+			// says the same thing at a bounded rate.
+			if n := drops.Add(1); n == 1 || n%dropLogEvery == 0 {
+				debuglog.Warn("events: event dropped, subscriber too slow", "type", event.Type, "dropped", n)
+			}
 		}
 	}
 }
@@ -75,7 +93,7 @@ func (b *Bus) Subscribe() chan Event {
 		close(ch)
 		return ch
 	}
-	b.subscribers[ch] = struct{}{}
+	b.subscribers[ch] = &atomic.Uint64{}
 	return ch
 }
 

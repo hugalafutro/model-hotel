@@ -13,7 +13,7 @@ import (
 //
 //	message_start
 //	(content_block_start, content_block_delta..., content_block_stop)*  // one group per block
-//	message_delta   // stop_reason + cumulative output usage
+//	message_delta   // stop_reason + cumulative token usage
 //	message_stop
 //
 // It is a state machine keyed on the active content block (blockKind), not a
@@ -35,6 +35,7 @@ type StreamTranslator struct {
 	toolBlockByOAIndex map[int]int
 
 	// Best-effort usage + terminal reason.
+	promptTokens     int
 	completionTokens int
 	finishReason     string // last OpenAI finish_reason observed
 	finished         bool   // Finish() already emitted
@@ -78,9 +79,10 @@ func writeEvent(buf *bytes.Buffer, eventType string, payload any) error {
 }
 
 // ensureStarted lazily emits message_start (and a ping, mirroring the real API)
-// the first time any content is processed. input_tokens is reported as 0:
-// OpenAI streaming does not reveal the prompt count until the terminal usage
-// chunk.
+// the first time any content is processed. input_tokens is whatever the stream
+// has revealed by then, usually 0: OpenAI streaming normally withholds the
+// prompt count until the terminal usage chunk, which is why message_delta
+// carries the authoritative figure.
 func (t *StreamTranslator) ensureStarted(buf *bytes.Buffer) error {
 	if t.started {
 		return nil
@@ -96,7 +98,7 @@ func (t *StreamTranslator) ensureStarted(buf *bytes.Buffer) error {
 			Content:      []contentBlock{},
 			StopReason:   nil,
 			StopSequence: nil,
-			Usage:        usage{InputTokens: 0, OutputTokens: 0},
+			Usage:        usage{InputTokens: t.promptTokens, OutputTokens: 0},
 		},
 	}
 	if err := writeEvent(buf, "message_start", start); err != nil {
@@ -175,8 +177,13 @@ func (t *StreamTranslator) openToolBlock(buf *bytes.Buffer, oaIndex int, id, nam
 func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 	var buf bytes.Buffer
 
-	if chunk.Usage != nil && chunk.Usage.CompletionTokens > 0 {
-		t.completionTokens = chunk.Usage.CompletionTokens
+	if chunk.Usage != nil {
+		if chunk.Usage.PromptTokens > 0 {
+			t.promptTokens = chunk.Usage.PromptTokens
+		}
+		if chunk.Usage.CompletionTokens > 0 {
+			t.completionTokens = chunk.Usage.CompletionTokens
+		}
 	}
 
 	if len(chunk.Choices) == 0 {
@@ -241,7 +248,8 @@ func (t *StreamTranslator) Translate(chunk OAStreamChunk) ([]byte, error) {
 }
 
 // Finish emits the terminal events: it closes any open content block, then
-// message_delta (stop_reason + cumulative output_tokens) and message_stop. It
+// message_delta (stop_reason + the prompt/completion token counts) and
+// message_stop. It
 // is idempotent and lazily emits message_start first if no chunk ever did (e.g.
 // an empty completion), so the client always sees a well-formed stream.
 func (t *StreamTranslator) Finish() ([]byte, error) {
@@ -262,7 +270,7 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	if err := writeEvent(&buf, "message_delta", messageDeltaEvent{
 		Type:  "message_delta",
 		Delta: messageDeltaBody{StopReason: &stop, StopSequence: nil},
-		Usage: messageDeltaUsage{OutputTokens: t.completionTokens},
+		Usage: messageDeltaUsage{InputTokens: t.promptTokens, OutputTokens: t.completionTokens},
 	}); err != nil {
 		return nil, err
 	}

@@ -71,6 +71,53 @@ func TestAnthropicWriter_Streaming(t *testing.T) {
 	}
 }
 
+// A stream that fails after commit ends with the gateway's terminal error frame
+// (buildOpenAIStreamError: an {"error":…} object then [DONE]). The client must
+// see one Anthropic `event: error` and NO message_stop, a message_stop would
+// tell the SDK the turn ended normally.
+func TestAnthropicWriter_StreamingTerminalError(t *testing.T) {
+	rec := httptest.NewRecorder()
+	aw := newAnthropicResponseWriter(rec, "msg_err", "p/m")
+
+	aw.Header().Set("Content-Type", "text/event-stream")
+	aw.WriteHeader(http.StatusOK)
+
+	writeOpenAISSE(aw, `{"choices":[{"delta":{"content":"partial"}}]}`)
+	_, _ = aw.Write(buildOpenAIStreamError("upstream stalled", "upstream_stall"))
+	aw.Finalize()
+
+	body := rec.Body.String()
+	if n := strings.Count(body, "event: error"); n != 1 {
+		t.Errorf("event: error count = %d, want 1\n%s", n, body)
+	}
+	if strings.Contains(body, "message_stop") {
+		t.Errorf("message_stop emitted after error event:\n%s", body)
+	}
+	if strings.Contains(body, "message_delta") {
+		t.Errorf("message_delta emitted after error event:\n%s", body)
+	}
+
+	_, after, ok := strings.Cut(body, "event: error\ndata: ")
+	if !ok {
+		t.Fatalf("no error frame:\n%s", body)
+	}
+	payload, _, _ := strings.Cut(after, "\n\n")
+	var m map[string]any
+	if err := json.Unmarshal([]byte(payload), &m); err != nil {
+		t.Fatalf("error frame is not JSON: %v\n%s", err, payload)
+	}
+	if m["type"] != "error" {
+		t.Errorf("type = %v, want error", m["type"])
+	}
+	e := m["error"].(map[string]any)
+	if e["type"] != "api_error" {
+		t.Errorf("error type = %v, want api_error", e["type"])
+	}
+	if e["message"] != "upstream stalled" {
+		t.Errorf("message = %v, want %q", e["message"], "upstream stalled")
+	}
+}
+
 func TestAnthropicWriter_NonStreaming(t *testing.T) {
 	rec := httptest.NewRecorder()
 	aw := newAnthropicResponseWriter(rec, "msg_n", "p/m")

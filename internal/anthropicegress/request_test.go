@@ -642,10 +642,68 @@ func TestTranslateRequest_SamplingAndStop(t *testing.T) {
 	if err := json.Unmarshal(out, &fields); err != nil {
 		t.Fatalf("translated body is not a JSON object: %v", err)
 	}
-	for _, dropped := range []string{"frequency_penalty", "presence_penalty", "n", "seed", "logprobs", "response_format", "stream_options"} {
+	// response_format is not in this list: Messages has no field for it either,
+	// but it is folded into the system prompt rather than lost, so the caller
+	// who asked for JSON does not get prose (TestTranslateRequest_ResponseFormat).
+	for _, dropped := range []string{"frequency_penalty", "presence_penalty", "n", "seed", "logprobs", "stream_options"} {
 		if _, ok := fields[dropped]; ok {
 			t.Errorf("translated body still carries the %q field", dropped)
 		}
+	}
+	if !strings.Contains(req.System, "Respond with a single JSON object") {
+		t.Errorf("system = %q, want the json_object request folded into it", req.System)
+	}
+}
+
+// TestTranslateRequest_ResponseFormat pins the fold: Anthropic Messages has no
+// response_format field, so the schema (or the bare JSON-mode instruction) has
+// to reach the model through the system prompt or the caller's structured
+// request is silently answered with prose.
+func TestTranslateRequest_ResponseFormat(t *testing.T) {
+	const schema = `{"type":"json_schema","json_schema":{"name":"city","strict":true,"schema":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}}`
+
+	tests := []struct {
+		name    string
+		body    string
+		want    []string
+		notWant string
+	}{
+		{
+			name: "json_schema reaches the system prompt",
+			body: `{"model":"m","messages":[{"role":"user","content":"Tokyo?"}],"response_format":` + schema + `}`,
+			want: []string{"Respond with a single JSON object", `"required":["city"]`},
+		},
+		{
+			name: "the caller's own system turn is kept",
+			body: `{"model":"m","messages":[{"role":"system","content":"Be terse."},{"role":"user","content":"Tokyo?"}],"response_format":` + schema + `}`,
+			want: []string{"Be terse.", "Respond with a single JSON object"},
+		},
+		{
+			name:    "json_object gets the plain instruction",
+			body:    `{"model":"m","messages":[{"role":"user","content":"Tokyo?"}],"response_format":{"type":"json_object"}}`,
+			want:    []string{"Respond with a single JSON object and nothing else."},
+			notWant: "JSON Schema",
+		},
+		{
+			name:    "an unknown response_format adds nothing",
+			body:    `{"model":"m","messages":[{"role":"system","content":"Be terse."},{"role":"user","content":"Tokyo?"}],"response_format":{"type":"text"}}`,
+			want:    []string{"Be terse."},
+			notWant: "Respond with a single JSON",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			system := translate(t, tt.body).System
+			for _, want := range tt.want {
+				if !strings.Contains(system, want) {
+					t.Errorf("system = %q, want it to contain %q", system, want)
+				}
+			}
+			if tt.notWant != "" && strings.Contains(system, tt.notWant) {
+				t.Errorf("system = %q, want it NOT to contain %q", system, tt.notWant)
+			}
+		})
 	}
 }
 

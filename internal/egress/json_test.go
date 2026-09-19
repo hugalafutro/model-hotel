@@ -44,7 +44,9 @@ func TestDecodeStop(t *testing.T) {
 		{name: "single string", raw: `"STOP"`, want: []string{"STOP"}},
 		{name: "empty string is not a stop sequence", raw: `""`, want: nil},
 		{name: "array", raw: `["a","b"]`, want: []string{"a", "b"}},
-		{name: "empty array", raw: `[]`, want: []string{}},
+		{name: "empty array", raw: `[]`, want: nil},
+		{name: "empty element is dropped from a list", raw: `["a","","b"]`, want: []string{"a", "b"}},
+		{name: "list of empty strings is no stop list", raw: `["",""]`, want: nil},
 		{name: "wrong type", raw: `{"a":1}`, want: nil},
 		{name: "malformed", raw: `[not json`, want: nil},
 	}

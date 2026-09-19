@@ -292,7 +292,17 @@ func writeRateLimitHeaders(w http.ResponseWriter, lim *rate.Limiter, retryAfter 
 // hint, and msg is the body. scope names the stage that refused, empty on a
 // surface that has only one.
 func reject429(w http.ResponseWriter, by *bucketEntry, id string, retryAfter time.Duration, scope, msg string) {
-	by.noteRejected(id)
-	writeRateLimitHeaders(w, by.limiter, retryAfter, scope)
+	reject429From(w, by.limiter, by.throttle, by.throttleCtx(id), retryAfter, scope, msg)
+}
+
+// reject429From is the same refusal for a bucket that is not a bucketEntry: the
+// token-budget (TPM) limiter keeps its own entry type, and without this its two
+// 429 branches wrote a bare Retry-After, no X-RateLimit-* headers for a client
+// to pace itself by, no throttle episode recorded, and no log line, so a key
+// sitting at its token cap was invisible in the app log while the RPS limiter
+// next to it reported the same situation fully.
+func reject429From(w http.ResponseWriter, lim *rate.Limiter, st *throttleState, c throttleLogCtx, retryAfter time.Duration, scope, msg string) {
+	st.noteRejected(c)
+	writeRateLimitHeaders(w, lim, retryAfter, scope)
 	util.WriteOpenAIError(w, msg, http.StatusTooManyRequests)
 }

@@ -85,6 +85,12 @@ func TestDialControl(t *testing.T) {
 	if err := DialControl("tcp", "10.0.0.1:80", nil); err != nil {
 		t.Errorf("DialControl blocked a private address: %v", err)
 	}
+	// A zoned IPv6 literal is the spelling an interface-scoped link-local
+	// address takes; net.ParseIP reads it as no address at all, which used to
+	// let it past the guard.
+	if err := DialControl("tcp", "[fe80::1%eth0]:80", nil); err == nil {
+		t.Error("DialControl allowed a zoned link-local address")
+	}
 }
 
 // TestNewClient_AllowsInternal confirms a legitimate internal (private) host is
@@ -140,15 +146,17 @@ func TestValidateURL(t *testing.T) {
 	}{
 		{"", false},
 		{"https://auth.example.com", false},
-		{"http://authelia:9091", false},  // internal IdP hostname
-		{"http://10.0.0.5:8000", false},  // internal literal, allowed
-		{"http://apprise:8000", false},   // internal apprise
-		{"http://169.254.169.254", true}, // cloud metadata literal
-		{"http://169.254.0.1", true},     // link-local literal
-		{"http://0.0.0.0", true},         // unspecified literal
-		{"ftp://example.com", true},      // wrong scheme
-		{"https://", true},               // no host
-		{"://bad", true},                 // unparseable
+		{"http://authelia:9091", false},   // internal IdP hostname
+		{"http://10.0.0.5:8000", false},   // internal literal, allowed
+		{"http://apprise:8000", false},    // internal apprise
+		{"http://169.254.169.254", true},  // cloud metadata literal
+		{"http://169.254.0.1", true},      // link-local literal
+		{"http://0.0.0.0", true},          // unspecified literal
+		{"http://[fe80::1]", true},        // link-local IPv6 literal
+		{"http://[fe80::1%25eth0]", true}, // same, with its interface zone
+		{"ftp://example.com", true},       // wrong scheme
+		{"https://", true},                // no host
+		{"://bad", true},                  // unparseable
 	}
 	for _, tc := range cases {
 		err := ValidateURL(tc.url)

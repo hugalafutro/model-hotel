@@ -151,6 +151,28 @@ func TestRecordExhausted_ZeroAdvisorResetLeavesHintPin(t *testing.T) {
 	}
 }
 
+// TestRecordExhausted_PastAdvisorResetLeavesHintPin covers a stale advisor
+// entry whose window already rolled over: the reading names a deadline, but it
+// is behind us, so time until it is negative, clampPin rejects it, and the
+// refusal's own hint has already been overwritten. The past reset must be
+// ignored the same way the zero one is, leaving the hint as the pin in force.
+func TestRecordExhausted_PastAdvisorResetLeavesHintPin(t *testing.T) {
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour})
+	cb.SetQuotaAdvisor(stubAdvisor{at: time.Now().Add(-2 * time.Hour), ok: true})
+	id := uuid.New()
+
+	hint := 30 * time.Minute
+	cb.RecordExhausted(id, "p", "m", 429, hint)
+
+	got := overrideForModel(t, cb, id, "m")
+	if got < hint || got > hint+hint/20 {
+		t.Errorf("override = %v, want the response hint %v (plus jitter), not a pin dropped by the past advisor reset", got, hint)
+	}
+	if s := onlyStatus(t, cb); s.PinSource != "response" {
+		t.Errorf("pin_source = %q, want %q: a reset already in the past must not claim the pin", s.PinSource, "response")
+	}
+}
+
 func TestRecordExhausted_ReleaseQuotaPinsLiftsHintPin(t *testing.T) {
 	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour})
 	id := uuid.New()

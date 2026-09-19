@@ -224,11 +224,12 @@ func TestTranslateRequest_ImageURLAndToolChoiceAuto(t *testing.T) {
 }
 
 func TestTranslateRequest_ToolResultArrayAndDroppedBlocks(t *testing.T) {
-	// tool_result with array content flattens to text; document/thinking blocks
-	// and an image with empty base64 data are dropped.
+	// tool_result with array content flattens to text; thinking blocks, an
+	// image with empty base64 data, and a document behind a remote URL (which
+	// an OpenAI file part cannot carry) are dropped.
 	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
 		{"role":"user","content":[
-			{"type":"document","source":{"type":"base64","media_type":"application/pdf","data":"x"}},
+			{"type":"document","source":{"type":"url","url":"https://x/y.pdf"}},
 			{"type":"thinking","thinking":"hmm"},
 			{"type":"image","source":{"type":"base64","media_type":"image/png","data":""}},
 			{"type":"tool_result","tool_use_id":"c1","content":[{"type":"text","text":"part1 "},{"type":"text","text":"part2"}]}
@@ -240,13 +241,61 @@ func TestTranslateRequest_ToolResultArrayAndDroppedBlocks(t *testing.T) {
 	}
 	m := decodeOAI(t, out)
 	msgs := m["messages"].([]any)
-	// only the tool message survives (document/thinking/empty-image dropped, no text parts)
+	// only the tool message survives (url-document/thinking/empty-image dropped, no text parts)
 	if len(msgs) != 1 {
 		t.Fatalf("messages = %d, want 1 (tool only): %v", len(msgs), msgs)
 	}
 	tool := msgs[0].(map[string]any)
 	if tool["role"] != "tool" || tool["tool_call_id"] != "c1" || tool["content"] != "part1 part2" {
 		t.Errorf("tool msg = %v", tool)
+	}
+}
+
+func TestTranslateRequest_DocumentBlocks(t *testing.T) {
+	// A base64 document becomes an OpenAI file part carrying a data: URI, named
+	// after the block's title (or document.pdf when it has none); a text
+	// document becomes a plain text part.
+	body := []byte(`{"model":"p/m","max_tokens":10,"messages":[
+		{"role":"user","content":[
+			{"type":"document","title":"quarterly.pdf","source":{"type":"base64","media_type":"application/pdf","data":"JVBER"}},
+			{"type":"document","source":{"type":"base64","media_type":"application/pdf","data":"QUJD"}},
+			{"type":"document","source":{"type":"text","media_type":"text/plain","data":"plain notes"}}
+		]}
+	]}`)
+	out, _, _, err := TranslateRequest(body)
+	if err != nil {
+		t.Fatalf("TranslateRequest: %v", err)
+	}
+	m := decodeOAI(t, out)
+	msgs := m["messages"].([]any)
+	if len(msgs) != 1 {
+		t.Fatalf("messages = %d, want 1: %v", len(msgs), msgs)
+	}
+	parts := msgs[0].(map[string]any)["content"].([]any)
+	if len(parts) != 3 {
+		t.Fatalf("parts = %d, want 3: %v", len(parts), parts)
+	}
+
+	titled := parts[0].(map[string]any)
+	if titled["type"] != "file" {
+		t.Errorf("part 0 type = %v, want file", titled["type"])
+	}
+	file := titled["file"].(map[string]any)
+	if file["filename"] != "quarterly.pdf" {
+		t.Errorf("filename = %v, want quarterly.pdf", file["filename"])
+	}
+	if file["file_data"] != "data:application/pdf;base64,JVBER" {
+		t.Errorf("file_data = %v, want the data: URI", file["file_data"])
+	}
+
+	untitled := parts[1].(map[string]any)["file"].(map[string]any)
+	if untitled["filename"] != "document.pdf" {
+		t.Errorf("default filename = %v, want document.pdf", untitled["filename"])
+	}
+
+	text := parts[2].(map[string]any)
+	if text["type"] != "text" || text["text"] != "plain notes" {
+		t.Errorf("text document part = %v, want a text part carrying the document text", text)
 	}
 }
 

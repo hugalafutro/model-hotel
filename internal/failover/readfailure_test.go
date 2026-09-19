@@ -150,3 +150,28 @@ func TestPruneStaleEntries_ModelReadFailure(t *testing.T) {
 		t.Errorf("membership changed: got %d entries, want 2", len(after.PriorityOrder))
 	}
 }
+
+// TestDeleteUndersizedAutoGroup_RecordsDeleteFailure covers the delete seam the
+// other way round: a failed DELETE used to be indistinguishable from "no auto
+// group here", so a sync that could not reach the database reported a clean
+// run. A closed pool is the cheapest deterministic failure, and the assertion
+// is that the error reaches result.SyncErrors and nothing is reported deleted.
+func TestDeleteUndersizedAutoGroup_RecordsDeleteFailure(t *testing.T) {
+	ctx := context.Background()
+	dead, err := db.New(ctx, testDBURL, 1, 1)
+	if err != nil {
+		t.Fatalf("db.New: %v", err)
+	}
+	repo := NewRepository(dead.Pool())
+	dead.Close()
+
+	result := &SyncResult{}
+	repo.deleteUndersizedAutoGroup(ctx, "gone-model", 1, []string{"p"}, result)
+
+	if len(result.DeletedGroups) != 0 {
+		t.Errorf("reported %d deleted group(s) for a delete that never ran", len(result.DeletedGroups))
+	}
+	if len(result.SyncErrors) != 1 || !strings.Contains(result.SyncErrors[0], "gone-model") {
+		t.Errorf("SyncErrors = %v, want one entry naming the model whose delete failed", result.SyncErrors)
+	}
+}

@@ -61,11 +61,14 @@ func (cb *CircuitBreaker) applyQuotaPin(providerID uuid.UUID, c *circuit, exhaus
 		source = pinSourceAccount
 	}
 	if cb.quota != nil {
-		// A zero reset is an advisor entry with no deadline behind it, not a
-		// measurement: adopting it would set d to a large negative duration and
-		// discard the hint the refusal itself supplied, leaving no pin at all.
-		if resetsAt, ok := cb.quota.ResetsAt(providerID); ok && !resetsAt.IsZero() {
-			d = time.Until(resetsAt)
+		// Only a datable *future* reset is a measurement. A zero reset is an
+		// advisor entry with no deadline behind it, and a reset already in the
+		// past is a stale one; adopting either would set d to a non-positive
+		// duration that clampPin rejects, discarding the hint the refusal
+		// itself supplied and leaving no pin at all.
+		now := time.Now()
+		if resetsAt, ok := cb.quota.ResetsAt(providerID); ok && resetsAt.After(now) {
+			d = resetsAt.Sub(now)
 			source = pinSourceAdvisor
 		}
 	}

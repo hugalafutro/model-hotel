@@ -107,7 +107,12 @@ func normalizeBaseModel(modelID string) string {
 // providerNames may be empty when the caller only resolved UUIDs.
 // No-op when no auto group exists for base.
 func (r *Repository) deleteUndersizedAutoGroup(ctx context.Context, base string, providerCount int, providerNames []string, result *SyncResult) {
-	if !r.deleteAutoGroup(ctx, base) {
+	deleted, err := r.deleteAutoGroup(ctx, base)
+	if err != nil {
+		result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: delete auto-group: %v", base, err))
+		return
+	}
+	if !deleted {
 		return
 	}
 	reason := "no enabled providers found"
@@ -271,7 +276,12 @@ func (r *Repository) SyncAllModels(ctx context.Context) (*SyncResult, error) {
 	for _, g := range allGroups {
 		if g.AutoCreated {
 			if _, ok := syncedBases[g.DisplayModel]; !ok {
-				if r.deleteAutoGroup(ctx, g.DisplayModel) {
+				deleted, err := r.deleteAutoGroup(ctx, g.DisplayModel)
+				if err != nil {
+					result.SyncErrors = append(result.SyncErrors, fmt.Sprintf("%s: delete auto-group: %v", g.DisplayModel, err))
+					continue
+				}
+				if deleted {
 					result.DeletedGroups = append(result.DeletedGroups, DeletedGroupInfo{
 						DisplayModel:  g.DisplayModel,
 						ProviderCount: 0,
@@ -415,15 +425,23 @@ func (r *Repository) PruneModelUUID(ctx context.Context, modelUUID uuid.UUID) er
 	return nil
 }
 
-func (r *Repository) deleteAutoGroup(ctx context.Context, displayModel string) bool {
+// deleteAutoGroup deletes the auto-created group for displayModel and reports
+// whether a row went. The error is returned rather than folded into the bool so
+// callers can surface it: a delete that failed on the database looks exactly
+// like one that found nothing to delete, and silently reporting "no group" for
+// a connection that dropped hides the sync failure from the operator.
+func (r *Repository) deleteAutoGroup(ctx context.Context, displayModel string) (bool, error) {
 	tag, err := r.pool.Exec(ctx, `
 		DELETE FROM model_failover_groups
 		WHERE display_model = $1 AND auto_created = true
 	`, displayModel)
-	if err == nil && tag.RowsAffected() > 0 {
-		InvalidateFailoverCache()
-		debuglog.Info("failover: deleted auto-group", "display_model", displayModel)
-		return true
+	if err != nil {
+		return false, err
 	}
-	return false
+	if tag.RowsAffected() == 0 {
+		return false, nil
+	}
+	InvalidateFailoverCache()
+	debuglog.Info("failover: deleted auto-group", "display_model", displayModel)
+	return true, nil
 }

@@ -16,6 +16,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/netip"
 	"net/url"
 	"syscall"
 	"time"
@@ -86,8 +87,17 @@ func DialControl(_, address string, _ syscall.RawConn) error {
 // refuses. A hostname is never resolved here: netguard resolves at dial time on
 // purpose, so a check-then-dial TOCTOU window never opens.
 func blockedLiteral(host string) bool {
-	ip := net.ParseIP(host)
-	return ip != nil && BlockedIP(ip)
+	// netip.ParseAddr, not net.ParseIP: the latter returns nil for a zoned IPv6
+	// literal ("fe80::1%eth0"), so a link-local address written with its zone,
+	// the spelling an interface-scoped address actually takes, and the one a
+	// URL host or a dial target can carry, would sail through unchecked. The
+	// zone names an interface, not a different address, so it is dropped before
+	// the range checks, and Unmap folds the IPv4-mapped spelling back to v4.
+	addr, err := netip.ParseAddr(host)
+	if err != nil {
+		return false
+	}
+	return BlockedIP(net.IP(addr.WithZone("").Unmap().AsSlice()))
 }
 
 // maxRedirects caps redirect chains, matching net/http's own default. A hostile

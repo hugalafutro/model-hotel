@@ -128,6 +128,45 @@ func WithoutParams(rejected map[string]bool, names ...string) map[string]bool {
 	return rejected
 }
 
+// SchemaPromptInstruction renders the prompt instruction that stands in for a
+// response_format the upstream will not honour: the model is told to answer
+// with a single JSON value and nothing else, naming the schema's root type and
+// carrying the schema itself when one is present and fits schemaPromptMax. It
+// reads an already-decoded response_format object and reports ok=false for any
+// type but json_schema and json_object, so a caller can hand it whatever the
+// request carried. strict is the caller's flag, for the debug line: a folded
+// schema is a request the answer may not honour, and nothing validates it.
+//
+// It is exported for the native egress translators (Anthropic Messages and
+// friends), whose wire format has no response_format field at all: they fold
+// the same instruction into their system prompt rather than dropping the
+// caller's request for JSON on the floor.
+func SchemaPromptInstruction(rf map[string]any) (instruction string, strict any, ok bool) {
+	switch rf["type"] {
+	case "json_object":
+		return "Respond with a single JSON object and nothing else.", nil, true
+	case "json_schema":
+	default:
+		return "", nil, false
+	}
+	// The instruction names the schema's root type, so a schema whose root is
+	// an array or a scalar is not contradicted by a request for an object.
+	kind := "object"
+	var schemaText string
+	if wrapped, ok := rf["json_schema"].(map[string]any); ok {
+		strict = wrapped["strict"]
+		if schema, ok := wrapped["schema"].(map[string]any); ok {
+			if root, ok := schema["type"].(string); ok && root != "" {
+				kind = root
+			}
+			if schemaJSON, err := json.Marshal(schema); err == nil && len(schemaJSON) <= schemaPromptMax {
+				schemaText = " It must conform to this JSON Schema:\n" + string(schemaJSON)
+			}
+		}
+	}
+	return "Respond with a single JSON " + kind + " and nothing else." + schemaText, strict, true
+}
+
 // schemaPromptMax bounds the schema text folded into the prompt. Past it the
 // plain JSON-mode instruction goes alone: the schema is billed as input on
 // every request, and one large enough to crowd the context would turn a 400
@@ -154,23 +193,8 @@ func foldJSONSchema(raw map[string]any, modelID string, keepSchema bool) {
 	if !ok || rf["type"] != "json_schema" {
 		return
 	}
-	// The instruction names the schema's root type, so a schema whose root is
-	// an array or a scalar is not contradicted by a request for an object.
-	kind := "object"
-	var strict any
-	var schemaText string
-	if wrapped, ok := rf["json_schema"].(map[string]any); ok {
-		strict = wrapped["strict"]
-		if schema, ok := wrapped["schema"].(map[string]any); ok {
-			if root, ok := schema["type"].(string); ok && root != "" {
-				kind = root
-			}
-			if schemaJSON, err := json.Marshal(schema); err == nil && len(schemaJSON) <= schemaPromptMax {
-				schemaText = " It must conform to this JSON Schema:\n" + string(schemaJSON)
-			}
-		}
-	}
-	instruction := "Respond with a single JSON " + kind + " and nothing else." + schemaText
+	// ok is guaranteed by the json_schema check above.
+	instruction, strict, _ := SchemaPromptInstruction(rf)
 	if !keepSchema {
 		raw["response_format"] = map[string]any{"type": "json_object"}
 	}

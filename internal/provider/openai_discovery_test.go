@@ -230,3 +230,34 @@ func TestOpenAIDiscovery_EmbeddingClassifiedByName(t *testing.T) {
 }
 
 // TestOpenAIDiscoveryLiveAPI moved to discovery_live_test.go (//go:build live).
+
+// An OpenAI-compatible local server (LM Studio, KoboldCPP without --password)
+// takes no key, and a literal "Bearer " with nothing behind it is a malformed
+// credential some of them reject, so the header is omitted entirely.
+func TestDiscoverOpenAI_NoAuthHeaderWithoutKey(t *testing.T) {
+	var auth string
+	var seen bool
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/models" {
+			http.NotFound(w, r)
+			return
+		}
+		auth, seen = r.Header.Get("Authorization"), true
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"object":"list","data":[]}`))
+	}))
+	defer server.Close()
+
+	svc := NewDiscoveryService(nil, nil)
+	prov := &Provider{ID: uuid.New(), BaseURL: server.URL + "/v1"}
+	if _, err := svc.discoverOpenAI(context.Background(), prov, ""); err != nil {
+		t.Fatalf("discoverOpenAI failed: %v", err)
+	}
+
+	if !seen {
+		t.Fatal("/v1/models was never requested")
+	}
+	if auth != "" {
+		t.Errorf("got Authorization=%q, want no header for a keyless server", auth)
+	}
+}
