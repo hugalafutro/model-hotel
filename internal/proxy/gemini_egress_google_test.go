@@ -26,6 +26,9 @@ import (
 func TestIsGeminiEgressAttempt_GoogleImage(t *testing.T) {
 	plain := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":"hi"}]}`)}
 	wantsImage := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":"draw"}],"modalities":["image","text"]}`)}
+	carriesFile := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":[{"type":"file","file":{"filename":"m.pdf","file_data":"data:application/pdf;base64,JVBERi0="}},{"type":"text","text":"summarise"}]}]}`)}
+	fileNoData := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_id":"file-1"}},{"type":"text","text":"summarise"}]}]}`)}
+	fileWantsImage := &requestState{bodyBytes: []byte(`{"messages":[{"role":"user","content":[{"type":"file","file":{"file_data":"data:application/pdf;base64,JVBERi0="}},{"type":"text","text":"draw this"}]}],"modalities":["image","text"]}`)}
 	cases := []struct {
 		name         string
 		st           *requestState
@@ -40,6 +43,13 @@ func TestIsGeminiEgressAttempt_GoogleImage(t *testing.T) {
 		{"text-only model, request names image", wantsImage, "google", `["text"]`, false},
 		{"image model on another compat provider", plain, "openai", `["text","image"]`, false},
 		{"explicit endpoint override", &requestState{bodyBytes: plain.bodyBytes, endpointPath: "/v1/embeddings"}, "google", `["text","image"]`, false},
+		// A document rides the native route on any AI Studio model: the compat
+		// layer refuses file parts with a 400 whatever the model's modalities.
+		{"chat model, request carries a file", carriesFile, "google", `["text"]`, true},
+		{"file part with no inline data", fileNoData, "google", `["text"]`, false},
+		{"file on another compat provider", carriesFile, "openai", `["text"]`, false},
+		{"text-only model, file plus image request", fileWantsImage, "google", `["text"]`, false},
+		{"empty modalities, file plus image request", fileWantsImage, "google", "", true},
 	}
 	// A client naming an image modality must not be able to steer a model
 	// discovery declared text-only onto the native route: Google's refusal
@@ -161,5 +171,79 @@ func TestTranslateEgressResponseBody_OversizedIsNotTheProvidersFault(t *testing.
 	}
 	if rest, _ := io.ReadAll(resp.Body); len(rest) != 0 {
 		t.Fatalf("body left readable with %d bytes", len(rest))
+	}
+}
+
+// A chat request carrying a document as a file part lands on the native
+// generateContent route for a plain Google AI Studio chat model, with the
+// document forwarded as inlineData. Google's compat route answers the same
+// part with `400 Invalid content part type: file`.
+func TestChatCompletions_GoogleFileEgress(t *testing.T) {
+	const pdf = "JVBERi0xLjQK"
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasSuffix(r.URL.Path, "/v1beta/models/gemini-2.5-flash:generateContent") || strings.Contains(r.URL.Path, "/openai/") {
+			t.Errorf("unexpected upstream path %s", r.URL.Path)
+			http.NotFound(w, r)
+			return
+		}
+		var reqBody struct {
+			Contents []struct {
+				Parts []struct {
+					Text       string `json:"text"`
+					InlineData *struct {
+						MimeType string `json:"mimeType"`
+						Data     string `json:"data"`
+					} `json:"inlineData"`
+				} `json:"parts"`
+			} `json:"contents"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil || len(reqBody.Contents) != 1 {
+			t.Errorf("upstream got untranslated body: err=%v contents=%d", err, len(reqBody.Contents))
+		}
+		found := false
+		for _, p := range reqBody.Contents[0].Parts {
+			if p.InlineData != nil && p.InlineData.MimeType == "application/pdf" && p.InlineData.Data == pdf {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("document did not reach the native route as inlineData: %+v", reqBody.Contents[0].Parts)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"42 euros, extension 7731."}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":50,"candidatesTokenCount":8,"totalTokenCount":58}}`))
+	}))
+	defer upstream.Close()
+
+	env := newTestProxyEnvWithUpstream(t, upstream)
+	pool := testDB.Pool()
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE providers SET base_url = 'http://generativelanguage.googleapis.com/v1beta/openai' WHERE id = $1`, env.ProviderID); err != nil {
+		t.Fatalf("failed to update provider base URL: %v", err)
+	}
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE models SET model_id = 'gemini-2.5-flash', output_modalities = '["text"]' WHERE id = $1`, env.ModelID); err != nil {
+		t.Fatalf("failed to update model: %v", err)
+	}
+	provider.InvalidateProviderCache()
+	model.InvalidateModelCache()
+	target := upstream.Listener.Addr().String()
+	env.Handler.upstreamTransport = &http.Transport{
+		DialContext: func(ctx context.Context, network, addr string) (net.Conn, error) {
+			return (&net.Dialer{}).DialContext(ctx, network, target)
+		},
+	}
+
+	body := fmt.Sprintf(`{"model":"%s/gemini-2.5-flash","messages":[{"role":"user","content":[{"type":"file","file":{"filename":"memo.pdf","file_data":"data:application/pdf;base64,%s"}},{"type":"text","text":"fee and extension?"}]}]}`, env.ProviderName, pdf)
+	req := httptest.NewRequest("POST", "/v1/chat/completions", strings.NewReader(body))
+	ctx := context.WithValue(req.Context(), virtualKeyNameKey, "test-key")
+	ctx = context.WithValue(ctx, virtualKeyIDKey, uuid.New().String())
+	ctx = context.WithValue(ctx, VirtualKeyHashKey, env.KeyHash)
+	w := httptest.NewRecorder()
+	env.Handler.ChatCompletions(w, req.WithContext(ctx))
+	if w.Code != http.StatusOK {
+		t.Fatalf("status %d\n%s", w.Code, w.Body.String())
+	}
+	if !strings.Contains(w.Body.String(), "42 euros, extension 7731.") {
+		t.Errorf("translated answer missing: %s", w.Body.String())
 	}
 }
