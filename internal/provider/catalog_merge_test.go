@@ -251,6 +251,24 @@ func TestBackfillFromCatalog_FillsEmptyTextFields(t *testing.T) {
 	}
 }
 
+// TestBackfillFromCatalog_CarriesTheSearchPrice: a per-search catalog price
+// backfills with its source like the per-token ones, and never overwrites one
+// the live row already holds.
+func TestBackfillFromCatalog_CarriesTheSearchPrice(t *testing.T) {
+	two, three := 2.0, 3.0
+	dst := &model.Model{ModelID: "rerank-x"}
+	src := &model.Model{ModelID: "rerank-x", SearchPricePerThousand: &two, PriceSources: model.PriceSources{Search: model.PriceSourceCatalog}}
+	backfillFromCatalog(dst, src)
+	if dst.SearchPricePerThousand == nil || *dst.SearchPricePerThousand != 2 || dst.PriceSources.Search != model.PriceSourceCatalog {
+		t.Errorf("backfilled search price = %v source=%q, want 2 from catalog", dst.SearchPricePerThousand, dst.PriceSources.Search)
+	}
+	held := &model.Model{ModelID: "rerank-x", SearchPricePerThousand: &three, PriceSources: model.PriceSources{Search: model.PriceSourceProvider}}
+	backfillFromCatalog(held, src)
+	if *held.SearchPricePerThousand != 3 || held.PriceSources.Search != model.PriceSourceProvider {
+		t.Errorf("held search price = %v source=%q, want the live 3 kept", *held.SearchPricePerThousand, held.PriceSources.Search)
+	}
+}
+
 // TestBackfillLiveFromCatalog_EmptyCatalogReturnsLive covers the early return
 // for an empty catalog: the live slice is handed back unchanged (and its live
 // meta still flagged), with no nil-map dereference.

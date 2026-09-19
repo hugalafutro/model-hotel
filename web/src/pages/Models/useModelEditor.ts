@@ -8,14 +8,21 @@ interface UseModelEditorParams {
 	onUpdate: (id: string, updates: Partial<Model>) => void;
 }
 
-/** The five editable fields, as the form holds them: strings, never null. */
+/** The six editable fields, as the form holds them: strings, never null. */
 export interface EditData {
 	display_name: string;
 	context_length: string;
 	max_output_tokens: string;
 	input_price_per_million: string;
 	output_price_per_million: string;
+	search_price_per_thousand: string;
 }
+
+/** The price fields, edited the same way; a rerank model shows only the last. */
+export type PriceField =
+	| "input_price_per_million"
+	| "output_price_per_million"
+	| "search_price_per_thousand";
 
 type EditSource = Pick<
 	Model,
@@ -23,6 +30,7 @@ type EditSource = Pick<
 	| "max_output_tokens"
 	| "input_price_per_million"
 	| "output_price_per_million"
+	| "search_price_per_thousand"
 > & { display_name?: string | null };
 
 /** Form values for a model or for its discovered defaults. */
@@ -33,6 +41,7 @@ export function editValuesFrom(src: EditSource): EditData {
 		max_output_tokens: src.max_output_tokens?.toString() ?? "",
 		input_price_per_million: formatPriceInput(src.input_price_per_million),
 		output_price_per_million: formatPriceInput(src.output_price_per_million),
+		search_price_per_thousand: formatPriceInput(src.search_price_per_thousand),
 	};
 }
 
@@ -43,6 +52,7 @@ export const FIELD_LABEL_KEYS: Record<keyof EditData, string> = {
 	max_output_tokens: "models.detail.maxOutput",
 	input_price_per_million: "models.detail.inputPrice",
 	output_price_per_million: "models.detail.outputPrice",
+	search_price_per_thousand: "models.detail.searchPrice",
 };
 
 export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
@@ -87,22 +97,21 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		// the API reads a null price as absent (no way to null one price alone),
 		// and sending the rest of the edit would pin the stale stored value.
 		// Clearing prices is the pin banner's "Reset to source" action instead.
-		if (
-			editData.input_price_per_million !== "" &&
-			Number(editData.input_price_per_million) !==
-				(model.input_price_per_million != null
-					? Math.round(model.input_price_per_million * 10000) / 10000
-					: null)
-		)
-			fields.push("input_price_per_million");
-		if (
-			editData.output_price_per_million !== "" &&
-			Number(editData.output_price_per_million) !==
-				(model.output_price_per_million != null
-					? Math.round(model.output_price_per_million * 10000) / 10000
-					: null)
-		)
-			fields.push("output_price_per_million");
+		const priceChanged = (field: PriceField) => {
+			const stored = model[field];
+			return (
+				editData[field] !== "" &&
+				Number(editData[field]) !==
+					(stored != null ? Math.round(stored * 10000) / 10000 : null)
+			);
+		};
+		for (const field of [
+			"input_price_per_million",
+			"output_price_per_million",
+			"search_price_per_thousand",
+		] as const) {
+			if (priceChanged(field)) fields.push(field);
+		}
 		return fields;
 	};
 
@@ -148,6 +157,10 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		if (changed.includes("output_price_per_million"))
 			updates.output_price_per_million = Number(
 				editData.output_price_per_million,
+			);
+		if (changed.includes("search_price_per_thousand"))
+			updates.search_price_per_thousand = Number(
+				editData.search_price_per_thousand,
 			);
 		if (Object.keys(updates).length > 0) {
 			onUpdate(model.id, updates as Partial<Model>);

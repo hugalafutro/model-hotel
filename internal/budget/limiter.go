@@ -3,7 +3,10 @@ package budget
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -150,8 +153,8 @@ func (l *Limiter) Middleware(next http.Handler) http.Handler {
 		}
 		if refused != nil {
 			httpx.SetRetryAfter(w, until.Sub(l.now()))
-			util.WriteOpenAIError(w, fmt.Sprintf("%s budget exceeded: $%.2f of $%.2f spent this %s",
-				refused.Kind, refusedSpent, refused.Budget.USD, refused.Budget.Period), http.StatusTooManyRequests)
+			util.WriteOpenAIError(w, fmt.Sprintf("%s budget exceeded: $%s of $%s spent this %s",
+				refused.Kind, formatUSD(refusedSpent), formatUSD(refused.Budget.USD), refused.Budget.Period), http.StatusTooManyRequests)
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -358,7 +361,7 @@ func publish(kind string, s *Subject, spent float64, now time.Time) {
 	if s.Kind == KindUser {
 		what = "user"
 	}
-	msg := fmt.Sprintf("%s %q has spent $%.2f of its $%.2f %s budget", what, s.Name, spent, s.Budget.USD, s.Budget.Period)
+	msg := fmt.Sprintf("%s %q has spent $%s of its $%s %s budget", what, s.Name, formatUSD(spent), formatUSD(s.Budget.USD), s.Budget.Period)
 	severity := "warning"
 	if kind == "budget.exceeded" {
 		msg += "; requests are refused until " + end.Format("2006-01-02 15:04 UTC")
@@ -379,4 +382,23 @@ func publish(kind string, s *Subject, spent float64, now time.Time) {
 			"period_end": end.Format(time.RFC3339),
 		},
 	})
+}
+
+// formatUSD renders a dollar figure with two decimals, or with as many as it
+// takes when it is under a cent: a rerank search costs $0.002 and a budget
+// can be set that small, and "$0.01 of $0.01" says nothing about which side
+// of the cap the spend is on.
+func formatUSD(v float64) string {
+	if v != 0 && math.Abs(v) < 0.01 {
+		// Fixed width, then trimmed: a spend summed from $0.002 rows is
+		// 0.006000000000000001 in binary, and the shortest round-trip form
+		// would print exactly that.
+		if s := strings.TrimRight(strings.TrimRight(strconv.FormatFloat(v, 'f', 6, 64), "0"), "."); s != "0" && s != "-0" {
+			return s
+		}
+		// Below a micro-dollar the fixed form is all zeros; the shortest
+		// exact form is the only one that still says which side of the cap.
+		return strconv.FormatFloat(v, 'g', -1, 64)
+	}
+	return strconv.FormatFloat(v, 'f', 2, 64)
 }

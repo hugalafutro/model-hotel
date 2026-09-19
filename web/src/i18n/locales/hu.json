@@ -857,7 +857,8 @@
 				"context_length": "A kontextus hossza",
 				"input_price": "Bemeneti ár",
 				"input_price_cache": "Cache-elt bemeneti ár",
-				"output_price": "Kimeneti ár"
+				"output_price": "Kimeneti ár",
+				"search_price": "Keresési ár"
 			},
 			"unset": "—",
 			"updated": "Frissített metaadatok",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Siker{{ttftPart}} | Időtartam: {{duration}}másodperc",
 			"copyRawValue": "Nyers érték másolása",
 			"pricePinned": "Az árakat a kezelő rögzítette",
-			"resetPricesToSource": "Visszaállítás a forrásra"
+			"resetPricesToSource": "Visszaállítás a forrásra",
+			"searchPrice": "Keresési ár",
+			"perThousandSearches": "/1K keresés",
+			"testSuccessRanked": "Siker | Rangsorolt találatok: {{count}}{{ttftPart}} | Időtartam: {{duration}}másodperc"
 		},
 		"table": {
 			"sortByModelName": "Rendezés modellnév szerint",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "letiltva",
 			"attemptSuperseded": "megelőzve",
 			"cost": "Költség",
-			"unpriced": "Ár nélkül"
+			"unpriced": "Ár nélkül",
+			"searchUnits": "Keresési egységek"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

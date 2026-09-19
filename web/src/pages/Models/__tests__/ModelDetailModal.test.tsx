@@ -119,6 +119,7 @@ describe("ModelDetailModal", () => {
 				input_price_per_million: null,
 				input_price_per_million_cache_hit: null,
 				output_price_per_million: null,
+				search_price_per_thousand: null,
 			});
 		});
 
@@ -1233,5 +1234,91 @@ describe("ModelDetailModal", () => {
 			{ timeout: 2000 },
 		);
 		expect(screen.getByText("Save Changes")).toBeInTheDocument();
+	});
+});
+
+describe("ModelDetailModal rerank rows", () => {
+	const rerankModel = {
+		...mockModel,
+		id: "model-rerank",
+		model_id: "rerank-v3.5",
+		modality: "rerank",
+		output_modalities: '["rerank"]',
+		input_price_per_million: null,
+		input_price_per_million_cache_hit: null,
+		output_price_per_million: null,
+		search_price_per_thousand: 2,
+		price_sources: { search: "catalog" as const },
+	};
+	const props = {
+		model: rerankModel,
+		onClose: vi.fn(),
+		onToggle: vi.fn(),
+		onDiscover: vi.fn().mockResolvedValue(undefined),
+		onTest: vi.fn(),
+		onToast: vi.fn(),
+		onUpdate: vi.fn(),
+		onDelete: vi.fn(),
+	};
+
+	it("shows one per-search price instead of input and output prices", () => {
+		renderWithProviders(<ModelDetailModal {...props} />);
+
+		expect(screen.getByText("Search Price")).toBeInTheDocument();
+		expect(screen.getByText("$2/1K")).toBeInTheDocument();
+		expect(screen.queryByText("Input Price")).not.toBeInTheDocument();
+		expect(screen.queryByText("Output Price")).not.toBeInTheDocument();
+	});
+
+	it("reveals the per-token editors on a search-priced rerank row in edit mode", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(<ModelDetailModal {...props} />);
+
+		expect(screen.queryByText("Input Price")).not.toBeInTheDocument();
+		await user.click(screen.getByText("Edit"));
+		expect(screen.getByText("Search Price")).toBeInTheDocument();
+		expect(screen.getByText("Input Price")).toBeInTheDocument();
+		expect(screen.getByText("Output Price")).toBeInTheDocument();
+		expect(screen.getByText("/1K searches")).toBeInTheDocument();
+		// One editor per price: search, input, output.
+		expect(screen.getAllByPlaceholderText("0.00")).toHaveLength(3);
+	});
+
+	it("keeps the per-token prices of a token-billed rerank model", () => {
+		renderWithProviders(
+			<ModelDetailModal
+				{...props}
+				model={{
+					...rerankModel,
+					search_price_per_thousand: null,
+					input_price_per_million: 0.05,
+					output_price_per_million: 0,
+				}}
+			/>,
+		);
+
+		expect(screen.getByText("Search Price")).toBeInTheDocument();
+		expect(screen.getByText("Input Price")).toBeInTheDocument();
+		expect(screen.getByText("$0.05/1M")).toBeInTheDocument();
+		expect(screen.getByText("Output Price")).toBeInTheDocument();
+	});
+
+	it("resets the search price with the pin", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<ModelDetailModal
+				{...props}
+				model={{ ...rerankModel, price_customized: true }}
+			/>,
+		);
+
+		await user.click(screen.getByTestId("price-pin-reset"));
+		expect(props.onUpdate).toHaveBeenCalledWith(
+			"model-rerank",
+			expect.objectContaining({
+				price_customized: false,
+				search_price_per_thousand: null,
+			}),
+		);
 	});
 });

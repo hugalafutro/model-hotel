@@ -48,6 +48,9 @@ type LogEntry struct {
 	TokensCompletionReasoning int        `json:"tokens_completion_reasoning"`
 	TokensPromptCacheHit      int        `json:"tokens_prompt_cache_hit"`
 	TokensPromptCacheMiss     int        `json:"tokens_prompt_cache_miss"`
+	// SearchUnits is what a rerank provider billed the request for (Cohere's
+	// search units); 0 on every other row.
+	SearchUnits int `json:"search_units"`
 	// CostUSD is what the request cost at its model's stored prices; nil when
 	// the proxy could not price it (see request_logs.cost_usd).
 	CostUSD           *float64  `json:"cost_usd"`

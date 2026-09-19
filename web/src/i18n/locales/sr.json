@@ -873,7 +873,8 @@
 				"context_length": "Дужина контекста",
 				"input_price": "Улазна цена",
 				"input_price_cache": "Кеширана улазна цена",
-				"output_price": "Цена излаза"
+				"output_price": "Цена излаза",
+				"search_price": "Cena pretrage"
 			},
 			"unset": "—",
 			"updated": "Метаподаци ажурирани",
@@ -1079,7 +1080,10 @@
 			"testSuccessNoResponse": "Успех{{ttftPart}} | Трајање: {{duration}}",
 			"copyRawValue": "Копирај сирову вредност",
 			"pricePinned": "Цене је закачио оператер",
-			"resetPricesToSource": "Врати на извор"
+			"resetPricesToSource": "Врати на извор",
+			"searchPrice": "Cena pretrage",
+			"perThousandSearches": "/1K pretraga",
+			"testSuccessRanked": "Успех | Rangirani rezultati: {{count}}{{ttftPart}} | Трајање: {{duration}}"
 		},
 		"table": {
 			"sortByModelName": "Сортирај по називу модела",
@@ -2902,7 +2906,8 @@
 			"attemptBreakerDisabled": "искључено",
 			"attemptSuperseded": "престигнут",
 			"cost": "Трошак",
-			"unpriced": "Без цене"
+			"unpriced": "Без цене",
+			"searchUnits": "Jedinice pretrage"
 		},
 		"statusBadge": {
 			"streaming": "Стриминг",

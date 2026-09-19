@@ -829,3 +829,19 @@ func TestParseTestModelResponse_ReadsASpelledCount(t *testing.T) {
 		t.Error("tps was 0 for a model that answered")
 	}
 }
+
+// TestCountRankedResults covers the three shapes a rerank answer arrives in.
+func TestCountRankedResults(t *testing.T) {
+	for body, want := range map[string]int{
+		`{"results":[{"index":0},{"index":1}],"meta":{}}`: 2,
+		`{"object":"list","data":[{"index":0}]}`:          1,
+		`[{"index":0},{"index":1},{"index":2}]`:           3,
+		`{"results":[]}`:                                  0,
+		`{"choices":[{"message":{"content":"hi"}}]}`:      0,
+		`{nope`: 0,
+	} {
+		if got := countRankedResults([]byte(body)); got != want {
+			t.Errorf("countRankedResults(%s) = %d, want %d", body, got, want)
+		}
+	}
+}

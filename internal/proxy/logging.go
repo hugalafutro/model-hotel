@@ -49,6 +49,20 @@ func (logEntry *requestLogData) terminalCostParts() (serving, rejected float64, 
 		return 0, 0, false
 	}
 	rPrompt, rHit, rMiss, rCost := logEntry.rejectedTotals()
+	// A rerank served by a model that bills per search unit is priced from the
+	// units the provider reported, not from the token columns (which hold the
+	// prompt estimate that charges the token limits). Only when it reported
+	// some: an answer carrying no units is not a free one, so it falls through
+	// to the token path, where a per-search model has no prices and the row
+	// stays NULL (unknown) rather than reading as $0. A token-billed rerank
+	// model (Jina, Voyage) has no search price and takes the token path too.
+	// ponytail: a rejected earlier rerank hop carries no units and prices to
+	// nothing here; record units per hop if a walked rerank group ever matters.
+	if logEntry.endpointType == endpointTypeRerank && logEntry.searchUnits > 0 {
+		if cost, ok := logEntry.servedModel.SearchCostUSD(logEntry.searchUnits); ok {
+			return cost, rCost, true
+		}
+	}
 	serving, ok = logEntry.servedModel.CostUSD(model.Usage{
 		Prompt:          logEntry.tokensPrompt - rPrompt + logEntry.estimatedPrompt,
 		PromptCacheHit:  logEntry.tokensPromptCacheHit - rHit,
@@ -292,7 +306,8 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 			resolved_model_id = $26,
 			error_kind = $28,
 			attempts = $29,
-			cost_usd = $30
+			cost_usd = $30,
+			search_units = $31
 		WHERE id = $1`,
 		logEntry.id, logEntry.modelID, providerID, logEntry.statusCode, logEntry.durationMs,
 		logEntry.proxyOverheadMs, logEntry.parseMs, logEntry.failoverLookupMs, logEntry.modelLookupMs, logEntry.providerLookupMs,
@@ -300,7 +315,7 @@ func (h *Handler) execRequestLogUpdate(logEntry *requestLogData) (int64, error) 
 		logEntry.tokensCompletion, logEntry.tokensPromptCacheHit, logEntry.tokensPromptCacheMiss,
 		logEntry.errorMessage, logEntry.failoverAttempt, logEntry.state, logEntry.latencyMs,
 		logEntry.dialMs, logEntry.settingsReadMs, logEntry.tokensCompletionReasoning, logEntry.ttftMs,
-		logEntry.resolvedModelID, logEntry.cacheHits, errKind, attempts, cost,
+		logEntry.resolvedModelID, logEntry.cacheHits, errKind, attempts, cost, logEntry.searchUnits,
 	)
 	if err != nil {
 		return 0, err

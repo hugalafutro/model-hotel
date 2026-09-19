@@ -57,6 +57,7 @@ describe("useModelEditor", () => {
 				max_output_tokens: "4096",
 				input_price_per_million: "0.5",
 				output_price_per_million: "1.5",
+				search_price_per_thousand: "",
 			});
 		});
 
@@ -71,6 +72,7 @@ describe("useModelEditor", () => {
 				max_output_tokens: "4096",
 				input_price_per_million: "0.5",
 				output_price_per_million: "1.5",
+				search_price_per_thousand: "",
 			});
 		});
 
@@ -82,6 +84,7 @@ describe("useModelEditor", () => {
 				max_output_tokens: null,
 				input_price_per_million: null,
 				output_price_per_million: null,
+				search_price_per_thousand: null,
 			} as unknown as Model;
 
 			const { result } = renderHook(() =>
@@ -94,6 +97,7 @@ describe("useModelEditor", () => {
 				max_output_tokens: "",
 				input_price_per_million: "",
 				output_price_per_million: "",
+				search_price_per_thousand: "",
 			});
 		});
 	});
@@ -140,6 +144,7 @@ describe("useModelEditor", () => {
 					max_output_tokens: "8192",
 					input_price_per_million: "1.0",
 					output_price_per_million: "2.0",
+					search_price_per_thousand: "",
 				});
 			});
 
@@ -149,6 +154,7 @@ describe("useModelEditor", () => {
 				max_output_tokens: "8192",
 				input_price_per_million: "1.0",
 				output_price_per_million: "2.0",
+				search_price_per_thousand: "",
 			});
 		});
 	});
@@ -233,6 +239,7 @@ describe("useModelEditor", () => {
 				result.current.setEditData((prev) => ({
 					...prev,
 					output_price_per_million: "2.0",
+					search_price_per_thousand: "",
 				}));
 			});
 
@@ -253,6 +260,7 @@ describe("useModelEditor", () => {
 					max_output_tokens: "8192",
 					input_price_per_million: "1.0",
 					output_price_per_million: "2.0",
+					search_price_per_thousand: "",
 				});
 			});
 
@@ -295,6 +303,7 @@ describe("useModelEditor", () => {
 					...prev,
 					input_price_per_million: "",
 					output_price_per_million: "",
+					search_price_per_thousand: "",
 				}));
 			});
 
@@ -487,6 +496,7 @@ describe("useModelEditor", () => {
 					max_output_tokens: "8192",
 					input_price_per_million: "1.0",
 					output_price_per_million: "2.0",
+					search_price_per_thousand: "",
 				});
 			});
 
@@ -581,6 +591,7 @@ describe("useModelEditor", () => {
 					...prev,
 					input_price_per_million: "",
 					output_price_per_million: "",
+					search_price_per_thousand: "",
 				}));
 			});
 
@@ -687,6 +698,7 @@ describe("useModelEditor", () => {
 				result.current.setEditData((prev) => ({
 					...prev,
 					output_price_per_million: "3.0",
+					search_price_per_thousand: "",
 				}));
 				result.current.revertField("output_price_per_million");
 			});
@@ -750,6 +762,7 @@ describe("useModelEditor", () => {
 				result.current.setEditData((prev) => ({
 					...prev,
 					output_price_per_million: "3.0",
+					search_price_per_thousand: "",
 				}));
 				result.current.revertField("output_price_per_million");
 			});
@@ -798,6 +811,36 @@ describe("useModelEditor", () => {
 			rerender({ model: updatedModel });
 
 			expect(result.current.editData.display_name).toBe("Test Model v1");
+		});
+	});
+});
+
+describe("useModelEditor search price", () => {
+	it("detects and saves a changed search_price_per_thousand", () => {
+		const onUpdate = vi.fn();
+		const { result } = renderHook(() =>
+			useModelEditor({
+				model: { ...mockModel, search_price_per_thousand: 2 },
+				onUpdate,
+			}),
+		);
+
+		expect(result.current.editData.search_price_per_thousand).toBe("2");
+		act(() => {
+			result.current.setEditData((prev) => ({
+				...prev,
+				search_price_per_thousand: "2.5",
+			}));
+		});
+		expect(result.current.getChangedFields()).toEqual([
+			"search_price_per_thousand",
+		]);
+
+		act(() => {
+			result.current.handleSave();
+		});
+		expect(onUpdate).toHaveBeenCalledWith(mockModel.id, {
+			search_price_per_thousand: 2.5,
 		});
 	});
 });

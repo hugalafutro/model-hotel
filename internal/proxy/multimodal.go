@@ -354,7 +354,9 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 	if oversized {
 		// Oversized JSON (e.g. several b64 images): forward the buffered
 		// prefix and stream the rest; usage extraction is skipped to keep
-		// memory bounded.
+		// memory bounded. So is a rerank answer's search-unit count: the meta
+		// sits at the end of the body, past the prefix, and such a row stays
+		// unpriced (NULL) rather than reading as $0.
 		// The remainder streams through exactMaskWriter so a key straddling
 		// the buffered-prefix boundary, or any two reads, is still masked.
 		w.WriteHeader(resp.StatusCode)
@@ -400,6 +402,9 @@ func (h *Handler) serveBufferedJSONPassthrough(w http.ResponseWriter, r *http.Re
 		// A translating adapter (Gemini transcription) read the provider's
 		// figures off the answer it re-shaped into this body.
 		promptTokens, completionTokens = u.prompt, u.completion
+	}
+	if logData.endpointType == endpointTypeRerank {
+		logData.searchUnits = extractRerankSearchUnits(body)
 	}
 	w.Header().Set("Content-Length", strconv.Itoa(len(body)))
 	w.WriteHeader(resp.StatusCode)
@@ -692,6 +697,31 @@ func extractPassthroughUsage(body []byte) (promptTokens, completionTokens int) {
 	// gateway does not otherwise inspect, bound for the meter and two int4
 	// log columns. Same clamp as every other reader.
 	return clampTokenCount(promptTokens), clampTokenCount(completionTokens)
+}
+
+// extractRerankSearchUnits reads how many search units a rerank answer was
+// billed for: Cohere's meta.billed_units.search_units. Providers that bill per
+// token carry no such member and read as zero. Only that member is decoded;
+// the ranked results are never inspected.
+func extractRerankSearchUnits(body []byte) int {
+	var envelope struct {
+		Meta struct {
+			BilledUnits json.RawMessage `json:"billed_units"`
+		} `json:"meta"`
+	}
+	if json.Unmarshal(body, &envelope) != nil || !util.JSONMemberSet(envelope.Meta.BilledUnits) {
+		return 0
+	}
+	var billed struct {
+		SearchUnits int `json:"search_units"`
+	}
+	// Same tolerance as the usage members: a count quoted or written with a
+	// fraction is still a count, and a member this struct has no field for
+	// does not cost the count beside it.
+	if util.DecodeCountsTolerant(envelope.Meta.BilledUnits, &billed) != nil {
+		return 0
+	}
+	return clampTokenCount(billed.SearchUnits)
 }
 
 // extractPassthroughSSEUsage scrapes token counts from the trailing bytes of

@@ -889,7 +889,8 @@
 				"context_length": "Dĺžka kontextu",
 				"input_price": "Vstupná cena",
 				"input_price_cache": "Cena vstupu v cache",
-				"output_price": "Výstupná cena"
+				"output_price": "Výstupná cena",
+				"search_price": "Cena za vyhľadávanie"
 			},
 			"unset": "—",
 			"updated": "Aktualizované metadáta",
@@ -1115,7 +1116,10 @@
 			"testSuccessNoResponse": "Úspech{{ttftPart}} | Trvanie: {{duration}}s",
 			"copyRawValue": "Kopírovať nespracovanú hodnotu",
 			"pricePinned": "Ceny pripnuté operátorom",
-			"resetPricesToSource": "Obnoviť zo zdroja"
+			"resetPricesToSource": "Obnoviť zo zdroja",
+			"searchPrice": "Cena za vyhľadávanie",
+			"perThousandSearches": "/1K vyhľadávaní",
+			"testSuccessRanked": "Úspech | Zoradené výsledky: {{count}}{{ttftPart}} | Trvanie: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Zoradiť podľa názvu modelu",
@@ -2967,7 +2971,8 @@
 			"attemptBreakerDisabled": "vypnuté",
 			"attemptSuperseded": "predstihnutý",
 			"cost": "Cena",
-			"unpriced": "Bez ceny"
+			"unpriced": "Bez ceny",
+			"searchUnits": "Vyhľadávacie jednotky"
 		},
 		"statusBadge": {
 			"streaming": "Streamovanie",

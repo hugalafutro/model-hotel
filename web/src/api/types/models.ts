@@ -35,6 +35,8 @@ export interface Model {
 	input_price_per_million: number | null;
 	input_price_per_million_cache_hit: number | null;
 	output_price_per_million: number | null;
+	/** USD per 1,000 search units; set only on rerank models, which bill per search. */
+	search_price_per_thousand?: number | null;
 	owned_by: string;
 	enabled: boolean;
 	disabled_manually: boolean;
@@ -62,6 +64,7 @@ export interface PriceSources {
 	input?: PriceSource;
 	cache_hit?: PriceSource;
 	output?: PriceSource;
+	search?: PriceSource;
 }
 export interface ModelsCursorResponse {
 	entries: Model[];
@@ -93,7 +96,7 @@ export interface ModelChange {
 	reason: string;
 }
 export interface FieldChange {
-	/** Machine-readable code: input_price | output_price | input_price_cache | context_length | max_output_tokens */
+	/** Machine-readable code: input_price | output_price | input_price_cache | search_price | context_length | max_output_tokens */
 	field: string;
 	/** Previous value as a number; null/undefined means it was unset. */
 	old?: number | null;
@@ -214,6 +217,8 @@ export interface ModelTestResult {
 	ttft_ms: number;
 	duration_ms: number;
 	response: string;
+	/** How many documents a rerank probe got back; absent on chat probes. */
+	ranked_results?: number;
 	error?: string;
 }
 

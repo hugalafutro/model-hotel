@@ -14,5 +14,35 @@
     "max_output_tokens": 4096,
     "input_price_per_million": 0.5,
     "output_price_per_million": 1.5
+  },
+  {
+    "model_id": "rerank-english-v3.0",
+    "display_name": "Rerank English v3.0",
+    "description": "English reranker; billed per search unit.",
+    "search_price_per_thousand": 2.0
+  },
+  {
+    "model_id": "rerank-multilingual-v3.0",
+    "display_name": "Rerank Multilingual v3.0",
+    "description": "Multilingual reranker; billed per search unit.",
+    "search_price_per_thousand": 2.0
+  },
+  {
+    "model_id": "rerank-v3.5",
+    "display_name": "Rerank v3.5",
+    "description": "Multilingual reranker; billed per search unit.",
+    "search_price_per_thousand": 2.0
+  },
+  {
+    "model_id": "rerank-v4.0-fast",
+    "display_name": "Rerank v4.0 Fast",
+    "description": "Fast multilingual reranker; billed per search unit.",
+    "search_price_per_thousand": 2.0
+  },
+  {
+    "model_id": "rerank-v4.0-pro",
+    "display_name": "Rerank v4.0 Pro",
+    "description": "Highest-accuracy reranker; billed per search unit.",
+    "search_price_per_thousand": 2.5
   }
 ]

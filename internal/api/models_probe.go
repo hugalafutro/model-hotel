@@ -1,7 +1,11 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
+	"net/http"
+	"time"
 
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/model"
@@ -12,6 +16,65 @@ import (
 // its three outcomes is written to request_logs. Split out of models.go, which
 // had reached the size ceiling; the probe's own bookkeeping is a self-contained
 // concern and the CRUD handlers do not read it.
+
+// buildTestRerankRequest is the rerank probe: the Cohere-style body every
+// rerank provider accepts, against the route the proxy's /v1/rerank forwards
+// to (a Cohere base is redirected to its native /v2/rerank by
+// BuildProviderTargetURL). One document and top_n 1 keep it one search unit.
+func buildTestRerankRequest(modelID, baseURL, providerType string) (body []byte, targetURL string) {
+	body, _ = json.Marshal(map[string]any{
+		"model":     modelID,
+		"query":     "ping",
+		"documents": []string{"ping"},
+		"top_n":     1,
+	})
+	return body, util.BuildProviderTargetURL(baseURL, providerType, "/rerank")
+}
+
+// doTestRerankRequest sends the rerank probe as a plain POST. The chat
+// self-heal executor is not used: its 400 retry rewrites chat parameters the
+// rerank body does not carry.
+func (h *Handler) doTestRerankRequest(ctx context.Context, providerType, targetURL, apiKey string, body []byte) (*http.Response, error) {
+	client := &http.Client{Timeout: 30 * time.Second}
+	if h.testModelTransport != nil {
+		client.Transport = h.testModelTransport
+	}
+	if h.testModelCheckRedirect != nil {
+		client.CheckRedirect = h.testModelCheckRedirect
+	}
+	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
+	if err != nil {
+		return nil, err
+	}
+	util.SetProviderAuthHeaders(req, providerType, apiKey)
+	req.Header.Set("Content-Type", "application/json")
+	// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
+	return client.Do(req)
+}
+
+// countRankedResults reads how many ranked documents a rerank probe answer
+// carries, under whichever key the provider uses: `results` (Cohere, Jina,
+// local rerankers), `data` (Voyage) or a bare top-level list
+// (text-embeddings-inference). The documents themselves are never read.
+func countRankedResults(respBody []byte) int {
+	trimmed := bytes.TrimSpace(respBody)
+	if len(trimmed) > 0 && trimmed[0] == '[' {
+		var list []json.RawMessage
+		if json.Unmarshal(trimmed, &list) == nil {
+			return len(list)
+		}
+		return 0
+	}
+	var out struct {
+		Results []json.RawMessage `json:"results"`
+		Data    []json.RawMessage `json:"data"`
+	}
+	if json.Unmarshal(respBody, &out) != nil {
+		return 0
+	}
+	return max(len(out.Results), len(out.Data))
+}
 
 // parseTestModelResponse extracts the assistant content and computes
 // tokens-per-second from a successful test response body. A parse failure is

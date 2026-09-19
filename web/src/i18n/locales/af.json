@@ -857,7 +857,8 @@
 				"context_length": "Kontekslengte",
 				"input_price": "Invoerprys",
 				"input_price_cache": "Gekacheerde insetprys",
-				"output_price": "Uitgangsprys"
+				"output_price": "Uitgangsprys",
+				"search_price": "Soekprys"
 			},
 			"unset": "—",
 			"updated": "Metagegewens bygewerk",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Sukses{{ttftPart}} | Duur: {{duration}}s",
 			"copyRawValue": "Kopieer rou waarde",
 			"pricePinned": "Pryse deur operateur vasgepen",
-			"resetPricesToSource": "Herstel na bron"
+			"resetPricesToSource": "Herstel na bron",
+			"searchPrice": "Soekprys",
+			"perThousandSearches": "/1K soektogte",
+			"testSuccessRanked": "Sukses | Gerangskikte resultate: {{count}}{{ttftPart}} | Duur: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Sorteer volgens modelnaam",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "gedeaktiveer",
 			"attemptSuperseded": "vervang",
 			"cost": "Koste",
-			"unpriced": "Ongeprys"
+			"unpriced": "Ongeprys",
+			"searchUnits": "Soekeenhede"
 		},
 		"statusBadge": {
 			"streaming": "Stroom",

@@ -1,6 +1,7 @@
 package proxy
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -702,5 +703,74 @@ func TestStreamedPassthrough_ZeroPromptStillMeters(t *testing.T) {
 	}
 	if got != 1 {
 		t.Errorf("charged %d tokens, want 1 (minPassthroughTokens)", got)
+	}
+}
+
+// TestPassthrough_RerankSearchUnitsPriceTheRow: Cohere bills a rerank in
+// search units (meta.billed_units.search_units), not tokens. The buffered
+// pass-through reads the units off the answer, the terminal write stores them
+// and prices the row at the served model's per-thousand search price, so a
+// budget sees the rerank spend. The token limits are still charged the prompt
+// estimate, as for every pass-through family without a usage block.
+func TestPassthrough_RerankSearchUnitsPriceTheRow(t *testing.T) {
+	h := newIntegrationHandler()
+	t.Cleanup(func() { stopUnitHandler(h) })
+	vkRepo := &mockVirtualKeyRepo{}
+	h.virtualKeyRepo = vkRepo
+
+	reqBody := `{"model":"rerank-v4.0-pro","query":"capybara","documents":["a giant rodent","the capital of France"],"top_n":1}`
+	logData := &requestLogData{
+		id:              uuid.New().String(),
+		modelID:         "rerank-v4.0-pro",
+		endpointType:    endpointTypeRerank,
+		virtualKeyName:  "test-key",
+		virtualKeyID:    "00000000-0000-0000-0000-000000000001",
+		state:           "streaming",
+		promptTextBytes: passthroughPromptTextBytes([]byte(reqBody), endpointTypeRerank),
+	}
+	st := &requestState{startTime: time.Now(), logData: logData, vkHash: "test-hash"}
+	h.insertRequestLogAsync(logData)
+	h.WaitForInsert(logData)
+	t.Cleanup(func() {
+		_, _ = h.dbPool.Exec(context.Background(), `DELETE FROM request_logs WHERE id = $1`, logData.id)
+	})
+
+	price := 2.5
+	served := &model.Model{ID: uuid.New(), ModelID: "rerank-v4.0-pro", SearchPricePerThousand: &price}
+	// The attempt path stamps the serving model before the answer is read.
+	logData.servedModel = served
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"results":[{"index":0,"relevance_score":0.9}],"meta":{"api_version":{"version":"2"},"billed_units":{"search_units":3}}}`)),
+	}
+	h.serveBufferedJSONPassthrough(httptest.NewRecorder(), httptest.NewRequest("POST", "/v1/rerank", http.NoBody), st, modelCandidate{
+		model:    served,
+		provider: &provider.Provider{ID: uuid.New(), Name: "cohere"},
+	}, resp, "application/json", 1, 10.0, false)
+
+	if logData.searchUnits != 3 {
+		t.Fatalf("searchUnits = %d, want 3 read off meta.billed_units", logData.searchUnits)
+	}
+	if got := singleAddTokens(t, vkRepo); got == 0 {
+		t.Errorf("charged %d tokens, want the prompt estimate against the token limits", got)
+	}
+	var units int
+	var cost *float64
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		if err := h.dbPool.QueryRow(context.Background(), `SELECT search_units, cost_usd FROM request_logs WHERE id = $1`, logData.id).Scan(&units, &cost); err != nil {
+			t.Fatalf("read row: %v", err)
+		}
+		if cost != nil || time.Now().After(deadline) {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if units != 3 {
+		t.Errorf("stored search_units = %d, want 3", units)
+	}
+	if cost == nil || *cost < 0.0075-1e-12 || *cost > 0.0075+1e-12 {
+		t.Errorf("cost_usd = %v, want 0.0075 (3 units at $2.50 per thousand)", cost)
 	}
 }

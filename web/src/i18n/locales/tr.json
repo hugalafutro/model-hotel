@@ -857,7 +857,8 @@
 				"context_length": "Bağlam uzunluğu",
 				"input_price": "Giriş fiyatı",
 				"input_price_cache": "Önbelleğe alınmış giriş fiyatı",
-				"output_price": "Çıktı fiyatı"
+				"output_price": "Çıktı fiyatı",
+				"search_price": "Arama fiyatı"
 			},
 			"unset": "—",
 			"updated": "Metadata güncellendi",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Başarı{{ttftPart}} | Süre: {{duration}}saniye",
 			"copyRawValue": "Ham değeri kopyala",
 			"pricePinned": "Fiyatlar operatör tarafından sabitlendi",
-			"resetPricesToSource": "Kaynağa sıfırla"
+			"resetPricesToSource": "Kaynağa sıfırla",
+			"searchPrice": "Arama fiyatı",
+			"perThousandSearches": "/1K arama",
+			"testSuccessRanked": "Başarı | Sıralanmış sonuçlar: {{count}}{{ttftPart}} | Süre: {{duration}}saniye"
 		},
 		"table": {
 			"sortByModelName": "Model adına göre sırala",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "devre dışı",
 			"attemptSuperseded": "geçildi",
 			"cost": "Maliyet",
-			"unpriced": "Fiyatsız"
+			"unpriced": "Fiyatsız",
+			"searchUnits": "Arama birimleri"
 		},
 		"statusBadge": {
 			"streaming": "Akış",

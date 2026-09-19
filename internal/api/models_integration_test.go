@@ -163,6 +163,7 @@ func TestUpdateModel_RejectsNegativeNumericFields(t *testing.T) {
 		{"max_output_tokens", `{"max_output_tokens": -1}`},
 		{"input_price_per_million", `{"input_price_per_million": -5}`},
 		{"output_price_per_million", `{"output_price_per_million": -5}`},
+		{"search_price_per_thousand", `{"search_price_per_thousand": -5}`},
 	}
 	for _, tc := range cases {
 		t.Run(tc.field, func(t *testing.T) {
@@ -1441,5 +1442,129 @@ func TestListModels_RepoError(t *testing.T) {
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("Expected status 500, got %d: %s", w.Code, w.Body.String())
+	}
+}
+
+// TestTestModel_RerankRowProbesTheRerankRoute: a rerank model has no chat
+// surface, so its Test button sends a one-document rerank body to the rerank
+// route and reports the ranked results instead of failing on a chat probe.
+func TestTestModel_RerankRowProbesTheRerankRoute(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	var gotBody map[string]any
+	mockServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/rerank" && r.Method == http.MethodPost {
+			_ = json.NewDecoder(r.Body).Decode(&gotBody)
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"results":[{"index":0,"relevance_score":0.42}],"meta":{"billed_units":{"search_units":1}}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer mockServer.Close()
+
+	providerData := fmt.Sprintf(`{"name": "test-provider-%s", "base_url": "%s", "api_key": "test-key"}`, uuid.New().String()[:8], mockServer.URL)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("Failed to create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("Failed to parse provider response: %v", err)
+	}
+
+	modelID := uuid.New().String()
+	_, err := h.Pool().Pool().Exec(context.Background(),
+		`INSERT INTO models (id, provider_id, model_id, name, enabled, modality, output_modalities) VALUES ($1, $2, $3, $4, true, 'rerank', '["rerank"]')`,
+		modelID, providerResp.ID, "rerank-v3.5", "Rerank v3.5")
+	if err != nil {
+		t.Fatalf("Failed to insert model: %v", err)
+	}
+
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/models/"+modelID+"/test", http.NoBody)
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var testResp struct {
+		Success       bool   `json:"success"`
+		Response      string `json:"response"`
+		RankedResults *int   `json:"ranked_results"`
+		Error         string `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &testResp); err != nil {
+		t.Fatalf("Failed to parse test response: %v", err)
+	}
+	if !testResp.Success {
+		t.Fatalf("rerank probe failed: %s", testResp.Error)
+	}
+	if testResp.RankedResults == nil || *testResp.RankedResults != 1 || testResp.Response != "" {
+		t.Errorf("ranked_results = %v response = %q, want 1 and no content string", testResp.RankedResults, testResp.Response)
+	}
+	if gotBody["model"] != "rerank-v3.5" || gotBody["query"] == nil || gotBody["documents"] == nil || gotBody["messages"] != nil {
+		t.Errorf("probe body = %v, want a rerank body (model, query, documents) and no chat messages", gotBody)
+	}
+}
+
+// TestUpdateModel_SearchPriceRoundTrip: the per-search price is a writable key
+// like the per-token ones, pins the prices, and reads back on the response.
+func TestUpdateModel_SearchPriceRoundTrip(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	modelID := createProviderAndModel(t, h, r)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(`{"search_price_per_thousand": 2.5}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("Expected 200, got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp ModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if resp.SearchPricePerThousand == nil || *resp.SearchPricePerThousand != 2.5 || !resp.PriceCustomized || resp.PriceSources.Search != "manual" {
+		t.Errorf("search price = %v pinned=%v sources=%+v, want 2.5, pinned, manual", resp.SearchPricePerThousand, resp.PriceCustomized, resp.PriceSources)
+	}
+}
+
+// TestUpdateModel_SearchPriceBoundsAndUnpin: the per-search price shares the
+// per-token bound, and unpinning through the API drops it with its source.
+func TestUpdateModel_SearchPriceBoundsAndUnpin(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	modelID := createProviderAndModel(t, h, r)
+	patch := func(body string) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(rec, req)
+		return rec
+	}
+	if rec := patch(`{"search_price_per_thousand": 1000.5}`); rec.Code != http.StatusBadRequest {
+		t.Errorf("above the bound: got %d, want 400", rec.Code)
+	}
+	if rec := patch(`{"search_price_per_thousand": 2}`); rec.Code != http.StatusOK {
+		t.Fatalf("set: got %d: %s", rec.Code, rec.Body.String())
+	}
+	rec := patch(`{"price_customized": false}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("unpin: got %d: %s", rec.Code, rec.Body.String())
+	}
+	var resp ModelResponse
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if resp.SearchPricePerThousand != nil || resp.PriceSources.Search != "" || resp.PriceCustomized {
+		t.Errorf("after unpin: price=%v sources=%+v pinned=%v, want nil, no source, unpinned", resp.SearchPricePerThousand, resp.PriceSources, resp.PriceCustomized)
 	}
 }

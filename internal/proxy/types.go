@@ -131,9 +131,14 @@ type requestLogData struct {
 	tokensCompletionReasoning int
 	tokensPromptCacheHit      int
 	tokensPromptCacheMiss     int
-	streaming                 bool
-	virtualKeyName            string
-	virtualKeyID              string
+	// searchUnits is what a rerank provider billed the request for, read off
+	// the answer's meta.billed_units.search_units (Cohere). Persisted to
+	// request_logs.search_units; the terminal write prices a rerank row from
+	// it when the served model carries a search price.
+	searchUnits    int
+	streaming      bool
+	virtualKeyName string
+	virtualKeyID   string
 	// servedModel is the model row the request was last dispatched to, held so
 	// the terminal write can price the row at the figures the model carried
 	// then. Nil until a candidate is chosen, and kept through exhaustion: a

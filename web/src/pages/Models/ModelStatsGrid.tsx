@@ -16,7 +16,7 @@ import { PriceSourceHint } from "../../components/InfoHint";
 import { DetailItem } from "../../components/LogDetailItem";
 import { formatNumber, formatRelativeTime } from "../../utils/format";
 import { formatPrice } from "../../utils/model";
-import type { useModelEditor } from "./useModelEditor";
+import type { PriceField, useModelEditor } from "./useModelEditor";
 
 type Editor = ReturnType<typeof useModelEditor>;
 
@@ -67,9 +67,18 @@ export function ModelStatsGrid({
 	revertField: Editor["revertField"];
 }) {
 	const { t } = useTranslation();
-	const priceEditor = (
-		field: "input_price_per_million" | "output_price_per_million",
-	) => (
+	// A rerank model usually bills per search unit (Cohere) and carries one
+	// search price; one that bills per token (Jina, Voyage) keeps its input
+	// and output prices. A rerank row shows the search price always, and the
+	// per-token pair whenever it holds one or the operator is editing, so
+	// either billing unit can be read and set.
+	const perSearch = model.modality === "rerank";
+	const showTokenPrices =
+		!perSearch ||
+		editing ||
+		model.input_price_per_million != null ||
+		model.output_price_per_million != null;
+	const priceEditor = (field: PriceField) => (
 		<div className="flex items-center gap-1">
 			<div className="relative w-full">
 				<input
@@ -81,11 +90,13 @@ export function ModelStatsGrid({
 					onChange={(e) =>
 						setEditData((prev) => ({ ...prev, [field]: e.target.value }))
 					}
-					className="ui-input text-sm pr-16!"
+					className={`ui-input text-sm ${field === "search_price_per_thousand" ? "pr-24!" : "pr-16!"}`}
 					placeholder={t("models.detail.placeholder.price")}
 				/>
 				<span className="absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-gray-400">
-					{t("models.detail.perMillionTokens")}
+					{field === "search_price_per_thousand"
+						? t("models.detail.perThousandSearches")
+						: t("models.detail.perMillionTokens")}
 				</span>
 			</div>
 			{editData[field] !== discoveredDefaults[field] && (
@@ -189,48 +200,75 @@ export function ModelStatsGrid({
 			>
 				{editing ? numberEditor("max_output_tokens", 1, 128000) : undefined}
 			</DetailItem>
-			<DetailItem
-				emphasis="stat"
-				icon={DollarSign}
-				label={t("models.detail.inputPrice")}
-				value={
-					model.input_price_per_million != null
-						? `$${formatPrice(model.input_price_per_million)}/1M`
-						: "-"
-				}
-				mono
-				labelExtra={
-					model.input_price_per_million != null ? (
-						<PriceSourceHint
-							source={model.price_sources?.input}
-							className="shrink-0"
-						/>
-					) : undefined
-				}
-			>
-				{editing ? priceEditor("input_price_per_million") : undefined}
-			</DetailItem>
-			<DetailItem
-				emphasis="stat"
-				icon={Coins}
-				label={t("models.detail.outputPrice")}
-				value={
-					model.output_price_per_million != null
-						? `$${formatPrice(model.output_price_per_million)}/1M`
-						: "-"
-				}
-				mono
-				labelExtra={
-					model.output_price_per_million != null ? (
-						<PriceSourceHint
-							source={model.price_sources?.output}
-							className="shrink-0"
-						/>
-					) : undefined
-				}
-			>
-				{editing ? priceEditor("output_price_per_million") : undefined}
-			</DetailItem>
+			{perSearch && (
+				<DetailItem
+					emphasis="stat"
+					icon={DollarSign}
+					label={t("models.detail.searchPrice")}
+					value={
+						model.search_price_per_thousand != null
+							? `$${formatPrice(model.search_price_per_thousand)}/1K`
+							: "-"
+					}
+					mono
+					labelExtra={
+						model.search_price_per_thousand != null ? (
+							<PriceSourceHint
+								source={model.price_sources?.search}
+								className="shrink-0"
+							/>
+						) : undefined
+					}
+				>
+					{editing ? priceEditor("search_price_per_thousand") : undefined}
+				</DetailItem>
+			)}
+			{showTokenPrices && (
+				<>
+					<DetailItem
+						emphasis="stat"
+						icon={DollarSign}
+						label={t("models.detail.inputPrice")}
+						value={
+							model.input_price_per_million != null
+								? `$${formatPrice(model.input_price_per_million)}/1M`
+								: "-"
+						}
+						mono
+						labelExtra={
+							model.input_price_per_million != null ? (
+								<PriceSourceHint
+									source={model.price_sources?.input}
+									className="shrink-0"
+								/>
+							) : undefined
+						}
+					>
+						{editing ? priceEditor("input_price_per_million") : undefined}
+					</DetailItem>
+					<DetailItem
+						emphasis="stat"
+						icon={Coins}
+						label={t("models.detail.outputPrice")}
+						value={
+							model.output_price_per_million != null
+								? `$${formatPrice(model.output_price_per_million)}/1M`
+								: "-"
+						}
+						mono
+						labelExtra={
+							model.output_price_per_million != null ? (
+								<PriceSourceHint
+									source={model.price_sources?.output}
+									className="shrink-0"
+								/>
+							) : undefined
+						}
+					>
+						{editing ? priceEditor("output_price_per_million") : undefined}
+					</DetailItem>
+				</>
+			)}
 			<DetailItem
 				icon={ArrowDownToLine}
 				label={t("models.detail.input")}

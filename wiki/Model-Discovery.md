@@ -91,7 +91,7 @@ Both endpoints upsert discovered models and re-sync failover groups for what the
 
 Both endpoints also return a `diff` describing what the scan changed: models added or re-enabled (with machine-readable reason codes `new_model`, `reappeared`), plus any failover groups updated as a result. The background sweep's diff can also carry `disabled` entries with reason `not_listed`; manual scans never disable, so theirs will not.
 
-The diff also reports `updated` models whose pricing or context-length metadata moved since the previous scan. Each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `context_length`, each with `old` and `new` numbers).
+The diff also reports `updated` models whose pricing or context-length metadata moved since the previous scan. Each entry carries per-field `changes` (codes `input_price`, `output_price`, `input_price_cache`, `search_price`, `context_length`, each with `old` and `new` numbers).
 
 What the diff reports is what actually persisted:
 
@@ -778,7 +778,7 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 
 **Source files:** `discovery_cohere.go`, `cohere_catalog.go`
 
-**Method:** Calls Cohere's native `/v1/models` with pagination, once for the chat endpoint family and once for rerank, and filters out models the API marks `deprecated: true`. Rerank models are listed so the Models page can show them and the proxy's `/v1/rerank` passthrough can route them; a rerank fetch that fails leaves the chat models in place rather than failing the scan. The built-in `cohere.json` catalog is a pricing override channel and currently holds 2 rows (`c4ai-aya-expanse-32b`, `c4ai-aya-vision-32b`); everything else takes its price from the API.
+**Method:** Calls Cohere's native `/v1/models` with pagination, once for the chat endpoint family and once for rerank, and filters out models the API marks `deprecated: true`. Rerank models are listed so the Models page can show them and the proxy's `/v1/rerank` passthrough can route them; a rerank fetch that fails leaves the chat models in place rather than failing the scan. The built-in `cohere.json` catalog is a pricing override channel: 2 per-token rows (`c4ai-aya-expanse-32b`, `c4ai-aya-vision-32b`) and the 5 rerank models, which models.dev does not price, at their per-search price; every other chat model takes its price from the API.
 
 **API-provided fields:**
 
@@ -807,8 +807,9 @@ Model IDs from the native API have a `models/` prefix (e.g., `models/gemini-2.5-
 | Input price per million | Catalog |
 | Output price per million | Catalog |
 | Cache-hit price | Catalog |
+| Search price per thousand | Catalog (rerank models only) |
 
-Rerank models are billed per search unit rather than per token, so their price fields stay unset rather than being filled with a misleading zero.
+Rerank models are billed per search unit rather than per token, so their per-token price fields stay unset and the catalog supplies `search_price_per_thousand` instead (USD per 1,000 searches: 2.00 for the v3 family and v4.0-fast, 2.50 for v4.0-pro, as Cohere lists them). Every catalog figure is optional, so a row states only what the API and models.dev lack. The proxy prices a rerank request from the search units the answer reports (see [Request Logging](Request-Logging#spend)).
 
 **Host detection:** `api.cohere.com`, `api.cohere.ai`, and all subdomains of `cohere.com`
 
@@ -952,12 +953,13 @@ Each discovered model is stored in the `models` database table with the followin
 | `input_price_per_million` | float (nullable) | Input price per million tokens (USD) |
 | `input_price_per_million_cache_hit` | float (nullable) | Per-million-token price for cache hits (e.g., DeepSeek) |
 | `output_price_per_million` | float (nullable) | Output price per million tokens (USD) |
+| `search_price_per_thousand` | float (nullable) | Price per 1,000 search units (USD) for a rerank model, which bills per search rather than per token (migration `091`); unset on every other model |
 | `owned_by` | string | Model creator/owner |
 | `enabled` | bool | Whether the model is active for routing |
 | `disabled_manually` | bool | Whether the model was disabled by a user (not discovery) |
 | `display_name_customized` | bool | The operator renamed it, so discovery leaves `display_name` alone (migration `033`) |
 | `price_customized` | bool | The operator pinned the prices, so no source overwrites them (`071`) |
-| `price_sources` | jsonb | Where each stored price came from, keyed `input` / `cache_hit` / `output`, one of `provider` (the provider's own listing), `catalog` (an embedded override), `modelsdev` (enrichment) or `manual` (an operator edit); a key is absent while that price is unset or was stored before `084`. Merged key by key in the same direction as the prices, so a kept price keeps its source. The dashboard shows it as a hint next to each price. |
+| `price_sources` | jsonb | Where each stored price came from, keyed `input` / `cache_hit` / `output` / `search`, one of `provider` (the provider's own listing), `catalog` (an embedded override), `modelsdev` (enrichment) or `manual` (an operator edit); a key is absent while that price is unset or was stored before `084`. Merged key by key in the same direction as the prices, so a kept price keeps its source. The dashboard shows it as a hint next to each price. |
 | `missing_scans` | int | Consecutive confirmed-missing scans; 2 disables the model (`054`) |
 | `discovery_dismissed_at` | timestamptz (nullable) | The operator dismissed this model's discrepancy claim (`061`) |
 | `auto_retired_at` | timestamptz (nullable) | The proxy retired it from traffic after a verifying probe (`063`) |
@@ -1011,6 +1013,7 @@ CREATE TABLE IF NOT EXISTS models (
     input_price_per_million      REAL,
     input_price_per_million_cache_hit REAL,
     output_price_per_million     REAL,
+    search_price_per_thousand    REAL,
     owned_by    TEXT,
     enabled     BOOLEAN DEFAULT true,
     disabled_manually BOOLEAN DEFAULT false,
@@ -1042,6 +1045,8 @@ CREATE TABLE IF NOT EXISTS models (
 - `063_model_auto_retired.sql` - Added `auto_retired_at`
 - `070_model_manual_enable_pin.sql` - Added `manually_enabled_at` (the manual-enable pin)
 - `071_model_price_pin.sql` - Added `price_customized` (the price pin)
+- `084_model_price_sources.sql` - Added `price_sources` (where each stored price came from)
+- `091_rerank_search_price.sql` - Added `search_price_per_thousand` (the per-search price a rerank model bills at)
 
 Two related migrations live on other tables: `047_discovery_changes.sql` creates the background-discovery journal, and `062_failover_group_auto_disabled.sql` adds `model_failover_groups.auto_disabled_at`.
 
@@ -1243,7 +1248,7 @@ This sets both `enabled` and `disabled_manually`:
 
 Either direction also clears `auto_retired_at` and `discovery_dismissed_at`: operator intent supersedes a traffic retirement and their own earlier dismissal, and it has to happen in the same statement rather than on the next sighting, since a model retired again before that scan would keep a dismissal nothing could clear.
 
-The `Update` endpoint also supports editing `display_name`, `context_length`, `max_output_tokens`, `input_price_per_million`, `input_price_per_million_cache_hit`, `output_price_per_million`, and `price_customized`.
+The `Update` endpoint also supports editing `display_name`, `context_length`, `max_output_tokens`, `input_price_per_million`, `input_price_per_million_cache_hit`, `output_price_per_million`, `search_price_per_thousand`, and `price_customized`.
 
 ### The three pins
 

@@ -33,6 +33,8 @@ export interface LogEntry {
 	/** What the request cost at its model's stored prices; null when unpriced. */
 	cost_usd?: number | null;
 	tokens_completion_reasoning: number;
+	/** Search units a rerank provider billed the request for; 0 on other rows, absent on rows logged before rerank support. */
+	search_units?: number;
 	streaming: boolean;
 	state: string;
 	virtual_key_name: string;

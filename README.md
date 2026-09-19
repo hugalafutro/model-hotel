@@ -493,7 +493,7 @@ curl -X POST http://localhost:8081/v1/audio/transcriptions \
   -F model="OpenAI/whisper-1" -F file=@speech.mp3
 ```
 
-The proxy also serves `/v1/rerank` (Cohere-style document rerank, common in RAG stacks),
+The proxy also serves `/v1/rerank` (Cohere-style document rerank, common in RAG stacks; Cohere's per-search billing is read off the answer and priced into spend and budgets),
 `/v1/images/generations`, `/v1/images/edits`, `/v1/images/variations`,
 `/v1/audio/speech`, and `/v1/audio/translations` as transparent OpenAI-compatible pass-through
 (failover, circuit breaker, and virtual-key access control included; request/response content

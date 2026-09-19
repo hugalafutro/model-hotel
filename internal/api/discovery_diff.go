@@ -33,6 +33,7 @@ const (
 	changeFieldInputPrice      = "input_price"
 	changeFieldOutputPrice     = "output_price"
 	changeFieldInputPriceCache = "input_price_cache"
+	changeFieldSearchPrice     = "search_price"
 	changeFieldContextLength   = "context_length"
 )
 
@@ -172,6 +173,7 @@ type ModelSnapshot struct {
 	inputPrice      *float64
 	inputPriceCache *float64
 	outputPrice     *float64
+	searchPrice     *float64
 	priceSources    model.PriceSources
 	contextLength   *int
 }
@@ -196,6 +198,7 @@ func SnapshotProviderModels(ctx context.Context, repo *model.Repository, provide
 			inputPrice:      m.InputPricePerMillion,
 			inputPriceCache: m.InputPricePerMillionCacheHit,
 			outputPrice:     m.OutputPricePerMillion,
+			searchPrice:     m.SearchPricePerThousand,
 			priceSources:    m.PriceSources,
 			contextLength:   m.ContextLength,
 		}
@@ -264,6 +267,9 @@ func diffModelFields(prev ModelSnapshot, m *model.Model) []FieldChange {
 		changes = append(changes, c)
 	}
 	if c, ok := diffFloatPtr(changeFieldInputPriceCache, prev.inputPriceCache, m.InputPricePerMillionCacheHit, prev.priceCustomized); ok {
+		changes = append(changes, c)
+	}
+	if c, ok := diffFloatPtr(changeFieldSearchPrice, prev.searchPrice, m.SearchPricePerThousand, prev.priceCustomized); ok {
 		changes = append(changes, c)
 	}
 	if c, ok := diffContextLength(changeFieldContextLength, prev.contextLength, m.ContextLength, m.LiveMeta.ContextLength); ok {

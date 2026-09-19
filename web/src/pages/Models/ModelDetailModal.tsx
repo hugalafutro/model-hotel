@@ -162,6 +162,7 @@ export function ModelDetailModal({
 									input_price_per_million: null,
 									input_price_per_million_cache_hit: null,
 									output_price_per_million: null,
+									search_price_per_thousand: null,
 								} as Partial<Model>)
 							}
 						>

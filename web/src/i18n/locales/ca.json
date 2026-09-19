@@ -873,7 +873,8 @@
 				"context_length": "Llargada del context",
 				"input_price": "Preu d'entrada",
 				"input_price_cache": "Preu d'entrada emmagatzemat",
-				"output_price": "Preu de sortida"
+				"output_price": "Preu de sortida",
+				"search_price": "Preu per cerca"
 			},
 			"unset": "—",
 			"updated": "Metadades actualitzades",
@@ -1079,7 +1080,10 @@
 			"testSuccessNoResponse": "Èxit{{ttftPart}} | Durada: {{duration}}s",
 			"copyRawValue": "Copia el valor sense format",
 			"pricePinned": "Preus fixats per l'operador",
-			"resetPricesToSource": "Restableix a l'origen"
+			"resetPricesToSource": "Restableix a l'origen",
+			"searchPrice": "Preu per cerca",
+			"perThousandSearches": "/1K cerques",
+			"testSuccessRanked": "Èxit | Resultats classificats: {{count}}{{ttftPart}} | Durada: {{duration}}s"
 		},
 		"table": {
 			"sortByModelName": "Ordena per nom del model",
@@ -2902,7 +2906,8 @@
 			"attemptBreakerDisabled": "desactivat",
 			"attemptSuperseded": "substituït",
 			"cost": "Cost",
-			"unpriced": "Sense preu"
+			"unpriced": "Sense preu",
+			"searchUnits": "Unitats de cerca"
 		},
 		"statusBadge": {
 			"streaming": "Streaming",

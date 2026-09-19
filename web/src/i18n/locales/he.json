@@ -873,7 +873,8 @@
 				"context_length": "אורך ההקשר",
 				"input_price": "מחיר קלט",
 				"input_price_cache": "מחיר קלט במטמון",
-				"output_price": "מחיר פלט"
+				"output_price": "מחיר פלט",
+				"search_price": "מחיר חיפוש"
 			},
 			"unset": "—",
 			"updated": "מטא-נתונים עודכנו",
@@ -1079,7 +1080,10 @@
 			"testSuccessNoResponse": "הצלחה{{ttftPart}} | משך: {{duration}}שניות",
 			"copyRawValue": "העתק ערך גולמי",
 			"pricePinned": "המחירים ננעצו על ידי המפעיל",
-			"resetPricesToSource": "איפוס למקור"
+			"resetPricesToSource": "איפוס למקור",
+			"searchPrice": "מחיר חיפוש",
+			"perThousandSearches": "/1K חיפושים",
+			"testSuccessRanked": "הצלחה | תוצאות מדורגות: {{count}}{{ttftPart}} | משך: {{duration}}שניות"
 		},
 		"table": {
 			"sortByModelName": "מיין לפי שם הדגם",
@@ -2902,7 +2906,8 @@
 			"attemptBreakerDisabled": "מושבת",
 			"attemptSuperseded": "נדחק",
 			"cost": "עלות",
-			"unpriced": "ללא מחיר"
+			"unpriced": "ללא מחיר",
+			"searchUnits": "יחידות חיפוש"
 		},
 		"statusBadge": {
 			"streaming": "סטרימינג",

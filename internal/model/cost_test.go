@@ -74,3 +74,33 @@ func TestCostUSD_RefusesUnpriceablePrices(t *testing.T) {
 		t.Error("a product that overflows to Inf must read as unpriced")
 	}
 }
+
+func TestSearchCostUSD(t *testing.T) {
+	f := func(v float64) *float64 { return &v }
+	for _, tc := range []struct {
+		name  string
+		m     *Model
+		units int
+		want  float64
+		ok    bool
+	}{
+		{"nil model", nil, 1, 0, false},
+		{"token-priced model has no search price", &Model{InputPricePerMillion: f(1), OutputPricePerMillion: f(1)}, 1, 0, false},
+		{"one unit at two dollars per thousand", &Model{SearchPricePerThousand: f(2)}, 1, 0.002, true},
+		{"three units at the pro price", &Model{SearchPricePerThousand: f(2.5)}, 3, 0.0075, true},
+		{"free rerank prices to zero", &Model{SearchPricePerThousand: f(0)}, 5, 0, true},
+		{"no units charged", &Model{SearchPricePerThousand: f(2)}, 0, 0, true},
+		{"negative price is unpriced", &Model{SearchPricePerThousand: f(-1)}, 1, 0, false},
+		{"nan price is unpriced", &Model{SearchPricePerThousand: f(math.NaN())}, 1, 0, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, ok := tc.m.SearchCostUSD(tc.units)
+			if ok != tc.ok {
+				t.Fatalf("ok = %v, want %v", ok, tc.ok)
+			}
+			if math.Abs(got-tc.want) > 1e-12 {
+				t.Errorf("cost = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}

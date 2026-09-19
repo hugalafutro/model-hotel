@@ -703,6 +703,45 @@ func TestUpdateRequestLog_StampsCost(t *testing.T) {
 		t.Errorf("undispatched request cost_usd = %v, want NULL", *got)
 	}
 
+	// A rerank served by a per-search model is priced from the units it was
+	// billed, whatever the token columns hold (the prompt estimate): 3 units at
+	// $2.50 per thousand. A token-billed rerank model has no search price and
+	// prices from the columns as any other row does.
+	rerank := newRow()
+	rerank.endpointType = endpointTypeRerank
+	rerank.searchUnits = 3
+	rerank.servedModel = &model.Model{SearchPricePerThousand: f(2.5)}
+	rerank.state = "completed"
+	h.updateRequestLog(rerank)
+	if got := readCost(rerank.id); got == nil || *got < 0.0075-1e-12 || *got > 0.0075+1e-12 {
+		t.Errorf("rerank cost_usd = %v, want 0.0075 (3 search units at $2.50 per thousand)", got)
+	}
+	var storedUnits int
+	if err := h.dbPool.QueryRow(ctx, `SELECT search_units FROM request_logs WHERE id = $1`, rerank.id).Scan(&storedUnits); err != nil {
+		t.Fatalf("read search_units: %v", err)
+	}
+	if storedUnits != 3 {
+		t.Errorf("search_units = %d, want 3", storedUnits)
+	}
+	// An answer that reported no units is not a free one: with no token price
+	// on the per-search model the row stays NULL rather than reading as $0.
+	unitless := newRow()
+	unitless.endpointType = endpointTypeRerank
+	unitless.servedModel = rerank.servedModel
+	unitless.state = "completed"
+	h.updateRequestLog(unitless)
+	if got := readCost(unitless.id); got != nil {
+		t.Errorf("rerank without reported units cost_usd = %v, want NULL", *got)
+	}
+	tokenRerank := newRow()
+	tokenRerank.endpointType = endpointTypeRerank
+	tokenRerank.servedModel = priced.servedModel
+	tokenRerank.state = "completed"
+	h.updateRequestLog(tokenRerank)
+	if got := readCost(tokenRerank.id); got == nil || *got < 1.28-1e-9 || *got > 1.28+1e-9 {
+		t.Errorf("token-billed rerank cost_usd = %v, want 1.28 from the token columns", got)
+	}
+
 	nothingCharged := newRow()
 	nothingCharged.tokensPrompt, nothingCharged.tokensPromptCacheHit, nothingCharged.tokensPromptCacheMiss = 0, 0, 0
 	nothingCharged.tokensCompletion, nothingCharged.tokensCompletionReasoning = 0, 0

@@ -857,7 +857,8 @@
 				"context_length": "Μήκος πλαισίου",
 				"input_price": "Τιμή εισόδου",
 				"input_price_cache": "Τιμή εισόδου στην προσωρινή μνήμη",
-				"output_price": "Τιμή εξόδου"
+				"output_price": "Τιμή εξόδου",
+				"search_price": "Τιμή αναζήτησης"
 			},
 			"unset": "—",
 			"updated": "Ενημερωμένα μεταδεδομένα",
@@ -1043,7 +1044,10 @@
 			"testSuccessNoResponse": "Επιτυχία{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα",
 			"copyRawValue": "Αντιγραφή ακατέργαστης τιμής",
 			"pricePinned": "Οι τιμές έχουν καρφιτσωθεί από τον χειριστή",
-			"resetPricesToSource": "Επαναφορά στην πηγή"
+			"resetPricesToSource": "Επαναφορά στην πηγή",
+			"searchPrice": "Τιμή αναζήτησης",
+			"perThousandSearches": "/1K αναζητήσεις",
+			"testSuccessRanked": "Επιτυχία | Ταξινομημένα αποτελέσματα: {{count}}{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα"
 		},
 		"table": {
 			"sortByModelName": "Ταξινόμηση κατά όνομα μοντέλου",
@@ -2837,7 +2841,8 @@
 			"attemptBreakerDisabled": "απενεργοποιημένο",
 			"attemptSuperseded": "ξεπεράστηκε",
 			"cost": "Κόστος",
-			"unpriced": "Χωρίς τιμή"
+			"unpriced": "Χωρίς τιμή",
+			"searchUnits": "Μονάδες αναζήτησης"
 		},
 		"statusBadge": {
 			"streaming": "Ροή",
