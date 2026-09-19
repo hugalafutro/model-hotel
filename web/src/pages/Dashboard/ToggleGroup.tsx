@@ -35,6 +35,7 @@ function ToggleGroup<T extends string>({
 						onClick={() => onChange(opt)}
 						title={getTitle?.(opt)}
 						aria-label={getTitle?.(opt)}
+						aria-pressed={active}
 						className={`ui-tab px-1.5 py-px leading-[1.6] text-[10px] font-semibold transition-colors ${
 							active
 								? "ui-tab-active"

@@ -67,6 +67,13 @@ export function useDashboardRanges() {
 		storedRightChartMetric === leftChartMetric
 			? companionMetric(leftChartMetric)
 			: storedRightChartMetric;
+	// Write the resolution back, or the stale stored value would resurface as
+	// soon as the left chart moved off it.
+	useEffect(() => {
+		if (storedRightChartMetric === leftChartMetric) {
+			setRightChartMetric(companionMetric(leftChartMetric));
+		}
+	}, [storedRightChartMetric, leftChartMetric, setRightChartMetric]);
 	const [doughnutRange, setDoughnutRange] = useLocalStorage<Range>(
 		"dashboard.doughnutRange",
 		globalRange,

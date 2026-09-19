@@ -56,6 +56,11 @@ describe("RangeToggle", () => {
 		// the parent element which is the button with styling
 		const activeButton = screen.getByText("1D").closest("button");
 		expect(activeButton).toHaveClass("ui-tab-active");
+		expect(activeButton).toHaveAttribute("aria-pressed", "true");
+		expect(screen.getByText("1H").closest("button")).toHaveAttribute(
+			"aria-pressed",
+			"false",
+		);
 	});
 
 	it("applies inactive style to non-selected values", () => {

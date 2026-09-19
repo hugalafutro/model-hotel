@@ -323,7 +323,7 @@ describe("Dashboard.coverage", () => {
 			...mockStats,
 			total_tokens_prompt: 1000,
 			total_tokens_completion: 2000,
-			avg_tokens_per_request: 150,
+			avg_tokens_per_request: 1200,
 		};
 
 		it("displays Total Tokens when metric is tokens", async () => {
@@ -359,12 +359,12 @@ describe("Dashboard.coverage", () => {
 				expect(screen.getByText("Dashboard")).toBeInTheDocument();
 			});
 
-			// Should show avg tokens per request (150)
+			// Avg tokens per request is compacted like the total (1200 -> 1.2K)
 			await waitFor(() => {
 				const tokensCard = screen
 					.getByText(/Avg Tokens\/Req/i)
-					.closest(".ui-card");
-				expect(tokensCard).toBeInTheDocument();
+					.closest(".ui-card") as HTMLElement;
+				expect(within(tokensCard).getByText("1.2K")).toBeInTheDocument();
 			});
 		});
 

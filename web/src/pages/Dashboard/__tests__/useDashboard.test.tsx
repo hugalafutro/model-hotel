@@ -1151,7 +1151,7 @@ describe("useDashboard chart metrics", () => {
 		expect(result.current.rightChartMetric).toBe("requests");
 	});
 
-	it("never lets a stored pair collide", () => {
+	it("never lets a stored pair collide", async () => {
 		localStorage.setItem("dashboard.leftChartMetric", "requests");
 		localStorage.setItem("dashboard.rightChartMetric", "requests");
 
@@ -1160,6 +1160,15 @@ describe("useDashboard chart metrics", () => {
 		});
 
 		expect(result.current.leftChartMetric).toBe("requests");
+		expect(result.current.rightChartMetric).toBe("tokens");
+
+		// The resolution is written back: moving the left chart off the
+		// collided value must not resurface the stale stored one.
+		await waitFor(() =>
+			expect(localStorage.getItem("dashboard.rightChartMetric")).toBe("tokens"),
+		);
+		act(() => result.current.setLeftChartMetric("cost"));
+		await waitFor(() => expect(result.current.leftChartMetric).toBe("cost"));
 		expect(result.current.rightChartMetric).toBe("tokens");
 	});
 
