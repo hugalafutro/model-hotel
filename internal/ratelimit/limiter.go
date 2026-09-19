@@ -259,7 +259,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 						}
 						return
 					}
-					writeRateLimitHeaders(w, entry.limiter, 0, "")
+					writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, "")
 					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
@@ -279,7 +279,7 @@ func (l *Limiter) Middleware(enabled bool) func(http.Handler) http.Handler {
 			if userEntry != nil {
 				userEntry.noteAllowed(userKey)
 			}
-			writeRateLimitHeaders(w, entry.limiter, 0, "")
+			writeRateLimitHeaders(w, rpsHeaders(entry.limiter), 0, "")
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -205,7 +206,14 @@ func (e *tpmEntry) throttleCtx(label, id string) throttleLogCtx {
 // their own refusals.
 func rejectTPM429(w http.ResponseWriter, e *tpmEntry, label, id, msg string) {
 	retryAfter := time.Duration(tpmRetryAfter(e.limiter)) * time.Second
-	reject429From(w, e.limiter, e.throttle, e.throttleCtx(label, id), retryAfter, tpmLogPrefix, msg)
+	reject429From(w, e.headers(), e.throttle, e.throttleCtx(label, id), retryAfter, tpmLogPrefix, msg)
+}
+
+// headers is the X-RateLimit-* trio in tokens per minute. A reservation the
+// bucket is still paying off leaves Tokens negative; a client reads that as
+// nothing left, which is what zero says.
+func (e *tpmEntry) headers() rateLimitHeaders {
+	return rateLimitHeaders{limit: strconv.Itoa(e.tpm), remaining: max(int64(e.limiter.Tokens()), 0), burst: e.tpm}
 }
 
 // tpmRate is the per-second refill a tokens-per-minute budget implies.

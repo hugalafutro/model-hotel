@@ -271,14 +271,33 @@ func runCleanup(stopCh <-chan struct{}, sweep func()) {
 	}
 }
 
+// rateLimitHeaders is what the X-RateLimit-* trio says, in the unit the
+// refusing stage meters: requests per second for the RPS and IP limiters,
+// tokens per minute for the token budget. A client paces itself by these, so a
+// TPM refusal must not print its refill rate (tpm/60, a fraction) as the limit.
+type rateLimitHeaders struct {
+	limit     string
+	remaining int64
+	burst     int
+}
+
+// rpsHeaders reads the trio off a per-second limiter.
+func rpsHeaders(lim *rate.Limiter) rateLimitHeaders {
+	return rateLimitHeaders{
+		limit:     strconv.FormatFloat(float64(lim.Limit()), 'f', -1, 64),
+		remaining: int64(lim.Tokens()),
+		burst:     lim.Burst(),
+	}
+}
+
 // writeRateLimitHeaders adds the standard rate-limit response headers. A
 // non-empty scope names the stage that rejected the request. Retry-After is the
 // wait rounded up rather than truncated-plus-one, so a compliant client retries
 // at the bucket boundary instead of a second past it.
-func writeRateLimitHeaders(w http.ResponseWriter, lim *rate.Limiter, retryAfter time.Duration, scope string) {
-	w.Header().Set("X-RateLimit-Limit", strconv.FormatFloat(float64(lim.Limit()), 'f', -1, 64))
-	w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(int64(lim.Tokens()), 10))
-	w.Header().Set("X-RateLimit-Burst", strconv.Itoa(lim.Burst()))
+func writeRateLimitHeaders(w http.ResponseWriter, h rateLimitHeaders, retryAfter time.Duration, scope string) {
+	w.Header().Set("X-RateLimit-Limit", h.limit)
+	w.Header().Set("X-RateLimit-Remaining", strconv.FormatInt(h.remaining, 10))
+	w.Header().Set("X-RateLimit-Burst", strconv.Itoa(h.burst))
 	if scope != "" {
 		w.Header().Set("X-RateLimit-Scope", scope)
 	}
@@ -292,7 +311,7 @@ func writeRateLimitHeaders(w http.ResponseWriter, lim *rate.Limiter, retryAfter 
 // hint, and msg is the body. scope names the stage that refused, empty on a
 // surface that has only one.
 func reject429(w http.ResponseWriter, by *bucketEntry, id string, retryAfter time.Duration, scope, msg string) {
-	reject429From(w, by.limiter, by.throttle, by.throttleCtx(id), retryAfter, scope, msg)
+	reject429From(w, rpsHeaders(by.limiter), by.throttle, by.throttleCtx(id), retryAfter, scope, msg)
 }
 
 // reject429From is the same refusal for a bucket that is not a bucketEntry: the
@@ -301,8 +320,8 @@ func reject429(w http.ResponseWriter, by *bucketEntry, id string, retryAfter tim
 // to pace itself by, no throttle episode recorded, and no log line, so a key
 // sitting at its token cap was invisible in the app log while the RPS limiter
 // next to it reported the same situation fully.
-func reject429From(w http.ResponseWriter, lim *rate.Limiter, st *throttleState, c throttleLogCtx, retryAfter time.Duration, scope, msg string) {
+func reject429From(w http.ResponseWriter, h rateLimitHeaders, st *throttleState, c throttleLogCtx, retryAfter time.Duration, scope, msg string) {
 	st.noteRejected(c)
-	writeRateLimitHeaders(w, lim, retryAfter, scope)
+	writeRateLimitHeaders(w, h, retryAfter, scope)
 	util.WriteOpenAIError(w, msg, http.StatusTooManyRequests)
 }

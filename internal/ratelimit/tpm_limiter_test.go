@@ -5,6 +5,7 @@ import (
 	"math"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -380,9 +381,17 @@ func TestTPMMiddleware_RejectsWhenExhausted(t *testing.T) {
 	}
 	// Same rate-limit headers the RPS limiter gives its own 429s: without them a
 	// client has no budget to pace itself by and cannot tell which stage refused.
-	for _, h := range []string{"X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Burst"} {
-		if rec.Header().Get(h) == "" {
-			t.Errorf("429 response must set %s", h)
+	// The trio speaks tokens per minute, the unit the caller configured, not the
+	// bucket's per-second refill; a bucket driven negative by a reservation
+	// reports nothing left rather than a negative count.
+	want := map[string]string{
+		"X-RateLimit-Limit":     strconv.Itoa(tpm),
+		"X-RateLimit-Remaining": "0",
+		"X-RateLimit-Burst":     strconv.Itoa(tpm),
+	}
+	for h, v := range want {
+		if got := rec.Header().Get(h); got != v {
+			t.Errorf("%s = %q, want %q", h, got, v)
 		}
 	}
 	if got := rec.Header().Get("X-RateLimit-Scope"); got != tpmLogPrefix {
