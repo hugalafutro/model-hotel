@@ -273,6 +273,34 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(row).not.toHaveTextContent("client_disconnect");
 	});
 
+	it("says a deadline exit once: the kind label, not the gateway's sentence too", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 1,
+							provider_id: "prov-1",
+							provider: "Kimi",
+							model: "k2",
+							error_kind: "failover_timeout",
+							detail: "still in flight at the failover deadline",
+							duration_ms: 60000,
+							hedged: true,
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const row = screen.getByTestId("attempt-trail-row");
+		const kind = within(row).getByTestId("attempt-kind");
+		expect(kind).toHaveTextContent("failover timeout");
+		expect(kind.querySelector("svg")).toHaveClass("icon-timer");
+		expect(row).not.toHaveTextContent("failover deadline");
+	});
+
 	it("renders an unknown kind raw with the plain warning glyph", () => {
 		renderWithProviders(
 			<RequestLogDetail

@@ -76,11 +76,13 @@ function collapseWhitespace(message: string): string {
 	return message.split(/\s+/).filter(Boolean).join(" ");
 }
 
-// The gateway's own fixed sentences (internal/proxy/hedging.go), one per kind
-// it stamps itself: each says exactly what the SUPERSEDED badge or the kind
-// label on the same row says, so the row never prints both.
+// The gateway's own fixed sentences (internal/proxy/hedging.go), one per exit
+// it stamps on a hedged launch it abandoned: each says exactly what the
+// SUPERSEDED badge or the kind label on the same row says, so the row never
+// prints both.
 const GATEWAY_FIXED_DETAILS = new Set([
 	"superseded by the winner while in flight",
+	"still in flight at the failover deadline",
 	"client disconnected while in flight",
 ]);
 
