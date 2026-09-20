@@ -264,6 +264,7 @@ export function AppLogs() {
 									setPage(1);
 								}}
 								label={t("applogs.pagination.label")}
+								labelOne={t("applogs.pagination.labelOne")}
 							/>
 						) : undefined
 					}

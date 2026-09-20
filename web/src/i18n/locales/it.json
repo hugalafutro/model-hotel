@@ -1267,7 +1267,8 @@
 			"tokens": "Token",
 			"lastUsed": "Ultimo Utilizzato",
 			"keys": "chiavi",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "chiave"
 		},
 		"tooltip": {
 			"proxyUrl": "Clicca per copiare l'URL del proxy",
@@ -1465,7 +1466,8 @@
 			"scrollLoadFailed": "Impossibile caricare i registri: {{message}}"
 		},
 		"pagination": {
-			"label": "voci"
+			"label": "voci",
+			"labelOne": "voce"
 		},
 		"loading": {
 			"newer": "↻ Caricamento più recente…",
@@ -1508,7 +1510,8 @@
 			"scrollLoadFailed": "Impossibile caricare i registri: {{message}}"
 		},
 		"pagination": {
-			"label": "voci"
+			"label": "voci",
+			"labelOne": "voce"
 		},
 		"loading": {
 			"newer": "↻ Caricamento più recente…",
@@ -2626,7 +2629,8 @@
 			"deleteDisabledMessage_one": "Questo eliminerà definitivamente il modello {{count}} disabilitato. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la ricerca automatica sul provider per evitare che ciò accada.",
 			"deleteDisabledMessage_many": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
 			"deleteDisabledMessage_other": "Questo eliminerà definitivamente i modelli {{count}} disabilitati. Se la ricerca automatica è abilitata sul loro provider, saranno riscoperti nel prossimo ciclo. Disabilita la scoperta automatica sul provider per evitare che ciò accada.",
-			"clickToCopyId": "Clicca per copiare l'ID modello"
+			"clickToCopyId": "Clicca per copiare l'ID modello",
+			"modelOne": "modello"
 		},
 		"virtualModelTable": {
 			"searchModels": "Cerca modelli…",

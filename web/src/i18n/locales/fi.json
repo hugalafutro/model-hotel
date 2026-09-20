@@ -1220,7 +1220,8 @@
 			"tokens": "Tokenit",
 			"lastUsed": "Viimeksi Käytetty",
 			"keys": "avaimet",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "avain"
 		},
 		"tooltip": {
 			"proxyUrl": "Klikkaa kopioidaksesi välityspalvelimen URL-osoite",
@@ -1418,7 +1419,8 @@
 			"scrollLoadFailed": "Lokien lataaminen epäonnistui: {{message}}"
 		},
 		"pagination": {
-			"label": "merkinnät"
+			"label": "merkinnät",
+			"labelOne": "merkintä"
 		},
 		"loading": {
 			"newer": "↻ Ladataan uudempaa…",
@@ -1461,7 +1463,8 @@
 			"scrollLoadFailed": "Lokien lataaminen epäonnistui: {{message}}"
 		},
 		"pagination": {
-			"label": "merkinnät"
+			"label": "merkinnät",
+			"labelOne": "merkintä"
 		},
 		"loading": {
 			"newer": "↻ Ladataan uudempaa…",
@@ -2566,7 +2569,8 @@
 			"deleteDisabledAria_other": "Poista {{count}} käytöstä poistettua mallia",
 			"deleteDisabledMessage_one": "Tämä poistaa pysyvästi {{count}} käytöstä poistetun mallin. Jos automaattitunnistus on käytössä palveluntarjoajalla, ne löydetään uudelleen seuraavassa syklissä. Poista automaattitunnistus käytöstä palveluntarjoajalta estääksesi tämän.",
 			"deleteDisabledMessage_other": "Tämä poistaa pysyvästi {{count}} käytöstä poistettua mallia. Jos automaattitunnistus on käytössä palveluntarjoajalla, ne löydetään uudelleen seuraavassa syklissä. Poista automaattitunnistus käytöstä palveluntarjoajalta estääksesi tämän.",
-			"clickToCopyId": "Klikkaa kopioidaksesi mallin ID"
+			"clickToCopyId": "Klikkaa kopioidaksesi mallin ID",
+			"modelOne": "malli"
 		},
 		"virtualModelTable": {
 			"searchModels": "Etsi malleja…",

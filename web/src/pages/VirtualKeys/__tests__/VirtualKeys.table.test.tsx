@@ -175,9 +175,9 @@ describe("VirtualKeys", () => {
 				expect(screen.getByText("Alpha Key")).toBeInTheDocument();
 			});
 
-			// Check order: query rows within table (they have role="button")
+			// Check order: the body rows keep their table role and gain a tab stop
 			const table = screen.getByRole("table");
-			const rows = within(table).getAllByRole("button", { name: /.* Key/ });
+			const rows = Array.from(table.querySelectorAll("tbody tr"));
 			expect(rows).toHaveLength(3);
 			expect(rows[0]).toHaveTextContent("Alpha Key");
 			expect(rows[1]).toHaveTextContent("Beta Key");
@@ -205,7 +205,7 @@ describe("VirtualKeys", () => {
 			await waitFor(() => {
 				// After clicking, should be descending: Zebra first
 				const table = screen.getByRole("table");
-				const rows = within(table).getAllByRole("button", { name: /.* Key/ });
+				const rows = Array.from(table.querySelectorAll("tbody tr"));
 				expect(rows[0]).toHaveTextContent("Zebra Key");
 			});
 		});

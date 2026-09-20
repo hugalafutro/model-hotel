@@ -1267,7 +1267,8 @@
 			"tokens": "Tokens",
 			"lastUsed": "Últim ús",
 			"keys": "claus",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "clau"
 		},
 		"tooltip": {
 			"proxyUrl": "Feu clic per copiar l'URL del proxy",
@@ -1465,7 +1466,8 @@
 			"scrollLoadFailed": "Impossible de carregar els registres: {{message}}"
 		},
 		"pagination": {
-			"label": "entrades"
+			"label": "entrades",
+			"labelOne": "entrada"
 		},
 		"loading": {
 			"newer": "↻ Carregant els més recents…",
@@ -1508,7 +1510,8 @@
 			"scrollLoadFailed": "Impossible de carregar els registres: {{message}}"
 		},
 		"pagination": {
-			"label": "entrades"
+			"label": "entrades",
+			"labelOne": "entrada"
 		},
 		"loading": {
 			"newer": "↻ Carregant els més recents…",
@@ -2626,7 +2629,8 @@
 			"deleteDisabledMessage_one": "Això suprimirà permanentment {{count}} model desactivat. Si l'autodetecció està habilitada al seu proveïdor, es tornarà a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"deleteDisabledMessage_many": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
 			"deleteDisabledMessage_other": "Això suprimirà permanentment {{count}} models desactivats. Si l'autodetecció està habilitada al seu proveïdor, es tornaran a descobrir en el següent cicle. Desactiva l'autodetecció al proveïdor per evitar-ho.",
-			"clickToCopyId": "Feu clic per copiar l'ID del model"
+			"clickToCopyId": "Feu clic per copiar l'ID del model",
+			"modelOne": "model"
 		},
 		"virtualModelTable": {
 			"searchModels": "Cerca de models…",
