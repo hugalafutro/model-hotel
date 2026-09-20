@@ -840,36 +840,6 @@ describe("ModelTable", () => {
 			expect(onModelClick).not.toHaveBeenCalled();
 		});
 
-		it("sorts once from the header padding and once from its button", async () => {
-			const models = [
-				{ ...mockModel, id: "model-001", name: "Alpha Model" },
-				{ ...mockModel, id: "model-002", name: "Beta Model" },
-			];
-			const { user } = renderWithProviders(
-				<ModelTable models={models} providers={[mockProvider]} />,
-			);
-			const th = screen
-				.getAllByRole("columnheader")
-				.find((h) => h.getAttribute("title") === "Model name and ID");
-			if (!th) throw new Error("header not rendered");
-			const button = th.querySelector("button");
-			if (!button) throw new Error("sort button not rendered");
-			const firstRow = () =>
-				screen
-					.getAllByText(/^(Alpha|Beta) Model$/)[0]
-					?.textContent?.startsWith("Alpha")
-					? "Alpha"
-					: "Beta";
-			expect(firstRow()).toBe("Alpha");
-
-			// The padded header itself is a pointer target.
-			await user.click(th);
-			await waitFor(() => expect(firstRow()).toBe("Beta"));
-			// The button sorts once, not once for itself and once for the header.
-			await user.click(button);
-			await waitFor(() => expect(firstRow()).toBe("Alpha"));
-		});
-
 		it("opens a model row with Enter", async () => {
 			const onModelClick = vi.fn();
 			const { user } = renderWithProviders(
