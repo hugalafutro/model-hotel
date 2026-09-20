@@ -131,6 +131,21 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	t.finished = true
 
 	var buf bytes.Buffer
+	if t.finishReason == malformedFunctionCall {
+		// Not a stop: the stream ends with the error the caller can act on,
+		// which the gateway's observers also read as the provider failing.
+		payload, err := json.Marshal(map[string]any{
+			"error": map[string]any{"message": ErrMalformedFunctionCall.Error(), "type": "server_error"},
+		})
+		if err != nil {
+			return nil, err
+		}
+		buf.WriteString("data: ")
+		buf.Write(payload)
+		buf.WriteString("\n\n")
+		buf.WriteString(egress.Done)
+		return buf.Bytes(), nil
+	}
 	reason := mapFinishReason(t.finishReason, t.toolCalls > 0)
 	if t.blocked {
 		reason = "content_filter"

@@ -100,6 +100,24 @@ func TestDiscoverVertexExpress_NoneEligible(t *testing.T) {
 	}
 }
 
+// A probe that answers 429 or 5xx is the service failing, not the model being
+// ineligible: discovery fails rather than return a listing without the model,
+// which the scan would then retire for going missing.
+func TestDiscoverVertexExpress_TransientProbeStatusFailsDiscovery(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, `{"error":{"code":503}}`, http.StatusServiceUnavailable)
+	}))
+	defer server.Close()
+
+	service := &DiscoveryService{httpClient: server.Client()}
+	provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+	models, err := service.discoverVertexExpress(context.Background(), provider, "test-api-key")
+	if err == nil || !strings.Contains(err.Error(), "HTTP 503") {
+		t.Fatalf("err = %v, models = %d; want a probe failure naming the status", err, len(models))
+	}
+}
+
 func TestDiscoverVertexExpress_Unauthorized(t *testing.T) {
 	server := vertexProbeServer(t, "gemini-2.5-flash")
 	defer server.Close()

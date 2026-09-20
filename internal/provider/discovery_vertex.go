@@ -56,6 +56,12 @@ func (d *DiscoveryService) discoverVertexExpress(ctx context.Context, provider *
 			return nil, fmt.Errorf("vertex-express: unauthorized (HTTP %d) for provider %s — check the API key", statuses[i], provider.Name)
 		case statuses[i] == http.StatusOK:
 			live = append(live, liveModelStub(id, "google", provider.ID))
+		case statuses[i] == http.StatusTooManyRequests || statuses[i] >= http.StatusInternalServerError:
+			// The service, not the model, failed to answer. Calling that "not
+			// eligible" would drop the model from the listing, and the scan
+			// would then retire it for going missing.
+			debuglog.Error("discovery: vertex-express probe answered a transient status", "model", id, "status", statuses[i], "provider", provider.Name, "provider_id", provider.ID)
+			return nil, fmt.Errorf("vertex-express: probe for %s answered HTTP %d for provider %s", id, statuses[i], provider.Name)
 		default:
 			debuglog.Debug("discovery: vertex-express candidate not eligible", "model", id, "status", statuses[i], "provider", provider.Name)
 		}

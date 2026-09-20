@@ -226,6 +226,15 @@ func TestStream_DecodeErrorOmitsPayload(t *testing.T) {
 
 // A failed response surfaces as an OpenAI-style error frame so the streaming
 // pipeline records the provider's message, then the stream ends.
+// A refusal delta streams as delta.refusal, not as content.
+func TestStream_RefusalDelta(t *testing.T) {
+	tr := NewStreamTranslator("m")
+	out := feed(t, tr, `{"type":"response.refusal.delta","delta":"I cannot"}`)
+	if !strings.Contains(string(out), `"refusal":"I cannot"`) || strings.Contains(string(out), `"content"`) {
+		t.Errorf("refusal delta frame = %s", out)
+	}
+}
+
 func TestStream_FailedResponse(t *testing.T) {
 	tr := NewStreamTranslator("m")
 	out := feed(t, tr,

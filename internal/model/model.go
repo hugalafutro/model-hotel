@@ -65,6 +65,13 @@ type Model struct {
 	// incoming value unless the operator pinned them (price_customized), judged
 	// inside the upsert query.
 	LiveMeta LiveMetaFields `json:"-"`
+
+	// PreserveCapabilities marks an in-memory model whose capabilities are a
+	// placeholder rather than a reading (a discoverer that lists the model but
+	// could not fetch its details this scan). Upsert then keeps the stored
+	// capabilities instead of overwriting them with the placeholder. Transient
+	// like LiveMeta: never stored, never serialized.
+	PreserveCapabilities bool `json:"-"`
 }
 
 // LiveMetaFields records, per context-limit field, whether the value came
@@ -158,7 +165,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			name = EXCLUDED.name,
 			description = EXCLUDED.description,
 			display_name = CASE WHEN models.display_name_customized THEN models.display_name ELSE EXCLUDED.display_name END,
-			capabilities = EXCLUDED.capabilities,
+			capabilities = CASE WHEN $23 THEN COALESCE(models.capabilities, EXCLUDED.capabilities) ELSE EXCLUDED.capabilities END,
 			params = EXCLUDED.params,
 			modality = EXCLUDED.modality,
 			input_modalities = EXCLUDED.input_modalities,
@@ -252,6 +259,8 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		m.PriceSources,
 		// $22: the per-search price, merged like the per-million ones.
 		m.SearchPricePerThousand,
+		// $23: the incoming capabilities are a placeholder; keep the stored ones.
+		m.PreserveCapabilities,
 	).Scan(
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,

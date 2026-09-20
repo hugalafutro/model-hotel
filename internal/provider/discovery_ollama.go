@@ -88,6 +88,9 @@ func (d *DiscoveryService) discoverOllama(ctx context.Context, provider *Provide
 		}
 
 		m := d.buildOllamaModel(provider, r.modelID, show)
+		// The stub's streaming-only capabilities are a placeholder, not a
+		// reading: the upsert keeps whatever the last successful probe stored.
+		m.PreserveCapabilities = r.err != nil
 		models = append(models, m)
 	}
 

@@ -119,6 +119,30 @@ func TestTranslateResponses_FinishReasons(t *testing.T) {
 	}
 }
 
+// A refusal part becomes message.refusal, the chat-completions member for it.
+func TestTranslateResponses_Refusal(t *testing.T) {
+	m := mustTranslateResp(t, `{
+		"id": "resp_r", "status": "completed",
+		"output": [{"type": "message", "role": "assistant", "content": [{"type": "refusal", "refusal": "I cannot help with that."}]}]
+	}`, "m")
+	_, msg := firstChoice(t, m)
+	if msg["refusal"] != "I cannot help with that." {
+		t.Errorf("refusal = %v, want the refusal text", msg["refusal"])
+	}
+	if msg["content"] != nil {
+		t.Errorf("content = %v, want null beside a refusal", msg["content"])
+	}
+}
+
+// A failed response is a 200 with the failure in its error member; it is not
+// translated into an empty completion.
+func TestTranslateResponses_FailedStatusIsAnError(t *testing.T) {
+	_, err := TranslateResponsesToChat([]byte(`{"id":"resp_f","status":"failed","error":{"code":"server_error","message":"upstream boom"},"output":[]}`), "m")
+	if err == nil || !strings.Contains(err.Error(), "upstream boom") {
+		t.Fatalf("err = %v, want the upstream failure message", err)
+	}
+}
+
 // Multiple reasoning summary parts join with a blank line; multiple message
 // text parts concatenate; invalid tool arguments fall back to "{}".
 func TestTranslateResponses_MultiPartAndBadArgs(t *testing.T) {
