@@ -493,6 +493,18 @@ func (st *requestState) retryBudgetLeft() bool {
 	return st.overallDeadline.IsZero() || time.Until(st.overallDeadline) > retryMinRound
 }
 
+// attemptDeadline is where one upstream attempt (a candidate or a param
+// retry) must end: a full failoverTimeout from now, cut at the overall
+// request deadline so the last attempt cannot overrun the budget the loop
+// checks only between candidates.
+func (st *requestState) attemptDeadline() time.Time {
+	deadline := time.Now().Add(st.failoverTimeout)
+	if !st.overallDeadline.IsZero() && st.overallDeadline.Before(deadline) {
+		deadline = st.overallDeadline
+	}
+	return deadline
+}
+
 // serverErrorRetryBudgetLeft is retryBudgetLeft for the server-error retry:
 // the deadline must also hold the longest backoff that retry can draw. It is
 // judged before the failed answer is drained, because past that point the

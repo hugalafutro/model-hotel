@@ -313,12 +313,18 @@ func exhaustedVerdict(hdr http.Header, body string, maxWait, phraseHint time.Dur
 	return v
 }
 
-// saturatedVerdict builds the saturated verdict: the provider's stated wait
-// capped at the ceiling, else the class default.
+// saturatedVerdict builds the saturated verdict: the provider's stated wait,
+// else the class default. A stated wait beyond the ceiling is the provider
+// naming a window (OpenAI's daily cap reads "please try again in 6h23m12s"),
+// the same rule the no-phrase fallback applies: that is exhaustion with the
+// wait as the pin, not a slot freeing in sixty seconds.
 func saturatedVerdict(hdr http.Header, body string, maxWait time.Duration) rateLimitVerdict {
 	v := rateLimitVerdict{class: rateLimitSaturated, retryAfter: defaultSaturatedRetryAfter}
 	if wait, ok := providerResetHint(hdr, body); ok {
-		v.retryAfter = min(wait, maxWait)
+		if wait > maxWait {
+			return rateLimitVerdict{class: rateLimitExhausted, pinHint: wait}
+		}
+		v.retryAfter = wait
 	}
 	return v
 }

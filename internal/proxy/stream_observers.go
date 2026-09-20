@@ -100,6 +100,10 @@ func (st *streamState) flushAccumulatedError(what string, chunkCount int, logDat
 	}
 	if accumulatedMsg := parseAccumulatedError(st.errAccum); accumulatedMsg != "" {
 		st.noteSSEError(what, accumulatedMsg, chunkCount, logData)
+		// The fragments were dropped, not forwarded (they are not valid JSON),
+		// so this is an error the client has NOT seen: the terminal frame is
+		// where it reaches them.
+		st.heldErrorCount++
 	}
 	st.errAccum = nil
 }
