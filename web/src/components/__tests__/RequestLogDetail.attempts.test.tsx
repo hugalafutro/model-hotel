@@ -118,10 +118,9 @@ describe("RequestLogDetail attempt trail", () => {
 		// word stays in the tooltip for anyone grepping the logs.
 		expect(rows[1]).toHaveTextContent("provider saturated");
 		expect(rows[1]).not.toHaveTextContent("provider_saturated");
-		expect(within(rows[1]).getByTestId("attempt-kind")).toHaveAttribute(
-			"title",
-			"provider_saturated",
-		);
+		const saturated = within(rows[1]).getByTestId("attempt-kind");
+		expect(saturated).toHaveAttribute("title", "provider_saturated");
+		expect(saturated.querySelector("svg")).toHaveClass("icon-gauge");
 		expect(rows[1]).toHaveTextContent("concurrent_budget_exceeded");
 		expect(rows[2]).toHaveTextContent("Ollama");
 		expect(rows[2]).toHaveTextContent("200");
@@ -299,6 +298,42 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(kind).toHaveTextContent("failover timeout");
 		expect(kind.querySelector("svg")).toHaveClass("icon-timer");
 		expect(row).not.toHaveTextContent("failover deadline");
+	});
+
+	it("names the breaker on a strike and on a verdict it does not know", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Kimi",
+							model: "k2",
+							status: 503,
+							duration_ms: 12,
+							breaker: "charge",
+						},
+						{
+							attempt: 1,
+							provider_id: "prov-2",
+							provider: "Ollama",
+							model: "k2",
+							status: 200,
+							duration_ms: 900,
+							breaker: "wobble",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const rows = screen.getAllByTestId("attempt-trail-row");
+		expect(rows[0]).toHaveTextContent("breaker: strike");
+		expect(rows[0]).not.toHaveTextContent("charged");
+		// A verdict the dashboard has no word for still names the breaker.
+		expect(rows[1]).toHaveTextContent("breaker: wobble");
 	});
 
 	it("renders an unknown kind raw with the plain warning glyph", () => {
