@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -261,6 +262,17 @@ func (l *inflightLimiter) snapshot() []metrics.InflightState {
 type attemptSlot struct {
 	once sync.Once
 	fire func(clean bool)
+	// probing, while raised, makes a settle unclean whatever verdict it
+	// carries and stops the body's EOF from settling at all. The streaming
+	// dispatch raises it for the TTFT probe, whose failure closes the body
+	// (and so settles the slot, clean from the 2xx) from the probe's own
+	// goroutine, before the dispatch could say the attempt failed; and whose
+	// success can arrive in the same read as the upstream's EOF, which must
+	// not settle either, since the verdict is only lowered afterwards (the
+	// stream's close, or its next EOF, settles clean then). It lives on the
+	// slot, not the body wrapper, because the translated dialects wrap the
+	// body again before the probe sees it.
+	probing atomic.Bool
 }
 
 // settle releases the slot. clean says the attempt completed as a consumed
@@ -270,7 +282,20 @@ func (s *attemptSlot) settle(clean bool) {
 	if s == nil {
 		return
 	}
-	s.once.Do(func() { s.fire(clean) })
+	s.once.Do(func() { s.fire(clean && !s.probing.Load()) })
+}
+
+// holdForProbe raises (or lowers) the probe hold: while raised, a settle is
+// unclean and an EOF does not settle.
+func (s *attemptSlot) holdForProbe(on bool) {
+	if s != nil {
+		s.probing.Store(on)
+	}
+}
+
+// probeHeld reports whether the probe hold is raised.
+func (s *attemptSlot) probeHeld() bool {
+	return s != nil && s.probing.Load()
 }
 
 // inflightRelease wraps an upstream body so the attempt's slot settles when
@@ -311,7 +336,7 @@ func holdSlotForVerdict(resp *http.Response) {
 
 func (b *inflightRelease) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
-	if err == io.EOF && b.onEOF {
+	if err == io.EOF && b.onEOF && !b.slot.probeHeld() {
 		b.slot.settle(b.clean)
 	}
 	return n, err
