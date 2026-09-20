@@ -41,6 +41,7 @@ describe("FailoverGroups", () => {
 				display_model: "auto-model",
 				display_name: "Auto Group",
 				auto_created: true,
+				auto_disabled: false,
 			};
 			server.use(
 				http.get("/api/failover-groups", () => {
@@ -473,24 +474,28 @@ describe("FailoverGroups", () => {
 					...mockFailoverGroup,
 					display_model: "alpha-model",
 					auto_created: true,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					id: "fg-002",
 					display_model: "beta-model",
 					auto_created: true,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					id: "fg-003",
 					display_model: "gamma-model",
 					auto_created: true,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					id: "fg-004",
 					display_model: "delta-model",
 					auto_created: true,
+					auto_disabled: false,
 				},
 			];
 
@@ -516,18 +521,21 @@ describe("FailoverGroups", () => {
 					...mockFailoverGroup,
 					display_model: "alpha-model",
 					auto_created: true,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					id: "fg-002",
 					display_model: "beta-model",
 					auto_created: true,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					id: "fg-003",
 					display_model: "gamma-model",
 					auto_created: true,
+					auto_disabled: false,
 				},
 			];
 

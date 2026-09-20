@@ -64,3 +64,22 @@ func TestDecryptStringWrongKey(t *testing.T) {
 		t.Error("expected decryption failure with wrong master key")
 	}
 }
+
+func TestDecryptStringCachedRoundTrip(t *testing.T) {
+	enc, err := EncryptString("hook-secret", testMasterKey)
+	if err != nil {
+		t.Fatalf("encrypt: %v", err)
+	}
+	for i := 0; i < 2; i++ {
+		got, err := DecryptStringCached(enc, testMasterKey)
+		if err != nil {
+			t.Fatalf("call %d: %v", i, err)
+		}
+		if got != "hook-secret" {
+			t.Errorf("call %d: got %q", i, got)
+		}
+	}
+	if got, err := DecryptStringCached("plain", testMasterKey); err != nil || got != "plain" {
+		t.Errorf("plaintext pass-through = %q, %v", got, err)
+	}
+}

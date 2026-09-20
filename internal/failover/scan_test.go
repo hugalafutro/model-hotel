@@ -121,6 +121,7 @@ func TestScanFailoverGroups_SingleRow(t *testing.T) {
 				entryEnabledJSON,   // entryEnabledJSON
 				true,               // GroupEnabled
 				false,              // AutoCreated
+				false,              // AutoDisabled
 				now,                // CreatedAt
 				now,                // UpdatedAt
 			},
@@ -195,8 +196,8 @@ func TestScanFailoverGroups_MultipleRows(t *testing.T) {
 
 	rows := &mockFailoverRows{
 		rows: [][]any{
-			{id1, "model-a", new("A"), "desc a", emptyPriority, emptyEntry, true, false, now, now},
-			{id2, "model-b", new("B"), "desc b", emptyPriority, emptyEntry, false, true, now, now},
+			{id1, "model-a", new("A"), "desc a", emptyPriority, emptyEntry, true, false, false, now, now},
+			{id2, "model-b", new("B"), "desc b", emptyPriority, emptyEntry, false, true, true, now, now},
 		},
 		scanErrOn: -1,
 	}
@@ -258,7 +259,7 @@ func TestScanFailoverGroups_ScanError(t *testing.T) {
 
 	rows := &mockFailoverRows{
 		rows: [][]any{
-			{id1, "model-a", new("A"), "desc", []byte(`[]`), []byte(`{}`), true, false, now, now},
+			{id1, "model-a", new("A"), "desc", []byte(`[]`), []byte(`{}`), true, false, false, now, now},
 		},
 		scanErrOn: 0,
 	}
@@ -291,7 +292,7 @@ func TestScanFailoverGroups_InvalidPriorityJSON(t *testing.T) {
 
 	rows := &mockFailoverRows{
 		rows: [][]any{
-			{id1, "model-a", new("A"), "desc", []byte(`{invalid`), []byte(`{}`), true, false, now, now},
+			{id1, "model-a", new("A"), "desc", []byte(`{invalid`), []byte(`{}`), true, false, false, now, now},
 		},
 		scanErrOn: -1,
 	}
@@ -319,7 +320,7 @@ func TestScanFailoverGroups_InvalidEntryEnabledJSON(t *testing.T) {
 
 	rows := &mockFailoverRows{
 		rows: [][]any{
-			{id1, "model-a", new("A"), "desc", []byte(`[]`), []byte(`{invalid`), true, false, now, now},
+			{id1, "model-a", new("A"), "desc", []byte(`[]`), []byte(`{invalid`), true, false, false, now, now},
 		},
 		scanErrOn: -1,
 	}
@@ -347,7 +348,7 @@ func TestScanFailoverGroups_NilDisplayName(t *testing.T) {
 
 	rows := &mockFailoverRows{
 		rows: [][]any{
-			{id1, "model-a", (*string)(nil), "desc", []byte(`[]`), []byte(`{}`), true, false, now, now},
+			{id1, "model-a", (*string)(nil), "desc", []byte(`[]`), []byte(`{}`), true, false, false, now, now},
 		},
 		scanErrOn: -1,
 	}
@@ -397,7 +398,7 @@ func TestScanFailoverGroups_EmptyPriorityAndEntryEnabled(t *testing.T) {
 
 	rows := &mockFailoverRows{
 		rows: [][]any{
-			{id1, "empty-group", new("Empty"), "", []byte(`[]`), []byte(`{}`), true, false, now, now},
+			{id1, "empty-group", new("Empty"), "", []byte(`[]`), []byte(`{}`), true, false, false, now, now},
 		},
 		scanErrOn: -1,
 	}
@@ -427,7 +428,7 @@ func TestScanFailoverGroups_GroupEnabledFalse(t *testing.T) {
 
 	rows := &mockFailoverRows{
 		rows: [][]any{
-			{id1, "disabled-group", new("Disabled"), "", []byte(`[]`), []byte(`{}`), false, true, now, now},
+			{id1, "disabled-group", new("Disabled"), "", []byte(`[]`), []byte(`{}`), false, true, false, now, now},
 		},
 		scanErrOn: -1,
 	}
@@ -467,7 +468,7 @@ func TestScanFailoverGroups_EntryEnabledPreservesValues(t *testing.T) {
 
 	rows := &mockFailoverRows{
 		rows: [][]any{
-			{id1, "mixed-entries", new("Mixed"), "", priorityJSON, entryEnabledJSON, true, false, now, now},
+			{id1, "mixed-entries", new("Mixed"), "", priorityJSON, entryEnabledJSON, true, false, false, now, now},
 		},
 		scanErrOn: -1,
 	}

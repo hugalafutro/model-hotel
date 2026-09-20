@@ -104,7 +104,7 @@ func TestResolveHotelModel_DisabledFailoverGroup(t *testing.T) {
 		t.Fatalf("failed to get failover group: %v", err)
 	}
 	fg.GroupEnabled = false
-	if _, err := failoverRepo.Update(context.Background(), fg.ID, fg.PriorityOrder, fg.EntryEnabled, &fg.GroupEnabled, nil, nil, nil); err != nil {
+	if _, err := failoverRepo.Update(context.Background(), fg.ID, fg.PriorityOrder, fg.EntryEnabled, &fg.GroupEnabled, false, nil, nil, nil); err != nil {
 		t.Fatalf("failed to update failover group: %v", err)
 	}
 

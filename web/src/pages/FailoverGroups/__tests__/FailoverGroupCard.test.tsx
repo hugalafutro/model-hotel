@@ -75,6 +75,7 @@ describe("FailoverGroupCard", () => {
 			const group = {
 				...mockFailoverGroup,
 				auto_created: true,
+				auto_disabled: false,
 			};
 
 			renderWithProviders(
@@ -88,6 +89,7 @@ describe("FailoverGroupCard", () => {
 			const group = {
 				...mockFailoverGroup,
 				auto_created: false,
+				auto_disabled: false,
 			};
 
 			renderWithProviders(
@@ -1083,6 +1085,7 @@ describe("FailoverGroupCard", () => {
 			const group = {
 				...mockFailoverGroup,
 				auto_created: false,
+				auto_disabled: false,
 			};
 
 			renderWithProviders(
@@ -1096,6 +1099,7 @@ describe("FailoverGroupCard", () => {
 			const group = {
 				...mockFailoverGroup,
 				auto_created: true,
+				auto_disabled: false,
 			};
 
 			renderWithProviders(
@@ -1111,6 +1115,7 @@ describe("FailoverGroupCard", () => {
 			const group = {
 				...mockFailoverGroup,
 				auto_created: false,
+				auto_disabled: false,
 			};
 
 			renderWithProviders(
@@ -1127,6 +1132,7 @@ describe("FailoverGroupCard", () => {
 			const group = {
 				...mockFailoverGroup,
 				auto_created: false,
+				auto_disabled: false,
 			};
 
 			const { user } = renderWithProviders(
@@ -1142,6 +1148,7 @@ describe("FailoverGroupCard", () => {
 			const group = {
 				...mockFailoverGroup,
 				auto_created: false,
+				auto_disabled: false,
 			};
 
 			renderWithProviders(

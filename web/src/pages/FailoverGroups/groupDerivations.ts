@@ -144,17 +144,29 @@ export function routableAfterToggle(
  * regains it, so the group state matches the backend's rule immediately
  * instead of after the next List heal. One place for the rule: the bulk
  * model toggle, the bulk provider toggle and the provider modal all send it.
+ *
+ * "Regains" is the whole of the symmetry: a group the operator switched off
+ * stays off however many members a toggle gives it. Only a group nobody chose
+ * to disable (`auto_disabled`: discovery or the floor took it down, the
+ * backend stamps which) comes back once it has two routable members again.
  */
 export function entryToggleUpdate(
 	group: FailoverGroup,
 	entryEnabledMap: Record<string, boolean>,
-): { entry_enabled: Record<string, boolean>; group_enabled?: boolean } {
+): {
+	entry_enabled: Record<string, boolean>;
+	group_enabled?: boolean;
+	floor_disabled?: boolean;
+} {
 	const routable = routableAfterToggle(group, entryEnabledMap);
 	const alsoDisableGroup = routable < 2 && group.group_enabled;
-	const alsoEnableGroup = routable >= 2 && !group.group_enabled;
+	const alsoEnableGroup =
+		routable >= 2 && !group.group_enabled && group.auto_disabled;
 	return {
 		entry_enabled: entryEnabledMap,
-		...(alsoDisableGroup ? { group_enabled: false } : {}),
+		// The cascade says so: the server stamps the disable as the floor's,
+		// not the operator's, once it has counted for itself.
+		...(alsoDisableGroup ? { group_enabled: false, floor_disabled: true } : {}),
 		...(alsoEnableGroup ? { group_enabled: true } : {}),
 	};
 }

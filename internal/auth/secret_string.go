@@ -35,6 +35,19 @@ func IsEncryptedString(s string) bool {
 // returned unchanged — it was never encrypted (empty string, or a value written
 // before encryption was introduced) — so callers can decrypt unconditionally.
 func DecryptString(stored, masterKey string) (string, error) {
+	return decryptString(stored, masterKey, Decrypt)
+}
+
+// DecryptStringCached is DecryptString through the key cache (DecryptCached):
+// the Argon2id derivation runs once per distinct stored value per TTL instead
+// of once per call. For a value read on every event or request, such as the
+// alert targets the dispatcher consults per bus event, the uncached form is
+// an 8 MiB derivation per call.
+func DecryptStringCached(stored, masterKey string) (string, error) {
+	return decryptString(stored, masterKey, DecryptCached)
+}
+
+func decryptString(stored, masterKey string, decrypt func(ciphertext, nonce, salt []byte, masterKey string) (string, error)) (string, error) {
 	if !IsEncryptedString(stored) {
 		return stored, nil
 	}
@@ -54,5 +67,5 @@ func DecryptString(stored, masterKey string) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("decode salt: %w", err)
 	}
-	return Decrypt(ciphertext, nonce, salt, masterKey)
+	return decrypt(ciphertext, nonce, salt, masterKey)
 }
