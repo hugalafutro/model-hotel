@@ -1038,3 +1038,44 @@ func TestTranslateRequest_MessageContentErrorOmitsPayload(t *testing.T) {
 		t.Errorf("error leaked the message content: %q", err)
 	}
 }
+
+func TestTranslateRequest_ForcedToolChoiceKeepsThinkingOffOnTheBudgetDialect(t *testing.T) {
+	// The budget dialect 400s with "Thinking may not be enabled when
+	// tool_choice forces tool use" (live on claude-haiku-4-5 and
+	// claude-opus-4-5, 2026-09-20); the adaptive dialect accepts the pair.
+	tests := []struct {
+		name         string
+		toolChoice   string
+		dialect      ThinkingDialect
+		wantThinking bool
+	}{
+		{name: "budget + required", toolChoice: `"required"`, dialect: ThinkingBudget, wantThinking: false},
+		{name: "budget + named function", toolChoice: `{"type":"function","function":{"name":"f"}}`, dialect: ThinkingBudget, wantThinking: false},
+		{name: "budget + auto", toolChoice: `"auto"`, dialect: ThinkingBudget, wantThinking: true},
+		{name: "budget + absent", toolChoice: "", dialect: ThinkingBudget, wantThinking: true},
+		{name: "adaptive + required", toolChoice: `"required"`, dialect: ThinkingAdaptive, wantThinking: true},
+		{name: "adaptive + named function", toolChoice: `{"type":"function","function":{"name":"f"}}`, dialect: ThinkingAdaptive, wantThinking: true},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			body := `{"model":"m","messages":[{"role":"user","content":"hi"}],"temperature":0.5,
+				"reasoning_effort":"low","tools":[{"type":"function","function":{"name":"f","parameters":{"type":"object"}}}]`
+			if tt.toolChoice != "" {
+				body += `,"tool_choice":` + tt.toolChoice
+			}
+			req := translateWith(t, body+"}", tt.dialect)
+			if got := req.Thinking != nil; got != tt.wantThinking {
+				t.Fatalf("thinking present = %v, want %v (thinking=%+v)", got, tt.wantThinking, req.Thinking)
+			}
+			if !tt.wantThinking && req.Temperature == nil {
+				t.Error("temperature dropped although thinking stayed off")
+			}
+			if req.ToolChoice == nil {
+				if tt.toolChoice != "" {
+					t.Error("tool_choice dropped")
+				}
+				return
+			}
+		})
+	}
+}

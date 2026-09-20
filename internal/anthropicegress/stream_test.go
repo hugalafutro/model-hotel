@@ -626,3 +626,50 @@ func TestStreamTranslator_PingAfterDoneEmitsNothing(t *testing.T) {
 		t.Errorf("ping after [DONE] emitted %q, want nothing", out)
 	}
 }
+
+func TestStreamTranslator_ZeroArgumentToolClosesWithEmptyObject(t *testing.T) {
+	// Anthropic streams a zero-argument tool call as a header with input:{},
+	// one empty partial_json and the block stop (observed live 2026-09-20).
+	// The concatenated OpenAI arguments must parse, so the stop emits "{}".
+	tr := NewStreamTranslator("chatcmpl-12", "m", 1)
+	out := feed(t, tr,
+		`{"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_a","name":"get_time","input":{}}}`,
+		`{"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":""}}`,
+		`{"type":"content_block_stop","index":0}`,
+	)
+	chunks, _ := parseChunks(t, out)
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %d, want header + arguments:\n%s", len(chunks), out)
+	}
+	var args string
+	for _, c := range chunks {
+		for _, tc := range c.Choices[0].Delta.ToolCalls {
+			if tc.Index != 0 {
+				t.Errorf("tool call index = %d, want 0", tc.Index)
+			}
+			args += tc.Function.Arguments
+		}
+	}
+	if args != "{}" {
+		t.Errorf("concatenated arguments = %q, want {}", args)
+	}
+}
+
+func TestStreamTranslator_ToolWithArgumentsGetsNothingAtStop(t *testing.T) {
+	// A block that streamed its arguments must not gain a trailing "{}": the
+	// concatenation would become `{"a":1}{}` and fail to parse.
+	tr := NewStreamTranslator("chatcmpl-13", "m", 1)
+	out := feed(t, tr,
+		`{"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_b","name":"f","input":{}}}`,
+		`{"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"a\":1}"}}`,
+		`{"type":"content_block_stop","index":1}`,
+		`{"type":"content_block_stop","index":0}`,
+	)
+	chunks, _ := parseChunks(t, out)
+	if len(chunks) != 2 {
+		t.Fatalf("chunks = %d, want header + one arguments fragment:\n%s", len(chunks), out)
+	}
+	if got := chunks[1].Choices[0].Delta.ToolCalls[0].Function.Arguments; got != `{"a":1}` {
+		t.Errorf("arguments = %q, want the streamed fragment alone", got)
+	}
+}

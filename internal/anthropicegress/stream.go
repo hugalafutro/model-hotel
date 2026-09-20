@@ -105,6 +105,14 @@ type StreamTranslator struct {
 	// 0 and 1.
 	toolIndexByBlock map[int]int
 	toolCalls        int
+	// toolArgsSeen records which tool blocks streamed a non-empty arguments
+	// fragment. Anthropic opens every tool_use block with input:{} and, for a
+	// zero-argument tool, sends only an empty partial_json before the block
+	// stops (observed live 2026-09-20: header chunk with arguments "" and
+	// nothing after it). The OpenAI contract is that the concatenated
+	// fragments parse as JSON, and "" does not, so a block that closes with no
+	// fragment gets "{}" at content_block_stop.
+	toolArgsSeen map[int]bool
 }
 
 // NewStreamTranslator builds a translator for one response. id, model and
@@ -114,6 +122,7 @@ func NewStreamTranslator(id, model string, created int64) *StreamTranslator {
 	return &StreamTranslator{
 		w:                egress.ChunkWriter{Component: "anthropicegress", ID: id, Model: model, Created: created},
 		toolIndexByBlock: map[int]int{},
+		toolArgsSeen:     map[int]bool{},
 	}
 }
 
@@ -160,6 +169,10 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 		if err := t.blockDelta(&buf, ev); err != nil {
 			return nil, err
 		}
+	case "content_block_stop":
+		if err := t.stopBlock(&buf, ev); err != nil {
+			return nil, err
+		}
 	case "message_delta":
 		if ev.Delta != nil && ev.Delta.StopReason != "" {
 			t.stopReason = ev.Delta.StopReason
@@ -185,9 +198,24 @@ func (t *StreamTranslator) Translate(payload []byte) ([]byte, error) {
 		// ignored by every SSE client, so nothing reaches the caller as a chunk.
 		buf.WriteString(": ping\n\n")
 	}
-	// content_block_stop and any unrecognised event type carry nothing a
-	// chat.completion.chunk stream represents.
+	// Any unrecognised event type carries nothing a chat.completion.chunk
+	// stream represents.
 	return buf.Bytes(), nil
+}
+
+// stopBlock handles content_block_stop. It matters for one block only: a
+// tool_use block that streamed no arguments fragment closes with "{}" so the
+// client's concatenated arguments parse (see toolArgsSeen).
+func (t *StreamTranslator) stopBlock(buf *bytes.Buffer, ev antEvent) error {
+	oaIndex, isTool := t.toolIndexByBlock[ev.Index]
+	if !isTool || t.toolArgsSeen[ev.Index] {
+		return nil
+	}
+	t.toolArgsSeen[ev.Index] = true
+	return t.writeChunk(buf, chunkDelta{ToolCalls: []chunkToolCall{{
+		Index:    oaIndex,
+		Function: chunkToolFunction{Arguments: "{}"},
+	}}}, nil, nil)
 }
 
 // startBlock handles content_block_start. Only tool_use blocks open anything on
@@ -239,6 +267,7 @@ func (t *StreamTranslator) blockDelta(buf *bytes.Buffer, ev antEvent) error {
 			// arguments, so the stream fails instead.
 			return errors.New("anthropicegress: tool arguments for an unopened content block")
 		}
+		t.toolArgsSeen[ev.Index] = true
 		delta.ToolCalls = []chunkToolCall{{
 			Index:    oaIndex,
 			Function: chunkToolFunction{Arguments: ev.Delta.PartialJSON},

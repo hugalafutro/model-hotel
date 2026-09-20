@@ -340,6 +340,9 @@ func TestLearnAndRebuildMessages400_DecidesWhatIsWorthRetrying(t *testing.T) {
 
 	const thinkingBody = `{"model":"m","reasoning_effort":"high","messages":[{"role":"user","content":"hi"}]}`
 	const plainBody = `{"model":"m","temperature":0.7,"messages":[{"role":"user","content":"hi"}]}`
+	const forcedToolThinkingBody = `{"model":"m","reasoning_effort":"high","tool_choice":"required",` +
+		`"tools":[{"type":"function","function":{"name":"f","parameters":{"type":"object"}}}],` +
+		`"messages":[{"role":"user","content":"hi"}]}`
 
 	tests := []struct {
 		name         string
@@ -352,6 +355,15 @@ func TestLearnAndRebuildMessages400_DecidesWhatIsWorthRetrying(t *testing.T) {
 			name:         "dialect complaint on a thinking request is retried",
 			providerType: "anthropic-messages",
 			chatBody:     thinkingBody,
+			errBody:      `{"type":"error","error":{"type":"invalid_request_error","message":"adaptive thinking is not supported on this model"}}`,
+			wantOK:       true,
+		},
+		{
+			// The budget rebuild drops thinking under a forced tool_choice, so the
+			// re-issued body differs from the refused one and is worth sending.
+			name:         "dialect complaint on a forced-tool thinking request is retried",
+			providerType: "anthropic-messages",
+			chatBody:     forcedToolThinkingBody,
 			errBody:      `{"type":"error","error":{"type":"invalid_request_error","message":"adaptive thinking is not supported on this model"}}`,
 			wantOK:       true,
 		},
@@ -402,7 +414,12 @@ func TestLearnAndRebuildMessages400_DecidesWhatIsWorthRetrying(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			st, cand := probeStateForServer("http://unused.example")
 			st.bodyBytes = []byte(tt.chatBody)
-			st.lastMessagesBody = []byte(`{"previous":true}`)
+			// The body the refused attempt sent: what the rebuild is compared to.
+			previous, _, _, err := h.anthropicEgressBody(st, cand, tt.providerType, anthropicegress.ThinkingAdaptive)
+			if err != nil {
+				t.Fatalf("translate the refused body: %v", err)
+			}
+			st.lastMessagesBody = previous
 			// A fresh provider per case, so one case's learned facts cannot leak
 			// into the next through the shared handler caches.
 			cand.provider.ID = uuid.New()
