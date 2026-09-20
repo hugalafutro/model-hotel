@@ -1220,7 +1220,8 @@
 			"tokens": "Tokens",
 			"lastUsed": "Laatst gebruikt",
 			"keys": "sleutels",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "sleutel"
 		},
 		"tooltip": {
 			"proxyUrl": "Klik om de proxy-URL te kopiëren",
@@ -1418,7 +1419,8 @@
 			"scrollLoadFailed": "Laden van logboeken mislukt: {{message}}"
 		},
 		"pagination": {
-			"label": "vermeldingen"
+			"label": "vermeldingen",
+			"labelOne": "vermelding"
 		},
 		"loading": {
 			"newer": "↻ Nieuwere laden…",
@@ -1461,7 +1463,8 @@
 			"scrollLoadFailed": "Laden van logboeken mislukt: {{message}}"
 		},
 		"pagination": {
-			"label": "vermeldingen"
+			"label": "vermeldingen",
+			"labelOne": "vermelding"
 		},
 		"loading": {
 			"newer": "↻ Nieuwere laden…",
@@ -2566,7 +2569,8 @@
 			"deleteDisabledAria_other": "Verwijder {{count}} uitgeschakelde modellen",
 			"deleteDisabledMessage_one": "Dit zal {{count}} uitgeschakeld model permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
 			"deleteDisabledMessage_other": "Dit zal {{count}} uitgeschakelde modellen permanent verwijderen. Als autodiscovery is ingeschakeld bij hun provider, worden ze opnieuw ontdekt bij de volgende cyclus. Schakel autodiscovery uit bij de provider om dit te voorkomen.",
-			"clickToCopyId": "Klik om model-ID te kopiëren"
+			"clickToCopyId": "Klik om model-ID te kopiëren",
+			"modelOne": "model"
 		},
 		"virtualModelTable": {
 			"searchModels": "Zoek modellen…",

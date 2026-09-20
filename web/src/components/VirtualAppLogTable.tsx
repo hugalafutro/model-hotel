@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { AppLogEntry } from "../api/types";
 import { useVirtualRows } from "../hooks/useVirtualRows";
+import { onActivateKey } from "../utils/a11y";
 import {
 	formatLogTimestamp,
 	getLevelBadgeVariant,
@@ -99,12 +100,17 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 						<thead className="sticky top-0 z-10">
 							<tr>
 								<th
-									className={`${HEADER_BASE} cursor-pointer`}
-									onClick={onSortToggle}
+									className={HEADER_BASE}
 									title={t("components.virtualAppLogTable.timeDate")}
 								>
-									{t("components.virtualAppLogTable.timeDate")}{" "}
-									{sortDir === "desc" ? "↓" : "↑"}
+									<button
+										type="button"
+										className="cursor-pointer"
+										onClick={onSortToggle}
+									>
+										{t("components.virtualAppLogTable.timeDate")}{" "}
+										{sortDir === "desc" ? "↓" : "↑"}
+									</button>
 								</th>
 								<th
 									className={HEADER_BASE}
@@ -146,7 +152,9 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 									data-index={vItem.index}
 									ref={virtualizer.measureElement}
 									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} cursor-pointer`}
+									tabIndex={0}
 									onClick={() => onRowClick(entry)}
+									onKeyDown={onActivateKey(() => onRowClick(entry))}
 								>
 									<td className="px-2 py-1 align-middle whitespace-nowrap text-xs text-gray-400">
 										{formatLogTimestamp(entry.timestamp)}

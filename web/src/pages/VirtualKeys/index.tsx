@@ -206,6 +206,7 @@ export function VirtualKeys() {
 								setCurrentPage(1);
 							}}
 							label={t("virtualkeys.table.keys")}
+							labelOne={t("virtualkeys.table.keyOne")}
 						/>
 					)}
 				</div>

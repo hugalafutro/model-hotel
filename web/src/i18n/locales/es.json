@@ -1267,7 +1267,8 @@
 			"tokens": "Tokens",
 			"lastUsed": "Último uso",
 			"keys": "claves",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "clave"
 		},
 		"tooltip": {
 			"proxyUrl": "Haga clic para copiar la URL del proxy",
@@ -1465,7 +1466,8 @@
 			"scrollLoadFailed": "Error al cargar los registros: {{message}}"
 		},
 		"pagination": {
-			"label": "entradas"
+			"label": "entradas",
+			"labelOne": "entrada"
 		},
 		"loading": {
 			"newer": "↻ Cargando más recientes…",
@@ -1508,7 +1510,8 @@
 			"scrollLoadFailed": "Error al cargar los registros: {{message}}"
 		},
 		"pagination": {
-			"label": "entradas"
+			"label": "entradas",
+			"labelOne": "entrada"
 		},
 		"loading": {
 			"newer": "↻ Cargando más recientes…",
@@ -2626,7 +2629,8 @@
 			"deleteDisabledMessage_one": "Esto eliminará permanentemente el modelo {{count}} desactivado. Si el autodescubrimiento está activado en su proveedor, será re-descubierto en el siguiente ciclo. Desactivar el autodescubrimiento en el proveedor para evitar esto.",
 			"deleteDisabledMessage_many": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
 			"deleteDisabledMessage_other": "Esto eliminará permanentemente los modelos deshabilitados {{count}} . Si el autodescubrimiento está activado en su proveedor, serán redescubiertos en el siguiente ciclo. Deshabilita el autodescubrimiento en el proveedor para evitarlo.",
-			"clickToCopyId": "Haga clic para copiar el ID del modelo"
+			"clickToCopyId": "Haga clic para copiar el ID del modelo",
+			"modelOne": "modelo"
 		},
 		"virtualModelTable": {
 			"searchModels": "Buscar modelos…",

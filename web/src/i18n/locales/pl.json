@@ -1314,7 +1314,8 @@
 			"tokens": "Tokeny",
 			"lastUsed": "Ostatnio używane",
 			"keys": "klucze",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "klucz"
 		},
 		"tooltip": {
 			"proxyUrl": "Kliknij aby skopiować adres URL proxy",
@@ -1512,7 +1513,8 @@
 			"scrollLoadFailed": "Nie udało się załadować logów: {{message}}"
 		},
 		"pagination": {
-			"label": "wpisy"
+			"label": "wpisy",
+			"labelOne": "wpis"
 		},
 		"loading": {
 			"newer": "↻ Ładowanie nowszych…",
@@ -1555,7 +1557,8 @@
 			"scrollLoadFailed": "Nie udało się załadować logów: {{message}}"
 		},
 		"pagination": {
-			"label": "wpisy"
+			"label": "wpisy",
+			"labelOne": "wpis"
 		},
 		"loading": {
 			"newer": "↻ Ładowanie nowszych…",
@@ -2686,7 +2689,8 @@
 			"deleteDisabledMessage_few": "Spowoduje to trwałe usunięcie {{count}} wyłączonych modeli. Jeśli u ich dostawcy włączone jest automatyczne wykrywanie, zostaną one ponownie wykryte w następnym cyklu. Wyłącz automatyczne wykrywanie u dostawcy, aby temu zapobiec.",
 			"deleteDisabledMessage_many": "Spowoduje to trwałe usunięcie {{count}} wyłączonych modeli. Jeśli u ich dostawcy włączone jest automatyczne wykrywanie, zostaną one ponownie wykryte w następnym cyklu. Wyłącz automatyczne wykrywanie u dostawcy, aby temu zapobiec.",
 			"deleteDisabledMessage_other": "Spowoduje to trwałe usunięcie {{count}} wyłączonego modelu. Jeśli u ich dostawcy włączone jest automatyczne wykrywanie, zostanie on ponownie wykryty w następnym cyklu. Wyłącz automatyczne wykrywanie u dostawcy, aby temu zapobiec.",
-			"clickToCopyId": "Kliknij, aby skopiować identyfikator modelu"
+			"clickToCopyId": "Kliknij, aby skopiować identyfikator modelu",
+			"modelOne": "model"
 		},
 		"virtualModelTable": {
 			"searchModels": "Szukaj modeli…",

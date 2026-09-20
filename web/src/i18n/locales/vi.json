@@ -1220,7 +1220,8 @@
 			"tokens": "Token",
 			"lastUsed": "Lần sử dụng gần nhất",
 			"keys": "khóa",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "khóa"
 		},
 		"tooltip": {
 			"proxyUrl": "Nhấp vào đây để sao chép URL proxy",
@@ -1418,7 +1419,8 @@
 			"scrollLoadFailed": "Không thể tải nhật ký: {{message}}"
 		},
 		"pagination": {
-			"label": "các mục"
+			"label": "các mục",
+			"labelOne": "mục"
 		},
 		"loading": {
 			"newer": "↻ Đang tải phiên bản mới hơn…",
@@ -1461,7 +1463,8 @@
 			"scrollLoadFailed": "Không thể tải nhật ký: {{message}}"
 		},
 		"pagination": {
-			"label": "các mục"
+			"label": "các mục",
+			"labelOne": "mục"
 		},
 		"loading": {
 			"newer": "↻ Đang tải phiên bản mới hơn…",
@@ -2566,7 +2569,8 @@
 			"deleteDisabledAria_other": "Xóa {{count}} mô hình đã tắt",
 			"deleteDisabledMessage_one": "Thao tác này sẽ xóa vĩnh viễn {{count}} mô hình đã tắt. Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của chúng, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Hãy tắt tự động phát hiện trên nhà cung cấp để ngăn điều này.",
 			"deleteDisabledMessage_other": "Thao tác này sẽ xóa vĩnh viễn {{count}} mô hình đã tắt. Nếu tính năng tự động phát hiện được bật trên nhà cung cấp của chúng, các mô hình này sẽ được phát hiện lại trong chu kỳ tiếp theo. Hãy tắt tự động phát hiện trên nhà cung cấp để ngăn điều này.",
-			"clickToCopyId": "Nhấp để sao chép ID mô hình"
+			"clickToCopyId": "Nhấp để sao chép ID mô hình",
+			"modelOne": "mô hình"
 		},
 		"virtualModelTable": {
 			"searchModels": "Tìm kiếm mô hình…",

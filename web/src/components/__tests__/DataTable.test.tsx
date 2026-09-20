@@ -376,7 +376,7 @@ describe("Row", () => {
 		expect(onClick).toHaveBeenCalledTimes(1);
 	});
 
-	it("has button role and tabIndex when onClick is provided", () => {
+	it("is keyboard reachable without leaving the table's row role when onClick is provided", () => {
 		render(
 			<table>
 				<tbody>
@@ -387,7 +387,9 @@ describe("Row", () => {
 			</table>,
 		);
 		const row = screen.getByText("Clickable").parentElement as HTMLElement;
-		expect(row).toHaveAttribute("role", "button");
+		// role="button" would take the row out of the table's accessibility
+		// tree; the row stays a row and gains a tab stop and a key handler.
+		expect(row).not.toHaveAttribute("role");
 		expect(row).toHaveAttribute("tabIndex", "0");
 	});
 });
@@ -672,6 +674,7 @@ describe("PaginationBar", () => {
 				onPageChange={onPageChange}
 				onPageSizeChange={onPageSizeChange}
 				label="items"
+				labelOne="item"
 			/>,
 		);
 		expect(screen.getByText("1 item")).toBeInTheDocument();

@@ -20,10 +20,14 @@ export function SortableTh({
 	return (
 		<th
 			className={`${MODEL_HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
-			onClick={() => onSort(field)}
 			title={label}
 		>
-			<button type="button" className="" aria-label={ariaLabel}>
+			<button
+				type="button"
+				className=""
+				aria-label={ariaLabel}
+				onClick={() => onSort(field)}
+			>
 				{label}{" "}
 				<span className="inline-block w-3 text-center">
 					{sort.field === field ? (sort.dir === "asc" ? "↑" : "↓") : " "}

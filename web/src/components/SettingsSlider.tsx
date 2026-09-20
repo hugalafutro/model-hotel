@@ -142,18 +142,20 @@ export function SettingsSlider({
 		[handleSliderCommit],
 	);
 
+	// The number box keeps the text as typed until it is left: clamping each
+	// keystroke rewrote "1" as the minimum and "12" as ten times that, so a
+	// value below the first digit's clamp could never be typed at all.
+	const [draft, setDraft] = useState<string | null>(null);
 	const handleNumberChange = useCallback(
 		(e: React.ChangeEvent<HTMLInputElement>) => {
-			const raw = Number(e.target.value);
-			if (Number.isNaN(raw)) return;
-			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
-			setLocal(clamp(clamped));
+			setDraft(e.target.value);
 		},
-		[clamp, clampStep],
+		[],
 	);
 
 	const handleNumberBlur = useCallback(
 		(e: React.FocusEvent<HTMLInputElement>) => {
+			setDraft(null);
 			// A forced blur (the enclosing fieldset went managed while the number
 			// had focus) discards the draft instead of committing it: the key is
 			// fleet-owned now and the field must show the fleet value.
@@ -161,10 +163,15 @@ export function SettingsSlider({
 				setLocal(committed.current);
 				return;
 			}
-			const clamped = clampStep ? clampToStep(local, clampStep) : local;
+			const raw = draft === null ? local : Number(draft);
+			if (draft === "" || Number.isNaN(raw)) {
+				setLocal(committed.current);
+				return;
+			}
+			const clamped = clampStep ? clampToStep(raw, clampStep) : raw;
 			commit(clamp(clamped));
 		},
-		[local, clamp, commit, clampStep],
+		[draft, local, clamp, commit, clampStep],
 	);
 
 	const handleNumberKeyDown = useCallback(
@@ -258,7 +265,7 @@ export function SettingsSlider({
 					) : (
 						<input
 							type="number"
-							value={local}
+							value={draft ?? local}
 							min={min}
 							max={max}
 							step={effStep}

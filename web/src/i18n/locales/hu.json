@@ -1220,7 +1220,8 @@
 			"tokens": "Tokenek",
 			"lastUsed": "Utoljára használt",
 			"keys": "kulcs",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "kulcs"
 		},
 		"tooltip": {
 			"proxyUrl": "Kattintson a proxy URL másolásához",
@@ -1418,7 +1419,8 @@
 			"scrollLoadFailed": "A naplófájlok betöltése nem sikerült: {{message}}"
 		},
 		"pagination": {
-			"label": "bejegyzések"
+			"label": "bejegyzések",
+			"labelOne": "bejegyzés"
 		},
 		"loading": {
 			"newer": "↻ Újabb bejegyzések betöltése…",
@@ -1461,7 +1463,8 @@
 			"scrollLoadFailed": "A naplófájlok betöltése nem sikerült: {{message}}"
 		},
 		"pagination": {
-			"label": "bejegyzések"
+			"label": "bejegyzések",
+			"labelOne": "bejegyzés"
 		},
 		"loading": {
 			"newer": "↻ Újabb bejegyzések betöltése…",
@@ -2566,7 +2569,8 @@
 			"deleteDisabledAria_other": "Törlés {{count}} letiltott modellek",
 			"deleteDisabledMessage_one": "Ezzel véglegesen törlődik a {{count}} letiltott modell. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a következő ciklusban a rendszer újra felismeri őket. Ennek megakadályozásához tiltsa le az automatikus felismerést a szolgáltatón.",
 			"deleteDisabledMessage_other": "Ezzel véglegesen törli a {{count}} letiltott modellt. Ha a szolgáltatónál engedélyezve van az automatikus felismerés, a modellek a következő ciklusban újra felismerésre kerülnek. Ennek elkerüléséhez tiltsa le az automatikus felismerést a szolgáltatón.",
-			"clickToCopyId": "Kattintson a modellazonosító másolásához"
+			"clickToCopyId": "Kattintson a modellazonosító másolásához",
+			"modelOne": "modell"
 		},
 		"virtualModelTable": {
 			"searchModels": "Modellek keresése:…",

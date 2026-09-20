@@ -311,6 +311,7 @@ export function ModelTable({
 								setCurrentPage(1);
 							}}
 							label={t("components.modelTable.models")}
+							labelOne={t("components.modelTable.modelOne")}
 						/>
 					)}
 				</div>

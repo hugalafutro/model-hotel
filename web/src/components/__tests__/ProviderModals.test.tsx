@@ -80,6 +80,19 @@ describe("NanoGPTQuotaModal", () => {
 			expect(heading).toBeInTheDocument();
 		});
 
+		it("scales the daily bars from the percent the API sends", () => {
+			// percentUsed is already a percent (10 = 10%); scaling it again
+			// painted a full red bar at 10% used. The bars open in "remaining"
+			// mode, so 10% used is a 90% fill.
+			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
+			expect(screen.getByTestId("nanogpt-daily-images-fill")).toHaveStyle({
+				width: "90%",
+			});
+			expect(screen.getByTestId("nanogpt-daily-input-tokens-fill")).toHaveStyle(
+				{ width: "75%" },
+			);
+		});
+
 		it("renders active status indicator", () => {
 			renderWithProviders(<NanoGPTQuotaModal {...defaultProps} />);
 			expect(screen.getByText("Active")).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import type { Ref } from "react";
 import { useTranslation } from "react-i18next";
 import type { Model } from "../../api/types";
+import { onActivateKey } from "../../utils/a11y";
 import {
 	formatDate,
 	formatNumber,
@@ -36,7 +37,9 @@ export function ModelRow({
 			data-index={index}
 			ref={measureRef}
 			className={`hover:bg-(--surface-hover) ${index % 2 === 1 ? "ui-row-even" : ""} ${onClick ? "cursor-pointer" : ""}`}
+			tabIndex={onClick ? 0 : undefined}
 			onClick={() => onClick?.(model)}
+			onKeyDown={onClick ? onActivateKey(() => onClick(model)) : undefined}
 		>
 			<td className="px-4 py-1.5">
 				<div className="flex flex-col">

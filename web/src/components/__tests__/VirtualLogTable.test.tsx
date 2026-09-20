@@ -177,6 +177,37 @@ describe("VirtualLogTable", () => {
 			expect(screen.getByText("3.0s")).toBeInTheDocument();
 		});
 
+		it("opens a row and flips the sort from the keyboard", async () => {
+			const onRowClick = vi.fn();
+			const onSortToggle = vi.fn();
+			const entries = [createLogTableEntry({ id: "log-123" })];
+			mockGetVirtualItems.mockReturnValue([
+				{ index: 0, key: "log-123", start: 0, end: 29 },
+			]);
+			mockGetTotalSize.mockReturnValue(29);
+
+			const { user } = renderWithProviders(
+				<VirtualLogTable
+					{...defaultProps}
+					entries={entries}
+					onRowClick={onRowClick}
+					onSortToggle={onSortToggle}
+				/>,
+			);
+
+			const row = screen.getByText("Test Provider").closest("tr");
+			if (!row) throw new Error("row not rendered");
+			expect(row).toHaveAttribute("tabIndex", "0");
+			row.focus();
+			await user.keyboard("{Enter}");
+			expect(onRowClick).toHaveBeenCalledWith(entries[0]);
+
+			const sort = screen.getByRole("button", { name: /Time\/Date/ });
+			sort.focus();
+			await user.keyboard("{Enter}");
+			expect(onSortToggle).toHaveBeenCalledTimes(1);
+		});
+
 		it("calls onRowClick with correct entry when row is clicked", async () => {
 			const onRowClick = vi.fn();
 			const entries = [createLogTableEntry({ id: "log-123" })];

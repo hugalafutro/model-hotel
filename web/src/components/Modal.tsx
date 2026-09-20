@@ -73,6 +73,10 @@ const ARROW_KEY_OWNERS = [
 	"[role='textbox']",
 ].join(", ");
 
+/** What Tab can land on inside the dialog. */
+const FOCUSABLE_SELECTOR =
+	'a[href], button, input, select, textarea, [tabindex]:not([tabindex="-1"])';
+
 export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	{
 		title,
@@ -113,9 +117,42 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 		return () => cancelAnimationFrame(id);
 	}, []);
 
-	// Focus the dialog for keyboard accessibility after fade-in starts
+	// Focus the dialog for keyboard accessibility after fade-in starts, and
+	// hand focus back to whatever opened it when it unmounts: aria-modal says
+	// the rest of the page is inert, so a keyboard user must not be dropped on
+	// <body> and made to start over from the top.
 	useEffect(() => {
+		const opener = document.activeElement;
 		dialogRef.current?.focus();
+		return () => {
+			if (opener instanceof HTMLElement && opener.isConnected) opener.focus();
+		};
+	}, []);
+
+	// Tab stays inside the dialog: the page behind the portal is still in the
+	// tab order, and a Tab past the last control would otherwise land on the
+	// sidebar, where Enter navigates with the dialog still open.
+	const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
+		if (e.key !== "Tab") return;
+		const root = dialogRef.current;
+		if (!root) return;
+		const focusables = Array.from(
+			root.querySelectorAll<HTMLElement>(FOCUSABLE_SELECTOR),
+		).filter((el) => !el.hasAttribute("disabled"));
+		if (focusables.length === 0) {
+			e.preventDefault();
+			return;
+		}
+		const first = focusables[0];
+		const last = focusables[focusables.length - 1];
+		const active = document.activeElement;
+		if (e.shiftKey && (active === first || active === root)) {
+			e.preventDefault();
+			last.focus();
+		} else if (!e.shiftKey && active === last) {
+			e.preventDefault();
+			first.focus();
+		}
 	}, []);
 
 	const handleClose = useCallback(() => {
@@ -273,6 +310,7 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 				transition: `opacity ${FADE_DURATION}ms ease`,
 			}}
 			onTransitionEnd={handleTransitionEnd}
+			onKeyDown={handleTabKey}
 		>
 			<button
 				type="button"
