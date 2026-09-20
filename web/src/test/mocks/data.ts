@@ -71,6 +71,7 @@ export const mockModel: Model = {
 	enabled: true,
 	disabled_manually: false,
 	price_customized: false,
+	limits_customized: false,
 	price_sources: {
 		input: "provider",
 		cache_hit: "modelsdev",

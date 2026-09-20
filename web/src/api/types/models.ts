@@ -43,7 +43,7 @@ export interface Model {
 	price_customized: boolean;
 	/** context_length / max_output_tokens were edited by an operator and survive
 	 * discovery until an explicit limits_customized=false unpins them. */
-	limits_customized?: boolean;
+	limits_customized: boolean;
 	/**
 	 * Where each stored price came from, keyed by price field; a key is absent
 	 * when that price is unset or was stored before sources were recorded.

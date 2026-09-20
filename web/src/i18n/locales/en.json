@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Reset to source",
 			"searchPrice": "Search Price",
 			"perThousandSearches": "/1K searches",
-			"testSuccessRanked": "Success | Ranked results: {{count}}{{ttftPart}} | Duration: {{duration}}s"
+			"testSuccessRanked": "Success | Ranked results: {{count}}{{ttftPart}} | Duration: {{duration}}s",
+			"limitsPinned": "Context and output limits pinned by operator"
 		},
 		"table": {
 			"sortByModelName": "Sort by model name",

@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Terugzetten naar bron",
 			"searchPrice": "Zoekprijs",
 			"perThousandSearches": "/1K zoekopdrachten",
-			"testSuccessRanked": "Succes | Gerangschikte resultaten: {{count}}{{ttftPart}} | Duur: {{duration}}s"
+			"testSuccessRanked": "Succes | Gerangschikte resultaten: {{count}}{{ttftPart}} | Duur: {{duration}}s",
+			"limitsPinned": "Context- en uitvoerlimieten vastgezet door de beheerder"
 		},
 		"table": {
 			"sortByModelName": "Sorteren op modelnaam",

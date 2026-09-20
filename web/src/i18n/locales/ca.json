@@ -1083,7 +1083,8 @@
 			"resetPricesToSource": "Restableix a l'origen",
 			"searchPrice": "Preu per cerca",
 			"perThousandSearches": "/1K cerques",
-			"testSuccessRanked": "Èxit | Resultats classificats: {{count}}{{ttftPart}} | Durada: {{duration}}s"
+			"testSuccessRanked": "Èxit | Resultats classificats: {{count}}{{ttftPart}} | Durada: {{duration}}s",
+			"limitsPinned": "Límits de context i de sortida fixats per l'operador"
 		},
 		"table": {
 			"sortByModelName": "Ordena per nom del model",

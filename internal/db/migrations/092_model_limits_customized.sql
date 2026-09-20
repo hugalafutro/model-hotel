@@ -5,4 +5,9 @@
 -- while prices had price_customized. Set by any limit edit, honoured by the
 -- upsert the way price_customized is, cleared (with the limits nulled so the
 -- next scan refills them) by an explicit limits_customized=false.
+--
+-- Not retroactive: nothing records which stored limits were operator edits
+-- before this column existed, so they start unpinned and the first scan after
+-- the upgrade treats them as it did before. An operator re-enters a limit
+-- once to pin it.
 ALTER TABLE models ADD COLUMN IF NOT EXISTS limits_customized BOOLEAN NOT NULL DEFAULT false;

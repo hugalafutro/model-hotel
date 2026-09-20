@@ -1083,7 +1083,8 @@
 			"resetPricesToSource": "איפוס למקור",
 			"searchPrice": "מחיר חיפוש",
 			"perThousandSearches": "/1K חיפושים",
-			"testSuccessRanked": "הצלחה | תוצאות מדורגות: {{count}}{{ttftPart}} | משך: {{duration}}שניות"
+			"testSuccessRanked": "הצלחה | תוצאות מדורגות: {{count}}{{ttftPart}} | משך: {{duration}}שניות",
+			"limitsPinned": "מגבלות ההקשר והפלט הוצמדו על ידי המפעיל"
 		},
 		"table": {
 			"sortByModelName": "מיין לפי שם הדגם",
