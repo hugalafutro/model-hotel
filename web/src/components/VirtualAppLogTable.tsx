@@ -102,6 +102,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 								<th
 									className={HEADER_BASE}
 									title={t("components.virtualAppLogTable.timeDate")}
+									aria-sort={sortDir === "desc" ? "descending" : "ascending"}
 								>
 									<button
 										type="button"

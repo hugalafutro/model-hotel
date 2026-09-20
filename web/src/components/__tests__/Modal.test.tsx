@@ -84,13 +84,14 @@ describe("Modal", () => {
 		const dialog = screen.getByRole("dialog");
 		expect(dialog).toHaveFocus();
 
+		// Tab from the dialog's last control wraps to its first.
+		const focusables = dialog.querySelectorAll<HTMLElement>("button");
 		screen.getByRole("button", { name: "last" }).focus();
 		await user.tab();
-		expect(dialog.contains(document.activeElement)).toBe(true);
+		expect(document.activeElement).toBe(focusables[0]);
 		expect(document.activeElement).not.toBe(opener);
 
 		// Shift+Tab from the dialog's first control wraps to its last.
-		const focusables = dialog.querySelectorAll<HTMLElement>("button");
 		focusables[0].focus();
 		await user.tab({ shift: true });
 		expect(document.activeElement).toBe(focusables[focusables.length - 1]);

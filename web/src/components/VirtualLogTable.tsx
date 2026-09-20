@@ -100,7 +100,11 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					{entries.length > 0 && (
 						<thead className="sticky top-0 z-10">
 							<tr>
-								<th className={HEADER_BASE} title={t("logs.table.timeDate")}>
+								<th
+									className={HEADER_BASE}
+									title={t("logs.table.timeDate")}
+									aria-sort={sortDir === "desc" ? "descending" : "ascending"}
+								>
 									<button
 										type="button"
 										className="cursor-pointer"

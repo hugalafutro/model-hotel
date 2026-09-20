@@ -133,7 +133,8 @@ export const Modal = forwardRef<ModalHandle, ModalProps>(function Modal(
 	// tab order, and a Tab past the last control would otherwise land on the
 	// sidebar, where Enter navigates with the dialog still open.
 	const handleTabKey = useCallback((e: React.KeyboardEvent<HTMLDivElement>) => {
-		if (e.key !== "Tab") return;
+		// A modified Tab (Ctrl/Cmd+Tab switches browser tabs) is not ours.
+		if (e.key !== "Tab" || e.ctrlKey || e.metaKey || e.altKey) return;
 		const root = dialogRef.current;
 		if (!root) return;
 		const focusables = Array.from(

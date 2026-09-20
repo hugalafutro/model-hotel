@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import {
 	EmptyRow,
@@ -374,6 +374,24 @@ describe("Row", () => {
 		row.focus();
 		await user.keyboard(" ");
 		expect(onClick).toHaveBeenCalledTimes(1);
+	});
+
+	it("activates onClick with Enter and Space from the keyboard", () => {
+		const onClick = vi.fn();
+		render(
+			<table>
+				<tbody>
+					<Row onClick={onClick}>
+						<td>Clickable</td>
+					</Row>
+				</tbody>
+			</table>,
+		);
+		const row = screen.getByText("Clickable").parentElement as HTMLElement;
+		row.focus();
+		fireEvent.keyDown(row, { key: "Enter" });
+		fireEvent.keyDown(row, { key: " " });
+		expect(onClick).toHaveBeenCalledTimes(2);
 	});
 
 	it("is keyboard reachable without leaving the table's row role when onClick is provided", () => {
