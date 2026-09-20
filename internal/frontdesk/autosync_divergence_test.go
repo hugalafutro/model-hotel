@@ -1228,3 +1228,14 @@ func TestAutoSync_UnmeasuredUpgradesToAMeasuredDivergence(t *testing.T) {
 		t.Errorf("events = %d after further ticks, want the original 2", n)
 	}
 }
+
+// A generation read that fails reads as a benign supersede: a store hiccup
+// must not turn a routine rearm into a failure alert.
+func TestSupersededByNewerPass_ReadFailureIsBenign(t *testing.T) {
+	srv, _ := newTestServer(t)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if !srv.supersededByNewerPass(ctx, 1) {
+		t.Error("a failed generation read must read as superseded (benign)")
+	}
+}
