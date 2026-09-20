@@ -272,7 +272,13 @@ func scanModelRow(rows pgx.Rows) (model.Model, error) {
 func modelSortColumn(sortBy string) string {
 	switch sortBy {
 	case "discovered":
-		return "COALESCE(m.last_seen_at, m.created_at)"
+		// Truncated to the second: the cursor carries the API's RFC3339 stamp,
+		// which has no fraction, while the column keeps microseconds. Compared
+		// at full precision, every row inside the cursor's second sorted after
+		// it whatever its id, so a discovery pass that stamps a provider's
+		// models with one now() made the page repeat (ASC) or vanish (DESC).
+		// Ties inside a second break on m.id, which the keyset carries.
+		return "date_trunc('second', COALESCE(m.last_seen_at, m.created_at))"
 	case "context":
 		return "COALESCE(m.context_length, 0)"
 	case "output":

@@ -232,11 +232,6 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		return nil, err
 	}
 
-	groupEnabledVal := true
-	if groupEnabled != nil {
-		groupEnabledVal = *groupEnabled
-	}
-
 	var setClauses []string
 	var args []any
 	argIdx := 2 // $1 is reserved for id
@@ -249,18 +244,25 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	args = append(args, entryEnabledJSON)
 	argIdx++
 
-	setClauses = append(setClauses, fmt.Sprintf("group_enabled = $%d", argIdx))
-	args = append(args, groupEnabledVal)
-	argIdx++
-
+	// group_enabled is PATCH-shaped like the other optional fields: absent
+	// means unchanged. Defaulting it to true turned every reorder, rename and
+	// description edit into a re-enable that skipped the handler's two-routable
+	// -members check, so a disabled group went live with one member.
+	//
 	// Update is reachable only from the operator's PUT /api/failover-groups/{id}
 	// (including the dashboard's cascade that disables a group when toggling a
-	// member drops it below two routable entries). Every write through here is
-	// therefore operator intent, so the discovery stamp is cleared
-	// unconditionally: an operator-disabled group must never be counted as a
-	// discovery claim, and re-enabling must leave no stamp for a later
-	// auto-disable to inherit (migration 062).
-	setClauses = append(setClauses, "auto_disabled_at = NULL")
+	// member drops it below two routable entries). A group_enabled write through
+	// here is therefore operator intent, so the discovery stamp is cleared with
+	// it: an operator-disabled group must never be counted as a discovery
+	// claim, and re-enabling must leave no stamp for a later auto-disable to
+	// inherit (migration 062). A write that leaves group_enabled alone leaves
+	// the stamp alone too.
+	if groupEnabled != nil {
+		setClauses = append(setClauses, fmt.Sprintf("group_enabled = $%d", argIdx))
+		args = append(args, *groupEnabled)
+		argIdx++
+		setClauses = append(setClauses, "auto_disabled_at = NULL")
+	}
 
 	if displayName != nil {
 		if *displayName == "" {
