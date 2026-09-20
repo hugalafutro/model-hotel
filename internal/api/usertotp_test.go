@@ -150,7 +150,7 @@ func TestUserTotp_DisableThrottlesGuessing(t *testing.T) {
 			got429 = true
 			break
 		}
-		if w.Code != http.StatusUnauthorized {
+		if w.Code != http.StatusForbidden {
 			t.Fatalf("unexpected status %d (body %s)", w.Code, w.Body.String())
 		}
 	}
@@ -196,10 +196,11 @@ func TestUserTotp_EnrollFlow(t *testing.T) {
 		t.Fatalf("re-enroll: %d, want 409", w.Code)
 	}
 
-	// Disable requires a valid code.
+	// Disable requires a valid code; a wrong one is refused (403), never a
+	// dead session (401), so the dashboard keeps the operator logged in.
 	w = doJSON(t, r, http.MethodPost, "/auth/totp/disable", token, `{"code":"000000"}`)
-	if w.Code != http.StatusUnauthorized {
-		t.Fatalf("bad-code disable: %d, want 401", w.Code)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("bad-code disable: %d, want 403", w.Code)
 	}
 	w = doJSON(t, r, http.MethodPost, "/auth/totp/disable", token,
 		`{"code":"`+totpCodeAt(t, secret, 1)+`"}`)
@@ -281,8 +282,8 @@ func TestUserTotp_EdgeResponses(t *testing.T) {
 	if w := doJSON(t, r, http.MethodPost, "/auth/totp/disable", token, `{not json`); w.Code != http.StatusBadRequest {
 		t.Errorf("disable bad body: %d, want 400", w.Code)
 	}
-	// A wrong disable code is a 401 and leaves 2FA on.
-	if w := doJSON(t, r, http.MethodPost, "/auth/totp/disable", token, `{"code":"000000"}`); w.Code != http.StatusUnauthorized {
+	// A wrong disable code is a 403 and leaves 2FA on.
+	if w := doJSON(t, r, http.MethodPost, "/auth/totp/disable", token, `{"code":"000000"}`); w.Code != http.StatusForbidden {
 		t.Errorf("disable wrong code: %d, want 401", w.Code)
 	}
 	// Admin reset of a nonexistent user is a 404, not a silent no-op.

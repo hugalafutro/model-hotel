@@ -209,6 +209,33 @@ describe("FleetSyncWizard", () => {
 		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
 
+	it("drops the previous candidate's probe when the new primary's probe fails", async () => {
+		// A's probe passed; switching to B whose probe fails must not leave the
+		// gates, tables and overwrite confirm describing A.
+		server.use(
+			http.get("/api/fleet/status", ({ request }) => {
+				const primary = new URL(request.url).searchParams.get("primary");
+				if (primary === "2") {
+					return HttpResponse.text("hotel-2 is on fire", { status: 502 });
+				}
+				return HttpResponse.json({
+					primary_id: "1",
+					primary_reachable: true,
+					members: [primaryRow("1", "hotel-1"), primaryRow("2", "hotel-2")],
+				});
+			}),
+		);
+		renderWizard();
+		await pickPrimary("1");
+		await waitFor(() =>
+			expect(screen.getByRole("button", { name: "Next" })).toBeEnabled(),
+		);
+
+		await pickPrimary("2");
+		expect(await screen.findByText("hotel-2 is on fire")).toBeInTheDocument();
+		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+	});
+
 	it("surfaces the backend error instead of a generic toast", async () => {
 		server.use(
 			http.get("/api/fleet/status", () =>

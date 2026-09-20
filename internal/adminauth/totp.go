@@ -375,7 +375,10 @@ func (h *TotpHandler) Disable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !ok {
-		http.Error(w, "invalid TOTP or recovery code", http.StatusUnauthorized)
+		// 403, not 401: the caller is authenticated and only the code is
+		// wrong. Both dashboards read a 401 as a dead session and drop to the
+		// login screen, which a mistyped code must not do.
+		http.Error(w, "invalid TOTP or recovery code", http.StatusForbidden)
 		return
 	}
 	h.refreshTotpEnabled(r.Context())

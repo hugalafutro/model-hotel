@@ -524,3 +524,36 @@ func TestApplyEmptyContentStripUnparseablePayload(t *testing.T) {
 		t.Errorf("expected no emit and no stop, got wrote=%v stop=%v", wrote, stop)
 	}
 }
+
+// On an n>1 request every answer ends with its own terminal frame; only the
+// first answer's frames take part in the bare-duplicate check, and a frame
+// whose whole payload is a tool call is an answer, not a duplicate.
+func TestComputeFinishReason_NPlusOneAndToolCallFrames(t *testing.T) {
+	parse := func(t *testing.T, payload string) streamChunk {
+		t.Helper()
+		var c streamChunk
+		if err := json.Unmarshal([]byte(payload), &c); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		return c
+	}
+	lastFR := ""
+	first := `{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, first), first, &lastFR); d != finishNone {
+		t.Fatalf("first terminal frame: decision %v, want forwarded", d)
+	}
+	second := `{"choices":[{"index":1,"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, second), second, &lastFR); d != finishNone {
+		t.Fatalf("answer 1's terminal frame: decision %v, want forwarded (the client waits for it)", d)
+	}
+	dup := `{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, dup), dup, &lastFR); d != finishSuppress {
+		t.Fatalf("bare duplicate on answer 0: decision %v, want suppressed", d)
+	}
+
+	lastFR = "tool_calls"
+	tool := `{"choices":[{"index":0,"delta":{"tool_calls":[{"function":{"name":"f","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}`
+	if d, _ := computeFinishReason(parse(t, tool), tool, &lastFR); d != finishNone {
+		t.Fatalf("tool-call frame repeating finish_reason: decision %v, want forwarded", d)
+	}
+}

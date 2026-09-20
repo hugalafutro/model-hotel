@@ -126,14 +126,27 @@ func computeFinishReason(chunk streamChunk, payload string, lastFinishReason *st
 
 	// P2-2: suppress a bare duplicate (same finish_reason as the previous chunk,
 	// no content, no usage) — it causes downstream "empty response text" errors.
-	if normalized == *lastFinishReason {
+	// Only the first answer's frames are judged: on an n>1 request every
+	// answer ends with its own terminal frame carrying the same finish_reason,
+	// and lastFinishReason is one value per stream, so answers 1..n-1 would
+	// lose theirs and the client would wait for them forever.
+	choice := chunk.Choices[0]
+	firstAnswer := choice.Index == nil || *choice.Index == 0
+	if firstAnswer && normalized == *lastFinishReason {
 		hasContent := false
-		if chunk.Choices[0].Delta != nil {
-			delta := chunk.Choices[0].Delta
+		if delta := choice.Delta; delta != nil {
 			if delta.Content != nil && *delta.Content != "" {
 				hasContent = true
 			}
 			if delta.ReasoningContent != nil && *delta.ReasoningContent != "" {
+				hasContent = true
+			}
+			// A frame whose whole payload is a tool call, a refusal, audio or
+			// the legacy function_call carries an answer too: two consecutive
+			// tool-call frames each stamped finish_reason "tool_calls" are not
+			// duplicates of each other.
+			if len(delta.ToolCalls) > 0 || delta.Refusal != nil ||
+				len(delta.Audio) > 0 || len(delta.FunctionCall) > 0 {
 				hasContent = true
 			}
 		}

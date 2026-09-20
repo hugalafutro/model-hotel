@@ -179,6 +179,10 @@ export function FleetSyncWizard({
 	// through this handler.
 	const pickPrimary = (id: string) => {
 		setPrimaryId(id);
+		// The previous candidate's probe goes with it: kept, a failed re-probe
+		// would leave every gate, table and the overwrite confirm describing
+		// the host the operator just moved away from.
+		setStatus(null);
 		if (id) void refresh(id);
 	};
 

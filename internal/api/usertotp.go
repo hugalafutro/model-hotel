@@ -175,7 +175,9 @@ func (h *Handler) UserTotpDisable(w http.ResponseWriter, r *http.Request) {
 	}
 	if !authorized {
 		h.pwThrottle.RecordFailure(key)
-		http.Error(w, "invalid TOTP or recovery code", http.StatusUnauthorized)
+		// 403, not 401: the session is valid and only the code is wrong; the
+		// dashboard reads a 401 as a dead session and logs the user out.
+		http.Error(w, "invalid TOTP or recovery code", http.StatusForbidden)
 		return
 	}
 	h.pwThrottle.RecordSuccess(key)
