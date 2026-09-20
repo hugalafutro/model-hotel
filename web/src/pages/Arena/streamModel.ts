@@ -7,8 +7,8 @@ import { tokensPerSecond } from "../../utils/format";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry } from "../../utils/stagger";
+import { streamRequestError } from "../../utils/streamError";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
-import { streamRequestError } from "../Chat/chatStreaming";
 import type { ArenaRunnerDeps } from "./useArenaRunner";
 import { patchSlotResponse, RESP_KEY } from "./utils";
 

@@ -116,7 +116,8 @@ export function Audit() {
 	// firing down a long list.
 	const scrollRef = useRef<HTMLDivElement>(null);
 	const sentinelRef = useRef<HTMLDivElement>(null);
-	const { hasNextPage, isFetchingNextPage, fetchNextPage } = scroll;
+	const { hasNextPage, isFetchingNextPage, fetchNextPage, isPlaceholderData } =
+		scroll;
 	useEffect(() => {
 		if (!isScroll) return;
 		const el = sentinelRef.current;
@@ -127,7 +128,14 @@ export function Audit() {
 		// page in a little before the foot is actually reached.
 		const observer = new IntersectionObserver(
 			(observed) => {
-				if (observed[0]?.isIntersecting && hasNextPage && !isFetchingNextPage) {
+				// Placeholder pages belong to the previous filter: their cursor
+				// must not fetch a "next" page for the new one.
+				if (
+					observed[0]?.isIntersecting &&
+					hasNextPage &&
+					!isFetchingNextPage &&
+					!isPlaceholderData
+				) {
 					fetchNextPage();
 				}
 			},
@@ -135,7 +143,13 @@ export function Audit() {
 		);
 		observer.observe(el);
 		return () => observer.disconnect();
-	}, [isScroll, hasNextPage, isFetchingNextPage, fetchNextPage]);
+	}, [
+		isScroll,
+		hasNextPage,
+		isFetchingNextPage,
+		fetchNextPage,
+		isPlaceholderData,
+	]);
 
 	const handlePurge = async () => {
 		setConfirmPurge(false);

@@ -410,6 +410,41 @@ describe("streamModelResponse", () => {
 		expect(result.error).toBe("Request failed (403): provider is disabled");
 	});
 
+	it("reads a string error envelope", async () => {
+		server.use(
+			http.post("/api/chat/chat", () =>
+				HttpResponse.json({ error: "boom" }, { status: 500 }),
+			),
+		);
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+			mockT,
+		);
+		expect(result.error).toBe("Request failed (500): boom");
+	});
+
+	it("names a response without a body", async () => {
+		server.use(
+			http.post(
+				"/api/chat/chat",
+				() => new HttpResponse(null, { status: 200 }),
+			),
+		);
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+			mockT,
+		);
+		expect(result.error).toBe("chat.stream.noBody");
+	});
+
 	it("falls back to the raw body when the failure is not an envelope", async () => {
 		server.use(
 			http.post(
