@@ -17,6 +17,13 @@ import (
 // runtime takes effect promptly instead of waiting a full backup_interval.
 const backupSchedulerIdlePoll = 1 * time.Minute
 
+// backupSchedulerRecheck caps how long one tick sleeps while a backup is not
+// yet due. The wait is computed from the interval setting, so a tick that
+// slept the whole remainder of a 24h interval kept an interval the operator
+// shortened to an hour waiting out the old day. Waking this often re-reads the
+// setting; the dump itself still runs on the interval.
+const backupSchedulerRecheck = 5 * time.Minute
+
 // StartScheduler starts the periodic backup scheduler goroutine and returns a
 // channel closed once that goroutine has returned, so a caller that owns the
 // process lifetime can join it during shutdown instead of closing the pool
@@ -107,11 +114,11 @@ func (h *BackupHandler) schedulerTick(ctx context.Context) time.Duration {
 	}
 	interval := max(h.settingsRepo.GetDuration(ctx, "backup_interval", 24*time.Hour), 5*time.Minute)
 	if wait := h.scheduledBackupWait(interval, time.Now()); wait > 0 {
-		debuglog.Info("backup: last scheduled backup is recent, waiting", "wait", wait.Round(time.Second).String())
-		return wait
+		debuglog.Debug("backup: last scheduled backup is recent, waiting", "wait", wait.Round(time.Second).String())
+		return min(wait, backupSchedulerRecheck)
 	}
 	h.runScheduledBackup(ctx)
-	return interval
+	return min(interval, backupSchedulerRecheck)
 }
 
 // scheduledBackupWait returns how long the scheduler still has to wait before
@@ -124,11 +131,14 @@ func (h *BackupHandler) scheduledBackupWait(interval time.Duration, now time.Tim
 	if err != nil {
 		return 0
 	}
-	// Newest first, so the first scheduled entry is the anchor.
-	var newest time.Time
+	// Newest first, so the first scheduled entry is the anchor; the last
+	// attempt counts too, so a dump that fails is retried on the interval.
+	newest := h.lastScheduledAttempt
 	for _, b := range backups {
 		if b.Origin == "scheduled" {
-			newest = b.modTime
+			if b.modTime.After(newest) {
+				newest = b.modTime
+			}
 			break
 		}
 	}
@@ -173,10 +183,14 @@ func (h *BackupHandler) removeStalePartials() {
 // It uses the same pg_dump logic as CreateBackup but without HTTP request/response.
 func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 	if !h.backupMu.TryLock() {
+		// Not an attempt: the anchor stays where it was, so the still-due
+		// dump runs on the next re-check once the manual operation is done.
 		debuglog.Warn("backup: scheduler skip, operation in progress")
 		return
 	}
 	defer h.backupMu.Unlock()
+	// Anchors the interval whether or not the dump lands (see the field).
+	h.lastScheduledAttempt = time.Now()
 
 	if _, err := h.createDump(ctx, "auto", scheduledDumpCompression, "Scheduled backup created"); err != nil {
 		debuglog.Error("backup: scheduled backup failed", "error", err)

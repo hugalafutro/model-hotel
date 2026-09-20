@@ -2,6 +2,7 @@ package paramrewrite
 
 import (
 	"encoding/json"
+	"fmt"
 	"sync"
 	"testing"
 )
@@ -129,5 +130,31 @@ func TestParseProviderParamError_ApostropheIsNotAQuotePair(t *testing.T) {
 
 	if rejected := ParseProviderParamError([]byte(`{"error":{"message":"The model isn't available in this region and can't serve n requests."}}`)); rejected != nil {
 		t.Fatalf("expected no params rejected from prose, got %v", rejected)
+	}
+}
+
+// A value out of range quotes the param the way an unsupported one does, but
+// the model takes the param; only this caller's number was wrong. Learning a
+// strip from it would remove the param for every later caller.
+func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T) {
+	for _, msg := range []string{
+		`Invalid 'temperature': decimal above maximum value. Expected a value <= 2, but got 3 instead.`,
+		`Invalid 'n': integer below minimum value. Expected a value >= 1, but got 0 instead.`,
+		`temperature: Input should be less than or equal to 1`,
+		`top_p: Input should be greater than or equal to 0`,
+		`temperature: Input should be less than 2`,
+		`top_k: Input should be greater than 0`,
+		`'max_tokens' must be less than 8193`,
+		`Invalid value for 'max_tokens': must be between 1 and 8192.`,
+	} {
+		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)
+		if rejected := ParseProviderParamError(body); len(rejected) != 0 {
+			t.Errorf("%q: learned %v, want nothing", msg, rejected)
+		}
+	}
+	// A value the model refuses outright is still the param's rejection.
+	body := []byte(`{"error":{"message":"Unsupported value: 'temperature' does not support 0 with this model. Only the default (1) value is supported."}}`)
+	if rejected := ParseProviderParamError(body); !rejected["temperature"] {
+		t.Errorf("unsupported-value refusal no longer learned: %v", rejected)
 	}
 }
