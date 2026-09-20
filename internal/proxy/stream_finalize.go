@@ -39,6 +39,9 @@ type streamState struct {
 	promptCacheMissTokens int
 	chunkCount            int
 	errorChunkCount       int
+	// heldErrorCount is the part of errorChunkCount the client never received:
+	// a split {"error":…} the gateway reassembled from fragments it dropped.
+	heldErrorCount int
 	// unparsedChunks counts data frames this gateway could not read: bytes that
 	// are not well-formed JSON (dropped), a shape its types do not cover
 	// (forwarded verbatim), and frames dropped because strip_reasoning could not
@@ -474,14 +477,15 @@ func upstreamModelID(logData *requestLogData) string {
 // A stream that stalled, was truncated by the upstream, or was cut by a gateway
 // restart cannot fail over once bytes have gone out, so the frame is the
 // graceful end. Nothing is written when the client is gone, when the upstream
-// already sent an error the client saw (errorChunkCount>0, which is also set for
-// a provider that split its error object across data lines, so that rare stream
-// ends without a frame), or when [DONE] or a native message_stop went out: the
-// terminal frame must be the one error the client sees. The translated path
+// already sent an error the client saw (errorChunkCount beyond heldErrorCount:
+// a provider that split its error object across data lines had those fragments
+// dropped, so its error is still owed to the client and goes in the frame), or
+// when [DONE] or a native message_stop went out: the terminal frame must be the
+// one error the client sees. The translated path
 // speaks OpenAI (error object, then [DONE]); the native Anthropic passthrough
 // speaks Messages (an error event, no sentinel).
 func (h *Handler) writeTerminalError(sink *streamSink, st *streamState, opts streamOptions, logData *requestLogData, errMsg string) {
-	if st.clientDisconnected || st.sawDone || st.sawTerminalEvent || st.errorChunkCount > 0 {
+	if st.clientDisconnected || st.sawDone || st.sawTerminalEvent || st.errorChunkCount > st.heldErrorCount {
 		return
 	}
 	clientMsg := errMsg

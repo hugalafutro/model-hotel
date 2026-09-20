@@ -17,7 +17,7 @@ func (h *Handler) attemptPassthroughCandidate(w http.ResponseWriter, r *http.Req
 	logData := st.logData
 	// Per-attempt DNS resolution timing, written by SafeDialer via context.
 	var dialMs float64
-	failoverCtx, failoverCancel := context.WithTimeout(r.Context(), st.failoverTimeout)
+	failoverCtx, failoverCancel := context.WithDeadline(r.Context(), st.attemptDeadline())
 	// Fires on every return path, after the pass-through dispatch has
 	// consumed the body.
 	defer failoverCancel()
