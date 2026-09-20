@@ -6,7 +6,10 @@ import (
 	"net/http/httptest"
 	"slices"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -98,6 +101,57 @@ func TestDiscoverVertexExpress_NoneEligible(t *testing.T) {
 	if len(models) != 0 {
 		t.Errorf("models = %d, want 0 when nothing is eligible", len(models))
 	}
+}
+
+// A probe that answers 429 or 5xx is the service failing, not the model being
+// ineligible. It is retried like every other discovery fetch; when the retries
+// run out, discovery fails rather than return a listing without the model,
+// which the scan would then retire for going missing.
+func TestDiscoverVertexExpress_TransientProbeStatusIsRetriedThenFailsDiscovery(t *testing.T) {
+	t.Run("retries run out", func(t *testing.T) {
+		var calls atomic.Int32
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			calls.Add(1)
+			http.Error(w, `{"error":{"code":503}}`, http.StatusServiceUnavailable)
+		}))
+		defer server.Close()
+
+		service := &DiscoveryService{httpClient: server.Client(), retryBaseDelay: time.Millisecond}
+		provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+		models, err := service.discoverVertexExpress(context.Background(), provider, "test-api-key")
+		if err == nil || !strings.Contains(err.Error(), "503") {
+			t.Fatalf("err = %v, models = %d; want a probe failure naming the status", err, len(models))
+		}
+		if calls.Load() < int32(maxDiscoveryRetries) {
+			t.Errorf("probe calls = %d, want at least %d (retried before failing)", calls.Load(), maxDiscoveryRetries)
+		}
+	})
+	t.Run("a transient status recovers", func(t *testing.T) {
+		// Every candidate's first probe is throttled; its retry answers. Probes
+		// run concurrently, so the first call is tracked per model.
+		var throttled sync.Map
+		server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if _, seen := throttled.LoadOrStore(r.URL.Path, true); !seen {
+				http.Error(w, `{"error":{"code":429}}`, http.StatusTooManyRequests)
+				return
+			}
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"totalTokens":1}`))
+		}))
+		defer server.Close()
+
+		service := &DiscoveryService{httpClient: server.Client(), retryBaseDelay: time.Millisecond}
+		provider := &Provider{ID: uuid.New(), BaseURL: server.URL}
+
+		models, err := service.discoverVertexExpress(context.Background(), provider, "test-api-key")
+		if err != nil {
+			t.Fatalf("discoverVertexExpress: %v", err)
+		}
+		if len(models) != len(GetVertexExpressCandidates()) {
+			t.Errorf("models = %d, want every candidate live after the retry", len(models))
+		}
+	})
 }
 
 func TestDiscoverVertexExpress_Unauthorized(t *testing.T) {

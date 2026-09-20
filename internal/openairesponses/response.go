@@ -28,15 +28,27 @@ func TranslateResponsesToChat(respBody []byte, model string) ([]byte, error) {
 	if resp.ID == "" && resp.Status == "" {
 		return nil, fmt.Errorf("openairesponses: upstream body is not a Responses object")
 	}
+	// A failed response arrives as a 200 with the failure in its error member;
+	// its output, if any, is not an answer.
+	if resp.Status == "failed" {
+		msg := "upstream response failed"
+		if resp.Error != nil && resp.Error.Message != "" {
+			msg = resp.Error.Message
+		}
+		return nil, fmt.Errorf("openairesponses: %s", msg)
+	}
 
 	msg := chatRespMessage{Role: "assistant"}
-	var textParts, summaryParts []string
+	var textParts, refusalParts, summaryParts []string
 	for _, item := range resp.Output {
 		switch item.Type {
 		case "message":
 			for _, c := range item.Content {
-				if c.Type == "output_text" {
+				switch c.Type {
+				case "output_text":
 					textParts = append(textParts, c.Text)
+				case "refusal":
+					refusalParts = append(refusalParts, c.Refusal)
 				}
 			}
 		case "reasoning":
@@ -60,6 +72,7 @@ func TranslateResponsesToChat(respBody []byte, model string) ([]byte, error) {
 	if text := strings.Join(textParts, ""); text != "" {
 		msg.Content = text
 	}
+	msg.Refusal = strings.Join(refusalParts, "")
 	msg.ReasoningContent = strings.Join(summaryParts, "\n\n")
 
 	out := chatResponse{

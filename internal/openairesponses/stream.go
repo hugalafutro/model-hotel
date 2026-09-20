@@ -88,6 +88,12 @@ func (t *StreamTranslator) TranslateEvent(data []byte) ([]byte, error) {
 		}
 		return t.deltaChunk(chatDelta{ReasoningContent: ev.Delta}), nil
 
+	case "response.refusal.delta":
+		if ev.Delta == "" {
+			return nil, nil
+		}
+		return t.deltaChunk(chatDelta{Refusal: ev.Delta}), nil
+
 	case "response.reasoning_summary_part.added":
 		t.summaryParts++
 		if t.summaryParts > 1 {

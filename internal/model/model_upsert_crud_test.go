@@ -2,6 +2,7 @@ package model
 
 import (
 	"context"
+	"encoding/json"
 	"testing"
 
 	"github.com/google/uuid"
@@ -147,6 +148,55 @@ func TestUpsert_OverwriteExisting(t *testing.T) {
 	// display_name_customized should be false (fresh row, never customized)
 	if displayNameCustomized {
 		t.Error("display_name_customized should be false after overwrite (never customized)")
+	}
+}
+
+// A model flagged PreserveCapabilities keeps the capabilities the row already
+// holds; without the flag the incoming value overwrites them as before.
+func TestUpsert_PreserveCapabilitiesKeepsTheStoredReading(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+	providerID := insertTestProvider(ctx, t, "test-upsert-keepcaps")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	probed, _ := json.Marshal(Capability{Streaming: true, Vision: true, ToolCalling: true})
+	stub, _ := json.Marshal(Capability{Streaming: true})
+	base := func() *Model {
+		return &Model{ProviderID: providerID, ModelID: "keepcaps-model", Name: "n", Enabled: true, Params: "{}", InputModalities: "[]", OutputModalities: "[]"}
+	}
+	first := base()
+	first.Capabilities = string(probed)
+	if err := repo.Upsert(ctx, first); err != nil {
+		t.Fatalf("first upsert: %v", err)
+	}
+	stored := func() string {
+		var caps string
+		if err := testPool.QueryRow(ctx, `SELECT capabilities FROM models WHERE provider_id = $1 AND model_id = $2`, providerID, "keepcaps-model").Scan(&caps); err != nil {
+			t.Fatalf("read capabilities: %v", err)
+		}
+		return caps
+	}
+
+	placeholder := base()
+	placeholder.Capabilities = string(stub)
+	placeholder.PreserveCapabilities = true
+	if err := repo.Upsert(ctx, placeholder); err != nil {
+		t.Fatalf("placeholder upsert: %v", err)
+	}
+	var got Capability
+	_ = json.Unmarshal([]byte(stored()), &got)
+	if !got.Vision || !got.ToolCalling {
+		t.Errorf("placeholder upsert overwrote the stored capabilities: %s", stored())
+	}
+
+	reading := base()
+	reading.Capabilities = string(stub)
+	if err := repo.Upsert(ctx, reading); err != nil {
+		t.Fatalf("reading upsert: %v", err)
+	}
+	_ = json.Unmarshal([]byte(stored()), &got)
+	if got.Vision || got.ToolCalling {
+		t.Errorf("a real reading did not overwrite the stored capabilities: %s", stored())
 	}
 }
 

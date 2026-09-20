@@ -529,6 +529,14 @@ func TestDiscoverOllama_ShowModelFails(t *testing.T) {
 	if !bad.Enabled {
 		t.Error("expected bad-model to stay enabled")
 	}
+	// The stub's capabilities are a placeholder: the upsert keeps what the
+	// last successful probe stored. A probe that answered is authoritative.
+	if !bad.PreserveCapabilities {
+		t.Error("bad-model's placeholder capabilities must not overwrite the stored ones")
+	}
+	if good.PreserveCapabilities {
+		t.Error("good-model's probed capabilities must overwrite the stored ones")
+	}
 }
 
 func TestDiscoverOllama_VisionCapability(t *testing.T) {

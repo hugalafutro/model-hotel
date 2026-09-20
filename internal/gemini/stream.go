@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"strconv"
 
 	"github.com/hugalafutro/model-hotel/internal/egress"
 	"github.com/hugalafutro/model-hotel/internal/jsonfault"
@@ -131,6 +132,13 @@ func (t *StreamTranslator) Finish() ([]byte, error) {
 	t.finished = true
 
 	var buf bytes.Buffer
+	if t.finishReason == malformedFunctionCall {
+		// Not a stop: the stream ends with the error the caller can act on,
+		// which the gateway's observers also read as the provider failing.
+		buf.WriteString(`data: {"error":{"message":` + strconv.Quote(ErrMalformedFunctionCall.Error()) + `,"type":"server_error"}}` + "\n\n")
+		buf.WriteString(egress.Done)
+		return buf.Bytes(), nil
+	}
 	reason := mapFinishReason(t.finishReason, t.toolCalls > 0)
 	if t.blocked {
 		reason = "content_filter"

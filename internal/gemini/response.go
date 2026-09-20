@@ -62,10 +62,11 @@ type genRespPart struct {
 }
 
 type genUsage struct {
-	PromptTokenCount     int `json:"promptTokenCount"`
-	CandidatesTokenCount int `json:"candidatesTokenCount"`
-	TotalTokenCount      int `json:"totalTokenCount"`
-	ThoughtsTokenCount   int `json:"thoughtsTokenCount"`
+	PromptTokenCount        int `json:"promptTokenCount"`
+	CandidatesTokenCount    int `json:"candidatesTokenCount"`
+	TotalTokenCount         int `json:"totalTokenCount"`
+	ThoughtsTokenCount      int `json:"thoughtsTokenCount"`
+	CachedContentTokenCount int `json:"cachedContentTokenCount"`
 }
 
 // --- Outgoing OpenAI chat-completion response shape ---
@@ -138,7 +139,19 @@ type oaiUsage struct {
 	CompletionTokensDetails *struct {
 		ReasoningTokens int `json:"reasoning_tokens"`
 	} `json:"completion_tokens_details,omitempty"`
+	// Gemini's cachedContentTokenCount is the part of the prompt served from
+	// its context cache, the reading the cache-hit price applies to; spelled
+	// the OpenAI way so the metering reads it like every other provider's.
+	PromptTokensDetails *struct {
+		CachedTokens int `json:"cached_tokens"`
+	} `json:"prompt_tokens_details,omitempty"`
 }
+
+// ErrMalformedFunctionCall marks a candidate Gemini finished with
+// MALFORMED_FUNCTION_CALL: the model tried to call a tool and produced
+// something that is not a call. It carries no answer, so it is not a stop and
+// is not handed to the caller as one; a sibling may do better.
+var ErrMalformedFunctionCall = errors.New("gemini: model produced a malformed function call")
 
 // ErrPromptBlocked marks the one translation failure that is NOT the provider
 // malfunctioning: Gemini answered, and its answer is a refusal, so
@@ -172,6 +185,9 @@ func BuildChatCompletion(body []byte, id, model string, created int64) ([]byte, 
 	}
 
 	cand := resp.Candidates[0]
+	if cand.FinishReason == malformedFunctionCall {
+		return nil, ErrMalformedFunctionCall
+	}
 	text, toolCalls, images := translateCandidateParts(id, cand.Content.Parts)
 
 	msg := oaiMessageOut{Role: "assistant", Content: &text, ToolCalls: toolCalls, Images: images}
@@ -263,10 +279,14 @@ func mapFinishReason(reason string, hasToolCalls bool) string {
 		return "length"
 	case "SAFETY", "RECITATION", "BLOCKLIST", "PROHIBITED_CONTENT", "SPII", "IMAGE_SAFETY":
 		return "content_filter"
-	default: // STOP, FINISH_REASON_UNSPECIFIED, MALFORMED_FUNCTION_CALL, ...
+	default: // STOP, FINISH_REASON_UNSPECIFIED, ...
 		return "stop"
 	}
 }
+
+// malformedFunctionCall is the finishReason both translators refuse to render
+// as a stop (see ErrMalformedFunctionCall).
+const malformedFunctionCall = "MALFORMED_FUNCTION_CALL"
 
 // translateUsage maps usageMetadata to OpenAI usage. Thinking tokens are
 // billed output on Gemini, so completion_tokens includes them, with the split
@@ -298,6 +318,9 @@ func translateUsage(raw json.RawMessage) *oaiUsage {
 	if len(util.UnreadableCounts(raw, "totalTokenCount")) > 0 {
 		u.TotalTokenCount = 0
 	}
+	if len(util.UnreadableCounts(raw, "cachedContentTokenCount")) > 0 {
+		u.CachedContentTokenCount = 0
+	}
 	out := &oaiUsage{
 		PromptTokens:     u.PromptTokenCount,
 		CompletionTokens: u.CandidatesTokenCount + u.ThoughtsTokenCount,
@@ -307,6 +330,14 @@ func translateUsage(raw json.RawMessage) *oaiUsage {
 		out.CompletionTokensDetails = &struct {
 			ReasoningTokens int `json:"reasoning_tokens"`
 		}{ReasoningTokens: u.ThoughtsTokenCount}
+	}
+	// A cached count is part of the prompt count; one larger than the prompt is
+	// not a reading this gateway can meter (it would record more cache hits
+	// than tokens), so it is left out while the prompt count stands.
+	if u.CachedContentTokenCount > 0 && u.CachedContentTokenCount <= u.PromptTokenCount {
+		out.PromptTokensDetails = &struct {
+			CachedTokens int `json:"cached_tokens"`
+		}{CachedTokens: u.CachedContentTokenCount}
 	}
 	return out
 }

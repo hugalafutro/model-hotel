@@ -155,8 +155,9 @@ func (it OutputItem) callID() string {
 
 // OutputContent is one content part of a message output item.
 type OutputContent struct {
-	Type string `json:"type"` // output_text | refusal | ...
-	Text string `json:"text"`
+	Type    string `json:"type"` // output_text | refusal | ...
+	Text    string `json:"text"`
+	Refusal string `json:"refusal"`
 }
 
 // SummaryPart is one part of a reasoning item's summary.
@@ -207,6 +208,7 @@ type chatChoice struct {
 type chatRespMessage struct {
 	Role             string         `json:"role"`
 	Content          any            `json:"content"`
+	Refusal          string         `json:"refusal,omitempty"`
 	ReasoningContent string         `json:"reasoning_content,omitempty"`
 	ToolCalls        []chatToolCall `json:"tool_calls,omitempty"`
 }
@@ -248,6 +250,7 @@ type chatCompletionTokensDetails struct {
 type chatDelta struct {
 	Role             string         `json:"role,omitempty"`
 	Content          string         `json:"content,omitempty"`
+	Refusal          string         `json:"refusal,omitempty"`
 	ReasoningContent string         `json:"reasoning_content,omitempty"`
 	ToolCalls        []chatToolCall `json:"tool_calls,omitempty"`
 }
