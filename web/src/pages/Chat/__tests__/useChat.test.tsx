@@ -596,6 +596,8 @@ describe("useChat", () => {
 			expect(params.lastPromptRef.current).toBe("");
 			expect(params.cleanupConvAbortRef.current).toBeNull();
 			expect(result.current.input).toBe("");
+			expect(params.setTurnCountdown).toHaveBeenCalledWith(0);
+			expect(result.current.isStreaming).toBe(false);
 		});
 	});
 

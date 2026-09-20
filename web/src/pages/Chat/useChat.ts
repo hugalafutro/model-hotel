@@ -187,6 +187,11 @@ export function useChat() {
 			cleanupConvAbortRef.current?.abort();
 			cleanupConvAbortRef.current = null;
 			conversationAbortRef.current = null;
+			// The runner skips its own cleanup once the running flag is down, so
+			// the streaming flag and the countdown it was showing are cleared
+			// here, as handleStopConversation clears them.
+			setIsStreaming(false);
+			setTurnCountdown(0);
 			setMessages(
 				readPersistedMessages(chatSubMode, persistChat, persistConversation),
 			);
@@ -201,6 +206,7 @@ export function useChat() {
 		persistConversation,
 		setCurrentTurn,
 		setConversationState,
+		setTurnCountdown,
 		conversationRunningRef,
 		conversationAbortRef,
 	]);
