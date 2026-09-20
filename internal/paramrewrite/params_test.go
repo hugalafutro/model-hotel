@@ -142,6 +142,9 @@ func TestParseProviderParamError_ValueRangeComplaintTeachesNothing(t *testing.T)
 		`Invalid 'n': integer below minimum value. Expected a value >= 1, but got 0 instead.`,
 		`temperature: Input should be less than or equal to 1`,
 		`top_p: Input should be greater than or equal to 0`,
+		`temperature: Input should be less than 2`,
+		`top_k: Input should be greater than 0`,
+		`'max_tokens' must be less than 8193`,
 		`Invalid value for 'max_tokens': must be between 1 and 8192.`,
 	} {
 		body := []byte(`{"error":{"message":` + fmt.Sprintf("%q", msg) + `,"type":"invalid_request_error"}}`)

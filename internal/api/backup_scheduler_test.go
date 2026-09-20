@@ -1577,3 +1577,22 @@ func TestSchedulerTick_LongWaitIsRecheckedNotSleptOut(t *testing.T) {
 		t.Errorf("tick sleeps %v, want at most the %v re-check", got, backupSchedulerRecheck)
 	}
 }
+
+// A dump that fails writes no file; the attempt itself anchors the interval,
+// so the re-check cadence does not turn a broken pg_dump into a retry every
+// few minutes.
+func TestSchedulerTick_FailedDumpBacksOffToTheInterval(t *testing.T) {
+	dir := t.TempDir()
+	ss := &mockSettingsStore{
+		getBoolFn:     func(context.Context, string, bool) bool { return true },
+		getDurationFn: func(context.Context, string, time.Duration) time.Duration { return time.Hour },
+	}
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h.schedulerTick(context.Background()) // due now: attempts, fails, writes nothing
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		t.Fatalf("a failed dump left %d files", len(entries))
+	}
+	if got := h.scheduledBackupWait(time.Hour, time.Now()); got < 59*time.Minute {
+		t.Errorf("wait after a failed attempt = %v, want the interval to anchor on the attempt", got)
+	}
+}

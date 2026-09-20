@@ -117,6 +117,7 @@ func (h *BackupHandler) schedulerTick(ctx context.Context) time.Duration {
 		debuglog.Debug("backup: last scheduled backup is recent, waiting", "wait", wait.Round(time.Second).String())
 		return min(wait, backupSchedulerRecheck)
 	}
+	h.lastScheduledAttempt = time.Now()
 	h.runScheduledBackup(ctx)
 	return min(interval, backupSchedulerRecheck)
 }
@@ -131,11 +132,14 @@ func (h *BackupHandler) scheduledBackupWait(interval time.Duration, now time.Tim
 	if err != nil {
 		return 0
 	}
-	// Newest first, so the first scheduled entry is the anchor.
-	var newest time.Time
+	// Newest first, so the first scheduled entry is the anchor; the last
+	// attempt counts too, so a dump that fails is retried on the interval.
+	newest := h.lastScheduledAttempt
 	for _, b := range backups {
 		if b.Origin == "scheduled" {
-			newest = b.modTime
+			if b.modTime.After(newest) {
+				newest = b.modTime
+			}
 			break
 		}
 	}

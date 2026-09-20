@@ -182,7 +182,12 @@ func ParseProviderParamRename(body []byte) map[string]string {
 // model" is a value the model refuses outright and stays learnable.
 var valueRangePhrases = []string{
 	"above maximum", "below minimum",
+	// pydantic's inclusive and exclusive bounds ("Input should be less than
+	// or equal to 1", "Input should be less than 2"), anchored on its lead-in
+	// so a bare "less than" in unrelated prose does not match.
+	"input should be less", "input should be greater",
 	"less than or equal", "greater than or equal",
+	"must be less than", "must be greater than",
 	"must be between", "in the range", "out of range",
 	"must be at least", "must be at most", "must not exceed",
 }
