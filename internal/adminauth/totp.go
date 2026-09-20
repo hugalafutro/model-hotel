@@ -22,11 +22,14 @@ import (
 // endpoint exchanges a valid (admin token + TOTP code) pair for a session
 // token that authenticates subsequent API calls once 2FA is enabled.
 type TotpHandler struct {
-	totpRepo           *totp.Repository
-	adminMgr           AdminAuthenticator
-	sessionMgr         *webauthn.SessionManager
-	ipLimiter          IPLimiterMiddleware
-	demoReadOnly       bool
+	totpRepo     *totp.Repository
+	adminMgr     AdminAuthenticator
+	sessionMgr   *webauthn.SessionManager
+	ipLimiter    IPLimiterMiddleware
+	demoReadOnly bool
+	// audit records the mutations behind adminOrSessionAuth on the admin action
+	// trail (nil on Front Desk, which keeps no trail). Mounted by SetAudit.
+	audit              func(http.Handler) http.Handler
 	totpEnabled        func() bool           // shared cached state (Handler.TotpEnabled)
 	refreshTotpEnabled func(context.Context) // refresh cache after mutations (Handler.RefreshTotpEnabled)
 	loginThrottle      *totp.Throttle        // per-IP exponential backoff on failed /totp/login
@@ -102,6 +105,7 @@ func (h *TotpHandler) Register(r chi.Router) {
 				r.Use(readOnlyGuard)
 			}
 			r.Use(h.adminOrSessionAuth)
+			h.mountAudit(r)
 			r.Get("/info", h.Info)
 			r.Post("/enroll/start", h.EnrollStart)
 			r.Post("/enroll/verify", h.EnrollVerify)
@@ -266,6 +270,19 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	// Refresh cache AFTER Enable so the hot path starts rejecting raw admin
 	// tokens immediately.
 	h.refreshTotpEnabled(r.Context())
+	// Every admin session alive at this point was minted on one factor (the
+	// raw token exchanged for a cookie, or this enrolment's own login), and a
+	// session row does not say which. Leaving them would let a holder of the
+	// leaked token the operator is enabling 2FA against keep the session they
+	// exchanged it for, for up to the 30-day cap. The enroller's fresh session
+	// is minted below, after the sweep, so nothing of theirs is kept either.
+	if h.sessionMgr != nil {
+		if n, err := h.sessionMgr.RevokeOtherSessions(r.Context(), []byte("admin")); err != nil {
+			debuglog.Warn("totp: could not revoke pre-2FA admin sessions", "error", err)
+		} else if n > 0 {
+			debuglog.Info("totp: revoked admin sessions minted before 2FA was enabled", "count", n)
+		}
+	}
 	// Drop the stale confirmed_at so the next status read picks up this
 	// enrollment's fresh stamp.
 	h.invalidateEnabledAt()

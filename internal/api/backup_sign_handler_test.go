@@ -580,3 +580,32 @@ func TestRestoreBackup_SignatureFieldIsVerified(t *testing.T) {
 		}
 	})
 }
+
+// A dump is every hash and ciphertext in the database. On a read-only demo the
+// admin token that gates the download is public, so the GET is refused there
+// the way GET /alert/targets is; readOnlyGuard passes every GET and cannot.
+func TestDownloadBackup_RefusedOnReadOnlyDemo(t *testing.T) {
+	dir := t.TempDir()
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, nil)
+	h.SetSigningKey("master")
+	h.SetDemoReadOnly(true)
+	r := chi.NewRouter()
+	h.Register(r)
+	writeSignedBackup(t, dir, "backup_test.dump", "original contents", "master")
+
+	req := httptest.NewRequest("GET", "/backups/backup_test.dump", http.NoBody)
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 on a read-only demo (%s)", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "original contents") {
+		t.Error("dump contents served on a read-only demo")
+	}
+	// The listing stays browsable: it names files, not their contents.
+	lw := httptest.NewRecorder()
+	r.ServeHTTP(lw, httptest.NewRequest("GET", "/backups/", http.NoBody))
+	if lw.Code != http.StatusOK {
+		t.Errorf("list status = %d, want 200", lw.Code)
+	}
+}

@@ -260,6 +260,9 @@ func main() {
 	totpRepo := totp.NewRepository(database.Pool(), cfg.MasterKey)
 	apiHandler.SetTotpStatus(totpRepo)
 	totpHandler := adminauth.NewTotpHandler(totpRepo, adminMgr, sessionMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, apiHandler.RefreshTotpEnabled, cfg.CookieSecure, true, authcookie.Dashboard)
+	// Enrolling or disabling the second factor is an admin action like any
+	// other; the audit trail records it the way it records the dashboard API.
+	totpHandler.SetAudit(auditRecorder.Middleware)
 
 	// OIDC single sign-on. A third front-end to the same session token minted by
 	// passkey/TOTP login: after the IdP confirms an allowlisted identity it calls
@@ -290,6 +293,7 @@ func main() {
 			debuglog.Fatal("startup: failed to initialize WebAuthn relying party", "error", err)
 		}
 		webauthnHandler = adminauth.NewWebAuthnHandler(webauthnRepo, rp, sessionMgr, adminMgr, ipLimiter, cfg.DemoReadOnly, apiHandler.TotpEnabled, true, cfg.CookieSecure, authcookie.Dashboard)
+		webauthnHandler.SetAudit(auditRecorder.Middleware)
 
 		debuglog.Info("webauthn: passkey authentication enabled", "rp_id", cfg.WebAuthnRPID)
 	}

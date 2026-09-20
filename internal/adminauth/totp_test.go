@@ -16,6 +16,7 @@ import (
 
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
 	totpsvc "github.com/hugalafutro/model-hotel/internal/totp"
+	"github.com/hugalafutro/model-hotel/internal/user"
 	"github.com/hugalafutro/model-hotel/internal/webauthn"
 )
 
@@ -1157,5 +1158,91 @@ func TestTotpLogin_StorageErrorIs500(t *testing.T) {
 		if w.Code != http.StatusInternalServerError {
 			t.Fatalf("expected 500 for storage failure, got %d: %s (a 429 here means the throttle was charged)", w.Code, w.Body.String())
 		}
+	}
+}
+
+// enrollTotp drives enroll/start + enroll/verify with the raw admin token and
+// returns the verify recorder (its cookie is the post-enrol session).
+func enrollTotp(t *testing.T, th *TotpHandler) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("enroll/start: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var startResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &startResp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
+		bytes.NewReader([]byte(`{"code":"`+validCode(t, startResp["secret"])+`"}`)))
+	vreq.Header.Set("Authorization", "Bearer admin-token")
+	vreq.Header.Set("Content-Type", "application/json")
+	vw := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(vw, vreq)
+	if vw.Code != http.StatusOK {
+		t.Fatalf("enroll/verify: expected 200, got %d: %s", vw.Code, vw.Body.String())
+	}
+	return vw
+}
+
+// Every admin session alive when 2FA is enabled was minted on one factor; a
+// holder of the leaked token being locked out must not keep the session they
+// exchanged it for. The enroller gets a fresh session instead.
+func TestTotpEnrollVerify_RevokesAdminSessionsMintedBeforeTheSecondFactor(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	ctx := context.Background()
+	old, err := th.sessionMgr.CreateAuthToken(ctx, []byte("admin"), nil, webauthn.SessionMeta{})
+	if err != nil {
+		t.Fatalf("mint pre-2FA session: %v", err)
+	}
+	if _, ok := th.sessionMgr.TokenUser(ctx, old); !ok {
+		t.Fatal("pre-2FA session must validate before enrolment")
+	}
+
+	vw := enrollTotp(t, th)
+
+	if _, ok := th.sessionMgr.TokenUser(ctx, old); ok {
+		t.Error("session minted before 2FA still validates after enrolment")
+	}
+	if _, ok := th.sessionMgr.TokenUser(ctx, sessionCookie(t, vw)); !ok {
+		t.Error("the enroller's fresh session does not validate")
+	}
+}
+
+// The audit middleware installed with SetAudit sees every mutation behind the
+// admin-or-session gate, under the admin identity the trail names, and none
+// of the reads.
+func TestTotpRoutes_AuditMiddlewareCoversMutations(t *testing.T) {
+	_, th := newTotpTestHandler(t)
+	var seen []string
+	var actors []string
+	th.SetAudit(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			seen = append(seen, r.Method+" "+r.URL.Path)
+			if id := user.IdentityFrom(r.Context()); id != nil && id.IsAdmin() {
+				actors = append(actors, "admin")
+			} else {
+				actors = append(actors, "unknown")
+			}
+			next.ServeHTTP(w, r)
+		})
+	})
+	r := serveTotpRouter(th)
+
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	r.ServeHTTP(httptest.NewRecorder(), req)
+	r.ServeHTTP(httptest.NewRecorder(), httptest.NewRequest(http.MethodGet, "/totp/status", http.NoBody))
+	unauth := httptest.NewRequest(http.MethodPost, "/totp/disable", http.NoBody)
+	r.ServeHTTP(httptest.NewRecorder(), unauth)
+
+	if len(seen) != 1 || seen[0] != "POST /totp/enroll/start" {
+		t.Fatalf("audited = %v, want only the authenticated mutation", seen)
+	}
+	if actors[0] != "admin" {
+		t.Errorf("actor = %q, want the admin identity stamped for the trail", actors[0])
 	}
 }

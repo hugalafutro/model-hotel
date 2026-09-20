@@ -4,8 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/go-chi/chi/v5"
+
+	"github.com/hugalafutro/model-hotel/internal/settings"
 )
 
 // TestConfigSync_RefusesKeyWipingImport covers the credential half of the
@@ -201,5 +206,25 @@ func TestConfigSync_RefusesProviderWipingImport(t *testing.T) {
 	}
 	if !providerNames(t)["openai"] {
 		t.Error("the refused import must roll back, leaving the member's provider")
+	}
+}
+
+// The export envelope carries provider key ciphertext, virtual-key hashes and
+// user password hashes; on a read-only demo the token gating it is public.
+func TestConfigSync_ExportHiddenOnReadOnlyDemo(t *testing.T) {
+	cleanConfigTables(t)
+	seedProvider(t, "openai", "sk-secret-value", configSyncMasterKey)
+	h := NewConfigSyncHandler(apiTestDB, settings.NewRepository(apiTestDB.Pool()), configSyncMasterKey, "v-test", nil, nil)
+	h.SetDemoReadOnly(true)
+	r := chi.NewRouter()
+	h.Register(r)
+
+	w := httptest.NewRecorder()
+	r.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/config/export", http.NoBody))
+	if w.Code != http.StatusForbidden {
+		t.Fatalf("status = %d, want 403 on a read-only demo (%s)", w.Code, w.Body.String())
+	}
+	if strings.Contains(w.Body.String(), "encrypted_key") {
+		t.Error("export envelope served on a read-only demo")
 	}
 }

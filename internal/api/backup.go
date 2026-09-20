@@ -23,6 +23,7 @@ import (
 // BackupHandler manages PostgreSQL database backups via pg_dump
 // and restores via pg_restore.
 type BackupHandler struct {
+	demoReadOnly      bool // see SetDemoReadOnly
 	databaseURL       string
 	backupDir         string
 	backupMu          sync.Mutex
@@ -63,6 +64,11 @@ func (h *BackupHandler) SetSessionAuth(sessionMgr WebAuthnSessionManager, totpEn
 	h.sessionMgr = sessionMgr
 	h.totpEnabled = totpEnabled
 }
+
+// SetDemoReadOnly makes DownloadBackup refuse: a dump carries every hash and
+// ciphertext in the database, and on a DEMO_SHOW_TOKEN instance the token that
+// gates it is public. readOnlyGuard passes every GET, so the guard lives here.
+func (h *BackupHandler) SetDemoReadOnly(on bool) { h.demoReadOnly = on }
 
 // SetSigningKey wires the master key used to derive the backup signing key, so
 // dumps are signed on creation and verified on the way back out. Left empty
@@ -273,6 +279,10 @@ func (h *BackupHandler) validateBackupFilename(filename string) string {
 // up when busy, so a slow client would silently cancel scheduled backups for
 // the length of its transfer.
 func (h *BackupHandler) DownloadBackup(w http.ResponseWriter, r *http.Request) {
+	if h.demoReadOnly {
+		respondError(w, "this is a read-only demo: backups cannot be downloaded", nil, http.StatusForbidden)
+		return
+	}
 	filename, absPath, ok := h.backupPathParam(w, r)
 	if !ok {
 		return

@@ -30,6 +30,14 @@ import (
 // Export returns this member's full config envelope so Front Desk can replicate
 // it onto the fleet.
 func (h *ConfigSyncHandler) Export(w http.ResponseWriter, r *http.Request) {
+	// The envelope carries provider key ciphertext, virtual-key hashes and
+	// user password hashes. On a DEMO_SHOW_TOKEN instance the admin token that
+	// gates it is public, and readOnlyGuard passes every GET, so the refusal
+	// lives here, as it does for GET /alert/targets.
+	if h.demoReadOnly {
+		respondError(w, "this is a read-only demo: the config export is hidden", nil, http.StatusForbidden)
+		return
+	}
 	env, err := h.buildEnvelope(r.Context())
 	if err != nil {
 		debuglog.Error("configsync: build export envelope", "error", err)

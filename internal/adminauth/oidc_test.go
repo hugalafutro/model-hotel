@@ -1086,3 +1086,27 @@ func TestNewOIDCHandler_UsesRetryingNetguardClient(t *testing.T) {
 		t.Fatalf("want netguard.ErrBlockedAddress, got %v", err)
 	}
 }
+
+// The login-state cookie must follow COOKIE_SECURE the way the session cookie
+// it leads to does: hard-coded Secure is dropped by the browser on the
+// plain-http LAN deployment COOKIE_SECURE=never exists for, and the callback
+// then fails on "missing login state" every time.
+func TestOIDCStart_LoginStateCookieHonoursCookieSecure(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	defer idp.server.Close()
+	for _, tt := range []struct {
+		mode string
+		want bool
+	}{
+		{mode: "never", want: false},
+		{mode: "always", want: true},
+	} {
+		t.Run(tt.mode, func(t *testing.T) {
+			h, _, _ := newOIDCTestHandlerMode(t, idp, "", true, tt.mode)
+			_, cookie := runStart(t, h)
+			if cookie.Secure != tt.want {
+				t.Errorf("COOKIE_SECURE=%s: login-state cookie Secure = %v, want %v", tt.mode, cookie.Secure, tt.want)
+			}
+		})
+	}
+}

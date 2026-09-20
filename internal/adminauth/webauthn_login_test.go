@@ -750,3 +750,32 @@ func TestWebAuthnHandler_LoginFinish_WithStoredCredential(t *testing.T) {
 		t.Errorf("expected 'passkey login verification failed' error, got: %s", w2.Body.String())
 	}
 }
+
+// A signature counter that did not advance is the library's clone signal; it
+// only sets a flag, so the handler has to read it or a cloned authenticator
+// logs in silently.
+func TestRejectClonedAuthenticator(t *testing.T) {
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", http.NoBody)
+	for _, tt := range []struct {
+		name string
+		cred *webauthnx.Credential
+		want bool
+	}{
+		{name: "counter advanced", cred: &webauthnx.Credential{}, want: false},
+		{name: "nil credential", cred: nil, want: false},
+		{name: "clone warning", cred: &webauthnx.Credential{Authenticator: webauthnx.Authenticator{CloneWarning: true}}, want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			if got := rejectClonedAuthenticator(w, req, tt.cred); got != tt.want {
+				t.Fatalf("rejected = %v, want %v", got, tt.want)
+			}
+			if tt.want && w.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400", w.Code)
+			}
+			if !tt.want && w.Code != http.StatusOK {
+				t.Errorf("status = %d, want nothing written", w.Code)
+			}
+		})
+	}
+}

@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"strings"
@@ -35,7 +36,10 @@ type WebAuthnHandler struct {
 	adminMgr     AdminAuthenticator
 	ipLimiter    IPLimiterMiddleware
 	demoReadOnly bool
-	totpEnabled  func() bool
+	// audit records the mutations behind adminOrSessionAuth on the admin action
+	// trail (nil on Front Desk, which keeps no trail). Mounted by SetAudit.
+	audit       func(http.Handler) http.Handler
+	totpEnabled func() bool
 	// useCookieAuth selects the session-delivery mode. true: passkey login sets
 	// the jar's HttpOnly session cookie, logout clears it, and the body carries
 	// no token; false: the session token is returned in the JSON body for
@@ -122,6 +126,7 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 				r.Use(readOnlyGuard)
 			}
 			r.Use(h.adminOrSessionAuth)
+			h.mountAudit(r)
 			r.Post("/register/start", h.RegisterStart)
 			r.Post("/register/finish", h.RegisterFinish)
 			r.Get("/credentials", h.ListCredentials)
@@ -381,6 +386,20 @@ type loginFinishRequest struct {
 // reason is one of a fixed set chosen here, so it is safe to read before the
 // error; the error text quotes a caller-supplied credential blob, so it goes
 // last. Nothing about the credential itself is logged.
+// rejectClonedAuthenticator refuses an assertion whose signature counter did
+// not advance past the stored one. The library only flags that (WebAuthn L2
+// 7.2 step 21: a cloned authenticator), it never errors on it, and the flag
+// would otherwise be read straight past into a minted session. Synced passkeys
+// report 0 on both sides and are not flagged. Reports whether it refused.
+func rejectClonedAuthenticator(w http.ResponseWriter, r *http.Request, cred *webauthnx.Credential) bool {
+	if cred == nil || !cred.Authenticator.CloneWarning {
+		return false
+	}
+	logPasskeyLoginFailure(r, "clone_warning", errors.New("signature counter did not advance"))
+	respondBadRequest(w, "passkey login verification failed", nil)
+	return true
+}
+
 func logPasskeyLoginFailure(r *http.Request, reason string, err error) {
 	debuglog.Warn("webauthn: passkey login failed", "remote_addr", clientip.From(r), "reason", reason, "error", err)
 }
@@ -424,6 +443,9 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if rejectClonedAuthenticator(w, r, parsedCred) {
+		return
+	}
 	if err := h.webauthnRepo.UpdateSignCount(r.Context(), parsedCred.ID, parsedCred.Authenticator.SignCount); err != nil {
 		debuglog.Error("webauthn: failed to update sign count", "error", err)
 		respondError(w, "failed to update credential", err, http.StatusInternalServerError)
