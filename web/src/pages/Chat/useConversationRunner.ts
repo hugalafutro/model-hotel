@@ -251,6 +251,11 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 				}
 			}
 
+			// An abort during the inter-turn countdown ends the loop the same
+			// way a finished run does. Whoever aborted (Stop, a sub-mode switch,
+			// unmount) has already settled the state; reporting "completed" on
+			// top of it would show a run the user explicitly stopped as done.
+			if (abortCtrl.signal.aborted) return;
 			setTurnCountdown(0);
 			setIsStreaming(false);
 			setConversationState("completed");
