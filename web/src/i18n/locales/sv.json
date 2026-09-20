@@ -423,7 +423,9 @@
 			"stalledTimeout": "Stream avstannade - inga data mottagna inom tidsfristen.",
 			"cutoffIncomplete": "Stream avbröts - svaret kan vara ofullständigt.",
 			"endedWithoutSignal": "Stream avslutades utan avslutningssignal - svaret kan fortfarande vara komplett.",
-			"endedUnexpectedly": "Stream slutade oväntat utan innehåll."
+			"endedUnexpectedly": "Stream slutade oväntat utan innehåll.",
+			"requestFailed": "Begäran misslyckades ({{status}}): {{detail}}",
+			"noBody": "Servern skickade ingen svarsström"
 		},
 		"controls": {
 			"_": "Kontroller",

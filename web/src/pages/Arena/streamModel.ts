@@ -7,6 +7,7 @@ import { tokensPerSecond } from "../../utils/format";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry } from "../../utils/stagger";
+import { streamRequestError } from "../../utils/streamError";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 import type { ArenaRunnerDeps } from "./useArenaRunner";
 import { patchSlotResponse, RESP_KEY } from "./utils";
@@ -102,13 +103,10 @@ export async function streamArenaResponse(
 			},
 		);
 
-		if (!resp.ok) {
-			const text = await resp.text();
-			throw new Error(`Arena failed: ${resp.status} ${text}`);
-		}
+		if (!resp.ok) throw await streamRequestError(resp, t);
 
 		const reader = resp.body?.getReader();
-		if (!reader) throw new Error("No readable stream");
+		if (!reader) throw new Error(t("chat.stream.noBody"));
 
 		const completion = await readSSEStream<StreamChunk>({
 			reader,
@@ -154,6 +152,12 @@ export async function streamArenaResponse(
 			},
 		});
 
+		// The user's own Stop or Cancel ends the read without a throw. The
+		// handler that aborted has already settled the slot (Stop keeps the
+		// partial content, Cancel clears it), and the completion patch below
+		// would rebuild a cleared slot as a partial response.
+		if (completion.aborted) return;
+
 		const durationMs = performance.now() - startTime;
 
 		const truncationError: string | null =
@@ -178,6 +182,10 @@ export async function streamArenaResponse(
 			}),
 		);
 	} catch (err) {
+		// The user's own Stop or Cancel: the handler that aborted has already
+		// settled the slot (Stop keeps the partial content, Cancel clears it),
+		// and an error stamp or a toast here would undo that.
+		if (abortCtrl.signal.aborted) return;
 		const msg = errorMessage(err, t("chat.stream.unknownError"));
 		const errorDurationMs = Math.round(performance.now() - startTime);
 		setRounds(

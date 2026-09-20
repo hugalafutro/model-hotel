@@ -423,7 +423,9 @@
 			"stalledTimeout": "Stream blockiert - innerhalb der Zeitspanne wurden keine Daten empfangen.",
 			"cutoffIncomplete": "Stream wurde abgeschnitten - die Antwort kann unvollständig sein.",
 			"endedWithoutSignal": "Stream wurde ohne Vollständiges Signal beendet - die Antwort kann noch abgeschlossen sein.",
-			"endedUnexpectedly": "Stream endete unerwartet ohne Inhalt."
+			"endedUnexpectedly": "Stream endete unerwartet ohne Inhalt.",
+			"requestFailed": "Anfrage fehlgeschlagen ({{status}}): {{detail}}",
+			"noBody": "Der Server hat keinen Antwortstream gesendet"
 		},
 		"controls": {
 			"_": "Steuerelemente",

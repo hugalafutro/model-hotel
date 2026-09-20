@@ -10,6 +10,7 @@ import { tokensPerSecond } from "../../utils/format";
 import { hasAnyParam } from "../../utils/params";
 import { readSSEStream, type StreamChunk } from "../../utils/sse";
 import { fetchWithRetry } from "../../utils/stagger";
+import { streamRequestError } from "../../utils/streamError";
 import { extractThinking, sanitizeDelta } from "../../utils/thinking";
 
 export type ConversationState =
@@ -182,13 +183,10 @@ export async function streamModelResponse(
 			{ maxRetries: 2 },
 		);
 
-		if (!resp.ok) {
-			const text = await resp.text();
-			throw new Error(`Chat failed: ${resp.status} ${text}`);
-		}
+		if (!resp.ok) throw await streamRequestError(resp, t);
 
 		const reader = resp.body?.getReader();
-		if (!reader) throw new Error("No readable stream");
+		if (!reader) throw new Error(t("chat.stream.noBody"));
 
 		completion = await readSSEStream<StreamChunk>({
 			reader,

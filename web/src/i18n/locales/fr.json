@@ -434,7 +434,9 @@
 			"stalledTimeout": "Flux bloqués - aucune donnée reçue pendant la période d'expiration.",
 			"cutoffIncomplete": "Le flux a été coupé - la réponse peut être incomplète.",
 			"endedWithoutSignal": "Flux terminé sans le signal d'achèvement - la réponse peut toujours être complète.",
-			"endedUnexpectedly": "Le flux s'est terminé de façon inattendue sans contenu."
+			"endedUnexpectedly": "Le flux s'est terminé de façon inattendue sans contenu.",
+			"requestFailed": "La requête a échoué ({{status}}) : {{detail}}",
+			"noBody": "Le serveur n'a envoyé aucun flux de réponse"
 		},
 		"controls": {
 			"_": "Contrôles",

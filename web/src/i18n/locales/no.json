@@ -423,7 +423,9 @@
 			"stalledTimeout": "Strømming stoppet - ingen data mottatt innen tidsavbruddsperioden.",
 			"cutoffIncomplete": "Strømmen ble kuttet av - responsen kan være ufullstendig.",
 			"endedWithoutSignal": "Strømmen ble avsluttet uten avsluttende signal - svaret kan fortsatt være fullstendig.",
-			"endedUnexpectedly": "Strømmen sluttet uventet uten innhold."
+			"endedUnexpectedly": "Strømmen sluttet uventet uten innhold.",
+			"requestFailed": "Forespørselen mislyktes ({{status}}): {{detail}}",
+			"noBody": "Serveren sendte ingen svarstrøm"
 		},
 		"controls": {
 			"_": "Kontroller",

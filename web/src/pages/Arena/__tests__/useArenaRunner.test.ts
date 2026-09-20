@@ -8,44 +8,7 @@ import { server } from "../../../test/mocks/server";
 import type { BracketRound } from "../types";
 import { useArenaRunner } from "../useArenaRunner";
 
-const createWrapper = () => {
-	return function Wrapper({ children }: { children: React.ReactNode }) {
-		return children;
-	};
-};
-
-const createMockDeps = (
-	overrides?: Partial<Parameters<typeof useArenaRunner>[0]>,
-) => {
-	const providedRoundsRef = overrides?.roundsRef;
-	const roundsRef = providedRoundsRef ?? { current: [] as BracketRound[] };
-	const setRoundsMock = vi.fn((fn) => {
-		if (typeof fn === "function") {
-			const result = fn(roundsRef.current);
-			roundsRef.current = result;
-		}
-	});
-	const baseDeps: Parameters<typeof useArenaRunner>[0] = {
-		arenaModeRef: { current: "compare" as ArenaSubMode },
-		savedPrompt: "Test prompt",
-		prompt: "Test prompt",
-		setRounds: setRoundsMock,
-		setPhase: vi.fn(),
-		setRunningModels: vi.fn(),
-		rounds: [],
-		roundsRef,
-		modelParams: {},
-		enabledModels: [
-			{ provider_name: "P", model_id: "model-a" },
-			{ provider_name: "P", model_id: "model-b" },
-			{ provider_name: "P", model_id: "new-model" },
-		],
-		modelsReady: true,
-		toast: vi.fn() as ReturnType<typeof useToast>["toast"],
-		...overrides,
-	};
-	return baseDeps;
-};
+import { createMockDeps, createWrapper } from "./useArenaRunner.test.helpers";
 
 describe("useArenaRunner", () => {
 	it("initializes with empty abort map", () => {

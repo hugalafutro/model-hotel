@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { MessageSquare, MessagesSquare } from "@/lib/icons";
 import type { ChatMessage, GenerationParams } from "../../api/types";
-import { useSidebarMode } from "../../context/SidebarModeContext";
+import {
+	type ChatSubMode,
+	useSidebarMode,
+} from "../../context/SidebarModeContext";
 import { useStorage } from "../../context/StorageContext";
 import { useToast } from "../../context/ToastContext";
 import { readJSON, useLocalStorage } from "../../hooks/useLocalStorage";
@@ -25,6 +28,21 @@ import { useChatScroll } from "./useChatScroll";
 import { useConversationRunner } from "./useConversationRunner";
 import { useDeleteMessage } from "./useDeleteMessage";
 import { useMultimodalAttachments } from "./useMultimodalAttachments";
+
+/** The transcript a sub-mode last persisted, or nothing when it does not persist. */
+function readPersistedMessages(
+	mode: ChatSubMode,
+	persistChat: boolean,
+	persistConversation: boolean,
+): ChatMessage[] {
+	const isChat = mode === "chat";
+	if (!(isChat ? persistChat : persistConversation)) return [];
+	return (
+		readJSON<ChatMessage[]>(isChat ? "chatMessages" : "conversationMessages") ??
+		[]
+	);
+}
+
 export function useChat() {
 	const { data: enabledModels, isLoading: modelsLoading } = useChatModels();
 	// False while the chat model list is doing its first load. Actions that would
@@ -37,19 +55,17 @@ export function useChat() {
 	// Only the current mode's transcript is restored: loading the conversation
 	// into chat mode (or the other way round) shows a history that belongs to
 	// the other mode.
-	const [messages, setMessages] = useState<ChatMessage[]>(() => {
-		const isChat = chatSubMode === "chat";
-		if (!(isChat ? persistChat : persistConversation)) return [];
-		return (
-			readJSON<ChatMessage[]>(
-				isChat ? "chatMessages" : "conversationMessages",
-			) ?? []
-		);
-	});
+	const [messages, setMessages] = useState<ChatMessage[]>(() =>
+		readPersistedMessages(chatSubMode, persistChat, persistConversation),
+	);
+	// The sub-mode `messages` belongs to. On the render where chatSubMode flips
+	// it still names the old mode, so the transcript is persisted under its own
+	// key and never under the other mode's; the reset effect below moves both.
+	const [messagesMode, setMessagesMode] = useState(chatSubMode);
 
 	useChatPersistence({
 		messages,
-		chatSubMode,
+		chatSubMode: messagesMode,
 		persistChat,
 		persistConversation,
 	});
@@ -141,19 +157,6 @@ export function useChat() {
 	const setMessageParams =
 		chatSubMode === "chat" ? setChatMessageParams : setConversationParamsA;
 
-	// Reset conversation state when chatSubMode changes (e.g. sidebar click),
-	// but skip the initial mount so we don't wipe persisted messages.
-	const prevChatSubModeRef = useRef(chatSubMode);
-	useEffect(() => {
-		if (prevChatSubModeRef.current !== chatSubMode) {
-			prevChatSubModeRef.current = chatSubMode;
-			setMessages([]);
-			setConversationState("idle");
-			setCurrentTurn(0);
-			setInput("");
-		}
-	}, [chatSubMode, setCurrentTurn, setConversationState]);
-
 	// Cleanup: abort the conversation stream on unmount. Stored in a separate
 	// cleanup ref so the React Compiler doesn't mark conversationAbortRef as
 	// "effect-only" and forbid mutation in event handlers - which is perfectly
@@ -165,6 +168,48 @@ export function useChat() {
 			convAbortCtrl.current?.abort();
 		};
 	}, []);
+
+	// Reset conversation state when chatSubMode changes (e.g. sidebar click),
+	// loading the transcript that mode persisted, and skip the initial mount
+	// so we don't wipe persisted messages.
+	const prevChatSubModeRef = useRef(chatSubMode);
+	useEffect(() => {
+		if (prevChatSubModeRef.current !== chatSubMode) {
+			prevChatSubModeRef.current = chatSubMode;
+			// A conversation still running would go on appending to the
+			// transcript loaded below through the shared setter, and persist
+			// the mix as the other mode's history. Stopped the way
+			// handleStopConversation does: the abort ends its loop, the running
+			// flag cleared first skips its own state cleanup, and no prompt is
+			// put back into the input emptied here.
+			conversationRunningRef.current = false;
+			lastPromptRef.current = "";
+			cleanupConvAbortRef.current?.abort();
+			cleanupConvAbortRef.current = null;
+			conversationAbortRef.current = null;
+			// The runner skips its own cleanup once the running flag is down, so
+			// the streaming flag and the countdown it was showing are cleared
+			// here, as handleStopConversation clears them.
+			setIsStreaming(false);
+			setTurnCountdown(0);
+			setMessages(
+				readPersistedMessages(chatSubMode, persistChat, persistConversation),
+			);
+			setMessagesMode(chatSubMode);
+			setConversationState("idle");
+			setCurrentTurn(0);
+			setInput("");
+		}
+	}, [
+		chatSubMode,
+		persistChat,
+		persistConversation,
+		setCurrentTurn,
+		setConversationState,
+		setTurnCountdown,
+		conversationRunningRef,
+		conversationAbortRef,
+	]);
 
 	const selectedModelObj = findChatModel(enabledModels, selectedModel);
 	const selectedModelObjB = findChatModel(enabledModels, selectedModelB);
