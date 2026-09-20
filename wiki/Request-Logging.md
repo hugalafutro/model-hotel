@@ -402,7 +402,7 @@ Most failed requests are tagged with a machine-readable [`error_kind`](#request-
 | `provider_bad_request` | upstream 400 | The provider understood the request and refused the payload, normally the wrong dialect for that upstream route rather than a provider fault | `"provider \"X\" rejected the request payload on attempt 1"` |
 | `provider_saturated` | 429 | Alive and refusing on capacity (concurrency slots, RPM, TPM). Retry in seconds. | `"all 3 providers busy; last error: provider \"X\" is busy (rate limited at capacity) on attempt 3"` |
 | `provider_quota_exhausted` | 429 | A usage window is spent (session, daily, weekly, or a coding-plan window). Retry after the window resets. | `"no available provider for hotel/glm-4.6; earliest retry in 45s"` |
-| `provider_timeout` | 502 | TTFT probe or stall watchdog fired: provider connected but produced no output in time | `"provider \"X\" did not return a response in time on attempt 1"` |
+| `provider_timeout` | 502 | TTFT probe, stall watchdog or the upstream header timeout fired: provider connected but produced no headers or output in time | `"provider \"X\" did not return a response in time on attempt 1"` |
 | `failover_timeout` | 504 | The overall failover deadline expired | `"request timed out while waiting on provider \"X\""` |
 | `retry_timeout` | 504 | The param-strip retry's deadline expired | `"retry without unsupported parameters timed out on provider \"X\""` |
 | `client_disconnect` | 499 | The calling client hung up before we responded | `"client disconnected during attempt 1 to provider \"X\""` |

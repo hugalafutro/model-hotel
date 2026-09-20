@@ -96,6 +96,12 @@ func (h *Handler) handleStreamingResponse(w http.ResponseWriter, r *http.Request
 			if h.emitDone(sink, st, ev, chunkCount, logData) {
 				goto logUpdate
 			}
+			// [DONE] ends the stream. The deferred drain below reads until the
+			// upstream's EOF, and one that lingers past its own sentinel would
+			// hold this handler, and the caller's end of stream, until the
+			// attempt deadline. Closed rather than drained, like the native
+			// path's terminal event.
+			_ = resp.Body.Close()
 			break
 		}
 

@@ -7,8 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/http/httptrace"
-	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -94,7 +92,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 	// this via context, avoiding cross-request races on a shared field.
 	var dialMs float64
 	streamCancelOrigin := "failover_timeout"
-	failoverCtx, failoverCancel := context.WithTimeout(r.Context(), st.failoverTimeout)
+	failoverCtx, failoverCancel := context.WithDeadline(r.Context(), st.attemptDeadline())
 	// Own the request context: this fires on every return path, after any
 	// dispatch below has consumed the body (dispatch is the final statement on
 	// the served paths). Idempotent, so the retry helper may also call it.
@@ -344,18 +342,29 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 	}
 
 	if ttftTimeout > 0 {
+		// The in-flight slot settles from the body's close, and the probe
+		// closes the body itself, from its own goroutine, when its context
+		// ends (the TTFT timeout, or the caller leaving). So the verdict has
+		// to be on the slot BEFORE the probe runs: unclean until a first token
+		// proves the stream delivers, lifted once one has. The hold also
+		// defers an EOF that arrives in the same read as that first token,
+		// so a one-read stream is not settled before the verdict is in. A
+		// probe that failed is not a consumed success whoever ended it, so
+		// the provider's learned window does not grow on it; the breaker
+		// charge below still spares a caller who left.
+		st.attemptSlot.holdForProbe(true)
 		// TTFT probe: read until first real data chunk.
 		probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, st.startTime)
 		if probeErr != nil {
-			// Timeout or read error, so fail over. probeFirstToken may or may
-			// not have closed the body (only on DeadlineExceeded); close it
-			// unconditionally to release the connection.
-			_ = resp.Body.Close()
 			// Reaching here means zero "data:" tokens arrived from the provider.
 			// classifyProbeFailure decides whether that is a provider stall
 			// (recorded against the breaker, failover-eligible) or a genuinely
 			// fast client cancel that must not penalize the provider.
 			clientGone := r.Context().Err() != nil
+			// Timeout or read error, so fail over. probeFirstToken may or may
+			// not have closed the body (only when its context ended); close it
+			// unconditionally to release the connection.
+			_ = resp.Body.Close()
 			elapsed := time.Since(st.startTime)
 			re, recordFailure := classifyProbeError(probeErr, candidate.provider.Name, newCredentialMasker(candidate.apiKey), logData.fence(), clientGone, elapsed, stallTimeout, ttftTimeout, attempt)
 			if recordFailure {
@@ -372,6 +381,7 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", re.Underlying)
 			return outcomeFailover
 		}
+		st.attemptSlot.holdForProbe(false)
 		// First token confirmed. No breaker success is recorded here: a first
 		// token is not a served stream, and recording one would zero
 		// consecutiveFails on every request, so the finalizer's own failure
@@ -629,158 +639,6 @@ func (h *Handler) buildCandidateRequest(ctx context.Context, st *requestState, c
 	proxyReq.Header.Set("Content-Type", contentType)
 	debuglog.Debug("proxy: sending upstream request", "method", proxyReq.Method, "url", targetURL, "content_length", len(upstreamBody), "has_api_key", candidate.apiKey != "")
 	return proxyReq, providerType, targetURL, nil
-}
-
-// resolveCancelOrigin names the cause behind a context error on an upstream
-// attempt. A deadline reads the origin the derived context was created with
-// (failover vs retry). A cancellation is the client hanging up, unless the
-// hedging orchestrator abandoned this attempt because a faster candidate won:
-// that cancellation is the gateway's own, and reporting it as a client
-// disconnect describes a request the client is still receiving.
-func resolveCancelOrigin(ctx context.Context, err error) string {
-	if errors.Is(err, context.DeadlineExceeded) {
-		if s, ok := ctx.Value(ctxkeys.CancelOriginKey).(string); ok && s != "" {
-			return s
-		}
-		return "client_disconnect"
-	}
-	if sup, ok := ctx.Value(ctxkeys.HedgeSupersededKey).(*atomic.Bool); ok && sup.Load() {
-		return "hedge_superseded"
-	}
-	return "client_disconnect"
-}
-
-// doUpstream executes the built request against the shared upstream transport
-// (phase D): inject the per-request dial-timing pointer, run the request,
-// retrying up to maxTransientRetries times against the same provider on
-// transient network errors, fold each try's dial sample into the running
-// timings, and recompute proxy overhead. Retries share the per-attempt failover
-// timeout, replay the body via GetBody, and back off briefly between tries. On
-// final failure it classifies the cause (client disconnect, failover or retry
-// timeout, provider error) and records a breaker failure only for real provider
-// errors, never for context cancellation.
-// Returns (resp, true) on a usable response; (nil, false) after setting
-// st.lastErr on a failover-worthy failure. The caller retains ownership of ctx
-// cancellation.
-func (h *Handler) doUpstream(ctx context.Context, req *http.Request, st *requestState, candidate modelCandidate, attempt int, dialMs *float64) (*http.Response, bool) {
-	logData := st.logData
-	// Reuse the shared upstream Transport instead of creating a new one
-	// per request. A fresh Transport spawns persistent readLoop/writeLoop
-	// goroutines per connection that only die after IdleConnTimeout, so
-	// creating one per request causes unbounded goroutine growth.
-	// Hand the request its own dial-timing slot for SafeDialer to write DNS
-	// and TCP time into. A slot rather than the caller's *dialMs, because the
-	// transport's dial goroutine can outlive Do (see dialTiming); the time is
-	// swapped out into *dialMs once Do has returned.
-	dialCtx, dialTimer := withDialTiming(ctx)
-
-	upstreamClient := h.upstreamClient(ctx)
-
-	var resp *http.Response
-	var err error
-	// lastTransportErr preserves the real provider/transport error that drove
-	// the retry loop, so when a client disconnect or timeout later overwrites
-	// `err` with a context error the original cause is still carried into the
-	// structured error as Underlying.
-	var lastTransportErr error
-	for try := 0; ; try++ {
-		// Track whether any request bytes reached the wire on this try, so
-		// isRetryableUpstreamError can tell provably-safe pre-write failures
-		// from ambiguous post-write ones. WroteHeaders may fire on a transport
-		// goroutine, hence the atomic.
-		var wroteRequest atomic.Bool
-		tryCtx := httptrace.WithClientTrace(dialCtx, &httptrace.ClientTrace{
-			WroteHeaders: func() { wroteRequest.Store(true) },
-		})
-		tryReq := req.WithContext(tryCtx)
-		if try > 0 {
-			// The previous try consumed (and the transport closed) the body.
-			// GetBody is always set: buildCandidateRequest builds the request
-			// from a bytes.Reader.
-			body, gbErr := req.GetBody()
-			if gbErr != nil {
-				break
-			}
-			tryReq.Body = body
-		}
-		// #nosec G704 -- provider URL is admin-configured, not arbitrary user input
-		resp, err = upstreamClient.Do(tryReq)
-		*dialMs += dialTimer.take()
-		st.timings.dialMs += *dialMs
-		*dialMs = 0
-		if err == nil || try == maxTransientRetries || !isRetryableUpstreamError(err, wroteRequest.Load()) {
-			break
-		}
-		// Retryable transport error: remember it before backing off, in case the
-		// context is cancelled during the backoff and overwrites `err` below.
-		lastTransportErr = err
-		backoff := failoverBackoff(100*time.Millisecond, 500*time.Millisecond, try+1)
-		debuglog.Warn("proxy: transient upstream error, retrying same provider", "attempt", attempt+1, "try", try+1, "backoff", backoff, "request_written", wroteRequest.Load(), "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
-		select {
-		case <-time.After(backoff):
-		case <-dialCtx.Done():
-		}
-		// Client disconnect or failover timeout during backoff: stop retrying
-		// and surface the context error so the classification below does not
-		// penalize the circuit breaker. Checked outside the select because when
-		// both channels are ready Go picks a branch at random, and the timer
-		// branch must not leave the transport error in err.
-		if ctxErr := dialCtx.Err(); ctxErr != nil {
-			err = ctxErr
-			break
-		}
-	}
-	st.proxyOverhead = st.timings.proxyOverheadMs(st.parseMs)
-	if err != nil {
-		// "context canceled" is opaque, so the origin decides the error the
-		// caller sees: a client disconnect, the hedging orchestrator abandoning
-		// this attempt for a faster one, or an expired deadline.
-		// resolveCancelOrigin owns that classification.
-		isContextErr := errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
-		if isContextErr {
-			cancelOrigin := resolveCancelOrigin(dialCtx, err)
-			// The context error is the terminal cause, but the provider error
-			// that drove the retries (lastTransportErr) is preserved as
-			// Underlying so it survives into the request log and response.
-			st.setReqErr(reqError{
-				Kind:       cancelOriginToKind(cancelOrigin),
-				Attempt:    attempt,
-				Provider:   candidate.provider.Name,
-				Underlying: errString(lastTransportErr),
-			})
-			debuglog.Info("proxy: context cancelled during request to provider", "provider", logData.providerName, "provider_id", candidate.provider.ID, "model", logData.modelID, "origin", cancelOrigin, "error", err, "underlying", errString(lastTransportErr))
-		} else {
-			st.setReqErr(reqError{
-				Kind:       KindProviderError,
-				Attempt:    attempt,
-				Provider:   candidate.provider.Name,
-				Underlying: errString(err),
-			})
-			debuglog.Warn("proxy: upstream request failed", "attempt", attempt+1, "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "error", err)
-		}
-		// Client-initiated cancellations and deadline exceeded are not provider
-		// failures, so the circuit breaker is not charged for them. Real
-		// provider errors record exactly one breaker failure per candidate
-		// attempt, here, after any transient retries are exhausted, so a blip
-		// that self-heals on retry never counts against the provider.
-		if !isContextErr {
-			// No status: the request never completed, so there is none.
-			h.chargeBreaker(st, candidate, 0, "upstream request failed")
-		}
-		return nil, false
-	}
-
-	// Log upstream response metadata for debugging. The three header values are
-	// the upstream's own text, so they are bounded, sanitized and fenced the way
-	// every other upstream-controlled value a log line carries is, and only
-	// when Debug is on: this is the success path of every request, and the
-	// fence's first use parses the request body.
-	debuglog.Debug("proxy: upstream response received", "provider", candidate.provider.Name, "provider_id", candidate.provider.ID, "model", candidate.model.ModelID, "status", resp.StatusCode,
-		"content_type", fencedDebugText(resp.Header.Get("Content-Type"), logData),
-		"x_request_id", fencedDebugText(resp.Header.Get("X-Request-Id"), logData),
-		"x_ratelimit_remaining", fencedDebugText(resp.Header.Get("X-RateLimit-Remaining"), logData),
-		"attempt", attempt+1)
-	return resp, true
 }
 
 // isLearnableRefusal reports an upstream status the attempt loop hands to

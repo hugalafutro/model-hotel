@@ -318,11 +318,7 @@ func (h *Handler) rebuildForParamRetry(st *requestState, candidate modelCandidat
 // could hold the request for several budgets past the point the loop would have
 // given up. A state that never set the deadline keeps the plain budget.
 func retryContext(r *http.Request, st *requestState) (context.Context, context.CancelFunc) {
-	deadline := time.Now().Add(st.failoverTimeout)
-	if !st.overallDeadline.IsZero() && st.overallDeadline.Before(deadline) {
-		deadline = st.overallDeadline
-	}
-	ctx, cancel := context.WithDeadline(r.Context(), deadline)
+	ctx, cancel := context.WithDeadline(r.Context(), st.attemptDeadline())
 	return context.WithValue(ctx, ctxkeys.CancelOriginKey, "retry_timeout"), cancel
 }
 
