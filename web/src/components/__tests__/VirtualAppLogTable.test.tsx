@@ -181,6 +181,30 @@ describe("VirtualAppLogTable", () => {
 			}
 		});
 
+		it("opens a row and flips the sort from the keyboard", async () => {
+			const onRowClick = vi.fn();
+			const onSortToggle = vi.fn();
+			const { container, user } = renderWithProviders(
+				<VirtualAppLogTable
+					{...defaultProps}
+					entries={entries}
+					total={2}
+					onRowClick={onRowClick}
+					onSortToggle={onSortToggle}
+				/>,
+			);
+			const row = container.querySelector('[data-index="0"]') as HTMLElement;
+			expect(row).toHaveAttribute("tabIndex", "0");
+			row.focus();
+			await user.keyboard("{Enter}");
+			expect(onRowClick).toHaveBeenCalledWith(entries[0]);
+
+			const sort = screen.getByRole("button", { name: /Time\/Date/ });
+			sort.focus();
+			await user.keyboard("{Enter}");
+			expect(onSortToggle).toHaveBeenCalledTimes(1);
+		});
+
 		it("calls onSortToggle when Time/Date header is clicked", async () => {
 			const onSortToggle = vi.fn();
 			renderWithProviders(

@@ -825,6 +825,21 @@ describe("ModelTable", () => {
 		});
 	});
 
+	describe("Keyboard", () => {
+		it("opens a model row with Enter", async () => {
+			const onModelClick = vi.fn();
+			const { user } = renderWithProviders(
+				<ModelTable {...defaultProps} onModelClick={onModelClick} />,
+			);
+			const modelRow = screen.getByText("Test Model").closest("tr");
+			if (!modelRow) throw new Error("row not rendered");
+			expect(modelRow).toHaveAttribute("tabIndex", "0");
+			modelRow.focus();
+			await user.keyboard("{Enter}");
+			expect(onModelClick).toHaveBeenCalledWith(mockModel);
+		});
+	});
+
 	describe("Copyable Model ID", () => {
 		it("renders copyable model ID pill", () => {
 			renderWithProviders(<ModelTable {...defaultProps} />);
