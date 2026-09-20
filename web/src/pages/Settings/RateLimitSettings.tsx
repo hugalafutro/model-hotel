@@ -75,7 +75,7 @@ export function RateLimitSettings({
 							unit="ms"
 							hideUnit
 							onChange={(v) =>
-								updateMutation.mutate({ rate_limit_rps: String(v) })
+								updateMutation.mutateAsync({ rate_limit_rps: String(v) })
 							}
 							description={t(
 								"settings.rateLimit.requestsPerSecond.description",
@@ -96,7 +96,7 @@ export function RateLimitSettings({
 							unit="ms"
 							hideUnit
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									rate_limit_burst: String(v),
 								})
 							}
@@ -116,7 +116,7 @@ export function RateLimitSettings({
 							clampStep={100}
 							unit="ms"
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									rate_limit_max_wait_ms: String(v),
 								})
 							}
@@ -163,7 +163,7 @@ export function RateLimitSettings({
 							unit="s"
 							hideUnit
 							onChange={(v) =>
-								updateMutation.mutate({ rate_limit_ip_rps: String(v) })
+								updateMutation.mutateAsync({ rate_limit_ip_rps: String(v) })
 							}
 							description={t(
 								"settings.rateLimit.ipRequestsPerSecond.description",
@@ -184,7 +184,7 @@ export function RateLimitSettings({
 							unit="s"
 							hideUnit
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									rate_limit_ip_burst: String(v),
 								})
 							}

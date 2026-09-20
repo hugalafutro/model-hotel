@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { act, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { mockFailoverGroup } from "../../../test/mocks/data";
 import { renderWithProviders } from "../../../test/utils";
@@ -258,6 +258,59 @@ describe("FailoverGroupCard", () => {
 			expect(
 				screen.getByRole("button", { name: "Delete" }),
 			).toBeInTheDocument();
+		});
+
+		it("shows the server order again when the reorder write is refused", async () => {
+			const entries = [
+				{
+					model_uuid: "entry-1",
+					model_id: "model-1",
+					provider_id: "provider-1",
+					provider_name: "Provider 1",
+					display_name: "Model 1",
+					enabled: true,
+					model_enabled: true,
+					provider_enabled: true,
+					disabled_manually: false,
+					context_length: 8192,
+					owned_by: "provider-1",
+				},
+				{
+					model_uuid: "entry-2",
+					model_id: "model-2",
+					provider_id: "provider-2",
+					provider_name: "Provider 2",
+					display_name: "Model 2",
+					enabled: true,
+					model_enabled: true,
+					provider_enabled: true,
+					disabled_manually: false,
+					context_length: 4096,
+					owned_by: "provider-2",
+				},
+			];
+			const onReorder = vi.fn(() => Promise.reject(new Error("409")));
+			renderWithProviders(
+				<FailoverGroupCard
+					{...defaultProps}
+					group={{ ...mockFailoverGroup, entries }}
+					onReorder={onReorder}
+				/>,
+			);
+			const order = () =>
+				screen.getAllByText(/^model-[12]$/).map((el) => el.textContent);
+			expect(order()).toEqual(["model-1", "model-2"]);
+
+			act(() => {
+				capturedOnDragEnd?.({
+					active: { id: "entry-2" },
+					over: { id: "entry-1" },
+				});
+			});
+			expect(onReorder).toHaveBeenCalledWith(["entry-2", "entry-1"]);
+			expect(order()).toEqual(["model-2", "model-1"]);
+			// The server refused the write and still holds the old order.
+			await waitFor(() => expect(order()).toEqual(["model-1", "model-2"]));
 		});
 
 		it("renders sortable entries", () => {

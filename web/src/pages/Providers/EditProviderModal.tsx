@@ -13,17 +13,14 @@ import { Modal } from "../../components/Modal";
 import { RevealableInput } from "../../components/RevealableInput";
 import { Toggle } from "../../components/Toggle";
 import { useRefreshDiscoveryBadge } from "../../hooks/useRefreshDiscoveryBadge";
-import { formatDateOnly } from "../../utils/format";
+import { formatDateOnly, intOrNull } from "../../utils/format";
 import { isKnownProviderUrl, providerTypeOptions } from "./constants";
 import { findProviderAtAddress } from "./duplicateAddress";
 import { providerTypeGateMessage } from "./typeGateError";
 
 // parsedMaxInFlight turns the ceiling input's text into the API's three-state
 // value: a number sets it, an empty box means "no ceiling" (null).
-function parsedMaxInFlight(text: string): number | null {
-	const n = Number.parseInt(text, 10);
-	return Number.isNaN(n) ? null : n;
-}
+const parsedMaxInFlight = intOrNull;
 
 // Earliest schedulable day. Today is excluded because a same-day schedule is
 // indistinguishable from disabling the provider outright.

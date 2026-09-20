@@ -11,7 +11,13 @@ export interface SettingsSliderProps {
 	max: number;
 	step: number;
 	clampStep?: number;
-	onChange: (value: number) => void;
+	/**
+	 * Called with each committed value. A returned promise is the write: when
+	 * it rejects, the draft snaps back to `value` and the commit mark resets,
+	 * so the slider never shows a value the server refused and choosing that
+	 * value again retries.
+	 */
+	onChange: (value: number) => unknown;
 	description?: React.ReactNode;
 	disabled?: boolean;
 	hideUnit?: boolean;
@@ -72,7 +78,13 @@ export function SettingsSlider({
 			setLocal(v);
 			if (v !== committed.current) {
 				committed.current = v;
-				onChange(v);
+				const write = onChange(v);
+				if (write instanceof Promise) {
+					write.catch(() => {
+						committed.current = prevValue.current;
+						setLocal(prevValue.current);
+					});
+				}
 			}
 		},
 		[onChange],

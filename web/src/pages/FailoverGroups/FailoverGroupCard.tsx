@@ -57,7 +57,8 @@ export function FailoverGroupCard({
 	onToggleSelect: (selected: boolean) => void;
 	onToggleGroup: (enabled: boolean) => void;
 	onToggleEntry: (uuid: string, enabled: boolean) => void;
-	onReorder: (newOrder: string[]) => void;
+	/** A returned promise is the write: when it rejects, the card shows the server order again. */
+	onReorder: (newOrder: string[]) => unknown;
 	onDelete: () => void;
 	onEdit?: () => void;
 	// When true this group's config is managed by the fleet primary. Every write
@@ -131,7 +132,12 @@ export function FailoverGroupCard({
 			const newIndex = localEntries.findIndex((e) => e.model_uuid === over.id);
 			const reordered = arrayMove(localEntries, oldIndex, newIndex);
 			setLocalEntries(reordered); // immediate optimistic update
-			onReorder(reordered.map((e) => e.model_uuid));
+			const write = onReorder(reordered.map((e) => e.model_uuid));
+			if (write instanceof Promise) {
+				// A refused write leaves the server order as it was, so the key
+				// resync above never fires; the card goes back to it here.
+				write.catch(() => setLocalEntries(group.entries));
+			}
 		}
 	};
 

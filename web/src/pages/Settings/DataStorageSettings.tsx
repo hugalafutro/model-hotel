@@ -173,7 +173,7 @@ export function DataStorageSettings({
 								infinityValue={0}
 								unit="d"
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										log_retention: hoursToGoDuration(v * 24),
 									})
 								}
@@ -193,7 +193,7 @@ export function DataStorageSettings({
 								infinityValue={0}
 								unit="m"
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										stale_request_timeout: minutesToGoDuration(v),
 									})
 								}
@@ -317,7 +317,7 @@ export function DataStorageSettings({
 								unit="m"
 								disabled={quotaDisabled}
 								onChange={(v) => {
-									updateMutation.mutate({
+									const write = updateMutation.mutateAsync({
 										quota_refresh_interval_min: String(v),
 									});
 									toast(
@@ -329,6 +329,7 @@ export function DataStorageSettings({
 												}),
 										"success",
 									);
+									return write;
 								}}
 								description={t(
 									"settings.sidebarQuota.refreshInterval.description",

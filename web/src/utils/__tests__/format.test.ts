@@ -20,8 +20,19 @@ import {
 	formatTimeUntil,
 	formatTokens,
 	formatWithCommas,
+	intOrNull,
 	tokensPerSecond,
 } from "../format";
+
+describe("intOrNull", () => {
+	it("reads what the number input validated, not parseInt's mantissa", () => {
+		expect(intOrNull("1e6")).toBe(1000000);
+		expect(intOrNull("12.9")).toBe(12);
+		expect(intOrNull("7")).toBe(7);
+		expect(intOrNull("")).toBeNull();
+		expect(intOrNull("abc")).toBeNull();
+	});
+});
 
 describe("formatDuration", () => {
 	it("returns milliseconds for values under 1000", () => {

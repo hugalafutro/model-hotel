@@ -55,7 +55,7 @@ export function ProxySettings({
 							clampStep={30}
 							unit="s"
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									request_timeout: secondsToGoDuration(v),
 								})
 							}
@@ -73,7 +73,7 @@ export function ProxySettings({
 							clampStep={60}
 							unit="s"
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									key_cache_ttl: secondsToGoDuration(v),
 								})
 							}
@@ -100,7 +100,7 @@ export function ProxySettings({
 							// being failed over. The plain 0 is the honest reading,
 							// and the description says what it costs.
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									ttft_timeout: secondsToGoDuration(v),
 								})
 							}
@@ -119,7 +119,7 @@ export function ProxySettings({
 							unit="s"
 							infinityValue={0}
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									stream_stall_timeout: secondsToGoDuration(v),
 								})
 							}
@@ -140,7 +140,7 @@ export function ProxySettings({
 							unit="s"
 							infinityValue={0}
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									upstream_header_timeout: secondsToGoDuration(v),
 								})
 							}

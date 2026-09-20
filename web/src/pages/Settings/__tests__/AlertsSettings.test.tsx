@@ -609,6 +609,43 @@ describe("AlertsSettings", () => {
 		).toBeInTheDocument();
 	});
 
+	it("holds the event checkboxes while a write is in flight", async () => {
+		// A second tick inside the first write's round trip would recompute the
+		// CSV from the stale stored value and drop the first change.
+		serveSettings({
+			alert_enabled: "true",
+			alert_events: "circuit_breaker.open,circuit_breaker.closed",
+		});
+		let releasePut: () => void = () => {};
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				const body = (await request.json()) as Record<string, string>;
+				await new Promise<void>((resolve) => {
+					releasePut = resolve;
+				});
+				return HttpResponse.json(body);
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await user.click(await screen.findByTestId("alert-picker-toggle"));
+		const box = within(
+			await screen.findByTestId("alert-event-circuit_breaker.open"),
+		).getByRole("checkbox");
+		const other = within(
+			screen.getByTestId("alert-event-circuit_breaker.closed"),
+		).getByRole("checkbox");
+		await user.click(box);
+		await waitFor(() => expect(box).toBeDisabled());
+		expect(other).toBeDisabled();
+
+		releasePut();
+		await waitFor(() => expect(box).toBeEnabled());
+		expect(other).toBeEnabled();
+	});
+
 	it("disables the test button until fully configured", async () => {
 		serveSettings({ alert_enabled: "true" }); // no URL/target
 		renderWithProviders(

@@ -156,7 +156,7 @@ export function DiscoverySettings({
 							unit="h"
 							disabled={isUpdating}
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									discovery_interval: hoursToGoDuration(v),
 								})
 							}
@@ -179,11 +179,11 @@ export function DiscoverySettings({
 							infinityValue={0}
 							unit="d"
 							disabled={isUpdating}
-							onChange={(v) => {
-								updateMutation.mutate({
+							onChange={(v) =>
+								updateMutation.mutateAsync({
 									model_prune_days: String(v),
-								});
-							}}
+								})
+							}
 							description={t("settings.discovery.pruneRetired.description")}
 							onReset={() => resetSettingMutation.mutate(["model_prune_days"])}
 							resetTooltip={t("settings.common.resetSetting")}

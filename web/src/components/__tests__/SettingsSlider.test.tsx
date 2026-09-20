@@ -1,4 +1,4 @@
-import { fireEvent, screen } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { renderWithProviders } from "../../test/utils";
 import { SettingsSlider } from "../SettingsSlider";
 
@@ -94,6 +94,27 @@ describe("SettingsSlider", () => {
 		fireEvent.change(numberInput, { target: { value: 80 } });
 		fireEvent.blur(numberInput);
 		expect(onChange).toHaveBeenCalledWith(80);
+	});
+
+	it("snaps back to the prop value when the write is refused", async () => {
+		// The server kept 50; showing 80 would claim a limit the proxy does not
+		// enforce, and a commit mark left at 80 would swallow the retry.
+		const onChange = vi
+			.fn()
+			.mockRejectedValueOnce(new Error("refused"))
+			.mockResolvedValue(undefined);
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} onChange={onChange} />,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		fireEvent.change(numberInput, { target: { value: 80 } });
+		fireEvent.blur(numberInput);
+		expect(onChange).toHaveBeenCalledWith(80);
+		await waitFor(() => expect(numberInput).toHaveValue(50));
+
+		fireEvent.change(numberInput, { target: { value: 80 } });
+		fireEvent.blur(numberInput);
+		expect(onChange).toHaveBeenCalledTimes(2);
 	});
 
 	it("does NOT commit a draft when the blur comes from being disabled", () => {
