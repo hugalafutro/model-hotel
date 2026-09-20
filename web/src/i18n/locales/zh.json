@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "重置为来源值",
 			"searchPrice": "搜索单价",
 			"perThousandSearches": "/1K 次搜索",
-			"testSuccessRanked": "成功 | 排序结果：{{count}}{{ttftPart}} | 时长： {{duration}}秒"
+			"testSuccessRanked": "成功 | 排序结果：{{count}}{{ttftPart}} | 时长： {{duration}}秒",
+			"limitsPinned": "上下文与输出上限已由操作员固定"
 		},
 		"table": {
 			"sortByModelName": "按模型名称排序",

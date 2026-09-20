@@ -275,8 +275,10 @@ func TestSchedulerTick(t *testing.T) {
 	if err := os.WriteFile(recent, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := h.schedulerTick(context.Background()); got < 59*time.Minute || got > time.Hour {
-		t.Errorf("recent dump: sleep = %v, want just under 1h", got)
+	// Not due for ~1h, but a tick sleeps at most the re-check cap so an
+	// interval change lands (TestSchedulerTick_LongWaitIsRecheckedNotSleptOut).
+	if got := h.schedulerTick(context.Background()); got != backupSchedulerRecheck {
+		t.Errorf("recent dump: sleep = %v, want the %v re-check", got, backupSchedulerRecheck)
 	}
 	if count() != 1 {
 		t.Error("recent dump: a backup was attempted, want none")
@@ -285,8 +287,8 @@ func TestSchedulerTick(t *testing.T) {
 	if err := os.Chtimes(recent, stale, stale); err != nil {
 		t.Fatal(err)
 	}
-	if got := h.schedulerTick(context.Background()); got != time.Hour {
-		t.Errorf("stale dump: sleep = %v, want 1h", got)
+	if got := h.schedulerTick(context.Background()); got != backupSchedulerRecheck {
+		t.Errorf("stale dump: sleep = %v, want the %v re-check after a dump", got, backupSchedulerRecheck)
 	}
 }
 
@@ -1550,4 +1552,65 @@ func TestRunScheduledBackup_MutexAlreadyLocked(t *testing.T) {
 
 	// runScheduledBackup should return immediately without panic
 	bh.runScheduledBackup(context.Background())
+}
+
+// A tick that is not yet due sleeps at most the re-check cap, not the whole
+// remainder of the interval: the interval is re-read on every tick, and a
+// tick that slept out a 24h remainder kept an interval shortened to an hour
+// waiting out the old day.
+func TestSchedulerTick_LongWaitIsRecheckedNotSleptOut(t *testing.T) {
+	dir := t.TempDir()
+	ss := &mockSettingsStore{
+		getBoolFn:     func(context.Context, string, bool) bool { return true },
+		getDurationFn: func(context.Context, string, time.Duration) time.Duration { return 24 * time.Hour },
+	}
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+	// A scheduled dump one minute old: the next one is due in ~24h.
+	path := filepath.Join(dir, "backup_20260101_000000_0003_auto.dump")
+	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, time.Now().Add(-time.Minute), time.Now().Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.schedulerTick(context.Background()); got > backupSchedulerRecheck {
+		t.Errorf("tick sleeps %v, want at most the %v re-check", got, backupSchedulerRecheck)
+	}
+}
+
+// A dump that fails writes no file; the attempt itself anchors the interval,
+// so the re-check cadence does not turn a broken pg_dump into a retry every
+// few minutes.
+func TestSchedulerTick_FailedDumpBacksOffToTheInterval(t *testing.T) {
+	dir := t.TempDir()
+	ss := &mockSettingsStore{
+		getBoolFn:     func(context.Context, string, bool) bool { return true },
+		getDurationFn: func(context.Context, string, time.Duration) time.Duration { return time.Hour },
+	}
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h.schedulerTick(context.Background()) // due now: attempts, fails, writes nothing
+	if entries, _ := os.ReadDir(dir); len(entries) != 0 {
+		t.Fatalf("a failed dump left %d files", len(entries))
+	}
+	if got := h.scheduledBackupWait(time.Hour, time.Now()); got < 59*time.Minute {
+		t.Errorf("wait after a failed attempt = %v, want the interval to anchor on the attempt", got)
+	}
+}
+
+// A tick skipped because a manual backup or restore holds the lock is not an
+// attempt: the anchor does not move, so the still-due dump runs on the next
+// re-check once the operation is done.
+func TestSchedulerTick_LockSkipDoesNotAnchorTheInterval(t *testing.T) {
+	dir := t.TempDir()
+	ss := &mockSettingsStore{
+		getBoolFn:     func(context.Context, string, bool) bool { return true },
+		getDurationFn: func(context.Context, string, time.Duration) time.Duration { return time.Hour },
+	}
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h.backupMu.Lock() // a manual operation in progress
+	h.schedulerTick(context.Background())
+	h.backupMu.Unlock()
+	if got := h.scheduledBackupWait(time.Hour, time.Now()); got != 0 {
+		t.Errorf("wait after a lock skip = %v, want still due", got)
+	}
 }

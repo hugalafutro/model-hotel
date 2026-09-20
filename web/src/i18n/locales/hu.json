@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Visszaállítás a forrásra",
 			"searchPrice": "Keresési ár",
 			"perThousandSearches": "/1K keresés",
-			"testSuccessRanked": "Siker | Rangsorolt találatok: {{count}}{{ttftPart}} | Időtartam: {{duration}}másodperc"
+			"testSuccessRanked": "Siker | Rangsorolt találatok: {{count}}{{ttftPart}} | Időtartam: {{duration}}másodperc",
+			"limitsPinned": "Kontextus- és kimeneti korlátok az üzemeltető által rögzítve"
 		},
 		"table": {
 			"sortByModelName": "Rendezés modellnév szerint",

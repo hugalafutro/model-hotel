@@ -1119,7 +1119,8 @@
 			"resetPricesToSource": "Obnovit ze zdroje",
 			"searchPrice": "Cena za vyhledávání",
 			"perThousandSearches": "/1K vyhledávání",
-			"testSuccessRanked": "Úspěch | Seřazené výsledky: {{count}}{{ttftPart}} | Trvání: {{duration}}s"
+			"testSuccessRanked": "Úspěch | Seřazené výsledky: {{count}}{{ttftPart}} | Trvání: {{duration}}s",
+			"limitsPinned": "Limity kontextu a výstupu připnuty operátorem"
 		},
 		"table": {
 			"sortByModelName": "Seřadit podle názvu modelu",

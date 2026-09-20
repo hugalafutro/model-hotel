@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Auf Quelle zurücksetzen",
 			"searchPrice": "Suchpreis",
 			"perThousandSearches": "/1K Suchen",
-			"testSuccessRanked": "Erfolg | Gereihte Ergebnisse: {{count}}{{ttftPart}} | Dauer: {{duration}}s"
+			"testSuccessRanked": "Erfolg | Gereihte Ergebnisse: {{count}}{{ttftPart}} | Dauer: {{duration}}s",
+			"limitsPinned": "Kontext- und Ausgabelimits vom Betreiber angeheftet"
 		},
 		"table": {
 			"sortByModelName": "Nach Modellnamen sortieren",

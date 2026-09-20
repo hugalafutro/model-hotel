@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Återställ till källan",
 			"searchPrice": "Sökpris",
 			"perThousandSearches": "/1K sökningar",
-			"testSuccessRanked": "Lyckad | Rankade resultat: {{count}}{{ttftPart}} | Varaktighet: {{duration}}s"
+			"testSuccessRanked": "Lyckad | Rankade resultat: {{count}}{{ttftPart}} | Varaktighet: {{duration}}s",
+			"limitsPinned": "Kontext- och utdatagränser fästa av operatören"
 		},
 		"table": {
 			"sortByModelName": "Sortera efter modellnamn",

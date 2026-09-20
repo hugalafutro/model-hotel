@@ -23,17 +23,22 @@ import (
 // BackupHandler manages PostgreSQL database backups via pg_dump
 // and restores via pg_restore.
 type BackupHandler struct {
-	demoReadOnly      bool // see SetDemoReadOnly
-	databaseURL       string
-	backupDir         string
-	backupMu          sync.Mutex
-	adminMgr          AdminAuthenticator
-	settingsRepo      SettingsStore
-	sessionMgr        WebAuthnSessionManager // set via SetSessionAuth; nil when WebAuthn not wired (raw admin token still accepted when TOTP off)
-	totpEnabled       func() bool            // set via SetSessionAuth; nil -> treated as false (TOTP off) so raw admin token is accepted
-	masterKey         string                 // set via SetSigningKey; empty disables backup signing and verification
-	schedulerCancelMu sync.Mutex
-	schedulerCancel   context.CancelFunc
+	demoReadOnly bool // see SetDemoReadOnly
+	// lastScheduledAttempt is when the scheduler last tried a dump, whether or
+	// not one landed on disk: a failing pg_dump writes no file, and without
+	// this anchor the re-check cadence would retry it every few minutes
+	// instead of once per interval. Scheduler goroutine only.
+	lastScheduledAttempt time.Time
+	databaseURL          string
+	backupDir            string
+	backupMu             sync.Mutex
+	adminMgr             AdminAuthenticator
+	settingsRepo         SettingsStore
+	sessionMgr           WebAuthnSessionManager // set via SetSessionAuth; nil when WebAuthn not wired (raw admin token still accepted when TOTP off)
+	totpEnabled          func() bool            // set via SetSessionAuth; nil -> treated as false (TOTP off) so raw admin token is accepted
+	masterKey            string                 // set via SetSigningKey; empty disables backup signing and verification
+	schedulerCancelMu    sync.Mutex
+	schedulerCancel      context.CancelFunc
 	// schedulerStopped is the running scheduler's join channel, so a second
 	// StartScheduler call is handed the goroutine that exists rather than a
 	// closed channel that would tell it there is nothing to wait for.

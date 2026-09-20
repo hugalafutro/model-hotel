@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Kaynağa sıfırla",
 			"searchPrice": "Arama fiyatı",
 			"perThousandSearches": "/1K arama",
-			"testSuccessRanked": "Başarı | Sıralanmış sonuçlar: {{count}}{{ttftPart}} | Süre: {{duration}}saniye"
+			"testSuccessRanked": "Başarı | Sıralanmış sonuçlar: {{count}}{{ttftPart}} | Süre: {{duration}}saniye",
+			"limitsPinned": "Bağlam ve çıktı sınırları operatör tarafından sabitlendi"
 		},
 		"table": {
 			"sortByModelName": "Model adına göre sırala",

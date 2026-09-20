@@ -53,7 +53,9 @@ func (p *SettingsConfigProvider) APIBaseURL(ctx context.Context) (string, error)
 // operator changes (toggles, picker edits) take effect without a restart.
 func (p *SettingsConfigProvider) AlertConfig(ctx context.Context) (Config, error) {
 	stored := p.settings.GetWithDefault(ctx, KeyTargets, "")
-	targets, err := auth.DecryptString(stored, p.masterKey)
+	// Cached: this runs on every catalogued bus event, before the enabled
+	// gate, and an uncached decrypt is an Argon2id derivation per event.
+	targets, err := auth.DecryptStringCached(stored, p.masterKey)
 	if err != nil {
 		return Config{}, fmt.Errorf("decrypt alert target: %w", err)
 	}
