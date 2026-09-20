@@ -481,6 +481,15 @@ type rowQuerier interface {
 // know which rows are still feeding one, so it leaves request_logs alone until
 // a sweep that can: the table is absent from the map, and an hour's growth is
 // the price of never deleting a budgeted row.
+//
+// The periods are read here and the DELETE runs after, in its own statement,
+// without a lock on virtual_keys or users. A budget enabled between the two
+// is not seen by this sweep, which then behaves exactly as if it had run a
+// moment before the budget existed: the rows the budget would have kept were
+// deletable right up to its creation, and the next sweep honours it. That is
+// a valid serial order, not a lost update, and the alternative (holding a
+// table lock across a DELETE that can take as long as a backlog needs) would
+// stall every proxied request's last_used_at stamp behind the sweep.
 func retentionCutoffs(ctx context.Context, q rowQuerier, now, cutoff time.Time) map[string]time.Time {
 	cutoffs := map[string]time.Time{"app_logs": cutoff}
 	// One row, one string: the distinct periods in use, or "" for none.
