@@ -233,6 +233,9 @@ func TestStream_RefusalDelta(t *testing.T) {
 	if !strings.Contains(string(out), `"refusal":"I cannot"`) || strings.Contains(string(out), `"content"`) {
 		t.Errorf("refusal delta frame = %s", out)
 	}
+	if out := feed(t, tr, `{"type":"response.refusal.delta","delta":""}`); len(out) != 0 {
+		t.Errorf("an empty refusal delta emitted a frame: %s", out)
+	}
 }
 
 func TestStream_FailedResponse(t *testing.T) {
