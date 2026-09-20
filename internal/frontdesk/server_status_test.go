@@ -105,6 +105,17 @@ func TestLogEvent_LevelFollowsSeverityAndCarriesMetadata(t *testing.T) {
 	}
 }
 
+// A message carrying caller-chosen text is flattened to one line: the msg
+// field is exempt from attribute escaping, so a control character in a device
+// label would otherwise start a log line of its own.
+func TestLogEvent_MessageIsOneLine(t *testing.T) {
+	h := captureLogs(t)
+	logEvent(Event{ID: "ev-3", Type: "device.paired", Severity: "info", Message: "Device \"lab\nlevel=error forged\" paired"})
+	if _, ok := h.find("frontdesk: Device \"lab level=error forged\" paired"); !ok {
+		t.Fatalf("message was not flattened; records=%+v", h.snapshot())
+	}
+}
+
 // A fleet-wide event has no member; the member_id attr must then be absent
 // rather than empty, so label-based collectors don't get a blank value.
 func TestLogEvent_NoMemberIDWhenFleetWide(t *testing.T) {

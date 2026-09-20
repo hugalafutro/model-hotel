@@ -197,6 +197,32 @@ func (s *Store) SetMemberState(ctx context.Context, id string, state MemberState
 	return nil
 }
 
+// ValidateMember checks a member's name and URL the way CreateMember does, and
+// that the URL is not already a member's, without inserting anything. The add
+// handler verifies the host first and inserts only a verified member: a row
+// inserted before verification counted toward the fleet-size floor for the
+// seconds the probes took, so a concurrent removal of another member could
+// take the plain-delete branch and a rejected add then left a one-member fleet
+// with auto-sync still on. Returns the validated name and canonical URL.
+func (s *Store) ValidateMember(ctx context.Context, name, rawURL string) (string, string, error) {
+	name, err := validMemberName(name)
+	if err != nil {
+		return "", "", err
+	}
+	normURL, err := normalizeMemberURL(rawURL, s.allowHTTPMembers)
+	if err != nil {
+		return "", "", err
+	}
+	var n int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM members WHERE url = ?`, normURL).Scan(&n); err != nil {
+		return "", "", fmt.Errorf("frontdesk: check member url: %w", err)
+	}
+	if n > 0 {
+		return "", "", ErrDuplicateURL
+	}
+	return name, normURL, nil
+}
+
 // DeleteMember removes a member by id.
 func (s *Store) DeleteMember(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM members WHERE id = ?`, id)

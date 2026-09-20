@@ -43,12 +43,14 @@ const EVENT_TYPES = [
 const SEVERITIES = ["info", "success", "warning", "error"] as const;
 
 // Relative "since" presets (ms), 0 = no lower bound.
-const RANGES: { key: string; ms: number }[] = [
-	{ key: "all", ms: 0 },
-	{ key: "1h", ms: 3_600_000 },
-	{ key: "24h", ms: 86_400_000 },
-	{ key: "7d", ms: 604_800_000 },
-	{ key: "30d", ms: 2_592_000_000 },
+// labelKey names the translated option label; the key itself stays the
+// filter's value (and the URL/query token), not something a reader sees.
+const RANGES: { key: string; ms: number; labelKey: string }[] = [
+	{ key: "all", ms: 0, labelKey: "events.rangeAll" },
+	{ key: "1h", ms: 3_600_000, labelKey: "events.range1h" },
+	{ key: "24h", ms: 86_400_000, labelKey: "events.range24h" },
+	{ key: "7d", ms: 604_800_000, labelKey: "events.range7d" },
+	{ key: "30d", ms: 2_592_000_000, labelKey: "events.range30d" },
 ];
 
 // sevLabel names one severity, falling back to the raw value so an unknown one
@@ -223,7 +225,7 @@ export function EventsPage() {
 					>
 						{RANGES.map((r) => (
 							<option key={r.key} value={r.key}>
-								{r.key === "all" ? t("events.rangeAll") : r.key}
+								{t(r.labelKey)}
 							</option>
 						))}
 					</select>

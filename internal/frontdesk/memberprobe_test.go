@@ -3,6 +3,7 @@ package frontdesk
 import (
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -52,6 +53,48 @@ func TestCreateMemberRejectsRefusedToken(t *testing.T) {
 	members, _ := store.ListMembers(t.Context())
 	if len(members) != 0 {
 		t.Fatalf("members = %d after rejected add, want 0 (rollback)", len(members))
+	}
+}
+
+// The host is verified before any row exists: while the probes run, the roster
+// does not count the candidate (a row that exists that long would let a
+// concurrent removal of another member pass the fleet-size floor), and a
+// rejected add never had anything to roll back.
+func TestCreateMemberInsertsOnlyAfterVerification(t *testing.T) {
+	srv, store := newTestServer(t)
+	seenDuringProbe := -1
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		members, _ := store.ListMembers(r.Context())
+		seenDuringProbe = len(members)
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer stub.Close()
+
+	code, _ := createMemberJSON(t, srv, "m1", stub.URL, "wrong")
+	if code != http.StatusBadRequest {
+		t.Fatalf("create with wrong token = %d, want 400", code)
+	}
+	if seenDuringProbe != 0 {
+		t.Errorf("members during the probe = %d, want 0 (nothing inserted before verification)", seenDuringProbe)
+	}
+	if members, _ := store.ListMembers(t.Context()); len(members) != 0 {
+		t.Errorf("members after the rejected add = %d, want 0", len(members))
+	}
+}
+
+// A URL that is already a member's is refused before the host is probed.
+func TestCreateMemberDuplicateURLRefusedBeforeProbing(t *testing.T) {
+	srv, store := newTestServer(t)
+	stub := newStubFleetMember(t, "good")
+	if code, _ := createMemberJSON(t, srv, "m1", stub.srv.URL, "good"); code != http.StatusCreated {
+		t.Fatalf("first create = %d, want 201", code)
+	}
+	code, _ := createMemberJSON(t, srv, "m2", stub.srv.URL, "anything")
+	if code != http.StatusBadRequest {
+		t.Fatalf("duplicate create = %d, want 400", code)
+	}
+	if members, _ := store.ListMembers(t.Context()); len(members) != 1 {
+		t.Errorf("members = %d, want 1", len(members))
 	}
 }
 

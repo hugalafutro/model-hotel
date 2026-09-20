@@ -7,6 +7,7 @@ import (
 	"maps"
 	"net/http"
 	"slices"
+	"strings"
 	"sync/atomic"
 	"time"
 
@@ -331,6 +332,19 @@ func emitEvent(ctx context.Context, store *Store, bus *events.Bus, e Event) {
 // operator-facing values the Events tab shows; the event id lets a log line
 // be matched to its row. Shared by Server.emit, Poller.recordEvent and
 // Server.closeSyncHold.
+// eventLogMessage flattens an event message for the log line. A message can
+// carry caller-chosen text (a paired device's label, an actor name), and the
+// log's msg field is the one the attribute escaping exempts, so a newline or
+// another control character in it would start a log line of its own.
+func eventLogMessage(message string) string {
+	return strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return ' '
+		}
+		return r
+	}, message)
+}
+
 func logEvent(e Event) {
 	attrs := make([]any, 0, 2*(len(e.Metadata)+3))
 	attrs = append(attrs, "event", e.Type)
@@ -347,7 +361,7 @@ func logEvent(e Event) {
 	for _, k := range keys {
 		attrs = append(attrs, k, e.Metadata[k])
 	}
-	msg := "frontdesk: " + e.Message
+	msg := "frontdesk: " + eventLogMessage(e.Message)
 	switch e.Severity {
 	case "error", "critical":
 		debuglog.Error(msg, attrs...)

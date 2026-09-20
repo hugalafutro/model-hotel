@@ -6,6 +6,10 @@ import { api } from "../api/client";
 // server-side default in internal/frontdesk (session_idle_timeout_minutes).
 const DEFAULT_MINUTES = 60;
 
+// SETTINGS_SAVED_EVENT is dispatched on window by the settings form after a
+// successful save, so hooks that cache a setting can re-read it.
+export const SETTINGS_SAVED_EVENT = "fd:settings-saved";
+
 /**
  * useIdleLogout signs the operator out after a configurable period of
  * inactivity. The window (minutes; 0 disables, default 60) is read from the
@@ -26,16 +30,23 @@ export function useIdleLogout(enabled: boolean, onLogout: () => void) {
 	useEffect(() => {
 		if (!enabled) return;
 		let cancelled = false;
-		api
-			.getSettings()
-			.then((s) => {
-				if (!cancelled) setMinutes(s.session_idle_timeout_minutes);
-			})
-			.catch(() => {
-				// Keep the default window if settings can't be read.
-			});
+		const load = () => {
+			api
+				.getSettings()
+				.then((s) => {
+					if (!cancelled) setMinutes(s.session_idle_timeout_minutes);
+				})
+				.catch(() => {
+					// Keep the default window if settings can't be read.
+				});
+		};
+		load();
+		// The settings form announces a save (SETTINGS_SAVED_EVENT), so a changed
+		// window takes effect now rather than at the next login.
+		window.addEventListener(SETTINGS_SAVED_EVENT, load);
 		return () => {
 			cancelled = true;
+			window.removeEventListener(SETTINGS_SAVED_EVENT, load);
 		};
 	}, [enabled]);
 
