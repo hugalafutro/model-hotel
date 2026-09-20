@@ -1083,7 +1083,8 @@
 			"resetPricesToSource": "Resetare la sursă",
 			"searchPrice": "Preț per căutare",
 			"perThousandSearches": "/1K căutări",
-			"testSuccessRanked": "Succes | Rezultate clasate: {{count}}{{ttftPart}} | Durată: {{duration}}s"
+			"testSuccessRanked": "Succes | Rezultate clasate: {{count}}{{ttftPart}} | Durată: {{duration}}s",
+			"limitsPinned": "Limitele de context și ieșire fixate de operator"
 		},
 		"table": {
 			"sortByModelName": "Sortează după numele modelului",

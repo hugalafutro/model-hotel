@@ -1119,7 +1119,8 @@
 			"resetPricesToSource": "Сбросить к источнику",
 			"searchPrice": "Цена поиска",
 			"perThousandSearches": "/1K поисков",
-			"testSuccessRanked": "Успех | Ранжированные результаты: {{count}}{{ttftPart}} | Продолжительность: {{duration}}с"
+			"testSuccessRanked": "Успех | Ранжированные результаты: {{count}}{{ttftPart}} | Продолжительность: {{duration}}с",
+			"limitsPinned": "Лимиты контекста и вывода закреплены оператором"
 		},
 		"table": {
 			"sortByModelName": "Сортировать по названию модели",

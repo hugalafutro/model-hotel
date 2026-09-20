@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Επαναφορά στην πηγή",
 			"searchPrice": "Τιμή αναζήτησης",
 			"perThousandSearches": "/1K αναζητήσεις",
-			"testSuccessRanked": "Επιτυχία | Ταξινομημένα αποτελέσματα: {{count}}{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα"
+			"testSuccessRanked": "Επιτυχία | Ταξινομημένα αποτελέσματα: {{count}}{{ttftPart}} | Διάρκεια: {{duration}}δευτερόλεπτα",
+			"limitsPinned": "Τα όρια περιβάλλοντος και εξόδου καρφιτσώθηκαν από τον χειριστή"
 		},
 		"table": {
 			"sortByModelName": "Ταξινόμηση κατά όνομα μοντέλου",

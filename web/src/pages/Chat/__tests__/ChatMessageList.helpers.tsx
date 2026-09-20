@@ -50,6 +50,7 @@ const baseModel = {
 	enabled: true,
 	disabled_manually: false,
 	price_customized: false,
+	limits_customized: false,
 	created_at: "2024-01-01T00:00:00Z",
 	last_seen_at: "2024-01-01T00:00:00Z",
 } satisfies Omit<

@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Palauta lähteestä",
 			"searchPrice": "Hakuhinta",
 			"perThousandSearches": "/1K hakua",
-			"testSuccessRanked": "Onnistui | Järjestetyt tulokset: {{count}}{{ttftPart}} | Kesto: {{duration}}s"
+			"testSuccessRanked": "Onnistui | Järjestetyt tulokset: {{count}}{{ttftPart}} | Kesto: {{duration}}s",
+			"limitsPinned": "Konteksti- ja tulosterajat operaattorin kiinnittämiä"
 		},
 		"table": {
 			"sortByModelName": "Järjestä mallin nimen mukaan",

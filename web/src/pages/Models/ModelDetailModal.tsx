@@ -172,6 +172,35 @@ export function ModelDetailModal({
 				</div>
 			)}
 
+			{/* Editing either limit pins both server-side (limits_customized);
+			    while pinned, discovery stops refreshing this model's context and
+			    output limits. Unpinning nulls them so the next scan refills. */}
+			{model.limits_customized && (
+				<div
+					data-testid="limits-pin-banner"
+					className="mb-4 flex items-center gap-2 text-xs text-gray-500"
+				>
+					<Pin className="h-3.5 w-3.5 shrink-0" />
+					<span>{t("models.detail.limitsPinned")}</span>
+					{manageable && !editing && (
+						<button
+							type="button"
+							className="ui-link-accent"
+							data-testid="limits-pin-reset"
+							onClick={() =>
+								onUpdate?.(model.id, {
+									limits_customized: false,
+									context_length: null,
+									max_output_tokens: null,
+								} as Partial<Model>)
+							}
+						>
+							{t("models.detail.resetPricesToSource")}
+						</button>
+					)}
+				</div>
+			)}
+
 			{caps && (
 				<div className="mb-4">
 					<DetailSectionHeader icon={Sparkles}>
