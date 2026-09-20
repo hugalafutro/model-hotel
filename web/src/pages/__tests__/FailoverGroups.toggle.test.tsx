@@ -459,6 +459,7 @@ describe("FailoverGroups", () => {
 				expect(putCalls[0].data).toEqual({
 					entry_enabled: { "uuid-1": false },
 					group_enabled: false,
+					floor_disabled: true,
 				});
 			});
 		});
@@ -860,6 +861,7 @@ describe("FailoverGroups", () => {
 				expect(putCalls[0].data).toEqual({
 					entry_enabled: { "uuid-1": false },
 					group_enabled: false,
+					floor_disabled: true,
 				});
 			});
 		});
@@ -1124,6 +1126,7 @@ describe("FailoverGroups", () => {
 			expect(putCalls[0].data).toEqual({
 				entry_enabled: { "uuid-1": false, "uuid-2": true },
 				group_enabled: false,
+				floor_disabled: true,
 			});
 		});
 

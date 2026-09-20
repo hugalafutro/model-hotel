@@ -317,6 +317,11 @@ type UpdateFailoverGroupRequest struct {
 	GroupEnabled  *bool           `json:"group_enabled"`
 	PriorityOrder []string        `json:"priority_order"`
 	EntryEnabled  map[string]bool `json:"entry_enabled"`
+	// FloorDisabled marks a group_enabled=false as the dashboard's floor
+	// cascade (a member toggle left fewer than two routable members), not an
+	// operator's choice. The server still verifies the count; a flag on a
+	// viable group is ignored. Only such a disable is stamped auto_disabled.
+	FloorDisabled bool `json:"floor_disabled"`
 }
 
 // validateDisplayModelPatch validates and canonicalises req.DisplayModel (when
@@ -437,12 +442,14 @@ func (h *FailoverHandler) routableMembers(ctx context.Context, priorityOrder []u
 }
 
 // floorDisables reports whether a group_enabled=false in req is the floor's
-// doing: fewer than two routable members after this write, so the group could
-// not have stayed on whoever asked. Such a disable is stamped auto_disabled so
-// the dashboard brings the group back when members return; a disable of a
-// viable group is the operator's and is not.
+// doing: the caller says so (FloorDisabled, the dashboard's cascade) AND fewer
+// than two routable members remain after this write, so the group could not
+// have stayed on. Such a disable is stamped auto_disabled so the dashboard
+// brings the group back when members return. An operator's explicit disable,
+// viable group or not, carries no flag and is not stamped; a flag on a viable
+// group is ignored.
 func (h *FailoverHandler) floorDisables(ctx context.Context, req *UpdateFailoverGroupRequest, priorityOrder []uuid.UUID, entryEnabled map[string]bool) (bool, error) {
-	if req.GroupEnabled == nil || *req.GroupEnabled {
+	if req.GroupEnabled == nil || *req.GroupEnabled || !req.FloorDisabled {
 		return false, nil
 	}
 	routable, err := h.routableMembers(ctx, priorityOrder, entryEnabled)

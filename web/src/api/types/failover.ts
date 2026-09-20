@@ -47,6 +47,10 @@ export interface UpdateFailoverGroupRequest {
 	display_name?: string;
 	description?: string;
 	group_enabled?: boolean;
+	/** Sent with group_enabled:false by the member-toggle cascade: the toggle
+	 * left fewer than two routable members. The server verifies the count and
+	 * stamps the group auto_disabled so a later toggle can bring it back. */
+	floor_disabled?: boolean;
 	priority_order?: string[];
 	entry_enabled?: Record<string, boolean>;
 }

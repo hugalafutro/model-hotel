@@ -153,14 +153,20 @@ export function routableAfterToggle(
 export function entryToggleUpdate(
 	group: FailoverGroup,
 	entryEnabledMap: Record<string, boolean>,
-): { entry_enabled: Record<string, boolean>; group_enabled?: boolean } {
+): {
+	entry_enabled: Record<string, boolean>;
+	group_enabled?: boolean;
+	floor_disabled?: boolean;
+} {
 	const routable = routableAfterToggle(group, entryEnabledMap);
 	const alsoDisableGroup = routable < 2 && group.group_enabled;
 	const alsoEnableGroup =
 		routable >= 2 && !group.group_enabled && group.auto_disabled;
 	return {
 		entry_enabled: entryEnabledMap,
-		...(alsoDisableGroup ? { group_enabled: false } : {}),
+		// The cascade says so: the server stamps the disable as the floor's,
+		// not the operator's, once it has counted for itself.
+		...(alsoDisableGroup ? { group_enabled: false, floor_disabled: true } : {}),
 		...(alsoEnableGroup ? { group_enabled: true } : {}),
 	};
 }

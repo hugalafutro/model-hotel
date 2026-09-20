@@ -38,6 +38,7 @@ describe("entryToggleUpdate", () => {
 		expect(entryToggleUpdate(group, { a: true, b: false, c: false })).toEqual({
 			entry_enabled: { a: true, b: false, c: false },
 			group_enabled: false,
+			floor_disabled: true,
 		});
 	});
 
