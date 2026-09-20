@@ -40,6 +40,10 @@ type Model struct {
 	DisabledManually       bool     `json:"disabled_manually"`
 	DisplayNameCustomized  bool     `json:"display_name_customized"`
 	PriceCustomized        bool     `json:"price_customized"`
+	// LimitsCustomized pins context_length and max_output_tokens against the
+	// scan the way PriceCustomized pins the prices: set by any edit of either,
+	// cleared by an explicit limits_customized=false (migration 092).
+	LimitsCustomized bool `json:"limits_customized"`
 	// PriceSources records where each stored price came from; see
 	// PriceSources for the vocabulary.
 	PriceSources    PriceSources `json:"price_sources"`
@@ -140,9 +144,9 @@ func (m *Model) StampPriceSources(source string) {
 	}
 }
 
-const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, m.search_price_per_thousand, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, COALESCE(m.price_sources, '{}'::jsonb), m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)`
+const modelColumns = `m.id, m.provider_id, m.model_id, COALESCE(m.name, ''), COALESCE(m.description, ''), COALESCE(m.display_name, ''), COALESCE(m.capabilities, '{}'), COALESCE(m.params, '{}'), COALESCE(m.modality, ''), COALESCE(m.input_modalities, '[]'), COALESCE(m.output_modalities, '[]'), m.context_length, m.max_output_tokens, m.input_price_per_million, m.input_price_per_million_cache_hit, m.output_price_per_million, m.search_price_per_thousand, COALESCE(m.owned_by, ''), m.enabled, m.disabled_manually, m.display_name_customized, m.price_customized, m.limits_customized, COALESCE(m.price_sources, '{}'::jsonb), m.created_at, COALESCE(m.last_seen_at, m.created_at), p.name, COALESCE(p.enabled, false)`
 
-const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, search_price_per_thousand, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, COALESCE(price_sources, '{}'::jsonb), created_at, COALESCE(last_seen_at, created_at)`
+const upsertColumns = `id, provider_id, model_id, COALESCE(name, ''), COALESCE(description, ''), COALESCE(display_name, ''), COALESCE(capabilities, '{}'), COALESCE(params, '{}'), COALESCE(modality, ''), COALESCE(input_modalities, '[]'), COALESCE(output_modalities, '[]'), context_length, max_output_tokens, input_price_per_million, input_price_per_million_cache_hit, output_price_per_million, search_price_per_thousand, COALESCE(owned_by, ''), enabled, disabled_manually, display_name_customized, price_customized, limits_customized, COALESCE(price_sources, '{}'::jsonb), created_at, COALESCE(last_seen_at, created_at)`
 
 // Upsert inserts or updates a model based on provider_id and model_id.
 func (r *Repository) Upsert(ctx context.Context, m *Model) error {
@@ -167,8 +171,11 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 			-- $live_* flag, derived from m.LiveMeta) it WINS and overwrites;
 			-- otherwise it is fill-only — the stored value is kept and the
 			-- incoming value only fills a gap.
-			context_length = CASE WHEN $19 THEN COALESCE(EXCLUDED.context_length, models.context_length) ELSE COALESCE(models.context_length, EXCLUDED.context_length) END,
-			max_output_tokens = CASE WHEN $20 THEN COALESCE(EXCLUDED.max_output_tokens, models.max_output_tokens) ELSE COALESCE(models.max_output_tokens, EXCLUDED.max_output_tokens) END,
+			-- An operator's edit (limits_customized) outranks both: it survives
+			-- the scan until an explicit unpin, which nulls the columns so the
+			-- next scan refills them from source.
+			context_length = CASE WHEN models.limits_customized THEN COALESCE(models.context_length, EXCLUDED.context_length) WHEN $19 THEN COALESCE(EXCLUDED.context_length, models.context_length) ELSE COALESCE(models.context_length, EXCLUDED.context_length) END,
+			max_output_tokens = CASE WHEN models.limits_customized THEN COALESCE(models.max_output_tokens, EXCLUDED.max_output_tokens) WHEN $20 THEN COALESCE(EXCLUDED.max_output_tokens, models.max_output_tokens) ELSE COALESCE(models.max_output_tokens, EXCLUDED.max_output_tokens) END,
 			-- Prices FOLLOW their source instead: unless the operator pinned them
 			-- (price_customized, set by any price edit), the scan's value — live
 			-- API, embedded catalog, or models.dev enrichment, already merged in
@@ -249,7 +256,7 @@ func (r *Repository) Upsert(ctx context.Context, m *Model) error {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion, &m.SearchPricePerThousand,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.LimitsCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt,
 	)
 
 	if err != nil {
@@ -267,7 +274,7 @@ func scanModel(row pgx.Row) (*Model, error) {
 		&m.ID, &m.ProviderID, &m.ModelID, &m.Name, &m.Description, &m.DisplayName, &m.Capabilities,
 		&m.Params, &m.Modality, &m.InputModalities, &m.OutputModalities,
 		&m.ContextLength, &m.MaxOutputTokens, &m.InputPricePerMillion, &m.InputPricePerMillionCacheHit, &m.OutputPricePerMillion, &m.SearchPricePerThousand,
-		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
+		&m.OwnedBy, &m.Enabled, &m.DisabledManually, &m.DisplayNameCustomized, &m.PriceCustomized, &m.LimitsCustomized, &m.PriceSources, &m.CreatedAt, &m.LastSeenAt, &m.ProviderName, &m.ProviderEnabled,
 	); err != nil {
 		return nil, err
 	}
@@ -508,7 +515,10 @@ type UpdateModelRequest struct {
 	OutputPricePerMillion        *float64 `json:"output_price_per_million"`
 	SearchPricePerThousand       *float64 `json:"search_price_per_thousand"`
 	PriceCustomized              *bool    `json:"price_customized"`
-	Enabled                      *bool    `json:"enabled"`
+	// LimitsCustomized false clears the limits pin and nulls both limits so
+	// the next scan refills them; true (or any limit edit) pins them.
+	LimitsCustomized *bool `json:"limits_customized"`
+	Enabled          *bool `json:"enabled"`
 }
 
 // Update applies partial updates to a model.
@@ -530,15 +540,31 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 			argIdx++
 		}
 	}
-	if req.ContextLength != nil {
-		setClauses = append(setClauses, fmt.Sprintf("context_length = $%d", argIdx))
-		args = append(args, *req.ContextLength)
-		argIdx++
+	// The limits pin follows the operator's action the way the price pin does
+	// below: an edit pins, an explicit unpin nulls the columns (and suppresses
+	// edits in the same request, the two being contradictory) so the next
+	// scan refills them from source.
+	unpinLimits := req.LimitsCustomized != nil && !*req.LimitsCustomized
+	limitsEdited := false
+	if !unpinLimits {
+		if req.ContextLength != nil {
+			setClauses = append(setClauses, fmt.Sprintf("context_length = $%d", argIdx))
+			args = append(args, *req.ContextLength)
+			argIdx++
+			limitsEdited = true
+		}
+		if req.MaxOutputTokens != nil {
+			setClauses = append(setClauses, fmt.Sprintf("max_output_tokens = $%d", argIdx))
+			args = append(args, *req.MaxOutputTokens)
+			argIdx++
+			limitsEdited = true
+		}
 	}
-	if req.MaxOutputTokens != nil {
-		setClauses = append(setClauses, fmt.Sprintf("max_output_tokens = $%d", argIdx))
-		args = append(args, *req.MaxOutputTokens)
-		argIdx++
+	switch {
+	case unpinLimits:
+		setClauses = append(setClauses, "limits_customized = false", "context_length = NULL", "max_output_tokens = NULL")
+	case limitsEdited || (req.LimitsCustomized != nil && *req.LimitsCustomized):
+		setClauses = append(setClauses, "limits_customized = true")
 	}
 	// The pin follows the operator's action: editing a price pins it (their
 	// number must survive the next scan), an explicit PriceCustomized overrides
