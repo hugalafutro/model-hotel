@@ -132,7 +132,10 @@ func listGroupClaims(ctx context.Context, pool *pgxpool.Pool) ([]GroupClaim, err
 		          JOIN models m ON m.id::text = e.member_id
 		          JOIN providers p ON p.id = m.provider_id
 		         WHERE m.enabled AND p.enabled
-		           AND COALESCE((g.entry_enabled ->> e.member_id)::boolean, true)),
+		           -- A jsonb comparison, not a ::boolean cast: the column has no
+		           -- constraint, and one hand-edited non-boolean value would take
+		           -- the whole status query down. Absent or malformed reads enabled.
+		           AND (g.entry_enabled -> e.member_id) IS DISTINCT FROM 'false'::jsonb),
 		       g.auto_disabled_at
 		  FROM model_failover_groups g
 		 WHERE g.group_enabled = false

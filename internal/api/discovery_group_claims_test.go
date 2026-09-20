@@ -485,3 +485,34 @@ func TestGetDiscoveryStatus_FloorCascadeKeepsADiscoveryClaim(t *testing.T) {
 			claim.MemberCount, claim.RoutableCount)
 	}
 }
+
+// The routable count reads entry_enabled without a boolean cast: the column
+// has no constraint, so a hand-edited or legacy non-boolean value must not take
+// the whole discovery status down. It reads as enabled, like an absent key.
+func TestGetDiscoveryStatus_GroupClaimToleratesMalformedEntryEnabled(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	truncateDiscoveryChanges(t)
+	truncateFailoverGroups(t)
+
+	provID := seedClaimProvider(t, pool, "malformed-entry-prov", true)
+	memberA := seedGroupMember(t, pool, provID, "malformed-entry-a")
+	memberB := seedGroupMember(t, pool, provID, "malformed-entry-b")
+	groupID := seedCustomGroup(t, pool, "malformed-entry-victim", []uuid.UUID{memberA, memberB})
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE model_failover_groups
+		    SET group_enabled = false, auto_disabled_at = now(),
+		        entry_enabled = jsonb_build_object($2::text, 'yes', $3::text, false)
+		  WHERE id = $1`, groupID, memberA.String(), memberB.String()); err != nil {
+		t.Fatalf("seed malformed entry_enabled: %v", err)
+	}
+
+	claim := findGroupClaim(getStatus(t, r, "/discovery/status"), "malformed-entry-victim")
+	if claim == nil {
+		t.Fatal("a malformed entry_enabled value must not hide the claim (or fail the query)")
+	}
+	if claim.MemberCount != 2 || claim.RoutableCount != 1 {
+		t.Errorf("claim counts = %d members / %d routable, want 2/1 (malformed reads enabled, false reads off)",
+			claim.MemberCount, claim.RoutableCount)
+	}
+}
