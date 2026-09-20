@@ -52,6 +52,7 @@ describe("Edit Group Modal", () => {
 		display_name: "My Custom Group",
 		description: "A custom failover group",
 		auto_created: false,
+		auto_disabled: false,
 		entries: [
 			{
 				model_uuid: "uuid-1",
@@ -111,6 +112,7 @@ describe("Edit Group Modal", () => {
 		id: "fg-auto",
 		display_model: "auto-model",
 		auto_created: true,
+		auto_disabled: false,
 		entries: [
 			{
 				model_uuid: "uuid-1",

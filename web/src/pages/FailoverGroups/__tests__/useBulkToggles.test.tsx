@@ -12,6 +12,7 @@ function group(id: string, provider: string, enabled = true): FailoverGroup {
 		display_model: id,
 		group_enabled: true,
 		auto_created: true,
+		auto_disabled: false,
 		entries: [
 			{
 				model_uuid: `${id}-1`,

@@ -1801,5 +1801,33 @@ func TestFailoverHandler_Update_WithoutGroupEnabledKeepsTheGroupDisabled(t *test
 		if resp.GroupEnabled {
 			t.Errorf("%s: GroupEnabled = true, want the group to stay disabled", body)
 		}
+		// Two unknown member ids are zero routable members, so the disable is
+		// the floor's and stamped; the description edit leaves the stamp alone.
+		if !resp.AutoDisabled {
+			t.Errorf("%s: AutoDisabled = false, want the floor's stamp kept", body)
+		}
+	}
+}
+
+// A disable of a viable group is the operator's: no stamp, so the dashboard
+// leaves it off when members are toggled.
+func TestFailoverHandler_Update_DisablingAViableGroupIsNotAutoDisabled(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	groupID, _ := enableGuardSeed(t, h, true, true) // two routable members, off
+
+	var resp FailoverGroupResponse
+	for _, body := range []string{`{"group_enabled":true}`, `{"group_enabled":false}`} {
+		req, w := newChiRequest(http.MethodPut, "/failover-groups/"+groupID.String(), strings.NewReader(body))
+		req = setChiURLParam(req, "id", groupID.String())
+		h.Update(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: expected 200, got %d; body: %s", body, w.Code, w.Body.String())
+		}
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+	}
+	if resp.GroupEnabled || resp.AutoDisabled {
+		t.Errorf("GroupEnabled=%v AutoDisabled=%v, want off by the operator's hand with no stamp", resp.GroupEnabled, resp.AutoDisabled)
 	}
 }

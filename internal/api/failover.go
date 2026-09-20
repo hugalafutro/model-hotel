@@ -74,6 +74,7 @@ type FailoverGroupResponse struct {
 	Description  string                  `json:"description"`
 	GroupEnabled bool                    `json:"group_enabled"`
 	AutoCreated  bool                    `json:"auto_created"`
+	AutoDisabled bool                    `json:"auto_disabled"`
 	Entries      []FailoverEntryResponse `json:"entries"`
 	TotalTokens  int                     `json:"total_tokens"`
 	CreatedAt    string                  `json:"created_at"`
@@ -403,16 +404,10 @@ func (h *FailoverHandler) validateGroupEnabledState(w http.ResponseWriter, r *ht
 	}
 
 	if !existing.GroupEnabled {
-		models, mErr := h.modelRepo.GetByIDs(r.Context(), priorityOrder)
+		routable, mErr := h.routableMembers(r.Context(), priorityOrder, entryEnabled)
 		if mErr != nil {
 			respondError(w, "failed to validate failover members", mErr, http.StatusInternalServerError)
 			return false
-		}
-		routable := 0
-		for _, mid := range priorityOrder {
-			if m, ok := models[mid]; ok && m.Enabled && m.ProviderEnabled {
-				routable++
-			}
 		}
 		if routable < 2 {
 			http.Error(w, "a failover group needs at least 2 enabled members (model and provider enabled) to be active", http.StatusBadRequest)
@@ -420,6 +415,41 @@ func (h *FailoverHandler) validateGroupEnabledState(w http.ResponseWriter, r *ht
 		}
 	}
 	return true
+}
+
+// routableMembers counts the members of priorityOrder that can serve: enabled
+// in the group, model enabled, provider enabled.
+func (h *FailoverHandler) routableMembers(ctx context.Context, priorityOrder []uuid.UUID, entryEnabled map[string]bool) (int, error) {
+	models, err := h.modelRepo.GetByIDs(ctx, priorityOrder)
+	if err != nil {
+		return 0, err
+	}
+	routable := 0
+	for _, mid := range priorityOrder {
+		if on, known := entryEnabled[mid.String()]; known && !on {
+			continue
+		}
+		if m, ok := models[mid]; ok && m.Enabled && m.ProviderEnabled {
+			routable++
+		}
+	}
+	return routable, nil
+}
+
+// floorDisables reports whether a group_enabled=false in req is the floor's
+// doing: fewer than two routable members after this write, so the group could
+// not have stayed on whoever asked. Such a disable is stamped auto_disabled so
+// the dashboard brings the group back when members return; a disable of a
+// viable group is the operator's and is not.
+func (h *FailoverHandler) floorDisables(ctx context.Context, req *UpdateFailoverGroupRequest, priorityOrder []uuid.UUID, entryEnabled map[string]bool) (bool, error) {
+	if req.GroupEnabled == nil || *req.GroupEnabled {
+		return false, nil
+	}
+	routable, err := h.routableMembers(ctx, priorityOrder, entryEnabled)
+	if err != nil {
+		return false, err
+	}
+	return routable < 2, nil
 }
 
 // Update updates an existing failover group by ID.
@@ -482,8 +512,13 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 		failover.InvalidateFailoverCacheKey(*req.DisplayModel)
 	}
 
+	floorDisabled, err := h.floorDisables(r.Context(), &req, priorityOrder, entryEnabled)
+	if err != nil {
+		respondError(w, "failed to validate failover members", err, http.StatusInternalServerError)
+		return
+	}
 	group, err := h.failoverRepo.Update(r.Context(), id, priorityOrder, entryEnabled,
-		req.GroupEnabled, req.DisplayName, req.Description, req.DisplayModel)
+		req.GroupEnabled, floorDisabled, req.DisplayName, req.Description, req.DisplayModel)
 	if err != nil {
 		respondError(w, fmt.Sprintf("failed to update failover group %s", id), err, http.StatusInternalServerError)
 		return
@@ -648,6 +683,7 @@ func (h *FailoverHandler) buildGroupResponse(ctx context.Context, g *failover.Fa
 		Description:  g.Description,
 		GroupEnabled: g.GroupEnabled,
 		AutoCreated:  g.AutoCreated,
+		AutoDisabled: g.AutoDisabled,
 		Entries:      entries,
 		CreatedAt:    createdAt,
 		UpdatedAt:    updatedAt,

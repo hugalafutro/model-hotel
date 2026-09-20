@@ -24,9 +24,11 @@ const member = (
 const groupWith = (
 	groupEnabled: boolean,
 	entries: FailoverEntry[],
+	autoDisabled = false,
 ): FailoverGroup => ({
 	...mockFailoverGroup,
 	group_enabled: groupEnabled,
+	auto_disabled: autoDisabled,
 	entries,
 });
 
@@ -40,8 +42,8 @@ describe("entryToggleUpdate", () => {
 	});
 
 	it("re-enables a group the floor took down once it regains two", () => {
-		// Off with a single routable member: the floor, not the operator.
-		const group = groupWith(false, [member("a"), member("b", false)]);
+		// Off and stamped auto_disabled: the floor (or discovery), not the operator.
+		const group = groupWith(false, [member("a"), member("b", false)], true);
 		expect(entryToggleUpdate(group, { a: true, b: true })).toEqual({
 			entry_enabled: { a: true, b: true },
 			group_enabled: true,
@@ -49,11 +51,20 @@ describe("entryToggleUpdate", () => {
 	});
 
 	it("leaves a hand-disabled group off when a toggle keeps it viable", () => {
-		// Off while three members were routable: the operator switched it off.
-		// Switching one member off keeps two, which must not switch it back on.
+		// Off without the stamp: the operator switched it off. Switching one
+		// member off keeps two, which must not switch it back on.
 		const group = groupWith(false, [member("a"), member("b"), member("c")]);
 		expect(entryToggleUpdate(group, { a: true, b: true, c: false })).toEqual({
 			entry_enabled: { a: true, b: true, c: false },
+		});
+	});
+
+	it("leaves a hand-disabled group off through a dip below two and back", () => {
+		// Off by hand at two members; a toggle drops it to one, the next
+		// restores two. The member count says nothing, the stamp does.
+		const dipped = groupWith(false, [member("a"), member("b", false)]);
+		expect(entryToggleUpdate(dipped, { a: true, b: true })).toEqual({
+			entry_enabled: { a: true, b: true },
 		});
 	});
 

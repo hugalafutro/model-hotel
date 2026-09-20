@@ -145,23 +145,19 @@ export function routableAfterToggle(
  * instead of after the next List heal. One place for the rule: the bulk
  * model toggle, the bulk provider toggle and the provider modal all send it.
  *
- * "Regains" is the whole of the symmetry: a group that is off while it still
- * had two routable members was switched off by hand, and a bulk toggle that
- * merely keeps it at two or more must leave it off. Only a group the floor
- * took down (fewer than two routable before this toggle) comes back with it.
+ * "Regains" is the whole of the symmetry: a group the operator switched off
+ * stays off however many members a toggle gives it. Only a group nobody chose
+ * to disable (`auto_disabled`: discovery or the floor took it down, the
+ * backend stamps which) comes back once it has two routable members again.
  */
 export function entryToggleUpdate(
 	group: FailoverGroup,
 	entryEnabledMap: Record<string, boolean>,
 ): { entry_enabled: Record<string, boolean>; group_enabled?: boolean } {
-	const routableBefore = routableAfterToggle(
-		group,
-		Object.fromEntries(group.entries.map((e) => [e.model_uuid, e.enabled])),
-	);
 	const routable = routableAfterToggle(group, entryEnabledMap);
 	const alsoDisableGroup = routable < 2 && group.group_enabled;
 	const alsoEnableGroup =
-		routable >= 2 && !group.group_enabled && routableBefore < 2;
+		routable >= 2 && !group.group_enabled && group.auto_disabled;
 	return {
 		entry_enabled: entryEnabledMap,
 		...(alsoDisableGroup ? { group_enabled: false } : {}),

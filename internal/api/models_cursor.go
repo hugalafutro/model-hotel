@@ -316,8 +316,11 @@ func buildModelKeysetPredicate(cursor modelCursor, direction, sortDir string, ar
 	var value any
 	switch cursor.SortBy {
 	case "discovered":
+		// Both sides of the keyset at the second: the column is truncated in
+		// modelSortColumn, and a cursor a client crafted with a fraction would
+		// otherwise reopen the same-second repeat.
 		if !cursor.LastSeenAt.IsZero() {
-			value = cursor.LastSeenAt
+			value = cursor.LastSeenAt.Truncate(time.Second)
 		}
 	case "context":
 		if cursor.ContextLength != nil {

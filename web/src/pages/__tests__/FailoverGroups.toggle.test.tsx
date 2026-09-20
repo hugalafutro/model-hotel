@@ -1133,6 +1133,8 @@ describe("FailoverGroups", () => {
 					...mockFailoverGroup,
 					display_model: "alpha-model",
 					group_enabled: false,
+					// Off by the floor cascade, not the operator: comes back with members.
+					auto_disabled: true,
 					entries: [
 						{
 							provider_name: "OpenAI",
