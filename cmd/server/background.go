@@ -16,8 +16,10 @@ import (
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -448,16 +450,50 @@ func logRetentionPass(drainCtx context.Context, pool *pgxpool.Pool, settingsRepo
 	if !enabled {
 		return
 	}
-	cutoff := time.Now().Add(-window)
+	now := time.Now()
+	cutoff := now.Add(-window)
+	cutoffs := map[string]time.Time{"request_logs": cutoff, "app_logs": cutoff}
+	// A budget is summed from request_logs (budget.PGSource), with no ledger
+	// of its own: a row deleted inside an open budget period is spend the
+	// budget forgets, and a period longer than the retention window would
+	// otherwise degrade into a rolling one the width of the window. Rows from
+	// the longest open period are kept until it ends, whatever the window says.
+	if floor, ok := budgetFloor(drainCtx, pool, now); ok && floor.Before(cutoff) {
+		cutoffs["request_logs"] = floor
+	}
 	for _, table := range []string{"request_logs", "app_logs"} {
 		tag, err := pool.Exec(drainCtx,
-			`DELETE FROM `+table+` WHERE created_at < $1`, cutoff)
+			`DELETE FROM `+table+` WHERE created_at < $1`, cutoffs[table])
 		if err != nil {
 			debuglog.Error("retention: delete of old entries failed", "table", table, "error", err)
 			continue
 		}
-		debuglog.Info("retention: deleted old entries", "table", table, "retention", retention, "rows", tag.RowsAffected())
+		debuglog.Info("retention: deleted old entries", "table", table, "retention", retention, "cutoff", cutoffs[table].UTC().Format(time.RFC3339), "rows", tag.RowsAffected())
 	}
+}
+
+// budgetFloor is the start of the longest budget period any virtual key or
+// user currently runs, the instant before which no request_logs row is still
+// feeding a budget. ok is false when nothing carries a budget, or when the
+// read fails: a sweep that cannot see the budgets keeps every row the plain
+// window would have kept, so a failed read here can only delete less, never
+// more, than one that succeeded.
+func budgetFloor(ctx context.Context, pool *pgxpool.Pool, now time.Time) (time.Time, bool) {
+	var period string
+	err := pool.QueryRow(ctx, `
+		SELECT budget_period FROM (
+			SELECT budget_period FROM virtual_keys WHERE budget_period IS NOT NULL
+			UNION SELECT budget_period FROM users WHERE budget_period IS NOT NULL
+		) p
+		ORDER BY CASE budget_period WHEN 'month' THEN 3 WHEN 'week' THEN 2 ELSE 1 END DESC
+		LIMIT 1`).Scan(&period)
+	if err != nil {
+		if !errors.Is(err, pgx.ErrNoRows) {
+			debuglog.Warn("retention: budget periods could not be read, keeping the plain window", "error", err)
+		}
+		return time.Time{}, false
+	}
+	return budget.PeriodStart(period, now), true
 }
 
 // sweepScheduledDisableTimeout bounds a sweep that outlives its caller's

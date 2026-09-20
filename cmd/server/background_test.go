@@ -362,6 +362,55 @@ func TestLogRetentionPass(t *testing.T) {
 		}
 	})
 
+	t.Run("open_budget_period_floors_the_window", func(t *testing.T) {
+		// A key on a monthly budget keeps this month's rows past the window:
+		// the budget is summed from them. Last month's row and app_logs go.
+		for _, table := range []string{"request_logs", "app_logs"} {
+			if _, err := pool.Exec(ctx, `DELETE FROM `+table); err != nil {
+				t.Fatalf("cleanup failed: %v", err)
+			}
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO virtual_keys (name, key_hash, key_preview, budget_usd, budget_period)
+			 VALUES ('retention-budget', 'hash-retention-budget', 'sk-***', 5, 'month')`); err != nil {
+			t.Fatalf("insert key failed: %v", err)
+		}
+		t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM virtual_keys WHERE key_hash = 'hash-retention-budget'`) })
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO request_logs (state, created_at) VALUES
+			 ('completed', date_trunc('month', now())),
+			 ('completed', date_trunc('month', now()) - interval '1 day')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO app_logs (timestamp, level, source, message, created_at) VALUES (now() - interval '3 days', 'info', 'test', 'old', now() - interval '3 days')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		setRetention("1h")
+		logRetentionPass(ctx, pool, settingsRepo)
+		var kept int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs WHERE created_at >= date_trunc('month', now())`).Scan(&kept); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if kept != 1 {
+			t.Errorf("this month's row: want kept for the open budget period, got %d rows", kept)
+		}
+		var gone int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs WHERE created_at < date_trunc('month', now())`).Scan(&gone); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if gone != 0 {
+			t.Errorf("last month's row: want deleted, got %d rows", gone)
+		}
+		var appRows int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM app_logs`).Scan(&appRows); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if appRows != 0 {
+			t.Errorf("app_logs: the budget floor must not apply, got %d rows", appRows)
+		}
+	})
+
 	t.Run("garbage_value_keeps_rows_and_warns_once", func(t *testing.T) {
 		if _, err := pool.Exec(ctx, `DELETE FROM request_logs`); err != nil {
 			t.Fatalf("cleanup failed: %v", err)
