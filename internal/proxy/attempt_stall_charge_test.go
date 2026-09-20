@@ -157,6 +157,65 @@ func TestDispatchStreaming_ProbeFailureSettlesTheSlotUnclean(t *testing.T) {
 	}
 }
 
+// dataErrReader returns the whole payload and io.EOF from one Read, the way
+// testing/iotest.DataErrReader does (that name is taken in this package).
+type dataErrReader struct{ r *strings.Reader }
+
+func (d dataErrReader) Read(p []byte) (int, error) {
+	n, err := d.r.Read(p)
+	if err == nil && d.r.Len() == 0 {
+		err = io.EOF
+	}
+	return n, err
+}
+
+// The first token and the upstream's EOF can arrive in one read. The probe's
+// hold keeps that EOF from settling the slot while the verdict is still
+// "unclean until a token"; once the token is in, the stream's own end settles
+// it clean, so a delivered one-read stream keeps its credit.
+func TestDispatchStreaming_FirstTokenAndEOFInOneReadSettlesClean(t *testing.T) {
+	h := newIntegrationHandler()
+	defer stopUnitHandlerIntegration(h)
+
+	settled := make(chan bool, 1)
+	slot := &attemptSlot{fire: func(clean bool) { settled <- clean }}
+	oneRead := dataErrReader{r: strings.NewReader("data: {\"choices\":[{\"index\":0,\"delta\":{\"content\":\"hi\"}}]}\n\n")}
+	resp := &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"text/event-stream"}},
+		Body:       &inflightRelease{ReadCloser: io.NopCloser(oneRead), slot: slot, clean: true, onEOF: true},
+	}
+	logData := streamingLog()
+	logData.providerName = "one-read-provider"
+	h.insertRequestLogAsync(logData)
+	st := &requestState{
+		startTime:             time.Now(),
+		reqModel:              "test-model",
+		isStreaming:           true,
+		circuitBreakerEnabled: true,
+		logData:               logData,
+		attemptSlot:           slot,
+	}
+	cand := modelCandidate{
+		model:    &model.Model{ModelID: "test-model"},
+		provider: &provider.Provider{ID: uuid.New(), Name: "one-read-provider"},
+		apiKey:   "sk-test",
+	}
+	w := httptest.NewRecorder()
+	req := withAuthContext(httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody))
+	if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeServed {
+		t.Fatalf("outcome = %v, want served: %s", got, w.Body.String())
+	}
+	select {
+	case clean := <-settled:
+		if !clean {
+			t.Error("a delivered one-read stream settled unclean")
+		}
+	default:
+		t.Fatal("the slot never settled")
+	}
+}
+
 // [DONE] ends the stream: the body is closed rather than drained, so an
 // upstream that lingers past its own sentinel does not hold the handler (and
 // the caller's end of stream) until the stall watchdog fires.
