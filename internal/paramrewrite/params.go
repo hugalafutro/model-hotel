@@ -173,6 +173,36 @@ func ParseProviderParamRename(body []byte) map[string]string {
 	return renames
 }
 
+// valueRangePhrases are how providers word a value that is the wrong size, as
+// opposed to a parameter the model does not take at all. OpenAI: "decimal
+// above maximum value", "integer below minimum value"; Anthropic (pydantic):
+// "Input should be less than or equal to 1", "greater than or equal to";
+// Google: "must be in the range". A phrase here has to describe the value's
+// magnitude, never its mere presence: OpenAI's "does not support 0 with this
+// model" is a value the model refuses outright and stays learnable.
+var valueRangePhrases = []string{
+	"above maximum", "below minimum",
+	// pydantic's inclusive and exclusive bounds ("Input should be less than
+	// or equal to 1", "Input should be less than 2"), anchored on its lead-in
+	// so a bare "less than" in unrelated prose does not match.
+	"input should be less", "input should be greater",
+	"less than or equal", "greater than or equal",
+	"must be less than", "must be greater than",
+	"must be between", "in the range", "out of range",
+	"must be at least", "must be at most", "must not exceed",
+}
+
+// isValueRangeComplaint reports whether msg says a value was out of range.
+func isValueRangeComplaint(msg string) bool {
+	lower := strings.ToLower(msg)
+	for _, phrase := range valueRangePhrases {
+		if strings.Contains(lower, phrase) {
+			return true
+		}
+	}
+	return false
+}
+
 // paramQuoteChars are the quote styles providers wrap a parameter name in when
 // they name it in a 400. Anchoring on a quote is what keeps short names like
 // "n" and "stop" from matching unrelated prose.
@@ -202,6 +232,15 @@ func paramIsQuoted(msg, param string) bool {
 func ParseProviderParamError(body []byte) map[string]bool {
 	msg := util.ErrorEnvelopeMessage(body)
 	if msg == "" {
+		return nil
+	}
+	// A value out of range names the param the same way an unsupported one
+	// does ("Invalid 'temperature': decimal above maximum value. Expected a
+	// value <= 2, but got 3 instead."). Learning that as a strip would drop
+	// the param from every later request to the model, for every caller, for
+	// the life of the process, over one caller's bad number. Nothing is
+	// learned from it: the 400 goes back to the caller who sent the value.
+	if isValueRangeComplaint(msg) {
 		return nil
 	}
 	rejected := make(map[string]bool)
