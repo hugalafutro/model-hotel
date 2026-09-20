@@ -97,7 +97,7 @@ func (s *ssoLogin) beginState(r *http.Request, w http.ResponseWriter, st any) bo
 		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
 		return false
 	}
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure resolved from COOKIE_SECURE like the session cookie; HttpOnly/SameSite set below
 		Name:     s.cookieName,
 		Value:    id.String(),
 		Path:     s.cookiePath,
@@ -220,7 +220,7 @@ func (s *ssoLogin) redirectError(w http.ResponseWriter, r *http.Request, code st
 
 // clearCookie expires the login-state cookie.
 func (s *ssoLogin) clearCookie(w http.ResponseWriter, r *http.Request) {
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure resolved from COOKIE_SECURE like the session cookie; HttpOnly/SameSite set below
 		Name:     s.cookieName,
 		Value:    "",
 		Path:     s.cookiePath,
