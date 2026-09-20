@@ -37,6 +37,13 @@ type memSessionStore struct {
 	byID      map[uuid.UUID]*webauthn.SessionRecord
 	byHash    map[string]*webauthn.SessionRecord
 	createErr error
+	// deleteOthersErr fails DeleteOtherSessionsForUser, for the callers that
+	// must refuse rather than carry on when the sweep cannot be trusted.
+	// deleteOthersFailFrom limits the failure to the Nth call onward (1-based;
+	// 0 means every call), for a caller that sweeps more than once.
+	deleteOthersErr      error
+	deleteOthersFailFrom int
+	deleteOthersCalls    int
 }
 
 func newMemStore() *memSessionStore {
@@ -133,7 +140,13 @@ func (s *memSessionStore) ExtendSession(_ context.Context, id uuid.UUID, at time
 // DeleteOtherSessionsForUser satisfies webauthn.SessionStore; the OIDC tests
 // never sign other sessions out.
 func (s *memSessionStore) DeleteOtherSessionsForUser(context.Context, []byte, string) (int64, error) {
-	return 0, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.deleteOthersCalls++
+	if s.deleteOthersCalls < s.deleteOthersFailFrom {
+		return 0, nil
+	}
+	return 0, s.deleteOthersErr
 }
 
 // --- fake settings ---
@@ -1084,5 +1097,29 @@ func TestNewOIDCHandler_UsesRetryingNetguardClient(t *testing.T) {
 	}
 	if !errors.Is(err, netguard.ErrBlockedAddress) {
 		t.Fatalf("want netguard.ErrBlockedAddress, got %v", err)
+	}
+}
+
+// The login-state cookie must follow COOKIE_SECURE the way the session cookie
+// it leads to does: hard-coded Secure is dropped by the browser on the
+// plain-http LAN deployment COOKIE_SECURE=never exists for, and the callback
+// then fails on "missing login state" every time.
+func TestOIDCStart_LoginStateCookieHonoursCookieSecure(t *testing.T) {
+	idp := newMockIDP(t, oidcTestClientID)
+	defer idp.server.Close()
+	for _, tt := range []struct {
+		mode string
+		want bool
+	}{
+		{mode: "never", want: false},
+		{mode: "always", want: true},
+	} {
+		t.Run(tt.mode, func(t *testing.T) {
+			h, _, _ := newOIDCTestHandlerMode(t, idp, "", true, tt.mode)
+			_, cookie := runStart(t, h)
+			if cookie.Secure != tt.want {
+				t.Errorf("COOKIE_SECURE=%s: login-state cookie Secure = %v, want %v", tt.mode, cookie.Secure, tt.want)
+			}
+		})
 	}
 }

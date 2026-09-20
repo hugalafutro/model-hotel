@@ -22,11 +22,14 @@ import (
 // endpoint exchanges a valid (admin token + TOTP code) pair for a session
 // token that authenticates subsequent API calls once 2FA is enabled.
 type TotpHandler struct {
-	totpRepo           *totp.Repository
-	adminMgr           AdminAuthenticator
-	sessionMgr         *webauthn.SessionManager
-	ipLimiter          IPLimiterMiddleware
-	demoReadOnly       bool
+	totpRepo     *totp.Repository
+	adminMgr     AdminAuthenticator
+	sessionMgr   *webauthn.SessionManager
+	ipLimiter    IPLimiterMiddleware
+	demoReadOnly bool
+	// audit records the mutations behind adminOrSessionAuth on the admin action
+	// trail (nil on Front Desk, which keeps no trail). Mounted by SetAudit.
+	audit              func(http.Handler) http.Handler
 	totpEnabled        func() bool           // shared cached state (Handler.TotpEnabled)
 	refreshTotpEnabled func(context.Context) // refresh cache after mutations (Handler.RefreshTotpEnabled)
 	loginThrottle      *totp.Throttle        // per-IP exponential backoff on failed /totp/login
@@ -98,16 +101,37 @@ func (h *TotpHandler) Register(r chi.Router) {
 			r.Post("/login", h.Login)
 		})
 		r.Group(func(r chi.Router) {
+			// Gate, trail, then the demo refusal: the same order as the
+			// dashboard API, so a refused attempt is recorded with its 403.
+			r.Use(h.adminOrSessionAuth)
+			h.mountAudit(r)
 			if h.demoReadOnly {
 				r.Use(readOnlyGuard)
 			}
-			r.Use(h.adminOrSessionAuth)
 			r.Get("/info", h.Info)
 			r.Post("/enroll/start", h.EnrollStart)
 			r.Post("/enroll/verify", h.EnrollVerify)
 			r.Post("/disable", h.Disable)
 		})
 	})
+}
+
+// revokeAdminSessions sweeps every admin session (see EnrollVerify). On a
+// store failure it answers 500 and reports false; nothing is minted after a
+// sweep that did not happen.
+func (h *TotpHandler) revokeAdminSessions(w http.ResponseWriter, r *http.Request, when string) bool {
+	if h.sessionMgr == nil {
+		return true
+	}
+	n, err := h.sessionMgr.RevokeOtherSessions(r.Context(), []byte("admin"))
+	if err != nil {
+		respondError(w, "totp: could not revoke the admin sessions "+when, err, http.StatusInternalServerError)
+		return false
+	}
+	if n > 0 {
+		debuglog.Info("totp: revoked admin sessions minted before 2FA was enabled", "when", when, "count", n)
+	}
+	return true
 }
 
 // adminOrSessionAuth validates either the admin token or a session token for
@@ -259,6 +283,21 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "totp: recovery codes failed", err, http.StatusInternalServerError)
 		return
 	}
+	// Every admin session alive at this point was minted on one factor (the
+	// raw token exchanged for a cookie, or this enrolment's own login), and a
+	// session row does not say which. Leaving them would let a holder of the
+	// leaked token the operator is enabling 2FA against keep the session they
+	// exchanged it for, for up to the 30-day cap. Swept twice: once BEFORE
+	// Enable, so a store that cannot sweep keeps 2FA off and the operator
+	// retries cleanly, and once AFTER the gate closed, for a raw-token exchange
+	// that lands between the first sweep and the gate. An exchange that mints
+	// after the second sweep re-reads the gate itself and revokes its own
+	// session (TokenExchange), which closes the last interleaving. The
+	// enroller's fresh session is minted below, after both, so nothing of
+	// theirs is kept either.
+	if !h.revokeAdminSessions(w, r, "before 2FA") {
+		return
+	}
 	if err := h.totpRepo.Enable(r.Context()); err != nil {
 		respondError(w, "totp: enable failed", err, http.StatusInternalServerError)
 		return
@@ -266,6 +305,18 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	// Refresh cache AFTER Enable so the hot path starts rejecting raw admin
 	// tokens immediately.
 	h.refreshTotpEnabled(r.Context())
+	if !h.revokeAdminSessions(w, r, "after the gate closed") {
+		// The second sweep failing leaves at most a session exchanged inside
+		// the window between the first sweep and the gate. Rolling 2FA back off
+		// makes the failure honest: nothing reports the lock-out done. A
+		// rollback that fails too is two consecutive store failures on a store
+		// the session gate itself reads, and is logged for the operator.
+		if dErr := h.totpRepo.Disable(r.Context()); dErr != nil {
+			debuglog.Error("totp: could not roll 2FA back after a failed session sweep", "error", dErr)
+		}
+		h.refreshTotpEnabled(r.Context())
+		return
+	}
 	// Drop the stale confirmed_at so the next status read picks up this
 	// enrollment's fresh stamp.
 	h.invalidateEnabledAt()

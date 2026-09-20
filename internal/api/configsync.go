@@ -212,10 +212,12 @@ var importRejections = []error{
 // admin token (or a session when TOTP is on): a caller able to import config
 // controls the data plane.
 type ConfigSyncHandler struct {
-	db         *db.DB
-	settings   SettingsStore
-	masterKey  string
-	appVersion string
+	db *db.DB
+	// demoReadOnly hides the export on a read-only demo; see Export.
+	demoReadOnly bool
+	settings     SettingsStore
+	masterKey    string
+	appVersion   string
 	// discoverAll runs model discovery on this member after an import commits its
 	// providers, so custom failover groups can resolve. Nil disables it.
 	discoverAll func(context.Context) error
@@ -240,6 +242,9 @@ func NewConfigSyncHandler(database *db.DB, settingsRepo SettingsStore, masterKey
 		discoverAll: discoverAll, validateProviderURL: validateProviderURL,
 	}
 }
+
+// SetDemoReadOnly makes Export refuse; see Export.
+func (h *ConfigSyncHandler) SetDemoReadOnly(on bool) { h.demoReadOnly = on }
 
 // Register mounts GET/POST /config/{export,import} and GET /config/version. The
 // parent router must apply admin auth (see type doc).

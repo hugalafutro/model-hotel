@@ -2,7 +2,6 @@ package adminauth
 
 import (
 	"cmp"
-	"context"
 	"crypto/subtle"
 	"encoding/json"
 	"fmt"
@@ -86,7 +85,8 @@ func (s *ssoLogin) throttled(w http.ResponseWriter, r *http.Request) (string, bo
 // beginState persists st as a single-use login-state record and puts its id in
 // the flow's HttpOnly cookie. It writes its own error response and reports
 // whether the caller may continue to the provider redirect.
-func (s *ssoLogin) beginState(ctx context.Context, w http.ResponseWriter, st any) bool {
+func (s *ssoLogin) beginState(r *http.Request, w http.ResponseWriter, st any) bool {
+	ctx := r.Context()
 	blob, err := json.Marshal(st)
 	if err != nil {
 		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
@@ -97,13 +97,17 @@ func (s *ssoLogin) beginState(ctx context.Context, w http.ResponseWriter, st any
 		respondError(w, "failed to start SSO", err, http.StatusInternalServerError)
 		return false
 	}
-	http.SetCookie(w, &http.Cookie{
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure resolved from COOKIE_SECURE like the session cookie; HttpOnly/SameSite set below
 		Name:     s.cookieName,
 		Value:    id.String(),
 		Path:     s.cookiePath,
 		MaxAge:   int(s.ttl.Seconds()),
 		HttpOnly: true,
-		Secure:   true,
+		// The same Secure rule as the session cookie this flow ends in: a
+		// hard-coded Secure attribute is dropped by the browser on the plain-http
+		// LAN deployment COOKIE_SECURE=never exists for, and the callback then
+		// fails on "missing login state" every time.
+		Secure: authcookie.Secure(r, s.cookieSecure),
 		// Lax (not Strict) so the cookie survives the top-level GET redirect
 		// back from the provider; the single-use state record carries the
 		// CSRF/replay defense, not the cookie's SameSite mode.
@@ -120,7 +124,7 @@ func (s *ssoLogin) beginState(ctx context.Context, w http.ResponseWriter, st any
 // failure and redirected.
 func (s *ssoLogin) consumeState(w http.ResponseWriter, r *http.Request, throttleKey string, dst ssoLoginState) (string, bool) {
 	// Clear the cookie first so a stale record id never lingers past a failure.
-	s.clearCookie(w)
+	s.clearCookie(w, r)
 
 	cookie, err := r.Cookie(s.cookieName)
 	if err != nil {
@@ -215,14 +219,14 @@ func (s *ssoLogin) redirectError(w http.ResponseWriter, r *http.Request, code st
 }
 
 // clearCookie expires the login-state cookie.
-func (s *ssoLogin) clearCookie(w http.ResponseWriter) {
-	http.SetCookie(w, &http.Cookie{
+func (s *ssoLogin) clearCookie(w http.ResponseWriter, r *http.Request) {
+	http.SetCookie(w, &http.Cookie{ //nolint:gosec // G124: Secure resolved from COOKIE_SECURE like the session cookie; HttpOnly/SameSite set below
 		Name:     s.cookieName,
 		Value:    "",
 		Path:     s.cookiePath,
 		MaxAge:   -1,
 		HttpOnly: true,
-		Secure:   true,
+		Secure:   authcookie.Secure(r, s.cookieSecure),
 		SameSite: http.SameSiteLaxMode,
 	})
 }

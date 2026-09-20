@@ -422,7 +422,9 @@ func TestWebAuthnHandler_Register_PublicRoutesAccessible(t *testing.T) {
 // token; allowed-but-protected routes fall through to a 401, hence the
 // assertion is "blocked == 403, allowed != 403".
 func TestWebAuthnHandler_Register_ReadOnlyBlocksMutations(t *testing.T) {
-	adminMgr := &mockAdminAuth{validateFn: func(string) bool { return false }}
+	// The gate runs before the demo refusal (so the refusal is audited with
+	// its actor), so the blocked requests carry the admin token.
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
 	sessionMgr := webauthn.NewSessionManager(nil)
 	h := newTestWebAuthnHandler(nil, nil, sessionMgr, adminMgr)
 	h.demoReadOnly = true
@@ -439,6 +441,7 @@ func TestWebAuthnHandler_Register_ReadOnlyBlocksMutations(t *testing.T) {
 	for _, tc := range blocked {
 		t.Run("blocked "+tc.method+" "+tc.path, func(t *testing.T) {
 			req := httptest.NewRequest(tc.method, tc.path, http.NoBody)
+			req.Header.Set("Authorization", "Bearer admin-token")
 			w := httptest.NewRecorder()
 			r.ServeHTTP(w, req)
 			if w.Code != http.StatusForbidden {

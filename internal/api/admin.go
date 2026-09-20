@@ -463,6 +463,7 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 
 	bh := NewBackupHandler(h.cfg.DatabaseURL, filepath.Join(h.cfg.DataDir, "backups"), h.adminMgr, h.settingsRepo)
 	bh.SetSigningKey(h.cfg.MasterKey)
+	bh.SetDemoReadOnly(h.cfg.DemoReadOnly)
 	bh.SetSessionAuth(h.webauthnSessionMgr, h.TotpEnabled)
 	bh.Register(r)
 	h.backupScheduler = bh
@@ -471,7 +472,7 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 	// (export) or a replica (import). Inherits this group's admin auth. The
 	// discovery callback lets an import populate this member's models so synced
 	// custom failover groups resolve without a manual discover.
-	NewConfigSyncHandler(h.dbPool, h.settingsRepo, h.cfg.MasterKey, h.appVersion,
+	configSync := NewConfigSyncHandler(h.dbPool, h.settingsRepo, h.cfg.MasterKey, h.appVersion,
 		func(ctx context.Context) error {
 			// Request-bound (runs inside the config-sync import HTTP handler):
 			// skip miss-recording so the confirmation-probe backoff cannot
@@ -479,7 +480,9 @@ func (h *Handler) registerAdminOnly(r chi.Router) {
 			// synced member's own scheduled sweep owns disabling.
 			_, _, _, _, err := h.discoverAllProviders(ctx, false)
 			return err
-		}, h.cfg.ValidateProviderURL).Register(r)
+		}, h.cfg.ValidateProviderURL)
+	configSync.SetDemoReadOnly(h.cfg.DemoReadOnly)
+	configSync.Register(r)
 
 	// Fleet quota snapshot export/receive. Same fleet-authed router as
 	// config-sync; snapshots carry no key material, so unlike config import there

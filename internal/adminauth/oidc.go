@@ -227,7 +227,7 @@ func (h *OIDCHandler) Start(w http.ResponseWriter, r *http.Request) {
 	}
 	verifier := oauth2.GenerateVerifier()
 
-	if !h.beginState(r.Context(), w, oidcLoginState{State: state, Nonce: nonce, Verifier: verifier}) {
+	if !h.beginState(r, w, oidcLoginState{State: state, Nonce: nonce, Verifier: verifier}) {
 		return
 	}
 
@@ -256,7 +256,7 @@ func (h *OIDCHandler) Callback(w http.ResponseWriter, r *http.Request) {
 
 	rt, err := h.runtime(ctx)
 	if err != nil || rt == nil || !rt.enabled {
-		h.clearCookie(w)
+		h.clearCookie(w, r)
 		h.redirectError(w, r, "unavailable")
 		return
 	}

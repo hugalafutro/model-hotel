@@ -14,7 +14,10 @@ package adminauth
 import (
 	"net/http"
 
+	"github.com/go-chi/chi/v5"
+
 	"github.com/hugalafutro/model-hotel/internal/httpx"
+	"github.com/hugalafutro/model-hotel/internal/user"
 )
 
 // AdminAuthenticator validates the raw admin token. Implemented by
@@ -68,4 +71,32 @@ func readOnlyGuard(next http.Handler) http.Handler {
 // guard keeps new ceremonies on this path.
 func decodeJSON(w http.ResponseWriter, r *http.Request, v any) bool {
 	return httpx.DecodeJSON(w, r, logComponent, httpx.MaxJSONBody, v)
+}
+
+// SetAudit installs the audit middleware on the passkey management routes.
+func (h *WebAuthnHandler) SetAudit(mw func(http.Handler) http.Handler) { h.audit = mw }
+
+// SetAudit installs the audit middleware on the TOTP enrol/disable routes.
+func (h *TotpHandler) SetAudit(mw func(http.Handler) http.Handler) { h.audit = mw }
+
+func (h *WebAuthnHandler) mountAudit(r chi.Router) { mountAudit(r, h.audit) }
+func (h *TotpHandler) mountAudit(r chi.Router)     { mountAudit(r, h.audit) }
+
+// mountAudit puts the audit middleware behind an admin-or-session gate. Every
+// route behind that gate is the fixed admin identity (the raw token, an admin
+// session, a passkey), which RequireAdminOrSession does not publish on the
+// context the way the dashboard API's AuthMiddleware does, so it is stamped
+// here or the trail would name the actor "unknown".
+func mountAudit(r chi.Router, mw func(http.Handler) http.Handler) {
+	if mw == nil {
+		return
+	}
+	r.Use(func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			if user.IdentityFrom(req.Context()) == nil {
+				req = req.WithContext(user.WithIdentity(req.Context(), user.AdminIdentity()))
+			}
+			next.ServeHTTP(w, req)
+		})
+	}, mw)
 }

@@ -218,7 +218,7 @@ func (h *GitHubHandler) Start(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if !h.beginState(r.Context(), w, githubLoginState{State: state}) {
+	if !h.beginState(r, w, githubLoginState{State: state}) {
 		return
 	}
 
@@ -256,7 +256,7 @@ func (h *GitHubHandler) Callback(w http.ResponseWriter, r *http.Request) {
 	// disabled-runtime short-circuit below, so a stale cookie never lingers.
 	rt, err := h.runtime(ctx)
 	if err != nil || rt == nil || !rt.enabled {
-		h.clearCookie(w)
+		h.clearCookie(w, r)
 		h.redirectError(w, r, "unavailable")
 		return
 	}

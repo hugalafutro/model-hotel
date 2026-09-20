@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -749,4 +750,100 @@ func TestWebAuthnHandler_LoginFinish_WithStoredCredential(t *testing.T) {
 	if !strings.Contains(w2.Body.String(), "passkey login verification failed") {
 		t.Errorf("expected 'passkey login verification failed' error, got: %s", w2.Body.String())
 	}
+}
+
+// A signature counter that did not advance is the library's clone signal; it
+// only sets a flag, so the handler has to read it or a cloned authenticator
+// logs in silently. Refusing one assertion is not enough: a clone that ran
+// ahead keeps passing while the owner is refused, so the credential goes.
+func TestRefuseClonedLogin(t *testing.T) {
+	ctx := context.Background()
+	repo := webauthn.NewRepository(apiTestDB.Pool())
+	h := newTestWebAuthnHandler(repo, nil, nil, nil)
+	req := httptest.NewRequest(http.MethodPost, "/webauthn/login/finish", http.NoBody)
+
+	credID := []byte("clone-test-cred-" + uuid.New().String()[:8])
+	if err := repo.StoreCredential(ctx, &webauthn.CredentialRecord{
+		ID: credID, Name: "Cloned Key", PublicKey: make([]byte, 64), AttestationType: "none",
+		AttestationFormat: "packed", Transport: []string{"internal"}, FlagsByte: 0x41, SignCount: 57, AAGUID: uuid.Nil,
+	}); err != nil {
+		t.Fatalf("store credential: %v", err)
+	}
+	t.Cleanup(func() { _ = repo.DeleteCredential(ctx, credID) })
+
+	for _, tt := range []struct {
+		name string
+		cred *webauthnx.Credential
+		want bool
+	}{
+		{name: "counter advanced", cred: &webauthnx.Credential{ID: credID}, want: false},
+		{name: "nil credential", cred: nil, want: true},
+		{name: "clone warning", cred: &webauthnx.Credential{ID: credID, Authenticator: webauthnx.Authenticator{CloneWarning: true}}, want: true},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			w := httptest.NewRecorder()
+			if got := h.refuseClonedLogin(w, req, tt.cred); got != tt.want {
+				t.Fatalf("refused = %v, want %v", got, tt.want)
+			}
+			if tt.want && w.Code != http.StatusBadRequest {
+				t.Errorf("status = %d, want 400", w.Code)
+			}
+			if !tt.want && w.Code != http.StatusOK {
+				t.Errorf("status = %d, want nothing written", w.Code)
+			}
+		})
+	}
+	if _, err := repo.GetCredentialByID(ctx, credID); err == nil {
+		t.Error("the cloned credential still exists, want it revoked")
+	}
+
+	// A revocation that fails leaves the credential on file: a server error
+	// the operator sees, not a login failure, and the credential stays
+	// quarantined in this process, so an assertion whose counter advances is
+	// refused too, until a delete lands.
+	if err := repo.StoreCredential(ctx, &webauthn.CredentialRecord{
+		ID: credID, Name: "Cloned Key", PublicKey: make([]byte, 64), AttestationType: "none",
+		AttestationFormat: "packed", Transport: []string{"internal"}, FlagsByte: 0x41, SignCount: 58, AAGUID: uuid.Nil,
+	}); err != nil {
+		t.Fatalf("re-store credential: %v", err)
+	}
+	failing := newTestWebAuthnHandler(nil, nil, nil, nil)
+	failing.webauthnRepo = failingDeleteStore{Store: repo}
+	clone := &webauthnx.Credential{ID: credID, Authenticator: webauthnx.Authenticator{CloneWarning: true}}
+	advanced := &webauthnx.Credential{ID: credID}
+	w := httptest.NewRecorder()
+	if !failing.refuseClonedLogin(w, req, clone) {
+		t.Fatal("a clone whose revocation failed was not refused")
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 when the credential could not be revoked", w.Code)
+	}
+	w = httptest.NewRecorder()
+	if !failing.refuseClonedLogin(w, req, advanced) {
+		t.Fatal("an advancing counter on a quarantined credential was let in")
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 while the revocation is still pending", w.Code)
+	}
+	failing.webauthnRepo = repo
+	w = httptest.NewRecorder()
+	if !failing.refuseClonedLogin(w, req, advanced) {
+		t.Fatal("the quarantined credential was let in once the store came back")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 once the delete landed", w.Code)
+	}
+	if _, err := repo.GetCredentialByID(ctx, credID); err == nil {
+		t.Error("the quarantined credential still exists, want it revoked once the delete landed")
+	}
+	if failing.refuseClonedLogin(httptest.NewRecorder(), req, advanced) {
+		t.Error("the quarantine must lift once the delete landed")
+	}
+}
+
+// failingDeleteStore is a credential store whose deletes fail.
+type failingDeleteStore struct{ webauthn.Store }
+
+func (failingDeleteStore) DeleteCredential(context.Context, []byte) error {
+	return errors.New("store down")
 }
