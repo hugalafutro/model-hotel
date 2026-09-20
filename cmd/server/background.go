@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
@@ -451,49 +452,59 @@ func logRetentionPass(drainCtx context.Context, pool *pgxpool.Pool, settingsRepo
 		return
 	}
 	now := time.Now()
-	cutoff := now.Add(-window)
-	cutoffs := map[string]time.Time{"request_logs": cutoff, "app_logs": cutoff}
-	// A budget is summed from request_logs (budget.PGSource), with no ledger
-	// of its own: a row deleted inside an open budget period is spend the
-	// budget forgets, and a period longer than the retention window would
-	// otherwise degrade into a rolling one the width of the window. Rows from
-	// the longest open period are kept until it ends, whatever the window says.
-	if floor, ok := budgetFloor(drainCtx, pool, now); ok && floor.Before(cutoff) {
-		cutoffs["request_logs"] = floor
-	}
-	for _, table := range []string{"request_logs", "app_logs"} {
+	for table, cutoff := range retentionCutoffs(drainCtx, pool, now, now.Add(-window)) {
 		tag, err := pool.Exec(drainCtx,
-			`DELETE FROM `+table+` WHERE created_at < $1`, cutoffs[table])
+			`DELETE FROM `+table+` WHERE created_at < $1`, cutoff)
 		if err != nil {
 			debuglog.Error("retention: delete of old entries failed", "table", table, "error", err)
 			continue
 		}
-		debuglog.Info("retention: deleted old entries", "table", table, "retention", retention, "cutoff", cutoffs[table].UTC().Format(time.RFC3339), "rows", tag.RowsAffected())
+		debuglog.Info("retention: deleted old entries", "table", table, "retention", retention, "cutoff", cutoff.UTC().Format(time.RFC3339), "rows", tag.RowsAffected())
 	}
 }
 
-// budgetFloor is the start of the longest budget period any virtual key or
-// user currently runs, the instant before which no request_logs row is still
-// feeding a budget. ok is false when nothing carries a budget, or when the
-// read fails: a sweep that cannot see the budgets keeps every row the plain
-// window would have kept, so a failed read here can only delete less, never
-// more, than one that succeeded.
-func budgetFloor(ctx context.Context, pool *pgxpool.Pool, now time.Time) (time.Time, bool) {
-	var period string
-	err := pool.QueryRow(ctx, `
-		SELECT budget_period FROM (
+// rowQuerier is the one read retentionCutoffs makes; *pgxpool.Pool satisfies it.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// retentionCutoffs is the delete boundary per table for one sweep. app_logs
+// take the plain window. request_logs are what a budget is summed from
+// (budget.PGSource, no ledger of its own): a row deleted inside an open budget
+// period is spend the budget forgets, and a period longer than the window
+// would degrade into a rolling one the width of the window. So request_logs
+// keep every row from the earliest start among the budget periods any virtual
+// key or user currently runs, whatever the window says. The earliest start,
+// not the longest period's: the calendar periods straddle each other, and on
+// the first of a month an open week that began on the 29th reaches further
+// back than the month does. A sweep that cannot read the budgets does not
+// know which rows are still feeding one, so it leaves request_logs alone until
+// a sweep that can: the table is absent from the map, and an hour's growth is
+// the price of never deleting a budgeted row.
+func retentionCutoffs(ctx context.Context, q rowQuerier, now, cutoff time.Time) map[string]time.Time {
+	cutoffs := map[string]time.Time{"app_logs": cutoff}
+	// One row, one string: the distinct periods in use, or "" for none.
+	var periods string
+	err := q.QueryRow(ctx, `
+		SELECT COALESCE(string_agg(DISTINCT budget_period, ','), '') FROM (
 			SELECT budget_period FROM virtual_keys WHERE budget_period IS NOT NULL
 			UNION SELECT budget_period FROM users WHERE budget_period IS NOT NULL
-		) p
-		ORDER BY CASE budget_period WHEN 'month' THEN 3 WHEN 'week' THEN 2 ELSE 1 END DESC
-		LIMIT 1`).Scan(&period)
+		) p`).Scan(&periods)
 	if err != nil {
-		if !errors.Is(err, pgx.ErrNoRows) {
-			debuglog.Warn("retention: budget periods could not be read, keeping the plain window", "error", err)
-		}
-		return time.Time{}, false
+		debuglog.Warn("retention: budget periods could not be read, leaving request_logs for the next sweep", "error", err)
+		return cutoffs
 	}
-	return budget.PeriodStart(period, now), true
+	floor := cutoff
+	for _, period := range strings.Split(periods, ",") {
+		if period == "" {
+			continue
+		}
+		if start := budget.PeriodStart(period, now); start.Before(floor) {
+			floor = start
+		}
+	}
+	cutoffs["request_logs"] = floor
+	return cutoffs
 }
 
 // sweepScheduledDisableTimeout bounds a sweep that outlives its caller's

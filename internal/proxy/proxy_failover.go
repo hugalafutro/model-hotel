@@ -137,7 +137,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			resp = res.resp
 			streamCancelOrigin = res.streamCancelOrigin
 			retryCancel = res.retryCancel
-			if retryCancel != nil && resp.Request != nil {
+			if retryCancel != nil && resp != nil && resp.Request != nil {
 				// A live retry answered. The self-heal cancelled failoverCtx once
 				// it had consumed the refused body, and the retry ran on its own
 				// context (retryContext: a fresh budget, origin retry_timeout),
