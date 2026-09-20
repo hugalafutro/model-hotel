@@ -1637,6 +1637,13 @@
 	"components.requestLogDetail.attempt": [
 		"ja"
 	],
+	"components.requestLogDetail.attemptBreakerSuccess": [
+		"cs",
+		"it",
+		"nl",
+		"pl",
+		"sk"
+	],
 	"components.requestLogDetail.cacheHit": [
 		"da",
 		"it"

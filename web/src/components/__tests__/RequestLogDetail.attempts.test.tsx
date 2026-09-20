@@ -114,7 +114,13 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(rows[0]).not.toHaveTextContent("429");
 		expect(rows[1]).toHaveTextContent("Neuralwatt");
 		expect(rows[1]).toHaveTextContent("429");
-		expect(rows[1]).toHaveTextContent("provider_saturated");
+		// The kind is a labelled classification, not the raw word; the raw
+		// word stays in the tooltip for anyone grepping the logs.
+		expect(rows[1]).toHaveTextContent("provider saturated");
+		expect(rows[1]).not.toHaveTextContent("provider_saturated");
+		const saturated = within(rows[1]).getByTestId("attempt-kind");
+		expect(saturated).toHaveAttribute("title", "provider_saturated");
+		expect(saturated.querySelector("svg")).toHaveClass("icon-gauge");
 		expect(rows[1]).toHaveTextContent("concurrent_budget_exceeded");
 		expect(rows[2]).toHaveTextContent("Ollama");
 		expect(rows[2]).toHaveTextContent("200");
@@ -195,7 +201,7 @@ describe("RequestLogDetail attempt trail", () => {
 			/>,
 		);
 		const row = screen.getByTestId("attempt-trail-row");
-		expect(row).toHaveTextContent("provider_error");
+		expect(row).toHaveTextContent("provider error");
 		expect(row).not.toHaveTextContent("refused connection");
 	});
 
@@ -227,6 +233,158 @@ describe("RequestLogDetail attempt trail", () => {
 		const line = screen.getByTestId("attempt-trail-meta");
 		expect(line).toHaveClass("basis-full", "ps-8", "flex-wrap");
 		expect(line.firstElementChild).toHaveAttribute("title");
+		// Every verdict names the breaker, and the served verdict reads as
+		// the circuit resetting, not as money being credited.
+		expect(line).toHaveTextContent("breaker: reset");
+		expect(line).not.toHaveTextContent("credited");
+	});
+
+	it("says a client hangup once: the kind label, not the gateway's sentence too", () => {
+		// The gateway stamps its own fixed detail on a hedged launch the client
+		// abandoned (internal/proxy/hedging.go). Printed beside the kind it
+		// read as the same words twice, so the label alone carries it.
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "OpenCode Go",
+							model: "deepseek-flash",
+							error_kind: "client_disconnect",
+							detail: "client disconnected while in flight",
+							duration_ms: 1703.7,
+							hedged: true,
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const row = screen.getByTestId("attempt-trail-row");
+		const kind = within(row).getByTestId("attempt-kind");
+		expect(kind).toHaveTextContent("client disconnected");
+		expect(kind).toHaveAttribute("title", "client_disconnect");
+		expect(kind.querySelector("svg")).toHaveClass("icon-unplug");
+		expect(row).not.toHaveTextContent("while in flight");
+		expect(row).not.toHaveTextContent("client_disconnect");
+	});
+
+	it("says a deadline exit once: the kind label, not the gateway's sentence too", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 1,
+							provider_id: "prov-1",
+							provider: "Kimi",
+							model: "k2",
+							error_kind: "failover_timeout",
+							detail: "still in flight at the failover deadline",
+							duration_ms: 60000,
+							hedged: true,
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const row = screen.getByTestId("attempt-trail-row");
+		const kind = within(row).getByTestId("attempt-kind");
+		expect(kind).toHaveTextContent("failover timeout");
+		expect(kind.querySelector("svg")).toHaveClass("icon-timer");
+		expect(row).not.toHaveTextContent("failover deadline");
+	});
+
+	it("names the breaker on a strike and on a verdict it does not know", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Kimi",
+							model: "k2",
+							status: 503,
+							duration_ms: 12,
+							breaker: "charge",
+						},
+						{
+							attempt: 1,
+							provider_id: "prov-2",
+							provider: "Ollama",
+							model: "k2",
+							status: 200,
+							duration_ms: 900,
+							breaker: "wobble",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const rows = screen.getAllByTestId("attempt-trail-row");
+		expect(rows[0]).toHaveTextContent("breaker: strike");
+		expect(rows[0]).not.toHaveTextContent("charged");
+		// A verdict the dashboard has no word for still names the breaker.
+		expect(rows[1]).toHaveTextContent("breaker: wobble");
+	});
+
+	it("keeps the gateway's words when a provider error happens to say them", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Kimi",
+							model: "k2",
+							status: 200,
+							error_kind: "provider_error",
+							detail: "still in flight at the failover deadline",
+							duration_ms: 12,
+							breaker: "charge",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		expect(screen.getByTestId("attempt-trail-row")).toHaveTextContent(
+			"still in flight at the failover deadline",
+		);
+	});
+
+	it("renders an unknown kind raw with the plain warning glyph", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Kimi",
+							model: "k2",
+							error_kind: "provider_on_fire",
+							duration_ms: 12,
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		const kind = screen.getByTestId("attempt-kind");
+		expect(kind).toHaveTextContent("provider_on_fire");
+		expect(kind.querySelector("svg")).toHaveClass("icon-alert-triangle");
 	});
 
 	it("gives a skipped attempt no verdict line: the badge already says it", () => {
@@ -330,7 +488,7 @@ describe("RequestLogDetail attempt trail", () => {
 		const rows = screen.getAllByTestId("attempt-trail-row");
 		// The status badge is the whole story of the 402: the kind adds nothing
 		// over "the provider errored", and the detail only repeats the code.
-		expect(rows[1]).not.toHaveTextContent("provider_error");
+		expect(rows[1]).not.toHaveTextContent("provider error");
 		expect(rows[1]).not.toHaveTextContent("HTTP 402");
 		// Same for the abandoned hedge: the SUPERSEDED badge says both.
 		expect(rows[2]).toHaveTextContent("Ollama Cloud");
@@ -431,7 +589,7 @@ describe("RequestLogDetail attempt trail", () => {
 			/>,
 		);
 		expect(screen.getAllByTestId("attempt-trail-row")[0]).toHaveTextContent(
-			"provider_error",
+			"provider error",
 		);
 	});
 

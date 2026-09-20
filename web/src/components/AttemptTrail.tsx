@@ -1,10 +1,14 @@
 import { useTranslation } from "react-i18next";
 import {
+	AlertTriangle,
+	Gauge,
 	Layers,
 	Shield,
 	ShieldAlert,
 	ShieldCheck,
 	ShieldOff,
+	Timer,
+	Unplug,
 } from "@/lib/icons";
 import type { AttemptRecord } from "../api/types";
 import { formatMs } from "../utils/logHelpers";
@@ -12,8 +16,9 @@ import { DetailSectionHeader } from "./DetailSectionHeader";
 import { InfoHint } from "./InfoHint";
 import { StatusBadge, statusBadgeLabel } from "./LogDetailStatusBadge";
 
-// Label key per breaker verdict. An unknown verdict falls back to the generic
-// key, which interpolates the raw word, so the row never renders an empty span.
+// Label key per breaker verdict: the word after "breaker:", so every verdict
+// names the breaker and none reads as spend ("credited", "charged"). An unknown
+// verdict falls back to the raw word, so the row never renders an empty span.
 const BREAKER_VERDICT_KEYS: Record<string, string> = {
 	charge: "components.requestLogDetail.attemptBreakerCharge",
 	noop: "components.requestLogDetail.attemptBreakerNoop",
@@ -21,6 +26,42 @@ const BREAKER_VERDICT_KEYS: Record<string, string> = {
 	alive: "components.requestLogDetail.attemptBreakerAlive",
 	skipped: "components.requestLogDetail.attemptBreakerSkipped",
 	disabled: "components.requestLogDetail.attemptBreakerDisabled",
+};
+
+// Label key per error kind (internal/proxy/reqerror.go). hedge_superseded is
+// absent on purpose: its badge says it. An unknown kind renders the raw word.
+const ERROR_KIND_KEYS: Record<string, string> = {
+	client_disconnect: "components.requestLogDetail.attemptKindClientDisconnect",
+	provider_error: "components.requestLogDetail.attemptKindProviderError",
+	provider_model_gone:
+		"components.requestLogDetail.attemptKindProviderModelGone",
+	provider_not_entitled:
+		"components.requestLogDetail.attemptKindProviderNotEntitled",
+	provider_bad_request:
+		"components.requestLogDetail.attemptKindProviderBadRequest",
+	provider_saturated:
+		"components.requestLogDetail.attemptKindProviderSaturated",
+	provider_quota_exhausted:
+		"components.requestLogDetail.attemptKindProviderQuotaExhausted",
+	provider_timeout: "components.requestLogDetail.attemptKindProviderTimeout",
+	failover_timeout: "components.requestLogDetail.attemptKindFailoverTimeout",
+	retry_timeout: "components.requestLogDetail.attemptKindRetryTimeout",
+	internal: "components.requestLogDetail.attemptKindInternal",
+	validation: "components.requestLogDetail.attemptKindValidation",
+	auth: "components.requestLogDetail.attemptKindAuth",
+};
+
+// Icon per error kind: the hangup, the clock and the gauge for the kinds a
+// reader can act on differently; every other kind is a plain warning.
+const ERROR_KIND_ICONS: Record<
+	string,
+	React.ComponentType<{ size?: number; className?: string }>
+> = {
+	client_disconnect: Unplug,
+	provider_timeout: Timer,
+	failover_timeout: Timer,
+	retry_timeout: Timer,
+	provider_saturated: Gauge,
 };
 
 /** The breaker refused this candidate before the request left. */
@@ -35,10 +76,15 @@ function collapseWhitespace(message: string): string {
 	return message.split(/\s+/).filter(Boolean).join(" ");
 }
 
-// The gateway's own sentence for a hedged attempt it abandoned when another
-// candidate won (internal/proxy/hedging.go). It says exactly what the
-// SUPERSEDED badge says, so the row never prints both.
-const HEDGE_SUPERSEDED_DETAIL = "superseded by the winner while in flight";
+// The gateway's own fixed sentence per exit it stamps on a hedged launch it
+// abandoned (internal/proxy/hedging.go): each says exactly what the SUPERSEDED
+// badge or the kind label on the same row says, so the row never prints both.
+// Keyed by kind, so the same words under any other kind stay the provider's.
+const GATEWAY_FIXED_DETAILS: Record<string, string> = {
+	hedge_superseded: "superseded by the winner while in flight",
+	failover_timeout: "still in flight at the failover deadline",
+	client_disconnect: "client disconnected while in flight",
+};
 
 // Error kinds the badge on the same row already states: the SUPERSEDED badge
 // is hedge_superseded, and an HTTP error status badge is the provider erroring.
@@ -90,7 +136,7 @@ export function AttemptTrail({
 	// 503 on attempt 1", so it is looked for as a run inside it, and a detail
 	// the backend capped ends in an ellipsis the message does not have); it
 	// only restates the status the badge shows; or it is the gateway's fixed
-	// sentence for a superseded hedge, which the badge shows too.
+	// sentence for the row's own kind, which the badge or the kind label shows.
 	const detailSaysMore = (a: AttemptRecord) => {
 		const detail = a.detail?.trim();
 		if (!detail) return false;
@@ -98,7 +144,9 @@ export function AttemptTrail({
 			return false;
 		}
 		if (/^HTTP \d{3}$/.test(detail)) return false;
-		if (detail === HEDGE_SUPERSEDED_DETAIL) return false;
+		if (a.error_kind && GATEWAY_FIXED_DETAILS[a.error_kind] === detail) {
+			return false;
+		}
 		return a.status ? detail !== statusBadgeLabel(a.status, t) : true;
 	};
 	// A skip IS the breaker's verdict: it refused the candidate before the
@@ -203,16 +251,31 @@ export function AttemptTrail({
 											const Icon = BREAKER_VERDICT_ICONS[a.breaker] ?? Shield;
 											return <Icon size={11} aria-hidden="true" />;
 										})()}
-										{t(
-											BREAKER_VERDICT_KEYS[a.breaker] ??
-												"components.requestLogDetail.attemptBreaker",
-											{ verdict: a.breaker },
-										)}
+										{t("components.requestLogDetail.attemptBreaker", {
+											verdict: BREAKER_VERDICT_KEYS[a.breaker]
+												? t(BREAKER_VERDICT_KEYS[a.breaker])
+												: a.breaker,
+										})}
 									</span>
 								)}
-								{kindSaysMore(a) && (
-									<span className="font-mono text-xs text-(--text-secondary)">
-										{a.error_kind}
+								{kindSaysMore(a) && a.error_kind && (
+									// The kind wears the same dress as the verdict, an icon
+									// and a plain-text label, so it reads as a classification
+									// and not as a twin of the mono detail beside it. The raw
+									// kind stays in the tooltip for anyone grepping the logs.
+									<span
+										className="inline-flex items-center gap-1 text-xs text-(--text-tertiary)"
+										title={a.error_kind}
+										data-testid="attempt-kind"
+									>
+										{(() => {
+											const Icon =
+												ERROR_KIND_ICONS[a.error_kind] ?? AlertTriangle;
+											return <Icon size={11} aria-hidden="true" />;
+										})()}
+										{ERROR_KIND_KEYS[a.error_kind]
+											? t(ERROR_KIND_KEYS[a.error_kind])
+											: a.error_kind}
 									</span>
 								)}
 								{detailSaysMore(a) && (

@@ -117,6 +117,7 @@ export const PiggyBank = withId(Ph.PiggyBankIcon, "PiggyBank");
 export const Pin = withId(Ph.PushPinIcon, "Pin");
 export const Play = withId(Ph.PlayIcon, "Play");
 export const PlugZap = withId(Ph.PlugsConnectedIcon, "PlugZap");
+export const Unplug = withId(Ph.PlugsIcon, "Unplug");
 export const Plus = withId(Ph.PlusIcon, "Plus");
 export const PowerOff = withId(Ph.PowerIcon, "PowerOff");
 export const Activity = withId(Ph.PulseIcon, "Activity");
