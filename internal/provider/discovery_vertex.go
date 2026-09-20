@@ -49,6 +49,10 @@ func (d *DiscoveryService) discoverVertexExpress(ctx context.Context, provider *
 	for i, id := range candidates {
 		switch {
 		case errs[i] != nil:
+			// A transport error, or a 429/5xx the retries could not get past:
+			// the service, not the model, failed to answer. Calling that "not
+			// eligible" would drop the model from the listing, and the scan
+			// would then retire it for going missing.
 			debuglog.Error("discovery: vertex-express probe failed", "model", id, "provider", provider.Name, "provider_id", provider.ID, "error", errs[i])
 			return nil, fmt.Errorf("vertex-express: probe for %s failed for provider %s: %w", id, provider.Name, errs[i])
 		case statuses[i] == http.StatusUnauthorized || statuses[i] == http.StatusForbidden:
@@ -56,12 +60,6 @@ func (d *DiscoveryService) discoverVertexExpress(ctx context.Context, provider *
 			return nil, fmt.Errorf("vertex-express: unauthorized (HTTP %d) for provider %s — check the API key", statuses[i], provider.Name)
 		case statuses[i] == http.StatusOK:
 			live = append(live, liveModelStub(id, "google", provider.ID))
-		case statuses[i] == http.StatusTooManyRequests || statuses[i] >= http.StatusInternalServerError:
-			// The service, not the model, failed to answer. Calling that "not
-			// eligible" would drop the model from the listing, and the scan
-			// would then retire it for going missing.
-			debuglog.Error("discovery: vertex-express probe answered a transient status", "model", id, "status", statuses[i], "provider", provider.Name, "provider_id", provider.ID)
-			return nil, fmt.Errorf("vertex-express: probe for %s answered HTTP %d for provider %s", id, statuses[i], provider.Name)
 		default:
 			debuglog.Debug("discovery: vertex-express candidate not eligible", "model", id, "status", statuses[i], "provider", provider.Name)
 		}
@@ -82,20 +80,23 @@ func (d *DiscoveryService) discoverVertexExpress(ctx context.Context, provider *
 func (d *DiscoveryService) vertexCountTokensProbe(ctx context.Context, baseURL, modelID, apiKey string) (int, error) {
 	endpoint := "/publishers/google/models/" + url.PathEscape(modelID) + ":countTokens"
 	probeURL := util.BuildProviderTargetURL(baseURL, "vertex-express", endpoint)
-	body := strings.NewReader(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
-
-	req, err := http.NewRequestWithContext(ctx, "POST", probeURL, body)
+	newReq := func() (*http.Request, error) {
+		// Rebuilt per attempt: the retry helper replays the body.
+		body := strings.NewReader(`{"contents":[{"role":"user","parts":[{"text":"hi"}]}]}`)
+		req, err := http.NewRequestWithContext(ctx, "POST", probeURL, body)
+		if err != nil {
+			return nil, err
+		}
+		req.Header.Set("x-goog-api-key", apiKey)
+		req.Header.Set("Content-Type", "application/json")
+		return req, nil
+	}
+	// The shared discovery request path: transient network errors and
+	// retryable statuses (429, 5xx) are retried with backoff before they fail
+	// the probe, and the key-carrying URL is masked out of any error.
+	resp, err := d.doDiscoveryRequest(ctx, newReq)
 	if err != nil {
 		return 0, err
-	}
-	req.Header.Set("x-goog-api-key", apiKey)
-	req.Header.Set("Content-Type", "application/json")
-
-	resp, err := d.httpClient.Do(req)
-	if err != nil {
-		// The key is header-only, so the URL a transport error quotes carries
-		// none; scrubbed anyway in case that ever changes.
-		return 0, maskedRequestError(req, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 	_, _ = io.Copy(io.Discard, resp.Body)

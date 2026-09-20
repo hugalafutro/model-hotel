@@ -331,7 +331,10 @@ func translateUsage(raw json.RawMessage) *oaiUsage {
 			ReasoningTokens int `json:"reasoning_tokens"`
 		}{ReasoningTokens: u.ThoughtsTokenCount}
 	}
-	if u.CachedContentTokenCount > 0 {
+	// A cached count is part of the prompt count; one larger than the prompt is
+	// not a reading this gateway can meter (it would record more cache hits
+	// than tokens), so it is left out while the prompt count stands.
+	if u.CachedContentTokenCount > 0 && u.CachedContentTokenCount <= u.PromptTokenCount {
 		out.PromptTokensDetails = &struct {
 			CachedTokens int `json:"cached_tokens"`
 		}{CachedTokens: u.CachedContentTokenCount}

@@ -66,6 +66,15 @@ func TestTranslateUsage_CachedContentTokens(t *testing.T) {
 		t.Errorf("no cached tokens reported, but details were emitted: %s", out)
 	}
 
+	// Larger than the prompt: not a reading, dropped on its own.
+	out, err = BuildChatCompletion([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"hi"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":100,"cachedContentTokenCount":150,"candidatesTokenCount":2,"totalTokenCount":102}}`), "id", "m", 1)
+	if err != nil {
+		t.Fatalf("BuildChatCompletion: %v", err)
+	}
+	if strings.Contains(string(out), "prompt_tokens_details") || !strings.Contains(string(out), `"prompt_tokens":100`) {
+		t.Errorf("a cached count above the prompt must drop only itself: %s", out)
+	}
+
 	// Unreadable: the cached figure is dropped on its own, the prompt count
 	// beside it stays.
 	out, err = BuildChatCompletion([]byte(`{"candidates":[{"content":{"role":"model","parts":[{"text":"hi"}]},"finishReason":"STOP"}],"usageMetadata":{"promptTokenCount":5,"cachedContentTokenCount":"lots","candidatesTokenCount":2,"totalTokenCount":7}}`), "id", "m", 1)
