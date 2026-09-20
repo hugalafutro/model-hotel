@@ -13,7 +13,7 @@ import {
 	sortableKeyboardCoordinates,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
 	CircuitBreakerProviderStatus,
@@ -80,6 +80,9 @@ export function FailoverGroupCard({
 	// Optimistic local state: reorders on dragEnd so the DOM order matches the
 	// visual drag position.
 	const [localEntries, setLocalEntries] = useState(group.entries);
+	// Which reorder write is the newest: only its rejection rolls back, so an
+	// earlier drag failing late cannot undo a later one still in flight.
+	const reorderSeq = useRef(0);
 	const key = useMemo(() => entriesKey(group.entries), [group.entries]);
 
 	// Resets the local state when the server data changes. Comparing the key
@@ -136,7 +139,10 @@ export function FailoverGroupCard({
 			if (write instanceof Promise) {
 				// A refused write leaves the server order as it was, so the key
 				// resync above never fires; the card goes back to it here.
-				write.catch(() => setLocalEntries(group.entries));
+				const seq = ++reorderSeq.current;
+				write.catch(() => {
+					if (seq === reorderSeq.current) setLocalEntries(group.entries);
+				});
 			}
 		}
 	};

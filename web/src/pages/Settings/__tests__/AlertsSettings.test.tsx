@@ -134,6 +134,54 @@ describe("AlertsSettings", () => {
 		);
 	});
 
+	it("keeps the rows busy until the destination read has refetched", async () => {
+		// Between the write settling and the refetch landing the rows still show
+		// the old list; a removal computed from it would re-persist the row the
+		// previous write dropped.
+		serveSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		let reads = 0;
+		let releaseRefetch: () => void = () => {};
+		const refetchGate = new Promise<void>((resolve) => {
+			releaseRefetch = resolve;
+		});
+		server.use(
+			http.get("/api/alert/targets", async () => {
+				reads++;
+				if (reads > 1) await refetchGate;
+				return HttpResponse.json({
+					targets:
+						reads > 1
+							? ["ntfys://ntfy.example.com/topic1"]
+							: ["tgram://tok/chat", "ntfys://ntfy.example.com/topic1"],
+				});
+			}),
+		);
+		capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const rows = await screen.findAllByTestId("alert-destination-row");
+		await user.click(within(rows[0]).getByTestId("alert-destination-remove"));
+		await user.click(screen.getByTestId("alert-destination-remove-confirm"));
+
+		await waitFor(() => expect(reads).toBeGreaterThan(1));
+		for (const btn of screen.getAllByTestId("alert-destination-remove")) {
+			expect(btn).toBeDisabled();
+		}
+
+		releaseRefetch();
+		await waitFor(() =>
+			expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1),
+		);
+		expect(screen.getByTestId("alert-destination-remove")).toBeEnabled();
+	});
+
 	it("clears the setting when the last destination row is removed", async () => {
 		serveSettings({
 			alert_enabled: "true",

@@ -54,6 +54,9 @@ export function SettingsSlider({
 	const [local, setLocal] = useState(value);
 	const prevValue = useRef(value);
 	const committed = useRef(value);
+	// Which write is the newest: only its rejection rolls the draft back, so
+	// an earlier write failing late cannot clobber a later commit.
+	const writeSeq = useRef(0);
 
 	// A new `value` prop is the authoritative one and replaces the local draft.
 	// Kept in an effect rather than adjusted during render: the commit mark is a
@@ -80,7 +83,9 @@ export function SettingsSlider({
 				committed.current = v;
 				const write = onChange(v);
 				if (write instanceof Promise) {
+					const seq = ++writeSeq.current;
 					write.catch(() => {
+						if (seq !== writeSeq.current) return;
 						committed.current = prevValue.current;
 						setLocal(prevValue.current);
 					});

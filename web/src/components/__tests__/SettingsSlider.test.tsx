@@ -115,6 +115,37 @@ describe("SettingsSlider", () => {
 		fireEvent.change(numberInput, { target: { value: 80 } });
 		fireEvent.blur(numberInput);
 		expect(onChange).toHaveBeenCalledTimes(2);
+		// A write that lands leaves the committed value in place.
+		await waitFor(() =>
+			expect(onChange.mock.results[1]?.value).resolves.toBeUndefined(),
+		);
+		expect(numberInput).toHaveValue(80);
+	});
+
+	it("only the newest write's rejection rolls the draft back", async () => {
+		let rejectFirst: (e: Error) => void = () => {};
+		const onChange = vi
+			.fn()
+			.mockImplementationOnce(
+				() =>
+					new Promise((_, reject) => {
+						rejectFirst = reject;
+					}),
+			)
+			.mockResolvedValue(undefined);
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} onChange={onChange} />,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		fireEvent.change(numberInput, { target: { value: 80 } });
+		fireEvent.blur(numberInput);
+		fireEvent.change(numberInput, { target: { value: 90 } });
+		fireEvent.blur(numberInput);
+		expect(onChange).toHaveBeenLastCalledWith(90);
+
+		rejectFirst(new Error("late refusal"));
+		await new Promise((r) => setTimeout(r, 0));
+		expect(numberInput).toHaveValue(90);
 	});
 
 	it("does NOT commit a draft when the blur comes from being disabled", () => {
