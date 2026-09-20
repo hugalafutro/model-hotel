@@ -1770,3 +1770,92 @@ func TestCircuitBreakerStatus_ModelResolveError(t *testing.T) {
 		t.Fatalf("status = %d, want 500; body: %s", w.Code, w.Body.String())
 	}
 }
+
+// group_enabled is PATCH-shaped: a PUT that leaves it out must not flip a
+// disabled group back on. The repository used to default the absent field to
+// true, so a rename or description edit re-enabled a group past the handler's
+// two-routable-members check.
+func TestFailoverHandler_Update_WithoutGroupEnabledKeepsTheGroupDisabled(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+
+	displayModel := "test-update-keepoff-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New(), uuid.New()}
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, po, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, displayModel) }()
+
+	for _, body := range []string{`{"group_enabled":false,"floor_disabled":true}`, `{"description":"edited"}`} {
+		req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(body))
+		req = setChiURLParam(req, "id", fg.ID.String())
+		h.Update(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: expected 200, got %d; body: %s", body, w.Code, w.Body.String())
+		}
+		var resp FailoverGroupResponse
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+		if resp.GroupEnabled {
+			t.Errorf("%s: GroupEnabled = true, want the group to stay disabled", body)
+		}
+		// The cascade said so and two unknown member ids are zero routable
+		// members, so the disable is stamped; the description edit leaves the
+		// stamp alone.
+		if !resp.AutoDisabled {
+			t.Errorf("%s: AutoDisabled = false, want the floor's stamp kept", body)
+		}
+	}
+}
+
+// An operator's explicit disable is never stamped, whether the group was
+// viable or not, and a cascade flag on a viable group is ignored: only a
+// cascade that left the group below the floor reads as auto-disabled.
+func TestFailoverHandler_Update_OperatorDisableIsNotAutoDisabled(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+	displayModel := "test-update-explicit-off-" + uuid.New().String()[:8]
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{uuid.New(), uuid.New()}, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() { _ = h.failoverRepo.Delete(ctx, displayModel) }()
+	// Zero routable members, no flag: the operator's disable of a broken group.
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(`{"group_enabled":false}`))
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Update(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected 200, got %d; body: %s", w.Code, w.Body.String())
+	}
+	var resp FailoverGroupResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.AutoDisabled {
+		t.Error("an explicit operator disable of a nonviable group was stamped auto-disabled")
+	}
+}
+
+// A cascade flag on a viable group is ignored: the server counts for itself.
+func TestFailoverHandler_Update_DisablingAViableGroupIsNotAutoDisabled(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	groupID, _ := enableGuardSeed(t, h, true, true) // two routable members, off
+
+	var resp FailoverGroupResponse
+	for _, body := range []string{`{"group_enabled":true}`, `{"group_enabled":false,"floor_disabled":true}`} {
+		req, w := newChiRequest(http.MethodPut, "/failover-groups/"+groupID.String(), strings.NewReader(body))
+		req = setChiURLParam(req, "id", groupID.String())
+		h.Update(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: expected 200, got %d; body: %s", body, w.Code, w.Body.String())
+		}
+		if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+			t.Fatalf("decode: %v", err)
+		}
+	}
+	if resp.GroupEnabled || resp.AutoDisabled {
+		t.Errorf("GroupEnabled=%v AutoDisabled=%v, want off by the operator's hand with no stamp", resp.GroupEnabled, resp.AutoDisabled)
+	}
+}

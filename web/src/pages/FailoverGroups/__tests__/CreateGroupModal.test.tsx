@@ -53,6 +53,7 @@ const mockEditGroup: FailoverGroup = {
 	description: "A test failover group",
 	group_enabled: true,
 	auto_created: false,
+	auto_disabled: false,
 	entries: [
 		{
 			model_uuid: "uuid-1",

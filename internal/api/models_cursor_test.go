@@ -1346,7 +1346,7 @@ func TestModelSortColumn_Defaults(t *testing.T) {
 		expected string
 	}{
 		{"name", "COALESCE(NULLIF(m.name, ''), m.model_id)"},
-		{"discovered", "COALESCE(m.last_seen_at, m.created_at)"},
+		{"discovered", "date_trunc('second', COALESCE(m.last_seen_at, m.created_at))"},
 		{"context", "COALESCE(m.context_length, 0)"},
 		{"output", "COALESCE(m.max_output_tokens, 0)"},
 		{"provider", "COALESCE(p.name, '')"},
@@ -1616,5 +1616,79 @@ func TestListModelsCursor_EmptyNamePagination(t *testing.T) {
 	}
 	if len(seen) != n {
 		t.Fatalf("paged through %d rows, want %d", len(seen), n)
+	}
+}
+
+// A discovery pass stamps every model of a provider with one now(), so whole
+// pages share a last_seen_at down to the microsecond while the cursor carries
+// the API's whole-second stamp. Compared at column precision the page repeated
+// forever; the keyset compares at the cursor's precision and breaks the tie
+// on id.
+func TestListModelsCursor_SortByDiscoveredSameSecondDoesNotLoop(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+
+	providerData := fmt.Sprintf(`{"name": "cursor-samesec-%s", "base_url": "https://api.example.com", "api_key": "test-key"}`, uuid.New().String()[:8])
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPost, "/providers", strings.NewReader(providerData))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create provider: %d: %s", rec.Code, rec.Body.String())
+	}
+	var providerResp struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &providerResp); err != nil {
+		t.Fatalf("parse provider: %v", err)
+	}
+
+	pool := h.Pool().Pool()
+	stamp := time.Now().UTC().Truncate(time.Second).Add(123456 * time.Microsecond)
+	want := map[string]bool{}
+	for _, id := range []string{"same-a", "same-b", "same-c"} {
+		want[id] = true
+		if _, err := pool.Exec(context.Background(),
+			`INSERT INTO models (id, provider_id, model_id, name, capabilities, enabled, last_seen_at) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+			uuid.New(), providerResp.ID, id, id, `{}`, true, stamp); err != nil {
+			t.Fatalf("insert %s: %v", id, err)
+		}
+	}
+
+	seen := map[string]int{}
+	next := "/models/cursor?limit=1&sort_by=discovered&sort_dir=desc"
+	for page := 0; page < 6 && next != ""; page++ {
+		req := httptest.NewRequest(http.MethodGet, next, http.NoBody)
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		w := httptest.NewRecorder()
+		r.ServeHTTP(w, req)
+		if w.Code != http.StatusOK {
+			t.Fatalf("page %d: %d: %s", page, w.Code, w.Body.String())
+		}
+		var resp ModelsCursorResponse
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode page %d: %v", page, err)
+		}
+		if len(resp.Entries) == 0 {
+			break
+		}
+		last := resp.Entries[len(resp.Entries)-1]
+		if want[last.ModelID] {
+			seen[last.ModelID]++
+		}
+		if !resp.HasAfter {
+			break
+		}
+		lastSeen, err := time.Parse(time.RFC3339, last.LastSeenAt)
+		if err != nil {
+			t.Fatalf("parse last_seen_at %q: %v", last.LastSeenAt, err)
+		}
+		cursor := modelCursor{SortBy: "discovered", LastSeenAt: lastSeen, ID: last.ID}
+		next = fmt.Sprintf("/models/cursor?limit=1&sort_by=discovered&sort_dir=desc&cursor=%s&direction=after", url.QueryEscape(cursor.encode()))
+	}
+	for id := range want {
+		if seen[id] != 1 {
+			t.Errorf("%s served %d times, want exactly once", id, seen[id])
+		}
 	}
 }

@@ -244,18 +244,21 @@ describe("FailoverGroups", () => {
 					...mockFailoverGroup,
 					display_model: "alpha-one",
 					auto_created: true,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					display_model: "alpha-two",
 					id: "fg-002",
 					auto_created: true,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					display_model: "beta-one",
 					id: "fg-003",
 					auto_created: true,
+					auto_disabled: false,
 				},
 			];
 
@@ -301,6 +304,7 @@ describe("FailoverGroups", () => {
 					display_model: "test-two",
 					id: "fg-002",
 					auto_created: true,
+					auto_disabled: false,
 				},
 			];
 
@@ -350,18 +354,21 @@ describe("FailoverGroups", () => {
 					...mockFailoverGroup,
 					display_model: "custom-model",
 					auto_created: false,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					display_model: "alpha-model",
 					id: "fg-002",
 					auto_created: true,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					display_model: "beta-model",
 					id: "fg-003",
 					auto_created: true,
+					auto_disabled: false,
 				},
 			];
 
@@ -396,12 +403,14 @@ describe("FailoverGroups", () => {
 					...mockFailoverGroup,
 					display_model: "custom-model",
 					auto_created: false,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					display_model: "alpha-model",
 					id: "fg-002",
 					auto_created: true,
+					auto_disabled: false,
 				},
 			];
 
@@ -433,12 +442,14 @@ describe("FailoverGroups", () => {
 					...mockFailoverGroup,
 					display_model: "custom-model",
 					auto_created: false,
+					auto_disabled: false,
 				},
 				{
 					...mockFailoverGroup,
 					display_model: "another-custom",
 					id: "fg-002",
 					auto_created: false,
+					auto_disabled: false,
 				},
 			];
 

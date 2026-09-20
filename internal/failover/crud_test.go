@@ -226,7 +226,7 @@ func TestRepository_Update(t *testing.T) {
 	newEE := map[string]bool{po[0].String(): false, po[1].String(): true, newPO[2].String(): true}
 	groupEnabled := false
 
-	updated, err := repo.Update(ctx, fg.ID, newPO, newEE, &groupEnabled, nil, nil, nil)
+	updated, err := repo.Update(ctx, fg.ID, newPO, newEE, &groupEnabled, false, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -325,7 +325,7 @@ func TestRepository_Update_WithNilValues(t *testing.T) {
 	}()
 
 	// Update with nil values - should preserve existing values
-	updated, err := repo.Update(ctx, fg.ID, fg.PriorityOrder, fg.EntryEnabled, nil, nil, nil, nil)
+	updated, err := repo.Update(ctx, fg.ID, fg.PriorityOrder, fg.EntryEnabled, nil, false, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update with nil values failed: %v", err)
 	}
@@ -360,7 +360,7 @@ func TestRepository_Update_WithDisplayNameAndDescription(t *testing.T) {
 	displayName := "Updated Display Name"
 	description := "Updated description for testing"
 
-	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, &displayName, &description, nil)
+	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, false, &displayName, &description, nil)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -405,7 +405,7 @@ func TestRepository_Update_WithDisplayModel(t *testing.T) {
 
 	newModelName := "test-renamed-" + uuid.New().String()[:8]
 
-	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, nil, nil, &newModelName)
+	updated, err := repo.Update(ctx, fg.ID, po, fg.EntryEnabled, nil, false, nil, nil, &newModelName)
 	if err != nil {
 		t.Fatalf("Update failed: %v", err)
 	}
@@ -730,7 +730,7 @@ func TestRepository_PruneModelUUID_PrunesStaleFromGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByModel failed: %v", err)
 	}
-	_, err = repo.Update(ctx, group.ID, priorityOrder, entryEnabled, nil, nil, nil, nil)
+	_, err = repo.Update(ctx, group.ID, priorityOrder, entryEnabled, nil, false, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("Update entry_enabled failed: %v", err)
 	}
@@ -1370,5 +1370,48 @@ func TestPruneStaleEntries_GroupWithOnlyStaleUUIDs(t *testing.T) {
 	}
 	if result.DeletedGroups[0].Reason != "no valid providers after prune" {
 		t.Errorf("expected 'no valid providers after prune', got %q", result.DeletedGroups[0].Reason)
+	}
+}
+
+// A floor-declared disable stamps auto_disabled_at; an operator's disable and
+// any re-enable clear it, and a write that leaves group_enabled alone leaves
+// the stamp alone.
+func TestRepository_Update_FloorDisableStampsAutoDisabled(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	displayModel := "test-model-floor-" + uuid.New().String()[:8]
+	po := []uuid.UUID{uuid.New(), uuid.New()}
+	fg, err := upsertGroup(ctx, t, repo, displayModel, po)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	defer func() { _ = repo.Delete(ctx, displayModel) }()
+
+	off, on := false, true
+	got, err := repo.Update(ctx, fg.ID, po, nil, &off, true, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("floor disable: %v", err)
+	}
+	if got.GroupEnabled || !got.AutoDisabled {
+		t.Errorf("after a floor disable: enabled=%v auto=%v, want off and stamped", got.GroupEnabled, got.AutoDisabled)
+	}
+	desc := "edited"
+	if got, err = repo.Update(ctx, fg.ID, po, nil, nil, false, nil, &desc, nil); err != nil {
+		t.Fatalf("description edit: %v", err)
+	}
+	if got.GroupEnabled || !got.AutoDisabled {
+		t.Errorf("after an unrelated edit: enabled=%v auto=%v, want the stamp kept", got.GroupEnabled, got.AutoDisabled)
+	}
+	if got, err = repo.Update(ctx, fg.ID, po, nil, &on, true, nil, nil, nil); err != nil {
+		t.Fatalf("re-enable: %v", err)
+	}
+	if !got.GroupEnabled || got.AutoDisabled {
+		t.Errorf("after a re-enable: enabled=%v auto=%v, want on and unstamped (the flag is ignored on an enable)", got.GroupEnabled, got.AutoDisabled)
+	}
+	if got, err = repo.Update(ctx, fg.ID, po, nil, &off, false, nil, nil, nil); err != nil {
+		t.Fatalf("operator disable: %v", err)
+	}
+	if got.GroupEnabled || got.AutoDisabled {
+		t.Errorf("after an operator disable: enabled=%v auto=%v, want off and unstamped", got.GroupEnabled, got.AutoDisabled)
 	}
 }

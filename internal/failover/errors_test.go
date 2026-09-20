@@ -98,7 +98,7 @@ func TestUpdate_DBError(t *testing.T) {
 	cancel()
 
 	newPO := []uuid.UUID{uuid.New()}
-	_, err = repo.Update(cancelCtx, fg.ID, newPO, nil, nil, nil, nil, nil)
+	_, err = repo.Update(cancelCtx, fg.ID, newPO, nil, nil, false, nil, nil, nil)
 	if err == nil {
 		t.Error("Update should return error with canceled context")
 	}
