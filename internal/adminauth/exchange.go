@@ -12,6 +12,7 @@ import (
 // a caller that holds the manager behind its own interface can mount the same
 // handler.
 type SessionMinter interface {
+	RevokeAuthToken(ctx context.Context, token string) bool
 	CreateAuthToken(ctx context.Context, userID, credentialID []byte, meta webauthn.SessionMeta) (string, error)
 }
 
@@ -58,6 +59,16 @@ func TokenExchange(
 		tok, err := sessionMgr.CreateAuthToken(r.Context(), []byte("admin"), nil, webauthn.MetaFromRequest(r, ips))
 		if err != nil {
 			respondError(w, "failed to create session", err, http.StatusInternalServerError)
+			return
+		}
+		// Checked again AFTER the mint: an enrolment that enabled 2FA between
+		// the check above and the mint has already swept the admin sessions,
+		// and a session minted after that sweep would be the one one-factor
+		// session to outlive it. Seen now, it is revoked before it is handed
+		// out; minted before the enrolment's refresh, the sweep caught it.
+		if totpEnabled != nil && totpEnabled() {
+			sessionMgr.RevokeAuthToken(r.Context(), tok)
+			http.Error(w, "use TOTP login", http.StatusBadRequest)
 			return
 		}
 		if err := jar.SetSession(w, tok, authcookie.Secure(r, cookieSecure), webauthn.AuthTokenTTL); err != nil {

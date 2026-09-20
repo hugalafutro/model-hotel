@@ -112,6 +112,29 @@ func TestTokenExchange_RefusesWhenTotpEnabled(t *testing.T) {
 	}
 }
 
+// 2FA enabled between the gate check and the mint: the session minted after
+// the enrolment's sweep is revoked before it is handed out.
+func TestTokenExchange_RevokesASessionMintedAsTotpTurnedOn(t *testing.T) {
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "sekrit" }}
+	sm := newTestSessionManager(t)
+	calls := 0
+	totp := func() bool { calls++; return calls > 1 } // off at the gate, on after the mint
+	h := TokenExchange(adminMgr, sm, totp, authcookie.FrontDesk, "never", nil)
+	r := httptest.NewRequest(http.MethodPost, "/x", strings.NewReader(`{"admin_token":"sekrit"}`))
+	rec := httptest.NewRecorder()
+	h(rec, r)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want 400", rec.Code)
+	}
+	if len(rec.Result().Cookies()) != 0 {
+		t.Fatal("no cookie may be handed out for a session minted as 2FA turned on")
+	}
+	// Nothing left to sweep: the minted session was revoked, not leaked.
+	if n, err := sm.RevokeOtherSessions(context.Background(), []byte("admin")); err != nil || n != 0 {
+		t.Fatalf("admin sessions left after the refused exchange = %d (err %v), want 0", n, err)
+	}
+}
+
 func TestTokenExchange_NilSessionManager_ReturnsServerErrorWithoutValidating(t *testing.T) {
 	adminMgr := &mockAdminAuth{validateFn: func(string) bool {
 		t.Error("Validate must not be called before the nil sessionMgr guard")
@@ -154,6 +177,8 @@ type failingMinter struct{}
 func (failingMinter) CreateAuthToken(context.Context, []byte, []byte, webauthn.SessionMeta) (string, error) {
 	return "", errors.New("session store unavailable")
 }
+
+func (failingMinter) RevokeAuthToken(context.Context, string) bool { return false }
 
 // TestTokenExchange_MintFailure_500 pins the failure half of a valid login: the
 // admin token checked out but the session could not be stored, so the caller
