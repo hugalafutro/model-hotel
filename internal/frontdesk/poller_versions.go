@@ -162,11 +162,14 @@ func (p *Poller) checkConfigStaleness(ctx context.Context) {
 	threshold := secs(p.settings(ctx).TraefikStaleSecs, 30)
 
 	p.mu.Lock()
-	last := p.lastConfigPollAt
+	last := p.configPollBaseline()
 	notified := p.staleNotified
-	// Never polled yet: arm from "now" so a fresh start does not immediately warn.
+	// Never polled yet: arm the watchdog from "now" so a fresh start does not
+	// immediately warn. Its own field, not lastConfigPollAt: a baseline the
+	// watchdog set itself is not a fetch Traefik made, and ConfigPollWarm
+	// reads the difference.
 	if last.IsZero() {
-		p.lastConfigPollAt = p.now()
+		p.configWatchdogArmedAt = p.now()
 		p.mu.Unlock()
 		return
 	}
@@ -192,9 +195,19 @@ func (p *Poller) checkConfigStaleness(ctx context.Context) {
 func (p *Poller) ConfigPollStale(ctx context.Context) bool {
 	threshold := secs(p.settings(ctx).TraefikStaleSecs, 30)
 	p.mu.RLock()
-	last := p.lastConfigPollAt
+	last := p.configPollBaseline()
 	p.mu.RUnlock()
 	return !last.IsZero() && p.now().Sub(last) > threshold
+}
+
+// configPollBaseline is the instant staleness is measured from: Traefik's last
+// fetch, or the watchdog's own arming when it has never fetched. Caller holds
+// p.mu.
+func (p *Poller) configPollBaseline() time.Time {
+	if !p.lastConfigPollAt.IsZero() {
+		return p.lastConfigPollAt
+	}
+	return p.configWatchdogArmedAt
 }
 
 // ConfigPollWarm reports whether the Traefik staleness input has produced a
@@ -205,9 +218,13 @@ func (p *Poller) ConfigPollStale(ctx context.Context) bool {
 // a cold start from reading as a recovery.
 func (p *Poller) ConfigPollWarm(ctx context.Context, since time.Time) bool {
 	p.mu.RLock()
-	armed := !p.lastConfigPollAt.IsZero()
+	// A fetch Traefik made, never the watchdog's own arming: that one is set
+	// on the first tick after every restart and said nothing about Traefik,
+	// so reading it as warm let a restart with Traefik still down publish a
+	// fleet recovery and re-degrade one window later.
+	fetched := !p.lastConfigPollAt.IsZero()
 	p.mu.RUnlock()
-	return armed || p.now().Sub(since) > secs(p.settings(ctx).TraefikStaleSecs, 30)
+	return fetched || p.now().Sub(since) > secs(p.settings(ctx).TraefikStaleSecs, 30)
 }
 
 // checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
@@ -228,7 +245,13 @@ func (p *Poller) checkAutoSyncStale(ctx context.Context) {
 		debuglog.Warn("frontdesk: auto-sync staleness: read fleet sync state", "error", err)
 		return
 	}
-	stale := autoSyncStale(cfg, state.LastRunAt, found, p.now())
+	lastSync, haveSync := state.LastRunAt, found
+	if members, err := p.store.ListMembers(ctx); err == nil {
+		lastSync, haveSync = fleetLastSync(members, lastSync, haveSync)
+	} else {
+		debuglog.Warn("frontdesk: auto-sync staleness: read members", "error", err)
+	}
+	stale := autoSyncStale(cfg, lastSync, haveSync, p.now())
 
 	p.mu.Lock()
 	notified := p.autoSyncStaleNotified

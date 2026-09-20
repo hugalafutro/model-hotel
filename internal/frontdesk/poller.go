@@ -99,9 +99,12 @@ type Poller struct {
 	// without it.
 	frontdeskID string
 
-	mu                    sync.RWMutex
-	statuses              map[string]MemberStatus // keyed by member ID
-	lastConfigPollAt      time.Time
+	mu               sync.RWMutex
+	statuses         map[string]MemberStatus // keyed by member ID
+	lastConfigPollAt time.Time
+	// configWatchdogArmedAt is when checkConfigStaleness first ran this process:
+	// the staleness baseline while Traefik has never fetched, and not a fetch.
+	configWatchdogArmedAt time.Time
 	staleNotified         bool
 	autoSyncStaleNotified bool
 	versionFailures       map[string]int // consecutive version-fetch failures, keyed by member ID

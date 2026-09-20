@@ -236,6 +236,9 @@ func TestAutoSyncStaleImportIsBenign(t *testing.T) {
 	replica := newStubAutoMember(t, "rtoken")
 	replica.dryDiff = driftDiff
 	replica.staleImport = true // the member's commit fence refuses the push
+	// The refusal is benign only because a newer generation landed mid-flight:
+	// a rearm between this pass reading its generation and the member's answer.
+	replica.onStale = func(ctx context.Context) { _ = store.RearmAutoSync(ctx) }
 
 	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
 	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
@@ -262,6 +265,43 @@ func TestAutoSyncStaleImportIsBenign(t *testing.T) {
 	}
 	if sawSyncFailed(ch) {
 		t.Error("a benign stale fence refusal must not emit a config.sync_failed event")
+	}
+}
+
+// A stale refusal with no newer generation behind it is not a race: the
+// member's fence holds a generation this Front Desk never issued (a Front Desk
+// rebuilt on a fresh volume, restored from an older backup, or a member
+// re-homed from another fleet), and every pass would be refused the same way
+// while the member drifts and the fleet reads as ok. It is a sync failure.
+func TestAutoSyncStaleImportWithoutANewerPassIsAFailure(t *testing.T) {
+	srv, store := newTestServer(t)
+	primary := newStubAutoMember(t, "ptoken")
+	defer primary.srv.Close()
+	primary.versionHash = "hash-B"
+	replica := newStubAutoMember(t, "rtoken")
+	defer replica.srv.Close()
+	replica.dryDiff = driftDiff
+	replica.staleImport = true // refused as stale, and nothing newer exists
+
+	pm, _ := store.CreateMember(t.Context(), "primary", primary.srv.URL, "ptoken")
+	rm, _ := store.CreateMember(t.Context(), "replica", replica.srv.URL, "rtoken")
+	enableAutoSync(t, store, pm.ID)
+	alignFleetVersions(t, srv, store, "dev")
+
+	ch := srv.bus.Subscribe()
+	defer srv.bus.Unsubscribe(ch)
+
+	srv.forceAutoSyncNow(t.Context())
+
+	if !sawSyncFailed(ch) {
+		t.Error("a fence ahead of Front Desk must emit a config.sync_failed event")
+	}
+	got, err := store.GetMember(t.Context(), rm.ID)
+	if err != nil {
+		t.Fatalf("GetMember: %v", err)
+	}
+	if got.LastConfigSyncAt != nil {
+		t.Error("a refused member must not have its last-sync marker stamped")
 	}
 }
 
