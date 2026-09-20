@@ -122,11 +122,13 @@ func (h *WebAuthnHandler) Register(r chi.Router) {
 			// register, rename, or delete passkeys. Logout is exempt (see
 			// httpx.IsReadOnlyExemptPost) and the unauthenticated login flow lives in
 			// the separate group below, so neither is blocked.
+			// Gate, trail, then the demo refusal: the same order as the
+			// dashboard API, so a refused attempt is recorded with its 403.
+			r.Use(h.adminOrSessionAuth)
+			h.mountAudit(r)
 			if h.demoReadOnly {
 				r.Use(readOnlyGuard)
 			}
-			r.Use(h.adminOrSessionAuth)
-			h.mountAudit(r)
 			r.Post("/register/start", h.RegisterStart)
 			r.Post("/register/finish", h.RegisterFinish)
 			r.Get("/credentials", h.ListCredentials)
@@ -409,10 +411,12 @@ func (h *WebAuthnHandler) refuseClonedLogin(w http.ResponseWriter, r *http.Reque
 	case cred.Authenticator.CloneWarning:
 		logPasskeyLoginFailure(r, "clone_warning", errors.New("signature counter did not advance"))
 		if err := h.webauthnRepo.DeleteCredential(r.Context(), cred.ID); err != nil {
-			debuglog.Error("webauthn: could not revoke the cloned credential", "error", err)
-		} else {
-			debuglog.Warn("webauthn: credential revoked after a signature counter that did not advance", "remote_addr", clientip.From(r))
+			// The credential stays on file, so the next assertion could pass:
+			// a server error, not a login failure, and the operator's to see.
+			respondError(w, "webauthn: could not revoke the cloned credential", err, http.StatusInternalServerError)
+			return true
 		}
+		debuglog.Warn("webauthn: credential revoked after a signature counter that did not advance", "remote_addr", clientip.From(r))
 	default:
 		return false
 	}

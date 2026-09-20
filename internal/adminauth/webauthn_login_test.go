@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -795,4 +796,23 @@ func TestRefuseClonedLogin(t *testing.T) {
 	if _, err := repo.GetCredentialByID(ctx, credID); err == nil {
 		t.Error("the cloned credential still exists, want it revoked")
 	}
+
+	// A revocation that fails leaves the credential on file for the next
+	// assertion: a server error the operator sees, not a login failure.
+	failing := newTestWebAuthnHandler(nil, nil, nil, nil)
+	failing.webauthnRepo = failingDeleteStore{Store: repo}
+	w := httptest.NewRecorder()
+	if !failing.refuseClonedLogin(w, req, &webauthnx.Credential{ID: credID, Authenticator: webauthnx.Authenticator{CloneWarning: true}}) {
+		t.Fatal("a clone whose revocation failed was not refused")
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 when the credential could not be revoked", w.Code)
+	}
+}
+
+// failingDeleteStore is a credential store whose deletes fail.
+type failingDeleteStore struct{ webauthn.Store }
+
+func (failingDeleteStore) DeleteCredential(context.Context, []byte) error {
+	return errors.New("store down")
 }

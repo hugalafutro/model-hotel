@@ -101,11 +101,13 @@ func (h *TotpHandler) Register(r chi.Router) {
 			r.Post("/login", h.Login)
 		})
 		r.Group(func(r chi.Router) {
+			// Gate, trail, then the demo refusal: the same order as the
+			// dashboard API, so a refused attempt is recorded with its 403.
+			r.Use(h.adminOrSessionAuth)
+			h.mountAudit(r)
 			if h.demoReadOnly {
 				r.Use(readOnlyGuard)
 			}
-			r.Use(h.adminOrSessionAuth)
-			h.mountAudit(r)
 			r.Get("/info", h.Info)
 			r.Post("/enroll/start", h.EnrollStart)
 			r.Post("/enroll/verify", h.EnrollVerify)
@@ -263,25 +265,6 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 		respondError(w, "totp: recovery codes failed", err, http.StatusInternalServerError)
 		return
 	}
-	// Every admin session alive at this point was minted on one factor (the
-	// raw token exchanged for a cookie, or this enrolment's own login), and a
-	// session row does not say which. Leaving them would let a holder of the
-	// leaked token the operator is enabling 2FA against keep the session they
-	// exchanged it for, for up to the 30-day cap. Swept BEFORE Enable, and a
-	// sweep that fails keeps 2FA off: enabling it on top of sessions that
-	// outlive it would report the lock-out as done when it is not, and the
-	// operator retries cleanly instead. The enroller's fresh session is minted
-	// below, after the sweep, so nothing of theirs is kept either.
-	if h.sessionMgr != nil {
-		n, err := h.sessionMgr.RevokeOtherSessions(r.Context(), []byte("admin"))
-		if err != nil {
-			respondError(w, "totp: could not revoke the sessions minted before 2FA", err, http.StatusInternalServerError)
-			return
-		}
-		if n > 0 {
-			debuglog.Info("totp: revoked admin sessions minted before 2FA was enabled", "count", n)
-		}
-	}
 	if err := h.totpRepo.Enable(r.Context()); err != nil {
 		respondError(w, "totp: enable failed", err, http.StatusInternalServerError)
 		return
@@ -289,6 +272,31 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	// Refresh cache AFTER Enable so the hot path starts rejecting raw admin
 	// tokens immediately.
 	h.refreshTotpEnabled(r.Context())
+	// Every admin session alive at this point was minted on one factor (the
+	// raw token exchanged for a cookie, or this enrolment's own login), and a
+	// session row does not say which. Leaving them would let a holder of the
+	// leaked token the operator is enabling 2FA against keep the session they
+	// exchanged it for, for up to the 30-day cap. Swept AFTER the gate closed
+	// above: swept before it, an exchange of the raw token in between would
+	// mint a one-factor session that outlives the enrolment. A sweep that
+	// fails rolls 2FA back off: reporting the lock-out as done when it is not
+	// is the one outcome worse than no 2FA, and the operator retries cleanly.
+	// The enroller's fresh session is minted below, after the sweep, so
+	// nothing of theirs is kept either.
+	if h.sessionMgr != nil {
+		n, err := h.sessionMgr.RevokeOtherSessions(r.Context(), []byte("admin"))
+		if err != nil {
+			if dErr := h.totpRepo.Disable(r.Context()); dErr != nil {
+				debuglog.Error("totp: could not roll 2FA back after a failed session sweep", "error", dErr)
+			}
+			h.refreshTotpEnabled(r.Context())
+			respondError(w, "totp: could not revoke the sessions minted before 2FA", err, http.StatusInternalServerError)
+			return
+		}
+		if n > 0 {
+			debuglog.Info("totp: revoked admin sessions minted before 2FA was enabled", "count", n)
+		}
+	}
 	// Drop the stale confirmed_at so the next status read picks up this
 	// enrollment's fresh stamp.
 	h.invalidateEnabledAt()
