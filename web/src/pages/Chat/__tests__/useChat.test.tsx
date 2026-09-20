@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../../../api/types";
 import type { ChatSubMode } from "../../../context/SidebarModeContext";
@@ -509,6 +509,62 @@ describe("useChat", () => {
 			});
 			expect(result.current.chatSelectedModel).toBe("");
 			expect(mockStreamModelResponse).not.toHaveBeenCalled();
+		});
+	});
+
+	describe("sub-mode switch", () => {
+		it("loads the other mode's persisted transcript and persists each under its own key", async () => {
+			const ChatPersistence = await import("../useChatPersistence");
+			const persisted = vi.mocked(ChatPersistence.useChatPersistence);
+			vi.mocked(StorageContext.useStorage).mockReturnValue({
+				persistChat: true,
+				setPersistChat: vi.fn(),
+				persistArena: false,
+				setPersistArena: vi.fn(),
+				persistConversation: true,
+				setPersistConversation: vi.fn(),
+				arenaHistoryEnabled: false,
+				setArenaHistoryEnabled: vi.fn(),
+				arenaHistoryLimit: 25,
+				setArenaHistoryLimit: vi.fn(),
+			});
+			localStorage.setItem(
+				"chatMessages",
+				JSON.stringify([{ role: "user", content: "hi chat", timestamp: 1 }]),
+			);
+			localStorage.setItem(
+				"conversationMessages",
+				JSON.stringify([{ role: "user", content: "hi conv", timestamp: 2 }]),
+			);
+			const { result, rerender } = renderHook(() => useChat());
+			expect(result.current.messages[0]?.content).toBe("hi chat");
+
+			persisted.mockClear();
+			vi.mocked(SidebarModeContext.useSidebarMode).mockReturnValue({
+				chatSubMode: "conversation",
+				setChatSubMode: vi.fn(),
+				arenaSubMode: "competition",
+				setArenaSubMode: vi.fn(),
+				logsSubMode: "request",
+				setLogsSubMode: vi.fn(),
+			});
+			rerender();
+			await waitFor(() =>
+				expect(result.current.messages[0]?.content).toBe("hi conv"),
+			);
+			// On the flip render the chat transcript was still in state: it must
+			// have been persisted as chat, never as the conversation's.
+			for (const [args] of persisted.mock.calls) {
+				const owner =
+					args.messages[0]?.content === "hi chat" ? "chat" : "conversation";
+				expect(args.chatSubMode).toBe(owner);
+			}
+			expect(persisted).toHaveBeenLastCalledWith(
+				expect.objectContaining({
+					chatSubMode: "conversation",
+					messages: [{ role: "user", content: "hi conv", timestamp: 2 }],
+				}),
+			);
 		});
 	});
 

@@ -423,7 +423,9 @@
 			"stalledTimeout": "Stroom vasgeloop - geen data ontvang binne die tydsbeperking nie.",
 			"cutoffIncomplete": "Die stroom is onderbroke - die reaksie mag onvolledig wees.",
 			"endedWithoutSignal": "Stroom het geëindig sonder voltooiingssein - die reaksie kan steeds voltooi wees.",
-			"endedUnexpectedly": "Stream het onverwags geëindig sonder inhoud."
+			"endedUnexpectedly": "Stream het onverwags geëindig sonder inhoud.",
+			"requestFailed": "Versoek het misluk ({{status}}): {{detail}}",
+			"noBody": "Die bediener het geen antwoordstroom gestuur nie"
 		},
 		"controls": {
 			"_": "Beheer",

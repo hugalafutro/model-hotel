@@ -434,7 +434,9 @@
 			"stalledTimeout": "Flujo estancado - no se reciben datos dentro del período de tiempo de espera.",
 			"cutoffIncomplete": "El flujo fue cortado - la respuesta puede ser incompleta.",
 			"endedWithoutSignal": "Flujo finalizado sin señal de finalización - la respuesta puede estar completa.",
-			"endedUnexpectedly": "La secuencia terminó inesperadamente sin contenido."
+			"endedUnexpectedly": "La secuencia terminó inesperadamente sin contenido.",
+			"requestFailed": "La solicitud falló ({{status}}): {{detail}}",
+			"noBody": "El servidor no envió ningún flujo de respuesta"
 		},
 		"controls": {
 			"_": "Controles",

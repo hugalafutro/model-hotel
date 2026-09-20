@@ -423,7 +423,9 @@
 			"stalledTimeout": "流已停止 - 在超时时间内没有收到数据。",
 			"cutoffIncomplete": "流已断开-答案可能不完整。",
 			"endedWithoutSignal": "流结束时没有完成信号 - 响应可能仍然是完整的。",
-			"endedUnexpectedly": "流意外停止，没有内容。"
+			"endedUnexpectedly": "流意外停止，没有内容。",
+			"requestFailed": "请求失败（{{status}}）：{{detail}}",
+			"noBody": "服务器未发送响应流"
 		},
 		"controls": {
 			"_": "控件",

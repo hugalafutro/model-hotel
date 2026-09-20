@@ -1,4 +1,5 @@
 import { act, screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { AuditEntry } from "../../../api/types";
@@ -253,6 +254,47 @@ describe("Audit page", () => {
 		expect(
 			screen.queryByRole("status", { name: "Loading" }),
 		).not.toBeInTheDocument();
+	});
+
+	it("keeps the filter input mounted while a new actor filter loads", async () => {
+		// A new actor is a new query key. The previous pages stand in while it
+		// loads, so the page never collapses to a spinner that unmounts the
+		// input the user is typing in.
+		let releaseFiltered: () => void = () => {};
+		const filteredGate = new Promise<void>((resolve) => {
+			releaseFiltered = resolve;
+		});
+		server.use(
+			http.get("/api/audit", async ({ request }) => {
+				const actor = new URL(request.url).searchParams.get("actor");
+				if (actor) {
+					await filteredGate;
+					return HttpResponse.json({
+						entries: [entry({ actor, route: "/filtered" })],
+						total: 1,
+						has_more: false,
+					});
+				}
+				return HttpResponse.json({
+					entries: [entry({ route: "/unfiltered" })],
+					total: 1,
+					has_more: false,
+				});
+			}),
+		);
+		renderWithProviders(<Audit />);
+		expect(await screen.findByText("/unfiltered")).toBeInTheDocument();
+
+		const input = screen.getByPlaceholderText("Filter by actor…");
+		await userEvent.type(input, "adm");
+		// Past the debounce, with the filtered fetch still held open.
+		await waitFor(() => expect(input).toHaveValue("adm"));
+		await new Promise((r) => setTimeout(r, 400));
+		expect(screen.getByPlaceholderText("Filter by actor…")).toBe(input);
+		expect(screen.getByText("/unfiltered")).toBeInTheDocument();
+
+		releaseFiltered();
+		expect(await screen.findByText("/filtered")).toBeInTheDocument();
 	});
 
 	it("navigates by page in pagination mode", async () => {

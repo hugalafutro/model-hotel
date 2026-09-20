@@ -423,7 +423,9 @@
 			"stalledTimeout": "Akış durdu - zaman aşımı süresi içinde veri alınamadı.",
 			"cutoffIncomplete": "Akış kesildi - yanıt eksik olabilir.",
 			"endedWithoutSignal": "Akış, tamamlanma sinyali olmadan sona erdi – yanıt yine de tam olabilir.",
-			"endedUnexpectedly": "Yayın, içerik olmadan beklenmedik bir şekilde sona erdi."
+			"endedUnexpectedly": "Yayın, içerik olmadan beklenmedik bir şekilde sona erdi.",
+			"requestFailed": "İstek başarısız oldu ({{status}}): {{detail}}",
+			"noBody": "Sunucu yanıt akışı göndermedi"
 		},
 		"controls": {
 			"_": "Kontroller",

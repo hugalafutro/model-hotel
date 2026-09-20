@@ -1,4 +1,4 @@
-import { act, renderHook } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import type { GenerationParams } from "../../../api/types";
@@ -174,6 +174,46 @@ describe("useArenaRunner", () => {
 
 			expect(toastMock).toHaveBeenCalled();
 			expect(setRoundsMock).toHaveBeenCalled();
+		});
+
+		it("stays quiet when the user aborts the stream", async () => {
+			// Stop and Cancel abort the fetch; the handler that aborted has
+			// settled the slot already, so the stream must not stamp an error
+			// or toast on top of it.
+			let release: () => void = () => {};
+			server.use(
+				http.post("/api/chat/arena", async () => {
+					await new Promise<void>((resolve) => {
+						release = resolve;
+					});
+					return HttpResponse.json({ error: "too late" }, { status: 500 });
+				}),
+			);
+			const toastMock = vi.fn();
+			const deps = createMockDeps({
+				toast: toastMock as ReturnType<typeof useToast>["toast"],
+			});
+			const { result } = renderHook(() => useArenaRunner(deps), {
+				wrapper: createWrapper(),
+			});
+
+			act(() => {
+				result.current.streamModel("P/model-a", "", "prompt", 0, "A", 0);
+			});
+			await waitFor(() =>
+				expect(result.current.abortMapRef.current.has("P/model-a")).toBe(true),
+			);
+			const roundsWrites = vi.mocked(deps.setRounds).mock.calls.length;
+			act(() => {
+				result.current.abortMapRef.current.get("P/model-a")?.abort();
+			});
+			release();
+			await waitFor(() =>
+				expect(result.current.abortMapRef.current.has("P/model-a")).toBe(false),
+			);
+
+			expect(toastMock.mock.calls).toEqual([]);
+			expect(vi.mocked(deps.setRounds).mock.calls.length).toBe(roundsWrites);
 		});
 
 		it("records the error and marks the response done when the stream fails mid-round", async () => {

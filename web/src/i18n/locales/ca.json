@@ -434,7 +434,9 @@
 			"stalledTimeout": "El flux s'ha estancat: no s'ha rebut cap dada durant el període de temps d'espera.",
 			"cutoffIncomplete": "La transmissió s'ha tallat - la resposta pot ser incompleta.",
 			"endedWithoutSignal": "El flux s'ha acabat sense senyal de finalització: la resposta encara pot estar completa.",
-			"endedUnexpectedly": "L'emissió es va acabar inesperadament sense cap contingut."
+			"endedUnexpectedly": "L'emissió es va acabar inesperadament sense cap contingut.",
+			"requestFailed": "La sol·licitud ha fallat ({{status}}): {{detail}}",
+			"noBody": "El servidor no ha enviat cap flux de resposta"
 		},
 		"controls": {
 			"_": "Controls",

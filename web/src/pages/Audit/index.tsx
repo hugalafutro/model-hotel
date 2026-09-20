@@ -76,6 +76,10 @@ export function Audit() {
 		initialPageParam: "",
 		getNextPageParam: (lastPage) =>
 			lastPage.has_more ? (lastPage.next_cursor ?? undefined) : undefined,
+		// A new filter is a new key: without the previous pages standing in, the
+		// page collapses to a spinner and the filter input the user is typing in
+		// is unmounted under them.
+		placeholderData: keepPreviousData,
 		enabled: isScroll,
 	});
 

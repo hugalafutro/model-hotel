@@ -445,7 +445,9 @@
 			"stalledTimeout": "Přenos se zastavil – během časového limitu nebyla přijata žádná data.",
 			"cutoffIncomplete": "Přenos byl přerušen – odpověď může být neúplná.",
 			"endedWithoutSignal": "Přenos skončil bez signálu o dokončení – odpověď může být přesto kompletní.",
-			"endedUnexpectedly": "Přenos byl neočekávaně ukončen bez obsahu."
+			"endedUnexpectedly": "Přenos byl neočekávaně ukončen bez obsahu.",
+			"requestFailed": "Požadavek selhal ({{status}}): {{detail}}",
+			"noBody": "Server neposlal žádný proud odpovědi"
 		},
 		"controls": {
 			"_": "Ovládací prvky",

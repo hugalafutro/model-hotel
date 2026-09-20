@@ -423,7 +423,9 @@
 			"stalledTimeout": "Dòng dữ liệu bị gián đoạn - không nhận được dữ liệu nào trong khoảng thời gian chờ.",
 			"cutoffIncomplete": "Dòng dữ liệu bị gián đoạn - phản hồi có thể không đầy đủ.",
 			"endedWithoutSignal": "Dòng dữ liệu đã kết thúc mà không có tín hiệu hoàn tất - phản hồi có thể vẫn chưa hoàn tất.",
-			"endedUnexpectedly": "Luồng dữ liệu kết thúc đột ngột, không có nội dung."
+			"endedUnexpectedly": "Luồng dữ liệu kết thúc đột ngột, không có nội dung.",
+			"requestFailed": "Yêu cầu thất bại ({{status}}): {{detail}}",
+			"noBody": "Máy chủ không gửi luồng phản hồi nào"
 		},
 		"controls": {
 			"_": "Các phím điều khiển",

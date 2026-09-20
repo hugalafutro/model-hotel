@@ -322,6 +322,21 @@ describe("fetchWithRetry", () => {
 		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
 	});
 
+	it("does not retry an abort raised outside this realm's DOMException", async () => {
+		// undici and jsdom reject an aborted fetch with an error that is not
+		// an instance of the page's DOMException; the name is what identifies
+		// it, and a missed match would retry the user's own Stop.
+		const abortError = new Error("This operation was aborted");
+		abortError.name = "AbortError";
+		vi.mocked(globalThis.fetch).mockRejectedValue(abortError);
+
+		await expect(
+			fetchWithRetry("https://api.example.com", {}, { maxRetries: 2 }),
+		).rejects.toThrow("aborted");
+
+		expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+	});
+
 	it("calls onRetry callback before each retry", async () => {
 		const onRetry = vi.fn();
 		const errorResponse = new Response("Rate Limited", { status: 429 });

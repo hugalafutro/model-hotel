@@ -423,7 +423,9 @@
 			"stalledTimeout": "Stream geblokkeerd - geen gegevens ontvangen binnen de time-out periode.",
 			"cutoffIncomplete": "Stream werd afgebroken - het antwoord kan onvolledig zijn.",
 			"endedWithoutSignal": "Stream eindigde zonder eindsignaal - de reactie kan nog steeds voltooid zijn.",
-			"endedUnexpectedly": "Stream onverwacht eindigde zonder inhoud."
+			"endedUnexpectedly": "Stream onverwacht eindigde zonder inhoud.",
+			"requestFailed": "Verzoek mislukt ({{status}}): {{detail}}",
+			"noBody": "De server heeft geen antwoordstream gestuurd"
 		},
 		"controls": {
 			"_": "Bedieningsknoppen",

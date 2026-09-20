@@ -76,7 +76,13 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 	const { t } = useTranslation();
 
 	const runConversation = useCallback(
-		async (resume = false) => {
+		async (
+			resume = false,
+			// The transcript and turn to run from when the caller has just changed
+			// them (Retry): the closure's copies are the render the handler was
+			// created in, so they still hold the errored reply the retry removed.
+			from?: { messages: ChatMessage[]; turn: number },
+		) => {
 			if (conversationRunningRef.current) return;
 
 			const canStart =
@@ -98,8 +104,8 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 			setConversationState("running");
 			setIsStreaming(true);
 
-			let currentMessages = messages;
-			let turn = currentTurn;
+			let currentMessages = from?.messages ?? messages;
+			let turn = from?.turn ?? currentTurn;
 			let modelTurn: "A" | "B";
 
 			if (!resume) {
@@ -113,7 +119,7 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 					content: input.trim(),
 					timestamp: Date.now(),
 				};
-				currentMessages = [...messages, userMessage];
+				currentMessages = [...currentMessages, userMessage];
 				setMessages(currentMessages);
 				setInput("");
 				modelTurn = "A";
@@ -307,17 +313,19 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 	const handleRetryConversation = useCallback(() => {
 		if (conversationState !== "error") return;
 
-		// Remove the last assistant message (the one that errored)
+		// Remove the last assistant message (the one that errored). The run
+		// below is handed this transcript directly: the closure it captured
+		// predates the removal and would resurrect the errored reply, send it
+		// upstream as context, and hand the turn to the other model.
 		const lastAssistantIdx = messages.findLastIndex(
 			(m) => m.role === "assistant",
 		);
-
+		const next =
+			lastAssistantIdx >= 0
+				? messages.filter((_, i) => i !== lastAssistantIdx)
+				: messages;
 		if (lastAssistantIdx >= 0) {
-			setMessages((prev) => {
-				const next = [...prev];
-				next.splice(lastAssistantIdx, 1);
-				return next;
-			});
+			setMessages(next);
 		}
 
 		if (currentTurn === 0) {
@@ -327,7 +335,7 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 			setCurrentTurn(0);
 			// Small delay to let state settle before re-triggering
 			requestAnimationFrame(() => {
-				runConversation(false);
+				runConversation(false, { messages: next, turn: 0 });
 			});
 		} else {
 			// Later turn failed - decrement turn counter to re-do the failed turn.
@@ -337,7 +345,7 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 			setConversationState("paused");
 			// Resume from the last successful turn
 			requestAnimationFrame(() => {
-				runConversation(true);
+				runConversation(true, { messages: next, turn: newTurn });
 			});
 		}
 	}, [

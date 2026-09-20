@@ -445,7 +445,9 @@
 			"stalledTimeout": "Prúd sa zastavil – počas časového limitu neboli prijaté žiadne dáta.",
 			"cutoffIncomplete": "Príjem bol prerušený – odpoveď môže byť neúplná.",
 			"endedWithoutSignal": "Prúd sa ukončil bez signálu o dokončení – odpoveď môže byť aj tak kompletná.",
-			"endedUnexpectedly": "Vysielanie sa neočakávane ukončilo bez obsahu."
+			"endedUnexpectedly": "Vysielanie sa neočakávane ukončilo bez obsahu.",
+			"requestFailed": "Požiadavka zlyhala ({{status}}): {{detail}}",
+			"noBody": "Server neposlal žiadny prúd odpovede"
 		},
 		"controls": {
 			"_": "Ovládacie prvky",

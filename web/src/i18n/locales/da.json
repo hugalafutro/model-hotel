@@ -423,7 +423,9 @@
 			"stalledTimeout": "Stream blokeret - ingen data modtaget inden for tidsfristen.",
 			"cutoffIncomplete": "Stream blev afbrudt - svaret kan være ufuldstændigt.",
 			"endedWithoutSignal": "Stream sluttede uden fuldførelse signal - svaret kan stadig være komplet.",
-			"endedUnexpectedly": "Stream sluttede uventet uden indhold."
+			"endedUnexpectedly": "Stream sluttede uventet uden indhold.",
+			"requestFailed": "Anmodningen mislykkedes ({{status}}): {{detail}}",
+			"noBody": "Serveren sendte ingen svarstrøm"
 		},
 		"controls": {
 			"_": "Kontrol",

@@ -423,7 +423,9 @@
 			"stalledTimeout": "Az adatfolyam leállt – a várakozási időn belül nem érkezett adat.",
 			"cutoffIncomplete": "A kapcsolat megszakadt – a válasz esetleg hiányos.",
 			"endedWithoutSignal": "A stream befejeződött befejezési jel nélkül – a válasz még teljes lehet.",
-			"endedUnexpectedly": "A közvetítés váratlanul véget ért, tartalom nélkül."
+			"endedUnexpectedly": "A közvetítés váratlanul véget ért, tartalom nélkül.",
+			"requestFailed": "A kérés sikertelen ({{status}}): {{detail}}",
+			"noBody": "A kiszolgáló nem küldött válaszfolyamot"
 		},
 		"controls": {
 			"_": "Vezérlők",
