@@ -131,7 +131,8 @@ func listGroupClaims(ctx context.Context, pool *pgxpool.Pool) ([]GroupClaim, err
 		          FROM jsonb_array_elements_text(COALESCE(g.priority_order, '[]'::jsonb)) AS e(member_id)
 		          JOIN models m ON m.id::text = e.member_id
 		          JOIN providers p ON p.id = m.provider_id
-		         WHERE m.enabled AND p.enabled),
+		         WHERE m.enabled AND p.enabled
+		           AND COALESCE((g.entry_enabled ->> e.member_id)::boolean, true)),
 		       g.auto_disabled_at
 		  FROM model_failover_groups g
 		 WHERE g.group_enabled = false

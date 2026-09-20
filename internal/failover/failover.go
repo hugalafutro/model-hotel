@@ -18,7 +18,7 @@ import (
 // the order scanFailoverGroup expects.
 const failoverGroupColumns = `id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
 	       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-	       auto_disabled_at IS NOT NULL, created_at, COALESCE(updated_at, created_at)`
+	       (auto_disabled_at IS NOT NULL OR floor_disabled_at IS NOT NULL), created_at, COALESCE(updated_at, created_at)`
 
 // FailoverGroup represents a configured failover group for a model.
 //
@@ -34,8 +34,10 @@ type FailoverGroup struct {
 	AutoCreated   bool            `json:"auto_created"`
 	// AutoDisabled reports a group_enabled=false that no operator chose:
 	// discovery took the group down (auto_disabled_at, migration 062) or the
-	// dashboard's floor cascade did. Any operator group_enabled write clears
-	// it. The dashboard re-enables only such a group when it regains members.
+	// dashboard's floor cascade did (floor_disabled_at, migration 093). Any
+	// operator group_enabled write clears both. The dashboard re-enables only
+	// such a group when it regains members; the discovery claim listing reads
+	// the discovery stamp alone.
 	AutoDisabled bool      `json:"auto_disabled"`
 	CreatedAt    time.Time `json:"created_at"`
 	UpdatedAt    time.Time `json:"updated_at"`
@@ -140,6 +142,7 @@ func (r *Repository) UpsertWithConfig(ctx context.Context, displayModel string, 
 		"entry_enabled = $3",
 		"group_enabled = $4",
 		"auto_disabled_at = NULL",
+		"floor_disabled_at = NULL",
 	}
 	// Pre-process displayName: empty string means "clear to NULL"
 	insertDisplayName := displayName
@@ -229,7 +232,7 @@ func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 // floorDisabled marks a group_enabled=false write as the floor's doing rather
 // than the operator's: the caller found fewer than two routable members
 // after this write, so the group could not stay on. It stamps
-// auto_disabled_at, which is what lets the dashboard bring the group back
+// floor_disabled_at, which is what lets the dashboard bring the group back
 // when members return, and is ignored for any other write.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID,
 	entryEnabled map[string]bool, groupEnabled *bool, floorDisabled bool, displayName, description, displayModel *string) (*FailoverGroup, error) {
@@ -272,10 +275,13 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		setClauses = append(setClauses, fmt.Sprintf("group_enabled = $%d", argIdx))
 		args = append(args, *groupEnabled)
 		argIdx++
+		// The cascade's stamp is its own column: auto_disabled_at is what the
+		// discovery claim listing reads, and a member toggle is not a claim.
+		setClauses = append(setClauses, "auto_disabled_at = NULL")
 		if floorDisabled && !*groupEnabled {
-			setClauses = append(setClauses, "auto_disabled_at = now()")
+			setClauses = append(setClauses, "floor_disabled_at = now()")
 		} else {
-			setClauses = append(setClauses, "auto_disabled_at = NULL")
+			setClauses = append(setClauses, "floor_disabled_at = NULL")
 		}
 	}
 

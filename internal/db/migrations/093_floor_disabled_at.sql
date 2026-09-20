@@ -1,0 +1,13 @@
+-- The dashboard's floor cascade (a member toggle left a group with fewer than
+-- two routable members) needs its own stamp. #1048 wrote it into
+-- auto_disabled_at so the dashboard could bring the group back when members
+-- return, but that column is discovery's opinion (migration 062): the claim
+-- listing reads every disabled group carrying it as discovery-disabled, so an
+-- operator's own member toggle raised a discovery claim and its notification.
+--
+-- floor_disabled_at is the cascade's stamp; auto_disabled_at stays
+-- discovery's. Both mean "nobody chose to disable this group" for the
+-- dashboard's re-enable rule, and every operator group_enabled write clears
+-- both. Rows the cascade stamped between #1048 and this migration carry the
+-- discovery stamp instead; they resolve the moment the group is re-enabled.
+ALTER TABLE model_failover_groups ADD COLUMN IF NOT EXISTS floor_disabled_at TIMESTAMPTZ;
