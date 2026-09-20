@@ -93,7 +93,7 @@ func (p alertConfigProvider) AlertConfig(ctx context.Context) (alert.Config, err
 	if err != nil {
 		return alert.Config{}, err
 	}
-	targets, err := auth.DecryptString(set.AlertAppriseTargets, p.masterKey)
+	targets, err := auth.DecryptStringCached(set.AlertAppriseTargets, p.masterKey)
 	if err != nil {
 		return alert.Config{}, fmt.Errorf("frontdesk: decrypt alert target: %w", err)
 	}

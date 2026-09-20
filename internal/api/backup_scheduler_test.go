@@ -275,8 +275,10 @@ func TestSchedulerTick(t *testing.T) {
 	if err := os.WriteFile(recent, []byte("x"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if got := h.schedulerTick(context.Background()); got < 59*time.Minute || got > time.Hour {
-		t.Errorf("recent dump: sleep = %v, want just under 1h", got)
+	// Not due for ~1h, but a tick sleeps at most the re-check cap so an
+	// interval change lands (TestSchedulerTick_LongWaitIsRecheckedNotSleptOut).
+	if got := h.schedulerTick(context.Background()); got != backupSchedulerRecheck {
+		t.Errorf("recent dump: sleep = %v, want the %v re-check", got, backupSchedulerRecheck)
 	}
 	if count() != 1 {
 		t.Error("recent dump: a backup was attempted, want none")
@@ -285,8 +287,8 @@ func TestSchedulerTick(t *testing.T) {
 	if err := os.Chtimes(recent, stale, stale); err != nil {
 		t.Fatal(err)
 	}
-	if got := h.schedulerTick(context.Background()); got != time.Hour {
-		t.Errorf("stale dump: sleep = %v, want 1h", got)
+	if got := h.schedulerTick(context.Background()); got != backupSchedulerRecheck {
+		t.Errorf("stale dump: sleep = %v, want the %v re-check after a dump", got, backupSchedulerRecheck)
 	}
 }
 
@@ -1550,4 +1552,28 @@ func TestRunScheduledBackup_MutexAlreadyLocked(t *testing.T) {
 
 	// runScheduledBackup should return immediately without panic
 	bh.runScheduledBackup(context.Background())
+}
+
+// A tick that is not yet due sleeps at most the re-check cap, not the whole
+// remainder of the interval: the interval is re-read on every tick, and a
+// tick that slept out a 24h remainder kept an interval shortened to an hour
+// waiting out the old day.
+func TestSchedulerTick_LongWaitIsRecheckedNotSleptOut(t *testing.T) {
+	dir := t.TempDir()
+	ss := &mockSettingsStore{
+		getBoolFn:     func(context.Context, string, bool) bool { return true },
+		getDurationFn: func(context.Context, string, time.Duration) time.Duration { return 24 * time.Hour },
+	}
+	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, ss)
+	// A scheduled dump one minute old: the next one is due in ~24h.
+	path := filepath.Join(dir, "backup_20260101_000000_0003_auto.dump")
+	if err := os.WriteFile(path, []byte("x"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chtimes(path, time.Now().Add(-time.Minute), time.Now().Add(-time.Minute)); err != nil {
+		t.Fatal(err)
+	}
+	if got := h.schedulerTick(context.Background()); got > backupSchedulerRecheck {
+		t.Errorf("tick sleeps %v, want at most the %v re-check", got, backupSchedulerRecheck)
+	}
 }
