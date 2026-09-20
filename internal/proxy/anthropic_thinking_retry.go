@@ -118,9 +118,12 @@ func (h *Handler) learnAndRebuildMessages400(st *requestState, candidate modelCa
 			debuglog.Warn("proxy: anthropic messages retry could not rebuild for dialect", "provider", candidate.provider.Name, "model", candidate.model.ModelID, "error", err)
 			return nil, "", false, false
 		}
-		// Only a request that actually asked for thinking is changed by asking in
-		// the other dialect.
-		if !anthropicegress.RequestAsksForThinking(rebuilt) {
+		// A request the other dialect does not change (one that never asked for
+		// thinking) would earn the identical 400 again. Compared on the bytes,
+		// not on whether the rebuild still carries a thinking block: the budget
+		// dialect drops thinking under a forced tool_choice, and that rebuild
+		// differs from the refused one exactly by having none.
+		if bytes.Equal(rebuilt, st.lastMessagesBody) {
 			return nil, "", false, false
 		}
 		return rebuilt, model, stream, true

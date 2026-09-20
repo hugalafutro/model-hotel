@@ -1,7 +1,6 @@
 package anthropicegress
 
 import (
-	"encoding/json"
 	"strings"
 
 	"github.com/hugalafutro/model-hotel/internal/util"
@@ -50,19 +49,4 @@ func DialectFromError(body []byte) (dialect ThinkingDialect, ok bool) {
 		return ThinkingBudget, true
 	}
 	return 0, false
-}
-
-// RequestAsksForThinking reports whether a translated Messages body carries a
-// thinking request. It is what makes the retry conditional: a 400 naming a
-// dialect is only worth re-issuing if the request that earned it actually asked
-// for thinking, and re-issuing one that did not would repeat the same body and
-// the same 400.
-func RequestAsksForThinking(messagesBody []byte) bool {
-	var probe struct {
-		Thinking json.RawMessage `json:"thinking"`
-	}
-	if json.Unmarshal(messagesBody, &probe) != nil {
-		return false
-	}
-	return util.JSONMemberSet(probe.Thinking)
 }

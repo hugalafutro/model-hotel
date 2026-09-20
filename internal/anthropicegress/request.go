@@ -346,6 +346,15 @@ func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDial
 		if !ok {
 			return
 		}
+		// The budget dialect refuses a forced tool choice alongside thinking
+		// ("Thinking may not be enabled when tool_choice forces tool use",
+		// live on claude-haiku-4-5 and claude-opus-4-5, 2026-09-20); the
+		// adaptive dialect accepts the pair. The forced call is what the caller
+		// built the request around (structured output via a named tool), so it
+		// wins and thinking stays off, sampling knobs intact.
+		if forcesToolUse(out.ToolChoice) {
+			return
+		}
 		out.Thinking = &antThinking{Type: "enabled", BudgetTokens: budget}
 		// Anthropic requires max_tokens strictly greater than the budget: the
 		// remainder is the visible answer's allowance, so it gets a full default.
@@ -370,6 +379,12 @@ func applyThinking(out *antRequest, reasoningEffort string, dialect ThinkingDial
 		}
 	}
 	out.Temperature, out.TopP, out.TopK = nil, nil, nil
+}
+
+// forcesToolUse reports whether a tool_choice makes the model call a tool:
+// Anthropic's "any" and "tool" shapes.
+func forcesToolUse(c *antToolChoice) bool {
+	return c != nil && (c.Type == "any" || c.Type == "tool")
 }
 
 // minAdaptiveMaxTokens is the allowance an adaptive-thinking request is raised

@@ -88,27 +88,6 @@ func TestDialectFromError_TemperatureComplaintIsNotADialectSwitch(t *testing.T) 
 	}
 }
 
-func TestRequestAsksForThinking(t *testing.T) {
-	tests := []struct {
-		name string
-		body string
-		want bool
-	}{
-		{name: "adaptive", body: `{"model":"m","thinking":{"type":"adaptive"}}`, want: true},
-		{name: "budget", body: `{"model":"m","thinking":{"type":"enabled","budget_tokens":1024}}`, want: true},
-		{name: "no thinking key", body: `{"model":"m","max_tokens":10}`, want: false},
-		{name: "explicit null", body: `{"model":"m","thinking":null}`, want: false},
-		{name: "not JSON", body: `nope`, want: false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := RequestAsksForThinking([]byte(tt.body)); got != tt.want {
-				t.Errorf("RequestAsksForThinking = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
 func TestThinkingDialectString(t *testing.T) {
 	if ThinkingAdaptive.String() != "adaptive" || ThinkingBudget.String() != "budget" {
 		t.Errorf("dialect names = %q / %q", ThinkingAdaptive.String(), ThinkingBudget.String())
