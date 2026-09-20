@@ -152,6 +152,12 @@ export async function streamArenaResponse(
 			},
 		});
 
+		// The user's own Stop or Cancel ends the read without a throw. The
+		// handler that aborted has already settled the slot (Stop keeps the
+		// partial content, Cancel clears it), and the completion patch below
+		// would rebuild a cleared slot as a partial response.
+		if (completion.aborted) return;
+
 		const durationMs = performance.now() - startTime;
 
 		const truncationError: string | null =

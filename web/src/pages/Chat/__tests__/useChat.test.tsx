@@ -568,6 +568,37 @@ describe("useChat", () => {
 		});
 	});
 
+	describe("sub-mode switch stops the conversation", () => {
+		it("aborts a running conversation and puts no prompt back", async () => {
+			const Runner = await import("../useConversationRunner");
+			const { result, rerender } = renderHook(() => useChat());
+			const params = vi
+				.mocked(Runner.useConversationRunner)
+				.mock.calls.at(-1)?.[0];
+			if (!params) throw new Error("runner not mounted");
+			const ctrl = new AbortController();
+			params.cleanupConvAbortRef.current = ctrl;
+			params.conversationAbortRef.current = ctrl;
+			params.conversationRunningRef.current = true;
+			params.lastPromptRef.current = "old prompt";
+
+			vi.mocked(SidebarModeContext.useSidebarMode).mockReturnValue({
+				chatSubMode: "conversation",
+				setChatSubMode: vi.fn(),
+				arenaSubMode: "competition",
+				setArenaSubMode: vi.fn(),
+				logsSubMode: "request",
+				setLogsSubMode: vi.fn(),
+			});
+			rerender();
+			await waitFor(() => expect(ctrl.signal.aborted).toBe(true));
+			expect(params.conversationRunningRef.current).toBe(false);
+			expect(params.lastPromptRef.current).toBe("");
+			expect(params.cleanupConvAbortRef.current).toBeNull();
+			expect(result.current.input).toBe("");
+		});
+	});
+
 	describe("failedConversationModel", () => {
 		it("returns model name without provider prefix when error exists in conversation mode", () => {
 			vi.mocked(SidebarModeContext.useSidebarMode).mockReturnValue({

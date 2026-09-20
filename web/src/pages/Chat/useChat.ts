@@ -157,6 +157,18 @@ export function useChat() {
 	const setMessageParams =
 		chatSubMode === "chat" ? setChatMessageParams : setConversationParamsA;
 
+	// Cleanup: abort the conversation stream on unmount. Stored in a separate
+	// cleanup ref so the React Compiler doesn't mark conversationAbortRef as
+	// "effect-only" and forbid mutation in event handlers - which is perfectly
+	// valid React. Chat mode's own abort lives in useAssistantStream.
+	const cleanupConvAbortRef = useRef<AbortController | null>(null);
+	useEffect(() => {
+		const convAbortCtrl = cleanupConvAbortRef;
+		return () => {
+			convAbortCtrl.current?.abort();
+		};
+	}, []);
+
 	// Reset conversation state when chatSubMode changes (e.g. sidebar click),
 	// loading the transcript that mode persisted, and skip the initial mount
 	// so we don't wipe persisted messages.
@@ -164,6 +176,17 @@ export function useChat() {
 	useEffect(() => {
 		if (prevChatSubModeRef.current !== chatSubMode) {
 			prevChatSubModeRef.current = chatSubMode;
+			// A conversation still running would go on appending to the
+			// transcript loaded below through the shared setter, and persist
+			// the mix as the other mode's history. Stopped the way
+			// handleStopConversation does: the abort ends its loop, the running
+			// flag cleared first skips its own state cleanup, and no prompt is
+			// put back into the input emptied here.
+			conversationRunningRef.current = false;
+			lastPromptRef.current = "";
+			cleanupConvAbortRef.current?.abort();
+			cleanupConvAbortRef.current = null;
+			conversationAbortRef.current = null;
 			setMessages(
 				readPersistedMessages(chatSubMode, persistChat, persistConversation),
 			);
@@ -178,19 +201,9 @@ export function useChat() {
 		persistConversation,
 		setCurrentTurn,
 		setConversationState,
+		conversationRunningRef,
+		conversationAbortRef,
 	]);
-
-	// Cleanup: abort the conversation stream on unmount. Stored in a separate
-	// cleanup ref so the React Compiler doesn't mark conversationAbortRef as
-	// "effect-only" and forbid mutation in event handlers - which is perfectly
-	// valid React. Chat mode's own abort lives in useAssistantStream.
-	const cleanupConvAbortRef = useRef<AbortController | null>(null);
-	useEffect(() => {
-		const convAbortCtrl = cleanupConvAbortRef;
-		return () => {
-			convAbortCtrl.current?.abort();
-		};
-	}, []);
 
 	const selectedModelObj = findChatModel(enabledModels, selectedModel);
 	const selectedModelObjB = findChatModel(enabledModels, selectedModelB);

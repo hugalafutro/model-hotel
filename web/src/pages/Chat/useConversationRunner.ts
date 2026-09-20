@@ -324,20 +324,23 @@ export function useConversationRunner(params: UseConversationRunnerParams) {
 			lastAssistantIdx >= 0
 				? messages.filter((_, i) => i !== lastAssistantIdx)
 				: messages;
-		if (lastAssistantIdx >= 0) {
-			setMessages(next);
-		}
 
 		if (currentTurn === 0) {
-			// First turn failed - the prompt is already restored in `input`.
+			// First turn failed - the prompt is already restored in `input`, and
+			// the fresh start appends it again, so the run starts from before
+			// it; keeping it would send the prompt twice.
+			const lastUserIdx = next.findLastIndex((m) => m.role === "user");
+			const fresh = lastUserIdx >= 0 ? next.slice(0, lastUserIdx) : next;
+			setMessages(fresh);
 			// Reset to idle so runConversation(false) runs as a fresh start.
 			setConversationState("idle");
 			setCurrentTurn(0);
 			// Small delay to let state settle before re-triggering
 			requestAnimationFrame(() => {
-				runConversation(false, { messages: next, turn: 0 });
+				runConversation(false, { messages: fresh, turn: 0 });
 			});
 		} else {
+			setMessages(next);
 			// Later turn failed - decrement turn counter to re-do the failed turn.
 			// The prompt was not lost (it was never in `input` for later turns).
 			const newTurn = currentTurn > 0 ? currentTurn - 1 : 0;

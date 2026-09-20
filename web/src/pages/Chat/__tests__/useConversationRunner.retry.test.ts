@@ -163,6 +163,57 @@ describe("useConversationRunner", () => {
 		]);
 	});
 
+	it("retries a failed first turn with the prompt once", async () => {
+		// The error handler put the prompt back into `input`; the fresh start
+		// appends it from there, so the transcript must not carry it too.
+		const messages: ChatMessage[] = [
+			{ role: "user", content: "Hello", timestamp: 1 },
+			{
+				role: "assistant",
+				content: "",
+				model: "provider-a/model-a",
+				timestamp: 2,
+			},
+		];
+		const bodies: Array<{
+			model: string;
+			messages: Array<{ role: string; content: unknown }>;
+		}> = [];
+		server.use(
+			http.post("/api/chat/chat", async ({ request }) => {
+				bodies.push((await request.json()) as (typeof bodies)[number]);
+				return new HttpResponse(
+					createSSEStream([{ choices: [{ delta: { content: "A" } }] }]),
+					{ headers: { "Content-Type": "text/event-stream" } },
+				);
+			}),
+		);
+		const params = createMockParams({
+			conversationState: "error" as Parameters<
+				typeof useConversationRunner
+			>[0]["conversationState"],
+			messages,
+			currentTurn: 0,
+			input: "Hello",
+		});
+		const { result } = renderHook(() => useConversationRunner(params), {
+			wrapper: createWrapper(),
+		});
+
+		act(() => {
+			result.current.handleRetryConversation();
+		});
+		await waitFor(() => expect(bodies.length).toBeGreaterThan(0));
+		params.conversationAbortRef.current?.abort();
+
+		expect(params.setMessages).toHaveBeenCalledWith([]);
+		expect(bodies[0].model).toBe("provider-a/model-a");
+		expect(bodies[0].messages).toEqual([
+			{ role: "system", content: "System prompt A" },
+			{ role: "user", content: "Hello" },
+		]);
+	});
+
 	it("does not retry if not in error state", () => {
 		const params = createMockParams({
 			conversationState: "idle" as Parameters<
