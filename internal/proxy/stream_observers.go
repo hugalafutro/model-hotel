@@ -164,7 +164,10 @@ type streamChunk struct {
 			FunctionCall json.RawMessage `json:"function_call"`
 		} `json:"delta"`
 		// Text is the legacy completions stream's output, on the choice itself.
-		Text               *string `json:"text"`
+		Text *string `json:"text"`
+		// Index is which of an n>1 request's answers the frame belongs to;
+		// absent (nil) on providers that stream one answer without it.
+		Index              *int    `json:"index"`
 		FinishReason       *string `json:"finish_reason"`
 		NativeFinishReason *string `json:"native_finish_reason"` // P2-7: OpenRouter passthrough
 	} `json:"choices"`

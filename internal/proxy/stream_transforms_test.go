@@ -524,3 +524,73 @@ func TestApplyEmptyContentStripUnparseablePayload(t *testing.T) {
 		t.Errorf("expected no emit and no stop, got wrote=%v stop=%v", wrote, stop)
 	}
 }
+
+// On an n>1 request every answer ends with its own terminal frame; only the
+// first answer's frames take part in the bare-duplicate check, and a frame
+// whose whole payload is a tool call is an answer, not a duplicate.
+func TestComputeFinishReason_NPlusOneAndToolCallFrames(t *testing.T) {
+	parse := func(t *testing.T, payload string) streamChunk {
+		t.Helper()
+		var c streamChunk
+		if err := json.Unmarshal([]byte(payload), &c); err != nil {
+			t.Fatalf("unmarshal: %v", err)
+		}
+		return c
+	}
+	lastFR := ""
+	first := `{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, first), first, &lastFR); d != finishNone {
+		t.Fatalf("first terminal frame: decision %v, want forwarded", d)
+	}
+	second := `{"choices":[{"index":1,"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, second), second, &lastFR); d != finishNone {
+		t.Fatalf("answer 1's terminal frame: decision %v, want forwarded (the client waits for it)", d)
+	}
+	dup := `{"choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, dup), dup, &lastFR); d != finishSuppress {
+		t.Fatalf("bare duplicate on answer 0: decision %v, want suppressed", d)
+	}
+
+	lastFR = "tool_calls"
+	tool := `{"choices":[{"index":0,"delta":{"tool_calls":[{"function":{"name":"f","arguments":"{}"}}]},"finish_reason":"tool_calls"}]}`
+	if d, _ := computeFinishReason(parse(t, tool), tool, &lastFR); d != finishNone {
+		t.Fatalf("tool-call frame repeating finish_reason: decision %v, want forwarded", d)
+	}
+
+	// Empty placeholders are not answers: a repeated terminal frame that only
+	// carries audio:null, function_call:{} or refusal:"" is still a duplicate.
+	lastFR = "stop"
+	for _, payload := range []string{
+		`{"choices":[{"index":0,"delta":{"audio":null},"finish_reason":"stop"}]}`,
+		`{"choices":[{"index":0,"delta":{"function_call":{}},"finish_reason":"stop"}]}`,
+		`{"choices":[{"index":0,"delta":{"refusal":""},"finish_reason":"stop"}]}`,
+	} {
+		if d, _ := computeFinishReason(parse(t, payload), payload, &lastFR); d != finishSuppress {
+			t.Fatalf("%s: decision %v, want suppressed", payload, d)
+		}
+	}
+	refusal := `{"choices":[{"index":0,"delta":{"refusal":"no"},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, refusal), refusal, &lastFR); d != finishNone {
+		t.Fatalf("refusal frame: decision %v, want forwarded", d)
+	}
+	legacy := `{"choices":[{"index":0,"text":"tail","finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, legacy), legacy, &lastFR); d != finishNone {
+		t.Fatalf("legacy text frame: decision %v, want forwarded", d)
+	}
+
+	// Answer 1's terminal frame landing first must not make answer 0's read
+	// as the duplicate: only the first answer's frames move the tracker.
+	lastFR = ""
+	late := `{"choices":[{"index":1,"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, late), late, &lastFR); d != finishNone {
+		t.Fatalf("answer 1 first: decision %v, want forwarded", d)
+	}
+	if d, _ := computeFinishReason(parse(t, first), first, &lastFR); d != finishNone {
+		t.Fatalf("answer 0 after answer 1: decision %v, want forwarded", d)
+	}
+	// A single-answer stream without index keeps the old suppression.
+	noIdx := `{"choices":[{"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, noIdx), noIdx, &lastFR); d != finishSuppress {
+		t.Fatalf("index-less bare duplicate: decision %v, want suppressed", d)
+	}
+}

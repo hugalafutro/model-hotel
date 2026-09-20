@@ -2,6 +2,7 @@ import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { onUnauthorized } from "../../api/client";
 import { ToastProvider } from "../../context/ToastContext";
 import i18n from "../../i18n";
 import { server } from "../../test/server";
@@ -263,6 +264,43 @@ describe("TotpPanel", () => {
 		});
 		await userEvent.click(disableButtons[disableButtons.length - 1]);
 		await waitFor(() => expect(disabled).toBe(true));
+	});
+
+	it("keeps the operator signed in when the disable code is wrong", async () => {
+		// The server answers 403 for a wrong code; only a 401 means the session
+		// is dead, and that is what the client logs out on.
+		const loggedOut = vi.fn();
+		const stop = onUnauthorized(loggedOut);
+		server.use(
+			http.get("/api/totp/status", () =>
+				HttpResponse.json({
+					enabled: true,
+					recovery_remaining: 8,
+					recovery_total: 10,
+				}),
+			),
+			http.post("/api/totp/disable", () =>
+				HttpResponse.text("invalid TOTP or recovery code", { status: 403 }),
+			),
+		);
+		renderPanels();
+		expect(await screen.findByText("Enabled")).toBeInTheDocument();
+		await userEvent.click(screen.getByRole("button", { name: /^Disable$/i }));
+		await userEvent.type(
+			await screen.findByLabelText(/Code or recovery code/i),
+			"000000",
+		);
+		const disableButtons = screen.getAllByRole("button", {
+			name: /^Disable$/i,
+		});
+		await userEvent.click(disableButtons[disableButtons.length - 1]);
+
+		expect(
+			await screen.findByText("Could not disable, check the code"),
+		).toBeInTheDocument();
+		expect(screen.getByText("Enabled")).toBeInTheDocument();
+		expect(loggedOut).not.toHaveBeenCalled();
+		stop();
 	});
 
 	it("verifies a code, reveals recovery codes, and copies/downloads/saves them", async () => {

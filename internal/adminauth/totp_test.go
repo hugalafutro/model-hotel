@@ -761,8 +761,10 @@ func TestTotpDisable_InvalidCode(t *testing.T) {
 	dw := httptest.NewRecorder()
 	serveTotpRouter(th).ServeHTTP(dw, dreq)
 
-	if dw.Code != http.StatusUnauthorized {
-		t.Errorf("expected 401, got %d: %s", dw.Code, dw.Body.String())
+	// 403, not 401: the session is valid and only the code is wrong, and a
+	// 401 would log the operator out of both dashboards.
+	if dw.Code != http.StatusForbidden {
+		t.Errorf("expected 403, got %d: %s", dw.Code, dw.Body.String())
 	}
 }
 
