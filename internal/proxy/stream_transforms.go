@@ -153,11 +153,20 @@ func computeFinishReason(chunk streamChunk, payload string, lastFinishReason *st
 				hasContent = true
 			}
 		}
+		// The legacy completions stream carries its output on the choice.
+		if choice.Text != nil && *choice.Text != "" {
+			hasContent = true
+		}
 		if !hasContent && chunk.Usage == nil {
 			return finishSuppress, nil
 		}
 	}
-	*lastFinishReason = normalized
+	// Only the first answer's frames move the tracker: an answer whose
+	// terminal frame lands before answer 0's would otherwise set it, and
+	// answer 0's own terminal frame would read as the duplicate.
+	if firstAnswer {
+		*lastFinishReason = normalized
+	}
 	if normalized == original {
 		return finishNone, nil
 	}

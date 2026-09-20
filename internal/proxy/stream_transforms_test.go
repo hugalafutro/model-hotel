@@ -573,4 +573,24 @@ func TestComputeFinishReason_NPlusOneAndToolCallFrames(t *testing.T) {
 	if d, _ := computeFinishReason(parse(t, refusal), refusal, &lastFR); d != finishNone {
 		t.Fatalf("refusal frame: decision %v, want forwarded", d)
 	}
+	legacy := `{"choices":[{"index":0,"text":"tail","finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, legacy), legacy, &lastFR); d != finishNone {
+		t.Fatalf("legacy text frame: decision %v, want forwarded", d)
+	}
+
+	// Answer 1's terminal frame landing first must not make answer 0's read
+	// as the duplicate: only the first answer's frames move the tracker.
+	lastFR = ""
+	late := `{"choices":[{"index":1,"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, late), late, &lastFR); d != finishNone {
+		t.Fatalf("answer 1 first: decision %v, want forwarded", d)
+	}
+	if d, _ := computeFinishReason(parse(t, first), first, &lastFR); d != finishNone {
+		t.Fatalf("answer 0 after answer 1: decision %v, want forwarded", d)
+	}
+	// A single-answer stream without index keeps the old suppression.
+	noIdx := `{"choices":[{"delta":{},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, noIdx), noIdx, &lastFR); d != finishSuppress {
+		t.Fatalf("index-less bare duplicate: decision %v, want suppressed", d)
+	}
 }

@@ -399,6 +399,33 @@ describe("Security page edge handlers", () => {
 		expect(await screen.findByTestId("security-disable-confirm")).toBeEnabled();
 	});
 
+	it("keeps the user signed in when the disable code is wrong (403)", {
+		timeout: 30000,
+	}, async () => {
+		// 403, never 401: only a dead session logs the user out.
+		mockStatus({ enabled: true });
+		server.use(
+			http.post("/api/auth/totp/disable", () =>
+				HttpResponse.text("invalid TOTP or recovery code", { status: 403 }),
+			),
+		);
+		const { user } = renderWithProviders(<Security />);
+		// The status query can take a while under instrumented parallel runs.
+		await user.click(
+			await screen.findByTestId(
+				"security-disable-toggle",
+				{},
+				{ timeout: 10000 },
+			),
+		);
+		await user.type(
+			await screen.findByTestId("security-disable-code"),
+			"000000",
+		);
+		await user.click(screen.getByTestId("security-disable-confirm"));
+		expect(await screen.findByTestId("security-disable-confirm")).toBeEnabled();
+	});
+
 	it("tears down the session after a successful password change", {
 		timeout: 30000,
 	}, async () => {
