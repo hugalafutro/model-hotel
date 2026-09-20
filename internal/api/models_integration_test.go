@@ -1642,3 +1642,33 @@ func TestUpdateModel_SearchPriceBoundsAndUnpin(t *testing.T) {
 		t.Errorf("after unpin: price=%v sources=%+v pinned=%v, want nil, no source, unpinned", resp.SearchPricePerThousand, resp.PriceSources, resp.PriceCustomized)
 	}
 }
+
+// An operator's limit edit pins the limits (limits_customized) so discovery
+// leaves them alone; an explicit unpin clears the pin and the limits so the
+// next scan refills them.
+func TestUpdateModel_LimitsPinAndUnpin(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	modelID := createProviderAndModel(t, h, r)
+	patch := func(body string) ModelResponse {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPatch, "/models/"+modelID, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer test-admin-token")
+		req.Header.Set("Content-Type", "application/json")
+		r.ServeHTTP(rec, req)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("%s: got %d: %s", body, rec.Code, rec.Body.String())
+		}
+		var resp ModelResponse
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("parse: %v", err)
+		}
+		return resp
+	}
+	if resp := patch(`{"context_length": 32000}`); !resp.LimitsCustomized || resp.ContextLength == nil || *resp.ContextLength != 32000 {
+		t.Errorf("after an edit: pinned=%v context=%v, want pinned 32000", resp.LimitsCustomized, resp.ContextLength)
+	}
+	if resp := patch(`{"limits_customized": false}`); resp.LimitsCustomized || resp.ContextLength != nil || resp.MaxOutputTokens != nil {
+		t.Errorf("after unpin: pinned=%v context=%v output=%v, want cleared", resp.LimitsCustomized, resp.ContextLength, resp.MaxOutputTokens)
+	}
+}

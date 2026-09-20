@@ -1083,7 +1083,8 @@
 			"resetPricesToSource": "Врати на извор",
 			"searchPrice": "Cena pretrage",
 			"perThousandSearches": "/1K pretraga",
-			"testSuccessRanked": "Успех | Rangirani rezultati: {{count}}{{ttftPart}} | Трајање: {{duration}}"
+			"testSuccessRanked": "Успех | Rangirani rezultati: {{count}}{{ttftPart}} | Трајање: {{duration}}",
+			"limitsPinned": "Ограничења контекста и излаза закачена од стране оператера"
 		},
 		"table": {
 			"sortByModelName": "Сортирај по називу модела",

@@ -26,6 +26,7 @@ const mockModel: Model = {
 	enabled: true,
 	disabled_manually: false,
 	price_customized: false,
+	limits_customized: false,
 	created_at: "2026-01-15T10:00:00Z",
 	last_seen_at: "2026-05-11T08:30:00Z",
 };

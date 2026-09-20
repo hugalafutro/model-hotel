@@ -355,3 +355,73 @@ func TestUpdate_CacheHitEditStampsOnlyItself(t *testing.T) {
 		t.Errorf("sources = %+v pinned=%v, want %+v and pinned", got.PriceSources, got.PriceCustomized, want)
 	}
 }
+
+// An operator's edit to context_length or max_output_tokens survives the next
+// scan on a provider that marks those limits live (OpenRouter, Ollama, ...),
+// which used to let the provider's value win with no pin. The pin follows the
+// edit like price_customized; an explicit unpin nulls the limits so the next
+// scan refills them from source.
+func TestUpsert_LimitsPinBlocksLiveMeta(t *testing.T) {
+	ctx := context.Background()
+	repo := NewRepository(testPool)
+
+	providerID := insertTestProvider(ctx, t, "test-upsert-limits-pin")
+	t.Cleanup(func() { cleanupProvider(ctx, t, providerID) })
+
+	base := newBareModel(providerID, "pinned-limits")
+	base.ContextLength = new(200000)
+	base.MaxOutputTokens = new(8192)
+	if err := repo.Upsert(ctx, base); err != nil {
+		t.Fatalf("initial upsert: %v", err)
+	}
+	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{ContextLength: new(32000)}); err != nil {
+		t.Fatalf("limit edit: %v", err)
+	}
+
+	// A live-marked scan (the provider's own listing) must not touch the pin.
+	rescan := newBareModel(providerID, "pinned-limits")
+	rescan.ContextLength = new(200000)
+	rescan.MaxOutputTokens = new(16384)
+	rescan.MarkLiveMetaFromCurrent()
+	if err := repo.Upsert(ctx, rescan); err != nil {
+		t.Fatalf("rescan upsert: %v", err)
+	}
+	got, err := repo.GetByProviderAndModelID(ctx, providerID, "pinned-limits")
+	if err != nil {
+		t.Fatalf("get after rescan: %v", err)
+	}
+	if !got.LimitsCustomized {
+		t.Fatal("limits_customized = false after a limit edit, want true")
+	}
+	if got.ContextLength == nil || *got.ContextLength != 32000 {
+		t.Errorf("context_length = %v after a live rescan, want the operator's 32000", got.ContextLength)
+	}
+	if got.MaxOutputTokens == nil || *got.MaxOutputTokens != 8192 {
+		t.Errorf("max_output_tokens = %v after a live rescan, want the pinned 8192", got.MaxOutputTokens)
+	}
+
+	// Unpin: the limits null out and the next scan refills them from source.
+	if _, err := repo.Update(ctx, base.ID, UpdateModelRequest{LimitsCustomized: new(false)}); err != nil {
+		t.Fatalf("unpin: %v", err)
+	}
+	got, err = repo.GetByProviderAndModelID(ctx, providerID, "pinned-limits")
+	if err != nil {
+		t.Fatalf("get after unpin: %v", err)
+	}
+	if got.LimitsCustomized || got.ContextLength != nil || got.MaxOutputTokens != nil {
+		t.Fatalf("after unpin: customized=%v context=%v output=%v, want cleared", got.LimitsCustomized, got.ContextLength, got.MaxOutputTokens)
+	}
+	rescan2 := newBareModel(providerID, "pinned-limits")
+	rescan2.ContextLength = new(200000)
+	rescan2.MarkLiveMetaFromCurrent()
+	if err := repo.Upsert(ctx, rescan2); err != nil {
+		t.Fatalf("post-unpin rescan upsert: %v", err)
+	}
+	got, err = repo.GetByProviderAndModelID(ctx, providerID, "pinned-limits")
+	if err != nil {
+		t.Fatalf("get after post-unpin rescan: %v", err)
+	}
+	if got.ContextLength == nil || *got.ContextLength != 200000 {
+		t.Errorf("context_length = %v after unpin + rescan, want the source's 200000", got.ContextLength)
+	}
+}

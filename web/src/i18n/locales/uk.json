@@ -1119,7 +1119,8 @@
 			"resetPricesToSource": "Скинути до джерела",
 			"searchPrice": "Ціна пошуку",
 			"perThousandSearches": "/1K пошуків",
-			"testSuccessRanked": "Успіх | Ранжовані результати: {{count}}{{ttftPart}} | Тривалість: {{duration}}с"
+			"testSuccessRanked": "Успіх | Ранжовані результати: {{count}}{{ttftPart}} | Тривалість: {{duration}}с",
+			"limitsPinned": "Ліміти контексту та виводу закріплені оператором"
 		},
 		"table": {
 			"sortByModelName": "Сортувати за назвою моделі",
