@@ -37,6 +37,9 @@ type memSessionStore struct {
 	byID      map[uuid.UUID]*webauthn.SessionRecord
 	byHash    map[string]*webauthn.SessionRecord
 	createErr error
+	// deleteOthersErr fails DeleteOtherSessionsForUser, for the callers that
+	// must refuse rather than carry on when the sweep cannot be trusted.
+	deleteOthersErr error
 }
 
 func newMemStore() *memSessionStore {
@@ -133,7 +136,7 @@ func (s *memSessionStore) ExtendSession(_ context.Context, id uuid.UUID, at time
 // DeleteOtherSessionsForUser satisfies webauthn.SessionStore; the OIDC tests
 // never sign other sessions out.
 func (s *memSessionStore) DeleteOtherSessionsForUser(context.Context, []byte, string) (int64, error) {
-	return 0, nil
+	return 0, s.deleteOthersErr
 }
 
 // --- fake settings ---

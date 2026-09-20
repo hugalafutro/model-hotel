@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -1244,5 +1245,48 @@ func TestTotpRoutes_AuditMiddlewareCoversMutations(t *testing.T) {
 	}
 	if actors[0] != "admin" {
 		t.Errorf("actor = %q, want the admin identity stamped for the trail", actors[0])
+	}
+}
+
+// A sweep that fails keeps 2FA off: enabling it on top of sessions that
+// outlive it would report the lock-out as done when it is not.
+func TestTotpEnrollVerify_FailsWhenTheSessionSweepFails(t *testing.T) {
+	truncateTOTPTables(t)
+	t.Cleanup(func() { truncateTOTPTables(t) })
+	totpRepo := totpsvc.NewRepository(apiTestDB.Pool(), testMasterKey)
+	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
+	store := newMemStore()
+	store.deleteOthersErr = errors.New("session store down")
+	sessionMgr := webauthn.NewSessionManager(store)
+	shim := &totpEnabledShim{repo: totpRepo, adminMgr: adminMgr, sessionMgr: sessionMgr}
+	shim.totpEnabled.Store(false)
+	th := NewTotpHandler(totpRepo, adminMgr, sessionMgr, mockIPLimiter{}, false, shim.TotpEnabled, shim.RefreshTotpEnabled, "auto", true, authcookie.Dashboard)
+
+	req := httptest.NewRequest(http.MethodPost, "/totp/enroll/start", http.NoBody)
+	req.Header.Set("Authorization", "Bearer admin-token")
+	w := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("enroll/start: expected 200, got %d: %s", w.Code, w.Body.String())
+	}
+	var startResp map[string]string
+	if err := json.Unmarshal(w.Body.Bytes(), &startResp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	vreq := httptest.NewRequest(http.MethodPost, "/totp/enroll/verify",
+		bytes.NewReader([]byte(`{"code":"`+validCode(t, startResp["secret"])+`"}`)))
+	vreq.Header.Set("Authorization", "Bearer admin-token")
+	vreq.Header.Set("Content-Type", "application/json")
+	vw := httptest.NewRecorder()
+	serveTotpRouter(th).ServeHTTP(vw, vreq)
+	if vw.Code != http.StatusInternalServerError {
+		t.Fatalf("enroll/verify: expected 500 when the sweep fails, got %d: %s", vw.Code, vw.Body.String())
+	}
+	enabled, err := totpRepo.IsEnabled(context.Background())
+	if err != nil {
+		t.Fatalf("IsEnabled: %v", err)
+	}
+	if enabled {
+		t.Error("2FA was enabled although the pre-2FA sessions could not be swept")
 	}
 }

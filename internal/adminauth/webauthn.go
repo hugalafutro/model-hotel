@@ -386,28 +386,38 @@ type loginFinishRequest struct {
 // reason is one of a fixed set chosen here, so it is safe to read before the
 // error; the error text quotes a caller-supplied credential blob, so it goes
 // last. Nothing about the credential itself is logged.
-// rejectClonedAuthenticator refuses an assertion whose signature counter did
-// not advance past the stored one. The library only flags that (WebAuthn L2
-// 7.2 step 21: a cloned authenticator), it never errors on it, and the flag
-// would otherwise be read straight past into a minted session. Synced passkeys
-// report 0 on both sides and are not flagged. A nil credential (the library
+func logPasskeyLoginFailure(r *http.Request, reason string, err error) {
+	debuglog.Warn("webauthn: passkey login failed", "remote_addr", clientip.From(r), "reason", reason, "error", err)
+}
+
+// refuseClonedLogin refuses an assertion whose signature counter did not
+// advance past the stored one. The library only flags that (WebAuthn L2 7.2
+// step 21: a cloned authenticator), it never errors on it, and the flag would
+// otherwise be read straight past into a minted session. Synced passkeys
+// report 0 on both sides and are not flagged.
+//
+// Fail closed: a clone whose counter ran ahead would keep passing while the
+// genuine device, now behind, was refused every time, so the credential is
+// revoked and neither may sign in again; the operator re-enrols the passkey
+// with the admin token or another credential. A nil credential (the library
 // contract says a nil error comes with one) is refused too rather than read.
 // Reports whether it refused.
-func rejectClonedAuthenticator(w http.ResponseWriter, r *http.Request, cred *webauthnx.Credential) bool {
+func (h *WebAuthnHandler) refuseClonedLogin(w http.ResponseWriter, r *http.Request, cred *webauthnx.Credential) bool {
 	switch {
 	case cred == nil:
 		logPasskeyLoginFailure(r, "no_credential", errors.New("assertion validated without a credential"))
 	case cred.Authenticator.CloneWarning:
 		logPasskeyLoginFailure(r, "clone_warning", errors.New("signature counter did not advance"))
+		if err := h.webauthnRepo.DeleteCredential(r.Context(), cred.ID); err != nil {
+			debuglog.Error("webauthn: could not revoke the cloned credential", "error", err)
+		} else {
+			debuglog.Warn("webauthn: credential revoked after a signature counter that did not advance", "remote_addr", clientip.From(r))
+		}
 	default:
 		return false
 	}
 	respondBadRequest(w, "passkey login verification failed", nil)
 	return true
-}
-
-func logPasskeyLoginFailure(r *http.Request, reason string, err error) {
-	debuglog.Warn("webauthn: passkey login failed", "remote_addr", clientip.From(r), "reason", reason, "error", err)
 }
 
 // LoginFinish completes a WebAuthn discoverable login ceremony.
@@ -449,18 +459,7 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if rejectClonedAuthenticator(w, r, parsedCred) {
-		// Fail closed: a clone whose counter ran ahead would keep passing while
-		// the genuine device, now behind, is refused every time. Neither may
-		// sign in again; the operator re-enrols the passkey with the admin
-		// token or another credential.
-		if parsedCred != nil {
-			if err := h.webauthnRepo.DeleteCredential(r.Context(), parsedCred.ID); err != nil {
-				debuglog.Error("webauthn: could not revoke the cloned credential", "error", err)
-			} else {
-				debuglog.Warn("webauthn: credential revoked after a signature counter that did not advance", "remote_addr", clientip.From(r))
-			}
-		}
+	if h.refuseClonedLogin(w, r, parsedCred) {
 		return
 	}
 	if err := h.webauthnRepo.UpdateSignCount(r.Context(), parsedCred.ID, parsedCred.Authenticator.SignCount); err != nil {
