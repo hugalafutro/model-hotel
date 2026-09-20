@@ -240,7 +240,7 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		res.Error = "version mismatch with the primary"
 	case !out.MasterKeyOK:
 		res.Error = "MASTER_KEY does not match the primary"
-	case out.Stale:
+	case out.Stale && s.supersededByNewerPass(ctx, sourceGen):
 		// The member's commit fence refused this push because a newer source
 		// generation already applied, the benign outcome of a rearm or repoint
 		// landing mid-flight. The superseding pass is authoritative, so this one
@@ -253,6 +253,14 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		// would make routine rearms look like sync failures on a graph.
 		recordConfigSync("superseded")
 		return res
+	case out.Stale:
+		// Refused as stale while no newer pass exists: the member's fence holds
+		// a generation this Front Desk never issued (a Front Desk rebuilt on a
+		// fresh volume or restored from an older backup, a member re-homed from
+		// another fleet). Nothing on the member lowers the marker, so every pass
+		// would be refused the same way for as long as the fleet runs, with the
+		// member drifting behind the primary while the fleet read as ok.
+		res.Error = "the member's commit fence is ahead of Front Desk (a source generation this Front Desk never issued): re-pair the member, or restore Front Desk's own state"
 	case !out.Applied:
 		res.Error = "this member did not apply the config"
 	case out.Incomplete:
@@ -330,6 +338,20 @@ func (s *Server) applyMemberConfig(ctx context.Context, m *Member, token string,
 		})
 	}
 	return res
+}
+
+// supersededByNewerPass reports whether a stale refusal of the pass that sent
+// sourceGen is benign: Front Desk has since issued a newer generation, so the
+// refusal is that pass losing an in-flight race, not a member whose fence is
+// ahead of everything Front Desk will ever send. A generation read that fails
+// reads as benign, the pre-existing behaviour, so a store hiccup cannot turn
+// a routine rearm into a failure alert.
+func (s *Server) supersededByNewerPass(ctx context.Context, sourceGen int64) bool {
+	cur, err := s.store.AutoSyncGen(ctx)
+	if err != nil {
+		return true
+	}
+	return cur > sourceGen
 }
 
 // incompleteMessage renders what a member committed but could not materialise.

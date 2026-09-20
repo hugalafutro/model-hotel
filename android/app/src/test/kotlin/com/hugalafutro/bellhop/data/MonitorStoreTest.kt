@@ -71,6 +71,23 @@ class MonitorStoreTest {
         }
 
     @Test
+    fun reEnableStartsWithoutTheOldBaseline() =
+        runBlocking {
+            // The epoch gates writes, not reads: a baseline left by the previous
+            // session was diffed as live on the first poll of the next one,
+            // replaying every event and member change since the backstop was
+            // switched off as fresh alerts. A new session starts silent.
+            val store = newStore()
+            store.setEnabled(true)
+            store.saveSnapshot(FleetSnapshot(mapOf("m1" to MemberHealthState.UP.name)), store.epoch())
+            store.saveEventCursor(EventCursor("2026-08-31T11:28:54Z", "e2"), store.epoch())
+            store.setEnabled(false)
+            store.setEnabled(true)
+            assertNull(store.snapshot())
+            assertNull(store.eventCursor())
+        }
+
+    @Test
     fun unknownStoredStateDegradesToNull() =
         runBlocking {
             // A state name a future build wrote but this one doesn't know must not

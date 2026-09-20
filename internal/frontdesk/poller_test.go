@@ -524,6 +524,39 @@ func TestMemberBuildOf(t *testing.T) {
 	}
 }
 
+// The warm gate and the staleness accessor measure from the same instant, the
+// watchdog's arming, so a fleet can never read warm-and-healthy while Traefik
+// has not fetched and the watchdog has not yet had its window. A watchdog that
+// never armed keeps the process-start bound, so the grace is never a deadlock.
+func TestConfigPollWarmFollowsTheWatchdogArming(t *testing.T) {
+	store := newTestStore(t)
+	p := NewPoller(store, nil, "")
+	start := time.Date(2026, 9, 20, 12, 0, 0, 0, time.UTC)
+	now := start
+	p.now = func() time.Time { return now }
+	ctx := context.Background()
+
+	if p.ConfigPollWarm(ctx, start) {
+		t.Fatal("just started, unarmed: must not be warm")
+	}
+	now = start.Add(10 * time.Minute) // default window is 30s
+	if !p.ConfigPollWarm(ctx, start) {
+		t.Fatal("unarmed a window past process start: the process-start bound must open the gate")
+	}
+	p.checkConfigStaleness(ctx) // arms now, long after process start
+	if p.ConfigPollWarm(ctx, start) || p.ConfigPollStale(ctx) {
+		t.Fatal("armed just now: not warm (and not stale) until a window has passed since the arming")
+	}
+	now = now.Add(10 * time.Minute)
+	if !p.ConfigPollWarm(ctx, start) || !p.ConfigPollStale(ctx) {
+		t.Fatal("a window past the arming: warm and stale together")
+	}
+	p.RecordConfigPoll()
+	if !p.ConfigPollWarm(ctx, start) || p.ConfigPollStale(ctx) {
+		t.Fatal("a fetch: warm and not stale")
+	}
+}
+
 func TestConfigPollStaleAccessor(t *testing.T) {
 	store := newTestStore(t)       // reuse this file's existing store fixture helper
 	p := NewPoller(store, nil, "") // nil bus falls back to events.DefaultBus
