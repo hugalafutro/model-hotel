@@ -13,6 +13,7 @@ function disabledGroup(): FailoverGroup {
 		display_model: "gpt-4o",
 		group_enabled: false,
 		auto_created: true,
+		auto_disabled: false,
 		entries: ["a", "b", "c"].map((k) => ({
 			model_uuid: k,
 			provider_name: k,

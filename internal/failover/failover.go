@@ -18,7 +18,7 @@ import (
 // the order scanFailoverGroup expects.
 const failoverGroupColumns = `id, display_model, COALESCE(display_name, ''), COALESCE(description, ''), priority_order,
 	       COALESCE(entry_enabled, '{}'), COALESCE(group_enabled, true), COALESCE(auto_created, false),
-	       created_at, COALESCE(updated_at, created_at)`
+	       auto_disabled_at IS NOT NULL, created_at, COALESCE(updated_at, created_at)`
 
 // FailoverGroup represents a configured failover group for a model.
 //
@@ -32,8 +32,13 @@ type FailoverGroup struct {
 	EntryEnabled  map[string]bool `json:"entry_enabled"`
 	GroupEnabled  bool            `json:"group_enabled"`
 	AutoCreated   bool            `json:"auto_created"`
-	CreatedAt     time.Time       `json:"created_at"`
-	UpdatedAt     time.Time       `json:"updated_at"`
+	// AutoDisabled reports a group_enabled=false that no operator chose:
+	// discovery took the group down (auto_disabled_at, migration 062) or the
+	// dashboard's floor cascade did. Any operator group_enabled write clears
+	// it. The dashboard re-enables only such a group when it regains members.
+	AutoDisabled bool      `json:"auto_disabled"`
+	CreatedAt    time.Time `json:"created_at"`
+	UpdatedAt    time.Time `json:"updated_at"`
 }
 
 // IsEntryEnabled reports whether the given member is enabled inside the group.
@@ -52,7 +57,7 @@ func scanFailoverGroup(row pgx.Row) (*FailoverGroup, error) {
 	var fg FailoverGroup
 	var priorityJSON, entryEnabledJSON []byte
 	if err := row.Scan(&fg.ID, &fg.DisplayModel, &fg.DisplayName, &fg.Description, &priorityJSON,
-		&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
+		&entryEnabledJSON, &fg.GroupEnabled, &fg.AutoCreated, &fg.AutoDisabled, &fg.CreatedAt, &fg.UpdatedAt); err != nil {
 		return nil, err
 	}
 	if err := json.Unmarshal(priorityJSON, &fg.PriorityOrder); err != nil {
@@ -220,8 +225,14 @@ func (r *Repository) GetEnabled(ctx context.Context) ([]*FailoverGroup, error) {
 // — a discovery-disabled group would lose its claim stamp as a side effect.
 // pruneStaleEntries uses pruneMembership for exactly that reason; anything new
 // that adjusts a group without an operator behind it should do the same.
+//
+// floorDisabled marks a group_enabled=false write as the floor's doing rather
+// than the operator's: the caller found fewer than two routable members
+// after this write, so the group could not stay on. It stamps
+// auto_disabled_at, which is what lets the dashboard bring the group back
+// when members return, and is ignored for any other write.
 func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []uuid.UUID,
-	entryEnabled map[string]bool, groupEnabled *bool, displayName, description, displayModel *string) (*FailoverGroup, error) {
+	entryEnabled map[string]bool, groupEnabled *bool, floorDisabled bool, displayName, description, displayModel *string) (*FailoverGroup, error) {
 	priorityJSON, err := json.Marshal(priorityOrder)
 	if err != nil {
 		return nil, err
@@ -230,11 +241,6 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	entryEnabledJSON, err := json.Marshal(entryEnabled)
 	if err != nil {
 		return nil, err
-	}
-
-	groupEnabledVal := true
-	if groupEnabled != nil {
-		groupEnabledVal = *groupEnabled
 	}
 
 	var setClauses []string
@@ -249,18 +255,29 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 	args = append(args, entryEnabledJSON)
 	argIdx++
 
-	setClauses = append(setClauses, fmt.Sprintf("group_enabled = $%d", argIdx))
-	args = append(args, groupEnabledVal)
-	argIdx++
-
-	// Update is reachable only from the operator's PUT /api/failover-groups/{id}
-	// (including the dashboard's cascade that disables a group when toggling a
-	// member drops it below two routable entries). Every write through here is
-	// therefore operator intent, so the discovery stamp is cleared
-	// unconditionally: an operator-disabled group must never be counted as a
-	// discovery claim, and re-enabling must leave no stamp for a later
-	// auto-disable to inherit (migration 062).
-	setClauses = append(setClauses, "auto_disabled_at = NULL")
+	// group_enabled is PATCH-shaped like the other optional fields: absent
+	// means unchanged. Defaulting it to true turned every reorder, rename and
+	// description edit into a re-enable that skipped the handler's two-routable
+	// -members check, so a disabled group went live with one member.
+	//
+	// Update is reachable only from the operator's PUT /api/failover-groups/{id}.
+	// A group_enabled write through here is operator intent, so the discovery
+	// stamp is cleared with it: an operator-disabled group must never be
+	// counted as a discovery claim, and re-enabling must leave no stamp for a
+	// later auto-disable to inherit (migration 062). The one exception is the
+	// dashboard's floor cascade (floorDisabled), which stamps it instead so the
+	// group reads as auto-disabled and comes back when members return. A write
+	// that leaves group_enabled alone leaves the stamp alone too.
+	if groupEnabled != nil {
+		setClauses = append(setClauses, fmt.Sprintf("group_enabled = $%d", argIdx))
+		args = append(args, *groupEnabled)
+		argIdx++
+		if floorDisabled && !*groupEnabled {
+			setClauses = append(setClauses, "auto_disabled_at = now()")
+		} else {
+			setClauses = append(setClauses, "auto_disabled_at = NULL")
+		}
+	}
 
 	if displayName != nil {
 		if *displayName == "" {

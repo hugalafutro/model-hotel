@@ -24,6 +24,7 @@ const entry: FailoverGroup["entries"][0] = {
 const group: FailoverGroup = {
 	...mockFailoverGroup,
 	auto_created: false,
+	auto_disabled: false,
 	group_enabled: true,
 	entries: [entry],
 };
