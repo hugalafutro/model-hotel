@@ -57,9 +57,6 @@ func TestFailoverUpdateHelperDBErrors(t *testing.T) {
 // stamp either way.
 func TestFloorDisables(t *testing.T) {
 	h := newIntegrationFailoverHandler()
-	if h == nil {
-		t.Skip("integration handler unavailable")
-	}
 	off := false
 	t.Run("member_lookup_fails", func(t *testing.T) {
 		req := &UpdateFailoverGroupRequest{GroupEnabled: &off, FloorDisabled: true}
