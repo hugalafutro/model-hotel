@@ -479,7 +479,7 @@ func (cb *CircuitBreaker) dominant(models modelCircuits, r *cooldownReads) *circ
 // settings if available, otherwise falling back to the struct default.
 func (cb *CircuitBreaker) effectiveThreshold() int {
 	if cb.settings != nil {
-		if v := cb.settings.GetInt(context.Background(), "circuit_breaker_threshold", 0); v > 0 {
+		if v := cb.settingInt("circuit_breaker_threshold", 0); v > 0 {
 			return v
 		}
 	}
@@ -492,7 +492,7 @@ func (cb *CircuitBreaker) effectiveThreshold() int {
 func (cb *CircuitBreaker) effectiveSpan() int {
 	span := cb.SpanModels
 	if cb.settings != nil {
-		if v := cb.settings.GetInt(context.Background(), "circuit_breaker_span_models", 0); v > 0 {
+		if v := cb.settingInt("circuit_breaker_span_models", 0); v > 0 {
 			span = v
 		}
 	}
@@ -506,7 +506,7 @@ func (cb *CircuitBreaker) effectiveSpan() int {
 // settings if available, otherwise falling back to the struct default.
 func (cb *CircuitBreaker) effectiveCooldown() time.Duration {
 	if cb.settings != nil {
-		if v := cb.settings.GetDuration(context.Background(), "circuit_breaker_cooldown", 0); v > 0 {
+		if v := cb.settingDuration("circuit_breaker_cooldown", 0); v > 0 {
 			return v
 		}
 	}
@@ -563,7 +563,7 @@ const defaultPinProbeInterval = time.Hour
 // periodic probe and lets a response pin run to the ceiling.
 func (cb *CircuitBreaker) pinProbeInterval() time.Duration {
 	if cb.settings != nil {
-		return cb.settings.GetDuration(context.Background(), "circuit_breaker_pin_probe_interval", defaultPinProbeInterval)
+		return cb.settingDuration("circuit_breaker_pin_probe_interval", defaultPinProbeInterval)
 	}
 	return defaultPinProbeInterval
 }
@@ -662,7 +662,32 @@ func ceilingOrDefault(settings SettingsReader, key string, def time.Duration) ti
 	if settings == nil {
 		return def
 	}
-	return max(settings.GetDuration(context.Background(), key, def), 0)
+	ctx, cancel := settingsCtx()
+	defer cancel()
+	return max(settings.GetDuration(ctx, key, def), 0)
+}
+
+// settingsReadTimeout bounds every settings read the breaker makes. The values
+// are cached, but a miss goes to the store, and several of these reads happen
+// under cb.mu (recordFailure holds it): a store that stalls must not hold every
+// request's breaker verdict with it. The TPM limiter's admission path bounds
+// its own reads the same way.
+const settingsReadTimeout = 100 * time.Millisecond
+
+func settingsCtx() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), settingsReadTimeout)
+}
+
+func (cb *CircuitBreaker) settingInt(key string, def int) int {
+	ctx, cancel := settingsCtx()
+	defer cancel()
+	return cb.settings.GetInt(ctx, key, def)
+}
+
+func (cb *CircuitBreaker) settingDuration(key string, def time.Duration) time.Duration {
+	ctx, cancel := settingsCtx()
+	defer cancel()
+	return cb.settings.GetDuration(ctx, key, def)
 }
 
 // quotaPinnedForWith reports whether a quota pin is governing this circuit. The

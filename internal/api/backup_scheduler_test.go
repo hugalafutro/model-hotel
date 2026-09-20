@@ -297,7 +297,7 @@ func TestSchedulerTick(t *testing.T) {
 func TestRemoveStalePartials(t *testing.T) {
 	dir := t.TempDir()
 	h := NewBackupHandler("postgres://x", dir, &mockAdminAuth{}, nil)
-	for _, name := range []string{"backup_20260101_000000_0001_auto.dump", "backup_20260101_000000_0002_auto.dump" + backupPartialSuffix} {
+	for _, name := range []string{"backup_20260101_000000_0001_auto.dump", "backup_20260101_000000_0002_auto.dump" + backupPartialSuffix, "restore-123456.dump"} {
 		if err := os.WriteFile(filepath.Join(dir, name), []byte("x"), 0o600); err != nil {
 			t.Fatal(err)
 		}
@@ -308,7 +308,7 @@ func TestRemoveStalePartials(t *testing.T) {
 		t.Fatal(err)
 	}
 	if len(entries) != 1 || entries[0].Name() != "backup_20260101_000000_0001_auto.dump" {
-		t.Errorf("after sweep dir holds %v, want only the finished dump", entries)
+		t.Errorf("after sweep dir holds %v, want only the finished dump (the partial and the restore upload swept)", entries)
 	}
 	h.backupDir = filepath.Join(dir, "missing")
 	h.removeStalePartials() // an unreadable dir is not an error

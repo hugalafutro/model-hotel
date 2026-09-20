@@ -276,6 +276,10 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 		}
 		priorityOrder[i] = id
 	}
+	if dup, ok := duplicateEntry(priorityOrder); ok {
+		http.Error(w, "duplicate entry_id: "+dup.String(), http.StatusBadRequest)
+		return
+	}
 
 	entryEnabled := make(map[string]bool)
 	for _, id := range priorityOrder {
@@ -289,6 +293,9 @@ func (h *FailoverHandler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 	if existing != nil {
 		http.Error(w, "A failover group for '"+req.DisplayModel+"' already exists (auto-created from shared model). Edit the existing group instead.", http.StatusConflict)
+		return
+	}
+	if !h.knownEntries(r.Context(), w, priorityOrder) {
 		return
 	}
 
@@ -371,12 +378,53 @@ func resolveGroupUpdateLists(w http.ResponseWriter, req *UpdateFailoverGroupRequ
 			}
 			priorityOrder[i] = parsedID
 		}
+		// An explicit list replaces the members wholesale, so an empty one would
+		// leave a group with nothing to route, and a repeated id a member the
+		// walk visits twice.
+		if len(priorityOrder) == 0 {
+			http.Error(w, "priority_order must not be empty", http.StatusBadRequest)
+			return nil, nil, false
+		}
+		if dup, ok := duplicateEntry(priorityOrder); ok {
+			http.Error(w, "duplicate priority_order entry: "+dup.String(), http.StatusBadRequest)
+			return nil, nil, false
+		}
 	}
 
 	if req.EntryEnabled != nil {
 		entryEnabled = req.EntryEnabled
 	}
 	return priorityOrder, entryEnabled, true
+}
+
+// duplicateEntry reports the first model id a member list names twice.
+func duplicateEntry(ids []uuid.UUID) (uuid.UUID, bool) {
+	seen := make(map[uuid.UUID]struct{}, len(ids))
+	for _, id := range ids {
+		if _, dup := seen[id]; dup {
+			return id, true
+		}
+		seen[id] = struct{}{}
+	}
+	return uuid.Nil, false
+}
+
+// knownEntries refuses a new group's member list when it names a model this
+// member does not have: that builds a group whose walk visits a member that is
+// not there. Writes the HTTP error itself.
+func (h *FailoverHandler) knownEntries(ctx context.Context, w http.ResponseWriter, ids []uuid.UUID) bool {
+	models, err := h.modelRepo.GetByIDs(ctx, ids)
+	if err != nil {
+		respondError(w, "failed to look up failover members", err, http.StatusInternalServerError)
+		return false
+	}
+	for _, id := range ids {
+		if _, ok := models[id]; !ok {
+			http.Error(w, "unknown entry_id: "+id.String(), http.StatusBadRequest)
+			return false
+		}
+	}
+	return true
 }
 
 // validateGroupEnabledState enforces the enabled-group invariants for the
@@ -529,6 +577,13 @@ func (h *FailoverHandler) Update(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		respondError(w, fmt.Sprintf("failed to update failover group %s", id), err, http.StatusInternalServerError)
 		return
+	}
+	// The repository cached the row under its new display model. A lookup that
+	// raced the write could have re-cached the old row under the old key in
+	// the meantime, so that key is dropped again now that the write has landed
+	// (the eviction above ran before it).
+	if req.DisplayModel != nil && *req.DisplayModel != existing.DisplayModel {
+		failover.InvalidateFailoverCacheKey(existing.DisplayModel)
 	}
 
 	resp, err := h.buildGroupResponse(r.Context(), group)

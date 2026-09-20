@@ -412,6 +412,11 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		return commitHedgeWin(ctx, res, resp, nil, 0, candidate)
 	}
 
+	// Same hold as dispatchStreaming: the probe closes the body itself when
+	// its context ends, from its own goroutine, and that close settles the
+	// slot clean from the 2xx unless the hold says otherwise. Raised until a
+	// first token proves the stream delivers, lowered after.
+	st.attemptSlot.holdForProbe(true)
 	probeBuf, trueTtftMs, probeErr := h.probeFirstToken(ctx, resp.Body, ttftTimeout, st.startTime)
 	if probeErr != nil {
 		_ = resp.Body.Close()
@@ -445,6 +450,7 @@ func (h *Handler) probeStreamingCandidate(ctx context.Context, st *requestState,
 		res.reqErr = re
 		return res
 	}
+	st.attemptSlot.holdForProbe(false)
 
 	// No breaker success here either: the winner's stream is judged by
 	// finalizeStream, and a runner-up whose stream is never read is no evidence

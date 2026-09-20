@@ -2,9 +2,11 @@ package model
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 )
 
 // ---------------------------------------------------------------------------
@@ -531,6 +533,17 @@ func TestUpdate_AllFields(t *testing.T) {
 	}
 	if !updated.Enabled {
 		t.Error("Enabled: expected true, got false")
+	}
+}
+
+// An update that matches no row is not found, not a success that then fails
+// to read the row back.
+func TestUpdate_UnknownModel(t *testing.T) {
+	repo := NewRepository(testPool)
+	name := "ghost"
+	_, err := repo.Update(context.Background(), uuid.New(), UpdateModelRequest{DisplayName: &name})
+	if !errors.Is(err, pgx.ErrNoRows) {
+		t.Fatalf("err = %v, want pgx.ErrNoRows", err)
 	}
 }
 

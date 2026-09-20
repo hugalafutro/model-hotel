@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"slices"
@@ -50,11 +51,16 @@ func corsMiddleware(cfg *config.Config) func(http.Handler) http.Handler {
 	}
 }
 
-// maxRequestSizeMiddleware caps every request body at maxBytes.
+// maxRequestSizeMiddleware caps every request body at maxBytes, except the
+// backup restore upload, which sets its own larger bound (saveUploadedDump):
+// wrapping that one here would cut a dump at the general ceiling before the
+// handler's limit was ever reached.
 func maxRequestSizeMiddleware(maxBytes int64) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			if !strings.HasSuffix(r.URL.Path, "/backups/restore") {
+				r.Body = http.MaxBytesReader(w, r.Body, maxBytes)
+			}
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -136,7 +142,14 @@ func streamingAwareTimeout(maxNonStreamingDur time.Duration) func(http.Handler) 
 			body, err := io.ReadAll(r.Body)
 			_ = r.Body.Close()
 			if err != nil {
-				util.WriteOpenAIError(w, "failed to read request body", http.StatusBadRequest)
+				// The size cap's own error is the caller's doing and has its
+				// own status; anything else is a read that broke.
+				status := http.StatusBadRequest
+				var tooLarge *http.MaxBytesError
+				if errors.As(err, &tooLarge) {
+					status = http.StatusRequestEntityTooLarge
+				}
+				util.WriteOpenAIError(w, "failed to read request body", status)
 				return
 			}
 

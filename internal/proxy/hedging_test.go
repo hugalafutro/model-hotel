@@ -695,6 +695,34 @@ func TestProbeStreamingCandidate_TouchesProviderLastUsed(t *testing.T) {
 // TestProbeStreamingCandidate covers the real begin+probe path (no client write):
 // a 200 with a first token wins, a silent 200 past the probe window is a
 // provider_timeout, and a non-200 drops as a provider error.
+// cappedWindow puts the candidate's provider on a learned window of 1 that
+// grows after a single clean completion, with the limiter switched on for the
+// attempt, so a test can read whether an attempt's settle was clean.
+func cappedWindow(t *testing.T, h *Handler, st *requestState, cand modelCandidate) {
+	t.Helper()
+	ctx := context.Background()
+	if err := h.settingsRepo.Set(ctx, "inflight_grow_after", "1"); err != nil {
+		t.Fatalf("set inflight_grow_after: %v", err)
+	}
+	h.settingsRepo.InvalidateCache("inflight_grow_after")
+	t.Cleanup(func() {
+		_ = h.settingsRepo.DeleteKey(ctx, "inflight_grow_after")
+		h.settingsRepo.InvalidateCache("inflight_grow_after")
+	})
+	st.inflightEnabled = true
+	h.inflight.cut(cand.provider.ID, 0)
+}
+
+// inflightLimitFor reads the provider's learned window limit.
+func inflightLimitFor(h *Handler, cand modelCandidate) int {
+	for _, w := range h.inflight.snapshot() {
+		if w.ProviderID == cand.provider.ID.String() {
+			return w.Limit
+		}
+	}
+	return -1
+}
+
 func TestProbeStreamingCandidate(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandler(h)
@@ -708,12 +736,18 @@ func TestProbeStreamingCandidate(t *testing.T) {
 		defer srv.Close()
 
 		st, cand := probeStateForServer(srv.URL)
+		cappedWindow(t, h, st, cand)
 		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 5*time.Second, 30*time.Second)
 		if !res.won {
 			t.Fatalf("expected a win, got reqErr=%+v", res.reqErr)
 		}
 		if res.resp != nil {
 			_ = res.resp.Body.Close()
+		}
+		// The hold is lowered once the token is in: the winner's close settles
+		// clean and the capped window grows.
+		if got := inflightLimitFor(h, cand); got != 2 {
+			t.Errorf("window limit after a hedged win = %d, want 2", got)
 		}
 	})
 
@@ -729,12 +763,19 @@ func TestProbeStreamingCandidate(t *testing.T) {
 		defer srv.Close()
 
 		st, cand := probeStateForServer(srv.URL)
+		// The in-flight slot a hedged attempt holds settles from the close
+		// the probe performs on its timeout; a probe that failed is not a
+		// consumed success, so the provider's learned window must not grow.
+		cappedWindow(t, h, st, cand)
 		res := h.probeStreamingCandidate(context.Background(), st, cand, 0, 100*time.Millisecond, 30*time.Millisecond)
 		if res.won {
 			t.Fatal("a silent stream must not win")
 		}
 		if res.reqErr.Kind != KindProviderTimeout {
 			t.Errorf("expected provider_timeout, got %s", res.reqErr.Kind)
+		}
+		if got := inflightLimitFor(h, cand); got != 1 {
+			t.Errorf("window limit after a timed-out hedged probe = %d, want 1 (a failed probe is not a clean completion)", got)
 		}
 	})
 

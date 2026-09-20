@@ -62,6 +62,19 @@ func TestStreamingAwareTimeout_StoresContextValues(t *testing.T) {
 	}
 }
 
+// A body the size cap refuses is the caller's doing: 413, not the 400 a
+// broken read gets.
+func TestStreamingAwareTimeout_OversizedBodyIs413(t *testing.T) {
+	handler := http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusOK) })
+	wrapped := maxRequestSizeMiddleware(8)(streamingAwareTimeout(5 * time.Minute)(handler))
+	req := httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader([]byte(`{"model":"gpt-4","stream":false}`)))
+	rr := httptest.NewRecorder()
+	wrapped.ServeHTTP(rr, req)
+	if rr.Code != http.StatusRequestEntityTooLarge {
+		t.Fatalf("status = %d body = %s, want 413", rr.Code, rr.Body.String())
+	}
+}
+
 func TestStreamingAwareTimeout_NonStreamingRequest(t *testing.T) {
 	var capturedIsStreaming bool
 

@@ -81,9 +81,13 @@ const (
 	// auto_sync_gen) on a real import. It is the member-side commit fence: an
 	// import whose generation is older than the highest this member applied is
 	// refused, so a stale push in flight when the primary was repointed cannot
-	// land after the fresh one. The header is optional: an older Front Desk omits
-	// it and the import applies unfenced, and an older member ignores it, so the
-	// fence engages only when both ends understand it. Never set on a dry run.
+	// land after the fresh one. The header is optional until this member has
+	// applied a fenced generation: an older Front Desk omits it and the import
+	// applies unfenced, and an older member ignores it, so the fence engages only
+	// when both ends understand it. Once a fenced generation has converged here a
+	// headerless import is refused (errStaleSourceGen) rather than let an
+	// un-versioned write clobber it and leave the marker lying. Never set on a
+	// dry run.
 	fleetSourceGenHeader = "X-Fleet-Source-Gen"
 
 	// fleetSourceGenLock is the Postgres advisory-lock key that serializes fenced
