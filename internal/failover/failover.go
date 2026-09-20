@@ -277,11 +277,13 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, priorityOrder []u
 		argIdx++
 		// The cascade's stamp is its own column: auto_disabled_at is what the
 		// discovery claim listing reads, and a member toggle is not a claim.
-		setClauses = append(setClauses, "auto_disabled_at = NULL")
+		// A floor write leaves that column alone: the cascade firing on a
+		// group discovery already took down does not answer discovery's claim,
+		// so the operator still sees it.
 		if floorDisabled && !*groupEnabled {
 			setClauses = append(setClauses, "floor_disabled_at = now()")
 		} else {
-			setClauses = append(setClauses, "floor_disabled_at = NULL")
+			setClauses = append(setClauses, "auto_disabled_at = NULL", "floor_disabled_at = NULL")
 		}
 	}
 

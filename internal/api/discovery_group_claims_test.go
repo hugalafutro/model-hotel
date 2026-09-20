@@ -441,3 +441,47 @@ func TestGetDiscoveryStatus_FloorCascadeIsNotAClaim(t *testing.T) {
 		t.Errorf("a floor-cascade disable must not be a discovery claim, got %+v", got)
 	}
 }
+
+// A floor cascade that fires on a group discovery already took down keeps the
+// claim: the operator's member toggle does not answer discovery's stamp. The
+// routable count reads the toggle, so the row stays actionable.
+func TestGetDiscoveryStatus_FloorCascadeKeepsADiscoveryClaim(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	_, fr := newFailoverHandlerWithAuth(t)
+	pool := h.dbPool.Pool()
+	truncateDiscoveryChanges(t)
+	truncateFailoverGroups(t)
+
+	provID := seedClaimProvider(t, pool, "floor-keep-prov", true)
+	memberA := seedGroupMember(t, pool, provID, "floor-keep-a")
+	memberB := seedGroupMember(t, pool, provID, "floor-keep-b")
+	groupID := seedCustomGroup(t, pool, "floor-keep-victim", []uuid.UUID{memberA, memberB})
+
+	// Discovery takes the group down: memberB goes missing.
+	setModelEnabled(t, pool, memberB, false)
+	runRevalidate(t, pool)
+	if findGroupClaim(getStatus(t, r, "/discovery/status"), "floor-keep-victim") == nil {
+		t.Fatal("the discovery-disabled group must be a claim before the cascade")
+	}
+
+	// The operator then toggles memberA off; the dashboard's floor cascade
+	// re-sends group_enabled=false for a group that is already off.
+	body := `{"entry_enabled":{"` + memberA.String() + `":false},"group_enabled":false,"floor_disabled":true}`
+	req := httptest.NewRequest(http.MethodPut, "/failover-groups/"+groupID.String(), strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	fr.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("floor cascade PUT: %d: %s", w.Code, w.Body.String())
+	}
+
+	claim := findGroupClaim(getStatus(t, r, "/discovery/status"), "floor-keep-victim")
+	if claim == nil {
+		t.Fatal("the floor cascade must not erase discovery's claim")
+	}
+	if claim.MemberCount != 2 || claim.RoutableCount != 0 {
+		t.Errorf("claim counts = %d members / %d routable, want 2/0 (memberB gone, memberA switched off)",
+			claim.MemberCount, claim.RoutableCount)
+	}
+}
