@@ -336,6 +336,33 @@ describe("RequestLogDetail attempt trail", () => {
 		expect(rows[1]).toHaveTextContent("breaker: wobble");
 	});
 
+	it("keeps the gateway's words when a provider error happens to say them", () => {
+		renderWithProviders(
+			<RequestLogDetail
+				requestLog={{
+					...baseLog,
+					attempts: [
+						{
+							attempt: 0,
+							provider_id: "prov-1",
+							provider: "Kimi",
+							model: "k2",
+							status: 200,
+							error_kind: "provider_error",
+							detail: "still in flight at the failover deadline",
+							duration_ms: 12,
+							breaker: "charge",
+						},
+					],
+				}}
+				onClose={onClose}
+			/>,
+		);
+		expect(screen.getByTestId("attempt-trail-row")).toHaveTextContent(
+			"still in flight at the failover deadline",
+		);
+	});
+
 	it("renders an unknown kind raw with the plain warning glyph", () => {
 		renderWithProviders(
 			<RequestLogDetail

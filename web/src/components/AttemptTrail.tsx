@@ -76,15 +76,15 @@ function collapseWhitespace(message: string): string {
 	return message.split(/\s+/).filter(Boolean).join(" ");
 }
 
-// The gateway's own fixed sentences (internal/proxy/hedging.go), one per exit
-// it stamps on a hedged launch it abandoned: each says exactly what the
-// SUPERSEDED badge or the kind label on the same row says, so the row never
-// prints both.
-const GATEWAY_FIXED_DETAILS = new Set([
-	"superseded by the winner while in flight",
-	"still in flight at the failover deadline",
-	"client disconnected while in flight",
-]);
+// The gateway's own fixed sentence per exit it stamps on a hedged launch it
+// abandoned (internal/proxy/hedging.go): each says exactly what the SUPERSEDED
+// badge or the kind label on the same row says, so the row never prints both.
+// Keyed by kind, so the same words under any other kind stay the provider's.
+const GATEWAY_FIXED_DETAILS: Record<string, string> = {
+	hedge_superseded: "superseded by the winner while in flight",
+	failover_timeout: "still in flight at the failover deadline",
+	client_disconnect: "client disconnected while in flight",
+};
 
 // Error kinds the badge on the same row already states: the SUPERSEDED badge
 // is hedge_superseded, and an HTTP error status badge is the provider erroring.
@@ -135,8 +135,8 @@ export function AttemptTrail({
 	// at the end, "failed on attempt 1: ...", or mid-sentence, "returned HTTP
 	// 503 on attempt 1", so it is looked for as a run inside it, and a detail
 	// the backend capped ends in an ellipsis the message does not have); it
-	// only restates the status the badge shows; or it is one of the gateway's
-	// fixed sentences, which the badge or the kind label shows too.
+	// only restates the status the badge shows; or it is the gateway's fixed
+	// sentence for the row's own kind, which the badge or the kind label shows.
 	const detailSaysMore = (a: AttemptRecord) => {
 		const detail = a.detail?.trim();
 		if (!detail) return false;
@@ -144,7 +144,9 @@ export function AttemptTrail({
 			return false;
 		}
 		if (/^HTTP \d{3}$/.test(detail)) return false;
-		if (GATEWAY_FIXED_DETAILS.has(detail)) return false;
+		if (a.error_kind && GATEWAY_FIXED_DETAILS[a.error_kind] === detail) {
+			return false;
+		}
 		return a.status ? detail !== statusBadgeLabel(a.status, t) : true;
 	};
 	// A skip IS the breaker's verdict: it refused the candidate before the
