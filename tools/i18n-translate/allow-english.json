@@ -1426,6 +1426,17 @@
 		"sk",
 		"tr"
 	],
+	"components.modelTable.modelOne": [
+		"af",
+		"ca",
+		"cs",
+		"da",
+		"nl",
+		"pl",
+		"ro",
+		"sk",
+		"tr"
+	],
 	"components.modelTable.modelStatus": [
 		"da",
 		"nl"
