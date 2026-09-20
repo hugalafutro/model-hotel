@@ -1179,7 +1179,8 @@
 			"resetPricesToSource": "إعادة التعيين إلى المصدر",
 			"searchPrice": "سعر البحث",
 			"perThousandSearches": "/1K عملية بحث",
-			"testSuccessRanked": "النجاح | النتائج المرتبة: {{count}}{{ttftPart}} | المدة: {{duration}}s"
+			"testSuccessRanked": "النجاح | النتائج المرتبة: {{count}}{{ttftPart}} | المدة: {{duration}}s",
+			"limitsPinned": "حدود السياق والإخراج مثبّتة بواسطة المشغّل"
 		},
 		"table": {
 			"sortByModelName": "الترتيب حسب اسم النموذج",

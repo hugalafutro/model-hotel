@@ -80,6 +80,9 @@ export const models = {
 			/** false clears the operator price pin and nulls the prices so the
 			 *  next discovery scan re-derives them from source. */
 			price_customized?: boolean;
+			/** false clears the operator limits pin and nulls context_length and
+			 *  max_output_tokens so the next discovery scan refills them. */
+			limits_customized?: boolean;
 			enabled?: boolean;
 		},
 	): Promise<Model> => {

@@ -166,11 +166,12 @@ func buildRow(t *testing.T, m *Model) []any {
 		m.DisabledManually,             // 19 - DisabledManually
 		m.DisplayNameCustomized,        // 20 - DisplayNameCustomized
 		m.PriceCustomized,              // 21 - PriceCustomized
-		m.PriceSources,                 // 22 - PriceSources (jsonb)
-		m.CreatedAt,                    // 23 - CreatedAt
-		m.LastSeenAt,                   // 24 - LastSeenAt
-		m.ProviderName,                 // 25 - ProviderName
-		m.ProviderEnabled,              // 26 - ProviderEnabled
+		m.LimitsCustomized,             // 22 - LimitsCustomized
+		m.PriceSources,                 // 23 - PriceSources (jsonb)
+		m.CreatedAt,                    // 24 - CreatedAt
+		m.LastSeenAt,                   // 25 - LastSeenAt
+		m.ProviderName,                 // 26 - ProviderName
+		m.ProviderEnabled,              // 27 - ProviderEnabled
 	}
 }
 

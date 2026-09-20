@@ -57,6 +57,7 @@ type ModelResponse struct {
 	Enabled                      bool               `json:"enabled"`
 	DisabledManually             bool               `json:"disabled_manually"`
 	PriceCustomized              bool               `json:"price_customized"`
+	LimitsCustomized             bool               `json:"limits_customized"`
 	PriceSources                 model.PriceSources `json:"price_sources"`
 	CreatedAt                    string             `json:"created_at"`
 	LastSeenAt                   string             `json:"last_seen_at"`
@@ -87,6 +88,7 @@ func modelToResponse(m model.Model) ModelResponse {
 		Enabled:                      m.Enabled,
 		DisabledManually:             m.DisabledManually,
 		PriceCustomized:              m.PriceCustomized,
+		LimitsCustomized:             m.LimitsCustomized,
 		PriceSources:                 m.PriceSources,
 		CreatedAt:                    m.CreatedAt.Format(time.RFC3339),
 		LastSeenAt:                   m.LastSeenAt.Format(time.RFC3339),
@@ -243,7 +245,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	modelRepo := model.NewRepository(h.dbPool.Pool())
 
-	hasChanges := req.DisplayName != nil || req.ContextLength != nil || req.MaxOutputTokens != nil || req.InputPricePerMillion != nil || req.InputPricePerMillionCacheHit != nil || req.OutputPricePerMillion != nil || req.SearchPricePerThousand != nil || req.PriceCustomized != nil || req.Enabled != nil
+	hasChanges := req.DisplayName != nil || req.ContextLength != nil || req.MaxOutputTokens != nil || req.InputPricePerMillion != nil || req.InputPricePerMillionCacheHit != nil || req.OutputPricePerMillion != nil || req.SearchPricePerThousand != nil || req.PriceCustomized != nil || req.LimitsCustomized != nil || req.Enabled != nil
 	if !hasChanges {
 		http.Error(w, "no fields to update", http.StatusBadRequest)
 		return

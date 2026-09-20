@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Herstel na bron",
 			"searchPrice": "Soekprys",
 			"perThousandSearches": "/1K soektogte",
-			"testSuccessRanked": "Sukses | Gerangskikte resultate: {{count}}{{ttftPart}} | Duur: {{duration}}s"
+			"testSuccessRanked": "Sukses | Gerangskikte resultate: {{count}}{{ttftPart}} | Duur: {{duration}}s",
+			"limitsPinned": "Konteks- en uitsetlimiete deur operateur vasgepen"
 		},
 		"table": {
 			"sortByModelName": "Sorteer volgens modelnaam",

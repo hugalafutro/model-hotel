@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "Đặt lại theo nguồn",
 			"searchPrice": "Giá tìm kiếm",
 			"perThousandSearches": "/1K lượt tìm kiếm",
-			"testSuccessRanked": "Thành công | Kết quả xếp hạng: {{count}}{{ttftPart}} | Thời lượng: {{duration}}giây"
+			"testSuccessRanked": "Thành công | Kết quả xếp hạng: {{count}}{{ttftPart}} | Thời lượng: {{duration}}giây",
+			"limitsPinned": "Giới hạn ngữ cảnh và đầu ra được người vận hành ghim"
 		},
 		"table": {
 			"sortByModelName": "Sắp xếp theo tên mô hình",

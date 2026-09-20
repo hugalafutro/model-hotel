@@ -147,6 +147,41 @@ describe("ModelDetailModal", () => {
 		});
 	});
 
+	describe("limits pin", () => {
+		it("hides the banner when the limits are not customized", () => {
+			renderWithProviders(<ModelDetailModal {...defaultProps} />);
+			expect(screen.queryByTestId("limits-pin-banner")).not.toBeInTheDocument();
+		});
+
+		it("shows the banner and resets the limits to source", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(
+				<ModelDetailModal
+					{...defaultProps}
+					model={{ ...mockModel, limits_customized: true }}
+				/>,
+			);
+			expect(screen.getByTestId("limits-pin-banner")).toBeInTheDocument();
+			await user.click(screen.getByTestId("limits-pin-reset"));
+			expect(onUpdate).toHaveBeenCalledWith(mockModel.id, {
+				limits_customized: false,
+				context_length: null,
+				max_output_tokens: null,
+			});
+		});
+
+		it("shows the banner without the reset action in read-only mode", () => {
+			renderWithProviders(
+				<ModelDetailModal
+					model={{ ...mockModel, limits_customized: true }}
+					onClose={onClose}
+				/>,
+			);
+			expect(screen.getByTestId("limits-pin-banner")).toBeInTheDocument();
+			expect(screen.queryByTestId("limits-pin-reset")).not.toBeInTheDocument();
+		});
+	});
+
 	it("displays capabilities section", () => {
 		renderWithProviders(<ModelDetailModal {...defaultProps} />);
 

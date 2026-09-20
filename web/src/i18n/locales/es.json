@@ -1083,7 +1083,8 @@
 			"resetPricesToSource": "Restablecer al origen",
 			"searchPrice": "Precio por búsqueda",
 			"perThousandSearches": "/1K búsquedas",
-			"testSuccessRanked": "Éxito | Resultados clasificados: {{count}}{{ttftPart}} | Duración: {{duration}}s"
+			"testSuccessRanked": "Éxito | Resultados clasificados: {{count}}{{ttftPart}} | Duración: {{duration}}s",
+			"limitsPinned": "Límites de contexto y salida fijados por el operador"
 		},
 		"table": {
 			"sortByModelName": "Ordenar por nombre del modelo",

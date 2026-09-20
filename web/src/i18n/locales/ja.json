@@ -1047,7 +1047,8 @@
 			"resetPricesToSource": "ソースにリセット",
 			"searchPrice": "検索単価",
 			"perThousandSearches": "/1K 検索",
-			"testSuccessRanked": "成功 | ランク付け結果: {{count}}{{ttftPart}} | 期間: {{duration}}s"
+			"testSuccessRanked": "成功 | ランク付け結果: {{count}}{{ttftPart}} | 期間: {{duration}}s",
+			"limitsPinned": "コンテキストと出力の上限はオペレーターにより固定されています"
 		},
 		"table": {
 			"sortByModelName": "モデル名でソート",
