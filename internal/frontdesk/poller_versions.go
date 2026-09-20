@@ -216,15 +216,27 @@ func (p *Poller) configPollBaseline() time.Time {
 // without a fetch, at which point the silence is itself the steady-state
 // observation ConfigPollStale keeps reporting. Used by fleetInputsWarm to keep
 // a cold start from reading as a recovery.
+//
+// since is unused since the arming became its own field and is kept for the
+// callers' signature; the no-fetch path measures from the watchdog's arming,
+// the same instant ConfigPollStale measures from, so the two states change
+// together. Measured from process start they did not: a watchdog armed more
+// than a window after start read warm while not yet stale, and the fleet
+// published a recovery that the next window took back.
 func (p *Poller) ConfigPollWarm(ctx context.Context, since time.Time) bool {
+	_ = since
 	p.mu.RLock()
 	// A fetch Traefik made, never the watchdog's own arming: that one is set
 	// on the first tick after every restart and said nothing about Traefik,
 	// so reading it as warm let a restart with Traefik still down publish a
 	// fleet recovery and re-degrade one window later.
 	fetched := !p.lastConfigPollAt.IsZero()
+	armedAt := p.configWatchdogArmedAt
 	p.mu.RUnlock()
-	return fetched || p.now().Sub(since) > secs(p.settings(ctx).TraefikStaleSecs, 30)
+	if fetched {
+		return true
+	}
+	return !armedAt.IsZero() && p.now().Sub(armedAt) > secs(p.settings(ctx).TraefikStaleSecs, 30)
 }
 
 // checkAutoSyncStale emits a single warning when auto-sync is off and the fleet
