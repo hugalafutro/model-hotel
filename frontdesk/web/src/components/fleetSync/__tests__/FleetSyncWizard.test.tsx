@@ -236,6 +236,37 @@ describe("FleetSyncWizard", () => {
 		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
 	});
 
+	it("drops a probe that answers after the operator moved to another primary", async () => {
+		let releaseA: () => void = () => {};
+		const gateA = new Promise<void>((resolve) => {
+			releaseA = resolve;
+		});
+		server.use(
+			http.get("/api/fleet/status", async ({ request }) => {
+				const primary = new URL(request.url).searchParams.get("primary");
+				if (primary === "1") {
+					await gateA;
+					return HttpResponse.json({
+						primary_id: "1",
+						primary_reachable: true,
+						members: [primaryRow("1", "hotel-1"), primaryRow("2", "hotel-2")],
+					});
+				}
+				return HttpResponse.text("hotel-2 is on fire", { status: 502 });
+			}),
+		);
+		renderWizard();
+		await pickPrimary("1");
+		await pickPrimary("2");
+		expect(await screen.findByText("hotel-2 is on fire")).toBeInTheDocument();
+
+		// A's answer arrives now; B is the selected primary, so it must not
+		// open Next with A's data.
+		releaseA();
+		await new Promise((r) => setTimeout(r, 50));
+		expect(screen.getByRole("button", { name: "Next" })).toBeDisabled();
+	});
+
 	it("surfaces the backend error instead of a generic toast", async () => {
 		server.use(
 			http.get("/api/fleet/status", () =>

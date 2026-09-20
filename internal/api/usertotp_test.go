@@ -284,7 +284,7 @@ func TestUserTotp_EdgeResponses(t *testing.T) {
 	}
 	// A wrong disable code is a 403 and leaves 2FA on.
 	if w := doJSON(t, r, http.MethodPost, "/auth/totp/disable", token, `{"code":"000000"}`); w.Code != http.StatusForbidden {
-		t.Errorf("disable wrong code: %d, want 401", w.Code)
+		t.Errorf("disable wrong code: %d, want 403", w.Code)
 	}
 	// Admin reset of a nonexistent user is a 404, not a silent no-op.
 	if w := doJSON(t, r, http.MethodPost, "/users/"+uuid.NewString()+"/totp/reset", envAdminToken, ""); w.Code != http.StatusNotFound {

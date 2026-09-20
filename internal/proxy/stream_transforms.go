@@ -1,6 +1,9 @@
 package proxy
 
-import "encoding/json"
+import (
+	"bytes"
+	"encoding/json"
+)
 
 // stripReasoningDecision is what computeStripReasoning decided for a chunk.
 type stripReasoningDecision int
@@ -145,8 +148,8 @@ func computeFinishReason(chunk streamChunk, payload string, lastFinishReason *st
 			// the legacy function_call carries an answer too: two consecutive
 			// tool-call frames each stamped finish_reason "tool_calls" are not
 			// duplicates of each other.
-			if len(delta.ToolCalls) > 0 || delta.Refusal != nil ||
-				len(delta.Audio) > 0 || len(delta.FunctionCall) > 0 {
+			if len(delta.ToolCalls) > 0 || (delta.Refusal != nil && *delta.Refusal != "") ||
+				rawCarriesValue(delta.Audio) || rawCarriesValue(delta.FunctionCall) {
 				hasContent = true
 			}
 		}
@@ -271,4 +274,15 @@ func normalizeReasoningChunk(content, reasoningContent *string, payload string, 
 		}
 	}
 	return chunkParsed.reserialize(chunkParsed.delta, lastFinishReason, logData), true
+}
+
+// rawCarriesValue reports whether a raw JSON field holds something beyond an
+// empty placeholder: absent, null, {} and [] are the shapes providers stamp
+// on a frame that carries no answer.
+func rawCarriesValue(raw json.RawMessage) bool {
+	switch string(bytes.TrimSpace(raw)) {
+	case "", "null", "{}", "[]":
+		return false
+	}
+	return true
 }

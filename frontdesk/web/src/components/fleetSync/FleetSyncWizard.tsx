@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, api } from "../../api/client";
 import type {
@@ -103,19 +103,26 @@ export function FleetSyncWizard({
 			.catch(() => {});
 	}, []);
 
+	// Which probe is the newest: a probe answered after the operator moved on
+	// to another primary is dropped, or its reachable result would clear the
+	// new candidate's warning and open Next with the wrong host's data.
+	const probeSeq = useRef(0);
 	const refresh = useCallback(
 		async (id: string) => {
 			if (!id) return;
+			const seq = ++probeSeq.current;
 			setLoading(true);
 			try {
 				const fs = await api.fleetStatus(id);
+				if (seq !== probeSeq.current) return;
 				// An unusable primary comes back without a member list (Go nil slice
 				// serialises to null); normalise so the gate helpers never touch null.
 				setStatus({ ...fs, members: fs.members ?? [] });
 			} catch (e) {
+				if (seq !== probeSeq.current) return;
 				toast(e instanceof ApiError ? e.message : t("errors.generic"), "error");
 			} finally {
-				setLoading(false);
+				if (seq === probeSeq.current) setLoading(false);
 			}
 		},
 		[toast, t],

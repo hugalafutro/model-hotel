@@ -556,4 +556,21 @@ func TestComputeFinishReason_NPlusOneAndToolCallFrames(t *testing.T) {
 	if d, _ := computeFinishReason(parse(t, tool), tool, &lastFR); d != finishNone {
 		t.Fatalf("tool-call frame repeating finish_reason: decision %v, want forwarded", d)
 	}
+
+	// Empty placeholders are not answers: a repeated terminal frame that only
+	// carries audio:null, function_call:{} or refusal:"" is still a duplicate.
+	lastFR = "stop"
+	for _, payload := range []string{
+		`{"choices":[{"index":0,"delta":{"audio":null},"finish_reason":"stop"}]}`,
+		`{"choices":[{"index":0,"delta":{"function_call":{}},"finish_reason":"stop"}]}`,
+		`{"choices":[{"index":0,"delta":{"refusal":""},"finish_reason":"stop"}]}`,
+	} {
+		if d, _ := computeFinishReason(parse(t, payload), payload, &lastFR); d != finishSuppress {
+			t.Fatalf("%s: decision %v, want suppressed", payload, d)
+		}
+	}
+	refusal := `{"choices":[{"index":0,"delta":{"refusal":"no"},"finish_reason":"stop"}]}`
+	if d, _ := computeFinishReason(parse(t, refusal), refusal, &lastFR); d != finishNone {
+		t.Fatalf("refusal frame: decision %v, want forwarded", d)
+	}
 }
