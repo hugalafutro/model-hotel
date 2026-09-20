@@ -1,5 +1,6 @@
 import { screen, waitFor } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
+import { useState } from "react";
 import { describe, expect, it } from "vitest";
 import type { FailoverGroup } from "../../../api/types";
 import { server } from "../../../test/mocks/server";
@@ -33,7 +34,37 @@ function Harness({ group }: { group: FailoverGroup }) {
 	);
 }
 
+/** Surfaces whether the reorder write settled or was refused. */
+function ReorderHarness({ group }: { group: FailoverGroup }) {
+	const { handleReorder } = useFailoverGroupMutations(() => {});
+	const [outcome, setOutcome] = useState("");
+	return (
+		<button
+			type="button"
+			onClick={() =>
+				handleReorder(group, ["c", "a", "b"]).then(
+					() => setOutcome("settled"),
+					() => setOutcome("refused"),
+				)
+			}
+		>
+			reorder{outcome ? `:${outcome}` : ""}
+		</button>
+	);
+}
+
 describe("useFailoverGroupMutations", () => {
+	it("hands the card a reorder write that rejects when the server refuses it", async () => {
+		server.use(
+			http.put("/api/failover-groups/:id", () =>
+				HttpResponse.json({ error: "conflict" }, { status: 409 }),
+			),
+		);
+		renderWithProviders(<ReorderHarness group={disabledGroup()} />);
+		screen.getByText("reorder").click();
+		expect(await screen.findByText("reorder:refused")).toBeInTheDocument();
+	});
+
 	it("sends only the entry flags, leaving a hand-disabled group disabled", async () => {
 		const bodies: Record<string, unknown>[] = [];
 		server.use(

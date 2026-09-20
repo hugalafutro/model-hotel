@@ -179,6 +179,11 @@ export function AlertsSettings({
 	// rows still show the pre-write list, and a removal computed from it would
 	// re-persist a row the previous write just dropped.
 	const refreshing = useIsFetching({ queryKey: ["alert-targets"] }) > 0;
+	// The event picker computes its whole CSV from the stored value, which is
+	// only authoritative again once the settings read has refetched: a tick
+	// between the write settling and that refetch would recompute from the
+	// old CSV and write the previous tick away.
+	const settingsRefreshing = useIsFetching({ queryKey: ["settings"] }) > 0;
 	const busy =
 		updateMutation.isPending ||
 		testMutation.isPending ||
@@ -328,7 +333,7 @@ export function AlertsSettings({
 										// Every tick writes the whole CSV from the stored value, so a
 										// second tick inside the first write's round trip would
 										// recompute from the stale list and drop the first change.
-										disabled={updateMutation.isPending}
+										disabled={updateMutation.isPending || settingsRefreshing}
 										onChange={(csv) =>
 											updateMutation.mutate({ alert_events: csv })
 										}

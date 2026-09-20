@@ -665,13 +665,33 @@ describe("AlertsSettings", () => {
 			alert_events: "circuit_breaker.open,circuit_breaker.closed",
 		});
 		let releasePut: () => void = () => {};
+		let putIntercepted = false;
+		let settingsReads = 0;
+		let releaseSettingsRefetch: () => void = () => {};
+		const settingsRefetchGate = new Promise<void>((resolve) => {
+			releaseSettingsRefetch = resolve;
+		});
 		server.use(
 			http.put("/api/settings", async ({ request }) => {
 				const body = (await request.json()) as Record<string, string>;
+				putIntercepted = true;
 				await new Promise<void>((resolve) => {
 					releasePut = resolve;
 				});
 				return HttpResponse.json(body);
+			}),
+			// The refetch after the write is held too: until it lands the stored
+			// CSV the picker computes from is still the old one.
+			http.get("/api/settings", async () => {
+				settingsReads++;
+				if (settingsReads > 1) await settingsRefetchGate;
+				return HttpResponse.json({
+					alert_enabled: "true",
+					alert_events:
+						settingsReads > 1
+							? "circuit_breaker.closed"
+							: "circuit_breaker.open,circuit_breaker.closed",
+				});
 			}),
 		);
 		const user = userEvent.setup();
@@ -686,12 +706,22 @@ describe("AlertsSettings", () => {
 			screen.getByTestId("alert-event-circuit_breaker.closed"),
 		).getByRole("checkbox");
 		await user.click(box);
-		await waitFor(() => expect(box).toBeDisabled());
-		expect(other).toBeDisabled();
+		await waitFor(() => expect(putIntercepted).toBe(true));
+		await waitFor(() => {
+			expect(box).toBeDisabled();
+			expect(other).toBeDisabled();
+		});
 
 		releasePut();
-		await waitFor(() => expect(box).toBeEnabled());
-		expect(other).toBeEnabled();
+		await waitFor(() => expect(settingsReads).toBeGreaterThan(1));
+		expect(box).toBeDisabled();
+
+		releaseSettingsRefetch();
+		await waitFor(() => {
+			expect(box).toBeEnabled();
+			expect(other).toBeEnabled();
+		});
+		expect(box).not.toBeChecked();
 	});
 
 	it("disables the test button until fully configured", async () => {

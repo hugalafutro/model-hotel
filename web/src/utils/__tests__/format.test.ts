@@ -30,6 +30,7 @@ describe("intOrNull", () => {
 		expect(intOrNull("12.9")).toBe(12);
 		expect(intOrNull("7")).toBe(7);
 		expect(intOrNull("")).toBeNull();
+		expect(intOrNull("  ")).toBeNull();
 		expect(intOrNull("abc")).toBeNull();
 	});
 });

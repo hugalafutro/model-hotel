@@ -247,7 +247,8 @@ export function numOrNull(value: string): number | null {
  * where parseInt stops at the "e" and stores 1.
  */
 export function intOrNull(value: string): number | null {
-	if (value === "") return null;
-	const n = Math.trunc(Number(value));
+	const text = value.trim();
+	if (text === "") return null;
+	const n = Math.trunc(Number(text));
 	return Number.isFinite(n) ? n : null;
 }
