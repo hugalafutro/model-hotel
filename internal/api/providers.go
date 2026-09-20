@@ -450,6 +450,10 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 		respondError(w, fmt.Sprintf("failed to load provider %s before update", id), err, http.StatusInternalServerError)
 		return
 	}
+	if !blankKeyAllowed(prior, req) {
+		http.Error(w, "api_key is required for this provider type", http.StatusBadRequest)
+		return
+	}
 
 	p, err := h.providerRepo.Update(r.Context(), id, req, encryptedKey, keyNonce, keySalt)
 	if err != nil {
@@ -613,6 +617,21 @@ func (h *Handler) DeleteProvider(w http.ResponseWriter, r *http.Request) {
 // without an API key).
 func providerTypeAllowsEmptyKey(providerType string) bool {
 	return providerType == "opencode-zen" || providerType == "custom" || provider.IsLocalServerType(providerType)
+}
+
+// blankKeyAllowed applies the create rule to an update: a blank key is only a
+// key for the types that work without one, judged against the type the row
+// will have after this save. A missing row (nil prior) passes; the update
+// itself answers 404 for it.
+func blankKeyAllowed(prior *provider.Provider, req provider.UpdateProviderRequest) bool {
+	if req.APIKey == nil || *req.APIKey != "" || prior == nil {
+		return true
+	}
+	providerType := prior.ProviderType
+	if req.ProviderType != nil {
+		providerType = *req.ProviderType
+	}
+	return providerTypeAllowsEmptyKey(providerType)
 }
 
 // providerNameConflictMsg is the 409 both provider writes answer with, on the

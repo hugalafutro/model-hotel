@@ -611,6 +611,21 @@ func TestTestModel(t *testing.T) {
 
 // Discovery Handler Tests
 
+// PATCH on a model id that does not exist answers 404, the way the reads do.
+func TestUpdateModel_UnknownID(t *testing.T) {
+	h := newTestHandler(t)
+	r := chi.NewRouter()
+	h.Register(r)
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodPatch, "/models/"+uuid.New().String(), strings.NewReader(`{"display_name":"ghost"}`))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	r.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d body = %s, want 404", rec.Code, rec.Body.String())
+	}
+}
+
 func TestUpdateModel_Validation(t *testing.T) {
 	h, r := newTestHandlerWithRouter(t)
 

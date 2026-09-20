@@ -156,10 +156,13 @@ func (h *BackupHandler) scheduledBackupWait(interval time.Duration, now time.Tim
 }
 
 // removeStalePartials deletes dumps a previous process was killed in the
-// middle of writing. They are invisible to the listing, so nothing else would
-// ever reclaim them. It runs under the backup lock so a scheduler restarted
-// beside a manual backup in progress cannot sweep that backup's partial; when
-// the lock is busy the sweep simply waits for the next start.
+// middle of writing, and restore uploads (restore-*.dump, the temp file a
+// restore reads from) a previous process was killed before removing. Both are
+// invisible to the listing, so nothing else would ever reclaim them. It runs
+// under the backup lock, which a restore holds from upload to finish, so a
+// scheduler restarted beside a manual backup or restore in progress cannot
+// sweep that operation's file; when the lock is busy the sweep simply waits
+// for the next start.
 func (h *BackupHandler) removeStalePartials() {
 	if !h.backupMu.TryLock() {
 		return
@@ -170,13 +173,19 @@ func (h *BackupHandler) removeStalePartials() {
 		return
 	}
 	for _, e := range entries {
-		if e.IsDir() || !strings.HasSuffix(e.Name(), backupPartialSuffix) {
+		if e.IsDir() || (!strings.HasSuffix(e.Name(), backupPartialSuffix) && !isRestoreUpload(e.Name())) {
 			continue
 		}
 		if err := os.Remove(filepath.Join(h.backupDir, e.Name())); err == nil {
 			debuglog.Info("backup: removed a partial dump from an interrupted run", "filename", e.Name())
 		}
 	}
+}
+
+// isRestoreUpload matches the temp file saveUploadedDump creates
+// (os.CreateTemp "restore-*.dump"); a finished backup is backup_*.dump.
+func isRestoreUpload(name string) bool {
+	return strings.HasPrefix(name, "restore-") && strings.HasSuffix(name, ".dump")
 }
 
 // runScheduledBackup creates a backup and applies the rotation scheme.

@@ -102,6 +102,14 @@ func New(ctx context.Context, databaseURL string, maxConns, minConns int32) (*DB
 
 	db := &DB{pool: pool}
 
+	// The pool is lazy, so this is the first round trip. Migrations run next
+	// and would report a store that is merely still starting as a failed
+	// migration, so the wait comes first.
+	if err := db.WaitForReady(ctx, newReadyAttempts); err != nil {
+		pool.Close()
+		return nil, err
+	}
+
 	if err := db.runMigrations(ctx); err != nil {
 		pool.Close()
 		// A migration that raised its own exception decided to refuse; anything
@@ -278,6 +286,10 @@ func verifyAppliedMigration(ctx context.Context, tx pgx.Tx, name string, stored 
 // waitForReadyInterval is the time between readiness check attempts.
 // Can be reduced in tests for faster execution.
 var waitForReadyInterval = 2 * time.Second
+
+// newReadyAttempts is how many pings New spends waiting for the store before
+// it runs migrations: a minute at the default interval.
+var newReadyAttempts = 30
 
 // WaitForReady polls the database until it responds or maxAttempts is reached.
 func (db *DB) WaitForReady(ctx context.Context, maxAttempts int) error {

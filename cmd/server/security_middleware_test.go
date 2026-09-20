@@ -93,4 +93,13 @@ func TestMaxRequestSizeMiddleware(t *testing.T) {
 	if readErr != nil {
 		t.Errorf("expected small body to read fine, got %v", readErr)
 	}
+
+	// The restore upload sets its own, larger bound in its handler; the
+	// general cap must not cut it first.
+	rec = httptest.NewRecorder()
+	req = httptest.NewRequest(http.MethodPost, "/api/backups/restore", strings.NewReader("a dump larger than eight bytes"))
+	mw(next).ServeHTTP(rec, req)
+	if readErr != nil {
+		t.Errorf("the restore upload was capped by the general limit: %v", readErr)
+	}
 }

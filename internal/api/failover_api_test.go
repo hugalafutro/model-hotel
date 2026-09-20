@@ -169,14 +169,25 @@ func TestFailoverHandler_Delete_Unauthorized(t *testing.T) {
 // Create tests
 // ---------------------------------------------------------------------------
 
+// seedTwoModels inserts a provider with two models and returns the model ids.
+// A new group's entries must name models this member has.
+func seedTwoModels(t *testing.T) (string, string) {
+	t.Helper()
+	providerID := seedProvider(t, "fo-create-"+uuid.New().String()[:8], "sk-seed", "test-master-key")
+	t.Cleanup(func() {
+		_, _ = apiTestDB.Pool().Exec(context.Background(), `DELETE FROM providers WHERE id = $1`, providerID)
+	})
+	return seedModel(t, providerID, "m-one"), seedModel(t, providerID, "m-two")
+}
+
 func TestFailoverHandler_Create_Success(t *testing.T) {
 	h := newIntegrationFailoverHandler()
 
 	ctx := context.Background()
 
-	id1, id2 := uuid.New(), uuid.New()
+	id1, id2 := seedTwoModels(t)
 	displayModel := "test-create-" + uuid.New().String()[:8]
-	body := `{"display_model":"` + displayModel + `","entry_ids":["` + id1.String() + `","` + id2.String() + `"]}`
+	body := `{"display_model":"` + displayModel + `","entry_ids":["` + id1 + `","` + id2 + `"]}`
 	req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
 
 	r := newFailoverRouter(h)
@@ -193,13 +204,100 @@ func TestFailoverHandler_Create_Success(t *testing.T) {
 	if resp.DisplayModel != displayModel {
 		t.Errorf("DisplayModel = %q, want %q", resp.DisplayModel, displayModel)
 	}
-	// Note: Entries may be empty because modelRepo.GetByIDs can't resolve random UUIDs
-	// that don't correspond to real models in the database.
-	if resp.DisplayModel != displayModel {
-		t.Errorf("DisplayModel = %q, want %q", resp.DisplayModel, displayModel)
+	if len(resp.Entries) != 2 {
+		t.Errorf("entries = %d, want the two seeded models", len(resp.Entries))
 	}
 
 	_ = h.failoverRepo.Delete(ctx, displayModel)
+}
+
+// A new group names each member once, and only members this instance has:
+// a repeated id or an unknown one is refused, not stored.
+func TestFailoverHandler_Create_RejectsDuplicateAndUnknownEntries(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	id1, _ := seedTwoModels(t)
+	for _, tc := range []struct{ name, entries, want string }{
+		{"duplicate", `"` + id1 + `","` + id1 + `"`, "duplicate entry_id"},
+		{"unknown", `"` + id1 + `","` + uuid.New().String() + `"`, "unknown entry_id"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			displayModel := "test-create-bad-" + uuid.New().String()[:8]
+			body := `{"display_model":"` + displayModel + `","entry_ids":[` + tc.entries + `]}`
+			req, w := newChiRequest(http.MethodPost, "/failover-groups/", strings.NewReader(body))
+			h.Create(w, req)
+			if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), tc.want) {
+				t.Fatalf("status = %d body = %q, want 400 %q", w.Code, w.Body.String(), tc.want)
+			}
+			if _, err := h.failoverRepo.GetByModel(context.Background(), displayModel); err == nil {
+				t.Error("the refused group was stored")
+			}
+		})
+	}
+}
+
+// An explicit priority_order replaces the members wholesale, so it must name
+// at least one and name each once.
+func TestFailoverHandler_Update_RejectsEmptyAndDuplicatePriorityOrder(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+	displayModel := "test-update-po-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, displayModel, []uuid.UUID{id1, id2}, nil, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	t.Cleanup(func() { _ = h.failoverRepo.Delete(ctx, displayModel) })
+	for _, tc := range []struct{ name, order, want string }{
+		{"empty", `[]`, "must not be empty"},
+		{"duplicate", `["` + id1.String() + `","` + id1.String() + `"]`, "duplicate priority_order entry"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(`{"priority_order":`+tc.order+`}`))
+			req = setChiURLParam(req, "id", fg.ID.String())
+			h.Update(w, req)
+			if w.Code != http.StatusBadRequest || !strings.Contains(w.Body.String(), tc.want) {
+				t.Fatalf("status = %d body = %q, want 400 %q", w.Code, w.Body.String(), tc.want)
+			}
+		})
+	}
+	after, err := h.failoverRepo.GetByID(ctx, fg.ID)
+	if err != nil || len(after.PriorityOrder) != 2 {
+		t.Fatalf("refused updates changed the group: %v, %v", after, err)
+	}
+}
+
+// Renaming a group evicts the old display model's cache key after the write
+// as well as before it, so a lookup that raced the write cannot leave the old
+// row cached under a name that no longer exists.
+func TestFailoverHandler_Update_RenameEvictsTheOldKeyAfterTheWrite(t *testing.T) {
+	h := newIntegrationFailoverHandler()
+	ctx := context.Background()
+	oldName := "test-rename-old-" + uuid.New().String()[:8]
+	newName := "test-rename-new-" + uuid.New().String()[:8]
+	id1, id2 := uuid.New(), uuid.New()
+	fg, err := h.failoverRepo.UpsertWithConfig(ctx, oldName, []uuid.UUID{id1, id2}, map[string]bool{id1.String(): true, id2.String(): true}, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("Upsert failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = h.failoverRepo.Delete(ctx, oldName)
+		_ = h.failoverRepo.Delete(ctx, newName)
+	})
+	if _, err := h.failoverRepo.GetByModel(ctx, oldName); err != nil {
+		t.Fatalf("GetByModel failed: %v", err)
+	}
+	req, w := newChiRequest(http.MethodPut, "/failover-groups/"+fg.ID.String(), strings.NewReader(`{"display_model":"`+newName+`"}`))
+	req = setChiURLParam(req, "id", fg.ID.String())
+	h.Update(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", w.Code, w.Body.String())
+	}
+	if failover.IsCachedByModel(oldName) {
+		t.Error("the old display model is still cached after the rename")
+	}
+	if cached, ok := failover.GetCachedFailoverByModel(newName); !ok || cached.ID != fg.ID {
+		t.Errorf("the renamed group is not cached under its new name (ok=%v)", ok)
+	}
 }
 
 func TestFailoverHandler_Create_MissingDisplayModel(t *testing.T) {
