@@ -201,12 +201,13 @@ export function useFailoverGroupMutations(refreshGroups: () => void) {
 		});
 	};
 
-	const handleReorder = (group: FailoverGroup, newOrder: string[]) => {
-		update.mutate({
+	// Returns the write so the card can roll its optimistic order back when
+	// the server refuses it; the mutation's own onError still toasts.
+	const handleReorder = (group: FailoverGroup, newOrder: string[]) =>
+		update.mutateAsync({
 			id: group.id,
 			data: { priority_order: newOrder },
 		});
-	};
 
 	return {
 		sync,

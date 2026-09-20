@@ -241,7 +241,14 @@ export function numOrNull(value: string): number | null {
 	return value !== "" ? Number.parseFloat(value) : null;
 }
 
-/** The same for a field the API takes as a whole number. */
+/**
+ * The same for a field the API takes as a whole number. Number(), not
+ * parseInt(): a number input accepts "1e6" and validates it as a million,
+ * where parseInt stops at the "e" and stores 1.
+ */
 export function intOrNull(value: string): number | null {
-	return value !== "" ? Number.parseInt(value, 10) : null;
+	const text = value.trim();
+	if (text === "") return null;
+	const n = Math.trunc(Number(text));
+	return Number.isFinite(n) ? n : null;
 }

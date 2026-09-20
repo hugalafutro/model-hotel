@@ -13,7 +13,7 @@ import {
 	sortableKeyboardCoordinates,
 	verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import type {
 	CircuitBreakerProviderStatus,
@@ -57,7 +57,8 @@ export function FailoverGroupCard({
 	onToggleSelect: (selected: boolean) => void;
 	onToggleGroup: (enabled: boolean) => void;
 	onToggleEntry: (uuid: string, enabled: boolean) => void;
-	onReorder: (newOrder: string[]) => void;
+	/** A returned promise is the write: when it rejects, the card shows the server order again. */
+	onReorder: (newOrder: string[]) => unknown;
 	onDelete: () => void;
 	onEdit?: () => void;
 	// When true this group's config is managed by the fleet primary. Every write
@@ -79,6 +80,9 @@ export function FailoverGroupCard({
 	// Optimistic local state: reorders on dragEnd so the DOM order matches the
 	// visual drag position.
 	const [localEntries, setLocalEntries] = useState(group.entries);
+	// Which reorder write is the newest: only its rejection rolls back, so an
+	// earlier drag failing late cannot undo a later one still in flight.
+	const reorderSeq = useRef(0);
 	const key = useMemo(() => entriesKey(group.entries), [group.entries]);
 
 	// Resets the local state when the server data changes. Comparing the key
@@ -131,7 +135,15 @@ export function FailoverGroupCard({
 			const newIndex = localEntries.findIndex((e) => e.model_uuid === over.id);
 			const reordered = arrayMove(localEntries, oldIndex, newIndex);
 			setLocalEntries(reordered); // immediate optimistic update
-			onReorder(reordered.map((e) => e.model_uuid));
+			const write = onReorder(reordered.map((e) => e.model_uuid));
+			if (write instanceof Promise) {
+				// A refused write leaves the server order as it was, so the key
+				// resync above never fires; the card goes back to it here.
+				const seq = ++reorderSeq.current;
+				write.catch(() => {
+					if (seq === reorderSeq.current) setLocalEntries(group.entries);
+				});
+			}
 		}
 	};
 

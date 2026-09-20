@@ -86,7 +86,7 @@ export function AuthenticationSettings({
 							infinityValue={0}
 							unit="m"
 							onChange={(v) =>
-								updateMutation.mutate({
+								updateMutation.mutateAsync({
 									session_idle_timeout_minutes: String(v),
 								})
 							}

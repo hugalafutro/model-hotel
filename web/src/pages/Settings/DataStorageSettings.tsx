@@ -173,7 +173,7 @@ export function DataStorageSettings({
 								infinityValue={0}
 								unit="d"
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										log_retention: hoursToGoDuration(v * 24),
 									})
 								}
@@ -193,7 +193,7 @@ export function DataStorageSettings({
 								infinityValue={0}
 								unit="m"
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										stale_request_timeout: minutesToGoDuration(v),
 									})
 								}
@@ -316,20 +316,26 @@ export function DataStorageSettings({
 								// probe slider.
 								unit="m"
 								disabled={quotaDisabled}
-								onChange={(v) => {
-									updateMutation.mutate({
-										quota_refresh_interval_min: String(v),
-									});
-									toast(
-										v === 0
-											? t("settings.sidebarQuota.disabled")
-											: t("settings.sidebarQuota.intervalSet", {
-													minutes: v,
-													count: v,
-												}),
-										"success",
-									);
-								}}
+								onChange={(v) =>
+									// The interval toast waits for the write: a refused save
+									// must not announce the interval as set while the slider
+									// snaps back. The rejection still reaches the slider.
+									updateMutation
+										.mutateAsync({
+											quota_refresh_interval_min: String(v),
+										})
+										.then(() => {
+											toast(
+												v === 0
+													? t("settings.sidebarQuota.disabled")
+													: t("settings.sidebarQuota.intervalSet", {
+															minutes: v,
+															count: v,
+														}),
+												"success",
+											);
+										})
+								}
 								description={t(
 									"settings.sidebarQuota.refreshInterval.description",
 								)}

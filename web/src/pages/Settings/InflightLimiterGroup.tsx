@@ -78,7 +78,7 @@ export function InflightLimiterGroup() {
 				unit="s"
 				hideUnit
 				onChange={(v) =>
-					updateMutation.mutate({ inflight_grow_after: String(v) })
+					updateMutation.mutateAsync({ inflight_grow_after: String(v) })
 				}
 				description={t("settings.circuitBreaker.inflightGrowAfter.description")}
 				onReset={() => resetSettingMutation.mutate(["inflight_grow_after"])}
@@ -95,7 +95,7 @@ export function InflightLimiterGroup() {
 				step={1}
 				unit="m"
 				onChange={(v) =>
-					updateMutation.mutate({
+					updateMutation.mutateAsync({
 						inflight_forget_after: minutesToGoDuration(v),
 					})
 				}
