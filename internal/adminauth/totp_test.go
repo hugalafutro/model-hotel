@@ -1251,12 +1251,24 @@ func TestTotpRoutes_AuditMiddlewareCoversMutations(t *testing.T) {
 // A sweep that fails keeps 2FA off: enabling it on top of sessions that
 // outlive it would report the lock-out as done when it is not.
 func TestTotpEnrollVerify_FailsWhenTheSessionSweepFails(t *testing.T) {
+	// Both sweeps must hold: the first keeps 2FA off, the second rolls it
+	// back off.
+	for _, failFrom := range []int{1, 2} {
+		t.Run(fmt.Sprintf("sweep %d fails", failFrom), func(t *testing.T) {
+			testEnrollVerifySweepFailure(t, failFrom)
+		})
+	}
+}
+
+func testEnrollVerifySweepFailure(t *testing.T, failFrom int) {
+	t.Helper()
 	truncateTOTPTables(t)
 	t.Cleanup(func() { truncateTOTPTables(t) })
 	totpRepo := totpsvc.NewRepository(apiTestDB.Pool(), testMasterKey)
 	adminMgr := &mockAdminAuth{validateFn: func(token string) bool { return token == "admin-token" }}
 	store := newMemStore()
 	store.deleteOthersErr = errors.New("session store down")
+	store.deleteOthersFailFrom = failFrom
 	sessionMgr := webauthn.NewSessionManager(store)
 	shim := &totpEnabledShim{repo: totpRepo, adminMgr: adminMgr, sessionMgr: sessionMgr}
 	shim.totpEnabled.Store(false)

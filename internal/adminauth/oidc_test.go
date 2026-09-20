@@ -39,7 +39,11 @@ type memSessionStore struct {
 	createErr error
 	// deleteOthersErr fails DeleteOtherSessionsForUser, for the callers that
 	// must refuse rather than carry on when the sweep cannot be trusted.
-	deleteOthersErr error
+	// deleteOthersFailFrom limits the failure to the Nth call onward (1-based;
+	// 0 means every call), for a caller that sweeps more than once.
+	deleteOthersErr      error
+	deleteOthersFailFrom int
+	deleteOthersCalls    int
 }
 
 func newMemStore() *memSessionStore {
@@ -136,6 +140,12 @@ func (s *memSessionStore) ExtendSession(_ context.Context, id uuid.UUID, at time
 // DeleteOtherSessionsForUser satisfies webauthn.SessionStore; the OIDC tests
 // never sign other sessions out.
 func (s *memSessionStore) DeleteOtherSessionsForUser(context.Context, []byte, string) (int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.deleteOthersCalls++
+	if s.deleteOthersCalls < s.deleteOthersFailFrom {
+		return 0, nil
+	}
 	return 0, s.deleteOthersErr
 }
 
