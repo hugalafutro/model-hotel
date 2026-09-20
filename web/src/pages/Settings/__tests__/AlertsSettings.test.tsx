@@ -134,6 +134,54 @@ describe("AlertsSettings", () => {
 		);
 	});
 
+	it("keeps the rows busy until the destination read has refetched", async () => {
+		// Between the write settling and the refetch landing the rows still show
+		// the old list; a removal computed from it would re-persist the row the
+		// previous write dropped.
+		serveSettings({
+			alert_enabled: "true",
+			alert_apprise_api_url: "http://apprise:8000",
+			alert_apprise_targets: "********",
+		});
+		let reads = 0;
+		let releaseRefetch: () => void = () => {};
+		const refetchGate = new Promise<void>((resolve) => {
+			releaseRefetch = resolve;
+		});
+		server.use(
+			http.get("/api/alert/targets", async () => {
+				reads++;
+				if (reads > 1) await refetchGate;
+				return HttpResponse.json({
+					targets:
+						reads > 1
+							? ["ntfys://ntfy.example.com/topic1"]
+							: ["tgram://tok/chat", "ntfys://ntfy.example.com/topic1"],
+				});
+			}),
+		);
+		capturePut();
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const rows = await screen.findAllByTestId("alert-destination-row");
+		await user.click(within(rows[0]).getByTestId("alert-destination-remove"));
+		await user.click(screen.getByTestId("alert-destination-remove-confirm"));
+
+		await waitFor(() => expect(reads).toBeGreaterThan(1));
+		for (const btn of screen.getAllByTestId("alert-destination-remove")) {
+			expect(btn).toBeDisabled();
+		}
+
+		releaseRefetch();
+		await waitFor(() =>
+			expect(screen.getAllByTestId("alert-destination-row")).toHaveLength(1),
+		);
+		expect(screen.getByTestId("alert-destination-remove")).toBeEnabled();
+	});
+
 	it("clears the setting when the last destination row is removed", async () => {
 		serveSettings({
 			alert_enabled: "true",
@@ -607,6 +655,73 @@ describe("AlertsSettings", () => {
 		expect(
 			screen.getByTestId("alert-event-circuit_breaker.open"),
 		).toBeInTheDocument();
+	});
+
+	it("holds the event checkboxes while a write is in flight", async () => {
+		// A second tick inside the first write's round trip would recompute the
+		// CSV from the stale stored value and drop the first change.
+		serveSettings({
+			alert_enabled: "true",
+			alert_events: "circuit_breaker.open,circuit_breaker.closed",
+		});
+		let releasePut: () => void = () => {};
+		let putIntercepted = false;
+		let settingsReads = 0;
+		let releaseSettingsRefetch: () => void = () => {};
+		const settingsRefetchGate = new Promise<void>((resolve) => {
+			releaseSettingsRefetch = resolve;
+		});
+		server.use(
+			http.put("/api/settings", async ({ request }) => {
+				const body = (await request.json()) as Record<string, string>;
+				putIntercepted = true;
+				await new Promise<void>((resolve) => {
+					releasePut = resolve;
+				});
+				return HttpResponse.json(body);
+			}),
+			// The refetch after the write is held too: until it lands the stored
+			// CSV the picker computes from is still the old one.
+			http.get("/api/settings", async () => {
+				settingsReads++;
+				if (settingsReads > 1) await settingsRefetchGate;
+				return HttpResponse.json({
+					alert_enabled: "true",
+					alert_events:
+						settingsReads > 1
+							? "circuit_breaker.closed"
+							: "circuit_breaker.open,circuit_breaker.closed",
+				});
+			}),
+		);
+		const user = userEvent.setup();
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+		await user.click(await screen.findByTestId("alert-picker-toggle"));
+		const box = within(
+			await screen.findByTestId("alert-event-circuit_breaker.open"),
+		).getByRole("checkbox");
+		const other = within(
+			screen.getByTestId("alert-event-circuit_breaker.closed"),
+		).getByRole("checkbox");
+		await user.click(box);
+		await waitFor(() => expect(putIntercepted).toBe(true));
+		await waitFor(() => {
+			expect(box).toBeDisabled();
+			expect(other).toBeDisabled();
+		});
+
+		releasePut();
+		await waitFor(() => expect(settingsReads).toBeGreaterThan(1));
+		expect(box).toBeDisabled();
+
+		releaseSettingsRefetch();
+		await waitFor(() => {
+			expect(box).toBeEnabled();
+			expect(other).toBeEnabled();
+		});
+		expect(box).not.toBeChecked();
 	});
 
 	it("disables the test button until fully configured", async () => {

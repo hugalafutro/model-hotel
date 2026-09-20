@@ -38,6 +38,38 @@ describe("useModelEditor", () => {
 		mockOnUpdate.mockClear();
 	});
 
+	describe("model changed outside the editor", () => {
+		it("starts the next edit from the model, not from the last typed values", () => {
+			// Edit + save, then the prices are reset to source elsewhere: the next
+			// edit must not count the old prices as changes and re-pin them.
+			const { result, rerender } = renderHook(
+				({ model }) => useModelEditor({ model, onUpdate: mockOnUpdate }),
+				{ initialProps: { model: mockModel } },
+			);
+			act(() => result.current.setEditing(true));
+			act(() =>
+				result.current.setEditData((d) => ({ ...d, display_name: "Renamed" })),
+			);
+			act(() => result.current.handleSave());
+			expect(mockOnUpdate).toHaveBeenCalledWith("model-001", {
+				display_name: "Renamed",
+			});
+
+			rerender({
+				model: {
+					...mockModel,
+					display_name: "Renamed",
+					input_price_per_million: null,
+					output_price_per_million: null,
+				},
+			});
+			act(() => result.current.setEditing(true));
+			expect(result.current.editData.input_price_per_million).toBe("");
+			expect(result.current.editData.output_price_per_million).toBe("");
+			expect(result.current.getChangedFields()).toEqual([]);
+		});
+	});
+
 	describe("initial state", () => {
 		it("starts with editing=false", () => {
 			const { result } = renderHook(() =>
@@ -797,7 +829,9 @@ describe("useModelEditor", () => {
 			expect(result.current.editData.context_length).toBe("16384");
 		});
 
-		it("does not sync when not editing", () => {
+		it("follows the model when not editing", () => {
+			// Outside edit mode the form is a mirror of the model, so the next
+			// edit starts from what the model holds now.
 			const updatedModel: Model = {
 				...mockModel,
 				display_name: "Updated by API",
@@ -808,10 +842,9 @@ describe("useModelEditor", () => {
 				{ initialProps: { model: mockModel } },
 			);
 
-			// Not editing
 			rerender({ model: updatedModel });
 
-			expect(result.current.editData.display_name).toBe("Test Model v1");
+			expect(result.current.editData.display_name).toBe("Updated by API");
 		});
 	});
 });

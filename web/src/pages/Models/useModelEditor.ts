@@ -77,6 +77,16 @@ export function useModelEditor({ model, onUpdate }: UseModelEditorParams) {
 		setEditVersion(currentEditVersion);
 		setEditData(editValuesFrom(model));
 	}
+	// Outside edit mode the form follows the model, so a change made elsewhere
+	// (a price reset to source after a save in this same modal) is what the
+	// next edit starts from, not the values typed last time. Otherwise the
+	// stale prices counted as edits and the next save re-pinned them.
+	const seedKey = JSON.stringify(editValuesFrom(model));
+	const [seededKey, setSeededKey] = useState(seedKey);
+	if (!editing && seedKey !== seededKey) {
+		setSeededKey(seedKey);
+		setEditData(editValuesFrom(model));
+	}
 
 	const getFieldLabel = (key: string): string =>
 		key in FIELD_LABEL_KEYS ? t(FIELD_LABEL_KEYS[key as keyof EditData]) : key;

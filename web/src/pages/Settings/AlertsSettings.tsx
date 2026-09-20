@@ -1,4 +1,9 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	useIsFetching,
+	useMutation,
+	useQuery,
+	useQueryClient,
+} from "@tanstack/react-query";
 import { useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { Bell, DisclosureChevron } from "@/lib/icons";
@@ -170,10 +175,20 @@ export function AlertsSettings({
 			alert_apprise_targets: targets.filter((x) => x !== url).join("; "),
 		});
 
+	// The destination reads refetch after every write; until they land the
+	// rows still show the pre-write list, and a removal computed from it would
+	// re-persist a row the previous write just dropped.
+	const refreshing = useIsFetching({ queryKey: ["alert-targets"] }) > 0;
+	// The event picker computes its whole CSV from the stored value, which is
+	// only authoritative again once the settings read has refetched: a tick
+	// between the write settling and that refetch would recompute from the
+	// old CSV and write the previous tick away.
+	const settingsRefreshing = useIsFetching({ queryKey: ["settings"] }) > 0;
 	const busy =
 		updateMutation.isPending ||
 		testMutation.isPending ||
-		rowTestMutation.isPending;
+		rowTestMutation.isPending ||
+		refreshing;
 
 	// Anything stored turns the guided entry point from "set this up" into
 	// "add another to what is there".
@@ -315,6 +330,10 @@ export function AlertsSettings({
 								<div className="pl-5">
 									<AlertEventPicker
 										value={settings?.alert_events}
+										// Every tick writes the whole CSV from the stored value, so a
+										// second tick inside the first write's round trip would
+										// recompute from the stale list and drop the first change.
+										disabled={updateMutation.isPending || settingsRefreshing}
 										onChange={(csv) =>
 											updateMutation.mutate({ alert_events: csv })
 										}
@@ -340,7 +359,7 @@ export function AlertsSettings({
 								unit="d"
 								hideUnit
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										discovery_claim_alert_days: String(v),
 									})
 								}

@@ -150,7 +150,7 @@ function RateLimit429Group() {
 				step={5}
 				unit="s"
 				onChange={(v) =>
-					updateMutation.mutate({
+					updateMutation.mutateAsync({
 						rate_limit_saturation_max_wait: secondsToGoDuration(v),
 					})
 				}
@@ -171,7 +171,7 @@ function RateLimit429Group() {
 				step={10}
 				unit="s"
 				onChange={(v) =>
-					updateMutation.mutate({
+					updateMutation.mutateAsync({
 						rate_limit_recent_success_window: secondsToGoDuration(v),
 					})
 				}
@@ -358,7 +358,7 @@ export function CircuitBreakerSettings({
 								unit="s"
 								hideUnit
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										circuit_breaker_threshold: String(v),
 									})
 								}
@@ -382,7 +382,7 @@ export function CircuitBreakerSettings({
 								unit="s"
 								hideUnit
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										circuit_breaker_span_models: String(v),
 									})
 								}
@@ -406,7 +406,7 @@ export function CircuitBreakerSettings({
 								clampStep={30}
 								unit="s"
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										circuit_breaker_cooldown: secondsToGoDuration(v),
 									})
 								}
@@ -429,7 +429,7 @@ export function CircuitBreakerSettings({
 								step={1}
 								unit="h"
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										circuit_breaker_quota_pin_max: hoursToGoDuration(v),
 									})
 								}
@@ -452,7 +452,7 @@ export function CircuitBreakerSettings({
 								step={1}
 								unit="m"
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										circuit_breaker_backoff_max: minutesToGoDuration(v),
 									})
 								}
@@ -490,7 +490,7 @@ export function CircuitBreakerSettings({
 								step={1}
 								unit="s"
 								onChange={(v) =>
-									updateMutation.mutate({
+									updateMutation.mutateAsync({
 										hedge_delay: secondsToGoDuration(v),
 									})
 								}
