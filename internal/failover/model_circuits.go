@@ -540,9 +540,15 @@ func (cb *CircuitBreaker) effectiveCooldownForWith(c *circuit, r *cooldownReads)
 	// see RecordExhausted), and it never undercuts the cooldown the circuit
 	// would serve unpinned, so the pin can never make the breaker more
 	// aggressive. An advisor pin measured the window and keeps its full length.
+	//
+	// The interval is a ceiling on how long an unmeasured pin runs between
+	// probes, not a floor under it: a pin shorter than the interval (a dated
+	// Retry-After of two minutes, the 30-minute default a "usage limit" phrase
+	// carries) is the provider's own word on the wait and is served as stamped.
+	// Stretching it to the interval turned a two-minute 429 into an hour off.
 	if pinProbes(c.pinSource) {
 		if probe := r.pinProbeInterval(); probe > 0 {
-			return max(probe, cooldown) + time.Duration(c.probeSeed*float64(probe)/20)
+			return min(pinned, max(probe, cooldown)+time.Duration(c.probeSeed*float64(probe)/20))
 		}
 	}
 	return pinned

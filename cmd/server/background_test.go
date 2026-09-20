@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 
 	"github.com/hugalafutro/model-hotel/internal/auth"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
@@ -359,6 +360,55 @@ func TestLogRetentionPass(t *testing.T) {
 			if n != 0 {
 				t.Errorf("expected 48h retention to delete the 3-day-old %s row, got %d rows", table, n)
 			}
+		}
+	})
+
+	t.Run("open_budget_period_floors_the_window", func(t *testing.T) {
+		// A key on a monthly budget keeps this month's rows past the window:
+		// the budget is summed from them. Last month's row and app_logs go.
+		for _, table := range []string{"request_logs", "app_logs"} {
+			if _, err := pool.Exec(ctx, `DELETE FROM `+table); err != nil {
+				t.Fatalf("cleanup failed: %v", err)
+			}
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO virtual_keys (name, key_hash, key_preview, budget_usd, budget_period)
+			 VALUES ('retention-budget', 'hash-retention-budget', 'sk-***', 5, 'month')`); err != nil {
+			t.Fatalf("insert key failed: %v", err)
+		}
+		t.Cleanup(func() { _, _ = pool.Exec(ctx, `DELETE FROM virtual_keys WHERE key_hash = 'hash-retention-budget'`) })
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO request_logs (state, created_at) VALUES
+			 ('completed', date_trunc('month', now())),
+			 ('completed', date_trunc('month', now()) - interval '1 day')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		if _, err := pool.Exec(ctx,
+			`INSERT INTO app_logs (timestamp, level, source, message, created_at) VALUES (now() - interval '3 days', 'info', 'test', 'old', now() - interval '3 days')`); err != nil {
+			t.Fatalf("insert failed: %v", err)
+		}
+		setRetention("1h")
+		logRetentionPass(ctx, pool, settingsRepo)
+		var kept int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs WHERE created_at >= date_trunc('month', now())`).Scan(&kept); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if kept != 1 {
+			t.Errorf("this month's row: want kept for the open budget period, got %d rows", kept)
+		}
+		var gone int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM request_logs WHERE created_at < date_trunc('month', now())`).Scan(&gone); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if gone != 0 {
+			t.Errorf("last month's row: want deleted, got %d rows", gone)
+		}
+		var appRows int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM app_logs`).Scan(&appRows); err != nil {
+			t.Fatalf("count failed: %v", err)
+		}
+		if appRows != 0 {
+			t.Errorf("app_logs: the budget floor must not apply, got %d rows", appRows)
 		}
 	})
 
@@ -1437,5 +1487,73 @@ func TestModelsDevRetryLoop(t *testing.T) {
 	}
 	if afterCancel.Load() != 0 {
 		t.Error("a cancelled loop must not attempt a load")
+	}
+}
+
+// fakeRowQuerier answers retentionCutoffs' one read with a fixed period or a
+// fixed error.
+type fakeRowQuerier struct {
+	period string
+	err    error
+}
+
+type fakeRow struct {
+	period string
+	err    error
+}
+
+func (r fakeRow) Scan(dest ...any) error {
+	if r.err != nil {
+		return r.err
+	}
+	*(dest[0].(*string)) = r.period
+	return nil
+}
+
+func (q fakeRowQuerier) QueryRow(context.Context, string, ...any) pgx.Row {
+	return fakeRow(q)
+}
+
+func TestRetentionCutoffs(t *testing.T) {
+	now := time.Date(2026, 9, 20, 15, 0, 0, 0, time.UTC)
+	cutoff := now.Add(-time.Hour)
+	monthStart := time.Date(2026, 9, 1, 0, 0, 0, 0, time.UTC)
+
+	got := retentionCutoffs(context.Background(), fakeRowQuerier{period: ""}, now, cutoff)
+	if got["request_logs"] != cutoff || got["app_logs"] != cutoff {
+		t.Errorf("no budgets: cutoffs = %v, want the plain window on both tables", got)
+	}
+
+	got = retentionCutoffs(context.Background(), fakeRowQuerier{period: "month"}, now, cutoff)
+	if got["request_logs"] != monthStart {
+		t.Errorf("monthly budget: request_logs cutoff = %v, want %v", got["request_logs"], monthStart)
+	}
+	if got["app_logs"] != cutoff {
+		t.Errorf("monthly budget: app_logs cutoff = %v, want the plain window", got["app_logs"])
+	}
+
+	// The earliest start wins, not the longest period: on the first of a month
+	// the open week reaches back into the previous month.
+	oct1 := time.Date(2026, 10, 1, 12, 0, 0, 0, time.UTC)
+	got = retentionCutoffs(context.Background(), fakeRowQuerier{period: "month,week"}, oct1, oct1.Add(-time.Hour))
+	if want := time.Date(2026, 9, 28, 0, 0, 0, 0, time.UTC); got["request_logs"] != want {
+		t.Errorf("week + month on Oct 1: cutoff = %v, want the week's Monday %v", got["request_logs"], want)
+	}
+
+	// A window shorter than the period keeps the window: the floor only ever
+	// moves the cutoff earlier.
+	got = retentionCutoffs(context.Background(), fakeRowQuerier{period: "day"}, now, now.Add(-48*time.Hour))
+	if got["request_logs"] != now.Add(-48*time.Hour) {
+		t.Errorf("daily budget under a 48h window: cutoff = %v, want the window", got["request_logs"])
+	}
+
+	// A read that fails says nothing about which rows still feed a budget, so
+	// request_logs are left for a sweep that can read them; app_logs still go.
+	got = retentionCutoffs(context.Background(), fakeRowQuerier{err: errors.New("db down")}, now, cutoff)
+	if _, deleting := got["request_logs"]; deleting {
+		t.Errorf("failed budget read: request_logs would be deleted at %v, want the table skipped", got["request_logs"])
+	}
+	if got["app_logs"] != cutoff {
+		t.Errorf("failed budget read: app_logs cutoff = %v, want the plain window", got["app_logs"])
 	}
 }

@@ -108,6 +108,9 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		}
 	}()
 	failoverCtx = context.WithValue(failoverCtx, ctxkeys.CancelOriginKey, "failover_timeout")
+	// dispatchCtx is the context the non-streaming answer is read under: the
+	// attempt's own, unless a self-heal retry produced the answer (see below).
+	dispatchCtx := failoverCtx
 
 	// The response is owned by the dispatch at the end of this function, which
 	// closes it on every outcome. On a learnable 400 that ownership passes
@@ -134,6 +137,17 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 			resp = res.resp
 			streamCancelOrigin = res.streamCancelOrigin
 			retryCancel = res.retryCancel
+			if retryCancel != nil && resp != nil && resp.Request != nil {
+				// A live retry answered. The self-heal cancelled failoverCtx once
+				// it had consumed the refused body, and the retry ran on its own
+				// context (retryContext: a fresh budget, origin retry_timeout),
+				// which the transport stamped on the response's request. The
+				// answer must be read under THAT one: read under the cancelled
+				// context, every provider fault on the retry (a body cut
+				// mid-JSON, an empty completion) judged as the caller hanging
+				// up, uncharged, unrouted and reported to a caller still waiting.
+				dispatchCtx = resp.Request.Context()
+			}
 			if res.retried || res.cont {
 				// Accumulate the retries' dial time into the total. The cont path is
 				// included because a transport failure on one round must not discard
@@ -234,7 +248,7 @@ func (h *Handler) attemptCandidate(w http.ResponseWriter, r *http.Request, st *r
 		return h.dispatchStreaming(w, r, st, candidate, resp, attempt, responseHeaderMs, streamCancelOrigin)
 	}
 
-	return h.dispatchNonStreaming(w, r.WithContext(failoverCtx), st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
+	return h.dispatchNonStreaming(w, r.WithContext(dispatchCtx), st, candidate, resp, attempt, responseHeaderMs, hasMoreCandidates)
 }
 
 // classifyProbeError maps any TTFT probe failure to the error recorded for the

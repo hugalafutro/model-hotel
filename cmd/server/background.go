@@ -13,11 +13,14 @@ import (
 	"fmt"
 	"maps"
 	"slices"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/hugalafutro/model-hotel/internal/budget"
 	"github.com/hugalafutro/model-hotel/internal/debuglog"
 	"github.com/hugalafutro/model-hotel/internal/events"
 	"github.com/hugalafutro/model-hotel/internal/failover"
@@ -448,16 +451,69 @@ func logRetentionPass(drainCtx context.Context, pool *pgxpool.Pool, settingsRepo
 	if !enabled {
 		return
 	}
-	cutoff := time.Now().Add(-window)
-	for _, table := range []string{"request_logs", "app_logs"} {
+	now := time.Now()
+	for table, cutoff := range retentionCutoffs(drainCtx, pool, now, now.Add(-window)) {
 		tag, err := pool.Exec(drainCtx,
 			`DELETE FROM `+table+` WHERE created_at < $1`, cutoff)
 		if err != nil {
 			debuglog.Error("retention: delete of old entries failed", "table", table, "error", err)
 			continue
 		}
-		debuglog.Info("retention: deleted old entries", "table", table, "retention", retention, "rows", tag.RowsAffected())
+		debuglog.Info("retention: deleted old entries", "table", table, "retention", retention, "cutoff", cutoff.UTC().Format(time.RFC3339), "rows", tag.RowsAffected())
 	}
+}
+
+// rowQuerier is the one read retentionCutoffs makes; *pgxpool.Pool satisfies it.
+type rowQuerier interface {
+	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+}
+
+// retentionCutoffs is the delete boundary per table for one sweep. app_logs
+// take the plain window. request_logs are what a budget is summed from
+// (budget.PGSource, no ledger of its own): a row deleted inside an open budget
+// period is spend the budget forgets, and a period longer than the window
+// would degrade into a rolling one the width of the window. So request_logs
+// keep every row from the earliest start among the budget periods any virtual
+// key or user currently runs, whatever the window says. The earliest start,
+// not the longest period's: the calendar periods straddle each other, and on
+// the first of a month an open week that began on the 29th reaches further
+// back than the month does. A sweep that cannot read the budgets does not
+// know which rows are still feeding one, so it leaves request_logs alone until
+// a sweep that can: the table is absent from the map, and an hour's growth is
+// the price of never deleting a budgeted row.
+//
+// The periods are read here and the DELETE runs after, in its own statement,
+// without a lock on virtual_keys or users. A budget enabled between the two
+// is not seen by this sweep, which then behaves exactly as if it had run a
+// moment before the budget existed: the rows the budget would have kept were
+// deletable right up to its creation, and the next sweep honours it. That is
+// a valid serial order, not a lost update, and the alternative (holding a
+// table lock across a DELETE that can take as long as a backlog needs) would
+// stall every proxied request's last_used_at stamp behind the sweep.
+func retentionCutoffs(ctx context.Context, q rowQuerier, now, cutoff time.Time) map[string]time.Time {
+	cutoffs := map[string]time.Time{"app_logs": cutoff}
+	// One row, one string: the distinct periods in use, or "" for none.
+	var periods string
+	err := q.QueryRow(ctx, `
+		SELECT COALESCE(string_agg(DISTINCT budget_period, ','), '') FROM (
+			SELECT budget_period FROM virtual_keys WHERE budget_period IS NOT NULL
+			UNION SELECT budget_period FROM users WHERE budget_period IS NOT NULL
+		) p`).Scan(&periods)
+	if err != nil {
+		debuglog.Warn("retention: budget periods could not be read, leaving request_logs for the next sweep", "error", err)
+		return cutoffs
+	}
+	floor := cutoff
+	for _, period := range strings.Split(periods, ",") {
+		if period == "" {
+			continue
+		}
+		if start := budget.PeriodStart(period, now); start.Before(floor) {
+			floor = start
+		}
+	}
+	cutoffs["request_logs"] = floor
+	return cutoffs
 }
 
 // sweepScheduledDisableTimeout bounds a sweep that outlives its caller's
