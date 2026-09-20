@@ -1,12 +1,13 @@
 import { screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderWithProviders } from "../../test/utils";
+import type { ModelSortField } from "../modelTable/modelCursor";
 import { SortableTh } from "../modelTable/SortableTh";
 
 // The whole padded header is the pointer target; the button inside carries the
 // keyboard activation, and neither path sorts twice.
 describe("SortableTh", () => {
-	function renderHeader(onSort: (field: "name") => void) {
+	function renderHeader(onSort: (field: ModelSortField) => void) {
 		return renderWithProviders(
 			<table>
 				<thead>
