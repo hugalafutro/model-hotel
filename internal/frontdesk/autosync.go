@@ -134,6 +134,22 @@ func autoSyncStaleTier(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, no
 // autoSyncStale reports whether the fleet's config is at risk of silent drift:
 // true exactly when autoSyncStaleTier returns 1 or higher. Consumed by the
 // config.autosync_stale watchdog and the autosync payload's Stale flag.
+// fleetLastSync is the instant the staleness watchdog measures from: the
+// wizard's fleet-wide marker or any member's own last-sync stamp, whichever
+// is later. The auto-sync loop stamps members (recordSyncAttempt) and never
+// the fleet-wide marker, so a fleet auto-sync kept converged for weeks read
+// as "never synced" the moment auto-sync was switched off and alerted at
+// once; the member stamps carry the truth.
+func fleetLastSync(members []*Member, lastSync time.Time, haveSync bool) (time.Time, bool) {
+	latest, have := lastSync, haveSync
+	for _, m := range members {
+		if m.LastConfigSyncAt != nil && (!have || m.LastConfigSyncAt.After(latest)) {
+			latest, have = *m.LastConfigSyncAt, true
+		}
+	}
+	return latest, have
+}
+
 func autoSyncStale(cfg AutoSyncConfig, lastSync time.Time, haveSync bool, now time.Time) bool {
 	return autoSyncStaleTier(cfg, lastSync, haveSync, now) >= 1
 }

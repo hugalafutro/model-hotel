@@ -136,7 +136,15 @@ class MonitorStore(
         wasActive: Boolean,
     ) {
         val nowActive = prefs[ENABLED] == true || prefs[PUSH_ENABLED] == true
-        if (!wasActive && nowActive) prefs[EPOCH] = Random.nextLong()
+        if (!wasActive && nowActive) {
+            prefs[EPOCH] = Random.nextLong()
+            // The epoch gates writes, not reads: a baseline left by the previous
+            // session would be diffed as if it were live, replaying every event
+            // and every member change since the backstop was switched off as
+            // fresh alerts. A new session starts silent, like a fresh opt-in.
+            prefs.remove(SNAPSHOT)
+            prefs.remove(EVENT_CURSOR)
+        }
     }
 
     /** epoch identifies the current monitoring session; 0 when never enabled. */
