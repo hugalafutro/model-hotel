@@ -290,8 +290,11 @@ func (h *TotpHandler) EnrollVerify(w http.ResponseWriter, r *http.Request) {
 	// exchanged it for, for up to the 30-day cap. Swept twice: once BEFORE
 	// Enable, so a store that cannot sweep keeps 2FA off and the operator
 	// retries cleanly, and once AFTER the gate closed, for a raw-token exchange
-	// that lands between the first sweep and the gate. The enroller's fresh
-	// session is minted below, after both, so nothing of theirs is kept either.
+	// that lands between the first sweep and the gate. An exchange that mints
+	// after the second sweep re-reads the gate itself and revokes its own
+	// session (TokenExchange), which closes the last interleaving. The
+	// enroller's fresh session is minted below, after both, so nothing of
+	// theirs is kept either.
 	if !h.revokeAdminSessions(w, r, "before 2FA") {
 		return
 	}
