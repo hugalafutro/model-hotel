@@ -245,12 +245,15 @@ func (p *Poller) checkAutoSyncStale(ctx context.Context) {
 		debuglog.Warn("frontdesk: auto-sync staleness: read fleet sync state", "error", err)
 		return
 	}
-	lastSync, haveSync := state.LastRunAt, found
-	if members, err := p.store.ListMembers(ctx); err == nil {
-		lastSync, haveSync = fleetLastSync(members, lastSync, haveSync)
-	} else {
+	members, err := p.store.ListMembers(ctx)
+	if err != nil {
+		// Without the member stamps the marker alone would say "never synced"
+		// for a fleet auto-sync kept converged; a read that fails skips the
+		// tick rather than alert on half the evidence.
 		debuglog.Warn("frontdesk: auto-sync staleness: read members", "error", err)
+		return
 	}
+	lastSync, haveSync := fleetLastSync(members, state.LastRunAt, found)
 	stale := autoSyncStale(cfg, lastSync, haveSync, p.now())
 
 	p.mu.Lock()
