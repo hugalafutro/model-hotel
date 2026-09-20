@@ -25,10 +25,10 @@ var hostileSortInputs = []string{
 // forces a review of the new column expression.
 func TestModelSortColumn_Whitelist(t *testing.T) {
 	allowed := map[string]bool{
-		"COALESCE(m.last_seen_at, m.created_at)": true,
-		"COALESCE(m.context_length, 0)":          true,
-		"COALESCE(m.max_output_tokens, 0)":       true,
-		"COALESCE(p.name, '')":                   true,
+		"date_trunc('second', COALESCE(m.last_seen_at, m.created_at))": true,
+		"COALESCE(m.context_length, 0)":                                true,
+		"COALESCE(m.max_output_tokens, 0)":                             true,
+		"COALESCE(p.name, '')":                                         true,
 		"CASE WHEN m.enabled AND NOT m.disabled_manually THEN 0 WHEN m.enabled AND m.disabled_manually THEN 1 ELSE 2 END": true,
 		"COALESCE(NULLIF(m.name, ''), m.model_id)": true,
 	}

@@ -23,6 +23,10 @@ export interface FailoverGroup {
 	description: string;
 	group_enabled: boolean;
 	auto_created: boolean;
+	/** group_enabled is false and no operator chose it: discovery or the
+	 * dashboard's two-member floor took the group down. Only such a group is
+	 * re-enabled when a bulk toggle gives it two routable members back. */
+	auto_disabled: boolean;
 	entries: FailoverEntry[];
 	total_tokens: number;
 	created_at: string;
@@ -43,6 +47,10 @@ export interface UpdateFailoverGroupRequest {
 	display_name?: string;
 	description?: string;
 	group_enabled?: boolean;
+	/** Sent with group_enabled:false by the member-toggle cascade: the toggle
+	 * left fewer than two routable members. The server verifies the count and
+	 * stamps the group auto_disabled so a later toggle can bring it back. */
+	floor_disabled?: boolean;
 	priority_order?: string[];
 	entry_enabled?: Record<string, boolean>;
 }

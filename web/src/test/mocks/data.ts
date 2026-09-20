@@ -171,6 +171,7 @@ export const mockFailoverGroup: FailoverGroup = {
 	description: "A test failover group",
 	group_enabled: true,
 	auto_created: false,
+	auto_disabled: false,
 	entries: [],
 	total_tokens: 0,
 	created_at: "2026-04-01T10:00:00Z",
