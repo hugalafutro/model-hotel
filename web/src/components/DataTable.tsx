@@ -123,7 +123,6 @@ export function Row({
 	return (
 		<tr
 			className={`hover:bg-(--surface-hover) transition-colors ${className} ${onClick ? "cursor-pointer" : ""}`}
-			role={onClick ? "button" : undefined}
 			tabIndex={onClick ? 0 : undefined}
 			onClick={onClick}
 			onKeyDown={
@@ -165,6 +164,7 @@ export function PaginationBar({
 	onPageChange,
 	onPageSizeChange,
 	label = "entries",
+	labelOne,
 	hideCount = false,
 }: {
 	page: number;
@@ -174,6 +174,8 @@ export function PaginationBar({
 	onPageChange: (page: number) => void;
 	onPageSizeChange: (size: number) => void;
 	label?: string;
+	/** The noun for exactly one item, translated; `label` is the plural. */
+	labelOne?: string;
 	hideCount?: boolean;
 }) {
 	const { t } = useTranslation();
@@ -182,7 +184,7 @@ export function PaginationBar({
 		[onPageChange, totalPages],
 	);
 
-	const singular = label.replace(/s$/, "");
+	const singular = labelOne ?? label;
 
 	const start = (page - 1) * pageSize + 1;
 	const end = Math.min(page * pageSize, totalItems);

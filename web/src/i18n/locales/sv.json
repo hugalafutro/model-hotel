@@ -1220,7 +1220,8 @@
 			"tokens": "Tokens",
 			"lastUsed": "Senast använd",
 			"keys": "nycklar",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "nyckel"
 		},
 		"tooltip": {
 			"proxyUrl": "Klicka för att kopiera proxy URL",
@@ -1418,7 +1419,8 @@
 			"scrollLoadFailed": "Det gick inte att ladda loggar: {{message}}"
 		},
 		"pagination": {
-			"label": "poster"
+			"label": "poster",
+			"labelOne": "post"
 		},
 		"loading": {
 			"newer": "↻ Laddar nyare…",
@@ -1461,7 +1463,8 @@
 			"scrollLoadFailed": "Det gick inte att ladda loggar: {{message}}"
 		},
 		"pagination": {
-			"label": "poster"
+			"label": "poster",
+			"labelOne": "post"
 		},
 		"loading": {
 			"newer": "↻ Laddar nyare…",
@@ -2566,7 +2569,8 @@
 			"deleteDisabledAria_other": "Ta bort {{count}} inaktiverade modeller",
 			"deleteDisabledMessage_one": "Detta kommer att permanent ta bort {{count}} inaktiverad modell. Om autodiscovery är aktiverat på deras leverantör, kommer de att upptäckas igen på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta.",
 			"deleteDisabledMessage_other": "Detta kommer att ta bort {{count}} inaktiverade modeller. Om autodiscovery är aktiverat på deras leverantör, kommer de att återupptäckas på nästa cykel. Inaktivera autodiscovery på leverantören för att förhindra detta.",
-			"clickToCopyId": "Klicka för att kopiera modell-ID"
+			"clickToCopyId": "Klicka för att kopiera modell-ID",
+			"modelOne": "modell"
 		},
 		"virtualModelTable": {
 			"searchModels": "Sök modeller…",

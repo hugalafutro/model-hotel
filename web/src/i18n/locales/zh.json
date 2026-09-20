@@ -1220,7 +1220,8 @@
 			"tokens": "令牌",
 			"lastUsed": "上次使用",
 			"keys": "密钥",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "密钥"
 		},
 		"tooltip": {
 			"proxyUrl": "点击复制代理 URL",
@@ -1418,7 +1419,8 @@
 			"scrollLoadFailed": "无法加载日志： {{message}}"
 		},
 		"pagination": {
-			"label": "条目"
+			"label": "条目",
+			"labelOne": "条目"
 		},
 		"loading": {
 			"newer": "↻ 正在加载新的…",
@@ -1461,7 +1463,8 @@
 			"scrollLoadFailed": "无法加载日志： {{message}}"
 		},
 		"pagination": {
-			"label": "条目"
+			"label": "条目",
+			"labelOne": "条目"
 		},
 		"loading": {
 			"newer": "↻ 正在加载新的…",
@@ -2566,7 +2569,8 @@
 			"deleteDisabledAria_other": "删除 {{count}} 已停用的模型",
 			"deleteDisabledMessage_one": "这将永久删除 {{count}} 中的已禁用模型。如果其提供商启用了自动发现功能，这些模型将在下一个周期中被重新发现。如需防止此情况发生，请在提供商端禁用自动发现功能。",
 			"deleteDisabledMessage_other": "这将永久删除 {{count}} 中的已禁用模型。如果其提供商启用了自动发现功能，这些模型将在下一个周期中被重新发现。若要防止这种情况发生，请在提供商端禁用自动发现功能。",
-			"clickToCopyId": "点击复制模型ID"
+			"clickToCopyId": "点击复制模型ID",
+			"modelOne": "模型"
 		},
 		"virtualModelTable": {
 			"searchModels": "搜索模型…",

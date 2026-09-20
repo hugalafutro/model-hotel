@@ -1314,7 +1314,8 @@
 			"tokens": "Tokeny",
 			"lastUsed": "Naposledy použito",
 			"keys": "klíče",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "klíč"
 		},
 		"tooltip": {
 			"proxyUrl": "Kliknutím zkopírujete adresu proxy",
@@ -1512,7 +1513,8 @@
 			"scrollLoadFailed": "Načtení logů selhalo: {{message}}"
 		},
 		"pagination": {
-			"label": "položek"
+			"label": "položek",
+			"labelOne": "položka"
 		},
 		"loading": {
 			"newer": "↻ Načítání novějších…",
@@ -1555,7 +1557,8 @@
 			"scrollLoadFailed": "Načtení logů selhalo: {{message}}"
 		},
 		"pagination": {
-			"label": "položek"
+			"label": "položek",
+			"labelOne": "položka"
 		},
 		"loading": {
 			"newer": "↻ Načítání novějších…",
@@ -2686,7 +2689,8 @@
 			"deleteDisabledMessage_few": "Tím dojde k trvalému odstranění {{count}} deaktivovaných modelů. Pokud je u jejich poskytovatele povoleno automatické vyhledávání, budou v příštím cyklu znovu nalezeny. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání.",
 			"deleteDisabledMessage_many": "Tím dojde k trvalému odstranění {{count}} deaktivovaného modelu. Pokud je u daného poskytovatele povoleno automatické vyhledávání, bude tento model při příštím cyklu znovu nalezen. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání.",
 			"deleteDisabledMessage_other": "Tím dojde k trvalému odstranění {{count}} deaktivovaných modelů. Pokud je u jejich poskytovatele povoleno automatické vyhledávání, budou v příštím cyklu znovu nalezeny. Chcete-li tomu zabránit, deaktivujte u poskytovatele automatické vyhledávání.",
-			"clickToCopyId": "Kliknutím zkopírujete ID modelu"
+			"clickToCopyId": "Kliknutím zkopírujete ID modelu",
+			"modelOne": "model"
 		},
 		"virtualModelTable": {
 			"searchModels": "Vyhledat modely…",

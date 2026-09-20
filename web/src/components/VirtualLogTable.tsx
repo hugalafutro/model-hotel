@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next";
 import type { LogEntry } from "../api/types";
 import { useVirtualRows } from "../hooks/useVirtualRows";
+import { onActivateKey } from "../utils/a11y";
 import { formatNumber } from "../utils/format";
 import { isInProgress } from "../utils/logHelpers";
 import { RequestLogCells } from "./logs/RequestLogCells";
@@ -100,11 +101,17 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 						<thead className="sticky top-0 z-10">
 							<tr>
 								<th
-									className={`${HEADER_BASE} cursor-pointer`}
-									onClick={onSortToggle}
+									className={HEADER_BASE}
 									title={t("logs.table.timeDate")}
+									aria-sort={sortDir === "desc" ? "descending" : "ascending"}
 								>
-									{t("logs.table.timeDate")} {sortDir === "desc" ? "↓" : "↑"}
+									<button
+										type="button"
+										className="cursor-pointer"
+										onClick={onSortToggle}
+									>
+										{t("logs.table.timeDate")} {sortDir === "desc" ? "↓" : "↑"}
+									</button>
 								</th>
 								<th className={HEADER_BASE} title={t("logs.table.model")}>
 									{t("logs.table.model")}
@@ -165,7 +172,9 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 									data-index={vItem.index}
 									ref={virtualizer.measureElement}
 									className={`hover:bg-(--surface-hover) ${vItem.index % 2 === 1 ? "ui-row-even" : ""} ${inProgress ? "animate-pulse-subtle" : ""} cursor-pointer`}
+									tabIndex={0}
 									onClick={() => onRowClick(log)}
+									onKeyDown={onActivateKey(() => onRowClick(log))}
 								>
 									<RequestLogCells
 										log={log}

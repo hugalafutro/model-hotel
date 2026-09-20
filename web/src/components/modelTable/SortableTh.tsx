@@ -18,12 +18,23 @@ export function SortableTh({
 	onSort: (field: ModelSortField) => void;
 }) {
 	return (
+		// The whole padded header is the pointer target; the button inside is
+		// the keyboard one, and stops its click from reaching the header so a
+		// pointer on the label sorts once.
 		<th
 			className={`${MODEL_HEADER_BASE} cursor-pointer select-none hover:text-gray-200`}
-			onClick={() => onSort(field)}
 			title={label}
+			onClick={() => onSort(field)}
 		>
-			<button type="button" className="" aria-label={ariaLabel}>
+			<button
+				type="button"
+				className=""
+				aria-label={ariaLabel}
+				onClick={(e) => {
+					e.stopPropagation();
+					onSort(field);
+				}}
+			>
 				{label}{" "}
 				<span className="inline-block w-3 text-center">
 					{sort.field === field ? (sort.dir === "asc" ? "↑" : "↓") : " "}
