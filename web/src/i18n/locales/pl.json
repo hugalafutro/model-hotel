@@ -445,7 +445,9 @@
 			"stalledTimeout": "Strumień zatrzymał się - nie otrzymano żadnych danych w okresie czasu.",
 			"cutoffIncomplete": "Strumień został wyłączony - odpowiedź może być niekompletna.",
 			"endedWithoutSignal": "Strumień zakończony bez sygnału zakończenia - odpowiedź może być nadal zakończona.",
-			"endedUnexpectedly": "Strumień zakończył się niespodziewanie bez treści."
+			"endedUnexpectedly": "Strumień zakończył się niespodziewanie bez treści.",
+			"requestFailed": "Żądanie nie powiodło się ({{status}}): {{detail}}",
+			"noBody": "Serwer nie wysłał strumienia odpowiedzi"
 		},
 		"controls": {
 			"_": "Kontrole",

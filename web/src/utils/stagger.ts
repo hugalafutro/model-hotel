@@ -158,8 +158,12 @@ export async function fetchWithRetry(
 
 			await sleep(totalDelay);
 		} catch (err) {
-			// Network-level errors (AbortError should NOT be retried)
-			if (err instanceof DOMException && err.name === "AbortError") {
+			// Network-level errors (AbortError should NOT be retried). Matched
+			// by name alone: the abort a fetch rejects with is a DOMException in
+			// the browser, not always one of THIS realm's (jsdom, undici), and
+			// not always an Error either, and a missed match turned the user's
+			// own Stop into a retry with a toast.
+			if ((err as { name?: unknown } | null)?.name === "AbortError") {
 				throw err;
 			}
 

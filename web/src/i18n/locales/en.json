@@ -423,7 +423,9 @@
 			"stalledTimeout": "Stream stalled - no data received within the timeout period.",
 			"cutoffIncomplete": "Stream was cut off - the response may be incomplete.",
 			"endedWithoutSignal": "Stream ended without completion signal - the response may still be complete.",
-			"endedUnexpectedly": "Stream ended unexpectedly with no content."
+			"endedUnexpectedly": "Stream ended unexpectedly with no content.",
+			"requestFailed": "Request failed ({{status}}): {{detail}}",
+			"noBody": "The server sent no response stream"
 		},
 		"controls": {
 			"_": "Controls",

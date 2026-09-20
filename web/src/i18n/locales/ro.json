@@ -434,7 +434,9 @@
 			"stalledTimeout": "Stream blocat - nu există date primite în perioada de timp.",
 			"cutoffIncomplete": "Stream a fost oprit - răspunsul poate fi incomplet.",
 			"endedWithoutSignal": "Stream încheiat fără semnal de finalizare - răspunsul poate fi încă complet.",
-			"endedUnexpectedly": "Stream s-a încheiat în mod neașteptat fără conținut."
+			"endedUnexpectedly": "Stream s-a încheiat în mod neașteptat fără conținut.",
+			"requestFailed": "Cererea a eșuat ({{status}}): {{detail}}",
+			"noBody": "Serverul nu a trimis niciun flux de răspuns"
 		},
 		"controls": {
 			"_": "Controale",

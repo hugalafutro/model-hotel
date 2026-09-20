@@ -423,7 +423,9 @@
 			"stalledTimeout": "Suoratoisto pysähtyi - aikakatkaisun aikana ei saatu dataa.",
 			"cutoffIncomplete": "Virta katkesi - vastaus voi olla epätäydellinen.",
 			"endedWithoutSignal": "Virta päättyi ilman loppumissignaalia - vastaus voi silti olla täydellinen.",
-			"endedUnexpectedly": "Virta päättyi yllättäen ilman sisältöä."
+			"endedUnexpectedly": "Virta päättyi yllättäen ilman sisältöä.",
+			"requestFailed": "Pyyntö epäonnistui ({{status}}): {{detail}}",
+			"noBody": "Palvelin ei lähettänyt vastausvirtaa"
 		},
 		"controls": {
 			"_": "Ohjaimet",

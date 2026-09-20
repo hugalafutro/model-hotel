@@ -423,7 +423,9 @@
 			"stalledTimeout": "스트림이 중단되었습니다. 시간 초과 기간 내에 데이터를 수신하지 못했습니다.",
 			"cutoffIncomplete": "스트림이 끊겼습니다. 응답 내용이 불완전할 수 있습니다.",
 			"endedWithoutSignal": "스트림이 완료 신호 없이 종료되었습니다. 응답은 여전히 완료되었을 수 있습니다.",
-			"endedUnexpectedly": "스트림이 콘텐츠 없이 예기치 않게 종료되었습니다."
+			"endedUnexpectedly": "스트림이 콘텐츠 없이 예기치 않게 종료되었습니다.",
+			"requestFailed": "요청 실패 ({{status}}): {{detail}}",
+			"noBody": "서버가 응답 스트림을 보내지 않았습니다"
 		},
 		"controls": {
 			"_": "컨트롤",

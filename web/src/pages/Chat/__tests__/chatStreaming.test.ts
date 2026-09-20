@@ -1,4 +1,5 @@
 import type { TFunction } from "i18next";
+import { HttpResponse, http } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import type { ChatMessage } from "../../../api/types";
 import { mockChatStream } from "../../../test/helpers";
@@ -13,7 +14,10 @@ import {
 } from "../chatStreaming";
 
 /** Minimal t() mock that maps i18n keys used in chatStreaming to English values. */
-const mockT = ((key: string) => {
+const mockT = ((key: string, opts?: Record<string, unknown>) => {
+	if (key === "chat.stream.requestFailed") {
+		return `Request failed (${opts?.status}): ${opts?.detail}`;
+	}
 	const map: Record<string, string> = {
 		"chat.stream.stoppedByUser": "Stopped by user",
 		"chat.stream.unknownError": "Unknown error",
@@ -378,6 +382,85 @@ describe("streamModelResponse", () => {
 		expect(result.content).toContain("World");
 		expect(result.rawContent).toContain("Hello");
 		expect(result.rawContent).toContain("World");
+	});
+
+	it("reads the message out of a JSON error envelope on a failed request", async () => {
+		server.use(
+			http.post("/api/chat/chat", () =>
+				HttpResponse.json(
+					{
+						error: {
+							message: "provider is disabled",
+							type: "permission_error",
+							code: 403,
+						},
+					},
+					{ status: 403 },
+				),
+			),
+		);
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+			mockT,
+		);
+		expect(result.error).toBe("Request failed (403): provider is disabled");
+	});
+
+	it("reads a string error envelope", async () => {
+		server.use(
+			http.post("/api/chat/chat", () =>
+				HttpResponse.json({ error: "boom" }, { status: 500 }),
+			),
+		);
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+			mockT,
+		);
+		expect(result.error).toBe("Request failed (500): boom");
+	});
+
+	it("names a response without a body", async () => {
+		server.use(
+			http.post(
+				"/api/chat/chat",
+				() => new HttpResponse(null, { status: 200 }),
+			),
+		);
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+			mockT,
+		);
+		expect(result.error).toBe("chat.stream.noBody");
+	});
+
+	it("falls back to the raw body when the failure is not an envelope", async () => {
+		server.use(
+			http.post(
+				"/api/chat/chat",
+				() => new HttpResponse("upstream exploded", { status: 502 }),
+			),
+		);
+		const result = await streamModelResponse(
+			"model-1",
+			baseMessages,
+			baseParams,
+			new AbortController(),
+			vi.fn(),
+			mockT,
+		);
+		expect(result.error).toBe("Request failed (502): upstream exploded");
 	});
 
 	it("extracts thinking content from reasoning_content", async () => {
