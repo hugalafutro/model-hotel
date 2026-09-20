@@ -247,6 +247,11 @@ func TestPool(t *testing.T) {
 // Uses a valid URL format but unreachable port to trigger pool creation failure.
 func TestNew_PoolCreationError(t *testing.T) {
 	ctx := context.Background()
+	// New now waits for the store before migrating; one short attempt keeps
+	// this test at the unreachable port fast.
+	attempts, interval := newReadyAttempts, waitForReadyInterval
+	newReadyAttempts, waitForReadyInterval = 1, 10*time.Millisecond
+	t.Cleanup(func() { newReadyAttempts, waitForReadyInterval = attempts, interval })
 	// Port 1 is typically unreachable, causing pool creation to fail
 	// while still passing ParseConfig validation
 	_, err := New(ctx, "postgres://user:pass@localhost:1/testdb?sslmode=disable", 25, 5)

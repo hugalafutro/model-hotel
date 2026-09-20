@@ -103,10 +103,6 @@ func main() {
 	}
 	defer database.Close()
 
-	if err := database.WaitForReady(ctx, 30); err != nil {
-		debuglog.Fatal("startup: database not ready", "error", err)
-	}
-
 	api.InitAppLogBuffer(database.Pool())
 
 	otelLogShutdown := initAppLogging(ctx)

@@ -520,6 +520,43 @@ func TestUpdateProvider_APIKeyTooLong(t *testing.T) {
 	}
 }
 
+// A blank api_key on update follows the create rule: refused for a type that
+// needs a key, accepted for one that works without.
+func TestUpdateProvider_BlankKeyFollowsTheCreateRule(t *testing.T) {
+	for _, tc := range []struct {
+		providerType string
+		want         int
+	}{
+		{"openai", http.StatusBadRequest},
+		{"custom", http.StatusOK},
+	} {
+		t.Run(tc.providerType, func(t *testing.T) {
+			id := uuid.New()
+			mockProv := &mockProviderStore{
+				getFn: func(_ context.Context, pid uuid.UUID) (*provider.Provider, error) {
+					return &provider.Provider{ID: pid, Name: "p", BaseURL: "https://api.example.com", ProviderType: tc.providerType, Enabled: true}, nil
+				},
+				updateFn: func(_ context.Context, pid uuid.UUID, _ provider.UpdateProviderRequest, ek, kn, ks []byte) (*provider.Provider, error) {
+					// The key columns are cleared (empty, not NULL, which the
+					// repository reads as "leave the stored key"), never set to
+					// the ciphertext of "".
+					if ek == nil || kn == nil || ks == nil || len(ek) != 0 || len(kn) != 0 || len(ks) != 0 {
+						t.Errorf("key columns = %v %v %v, want empty non-nil slices that clear the stored key", ek, kn, ks)
+					}
+					return &provider.Provider{ID: pid, Name: "p", BaseURL: "https://api.example.com", ProviderType: tc.providerType, Enabled: true}, nil
+				},
+			}
+			h := testHandler(mockProv, nil, nil, &mockAdminAuth{validateFn: func(string) bool { return true }}, nil)
+			req, w := newChiRequest(http.MethodPut, "/providers/"+id.String(), bytes.NewReader([]byte(`{"api_key":""}`)))
+			req = setChiURLParam(req, "id", id.String())
+			h.UpdateProvider(w, req)
+			if w.Code != tc.want {
+				t.Fatalf("status = %d body = %s, want %d", w.Code, w.Body.String(), tc.want)
+			}
+		})
+	}
+}
+
 func TestGetProvider_RepoError(t *testing.T) {
 	mockProv := &mockProviderStore{
 		getFn: func(_ context.Context, _ uuid.UUID) (*provider.Provider, error) {

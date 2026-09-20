@@ -852,6 +852,31 @@ func TestRepository_Update(t *testing.T) {
 	}
 }
 
+// Empty (non-nil) key columns clear the stored key, the way a blank api_key on
+// update is applied for a keyless type; nil leaves it in place.
+func TestRepository_Update_EmptyKeyColumnsClearTheKey(t *testing.T) {
+	repo := newTestRepo(t)
+	ctx := context.Background()
+	p, err := repo.Create(ctx, CreateProviderRequest{
+		Name: uniqueName(t), BaseURL: "https://old.example.com", APIKey: "sk-old",
+	}, []byte("enc-old"), []byte("nonce-old"), []byte("salt-old"))
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	kept, err := repo.Update(ctx, p.ID, UpdateProviderRequest{}, nil, nil, nil)
+	if err != nil || len(kept.EncryptedKey) == 0 {
+		t.Fatalf("nil columns: err = %v, key = %q; want the stored key kept", err, kept.EncryptedKey)
+	}
+	blank := ""
+	cleared, err := repo.Update(ctx, p.ID, UpdateProviderRequest{APIKey: &blank}, []byte{}, []byte{}, []byte{})
+	if err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+	if len(cleared.EncryptedKey) != 0 || len(cleared.KeyNonce) != 0 || len(cleared.KeySalt) != 0 {
+		t.Errorf("key columns after a blank key = %q %q %q, want all empty (keyless)", cleared.EncryptedKey, cleared.KeyNonce, cleared.KeySalt)
+	}
+}
+
 func TestRepository_Update_NotFound(t *testing.T) {
 	repo := newTestRepo(t)
 	ctx := context.Background()

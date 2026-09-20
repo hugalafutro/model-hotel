@@ -204,7 +204,10 @@ func Load() (*Config, error) {
 		if pgPass == "" {
 			return nil, fmt.Errorf("DATABASE_URL or POSTGRES_PASSWORD is required")
 		}
-		cfg.DatabaseURL = fmt.Sprintf("postgres://%s:%s@%s:5432/%s", pgUser, pgPass, pgHost, pgDB)
+		// Built as a URL, not a format string: a password with '@', '/', '#' or
+		// '%' in it must reach the driver escaped, or the URL parses as a
+		// different host and database.
+		cfg.DatabaseURL = (&url.URL{Scheme: "postgres", User: url.UserPassword(pgUser, pgPass), Host: pgHost + ":5432", Path: "/" + pgDB}).String()
 	}
 
 	if cfg.MasterKey == "" {

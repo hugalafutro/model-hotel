@@ -652,10 +652,15 @@ func (r *Repository) Update(ctx context.Context, id uuid.UUID, req UpdateModelRe
 
 	query := fmt.Sprintf("UPDATE models SET %s WHERE id = $1", strings.Join(setClauses, ", "))
 
-	_, err := r.pool.Exec(ctx, query, args...)
+	tag, err := r.pool.Exec(ctx, query, args...)
 	if err != nil {
 		debuglog.Error("model: update failed", "id", id, "error", err)
 		return nil, err
+	}
+	if tag.RowsAffected() == 0 {
+		// Nothing to invalidate: no row changed. The caller maps this to 404
+		// the way the reads do, instead of the Get below failing as a 500.
+		return nil, pgx.ErrNoRows
 	}
 	InvalidateModelCache()
 	return r.Get(ctx, id)

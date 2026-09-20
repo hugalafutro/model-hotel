@@ -6,6 +6,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -314,6 +315,35 @@ func TestLoad_ConstructsDatabaseURL(t *testing.T) {
 	expected := "postgres://myuser:mypass@myhost:5432/mydb"
 	if cfg.DatabaseURL != expected {
 		t.Errorf("expected constructed DATABASE_URL %q, got %q", expected, cfg.DatabaseURL)
+	}
+}
+
+// A password with URL metacharacters reaches the driver escaped, so it still
+// parses back to the same user, password, host and database.
+func TestLoad_EscapesDatabaseCredentials(t *testing.T) {
+	os.Unsetenv("DATABASE_URL")
+	os.Setenv("MASTER_KEY", "test-master-key-12345")
+	os.Setenv("POSTGRES_USER", "my user")
+	os.Setenv("POSTGRES_PASSWORD", "p@ss/w:rd#1%")
+	os.Setenv("POSTGRES_HOST", "myhost")
+	os.Setenv("POSTGRES_DB", "mydb")
+	defer os.Unsetenv("MASTER_KEY")
+	defer os.Unsetenv("POSTGRES_USER")
+	defer os.Unsetenv("POSTGRES_PASSWORD")
+	defer os.Unsetenv("POSTGRES_HOST")
+	defer os.Unsetenv("POSTGRES_DB")
+
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() failed: %v", err)
+	}
+	u, err := url.Parse(cfg.DatabaseURL)
+	if err != nil {
+		t.Fatalf("constructed URL does not parse: %v (%q)", err, cfg.DatabaseURL)
+	}
+	pass, _ := u.User.Password()
+	if u.User.Username() != "my user" || pass != "p@ss/w:rd#1%" || u.Host != "myhost:5432" || u.Path != "/mydb" {
+		t.Errorf("parsed back user=%q pass=%q host=%q path=%q from %q", u.User.Username(), pass, u.Host, u.Path, cfg.DatabaseURL)
 	}
 }
 

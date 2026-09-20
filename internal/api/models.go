@@ -291,7 +291,7 @@ func (h *Handler) UpdateModel(w http.ResponseWriter, r *http.Request) {
 
 	m, err := modelRepo.Update(r.Context(), id, req)
 	if err != nil {
-		respondError(w, fmt.Sprintf("failed to update model %s", id), err, http.StatusInternalServerError)
+		respondLookupError(w, err, pgx.ErrNoRows, "model not found", fmt.Sprintf("failed to update model %s", id))
 		return
 	}
 
