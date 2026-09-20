@@ -390,12 +390,18 @@ type loginFinishRequest struct {
 // not advance past the stored one. The library only flags that (WebAuthn L2
 // 7.2 step 21: a cloned authenticator), it never errors on it, and the flag
 // would otherwise be read straight past into a minted session. Synced passkeys
-// report 0 on both sides and are not flagged. Reports whether it refused.
+// report 0 on both sides and are not flagged. A nil credential (the library
+// contract says a nil error comes with one) is refused too rather than read.
+// Reports whether it refused.
 func rejectClonedAuthenticator(w http.ResponseWriter, r *http.Request, cred *webauthnx.Credential) bool {
-	if cred == nil || !cred.Authenticator.CloneWarning {
+	switch {
+	case cred == nil:
+		logPasskeyLoginFailure(r, "no_credential", errors.New("assertion validated without a credential"))
+	case cred.Authenticator.CloneWarning:
+		logPasskeyLoginFailure(r, "clone_warning", errors.New("signature counter did not advance"))
+	default:
 		return false
 	}
-	logPasskeyLoginFailure(r, "clone_warning", errors.New("signature counter did not advance"))
 	respondBadRequest(w, "passkey login verification failed", nil)
 	return true
 }
@@ -444,6 +450,17 @@ func (h *WebAuthnHandler) LoginFinish(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if rejectClonedAuthenticator(w, r, parsedCred) {
+		// Fail closed: a clone whose counter ran ahead would keep passing while
+		// the genuine device, now behind, is refused every time. Neither may
+		// sign in again; the operator re-enrols the passkey with the admin
+		// token or another credential.
+		if parsedCred != nil {
+			if err := h.webauthnRepo.DeleteCredential(r.Context(), parsedCred.ID); err != nil {
+				debuglog.Error("webauthn: could not revoke the cloned credential", "error", err)
+			} else {
+				debuglog.Warn("webauthn: credential revoked after a signature counter that did not advance", "remote_addr", clientip.From(r))
+			}
+		}
 		return
 	}
 	if err := h.webauthnRepo.UpdateSignCount(r.Context(), parsedCred.ID, parsedCred.Authenticator.SignCount); err != nil {

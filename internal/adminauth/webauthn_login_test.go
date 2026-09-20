@@ -762,7 +762,7 @@ func TestRejectClonedAuthenticator(t *testing.T) {
 		want bool
 	}{
 		{name: "counter advanced", cred: &webauthnx.Credential{}, want: false},
-		{name: "nil credential", cred: nil, want: false},
+		{name: "nil credential", cred: nil, want: true},
 		{name: "clone warning", cred: &webauthnx.Credential{Authenticator: webauthnx.Authenticator{CloneWarning: true}}, want: true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
