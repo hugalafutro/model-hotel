@@ -77,6 +77,9 @@ type stubAutoMember struct {
 	realSyncs    int    // how many real (non-dry-run) imports this member accepted
 	gotSourceGen string // X-Fleet-Source-Gen seen on the last real (non-dry-run) import
 	staleImport  bool   // when true, the real import answers with the commit-fence "stale" response
+	// onStale fires just before the stale answer, to simulate the rearm that
+	// makes a stale refusal benign (a newer generation issued mid-flight).
+	onStale func(context.Context)
 	// incompleteImport makes the real import answer applied-but-incomplete: the
 	// core config committed, one custom failover group could not be built.
 	incompleteImport bool
@@ -145,6 +148,9 @@ func newStubAutoMember(t *testing.T, token string) *stubAutoMember {
 			sm.gotSourceGen = r.Header.Get(fleetSourceGenHeader)
 			if sm.staleImport {
 				// Simulate the member's commit fence refusing a stale, out-of-order push.
+				if sm.onStale != nil {
+					sm.onStale(r.Context())
+				}
 				_, _ = w.Write([]byte(`{"schema_version_ok":true,"master_key_ok":true,"applied":false,"stale":true,"diff":` + sm.dryDiff + `}`))
 				return
 			}

@@ -303,6 +303,7 @@ func (s *Server) fleetStateFrom(ctx context.Context, members []*Member, cfg Auto
 			Incomplete:  incomplete[m.ID],
 		})
 	}
+	lastSync, haveSync = fleetLastSync(members, lastSync, haveSync)
 	return computeFleetState(fleetStateInput{
 		Members:      facts,
 		AutoSyncTier: autoSyncStaleTier(cfg, lastSync, haveSync, time.Now().UTC()),
