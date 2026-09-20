@@ -402,3 +402,117 @@ func TestGetDiscoveryStatus_StripsOnlyClaimedGroupsFromTheFeed(t *testing.T) {
 		t.Errorf("a disabled group with no provenance stamp is not a claim, so the feed is its only home; feed = %v", fed)
 	}
 }
+
+// The dashboard's floor cascade (a member toggle left fewer than two routable
+// members) stamps floor_disabled_at, not discovery's auto_disabled_at: the
+// group reads auto_disabled for the dashboard's re-enable rule but is not a
+// discovery claim, because no scan disabled it.
+func TestGetDiscoveryStatus_FloorCascadeIsNotAClaim(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	_, fr := newFailoverHandlerWithAuth(t)
+	pool := h.dbPool.Pool()
+	truncateDiscoveryChanges(t)
+	truncateFailoverGroups(t)
+
+	provID := seedClaimProvider(t, pool, "floor-claim-prov", true)
+	memberA := seedGroupMember(t, pool, provID, "floor-member-a")
+	memberB := seedGroupMember(t, pool, provID, "floor-member-b")
+	groupID := seedCustomGroup(t, pool, "floor-victim", []uuid.UUID{memberA, memberB})
+
+	body := `{"entry_enabled":{"` + memberB.String() + `":false},"group_enabled":false,"floor_disabled":true}`
+	req := httptest.NewRequest(http.MethodPut, "/failover-groups/"+groupID.String(), strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	fr.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("floor cascade PUT: %d: %s", w.Code, w.Body.String())
+	}
+	var resp FailoverGroupResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.GroupEnabled || !resp.AutoDisabled {
+		t.Errorf("after the cascade: enabled=%v auto_disabled=%v, want off and auto-disabled for the dashboard", resp.GroupEnabled, resp.AutoDisabled)
+	}
+
+	status := getStatus(t, r, "/discovery/status")
+	if got := findGroupClaim(status, "floor-victim"); got != nil {
+		t.Errorf("a floor-cascade disable must not be a discovery claim, got %+v", got)
+	}
+}
+
+// A floor cascade that fires on a group discovery already took down keeps the
+// claim: the operator's member toggle does not answer discovery's stamp. The
+// routable count reads the toggle, so the row stays actionable.
+func TestGetDiscoveryStatus_FloorCascadeKeepsADiscoveryClaim(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	_, fr := newFailoverHandlerWithAuth(t)
+	pool := h.dbPool.Pool()
+	truncateDiscoveryChanges(t)
+	truncateFailoverGroups(t)
+
+	provID := seedClaimProvider(t, pool, "floor-keep-prov", true)
+	memberA := seedGroupMember(t, pool, provID, "floor-keep-a")
+	memberB := seedGroupMember(t, pool, provID, "floor-keep-b")
+	groupID := seedCustomGroup(t, pool, "floor-keep-victim", []uuid.UUID{memberA, memberB})
+
+	// Discovery takes the group down: memberB goes missing.
+	setModelEnabled(t, pool, memberB, false)
+	runRevalidate(t, pool)
+	if findGroupClaim(getStatus(t, r, "/discovery/status"), "floor-keep-victim") == nil {
+		t.Fatal("the discovery-disabled group must be a claim before the cascade")
+	}
+
+	// The operator then toggles memberA off; the dashboard's floor cascade
+	// re-sends group_enabled=false for a group that is already off.
+	body := `{"entry_enabled":{"` + memberA.String() + `":false},"group_enabled":false,"floor_disabled":true}`
+	req := httptest.NewRequest(http.MethodPut, "/failover-groups/"+groupID.String(), strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer test-admin-token")
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	fr.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("floor cascade PUT: %d: %s", w.Code, w.Body.String())
+	}
+
+	claim := findGroupClaim(getStatus(t, r, "/discovery/status"), "floor-keep-victim")
+	if claim == nil {
+		t.Fatal("the floor cascade must not erase discovery's claim")
+	}
+	if claim.MemberCount != 2 || claim.RoutableCount != 0 {
+		t.Errorf("claim counts = %d members / %d routable, want 2/0 (memberB gone, memberA switched off)",
+			claim.MemberCount, claim.RoutableCount)
+	}
+}
+
+// The routable count reads entry_enabled without a boolean cast: the column
+// has no constraint, so a hand-edited or legacy non-boolean value must not take
+// the whole discovery status down. It reads as enabled, like an absent key.
+func TestGetDiscoveryStatus_GroupClaimToleratesMalformedEntryEnabled(t *testing.T) {
+	h, r := newTestHandlerWithRouter(t)
+	pool := h.dbPool.Pool()
+	truncateDiscoveryChanges(t)
+	truncateFailoverGroups(t)
+
+	provID := seedClaimProvider(t, pool, "malformed-entry-prov", true)
+	memberA := seedGroupMember(t, pool, provID, "malformed-entry-a")
+	memberB := seedGroupMember(t, pool, provID, "malformed-entry-b")
+	groupID := seedCustomGroup(t, pool, "malformed-entry-victim", []uuid.UUID{memberA, memberB})
+	if _, err := pool.Exec(context.Background(),
+		`UPDATE model_failover_groups
+		    SET group_enabled = false, auto_disabled_at = now(),
+		        entry_enabled = jsonb_build_object($2::text, 'yes', $3::text, false)
+		  WHERE id = $1`, groupID, memberA.String(), memberB.String()); err != nil {
+		t.Fatalf("seed malformed entry_enabled: %v", err)
+	}
+
+	claim := findGroupClaim(getStatus(t, r, "/discovery/status"), "malformed-entry-victim")
+	if claim == nil {
+		t.Fatal("a malformed entry_enabled value must not hide the claim (or fail the query)")
+	}
+	if claim.MemberCount != 2 || claim.RoutableCount != 1 {
+		t.Errorf("claim counts = %d members / %d routable, want 2/1 (malformed reads enabled, false reads off)",
+			claim.MemberCount, claim.RoutableCount)
+	}
+}
