@@ -91,7 +91,9 @@ func TestAttemptDeadline_IsCutAtTheOverallDeadline(t *testing.T) {
 // as finishAttemptAdmission wraps it, clean from the 2xx, so the close alone
 // would have credited the attempt. Two ways a probe fails: a read error the
 // dispatch's own close settles, and the TTFT timeout, where the probe closes
-// the body from its own goroutine before the dispatch gets to.
+// the body from its own goroutine before the dispatch gets to. The third case
+// wraps the release the way the translated dialects do (the probe never sees
+// the release itself), which is why the verdict lives on the slot.
 func TestDispatchStreaming_ProbeFailureSettlesTheSlotUnclean(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
@@ -108,16 +110,20 @@ func TestDispatchStreaming_ProbeFailureSettlesTheSlotUnclean(t *testing.T) {
 	for _, tc := range []struct {
 		name string
 		body io.ReadCloser
+		wrap bool
 	}{
-		{"read error", io.NopCloser(iotest{})},
-		{"TTFT timeout", newBlockUntilClosedReader("")},
+		{"read error", io.NopCloser(iotest{}), false},
+		{"TTFT timeout", newBlockUntilClosedReader(""), false},
+		{"TTFT timeout behind a dialect adapter", newBlockUntilClosedReader(""), true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			settled := make(chan bool, 1)
 			slot := &attemptSlot{fire: func(clean bool) { settled <- clean }}
-			rel := &inflightRelease{ReadCloser: tc.body, slot: slot, onEOF: true}
-			rel.clean.Store(true)
-			resp := &http.Response{StatusCode: http.StatusOK, Body: rel}
+			var body io.ReadCloser = &inflightRelease{ReadCloser: tc.body, slot: slot, clean: true, onEOF: true}
+			if tc.wrap {
+				body = struct{ io.ReadCloser }{body}
+			}
+			resp := &http.Response{StatusCode: http.StatusOK, Body: body}
 			logData := streamingLog()
 			logData.providerName = "probe-fail-provider"
 			h.insertRequestLogAsync(logData)

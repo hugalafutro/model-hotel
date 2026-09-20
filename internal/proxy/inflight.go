@@ -262,6 +262,13 @@ func (l *inflightLimiter) snapshot() []metrics.InflightState {
 type attemptSlot struct {
 	once sync.Once
 	fire func(clean bool)
+	// unclean, while raised, overrides the verdict a settle carries. The
+	// streaming dispatch raises it for the TTFT probe, whose failure closes
+	// the body (and so settles the slot, clean from the 2xx) from the probe's
+	// own goroutine, before the dispatch could say the attempt failed. It
+	// lives on the slot, not the body wrapper, because the translated
+	// dialects wrap the body again before the probe sees it.
+	unclean atomic.Bool
 }
 
 // settle releases the slot. clean says the attempt completed as a consumed
@@ -271,7 +278,15 @@ func (s *attemptSlot) settle(clean bool) {
 	if s == nil {
 		return
 	}
-	s.once.Do(func() { s.fire(clean) })
+	s.once.Do(func() { s.fire(clean && !s.unclean.Load()) })
+}
+
+// holdUnclean raises (or lowers) the override that makes the next settle
+// unclean whatever verdict it carries.
+func (s *attemptSlot) holdUnclean(on bool) {
+	if s != nil {
+		s.unclean.Store(on)
+	}
 }
 
 // inflightRelease wraps an upstream body so the attempt's slot settles when
@@ -288,14 +303,11 @@ func (s *attemptSlot) settle(clean bool) {
 // arrives with its last frame, after which the body is closed at once) and not
 // for a path that reads a whole body and only then decides whether the 2xx
 // carried an answer: there the EOF is reached while the verdict is still being
-// formed, so those paths hold the slot until their own close. The streaming
-// dispatch also lowers it for the TTFT probe, whose failure closes the body
-// from the probe's own goroutine: atomic, so that close reads the verdict the
-// dispatch set without a race.
+// formed, so those paths hold the slot until their own close.
 type inflightRelease struct {
 	io.ReadCloser
 	slot  *attemptSlot
-	clean atomic.Bool
+	clean bool
 	onEOF bool
 }
 
@@ -316,14 +328,14 @@ func holdSlotForVerdict(resp *http.Response) {
 func (b *inflightRelease) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if err == io.EOF && b.onEOF {
-		b.slot.settle(b.clean.Load())
+		b.slot.settle(b.clean)
 	}
 	return n, err
 }
 
 func (b *inflightRelease) Close() error {
 	err := b.ReadCloser.Close()
-	b.slot.settle(b.clean.Load())
+	b.slot.settle(b.clean)
 	return err
 }
 
@@ -371,9 +383,7 @@ func (h *Handler) finishAttemptAdmission(st *requestState, candidate modelCandid
 	if remainingBudgetZero(resp.Header) {
 		h.inflight.hintFull(candidate.provider.ID)
 	}
-	rel := &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, onEOF: true}
-	rel.clean.Store(servedSuccessStatus(resp.StatusCode))
-	resp.Body = rel
+	resp.Body = &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, clean: servedSuccessStatus(resp.StatusCode), onEOF: true}
 }
 
 // remainingBudgetZero reports whether the provider's OpenAI-style rate-limit
