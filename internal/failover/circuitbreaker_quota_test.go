@@ -1079,3 +1079,22 @@ func TestQuotaPin_AccountRefusalWithoutAPinMarksNothing(t *testing.T) {
 		t.Error("with pinning off an account refusal opens one circuit like any exhaustion, not the provider")
 	}
 }
+
+// The probe interval bounds how long an unmeasured pin runs between probes; it
+// is not a floor. A response pin shorter than the interval (a dated Retry-After
+// of two minutes) is the provider's own word and is served as stamped.
+func TestQuotaPin_ResponsePinShorterThanIntervalIsServedAsStamped(t *testing.T) {
+	probe := time.Hour
+	cb := NewCircuitBreaker(&stubSettings{threshold: 1, cooldown: time.Minute, pinMax: 24 * time.Hour, pinProbe: &probe})
+	id := uuid.New()
+	cb.RecordExhausted(id, "p", "m", 429, 2*time.Minute)
+
+	retryAt, pinned, ok := cb.BlockedUntil(id, "m")
+	if !ok || !pinned {
+		t.Fatalf("BlockedUntil = ok %v pinned %v, want a pinned block", ok, pinned)
+	}
+	// Two minutes plus clampPin's jitter of at most 5%.
+	if wait := time.Until(retryAt); wait < 110*time.Second || wait > 130*time.Second {
+		t.Errorf("retry in %v, want the two-minute pin, not the probe interval", wait)
+	}
+}
