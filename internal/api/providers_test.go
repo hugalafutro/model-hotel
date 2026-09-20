@@ -536,7 +536,13 @@ func TestUpdateProvider_BlankKeyFollowsTheCreateRule(t *testing.T) {
 				getFn: func(_ context.Context, pid uuid.UUID) (*provider.Provider, error) {
 					return &provider.Provider{ID: pid, Name: "p", BaseURL: "https://api.example.com", ProviderType: tc.providerType, Enabled: true}, nil
 				},
-				updateFn: func(_ context.Context, pid uuid.UUID, _ provider.UpdateProviderRequest, _, _, _ []byte) (*provider.Provider, error) {
+				updateFn: func(_ context.Context, pid uuid.UUID, _ provider.UpdateProviderRequest, ek, kn, ks []byte) (*provider.Provider, error) {
+					// The key columns are cleared (empty, not NULL, which the
+					// repository reads as "leave the stored key"), never set to
+					// the ciphertext of "".
+					if ek == nil || kn == nil || ks == nil || len(ek) != 0 || len(kn) != 0 || len(ks) != 0 {
+						t.Errorf("key columns = %v %v %v, want empty non-nil slices that clear the stored key", ek, kn, ks)
+					}
 					return &provider.Provider{ID: pid, Name: "p", BaseURL: "https://api.example.com", ProviderType: tc.providerType, Enabled: true}, nil
 				},
 			}

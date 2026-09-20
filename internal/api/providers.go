@@ -432,7 +432,14 @@ func (h *Handler) UpdateProvider(w http.ResponseWriter, r *http.Request) {
 	var keyNonce []byte
 	var keySalt []byte
 
-	if req.APIKey != nil {
+	switch {
+	case req.APIKey != nil && *req.APIKey == "":
+		// A blank key clears the key columns (empty, not NULL: NULL leaves the
+		// stored key in place). A keyless provider is one with no encrypted
+		// key, and the ciphertext of "" would read as a key everywhere the
+		// gateway decides that (discovery, quota, the credential mask).
+		encryptedKey, keyNonce, keySalt = []byte{}, []byte{}, []byte{}
+	case req.APIKey != nil:
 		enc, encErr := auth.Encrypt(*req.APIKey, h.cfg.MasterKey)
 		if encErr != nil {
 			respondError(w, "failed to encrypt API key", encErr, http.StatusInternalServerError)
