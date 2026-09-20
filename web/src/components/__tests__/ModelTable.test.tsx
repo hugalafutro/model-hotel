@@ -825,6 +825,35 @@ describe("ModelTable", () => {
 		});
 	});
 
+	describe("Keyboard", () => {
+		it("leaves Enter on the copy pill to the pill", async () => {
+			const onModelClick = vi.fn();
+			const { user } = renderWithProviders(
+				<ModelTable {...defaultProps} onModelClick={onModelClick} />,
+			);
+			const pill = screen
+				.getByText("Test-Provider/test-model-v1")
+				.closest("button");
+			if (!pill) throw new Error("copy pill not rendered");
+			pill.focus();
+			await user.keyboard("{Enter}");
+			expect(onModelClick).not.toHaveBeenCalled();
+		});
+
+		it("opens a model row with Enter", async () => {
+			const onModelClick = vi.fn();
+			const { user } = renderWithProviders(
+				<ModelTable {...defaultProps} onModelClick={onModelClick} />,
+			);
+			const modelRow = screen.getByText("Test Model").closest("tr");
+			if (!modelRow) throw new Error("row not rendered");
+			expect(modelRow).toHaveAttribute("tabIndex", "0");
+			modelRow.focus();
+			await user.keyboard("{Enter}");
+			expect(onModelClick).toHaveBeenCalledWith(mockModel);
+		});
+	});
+
 	describe("Copyable Model ID", () => {
 		it("renders copyable model ID pill", () => {
 			renderWithProviders(<ModelTable {...defaultProps} />);

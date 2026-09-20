@@ -270,6 +270,7 @@ function RequestLogs() {
 									setPage(1);
 								}}
 								label={t("logs.pagination.label")}
+								labelOne={t("logs.pagination.labelOne")}
 							/>
 						) : undefined
 					}

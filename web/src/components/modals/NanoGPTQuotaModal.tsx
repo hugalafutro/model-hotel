@@ -109,8 +109,9 @@ export function NanoGPTQuotaModal({
 								? formatWithCommas(usage.limits.dailyImages)
 								: "∞"
 						}`}
-						percentage={usage.dailyImages.percentUsed * 100}
+						percentage={usage.dailyImages.percentUsed}
 						barMode={barMode}
+						fillTestId="nanogpt-daily-images-fill"
 					>
 						{`${usage.dailyImages.percentUsed.toFixed(1)}% ${t("components.providerModals.used")}. ${resetAtLabel(usage.dailyImages.resetAt, t)}`}
 					</QuotaBar>
@@ -124,8 +125,9 @@ export function NanoGPTQuotaModal({
 								? formatTokens(usage.limits.dailyInputTokens)
 								: "∞"
 						}`}
-						percentage={usage.dailyInputTokens.percentUsed * 100}
+						percentage={usage.dailyInputTokens.percentUsed}
 						barMode={barMode}
+						fillTestId="nanogpt-daily-input-tokens-fill"
 					>
 						{`${usage.dailyInputTokens.percentUsed.toFixed(1)}% ${t("components.providerModals.used")}. ${resetAtLabel(usage.dailyInputTokens.resetAt, t)}`}
 					</QuotaBar>

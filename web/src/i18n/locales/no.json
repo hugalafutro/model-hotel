@@ -1222,7 +1222,8 @@
 			"tokens": "Tokener",
 			"lastUsed": "Sist brukt",
 			"keys": "nøkler",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "nøkkel"
 		},
 		"tooltip": {
 			"proxyUrl": "Klikk for å kopiere proxy-URL",
@@ -1420,7 +1421,8 @@
 			"scrollLoadFailed": "Kan ikke laste inn logger: {{message}}"
 		},
 		"pagination": {
-			"label": "oppføringer"
+			"label": "oppføringer",
+			"labelOne": "oppføring"
 		},
 		"loading": {
 			"newer": "↻ Laster inn nyere…",
@@ -1463,7 +1465,8 @@
 			"scrollLoadFailed": "Kan ikke laste inn logger: {{message}}"
 		},
 		"pagination": {
-			"label": "oppføringer"
+			"label": "oppføringer",
+			"labelOne": "oppføring"
 		},
 		"loading": {
 			"newer": "↻ Laster inn nyere…",
@@ -2568,7 +2571,8 @@
 			"deleteDisabledAria_other": "Slett modeller for {{count}} deaktivert",
 			"deleteDisabledMessage_one": "Dette vil slette {{count}} deaktivert modell. Hvis autodiscovery er aktivert på deres leverandør, vil de bli oppdaget på nytt i neste syklus. Deaktiver autodiscovery på leverandøren for å forhindre dette.",
 			"deleteDisabledMessage_other": "Dette vil slette {{count}} deaktiverte modeller. Hvis autodiscovery er aktivert på leverandøren deres, vil de bli oppdaget på nytt neste syklus. Deaktiver autodiscovery på leverandøren for å forhindre dette.",
-			"clickToCopyId": "Klikk for å kopiere modell-ID"
+			"clickToCopyId": "Klikk for å kopiere modell-ID",
+			"modelOne": "modell"
 		},
 		"virtualModelTable": {
 			"searchModels": "Søk modeller…",

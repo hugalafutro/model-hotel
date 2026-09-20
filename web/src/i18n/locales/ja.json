@@ -1222,7 +1222,8 @@
 			"tokens": "トークン",
 			"lastUsed": "最終使用",
 			"keys": "キー",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "キー"
 		},
 		"tooltip": {
 			"proxyUrl": "クリックしてプロキシ URL をコピー",
@@ -1420,7 +1421,8 @@
 			"scrollLoadFailed": "ログの読み込みに失敗しました: {{message}}"
 		},
 		"pagination": {
-			"label": "項目"
+			"label": "項目",
+			"labelOne": "項目"
 		},
 		"loading": {
 			"newer": "↻ 新しい… を読み込み中",
@@ -1463,7 +1465,8 @@
 			"scrollLoadFailed": "ログの読み込みに失敗しました: {{message}}"
 		},
 		"pagination": {
-			"label": "項目"
+			"label": "項目",
+			"labelOne": "項目"
 		},
 		"loading": {
 			"newer": "↻ 新しいバージョンの… を読み込み中",
@@ -2568,7 +2571,8 @@
 			"deleteDisabledAria_other": "無効化されたモデル {{count}} を削除",
 			"deleteDisabledMessage_one": "無効化されたモデル {{count}} 件が完全に削除されます。プロバイダーで自動検出が有効な場合、次のサイクルで再検出されます。防ぐにはプロバイダーの自動検出を無効にしてください。",
 			"deleteDisabledMessage_other": "無効化された {{count}} モデルは完全に削除されます。 プロバイダーで自動検出が有効になっている場合、次のサイクルで再発見されます。プロバイダーの自動検出を無効にしてこれを防止します。",
-			"clickToCopyId": "クリックしてモデル ID をコピー"
+			"clickToCopyId": "クリックしてモデル ID をコピー",
+			"modelOne": "モデル"
 		},
 		"virtualModelTable": {
 			"searchModels": "モデルを検索…",

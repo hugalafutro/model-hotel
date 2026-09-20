@@ -1269,7 +1269,8 @@
 			"tokens": "Jetons",
 			"lastUsed": "Dernière utilisation",
 			"keys": "clés",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "clé"
 		},
 		"tooltip": {
 			"proxyUrl": "Cliquer pour copier l'URL du proxy",
@@ -1467,7 +1468,8 @@
 			"scrollLoadFailed": "Impossible de charger les journaux : {{message}}"
 		},
 		"pagination": {
-			"label": "entrées"
+			"label": "entrées",
+			"labelOne": "entrée"
 		},
 		"loading": {
 			"newer": "↻ Chargement des plus récents…",
@@ -1510,7 +1512,8 @@
 			"scrollLoadFailed": "Impossible de charger les journaux : {{message}}"
 		},
 		"pagination": {
-			"label": "entrées"
+			"label": "entrées",
+			"labelOne": "entrée"
 		},
 		"loading": {
 			"newer": "↻ Chargement des plus récents…",
@@ -2628,7 +2631,8 @@
 			"deleteDisabledMessage_one": "Ceci supprimera définitivement le modèle {{count}} désactivé. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactiver la découverte automatique sur le fournisseur pour éviter cela.",
 			"deleteDisabledMessage_many": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela.",
 			"deleteDisabledMessage_other": "Ceci supprimera définitivement les modèles {{count}} désactivés. Si la découverte automatique est activée sur leur fournisseur, ils seront redécouverts lors du prochain cycle. Désactivez la découverte automatique sur le fournisseur pour éviter cela.",
-			"clickToCopyId": "Cliquer pour copier l'ID du modèle"
+			"clickToCopyId": "Cliquer pour copier l'ID du modèle",
+			"modelOne": "modèle"
 		},
 		"virtualModelTable": {
 			"searchModels": "Rechercher les modèles…",

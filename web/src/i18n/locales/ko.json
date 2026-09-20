@@ -1222,7 +1222,8 @@
 			"tokens": "토큰",
 			"lastUsed": "마지막 사용일",
 			"keys": "키",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "키"
 		},
 		"tooltip": {
 			"proxyUrl": "클릭하여 프록시 URL 복사",
@@ -1420,7 +1421,8 @@
 			"scrollLoadFailed": "로그를 불러오지 못했습니다: {{message}}"
 		},
 		"pagination": {
-			"label": "항목"
+			"label": "항목",
+			"labelOne": "항목"
 		},
 		"loading": {
 			"newer": "↻ 최신 항목 불러오는 중…",
@@ -1463,7 +1465,8 @@
 			"scrollLoadFailed": "로그를 불러오지 못했습니다: {{message}}"
 		},
 		"pagination": {
-			"label": "항목"
+			"label": "항목",
+			"labelOne": "항목"
 		},
 		"loading": {
 			"newer": "↻ 최신 항목 불러오는 중…",
@@ -2568,7 +2571,8 @@
 			"deleteDisabledAria_other": "비활성화된 모델 {{count}}개 삭제",
 			"deleteDisabledMessage_one": "이렇게 하면 {{count}} 모델이 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오.",
 			"deleteDisabledMessage_other": "이렇게 하면 비활성화된 모델 {{count}}개가 영구적으로 삭제됩니다. 해당 공급자에서 자동 검색이 활성화된 경우, 다음 주기에서 다시 검색됩니다. 이를 방지하려면 공급자에서 자동 검색을 비활성화하십시오.",
-			"clickToCopyId": "클릭하여 모델 ID 복사"
+			"clickToCopyId": "클릭하여 모델 ID 복사",
+			"modelOne": "모델"
 		},
 		"virtualModelTable": {
 			"searchModels": "모델 검색…",

@@ -170,6 +170,42 @@ describe("SettingsSlider", () => {
 		expect(numberInput).toHaveValue(defaultProps.value);
 	});
 
+	it("keeps the typed text until blur, so a value below the first digit's clamp can be typed", () => {
+		// min 30, step 30, target 120: clamping each keystroke turned "1" into
+		// 30 and "12" into 300, so 120 could never be typed.
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider
+				{...defaultProps}
+				value={60}
+				min={30}
+				max={600}
+				clampStep={30}
+				onChange={onChange}
+			/>,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		for (const text of ["1", "12", "120"]) {
+			fireEvent.change(numberInput, { target: { value: text } });
+			expect(numberInput).toHaveValue(Number(text));
+		}
+		fireEvent.blur(numberInput);
+		expect(onChange).toHaveBeenCalledWith(120);
+		expect(numberInput).toHaveValue(120);
+	});
+
+	it("leaves an emptied number box at the committed value on blur", () => {
+		const onChange = vi.fn();
+		renderWithProviders(
+			<SettingsSlider {...defaultProps} onChange={onChange} />,
+		);
+		const numberInput = screen.getByRole("spinbutton");
+		fireEvent.change(numberInput, { target: { value: "" } });
+		fireEvent.blur(numberInput);
+		expect(onChange).not.toHaveBeenCalled();
+		expect(numberInput).toHaveValue(50);
+	});
+
 	it("clamps number input value to max on blur", () => {
 		const onChange = vi.fn();
 		renderWithProviders(

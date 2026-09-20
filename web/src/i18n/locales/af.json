@@ -1222,7 +1222,8 @@
 			"tokens": "Tokens",
 			"lastUsed": "Laaste gebruik",
 			"keys": "sleutels",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "sleutel"
 		},
 		"tooltip": {
 			"proxyUrl": "Klik om die proxy-URL te kopieer",
@@ -1420,7 +1421,8 @@
 			"scrollLoadFailed": "Misluk om logs te laai: {{message}}"
 		},
 		"pagination": {
-			"label": "inskrywings"
+			"label": "inskrywings",
+			"labelOne": "inskrywing"
 		},
 		"loading": {
 			"newer": "↻ Laai nuwer…",
@@ -1463,7 +1465,8 @@
 			"scrollLoadFailed": "Misluk om logs te laai: {{message}}"
 		},
 		"pagination": {
-			"label": "inskrywings"
+			"label": "inskrywings",
+			"labelOne": "inskrywing"
 		},
 		"loading": {
 			"newer": "↻ Laai nuwer…",
@@ -2568,7 +2571,8 @@
 			"deleteDisabledAria_other": "Verwyder {{count}} gedeaktiveerde modelle",
 			"deleteDisabledMessage_one": "Dit sal {{count}} gedeaktiveerde model permanent verwyder. As outo-ontdekking by hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Skakel outo-ontdekking by die verskaffer uit om dit te voorkom.",
 			"deleteDisabledMessage_other": "Dit sal {{count}} gedeaktiveerde modelle permanent uitvee. As outo-ontdekking op hul verskaffer geaktiveer is, sal hulle in die volgende siklus weer ontdek word. Skakel outo-ontdekking op die verskaffer uit om dit te voorkom.",
-			"clickToCopyId": "Klik om model-ID te kopieer"
+			"clickToCopyId": "Klik om model-ID te kopieer",
+			"modelOne": "model"
 		},
 		"virtualModelTable": {
 			"searchModels": "Soek modelle…",

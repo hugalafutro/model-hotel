@@ -1222,7 +1222,8 @@
 			"created": "Created",
 			"tokens": "Tokens",
 			"lastUsed": "Last Used",
-			"keys": "keys"
+			"keys": "keys",
+			"keyOne": "key"
 		},
 		"tooltip": {
 			"proxyUrl": "Click to copy proxy URL",
@@ -1420,7 +1421,8 @@
 			"scrollLoadFailed": "Failed to load logs: {{message}}"
 		},
 		"pagination": {
-			"label": "entries"
+			"label": "entries",
+			"labelOne": "entry"
 		},
 		"loading": {
 			"newer": "↻ Loading newer…",
@@ -1463,7 +1465,8 @@
 			"scrollLoadFailed": "Failed to load logs: {{message}}"
 		},
 		"pagination": {
-			"label": "entries"
+			"label": "entries",
+			"labelOne": "entry"
 		},
 		"loading": {
 			"newer": "↻ Loading newer…",
@@ -2568,7 +2571,8 @@
 			"deleteDisabledAria_other": "Delete {{count}} disabled models",
 			"deleteDisabledMessage_one": "This will permanently delete {{count}} disabled model. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
 			"deleteDisabledMessage_other": "This will permanently delete {{count}} disabled models. If autodiscovery is enabled on their provider, they will be re-discovered on the next cycle. Disable autodiscovery on the provider to prevent this.",
-			"clickToCopyId": "Click to copy model ID"
+			"clickToCopyId": "Click to copy model ID",
+			"modelOne": "model"
 		},
 		"virtualModelTable": {
 			"searchModels": "Search models…",

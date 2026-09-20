@@ -1222,7 +1222,8 @@
 			"tokens": "Token",
 			"lastUsed": "Zuletzt verwendet",
 			"keys": "Schlüssel",
-			"tpm": "TPM"
+			"tpm": "TPM",
+			"keyOne": "Schlüssel"
 		},
 		"tooltip": {
 			"proxyUrl": "Klicken, um Proxy-URL zu kopieren",
@@ -1420,7 +1421,8 @@
 			"scrollLoadFailed": "Fehler beim Laden der Logs: {{message}}"
 		},
 		"pagination": {
-			"label": "einträge"
+			"label": "einträge",
+			"labelOne": "Eintrag"
 		},
 		"loading": {
 			"newer": "↻ Lade neuere…",
@@ -1463,7 +1465,8 @@
 			"scrollLoadFailed": "Fehler beim Laden der Logs: {{message}}"
 		},
 		"pagination": {
-			"label": "einträge"
+			"label": "einträge",
+			"labelOne": "Eintrag"
 		},
 		"loading": {
 			"newer": "↻ Lade neuere…",
@@ -2568,7 +2571,8 @@
 			"deleteDisabledAria_other": "{{count}} deaktivierte Modelle löschen",
 			"deleteDisabledMessage_one": "Dies löscht dauerhaft {{count}} deaktiviertes Modell. Wenn die Autoentdeckung beim Anbieter aktiviert ist, wird es im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung beim Anbieter, um dies zu verhindern.",
 			"deleteDisabledMessage_other": "Dies löscht {{count}} deaktivierte Modelle. Wenn die Autoentdeckung auf ihrem Provider aktiviert ist, werden sie im nächsten Zyklus wiederentdeckt. Deaktivieren Sie die Autoentdeckung auf dem Provider, um dies zu verhindern.",
-			"clickToCopyId": "Hier klicken, um Model-ID zu kopieren"
+			"clickToCopyId": "Hier klicken, um Model-ID zu kopieren",
+			"modelOne": "Modell"
 		},
 		"virtualModelTable": {
 			"searchModels": "Modelle… suchen",

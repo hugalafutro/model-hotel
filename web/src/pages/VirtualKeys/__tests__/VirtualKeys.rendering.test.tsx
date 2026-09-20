@@ -239,11 +239,12 @@ describe("Accessibility", () => {
 			expect(screen.getByText("Test API Key")).toBeInTheDocument();
 		});
 
-		// Each row should be clickable with role="button"
+		// Each row is keyboard reachable and stays a table row for AT
 		const table = screen.getByRole("table");
 		const rows = table.querySelectorAll("tbody tr");
 		expect(rows).toHaveLength(1);
-		expect(rows[0]).toHaveAttribute("role", "button");
+		expect(rows[0]).toHaveAttribute("tabIndex", "0");
+		expect(rows[0]).not.toHaveAttribute("role");
 	});
 
 	it("has accessible sort buttons with tooltips", async () => {

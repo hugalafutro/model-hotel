@@ -67,6 +67,41 @@ describe("Modal", () => {
 		expect(dialog).not.toHaveAttribute("aria-labelledby");
 	});
 
+	it("keeps Tab inside the dialog and hands focus back to the opener on close", async () => {
+		const user = userEvent.setup();
+		const { rerender } = render(<button type="button">opener</button>);
+		const opener = screen.getByRole("button", { name: "opener" });
+		opener.focus();
+		rerender(
+			<>
+				<button type="button">opener</button>
+				<Modal onClose={onClose}>
+					<button type="button">first</button>
+					<button type="button">last</button>
+				</Modal>
+			</>,
+		);
+		const dialog = screen.getByRole("dialog");
+		expect(dialog).toHaveFocus();
+
+		// Tab from the dialog's last control wraps to its first.
+		const focusables = dialog.querySelectorAll<HTMLElement>("button");
+		screen.getByRole("button", { name: "last" }).focus();
+		await user.tab();
+		expect(document.activeElement).toBe(focusables[0]);
+		expect(document.activeElement).not.toBe(opener);
+
+		// Shift+Tab from the dialog's first control wraps to its last.
+		focusables[0].focus();
+		await user.tab({ shift: true });
+		expect(document.activeElement).toBe(focusables[focusables.length - 1]);
+
+		// The dialog goes away, the opener stays: focus returns to it instead
+		// of dropping to <body>.
+		rerender(<button type="button">opener</button>);
+		expect(screen.getByRole("button", { name: "opener" })).toHaveFocus();
+	});
+
 	it("calls onClose when close button is clicked", async () => {
 		const user = userEvent.setup();
 		render(<Modal onClose={onClose}>Content</Modal>);
