@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -40,6 +41,11 @@ type WebAuthnHandler struct {
 	// trail (nil on Front Desk, which keeps no trail). Mounted by SetAudit.
 	audit       func(http.Handler) http.Handler
 	totpEnabled func() bool
+	// cloneQuarantine holds the credential IDs refuseClonedLogin flagged as
+	// cloned but could not yet delete, so the next assertion on one is refused
+	// too, whichever device's counter advances. Held in this process until a
+	// delete lands; a restart drops it, and the next clone signal re-flags.
+	cloneQuarantine sync.Map
 	// useCookieAuth selects the session-delivery mode. true: passkey login sets
 	// the jar's HttpOnly session cookie, logout clears it, and the body carries
 	// no token; false: the session token is returned in the JSON body for
@@ -408,20 +414,31 @@ func (h *WebAuthnHandler) refuseClonedLogin(w http.ResponseWriter, r *http.Reque
 	switch {
 	case cred == nil:
 		logPasskeyLoginFailure(r, "no_credential", errors.New("assertion validated without a credential"))
-	case cred.Authenticator.CloneWarning:
+	case cred.Authenticator.CloneWarning || h.quarantinedClone(cred.ID):
 		logPasskeyLoginFailure(r, "clone_warning", errors.New("signature counter did not advance"))
+		// Flagged before the delete is tried: a delete that fails would
+		// otherwise leave the credential on file for the next assertion, and
+		// whichever device signs with the higher counter, clone or original,
+		// would be let in. The failure is a server error the operator sees.
+		h.cloneQuarantine.Store(string(cred.ID), struct{}{})
 		if err := h.webauthnRepo.DeleteCredential(r.Context(), cred.ID); err != nil {
-			// The credential stays on file, so the next assertion could pass:
-			// a server error, not a login failure, and the operator's to see.
 			respondError(w, "webauthn: could not revoke the cloned credential", err, http.StatusInternalServerError)
 			return true
 		}
+		h.cloneQuarantine.Delete(string(cred.ID))
 		debuglog.Warn("webauthn: credential revoked after a signature counter that did not advance", "remote_addr", clientip.From(r))
 	default:
 		return false
 	}
 	respondBadRequest(w, "passkey login verification failed", nil)
 	return true
+}
+
+// quarantinedClone reports whether a credential is flagged as cloned with its
+// revocation still pending.
+func (h *WebAuthnHandler) quarantinedClone(id []byte) bool {
+	_, ok := h.cloneQuarantine.Load(string(id))
+	return ok
 }
 
 // LoginFinish completes a WebAuthn discoverable login ceremony.

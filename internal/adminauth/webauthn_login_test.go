@@ -797,16 +797,47 @@ func TestRefuseClonedLogin(t *testing.T) {
 		t.Error("the cloned credential still exists, want it revoked")
 	}
 
-	// A revocation that fails leaves the credential on file for the next
-	// assertion: a server error the operator sees, not a login failure.
+	// A revocation that fails leaves the credential on file: a server error
+	// the operator sees, not a login failure, and the credential stays
+	// quarantined in this process, so an assertion whose counter advances is
+	// refused too, until a delete lands.
+	if err := repo.StoreCredential(ctx, &webauthn.CredentialRecord{
+		ID: credID, Name: "Cloned Key", PublicKey: make([]byte, 64), AttestationType: "none",
+		AttestationFormat: "packed", Transport: []string{"internal"}, FlagsByte: 0x41, SignCount: 58, AAGUID: uuid.Nil,
+	}); err != nil {
+		t.Fatalf("re-store credential: %v", err)
+	}
 	failing := newTestWebAuthnHandler(nil, nil, nil, nil)
 	failing.webauthnRepo = failingDeleteStore{Store: repo}
+	clone := &webauthnx.Credential{ID: credID, Authenticator: webauthnx.Authenticator{CloneWarning: true}}
+	advanced := &webauthnx.Credential{ID: credID}
 	w := httptest.NewRecorder()
-	if !failing.refuseClonedLogin(w, req, &webauthnx.Credential{ID: credID, Authenticator: webauthnx.Authenticator{CloneWarning: true}}) {
+	if !failing.refuseClonedLogin(w, req, clone) {
 		t.Fatal("a clone whose revocation failed was not refused")
 	}
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("status = %d, want 500 when the credential could not be revoked", w.Code)
+	}
+	w = httptest.NewRecorder()
+	if !failing.refuseClonedLogin(w, req, advanced) {
+		t.Fatal("an advancing counter on a quarantined credential was let in")
+	}
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("status = %d, want 500 while the revocation is still pending", w.Code)
+	}
+	failing.webauthnRepo = repo
+	w = httptest.NewRecorder()
+	if !failing.refuseClonedLogin(w, req, advanced) {
+		t.Fatal("the quarantined credential was let in once the store came back")
+	}
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400 once the delete landed", w.Code)
+	}
+	if _, err := repo.GetCredentialByID(ctx, credID); err == nil {
+		t.Error("the quarantined credential still exists, want it revoked once the delete landed")
+	}
+	if failing.refuseClonedLogin(httptest.NewRecorder(), req, advanced) {
+		t.Error("the quarantine must lift once the delete landed")
 	}
 }
 
