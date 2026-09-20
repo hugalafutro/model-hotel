@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -287,11 +288,14 @@ func (s *attemptSlot) settle(clean bool) {
 // arrives with its last frame, after which the body is closed at once) and not
 // for a path that reads a whole body and only then decides whether the 2xx
 // carried an answer: there the EOF is reached while the verdict is still being
-// formed, so those paths hold the slot until their own close.
+// formed, so those paths hold the slot until their own close. The streaming
+// dispatch also lowers it for the TTFT probe, whose failure closes the body
+// from the probe's own goroutine: atomic, so that close reads the verdict the
+// dispatch set without a race.
 type inflightRelease struct {
 	io.ReadCloser
 	slot  *attemptSlot
-	clean bool
+	clean atomic.Bool
 	onEOF bool
 }
 
@@ -312,14 +316,14 @@ func holdSlotForVerdict(resp *http.Response) {
 func (b *inflightRelease) Read(p []byte) (int, error) {
 	n, err := b.ReadCloser.Read(p)
 	if err == io.EOF && b.onEOF {
-		b.slot.settle(b.clean)
+		b.slot.settle(b.clean.Load())
 	}
 	return n, err
 }
 
 func (b *inflightRelease) Close() error {
 	err := b.ReadCloser.Close()
-	b.slot.settle(b.clean)
+	b.slot.settle(b.clean.Load())
 	return err
 }
 
@@ -367,7 +371,9 @@ func (h *Handler) finishAttemptAdmission(st *requestState, candidate modelCandid
 	if remainingBudgetZero(resp.Header) {
 		h.inflight.hintFull(candidate.provider.ID)
 	}
-	resp.Body = &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, clean: servedSuccessStatus(resp.StatusCode), onEOF: true}
+	rel := &inflightRelease{ReadCloser: resp.Body, slot: st.attemptSlot, onEOF: true}
+	rel.clean.Store(servedSuccessStatus(resp.StatusCode))
+	resp.Body = rel
 }
 
 // remainingBudgetZero reports whether the provider's OpenAI-style rate-limit

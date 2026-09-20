@@ -249,6 +249,41 @@ func TestClassifyRateLimit(t *testing.T) {
 			wantClass: rateLimitSaturated,
 			wantRetry: 20 * time.Second,
 		},
+		struct {
+			name       string
+			status     int
+			hdr        http.Header
+			body       string
+			wantClass  rateLimitClass
+			wantRetry  time.Duration
+			wantPin    time.Duration
+			wantEntitl bool
+		}{
+			// A proxy's short Retry-After does not hide the window the body names.
+			name:      "a short Retry-After beside a daily window still pins the window",
+			status:    429,
+			hdr:       http.Header{"Retry-After": []string{"20"}},
+			body:      `{"error":{"message":"Rate limit reached on requests per day (RPD). Please try again in 6h23m12s."}}`,
+			wantClass: rateLimitExhausted,
+			wantPin:   6*time.Hour + 23*time.Minute + 12*time.Second,
+		},
+		struct {
+			name       string
+			status     int
+			hdr        http.Header
+			body       string
+			wantClass  rateLimitClass
+			wantRetry  time.Duration
+			wantPin    time.Duration
+			wantEntitl bool
+		}{
+			name:      "the longer of two stated waits under the ceiling is the wait",
+			status:    429,
+			hdr:       http.Header{"Retry-After": []string{"45"}},
+			body:      `{"error":{"message":"Rate limit reached on requests per minute (RPM). Please try again in 20s."}}`,
+			wantClass: rateLimitSaturated,
+			wantRetry: 45 * time.Second,
+		},
 	)
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

@@ -89,45 +89,65 @@ func TestAttemptDeadline_IsCutAtTheOverallDeadline(t *testing.T) {
 // attempt holds settles unclean, so the provider's learned window does not
 // grow on a stream that never delivered a token. The body is wrapped exactly
 // as finishAttemptAdmission wraps it, clean from the 2xx, so the close alone
-// would have credited the attempt.
+// would have credited the attempt. Two ways a probe fails: a read error the
+// dispatch's own close settles, and the TTFT timeout, where the probe closes
+// the body from its own goroutine before the dispatch gets to.
 func TestDispatchStreaming_ProbeFailureSettlesTheSlotUnclean(t *testing.T) {
 	h := newIntegrationHandler()
 	defer stopUnitHandlerIntegration(h)
+	ctx := context.Background()
+	if err := h.settingsRepo.Set(ctx, "ttft_timeout", "25ms"); err != nil {
+		t.Fatalf("set ttft_timeout: %v", err)
+	}
+	h.settingsRepo.InvalidateCache("ttft_timeout")
+	t.Cleanup(func() {
+		_ = h.settingsRepo.DeleteKey(ctx, "ttft_timeout")
+		h.settingsRepo.InvalidateCache("ttft_timeout")
+	})
 
-	settled := make(chan bool, 1)
-	slot := &attemptSlot{fire: func(clean bool) { settled <- clean }}
-	resp := &http.Response{
-		StatusCode: http.StatusOK,
-		Body:       &inflightRelease{ReadCloser: io.NopCloser(iotest{}), slot: slot, clean: true, onEOF: true},
-	}
-	logData := streamingLog()
-	logData.providerName = "probe-fail-provider"
-	h.insertRequestLogAsync(logData)
-	st := &requestState{
-		startTime:             time.Now(),
-		reqModel:              "test-model",
-		isStreaming:           true,
-		circuitBreakerEnabled: true,
-		logData:               logData,
-		attemptSlot:           slot,
-	}
-	cand := modelCandidate{
-		model:    &model.Model{ModelID: "test-model"},
-		provider: &provider.Provider{ID: uuid.New(), Name: "probe-fail-provider"},
-		apiKey:   "sk-test",
-	}
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
-	if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeFailover {
-		t.Fatalf("outcome = %v, want failover", got)
-	}
-	select {
-	case clean := <-settled:
-		if clean {
-			t.Error("the slot settled clean on a probe that failed")
-		}
-	default:
-		t.Fatal("the slot never settled")
+	for _, tc := range []struct {
+		name string
+		body io.ReadCloser
+	}{
+		{"read error", io.NopCloser(iotest{})},
+		{"TTFT timeout", newBlockUntilClosedReader("")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			settled := make(chan bool, 1)
+			slot := &attemptSlot{fire: func(clean bool) { settled <- clean }}
+			rel := &inflightRelease{ReadCloser: tc.body, slot: slot, onEOF: true}
+			rel.clean.Store(true)
+			resp := &http.Response{StatusCode: http.StatusOK, Body: rel}
+			logData := streamingLog()
+			logData.providerName = "probe-fail-provider"
+			h.insertRequestLogAsync(logData)
+			st := &requestState{
+				startTime:             time.Now(),
+				reqModel:              "test-model",
+				isStreaming:           true,
+				circuitBreakerEnabled: true,
+				logData:               logData,
+				attemptSlot:           slot,
+			}
+			cand := modelCandidate{
+				model:    &model.Model{ModelID: "test-model"},
+				provider: &provider.Provider{ID: uuid.New(), Name: "probe-fail-provider"},
+				apiKey:   "sk-test",
+			}
+			w := httptest.NewRecorder()
+			req := httptest.NewRequest("POST", "/v1/chat/completions", http.NoBody)
+			if got := h.dispatchStreaming(w, req, st, cand, resp, 1, 10, "failover_timeout"); got != outcomeFailover {
+				t.Fatalf("outcome = %v, want failover", got)
+			}
+			select {
+			case clean := <-settled:
+				if clean {
+					t.Error("the slot settled clean on a probe that failed")
+				}
+			default:
+				t.Fatal("the slot never settled")
+			}
+		})
 	}
 }
 

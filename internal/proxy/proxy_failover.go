@@ -342,6 +342,18 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 	}
 
 	if ttftTimeout > 0 {
+		// The in-flight slot settles from the body's close, and the probe
+		// closes the body itself, from its own goroutine, when its context
+		// ends (the TTFT timeout, or the caller leaving). So the verdict has
+		// to be on the body BEFORE the probe runs: unclean until a first token
+		// proves the stream delivers, clean again once one has. A probe that
+		// failed is not a consumed success whoever ended it, so the provider's
+		// learned window does not grow on it; the breaker charge below still
+		// spares a caller who left.
+		rel, _ := resp.Body.(*inflightRelease)
+		if rel != nil {
+			rel.clean.Store(false)
+		}
 		// TTFT probe: read until first real data chunk.
 		probeBuf, trueTtftMs, probeErr := h.probeFirstToken(r.Context(), resp.Body, ttftTimeout, st.startTime)
 		if probeErr != nil {
@@ -350,15 +362,8 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// (recorded against the breaker, failover-eligible) or a genuinely
 			// fast client cancel that must not penalize the provider.
 			clientGone := r.Context().Err() != nil
-			// The in-flight slot settles from the 2xx on the close below, and a
-			// probe that failed is not a consumed success: settle it unclean
-			// first, except for a caller who left, whose leaving says nothing
-			// about the provider (the same line the breaker draws).
-			if !clientGone {
-				st.attemptSlot.settle(false)
-			}
 			// Timeout or read error, so fail over. probeFirstToken may or may
-			// not have closed the body (only on DeadlineExceeded); close it
+			// not have closed the body (only when its context ended); close it
 			// unconditionally to release the connection.
 			_ = resp.Body.Close()
 			elapsed := time.Since(st.startTime)
@@ -376,6 +381,9 @@ func (h *Handler) dispatchStreaming(w http.ResponseWriter, r *http.Request, st *
 			// wrong thing. charged says what the breaker was told either way.
 			debuglog.Warn("proxy: TTFT probe failed", "attempt", attempt+1, "provider", candidate.provider.Name, "client_gone", clientGone, "elapsed", elapsed, "kind", string(re.Kind), "charged", recordFailure, "error", re.Underlying)
 			return outcomeFailover
+		}
+		if rel != nil {
+			rel.clean.Store(true)
 		}
 		// First token confirmed. No breaker success is recorded here: a first
 		// token is not a served stream, and recording one would zero
