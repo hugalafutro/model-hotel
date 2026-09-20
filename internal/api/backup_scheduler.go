@@ -117,7 +117,6 @@ func (h *BackupHandler) schedulerTick(ctx context.Context) time.Duration {
 		debuglog.Debug("backup: last scheduled backup is recent, waiting", "wait", wait.Round(time.Second).String())
 		return min(wait, backupSchedulerRecheck)
 	}
-	h.lastScheduledAttempt = time.Now()
 	h.runScheduledBackup(ctx)
 	return min(interval, backupSchedulerRecheck)
 }
@@ -184,10 +183,14 @@ func (h *BackupHandler) removeStalePartials() {
 // It uses the same pg_dump logic as CreateBackup but without HTTP request/response.
 func (h *BackupHandler) runScheduledBackup(ctx context.Context) {
 	if !h.backupMu.TryLock() {
+		// Not an attempt: the anchor stays where it was, so the still-due
+		// dump runs on the next re-check once the manual operation is done.
 		debuglog.Warn("backup: scheduler skip, operation in progress")
 		return
 	}
 	defer h.backupMu.Unlock()
+	// Anchors the interval whether or not the dump lands (see the field).
+	h.lastScheduledAttempt = time.Now()
 
 	if _, err := h.createDump(ctx, "auto", scheduledDumpCompression, "Scheduled backup created"); err != nil {
 		debuglog.Error("backup: scheduled backup failed", "error", err)

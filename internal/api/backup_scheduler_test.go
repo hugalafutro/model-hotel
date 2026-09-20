@@ -1596,3 +1596,21 @@ func TestSchedulerTick_FailedDumpBacksOffToTheInterval(t *testing.T) {
 		t.Errorf("wait after a failed attempt = %v, want the interval to anchor on the attempt", got)
 	}
 }
+
+// A tick skipped because a manual backup or restore holds the lock is not an
+// attempt: the anchor does not move, so the still-due dump runs on the next
+// re-check once the operation is done.
+func TestSchedulerTick_LockSkipDoesNotAnchorTheInterval(t *testing.T) {
+	dir := t.TempDir()
+	ss := &mockSettingsStore{
+		getBoolFn:     func(context.Context, string, bool) bool { return true },
+		getDurationFn: func(context.Context, string, time.Duration) time.Duration { return time.Hour },
+	}
+	h := NewBackupHandler("postgres://invalid:invalid@127.0.0.1:1/nonexistent", dir, &mockAdminAuth{}, ss)
+	h.backupMu.Lock() // a manual operation in progress
+	h.schedulerTick(context.Background())
+	h.backupMu.Unlock()
+	if got := h.scheduledBackupWait(time.Hour, time.Now()); got != 0 {
+		t.Errorf("wait after a lock skip = %v, want still due", got)
+	}
+}
