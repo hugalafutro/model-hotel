@@ -213,7 +213,8 @@
 			"ssoKind": "SSO",
 			"copyError": "Copy error",
 			"viewDetails": "View details",
-			"acknowledge": "Dismiss"
+			"acknowledge": "Dismiss",
+			"titleTooltip": "The {{limit}} most recent errors, none older than {{hours}} hours"
 		},
 		"running": "Running {{running}}",
 		"runningLatest": "Running latest ({{running}})",
@@ -229,7 +230,16 @@
 			"dbTxPerSec": "Database transactions per second",
 			"requestsTodayAll": "Number of proxied LLM requests across every virtual key since midnight local time today",
 			"requestsTodayOwn": "Number of proxied LLM requests from your own virtual keys since midnight local time today",
-			"requestsToday": "Number of proxied LLM requests since midnight local time today"
+			"requestsToday": "Number of proxied LLM requests since midnight local time today",
+			"cpu": "CPU currently used by the server",
+			"procs": "Processes running in the server's control group",
+			"aggregateProcs": "Processes across {{count}} compose containers",
+			"memoryUsed": "Memory currently used by the server",
+			"memoryLimit": "Memory limit the server is allowed to reach before it is killed",
+			"aggregateMemoryUsed": "Memory used across {{count}} compose containers",
+			"aggregateMemoryLimit": "Combined memory limit of {{count}} compose containers",
+			"memoryHeap": "Go heap currently allocated; no memory limit is set for this server",
+			"aggregateCpu": "CPU used across {{count}} compose containers"
 		},
 		"githubRepo": "GitHub repository",
 		"readOnly": {

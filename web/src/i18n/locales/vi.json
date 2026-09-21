@@ -204,7 +204,16 @@
 			"dbTxPerSec": "Số giao dịch cơ sở dữ liệu mỗi giây",
 			"requestsTodayAll": "Số lượng yêu cầu LLM được chuyển tiếp từ tất cả khóa ảo kể từ nửa đêm theo giờ địa phương hôm nay",
 			"requestsTodayOwn": "Số lượng yêu cầu LLM được chuyển tiếp từ khóa ảo của riêng bạn kể từ nửa đêm theo giờ địa phương hôm nay",
-			"requestsToday": "Số lượng yêu cầu LLM được chuyển tiếp kể từ nửa đêm theo giờ địa phương hôm nay"
+			"requestsToday": "Số lượng yêu cầu LLM được chuyển tiếp kể từ nửa đêm theo giờ địa phương hôm nay",
+			"cpu": "CPU máy chủ đang dùng",
+			"procs": "Tiến trình đang chạy trong nhóm điều khiển của máy chủ",
+			"aggregateProcs": "Tiến trình trên {{count}} vùng chứa compose",
+			"memoryUsed": "Bộ nhớ máy chủ đang dùng",
+			"memoryLimit": "Giới hạn bộ nhớ máy chủ được phép đạt tới trước khi bị dừng",
+			"aggregateMemoryUsed": "Bộ nhớ đang dùng trên {{count}} vùng chứa compose",
+			"aggregateMemoryLimit": "Tổng giới hạn bộ nhớ của {{count}} vùng chứa compose",
+			"memoryHeap": "Vùng nhớ heap của Go đang cấp phát; máy chủ này không đặt giới hạn bộ nhớ",
+			"aggregateCpu": "CPU đang dùng trên {{count}} vùng chứa compose"
 		},
 		"githubRepo": "Kho lưu trữ GitHub",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "Lỗi",
 			"viewDetails": "Xem chi tiết",
-			"clearAllConfirm": "Nhấp lại để xác nhận"
+			"clearAllConfirm": "Nhấp lại để xác nhận",
+			"titleTooltip": "{{limit}} lỗi gần nhất, không có lỗi nào cũ hơn {{hours}} giờ"
 		},
 		"ha": {
 			"primary": "Chính",

@@ -204,7 +204,16 @@
 			"dbTxPerSec": "データベーストランザクション/秒",
 			"requestsTodayAll": "本日の現地時間午前0時以降にすべての仮想キーで中継されたLLMリクエストの数",
 			"requestsTodayOwn": "本日の現地時間午前0時以降にご自身の仮想キーで中継されたLLMリクエストの数",
-			"requestsToday": "本日深夜0時以降のプロキシ付きLLMリクエストの数"
+			"requestsToday": "本日深夜0時以降のプロキシ付きLLMリクエストの数",
+			"cpu": "サーバーが現在使用している CPU",
+			"procs": "サーバーのコントロールグループで実行中のプロセス",
+			"aggregateProcs": "{{count}} 個の compose コンテナ全体のプロセス",
+			"memoryUsed": "サーバーが現在使用しているメモリ",
+			"memoryLimit": "サーバーが強制終了される前に到達できるメモリ上限",
+			"aggregateMemoryUsed": "{{count}} 個の compose コンテナ全体で使用中のメモリ",
+			"aggregateMemoryLimit": "{{count}} 個の compose コンテナの合計メモリ上限",
+			"memoryHeap": "現在割り当てられている Go ヒープ。このサーバーにはメモリ上限が設定されていません",
+			"aggregateCpu": "{{count}} 個の compose コンテナ全体で使用中の CPU"
 		},
 		"githubRepo": "GitHubリポジトリ",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "エラー",
 			"viewDetails": "詳細を表示",
-			"clearAllConfirm": "再度クリックして確認してください"
+			"clearAllConfirm": "再度クリックして確認してください",
+			"titleTooltip": "最新 {{limit}} 件のエラー（{{hours}} 時間以内のもののみ）"
 		},
 		"ha": {
 			"primary": "プライマリ",

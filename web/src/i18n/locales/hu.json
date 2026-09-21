@@ -204,7 +204,16 @@
 			"dbTxPerSec": "Adatbázis-tranzakciók száma másodpercenként",
 			"requestsTodayAll": "A mai nap helyi idő szerint éjfél óta az összes virtuális kulcson továbbított LLM-kérelmek száma",
 			"requestsTodayOwn": "A mai nap helyi idő szerint éjfél óta a saját virtuális kulcsain továbbított LLM-kérelmek száma",
-			"requestsToday": "A mai nap helyi idő szerint éjfél óta továbbított LLM-kérelmek száma"
+			"requestsToday": "A mai nap helyi idő szerint éjfél óta továbbított LLM-kérelmek száma",
+			"cpu": "A kiszolgáló által jelenleg használt processzor",
+			"procs": "A kiszolgáló vezérlőcsoportjában futó folyamatok",
+			"aggregateProcs": "Folyamatok {{count}} compose-tárolóban",
+			"memoryUsed": "A kiszolgáló által jelenleg használt memória",
+			"memoryLimit": "Az a memóriakorlát, amelyet a kiszolgáló elérhet, mielőtt leállítják",
+			"aggregateMemoryUsed": "{{count}} compose-tárolóban használt memória",
+			"aggregateMemoryLimit": "{{count}} compose-tároló összesített memóriakorlátja",
+			"memoryHeap": "A jelenleg lefoglalt Go-kupac; ehhez a kiszolgálóhoz nincs memóriakorlát beállítva",
+			"aggregateCpu": "{{count}} compose-tárolóban használt processzor"
 		},
 		"githubRepo": "GitHub-tároló",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "Hibák",
 			"viewDetails": "Részletek megtekintése",
-			"clearAllConfirm": "Kattintson újra a megerősítéshez"
+			"clearAllConfirm": "Kattintson újra a megerősítéshez",
+			"titleTooltip": "A {{limit}} legutóbbi hiba, egyik sem régebbi {{hours}} óránál"
 		},
 		"ha": {
 			"primary": "Elsődleges",

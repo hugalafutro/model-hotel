@@ -210,7 +210,16 @@
 			"dbTxPerSec": "Transactions de la base de données par seconde",
 			"requestsTodayAll": "Nombre de requêtes LLM mandatées pour toutes les clés virtuelles depuis minuit heure locale aujourd'hui",
 			"requestsTodayOwn": "Nombre de requêtes LLM mandatées pour vos propres clés virtuelles depuis minuit heure locale aujourd'hui",
-			"requestsToday": "Nombre de requêtes LLM mandatées depuis minuit heure locale aujourd'hui"
+			"requestsToday": "Nombre de requêtes LLM mandatées depuis minuit heure locale aujourd'hui",
+			"cpu": "Processeur actuellement utilisé par le serveur",
+			"procs": "Processus exécutés dans le groupe de contrôle du serveur",
+			"aggregateProcs": "Processus répartis sur {{count}} conteneurs compose",
+			"memoryUsed": "Mémoire actuellement utilisée par le serveur",
+			"memoryLimit": "Limite de mémoire que le serveur peut atteindre avant d'être arrêté",
+			"aggregateMemoryUsed": "Mémoire utilisée sur {{count}} conteneurs compose",
+			"aggregateMemoryLimit": "Limite de mémoire cumulée de {{count}} conteneurs compose",
+			"memoryHeap": "Tas Go actuellement alloué ; aucune limite de mémoire n'est définie pour ce serveur",
+			"aggregateCpu": "Processeur utilisé sur {{count}} conteneurs compose"
 		},
 		"githubRepo": "Dépôt GitHub",
 		"readOnly": {
@@ -226,7 +235,8 @@
 			"requestKind": "Req",
 			"title": "Erreurs",
 			"viewDetails": "Afficher les détails",
-			"clearAllConfirm": "Cliquez à nouveau pour confirmer"
+			"clearAllConfirm": "Cliquez à nouveau pour confirmer",
+			"titleTooltip": "Les {{limit}} erreurs les plus récentes, aucune datant de plus de {{hours}} heures"
 		},
 		"ha": {
 			"primary": "Principal",

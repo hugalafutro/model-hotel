@@ -17,6 +17,8 @@ import { displayLogMessage } from "../../utils/logText";
 import { truncateWithEllipsis } from "../../utils/truncate";
 import { LogDetailModal } from "../LogDetailModal";
 import {
+	ERROR_SHELF_LIMIT,
+	ERROR_SHELF_MAX_AGE_MS,
 	isHaAccessLog,
 	isHaSource,
 	isSsoSource,
@@ -114,7 +116,13 @@ export function ErrorShelf() {
 						size={12}
 						className="ui-error-shelf-spark shrink-0 text-[var(--error-icon)]"
 					/>
-					<span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--error-text)]">
+					<span
+						className="text-[11px] font-semibold uppercase tracking-wider text-[var(--error-text)]"
+						title={t("layout.errorShelf.titleTooltip", {
+							limit: ERROR_SHELF_LIMIT,
+							hours: ERROR_SHELF_MAX_AGE_MS / 3_600_000,
+						})}
+					>
 						{t("layout.errorShelf.title")}
 					</span>
 					<span

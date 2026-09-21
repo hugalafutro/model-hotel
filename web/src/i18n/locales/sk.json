@@ -216,7 +216,16 @@
 			"dbTxPerSec": "Počet transakcií v databáze za sekundu",
 			"requestsTodayAll": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy zo všetkých virtuálnych kľúčov od dnešnej polnoci miestneho času",
 			"requestsTodayOwn": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy z vašich vlastných virtuálnych kľúčov od dnešnej polnoci miestneho času",
-			"requestsToday": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy od dnešnej polnoci miestneho času"
+			"requestsToday": "Počet požiadaviek na LLM sprostredkovaných prostredníctvom proxy od dnešnej polnoci miestneho času",
+			"cpu": "Procesor, ktorý server práve využíva",
+			"procs": "Procesy bežiace v kontrolnej skupine servera",
+			"aggregateProcs": "Procesy naprieč {{count}} kontajnermi compose",
+			"memoryUsed": "Pamäť, ktorú server práve využíva",
+			"memoryLimit": "Limit pamäte, ktorý server smie dosiahnuť, kým nebude ukončený",
+			"aggregateMemoryUsed": "Pamäť využívaná naprieč {{count}} kontajnermi compose",
+			"aggregateMemoryLimit": "Súhrnný limit pamäte {{count}} kontajnerov compose",
+			"memoryHeap": "Aktuálne alokovaná halda Go; pre tento server nie je nastavený limit pamäte",
+			"aggregateCpu": "Procesor využívaný naprieč {{count}} kontajnermi compose"
 		},
 		"githubRepo": "Repozitár GitHub",
 		"readOnly": {
@@ -232,7 +241,8 @@
 			"requestKind": "Req",
 			"title": "Chyby",
 			"viewDetails": "Zobraziť podrobnosti",
-			"clearAllConfirm": "Kliknite znovu na potvrdenie"
+			"clearAllConfirm": "Kliknite znovu na potvrdenie",
+			"titleTooltip": "{{limit}} najnovších chýb, žiadna staršia než {{hours}} hodín"
 		},
 		"ha": {
 			"primary": "Primárny",

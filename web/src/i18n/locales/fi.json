@@ -204,7 +204,16 @@
 			"dbTxPerSec": "Tietokannan tapahtumat sekunnissa",
 			"requestsTodayAll": "Kaikkien virtuaaliavainten välitettyjen LLM-pyyntöjen määrä tämän päivän paikallisesta keskiyöstä alkaen",
 			"requestsTodayOwn": "Omien virtuaaliavaintesi välitettyjen LLM-pyyntöjen määrä tämän päivän paikallisesta keskiyöstä alkaen",
-			"requestsToday": "Määrä proxied LLM pyyntöjä keskiyön paikallinen aika tänään"
+			"requestsToday": "Määrä proxied LLM pyyntöjä keskiyön paikallinen aika tänään",
+			"cpu": "Palvelimen tällä hetkellä käyttämä suoritin",
+			"procs": "Palvelimen hallintaryhmässä käynnissä olevat prosessit",
+			"aggregateProcs": "Prosessit {{count}} compose-säiliössä",
+			"memoryUsed": "Palvelimen tällä hetkellä käyttämä muisti",
+			"memoryLimit": "Muistiraja, jonka palvelin saa saavuttaa ennen kuin se lopetetaan",
+			"aggregateMemoryUsed": "Muisti, jota käytetään {{count}} compose-säiliössä",
+			"aggregateMemoryLimit": "{{count}} compose-säiliön yhteenlaskettu muistiraja",
+			"memoryHeap": "Tällä hetkellä varattu Go-keko; tälle palvelimelle ei ole asetettu muistirajaa",
+			"aggregateCpu": "Suoritin, jota käytetään {{count}} compose-säiliössä"
 		},
 		"githubRepo": "GitHub-repositorio",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "Virheet",
 			"viewDetails": "Näytä tiedot",
-			"clearAllConfirm": "Napsauta uudelleen vahvistaaksesi"
+			"clearAllConfirm": "Napsauta uudelleen vahvistaaksesi",
+			"titleTooltip": "{{limit}} uusinta virhettä, ei yhtään yli {{hours}} tuntia vanhaa"
 		},
 		"ha": {
 			"primary": "Ensisijainen",

@@ -210,7 +210,16 @@
 			"dbTxPerSec": "Baza de date tranzacţii pe secundă",
 			"requestsTodayAll": "Numărul de cereri LLM transmise prin proxy de la toate cheile virtuale de la miezul nopții locale astăzi",
 			"requestsTodayOwn": "Numărul de cereri LLM transmise prin proxy de la propriile tale chei virtuale de la miezul nopții locale astăzi",
-			"requestsToday": "Numărul de cereri LLM proxied de la miezul nopții locale astăzi"
+			"requestsToday": "Numărul de cereri LLM proxied de la miezul nopții locale astăzi",
+			"cpu": "Procesorul folosit în acest moment de server",
+			"procs": "Procese care rulează în grupul de control al serverului",
+			"aggregateProcs": "Procese în {{count}} containere compose",
+			"memoryUsed": "Memoria folosită în acest moment de server",
+			"memoryLimit": "Limita de memorie pe care serverul o poate atinge înainte de a fi oprit",
+			"aggregateMemoryUsed": "Memoria folosită în {{count}} containere compose",
+			"aggregateMemoryLimit": "Limita de memorie combinată a {{count}} containere compose",
+			"memoryHeap": "Heapul Go alocat în acest moment; pentru acest server nu este setată nicio limită de memorie",
+			"aggregateCpu": "Procesorul folosit în {{count}} containere compose"
 		},
 		"githubRepo": "Depozit GitHub",
 		"readOnly": {
@@ -226,7 +235,8 @@
 			"requestKind": "Req",
 			"title": "Erori",
 			"viewDetails": "Vizualizați detaliile",
-			"clearAllConfirm": "Faceți clic din nou pentru a confirma"
+			"clearAllConfirm": "Faceți clic din nou pentru a confirma",
+			"titleTooltip": "Cele mai recente {{limit}} erori, niciuna mai veche de {{hours}} ore"
 		},
 		"ha": {
 			"primary": "Primar",

@@ -204,7 +204,16 @@
 			"dbTxPerSec": "Databasis-transaksies per sekonde",
 			"requestsTodayAll": "Aantal LLM-versoeke via proxy vanaf alle virtuele sleutels sedert middernag plaaslike tyd vandag",
 			"requestsTodayOwn": "Aantal LLM-versoeke via proxy vanaf jou eie virtuele sleutels sedert middernag plaaslike tyd vandag",
-			"requestsToday": "Aantal LLM-versoeke via proxy sedert middernag plaaslike tyd vandag"
+			"requestsToday": "Aantal LLM-versoeke via proxy sedert middernag plaaslike tyd vandag",
+			"cpu": "SVE wat die bediener tans gebruik",
+			"procs": "Prosesse wat in die bediener se beheergroep loop",
+			"aggregateProcs": "Prosesse oor {{count}} compose-houers",
+			"memoryUsed": "Geheue wat die bediener tans gebruik",
+			"memoryLimit": "Geheuegrens wat die bediener mag bereik voordat dit doodgemaak word",
+			"aggregateMemoryUsed": "Geheue wat oor {{count}} compose-houers gebruik word",
+			"aggregateMemoryLimit": "Gesamentlike geheuegrens van {{count}} compose-houers",
+			"memoryHeap": "Go-hoop wat tans toegewys is; geen geheuegrens is vir hierdie bediener gestel nie",
+			"aggregateCpu": "SVE wat oor {{count}} compose-houers gebruik word"
 		},
 		"githubRepo": "GitHub-bewaarplek",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "Foute",
 			"viewDetails": "Bekyk besonderhede",
-			"clearAllConfirm": "Klik weer om te bevestig"
+			"clearAllConfirm": "Klik weer om te bevestig",
+			"titleTooltip": "Die {{limit}} mees onlangse foute, niks ouer as {{hours}} uur nie"
 		},
 		"ha": {
 			"primary": "Primêr",
