@@ -98,19 +98,30 @@ export function AlertsSettings({
 	const targets = targetsQuery.data?.targets ?? [];
 	const storedTargets = targets.join("; ");
 	// An unreadable stored value (master key rotated) is a message beside an
-	// empty list, not a card that refuses to render.
-	const targetsError: "" | "undecryptable" | "generic" = !targetsQuery.error
-		? ""
-		: targetsQuery.error instanceof ApiError &&
-				targetsQuery.error.code === "undecryptable"
-			? "undecryptable"
-			: "generic";
+	// empty list, not a card that refuses to render. The read-only demo hides
+	// the decrypted list on purpose and says so with its own code (a bare 403
+	// can also be a demoted admin or a fronting proxy), so the message names
+	// the demo rather than reporting a failure.
+	const targetsCode =
+		targetsQuery.error instanceof ApiError
+			? targetsQuery.error.code
+			: undefined;
+	const targetsError: "" | "undecryptable" | "hidden" | "generic" =
+		!targetsQuery.error
+			? ""
+			: targetsCode === "undecryptable"
+				? "undecryptable"
+				: targetsCode === "demo_hidden"
+					? "hidden"
+					: "generic";
 	const targetsErrorText =
 		targetsError === "undecryptable"
 			? t("settings.alerts.destinations.error")
-			: targetsError === "generic"
-				? t("settings.alerts.destinations.readFailed")
-				: "";
+			: targetsError === "hidden"
+				? t("settings.alerts.destinations.hidden")
+				: targetsError === "generic"
+					? t("settings.alerts.destinations.readFailed")
+					: "";
 
 	// A validation error (400) carries a safe, user-facing message and a 502 from
 	// the test endpoint carries a machine-readable reason code; anything else
@@ -284,8 +295,11 @@ export function AlertsSettings({
 				)}
 				{/* Only alerting on/off and event routing are syncable; the Apprise
 				    delivery settings below stay instance-local, so the disabled
-				    fieldset wraps just this grid. */}
-				<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
+				    fieldset wraps just this grid. mx-0 (not m-0) resets only the
+				    browser's side margins: the parent's space-y-5 sets the
+				    fieldset's bottom margin from a zero-specificity :where() rule,
+				    which m-0 would override and leave whatever follows flush. */}
+				<fieldset disabled={managed} className="mx-0 min-w-0 border-0 p-0">
 					<div className="grid grid-cols-2 gap-x-6 gap-y-5 [align-items:start]">
 						{/* Enable toggle */}
 						<SettingToggleRow

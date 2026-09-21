@@ -2247,7 +2247,8 @@
 				"empty": "Zatím žádné cíle.",
 				"error": "Uložené cíle nelze přečíst (byl vyměněn hlavní klíč?). Odeberte je níže a nastavte je znovu.",
 				"dirty": "Než budete cíl testovat nebo odebírat, uložte nebo zrušte neuloženou změnu v poli Cíl oznámení.",
-				"readFailed": "Uložené cíle se nepodařilo načíst."
+				"readFailed": "Uložené cíle se nepodařilo načíst.",
+				"hidden": "Uložené cíle jsou v demo režimu pouze pro čtení skryté."
 			},
 			"manualTitle": "Ruční konfigurace (pokročilé)",
 			"testRow": "Otestovat",

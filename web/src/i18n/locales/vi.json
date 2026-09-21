@@ -2135,7 +2135,8 @@
 				"empty": "Chưa có đích đến nào.",
 				"error": "Không thể đọc các đích đến đã lưu (khóa chính đã được xoay vòng?). Hãy xóa chúng bên dưới và thiết lập lại.",
 				"readFailed": "Không thể đọc các đích đến đã lưu.",
-				"dirty": "Hãy lưu hoặc hủy thay đổi đang chờ ở Đối tượng nhận thông báo trước khi thử nghiệm hoặc xóa một đích đến."
+				"dirty": "Hãy lưu hoặc hủy thay đổi đang chờ ở Đối tượng nhận thông báo trước khi thử nghiệm hoặc xóa một đích đến.",
+				"hidden": "Các đích đến đã lưu bị ẩn trong chế độ demo chỉ đọc."
 			},
 			"kind": {
 				"ntfy": "ntfy",

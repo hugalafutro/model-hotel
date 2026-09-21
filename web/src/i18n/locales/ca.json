@@ -2191,7 +2191,8 @@
 				"empty": "Encara no hi ha cap destinació.",
 				"error": "Les destinacions desades no es poden llegir (s'ha rotat la clau mestra?). Elimina-les a sota i torna-les a configurar.",
 				"readFailed": "No s'han pogut llegir les destinacions desades.",
-				"dirty": "Desa o descarta el canvi pendent a Destinació de notificació abans de provar o eliminar una destinació."
+				"dirty": "Desa o descarta el canvi pendent a Destinació de notificació abans de provar o eliminar una destinació.",
+				"hidden": "Les destinacions desades estan amagades en el mode de demostració de només lectura."
 			},
 			"kind": {
 				"ntfy": "ntfy",

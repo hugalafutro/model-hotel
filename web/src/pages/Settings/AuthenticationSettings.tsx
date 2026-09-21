@@ -101,7 +101,7 @@ export function AuthenticationSettings({
 					    are per-member apart from their email allowlists, which each
 					    panel disables itself. A disabled fieldset natively disables
 					    every control it wraps, the same idiom SettingsSection uses. */}
-					<fieldset disabled={managed} className="m-0 min-w-0 border-0 p-0">
+					<fieldset disabled={managed} className="mx-0 min-w-0 border-0 p-0">
 						<SettingsGroup title={t("settings.passwordPolicy.title")}>
 							<SettingToggleRow
 								label={t("settings.passwordPolicy.breachCheckLabel")}

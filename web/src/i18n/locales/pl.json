@@ -2247,7 +2247,8 @@
 				"empty": "Nie ma jeszcze żadnych celów.",
 				"error": "Nie można odczytać zapisanych celów (czy klucz główny został zmieniony?). Usuń je poniżej i skonfiguruj od nowa.",
 				"dirty": "Zanim przetestujesz lub usuniesz cel, zapisz albo wycofaj oczekującą zmianę w polu Odbiorca powiadomienia.",
-				"readFailed": "Nie udało się odczytać zapisanych celów."
+				"readFailed": "Nie udało się odczytać zapisanych celów.",
+				"hidden": "Zapisane cele są ukryte w trybie demo tylko do odczytu."
 			},
 			"manualTitle": "Konfiguracja ręczna (zaawansowana)",
 			"testRow": "Testuj",

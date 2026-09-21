@@ -2191,7 +2191,8 @@
 				"empty": "Nenhum destino ainda.",
 				"error": "Não é possível ler os destinos armazenados (a chave mestra foi rotacionada?). Remova-os abaixo e configure-os de novo.",
 				"readFailed": "Não foi possível ler os destinos armazenados.",
-				"dirty": "Salve ou descarte a alteração pendente em Destino da notificação antes de testar ou remover um destino."
+				"dirty": "Salve ou descarte a alteração pendente em Destino da notificação antes de testar ou remover um destino.",
+				"hidden": "Os destinos armazenados ficam ocultos no modo de demonstração somente leitura."
 			},
 			"kind": {
 				"ntfy": "ntfy",

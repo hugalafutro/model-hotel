@@ -2135,7 +2135,8 @@
 				"empty": "Inga destinationer ännu.",
 				"error": "De sparade destinationerna kan inte läsas (har huvudnyckeln roterats?). Ta bort dem nedan och ställ in dem igen.",
 				"readFailed": "Det gick inte att läsa de sparade destinationerna.",
-				"dirty": "Spara eller rensa den väntande ändringen av Mottagare av aviseringar innan du testar eller tar bort en destination."
+				"dirty": "Spara eller rensa den väntande ändringen av Mottagare av aviseringar innan du testar eller tar bort en destination.",
+				"hidden": "Sparade destinationer är dolda i skrivskyddat demoläge."
 			},
 			"kind": {
 				"ntfy": "ntfy",

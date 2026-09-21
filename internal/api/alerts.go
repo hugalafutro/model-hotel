@@ -171,10 +171,13 @@ func (h *Handler) SendAlertTest(w http.ResponseWriter, r *http.Request) {
 // non-mutating or non-secret. This read is the one that is neither, so it is
 // refused there rather than handing a visitor the operator's bot tokens.
 // readOnlyGuard cannot do it: it passes every GET through by design, so the
-// dashboard stays browsable.
+// dashboard stays browsable. The refusal carries a code because a bare 403
+// also comes from requireAdmin and from a fronting proxy, and the card must
+// say "hidden on the demo" only for this one.
 func (h *Handler) GetAlertTargets(w http.ResponseWriter, r *http.Request) {
 	if h.cfg != nil && h.cfg.DemoReadOnly {
-		respondError(w, "this is a read-only demo: stored alert destinations are hidden", nil, http.StatusForbidden)
+		writeCodedError(w, http.StatusForbidden, alert.ReasonDemoHidden,
+			"this is a read-only demo: stored alert destinations are hidden")
 		return
 	}
 	stored := h.settingsRepo.GetWithDefault(r.Context(), alert.KeyTargets, "")
