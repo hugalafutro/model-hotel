@@ -60,6 +60,14 @@ func validMemberName(name string) (string, error) {
 // lowercased, trailing slash trimmed) and deduped. token is optional; when set
 // it is encrypted at rest with the store master key.
 func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*Member, error) {
+	return s.CreateVerifiedMember(ctx, name, rawURL, token, "")
+}
+
+// CreateVerifiedMember inserts a member together with the instance id its
+// verification learned, in one statement, so a verified add never sits
+// half-registered (present but un-deduplicable) between an insert and a
+// second write. An empty instanceID records no identity.
+func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, instanceID string) (*Member, error) {
 	name, err := validMemberName(name)
 	if err != nil {
 		return nil, err
@@ -77,9 +85,9 @@ func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*
 	id := uuid.NewString()
 	now := time.Now().UTC().UnixNano()
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO members (id, name, url, state, token_cipher, token_nonce, token_salt, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, name, normURL, string(StateActive), cipher, nonce, salt, now, now,
+		`INSERT INTO members (id, name, url, state, token_cipher, token_nonce, token_salt, instance_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, name, normURL, string(StateActive), cipher, nonce, salt, instanceID, now, now,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {

@@ -158,28 +158,14 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Verified: insert. The URL is re-checked by the unique index, so two adds
-	// racing on the same host still end with one row.
-	m, err := s.store.CreateMember(r.Context(), name, memberURL, req.Token)
+	// Verified: insert, with the learned identity in the same statement so
+	// future adds dedup against this member without re-probing it. The URL is
+	// re-checked by the unique index, so two adds racing on the same host still
+	// end with one row.
+	m, err := s.store.CreateVerifiedMember(r.Context(), name, memberURL, req.Token, instanceID)
 	if err != nil {
 		writeMemberValidationError(w, err)
 		return
-	}
-	if instanceID != "" {
-		// Persist the learned identity so future adds can dedup against this
-		// member without re-probing it. A failure to record it would leave the
-		// member half-registered (present but un-deduplicable), so roll the add
-		// back rather than let a duplicate slip in under a different URL later.
-		if err := s.store.SetMemberInstanceID(r.Context(), m.ID, instanceID); err != nil {
-			debuglog.Warn("frontdesk: could not store member instance id", "member", m.ID, "error", err)
-			if delErr := s.store.DeleteMember(r.Context(), m.ID); delErr != nil {
-				writeCodedError(w, http.StatusInternalServerError, "rollback_failed",
-					fmt.Sprintf("Front Desk verified this host but could not record its identity. Rolling back the add also failed (%v); remove it from the Members list and try again.", delErr))
-				return
-			}
-			fail("verify_failed", "Front Desk verified this host but could not record its identity. Try again.", http.StatusInternalServerError)
-			return
-		}
 	}
 
 	// A newly added member with a valid token is stale relative to the primary;

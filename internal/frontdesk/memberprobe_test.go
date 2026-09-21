@@ -82,6 +82,40 @@ func TestCreateMemberInsertsOnlyAfterVerification(t *testing.T) {
 	}
 }
 
+// The token verifies but the host's identity (/api/system) does not answer:
+// the add is refused rather than admitted without a dedup key, and nothing is
+// stored. A name the validator rejects fails before any probe.
+func TestCreateMemberRefusesUnverifiedIdentityAndBadName(t *testing.T) {
+	srv, store := newTestServer(t)
+	probes := 0
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		probes++
+		if r.URL.Path == "/api/settings" {
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{}`))
+			return
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	}))
+	defer stub.Close()
+
+	rec := do(t, srv, http.MethodPost, "/api/members", `{"name":"m1","url":"`+stub.URL+`","token":"tok"}`, true)
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Body.String(), "identity_unverified") {
+		t.Fatalf("identity failure = %d %s, want 400 identity_unverified", rec.Code, rec.Body.String())
+	}
+	if members, _ := store.ListMembers(t.Context()); len(members) != 0 {
+		t.Errorf("members = %d after a refused add, want 0", len(members))
+	}
+
+	probes = 0
+	if code, _ := createMemberJSON(t, srv, "   ", stub.URL, "tok"); code != http.StatusBadRequest {
+		t.Fatalf("blank name = %d, want 400", code)
+	}
+	if probes != 0 {
+		t.Errorf("a rejected name still probed the host %d times", probes)
+	}
+}
+
 // A URL that is already a member's is refused before the host is probed.
 func TestCreateMemberDuplicateURLRefusedBeforeProbing(t *testing.T) {
 	srv, store := newTestServer(t)
