@@ -52,7 +52,11 @@ class LockStore(
      */
     suspend fun setEnabled(
         enabled: Boolean,
-        now: Long = System.currentTimeMillis(),
+        // The caller's reading of the same clock shouldLock is judged on
+        // (SystemClock.elapsedRealtime in the app): a wall-clock stamp here
+        // read as a negative elapsed against the monotonic clock and locked
+        // the app in the foreground on the next activity recreation.
+        now: Long,
     ) {
         dataStore.edit { prefs ->
             prefs[ENABLED] = enabled

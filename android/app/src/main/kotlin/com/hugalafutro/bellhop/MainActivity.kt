@@ -889,13 +889,16 @@ private fun LinkedContent(
                 monitorEnabled = monitorEnabled,
                 notificationsBlocked = notificationsBlocked,
                 pushEnabled = pushEnabled == true,
+                pushSettled = pushEnabled != null,
                 pushEndpoint = pushEndpoint,
                 pushDistributorAvailable = pushDistributorAvailable,
                 pushNotificationsBlocked = pushNotificationsBlocked,
                 batteryUnrestricted = batteryUnrestricted,
                 onRequestBatteryExemption = onRequestBatteryExemption,
                 onBack = { showSettings = false },
-                onToggleLock = { enabled -> scope.launch { lockStore.setEnabled(enabled) } },
+                onToggleLock = { enabled ->
+                    scope.launch { lockStore.setEnabled(enabled, SystemClock.elapsedRealtime()) }
+                },
                 onSelectTimeout = { option -> scope.launch { lockStore.setTimeout(option.millis) } },
                 onToggleMonitor = onToggleMonitor,
                 onTogglePush = onTogglePush,
