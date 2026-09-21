@@ -3043,6 +3043,14 @@
 			"unitDay": "g",
 			"unitHour": "h",
 			"unitMinute": "min"
+		},
+		"accentCalendar": {
+			"previousMonth": "Mese precedente",
+			"nextMonth": "Mese successivo"
+		},
+		"settingsSlider": {
+			"stepUp": "Aumenta",
+			"stepDown": "Diminuisci"
 		}
 	},
 	"failoverGroups": {

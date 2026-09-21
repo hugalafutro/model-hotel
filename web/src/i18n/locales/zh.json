@@ -2977,6 +2977,14 @@
 			"unitDay": "天",
 			"unitHour": "小时",
 			"unitMinute": "分"
+		},
+		"accentCalendar": {
+			"previousMonth": "上个月",
+			"nextMonth": "下个月"
+		},
+		"settingsSlider": {
+			"stepUp": "增大",
+			"stepDown": "减小"
 		}
 	},
 	"failoverGroups": {

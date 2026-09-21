@@ -2977,6 +2977,14 @@
 			"unitDay": "η",
 			"unitHour": "ω",
 			"unitMinute": "λ"
+		},
+		"accentCalendar": {
+			"previousMonth": "Προηγούμενος μήνας",
+			"nextMonth": "Επόμενος μήνας"
+		},
+		"settingsSlider": {
+			"stepUp": "Αύξηση",
+			"stepDown": "Μείωση"
 		}
 	},
 	"failoverGroups": {

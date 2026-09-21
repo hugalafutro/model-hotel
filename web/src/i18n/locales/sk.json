@@ -3109,6 +3109,14 @@
 			"unitDay": "d",
 			"unitHour": "h",
 			"unitMinute": "min"
+		},
+		"accentCalendar": {
+			"previousMonth": "Predchádzajúci mesiac",
+			"nextMonth": "Nasledujúci mesiac"
+		},
+		"settingsSlider": {
+			"stepUp": "Zvýšiť",
+			"stepDown": "Znížiť"
 		}
 	},
 	"failoverGroups": {

@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import type { ChatMessage } from "../../api/types";
 import type { ChatSubMode } from "../../context/SidebarModeContext";
 import { usePersistedJSON } from "../../hooks/usePersistedJSON";
@@ -21,10 +22,26 @@ export function useChatPersistence({
 	persistConversation,
 }: ChatPersistenceParams) {
 	const isChat = chatSubMode === "chat";
+	// Text only: an attached image or audio clip is a base64 payload of the
+	// file's size (the picker admits 20 MB; localStorage holds about 5 MB per
+	// origin), so persisting it ended persistence for the whole session at the
+	// first attachment and lost the transcript around it. The turn survives a
+	// reload without its attachment.
+	const persisted = useMemo(() => forPersistence(messages), [messages]);
 	usePersistedJSON(
 		isChat ? "chatMessages" : "conversationMessages",
-		messages,
+		persisted,
 		isChat ? persistChat : persistConversation,
 		"hooks.useChatPersistence.storageFullChat",
 	);
+}
+
+/** forPersistence is the transcript without its attachment payloads. */
+export function forPersistence(messages: ChatMessage[]): ChatMessage[] {
+	if (!messages.some((m) => m.imageUrl || m.audioAttachment)) return messages;
+	return messages.map((m) => {
+		if (!m.imageUrl && !m.audioAttachment) return m;
+		const { imageUrl: _image, audioAttachment: _audio, ...rest } = m;
+		return rest;
+	});
 }

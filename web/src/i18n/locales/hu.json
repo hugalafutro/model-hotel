@@ -2977,6 +2977,14 @@
 			"unitDay": "n",
 			"unitHour": "ó",
 			"unitMinute": "p"
+		},
+		"accentCalendar": {
+			"previousMonth": "Előző hónap",
+			"nextMonth": "Következő hónap"
+		},
+		"settingsSlider": {
+			"stepUp": "Növelés",
+			"stepDown": "Csökkentés"
 		}
 	},
 	"failoverGroups": {

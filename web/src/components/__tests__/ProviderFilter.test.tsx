@@ -94,6 +94,24 @@ describe("ProviderFilter", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("exposes the menu state and closes on Escape from an option", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<ProviderFilter
+				providers={mockProviders}
+				selected={new Set()}
+				onChange={mockOnChange}
+			/>,
+		);
+		const trigger = screen.getByRole("button");
+		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		await user.click(trigger);
+		expect(trigger).toHaveAttribute("aria-expanded", "true");
+		screen.getByRole("option", { name: "OpenAI" }).focus();
+		await user.keyboard("{Escape}");
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+	});
+
 	it("closes dropdown when clicking outside", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
@@ -336,8 +354,10 @@ describe("ProviderFilter", () => {
 				onChange={mockOnChange}
 			/>,
 		);
-		const clearBadge = screen.getByText("2").closest("[role='button']");
+		// A real button beside the trigger, not a role="button" nested in it.
+		const clearBadge = screen.getByText("2").closest("button");
 		expect(clearBadge).not.toBeNull();
+		expect(clearBadge?.parentElement?.tagName).not.toBe("BUTTON");
 		await user.click(clearBadge as HTMLElement);
 		expect(mockOnChange).toHaveBeenCalledWith(new Set());
 	});

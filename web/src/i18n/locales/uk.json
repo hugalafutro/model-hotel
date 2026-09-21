@@ -3109,6 +3109,14 @@
 			"unitDay": "д",
 			"unitHour": "г",
 			"unitMinute": "хв"
+		},
+		"accentCalendar": {
+			"previousMonth": "Попередній місяць",
+			"nextMonth": "Наступний місяць"
+		},
+		"settingsSlider": {
+			"stepUp": "Збільшити",
+			"stepDown": "Зменшити"
 		}
 	},
 	"failoverGroups": {

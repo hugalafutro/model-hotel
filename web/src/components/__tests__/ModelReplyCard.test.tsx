@@ -1,4 +1,5 @@
 import { screen, waitFor } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { renderWithProviders } from "../../test/utils";
 import { ModelReplyCard } from "../ModelReplyCard";
 
@@ -280,6 +281,16 @@ describe("ModelReplyCard", () => {
 				name: "Maximize reply",
 			});
 			expect(maximizeButton).toBeInTheDocument();
+		});
+
+		// The maximised dialog is named after the model, off its own header.
+		it("opens a dialog named after the model", async () => {
+			const user = userEvent.setup();
+			renderWithProviders(<ModelReplyCard {...defaultProps} />);
+			await user.click(screen.getByRole("button", { name: "Maximize reply" }));
+			expect(
+				screen.getByRole("dialog", { name: /gemma3:4b/ }),
+			).toBeInTheDocument();
 		});
 
 		it("does not show maximize button when streaming", () => {
