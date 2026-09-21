@@ -2659,7 +2659,8 @@
 			"turn": "Torn {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Deixa d'encaminar sol·licituds a aquest model fins que el tornis a activar."
+			"disableModelTooltip": "Deixa d'encaminar sol·licituds a aquest model fins que el tornis a activar.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtra els proveïdors",
@@ -3037,6 +3038,11 @@
 			"tip": "Sense API d'ús per a aquest proveïdor; darrer missatge de límit: \"{{phrase}}\" a les {{when}} (d'un 429 a {{model}})",
 			"tipNoPhrase": "Sense API d'ús per a aquest proveïdor; darrer 429 d'esgotament a les {{when}} a {{model}}",
 			"labelEntitled": "sense API d'ús · saldo esgotat {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3068,7 +3074,8 @@
 			"tokens": "tokens",
 			"entriesLive": "{{live}} de {{total}} entrades actives",
 			"allEntriesDark": "totes les entrades fosques",
-			"allEntriesDarkRetry": "totes les entrades fosques, primer reintent {{when}}"
+			"allEntriesDarkRetry": "totes les entrades fosques, primer reintent {{when}}",
+			"footer": "{{active}}/{{total}} actiu • {{tokens}} tokens"
 		},
 		"entry": {
 			"disableProvider": "Desactivar proveïdor",

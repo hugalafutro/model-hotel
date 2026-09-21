@@ -2597,7 +2597,8 @@
 			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Yeniden etkinleştirene kadar bu modele istek yönlendirmeyi durdurur."
+			"disableModelTooltip": "Yeniden etkinleştirene kadar bu modele istek yönlendirmeyi durdurur.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Sağlayıcıları Filtrele",
@@ -2971,6 +2972,11 @@
 			"tip": "Bu sağlayıcının kullanım API'si yok; son sınır mesajı: \"{{phrase}}\" {{when}} ({{model}} üzerinde bir 429 kaynaklı)",
 			"tipNoPhrase": "Bu sağlayıcının kullanım API'si yok; son tükenme (429) {{when}}, {{model}} üzerinde",
 			"labelEntitled": "kullanım API'si yok · bakiye tükendi {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "g",
+			"unitHour": "s",
+			"unitMinute": "dk"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "jetonlar",
 			"entriesLive": "{{total}} girdiden {{live}} tanesi etkin",
 			"allEntriesDark": "tüm girdiler karanlık",
-			"allEntriesDarkRetry": "tüm girdiler karanlık, en erken yeniden deneme {{when}}"
+			"allEntriesDarkRetry": "tüm girdiler karanlık, en erken yeniden deneme {{when}}",
+			"footer": "{{active}}/{{total}} aktif • {{tokens}} token"
 		},
 		"entry": {
 			"disableProvider": "Sağlayıcıyı devre dışı bırak",

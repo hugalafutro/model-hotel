@@ -1324,6 +1324,27 @@
 		"af",
 		"ja"
 	],
+	"components.modelReplyCard.elapsedSeconds": [
+		"af",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"es",
+		"fi",
+		"fr",
+		"hu",
+		"it",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"sk",
+		"sv",
+		"tr",
+		"vi"
+	],
 	"components.modelReplyCard.modelDetails": [
 		"nl"
 	],
@@ -1780,6 +1801,43 @@
 		"hu",
 		"it",
 		"ro"
+	],
+	"components.systemStatus.unitDay": [
+		"af",
+		"ca",
+		"cs",
+		"da",
+		"es",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"sk",
+		"sv"
+	],
+	"components.systemStatus.unitHour": [
+		"af",
+		"ca",
+		"cs",
+		"da",
+		"de",
+		"es",
+		"fr",
+		"it",
+		"nl",
+		"no",
+		"pl",
+		"pt",
+		"ro",
+		"sk",
+		"sv"
+	],
+	"components.systemStatus.unitMinute": [
+		"af",
+		"da",
+		"nl",
+		"no",
+		"sv"
 	],
 	"components.terminalPreview.bash": [
 		"af",

@@ -91,7 +91,10 @@ export function CreateKeyModal({
 					? t("virtualkeys.modal.createdTitle")
 					: t("virtualkeys.modal.createTitle")
 			}
-			closeOnBackdrop={!createdKey}
+			// Not while the create is in flight: a dismissal then lands a key
+			// whose secret is never shown (the request still completes).
+			closeOnBackdrop={!createdKey && !createMutation.isPending}
+			dismissible={!createMutation.isPending}
 			onClose={onClose}
 			maxWidth={createdKey ? "max-w-2xl" : "max-w-md"}
 			scrollable={!!createdKey}

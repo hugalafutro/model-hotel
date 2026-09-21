@@ -429,7 +429,7 @@ export function AppLogs() {
 								{entries.length > 0 ? (
 									entries.map((entry) => (
 										<Row
-											key={entry.timestamp}
+											key={appLogKey(entry)}
 											onClick={() => setSelectedLog(entry)}
 										>
 											<td className="px-2 py-1 align-middle whitespace-nowrap text-xs text-gray-400">

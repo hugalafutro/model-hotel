@@ -2597,7 +2597,8 @@
 			"turn": "Beurt {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Stuur geen verzoeken meer naar dit model totdat je het weer inschakelt."
+			"disableModelTooltip": "Stuur geen verzoeken meer naar dit model totdat je het weer inschakelt.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Providers filteren",
@@ -2971,6 +2972,11 @@
 			"tip": "Geen gebruiks-API voor deze provider; laatste limietmelding: \"{{phrase}}\" om {{when}} (uit een 429 op {{model}})",
 			"tipNoPhrase": "Geen gebruiks-API voor deze provider; laatste uitgeputte 429 om {{when}} op {{model}}",
 			"labelEntitled": "geen gebruiks-API · saldo op {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "m"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "tokens",
 			"entriesLive": "{{live}} van {{total}} items actief",
 			"allEntriesDark": "alle items donker",
-			"allEntriesDarkRetry": "alle items donker, vroegste nieuwe poging {{when}}"
+			"allEntriesDarkRetry": "alle items donker, vroegste nieuwe poging {{when}}",
+			"footer": "{{active}}/{{total}} Actief • {{tokens}} tokens"
 		},
 		"entry": {
 			"disableProvider": "Provider uitschakelen",

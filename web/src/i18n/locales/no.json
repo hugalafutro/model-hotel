@@ -2597,7 +2597,8 @@
 			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Slutt å rute forespørsler til denne modellen til du aktiverer den igjen."
+			"disableModelTooltip": "Slutt å rute forespørsler til denne modellen til du aktiverer den igjen.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer leverandører",
@@ -2971,6 +2972,11 @@
 			"tip": "Ingen bruks-API for denne leverandøren; siste takmelding: \"{{phrase}}\" kl. {{when}} (fra en 429 på {{model}})",
 			"tipNoPhrase": "Ingen bruks-API for denne leverandøren; siste oppbrukte 429 kl. {{when}} på {{model}}",
 			"labelEntitled": "ingen bruks-API · saldo oppbrukt {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "m"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "tokener",
 			"entriesLive": "{{live}} av {{total}} oppføringer aktive",
 			"allEntriesDark": "alle oppføringer mørke",
-			"allEntriesDarkRetry": "alle oppføringer mørke, tidligste forsøk {{when}}"
+			"allEntriesDarkRetry": "alle oppføringer mørke, tidligste forsøk {{when}}",
+			"footer": "{{active}}/{{total}} aktiv • {{tokens}} tokens"
 		},
 		"entry": {
 			"disableProvider": "Deaktiver leverandør",

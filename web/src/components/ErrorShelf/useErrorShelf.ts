@@ -267,12 +267,10 @@ export function useErrorShelf(): UseErrorShelf {
 			});
 		}
 
-		// Timestamps are fixed-width ISO 8601 UTC strings, so a direct
-		// lexicographic compare is correct, deterministic, and faster than
-		// the locale-sensitive localeCompare.
-		merged.sort((a, b) =>
-			b.timestamp < a.timestamp ? -1 : b.timestamp > a.timestamp ? 1 : 0,
-		);
+		// Compared as instants: Go writes RFC3339Nano, which trims trailing
+		// zeros from the fraction, so the strings are not fixed-width and a
+		// lexicographic compare misorders stamps inside one second.
+		merged.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
 		return merged.slice(0, ERROR_SHELF_LIMIT);
 	}, [ready, reqLogData, appLogData]);
 

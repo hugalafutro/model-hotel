@@ -2597,7 +2597,8 @@
 			"turn": "Vuoro {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Lopeta pyyntöjen ohjaaminen tähän malliin, kunnes otat sen uudelleen käyttöön."
+			"disableModelTooltip": "Lopeta pyyntöjen ohjaaminen tähän malliin, kunnes otat sen uudelleen käyttöön.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Suodata tarjoajia",
@@ -2971,6 +2972,11 @@
 			"tip": "Tällä palveluntarjoajalla ei ole käyttö-APIa; viimeisin rajaviesti: \"{{phrase}}\" klo {{when}} (429 mallilla {{model}})",
 			"tipNoPhrase": "Tällä palveluntarjoajalla ei ole käyttö-APIa; viimeisin loppuun kulunut 429 klo {{when}} mallilla {{model}}",
 			"labelEntitled": "ei käyttö-APIa · saldo loppu {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "pv",
+			"unitHour": "t",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "tokenia",
 			"entriesLive": "{{live}}/{{total}} kohtaa aktiivisia",
 			"allEntriesDark": "kaikki kohdat pimeinä",
-			"allEntriesDarkRetry": "kaikki kohdat pimeinä, aikaisin uusinta {{when}}"
+			"allEntriesDarkRetry": "kaikki kohdat pimeinä, aikaisin uusinta {{when}}",
+			"footer": "{{active}}/{{total}} aktiivinen • {{tokens}} tokenit"
 		},
 		"entry": {
 			"disableProvider": "Poista tarjoaja käytöstä",

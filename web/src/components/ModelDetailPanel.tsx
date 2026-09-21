@@ -35,7 +35,7 @@ function PriceCell({
 				{t(`components.modelDetailPanel.${labelKey}`)}
 			</span>
 			<div className="text-(--text-primary) font-medium flex items-center gap-1">
-				${formatPrice(price)}
+				{price == null ? formatPrice(price) : `$${formatPrice(price)}`}
 				{price != null && <PriceSourceHint source={source} />}
 			</div>
 		</div>

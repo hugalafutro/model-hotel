@@ -2659,7 +2659,8 @@
 			"turn": "Turno {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Interrompe l'instradamento delle richieste a questo modello finché non lo riattivi."
+			"disableModelTooltip": "Interrompe l'instradamento delle richieste a questo modello finché non lo riattivi.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtro Fornitori",
@@ -3037,6 +3038,11 @@
 			"tip": "Nessuna API di utilizzo per questo provider; ultimo messaggio di limite: \"{{phrase}}\" alle {{when}} (da un 429 su {{model}})",
 			"tipNoPhrase": "Nessuna API di utilizzo per questo provider; ultimo 429 per esaurimento alle {{when}} su {{model}}",
 			"labelEntitled": "nessuna API di utilizzo · saldo esaurito {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "g",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3068,7 +3074,8 @@
 			"tokens": "token",
 			"entriesLive": "{{live}} di {{total}} voci attive",
 			"allEntriesDark": "tutte le voci spente",
-			"allEntriesDarkRetry": "tutte le voci spente, primo nuovo tentativo {{when}}"
+			"allEntriesDarkRetry": "tutte le voci spente, primo nuovo tentativo {{when}}",
+			"footer": "{{active}}/{{total}} attivo • {{tokens}} token"
 		},
 		"entry": {
 			"disableProvider": "Disabilita provider",

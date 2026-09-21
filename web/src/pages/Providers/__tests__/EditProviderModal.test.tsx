@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { HttpResponse, http } from "msw";
 import type { Provider } from "../../../api/types";
 import { pad } from "../../../components/AccentCalendar.utils";
@@ -39,6 +39,23 @@ describe("EditProviderModal", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		server.resetHandlers();
+	});
+
+	// The unsaved-changes dialog names the fields as the form labels them,
+	// not as the API spells them.
+	it("names changed fields by their labels in the unsaved-changes dialog", async () => {
+		const { user } = renderWithProviders(
+			<EditProviderModal {...defaultProps} />,
+		);
+		const name = screen.getByDisplayValue(mockProvider.name);
+		await user.clear(name);
+		await user.type(name, "renamed");
+		await user.click(screen.getByRole("button", { name: "Cancel" }));
+		const dialog = await screen.findByRole("dialog", {
+			name: "Unsaved Changes",
+		});
+		expect(within(dialog).getByRole("listitem")).toHaveTextContent("Name");
+		expect(within(dialog).queryByText("name")).not.toBeInTheDocument();
 	});
 
 	describe("rendering", () => {

@@ -2721,7 +2721,8 @@
 			"turn": "Tura {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Przestań kierować żądania do tego modelu, dopóki go ponownie nie włączysz."
+			"disableModelTooltip": "Przestań kierować żądania do tego modelu, dopóki go ponownie nie włączysz.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtruj dostawców",
@@ -3103,6 +3104,11 @@
 			"tip": "Brak API użycia dla tego dostawcy; ostatni komunikat o limicie: \"{{phrase}}\" o {{when}} (z 429 na {{model}})",
 			"tipNoPhrase": "Brak API użycia dla tego dostawcy; ostatnie wyczerpanie (429) o {{when}} na {{model}}",
 			"labelEntitled": "brak API użycia · saldo wyczerpane {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3136,7 +3142,8 @@
 			"tokens": "tokeny",
 			"entriesLive": "{{live}} z {{total}} pozycji aktywnych",
 			"allEntriesDark": "wszystkie pozycje ciemne",
-			"allEntriesDarkRetry": "wszystkie pozycje ciemne, najbliższa próba {{when}}"
+			"allEntriesDarkRetry": "wszystkie pozycje ciemne, najbliższa próba {{when}}",
+			"footer": "{{active}}/{{total}} aktywna • {{tokens}} tokeny"
 		},
 		"entry": {
 			"disableProvider": "Wyłącz dostawcę",

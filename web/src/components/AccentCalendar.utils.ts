@@ -1,3 +1,4 @@
+import i18next from "i18next";
 /* =========================================================
    Date helpers for the accent-themed calendar picker
    ===================================================== */
@@ -26,7 +27,11 @@ export function firstDayOfMonth(year: number, month: number): number {
 /* =========================================================
    Date range formatting
    ===================================================== */
-export function formatDateRangeShort(from: string, to: string): string {
+export function formatDateRangeShort(
+	from: string,
+	to: string,
+	locale: string = i18next.language,
+): string {
 	// Use toISODate to convert any input (plain date or ISO timestamp)
 	// to local date components, then parse components directly to avoid
 	// any further Date constructor ambiguity.  Bare "YYYY-MM-DD" strings
@@ -39,9 +44,26 @@ export function formatDateRangeShort(from: string, to: string): string {
 	const [fy, fm, fd] = fromLocal.split("-").map(Number);
 	const [ty, tm, td] = toLocal.split("-").map(Number);
 	const sameMonth = fm === tm && fy === ty;
-	const fds = `${pad(fd)}/${pad(fm)}`;
-	const tds = `${pad(td)}/${pad(tm)}/${ty}`;
+	// Day and month in the reader's own order (05/03 is March 5th to a British
+	// reader and May 3rd to an American one), from the locale, not a fixed
+	// dd/mm. Built from local components so the calendar day is the one shown.
+	const fromDay = new Date(fy, fm - 1, fd);
+	const toDay = new Date(ty, tm - 1, td);
+	const dayMonth = new Intl.DateTimeFormat(locale, {
+		day: "2-digit",
+		month: "2-digit",
+	});
+	const dayMonthYear = new Intl.DateTimeFormat(locale, {
+		day: "2-digit",
+		month: "2-digit",
+		year: "numeric",
+	});
+	const dayMonthShortYear = new Intl.DateTimeFormat(locale, {
+		day: "2-digit",
+		month: "2-digit",
+		year: "2-digit",
+	});
 	return sameMonth
-		? `${fds}-${tds}`
-		: `${fds}/${fy.toString().slice(2)} - ${tds}`;
+		? `${dayMonth.format(fromDay)}-${dayMonthYear.format(toDay)}`
+		: `${dayMonthShortYear.format(fromDay)} - ${dayMonthYear.format(toDay)}`;
 }

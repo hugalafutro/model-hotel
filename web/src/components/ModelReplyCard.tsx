@@ -339,7 +339,9 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 						{isStreaming && startTimeMs && startTimeMs !== 0 ? (
 							<span className="flex items-center gap-1 tabular-nums">
 								<Clock size={10} />
-								{elapsed}s
+								{t("components.modelReplyCard.elapsedSeconds", {
+									seconds: elapsed,
+								})}
 							</span>
 						) : (
 							metricsSummary("sm")

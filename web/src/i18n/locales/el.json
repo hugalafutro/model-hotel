@@ -2597,7 +2597,8 @@
 			"turn": "Σειρά {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Διακοπή δρομολόγησης αιτημάτων προς αυτό το μοντέλο μέχρι να το ενεργοποιήσετε ξανά."
+			"disableModelTooltip": "Διακοπή δρομολόγησης αιτημάτων προς αυτό το μοντέλο μέχρι να το ενεργοποιήσετε ξανά.",
+			"elapsedSeconds": "{{seconds}}δ"
 		},
 		"providerFilter": {
 			"filterProviders": "Φιλτράρισμα παρόχων",
@@ -2971,6 +2972,11 @@
 			"tip": "Χωρίς API χρήσης για αυτόν τον πάροχο· τελευταίο μήνυμα ορίου: \"{{phrase}}\" στις {{when}} (από 429 στο {{model}})",
 			"tipNoPhrase": "Χωρίς API χρήσης για αυτόν τον πάροχο· τελευταία εξάντληση (429) στις {{when}} στο {{model}}",
 			"labelEntitled": "χωρίς API χρήσης · υπόλοιπο εξαντλήθηκε {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "η",
+			"unitHour": "ω",
+			"unitMinute": "λ"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "διακριτικά",
 			"entriesLive": "{{live}} από {{total}} καταχωρίσεις ενεργές",
 			"allEntriesDark": "όλες οι καταχωρίσεις σκοτεινές",
-			"allEntriesDarkRetry": "όλες οι καταχωρίσεις σκοτεινές, πρώτη επανάληψη {{when}}"
+			"allEntriesDarkRetry": "όλες οι καταχωρίσεις σκοτεινές, πρώτη επανάληψη {{when}}",
+			"footer": "{{active}}/{{total}} ενεργό • {{tokens}} tokens"
 		},
 		"entry": {
 			"disableProvider": "Απενεργοποίηση παρόχου",

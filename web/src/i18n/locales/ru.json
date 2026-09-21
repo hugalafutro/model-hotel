@@ -2721,7 +2721,8 @@
 			"turn": "Ход {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Прекратить направлять запросы к этой модели, пока вы снова её не включите."
+			"disableModelTooltip": "Прекратить направлять запросы к этой модели, пока вы снова её не включите.",
+			"elapsedSeconds": "{{seconds}} с"
 		},
 		"providerFilter": {
 			"filterProviders": "Фильтр провайдеров",
@@ -3103,6 +3104,11 @@
 			"tip": "У этого провайдера нет API использования; последнее сообщение о лимите: \"{{phrase}}\" в {{when}} (из 429 на {{model}})",
 			"tipNoPhrase": "У этого провайдера нет API использования; последнее исчерпание (429) в {{when}} на {{model}}",
 			"labelEntitled": "нет API использования · баланс исчерпан {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "д",
+			"unitHour": "ч",
+			"unitMinute": "м"
 		}
 	},
 	"failoverGroups": {
@@ -3136,7 +3142,8 @@
 			"tokens": "токены",
 			"entriesLive": "{{live}} из {{total}} записей активны",
 			"allEntriesDark": "все записи погашены",
-			"allEntriesDarkRetry": "все записи погашены, ближайшая попытка {{when}}"
+			"allEntriesDarkRetry": "все записи погашены, ближайшая попытка {{when}}",
+			"footer": "{{active}}/{{total}} активный • {{tokens}} токены"
 		},
 		"entry": {
 			"disableProvider": "Отключить провайдера",

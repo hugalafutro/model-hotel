@@ -2721,7 +2721,8 @@
 			"turn": "Tah {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Přestat směrovat požadavky na tento model, dokud jej znovu nepovolíte."
+			"disableModelTooltip": "Přestat směrovat požadavky na tento model, dokud jej znovu nepovolíte.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrovat poskytovatele",
@@ -3103,6 +3104,11 @@
 			"tip": "Tento poskytovatel nemá API využití; poslední zpráva o limitu: \"{{phrase}}\" v {{when}} (z 429 na {{model}})",
 			"tipNoPhrase": "Tento poskytovatel nemá API využití; poslední vyčerpání (429) v {{when}} na {{model}}",
 			"labelEntitled": "bez API využití · zůstatek vyčerpán {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3136,7 +3142,8 @@
 			"tokens": "tokeny",
 			"entriesLive": "{{live}} z {{total}} položek živých",
 			"allEntriesDark": "všechny položky temné",
-			"allEntriesDarkRetry": "všechny položky temné, nejbližší pokus {{when}}"
+			"allEntriesDarkRetry": "všechny položky temné, nejbližší pokus {{when}}",
+			"footer": "{{active}}/{{total}} aktivní • {{tokens}} tokeny"
 		},
 		"entry": {
 			"disableProvider": "Zakázat poskytovatele",

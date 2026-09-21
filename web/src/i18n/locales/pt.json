@@ -2659,7 +2659,8 @@
 			"turn": "Turno {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Parar de encaminhar pedidos para este modelo até o reativar."
+			"disableModelTooltip": "Parar de encaminhar pedidos para este modelo até o reativar.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrar provedores",
@@ -3037,6 +3038,11 @@
 			"tip": "Sem API de uso para este provedor; última mensagem de limite: \"{{phrase}}\" às {{when}} (de um 429 em {{model}})",
 			"tipNoPhrase": "Sem API de uso para este provedor; último 429 por esgotamento às {{when}} em {{model}}",
 			"labelEntitled": "sem API de uso · saldo esgotado {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3068,7 +3074,8 @@
 			"tokens": "tokens",
 			"entriesLive": "{{live}} de {{total}} entradas ativas",
 			"allEntriesDark": "todas as entradas escuras",
-			"allEntriesDarkRetry": "todas as entradas escuras, próxima tentativa {{when}}"
+			"allEntriesDarkRetry": "todas as entradas escuras, próxima tentativa {{when}}",
+			"footer": "{{active}}/{{total}} Ativo • {{tokens}} tokens"
 		},
 		"entry": {
 			"disableProvider": "Desativar provedor",
