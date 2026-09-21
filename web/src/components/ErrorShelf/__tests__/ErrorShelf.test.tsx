@@ -206,6 +206,16 @@ describe("ErrorShelf", () => {
 		);
 		expect(heading.getAttribute("title")).toContain("15");
 		expect(heading.getAttribute("title")).toContain("24");
+
+		// A title attribute is not an accessible description, so the same
+		// sentence has to reach the toggle through aria-describedby.
+		const toggle = screen.getByRole("button", { expanded: false });
+		expect(toggle).toHaveAccessibleDescription(
+			i18n.t("layout.errorShelf.titleTooltip", {
+				limit: ERROR_SHELF_LIMIT,
+				hours: ERROR_SHELF_MAX_AGE_MS / 3_600_000,
+			}),
+		);
 	});
 
 	it("renders nothing when there are no errors", async () => {

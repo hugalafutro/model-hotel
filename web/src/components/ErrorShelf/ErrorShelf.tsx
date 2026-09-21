@@ -38,6 +38,10 @@ export function ErrorShelf() {
 	const { toast } = useToast();
 	const { copy } = useCopyToClipboard({ trackCopied: false });
 	const { unacked, ack, ackAll } = useErrorShelf();
+	const retention = t("layout.errorShelf.titleTooltip", {
+		limit: ERROR_SHELF_LIMIT,
+		hours: ERROR_SHELF_MAX_AGE_MS / 3_600_000,
+	});
 	const [expanded, setExpanded] = useState(false);
 	// Two-step Clear all: first click arms (shows a confirm hint), second
 	// commits. Auto-disarms after a few seconds so a stray click doesn't linger.
@@ -48,6 +52,9 @@ export function ErrorShelf() {
 		type: "request" | "app";
 	} | null>(null);
 	const listId = useId();
+	// The retention text rides on a title attribute, which assistive tech does
+	// not reliably announce, so the toggle names it as its description too.
+	const retentionId = useId();
 
 	const handleAck = useCallback(
 		(key: string) => {
@@ -110,6 +117,7 @@ export function ErrorShelf() {
 					}}
 					aria-expanded={expanded}
 					aria-controls={listId}
+					aria-describedby={retentionId}
 					className="ui-error-shelf-toggle flex w-full items-center gap-2 bg-[var(--error-bg-strong)] px-2.5 py-1.5 text-left"
 				>
 					<AlertTriangle
@@ -118,12 +126,15 @@ export function ErrorShelf() {
 					/>
 					<span
 						className="text-[11px] font-semibold uppercase tracking-wider text-[var(--error-text)]"
-						title={t("layout.errorShelf.titleTooltip", {
-							limit: ERROR_SHELF_LIMIT,
-							hours: ERROR_SHELF_MAX_AGE_MS / 3_600_000,
-						})}
+						title={retention}
 					>
 						{t("layout.errorShelf.title")}
+					</span>
+					{/* Visually redundant with the tooltip above, but the tooltip
+					    is the only place the retention rule is written and a
+					    title attribute is not an accessible description. */}
+					<span id={retentionId} className="sr-only">
+						{retention}
 					</span>
 					<span
 						className="ui-error-shelf-badge text-[10px] font-bold tabular-nums"
