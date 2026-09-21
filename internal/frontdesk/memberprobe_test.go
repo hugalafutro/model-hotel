@@ -313,3 +313,48 @@ func TestPatchMemberClearingTokenSkipsProbe(t *testing.T) {
 		t.Error("token should be cleared")
 	}
 }
+
+// A member from before the identity index whose verification learns an
+// identity another member already holds is a duplicate row: the backfill
+// reports it (no silent failure), the roster is left as configured, and the
+// add that triggered the scan still goes through.
+func TestCreateMemberBackfillNamesALegacyDuplicate(t *testing.T) {
+	srv, store := newTestServer(t)
+	ctx := t.Context()
+	report := func(instance string) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			if strings.HasPrefix(r.URL.Path, "/api/system") {
+				_, _ = w.Write([]byte(`{"is_primary":false,"instance_id":"` + instance + `"}`))
+				return
+			}
+			_, _ = w.Write([]byte(`{}`))
+		}))
+	}
+	held, legacy, fresh := report("inst-1"), report("inst-1"), report("inst-3")
+	defer held.Close()
+	defer legacy.Close()
+	defer fresh.Close()
+	if _, err := store.CreateVerifiedMember(ctx, "held", held.URL, "tok", "inst-1"); err != nil {
+		t.Fatalf("create held: %v", err)
+	}
+	// The legacy row: same host, no identity recorded (the index migration
+	// cleared it), token stored so the scan probes it.
+	dup, err := store.CreateMember(ctx, "legacy", legacy.URL, "tok")
+	if err != nil {
+		t.Fatalf("create legacy: %v", err)
+	}
+	if code, _ := createMemberJSON(t, srv, "fresh", fresh.URL, "tok"); code != http.StatusCreated {
+		t.Fatalf("add of an unrelated host = %d, want 201", code)
+	}
+	after, err := store.GetMember(ctx, dup.ID)
+	if err != nil {
+		t.Fatalf("legacy row: %v", err)
+	}
+	if after.InstanceID != "" {
+		t.Errorf("legacy row's instance_id = %q, want empty (the identity is held by another row)", after.InstanceID)
+	}
+	if members, _ := store.ListMembers(ctx); len(members) != 3 {
+		t.Errorf("members = %d, want 3 (nothing removed or drained)", len(members))
+	}
+}
