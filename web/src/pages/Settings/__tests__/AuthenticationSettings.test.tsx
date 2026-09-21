@@ -108,4 +108,40 @@ describe("AuthenticationSettings breached-password toggle", () => {
 		expect(link).toHaveAttribute("target", "_blank");
 		expect(link).toHaveAttribute("rel", "noopener noreferrer");
 	});
+
+	it("marks the fleet-synced half with a card-wide banner while managed", async () => {
+		renderWithProviders(
+			<AuthenticationSettings collapsed={false} onToggle={() => {}} managed />,
+		);
+
+		const note = await screen.findByTestId("managed-note");
+		// Same amber tone as the fleet boundary banner, so the split reads as a
+		// fleet constraint and not as one more muted hint.
+		expect(note).toHaveClass("ui-fleet-banner");
+		// Card-wide: outside the password-policy group, so it is not a footnote
+		// hanging off one column.
+		expect(note.closest(".ui-settings-group")).toBeNull();
+		// It sits between the two halves it names: the password policy above,
+		// the SSO panels below.
+		const policyToggle = await screen.findByRole("switch", {
+			name: "Reject breached passwords",
+		});
+		const sso = await screen.findByTestId("oidc-panel");
+		expect(
+			policyToggle.compareDocumentPosition(note) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy();
+		expect(
+			sso.compareDocumentPosition(note) & Node.DOCUMENT_POSITION_PRECEDING,
+		).toBeTruthy();
+	});
+
+	it("leaves the banner out on a standalone instance", async () => {
+		renderWithProviders(
+			<AuthenticationSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		await screen.findByRole("switch", { name: "Reject breached passwords" });
+		expect(screen.queryByTestId("managed-note")).not.toBeInTheDocument();
+	});
 });
