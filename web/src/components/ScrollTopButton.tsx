@@ -23,12 +23,34 @@ export function ScrollTopButton({
 		const update = () => setShow(scrollEl.scrollTop > scrollEl.clientHeight);
 		update();
 		scrollEl.addEventListener("scroll", update, { passive: true });
-		return () => scrollEl.removeEventListener("scroll", update);
+		// The scroller is sized in dvh, so a viewport change moves the threshold
+		// without producing a scroll event of its own.
+		window.addEventListener("resize", update);
+		return () => {
+			scrollEl.removeEventListener("scroll", update);
+			window.removeEventListener("resize", update);
+		};
 	}, [scrollEl]);
 
 	if (!show) return null;
 
 	const label = t("components.scrollTopButton.label");
+	const scrollToTop = () => {
+		if (!scrollEl) return;
+		// Returning to the top unmounts this button, so a keyboard user would
+		// lose focus to <body> and have to tab in from the start of the page.
+		// Hand focus to the scroller instead, the way a skip link hands focus to
+		// its target: arrow keys then keep scrolling the rows. The scroller
+		// carries tabIndex={-1} so it can take focus without joining tab order.
+		scrollEl.focus({ preventScroll: true });
+		scrollEl.scrollTo({
+			top: 0,
+			behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches
+				? "auto"
+				: "smooth",
+		});
+	};
+
 	return (
 		<button
 			type="button"
@@ -36,7 +58,7 @@ export function ScrollTopButton({
 			aria-label={label}
 			data-testid="scroll-top-button"
 			className="ui-btn ui-btn-secondary ui-btn-icon absolute bottom-12 right-6 z-20 shadow-lg"
-			onClick={() => scrollEl?.scrollTo({ top: 0, behavior: "smooth" })}
+			onClick={scrollToTop}
 		>
 			<ArrowUpFromLine size={16} />
 		</button>

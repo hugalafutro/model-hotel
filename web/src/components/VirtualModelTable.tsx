@@ -258,6 +258,9 @@ export function VirtualModelTable({
 			</div>
 			<div
 				ref={scrollRef}
+				// Focus target for ScrollTopButton, so returning to the top does
+				// not drop keyboard focus to <body>.
+				tabIndex={-1}
 				className="ui-card overflow-y-auto overflow-x-auto"
 				style={{
 					overflowAnchor: "none",
