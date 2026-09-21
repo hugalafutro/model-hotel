@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "늘리기",
 			"stepDown": "줄이기"
+		},
+		"scrollTopButton": {
+			"label": "맨 위로"
 		}
 	},
 	"failoverGroups": {

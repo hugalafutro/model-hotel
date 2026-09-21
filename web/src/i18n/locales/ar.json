@@ -3250,6 +3250,9 @@
 		"settingsSlider": {
 			"stepUp": "زيادة",
 			"stepDown": "تقليل"
+		},
+		"scrollTopButton": {
+			"label": "العودة إلى الأعلى"
 		}
 	},
 	"failoverGroups": {

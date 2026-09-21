@@ -26,6 +26,7 @@ import {
 	MODEL_COL_WIDTHS_NO_PROVIDER,
 	MODEL_COL_WIDTHS_WITH_PROVIDER,
 } from "./modelTableWidths";
+import { ScrollTopButton } from "./ScrollTopButton";
 import { VirtualTableFooter } from "./VirtualTableFooter";
 
 interface VirtualModelTableProps {
@@ -178,6 +179,7 @@ export function VirtualModelTable({
 
 	const {
 		scrollRef,
+		scrollEl,
 		virtualizer,
 		virtualItems,
 		paddingTop,
@@ -210,7 +212,7 @@ export function VirtualModelTable({
 	);
 
 	return (
-		<div className="flex flex-col min-h-0">
+		<div className="relative flex flex-col min-h-0">
 			<div className="flex items-center gap-4 mb-4">
 				<div className="flex items-center gap-2 shrink-0">
 					{providers !== undefined && onProviderFilterChange && (
@@ -256,6 +258,9 @@ export function VirtualModelTable({
 			</div>
 			<div
 				ref={scrollRef}
+				// Focus target for ScrollTopButton, so returning to the top does
+				// not drop keyboard focus to <body>.
+				tabIndex={-1}
 				className="ui-card overflow-y-auto overflow-x-auto"
 				style={{
 					overflowAnchor: "none",
@@ -360,6 +365,7 @@ export function VirtualModelTable({
 					</tbody>
 				</table>
 			</div>
+			<ScrollTopButton scrollEl={scrollEl} />
 			<VirtualTableFooter
 				range={
 					entries.length > 0

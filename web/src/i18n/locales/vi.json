@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Tăng",
 			"stepDown": "Giảm"
+		},
+		"scrollTopButton": {
+			"label": "Lên đầu trang"
 		}
 	},
 	"failoverGroups": {

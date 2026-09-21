@@ -3118,6 +3118,9 @@
 		"settingsSlider": {
 			"stepUp": "Zvýšiť",
 			"stepDown": "Znížiť"
+		},
+		"scrollTopButton": {
+			"label": "Späť nahor"
 		}
 	},
 	"failoverGroups": {

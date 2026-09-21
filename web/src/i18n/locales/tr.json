@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Artır",
 			"stepDown": "Azalt"
+		},
+		"scrollTopButton": {
+			"label": "Başa dön"
 		}
 	},
 	"failoverGroups": {

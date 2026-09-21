@@ -3052,6 +3052,9 @@
 		"settingsSlider": {
 			"stepUp": "Повећај",
 			"stepDown": "Смањи"
+		},
+		"scrollTopButton": {
+			"label": "Назад на врх"
 		}
 	},
 	"failoverGroups": {

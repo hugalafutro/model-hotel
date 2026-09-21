@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Verhoog",
 			"stepDown": "Verlaag"
+		},
+		"scrollTopButton": {
+			"label": "Terug na bo"
 		}
 	},
 	"failoverGroups": {

@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Øk",
 			"stepDown": "Reduser"
+		},
+		"scrollTopButton": {
+			"label": "Tilbake til toppen"
 		}
 	},
 	"failoverGroups": {

@@ -3052,6 +3052,9 @@
 		"settingsSlider": {
 			"stepUp": "Mărește",
 			"stepDown": "Micșorează"
+		},
+		"scrollTopButton": {
+			"label": "Înapoi sus"
 		}
 	},
 	"failoverGroups": {

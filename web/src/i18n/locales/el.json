@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Αύξηση",
 			"stepDown": "Μείωση"
+		},
+		"scrollTopButton": {
+			"label": "Επιστροφή στην κορυφή"
 		}
 	},
 	"failoverGroups": {

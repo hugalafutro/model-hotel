@@ -3052,6 +3052,9 @@
 		"settingsSlider": {
 			"stepUp": "הגדל",
 			"stepDown": "הקטן"
+		},
+		"scrollTopButton": {
+			"label": "חזרה למעלה"
 		}
 	},
 	"failoverGroups": {

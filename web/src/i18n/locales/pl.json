@@ -3118,6 +3118,9 @@
 		"settingsSlider": {
 			"stepUp": "Zwiększ",
 			"stepDown": "Zmniejsz"
+		},
+		"scrollTopButton": {
+			"label": "Powrót na górę"
 		}
 	},
 	"failoverGroups": {

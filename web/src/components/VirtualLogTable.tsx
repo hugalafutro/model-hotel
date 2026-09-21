@@ -6,6 +6,7 @@ import { formatNumber } from "../utils/format";
 import { isInProgress } from "../utils/logHelpers";
 import { RequestLogCells } from "./logs/RequestLogCells";
 import { LOG_COL_WIDTHS, LOG_TABLE_MIN_W } from "./logTableWidths";
+import { ScrollTopButton } from "./ScrollTopButton";
 import { VirtualTableFooter } from "./VirtualTableFooter";
 
 interface VirtualLogTableProps {
@@ -51,6 +52,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 
 	const {
 		scrollRef,
+		scrollEl,
 		virtualizer,
 		virtualItems,
 		paddingTop,
@@ -71,9 +73,12 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 	});
 
 	return (
-		<div className="flex flex-col min-h-0">
+		<div className="relative flex flex-col min-h-0">
 			<div
 				ref={scrollRef}
+				// Focus target for ScrollTopButton, so returning to the top does
+				// not drop keyboard focus to <body>.
+				tabIndex={-1}
 				className="ui-card overflow-y-auto"
 				style={{
 					overflowAnchor: "none",
@@ -187,6 +192,7 @@ export function VirtualLogTable(props: VirtualLogTableProps) {
 					</tbody>
 				</table>
 			</div>
+			<ScrollTopButton scrollEl={scrollEl} />
 			<VirtualTableFooter
 				range={
 					entries.length > 0
