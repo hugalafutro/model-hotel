@@ -1085,3 +1085,28 @@ func TestMemberNameCapCountsCharactersNotBytes(t *testing.T) {
 		t.Errorf("RenameMember one character over the cap err = %v, want ErrValidation", err)
 	}
 }
+
+// One row per physical instance: a second verified add of the same instance
+// under another URL is refused by the index, and a backfill that would give a
+// second row an identity another row holds reports the duplicate instead of
+// failing silently.
+func TestStore_OneRowPerInstance(t *testing.T) {
+	s := newTestStore(t)
+	ctx := t.Context()
+	if _, err := s.CreateVerifiedMember(ctx, "a", "http://127.0.0.1:8081", "tok", "inst-1"); err != nil {
+		t.Fatalf("first create: %v", err)
+	}
+	if _, err := s.CreateVerifiedMember(ctx, "b", "http://127.0.0.1:8082", "tok", "inst-1"); !errors.Is(err, ErrDuplicateInstance) {
+		t.Fatalf("second create with the same instance id: err = %v, want ErrDuplicateInstance", err)
+	}
+	other, err := s.CreateVerifiedMember(ctx, "c", "http://127.0.0.1:8083", "tok", "")
+	if err != nil {
+		t.Fatalf("create without identity: %v", err)
+	}
+	if err := s.SetMemberInstanceID(ctx, other.ID, "inst-1"); !errors.Is(err, ErrDuplicateInstance) {
+		t.Fatalf("backfill onto a held identity: err = %v, want ErrDuplicateInstance", err)
+	}
+	if err := s.SetMemberInstanceID(ctx, other.ID, "inst-2"); err != nil {
+		t.Fatalf("backfill of a free identity: %v", err)
+	}
+}

@@ -228,10 +228,10 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 // member that cannot be probed is skipped (it simply cannot be deduped yet); a
 // store read failure is surfaced so the caller can refuse rather than guess.
 //
-// Two simultaneous adds of the same physical instance under different URLs can
-// both create a row before either records its instance_id, so each dedup pass
-// sees the other and both roll back. That resolves toward the safe outcome
-// (neither added, no duplicate persisted); the operator simply retries once.
+// Two simultaneous adds of the same physical instance under different URLs
+// can both pass this scan (neither row exists yet); the
+// members_instance_id_unique index refuses the second insert, and the add
+// reports it as already_member.
 func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceID string) (bool, error) {
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {
@@ -248,7 +248,15 @@ func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceI
 				if _, id, identOK := s.memberIdentity(ctx, m.URL, token); identOK && id != "" {
 					known = id
 					if serr := s.store.SetMemberInstanceID(ctx, m.ID, id); serr != nil {
-						debuglog.Warn("frontdesk: could not backfill member instance id", "member", m.ID, "error", serr)
+						if errors.Is(serr, ErrDuplicateInstance) {
+							// Two rows for one host, from before the identity index:
+							// both keep serving as configured (a migration does not
+							// drain or delete a member), and the operator is told
+							// which one to remove.
+							debuglog.Warn("frontdesk: member is the same instance as another member; remove one of them", "member", m.ID, "member_name", m.Name, "instance_id", id)
+						} else {
+							debuglog.Warn("frontdesk: could not backfill member instance id", "member", m.ID, "error", serr)
+						}
 					}
 				}
 			}

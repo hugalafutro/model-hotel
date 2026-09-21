@@ -92,44 +92,32 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 			"an admin token is required to add a member: Front Desk uses it to verify the host and confirm its fleet role before adding it")
 		return
 	}
-	m, err := s.store.CreateMember(r.Context(), req.Name, req.URL, req.Token)
+	// Validated and canonicalised, but not yet inserted: the host is verified
+	// first, so a rejected add never leaves a row behind, not even for the
+	// seconds the probes take (a row that exists that long counts toward the
+	// fleet-size floor a concurrent removal checks).
+	name, memberURL, err := s.store.ValidateMember(r.Context(), req.Name, req.URL)
 	if err != nil {
-		// Map the two validation failures the add form routes on to stable codes;
-		// everything else falls back to the shared plain-text writeError.
-		switch {
-		case errors.Is(err, ErrDuplicateURL):
-			writeCodedError(w, http.StatusBadRequest, "duplicate", err.Error())
-		case errors.Is(err, ErrInsecureURL):
-			writeCodedError(w, http.StatusBadRequest, "insecure_url", err.Error())
-		default:
-			writeError(w, err)
-		}
+		writeMemberValidationError(w, err)
 		return
 	}
-	// rollback removes the just-created row when a verification step fails, so a
-	// rejected add leaves no half-added member (and no duplicate-URL wall on retry).
-	rollback := func(code, userMsg string, status int) {
-		if delErr := s.store.DeleteMember(r.Context(), m.ID); delErr != nil {
-			writeCodedError(w, http.StatusInternalServerError, "rollback_failed",
-				fmt.Sprintf("%s Rolling back the add also failed (%v); remove it from the Members list and try again.", userMsg, delErr))
-			return
-		}
+	fail := func(code, userMsg string, status int) {
 		writeCodedError(w, status, code, userMsg)
 	}
 
-	// Verify the token against the (now canonical) member URL. Unlike an edit, an
+	// Verify the token against the canonical member URL. Unlike an edit, an
 	// add requires a positive reply: an unreachable host or a refused/unexpected
 	// response blocks the add rather than warning, so only live, verified members
 	// enter the list.
-	p := s.probeMemberToken(r.Context(), m.URL, req.Token)
+	p := s.probeMemberToken(r.Context(), memberURL, req.Token)
 	if !p.valid {
 		switch {
 		case !p.reached:
-			rollback("unreachable", "Front Desk could not reach this member to verify it. Check the URL and that the host is running, then try again.", http.StatusBadRequest)
+			fail("unreachable", "Front Desk could not reach this member to verify it. Check the URL and that the host is running, then try again.", http.StatusBadRequest)
 		case p.rejected():
-			rollback("token_rejected", fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status), http.StatusBadRequest)
+			fail("token_rejected", fmt.Sprintf("This member rejected the admin token (HTTP %d). Double-check the token and try again.", p.status), http.StatusBadRequest)
 		default:
-			rollback("unverified", fmt.Sprintf("This host did not verify as a Front Desk member (HTTP %d). Check the URL points at a model-hotel instance and the token is correct.", p.status), http.StatusBadRequest)
+			fail("unverified", fmt.Sprintf("This host did not verify as a Front Desk member (HTTP %d). Check the URL points at a model-hotel instance and the token is correct.", p.status), http.StatusBadRequest)
 		}
 		return
 	}
@@ -140,16 +128,16 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// identity here is anomalous: rather than fail open (which could admit the
 	// primary or a duplicate under a new URL), block the add and let the operator
 	// retry once the host answers /api/system cleanly.
-	isPrimary, instanceID, identOK := s.memberIdentity(r.Context(), m.URL, req.Token)
+	isPrimary, instanceID, identOK := s.memberIdentity(r.Context(), memberURL, req.Token)
 	if !identOK {
-		rollback("identity_unverified", "Front Desk verified the admin token but could not read this host's fleet identity (/api/system) to confirm it is not the fleet primary or an existing member. Check the host and try again.", http.StatusBadRequest)
+		fail("identity_unverified", "Front Desk verified the admin token but could not read this host's fleet identity (/api/system) to confirm it is not the fleet primary or an existing member. Check the host and try again.", http.StatusBadRequest)
 		return
 	}
 	// Reject the fleet primary re-added under a different URL. Only one primary
 	// exists, so a host self-reporting is_primary is that primary reached under
 	// another address.
 	if isPrimary {
-		rollback("already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.", http.StatusConflict)
+		fail("already_primary", "This host is already the fleet primary (the config source of truth), reached under a different address. It cannot also be added as a member.", http.StatusConflict)
 		return
 	}
 	// Reject a host that is already a member under a different URL: compare its
@@ -159,24 +147,26 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	// instance_id skips dedup (there is nothing to compare); it is the one
 	// residual gap, and adds now require a token anyway.
 	if instanceID != "" {
-		dup, derr := s.instanceAlreadyMember(r.Context(), m.ID, instanceID)
+		dup, derr := s.instanceAlreadyMember(r.Context(), "", instanceID)
 		if derr != nil {
-			rollback("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
+			fail("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
 			return
 		}
 		if dup {
-			rollback("already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.", http.StatusConflict)
+			fail("already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.", http.StatusConflict)
 			return
 		}
-		// Persist the learned identity so future adds can dedup against this
-		// member without re-probing it. A failure to record it would leave the
-		// member half-registered (present but un-deduplicable), so roll the add
-		// back rather than let a duplicate slip in under a different URL later.
-		if err := s.store.SetMemberInstanceID(r.Context(), m.ID, instanceID); err != nil {
-			debuglog.Warn("frontdesk: could not store member instance id", "member", m.ID, "error", err)
-			rollback("verify_failed", "Front Desk verified this host but could not record its identity. Try again.", http.StatusInternalServerError)
-			return
-		}
+	}
+
+	// Verified: insert, with the learned identity in the same statement so
+	// future adds dedup against this member without re-probing it. The unique
+	// indexes re-check both the URL and the instance id, so two adds racing on
+	// the same host (same URL, or the same instance under two URLs, which the
+	// scan above cannot catch while neither row exists) still end with one row.
+	m, err := s.store.CreateVerifiedMember(r.Context(), name, memberURL, req.Token, instanceID)
+	if err != nil {
+		writeMemberValidationError(w, err)
+		return
 	}
 
 	// A newly added member with a valid token is stale relative to the primary;
@@ -188,6 +178,22 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 		Metadata: map[string]any{"url": stripUserinfo(m.URL)},
 	})
 	writeJSON(w, http.StatusCreated, memberResponse{Member: m})
+}
+
+// writeMemberValidationError maps the two validation failures the add form
+// routes on to stable codes; everything else falls back to the shared
+// plain-text writeError.
+func writeMemberValidationError(w http.ResponseWriter, err error) {
+	switch {
+	case errors.Is(err, ErrDuplicateURL):
+		writeCodedError(w, http.StatusBadRequest, "duplicate", err.Error())
+	case errors.Is(err, ErrDuplicateInstance):
+		writeCodedError(w, http.StatusConflict, "already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.")
+	case errors.Is(err, ErrInsecureURL):
+		writeCodedError(w, http.StatusBadRequest, "insecure_url", err.Error())
+	default:
+		writeError(w, err)
+	}
 }
 
 type patchMemberRequest struct {

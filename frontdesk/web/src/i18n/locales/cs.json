@@ -166,8 +166,8 @@
 		"resetCircuitsTitle": "Resetovat jističe skupiny na všech členech?",
 		"resetCircuitsBody": "Každý člen vymaže jističe za položkami zvolené skupiny; člen bez uloženého tokenu je přeskočen a takto uveden. Poskytovatelé, které jističe odstavily, se okamžitě vrátí do rotace; poskytovatel, který je stále rozbitý, se znovu vypne sám.",
 		"resetCircuitsConfirm": "Resetovat na všech členech",
-		"resetCircuitsDone": "Jističe resetovány na {{members}} členech: {{cleared}} obvodů vymazáno, {{recovered}} obnoveno",
-		"resetCircuitsPartial": "Jističe resetovány, ale u {{failed}} z {{members}} členů reset neproběhl",
+		"resetCircuitsDone": "Jističe resetovány ({{members}}): {{cleared}}, {{recovered}}",
+		"resetCircuitsPartial": "Jističe resetovány, ale u {{failed}} z {{members}} reset neproběhl",
 		"resetCircuitsGroupLabel": "Failover skupina",
 		"resetCircuitsGroupPlaceholder": "Zvolte skupinu",
 		"resetCircuitsNoGroups": "Primární člen nehlásí žádné failover skupiny",
@@ -183,7 +183,19 @@
 		"circuitsOpen_few": "{{count}} rozepnuté",
 		"circuitsOpen_many": "{{count}} rozepnutých",
 		"circuitsOpen_other": "{{count}} rozepnutých",
-		"circuitsShowing": "zobrazeno {{shown}} z {{total}}"
+		"circuitsShowing": "zobrazeno {{shown}} z {{total}}",
+		"resetCircuitsMembers_one": "{{count}} člen",
+		"resetCircuitsMembers_few": "{{count}} členové",
+		"resetCircuitsMembers_many": "{{count}} člena",
+		"resetCircuitsMembers_other": "{{count}} členů",
+		"resetCircuitsCleared_one": "{{count}} obvod vymazán",
+		"resetCircuitsCleared_few": "{{count}} obvody vymazány",
+		"resetCircuitsCleared_many": "{{count}} obvodu vymazáno",
+		"resetCircuitsCleared_other": "{{count}} obvodů vymazáno",
+		"resetCircuitsRecovered_one": "{{count}} obnoven",
+		"resetCircuitsRecovered_few": "{{count}} obnoveny",
+		"resetCircuitsRecovered_many": "{{count}} obnoveno",
+		"resetCircuitsRecovered_other": "{{count}} obnoveno"
 	},
 	"traffic": {
 		"title": "Provoz",
@@ -225,7 +237,11 @@
 		"pageOf": "{{from}}–{{to}} z {{total}}",
 		"prev": "Předchozí",
 		"next": "Další",
-		"clearFilters": "Vymazat filtry"
+		"clearFilters": "Vymazat filtry",
+		"range1h": "Poslední hodina",
+		"range24h": "Posledních 24 hodin",
+		"range7d": "Posledních 7 dní",
+		"range30d": "Posledních 30 dní"
 	},
 	"settings": {
 		"title": "Nastavení",
@@ -564,7 +580,8 @@
 			"confirmTokenPlaceholder": "Zadejte admin token Front Desk",
 			"stepN": "Krok {{n}}",
 			"sameHostError": "Primární uzel nelze nahradit stejným hostitelem: tento hostitel už je primárním uzlem flotily.",
-			"fleetTooSmallError": "Flotila potřebuje alespoň dva členy, než lze určit primárního. Nejprve přidejte druhého člena."
+			"fleetTooSmallError": "Flotila potřebuje alespoň dva členy, než lze určit primárního. Nejprve přidejte druhého člena.",
+			"tokenRejectedError": "Token administrátora nebyl přijat. Zkontrolujte ho a zkuste to znovu."
 		},
 		"primaryTag": "primární",
 		"memberResultOk": "{{name}} ✓",
@@ -596,7 +613,9 @@
 			"transportUsb": "USB bezpečnostní klíč",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
-			"transportHybrid": "Telefon / zařízení v blízkosti"
+			"transportHybrid": "Telefon / zařízení v blízkosti",
+			"renameLabelFor": "Přejmenovat passkey {{name}}",
+			"deleteLabelFor": "Odebrat passkey {{name}}"
 		},
 		"totp": {
 			"section": "Autentizační aplikace (TOTP)",
@@ -677,7 +696,8 @@
 			"signedOut_other": "Odhlášeno {{count}} dalších relací",
 			"noneToSignOut": "Žádné další relace nebyly otevřené",
 			"signedIn": "Přihlášení {{when}}",
-			"lastSeen": "Aktivní {{when}}"
+			"lastSeen": "Aktivní {{when}}",
+			"signOutLabel": "Odhlásit {{device}}"
 		}
 	},
 	"quota": {

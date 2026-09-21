@@ -166,8 +166,8 @@
 		"resetCircuitsTitle": "Réinitialiser les disjoncteurs d'un groupe sur tous les membres ?",
 		"resetCircuitsBody": "Chaque membre effacera les disjoncteurs des entrées du groupe choisi ; un membre sans jeton enregistré est ignoré et signalé comme tel. Les fournisseurs écartés reviennent immédiatement en rotation ; un fournisseur toujours en panne se déclenchera à nouveau de lui-même.",
 		"resetCircuitsConfirm": "Réinitialiser sur tous les membres",
-		"resetCircuitsDone": "Disjoncteurs réinitialisés sur {{members}} membres : {{cleared}} circuits effacés, {{recovered}} rétablis",
-		"resetCircuitsPartial": "Disjoncteurs réinitialisés, mais {{failed}} membres sur {{members}} ne l'ont pas été",
+		"resetCircuitsDone": "Disjoncteurs réinitialisés ({{members}}) : {{cleared}}, {{recovered}}",
+		"resetCircuitsPartial": "Disjoncteurs réinitialisés, mais {{failed}} sur {{members}} ne l'ont pas été",
 		"resetCircuitsGroupLabel": "Groupe de bascule",
 		"resetCircuitsGroupPlaceholder": "Choisir un groupe",
 		"resetCircuitsNoGroups": "Le membre principal ne signale aucun groupe de bascule",
@@ -182,7 +182,16 @@
 		"circuitsOpen_one": "{{count}} ouvert",
 		"circuitsOpen_many": "{{count}} ouverts",
 		"circuitsOpen_other": "{{count}} ouverts",
-		"circuitsShowing": "{{shown}} sur {{total}} affichés"
+		"circuitsShowing": "{{shown}} sur {{total}} affichés",
+		"resetCircuitsMembers_one": "{{count}} membre",
+		"resetCircuitsMembers_many": "{{count}} membres",
+		"resetCircuitsMembers_other": "{{count}} membres",
+		"resetCircuitsCleared_one": "{{count}} circuit effacé",
+		"resetCircuitsCleared_many": "{{count}} circuits effacés",
+		"resetCircuitsCleared_other": "{{count}} circuits effacés",
+		"resetCircuitsRecovered_one": "{{count}} rétabli",
+		"resetCircuitsRecovered_many": "{{count}} rétablis",
+		"resetCircuitsRecovered_other": "{{count}} rétablis"
 	},
 	"traffic": {
 		"title": "Trafic",
@@ -224,7 +233,11 @@
 		"pageOf": "{{from}}–{{to}} sur {{total}}",
 		"prev": "Précédent",
 		"next": "Suivant",
-		"clearFilters": "Effacer les filtres"
+		"clearFilters": "Effacer les filtres",
+		"range1h": "Dernière heure",
+		"range24h": "Dernières 24 heures",
+		"range7d": "7 derniers jours",
+		"range30d": "30 derniers jours"
 	},
 	"settings": {
 		"title": "Paramètres",
@@ -557,7 +570,8 @@
 			"confirmTokenPlaceholder": "Saisissez le jeton d'administration Front Desk",
 			"stepN": "Étape {{n}}",
 			"sameHostError": "Vous ne pouvez pas remplacer le primaire par le même hôte : cet hôte est déjà le primaire de la flotte.",
-			"fleetTooSmallError": "Une flotte a besoin d'au moins deux membres avant de pouvoir désigner un primaire. Ajoutez d'abord un second membre."
+			"fleetTooSmallError": "Une flotte a besoin d'au moins deux membres avant de pouvoir désigner un primaire. Ajoutez d'abord un second membre.",
+			"tokenRejectedError": "Le jeton administrateur n'a pas été accepté. Vérifiez-le et réessayez."
 		},
 		"primaryTag": "primaire",
 		"memberResultOk": "{{name}} ✓",
@@ -589,7 +603,9 @@
 			"transportUsb": "Clé USB",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
-			"transportHybrid": "Téléphone / appareil à proximité"
+			"transportHybrid": "Téléphone / appareil à proximité",
+			"renameLabelFor": "Renommer la passkey {{name}}",
+			"deleteLabelFor": "Retirer la passkey {{name}}"
 		},
 		"totp": {
 			"section": "Application d'authentification (TOTP)",
@@ -669,7 +685,8 @@
 			"signedOut_other": "{{count}} autres sessions déconnectées",
 			"noneToSignOut": "Aucune autre session n'était ouverte",
 			"signedIn": "Connexion {{when}}",
-			"lastSeen": "Dernière activité {{when}}"
+			"lastSeen": "Dernière activité {{when}}",
+			"signOutLabel": "Déconnecter {{device}}"
 		}
 	},
 	"quota": {

@@ -166,8 +166,8 @@
 		"resetCircuitsTitle": "グループのブレーカーを全メンバーでリセットしますか？",
 		"resetCircuitsBody": "各メンバーが選択したグループのエントリに関するブレーカーをクリアします。保存済みトークンのないメンバーはスキップされ、その旨が表示されます。ブレーカーが除外していたプロバイダーは直ちにローテーションに戻ります。まだ故障しているプロバイダーは自動的に再度遮断されます。",
 		"resetCircuitsConfirm": "全メンバーでリセット",
-		"resetCircuitsDone": "{{members}}メンバーでブレーカーをリセット: {{cleared}}回路をクリア、{{recovered}}回路を復旧",
-		"resetCircuitsPartial": "ブレーカーをリセットしましたが、{{members}}件中{{failed}}件のメンバーはリセットされませんでした",
+		"resetCircuitsDone": "ブレーカーをリセット（{{members}}）: {{cleared}}、{{recovered}}",
+		"resetCircuitsPartial": "ブレーカーをリセットしましたが、{{members}}のうち{{failed}}件はリセットされませんでした",
 		"resetCircuitsGroupLabel": "フェイルオーバーグループ",
 		"resetCircuitsGroupPlaceholder": "グループを選択",
 		"resetCircuitsNoGroups": "プライマリはフェイルオーバーグループを報告していません",
@@ -181,7 +181,13 @@
 		"circuitRetry": "再試行 {{when}}",
 		"circuitsOpen_one": "{{count}} 件オープン",
 		"circuitsOpen_other": "{{count}} 件オープン",
-		"circuitsShowing": "{{total}}件中{{shown}}件を表示"
+		"circuitsShowing": "{{total}}件中{{shown}}件を表示",
+		"resetCircuitsMembers_other": "{{count}} メンバー",
+		"resetCircuitsCleared_other": "{{count}} 回路をクリア",
+		"resetCircuitsRecovered_other": "{{count}} 回路を復旧",
+		"resetCircuitsMembers_one": "{{count}} メンバー",
+		"resetCircuitsCleared_one": "{{count}} 回路をクリア",
+		"resetCircuitsRecovered_one": "{{count}} 回路を復旧"
 	},
 	"traffic": {
 		"title": "トラフィック",
@@ -223,7 +229,11 @@
 		"pageOf": "{{total}} 件中 {{from}}–{{to}}",
 		"prev": "前へ",
 		"next": "次へ",
-		"clearFilters": "フィルターをクリア"
+		"clearFilters": "フィルターをクリア",
+		"range1h": "過去1時間",
+		"range24h": "過去24時間",
+		"range7d": "過去7日間",
+		"range30d": "過去30日間"
 	},
 	"settings": {
 		"title": "設定",
@@ -550,7 +560,8 @@
 			"confirmTokenPlaceholder": "Front Desk 管理トークンを入力",
 			"stepN": "ステップ {{n}}",
 			"sameHostError": "プライマリを同じホストに置き換えることはできません。そのホストはすでにフリートのプライマリです。",
-			"fleetTooSmallError": "プライマリを指定するには、フリートに少なくとも 2 つのメンバーが必要です。先に 2 つ目のメンバーを追加してください。"
+			"fleetTooSmallError": "プライマリを指定するには、フリートに少なくとも 2 つのメンバーが必要です。先に 2 つ目のメンバーを追加してください。",
+			"tokenRejectedError": "管理者トークンが受け付けられませんでした。確認してもう一度お試しください。"
 		},
 		"primaryTag": "primary",
 		"memberResultOk": "{{name}} ✓",
@@ -582,7 +593,9 @@
 			"transportUsb": "USB セキュリティキー",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
-			"transportHybrid": "スマートフォン / 近接デバイス"
+			"transportHybrid": "スマートフォン / 近接デバイス",
+			"renameLabelFor": "passkey {{name}} の名前を変更",
+			"deleteLabelFor": "passkey {{name}} を削除"
 		},
 		"totp": {
 			"section": "認証アプリ (TOTP)",
@@ -661,7 +674,8 @@
 			"noneToSignOut": "他に開いているセッションはありませんでした",
 			"signedIn": "{{when}}にサインイン",
 			"lastSeen": "{{when}}にアクティブ",
-			"signedOut_one": "他の {{count}} 件のセッションをサインアウトしました"
+			"signedOut_one": "他の {{count}} 件のセッションをサインアウトしました",
+			"signOutLabel": "{{device}} をサインアウト"
 		}
 	},
 	"quota": {

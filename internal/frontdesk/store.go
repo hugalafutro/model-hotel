@@ -34,6 +34,9 @@ var (
 	ErrNotFound = errors.New("frontdesk: not found")
 	// ErrDuplicateURL is returned when a member URL collides with an existing one.
 	ErrDuplicateURL = errors.New("frontdesk: a member with this URL already exists")
+	// ErrDuplicateInstance is the members_instance_id_unique index refusing a
+	// second row for one physical instance (reached under another URL).
+	ErrDuplicateInstance = errors.New("frontdesk: this host is already a member under a different address")
 	// ErrValidation wraps input validation failures.
 	ErrValidation = errors.New("frontdesk: validation failed")
 	// ErrInsecureURL is returned when a member URL uses plain http and plain http
