@@ -732,6 +732,14 @@ describe("ModelTable", () => {
 					screen.getByRole("table").querySelectorAll("tbody tr").length,
 				).toBe(20);
 			});
+			// The clamp is the new page, not a display-time substitute: growing
+			// back does not jump to the page the operator left.
+			rerender(<ModelTable models={make(41)} providers={[mockProvider]} />);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("table").querySelectorAll("tbody tr").length,
+				).toBe(20);
+			});
 		});
 
 		it("navigates to next page", async () => {
