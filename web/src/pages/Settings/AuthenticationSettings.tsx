@@ -148,9 +148,12 @@ export function AuthenticationSettings({
 					</fieldset>
 				</div>
 			</div>
+			{/* No role="status": ManagedBanner already announces the fleet state
+			    once per page, and a second live region would repeat the same fact
+			    on every mount. Like the other managed notes, this one is static
+			    text the operator reads in place. */}
 			{managed && (
 				<div
-					role="status"
 					data-testid="managed-note"
 					className="ui-fleet-banner mt-5 flex items-start gap-2 rounded-md border px-3 py-1.5 text-xs"
 				>

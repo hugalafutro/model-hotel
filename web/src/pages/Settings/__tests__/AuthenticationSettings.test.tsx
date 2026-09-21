@@ -118,9 +118,15 @@ describe("AuthenticationSettings breached-password toggle", () => {
 		// Same amber tone as the fleet boundary banner, so the split reads as a
 		// fleet constraint and not as one more muted hint.
 		expect(note).toHaveClass("ui-fleet-banner");
-		// Card-wide: outside the password-policy group, so it is not a footnote
-		// hanging off one column.
+		// Card-wide: outside both the password-policy group and the two-column
+		// grid, so it cannot drift back into a column as a footnote.
 		expect(note.closest(".ui-settings-group")).toBeNull();
+		// (.grid-cols-2, not .grid: CollapseBody wraps the whole section body in
+		// a grid to animate its height.)
+		expect(note.closest(".grid-cols-2")).toBeNull();
+		// One live region per page announces the fleet state: this note is not
+		// a second one.
+		expect(note).not.toHaveAttribute("role");
 		// It sits between the two halves it names: the password policy above,
 		// the SSO panels below.
 		const policyToggle = await screen.findByRole("switch", {
