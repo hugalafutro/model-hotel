@@ -2135,7 +2135,8 @@
 				"empty": "Ingen destinasjoner ennå.",
 				"error": "De lagrede destinasjonene kan ikke leses (er hovednøkkelen byttet?). Fjern dem nedenfor, og sett dem opp på nytt.",
 				"readFailed": "Klarte ikke å lese de lagrede destinasjonene.",
-				"dirty": "Lagre eller forkast den ventende endringen i Mottaker av varsel før du tester eller fjerner en destinasjon."
+				"dirty": "Lagre eller forkast den ventende endringen i Mottaker av varsel før du tester eller fjerner en destinasjon.",
+				"hidden": "Lagrede destinasjoner er skjult i skrivebeskyttet demomodus."
 			},
 			"kind": {
 				"ntfy": "ntfy",

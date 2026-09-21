@@ -2191,7 +2191,8 @@
 				"empty": "Aucune destination pour l'instant.",
 				"error": "Les destinations stockées ne peuvent pas être lues (clé maîtresse changée ?). Supprimez-les ci-dessous et reconfigurez-les.",
 				"dirty": "Enregistrez ou annulez la modification en attente sur la cible de notification avant de tester ou de supprimer une destination.",
-				"readFailed": "Impossible de lire les destinations enregistrées."
+				"readFailed": "Impossible de lire les destinations enregistrées.",
+				"hidden": "Les destinations enregistrées sont masquées en mode démo en lecture seule."
 			},
 			"manualTitle": "Configuration manuelle (avancé)",
 			"testRow": "Tester",

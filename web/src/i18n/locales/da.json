@@ -2135,7 +2135,8 @@
 				"empty": "Ingen destinationer endnu.",
 				"error": "De gemte destinationer kan ikke læses (er hovednøglen udskiftet?). Fjern dem nedenfor, og opsæt dem igen.",
 				"readFailed": "De gemte destinationer kunne ikke læses.",
-				"dirty": "Gem eller ryd den afventende ændring af Mål for notifikation, før du tester eller fjerner en destination."
+				"dirty": "Gem eller ryd den afventende ændring af Mål for notifikation, før du tester eller fjerner en destination.",
+				"hidden": "Gemte destinationer er skjult i skrivebeskyttet demotilstand."
 			},
 			"kind": {
 				"ntfy": "ntfy",
