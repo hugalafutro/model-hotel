@@ -257,6 +257,12 @@ func (s *Store) DeleteMember(ctx context.Context, id string) error {
 func (s *Store) SetMemberInstanceID(ctx context.Context, id, instanceID string) error {
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE members SET instance_id = ? WHERE id = ?`, instanceID, id)
+	if isUniqueViolation(err) {
+		// Another row already carries this identity: this member is the same
+		// host under a different address (a duplicate that predates the
+		// index). The caller names it so the operator can remove one.
+		return ErrDuplicateInstance
+	}
 	return err
 }
 

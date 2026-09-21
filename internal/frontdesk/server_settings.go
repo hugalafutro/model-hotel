@@ -248,7 +248,15 @@ func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceI
 				if _, id, identOK := s.memberIdentity(ctx, m.URL, token); identOK && id != "" {
 					known = id
 					if serr := s.store.SetMemberInstanceID(ctx, m.ID, id); serr != nil {
-						debuglog.Warn("frontdesk: could not backfill member instance id", "member", m.ID, "error", serr)
+						if errors.Is(serr, ErrDuplicateInstance) {
+							// Two rows for one host, from before the identity index:
+							// both keep serving as configured (a migration does not
+							// drain or delete a member), and the operator is told
+							// which one to remove.
+							debuglog.Warn("frontdesk: member is the same instance as another member; remove one of them", "member", m.ID, "member_name", m.Name, "instance_id", id)
+						} else {
+							debuglog.Warn("frontdesk: could not backfill member instance id", "member", m.ID, "error", serr)
+						}
 					}
 				}
 			}

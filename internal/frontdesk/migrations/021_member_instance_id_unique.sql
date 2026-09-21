@@ -1,10 +1,12 @@
 -- One row per physical instance. Two adds of the same host under different
 -- URLs could both pass the application-side dedup scan before either row
 -- existed; the index refuses the second insert atomically, and the add maps
--- the violation to already_member. Rows are never deleted here: where an older
--- database already holds two rows with one instance id, the later rows' ids
--- are cleared (they read as "not yet learned" and the next verification
--- backfills or refuses them), so the index can be created.
+-- the violation to already_member. Rows are never deleted or drained here: a
+-- migration does not change which members serve. Where an older database
+-- already holds two rows with one instance id, the later rows' ids are
+-- cleared so the index can be created; both rows keep serving as configured,
+-- and the next verification of the later one logs that it is the same
+-- instance as another member so the operator removes one.
 UPDATE members SET instance_id = ''
 WHERE instance_id != ''
   AND EXISTS (
