@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { KeyRound } from "@/lib/icons";
+import { KeyRound, Server } from "@/lib/icons";
 import { SettingsGroup } from "../../components/SettingsGroup";
 import { SettingsSection } from "../../components/SettingsSection";
 import { SettingsSlider } from "../../components/SettingsSlider";
@@ -31,10 +31,15 @@ interface AuthenticationSettingsProps {
  * timeout, and the SSO provider config (which IdPs this member offers) are
  * instance-local, while the password policy and the SSO email allowlists are
  * fleet-synced (a managed member 403s those writes). While managed, the
- * password policy sits in a disabled fieldset with the managed note right
- * under it, and each SSO panel disables just its allowlist input, instead of
- * forwarding `managed` to SettingsSection, which would disable the local
- * parts too.
+ * password policy sits in a disabled fieldset and each SSO panel disables just
+ * its allowlist input, instead of forwarding `managed` to SettingsSection,
+ * which would disable the local parts too.
+ *
+ * The managed note therefore spans the whole card, between the two halves it
+ * describes (the password policy above, the SSO panels below), and takes the
+ * same amber banner tone as the fleet boundary banner rather than the muted
+ * paragraph a fully-synced section uses: here it marks a split the operator
+ * can miss, because the controls around it stay live.
  */
 export function AuthenticationSettings({
 	collapsed,
@@ -141,16 +146,21 @@ export function AuthenticationSettings({
 							</div>
 						</SettingsGroup>
 					</fieldset>
-					{managed && (
-						<p
-							data-testid="managed-note"
-							className="text-xs text-(--text-muted)"
-						>
-							{t("settings.managed.authNote")}
-						</p>
-					)}
 				</div>
 			</div>
+			{/* No role="status": ManagedBanner already announces the fleet state
+			    once per page, and a second live region would repeat the same fact
+			    on every mount. Like the other managed notes, this one is static
+			    text the operator reads in place. */}
+			{managed && (
+				<div
+					data-testid="managed-note"
+					className="ui-fleet-banner mt-5 flex items-start gap-2 rounded-md border px-3 py-1.5 text-xs"
+				>
+					<Server size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
+					<span>{t("settings.managed.authNote")}</span>
+				</div>
+			)}
 			<div className="mt-5">
 				<SettingsGroup title={t("settings.oidc.title")}>
 					<OidcPanel managed={managed} />
