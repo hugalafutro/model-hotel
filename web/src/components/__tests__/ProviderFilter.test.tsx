@@ -110,6 +110,26 @@ describe("ProviderFilter", () => {
 		screen.getByRole("option", { name: "OpenAI" }).focus();
 		await user.keyboard("{Escape}");
 		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		expect(trigger).toHaveFocus();
+	});
+
+	it("enters the list from the search box with ArrowDown", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<ProviderFilter
+				providers={mockProviders}
+				selected={new Set()}
+				onChange={mockOnChange}
+			/>,
+		);
+		await user.click(screen.getByRole("button"));
+		await waitFor(() =>
+			expect(screen.getByPlaceholderText("Search providers…")).toHaveFocus(),
+		);
+		await user.keyboard("{ArrowDown}");
+		expect(screen.getAllByRole("option")[0]).toHaveFocus();
+		await user.keyboard("{End}");
+		expect(screen.getAllByRole("option").at(-1)).toHaveFocus();
 	});
 
 	it("closes dropdown when clicking outside", async () => {

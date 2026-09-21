@@ -77,8 +77,28 @@ describe("FilterDropdown", () => {
 		await user.keyboard("{Escape}");
 		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
 		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		// Focus comes back to the trigger, not to the document body.
+		expect(trigger).toHaveFocus();
 		expect(trigger.querySelector("[role=button]")).toBeNull();
 		await user.click(screen.getByRole("button", { name: "Clear filter" }));
+		expect(onChange).toHaveBeenCalledWith("");
+	});
+
+	it("walks the options with the arrow keys, Home and End", async () => {
+		const user = userEvent.setup();
+		render(<FilterDropdown options={options} value="" onChange={onChange} />);
+		await user.click(screen.getByRole("button", { name: "Filter" }));
+		await user.keyboard("{ArrowDown}");
+		expect(screen.getByRole("option", { name: "All" })).toHaveFocus();
+		await user.keyboard("{ArrowDown}");
+		expect(screen.getByRole("option", { name: "Option 1" })).toHaveFocus();
+		await user.keyboard("{End}");
+		expect(screen.getByRole("option", { name: "Option 3" })).toHaveFocus();
+		await user.keyboard("{ArrowUp}");
+		expect(screen.getByRole("option", { name: "Option 2" })).toHaveFocus();
+		await user.keyboard("{Home}");
+		expect(screen.getByRole("option", { name: "All" })).toHaveFocus();
+		await user.keyboard("{Enter}");
 		expect(onChange).toHaveBeenCalledWith("");
 	});
 

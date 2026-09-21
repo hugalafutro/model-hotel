@@ -124,6 +124,38 @@ describe("SecretField", () => {
 		await waitFor(() => expect(onClear).toHaveBeenCalledTimes(1));
 	});
 
+	// Opening the clear confirmation moves focus into the dialog; that is not
+	// leaving the field, so an edited draft stays pending and Cancel keeps it.
+	it("does not commit the draft when the clear dialog opens", async () => {
+		const user = userEvent.setup();
+		const onCommit = vi.fn();
+		function Group() {
+			const [value, setValue] = useState("");
+			return (
+				<SecretField
+					id="sf"
+					testId="sf"
+					value={value}
+					configured
+					placeholder="placeholder"
+					onChange={setValue}
+					onCommit={onCommit}
+					onClear={() => {}}
+					toggleLabel="toggle"
+					clearLabel="clear"
+					clearConfirmTitle="Clear secret?"
+					clearConfirmMessage="It will need to be pasted again."
+				/>
+			);
+		}
+		render(<Group />);
+		await user.type(screen.getByTestId("sf-input"), "pending-replacement");
+		await user.click(screen.getByTestId("sf-clear"));
+		expect(screen.getByTestId("sf-confirm")).toBeInTheDocument();
+		await user.click(screen.getByRole("button", { name: "Cancel" }));
+		expect(onCommit).not.toHaveBeenCalled();
+	});
+
 	it("does not clear when the confirm dialog is cancelled", async () => {
 		const user = userEvent.setup();
 		const onClear = vi.fn();

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "@/lib/icons";
 import { useClickOutside } from "../hooks/useClickOutside";
+import { moveOptionFocus } from "../utils/a11y";
 import { toggleInSet } from "../utils/collections";
 import { sortByName } from "../utils/sort";
 
@@ -26,6 +27,8 @@ export function ProviderFilter({
 	const [search, setSearch] = useState("");
 	const containerRef = useRef<HTMLDivElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const listRef = useRef<HTMLDivElement>(null);
 
 	const filtered = sortByName(
 		providers?.filter((p) =>
@@ -82,14 +85,25 @@ export function ProviderFilter({
 			data-testid="provider-filter"
 			className="relative inline-block w-full"
 			onKeyDown={(e) => {
-				if (e.key === "Escape" && open) {
+				if (!open) return;
+				if (e.key === "Escape") {
 					e.stopPropagation();
 					setSearch("");
 					setOpen(false);
+					// The search box or option that had focus unmounts with the
+					// menu; the trigger takes focus back.
+					triggerRef.current?.focus();
+					return;
+				}
+				// Arrow keys walk the options, Home/End jump between them; a first
+				// ArrowDown from the search box enters the list.
+				if (moveOptionFocus(listRef.current, e.key, document.activeElement)) {
+					e.preventDefault();
 				}
 			}}
 		>
 			<button
+				ref={triggerRef}
 				type="button"
 				onClick={() => setOpen((v) => !v)}
 				aria-haspopup="listbox"
@@ -144,6 +158,7 @@ export function ProviderFilter({
 									if (e.key === "Escape") {
 										setSearch("");
 										setOpen(false);
+										triggerRef.current?.focus();
 									}
 								}}
 							/>
@@ -182,9 +197,10 @@ export function ProviderFilter({
 
 					{/* List */}
 					<div
+						ref={listRef}
 						role="listbox"
 						aria-multiselectable="true"
-						aria-label={t("components.providerFilter.searchProviders")}
+						aria-label={t("components.providerFilter.filterProviders")}
 						className="max-h-48 overflow-y-auto px-1"
 					>
 						{filtered.length === 0 ? (

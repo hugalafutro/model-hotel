@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "@/lib/icons";
 import { useClickOutside } from "../hooks/useClickOutside";
+import { moveOptionFocus } from "../utils/a11y";
 
 interface FilterDropdownProps {
 	options: { value: string; label: string; count?: number }[];
@@ -43,6 +44,8 @@ export function FilterDropdown({
 	const effectiveAllLabel = allLabel ?? t("components.filterDropdown.allLabel");
 	const [open, setOpen] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const listRef = useRef<HTMLDivElement>(null);
 
 	useClickOutside(containerRef, () => setOpen(false), { enabled: open });
 
@@ -75,13 +78,24 @@ export function FilterDropdown({
 			ref={containerRef}
 			className={`relative inline-block ${className}`}
 			onKeyDown={(e) => {
-				if (e.key === "Escape" && open) {
+				if (!open) return;
+				if (e.key === "Escape") {
 					e.stopPropagation();
 					setOpen(false);
+					// The option that had focus unmounts with the menu; the trigger
+					// takes focus back so the keyboard user is not dropped on body.
+					triggerRef.current?.focus();
+					return;
+				}
+				// Arrow keys walk the options, Home/End jump; a first ArrowDown
+				// from the trigger enters the list.
+				if (moveOptionFocus(listRef.current, e.key, document.activeElement)) {
+					e.preventDefault();
 				}
 			}}
 		>
 			<button
+				ref={triggerRef}
 				type="button"
 				onClick={() => setOpen((v) => !v)}
 				aria-label={
@@ -127,6 +141,7 @@ export function FilterDropdown({
 					}}
 				>
 					<div
+						ref={listRef}
 						role="listbox"
 						aria-label={effectivePlaceholder}
 						className="max-h-48 overflow-y-auto px-1"

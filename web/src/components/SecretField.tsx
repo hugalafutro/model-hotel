@@ -72,6 +72,10 @@ export function SecretField({
 			groupRef.current?.contains(e.relatedTarget)
 		)
 			return;
+		// The clear-confirm dialog takes focus when it opens (it is portaled
+		// outside the group); a draft must survive that so Cancel leaves it
+		// pending rather than already committed.
+		if (confirmClear) return;
 		onCommit();
 	};
 

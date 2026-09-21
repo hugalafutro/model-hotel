@@ -26,14 +26,12 @@ export function InfoHint({
 	className = "",
 }: InfoHintProps) {
 	return (
-		// Focusable, with the hint as its accessible name, so a keyboard or
-		// screen-reader user reaches the same text the title shows on hover.
+		// Named for assistive tech (the hint is its accessible name); not a tab
+		// stop, since focusing it would show a sighted keyboard user nothing.
 		<span
 			title={tooltip}
 			role="img"
 			aria-label={tooltip}
-			// biome-ignore lint/a11y/noNoninteractiveTabindex: the hint text is only reachable through focus
-			tabIndex={0}
 			className={`ui-icon-btn cursor-help inline-flex items-center ${className}`.trimEnd()}
 		>
 			<Info size={size} />
