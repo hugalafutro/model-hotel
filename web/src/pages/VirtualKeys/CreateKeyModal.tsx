@@ -261,6 +261,7 @@ export function CreateKeyModal({
 						<button
 							type="button"
 							onClick={onClose}
+							disabled={createMutation.isPending}
 							className="ui-btn ui-btn-secondary"
 						>
 							{t("common.cancel")}

@@ -141,6 +141,13 @@ describe("VirtualKeys", () => {
 				screen.getByRole("dialog", { name: "Create Virtual Key" }),
 			).toBeInTheDocument();
 			expect(
+				within(dialog).getByRole("button", { name: "Cancel" }),
+			).toBeDisabled();
+			await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+			expect(
+				screen.getByRole("dialog", { name: "Create Virtual Key" }),
+			).toBeInTheDocument();
+			expect(
 				await screen.findByText("sk_test_slow_key_12345"),
 			).toBeInTheDocument();
 		});

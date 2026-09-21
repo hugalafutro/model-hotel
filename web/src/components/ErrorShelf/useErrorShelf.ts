@@ -270,7 +270,7 @@ export function useErrorShelf(): UseErrorShelf {
 		// Compared as instants: Go writes RFC3339Nano, which trims trailing
 		// zeros from the fraction, so the strings are not fixed-width and a
 		// lexicographic compare misorders stamps inside one second.
-		merged.sort((a, b) => Date.parse(b.timestamp) - Date.parse(a.timestamp));
+		merged.sort((a, b) => parseTs(b.timestamp) - parseTs(a.timestamp));
 		return merged.slice(0, ERROR_SHELF_LIMIT);
 	}, [ready, reqLogData, appLogData]);
 

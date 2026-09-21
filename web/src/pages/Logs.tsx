@@ -302,13 +302,16 @@ function RequestLogs() {
 				{isLoading && !logsData && <LoadingSpinner />}
 
 				{/* Error state - show message when fetch fails and no fallback data */}
-				{error && !logsData && displayEntries.length === 0 && (
-					<LogsErrorState
-						message={t("logs.toast.loadFailed", {
-							message: (error as Error).message || t("common.unknownError"),
-						})}
-					/>
-				)}
+				{viewMode === "paginate" &&
+					error &&
+					!logsData &&
+					displayEntries.length === 0 && (
+						<LogsErrorState
+							message={t("logs.toast.loadFailed", {
+								message: (error as Error).message || t("common.unknownError"),
+							})}
+						/>
+					)}
 
 				{viewMode === "paginate" && (!isLoading || logsData) && (
 					<div ref={wheelPagingRef} className="ui-card overflow-x-auto">
