@@ -190,18 +190,18 @@ Add a provider and the service pulls the model list automatically via the provid
 
 | Provider | Context Length | Pricing | Reasoning Flags | Input/Output Modalities | Source |
 |---|---|---|---|---|---|
-| DeepSeek | ✅ | ✅ | ✅ | ✅ (text, plus image on the vision model) | API (`/models`) + Catalog |
+| DeepSeek | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
 | NanoGPT | ✅ | ✅ | ✅ | ✅ | API (`/models?detailed=true`) |
-| Z.AI | ✅ | ✅ (partial) | ✅ | Derived | API (`/models`) + Catalog |
+| Z.AI | ✅ | ✅ (partial) | ✅ | ✅ | API (`/models`) + Catalog |
 | OpenCode Go | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
 | OpenCode Zen | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
 | OpenAI | ✅ | ✅ | ✅ | ✅ | API (`/models`) + Catalog |
 | OpenRouter | ✅ | ✅ | ✅ | ✅ | API (`/models`) |
-| Anthropic | ✅ | ✅ | *(none)* | ✅ (partial) | API + Pricing catalog |
+| Anthropic | ✅ | ✅ | *(none)* | ✅ | API + Pricing catalog |
 | xAI (Grok) | ✅ | ✅ | ✅ | ✅ | API (`/language-models`) + Catalog |
 | Kimi Code | ✅ | *(none)* | ✅ | ✅ | API (`/models`) |
 | Google AI Studio (Gemini) | ✅ | ✅ | ✅ | ✅ | API (`/v1beta/models`) + Pricing catalog |
-| Cohere | ✅ | ✅ | ✅ | ✅ (vision) | API (`/v1/models`, paginated) + Pricing catalog |
+| Cohere | ✅ | ✅ | ✅ | ✅ | API (`/v1/models`) + Pricing catalog |
 | Ollama / Ollama Cloud | ✅ | *(none)* | ✅ | ✅ | API (`/api/show`) |
 
 **Z.AI, xAI, OpenAI, DeepSeek, and OpenCode (Go & Zen) combine a live `/models` listing with a built-in catalog:** the API supplies the authoritative model list (plus live pricing and modalities for xAI) and the catalog backfills the fields the API leaves out (context window, max output, capability flags, pricing). For Z.AI, xAI, and OpenCode the catalog *also* surfaces models the listing doesn't advertise but that still work - a freshly released GLM the listing hasn't caught up to, or older Grok models xAI keeps callable without listing them. Live values always win; the catalog only fills gaps. xAI (on 403/429) and OpenCode Go (on 404) fall back to the pure catalog when the account or endpoint can't list; the others abort the scan on error so a transient failure never disables existing models. Google AI Studio provides rich metadata (context, thinking support) from its native API, supplemented with a pricing catalog. Cohere uses its native API with full pagination for model discovery, enriched with a pricing catalog for cost data, capability detection (tool calling, vision, structured output, reasoning), and modality mapping. NanoGPT and Anthropic expose richer model metadata through their own APIs; Anthropic additionally uses a pricing catalog for per-model cost data. Ollama and Ollama Cloud enrich models via the `/api/show` endpoint.
