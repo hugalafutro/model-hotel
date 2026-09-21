@@ -2135,7 +2135,8 @@
 				"empty": "Noch keine Ziele.",
 				"error": "Die gespeicherten Ziele können nicht gelesen werden (Master-Key rotiert?). Entfernen Sie sie unten und richten Sie sie neu ein.",
 				"dirty": "Speichern oder verwerfen Sie die ausstehende Änderung am Benachrichtigungsziel, bevor Sie ein Ziel testen oder entfernen.",
-				"readFailed": "Die gespeicherten Ziele konnten nicht gelesen werden."
+				"readFailed": "Die gespeicherten Ziele konnten nicht gelesen werden.",
+				"hidden": "Gespeicherte Ziele sind im schreibgeschützten Demomodus ausgeblendet."
 			},
 			"manualTitle": "Manuelle Konfiguration (fortgeschritten)",
 			"testRow": "Testen",

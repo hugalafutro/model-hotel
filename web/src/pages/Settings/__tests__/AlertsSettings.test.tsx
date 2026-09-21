@@ -483,6 +483,22 @@ describe("AlertsSettings", () => {
 		).toBe(i18n.t("settings.alerts.destinations.readFailed"));
 	});
 
+	it("says the destinations are hidden when the read is refused (read-only demo)", async () => {
+		serveSettings({ alert_enabled: "true" });
+		server.use(
+			http.get("/api/alert/targets", () =>
+				HttpResponse.json({ error: "read-only demo" }, { status: 403 }),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		expect(
+			(await screen.findByTestId("alert-destinations-error")).textContent,
+		).toBe(i18n.t("settings.alerts.destinations.hidden"));
+	});
+
 	it("hides the destination list, not just the callout, when the read fails", async () => {
 		// A 500 leaves `targets` at its empty-array fallback, which would
 		// otherwise render the list's own "nothing configured" empty state

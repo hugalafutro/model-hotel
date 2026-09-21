@@ -2191,7 +2191,8 @@
 				"empty": "Todavía no hay destinos.",
 				"error": "No se pueden leer los destinos almacenados (¿se rotó la clave maestra?). Elimínalos abajo y vuelve a configurarlos.",
 				"dirty": "Guarda o descarta el cambio pendiente en Destinatario de la notificación antes de probar o eliminar un destino.",
-				"readFailed": "No se han podido leer los destinos guardados."
+				"readFailed": "No se han podido leer los destinos guardados.",
+				"hidden": "Los destinos guardados están ocultos en el modo de demostración de solo lectura."
 			},
 			"manualTitle": "Configuración manual (avanzado)",
 			"testRow": "Probar",

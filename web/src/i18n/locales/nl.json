@@ -2135,7 +2135,8 @@
 				"empty": "Nog geen bestemmingen.",
 				"error": "De opgeslagen bestemmingen kunnen niet gelezen worden (master key geroteerd?). Verwijder ze hieronder en stel ze opnieuw in.",
 				"dirty": "Sla de openstaande wijziging aan Ontvanger van de melding op of maak hem ongedaan voordat je een bestemming test of verwijdert.",
-				"readFailed": "De opgeslagen bestemmingen konden niet worden gelezen."
+				"readFailed": "De opgeslagen bestemmingen konden niet worden gelezen.",
+				"hidden": "Opgeslagen bestemmingen zijn verborgen in de alleen-lezen demomodus."
 			},
 			"manualTitle": "Handmatige configuratie (geavanceerd)",
 			"testRow": "Testen",

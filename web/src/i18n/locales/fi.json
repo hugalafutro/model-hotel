@@ -2135,7 +2135,8 @@
 				"empty": "Ei vielä kohteita.",
 				"error": "Tallennettuja kohteita ei voi lukea (vaihdettiinko pääavain?). Poista ne alta ja määritä ne uudelleen.",
 				"readFailed": "Tallennettuja kohteita ei voitu lukea.",
-				"dirty": "Tallenna tai kumoa Ilmoituksen kohde -kentän odottava muutos, ennen kuin testaat tai poistat kohteen."
+				"dirty": "Tallenna tai kumoa Ilmoituksen kohde -kentän odottava muutos, ennen kuin testaat tai poistat kohteen.",
+				"hidden": "Tallennetut kohteet on piilotettu vain luku -demotilassa."
 			},
 			"kind": {
 				"ntfy": "ntfy",

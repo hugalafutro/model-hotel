@@ -98,19 +98,27 @@ export function AlertsSettings({
 	const targets = targetsQuery.data?.targets ?? [];
 	const storedTargets = targets.join("; ");
 	// An unreadable stored value (master key rotated) is a message beside an
-	// empty list, not a card that refuses to render.
-	const targetsError: "" | "undecryptable" | "generic" = !targetsQuery.error
-		? ""
-		: targetsQuery.error instanceof ApiError &&
-				targetsQuery.error.code === "undecryptable"
-			? "undecryptable"
-			: "generic";
+	// empty list, not a card that refuses to render. A 403 is the read-only
+	// demo: the server hides the decrypted list there on purpose, so the
+	// message says that rather than reporting a failure.
+	const targetsError: "" | "undecryptable" | "hidden" | "generic" =
+		!targetsQuery.error
+			? ""
+			: targetsQuery.error instanceof ApiError &&
+					targetsQuery.error.code === "undecryptable"
+				? "undecryptable"
+				: targetsQuery.error instanceof ApiError &&
+						targetsQuery.error.status === 403
+					? "hidden"
+					: "generic";
 	const targetsErrorText =
 		targetsError === "undecryptable"
 			? t("settings.alerts.destinations.error")
-			: targetsError === "generic"
-				? t("settings.alerts.destinations.readFailed")
-				: "";
+			: targetsError === "hidden"
+				? t("settings.alerts.destinations.hidden")
+				: targetsError === "generic"
+					? t("settings.alerts.destinations.readFailed")
+					: "";
 
 	// A validation error (400) carries a safe, user-facing message and a 502 from
 	// the test endpoint carries a machine-readable reason code; anything else
@@ -381,7 +389,7 @@ export function AlertsSettings({
 				    greys out the guided button below. */}
 				{targetsErrorText !== "" && (
 					<p
-						className="ui-callout ui-callout-warning"
+						className="ui-callout ui-callout-warning mt-5"
 						data-testid="alert-destinations-error"
 						role="alert"
 					>

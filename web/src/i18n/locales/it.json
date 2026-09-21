@@ -2191,7 +2191,8 @@
 				"empty": "Ancora nessuna destinazione.",
 				"error": "Le destinazioni salvate non possono essere lette (chiave principale ruotata?). Rimuovile qui sotto e configurale di nuovo.",
 				"readFailed": "Non è stato possibile leggere le destinazioni salvate.",
-				"dirty": "Salva o annulla la modifica in sospeso a Destinatario della notifica prima di provare o rimuovere una destinazione."
+				"dirty": "Salva o annulla la modifica in sospeso a Destinatario della notifica prima di provare o rimuovere una destinazione.",
+				"hidden": "Le destinazioni salvate sono nascoste in modalità demo di sola lettura."
 			},
 			"kind": {
 				"ntfy": "ntfy",

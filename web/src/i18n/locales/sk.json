@@ -2247,7 +2247,8 @@
 				"empty": "Zatiaľ žiadne ciele.",
 				"error": "Uložené ciele sa nedajú prečítať (bol vymenený hlavný kľúč?). Odstráňte ich nižšie a nastavte ich znova.",
 				"dirty": "Skôr než budete cieľ testovať alebo odstraňovať, uložte alebo zrušte neuloženú zmenu v poli Cieľ oznámenia.",
-				"readFailed": "Uložené ciele sa nepodarilo načítať."
+				"readFailed": "Uložené ciele sa nepodarilo načítať.",
+				"hidden": "Uložené ciele sú v demo režime iba na čítanie skryté."
 			},
 			"manualTitle": "Ručná konfigurácia (pokročilé)",
 			"testRow": "Otestovať",
