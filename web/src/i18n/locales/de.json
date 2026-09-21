@@ -204,7 +204,16 @@
 			"dbTxPerSec": "Datenbanktransaktionen pro Sekunde",
 			"requestsTodayAll": "Anzahl der proxiierten LLM-Anfragen aller virtuellen Schlüssel seit Mitternacht Ortszeit heute",
 			"requestsTodayOwn": "Anzahl der proxiierten LLM-Anfragen Ihrer eigenen virtuellen Schlüssel seit Mitternacht Ortszeit heute",
-			"requestsToday": "Anzahl der proxiierten LLM-Anfragen seit Mitternacht Ortszeit heute"
+			"requestsToday": "Anzahl der proxiierten LLM-Anfragen seit Mitternacht Ortszeit heute",
+			"cpu": "Aktuell vom Server genutzte CPU",
+			"procs": "Prozesse, die in der Kontrollgruppe des Servers laufen",
+			"aggregateProcs": "Prozesse über {{count}} Compose-Container hinweg",
+			"memoryUsed": "Aktuell vom Server genutzter Arbeitsspeicher",
+			"memoryLimit": "Speichergrenze, die der Server erreichen darf, bevor er beendet wird",
+			"aggregateMemoryUsed": "Über {{count}} Compose-Container hinweg genutzter Arbeitsspeicher",
+			"aggregateMemoryLimit": "Höchstes von {{count}} Compose-Containern gemeldetes Speicherlimit",
+			"memoryHeap": "Aktuell belegter Go-Heap; für diesen Server ist keine Speichergrenze gesetzt",
+			"aggregateCpu": "Über {{count}} Compose-Container hinweg genutzte CPU"
 		},
 		"githubRepo": "GitHub-Repository",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "Fehler",
 			"viewDetails": "Details anzeigen",
-			"clearAllConfirm": "Klicken Sie erneut, um zu bestätigen"
+			"clearAllConfirm": "Klicken Sie erneut, um zu bestätigen",
+			"titleTooltip": "Die {{limit}} neuesten Fehler, keiner älter als {{hours}} Stunden"
 		},
 		"ha": {
 			"primary": "Primär",

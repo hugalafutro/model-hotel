@@ -210,7 +210,16 @@
 			"dbTxPerSec": "Transacciones de base de datos por segundo",
 			"requestsTodayAll": "Número de peticiones LLM enviadas por el proxy con cualquier clave virtual desde la medianoche de hoy, hora local",
 			"requestsTodayOwn": "Número de peticiones LLM enviadas por el proxy con tus propias claves virtuales desde la medianoche de hoy, hora local",
-			"requestsToday": "Número de peticiones LLM enviadas por el proxy desde la medianoche de hoy, hora local"
+			"requestsToday": "Número de peticiones LLM enviadas por el proxy desde la medianoche de hoy, hora local",
+			"cpu": "CPU que el servidor está usando ahora",
+			"procs": "Procesos en ejecución en el grupo de control del servidor",
+			"aggregateProcs": "Procesos en {{count}} contenedores de compose",
+			"memoryUsed": "Memoria que el servidor está usando ahora",
+			"memoryLimit": "Límite de memoria que el servidor puede alcanzar antes de que se cierre",
+			"aggregateMemoryUsed": "Memoria usada en {{count}} contenedores de compose",
+			"aggregateMemoryLimit": "Límite de memoria más alto notificado por {{count}} contenedores de compose",
+			"memoryHeap": "Montón de Go asignado ahora; este servidor no tiene límite de memoria",
+			"aggregateCpu": "CPU usada en {{count}} contenedores de compose"
 		},
 		"githubRepo": "Repositorio de GitHub",
 		"readOnly": {
@@ -226,7 +235,8 @@
 			"requestKind": "Req",
 			"title": "Errores",
 			"viewDetails": "Ver detalles",
-			"clearAllConfirm": "Haga clic de nuevo para confirmar"
+			"clearAllConfirm": "Haga clic de nuevo para confirmar",
+			"titleTooltip": "Los {{limit}} errores más recientes, ninguno de más de {{hours}} horas"
 		},
 		"ha": {
 			"primary": "Primario",

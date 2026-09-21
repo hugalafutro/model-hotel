@@ -204,7 +204,16 @@
 			"dbTxPerSec": "초당 데이터베이스 트랜잭션 수",
 			"requestsTodayAll": "오늘 현지 시간 자정 이후 모든 가상 키로 프록시를 통해 전송된 LLM 요청 건수",
 			"requestsTodayOwn": "오늘 현지 시간 자정 이후 내 가상 키로 프록시를 통해 전송된 LLM 요청 건수",
-			"requestsToday": "오늘 현지 시간 자정 이후 프록시를 통해 전송된 LLM 요청 건수"
+			"requestsToday": "오늘 현지 시간 자정 이후 프록시를 통해 전송된 LLM 요청 건수",
+			"cpu": "서버가 현재 사용 중인 CPU",
+			"procs": "서버 제어 그룹에서 실행 중인 프로세스",
+			"aggregateProcs": "compose 컨테이너 {{count}}개 전체의 프로세스",
+			"memoryUsed": "서버가 현재 사용 중인 메모리",
+			"memoryLimit": "서버가 종료되기 전까지 도달할 수 있는 메모리 한도",
+			"aggregateMemoryUsed": "compose 컨테이너 {{count}}개 전체에서 사용 중인 메모리",
+			"aggregateMemoryLimit": "compose 컨테이너 {{count}}개가 보고한 가장 높은 메모리 한도",
+			"memoryHeap": "현재 할당된 Go 힙. 이 서버에는 메모리 한도가 설정되어 있지 않습니다",
+			"aggregateCpu": "compose 컨테이너 {{count}}개 전체에서 사용 중인 CPU"
 		},
 		"githubRepo": "GitHub 저장소",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "오류",
 			"viewDetails": "상세 정보 보기",
-			"clearAllConfirm": "확인을 위해 다시 클릭하세요"
+			"clearAllConfirm": "확인을 위해 다시 클릭하세요",
+			"titleTooltip": "최근 오류 {{limit}}개, {{hours}}시간 이내의 항목만"
 		},
 		"ha": {
 			"primary": "기본",

@@ -125,21 +125,51 @@ export function SystemStatus() {
 		: hasLimit && app?.memory_limit_bytes
 			? (app.memory_current_bytes / app.memory_limit_bytes) * 100
 			: undefined;
+	// "used / limit" reads as one value but is two, so each half carries its
+	// own tooltip rather than letting the row's cover both. Inline spans, so
+	// the rendered line is unchanged.
+	const memPair = (usedMB: number, limitMB: number) => (
+		<>
+			<span
+				title={
+					dockerMem
+						? t("layout.tooltips.aggregateMemoryUsed", {
+								count: docker.container_count,
+							})
+						: t("layout.tooltips.memoryUsed")
+				}
+			>
+				{formatMemoryMB(usedMB)}
+			</span>{" "}
+			/{" "}
+			<span
+				title={
+					dockerMem
+						? t("layout.tooltips.aggregateMemoryLimit", {
+								count: docker.container_count,
+							})
+						: t("layout.tooltips.memoryLimit")
+				}
+			>
+				{formatMemoryMB(limitMB)}
+			</span>
+		</>
+	);
 	const appMem = dockerMem ? (
-		<>
-			{formatMemoryMB(docker.memory_usage_bytes / 1024 / 1024)} /{" "}
-			{formatMemoryMB(docker.memory_limit_bytes / 1024 / 1024)}
-		</>
+		memPair(
+			docker.memory_usage_bytes / 1024 / 1024,
+			docker.memory_limit_bytes / 1024 / 1024,
+		)
 	) : hasLimit ? (
-		<>
-			{formatMemoryMB(app.memory_current_bytes / 1024 / 1024)} /{" "}
-			{formatMemoryMB(app.memory_limit_bytes / 1024 / 1024)}
-		</>
+		memPair(
+			app.memory_current_bytes / 1024 / 1024,
+			app.memory_limit_bytes / 1024 / 1024,
+		)
 	) : app ? (
-		<>
+		<span title={t("layout.tooltips.memoryHeap")}>
 			{formatMemoryMB(app.heap_alloc_mb)}
 			<span className={unitClass}> {t("layout.stats.heap")}</span>
-		</>
+		</span>
 	) : (
 		"-"
 	);
@@ -211,7 +241,12 @@ export function SystemStatus() {
 						</span>
 					</div>
 
-					{/* CPU + Processes */}
+					{/* CPU + Processes. This row and the Network, Disk and Memory
+					    rows below carry a row-level tooltip only while the figures
+					    are aggregates over the compose containers, which is
+					    something the row does not otherwise say. Without Docker it
+					    would just repeat the visible label, so there is none and
+					    each value speaks for itself. */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
 						title={
@@ -219,21 +254,37 @@ export function SystemStatus() {
 								? t("layout.stats.aggregateCpu", {
 										count: docker.container_count,
 									})
-								: t("layout.stats.cpu")
+								: undefined
 						}
 					>
 						<span>{t("layout.stats.cpu")}</span>
 						<span className={`text-(--text-secondary) ${dc(cpuPct, 75, 90)}`}>
 							{cpuPct != null && cpuPct >= 0 ? (
 								<>
-									<span>
+									<span
+										title={
+											useDocker
+												? t("layout.tooltips.aggregateCpu", {
+														count: docker.container_count,
+													})
+												: t("layout.tooltips.cpu")
+										}
+									>
 										{cpuPct.toFixed(1)}
 										<span className={unitClass}>%</span>
 									</span>
 									{procs != null && procs > 0 && (
 										<>
 											<span className="text-(--text-secondary) mx-1">|</span>
-											<span>
+											<span
+												title={
+													useDocker
+														? t("layout.tooltips.aggregateProcs", {
+																count: docker.container_count,
+															})
+														: t("layout.tooltips.procs")
+												}
+											>
 												{procs}
 												<span className={unitClass}>
 													{" "}
@@ -257,7 +308,7 @@ export function SystemStatus() {
 								? t("layout.stats.aggregateNetwork", {
 										count: docker.container_count,
 									})
-								: t("layout.stats.network")
+								: undefined
 						}
 					>
 						<span>{t("layout.stats.network")}</span>
@@ -272,7 +323,7 @@ export function SystemStatus() {
 								? t("layout.stats.aggregateDisk", {
 										count: docker.container_count,
 									})
-								: t("layout.stats.disk")
+								: undefined
 						}
 					>
 						<span>{t("layout.stats.disk")}</span>
@@ -287,7 +338,7 @@ export function SystemStatus() {
 								? t("layout.stats.aggregateMemory", {
 										count: docker.container_count,
 									})
-								: t("layout.stats.memory")
+								: undefined
 						}
 					>
 						<span>{t("layout.stats.memory")}</span>

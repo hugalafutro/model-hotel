@@ -216,7 +216,16 @@
 			"dbTxPerSec": "Počet databázových transakcí za sekundu",
 			"requestsTodayAll": "Počet požadavků na LLM zpracovaných prostřednictvím proxy ze všech virtuálních klíčů od dnešní půlnoci místního času",
 			"requestsTodayOwn": "Počet požadavků na LLM zpracovaných prostřednictvím proxy z vašich vlastních virtuálních klíčů od dnešní půlnoci místního času",
-			"requestsToday": "Počet požadavků na LLM zpracovaných prostřednictvím proxy od dnešní půlnoci místního času"
+			"requestsToday": "Počet požadavků na LLM zpracovaných prostřednictvím proxy od dnešní půlnoci místního času",
+			"cpu": "Procesor aktuálně využívaný serverem",
+			"procs": "Procesy běžící v kontrolní skupině serveru",
+			"aggregateProcs": "Procesy napříč {{count}} kontejnery compose",
+			"memoryUsed": "Paměť aktuálně využívaná serverem",
+			"memoryLimit": "Limit paměti, který server smí dosáhnout, než bude ukončen",
+			"aggregateMemoryUsed": "Paměť využívaná napříč {{count}} kontejnery compose",
+			"aggregateMemoryLimit": "Nejvyšší limit paměti hlášený {{count}} kontejnery compose",
+			"memoryHeap": "Aktuálně alokovaná halda Go; pro tento server není nastaven limit paměti",
+			"aggregateCpu": "Procesor využívaný napříč {{count}} kontejnery compose"
 		},
 		"githubRepo": "repozitář GitHub",
 		"readOnly": {
@@ -232,7 +241,8 @@
 			"requestKind": "Req",
 			"title": "Chyby",
 			"viewDetails": "Zobrazit podrobnosti",
-			"clearAllConfirm": "Klikněte znovu pro potvrzení"
+			"clearAllConfirm": "Klikněte znovu pro potvrzení",
+			"titleTooltip": "{{limit}} nejnovějších chyb, žádná starší než {{hours}} hodin"
 		},
 		"ha": {
 			"primary": "Primární",

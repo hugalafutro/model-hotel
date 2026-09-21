@@ -204,7 +204,16 @@
 			"dbTxPerSec": "Saniye başına veritabanı işlemleri",
 			"requestsTodayAll": "Bugün yerel saatle gece yarısından bu yana tüm sanal anahtarlarla proxy üzerinden gönderilen LLM isteklerinin sayısı",
 			"requestsTodayOwn": "Bugün yerel saatle gece yarısından bu yana kendi sanal anahtarlarınızla proxy üzerinden gönderilen LLM isteklerinin sayısı",
-			"requestsToday": "Bugün yerel saatle gece yarısından bu yana proxy üzerinden gönderilen LLM isteklerinin sayısı"
+			"requestsToday": "Bugün yerel saatle gece yarısından bu yana proxy üzerinden gönderilen LLM isteklerinin sayısı",
+			"cpu": "Sunucunun şu anda kullandığı işlemci",
+			"procs": "Sunucunun denetim grubunda çalışan süreçler",
+			"aggregateProcs": "{{count}} compose kapsayıcısındaki süreçler",
+			"memoryUsed": "Sunucunun şu anda kullandığı bellek",
+			"memoryLimit": "Sunucunun sonlandırılmadan önce ulaşabileceği bellek sınırı",
+			"aggregateMemoryUsed": "{{count}} compose kapsayıcısında kullanılan bellek",
+			"aggregateMemoryLimit": "{{count}} compose kapsayıcısının bildirdiği en yüksek bellek sınırı",
+			"memoryHeap": "Şu anda ayrılmış Go yığını; bu sunucu için bellek sınırı ayarlanmamış",
+			"aggregateCpu": "{{count}} compose kapsayıcısında kullanılan işlemci"
 		},
 		"githubRepo": "GitHub deposu",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "Hatalar",
 			"viewDetails": "Ayrıntıları görüntüle",
-			"clearAllConfirm": "Onaylamak için tekrar tıklayın"
+			"clearAllConfirm": "Onaylamak için tekrar tıklayın",
+			"titleTooltip": "En son {{limit}} hata, {{hours}} saatten eskisi yok"
 		},
 		"ha": {
 			"primary": "Birincil",

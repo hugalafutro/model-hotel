@@ -204,7 +204,16 @@
 			"dbTxPerSec": "Databastransaktioner per sekund",
 			"requestsTodayAll": "Antal proxierade LLM-förfrågningar från alla virtuella nycklar sedan midnatt lokal tid idag",
 			"requestsTodayOwn": "Antal proxierade LLM-förfrågningar från dina egna virtuella nycklar sedan midnatt lokal tid idag",
-			"requestsToday": "Antal proxierade LLM-förfrågningar sedan midnatt lokal tid idag"
+			"requestsToday": "Antal proxierade LLM-förfrågningar sedan midnatt lokal tid idag",
+			"cpu": "Processor som servern använder just nu",
+			"procs": "Processer som körs i serverns kontrollgrupp",
+			"aggregateProcs": "Processer i {{count}} compose-containrar",
+			"memoryUsed": "Minne som servern använder just nu",
+			"memoryLimit": "Minnesgränsen servern får nå innan den avslutas",
+			"aggregateMemoryUsed": "Minne som används i {{count}} compose-containrar",
+			"aggregateMemoryLimit": "Högsta minnesgräns rapporterad av {{count}} compose-containrar",
+			"memoryHeap": "Go-heap som är allokerad just nu; ingen minnesgräns är satt för den här servern",
+			"aggregateCpu": "Processor som används i {{count}} compose-containrar"
 		},
 		"githubRepo": "GitHub-repo",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "Fel",
 			"viewDetails": "Visa detaljer",
-			"clearAllConfirm": "Klicka igen för att bekräfta"
+			"clearAllConfirm": "Klicka igen för att bekräfta",
+			"titleTooltip": "De {{limit}} senaste felen, inget äldre än {{hours}} timmar"
 		},
 		"ha": {
 			"primary": "Primär",

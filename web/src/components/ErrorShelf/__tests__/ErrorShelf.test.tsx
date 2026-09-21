@@ -1,10 +1,17 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import { delay, HttpResponse, http } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import i18n from "../../../i18n";
 import { server } from "../../../test/mocks/server";
 import { renderWithProviders } from "../../../test/utils";
 import { ErrorShelf } from "../ErrorShelf";
-import { isHaAccessLog, isHaSource, isSsoSource } from "../useErrorShelf";
+import {
+	ERROR_SHELF_LIMIT,
+	ERROR_SHELF_MAX_AGE_MS,
+	isHaAccessLog,
+	isHaSource,
+	isSsoSource,
+} from "../useErrorShelf";
 
 describe("isHaAccessLog", () => {
 	it("flags access-log 5xx lines on a /api/fleet/* path", () => {
@@ -161,6 +168,54 @@ describe("ErrorShelf", () => {
 			"newer-error",
 			"older-error",
 		]);
+	});
+
+	// The shelf shows at most ERROR_SHELF_LIMIT errors and drops anything past
+	// ERROR_SHELF_MAX_AGE_MS, which nothing on screen says. The heading's
+	// tooltip has to state both bounds with the constants' real values.
+	it("explains the shelf's limit and age window on the heading", async () => {
+		server.use(
+			http.get("/api/logs/app", ({ request }) => {
+				if (new URL(request.url).searchParams.get("history") !== "true") {
+					return HttpResponse.json([]);
+				}
+				return HttpResponse.json({
+					entries: [
+						{
+							id: "app-1",
+							timestamp: "2024-02-01T12:00:00Z",
+							level: "error",
+							source: "server",
+							message: "boom",
+						},
+					],
+					total: 1,
+					page: 1,
+					per_page: 15,
+				});
+			}),
+		);
+		renderWithProviders(<ErrorShelf />);
+		const heading = await screen.findByText(i18n.t("layout.errorShelf.title"));
+		expect(heading).toHaveAttribute(
+			"title",
+			i18n.t("layout.errorShelf.titleTooltip", {
+				limit: ERROR_SHELF_LIMIT,
+				hours: ERROR_SHELF_MAX_AGE_MS / 3_600_000,
+			}),
+		);
+		expect(heading.getAttribute("title")).toContain("15");
+		expect(heading.getAttribute("title")).toContain("24");
+
+		// A title attribute is not an accessible description, so the same
+		// sentence has to reach the toggle through aria-describedby.
+		const toggle = screen.getByRole("button", { expanded: false });
+		expect(toggle).toHaveAccessibleDescription(
+			i18n.t("layout.errorShelf.titleTooltip", {
+				limit: ERROR_SHELF_LIMIT,
+				hours: ERROR_SHELF_MAX_AGE_MS / 3_600_000,
+			}),
+		);
 	});
 
 	it("renders nothing when there are no errors", async () => {

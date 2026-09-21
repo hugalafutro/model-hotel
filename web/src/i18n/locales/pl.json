@@ -216,7 +216,16 @@
 			"dbTxPerSec": "Transakcje w bazie danych na sekundę",
 			"requestsTodayAll": "Liczba żądań LLM przekazanych przez proxy ze wszystkich kluczy wirtualnych od dzisiejszej północy czasu lokalnego",
 			"requestsTodayOwn": "Liczba żądań LLM przekazanych przez proxy z twoich własnych kluczy wirtualnych od dzisiejszej północy czasu lokalnego",
-			"requestsToday": "Liczba żądań programu LLM proxy od północy czasu lokalnego dzisiaj"
+			"requestsToday": "Liczba żądań programu LLM proxy od północy czasu lokalnego dzisiaj",
+			"cpu": "Procesor używany obecnie przez serwer",
+			"procs": "Procesy działające w grupie kontrolnej serwera",
+			"aggregateProcs": "Procesy w {{count}} kontenerach compose",
+			"memoryUsed": "Pamięć używana obecnie przez serwer",
+			"memoryLimit": "Limit pamięci, który serwer może osiągnąć, zanim zostanie zakończony",
+			"aggregateMemoryUsed": "Pamięć używana w {{count}} kontenerach compose",
+			"aggregateMemoryLimit": "Najwyższy limit pamięci zgłoszony przez {{count}} kontenerów compose",
+			"memoryHeap": "Aktualnie przydzielona sterta Go; dla tego serwera nie ustawiono limitu pamięci",
+			"aggregateCpu": "Procesor używany w {{count}} kontenerach compose"
 		},
 		"githubRepo": "Repozytorium GitHub",
 		"readOnly": {
@@ -232,7 +241,8 @@
 			"requestKind": "Req",
 			"title": "Błędy",
 			"viewDetails": "Zobacz szczegóły",
-			"clearAllConfirm": "Kliknij ponownie, aby potwierdzić"
+			"clearAllConfirm": "Kliknij ponownie, aby potwierdzić",
+			"titleTooltip": "{{limit}} najnowszych błędów, żaden starszy niż {{hours}} godzin"
 		},
 		"ha": {
 			"primary": "Podstawowy",

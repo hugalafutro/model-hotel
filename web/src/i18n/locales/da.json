@@ -204,7 +204,16 @@
 			"dbTxPerSec": "Database transaktioner pr. sekund",
 			"requestsTodayAll": "Antal proxyformidlede LLM-anmodninger fra alle virtuelle nøgler siden midnat lokal tid i dag",
 			"requestsTodayOwn": "Antal proxyformidlede LLM-anmodninger fra dine egne virtuelle nøgler siden midnat lokal tid i dag",
-			"requestsToday": "Antal proxied LLM anmodninger siden midnat lokal tid i dag"
+			"requestsToday": "Antal proxied LLM anmodninger siden midnat lokal tid i dag",
+			"cpu": "CPU, som serveren bruger lige nu",
+			"procs": "Processer, der kører i serverens kontrolgruppe",
+			"aggregateProcs": "Processer på tværs af {{count}} compose-containere",
+			"memoryUsed": "Hukommelse, som serveren bruger lige nu",
+			"memoryLimit": "Hukommelsesgrænsen, serveren må nå, før den bliver lukket ned",
+			"aggregateMemoryUsed": "Hukommelse brugt på tværs af {{count}} compose-containere",
+			"aggregateMemoryLimit": "Højeste hukommelsesgrænse rapporteret af {{count}} compose-containere",
+			"memoryHeap": "Go-heap, der er allokeret nu; der er ikke sat nogen hukommelsesgrænse for denne server",
+			"aggregateCpu": "CPU brugt på tværs af {{count}} compose-containere"
 		},
 		"githubRepo": "GitHub-repository",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "Fejl",
 			"viewDetails": "Se detaljer",
-			"clearAllConfirm": "Klik igen for at bekræfte"
+			"clearAllConfirm": "Klik igen for at bekræfte",
+			"titleTooltip": "De {{limit}} nyeste fejl, ingen ældre end {{hours}} timer"
 		},
 		"ha": {
 			"primary": "Primær",

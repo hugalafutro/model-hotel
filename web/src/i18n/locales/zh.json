@@ -204,7 +204,16 @@
 			"dbTxPerSec": "每秒数据库事务数",
 			"requestsTodayAll": "自今天当地时间午夜以来所有虚拟密钥代理的LLM请求数量",
 			"requestsTodayOwn": "自今天当地时间午夜以来您自己的虚拟密钥代理的LLM请求数量",
-			"requestsToday": "自今天午夜当地时间以来代理的LLM请求数量"
+			"requestsToday": "自今天午夜当地时间以来代理的LLM请求数量",
+			"cpu": "服务器当前占用的 CPU",
+			"procs": "在服务器控制组中运行的进程",
+			"aggregateProcs": "{{count}} 个 compose 容器的进程总数",
+			"memoryUsed": "服务器当前占用的内存",
+			"memoryLimit": "服务器被终止前允许占用的内存上限",
+			"aggregateMemoryUsed": "{{count}} 个 compose 容器已用内存总量",
+			"aggregateMemoryLimit": "{{count}} 个 compose 容器报告的最高内存上限",
+			"memoryHeap": "当前分配的 Go 堆内存；此服务器未设置内存上限",
+			"aggregateCpu": "{{count}} 个 compose 容器已用 CPU"
 		},
 		"githubRepo": "GitHub 仓库",
 		"readOnly": {
@@ -220,7 +229,8 @@
 			"requestKind": "Req",
 			"title": "错误",
 			"viewDetails": "查看详情",
-			"clearAllConfirm": "再次点击以确认"
+			"clearAllConfirm": "再次点击以确认",
+			"titleTooltip": "最近 {{limit}} 条错误，均不超过 {{hours}} 小时"
 		},
 		"ha": {
 			"primary": "主节点",
