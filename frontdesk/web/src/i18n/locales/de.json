@@ -166,8 +166,8 @@
 		"resetCircuitsTitle": "Schutzschalter einer Gruppe auf allen Mitgliedern zurücksetzen?",
 		"resetCircuitsBody": "Jedes Mitglied löscht die Schutzschalter hinter den Einträgen der gewählten Gruppe; ein Mitglied ohne gespeichertes Token wird übersprungen und als solches aufgeführt. Anbieter, die die Schalter ausgesetzt hatten, kehren sofort in die Rotation zurück; ein weiterhin defekter Anbieter löst von selbst wieder aus.",
 		"resetCircuitsConfirm": "Auf allen Mitgliedern zurücksetzen",
-		"resetCircuitsDone": "Schutzschalter auf {{members}} Mitgliedern zurückgesetzt: {{cleared}} Stromkreise gelöscht, {{recovered}} wiederhergestellt",
-		"resetCircuitsPartial": "Schutzschalter zurückgesetzt, aber bei {{failed}} von {{members}} Mitgliedern nicht",
+		"resetCircuitsDone": "Schutzschalter zurückgesetzt ({{members}}): {{cleared}}, {{recovered}}",
+		"resetCircuitsPartial": "Schutzschalter zurückgesetzt, aber bei {{failed}} von {{members}} nicht",
 		"resetCircuitsGroupLabel": "Failover-Gruppe",
 		"resetCircuitsGroupPlaceholder": "Gruppe wählen",
 		"resetCircuitsNoGroups": "Das primäre Mitglied meldet keine Failover-Gruppen",
@@ -181,7 +181,13 @@
 		"circuitRetry": "nächster Versuch {{when}}",
 		"circuitsOpen_one": "{{count}} offen",
 		"circuitsOpen_other": "{{count}} offen",
-		"circuitsShowing": "{{shown}} von {{total}} angezeigt"
+		"circuitsShowing": "{{shown}} von {{total}} angezeigt",
+		"resetCircuitsMembers_one": "{{count}} Mitglied",
+		"resetCircuitsMembers_other": "{{count}} Mitglieder",
+		"resetCircuitsCleared_one": "{{count}} Stromkreis gelöscht",
+		"resetCircuitsCleared_other": "{{count}} Stromkreise gelöscht",
+		"resetCircuitsRecovered_one": "{{count}} wiederhergestellt",
+		"resetCircuitsRecovered_other": "{{count}} wiederhergestellt"
 	},
 	"traffic": {
 		"title": "Traffic",
@@ -223,7 +229,11 @@
 		"pageOf": "{{from}}–{{to}} von {{total}}",
 		"prev": "Zurück",
 		"next": "Weiter",
-		"clearFilters": "Filter zurücksetzen"
+		"clearFilters": "Filter zurücksetzen",
+		"range1h": "Letzte Stunde",
+		"range24h": "Letzte 24 Stunden",
+		"range7d": "Letzte 7 Tage",
+		"range30d": "Letzte 30 Tage"
 	},
 	"settings": {
 		"title": "Einstellungen",
@@ -550,7 +560,8 @@
 			"confirmTokenPlaceholder": "Front Desk-Admin-Token eingeben",
 			"stepN": "Schritt {{n}}",
 			"sameHostError": "Sie können den Primary nicht durch denselben Host ersetzen: dieser Host ist bereits der Primary der Flotte.",
-			"fleetTooSmallError": "Eine Flotte benötigt mindestens zwei Mitglieder, bevor ein primäres bestimmt werden kann. Fügen Sie zuerst ein zweites Mitglied hinzu."
+			"fleetTooSmallError": "Eine Flotte benötigt mindestens zwei Mitglieder, bevor ein primäres bestimmt werden kann. Fügen Sie zuerst ein zweites Mitglied hinzu.",
+			"tokenRejectedError": "Das Admin-Token wurde nicht akzeptiert. Prüfen Sie es und versuchen Sie es erneut."
 		},
 		"primaryTag": "Primär",
 		"memberResultOk": "{{name}} ✓",
@@ -582,7 +593,9 @@
 			"transportUsb": "USB-Sicherheitsschlüssel",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
-			"transportHybrid": "Telefon / Gerät in der Nähe"
+			"transportHybrid": "Telefon / Gerät in der Nähe",
+			"renameLabelFor": "Passkey {{name}} umbenennen",
+			"deleteLabelFor": "Passkey {{name}} entfernen"
 		},
 		"totp": {
 			"section": "Authenticator-App (TOTP)",
@@ -661,7 +674,8 @@
 			"signedOut_other": "{{count}} weitere Sitzungen abgemeldet",
 			"noneToSignOut": "Keine weiteren Sitzungen waren geöffnet",
 			"signedIn": "Angemeldet {{when}}",
-			"lastSeen": "Aktiv {{when}}"
+			"lastSeen": "Aktiv {{when}}",
+			"signOutLabel": "{{device}} abmelden"
 		}
 	},
 	"quota": {

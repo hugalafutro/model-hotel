@@ -218,6 +218,7 @@ function SessionRow({
 					className="ui-btn ui-btn-danger"
 					disabled={busy}
 					onClick={onRevoke}
+					aria-label={t("settings.sessions.signOutLabel", { device })}
 				>
 					{t("settings.sessions.signOut")}
 				</button>

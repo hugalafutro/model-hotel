@@ -107,26 +107,36 @@ export function FleetSyncWizard({
 	// to another primary is dropped, or its reachable result would clear the
 	// new candidate's warning and open Next with the wrong host's data.
 	const probeSeq = useRef(0);
-	const refresh = useCallback(
-		async (id: string) => {
-			if (!id) return;
-			const seq = ++probeSeq.current;
-			setLoading(true);
-			try {
-				const fs = await api.fleetStatus(id);
-				if (seq !== probeSeq.current) return;
-				// An unusable primary comes back without a member list (Go nil slice
-				// serialises to null); normalise so the gate helpers never touch null.
-				setStatus({ ...fs, members: fs.members ?? [] });
-			} catch (e) {
-				if (seq !== probeSeq.current) return;
-				toast(e instanceof ApiError ? e.message : t("errors.generic"), "error");
-			} finally {
-				if (seq === probeSeq.current) setLoading(false);
-			}
-		},
-		[toast, t],
-	);
+	// refresh is a mount-time dependency: it must not change identity when the
+	// UI language does (useTranslation hands out a new t on every language
+	// switch), or the mount effect re-runs and snaps an in-progress re-run back
+	// to the resting screen. The toast and t it needs are read through refs.
+	const toastRef = useRef(toast);
+	const tRef = useRef(t);
+	useEffect(() => {
+		toastRef.current = toast;
+		tRef.current = t;
+	}, [toast, t]);
+	const refresh = useCallback(async (id: string) => {
+		if (!id) return;
+		const seq = ++probeSeq.current;
+		setLoading(true);
+		try {
+			const fs = await api.fleetStatus(id);
+			if (seq !== probeSeq.current) return;
+			// An unusable primary comes back without a member list (Go nil slice
+			// serialises to null); normalise so the gate helpers never touch null.
+			setStatus({ ...fs, members: fs.members ?? [] });
+		} catch (e) {
+			if (seq !== probeSeq.current) return;
+			toastRef.current(
+				e instanceof ApiError ? e.message : tRef.current("errors.generic"),
+				"error",
+			);
+		} finally {
+			if (seq === probeSeq.current) setLoading(false);
+		}
+	}, []);
 
 	// Re-poll the fleet's versions and compare against the primary. The endpoint
 	// probes members on demand, so an operator who just aligned a member sees
@@ -253,9 +263,11 @@ export function FleetSyncWizard({
 					? t("settings.wizard.fleetTooSmallError")
 					: e instanceof ApiError && e.status === 409
 						? t("settings.wizard.sameHostError")
-						: e instanceof ApiError && (e.status === 400 || e.status === 403)
-							? e.message
-							: t("errors.generic"),
+						: e instanceof ApiError && e.status === 403
+							? t("settings.wizard.tokenRejectedError")
+							: e instanceof ApiError && e.status === 400
+								? e.message
+								: t("errors.generic"),
 			);
 			setBusy(false);
 			return;

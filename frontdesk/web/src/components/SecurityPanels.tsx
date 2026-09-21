@@ -277,7 +277,9 @@ function CredentialRow({
 							setDraft(cred.name);
 							setEditing(true);
 						}}
-						aria-label={t("settings.passkeys.renameLabel")}
+						aria-label={t("settings.passkeys.renameLabelFor", {
+							name: displayName,
+						})}
 						style={{ maxWidth: "100%" }}
 					>
 						<span
@@ -302,7 +304,9 @@ function CredentialRow({
 				type="button"
 				className="ui-btn ui-btn-ghost ui-btn-sm"
 				onClick={() => onDelete(cred)}
-				aria-label={t("settings.passkeys.deleteLabel")}
+				aria-label={t("settings.passkeys.deleteLabelFor", {
+					name: displayName,
+				})}
 			>
 				<TrashIcon size={14} />
 			</button>

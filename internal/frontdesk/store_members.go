@@ -60,6 +60,18 @@ func validMemberName(name string) (string, error) {
 // lowercased, trailing slash trimmed) and deduped. token is optional; when set
 // it is encrypted at rest with the store master key.
 func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*Member, error) {
+	return s.CreateVerifiedMember(ctx, name, rawURL, token, "")
+}
+
+// CreateVerifiedMember inserts a member together with the instance id its
+// verification learned, in one statement, so a verified add never sits
+// half-registered (present but un-deduplicable) between an insert and a
+// second write. An empty instanceID records no identity. A non-empty one
+// that another row already holds is refused by the members_instance_id_unique
+// index (ErrDuplicateInstance): that is the guarantee two adds racing on the
+// same host under different URLs rely on, since both can pass the scan the
+// handler runs before inserting.
+func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, instanceID string) (*Member, error) {
 	name, err := validMemberName(name)
 	if err != nil {
 		return nil, err
@@ -77,12 +89,15 @@ func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*
 	id := uuid.NewString()
 	now := time.Now().UTC().UnixNano()
 	_, err = s.db.ExecContext(ctx,
-		`INSERT INTO members (id, name, url, state, token_cipher, token_nonce, token_salt, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-		id, name, normURL, string(StateActive), cipher, nonce, salt, now, now,
+		`INSERT INTO members (id, name, url, state, token_cipher, token_nonce, token_salt, instance_id, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		id, name, normURL, string(StateActive), cipher, nonce, salt, instanceID, now, now,
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
+			if strings.Contains(err.Error(), "instance_id") {
+				return nil, ErrDuplicateInstance
+			}
 			return nil, ErrDuplicateURL
 		}
 		return nil, fmt.Errorf("frontdesk: insert member: %w", err)
@@ -197,6 +212,32 @@ func (s *Store) SetMemberState(ctx context.Context, id string, state MemberState
 	return nil
 }
 
+// ValidateMember checks a member's name and URL the way CreateMember does, and
+// that the URL is not already a member's, without inserting anything. The add
+// handler verifies the host first and inserts only a verified member: a row
+// inserted before verification counted toward the fleet-size floor for the
+// seconds the probes took, so a concurrent removal of another member could
+// take the plain-delete branch and a rejected add then left a one-member fleet
+// with auto-sync still on. Returns the validated name and canonical URL.
+func (s *Store) ValidateMember(ctx context.Context, name, rawURL string) (string, string, error) {
+	name, err := validMemberName(name)
+	if err != nil {
+		return "", "", err
+	}
+	normURL, err := normalizeMemberURL(rawURL, s.allowHTTPMembers)
+	if err != nil {
+		return "", "", err
+	}
+	var n int
+	if err := s.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM members WHERE url = ?`, normURL).Scan(&n); err != nil {
+		return "", "", fmt.Errorf("frontdesk: check member url: %w", err)
+	}
+	if n > 0 {
+		return "", "", ErrDuplicateURL
+	}
+	return name, normURL, nil
+}
+
 // DeleteMember removes a member by id.
 func (s *Store) DeleteMember(ctx context.Context, id string) error {
 	res, err := s.db.ExecContext(ctx, `DELETE FROM members WHERE id = ?`, id)
@@ -216,6 +257,12 @@ func (s *Store) DeleteMember(ctx context.Context, id string) error {
 func (s *Store) SetMemberInstanceID(ctx context.Context, id, instanceID string) error {
 	_, err := s.db.ExecContext(ctx,
 		`UPDATE members SET instance_id = ? WHERE id = ?`, instanceID, id)
+	if isUniqueViolation(err) {
+		// Another row already carries this identity: this member is the same
+		// host under a different address (a duplicate that predates the
+		// index). The caller names it so the operator can remove one.
+		return ErrDuplicateInstance
+	}
 	return err
 }
 

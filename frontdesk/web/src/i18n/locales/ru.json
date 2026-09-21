@@ -166,8 +166,8 @@
 		"resetCircuitsTitle": "Сбросить предохранители группы на всех участниках?",
 		"resetCircuitsBody": "Каждый участник очистит предохранители за записями выбранной группы; участник без сохранённого токена пропускается и отмечается как таковой. Провайдеры, которых предохранители отстранили, немедленно возвращаются в ротацию; всё ещё неисправный провайдер сработает снова сам.",
 		"resetCircuitsConfirm": "Сбросить на всех участниках",
-		"resetCircuitsDone": "Предохранители сброшены на {{members}} участниках: {{cleared}} цепей очищено, {{recovered}} восстановлено",
-		"resetCircuitsPartial": "Предохранители сброшены, но у {{failed}} из {{members}} участников сброс не выполнен",
+		"resetCircuitsDone": "Предохранители сброшены ({{members}}): {{cleared}}, {{recovered}}",
+		"resetCircuitsPartial": "Предохранители сброшены, но у {{failed}} из {{members}} сброс не выполнен",
 		"resetCircuitsGroupLabel": "Группа отказоустойчивости",
 		"resetCircuitsGroupPlaceholder": "Выберите группу",
 		"resetCircuitsNoGroups": "Основной участник не сообщает ни об одной группе",
@@ -183,7 +183,19 @@
 		"circuitsOpen_few": "{{count}} открыто",
 		"circuitsOpen_many": "{{count}} открыто",
 		"circuitsOpen_other": "{{count}} открыто",
-		"circuitsShowing": "показано {{shown}} из {{total}}"
+		"circuitsShowing": "показано {{shown}} из {{total}}",
+		"resetCircuitsMembers_one": "{{count}} участник",
+		"resetCircuitsMembers_few": "{{count}} участника",
+		"resetCircuitsMembers_many": "{{count}} участников",
+		"resetCircuitsMembers_other": "{{count}} участника",
+		"resetCircuitsCleared_one": "{{count}} цепь очищена",
+		"resetCircuitsCleared_few": "{{count}} цепи очищены",
+		"resetCircuitsCleared_many": "{{count}} цепей очищено",
+		"resetCircuitsCleared_other": "{{count}} цепи очищено",
+		"resetCircuitsRecovered_one": "{{count}} восстановлена",
+		"resetCircuitsRecovered_few": "{{count}} восстановлены",
+		"resetCircuitsRecovered_many": "{{count}} восстановлено",
+		"resetCircuitsRecovered_other": "{{count}} восстановлено"
 	},
 	"traffic": {
 		"title": "Трафик",
@@ -225,7 +237,11 @@
 		"pageOf": "{{from}}–{{to}} из {{total}}",
 		"prev": "Назад",
 		"next": "Далее",
-		"clearFilters": "Сбросить фильтры"
+		"clearFilters": "Сбросить фильтры",
+		"range1h": "Последний час",
+		"range24h": "Последние 24 часа",
+		"range7d": "Последние 7 дней",
+		"range30d": "Последние 30 дней"
 	},
 	"settings": {
 		"title": "Настройки",
@@ -564,7 +580,8 @@
 			"confirmTokenPlaceholder": "Введите административный токен Front Desk",
 			"stepN": "Шаг {{n}}",
 			"sameHostError": "Нельзя заменить основной узел тем же хостом: этот хост уже является основным во флоте.",
-			"fleetTooSmallError": "Во флоте должно быть не менее двух участников, прежде чем можно назначить основной. Сначала добавьте второго участника."
+			"fleetTooSmallError": "Во флоте должно быть не менее двух участников, прежде чем можно назначить основной. Сначала добавьте второго участника.",
+			"tokenRejectedError": "Токен администратора не принят. Проверьте его и попробуйте снова."
 		},
 		"primaryTag": "основной",
 		"memberResultOk": "{{name}} ✓",
@@ -596,7 +613,9 @@
 			"transportUsb": "USB-ключ безопасности",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
-			"transportHybrid": "Телефон / nearby-устройство"
+			"transportHybrid": "Телефон / nearby-устройство",
+			"renameLabelFor": "Переименовать passkey {{name}}",
+			"deleteLabelFor": "Удалить passkey {{name}}"
 		},
 		"totp": {
 			"section": "Приложение-аутентификатор (TOTP)",
@@ -677,7 +696,8 @@
 			"signedOut_other": "Завершено {{count}} другого сеанса",
 			"noneToSignOut": "Других открытых сеансов не было",
 			"signedIn": "Вход выполнен {{when}}",
-			"lastSeen": "Активен {{when}}"
+			"lastSeen": "Активен {{when}}",
+			"signOutLabel": "Завершить сеанс {{device}}"
 		}
 	},
 	"quota": {

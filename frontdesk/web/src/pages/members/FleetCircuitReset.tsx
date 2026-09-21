@@ -40,18 +40,25 @@ export function FleetCircuitReset({ primaryId }: { primaryId: string }) {
 				toast(
 					t("members.resetCircuitsPartial", {
 						failed: res.failed + res.skipped,
-						members: res.members.length,
+						members: t("members.resetCircuitsMembers", {
+							count: res.members.length,
+						}),
 					}),
 					"error",
 				);
 			} else {
 				// Members without a stored token were never asked; the body said
 				// so, and the count is the members that were reset.
+				// Each figure pluralises on its own, then the sentence joins them.
 				toast(
 					t("members.resetCircuitsDone", {
-						members: res.members.length - res.skipped,
-						cleared: res.cleared,
-						recovered: res.recovered,
+						members: t("members.resetCircuitsMembers", {
+							count: res.members.length - res.skipped,
+						}),
+						cleared: t("members.resetCircuitsCleared", { count: res.cleared }),
+						recovered: t("members.resetCircuitsRecovered", {
+							count: res.recovered,
+						}),
 					}),
 					"info",
 				);

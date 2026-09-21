@@ -166,8 +166,8 @@
 		"resetCircuitsTitle": "Reset a group's circuit breakers on all members?",
 		"resetCircuitsBody": "Every member will clear the circuit breakers behind the chosen group's entries; a member without a stored token is skipped and listed as such. Providers the breakers were sidelining return to rotation immediately; a provider that is still broken will trip again on its own.",
 		"resetCircuitsConfirm": "Reset on all members",
-		"resetCircuitsDone": "Circuit breakers reset on {{members}} members: {{cleared}} circuits cleared, {{recovered}} recovered",
-		"resetCircuitsPartial": "Circuit breakers reset, but {{failed}} of {{members}} members were not reset",
+		"resetCircuitsDone": "Circuit breakers reset on {{members}}: {{cleared}}, {{recovered}}",
+		"resetCircuitsPartial": "Circuit breakers reset, but {{failed}} of {{members}} were not reset",
 		"resetCircuitsGroupLabel": "Failover group",
 		"resetCircuitsGroupPlaceholder": "Choose a group",
 		"resetCircuitsNoGroups": "The primary reports no failover groups",
@@ -181,7 +181,13 @@
 		"circuitRetry": "retry {{when}}",
 		"circuitsOpen_one": "{{count}} open",
 		"circuitsOpen_other": "{{count}} open",
-		"circuitsShowing": "showing {{shown}} of {{total}}"
+		"circuitsShowing": "showing {{shown}} of {{total}}",
+		"resetCircuitsMembers_one": "{{count}} member",
+		"resetCircuitsMembers_other": "{{count}} members",
+		"resetCircuitsCleared_one": "{{count}} circuit cleared",
+		"resetCircuitsCleared_other": "{{count}} circuits cleared",
+		"resetCircuitsRecovered_one": "{{count}} recovered",
+		"resetCircuitsRecovered_other": "{{count}} recovered"
 	},
 	"traffic": {
 		"title": "Traffic",
@@ -223,7 +229,11 @@
 		"pageOf": "{{from}}–{{to}} of {{total}}",
 		"prev": "Previous",
 		"next": "Next",
-		"clearFilters": "Clear filters"
+		"clearFilters": "Clear filters",
+		"range1h": "Last hour",
+		"range24h": "Last 24 hours",
+		"range7d": "Last 7 days",
+		"range30d": "Last 30 days"
 	},
 	"settings": {
 		"title": "Settings",
@@ -550,7 +560,8 @@
 			"confirmTokenPlaceholder": "Enter the Front Desk admin token",
 			"stepN": "Step {{n}}",
 			"sameHostError": "You cannot replace the primary with the same host: it is already the fleet primary.",
-			"fleetTooSmallError": "A fleet needs at least two members before a primary can be designated. Add a second member first."
+			"fleetTooSmallError": "A fleet needs at least two members before a primary can be designated. Add a second member first.",
+			"tokenRejectedError": "The admin token was not accepted. Check it and try again."
 		},
 		"primaryTag": "primary",
 		"memberResultOk": "{{name}} ✓",
@@ -582,7 +593,9 @@
 			"transportUsb": "USB security key",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
-			"transportHybrid": "Phone / nearby device"
+			"transportHybrid": "Phone / nearby device",
+			"renameLabelFor": "Rename passkey {{name}}",
+			"deleteLabelFor": "Remove passkey {{name}}"
 		},
 		"totp": {
 			"section": "Authenticator app (TOTP)",
@@ -661,7 +674,8 @@
 			"signedOut_other": "Signed out {{count}} other sessions",
 			"noneToSignOut": "No other sessions were open",
 			"signedIn": "Signed in {{when}}",
-			"lastSeen": "Active {{when}}"
+			"lastSeen": "Active {{when}}",
+			"signOutLabel": "Sign out {{device}}"
 		}
 	},
 	"quota": {

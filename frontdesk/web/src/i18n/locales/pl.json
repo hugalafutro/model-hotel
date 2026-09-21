@@ -166,8 +166,8 @@
 		"resetCircuitsTitle": "Zresetować bezpieczniki grupy na wszystkich członkach?",
 		"resetCircuitsBody": "Każdy członek wyczyści bezpieczniki za pozycjami wybranej grupy; członek bez zapisanego tokenu jest pomijany i tak oznaczany. Dostawcy odstawieni przez bezpieczniki natychmiast wracają do rotacji; dostawca nadal zepsuty sam ponownie się wyłączy.",
 		"resetCircuitsConfirm": "Zresetuj na wszystkich członkach",
-		"resetCircuitsDone": "Bezpieczniki zresetowane na {{members}} członkach: {{cleared}} obwodów wyczyszczono, {{recovered}} przywrócono",
-		"resetCircuitsPartial": "Bezpieczniki zresetowane, ale u {{failed}} z {{members}} członków reset się nie odbył",
+		"resetCircuitsDone": "Bezpieczniki zresetowane ({{members}}): {{cleared}}, {{recovered}}",
+		"resetCircuitsPartial": "Bezpieczniki zresetowane, ale u {{failed}} z {{members}} reset się nie odbył",
 		"resetCircuitsGroupLabel": "Grupa failover",
 		"resetCircuitsGroupPlaceholder": "Wybierz grupę",
 		"resetCircuitsNoGroups": "Główny członek nie zgłasza żadnych grup failover",
@@ -183,7 +183,19 @@
 		"circuitsOpen_few": "{{count}} otwarte",
 		"circuitsOpen_many": "{{count}} otwartych",
 		"circuitsOpen_other": "{{count}} otwartych",
-		"circuitsShowing": "pokazano {{shown}} z {{total}}"
+		"circuitsShowing": "pokazano {{shown}} z {{total}}",
+		"resetCircuitsMembers_one": "{{count}} członek",
+		"resetCircuitsMembers_few": "{{count}} członków",
+		"resetCircuitsMembers_many": "{{count}} członków",
+		"resetCircuitsMembers_other": "{{count}} członka",
+		"resetCircuitsCleared_one": "{{count}} obwód wyczyszczony",
+		"resetCircuitsCleared_few": "{{count}} obwody wyczyszczone",
+		"resetCircuitsCleared_many": "{{count}} obwodów wyczyszczonych",
+		"resetCircuitsCleared_other": "{{count}} obwodu wyczyszczonego",
+		"resetCircuitsRecovered_one": "{{count}} przywrócony",
+		"resetCircuitsRecovered_few": "{{count}} przywrócone",
+		"resetCircuitsRecovered_many": "{{count}} przywróconych",
+		"resetCircuitsRecovered_other": "{{count}} przywróconego"
 	},
 	"traffic": {
 		"title": "Ruch",
@@ -225,7 +237,11 @@
 		"pageOf": "{{from}}–{{to}} z {{total}}",
 		"prev": "Poprzednia",
 		"next": "Następna",
-		"clearFilters": "Wyczyść filtry"
+		"clearFilters": "Wyczyść filtry",
+		"range1h": "Ostatnia godzina",
+		"range24h": "Ostatnie 24 godziny",
+		"range7d": "Ostatnie 7 dni",
+		"range30d": "Ostatnie 30 dni"
 	},
 	"settings": {
 		"title": "Ustawienia",
@@ -564,7 +580,8 @@
 			"confirmTokenPlaceholder": "Wpisz token administratora Front Desk",
 			"stepN": "Krok {{n}}",
 			"sameHostError": "Nie można zastąpić podstawowego tym samym hostem: ten host jest już podstawowym we flocie.",
-			"fleetTooSmallError": "Flota potrzebuje co najmniej dwóch członków, zanim będzie można wyznaczyć głównego. Najpierw dodaj drugiego członka."
+			"fleetTooSmallError": "Flota potrzebuje co najmniej dwóch członków, zanim będzie można wyznaczyć głównego. Najpierw dodaj drugiego członka.",
+			"tokenRejectedError": "Token administratora nie został zaakceptowany. Sprawdź go i spróbuj ponownie."
 		},
 		"primaryTag": "główny",
 		"memberResultOk": "{{name}} ✓",
@@ -596,7 +613,9 @@
 			"transportUsb": "Klucz USB",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
-			"transportHybrid": "Telefon / urządzenie w pobliżu"
+			"transportHybrid": "Telefon / urządzenie w pobliżu",
+			"renameLabelFor": "Zmień nazwę passkeya {{name}}",
+			"deleteLabelFor": "Usuń passkey {{name}}"
 		},
 		"totp": {
 			"section": "Aplikacja uwierzytelniająca (TOTP)",
@@ -677,7 +696,8 @@
 			"signedOut_other": "Wylogowano {{count}} innej sesji",
 			"noneToSignOut": "Żadne inne sesje nie były otwarte",
 			"signedIn": "Zalogowano {{when}}",
-			"lastSeen": "Aktywna {{when}}"
+			"lastSeen": "Aktywna {{when}}",
+			"signOutLabel": "Wyloguj {{device}}"
 		}
 	},
 	"quota": {

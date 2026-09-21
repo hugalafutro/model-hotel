@@ -10,6 +10,7 @@ import { OidcPanel } from "../components/OidcPanel";
 import { PairedDevicesPanel } from "../components/PairedDevicesPanel";
 import { SecurityPanels } from "../components/SecurityPanels";
 import { useToast } from "../context/ToastContext";
+import { SETTINGS_SAVED_EVENT } from "../hooks/useIdleLogout";
 import { useMembers } from "../hooks/useMembers";
 
 // NumberField is a labeled integer input bound to a Settings numeric key. It
@@ -121,6 +122,7 @@ export function SettingsPage() {
 				health_fail_threshold: settings.health_fail_threshold,
 				session_idle_timeout_minutes: settings.session_idle_timeout_minutes,
 			});
+			window.dispatchEvent(new Event(SETTINGS_SAVED_EVENT));
 			toast(t("settings.saved"), "success");
 		} catch (err) {
 			setSaveError(

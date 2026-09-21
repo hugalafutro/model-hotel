@@ -166,8 +166,8 @@
 		"resetCircuitsTitle": "Stroomonderbrekers van een groep op alle leden resetten?",
 		"resetCircuitsBody": "Elk lid wist de stroomonderbrekers achter de items van de gekozen groep; een lid zonder opgeslagen token wordt overgeslagen en als zodanig vermeld. Providers die de onderbrekers buitenspel zetten keren direct terug in de rotatie; een provider die nog kapot is slaat vanzelf weer af.",
 		"resetCircuitsConfirm": "Resetten op alle leden",
-		"resetCircuitsDone": "Stroomonderbrekers gereset op {{members}} leden: {{cleared}} circuits gewist, {{recovered}} hersteld",
-		"resetCircuitsPartial": "Stroomonderbrekers gereset, maar bij {{failed}} van {{members}} leden niet",
+		"resetCircuitsDone": "Stroomonderbrekers gereset ({{members}}): {{cleared}}, {{recovered}}",
+		"resetCircuitsPartial": "Stroomonderbrekers gereset, maar bij {{failed}} van {{members}} niet",
 		"resetCircuitsGroupLabel": "Failovergroep",
 		"resetCircuitsGroupPlaceholder": "Kies een groep",
 		"resetCircuitsNoGroups": "De primary meldt geen failovergroepen",
@@ -181,7 +181,13 @@
 		"circuitRetry": "volgende poging {{when}}",
 		"circuitsOpen_one": "{{count}} open",
 		"circuitsOpen_other": "{{count}} open",
-		"circuitsShowing": "{{shown}} van {{total}} getoond"
+		"circuitsShowing": "{{shown}} van {{total}} getoond",
+		"resetCircuitsMembers_one": "{{count}} lid",
+		"resetCircuitsMembers_other": "{{count}} leden",
+		"resetCircuitsCleared_one": "{{count}} circuit gewist",
+		"resetCircuitsCleared_other": "{{count}} circuits gewist",
+		"resetCircuitsRecovered_one": "{{count}} hersteld",
+		"resetCircuitsRecovered_other": "{{count}} hersteld"
 	},
 	"traffic": {
 		"title": "Verkeer",
@@ -223,7 +229,11 @@
 		"pageOf": "{{from}}–{{to}} van {{total}}",
 		"prev": "Vorige",
 		"next": "Volgende",
-		"clearFilters": "Filters wissen"
+		"clearFilters": "Filters wissen",
+		"range1h": "Afgelopen uur",
+		"range24h": "Afgelopen 24 uur",
+		"range7d": "Afgelopen 7 dagen",
+		"range30d": "Afgelopen 30 dagen"
 	},
 	"settings": {
 		"title": "Instellingen",
@@ -550,7 +560,8 @@
 			"confirmTokenPlaceholder": "Voer het Front Desk-admin-token in",
 			"stepN": "Stap {{n}}",
 			"sameHostError": "Je kunt de primary niet vervangen door dezelfde host: die host is al de primary van de fleet.",
-			"fleetTooSmallError": "Een vloot heeft minstens twee leden nodig voordat een primaire kan worden aangewezen. Voeg eerst een tweede lid toe."
+			"fleetTooSmallError": "Een vloot heeft minstens twee leden nodig voordat een primaire kan worden aangewezen. Voeg eerst een tweede lid toe.",
+			"tokenRejectedError": "Het admin-token is niet geaccepteerd. Controleer het en probeer het opnieuw."
 		},
 		"primaryTag": "primaire",
 		"memberResultOk": "{{name}} ✓",
@@ -582,7 +593,9 @@
 			"transportUsb": "USB-beveiligingssleutel",
 			"transportNfc": "NFC",
 			"transportBle": "Bluetooth",
-			"transportHybrid": "Telefoon / apparaat in de buurt"
+			"transportHybrid": "Telefoon / apparaat in de buurt",
+			"renameLabelFor": "Passkey {{name}} hernoemen",
+			"deleteLabelFor": "Passkey {{name}} verwijderen"
 		},
 		"totp": {
 			"section": "Authenticator-app (TOTP)",
@@ -661,7 +674,8 @@
 			"signedOut_other": "{{count}} andere sessies afgemeld",
 			"noneToSignOut": "Er waren geen andere sessies open",
 			"signedIn": "Aangemeld {{when}}",
-			"lastSeen": "Actief {{when}}"
+			"lastSeen": "Actief {{when}}",
+			"signOutLabel": "{{device}} afmelden"
 		}
 	},
 	"quota": {
