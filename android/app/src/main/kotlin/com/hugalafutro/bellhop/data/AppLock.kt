@@ -39,14 +39,23 @@ enum class LockTimeout(
 /**
  * shouldLock is the pure gate decision: an enabled lock trips once more than
  * [LockConfig.timeoutMs] has elapsed since Bellhop last held the foreground
- * ([lastForegroundExit]). A disabled lock never trips. Kept side-effect-free so
- * the timing rule is unit-testable without a real clock or lifecycle.
+ * ([lastForegroundExit]), or when the elapsed reading is negative. A disabled
+ * lock never trips. Kept side-effect-free so the timing rule is unit-testable
+ * without a real clock or lifecycle.
  */
 fun shouldLock(
     config: LockConfig,
     lastForegroundExit: Long,
     now: Long,
-): Boolean = config.enabled && now - lastForegroundExit > config.timeoutMs
+): Boolean {
+    if (!config.enabled) return false
+    val elapsed = now - lastForegroundExit
+    // Callers read a monotonic clock (SystemClock.elapsedRealtime), which a
+    // date change cannot wind back. A negative elapsed can still arrive (a
+    // stamp from before a reboot, or anything else that ran the clock
+    // backwards): that is not "just left", so it locks rather than opens.
+    return elapsed < 0 || elapsed > config.timeoutMs
+}
 
 // shouldLockOnEntry is the gate when Bellhop is (re)entered and evaluates the lock.
 // A cold start (a fresh process, e.g. after a force-kill) always re-locks when the

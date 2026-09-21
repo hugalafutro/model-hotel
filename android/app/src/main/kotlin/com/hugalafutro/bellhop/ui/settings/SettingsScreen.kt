@@ -93,6 +93,10 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
     notificationsBlocked: Boolean = false,
     pushEnabled: Boolean = false,
+    // False until the push flag has been read from the store: the switch is
+    // shown inert then, so a tap on the placeholder cannot re-enable push over
+    // a live registration and churn it.
+    pushSettled: Boolean = true,
     pushEndpoint: String? = null,
     pushDistributorAvailable: Boolean = false,
     pushNotificationsBlocked: Boolean = false,
@@ -603,6 +607,7 @@ fun SettingsScreen(
                     BellhopSwitch(
                         checked = pushEnabled,
                         onCheckedChange = onTogglePush,
+                        enabled = pushSettled,
                         modifier = Modifier.testTag("settings-push-toggle"),
                     )
                 }

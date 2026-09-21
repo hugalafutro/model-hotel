@@ -346,4 +346,7 @@
     <string name="quota_config_empty">Aucun fournisseur compatible avec les quotas pour l\'instant.</string>
     <string name="quota_config_selected">%1$d sur %2$d affichés</string>
     <string name="quota_config_reorder">Réorganiser %1$s</string>
+    <string name="notif_channel_push_test">Test push</string>
+    <string name="client_error_unreachable">impossible de joindre le Front Desk</string>
+    <string name="client_error_request_failed">échec de la requête (%1$d)</string>
 </resources>

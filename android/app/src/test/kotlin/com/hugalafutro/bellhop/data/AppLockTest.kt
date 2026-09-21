@@ -40,6 +40,15 @@ class AppLockTest {
         assertFalse(shouldLock(config, lastForegroundExit = exit, now = exit))
     }
 
+    // The stamp can read ahead of "now" (a stamp from before a reboot, or a
+    // clock run backwards): that is not "just left", so it locks.
+    @Test
+    fun negativeElapsedLocks() {
+        val config = LockConfig(enabled = true, timeoutMs = LockTimeout.THIRTY_MINUTES.millis)
+        assertTrue(shouldLock(config, lastForegroundExit = 10_000L, now = 9_999L))
+        assertFalse(shouldLock(LockConfig(enabled = false, timeoutMs = 0L), lastForegroundExit = 10_000L, now = 0L))
+    }
+
     @Test
     fun coldStartAlwaysRelocksWhenEnabled() {
         val config = LockConfig(enabled = true, timeoutMs = thirtyMin)

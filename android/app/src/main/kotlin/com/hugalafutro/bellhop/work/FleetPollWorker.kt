@@ -14,6 +14,7 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import androidx.work.workDataOf
 import com.hugalafutro.bellhop.data.AutoSyncAlert
+import com.hugalafutro.bellhop.data.ClientMessages
 import com.hugalafutro.bellhop.data.EventCursor
 import com.hugalafutro.bellhop.data.EventDiff
 import com.hugalafutro.bellhop.data.EventQuery
@@ -429,7 +430,7 @@ class FleetPollWorker(
                 refreshWidgetOnly(
                     LinkStore.create(context),
                     WidgetStore.create(context),
-                    FrontDeskClient(),
+                    FrontDeskClient(messages = ClientMessages.from(context)),
                     configStore,
                     includeTraffic,
                     includeQuota,
@@ -443,7 +444,7 @@ class FleetPollWorker(
                 monitorStore = MonitorStore.create(context),
                 linkStore = LinkStore.create(context),
                 widgetStore = WidgetStore.create(context),
-                client = FrontDeskClient(),
+                client = FrontDeskClient(messages = ClientMessages.from(context)),
                 configStore = configStore,
                 canNotify = FleetNotifier.canPost(context),
                 notify = { FleetNotifier.notify(context, it) },

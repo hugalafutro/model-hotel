@@ -340,4 +340,7 @@
     <string name="quota_config_empty">クォータに対応するプロバイダーはまだありません。</string>
     <string name="quota_config_selected">%2$d 件中 %1$d 件を表示</string>
     <string name="quota_config_reorder">%1$s を並べ替え</string>
+    <string name="notif_channel_push_test">プッシュテスト</string>
+    <string name="client_error_unreachable">Front Desk に接続できません</string>
+    <string name="client_error_request_failed">リクエストに失敗しました (%1$d)</string>
 </resources>

@@ -9,6 +9,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.PowerManager
+import android.os.SystemClock
 import android.provider.Settings
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -36,6 +37,7 @@ import androidx.lifecycle.ProcessLifecycleOwner
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.hugalafutro.bellhop.data.AppLocale
+import com.hugalafutro.bellhop.data.ClientMessages
 import com.hugalafutro.bellhop.data.FrontDeskClient
 import com.hugalafutro.bellhop.data.LinkState
 import com.hugalafutro.bellhop.data.LinkStore
@@ -251,7 +253,7 @@ fun BellhopApp(
     val monitorStore = remember { MonitorStore.create(context) }
     val widgetStore = remember { WidgetStore.create(context) }
     val prefsStore = remember { PrefsStore.create(context) }
-    val client = remember { FrontDeskClient() }
+    val client = remember { FrontDeskClient(messages = ClientMessages.from(context)) }
     val linkState by linkStore.state.collectAsStateWithLifecycle(initialValue = LinkState.Loading)
     val lockConfig by
         lockStore.config.collectAsStateWithLifecycle(
@@ -259,7 +261,10 @@ fun BellhopApp(
         )
     val lockAvailable = remember(activity) { activity != null && canAppLock(activity) }
     val monitorEnabled by monitorStore.enabled.collectAsStateWithLifecycle(initialValue = false)
-    val pushEnabled by monitorStore.pushEnabled.collectAsStateWithLifecycle(initialValue = false)
+    // null until the store has emitted: the push effect must not act on the
+    // placeholder, or a cold start unregisters the live registration before the
+    // stored "on" arrives.
+    val pushEnabled by monitorStore.pushEnabled.collectAsStateWithLifecycle<Boolean?>(initialValue = null)
     val pushEndpoint by monitorStore.endpoint.collectAsStateWithLifecycle(initialValue = null)
     val holdToCopy by prefsStore.holdToCopy.collectAsStateWithLifecycle(initialValue = true)
     val widgetGraphs by prefsStore.widgetGraphs.collectAsStateWithLifecycle(initialValue = false)
@@ -354,12 +359,14 @@ fun BellhopApp(
     // taps; after the window lapses the next action re-prompts. Degrades open with
     // no enrolled credential, like the app lock, since the token at rest is
     // Keystore-wrapped regardless and Front Desk's 403 is the authoritative guard.
+    // Both windows (this one and the app lock's) read the monotonic clock, so a
+    // date change in system settings cannot stretch or skip them.
     var operatorAuthorizedUntil by remember { mutableStateOf(0L) }
     val operatorTitle = stringResource(R.string.operator_prompt_title)
     val operatorSubtitle = stringResource(R.string.operator_prompt_subtitle)
 
     fun requireOperatorAuth(action: () -> Unit) {
-        if (System.currentTimeMillis() < operatorAuthorizedUntil) {
+        if (SystemClock.elapsedRealtime() < operatorAuthorizedUntil) {
             action()
             return
         }
@@ -373,7 +380,7 @@ fun BellhopApp(
             return
         }
         act.promptAppUnlock(operatorTitle, operatorSubtitle) {
-            operatorAuthorizedUntil = System.currentTimeMillis() + OPERATOR_AUTH_WINDOW_MS
+            operatorAuthorizedUntil = SystemClock.elapsedRealtime() + OPERATOR_AUTH_WINDOW_MS
             action()
         }
     }
@@ -390,7 +397,7 @@ fun BellhopApp(
         // check instead.
         val coldStart = !lockColdStartHandled
         lockColdStartHandled = true
-        if (shouldLockOnEntry(snap.config, snap.lastForegroundExit, System.currentTimeMillis(), coldStart)) {
+        if (shouldLockOnEntry(snap.config, snap.lastForegroundExit, SystemClock.elapsedRealtime(), coldStart)) {
             locked = true
         }
         lockEvaluated = true
@@ -404,7 +411,7 @@ fun BellhopApp(
         val observer =
             LifecycleEventObserver { _, event ->
                 when (event) {
-                    Lifecycle.Event.ON_STOP -> scope.launch { lockStore.stampExit(System.currentTimeMillis()) }
+                    Lifecycle.Event.ON_STOP -> scope.launch { lockStore.stampExit(SystemClock.elapsedRealtime()) }
                     Lifecycle.Event.ON_START -> {
                         // Catch a grant/revoke, or a distributor install/removal,
                         // made in system settings while away.
@@ -423,7 +430,7 @@ fun BellhopApp(
                         if (locked) requestUnlock()
                         scope.launch {
                             val snap = lockStore.snapshot()
-                            if (shouldLock(snap.config, snap.lastForegroundExit, System.currentTimeMillis())) {
+                            if (shouldLock(snap.config, snap.lastForegroundExit, SystemClock.elapsedRealtime())) {
                                 locked = true
                             }
                         }
@@ -585,7 +592,7 @@ fun BellhopApp(
                         pushEnabled = pushEnabled,
                         pushEndpoint = pushEndpoint,
                         pushDistributorAvailable = pushDistributorAvailable,
-                        pushNotificationsBlocked = pushEnabled && !notificationsGranted,
+                        pushNotificationsBlocked = pushEnabled == true && !notificationsGranted,
                         batteryUnrestricted = batteryUnrestricted,
                         onRequestBatteryExemption = { requestBatteryExemption(context) },
                         scope = scope,
@@ -674,7 +681,8 @@ private fun LinkedContent(
     lockAvailable: Boolean,
     monitorEnabled: Boolean,
     notificationsBlocked: Boolean,
-    pushEnabled: Boolean,
+    // null while the monitor store has not yet reported the flag.
+    pushEnabled: Boolean?,
     pushEndpoint: String?,
     pushDistributorAvailable: Boolean,
     pushNotificationsBlocked: Boolean,
@@ -725,6 +733,9 @@ private fun LinkedContent(
     // picker), so it's a no-op if we aren't hosted by one.
     val pushActivity = monitorContext as? FragmentActivity
     LaunchedEffect(pushEnabled, pushDistributorAvailable) {
+        // Nothing until the store has spoken: acting on the placeholder would
+        // unregister the live instance on every cold start.
+        if (pushEnabled == null) return@LaunchedEffect
         // Read the registration id fresh here rather than through a recomposed
         // param: setPushEnabled writes the flag and a new id in one edit, so by the
         // time this effect keys off pushEnabled the id is already the current one,
@@ -877,14 +888,17 @@ private fun LinkedContent(
                 lockAvailable = lockAvailable,
                 monitorEnabled = monitorEnabled,
                 notificationsBlocked = notificationsBlocked,
-                pushEnabled = pushEnabled,
+                pushEnabled = pushEnabled == true,
+                pushSettled = pushEnabled != null,
                 pushEndpoint = pushEndpoint,
                 pushDistributorAvailable = pushDistributorAvailable,
                 pushNotificationsBlocked = pushNotificationsBlocked,
                 batteryUnrestricted = batteryUnrestricted,
                 onRequestBatteryExemption = onRequestBatteryExemption,
                 onBack = { showSettings = false },
-                onToggleLock = { enabled -> scope.launch { lockStore.setEnabled(enabled) } },
+                onToggleLock = { enabled ->
+                    scope.launch { lockStore.setEnabled(enabled, SystemClock.elapsedRealtime()) }
+                },
                 onSelectTimeout = { option -> scope.launch { lockStore.setTimeout(option.millis) } },
                 onToggleMonitor = onToggleMonitor,
                 onTogglePush = onTogglePush,

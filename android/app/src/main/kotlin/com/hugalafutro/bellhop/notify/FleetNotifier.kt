@@ -47,6 +47,11 @@ object FleetNotifier {
     const val CHANNEL_EVENTS = "frontdesk_events"
     const val CHANNEL_ERRORS = "frontdesk_errors"
 
+    // The push-delivery test has its own channel: its one job is to prove a push
+    // reaches the phone, so it must not ride the silent, easily muted
+    // "Member recovered" channel and be suppressed with it.
+    const val CHANNEL_TEST = "push_test"
+
     // A constant numeric id: the member id is carried as the notification tag
     // instead, so two members whose ids collide under String.hashCode() (an int id
     // would fold them onto one row and drop an alert) still get separate rows.
@@ -106,6 +111,13 @@ object FleetNotifier {
                 CHANNEL_ERRORS,
                 context.getString(R.string.notif_channel_errors),
                 NotificationManager.IMPORTANCE_HIGH,
+            ),
+        )
+        manager.createNotificationChannel(
+            NotificationChannel(
+                CHANNEL_TEST,
+                context.getString(R.string.notif_channel_push_test),
+                NotificationManager.IMPORTANCE_DEFAULT,
             ),
         )
         manager.createNotificationChannel(
@@ -238,7 +250,7 @@ object FleetNotifier {
 
         val notification =
             NotificationCompat
-                .Builder(context, CHANNEL_UP)
+                .Builder(context, CHANNEL_TEST)
                 .setSmallIcon(R.drawable.ic_stat_bellhop)
                 .setContentTitle(
                     context.getString(R.string.notif_push_test_title, sender ?: DEFAULT_TEST_SENDER),

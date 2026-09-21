@@ -346,4 +346,7 @@
     <string name="quota_config_empty">Aún no se han detectado proveedores con cuota.</string>
     <string name="quota_config_selected">%1$d de %2$d mostrados</string>
     <string name="quota_config_reorder">Reordenar %1$s</string>
+    <string name="notif_channel_push_test">Prueba de push</string>
+    <string name="client_error_unreachable">no se pudo conectar con Front Desk</string>
+    <string name="client_error_request_failed">la solicitud falló (%1$d)</string>
 </resources>
