@@ -66,7 +66,11 @@ func (s *Store) CreateMember(ctx context.Context, name, rawURL, token string) (*
 // CreateVerifiedMember inserts a member together with the instance id its
 // verification learned, in one statement, so a verified add never sits
 // half-registered (present but un-deduplicable) between an insert and a
-// second write. An empty instanceID records no identity.
+// second write. An empty instanceID records no identity. A non-empty one
+// that another row already holds is refused by the members_instance_id_unique
+// index (ErrDuplicateInstance): that is the guarantee two adds racing on the
+// same host under different URLs rely on, since both can pass the scan the
+// handler runs before inserting.
 func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, instanceID string) (*Member, error) {
 	name, err := validMemberName(name)
 	if err != nil {
@@ -91,6 +95,9 @@ func (s *Store) CreateVerifiedMember(ctx context.Context, name, rawURL, token, i
 	)
 	if err != nil {
 		if isUniqueViolation(err) {
+			if strings.Contains(err.Error(), "instance_id") {
+				return nil, ErrDuplicateInstance
+			}
 			return nil, ErrDuplicateURL
 		}
 		return nil, fmt.Errorf("frontdesk: insert member: %w", err)

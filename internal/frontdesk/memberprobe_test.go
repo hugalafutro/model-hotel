@@ -143,8 +143,8 @@ func TestCreateMemberDuplicateURLRefusedBeforeProbing(t *testing.T) {
 }
 
 // Two adds of the same instance under different URLs that race past the
-// pre-insert scan: the second insert's re-scan finds the first row and removes
-// its own, so one row remains and the loser sees already_member.
+// pre-insert scan: the unique index on instance_id refuses the second insert,
+// so one row remains and the loser sees already_member.
 func TestCreateMemberRaceOnTheSameInstanceKeepsOneRow(t *testing.T) {
 	srv, store := newTestServer(t)
 	// Both stubs report the same instance id; the first add's /api/system read

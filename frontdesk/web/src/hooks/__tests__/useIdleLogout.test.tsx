@@ -39,6 +39,33 @@ describe("useIdleLogout", () => {
 		);
 	});
 
+	// The initial read answering after the post-save read must not put the
+	// old window back.
+	it("ignores a stale settings response that lands after a newer one", async () => {
+		let resolveFirst: (s: { session_idle_timeout_minutes: number }) => void =
+			() => {};
+		getSettings.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					resolveFirst = resolve;
+				}),
+		);
+		renderHook(() => useIdleLogout(true, () => {}));
+		getSettings.mockResolvedValueOnce({ session_idle_timeout_minutes: 30 });
+		await act(async () => {
+			window.dispatchEvent(new Event(SETTINGS_SAVED_EVENT));
+		});
+		expect(startIdleLogout).toHaveBeenLastCalledWith(
+			expect.objectContaining({ timeoutMs: 30 * 60_000 }),
+		);
+		await act(async () => {
+			resolveFirst({ session_idle_timeout_minutes: 15 });
+		});
+		expect(startIdleLogout).toHaveBeenLastCalledWith(
+			expect.objectContaining({ timeoutMs: 30 * 60_000 }),
+		);
+	});
+
 	it("wires nothing while logged out", () => {
 		renderHook(() => useIdleLogout(false, () => {}));
 		expect(getSettings).not.toHaveBeenCalled();

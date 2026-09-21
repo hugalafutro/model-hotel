@@ -229,10 +229,9 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 // store read failure is surfaced so the caller can refuse rather than guess.
 //
 // Two simultaneous adds of the same physical instance under different URLs
-// can both pass the scan the add runs before inserting (neither row exists
-// yet), so the add scans once more after its insert and removes its own row
-// on a hit. Both may resolve that way, which is the safe outcome (neither
-// added, no duplicate persisted); the operator simply retries once.
+// can both pass this scan (neither row exists yet); the
+// members_instance_id_unique index refuses the second insert, and the add
+// reports it as already_member.
 func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceID string) (bool, error) {
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {

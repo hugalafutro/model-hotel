@@ -159,34 +159,14 @@ func (s *Server) createMember(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Verified: insert, with the learned identity in the same statement so
-	// future adds dedup against this member without re-probing it. The URL is
-	// re-checked by the unique index, so two adds racing on the same URL still
-	// end with one row.
+	// future adds dedup against this member without re-probing it. The unique
+	// indexes re-check both the URL and the instance id, so two adds racing on
+	// the same host (same URL, or the same instance under two URLs, which the
+	// scan above cannot catch while neither row exists) still end with one row.
 	m, err := s.store.CreateVerifiedMember(r.Context(), name, memberURL, req.Token, instanceID)
 	if err != nil {
 		writeMemberValidationError(w, err)
 		return
-	}
-	// The same instance under two URLs has no index to refuse it, and two adds
-	// racing on it both passed the scan above while neither row existed. Scan
-	// once more now that this row is in: a hit means the other add landed
-	// first, so this row goes and the operator sees already_member (both may
-	// resolve this way, which is the safe outcome; a retry then succeeds).
-	if instanceID != "" {
-		dup, derr := s.instanceAlreadyMember(r.Context(), m.ID, instanceID)
-		if derr != nil || dup {
-			if delErr := s.store.DeleteMember(r.Context(), m.ID); delErr != nil {
-				writeCodedError(w, http.StatusInternalServerError, "rollback_failed",
-					fmt.Sprintf("This host was added while another add of the same instance was in progress, and removing the duplicate failed (%v); remove it from the Members list and try again.", delErr))
-				return
-			}
-			if derr != nil {
-				fail("verify_failed", "Front Desk could not verify whether this host is already a member. Try again.", http.StatusInternalServerError)
-				return
-			}
-			fail("already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.", http.StatusConflict)
-			return
-		}
 	}
 
 	// A newly added member with a valid token is stale relative to the primary;
@@ -207,6 +187,8 @@ func writeMemberValidationError(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, ErrDuplicateURL):
 		writeCodedError(w, http.StatusBadRequest, "duplicate", err.Error())
+	case errors.Is(err, ErrDuplicateInstance):
+		writeCodedError(w, http.StatusConflict, "already_member", "This host is already a member (added under a different address). Remove the existing entry first if you want to re-add it.")
 	case errors.Is(err, ErrInsecureURL):
 		writeCodedError(w, http.StatusBadRequest, "insecure_url", err.Error())
 	default:

@@ -30,11 +30,17 @@ export function useIdleLogout(enabled: boolean, onLogout: () => void) {
 	useEffect(() => {
 		if (!enabled) return;
 		let cancelled = false;
+		// Only the newest read applies: a save while the first read is still in
+		// flight starts a second one, and the first answering last must not put
+		// the pre-save window back.
+		let seq = 0;
 		const load = () => {
+			const mine = ++seq;
 			api
 				.getSettings()
 				.then((s) => {
-					if (!cancelled) setMinutes(s.session_idle_timeout_minutes);
+					if (!cancelled && mine === seq)
+						setMinutes(s.session_idle_timeout_minutes);
 				})
 				.catch(() => {
 					// Keep the default window if settings can't be read.
