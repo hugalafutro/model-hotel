@@ -223,7 +223,7 @@
 			"memoryUsed": "Pamäť, ktorú server práve využíva",
 			"memoryLimit": "Limit pamäte, ktorý server smie dosiahnuť, kým nebude ukončený",
 			"aggregateMemoryUsed": "Pamäť využívaná naprieč {{count}} kontajnermi compose",
-			"aggregateMemoryLimit": "Súhrnný limit pamäte {{count}} kontajnerov compose",
+			"aggregateMemoryLimit": "Najvyšší limit pamäte hlásený {{count}} kontajnermi compose",
 			"memoryHeap": "Aktuálne alokovaná halda Go; pre tento server nie je nastavený limit pamäte",
 			"aggregateCpu": "Procesor využívaný naprieč {{count}} kontajnermi compose"
 		},

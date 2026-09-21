@@ -211,7 +211,7 @@
 			"memoryUsed": "Sunucunun şu anda kullandığı bellek",
 			"memoryLimit": "Sunucunun sonlandırılmadan önce ulaşabileceği bellek sınırı",
 			"aggregateMemoryUsed": "{{count}} compose kapsayıcısında kullanılan bellek",
-			"aggregateMemoryLimit": "{{count}} compose kapsayıcısının toplam bellek sınırı",
+			"aggregateMemoryLimit": "{{count}} compose kapsayıcısının bildirdiği en yüksek bellek sınırı",
 			"memoryHeap": "Şu anda ayrılmış Go yığını; bu sunucu için bellek sınırı ayarlanmamış",
 			"aggregateCpu": "{{count}} compose kapsayıcısında kullanılan işlemci"
 		},

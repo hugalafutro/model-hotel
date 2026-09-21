@@ -211,7 +211,7 @@
 			"memoryUsed": "サーバーが現在使用しているメモリ",
 			"memoryLimit": "サーバーが強制終了される前に到達できるメモリ上限",
 			"aggregateMemoryUsed": "{{count}} 個の compose コンテナ全体で使用中のメモリ",
-			"aggregateMemoryLimit": "{{count}} 個の compose コンテナの合計メモリ上限",
+			"aggregateMemoryLimit": "{{count}} 個の compose コンテナから報告された最大メモリ上限",
 			"memoryHeap": "現在割り当てられている Go ヒープ。このサーバーにはメモリ上限が設定されていません",
 			"aggregateCpu": "{{count}} 個の compose コンテナ全体で使用中の CPU"
 		},

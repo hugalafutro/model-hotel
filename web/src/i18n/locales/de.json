@@ -211,7 +211,7 @@
 			"memoryUsed": "Aktuell vom Server genutzter Arbeitsspeicher",
 			"memoryLimit": "Speichergrenze, die der Server erreichen darf, bevor er beendet wird",
 			"aggregateMemoryUsed": "Über {{count}} Compose-Container hinweg genutzter Arbeitsspeicher",
-			"aggregateMemoryLimit": "Gesamte Speichergrenze von {{count}} Compose-Containern",
+			"aggregateMemoryLimit": "Höchstes von {{count}} Compose-Containern gemeldetes Speicherlimit",
 			"memoryHeap": "Aktuell belegter Go-Heap; für diesen Server ist keine Speichergrenze gesetzt",
 			"aggregateCpu": "Über {{count}} Compose-Container hinweg genutzte CPU"
 		},

@@ -217,7 +217,7 @@
 			"memoryUsed": "Memoria attualmente usata dal server",
 			"memoryLimit": "Limite di memoria che il server può raggiungere prima di essere terminato",
 			"aggregateMemoryUsed": "Memoria usata su {{count}} container compose",
-			"aggregateMemoryLimit": "Limite di memoria complessivo di {{count}} container compose",
+			"aggregateMemoryLimit": "Limite di memoria più alto segnalato da {{count}} container compose",
 			"memoryHeap": "Heap Go attualmente allocato; per questo server non è impostato alcun limite di memoria",
 			"aggregateCpu": "CPU usata su {{count}} container compose"
 		},

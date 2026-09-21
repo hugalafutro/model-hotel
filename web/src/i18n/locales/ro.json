@@ -217,7 +217,7 @@
 			"memoryUsed": "Memoria folosită în acest moment de server",
 			"memoryLimit": "Limita de memorie pe care serverul o poate atinge înainte de a fi oprit",
 			"aggregateMemoryUsed": "Memoria folosită în {{count}} containere compose",
-			"aggregateMemoryLimit": "Limita de memorie combinată a {{count}} containere compose",
+			"aggregateMemoryLimit": "Cea mai mare limită de memorie raportată de {{count}} containere compose",
 			"memoryHeap": "Heapul Go alocat în acest moment; pentru acest server nu este setată nicio limită de memorie",
 			"aggregateCpu": "Procesorul folosit în {{count}} containere compose"
 		},

@@ -217,7 +217,7 @@
 			"memoryUsed": "Memòria que el servidor utilitza actualment",
 			"memoryLimit": "Límit de memòria que el servidor pot assolir abans que es tanqui",
 			"aggregateMemoryUsed": "Memòria utilitzada en {{count}} contenidors de compose",
-			"aggregateMemoryLimit": "Límit de memòria combinat de {{count}} contenidors de compose",
+			"aggregateMemoryLimit": "Límit de memòria més alt informat per {{count}} contenidors de compose",
 			"memoryHeap": "Memòria dinàmica de Go assignada ara; aquest servidor no té cap límit de memòria",
 			"aggregateCpu": "CPU utilitzada en {{count}} contenidors de compose"
 		},

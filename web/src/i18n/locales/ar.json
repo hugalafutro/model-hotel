@@ -235,7 +235,7 @@
 			"memoryUsed": "الذاكرة المستخدمة حاليًا بواسطة الخادم",
 			"memoryLimit": "حد الذاكرة الذي يُسمح للخادم ببلوغه قبل إنهائه",
 			"aggregateMemoryUsed": "الذاكرة المستخدمة عبر {{count}} من حاويات compose",
-			"aggregateMemoryLimit": "حد الذاكرة الإجمالي لـ {{count}} من حاويات compose",
+			"aggregateMemoryLimit": "أعلى حد للذاكرة أبلغت عنه {{count}} من حاويات compose",
 			"memoryHeap": "كومة Go المخصصة حاليًا؛ لم يُضبط حد للذاكرة لهذا الخادم",
 			"aggregateCpu": "المعالج المستخدم عبر {{count}} من حاويات compose"
 		},

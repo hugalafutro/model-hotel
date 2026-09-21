@@ -217,7 +217,7 @@
 			"memoryUsed": "זיכרון שהשרת משתמש בו כעת",
 			"memoryLimit": "מגבלת הזיכרון שהשרת רשאי להגיע אליה לפני שיופסק",
 			"aggregateMemoryUsed": "זיכרון בשימוש ב-{{count}} מכולות compose",
-			"aggregateMemoryLimit": "מגבלת הזיכרון הכוללת של {{count}} מכולות compose",
+			"aggregateMemoryLimit": "מגבלת הזיכרון הגבוהה ביותר שדווחה על ידי {{count}} מכולות compose",
 			"memoryHeap": "ערימת Go שהוקצתה כעת; לא הוגדרה מגבלת זיכרון לשרת הזה",
 			"aggregateCpu": "מעבד בשימוש ב-{{count}} מכולות compose"
 		},

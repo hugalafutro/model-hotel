@@ -237,7 +237,7 @@
 			"memoryUsed": "Memory currently used by the server",
 			"memoryLimit": "Memory limit the server is allowed to reach before it is killed",
 			"aggregateMemoryUsed": "Memory used across {{count}} compose containers",
-			"aggregateMemoryLimit": "Combined memory limit of {{count}} compose containers",
+			"aggregateMemoryLimit": "Highest memory limit reported by {{count}} compose containers",
 			"memoryHeap": "Go heap currently allocated; no memory limit is set for this server",
 			"aggregateCpu": "CPU used across {{count}} compose containers"
 		},

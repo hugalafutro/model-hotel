@@ -217,7 +217,7 @@
 			"memoryUsed": "Mémoire actuellement utilisée par le serveur",
 			"memoryLimit": "Limite de mémoire que le serveur peut atteindre avant d'être arrêté",
 			"aggregateMemoryUsed": "Mémoire utilisée sur {{count}} conteneurs compose",
-			"aggregateMemoryLimit": "Limite de mémoire cumulée de {{count}} conteneurs compose",
+			"aggregateMemoryLimit": "Limite de mémoire la plus élevée signalée par {{count}} conteneurs compose",
 			"memoryHeap": "Tas Go actuellement alloué ; aucune limite de mémoire n'est définie pour ce serveur",
 			"aggregateCpu": "Processeur utilisé sur {{count}} conteneurs compose"
 		},

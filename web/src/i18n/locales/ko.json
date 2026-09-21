@@ -211,7 +211,7 @@
 			"memoryUsed": "서버가 현재 사용 중인 메모리",
 			"memoryLimit": "서버가 종료되기 전까지 도달할 수 있는 메모리 한도",
 			"aggregateMemoryUsed": "compose 컨테이너 {{count}}개 전체에서 사용 중인 메모리",
-			"aggregateMemoryLimit": "compose 컨테이너 {{count}}개의 합산 메모리 한도",
+			"aggregateMemoryLimit": "compose 컨테이너 {{count}}개가 보고한 가장 높은 메모리 한도",
 			"memoryHeap": "현재 할당된 Go 힙. 이 서버에는 메모리 한도가 설정되어 있지 않습니다",
 			"aggregateCpu": "compose 컨테이너 {{count}}개 전체에서 사용 중인 CPU"
 		},

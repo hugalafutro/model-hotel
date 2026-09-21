@@ -241,7 +241,12 @@ export function SystemStatus() {
 						</span>
 					</div>
 
-					{/* CPU + Processes */}
+					{/* CPU + Processes. This row and the Network, Disk and Memory
+					    rows below carry a row-level tooltip only while the figures
+					    are aggregates over the compose containers, which is
+					    something the row does not otherwise say. Without Docker it
+					    would just repeat the visible label, so there is none and
+					    each value speaks for itself. */}
 					<div
 						className="flex justify-between items-center text-(--text-tertiary)"
 						title={
@@ -249,7 +254,7 @@ export function SystemStatus() {
 								? t("layout.stats.aggregateCpu", {
 										count: docker.container_count,
 									})
-								: t("layout.stats.cpu")
+								: undefined
 						}
 					>
 						<span>{t("layout.stats.cpu")}</span>
@@ -303,7 +308,7 @@ export function SystemStatus() {
 								? t("layout.stats.aggregateNetwork", {
 										count: docker.container_count,
 									})
-								: t("layout.stats.network")
+								: undefined
 						}
 					>
 						<span>{t("layout.stats.network")}</span>
@@ -318,7 +323,7 @@ export function SystemStatus() {
 								? t("layout.stats.aggregateDisk", {
 										count: docker.container_count,
 									})
-								: t("layout.stats.disk")
+								: undefined
 						}
 					>
 						<span>{t("layout.stats.disk")}</span>
@@ -333,7 +338,7 @@ export function SystemStatus() {
 								? t("layout.stats.aggregateMemory", {
 										count: docker.container_count,
 									})
-								: t("layout.stats.memory")
+								: undefined
 						}
 					>
 						<span>{t("layout.stats.memory")}</span>

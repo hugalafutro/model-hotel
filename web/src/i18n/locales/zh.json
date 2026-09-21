@@ -211,7 +211,7 @@
 			"memoryUsed": "服务器当前占用的内存",
 			"memoryLimit": "服务器被终止前允许占用的内存上限",
 			"aggregateMemoryUsed": "{{count}} 个 compose 容器已用内存总量",
-			"aggregateMemoryLimit": "{{count}} 个 compose 容器的合计内存上限",
+			"aggregateMemoryLimit": "{{count}} 个 compose 容器报告的最高内存上限",
 			"memoryHeap": "当前分配的 Go 堆内存；此服务器未设置内存上限",
 			"aggregateCpu": "{{count}} 个 compose 容器已用 CPU"
 		},

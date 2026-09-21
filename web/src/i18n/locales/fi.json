@@ -211,7 +211,7 @@
 			"memoryUsed": "Palvelimen tällä hetkellä käyttämä muisti",
 			"memoryLimit": "Muistiraja, jonka palvelin saa saavuttaa ennen kuin se lopetetaan",
 			"aggregateMemoryUsed": "Muisti, jota käytetään {{count}} compose-säiliössä",
-			"aggregateMemoryLimit": "{{count}} compose-säiliön yhteenlaskettu muistiraja",
+			"aggregateMemoryLimit": "Korkein {{count}} compose-säiliön ilmoittama muistiraja",
 			"memoryHeap": "Tällä hetkellä varattu Go-keko; tälle palvelimelle ei ole asetettu muistirajaa",
 			"aggregateCpu": "Suoritin, jota käytetään {{count}} compose-säiliössä"
 		},

@@ -117,6 +117,20 @@ describe("SystemStatus stat tooltips", () => {
 		).toHaveTextContent("1.0");
 	});
 
+	it("gives the plain rows no tooltip that just repeats their label", async () => {
+		serveSystem({ app: APP, docker: { available: false }, db: DB });
+
+		await waitFor(() => {
+			expect(screen.getByText("Uptime")).toBeInTheDocument();
+		});
+		// Without Docker aggregates there is nothing a row-level tooltip could
+		// add over the label already on screen, so these rows carry none.
+		for (const label of ["CPU", "Network", "Disk", "Memory"]) {
+			const row = screen.getByText(label).closest("div");
+			expect(row).not.toHaveAttribute("title");
+		}
+	});
+
 	it("explains the heap reading when no memory limit is set", async () => {
 		serveSystem({ app: APP, docker: { available: false }, db: DB });
 

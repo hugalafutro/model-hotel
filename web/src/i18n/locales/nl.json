@@ -211,7 +211,7 @@
 			"memoryUsed": "Geheugen dat de server nu gebruikt",
 			"memoryLimit": "Geheugenlimiet die de server mag bereiken voordat hij wordt beëindigd",
 			"aggregateMemoryUsed": "Geheugen dat in {{count}} compose-containers wordt gebruikt",
-			"aggregateMemoryLimit": "Gecombineerde geheugenlimiet van {{count}} compose-containers",
+			"aggregateMemoryLimit": "Hoogste geheugenlimiet gemeld door {{count}} compose-containers",
 			"memoryHeap": "Go-heap die nu is toegewezen; voor deze server is geen geheugenlimiet ingesteld",
 			"aggregateCpu": "Processor die in {{count}} compose-containers wordt gebruikt"
 		},

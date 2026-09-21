@@ -211,7 +211,7 @@
 			"memoryUsed": "A kiszolgáló által jelenleg használt memória",
 			"memoryLimit": "Az a memóriakorlát, amelyet a kiszolgáló elérhet, mielőtt leállítják",
 			"aggregateMemoryUsed": "{{count}} compose-tárolóban használt memória",
-			"aggregateMemoryLimit": "{{count}} compose-tároló összesített memóriakorlátja",
+			"aggregateMemoryLimit": "A(z) {{count}} compose-tároló által jelentett legmagasabb memóriakorlát",
 			"memoryHeap": "A jelenleg lefoglalt Go-kupac; ehhez a kiszolgálóhoz nincs memóriakorlát beállítva",
 			"aggregateCpu": "{{count}} compose-tárolóban használt processzor"
 		},

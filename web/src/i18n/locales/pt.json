@@ -217,7 +217,7 @@
 			"memoryUsed": "Memória usada neste momento pelo servidor",
 			"memoryLimit": "Limite de memória que o servidor pode atingir antes de ser terminado",
 			"aggregateMemoryUsed": "Memória usada em {{count}} contentores de compose",
-			"aggregateMemoryLimit": "Limite de memória combinado de {{count}} contentores de compose",
+			"aggregateMemoryLimit": "Limite de memória mais alto comunicado por {{count}} contentores de compose",
 			"memoryHeap": "Monte de Go atribuído neste momento; este servidor não tem limite de memória definido",
 			"aggregateCpu": "CPU usada em {{count}} contentores de compose"
 		},

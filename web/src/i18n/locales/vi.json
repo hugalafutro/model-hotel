@@ -211,7 +211,7 @@
 			"memoryUsed": "Bộ nhớ máy chủ đang dùng",
 			"memoryLimit": "Giới hạn bộ nhớ máy chủ được phép đạt tới trước khi bị dừng",
 			"aggregateMemoryUsed": "Bộ nhớ đang dùng trên {{count}} vùng chứa compose",
-			"aggregateMemoryLimit": "Tổng giới hạn bộ nhớ của {{count}} vùng chứa compose",
+			"aggregateMemoryLimit": "Giới hạn bộ nhớ cao nhất do {{count}} vùng chứa compose báo cáo",
 			"memoryHeap": "Vùng nhớ heap của Go đang cấp phát; máy chủ này không đặt giới hạn bộ nhớ",
 			"aggregateCpu": "CPU đang dùng trên {{count}} vùng chứa compose"
 		},

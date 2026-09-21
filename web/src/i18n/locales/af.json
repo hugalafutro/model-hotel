@@ -211,7 +211,7 @@
 			"memoryUsed": "Geheue wat die bediener tans gebruik",
 			"memoryLimit": "Geheuegrens wat die bediener mag bereik voordat dit doodgemaak word",
 			"aggregateMemoryUsed": "Geheue wat oor {{count}} compose-houers gebruik word",
-			"aggregateMemoryLimit": "Gesamentlike geheuegrens van {{count}} compose-houers",
+			"aggregateMemoryLimit": "Hoogste geheuegrens wat deur {{count}} compose-houers gerapporteer is",
 			"memoryHeap": "Go-hoop wat tans toegewys is; geen geheuegrens is vir hierdie bediener gestel nie",
 			"aggregateCpu": "SVE wat oor {{count}} compose-houers gebruik word"
 		},

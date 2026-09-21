@@ -211,7 +211,7 @@
 			"memoryUsed": "Minne som servern använder just nu",
 			"memoryLimit": "Minnesgränsen servern får nå innan den avslutas",
 			"aggregateMemoryUsed": "Minne som används i {{count}} compose-containrar",
-			"aggregateMemoryLimit": "Sammanlagd minnesgräns för {{count}} compose-containrar",
+			"aggregateMemoryLimit": "Högsta minnesgräns rapporterad av {{count}} compose-containrar",
 			"memoryHeap": "Go-heap som är allokerad just nu; ingen minnesgräns är satt för den här servern",
 			"aggregateCpu": "Processor som används i {{count}} compose-containrar"
 		},
