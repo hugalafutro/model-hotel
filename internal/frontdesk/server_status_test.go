@@ -110,8 +110,8 @@ func TestLogEvent_LevelFollowsSeverityAndCarriesMetadata(t *testing.T) {
 // label would otherwise start a log line of its own.
 func TestLogEvent_MessageIsOneLine(t *testing.T) {
 	h := captureLogs(t)
-	logEvent(Event{ID: "ev-3", Type: "device.paired", Severity: "info", Message: "Device \"lab\nlevel=error forged\" paired"})
-	if _, ok := h.find("frontdesk: Device \"lab level=error forged\" paired"); !ok {
+	logEvent(Event{ID: "ev-3", Type: "device.paired", Severity: "info", Message: "Device \"lab\nlevel=error forged\u2028x\u0085y\" paired"})
+	if _, ok := h.find("frontdesk: Device \"lab level=error forged x y\" paired"); !ok {
 		t.Fatalf("message was not flattened; records=%+v", h.snapshot())
 	}
 }

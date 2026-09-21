@@ -10,6 +10,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+	"unicode"
 
 	"github.com/hugalafutro/model-hotel/internal/adminauth"
 	"github.com/hugalafutro/model-hotel/internal/authcookie"
@@ -338,7 +339,9 @@ func emitEvent(ctx context.Context, store *Store, bus *events.Bus, e Event) {
 // another control character in it would start a log line of its own.
 func eventLogMessage(message string) string {
 	return strings.Map(func(r rune) rune {
-		if r < 0x20 || r == 0x7f {
+		// Every Unicode control (C0, DEL, C1 including NEL) and the two line
+		// separators a universal-newline reader breaks on.
+		if unicode.IsControl(r) || r == '\u2028' || r == '\u2029' {
 			return ' '
 		}
 		return r

@@ -228,10 +228,11 @@ func (s *Server) repointTargetsCurrentPrimary(ctx context.Context, cur AutoSyncC
 // member that cannot be probed is skipped (it simply cannot be deduped yet); a
 // store read failure is surfaced so the caller can refuse rather than guess.
 //
-// Two simultaneous adds of the same physical instance under different URLs can
-// both create a row before either records its instance_id, so each dedup pass
-// sees the other and both roll back. That resolves toward the safe outcome
-// (neither added, no duplicate persisted); the operator simply retries once.
+// Two simultaneous adds of the same physical instance under different URLs
+// can both pass the scan the add runs before inserting (neither row exists
+// yet), so the add scans once more after its insert and removes its own row
+// on a hit. Both may resolve that way, which is the safe outcome (neither
+// added, no duplicate persisted); the operator simply retries once.
 func (s *Server) instanceAlreadyMember(ctx context.Context, excludeID, instanceID string) (bool, error) {
 	members, err := s.store.ListMembers(ctx)
 	if err != nil {

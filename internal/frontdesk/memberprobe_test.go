@@ -119,16 +119,74 @@ func TestCreateMemberRefusesUnverifiedIdentityAndBadName(t *testing.T) {
 // A URL that is already a member's is refused before the host is probed.
 func TestCreateMemberDuplicateURLRefusedBeforeProbing(t *testing.T) {
 	srv, store := newTestServer(t)
-	stub := newStubFleetMember(t, "good")
-	if code, _ := createMemberJSON(t, srv, "m1", stub.srv.URL, "good"); code != http.StatusCreated {
+	hits := 0
+	stub := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		hits++
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{}`))
+	}))
+	defer stub.Close()
+	if code, _ := createMemberJSON(t, srv, "m1", stub.URL, "good"); code != http.StatusCreated {
 		t.Fatalf("first create = %d, want 201", code)
 	}
-	code, _ := createMemberJSON(t, srv, "m2", stub.srv.URL, "anything")
+	hits = 0
+	code, _ := createMemberJSON(t, srv, "m2", stub.URL, "anything")
 	if code != http.StatusBadRequest {
 		t.Fatalf("duplicate create = %d, want 400", code)
 	}
+	if hits != 0 {
+		t.Errorf("the duplicate add probed the host %d times, want 0", hits)
+	}
 	if members, _ := store.ListMembers(t.Context()); len(members) != 1 {
 		t.Errorf("members = %d, want 1", len(members))
+	}
+}
+
+// Two adds of the same instance under different URLs that race past the
+// pre-insert scan: the second insert's re-scan finds the first row and removes
+// its own, so one row remains and the loser sees already_member.
+func TestCreateMemberRaceOnTheSameInstanceKeepsOneRow(t *testing.T) {
+	srv, store := newTestServer(t)
+	// Both stubs report the same instance id; the first add's /api/system read
+	// blocks until the second add has inserted, so both pass the pre-insert scan.
+	firstIdentityRead := make(chan struct{})
+	secondInserted := make(chan struct{})
+	system := `{"is_primary":false,"instance_id":"inst-shared"}`
+	mk := func(gate bool) *httptest.Server {
+		return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			if strings.HasPrefix(r.URL.Path, "/api/system") {
+				if gate {
+					close(firstIdentityRead)
+					<-secondInserted
+				}
+				_, _ = w.Write([]byte(system))
+				return
+			}
+			_, _ = w.Write([]byte(`{}`))
+		}))
+	}
+	first, second := mk(true), mk(false)
+	defer first.Close()
+	defer second.Close()
+
+	firstCode := make(chan int, 1)
+	go func() {
+		code, _ := createMemberJSON(t, srv, "m1", first.URL, "tok")
+		firstCode <- code
+	}()
+	<-firstIdentityRead
+	secondStatus, _ := createMemberJSON(t, srv, "m2", second.URL, "tok")
+	close(secondInserted)
+	if secondStatus != http.StatusCreated {
+		t.Fatalf("second add = %d, want 201 (it landed first)", secondStatus)
+	}
+	if code := <-firstCode; code != http.StatusConflict {
+		t.Errorf("first add = %d, want 409 already_member", code)
+	}
+	members, _ := store.ListMembers(t.Context())
+	if len(members) != 1 || members[0].Name != "m2" {
+		t.Errorf("members = %v, want only m2", members)
 	}
 }
 
