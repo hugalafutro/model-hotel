@@ -16,6 +16,7 @@ const (
 	ReasonUnreachable   = "unreachable"    // transport error talking to apprise-api
 	ReasonUnhealthy     = "unhealthy"      // apprise-api answered with an unexpected non-2xx
 	ReasonAppriseReject = "apprise_reject" // /notify answered 400: the target URL is malformed
+	ReasonDemoHidden    = "demo_hidden"    // read-only demo: the decrypted target list is not served
 	ReasonDeliverFailed = "deliver_failed" // /notify answered 424: apprise could not deliver
 	ReasonUndecryptable = "undecryptable"  // stored target cannot be decrypted, e.g. MASTER_KEY rotated
 )

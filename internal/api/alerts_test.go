@@ -411,8 +411,8 @@ func TestGetAlertTargetsHiddenInReadOnlyDemo(t *testing.T) {
 	rec := httptest.NewRecorder()
 	h.GetAlertTargets(rec, httptest.NewRequest(http.MethodGet, "/alert/targets", http.NoBody))
 
-	if rec.Code != http.StatusForbidden {
-		t.Errorf("status = %d, want %d", rec.Code, http.StatusForbidden)
+	if rec.Code != http.StatusForbidden || !strings.Contains(rec.Body.String(), alert.ReasonDemoHidden) {
+		t.Errorf("status = %d body = %s, want %d with code %q", rec.Code, rec.Body.String(), http.StatusForbidden, alert.ReasonDemoHidden)
 	}
 	if strings.Contains(rec.Body.String(), "tgram://") {
 		t.Errorf("response leaked the decrypted target: %s", rec.Body.String())

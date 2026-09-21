@@ -483,11 +483,40 @@ describe("AlertsSettings", () => {
 		).toBe(i18n.t("settings.alerts.destinations.readFailed"));
 	});
 
-	it("says the destinations are hidden when the read is refused (read-only demo)", async () => {
+	it("says the destinations are hidden when the read-only demo refuses the read", async () => {
 		serveSettings({ alert_enabled: "true" });
 		server.use(
 			http.get("/api/alert/targets", () =>
-				HttpResponse.json({ error: "read-only demo" }, { status: 403 }),
+				HttpResponse.json(
+					{ code: "demo_hidden", error: "read-only demo" },
+					{ status: 403 },
+				),
+			),
+		);
+		renderWithProviders(
+			<AlertsSettings collapsed={false} onToggle={() => {}} />,
+		);
+
+		const hidden = i18n.t("settings.alerts.destinations.hidden");
+		expect(
+			(await screen.findByTestId("alert-destinations-error")).textContent,
+		).toBe(hidden);
+		// The guided run snapshots the stored list when it opens, so a hidden
+		// list blocks it with the same explanation, and the list itself is
+		// not rendered (an empty one would read as "nothing configured").
+		const open = screen.getByTestId("alert-wizard-open");
+		expect(open).toBeDisabled();
+		expect(open).toHaveAttribute("title", hidden);
+		expect(
+			screen.queryByTestId("alert-destinations-empty"),
+		).not.toBeInTheDocument();
+	});
+
+	it("keeps a bare 403 (demoted admin, proxy) on the generic read failure", async () => {
+		serveSettings({ alert_enabled: "true" });
+		server.use(
+			http.get("/api/alert/targets", () =>
+				HttpResponse.text("insufficient permissions", { status: 403 }),
 			),
 		);
 		renderWithProviders(
@@ -496,7 +525,7 @@ describe("AlertsSettings", () => {
 
 		expect(
 			(await screen.findByTestId("alert-destinations-error")).textContent,
-		).toBe(i18n.t("settings.alerts.destinations.hidden"));
+		).toBe(i18n.t("settings.alerts.destinations.readFailed"));
 	});
 
 	it("hides the destination list, not just the callout, when the read fails", async () => {

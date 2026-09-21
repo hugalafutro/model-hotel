@@ -2136,7 +2136,7 @@
 				"error": "A tárolt célok nem olvashatók (kicserélődött a főkulcs?). Távolítsa el őket alább, és állítsa be újra.",
 				"readFailed": "A tárolt célokat nem sikerült beolvasni.",
 				"dirty": "Mentse vagy vesse el az Értesítési cél mezőben függőben lévő módosítást, mielőtt tesztel vagy eltávolít egy célt.",
-				"hidden": "A tárolt célok rejtve vannak a csak olvasható demó módban."
+				"hidden": "A tárolt célok el vannak rejtve a csak olvasható demo módban."
 			},
 			"kind": {
 				"ntfy": "ntfy",

@@ -2192,7 +2192,7 @@
 				"error": "Destinațiile stocate nu pot fi citite (a fost rotită cheia principală?). Eliminați-le mai jos și configurați-le din nou.",
 				"readFailed": "Destinațiile stocate nu au putut fi citite.",
 				"dirty": "Salvați sau anulați modificarea în așteptare de la Destinatarul notificării înainte de a testa sau elimina o destinație.",
-				"hidden": "Destinațiile salvate sunt ascunse în modul demo doar în citire."
+				"hidden": "Destinațiile stocate sunt ascunse în demonstrația numai pentru citire."
 			},
 			"kind": {
 				"ntfy": "ntfy",

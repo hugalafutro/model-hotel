@@ -2136,7 +2136,7 @@
 				"error": "Gestoorde bestemmings kan nie gelees word nie (is die hoofsleutel verwissel?). Verwyder hulle hieronder en stel hulle weer op.",
 				"readFailed": "Kon nie die gestoorde bestemmings lees nie.",
 				"dirty": "Bewaar of verwerp die hangende verandering aan Kennisgewingsteiken voordat jy 'n bestemming toets of verwyder.",
-				"hidden": "Gestoorde bestemmings is versteek in leesalleen-demomodus."
+				"hidden": "Gestoorde bestemmings is versteek in die slegs-lees-demo."
 			},
 			"kind": {
 				"ntfy": "ntfy",

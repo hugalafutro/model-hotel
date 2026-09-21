@@ -2136,7 +2136,7 @@
 				"error": "Kayıtlı hedefler okunamıyor (ana anahtar değiştirildi mi?). Aşağıdan bunları kaldırın ve yeniden kurun.",
 				"readFailed": "Kayıtlı hedefler okunamadı.",
 				"dirty": "Bir hedefi test etmeden veya kaldırmadan önce Bildirim hedefi alanındaki bekleyen değişikliği kaydedin ya da temizleyin.",
-				"hidden": "Kaydedilen hedefler salt okunur demo modunda gizlidir."
+				"hidden": "Kayıtlı hedefler salt okunur demo modunda gizlidir."
 			},
 			"kind": {
 				"ntfy": "ntfy",
