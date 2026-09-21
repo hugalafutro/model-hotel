@@ -3109,6 +3109,14 @@
 			"unitDay": "д",
 			"unitHour": "ч",
 			"unitMinute": "м"
+		},
+		"accentCalendar": {
+			"previousMonth": "Предыдущий месяц",
+			"nextMonth": "Следующий месяц"
+		},
+		"settingsSlider": {
+			"stepUp": "Увеличить",
+			"stepDown": "Уменьшить"
 		}
 	},
 	"failoverGroups": {

@@ -2977,6 +2977,14 @@
 			"unitDay": "ng",
 			"unitHour": "g",
 			"unitMinute": "ph"
+		},
+		"accentCalendar": {
+			"previousMonth": "Tháng trước",
+			"nextMonth": "Tháng sau"
+		},
+		"settingsSlider": {
+			"stepUp": "Tăng",
+			"stepDown": "Giảm"
 		}
 	},
 	"failoverGroups": {

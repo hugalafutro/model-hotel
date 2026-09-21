@@ -163,11 +163,17 @@ describe("GithubPanel", () => {
 			"a@b.test",
 		);
 
-		// Setting a new secret commits its value...
-		await commitField(
-			"github-client-secret-input",
-			"github_client_secret",
-			"new-secret",
+		// Setting a new secret commits its value. Enter, not Tab: Tab moves to
+		// the reveal control beside the input, which keeps the draft open on
+		// purpose; the field commits when focus leaves the group or on Enter.
+		const secret = await screen.findByTestId("github-client-secret-input");
+		await user.clear(secret);
+		await user.type(secret, "new-secret");
+		await user.keyboard("{Enter}");
+		await waitFor(() =>
+			expect(puts.some((p) => p.github_client_secret === "new-secret")).toBe(
+				true,
+			),
 		);
 		// ...and clearing (after confirming) commits an empty string.
 		await user.click(screen.getByTestId("github-client-secret-clear"));

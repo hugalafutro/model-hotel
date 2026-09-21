@@ -2977,6 +2977,14 @@
 			"unitDay": "日",
 			"unitHour": "時間",
 			"unitMinute": "分"
+		},
+		"accentCalendar": {
+			"previousMonth": "前の月",
+			"nextMonth": "次の月"
+		},
+		"settingsSlider": {
+			"stepUp": "増やす",
+			"stepDown": "減らす"
 		}
 	},
 	"failoverGroups": {

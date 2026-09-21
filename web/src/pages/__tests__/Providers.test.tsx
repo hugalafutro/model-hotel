@@ -259,14 +259,11 @@ describe("Providers", () => {
 				expect(screen.getByText("Ollama")).toBeInTheDocument();
 			});
 
-			// Click the Ollama option - it's a button containing the text "Ollama"
-			// The dropdown options have a specific structure with the count in a child span
-			const ollamaButtons = screen.getAllByRole("button");
-			const ollamaOption = ollamaButtons.find(
-				(btn) =>
-					btn.textContent?.includes("Ollama") &&
-					btn.classList.contains("w-full"),
-			);
+			// Click the Ollama option: the menu is a listbox of options, the count
+			// in a child span.
+			const ollamaOption = screen
+				.getAllByRole("option")
+				.find((opt) => opt.textContent?.includes("Ollama"));
 			if (ollamaOption) {
 				await user.click(ollamaOption);
 			}
@@ -1229,7 +1226,7 @@ describe("Providers", () => {
 			// Get all options in the dropdown
 			await waitFor(() => {
 				// Custom should be first (before Anthropic and OpenAI alphabetically)
-				const options = screen.getAllByRole("button", {
+				const options = screen.getAllByRole("option", {
 					name: /custom|anthropic|openai/i,
 				});
 				// First option should be Custom

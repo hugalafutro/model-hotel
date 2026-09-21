@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronLeft, ChevronRight } from "@/lib/icons";
 import {
 	daysInMonth,
@@ -25,6 +26,7 @@ export function AccentCalendar({
 	onSelect: (dateStr: string) => void;
 	minDate?: string;
 }) {
+	const { t } = useTranslation();
 	const [year, setYear] = useState(initialYear);
 	const [month, setMonth] = useState(initialMonth);
 	const today = todayISO();
@@ -78,6 +80,7 @@ export function AccentCalendar({
 				<button
 					type="button"
 					onClick={handlePrev}
+					aria-label={t("components.accentCalendar.previousMonth")}
 					className="ui-icon-btn p-1 rounded-(--radius-button) hover:bg-gray-700"
 				>
 					<ChevronLeft size={16} />
@@ -88,6 +91,7 @@ export function AccentCalendar({
 				<button
 					type="button"
 					onClick={handleNext}
+					aria-label={t("components.accentCalendar.nextMonth")}
 					className="ui-icon-btn p-1 rounded-(--radius-button) hover:bg-gray-700"
 				>
 					<ChevronRight size={16} />

@@ -2977,6 +2977,14 @@
 			"unitDay": "pv",
 			"unitHour": "t",
 			"unitMinute": "min"
+		},
+		"accentCalendar": {
+			"previousMonth": "Edellinen kuukausi",
+			"nextMonth": "Seuraava kuukausi"
+		},
+		"settingsSlider": {
+			"stepUp": "Suurenna",
+			"stepDown": "Pienennä"
 		}
 	},
 	"failoverGroups": {

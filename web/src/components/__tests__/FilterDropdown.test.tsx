@@ -58,6 +58,50 @@ describe("FilterDropdown", () => {
 		expect(onChange).toHaveBeenCalledWith("option2");
 	});
 
+	// The trigger says whether its menu is open, the menu is a listbox with
+	// selected options, and Escape closes it; the clear control is a real
+	// button beside the trigger, not one nested inside it.
+	it("exposes the menu state and closes on Escape", async () => {
+		const user = userEvent.setup();
+		render(
+			<FilterDropdown options={options} value="option1" onChange={onChange} />,
+		);
+		const trigger = screen.getByRole("button", { name: "Filter: Option 1" });
+		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		await user.click(trigger);
+		expect(trigger).toHaveAttribute("aria-expanded", "true");
+		expect(screen.getByRole("listbox")).toBeInTheDocument();
+		expect(
+			screen.getByRole("option", { name: "Option 1", selected: true }),
+		).toBeInTheDocument();
+		await user.keyboard("{Escape}");
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		// Focus comes back to the trigger, not to the document body.
+		expect(trigger).toHaveFocus();
+		expect(trigger.querySelector("[role=button]")).toBeNull();
+		await user.click(screen.getByRole("button", { name: "Clear filter" }));
+		expect(onChange).toHaveBeenCalledWith("");
+	});
+
+	it("walks the options with the arrow keys, Home and End", async () => {
+		const user = userEvent.setup();
+		render(<FilterDropdown options={options} value="" onChange={onChange} />);
+		await user.click(screen.getByRole("button", { name: "Filter" }));
+		await user.keyboard("{ArrowDown}");
+		expect(screen.getByRole("option", { name: "All" })).toHaveFocus();
+		await user.keyboard("{ArrowDown}");
+		expect(screen.getByRole("option", { name: "Option 1" })).toHaveFocus();
+		await user.keyboard("{End}");
+		expect(screen.getByRole("option", { name: "Option 3" })).toHaveFocus();
+		await user.keyboard("{ArrowUp}");
+		expect(screen.getByRole("option", { name: "Option 2" })).toHaveFocus();
+		await user.keyboard("{Home}");
+		expect(screen.getByRole("option", { name: "All" })).toHaveFocus();
+		await user.keyboard("{Enter}");
+		expect(onChange).toHaveBeenCalledWith("");
+	});
+
 	it("closes dropdown after selection", async () => {
 		const user = userEvent.setup();
 		// Component is controlled - need to track value state to see change

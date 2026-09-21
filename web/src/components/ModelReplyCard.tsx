@@ -357,43 +357,45 @@ export const ModelReplyCard = memo(function ModelReplyCard({
 					onClose={() => setMaximized(false)}
 					maxWidth="max-w-5xl"
 					zIndex="z-50"
-				>
-					{/* Modal header */}
-					<div className="flex items-center justify-between mb-4 -mt-2">
-						<div className="flex items-center gap-2 min-w-0">
-							<Bot size={18} className="text-(--accent) shrink-0" />
-							<span
-								className="text-base font-medium text-(--text-primary) truncate"
-								title={model}
-							>
-								{displayName}
-							</span>
-							<ParamsTooltip params={params} size={12} />
-							{afterModel}
-						</div>
-						<div className="flex items-center gap-3 shrink-0 pr-8">
-							{personaName && (
+					// The dialog's accessible name: the model, read off this header.
+					title={displayName}
+					header={
+						<div className="flex items-center justify-between mb-4 -mt-2">
+							<div className="flex items-center gap-2 min-w-0">
+								<Bot size={18} className="text-(--accent) shrink-0" />
 								<span
-									className="text-xs text-(--accent) cursor-help truncate max-w-40"
-									title={personaTooltip || personaName}
+									className="text-base font-medium text-(--text-primary) truncate"
+									title={model}
 								>
-									{personaName}
+									{displayName}
 								</span>
-							)}
-							{metricsSummary("md")}
-							<button
-								type="button"
-								onClick={() => {
-									void copy(content);
-								}}
-								className="ui-icon-btn p-1.5 rounded-md"
-								title={t("common.copy")}
-							>
-								<Copy size={16} />
-							</button>
+								<ParamsTooltip params={params} size={12} />
+								{afterModel}
+							</div>
+							<div className="flex items-center gap-3 shrink-0 pr-8">
+								{personaName && (
+									<span
+										className="text-xs text-(--accent) cursor-help truncate max-w-40"
+										title={personaTooltip || personaName}
+									>
+										{personaName}
+									</span>
+								)}
+								{metricsSummary("md")}
+								<button
+									type="button"
+									onClick={() => {
+										void copy(content);
+									}}
+									className="ui-icon-btn p-1.5 rounded-md"
+									title={t("common.copy")}
+								>
+									<Copy size={16} />
+								</button>
+							</div>
 						</div>
-					</div>
-
+					}
+				>
 					{/* Modal body - thinking + content */}
 					<div className="max-h-[85vh] overflow-y-auto pr-1">
 						{hasThinking && (

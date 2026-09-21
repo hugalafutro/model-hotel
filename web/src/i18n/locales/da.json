@@ -2977,6 +2977,14 @@
 			"unitDay": "d",
 			"unitHour": "h",
 			"unitMinute": "m"
+		},
+		"accentCalendar": {
+			"previousMonth": "Forrige måned",
+			"nextMonth": "Næste måned"
+		},
+		"settingsSlider": {
+			"stepUp": "Forøg",
+			"stepDown": "Formindsk"
 		}
 	},
 	"failoverGroups": {

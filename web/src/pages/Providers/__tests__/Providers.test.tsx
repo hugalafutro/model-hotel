@@ -1012,8 +1012,9 @@ describe("Providers", () => {
 			});
 			await user.click(typeFilter);
 
-			// Select OpenAI type from the dropdown (button shows display label "OpenAI" with count)
-			const openaiOption = screen.getByRole("button", { name: /OpenAI/ });
+			// Select OpenAI type from the dropdown (an option showing the display
+			// label "OpenAI" with its count)
+			const openaiOption = screen.getByRole("option", { name: /OpenAI/ });
 			await user.click(openaiOption);
 
 			await waitFor(() => {

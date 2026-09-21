@@ -17,3 +17,48 @@ export function onActivateKey(fn: (e: KeyboardEvent) => void) {
 		}
 	};
 }
+
+/**
+ * moveOptionFocus is the keyboard model of a listbox whose options are real
+ * focusable elements: ArrowDown/ArrowUp step through them, Home/End jump to
+ * the ends, and a first ArrowDown from outside the list (the trigger, a search
+ * box) enters it. Returns whether the key was one it handled, so the caller
+ * can preventDefault. Home and End are left to a text field that has focus,
+ * where they move the caret.
+ */
+export function moveOptionFocus(
+	list: HTMLElement | null,
+	key: string,
+	current: Element | null,
+): boolean {
+	if (!list) return false;
+	const options = Array.from(
+		list.querySelectorAll<HTMLElement>('[role="option"]:not([disabled])'),
+	);
+	if (options.length === 0) return false;
+	const inText =
+		current instanceof HTMLInputElement ||
+		current instanceof HTMLTextAreaElement;
+	const idx = options.findIndex((o) => o === current);
+	let next: number;
+	switch (key) {
+		case "ArrowDown":
+			next = idx < 0 ? 0 : Math.min(idx + 1, options.length - 1);
+			break;
+		case "ArrowUp":
+			next = idx < 0 ? options.length - 1 : Math.max(idx - 1, 0);
+			break;
+		case "Home":
+			if (inText) return false;
+			next = 0;
+			break;
+		case "End":
+			if (inText) return false;
+			next = options.length - 1;
+			break;
+		default:
+			return false;
+	}
+	options[next]?.focus();
+	return true;
+}
