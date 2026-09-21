@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Forøg",
 			"stepDown": "Formindsk"
+		},
+		"scrollTopButton": {
+			"label": "Tilbage til toppen"
 		}
 	},
 	"failoverGroups": {

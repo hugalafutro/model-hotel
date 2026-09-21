@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Öka",
 			"stepDown": "Minska"
+		},
+		"scrollTopButton": {
+			"label": "Tillbaka till toppen"
 		}
 	},
 	"failoverGroups": {

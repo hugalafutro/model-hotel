@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "増やす",
 			"stepDown": "減らす"
+		},
+		"scrollTopButton": {
+			"label": "先頭に戻る"
 		}
 	},
 	"failoverGroups": {

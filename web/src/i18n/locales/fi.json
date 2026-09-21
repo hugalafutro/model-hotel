@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Suurenna",
 			"stepDown": "Pienennä"
+		},
+		"scrollTopButton": {
+			"label": "Takaisin ylös"
 		}
 	},
 	"failoverGroups": {

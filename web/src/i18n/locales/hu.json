@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Növelés",
 			"stepDown": "Csökkentés"
+		},
+		"scrollTopButton": {
+			"label": "Vissza a tetejére"
 		}
 	},
 	"failoverGroups": {

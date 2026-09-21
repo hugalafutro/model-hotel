@@ -3118,6 +3118,9 @@
 		"settingsSlider": {
 			"stepUp": "Увеличить",
 			"stepDown": "Уменьшить"
+		},
+		"scrollTopButton": {
+			"label": "Наверх"
 		}
 	},
 	"failoverGroups": {

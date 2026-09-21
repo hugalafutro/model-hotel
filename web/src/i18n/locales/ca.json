@@ -3052,6 +3052,9 @@
 		"settingsSlider": {
 			"stepUp": "Augmenta",
 			"stepDown": "Disminueix"
+		},
+		"scrollTopButton": {
+			"label": "Torna a dalt"
 		}
 	},
 	"failoverGroups": {

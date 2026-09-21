@@ -9,6 +9,7 @@ import {
 } from "../utils/logBadgeUtils";
 import { appLogKey, displayLogMessage } from "../utils/logText";
 import { Badge } from "./Badge";
+import { ScrollTopButton } from "./ScrollTopButton";
 import { VirtualTableFooter } from "./VirtualTableFooter";
 
 interface VirtualAppLogTableProps {
@@ -48,6 +49,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 
 	const {
 		scrollRef,
+		scrollEl,
 		virtualizer,
 		virtualItems,
 		paddingTop,
@@ -69,7 +71,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 	});
 
 	return (
-		<div className="flex flex-col min-h-0">
+		<div className="relative flex flex-col min-h-0">
 			<div
 				ref={scrollRef}
 				className="ui-card overflow-y-auto overflow-x-auto"
@@ -194,6 +196,7 @@ export function VirtualAppLogTable(props: VirtualAppLogTableProps) {
 					</tbody>
 				</table>
 			</div>
+			<ScrollTopButton scrollEl={scrollEl} />
 			<VirtualTableFooter
 				range={
 					entries.length > 0

@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "增大",
 			"stepDown": "减小"
+		},
+		"scrollTopButton": {
+			"label": "回到顶部"
 		}
 	},
 	"failoverGroups": {

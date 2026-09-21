@@ -163,6 +163,8 @@ export function useVirtualRows<T extends { id?: string }>({
 	return {
 		/** Attach to the scroller: `ref={scrollRef}`. */
 		scrollRef: setScrollEl,
+		/** The scroller itself, once mounted, for controls that read its position. */
+		scrollEl,
 		virtualizer,
 		virtualItems,
 		paddingTop,

@@ -3052,6 +3052,9 @@
 		"settingsSlider": {
 			"stepUp": "Aumentar",
 			"stepDown": "Disminuir"
+		},
+		"scrollTopButton": {
+			"label": "Volver arriba"
 		}
 	},
 	"failoverGroups": {

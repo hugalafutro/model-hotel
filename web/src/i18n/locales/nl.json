@@ -2986,6 +2986,9 @@
 		"settingsSlider": {
 			"stepUp": "Verhogen",
 			"stepDown": "Verlagen"
+		},
+		"scrollTopButton": {
+			"label": "Terug naar boven"
 		}
 	},
 	"failoverGroups": {
