@@ -2597,7 +2597,8 @@
 			"turn": "{{number}}. kör",
 			"tokPerSec": "tok/mp",
 			"tok": "tok",
-			"disableModelTooltip": "Ne irányítson több kérést erre a modellre, amíg újra nem engedélyezi."
+			"disableModelTooltip": "Ne irányítson több kérést erre a modellre, amíg újra nem engedélyezi.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Szolgáltatók szűrése",
@@ -2971,6 +2972,11 @@
 			"tip": "Ehhez a szolgáltatóhoz nincs használati API; utolsó limitüzenet: \"{{phrase}}\" ekkor: {{when}} (429 a(z) {{model}} modellen)",
 			"tipNoPhrase": "Ehhez a szolgáltatóhoz nincs használati API; utolsó kimerülés (429) ekkor: {{when}} a(z) {{model}} modellen",
 			"labelEntitled": "nincs használati API · egyenleg elfogyott {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "n",
+			"unitHour": "ó",
+			"unitMinute": "p"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "token",
 			"entriesLive": "{{live}} / {{total}} bejegyzés él",
 			"allEntriesDark": "minden bejegyzés sötét",
-			"allEntriesDarkRetry": "minden bejegyzés sötét, legkorábbi újrapróba {{when}}"
+			"allEntriesDarkRetry": "minden bejegyzés sötét, legkorábbi újrapróba {{when}}",
+			"footer": "{{active}}/{{total}} aktív • {{tokens}} tokenek"
 		},
 		"entry": {
 			"disableProvider": "Szolgáltató letiltása",

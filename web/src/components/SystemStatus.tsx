@@ -201,7 +201,13 @@ export function SystemStatus() {
 					>
 						<span>{t("layout.stats.uptime")}</span>
 						<span className="text-(--text-secondary)">
-							{app ? formatUptime(app.uptime_seconds) : dash}
+							{app
+								? formatUptime(app.uptime_seconds, {
+										day: t("components.systemStatus.unitDay"),
+										hour: t("components.systemStatus.unitHour"),
+										minute: t("components.systemStatus.unitMinute"),
+									})
+								: dash}
 						</span>
 					</div>
 

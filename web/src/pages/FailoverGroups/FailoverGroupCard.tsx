@@ -271,8 +271,11 @@ export function FailoverGroupCard({
 
 			<div className="flex items-center justify-between mt-auto pt-2 text-xs text-gray-500">
 				<span>
-					{enabledCount}/{totalCount} {t("failoverGroups.card.active")} •{" "}
-					{formatTokens(group.total_tokens)} {t("common.tokens")}
+					{t("failoverGroups.card.footer", {
+						active: enabledCount,
+						total: totalCount,
+						tokens: formatTokens(group.total_tokens),
+					})}
 					{group.group_enabled && summary.total > 0 && (
 						<>
 							<br />

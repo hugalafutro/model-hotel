@@ -195,7 +195,8 @@ export function useBackupActions() {
 				headers: getAuthHeaders(),
 			});
 			if (!response.ok) {
-				throw new Error(`Download failed: ${response.status}`);
+				// The status alone: the toast below carries the translated sentence.
+				throw new Error(`HTTP ${response.status}`);
 			}
 			downloadBlob(await response.blob(), filename);
 		} catch (err) {

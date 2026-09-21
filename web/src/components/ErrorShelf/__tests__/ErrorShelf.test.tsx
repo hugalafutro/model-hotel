@@ -122,6 +122,47 @@ describe("ErrorShelf", () => {
 		vi.restoreAllMocks();
 	});
 
+	// Go writes RFC3339Nano with trailing zeros trimmed, so the strings are
+	// not fixed-width: "...00Z" sorts after "...00.5Z" lexicographically even
+	// though it is the older instant. Ordering compares instants.
+	it("orders errors by instant, not by timestamp string", async () => {
+		server.use(
+			http.get("/api/logs/app", ({ request }) => {
+				if (new URL(request.url).searchParams.get("history") !== "true") {
+					return HttpResponse.json([]);
+				}
+				return HttpResponse.json({
+					entries: [
+						{
+							id: "app-old",
+							timestamp: "2024-02-01T12:00:00Z",
+							level: "error",
+							source: "server",
+							message: "older-error",
+						},
+						{
+							id: "app-new",
+							timestamp: "2024-02-01T12:00:00.5Z",
+							level: "error",
+							source: "server",
+							message: "newer-error",
+						},
+					],
+					total: 2,
+					page: 1,
+					per_page: 15,
+				});
+			}),
+		);
+		renderWithProviders(<ErrorShelf />);
+		await expand();
+		const rows = await screen.findAllByText(/^(older|newer)-error$/);
+		expect(rows.map((r) => r.textContent)).toEqual([
+			"newer-error",
+			"older-error",
+		]);
+	});
+
 	it("renders nothing when there are no errors", async () => {
 		renderWithProviders(<ErrorShelf />);
 		// Give the polls a tick; default handlers return empty.

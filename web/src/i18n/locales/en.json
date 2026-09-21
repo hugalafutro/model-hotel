@@ -2597,7 +2597,8 @@
 			"turn": "Turn {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Stop routing requests to this model until you re-enable it."
+			"disableModelTooltip": "Stop routing requests to this model until you re-enable it.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filter Providers",
@@ -2971,6 +2972,11 @@
 			"tip": "No usage API for this provider; last cap message: \"{{phrase}}\" at {{when}} (from a 429 on {{model}})",
 			"tipNoPhrase": "No usage API for this provider; last exhausted 429 at {{when}} on {{model}}",
 			"labelEntitled": "no usage API · balance spent {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "m"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "tokens",
 			"entriesLive": "{{live}} of {{total}} entries live",
 			"allEntriesDark": "all entries dark",
-			"allEntriesDarkRetry": "all entries dark, earliest retry {{when}}"
+			"allEntriesDarkRetry": "all entries dark, earliest retry {{when}}",
+			"footer": "{{active}}/{{total}} active • {{tokens}} tokens"
 		},
 		"entry": {
 			"disableProvider": "Disable provider",

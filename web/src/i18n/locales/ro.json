@@ -2659,7 +2659,8 @@
 			"turn": "Rândul {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Oprește direcționarea cererilor către acest model până când îl reactivezi."
+			"disableModelTooltip": "Oprește direcționarea cererilor către acest model până când îl reactivezi.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrează furnizorii",
@@ -3037,6 +3038,11 @@
 			"tip": "Fără API de utilizare pentru acest furnizor; ultimul mesaj de plafon: \"{{phrase}}\" la {{when}} (dintr-un 429 pe {{model}})",
 			"tipNoPhrase": "Fără API de utilizare pentru acest furnizor; ultimul 429 de epuizare la {{when}} pe {{model}}",
 			"labelEntitled": "fără API de utilizare · sold epuizat {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "z",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3068,7 +3074,8 @@
 			"tokens": "jetoane",
 			"entriesLive": "{{live}} din {{total}} intrări active",
 			"allEntriesDark": "toate intrările întunecate",
-			"allEntriesDarkRetry": "toate intrările întunecate, prima reîncercare {{when}}"
+			"allEntriesDarkRetry": "toate intrările întunecate, prima reîncercare {{when}}",
+			"footer": "{{active}}/{{total}} activ • {{tokens}} token-uri"
 		},
 		"entry": {
 			"disableProvider": "Dezactivare furnizor",

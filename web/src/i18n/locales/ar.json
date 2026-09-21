@@ -2845,7 +2845,8 @@
 			"turn": "الدور {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "إيقاف توجيه الطلبات إلى هذا النموذج حتى تعيد تمكينه."
+			"disableModelTooltip": "إيقاف توجيه الطلبات إلى هذا النموذج حتى تعيد تمكينه.",
+			"elapsedSeconds": "{{seconds}} ث"
 		},
 		"providerFilter": {
 			"filterProviders": "تصفية المزودين",
@@ -3235,6 +3236,11 @@
 			"tip": "لا توجد واجهة استخدام لهذا المزوّد؛ آخر رسالة حد: \"{{phrase}}\" في {{when}} (من 429 على {{model}})",
 			"tipNoPhrase": "لا توجد واجهة استخدام لهذا المزوّد؛ آخر 429 لاستنفاد الحد في {{when}} على {{model}}",
 			"labelEntitled": "لا توجد واجهة استخدام · نفد الرصيد {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "ي",
+			"unitHour": "س",
+			"unitMinute": "د"
 		}
 	},
 	"failoverGroups": {
@@ -3266,7 +3272,8 @@
 			"tokens": "الرموز",
 			"entriesLive": "{{live}} من {{total}} إدخالات نشطة",
 			"allEntriesDark": "كل الإدخالات معطّلة",
-			"allEntriesDarkRetry": "كل الإدخالات معطّلة، أقرب إعادة محاولة {{when}}"
+			"allEntriesDarkRetry": "كل الإدخالات معطّلة، أقرب إعادة محاولة {{when}}",
+			"footer": "{{active}}/{{total}} نشط • {{tokens}} الرموز"
 		},
 		"entry": {
 			"disableProvider": "تعطيل المزود",

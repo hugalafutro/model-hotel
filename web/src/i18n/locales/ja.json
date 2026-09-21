@@ -2597,7 +2597,8 @@
 			"turn": "{{number}} のターン",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "再度有効にするまで、このモデルへのリクエスト転送を停止します。"
+			"disableModelTooltip": "再度有効にするまで、このモデルへのリクエスト転送を停止します。",
+			"elapsedSeconds": "{{seconds}}秒"
 		},
 		"providerFilter": {
 			"filterProviders": "プロバイダーを絞り込む",
@@ -2971,6 +2972,11 @@
 			"tip": "このプロバイダーには使用量APIがありません。最後の上限メッセージ:「{{phrase}}」{{when}}（{{model}} の 429 より）",
 			"tipNoPhrase": "このプロバイダーには使用量APIがありません。最後の枯渇 429: {{when}}（{{model}}）",
 			"labelEntitled": "使用量APIなし · 残高切れ {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "日",
+			"unitHour": "時間",
+			"unitMinute": "分"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "トークン",
 			"entriesLive": "{{total}}件中{{live}}件が稼働中",
 			"allEntriesDark": "すべてのエントリがダウン",
-			"allEntriesDarkRetry": "すべてのエントリがダウン、最も早い再試行は{{when}}"
+			"allEntriesDarkRetry": "すべてのエントリがダウン、最も早い再試行は{{when}}",
+			"footer": "{{active}}/{{total}} アクティブ • {{tokens}} トークン"
 		},
 		"entry": {
 			"disableProvider": "プロバイダを無効にする",

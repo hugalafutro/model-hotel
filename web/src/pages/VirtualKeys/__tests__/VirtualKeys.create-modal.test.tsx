@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { HttpResponse, http } from "msw";
+import { delay, HttpResponse, http } from "msw";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
 	mockProvider,
@@ -103,6 +103,52 @@ describe("VirtualKeys", () => {
 			});
 			expect(
 				screen.getByText("sk_test_newly_created_key_12345"),
+			).toBeInTheDocument();
+		});
+
+		// A dismissal while the create is in flight would land a key whose
+		// secret is never shown: Escape does nothing until the response arrives.
+		it("cannot be dismissed while the create is pending", async () => {
+			const newKey = {
+				...mockVirtualKey,
+				id: "vk-slow",
+				name: "Slow Key",
+				key: "sk_test_slow_key_12345",
+				key_preview: "sk_test_slo••••",
+			};
+			server.use(
+				http.get("/api/virtual-keys", () =>
+					HttpResponse.json([mockVirtualKey]),
+				),
+				http.post("/api/virtual-keys", async () => {
+					await delay(300);
+					return HttpResponse.json(newKey);
+				}),
+			);
+			const { user } = renderWithProviders(<VirtualKeys />);
+			await user.click(
+				await screen.findByRole("button", { name: "Create Key" }),
+			);
+			const dialog = await screen.findByRole("dialog", {
+				name: "Create Virtual Key",
+			});
+			await user.type(within(dialog).getByLabelText("Name"), "Slow Key");
+			await user.click(
+				within(dialog).getByRole("button", { name: "Create Key" }),
+			);
+			await user.keyboard("{Escape}");
+			expect(
+				screen.getByRole("dialog", { name: "Create Virtual Key" }),
+			).toBeInTheDocument();
+			expect(
+				within(dialog).getByRole("button", { name: "Cancel" }),
+			).toBeDisabled();
+			await user.click(within(dialog).getByRole("button", { name: "Cancel" }));
+			expect(
+				screen.getByRole("dialog", { name: "Create Virtual Key" }),
+			).toBeInTheDocument();
+			expect(
+				await screen.findByText("sk_test_slow_key_12345"),
 			).toBeInTheDocument();
 		});
 

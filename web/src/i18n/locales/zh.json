@@ -2597,7 +2597,8 @@
 			"turn": "第 {{number}} 回合",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "停止将请求路由到此模型，直到您重新启用它。"
+			"disableModelTooltip": "停止将请求路由到此模型，直到您重新启用它。",
+			"elapsedSeconds": "{{seconds}}秒"
 		},
 		"providerFilter": {
 			"filterProviders": "筛选提供商",
@@ -2971,6 +2972,11 @@
 			"tip": "此提供商没有用量 API；最近的上限消息：\"{{phrase}}\"，于 {{when}}（来自 {{model}} 上的 429）",
 			"tipNoPhrase": "此提供商没有用量 API；最近一次耗尽（429）于 {{when}}，模型 {{model}}",
 			"labelEntitled": "无用量 API · 余额耗尽 {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "天",
+			"unitHour": "小时",
+			"unitMinute": "分"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "令牌",
 			"entriesLive": "{{total}} 个条目中 {{live}} 个正常",
 			"allEntriesDark": "所有条目均不可用",
-			"allEntriesDarkRetry": "所有条目均不可用，最早重试 {{when}}"
+			"allEntriesDarkRetry": "所有条目均不可用，最早重试 {{when}}",
+			"footer": "{{active}}/{{total}} 已激活 • {{tokens}} token"
 		},
 		"entry": {
 			"disableProvider": "禁用提供商",

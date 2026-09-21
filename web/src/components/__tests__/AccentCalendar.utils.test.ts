@@ -129,28 +129,43 @@ describe("pad", () => {
 });
 
 describe("formatDateRangeShort", () => {
+	// Day and month follow the reader's locale: 05/03 is March 5th to a British
+	// reader, and an American reader gets 03/05.
+	it("orders day and month by locale", () => {
+		expect(formatDateRangeShort("2024-03-05", "2024-03-15", "en-US")).toBe(
+			"03/05-03/15/2024",
+		);
+		expect(formatDateRangeShort("2024-02-25", "2024-03-05", "en-US")).toBe(
+			"02/25/24 - 03/05/2024",
+		);
+	});
+
 	it("formats same-month range with abbreviated format", () => {
 		const from = "2024-03-05";
 		const to = "2024-03-15";
-		expect(formatDateRangeShort(from, to)).toBe("05/03-15/03/2024");
+		expect(formatDateRangeShort(from, to, "en-GB")).toBe("05/03-15/03/2024");
 	});
 
 	it("formats different-month range with full format", () => {
 		const from = "2024-02-25";
 		const to = "2024-03-05";
-		expect(formatDateRangeShort(from, to)).toBe("25/02/24 - 05/03/2024");
+		expect(formatDateRangeShort(from, to, "en-GB")).toBe(
+			"25/02/24 - 05/03/2024",
+		);
 	});
 
 	it("handles year boundary", () => {
 		const from = "2023-12-25";
 		const to = "2024-01-05";
-		expect(formatDateRangeShort(from, to)).toBe("25/12/23 - 05/01/2024");
+		expect(formatDateRangeShort(from, to, "en-GB")).toBe(
+			"25/12/23 - 05/01/2024",
+		);
 	});
 
 	it("handles same day", () => {
 		const from = "2024-03-15";
 		const to = "2024-03-15";
-		expect(formatDateRangeShort(from, to)).toBe("15/03-15/03/2024");
+		expect(formatDateRangeShort(from, to, "en-GB")).toBe("15/03-15/03/2024");
 	});
 
 	it("handles ISO timestamp inputs", () => {
@@ -158,12 +173,14 @@ describe("formatDateRangeShort", () => {
 		// the same date components regardless of the runner's timezone.
 		const from = "2024-03-05T10:30:00";
 		const to = "2024-03-15T18:00:00";
-		expect(formatDateRangeShort(from, to)).toBe("05/03-15/03/2024");
+		expect(formatDateRangeShort(from, to, "en-GB")).toBe("05/03-15/03/2024");
 	});
 
 	it("handles mixed bare-date and timestamp inputs", () => {
 		const from = "2024-02-25";
 		const to = "2024-03-05T12:00:00";
-		expect(formatDateRangeShort(from, to)).toBe("25/02/24 - 05/03/2024");
+		expect(formatDateRangeShort(from, to, "en-GB")).toBe(
+			"25/02/24 - 05/03/2024",
+		);
 	});
 });

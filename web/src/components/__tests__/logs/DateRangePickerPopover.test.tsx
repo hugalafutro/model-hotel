@@ -106,8 +106,9 @@ describe("DateRangePickerPopover", () => {
 				pendingTo="2024-03-31"
 			/>,
 		);
-		// Date format is dd/mm-dd/mm (e.g., "01/03-31/03")
-		const summaryElement = screen.getByText(/01\/03/i);
+		// Day and month follow the UI locale; the tests run under "en", so
+		// March 1st reads 03/01 (a British locale would read 01/03).
+		const summaryElement = screen.getByText(/03\/01/i);
 		expect(summaryElement).toBeInTheDocument();
 	});
 

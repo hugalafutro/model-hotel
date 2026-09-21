@@ -2597,7 +2597,8 @@
 			"turn": "{{number}}번째 차례",
 			"tokPerSec": "토큰/초",
 			"tok": "tok",
-			"disableModelTooltip": "다시 활성화할 때까지 이 모델로 요청을 라우팅하지 않습니다."
+			"disableModelTooltip": "다시 활성화할 때까지 이 모델로 요청을 라우팅하지 않습니다.",
+			"elapsedSeconds": "{{seconds}}초"
 		},
 		"providerFilter": {
 			"filterProviders": "제공업체 필터",
@@ -2971,6 +2972,11 @@
 			"tip": "이 공급자에는 사용량 API가 없습니다. 마지막 한도 메시지: \"{{phrase}}\" {{when}} ({{model}}의 429에서)",
 			"tipNoPhrase": "이 공급자에는 사용량 API가 없습니다. 마지막 소진 429: {{when}} ({{model}})",
 			"labelEntitled": "사용량 API 없음 · 잔액 소진 {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "일",
+			"unitHour": "시간",
+			"unitMinute": "분"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "토큰",
 			"entriesLive": "{{total}}개 중 {{live}}개 항목 정상",
 			"allEntriesDark": "모든 항목 다운",
-			"allEntriesDarkRetry": "모든 항목 다운, 가장 빠른 재시도 {{when}}"
+			"allEntriesDarkRetry": "모든 항목 다운, 가장 빠른 재시도 {{when}}",
+			"footer": "{{active}}/{{total}} 활성 • {{tokens}} 토큰"
 		},
 		"entry": {
 			"disableProvider": "제공자 비활성화",

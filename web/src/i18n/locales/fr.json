@@ -2659,7 +2659,8 @@
 			"turn": "Tour {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Cesser d'acheminer les requêtes vers ce modèle jusqu'à ce que vous le réactiviez."
+			"disableModelTooltip": "Cesser d'acheminer les requêtes vers ce modèle jusqu'à ce que vous le réactiviez.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer les fournisseurs",
@@ -3037,6 +3038,11 @@
 			"tip": "Pas d'API d'usage pour ce fournisseur ; dernier message de plafond : \"{{phrase}}\" à {{when}} (d'un 429 sur {{model}})",
 			"tipNoPhrase": "Pas d'API d'usage pour ce fournisseur ; dernier 429 d'épuisement à {{when}} sur {{model}}",
 			"labelEntitled": "pas d'API d'usage · solde épuisé {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "j",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3068,7 +3074,8 @@
 			"tokens": "jetons",
 			"entriesLive": "{{live}} entrées actives sur {{total}}",
 			"allEntriesDark": "toutes les entrées éteintes",
-			"allEntriesDarkRetry": "toutes les entrées éteintes, prochain essai {{when}}"
+			"allEntriesDarkRetry": "toutes les entrées éteintes, prochain essai {{when}}",
+			"footer": "{{active}}/{{total}} Actif • {{tokens}} jetons"
 		},
 		"entry": {
 			"disableProvider": "Désactiver le fournisseur",

@@ -25,8 +25,12 @@ function classLabel(modelName: string, t: (k: string) => string): string {
 }
 
 /** Renders "resets <time-until>" for a millisecond reset duration. */
-function resetCountdown(ms: number, resetsWord: string): string {
-	if (!Number.isFinite(ms) || ms <= 0) return "N/A";
+function resetCountdown(
+	ms: number,
+	resetsWord: string,
+	notAvailable: string,
+): string {
+	if (!Number.isFinite(ms) || ms <= 0) return notAvailable;
 	return `${resetsWord} ${formatTimeUntil(Date.now() + ms)}`;
 }
 
@@ -84,7 +88,7 @@ function ModelClassRows({
 				dataTestId={`minimax-${name}-5h-bar`}
 				fillTestId={`minimax-${name}-5h-fill`}
 			>
-				{resetCountdown(entry.remains_time, resetsWord)}
+				{resetCountdown(entry.remains_time, resetsWord, t("common.n_a"))}
 			</QuotaBar>
 			<QuotaBar
 				label={t("components.providerModals.weeklyTokenQuota")}
@@ -94,7 +98,7 @@ function ModelClassRows({
 				dataTestId={`minimax-${name}-weekly-bar`}
 				fillTestId={`minimax-${name}-weekly-fill`}
 			>
-				{resetCountdown(entry.weekly_remains_time, resetsWord)}
+				{resetCountdown(entry.weekly_remains_time, resetsWord, t("common.n_a"))}
 			</QuotaBar>
 		</div>
 	);

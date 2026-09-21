@@ -196,6 +196,10 @@ function RequestLogs() {
 				sort_by: sort.field,
 				sort_dir: sort.dir,
 			}),
+		// Scroll mode has its own fetch path (useRequestLogScroll); the paginated
+		// query is only for the paginated table, so it does not double every
+		// request-log fetch in the default view.
+		enabled: viewMode === "paginate",
 		refetchInterval:
 			viewMode === "paginate" && liveEnabled && isVisible ? 30000 : false,
 		refetchIntervalInBackground: false,
@@ -230,9 +234,11 @@ function RequestLogs() {
 		(entry) => entry.id,
 	);
 
+	// The clock ticks fast while a live row is on screen, whichever list that
+	// is: the scroll list in scroll mode, the page in paginate mode.
 	const { nowMs, staleThresholdMs } = useStaleClock(
 		settings?.stale_request_timeout,
-		displayEntries,
+		navEntries,
 	);
 	const columns = requestLogColumns(t);
 
@@ -296,13 +302,16 @@ function RequestLogs() {
 				{isLoading && !logsData && <LoadingSpinner />}
 
 				{/* Error state - show message when fetch fails and no fallback data */}
-				{error && !logsData && displayEntries.length === 0 && (
-					<LogsErrorState
-						message={t("logs.toast.loadFailed", {
-							message: (error as Error).message || t("common.unknownError"),
-						})}
-					/>
-				)}
+				{viewMode === "paginate" &&
+					error &&
+					!logsData &&
+					displayEntries.length === 0 && (
+						<LogsErrorState
+							message={t("logs.toast.loadFailed", {
+								message: (error as Error).message || t("common.unknownError"),
+							})}
+						/>
+					)}
 
 				{viewMode === "paginate" && (!isLoading || logsData) && (
 					<div ref={wheelPagingRef} className="ui-card overflow-x-auto">

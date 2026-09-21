@@ -30,6 +30,20 @@ function tomorrowISO(): string {
 	return toISODate(d);
 }
 
+// The label key for each field the edit payload can carry, for the
+// unsaved-changes dialog.
+const PAYLOAD_FIELD_LABELS: Record<string, string> = {
+	name: "providers.form_name_label",
+	provider_type: "providers.form_type_label",
+	base_url: "providers.form_base_url_label",
+	api_key: "providers.form_api_key_label",
+	enabled: "providers.edit_enabled_label",
+	autodiscovery_enabled: "providers.edit_autodiscovery_label",
+	scheduled_disable_on: "providers.schedule_disable_tooltip",
+	max_in_flight: "providers.edit.maxInFlightLabel",
+	quota_reserve_percent: "providers.edit.quotaReserveLabel",
+};
+
 export function EditProviderModal({
 	provider,
 	providers,
@@ -133,7 +147,10 @@ export function EditProviderModal({
 	const handleClose = () => {
 		const changed = Object.keys(buildPayload());
 		if (changed.length > 0) {
-			setConfirmFields(changed);
+			// Named as the form labels them, not as the API spells them.
+			setConfirmFields(
+				changed.map((field) => t(PAYLOAD_FIELD_LABELS[field] ?? field)),
+			);
 		} else {
 			onClose();
 		}

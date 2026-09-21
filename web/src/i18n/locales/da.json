@@ -2597,7 +2597,8 @@
 			"turn": "Tur {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Stop med at sende anmodninger til denne model, indtil du aktiverer den igen."
+			"disableModelTooltip": "Stop med at sende anmodninger til denne model, indtil du aktiverer den igen.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrer Udbydere",
@@ -2971,6 +2972,11 @@
 			"tip": "Ingen forbrugs-API for denne udbyder; seneste loftbesked: \"{{phrase}}\" kl. {{when}} (fra en 429 på {{model}})",
 			"tipNoPhrase": "Ingen forbrugs-API for denne udbyder; seneste opbrugt 429 kl. {{when}} på {{model}}",
 			"labelEntitled": "ingen forbrugs-API · saldo opbrugt {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "m"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "tokens",
 			"entriesLive": "{{live}} af {{total}} poster aktive",
 			"allEntriesDark": "alle poster mørke",
-			"allEntriesDarkRetry": "alle poster mørke, tidligste forsøg {{when}}"
+			"allEntriesDarkRetry": "alle poster mørke, tidligste forsøg {{when}}",
+			"footer": "{{active}}/{{total}} aktiv • {{tokens}} tokens"
 		},
 		"entry": {
 			"disableProvider": "Deaktivér udbyder",

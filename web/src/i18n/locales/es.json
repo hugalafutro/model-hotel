@@ -2659,7 +2659,8 @@
 			"turn": "Turno {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Deja de enrutar solicitudes a este modelo hasta que lo vuelvas a habilitar."
+			"disableModelTooltip": "Deja de enrutar solicitudes a este modelo hasta que lo vuelvas a habilitar.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Filtrar proveedores",
@@ -3037,6 +3038,11 @@
 			"tip": "Sin API de uso para este proveedor; último mensaje de límite: \"{{phrase}}\" a las {{when}} (de un 429 en {{model}})",
 			"tipNoPhrase": "Sin API de uso para este proveedor; último 429 por agotamiento a las {{when}} en {{model}}",
 			"labelEntitled": "sin API de uso · saldo agotado {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "d",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3068,7 +3074,8 @@
 			"tokens": "tokens",
 			"entriesLive": "{{live}} de {{total}} entradas activas",
 			"allEntriesDark": "todas las entradas oscuras",
-			"allEntriesDarkRetry": "todas las entradas oscuras, primer reintento {{when}}"
+			"allEntriesDarkRetry": "todas las entradas oscuras, primer reintento {{when}}",
+			"footer": "{{active}}/{{total}} activo • {{tokens}} tokens"
 		},
 		"entry": {
 			"disableProvider": "Desactivar proveedor",

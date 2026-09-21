@@ -2721,7 +2721,8 @@
 			"turn": "Хід {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Припинити спрямовувати запити до цієї моделі, доки ви знову її не ввімкнете."
+			"disableModelTooltip": "Припинити спрямовувати запити до цієї моделі, доки ви знову її не ввімкнете.",
+			"elapsedSeconds": "{{seconds}} с"
 		},
 		"providerFilter": {
 			"filterProviders": "Фільтр постачальників",
@@ -3103,6 +3104,11 @@
 			"tip": "У цього провайдера немає API використання; останнє повідомлення про ліміт: \"{{phrase}}\" о {{when}} (з 429 на {{model}})",
 			"tipNoPhrase": "У цього провайдера немає API використання; останнє вичерпання (429) о {{when}} на {{model}}",
 			"labelEntitled": "немає API використання · баланс вичерпано {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "д",
+			"unitHour": "г",
+			"unitMinute": "хв"
 		}
 	},
 	"failoverGroups": {
@@ -3136,7 +3142,8 @@
 			"tokens": "токени",
 			"entriesLive": "{{live}} з {{total}} записів активні",
 			"allEntriesDark": "усі записи темні",
-			"allEntriesDarkRetry": "усі записи темні, найближча спроба {{when}}"
+			"allEntriesDarkRetry": "усі записи темні, найближча спроба {{when}}",
+			"footer": "{{active}}/{{total}} активний • {{tokens}} токени"
 		},
 		"entry": {
 			"disableProvider": "Вимкнути провайдера",

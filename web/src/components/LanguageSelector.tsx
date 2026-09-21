@@ -106,7 +106,12 @@ export function LanguageSelector() {
 										// locale is never auto-cached (caches: [] in
 										// i18n/index.ts), so an explicit pick always wins on
 										// the next visit until the user changes it again.
-										localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
+										try {
+											localStorage.setItem(LANGUAGE_STORAGE_KEY, lang.code);
+										} catch {
+											// Storage disabled or full: the language still changes for
+											// this visit, and the menu still closes.
+										}
 										setOpen(false);
 									}}
 									className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-1.5 ${

@@ -14,24 +14,36 @@ function figure(value: ReactNode, unit: string) {
 	);
 }
 
+/** The unit letters uptime is written with; the caller passes translated ones. */
+export interface UptimeUnits {
+	day: string;
+	hour: string;
+	minute: string;
+}
+
+const ENGLISH_UPTIME_UNITS: UptimeUnits = { day: "d", hour: "h", minute: "m" };
+
 /** Uptime as the two largest units that apply: "3d 4h", "4h 5m", or "5m". */
-export function formatUptime(seconds: number) {
+export function formatUptime(
+	seconds: number,
+	units: UptimeUnits = ENGLISH_UPTIME_UNITS,
+) {
 	const d = Math.floor(seconds / 86400);
 	const h = Math.floor((seconds % 86400) / 3600);
 	const m = Math.floor((seconds % 3600) / 60);
 	if (d > 0)
 		return (
 			<>
-				{figure(d, "d")} {figure(h, "h")}
+				{figure(d, units.day)} {figure(h, units.hour)}
 			</>
 		);
 	if (h > 0)
 		return (
 			<>
-				{figure(h, "h")} {figure(m, "m")}
+				{figure(h, units.hour)} {figure(m, units.minute)}
 			</>
 		);
-	return figure(m, "m");
+	return figure(m, units.minute);
 }
 
 /** Counts abbreviated to one decimal past a thousand: "1.2K", "3.4M". */

@@ -124,6 +124,11 @@ interface QuotaBarProps {
  * The bar track uses the shared `usedBarColor`/`remainingBarColor` helpers.
  * Pass sublabel content as `children`.
  */
+/** clampPercent bounds a percentage to the 0..100 a bar can draw. */
+export function clampPercent(pct: number): number {
+	return Math.min(Math.max(pct, 0), 100);
+}
+
 export function QuotaBar({
 	label,
 	rightText,
@@ -151,7 +156,10 @@ export function QuotaBar({
 					{...(fillTestId ? { "data-testid": fillTestId } : {})}
 					className={`${barMode === "used" ? usedBarColor(percentage) : remainingBarColor(remainingPercentage)} h-3 ui-bar transition-all`}
 					style={{
-						width: `${barMode === "used" ? Math.min(percentage, 100) : Math.min(remainingPercentage, 100)}%`,
+						// Bounded both ways: an over-consumed window (usage past the
+						// cap) reads as a full bar in used mode and an empty one in
+						// remaining mode, not as a negative width CSS drops.
+						width: `${clampPercent(barMode === "used" ? percentage : remainingPercentage)}%`,
 					}}
 				/>
 			</div>

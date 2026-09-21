@@ -2659,7 +2659,8 @@
 			"turn": "תור {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "טוק",
-			"disableModelTooltip": "הפסק לנתב בקשות למודל הזה עד שתפעיל אותו מחדש."
+			"disableModelTooltip": "הפסק לנתב בקשות למודל הזה עד שתפעיל אותו מחדש.",
+			"elapsedSeconds": "{{seconds}} שנ"
 		},
 		"providerFilter": {
 			"filterProviders": "סינון ספקים",
@@ -3037,6 +3038,11 @@
 			"tip": "אין API שימוש לספק זה; הודעת המכסה האחרונה: \"{{phrase}}\" ב-{{when}} (מ-429 על {{model}})",
 			"tipNoPhrase": "אין API שימוש לספק זה; מיצוי 429 אחרון ב-{{when}} על {{model}}",
 			"labelEntitled": "אין API שימוש · היתרה אזלה {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "י",
+			"unitHour": "ש",
+			"unitMinute": "ד"
 		}
 	},
 	"failoverGroups": {
@@ -3068,7 +3074,8 @@
 			"tokens": "אסימונים",
 			"entriesLive": "{{live}} מתוך {{total}} רשומות פעילות",
 			"allEntriesDark": "כל הרשומות כבויות",
-			"allEntriesDarkRetry": "כל הרשומות כבויות, ניסיון מוקדם ביותר {{when}}"
+			"allEntriesDarkRetry": "כל הרשומות כבויות, ניסיון מוקדם ביותר {{when}}",
+			"footer": "{{active}}/{{total}} פעיל • {{tokens}} אסימונים"
 		},
 		"entry": {
 			"disableProvider": "השבת ספק",

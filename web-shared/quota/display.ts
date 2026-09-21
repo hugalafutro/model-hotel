@@ -14,7 +14,10 @@ export function windowPct(
 	mode: "used" | "remaining",
 ): string {
 	if (pct == null) return "-";
-	return `${(mode === "remaining" ? 100 - pct : pct).toFixed(0)}%`;
+	// Bounded: a window consumed past its cap is 100% used, 0% remaining, not
+	// "105%" and "-5%".
+	const used = Math.min(Math.max(pct, 0), 100);
+	return `${(mode === "remaining" ? 100 - used : used).toFixed(0)}%`;
 }
 
 /** Short pill prefixes for the quota providers, identical in both apps. */

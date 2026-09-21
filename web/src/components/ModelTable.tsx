@@ -238,16 +238,22 @@ export function ModelTable({
 	};
 
 	const totalPages = Math.ceil(sortedAndFiltered.length / pageSize);
+	// The list can shrink under the page (a delete, a discovery that retired
+	// models): the last page then stands in for one past the end, and the
+	// state follows it (adjust-during-render, as for the provider filter), so
+	// a list that grows back does not jump to the page the operator left.
+	const safePage = Math.min(currentPage, Math.max(1, totalPages));
+	if (safePage !== currentPage) setCurrentPage(safePage);
 	const paginatedModels = sortedAndFiltered.slice(
-		(currentPage - 1) * pageSize,
-		currentPage * pageSize,
+		(safePage - 1) * pageSize,
+		safePage * pageSize,
 	);
 	const wheelPagingRef = useWheelPaging<HTMLDivElement>({
 		enabled: totalPages > 1,
-		canPrev: currentPage > 1,
-		canNext: currentPage < totalPages,
-		onPrev: () => setCurrentPage(currentPage - 1),
-		onNext: () => setCurrentPage(currentPage + 1),
+		canPrev: safePage > 1,
+		canNext: safePage < totalPages,
+		onPrev: () => setCurrentPage(safePage - 1),
+		onNext: () => setCurrentPage(safePage + 1),
 	});
 
 	const colSpan = showProviderCol ? 10 : 9;
@@ -301,7 +307,7 @@ export function ModelTable({
 				<div className="flex-1 flex justify-end">
 					{models.length > 0 && (
 						<PaginationBar
-							page={currentPage}
+							page={safePage}
 							totalPages={totalPages}
 							totalItems={sortedAndFiltered.length}
 							pageSize={pageSize}

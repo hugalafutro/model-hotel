@@ -2597,7 +2597,8 @@
 			"turn": "Runde {{number}}",
 			"tokPerSec": "tok/s",
 			"tok": "tok",
-			"disableModelTooltip": "Keine Anfragen mehr an dieses Modell leiten, bis Sie es wieder aktivieren."
+			"disableModelTooltip": "Keine Anfragen mehr an dieses Modell leiten, bis Sie es wieder aktivieren.",
+			"elapsedSeconds": "{{seconds}}s"
 		},
 		"providerFilter": {
 			"filterProviders": "Anbieter filtern",
@@ -2971,6 +2972,11 @@
 			"tip": "Keine Nutzungs-API für diesen Anbieter; letzte Limit-Meldung: \"{{phrase}}\" um {{when}} (aus einem 429 auf {{model}})",
 			"tipNoPhrase": "Keine Nutzungs-API für diesen Anbieter; letzter erschöpfter 429 um {{when}} auf {{model}}",
 			"labelEntitled": "keine Nutzungs-API · Guthaben aufgebraucht {{time}}"
+		},
+		"systemStatus": {
+			"unitDay": "T",
+			"unitHour": "h",
+			"unitMinute": "min"
 		}
 	},
 	"failoverGroups": {
@@ -3000,7 +3006,8 @@
 			"tokens": "token",
 			"entriesLive": "{{live}} von {{total}} Einträgen aktiv",
 			"allEntriesDark": "alle Einträge dunkel",
-			"allEntriesDarkRetry": "alle Einträge dunkel, frühester Neuversuch {{when}}"
+			"allEntriesDarkRetry": "alle Einträge dunkel, frühester Neuversuch {{when}}",
+			"footer": "{{active}}/{{total}} aktiv • {{tokens}} token"
 		},
 		"entry": {
 			"disableProvider": "Anbieter deaktivieren",

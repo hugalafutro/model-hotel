@@ -706,6 +706,42 @@ describe("ModelTable", () => {
 			});
 		});
 
+		// The list can shrink under the current page (a delete, a discovery
+		// that retired models): the last page stands in, not an empty table.
+		it("clamps the page when the list shrinks below it", async () => {
+			const make = (n: number) =>
+				Array.from({ length: n }, (_, i) => ({
+					...mockModel,
+					id: `model-${i}`,
+					model_id: `model-${i}`,
+				}));
+			const { user, rerender } = renderWithProviders(
+				<ModelTable models={make(41)} providers={[mockProvider]} />,
+			);
+			const next = () =>
+				user.click(screen.getAllByRole("button", { name: "Next" })[0]);
+			await next();
+			await next();
+			expect(
+				screen.getByRole("table").querySelectorAll("tbody tr").length,
+			).toBe(1);
+
+			rerender(<ModelTable models={make(40)} providers={[mockProvider]} />);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("table").querySelectorAll("tbody tr").length,
+				).toBe(20);
+			});
+			// The clamp is the new page, not a display-time substitute: growing
+			// back does not jump to the page the operator left.
+			rerender(<ModelTable models={make(41)} providers={[mockProvider]} />);
+			await waitFor(() => {
+				expect(
+					screen.getByRole("table").querySelectorAll("tbody tr").length,
+				).toBe(20);
+			});
+		});
+
 		it("navigates to next page", async () => {
 			const models = Array.from({ length: 25 }, (_, i) => ({
 				...mockModel,
