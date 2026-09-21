@@ -358,4 +358,7 @@
     <string name="quota_config_empty">Nie znaleziono jeszcze dostawców obsługujących limity.</string>
     <string name="quota_config_selected">Pokazano %1$d z %2$d</string>
     <string name="quota_config_reorder">Zmień kolejność: %1$s</string>
+    <string name="notif_channel_push_test">Test push</string>
+    <string name="client_error_unreachable">nie można połączyć się z Front Desk</string>
+    <string name="client_error_request_failed">żądanie nie powiodło się (%1$d)</string>
 </resources>

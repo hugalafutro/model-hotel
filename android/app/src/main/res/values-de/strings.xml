@@ -346,4 +346,7 @@
     <string name="quota_config_empty">Noch keine kontingentfähigen Anbieter gesehen.</string>
     <string name="quota_config_selected">%1$d von %2$d angezeigt</string>
     <string name="quota_config_reorder">%1$s neu anordnen</string>
+    <string name="notif_channel_push_test">Push-Test</string>
+    <string name="client_error_unreachable">Front Desk nicht erreichbar</string>
+    <string name="client_error_request_failed">Anfrage fehlgeschlagen (%1$d)</string>
 </resources>

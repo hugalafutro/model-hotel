@@ -351,4 +351,7 @@
     <string name="quota_config_empty">No quota-capable providers seen yet.</string>
     <string name="quota_config_selected">%1$d of %2$d shown</string>
     <string name="quota_config_reorder">Reorder %1$s</string>
+    <string name="notif_channel_push_test">Push test</string>
+    <string name="client_error_unreachable">could not reach the Front Desk</string>
+    <string name="client_error_request_failed">request failed (%1$d)</string>
 </resources>

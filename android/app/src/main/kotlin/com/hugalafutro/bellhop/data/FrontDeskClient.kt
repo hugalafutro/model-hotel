@@ -1,5 +1,7 @@
 package com.hugalafutro.bellhop.data
 
+import android.content.Context
+import com.hugalafutro.bellhop.R
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
@@ -23,6 +25,28 @@ import okhttp3.sse.EventSourceListener
 import okhttp3.sse.EventSources
 import java.net.URLEncoder
 import java.util.concurrent.TimeUnit
+
+/**
+ * ClientMessages holds the two texts the client writes itself when a Front Desk
+ * gives it nothing to quote: the host could not be reached at all, and a
+ * failure whose body carried no message. The app supplies them from its string
+ * resources ([ClientMessages.from]) so they read in the UI's language; the
+ * English defaults serve tests and any caller without a Context. A transport's
+ * own message (a refused connection, a bad certificate) is still quoted when it
+ * has one, since it names the cause.
+ */
+data class ClientMessages(
+    val unreachable: String = "could not reach the Front Desk",
+    val requestFailed: (Int) -> String = { "request failed ($it)" },
+) {
+    companion object {
+        fun from(context: Context): ClientMessages =
+            ClientMessages(
+                unreachable = context.getString(R.string.client_error_unreachable),
+                requestFailed = { context.getString(R.string.client_error_request_failed, it) },
+            )
+    }
+}
 
 /**
  * PairResult distinguishes the outcomes the pairing screen reacts to: a bad or
@@ -107,6 +131,7 @@ sealed interface SseMessage {
 open class FrontDeskClient(
     private val http: OkHttpClient = OkHttpClient(),
     private val json: Json = Json { ignoreUnknownKeys = true },
+    private val messages: ClientMessages = ClientMessages(),
 ) {
     // Front Desk sends a comment heartbeat every 25s, so the SSE read timeout has
     // to clear that interval (the default 10s would tear a quiet connection down
@@ -166,7 +191,7 @@ open class FrontDeskClient(
                 }
             }.getOrElse { e ->
                 if (e is CancellationException) throw e
-                PairResult.Failure(e.message ?: "could not reach the Front Desk")
+                PairResult.Failure(e.message ?: messages.unreachable)
             }
         }
 
@@ -468,7 +493,7 @@ open class FrontDeskClient(
                 }
             }.getOrElse { e ->
                 if (e is CancellationException) throw e
-                FetchResult.Failure(e.message ?: "could not reach the Front Desk")
+                FetchResult.Failure(e.message ?: messages.unreachable)
             }
         }
 
@@ -522,7 +547,7 @@ open class FrontDeskClient(
                 }
             }.getOrElse { e ->
                 if (e is CancellationException) throw e
-                ActionResult.Failure(e.message ?: "could not reach the Front Desk")
+                ActionResult.Failure(e.message ?: messages.unreachable)
             }
         }
 
@@ -547,7 +572,7 @@ open class FrontDeskClient(
         }.getOrNull()
             ?.takeIf { it.isNotBlank() }
             ?.let { return it }
-        return "request failed ($code)"
+        return messages.requestFailed(code)
     }
 
     private fun base(fdUrl: String): String = fdUrl.trim().trimEnd('/')

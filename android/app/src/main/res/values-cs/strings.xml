@@ -358,4 +358,7 @@
     <string name="quota_config_empty">Zatím nejsou vidět žádní poskytovatelé s kvótou.</string>
     <string name="quota_config_selected">Zobrazeno %1$d z %2$d</string>
     <string name="quota_config_reorder">Přesunout %1$s</string>
+    <string name="notif_channel_push_test">Test push oznámení</string>
+    <string name="client_error_unreachable">Front Desk je nedostupný</string>
+    <string name="client_error_request_failed">požadavek selhal (%1$d)</string>
 </resources>

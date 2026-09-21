@@ -65,7 +65,7 @@ class FleetNotifierTest {
         assertEquals(1, shadowOf(notifications).size())
         val posted = notifications.activeNotifications.single()
         assertEquals("push_test", posted.tag)
-        assertEquals(FleetNotifier.CHANNEL_UP, posted.notification.channelId)
+        assertEquals(FleetNotifier.CHANNEL_TEST, posted.notification.channelId)
     }
 
     @Test
