@@ -3043,6 +3043,14 @@
 			"unitDay": "י",
 			"unitHour": "ש",
 			"unitMinute": "ד"
+		},
+		"accentCalendar": {
+			"previousMonth": "החודש הקודם",
+			"nextMonth": "החודש הבא"
+		},
+		"settingsSlider": {
+			"stepUp": "הגדל",
+			"stepDown": "הקטן"
 		}
 	},
 	"failoverGroups": {

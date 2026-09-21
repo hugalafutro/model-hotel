@@ -2977,6 +2977,14 @@
 			"unitDay": "d",
 			"unitHour": "h",
 			"unitMinute": "m"
+		},
+		"accentCalendar": {
+			"previousMonth": "Previous month",
+			"nextMonth": "Next month"
+		},
+		"settingsSlider": {
+			"stepUp": "Increase",
+			"stepDown": "Decrease"
 		}
 	},
 	"failoverGroups": {

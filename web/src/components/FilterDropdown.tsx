@@ -2,7 +2,7 @@ import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "@/lib/icons";
 import { useClickOutside } from "../hooks/useClickOutside";
-import { onActivateKey } from "../utils/a11y";
+import { moveOptionFocus } from "../utils/a11y";
 
 interface FilterDropdownProps {
 	options: { value: string; label: string; count?: number }[];
@@ -44,6 +44,8 @@ export function FilterDropdown({
 	const effectiveAllLabel = allLabel ?? t("components.filterDropdown.allLabel");
 	const [open, setOpen] = useState(false);
 	const containerRef = useRef<HTMLDivElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const listRef = useRef<HTMLDivElement>(null);
 
 	useClickOutside(containerRef, () => setOpen(false), { enabled: open });
 
@@ -66,9 +68,34 @@ export function FilterDropdown({
 				: "ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2";
 	const iconSize = compact ? 12 : 14;
 
+	const clearShown = allowClear && value !== "";
+
 	return (
-		<div ref={containerRef} className={`relative inline-block ${className}`}>
+		// Escape closes an open menu from anywhere inside it (the trigger or an
+		// option), which the click-outside hook alone does not cover.
+		// biome-ignore lint/a11y/noStaticElementInteractions: keyboard dismissal for the popup this wrapper positions
+		<div
+			ref={containerRef}
+			className={`relative inline-block ${className}`}
+			onKeyDown={(e) => {
+				if (!open) return;
+				if (e.key === "Escape") {
+					e.stopPropagation();
+					setOpen(false);
+					// The option that had focus unmounts with the menu; the trigger
+					// takes focus back so the keyboard user is not dropped on body.
+					triggerRef.current?.focus();
+					return;
+				}
+				// Arrow keys walk the options, Home/End jump; a first ArrowDown
+				// from the trigger enters the list.
+				if (moveOptionFocus(listRef.current, e.key, document.activeElement)) {
+					e.preventDefault();
+				}
+			}}
+		>
 			<button
+				ref={triggerRef}
 				type="button"
 				onClick={() => setOpen((v) => !v)}
 				aria-label={
@@ -76,39 +103,35 @@ export function FilterDropdown({
 						? `${effectivePlaceholder}: ${displayLabel}`
 						: effectivePlaceholder
 				}
+				aria-haspopup="listbox"
+				aria-expanded={open}
 				className={triggerClass}
+				// Room for the clear control, which sits beside the trigger rather
+				// than inside it (a button cannot contain a button).
+				style={clearShown ? { paddingRight: compact ? 30 : 42 } : undefined}
 			>
 				<span
 					className={`truncate ${value === "" ? "text-(--text-secondary)" : "text-(--text-primary)"}`}
 				>
 					{displayLabel}
 				</span>
-				<span className="flex items-center gap-1 shrink-0">
-					{allowClear && value !== "" && (
-						// biome-ignore lint/a11y/useSemanticElements: cannot use <button> inside <button>
-						<span
-							role="button"
-							tabIndex={0}
-							className="inline-flex items-center justify-center text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
-							onClick={(e) => {
-								e.stopPropagation();
-								onChange("");
-							}}
-							onKeyDown={onActivateKey((e) => {
-								e.stopPropagation();
-								onChange("");
-							})}
-							title={t("common.clearFilter")}
-						>
-							<X size={iconSize} />
-						</span>
-					)}
-					<ChevronDown
-						size={iconSize}
-						className={`text-(--text-tertiary) transition-transform ${open ? "rotate-180" : ""}`}
-					/>
-				</span>
+				<ChevronDown
+					size={iconSize}
+					className={`shrink-0 text-(--text-tertiary) transition-transform ${open ? "rotate-180" : ""}`}
+				/>
 			</button>
+			{clearShown && (
+				<button
+					type="button"
+					className="absolute top-1/2 -translate-y-1/2 inline-flex items-center justify-center text-(--text-tertiary) hover:text-(--text-primary) transition-colors"
+					style={{ right: compact ? 20 : 28 }}
+					onClick={() => onChange("")}
+					aria-label={t("common.clearFilter")}
+					title={t("common.clearFilter")}
+				>
+					<X size={iconSize} />
+				</button>
+			)}
 
 			{open && (
 				<div
@@ -117,7 +140,12 @@ export function FilterDropdown({
 						border: "1px solid var(--border-default)",
 					}}
 				>
-					<div className="max-h-48 overflow-y-auto px-1">
+					<div
+						ref={listRef}
+						role="listbox"
+						aria-label={effectivePlaceholder}
+						className="max-h-48 overflow-y-auto px-1"
+					>
 						{/* All option (filter mode only) */}
 						{allowClear && (
 							<OptionRow
@@ -167,6 +195,8 @@ function OptionRow({
 	return (
 		<button
 			type="button"
+			role="option"
+			aria-selected={selected}
 			data-value={value}
 			data-selected={value === undefined ? undefined : selected}
 			onClick={onSelect}

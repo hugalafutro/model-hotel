@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, ChevronDown, X } from "@/lib/icons";
 import { useClickOutside } from "../hooks/useClickOutside";
-import { onActivateKey } from "../utils/a11y";
+import { moveOptionFocus } from "../utils/a11y";
 import { toggleInSet } from "../utils/collections";
 import { sortByName } from "../utils/sort";
 
@@ -27,6 +27,8 @@ export function ProviderFilter({
 	const [search, setSearch] = useState("");
 	const containerRef = useRef<HTMLDivElement>(null);
 	const searchRef = useRef<HTMLInputElement>(null);
+	const triggerRef = useRef<HTMLButtonElement>(null);
+	const listRef = useRef<HTMLDivElement>(null);
 
 	const filtered = sortByName(
 		providers?.filter((p) =>
@@ -77,47 +79,61 @@ export function ProviderFilter({
 					});
 
 	return (
+		// biome-ignore lint/a11y/noStaticElementInteractions: keyboard dismissal for the popup this wrapper positions
 		<div
 			ref={containerRef}
 			data-testid="provider-filter"
 			className="relative inline-block w-full"
+			onKeyDown={(e) => {
+				if (!open) return;
+				if (e.key === "Escape") {
+					e.stopPropagation();
+					setSearch("");
+					setOpen(false);
+					// The search box or option that had focus unmounts with the
+					// menu; the trigger takes focus back.
+					triggerRef.current?.focus();
+					return;
+				}
+				// Arrow keys walk the options, Home/End jump between them; a first
+				// ArrowDown from the search box enters the list.
+				if (moveOptionFocus(listRef.current, e.key, document.activeElement)) {
+					e.preventDefault();
+				}
+			}}
 		>
 			<button
+				ref={triggerRef}
 				type="button"
 				onClick={() => setOpen((v) => !v)}
+				aria-haspopup="listbox"
+				aria-expanded={open}
 				className="ui-input text-xs py-1.5 px-2.5 h-9 w-full flex items-center justify-between gap-2"
+				// Room for the clear control, which sits beside the trigger rather
+				// than inside it (a button cannot contain a button).
+				style={selected.size > 0 ? { paddingRight: 48 } : undefined}
 			>
 				<span
 					className={`truncate ${selected.size === 0 ? "text-(--text-tertiary)" : "text-(--text-primary)"}`}
 				>
 					{triggerLabel}
 				</span>
-				<span className="flex items-center gap-1 shrink-0">
-					{selected.size > 0 && (
-						// biome-ignore lint/a11y/useSemanticElements: cannot use <button> inside <button>
-						<span
-							role="button"
-							tabIndex={0}
-							className="ui-badge inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent)"
-							onClick={(e) => {
-								e.stopPropagation();
-								clear();
-							}}
-							onKeyDown={onActivateKey((e) => {
-								e.stopPropagation();
-								clear();
-							})}
-							title={t("components.providerFilter.clearFilter")}
-						>
-							{selected.size}
-						</span>
-					)}
-					<ChevronDown
-						size={14}
-						className={`text-(--text-tertiary) transition-transform ${open ? "rotate-180" : ""}`}
-					/>
-				</span>
+				<ChevronDown
+					size={14}
+					className={`shrink-0 text-(--text-tertiary) transition-transform ${open ? "rotate-180" : ""}`}
+				/>
 			</button>
+			{selected.size > 0 && (
+				<button
+					type="button"
+					className="ui-badge absolute right-7 top-1/2 -translate-y-1/2 inline-flex items-center justify-center w-4 h-4 text-[10px] font-medium bg-(--accent-light) text-(--accent)"
+					onClick={clear}
+					aria-label={t("components.providerFilter.clearFilter")}
+					title={t("components.providerFilter.clearFilter")}
+				>
+					{selected.size}
+				</button>
+			)}
 
 			{open && (
 				<div
@@ -142,6 +158,7 @@ export function ProviderFilter({
 									if (e.key === "Escape") {
 										setSearch("");
 										setOpen(false);
+										triggerRef.current?.focus();
 									}
 								}}
 							/>
@@ -179,7 +196,13 @@ export function ProviderFilter({
 					)}
 
 					{/* List */}
-					<div className="max-h-48 overflow-y-auto px-1">
+					<div
+						ref={listRef}
+						role="listbox"
+						aria-multiselectable="true"
+						aria-label={t("components.providerFilter.filterProviders")}
+						className="max-h-48 overflow-y-auto px-1"
+					>
 						{filtered.length === 0 ? (
 							<div className="px-2.5 py-3 text-xs text-(--text-muted) text-center">
 								{t("components.providerFilter.noProvidersFound")}
@@ -191,6 +214,8 @@ export function ProviderFilter({
 									<button
 										key={provider.id}
 										type="button"
+										role="option"
+										aria-selected={isSelected}
 										onClick={() => toggle(provider.id)}
 										className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-(--radius-button) text-xs text-left transition-colors ${isSelected ? "bg-(--accent-light) text-(--accent)" : "text-(--text-secondary) hover:bg-(--surface-hover)"}`}
 									>

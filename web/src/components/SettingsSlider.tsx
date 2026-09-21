@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ChevronDown, ChevronUp } from "@/lib/icons";
 import { isForcedBlur } from "../utils/forcedBlur";
 import { ResetButton } from "./ResetButton";
@@ -51,6 +52,7 @@ export function SettingsSlider({
 	onReset,
 	resetTooltip,
 }: SettingsSliderProps) {
+	const { t } = useTranslation();
 	const [local, setLocal] = useState(value);
 	const prevValue = useRef(value);
 	const committed = useRef(value);
@@ -241,6 +243,7 @@ export function SettingsSlider({
 							type="button"
 							onClick={stepUp}
 							disabled={disabled || local >= max}
+							aria-label={t("components.settingsSlider.stepUp")}
 							className="ui-icon-btn px-1 py-0 leading-none"
 						>
 							<ChevronUp size={10} />
@@ -249,6 +252,7 @@ export function SettingsSlider({
 							type="button"
 							onClick={stepDown}
 							disabled={disabled || local <= min}
+							aria-label={t("components.settingsSlider.stepDown")}
 							className="ui-icon-btn px-1 py-0 leading-none"
 						>
 							<ChevronDown size={10} />

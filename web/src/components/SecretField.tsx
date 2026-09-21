@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Eye, EyeOff, Trash2 } from "@/lib/icons";
 import { ConfirmDialog } from "./ConfirmDialog";
 
@@ -61,8 +61,26 @@ export function SecretField({
 		if (!hasDraft) setShowSecret(false);
 	}
 
+	// The draft commits when focus LEAVES the field group, not when it moves
+	// to the reveal or clear control beside the input: a keyboard user reaches
+	// those with Tab, and a commit on that blur cleared the draft and unmounted
+	// the very control they were tabbing to.
+	const groupRef = useRef<HTMLDivElement>(null);
+	const commitOnLeave = (e: React.FocusEvent) => {
+		if (
+			e.relatedTarget instanceof Node &&
+			groupRef.current?.contains(e.relatedTarget)
+		)
+			return;
+		// The clear-confirm dialog takes focus when it opens (it is portaled
+		// outside the group); a draft must survive that so Cancel leaves it
+		// pending rather than already committed.
+		if (confirmClear) return;
+		onCommit();
+	};
+
 	return (
-		<div className="flex items-center gap-2">
+		<div ref={groupRef} className="flex items-center gap-2">
 			<input
 				id={id}
 				type={showSecret && hasDraft ? "text" : "password"}
@@ -71,7 +89,7 @@ export function SecretField({
 				spellCheck={false}
 				autoComplete="off"
 				onChange={(e) => onChange(e.target.value)}
-				onBlur={onCommit}
+				onBlur={commitOnLeave}
 				onKeyDown={(e) => {
 					if (e.key === "Enter") e.currentTarget.blur();
 				}}
@@ -87,6 +105,7 @@ export function SecretField({
 					// draft) before the reveal can be seen.
 					onMouseDown={(e) => e.preventDefault()}
 					onClick={() => setShowSecret((v) => !v)}
+					onBlur={commitOnLeave}
 					aria-label={toggleLabel}
 					aria-pressed={showSecret}
 					title={toggleLabel}
@@ -103,6 +122,7 @@ export function SecretField({
 					// just because the operator reached for the clear control.
 					onMouseDown={(e) => e.preventDefault()}
 					onClick={() => setConfirmClear(true)}
+					onBlur={commitOnLeave}
 					aria-label={clearLabel}
 					title={clearLabel}
 					data-testid={`${testId}-clear`}

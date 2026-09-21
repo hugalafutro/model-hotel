@@ -3043,6 +3043,14 @@
 			"unitDay": "z",
 			"unitHour": "h",
 			"unitMinute": "min"
+		},
+		"accentCalendar": {
+			"previousMonth": "Luna anterioară",
+			"nextMonth": "Luna următoare"
+		},
+		"settingsSlider": {
+			"stepUp": "Mărește",
+			"stepDown": "Micșorează"
 		}
 	},
 	"failoverGroups": {

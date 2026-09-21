@@ -3043,6 +3043,14 @@
 			"unitDay": "д",
 			"unitHour": "ч",
 			"unitMinute": "м"
+		},
+		"accentCalendar": {
+			"previousMonth": "Претходни месец",
+			"nextMonth": "Следећи месец"
+		},
+		"settingsSlider": {
+			"stepUp": "Повећај",
+			"stepDown": "Смањи"
 		}
 	},
 	"failoverGroups": {

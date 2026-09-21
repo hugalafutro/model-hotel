@@ -652,7 +652,7 @@ describe("FailoverGroups", () => {
 			await user.click(
 				screen.getByRole("button", { name: "All (2) Providers" }),
 			);
-			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+			await user.click(screen.getByRole("option", { name: "OpenAI" }));
 
 			await waitFor(() => {
 				expect(
@@ -718,7 +718,7 @@ describe("FailoverGroups", () => {
 			await user.click(
 				screen.getByRole("button", { name: "All (2) Providers" }),
 			);
-			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+			await user.click(screen.getByRole("option", { name: "OpenAI" }));
 
 			await user.click(
 				screen.getByRole("button", { name: "Enable all OpenAI" }),
@@ -794,7 +794,7 @@ describe("FailoverGroups", () => {
 			await user.click(
 				screen.getByRole("button", { name: "All (3) Providers" }),
 			);
-			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+			await user.click(screen.getByRole("option", { name: "OpenAI" }));
 
 			await user.click(
 				screen.getByRole("button", { name: "Disable all OpenAI" }),
@@ -850,7 +850,7 @@ describe("FailoverGroups", () => {
 			await user.click(
 				screen.getByRole("button", { name: "All (1) Providers" }),
 			);
-			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+			await user.click(screen.getByRole("option", { name: "OpenAI" }));
 
 			await user.click(
 				screen.getByRole("button", { name: "Disable all OpenAI" }),
@@ -903,7 +903,7 @@ describe("FailoverGroups", () => {
 			await user.click(
 				screen.getByRole("button", { name: "All (1) Providers" }),
 			);
-			await user.click(screen.getByRole("button", { name: "OpenAI" }));
+			await user.click(screen.getByRole("option", { name: "OpenAI" }));
 
 			await user.click(
 				screen.getByRole("button", { name: "Disable all OpenAI" }),

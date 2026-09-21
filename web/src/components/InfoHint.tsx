@@ -26,8 +26,12 @@ export function InfoHint({
 	className = "",
 }: InfoHintProps) {
 	return (
+		// Named for assistive tech (the hint is its accessible name); not a tab
+		// stop, since focusing it would show a sighted keyboard user nothing.
 		<span
 			title={tooltip}
+			role="img"
+			aria-label={tooltip}
 			className={`ui-icon-btn cursor-help inline-flex items-center ${className}`.trimEnd()}
 		>
 			<Info size={size} />

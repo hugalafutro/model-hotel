@@ -2977,6 +2977,14 @@
 			"unitDay": "일",
 			"unitHour": "시간",
 			"unitMinute": "분"
+		},
+		"accentCalendar": {
+			"previousMonth": "이전 달",
+			"nextMonth": "다음 달"
+		},
+		"settingsSlider": {
+			"stepUp": "늘리기",
+			"stepDown": "줄이기"
 		}
 	},
 	"failoverGroups": {

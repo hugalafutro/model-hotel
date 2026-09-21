@@ -94,6 +94,44 @@ describe("ProviderFilter", () => {
 		).not.toBeInTheDocument();
 	});
 
+	it("exposes the menu state and closes on Escape from an option", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<ProviderFilter
+				providers={mockProviders}
+				selected={new Set()}
+				onChange={mockOnChange}
+			/>,
+		);
+		const trigger = screen.getByRole("button");
+		expect(trigger).toHaveAttribute("aria-expanded", "false");
+		await user.click(trigger);
+		expect(trigger).toHaveAttribute("aria-expanded", "true");
+		screen.getByRole("option", { name: "OpenAI" }).focus();
+		await user.keyboard("{Escape}");
+		expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+		expect(trigger).toHaveFocus();
+	});
+
+	it("enters the list from the search box with ArrowDown", async () => {
+		const user = userEvent.setup();
+		renderWithProviders(
+			<ProviderFilter
+				providers={mockProviders}
+				selected={new Set()}
+				onChange={mockOnChange}
+			/>,
+		);
+		await user.click(screen.getByRole("button"));
+		await waitFor(() =>
+			expect(screen.getByPlaceholderText("Search providers…")).toHaveFocus(),
+		);
+		await user.keyboard("{ArrowDown}");
+		expect(screen.getAllByRole("option")[0]).toHaveFocus();
+		await user.keyboard("{End}");
+		expect(screen.getAllByRole("option").at(-1)).toHaveFocus();
+	});
+
 	it("closes dropdown when clicking outside", async () => {
 		const user = userEvent.setup();
 		renderWithProviders(
@@ -336,8 +374,10 @@ describe("ProviderFilter", () => {
 				onChange={mockOnChange}
 			/>,
 		);
-		const clearBadge = screen.getByText("2").closest("[role='button']");
+		// A real button beside the trigger, not a role="button" nested in it.
+		const clearBadge = screen.getByText("2").closest("button");
 		expect(clearBadge).not.toBeNull();
+		expect(clearBadge?.parentElement?.tagName).not.toBe("BUTTON");
 		await user.click(clearBadge as HTMLElement);
 		expect(mockOnChange).toHaveBeenCalledWith(new Set());
 	});

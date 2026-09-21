@@ -65,6 +65,36 @@ describe("useChatPersistence", () => {
 		expect(stored).toBe(JSON.stringify(messages));
 	});
 
+	// An attachment is a base64 payload of the file's size; persisting it
+	// ended persistence for the session at the first sizeable image. The turn
+	// is stored without its attachment; a transcript without any is stored
+	// as is.
+	it("persists the transcript without attachment payloads", () => {
+		const messages = [
+			{
+				role: "user" as const,
+				content: "look",
+				timestamp: 1,
+				imageUrl: "data:image/png;base64,AAAA",
+				audioAttachment: { data: "BBBB", format: "wav" },
+			},
+			{ role: "assistant" as const, content: "seen", timestamp: 2 },
+		];
+		renderHook(() =>
+			useChatPersistence({
+				messages,
+				chatSubMode: "chat",
+				persistChat: true,
+				persistConversation: false,
+			}),
+		);
+		const stored = JSON.parse(localStorage.getItem("chatMessages") ?? "[]");
+		expect(stored).toEqual([
+			{ role: "user", content: "look", timestamp: 1 },
+			{ role: "assistant", content: "seen", timestamp: 2 },
+		]);
+	});
+
 	it("does NOT persist when persistChat=false", () => {
 		const messages = [
 			{ role: "user" as const, content: "Hello", timestamp: 1234567890 },

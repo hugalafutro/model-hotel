@@ -103,7 +103,7 @@ describe("FailoverGroups", () => {
 			await user.click(
 				screen.getByRole("button", { name: "All (2) Providers" }),
 			);
-			await user.click(screen.getByRole("button", { name: "Provider Alpha" }));
+			await user.click(screen.getByRole("option", { name: "Provider Alpha" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("hotel/model-a")).toBeInTheDocument();
@@ -144,7 +144,7 @@ describe("FailoverGroups", () => {
 
 			// Use enabled FilterDropdown to filter
 			await user.click(screen.getByRole("button", { name: "All (2) States" }));
-			await user.click(screen.getByRole("button", { name: "Enabled" }));
+			await user.click(screen.getByRole("option", { name: "Enabled" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("hotel/enabled-model")).toBeInTheDocument();
@@ -187,7 +187,7 @@ describe("FailoverGroups", () => {
 
 			// Use enabled FilterDropdown to filter
 			await user.click(screen.getByRole("button", { name: "All (2) States" }));
-			await user.click(screen.getByRole("button", { name: "Disabled" }));
+			await user.click(screen.getByRole("option", { name: "Disabled" }));
 
 			await waitFor(() => {
 				expect(screen.getByText("hotel/disabled-model")).toBeInTheDocument();
