@@ -1432,9 +1432,13 @@ func TestLogRetentionPassEndsWhenTheDrainContextIsCancelled(t *testing.T) {
 	const joinExpiry = 100 * time.Millisecond
 	drainCtx, cancelDrain := context.WithCancel(context.Background())
 	defer cancelDrain()
+	// start is taken BEFORE the cancel is armed. The other way round, elapsed
+	// is measured from a moment after the timer began, so a pass that waited
+	// correctly for the cancel reads as joinExpiry minus that gap, and -race
+	// widens the gap enough to fail the lower bound (99.28ms against 100ms).
+	start := time.Now()
 	time.AfterFunc(joinExpiry, cancelDrain)
 
-	start := time.Now()
 	logRetentionPass(drainCtx, pool, settingsRepo)
 	elapsed := time.Since(start)
 
